@@ -183,6 +183,15 @@ def main():
     ksOpp = defaultdict(lambda: defaultdict(Counter))         # 符文盒「常對到」：英雄 -> keystone -> 對位英雄 -> 場數
     recentCore = defaultdict(list)  # 英雄 -> [(t, (大裝tuple))]：算近100場核心裝
     recentPath = defaultdict(list)  # 英雄 -> [(t, (序列tuple), win)]：算「近兩版」出裝流派(依版本視窗過濾)
+    # ── 每路線平行聚合（byLane：多路線英雄的圖鑑出裝卡逐路線分開；單路線英雄不輸出、沿用整體）──
+    coreL = defaultdict(lambda: defaultdict(Counter))         # 英雄 -> 路線 -> 大裝 -> 場數
+    bootL = defaultdict(lambda: defaultdict(Counter))         # 英雄 -> 路線 -> 基礎鞋 -> 場數
+    recentCoreL = defaultdict(lambda: defaultdict(list))      # 英雄 -> 路線 -> [(t, legs)]
+    pathsL = defaultdict(lambda: defaultdict(Counter)); pathWL = defaultdict(lambda: defaultdict(Counter))
+    recentPathL = defaultdict(lambda: defaultdict(list))
+    runePageL = defaultdict(lambda: defaultdict(Counter)); runePageWL = defaultdict(lambda: defaultdict(Counter))
+    ksOppL = defaultdict(lambda: defaultdict(lambda: defaultdict(Counter)))  # 英雄 -> 路線 -> keystone -> 對位
+    suCntL = defaultdict(lambda: defaultdict(Counter))        # 英雄 -> 路線 -> 召技組合
     corePGames = defaultdict(list)  # 英雄 -> [(t, (該場常用道具tuple))]：算 coreP(版本趨勢用；含大裝＋鞋＋起手裝，如多蘭之盔)
     scanned = 0
     for fp in glob.glob(os.path.join(OUTDIR, "*.js")):
@@ -204,15 +213,23 @@ def main():
                 if g.get("gd15") is not None: _ha[9] += 1; _ha[10] += g["gd15"]
                 if g.get("xd15") is not None: _ha[11] += 1; _ha[12] += g["xd15"]
                 if g.get("fl2") is not None: _ha[13] += 1; _ha[14] += 1 if g["fl2"] else 0
+            lk = None if _hl == "?" else _hl  # 每路線聚合的路線鍵（未知路線不入 byLane，仍計整體）
             _opp = CHAMP_FIX.get(g.get("o"), g.get("o"))
             if _opp: _m = muCnt[c][_opp]; _m[0] += 1; _m[1] += win
             _su = [x for x in (g.get("su") or []) if x]
-            if len(_su) == 2: suCnt[c][tuple(sorted(_su))] += 1
+            if len(_su) == 2:
+                _sp2 = tuple(sorted(_su)); suCnt[c][_sp2] += 1
+                if lk: suCntL[c][lk][_sp2] += 1
             it0 = g.get("it") or []
             legs0 = [i for i in it0 if i in leg]
-            for iid in set(legs0): core[c][iid] += 1
+            for iid in set(legs0):
+                core[c][iid] += 1
+                if lk: coreL[c][lk][iid] += 1
             recentCore[c].append((g.get("t") or 0, tuple(legs0)))  # 近100場核心裝用
-            for iid in set(BOOT_BASE.get(i, i) for i in it0 if i in BOOTS): bootCount[c][iid] += 1  # 鞋子(升級版合併到基礎鞋)
+            if lk: recentCoreL[c][lk].append((g.get("t") or 0, tuple(legs0)))
+            for iid in set(BOOT_BASE.get(i, i) for i in it0 if i in BOOTS):
+                bootCount[c][iid] += 1  # 鞋子(升級版合併到基礎鞋)
+                if lk: bootL[c][lk][iid] += 1
             _cpset = set(legs0)  # coreP 用：這場的「常用道具」＝大裝＋鞋(併基礎鞋)＋起手裝(含多蘭之盔等；排除飾品/消耗品)
             _cpset |= {BOOT_BASE.get(i, i) for i in it0 if i in BOOTS}
             _cpset |= {i for i in (g.get("st") or []) if i and i not in EXCL}
@@ -228,6 +245,9 @@ def main():
                 _sig = (tuple(_rp4), tuple(_rs3))
                 runePage[c][_sig] += 1; runePageW[c][_sig] += win
                 if _opp: ksOpp[c][_rp4[0]][_opp] += 1  # 該 keystone(rp4[0]) 對到的英雄（符文盒頭像列）
+                if lk:
+                    runePageL[c][lk][_sig] += 1; runePageWL[c][lk][_sig] += win
+                    if _opp: ksOppL[c][lk][_rp4[0]][_opp] += 1
             pos = g.get("pos") or "?"  # 起手裝依實際路線各自一組(上/中/下/野/輔)
             if pos in ("TOP", "MIDDLE", "BOTTOM", "JUNGLE", "UTILITY"):
                 laneGames[c][pos] += 1
@@ -252,29 +272,57 @@ def main():
             if len(seq) >= need:
                 k = tuple(seq); paths[c][k] += 1; pathW[c][k] += win
                 recentPath[c].append((g.get("t") or 0, k, win))  # 近100場流派用
+                if lk:
+                    pathsL[c][lk][k] += 1; pathWL[c][lk][k] += win
+                    recentPathL[c][lk].append((g.get("t") or 0, k, win))
+    # ── 出裝/符文聚合 helper（整體與 byLane 共用同一套邏輯與門檻，避免兩份漂移）──
+    def _core_pack(cnt, nn):  # 核心裝(>=10%) + 剩餘適合裝備(>1% 非核心, 上限15)
+        top = [{"id": i, "pct": round(k / nn * 100)} for i, k in cnt.most_common() if k / nn * 100 >= 10]
+        ids = {ci["id"] for ci in top}
+        rest = [{"id": i, "pct": round(k / nn * 100)} for i, k in cnt.most_common() if k / nn * 100 > 1 and i not in ids][:15]
+        return top, rest
+    def _boots_pack(cnt, nn):  # 鞋子 >10%(升級版已併入基礎鞋)
+        return [{"id": i, "pct": round(k / nn * 100)} for i, k in cnt.most_common() if k / nn * 100 > 10]
+    def _recent_core(lst):  # 近兩版核心裝（無版本界資料時退回近100場）
+        rc = [x for x in lst if p2lo and (_date_of(x[0]) or "") >= p2lo] if p2lo else sorted(lst, key=lambda x: -x[0])[:100]
+        nrc = len(rc); cc = Counter()
+        for _t, legs in rc:
+            for i in set(legs): cc[i] += 1
+        return [{"id": i, "pct": round(k / nrc * 100)} for i, k in cc.most_common() if k / nrc * 100 >= 10] if nrc else []
+    def _path_pack(pcnt, pw):  # 主要出裝流派＝出現率>=5%(全列)；無任何達標則至少列最多的一種
+        tot = sum(pcnt.values())
+        return [{"seq": list(k), "n": cnt, "w": pw[k]} for k, cnt in pcnt.most_common() if tot and cnt / tot * 100 >= 5] \
+               or [{"seq": list(k), "n": cnt, "w": pw[k]} for k, cnt in pcnt.most_common(1)]
+    def _path_recent(lst):  # 近兩版出裝流派：只算最新兩版視窗內的場；該窗沒場 → 空(前端顯示 —)
+        rp = [(t, k, w) for t, k, w in lst if p2lo and (_date_of(t) or "") >= p2lo] if p2lo \
+             else sorted(lst, key=lambda x: -x[0])[:100]
+        pc = Counter(); pw = Counter()
+        for _t, k, w in rp:
+            pc[k] += 1; pw[k] += w
+        return _path_pack(pc, pw)
+    def _runes_ks(pageCnt, pageW, oppMap):  # 前三 keystone(第2/3需≥10場)×各前二配置(第2種≥3場)＋常對到(≥2場,前8)
+        ks_games = Counter(); ks_pages = defaultdict(list)
+        for _sig, _cnt in pageCnt.items():
+            _ks = _sig[0][0]
+            ks_games[_ks] += _cnt
+            ks_pages[_ks].append((_sig, _cnt, pageW[_sig]))
+        out = []
+        for _ki, (_ks, _kn) in enumerate(ks_games.most_common(3)):
+            if _ki >= 1 and _kn < 10: break
+            _vs_all = sorted(ks_pages[_ks], key=lambda x: -x[1])
+            _vs = [v for _vi, v in enumerate(_vs_all) if _vi == 0 or v[1] >= 3][:2]
+            _kw = sum(_w for _, _, _w in ks_pages[_ks])
+            _opps = [o for o, _on in oppMap[_ks].most_common(8) if _on >= 2]
+            out.append({"ks": _ks, "n": _kn, "w": _kw, "opp": _opps,
+                        "v": [{"rp": list(_s[0]), "rs": list(_s[1]), "n": _c2, "w": _w2} for _s, _c2, _w2 in _vs]})
+        return out
     champs = {}
     for c, n in games.items():
         if n < MIN_GAMES: continue
-        coreTop = [{"id": iid, "pct": round(cnt / n * 100)} for iid, cnt in core[c].most_common() if cnt / n * 100 >= 10]  # 出裝率>=10%(不限格數)
-        _coreIds = {ci["id"] for ci in coreTop}
-        restTop = [{"id": iid, "pct": round(cnt / n * 100)} for iid, cnt in core[c].most_common() if cnt / n * 100 > 1 and iid not in _coreIds][:15]  # 剩餘適合裝備：出裝率>1% 且非核心
-        rc = [x for x in recentCore[c] if p2lo and (_date_of(x[0]) or "") >= p2lo] if p2lo              else sorted(recentCore[c], key=lambda x: -x[0])[:100]   # 近兩版核心裝（無版本界資料時退回近100場）
-        nrc = len(rc); cc100 = Counter()
-        for _t, legs in rc:
-            for i in set(legs): cc100[i] += 1
-        core100 = [{"id": i, "pct": round(cnt / nrc * 100)} for i, cnt in cc100.most_common() if cnt / nrc * 100 >= 10] if nrc else []
-        pt_tot = sum(paths[c].values())  # 有完整三大件購買序的場數(出裝流派%分母)
-        pathTop = [{"seq": list(k), "n": cnt, "w": pathW[c][k]} for k, cnt in paths[c].most_common() if pt_tot and cnt / pt_tot * 100 >= 5] \
-                  or [{"seq": list(k), "n": cnt, "w": pathW[c][k]} for k, cnt in paths[c].most_common(1)]  # 主要出裝流派＝出現率>=5%(全列)；無任何達標則至少列最多的一種
-        # 近兩版出裝流派：只算比賽日落在最新兩版視窗內的場；該窗沒場 → 空(前端顯示 —，代表近兩版沒人玩)
-        rp = [(t, k, w) for t, k, w in recentPath[c] if p2lo and (_date_of(t) or "") >= p2lo] if p2lo \
-             else sorted(recentPath[c], key=lambda x: -x[0])[:100]  # 無版本界資料時退回近100場
-        p2 = Counter(); p2W = Counter()
-        for _t, k, w in rp:
-            p2[k] += 1; p2W[k] += w
-        p2_tot = sum(p2.values())
-        pathTop2p = [{"seq": list(k), "n": cnt, "w": p2W[k]} for k, cnt in p2.most_common() if p2_tot and cnt / p2_tot * 100 >= 5] \
-                    or [{"seq": list(k), "n": cnt, "w": p2W[k]} for k, cnt in p2.most_common(1)]
+        coreTop, restTop = _core_pack(core[c], n)
+        core100 = _recent_core(recentCore[c])
+        pathTop = _path_pack(paths[c], pathW[c])
+        pathTop2p = _path_recent(recentPath[c])
         startByPos = {}  # 起手裝依實際路線各一組：{pos:{n:場數, items:[{id,pct}]}}；上/中/下/野＝起手裝、輔助＝完成的支援傳奇裝
         for pos in ("TOP", "MIDDLE", "BOTTOM", "JUNGLE", "UTILITY"):
             ln = laneGames[c].get(pos, 0)
@@ -283,7 +331,7 @@ def main():
             # 起手裝互斥（一場一件）→ 用最大餘數法取整，加總不會 >100%
             its = round_pcts([(i, cnt / ln * 100) for i, cnt in src.most_common() if cnt / ln * 100 > 10])
             if its: startByPos[pos] = {"n": ln, "items": its}
-        bootsTop = [{"id": i, "pct": round(cnt / n * 100)} for i, cnt in bootCount[c].most_common() if cnt / n * 100 > 10]  # 鞋子 >10%(升級版已併入基礎鞋)
+        bootsTop = _boots_pack(bootCount[c], n)
         # coreP：每個版本各自的「前三版核心裝」——版本趨勢(#4)判定某版道具被增/削時，只有該英雄在此版前三版內把它當核心裝(≥10%)才標記。
         # 例：26.13 砍無盡→往前看 26.10/11/12 積分數據算核心裝。視窗以「該版前三個職業賽版本的起日～該版起日」的比賽日期界定(交集不受內部版本邊界精度影響)。
         coreP = {}
@@ -301,23 +349,22 @@ def main():
             if tot < COREP_MINWIN: continue
             ids = [iid for iid, k in cnt.items() if k / tot * 100 >= 10]
             if ids: coreP[P] = ids
-        # 符文排列：依「最大顆符文(keystone＝主系第一顆)」分組 → 取前三 keystone，各附前二種完整配置
-        # runesKS = [{ks:keystone id, n:該keystone總場, w:總勝場, v:[{rp,rs,n,w}×最多2]}×最多3]
-        ks_games = Counter(); ks_pages = defaultdict(list)
-        for _sig, _cnt in runePage[c].items():
-            _ks = _sig[0][0]  # rp4[0] ＝ keystone
-            ks_games[_ks] += _cnt
-            ks_pages[_ks].append((_sig, _cnt, runePageW[c][_sig]))
-        runesKS = []
-        for _ki, (_ks, _kn) in enumerate(ks_games.most_common(3)):
-            if _ki >= 1 and _kn < 10: break  # 第二、三基石樣本 <10 場＝雜訊，不列（勝率會誤導；most_common 遞減故 break）
-            _vs_all = sorted(ks_pages[_ks], key=lambda x: -x[1])
-            _vs = [v for _vi, v in enumerate(_vs_all) if _vi == 0 or v[1] >= 3][:2]  # 該 keystone 前二種排列（第二種需 ≥3 場）
-            _kw = sum(_w for _, _, _w in ks_pages[_ks])
-            _opps = [o for o, _on in ksOpp[c][_ks].most_common(8) if _on >= 2]  # 用此 keystone 最常對到的英雄（≥2 場去雜訊，頭像列）
-            runesKS.append({"ks": _ks, "n": _kn, "w": _kw, "opp": _opps,
-                            "v": [{"rp": list(_sig[0]), "rs": list(_sig[1]), "n": _c, "w": _w} for _sig, _c, _w in _vs]})
+        # 符文排列：依「最大顆符文(keystone＝主系第一顆)」分組 → 前三 keystone×各前二配置（邏輯在 _runes_ks）
+        runesKS = _runes_ks(runePage[c], runePageW[c], ksOpp[c])
         champs[c] = {"n": n, "start": startByPos, "boots": bootsTop, "core": coreTop, "rest": restTop, "core100": core100, "paths": pathTop, "paths2p": pathTop2p, "coreP": coreP, "runesKS": runesKS}
+        # ── byLane：多路線英雄逐路線分開（路線需 ≥max(30, 5%總場)；只有 1 條達標＝單路線英雄 → 不輸出，前端沿用整體）──
+        _majors = [(p3, laneGames[c].get(p3, 0)) for p3 in ("TOP", "JUNGLE", "MIDDLE", "BOTTOM", "UTILITY")]
+        _majors = [(p3, ln3) for p3, ln3 in _majors if ln3 >= max(30, 0.05 * n)]
+        if len(_majors) >= 2:
+            byLane = {}
+            for p3, ln3 in _majors:
+                _ct, _rt = _core_pack(coreL[c][p3], ln3)
+                byLane[p3] = {"n": ln3, "boots": _boots_pack(bootL[c][p3], ln3), "core": _ct, "rest": _rt,
+                              "core100": _recent_core(recentCoreL[c][p3]),
+                              "paths": _path_pack(pathsL[c][p3], pathWL[c][p3]),
+                              "paths2p": _path_recent(recentPathL[c][p3]),
+                              "runesKS": _runes_ks(runePageL[c][p3], runePageWL[c][p3], ksOppL[c][p3])}
+            champs[c]["byLane"] = byLane  # 起手裝不重複存：前端直接讀 champs[c].start[路線]
     # 反向：道具→把它當核心裝的英雄(依該英雄此裝出裝%排序、上限15)
     itemChamps = defaultdict(list)
     for c, d in champs.items():
@@ -355,6 +402,14 @@ def main():
         top = [{"s": [SUM_NAME.get(a, str(a)), SUM_NAME.get(b, str(b))], "pct": round(n2 / tot * 100)}
                for (a, b), n2 in cnt.most_common(3) if n2 / tot * 100 >= 5]
         if top: sp[c] = top
+    # byLane 每路線召技組合（同門檻：前三、≥5%）
+    for c, cc in champs.items():
+        for p3, blob in (cc.get("byLane") or {}).items():
+            cnt = suCntL[c][p3]; tot = sum(cnt.values())
+            if not tot: continue
+            top = [{"s": [SUM_NAME.get(a, str(a)), SUM_NAME.get(b, str(b))], "pct": round(n2 / tot * 100)}
+                   for (a, b), n2 in cnt.most_common(3) if n2 / tot * 100 >= 5]
+            if top: blob["sp"] = top
     payload = {"champs": champs, "items": items, "runes": runes, "p2patches": p2v, "hero": hero, "heroP": heroP, "patches": sq_patches, "mu": mu, "sp": sp}  # p2patches＝「近兩版流派」的兩個版本號(前端標題顯示)
     with open(OUT, "w", encoding="utf-8") as f:
         f.write("window.SOLOQ_BUILDS=" + json.dumps(payload, ensure_ascii=False) + ";\n")

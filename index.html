@@ -902,8 +902,8 @@ function soloqBuildHTML(cid){ if(typeof isHistYear==="function"&&isHistYear())re
   const sqY=(window.SOLOQ_MATCH_IDX&&window.SOLOQ_MATCH_IDX.year)||2026, isNow=(+curYear||sqY)===+sqY; // 積分資料固定是該年份，切到別年要標明是哪年而非「今年」
   const p2v=(B.p2patches||[]).join("–"); // 近兩版流派的版本範圍(聚合當下最新兩版，職業賽日界定)
   const p2t=en?("Main build paths"+(p2v?` (${p2v})`:" (last 2 patches)")):("近兩版主要出裝流派"+(p2v?`（${p2v}）`:""));
-  // 符文排列（依「最大顆符文＝keystone」分組：前三 keystone，各列前二種完整配置）；只有當年(2026 積分)顯示——本函式歷史年份整體 return ""
-  const runesSec=(()=>{ const arr=d.runesKS||[]; if(!arr.length)return "";
+  // 符文排列（依「最大顆符文＝keystone」分組：前三 keystone，各列前二種完整配置）；整體與逐路線共用
+  const runesGrid=arr=>{ arr=arr||[]; if(!arr.length)return "";
     if(!RUNE_MAP){ loadRunes(()=>{ try{ if(curView==="圖鑑"&&V.dexDetail)render(); }catch(e){} }); }
     const ksName=id=>(RUNE_MAP&&RUNE_MAP[id]&&RUNE_MAP[id].name)||"";
     const vrow=p=>{ const wr=p.n?Math.round(p.w/p.n*100):0; const rp=p.rp||[], rs=p.rs||[];
@@ -924,28 +924,44 @@ function soloqBuildHTML(cid){ if(typeof isHistYear==="function"&&isHistYear())re
           <div style="font-size:12.5px"><span class="meta">${g.n}${en?"g":"場"}</span> <b style="color:${wrCol(kwr)}">${kwr}%</b></div></div></div>
         <div style="display:flex;flex-direction:column;margin-top:3px">${(g.v||[]).map(vrow).join("")}</div>${oppRow}
       </div>`;};
-    return `<div style="margin-top:16px"><div style="margin-bottom:8px;font-weight:bold;color:var(--tx2)">${en?"Top 3 keystones (2 setups each)":"符文排列（前三基石．各列兩種配置）"}</div>
-      <div style="display:grid;grid-template-columns:repeat(3,minmax(240px,max-content));gap:12px;overflow-x:auto">${arr.map(ksBox).join("")}</div></div>`;})();
-  // 積分摘要列：召喚師技能組合（sp，名稱查 EXTRA_IMG 拿圖）＋對線@15＋搶二率（hero 彙總，全路線加總）
-  const statsSec=(()=>{ const H=B.hero&&B.hero[cid], sp=B.sp&&B.sp[cid];
-    if(!H&&!sp)return "";
-    let gdN=0,gdS=0,xdN=0,xdS=0,flN=0,flY=0;
-    if(H)Object.values(H).forEach(a=>{gdN+=a[9]||0;gdS+=a[10]||0;xdN+=a[11]||0;xdS+=a[12]||0;flN+=a[13]||0;flY+=a[14]||0;});
+    return `<div style="display:flex;flex-direction:column;gap:10px">${arr.map(ksBox).join("")}</div>`;};
+  // 對線摘要列：金差@15＋經差@15＋搶二率（hh＝該路線 15 欄陣列；召技已移到框內第 1 欄）
+  const heroLanes=(B.hero&&B.hero[cid])||null;
+  const statsRow=hh=>{
+    if(!hh)return "";
+    const gdN=hh[9]||0,gdS=hh[10]||0,xdN=hh[11]||0,xdS=hh[12]||0,flN=hh[13]||0,flY=hh[14]||0;
     const sg=v=>(v>0?"+":"")+Math.round(v);
-    const spHTML=(sp||[]).map(p=>`<span style="display:inline-flex;align-items:center;gap:3px;margin-right:12px">${p.s.map(nm=>{const u=(typeof EXTRA_IMG!=="undefined")&&EXTRA_IMG&&EXTRA_IMG[nm];return u?`<img loading="lazy" src="${u}" title="${esc(nm)}" style="width:24px;height:24px;border-radius:5px;border:1px solid #33405c">`:esc(nm);}).join("")}<span class="num" style="font-size:12.5px;margin-left:2px">${p.pct}%</span></span>`).join("");
     const bits=[];
-    if(spHTML)bits.push(`<span style="display:inline-flex;align-items:center;gap:8px"><b style="color:var(--tx2)">${en?"Summoners":"召喚師技能"}</b>${spHTML}</span>`);
     if(gdN)bits.push(`<span><b style="color:var(--tx2)">${en?"GD@15":"金差@15"}</b> <span class="num">${sg(gdS/gdN)}</span></span>`);
     if(xdN)bits.push(`<span><b style="color:var(--tx2)">${en?"XPD@15":"經差@15"}</b> <span class="num">${sg(xdS/xdN)}</span></span>`);
     if(flN)bits.push(`<span><b style="color:var(--tx2)">${en?"1st to Lv2":"搶二率"}</b> <span class="num">${Math.round(flY/flN*100)}%</span></span>`);
-    return bits.length?`<div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--line);display:flex;align-items:center;gap:22px;flex-wrap:wrap">${bits.join("")}</div>`:"";})();
-  return `<div class="card"><h2>🛠️ ${en?"Core items & builds":"核心裝備與出裝流派"} <span class="sub">${en?`${isNow?"ranked this year":sqY+" ranked"} · ${d.n} games`:`積分（${isNow?"今年":sqY+" 年"}）· ${d.n} 場`}</span></h2>`
-    +`<div style="display:flex;gap:22px;flex-wrap:wrap;align-items:flex-start">`
-      +column([[en?"Starting / support item":"起手裝／輔助裝",startHTML(d.start,d.n)]],300)
-      +column([[en?"Boots":"鞋子",wrap(itemsPct(d.boots))],[en?"Other viable items":"剩餘適合裝備",`<div style="display:flex;flex-wrap:wrap;width:252px">${itemsPct(d.rest)}</div>`]],300)
-      +column([[en?"Core items (build rate)":"核心裝（出裝率）",wrap(itemsPct(d.core))],[en?"Main build paths (order + win%)":"主要出裝流派（購買順序＋勝率）",seqRows(d.paths,true)]],300)
-      +column([[(en?("Core items"+(p2v?` (${p2v})`:" (last 2 patches)")):("近兩版核心裝"+(p2v?`（${p2v}）`:""))),wrap(itemsPct(d.core100))],[p2t,seqRows(d.paths2p||d.paths100,true)]],300)
-    +`</div>`+runesSec+statsSec+`</div>`; }
+    return bits.length?`<div style="margin-top:14px;padding-top:10px;border-top:1px solid var(--line);display:flex;align-items:center;gap:22px;flex-wrap:wrap">${bits.join("")}</div>`:"";};
+  // 召喚師技能欄（框內第 1 欄）：每組直列一行（兩圖＋%）
+  const spCol=spArr=>(spArr||[]).map(p=>`<div style="display:flex;align-items:center;gap:3px;margin-bottom:6px">${p.s.map(nm=>{const u=(typeof EXTRA_IMG!=="undefined")&&EXTRA_IMG&&EXTRA_IMG[nm];return u?`<img loading="lazy" src="${u}" title="${esc(nm)}" style="width:26px;height:26px;border-radius:5px;border:1px solid #33405c">`:esc(nm);}).join("")}<span class="num" style="font-size:12.5px;margin-left:5px">${p.pct}%</span></div>`).join("")||'<span class="meta">—</span>';
+  // 一路一框，框內五欄：①召喚師技能＋起手裝 ②符文排列 ③鞋子＋剩餘 ④核心裝＋流派 ⑤近兩版；框尾對線摘要
+  const laneBox=(pos,D,st,hh,spArr,i)=>{
+    const ln=(hh&&hh[0])||D.n||0;
+    const lwr=hh&&hh[0]?Math.round(hh[1]/hh[0]*100):null;
+    return `<div style="border:1px solid #33405c;border-radius:10px;padding:14px 16px;background:rgba(255,255,255,.015);margin-top:${i?"14px":"8px"}">
+      <div style="display:flex;align-items:center;gap:9px;margin-bottom:13px">${laneIco(pos)}<span style="font-weight:bold;font-size:17px">${POSZH[pos]||pos}</span><span class="meta" style="font-size:13px">${ln}${en?"g":"場"}</span>${lwr!=null?`<b style="color:${wrCol(lwr)};font-size:14px">${lwr}%</b>`:""}</div>
+      <div style="display:flex;gap:22px;flex-wrap:wrap;align-items:flex-start">
+        ${column([[en?"Summoners":"召喚師技能",spCol(spArr)],[pos==="UTILITY"?(en?"Support item":"輔助裝"):(en?"Starting item":"起手裝"),st?`<div style="display:flex;flex-wrap:wrap">${itemsPct(st.items)}</div>`:'<span class="meta">—</span>']],200)}
+        ${column([[en?"Rune setups (top keystones)":"符文排列（前三基石）",runesGrid(D.runesKS)]],250)}
+        ${column([[en?"Boots":"鞋子",wrap(itemsPct(D.boots))],[en?"Other viable items":"剩餘適合裝備",`<div style="display:flex;flex-wrap:wrap;width:252px">${itemsPct(D.rest)}</div>`]],270)}
+        ${column([[en?"Core items (build rate)":"核心裝（出裝率）",wrap(itemsPct(D.core))],[en?"Main build paths (order + win%)":"主要出裝流派（購買順序＋勝率）",seqRows(D.paths,true)]],300)}
+        ${column([[(en?("Core items"+(p2v?` (${p2v})`:" (last 2 patches)")):("近兩版核心裝"+(p2v?`（${p2v}）`:""))),wrap(itemsPct(D.core100))],[p2t,seqRows(D.paths2p||D.paths100,true)]],300)}
+      </div>${statsRow(hh)}</div>`;};
+  const _noQ=p=>p&&p!=="?";
+  const BL=d.byLane||null, laneKeys=BL?Object.keys(BL).sort((a,b)=>(BL[b].n||0)-(BL[a].n||0)):[];
+  let body;
+  if(laneKeys.length>=2){ // 多路線英雄：byLane 每路一框，資料互不混
+    body=laneKeys.map((pos,i)=>laneBox(pos,BL[pos],d.start&&d.start[pos],heroLanes&&heroLanes[pos],BL[pos].sp,i)).join("");
+  }else{ // 單路線英雄：同款一框（主路線標頭＋整體資料）
+    const domPos=heroLanes?Object.keys(heroLanes).filter(_noQ).sort((a,b)=>(heroLanes[b][0]||0)-(heroLanes[a][0]||0))[0]:null;
+    const st=(d.start&&domPos&&d.start[domPos])||(d.start&&Object.values(d.start).sort((a,b)=>(b.n||0)-(a.n||0))[0])||null;
+    body=laneBox(domPos||"TOP",d,st,domPos&&heroLanes?heroLanes[domPos]:null,B.sp&&B.sp[cid],0);
+  }
+  return `<div class="card"><h2>🛠️ ${en?"Core items & builds":"核心裝備與出裝流派"} <span class="sub">${en?`${isNow?"ranked this year":sqY+" ranked"} · ${d.n} games${laneKeys.length>=2?" · by lane":""}`:`積分（${isNow?"今年":sqY+" 年"}）· ${d.n} 場${laneKeys.length>=2?"｜依路線分開統計":""}`}</span></h2>${body}</div>`; }
 const SUMM_KEY={1:"SummonerBoost",3:"SummonerExhaust",4:"SummonerFlash",6:"SummonerHaste",7:"SummonerHeal",11:"SummonerSmite",12:"SummonerTeleport",13:"SummonerMana",14:"SummonerDot",21:"SummonerBarrier",32:"SummonerSnowball",39:"SummonerSnowballRaid",30:"SummonerPoroRecall",31:"SummonerPoroThrow",54:"Summoner_UltBookPlaceholder",55:"Summoner_UltBookSmitePlaceholder"};
 const SUMM_ZH={4:"閃現",7:"治癒",14:"點燃",11:"惩戒",12:"傳送",3:"虛弱",6:"幽靈疾步",21:"屏障",1:"淨化",13:"清晰",32:"雪球"};
 const summImg=(id,s)=>{const k=SUMM_KEY[id]; return k?`<img loading="lazy" title="${esc(SUMM_ZH[id]||k)}" src="https://ddragon.leagueoflegends.com/cdn/${DDV}/img/spell/${k}.png" style="width:${s||20}px;height:${s||20}px;border-radius:4px;vertical-align:middle" onerror="this.style.visibility='hidden'">`:"";};
