@@ -126,6 +126,7 @@
   th,td{padding:8px 11px;text-align:center;border-bottom:1px solid #222a3c;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   th.rkh{width:68px}                 /* 名次欄：三位數名次(含較寬字體如粉圓)完整放得下 */
   .thL{position:relative;display:inline-block;white-space:nowrap}          /* 欄名容器：以文字寬度置中，三角形不撐寬它；只在明確 <br> 處換行，避免中文欄名被擠到軟換行 */
+  .lbHeadC{transition:background .15s} .lbHeadC:hover{background:rgba(255,255,255,.045)} /* 出裝卡路線框可點標頭：hover 微亮提示可展開收合 */
   .sortArr{position:absolute;left:100%;top:50%;transform:translateY(-50%);margin-left:5px;font-size:.82em;opacity:0;pointer-events:none} /* 三角形貼在欄名右側5px，絕對定位→欄名自然置中、排序切換不推移資料 */
   .sortArr.on{opacity:1}
   .sortArr.asc{color:#37c871}  /* 升幕：綠 */
@@ -928,8 +929,9 @@ function soloqBuildHTML(cid){ if(typeof isHistYear==="function"&&isHistYear())re
       </div>`;};
     return `<div style="display:flex;flex-direction:column">${arr.map(ksBox).join("")}</div>`;};
   const heroLanes=(B.hero&&B.hero[cid])||null;
-  // 召喚師技能欄（框內第 1 欄）：每組直列一行（兩圖＋%）
-  const spCol=spArr=>(spArr||[]).map(p=>`<div style="display:flex;align-items:center;gap:3px;margin-bottom:6px">${p.s.map(nm=>{const u=(typeof EXTRA_IMG!=="undefined")&&EXTRA_IMG&&EXTRA_IMG[nm];return u?`<img loading="lazy" src="${u}" title="${esc(nm)}" style="width:26px;height:26px;border-radius:5px;border:1px solid #33405c">`:esc(nm);}).join("")}<span class="num" style="font-size:12.5px;margin-left:5px">${p.pct}%</span></div>`).join("")||'<span class="meta">—</span>';
+  // 召喚師技能欄（框內第 2 欄首段）：每組直列一行（兩圖＋%）；有閃現一律排第二格（穩定排序，其他組合順序不變）
+  const spCol=spArr=>(spArr||[]).map(p=>{const ss=[...(p.s||[])].sort((a,b)=>(a==="閃現")-(b==="閃現"));
+    return `<div style="display:flex;align-items:center;gap:3px;margin-bottom:6px">${ss.map(nm=>{const u=(typeof EXTRA_IMG!=="undefined")&&EXTRA_IMG&&EXTRA_IMG[nm];return u?`<img loading="lazy" src="${u}" title="${esc(nm)}" style="width:26px;height:26px;border-radius:5px;border:1px solid #33405c">`:esc(nm);}).join("")}<span class="num" style="font-size:12.5px;margin-left:5px">${p.pct}%</span></div>`;}).join("")||'<span class="meta">—</span>';
   // 一路一框，框內四欄：①符文排列 ②召喚師技能＋起手裝＋鞋子＋剩餘 ③核心裝＋流派 ④近兩版
   // 多路線時預設只展開場數最多的路線，其餘收合、點標頭（▶/▼）展開
   const laneBox=(pos,D,st,hh,spArr,i,collapsible)=>{
@@ -937,10 +939,11 @@ function soloqBuildHTML(cid){ if(typeof isHistYear==="function"&&isHistYear())re
     const lwr=hh&&hh[0]?Math.round(hh[1]/hh[0]*100):null;
     const open=!collapsible||i===0;
     const arrow=collapsible?`<span class="lbArr" style="margin-left:auto;font-size:14px;color:var(--tx2);flex:0 0 auto">${open?"▼":"▶"}</span>`:"";
-    const headAttr=collapsible?` onclick="const b=this.nextElementSibling,o=b.style.display!=='none';b.style.display=o?'none':'';this.querySelector('.lbArr').textContent=o?'▶':'▼'" style="display:flex;align-items:center;gap:9px;cursor:pointer" title="${en?"click to expand/collapse":"點擊展開／收合"}"`:` style="display:flex;align-items:center;gap:9px"`;
-    return `<div style="border:1px solid #33405c;border-radius:10px;padding:14px 16px;background:rgba(255,255,255,.015);margin-top:${i?"14px":"8px"}">
+    // 點擊區＝整條標頭列（padding 移進標頭、外框 padding 歸零＋overflow:hidden）：收合時整個框都可點，展開時整條頂列（含左右邊緣）都可點，無死角
+    const headAttr=collapsible?` class="lbHeadC" onclick="const b=this.nextElementSibling,o=b.style.display!=='none';b.style.display=o?'none':'';this.querySelector('.lbArr').textContent=o?'▶':'▼'" style="display:flex;align-items:center;gap:9px;padding:14px 16px;cursor:pointer" title="${en?"click to expand/collapse":"點擊展開／收合"}"`:` style="display:flex;align-items:center;gap:9px;padding:14px 16px"`;
+    return `<div style="border:1px solid #33405c;border-radius:10px;background:rgba(255,255,255,.015);margin-top:${i?"14px":"8px"};overflow:hidden">
       <div${headAttr}>${laneIco(pos)}<span style="font-weight:bold;font-size:17px">${POSZH[pos]||pos}</span><span class="meta" style="font-size:13px">${ln}${en?"g":"場"}</span>${lwr!=null?`<b style="color:${wrCol(lwr)};font-size:14px">${lwr}%</b>`:""}${arrow}</div>
-      <div class="lbBody" style="display:${open?"":"none"};margin-top:13px">
+      <div class="lbBody" style="display:${open?"":"none"};padding:1px 16px 14px">
       <div style="display:flex;gap:22px;flex-wrap:wrap;align-items:flex-start">
         ${column([[en?"Rune setups (top keystones)":"符文排列（前三基石）",runesGrid(D.runesKS)]],250)}
         ${column([[en?"Summoners":"召喚師技能",spCol(spArr)],[pos==="UTILITY"?(en?"Support item":"輔助裝"):(en?"Starting item":"起手裝"),st?`<div style="display:flex;flex-wrap:wrap">${itemsPct(st.items)}</div>`:'<span class="meta">—</span>'],[en?"Boots":"鞋子",wrap(itemsPct(D.boots))],[en?"Other viable items":"剩餘適合裝備",`<div style="display:flex;flex-wrap:wrap;width:252px">${itemsPct(D.rest)}</div>`]],270)}
