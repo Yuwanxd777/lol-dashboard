@@ -4199,7 +4199,7 @@ const HSCOLS=[["英雄",fmt.raw,"11.5em"],["路線",(v,r)=>r._laneIcons||"–","
   ["KDA",(v,r)=>!_fin(v)?"–":`${fmt.d1(v)}<span class="meta"> (${esc(r["K/D/A"]||"")})</span>`],
   ["參與率",fmt.pct],["分均CS",fmt.d1],
   ["金差@15",v=>!_fin(v)?"–":(v>0?"+":"")+Math.round(v)],["經差@15",v=>!_fin(v)?"–":(v>0?"+":"")+Math.round(v)],
-  ["搶二率",fmt.pct]];
+  ["搶二率",fmt.pct],["評分",fmt.score]];
 // 英雄分頁積分版資料：SOLOQ_BUILDS.hero（build_soloq_builds.py 全季彙總；英雄→路線→[n,w,k,d,a,cs,dur,kp和,kp樣本,gd樣本,gd和,xd樣本,xd和,fl2樣本,fl2先到]）
 // 版本篩選（F.patch）時改用 SOLOQ_BUILDS.heroP（英雄→版本→路線→同 15 欄）；積分比職業賽早上新版（26.14），清單由 filterOpts 併入
 function calcHeroesSoloq(pos){
@@ -4230,6 +4230,17 @@ function calcHeroesSoloq(pos){
       "金差@15":gdN?gdS/gdN:null,"經差@15":xdN?xdS/xdN:null,
       搶二率:flN?flY/flN:null});
   }
+  // 評分＝同表百分位加權的客觀強度綜合（不用 dpm 遊戲評分中位數：各定位分數尺度不同會失真）：
+  // Wilson勝率（自帶場數可信度修正）×4＋場數×2＋KDA×2＋金差@15×2；缺項（如輔助無金差樣本極端值）自動重分配權重
+  {const fin=v=>v!=null&&isFinite(v);
+   const mk=f=>{const s=rows.map(f).filter(fin).sort((x,y)=>x-y); return v=>{ if(!fin(v)||s.length<2)return null; let c=0; for(const x of s){if(x<=v)c++;} return (c-1)/(s.length-1)*100; };};
+   const fW=r=>wilson(r.勝率,r.場數), fN=r=>r.場數, fK=r=>r.KDA, fG=r=>r["金差@15"];
+   const Pw=mk(fW), Pn=mk(fN), Pk=mk(fK), Pg=mk(fG);
+   rows.forEach(r=>{
+     const parts=[[Pw(fW(r)),4],[Pn(fN(r)),2],[Pk(fK(r)),2],[Pg(fG(r)),2]];
+     let s=0,wt=0; parts.forEach(([v,w2])=>{ if(v!=null){s+=v*w2; wt+=w2;} });
+     r.評分=wt?s/wt:null;
+   });}
   return rows;
 }
 // ── 積分版英雄詳情頁（英雄分頁積分模式點英雄）：與職業版同構＝名片＋版本趨勢＋出場紀錄，資料全積分 ──
@@ -4279,7 +4290,7 @@ function sqHeroDetail(cid){
     const cell=v=>`<td style="color:${v==null?"var(--tx2)":v>0?"#ff6b6b":v<0?"#37c871":""}">${v==null?"—":(v>0?"+":"")+Math.round(v)}</td>`;
     const scCol=s=>{if(s==null)return"#8aa0c0"; const v=Math.max(0,Math.min(100,s)); return `hsl(${Math.round(120*(1-v/100))},72%,58%)`;}; // 評分 0→100 綠→黃→紅（同積分逐場 scoreCol）
     recInner=`<div class="tblwrap"><table class="recTbl"><thead><tr>
-      <th>#</th>${["日期","使用選手","位置","勝敗","K/D/A","參與率","金差@15","經差@15","對位英雄","評分"].map(k2=>`<th data-rs="${k2}" style="cursor:pointer">${mLabel(k2)}${(V.recSort&&V.recSort.k===k2)?(V.recSort.d<0?" ▼":" ▲"):""}</th>`).join("")}</tr></thead><tbody>${
+      <th>#</th>${["日期","使用選手","位置","勝敗","K/D/A","參與率","金差@15","經差@15","對位英雄","評分"].map(k2=>{const _s=V.recSort,_on=_s&&_s.k===k2,_up=_on&&_s.d>0;return `<th data-rs="${k2}" style="cursor:pointer"><span class="thL">${mLabel(k2)}<span class="sortArr${_on?" on":""}${_on?(_up?" asc":" desc"):""}">${_up?"▲":"▼"}</span></span></th>`;}).join("")}</tr></thead><tbody>${
       list.map((g,i)=>`<tr><td class="rk">${i+1}</td>
         <td class="meta">${dstr(g.t)}</td>
         <td>${(()=>{const[tm,pl]=g.pkey.split("|");return `<span class="meta">${esc(teamFix(tm||""))}</span> ${esc(pl||"")}`;})()}</td>
@@ -6647,7 +6658,7 @@ function render(){
     main.innerHTML=filterBar(`
       <label>${LANG==="en"?"Lane":"路線"}</label><select id="vPos">${_lanes.map(p=>`<option value="${p}" ${V.pos===p?"selected":""}>${p?T(p):T("全部")}</option>`).join("")}</select>
       ${sqMode?"":`<label>${T("戰隊或選手")}</label>${comboHTML("vSel",T("輸入戰隊或選手（空=全部）"))}`}${_modeBtn}`)
-      +`<div class="card"><h2>🦸 ${T("英雄")} <span class="sub" id="cnt"></span><span class="sub">${sqMode?(LANG==="en"?"Soloq of tracked pros this season · Patch filter works (soloq is ahead of pro, e.g. 26.14) · other global filters don't apply | click a champion for details":"積分數據＝追蹤職業選手今年單雙排彙總｜<b>版本</b>可篩（積分比職業賽早上新版，如 26.14）、其他全域篩選不影響｜點英雄名看詳情"):T("評分＝同路百分位加權（滑欄名看權重）｜點英雄名看版本趨勢與出場紀錄")}</span></h2><div id="tbl"></div></div>`;
+      +`<div class="card"><h2>🦸 ${T("英雄")} <span class="sub" id="cnt"></span><span class="sub">${sqMode?(LANG==="en"?"Soloq of tracked pros this season · Rating = percentile blend (Wilson win% ×4 + games ×2 + KDA ×2 + GD@15 ×2) · Patch filter works (soloq is ahead of pro, e.g. 26.14) · other global filters don't apply | click a champion for details":"積分數據＝追蹤職業選手今年單雙排彙總｜評分＝同表百分位加權（Wilson 勝率 ×4＋場數 ×2＋KDA ×2＋金差@15 ×2）｜<b>版本</b>可篩（積分比職業賽早上新版）、其他全域篩選不影響｜點英雄名看詳情"):T("評分＝同路百分位加權（滑欄名看權重）｜點英雄名看版本趨勢與出場紀錄")}</span></h2><div id="tbl"></div></div>`;
     const rerender=()=>{
       const rows=sqMode?calcHeroesSoloq(V.pos==="全部"?"":V.pos):calcHeroes(V.pos==="全部"?"":V.pos,V.player,V.heroTeam);
       document.getElementById("cnt").textContent=`${rows.length}${LANG==="en"?" champions":" 隻"}`;
@@ -6704,7 +6715,7 @@ function render(){
         selInp.dispatchEvent(new Event("input")); }
     });
     }
-    sortK=sqMode?"場數":"評分"; sortDir=-1; rerender(); // 預設：職業賽 評分／積分 場數 降冪
+    sortK="評分"; sortDir=-1; rerender(); // 預設：兩模式皆評分降冪（積分評分＝百分位加權，2026-07-18 起有）
   }
   else if(curView==="對戰BP"){
     // 自動偵測「資料缺局」：系列已在下方分組時合併跨午夜的同一場（相鄰日、局序遞增）。此處判斷：
@@ -7779,7 +7790,7 @@ function render(){
       <div class="card" id="trendCard" style="display:none"><h2>📈 <span id="trendTitle"></span> <span class="sub"><span style="color:#ff4d4d">▲${T("增強")}</span>　<span style="color:#37c871">▼${T("削弱")}</span>　<span style="color:#ffd60a">●${T("調整")}</span>｜${LANG==="en"?"hover for details (source: Riot official patch notes)":"滑上去看細節（來源：Riot 官方版本說明）"}</span></h2><div class="chartbox" style="height:320px"><canvas id="trend"></canvas></div></div>
       <div class="card"><h2>📜 ${T("出場紀錄")} <span class="sub">${LANG==="en"?`${n} games, newest first | click a column to sort`:`共 ${n} 場，最新在上｜點欄位名稱可排序`}</span></h2>
         <div class="tblwrap"><table class="recTbl"><thead><tr>
-          <th>#</th>${["日期","賽事","位置","使用選手","勝敗","K/D/A","金差@10","中期金差","情境","對位英雄","對位選手"].map(k=>`<th data-rs="${k}" style="cursor:pointer">${mLabel(k)}${(V.recSort&&V.recSort.k===k)?(V.recSort.d<0?" ▼":" ▲"):""}</th>`).join("")}</tr></thead><tbody>${
+          <th>#</th>${["日期","賽事","位置","使用選手","勝敗","K/D/A","金差@10","中期金差","情境","對位英雄","對位選手"].map(k=>{const _s=V.recSort,_on=_s&&_s.k===k,_up=_on&&_s.d>0;return `<th data-rs="${k}" style="cursor:pointer"><span class="thL">${mLabel(k)}<span class="sortArr${_on?" on":""}${_on?(_up?" asc":" desc"):""}">${_up?"▲":"▼"}</span></span></th>`;}).join("")}</tr></thead><tbody>${
           recSorted.map((g,i)=>`<tr><td class="rk">${i+1}</td>
             <td class="meta">${g.date}</td>
             <td>${lgChip(g.lg)}</td><td>${posImg(g.pos)}</td>
