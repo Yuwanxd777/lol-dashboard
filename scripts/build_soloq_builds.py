@@ -8,7 +8,7 @@
 fetch_soloq_year.py / update.py 末端可連帶呼叫（跟 build_soloq_index 一樣每日更新）。
 用法：  python scripts\build_soloq_builds.py
 """
-import os, re, json, glob, urllib.request, datetime
+import os, re, json, glob, urllib.request, datetime, bisect
 from collections import defaultdict, Counter
 
 HERE = os.path.dirname(os.path.abspath(__file__)); ROOT = os.path.dirname(HERE)
@@ -168,6 +168,16 @@ def main():
     supLeg = defaultdict(Counter)  # 英雄 -> 完成的支援傳奇裝(輔助道具裝) -> 場數
     # 英雄分頁「積分數據版」彙總：英雄 -> 路線 -> [n,w,k,d,a,cs,dur秒,kp和,kp樣本, gd樣本,gd和, xd樣本,xd和, fl2樣本,fl2先到]
     heroAgg = defaultdict(lambda: defaultdict(lambda: [0] * 15))
+    # 每版本彙總（積分模式的版本篩選；積分改版當天就上新版，界線用官方公告發布日，抓不到才退職業賽首戰日）
+    heroAggP = defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: [0] * 15)))  # 英雄 -> 版本 -> 路線 -> 同上15欄
+    _pdAll = official_patch_dates(sp) if sp else {}
+    _bounds = sorted([((_pdAll.get(p) or pstart.get(p)), p) for p in sp if (_pdAll.get(p) or pstart.get(p))])
+    _bd = [d for d, _ in _bounds]; _bp = [p for _, p in _bounds]
+    def patch_of(t_ms):
+        d = _date_of(t_ms)
+        if not d or not _bd: return None
+        i = bisect.bisect_right(_bd, d) - 1
+        return _bp[i] if i >= 0 else _bp[0]
     muCnt = defaultdict(lambda: defaultdict(lambda: [0, 0]))  # 積分對位：英雄 -> 對位英雄 -> [場,勝]（g.o＝dpm 的對位欄）
     suCnt = defaultdict(Counter)                              # 召喚師技能組合：英雄 -> (id小,id大) -> 場數
     recentCore = defaultdict(list)  # 英雄 -> [(t, (大裝tuple))]：算近100場核心裝
@@ -184,13 +194,15 @@ def main():
             if not c: continue
             scanned += 1; games[c] += 1; win = 1 if g.get("w") else 0
             _hl = g.get("pos") if g.get("pos") in ("TOP", "MIDDLE", "BOTTOM", "JUNGLE", "UTILITY") else "?"
-            _ha = heroAgg[c][_hl]
-            _ha[0] += 1; _ha[1] += win; _ha[2] += g.get("k") or 0; _ha[3] += g.get("de") or 0; _ha[4] += g.get("a") or 0
-            _ha[5] += g.get("cs") or 0; _ha[6] += g.get("d") or 0
-            if g.get("kp") is not None: _ha[7] += g["kp"]; _ha[8] += 1
-            if g.get("gd15") is not None: _ha[9] += 1; _ha[10] += g["gd15"]
-            if g.get("xd15") is not None: _ha[11] += 1; _ha[12] += g["xd15"]
-            if g.get("fl2") is not None: _ha[13] += 1; _ha[14] += 1 if g["fl2"] else 0
+            _pkm = patch_of(g.get("t") or 0)
+            _targets = [heroAgg[c][_hl]] + ([heroAggP[c][_pkm][_hl]] if _pkm else [])
+            for _ha in _targets:
+                _ha[0] += 1; _ha[1] += win; _ha[2] += g.get("k") or 0; _ha[3] += g.get("de") or 0; _ha[4] += g.get("a") or 0
+                _ha[5] += g.get("cs") or 0; _ha[6] += g.get("d") or 0
+                if g.get("kp") is not None: _ha[7] += g["kp"]; _ha[8] += 1
+                if g.get("gd15") is not None: _ha[9] += 1; _ha[10] += g["gd15"]
+                if g.get("xd15") is not None: _ha[11] += 1; _ha[12] += g["xd15"]
+                if g.get("fl2") is not None: _ha[13] += 1; _ha[14] += 1 if g["fl2"] else 0
             _opp = CHAMP_FIX.get(g.get("o"), g.get("o"))
             if _opp: _m = muCnt[c][_opp]; _m[0] += 1; _m[1] += win
             _su = [x for x in (g.get("su") or []) if x]
@@ -302,6 +314,10 @@ def main():
         if lst: runes[str(rid)] = [c for c, _ in lst][:12]
     # 英雄分頁積分版：全季彙總(不分版本；路線分桶)。樣本 < MIN_GAMES 的英雄不列。
     hero = {c: {ln: arr for ln, arr in lanes.items()} for c, lanes in heroAgg.items() if games[c] >= MIN_GAMES}
+    # 每版本彙總（版本篩選用）＋積分實際有場次的版本清單（前端下拉補進職業賽沒有的最新版，如 26.14）
+    heroP = {c: {pk: {ln: arr for ln, arr in lanes.items()} for pk, lanes in pks.items()}
+             for c, pks in heroAggP.items() if games[c] >= MIN_GAMES}
+    sq_patches = sorted({pk for pks in heroP.values() for pk in pks}, key=patch_key)
     # 積分對位（給英雄詳情對位表）：pair 場數 >=3 才列，控檔案大小
     mu = {}
     for c, opps in muCnt.items():
@@ -322,7 +338,7 @@ def main():
         top = [{"s": [SUM_NAME.get(a, str(a)), SUM_NAME.get(b, str(b))], "pct": round(n2 / tot * 100)}
                for (a, b), n2 in cnt.most_common(3) if n2 / tot * 100 >= 5]
         if top: sp[c] = top
-    payload = {"champs": champs, "items": items, "runes": runes, "p2patches": p2v, "hero": hero, "mu": mu, "sp": sp}  # p2patches＝「近兩版流派」的兩個版本號(前端標題顯示)
+    payload = {"champs": champs, "items": items, "runes": runes, "p2patches": p2v, "hero": hero, "heroP": heroP, "patches": sq_patches, "mu": mu, "sp": sp}  # p2patches＝「近兩版流派」的兩個版本號(前端標題顯示)
     with open(OUT, "w", encoding="utf-8") as f:
         f.write("window.SOLOQ_BUILDS=" + json.dumps(payload, ensure_ascii=False) + ";\n")
     print(f"完成：{len(champs)} 英雄 / {len(items)} 道具 / {len(runes)} 符文（掃 {scanned} 場）→ {OUT}（{os.path.getsize(OUT)/1024:.0f} KB）")

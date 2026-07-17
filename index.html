@@ -4121,20 +4121,25 @@ const HSCOLS=[["英雄",fmt.raw,"11.5em"],["路線",(v,r)=>r._laneIcons||"–","
   ["金差@15",v=>!_fin(v)?"–":(v>0?"+":"")+Math.round(v)],["經差@15",v=>!_fin(v)?"–":(v>0?"+":"")+Math.round(v)],
   ["搶二率",fmt.pct]];
 // 英雄分頁積分版資料：SOLOQ_BUILDS.hero（build_soloq_builds.py 全季彙總；英雄→路線→[n,w,k,d,a,cs,dur,kp和,kp樣本,gd樣本,gd和,xd樣本,xd和,fl2樣本,fl2先到]）
+// 版本篩選（F.patch）時改用 SOLOQ_BUILDS.heroP（英雄→版本→路線→同 15 欄）；積分比職業賽早上新版（26.14），清單由 filterOpts 併入
 function calcHeroesSoloq(pos){
-  const H=(window.SOLOQ_BUILDS&&SOLOQ_BUILDS.hero)||null; if(!H)return[];
+  const B=window.SOLOQ_BUILDS||{};
+  const pk=(typeof F!=="undefined"&&F.patch)||"";
+  const usingP=!!(pk&&B.heroP);
+  const H=usingP?B.heroP:B.hero; if(!H)return[];
+  const minN=usingP?5:15; // 單版本樣本小 → 門檻降到 5 場
   const L2={TOP:"TOP",JNG:"JUNGLE",MID:"MIDDLE",BOT:"BOTTOM",SUP:"UTILITY"}[pos]||null;
   const PNS={TOP:"TOP",JUNGLE:"JNG",MIDDLE:"MID",BOTTOM:"BOT",UTILITY:"SUP"};
   const rows=[];
   for(const ch in H){
-    const lanes=H[ch];
+    const lanes=usingP?H[ch][pk]:H[ch];
+    if(!lanes)continue;
     const pick=L2?(lanes[L2]?{[L2]:lanes[L2]}:null):lanes;
     if(!pick)continue;
     const s=new Array(15).fill(0);
     for(const ln in pick)pick[ln].forEach((v,i)=>s[i]+=v||0);
     const [n,w,k,d,a,cs,dur,kpS,kpN,gdN,gdS,xdN,xdS,flN,flY]=s;
-    if(!n)continue;
-    if(L2&&n<15)continue; // 單路樣本門檻（與建置端 MIN_GAMES 一致）
+    if(!n||n<minN)continue; // 樣本門檻（全季 15／單版本 5）
     const laneIcons=Object.entries(lanes).filter(([ln])=>PNS[ln]).sort((x,y)=>y[1][0]-x[1][0])
       .map(([ln])=>posImg(PNS[ln])).filter(Boolean).join("");
     rows.push({英雄:cAb(ch),_full:ch,路線:Object.keys(lanes).filter(l=>PNS[l]).length,_laneIcons:laneIcons,
@@ -4231,8 +4236,14 @@ function filterOpts(){
   if(F.league&&F.league!=="ALL"&&!items.some(([l])=>l===F.league))items.push([F.league,true]); // 目前選取一定保留
   const lo=items.map(([l])=>`<option value="${l}" ${F.league===l?"selected":""}>${lgName(l)}</option>`);
   // 版本：只列其他篩選下仍有比賽的（＋保留目前選取）
+  let pkList=PATCHES.filter(p=>pkAvail.has(p)||F.patch===p);
+  // 英雄分頁積分模式：職業賽還沒打到的最新版（如 26.14）積分已經有 → 併入積分實際有場次的版本清單
+  if(typeof curView!=="undefined"&&curView==="英雄"&&typeof isHistYear==="function"&&!isHistYear()&&V&&V.heroMode==="soloq"&&window.SOLOQ_BUILDS&&SOLOQ_BUILDS.patches){
+    const _s=new Set(pkList); SOLOQ_BUILDS.patches.forEach(p=>{ if(!_s.has(p)){_s.add(p); pkList.push(p);} });
+    pkList=pkList.slice().sort();
+  }
   const po=[`<option value="" ${!F.patch?"selected":""}>${T("全部")}</option>`]
-    .concat(PATCHES.filter(p=>pkAvail.has(p)||F.patch===p).map(p=>`<option ${F.patch===p?"selected":""}>${p}</option>`));
+    .concat(pkList.map(p=>`<option ${F.patch===p?"selected":""}>${p}</option>`));
   return {split:so.join(""), league:lo.join(""), patch:po.join("")};
 }
 // 篩選變更後就地刷新連動選單（cb() 通常只重繪資料、不重建 filterBar）
@@ -6454,7 +6465,7 @@ function render(){
     main.innerHTML=filterBar(`
       <label>${LANG==="en"?"Lane":"路線"}</label><select id="vPos">${_lanes.map(p=>`<option value="${p}" ${V.pos===p?"selected":""}>${p?T(p):T("全部")}</option>`).join("")}</select>
       ${sqMode?"":`<label>${T("戰隊或選手")}</label>${comboHTML("vSel",T("輸入戰隊或選手（空=全部）"))}`}${_modeBtn}`)
-      +`<div class="card"><h2>🦸 ${T("英雄")} <span class="sub" id="cnt"></span><span class="sub">${sqMode?(LANG==="en"?"Soloq of tracked pros, full season (ignores league/patch filters) | click a champion for details":"積分數據＝追蹤職業選手今年單雙排全季彙總，不受聯賽／版本等全域篩選影響｜點英雄名看詳情"):T("評分＝同路百分位加權（滑欄名看權重）｜點英雄名看版本趨勢與出場紀錄")}</span></h2><div id="tbl"></div></div>`;
+      +`<div class="card"><h2>🦸 ${T("英雄")} <span class="sub" id="cnt"></span><span class="sub">${sqMode?(LANG==="en"?"Soloq of tracked pros this season · Patch filter works (soloq is ahead of pro, e.g. 26.14) · other global filters don't apply | click a champion for details":"積分數據＝追蹤職業選手今年單雙排彙總｜<b>版本</b>可篩（積分比職業賽早上新版，如 26.14）、其他全域篩選不影響｜點英雄名看詳情"):T("評分＝同路百分位加權（滑欄名看權重）｜點英雄名看版本趨勢與出場紀錄")}</span></h2><div id="tbl"></div></div>`;
     const rerender=()=>{
       const rows=sqMode?calcHeroesSoloq(V.pos==="全部"?"":V.pos):calcHeroes(V.pos==="全部"?"":V.pos,V.player,V.heroTeam);
       document.getElementById("cnt").textContent=`${rows.length}${LANG==="en"?" champions":" 隻"}`;
@@ -6463,12 +6474,13 @@ function render(){
         const bpLbl=V.heroTeam?(LANG==="en"?"Team Presence":"戰隊BP%"):(LANG==="en"?"Player Presence":"選手BP%");
         hcols=HCOLS.map(col=>col[0]==="BP%"?[col[0],col[1],col[2],bpLbl]:col);
       }
-      // 職業 vs 積分 對比欄（僅當年、無戰隊/選手篩選）：積分勝率＝追蹤選手單雙排全季；勝率差＝職業−積分（正紅=職業表現更好）
+      // 職業 vs 積分 對比欄（僅當年、無戰隊/選手篩選）：積分勝率＝追蹤選手單雙排（有版本篩選時取同版本 heroP，否則全季）；勝率差＝職業−積分（正紅=職業表現更好）
       if(!sqMode&&!isHistYear()&&!V.heroTeam&&!V.player&&window.SOLOQ_BUILDS&&SOLOQ_BUILDS.hero){
         const L2b={TOP:"TOP",JNG:"JUNGLE",MID:"MIDDLE",BOT:"BOTTOM",SUP:"UTILITY"}[V.pos]||null;
-        rows.forEach(r=>{ const H=SOLOQ_BUILDS.hero[r._full]; if(!H){r.積分勝率=null;r.勝率差=null;return;}
+        const _pk=F.patch||"", _useP=!!(_pk&&SOLOQ_BUILDS.heroP), _minN=_useP?5:15;
+        rows.forEach(r=>{ const H=_useP?((SOLOQ_BUILDS.heroP[r._full]||{})[_pk]):SOLOQ_BUILDS.hero[r._full]; if(!H){r.積分勝率=null;r.勝率差=null;return;}
           let n=0,w=0; (L2b?(H[L2b]?[H[L2b]]:[]):Object.values(H)).forEach(a=>{n+=a[0]||0;w+=a[1]||0;});
-          if(n>=15){ r.積分勝率=w/n; r.勝率差=r.勝率-w/n; } else { r.積分勝率=null; r.勝率差=null; } });
+          if(n>=_minN){ r.積分勝率=w/n; r.勝率差=r.勝率-w/n; } else { r.積分勝率=null; r.勝率差=null; } });
         hcols=hcols.concat([["積分勝率",fmt.pct],["勝率差",v=>!_fin(v)?"–":(v>0?"+":"")+Math.round(v*100)+"%"]]);
       }
       document.getElementById("tbl").innerHTML=tableHTML(hcols,rows,true);
