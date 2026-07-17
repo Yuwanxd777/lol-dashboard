@@ -1185,7 +1185,7 @@ const assetSpanText=n=>{ const a=assetOf(n);
   if(!yArr.length)return "";
   const ys=yArr.slice().sort((x,y)=>x-y), seg=[]; ys.forEach(y=>{const L=seg[seg.length-1]; if(L&&y===L[1]+1)L[1]=y; else seg.push([y,y]);});
   return (LANG==="en"?"in game ":"服役 ")+seg.map(([a1,b1])=>a1===b1?`${a1}`:`${a1}–${b1}`).join("、"); };
-const CACHE_VER=DDV+"-m27-"+(window.ITEM_DESC_VER||"0"); // 快取鍵含 items.js 版本戳：道具資料重建即失效重建（m27：召喚師技能改逐歷史版本收錄）
+const CACHE_VER=DDV+"-m28-"+(window.ITEM_DESC_VER||"0"); // 快取鍵含 items.js 版本戳：道具資料重建即失效重建（m28：召喚師技能加冷卻/需求等級 _sm）
 // 文本統一清理(道具/符文/技能描述＋版本改動文本共用)：移除未解析變數@X@、數字半形中括號[40-150]→加空格、斜線半形/→全形／、括號全形
 // 用語統一（全站顯示）：生命偷取→吸血、法術穿透→法穿、穿甲→物穿、生命值→生命（順序：先長詞再短詞）
 const normTerm=s=>String(s||"")
@@ -1448,7 +1448,7 @@ function _helpOutside(e){const p=document.getElementById("helpPop"); if(p&&!p.co
       if(sm2)Object.values(sm2.data).forEach(s=>{
         if(m[s.name])return;
         m[s.name]=`${CDN}/${v}/img/spell/${(s.image&&s.image.full)||s.id+".png"}`;
-        info[s.name]={t:"召喚師技能",d:stripT(s.description),g:0,b:0,f:[]};
+        info[s.name]={t:"召喚師技能",d:stripT(s.description),g:0,b:0,f:[],_sm:{cd:s.cooldownBurn,lvl:s.summonerLevel}}; // _sm＝現行版冷卻/需求等級（yearSet 未載入時的備援）
       });
     });
     // 轉化裝（DDragon 已不列、遊戲內存在）：熾天使的擁抱／終極魔劍／芬布爾之冬
@@ -1730,6 +1730,45 @@ function soloqTipChampsHTML(name){ if(typeof isHistYear==="function"&&isHistYear
   if(!champs||!champs.length)return "";
   const av=champs.slice(0,12).map(id=>`<img class="dexChGo" loading="lazy" data-cid="${esc(id)}" data-fbmode="hide" onerror="champImgFb(this)" src="https://ddragon.leagueoflegends.com/cdn/${yearVer()}/img/champion/${esc(id)}.png" title="${esc(chName(id))}｜${LANG==="en"?"click to view":"點擊查看"}" style="width:34px;height:34px;border-radius:6px;margin:2px;cursor:pointer">`).join("");
   return `<div style="border-top:1px solid #2a3550;margin-top:7px;padding-top:6px"><b>${label}</b><div style="display:flex;flex-wrap:wrap;margin-top:4px">${av}</div></div>`; }
+// 召喚師技能效果數值（精選：DDragon/tooltip 佔位符無法還原具體數字，故人工維護；數值以 wiki 現行版本核對，2026）
+// 冷卻/需求等級改由 yearSet 逐年抓（year-accurate），這裡只放效果magnitude。key＝DDragon zh_TW 技能名。
+const SUMM_DETAIL={
+  "閃現":{fx:"朝游標方向瞬間位移一小段距離（約 400 單位），可穿越地形。全遊戲最泛用的保命／進場技能。",
+          fxEn:"Blinks a short distance (~400 units) toward your cursor, through terrain. The most universal escape/engage tool in the game."},
+  "點燃":{fx:"點燃目標敵方英雄，5 秒內造成 70–525 真實傷害（隨等級遞增），期間施加 50% 重創（降低其治療與生命回復）並使其現形。",
+          fxEn:"Ignites the target enemy champion, dealing 70–525 true damage (scaling with level) over 5s, applying 50% Grievous Wounds (reduced healing) and revealing them."},
+  "治療":{fx:"治療自己與游標附近一名友軍 80–346 生命（隨等級），並給予雙方 30% 跑速持續 1 秒。未指定目標時自動選範圍內最缺血的友軍；對近 35 秒內曾被召喚師治療過的單位效果減半（40–159）。",
+          fxEn:"Restores 80–346 HP (by level) to you and the nearest ally, granting both 30% move speed for 1s. Auto-targets the most wounded ally in range; halved (40–159) if the target was healed by a summoner spell in the last 35s."},
+  "虛弱":{fx:"削弱目標敵方英雄 3 秒：緩速 40%，並降低其造成的傷害 35%（不影響真實傷害）。",
+          fxEn:"Weakens the target enemy champion for 3s: 40% slow and 35% reduced damage dealt (does not reduce true damage)."},
+  "傳送":{fx:"詠唱數秒後傳送到指定的友方建築、小兵或守衛旁；遊戲進行 10 分鐘後升級為「解放型傳送」，大幅提升移送速度。",
+          fxEn:"After a channel, teleports to an allied structure, minion or ward; upgrades to Unleashed Teleport after 10:00 for much faster travel."},
+  "重擊":{fx:"對大型／中型野怪或敵方小兵造成 600 真實傷害（對英雄寵物 40）。2 層充能、每 90 秒回充一層；打野核心技能，餵食打野寵物後可升級。",
+          fxEn:"Deals 600 true damage to a large/medium monster or enemy minion (40 to pets). 2 charges, 90s recharge; core jungle spell, upgrades once the jungle pet is fed."},
+  "鬼步":{fx:"無視單位碰撞並獲得 24%–50.82% 跑速（隨等級遞增），持續 10 秒。",
+          fxEn:"Ignores unit collision and grants 24%–50.82% move speed (by level) for 10s."},
+  "淨化":{fx:"解除自身大部分控制效果（壓制、擊飛、縮視野除外）與召喚師技能減益（標記除外），並獲得 75% 韌性持續 3 秒。",
+          fxEn:"Removes most crowd control (except suppression, airborne, nearsight) and summoner debuffs (except Mark), and grants 75% tenacity for 3s."},
+  "光盾":{fx:"獲得可吸收 100–502 傷害的護盾（隨等級遞增），持續 2.5 秒。不受重創影響，適合對抗爆發或點燃。",
+          fxEn:"Grants a shield absorbing 100–502 damage (by level) for 2.5s. Unaffected by Grievous Wounds; great vs burst or Ignite."}
+};
+// 召喚師技能 tip／詳情卡共用：數據列（冷卻＋需求等級，yearSet 逐年正確；EXTRA_INFO._sm 為當年未載入時的現行版備援）＋效果數值（SUMM_DETAIL）
+function summBlockHTML(name){
+  const en=LANG==="en";
+  const inf=EXTRA_INFO&&EXTRA_INFO[name];
+  const ys=window._DEXSETS&&window._DEXSETS[curYear];
+  const meta=(ys&&ys.sumMeta&&ys.sumMeta[name])||(inf&&inf._sm)||null;
+  let rows="";
+  if(meta){
+    const p=[];
+    if(meta.cd)p.push(en?`Cooldown ${meta.cd}s`:`冷卻 ${meta.cd} 秒`);
+    if(meta.lvl)p.push(en?`Unlocks at level ${meta.lvl}`:`需求等級 ${meta.lvl}`);
+    if(p.length)rows=`<div class="tipRow"><b>${en?"Stats":"數據"}</b><div>${hiNum(esc(p.join("　")))}</div></div>`;
+  }
+  const D=SUMM_DETAIL[name]; const fx=(D&&(en?D.fxEn:D.fx))||(inf&&inf.d)||"";
+  const hist=isHistYear()&&D; // 效果magnitude 為現行版本；檢視歷史年份時加註
+  return rows+(fx?`<div class="tipRow">${hiNum(esc(fx))}</div>`:"")+(hist?`<div class="meta" style="margin-top:2px">${en?"Effect values are current-patch.":"效果數值以現行版本為準。"}</div>`:"");
+}
 function extraTipHTML(name){
   let k=xKey(EXTRA_INFO,name);
   if(!k){ // 合併卡「A／B」→ 逐段找第一個有資料的名稱
@@ -1762,7 +1801,7 @@ function extraTipHTML(name){
       return `<div class="tipRow">${hiNum(esc(s.t))}</div>`;
     }).join("")
     :(inf.d?`<div class="tipRow">${hiNum(esc(inf.d))}</div>`:"");
-  return `<div class="tipTitle">${esc(name)} <span class="meta">${T(inf.t)}${inf.g?(LANG==="en"?`｜Total $${inf.g}`:`｜總價 $${inf.g}`):""}｜${LANG==="en"?"current patch":"目前版本"}</span></div>${comps}${secsHTML}${vars2}${ups}${soloqTipChampsHTML(name)}`;
+  return `<div class="tipTitle">${esc(name)} <span class="meta">${T(inf.t)}${inf.g?(LANG==="en"?`｜Total $${inf.g}`:`｜總價 $${inf.g}`):""}｜${LANG==="en"?"current patch":"目前版本"}</span></div>${comps}${inf.t==="召喚師技能"?summBlockHTML(name):secsHTML}${vars2}${ups}${soloqTipChampsHTML(name)}`;
 }
 // 歷代圖示改由 iconHistRight 統一輸出（放名片/資料卡右側），舊的卡片內版本已移除
 // 圖鑑 道具/符文/召技「資料卡」：大圖＋類型/總價＋合成鏈＋屬性/效果＋最常使用英雄（比照英雄詳情頁，不再只有版本改動總覽）
@@ -1839,7 +1878,7 @@ function dexEntityCardHTML(name){
         ${intro}
       </div>
       ${iconHistRight(name)}</div>
-    <div class="skillsBody" style="margin-top:4px">${histSec}${comps}${(_yss&&!_rework)?"":secsHTML}${vars2}${ups}${soloqTipChampsHTML(name)}</div></div>`;
+    <div class="skillsBody" style="margin-top:4px">${histSec}${comps}${inf.t==="召喚師技能"?summBlockHTML(name):((_yss&&!_rework)?"":secsHTML)}${vars2}${ups}${soloqTipChampsHTML(name)}</div></div>`;
 }
 // 滑鼠移上即顯示說明（同英雄Tier 的顯示方式）；移開即關
 function bindHoverTips(root){
@@ -8046,8 +8085,8 @@ function render(){
             fetch(`${CDN2}/${v}/data/${DDLOC}/runesReforged.json`).then(r=>r.ok?r.json():null).catch(()=>null),
             fetch(`${CDN2}/${v}/data/${DDLOC}/summoner.json`).then(r=>r.ok?r.json():null).catch(()=>null)]);
           const items=new Set(), runes=new Set(), imgI={}, imgR={}, idName={};
-          const summ=new Set(), imgS={}; // 召喚師技能（只收召喚峽谷 CLASSIC 模式；同 srItemOK 精神）
-          if(sm)Object.values(sm.data||{}).forEach(s2=>{ if((s2.modes||[]).includes("CLASSIC")){ summ.add(s2.name); imgS[s2.name]=`${CDN2}/${v}/img/spell/${(s2.image&&s2.image.full)||s2.id+".png"}`; } });
+          const summ=new Set(), imgS={}, sumMeta={}; // 召喚師技能（只收召喚峽谷 CLASSIC 模式；同 srItemOK 精神）；sumMeta＝逐年冷卻/需求等級
+          if(sm)Object.values(sm.data||{}).forEach(s2=>{ if((s2.modes||[]).includes("CLASSIC")){ summ.add(s2.name); imgS[s2.name]=`${CDN2}/${v}/img/spell/${(s2.image&&s2.image.full)||s2.id+".png"}`; sumMeta[s2.name]={cd:s2.cooldownBurn,lvl:s2.summonerLevel}; } });
           // 記下「當年那個版本」的正確圖檔（檔名＝當年 id）：id 會跨版本重用，用現行 id 去舊版會 404（如 2017 盧登回音當年 id 3285）
           const descI={}, goldI={};
           const _iidOf={}; // 同名多 id：正宗原版 id 較小（3023 雙影斗篷 vs TT 複製 3290）
@@ -8059,7 +8098,7 @@ function render(){
             if(d.gold&&d.gold.total!=null)goldI[nm]=d.gold.total;}});
           if(ru)ru.forEach(t=>{runes.add(t.name); if(t.icon)imgR[t.name]=`${CDN_}/img/${t.icon}`;
             t.slots.forEach(sl=>sl.runes.forEach(r2=>{runes.add(r2.name); if(r2.icon)imgR[r2.name]=`${CDN_}/img/${r2.icon}`;}));});
-          return {items,runes,summ,imgI,imgR,imgS,idName,descI,goldI};
+          return {items,runes,summ,imgI,imgR,imgS,sumMeta,idName,descI,goldI};
         };
         try{
           const [end,start,mid]=await Promise.all([grab(vEnd),grab(vStart),grab(vMid)]);
@@ -8077,6 +8116,7 @@ function render(){
           const imgS=Object.assign({},e.imgS,(start&&start.imgS)||{},(mid&&mid.imgS)||{});
           const imgAlt={}; [mid,start,e].forEach(g2=>{ if(!g2)return; Object.entries(g2.imgI||{}).forEach(([n,u])=>{ (imgAlt[n]=imgAlt[n]||[]).includes(u)||imgAlt[n].push(u); }); });
           window._DEXSETS[y]={items:e.items,runes:e.runes,summ:e.summ,goneI,goneR,goneS,imgI,imgR,imgS,imgAlt,
+            sumMeta:Object.assign({},(s&&s.sumMeta)||{},(e&&e.sumMeta)||{}),  // 召喚師技能逐年冷卻/需求等級（年末優先）
             descI:Object.assign({},(start&&start.descI)||{},e.descI||{}),   // 當年道具描述（重製裝的「當年版本效果」用；年末優先）
             goldI:Object.assign({},(start&&start.goldI)||{},e.goldI||{})};
         }catch(err){window._DEXSETS[y]=null;}
