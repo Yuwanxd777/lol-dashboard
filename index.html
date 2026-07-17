@@ -902,20 +902,26 @@ function soloqBuildHTML(cid){ if(typeof isHistYear==="function"&&isHistYear())re
   const sqY=(window.SOLOQ_MATCH_IDX&&window.SOLOQ_MATCH_IDX.year)||2026, isNow=(+curYear||sqY)===+sqY; // 積分資料固定是該年份，切到別年要標明是哪年而非「今年」
   const p2v=(B.p2patches||[]).join("–"); // 近兩版流派的版本範圍(聚合當下最新兩版，職業賽日界定)
   const p2t=en?("Main build paths"+(p2v?` (${p2v})`:" (last 2 patches)")):("近兩版主要出裝流派"+(p2v?`（${p2v}）`:""));
-  // 符文排列（最常用前三，一列三個）：rp=[keystone+主系3]、rs=[副系樹id, 副系符文×2]；只有當年(2026 積分)顯示——本函式歷史年份整體 return ""
-  const runesSec=(()=>{ const arr=d.runes3||[]; if(!arr.length)return "";
+  // 符文排列（改依「最大顆符文＝keystone」分組：前二 keystone，各列前二種完整配置）；只有當年(2026 積分)顯示——本函式歷史年份整體 return ""
+  const runesSec=(()=>{ const arr=d.runesKS||[]; if(!arr.length)return "";
     if(!RUNE_MAP){ loadRunes(()=>{ try{ if(curView==="圖鑑"&&V.dexDetail)render(); }catch(e){} }); }
-    const box=p=>{ const wr=p.n?Math.round(p.w/p.n*100):0; const rp=p.rp||[], rs=p.rs||[];
+    const ksName=id=>(RUNE_MAP&&RUNE_MAP[id]&&RUNE_MAP[id].name)||"";
+    const vrow=p=>{ const wr=p.n?Math.round(p.w/p.n*100):0; const rp=p.rp||[], rs=p.rs||[];
       const treeId=(rs[0]&&RUNE_MAP&&RUNE_MAP[rs[0]]&&RUNE_MAP[rs[0]].tree)||rs[0];
       const subs=rs.filter(x=>x&&!(RUNE_MAP&&RUNE_MAP[x]&&RUNE_MAP[x].tree===x)); // 去掉樹 id 本身，留副系符文
-      return `<div style="border:1px solid #33405c;border-radius:8px;padding:9px 12px;display:flex;flex-direction:column;gap:6px;background:rgba(255,255,255,.02)">
-        <div style="display:flex;align-items:center;gap:5px">${runeImg(rp[0],34)}${rp.slice(1).map(x=>runeImg(x,22)).join("")}</div>
-        <div style="display:flex;align-items:center;gap:5px">${runeImg(treeId,18)}${subs.map(x=>runeImg(x,22)).join("")}
-          <span class="meta" style="margin-left:14px;font-size:13px;white-space:nowrap">${p.n}${en?"g":"場"}</span>
-          <b style="color:${wrCol(wr)};font-size:14px;white-space:nowrap">${wr}%</b></div>
+      return `<div style="display:flex;align-items:center;gap:5px;padding:5px 0">
+        ${rp.slice(1).map(x=>runeImg(x,22)).join("")}<span style="width:8px"></span>${runeImg(treeId,18)}${subs.map(x=>runeImg(x,22)).join("")}
+        <span class="meta" style="margin-left:12px;font-size:13px;white-space:nowrap">${p.n}${en?"g":"場"}</span>
+        <b style="color:${wrCol(wr)};font-size:14px;white-space:nowrap">${wr}%</b></div>`;};
+    const ksBox=g=>{ const kwr=g.n?Math.round(g.w/g.n*100):0; const nm=ksName(g.ks);
+      return `<div style="border:1px solid #33405c;border-radius:8px;padding:10px 12px;background:rgba(255,255,255,.02)">
+        <div style="display:flex;align-items:center;gap:8px;padding-bottom:7px;border-bottom:1px solid var(--line)">
+          ${runeImg(g.ks,38)}<div style="min-width:0"><div style="font-weight:bold">${esc(nm)}</div>
+          <div style="font-size:12.5px"><span class="meta">${g.n}${en?"g":"場"}</span> <b style="color:${wrCol(kwr)}">${kwr}%</b></div></div></div>
+        <div style="display:flex;flex-direction:column;margin-top:3px">${(g.v||[]).map(vrow).join("")}</div>
       </div>`;};
-    return `<div style="margin-top:16px"><div style="margin-bottom:8px;font-weight:bold;color:var(--tx2)">${en?"Top 3 rune setups":"符文排列（最常用前三）"}</div>
-      <div style="display:grid;grid-template-columns:repeat(3,minmax(200px,max-content));gap:12px;overflow-x:auto">${arr.map(box).join("")}</div></div>`;})();
+    return `<div style="margin-top:16px"><div style="margin-bottom:8px;font-weight:bold;color:var(--tx2)">${en?"Top 2 keystones (2 setups each)":"符文排列（前二基石．各列兩種配置）"}</div>
+      <div style="display:grid;grid-template-columns:repeat(2,minmax(240px,max-content));gap:12px;overflow-x:auto">${arr.map(ksBox).join("")}</div></div>`;})();
   // 積分摘要列：召喚師技能組合（sp，名稱查 EXTRA_IMG 拿圖）＋對線@15＋搶二率（hero 彙總，全路線加總）
   const statsSec=(()=>{ const H=B.hero&&B.hero[cid], sp=B.sp&&B.sp[cid];
     if(!H&&!sp)return "";
