@@ -9,6 +9,8 @@ python scripts\fetch_promo.py >> "%LOG%" 2>&1
 python scripts\fetch_data.py >> "%LOG%" 2>&1
 python scripts\fetch_patches.py >> "%LOG%" 2>&1
 python scripts\fetch_patches_en.py >> "%LOG%" 2>&1
+rem 改版文本清理（售價行刪除/前綴翻中/AP AD/英名對照；冪等，重抓後保持乾淨）
+python scripts\clean_patch_text.py >> "%LOG%" 2>&1
 python scripts\fetch_skills.py >> "%LOG%" 2>&1
 python scripts\fetch_items.py >> "%LOG%" 2>&1
 python scripts\fetch_jungle.py >> "%LOG%" 2>&1

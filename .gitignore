@@ -26,6 +26,7 @@
 !soloq_builds.js
 !soloq_match_index.js
 !soloq_matches/*.js
+!push_time.js
 !t2s.js
 !assets.js
 !data/data_*.js
@@ -35,6 +36,8 @@
 !fonts/*.otf
 !scripts/*.py
 !scripts/soloq_accounts.json
+!scripts/tr_fix.json
+!scripts/tr_names_extra.json
 !update.bat
 !publish.bat
 !start.bat

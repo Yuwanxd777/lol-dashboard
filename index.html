@@ -650,6 +650,7 @@
 
 <script src="data.js"></script>
 <script src="patches.js" onerror="window.LOL_PATCHES={}"></script>
+<script src="push_time.js" onerror="window.PUSH_TIME=''"></script>
 <script>/* 延遲載入（性能）：wiki 三檔＋英文公告＋刷野合計 ~5.2MB，改為進對應分頁或首屏後閒置預載（lazyLoad）才掛載，
    首載 JS 從 ~8.3MB 降到 ~3MB。skills.js 是全站中文英雄名來源（chName）→ 維持同步。先給空預設讓各處守衛正常。 */
 window.WIKI_PATCHES=window.WIKI_PATCHES||{}; window.WIKI_EXTRA=window.WIKI_EXTRA||{}; window.WIKI_OBJECTIVES=window.WIKI_OBJECTIVES||{};</script>
@@ -909,57 +910,52 @@ function soloqBuildHTML(cid){ if(typeof isHistYear==="function"&&isHistYear())re
     const vrow=p=>{ const wr=p.n?Math.round(p.w/p.n*100):0; const rp=p.rp||[], rs=p.rs||[];
       const treeId=(rs[0]&&RUNE_MAP&&RUNE_MAP[rs[0]]&&RUNE_MAP[rs[0]].tree)||rs[0];
       const subs=rs.filter(x=>x&&!(RUNE_MAP&&RUNE_MAP[x]&&RUNE_MAP[x].tree===x)); // 去掉樹 id 本身，留副系符文
-      return `<div style="display:flex;align-items:center;gap:5px;padding:5px 0">
+      return `<div style="display:flex;align-items:center;gap:5px;padding:9px 0">
         ${rp.slice(1).map(x=>runeImg(x,22)).join("")}<span style="width:8px"></span>${runeImg(treeId,18)}${subs.map(x=>runeImg(x,22)).join("")}
         <span class="meta" style="margin-left:12px;font-size:13px;white-space:nowrap">${p.n}${en?"g":"場"}</span>
         <b style="color:${wrCol(wr)};font-size:14px;white-space:nowrap">${wr}%</b></div>`;};
-    const ksBox=g=>{ const kwr=g.n?Math.round(g.w/g.n*100):0; const nm=ksName(g.ks);
+    const ksBox=(g,gi)=>{ const kwr=g.n?Math.round(g.w/g.n*100):0; const nm=ksName(g.ks);
       // 用此 keystone 最常對到的英雄（一列頭像，可點跳該英雄詳情）
-      const oppRow=(g.opp&&g.opp.length)?`<div style="display:flex;align-items:center;gap:3px;flex-wrap:wrap;margin-top:7px;padding-top:7px;border-top:1px solid var(--line)">
+      const oppRow=(g.opp&&g.opp.length)?`<div style="display:flex;align-items:center;gap:3px;flex-wrap:wrap;margin-top:5px">
         <span class="meta" style="font-size:11.5px;margin-right:3px;white-space:nowrap">${en?"vs":"常對到"}</span>
         ${g.opp.slice(0,8).map(id=>`<img loading="lazy" class="dexChGo" data-cid="${esc(id)}" data-fbmode="hide" onerror="champImgFb(this)" title="${esc(chName(id))}" src="https://ddragon.leagueoflegends.com/cdn/${yearVer()}/img/champion/${esc(id)}.png" style="width:24px;height:24px;border-radius:5px;cursor:pointer">`).join("")}</div>`:"";
-      return `<div style="border:1px solid #33405c;border-radius:8px;padding:10px 12px;background:rgba(255,255,255,.02)">
-        <div style="display:flex;align-items:center;gap:8px;padding-bottom:7px;border-bottom:1px solid var(--line)">
-          ${runeImg(g.ks,38)}<div style="min-width:0"><div style="font-weight:bold">${esc(nm)}</div>
-          <div style="font-size:12.5px"><span class="meta">${g.n}${en?"g":"場"}</span> <b style="color:${wrCol(kwr)}">${kwr}%</b></div></div></div>
-        <div style="display:flex;flex-direction:column;margin-top:3px">${(g.v||[]).map(vrow).join("")}</div>${oppRow}
+      // 無框設計：基石標頭列（大圖＋名＋場數勝率）當分組標題，組間用細分隔線（同流派欄列距風格）
+      return `<div style="${gi?"border-top:1px solid #222a3c;margin-top:14px;padding-top:14px;":""}">
+        <div style="display:flex;align-items:center;gap:8px">
+          ${runeImg(g.ks,34)}<b>${esc(nm)}</b>
+          <span class="meta" style="font-size:12.5px">${g.n}${en?"g":"場"}</span> <b style="color:${wrCol(kwr)};font-size:13.5px">${kwr}%</b></div>
+        <div style="display:flex;flex-direction:column;margin-top:2px">${(g.v||[]).map(vrow).join("")}</div>${oppRow}
       </div>`;};
-    return `<div style="display:flex;flex-direction:column;gap:10px">${arr.map(ksBox).join("")}</div>`;};
-  // 對線摘要列：金差@15＋經差@15＋搶二率（hh＝該路線 15 欄陣列；召技已移到框內第 1 欄）
+    return `<div style="display:flex;flex-direction:column">${arr.map(ksBox).join("")}</div>`;};
   const heroLanes=(B.hero&&B.hero[cid])||null;
-  const statsRow=hh=>{
-    if(!hh)return "";
-    const gdN=hh[9]||0,gdS=hh[10]||0,xdN=hh[11]||0,xdS=hh[12]||0,flN=hh[13]||0,flY=hh[14]||0;
-    const sg=v=>(v>0?"+":"")+Math.round(v);
-    const bits=[];
-    if(gdN)bits.push(`<span><b style="color:var(--tx2)">${en?"GD@15":"金差@15"}</b> <span class="num">${sg(gdS/gdN)}</span></span>`);
-    if(xdN)bits.push(`<span><b style="color:var(--tx2)">${en?"XPD@15":"經差@15"}</b> <span class="num">${sg(xdS/xdN)}</span></span>`);
-    if(flN)bits.push(`<span><b style="color:var(--tx2)">${en?"1st to Lv2":"搶二率"}</b> <span class="num">${Math.round(flY/flN*100)}%</span></span>`);
-    return bits.length?`<div style="margin-top:14px;padding-top:10px;border-top:1px solid var(--line);display:flex;align-items:center;gap:22px;flex-wrap:wrap">${bits.join("")}</div>`:"";};
   // 召喚師技能欄（框內第 1 欄）：每組直列一行（兩圖＋%）
   const spCol=spArr=>(spArr||[]).map(p=>`<div style="display:flex;align-items:center;gap:3px;margin-bottom:6px">${p.s.map(nm=>{const u=(typeof EXTRA_IMG!=="undefined")&&EXTRA_IMG&&EXTRA_IMG[nm];return u?`<img loading="lazy" src="${u}" title="${esc(nm)}" style="width:26px;height:26px;border-radius:5px;border:1px solid #33405c">`:esc(nm);}).join("")}<span class="num" style="font-size:12.5px;margin-left:5px">${p.pct}%</span></div>`).join("")||'<span class="meta">—</span>';
-  // 一路一框，框內五欄：①召喚師技能＋起手裝 ②符文排列 ③鞋子＋剩餘 ④核心裝＋流派 ⑤近兩版；框尾對線摘要
-  const laneBox=(pos,D,st,hh,spArr,i)=>{
+  // 一路一框，框內四欄：①符文排列 ②召喚師技能＋起手裝＋鞋子＋剩餘 ③核心裝＋流派 ④近兩版
+  // 多路線時預設只展開場數最多的路線，其餘收合、點標頭（▶/▼）展開
+  const laneBox=(pos,D,st,hh,spArr,i,collapsible)=>{
     const ln=(hh&&hh[0])||D.n||0;
     const lwr=hh&&hh[0]?Math.round(hh[1]/hh[0]*100):null;
+    const open=!collapsible||i===0;
+    const arrow=collapsible?`<span class="lbArr" style="margin-left:auto;font-size:14px;color:var(--tx2);flex:0 0 auto">${open?"▼":"▶"}</span>`:"";
+    const headAttr=collapsible?` onclick="const b=this.nextElementSibling,o=b.style.display!=='none';b.style.display=o?'none':'';this.querySelector('.lbArr').textContent=o?'▶':'▼'" style="display:flex;align-items:center;gap:9px;cursor:pointer" title="${en?"click to expand/collapse":"點擊展開／收合"}"`:` style="display:flex;align-items:center;gap:9px"`;
     return `<div style="border:1px solid #33405c;border-radius:10px;padding:14px 16px;background:rgba(255,255,255,.015);margin-top:${i?"14px":"8px"}">
-      <div style="display:flex;align-items:center;gap:9px;margin-bottom:13px">${laneIco(pos)}<span style="font-weight:bold;font-size:17px">${POSZH[pos]||pos}</span><span class="meta" style="font-size:13px">${ln}${en?"g":"場"}</span>${lwr!=null?`<b style="color:${wrCol(lwr)};font-size:14px">${lwr}%</b>`:""}</div>
+      <div${headAttr}>${laneIco(pos)}<span style="font-weight:bold;font-size:17px">${POSZH[pos]||pos}</span><span class="meta" style="font-size:13px">${ln}${en?"g":"場"}</span>${lwr!=null?`<b style="color:${wrCol(lwr)};font-size:14px">${lwr}%</b>`:""}${arrow}</div>
+      <div class="lbBody" style="display:${open?"":"none"};margin-top:13px">
       <div style="display:flex;gap:22px;flex-wrap:wrap;align-items:flex-start">
-        ${column([[en?"Summoners":"召喚師技能",spCol(spArr)],[pos==="UTILITY"?(en?"Support item":"輔助裝"):(en?"Starting item":"起手裝"),st?`<div style="display:flex;flex-wrap:wrap">${itemsPct(st.items)}</div>`:'<span class="meta">—</span>']],200)}
         ${column([[en?"Rune setups (top keystones)":"符文排列（前三基石）",runesGrid(D.runesKS)]],250)}
-        ${column([[en?"Boots":"鞋子",wrap(itemsPct(D.boots))],[en?"Other viable items":"剩餘適合裝備",`<div style="display:flex;flex-wrap:wrap;width:252px">${itemsPct(D.rest)}</div>`]],270)}
+        ${column([[en?"Summoners":"召喚師技能",spCol(spArr)],[pos==="UTILITY"?(en?"Support item":"輔助裝"):(en?"Starting item":"起手裝"),st?`<div style="display:flex;flex-wrap:wrap">${itemsPct(st.items)}</div>`:'<span class="meta">—</span>'],[en?"Boots":"鞋子",wrap(itemsPct(D.boots))],[en?"Other viable items":"剩餘適合裝備",`<div style="display:flex;flex-wrap:wrap;width:252px">${itemsPct(D.rest)}</div>`]],270)}
         ${column([[en?"Core items (build rate)":"核心裝（出裝率）",wrap(itemsPct(D.core))],[en?"Main build paths (order + win%)":"主要出裝流派（購買順序＋勝率）",seqRows(D.paths,true)]],300)}
         ${column([[(en?("Core items"+(p2v?` (${p2v})`:" (last 2 patches)")):("近兩版核心裝"+(p2v?`（${p2v}）`:""))),wrap(itemsPct(D.core100))],[p2t,seqRows(D.paths2p||D.paths100,true)]],300)}
-      </div>${statsRow(hh)}</div>`;};
+      </div></div></div>`;};
   const _noQ=p=>p&&p!=="?";
   const BL=d.byLane||null, laneKeys=BL?Object.keys(BL).sort((a,b)=>(BL[b].n||0)-(BL[a].n||0)):[];
   let body;
-  if(laneKeys.length>=2){ // 多路線英雄：byLane 每路一框，資料互不混
-    body=laneKeys.map((pos,i)=>laneBox(pos,BL[pos],d.start&&d.start[pos],heroLanes&&heroLanes[pos],BL[pos].sp,i)).join("");
-  }else{ // 單路線英雄：同款一框（主路線標頭＋整體資料）
+  if(laneKeys.length>=2){ // 多路線英雄：byLane 每路一框（第一框展開、其餘點開），資料互不混
+    body=laneKeys.map((pos,i)=>laneBox(pos,BL[pos],d.start&&d.start[pos],heroLanes&&heroLanes[pos],BL[pos].sp,i,true)).join("");
+  }else{ // 單路線英雄：同款一框（主路線標頭＋整體資料；不需收合）
     const domPos=heroLanes?Object.keys(heroLanes).filter(_noQ).sort((a,b)=>(heroLanes[b][0]||0)-(heroLanes[a][0]||0))[0]:null;
     const st=(d.start&&domPos&&d.start[domPos])||(d.start&&Object.values(d.start).sort((a,b)=>(b.n||0)-(a.n||0))[0])||null;
-    body=laneBox(domPos||"TOP",d,st,domPos&&heroLanes?heroLanes[domPos]:null,B.sp&&B.sp[cid],0);
+    body=laneBox(domPos||"TOP",d,st,domPos&&heroLanes?heroLanes[domPos]:null,B.sp&&B.sp[cid],0,false);
   }
   return `<div class="card"><h2>🛠️ ${en?"Core items & builds":"核心裝備與出裝流派"} <span class="sub">${en?`${isNow?"ranked this year":sqY+" ranked"} · ${d.n} games${laneKeys.length>=2?" · by lane":""}`:`積分（${isNow?"今年":sqY+" 年"}）· ${d.n} 場${laneKeys.length>=2?"｜依路線分開統計":""}`}</span></h2>${body}</div>`; }
 const SUMM_KEY={1:"SummonerBoost",3:"SummonerExhaust",4:"SummonerFlash",6:"SummonerHaste",7:"SummonerHeal",11:"SummonerSmite",12:"SummonerTeleport",13:"SummonerMana",14:"SummonerDot",21:"SummonerBarrier",32:"SummonerSnowball",39:"SummonerSnowballRaid",30:"SummonerPoroRecall",31:"SummonerPoroThrow",54:"Summoner_UltBookPlaceholder",55:"Summoner_UltBookSmitePlaceholder"};
@@ -2169,7 +2165,9 @@ function initData(){
   LEAGUES=[...new Set(RAW.slice(1).map(r=>r[C.league]))].filter(s=>s).sort();
   PATCHES=[...new Set(RAW.slice(1).map(r=>String(r[C.patch]).trim()))].filter(s=>s).sort();
   _seasonBounds=null; // 換年份重算賽季時間邊界
-  document.getElementById("meta").textContent=`資料時間 ${D.fetched_at}`;
+  // 公開版(GitHub Pages)顯示「推送上去的時間」（publish.bat 產 push_time.js）；本機版顯示資料抓取時間
+  const _pub=location.protocol!=="file:"&&!["localhost","127.0.0.1"].includes(location.hostname);
+  document.getElementById("meta").textContent=`資料時間 ${(_pub&&window.PUSH_TIME)?window.PUSH_TIME:D.fetched_at}`;
   const ys=document.getElementById("yearSel");
   ys.innerHTML=(M.years.length?M.years:[curYear]).map(y=>`<option ${+y===+curYear?"selected":""}>${y}</option>`).join("");
 }
