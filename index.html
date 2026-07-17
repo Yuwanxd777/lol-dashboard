@@ -125,7 +125,7 @@
   table{width:100%;border-collapse:collapse;font-size:15.5px;table-layout:fixed} /* 固定欄寬：篩選改變內容時欄寬不跳動 */
   th,td{padding:8px 11px;text-align:center;border-bottom:1px solid #222a3c;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   th.rkh{width:68px}                 /* 名次欄：三位數名次(含較寬字體如粉圓)完整放得下 */
-  .thL{position:relative;display:inline-block}          /* 欄名容器：以文字寬度置中，三角形不撐寬它 */
+  .thL{position:relative;display:inline-block;white-space:nowrap}          /* 欄名容器：以文字寬度置中，三角形不撐寬它；只在明確 <br> 處換行，避免中文欄名被擠到軟換行 */
   .sortArr{position:absolute;left:100%;top:50%;transform:translateY(-50%);margin-left:5px;font-size:.82em;opacity:0;pointer-events:none} /* 三角形貼在欄名右側5px，絕對定位→欄名自然置中、排序切換不推移資料 */
   .sortArr.on{opacity:1}
   .sortArr.asc{color:#37c871}  /* 升幕：綠 */
@@ -4430,7 +4430,7 @@ function tableHTML(cols,rows,nameImg,limit){ // limit：只渲染排序後前 N 
     if(val<=rk.lo)return val===rk.bot?(inv?"hi1":"lo1"):(inv?"hi3":"lo3");
     return "";
   };
-  const thBrk=n=>{if(n==="勝率(勝-敗)")return n; let s=(LANG==="en")?n.replace(/ +/g," ").trim():n; const i=s.search(/[（(@]/); if(i>0)s=`${s.slice(0,i)}<br>${s.slice(i)}`; s=s.replace(/→/g,"→<br>"); if(LANG==="en")s=s.replace(/ /g,"<br>"); return s.replace(/(<br>){2,}/g,"<br>");}; // 表頭遇括號/@/箭頭換行；英文再於半形空格處換行（只斷空格、不硬斷字）；合併連續<br>避免多空行
+  const thBrk=n=>{if(n==="勝率(勝-敗)"||n==="金差@15"||n==="經差@15"||n==="GD@15"||n==="XPD@15")return n; let s=(LANG==="en")?n.replace(/ +/g," ").trim():n; const i=s.search(/[（(@]/); if(i>0)s=`${s.slice(0,i)}<br>${s.slice(i)}`; s=s.replace(/→/g,"→<br>"); if(LANG==="en")s=s.replace(/ /g,"<br>"); return s.replace(/(<br>){2,}/g,"<br>");}; // 表頭遇括號/@/箭頭換行（積分表 @15 欄名短→整欄一行不斷）；英文再於半形空格處換行（只斷空格、不硬斷字）；合併連續<br>避免多空行
   const show=(limit&&limit<sorted.length)?sorted.slice(0,limit):sorted; // 分批：只渲染前 N 列（名次仍用完整排序索引 ri）
   return `<div class="tblwrap"><table><thead><tr><th class="rkh">#</th>${cols.map(([c,,w,lbl])=>`<th data-k="${c}"${w?` style="width:${w}"`:""}><span class="thL">${thBrk(lbl||mLabel(c))}${arrow(c)}</span></th>`).join("")}</tr></thead><tbody>${
     show.map((r,ri)=>`<tr><td class="rk${ri<3?` rk${ri+1}`:""}">${ri+1}</td>${cols.map(([c,f],i)=>{
@@ -5293,6 +5293,12 @@ function applyT2S(root){
 }
 function render(){
   syncRankedTab(); // 積分只在當年(非歷史年)可見
+  // 積分限定版本（職業賽還沒打到的 26.14、跳過的 26.12）只在英雄分頁積分模式有意義：
+  // 一離開該情境（切回職業賽模式／換分頁／換年份）就自動清掉，避免整頁被不存在的版本篩成空白
+  if(F.patch&&!PATCHES.includes(F.patch)){
+    const sqOK=curView==="英雄"&&!isHistYear()&&V&&V.heroMode==="soloq"&&window.SOLOQ_BUILDS&&(SOLOQ_BUILDS.patches||[]).includes(F.patch);
+    if(!sqOK)F.patch="";
+  }
   main.dataset.view=curView; // 分頁級 CSS 掛鉤（hover 白光等）
   // 轉跳到新頁(分頁/詳情頁改變)就捲回最上方；排序/篩選/搜尋等原地更新不捲
   {const _pk=[curView,V.heroDetail||"",V.rankDetail||"",V.dexSec||"",V.dexDetail?JSON.stringify(V.dexDetail):""].join("|");
