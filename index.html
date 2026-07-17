@@ -902,7 +902,7 @@ function soloqBuildHTML(cid){ if(typeof isHistYear==="function"&&isHistYear())re
   const sqY=(window.SOLOQ_MATCH_IDX&&window.SOLOQ_MATCH_IDX.year)||2026, isNow=(+curYear||sqY)===+sqY; // 積分資料固定是該年份，切到別年要標明是哪年而非「今年」
   const p2v=(B.p2patches||[]).join("–"); // 近兩版流派的版本範圍(聚合當下最新兩版，職業賽日界定)
   const p2t=en?("Main build paths"+(p2v?` (${p2v})`:" (last 2 patches)")):("近兩版主要出裝流派"+(p2v?`（${p2v}）`:""));
-  // 符文排列（改依「最大顆符文＝keystone」分組：前二 keystone，各列前二種完整配置）；只有當年(2026 積分)顯示——本函式歷史年份整體 return ""
+  // 符文排列（依「最大顆符文＝keystone」分組：前三 keystone，各列前二種完整配置）；只有當年(2026 積分)顯示——本函式歷史年份整體 return ""
   const runesSec=(()=>{ const arr=d.runesKS||[]; if(!arr.length)return "";
     if(!RUNE_MAP){ loadRunes(()=>{ try{ if(curView==="圖鑑"&&V.dexDetail)render(); }catch(e){} }); }
     const ksName=id=>(RUNE_MAP&&RUNE_MAP[id]&&RUNE_MAP[id].name)||"";
@@ -920,8 +920,8 @@ function soloqBuildHTML(cid){ if(typeof isHistYear==="function"&&isHistYear())re
           <div style="font-size:12.5px"><span class="meta">${g.n}${en?"g":"場"}</span> <b style="color:${wrCol(kwr)}">${kwr}%</b></div></div></div>
         <div style="display:flex;flex-direction:column;margin-top:3px">${(g.v||[]).map(vrow).join("")}</div>
       </div>`;};
-    return `<div style="margin-top:16px"><div style="margin-bottom:8px;font-weight:bold;color:var(--tx2)">${en?"Top 2 keystones (2 setups each)":"符文排列（前二基石．各列兩種配置）"}</div>
-      <div style="display:grid;grid-template-columns:repeat(2,minmax(240px,max-content));gap:12px;overflow-x:auto">${arr.map(ksBox).join("")}</div></div>`;})();
+    return `<div style="margin-top:16px"><div style="margin-bottom:8px;font-weight:bold;color:var(--tx2)">${en?"Top 3 keystones (2 setups each)":"符文排列（前三基石．各列兩種配置）"}</div>
+      <div style="display:grid;grid-template-columns:repeat(3,minmax(240px,max-content));gap:12px;overflow-x:auto">${arr.map(ksBox).join("")}</div></div>`;})();
   // 積分摘要列：召喚師技能組合（sp，名稱查 EXTRA_IMG 拿圖）＋對線@15＋搶二率（hero 彙總，全路線加總）
   const statsSec=(()=>{ const H=B.hero&&B.hero[cid], sp=B.sp&&B.sp[cid];
     if(!H&&!sp)return "";

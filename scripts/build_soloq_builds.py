@@ -299,16 +299,16 @@ def main():
             if tot < COREP_MINWIN: continue
             ids = [iid for iid, k in cnt.items() if k / tot * 100 >= 10]
             if ids: coreP[P] = ids
-        # 符文排列：改依「最大顆符文(keystone＝主系第一顆)」分組 → 取前二 keystone，各附前二種完整配置
-        # runesKS = [{ks:keystone id, n:該keystone總場, w:總勝場, v:[{rp,rs,n,w}×最多2]}×最多2]
+        # 符文排列：依「最大顆符文(keystone＝主系第一顆)」分組 → 取前三 keystone，各附前二種完整配置
+        # runesKS = [{ks:keystone id, n:該keystone總場, w:總勝場, v:[{rp,rs,n,w}×最多2]}×最多3]
         ks_games = Counter(); ks_pages = defaultdict(list)
         for _sig, _cnt in runePage[c].items():
             _ks = _sig[0][0]  # rp4[0] ＝ keystone
             ks_games[_ks] += _cnt
             ks_pages[_ks].append((_sig, _cnt, runePageW[c][_sig]))
         runesKS = []
-        for _ki, (_ks, _kn) in enumerate(ks_games.most_common(2)):
-            if _ki >= 1 and _kn < 10: break  # 第二基石樣本 <10 場＝雜訊，不列（勝率會誤導）
+        for _ki, (_ks, _kn) in enumerate(ks_games.most_common(3)):
+            if _ki >= 1 and _kn < 10: break  # 第二、三基石樣本 <10 場＝雜訊，不列（勝率會誤導；most_common 遞減故 break）
             _vs_all = sorted(ks_pages[_ks], key=lambda x: -x[1])
             _vs = [v for _vi, v in enumerate(_vs_all) if _vi == 0 or v[1] >= 3][:2]  # 該 keystone 前二種排列（第二種需 ≥3 場）
             _kw = sum(_w for _, _, _w in ks_pages[_ks])
