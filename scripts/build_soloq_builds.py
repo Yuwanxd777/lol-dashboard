@@ -193,12 +193,13 @@ def main():
     ksOppL = defaultdict(lambda: defaultdict(lambda: defaultdict(Counter)))  # 英雄 -> 路線 -> keystone -> 對位
     suCntL = defaultdict(lambda: defaultdict(Counter))        # 英雄 -> 路線 -> 召技組合
     corePGames = defaultdict(list)  # 英雄 -> [(t, (該場常用道具tuple))]：算 coreP(版本趨勢用；含大裝＋鞋＋起手裝，如多蘭之盔)
+    chGames = defaultdict(list)     # 英雄 -> 逐場（積分版英雄詳情「出場紀錄」用；輸出時每英雄取最近 100 場）
     scanned = 0
     for fp in glob.glob(os.path.join(OUTDIR, "*.js")):
         txt = open(fp, encoding="utf-8").read()
         m = re.match(r'window\.__sqLoad\((.*)\);\s*$', txt, re.S)
         if not m: continue
-        _, data = json.loads('[' + m.group(1) + ']')
+        pkey, data = json.loads('[' + m.group(1) + ']')  # pkey＝「隊|選手」（出場紀錄顯示用）
         for g in data.get("matches", []):
             c = CHAMP_FIX.get(g.get("c"), g.get("c"))
             if not c: continue
@@ -216,6 +217,11 @@ def main():
             lk = None if _hl == "?" else _hl  # 每路線聚合的路線鍵（未知路線不入 byLane，仍計整體）
             _opp = CHAMP_FIX.get(g.get("o"), g.get("o"))
             if _opp: _m = muCnt[c][_opp]; _m[0] += 1; _m[1] += win
+            # 逐場（出場紀錄）：[t, 選手key, 路線縮寫, 勝, K, D, A, KP, 對位, 金差15, 經差15, 評分]
+            chGames[c].append((g.get("t") or 0, pkey, {"TOP": "T", "JUNGLE": "J", "MIDDLE": "M", "BOTTOM": "B", "UTILITY": "U"}.get(_hl, ""),
+                               win, g.get("k") or 0, g.get("de") or 0, g.get("a") or 0,
+                               (round(g["kp"]) if g.get("kp") is not None else None), _opp or "",
+                               g.get("gd15"), g.get("xd15"), g.get("sc")))
             _su = [x for x in (g.get("su") or []) if x]
             if len(_su) == 2:
                 _sp2 = tuple(sorted(_su)); suCnt[c][_sp2] += 1
@@ -414,6 +420,12 @@ def main():
     with open(OUT, "w", encoding="utf-8") as f:
         f.write("window.SOLOQ_BUILDS=" + json.dumps(payload, ensure_ascii=False) + ";\n")
     print(f"完成：{len(champs)} 英雄 / {len(items)} 道具 / {len(runes)} 符文（掃 {scanned} 場）→ {OUT}（{os.path.getsize(OUT)/1024:.0f} KB）")
+    # 積分版英雄詳情「出場紀錄」：每英雄最近 100 場（延遲載入檔，開積分英雄詳情才載）
+    cg = {c: [list(r) for r in sorted(chGames[c], key=lambda x: -x[0])[:100]] for c in chGames if games[c] >= MIN_GAMES}
+    OUT2 = os.path.join(ROOT, "soloq_champ_games.js")
+    with open(OUT2, "w", encoding="utf-8") as f:
+        f.write("window.SOLOQ_CHGAMES=" + json.dumps(cg, ensure_ascii=False) + ";\n")
+    print(f"出場紀錄：{len(cg)} 英雄 × 最近100場 → {OUT2}（{os.path.getsize(OUT2)/1024:.0f} KB）")
 
 if __name__ == "__main__":
     main()
