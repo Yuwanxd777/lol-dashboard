@@ -914,11 +914,15 @@ function soloqBuildHTML(cid){ if(typeof isHistYear==="function"&&isHistYear())re
         <span class="meta" style="margin-left:12px;font-size:13px;white-space:nowrap">${p.n}${en?"g":"場"}</span>
         <b style="color:${wrCol(wr)};font-size:14px;white-space:nowrap">${wr}%</b></div>`;};
     const ksBox=g=>{ const kwr=g.n?Math.round(g.w/g.n*100):0; const nm=ksName(g.ks);
+      // 用此 keystone 最常對到的英雄（一列頭像，可點跳該英雄詳情）
+      const oppRow=(g.opp&&g.opp.length)?`<div style="display:flex;align-items:center;gap:3px;flex-wrap:wrap;margin-top:7px;padding-top:7px;border-top:1px solid var(--line)">
+        <span class="meta" style="font-size:11.5px;margin-right:3px;white-space:nowrap">${en?"vs":"常對到"}</span>
+        ${g.opp.slice(0,8).map(id=>`<img loading="lazy" class="dexChGo" data-cid="${esc(id)}" data-fbmode="hide" onerror="champImgFb(this)" title="${esc(chName(id))}" src="https://ddragon.leagueoflegends.com/cdn/${yearVer()}/img/champion/${esc(id)}.png" style="width:24px;height:24px;border-radius:5px;cursor:pointer">`).join("")}</div>`:"";
       return `<div style="border:1px solid #33405c;border-radius:8px;padding:10px 12px;background:rgba(255,255,255,.02)">
         <div style="display:flex;align-items:center;gap:8px;padding-bottom:7px;border-bottom:1px solid var(--line)">
           ${runeImg(g.ks,38)}<div style="min-width:0"><div style="font-weight:bold">${esc(nm)}</div>
           <div style="font-size:12.5px"><span class="meta">${g.n}${en?"g":"場"}</span> <b style="color:${wrCol(kwr)}">${kwr}%</b></div></div></div>
-        <div style="display:flex;flex-direction:column;margin-top:3px">${(g.v||[]).map(vrow).join("")}</div>
+        <div style="display:flex;flex-direction:column;margin-top:3px">${(g.v||[]).map(vrow).join("")}</div>${oppRow}
       </div>`;};
     return `<div style="margin-top:16px"><div style="margin-bottom:8px;font-weight:bold;color:var(--tx2)">${en?"Top 3 keystones (2 setups each)":"符文排列（前三基石．各列兩種配置）"}</div>
       <div style="display:grid;grid-template-columns:repeat(3,minmax(240px,max-content));gap:12px;overflow-x:auto">${arr.map(ksBox).join("")}</div></div>`;})();
@@ -8016,6 +8020,7 @@ function render(){
         const go=document.getElementById("dexGoHero");
         if(go)go.onclick=()=>{V.heroDetail=dd.full;V.hdOpp="";V.hdLane="";V.dexDetail=null;curView="英雄";saveState();
           document.querySelectorAll("nav .tab").forEach(x=>x.classList.toggle("on",x.dataset.view==="英雄"));render();};
+        hp.querySelectorAll(".dexChGo").forEach(el=>el.onclick=()=>{ const id=el.dataset.cid; if(!id)return; V.dexDetail={type:"champ",id,zh:chName(id)}; saveState(); render(); }); // 符文盒「常對到」對位頭像 → 跳該英雄詳情
       }else{
         // EXTRA_INFO 沒有這個名字（已移除的符文/道具、或用英文名進來）→ 用資產索引組一張基本卡，不再空白
         let card=dexEntityCardHTML(dd.name);

@@ -180,6 +180,7 @@ def main():
         return _bp[i] if i >= 0 else _bp[0]
     muCnt = defaultdict(lambda: defaultdict(lambda: [0, 0]))  # 積分對位：英雄 -> 對位英雄 -> [場,勝]（g.o＝dpm 的對位欄）
     suCnt = defaultdict(Counter)                              # 召喚師技能組合：英雄 -> (id小,id大) -> 場數
+    ksOpp = defaultdict(lambda: defaultdict(Counter))         # 符文盒「常對到」：英雄 -> keystone -> 對位英雄 -> 場數
     recentCore = defaultdict(list)  # 英雄 -> [(t, (大裝tuple))]：算近100場核心裝
     recentPath = defaultdict(list)  # 英雄 -> [(t, (序列tuple), win)]：算「近兩版」出裝流派(依版本視窗過濾)
     corePGames = defaultdict(list)  # 英雄 -> [(t, (該場常用道具tuple))]：算 coreP(版本趨勢用；含大裝＋鞋＋起手裝，如多蘭之盔)
@@ -226,6 +227,7 @@ def main():
             if len(_rp4) >= 4 and len(_rs3) >= 2:  # 完整符文頁才計（主系4＋副系至少2）
                 _sig = (tuple(_rp4), tuple(_rs3))
                 runePage[c][_sig] += 1; runePageW[c][_sig] += win
+                if _opp: ksOpp[c][_rp4[0]][_opp] += 1  # 該 keystone(rp4[0]) 對到的英雄（符文盒頭像列）
             pos = g.get("pos") or "?"  # 起手裝依實際路線各自一組(上/中/下/野/輔)
             if pos in ("TOP", "MIDDLE", "BOTTOM", "JUNGLE", "UTILITY"):
                 laneGames[c][pos] += 1
@@ -312,7 +314,8 @@ def main():
             _vs_all = sorted(ks_pages[_ks], key=lambda x: -x[1])
             _vs = [v for _vi, v in enumerate(_vs_all) if _vi == 0 or v[1] >= 3][:2]  # 該 keystone 前二種排列（第二種需 ≥3 場）
             _kw = sum(_w for _, _, _w in ks_pages[_ks])
-            runesKS.append({"ks": _ks, "n": _kn, "w": _kw,
+            _opps = [o for o, _on in ksOpp[c][_ks].most_common(8) if _on >= 2]  # 用此 keystone 最常對到的英雄（≥2 場去雜訊，頭像列）
+            runesKS.append({"ks": _ks, "n": _kn, "w": _kw, "opp": _opps,
                             "v": [{"rp": list(_sig[0]), "rs": list(_sig[1]), "n": _c, "w": _w} for _sig, _c, _w in _vs]})
         champs[c] = {"n": n, "start": startByPos, "boots": bootsTop, "core": coreTop, "rest": restTop, "core100": core100, "paths": pathTop, "paths2p": pathTop2p, "coreP": coreP, "runesKS": runesKS}
     # 反向：道具→把它當核心裝的英雄(依該英雄此裝出裝%排序、上限15)
