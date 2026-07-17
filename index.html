@@ -7924,13 +7924,14 @@ function render(){
   else if(curView==="圖鑑"){
     // ── 圖鑑：英雄 / 道具 / 符文 / 戰隊名稱 四分區 ──
     V.dexSec=V.dexSec||"英雄";
+    // 分區籤清單：列表頁與詳情子頁共用同一份，避免兩處各自維護而漂移（曾發生詳情頁漏「召喚師技能」）；刷野速度資料僅 2024/S14 起
+    const DEX_SECS=["版本","英雄","道具","符文","召喚師技能","物件","戰隊","賽事","刷野速度"].filter(s=>s!=="刷野速度"||+curYear>=2024);
     if(typeof ensureWiki==="function")ensureWiki(); // 圖鑑用到 wiki 歷年資料：未載則補載，載畢自動重繪
     // 歷年改動詳情頁（整頁切換，像英雄分頁的詳情）
     if(V.dexDetail){
       const dd=V.dexDetail;
       // 子頁（詳情）篩選列左側也放分區按鈕，方便直接跳到其他分區（點擊清掉當前詳情）
-      const SECS2=["版本","英雄","道具","符文","物件","戰隊","賽事","刷野速度"].filter(s=>s!=="刷野速度"||+curYear>=2024);
-      const secTabs=`<label>${T("分區")}</label>`+SECS2.map(s=>`<span class="tab dexTab${V.dexSec===s?" on":""}" data-s="${esc(s)}" style="padding:6px 18px">${s==="符文"&&+curYear<=2016?T("天賦與符文"):T(s)}</span>`).join("");
+      const secTabs=`<label>${T("分區")}</label>`+DEX_SECS.map(s=>`<span class="tab dexTab${V.dexSec===s?" on":""}" data-s="${esc(s)}" style="padding:6px 18px">${s==="符文"&&+curYear<=2016?T("天賦與符文"):T(s)}</span>`).join("");
       main.innerHTML=`<div class="filters">${secTabs}</div><div id="dexHistPage"></div>`;
       main.querySelectorAll(".filters .dexTab").forEach(b=>b.onclick=()=>{V.dexSec=b.dataset.s;V.dexDetail=null;saveState();render();});
       const hp=document.getElementById("dexHistPage");
@@ -7993,7 +7994,7 @@ function render(){
       penResize(); // 早退前補做（render 尾端的畫布調整）
       return;
     }
-    const SECS=["版本","英雄","道具","符文","召喚師技能","物件","戰隊","賽事","刷野速度"].filter(s=>s!=="刷野速度"||+curYear>=2024); // 刷野速度資料僅收錄 2024（S14）起
+    const SECS=DEX_SECS; // 與詳情子頁共用（見上方 DEX_SECS 定義）
     if(V.dexSec==="刷野速度"&&+curYear<2024)V.dexSec="版本"; // 切到 2024 前年份時，隱藏中的刷野速度分區退回版本
     // 版本分區：只列「當年」的版本（yy.01 起），新→舊
     const VPKS=(()=>{
