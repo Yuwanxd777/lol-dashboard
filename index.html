@@ -3373,10 +3373,13 @@ function heroTrend(ch,pos,sq){
   if(sq){ // 積分版趨勢：SOLOQ_BUILDS.heroP（英雄→版本→路線→15欄；含職業賽還沒打到的 26.14）
     const B=window.SOLOQ_BUILDS, cid=champId(ch)||ch, hp=B&&B.heroP&&B.heroP[cid]; if(!hp)return [];
     const L3=pos?({TOP:"TOP",JNG:"JUNGLE",MID:"MIDDLE",BOT:"BOTTOM",SUP:"UTILITY"}[pos]||null):null;
-    return Object.keys(hp).sort((a,b)=>parseFloat(a)-parseFloat(b)).map(p=>{
+    const rows=Object.keys(hp).sort((a,b)=>parseFloat(a)-parseFloat(b)).map(p=>{
       let n=0,w=0; Object.entries(hp[p]).forEach(([ln,s])=>{ if(L3&&ln!==L3)return; n+=s[0]||0; w+=s[1]||0; });
       return {patch:p,勝率:n?w/n*100:null,presence:null,選取率:null,禁用率:null,場數:n};
     }).filter(r=>r.場數>0);
+    const mx=rows.length?Math.max(...rows.map(r=>r.場數)):0; // 場數%＝跟自己比：最多場的版本＝100%
+    rows.forEach(r=>r.場數pct=mx?r.場數/mx*100:null);
+    return rows;
   }
   const posPid={TOP:1,JNG:2,MID:3,BOT:4,SUP:5}[pos]||null;
   const per={};
@@ -3850,6 +3853,7 @@ function drawTrend(ch,pos,sq){
     data:{labels,datasets:[
       {label:"BP%",hidden:!!sq,data:data.map(d=>d.presence),borderColor:"#f5b942",backgroundColor:"#f5b94233",tension:.25,pointRadius:4},
       {label:"勝率",hidden:!sq,data:data.map(d=>d.勝率),borderColor:"#ff6b6b",backgroundColor:"#ff6b6b33",tension:.25,spanGaps:true,pointRadius:4},
+      {label:"場數%",hidden:!sq,data:data.map(d=>d.場數pct!=null?d.場數pct:null),borderColor:"#f5b942",backgroundColor:"#f5b94233",tension:.25,spanGaps:true,pointRadius:4},
       {label:"選取率",hidden:true,data:data.map(d=>d.選取率),borderColor:"#37c871",backgroundColor:"#37c87133",tension:.25,pointRadius:4},
       {label:"禁用率",hidden:true,data:data.map(d=>d.禁用率),borderColor:"#4f8ef7",backgroundColor:"#4f8ef733",tension:.25,pointRadius:4},
       {label:"版本改動",showLine:false, // 放在 100% 線上方（軸延伸到118但刻度只到100）
@@ -3863,7 +3867,7 @@ function drawTrend(ch,pos,sq){
     options:{maintainAspectRatio:false,interaction:{mode:"nearest",intersect:true},
       scales:{y:{min:0,max:118,title:{display:true,text:"%"},
           ticks:{stepSize:20,callback:v=>v<=100?v:undefined}}}, // 刻度只到100，上方留給標記
-      plugins:{legend:{labels:{boxWidth:12,filter:it=>it.text!=="版本改動"&&(!sq||it.text==="勝率")}},
+      plugins:{legend:{labels:{boxWidth:12,filter:it=>it.text!=="版本改動"&&(sq?(it.text==="勝率"||it.text==="場數%"):it.text!=="場數%")}},
         tooltip:{callbacks:{
           title:items=>items.length?`${labels[items[0].dataIndex]} 版本${sq&&data[items[0].dataIndex]?`｜${data[items[0].dataIndex].場數} ${LANG==="en"?"games":"場"}`:""}`:"",
           label:ctx=>{
