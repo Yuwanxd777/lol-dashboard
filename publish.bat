@@ -4,10 +4,10 @@ cd /d "%~dp0"
 
 call update.bat
 
-rem 推送時間戳：公開版頁首「資料時間」顯示這個（本機版仍顯示資料抓取時間）
+rem push timestamp: public site header shows this as data time (local build shows fetch time)
 powershell -NoProfile -Command "Set-Content -Path push_time.js -Value ('window.PUSH_TIME=\"'+(Get-Date -Format 'yyyy-MM-dd HH:mm')+'\";') -Encoding utf8" >> update_log.txt 2>&1
 
-rem 守門：資料檔語法＋headless 開機驗證；失敗就不推送（避免壞資料上線）
+rem gate: data-file syntax + headless boot check; on failure skip push (never ship broken data)
 python scripts\preflight_check.py >> update_log.txt 2>&1
 if errorlevel 1 (
   echo PREFLIGHT FAILED - push skipped. see update_log.txt >> update_log.txt
