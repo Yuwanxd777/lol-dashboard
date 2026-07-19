@@ -31,8 +31,14 @@ rem tier1 regions = leagues with Worlds seats that year (lol.fandom Worlds page,
 python scripts\fetch_worlds_tier1.py >> "%LOG%" 2>&1
 rem league promotion/qualifier supplement table (reads Leaguepedia cache, no API calls)
 python scripts\build_league_struct.py >> "%LOG%" 2>&1
+rem OBGG pro-account list refresh (LPL/LCK primary; drops accounts inactive ~2 months; routing merge with dpm)
+python scripts\fetch_obgg_accounts.py >> "%LOG%" 2>&1
+rem resolve dpmPuuid for newly added accounts via dpm search (best-effort; needed for per-game)
+python scripts\resolve_obgg_dpmpuuid.py >> "%LOG%" 2>&1
 rem soloq per-game: incremental update (dpm, no key), only fetches games newer than existing
 python scripts\fetch_soloq_update.py >> "%LOG%" 2>&1
+rem soloq per-game: backfill brand-new players that have no file yet (dpm)
+python scripts\fetch_soloq_year.py --missing >> "%LOG%" 2>&1
 rem rank ladder auto-update: uses the locally saved key from the dashboard "add API" button; skips if expired
 python scripts\fetch_soloq_auto.py >> "%LOG%" 2>&1
 rem Text corpus lint: reports leftovers/broken sentences into the log (never blocks the update)

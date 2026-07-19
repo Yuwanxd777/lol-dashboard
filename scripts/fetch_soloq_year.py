@@ -98,6 +98,26 @@ JS_YEAR = """async(args)=>{ const [PU, tok, CUT]=args; const out=[];
   }
   return out; }"""
 
+# 每帳號最後一場 soloq 時間(ms)：積分頁挑「最近7天有打 soloq 的帳號」用（獨立小檔，合併既有不覆蓋未更新者）
+ACC_LG = {}
+ACC_LG_PATH = os.path.join(ROOT, "soloq_acc_lastgame.js")
+def _accnorm(s):
+    import re as _r
+    return _r.sub(r"\s+", "", str(s or "")).lower()
+def write_acc_lastgame(new_map):
+    old = {}
+    try:
+        import re as _r
+        t = open(ACC_LG_PATH, encoding="utf-8").read()
+        m = _r.search(r"=\s*(\{.*\})\s*;?\s*$", t, _r.S)
+        if m: old = json.loads(m.group(1))
+    except Exception:
+        pass
+    old.update(new_map)
+    open(ACC_LG_PATH, "w", encoding="utf-8").write("window.SOLOQ_ACC_LG=" + json.dumps(old, ensure_ascii=False) + ";\n")
+    return len(old)
+
+
 def main():
     with open(ACCOUNTS, "r", encoding="utf-8") as f:
         accounts = [a for a in json.load(f) if a.get("dpmPuuid") and a.get("riotId") and not a.get("bad")]  # bad＝已判定張冠李戴的帳號，永久跳過
@@ -198,7 +218,11 @@ def main():
             for a in use:
                 try: arr = pg.evaluate(JS_YEAR, [a["dpmPuuid"], best_tok, CUT])
                 except Exception as e: print(f"   {a['riotId']} 抓錯 {e}"); arr = []
-                merged.extend(arr); time.sleep(0.1)
+                merged.extend(arr)
+                if arr:  # 記該帳號自己最後一場 soloq 的時間
+                    _lg = max((g.get("t") or 0) for g in arr)
+                    if _lg: ACC_LG[_accnorm(a.get("riotId"))] = _lg
+                time.sleep(0.1)
             merged.sort(key=lambda g: g.get("t",0), reverse=True)
             if merged:
                 if part and key in idx:
@@ -216,6 +240,9 @@ def main():
     with open(_idx_path, "w", encoding="utf-8") as f:
         f.write("window.SOLOQ_MATCH_IDX=" + json.dumps({"fetched_at": time.strftime("%Y-%m-%d %H:%M"),
                 "year": YEAR, "players": idx}, ensure_ascii=False) + ";\n")
+    if ACC_LG:  # 每帳號最後一場 soloq 時間（合併既有）→ 積分頁挑帳號用
+        tot = write_acc_lastgame(ACC_LG)
+        print(f"每帳號最後 soloq 時間：本次更新 {len(ACC_LG)} 個 → soloq_acc_lastgame.js（累計 {tot}）")
     if BADACC or UNBAD:  # 壞帳號標記/解除 持久化（墓碑留檔：防自動抓帳號把它加回來；網站更正後自動解除）
         rawA = json.load(open(ACCOUNTS, encoding="utf-8")); nb = 0; nu = 0
         ks = set(BADACC); us = set(UNBAD)

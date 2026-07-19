@@ -25,6 +25,21 @@ HERE = os.path.dirname(os.path.abspath(__file__)); ROOT = os.path.dirname(HERE)
 IDXP = os.path.join(ROOT, "soloq_match_index.js")
 OUTDIR = os.path.join(ROOT, "soloq_matches")
 ACCOUNTS = os.path.join(HERE, "soloq_accounts.json")
+# 每帳號最後一場 soloq 時間(ms)：積分頁挑「最近7天有打 soloq 的帳號」用（獨立小檔，合併既有）
+ACC_LG = {}
+ACC_LG_PATH = os.path.join(ROOT, "soloq_acc_lastgame.js")
+def _accnorm(s):
+    return re.sub(r"\s+", "", str(s or "")).lower()
+def write_acc_lastgame(new_map):
+    old = {}
+    try:
+        m = re.search(r"=\s*(\{.*\})\s*;?\s*$", open(ACC_LG_PATH, encoding="utf-8").read(), re.S)
+        if m: old = json.loads(m.group(1))
+    except Exception:
+        pass
+    old.update(new_map)
+    open(ACC_LG_PATH, "w", encoding="utf-8").write("window.SOLOQ_ACC_LG=" + json.dumps(old, ensure_ascii=False) + ";\n")
+    return len(old)
 UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
       "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36")
 LANE2TOK = {"TOP":"top","JUNGLE":"jungle","MIDDLE":"middle","BOTTOM":"bottom","UTILITY":"utility"}
@@ -168,6 +183,10 @@ def main():
             for a in accs.get(key, []):
                 try:
                     res = pg.evaluate(JS_NEW, [a["dpmPuuid"], tok, newestT])
+                    _ms = (res.get("ms") if isinstance(res, dict) else res) or []
+                    if _ms:  # 記該帳號自己最後一場 soloq 時間
+                        _lg = max((g.get("t") or 0) for g in _ms)
+                        if _lg: ACC_LG[_accnorm(a.get("riotId"))] = _lg
                     if isinstance(res, dict):
                         newg.extend(res.get("ms") or [])
                         idn = res.get("id") or {}
@@ -199,6 +218,9 @@ def main():
             json.dump(raw, open(ACCOUNTS, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
             print(f"♻ 改名自動更新 {n} 個帳號 → soloq_accounts.json：")
             for (key2, old), new in RENAME.items(): print(f"   {key2}: {old} → {new}")
+    if ACC_LG:  # 每帳號最後 soloq 時間（合併既有）→ 積分頁挑帳號用
+        tot = write_acc_lastgame(ACC_LG)
+        print(f"每帳號最後 soloq 時間：本次更新 {len(ACC_LG)} 個 → soloq_acc_lastgame.js（累計 {tot}）")
     missing = [k for k in accs if k not in idx["players"]]
     print(f"\n完成：{upd} 位有新戰績、共 +{added_tot} 場。"
           + (f" 另有 {len(missing)} 位無檔(新選手)→ 自動補抓整年。" if missing else ""))
