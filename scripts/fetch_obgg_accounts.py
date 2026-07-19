@@ -25,7 +25,7 @@ CUT_MS = 60 * 24 * 3600 * 1000       # 近兩個月
 
 
 def get(url, retry=2):
-    h = {"User-Agent": UA, "Referer": "https://servicewechat.com/wxe8e7f9130f2ba69c/"}
+    h = {"User-Agent": UA}  # OBGG API 為公開端點，只需 UA（不帶小程序 appid Referer，避免被誤判為密鑰）
     for i in range(retry + 1):
         try:
             r = urllib.request.urlopen(urllib.request.Request(url, headers=h), timeout=25)

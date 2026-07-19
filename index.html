@@ -8164,6 +8164,22 @@ function render(){
       competitivePlayers().filter(c=>c.player&&!covered.has(_nn(c.player))).forEach(c=>rows.push(
         {team:c.team,player:c.player,_role:c.role||null,_missing:true,found:false,_score:-2,
          _wr:null,_last10:[],_wr7:null,_sc7:null,_kda7:null,_n7:null,_lt:null,riotId:"",platform:"",wins:0,losses:0,lp:null,tier:null}));
+      // 只列「整年有比賽出場過」的選手(教練等整年0場才排除，例：BRO Duke)＋每位選手只留牌位最高的一列(使用者定案 2026-07-19)
+      // ★用整年 RAW 出場、不套 competitivePlayers 的92天截止：否則資料還沒收到最新賽段時，只在春季打過的現役選手(如 TheShy)會被誤排除
+      {const _mn=new Set();
+       if(typeof RAW!=="undefined"&&RAW&&typeof C!=="undefined"&&C&&C.blue_playername!=null&&C.participantid!=null){
+         for(let i=1;i<RAW.length;i++){const r0=RAW[i]; const pid=+r0[C.participantid]; if(!(pid>=1&&pid<=5))continue;
+           const a=r0[C.blue_playername], b=r0[C.blue_playername+RB]; if(a)_mn.add(_nn(a)); if(b)_mn.add(_nn(b));}
+       }
+       const _WL=new Set(["theshy"]);  // 特例白名單：整年無比賽出場但仍要列的選手(如 TheShy 復出中)。要加人就往這放(小寫、去頭尾空白後的名字)
+       const _g={}, _o=[];
+       for(const r of rows){
+         if(!r._missing && _mn.size && !_mn.has(_nn(r.player)) && !_WL.has(_nn(r.player))) continue;   // 整年從沒出場→不列(教練)；白名單例外；RAW 沒載到(size 0)則不過濾保險
+         const k=(r.team||"")+"|"+(r.player||"");
+         if(!(k in _g)){_g[k]=r; _o.push(k);}
+         else if((r._score||-9)>(_g[k]._score||-9)) _g[k]=r;              // 每選手只留牌位最高(_score 最大)的那隻帳號
+       }
+       rows.length=0; for(const k of _o) rows.push(_g[k]);}
       // 哪些選手(戰隊+名字)有逐場資料→名字可點(逐場改每人一檔懶載，index 記誰有檔)
       const pKey=r=>((r.team||"")+"|"+(r.player||"")); const matchedPlayers=new Set();
       {const IX=window.SOLOQ_MATCH_IDX; if(IX&&IX.players) Object.keys(IX.players).forEach(k=>matchedPlayers.add(k));}
@@ -8198,27 +8214,12 @@ function render(){
       let active=sorted.filter(r=>r._missing||r._n7>0||(r.found&&r._n7==null)); // 最近7天沒打積分的暫不列出；缺帳號一律列(灰置底)；有段位但還沒逐場資料的新帳號(_n7==null)也列出，否則新加的帳號(如OBGG補進、無dpmPuuid)會憑空消失
       if(V.rankRole)active=active.filter(r=>r._role===V.rankRole); // 路線篩選
       if(V.rankRegion)active=active.filter(r=>{const s=rgOf(r); return s&&s.has(V.rankRegion);}); // 賽區(參賽聯賽/盃賽)篩選
-      // 每位選手只列「最近7天有打 soloq 的帳號」(可能1~2隻，各自段位)；都沒打就只列最近打的那一隻(使用者定案；以每帳號各自最後一場 soloq 時間 SOLOQ_ACC_LG 判定)
-      {const LG=window.SOLOQ_ACC_LG||{}, N=s=>String(s||"").replace(/\s+/g,"").toLowerCase(), WK=7*24*3600*1000, now=Date.now();
-       const byP={}; for(const r of active){const k=(r.team||"")+"|"+(r.player||""); (byP[k]=byP[k]||[]).push(r);}
-       const keep=new Set();
-       for(const k in byP){const g=byP[k];
-         if(g.some(r=>r._missing)){g.forEach(r=>keep.add(r)); continue;}          // 缺積分帳號列照舊(灰)
-         const wl=g.map(r=>({r,lg:LG[N(r.riotId)]||0}));
-         const act=wl.filter(x=>x.lg&&(now-x.lg)<=WK);                            // 近7天有打 soloq 的帳號
-         if(act.length)act.forEach(x=>keep.add(x.r));
-         else keep.add(wl.reduce((a,b)=>b.lg>a.lg?b:a).r);                        // 都沒打→最近打的那隻(全無資料時取列表最前＝段位最高)
-       }
-       active=active.filter(r=>keep.has(r));}
       let show=active;
       if(q){ const FB=window._RANKQ_FULL||{}; const abs=new Set();            // 戰隊「全名」也可搜：全名→縮寫
         for(const ab in FB)if(FB[ab].some(t=>t.toLowerCase().includes(q)))abs.add(ab.toLowerCase());
         show=active.filter(r=>String(r.player).toLowerCase().includes(q)||String(r.team).toLowerCase().includes(q)
           ||(teamFix(r.team||"")+" "+(r.player||"")).toLowerCase().includes(q)   // 「T1 Keria」帶前綴的建議值也要能中
           ||abs.has(String(teamFix(r.team||"")).toLowerCase())); }
-      // 同一選手多帳號「外面列表分開列」(使用者定案：積分頁外層一帳號一列、各自段位)；但週統計/最近十場/最近積分是每選手合併值(逐場檔以 隊|選手 為鍵)→ 只顯示在段位最高的那一列(主帳號)、其餘列清空避免重複；點任一帳號名進去看逐場都是合併的(sameP)
-      {const _best={}; for(const r of show){const k=(r.team||"")+"|"+(r.player||""); if(!(k in _best)||(r._score||-9)>(_best[k]._score||-9))_best[k]=r;}
-       for(const r of show){const k=(r.team||"")+"|"+(r.player||""); if(_best[k]!==r){r._sc7=null;r._wr7=null;r._kda7=null;r._last10=[];r._lt=null;}}}
       box.innerHTML=`<div class="tblwrap"><table class="recTbl"><thead><tr><th class="rkh">#</th>${cols.map(c=>c.sort===false?`<th><span class="thL">${c.lb}</span></th>`:`<th data-rk="${c.k}" style="cursor:pointer"><span class="thL">${c.lb}${arrow(c.k)}</span></th>`).join("")}</tr></thead><tbody>${
         show.map((r,i)=>{const f=r._score>=0; return `<tr${f?"":' style="opacity:.5"'}><td class="rk${i<3&&f?` rk${i+1}`:""}">${f?i+1:"–"}</td>${cols.map(c=>`<td>${c.cell(r)}</td>`).join("")}</tr>`;}).join("")
       }</tbody></table></div>`;
