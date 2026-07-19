@@ -1,40 +1,5 @@
 [
  {
-  "player": "JackeyLove",
-  "team": "TES",
-  "platform": "kr",
-  "riotId": "qweasdqweasdqw#KR1",
-  "dpmPuuid": "xrAqPI5r3eD6WBZ2Ijy_THIc69zSNKyO9cY7jumy9X6TtXxOD_e4vqZQMKH_TcRjYxf_TWQLqD4apw"
- },
- {
-  "player": "Creme",
-  "team": "TES",
-  "platform": "kr",
-  "riotId": "livinli#KR1",
-  "dpmPuuid": "oj8hZ45DBmu7JMmm0ey4trysvscoccDcu_wqhW6GjXbnckSH9LGOzBxg8jmfVbNv-TEpRDTTTKWHQQ"
- },
- {
-  "player": "Tian",
-  "team": "TES",
-  "platform": "kr",
-  "riotId": "diming#ziyou",
-  "dpmPuuid": "YMBJIXMWKn7OEn2w3cdQhuvsVUpSyRpnmFUfrKM2HMAr0VRLkEd8H_A5k2sY3OgatkwgKjkfx4zQBg"
- },
- {
-  "player": "Zhuo",
-  "team": "TES",
-  "platform": "kr",
-  "riotId": "ovoowo#0213",
-  "dpmPuuid": "FNHLvTyK9bbtX3Pgl0fRMsSuu3_OHSh3UIC0JfHf7DMkBjXtgI9v9mAWpAR8BJHXAY98cJknKaWFHg"
- },
- {
-  "player": "ZUIAN",
-  "team": "TES",
-  "platform": "kr",
-  "riotId": "Pure Imagination#ZZZZZ",
-  "dpmPuuid": "NujVUtSab-xw5hdz01KtGWDKi5M-W-Usfl6sOvrbh28-UTH5H-i-Gbj0qLGcnln1h4QheFFLChAuqg"
- },
- {
   "player": "TheShy",
   "team": "IG",
   "platform": "kr",
@@ -87,7 +52,8 @@
   "player": "JiaQi",
   "team": "IG",
   "platform": "kr",
-  "riotId": "강딱풀#500"
+  "riotId": "lazy#xxx",
+  "dpmPuuid": "EDDaGr1QINRvXsQeEX35WbvjAWrdNtHPM28OBV9NwZmQ2CHaqrng3GGWzGrZp2gJnKXw6IpQhCNhow"
  },
  {
   "player": "Renard",
@@ -109,6 +75,41 @@
   "platform": "kr",
   "riotId": "Helper#0324",
   "dpmPuuid": "DePkELR4eOGKra7w0P4PDXYnaZpU7wIhkpRbNevL9S76uJJDLk00W1SRTiCeg-RGg2tF4IKGqoxEEA"
+ },
+ {
+  "player": "JackeyLove",
+  "team": "TES",
+  "platform": "kr",
+  "riotId": "qweasdqweasdqw#KR1",
+  "dpmPuuid": "xrAqPI5r3eD6WBZ2Ijy_THIc69zSNKyO9cY7jumy9X6TtXxOD_e4vqZQMKH_TcRjYxf_TWQLqD4apw"
+ },
+ {
+  "player": "Creme",
+  "team": "TES",
+  "platform": "kr",
+  "riotId": "livinli#KR1",
+  "dpmPuuid": "oj8hZ45DBmu7JMmm0ey4trysvscoccDcu_wqhW6GjXbnckSH9LGOzBxg8jmfVbNv-TEpRDTTTKWHQQ"
+ },
+ {
+  "player": "Tian",
+  "team": "TES",
+  "platform": "kr",
+  "riotId": "diming#ziyou",
+  "dpmPuuid": "YMBJIXMWKn7OEn2w3cdQhuvsVUpSyRpnmFUfrKM2HMAr0VRLkEd8H_A5k2sY3OgatkwgKjkfx4zQBg"
+ },
+ {
+  "player": "Zhuo",
+  "team": "TES",
+  "platform": "kr",
+  "riotId": "ovoowo#0213",
+  "dpmPuuid": "FNHLvTyK9bbtX3Pgl0fRMsSuu3_OHSh3UIC0JfHf7DMkBjXtgI9v9mAWpAR8BJHXAY98cJknKaWFHg"
+ },
+ {
+  "player": "ZUIAN",
+  "team": "TES",
+  "platform": "kr",
+  "riotId": "Pure Imagination#ZZZZZ",
+  "dpmPuuid": "NujVUtSab-xw5hdz01KtGWDKi5M-W-Usfl6sOvrbh28-UTH5H-i-Gbj0qLGcnln1h4QheFFLChAuqg"
  },
  {
   "player": "Viper",
@@ -136,7 +137,9 @@
   "team": "BLG",
   "platform": "kr",
   "riotId": "BLG 온#KR1",
-  "dpmPuuid": "xIAUfNR5XwyDJa3wEvaQXcwgE0wIYl2JLs9yALD5OljcDkj6LtwPOAMOuEr6t8fCgysPt1dMUffodA"
+  "dpmPuuid": "xIAUfNR5XwyDJa3wEvaQXcwgE0wIYl2JLs9yALD5OljcDkj6LtwPOAMOuEr6t8fCgysPt1dMUffodA",
+  "bad": true,
+  "bad_reason": "role-mismatch"
  },
  {
   "player": "ON",
@@ -396,15 +399,15 @@
   "player": "Weiwei",
   "team": "LNG",
   "platform": "kr",
-  "riotId": "YONG2#6666",
-  "dpmPuuid": "oP1nMPEx7kqCfkxk6RibW7E7hP0MxnDEludwwBRSHZwFJ4ZC7PuFnhbo_ffrLreC6x0NBYPmmQ_kLQ"
+  "riotId": "명치에팔콘펀치꽂는이도윤#KR1",
+  "dpmPuuid": "Y_BX2lQYm5ARCCrlMvS-EqsFBqAgeGwhXmkWW7jMNFKS7lDaG2HPmHBZp-3MvhVxa6-CjoSBpC6jzA"
  },
  {
   "player": "Weiwei",
   "team": "LNG",
   "platform": "kr",
-  "riotId": "명치에팔콘펀치꽂는이도윤#KR1",
-  "dpmPuuid": "Y_BX2lQYm5ARCCrlMvS-EqsFBqAgeGwhXmkWW7jMNFKS7lDaG2HPmHBZp-3MvhVxa6-CjoSBpC6jzA"
+  "riotId": "YONG2#6666",
+  "dpmPuuid": "oP1nMPEx7kqCfkxk6RibW7E7hP0MxnDEludwwBRSHZwFJ4ZC7PuFnhbo_ffrLreC6x0NBYPmmQ_kLQ"
  },
  {
   "player": "1xn",
@@ -560,15 +563,15 @@
   "player": "Juhan",
   "team": "OMG",
   "platform": "kr",
-  "riotId": "Juhana#IsYou",
-  "dpmPuuid": "ZwV163x0w-Vo-5ZglVlQjHeuX83jUbwyNxClicSyIJ1y46EmE_TTuYIBTN4Ve8E4xDcRsYcaHihZYg"
+  "riotId": "Juhana#OMG",
+  "dpmPuuid": "j5jD5c-GIAqkpE5OHFbbQH1RcgFcz1IVAcU0g06vY7AIbyQNuy5FhyAlvGJb46UEpzPXdm53Ffs5pw"
  },
  {
   "player": "Juhan",
   "team": "OMG",
   "platform": "kr",
-  "riotId": "Juhana#OMG",
-  "dpmPuuid": "j5jD5c-GIAqkpE5OHFbbQH1RcgFcz1IVAcU0g06vY7AIbyQNuy5FhyAlvGJb46UEpzPXdm53Ffs5pw"
+  "riotId": "Juhana#IsYou",
+  "dpmPuuid": "ZwV163x0w-Vo-5ZglVlQjHeuX83jUbwyNxClicSyIJ1y46EmE_TTuYIBTN4Ve8E4xDcRsYcaHihZYg"
  },
  {
   "player": "haichao",
@@ -665,7 +668,8 @@
   "player": "MaRin",
   "team": "T1",
   "platform": "kr",
-  "riotId": "커피물조절장인#KR1"
+  "riotId": "柳智敏#2849",
+  "dpmPuuid": "oTt4HwZe6i2wySm_IHHAnGkqtnogvCU7NLycLgBYR4SKLn6zH_lHhhhyYYUT_YVanOHu4iOsHAQuRw"
  },
  {
   "player": "MaRin",
@@ -678,7 +682,8 @@
   "player": "MaRin",
   "team": "T1",
   "platform": "kr",
-  "riotId": "MaRin#Pro"
+  "riotId": "커피물조절장인#KR1",
+  "dpmPuuid": "UatG-iiK3yw7lcyT3MgG3JT0tvyDZTk1s4v2IT20Vdrj9TKpyZ3Agb050Q_YoS3TvidU7z__xHlWeA"
  },
  {
   "player": "Tom",
@@ -691,7 +696,7 @@
   "player": "Mata",
   "team": "T1",
   "platform": "kr",
-  "riotId": "Mata#0227",
+  "riotId": "MaRin#Pro",
   "dpmPuuid": "zmxvpE2rgCD0hsuLOTJXG4iRibHYfuo1yptat3XcUEJxNOoE2dp0rBXrwNMyjLu-FFgggxzl6fUBUw"
  },
  {
@@ -872,7 +877,8 @@
   "player": "Crazy",
   "team": "NS",
   "platform": "kr",
-  "riotId": "CCrazy#KR1"
+  "riotId": "CCrazy#KR1",
+  "dpmPuuid": "1D7q6HUraUdAwWriM1Y-s7Pv-Uk0UqCpi11Pir2UoEmaCgx-KPVMOIRT6yiNaRl4QoPe8anJb0O0Bw"
  },
  {
   "player": "ShowMaker",
@@ -977,7 +983,8 @@
   "player": "Gorilla",
   "team": "DK",
   "platform": "kr",
-  "riotId": "GorillA#lulu"
+  "riotId": "빛나는 근원#KR1",
+  "dpmPuuid": "jmqPejhvIfGLyYvvb14e788dJCQ31ttdjiXqW8X9PJHO-xgmUak_kg2rPRChrYSKHmD_ALp-7W6h2A"
  },
  {
   "player": "Bible",
@@ -997,7 +1004,8 @@
   "player": "Bdd",
   "team": "KT",
   "platform": "kr",
-  "riotId": "파피몬#1111"
+  "riotId": "GorillA#lulu",
+  "dpmPuuid": "XOdD-bpuud0l1LhyA3EaxFAdUpyczI0ltnCRgpGVnRcx4j0pY0ycpNvRDJ25a56ZJ0kh0FLZDREltg"
  },
  {
   "player": "Cuzz",
@@ -1093,7 +1101,10 @@
   "player": "Peter",
   "team": "DNF",
   "platform": "kr",
-  "riotId": "happy#day14"
+  "riotId": "happy#day14",
+  "dpmPuuid": "MIWryYDAQbVqcI3UmQgRuN_8mlXlxuUijtTmRZtqzBGk8mz7XPrKreZFJoyX-n0j_koZB82XxCfZDA",
+  "bad": true,
+  "bad_reason": "role-mismatch"
  },
  {
   "player": "Sharvel",
@@ -1292,7 +1303,10 @@
   "player": "Shad0w",
   "team": "CFO",
   "platform": "kr",
-  "riotId": "FA06sup#7126"
+  "riotId": "FA06sup#7126",
+  "dpmPuuid": "rTcqoAGlIRWQSlXmL5EJTpVw7NXY5w2LUd7DCXYAj2lWmWNQupzwaMPH5DdceOQkDCrzFjMzx0Ba-Q",
+  "bad": true,
+  "bad_reason": "role-mismatch"
  },
  {
   "player": "Doggo",

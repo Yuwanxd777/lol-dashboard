@@ -2,7 +2,7 @@
 rem Update data then push to GitHub Pages. Fully automatic, no prompts.
 cd /d "%~dp0"
 
-call update.bat
+call "%~dp0update.bat"
 
 rem push timestamp: public site header shows this as data time (local build shows fetch time)
 powershell -NoProfile -Command "Set-Content -Path push_time.js -Value ('window.PUSH_TIME=\"'+(Get-Date -Format 'yyyy-MM-dd HH:mm')+'\";') -Encoding utf8" >> update_log.txt 2>&1
