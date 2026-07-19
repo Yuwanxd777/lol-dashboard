@@ -211,7 +211,7 @@ def main():
                     try: os.remove(os.path.join(OUTDIR, idx[key]["f"]))
                     except Exception: pass
                     idx.pop(key, None)
-                print(f"[{i}/{len(keys)}] {key}  ⛔ 無可信帳號 → 移出積分，待補真帳號（merge_scoregg_gaps.py --player 可補）")
+                print(f"[{i}/{len(keys)}] {key}  ⛔ 無可信帳號 → 移出積分，待補真帳號（確認正確 Riot ID 後跑 resolve_obgg_dpmpuuid.py 補 dpmPuuid）")
                 continue
             # Phase2：該選手可信帳號都抓職業路線
             merged = []

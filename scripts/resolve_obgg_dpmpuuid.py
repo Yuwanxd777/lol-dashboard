@@ -2,7 +2,7 @@
 """為 soloq_accounts.json 中『有 riotId、無 dpmPuuid、非 bad』的帳號（OBGG 新加入者）用 dpm 反查補 dpmPuuid。
 OBGG 的 puuid 跟 dpm 自家加密 puuid 不同，一定要用 dpm 搜尋 gameName、比對完整 RiotID 取 puuid 當 dpmPuuid。
 補上後 fetch_soloq_update.py（增量）/ fetch_soloq_year.py --missing（新選手整年）才抓得到逐場。
-重用 merge_scoregg_gaps 驗證過的 dpm 搜尋端點（/v1/search?gameName=）＋Cloudflare 過盤查。
+dpm 搜尋端點＝/v1/search?gameName=（實測正解，422 錯誤體會自曝 property 名）＋Cloudflare 過盤查。
 每 10 筆存一次檔（中途中斷保留進度）。best-effort：過不了 Cloudflare 就跳過、不擋更新鏈。
 用法：python scripts\\resolve_obgg_dpmpuuid.py
 """
