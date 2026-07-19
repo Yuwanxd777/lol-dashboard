@@ -658,6 +658,7 @@ window.WIKI_PATCHES=window.WIKI_PATCHES||{}; window.WIKI_EXTRA=window.WIKI_EXTRA
 <script src="skills.js" onerror="window.CHAMP_SKILLS=null"></script>
 <script src="assets.js" onerror="window.LOL_ASSETS=null"></script>
 <script src="items.js" onerror="window.ITEM_DESC=null"></script>
+<script src="item_nostore.js" onerror="window.ITEM_NOSTORE=null"></script>
 <script src="masteries.js" onerror="window.LOL_MASTERIES={}"></script>
 <script src="old_runes.js" onerror="window.OLD_RUNES=null"></script>
 <script src="team_collide.js" onerror="window.TEAM_COLLIDE=null"></script>
@@ -1085,7 +1086,7 @@ const ASSET_IDX=(()=>{ const A=window.LOL_ASSETS; if(!A)return null;
   return {A,byName,allByName};
 })();
 // 歷史年份的合成鏈成員過濾：該年不存在（身份鏈年份不含該年）的裝備不列（2015 不會出現狂暴利刃/狂風之力）
-const _itemInYear=n=>{ if(typeof isHistYear!=="function"||!isHistYear())return true;
+const _itemInYear=n=>{ if(typeof isHistYear!=="function"||!isHistYear())return !(window.ITEM_NOSTORE&&ITEM_NOSTORE[n]); // 當前年份：排除 CDragon 標為已下架(遊戲已移除，DDragon 殭屍資料仍留著)的道具，如闇夜收割者(24.01移除)仍掛在海克斯科技發電機 into
   const M=(typeof assetMergedOf==="function")&&assetMergedOf(n);
   return !M||!M.years||!M.years.length||M.years.includes(+curYear); };
 // 名稱查詢候選（assetOf / assetMergedOf 共用）
@@ -8373,6 +8374,7 @@ function render(){
           const descI={}, goldI={};
           const _iidOf={}; // 同名多 id：正宗原版 id 較小（3023 雙影斗篷 vs TT 複製 3290）
           if(it)Object.entries(it.data).forEach(([iid,d])=>{if(itemOK(d,iid)){let nm=clItemName(d.name);
+            if(!isHistYear()&&window.ITEM_NOSTORE&&ITEM_NOSTORE[nm])return; // 當前年份：排除 CDragon 已下架(遊戲已移除、DDragon 殭屍仍留)的道具，如闇夜收割者
             if(/無效道具|Deprecated/i.test(nm)){const ae=window.LOL_ASSETS&&LOL_ASSETS.item&&LOL_ASSETS.item[iid]; const alt=ae&&((ae.zh&&!/無效道具|Deprecated/i.test(ae.zh)&&ae.zh)||ae.en); if(alt)nm=clItemName(alt);} // 佔位譯名→正名
             items.add(nm); idName[iid]=nm;
             if(!(nm in imgI)||+iid<+(_iidOf[nm]||9e9)){ imgI[nm]=`${CDN2}/${v}/img/item/${(d.image&&d.image.full)||iid+".png"}`; _iidOf[nm]=+iid; }

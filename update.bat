@@ -13,6 +13,8 @@ rem patch-text cleanup (drop skin-sale lines / translate prefixes / AP AD / EN-n
 python scripts\clean_patch_text.py >> "%LOG%" 2>&1
 python scripts\fetch_skills.py >> "%LOG%" 2>&1
 python scripts\fetch_items.py >> "%LOG%" 2>&1
+rem item no-store list (CDragon inStore=false = items DDragon still keeps but game removed; codex filters these out)
+python scripts\fetch_item_nostore.py >> "%LOG%" 2>&1
 python scripts\fetch_jungle.py >> "%LOG%" 2>&1
 python scripts\fetch_release.py >> "%LOG%" 2>&1
 rem Historical asset index (icons per year + zh/en names); cached, only current year is refetched
