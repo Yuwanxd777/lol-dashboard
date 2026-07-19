@@ -125,9 +125,9 @@
   table{width:100%;border-collapse:collapse;font-size:15.5px;table-layout:fixed} /* 固定欄寬：篩選改變內容時欄寬不跳動 */
   th,td{padding:8px 11px;text-align:center;border-bottom:1px solid #222a3c;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   th.rkh{width:68px}                 /* 名次欄：三位數名次(含較寬字體如粉圓)完整放得下 */
-  .thL{position:relative;display:inline-block;white-space:nowrap}          /* 欄名容器：以文字寬度置中，三角形不撐寬它；只在明確 <br> 處換行，避免中文欄名被擠到軟換行 */
+  .thL{position:relative;display:inline-block;white-space:nowrap;padding:0 13px}  /* 欄名容器：左右各固定保留 13px 給排序三角形（每欄都留＝三角形有固定的家）→ 顯示與否都不改變欄寬/欄距；左右對稱＝欄名仍置中；只在明確 <br> 處換行 */
   .lbHeadC{transition:background .15s} .lbHeadC:hover{background:rgba(255,255,255,.045)} /* 出裝卡路線框可點標頭：hover 微亮提示可展開收合 */
-  .sortArr{position:absolute;left:100%;top:50%;transform:translateY(-50%);margin-left:5px;font-size:.82em;opacity:0;pointer-events:none} /* 三角形貼在欄名右側5px，絕對定位→欄名自然置中、排序切換不推移資料 */
+  .sortArr{position:absolute;right:1px;top:50%;transform:translateY(-50%);font-size:.8em;opacity:0;pointer-events:none} /* 三角形固定坐在欄名容器右側的保留內距內；每欄都保留該內距→顯示與否都不改欄距 */
   .sortArr.on{opacity:1}
   .sortArr.asc{color:#37c871}  /* 升幕：綠 */
   .sortArr.desc{color:#ff4d4d} /* 降幕：紅 */
@@ -1363,7 +1363,6 @@ const TAB_HELP={
 "陣容":"一隊<b>五路先發</b>的角色池。\n操作：上方<b>戰隊</b>下拉選隊、每一路點<b>欄位名</b>各自排序。\n欄位含出場、勝率、被禁率、上次使用日；場數低於 3 場不列入排名上色。\n左上<b>🎯 積分／賽事</b>鈕切換角色池來源：<b>賽事</b>＝比賽先發、<b>積分</b>＝選手單雙排常用英雄。範圍跟著上方篩選。",
 "對戰BP":"兩隊<b>系列賽 BP 紀錄</b>，最新在上。\n操作：上方<b>戰隊</b>下拉指定戰隊（可只填一隊看其所有系列）。\n看法：<b>金色數字</b>＝選角順位 1 到 7、<b>金色粗體</b>＝先選方、<b>星號</b>＝勝方。\n標題會自動標<b>缺場</b>（BO5 打到 2-2 卻少第 5 局等）；BO2 的 1-1 和局不算缺。",
 "圖鑑":"多個分區，上方分頁切換：\n<b>版本</b>＝全年或單版本的英雄／裝備改動（點版本號看官方公告）\n<b>英雄</b>＝點名字看歷年改動與<b>專屬機制</b>大框\n<b>道具</b>／<b>符文</b>／<b>物件</b>＝建築、史詩野怪、龍魂等官方數值\n<b>賽事</b>＝當年聯賽樹狀圖（三大國際賽／一二三級賽區／盃賽，含各隊縮寫，國際賽帶母賽區色框；綠勾 ✓＝晉級隊）\n多數分區可搜尋、滑上看說明。",
-"AI 問答":"用 AI 問選手與戰隊數據。\n操作：填 <b>Anthropic API Key</b>（只存本機、不外傳）、選模型、打問題按<b>送出</b>（或 Enter）。\n讀取<b>當年全部</b>選手＋戰隊數據作答（<b>不受上方篩選限制</b>、<b>不會上網查資料</b>）。\n每次顯示 <b>token 用量與花費</b>（自動換算台幣）；問答紀錄可展開、可清空。",
 "模擬BP":"自己排 BAN／PICK、即時看路線判定；模擬局在左、角色池在中、<b>雙方BAN過／其他英雄</b>在最右直欄（局號 1→N，最新局在最右、緊貼角色池）。\n操作：上方選<b>戰隊A／B</b>帶出雙方角色池；<b>拖曳</b>或<b>左鍵拎起</b>池中英雄→到格內左鍵放入、右鍵取消；點已填格移除、點<b>先選／後選</b>切順位、<b>⇄</b>換輪替選手。\n滑到模擬局英雄→右側顯示<b>詳細數據</b>（BAN 顯示<b>對手</b>使用數據；沒選該隊＝看目前數據範圍），同英雄會在所有模擬局一起發光。\n路線判定：隊上選手池＝實心、全庫近況補的＝半透明（點半透明確認正路即變實心）。\n標記：<b>金光</b>＝全場只有他會用、<b>青框</b>＝同隊多人會用、<b>禁用圖示</b>＝對手慣用但沒選過的禁招。\n按鈕：⏵自動（點池自動填下一格；開新局請點 ＋）、全局／一般（全局＝Fearless：PICK 從池消失、BAN 不消耗、最多五局）、📥匯入近期BP、🗑清空（清空全部局）、📸截圖。\n📥<b>匯入近期BP</b>：把真實系列賽帶進來（全局模式會先清掉其他局）；匯入的局<b>只能換英雄、不能改順位</b>（整局可刪），標題顯示該場<b>日期與賽事</b>。",
 "英雄Tier":"依你的判斷把英雄分級（S／A／B…）。\n操作：左側角色池<b>拖曳</b>或<b>左鍵拎起</b>→放到右邊 Tier 列（列間可互拖、拖回池或點一下移回、右鍵取消）。\n階列：可<b>改名</b>、點色塊<b>換色</b>、<b>✕</b>刪階（英雄回池）、下方<b>＋</b>加階、右側<b>⠿</b>拖曳整階排序。\n按鈕：⇄五路／混合、🎯積分數據／📊比賽數據／✏️自訂（三向模式切換，各自獨立板子互不覆蓋：數據模式自動分階、再點一次依目前篩選重新產生；滑鼠移到英雄上顯示該模式的數據，自訂模式積分與比賽都列）、⚙參數（門檻與奇招條件）、🗑清空、📸截圖。\n評分<b>不無條件進位</b>（89.9 仍在 A）；英雄圖邊框紅＝版本增強、綠＝削弱、黃＝調整。",
 "積分":"各隊選手的<b>單雙排（solo queue）積分</b>排行，最新在上。\n<b>每位選手只列牌位最高的那一隻帳號</b>（一人多帳號時）；<b>整年沒有比賽出場過的人不列</b>（純教練等）。\n操作：上方<b>搜尋</b>選手或戰隊、點<b>欄位名</b>排序；<b>路線</b>／<b>賽區</b>可篩選。\n<b>賽區</b>＝該選手<b>戰隊的參賽賽區</b>（不是伺服器位置）：聯賽＋盃賽都可選，一隊可同時屬多區（如 GEN＝LCK＋MSI＋FST）；盃賽只列 FST／MSI／WCS／EWC／ENC。\n看法：牌位依 菁英＞宗師＞大師＞鑽石… 排，大師以上不分段直接看 LP；未定位或找不到帳號的排最底（灰字）。\n<b>常用英雄</b>：滑上去看完整角色池（場數／勝率／KDA，勝率越高越紅）。\n<b>點選手名</b>→逐場單雙積分戰績（合併該選手所有帳號、只收本命路線：英雄／對位／KDA／KP%／dpm 評分／符文／出裝／技能加點；滑技能看加點順序、滑裝備看出裝順序）。\n帳號來源：LPL／LCK 以 <b>OBGG</b> 為主、LCS／LEC／CBLOL 以 <b>dpm</b> 為主、其餘統整；<b>峽谷之巔</b>與近兩月沒打的帳號自動濾掉。牌位由 <b>Riot API</b> 每日更新、逐場由 dpm 抓。"
@@ -1387,7 +1386,6 @@ const TAB_HELP_EN={
 "陣容":"One team's <b>five-role starting</b> champion pools.\nHow-to: pick a team from the <b>Team</b> dropdown above, click a <b>column header</b> in each lane to sort it.\nColumns include games, win rate, ban rate and last-used date; champions with under 3 games are not ranked or colored.\nThe top-left <b>🎯 Soloq / Pro</b> button switches the pool source: <b>Pro</b> = match starters, <b>Soloq</b> = players' ranked go-to champions. Range follows the filters above.",
 "對戰BP":"Two teams' <b>series BP records</b>, newest first.\nHow-to: pick teams from the <b>Team</b> dropdowns above (fill just one to see all its series).\nReading: <b>gold number</b> = pick order 1–7, <b>gold bold</b> = first-pick side, <b>star</b> = winner.\nThe title auto-flags <b>missing games</b> (e.g. a BO5 at 2-2 missing game 5); a 1-1 draw in a BO2 doesn't count as missing.",
 "圖鑑":"Sections, switch via the tabs above:\n<b>Patch</b> = champion/item changes for the whole year or a single patch (click a patch number for official notes)\n<b>Champions</b> = click a name for patch history and its <b>unique mechanic</b> panel\n<b>Items</b> / <b>Runes</b> / <b>Objectives</b> = buildings, epic monsters, dragon souls and official values\n<b>Esports</b> = that year's league tree (3 internationals / tier 1-2-3 regions / cups, with each team's abbreviation, international team chips carry their home-region color frame; green check = qualified through play-in/qualifier)\nMost sections are searchable and have hover tooltips.",
-"AI 問答":"Ask AI about player and team data.\nHow-to: enter an <b>Anthropic API Key</b> (stored locally only, never sent elsewhere), pick a model, type a question and hit <b>Send</b> (or Enter).\nAnswers from <b>all of that year's</b> player + team data (<b>ignores the filters above</b>, <b>does not browse the web</b>).\nEach answer shows <b>token usage and cost</b> (auto-converted to TWD); history can be expanded or cleared.",
 "模擬BP":"Draft your own BANs / PICKs and see lane assignment live; champion pool on the right, sim games on the left (game 1→N, newest game on the far right next to the pool).\nHow-to: pick <b>Team A / B</b> above to load both pools; <b>drag</b> or <b>left-click to lift</b> a champion → left-click into a slot, right-click to cancel; click a filled slot to remove, click <b>FP / SP</b> (<b>FP</b> = First Pick, <b>SP</b> = Second Pick) to toggle order, <b>⇄</b> to swap the rotating player.\nHover a champion in a sim game → the right panel shows <b>detailed stats</b> (a BAN shows the <b>opponent's</b> usage; if that team isn't selected it shows the current data range); the same champion glows across all sim games.\nLane logic: the team's own player pool = solid, filled from the global recent pool = translucent (click a translucent one to confirm the lane and make it solid).\nMarkers: <b>gold glow</b> = only this player uses it, <b>cyan frame</b> = multiple teammates use it, <b>ban icon</b> = an opponent favorite that hasn't been picked.\nButtons: ⏵ auto (clicking the pool fills the next slot; use ＋ for a new game), Fearless/Normal (Fearless: PICKs vanish from the pool, BANs don't consume, up to five games), 📥 Import recent BP, 🗑 Clear (clear all games), 📸 Screenshot.\n📥 <b>Import recent BP</b>: brings a real series in (Fearless mode clears other games first); imported games <b>can only swap champions, not change order</b> (the whole game can be deleted), and the title shows that game's <b>date and event</b>.",
 "英雄Tier":"Tier champions by your own judgment (S / A / B…).\nHow-to: <b>drag</b> or <b>left-click to lift</b> from the pool on the left → drop into a Tier row on the right (rows can be dragged into each other, dragged back to the pool or clicked to return, right-click to cancel).\nTier rows: <b>rename</b>, click the color swatch to <b>recolor</b>, <b>✕</b> deletes the tier (champions return to pool), <b>＋</b> below adds a tier, <b>⠿</b> on the right drags to reorder tiers.\nButtons: <b>⇄</b> five-lane/mixed, then a three-way mode toggle — <b>🎯 Ranked</b> (auto-tier S~D by soloq rating), <b>📊 Match</b> (auto-tier S~C + Off-meta by current-range rating), <b>✏️ Custom</b> (free arrangement, never overwritten by data modes). Each mode keeps its own board; in a data mode, clicking the current mode again <b>regenerates by the current filters</b>; hover a champion to see that mode's stats (Custom shows both soloq and match). Then <b>⚙</b> Params (thresholds & off-meta criteria), <b>🗑</b> Clear, <b>📸</b> Screenshot.\nSoloq mode is hidden in historical years. Rating <b>doesn't round up</b> (89.9 stays in A); champion border red = patch buff, green = nerf, yellow = adjustment.",
 "積分":"Each team's players' <b>solo queue ranked</b>, highest first.\n<b>Only the highest-rank account per player is listed</b> (when a player has several); <b>players with no match appearance all year are omitted</b> (pure coaches etc.).\nHow-to: <b>search</b> a player or team above, click a <b>column header</b> to sort; filter by <b>role</b> / <b>region</b>.\n<b>Region</b> = the player's <b>team competitive region</b> (not server location): leagues + cups, a team can belong to several (e.g. GEN = LCK + MSI + FST); cups are limited to FST / MSI / WCS / EWC / ENC.\nReading: tier order Challenger > Grandmaster > Master > Diamond…; Master+ has no division, sorted by LP; unranked / not-found accounts sink to the bottom (greyed).\n<b>Champions</b>: hover for the full champion pool (games / win% / KDA; higher win% is redder).\n<b>Click a player's name</b> → per-game Solo/Duo history (all of that player's accounts merged, main role only: champ / matchup / KDA / KP% / dpm score / runes / items / skill order; hover skills for level order, items for build order).\nAccount source: LPL / LCK mainly <b>OBGG</b>, LCS / LEC / CBLOL mainly <b>dpm</b>, others merged; the <b>Challenger practice server</b> and accounts inactive over two months are auto-filtered. Ranks refresh daily via the <b>Riot API</b>, per-game via dpm."
@@ -2098,6 +2096,7 @@ const LG_NAME={"ALL":"全部","LTA N":"LTA 北區","LTA S":"LTA 南區","WLDs":"
 const lgName=l=>{ if(LANG==="en"){ const en={"ALL":"All","中韓":"CN+KR","歐美":"EU+NA","國際賽":"Internationals","LTA N":"LTA North","LTA S":"LTA South","WLDs":"Worlds","FST":"First Stand Tournament"}; if(en[l])return en[l]; } return LG_NAME[l]||l; };
 const d1s=v=>(+v).toFixed(1).replace(/\.0$/,""); // 一位小數；小數為 0 就不顯示小數點（3.0→3、2.5→2.5）
 const lgTagOn=()=>F.league==="ALL"||!!LG_GROUP[F.league]||F.league==="EWCQ"; // 全部或群組篩選＝混合聯賽 → 名稱旁要標賽區
+const stripRgnParen=s=>String(s).replace(/（[^（）]*）\s*$/,""); // 名稱旁已有賽區色塊(lgChip)時，去掉碰撞縮寫尾端重複的（聯賽碼）；選手名不以（）結尾＝無操作
 const lgChip=l=>{if(!l)return `<span class="meta">—</span>`;const c=LGC[l]||"#8a93a6";
   return `<span class="lg" style="background:${c}22;color:${c}">${lgName(l)}</span>`;};
 
@@ -3990,7 +3989,7 @@ if(IS_PUBLIC){ // 網路版標題
   document.title="LOL數據表公開版";
   const st=document.getElementById("siteTitleTx"); if(st)st.textContent="LOL數據表公開版";
 }
-const VIEWS=["總覽","英雄","選手","戰隊","陣容","對戰BP","模擬BP","英雄Tier","積分","圖鑑",...(IS_PUBLIC?[]:["AI 問答"])];
+const VIEWS=["總覽","英雄","選手","戰隊","陣容","對戰BP","模擬BP","英雄Tier","積分","圖鑑"]; // AI 問答已移除（使用者：沒意思）；渲染分支留為死碼（curView 恆在 VIEWS 內 → 不會進到那個 catch-all else）
 let curView="總覽", chart=null, radar=null, sortK="評分", sortDir=-1;
 const V={pos:"",player:"",vsTeam:"",bpTeam:"",r1:"",r2:"",r3:"",t1:"",t2:"",t3:"",hdOpp:"",hdLane:"",rankQ:"",rankSort:null,rankDetail:"",rankDetLane:"",rankShow:100,rankGSort:null,rankGChamp:"",rankGOpp:"",rankRole:"",rankRegion:""};
 // ---------- 選項自動記憶（重開免重設）----------
@@ -4639,6 +4638,9 @@ function tableHTML(cols,rows,nameImg,limit){ // limit：只渲染排序後前 N 
     if(x==null)return 1; if(y==null)return -1;
     if(typeof x==="string")return x.localeCompare(y)*sortDir;
     return (x<y?-1:x>y?1:0)*sortDir;});
+  // 欄寬穩定：以「全部列」(非只前 limit 列)算每欄最寬內容當 min-width 地板 → 排序/換頁時可見列 ≤ 地板、欄距不再跑動(仍 auto 版面、不裁字)；名稱/已定寬欄(i0/w)不鎖
+  const _stripTags=s=>String(s).replace(/<[^>]*>/g,"");
+  const colFloor=cols.map(([c,f,w],i)=>{ if(i===0||w)return null; let mx=0; for(const r of sorted){const t=_stripTags(f(r[c],r)); if(t.length>mx)mx=t.length;} return mx||null; });
   // 每欄排名門檻：前三紅（第一粗）、後三藍（最後粗）。評分類已有色階徽章，跳過。
   const rankOf={};
   const elig=r=>r.場數==null||r.場數>=3; // 低於3場沒意義：不列入排名也不上色
@@ -4660,7 +4662,7 @@ function tableHTML(cols,rows,nameImg,limit){ // limit：只渲染排序後前 N 
   };
   const thBrk=n=>{if(n==="勝率(勝-敗)"||n==="金差@15"||n==="經差@15"||n==="GD@15"||n==="XPD@15")return n; let s=(LANG==="en")?n.replace(/ +/g," ").trim():n; const i=s.search(/[（(@]/); if(i>0)s=`${s.slice(0,i)}<br>${s.slice(i)}`; s=s.replace(/→/g,"→<br>"); if(LANG==="en")s=s.replace(/ /g,"<br>"); return s.replace(/(<br>){2,}/g,"<br>");}; // 表頭遇括號/@/箭頭換行（積分表 @15 欄名短→整欄一行不斷）；英文再於半形空格處換行（只斷空格、不硬斷字）；合併連續<br>避免多空行
   const show=(limit&&limit<sorted.length)?sorted.slice(0,limit):sorted; // 分批：只渲染前 N 列（名次仍用完整排序索引 ri）
-  return `<div class="tblwrap"><table><thead><tr><th class="rkh">#</th>${cols.map(([c,,w,lbl])=>`<th data-k="${c}"${w?` style="width:${w}"`:""}><span class="thL">${thBrk(lbl||mLabel(c))}${arrow(c)}</span></th>`).join("")}</tr></thead><tbody>${
+  return `<div class="tblwrap"><table><thead><tr><th class="rkh">#</th>${cols.map(([c,,w,lbl],ci)=>{const _st=w?`width:${w}`:(colFloor[ci]?`min-width:calc(${colFloor[ci]}ch + 6px)`:""); return `<th data-k="${c}"${_st?` style="${_st}"`:""}><span class="thL">${thBrk(lbl||mLabel(c))}${arrow(c)}</span></th>`;}).join("")}</tr></thead><tbody>${
     show.map((r,ri)=>`<tr><td class="rk${ri<3?` rk${ri+1}`:""}">${ri+1}</td>${cols.map(([c,f],i)=>{
       let v=f(r[c],r);
       if(i===0&&nameImg&&r._pair)v=`<span class="heroname">${cImg(r._pair[0])}${cImg(r._pair[1])}${v}</span>`; // 英雄配對：兩隻圖並排
@@ -4668,7 +4670,7 @@ function tableHTML(cols,rows,nameImg,limit){ // limit：只渲染排序後前 N 
       let nmAttr="";
       if(i===0&&r._lg!==undefined){ // 選手/戰隊欄鐵則：名稱置左＋3px 放區域籤；整組以最長者置中（alignHeroCols）
         nmAttr=` data-nm="${esc(String(r[c]))}"`;
-        v=`<span class="heroname" style="display:inline-flex;align-items:center;gap:3px">${v}${(r._lg&&lgTagOn())?lgChip(r._lg):""}</span>`;
+        {const _on=r._lg&&lgTagOn(); v=`<span class="heroname" style="display:inline-flex;align-items:center;gap:3px">${_on?stripRgnParen(v):v}${_on?lgChip(r._lg):""}</span>`;} // 有色塊就去掉重複的（聯賽碼）
       }
       return `<td class="${cellCls(c,r[c],r)}"${nmAttr}>${v}</td>`;
     }).join("")}</tr>`).join("")
@@ -5597,8 +5599,9 @@ function render(){
       const hs=[...heroAll].sort((a,b)=>(b["BP%"]||0)-(a["BP%"]||0)).slice(0,10);
       const head=hs2=>`<thead><tr>${hs2.map(h=>`<th>${mLabel(h)}</th>`).join("")}</tr></thead>`;
       // 名稱鐵則：置左＋3px 區域籤、整組以最長者為支點置中（alignHeroCols）
-      const nmCell=r=>{const inner=r.選手!==undefined?pCell(r.選手):esc(r.戰隊);
-        return `<span class="heroname" style="display:inline-flex;align-items:center;gap:3px">${inner}${(r._lg&&lgTagOn())?lgChip(r._lg):""}</span>`;};
+      const nmCell=r=>{const isP=r.選手!==undefined; let inner=isP?pCell(r.選手):esc(r.戰隊); const _on=r._lg&&lgTagOn();
+        if(_on&&!isP)inner=stripRgnParen(inner); // 戰隊有色塊就去掉重複的（聯賽碼）
+        return `<span class="heroname" style="display:inline-flex;align-items:center;gap:3px">${inner}${_on?lgChip(r._lg):""}</span>`;};
       const mini=(rows,nameK,label)=>`<table class="ov">${head(["名次",label,"場數","勝率","評分"])}<tbody>${rows.map((r,i)=>
         `<tr><td class="rk${i<3?` rk${i+1}`:""}" style="width:36px">${i+1}</td>
         <td>${nmCell(r)}</td>
