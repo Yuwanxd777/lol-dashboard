@@ -189,7 +189,7 @@ def main():
             if comp:  # 判例：資料庫位置＝權威；帳號主路(≥8場)與資料庫不符＝該帳號被來源網站張冠李戴 → 標錯永久跳過
                 if best_cnt > 0 and comp != best_tok:
                     print(f"   ⚠ 積分主路 {best_tok}({best_cnt}場) ≠ 資料庫 {comp} → 以資料庫為準")
-                badn = [a for a in accs if a.get("_domN", 0) >= 8 and a.get("_dom") and a["_dom"] != comp]
+                badn = []  # 使用者定案 2026-07-20：帳號歸屬「以 OBGG 網站給的為主」，不再用 soloq 主路剔除帳號。role-mismatch 會誤殺「只是打過別路」的選手（如 Knight 今年中路為主，卻因歷史全時輔助場被剔）。主路仍偵測（上方 best_tok）但只用來備援標路線；正式路線一律以資料庫比賽位置 comp 為準（見下方 best_tok=comp）。
                 for a in badn:
                     BADACC.append((a.get("riotId"), a.get("dpmPuuid")))
                     print(f"   ⛔ 帳號標示錯誤：{a.get('riotId')}（主路 {a.get('_dom')}≠{comp}），以後不再抓")
