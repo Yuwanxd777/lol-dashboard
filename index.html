@@ -1356,54 +1356,50 @@ async function fillChampSkills(hostSel,id){
 }
 // 各分頁頂部「說明」：一句話講清楚這頁做什麼＋重點/新功能。純文字（不含帶引號的 HTML 屬性），才能安全套 hiNum（數字補半形空格＋上金色）；<b> 無屬性可保留、顏色用文字描述避免打壞 hiNum
 const TAB_HELP={
-"總覽":"全站首頁，隨上方<b>年份／賽事／賽季／版本</b>篩選連動。\n看：版本焦點、選手與戰隊評分前5、熱門英雄BP%前10、搶下首殺／首塔／首龍／首巴龍／首先鋒後的勝率、最近10場。\n純檢視、不需操作。",
-"英雄":"每隻英雄的出場、勝率、KDA、BP%與<b>評分</b>。\n操作：點<b>欄位名</b>排序、滑<b>評分欄名</b>看權重、上方選路線或搜尋戰隊／選手縮小範圍。\n點<b>英雄名</b>進詳情頁：版本增減趨勢圖＋逐場出場紀錄。\n右上<b>🎯 積分</b>切換積分數據版：追蹤職業選手今年單雙排的全季彙總（勝率／KDA／參與率／分均CS／金差@15／經差@15／<b>搶二率</b>＝先到 2 等的比例），積分沒有的參數（BP%、評分等）不顯示，也不受聯賽／版本篩選影響。",
-"選手":"選手數據與評分。\n操作：上方選<b>路線</b>或<b>搜尋</b>名字、點<b>欄位名</b>排序、按<b>顯示更多</b>展開百名以外。\n點<b>選手名</b>看雷達詳情（數值旁 #N＝全體排名）。\n上方兩個下拉可挑兩人做<b>雷達對比</b>，勾<b>僅限雙方對戰</b>只算兩人直接交手。",
-"戰隊":"戰隊數據與評分。\n操作：<b>對戰</b>下拉只看面對某隊的成績、勾<b>僅限雙方對戰</b>讓雷達只比直接交手、點<b>欄位名</b>排序、點<b>戰隊名</b>看該隊BP紀錄。\n<b>同縮寫的改名隊自動合併</b>（如 Team Secret／Team Secret Whales＝TSW）。",
-"陣容":"一隊<b>五路先發</b>的角色池。\n操作：上方<b>戰隊</b>下拉選隊、每一路點<b>欄位名</b>各自排序。\n欄位含出場、勝率、被禁率、上次使用日；場數低於3場不列入排名上色。範圍跟著上方篩選。",
-"對戰BP":"兩隊<b>系列賽BP紀錄</b>，最新在上。\n操作：上方<b>戰隊</b>下拉指定戰隊。\n看法：金色數字＝選角順位1到7、金色粗體＝先選方、星號＝勝方。\n標題會自動標<b>缺場</b>（BO5打到2-2卻少第5局等），BO2的1-1和局不算缺。",
-"圖鑑":"七個分區，上方分頁切換：\n<b>版本</b>＝全年或單版本的英雄／裝備改動（點版本號看官方公告）\n<b>英雄</b>＝點名字看歷年改動與<b>專屬機制</b>大框\n<b>道具</b>／<b>符文</b>／<b>物件</b>＝建築、史詩野怪、龍魂等官方數值\n<b>戰隊</b>＝縮寫對照，可直接編輯、改名隊自動合併\n<b>賽事</b>＝當年聯賽樹狀圖（三大國際賽／一二三級賽區／盃賽，含各隊縮寫；綠勾 ✓＝晉級隊）\n多數分區可搜尋、滑上看說明。",
-"AI 問答":"用AI問選手與戰隊數據。\n操作：填 Anthropic API Key（只存本機）、選模型、打問題按<b>送出</b>（或 Enter）。\n讀取<b>當年全部</b>選手＋戰隊數據作答（<b>不受上方篩選限制</b>、<b>不會上網</b>）。\n每次顯示 token 用量與花費；紀錄可展開、可清空。",
+"總覽":"全站首頁，隨上方<b>年份／賽事／賽季／版本</b>篩選即時連動（版本下拉已統一含最新<b>積分版本</b>）。\n<b>版本焦點</b>＝目前版本的英雄／裝備／符文重點改動（附圖示，點進看官方公告）。\n<b>選手／戰隊評分前 5</b>＝目前範圍綜合評分最高的五名／五隊，可點名字進詳情。\n<b>熱門英雄 BP% 前 10</b>＝被禁＋被選登場率最高的十隻。\n<b>首殺／首塔／首龍／首巴龍／首先鋒</b>＝搶下該資源後的勝率。\n<b>最近 10 場</b>＝目前範圍內最新十場結果。\n純檢視、不需操作；每頁篩選列最右固定三顆：<b>返回（←）／回復預設（↺）／本頁說明（ℹ️）</b>。",
+"英雄":"每隻英雄的出場、勝率、KDA、<b>BP%</b>（禁＋選登場率）與<b>評分</b>。\n操作：點<b>欄位名</b>排序、滑<b>評分欄名</b>看加權權重、上方選<b>路線</b>或<b>搜尋</b>戰隊／選手縮小範圍。\n點<b>英雄名</b>進詳情頁：<b>版本增減趨勢圖</b>＋逐場出場紀錄＋<b>對位／克制</b>（誰克牠、牠克誰，可切路線與情境康特／逆康特／扛壓／菜——原「對位」分頁已併入這裡）。\n右上<b>🎯 積分</b>切換積分數據版：職業選手今年單雙排全季彙總（勝率／KDA／參與率／分均 CS／金差＠15／經差＠15／<b>搶二率</b>＝先到 2 等的比例）；積分沒有的欄位自動隱藏，也<b>不受聯賽／版本篩選影響</b>。\n篩選特定戰隊／選手時 <b>BP%</b> 會改稱<b>戰隊／選手 BP%</b>（自己選＋對手禁÷該隊出賽，非全站定義）。\n數值上色走台灣習慣：<b>越高越紅、越低越綠</b>。",
+"選手":"選手數據與<b>評分</b>。\n操作：上方選<b>路線</b>或<b>搜尋</b>名字、點<b>欄位名</b>排序、按<b>顯示更多</b>展開前百名以外。\n點<b>選手名</b>看<b>雷達詳情</b>（數值旁 #N＝該項全體排名）。\n上方兩個下拉可挑兩人做<b>雷達對比</b>，勾<b>僅限雙方對戰</b>只算兩人直接交手的場次。\n各項數值上色走台灣習慣（<b>越高越紅</b>）；場數過少不列入排名上色。",
+"戰隊":"戰隊數據與<b>評分</b>。\n操作：<b>對戰</b>下拉只看面對某隊的成績、勾<b>僅限雙方對戰</b>讓雷達只比直接交手、點<b>欄位名</b>排序、點<b>戰隊名</b>看該隊<b>BP 紀錄</b>。\n<b>同縮寫的改名隊自動合併</b>（如 Team Secret／Team Secret Whales＝TSW）。\n數值上色走台灣習慣（越高越紅）；場數過少不列入排名上色。",
+"陣容":"一隊<b>五路先發</b>的角色池。\n操作：上方<b>戰隊</b>下拉選隊、每一路點<b>欄位名</b>各自排序。\n欄位含出場、勝率、被禁率、上次使用日；場數低於 3 場不列入排名上色。\n左上<b>🎯 積分／賽事</b>鈕切換角色池來源：<b>賽事</b>＝比賽先發、<b>積分</b>＝選手單雙排常用英雄。範圍跟著上方篩選。",
+"對戰BP":"兩隊<b>系列賽 BP 紀錄</b>，最新在上。\n操作：上方<b>戰隊</b>下拉指定戰隊（可只填一隊看其所有系列）。\n看法：<b>金色數字</b>＝選角順位 1 到 7、<b>金色粗體</b>＝先選方、<b>星號</b>＝勝方。\n標題會自動標<b>缺場</b>（BO5 打到 2-2 卻少第 5 局等）；BO2 的 1-1 和局不算缺。",
+"圖鑑":"多個分區，上方分頁切換：\n<b>版本</b>＝全年或單版本的英雄／裝備改動（點版本號看官方公告）\n<b>英雄</b>＝點名字看歷年改動與<b>專屬機制</b>大框\n<b>道具</b>／<b>符文</b>／<b>物件</b>＝建築、史詩野怪、龍魂等官方數值\n<b>賽事</b>＝當年聯賽樹狀圖（三大國際賽／一二三級賽區／盃賽，含各隊縮寫，國際賽帶母賽區色框；綠勾 ✓＝晉級隊）\n多數分區可搜尋、滑上看說明。",
+"AI 問答":"用 AI 問選手與戰隊數據。\n操作：填 <b>Anthropic API Key</b>（只存本機、不外傳）、選模型、打問題按<b>送出</b>（或 Enter）。\n讀取<b>當年全部</b>選手＋戰隊數據作答（<b>不受上方篩選限制</b>、<b>不會上網查資料</b>）。\n每次顯示 <b>token 用量與花費</b>（自動換算台幣）；問答紀錄可展開、可清空。",
 "模擬BP":"自己排 BAN／PICK、即時看路線判定；模擬局在左、角色池在中、<b>雙方BAN過／其他英雄</b>在最右直欄（局號 1→N，最新局在最右、緊貼角色池）。\n操作：上方選<b>戰隊A／B</b>帶出雙方角色池；<b>拖曳</b>或<b>左鍵拎起</b>池中英雄→到格內左鍵放入、右鍵取消；點已填格移除、點<b>先選／後選</b>切順位、<b>⇄</b>換輪替選手。\n滑到模擬局英雄→右側顯示<b>詳細數據</b>（BAN 顯示<b>對手</b>使用數據；沒選該隊＝看目前數據範圍），同英雄會在所有模擬局一起發光。\n路線判定：隊上選手池＝實心、全庫近況補的＝半透明（點半透明確認正路即變實心）。\n標記：<b>金光</b>＝全場只有他會用、<b>青框</b>＝同隊多人會用、<b>禁用圖示</b>＝對手慣用但沒選過的禁招。\n按鈕：⏵自動（點池自動填下一格；開新局請點 ＋）、全局／一般（全局＝Fearless：PICK 從池消失、BAN 不消耗、最多五局）、📥匯入近期BP、🗑清空（清空全部局）、📸截圖。\n📥<b>匯入近期BP</b>：把真實系列賽帶進來（全局模式會先清掉其他局）；匯入的局<b>只能換英雄、不能改順位</b>（整局可刪），標題顯示該場<b>日期與賽事</b>。",
 "英雄Tier":"依你的判斷把英雄分級（S／A／B…）。\n操作：左側角色池<b>拖曳</b>或<b>左鍵拎起</b>→放到右邊 Tier 列（列間可互拖、拖回池或點一下移回、右鍵取消）。\n階列：可<b>改名</b>、點色塊<b>換色</b>、<b>✕</b>刪階（英雄回池）、下方<b>＋</b>加階、右側<b>⠿</b>拖曳整階排序。\n按鈕：⇄五路／混合、🎯積分數據／📊比賽數據／✏️自訂（三向模式切換，各自獨立板子互不覆蓋：數據模式自動分階、再點一次依目前篩選重新產生；滑鼠移到英雄上顯示該模式的數據，自訂模式積分與比賽都列）、⚙參數（門檻與奇招條件）、🗑清空、📸截圖。\n評分<b>不無條件進位</b>（89.9 仍在 A）；英雄圖邊框紅＝版本增強、綠＝削弱、黃＝調整。",
-"積分":"各隊選手的<b>單雙排(solo queue)積分</b>排行，最新在上。\n操作：上方<b>搜尋</b>選手或戰隊、點<b>欄位名</b>排序；<b>路線</b>／<b>賽區</b>可篩選。\n<b>賽區</b>＝該選手<b>戰隊的參賽賽區</b>(不是伺服器位置)：聯賽＋盃賽都可選，一隊可同時屬多區(如 GEN＝LCK＋MSI＋FST)；盃賽只列 FST／MSI／WCS／EWC／ENC。\n看法：牌位依 菁英>宗師>大師>鑽石… 排，大師以上不分段直接看 LP；未定位或找不到帳號的排在最底(灰字)。\n<b>常用英雄</b>：滑上去看完整角色池(場數/勝率/KDA，勝率越高越紅)。\n<b>點選手名</b>→逐場單雙積分戰績(只收該選手本命路線：英雄/對位/KDA/KP%/dpm評分/符文/出裝/技能加點；滑技能看加點順序、滑裝備看出裝順序)。\n資料＝跑 fetch_soloq.py 由 Riot API 抓的即時排位快照(非賽事數據)，角色池跑 fetch_soloq_champs.py、逐場跑 fetch_soloq_matches.py 由 dpm 抓，帳號清單放 scripts/soloq_accounts.json。",
-"對位":"選一個<b>英雄</b>與<b>路線</b>，看牠對上同路各英雄的成績（誰克牠、牠克誰）。\n操作：上方<b>英雄</b>框搜尋、<b>路線</b>下拉切換（只列牠有出場的路）、點<b>欄位名</b>排序。\n看法：預設依<b>贏線率(金差@10)</b>排序——上面＝這隻對位優勢（越高越紅）、下面＝被克制（越低越綠）；欄位含場數、勝率(勝-敗)、<b>後選局</b>（比對位者晚選的局數，括號為後選率）、<b>贏線率(金差@10)</b>（贏線率＋括號 10 分對位金差）、<b>情境</b>、<b>中期金差</b>、<b>KDA</b>。\n<b>情境</b>＝先/後選 × 贏/輸線（後選率過半＝後選；贏/輸線看<b>中期金差</b>為正的場次過半）：後選贏線＝<b>康特</b>、後選輸線＝<b>菜</b>、先選贏線＝<b>逆康特</b>、先選輸線＝<b>扛壓</b>。\n數據＝<b>該英雄 vs 同路對位英雄</b>逐場統計，範圍跟著上方篩選；場數過少(<2)不列。"
+"積分":"各隊選手的<b>單雙排（solo queue）積分</b>排行，最新在上。\n<b>每位選手只列牌位最高的那一隻帳號</b>（一人多帳號時）；<b>整年沒有比賽出場過的人不列</b>（純教練等）。\n操作：上方<b>搜尋</b>選手或戰隊、點<b>欄位名</b>排序；<b>路線</b>／<b>賽區</b>可篩選。\n<b>賽區</b>＝該選手<b>戰隊的參賽賽區</b>（不是伺服器位置）：聯賽＋盃賽都可選，一隊可同時屬多區（如 GEN＝LCK＋MSI＋FST）；盃賽只列 FST／MSI／WCS／EWC／ENC。\n看法：牌位依 菁英＞宗師＞大師＞鑽石… 排，大師以上不分段直接看 LP；未定位或找不到帳號的排最底（灰字）。\n<b>常用英雄</b>：滑上去看完整角色池（場數／勝率／KDA，勝率越高越紅）。\n<b>點選手名</b>→逐場單雙積分戰績（合併該選手所有帳號、只收本命路線：英雄／對位／KDA／KP%／dpm 評分／符文／出裝／技能加點；滑技能看加點順序、滑裝備看出裝順序）。\n帳號來源：LPL／LCK 以 <b>OBGG</b> 為主、LCS／LEC／CBLOL 以 <b>dpm</b> 為主、其餘統整；<b>峽谷之巔</b>與近兩月沒打的帳號自動濾掉。牌位由 <b>Riot API</b> 每日更新、逐場由 dpm 抓。"
 };
 // 圖鑑各分區的說明（原本頁面內文的小字 note 移來這，改由「本頁說明」按鈕依目前分區顯示）
 const DEX_HELP={
 "版本":"全年或單一版本的英雄／裝備改動總覽。\n上方<b>版本</b>選全年或特定版本、<b>搜尋</b>過濾英雄／道具名或改動內文。\n卡片邊框顏色：<b>紅＝增強、綠＝削弱、黃＝調整</b>；點<b>版本號</b>連到官方 patch notes。\n打野相關改動會另外歸到打野區。",
-"英雄":"當年每隻英雄的改動與機制。\n點<b>英雄名</b>進詳情頁：看歷年版本增減趨勢圖，以及<b>專屬機制</b>大框（例如鏡爪印記這類特殊機制）。\n上方<b>類型</b>依鬥士／坦克／法師／刺客／射手／輔助篩選、<b>搜尋</b>找名稱。",
-"道具":"當年在售的道具（依年份對應到該年版本，年內被移除的會標示「本年已移除」）。\n上方<b>分類</b>依屬性（物攻／魔攻／護甲／技能加速…）篩選、<b>搜尋</b>找名稱或效果內文。\n滑上道具看完整數值與被動說明。",
+"英雄":"當年每隻英雄的改動與機制。\n點<b>英雄名</b>進詳情頁：<b>歷年版本增減趨勢圖</b>、<b>專屬機制</b>大框（如鏡爪印記這類特殊機制）、逐場出場紀錄與<b>對位／克制</b>（原「對位」分頁已併入這裡）。\n上方<b>類型</b>依鬥士／坦克／法師／刺客／射手／輔助篩選、<b>搜尋</b>找名稱。",
+"道具":"當年<b>召喚峽谷</b>可購買的道具（依年份對應該年版本，年內被移除的標「本年已移除」並灰化；遊戲已移除但資料庫殘留的<b>殭屍道具</b>也會自動濾掉，不會出現在清單或合成鏈裡）。\n上方<b>分類</b>依屬性（物穿／法穿／護甲／技能加速…）篩選、<b>搜尋</b>找名稱或效果內文。\n滑上道具看完整數值、合成路徑與被動說明。",
 "符文":"當年版本的符文樹（歷史年顯示該年年末版本）。\n每一系第一排＝<b>基石符文</b>，其後為各階小符文。\n滑上符文看效果說明；搜尋時不符合的會變暗。",
 "召喚師技能":"當年<b>召喚峽谷</b>可用的召喚師技能（依年份對應該年版本；年內被移除的會灰化並標示移除）。\n滑上圖示看效果說明、<b>搜尋</b>找名稱或內文。\n點<b>名稱</b>進詳情頁：完整說明＋<b>歷年改動</b>（官方公告＋Wiki 合併）。",
-"物件":"召喚峽谷的中立資源：建築（塔／兵營／主堡／小兵）、史詩野怪（元素龍／遠古龍／先鋒／巴龍）、龍魂、野區野怪。\n史詩野怪的生命／防禦取自遊戲官方資料，以「<b>基礎值（每級＋成長）</b>」標示——牠們的等級隨遊戲時間提升，實戰數值會比基礎值高；龍魂數值為現行版本，實際以遊戲內為準。\n滑上看機制與數值。",
-"戰隊":"戰隊縮寫對照表，已預填 WIKI 縮寫。\n<b>可直接點欄位改縮寫、自動儲存</b>（沒填的顯示「填縮寫」提示）。\n戰隊參加過哪些聯賽／盃賽就出現在哪些卡（例如 GEN 同時列在 LCK 與 MSI）。\n<b>同縮寫的不同隊名視為同隊改名、自動合併</b>以 / 隔開，改一個縮寫會同步套用到合併的所有隊名。",
-"賽事":"當年的聯賽樹狀圖，跟著上方年份切換。\n由上而下：<b>三大國際賽</b>（世界賽／MSI／First Stand）→ <b>各地一／二／三級賽區聯賽</b> → <b>盃賽／資格賽</b>。\n每個聯賽卡片顯示賽區、全名、隊數與<b>該年所有戰隊縮寫</b>；<b>綠勾 ✓＝晉級隊（入圍賽／資格賽／升降賽晉級）</b>；升降賽與分區以卡內分段呈現。\n上方搜尋可找聯賽／賽區／戰隊。",
+"物件":"召喚峽谷的中立資源：建築（塔／兵營／主堡／小兵）、史詩野怪（元素龍／遠古龍／先鋒／巴龍）、龍魂、野區野怪。\n<b>上方年份可切換看歷年數值與機制改動</b>（例如龍魂、先鋒改版）。\n史詩野怪的生命／防禦取自遊戲官方資料，以「<b>基礎值（每級＋成長）</b>」標示——牠們等級隨遊戲時間提升，實戰數值會比基礎值高；龍魂數值為對應版本，實際以遊戲內為準。\n滑上看機制與數值。",
+"賽事":"當年的聯賽樹狀圖，跟著上方年份切換。\n由上而下：<b>三大國際賽</b>（世界賽／MSI／First Stand）→ <b>各地一／二／三級賽區聯賽</b> → <b>盃賽／資格賽</b>。\n每個聯賽卡片顯示賽區、全名、隊數與<b>該年所有戰隊縮寫</b>；<b>三大國際賽的隊伍籤帶母賽區色框</b>；<b>綠勾 ✓＝晉級隊（入圍賽／資格賽／升降賽晉級）</b>；升降賽與分區以卡內分段呈現。\n<b>雙擊任一隊伍籤可直接改縮寫</b>（自動存本機、改名隊的多個隊名一起套用、同縮寫自動合併——取代舊「戰隊」分頁的編輯功能）。\n上方搜尋可找聯賽／賽區／戰隊。",
 "刷野速度":"各英雄的刷野速度示範，<b>跟著上方年份切換賽季</b>（2026＝S16、2025＝S15、2024＝S14）。\n每一列＝一種刷野：<b>時間</b>、<b>起手技能升級序</b>（用技能圖顯示，如 Q→E→Q）、<b>刷野順序</b>（營地路線，翻成中文）、<b>▶影片</b>、<b>示範者</b>，以及攤數／重擊次數（<b>重擊 2 次以紅字標</b>）／版本／備註。\n英雄<b>依當年在打野位的出場數排序</b>；上方<b>搜尋</b>可找英雄或示範者。\n資料來源＝<b>Jungle Clear Compilation</b>（分區頂端有連結與作者社群）；僅為示範刷野、非唯一可行路線。"
 };
 const TAB_HELP_EN={
-"總覽":"Site home page; updates with the <b>Year / League / Split / Patch</b> filters above.\nShows: patch highlights, top-5 players & teams by rating, top-10 champions by Presence, win rate after taking first blood / first tower / first drake / first Baron / first Herald, and the last 10 games.\nView-only, no interaction needed.",
-"英雄":"Each champion's games, win rate, KDA, Presence and <b>Rating</b>.\nHow-to: click a <b>column header</b> to sort, hover the <b>Rating</b> header for weights, use the lane picker or search a team/player above to narrow the range.\nClick a <b>champion name</b> for its detail page: patch-change trend chart + per-game log.\nTop-right <b>🎯 Soloq</b> toggles the soloq view: full-season ranked aggregate of tracked pros (win rate / KDA / KP / CS per min / GD@15 / XPD@15 / <b>1st Lv2%</b> = first-to-level-2 rate). Pro-only stats (Presence, Rating…) are hidden and global league/patch filters don't apply.",
-"選手":"Player stats and rating.\nHow-to: pick a <b>lane</b> or <b>search</b> a name above, click a <b>column header</b> to sort, hit <b>Show more</b> to expand past the top 100.\nClick a <b>player name</b> for radar details (#N next to a value = overall rank).\nThe two dropdowns above let you pick two players for a <b>radar compare</b>; check <b>Head-to-head only</b> to count just their direct matchups.",
-"戰隊":"Team stats and rating.\nHow-to: the <b>vs</b> dropdown shows the record against one team, check <b>Head-to-head only</b> so the radar compares direct matchups, click a <b>column header</b> to sort, click a <b>team name</b> for its BP records.\n<b>Renamed teams with the same abbreviation are merged automatically</b> (e.g. Team Secret / Team Secret Whales = TSW).",
-"陣容":"One team's <b>five-role starting</b> champion pools.\nHow-to: pick a team from the <b>Team</b> dropdown above, click a <b>column header</b> in each lane to sort it.\nColumns include games, win rate, ban rate and last-used date; champions with under 3 games are not ranked or colored. Range follows the filters above.",
-"對戰BP":"Two teams' <b>series BP records</b>, newest first.\nHow-to: pick teams from the <b>Team</b> dropdowns above.\nReading: gold number = pick order 1–7, gold bold = first-pick side, star = winner.\nThe title auto-flags <b>missing games</b> (e.g. a BO5 at 2-2 missing game 5); a 1-1 draw in a BO2 doesn't count as missing.",
-"圖鑑":"Seven sections, switch via the tabs above:\n<b>Patch</b> = champion/item changes for the whole year or a single patch (click a patch number for official notes)\n<b>Champions</b> = click a name for patch history and its <b>unique mechanic</b> panel\n<b>Items</b> / <b>Runes</b> / <b>Objectives</b> = buildings, epic monsters, dragon souls and official values\n<b>Teams</b> = abbreviation table, directly editable, renamed teams merged\n<b>Esports</b> = that year's league tree (3 internationals / tier 1-2-3 regions / cups, with each team's abbreviation; green check = qualified through play-in/qualifier)\nMost sections are searchable and have hover tooltips.",
-"AI 問答":"Ask AI about player and team data.\nHow-to: enter an Anthropic API Key (stored locally only), pick a model, type a question and hit <b>Send</b> (or Enter).\nAnswers from <b>all of that year's</b> player + team data (<b>ignores the filters above</b>, <b>does not browse the web</b>).\nEach answer shows token usage and cost; history can be expanded or cleared.",
+"總覽":"Site home page; updates live with the <b>Year / League / Split / Patch</b> filters above (the Patch dropdown now includes the latest <b>soloq patch</b>).\n<b>Patch highlights</b> = key champion/item/rune changes of the current patch (with icons; click through for official notes).\n<b>Top-5 players / teams by rating</b> = highest overall rating in range, click a name for details.\n<b>Top-10 champions by Presence</b> = highest ban+pick presence.\n<b>First blood / tower / drake / Baron / Herald</b> = win rate after taking each objective.\n<b>Last 10 games</b> = newest ten results in range.\nView-only; every page keeps three fixed buttons at the far right of the filter bar: <b>Back (←) / Reset (↺) / Help (ℹ️)</b>.",
+"英雄":"Each champion's games, win rate, KDA, <b>Presence</b> (ban+pick) and <b>Rating</b>.\nHow-to: click a <b>column header</b> to sort, hover the <b>Rating</b> header for weights, use the lane picker or search a team/player above to narrow the range.\nClick a <b>champion name</b> for its detail page: <b>patch-change trend chart</b> + per-game log + <b>matchups/counters</b> (what counters it, what it beats — switch lane and situation Counter/Anti-counter/Pressured/Outmatched; the old Matchup tab is merged in here).\nTop-right <b>🎯 Soloq</b> toggles the soloq view: full-season ranked aggregate of tracked pros (win rate / KDA / KP / CS per min / GD@15 / XPD@15 / <b>1st Lv2%</b> = first-to-level-2 rate). Pro-only columns are hidden and global league/patch filters don't apply.\nWhen filtered to a team/player, <b>Presence</b> becomes <b>team/player Presence</b> (own picks + opponent bans ÷ that team's games).\nColors follow the Taiwan convention: <b>higher = redder, lower = greener</b>.",
+"選手":"Player stats and <b>Rating</b>.\nHow-to: pick a <b>lane</b> or <b>search</b> a name above, click a <b>column header</b> to sort, hit <b>Show more</b> to expand past the top 100.\nClick a <b>player name</b> for <b>radar details</b> (#N next to a value = overall rank of that stat).\nThe two dropdowns above let you pick two players for a <b>radar compare</b>; check <b>Head-to-head only</b> to count just their direct matchups.\nColors follow the Taiwan convention (<b>higher = redder</b>); low-sample players aren't ranked or colored.",
+"戰隊":"Team stats and <b>Rating</b>.\nHow-to: the <b>vs</b> dropdown shows the record against one team, check <b>Head-to-head only</b> so the radar compares direct matchups, click a <b>column header</b> to sort, click a <b>team name</b> for its <b>BP records</b>.\n<b>Renamed teams with the same abbreviation are merged automatically</b> (e.g. Team Secret / Team Secret Whales = TSW).\nColors follow the Taiwan convention (higher = redder); low-sample teams aren't ranked or colored.",
+"陣容":"One team's <b>five-role starting</b> champion pools.\nHow-to: pick a team from the <b>Team</b> dropdown above, click a <b>column header</b> in each lane to sort it.\nColumns include games, win rate, ban rate and last-used date; champions with under 3 games are not ranked or colored.\nThe top-left <b>🎯 Soloq / Pro</b> button switches the pool source: <b>Pro</b> = match starters, <b>Soloq</b> = players' ranked go-to champions. Range follows the filters above.",
+"對戰BP":"Two teams' <b>series BP records</b>, newest first.\nHow-to: pick teams from the <b>Team</b> dropdowns above (fill just one to see all its series).\nReading: <b>gold number</b> = pick order 1–7, <b>gold bold</b> = first-pick side, <b>star</b> = winner.\nThe title auto-flags <b>missing games</b> (e.g. a BO5 at 2-2 missing game 5); a 1-1 draw in a BO2 doesn't count as missing.",
+"圖鑑":"Sections, switch via the tabs above:\n<b>Patch</b> = champion/item changes for the whole year or a single patch (click a patch number for official notes)\n<b>Champions</b> = click a name for patch history and its <b>unique mechanic</b> panel\n<b>Items</b> / <b>Runes</b> / <b>Objectives</b> = buildings, epic monsters, dragon souls and official values\n<b>Esports</b> = that year's league tree (3 internationals / tier 1-2-3 regions / cups, with each team's abbreviation, international team chips carry their home-region color frame; green check = qualified through play-in/qualifier)\nMost sections are searchable and have hover tooltips.",
+"AI 問答":"Ask AI about player and team data.\nHow-to: enter an <b>Anthropic API Key</b> (stored locally only, never sent elsewhere), pick a model, type a question and hit <b>Send</b> (or Enter).\nAnswers from <b>all of that year's</b> player + team data (<b>ignores the filters above</b>, <b>does not browse the web</b>).\nEach answer shows <b>token usage and cost</b> (auto-converted to TWD); history can be expanded or cleared.",
 "模擬BP":"Draft your own BANs / PICKs and see lane assignment live; champion pool on the right, sim games on the left (game 1→N, newest game on the far right next to the pool).\nHow-to: pick <b>Team A / B</b> above to load both pools; <b>drag</b> or <b>left-click to lift</b> a champion → left-click into a slot, right-click to cancel; click a filled slot to remove, click <b>FP / SP</b> (<b>FP</b> = First Pick, <b>SP</b> = Second Pick) to toggle order, <b>⇄</b> to swap the rotating player.\nHover a champion in a sim game → the right panel shows <b>detailed stats</b> (a BAN shows the <b>opponent's</b> usage; if that team isn't selected it shows the current data range); the same champion glows across all sim games.\nLane logic: the team's own player pool = solid, filled from the global recent pool = translucent (click a translucent one to confirm the lane and make it solid).\nMarkers: <b>gold glow</b> = only this player uses it, <b>cyan frame</b> = multiple teammates use it, <b>ban icon</b> = an opponent favorite that hasn't been picked.\nButtons: ⏵ auto (clicking the pool fills the next slot; use ＋ for a new game), Fearless/Normal (Fearless: PICKs vanish from the pool, BANs don't consume, up to five games), 📥 Import recent BP, 🗑 Clear (clear all games), 📸 Screenshot.\n📥 <b>Import recent BP</b>: brings a real series in (Fearless mode clears other games first); imported games <b>can only swap champions, not change order</b> (the whole game can be deleted), and the title shows that game's <b>date and event</b>.",
-"英雄Tier":"Tier champions by your own judgment (S / A / B…).\nHow-to: <b>drag</b> or <b>left-click to lift</b> from the pool on the left → drop into a Tier row on the right (rows can be dragged into each other, dragged back to the pool or clicked to return, right-click to cancel).\nTier rows: <b>rename</b>, click the color swatch to <b>recolor</b>, <b>✕</b> deletes the tier (champions return to pool), <b>＋</b> below adds a tier, <b>⠿</b> on the right drags to reorder tiers.\nButtons: ⇄ five-lane/mixed, 📊 Import match data (auto-tier by current data), ⚙ Params (thresholds & off-meta criteria), 🗑 Clear, 📸 Screenshot.\nRating <b>doesn't round up</b> (89.9 stays in A); champion border red = patch buff, green = nerf, yellow = adjustment.",
-"積分":"Each team's players' <b>solo queue ranked</b>, highest first.\nHow-to: <b>search</b> a player or team above, click a <b>column header</b> to sort; filter by <b>role</b> / <b>region</b>.\n<b>Region</b> = the player's <b>team competitive region</b> (not server location): leagues + cups, a team can belong to several (e.g. GEN = LCK + MSI + FST); cups are limited to FST / MSI / WCS / EWC / ENC.\nReading: tier order Challenger > Grandmaster > Master > Diamond…; Master+ has no division, sorted by LP; unranked / not-found accounts sink to the bottom (greyed).\n<b>Champions</b>: hover to see the full champion pool (games / win% / KDA; higher win% is redder).\n<b>Click a player's name</b> → per-game Solo/Duo history for that player's main role only (champ / matchup / KDA / KP% / dpm score / runes / items / skill order; hover skills for level-up order and items for build order).\nData = a live ladder snapshot from the Riot API via fetch_soloq.py (not match data); champion pool via fetch_soloq_champs.py, per-game via fetch_soloq_matches.py from dpm; account list is in scripts/soloq_accounts.json.",
-"對位":"Pick a <b>champion</b> and <b>lane</b> to see its record against each same-lane opponent (what counters it, what it beats).\nHow-to: search in the <b>Champion</b> box, switch <b>Lane</b> (only lanes it played), click a <b>column header</b> to sort.\nReading: sorted by <b>Lane% (GD@10)</b> — top = favorable matchups (higher = redder), bottom = champions that counter it (lower = greener); columns include games, Win% (W-L), <b>Counter games</b> (times picked after the opponent; % in parens), <b>Lane% (GD@10)</b> (lane win% with the 10-min lane gold diff in parens), <b>Situation</b>, <b>GD@15</b> and <b>KDA</b>.\n<b>Situation</b> = pick order × lane result (counter = majority counter%; win/lose by majority-positive <b>GD@15</b> mid-game swing): counter+win = <b>Counter</b>, counter+lose = <b>Outmatched</b>, blind+win = <b>Anti-counter</b>, blind+lose = <b>Pressured</b>.\nStats are that champion vs the opponent per game, following the filters above; matchups under 2 games are hidden."
+"英雄Tier":"Tier champions by your own judgment (S / A / B…).\nHow-to: <b>drag</b> or <b>left-click to lift</b> from the pool on the left → drop into a Tier row on the right (rows can be dragged into each other, dragged back to the pool or clicked to return, right-click to cancel).\nTier rows: <b>rename</b>, click the color swatch to <b>recolor</b>, <b>✕</b> deletes the tier (champions return to pool), <b>＋</b> below adds a tier, <b>⠿</b> on the right drags to reorder tiers.\nButtons: <b>⇄</b> five-lane/mixed, then a three-way mode toggle — <b>🎯 Ranked</b> (auto-tier S~D by soloq rating), <b>📊 Match</b> (auto-tier S~C + Off-meta by current-range rating), <b>✏️ Custom</b> (free arrangement, never overwritten by data modes). Each mode keeps its own board; in a data mode, clicking the current mode again <b>regenerates by the current filters</b>; hover a champion to see that mode's stats (Custom shows both soloq and match). Then <b>⚙</b> Params (thresholds & off-meta criteria), <b>🗑</b> Clear, <b>📸</b> Screenshot.\nSoloq mode is hidden in historical years. Rating <b>doesn't round up</b> (89.9 stays in A); champion border red = patch buff, green = nerf, yellow = adjustment.",
+"積分":"Each team's players' <b>solo queue ranked</b>, highest first.\n<b>Only the highest-rank account per player is listed</b> (when a player has several); <b>players with no match appearance all year are omitted</b> (pure coaches etc.).\nHow-to: <b>search</b> a player or team above, click a <b>column header</b> to sort; filter by <b>role</b> / <b>region</b>.\n<b>Region</b> = the player's <b>team competitive region</b> (not server location): leagues + cups, a team can belong to several (e.g. GEN = LCK + MSI + FST); cups are limited to FST / MSI / WCS / EWC / ENC.\nReading: tier order Challenger > Grandmaster > Master > Diamond…; Master+ has no division, sorted by LP; unranked / not-found accounts sink to the bottom (greyed).\n<b>Champions</b>: hover for the full champion pool (games / win% / KDA; higher win% is redder).\n<b>Click a player's name</b> → per-game Solo/Duo history (all of that player's accounts merged, main role only: champ / matchup / KDA / KP% / dpm score / runes / items / skill order; hover skills for level order, items for build order).\nAccount source: LPL / LCK mainly <b>OBGG</b>, LCS / LEC / CBLOL mainly <b>dpm</b>, others merged; the <b>Challenger practice server</b> and accounts inactive over two months are auto-filtered. Ranks refresh daily via the <b>Riot API</b>, per-game via dpm."
 };
 const DEX_HELP_EN={
 "版本":"Overview of champion/item changes for the whole year or one patch.\nUse the <b>Patch</b> dropdown for full year or a specific patch, <b>search</b> to filter champion/item names or change text.\nCard border colors: <b>red = buff, green = nerf, yellow = adjustment</b>; click a <b>patch number</b> for the official patch notes.\nJungle-related changes are grouped separately.",
-"英雄":"Each champion's changes and mechanic for the year.\nClick a <b>champion name</b> for its detail page: yearly patch-change trend chart plus the <b>unique mechanic</b> panel (e.g. special mechanics like Kha'Zix Isolation).\nUse <b>Type</b> above to filter by Fighter/Tank/Mage/Assassin/Marksman/Support, <b>search</b> by name.",
-"道具":"Items on sale that year (mapped to that year's patch; ones removed within the year are marked \"Removed this year\").\nUse <b>Category</b> above to filter by stat (AD/AP/Armor/Ability Haste…), <b>search</b> by name or effect text.\nHover an item for full values and passive description.",
+"英雄":"Each champion's changes and mechanic for the year.\nClick a <b>champion name</b> for its detail page: <b>yearly patch-change trend chart</b>, the <b>unique mechanic</b> panel (e.g. special mechanics like Kha'Zix Isolation), per-game log and <b>matchups/counters</b> (the old Matchup tab is merged in here).\nUse <b>Type</b> above to filter by Fighter/Tank/Mage/Assassin/Marksman/Support, <b>search</b> by name.",
+"道具":"Items purchasable on <b>Summoner's Rift</b> that year (mapped to that year's patch; ones removed within the year are marked Removed this year and greyed; <b>zombie items</b> the game removed but the data source still keeps are filtered out too, so they never show in the list or a build path).\nUse <b>Category</b> above to filter by stat (Armor pen / Magic pen / Armor / Ability Haste…), <b>search</b> by name or effect text.\nHover an item for full values, build path and passive description.",
 "符文":"That year's rune trees (historical years show the year-end patch).\nThe first row of each tree = <b>keystone</b>, followed by minor runes per row.\nHover a rune for its effect; non-matching runes dim when searching.",
 "召喚師技能":"Summoner spells available on <b>Summoner's Rift</b> that year (mapped to that year's patch; ones removed within the year are greyed out).\nHover an icon for the effect, <b>search</b> by name or text.\nClick a <b>name</b> for the detail page: full description + <b>patch history</b> (official notes + wiki merged).",
-"物件":"Summoner's Rift neutral resources: buildings (turrets / inhibitors / Nexus / minions), epic monsters (elemental drakes / Elder / Herald / Baron), dragon souls and jungle camps.\nEpic monster health/resistances are from official game data, shown as \"<b>base (per level + growth)</b>\" — their level scales with game time, so in-game values are higher than base; soul values are for the current patch, in-game is authoritative.\nHover for mechanics and values.",
-"戰隊":"Team abbreviation table, pre-filled from the wiki.\n<b>Click a cell to edit the abbreviation; auto-saved</b> (empty ones show a \"fill abbr\" hint).\nA team appears on the cards for whichever leagues/cups it joined (e.g. GEN in both LCK and MSI).\n<b>Different names with the same abbreviation are treated as one renamed team and merged</b> with / ; editing one abbreviation applies to all merged names.",
-"賽事":"That year's league tree, following the year filter above.\nTop to bottom: <b>3 internationals</b> (Worlds / MSI / First Stand) → <b>tier 1/2/3 regional leagues</b> → <b>cups / qualifiers</b>.\nEach league card shows region, full name, team count and <b>every team's abbreviation that year</b>; <b>a gold-framed abbreviation = that team played promotion that year</b>.\nSearch above to find a league / region / team.",
+"物件":"Summoner's Rift neutral resources: buildings (turrets / inhibitors / Nexus / minions), epic monsters (elemental drakes / Elder / Herald / Baron), dragon souls and jungle camps.\n<b>Use the year above to see historical values and mechanic changes</b> (e.g. dragon soul / Herald reworks).\nEpic monster health/resistances are from official game data, shown as <b>base (per level + growth)</b> — their level scales with game time so in-game values are higher than base; soul values are for the matching patch, in-game is authoritative.\nHover for mechanics and values.",
+"賽事":"That year's league tree, following the year filter above.\nTop to bottom: <b>3 internationals</b> (Worlds / MSI / First Stand) → <b>tier 1/2/3 regional leagues</b> → <b>cups / qualifiers</b>.\nEach league card shows region, full name, team count and <b>every team's abbreviation that year</b>; <b>team chips in the 3 internationals carry their home-region color frame</b>; <b>a green check = qualified (play-in / qualifier / promotion)</b>.\n<b>Double-click any team chip to edit its abbreviation</b> (auto-saved locally, applied to all merged renamed names, same abbreviations auto-merge — this replaces the old Teams tab's editor).\nSearch above to find a league / region / team.",
 "刷野速度":"Each champion's jungle clear demos, <b>switching season with the year above</b> (2026 = S16, 2025 = S15, 2024 = S14).\nEach row = one clear: <b>time</b>, <b>starting skill order</b> (shown as spell icons, e.g. Q→E→Q), <b>clear route</b> (camp path), <b>▶ video</b>, <b>player</b>, plus camps / smite count / patch / notes.\nChampions are <b>sorted by jungle-position games that year</b>; <b>search</b> above finds a champion or player.\nSource = <b>Jungle Clear Compilation</b> (link and author community at the top of the section); demos only, not the only viable route."
 };
 // 說明內容：純文字走 hiNum（數字補空格上金色）＋\n→<br>；若含帶引號的 HTML（顏色/樣式）則原樣輸出不破壞
@@ -2227,16 +2223,43 @@ const leagueTier=(lg,m,year)=>{const o=LEAGUE_TIER_OVERRIDE[lg]; if(o&&o[year])r
   if(s&&s.t1)return 1;   // 一級＝該年有世界賽席位的賽區（fetch_worlds_tier1，使用者定義 2026-07-16）
   return m.tier||3;};
 // ⚠ 別接 Leaguepedia TournamentLevel 當級別：它的 Primary＝地區頂級聯賽（LJL/CBLOL 也算），不是樹的「國際一級賽區」定義
+// 賽事樹隊伍籤「雙擊改縮寫」：把 chip 換成輸入框；Enter/失焦存進 USER_TABBR（localStorage user_tabbr，abbrOf 最優先）→ 清賽事快取重畫；Esc 取消。data-tn 內多名（改名隊）一起套用、同縮寫會自動合併
+function editEvtAbbr(sp){
+  if(!sp||sp.querySelector("input"))return;
+  if(typeof tipHide==="function")tipHide();
+  const names=(sp.dataset.tn||"").split("|").filter(Boolean);
+  if(!names.length)return;
+  const orig=sp.innerHTML;
+  const inp=document.createElement("input");
+  inp.type="text"; inp.value=tAb(names[0]); inp.maxLength=12; inp.spellcheck=false;
+  inp.style.cssText="width:4.5em;font:inherit;text-align:center;background:#0e1420;color:#ffd479;border:1px solid #4f8ef7;border-radius:4px;padding:0 2px;box-sizing:content-box";
+  sp.textContent=""; sp.appendChild(inp); inp.focus(); inp.select();
+  let done=false;
+  const fin=ok=>{ if(done)return; done=true;
+    if(ok){ const v=inp.value.trim();
+      names.forEach(nm=>{const k=normT(nm); if(v)USER_TABBR[k]=v; else delete USER_TABBR[k];});
+      try{localStorage.setItem("user_tabbr",JSON.stringify(USER_TABBR));}catch(e){}
+      try{window._EVT_CACHE={};}catch(e){}
+      render();
+    } else sp.innerHTML=orig; };
+  inp.addEventListener("keydown",e=>{ e.stopPropagation();
+    if(e.key==="Enter"){e.preventDefault();fin(true);}
+    else if(e.key==="Escape"){e.preventDefault();fin(false);} });
+  inp.addEventListener("blur",()=>fin(true));
+  inp.addEventListener("click",e=>e.stopPropagation());
+  inp.addEventListener("dblclick",e=>e.stopPropagation());
+}
 // 圖鑑「賽事」分頁：畫出當年（curYear）聯賽樹狀圖——三大國際賽 → 一/二/三級賽區聯賽 → 盃賽；資料取自當年 GAMES 實際出現的聯賽
 const eventsTreeHTML=()=>{
   const q=(V.dexQ||"").trim().toLowerCase();
-  const byLg={};
+  const byLg={}, homeCnt={}; // homeCnt＝隊→各聯賽場數（國際賽卡賽區框用：取母賽區）
   for(const o of GAMES){
     const lg=o.league; if(!lg)continue;
     const e=byLg[lg]||(byLg[lg]={splits:new Set(),teams:new Set(),releg:new Set(),reg2:new Set(),n:0});
     e.n++; if(o.split)e.splits.add(o.split);
     const bt=o.raw[C.blue_teamname], rt=o.raw[C.red_teamname];
     if(bt)e.teams.add(bt); if(rt)e.teams.add(rt);
+    if(bt){const hc=homeCnt[bt]||(homeCnt[bt]={}); hc[lg]=(hc[lg]||0)+1;} if(rt){const hc=homeCnt[rt]||(homeCnt[rt]={}); hc[lg]=(hc[lg]||0)+1;} // 母賽區統計
     if(o.split==="升降賽"){ if(bt)e.releg.add(bt); if(rt)e.releg.add(rt);
       const pt=e.ptinfo=e.ptinfo||{}; const dp=String(o.date).slice(0,10); // 升降賽內的末戰勝負（勝＝晉級/保級→黃框）
       if(bt&&(!pt[bt]||dp>=pt[bt].d))pt[bt]={d:dp,w:o.result===1};
@@ -2308,6 +2331,10 @@ const eventsTreeHTML=()=>{
   // 特邀隊（年度×聯賽 人工表）：2026 LEC S1 特邀去年 EMEA Masters 表現優異的 LR/KCB（使用者判例）→ 卡內獨立分段
   const EVT_GUEST={2026:{LEC:{lb:LANG==="en"?"S1 Invited (EMEA Masters)":"S1 特邀（EMEA Masters）",abs:["LR","KCB"]}}};
   const LS=(window.LEAGUE_STRUCT||{})[String(curYear)]||{}; // Leaguepedia 升降賽/資格賽補充（league_struct.js；資料庫沒有次級場次時仍能標示制度與賽事名）
+  // 國際賽卡賽區框：隊的母賽區＝其 t1 聯賽中出賽最多者 → 該賽區色（LGC；與聯賽籤同色）；無定義色的小賽區回 null（不上框）
+  const _homeCol=team=>{const c=homeCnt[team]; if(!c)return null; let best=null,bn=-1;
+    for(const lg in c){const m2=leagueMeta(lg); if(m2&&m2.grp==="t1"&&c[lg]>bn){bn=c[lg];best=lg;}}
+    return best&&LGC[best]?LGC[best]:null;};
   const node=x=>{
     const m=x.m, hasReleg=x.releg.size>0;
     const ps=((LS[x.lg]||{}).promo)||[];
@@ -2323,7 +2350,8 @@ const eventsTreeHTML=()=>{
       const inf2=e2=>{let d="",w=false; e2.names.forEach(nm=>{const r2=_tm[nm]; if(r2&&(r2.d>d||(r2.d===d&&r2.w))){d=r2.d;w=!!r2.w;}}); return {d,w};};
       return [...g.values()].sort((a,b)=>{const ia=inf2(a),ib=inf2(b); // 依淘汰時間：活越久越前（冠軍最前；同日末戰勝者先）
         return ib.d.localeCompare(ia.d)||((ib.w?1:0)-(ia.w?1:0))||a.ab.localeCompare(b.ab);}).map(e2=>{const adv=advAb&&advAb.has(e2.ab);
-        return `<span class="evtTeam${adv?" evtAdv":""}" data-tn="${esc(e2.names.join("|"))}" data-lgs="${esc(_lgs.join("|"))}" title="${esc(e2.names.join("／"))}${adv?(LANG==="en"?"｜qualified":"｜晉級"):""}">${esc(e2.ab)}${adv?'<i class="advCk">✓</i>':""}</span>`;}).join("");};
+        const rc=(m.grp==="intl")?(e2.names.map(_homeCol).find(Boolean)||null):null; // 國際賽卡：母賽區色框（與聯賽籤同色）
+        return `<span class="evtTeam${adv?" evtAdv":""}${rc?" evtRgn":""}"${rc?` style="border:2px solid ${rc}"`:""} data-tn="${esc(e2.names.join("|"))}" data-lgs="${esc(_lgs.join("|"))}" title="${esc(e2.names.join("／"))}${adv?(LANG==="en"?"｜qualified":"｜晉級"):""}">${esc(e2.ab)}${adv?'<i class="advCk">✓</i>':""}</span>`;}).join("");};
     const uq=arr2=>new Set(arr2.map(t2=>tAb(t2))).size;
     const mainArr0=[...x.teams].filter(t2=>!poSet.has(t2));
     let mainChips;
@@ -2450,7 +2478,8 @@ const eventsTreeHTML=()=>{
     const wr=n?Math.round(w/n*100):0, wc=wr>=55?"#ff5d5d":(wr<=45?"#37c871":"#cdd6e6");
     return `<div class="tipTitle">${esc(tAb(names[0]))} <span class="meta">${esc(names.join("／"))}</span></div>
       <div style="margin:3px 0 6px">${n} ${en?"games":"場"}｜<b style="color:${wc}">${wr}%</b> ${en?"win":"勝率"}</div>
-      <div style="display:flex;flex-direction:column;gap:3px;font-size:13px">${rows||`<span class="meta">${en?"no player rows":"無選手資料"}</span>`}</div>`;
+      <div style="display:flex;flex-direction:column;gap:3px;font-size:13px">${rows||`<span class="meta">${en?"no player rows":"無選手資料"}</span>`}</div>
+      <div class="meta" style="margin-top:5px;font-size:11.5px">${en?"✎ Double-click the chip to edit its abbreviation":"✎ 雙擊此籤可改縮寫"}</div>`;
   };
   const fil=arr=>!q?arr:arr.filter(x=>((x.lg+x.m.zh+(x.m.region||"")+[...x.teams].map(tAb).join("")+[...x.teams].join("")).toLowerCase().includes(q))); // 縮寫＋全名都可搜
   const section=(title,ic,arr,emptyNote)=>{const a=fil(arr);
@@ -8246,7 +8275,7 @@ function render(){
     // ── 圖鑑：英雄 / 道具 / 符文 / 戰隊名稱 四分區 ──
     V.dexSec=V.dexSec||"英雄";
     // 分區籤清單：列表頁與詳情子頁共用同一份，避免兩處各自維護而漂移（曾發生詳情頁漏「召喚師技能」）；刷野速度資料僅 2024/S14 起
-    const DEX_SECS=["版本","英雄","道具","符文","召喚師技能","物件","戰隊","賽事","刷野速度"].filter(s=>s!=="刷野速度"||+curYear>=2024);
+    const DEX_SECS=["版本","英雄","道具","符文","召喚師技能","物件","賽事","刷野速度"].filter(s=>s!=="刷野速度"||+curYear>=2024); // 「戰隊」已併入「賽事」（樹狀圖已含各隊縮寫）
     if(typeof ensureWiki==="function")ensureWiki(); // 圖鑑用到 wiki 歷年資料：未載則補載，載畢自動重繪
     // 歷年改動詳情頁（整頁切換，像英雄分頁的詳情）
     if(V.dexDetail){
@@ -8317,6 +8346,7 @@ function render(){
       return;
     }
     const SECS=DEX_SECS; // 與詳情子頁共用（見上方 DEX_SECS 定義）
+    if(V.dexSec==="戰隊")V.dexSec="賽事"; // 「戰隊」分頁已併入「賽事」樹狀圖 → 舊狀態自動導向
     if(V.dexSec==="刷野速度"&&+curYear<2024)V.dexSec="版本"; // 切到 2024 前年份時，隱藏中的刷野速度分區退回版本
     // 版本分區：只列「當年」的版本（yy.01 起），新→舊
     const VPKS=(()=>{
@@ -8414,7 +8444,8 @@ function render(){
           box.innerHTML=_eq?eventsTreeHTML():(_EVT_CACHE[_ek]||(_EVT_CACHE[_ek]=eventsTreeHTML()));
           box.querySelectorAll(".evtTeam[data-tn]").forEach(sp=>{ // 滑上戰隊 → 場數/勝率/選手小框
             sp.addEventListener("mouseenter",()=>tipShow(evtTeamTip(sp.dataset.tn.split("|"),(sp.dataset.lgs||"").split("|").filter(Boolean)),sp.getBoundingClientRect()));
-            sp.addEventListener("mouseleave",tipHide);});
+            sp.addEventListener("mouseleave",tipHide);
+            sp.addEventListener("dblclick",e=>{e.preventDefault();editEvtAbbr(sp);});}); // 雙擊隊伍籤改縮寫
           return; } // 賽事：聯賽樹狀圖（不需 DDragon 資料）
         if(V.dexSec==="刷野速度"){ await lazyLoad("jungle"); await jungleHTML(box); return; } // 刷野速度：GS 刷野資料＋技能圖（jungle.js 進本分區才載）
         if(V.dexSec==="物件"){ // ── 物件分區：建築／史詩野怪／龍魂／野區（召喚峽谷；機制為主，數值依現行版本會微調）──
