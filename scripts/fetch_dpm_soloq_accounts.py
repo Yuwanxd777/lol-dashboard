@@ -21,7 +21,7 @@ DPM_LEAGUES = ["lcs", "lec", "cblol"]           # 以 dpm 為主的職業聯賽
 PLAT = {"NA1": "na1", "KR": "kr", "KR1": "kr", "EUW1": "euw1", "EUN1": "eun1", "BR1": "br1",
         "LA1": "la1", "LA2": "la2", "OC1": "oc1", "TR1": "tr1", "RU": "ru", "JP1": "jp1"}
 # dpm 隊碼 → 本清單隊碼（僅列已知差異；相同者不需列）
-TEAM_ALIAS = {"GEN": "GENG"}
+TEAM_ALIAS = {"GEN": "GENG", "DNF": "DNS"}  # dpm 隊碼→本清單碼；DN Freecs 比賽改名 DNS
 
 
 def norm(s):

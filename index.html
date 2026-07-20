@@ -676,7 +676,7 @@ window.__SQCACHE={}; window.__sqLoad=function(k,d){ window.__SQCACHE[k]=d;
   if(typeof render==="function" && typeof curView!=="undefined" && typeof V!=="undefined" && ((curView==="積分" && V.rankDetail)||(curView==="陣容" && V.rosterMode==="soloq")||(curView==="模擬BP" && V.bpSoloqPool))) render(); };</script>
 <script src="soloq_match_index.js" onerror="window.SOLOQ_MATCH_IDX=null"></script>
 <script src="soloq_acc_lastgame.js" onerror="window.SOLOQ_ACC_LG=null"></script>
-<script src="soloq_builds.js" onerror="window.SOLOQ_BUILDS=null"></script>
+<!-- soloq_builds.js(1.3MB) 改延遲＋首屏後閒置預載：首屏(總覽)用不到，只英雄頁/圖鑑hover用；見下方 _LAZYSRC.builds + ensureBuilds。各處已有 if(!SOLOQ_BUILDS) 守衛 -->
 <script>
 "use strict";
 // ============================================================
@@ -802,7 +802,7 @@ if(LANG==="en"){
 }
 // ── 延遲載入（性能 2026-07-17）：wiki 三檔＋英文公告＋刷野（~5.2MB）改為動態掛載——
 // 首屏後 1.2 秒閒置預載 wiki；進 圖鑑/英雄 會再 ensureWiki（冪等）；刷野速度分頁才載 jungle.js；英文模式才載 patches_en.js。
-const _LAZYSRC={wiki:["wiki_patches.js","wiki_extra.js","wiki_objectives.js"],en:["patches_en.js"],jungle:["jungle.js"],sqg:["soloq_champ_games.js"]};
+const _LAZYSRC={wiki:["wiki_patches.js","wiki_extra.js","wiki_objectives.js"],en:["patches_en.js"],jungle:["jungle.js"],sqg:["soloq_champ_games.js"],builds:["soloq_builds.js"]};
 const _lazyP={};
 function lazyLoad(g){
   return Promise.all((_LAZYSRC[g]||[]).map(src=>_lazyP[src]||(_lazyP[src]=new Promise(res=>{
@@ -819,6 +819,12 @@ function ensureWiki(){ return lazyLoad("wiki").then(()=>{ if(_wikiReady)return; 
   if(typeof D!=="undefined"&&D&&typeof render==="function")render();
 }); }
 setTimeout(ensureWiki,1200);
+// soloq_builds.js（1.3MB，英雄頁/圖鑑hover用）：首屏後非阻塞閒置預載；載到後清英雄頁快取、若正看英雄/圖鑑則重繪補上積分出裝
+let _buildsReady=false;
+function ensureBuilds(){ return lazyLoad("builds").then(()=>{ if(_buildsReady)return; _buildsReady=true;
+  try{if(typeof VIEW_CACHE!=="undefined")VIEW_CACHE.slots={};}catch(e){}
+  if(typeof curView!=="undefined"&&(curView==="英雄"||curView==="圖鑑")&&typeof D!=="undefined"&&D&&typeof render==="function")render(); }); }
+setTimeout(ensureBuilds,600);
 if(LANG==="en")lazyLoad("en").then(()=>{ try{_lpcCache=null;}catch(e){} try{if(typeof VIEW_CACHE!=="undefined")VIEW_CACHE.slots={};}catch(e){} if(typeof D!=="undefined"&&D&&typeof render==="function")render(); });
 // 英雄顯示名：英文模式優先用 en_US 名，抓不到退回中文資料名，再退回 id
 function chName(id){ if(LANG==="en"){ const e=(window.CHAMP_EN||{})[id]; if(e)return e; } const c=((window.CHAMP_SKILLS||{}).d||{})[id]; return (c&&c.n)||id; }
@@ -2029,7 +2035,7 @@ try{USER_TABBR=JSON.parse(localStorage.getItem("user_tabbr")||"{}")}catch(e){}
 const PROMO_TABBR={}; // Leaguepedia 升降賽隊伍縮寫（fetch_promo.py）
 if(window.PROMO_ABBR)Object.entries(PROMO_ABBR).forEach(([n,s])=>{PROMO_TABBR[normT(n)]=s;});
 const abbrOf=t=>{const k=normT(t);return USER_TABBR[k]||TABBR[k]||STATIC_TABBR[k]||PROMO_TABBR[k]||WIKI_TABBR[k]||(window.LP_TABBR||{})[k]||"";}; // 最後兜底＝Leaguepedia 全名→Short（team_abbr_wiki.js，歷史次級隊）
-const TEAM_ALIAS={GENG:"GEN",TLAW:"TL",AGAL:"AL"}; const teamFix=t=>TEAM_ALIAS[t]||t; // 全域縮寫統一(GENG→GEN；TLAW=Team Liquid 積分標籤→TL；AGAL=Anyone's Legend 更名(AG.AL)→AL)
+const TEAM_ALIAS={GENG:"GEN",TLAW:"TL",AGAL:"AL",DNF:"DNS"}; const teamFix=t=>TEAM_ALIAS[t]||t; // 全域縮寫統一(GENG→GEN；TLAW=Team Liquid 積分標籤→TL；AGAL=Anyone's Legend 更名(AG.AL)→AL；DNF→DNS＝DN Freecs 比賽改名 DNS)
 // 年度範圍的「席次繼承」（只在該年合併，歷史年份不動）：2025 S3 NAVI 接手 RGE 的 LEC 席次（使用者判例 2026-07-16）
 // 套用在 initData（curYear 定案後、且切年份不重載頁面也會重跑）
 const SLOT_SUCCESSION={2022:{LX:"TW"},2023:{CLG:"NRG",TK:"LEV"},2025:{RGE:"NAVI"}}; // 2022：Team Whales 接手 Luxury（VCS/GCD）；2023：NRG 收購 CLG（LCS）、Leviatan 收購 The Kings（LLA）
@@ -8208,7 +8214,7 @@ function render(){
        const _g={}, _o=[];
        for(const r of rows){
          if(!r._missing && _mn.size && !_mn.has(_nn(r.player)) && !_WL.has(_nn(r.player))) continue;   // 整年從沒出場→不列(教練)；白名單例外；RAW 沒載到(size 0)則不過濾保險
-         const k=(r.team||"")+"|"+(r.player||"");
+         const k=teamFix(r.team||"")+"|"+(r.player||"");                  // 用正規化縮寫分組→改名隊(DNF→DNS、GENG→GEN…)的多帳號合併成一列
          if(!(k in _g)){_g[k]=r; _o.push(k);}
          else if((r._score||-9)>(_g[k]._score||-9)) _g[k]=r;              // 每選手只留牌位最高(_score 最大)的那隻帳號
        }
