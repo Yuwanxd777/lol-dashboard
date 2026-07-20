@@ -5466,7 +5466,7 @@ const VIEW_CACHE={key:"",slots:{}};
 const laySig=()=>innerWidth+"x"+innerHeight+"@"+(window._zoomF||1); // 版面簽章：視窗大小＋網站縮放倍率——px 量測式版面只在同簽章下可重用
 const vcKey=()=>JSON.stringify([F.split,F.league,F.patch,F.d1,F.d2,F.minG,curYear,V.scoreK?[V.scoreK.lo,V.scoreK.hi]:0,V.scoreExp,V.scoreBase0]);
 // 外部導頁會改的子狀態：不同就不能用快取
-const VC_SUB={"英雄":()=>[V.heroDetail,V.player,V.hdOpp,V.hdLane],"圖鑑":()=>[V.dexDetail,V.dexSec],"對戰BP":()=>[V.bpTeam],"模擬BP":()=>[!!V.bpAuto]};
+const VC_SUB={"英雄":()=>[V.heroDetail,V.player,V.hdOpp,V.hdLane],"圖鑑":()=>[V.dexDetail,V.dexSec],"對戰BP":()=>[JSON.stringify(V.bpColF||{})],"模擬BP":()=>[!!V.bpAuto]};
 const vcSub=v=>JSON.stringify((VC_SUB[v]||(()=>[]))());
 function vcInvalidate(){
   Object.values(VIEW_CACHE.slots).forEach(s=>{["chart","radar","tchart"].forEach(k2=>{try{s[k2]&&s[k2].destroy();}catch(e){}});});
@@ -5496,6 +5496,7 @@ function globalFilterReset(){
   Object.assign(V,{pos:"",player:"",heroTeam:"",heroSel:"",tpSel:"",teamSel:"",vsTeam:"",bpTeam:"",bpHero:"",bpHeroMode:"both",bpPlayer:"",bpWin:"",bpFirst:"",search:"",r1:"",r2:"",r3:"",t1:"",t2:"",t3:"",dexQ:"",dexTag:"",dexCTag:"",rankQ:"",rankRole:"",rankRegion:"",rankSort:null,tierQ:""});
   if(curView==="英雄Tier")V.tierTeam="";
   if(curView==="陣容")V.rosterTeam="";
+  if(curView==="對戰BP")V.bpColF={}; // 對戰BP：預設(↺)清空所有欄位篩選
   if(curView==="模擬BP"&&V.bpSim){V.bpSim.t1="";V.bpSim.t2="";} // 模擬BP：只清戰隊A/B、模擬局保留
   saveState(); try{if(typeof vcInvalidate==="function")vcInvalidate(); delete VIEW_CACHE.slots[curView];}catch(e){} render();
 }
@@ -6892,48 +6893,31 @@ function render(){
     const champs=[...new Set(LANES.flatMap(o=>[o.raw[C.blue_champion],o.raw[C.red_champion]]))].filter(x=>x).sort();
     const players=[...new Set(LANES.flatMap(o=>[o.raw[C.blue_playername],o.raw[C.red_playername]]))].filter(x=>x).sort();
     const POSN=["TOP","JNG","MID","BOT","SUP"];
-    V.bpLane=V.bpLane||{};
-    main.innerHTML=filterBar(`
-      <label>${T("戰隊")}</label>${comboHTML("vBp",T("戰隊"),184)}
-      <label>${T("方")}</label><select id="vBpSide">
-        <option value="">${T("皆可")}</option>
-        <option value="blue" ${V.bpSide==="blue"?"selected":""}>${T("藍方")}</option>
-        <option value="red" ${V.bpSide==="red"?"selected":""}>${T("紅方")}</option>
-      </select>
-      ${POSN.map((p,i)=>`<label class="posLbl">${posImg(p)}</label>${comboHTML("vBpL"+i,p+(LANG==="en"?" champ":"英雄"),72)}`).join("")}
-      ${comboHTML("vBpBan",T("被禁英雄"),96)}
-      ${comboHTML("vBpPl",LANG==="en"?"Player":"選手",96)}
-      <label>${T("勝方")}</label><select id="vBpWin">
-        <option value="">${T("全部")}</option>
-        <option value="blue" ${V.bpWin==="blue"?"selected":""}>${T("藍方勝")}</option>
-        <option value="red" ${V.bpWin==="red"?"selected":""}>${T("紅方勝")}</option>
-        <option value="teamW" ${V.bpWin==="teamW"?"selected":""}>${T("該隊勝")}</option>
-        <option value="teamL" ${V.bpWin==="teamL"?"selected":""}>${T("該隊敗")}</option>
-      </select>
-      <label>${T("先選")}</label><select id="vBpFirst">
-        <option value="">${T("全部")}</option>
-        <option value="blue" ${V.bpFirst==="blue"?"selected":""}>${T("藍方先")}</option>
-        <option value="red" ${V.bpFirst==="red"?"selected":""}>${T("紅方先")}</option>
-      </select>`)
-      +`<div class="card"><h2>🎯 ${T("BP 紀錄")} <span class="sub" id="cnt"></span><span class="sub">${LANG==="en"?`gold number = pick order (1-7), <span class="fp">gold bold</span> = first-pick side, ⭐ = winner, newest first`:`金色數字＝選角順位(1-7)，<span class="fp">金色粗體</span>＝先選方，⭐＝勝方，最新在上`}</span></h2><div id="tbl"></div></div>`;
+    V.bpLane=V.bpLane||{}; V.bpColF=(V.bpColF&&typeof V.bpColF==="object")?V.bpColF:{}; // 每欄篩選狀態(欄key→關鍵字)
+    main.innerHTML=filterBar("")
+      +`<div class="card"><h2>🎯 ${T("BP 紀錄")} <span class="sub" id="cnt"></span><span class="sub">${LANG==="en"?`gold number = pick order (1-7), <span class="fp">gold bold</span> = first-pick side, ⭐ = winner, newest first｜type in a column header to filter`:`金色數字＝選角順位(1-7)，<span class="fp">金色粗體</span>＝先選方，⭐＝勝方，最新在上｜在欄名下方輸入即逐欄篩選`}</span></h2><div id="tbl"></div></div>`;
     const mmss=s=>s?`${Math.floor(s/60)}:${String(Math.round(s%60)).padStart(2,"0")}`:"–";
+    // 逐欄篩選：每欄一個「取可搜字串」函式；英雄欄比對「資料名(英)＋chName(中)」→ 中英名都搜得到
+    const _cTxt=c=>{ if(!c)return ""; const id=(typeof champId==="function")?champId(c):c; return (c+" "+((typeof chName==="function"&&chName(id))||"")).toLowerCase(); };
+    const COLF=[
+      {k:"date",ph:LANG==="en"?"date":"日期",  get:m=>String(m.date).toLowerCase()},
+      {k:"lg",  ph:LANG==="en"?"event":"賽事", get:m=>((typeof lgName==="function"?lgName(m.league):m.league)+" "+(m.league||"")+" "+(m.split||"")).toLowerCase()},
+      {k:"patch",ph:LANG==="en"?"patch":"版本",get:m=>String(m.patch).toLowerCase()},
+      {k:"gl", ph:LANG==="en"?"time":"時長",   get:m=>mmss(m.gl)},
+      {k:"win",ph:LANG==="en"?"win":"勝",      get:m=>String(m.win).toLowerCase()},
+      {k:"bt", ph:LANG==="en"?"blue":"藍方",   get:m=>String(m.blue.team).toLowerCase()},
+      {k:"bb", ph:LANG==="en"?"ban":"禁",      get:m=>(m.blue.bans||[]).map(_cTxt).join(" ")},
+      {k:"bl0",ph:"TOP",get:m=>_cTxt(m.blue.lane[0])},{k:"bl1",ph:"JNG",get:m=>_cTxt(m.blue.lane[1])},{k:"bl2",ph:"MID",get:m=>_cTxt(m.blue.lane[2])},{k:"bl3",ph:"BOT",get:m=>_cTxt(m.blue.lane[3])},{k:"bl4",ph:"SUP",get:m=>_cTxt(m.blue.lane[4])},
+      {k:"rt", ph:LANG==="en"?"red":"紅方",    get:m=>String(m.red.team).toLowerCase()},
+      {k:"rb", ph:LANG==="en"?"ban":"禁",      get:m=>(m.red.bans||[]).map(_cTxt).join(" ")},
+      {k:"rl0",ph:"TOP",get:m=>_cTxt(m.red.lane[0])},{k:"rl1",ph:"JNG",get:m=>_cTxt(m.red.lane[1])},{k:"rl2",ph:"MID",get:m=>_cTxt(m.red.lane[2])},{k:"rl3",ph:"BOT",get:m=>_cTxt(m.red.lane[3])},{k:"rl4",ph:"SUP",get:m=>_cTxt(m.red.lane[4])},
+    ];
+    const _colFActive=()=>COLF.some(c=>(V.bpColF[c.k]||"").trim());
+    let _bpFocusK=null; // 打字中的欄→重繪後把焦點還回去(表格整塊重建會掉焦點)
     const rerender=()=>{
-      let ms=calcMatches(V.bpTeam);
-      // 篩選：藍/紅方 + 各路英雄各自 + 禁用 + 選手 + 勝方 + 先選（像舊 GS 各欄獨立）
-      const side=V.bpSide||"", useB=side!=="red", useR=side!=="blue";
-      POSN.forEach((pos,i)=>{
-        const v=V.bpLane[pos]; if(!v)return;
-        ms=ms.filter(m=>(useB&&m.blue.lane[i]===v)||(useR&&m.red.lane[i]===v));
-      });
-      if(V.bpBan){const b=V.bpBan;
-        ms=ms.filter(m=>(useB&&m.blue.bans.includes(b))||(useR&&m.red.bans.includes(b)));}
-      if(V.bpPlayer){const p=V.bpPlayer;
-        ms=ms.filter(m=>(useB&&m.blue.lane.slice(5,10).includes(p))||(useR&&m.red.lane.slice(5,10).includes(p)));}
-      if(V.bpWin==="blue")ms=ms.filter(m=>m.blueWin);
-      else if(V.bpWin==="red")ms=ms.filter(m=>!m.blueWin);
-      else if(V.bpWin==="teamW"&&V.bpTeam)ms=ms.filter(m=>m.win===tAb(V.bpTeam));
-      else if(V.bpWin==="teamL"&&V.bpTeam)ms=ms.filter(m=>m.win!==tAb(V.bpTeam));
-      if(V.bpFirst)ms=ms.filter(m=>m.first===V.bpFirst);
+      let ms=calcMatches("");   // 拿掉戰隊選單→全部比賽，改逐欄篩選
+      const _fq=[]; COLF.forEach(c=>{const q=(V.bpColF[c.k]||"").trim().toLowerCase(); if(q)_fq.push([c,q]);});
+      if(_fq.length)ms=ms.filter(m=>_fq.every(([c,q])=>c.get(m).includes(q)));
       document.getElementById("cnt").textContent=`${ms.length}${LANG==="en"?" games":" 場"}`;
       // 統計條：藍紅方勝率、場均時長（gol.gg 風格）；strip 於系列分組後才組（要帶上「範圍內缺幾場」）
       const n=ms.length, bw=ms.filter(m=>m.blueWin).length;
@@ -6956,8 +6940,7 @@ function render(){
         ${cell(m.red,false)}${banCells(m.red)}${laneCells(m.red)}</tr>`;
       };
       // 沒設任何逐局篩選 → 用「系列賽（大場）」呈現，底下列出各局（小場）
-      const anyLane=POSN.some(pos=>V.bpLane[pos]);
-      const grouped=!anyLane&&!V.bpBan&&!V.bpPlayer&&!V.bpWin&&!V.bpFirst;
+      const grouped=!_colFActive();  // 沒有任何欄位篩選＝系列賽分組；有篩選＝逐場平列
       let series=[];
       if(grouped){
         // 依「聯賽＋對戰組合」收集，再依(日期,局序)切系列：局序重置(回到較小值)或日期相隔>2天＝不同場系列；
@@ -7005,7 +6988,8 @@ function render(){
       document.getElementById("tbl").innerHTML=strip+`<div class="tblwrap"><table class="bp"><thead><tr>
         <th>日期</th><th>賽事</th><th>版本</th><th>時長</th><th>勝</th>
         <th>藍方</th><th>禁用</th><th>${posImg("TOP")}</th><th>${posImg("JNG")}</th><th>${posImg("MID")}</th><th>${posImg("BOT")}</th><th>${posImg("SUP")}</th>
-        <th>紅方</th><th>禁用</th><th>${posImg("TOP")}</th><th>${posImg("JNG")}</th><th>${posImg("MID")}</th><th>${posImg("BOT")}</th><th>${posImg("SUP")}</th></tr></thead><tbody id="bpBody"></tbody></table></div>
+        <th>紅方</th><th>禁用</th><th>${posImg("TOP")}</th><th>${posImg("JNG")}</th><th>${posImg("MID")}</th><th>${posImg("BOT")}</th><th>${posImg("SUP")}</th></tr>
+        <tr class="bpFRow">${COLF.map(c=>`<th style="padding:2px 3px;position:static;top:auto"><input class="bpColF" data-k="${c.k}" value="${esc(V.bpColF[c.k]||"")}" placeholder="${esc(c.ph)}" title="${esc(c.ph)}" style="width:100%;min-width:0;font-size:11.5px;padding:2px 3px;box-sizing:border-box;text-align:center;background:#0e1420;border:1px solid #2a3345;border-radius:5px;color:var(--tx)"></th>`).join("")}</tr></thead><tbody id="bpBody"></tbody></table></div>
         <div class="row" style="justify-content:center;margin-top:10px"><button id="bpMore" class="primary"></button></div>`;
       // 分批渲染：先 200 場，按需載入，避免上萬節點一次撐爆版面
       const body=document.getElementById("bpBody"), moreBtn=document.getElementById("bpMore");
@@ -7045,18 +7029,12 @@ function render(){
         (glowIdx.get(lit)||[]).forEach(im=>im.classList.add("glow"));
       };
       box.onmouseout=e=>{if(e.target.tagName==="IMG")unlit();};
+      // 逐欄篩選輸入：即時更新狀態＋防抖重繪；重繪重建整表→把焦點還回剛打字的那一欄
+      box.querySelectorAll(".bpColF").forEach(inp=>{ inp.oninput=()=>{ V.bpColF[inp.dataset.k]=inp.value; _bpFocusK=inp.dataset.k; _bpDeb(); }; });
+      if(_bpFocusK){ const el=box.querySelector('.bpColF[data-k="'+_bpFocusK+'"]'); if(el){ el.focus(); try{el.setSelectionRange(el.value.length,el.value.length);}catch(_e){} } _bpFocusK=null; }
     };
+    const _bpDeb=deb(()=>{saveState(); rerender();},220);
     bindFilters(rerender);
-    bindCombo("vBp",teamComboOpts(teams),V.bpTeam,hit=>{V.bpTeam=hit; saveState(); rerender();},true);
-    const chCnt={},plCnt={},plTeam={}; LANES.forEach(o=>{ [o.raw[C.blue_champion],o.raw[C.red_champion]].forEach(c=>{if(c)chCnt[c]=(chCnt[c]||0)+1;});
-      [[o.raw[C.blue_playername],o.raw[C.blue_teamname]],[o.raw[C.red_playername],o.raw[C.red_teamname]]].forEach(([p,tm])=>{if(p){plCnt[p]=(plCnt[p]||0)+1; if(tm)plTeam[p]=tm;}}); });
-    const chOpts=champComboOpts(champs,chCnt);
-    POSN.forEach((pos,i)=>bindCombo("vBpL"+i,chOpts,V.bpLane[pos]||"",hit=>{V.bpLane[pos]=hit; saveState(); rerender();},true)); // abbr=true：框內顯示網站語言名(雷茲)而非資料名(Ryze)
-    bindCombo("vBpBan",chOpts,V.bpBan,hit=>{V.bpBan=hit; saveState(); rerender();},true);
-    bindCombo("vBpPl",players.map(p=>({v:p,l:(tAb(plTeam[p]||"")+" "+p).trim(),n:plCnt[p]||0})),V.bpPlayer,hit=>{V.bpPlayer=hit; saveState(); rerender();},true); // 選手帶純縮寫前綴（T1 Keria；值仍是純ID供資料比對）
-    document.getElementById("vBpSide").onchange=e=>{V.bpSide=e.target.value; saveState(); rerender();};
-    document.getElementById("vBpWin").onchange=e=>{V.bpWin=e.target.value; saveState(); rerender();};
-    document.getElementById("vBpFirst").onchange=e=>{V.bpFirst=e.target.value; saveState(); rerender();};
     rerender();
   }
   else if(curView==="模擬BP"){
