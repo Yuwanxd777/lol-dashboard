@@ -6934,13 +6934,20 @@ function render(){
     const _dlHTML=Object.entries(_DL).map(([k,arr])=>`<datalist id="bpDL_${k}">${arr.map(v=>`<option value="${esc(v)}"></option>`).join("")}</datalist>`).join("");
     const _tw=COLF.reduce((s,c)=>s+c.w,0)+2; // 表格固定總寬＝各欄寬和 → 不隨視窗/捲軸伸縮，篩選時欄距完全不動
     const _noF=new Set(["date","lg","patch"]); // 這幾欄不放篩選框(上方全域篩選已有 年份/賽事/賽季/版本)
-    _noF.forEach(k=>{ if(V.bpColF[k])delete V.bpColF[k]; }); // 清掉先前可能殘留的這幾欄篩選值(現在沒輸入框可清)
-    const _colFActive=()=>COLF.some(c=>(V.bpColF[c.k]||"").trim());
+    const SUBF={ // 禁用欄拆成兩格各自篩：前3(第一輪禁)｜後2(第二輪禁)
+      bb:[{k:"bb1",ph:LANG==="en"?"1-3":"前3",dl:"champ",get:m=>(m.blue.bans||[]).slice(0,3).map(_cTxt).join(" ")},{k:"bb2",ph:LANG==="en"?"4-5":"後2",dl:"champ",get:m=>(m.blue.bans||[]).slice(3).map(_cTxt).join(" ")}],
+      rb:[{k:"rb1",ph:LANG==="en"?"1-3":"前3",dl:"champ",get:m=>(m.red.bans||[]).slice(0,3).map(_cTxt).join(" ")},{k:"rb2",ph:LANG==="en"?"4-5":"後2",dl:"champ",get:m=>(m.red.bans||[]).slice(3).map(_cTxt).join(" ")}],
+    };
+    const FILTERS=[]; COLF.forEach(c=>{ if(SUBF[c.k])FILTERS.push(...SUBF[c.k]); else if(!_noF.has(c.k))FILTERS.push({k:c.k,ph:c.ph,dl:c.dl,get:c.get}); }); // 攤平：實際可篩的欄(禁用拆兩格；去掉日期/賽事/版本)
+    {const _fk=new Set(FILTERS.map(f=>f.k)); Object.keys(V.bpColF).forEach(k=>{ if(!_fk.has(k))delete V.bpColF[k]; });} // 清掉不再有輸入框的殘留值(日期/賽事/版本/舊禁用鍵)
+    const _finput=f=>`<span style="position:relative;display:block;flex:1 1 0;min-width:0"><input class="bpColF" data-k="${f.k}"${f.dl?` list="bpDL_${f.dl}"`:""} size="1" value="${esc(V.bpColF[f.k]||"")}" placeholder="${esc(f.ph)}" title="${esc(f.ph)}" style="display:block;width:100%;min-width:0;font-size:11.5px;padding:2px 15px 2px 4px;box-sizing:border-box;text-align:center;background:#0e1420;border:1px solid #2a3345;border-radius:5px;color:var(--tx)"><span class="bpCx" data-k="${f.k}" title="${LANG==="en"?"clear":"清除"}">✕</span></span>`;
+    const _fcell=c=>_noF.has(c.k)?"":(SUBF[c.k]?`<div style="display:flex;gap:3px">${SUBF[c.k].map(_finput).join("")}</div>`:_finput({k:c.k,ph:c.ph,dl:c.dl}));
+    const _colFActive=()=>FILTERS.some(f=>(V.bpColF[f.k]||"").trim());
     let _bpFocusK=null; // 打字中的欄→重繪後把焦點還回去(表格整塊重建會掉焦點)
     const rerender=()=>{
       let ms=calcMatches("");   // 拿掉戰隊選單→全部比賽，改逐欄篩選
-      const _fq=[]; COLF.forEach(c=>{const q=(V.bpColF[c.k]||"").trim().toLowerCase(); if(q)_fq.push([c,q]);});
-      if(_fq.length)ms=ms.filter(m=>_fq.every(([c,q])=>c.get(m).includes(q)));
+      const _fq=[]; FILTERS.forEach(f=>{const q=(V.bpColF[f.k]||"").trim().toLowerCase(); if(q)_fq.push([f,q]);});
+      if(_fq.length)ms=ms.filter(m=>_fq.every(([f,q])=>f.get(m).includes(q)));
       document.getElementById("cnt").textContent=`${ms.length}${LANG==="en"?" games":" 場"}`;
       // 統計條：藍紅方勝率、場均時長（gol.gg 風格）；strip 於系列分組後才組（要帶上「範圍內缺幾場」）
       const n=ms.length, bw=ms.filter(m=>m.blueWin).length;
@@ -7008,11 +7015,11 @@ function render(){
           <span class="meta">${s.games.length}${miss?`${LANG==="en"?"/":"／"}${miss.total}`:""} ${LANG==="en"?"games":"局"}・${s.patch}</span>${warn}</td></tr>`
           +rows;
       };
-      document.getElementById("tbl").innerHTML=strip+`<div class="tblwrap"><table class="bp" style="table-layout:fixed;width:${_tw}px;min-width:${_tw}px"><colgroup>${COLF.map(c=>`<col style="width:${c.w}px">`).join("")}</colgroup><thead><tr>
+      document.getElementById("tbl").innerHTML=strip+`<div class="tblwrap"><table class="bp" style="table-layout:fixed"><colgroup>${COLF.map(c=>`<col style="width:${c.w}px">`).join("")}</colgroup><thead><tr>
         <th>日期</th><th>賽事</th><th>版本</th><th>時長</th><th>勝</th>
         <th>藍方</th><th>禁用</th><th>${posImg("TOP")}</th><th>${posImg("JNG")}</th><th>${posImg("MID")}</th><th>${posImg("BOT")}</th><th>${posImg("SUP")}</th>
         <th>紅方</th><th>禁用</th><th>${posImg("TOP")}</th><th>${posImg("JNG")}</th><th>${posImg("MID")}</th><th>${posImg("BOT")}</th><th>${posImg("SUP")}</th></tr>
-        <tr class="bpFRow">${COLF.map(c=>`<th style="padding:2px 3px;position:relative;top:auto">${_noF.has(c.k)?"":`<input class="bpColF" data-k="${c.k}"${c.dl?` list="bpDL_${c.dl}"`:""} size="1" value="${esc(V.bpColF[c.k]||"")}" placeholder="${esc(c.ph)}" title="${esc(c.ph)}" style="display:block;width:100%;min-width:0;font-size:11.5px;padding:2px 15px 2px 4px;box-sizing:border-box;text-align:center;background:#0e1420;border:1px solid #2a3345;border-radius:5px;color:var(--tx)"><span class="bpCx" data-k="${c.k}" title="${LANG==="en"?"clear":"清除"}">✕</span>`}</th>`).join("")}</tr></thead><tbody id="bpBody"></tbody></table></div>
+        <tr class="bpFRow">${COLF.map(c=>`<th style="padding:2px 3px;top:auto">${_fcell(c)}</th>`).join("")}</tr></thead><tbody id="bpBody"></tbody></table></div>
         <div class="row" style="justify-content:center;margin-top:10px"><button id="bpMore" class="primary"></button></div>`+_dlHTML;
       // 分批渲染：先 200 場，按需載入，避免上萬節點一次撐爆版面
       const body=document.getElementById("bpBody"), moreBtn=document.getElementById("bpMore");
