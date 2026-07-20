@@ -7609,8 +7609,8 @@ function render(){
         S.n--;
         saveState(); rerender();
       });
-      wrap.querySelectorAll(".bsGSwap").forEach(b=>b.onclick=()=>{ // 兩隊互換紅藍方（內容跟著隊伍走）
-        const gi=+b.dataset.g; S.side[gi]=S.side[gi]?0:1;
+      wrap.querySelectorAll(".bsGSwap").forEach(b=>b.onclick=()=>{ // 兩隊互換紅藍方（內容跟著隊伍走、先選/後選標籤留在原位）
+        const gi=+b.dataset.g; S.side[gi]=S.side[gi]?0:1; S.fp[gi]=S.fp[gi]?0:1; // fp 隨 side 一起翻＝先後選綁「位置(左/右)」不綁隊伍：換邊時標籤不移位，選角順序仍跟著藍/紅方
         saveState(); rerender();
       });
       wrap.querySelectorAll(".bsGCopy").forEach(b=>b.onclick=()=>{ // 複製本局插到右邊（編號動態＝來源現行號-序）
