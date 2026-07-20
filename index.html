@@ -214,6 +214,11 @@
   .cwrap .combo{padding-right:26px}
   .cx{position:absolute;right:5px;background:none;border:none;color:var(--tx2);padding:0 3px;font-size:13px;cursor:pointer;line-height:1}
   .cx:hover{color:#ff6b6b}
+  /* 對戰BP 逐欄篩選框的清除鍵：有輸入內容(:not(:placeholder-shown))才顯示 */
+  .bpFRow th{position:relative}
+  .bpCx{display:none;position:absolute;right:4px;top:0;bottom:0;margin:auto 0;height:15px;line-height:15px;background:none;border:none;color:var(--tx2);font-size:12px;cursor:pointer;padding:0 1px;z-index:2}
+  .bpColF:not(:placeholder-shown)~.bpCx{display:block}
+  .bpCx:hover{color:#ff6b6b}
   input.combo::-webkit-calendar-picker-indicator,input[list]::-webkit-calendar-picker-indicator{display:none!important;opacity:0;width:0} /* datalist 白三角沒有實用性 → 移除 */
   .cwrap .cal{position:absolute;right:24px;background:none;border:none;cursor:pointer;font-size:13px;padding:0 2px;line-height:1}
   .cwrap .cal:hover{filter:brightness(1.4)}
@@ -7003,7 +7008,7 @@ function render(){
         <th>日期</th><th>賽事</th><th>版本</th><th>時長</th><th>勝</th>
         <th>藍方</th><th>禁用</th><th>${posImg("TOP")}</th><th>${posImg("JNG")}</th><th>${posImg("MID")}</th><th>${posImg("BOT")}</th><th>${posImg("SUP")}</th>
         <th>紅方</th><th>禁用</th><th>${posImg("TOP")}</th><th>${posImg("JNG")}</th><th>${posImg("MID")}</th><th>${posImg("BOT")}</th><th>${posImg("SUP")}</th></tr>
-        <tr class="bpFRow">${COLF.map(c=>`<th style="padding:2px 3px;position:static;top:auto"><input class="bpColF" data-k="${c.k}"${c.dl?` list="bpDL_${c.dl}"`:""} size="1" value="${esc(V.bpColF[c.k]||"")}" placeholder="${esc(c.ph)}" title="${esc(c.ph)}" style="display:block;width:100%;min-width:0;font-size:11.5px;padding:2px 2px;box-sizing:border-box;text-align:center;background:#0e1420;border:1px solid #2a3345;border-radius:5px;color:var(--tx)"></th>`).join("")}</tr></thead><tbody id="bpBody"></tbody></table></div>
+        <tr class="bpFRow">${COLF.map(c=>`<th style="padding:2px 3px;position:relative;top:auto"><input class="bpColF" data-k="${c.k}"${c.dl?` list="bpDL_${c.dl}"`:""} size="1" value="${esc(V.bpColF[c.k]||"")}" placeholder="${esc(c.ph)}" title="${esc(c.ph)}" style="display:block;width:100%;min-width:0;font-size:11.5px;padding:2px 15px 2px 4px;box-sizing:border-box;text-align:center;background:#0e1420;border:1px solid #2a3345;border-radius:5px;color:var(--tx)"><span class="bpCx" data-k="${c.k}" title="${LANG==="en"?"clear":"清除"}">✕</span></th>`).join("")}</tr></thead><tbody id="bpBody"></tbody></table></div>
         <div class="row" style="justify-content:center;margin-top:10px"><button id="bpMore" class="primary"></button></div>`+_dlHTML;
       // 分批渲染：先 200 場，按需載入，避免上萬節點一次撐爆版面
       const body=document.getElementById("bpBody"), moreBtn=document.getElementById("bpMore");
@@ -7044,10 +7049,14 @@ function render(){
       };
       box.onmouseout=e=>{if(e.target.tagName==="IMG")unlit();};
       // 逐欄篩選輸入：即時更新狀態＋防抖重繪；重繪重建整表→把焦點還回剛打字的那一欄
-      box.querySelectorAll(".bpColF").forEach(inp=>{ inp.oninput=()=>{ V.bpColF[inp.dataset.k]=inp.value; _bpFocusK=inp.dataset.k; _bpDeb(); }; });
+      box.querySelectorAll(".bpColF").forEach(inp=>{
+        inp.oninput=()=>{ V.bpColF[inp.dataset.k]=inp.value; };                                   // 打字中：只記值、不重繪→建議清單保留、不逐字篩
+        inp.onchange=()=>{ V.bpColF[inp.dataset.k]=inp.value; saveState(); rerender(); };          // 失焦/選清單項＝輸入完→套用篩選
+        inp.onkeydown=e=>{ if(e.key==="Enter"){ e.preventDefault(); V.bpColF[inp.dataset.k]=inp.value; _bpFocusK=inp.dataset.k; saveState(); rerender(); } }; // Enter＝立即套用＋保留焦點
+      });
+      box.querySelectorAll(".bpCx").forEach(x=>{ x.onclick=()=>{ V.bpColF[x.dataset.k]=""; saveState(); rerender(); }; }); // ✕ 清除該欄
       if(_bpFocusK){ const el=box.querySelector('.bpColF[data-k="'+_bpFocusK+'"]'); if(el){ el.focus(); try{el.setSelectionRange(el.value.length,el.value.length);}catch(_e){} } _bpFocusK=null; }
     };
-    const _bpDeb=deb(()=>{saveState(); rerender();},220);
     bindFilters(rerender);
     rerender();
   }
