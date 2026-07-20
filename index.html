@@ -6899,19 +6899,33 @@ function render(){
     const mmss=s=>s?`${Math.floor(s/60)}:${String(Math.round(s%60)).padStart(2,"0")}`:"–";
     // 逐欄篩選：每欄一個「取可搜字串」函式；英雄欄比對「資料名(英)＋chName(中)」→ 中英名都搜得到
     const _cTxt=c=>{ if(!c)return ""; const id=(typeof champId==="function")?champId(c):c; return (c+" "+((typeof chName==="function"&&chName(id))||"")).toLowerCase(); };
+    const _cL=c=>({k:c[0],ph:c[1],w:c[2],dl:c[3]||"",get:c[4]}); // [key,placeholder,寬px,datalist類,取值]
     const COLF=[
-      {k:"date",ph:LANG==="en"?"date":"日期",  get:m=>String(m.date).toLowerCase()},
-      {k:"lg",  ph:LANG==="en"?"event":"賽事", get:m=>((typeof lgName==="function"?lgName(m.league):m.league)+" "+(m.league||"")+" "+(m.split||"")).toLowerCase()},
-      {k:"patch",ph:LANG==="en"?"patch":"版本",get:m=>String(m.patch).toLowerCase()},
-      {k:"gl", ph:LANG==="en"?"time":"時長",   get:m=>mmss(m.gl)},
-      {k:"win",ph:LANG==="en"?"win":"勝",      get:m=>String(m.win).toLowerCase()},
-      {k:"bt", ph:LANG==="en"?"blue":"藍方",   get:m=>String(m.blue.team).toLowerCase()},
-      {k:"bb", ph:LANG==="en"?"ban":"禁",      get:m=>(m.blue.bans||[]).map(_cTxt).join(" ")},
-      {k:"bl0",ph:"TOP",get:m=>_cTxt(m.blue.lane[0])},{k:"bl1",ph:"JNG",get:m=>_cTxt(m.blue.lane[1])},{k:"bl2",ph:"MID",get:m=>_cTxt(m.blue.lane[2])},{k:"bl3",ph:"BOT",get:m=>_cTxt(m.blue.lane[3])},{k:"bl4",ph:"SUP",get:m=>_cTxt(m.blue.lane[4])},
-      {k:"rt", ph:LANG==="en"?"red":"紅方",    get:m=>String(m.red.team).toLowerCase()},
-      {k:"rb", ph:LANG==="en"?"ban":"禁",      get:m=>(m.red.bans||[]).map(_cTxt).join(" ")},
-      {k:"rl0",ph:"TOP",get:m=>_cTxt(m.red.lane[0])},{k:"rl1",ph:"JNG",get:m=>_cTxt(m.red.lane[1])},{k:"rl2",ph:"MID",get:m=>_cTxt(m.red.lane[2])},{k:"rl3",ph:"BOT",get:m=>_cTxt(m.red.lane[3])},{k:"rl4",ph:"SUP",get:m=>_cTxt(m.red.lane[4])},
+      _cL(["date", LANG==="en"?"date":"日期", 90, "",     m=>String(m.date).toLowerCase()]),
+      _cL(["lg",   LANG==="en"?"event":"賽事",140,"lg",   m=>((typeof lgName==="function"?lgName(m.league):m.league)+" "+(m.league||"")+" "+(m.split||"")).toLowerCase()]),
+      _cL(["patch",LANG==="en"?"patch":"版本",68, "patch",m=>String(m.patch).toLowerCase()]),
+      _cL(["gl",   LANG==="en"?"time":"時長", 66, "",     m=>mmss(m.gl)]),
+      _cL(["win",  LANG==="en"?"win":"勝",    66, "team", m=>String(m.win).toLowerCase()]),
+      _cL(["bt",   LANG==="en"?"blue":"藍方", 78, "team", m=>String(m.blue.team).toLowerCase()]),
+      _cL(["bb",   LANG==="en"?"ban":"禁",    240,"champ",m=>(m.blue.bans||[]).map(_cTxt).join(" ")]),
+      _cL(["bl0","TOP",62,"champ",m=>_cTxt(m.blue.lane[0])]),_cL(["bl1","JNG",62,"champ",m=>_cTxt(m.blue.lane[1])]),_cL(["bl2","MID",62,"champ",m=>_cTxt(m.blue.lane[2])]),_cL(["bl3","BOT",62,"champ",m=>_cTxt(m.blue.lane[3])]),_cL(["bl4","SUP",62,"champ",m=>_cTxt(m.blue.lane[4])]),
+      _cL(["rt",   LANG==="en"?"red":"紅方",  78, "team", m=>String(m.red.team).toLowerCase()]),
+      _cL(["rb",   LANG==="en"?"ban":"禁",    240,"champ",m=>(m.red.bans||[]).map(_cTxt).join(" ")]),
+      _cL(["rl0","TOP",62,"champ",m=>_cTxt(m.red.lane[0])]),_cL(["rl1","JNG",62,"champ",m=>_cTxt(m.red.lane[1])]),_cL(["rl2","MID",62,"champ",m=>_cTxt(m.red.lane[2])]),_cL(["rl3","BOT",62,"champ",m=>_cTxt(m.red.lane[3])]),_cL(["rl4","SUP",62,"champ",m=>_cTxt(m.red.lane[4])]),
     ];
+    // 每欄下拉建議(datalist)：英雄=中文名、隊伍=縮寫、版本、賽事；依全域篩選 vcKey 快取(欄篩選變動不重算)
+    const _dlKey="bp|"+vcKey(); window._BPDL=window._BPDL||{};
+    let _DL=window._BPDL[_dlKey];
+    if(!_DL){ const chS=new Set(),tmS=new Set(),paS=new Set(),lgS=new Set();
+      for(const m of calcMatches("")){ if(m.patch)paS.add(m.patch);
+        {const s=((typeof lgName==="function"?lgName(m.league):m.league)+(m.split?" "+m.split:"")).trim(); if(s)lgS.add(s);}
+        [m.blue.team,m.red.team].forEach(t=>{if(t)tmS.add(t);});
+        [...(m.blue.bans||[]),...(m.red.bans||[]),...m.blue.lane.slice(0,5),...m.red.lane.slice(0,5)].forEach(c=>{if(c){const n=((typeof chName==="function")&&chName(champId(c)))||c; chS.add(n);}});
+      }
+      _DL={champ:[...chS].sort((a,b)=>String(a).localeCompare(b)),team:[...tmS].sort(),patch:[...paS].sort().reverse(),lg:[...lgS].sort()};
+      window._BPDL[_dlKey]=_DL;
+    }
+    const _dlHTML=Object.entries(_DL).map(([k,arr])=>`<datalist id="bpDL_${k}">${arr.map(v=>`<option value="${esc(v)}"></option>`).join("")}</datalist>`).join("");
     const _colFActive=()=>COLF.some(c=>(V.bpColF[c.k]||"").trim());
     let _bpFocusK=null; // 打字中的欄→重繪後把焦點還回去(表格整塊重建會掉焦點)
     const rerender=()=>{
@@ -6985,12 +6999,12 @@ function render(){
           <span class="meta">${s.games.length}${miss?`${LANG==="en"?"/":"／"}${miss.total}`:""} ${LANG==="en"?"games":"局"}・${s.patch}</span>${warn}</td></tr>`
           +rows;
       };
-      document.getElementById("tbl").innerHTML=strip+`<div class="tblwrap"><table class="bp"><thead><tr>
+      document.getElementById("tbl").innerHTML=strip+`<div class="tblwrap"><table class="bp" style="table-layout:fixed"><colgroup>${COLF.map(c=>`<col style="width:${c.w}px">`).join("")}</colgroup><thead><tr>
         <th>日期</th><th>賽事</th><th>版本</th><th>時長</th><th>勝</th>
         <th>藍方</th><th>禁用</th><th>${posImg("TOP")}</th><th>${posImg("JNG")}</th><th>${posImg("MID")}</th><th>${posImg("BOT")}</th><th>${posImg("SUP")}</th>
         <th>紅方</th><th>禁用</th><th>${posImg("TOP")}</th><th>${posImg("JNG")}</th><th>${posImg("MID")}</th><th>${posImg("BOT")}</th><th>${posImg("SUP")}</th></tr>
-        <tr class="bpFRow">${COLF.map(c=>`<th style="padding:2px 3px;position:static;top:auto"><input class="bpColF" data-k="${c.k}" size="1" value="${esc(V.bpColF[c.k]||"")}" placeholder="${esc(c.ph)}" title="${esc(c.ph)}" style="display:block;width:100%;min-width:0;font-size:11.5px;padding:2px 2px;box-sizing:border-box;text-align:center;background:#0e1420;border:1px solid #2a3345;border-radius:5px;color:var(--tx)"></th>`).join("")}</tr></thead><tbody id="bpBody"></tbody></table></div>
-        <div class="row" style="justify-content:center;margin-top:10px"><button id="bpMore" class="primary"></button></div>`;
+        <tr class="bpFRow">${COLF.map(c=>`<th style="padding:2px 3px;position:static;top:auto"><input class="bpColF" data-k="${c.k}"${c.dl?` list="bpDL_${c.dl}"`:""} size="1" value="${esc(V.bpColF[c.k]||"")}" placeholder="${esc(c.ph)}" title="${esc(c.ph)}" style="display:block;width:100%;min-width:0;font-size:11.5px;padding:2px 2px;box-sizing:border-box;text-align:center;background:#0e1420;border:1px solid #2a3345;border-radius:5px;color:var(--tx)"></th>`).join("")}</tr></thead><tbody id="bpBody"></tbody></table></div>
+        <div class="row" style="justify-content:center;margin-top:10px"><button id="bpMore" class="primary"></button></div>`+_dlHTML;
       // 分批渲染：先 200 場，按需載入，避免上萬節點一次撐爆版面
       const body=document.getElementById("bpBody"), moreBtn=document.getElementById("bpMore");
       const glowIdx=new Map(); let lit=null, shown=0;
