@@ -6934,7 +6934,7 @@ function render(){
     const _dlKey="bp2|"+vcKey(); window._BPDL=window._BPDL||{};
     let _DLF=window._BPDL[_dlKey];
     if(!_DLF){ const S={}; FILTERS.forEach(f=>{S[f.k]=new Set();});
-      for(const m of calcMatches("")){ FILTERS.forEach(f=>{ _fdv(f.k,m).forEach(v=>{ if(!v)return; S[f.k].add(f.dl==="champ"?(((typeof chName==="function")&&chName(champId(v)))||v):v); }); }); }
+      for(const m of calcMatches("")){ FILTERS.forEach(f=>{ _fdv(f.k,m).forEach(v=>{ if(!v)return; let disp=v; if(f.dl==="champ"){ const cn=((typeof chName==="function")&&chName(champId(v)))||""; disp=(cn&&cn!==v)?cn+" "+v:(cn||v); } S[f.k].add(disp); }); }); } // 英雄下拉值＝「中文 English」→ 中文顯示為主、打英文也搜得到
       _DLF={}; FILTERS.forEach(f=>{_DLF[f.k]=[...S[f.k]].sort((a,b)=>String(a).localeCompare(b));});
       window._BPDL[_dlKey]=_DLF;
     }
@@ -6945,8 +6945,8 @@ function render(){
     let _bpFocusK=null; // 打字中的欄→重繪後把焦點還回去(表格整塊重建會掉焦點)
     const rerender=()=>{
       let ms=calcMatches("");   // 拿掉戰隊選單→全部比賽，改逐欄篩選
-      const _fq=[]; FILTERS.forEach(f=>{const q=(V.bpColF[f.k]||"").trim().toLowerCase(); if(q)_fq.push([f,q]);});
-      if(_fq.length)ms=ms.filter(m=>_fq.every(([f,q])=>f.get(m).includes(q)));
+      const _fq=[]; FILTERS.forEach(f=>{const q=(V.bpColF[f.k]||"").trim().toLowerCase(); if(q)_fq.push([f,q.split(/\s+/).filter(Boolean)]);}); // 空白分詞：下拉值可能是「中文 English」，中英任一詞都要命中(順序無關)
+      if(_fq.length)ms=ms.filter(m=>_fq.every(([f,toks])=>{const s=f.get(m); return toks.every(t=>s.includes(t));}));
       document.getElementById("cnt").textContent=`${ms.length}${LANG==="en"?" games":" 場"}`;
       // 統計條：藍紅方勝率、場均時長（gol.gg 風格）；strip 於系列分組後才組（要帶上「範圍內缺幾場」）
       const n=ms.length, bw=ms.filter(m=>m.blueWin).length;
