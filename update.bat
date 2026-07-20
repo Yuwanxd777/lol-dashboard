@@ -35,6 +35,8 @@ rem league promotion/qualifier supplement table (reads Leaguepedia cache, no API
 python scripts\build_league_struct.py >> "%LOG%" 2>&1
 rem OBGG pro-account list refresh (LPL/LCK primary; drops accounts inactive ~2 months; routing merge with dpm)
 python scripts\fetch_obgg_accounts.py >> "%LOG%" 2>&1
+rem dpm pro-account refresh: /v1/pros per player (LCS/LEC/CBLOL primary=replace, others=union); only match-data players; puuid included
+python scripts\fetch_dpm_soloq_accounts.py --apply >> "%LOG%" 2>&1
 rem resolve dpmPuuid for newly added accounts via dpm search (best-effort; needed for per-game)
 python scripts\resolve_obgg_dpmpuuid.py >> "%LOG%" 2>&1
 rem soloq per-game: incremental update (dpm, no key), only fetches games newer than existing

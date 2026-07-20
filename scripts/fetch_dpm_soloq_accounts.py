@@ -12,6 +12,7 @@ import io, sys, json, os, re, time, urllib.parse
 
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
 HERE = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.dirname(HERE)
 ACCOUNTS = os.path.join(HERE, "soloq_accounts.json")
 PREVIEW = os.path.join(HERE, "soloq_accounts.preview.json")
 UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
@@ -29,6 +30,28 @@ def norm(s):
 
 def canon_team(t):
     return TEAM_ALIAS.get(t, t)
+
+
+def match_players():
+    """比賽數據(data_2026.js)裡實際出場過的選手名(正規化 set)——只重抓這些人，教練/替補等沒出場的不抓（使用者定案 2026-07-20）。"""
+    s = set()
+    try:
+        d0 = open(os.path.join(ROOT, "data", "data_2026.js"), encoding="utf-8", errors="replace").read()
+        J = json.loads(re.sub(r";\s*$", "", re.search(r"window\.LOL_DATA\s*=\s*(\{.*)", d0, re.S).group(1)))
+        raw = J["tabs"]["RAW_DATA"]; hdr = raw[0]; C = {h: i for i, h in enumerate(hdr)}
+        bi, ri, pi = C.get("blue_playername"), C.get("red_playername"), C.get("participantid")
+        for r0 in raw[1:]:
+            try:
+                if not (1 <= int(r0[pi]) <= 5):
+                    continue
+            except Exception:
+                continue
+            for i2 in (bi, ri):
+                if i2 is not None and i2 < len(r0) and r0[i2]:
+                    s.add(norm(r0[i2]))
+    except Exception as e:
+        print(f"（比賽數據出場名單載入失敗：{e}）", flush=True)
+    return s
 
 
 def _launch(p):
@@ -68,6 +91,22 @@ def main():
         if (pl, tm) not in seen_pt:
             seen_pt.add((pl, tm)); roster.append((pl, tm))
     print(f"名單：{len(roster)} 位選手（{len(acc)} 個現有帳號）", flush=True)
+
+    KEEP_WL = {"theshy"}  # 特例白名單：復出中/沒出場也保留（使用者判例，與 index.html 積分顯示 _WL 一致）
+    mp = match_players()
+    if mp:
+        def _played(pl):
+            n = norm(pl)
+            if n in mp or n in KEEP_WL:
+                return True
+            return norm(re.sub(r"\s*\(.*\)\s*$", "", pl)) in mp   # 去「(VN)」等後綴再比對，免誤丟
+        before = len(roster)
+        dropped = [pt for pt in roster if not _played(pt[0])]
+        roster = [pt for pt in roster if _played(pt[0])]
+        print(f"比賽數據出場過濾：{before} → {len(roster)} 位（丟棄 {len(dropped)} 位沒出場："
+              f"{[t + '|' + p for p, t in dropped][:20]}{'…' if len(dropped) > 20 else ''}）", flush=True)
+    else:
+        print("⚠ 比賽數據出場名單空 → 不過濾（保險）", flush=True)
 
     try:
         from playwright.sync_api import sync_playwright
