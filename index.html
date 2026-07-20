@@ -8136,7 +8136,7 @@ function render(){
        const FB=window._RANKQ_FULL||(window._RANKQ_FULL=(()=>{const m={}; try{ [...new Set(GAMES.flatMap(o=>[o.raw[C.blue_teamname],o.raw[C.red_teamname]]))].forEach(t=>{const ab=tAb(t); if(ab)(m[ab]=m[ab]||[]).push(t);}); }catch(e){} return m;})());
        const tf={}; SD.players.forEach(p=>{const t=teamFix(p.team||""); if(t)tf[t]=(tf[t]||0)+1;});
        dl.innerHTML=Object.keys(tf).sort((a,b)=>tf[b]-tf[a]).map(ab=>`<option value="${esc(ab)}">${esc((FB[ab]||[]).join("／"))}</option>`).join("")
-         +[...SD.players].sort((a,b)=>((b.wins||0)+(b.losses||0))-((a.wins||0)+(a.losses||0))).filter(p=>p.player).map(p=>`<option value="${esc((teamFix(p.team||"")+" "+p.player).trim())}"></option>`).join("");   // 選手帶純縮寫前綴（混合清單鐵則）
+         +(()=>{const seen=new Set(); return [...SD.players].sort((a,b)=>((b.wins||0)+(b.losses||0))-((a.wins||0)+(a.losses||0))).filter(p=>p.player).map(p=>{const v=(teamFix(p.team||"")+" "+p.player).trim(); if(!v||seen.has(v.toLowerCase()))return ""; seen.add(v.toLowerCase()); return `<option value="${esc(v)}"></option>`;}).join("");})();   // 選手帶純縮寫前綴（混合清單鐵則）；一人多帳號去重＝建議清單不重複
      }}
     // 添加API：開 Riot 開發者頁＋貼金鑰 → 本機服務(scripts/soloq_key_server.py, 127.0.0.1:8177)代跑 fetch_soloq.py；
     // 金鑰同時存本機(scripts/riot_key.local.json，gitignore 非白名單不會推上 git)，每天 10:00 排程 fetch_soloq_auto.py 自動沿用
@@ -8255,7 +8255,7 @@ function render(){
       if(V.rankRegion)active=active.filter(r=>{const s=rgOf(r); return s&&s.has(V.rankRegion);}); // 賽區(參賽聯賽/盃賽)篩選
       let show=active;
       if(q){ const FB=window._RANKQ_FULL||{}; const abs=new Set();            // 戰隊「全名」也可搜：全名→縮寫
-        for(const ab in FB)if(FB[ab].some(t=>t.toLowerCase().includes(q)))abs.add(ab.toLowerCase());
+        for(const ab in FB)if(FB[ab].some(t=>t.toLowerCase().split(/[^a-z0-9]+/).some(w=>w&&w.startsWith(q))))abs.add(ab.toLowerCase());  // 全名比對用「字首」不用子字串→免「gen」中「leGENd」(Anyone's Legend) 這種誤中
         show=active.filter(r=>String(r.player).toLowerCase().includes(q)||String(r.team).toLowerCase().includes(q)
           ||(teamFix(r.team||"")+" "+(r.player||"")).toLowerCase().includes(q)   // 「T1 Keria」帶前綴的建議值也要能中
           ||abs.has(String(teamFix(r.team||"")).toLowerCase())); }
