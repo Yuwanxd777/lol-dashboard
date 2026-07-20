@@ -6919,29 +6919,28 @@ function render(){
       _cL(["rb",   LANG==="en"?"ban":"禁",    240,"champ",m=>(m.red.bans||[]).map(_cTxt).join(" ")]),
       _cL(["rl0","TOP",62,"champ",m=>_cTxt(m.red.lane[0])]),_cL(["rl1","JNG",62,"champ",m=>_cTxt(m.red.lane[1])]),_cL(["rl2","MID",62,"champ",m=>_cTxt(m.red.lane[2])]),_cL(["rl3","BOT",62,"champ",m=>_cTxt(m.red.lane[3])]),_cL(["rl4","SUP",62,"champ",m=>_cTxt(m.red.lane[4])]),
     ];
-    // 每欄下拉建議(datalist)：英雄=中文名、隊伍=縮寫、版本、賽事；依全域篩選 vcKey 快取(欄篩選變動不重算)
-    const _dlKey="bp|"+vcKey(); window._BPDL=window._BPDL||{};
-    let _DL=window._BPDL[_dlKey];
-    if(!_DL){ const chS=new Set(),tmS=new Set(),paS=new Set(),lgS=new Set();
-      for(const m of calcMatches("")){ if(m.patch)paS.add(m.patch);
-        {const s=((typeof lgName==="function"?lgName(m.league):m.league)+(m.split?" "+m.split:"")).trim(); if(s)lgS.add(s);}
-        [m.blue.team,m.red.team].forEach(t=>{if(t)tmS.add(t);});
-        [...(m.blue.bans||[]),...(m.red.bans||[]),...m.blue.lane.slice(0,5),...m.red.lane.slice(0,5)].forEach(c=>{if(c){const n=((typeof chName==="function")&&chName(champId(c)))||c; chS.add(n);}});
-      }
-      _DL={champ:[...chS].sort((a,b)=>String(a).localeCompare(b)),team:[...tmS].sort(),patch:[...paS].sort().reverse(),lg:[...lgS].sort()};
-      window._BPDL[_dlKey]=_DL;
-    }
-    const _dlHTML=Object.entries(_DL).map(([k,arr])=>`<datalist id="bpDL_${k}">${arr.map(v=>`<option value="${esc(v)}"></option>`).join("")}</datalist>`).join("");
-    const _tw=COLF.reduce((s,c)=>s+c.w,0)+2; // 表格固定總寬＝各欄寬和 → 不隨視窗/捲軸伸縮，篩選時欄距完全不動
     const _noF=new Set(["date","lg","patch"]); // 這幾欄不放篩選框(上方全域篩選已有 年份/賽事/賽季/版本)
     const SUBF={ // 禁用欄拆成兩格各自篩：前3(第一輪禁)｜後2(第二輪禁)
-      bb:[{k:"bb1",ph:LANG==="en"?"1-3":"前3",dl:"champ",get:m=>(m.blue.bans||[]).slice(0,3).map(_cTxt).join(" ")},{k:"bb2",ph:LANG==="en"?"4-5":"後2",dl:"champ",get:m=>(m.blue.bans||[]).slice(3).map(_cTxt).join(" ")}],
-      rb:[{k:"rb1",ph:LANG==="en"?"1-3":"前3",dl:"champ",get:m=>(m.red.bans||[]).slice(0,3).map(_cTxt).join(" ")},{k:"rb2",ph:LANG==="en"?"4-5":"後2",dl:"champ",get:m=>(m.red.bans||[]).slice(3).map(_cTxt).join(" ")}],
+      bb:[{k:"bb1",dl:"champ",get:m=>(m.blue.bans||[]).slice(0,3).map(_cTxt).join(" ")},{k:"bb2",dl:"champ",get:m=>(m.blue.bans||[]).slice(3).map(_cTxt).join(" ")}],
+      rb:[{k:"rb1",dl:"champ",get:m=>(m.red.bans||[]).slice(0,3).map(_cTxt).join(" ")},{k:"rb2",dl:"champ",get:m=>(m.red.bans||[]).slice(3).map(_cTxt).join(" ")}],
     };
-    const FILTERS=[]; COLF.forEach(c=>{ if(SUBF[c.k])FILTERS.push(...SUBF[c.k]); else if(!_noF.has(c.k))FILTERS.push({k:c.k,ph:c.ph,dl:c.dl,get:c.get}); }); // 攤平：實際可篩的欄(禁用拆兩格；去掉日期/賽事/版本)
-    {const _fk=new Set(FILTERS.map(f=>f.k)); Object.keys(V.bpColF).forEach(k=>{ if(!_fk.has(k))delete V.bpColF[k]; });} // 清掉不再有輸入框的殘留值(日期/賽事/版本/舊禁用鍵)
-    const _finput=f=>`<span style="position:relative;display:block;flex:1 1 0;min-width:0"><input class="bpColF" data-k="${f.k}"${f.dl?` list="bpDL_${f.dl}"`:""} size="1" value="${esc(V.bpColF[f.k]||"")}" placeholder="${esc(f.ph)}" title="${esc(f.ph)}" style="display:block;width:100%;min-width:0;font-size:11.5px;padding:2px 15px 2px 4px;box-sizing:border-box;text-align:center;background:#0e1420;border:1px solid #2a3345;border-radius:5px;color:var(--tx)"><span class="bpCx" data-k="${f.k}" title="${LANG==="en"?"clear":"清除"}">✕</span></span>`;
-    const _fcell=c=>_noF.has(c.k)?"":(SUBF[c.k]?`<div style="display:flex;gap:3px">${SUBF[c.k].map(_finput).join("")}</div>`:_finput({k:c.k,ph:c.ph,dl:c.dl}));
+    const FILTERS=[]; COLF.forEach(c=>{ if(SUBF[c.k])FILTERS.push(...SUBF[c.k]); else if(!_noF.has(c.k))FILTERS.push({k:c.k,dl:c.dl,get:c.get}); }); // 攤平：實際可篩的欄(禁用拆兩格；去掉日期/賽事/版本)
+    {const _fk=new Set(FILTERS.map(f=>f.k)); Object.keys(V.bpColF).forEach(k=>{ if(!_fk.has(k))delete V.bpColF[k]; });} // 清掉不再有輸入框的殘留值
+    // 每欄各自下拉：只列「該欄實際出現過的值」；英雄依網站語言(chName)、隊伍用縮寫；依全域 vcKey 快取(欄篩選變動不重算)
+    const _fdv=(k,m)=>{ if(k==="win")return[m.win]; if(k==="bt")return[m.blue.team]; if(k==="rt")return[m.red.team];
+      if(k==="bb1")return(m.blue.bans||[]).slice(0,3); if(k==="bb2")return(m.blue.bans||[]).slice(3);
+      if(k==="rb1")return(m.red.bans||[]).slice(0,3); if(k==="rb2")return(m.red.bans||[]).slice(3);
+      const g=/^([br])l([0-4])$/.exec(k); if(g)return[(g[1]==="b"?m.blue:m.red).lane[+g[2]]]; return []; }; // 時長等：無下拉
+    const _dlKey="bp2|"+vcKey(); window._BPDL=window._BPDL||{};
+    let _DLF=window._BPDL[_dlKey];
+    if(!_DLF){ const S={}; FILTERS.forEach(f=>{S[f.k]=new Set();});
+      for(const m of calcMatches("")){ FILTERS.forEach(f=>{ _fdv(f.k,m).forEach(v=>{ if(!v)return; S[f.k].add(f.dl==="champ"?(((typeof chName==="function")&&chName(champId(v)))||v):v); }); }); }
+      _DLF={}; FILTERS.forEach(f=>{_DLF[f.k]=[...S[f.k]].sort((a,b)=>String(a).localeCompare(b));});
+      window._BPDL[_dlKey]=_DLF;
+    }
+    const _dlHTML=FILTERS.map(f=>(_DLF[f.k]&&_DLF[f.k].length)?`<datalist id="bpDL_${f.k}">${_DLF[f.k].map(v=>`<option value="${esc(v)}"></option>`).join("")}</datalist>`:"").join("");
+    const _finput=f=>`<span style="position:relative;display:block;flex:1 1 0;min-width:0"><input class="bpColF" data-k="${f.k}" list="bpDL_${f.k}" size="1" value="${esc(V.bpColF[f.k]||"")}" placeholder=" " style="display:block;width:100%;min-width:0;font-size:11.5px;padding:2px 15px 2px 4px;box-sizing:border-box;text-align:center;background:#0e1420;border:1px solid #2a3345;border-radius:5px;color:var(--tx)"><span class="bpCx" data-k="${f.k}" title="${LANG==="en"?"clear":"清除"}">✕</span></span>`;
+    const _fcell=c=>_noF.has(c.k)?"":(SUBF[c.k]?`<div style="display:flex;gap:3px">${SUBF[c.k].map(_finput).join("")}</div>`:_finput({k:c.k}));
     const _colFActive=()=>FILTERS.some(f=>(V.bpColF[f.k]||"").trim());
     let _bpFocusK=null; // 打字中的欄→重繪後把焦點還回去(表格整塊重建會掉焦點)
     const rerender=()=>{
