@@ -1466,7 +1466,7 @@ function _helpOutside(e){const p=document.getElementById("helpPop"); if(p&&!p.co
           // 佔位名（無效道具/Deprecated＝3095 狂暴利刃這類）→ 用資產索引正名；合成鏈不列非峽谷品
           const fixNm=id=>{let n=idName[id]; if(!n)return n; if(/無效道具|Deprecated/i.test(n)){const az=window.LOL_ASSETS&&LOL_ASSETS.item&&LOL_ASSETS.item[id]; n=(az&&az.zh&&!/無效道具|Deprecated/i.test(az.zh))?az.zh:null;} return n;}; // 佔位查無真名→不列
           info[nm]={t:"道具",sec:parseItemDesc(rawD),g:(d.gold&&d.gold.total)||0,b:(d.gold&&d.gold.base)||0,
-            f:[...new Set((d.from||[]).map(id=>fixNm(id)).filter(x=>x&&!NON_SR_LEGACY.test(x)))],
+            f:(d.from||[]).map(id=>fixNm(id)).filter(x=>x&&!NON_SR_LEGACY.test(x)),  // 不去重：合成可用重複材料(如好戰者鎧甲＝巨人腰帶×2＋水晶護腕)，去重會讓總價對不上
             u:[...new Set((d.into||[]).map(id=>fixNm(id)).filter(x=>x&&!NON_SR_LEGACY.test(x)))],
             // 消耗品/飾品/守衛類（藥水、控域守衛、飾品…）：圖鑑排序墊底用
             c:((d.tags||[]).some(t=>t==="Consumable"||t==="Trinket")||(!(d.from||[]).length&&!(d.into||[]).length&&(d.tags||[]).includes("Vision")))?1:0,
