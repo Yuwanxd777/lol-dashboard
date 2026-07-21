@@ -255,7 +255,17 @@ def main():
                 replaced += 1
                 diff_lines.append(f"  [換] {tm}|{pl}: {sorted(old_rids)} → {[e['riotId'] for e in use]}")
         else:
-            use = list(existing)
+            dbr = {norm(e["riotId"]): e for e in dpm_ents}
+            use = []
+            for e in existing:                     # union：保留舊帳號，但同帳號若 dpm 也有→補上新的 dpmRank/dpmPuuid(舊帳號常缺)
+                de = dbr.get(norm(e["riotId"]))
+                if de:
+                    e = dict(e)
+                    if de.get("dpmRank"):
+                        e["dpmRank"] = de["dpmRank"]
+                    if de.get("dpmPuuid") and not e.get("dpmPuuid"):
+                        e["dpmPuuid"] = de["dpmPuuid"]
+                use.append(e)
             seen = set(old_rids)
             addl = [e for e in dpm_ents if norm(e["riotId"]) not in seen]
             if addl:
