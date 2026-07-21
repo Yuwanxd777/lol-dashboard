@@ -1228,7 +1228,7 @@ const assetSpanText=n=>{ const a=assetOf(n);
   if(!yArr.length)return "";
   const ys=yArr.slice().sort((x,y)=>x-y), seg=[]; ys.forEach(y=>{const L=seg[seg.length-1]; if(L&&y===L[1]+1)L[1]=y; else seg.push([y,y]);});
   return (LANG==="en"?"in game ":"服役 ")+seg.map(([a1,b1])=>a1===b1?`${a1}`:`${a1}–${b1}`).join("、"); };
-const CACHE_VER=DDV+"-m28-"+(window.ITEM_DESC_VER||"0"); // 快取鍵含 items.js 版本戳：道具資料重建即失效重建（m28：召喚師技能加冷卻/需求等級 _sm）
+const CACHE_VER=DDV+"-m29-"+(window.ITEM_DESC_VER||"0"); // 快取鍵含 items.js 版本戳：道具資料重建即失效重建（m29：合成材料不再去重→重複材料如好戰者鎧甲巨人腰帶×2 總價才對）
 // 文本統一清理(道具/符文/技能描述＋版本改動文本共用)：移除未解析變數@X@、數字半形中括號[40-150]→加空格、斜線半形/→全形／、括號全形
 // 用語統一（全站顯示）：生命偷取→吸血、法術穿透→法穿、穿甲→物穿、生命值→生命（順序：先長詞再短詞）
 const normTerm=s=>String(s||"")
