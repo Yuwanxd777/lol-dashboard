@@ -584,6 +584,9 @@
   /* 積分逐場：點選手名進詳情，可點的名字滑上變色 */
   .rankName{cursor:pointer}
   .rankName:hover b{color:var(--acc);text-decoration:underline}
+  .favStar{cursor:pointer;color:#4a5568;margin-right:5px;font-size:15px;user-select:none;transition:color .12s} /* ★收藏星：預設灰、收藏亮金 */
+  .favStar.on{color:var(--gold)}
+  .favStar:hover{color:var(--gold)}
   /* 積分逐場戰績：一列表格式（表頭與資料列共用 .sqCols 欄寬；全固定欄寬＋統一 gap＝間隔一致） */
   .sqCols{grid-template-columns:92px 58px 66px 56px 138px 58px 112px 46px 100px 244px 80px;justify-content:start;justify-items:center;text-align:center} /* +對線@15 欄(112px) */
   .sqHead{display:grid;align-items:center;gap:14px;padding:2px 16px 7px;border-left:5px solid transparent;font-size:13px;color:var(--tx2)}
@@ -8229,8 +8232,14 @@ function render(){
       inp.focus();
       jf(API+"/ping").then(p2=>{ if(p2.busy){ say(en2?"an update is already running - attaching…":"已有更新在跑，接上進度…"); poll(); } }).catch(()=>{});
      };}
+    // ★收藏(存 localStorage：純本機、GitHub Pages 靜態站也 OK)。鍵＝正規化隊碼|選手名；收藏者置頂且不受「近7天沒打」過濾
+    const FAVK="lolRankFav";
+    const favKey=r=>teamFix(r.team||"")+"|"+(r.player||"");
+    const readFav=()=>{try{return new Set(JSON.parse(localStorage.getItem(FAVK)||"[]"));}catch(_e){return new Set();}};
+    const toggleFav=k=>{const s=readFav(); s.has(k)?s.delete(k):s.add(k); try{localStorage.setItem(FAVK,JSON.stringify([...s]));}catch(_e){}};
     const paint=()=>{
       const box=document.getElementById("rankTbl"); if(!box)return;
+      const FAV=readFav();
       if(!SD||!Array.isArray(SD.players)||!SD.players.length){ box.innerHTML=`<div class="note">${LANG==="en"?"No ranked data yet. Run scripts/fetch_soloq.py (needs a Riot API key) to generate soloq.js.":"尚未有積分資料。請執行 scripts/fetch_soloq.py（需 Riot API 金鑰）產生 soloq.js。"}</div>`; return; }
       const IDX=window.SOLOQ_MATCH_IDX;
       const rows=SD.players.map(p=>{const g=(p.wins||0)+(p.losses||0); const ix=(IDX&&IDX.players&&IDX.players[(p.team||"")+"|"+(p.player||"")])||{};
@@ -8265,8 +8274,8 @@ function render(){
       const RS=V.rankSort||{k:"_sc7",d:-1}; // 預設以一週評分降冪
       const arrow=k=>{const on=RS.k===k,up=on&&RS.d>0; return `<span class="sortArr${on?" on":""}${on?(up?" asc":" desc"):""}">${up?"▲":"▼"}</span>`;}; // 同英雄表：.sortArr 絕對定位貼欄名右側、欄名自然置中
       const cols=[
-        {k:"選手",lb:LANG==="en"?"Team / Player":"戰隊 選手",sv:r=>(teamFix(r.team)||"")+" "+(r.player||""),cell:r=>{const has=matchedPlayers.has(pKey(r));
-          return `<span class="meta">${esc(teamFix(r.team||""))}</span> <span class="${has?"rankName":""}"${has?` data-detail="${esc(r.riotId)}" title="${LANG==="en"?"view merged games":"看逐場戰績(合併帳號)"}"`:""}><b>${esc(r.player||"")}</b></span>`;}},
+        {k:"選手",lb:LANG==="en"?"Team / Player":"戰隊 選手",sv:r=>(teamFix(r.team)||"")+" "+(r.player||""),cell:r=>{const has=matchedPlayers.has(pKey(r)); const fk=favKey(r),fav=FAV.has(fk);
+          return `<span class="favStar${fav?" on":""}" data-fav="${esc(fk)}" title="${LANG==="en"?(fav?"unfavorite":"favorite (pin to top)"):(fav?"取消收藏":"收藏(置頂)")}">${fav?"★":"☆"}</span><span class="meta">${esc(teamFix(r.team||""))}</span> <span class="${has?"rankName":""}"${has?` data-detail="${esc(r.riotId)}" title="${LANG==="en"?"view merged games":"看逐場戰績(合併帳號)"}"`:""}><b>${esc(r.player||"")}</b></span>`;}},
         {k:"_role",lb:LANG==="en"?"Role":"路線",sv:r=>{const O={TOP:0,JUNGLE:1,MIDDLE:2,BOTTOM:3,UTILITY:4}; return r._role in O?O[r._role]:9;},cell:r=>{const PK={TOP:"TOP",JUNGLE:"JNG",MIDDLE:"MID",BOTTOM:"BOT",UTILITY:"SUP"}[r._role]; return PK?`<img src="${(typeof POS_B64!=="undefined"&&POS_B64[PK])||POS_IMG[PK]}" title="${esc(r._role)}" style="width:24px;height:24px;vertical-align:middle" onerror="this.replaceWith(document.createTextNode('${r._role}'))">`:`<span class="meta">—</span>`;}},
         {k:"_score",lb:LANG==="en"?"Tier":"排位",sv:r=>r._score,cell:r=>r._missing?`<span class="meta" style="color:#d0a24e">${LANG==="en"?"no ranked account":"缺積分帳號"}</span>`:(r._score>=0?`<span style="color:${TIER_COL[r.tier]||""};font-weight:600">${esc(tierLabel(r))}</span>`:`<span class="meta">${LANG==="en"?"not found":"未定位"}</span>`)},
         {k:"LP",lb:LANG==="en"?"LP":"分數",sv:r=>r.found?(r.lp||0):null,cell:r=>r._score>=0&&r.lp!=null?`<span class="num">${r.lp}</span>`:"—"},
@@ -8288,8 +8297,9 @@ function render(){
         if(!!a._missing!==!!b._missing)return a._missing?1:-1; // 缺帳號的再沉到未定位下面
         const x=svf(a),y=svf(b); if(x==null&&y==null)return 0; if(x==null)return 1; if(y==null)return -1;
         return (typeof x==="string"?String(x).localeCompare(String(y)):x-y)*RS.d; });
+      const disp=[...sorted.filter(r=>FAV.has(favKey(r))),...sorted.filter(r=>!FAV.has(favKey(r)))]; // ★收藏置頂(組內維持原本排序)
       const q=(V.rankQ||"").trim().toLowerCase();
-      let active=sorted.filter(r=>r._missing||r._n7>0||(r.found&&r._n7==null)); // 最近7天沒打積分的暫不列出；缺帳號一律列(灰置底)；有段位但還沒逐場資料的新帳號(_n7==null)也列出，否則新加的帳號(如OBGG補進、無dpmPuuid)會憑空消失
+      let active=disp.filter(r=>FAV.has(favKey(r))||r._missing||r._n7>0||(r.found&&r._n7==null)); // 收藏者一律顯示；其餘：最近7天沒打暫不列；缺帳號一律列(灰置底)；有段位但還沒逐場資料的新帳號(_n7==null)也列出
       if(V.rankRole)active=active.filter(r=>r._role===V.rankRole); // 路線篩選
       if(V.rankRegion)active=active.filter(r=>{const s=rgOf(r); return s&&s.has(V.rankRegion);}); // 賽區(參賽聯賽/盃賽)篩選
       let show=active;
@@ -8305,6 +8315,7 @@ function render(){
       box.querySelectorAll(".soloChamps[data-rid]").forEach(sp=>{const rid=sp.dataset.rid; // 滑常用英雄 → 完整英雄池(場數/勝率/KDA)
         sp.addEventListener("mouseenter",()=>tipShow(soloqChampTip(rid),sp.getBoundingClientRect())); sp.addEventListener("mouseleave",tipHide);});
       box.querySelectorAll(".rankName[data-detail]").forEach(sp=>sp.onclick=()=>{V.rankDetail=sp.dataset.detail; V.rankDetLane=""; V.rankShow=100; V.rankGSort=null; V.rankGChamp=""; V.rankGOpp=""; saveState(); render();}); // 點選手名 → 逐場戰績(先列前100)
+      box.querySelectorAll(".favStar").forEach(st=>st.onclick=e=>{e.stopPropagation(); toggleFav(st.dataset.fav); paint();}); // ★切換收藏→重繪(收藏者置頂)
       // 固定欄寬(排序箭頭不改欄寬、數據欄間距一致)；夠寬不裁字，整表可橫向捲動
       {const wrap=box.querySelector(".tblwrap"),tbl=wrap&&wrap.querySelector("table");
        if(tbl){const CW={"選手":154,"_role":78,"_score":96,"LP":96,"_games":120,"_wr":96,"_sc7":96,"_wr7":96,"_kda7":96,"last10":270,"platform":88,"帳號":214};
