@@ -184,6 +184,7 @@
   .bp .bans .cc img{width:40px;height:40px} /* 選手圖(44px)的90% */
   .bp .cc .po{font-size:13.5px}
   .fp{font-weight:900;color:var(--gold)}  /* 先選方：粗體＋金色 */
+  .bp td.bpw{background:rgba(255,255,255,.10)}  /* 勝方整隊範圍(隊名＋禁用＋五路)：小白底(取代⭐) */
   .bsHistIt{padding:3px 10px;border-radius:6px;cursor:pointer;font-size:15.5px;line-height:1.55}
   .bsHistIt:hover{background:#2a3345}
   .posic{height:30px;width:30px;object-fit:contain;vertical-align:middle}
@@ -6903,7 +6904,7 @@ function render(){
     V.bpSideMode=(["br","fp","team"].includes(V.bpSideMode))?V.bpSideMode:"br"; // 左側代表：br 藍紅／fp 先選方／team 搜尋的戰隊
     const _bpModeLbl=md=>({br:LANG==="en"?"🟦🟥 Blue / Red":"🟦🟥 藍紅",fp:LANG==="en"?"🥇 First-pick":"🥇 先選",team:LANG==="en"?"🏴 Team":"🏴 戰隊"}[md]||md);
     main.innerHTML=filterBar("")
-      +`<div class="card"><h2 style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">🎯 ${T("BP 紀錄")} <span class="sub" id="cnt"></span><span class="sub" style="flex:1 1 220px">${LANG==="en"?`gold number = pick order (1-7), <span class="fp">gold bold</span> = first-pick side, ⭐ = winner, newest first｜type in a column header to filter`:`金色數字＝選角順位(1-7)，<span class="fp">金色粗體</span>＝先選方，⭐＝勝方，最新在上｜在欄名下方輸入即逐欄篩選`}</span><button id="bpModeBtn" title="${LANG==="en"?"switch what the left side shows: Blue/Red → First-pick → searched Team":"切換左側代表：藍紅 → 先選方 → 搜尋的戰隊"}" style="margin-left:auto;flex:0 0 auto;font-size:13px;padding:5px 12px;background:#1a2233;border:1px solid #33405a;border-radius:7px;color:var(--tx);cursor:pointer;font-weight:bold;white-space:nowrap">${_bpModeLbl(V.bpSideMode)}</button></h2><div id="tbl"></div></div>`;
+      +`<div class="card"><h2 style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">🎯 ${T("BP 紀錄")} <span class="sub" id="cnt"></span><span class="sub" style="flex:1 1 220px">${LANG==="en"?`gold number = pick order (1-7), <span class="fp">gold bold</span> = first-pick side, <span style="background:rgba(255,255,255,.14);padding:0 5px;border-radius:3px">white row-band</span> = winning team, newest first｜type in a column header to filter`:`金色數字＝選角順位(1-7)，<span class="fp">金色粗體</span>＝先選方，<span style="background:rgba(255,255,255,.14);padding:0 5px;border-radius:3px">白底那隊</span>＝勝方，最新在上｜在欄名下方輸入即逐欄篩選`}</span><button id="bpModeBtn" title="${LANG==="en"?"switch what the left side shows: Blue/Red → First-pick → searched Team":"切換左側代表：藍紅 → 先選方 → 搜尋的戰隊"}" style="margin-left:auto;flex:0 0 auto;font-size:13px;padding:5px 12px;background:#1a2233;border:1px solid #33405a;border-radius:7px;color:var(--tx);cursor:pointer;font-weight:bold;white-space:nowrap">${_bpModeLbl(V.bpSideMode)}</button></h2><div id="tbl"></div></div>`;
     const mmss=s=>s?`${Math.floor(s/60)}:${String(Math.round(s%60)).padStart(2,"0")}`:"–";
     // 依模式決定「左(L)/右(R)」對應到哪一實際邊：br=藍左紅右；fp=先選方在左；team=搜尋的戰隊在左(在紅邊就換過來)
     const sides=m=>{ const md=V.bpSideMode||"br";
@@ -6979,20 +6980,20 @@ function render(){
       const HL=mode==="fp"?[T("先選"),LANG==="en"?"2nd pick":"後選"]:mode==="team"?[LANG==="en"?"This team":"該隊",LANG==="en"?"Opponent":"對手"]:[T("藍方"),T("紅方")]; // 左右方表頭標籤
       const gls=ms.map(m=>m.gl).filter(x=>x);
       const avg=gls.length?gls.reduce((s,x)=>s+x,0)/gls.length:0;
-      const laneCells=s=>[0,1,2,3,4].map(i=>`<td>${cImg(s.lane[i]||"",s.po[i]&&s.po[i]!=="0"?s.po[i]:"")}</td>`).join("");
-      const banCells=s=>`<td class="bans">${s.bans.slice(0,3).map(b=>cImg(b)).join("")}${s.bans.length>3?`<span class="banSep"></span>`:""}${s.bans.slice(3).map(b=>cImg(b)).join("")}</td>`; // 禁用前3(第一輪禁)｜後2(第二輪禁)以分隔線分開
+      const laneCells=(s,won)=>[0,1,2,3,4].map(i=>`<td class="${won?"bpw":""}">${cImg(s.lane[i]||"",s.po[i]&&s.po[i]!=="0"?s.po[i]:"")}</td>`).join("");
+      const banCells=(s,won)=>`<td class="bans${won?" bpw":""}">${s.bans.slice(0,3).map(b=>cImg(b)).join("")}${s.bans.length>3?`<span class="banSep"></span>`:""}${s.bans.slice(3).map(b=>cImg(b)).join("")}</td>`; // 禁用前3(第一輪禁)｜後2(第二輪禁)以分隔線分開
       const rowHTML=(m,gno)=>{
-        const cell=(s,isBlue)=>{
+        const cell=(s,isBlue,won)=>{
           const first=m.first===(isBlue?"blue":"red");
-          const won=m.blueWin===isBlue;
-          return `<td>${first?`<span class="fp">${s.team}</span>`:s.team}${won?" ⭐":""}</td>`;
+          return `<td class="${won?"bpw":""}">${first?`<span class="fp">${s.team}</span>`:s.team}</td>`; // 勝方整隊範圍給小白底(取代⭐)
         };
         // gno 有值＝系列賽底下的小局：日期欄改成「└ 第N局」並縮排，聯賽欄留白
         const head=gno?`<td class="subg">└ 第${gno}局</td><td></td>`:`<td>${m.date}</td><td>${lgChip(m.league)} <span class="meta">${m.split}</span></td>`;
         const S=sides(m); // 依模式決定左右實際邊
+        const lWon=S.LisBlue===m.blueWin, rWon=!lWon; // 哪一顯示側獲勝→整隊範圍加白底
         return `<tr${gno?' class="subrow"':''}>${head}<td>${m.patch}</td><td class="meta">${mmss(m.gl)}</td><td class="win">${m.win}</td>
-        ${cell(S.L,S.LisBlue)}${banCells(S.L)}${laneCells(S.L)}
-        ${cell(S.R,!S.LisBlue)}${banCells(S.R)}${laneCells(S.R)}</tr>`;
+        ${cell(S.L,S.LisBlue,lWon)}${banCells(S.L,lWon)}${laneCells(S.L,lWon)}
+        ${cell(S.R,!S.LisBlue,rWon)}${banCells(S.R,rWon)}${laneCells(S.R,rWon)}</tr>`;
       };
       // 沒設任何逐局篩選 → 用「系列賽（大場）」呈現，底下列出各局（小場）
       const grouped=!_colFActive();  // 沒有任何欄位篩選＝系列賽分組；有篩選＝逐場平列
