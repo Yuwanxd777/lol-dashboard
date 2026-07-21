@@ -1228,7 +1228,7 @@ const assetSpanText=n=>{ const a=assetOf(n);
   if(!yArr.length)return "";
   const ys=yArr.slice().sort((x,y)=>x-y), seg=[]; ys.forEach(y=>{const L=seg[seg.length-1]; if(L&&y===L[1]+1)L[1]=y; else seg.push([y,y]);});
   return (LANG==="en"?"in game ":"服役 ")+seg.map(([a1,b1])=>a1===b1?`${a1}`:`${a1}–${b1}`).join("、"); };
-const CACHE_VER=DDV+"-m29-"+(window.ITEM_DESC_VER||"0"); // 快取鍵含 items.js 版本戳：道具資料重建即失效重建（m29：合成材料不再去重→重複材料如好戰者鎧甲巨人腰帶×2 總價才對）
+const CACHE_VER=DDV+"-m30-"+(window.ITEM_DESC_VER||"0"); // 快取鍵含 items.js 版本戳：道具資料重建即失效重建（m30：from/into 皆不去重）
 // 文本統一清理(道具/符文/技能描述＋版本改動文本共用)：移除未解析變數@X@、數字半形中括號[40-150]→加空格、斜線半形/→全形／、括號全形
 // 用語統一（全站顯示）：生命偷取→吸血、法術穿透→法穿、穿甲→物穿、生命值→生命（順序：先長詞再短詞）
 const normTerm=s=>String(s||"")
@@ -1467,7 +1467,7 @@ function _helpOutside(e){const p=document.getElementById("helpPop"); if(p&&!p.co
           const fixNm=id=>{let n=idName[id]; if(!n)return n; if(/無效道具|Deprecated/i.test(n)){const az=window.LOL_ASSETS&&LOL_ASSETS.item&&LOL_ASSETS.item[id]; n=(az&&az.zh&&!/無效道具|Deprecated/i.test(az.zh))?az.zh:null;} return n;}; // 佔位查無真名→不列
           info[nm]={t:"道具",sec:parseItemDesc(rawD),g:(d.gold&&d.gold.total)||0,b:(d.gold&&d.gold.base)||0,
             f:(d.from||[]).map(id=>fixNm(id)).filter(x=>x&&!NON_SR_LEGACY.test(x)),  // 不去重：合成可用重複材料(如好戰者鎧甲＝巨人腰帶×2＋水晶護腕)，去重會讓總價對不上
-            u:[...new Set((d.into||[]).map(id=>fixNm(id)).filter(x=>x&&!NON_SR_LEGACY.test(x)))],
+            u:(d.into||[]).map(id=>fixNm(id)).filter(x=>x&&!NON_SR_LEGACY.test(x)),  // 與 f 一致不去重(into 通常無重複)
             // 消耗品/飾品/守衛類（藥水、控域守衛、飾品…）：圖鑑排序墊底用
             c:((d.tags||[]).some(t=>t==="Consumable"||t==="Trinket")||(!(d.from||[]).length&&!(d.into||[]).length&&(d.tags||[]).includes("Vision")))?1:0,
             tg:d.tags||[]};  // Riot 官方分類標籤（圖鑑篩選用）
@@ -1747,8 +1747,10 @@ async function histItemTipHTML(name){
   if(!inf)return extraTipHTML(name); // 該年查無 → 退回目前版本資料
   const im=n=>{const u=(H2.items[n]||{}).img;return u?`<img src="${u}" style="width:22px;height:22px;border-radius:4px;border:1px solid #33405c;vertical-align:middle;margin-right:3px" onerror="this.remove()">`:"";};
   const cEl=n=>{const ci=H2.items[n];return `<span style="white-space:nowrap;vertical-align:middle">${im(n)}${esc(n)}${ci&&ci.g?` <span style="color:#f5b942;font-size:11px">($${ci.g})</span>`:""}</span>`;};
-  const combFee=inf.b?`<span style="color:var(--tx2)">＋</span><span style="white-space:nowrap;color:#aaa;font-size:12px">${LANG==="en"?`Build cost $${inf.b}`:`合成費 $${inf.b}`}</span>`:"";
-  const _ffl=(inf.f||[]).filter(_itemInYear); const comps=_ffl.length?`<div class="tipRow"><b>${T("合成")}</b><div style="display:flex;flex-wrap:wrap;gap:5px 8px;align-items:center;margin-top:3px">${_ffl.map((c,i)=>(i?`<span style="color:var(--tx2)">＋</span>`:"")+cEl(c)).join("")}${combFee}<span style="color:var(--tx2)">＝</span><span style="white-space:nowrap;color:#f5b942;font-size:12px">${LANG==="en"?`Total $${inf.g}`:`總價 $${inf.g}`}</span></div></div>`:"";
+  const _ffl=(inf.f||[]).filter(_itemInYear);
+  const _bfee=(_ffl.length<(inf.f||[]).length)?Math.max(0,(inf.g||0)-_ffl.reduce((s,c)=>s+((H2.items[c]||{}).g||0),0)):inf.b; // 有材料被年份濾掉→合成費吸收差額，材料+合成費仍=總價(不再出現對不上)
+  const combFee=_bfee?`<span style="color:var(--tx2)">＋</span><span style="white-space:nowrap;color:#aaa;font-size:12px">${LANG==="en"?`Build cost $${_bfee}`:`合成費 $${_bfee}`}</span>`:"";
+  const comps=_ffl.length?`<div class="tipRow"><b>${T("合成")}</b><div style="display:flex;flex-wrap:wrap;gap:5px 8px;align-items:center;margin-top:3px">${_ffl.map((c,i)=>(i?`<span style="color:var(--tx2)">＋</span>`:"")+cEl(c)).join("")}${combFee}<span style="color:var(--tx2)">＝</span><span style="white-space:nowrap;color:#f5b942;font-size:12px">${LANG==="en"?`Total $${inf.g}`:`總價 $${inf.g}`}</span></div></div>`:"";
   const _ufl=(inf.u||[]).filter(_itemInYear); const ups=_ufl.length?`<div class="tipRow"><b>${T("可合成")}</b><div style="display:flex;flex-wrap:wrap;gap:5px 10px;align-items:center;margin-top:3px">${_ufl.map(cEl).join("")}</div></div>`:"";
   const secs=(inf.sec||[]).map(s=>{
     if(s.h==="屬性")return `<div class="tipRow"><b>${LANG==="en"?"Stats":"屬性"}</b><div>${hiNum(esc(s.t))}</div></div>`;
@@ -1820,8 +1822,10 @@ function extraTipHTML(name){
     const alts=[...new Set([c1,c2].filter(Boolean))];
     return alts.length?`<img src="${alts[0]}" data-alts="${esc(JSON.stringify(alts))}" alt="${esc(n)}" style="width:22px;height:22px;border-radius:4px;border:1px solid #33405c;vertical-align:middle;margin-right:3px" onerror="const A=JSON.parse(this.dataset.alts||'[]'),i=(+this.dataset.i||0)+1;this.dataset.i=i;if(A[i])this.src=A[i];else this.remove()">`:"";}
   const cEl=n=>{const ci=EXTRA_INFO&&EXTRA_INFO[n];return `<span style="white-space:nowrap;vertical-align:middle">${cImg(n)}${esc(n)}${ci&&ci.g?` <span style="color:#f5b942;font-size:11px">($${ci.g})</span>`:""}</span>`;}
-  const combFee=inf.b?`<span style="color:var(--tx2)">＋</span><span style="white-space:nowrap;color:#aaa;font-size:12px">${LANG==="en"?`Build cost $${inf.b}`:`合成費 $${inf.b}`}</span>`:"";
-  const _ffl=(inf.f||[]).filter(_itemInYear); const comps=_ffl.length?`<div class="tipRow"><b>${T("合成")}</b><div style="display:flex;flex-wrap:wrap;gap:5px 8px;align-items:center;margin-top:3px">${_ffl.map((c,i)=>(i?`<span style="color:var(--tx2)">＋</span>`:"") +cEl(c)).join("")}${combFee}<span style="color:var(--tx2)">＝</span><span style="white-space:nowrap;color:#f5b942;font-size:12px">${LANG==="en"?`Total $${inf.g}`:`總價 $${inf.g}`}</span></div></div>`:"";
+  const _ffl=(inf.f||[]).filter(_itemInYear);
+  const _bfee=(_ffl.length<(inf.f||[]).length)?Math.max(0,(inf.g||0)-_ffl.reduce((s,c)=>s+((EXTRA_INFO[c]||{}).g||0),0)):inf.b; // 材料被濾掉→合成費吸收差額，總價恆正確
+  const combFee=_bfee?`<span style="color:var(--tx2)">＋</span><span style="white-space:nowrap;color:#aaa;font-size:12px">${LANG==="en"?`Build cost $${_bfee}`:`合成費 $${_bfee}`}</span>`:"";
+  const comps=_ffl.length?`<div class="tipRow"><b>${T("合成")}</b><div style="display:flex;flex-wrap:wrap;gap:5px 8px;align-items:center;margin-top:3px">${_ffl.map((c,i)=>(i?`<span style="color:var(--tx2)">＋</span>`:"") +cEl(c)).join("")}${combFee}<span style="color:var(--tx2)">＝</span><span style="white-space:nowrap;color:#f5b942;font-size:12px">${LANG==="en"?`Total $${inf.g}`:`總價 $${inf.g}`}</span></div></div>`:"";
   const _ufl=(inf.u||[]).filter(_itemInYear); const ups=_ufl.length?`<div class="tipRow"><b>${T("可合成")}</b><div style="display:flex;flex-wrap:wrap;gap:5px 10px;align-items:center;margin-top:3px">${_ufl.map(cEl).join("")}</div></div>`:"";
   // 變體道具（如 破碎的護腕）寫進本體說明
   const vars2=[...Object.entries(ITEM_VARIANT),...Object.keys(EXTRA_INFO).filter(v=>bootEnchOf(v)===name).map(v=>[v,name])].filter(([v,base])=>base===name&&EXTRA_INFO[v])
@@ -1856,8 +1860,10 @@ function dexEntityCardHTML(name){
     const alts=[...new Set([c1,c2].filter(Boolean))];
     return alts.length?`<img src="${alts[0]}" data-alts="${esc(JSON.stringify(alts))}" alt="${esc(n)}" style="width:26px;height:26px;border-radius:5px;border:1px solid #33405c;vertical-align:middle;margin-right:4px" onerror="const A=JSON.parse(this.dataset.alts||'[]'),i=(+this.dataset.i||0)+1;this.dataset.i=i;if(A[i])this.src=A[i];else this.remove()">`:"";};
   const cEl=n=>{const ci=EXTRA_INFO&&EXTRA_INFO[n];return `<span class="plink dexLink" data-n="${esc(n)}" style="white-space:nowrap;vertical-align:middle;cursor:pointer">${cImg(n)}${esc(n)}${ci&&ci.g?` <span style="color:#f5b942;font-size:12px">($${ci.g})</span>`:""}</span>`;};
-  const combFee=inf.b?`<span style="color:var(--tx2)">＋</span><span style="white-space:nowrap;color:#aaa;font-size:12px">${en?`Build cost $${inf.b}`:`合成費 $${inf.b}`}</span>`:"";
-  const _ffl=(inf.f||[]).filter(_itemInYear); const comps=_ffl.length?`<div class="tipRow"><b>${T("合成")}</b><div style="display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;margin-top:5px">${_ffl.map((c,i)=>(i?`<span style="color:var(--tx2)">＋</span>`:"")+cEl(c)).join("")}${combFee}<span style="color:var(--tx2)">＝</span><span style="white-space:nowrap;color:#f5b942">${en?`Total $${inf.g}`:`總價 $${inf.g}`}</span></div></div>`:"";
+  const _ffl=(inf.f||[]).filter(_itemInYear);
+  const _bfee=(_ffl.length<(inf.f||[]).length)?Math.max(0,(inf.g||0)-_ffl.reduce((s,c)=>s+((EXTRA_INFO[c]||{}).g||0),0)):inf.b; // 材料被濾掉→合成費吸收差額，總價恆正確
+  const combFee=_bfee?`<span style="color:var(--tx2)">＋</span><span style="white-space:nowrap;color:#aaa;font-size:12px">${en?`Build cost $${_bfee}`:`合成費 $${_bfee}`}</span>`:"";
+  const comps=_ffl.length?`<div class="tipRow"><b>${T("合成")}</b><div style="display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;margin-top:5px">${_ffl.map((c,i)=>(i?`<span style="color:var(--tx2)">＋</span>`:"")+cEl(c)).join("")}${combFee}<span style="color:var(--tx2)">＝</span><span style="white-space:nowrap;color:#f5b942">${en?`Total $${inf.g}`:`總價 $${inf.g}`}</span></div></div>`:"";
   const _ufl=(inf.u||[]).filter(_itemInYear); const ups=_ufl.length?`<div class="tipRow"><b>${T("可合成")}</b><div style="display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;margin-top:5px">${_ufl.map(cEl).join("")}</div></div>`:"";
   // 變體道具（如 破碎的護腕）併入本體
   const vars2=[...Object.entries(ITEM_VARIANT),...Object.keys(EXTRA_INFO).filter(v=>bootEnchOf(v)===name).map(v=>[v,name])].filter(([v,base])=>base===name&&EXTRA_INFO[v])
