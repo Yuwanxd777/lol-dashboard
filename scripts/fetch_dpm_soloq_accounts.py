@@ -21,7 +21,11 @@ DPM_LEAGUES = ["lcs", "lec", "cblol"]           # 以 dpm 為主的職業聯賽
 PLAT = {"NA1": "na1", "KR": "kr", "KR1": "kr", "EUW1": "euw1", "EUN1": "eun1", "BR1": "br1",
         "LA1": "la1", "LA2": "la2", "OC1": "oc1", "TR1": "tr1", "RU": "ru", "JP1": "jp1"}
 # dpm 隊碼 → 本清單隊碼（僅列已知差異；相同者不需列）
-TEAM_ALIAS = {"GEN": "GENG", "DNF": "DNS"}  # dpm 隊碼→本清單碼；DN Freecs 比賽改名 DNS
+TEAM_ALIAS = {"GEN": "GENG", "DNF": "DNS", "LLL": "LOUD"}  # dpm 隊碼→本清單碼；DNF→DNS(改名)、LOUD 在 dpm 用 LLL
+# 使用者本機(localStorage USER_TABBR)改過、但 STATIC_TABBR 仍是舊值的縮寫覆寫（Python 抓不到 localStorage，這裡補）；key=隊全名小寫
+ABBR_OVERRIDE = {"fluxo w7m": "FX"}
+# 積分頁不列/不抓的選手（已離隊且不再於一級聯賽出場等）；正規化小寫名
+BLOCK_PLAYERS = {"castle"}
 
 
 def norm(s):
@@ -52,6 +56,46 @@ def match_players():
     except Exception as e:
         print(f"（比賽數據出場名單載入失敗：{e}）", flush=True)
     return s
+
+
+def load_abbr():
+    """從 index.html 抽 STATIC_TABBR（隊全名→縮寫）＋ ABBR_OVERRIDE，供 Python 端算隊縮寫（localStorage 的 USER_TABBR 抓不到）。"""
+    st = {}
+    try:
+        html = open(os.path.join(ROOT, "index.html"), encoding="utf-8", errors="replace").read()
+        m = re.search(r"const STATIC_TABBR=\{(.*?)\};", html, re.S)
+        if m:
+            st = {str(k).strip().lower(): v for k, v in json.loads("{" + m.group(1) + "}").items()}
+    except Exception as e:
+        print(f"（STATIC_TABBR 載入失敗，改用壓縮全名：{e}）", flush=True)
+    st.update({k.lower(): v for k, v in ABBR_OVERRIDE.items()})
+    return st
+
+
+def match_roster(abbr):
+    """比賽數據(data_2026.js)每位出場選手 → 我方隊縮寫。隊縮寫＝隊全名經 STATIC_TABBR 換算；取該選手最後一次出場的隊。回 {選手名: 隊縮寫}。"""
+    out = {}
+    try:
+        d0 = open(os.path.join(ROOT, "data", "data_2026.js"), encoding="utf-8", errors="replace").read()
+        J = json.loads(re.sub(r";\s*$", "", re.search(r"window\.LOL_DATA\s*=\s*(\{.*)", d0, re.S).group(1)))
+        raw = J["tabs"]["RAW_DATA"]; hdr = raw[0]; Cc = {h: i for i, h in enumerate(hdr)}
+        bp, rp, pi = Cc.get("blue_playername"), Cc.get("red_playername"), Cc.get("participantid")
+        bt, rt = Cc.get("blue_teamname"), Cc.get("red_teamname")
+        for r0 in raw[1:]:
+            try:
+                if not (1 <= int(r0[pi]) <= 5):
+                    continue
+            except Exception:
+                continue
+            for pcol, tcol in ((bp, bt), (rp, rt)):
+                if pcol is None or tcol is None or pcol >= len(r0) or not r0[pcol]:
+                    continue
+                full = r0[tcol] if (tcol is not None and tcol < len(r0)) else ""
+                ab = abbr.get(str(full).strip().lower(), "") or re.sub(r"[^A-Za-z0-9]", "", str(full))[:5].upper()
+                out[str(r0[pcol]).strip()] = ab   # 後出現覆蓋前面→自然取最近一隊
+    except Exception as e:
+        print(f"（match_roster 失敗：{e}）", flush=True)
+    return out
 
 
 def _launch(p):
@@ -108,6 +152,23 @@ def main():
     else:
         print("⚠ 比賽數據出場名單空 → 不過濾（保險）", flush=True)
 
+    # ── 探索抓取（根因修正）：以前名單只含既有帳號→沒帳號的隊(Fluxo/LOUD/多數 LCS/LEC/LTA)永遠漏抓。
+    #    這裡把「比賽出場但目前完全沒帳號」的選手補進名單，DPM 逐一查 /v1/pros 補帳號 ──
+    ABBR = load_abbr()
+    mr = match_roster(ABBR)  # {選手名: 我方隊縮寫}
+    covered = {norm(a.get("player")) for a in acc}
+    roster = [pt for pt in roster if norm(pt[0]) not in BLOCK_PLAYERS]   # 封鎖名單(已離隊/退出一級)不抓
+    new_players = []
+    for pl, ab in mr.items():
+        n = norm(pl)
+        if n in covered or n in BLOCK_PLAYERS:
+            continue
+        pt = (pl, ab)
+        if pt in seen_pt:
+            continue
+        seen_pt.add(pt); roster.append(pt); new_players.append(pt)
+    print(f"探索新增 {len(new_players)} 位無帳號的出場選手：{[t + '|' + p for p, t in new_players][:30]}{'…' if len(new_players) > 30 else ''}", flush=True)
+
     try:
         from playwright.sync_api import sync_playwright
     except Exception:
@@ -138,16 +199,17 @@ def main():
                                 "/v1/pros/" + urllib.parse.quote(pl, safe=""))
             except Exception:
                 j = None
-            ents = []
-            for a in ((j or {}).get("players") or []):
-                if canon_team(a.get("team")) != tm:   # 同名消歧：隊必須相符
-                    continue
-                pu, gn, tl = a.get("puuid"), a.get("gameName"), a.get("tagLine")
-                if not (pu and gn and tl):
-                    continue
-                ents.append({"player": pl, "team": tm,
-                             "platform": PLAT.get(a.get("platform"), str(a.get("platform") or "").lower()),
-                             "riotId": f"{gn}#{tl}", "dpmPuuid": pu})
+            plist = [a for a in ((j or {}).get("players") or []) if a.get("puuid") and a.get("gameName") and a.get("tagLine")]
+            teams_seen = {canon_team(a.get("team")) for a in plist}
+            if tm in teams_seen:
+                use_as = [a for a in plist if canon_team(a.get("team")) == tm]   # 精確隊碼相符優先
+            elif len(teams_seen) == 1:
+                use_as = plist                                                   # 同名只有一位職業選手→直接採用(縮寫跟 DPM 對不上也抓得到)
+            else:
+                use_as = []                                                      # 同名跨多隊且無一相符→無法安全消歧，跳過(避免抓錯人)
+            ents = [{"player": pl, "team": tm,
+                     "platform": PLAT.get(a.get("platform"), str(a.get("platform") or "").lower()),
+                     "riotId": f"{a.get('gameName')}#{a.get('tagLine')}", "dpmPuuid": a.get("puuid")} for a in use_as]
             # 去重（同 riotId）
             uniq = {}
             for e in ents:
@@ -168,7 +230,7 @@ def main():
     replaced = added = kept = 0
     diff_lines = []
     for (pl, tm) in roster:
-        existing = exist_by_pt[(pl, tm)]
+        existing = exist_by_pt.get((pl, tm), [])   # 探索新增的選手沒有既有帳號→空清單(union 分支會把 dpm 帳號整批補上)
         dpm_ents = dpm_by_pt.get((pl, tm), [])
         old_rids = {norm(e["riotId"]) for e in existing}
         if tm in dpm_primary and dpm_ents:
