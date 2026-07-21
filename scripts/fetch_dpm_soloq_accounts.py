@@ -36,6 +36,12 @@ def canon_team(t):
     return TEAM_ALIAS.get(t, t)
 
 
+def dpm_rank(a):
+    """dpm /v1/pros 每帳號附帶的牌位(ranks[0])→存起來；Riot account-v1 查不到舊 riotId(改名等)時，fetch_soloq.py 拿它當備援。"""
+    rk = ((a.get("ranks") or [{}])[0]) or {}
+    return {"tier": rk.get("tier"), "rank": rk.get("rank"), "lp": rk.get("leaguePoints")} if rk.get("tier") else None
+
+
 def match_players():
     """比賽數據(data_2026.js)裡實際出場過的選手名(正規化 set)——只重抓這些人，教練/替補等沒出場的不抓（使用者定案 2026-07-20）。"""
     s = set()
@@ -194,12 +200,20 @@ def main():
 
         n_hit = n_miss = 0
         for i, (pl, tm) in enumerate(roster, 1):
-            try:
-                j = pg.evaluate("async(u)=>{const r=await fetch(u);return r.ok?await r.json():null;}",
-                                "/v1/pros/" + urllib.parse.quote(pl, safe=""))
-            except Exception:
-                j = None
-            plist = [a for a in ((j or {}).get("players") or []) if a.get("puuid") and a.get("gameName") and a.get("tagLine")]
+            # dpm /v1/pros 區分大小寫：比賽數據常是小寫(ceo/xyno)但 dpm 顯示名是 Ceo/Xyno → 查無時自動試大小寫變體
+            plist, _tried = [], []
+            for _v in (pl, pl[:1].upper() + pl[1:], pl.title(), pl.upper(), pl.lower()):
+                if not _v or _v in _tried:
+                    continue
+                _tried.append(_v)
+                try:
+                    j = pg.evaluate("async(u)=>{const r=await fetch(u);return r.ok?await r.json():null;}",
+                                    "/v1/pros/" + urllib.parse.quote(_v, safe=""))
+                except Exception:
+                    j = None
+                plist = [a for a in ((j or {}).get("players") or []) if a.get("puuid") and a.get("gameName") and a.get("tagLine")]
+                if plist:
+                    break
             teams_seen = {canon_team(a.get("team")) for a in plist}
             if tm in teams_seen:
                 use_as = [a for a in plist if canon_team(a.get("team")) == tm]   # 精確隊碼相符優先
@@ -209,7 +223,8 @@ def main():
                 use_as = []                                                      # 同名跨多隊且無一相符→無法安全消歧，跳過(避免抓錯人)
             ents = [{"player": pl, "team": tm,
                      "platform": PLAT.get(a.get("platform"), str(a.get("platform") or "").lower()),
-                     "riotId": f"{a.get('gameName')}#{a.get('tagLine')}", "dpmPuuid": a.get("puuid")} for a in use_as]
+                     "riotId": f"{a.get('gameName')}#{a.get('tagLine')}", "dpmPuuid": a.get("puuid"),
+                     "dpmRank": dpm_rank(a)} for a in use_as]
             # 去重（同 riotId）
             uniq = {}
             for e in ents:

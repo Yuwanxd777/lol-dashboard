@@ -155,6 +155,11 @@ def main():
                "tier": None, "division": None, "lp": None,
                "wins": None, "losses": None, "found": False}
         if not puuid:
+            dr = a.get("dpmRank")
+            if dr and dr.get("tier"):  # Riot 查不到此舊 riotId(改名等) → 用抓帳號時 dpm 附帶的牌位當備援(如 KT FenRir)
+                rec.update(tier=dr.get("tier"), division=dr.get("rank"), lp=dr.get("lp"), found=True, dpmRank=True)
+                print(f"    ♻ Riot 查無此 ID → DPM 牌位備援：{dr.get('tier')} {dr.get('rank')} {dr.get('lp')}LP")
+                return rec
             print("    找不到帳號（Riot ID 或區域錯？）"); return rec
         sq = get_soloq(plat, puuid)
         if sq:
