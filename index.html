@@ -8259,8 +8259,10 @@ function render(){
            const a=r0[C.blue_playername], b=r0[C.blue_playername+RB]; if(a)_mn.add(_nn(a)); if(b)_mn.add(_nn(b));}
        }
        const _WL=new Set(["theshy"]);  // 特例白名單：整年無比賽出場但仍要列的選手(如 TheShy 復出中)。要加人就往這放(小寫、去頭尾空白後的名字)
+       const _BL=new Set(["castle"]);  // 黑名單：已離隊且不再一級聯賽出場→不論比賽數據有無一律不列(與 scripts/fetch_dpm_soloq_accounts.py 的 BLOCK_PLAYERS 保持一致)
        const _g={}, _o=[];
        for(const r of rows){
+         if(_BL.has(_nn(r.player))) continue;   // 黑名單直接略過
          if(!r._missing && _mn.size && !_mn.has(_nn(r.player)) && !_WL.has(_nn(r.player))) continue;   // 整年從沒出場→不列(教練)；白名單例外；RAW 沒載到(size 0)則不過濾保險
          const k=teamFix(r.team||"")+"|"+(r.player||"");                  // 用正規化縮寫分組→改名隊(DNF→DNS、GENG→GEN…)的多帳號合併成一列
          if(!(k in _g)){_g[k]=r; _o.push(k);}
