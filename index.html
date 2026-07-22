@@ -629,6 +629,25 @@
   .axSel{padding:4px 7px;font-size:13.5px}
   .axDel{padding:2px 9px;margin-left:2px;color:#e05c5c;font-weight:bold}
   #axAdd,#axReset{padding:4px 10px;font-size:13.5px;color:var(--tx2)}
+  /* 英雄分頁散布圖（K+A vs D）：SVG 軸/網格 + 覆蓋 DOM 頭像點 */
+  .hscWrap{padding:6px 2px 2px}
+  .hscInner{position:relative;width:100%;height:600px}
+  .hscSvg{position:absolute;inset:0;width:100%;height:100%;display:block}
+  .hscPlot{fill:#0e1420}
+  .hscG{stroke:#232d42;stroke-width:1}
+  .hscAxis{stroke:#46536e;stroke-width:1.5}
+  .hscTick{fill:var(--tx2);font-size:16px}
+  .hscAxT{fill:var(--tx2);font-size:18px;font-weight:600}
+  .hscRef{stroke:#b08a2e;stroke-width:1;stroke-dasharray:5 6;opacity:.5}
+  .hscRefL{fill:var(--gold);font-size:14px;opacity:.75}
+  .hscDots{position:absolute;inset:0;pointer-events:none}
+  .hscDot{position:absolute;width:30px;height:30px;transform:translate(-50%,-50%);border:2px solid #888;border-radius:6px;
+    background:#0d1524;box-shadow:0 1px 3px rgba(0,0,0,.6);pointer-events:auto;cursor:pointer;z-index:2;transition:transform .08s}
+  .hscDot img{width:100%;height:100%;display:block;object-fit:cover;border-radius:4px}
+  .hscDot:hover{transform:translate(-50%,-50%) scale(1.5);z-index:30;box-shadow:0 3px 12px rgba(0,0,0,.7)}
+  .hscDot:hover::after{content:attr(data-tip);position:absolute;left:50%;bottom:122%;transform:translateX(-50%) scale(.67);transform-origin:bottom center;
+    background:#0b0f1a;border:1px solid var(--line);color:var(--tx);padding:5px 8px;border-radius:6px;font-size:12px;white-space:nowrap;z-index:31;box-shadow:0 4px 14px rgba(0,0,0,.6)}
+  .hscHint{margin-top:8px;font-size:12.5px;text-align:center}
 </style>
 </head>
 <body>
@@ -3312,7 +3331,7 @@ function calcHeroes(pos,player,team){
       "BP%":Math.min(1,(a.n+laneBans)/dedAvail),  // 出場+(分攤後)禁用 熱門度（gol.gg 的 Presence，已按可用場數修正）
       場數:a.n, _pb:a.n+laneBans, _banN:bans, "勝-敗":`${a.w}-${a.n-a.w}`, 勝率:a.w/a.n, "勝率(勝-敗)":a.w/a.n, // _banN：原始禁用場次(篩選時＝對手BAN次數)
       禁用率:Math.min(1,laneBans/avail),
-      KDA:(a.k+a.as)/Math.max(1,a.d), "K/D/A":`${d1s(a.k/a.n)} / ${d1s(a.d/a.n)} / ${d1s(a.as/a.n)}`, 參與率:(a.k+a.as)/Math.max(1,a.tk),
+      KDA:(a.k+a.as)/Math.max(1,a.d), _ak:a.k/a.n,_ad:a.d/a.n,_aa:a.as/a.n, "K/D/A":`${d1s(a.k/a.n)} / ${d1s(a.d/a.n)} / ${d1s(a.as/a.n)}`, 參與率:(a.k+a.as)/Math.max(1,a.tk),
       DPM:a.dpm/a.n, 分均輸出:a.dpm/a.n, 中期金差:a.midN?a.mid/a.midN:null, 分均金錢:a.gl?a.gold/(a.gl/60):0, 分均承傷:a.dt/a.n, 分均視分:a.vs/a.n,
       "金差@10":a.g10N?a.gd10/a.g10N:null, "CS差@10":a.g10N?a.cd10/a.g10N:null,
       贏線率:a.g10N?a.winL/a.g10N:null, 後選率:a.lateN?a.late/a.lateN:null });
@@ -4293,7 +4312,7 @@ function calcHeroesSoloq(pos){
       .map(([ln])=>posImg(PNS[ln])).filter(Boolean).join("");
     rows.push({英雄:cAb(ch),_full:ch,路線:Object.keys(lanes).filter(l=>PNS[l]).length,_laneIcons:laneIcons,
       場數:n,"勝-敗":`${w}-${n-w}`,勝率:w/n,"勝率(勝-敗)":w/n,
-      KDA:(k+a)/Math.max(1,d),"K/D/A":`${d1s(k/n)} / ${d1s(d/n)} / ${d1s(a/n)}`,
+      KDA:(k+a)/Math.max(1,d),_ak:k/n,_ad:d/n,_aa:a/n,"K/D/A":`${d1s(k/n)} / ${d1s(d/n)} / ${d1s(a/n)}`,
       參與率:kpN?kpS/kpN/100:null,
       分均CS:dur?cs/(dur/60):null,
       "金差@15":gdN?gdS/gdN:null,"經差@15":xdN?xdS/xdN:null,
@@ -4311,6 +4330,48 @@ function calcHeroesSoloq(pos){
      r.評分=wt?s/wt:null;
    });}
   return rows;
+}
+// ── 英雄分頁散布圖：X＝每場平均死亡(D)、Y＝每場平均擊殺+助攻(K+A)，頭像為點；資料源＝rows(跟隨 🎯 積分/職業賽 與現有篩選) ──
+// 頭像外框色＝勝率(越高越紅、越低越綠)；KDA=(K+A)/D 參考斜線(過原點)幫助判讀「每次死亡換到多少 K+A」
+function heroScatterHTML(rows){
+  const en=LANG==="en";
+  const pts=rows.filter(r=>_fin(r._ad)&&_fin(r._ak)&&_fin(r._aa)&&(r.場數||0)>=3).map(r=>({ // 至少 3 場，濾掉 1-2 場極端樣本扭曲座標(積分版本已 ≥15 場)
+    id:champId(r._full), full:r._full, zh:chName(champId(r._full)),
+    x:r._ad, y:r._ak+r._aa, n:r.場數, wr:r.勝率, kdaStr:r["K/D/A"]||""}));
+  if(!pts.length)return `<div class="meta" style="padding:24px 8px">${en?"No champions match the current filter.":"目前篩選下沒有英雄資料。"}</div>`;
+  const xs=pts.map(p=>p.x), ys=pts.map(p=>p.y);
+  const niceStep=(range,target)=>{const raw=(range||1)/target, mag=Math.pow(10,Math.floor(Math.log10(raw))), n=raw/mag; return (n<=1?1:n<=2?2:n<=2.5?2.5:n<=5?5:10)*mag;};
+  const bounds=(lo,hi)=>{const r=(hi-lo)||1, step=niceStep(r*1.14,5); // 依資料範圍縮放(不強制從 0 起)＋nice step，讓頭像攤開
+    return [Math.max(0,Math.floor((lo-r*0.06)/step)*step), Math.ceil((hi+r*0.08)/step)*step, step];};
+  const [x0,x1,xStep]=bounds(Math.min(...xs),Math.max(...xs));
+  const [y0,y1,yStep]=bounds(Math.min(...ys),Math.max(...ys));
+  const W=1000,H=580, mL=62,mR=22,mT=18,mB=48, pw=W-mL-mR, ph=H-mT-mB;
+  const sx=v=>mL+(v-x0)/(x1-x0)*pw, sy=v=>mT+(1-(v-y0)/(y1-y0))*ph;
+  const seq=(lo,hi,step)=>{const a=[]; for(let v=lo;v<=hi+1e-9;v+=step)a.push(Math.round(v*100)/100); return a;};
+  const xt=seq(x0,x1,xStep), yt=seq(y0,y1,yStep), dnum=v=>Math.round(v*10)/10;
+  const grid=xt.map(v=>`<line x1="${sx(v).toFixed(1)}" y1="${mT}" x2="${sx(v).toFixed(1)}" y2="${mT+ph}" class="hscG"/>`).join("")
+    +yt.map(v=>`<line x1="${mL}" y1="${sy(v).toFixed(1)}" x2="${mL+pw}" y2="${sy(v).toFixed(1)}" class="hscG"/>`).join("");
+  const xlab=xt.map(v=>`<text x="${sx(v).toFixed(1)}" y="${mT+ph+24}" class="hscTick" text-anchor="middle">${dnum(v)}</text>`).join("");
+  const ylab=yt.map(v=>`<text x="${mL-10}" y="${(sy(v)+5).toFixed(1)}" class="hscTick" text-anchor="end">${dnum(v)}</text>`).join("");
+  // KDA 參考斜線 K+A = r·D（過原點），裁切到目前可視框內才畫＋端點標籤
+  const refs=[1,2,3,4,5,6].map(r=>{ const lx=Math.max(x0,y0/r), hx=Math.min(x1,y1/r); if(hx<=lx+1e-9)return "";
+    const x1p=sx(lx),y1p=sy(r*lx),x2p=sx(hx),y2p=sy(r*hx);
+    return `<line x1="${x1p.toFixed(1)}" y1="${y1p.toFixed(1)}" x2="${x2p.toFixed(1)}" y2="${y2p.toFixed(1)}" class="hscRef"/>`
+      +`<text x="${(x2p-5).toFixed(1)}" y="${(y2p+15).toFixed(1)}" class="hscRefL" text-anchor="end">KDA ${r}</text>`;}).join("");
+  const axT=`<text x="${mL+pw/2}" y="${H-6}" class="hscAxT" text-anchor="middle">${en?"Deaths per game (D)":"每場平均 死亡 D →"}</text>`
+    +`<text x="15" y="${mT+ph/2}" class="hscAxT" text-anchor="middle" transform="rotate(-90 15 ${mT+ph/2})">${en?"Kills + Assists per game →":"每場平均 擊殺+助攻 K+A →"}</text>`;
+  const svg=`<svg viewBox="0 0 ${W} ${H}" class="hscSvg" preserveAspectRatio="none">
+    <rect x="${mL}" y="${mT}" width="${pw}" height="${ph}" class="hscPlot"/>${grid}${refs}
+    <line x1="${mL}" y1="${mT+ph}" x2="${mL+pw}" y2="${mT+ph}" class="hscAxis"/><line x1="${mL}" y1="${mT}" x2="${mL}" y2="${mT+ph}" class="hscAxis"/>
+    ${xlab}${ylab}${axT}</svg>`;
+  const wrCol=wr=>{const p=Math.max(0,Math.min(1,wr||0)); return `hsl(${Math.round(120-p*120)},70%,55%)`;}; // 勝率：越高越紅、越低越綠
+  const dots=pts.sort((a,b)=>a.n-b.n).map(p=>{ // 場數少的先畫(墊底)，熱門英雄疊在上面
+    const lx=(sx(p.x)/W*100).toFixed(3), ty=(sy(p.y)/H*100).toFixed(3);
+    const tip=`${p.zh}｜${en?"Games":"場數"} ${p.n}｜K/D/A ${p.kdaStr}｜${en?"Win":"勝率"} ${Math.round((p.wr||0)*100)}%`;
+    return `<span class="hscDot" style="left:${lx}%;top:${ty}%;border-color:${wrCol(p.wr)}" data-full="${esc(p.full)}" data-tip="${esc(tip)}"><img loading="lazy" data-cid="${esc(p.id)}" data-fbmode="hide" onerror="champImgFb(this)" src="https://ddragon.leagueoflegends.com/cdn/${yearVer()}/img/champion/${esc(p.id)}.png" alt="${esc(p.zh)}"></span>`;
+  }).join("");
+  return `<div class="hscWrap"><div class="hscInner">${svg}<div class="hscDots">${dots}</div></div>
+    <div class="hscHint meta">${en?"Upper-left = more K+A won per death · ring color = win rate (red high / green low) · hover for details, click to open champion":"越靠左上＝每次死亡換到越多 K+A ｜ 外框色＝勝率（越高越紅、越低越綠）｜ 滑鼠移上看詳情、點擊進英雄詳情"}</div></div>`;
 }
 // ── 積分版英雄詳情頁（英雄分頁積分模式點英雄）：與職業版同構＝名片＋版本趨勢＋出場紀錄，資料全積分 ──
 // 出場紀錄＝soloq_champ_games.js（延遲載入；每英雄最近100場 [t,選手key,路線,勝,K,D,A,KP,對位,金差15,經差15,評分]）
@@ -6829,15 +6890,24 @@ function render(){
                    ...players.map(p=>({v:plLabel(p),_k:"player",_t:p,a:[p],n:_pCnt[p]||0}))];
     const byLabel={}; selOpts.forEach(o=>byLabel[o.v]=o);
     V.heroMode=V.heroMode||"pro"; const sqMode=!isHistYear()&&V.heroMode==="soloq"; // 積分數據版只在最新年可用
+    V.heroViz=V.heroViz||"table"; const vizScatter=V.heroViz==="scatter"; // 版面：表格 / 散布圖(每場 K+A vs D 頭像散布)
     const _modeBtn=!isHistYear()?`<button id="heroModeBtn" class="pgbtn" style="order:1" title="${LANG==="en"?"Toggle pro matches / soloq":"切換 職業賽數據／積分數據"}">${sqMode?(LANG==="en"?"🎯 Soloq":"🎯 積分"):(LANG==="en"?"🏆 Pro":"🏆 職業賽")}</button>`:"";
+    const _vizBtn=`<button id="heroVizBtn" class="pgbtn" style="order:2" title="${LANG==="en"?"Toggle table / scatter (K+A vs D)":"切換 表格／散布圖（K+A vs D）"}">${vizScatter?(LANG==="en"?"📊 Scatter":"📊 散布圖"):(LANG==="en"?"📋 Table":"📋 表格")}</button>`;
     const _lanes=sqMode?["","TOP","JNG","MID","BOT","SUP"]:["","TOP","JNG","MID","BOT","SUP","下路組","中野組"]; // 積分無雙人組資料→跳過
     main.innerHTML=filterBar(`
       <label>${LANG==="en"?"Lane":"路線"}</label><select id="vPos">${_lanes.map(p=>`<option value="${p}" ${V.pos===p?"selected":""}>${p?T(p):T("全部")}</option>`).join("")}</select>
-      ${sqMode?"":`<label>${T("戰隊或選手")}</label>${comboHTML("vSel",T("輸入戰隊或選手（空=全部）"))}`}${_modeBtn}`)
+      ${sqMode?"":`<label>${T("戰隊或選手")}</label>${comboHTML("vSel",T("輸入戰隊或選手（空=全部）"))}`}${_modeBtn}${_vizBtn}`)
       +`<div class="card"><h2>🦸 ${T("英雄")} <span class="sub" id="cnt"></span><span class="sub">${sqMode?(LANG==="en"?"Soloq of tracked pros this season · Rating = percentile blend (Wilson win% ×4 + games ×2 + KDA ×2 + GD@15 ×2) · Patch filter works (soloq is ahead of pro, e.g. 26.14) · other global filters don't apply | click a champion for details":"積分數據＝追蹤職業選手今年單雙排彙總｜評分＝同表百分位加權（Wilson 勝率 ×4＋場數 ×2＋KDA ×2＋金差@15 ×2）｜<b>版本</b>可篩（積分比職業賽早上新版）、其他全域篩選不影響｜點英雄名看詳情"):T("評分＝同路百分位加權（滑欄名看權重）｜點英雄名看版本趨勢與出場紀錄")}</span></h2><div id="tbl"></div></div>`;
     const rerender=()=>{
       const rows=sqMode?calcHeroesSoloq(V.pos==="全部"?"":V.pos):calcHeroes(V.pos==="全部"?"":V.pos,V.player,V.heroTeam);
       document.getElementById("cnt").textContent=`${rows.length}${LANG==="en"?" champions":" 隻"}`;
+      if(vizScatter){ // 散布圖版面：頭像散布(X=每場D、Y=每場K+A)，點擊進英雄詳情(與表格同動線)
+        document.getElementById("tbl").innerHTML=heroScatterHTML(rows);
+        document.getElementById("cnt").textContent=`${document.querySelectorAll("#tbl .hscDot").length}${LANG==="en"?" champions":" 隻"}`; // 標題數字＝實際畫出的點(門檻過濾後)
+        document.querySelectorAll("#tbl .hscDot").forEach(d=>{ d.onclick=()=>{V.heroDetail=d.dataset.full; V.hdOpp="";V.hdLane=""; curView="英雄"; saveState();
+          document.querySelectorAll("nav .tab").forEach(x=>x.classList.toggle("on",x.dataset.view==="英雄")); render();}; });
+        return;
+      }
       let hcols=sqMode?HSCOLS:HCOLS;
       if(!sqMode&&(V.heroTeam||V.player)){ // 篩選戰隊/選手：BP% 改名為戰隊BP%／選手BP%，以免與一般 BP% 混淆（自己選＋對手禁÷該隊出賽）
         const bpLbl=V.heroTeam?(LANG==="en"?"Team Presence":"戰隊BP%"):(LANG==="en"?"Player Presence":"選手BP%");
@@ -6871,6 +6941,7 @@ function render(){
     bindFilters(rerender);
     document.getElementById("vPos").onchange=e=>{V.pos=e.target.value==="全部"?"":e.target.value; saveState(); rerender();};
     {const hmb=document.getElementById("heroModeBtn"); if(hmb)hmb.onclick=()=>{V.heroMode=sqMode?"pro":"soloq"; if(V.pos==="下路組"||V.pos==="中野組")V.pos=""; saveState(); render();};}
+    {const hvb=document.getElementById("heroVizBtn"); if(hvb)hvb.onclick=()=>{V.heroViz=vizScatter?"table":"scatter"; saveState(); render();};}
     if(!sqMode){
     // 從點選手名跳進來（pGo 設了 V.player 但 heroSel 沒同步）→ 自動把選手/戰隊名填進上方篩選框，不用手動刷新
     if(V.tpSel==null)V.tpSel=V.heroSel||V.search||"";   // 舊存檔鍵遷移（與選手分頁搜尋共用）
