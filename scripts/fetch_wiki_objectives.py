@@ -5,8 +5,8 @@
 Riot 官方 patch notes 只到 2019；Wiki 可回溯到 2014 以前，故物件改版史一律走 Wiki。
 
 用法：
-    python fetch_wiki_objectives.py            # 只補缺的（已快取就跳過）
-    python fetch_wiki_objectives.py --force    # 全部重抓
+    python fetch_wiki_objectives.py            # 每頁重抓並合併(新版本自動補入；抓失敗保留舊快取)
+    python fetch_wiki_objectives.py --force    # 忽略舊快取、整頁以最新解析重建
     python fetch_wiki_objectives.py --only Baron_Nashor   # 只抓單一頁（測試用）
 
 輸出 wiki_objectives.js = window.WIKI_OBJECTIVES = { wikiKey: { "patch": [中文改動行, ...], ... }, ... }
@@ -134,22 +134,23 @@ def fetch_all():
         pg.set_extra_http_headers({"Accept-Language": "en-US,en;q=0.9"})
         for i, key in enumerate(pages):
             cf = OUT_DIR / f"{key}.json"
-            if not FORCE and cf.exists():
-                print(f"  [{i+1}/{len(pages)}] {key} 已快取，跳過"); continue
+            old = all_data.get(key, {})   # 既有快取：抓失敗就沿用，抓成功則合併(新版本進來)
             url = WIKI_URL.format(key)
             print(f"  [{i+1}/{len(pages)}] {key} → {url}", end=" ", flush=True)
             try:
                 pg.goto(url, wait_until="networkidle", timeout=40000)
                 by_ver = parse_page(pg)
                 if not by_ver:
-                    print("⚠ 無 Patch history")
+                    print("⚠ 無 Patch history（保留舊快取）")   # 解析不到就不動舊資料
                 else:
-                    cf.write_text(json.dumps(by_ver, ensure_ascii=False), encoding="utf-8")
-                    all_data[key] = by_ver
-                    vs = sorted(by_ver, key=pk_sort)
-                    print(f"✓ {len(by_ver)} 版（{vs[0]}–{vs[-1]}）")
+                    merged = by_ver if FORCE else {**old, **by_ver}   # 每次重抓合併：新版本(如 26.14)自動補入、既有版本以最新解析為準；--force 則整頁重建
+                    added = sorted(set(merged) - set(old), key=pk_sort)
+                    cf.write_text(json.dumps(merged, ensure_ascii=False), encoding="utf-8")
+                    all_data[key] = merged
+                    vs = sorted(merged, key=pk_sort)
+                    print(f"✓ {len(merged)} 版（{vs[0]}–{vs[-1]}）" + (f"｜新增 {added}" if added else "｜無新版"))
             except Exception as e:
-                print(f"✗ {e}")
+                print(f"✗ {e}（保留舊快取）")
             time.sleep(DELAY)
         br.close()
     return all_data

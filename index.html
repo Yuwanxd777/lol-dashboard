@@ -3611,9 +3611,16 @@ const mechObjName=nm=>{for(const[k,re]of OBJ_MECH_RE){ if(re.test(nm)){ const di
 const mechLinesForObj=objName=>{ const k=OBJ_WIKI[objName]; const ent=OBJ_MECH_RE.find(([k2])=>k2===k); if(!ent)return {};
   if(typeof ensurePatchItemsCategorized==="function")ensurePatchItemsCategorized();
   const re=ent[1], out={};
+  // 建築/小兵類名稱可能與道具名撞（如「強化堡壘」是道具）→ 只在「機制」類撈；野怪/buff/史詩目標名不與道具撞
+  const BUILDING=new Set(["Turret","Inhibitor","Nexus","Minion_(League_of_Legends)","Super_Minion"]);
+  const push=(pk,l)=>{ if(!(out[pk]&&out[pk].includes(l)))(out[pk]=out[pk]||[]).push(l); };
   const scan=src=>{ if(!src)return; Object.entries(src).forEach(([pk,pd])=>{ if(String(pk).startsWith("_"))return;
-    const ex=pd&&pd._extra?pd._extra:pd; const arr=ex&&ex["機制"]; if(!Array.isArray(arr))return;
-    arr.forEach(l=>{ const i=l.indexOf("｜"); const nm=i>0?l.slice(0,i):""; if(re.test(nm))(out[pk]=out[pk]||[]).push(l); }); }); };
+    const ex=pd&&pd._extra?pd._extra:pd; if(!ex||typeof ex!=="object")return;
+    (ex["機制"]||[]).forEach(l=>{ const i=l.indexOf("｜"); if(re.test(i>0?l.slice(0,i):""))push(pk,l); });
+    // 野怪/buff/史詩目標改動偶被官方列在道具段(如 26.14「藍Buff｜技能加速：10 ⇒ 10/15/20」)：額外跨「道具」類撈回，
+    // 但只收含 ⇒ 的實際數值改動，排除道具生命週期行(如「巴龍的賜福｜全新道具登場／已從遊戲中移除」)避免把道具誤併入物件詳情
+    if(!BUILDING.has(k))(ex["道具"]||[]).forEach(l=>{ const i=l.indexOf("｜"); if(re.test(i>0?l.slice(0,i):"")&&l.includes("⇒"))push(pk,l); });
+  }); };
   scan(typeof PATCH_NOTES!=="undefined"?PATCH_NOTES:null); scan(window.WIKI_EXTRA);
   return out; };
 const objPkNum=pk=>String(pk).replace(/[^\d.]/g," ").trim().split(/[.\s]+/).map(Number);
