@@ -118,6 +118,24 @@ def write_acc_lastgame(new_map):
     return len(old)
 
 
+def _keys_on_disk(outdir):
+    """磁碟上實際已有逐場檔的選手 key（隊|選手）。--missing 以此為準(而非只看索引)，避免索引與磁碟漂移時替既有選手重建出重複檔。"""
+    import re as _re
+    have = set()
+    if not os.path.isdir(outdir):
+        return have
+    for fn in os.listdir(outdir):
+        if not _re.match(r"p\d+\.js$", fn):
+            continue
+        try:
+            t = open(os.path.join(outdir, fn), encoding="utf-8").read()
+            m = _re.match(r"window\.__sqLoad\((.*)\);\s*$", t, _re.S)
+            have.add(json.loads("[" + m.group(1) + "]")[0])
+        except Exception:
+            continue
+    return have
+
+
 def main():
     with open(ACCOUNTS, "r", encoding="utf-8") as f:
         accounts = [a for a in json.load(f) if a.get("dpmPuuid") and a.get("riotId") and not a.get("bad")]  # bad＝已判定張冠李戴的帳號，永久跳過
@@ -135,7 +153,8 @@ def main():
         except Exception:
             live_idx = {}
     if MISSING:
-        keys = [k for k in keys if k not in live_idx]
+        have = _keys_on_disk(OUTDIR)  # 磁碟上已有檔的選手＝以磁碟為準(索引可能漂移)；k 不在索引「且」不在磁碟才算真缺檔
+        keys = [k for k in keys if k not in live_idx and k not in have]
         if not keys:
             print("--missing：沒有缺檔的新選手，跳過。"); return
         print(f"--missing：{len(keys)} 位新選手待補全年 → {keys}")

@@ -30,25 +30,71 @@ def aggregates(matches):
         kda7 = round((sk + sa) / max(1, sd), 1)  # 一週 KDA＝(總K+總A)/總D
     return last10, wr7, sc7, n7, kda7
 
+def _pnum(b):
+    return int(re.match(r'p(\d+)\.js$', b).group(1))
+
+def _dedup_files():
+    """自癒：同一 key 出現多個 pN.js(通常是索引漂移時 --missing 誤重建)＝資料異常。
+    union 合併(依 t 去重、低號檔記錄優先)進最低號檔、刪其餘、印警告。每次重建索引前跑，杜絕儀表板漏場。"""
+    from collections import defaultdict
+    groups = defaultdict(list)  # key -> [(pnum, fp, data)]
+    for fp in sorted(glob.glob(os.path.join(OUTDIR, "p*.js"))):
+        b = os.path.basename(fp)
+        if not re.match(r'p\d+\.js$', b):  # 只認選手逐場檔 pN.js；跳過殘留暫存索引等雜檔(曾把 soloq_match_index.js 掃進來報 group 錯)
+            continue
+        try:
+            m = re.match(r'window\.__sqLoad\((.*)\);\s*$', open(fp, encoding="utf-8").read(), re.S)
+            key, data = json.loads('[' + m.group(1) + ']')
+        except Exception:
+            continue  # 壞檔留給主迴圈印「略過」
+        groups[key].append((_pnum(b), fp, data))
+    for key, lst in groups.items():
+        if len(lst) < 2:
+            continue
+        lst.sort(key=lambda x: x[0])  # 低號優先＝canonical
+        by_t = {}; extra = []
+        for _, fp, data in lst:  # 低號先 → 同 t 保低號記錄
+            for g in data.get("matches", []):
+                t = g.get("t")
+                if t is None: extra.append(g)
+                elif t not in by_t: by_t[t] = g
+        merged = sorted(by_t.values(), key=lambda g: g.get("t", 0), reverse=True) + extra
+        canon = lst[0][1]; role = lst[0][2].get("role")
+        with open(canon, "w", encoding="utf-8") as wf:
+            wf.write(f"window.__sqLoad({json.dumps(key,ensure_ascii=False)},{json.dumps({'role':role,'matches':merged},ensure_ascii=False)});\n")
+        dropped = []
+        for _, fp, _ in lst[1:]:
+            try: os.remove(fp); dropped.append(os.path.basename(fp))
+            except Exception: pass
+        print(f"  ⚠ 重複 key {key}：合併 {[os.path.basename(x[1]) for x in lst]} → {os.path.basename(canon)}（union {len(merged)} 場），已刪 {dropped}")
+
 def build():
+    _dedup_files()  # 先自癒去重(同 key 多檔 union 合併)，主迴圈才不會靜默漏場
     players = {}; newest = 0
-    for fp in sorted(glob.glob(os.path.join(OUTDIR, "*.js"))):
+    for fp in sorted(glob.glob(os.path.join(OUTDIR, "p*.js"))):
+        b = os.path.basename(fp)
+        if not re.match(r'p\d+\.js$', b):  # 只認選手逐場檔 pN.js；跳過殘留暫存索引等雜檔(曾把 soloq_match_index.js 掃進來報 group 錯)
+            continue
         try:
             txt = open(fp, encoding="utf-8").read()
             m = re.match(r'window\.__sqLoad\((.*)\);\s*$', txt, re.S)
             key, data = json.loads('[' + m.group(1) + ']')
         except Exception as e:
-            print(f"  略過 {os.path.basename(fp)}：{e}"); continue
+            print(f"  略過 {b}：{e}"); continue
         matches = data.get("matches", []); role = data.get("role")
         clean = [g for g in matches if (g.get("d") or 0) >= 600]  # 刪 <10 分鐘局(remake/秒投)
         if len(clean) != len(matches):
             data["matches"] = clean; matches = clean
             with open(fp, "w", encoding="utf-8") as wf:
                 wf.write(f"window.__sqLoad({json.dumps(key,ensure_ascii=False)},{json.dumps(data,ensure_ascii=False)});\n")
+        if key in players:  # 同一選手兩個檔＝資料異常(應先跑合併去重)：索引取場數多者，別靜默漏另一檔的戰績
+            if len(matches) <= players[key]["n"]:
+                print(f"  ⚠ 重複 key {key}：{b}({len(matches)}場) 不多於既有 {players[key]['f']}({players[key]['n']}場)，索引沿用既有"); continue
+            print(f"  ⚠ 重複 key {key}：{b}({len(matches)}場) 覆蓋 {players[key]['f']}({players[key]['n']}場)，索引取場數多者")
         if matches: newest = max(newest, matches[0].get("t", 0))
         l10, wr7, sc7, n7, kda7 = aggregates(matches)
         lt = max((g.get("t") or 0) for g in matches) if matches else None  # 最近一場時間戳(ms)：積分表「最近積分」欄
-        players[key] = {"f": os.path.basename(fp), "role": role, "n": len(matches),
+        players[key] = {"f": b, "role": role, "n": len(matches),
                         "last10": l10, "wr7": wr7, "sc7": sc7, "n7": n7, "kda7": kda7, "lt": lt}
     year = time.gmtime(newest/1000).tm_year if newest else time.gmtime().tm_year
     payload = {"fetched_at": time.strftime("%Y-%m-%d %H:%M"), "year": year, "players": players}
