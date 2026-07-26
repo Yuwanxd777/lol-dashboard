@@ -14,6 +14,9 @@ import os, re, json, glob, time
 HERE = os.path.dirname(os.path.abspath(__file__)); ROOT = os.path.dirname(HERE)
 OUTDIR = os.path.join(ROOT, "soloq_matches")
 IDX = os.path.join(ROOT, "soloq_match_index.js")
+RECENT = os.path.join(ROOT, "soloq_recent.js")   # 每日戰況(各隊每人近幾天逐場)：積分頁「每日戰況」視圖用
+TZ_H = 9           # 分日時區：KST(UTC+9)＝選手所在伺服器的自然日；「昨天」以此界定
+RECENT_DAYS = 8    # 每日戰況保留最近 8 天(今天＋近 7 天)
 
 def aggregates(matches):
     # matches 已是最新在前
@@ -71,6 +74,7 @@ def _dedup_files():
 def build():
     _dedup_files()  # 先自癒去重(同 key 多檔 union 合併)，主迴圈才不會靜默漏場
     players = {}; newest = 0
+    recent = {}; rec_cut = (time.time() - RECENT_DAYS*86400) * 1000  # 每日戰況：只收近 RECENT_DAYS 天的逐場
     for fp in sorted(glob.glob(os.path.join(OUTDIR, "p*.js"))):
         b = os.path.basename(fp)
         if not re.match(r'p\d+\.js$', b):  # 只認選手逐場檔 pN.js；跳過殘留暫存索引等雜檔(曾把 soloq_match_index.js 掃進來報 group 錯)
@@ -96,12 +100,29 @@ def build():
         lt = max((g.get("t") or 0) for g in matches) if matches else None  # 最近一場時間戳(ms)：積分表「最近積分」欄
         players[key] = {"f": b, "role": role, "n": len(matches),
                         "last10": l10, "wr7": wr7, "sc7": sc7, "n7": n7, "kda7": kda7, "lt": lt}
+        # 每日戰況：以 KST 分日，每場記 [英雄, 勝(1)/敗(0), LP 變化]；最新在前
+        byday = {}
+        for g in matches:
+            t = g.get("t")
+            if not t or t < rec_cut:
+                continue
+            day = time.strftime("%Y-%m-%d", time.gmtime(t/1000 + TZ_H*3600))
+            lp = g.get("lp"); lp = lp if isinstance(lp, (int, float)) else 0
+            byday.setdefault(day, []).append([g.get("c"), 1 if g.get("w") else 0, lp])
+        if byday:
+            recent[key] = {"r": role, "d": byday}
     year = time.gmtime(newest/1000).tm_year if newest else time.gmtime().tm_year
     payload = {"fetched_at": time.strftime("%Y-%m-%d %H:%M"), "year": year, "players": players}
     with open(IDX, "w", encoding="utf-8") as f:
         f.write("window.SOLOQ_MATCH_IDX=" + json.dumps(payload, ensure_ascii=False) + ";\n")
     wk = sum(1 for v in players.values() if v["n7"])
     print(f"索引重建：{len(players)} 位（{wk} 位近 7 天有出賽）→ {IDX}")
+    # 每日戰況小檔(積分頁「每日戰況」視圖懶載用)
+    gen_day = time.strftime("%Y-%m-%d", time.gmtime(time.time() + TZ_H*3600))
+    rec_payload = {"generated": time.strftime("%Y-%m-%d %H:%M"), "genDay": gen_day, "tzHours": TZ_H, "players": recent}
+    with open(RECENT, "w", encoding="utf-8") as f:
+        f.write("window.SOLOQ_RECENT=" + json.dumps(rec_payload, ensure_ascii=False, separators=(",", ":")) + ";\n")
+    print(f"每日戰況：{len(recent)} 位近 {RECENT_DAYS} 天有出賽 → {RECENT}")
 
 if __name__ == "__main__":
     build()
