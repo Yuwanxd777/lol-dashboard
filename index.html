@@ -698,6 +698,8 @@ window.WIKI_PATCHES=window.WIKI_PATCHES||{}; window.WIKI_EXTRA=window.WIKI_EXTRA
 <script src="obj_stats.js" onerror="window.OBJ_STATS=null"></script>
 <script src="rune_icons.js" onerror="window.RUNE_ICONS=null"></script>
 <script src="league_struct.js" onerror="window.LEAGUE_STRUCT=null"></script>
+<script src="lpl_groups.js" onerror="window.LPL_GROUPS=null"></script><!-- LPL 常規賽分組(scripts/fetch_lpl_groups.py，成員=同組互打連通分量、組名=Wiki AutoStandings) -->
+
 <script src="promo_abbr.js" onerror="window.PROMO_ABBR={}"></script>
 <script src="champ_release.js" onerror="window.CHAMP_RELEASE=null"></script>
 <script src="soloq.js" onerror="window.SOLOQ_DATA=null"></script>
@@ -1405,7 +1407,7 @@ const TAB_HELP={
 "圖鑑":"多個分區，上方分頁切換：\n<b>版本</b>＝全年或單版本的英雄／裝備改動（點版本號看官方公告）\n<b>英雄</b>＝點名字看歷年改動與<b>專屬機制</b>大框\n<b>道具</b>／<b>符文</b>／<b>物件</b>＝建築、史詩野怪、龍魂等官方數值\n<b>賽事</b>＝當年聯賽樹狀圖（三大國際賽／一二三級賽區／盃賽，含各隊縮寫，國際賽帶母賽區色框；綠勾 ✓＝晉級隊）\n多數分區可搜尋、滑上看說明。",
 "模擬BP":"自己排 BAN／PICK、即時看路線判定；模擬局在左、角色池在中、<b>雙方BAN過／其他英雄</b>在最右直欄（局號 1→N，最新局在最右、緊貼角色池）。\n操作：上方選<b>戰隊A／B</b>帶出雙方角色池；<b>拖曳</b>或<b>左鍵拎起</b>池中英雄→到格內左鍵放入、右鍵取消；點已填格移除、點<b>先選／後選</b>切順位、<b>⇄</b>換輪替選手。\n滑到模擬局英雄→右側顯示<b>詳細數據</b>（BAN 顯示<b>對手</b>使用數據；沒選該隊＝看目前數據範圍），同英雄會在所有模擬局一起發光。\n路線判定：隊上選手池＝實心、全庫近況補的＝半透明（點半透明確認正路即變實心）。\n標記：<b>金光</b>＝全場只有他會用、<b>青框</b>＝同隊多人會用、<b>禁用圖示</b>＝對手慣用但沒選過的禁招。\n按鈕：⏵自動（點池自動填下一格；開新局請點 ＋）、全局／一般（全局＝Fearless：PICK 從池消失、BAN 不消耗、最多五局）、📥匯入近期BP、🗑清空（清空全部局）、📸截圖。\n📥<b>匯入近期BP</b>：把真實系列賽帶進來（全局模式會先清掉其他局）；匯入的局<b>只能換英雄、不能改順位</b>（整局可刪），標題顯示該場<b>日期與賽事</b>。",
 "英雄Tier":"依你的判斷把英雄分級（S／A／B…）。\n操作：左側角色池<b>拖曳</b>或<b>左鍵拎起</b>→放到右邊 Tier 列（列間可互拖、拖回池或點一下移回、右鍵取消）。\n階列：可<b>改名</b>、點色塊<b>換色</b>、<b>✕</b>刪階（英雄回池）、下方<b>＋</b>加階、右側<b>⠿</b>拖曳整階排序。\n按鈕：⇄五路／混合、🎯積分數據／📊比賽數據／✏️自訂（三向模式切換，各自獨立板子互不覆蓋：數據模式自動分階、再點一次依目前篩選重新產生；滑鼠移到英雄上顯示該模式的數據，自訂模式積分與比賽都列）、⚙參數（門檻與奇招條件）、🗑清空、📸截圖。\n評分<b>不無條件進位</b>（89.9 仍在 A）；英雄圖邊框紅＝版本增強、綠＝削弱、黃＝調整。",
-"積分":"各隊選手的<b>單雙排（solo queue）積分</b>排行，最新在上。\n<b>每位選手只列牌位最高的那一隻帳號</b>（一人多帳號時）；<b>整年沒有比賽出場過的人不列</b>（純教練等）。\n操作：上方<b>搜尋</b>選手或戰隊、點<b>欄位名</b>排序；<b>路線</b>／<b>賽區</b>可篩選。\n<b>賽區</b>＝該選手<b>戰隊的參賽賽區</b>（不是伺服器位置）：聯賽＋盃賽都可選，一隊可同時屬多區（如 GEN＝LCK＋MSI＋FST）；盃賽只列 FST／MSI／WCS／EWC／ENC。\n看法：牌位依 菁英＞宗師＞大師＞鑽石… 排，大師以上不分段直接看 LP；未定位或找不到帳號的排最底（灰字）。\n<b>常用英雄</b>：滑上去看完整角色池（場數／勝率／KDA，勝率越高越紅）。\n<b>點選手名</b>→逐場單雙積分戰績（合併該選手所有帳號、只收本命路線：英雄／對位／KDA／KP%／dpm 評分／符文／出裝／技能加點；滑技能看加點順序、滑裝備看出裝順序）。\n帳號來源：LPL／LCK 以 <b>OBGG</b> 為主、LCS／LEC／CBLOL 以 <b>dpm</b> 為主、其餘統整；<b>峽谷之巔</b>與近兩月沒打的帳號自動濾掉。牌位由 <b>Riot API</b> 每日更新、逐場由 dpm 抓。\n<b>📅 每日戰況</b>（左上切換）：改看<b>各隊一區塊</b>，每位選手<b>昨天／近3天／近7天</b>打了幾場、幾勝幾敗、用了哪些英雄（<b>勝藍圈・敗紅圈</b>，以韓服日界定）；點選手名一樣進逐場。"
+"積分":"各隊選手的<b>單雙排（solo queue）積分</b>排行，最新在上。\n<b>每位選手只列牌位最高的那一隻帳號</b>（一人多帳號時）；<b>整年沒有比賽出場過的人不列</b>（純教練等）。\n操作：上方<b>搜尋</b>選手或戰隊、點<b>欄位名</b>排序；<b>路線</b>／<b>賽區</b>可篩選。\n<b>賽區</b>＝該選手<b>戰隊的參賽賽區</b>（不是伺服器位置）：聯賽＋盃賽都可選，一隊可同時屬多區（如 GEN＝LCK＋MSI＋FST）；盃賽只列 FST／MSI／WCS／EWC／ENC。\n看法：牌位依 菁英＞宗師＞大師＞鑽石… 排，大師以上不分段直接看 LP；未定位或找不到帳號的排最底（灰字）。\n<b>常用英雄</b>：滑上去看完整角色池（場數／勝率／KDA，勝率越高越紅）。\n<b>點選手名</b>→逐場單雙積分戰績（合併該選手所有帳號、只收本命路線：英雄／對位／KDA／KP%／dpm 評分／符文／出裝／技能加點；滑技能看加點順序、滑裝備看出裝順序）。\n帳號來源：LPL／LCK 以 <b>OBGG</b> 為主、LCS／LEC／CBLOL 以 <b>dpm</b> 為主、其餘統整；<b>峽谷之巔</b>與近兩月沒打的帳號自動濾掉。牌位由 <b>Riot API</b> 每日更新、逐場由 dpm 抓。\n<b>📅 每日戰況</b>（左上切換）：改看<b>各隊一區塊</b>，每位選手<b>昨天／近3天／近7天</b>打了幾場、幾勝幾敗、用了哪些英雄（<b>勝藍圈・敗紅圈</b>，以韓服日界定）；點選手名一樣進逐場。\n<b>LPL 分組</b>：選 LPL 賽區會出現該年常規賽分組（如 Ascend／Nirvana）子篩選，每日戰況也依組分開排、賽事樹卡內分組列出；<b>季後賽不分組</b>。"
 };
 // 圖鑑各分區的說明（原本頁面內文的小字 note 移來這，改由「本頁說明」按鈕依目前分區顯示）
 const DEX_HELP={
@@ -1428,7 +1430,7 @@ const TAB_HELP_EN={
 "圖鑑":"Sections, switch via the tabs above:\n<b>Patch</b> = champion/item changes for the whole year or a single patch (click a patch number for official notes)\n<b>Champions</b> = click a name for patch history and its <b>unique mechanic</b> panel\n<b>Items</b> / <b>Runes</b> / <b>Objectives</b> = buildings, epic monsters, dragon souls and official values\n<b>Esports</b> = that year's league tree (3 internationals / tier 1-2-3 regions / cups, with each team's abbreviation, international team chips carry their home-region color frame; green check = qualified through play-in/qualifier)\nMost sections are searchable and have hover tooltips.",
 "模擬BP":"Draft your own BANs / PICKs and see lane assignment live; champion pool on the right, sim games on the left (game 1→N, newest game on the far right next to the pool).\nHow-to: pick <b>Team A / B</b> above to load both pools; <b>drag</b> or <b>left-click to lift</b> a champion → left-click into a slot, right-click to cancel; click a filled slot to remove, click <b>FP / SP</b> (<b>FP</b> = First Pick, <b>SP</b> = Second Pick) to toggle order, <b>⇄</b> to swap the rotating player.\nHover a champion in a sim game → the right panel shows <b>detailed stats</b> (a BAN shows the <b>opponent's</b> usage; if that team isn't selected it shows the current data range); the same champion glows across all sim games.\nLane logic: the team's own player pool = solid, filled from the global recent pool = translucent (click a translucent one to confirm the lane and make it solid).\nMarkers: <b>gold glow</b> = only this player uses it, <b>cyan frame</b> = multiple teammates use it, <b>ban icon</b> = an opponent favorite that hasn't been picked.\nButtons: ⏵ auto (clicking the pool fills the next slot; use ＋ for a new game), Fearless/Normal (Fearless: PICKs vanish from the pool, BANs don't consume, up to five games), 📥 Import recent BP, 🗑 Clear (clear all games), 📸 Screenshot.\n📥 <b>Import recent BP</b>: brings a real series in (Fearless mode clears other games first); imported games <b>can only swap champions, not change order</b> (the whole game can be deleted), and the title shows that game's <b>date and event</b>.",
 "英雄Tier":"Tier champions by your own judgment (S / A / B…).\nHow-to: <b>drag</b> or <b>left-click to lift</b> from the pool on the left → drop into a Tier row on the right (rows can be dragged into each other, dragged back to the pool or clicked to return, right-click to cancel).\nTier rows: <b>rename</b>, click the color swatch to <b>recolor</b>, <b>✕</b> deletes the tier (champions return to pool), <b>＋</b> below adds a tier, <b>⠿</b> on the right drags to reorder tiers.\nButtons: <b>⇄</b> five-lane/mixed, then a three-way mode toggle — <b>🎯 Ranked</b> (auto-tier S~D by soloq rating), <b>📊 Match</b> (auto-tier S~C + Off-meta by current-range rating), <b>✏️ Custom</b> (free arrangement, never overwritten by data modes). Each mode keeps its own board; in a data mode, clicking the current mode again <b>regenerates by the current filters</b>; hover a champion to see that mode's stats (Custom shows both soloq and match). Then <b>⚙</b> Params (thresholds & off-meta criteria), <b>🗑</b> Clear, <b>📸</b> Screenshot.\nSoloq mode is hidden in historical years. Rating <b>doesn't round up</b> (89.9 stays in A); champion border red = patch buff, green = nerf, yellow = adjustment.",
-"積分":"Each team's players' <b>solo queue ranked</b>, highest first.\n<b>Only the highest-rank account per player is listed</b> (when a player has several); <b>players with no match appearance all year are omitted</b> (pure coaches etc.).\nHow-to: <b>search</b> a player or team above, click a <b>column header</b> to sort; filter by <b>role</b> / <b>region</b>.\n<b>Region</b> = the player's <b>team competitive region</b> (not server location): leagues + cups, a team can belong to several (e.g. GEN = LCK + MSI + FST); cups are limited to FST / MSI / WCS / EWC / ENC.\nReading: tier order Challenger > Grandmaster > Master > Diamond…; Master+ has no division, sorted by LP; unranked / not-found accounts sink to the bottom (greyed).\n<b>Champions</b>: hover for the full champion pool (games / win% / KDA; higher win% is redder).\n<b>Click a player's name</b> → per-game Solo/Duo history (all of that player's accounts merged, main role only: champ / matchup / KDA / KP% / dpm score / runes / items / skill order; hover skills for level order, items for build order).\nAccount source: LPL / LCK mainly <b>OBGG</b>, LCS / LEC / CBLOL mainly <b>dpm</b>, others merged; the <b>Challenger practice server</b> and accounts inactive over two months are auto-filtered. Ranks refresh daily via the <b>Riot API</b>, per-game via dpm.\n<b>📅 Daily</b> (top-left toggle): switch to a <b>per-team board</b> showing each player's <b>yesterday / last 3 / last 7 days</b> — games played, W-L and champions used (<b>blue ring = win, red ring = loss</b>, bucketed by KST day); click a name for the full game log."
+"積分":"Each team's players' <b>solo queue ranked</b>, highest first.\n<b>Only the highest-rank account per player is listed</b> (when a player has several); <b>players with no match appearance all year are omitted</b> (pure coaches etc.).\nHow-to: <b>search</b> a player or team above, click a <b>column header</b> to sort; filter by <b>role</b> / <b>region</b>.\n<b>Region</b> = the player's <b>team competitive region</b> (not server location): leagues + cups, a team can belong to several (e.g. GEN = LCK + MSI + FST); cups are limited to FST / MSI / WCS / EWC / ENC.\nReading: tier order Challenger > Grandmaster > Master > Diamond…; Master+ has no division, sorted by LP; unranked / not-found accounts sink to the bottom (greyed).\n<b>Champions</b>: hover for the full champion pool (games / win% / KDA; higher win% is redder).\n<b>Click a player's name</b> → per-game Solo/Duo history (all of that player's accounts merged, main role only: champ / matchup / KDA / KP% / dpm score / runes / items / skill order; hover skills for level order, items for build order).\nAccount source: LPL / LCK mainly <b>OBGG</b>, LCS / LEC / CBLOL mainly <b>dpm</b>, others merged; the <b>Challenger practice server</b> and accounts inactive over two months are auto-filtered. Ranks refresh daily via the <b>Riot API</b>, per-game via dpm.\n<b>📅 Daily</b> (top-left toggle): switch to a <b>per-team board</b> showing each player's <b>yesterday / last 3 / last 7 days</b> — games played, W-L and champions used (<b>blue ring = win, red ring = loss</b>, bucketed by KST day); click a name for the full game log.\n<b>LPL groups</b>: selecting the LPL region shows that year's regular-season group sub-filter (Ascend / Nirvana, etc.); the daily board and the Esports tree also split LPL by group. <b>Playoffs are not split.</b>"
 };
 const DEX_HELP_EN={
 "版本":"Overview of champion/item changes for the whole year or one patch.\nUse the <b>Patch</b> dropdown for full year or a specific patch, <b>search</b> to filter champion/item names or change text.\nCard border colors: <b>red = buff, green = nerf, yellow = adjustment</b>; click a <b>patch number</b> for the official patch notes.\nJungle-related changes are grouped separately.",
@@ -2075,7 +2077,15 @@ try{USER_TABBR=JSON.parse(localStorage.getItem("user_tabbr")||"{}")}catch(e){}
 const PROMO_TABBR={}; // Leaguepedia 升降賽隊伍縮寫（fetch_promo.py）
 if(window.PROMO_ABBR)Object.entries(PROMO_ABBR).forEach(([n,s])=>{PROMO_TABBR[normT(n)]=s;});
 const abbrOf=t=>{const k=normT(t);return USER_TABBR[k]||TABBR[k]||STATIC_TABBR[k]||PROMO_TABBR[k]||WIKI_TABBR[k]||(window.LP_TABBR||{})[k]||"";}; // 最後兜底＝Leaguepedia 全名→Short（team_abbr_wiki.js，歷史次級隊）
-const TEAM_ALIAS={GENG:"GEN",TLAW:"TL",AGAL:"AL",DNF:"DNS"}; const teamFix=t=>TEAM_ALIAS[t]||t; // 全域縮寫統一(GENG→GEN；TLAW=Team Liquid 積分標籤→TL；AGAL=Anyone's Legend 更名(AG.AL)→AL；DNF→DNS＝DN Freecs 比賽改名 DNS)
+const TEAM_ALIAS={GENG:"GEN",TLAW:"TL",AGAL:"AL",DNF:"DNS",KRX:"DRX"}; const teamFix=t=>TEAM_ALIAS[t]||t; // 全域縮寫統一(GENG→GEN；TLAW=Team Liquid 積分標籤→TL；AGAL=Anyone's Legend 更名(AG.AL)→AL；DNF→DNS＝DN Freecs 比賽改名 DNS；KRX→DRX＝積分帳號別名，主資料用 DRX)
+// LPL 常規賽分組（lpl_groups.js；成員=同組互打連通分量、組名=Wiki）。季後賽不分組＝資料只含常規賽 split。查隊縮寫(teamFix 後)→組名
+function lplGroupOf(teamAb,year){ const Y=(window.LPL_GROUPS||{})[String(year)]; if(!Y)return null;
+  for(const sp of Object.keys(Y).sort().reverse()){ const gs=Y[sp]; for(const g in gs){ if(gs[g].indexOf(teamAb)>=0)return g; } } return null; }
+function lplSplitGroupOf(teamAb,year,split){ const gs=((window.LPL_GROUPS||{})[String(year)]||{})[split]; if(!gs)return null; for(const g in gs){ if(gs[g].indexOf(teamAb)>=0)return g; } return null; }
+function lplGroupsLatest(year){ const sp=lplSplitsOf(year).slice(-1)[0]; return sp?lplGroupNamesOfSplit(year,sp):[]; }
+function lplSplitsOf(year){ const Y=(window.LPL_GROUPS||{})[String(year)]; return Y?Object.keys(Y).sort():[]; } // 該年有分組的賽段(S1/S2/S3，升冪)
+function lplGroupNamesOfSplit(year,split){ const gs=((window.LPL_GROUPS||{})[String(year)]||{})[split]; return gs?Object.keys(gs).sort((a,b)=>gs[b].length-gs[a].length||a.localeCompare(b)):[]; } // 某賽段的組名(依隊數多→少)
+function lplSelSplit(year,pref){ const s=lplSplitsOf(year); return (pref&&s.includes(pref))?pref:(s.slice(-1)[0]||""); } // 選定賽段(pref 有效則用，否則最新)
 // 年度範圍的「席次繼承」（只在該年合併，歷史年份不動）：2025 S3 NAVI 接手 RGE 的 LEC 席次（使用者判例 2026-07-16）
 // 套用在 initData（curYear 定案後、且切年份不重載頁面也會重跑）
 const SLOT_SUCCESSION={2022:{LX:"TW"},2023:{CLG:"NRG",TK:"LEV"},2025:{RGE:"NAVI"}}; // 2022：Team Whales 接手 Luxury（VCS/GCD）；2023：NRG 收購 CLG（LCS）、Leviatan 收購 The Kings（LLA）
@@ -2463,7 +2473,13 @@ const eventsTreeHTML=()=>{
       const ext=regN.size?mainArr0.filter(t2=>!regN.has(t2)):[];
       const base=regN.size?mainArr0.filter(t2=>regN.has(t2)):mainArr0;
       const extSeg=ext.length?`<span class="evtPromoDiv evtGrpDiv"><i>${LANG==="en"?"Qualified for playoffs (other leagues)":"外賽區晉級季後賽"}</i></span>`+chips(ext,advQ):"";
-      if(gcfg){ const gset=new Set(gcfg.abs);
+      if(x.lg==="LPL"&&lplSplitsOf(curYear).length){ // LPL 每賽段分組不同：卡內逐賽段列各組（S1 · Ascend、S2 · Ascend…）；季後賽不分＝lpl_groups 只含常規賽
+        const _splits=lplSplitsOf(curYear); const _seg=(lb,arr,nl)=>arr.length?`<span class="evtPromoDiv evtGrpDiv${nl?" evtGrpNL":""}"><i>${esc(lb)}</i></span>`+chips(arr,advQ):"";
+        let _mc="",_first=true,_used=new Set();
+        _splits.forEach(sp=>{ lplGroupNamesOfSplit(curYear,sp).forEach(gn=>{ const arr=base.filter(t2=>lplSplitGroupOf(teamFix(tAb(t2)),curYear,sp)===gn); arr.forEach(t2=>_used.add(t2)); _mc+=_seg(sp+" · "+gn,arr,_first); _first=false; }); });
+        const _rest=base.filter(t2=>!_used.has(t2)); if(_rest.length)_mc+=_seg(LANG==="en"?"Other":"其他",_rest,false); // 沒進任何賽段分組的隊(如只在無分組賽段出賽)
+        mainChips=_mc+extSeg;
+      }else if(gcfg){ const gset=new Set(gcfg.abs);
         const gArr=base.filter(t2=>gset.has(tAb(t2))), rest3=base.filter(t2=>!gset.has(tAb(t2)));
         mainChips=chips(rest3,advQ)+(gArr.length?`<span class="evtPromoDiv evtGrpDiv"><i>${gcfg.lb}</i></span>`+chips(gArr,advQ):"")+extSeg;
       }else mainChips=chips(base,advQ)+extSeg;
@@ -7017,6 +7033,10 @@ function render(){
     main.innerHTML=filterBar("")
       +`<div class="card"><h2 style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">🎯 ${T("BP 紀錄")} <span class="sub" id="cnt"></span><span class="sub" style="flex:1 1 220px">${LANG==="en"?`gold number = pick order (1-7), <span class="fp">gold bold</span> = first-pick side, <span style="background:rgba(255,255,255,.14);padding:0 5px;border-radius:3px">white row-band</span> = winning team, newest first｜type in a column header to filter`:`金色數字＝選角順位(1-7)，<span class="fp">金色粗體</span>＝先選方，<span style="background:rgba(255,255,255,.14);padding:0 5px;border-radius:3px">白底那隊</span>＝勝方，最新在上｜在欄名下方輸入即逐欄篩選`}</span><button id="bpModeBtn" title="${LANG==="en"?"switch what the left side shows: Blue/Red → First-pick → searched Team":"切換左側代表：藍紅 → 先選方 → 搜尋的戰隊"}" style="margin-left:auto;flex:0 0 auto;font-size:13px;padding:5px 12px;background:#1a2233;border:1px solid #33405a;border-radius:7px;color:var(--tx);cursor:pointer;font-weight:bold;white-space:nowrap">${_bpModeLbl(V.bpSideMode)}</button></h2><div id="tbl"></div></div>`;
     const mmss=s=>s?`${Math.floor(s/60)}:${String(Math.round(s%60)).padStart(2,"0")}`:"–";
+    // 賽事欄 LPL 常規賽附組名(季後賽/升降不標；系列賽兩隊同組才明確標)：teams＝已 tAb 的縮寫
+    const _lplGrpTag=(league,split,teams)=>{ if(league!=="LPL"||!split||/PO$|季後|升降/.test(String(split))||!teams)return "";
+      const g0=lplSplitGroupOf(teamFix(teams[0]||""),curYear,split), g1=lplSplitGroupOf(teamFix(teams[1]||""),curYear,split);
+      const g=(g0&&g1)?(g0===g1?g0:null):(g0||g1); return g?` <span style="color:${LGC.LPL||"#e05c5c"}">· ${esc(g)}</span>`:""; };
     // 依模式決定「左(L)/右(R)」對應到哪一實際邊：br=藍左紅右；fp=先選方在左；team=搜尋的戰隊在左(在紅邊就換過來)
     const sides=m=>{ const md=V.bpSideMode||"br";
       if(md==="fp") return m.first==="red"?{L:m.red,R:m.blue,LisBlue:false}:{L:m.blue,R:m.red,LisBlue:true};
@@ -7099,7 +7119,7 @@ function render(){
           return `<td class="${won?"bpw":""}">${first?`<span class="fp">${s.team}</span>`:s.team}</td>`; // 勝方整隊範圍給小白底(取代⭐)
         };
         // gno 有值＝系列賽底下的小局：日期欄改成「└ 第N局」並縮排，聯賽欄留白
-        const head=gno?`<td class="subg">└ 第${gno}局</td><td></td>`:`<td>${m.date}</td><td>${lgChip(m.league)} <span class="meta">${m.split}</span></td>`;
+        const head=gno?`<td class="subg">└ 第${gno}局</td><td></td>`:`<td>${m.date}</td><td>${lgChip(m.league)} <span class="meta">${m.split}${_lplGrpTag(m.league,m.split,[m.blue.team,m.red.team])}</span></td>`;
         const S=sides(m); // 依模式決定左右實際邊
         const lWon=S.LisBlue===m.blueWin, rWon=!lWon; // 哪一顯示側獲勝→整隊範圍加白底
         return `<tr${gno?' class="subrow"':''}>${head}<td>${m.patch}</td><td class="meta">${mmss(m.gl)}</td><td class="win">${m.win}</td>
@@ -7147,7 +7167,7 @@ function render(){
         }
         const warn=miss?` <span style="color:#e0574d;font-weight:bold">⚠ ${LANG==="en"?`missing game ${miss.miss.join(", ")}`:`缺第 ${miss.miss.join("、")} 局`}</span>`:"";
         return `<tr class="seriesHead"><td colspan="19">
-          <span class="sMeta">${s.date}</span> ${lgChip(s.league)} <span class="meta">${s.split}</span>
+          <span class="sMeta">${s.date}</span> ${lgChip(s.league)} <span class="meta">${s.split}${_lplGrpTag(s.league,s.split,s.teams)}</span>
           <span class="sVs">${A} <b class="${sa>sb?'win':''}">${sa}</b>-<b class="${sb>sa?'win':''}">${sb}</b> ${B}</span>
           <span class="meta">${s.games.length}${miss?`${LANG==="en"?"/":"／"}${miss.total}`:""} ${LANG==="en"?"games":"局"}・${s.patch}</span>${warn}</td></tr>`
           +rows;
@@ -8274,11 +8294,13 @@ function render(){
     const leagueBtns=[...playerLgs].filter(isLeagueCode).sort((a,b)=>{const ia=LEAGUE_PREF.indexOf(a),ib=LEAGUE_PREF.indexOf(b); return (ia<0?99:ia)-(ib<0?99:ib)||String(a).localeCompare(String(b));});
     const cupBtns=CUP_ORDER.filter(l=>playerLgs.has(l)); // 盃賽只列有選手參賽的那幾個
     const dailyMode=V.rankView==="daily"; const dayRange=V.rankDayRange||1; // 每日戰況視圖＋範圍(1=昨天/3/7天)
+    const lplSplits=lplSplitsOf(curYear), lplSel=lplSelSplit(curYear,V.rankLplSplit); // LPL 分組：選定賽段(每賽段分組不同)＋該賽段組名
     main.innerHTML=`<div class="filters" style="gap:9px 22px">
       <span class="cwrap"><input id="rankQ" class="combo" list="rankQdl" autocomplete="off" placeholder="${LANG==="en"?"Search player / team":"搜尋 選手／戰隊"}" style="width:190px"><button class="cx" tabindex="-1" data-x="rankQ" title="一鍵清除">✕</button></span><datalist id="rankQdl"></datalist>
       <span style="display:inline-flex;gap:6px;align-items:center"><button class="sqLaneBtn${dailyMode?"":" on"}" data-rview="ladder">🏆 ${LANG==="en"?"Ladder":"排行榜"}</button><button class="sqLaneBtn${dailyMode?" on":""}" data-rview="daily">📅 ${LANG==="en"?"Daily":"每日戰況"}</button></span>
       <span style="display:inline-flex;gap:7px;align-items:center;flex-wrap:wrap"><span class="meta" style="margin-right:1px">${LANG==="en"?"Role":"路線"}</span>${ROLEF.map(([v,z,e])=>`<button class="sqLaneBtn${(V.rankRole||"")===v?" on":""}" data-role="${v}">${LANG==="en"?e:z}</button>`).join("")}</span>
       <span style="display:inline-flex;gap:7px;align-items:center;flex-wrap:wrap"><span class="meta" style="margin-right:1px">${LANG==="en"?"Region":"賽區"}</span><button class="sqLaneBtn${!V.rankRegion?" on":""}" data-region="">${LANG==="en"?"All":"全部"}</button>${leagueBtns.map(rg=>`<button class="sqLaneBtn${V.rankRegion===rg?" on":""}" data-region="${esc(rg)}"${V.rankRegion===rg?"":` style="color:${LGC[rg]||"var(--tx2)"}"`}>${esc(lgName(rg))}</button>`).join("")}${leagueBtns.length&&cupBtns.length?`<span class="meta" style="opacity:.45;padding:0 2px;margin:0 -2px">｜</span>`:""}${cupBtns.map(rg=>`<button class="sqLaneBtn${V.rankRegion===rg?" on":""}" data-region="${esc(rg)}"${V.rankRegion===rg?"":` style="color:${LGC[rg]||"var(--tx2)"}"`}>${esc(lgName(rg))}</button>`).join("")}</span>
+      ${(V.rankRegion==="LPL"&&lplSplits.length)?`<span style="display:inline-flex;gap:7px;align-items:center;flex-wrap:wrap">${lplSplits.length>1?`<span class="meta" style="margin-right:1px">${LANG==="en"?"LPL split":"LPL 賽段"}</span>${lplSplits.map(sp=>`<button class="sqLaneBtn${lplSel===sp?" on":""}" data-lplsplit="${esc(sp)}">${esc(sp)}</button>`).join("")}<span class="meta" style="opacity:.4;padding:0 1px">｜</span>`:""}<span class="meta" style="margin-right:1px">${LANG==="en"?"group":"分組"}</span><button class="sqLaneBtn${!V.rankLplGrp?" on":""}" data-lplg="">${LANG==="en"?"All":"全部"}</button>${lplGroupNamesOfSplit(curYear,lplSel).map(g=>`<button class="sqLaneBtn${V.rankLplGrp===g?" on":""}" data-lplg="${esc(g)}" style="${V.rankLplGrp===g?"":"color:"+(LGC.LPL||"var(--tx2)")}">${esc(g)}</button>`).join("")}</span>`:""}
       <span style="flex:1"></span>
       ${(location.protocol==="file:"||/^(localhost|127\.)/.test(location.hostname))?`<button id="sqApiBtn" class="sqbtn helpBtn" title="${LANG==="en"?"Paste a fresh Riot API key: update ranks now + auto-reuse at the 10:00 daily update":"開 Riot 開發者頁拿金鑰→貼上立即更新牌位；金鑰存本機供每天 10:00 排程自動更新"}">🔑 ${LANG==="en"?"Add API key":"添加API"}</button>`:""}
       ${TAB_HELP["積分"]?`<button id="fHelp" class="sqbtn helpBtn" title="本頁說明">ℹ️ ${T("本頁說明")}</button>`:""}</div>
@@ -8419,15 +8441,25 @@ function render(){
       let active=disp.filter(r=>FAV.has(favKey(r))||r._missing||r._n7>0||(r.found&&r._n7==null)); // 收藏者一律顯示；其餘：最近7天沒打暫不列；缺帳號一律列(灰置底)；有段位但還沒逐場資料的新帳號(_n7==null)也列出
       if(V.rankRole)active=active.filter(r=>r._role===V.rankRole); // 路線篩選
       if(V.rankRegion)active=active.filter(r=>{const s=rgOf(r); return s&&s.has(V.rankRegion);}); // 賽區(參賽聯賽/盃賽)篩選
+      if(V.rankRegion==="LPL"&&V.rankLplGrp)active=active.filter(r=>lplSplitGroupOf(teamFix(r.team||""),curYear,lplSel)===V.rankLplGrp); // LPL 分組篩選(選定賽段；季後賽不分)
       let show=active;
       if(q){ const FB=window._RANKQ_FULL||{}; const abs=new Set();            // 戰隊「全名」也可搜：全名→縮寫
         for(const ab in FB)if(FB[ab].some(t=>t.toLowerCase().split(/[^a-z0-9]+/).some(w=>w&&w.startsWith(q))))abs.add(ab.toLowerCase());  // 全名比對用「字首」不用子字串→免「gen」中「leGENd」(Anyone's Legend) 這種誤中
         show=active.filter(r=>String(r.player).toLowerCase().includes(q)||String(r.team).toLowerCase().includes(q)
           ||(teamFix(r.team||"")+" "+(r.player||"")).toLowerCase().includes(q)   // 「T1 Keria」帶前綴的建議值也要能中
           ||abs.has(String(teamFix(r.team||"")).toLowerCase())); }
-      box.innerHTML=`<div class="tblwrap"><table class="recTbl"><thead><tr><th class="rkh">#</th>${cols.map(c=>c.sort===false?`<th><span class="thL">${c.lb}</span></th>`:`<th data-rk="${c.k}" style="cursor:pointer"><span class="thL">${c.lb}${arrow(c.k)}</span></th>`).join("")}</tr></thead><tbody>${
-        show.map((r,i)=>{const f=r._score>=0; return `<tr${f?"":' style="opacity:.5"'}><td class="rk${i<3&&f?` rk${i+1}`:""}">${f?i+1:"–"}</td>${cols.map(c=>`<td>${c.cell(r)}</td>`).join("")}</tr>`;}).join("")
-      }</tbody></table></div>`;
+      const rowHtml=(r,i)=>{const f=r._score>=0; return `<tr${f?"":' style="opacity:.5"'}><td class="rk${i<3&&f?` rk${i+1}`:""}">${f?i+1:"–"}</td>${cols.map(c=>`<td>${c.cell(r)}</td>`).join("")}</tr>`;};
+      // 選 LPL 且未指定單一組 → 清單依常規賽分組分段（各組一標題列，段內照原排序、名次組內重編）
+      const grpMode=V.rankRegion==="LPL"&&!V.rankLplGrp&&lplGroupNamesOfSplit(curYear,lplSel).length;
+      let tbodyHtml;
+      if(grpMode){ const order=lplGroupNamesOfSplit(curYear,lplSel), REST="__rest", secMap={}, cspan=cols.length+1;
+        show.forEach(r=>{const g=lplSplitGroupOf(teamFix(r.team||""),curYear,lplSel)||REST; (secMap[g]=secMap[g]||[]).push(r);});
+        const secOrder=[...order.filter(g=>secMap[g]),...(secMap[REST]?[REST]:[])];
+        tbodyHtml=secOrder.map(g=>{const rows=secMap[g], lbl=g===REST?(LANG==="en"?"Other":"其他"):g;
+          const nTm=new Set(rows.map(r=>teamFix(r.team||""))).size;
+          return `<tr class="rankGrpHd"><td colspan="${cspan}" style="padding:7px 11px;background:rgba(224,92,92,.10);border-top:2px solid ${LGC.LPL||"#e05c5c"};font-weight:700;color:${LGC.LPL||"#e05c5c"}">${esc(lbl)} <span class="meta" style="font-weight:400">${nTm}${LANG==="en"?" teams · ":" 隊・"}${rows.length}${LANG==="en"?" players":" 人"}</span></td></tr>`+rows.map((r,i)=>rowHtml(r,i)).join("");}).join("");
+      }else tbodyHtml=show.map((r,i)=>rowHtml(r,i)).join("");
+      box.innerHTML=`<div class="tblwrap"><table class="recTbl"><thead><tr><th class="rkh">#</th>${cols.map(c=>c.sort===false?`<th><span class="thL">${c.lb}</span></th>`:`<th data-rk="${c.k}" style="cursor:pointer"><span class="thL">${c.lb}${arrow(c.k)}</span></th>`).join("")}</tr></thead><tbody>${tbodyHtml}</tbody></table></div>`;
       box.querySelectorAll(".recTbl th[data-rk]").forEach(th=>th.onclick=()=>{const k=th.dataset.rk,s=V.rankSort; V.rankSort=(s&&s.k===k)?{k,d:-s.d}:{k,d:(k==="選手"||k==="_role"||k==="platform")?1:-1}; saveState(); paint();});
       box.querySelectorAll(".soloChamps[data-rid]").forEach(sp=>{const rid=sp.dataset.rid; // 滑常用英雄 → 完整英雄池(場數/勝率/KDA)
         sp.addEventListener("mouseenter",()=>tipShow(soloqChampTip(rid),sp.getBoundingClientRect())); sp.addEventListener("mouseleave",tipHide);});
@@ -8447,34 +8479,42 @@ function render(){
       if(!REC){ lazyLoad("recent").then(()=>{ if(curView==="積分"&&V.rankView==="daily")render(); });
         box.innerHTML=`<div class="note">${en?"loading daily games…":"載入每日戰況中…"}</div>`; return; }
       if(!SD||!Array.isArray(SD.players)||!SD.players.length){ box.innerHTML=`<div class="note">${en?"No ranked data yet.":"尚未有積分資料。"}</div>`; return; }
-      const IDX=window.SOLOQ_MATCH_IDX, matched=new Set(); if(IDX&&IDX.players)Object.keys(IDX.players).forEach(k=>matched.add(k));
+      const IDX=window.SOLOQ_MATCH_IDX;
       const ROLE_ORD={TOP:0,JUNGLE:1,MIDDLE:2,BOTTOM:3,UTILITY:4}, POSLB={TOP:["上","Top"],JUNGLE:["野","JG"],MIDDLE:["中","Mid"],BOTTOM:["下","Bot"],UTILITY:["輔","Sup"]};
       const addDay=(ds,dl)=>{const a=ds.split("-").map(Number),dt=new Date(Date.UTC(a[0],a[1]-1,a[2])); dt.setUTCDate(dt.getUTCDate()+dl); return dt.getUTCFullYear()+"-"+String(dt.getUTCMonth()+1).padStart(2,"0")+"-"+String(dt.getUTCDate()).padStart(2,"0");};
       const genDay=REC.genDay||new Date(Date.now()+9*3600e3).toISOString().slice(0,10);
       const rng=V.rankDayRange||1, days=[]; for(let i=1;i<=rng;i++)days.push(addDay(genDay,-i)); // 昨天..昨天-(rng-1)
       const md=ds=>{const a=ds.split("-"); return (+a[1])+"/"+(+a[2]);}, headLb=rng===1?md(days[0]):md(days[days.length-1])+"–"+md(days[0]);
-      const roleOf=key=>(REC.players[key]&&REC.players[key].r)||(IDX&&IDX.players&&IDX.players[key]&&IDX.players[key].role)||null;
-      const aggOf=key=>{ const p=REC.players[key]; if(!p||!p.d)return null; const gs=[]; days.forEach(dd=>{const arr=p.d[dd]; if(arr)arr.forEach(g=>gs.push(g));}); if(!gs.length)return null; let w=0; gs.forEach(g=>{if(g[1])w++;}); return {gs,n:gs.length,w,l:gs.length-w}; };
+      // REC(有打積分者)：以 teamFix 正規化鍵對應「實際 REC key」——REC/SD 隊縮寫可能不一致(GENG↔GEN、TLAW↔TL、AGAL↔AL)，雙邊都 teamFix 後才比對得上
+      const recByNorm={}; Object.keys(REC.players).forEach(rk=>{const i=rk.indexOf("|"); if(i<0)return; const nk=teamFix(rk.slice(0,i))+"|"+rk.slice(i+1); if(!(nk in recByNorm))recByNorm[nk]=rk;});
+      const idxRole={}; if(IDX&&IDX.players)Object.keys(IDX.players).forEach(ik=>{const i=ik.indexOf("|"); if(i<0)return; const nk=teamFix(ik.slice(0,i))+"|"+ik.slice(i+1); if(!(nk in idxRole))idxRole[nk]=IDX.players[ik].role;});
+      const aggOf=rk=>{ const p=rk&&REC.players[rk]; if(!p||!p.d)return null; const gs=[]; days.forEach(dd=>{const arr=p.d[dd]; if(arr)arr.forEach(g=>gs.push(g));}); if(!gs.length)return null; let w=0; gs.forEach(g=>{if(g[1])w++;}); return {gs,n:gs.length,w,l:gs.length-w}; };
       const q=(V.rankQ||"").trim().toLowerCase(), roster={};
-      SD.players.forEach(p=>{ if(!p.player)return; const ab=teamFix(p.team||""), key=ab+"|"+p.player;
-        if(V.rankRole&&roleOf(key)!==V.rankRole)return;
-        if(V.rankRegion){ const s=rgOf(p); if(!(s&&s.has(V.rankRegion)))return; }
-        if(q&&!((ab+" "+p.player).toLowerCase().includes(q)||String(p.team||"").toLowerCase().includes(q)))return;
-        const sc=soloqScore(p);
-        if(!(key in roster)||sc>roster[key]._sc) roster[key]={ab,player:p.player,riotId:p.riotId,role:roleOf(key),_sc:sc}; });
+      const pass=(ab,player,role,teamRaw)=>{ if(V.rankRole&&role!==V.rankRole)return false;
+        if(V.rankRegion){ const s=rgOf({team:teamRaw}); if(!(s&&s.has(V.rankRegion)))return false;
+          if(V.rankRegion==="LPL"&&V.rankLplGrp&&lplSplitGroupOf(ab,curYear,lplSel)!==V.rankLplGrp)return false; }
+        if(q&&!((ab+" "+player).toLowerCase().includes(q)||String(teamRaw||"").toLowerCase().includes(q)))return false; return true; };
+      // ① 排行榜名冊 SD.players（一人一列＝取牌位最高帳號）
+      SD.players.forEach(p=>{ if(!p.player)return; const ab=teamFix(p.team||""), nk=ab+"|"+p.player, rk=recByNorm[nk]||null, role=(rk&&REC.players[rk].r)||idxRole[nk]||null;
+        if(!pass(ab,p.player,role,p.team))return; const sc=soloqScore(p);
+        if(!(nk in roster)||sc>roster[nk]._sc) roster[nk]={ab,player:p.player,riotId:p.riotId,role,reckey:rk,_sc:sc}; });
+      // ② 有打積分(soloq_recent 有逐場)但不在名冊的（換隊／找不到牌位帳號）也一律列出
+      Object.keys(recByNorm).forEach(nk=>{ if(nk in roster)return; const rk=recByNorm[nk], i=nk.indexOf("|"), ab=nk.slice(0,i), player=nk.slice(i+1), teamRaw=rk.slice(0,rk.indexOf("|")), role=REC.players[rk].r||null;
+        if(!pass(ab,player,role,teamRaw))return; roster[nk]={ab,player,riotId:"",role,reckey:rk,_sc:-1}; });
       const teams={}; Object.values(roster).forEach(pl=>{(teams[pl.ab]=teams[pl.ab]||[]).push(pl);});
       const tLgIdx=ab=>{ const s=TLG[ab]; if(!s)return 99; let best=99; s.forEach(l=>{const i=LEAGUE_PREF.indexOf(l); if(i>=0&&i<best)best=i;}); return best; };
-      const teamNames=Object.keys(teams).sort((a,b)=>tLgIdx(a)-tLgIdx(b)||a.localeCompare(b));
-      const tGames=ab=>teams[ab].reduce((s,pl)=>{const a=aggOf(ab+"|"+pl.player); return s+(a?a.n:0);},0);
-      const active=teamNames.filter(ab=>tGames(ab)>0), idle=teamNames.filter(ab=>tGames(ab)===0);
+      const primaryLg=ab=>{ const s=[...(TLG[ab]||[])]; if(!s.length)return null; let bl=null,bi=99; s.forEach(l=>{const i=LEAGUE_PREF.indexOf(l); if(i>=0&&i<bi){bi=i;bl=l;}}); return bl||s[0]; }; // 隊標籤取主賽區(LCK 而非 KeSPA 盃等次要賽事)
+      const teamNames=Object.keys(teams).sort((a,b)=>tLgIdx(a)-tLgIdx(b)||(lplSplitGroupOf(a,curYear,lplSel)||"").localeCompare(lplSplitGroupOf(b,curYear,lplSel)||"")||a.localeCompare(b)); // 同賽區內 LPL 依選定賽段分組聚攏
+      const tGames=ab=>teams[ab].reduce((s,pl)=>{const a=aggOf(pl.reckey); return s+(a?a.n:0);},0);
+      const activeCnt=teamNames.filter(ab=>tGames(ab)>0).length; // 僅表頭統計；所有有積分帳號的選手/隊都列出(不論範圍內有無出賽)
       const MAXCHIP=rng===1?16:26;
       const S_TEAM="background:rgba(255,255,255,.03);border:1px solid #2a3550;border-radius:10px;overflow:hidden", S_HD="display:flex;align-items:center;gap:7px;padding:8px 11px;background:rgba(255,255,255,.045);font-size:14px", S_ROW="display:flex;align-items:center;gap:7px;padding:6px 11px;border-top:1px solid rgba(255,255,255,.05)";
       const roleTag=rl=>{const x=POSLB[rl]; return `<span class="meta" style="width:22px;text-align:center;font-size:11px;opacity:.7;flex:none">${x?(en?x[1]:x[0]):"–"}</span>`;};
       const chip=(c,w)=>`<span title="${esc(chName(champId(c)))}" style="display:inline-block;line-height:0;border-radius:6px;box-shadow:0 0 0 2px ${w?"#3d8bff":"#e0555f"};margin:2px">${champIco(c,26)}</span>`;
       const teamCard=ab=>{
         const pls=teams[ab].slice().sort((x,y)=>((ROLE_ORD[x.role]==null?9:ROLE_ORD[x.role])-(ROLE_ORD[y.role]==null?9:ROLE_ORD[y.role]))||String(x.player).localeCompare(String(y.player)));
-        const lg=[...(TLG[ab]||[])][0], col=lg?(LGC[lg]||"var(--tx2)"):"var(--tx2)"; let gw=0,gn=0;
-        const body=pls.map(pl=>{ const key=ab+"|"+pl.player, ag=aggOf(key), clk=matched.has(key)&&pl.riotId;
+        const lg=primaryLg(ab), col=lg?(LGC[lg]||"var(--tx2)"):"var(--tx2)"; const grp=lg==="LPL"?lplSplitGroupOf(ab,curYear,lplSel):null; let gw=0,gn=0;
+        const body=pls.map(pl=>{ const ag=aggOf(pl.reckey), clk=!!pl.riotId;
           const nm=`<span class="${clk?"rankName":""}"${clk?` data-detail="${esc(pl.riotId)}" title="${en?"view games":"看逐場"}"`:""} style="font-weight:600;flex:none">${esc(pl.player)}</span>`;
           if(!ag) return `<div style="${S_ROW}">${roleTag(pl.role)}${nm}<span style="flex:1"></span><span class="meta" style="opacity:.5">${en?"— no games":"— 未出賽"}</span></div>`;
           gw+=ag.w; gn+=ag.n;
@@ -8482,19 +8522,20 @@ function render(){
           const chips=ag.gs.slice(0,MAXCHIP).map(g=>chip(g[0],g[1])).join("")+(ag.n>MAXCHIP?`<span class="meta" style="align-self:center;margin-left:3px">+${ag.n-MAXCHIP}</span>`:"");
           return `<div style="${S_ROW}">${roleTag(pl.role)}${nm}${rec}<span style="flex:1;min-width:6px"></span><span style="display:inline-flex;flex-wrap:wrap;justify-content:flex-end;max-width:62%">${chips}</span></div>`;
         }).join("");
-        const sub=gn?`<span class="num" style="font-size:12.5px"><span style="color:#5ea2ff">${gw}</span>-<span style="color:#ec6b73">${gn-gw}</span> <span class="meta">${gn}${en?"g":"場"}</span></span>`:"";
-        return `<div style="${S_TEAM};border-top:2px solid ${col}"><div style="${S_HD}"><b style="color:${col}">${esc(ab)}</b>${lg?`<span class="meta">${esc(lgName(lg))}</span>`:""}<span style="flex:1"></span>${sub}</div>${body}</div>`;
+        const sub=gn?`<span class="num" style="font-size:12.5px"><span style="color:#5ea2ff">${gw}</span>-<span style="color:#ec6b73">${gn-gw}</span> <span class="meta">${gn}${en?"g":"場"}</span></span>`:`<span class="meta" style="opacity:.45">${en?"idle":"整隊未出賽"}</span>`;
+        return `<div style="${S_TEAM};border-top:2px solid ${col}"><div style="${S_HD}"><b style="color:${col}">${esc(ab)}</b>${lg?`<span class="meta">${esc(lgName(lg))}${grp?` · ${esc(grp)}`:""}</span>`:""}<span style="flex:1"></span>${sub}</div>${body}</div>`;
       };
-      box.innerHTML=`<div class="meta" style="margin:-2px 0 11px;line-height:1.6">${en?"Showing ":"顯示 "}<b style="color:var(--tx)">${headLb}</b> <span style="opacity:.7">${en?"(KST day)":"（韓服日）"}</span> · ${active.length}${en?" active teams":" 隊有出賽"} · <span style="color:#5ea2ff">■</span>${en?"win ":"勝 "}<span style="color:#e0555f">■</span>${en?"loss":"敗"} · ${en?"click a name for the full game log":"點選手名看完整逐場"}</div>
-        ${active.length?`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:12px;align-items:start">${active.map(teamCard).join("")}</div>`:`<div class="note">${en?"No games in this range yet — try 3 or 7 days.":"這個範圍內還沒有出賽資料——試試近3天或近7天。"}</div>`}
-        ${idle.length?`<div class="meta" style="margin-top:13px;opacity:.6;line-height:1.6">${en?"Idle teams":"整隊未出賽"}（${idle.length}）：${idle.map(esc).join("、")}</div>`:""}`;
+      box.innerHTML=`<div class="meta" style="margin:-2px 0 11px;line-height:1.6">${en?"Showing ":"顯示 "}<b style="color:var(--tx)">${headLb}</b> <span style="opacity:.7">${en?"(KST day)":"（韓服日）"}</span> · ${teamNames.length}${en?" teams":" 隊"}<span style="opacity:.6">（${activeCnt}${en?" active":" 隊有出賽"}）</span> · <span style="color:#5ea2ff">■</span>${en?"win ":"勝 "}<span style="color:#e0555f">■</span>${en?"loss":"敗"} · ${en?"click a name for the full game log":"點選手名看完整逐場"}</div>
+        ${teamNames.length?`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:12px;align-items:start">${teamNames.map(teamCard).join("")}</div>`:`<div class="note">${en?"No ranked players match the current filters.":"目前篩選沒有符合的積分選手。"}</div>`}`;
       box.querySelectorAll(".rankName[data-detail]").forEach(sp=>sp.onclick=()=>{V.rankDetail=sp.dataset.detail;V.rankDetLane="";V.rankShow=100;V.rankGSort=null;V.rankGChamp="";V.rankGOpp="";saveState();render();});
     };
     const rq=document.getElementById("rankQ"); if(rq){ rq.value=V.rankQ||""; rq.oninput=(()=>{const d=deb(()=>{saveState(); if(V.rankView==="daily")paintDaily();else paint();},150);return()=>{V.rankQ=rq.value;d();};})(); }
     main.querySelectorAll("[data-rview]").forEach(b=>b.onclick=()=>{V.rankView=b.dataset.rview; saveState(); render();}); // 排行榜／每日戰況切換
     main.querySelectorAll("[data-drange]").forEach(b=>b.onclick=()=>{V.rankDayRange=+b.dataset.drange; saveState(); render();}); // 每日戰況天數範圍
     main.querySelectorAll("[data-role]").forEach(b=>b.onclick=()=>{V.rankRole=b.dataset.role; saveState(); render();}); // 路線篩選
-    main.querySelectorAll("[data-region]").forEach(b=>b.onclick=()=>{V.rankRegion=b.dataset.region; saveState(); render();}); // 賽區篩選
+    main.querySelectorAll("[data-region]").forEach(b=>b.onclick=()=>{V.rankRegion=b.dataset.region; if(b.dataset.region!=="LPL")V.rankLplGrp=""; saveState(); render();}); // 賽區篩選(離開 LPL 清組別)
+    main.querySelectorAll("[data-lplsplit]").forEach(b=>b.onclick=()=>{V.rankLplSplit=b.dataset.lplsplit; V.rankLplGrp=""; saveState(); render();}); // LPL 賽段切換(每賽段分組不同，切換清組別)
+    main.querySelectorAll("[data-lplg]").forEach(b=>b.onclick=()=>{V.rankLplGrp=b.dataset.lplg; saveState(); render();}); // LPL 分組篩選
     {const h=document.getElementById("fHelp"); if(h)h.onclick=e=>{e.stopPropagation();toggleHelpPop(h);};}
     if(dailyMode)paintDaily();else paint();
     }
