@@ -68,6 +68,20 @@ OLD_SPLIT_MAP = {"Spring":"春季","Winter":"春季","Split 1":"春季",
                  "Summer":"夏季","Fall":"夏季","Split 2":"夏季","Split 3":"夏季",
                  "Summer Placements":"夏季","Finals":"夏季","Championship":"夏季",
                  "Lock-In":"春季","Kickoff":"春季"}
+# 季後賽起始日人工表（(年, OE聯賽碼, OE原始split) → 起始日；該日含以後的場次一律標成該賽段的季後賽）
+# 用途：OE 對某些賽事整段不標 playoffs 欄位（開季盃賽最常見），導致「S1 季後賽」在儀表板查不到。
+# 使用者定案：季後賽從 Play-In（含性質相同的 Last Chance）起算。日期＝比對 Leaguepedia 賽制頁與 OE 每日場次結構得出。
+#   LCK 2026 Cup      小組賽 1/14–1/25（2 組各 5 隊、跨組 BO3，每天 2 系列）→ Play-In 1/28–2/01 → Playoffs 2/06–3/01
+#                     https://lol.fandom.com/wiki/LCK/2026_Season/Cup
+#   CBLOL 2026 Cup    單循環 BO1 1/17–2/01（8 隊 28 場）→ Play-In 2/02–2/03 → Playoffs 2/07–3/01
+#                     https://lol.fandom.com/wiki/CBLOL/2026_Season/Cup
+#   LCS 2026 Lock-In  瑞士制三輪 1/24–2/01 → Last Chance 2/02（第 6 種子加賽，等同 Play-In）→ Playoffs 2/07–3/02
+#                     https://lol.fandom.com/wiki/LCS/2026_Season/Lock-In
+PO_START = {
+    (2026, "LCK",   "Cup"):     "2026-01-28",
+    (2026, "CBLOL", "Cup"):     "2026-02-02",
+    (2026, "LCS",   "Lock-In"): "2026-02-02",
+}
 LEAGUE_ORDER = {"LCK":0,"LPL":1,"LCP":2,"LEC":3,"LCS":4,"CBLOL":5}
 PO_MAP = {1:1,2:2,3:2,4:3,5:3,6:4,7:5,8:6,9:6,10:7}
 PO_TABLES = {("b",1):[1,4,5,8,9],("b",0):[2,3,6,7,10],("r",1):[2,3,6,7,10],("r",0):[1,4,5,8,9]}
@@ -165,7 +179,9 @@ def process(text, year=DEFAULT_YEAR):
         lg = (r[iLeague] or "").strip()
         if not lg: continue
         # 聯賽更名統一：NA LCS→LCS、EU LCS→LEC、OGN(韓國前身)→LCK
-        RENAME = {"NA LCS": "LCS", "EU LCS": "LEC", "OGN": "LCK", "OPL": "LCO"}
+        # 「KeSPA Cup」＝OE 2026 七月那屆的寫法（2025-12 那屆寫 KeSPA）；不正名的話 league_ok 比對不到 KESPA → 整屆被丟掉
+        RENAME = {"NA LCS": "LCS", "EU LCS": "LEC", "OGN": "LCK", "OPL": "LCO",
+                  "KeSPA Cup": "KeSPA"}
         if lg in RENAME:
             lg = RENAME[lg]; r[iLeague] = lg
         if not league_ok(lg, year): continue  # 只收該年度的一級聯賽與國際賽
@@ -196,11 +212,16 @@ def process(text, year=DEFAULT_YEAR):
                 r[iLeague] = glabel.get(r[gi_g], "EWC")
 
     # split 正規化 + 季後賽 PO 後綴（S1/S2/S3 制度 2025 才開始；之前用季名）
+    _gi_date = gi("date")
     for r in filtered:
         lg = (r[iLeague] or "").strip().upper()
         orig = (r[iSplit] or "").strip()
         try: is_po = int(r[iPlayoffs] or 0) == 1
         except ValueError: is_po = False
+        # OE 有些賽事整段沒標 playoffs（LCK 2026 Cup 全部 playoffs=0）→ 用人工「季後賽起始日」補
+        _ps = PO_START.get((year, (r[iLeague] or "").strip(), orig))
+        if _ps and (r[_gi_date] or "")[:10] >= _ps:
+            is_po = True
         if year >= 2025:
             norm = CBLOL_SPLIT_MAP.get(orig, SPLIT_MAP.get(orig, orig)) if lg=="CBLOL" else SPLIT_MAP.get(orig, orig)
             final = (norm + " PO") if (is_po and norm) else norm

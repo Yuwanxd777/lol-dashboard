@@ -33,6 +33,8 @@ rem tier1 regions = leagues with Worlds seats that year (lol.fandom Worlds page,
 python scripts\fetch_worlds_tier1.py >> "%LOG%" 2>&1
 rem league promotion/qualifier supplement table (reads Leaguepedia cache, no API calls)
 python scripts\build_league_struct.py >> "%LOG%" 2>&1
+rem extra events OE match data does not cover (EWC 2026 China qualifier, ENC 2026 national teams)
+python scripts\fetch_events_extra.py >> "%LOG%" 2>&1
 rem OBGG pro-account list refresh (LPL/LCK primary; drops accounts inactive ~2 months; routing merge with dpm)
 python scripts\fetch_obgg_accounts.py >> "%LOG%" 2>&1
 rem dpm pro-account refresh: /v1/pros per player (LCS/LEC/CBLOL primary=replace, others=union); only match-data players; puuid included
