@@ -13,6 +13,7 @@ import io, sys, json, os, re, time, urllib.parse, urllib.request
 
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
 HERE = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.dirname(HERE)
 ACCOUNTS = os.path.join(HERE, "soloq_accounts.json")
 UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
 BASE = "https://www.obgg.net/obggmini/"
@@ -22,6 +23,8 @@ DPM_ZONES = {"LCS", "LEC", "CBLOL"}  # 以 dpm 為主（保留現有，不加 OB
 PLAT = {"韩服": "kr", "美服": "na1", "欧服": "euw1", "巴西": "br1"}
 ALIAS = {"GEN": "GENG"}              # OBGG 隊碼 → 清單隊碼
 CUT_MS = 60 * 24 * 3600 * 1000       # 近兩個月
+ROSTER_PLAYERS = set()               # OBGG 標為五路的現役選手（診斷用；不再當作帳號保留的豁免依據）
+ROSTER_OUT = os.path.join(ROOT, "csv_cache", "obgg_roster.json")   # csv_cache 在專案根目錄，不是 scripts/ 下
 
 
 def get(url, retry=2):
@@ -42,6 +45,19 @@ def num_name(rid):
 
 def norm(s):
     return re.sub(r"\s+", "", str(s or "")).lower()
+
+
+# 段位分數（OBGG tier 形如「王者 - 1971」「宗师 - 1446」「钻1 - 75」「未定级」）：用來判斷哪個是主帳號
+TIER = [("王者", 10), ("宗师", 9), ("大师", 8), ("钻", 7), ("翡", 6), ("铂", 5),
+        ("黄金", 4), ("白银", 3), ("青铜", 2), ("黑铁", 1)]
+
+
+def tier_score(t):
+    t = str(t or "")
+    for k, v in TIER:
+        if t.startswith(k):
+            return v
+    return 0
 
 
 def pull():
@@ -65,22 +81,37 @@ def pull():
                 time.sleep(0.15)
                 d = pg.get("data") if isinstance(pg, dict) else None
                 accs = (d or {}).get("accountList", []) if isinstance(d, dict) else []
-                good = []
+                # 先濾掉一定不能用的：峡谷之巅(Riot API/dpm 都查不到)、純數字死號、今年完全沒打
+                cand = []
                 for a in accs:
-                    if a.get("regionName") == "峡谷之巅":
+                    if a.get("regionName") == "峡谷之巅" or str(a.get("region", "")).upper() == "BGP2":
                         continue
                     if num_name(a.get("summonerName")):
                         continue
-                    try:
-                        lt = float(a.get("lastGameTime"))
-                    except Exception:
+                    if tier_score(a.get("tier")) <= 0 and int(a.get("yearPlay") or 0) <= 0:
                         continue
-                    if (now - lt) > CUT_MS:
-                        continue
-                    good.append({"platform": PLAT.get(a["regionName"], a.get("region")),
+                    cand.append(a)
+                # 主帳號＝段位最高、同段位比今年場次；**主帳號不套 60 天規則**
+                # （2026-07-29 修：Tian 5/28、369 4/17 最後一場就被整個砍掉，但他們今年打了 278/133 場，
+                #   儀表板要的是「今年」的積分資料。60 天規則的原意是清掉棄用小號，不該連主帳號一起清。）
+                cand.sort(key=lambda a: (tier_score(a.get("tier")), int(a.get("yearPlay") or 0)), reverse=True)
+                good = []
+                for i, a in enumerate(cand):
+                    if i > 0:                       # 小號：維持近 60 天有打才留
+                        try:
+                            if (now - float(a.get("lastGameTime"))) > CUT_MS:
+                                continue
+                        except Exception:
+                            continue
+                    good.append({"platform": PLAT.get(a.get("regionName"), a.get("region")),
                                  "riotId": a.get("summonerName")})
                 if good:
                     out[z].setdefault(tm, {})[gid] = good
+                # 現役選手名冊（pos 標成五路之一才算；主播/顧問/監督/教練不算）。
+                # 註：曾用來豁免 dpm 的「今年沒出賽」過濾，2026-07-29 已收回——OBGG 名單會留著已離開職業的人
+                # （TW BeanJ/Glory 今年 0 場仍掛在隊上）。現在只留作診斷用途（check_obgg_gaps.py 等）。
+                if re.search(r"-\s*(上|野|中|下|辅)(\s|-|$)", str(p.get("pos") or "")):
+                    ROSTER_PLAYERS.add(gid)
         print(f"  {z}: {sum(len(v) for v in out[z].values())} 帳號", flush=True)
     return out
 
@@ -151,6 +182,12 @@ def main():
             best[k] = e
     final = list(best.values())
 
+    try:
+        os.makedirs(os.path.dirname(ROSTER_OUT), exist_ok=True)
+        json.dump(sorted(ROSTER_PLAYERS), open(ROSTER_OUT, "w", encoding="utf-8"), ensure_ascii=False)
+        print(f"現役選手名冊：{len(ROSTER_PLAYERS)} 位 → csv_cache/obgg_roster.json")
+    except Exception as e:
+        print(f"（名冊寫出失敗：{e}）")
     json.dump(acc, open(ACCOUNTS + ".bak", "w", encoding="utf-8"), ensure_ascii=False, indent=1)
     json.dump(final, open(ACCOUNTS, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
     print(f"OBGG 帳號更新：{len(acc)} → {len(final)}（LPL/LCK 刪 {removed} 個近兩月未列；"

@@ -67,15 +67,63 @@ def match_players():
 def load_abbr():
     """從 index.html 抽 STATIC_TABBR（隊全名→縮寫）＋ ABBR_OVERRIDE，供 Python 端算隊縮寫（localStorage 的 USER_TABBR 抓不到）。"""
     st = {}
+    # 用 regex 抽 "全名":"縮寫" 配對，**不要 json.loads**——STATIC_TABBR 內含 JS 註解(// …)，
+    # json 會整塊解析失敗而靜默退回「壓縮全名前5字」，產生 TOPES/THUND/ANYON 這種假隊碼，
+    # 使得那些帳號在前端永遠查不到（2026-07-29 修；每天的 update_log 其實都印了這行警告）。
+    pair = lambda s: re.findall(r'"([^"]+)"\s*:\s*"([^"]*)"', s)
     try:
         html = open(os.path.join(ROOT, "index.html"), encoding="utf-8", errors="replace").read()
         m = re.search(r"const STATIC_TABBR=\{(.*?)\};", html, re.S)
         if m:
-            st = {str(k).strip().lower(): v for k, v in json.loads("{" + m.group(1) + "}").items()}
+            st = {k.strip().lower(): v for k, v in pair(m.group(1)) if v}
     except Exception as e:
-        print(f"（STATIC_TABBR 載入失敗，改用壓縮全名：{e}）", flush=True)
+        print(f"（STATIC_TABBR 載入失敗：{e}）", flush=True)
+    # 前端 abbrOf 是多層鏈（STATIC → PROMO → WIKI → LP），Python 端也要吃齊，否則涵蓋率遠不如前端
+    for fn in ("promo_abbr.js", "team_abbr_wiki.js", "leaguepedia.js"):
+        p = os.path.join(ROOT, fn)
+        if not os.path.exists(p):
+            continue
+        try:
+            body = open(p, encoding="utf-8", errors="replace").read()
+            if fn == "leaguepedia.js":                       # 只取 LP_TABBR 那一段
+                mm = re.search(r"LP_TABBR\s*=\s*\{(.*?)\};", body, re.S)
+                body = mm.group(1) if mm else ""
+            for k, v in pair(body):
+                if v and len(v) <= 8:
+                    st.setdefault(k.strip().lower(), v)
+        except Exception as e:
+            print(f"（{fn} 縮寫表載入失敗：{e}）", flush=True)
     st.update({k.lower(): v for k, v in ABBR_OVERRIDE.items()})
+    print(f"  隊縮寫對照表：{len(st)} 筆", flush=True)
     return st
+
+
+def fix_legacy_team_codes(acc, abbr, fullnames=None):
+    """自癒：把過去因對照表載入失敗而寫進去的「全名前5字」假隊碼改回真縮寫。
+    截斷碼是可反推的（同一套算法），唯一對應時才改，避免誤判。
+    fullnames＝主資料實際出現過的隊全名；**只用這些來反推**，否則 wiki 表裡的青訓隊會造成歧義
+    （Top Esports / Top Esports Challenger 前 5 字都是 TOPES → 不唯一就永遠修不掉）。"""
+    valid = {str(v).upper() for v in abbr.values() if v}   # 真正在用的縮寫，一律不動（DRX/GENG 等都在裡面）
+    src = {f.lower(): abbr.get(f.lower()) for f in (fullnames or [])} if fullnames else abbr
+    trunc = {}
+    for full, ab in src.items():
+        if not ab:
+            continue
+        t = re.sub(r"[^A-Za-z0-9]", "", full)[:5].upper()
+        if len(t) == 5 and t not in valid and t != ab.upper():   # 只認「長度剛好 5 且不是任何已知縮寫」的截斷碼
+            trunc.setdefault(t, set()).add(ab)
+    fixed = {}
+    for a in acc:
+        tm = str(a.get("team") or "")
+        cand = trunc.get(tm.upper()) if len(tm) == 5 and tm.upper() not in valid else None
+        if len(cand or ()) == 1:
+            new = next(iter(cand))
+            if new != tm:
+                a["team"] = new
+                fixed[tm] = new
+    if fixed:
+        print("  修正假隊碼：" + "、".join(f"{k}→{v}" for k, v in sorted(fixed.items())), flush=True)
+    return acc
 
 
 def match_roster(abbr):
@@ -129,6 +177,20 @@ def _warm(pg):
 def main():
     apply = "--apply" in sys.argv
     acc = json.load(open(ACCOUNTS, encoding="utf-8"))
+    ABBR = load_abbr()
+    _fulls = set()
+    try:      # 主資料出現過的隊全名（反推截斷碼用；避免青訓隊造成前 5 字歧義）
+        _d0 = open(os.path.join(ROOT, "data", "data_2026.js"), encoding="utf-8", errors="replace").read()
+        _J = json.loads(re.sub(r";\s*$", "", re.search(r"window\.LOL_DATA\s*=\s*(\{.*)", _d0, re.S).group(1)))
+        _raw = _J["tabs"]["RAW_DATA"]; _h = _raw[0]
+        _bt, _rt = _h.index("blue_teamname"), _h.index("red_teamname")
+        for _r in _raw[1:]:
+            for _i in (_bt, _rt):
+                if _r[_i]:
+                    _fulls.add(str(_r[_i]).strip())
+    except Exception as _e:
+        print(f"（隊全名清單載入失敗：{_e}）", flush=True)
+    acc = fix_legacy_team_codes(acc, ABBR, _fulls)   # 先把舊的假隊碼(TOPES/THUND…)改回真縮寫，否則同一選手會被拆成兩隊
     # 名單＝現有 (player, team)（比賽數據出現過的）；記住既有帳號供 union / 保留
     roster = []
     seen_pt = set()
@@ -143,6 +205,10 @@ def main():
     print(f"名單：{len(roster)} 位選手（{len(acc)} 個現有帳號）", flush=True)
 
     KEEP_WL = {"theshy"}  # 特例白名單：復出中/沒出場也保留（使用者判例，與 index.html 積分顯示 _WL 一致）
+    # 【2026-07-29 收回】曾用 OBGG 現役名冊(csv_cache/obgg_roster.json)豁免「今年沒出賽」的替補，
+    # 但 OBGG 的隊伍名單會留著已離開職業的人（TW BeanJ／Glory 今年 0 場仍掛在隊上），
+    # 導致他們被抓進積分資料、出現在每日戰況。使用者定案：**今年沒打職業就不該列**。
+    # 替補一旦上場，隔天排程的「探索新增」就會自動補帳號，不需要預先保留。
     mp = match_players()
     if mp:
         def _played(pl):
@@ -160,7 +226,7 @@ def main():
 
     # ── 探索抓取（根因修正）：以前名單只含既有帳號→沒帳號的隊(Fluxo/LOUD/多數 LCS/LEC/LTA)永遠漏抓。
     #    這裡把「比賽出場但目前完全沒帳號」的選手補進名單，DPM 逐一查 /v1/pros 補帳號 ──
-    ABBR = load_abbr()
+    # ABBR 已於開頭載入
     mr = match_roster(ABBR)  # {選手名: 我方隊縮寫}
     covered = {norm(a.get("player")) for a in acc}
     roster = [pt for pt in roster if norm(pt[0]) not in BLOCK_PLAYERS]   # 封鎖名單(已離隊/退出一級)不抓

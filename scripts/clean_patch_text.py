@@ -96,6 +96,8 @@ def transform_line(ln, name_map, name_keys, manual):
     if "售價：" in ln: return None  # 造型售價＝場外，刪
     if ln in manual: return manual[ln]
     out = ln
+    # Riot 圖示占位符（%i:ornnIcon% 指揮所｜…）：非文字直接剝掉——顯示層 cleanRiot 雖會擋，但資料就該乾淨（2026-07-28 體檢）
+    out = re.sub(r"%i:[A-Za-z0-9_]+%\s*", "", out)
     for rx, rep in PREFIX_RULES: out = rx.sub(rep, out)
     for rx, rep in APAD: out = rx.sub(rep, out)
     if re.search(r"[A-Za-z][’‘][A-Za-z ]", out): out = out.replace("’", "'").replace("‘", "'")  # 英文名內彎引號→直引號（Bop ‘n’ Block 等才能對上官方表）

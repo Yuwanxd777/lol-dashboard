@@ -6,6 +6,9 @@ set LOG=update_log.txt
 echo ==== %date% %time% ==== > "%LOG%"
 
 python scripts\fetch_promo.py >> "%LOG%" 2>&1
+rem stopgap match data for splits OE has not published yet (gol.gg); auto-disables once OE catches up
+rem must run BEFORE fetch_data.py: fetch_data merges csv_cache/fill_{year}.json while writing data_{year}.js
+python scripts\fetch_fill.py >> "%LOG%" 2>&1
 python scripts\fetch_data.py >> "%LOG%" 2>&1
 python scripts\fetch_patches.py >> "%LOG%" 2>&1
 python scripts\fetch_patches_en.py >> "%LOG%" 2>&1

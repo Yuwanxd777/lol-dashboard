@@ -39,7 +39,7 @@ def fix_html(s):
     s = re.sub(r"[ \t]{2,}", " ", s)
     return s, s != o
 
-def fix(s):
+def fix(s, en=False):
     o = s
     for a, b in PHRASE:
         s = s.replace(a, b)
@@ -56,25 +56,27 @@ def fix(s):
     s = re.sub(r"：{2,}", "：", s)                       # 標籤自帶冒號 → 「魔力消耗：：」
     s = re.sub(r"[（(]\s*[+＋×xX]?\s*[)）]", "", s)      # 係數被剝掉的空括號「（+ ）」
     s = re.sub(r"(\d)\s+%", r"\1%", s)                  # 「25 % 跑速」→「25%」
-    s = re.sub(r"%\s+(?=[（(])", "%", s)                # 「30% （+3% AP）」→「30%（+3% AP）」
+    if not en:                                          # 英文排版「50% (levels 1-18)」百分號後接空格＋括號是正確寫法 → 英文檔不套（2026-07-28）
+        s = re.sub(r"%\s+(?=[（(])", "%", s)            # 「30% （+3% AP）」→「30%（+3% AP）」
     s = re.sub(r"[，、]\s*(?=[，、。])", "", s)          # 連結被剝掉後的孤立標點
     s = re.sub(r"[：，、]\s*(?=。)", "", s)
     s = re.sub(r"，\s*(?:且|或|和)\s*。", "。", s)
-    s = re.sub(r"(：|:)\s*None\s*(?=⇒)", r"\1 — ", s)   # ARAM 平衡：原本沒有調整
-    s = re.sub(r"(⇒)\s*None\s*$", r"\1 —", s)
+    if not en:                                          # 英文檔的 None ⇒ +5% 是 Riot 原文，保留
+        s = re.sub(r"(：|:)\s*None\s*(?=⇒)", r"\1 — ", s)   # ARAM 平衡：原本沒有調整
+        s = re.sub(r"(⇒)\s*None\s*$", r"\1 —", s)
     s = re.sub(r"[ \t]{2,}", " ", s).strip()
     return s, s != o
 
-def walk(o, cnt, html=False):
+def walk(o, cnt, html=False, en=False):
     if isinstance(o, str):
-        s, ch = (fix_html(o) if html else fix(o))
+        s, ch = (fix_html(o) if html else fix(o, en))
         if ch:
             cnt[0] += 1
         return s
     if isinstance(o, dict):
-        return {k: walk(v, cnt, html) for k, v in o.items()}
+        return {k: walk(v, cnt, html, en) for k, v in o.items()}
     if isinstance(o, list):
-        return [walk(v, cnt, html) for v in o]
+        return [walk(v, cnt, html, en) for v in o]
     return o
 
 for f in FILES:
@@ -94,7 +96,7 @@ for f in FILES:
             obj = json.loads(body.strip().rstrip(";"))
         except Exception as e:
             print("%-16s JSON 解析失敗：%s" % (f, e)); ok = False; break
-        out.append(prefix + json.dumps(walk(obj, cnt, f in HTML_FILES), ensure_ascii=False, separators=(",", ":")) + ";")
+        out.append(prefix + json.dumps(walk(obj, cnt, f in HTML_FILES, f == "patches_en.js"), ensure_ascii=False, separators=(",", ":")) + ";")
     if not ok:
         continue
     if cnt[0] and not DRY:

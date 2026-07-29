@@ -14,7 +14,7 @@ EWCQ* 會再被合併卡吸收成 EWC 卡底下的資格賽分段。
 
 用法：python scripts\fetch_events_extra.py
 """
-import io, sys, os, re, json, time, urllib.request, urllib.parse
+import io, sys, os, re, json, time, html as _html, urllib.request, urllib.parse
 
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -24,10 +24,12 @@ API = "https://lol.fandom.com/api.php"
 UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/126 Safari/537.36"}
 
 # kind: "team"＝一般戰隊（取 team-template 全名）／"nation"＝國家隊（取 X (National Team)）
+# 鍵含「#」＝賽段名單補充（LPL#S3＝S3 開賽前的 wiki 陣容），前端賽事樹不會把它當獨立賽事卡
 EVENTS = {
     2026: {
         "EWCQ中國": {"page": "Esports World Cup 2026/Online Qualifiers/China", "kind": "team"},
         "ENC":      {"page": "Esports Nations Cup 2026",                       "kind": "nation"},
+        "LPL#S3":   {"page": "LPL/2026 Season/Split 3",                        "kind": "team"},
     },
 }
 
@@ -59,7 +61,7 @@ def teams_of(html, kind):
         names = [n for n in names if len(n) > 4 and not n.isupper()]
     seen, out = set(), []
     for n in names:
-        n = n.strip()
+        n = _html.unescape(n).strip()   # Anyone&#39;s Legend → Anyone's Legend（要與主資料全名對得上）
         if n and n not in seen:
             seen.add(n); out.append(n)
     return out
@@ -76,12 +78,12 @@ def rosters_of(html):
         mt = re.search(r'class="[^"]*catlink-teams[^"]*"[^>]*title="([^"]+)"', t)
         if not mt:
             continue
-        team = mt.group(1).strip()
+        team = _html.unescape(mt.group(1)).strip()
         players, seen = [], set()
         # 每個選手格：<span title="Jungler" …> 之後跟著 catlink-players（順序穩定）
         for m in re.finditer(r'<span[^>]*title="([^"]*)"[^>]*class="[^"]*sprite[^"]*"[^>]*>|class="[^"]*catlink-players[^"]*"[^>]*>([^<]+)</a>', t):
             if m.group(2):
-                nm = m.group(2).strip()
+                nm = _html.unescape(m.group(2)).strip()
                 if nm and nm not in seen:
                     seen.add(nm); players.append({"n": nm, "r": rosters_of._last_role})
             elif m.group(1) in ROLE_ZH:

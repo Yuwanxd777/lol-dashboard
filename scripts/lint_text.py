@@ -58,6 +58,9 @@ RULES = [
 # items.js 的說明本來就是 DDragon 的 HTML 原文（前端會渲染）→ 這兩類不算它的錯
 SKIP = {("items.js", "殘留 HTML 標籤"), ("items.js", "中英混雜（未翻完）"),
         ("skills.js", "殘留 HTML 標籤"),
+        # patches_en.js 是官方英文原文：英文排版「50% (levels 1-18)」百分號後接空格＋括號是正確寫法、
+        # 競技場增益原文就寫 None ⇒ +5%——中文排版規則不適用（2026-07-28 體檢：454+6 筆全是這種誤報）
+        ("patches_en.js", "% 與括號之間有空格"), ("patches_en.js", "undefined/NaN/None"),
         # 已知 Riot 資料缺口：野區夥伴（熾爪幼犬/馭風幼狐/重踏幼蠑螈）的 DDragon 描述裡數值是 @spell@ 佔位符，
         # Riot 自己沒填 → 清掉佔位符後會留下「傷害為%」「回復最多-生命」。不是我們的 bug。
         ("items.js", "孤立連字號（翻譯殘留）"), ("items.js", "數字缺失（% 前無數字）")}

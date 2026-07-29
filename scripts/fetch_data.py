@@ -565,6 +565,50 @@ def write_manifest():
     print(f"manifest：{years}")
 
 
+def merge_fill(year, table):
+    """併入 csv_cache/fill_{年}.json：OE 尚未收錄的賽段補充資料（scripts/fetch_fill.py 由 gol.gg 產生）。
+
+    使用者定案：**OE 有更新後就不再用補充資料**。這裡是第二道閘門——逐局比對，
+    同一局（聯賽+賽段+日期+兩隊+局號）只要 OE 有，補充版一律丟掉；整段被 OE 追上時補充資料自然全數落空。
+    （第一道在 fetch_fill.py：OE 局數追上就連抓都不抓。）
+    """
+    p = os.path.join(CACHE_DIR, f"fill_{year}.json")
+    if not os.path.exists(p):
+        return table
+    try:
+        with open(p, encoding="utf-8") as f:
+            D = json.load(f)
+    except Exception as e:
+        print(f"  ⚠ 補充資料讀取失敗（略過）：{e}")
+        return table
+    if not D:
+        return table
+    hdr = table[0]
+    iL, iS, iD = hdr.index("league"), hdr.index("split"), hdr.index("date")
+    iG, iP = hdr.index("game"), hdr.index("participantid")
+    iBT, iRT = hdr.index("blue_teamname"), hdr.index("red_teamname")
+    gkey = lambda r: (r[iL], str(r[iS]).split(" PO")[0], str(r[iD])[:10],
+                      frozenset((r[iBT] or "", r[iRT] or "")), str(r[iG]), str(r[iP]))
+    have = {gkey(r) for r in table[1:]}
+    added = 0
+    for key, v in D.items():
+        rows = remap_rows([v["header"]] + v["rows"], hdr)
+        keep = [r for r in rows if gkey(r) not in have]
+        if not keep:
+            print(f"  補充 {key}：OE 已全數收錄 → 不併入")
+            continue
+        table = table + keep
+        added += len(keep)
+        print(f"  補充 {key}：+{len(keep)} 列（{v.get('src','?')}；OE 已有的 {len(rows)-len(keep)} 列略過）")
+    if added:
+        d_lg, d_dt = hdr.index("league"), hdr.index("date")
+        d_gm, d_pid = hdr.index("game"), hdr.index("participantid")
+        fnum = lambda v: float(v) if str(v).replace(".", "", 1).replace("-", "", 1).isdigit() else 0
+        table = [hdr] + sorted(table[1:], key=lambda r: (LEAGUE_ORDER.get(r[d_lg], 99), str(r[d_dt]),
+                                                        fnum(r[d_gm]), fnum(r[d_pid])))
+    return table
+
+
 def main():
     args = [a for a in sys.argv[1:]]
     force_all = "--force" in args
@@ -589,6 +633,7 @@ def main():
         if prev and len(prev) > 1:
             table = [table[0]] + remap_rows(prev, table[0]) + table[1:]
             print(f"  併入去年世界賽後 {len(prev)-1} 列")
+        table = merge_fill(y, table)      # OE 未收錄賽段的補充資料（OE 有的一律以 OE 為準）
         write_year(y, table)
     write_manifest()
     print("完成")
