@@ -16,7 +16,7 @@ from datetime import datetime
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # 專案根目錄（本腳本在 scripts\ 內）
 # Oracle's Elixir 官方公開 Google Drive 資料夾（免認證）
 OE_FOLDER = "1gLSw0RLjBbtaNy0dgnGQDAZOHIgCe-HH"
-FIRST_YEAR = 2014
+FIRST_YEAR = 2013   # 2013 起（使用者定案 2026-07-31：一級聯賽補到 2013；OE 沒有 2013→走 wiki）
 NOW = datetime.now()
 DEFAULT_YEAR = NOW.year
 YEARS = list(range(FIRST_YEAR, DEFAULT_YEAR + 1))
@@ -572,6 +572,38 @@ def write_manifest():
     print(f"manifest：{years}")
 
 
+def merge_wiki(year, table):
+    """併入 csv_cache/wikifill_{年}.json（scripts/fetch_wiki_mh.py 由 Leaguepedia 文字版 Match History 產生）。
+    用途＝**OE 根本沒收錄的老賽季**（如 LPL 2016 春季以前、2013 全年）。
+    與 fill_/patch_ 相同鐵則：同一局（聯賽+賽段+日期+兩隊+局號）OE 有就丟掉補充版。"""
+    p = os.path.join(CACHE_DIR, f"wikifill_{year}.json")
+    if not os.path.exists(p):
+        return table
+    try:
+        with open(p, encoding="utf-8") as f:
+            D = json.load(f)
+    except Exception as e:
+        print(f"  ⚠ wiki 補充資料讀取失敗（略過）：{e}"); return table
+    if not D:
+        return table
+    hdr = table[0]
+    iL, iS, iD = hdr.index("league"), hdr.index("split"), hdr.index("date")
+    iG, iP = hdr.index("game"), hdr.index("participantid")
+    iBT, iRT = hdr.index("blue_teamname"), hdr.index("red_teamname")
+    gkey = lambda r: (r[iL], str(r[iS]).split(" PO")[0], str(r[iD])[:10],
+                      frozenset((r[iBT] or "", r[iRT] or "")), str(r[iG]), str(r[iP]))
+    have = {gkey(r) for r in table[1:]}
+    for key, v in D.items():
+        rows = remap_rows([v["header"]] + v["rows"], hdr)
+        keep = [r for r in rows if gkey(r) not in have]
+        if not keep:
+            print(f"  wiki {key}：OE 已全數收錄 → 不併入"); continue
+        table = table + keep
+        have |= {gkey(r) for r in keep}
+        print(f"  wiki {key}：+{len(keep)} 列（{v.get('src','?')}；OE 已有的 {len(rows)-len(keep)} 列略過）")
+    return table
+
+
 def merge_patch(year, table):
     """併入 csv_cache/patch_{年}.json：OE 有這局、但某些欄位是空的（如 07-28 KeSPA BRO vs DNS 的 BP）
     → 由 scripts/fetch_bp_fill.py 從 gol.gg 補。**只填空欄位**，OE 已有值的一律不動（以 OE 為準）。
@@ -667,7 +699,22 @@ def main():
         try:
             table = process(download(y), y)
         except urllib.error.HTTPError as e:
-            print(f"  跳過（{e.code}，該年份可能無資料）"); continue
+            # OE 沒有該年份（2013 及更早）→ 若有 wiki 補充資料就用它自己建表
+            wp = os.path.join(CACHE_DIR, f"wikifill_{y}.json")
+            if os.path.exists(wp):
+                try:
+                    with open(wp, encoding="utf-8") as f:
+                        WD = json.load(f)
+                    ks = list(WD.keys())
+                    if ks:
+                        table = [WD[ks[0]]["header"]]
+                        print(f"  OE 無此年份（{e.code}）→ 改用 wiki 補充資料建表")
+                    else:
+                        raise ValueError("wiki 檔是空的")
+                except Exception as e2:
+                    print(f"  跳過（{e.code}；wiki 亦不可用：{e2}）"); continue
+            else:
+                print(f"  跳過（{e.code}，該年份可能無資料）"); continue
         except Exception as e:
             print(f"  失敗：{e}"); continue
         # 世界賽後的比賽切出去 → 存給隔年；並把去年切來的併進今年
@@ -678,6 +725,7 @@ def main():
             table = [table[0]] + remap_rows(prev, table[0]) + table[1:]
             print(f"  併入去年世界賽後 {len(prev)-1} 列")
         table = merge_fill(y, table)
+        table = merge_wiki(y, table)
         table = merge_patch(y, table)      # OE 未收錄賽段的補充資料（OE 有的一律以 OE 為準）
         write_year(y, table)
     write_manifest()

@@ -1,0 +1,235 @@
+# -*- coding: utf-8 -*-
+"""Leaguepedia 文字版 Match History → OE CSV → fetch_data.process() → wikifill_{年}.json
+
+**為什麼用這條路**（2026-07-31 使用者提供關鍵網址）：
+  Cargo API（api.php?action=cargoquery）對匿名存取限流極兇——連打幾次就 ratelimited，
+  退避到 480 秒仍被擋，等於不可用。但 `Special:RunQuery/MatchHistoryGame` 的
+  **textonly** 版是一般頁面請求，一次就能拿整個賽事（limit 999），完全不吃 Cargo 限流。
+  注意：要先造訪表單頁拿 cookie，否則第二次請求開始會 302→403。
+
+文字表欄位（實測 Champions 2013 Winter 113 局）：
+  Date, P(atch), Blue, Red, Winner, Bans藍, Bans紅, Picks藍, Picks紅, 藍名單, 紅名單, Len,
+  BG/BK/BT/BD/BB/BRH/BVG（藍方 金錢/擊殺/塔/龍/男爵/先鋒/幼蟲）, RG/RK/…（紅方）, SB, VOD
+  **Picks 與名單同為路線序**（實測 NaJin Sword：MakNooN=Renekton…）→ 可直接配對成逐選手列。
+  wiki 沒有的（逐選手 K/D/A、金錢、CS、傷害）一律留空，與 OE 對某些賽區的現況一致。
+
+用法：
+  python scripts\\fetch_wiki_mh.py --tour "Champions 2013 Winter" --league LCK --split "Winter" --year 2013
+  python scripts\\fetch_wiki_mh.py --probe "LPL 2013 Spring"      # 只看抓到幾局
+"""
+import argparse, csv, html, io, json, os, re, sys, time, urllib.parse, urllib.request, http.cookiejar
+
+if (getattr(sys.stdout, "encoding", "") or "").lower().replace("-", "") != "utf8":
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
+HERE = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.dirname(HERE)
+# 快取目錄要跟 fetch_fill 判定一致——**別在 scripts/ 下建 csv_cache**：
+# fetch_fill 看到 scripts/csv_cache 存在就會用它，年份 CSV（在根目錄）就找不到，oe_header() 會炸
+CACHE = os.path.join(ROOT, "csv_cache")
+if not os.path.isdir(CACHE) and os.path.isdir(os.path.join(HERE, "csv_cache")):
+    CACHE = os.path.join(HERE, "csv_cache")
+HTML_DIR = os.path.join(CACHE, "wikitxt")
+sys.path.insert(0, HERE)
+
+BASE = "https://lol.fandom.com/wiki/Special:RunQuery/MatchHistoryGame"
+UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                    "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+      "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+      "Accept-Language": "en-US,en;q=0.9", "Referer": BASE, "Upgrade-Insecure-Requests": "1"}
+GAP = 8.0            # 頁面請求間隔（一般頁面，不吃 Cargo 限流；仍禮貌節流）
+_OP = None
+
+
+def opener():
+    """先造訪表單頁拿 cookie——不帶 cookie 的話第二次請求開始會 302→403"""
+    global _OP
+    if _OP is None:
+        cj = http.cookiejar.CookieJar()
+        _OP = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(cj))
+        try:
+            _OP.open(urllib.request.Request(BASE, headers=UA), timeout=60).read()
+            time.sleep(2)
+        except Exception as e:
+            print(f"  ⚠ 表單頁取 cookie 失敗（仍試著繼續）：{type(e).__name__}")
+    return _OP
+
+
+def fetch(tour, force=False):
+    os.makedirs(HTML_DIR, exist_ok=True)
+    fn = re.sub(r"[^A-Za-z0-9]+", "_", tour).strip("_").lower() + ".html"
+    p = os.path.join(HTML_DIR, fn)
+    if os.path.exists(p) and os.path.getsize(p) > 5000 and not force:
+        return open(p, encoding="utf-8").read()
+    q = {"MHG[preload]": "Tournament", "MHG[tournament]": tour, "MHG[limit]": "999",
+         "MHG[textonly][is_checkbox]": "true", "MHG[textonly][value]": "", "_run": "",
+         "pfRunQueryFormName": "MatchHistoryGame", "wpRunQuery": "", "pf_free_text": ""}
+    url = BASE + "?" + urllib.parse.urlencode(q, safe="[]")
+    for a in range(3):
+        try:
+            b = opener().open(urllib.request.Request(url, headers=UA), timeout=150).read().decode("utf-8", "replace")
+            open(p, "w", encoding="utf-8").write(b)
+            time.sleep(GAP)
+            return b
+        except Exception as e:
+            print(f"    抓取失敗（{a+1}/3）：{type(e).__name__} {str(e)[:60]}")
+            time.sleep(20 * (a + 1))
+    return ""
+
+
+def cells(row):
+    return [html.unescape(re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", c))).strip()
+            for c in re.findall(r"<t[hd][^>]*>(.*?)</t[hd]>", row, re.S)]
+
+
+def parse(hml):
+    """→ (欄名, [每局 dict])"""
+    tabs = re.findall(r"<table[^>]*>.*?</table>", hml, re.S)
+    if not tabs:
+        return [], []
+    big = max(tabs, key=lambda t: len(re.findall(r"<tr", t)))
+    rows = re.findall(r"<tr[^>]*>(.*?)</tr>", big, re.S)
+    hdr = None
+    out = []
+    for r in rows:
+        c = cells(r)
+        if not c or all(not x for x in c):
+            continue
+        if hdr is None:
+            if c[0].strip().lower() == "date":
+                hdr = c
+            continue
+        if len(c) < len(hdr) - 4:
+            continue
+        d = {}
+        for i, k in enumerate(hdr):
+            k2 = k.strip()
+            if k2 in d:                       # Bans/Picks 各出現兩次（藍、紅）
+                k2 += "2"
+            d[k2] = c[i] if i < len(c) else ""
+        if d.get("Date"):
+            out.append(d)
+    return hdr or [], out
+
+
+SPL = lambda s: [x.strip() for x in str(s or "").split(",") if x.strip()]
+
+
+def to_csv(games, cfg):
+    import fetch_fill as _ff
+    hdr = _ff.oe_header()
+    ix = {h: i for i, h in enumerate(hdr)}
+    teams_map, players_map, champs_map = _ff.oe_names(cfg["year"], cfg["league"])
+    nk = lambda s: re.sub(r"[^0-9a-z]", "", str(s or "").lower())
+    align = lambda s, m: m.get(nk(s), s)
+    POS5 = ["top", "jng", "mid", "bot", "sup"]
+    rows = []
+    day = {}
+    for g in games:
+        dt = g.get("Date", "")[:19]
+        d10 = dt[:10]
+        n = day.get(d10, 0) + 1
+        day[d10] = n
+        gid = f"wiki_{cfg['key']}_{d10}_{n}"
+        bt, rt = align(g.get("Blue"), teams_map), align(g.get("Red"), teams_map)
+        win = g.get("Winner", "")
+        bwin = nk(win) == nk(g.get("Blue"))
+        ln = g.get("Len", "")
+        secs = ""
+        m = re.match(r"^(\d+):(\d+)$", ln.strip())
+        if m:
+            secs = str(int(m.group(1)) * 60 + int(m.group(2)))
+        bans = {"blue": SPL(g.get("Bans")), "red": SPL(g.get("Bans2"))}
+        picks = {"blue": SPL(g.get("Picks")), "red": SPL(g.get("Picks2"))}
+        roster = {"blue": SPL(g.get("Blue Roster")), "red": SPL(g.get("Red Roster"))}
+        num = lambda k: re.sub(r"[^0-9.]", "", str(g.get(k, "") or ""))
+        obj = {"blue": {"g": num("BG"), "k": num("BK"), "t": num("BT"), "d": num("BD"),
+                        "b": num("BB"), "h": num("BRH"), "v": num("BVG")},
+               "red": {"g": num("RG"), "k": num("RK"), "t": num("RT"), "d": num("RD"),
+                       "b": num("RB"), "h": num("RRH"), "v": num("RVG")}}
+
+        def base(side, pos, pid):
+            r = [""] * len(hdr)
+            put = lambda k, v: r.__setitem__(ix[k], "" if v is None else str(v)) if k in ix else None
+            put("gameid", gid); put("datacompleteness", "partial")
+            put("league", cfg["league"]); put("year", cfg["year"]); put("split", cfg["split"])
+            put("playoffs", cfg.get("playoffs", 0)); put("date", dt)
+            put("game", 1); put("patch", g.get("P", "")); put("participantid", pid)
+            put("side", side.capitalize()); put("position", pos)
+            put("teamname", bt if side == "blue" else rt)
+            put("result", "1" if (bwin if side == "blue" else not bwin) else "0")
+            put("gamelength", secs)
+            put("teamkills", obj[side]["k"]); put("teamdeaths", obj["red" if side == "blue" else "blue"]["k"])
+            return r, put
+
+        for side in ("blue", "red"):
+            for i in range(5):
+                pid = i + 1 if side == "blue" else i + 6
+                r, put = base(side, POS5[i], pid)
+                nm = roster[side][i] if i < len(roster[side]) else ""
+                nm = re.sub(r"\s*\(.*?\)$", "", nm).strip()      # 「Woong (Jang Gun-woong)」→ Woong
+                put("playername", align(nm, players_map))
+                put("champion", align(picks[side][i] if i < len(picks[side]) else "", champs_map))
+                rows.append(r)
+            r, put = base(side, "team", 100 if side == "blue" else 200)
+            for i2, ch in enumerate(bans[side][:5]):
+                put(f"ban{i2+1}", align(ch, champs_map))
+            for i2, ch in enumerate(picks[side][:5]):
+                put(f"pick{i2+1}", align(ch, champs_map))
+            o = obj[side]
+            put("totalgold", o["g"].replace(".", "") if o["g"] else "")
+            put("towers", o["t"]); put("dragons", o["d"]); put("barons", o["b"])
+            put("heralds", o["h"]); put("void_grubs", o["v"])
+            rows.append(r)
+    return hdr, rows
+
+
+def build(cfg, force=False):
+    hml = fetch(cfg["tour"], force=force)
+    if not hml:
+        return None
+    hdr0, games = parse(hml)
+    print(f"  {cfg['tour']}：解析到 {len(games)} 局")
+    if not games:
+        return None
+    hdr, rows = to_csv(games, cfg)
+    buf = io.StringIO()
+    w = csv.writer(buf, lineterminator="\n")
+    w.writerow(hdr); w.writerows(rows)
+    import fetch_data
+    table = fetch_data.process(buf.getvalue(), cfg["year"])
+    print(f"    process() → {len(table)-1} 列")
+    p = os.path.join(CACHE, f"wikifill_{cfg['year']}.json")
+    D = {}
+    if os.path.exists(p):
+        try:
+            D = json.load(open(p, encoding="utf-8"))
+        except Exception:
+            D = {}
+    D[cfg["key"]] = {"header": table[0], "rows": table[1:], "games": len(games),
+                     "src": "leaguepedia MatchHistoryGame(textonly)", "tour": cfg["tour"],
+                     "league": cfg["league"], "split": cfg["split"]}
+    json.dump(D, open(p, "w", encoding="utf-8"), ensure_ascii=False)
+    print(f"    → {p}（{cfg['key']}：{len(games)} 局 / {len(table)-1} 列）")
+    return table
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--tour"); ap.add_argument("--league"); ap.add_argument("--split")
+    ap.add_argument("--year", type=int); ap.add_argument("--playoffs", type=int, default=0)
+    ap.add_argument("--key"); ap.add_argument("--probe"); ap.add_argument("--force", action="store_true")
+    A = ap.parse_args()
+    if A.probe:
+        h = fetch(A.probe, force=A.force)
+        _, gs = parse(h)
+        print(f"{A.probe}：{len(gs)} 局")
+        for g in gs[:3]:
+            print("   ", g.get("Date"), g.get("Blue"), "vs", g.get("Red"), "｜", g.get("Picks", "")[:50])
+        return
+    cfg = {"tour": A.tour, "league": A.league, "split": A.split, "year": A.year,
+           "playoffs": A.playoffs, "key": A.key or re.sub(r"[^A-Za-z0-9]+", "_", A.tour)}
+    build(cfg, force=A.force)
+
+
+if __name__ == "__main__":
+    main()

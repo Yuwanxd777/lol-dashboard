@@ -59,11 +59,15 @@ TOUR_CANDS = {
     "KeSPA": ["KeSPA Cup %s"],
     "LCK": ["LCK %s Rounds 3-4", "LCK %s Rounds 1-2", "LCK Cup %s", "LCK %s Summer", "LCK %s Spring"],
     "LPL": ["LPL %s Split 3", "LPL %s Split 2", "LPL %s Split 1", "LPL %s Summer", "LPL %s Spring"],
-    "LEC": ["LEC %s Summer", "LEC %s Spring", "LEC %s Winter"],
-    "LCS": ["LCS %s Summer", "LCS %s Spring"],
+    # 賽事名以使用者提供的實際網址為準（2026-07-31）：LEC 是「Spring Season」不是「Spring」、
+    # LCP 是「Split N」不是「Season N」。找不到就往下試，全落空才記進報告。
+    "LEC": ["LEC %s Summer Season", "LEC %s Spring Season", "LEC %s Winter Season",
+            "LEC %s Summer", "LEC %s Spring"],
+    "LCS": ["LCS %s Summer Season", "LCS %s Spring Season", "LCS %s Summer", "LCS %s Spring"],
     "LTA N": ["LTA North %s Split 3", "LTA North %s Split 2", "LTA North %s Split 1"],
     "LTA S": ["LTA South %s Split 3", "LTA South %s Split 2", "LTA South %s Split 1"],
-    "LCP": ["LCP %s Season 3", "LCP %s Season 2", "LCP %s Season 1"],
+    "LCP": ["LCP %s Split 3", "LCP %s Split 2", "LCP %s Split 1",
+            "LCP %s Season 3", "LCP %s Season 2", "LCP %s Season 1"],
     "MSI": ["MSI %s"], "WLDs": ["World Championship %s", "Worlds %s"], "EWC": ["EWC %s", "Esports World Cup %s"],
 }
 
