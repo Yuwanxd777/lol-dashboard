@@ -16,6 +16,12 @@
 圖片雜湊會下載每年的小圖（約 6000 張、~30MB），第一次跑約 5-10 分鐘，之後永久快取。
 """
 import json, os, sys, time, hashlib, urllib.request
+import re
+# 經典服（LoL Classic，DDragon 內部代號 Jade_*）不是我們要的資料（2026-07-31 使用者回報：
+# 英雄Tier 出現經典服頭像）——它的 zh/en 名稱與現行英雄**完全相同**，混進來會造成同名重複與圖片誤植。
+# 日後若 Riot 再開別的分支服，一樣在這裡擋掉。
+CLASSIC_RE = re.compile(r"^(Jade|Classic|Legacy)_", re.I)   # 分支服前綴：不進資料
+
 from concurrent.futures import ThreadPoolExecutor
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -144,6 +150,8 @@ def main():
             print(f"  {y} rune 失敗：{e}")
         try:
             zc, ec = gj(f"{CDN}/{v}/data/zh_TW/champion.json")["data"], gj(f"{CDN}/{v}/data/en_US/champion.json")["data"]
+            zc = {k: v2 for k, v2 in zc.items() if not CLASSIC_RE.match(k)}   # 濾掉經典服（見檔頭 CLASSIC_RE）
+            ec = {k: v2 for k, v2 in ec.items() if not CLASSIC_RE.match(k)}
             for cid, d in zc.items():
                 ent["champ"][cid] = {"zh": d["name"], "en": (ec.get(cid) or {}).get("name", cid),
                                      "img": d["image"]["full"]}

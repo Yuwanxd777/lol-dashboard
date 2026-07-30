@@ -400,9 +400,16 @@ def process(text, year=DEFAULT_YEAR):
         sk = mk + (side,)
         picks = [r[iPick1+k] if iPick1>=0 else "" for k in range(5)]
         pick_map[sk] = picks
-        bans = [b for b in (r[iBan1+k] if iBan1>=0 else "" for k in range(5)) if b]
+        # **空 BAN 要保留位置**（2026-07-31 使用者回報 JDG 1-2 WE 第三局）：少見但確實會發生
+        # （忘記按或戰術性空 BAN）。以前把空的濾掉 → 該手之後的 BAN 全部往前擠，順位就錯了；
+        # 合併版 banlist 少一格更會讓前端「對半切」把少的那手記到對面隊上。
+        # 分邊版保留空格（尾端的空 BAN 不留，免得平白多出空位）；合併版仍只收有值的（統計用）。
+        bans_raw = [(r[iBan1+k] if iBan1 >= 0 else "") or "" for k in range(5)]
+        while bans_raw and not bans_raw[-1]:
+            bans_raw.pop()
+        bans = [b for b in bans_raw if b]
         ban_acc.setdefault(mk, []).extend(bans)
-        ban_side.setdefault(mk, {})[side] = bans
+        ban_side.setdefault(mk, {})[side] = bans_raw
         pick_acc.setdefault(mk, []).extend(p for p in picks if p)
     ban_str  = {k: "|"+"|".join(v)+"|" for k,v in ban_acc.items()}
     banb_str = {k: "|"+"|".join(d.get("blue") or [])+"|" for k,d in ban_side.items()}
@@ -565,6 +572,43 @@ def write_manifest():
     print(f"manifest：{years}")
 
 
+def merge_patch(year, table):
+    """併入 csv_cache/patch_{年}.json：OE 有這局、但某些欄位是空的（如 07-28 KeSPA BRO vs DNS 的 BP）
+    → 由 scripts/fetch_bp_fill.py 從 gol.gg 補。**只填空欄位**，OE 已有值的一律不動（以 OE 為準）。
+    OE 之後自己補上 → 該欄不再是空的，修補自然失效。"""
+    p = os.path.join(CACHE_DIR, f"patch_{year}.json")
+    if not os.path.exists(p):
+        return table
+    try:
+        with open(p, encoding="utf-8") as f:
+            P = json.load(f)
+    except Exception as e:
+        print(f"  ⚠ 修補資料讀取失敗（略過）：{e}")
+        return table
+    if not P:
+        return table
+    hdr = table[0]
+    iL, iD = hdr.index("league"), hdr.index("date")
+    iG = hdr.index("game")
+    iBT, iRT = hdr.index("blue_teamname"), hdr.index("red_teamname")
+    key = lambda r: "|".join([str(r[iL]), str(r[iD])[:10], str(r[iBT]), str(r[iRT]), str(r[iG])])
+    used, filled = set(), 0
+    for r in table[1:]:
+        pv = P.get(key(r))
+        if not pv:
+            continue
+        for col, val in pv.items():
+            if col not in hdr or not val:
+                continue
+            j = hdr.index(col)
+            if str(r[j] or "").strip(" |") == "":     # 只填空的
+                r[j] = val; filled += 1
+        used.add(key(r))
+    if filled:
+        print(f"  修補 {len(used)} 局／{filled} 欄（gol.gg；只填 OE 空著的欄位）")
+    return table
+
+
 def merge_fill(year, table):
     """併入 csv_cache/fill_{年}.json：OE 尚未收錄的賽段補充資料（scripts/fetch_fill.py 由 gol.gg 產生）。
 
@@ -633,7 +677,8 @@ def main():
         if prev and len(prev) > 1:
             table = [table[0]] + remap_rows(prev, table[0]) + table[1:]
             print(f"  併入去年世界賽後 {len(prev)-1} 列")
-        table = merge_fill(y, table)      # OE 未收錄賽段的補充資料（OE 有的一律以 OE 為準）
+        table = merge_fill(y, table)
+        table = merge_patch(y, table)      # OE 未收錄賽段的補充資料（OE 有的一律以 OE 為準）
         write_year(y, table)
     write_manifest()
     print("完成")

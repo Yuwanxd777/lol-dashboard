@@ -5,6 +5,10 @@
 DDragon 提供 id 對照（apiname/英文名 → DDragon id）。抓不到就略過。
 """
 import json, os, re, urllib.request
+# 經典服（LoL Classic，DDragon 內部代號 Jade_*）不是我們要的資料（2026-07-31 使用者回報：
+# 英雄Tier 出現經典服頭像）——它的 zh/en 名稱與現行英雄**完全相同**，混進來會造成同名重複與圖片誤植。
+# 日後若 Riot 再開別的分支服，一樣在這裡擋掉。
+CLASSIC_RE = re.compile(r"^(Jade|Classic|Legacy)_", re.I)   # 分支服前綴：不進資料
 
 DDRAGON = "https://ddragon.leagueoflegends.com"
 RAW = "https://wiki.leagueoflegends.com/en-us/Module:ChampionData/data?action=raw"
@@ -17,7 +21,8 @@ def jget(url, timeout=30):
 
 def main():
     ver = jget(f"{DDRAGON}/api/versions.json")[0]
-    champs = jget(f"{DDRAGON}/cdn/{ver}/data/en_US/champion.json")["data"]
+    champs = {k: v for k, v in jget(f"{DDRAGON}/cdn/{ver}/data/en_US/champion.json")["data"].items()
+              if not CLASSIC_RE.match(k)}   # 濾掉經典服（見檔頭 CLASSIC_RE）
     # DDragon: name(英文) -> id ；用來把 wiki 的英雄名對回 DDragon id
     name2id = {c["name"]: cid for cid, c in champs.items()}
     ids = set(champs.keys())

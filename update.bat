@@ -10,6 +10,8 @@ rem stopgap match data for splits OE has not published yet (gol.gg); auto-disabl
 rem must run BEFORE fetch_data.py: fetch_data merges csv_cache/fill_{year}.json while writing data_{year}.js
 python scripts\fetch_fill.py >> "%LOG%" 2>&1
 python scripts\fetch_data.py >> "%LOG%" 2>&1
+rem career aggregate for the roster page (reads every data/data_*.js; must run AFTER fetch_data)
+python scripts\build_career.py >> "%LOG%" 2>&1
 python scripts\fetch_patches.py >> "%LOG%" 2>&1
 python scripts\fetch_patches_en.py >> "%LOG%" 2>&1
 rem patch-text cleanup (drop skin-sale lines / translate prefixes / AP AD / EN-name mapping; idempotent)
@@ -52,5 +54,7 @@ rem rank ladder auto-update: uses the locally saved key from the dashboard "add 
 python scripts\fetch_soloq_auto.py >> "%LOG%" 2>&1
 rem Text corpus lint: reports leftovers/broken sentences into the log (never blocks the update)
 python scripts\lint_text.py --quiet >> "%LOG%" 2>&1
+rem stamp data.js updated = real pipeline finish time (fetch_data writes its own start time = 10:00)
+python scripts\stamp_updated.py >> "%LOG%" 2>&1
 
 type "%LOG%"

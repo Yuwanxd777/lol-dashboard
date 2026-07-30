@@ -13,6 +13,10 @@
 """
 import json, re, sys, time, urllib.request
 from pathlib import Path
+# 經典服（LoL Classic，DDragon 內部代號 Jade_*）不是我們要的資料（2026-07-31 使用者回報：
+# 英雄Tier 出現經典服頭像）——它的 zh/en 名稱與現行英雄**完全相同**，混進來會造成同名重複與圖片誤植。
+# 日後若 Riot 再開別的分支服，一樣在這裡擋掉。
+CLASSIC_RE = re.compile(r"^(Jade|Classic|Legacy)_", re.I)   # 分支服前綴：不進資料
 
 ROOT   = Path(__file__).resolve().parent.parent  # 專案根目錄（本腳本在 scripts\ 內）
 CACHE  = ROOT / "csv_cache/skills_cache.json"
@@ -470,7 +474,8 @@ def build_champ(cid, ddv, st=None):
 
 def main():
     ddv = get_json(f"{DD_API}/api/versions.json")[0]
-    champs = sorted(get_json(f"{DD_API}/cdn/{ddv}/data/en_US/champion.json")["data"].keys())
+    champs = sorted(k for k in get_json(f"{DD_API}/cdn/{ddv}/data/en_US/champion.json")["data"]
+                    if not CLASSIC_RE.match(k))   # 濾掉經典服（見檔頭 CLASSIC_RE）
     # zh_TW 字串表（被動模板用），與 fetch_items 共用快取
     st = None
     try:

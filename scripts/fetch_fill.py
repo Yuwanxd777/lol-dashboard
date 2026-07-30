@@ -42,6 +42,11 @@ GAP = 2.0     # 每次請求間隔（禮貌節流；gol.gg 無硬限流）
 FILL = [
     {"key": "LPL_2026_S3", "tournament": "LPL 2026 Split 3",
      "league": "LPL", "split": "Split 3", "year": 2026, "playoffs": 0},
+    # LCK 也開始缺（2026-07-31 使用者回報）：主資料停在 S2 PO 6/14，Rounds 3-4（＝儀表板 S3）一局都沒有。
+    # gol.gg 的賽事名是「LCK 2026 Rounds 3-4」（實測 10 個系列賽、已完成 4，最新 7/30）；
+    # split 直接寫 S3——`sn` 只會把「Split N」轉成「SN」，本來就是 S3 的照用。
+    {"key": "LCK_2026_S3", "tournament": "LCK 2026 Rounds 3-4",
+     "league": "LCK", "split": "S3", "year": 2026, "playoffs": 0},
 ]
 
 POS5 = ["top", "jng", "mid", "bot", "sup"]
