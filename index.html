@@ -82,7 +82,12 @@
   .fsel.on{border-color:var(--acc)}
   #fselPop{position:fixed;z-index:9999;display:grid;grid-auto-flow:column;gap:2px 10px;padding:7px 8px;
     background:#141a28;border:1px solid var(--acc);border-radius:11px;box-shadow:0 10px 34px rgba(0,0,0,.55);font-size:17px}
-  #fselPop .fselIt{padding:5px 11px;border-radius:7px;cursor:pointer;white-space:nowrap;line-height:1.25}
+  #fselPop .fselHasSub{position:relative;display:flex;align-items:center;gap:6px}
+  .fselAr2{margin-left:auto;color:var(--tx2);font-size:11px}
+  .fselSub{display:none;position:absolute;left:100%;top:-4px;background:var(--bg2,#151b28);border:1px solid #33405c;border-radius:8px;padding:4px;width:max-content;min-width:0;z-index:5;box-shadow:0 6px 18px rgba(0,0,0,.4)}
+  .fselSub .fselIt{white-space:nowrap}
+  .fselHasSub:hover>.fselSub{display:block}
+  .fselIt{padding:5px 11px;border-radius:7px;cursor:pointer;white-space:nowrap;line-height:1.25}
   #fselPop .fselIt:hover{background:#1e2942;color:var(--acc)}
   #fselPop .fselIt.on{background:linear-gradient(135deg,var(--acc),var(--acc2));color:#fff;font-weight:bold}
   select,input,textarea,button{background:var(--card2);color:var(--tx);border:1px solid var(--line);
@@ -545,7 +550,13 @@
   #tmGrid tbody td{height:48px} /* 列高統一（border-box 含內距）：賽區籤列與縮寫輸入列同高 */
   #tmGrid tbody .lg{font-size:15.5px} /* 賽區籤與戰隊名等大 */
   .heroname .lg{font-size:inherit} /* 數據表名稱旁的聯賽籤與名稱等大 */
-  .evtPromoDiv{flex-basis:100%;height:0;border-top:1px solid rgba(245,185,66,.5);margin:7px 0 6px} /* 升降分界線＝金實線（分組線=灰虛線，兩種樣式） */
+  .lgSplitBlk{width:100%;display:flex;align-items:flex-start;gap:12px;margin-top:7px;padding-top:7px;border-top:1px dashed rgba(255,255,255,.14)}
+  .lgSplitHd{flex:0 0 auto;min-width:36px;font-weight:800;color:var(--tx2);padding-top:2px}
+  .lgSplitGrps{display:flex;flex-wrap:wrap;gap:6px 22px;flex:1;min-width:0}
+  .lgGrpCol{display:flex;flex-direction:column;gap:4px;min-width:0}
+  .lgGrpCol>i{font-style:normal;font-weight:700;font-size:12.5px}
+  .lgGrpChips{display:flex;flex-wrap:wrap;gap:6px}
+    .evtPromoDiv{flex-basis:100%;height:0;border-top:1px solid rgba(245,185,66,.5);margin:7px 0 6px} /* 升降分界線＝金實線（分組線=灰虛線，兩種樣式） */
   .evtPromoCols{flex-basis:100%;display:flex;gap:12px;align-items:stretch}
   .evtPromoGrp{flex:1 1 0;display:flex;flex-wrap:wrap;gap:4px;align-content:flex-start;min-width:0}
   .evtPromoLb{flex-basis:100%;font-size:13.5px;color:var(--tx2)}
@@ -806,7 +817,7 @@ window.WIKI_PATCHES=window.WIKI_PATCHES||{}; window.WIKI_EXTRA=window.WIKI_EXTRA
 <script src="obj_stats.js" onerror="window.OBJ_STATS=null"></script>
 <script src="rune_icons.js" onerror="window.RUNE_ICONS=null"></script>
 <script src="league_struct.js" onerror="window.LEAGUE_STRUCT=null"></script>
-<script src="lpl_groups.js" onerror="window.LPL_GROUPS=null"></script><!-- LPL 常規賽分組(scripts/fetch_lpl_groups.py，成員=同組互打連通分量、組名=Wiki AutoStandings) -->
+<script src="lpl_groups.js" onerror="window.LPL_GROUPS=null"></script><script src="lck_groups.js" onerror="window.LCK_GROUPS=null"></script><script src="patch_dir_fix.js" onerror="window.PATCH_DIR_FIX=null"></script><!-- 判向覆核判例(逐行) --><!-- LCK Rounds 分組(scripts/fetch_lck_groups.py，成員+組名皆取自 Wiki Participants) --><!-- LPL 常規賽分組(scripts/fetch_lpl_groups.py，成員=同組互打連通分量、組名=Wiki AutoStandings) -->
 <script src="events_extra.js" onerror="window.EVENTS_EXTRA=null"></script><!-- OE 沒收錄但確實存在的賽事名單(scripts/fetch_events_extra.py：EWC 中國區資格賽、ENC 電競國家盃) -->
 
 <script src="promo_abbr.js" onerror="window.PROMO_ABBR={}"></script>
@@ -1392,7 +1403,7 @@ const normTerm=s=>String(s||"")
   .replace(/魔力成長/g,"成長魔力")
   .replace(/生命值/g,"生命")
   .replace(/\+/g,()=>(typeof LANG!=="undefined"&&LANG==="en")?"+":"＋"); // 中文語境加號一律全形＋（2026-07-16 判例；英文維持半形）
-const txtClean=s=>normTerm(String(s||"")
+const txtClean=s=>normTerm(String(s||"").replace(/([一-鿿])(-(?=[\d.]))/g,"$1 $2")
   .replace(/@[A-Za-z][\w.]*@/g,"") // 未解析的變數佔位符(如 @HealAmount@)→移除，不顯示英文殘留
   .replace(/\[([\d.][^\]\n]*?)\]/g," $1 ") // 數字範圍的半形中括號 [40-150] → 40-150(加空格)
   .replace(/[ \t]*\/[ \t]*/g,"／") // RQ1 / RE1 → RQ1／RE1(斜線全形、去左右空白)
@@ -2256,14 +2267,16 @@ const rankShow=p=>{ const n=String(p||"").trim().toLowerCase();
 // LPL 常規賽分組（lpl_groups.js；成員=同組互打連通分量、組名=Wiki）。季後賽不分組＝資料只含常規賽 split。查隊縮寫(teamFix 後)→組名
 function lplGroupOf(teamAb,year){ const Y=(window.LPL_GROUPS||{})[String(year)]; if(!Y)return null;
   for(const sp of Object.keys(Y).sort().reverse()){ const gs=Y[sp]; for(const g in gs){ if(gs[g].indexOf(teamAb)>=0)return g; } } return null; }
-function lplSplitGroupOf(teamAb,year,split){ const gs=((window.LPL_GROUPS||{})[String(year)]||{})[split]; if(!gs)return null; for(const g in gs){ if(gs[g].indexOf(teamAb)>=0)return g; } return null; }
+const _grpStore=lg=>lg==="LCK"?(window.LCK_GROUPS||{}):(window.LPL_GROUPS||{}); // 分組資料庫：LPL/LCK 同構
+function lplSplitGroupOf(teamAb,year,split,lg){ const gs=(_grpStore(lg)[String(year)]||{})[split]; if(!gs)return null; for(const g in gs){ if(gs[g].indexOf(teamAb)>=0)return g; } return null; }
 function lplGroupsLatest(year){ const sp=lplSplitsOf(year).slice(-1)[0]; return sp?lplGroupNamesOfSplit(year,sp):[]; }
-function lplSplitsOf(year){ const Y=(window.LPL_GROUPS||{})[String(year)]; return Y?Object.keys(Y).sort():[]; } // 該年有分組的賽段(S1/S2/S3，升冪)
-function lplGroupNamesOfSplit(year,split){ const gs=((window.LPL_GROUPS||{})[String(year)]||{})[split]; return gs?Object.keys(gs).sort((a,b)=>gs[b].length-gs[a].length||a.localeCompare(b)):[]; } // 某賽段的組名(依隊數多→少)
-function lplSelSplit(year,pref){ const s=lplSplitsOf(year); return (pref&&s.includes(pref))?pref:(s.slice(-1)[0]||""); } // 選定賽段(pref 有效則用，否則最新)
-const LPL_GRP_ZH={Ascend:"登峰",Perseverance:"堅毅",Nirvana:"涅槃"}; // LPL 分組官方中文(使用者提供)；未收錄的(如字母組)顯示原名
+function lplSplitsOf(year,lg){ const Y=_grpStore(lg)[String(year)]; return Y?Object.keys(Y).sort():[]; } // 該年有分組的賽段(S1/S2/S3，升冪)
+const _GRP_RANK={Ascend:0,Perseverance:1,Nirvana:2,Legend:0,Rise:1,Baron:0,Elder:1,All:8}; // 組別強度序（使用者定案：登峰>堅毅>涅槃；巴龍/遠古依籤位）
+function lplGroupNamesOfSplit(year,split,lg){ const gs=(_grpStore(lg)[String(year)]||{})[split]; return gs?Object.keys(gs).sort((a,b)=>((_GRP_RANK[a]??9)-(_GRP_RANK[b]??9))||gs[b].length-gs[a].length||a.localeCompare(b)):[]; } // 某賽段的組名(依隊數多→少)
+function lplSelSplit(year,pref,lg){ const s=lplSplitsOf(year,lg); return (pref&&s.includes(pref))?pref:(s.slice(-1)[0]||""); } // 選定賽段(pref 有效則用，否則最新)
+const LPL_GRP_ZH={Ascend:"登峰",Perseverance:"堅毅",Nirvana:"涅槃",Legend:"傳奇",Rise:"崛起",Baron:"巴龍",Elder:"遠古",All:"全體"}; // LCK 中文組名（使用者提供 2026-07-29；Cup=巴龍/遠古） // LPL 分組官方中文(使用者提供)；未收錄的(如字母組)顯示原名
 function lplGrpName(g){ return ((LANG==="zh"||LANG==="cn")&&LPL_GRP_ZH[g])?LPL_GRP_ZH[g]:g; } // 顯示用；值/篩選/比對一律用英文原名(data-lplg、V.rankLplGrp、lplGroups 鍵)
-const LPL_GRP_COL={Ascend:"#ff5d5d",Perseverance:"#ff9a52",Nirvana:"#ffd166"}; // 三組顏色深淺分開(登峰紅→堅毅橙→涅槃金，依種子強弱)
+const LPL_GRP_COL={Ascend:"#ff5d5d",Perseverance:"#ff9a52",Nirvana:"#ffd166"}; Object.assign(LPL_GRP_COL,{Legend:"#ff5d5d",Rise:"#ffd166"}); // LCK Rounds 分組色（上位紅、下位金，同台灣習慣越高越紅） // 三組顏色深淺分開(登峰紅→堅毅橙→涅槃金，依種子強弱)
 const _LPL_SHADE=["#ff5d5d","#ff9a52","#ffd166","#8fb8e0"]; // 備援(字母組/未命名)：依組序取色
 function lplGrpColor(g,year,split){ if(LPL_GRP_COL[g])return LPL_GRP_COL[g]; const ns=lplGroupNamesOfSplit(year,split); const i=ns.indexOf(g); return _LPL_SHADE[i>=0?Math.min(i,_LPL_SHADE.length-1):0]||(LGC.LPL||"#e05c5c"); }
 function lplAllGroups(year){ const out=[]; for(const sp of lplSplitsOf(year))for(const g of lplGroupNamesOfSplit(year,sp))if(!out.includes(g))out.push(g); return out; } // 全年各賽段組名去重(首見序)：賽事篩選 LPL 分組選項用
@@ -2328,7 +2341,8 @@ const cAb=c=>{
 const LGC={LCK:"#4f8ef7",LPL:"#e05c5c",LCP:"#2bb3a3",LEC:"#38b6ff",LCS:"#c9a86a",CBLOL:"#7ac74f",
   MSI:"#f5b942",EWC:"#b083f0",FST:"#f08b5b",WLDs:"#ffd700",ENC:"#ff8ad4",KeSPA:"#9fb4ff",
   LMS:"#f0a5c0","EU LCS":"#38b6ff","NA LCS":"#c9a86a",IEM:"#b0c4de",VCS:"#ffb6b6",
-  "LTA N":"#5bb0f0","LTA S":"#f0a35b",LTA:"#c9a86a"};
+  "LTA N":"#5bb0f0","LTA S":"#f0a35b",LTA:"#c9a86a",
+  EWCQ北美:"#c9a86a",EWCQ歐洲:"#38b6ff",EWCQ韓國:"#4f8ef7",EWCQ太平洋:"#2bb3a3",EWCQ巴西:"#7ac74f"}; // EWCQ 各分區沿用該賽區色（北美=LCS金、歐洲=LEC藍、韓國=LCK藍、太平洋=LCP綠、巴西=CBLOL綠）
 const LG_NAME={"ALL":"全部","LTA N":"LTA 北區","LTA S":"LTA 南區","WLDs":"WCS"};
 // 國家隊 →「該國所屬賽區」對照（2026 KeSPA 季中邀日本／越南國家隊參賽；ENC 之後整個賽事都是國家隊形式）
 // 用途：國家隊沒有母聯賽出賽紀錄，賽事樹的賽區色框要靠這張表才上得了色
@@ -2351,7 +2365,7 @@ const NAT_ABBR={China:"CHN","South Korea":"KOR",Korea:"KOR",Japan:"JPN",Vietnam:
   Algeria:"ALG",Tunisia:"TUN",Morocco:"MAR",Egypt:"EGY","South Africa":"RSA"};
 const natAbbrOf=t=>{const m=/^(.+?)\s*\((?:national team|國家隊)\)/i.exec(String(t||"")); if(!m)return "";
   const n=m[1].trim(); return NAT_ABBR[n]||n.replace(/[^A-Za-z]/g,"").slice(0,3).toUpperCase();};
-const lgName=l=>{ if(l&&typeof l==="string"&&l.indexOf("LPL#")===0)return "LPL"+lplGrpName(l.slice(4)); if(LANG==="en"){ const en={"ALL":"All","中韓":"CN+KR","歐美":"EU+NA","國際賽":"Internationals","LTA N":"LTA North","LTA S":"LTA South","WLDs":"Worlds","FST":"First Stand Tournament"}; if(en[l])return en[l]; } return LG_NAME[l]||l; };
+const lgName=l=>{ if(l&&typeof l==="string"&&/^(LPL|LCK)#/.test(l))return l.slice(0,3)+lplGrpName(l.slice(4)); if(LANG==="en"){ const en={"ALL":"All","中韓":"CN+KR","歐美":"EU+NA","國際賽":"Internationals","LTA N":"LTA North","LTA S":"LTA South","WLDs":"Worlds","FST":"First Stand Tournament"}; if(en[l])return en[l]; } return LG_NAME[l]||l; };
 const d1s=v=>(+v).toFixed(1).replace(/\.0$/,""); // 一位小數；小數為 0 就不顯示小數點（3.0→3、2.5→2.5）
 const lgTagOn=()=>F.league==="ALL"||!!LG_GROUP[F.league]||F.league==="EWCQ"; // 全部或群組篩選＝混合聯賽 → 名稱旁要標賽區
 const stripRgnParen=s=>String(s).replace(/（[^（）]*）\s*$/,""); // 名稱旁已有賽區色塊(lgChip)時，去掉碰撞縮寫尾端重複的（聯賽碼）；選手名不以（）結尾＝無操作
@@ -2728,14 +2742,27 @@ const eventsTreeHTML=()=>{
         x._eds.forEach(ed=>{ const arr=mainArr0.filter(t2=>ed.teams.has(t2));
           _mc+=_seg(`${evtEdLabel(ed.ed)} · ${_mdOf(ed.from)}–${_mdOf(ed.to)}`,arr,_first); _first=false; });
         mainChips=_mc+extSeg;
-      }else if(x.lg==="LPL"&&lplSplitsOf(curYear).length){ // LPL 每賽段分組不同：卡內逐賽段列各組（S1 · Ascend、S2 · Ascend…）；季後賽不分＝lpl_groups 只含常規賽
+      }else if((x.lg==="LPL"||x.lg==="LCK")&&lplSplitsOf(curYear,x.lg).length){ const _glg=x.lg; // LPL 每賽段分組不同：卡內逐賽段列各組（S1 · Ascend、S2 · Ascend…）；季後賽不分＝lpl_groups 只含常規賽
         // 該賽段打進季後賽的隊＝綠勾（使用者指定 2026-07-28；每段各自判定，不是整年共用）
         const _poOf=sp=>(x._poSp||{})[sp]||null;
-        const _splits=lplSplitsOf(curYear); const _seg=(lb,arr,nl,col,adv,sp2)=>arr.length?`<span class="evtPromoDiv evtGrpDiv${nl?" evtGrpNL":""}"><i${col?` style="color:${col}"`:""}>${esc(lb)}</i></span>`+chips(arr,adv||advQ,null,sp2):"";
-        let _mc="",_first=true,_used=new Set();
-        _splits.forEach(sp=>{ lplGroupNamesOfSplit(curYear,sp).forEach(gn=>{ const arr=base.filter(t2=>lplSplitGroupOf(teamFix(tAb(t2)),curYear,sp)===gn); arr.forEach(t2=>_used.add(t2)); _mc+=_seg(sp+" · "+lplGrpName(gn),arr,_first,lplGrpColor(gn,curYear,sp),_poOf(sp),sp); _first=false; }); });
-        const _rest=base.filter(t2=>!_used.has(t2)); if(_rest.length)_mc+=_seg(LANG==="en"?"Other":"其他",_rest,false); // 沒進任何賽段分組的隊(如只在無分組賽段出賽)
-        mainChips=_mc+extSeg;
+        const _splits=lplSplitsOf(curYear,_glg); const _seg=(lb,arr,nl,col,adv,sp2)=>arr.length?`<span class="evtPromoDiv evtGrpDiv${nl?" evtGrpNL":""}"><i${col?` style="color:${col}"`:""}>${esc(lb)}</i></span>`+chips(arr,adv||advQ,null,sp2):"";
+        let _mc="",_used=new Set();
+        // 重新設計（2026-07-29 使用者：三個季度看了不直觀）：每個賽段一列（左＝賽段標籤），
+        // 該賽段各組成直欄（組名上色、隊伍縱排），掃視動線＝由上而下看賽段、由左而右看組
+        // LCK 的 S2 沒分組但也要成列（使用者定案 2026-07-30：就是那十隊）→ 補進賽段清單
+        const _spAll=[...new Set([..._splits,...(_glg==="LCK"?["S2"]:[])])].sort();
+        _spAll.forEach(sp=>{ const _gns=lplGroupNamesOfSplit(curYear,sp,_glg);
+          const gcols=_gns.length?_gns.map(gn=>{
+            const arr=base.filter(t2=>lplSplitGroupOf(teamFix(tAb(t2)),curYear,sp,_glg)===gn);
+            arr.forEach(t2=>_used.add(t2));
+            return arr.length?`<div class="lgGrpCol"><i style="color:${lplGrpColor(gn,curYear,sp)}">${esc(lplGrpName(gn))}</i><span class="lgGrpChips">${chips(arr,_poOf(sp)||advQ,x.tinfo)}</span></div>`:"";
+          }).join("")
+          :(base.length?(base.forEach(t2=>_used.add(t2)),`<div class="lgGrpCol"><span class="lgGrpChips">${chips(base,_poOf(sp)||advQ,x.tinfo)}</span></div>`):"");
+          if(gcols)_mc+=`<div class="lgSplitBlk"><span class="lgSplitHd">${esc(sp)}</span><span class="lgSplitGrps">${gcols}</span></div>`;
+        });
+        const _rest=base.filter(t2=>!_used.has(t2));
+        if(_rest.length)_mc+=`<div class="lgSplitBlk"><span class="lgSplitHd">${LANG==="en"?"Other":"其他"}</span><span class="lgSplitGrps"><div class="lgGrpCol"><span class="lgGrpChips">${chips(_rest,advQ)}</span></div></span></div>`;
+        mainChips=_mc+extSeg; // 直接顯示分組排版（二段式已依使用者 2026-07-29 撤回，二段式只留在篩選列下拉）
       }else if(gcfg){ const gset=new Set(gcfg.abs);
         const gArr=base.filter(t2=>gset.has(tAb(t2))), rest3=base.filter(t2=>!gset.has(tAb(t2)));
         mainChips=chips(rest3,advQ)+(gArr.length?`<span class="evtPromoDiv evtGrpDiv"><i>${gcfg.lb}</i></span>`+chips(gArr,advQ):"")+extSeg;
@@ -3852,6 +3879,9 @@ const PATCH_NOTES=window.LOL_PATCHES||{};
 })();
 // 人工語意覆寫：數值規則判不出方向的改動（使用者判定）。[比對正則, 1=增強/-1=削弱]
 const DIR_OVERRIDE=[
+  [/冷卻.{0,12}(消失|結束|落地|返回)後(才)?(開始|計算)/,-1], // 冷卻延後起算＝實質變長＝削弱（2026-07-29 妮可W判例：分身消失後才開始）
+  [/冷卻.{0,12}施放(後|時)(立即|就)?(開始|計算)/,1],          // 反向：改回施放時起算＝增強
+
   [/霜火風暴：施放大絕時觸發/, 1],                      // 加了5秒緩衝準備 → 增強
   [/參與擊殺獲得\s*1%，最多可疊\s*6\s*層/, -1],          // 0.6%×10層：要疊更多才追平 → 削弱
 ];
@@ -3895,6 +3925,8 @@ function changeDir(lines){
   const STAT=/基礎|成長|最大|回復|每5秒|係數|加成|比例/; // 屬性面板/傷害加成類的魔力（越高越好）不反向——雷茲的「魔力係數」是傷害係數
   let buff=0,nerf=0,onlyRecipe=true;
   for(const t of lines){
+    const _fx=(window.PATCH_DIR_FIX||{})[String(t).trim()]; // 逐行人工判例最優先（166 筆語義覆核）
+    if(_fx===1||_fx===-1||_fx===0){ onlyRecipe=false; if(_fx>0)buff++; else if(_fx<0)nerf++; continue; }
     const ov=DIR_OVERRIDE.find(([re])=>re.test(t));
     if(ov){ onlyRecipe=false; if(ov[1]>0)buff++; else nerf++; continue; }
     if(/^\s*\[新增\]/.test(t)||/^\s*[^｜]*｜\s*\[新增\]/.test(t)){onlyRecipe=false;buff++;continue;} // 新增效果＝增強（如：現在還會為自身恢復…）
@@ -3904,8 +3936,22 @@ function changeDir(lines){
       continue; }
     onlyRecipe=false;
     const i=t.indexOf("⇒"); if(i<0)continue;
-    const o=(t.slice(0,i).split("：").pop().match(/\d+(?:\.\d+)?/g)||[]).map(Number);
-    const n=(t.slice(i+1).match(/\d+(?:\.\d+)?/g)||[]).map(Number);
+    // 「⇒ 移除」判向（2026-07-29 使用者判例：貝爾薇斯Q 士兵傷害倍率60-100% ⇒ 移除＝增強，
+    // 因為移除折減後恆為 100%）。只在 ⇒ 後「就是移除二字」時套用；帶數值的複合行走原數值比較
+    if(/^\s*移除\s*[。．]?\s*$/.test(t.slice(i+1))){
+      const head=t.slice(0,i);
+      const nums=(head.match(/\d+(?:\.\d+)?/g)||[]).map(Number);
+      let rd=0;
+      if(/降低|減少|懲罰|上限|冷卻|消耗|施放間隔|延遲/.test(head))rd=1;                  // 移除限制/代價＝增強
+      else if(/倍率/.test(head))rd=(nums.length&&Math.max(...nums)<=100)?1:-1;            // ≤100% 倍率＝折減，移除＝增強；>100%＝加成，移除＝削弱
+      else if(/加成|成長|吸血|回復|治療|護盾|額外|加速/.test(head))rd=-1;                 // 移除增益＝削弱
+      if(rd){ if(rd>0)buff++; else nerf++; continue; }
+    }
+    // 帶符號抽取（2026-07-29 達瑞文R判例：每次-8% ⇒ 每次-5% 是「往上」＝增強）；
+    // 負號只在前一字元非數字時算（「20-110」的範圍破折號不算負號）
+    const NUMRE=/(?<![\d.])-?\d+(?:\.\d+)?/g;
+    const o=(t.slice(0,i).split("：").pop().match(NUMRE)||[]).map(Number);
+    const n=(t.slice(i+1).match(NUMRE)||[]).map(Number);
     if(!o.length||!n.length)continue;
     let d=0;
     if(o.length===n.length){
@@ -4832,10 +4878,14 @@ function champLanes(champ){ const PN5={1:"TOP",2:"JNG",3:"MID",4:"BOT",5:"SUP"},
 // 連動篩選：某欄位的可選值＝在「其他已選條件」下仍有比賽的值（賽季↔賽事↔版本互相收斂；忽略自身、不受 H2H 影響）
 function lgPass(o){ // 賽事(聯賽)篩選判定：全部/群組/EWCQ 前綴/LPL 分組/單一
   if(!F.league||F.league==="ALL")return true;
-  if(F.league.indexOf("LPL#")===0){ // LPL 分組(值 LPL#Ascend)：該場常規賽兩隊都在該組(季後賽/升降不分組)
-    if(o.league!=="LPL")return false; const sp=o.split; if(!sp||/PO$|季後|升降/.test(String(sp)))return false;
+  if(/^(LPL|LCK)#/.test(F.league)){ // 賽區分組(值 LPL#Ascend / LCK#Legend)：該場常規賽兩隊都在該組(季後賽/升降不分組)
+    const _lg=F.league.slice(0,3);
+    if(o.league!==_lg)return false; const sp=o.split; if(!sp||/PO$|季後|升降/.test(String(sp)))return false;
     const grp=F.league.slice(4);
-    return lplSplitGroupOf(teamFix(tAb(o.raw[C.blue_teamname])),curYear,sp)===grp&&lplSplitGroupOf(teamFix(tAb(o.raw[C.red_teamname])),curYear,sp)===grp; }
+    // 該賽段沒有分組資料（如 LCK S1/S2；S3 分組已定但比賽未開打）→ 退回最新賽段的分組當「隊伍集合」，
+    // 否則選了組別會整片空白（使用者回報 2026-07-29）
+    const _esp=lplGroupNamesOfSplit(curYear,sp,_lg).length?sp:lplSelSplit(curYear,"",_lg);
+    return lplSplitGroupOf(teamFix(tAb(o.raw[C.blue_teamname])),curYear,_esp,_lg)===grp&&lplSplitGroupOf(teamFix(tAb(o.raw[C.red_teamname])),curYear,_esp,_lg)===grp; }
   if(F.league==="EWCQ")return String(o.league).startsWith("EWCQ");
   const g=LG_GROUP[F.league];
   return g?g.includes(o.league):o.league===F.league;
@@ -4891,12 +4941,16 @@ function filterOpts(){
   const has=l=>LEAGUES.includes(l)&&lgAvail.has(l);
   const grpHas=g=>(LG_GROUP[g]||[]).some(has);
   const ewcqLgs=LEAGUES.filter(l=>String(l).startsWith("EWCQ")); // 各 EWCQ 分區(北美/太平洋/巴西/歐洲/韓國)獨立列出
-  const items=[["ALL",true],["中韓",grpHas("中韓")],["LCK",has("LCK")],["LPL",has("LPL")],...(has("LPL")?lplAllGroups(curYear).map(g=>["LPL#"+g,true]):[]),["LCP",has("LCP")],
+  const items=[["ALL",true],["中韓",grpHas("中韓")],["LCK",has("LCK")],["LPL",has("LPL")],["LCP",has("LCP")],
     ["歐美",grpHas("歐美")],["LEC",has("LEC")],["LCS",has("LCS")],["CBLOL",has("CBLOL")],
     ["國際賽",!F.split&&grpHas("國際賽")],["FST",has("FST")],["MSI",has("MSI")],["WLDs",has("WLDs")],
     ...ewcqLgs.map(l=>[l,has(l)]),["EWC",has("EWC")],["ENC",has("ENC")],["KeSPA",has("KeSPA")]].filter(([,ok])=>ok);
-  if(F.league&&F.league!=="ALL"&&!items.some(([l])=>l===F.league))items.push([F.league,true]); // 目前選取一定保留
-  const lo=items.map(([l])=>`<option value="${l}" ${F.league===l?"selected":""}>${lgName(l)}</option>`);
+  if(F.league&&F.league!=="ALL"&&!F.league.includes("#")&&!items.some(([l])=>l===F.league))items.push([F.league,true]); // 目前選取一定保留（#分組值由 optgroup 涵蓋）
+  const _grpOpts=lg=>{ // LCK 只列「最新賽段」的組（使用者定案 2026-07-30：Cup 巴龍/遠古是跨組對戰、放進篩選很怪→不列）
+    const gs=lg==="LPL"?lplAllGroups(curYear):lplGroupNamesOfSplit(curYear,lplSelSplit(curYear,"","LCK"),"LCK");
+    if(!gs.length||!has(lg))return "";
+    return `<optgroup label="${lg} ${LANG==="en"?"groups":"分組"}">`+gs.map(g=>`<option value="${lg}#${g}" data-c="${lplGrpColor(g,curYear,"")}" data-s="${esc(lplGrpName(g))}" ${F.league===lg+"#"+g?"selected":""}>${esc(lgName(lg+"#"+g))}</option>`).join("")+`</optgroup>`; };
+  const lo=items.map(([l])=>`<option value="${l}" ${F.league===l?"selected":""}>${lgName(l)}</option>`+(l==="LPL"||l==="LCK"?_grpOpts(l):""));
   // 版本：只列其他篩選下仍有比賽的（＋保留目前選取）
   let pkList=PATCHES.filter(p=>pkAvail.has(p)||F.patch===p);
   // 版本清單全站統一（2026-07-18 使用者定案）：積分先行版本（職業賽還沒打到的 26.14、跳過的 26.12）當年在所有分頁都列出
@@ -4975,6 +5029,7 @@ function bindFilters(cb){
   const hb=document.getElementById("fHelp");
   if(hb)hb.onclick=e=>{e.stopPropagation(); toggleHelpPop(hb);};
   fancySelectInit(document.getElementById("fLg")); // 賽事：改用「一次顯示全部」的自訂下拉
+  fancySelectInit(document.getElementById("fSplit")); fancySelectInit(document.getElementById("fPatch")); // 賽季/版本同款（使用者定案 2026-07-29：三清單邊框格式統一）
 }
 // ── 分段切換鈕（2026-07-28 使用者定案：全站「能切換的按鈕」一律做成 A｜B，點哪段哪段亮起來）──
 // segHTML 給模板字串用（之後配 segBind 綁事件）；segEl 給動態 DOM 插入用。
@@ -5031,7 +5086,18 @@ function fancySelectOpen(sel,btn){
   const pop=document.createElement("div");
   pop.id="fselPop"; pop._sel=sel; pop._btn=btn;
   pop.style.visibility="hidden";
-  pop.innerHTML=opts.map((o,i)=>`<div class="fselIt${i===sel.selectedIndex?" on":""}" data-i="${i}">${esc(o.textContent)}</div>`).join("");
+  // 二段式（使用者定案 2026-07-29）：分組/分區子項不佔主清單，滑到父列時往右飛出
+  const kidOf=o=>{const v=String(o.value); if(v.startsWith("LPL#"))return "LPL"; if(v.startsWith("LCK#"))return "LCK"; if(/^EWCQ/.test(v))return "EWC"; return null;};
+  const kids={};
+  opts.forEach((o,i)=>{const p=kidOf(o); if(p)(kids[p]=kids[p]||[]).push([o,i]);});
+  pop.innerHTML=opts.map((o,i)=>{
+    if(kidOf(o))return "";
+    const v=String(o.value), sub=kids[v];
+    if(!sub)return `<div class="fselIt${i===sel.selectedIndex?" on":""}" data-i="${i}">${esc(o.textContent)}</div>`;
+    return `<div class="fselIt fselHasSub${i===sel.selectedIndex?" on":""}" data-i="${i}">${esc(o.textContent)}<span class="fselAr2">▸</span>`+
+           `<div class="fselSub">${sub.map(([o2,i2])=>{const c2=o2.dataset.c||((typeof LGC!=="undefined"&&LGC[String(o2.value)])||"");
+             return `<div class="fselIt${i2===sel.selectedIndex?" on":""}" data-i="${i2}"${c2?` style="color:${c2}"`:""}>${esc(o2.dataset.s||o2.textContent)}</div>`;}).join("")}</div></div>`;
+  }).join("");
   document.body.appendChild(pop);
   // 分欄：量單列高，算「上方或下方哪邊空間大」能放幾列，放不下就往右加欄（rect＝視覺 px，fixed 面板同座標系）
   const r=btn.getBoundingClientRect();
@@ -5039,7 +5105,8 @@ function fancySelectOpen(sel,btn){
   const avail=Math.max(120,(below?window.innerHeight-r.bottom:r.top)-M-8);
   const ih=(pop.firstElementChild?pop.firstElementChild.getBoundingClientRect().height:30)+2;
   const perCol=Math.max(1,Math.floor((avail-16)/ih));
-  pop.style.gridTemplateRows=`repeat(${Math.min(opts.length,perCol)},max-content)`;
+  const visN=pop.children.length; // 實際列數（分組子項收進父列不佔行；用 opts.length 會在底部多留空行）
+  pop.style.gridTemplateRows=`repeat(${Math.min(visN,perCol)},max-content)`;
   const pr=pop.getBoundingClientRect();
   let left=r.left; if(left+pr.width>window.innerWidth-M)left=Math.max(M,window.innerWidth-M-pr.width);
   pop.style.left=left+"px";
@@ -5740,6 +5807,9 @@ function renderChgYear(box){
           const cc={key:c.key,arr:normArr,latest:normArr[0].patch};
           let ls=lanesOf(cc.key,cc.latest);
           if(!ls.length){const f=laneOf(cc.key); if(f)ls=[f];}
+          // 本季沒出賽但有野怪行卡（如貝爾薇斯 26.15）→ 正卡跟著進打野欄合併，
+          // 否則野怪卡繞過「沒出賽不列」的排除、單獨顯示 3 條野怪行＝「只有QER」假象（使用者回報）
+          if(!ls.length&&jgArr.length)ls=["JNG"];
           if(ls.length){ls.forEach(L=>byLane[L].push(cc)); shownSet.add(c.key);}
         }
       });
@@ -5750,8 +5820,16 @@ function renderChgYear(box){
         byLane[L].forEach(c=>{
           const ex=seen[c.key];
           if(ex){
-            const have=new Set(ex.arr.map(e=>e.patch));
-            c.arr.forEach(e=>{if(!have.has(e.patch))ex.arr.push(e);});
+            c.arr.forEach(e=>{
+              const exE=ex.arr.find(x=>x.patch===e.patch);
+              if(!exE){ ex.arr.push(e); return; }
+              // 同版本 → 行「聯集」。以前是同版本整包丟棄：打野英雄的「野怪行卡」先進欄，
+              // 「其餘行卡」同版本被扔掉 → 貝爾薇斯 26.15 只剩 QER 各一條野怪行（使用者 2026-07-29 回報）
+              const main=exE.lines.length>=e.lines.length?exE.lines:e.lines;
+              const sub=exE.lines.length>=e.lines.length?e.lines:exE.lines;
+              const hv=new Set(main);
+              exE.lines=main.concat(sub.filter(l=>!hv.has(l)));
+            });
             ex.arr.sort((a,b)=>b.patch.localeCompare(a.patch)); ex.latest=ex.arr[0].patch;
           } else { seen[c.key]=c; merged.push(c); }
         });
@@ -5954,7 +6032,7 @@ function renderChgYear(box){
         .map(objCardHTML).join("");
       const extraCnt=byItem.size+["機制"].filter(c=>byCat[c].length).length;
       const extraCards=[...byItem.values()]
-        .sort((a,b)=>(CAT_RANK[a.cat]??9)-(CAT_RANK[b.cat]??9)||b.arr.length-a.arr.length||b.arr[0].patch.localeCompare(a.arr[0].patch))
+        .sort((a,b)=>(CAT_RANK[a.cat]??9)-(CAT_RANK[b.cat]??9)||b.arr[0].patch.localeCompare(a.arr[0].patch)||b.arr.length-a.arr.length) // 使用者定案 2026-07-30：其他區同樣「最近更新在上→再比改動次數」
         .map(itemCardHTML).join("")
         +["機制"].filter(c=>byCat[c].length).map(c=>catCardHTML(c,byCat[c])).join("");
       grid.innerHTML=`<div class="chgLanes">${LANE5.map(pos=>`
@@ -7830,7 +7908,8 @@ function render(){
       +`<div class="card"><h2 style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">🎯 ${T("BP 紀錄")} <span class="sub" id="cnt"></span><span class="sub" style="flex:1 1 220px">${LANG==="en"?`gold number = pick order (1-7), <span class="fp">gold bold</span> = first-pick side, <span style="background:rgba(255,255,255,.14);padding:0 5px;border-radius:3px">white row-band</span> = winning team, newest first｜type in a column header to filter`:`金色數字＝選角順位(1-7)，<span class="fp">金色粗體</span>＝先選方，<span style="background:rgba(255,255,255,.14);padding:0 5px;border-radius:3px">白底那隊</span>＝勝方，最新在上｜在欄名下方輸入即逐欄篩選`}</span>${segHTML("bpSideSeg",[["br",LANG==="en"?"🔵 Blue/Red":"🔵 藍紅","左側＝藍方"],["fp",LANG==="en"?"🥇 First pick":"🥇 先選","左側＝先選方"],["team",LANG==="en"?"🟦 Team":"🟦 該隊","左側＝搜尋的戰隊"]],V.bpSideMode||"br","sm","margin-left:auto")}</h2><div id="tbl"></div></div>`;
     const mmss=s=>s?`${Math.floor(s/60)}:${String(Math.round(s%60)).padStart(2,"0")}`:"–";
     // 賽事欄 LPL 常規賽附組名(季後賽/升降不標；系列賽兩隊同組才明確標)：teams＝已 tAb 的縮寫
-    const _lplGrpTag=(league,split,teams)=>{ if(league!=="LPL"||!split||/PO$|季後|升降/.test(String(split))||!teams)return "";
+    const _lplGrpTag=(league,split,teams)=>{ if((league!=="LPL"&&league!=="LCK")||!split||/PO$|季後|升降/.test(String(split))||!teams)return "";
+      if(league==="LCK"&&String(split)!=="S3")return ""; // LCK 只標 S3（S1 Cup 分組僅圖鑑賽事卡列，使用者定案 2026-07-29）
       const g0=lplSplitGroupOf(teamFix(teams[0]||""),curYear,split), g1=lplSplitGroupOf(teamFix(teams[1]||""),curYear,split);
       const g=(g0&&g1)?(g0===g1?g0:null):(g0||g1); return g?` <span style="color:${lplGrpColor(g,curYear,split)}">· ${esc(lplGrpName(g))}</span>`:""; };
     // 依模式決定「左(L)/右(R)」對應到哪一實際邊：br=藍左紅右；fp=先選方在左；team=搜尋的戰隊在左(在紅邊就換過來)
@@ -8042,7 +8121,7 @@ function render(){
     while(S.g.length<S.n){S.g.push(EMPTY()); S.fp.push(0); S.side.push(0);} // 補足資料格
     main.innerHTML=filterBar(`
       <span style="order:59;display:inline-flex;align-items:center;gap:10px 11px;flex-wrap:wrap"><label>${T("戰隊A")}</label>${comboHTML("bsT1",T("戰隊A"),230)}<label>${T("戰隊B")}</label>${comboHTML("bsT2",T("戰隊B"),230)}</span>
-      <span style="order:62;position:relative;display:inline-flex"><button id="bsHist" class="pgbtn" title="把真實系列賽的 BP 匯入為新模擬局（兩隊近10系列，上方兩隊角色池不變）">📥 ${T("匯入BP")}</button><div id="bsHistPop" style="display:none;position:absolute;top:calc(100% + 6px);right:0;z-index:90;background:#141a28;border:1px solid var(--line);border-radius:10px;padding:12px 16px;gap:26px;box-shadow:0 10px 28px rgba(0,0,0,.55);white-space:nowrap"></div></span>
+      <span style="order:60;position:relative;display:inline-flex"><button id="bsHist" class="pgbtn" title="把真實系列賽的 BP 匯入為新模擬局（兩隊近10系列，上方兩隊角色池不變）">📥 ${T("匯入BP")}</button><div id="bsHistPop" style="display:none;position:absolute;top:calc(100% + 6px);right:0;z-index:90;background:#141a28;border:1px solid var(--line);border-radius:10px;padding:12px 16px;gap:26px;box-shadow:0 10px 28px rgba(0,0,0,.55);white-space:nowrap"></div></span>
 `)
       +`<div id="bsWrap" style="display:grid;grid-template-columns:minmax(260px,1fr) repeat(5,minmax(170px,300px));gap:var(--gap);align-items:stretch"></div>`;
     const wrap=document.getElementById("bsWrap");
@@ -8695,11 +8774,11 @@ function render(){
     if(window.__bpLiveMount)try{window.__bpLiveMount({S,EMPTY,rerender,saveState});}catch(e){}
     // 模式切換鈕（放在 ↺ 預設旁）：全局模式=PICK 消耗角色池、一般模式=不消耗
     {
-      const fr=document.getElementById("fReset"); fr.style.order="67"; // 篩選列右側鈕排序（左→右）：自動60 全局61 匯入62 重製BP表63 本頁說明64 截圖65 返回66 重製篩選67
+      const fr=document.getElementById("fReset"); fr.style.order="67"; // 篩選列排序（使用者定案 2026-07-30 左→右）：戰隊59 匯入60 直播同步61 自動62 全局63 近期積分64 清空65 截圖 返回 重製篩選67
       {const hb=document.getElementById("fHelp"); if(hb)hb.style.order="64";} // 本頁說明統一擺到截圖(拍照)左邊
       // 🗑 重製BP表：清空所有模擬局（上方兩隊保留），可 ↩ 復原
       const rbp=document.createElement("button");
-      rbp.id="bpResetBoard"; rbp.className="pgbtn"; rbp.style.order="64"; rbp.textContent=LANG==="en"?"🗑 Clear":"🗑 清空"; // 順序：自動60 全局61 匯入62 近期積分63 清空64 截圖65
+      rbp.id="bpResetBoard"; rbp.className="pgbtn"; rbp.style.order="65"; rbp.textContent=LANG==="en"?"🗑 Clear":"🗑 清空"; // 順序：自動60 全局61 匯入62 近期積分63 清空64 截圖65
       rbp.title="清空所有模擬局（上方兩隊保留）；可用 ↩ 復原";
       rbp.onclick=()=>{ if(!(S.n>0))return; UNDO.track("bpSim",V.bpSim);
         S.g=[]; S.n=0; S.fp=[]; S.side=[]; S.meta=[]; S.tm=[]; S.pk1={}; S.pk2={}; S.uid=0;
@@ -8707,8 +8786,8 @@ function render(){
       fr.parentNode.insertBefore(rbp,fr);
       const _bmCur=(V.bpMode||"global")==="global"?"global":"normal";
       const mb=segEl("bpModeSeg",[["global",LANG==="en"?"🌐 Fearless":"🌐 全局","全局模式：PICK 過的英雄從角色池移除（Fearless）"],
-                                  ["normal",LANG==="en"?"🔓 Normal":"🔓 一般","一般模式：PICK 不移除角色池英雄"]],_bmCur,
-        v=>{ if(v===_bmCur)return; V.bpMode=v; saveState(); rerender(); },"","order:61");
+                                  ["normal",LANG==="en"?"Normal":"一般","一般模式：PICK 不移除角色池英雄"]],_bmCur,
+        v=>{ if(v===_bmCur)return; V.bpMode=v; saveState(); rerender(); },"","order:63");
       fr.parentNode.insertBefore(mb,fr);
       // 🎯 新增近期積分：把兩隊每位選手最近兩週積分用過的英雄加進其角色池(綠框標記)
       // 積分(soloq)資料只有當年 → 歷史年份不顯示此按鈕（也強制關閉，避免帶著舊狀態）
@@ -8717,7 +8796,7 @@ function render(){
         const _spTtl="把兩隊每位選手最近兩週(半個月)積分逐場用過的英雄加進角色池（綠框標記）";
         const spb=segEl("bpSoloqPool",[["on",(LANG==="en"?"🎯 Ranked ":"🎯 近期積分 ")+(LANG==="en"?"On":"開"),_spTtl],
                                        ["off",LANG==="en"?"Off":"關",_spTtl]],V.bpSoloqPool?"on":"off",
-          v=>{ const nv=v==="on"; if(nv===!!V.bpSoloqPool)return; V.bpSoloqPool=nv; saveState(); rerender(); },"","order:63");
+          v=>{ const nv=v==="on"; if(nv===!!V.bpSoloqPool)return; V.bpSoloqPool=nv; saveState(); rerender(); },"","order:64");
         fr.parentNode.insertBefore(spb,fr);
       }
       // 📸 截圖：擷取全部模擬局，輸出固定 1080p（1920px 寬）畫質
@@ -8774,7 +8853,7 @@ function render(){
       const _abTtl="自動模式：左鍵點角色池英雄自動填入待填格（發光處），左鍵拖曳仍可自由放格";
       const ab=segEl("bpAutoBtn",[["on",(LANG==="en"?"⏵ Auto ":"⏵ 自動 ")+(LANG==="en"?"On":"開"),_abTtl],
                                   ["off",LANG==="en"?"Off":"關",_abTtl]],V.bpAuto?"on":"off",
-        v=>{ const nv=v==="on"; if(nv===!!V.bpAuto)return; V.bpAuto=nv; saveState(); rerender(); },"","order:60");
+        v=>{ const nv=v==="on"; if(nv===!!V.bpAuto)return; V.bpAuto=nv; saveState(); rerender(); },"","order:62");
       fr.parentNode.insertBefore(ab,sb);
       // ↩ 返回上一步已移除：改用篩選列右側「全域返回鍵」(navBack，會還原 bpSim)
       UNDO.track("bpSim",V.bpSim); // 進頁面先記基準(全域返回也吃這份快照概念)
@@ -9089,13 +9168,13 @@ function render(){
     const leagueBtns=[...playerLgs].filter(isLeagueCode).sort((a,b)=>{const ia=LEAGUE_PREF.indexOf(a),ib=LEAGUE_PREF.indexOf(b); return (ia<0?99:ia)-(ib<0?99:ib)||String(a).localeCompare(String(b));});
     const cupBtns=CUP_ORDER.filter(l=>playerLgs.has(l)); // 盃賽只列有選手參賽的那幾個
     const dailyMode=V.rankView==="daily"; const dayRange=V.rankDayRange||1; // 每日戰況視圖＋範圍(1=昨天/3/7天)
-    const lplSplits=lplSplitsOf(curYear), lplSel=lplSelSplit(curYear,V.rankLplSplit); // LPL 分組：選定賽段(每賽段分組不同)＋該賽段組名
+    const grpLg=(V.rankRegion==="LCK")?"LCK":"LPL"; const lplSel=lplSelSplit(curYear,"",grpLg); // LPL 組別一律用「最新賽段」（使用者定案 2026-07-29：S3 沒有堅毅組，只顯示當前賽事的組別；忽略舊的 V.rankLplSplit 殘留偏好）
     main.innerHTML=`<div class="filters" style="gap:9px 22px">
       <span class="cwrap"><input id="rankQ" class="combo" list="rankQdl" autocomplete="off" placeholder="${LANG==="en"?"Search player / team":"搜尋 選手／戰隊"}" style="width:190px"><button class="cx" tabindex="-1" data-x="rankQ" title="一鍵清除">✕</button></span><datalist id="rankQdl"></datalist>
       ${segHTML("rankViewSeg",[["ladder","🏆 "+(LANG==="en"?"Ladder":"排行榜"),LANG==="en"?"Ranked ladder":"看排行榜"],["daily","📅 "+(LANG==="en"?"Daily":"每日戰況"),LANG==="en"?"Daily games by team":"看各隊每日戰況"]],dailyMode?"daily":"ladder","sm")}
       <span style="display:inline-flex;gap:7px;align-items:center;flex-wrap:wrap"><span class="meta" style="margin-right:1px">${LANG==="en"?"Role":"路線"}</span>${ROLEF.map(([v,z,e])=>`<button class="sqLaneBtn${(V.rankRole||"")===v?" on":""}" data-role="${v}">${LANG==="en"?e:z}</button>`).join("")}</span>
-      <span style="display:inline-flex;gap:7px;align-items:center;flex-wrap:wrap"><span class="meta" style="margin-right:1px">${LANG==="en"?"Region":"賽區"}</span><button class="sqLaneBtn${!V.rankRegion?" on":""}" data-region="">${LANG==="en"?"All":"全部"}</button>${leagueBtns.map(rg=>`<button class="sqLaneBtn${V.rankRegion===rg?" on":""}" data-region="${esc(rg)}"${V.rankRegion===rg?"":` style="color:${LGC[rg]||"var(--tx2)"}"`}>${esc(lgName(rg))}</button>`).join("")}${leagueBtns.length&&cupBtns.length?`<span class="meta" style="opacity:.45;padding:0 2px;margin:0 -2px">｜</span>`:""}${cupBtns.map(rg=>`<button class="sqLaneBtn${V.rankRegion===rg?" on":""}" data-region="${esc(rg)}"${V.rankRegion===rg?"":` style="color:${LGC[rg]||"var(--tx2)"}"`}>${esc(lgName(rg))}</button>`).join("")}</span>
-      ${(V.rankRegion==="LPL"&&lplSplits.length)?`<span style="display:inline-flex;gap:7px;align-items:center;flex-wrap:wrap">${lplSplits.length>1?`<span class="meta" style="margin-right:1px">${LANG==="en"?"LPL split":"LPL 賽段"}</span>${lplSplits.map(sp=>`<button class="sqLaneBtn${lplSel===sp?" on":""}" data-lplsplit="${esc(sp)}">${esc(sp)}</button>`).join("")}<span class="meta" style="opacity:.4;padding:0 1px">｜</span>`:""}<span class="meta" style="margin-right:1px">${LANG==="en"?"group":"分組"}</span><button class="sqLaneBtn${!V.rankLplGrp?" on":""}" data-lplg="">${LANG==="en"?"All":"全部"}</button>${lplGroupNamesOfSplit(curYear,lplSel).map(g=>`<button class="sqLaneBtn${V.rankLplGrp===g?" on":""}" data-lplg="${esc(g)}" style="${V.rankLplGrp===g?"":"color:"+lplGrpColor(g,curYear,lplSel)}">${esc(lplGrpName(g))}</button>`).join("")}</span>`:""}
+      <span style="display:inline-flex;gap:7px;align-items:center;flex-wrap:wrap"><span class="meta" style="margin-right:1px">${LANG==="en"?"Region":"賽區"}</span><button class="sqLaneBtn${!V.rankRegion?" on":""}" data-region="">${LANG==="en"?"All":"全部"}</button>${leagueBtns.map(rg=>`<button class="sqLaneBtn${V.rankRegion===rg?" on":""}" data-region="${esc(rg)}"${V.rankRegion===rg?"":` style="color:${LGC[rg]||"var(--tx2)"}"`}>${esc(lgName(rg))}</button>${(rg===V.rankRegion&&(rg==="LPL"||rg==="LCK")&&lplGroupNamesOfSplit(curYear,lplSel,grpLg).length)?segHTML("rankLplGrpSeg",[["",LANG==="en"?"All":"全部"],...lplGroupNamesOfSplit(curYear,lplSel,grpLg).map(g=>[g,`<span style="color:${lplGrpColor(g,curYear,lplSel)}">${esc(lplGrpName(g))}</span>`])],V.rankLplGrp||"","sm"):""}`).join("")}${leagueBtns.length&&cupBtns.length?`<span class="meta" style="opacity:.45;padding:0 2px;margin:0 -2px">｜</span>`:""}${cupBtns.map(rg=>`<button class="sqLaneBtn${V.rankRegion===rg?" on":""}" data-region="${esc(rg)}"${V.rankRegion===rg?"":` style="color:${LGC[rg]||"var(--tx2)"}"`}>${esc(lgName(rg))}</button>`).join("")}</span>
+      
       <span style="flex:1"></span>
       ${(location.protocol==="file:"||/^(localhost|127\.)/.test(location.hostname))?`<button id="sqApiBtn" class="sqbtn helpBtn" title="${LANG==="en"?"Paste a fresh Riot API key: update ranks now + auto-reuse at the 10:00 daily update":"開 Riot 開發者頁拿金鑰→貼上立即更新牌位；金鑰存本機供每天 10:00 排程自動更新"}">🔑 ${LANG==="en"?"Add API key":"添加API"}</button>`:""}
       ${TAB_HELP["積分"]?`<button id="fHelp" class="sqbtn helpBtn" title="本頁說明">ℹ️ ${T("本頁說明")}</button>`:""}</div>
@@ -9176,7 +9255,8 @@ function render(){
       const IDX=window.SOLOQ_MATCH_IDX;
       const rows=SD.players.map(p=>{const g=(p.wins||0)+(p.losses||0); const _ik=IDX&&IDX.players&&sqKey(IDX.players,p.team||"",p.player||""); const ix=(_ik&&IDX.players[_ik])||{}; // SD 與 IDX 同源鍵一致，走 sqKey 只是防未來標籤漂移
         return {...p,_score:soloqScore(p),_wr:(p.found&&g)?p.wins/g:null,
-          _last10:ix.last10||[],_wr7:(ix.wr7!=null?ix.wr7:null),_sc7:(ix.sc7!=null?ix.sc7:null),_kda7:(ix.kda7!=null?ix.kda7:null),_n7:(ix.n7!=null?ix.n7:null),_lt:(ix.lt!=null?ix.lt:null),_role:(ix.role||null)};});
+          _last10:ix.last10||[],_wr7:(ix.wr7!=null?ix.wr7:null),_sc7:(ix.sc7!=null?ix.sc7:null),_kda7:(ix.kda7!=null?ix.kda7:null),_n7:(ix.n7!=null?ix.n7:null),
+          _w7:(ix.w7!=null?ix.w7:(ix.wr7!=null&&ix.n7!=null?Math.round(ix.n7*ix.wr7/100):null)),_lt:(ix.lt!=null?ix.lt:null),_role:(ix.role||null)};});
       // 把「比賽出賽過但沒抓到積分帳號」的選手也列出(灰、置底)：主數據選手 − 已有 soloq 帳號的
       const _nn=s=>String(s||"").trim().toLowerCase();
       const covered=new Set(SD.players.map(p=>_nn(p.player)));
@@ -9208,8 +9288,7 @@ function render(){
         {k:"LP",lb:LANG==="en"?"LP":"分數",sv:r=>r.found?(r.lp||0):null,cell:r=>r._score>=0&&r.lp!=null?`<span class="num">${r.lp}</span>`:"—"},
         {k:"_games",lb:LANG==="en"?"Games (W-L)":"場數(勝-敗)",sv:r=>r.found?((r.wins||0)+(r.losses||0)):null,cell:r=>r._score>=0?`<span class="num">${(r.wins||0)+(r.losses||0)}</span> <span class="meta">(${r.wins}-${r.losses})</span>`:"—"},
         {k:"_wr",lb:LANG==="en"?"Win%":"勝率",sv:r=>r._wr,cell:r=>r._wr!=null?Math.round(r._wr*100)+"%":"—"},
-        {k:"_sc7",lb:LANG==="en"?"Wk score":"一週評分",sv:r=>r._sc7,cell:r=>r._sc7!=null?`<b style="color:${scoreCol7(r._sc7)}">${r._sc7}</b>`:`<span class="meta">—</span>`},
-        {k:"_wr7",lb:LANG==="en"?"Wk win%":"一週勝率",sv:r=>r._wr7,cell:r=>r._wr7!=null?`<span class="num">${r._wr7}%</span>`:`<span class="meta">—</span>`},
+        {k:"_sc7",lb:LANG==="en"?"Wk score":"一週評分",sv:r=>(r._n7!=null||r._sc7!=null)?(r._n7||0)*1000+(r._sc7||0):null,cell:r=>r._sc7!=null?`<b style="color:${scoreCol7(r._sc7)}">${r._sc7}</b>${(r._w7!=null&&r._n7!=null)?` <span class="meta">(${r._w7}${LANG==="en"?"W":"勝"}${r._n7-r._w7}${LANG==="en"?"L":"敗"})</span>`:""}`:`<span class="meta">—</span>`},
         {k:"_kda7",lb:LANG==="en"?"Wk KDA":"一週KDA",sv:r=>r._kda7,cell:r=>r._kda7!=null?`<span class="num">${r._kda7}</span>`:`<span class="meta">—</span>`},
         {k:"last10",lb:LANG==="en"?"Last 10 champs":"最近十場",sort:false,cell:r=>{const l=r._last10||[]; if(!l.length)return `<span class="meta">—</span>`;
           return `<span class="soloChamps" data-rid="${esc(r.riotId)}" style="display:inline-flex;gap:2px;flex-wrap:nowrap">${l.map(c=>champIco(c,24)).join("")}</span>`;}},
@@ -9229,7 +9308,7 @@ function render(){
       let active=disp.filter(r=>FAV.has(favKey(r))||r._missing||r._n7>0||(r.found&&r._n7==null)); // 收藏者一律顯示；其餘：最近7天沒打暫不列；缺帳號一律列(灰置底)；有段位但還沒逐場資料的新帳號(_n7==null)也列出
       if(V.rankRole)active=active.filter(r=>r._role===V.rankRole); // 路線篩選
       if(V.rankRegion)active=active.filter(r=>{const s=rgOf(r); return s&&s.has(V.rankRegion);}); // 賽區(參賽聯賽/盃賽)篩選
-      if(V.rankRegion==="LPL"&&V.rankLplGrp)active=active.filter(r=>lplSplitGroupOf(teamFix(r.team||""),curYear,lplSel)===V.rankLplGrp); // LPL 分組篩選(選定賽段；季後賽不分)
+      if((V.rankRegion==="LPL"||V.rankRegion==="LCK")&&V.rankLplGrp)active=active.filter(r=>lplSplitGroupOf(teamFix(r.team||""),curYear,lplSel,grpLg)===V.rankLplGrp); // LPL 分組篩選(選定賽段；季後賽不分)
       let show=active;
       if(q){ const FB=window._RANKQ_FULL||{}; const abs=new Set();            // 戰隊「全名」也可搜：全名→縮寫
         for(const ab in FB)if(FB[ab].some(t=>t.toLowerCase().split(/[^a-z0-9]+/).some(w=>w&&w.startsWith(q))))abs.add(ab.toLowerCase());  // 全名比對用「字首」不用子字串→免「gen」中「leGENd」(Anyone's Legend) 這種誤中
@@ -9238,13 +9317,13 @@ function render(){
           ||abs.has(String(teamFix(r.team||"")).toLowerCase())); }
       const rowHtml=(r,i)=>{const f=r._score>=0; return `<tr${f?"":' style="opacity:.5"'}><td class="rk${i<3&&f?` rk${i+1}`:""}">${f?i+1:"–"}</td>${cols.map(c=>`<td>${c.cell(r)}</td>`).join("")}</tr>`;};
       // 選 LPL 且未指定單一組 → 清單依常規賽分組分段（各組一標題列，段內照原排序、名次組內重編）
-      const grpMode=V.rankRegion==="LPL"&&!V.rankLplGrp&&lplGroupNamesOfSplit(curYear,lplSel).length;
+      const grpMode=(V.rankRegion==="LPL"||V.rankRegion==="LCK")&&!V.rankLplGrp&&lplGroupNamesOfSplit(curYear,lplSel,grpLg).length;
       let tbodyHtml;
       if(grpMode){ const order=lplGroupNamesOfSplit(curYear,lplSel), REST="__rest", secMap={}, cspan=cols.length+1;
         show.forEach(r=>{const g=lplSplitGroupOf(teamFix(r.team||""),curYear,lplSel)||REST; (secMap[g]=secMap[g]||[]).push(r);});
         const secOrder=[...order.filter(g=>secMap[g]),...(secMap[REST]?[REST]:[])];
         tbodyHtml=secOrder.map(g=>{const rows=secMap[g], lbl=g===REST?(LANG==="en"?"Other":"其他"):g;
-          const nTm=new Set(rows.map(r=>teamFix(r.team||""))).size, gcol=g===REST?(LGC.LPL||"#e05c5c"):lplGrpColor(g,curYear,lplSel);
+          const nTm=new Set(rows.map(r=>teamFix(r.team||""))).size, gcol=g===REST?(LGC[V.rankRegion]||"#e05c5c"):lplGrpColor(g,curYear,lplSel);
           return `<tr class="rankGrpHd"><td colspan="${cspan}" style="padding:7px 11px;background:${gcol}22;border-top:2px solid ${gcol};font-weight:700;color:${gcol}">${esc(lplGrpName(lbl))} <span class="meta" style="font-weight:400">${nTm}${LANG==="en"?" teams · ":" 隊・"}${rows.length}${LANG==="en"?" players":" 人"}</span></td></tr>`+rows.map((r,i)=>rowHtml(r,i)).join("");}).join("");
       }else tbodyHtml=show.map((r,i)=>rowHtml(r,i)).join("");
       box.innerHTML=`<div class="tblwrap"><table class="recTbl"><thead><tr><th class="rkh">#</th>${cols.map(c=>c.sort===false?`<th><span class="thL">${c.lb}</span></th>`:`<th data-rk="${c.k}" style="cursor:pointer"><span class="thL">${c.lb}${arrow(c.k)}</span></th>`).join("")}</tr></thead><tbody>${tbodyHtml}</tbody></table></div>`;
@@ -9255,7 +9334,7 @@ function render(){
       box.querySelectorAll(".favStar").forEach(st=>st.onclick=e=>{e.stopPropagation(); toggleFav(st.dataset.fav); paint();}); // ★切換收藏→重繪(收藏者置頂)
       // 固定欄寬(排序箭頭不改欄寬、數據欄間距一致)；夠寬不裁字，整表可橫向捲動
       {const wrap=box.querySelector(".tblwrap"),tbl=wrap&&wrap.querySelector("table");
-       if(tbl){const CW={"選手":166,"_role":78,"_score":96,"LP":96,"_games":138,"_wr":96,"_sc7":122,"_wr7":122,"_kda7":122,"last10":292,"platform":88,"帳號":214,"_lt":122}; // 2026-07-28 體檢：last10 十顆圖要 288px、四字欄名+箭頭要 118px、場數四位數極端值 136px——原寬全數裁字
+       if(tbl){const CW={"選手":166,"_role":78,"_score":96,"LP":96,"_games":138,"_wr":96,"_sc7":168,"_kda7":122,"last10":292,"platform":88,"帳號":214,"_lt":122}; // 2026-07-28 體檢：last10 十顆圖要 288px、四字欄名+箭頭要 118px、場數四位數極端值 136px——原寬全數裁字
          const ths=[...tbl.querySelectorAll("thead th")];
          tbl.style.tableLayout="fixed"; const _tw=48+cols.reduce((s,c)=>s+(CW[c.k]||96),0); tbl.style.minWidth=_tw+"px"; tbl.style.width="100%"; // 夠寬就撐滿(欄位平均延伸、不留右側空白)、太窄才 min-width＋橫捲
          ths.forEach((th,i)=>th.style.width=(i===0?48:(CW[cols[i-1].k]||96))+"px");}}
@@ -9281,7 +9360,7 @@ function render(){
       const pass=(ab,player,role,teamRaw)=>{ if(!rankShow(player))return false;   // 今年沒出場過就不列（與排行榜同一判準；否則 BeanJ/Glory 這種已離開職業的人會從 soloq_recent 漏進來）
         if(V.rankRole&&role!==V.rankRole)return false;
         if(V.rankRegion){ const s=rgOf({team:teamRaw}); if(!(s&&s.has(V.rankRegion)))return false;
-          if(V.rankRegion==="LPL"&&V.rankLplGrp&&lplSplitGroupOf(ab,curYear,lplSel)!==V.rankLplGrp)return false; }
+          if((V.rankRegion==="LPL"||V.rankRegion==="LCK")&&V.rankLplGrp&&lplSplitGroupOf(ab,curYear,lplSel,grpLg)!==V.rankLplGrp)return false; }
         if(q&&!((ab+" "+player).toLowerCase().includes(q)||String(teamRaw||"").toLowerCase().includes(q)))return false; return true; };
       // ① 排行榜名冊 SD.players（一人一列＝取牌位最高帳號）
       SD.players.forEach(p=>{ if(!p.player)return; const ab=teamFix(p.team||""), nk=ab+"|"+p.player, rk=recByNorm[nk]||null, role=(rk&&REC.players[rk].r)||idxRole[nk]||null;
@@ -9330,9 +9409,8 @@ function render(){
     segBind("rankViewSeg",v=>{ if(v===(V.rankView==="daily"?"daily":"ladder"))return; V.rankView=v; saveState(); render(); }); // 排行榜／每日戰況
     segBind("rankDaySeg",v=>{ if(+v===(V.rankDayRange||1))return; V.rankDayRange=+v; saveState(); render(); });               // 每日戰況天數範圍
     main.querySelectorAll("[data-role]").forEach(b=>b.onclick=()=>{V.rankRole=b.dataset.role; saveState(); render();}); // 路線篩選
-    main.querySelectorAll("[data-region]").forEach(b=>b.onclick=()=>{V.rankRegion=b.dataset.region; if(b.dataset.region!=="LPL")V.rankLplGrp=""; saveState(); render();}); // 賽區篩選(離開 LPL 清組別)
-    main.querySelectorAll("[data-lplsplit]").forEach(b=>b.onclick=()=>{V.rankLplSplit=b.dataset.lplsplit; V.rankLplGrp=""; saveState(); render();}); // LPL 賽段切換(每賽段分組不同，切換清組別)
-    main.querySelectorAll("[data-lplg]").forEach(b=>b.onclick=()=>{V.rankLplGrp=b.dataset.lplg; saveState(); render();}); // LPL 分組篩選
+    main.querySelectorAll("[data-region]").forEach(b=>b.onclick=()=>{V.rankRegion=b.dataset.region; if(b.dataset.region!=="LPL"&&b.dataset.region!=="LCK")V.rankLplGrp=""; else V.rankLplGrp=""; saveState(); render();}); // 賽區篩選(離開 LPL 清組別)
+    segBind("rankLplGrpSeg",v=>{ if(v===(V.rankLplGrp||""))return; V.rankLplGrp=v; saveState(); render(); }); // LPL 組別（賽段固定最新；S1/S2/S3 鈕已移除——使用者定案 2026-07-29）
     {const h=document.getElementById("fHelp"); if(h)h.onclick=e=>{e.stopPropagation();toggleHelpPop(h);};}
     if(dailyMode)paintDaily();else paint();
     }

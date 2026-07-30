@@ -1,0 +1,1 @@
+window.LCK_GROUPS={"2026": {"S1": {"Baron": ["BRO", "DNS", "GEN", "NS", "T1"], "Elder": ["BFX", "DK", "DRX", "HLE", "KT"]}, "S3": {"Legend": ["DK", "GEN", "HLE", "KT", "T1"], "Rise": ["BFX", "BRO", "DNS", "DRX", "NS"]}}};

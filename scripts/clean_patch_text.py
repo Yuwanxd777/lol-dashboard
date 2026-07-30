@@ -157,3 +157,13 @@ if __name__ == "__main__":
     rp = os.path.join(HERE, "remaining_en.txt")
     open(rp, "w", encoding="utf-8").write("\n".join(all_remown))
     print(f"英名對照 {len(NAME_MAP)} 條｜人工表 tr_fix.json {len(MANUAL)} 條｜殘英清單 → {rp}")
+
+
+# ── 新舊值黏連修復（2026-07-29 使用者回報 26.13 亞菲利歐Q）──
+# 官方頁的 ⇒ 有時被排版節點吃掉，兩段數值直接黏連：「…40%總物攻傷害每次普攻造成20…」
+# 特徵＝同一行內「數值段+單位詞」後緊接重複的敘述開頭。保守規則：僅在
+# 「X…傷害」緊接「每次普攻造成/造成」且兩側都有數字串時插回 ⇒。
+import re as _re
+def fix_glued_change(line):
+    return _re.sub(r"((?:每次普攻)?造成[\d\./ ]+%?[^⇒]{0,8}?傷害)((?:每次普攻)?造成\d)",
+                   lambda m: m.group(1) + " ⇒ " + m.group(2), line) if "⇒" not in line else line

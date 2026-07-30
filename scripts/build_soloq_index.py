@@ -23,15 +23,16 @@ def aggregates(matches):
     last10 = [g.get("c") for g in matches[:10] if g.get("c")]
     cut = (time.time() - 7*86400) * 1000
     wk = [g for g in matches if (g.get("t") or 0) >= cut]
-    wr7 = sc7 = n7 = kda7 = None
+    wr7 = sc7 = n7 = kda7 = w7 = None
     if wk:
         n7 = len(wk); wins = sum(1 for g in wk if g.get("w"))
+        w7 = wins
         wr7 = round(wins / n7 * 100)
         scs = [g["sc"] for g in wk if g.get("sc") is not None]
         sc7 = round(sum(scs) / len(scs), 1) if scs else None
         sk = sum(g.get("k", 0) for g in wk); sd = sum(g.get("de", 0) for g in wk); sa = sum(g.get("a", 0) for g in wk)
         kda7 = round((sk + sa) / max(1, sd), 1)  # 一週 KDA＝(總K+總A)/總D
-    return last10, wr7, sc7, n7, kda7
+    return last10, wr7, sc7, n7, kda7, w7
 
 def _pnum(b):
     return int(re.match(r'p(\d+)\.js$', b).group(1))
@@ -96,10 +97,10 @@ def build():
                 print(f"  ⚠ 重複 key {key}：{b}({len(matches)}場) 不多於既有 {players[key]['f']}({players[key]['n']}場)，索引沿用既有"); continue
             print(f"  ⚠ 重複 key {key}：{b}({len(matches)}場) 覆蓋 {players[key]['f']}({players[key]['n']}場)，索引取場數多者")
         if matches: newest = max(newest, matches[0].get("t", 0))
-        l10, wr7, sc7, n7, kda7 = aggregates(matches)
+        l10, wr7, sc7, n7, kda7, w7 = aggregates(matches)
         lt = max((g.get("t") or 0) for g in matches) if matches else None  # 最近一場時間戳(ms)：積分表「最近積分」欄
         players[key] = {"f": b, "role": role, "n": len(matches),
-                        "last10": l10, "wr7": wr7, "sc7": sc7, "n7": n7, "kda7": kda7, "lt": lt}
+                        "last10": l10, "wr7": wr7, "sc7": sc7, "n7": n7, "kda7": kda7, "w7": w7, "lt": lt}
         # 每日戰況：以 KST 分日，每場記 [英雄, 勝(1)/敗(0), LP 變化]；最新在前
         byday = {}
         for g in matches:
