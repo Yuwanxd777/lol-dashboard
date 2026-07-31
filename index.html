@@ -5873,7 +5873,7 @@ function sqHeroDetail(cid){
       <span class="sub">${_subFx}<span class="plink" id="sqGoDex">🛠️ ${en?"Builds & runes →":"出裝／符文 →"}</span></span></h2>
       <div class="statline">
         <span>${en?"Games":"出場"} <b>${n}</b>${en?"":" 場"}</span>
-        <span>${en?"Win%":"勝率"} <b>${n?Math.round(w/n*100):0}%</b>${en?` (${w}W ${n-w}L)`:` (${w} 勝 ${n-w} 敗)`}</span>
+        <span>${en?"Win%":"勝率"} <b>${n?Math.round(w/n*100):0}%</b><span class="meta">(${w}-${n-w})</span></span>
         <span>${T("場均 K/D/A")} <b>${n?`${d1s(k/n)} / ${d1s(d/n)} / ${d1s(a/n)}`:"—"}</b></span>
         <span>${en?"KP%":"參與率"} <b>${kpN?Math.round(kpS/kpN)+"%":"—"}</b></span>
         <span>${en?"GD@15":"金差@15"} <b>${gdN?sg(gdS/gdN):"—"}</b></span>
@@ -10367,7 +10367,7 @@ function render(){
         +`<div class="tipRow"><div>${en?"Games":"對戰"} <span class="num">${a.n}</span>${en?"":" 場"}｜${en?"Win%":"勝率"} <span class="num">${wr}%</span> (${a.w}-${a.n-a.w})</div>`
         +`<div>${en?"avg GD@10":"金差@10 均"} <span class="num">${sg(ag)}</span>｜${en?"Lane%":"贏線率"} <span class="num">${lp==null?"–":lp+"%"}</span></div>`
         +`<div>${en?"avg GD@15":"中期金差 均"} <span class="num">${sg(am)}</span>｜KDA <span class="num">${kda}</span></div>${muLine}</div>`; };
-    const list=[]; let n=0,w=0,k=0,dd=0,as=0;
+    const list=[]; let n=0,w=0,k=0,dd=0,as=0,gdS=0,gdN=0,mdS=0,mdN=0; // gd/md＝金差@10 與中期金差的平均（名片用）
     for(const o of LANES){
       if(!passG(o))continue;
       if(V.hdLane&&PN[o.pid]!==V.hdLane)continue;      // 路線篩選
@@ -10383,6 +10383,7 @@ function render(){
         const gd10=(g10!=null&&og10!=null)?g10-og10:null; // 金差@10（對線對手）
         const g25=num(r[C.blue_goldat25+(side?RB:0)]), og25=num(r[C.blue_goldat25+(side?0:RB)]);
         const mid=(g10!=null&&og10!=null&&g25!=null&&og25!=null)?((g25-og25)-(g10-og10)):null; // 中期金差＝25分對位差−10分對位差
+        if(gd10!=null){gdS+=gd10;gdN++;} if(mid!=null){mdS+=mid;mdN++;}   // 只把有資料的場算進平均（早年沒有 @10/@25 欄）
         const _och=r[C.blue_champion+(side?0:RB)];
         const sit=sitOf(gd10,mid); // 情境四象限（金差@10 × 中期金差）
         list.push({date:o.date, patch:o.patch, lg:o.league, sp:o.split, pos:PN[o.pid]||"", won,
@@ -10449,10 +10450,12 @@ function render(){
         <span class="sub">${CABBR[ch]?`${T("縮寫")} ${CABBR[ch]}｜`:""}${_subF?_subF+"｜":""}<span class="plink" id="sqGoDex">🛠️ ${LANG==="en"?"Builds & runes →":"出裝／符文 →"}</span></span></h2>
         <div class="statline">
           <span>${LANG==="en"?"Games":"出場"} <b>${n}</b>${LANG==="en"?"":" 場"}</span>
-          <span>${LANG==="en"?"Win%":"勝率"} <b>${n?Math.round(w/n*100):0}%</b>${LANG==="en"?` (${w}W ${n-w}L)`:` (${w} 勝 ${n-w} 敗)`}</span>
+          <span>${LANG==="en"?"Win%":"勝率"} <b>${n?Math.round(w/n*100):0}%</b><span class="meta">(${w}-${n-w})</span></span>
           ${filtered?"":`<span>${T("被禁用")} <b>${ban}</b>${LANG==="en"?"":" 次"}</span>
           <span>BP% <b>${Math.round(Math.min(1,(n+ban)/avail)*100)}%</b>${unav?`<span class="meta">${LANG==="en"?`(−${unav} unavailable, Fearless)`:`（已扣全局BP不可用 ${unav} 場）`}</span>`:""}</span>`}
           <span>${T("場均 K/D/A")} <b>${n?`${d1s(k/n)} / ${d1s(dd/n)} / ${d1s(as/n)}`:"—"}</b></span>
+          ${(v=>`<span>${LANG==="en"?"GD@10":"金差@10"} <b style="color:${v==null?"":v>0?"#ff6b6b":v<0?"#37c871":""}">${v==null?"—":(v>0?"+":"")+Math.round(v)}</b></span>`)(gdN?gdS/gdN:null)}
+          ${(v=>`<span>${LANG==="en"?"Mid GD":"中期金差"} <b style="color:${v==null?"":v>0?"#ff6b6b":v<0?"#37c871":""}">${v==null?"—":(v>0?"+":"")+Math.round(v)}</b></span>`)(mdN?mdS/mdN:null)}
         </div></div>
       <div class="card" id="trendCard" style="display:none"><h2>📈 <span id="trendTitle"></span> <span class="sub"><span style="color:#ff4d4d">▲${T("增強")}</span>　<span style="color:#37c871">▼${T("削弱")}</span>　<span style="color:#ffd60a">●${T("調整")}</span>｜${LANG==="en"?"hover for details (source: Riot official patch notes)":"滑上去看細節（來源：Riot 官方版本說明）"}</span></h2><div class="chartbox" style="height:320px"><canvas id="trend"></canvas></div></div>
       <div class="card"><h2>📜 ${T("出場紀錄")} <span class="sub">${LANG==="en"?`${n} games, newest first | click a column to sort`:`共 ${n} 場，最新在上｜點欄位名稱可排序`}</span></h2>
