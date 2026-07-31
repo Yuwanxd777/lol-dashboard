@@ -2661,6 +2661,9 @@ const eventsTreeHTML=()=>{
        if(s.from){ const _sd=e._spDate=e._spDate||{}; if(!_sd[sp]||s.from<_sd[sp])_sd[sp]=s.from; }
        if(s.po&&s.po.length){ const _pb=e._poSp=e._poSp||{}, _p2=_pb[sp]=_pb[sp]||new Set();
          s.po.forEach(t=>{ if(t)_p2.add(tAb(t)); }); } });
+     // 不分賽段的補充賽事（2013 巴西／大洋洲／CIS／拉美＝小組賽與季後賽同一頁）：
+     // 晉級名單直接來自 wiki 的季後賽對戰表 → 平鋪時照樣打勾
+     if((d.po||[]).length){ const _pa=e._poAll=e._poAll||new Set(); d.po.forEach(t=>{ if(t)_pa.add(tAb(t)); }); }
      e._extra=d; });}
   // LTA 北區/南區/跨區＝同一體系 → 合併成一張 LTA 卡，卡內以帶標籤的分隔線列 北區/南區（使用者判例）
   {const ks=["LTA","LTA N","LTA S"].filter(k=>byLg[k]);
@@ -2862,7 +2865,11 @@ const eventsTreeHTML=()=>{
           const _rest=base.filter(t2=>!_used.has(t2));
           if(_rest.length)_mc+=_row(LANG==="en"?"Other":"其他",_rest,advQ);
           mainChips=_mc+extSeg;
-        }else mainChips=chips(base,advQ)+extSeg;
+        }else{
+          // 只有一個賽段（或整年就一個賽事）：晉級名單＝補充賽事的對戰表 ∪ 各賽段的季後賽名單
+          const _pa=new Set([...(x._poAll||[]),...Object.values(x._poSp||{}).flatMap(s2=>[...s2])]);
+          mainChips=chips(base,_pa.size?_pa:advQ)+extSeg;
+        }
       }
     }
     let promoBlock="";
@@ -2975,6 +2982,7 @@ const eventsTreeHTML=()=>{
     ${section("三大國際賽（世界賽／MSI／First Stand）","🌍",cat.intl)}
     ${section("一級聯賽（主要賽區）","🥇",cat.t1)}
     ${section("次級聯賽","🥈",cat.t2,"本年度資料庫無次級聯賽")}
+    ${section("三級聯賽","🥉",cat.t3)}
     ${section("盃賽／資格賽／其他","🏆",cat.cup)}
   </div>`;
 };

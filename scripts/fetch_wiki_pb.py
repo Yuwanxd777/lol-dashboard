@@ -37,7 +37,9 @@ GAP = 3.0
 JOBS = [
     (2013, "GPL", "春季", 0, "2013 GPL Spring/Picks and Bans", "2013 GPL Spring"),
     (2013, "GPL", "夏季", 0, "2013 GPL Summer/Picks and Bans", "2013 GPL Summer"),
-    (2013, "GPL", "夏季 PO", 1, "2013 GPL Championship/Picks and Bans", "2013 GPL Championship"),
+    # 賽段寫「夏季」就好，PO 後綴由 fetch_data 依 playoffs 欄自己加；
+    # 自己先寫 "夏季 PO" 會變成「夏季 PO PO」，前端只去掉一個 PO → 賽事卡多長出一列（2026-07-31）
+    (2013, "GPL", "夏季", 1, "2013 GPL Championship/Picks and Bans", "2013 GPL Championship"),
     (2013, "GPL", "世界賽資格賽", 0, "Season 3 Taiwan Regional Finals/Picks and Bans",
      "Season 3 Taiwan Regional Finals"),
     (2013, "CBLOL", "", 0, "Riot Season 3 Brazilian Championship/Picks and Bans",
@@ -239,6 +241,25 @@ def main():
         except Exception as e:
             print(f"    例外：{type(e).__name__} {str(e)[:100]}")
         (ok if t else miss).append(f"{job[0]} {job[1]} {job[2] or '-'}")
+    # 清孤兒：改過賽段名（"夏季 PO" → "夏季"）之後 key 會變，舊 key 還留在 wikifill 裡
+    # → 同一批比賽被併進去兩次，而且帶著「夏季 PO PO」這種賽段名（2026-07-31 實測）
+    for y in sorted({j[0] for j in JOBS if not yrs or j[0] in yrs}):
+        p = os.path.join(CACHE, f"wikifill_{y}.json")
+        if not os.path.exists(p):
+            continue
+        try:
+            D = json.load(open(p, encoding="utf-8"))
+        except Exception:
+            continue
+        live = {f"{lg}_{yy}_" + (re.sub(r"[^A-Za-z0-9]+", "", sp) or re.sub(r"[^A-Za-z0-9]+", "", pg)[:24])
+                for (yy, lg, sp, _po, pg, _mp) in JOBS if yy == y}
+        drop = [k for k, v in D.items() if "Picks and Bans" in str(v.get("src", "")) and k not in live]
+        if drop:
+            for k in drop:
+                D.pop(k, None)
+            json.dump(D, open(p, "w", encoding="utf-8"), ensure_ascii=False)
+            print(f"\n[{y}] 清掉 {len(drop)} 個孤兒 key：{drop}")
+
     print("\n" + "=" * 56)
     print(f"完成 {len(ok)}：" + "、".join(ok))
     if miss:

@@ -156,10 +156,28 @@ def fix_case(nm):
     return _TNAME.get(str(nm or "").casefold(), nm)
 
 
+def bracket_of(html):
+    """季後賽對戰表（div.bracket-team）裡的隊伍＝打進季後賽的隊 → 賽事樹的綠勾。
+
+    2013 那些小賽區是「小組賽＋季後賽同一頁、同一個賽段名（甚至沒有賽段名）」，
+    沒辦法像現代聯賽那樣靠 split 帶 PO 判斷 → 直接讀對戰表（使用者要求 2026-07-31）。
+    """
+    out, seen = [], set()
+    for b in re.findall(r'<div class="bracket-team[^"]*"[^>]*>(.*?)(?=<div class="bracket-team|</div>\s*</div>)',
+                        html, re.S):
+        m = re.search(r'title="([^"]+)"', b)
+        if not m:
+            continue
+        nm = fix_case(_html.unescape(m.group(1)).strip())
+        if nm and nm not in seen:
+            seen.add(nm); out.append(nm)
+    return out
+
+
 def grab(page, kind):
     html = parse_page(page)
     frm, to = dates_of(html)
-    return [fix_case(t) for t in teams_of(html, kind)], rosters_of(html), frm, to
+    return ([fix_case(t) for t in teams_of(html, kind)], rosters_of(html), frm, to, bracket_of(html))
 
 
 def main():
@@ -180,13 +198,16 @@ def main():
                 segs, allt, frm0, to0 = [], [], "", ""
                 for sp in cfg["splits"]:
                     try:
-                        teams, _rs, frm, to = grab(sp["page"], kind)
+                        teams, _rs, frm, to, brk = grab(sp["page"], kind)
                     except Exception as e:
                         print(f"   {sp['sp']} 失敗：{str(e)[:100]}"); continue
-                    po = []
-                    if sp.get("po_page"):
+                    # 對戰表涵蓋全部參賽隊＝整個賽事就是淘汰賽（2013 土耳其／大洋洲／CIS 都是）→
+                    # 那就沒有「誰晉級」可言，全部打勾等於沒打勾 → 不標
+                    po = list(brk) if 0 < len(brk) < len(teams) else []
+                    if sp.get("po_page"):   # 季後賽另有獨立頁 → 該頁的參賽隊全是晉級隊
                         try:
-                            po, _r2, _f2, to2 = grab(sp["po_page"], kind)
+                            po2, _r2, _f2, to2, _b2 = grab(sp["po_page"], kind)
+                            po = po2 if (0 < len(po2) < len(teams)) else po
                             if to2 > to:
                                 to = to2
                             time.sleep(2)
@@ -213,13 +234,13 @@ def main():
                 continue
             print(f"[{year}] {code} ← {cfg['page']}")
             try:
-                teams, rosters, frm, to = grab(cfg["page"], kind)
+                teams, rosters, frm, to, brk = grab(cfg["page"], kind)
             except Exception as e:
                 print("   失敗，保留舊資料：", str(e)[:120]); continue
             data[str(year)][code] = {"teams": teams, "rosters": rosters, "from": frm, "to": to,
-                                     "page": cfg["page"],
+                                     "po": (brk if 0 < len(brk) < len(teams) else []), "page": cfg["page"],
                                      "url": "https://lol.fandom.com/wiki/" + urllib.parse.quote(cfg["page"].replace(" ", "_"))}
-            print(f"   {len(teams)} 隊　{len(rosters)} 份名單　{frm} ~ {to}")
+            print(f"   {len(teams)} 隊　{len(rosters)} 份名單　{frm} ~ {to}" + (f"　季後賽 {len(brk)} 隊" if 0 < len(brk) < len(teams) else ("　（純淘汰賽，不標晉級）" if brk else "")))
             if rosters:
                 k = list(rosters)[0]
                 print(f"    例：{k} → " + "、".join(f"{p['n']}({p['r'] or '?'})" for p in rosters[k][:6]))
