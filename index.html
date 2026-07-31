@@ -4388,7 +4388,7 @@ function changeDir(lines){
   return buff&&nerf?0:buff?1:nerf?-1:0; // 1增強 / -1削弱 / 0混合或無法判定
 }
 // ── 版本改動渲染器（全域共用：版本改動分頁＋圖鑑歷年改動）──────────────────
-const COSM=/原畫|造型|背景故事|中版美術|重新上色|推薦裝備|語音(更新|台詞)|(技能)?圖示更新|更新[了]?圖示|特效[^｜]{0,6}(更新|升級|改良|重製)|視覺效果|粒子效果|模型更新|動畫更新|全新的?[^｜]{0,10}動畫|新增[^｜]{0,4}動畫|新增[^｜]{0,6}圖示|其圖示更新|圖示更新|說明更新|新增語音|語音包|播報員|音效|手感|操作感|順暢度|流暢度|符文頁|介面(更新|調整)|按鍵綁定|計分板顯示|商店[^｜]{0,12}搜尋|搜尋[^｜]{0,8}關鍵字|(改善|優化|改進)了?[^｜]{0,14}(偵測|判定|辨識|選取|命中框)|(新增|顯示)?[^｜]{0,6}指示器|進度特效|輪替遊戲模式|活動|(^|｜)\s*(客戶端|表情|重播|語音聊天|快捷鍵|遊戲效能|League 語音)｜|反作弊|藍色精華|積分衰減|隊伍獎勵|對戰佇列|英雄 Mastery|影像輔助選項|載入畫面|邊框組|Adobe|PvP\.net|羅技|game\.cfg|DX1?[019]|FPS|LogitechSupport|除錯啟動器|寶石合成|實驗性遊戲模式|主堡閃電戰|極速無敵亂鬥|無限火力|URF|鬥魂競技場|[Aa]rena|現在(能|會)?正確|嚎哭深淵|極地大亂鬥|扭曲叢林|統治戰場|Howling Abyss|Twisted Treeline|Crystal Scar|Dominion|[（(]ARAM[)）]|Level Requirements?|更名|重新命名|renamed|[Nn]ame changed|名稱[：:][^⇒\n]*⇒|(^|｜|\[)\s*(未公告|錯誤|修正了|修復|[Uu]ndocumented|[Bb]ug\s?[Ff]ix|BUG)|(提高|降低|增加|減少)從\s*\d|編按|附註[：:]|並未實裝|官方未記載|並非刻意|此問題可能是在|未列於公告|(邊緣|中心)判定距離|(重新)?編寫程式(碼)?|rescripted?|visual (upgrade|update|effects?)|splash art|voice.?over|icons? (are |have been )?updated|recommended items|lore|chroma|texture|animations? updated|now (correctly|properly)|tooltip|\bARAM\b/i;
+const COSM=/原畫|造型|背景故事|中版美術|重新上色|推薦裝備|語音(更新|台詞)|(技能)?圖示更新|更新[了]?圖示|特效[^｜]{0,6}(更新|升級|改良|重製)|視覺效果|粒子效果|模型更新|動畫更新|全新的?[^｜]{0,10}動畫|新增[^｜]{0,4}動畫|新增[^｜]{0,6}圖示|其圖示更新|圖示更新|說明更新|新增語音|語音包|播報員|音效|手感|操作感|順暢度|流暢度|符文頁|介面(更新|調整)|按鍵綁定|計分板顯示|商店[^｜]{0,12}搜尋|搜尋[^｜]{0,8}關鍵字|(改善|優化|改進)了?[^｜]{0,14}(偵測|判定|辨識|選取|命中框)|(新增|顯示)?[^｜]{0,6}指示器|進度特效|輪替遊戲模式|活動|(^|｜)\s*(客戶端|表情|重播|語音聊天|快捷鍵|遊戲效能|League 語音)｜|反作弊|藍色精華|建議符文|推薦符文|積分衰減|隊伍獎勵|對戰佇列|英雄 Mastery|影像輔助選項|載入畫面|邊框組|Adobe|PvP\.net|羅技|game\.cfg|DX1?[019]|FPS|LogitechSupport|除錯啟動器|寶石合成|實驗性遊戲模式|主堡閃電戰|極速無敵亂鬥|無限火力|URF|鬥魂競技場|[Aa]rena|現在(能|會)?正確|嚎哭深淵|極地大亂鬥|扭曲叢林|統治戰場|Howling Abyss|Twisted Treeline|Crystal Scar|Dominion|[（(]ARAM[)）]|Level Requirements?|更名|重新命名|renamed|[Nn]ame changed|名稱[：:][^⇒\n]*⇒|(^|｜|\[)\s*(未公告|錯誤|修正了|修復|[Uu]ndocumented|[Bb]ug\s?[Ff]ix|BUG)|(提高|降低|增加|減少)從\s*\d|編按|附註[：:]|並未實裝|官方未記載|並非刻意|此問題可能是在|未列於公告|(邊緣|中心)判定距離|(重新)?編寫程式(碼)?|rescripted?|visual (upgrade|update|effects?)|splash art|voice.?over|icons? (are |have been )?updated|recommended items|lore|chroma|texture|animations? updated|now (correctly|properly)|tooltip|\bARAM\b/i;
 // 版本總覽專用的「瑣碎改動」：純顯示層、完全不影響強弱（聊天訊息顯示名、提示文字…）。
 // 只在版本分頁擋掉，英雄詳情頁仍完整列出（使用者定案 2026-07-31：艾妮維亞蛋型態的聊天名稱）
 // 版本總覽的「瑣碎改動」：純顯示層／風味描述，不影響強弱（使用者陸續指定：
@@ -4460,7 +4460,10 @@ const objPkNum=pk=>String(pk).replace(/[^\d.]/g," ").trim().split(/[.\s]+/).map(
 const objPkSortDesc=(a,b)=>{const na=objPkNum(a),nb=objPkNum(b); for(let i=0;i<Math.max(na.length,nb.length);i++){if((nb[i]||0)!==(na[i]||0))return (nb[i]||0)-(na[i]||0);}return 0;};
 const normSk=sk=>{
   const m=String(sk).match(/^(隱藏被動|被動)\s*(?:「([^」]+)」|[-–—]\s*(.+))$/);
-  return m?`${(m[2]||m[3]).trim()}（${m[1]}）`:sk;
+  if(m)return `${(m[2]||m[3]).trim()}（${m[1]}）`;
+  // 「W - 起來吧！」＝按鍵在前的寫法（2026-08-01 稽核）
+  const m2=String(sk).match(/^([QWER])\s*[-–—]\s*(.+)$/);
+  return m2?`${m2[2].trim()}（${m2[1]}）`:sk;
 };
 const SK_SLOT={"被動":0,"隱藏被動":0,"Q":1,"W":2,"E":3,"R":4};
 const normTxt=s=>uniStat(s)
@@ -4760,7 +4763,7 @@ const renderChgLines=(lines,cardName)=>{
   const SLOTMARK=/^[-–—]?\s*[（(]?(被動|Q|W|E|R|Innate|Passive|Active)[)）]?\s*[:：]?\s*$/; // wiki 的槽位標記行（技能名已標按鍵，重複）
   // 章節標記被當成技能名（「註記：」「新增效果：」「Stats」「Ability details：」「虛空幼獸數據：」）
   // → 不是技能，前綴清掉讓內容直接列（2026-08-01 全庫稽核）
-  const SECMARK=/^(.{0,16}[：:]|Stats?|Status|Statistics|Ability details|Mega [^｜]* Stats|'[^']*'|.{0,12}(數據|統計|系統|優先順序|更新|調整|改進|重製)[：:]?)$/i;
+  const SECMARK=/^(.{0,30}[：:]|Stats?|Status|Statistics|Ability details|Mega [^｜]* Stats|'[^']*'|.{0,12}(數據|統計|系統|優先順序|更新|調整|改進|重製)[：:]?)$/i;
   for(const l of lines){if(COSM.test(l))continue;const p=l.indexOf("｜");let sk=p>0?normSk(l.slice(0,p)):"";const txt=p>0?l.slice(p+1):l;
     if(sk&&!/（(隱藏被動|被動|Q|W|E|R)）/.test(sk)&&SECMARK.test(sk))sk="";if(SLOTMARK.test(txt.trim()))continue;if(grps.length&&grps[grps.length-1].sk===sk)grps[grps.length-1].items.push({l,txt});else grps.push({sk,items:[{l,txt}]});}
   const DIR_ORDER={buff:0,nerf:1,adj:2};
