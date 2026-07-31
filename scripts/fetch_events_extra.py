@@ -26,6 +26,27 @@ UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.3
 # kind: "team"＝一般戰隊（取 team-template 全名）／"nation"＝國家隊（取 X (National Team)）
 # 鍵含「#」＝賽段名單補充（LPL#S3＝S3 開賽前的 wiki 陣容），前端賽事樹不會把它當獨立賽事卡
 EVENTS = {
+    # 2013-2015 的小賽區：Leaguepedia 有賽事頁與參賽隊，但沒有逐局 scoreboard（fetch_wiki_mh 抓 0 局）
+    # → 至少讓圖鑑「賽事」樹看得到這些聯賽存在（使用者要求 2026-07-31）。
+    # splits＝一個賽段一個頁；po_page＝該賽段的季後賽（2013 GPL 只有夏季有，就 Championship 那一場）
+    2013: {
+        # GPL 底下還有一個「台灣區世界賽資格賽」（Season 3 Taiwan Regional Finals），
+        # 打完才定出世界賽代表隊 → 當成 GPL 的一個賽段（使用者指定 2026-07-31）
+        "GPL":   {"splits": [{"sp": "春季", "page": "2013 GPL Spring"},
+                             {"sp": "夏季", "page": "2013 GPL Summer", "po_page": "2013 GPL Championship"},
+                             {"sp": "世界賽資格賽", "page": "Season 3 Taiwan Regional Finals"}]},
+        "TCL":   {"splits": [{"sp": "冬季", "page": "Riot Games Turkey/2013 Season/Winter Tournament"},
+                             {"sp": "春季", "page": "Riot Games Turkey/2013 Season/Spring Tournament"},
+                             {"sp": "夏季", "page": "Riot Games Turkey/2013 Season/Summer Tournament"}]},
+        "CBLOL": {"page": "Riot Season 3 Brazilian Championship"},
+        "LCO":   {"page": "Riot Season 3 Oceanic Championship"},
+        "LCL":   {"page": "2013 Season CIS Championship"},
+        "LLA":   {"page": "Season 3 Latin America Regional Finals"},
+    },
+    2015: {
+        "GPL":   {"splits": [{"sp": "春季", "page": "2015 GPL Spring", "po_page": "2015 GPL Spring/Playoffs"},
+                             {"sp": "夏季", "page": "2015 GPL Summer", "po_page": "2015 GPL Summer/Playoffs"}]},
+    },
     2026: {
         "EWCQ中國": {"page": "Esports World Cup 2026/Online Qualifiers/China", "kind": "team"},
         "ENC":      {"page": "Esports Nations Cup 2026",                       "kind": "nation"},
@@ -54,11 +75,15 @@ def teams_of(html, kind):
         # 國家隊：連結 title 就是 "China (National Team)"
         names = re.findall(r'title="([^"]+?\((?:National Team)\))"', html, re.I)
     else:
-        # 兩種模板都要試（頁面新舊版型不同）：team-template-text ／ span.teamname
-        names = re.findall(r'class="[^"]*team-template-text[^"]*"[^>]*>\s*<a[^>]*title="([^"]+)"', html)
-        names += re.findall(r'<span class="teamname"[^>]*>\s*<a[^>]*>([^<]+)</a>', html)
-        # 同一隊會同時列全名與縮寫（EDward Gaming／EDG）→ 只留全名
-        names = [n for n in names if len(n) > 4 and not n.isupper()]
+        # ① 新版型：team-template-text 裡的連結 title。這條同一隊會同時列全名與縮寫
+        #    （EDward Gaming／EDG）→ 只留全名
+        names = [n for n in re.findall(r'class="[^"]*team-template-text[^"]*"[^>]*>\s*<a[^>]*title="([^"]+)"', html)
+                 if len(n) > 4 and not n.isupper()]
+        # ② 舊版型（2013-2015 的賽事頁）：span.teamname 裡面——有 wiki 頁的是 <a title="X">，
+        #    沒建頁的小隊是 <span class="new" title="X (page does not exist)">。這裡的 title 本來就是
+        #    完整隊名，**不能**再套「去掉全大寫」那個過濾，不然 FIGJAM 這種老隊會整批被丟掉。
+        for m in re.finditer(r'class="teamname"[^>]*>\s*<(?:a|span)[^>]*title="([^"]+)"', html):
+            names.append(re.sub(r"\s*\(page does not exist\)\s*$", "", m.group(1)))
     seen, out = set(), []
     for n in names:
         n = _html.unescape(n).strip()   # Anyone&#39;s Legend → Anyone's Legend（要與主資料全名對得上）
@@ -101,6 +126,42 @@ def dates_of(html):
     return (ds[0], ds[-1]) if ds else ("", "")
 
 
+_TNAME = None
+
+
+def fix_case(nm):
+    """還原隊名的正確大小寫。
+
+    wiki 的 title 屬性走 MediaWiki 頁名規則，首字母一定大寫（paiN Gaming → PaiN Gaming、
+    ahq eSports Club → Ahq eSports Club）→ 跟主資料的隊名對不上，賽事樹會當成兩支不同的隊。
+    以 data_*.js 既有的隊名為準做 casefold 比對；沒比對到的（純補充賽事、沒有比賽資料）就原樣保留。
+    """
+    global _TNAME
+    if _TNAME is None:
+        import glob
+        _TNAME = {}
+        for p in sorted(glob.glob(os.path.join(ROOT, "data", "data_*.js"))):
+            try:
+                R = json.loads(open(p, encoding="utf-8").read().split("=", 1)[1].strip().rstrip(";"))["tabs"]["RAW_DATA"]
+            except Exception:
+                continue
+            ix = {n: i for i, n in enumerate(R[0])}
+            for k in ("blue_teamname", "red_teamname"):
+                if k not in ix:
+                    continue
+                for r in R[1:]:
+                    v = str(r[ix[k]] or "").strip()
+                    if v:
+                        _TNAME.setdefault(v.casefold(), v)
+    return _TNAME.get(str(nm or "").casefold(), nm)
+
+
+def grab(page, kind):
+    html = parse_page(page)
+    frm, to = dates_of(html)
+    return [fix_case(t) for t in teams_of(html, kind)], rosters_of(html), frm, to
+
+
 def main():
     old = {}
     if os.path.exists(OUT):                       # 抓失敗時保留舊資料，不要把檔案清空
@@ -111,14 +172,50 @@ def main():
     data = {str(y): dict(old.get(str(y), {})) for y in EVENTS}
     for year, evs in EVENTS.items():
         for code, cfg in evs.items():
+            kind = cfg.get("kind", "team")
+            # ── 分賽段的賽事（splits）：一個賽段一個 wiki 頁，另可指定 po_page＝該賽段的季後賽
+            #    （例：2013 GPL 只有夏季有季後賽，就是 2013 GPL Championship 那一場）
+            if cfg.get("splits"):
+                print(f"[{year}] {code}（{len(cfg['splits'])} 個賽段）")
+                segs, allt, frm0, to0 = [], [], "", ""
+                for sp in cfg["splits"]:
+                    try:
+                        teams, _rs, frm, to = grab(sp["page"], kind)
+                    except Exception as e:
+                        print(f"   {sp['sp']} 失敗：{str(e)[:100]}"); continue
+                    po = []
+                    if sp.get("po_page"):
+                        try:
+                            po, _r2, _f2, to2 = grab(sp["po_page"], kind)
+                            if to2 > to:
+                                to = to2
+                            time.sleep(2)
+                        except Exception as e:
+                            print(f"   {sp['sp']} 季後賽失敗：{str(e)[:80]}")
+                    segs.append({"sp": sp["sp"], "teams": teams, "from": frm, "to": to, "po": po,
+                                 "page": sp["page"]})
+                    allt += teams
+                    if frm and (not frm0 or frm < frm0):
+                        frm0 = frm
+                    if to > to0:
+                        to0 = to
+                    print(f"   {sp['sp']}：{len(teams)} 隊 {frm}~{to}" + (f"　季後賽 {len(po)} 隊" if po else ""))
+                    time.sleep(2)
+                if not segs:
+                    print("   全部失敗，保留舊資料"); continue
+                seen, uniq = set(), []
+                for t in allt:
+                    if t not in seen:
+                        seen.add(t); uniq.append(t)
+                data[str(year)][code] = {"teams": uniq, "rosters": {}, "splits": segs,
+                                         "from": frm0, "to": to0, "page": cfg["splits"][0]["page"],
+                                         "url": "https://lol.fandom.com/wiki/" + urllib.parse.quote(cfg["splits"][0]["page"].replace(" ", "_"))}
+                continue
             print(f"[{year}] {code} ← {cfg['page']}")
             try:
-                html = parse_page(cfg["page"])
+                teams, rosters, frm, to = grab(cfg["page"], kind)
             except Exception as e:
                 print("   失敗，保留舊資料：", str(e)[:120]); continue
-            teams = teams_of(html, cfg["kind"])
-            rosters = rosters_of(html)
-            frm, to = dates_of(html)
             data[str(year)][code] = {"teams": teams, "rosters": rosters, "from": frm, "to": to,
                                      "page": cfg["page"],
                                      "url": "https://lol.fandom.com/wiki/" + urllib.parse.quote(cfg["page"].replace(" ", "_"))}

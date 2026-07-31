@@ -1,0 +1,249 @@
+# -*- coding: utf-8 -*-
+"""從 Leaguepedia 的「Picks and Bans」頁抓比賽（2013-2015 小賽區專用）
+
+背景（2026-07-31 使用者提供連結）：2013 的 CBLOL／拉美／台灣區資格賽／大洋洲／CIS／土耳其／GPL
+在 MatchHistoryGame（ScoreboardGames）裡是 0 局——那張表只收有完整逐局數據的比賽。
+但這些賽事都有人工整理的 `{賽事}/Picks and Bans` 頁，裡面有**隊伍、禁用、選用、勝方、局號**。
+
+能拿到什麼、拿不到什麼（很重要，別誤以為資料是完整的）：
+  ✔ 藍紅隊名、3+3 禁用、5+5 選用、勝方、系列賽內局號
+  ✘ **選手名與路線**（PB 頁根本沒有）→ 只產生隊伍列（pid 100/200），不產生選手列。
+    選手生涯統計因此不會被這批資料影響；對戰BP 的路線欄會是空的，這是誠實的空，不是 bug。
+  ✘ 日期（PB 頁沒有）→ 從賽事主頁的比賽列表依「隊伍組合」配對；配不到就退用賽事起始日。
+
+輸出：csv_cache/wikifill_{年}.json（與 fetch_wiki_mh 同一個檔、同一套 key），
+由 fetch_data.merge_wiki() 併入，OE 之後若補上這些比賽會自動以 OE 為準。
+
+用法：
+  python scripts\fetch_wiki_pb.py                 # 跑 JOBS 全部
+  python scripts\fetch_wiki_pb.py --probe "Riot Season 3 Brazilian Championship"
+"""
+import argparse, csv, html as _html, io, json, os, re, sys, time, urllib.parse, urllib.request
+
+if (getattr(sys.stdout, "encoding", "") or "").lower().replace("-", "") != "utf8":
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
+HERE = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.dirname(HERE)
+CACHE = os.path.join(ROOT, "csv_cache")
+HTML_DIR = os.path.join(CACHE, "wikipb")
+sys.path.insert(0, HERE)
+
+API = "https://lol.fandom.com/api.php"
+UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                    "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"}
+GAP = 3.0
+
+# (年, 聯賽碼, 賽段, 季後賽, PB 頁, 取日期用的主頁)
+JOBS = [
+    (2013, "GPL", "春季", 0, "2013 GPL Spring/Picks and Bans", "2013 GPL Spring"),
+    (2013, "GPL", "夏季", 0, "2013 GPL Summer/Picks and Bans", "2013 GPL Summer"),
+    (2013, "GPL", "夏季 PO", 1, "2013 GPL Championship/Picks and Bans", "2013 GPL Championship"),
+    (2013, "GPL", "世界賽資格賽", 0, "Season 3 Taiwan Regional Finals/Picks and Bans",
+     "Season 3 Taiwan Regional Finals"),
+    (2013, "CBLOL", "", 0, "Riot Season 3 Brazilian Championship/Picks and Bans",
+     "Riot Season 3 Brazilian Championship"),
+    (2013, "LLA", "", 0, "Season 3 Latin America Regional Finals/Picks and Bans",
+     "Season 3 Latin America Regional Finals"),
+    (2013, "LCO", "", 0, "Riot Season 3 Oceanic Championship/Picks and Bans",
+     "Riot Season 3 Oceanic Championship"),
+    (2013, "LCL", "", 0, "2013 Season CIS Championship/Picks and Bans", "2013 Season CIS Championship"),
+    # 土耳其（Riot Games Turkey/2013 Season/…）沒有 Picks and Bans 子頁 → 只能留在 events_extra 的補充賽事
+]
+
+
+def parse_page(page, force=False):
+    """action=parse 的 HTML（存快取，可離線重跑）"""
+    os.makedirs(HTML_DIR, exist_ok=True)
+    fp = os.path.join(HTML_DIR, re.sub(r"[^A-Za-z0-9]+", "_", page)[:120] + ".html")
+    if not force and os.path.exists(fp):
+        return open(fp, encoding="utf-8").read()
+    url = API + "?" + urllib.parse.urlencode({"action": "parse", "page": page, "prop": "text", "format": "json"})
+    for i in range(4):
+        try:
+            r = json.loads(urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=90).read())
+        except Exception as e:
+            print(f"      連線失敗（{i+1}/4）{str(e)[:70]}"); time.sleep(5 * (i + 1)); continue
+        if "error" in r:
+            raise RuntimeError(r["error"].get("info", "")[:150])
+        h = r["parse"]["text"]["*"]
+        open(fp, "w", encoding="utf-8").write(h)
+        time.sleep(GAP)
+        return h
+    raise RuntimeError("重試多次仍失敗")
+
+
+def pb_games(html):
+    """PB 頁 → [{blue, red, game, win(1藍/2紅), bans{}, picks{}}]
+
+    版型（實測 2013 各賽事一致）：一個 table.wikitable.pb ＝ 一局；
+      td.pb-winner 內容就是 1／2；td.pb-ban／td.pb-pick 帶 pb-blue／pb-red，
+      class 後面還會多掛 pb-border 之類的修飾 → 比對要寬鬆，不能寫死整串 class。
+    """
+    out = []
+    for t in re.findall(r'<table[^>]*class="[^"]*wikitable pb[^"]*"[^>]*>.*?</table>', html, re.S):
+        cls = re.search(r'class="([^"]*)"', t).group(1)
+        mg = re.search(r"pb-game-(\d+)", cls)
+        teams = re.findall(r'<a href="/wiki/[^"]+" class="[^"]*\bt[A-Z]{2,}\b[^"]*" title="([^"]+)"', t)
+        if len(teams) < 2:
+            teams = re.findall(r'class="team-object">.*?title="([^"]+)"', t, re.S)
+        w = re.search(r'<td class="pb-winner">\s*(\d+)\s*</td>', t)
+        bp = {"blue": {"ban": [], "pick": []}, "red": {"ban": [], "pick": []}}
+        for m in re.finditer(r'<td class="[^"]*\bpb-(ban|pick)\b[^"]*\bpb-(blue|red)\b[^"]*"[^>]*>(.*?)</td>', t, re.S):
+            k, s, body = m.group(1), m.group(2), m.group(3)
+            c = re.search(r'title="([^"]+)"', body)
+            bp[s][k].append(_html.unescape(c.group(1)).strip() if c else "")
+        if len(teams) < 2 or not bp["blue"]["pick"]:
+            continue
+        out.append({"blue": _html.unescape(teams[0]).strip(), "red": _html.unescape(teams[1]).strip(),
+                    "game": int(mg.group(1)) if mg else 1, "win": int(w.group(1)) if w else 0, "bp": bp})
+    return out
+
+
+def dates_of(html):
+    """主頁 → [(日期, 隊A, 隊B)]；比賽列表每列都帶日期與兩隊"""
+    out = []
+    for m in re.finditer(r'<div class="matchlist-[^"]*"[^>]*>.*?</div>\s*</div>', html, re.S):
+        pass
+    # matchlist 的實際結構逐年不同 → 直接掃「日期 ... 兩個隊連結」的鄰近關係
+    for m in re.finditer(r'(20\d\d-\d\d-\d\d)(.{0,900}?)(?=20\d\d-\d\d-\d\d|$)', html, re.S):
+        d, seg = m.group(1), m.group(2)
+        tms = re.findall(r'<a href="/wiki/[^"]+" class="[^"]*\bt[A-Z]{2,}\b[^"]*" title="([^"]+)"', seg)
+        tms = [_html.unescape(x).strip() for x in tms]
+        uniq = []
+        for x in tms:
+            if x not in uniq:
+                uniq.append(x)
+        if len(uniq) >= 2:
+            out.append((d, uniq[0], uniq[1]))
+    return out
+
+
+def span_of(html):
+    ds = sorted(set(re.findall(r"\b(20\d\d-\d\d-\d\d)\b", html)))
+    return (ds[0], ds[-1]) if ds else ("", "")
+
+
+_norm = lambda s: re.sub(r"[^a-z0-9]", "", str(s or "").lower())
+
+
+def build(job, force=False):
+    year, lg, split, po, pb_page, main_page = job
+    key = f"{lg}_{year}_" + (re.sub(r"[^A-Za-z0-9]+", "", split) or re.sub(r"[^A-Za-z0-9]+", "", pb_page)[:24])
+    print(f"\n[{year} {lg} {split or '（無賽段）'}] ← {pb_page}")
+    try:
+        html = parse_page(pb_page, force)
+    except Exception as e:
+        print(f"    PB 頁失敗：{str(e)[:110]}"); return None
+    games = pb_games(html)
+    print(f"    解析到 {len(games)} 局")
+    if not games:
+        return None
+    # 日期：主頁的比賽列表 → 以隊伍組合配對；配不到用賽事起始日
+    dmap, first, last = {}, "", ""
+    try:
+        mh = parse_page(main_page, force)
+        first, last = span_of(mh)
+        for d, a, b in dates_of(mh):
+            dmap.setdefault(frozenset((_norm(a), _norm(b))), []).append(d)
+    except Exception as e:
+        print(f"    主頁日期失敗（改用賽事起始日）：{str(e)[:70]}")
+    if not first:
+        first = last = f"{year}-01-01"
+
+    import fetch_data
+    hdr = fetch_data.oe_header() if hasattr(fetch_data, "oe_header") else None
+    if not hdr:
+        import fetch_fill
+        hdr = fetch_fill.oe_header()
+    ix = {n: i for i, n in enumerate(hdr)}
+    rows, used = [], {}
+    from datetime import date as _date, timedelta as _td
+    _d0 = _date(*map(int, first.split("-")))
+    _d1 = _date(*map(int, (last or first).split("-")))
+    for g in games:
+        pair = frozenset((_norm(g["blue"]), _norm(g["red"])))
+        ds = dmap.get(pair) or []
+        i = used.get(pair, 0)
+        if ds:
+            date = ds[min(i, len(ds) - 1)]
+        else:
+            # 主頁只有 Start/End Date、沒有逐場日期（2013 這些都是兩三天的線下賽）→
+            # 同一組隊伍的第 N 次遭遇往後挪一天（夾在賽事期間內）。全部塞同一天的話，
+            # 小組賽與季後賽的同組對戰會被當成同一個系列，BO 判定就錯了。
+            date = min(_d0 + _td(days=i), _d1).isoformat()
+        if g["game"] == 1:
+            used[pair] = i + 1
+        # 隊名要用完整的正規化字串，不能截斷：Saigon Jokers 與 Saigon Fantastic Five 取前 6 字
+        # 都是 saigon，gameid 會撞在一起互相覆蓋（實測 GPL 春季 56 局只剩 22 局）
+        # 再帶上「第幾次遭遇」：賽事只有三四天時，同一組隊伍多次對戰的推得日期會被夾在同一天，
+        # 光靠 日期＋局號 還是會撞（CBLOL 19 局少 1、CIS 7 局少 1）
+        gid = f"wikipb_{key}_{_norm(g['blue'])}_{_norm(g['red'])}_{date}_{g['game']}_{i}"
+        for side, pid in (("blue", 100), ("red", 200)):
+            r = [""] * len(hdr)
+            put = lambda k, v: r.__setitem__(ix[k], "" if v is None else str(v)) if k in ix else None
+            put("gameid", gid); put("datacompleteness", "partial")
+            put("league", lg); put("year", year); put("split", split); put("playoffs", po)
+            put("date", date + " 00:00:00"); put("game", g["game"]); put("participantid", pid)
+            put("side", side.capitalize()); put("position", "team")
+            put("teamname", g[side])
+            put("result", "1" if (g["win"] == (1 if side == "blue" else 2)) else "0")
+            for i2, ch in enumerate(g["bp"][side]["ban"][:5]):
+                put(f"ban{i2+1}", ch)
+            for i2, ch in enumerate(g["bp"][side]["pick"][:5]):
+                put(f"pick{i2+1}", ch)
+            rows.append(r)
+    buf = io.StringIO()
+    w = csv.writer(buf, lineterminator="\n")
+    w.writerow(hdr); w.writerows(rows)
+    table = fetch_data.process(buf.getvalue(), year)
+    print(f"    process() → {len(table)-1} 列（{len(games)} 局）"
+          + (f"　主頁配到日期 {len(dmap)} 組" if dmap else f"　日期＝賽事期間 {first}~{last} 內依遭遇序遞推"))
+    if len(table) < 2:
+        return None
+    p = os.path.join(CACHE, f"wikifill_{year}.json")
+    D = {}
+    if os.path.exists(p):
+        try:
+            D = json.load(open(p, encoding="utf-8"))
+        except Exception:
+            D = {}
+    D[key] = {"header": table[0], "rows": table[1:], "games": len(games),
+              "src": "leaguepedia Picks and Bans（無選手／路線）", "tour": pb_page,
+              "league": lg, "split": split}
+    json.dump(D, open(p, "w", encoding="utf-8"), ensure_ascii=False)
+    print(f"    → {p}（{key}）")
+    return table
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--probe"); ap.add_argument("--force", action="store_true")
+    ap.add_argument("--years", default="")
+    A = ap.parse_args()
+    if A.probe:
+        h = parse_page(A.probe + ("" if A.probe.endswith("Picks and Bans") else "/Picks and Bans"), A.force)
+        gs = pb_games(h)
+        print(f"{A.probe}：{len(gs)} 局")
+        for g in gs[:3]:
+            print(f"   {g['blue']} vs {g['red']} 局{g['game']} 勝={g['win']}")
+            print(f"     藍 ban {g['bp']['blue']['ban']} pick {g['bp']['blue']['pick']}")
+        return
+    yrs = {int(x) for x in A.years.split(",") if x.strip()} if A.years else None
+    ok, miss = [], []
+    for job in JOBS:
+        if yrs and job[0] not in yrs:
+            continue
+        t = None
+        try:
+            t = build(job, A.force)
+        except Exception as e:
+            print(f"    例外：{type(e).__name__} {str(e)[:100]}")
+        (ok if t else miss).append(f"{job[0]} {job[1]} {job[2] or '-'}")
+    print("\n" + "=" * 56)
+    print(f"完成 {len(ok)}：" + "、".join(ok))
+    if miss:
+        print(f"失敗 {len(miss)}：" + "、".join(miss))
+
+
+if __name__ == "__main__":
+    main()

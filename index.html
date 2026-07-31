@@ -559,8 +559,10 @@
   #tmGrid tbody td{height:48px} /* 列高統一（border-box 含內距）：賽區籤列與縮寫輸入列同高 */
   #tmGrid tbody .lg{font-size:15.5px} /* 賽區籤與戰隊名等大 */
   .heroname .lg{font-size:inherit} /* 數據表名稱旁的聯賽籤與名稱等大 */
-  .lgSplitBlk{width:100%;display:flex;align-items:flex-start;gap:12px;margin-top:7px;padding-top:7px;border-top:1px dashed rgba(255,255,255,.14)}
-  .lgSplitHd{flex:0 0 auto;min-width:36px;font-weight:800;color:var(--tx2);padding-top:2px}
+  /* 賽段區塊：標題(賽段＋隊數)自成一行，戰隊換行列在下面（使用者定案 2026-07-31） */
+  .lgSplitBlk{width:100%;display:flex;flex-direction:column;align-items:stretch;gap:5px;margin-top:7px;padding-top:7px;border-top:1px dashed rgba(255,255,255,.14)}
+  .lgSplitHd{flex:0 0 auto;font-weight:800;color:var(--tx2)}
+  .lgSplitHd .lgSplitN{font-weight:600;color:var(--dim,#8a93a6);margin-left:6px;font-size:12.5px}
   .lgSplitGrps{display:flex;flex-wrap:wrap;gap:6px 22px;flex:1;min-width:0}
   .lgGrpCol{display:flex;flex-direction:column;gap:4px;min-width:0}
   .lgGrpCol>i{font-style:normal;font-weight:700;font-size:12.5px}
@@ -1796,7 +1798,10 @@ function fillTableWidth(root){
 const setHdrH=()=>{const h=document.querySelector("header");document.documentElement.style.setProperty("--hdrH",(h?h.offsetHeight:0)+"px");};
 addEventListener("resize",setHdrH); addEventListener("load",setHdrH); setHdrH();
 // ── 年份感知詳細說明：當年＝最新版數值；歷史年＝該年最後版本的 DDragon 數值 ──
-const HIST_VER={2014:"4.21.5",2015:"5.24.2",2016:"6.24.1",2017:"7.24.2",2018:"8.24.1",2019:"9.24.2",
+// 2013＝DDragon 最早還拿得到的版本（實測 4.2.6 以前——含 lolpatch_3.15、4.1.1——CDN 全部 403，
+// 2013 的資產已下架）。4.2.6 是 2014 年 2 月，英雄／道具／天賦符文與 2013 年末幾乎相同，
+// 拿它當 2013 的代理版本，比整年退回現行版（2026 的英雄與道具）正確太多。
+const HIST_VER={2013:"4.2.6",2014:"4.21.5",2015:"5.24.2",2016:"6.24.1",2017:"7.24.2",2018:"8.24.1",2019:"9.24.2",
   2020:"10.25.1",2021:"11.24.1",2022:"12.23.1",2023:"13.24.1",2024:"14.24.1",2025:"15.24.1"};
 const NOWY=new Date().getFullYear();
 // 「是不是歷史年」只看年份，不要看 HIST_VER 有沒有登記：2013 的 DDragon 資產（lolpatch_3.15）
@@ -2157,6 +2162,16 @@ const STATIC_TABBR={
 //                          MVP Blue → Samsung Blue ＝ SSB。2016 年那支 MVP 是完全不同的隊，不要動它
 "mvp white":"SSW","mvp ozone":"SSW","samsung ozone":"SSW","samsung white":"SSW",
 "mvp blue":"SSB","samsung blue":"SSB",
+// 2013-2015 補充賽事（events_extra.js）的小隊：Leaguepedia 連隊伍頁都沒建、查不到官方縮寫
+// → 取通稱或字首縮寫，只為了賽事卡不要塞滿長全名（滑到隊伍籤仍看得到完整隊名，也可雙擊自行改）
+"cga legends":"CGA","yoe ironmen":"YOE","team ozone xenon":"TOX","team rush":"TR",
+"gia (taiwanese team)":"GIA","就說姊姊好可愛":"SIS",
+"plan b":"PB","soul master":"SM","atar gaming":"ATR","metu esports":"METU","charta nix":"CNIX",
+"shop4gamers":"S4G","hard winter":"HW","metu aa":"MAA","stallions":"STL","ant gamermarket":"ANT",
+"highest esports club":"HEC","centus gaming":"CTS","team turquality red":"TQR","team turquality":"TQ",
+"playart gaming":"PA","keyd team":"KEYD","hotsoggydecimate":"HSD","figjam":"FIGJAM",
+"team exile5 eclipse":"EXL","only gragas":"ONG","good team multigaming":"GTM",
+"instruments of surrender":"IOS","ultimate":"ULT","team fat rabbit":"TFR","team kthxbai":"KTX",
 "mig blitz":"MiGB","najin shield":"NJSH","najin sword":"NJS",
 "sk telecom t1 1":"SKT1","sk telecom t1 2":"SKT2","team alternate":"ALT",
 "lyon gaming (2013 latin american team)":"LYN","insidious gaming":"INS","logitech g fighter":"LGF",
@@ -2241,7 +2256,9 @@ let USER_TABBR={};
 try{USER_TABBR=JSON.parse(localStorage.getItem("user_tabbr")||"{}")}catch(e){}
 const PROMO_TABBR={}; // Leaguepedia 升降賽隊伍縮寫（fetch_promo.py）
 if(window.PROMO_ABBR)Object.entries(PROMO_ABBR).forEach(([n,s])=>{PROMO_TABBR[normT(n)]=s;});
-const abbrOf=t=>{const k=normT(t);return USER_TABBR[k]||TABBR[k]||STATIC_TABBR[k]||PROMO_TABBR[k]||WIKI_TABBR[k]||(window.LP_TABBR||{})[k]||"";}; // 最後兜底＝Leaguepedia 全名→Short（team_abbr_wiki.js，歷史次級隊）
+// 縮寫一律全大寫（使用者定案 2026-07-31）：來源各自的寫法不一致（Leaguepedia 有 ahq／bbq／aAa
+// 這種原樣縮寫），混在同一張表裡看起來很雜。積分那條路的比對本來就經 sqKey 轉小寫，不受影響。
+const abbrOf=t=>{const k=normT(t);return (USER_TABBR[k]||TABBR[k]||STATIC_TABBR[k]||PROMO_TABBR[k]||WIKI_TABBR[k]||(window.LP_TABBR||{})[k]||"").toUpperCase();}; // 最後兜底＝Leaguepedia 全名→Short（team_abbr_wiki.js，歷史次級隊）
 const TEAM_ALIAS={GENG:"GEN",TLAW:"TL",AGAL:"AL",DNF:"DNS",KRX:"DRX"}; const teamFix=t=>TEAM_ALIAS[t]||t; // 全域縮寫統一(GENG→GEN；TLAW=Team Liquid 積分標籤→TL；AGAL=Anyone's Legend 更名(AG.AL)→AL；DNF→DNS＝DN Freecs 比賽改名 DNS；KRX→DRX＝積分帳號別名，主資料用 DRX)
 // 積分鍵解析（鐵則：拿「比賽資料的隊名/選手名」去查積分資料，一律經 sqKey，不可直接組字串）
 // SOLOQ_MATCH_IDX.players / SOLOQ_RECENT.players / __SQCACHE 的鍵＝積分帳號檔的「隊縮寫|選手名」，與比賽資料端有兩種落差：
@@ -2368,8 +2385,13 @@ const cAb=c=>{
 // 聯賽色（全站共用）
 const LGC={LCK:"#4f8ef7",LPL:"#e05c5c",LCP:"#2bb3a3",LEC:"#38b6ff",LCS:"#c9a86a",CBLOL:"#7ac74f",
   MSI:"#f5b942",EWC:"#b083f0",FST:"#f08b5b",WLDs:"#ffd700",ENC:"#ff8ad4",KeSPA:"#9fb4ff",
-  LMS:"#f0a5c0","EU LCS":"#38b6ff","NA LCS":"#c9a86a",IEM:"#b0c4de",VCS:"#ffb6b6",
+  "EU LCS":"#38b6ff","NA LCS":"#c9a86a",IEM:"#b0c4de",VCS:"#ffb6b6",
   "LTA N":"#5bb0f0","LTA S":"#f0a35b",LTA:"#c9a86a",
+  // 同一個賽區的歷代聯賽用同一個色（使用者定案 2026-07-31）：
+  //   GPL → LMS → PCS → LCP 都是太平洋（早年台港澳＋東南亞同一個聯賽）
+  //   LLN／CLS → LLA → LTA 南區 都是拉丁美洲
+  GPL:"#2bb3a3",LMS:"#2bb3a3",PCS:"#2bb3a3",
+  LLA:"#f0a35b",LLN:"#f0a35b",CLS:"#f0a35b",
   EWCQ北美:"#c9a86a",EWCQ歐洲:"#38b6ff",EWCQ韓國:"#4f8ef7",EWCQ太平洋:"#2bb3a3",EWCQ巴西:"#7ac74f"}; // EWCQ 各分區沿用該賽區色（北美=LCS金、歐洲=LEC藍、韓國=LCK藍、太平洋=LCP綠、巴西=CBLOL綠）
 const LG_NAME={"ALL":"全部","LTA N":"LTA 北區","LTA S":"LTA 南區","WLDs":"WCS"};
 // 國家隊 →「該國所屬賽區」對照（2026 KeSPA 季中邀日本／越南國家隊參賽；ENC 之後整個賽事都是國家隊形式）
@@ -2492,13 +2514,16 @@ const LEAGUE_META={
   LCS:{zh:"LCS",grp:"t1",tier:1,region:"北美",full:"League of Legends Championship Series"},
   LCP:{zh:"LCP",grp:"t1",tier:1,region:"太平洋",full:"League of Legends Championship Pacific"},
   LTA:{zh:"LTA",grp:"t1",tier:1,region:"美洲",full:"League of Legends Championship of The Americas"},
-  PCS:{zh:"PCS",grp:"t1",tier:2,region:"太平洋",full:"Pacific Championship Series"},
-  LMS:{zh:"LMS",grp:"t1",tier:2,region:"港澳台",full:"League of Legends Master Series"},
+  PCS:{zh:"PCS",grp:"t1",tier:1,region:"太平洋",full:"Pacific Championship Series"},
+  LMS:{zh:"LMS",grp:"t1",tier:1,region:"港澳台",full:"League of Legends Master Series"},
+  // 2012-2015 東南亞的主要聯賽（台港澳＋越南＋星馬泰菲同一個聯賽，直接派隊打世界賽）；
+  // 2015 台港澳獨立成 LMS 之後才淡出 → 跟 LMS 同級
+  GPL:{zh:"GPL",grp:"t1",tier:1,region:"東南亞",full:"Garena Premier League"},
   VCS:{zh:"VCS",grp:"t1",tier:2,region:"越南",full:"Vietnam Championship Series"},
-  CBLOL:{zh:"CBLOL",grp:"t1",tier:2,region:"巴西",full:"Campeonato Brasileiro de League of Legends"},
-  "LTA N":{zh:"LTA 北區",grp:"t1",tier:2,region:"美洲北",full:"LTA North"},
-  "LTA S":{zh:"LTA 南區",grp:"t1",tier:2,region:"美洲南",full:"LTA South"},
-  LLA:{zh:"LLA",grp:"t1",tier:2,region:"拉丁美洲",full:"Liga Latinoamérica"},
+  CBLOL:{zh:"CBLOL",grp:"t1",tier:1,region:"巴西",full:"Campeonato Brasileiro de League of Legends"},
+  "LTA N":{zh:"LTA 北區",grp:"t1",tier:1,region:"美洲北",full:"LTA North"},
+  "LTA S":{zh:"LTA 南區",grp:"t1",tier:1,region:"美洲南",full:"LTA South"},
+  LLA:{zh:"LLA",grp:"t1",tier:1,region:"拉丁美洲",full:"Liga Latinoamérica"},
   LJL:{zh:"LJL",grp:"t1",tier:3,region:"日本",full:"League of Legends Japan League"},
   TCL:{zh:"TCL",grp:"t1",tier:3,region:"土耳其",full:"Turkish Championship League"},
   LCL:{zh:"LCL",grp:"t1",tier:3,region:"獨立國協",full:"League of Legends Continental League"},
@@ -2628,6 +2653,14 @@ const eventsTreeHTML=()=>{
      if(lg.includes("#"))return; // 鍵含#＝賽段名單補充（LPL#S3 開賽前陣容），不建獨立賽事卡（hover 另行取用）
      const e=byLg[lg]||(byLg[lg]={splits:new Set(),teams:new Set(),releg:new Set(),reg2:new Set(),n:0});
      (d.teams||[]).forEach(t=>{ if(t){e.teams.add(t); e.reg2.add(t); (e.regN=e.regN||new Set()).add(t);} });
+     // 補充賽事也能分賽段（2013 GPL 春季／夏季／世界賽資格賽）：填進跟真實比賽同一組欄位，
+     // 賽事卡的「逐季度分列＋季後賽綠勾」就自動套用（使用者要求 2026-07-31）
+     (d.splits||[]).forEach(s=>{ const sp=s.sp; if(!sp)return; e.splits.add(sp);
+       const _st=e._spTeams=e._spTeams||{}, _ss=_st[sp]=_st[sp]||new Set();
+       (s.teams||[]).forEach(t=>{ if(t){_ss.add(t); e.teams.add(t); e.reg2.add(t); (e.regN=e.regN||new Set()).add(t);} });
+       if(s.from){ const _sd=e._spDate=e._spDate||{}; if(!_sd[sp]||s.from<_sd[sp])_sd[sp]=s.from; }
+       if(s.po&&s.po.length){ const _pb=e._poSp=e._poSp||{}, _p2=_pb[sp]=_pb[sp]||new Set();
+         s.po.forEach(t=>{ if(t)_p2.add(tAb(t)); }); } });
      e._extra=d; });}
   // LTA 北區/南區/跨區＝同一體系 → 合併成一張 LTA 卡，卡內以帶標籤的分隔線列 北區/南區（使用者判例）
   {const ks=["LTA","LTA N","LTA S"].filter(k=>byLg[k]);
@@ -2804,10 +2837,11 @@ const eventsTreeHTML=()=>{
             return arr.length?`<div class="lgGrpCol"><i style="color:${lplGrpColor(gn,curYear,sp)}">${esc(lplGrpName(gn))}</i><span class="lgGrpChips">${chips(arr,_poOf(sp)||advQ,x.tinfo)}</span></div>`:"";
           }).join("")
           :(base.length?(base.forEach(t2=>_used.add(t2)),`<div class="lgGrpCol"><span class="lgGrpChips">${chips(base,_poOf(sp)||advQ,x.tinfo)}</span></div>`):"");
-          if(gcols)_mc+=`<div class="lgSplitBlk"><span class="lgSplitHd">${esc(sp)}</span><span class="lgSplitGrps">${gcols}</span></div>`;
+          if(gcols){ const _n2=uq(base.filter(t2=>!_gns.length||_gns.includes(lplSplitGroupOf(teamFix(tAb(t2)),curYear,sp,_glg))));
+            _mc+=`<div class="lgSplitBlk"><span class="lgSplitHd">${esc(sp)}<span class="lgSplitN">${_n2} ${LANG==="en"?"teams":"隊"}</span></span><span class="lgSplitGrps">${gcols}</span></div>`; }
         });
         const _rest=base.filter(t2=>!_used.has(t2));
-        if(_rest.length)_mc+=`<div class="lgSplitBlk"><span class="lgSplitHd">${LANG==="en"?"Other":"其他"}</span><span class="lgSplitGrps"><div class="lgGrpCol"><span class="lgGrpChips">${chips(_rest,advQ)}</span></div></span></div>`;
+        if(_rest.length)_mc+=`<div class="lgSplitBlk"><span class="lgSplitHd">${LANG==="en"?"Other":"其他"}<span class="lgSplitN">${uq(_rest)} ${LANG==="en"?"teams":"隊"}</span></span><span class="lgSplitGrps"><div class="lgGrpCol"><span class="lgGrpChips">${chips(_rest,advQ)}</span></div></span></div>`;
         mainChips=_mc+extSeg; // 直接顯示分組排版（二段式已依使用者 2026-07-29 撤回，二段式只留在篩選列下拉）
       }else if(gcfg){ const gset=new Set(gcfg.abs);
         const gArr=base.filter(t2=>gset.has(tAb(t2))), rest3=base.filter(t2=>!gset.has(tAb(t2)));
@@ -2820,7 +2854,7 @@ const eventsTreeHTML=()=>{
         const _spKeys=Object.keys(_spT).filter(k=>_spT[k].size)
           .sort((a,b)=>String(_spD[a]||"").localeCompare(String(_spD[b]||""))||a.localeCompare(b));
         if(_spKeys.length>1){
-          const _row=(lb,arr,adv)=>`<div class="lgSplitBlk"><span class="lgSplitHd">${esc(lb)}</span><span class="lgSplitGrps"><div class="lgGrpCol"><span class="lgGrpChips">${chips(arr,adv,x.tinfo)}</span></div></span></div>`;
+          const _row=(lb,arr,adv)=>`<div class="lgSplitBlk"><span class="lgSplitHd">${esc(lb)}<span class="lgSplitN">${uq(arr)} ${LANG==="en"?"teams":"隊"}</span></span><span class="lgSplitGrps"><div class="lgGrpCol"><span class="lgGrpChips">${chips(arr,adv,x.tinfo)}</span></div></span></div>`;
           let _mc="",_used=new Set();
           _spKeys.forEach(sp=>{ const arr=base.filter(t2=>_spT[sp].has(t2));
             if(!arr.length)return; arr.forEach(t2=>_used.add(t2));

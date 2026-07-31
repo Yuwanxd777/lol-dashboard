@@ -171,11 +171,18 @@ def to_csv(games, cfg):
     POS5 = ["top", "jng", "mid", "bot", "sup"]
     rows = []
     day = {}
+    # 系列賽內的局號：wiki 的表格已照時間排 → 同一天、同兩隊（藍紅可能互換，所以用 frozenset）
+    # 依序 1、2、3…。原本寫死 game=1，同一場 BO5 的三局全變第 1 局，對戰BP 的比分與
+    # 「BO3／BO5」判定就全錯（2026-07-31 使用者回報：10-05 WCS RYL vs SKT 三局同一天卻顯示 0-1）
+    ser = {}
     for g in games:
         dt = g.get("Date", "")[:19]
         d10 = dt[:10]
         n = day.get(d10, 0) + 1
         day[d10] = n
+        _sk = (d10, frozenset((nk(g.get("Blue")), nk(g.get("Red")))))
+        gno = ser.get(_sk, 0) + 1
+        ser[_sk] = gno
         gid = f"wiki_{cfg['key']}_{d10}_{n}"
         bt, rt = align(g.get("Blue"), teams_map), align(g.get("Red"), teams_map)
         win = g.get("Winner", "")
@@ -209,7 +216,7 @@ def to_csv(games, cfg):
             put("gameid", gid); put("datacompleteness", "partial")
             put("league", cfg["league"]); put("year", cfg["year"]); put("split", cfg["split"])
             put("playoffs", cfg.get("playoffs", 0)); put("date", dt)
-            put("game", 1); put("patch", _patch(g.get("P", ""))); put("participantid", pid)
+            put("game", gno); put("patch", _patch(g.get("P", ""))); put("participantid", pid)
             put("side", side.capitalize()); put("position", pos)
             put("teamname", bt if side == "blue" else rt)
             put("result", "1" if (bwin if side == "blue" else not bwin) else "0")
