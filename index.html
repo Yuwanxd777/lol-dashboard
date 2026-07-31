@@ -860,7 +860,9 @@ window.WIKI_PATCHES=window.WIKI_PATCHES||{}; window.WIKI_EXTRA=window.WIKI_EXTRA
 <script src="t2s.js" onerror="window.T2S=null"></script><!-- 繁→簡 單字對照（簡體中文顯示用；scripts/generate_t2s.py 由 opencc 產生） -->
 <script>/* 逐場改「每人一檔懶載」：__sqLoad 是各 soloq_matches/pN.js 載入後的回呼；點到選手才注入該檔 */
 window.__SQCACHE={}; window.__sqLoad=function(k,d){ window.__SQCACHE[k]=d;
-  if(typeof render==="function" && typeof curView!=="undefined" && typeof V!=="undefined" && ((curView==="積分" && V.rankDetail)||(curView==="陣容" && V.rosterMode==="soloq")||(curView==="模擬BP" && V.bpSoloqPool))) render(); };</script>
+  if(typeof render==="function" && typeof curView!=="undefined" && typeof V!=="undefined" && ((curView==="積分" && V.rankDetail)||(curView==="陣容" && V.rosterMode==="soloq")||(curView==="模擬BP" && V.bpSoloqPool)
+    // 英雄詳情(積分)篩到單一選手時會改讀該選手的逐場檔，載完也要重繪，否則停在 0 筆（2026-07-31）
+    ||(curView==="英雄" && V.heroDetail && V.heroMode==="soloq" && V.hdPlayer))) render(); };</script>
 <script src="soloq_match_index.js" onerror="window.SOLOQ_MATCH_IDX=null"></script>
 <script src="soloq_acc_lastgame.js" onerror="window.SOLOQ_ACC_LG=null"></script>
 <script>/* 📡 直播同步（模擬BP）：功能碼在 bp_live_ui.js，該檔刻意不進 .gitignore 白名單＝不發布。
@@ -5770,7 +5772,16 @@ function sqHeroDetail(cid){
     plOpts=(()=>{ const c=new Map(),tm={};
       list.forEach(g=>{const[t,p]=String(g.pkey).split("|"); if(!p)return; c.set(p,(c.get(p)||0)+1); if(!tm[p])tm[p]=t||"";});
       return [...c.keys()].map(p=>({v:p,l:p,a:[tm[p],teamFix(tm[p]||"")].filter(Boolean),d:teamFix(tm[p]||""),n:c.get(p)})); })();
-    if(V.hdPlayer&&!plOpts.some(o=>o.v===V.hdPlayer))V.hdPlayer="";
+    if(V.hdPlayer&&!plOpts.some(o=>o.v===V.hdPlayer)){
+      // ⚠ 候選清單只從「該英雄最近 100 場」（全體選手混在一起）算出來，裡面沒有他
+      //   不代表他沒打過這隻：Doran 的杰西有 85 場積分紀錄，卻擠不進杰西的全域前 100。
+      //   只要有他自己的逐場檔就保留、並補進候選，否則從陣容跳過來或切換資料源時會被清掉
+      //   （2026-07-31 使用者：切換職業賽／積分時篩選列的參數不要動）。
+      const IP=(window.SOLOQ_MATCH_IDX||{}).players;
+      const k2=IP&&Object.keys(IP).find(k=>String(k).split("|")[1]===V.hdPlayer);
+      if(k2)plOpts=[...plOpts,{v:V.hdPlayer,l:V.hdPlayer,a:[],d:teamFix(String(k2).split("|")[0]||""),n:0}];
+      else V.hdPlayer="";
+    }
     if(V.hdPlayer){
       // ⚠ SOLOQ_CHGAMES 只留「每隻英雄最近 100 場」，而且是全體追蹤選手混在一起 →
       //   篩到單一選手常常只剩個位數，跟陣容頁那格看到的場數差很多（2026-07-31 從陣容跳過來時發現）。
@@ -5825,7 +5836,7 @@ function sqHeroDetail(cid){
   }
   // 篩選列順序：路線緊接標準篩選的「場數」右邊，再來選手、對位（2026-07-31 使用者指定）
   main.innerHTML=filterBar(`
-    <label>${en?"Lane":"路線"}</label><select id="hdLaneSel" style="min-width:118px"><option value="">${en?"All lanes":"全部路線"}</option>${lanes.map(l=>`<option value="${PNS[l]}" ${PNS[l]===V.hdLane?"selected":""}>${LZ[PNS[l]]}（${H[l][0]}）</option>`).join("")}</select>
+    <label>${en?"Lane":"路線"}</label><select id="hdLaneSel" style="width:150px"><option value="">${en?"All lanes":"全部路線"}</option>${lanes.map(l=>`<option value="${PNS[l]}" ${PNS[l]===V.hdLane?"selected":""}>${LZ[PNS[l]]}（${H[l][0]}）</option>`).join("")}</select>
     <label>${en?"Player":"選手"}</label>${comboHTML("hdPlSel",en?"Player":"使用選手",170)}
     <label>${en?"Opponent":"對位"}</label>${comboHTML("hdOppSel",en?"Opponent":"對位英雄",170)}
     ${heroModeSegHTML("soloq")}`)
@@ -5849,7 +5860,7 @@ function sqHeroDetail(cid){
   // 符文欄要 RUNE_MAP（DDragon runesReforged，延遲載入）。原本只有圖鑑與積分逐場會觸發載入，
   // 這頁不載就整欄畫空圈（2026-07-31 新增符文欄時踩到）。載好後重繪一次。
   if(!RUNE_MAP) loadRunes(()=>{ if(curView==="英雄"&&V.heroDetail===cid&&V.heroMode==="soloq") render(); });
-  segBind("heroModeSeg",v=>{ if(v===V.heroMode)return; V.heroDetail=heroKeyFor(v,V.heroDetail); V.heroMode=v; V.hdOpp="";V.hdLane="";V.hdPlayer=""; saveState(); render(); }); // 同上：詳情頁切資料源
+  segBind("heroModeSeg",v=>{ if(v===V.heroMode)return; V.heroDetail=heroKeyFor(v,V.heroDetail); V.heroMode=v; saveState(); render(); }); // 同上：詳情頁切資料源
   document.getElementById("hdLaneSel").onchange=e=>{V.hdLane=e.target.value; V.hdOpp=""; saveState(); render();};
   document.querySelectorAll(".recTbl th[data-rs]").forEach(th=>th.onclick=()=>{
     const kk=th.dataset.rs, s2=V.recSort;
@@ -10397,7 +10408,7 @@ function render(){
     const _subF=filtered?[V.hdLane?LZ[V.hdLane]:"",V.hdPlayer?`${LANG==="en"?"by ":"選手 "}${esc(V.hdPlayer)}`:"",V.hdOpp?`${LANG==="en"?"vs ":"對位 "}${esc(chName(champId(V.hdOpp)))}`:""].filter(x=>x).join("｜"):(LANG==="en"?`all ${curYear} games`:`${curYear} 年全部比賽`);
     // 篩選列順序：路線緊接在標準篩選的「場數」右邊，再來選手、對位（2026-07-31 使用者指定）
     main.innerHTML=filterBar(`
-      <label>${LANG==="en"?"Lane":"路線"}</label><select id="hdLaneSel" style="min-width:118px"><option value="">${LANG==="en"?"All lanes":"全部路線"}</option>${laneOpts.slice().sort((a,b)=>a.pid-b.pid).map(l=>`<option value="${l.lane}" ${l.lane===V.hdLane?"selected":""}>${LZ[l.lane]}（${l.n}）</option>`).join("")}</select>
+      <label>${LANG==="en"?"Lane":"路線"}</label><select id="hdLaneSel" style="width:150px"><option value="">${LANG==="en"?"All lanes":"全部路線"}</option>${laneOpts.slice().sort((a,b)=>a.pid-b.pid).map(l=>`<option value="${l.lane}" ${l.lane===V.hdLane?"selected":""}>${LZ[l.lane]}（${l.n}）</option>`).join("")}</select>
       <label>${LANG==="en"?"Player":"選手"}</label>${comboHTML("hdPlSel",LANG==="en"?"Player":"使用選手",170)}
       <label>${LANG==="en"?"Opponent":"對位"}</label>${comboHTML("hdOppSel",LANG==="en"?"Opponent":"對位英雄",170)}
       ${heroModeSegHTML("pro")}`)
@@ -10432,9 +10443,11 @@ function render(){
     bindFilters(render); // 上方標準篩選（年份／賽事／賽季／版本／時間）＋說明按鈕
     bindCombo("hdOppSel",oppOpts,V.hdOpp,hit=>{V.hdOpp=hit; saveState(); render();},true); // 對位英雄篩選
     bindCombo("hdPlSel",plOpts,V.hdPlayer,hit=>{V.hdPlayer=hit; saveState(); render();}); // 使用選手篩選
-    // 詳情頁也能切職業賽／積分（2026-07-31 使用者要求）：留在同一隻英雄，只換資料源；
-    // 兩邊的路線/對位/選手候選來源不同 → 一併清掉，避免帶著另一模式的值進來變 0 筆
-    segBind("heroModeSeg",v=>{ if(v===V.heroMode)return; V.heroDetail=heroKeyFor(v,V.heroDetail); V.heroMode=v; V.hdOpp="";V.hdLane="";V.hdPlayer=""; saveState(); render(); });
+    // 詳情頁也能切職業賽／積分（2026-07-31 使用者要求）：留在同一隻英雄，只換資料源，
+    // 路線／對位／選手都保留不清（使用者：切換時篩選列的參數不要動）。
+    // 帶著另一模式的值過去不會壞：兩邊各自都有「候選裡沒有就自動清掉」的守衛
+    // （laneOpts／oppCnt／plOpts 三處），對得上就繼續套用、對不上才失效。
+    segBind("heroModeSeg",v=>{ if(v===V.heroMode)return; V.heroDetail=heroKeyFor(v,V.heroDetail); V.heroMode=v; saveState(); render(); });
     document.getElementById("hdLaneSel").onchange=e=>{V.hdLane=e.target.value; V.hdOpp=""; saveState(); render();}; // 路線篩選（換路線清空對位；選手不清，換路線後若無場次會自動失效）
     document.querySelectorAll(".recTbl th[data-rs]").forEach(th=>th.onclick=()=>{
       const kk=th.dataset.rs, s=V.recSort;
