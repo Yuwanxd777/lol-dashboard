@@ -854,6 +854,7 @@ window.WIKI_PATCHES=window.WIKI_PATCHES||{}; window.WIKI_EXTRA=window.WIKI_EXTRA
 <script src="promo_abbr.js" onerror="window.PROMO_ABBR={}"></script>
 <script src="champ_release.js" onerror="window.CHAMP_RELEASE=null"></script>
 <script src="soloq.js" onerror="window.SOLOQ_DATA=null"></script>
+<script src="patch_dates.js" onerror="window.PATCH_DATES=null"></script><!-- 版本→官方發布日（scripts/build_patch_dates.py 由 csv_cache/patch_dates.json 產出）；積分逐場只有時間戳，靠這個回推版本 -->
 <script src="t2s.js" onerror="window.T2S=null"></script><!-- 繁→簡 單字對照（簡體中文顯示用；scripts/generate_t2s.py 由 opencc 產生） -->
 <script>/* 逐場改「每人一檔懶載」：__sqLoad 是各 soloq_matches/pN.js 載入後的回呼；點到選手才注入該檔 */
 window.__SQCACHE={}; window.__sqLoad=function(k,d){ window.__SQCACHE[k]=d;
@@ -1858,10 +1859,13 @@ function fillTableWidth(root,prop){
   const total=natW.reduce((a,b)=>a+b,0), avail=wrap.clientWidth;
   if(avail-total<=2)return; // 已填滿/超出 → 維持內容寬
   const extra=avail-total;
-  const base=prop?natW.reduce((a,w,i)=>i>=2?a+w:a,0):0; // 比例分配的分母＝資料欄自然寬總和
-  const per=prop?0:extra/(ths.length-2);                // 多餘空間平均給資料欄(索引≥2)
+  // 比例模式從第 2 欄(索引1)就開始分：平均模式固定跳過前兩欄(#、日期/版本)，
+  // 但比例模式下那欄不長會變成「左邊擠、右邊鬆」（2026-07-31 使用者回報職業賽/積分兩張表都是）。
+  const from=prop?1:2;
+  const base=prop?natW.reduce((a,w,i)=>i>=from?a+w:a,0):0; // 比例分配的分母＝可長欄的自然寬總和
+  const per=prop?0:extra/(ths.length-2);                   // 多餘空間平均給資料欄(索引≥2)
   tbl.style.tableLayout="fixed"; tbl.style.width=avail+"px";
-  ths.forEach((th,i)=>{const add=i<2?0:(prop?(base?extra*natW[i]/base:0):per); th.style.width=(natW[i]+add)+"px";});
+  ths.forEach((th,i)=>{const add=i<from?0:(prop?(base?extra*natW[i]/base:0):per); th.style.width=(natW[i]+add)+"px";});
 }
 // 表格欄頭 sticky 的偏移＝頁首實際高度（整頁捲動時欄頭貼在頁首下方）
 const setHdrH=()=>{const h=document.querySelector("header");document.documentElement.style.setProperty("--hdrH",(h?h.offsetHeight:0)+"px");};
@@ -5624,6 +5628,17 @@ function heroScatterHTML(rows, metrics, xKey, yKey){
 }
 // ── 積分版英雄詳情頁（英雄分頁積分模式點英雄）：與職業版同構＝名片＋版本趨勢＋出場紀錄，資料全積分 ──
 // 出場紀錄＝soloq_champ_games.js（延遲載入；每英雄最近100場 [t,選手key,路線,勝,K,D,A,KP,對位,金差15,經差15,評分]）
+// 時間戳 → 當時的版本：積分逐場資料每場只有時間戳、沒有版本欄位（職業賽那邊資料本身就有 patch）。
+// 用官方版本發布日回推（patch_dates.js＝Riot patch notes 的公告日，不是用職業賽開打日推的，
+// 職業賽通常比版本上線晚好幾天，用那個推會整批標成前一版）。依「日期」排序後二分找最後一個 ≤ 該日的版本。
+const patchOfTs=(()=>{ let B=null;
+  return t=>{ if(B===null){ const P=window.PATCH_DATES||{};
+      B=Object.keys(P).map(k=>[P[k],k]).sort((a,b)=>a[0].localeCompare(b[0])); }
+    if(!B.length||!t)return "";
+    const d=new Date(t), ds=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+    let lo=0,hi=B.length-1,ans=-1;
+    while(lo<=hi){ const m=(lo+hi)>>1; if(B[m][0]<=ds){ans=m;lo=m+1;} else hi=m-1; }
+    return ans>=0?B[ans][1]:""; };})();
 function sqHeroDetail(cid){
   const en=LANG==="en", B=window.SOLOQ_BUILDS||{};
   const H=(B.hero&&B.hero[cid])||{};
@@ -5662,7 +5677,7 @@ function sqHeroDetail(cid){
       return [...c.keys()].map(p=>({v:p,l:p,a:[tm[p],teamFix(tm[p]||"")].filter(Boolean),d:teamFix(tm[p]||""),n:c.get(p)})); })();
     if(V.hdPlayer&&!plOpts.some(o=>o.v===V.hdPlayer))V.hdPlayer="";
     if(V.hdPlayer)list=list.filter(g=>String(g.pkey).split("|")[1]===V.hdPlayer);
-    const RACC={日期:g=>g.t,使用選手:g=>g.pkey,位置:g=>g.pos,勝敗:g=>g.won?1:0,
+    const RACC={版本:g=>g.t,使用選手:g=>g.pkey,位置:g=>g.pos,勝敗:g=>g.won?1:0,
       "K/D/A":g=>(g.k+g.a)/Math.max(1,g.de),參與率:g=>g.kp,
       "金差@15":g=>g.gd15,"經差@15":g=>g.xd15,對位英雄:g=>cAb(g.och)||g.och,評分:g=>g.sc};
     if(V.recSort&&RACC[V.recSort.k]){
@@ -5675,9 +5690,9 @@ function sqHeroDetail(cid){
     const cell=v=>`<td style="color:${v==null?"var(--tx2)":v>0?"#ff6b6b":v<0?"#37c871":""}">${v==null?"—":(v>0?"+":"")+Math.round(v)}</td>`;
     const scCol=s=>{if(s==null)return"#8aa0c0"; const v=Math.max(0,Math.min(100,s)); return `hsl(${Math.round(120*(1-v/100))},72%,58%)`;}; // 評分 0→100 綠→黃→紅（同積分逐場 scoreCol）
     recInner=`<div class="tblwrap"><table class="recTbl"><thead><tr>
-      <th>#</th>${["日期","使用選手","位置","勝敗","K/D/A","參與率","金差@15","經差@15","對位英雄","評分"].map(k2=>{const _s=V.recSort,_on=_s&&_s.k===k2,_up=_on&&_s.d>0;return `<th data-rs="${k2}" style="cursor:pointer"><span class="thL">${mLabel(k2)}<span class="sortArr${_on?" on":""}${_on?(_up?" asc":" desc"):""}">${_up?"▲":"▼"}</span></span></th>`;}).join("")}</tr></thead><tbody>${
+      <th>#</th>${["版本","使用選手","位置","勝敗","K/D/A","參與率","金差@15","經差@15","對位英雄","評分"].map(k2=>{const _s=V.recSort,_on=_s&&_s.k===k2,_up=_on&&_s.d>0;return `<th data-rs="${k2}" style="cursor:pointer"><span class="thL">${mLabel(k2)}<span class="sortArr${_on?" on":""}${_on?(_up?" asc":" desc"):""}">${_up?"▲":"▼"}</span></span></th>`;}).join("")}</tr></thead><tbody>${
       list.map((g,i)=>`<tr><td class="rk">${i+1}</td>
-        <td class="meta">${dstr(g.t)}</td>
+        <td class="meta" title="${dstr(g.t)}">${patchOfTs(g.t)||"–"}</td>
         <td>${(()=>{const[tm,pl]=g.pkey.split("|");return `<span class="meta">${esc(teamFix(tm||""))}</span> ${esc(pl||"")}`;})()}</td>
         <td>${posImg(g.pos)}</td>
         <td>${g.won?`<span style="color:#ff6b6b">${en?"W":"勝"}</span>`:`<span style="color:#6ea8ff">${en?"L":"敗"}</span>`}</td>
