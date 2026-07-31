@@ -1028,6 +1028,12 @@ if(LANG==="en")lazyLoad("en").then(()=>{ try{_lpcCache=null;}catch(e){} try{if(t
 // 英雄顯示名：英文模式優先用 en_US 名，抓不到退回中文資料名，再退回 id
 // 顯示名覆寫：官方繁中名太長／不合口語（使用者 2026-07-31 指定努努只寫「努努」）
 const CH_DISP={"努努和威朗普":"努努","Nunu & Willump":"Nunu","嘉文四世":"嘉文","Jarvan IV":"Jarvan"}; // 顯示名縮短（2026-07-31 使用者指定）
+// 內文裡的英雄全名也要換成顯示名：技能說明（skFmt）與版本改動內文（txtClean）都吃這條，
+// 不然只有標題變短、技能敘述裡還是「嘉文四世英勇地跳向…」（2026-07-31 使用者回報）。
+// 規則直接由 CH_DISP 產生 → 之後新增顯示名只要改 CH_DISP 一處。長的排前面，避免被短的先吃掉。
+// 鍵都是純英雄名（沒有正規表示式的特殊字元），所以不做逃脫；新增有特殊字元的鍵時要記得補。
+const _CHDISP_RE=new RegExp(Object.keys(CH_DISP).sort((a,b)=>b.length-a.length).join("|"),"g");
+const chDispTxt=s=>String(s==null?"":s).replace(_CHDISP_RE,m=>CH_DISP[m]||m);
 function chName(id){ if(LANG==="en"){ const e=(window.CHAMP_EN||{})[id]; if(e)return CH_DISP[e]||e; } const c=((window.CHAMP_SKILLS||{}).d||{})[id]; const n=(c&&c.n)||id; return CH_DISP[n]||n; }
 const CHAMP_FIX={"Wukong":"MonkeyKing","LeBlanc":"Leblanc","Renata Glasc":"Renata","Nunu & Willump":"Nunu",
   "Dr. Mundo":"DrMundo","Kha'Zix":"Khazix","Kai'Sa":"Kaisa","Cho'Gath":"Chogath","Vel'Koz":"Velkoz",
@@ -1481,7 +1487,7 @@ const txtClean=s=>normTerm(String(s||"").replace(/([一-鿿])(-(?=[\d.]))/g,"$1 
   .replace(/([一-鿿])\s*,\s*(?=[一-鿿])/g,"$1，") // 中文之間的半形逗號「, 」→ 全形「，」(翻譯殘留)
   .replace(/：。/g,"：") // 「技能：。」翻譯殘留 → 收成冒號
   .replace(/[；;]\s*[：:]/g,"：") // 「…改為物傷；：30／80…」合併後多出來的分號 → 收成冒號
-  .replace(/努努和威朗普/g,"努努").replace(/嘉文四世/g,"嘉文") // 顯示名統一（同 CH_DISP，版本改動內文也要吃到）
+  .replace(_CHDISP_RE,m=>CH_DISP[m]||m) // 顯示名統一（規則來自 CH_DISP）
   .replace(/[（(]/g,"（").replace(/[)）]/g,"）") // 括號一律全形
   .replace(/[ \t]{2,}/g," "));
 const stripT=s=>txtClean(String(s||"").replace(/<br\s*\/?>/gi,"\n").replace(/<[^>]+>/g,"").replace(/[̀-ͯ҃-҉]/g,"")).replace(/\n{2,}/g,"\n").trim();
@@ -1890,7 +1896,7 @@ function skFmt(t){ if(t==null||t==="")return "";
   const parts=String(t).split(/\n+/).map(s=>s.trim()).filter(Boolean);
   return parts.map((p,i)=>{
     const maj=i>0&&/^(被動|主動|附加|強化|重新施放|持續施法|蓄力|首次施放|第二次施放|Passive|Active|Recast)\s*[:：]/.test(p);
-    return `<div class="skP${maj?" skMaj":""}">${hiNum(esc(p))}</div>`;
+    return `<div class="skP${maj?" skMaj":""}">${hiNum(esc(chDispTxt(p)))}</div>`;
   }).join(""); }
 
 async function champTipHTML(key,detailed){
