@@ -1013,7 +1013,9 @@ function ensureBuilds(){ return lazyLoad("builds").then(()=>{ if(_buildsReady)re
 setTimeout(ensureBuilds,600);
 if(LANG==="en")lazyLoad("en").then(()=>{ try{_lpcCache=null;}catch(e){} try{if(typeof VIEW_CACHE!=="undefined")VIEW_CACHE.slots={};}catch(e){} if(typeof D!=="undefined"&&D&&typeof render==="function")render(); });
 // 英雄顯示名：英文模式優先用 en_US 名，抓不到退回中文資料名，再退回 id
-function chName(id){ if(LANG==="en"){ const e=(window.CHAMP_EN||{})[id]; if(e)return e; } const c=((window.CHAMP_SKILLS||{}).d||{})[id]; return (c&&c.n)||id; }
+// 顯示名覆寫：官方繁中名太長／不合口語（使用者 2026-07-31 指定努努只寫「努努」）
+const CH_DISP={"努努和威朗普":"努努","Nunu & Willump":"Nunu"};
+function chName(id){ if(LANG==="en"){ const e=(window.CHAMP_EN||{})[id]; if(e)return CH_DISP[e]||e; } const c=((window.CHAMP_SKILLS||{}).d||{})[id]; const n=(c&&c.n)||id; return CH_DISP[n]||n; }
 const CHAMP_FIX={"Wukong":"MonkeyKing","LeBlanc":"Leblanc","Renata Glasc":"Renata","Nunu & Willump":"Nunu",
   "Dr. Mundo":"DrMundo","Kha'Zix":"Khazix","Kai'Sa":"Kaisa","Cho'Gath":"Chogath","Vel'Koz":"Velkoz",
   "Bel'Veth":"Belveth","Fiddlesticks":"Fiddlesticks","FiddleSticks":"Fiddlesticks","Nunu":"Nunu"};
@@ -1466,6 +1468,7 @@ const txtClean=s=>normTerm(String(s||"").replace(/([一-鿿])(-(?=[\d.]))/g,"$1 
   .replace(/([一-鿿])\s*,\s*(?=[一-鿿])/g,"$1，") // 中文之間的半形逗號「, 」→ 全形「，」(翻譯殘留)
   .replace(/：。/g,"：") // 「技能：。」翻譯殘留 → 收成冒號
   .replace(/[；;]\s*[：:]/g,"：") // 「…改為物傷；：30／80…」合併後多出來的分號 → 收成冒號
+  .replace(/努努和威朗普/g,"努努") // 顯示名統一（同 CH_DISP，版本改動內文也要吃到）
   .replace(/[（(]/g,"（").replace(/[)）]/g,"）") // 括號一律全形
   .replace(/[ \t]{2,}/g," "));
 const stripT=s=>txtClean(String(s||"").replace(/<br\s*\/?>/gi,"\n").replace(/<[^>]+>/g,"").replace(/[̀-ͯ҃-҉]/g,"")).replace(/\n{2,}/g,"\n").trim();
@@ -4425,7 +4428,7 @@ function changeDir(lines){
   return buff&&nerf?0:buff?1:nerf?-1:0; // 1增強 / -1削弱 / 0混合或無法判定
 }
 // ── 版本改動渲染器（全域共用：版本改動分頁＋圖鑑歷年改動）──────────────────
-const COSM=/原畫|造型|背景故事|中版美術|重新上色|推薦裝備|語音(更新|台詞)|(技能)?圖示更新|更新[了]?圖示|特效[^｜]{0,6}(更新|升級|改良|重製)|視覺效果|粒子效果|模型更新|動畫更新|全新的?[^｜]{0,10}動畫|新增[^｜]{0,4}動畫|新增[^｜]{0,6}圖示|其圖示更新|圖示更新|說明更新|新增語音|語音(的)?播放|語音包|播報員|音效|手感|操作感|順暢度|流暢度|符文頁|介面(更新|調整)|按鍵綁定|計分板顯示|商店[^｜]{0,12}搜尋|搜尋[^｜]{0,8}關鍵字|(改善|優化|改進)了?[^｜]{0,14}(偵測|判定|辨識|選取|命中框)|(新增|顯示)?[^｜]{0,6}指示器|進度特效|輪替遊戲模式|活動|(^|｜)\s*(客戶端|表情|重播|語音聊天|快捷鍵|遊戲效能|League 語音|好友列表|自訂遊戲|對戰佇列|大廳|觀戰|戰績|個人檔案|商店|載入畫面|結算畫面|投降|重新開始)｜|反作弊|藍色精華|建議符文|推薦符文|彩蛋[：:]|搜尋到。|金錢價值如下表|官方立場|積分衰減|隊伍獎勵|對戰佇列|英雄 Mastery|影像輔助選項|載入畫面|邊框組|Adobe|PvP\.net|羅技|game\.cfg|DX1?[019]|FPS|LogitechSupport|除錯啟動器|寶石合成|實驗性遊戲模式|主堡閃電戰|極速無敵亂鬥|無限火力|URF|鬥魂競技場|[Aa]rena|現在(能|會)?正確|嚎哭深淵|極地大亂鬥|扭曲叢林|統治戰場|Howling Abyss|Twisted Treeline|Crystal Scar|Dominion|[（(]ARAM[)）]|Level Requirements?|更名|重新命名|renamed|[Nn]ame changed|名稱[：:][^⇒\n]*⇒|(^|｜|\[)\s*(未公告|錯誤|修正了|修復|[Uu]ndocumented|[Bb]ug\s?[Ff]ix|BUG)|(提高|降低|增加|減少)從\s*\d|編按|附註[：:]|並未實裝|官方未記載|並非刻意|此問題可能是在|未列於公告|(邊緣|中心)判定距離|(重新)?編寫程式(碼)?|rescripted?|visual (upgrade|update|effects?)|splash art|voice.?over|icons? (are |have been )?updated|recommended items|lore|chroma|texture|animations? updated|now (correctly|properly)|tooltip|\bARAM\b/i;
+const COSM=/原畫|造型|背景故事|中版美術|重新上色|推薦裝備|語音(更新|台詞)|(技能)?圖示更新|更新[了]?圖示|特效[^｜]{0,6}(更新|升級|改良|重製)|視覺效果|粒子效果|模型更新|動畫更新|全新的?[^｜]{0,10}動畫|新增[^｜]{0,4}動畫|新增[^｜]{0,6}圖示|其圖示更新|圖示更新|說明更新|新增語音|語音(的)?播放|語音包|播報員|音效|手感|操作感|順暢度|流暢度|符文頁|介面(更新|調整)|按鍵綁定|計分板顯示|商店[^｜]{0,12}搜尋|搜尋[^｜]{0,8}關鍵字|(改善|優化|改進)了?[^｜]{0,14}(偵測|判定|辨識|選取|命中框)|(新增|顯示)?[^｜]{0,6}指示器|浮動文字|進度特效|輪替遊戲模式|活動|(^|｜)\s*(客戶端|表情|重播|語音聊天|快捷鍵|遊戲效能|League 語音|好友列表|自訂遊戲|對戰佇列|大廳|觀戰|戰績|個人檔案|商店|載入畫面|結算畫面|投降|重新開始)｜|反作弊|藍色精華|建議符文|推薦符文|彩蛋[：:]|搜尋到。|金錢價值如下表|官方立場|積分衰減|隊伍獎勵|對戰佇列|英雄 Mastery|影像輔助選項|載入畫面|邊框組|Adobe|PvP\.net|羅技|game\.cfg|DX1?[019]|FPS|LogitechSupport|除錯啟動器|寶石合成|實驗性遊戲模式|主堡閃電戰|極速無敵亂鬥|無限火力|URF|鬥魂競技場|[Aa]rena|現在(能|會)?正確|嚎哭深淵|極地大亂鬥|扭曲叢林|統治戰場|Howling Abyss|Twisted Treeline|Crystal Scar|Dominion|[（(]ARAM[)）]|Level Requirements?|更名|重新命名|renamed|[Nn]ame changed|名稱[：:][^⇒\n]*⇒|(^|｜|\[)\s*(未公告|錯誤|修正了|修復|[Uu]ndocumented|[Bb]ug\s?[Ff]ix|BUG)|(提高|降低|增加|減少)從\s*\d|編按|附註[：:]|並未實裝|官方未記載|並非刻意|此問題可能是在|未列於公告|(邊緣|中心)判定距離|(重新)?編寫程式(碼)?|rescripted?|visual (upgrade|update|effects?)|splash art|voice.?over|icons? (are |have been )?updated|recommended items|lore|chroma|texture|animations? updated|now (correctly|properly)|tooltip|\bARAM\b/i;
 // 版本總覽專用的「瑣碎改動」：純顯示層、完全不影響強弱（聊天訊息顯示名、提示文字…）。
 // 只在版本分頁擋掉，英雄詳情頁仍完整列出（使用者定案 2026-07-31：艾妮維亞蛋型態的聊天名稱）
 // 版本總覽的「瑣碎改動」：純顯示層／風味描述，不影響強弱（使用者陸續指定：
@@ -6138,6 +6141,37 @@ const applyFont=k=>{const f=FONT_SETS[k]||FONT_SETS.huninn;
   localStorage.setItem('dash_font',k);
   const sel=document.getElementById('fontSel'); if(sel)sel.value=FONT_SETS[k]?k:'huninn';};
 applyFont(localStorage.getItem('dash_font')||'huninn');
+// 通用截圖：把指定元素離屏複製一份 → html2canvas 輸出 1920px 寬 PNG（prep 可對複本再加工）
+async function shotEl(src,name,prep){
+  if(!src){alert("找不到要截圖的內容");return;}
+  const btn=document.activeElement&&document.activeElement.classList.contains("sqbtn")?document.activeElement:null;
+  if(btn)btn.disabled=true;
+  let clone=null;
+  try{
+    if(!window.html2canvas)await new Promise((ok,no)=>{
+      const sc=document.createElement("script");
+      sc.src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js";
+      sc.onload=ok; sc.onerror=no; document.head.appendChild(sc);
+    });
+    const w=Math.ceil(src.getBoundingClientRect().width);
+    clone=src.cloneNode(true);
+    // .card 的漸層底 html2canvas 會把左半渲染成黑 → 一律換實色
+    clone.querySelectorAll(".card").forEach(c=>{c.style.backgroundImage="none"; c.style.backgroundColor="#141a26";});
+    clone.style.cssText=`position:fixed;left:-99999px;top:0;width:${w}px;padding:10px;box-sizing:content-box;background:#0b0e14`;
+    if(prep)prep(clone); // prep 在設定樣式之後跑，才能覆寫寬度／排版
+    document.body.appendChild(clone);
+    const cv=await html2canvas(clone,{backgroundColor:"#0b0e14",useCORS:true,
+      scale:Math.min(3,1920/Math.max(1,clone.scrollWidth)),
+      width:clone.scrollWidth,height:clone.scrollHeight,
+      windowWidth:Math.max(document.documentElement.scrollWidth,clone.scrollWidth)});
+    cv.toBlob(bl=>{ const a=document.createElement("a"); a.href=URL.createObjectURL(bl);
+      const d=new Date(), pad=x=>String(x).padStart(2,"0");
+      a.download=`${uidPrefix()}${name}_${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}.png`;
+      a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),5000); },"image/png");
+  }catch(e){alert("截圖失敗："+e.message);}
+  if(clone)clone.remove();
+  if(btn)btn.disabled=false;
+}
 // 使用者 ID：截圖檔名前綴（ID_原名）
 window.uidPrefix=()=>"";  // ID 前綴功能已移除（使用者要求 2026-07-16）
 document.getElementById('fontSel').onchange=e=>{applyFont(e.target.value); if(typeof render==='function')render();};
@@ -7168,6 +7202,20 @@ function globalFilterReset(){
 }
 // 每次繪製後確保篩選列「最右邊固定三顆」：右→左＝返回(←)／預設(↺)／本頁說明(ℹ️)，每頁都要有、順序一致。
 // 篩選列不存在的詳情頁自建一條精簡列。返回鍵沒有上一步時隱藏(但預設/說明恆在)。
+// 基礎按鈕（使用者定案 2026-07-31）：篩選列最右一律 🗑 📸 ℹ️ ↺ ←，缺哪個就往右遞補，
+// 樣式一律 .sqbtn（36×36 圖示方鈕）。各頁自己加的 🗑／📸 一律收進 .barBtns 排到正確位置，
+// 其他功能鈕（⚙ 參數、📊 數據來源…）不動，留在基礎按鈕左邊。
+function orderBaseBtns(){
+  const f=document.querySelector("#main .filters"); if(!f)return;
+  const bb=f.querySelector(".barBtns"); if(!bb)return;
+  const key=b=>{ if(b.id==="fHelp")return 2; if(b.id==="fReset")return 3; if(b.id==="globalBack")return 4;
+    const t=(b.textContent||"").trim();
+    if(t.startsWith("🗑"))return 0; if(t.startsWith("📸"))return 1; return -1; };
+  f.querySelectorAll("button").forEach(b=>{ if(key(b)<0)return;
+    b.classList.add("sqbtn"); b.style.order=""; b.style.marginLeft="";
+    if(b.parentNode!==bb)bb.appendChild(b); });
+  [...bb.children].filter(b=>key(b)>=0).sort((a,c)=>key(a)-key(c)).forEach(b=>bb.appendChild(b));
+}
 function ensureBackBtn(){
   const m=document.getElementById("main"); if(!m)return;
   let bar=m.querySelector(".filters");
@@ -7195,6 +7243,7 @@ function applyT2S(root){
     if(ph&&cjk.test(ph))e.setAttribute("placeholder",conv(ph)); if(tl&&cjk.test(tl))e.setAttribute("title",conv(tl)); });
 }
 function render(){
+  setTimeout(orderBaseBtns,0); setTimeout(orderBaseBtns,80); // 各頁的 🗑／📸 有的在 render 後才建，排兩拍保證都收到
   syncRankedTab(); // 積分只在當年(非歷史年)可見
   // 積分先行版本（26.14/26.12）全站可選（2026-07-18 使用者定案：版本選單全站統一，不再離開積分情境就清）
   // 只在歷史年份（無積分資料）或版本根本不存在時才自動清掉
@@ -8121,15 +8170,29 @@ function render(){
         const T0=V.tierTH||{S:90,A:80,B:60};
         const qzBP=(V.qzBP!=null?V.qzBP:0.10), qzG=(V.qzG!=null?V.qzG:3); // 奇招條件（可由「⚙ 參數」面板調）
         const TH=[["S",T0.S],["A",T0.A],["B",T0.B],["C",0],[TN5,0]]; // C＝B 以下其餘；末階＝奇招
-        const binOf=sc=>{const ti=TH.findIndex(([,th])=>sc>=th);return ti<0?TH.length-1:ti;}; // 用真實分數分階（不進位）：89.9 未達 S≥90 就留在 A
+        // 早年（2013／2014 這種只有 BP／勝負、沒有 KDA／輸出等統計的年份）能參與評分的維度太少，
+        // 分數會出現斷層——2013 上路 ≥90 有 7 隻、80~90 之間 0 隻，固定門檻分不出 A 階
+        //（Tier 表變成 S 27／A 5，其他年份是 S 12／A 28）。維度不足就改用分位數門檻，
+        // 讓各階比例與資料完整的年份一致（2026-07-31 使用者回報 2013／2014 Tier 壞掉）
+        const SCOL=["禁用率","BP%","勝率","贏線率","後選率","參與率","KDA","中期金差","分均金錢","分均輸出","分均承傷","分均視分"];
+        const _rows={}; LANE5v.forEach(L=>{_rows[L]=calcHeroes(L).filter(r=>r.場數>=minG);});
+        const _all=LANE5v.flatMap(L=>_rows[L]);
+        const _dims=SCOL.filter(c=>_all.some(r=>typeof r[c]==="number"&&isFinite(r[c]))).length;
+        let binOf=sc=>{const ti=TH.findIndex(([,th])=>sc>=th);return ti<0?TH.length-1:ti;}; // 用真實分數分階（不進位）：89.9 未達 S≥90 就留在 A
+        if(_dims<8){
+          const sc=_all.map(r=>r.評分).filter(v=>typeof v==="number"&&isFinite(v)).sort((a,b)=>b-a);
+          const q=p=>sc.length?sc[Math.min(sc.length-1,Math.floor(sc.length*p))]:0;
+          const qS=q(0.05), qA=q(0.14), qB=q(0.26); // 比例取自資料完整年份的實際分布
+          binOf=v=>v>=qS?0:v>=qA?1:v>=qB?2:3;
+        }
         const oldByName={}; ((base&&base.tiers)||[]).forEach(t=>{if(!(t.n in oldByName))oldByName[t.n]=t;}); // 只沿用列色
         const empL=()=>({TOP:[],JNG:[],MID:[],BOT:[],SUP:[]});
         const tiers=TH.map(([n])=>{const o=oldByName[n]; return {n, c:(o&&o.c)||"", ids:[], lanes:empL()};});
         let total=0;
         const _diag={raw:0,pass:0,noId:0};   // 診斷用：原始筆數／過門檻／查不到英雄 id
         LANE5v.forEach(L=>{ // 各路依「該路評分」分階
-          const _all=calcHeroes(L); _diag.raw+=_all.length;
-          _all.filter(r=>r.場數>=minG).sort((a,b)=>b.評分-a.評分).forEach(r=>{
+          _diag.raw+=_rows[L].length;
+          _rows[L].slice().sort((a,b)=>b.評分-a.評分).forEach(r=>{
             _diag.pass++;
             const id=champId(r._full); if(!id||!D2[id]){_diag.noId++;return;}
             const bi=((r["BP%"]||0)<qzBP&&(r.場數||0)<=qzG)?TH.length-1:Math.min(TH.length-2,binOf(r.評分||0)); // 只有符合奇招條件才進奇招；其餘依評分分階但最低到 C（不會因低分掉進奇招）
@@ -8602,6 +8665,34 @@ function render(){
       });
     };
     bindFilters(()=>{V.rosterPick={}; rerender();});
+    { // 📸 截圖（2026-07-31 使用者要求）：擺在本頁說明左邊，最右三顆（說明／預設／返回）位置不動
+      const anchor=document.getElementById("fHelp")||document.getElementById("fReset");
+      if(anchor&&!document.getElementById("rosterShot")){
+        const b2=document.createElement("button"); b2.id="rosterShot"; b2.className="sqbtn";
+        b2.textContent="📸"; b2.title=LANG==="en"?"Screenshot the roster (1080p PNG)":"截圖陣容表（輸出 1080p 畫質 PNG）";
+        anchor.parentNode.insertBefore(b2,anchor);
+        b2.onclick=()=>shotEl(document.getElementById("rosterBox"),
+          `${V.rosterTeam?tAb(V.rosterTeam)+"_":""}Roster`,
+          cl=>{ // 路線圖是本機 PNG，file:// 下會污染 canvas 讓 toBlob 失敗 → 換成內嵌 base64
+            cl.querySelectorAll("img.posic").forEach(im=>{
+              const k=im.getAttribute("alt")||"", b64=(typeof POS_B64!=="undefined"&&POS_B64)?POS_B64[k]:null; // POS_B64 是 const，不掛在 window 上
+              if(b64)im.src=b64; });
+            // 畫面上表格比卡片寬會被裁掉（.rosterGrid table 是 width:max-content），
+            // 截圖要完整 → 欄寬改吃內容、卡片不裁切（2026-07-31 使用者「數據不可出現裁字」）
+            cl.style.width="max-content";
+            const g=cl.querySelector(".rosterGrid");
+            if(g)g.style.gridTemplateColumns=`repeat(${g.children.length||5},max-content)`;
+            cl.querySelectorAll(".card").forEach(c=>{c.style.overflow="visible";});
+            // select 在 html2canvas 下會渲染成空框 → 換成純文字
+            cl.querySelectorAll("select").forEach(sel=>{
+              const d=document.createElement("div");
+              d.textContent=sel.options[sel.selectedIndex]?sel.options[sel.selectedIndex].textContent:sel.value;
+              const cs=getComputedStyle(sel);
+              d.style.cssText=`font:${cs.font};color:${cs.color};padding:${cs.padding};text-align:center`;
+              sel.replaceWith(d); });
+          });
+      }
+    }
     if(V.teamSel==null)V.teamSel=V.vsTeam||V.rosterTeam||"";   // 與戰隊分頁「戰隊」共用
     if(V.rosterTeam!==V.teamSel){V.rosterTeam=V.teamSel; V.rosterPick={};} // 帶新值進來才重設選人
     bindCombo("vRoster",teamComboOpts(teams),V.teamSel,hit=>{V.teamSel=hit; V.rosterTeam=hit; V.rosterPick={}; saveState(); rerender();},true);
@@ -8889,11 +8980,7 @@ function render(){
     V.bpSideMode=(["br","fp","team"].includes(V.bpSideMode))?V.bpSideMode:"br"; // 左側代表：br 藍紅／fp 先選方／team 搜尋的戰隊
     const _bpModeLbl=md=>({br:LANG==="en"?"🟦🟥 Blue / Red":"🟦🟥 藍紅",fp:LANG==="en"?"🥇 First-pick":"🥇 先選",team:LANG==="en"?"🏴 Team":"🏴 戰隊"}[md]||md);
     main.innerHTML=filterBar("")
-      +`<div class="card"><h2 style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">🎯 ${T("BP 紀錄")} <span class="sub" id="cnt"></span><span class="sub" style="flex:1 1 220px">${LANG==="en"?`gold number = pick order (1-7), <span class="fp">gold bold</span> = first-pick side, <span style="background:rgba(255,255,255,.14);padding:0 5px;border-radius:3px">white row-band</span> = winning team, newest first｜type in a column header to filter`:`金色數字＝選角順位(1-7)，<span class="fp">金色粗體</span>＝先選方，<span style="background:rgba(255,255,255,.14);padding:0 5px;border-radius:3px">白底那隊</span>＝勝方，最新在上｜在欄名下方輸入即逐欄篩選`}</span>${segHTML("bpSideSeg",[["br",LANG==="en"?"🔵 Blue/Red":"🔵 藍紅","左側＝藍方"],
-      /* 選邊是 2026 才有的制度，之前藍方一律先選 → 「先選」模式與「藍紅」完全重複，不顯示（2026-07-31 使用者） */
-      ...(+curYear>=2026?[["fp",LANG==="en"?"🥇 First pick":"🥇 先選","左側＝先選方"]]:[]),
-      ["team",LANG==="en"?"🟦 Team":"🟦 該隊","左側＝搜尋的戰隊"]],
-      (+curYear<2026&&V.bpSideMode==="fp")?"br":(V.bpSideMode||"br"),"sm","margin-left:auto")}</h2><div id="tbl"></div></div>`;
+      +`<div class="card"><h2 style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">🎯 ${T("BP 紀錄")} <span class="sub" id="cnt"></span><span class="sub" style="flex:1 1 220px">${LANG==="en"?`gold number = pick order (1-7), <span class="fp">gold bold</span> = first-pick side, <span style="background:rgba(255,255,255,.14);padding:0 5px;border-radius:3px">white row-band</span> = winning team, newest first｜type in a column header to filter`:`金色數字＝選角順位(1-7)，<span class="fp">金色粗體</span>＝先選方，<span style="background:rgba(255,255,255,.14);padding:0 5px;border-radius:3px">白底那隊</span>＝勝方，最新在上｜在欄名下方輸入即逐欄篩選`}</span></h2><div id="tbl"></div></div>`;
     const mmss=s=>s?`${Math.floor(s/60)}:${String(Math.round(s%60)).padStart(2,"0")}`:"–";
     // 賽事欄 LPL 常規賽附組名(季後賽/升降不標；系列賽兩隊同組才明確標)：teams＝已 tAb 的縮寫
     const _lplGrpTag=(league,split,teams)=>{ if((league!=="LPL"&&league!=="LCK")||!split||/PO$|季後|升降/.test(String(split))||!teams)return "";
@@ -8913,7 +9000,9 @@ function render(){
     const GLB=LANG==="en"?[["<20 min",x=>x<20],["20-30 min",x=>x>=20&&x<30],["30-40 min",x=>x>=30&&x<40],["40+ min",x=>x>=40]]
                          :[["20分以下",x=>x<20],["20~30分",x=>x>=20&&x<30],["30~40分",x=>x>=30&&x<40],["40分以上",x=>x>=40]]; // 時長固定分桶(下拉)
     // 逐欄篩選：每欄一個「取可搜字串」函式；英雄欄比對「資料名(英)＋chName(中)」→ 中英名都搜得到
-    const _cTxt=c=>{ if(!c)return ""; const id=(typeof champId==="function")?champId(c):c; return (c+" "+((typeof chName==="function"&&chName(id))||"")).toLowerCase(); };
+    const _cTxt=c=>{ if(!c)return ""; const id=(typeof champId==="function")?champId(c):c;
+      const zh=(((window.CHAMP_SKILLS||{}).d||{})[id]||{}).n||"", en=(window.CHAMP_EN||{})[id]||"";
+      return (c+" "+id+" "+zh+" "+en+" "+((typeof chName==="function"&&chName(id))||"")).toLowerCase(); }; // 中英名、id 全收 → 兩種語言都搜得到
     const _cL=c=>({k:c[0],ph:c[1],w:c[2],dl:c[3]||"",get:c[4]}); // [key,placeholder,寬px,datalist類,取值]
     // 3 禁年份（2014 以前）只有第一輪禁、沒有第二輪 → 禁用欄只給一個篩選框，欄寬也跟著收窄
     //（2026-07-31 使用者指定）。用資料實際的最大禁用手數判定，不寫死年份，資料有缺也不會誤判。
@@ -8937,8 +9026,8 @@ function render(){
       bb:[{k:"bb1",g:3,dl:"champ",get:m=>(sides(m).L.bans||[]).slice(0,3).map(_cTxt).join(" ")},{k:"bb2",g:2,dl:"champ",get:m=>(sides(m).L.bans||[]).slice(3).map(_cTxt).join(" ")}],
       rb:[{k:"rb1",g:3,dl:"champ",get:m=>(sides(m).R.bans||[]).slice(0,3).map(_cTxt).join(" ")},{k:"rb2",g:2,dl:"champ",get:m=>(sides(m).R.bans||[]).slice(3).map(_cTxt).join(" ")}],
     }:{ // 3 禁年份沒有第二輪禁 → 整欄一格（bb2/rb2 的殘留輸入值由下面那行自動清掉）
-      bb:[{k:"bb1",dl:"champ",get:m=>(sides(m).L.bans||[]).map(_cTxt).join(" ")}],
-      rb:[{k:"rb1",dl:"champ",get:m=>(sides(m).R.bans||[]).map(_cTxt).join(" ")}],
+      bb:[{k:"bb1",g:3,dl:"champ",get:m=>(sides(m).L.bans||[]).map(_cTxt).join(" ")}],
+      rb:[{k:"rb1",g:3,dl:"champ",get:m=>(sides(m).R.bans||[]).map(_cTxt).join(" ")}],
     };
     const FILTERS=[]; COLF.forEach(c=>{ if(SUBF[c.k])FILTERS.push(...SUBF[c.k]); else if(!_noF.has(c.k))FILTERS.push({k:c.k,dl:c.dl,get:c.get}); }); // 攤平：實際可篩的欄(禁用拆兩格；去掉日期/賽事/版本)
     {const _fk=new Set(FILTERS.map(f=>f.k)); Object.keys(V.bpColF).forEach(k=>{ if(!_fk.has(k))delete V.bpColF[k]; });} // 清掉不再有輸入框的殘留值
@@ -8966,12 +9055,12 @@ function render(){
     }
     const _dlHTML=FILTERS.map(f=>(_DLF[f.k]&&_DLF[f.k].length)?`<datalist id="bpDL_${f.k}">${_DLF[f.k].map(v=>`<option value="${esc(v)}"></option>`).join("")}</datalist>`:"").join("");
     const _finput=(f,gr,mw)=>`<span style="position:relative;display:block;flex:${gr||1} 1 0;min-width:0${mw?`;max-width:${mw}`:""}"><input class="bpColF" data-k="${f.k}" list="bpDL_${f.k}" size="1" value="${esc(V.bpColF[f.k]||"")}" placeholder=" " style="display:block;width:100%;min-width:0;font-size:11.5px;padding:2px 15px 2px 4px;box-sizing:border-box;text-align:center;background:#0e1420;border:1px solid #2a3345;border-radius:5px;color:var(--tx)"><span class="bpCx" data-k="${f.k}" title="${LANG==="en"?"clear":"清除"}">✕</span></span>`;
-    // 禁用欄的兩格寬度照「該輪次幾張圖」分（前3輪 3 張、後2輪 2 張），gap 與頭像間距一致
-    //（2026-07-31 使用者：篩選框太大，跟該輪次 BAN 圖的寬度略大一點就好）
-    // 篩選框寬度＝該輪次 BAN 圖的總寬（n 張 × 圖寬 + 間距）再多 6px，不要跟著欄寬撐開
-    const _banFW=n=>`calc(${n} * min(80px, 9.5vh - 57px) + ${(n-1)*7+6}px)`;
+    // 禁用欄的篩選框寬度＝該輪次 BAN 圖的總寬（n 張 × 圖寬 ＋ n-1 個 7px 間距），再往外側加 5px：
+    // 單格（3 禁年份）左右各 +5；五禁的兩格各只往外側 +5（第一格往左、第二格往右），
+    // 兩格置中排列後左右緣正好各超出 BAN 圖 5px、中間縫隙與頭像間距對齊（2026-07-31 使用者指定）
+    const _banFW=(n,pad)=>`${n*44+(n-1)*7+pad}px`; // 44＝BAN 頭像實際寬（.bp .cc img / .bans .cc img），7＝頭像間距
     const _fcell=c=>_noF.has(c.k)?"":(SUBF[c.k]
-      ?`<div style="display:flex;gap:7px;justify-content:center">${SUBF[c.k].map(f=>_finput(f,f.g||1,_banFW(f.g||1))).join("")}</div>`
+      ?`<div style="display:flex;gap:${SUBF[c.k].length>1?15:7}px;justify-content:center">${SUBF[c.k].map(f=>_finput(f,f.g||1,_banFW(f.g||1,SUBF[c.k].length>1?5:10))).join("")}</div>`
       :_finput({k:c.k}));
     const _colFActive=()=>FILTERS.some(f=>(V.bpColF[f.k]||"").trim());
     let _bpFocusK=null; // 打字中的欄→重繪後把焦點還回去(表格整塊重建會掉焦點)
@@ -9057,10 +9146,13 @@ function render(){
           else { const m=s.games[gi++]; if(m)rows+=rowHTML(m,n); }
         }
         const warn=miss?` <span style="color:#e0574d;font-weight:bold">⚠ ${LANG==="en"?`missing game ${miss.miss.join(", ")}`:`缺第 ${miss.miss.join("、")} 局`}</span>`:"";
+        const _spTxt=`${spDisp(s.split)||""}${_lplGrpTag(s.league,s.split,s.teams)||""}`.trim();
         return `<tr class="seriesHead"><td colspan="19"><div class="shRow">`
-          +`<span class="sMeta">${s.date}</span>${lgChip(s.league)}<span class="meta">${spDisp(s.split)}${_lplGrpTag(s.league,s.split,s.teams)}</span>`
+          // 季度是空的（WCS 這種沒有分季的賽事）就整個 span 不輸出，否則會多吃一份 flex gap、間隔比別列大
+          //（2026-07-31 使用者）。版本也不寫了——每一局自己那列都已經標了版本。
+          +`<span class="sMeta">${s.date}</span>${lgChip(s.league)}${_spTxt?`<span class="meta">${_spTxt}</span>`:""}`
           +`<span class="sVs"><span class="${sa>sb?'sWin':''}">${A}</span> <b class="${sa>sb?'win':''}">${sa}</b>-<b class="${sb>sa?'win':''}">${sb}</b> <span class="${sb>sa?'sWin':''}">${B}</span></span>`
-          +`<span class="meta">${s.games.length}${miss?`${LANG==="en"?"/":"／"}${miss.total}`:""} ${LANG==="en"?"games":"局"}・${s.patch}</span>${warn}`
+          +`<span class="meta">${s.games.length}${miss?`${LANG==="en"?"/":"／"}${miss.total}`:""} ${LANG==="en"?"games":"局"}</span>${warn}`
           +`</div></td></tr>`
           +rows;
       };
@@ -9108,16 +9200,46 @@ function render(){
         (glowIdx.get(lit)||[]).forEach(im=>im.classList.add("glow"));
       };
       box.onmouseout=e=>{if(e.target.tagName==="IMG")unlit();};
+      // 英雄欄輸入英文（Camille）→ 套用時換成目前語言的顯示名（卡蜜兒），使用者 2026-07-31 指定
+      const _chLK=(()=>{ const m={}, D=((window.CHAMP_SKILLS||{}).d)||{};
+        for(const id in D){ const disp=chName(id);
+          [id,(window.CHAMP_EN||{})[id],(D[id]||{}).n,disp].forEach(k=>{ if(k)m[String(k).toLowerCase()]=disp; }); }
+        return m; })();
+      const _champK=new Set(FILTERS.filter(f=>f.dl==="champ").map(f=>f.k));
+      const _normQ=(k,v)=>{ if(!_champK.has(k))return v;
+        return String(v).split(/\s+/).filter(Boolean).map(t=>{ const lc=t.toLowerCase();
+          if(_chLK[lc])return _chLK[lc];
+          const hit=Object.keys(_chLK).filter(x=>x.startsWith(lc)); // 打一半也認：前綴唯一才換
+          const uniq=[...new Set(hit.map(x=>_chLK[x]))];
+          return uniq.length===1?uniq[0]:t; }).join(" "); };
       // 逐欄篩選輸入：即時更新狀態＋防抖重繪；重繪重建整表→把焦點還回剛打字的那一欄
       box.querySelectorAll(".bpColF").forEach(inp=>{
         inp.oninput=()=>{ V.bpColF[inp.dataset.k]=inp.value; };                                   // 打字中：只記值、不重繪→建議清單保留、不逐字篩
-        inp.onchange=()=>{ V.bpColF[inp.dataset.k]=inp.value; saveState(); rerender(); };          // 失焦/選清單項＝輸入完→套用篩選
-        inp.onkeydown=e=>{ if(e.key==="Enter"){ e.preventDefault(); V.bpColF[inp.dataset.k]=inp.value; _bpFocusK=inp.dataset.k; saveState(); rerender(); } }; // Enter＝立即套用＋保留焦點
+        inp.onchange=()=>{ inp.value=_normQ(inp.dataset.k,inp.value); V.bpColF[inp.dataset.k]=inp.value; saveState(); rerender(); };          // 失焦/選清單項＝輸入完→套用篩選
+        inp.onkeydown=e=>{ if(e.key==="Enter"){ e.preventDefault(); inp.value=_normQ(inp.dataset.k,inp.value); V.bpColF[inp.dataset.k]=inp.value; _bpFocusK=inp.dataset.k; saveState(); rerender(); } }; // Enter＝立即套用＋保留焦點
       });
       box.querySelectorAll(".bpCx").forEach(x=>{ x.onclick=()=>{ V.bpColF[x.dataset.k]=""; saveState(); rerender(); }; }); // ✕ 清除該欄
       if(_bpFocusK){ const el=box.querySelector('.bpColF[data-k="'+_bpFocusK+'"]'); if(el){ el.focus(); try{el.setSelectionRange(el.value.length,el.value.length);}catch(_e){} } _bpFocusK=null; }
+      {const cb=document.getElementById("bpColClr"); // 沒有任何欄位篩選＝沒東西可清
+       if(cb){const on=_colFActive(); cb.disabled=!on; cb.style.opacity=on?"1":".45";}}
     };
-    segBind("bpSideSeg",v=>{ if(v===(V.bpSideMode||"br"))return; V.bpSideMode=v; saveState(); rerender(); }); // 左側代表：藍紅／先選／該隊
+    { // 左側代表（藍紅／先選／該隊）＋ 清空欄位篩選：併進篩選列右側，擺在本頁說明左邊
+      //（2026-07-31 使用者指定；最右三顆 說明／預設／返回 位置不動）
+      const anchor=document.getElementById("fHelp")||document.getElementById("fReset");
+      if(anchor&&!document.getElementById("bpSideSeg")){
+        const seg=segEl("bpSideSeg",[["br",LANG==="en"?"🔵 Blue/Red":"🔵 藍紅","左側＝藍方"],
+            /* 選邊是 2026 才有的制度，之前藍方一律先選 →「先選」與「藍紅」完全重複，不顯示 */
+            ...(+curYear>=2026?[["fp",LANG==="en"?"🥇 First pick":"🥇 先選","左側＝先選方"]]:[]),
+            ["team",LANG==="en"?"🟦 Team":"🟦 該隊","左側＝搜尋的戰隊"]],
+          (+curYear<2026&&V.bpSideMode==="fp")?"br":(V.bpSideMode||"br"),
+          v=>{ if(v===(V.bpSideMode||"br"))return; V.bpSideMode=v; saveState(); rerender(); },"");
+        anchor.parentNode.insertBefore(seg,anchor);
+        const cb=document.createElement("button"); cb.id="bpColClr"; cb.className="sqbtn";
+        cb.textContent="🗑"; cb.title=LANG==="en"?"Clear the column filters":"清空欄位篩選（欄名下方那列）";
+        cb.onclick=()=>{ V.bpColF={}; saveState(); rerender(); };
+        anchor.parentNode.insertBefore(cb,anchor);
+      }
+    }
     bindFilters(rerender);
     rerender();
   }
