@@ -3846,10 +3846,10 @@ function refNotesPks(){
 function champChangesForPk(pk){
   const PN=typeof PATCH_NOTES!=="undefined"?PATCH_NOTES:{}, out={}, pd=PN[pk];
   if(pd){ Object.keys(pd).forEach(k=>{ if(k.startsWith("_"))return; const v=pd[k]; if(!Array.isArray(v)||!v.length)return;
-    const ls=v.filter(l=>!COSM.test(l)&&!TRIVIAL_OR_GEN(l)); if(!ls.length)return;   // 官方行也過 COSM/TRIVIAL（編按、聊天訊息這類不列，版本焦點同步乾淨）
+    const ls=v.filter(l=>!COSM.test(l)&&!TRIVIAL_OR_GEN(l,champId(k))); if(!ls.length)return;   // 官方行也過 COSM/TRIVIAL（編按、聊天訊息這類不列，版本焦點同步乾淨）
     const id=champId(k); if(!id)return; (out[id]=out[id]||[]).push(...ls); }); return out; }
   for(const[wv,cs]of Object.entries(window.WIKI_PATCHES||{})){ if(wikiVerPk(wv)!==pk)continue;
-    Object.keys(cs).forEach(id=>{ const ls=(cs[id]||[]).filter(l=>!COSM.test(l)&&!TRIVIAL_OR_GEN(l)); if(ls.length)(out[id]=out[id]||[]).push(...ls); }); }
+    Object.keys(cs).forEach(id=>{ const ls=(cs[id]||[]).filter(l=>!COSM.test(l)&&!TRIVIAL_OR_GEN(l,id)); if(ls.length)(out[id]=out[id]||[]).push(...ls); }); }
   return out;
 }
 // 該英雄在「當下」是否已登入召喚峽谷（角色池不顯示尚未推出的英雄）；無登入日資料的一律顯示
@@ -4388,7 +4388,7 @@ function changeDir(lines){
   return buff&&nerf?0:buff?1:nerf?-1:0; // 1增強 / -1削弱 / 0混合或無法判定
 }
 // ── 版本改動渲染器（全域共用：版本改動分頁＋圖鑑歷年改動）──────────────────
-const COSM=/原畫|造型|背景故事|中版美術|重新上色|推薦裝備|語音(更新|台詞)|(技能)?圖示更新|更新[了]?圖示|特效[^｜]{0,6}(更新|升級|改良|重製)|視覺效果|粒子效果|模型更新|動畫更新|全新的?[^｜]{0,10}動畫|新增[^｜]{0,4}動畫|新增[^｜]{0,6}圖示|其圖示更新|圖示更新|說明更新|新增語音|語音包|播報員|音效|手感|操作感|順暢度|流暢度|符文頁|介面(更新|調整)|按鍵綁定|計分板顯示|商店[^｜]{0,12}搜尋|搜尋[^｜]{0,8}關鍵字|(改善|優化|改進)了?[^｜]{0,14}(偵測|判定|辨識|選取|命中框)|(新增|顯示)?[^｜]{0,6}指示器|進度特效|輪替遊戲模式|活動|(^|｜)\s*(客戶端|表情|重播|語音聊天|快捷鍵|遊戲效能|League 語音)｜|反作弊|藍色精華|寶石合成|實驗性遊戲模式|主堡閃電戰|極速無敵亂鬥|無限火力|URF|鬥魂競技場|[Aa]rena|現在(能|會)?正確|嚎哭深淵|極地大亂鬥|扭曲叢林|統治戰場|Howling Abyss|Twisted Treeline|Crystal Scar|Dominion|[（(]ARAM[)）]|Level Requirements?|更名|重新命名|renamed|[Nn]ame changed|名稱[：:][^⇒\n]*⇒|(^|｜|\[)\s*(未公告|錯誤|修正了|修復|[Uu]ndocumented|[Bb]ug\s?[Ff]ix|BUG)|(提高|降低|增加|減少)從\s*\d|編按|附註[：:]|並未實裝|官方未記載|並非刻意|此問題可能是在|未列於公告|(邊緣|中心)判定距離|(重新)?編寫程式(碼)?|rescripted?|visual (upgrade|update|effects?)|splash art|voice.?over|icons? (are |have been )?updated|recommended items|lore|chroma|texture|animations? updated|now (correctly|properly)|tooltip|\bARAM\b/i;
+const COSM=/原畫|造型|背景故事|中版美術|重新上色|推薦裝備|語音(更新|台詞)|(技能)?圖示更新|更新[了]?圖示|特效[^｜]{0,6}(更新|升級|改良|重製)|視覺效果|粒子效果|模型更新|動畫更新|全新的?[^｜]{0,10}動畫|新增[^｜]{0,4}動畫|新增[^｜]{0,6}圖示|其圖示更新|圖示更新|說明更新|新增語音|語音包|播報員|音效|手感|操作感|順暢度|流暢度|符文頁|介面(更新|調整)|按鍵綁定|計分板顯示|商店[^｜]{0,12}搜尋|搜尋[^｜]{0,8}關鍵字|(改善|優化|改進)了?[^｜]{0,14}(偵測|判定|辨識|選取|命中框)|(新增|顯示)?[^｜]{0,6}指示器|進度特效|輪替遊戲模式|活動|(^|｜)\s*(客戶端|表情|重播|語音聊天|快捷鍵|遊戲效能|League 語音)｜|反作弊|藍色精華|Adobe|PvP\.net|羅技|game\.cfg|DX1?[019]|FPS|LogitechSupport|除錯啟動器|寶石合成|實驗性遊戲模式|主堡閃電戰|極速無敵亂鬥|無限火力|URF|鬥魂競技場|[Aa]rena|現在(能|會)?正確|嚎哭深淵|極地大亂鬥|扭曲叢林|統治戰場|Howling Abyss|Twisted Treeline|Crystal Scar|Dominion|[（(]ARAM[)）]|Level Requirements?|更名|重新命名|renamed|[Nn]ame changed|名稱[：:][^⇒\n]*⇒|(^|｜|\[)\s*(未公告|錯誤|修正了|修復|[Uu]ndocumented|[Bb]ug\s?[Ff]ix|BUG)|(提高|降低|增加|減少)從\s*\d|編按|附註[：:]|並未實裝|官方未記載|並非刻意|此問題可能是在|未列於公告|(邊緣|中心)判定距離|(重新)?編寫程式(碼)?|rescripted?|visual (upgrade|update|effects?)|splash art|voice.?over|icons? (are |have been )?updated|recommended items|lore|chroma|texture|animations? updated|now (correctly|properly)|tooltip|\bARAM\b/i;
 // 版本總覽專用的「瑣碎改動」：純顯示層、完全不影響強弱（聊天訊息顯示名、提示文字…）。
 // 只在版本分頁擋掉，英雄詳情頁仍完整列出（使用者定案 2026-07-31：艾妮維亞蛋型態的聊天名稱）
 // 版本總覽的「瑣碎改動」：純顯示層／風味描述，不影響強弱（使用者陸續指定：
@@ -4400,9 +4400,17 @@ const GEN_PRE=/^\s*(通用|一般|General)\s*(（[^）]*）)?\s*｜/i;
 // 版本性質畫面的統一排除條件（版本改動分頁／圖鑑版本分頁／總覽版本焦點都用這個）
 // 純名詞列表（「企業家蒙多、摔角手蒙多、劊子手蒙多、蒙多先生、蒙多蒙多與 TPA 蒙多」）＝
 // wiki 造型章節混進來的，沒有冒號／⇒／數字，只是一串名字 → 版本頁不列（2026-08-01 稽核）
-const NAMELIST=/^[^｜⇒：:\d]{2,20}(、[^｜⇒：:\d]{2,20}){2,}(\s*(與|and)\s*[^｜⇒：:\d]{2,20})?[。.]?$/;
-const TRIVIAL_OR_GEN=l=>{ const t=String(l), b=t.includes("｜")?t.slice(t.indexOf("｜")+1).trim():t.trim();
-  return TRIVIAL.test(t)||GEN_PRE.test(t)||NAMELIST.test(b); };
+const NAMELIST=/^[^｜⇒\d]{2,24}(、[^｜⇒\d]{2,24}){2,}(\s*(與|and)\s*[^｜⇒\d]{2,24})?[。.]?$/;
+// 造型名被當成技能名（wiki 的造型章節）：前綴含該英雄中文名、又不是任何一顆技能
+//（「血月凱能」「將軍悟空」「戰鬥兔女郎雷玟」…）→ 版本頁不列（2026-08-01 全庫稽核）
+const SKIN_PRE=(l,id)=>{ if(!id)return false;
+  const i=String(l).indexOf("｜"); if(i<=0)return false;
+  const sk=String(l).slice(0,i).trim();
+  const zh=(typeof chName==="function")?chName(id):""; if(!zh||zh===id)return false;
+  if(!sk.includes(zh)||sk===zh)return false;
+  try{ return !((SKMAP[id]||{})[sk]||(SKLC[id]||{})[_skKey(sk)]); }catch(e){ return false; } };
+const TRIVIAL_OR_GEN=(l,id)=>{ const t=String(l), b=t.includes("｜")?t.slice(t.indexOf("｜")+1).trim():t.trim();
+  return TRIVIAL.test(t)||GEN_PRE.test(t)||NAMELIST.test(b)||SKIN_PRE(t,id); };
 const dirCls=d=>d==null?"adj":d>0?"buff":d<0?"nerf":"adj"; // 判不出方向也走「調整」的黃字（使用者定案 2026-07-31：以前就是黃字，不要白字）
 // 官方公告「英雄專屬大區塊」註記（PATCH_NOTES[pk]._spotlight，如 26.06 希瓦娜）：新英雄＝CHAMP_RELEASE 落在該版首場 ±30 天，否則大型重製
 const spotTag=(id,pk)=>{const PN=typeof PATCH_NOTES!=="undefined"?PATCH_NOTES:{};
@@ -4525,6 +4533,11 @@ const renderChgLines=(lines,cardName)=>{
     .replace(/\bDoT\b/g,"持續傷害").replace(/\bAoE\b/g,"範圍傷害")
     .replace(/\bLeague of Legends\b/g,"英雄聯盟").replace(/\bQueueing\b/gi,"排隊")
     .replace(/\btick(s|ing)?\b/gi,"跳動").replace(/\bshop\b/gi,"商店")
+    .replace(/\bPerfection\b/g,"完美").replace(/\bConvergence\b/g,"匯聚")
+    .replace(/\bBoarding Party\b/g,"登船小隊").replace(/\bBring It Down\b/g,"放馬過來")
+    .replace(/\bJuxtaposition\b/g,"陰陽並濟").replace(/\bAspect of the Dragon\b/g,"巨龍化身")
+    .replace(/\bToo Spooky\b/g,"驚魂")
+    .replace(/\bOrnery Monster Tails?\b/g,"暴躁野怪尾巴").replace(/\bHUD\b/g,"介面")
     .replace(/\bStorm's Edge\b/g,"風暴之刃").replace(/\bDissolve\b/g,"消融").replace(/\bCommit\b/g,"決意")
     .replace(/\bAnti-Tower Socks\b/g,"防塔襪").replace(/\bContraption\b/g,"巧思").replace(/\bVitality\b/g,"活力")
     .replace(/\bThirsting Slash\b/g,"渴血斬").replace(/\bHalting Slash\b/g,"制動斬")
@@ -4535,6 +4548,7 @@ const renderChgLines=(lines,cardName)=>{
     .replace(/\bScryer's Bloom\b/g,"探知之花").replace(/\bDeathfire Grasp\b/g,"死火之握")
     .replace(/\bAflame\b/g,"熾燃").replace(/\bArisen\b/g,"飛升")
     .replace(/\bCrimson Rush\b/g,"血色狂奔").replace(/\bIncandescence\b/g,"熾光")
+    .replace(/\bDoom's Eve\b/g,"絕望前夕").replace(/\bSpell Flux\b/g,"法術波動")
     .replace(/\bGloom\b/g,"陰霾").replace(/\bDoom\b/g,"絕望").replace(/\bAccelerando\b/g,"漸快")
     .replace(/\bPhenomenal Evil( Power)?\b/g,"異常邪惡之力").replace(/\bFlux\b/g,"魔力波動")
     .replace(/\bLover's Leap\b/g,"戀人之躍").replace(/\bIcathian Surprise\b/g,"依卡西亞驚喜")
@@ -4729,7 +4743,11 @@ const renderChgLines=(lines,cardName)=>{
   }
   const grps=[];
   const SLOTMARK=/^[-–—]?\s*[（(]?(被動|Q|W|E|R|Innate|Passive|Active)[)）]?\s*[:：]?\s*$/; // wiki 的槽位標記行（技能名已標按鍵，重複）
-  for(const l of lines){if(COSM.test(l))continue;const p=l.indexOf("｜"),sk=p>0?normSk(l.slice(0,p)):"",txt=p>0?l.slice(p+1):l;if(SLOTMARK.test(txt.trim()))continue;if(grps.length&&grps[grps.length-1].sk===sk)grps[grps.length-1].items.push({l,txt});else grps.push({sk,items:[{l,txt}]});}
+  // 章節標記被當成技能名（「註記：」「新增效果：」「Stats」「Ability details：」「虛空幼獸數據：」）
+  // → 不是技能，前綴清掉讓內容直接列（2026-08-01 全庫稽核）
+  const SECMARK=/^(.{0,16}[：:]|Stats?|Status|Statistics|Ability details|Mega [^｜]* Stats|'[^']*'|.{0,12}(數據|統計|系統|優先順序|更新|調整|改進|重製)[：:]?)$/i;
+  for(const l of lines){if(COSM.test(l))continue;const p=l.indexOf("｜");let sk=p>0?normSk(l.slice(0,p)):"";const txt=p>0?l.slice(p+1):l;
+    if(sk&&!/（(隱藏被動|被動|Q|W|E|R)）/.test(sk)&&SECMARK.test(sk))sk="";if(SLOTMARK.test(txt.trim()))continue;if(grps.length&&grps[grps.length-1].sk===sk)grps[grps.length-1].items.push({l,txt});else grps.push({sk,items:[{l,txt}]});}
   const DIR_ORDER={buff:0,nerf:1,adj:2};
   const grpDir=g=>{const ds=g.items.map(({l})=>changeDir([l])); return ds.includes(1)?1:ds.includes(-1)?-1:0;}
   const slot=g=>{const m=g.sk.match(/（(隱藏被動|被動|Q|W|E|R)）\s*$/); return m?SK_SLOT[m[1]]:5;};
@@ -4818,7 +4836,13 @@ const addKey=(id,l)=>{
   const _lc=_skKey(sk);
   if(LANG!=="en"&&!/[一-鿿]/.test(sk)){ const zh=(SKZH[id]||{})[_lc]; if(zh)sk=zh; }
   if(LANG!=="en"){ const rn=(SKREN[id]||{})[_skKey(sk)]; if(rn)sk=rn; }  // 舊譯名換現行名
-  const k=(SKMAP[id]||{})[sk]||(SKLC[id]||{})[_skKey(sk)]||(SKLC[id]||{})[_lc];
+  let k=(SKMAP[id]||{})[sk]||(SKLC[id]||{})[_skKey(sk)]||(SKLC[id]||{})[_lc];
+  // 還是查不到 → 寬鬆比對：wiki 常在技能名後掛序號（「怒獅戰吼 2」＝第二段），
+  // 或加「強化／進化」前綴（「強化奪魂鞭索」）。去掉這些再查一次（2026-08-01 全庫稽核）
+  if(!k){ for(const c of [sk.replace(/\s*\d+\s*$/,""), sk.replace(/^(強化|進化|改良|升級後|強化後)\s*/,"")]){
+      if(c===sk||!c)continue;
+      const kk=(SKMAP[id]||{})[c]||(SKLC[id]||{})[_skKey(c)];
+      if(kk){ k=kk; sk=c; break; } } }
   // 內文裡的英文技能名也轉中文（13.01 漢默丁格「被 CH-1 Concussion Grenade 命中」這類；
   // 只用該英雄自己的技能對照，不會誤翻其他字）
   let bd=l.slice(i+1);
@@ -6445,7 +6469,7 @@ function renderChgYear(box){
       const wk2=wikiFull[pk]; if(!wk2)return;
       Object.entries(wk2).forEach(([id,lines])=>{
         if(byChamp[id]&&byChamp[id].some(e=>e.patch===pk))return; // 官方已有 → 不重覆
-        const ls=zhOnly(pk,lines.filter(l=>!JUNK.test(String(l).trim())&&!COSM.test(l)&&!TRIVIAL_OR_GEN(l))).map(l=>addKey(id,l));
+        const ls=zhOnly(pk,lines.filter(l=>!JUNK.test(String(l).trim())&&!COSM.test(l)&&!TRIVIAL_OR_GEN(l,id))).map(l=>addKey(id,l));
         if(ls.length)(byChamp[id]=byChamp[id]||[]).push({patch:pk,lines:ls,url:(PATCH_NOTES[pk]&&PATCH_NOTES[pk]._url)||wikiUrl[pk]||""});
       });
     };
@@ -6456,7 +6480,7 @@ function renderChgYear(box){
         Object.entries(wk).forEach(([id,lines])=>{
           // TRIVIAL＝聊天訊息／擊殺時大笑／台詞這類純風味改動：版本改動分頁不列
           //（2026-07-31 使用者第三度回報艾妮維亞蛋妮維亞；前兩次我改到別的畫面去了）
-          const ls=zhOnly(pk,lines.filter(l=>!JUNK.test(String(l).trim())&&!COSM.test(l)&&!TRIVIAL_OR_GEN(l))).map(l=>addKey(id,l));
+          const ls=zhOnly(pk,lines.filter(l=>!JUNK.test(String(l).trim())&&!COSM.test(l)&&!TRIVIAL_OR_GEN(l,id))).map(l=>addKey(id,l));
           if(ls.length)(byChamp[id]=byChamp[id]||[]).push({patch:pk,lines:ls,url:wikiUrl[pk]||""});
         });
         return;
@@ -6473,12 +6497,12 @@ function renderChgYear(box){
       });
       Object.keys(pd).forEach(key=>{
         if(key.startsWith("_"))return; // _url/_extra/_lang 等中繼欄位跳過
-        const lines=(routed[key]?[...pd[key],...routed[key]]:pd[key]).filter(l=>!COSM.test(l)&&!TRIVIAL_OR_GEN(l)).map(l=>addKey(key,l)); // 官方行也過 COSM/TRIVIAL：編按、聊天訊息這類不列
+        const lines=(routed[key]?[...pd[key],...routed[key]]:pd[key]).filter(l=>!COSM.test(l)&&!TRIVIAL_OR_GEN(l,key)).map(l=>addKey(key,l)); // 官方行也過 COSM/TRIVIAL：編按、聊天訊息這類不列
         delete routed[key];
         if(lines.length)(byChamp[key]=byChamp[key]||[]).push({patch:pk,lines,url:pd._url});
       });
       Object.keys(routed).forEach(id=>{
-        const ls=routed[id].filter(l=>!COSM.test(l)&&!TRIVIAL_OR_GEN(l));
+        const ls=routed[id].filter(l=>!COSM.test(l)&&!TRIVIAL_OR_GEN(l,id));
         if(ls.length)(byChamp[id]=byChamp[id]||[]).push({patch:pk,lines:ls,url:pd._url});
       });
       wikiSupp(pk); // 官方漏掉的英雄用 wiki 補
@@ -10607,14 +10631,14 @@ function render(){
             if(k.startsWith("_")||byC[k])return; // _url/_extra/_lang 等中繼欄位跳過
             // 聊天訊息／擊殺時大笑／台詞這類純風味改動：版本分頁不列，只有英雄詳情頁完整列出
             //（2026-07-31 使用者重申：艾妮維亞蛋妮維亞、維迦大笑）
-            const ls=src[k].map(l=>addKey(k,l)).filter(l=>!COSM.test(l)&&!TRIVIAL_OR_GEN(l));
+            const ls=src[k].map(l=>addKey(k,l)).filter(l=>!COSM.test(l)&&!TRIVIAL_OR_GEN(l,k));
             if(ls.length)byC[k]=ls;
           }); };
           const addWiki=()=>{ for(const[wv,cs]of Object.entries(window.WIKI_PATCHES||{})){
             if(wikiVerPk(wv)!==pk)continue;
             Object.entries(cs).forEach(([id,ls])=>{
               if(byC[id])return;
-              const l2=zhOnly(pk,ls.filter(l=>!COSM.test(l)&&!TRIVIAL_OR_GEN(l)&&!JUNK2.test(String(l).trim()))).map(l=>addKey(id,l));
+              const l2=zhOnly(pk,ls.filter(l=>!COSM.test(l)&&!TRIVIAL_OR_GEN(l,id)&&!JUNK2.test(String(l).trim()))).map(l=>addKey(id,l));
               if(l2.length)byC[id]=l2;
             });
           } };
