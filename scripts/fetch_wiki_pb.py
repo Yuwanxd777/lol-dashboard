@@ -65,8 +65,15 @@ JOBS = [
      "Season 3 Southeast Asia Regional Finals"),
     (2013, "CBLOL", "錦標賽", 0, "Riot Season 3 Brazilian Championship/Picks and Bans",
      "Riot Season 3 Brazilian Championship"),
+    # LLA 2013 是三段獨立賽事寫在同一頁（使用者提供 2026-07-31）：南區、北區各自打完，
+    # 冠軍再打 Grand Finals。sections＝用 h2 章節把賽段拆開；roster_pages＝南北區的
+    # 參賽名單在各自的 Qualifiers 子頁，主頁只有進總決賽的兩隊。
     (2013, "LLA", "錦標賽", 0, "Season 3 Latin America Regional Finals/Picks and Bans",
-     "Season 3 Latin America Regional Finals"),
+     "Season 3 Latin America Regional Finals",
+     {"sections": {"Latin America South": "南區", "Latin America North": "北區",
+                   "Latin America Grand Finals": "錦標賽"},
+      "roster_pages": ["Season 3 Latin America Regional Finals/Qualifiers/Southern Qualifier",
+                       "Season 3 Latin America Regional Finals/Qualifiers/Northern Qualifier"]}),
     (2013, "LCO", "錦標賽", 0, "Riot Season 3 Oceanic Championship/Picks and Bans",
      "Riot Season 3 Oceanic Championship"),
     (2013, "LCL", "錦標賽", 0, "2013 Season CIS Championship/Picks and Bans", "2013 Season CIS Championship"),
@@ -112,14 +119,23 @@ def pb_games(html):
     # 章節標題（Group A／Group B／Semifinals／Finals）→ 每局屬於哪個階段。
     # 用途是推日期：PB 頁沒有逐場日期，但賽事的階段順序就是時間順序（使用者定案
     # 2026-07-31：CBLOL 2013 小組賽 7/19、四強 7/20、決賽 7/21）。
-    _hd = [(m.start(), re.sub(r"\s+", " ", re.sub(r"<[^>]+>", "", m.group(2))).replace("[]", "").strip())
+    # 兩層都要留：h2 常是「賽區／大區塊」（LLA 2013 分 Latin America South／North／
+    # Grand Finals），h3 才是輪次（Semifinals／Finals）。只取最近的一個標題會把
+    # 南北區丟掉，整個賽事被壓成同一個賽段（2026-07-31 使用者回報）。
+    _hd = [(m.start(), int(m.group(1)),
+            re.sub(r"\s+", " ", re.sub(r"<[^>]+>", "", m.group(2))).replace("[]", "").strip())
            for m in re.finditer(r"<h([2-4])[^>]*>(.*?)</h\1>", html, re.S)]
     for _ti, _mt in enumerate(re.finditer(r'<table[^>]*class="[^"]*wikitable pb[^"]*"[^>]*>.*?</table>', html, re.S)):
         t = _mt.group(0)
-        stage = ""
-        for _hp, _ht in _hd:
-            if _hp < _mt.start() and _ht and _ht.lower() != "contents":
-                stage = _ht
+        sec2 = sec3 = ""
+        for _hp, _lv, _ht in _hd:
+            if _hp >= _mt.start() or not _ht or _ht.lower() == "contents":
+                continue
+            if _lv == 2:
+                sec2, sec3 = _ht, ""
+            else:
+                sec3 = _ht
+        stage = sec3 or sec2
         cls = re.search(r'class="([^"]*)"', t).group(1)
         mg = re.search(r"pb-game-(\d+)", cls)
         teams = re.findall(r'<a href="/wiki/[^"]+" class="[^"]*\bt[A-Z]{2,}\b[^"]*" title="([^"]+)"', t)
@@ -165,7 +181,7 @@ def pb_games(html):
         #（2026-07-31 使用者回報：手動改的縮寫沒套用、還是出現全名）
         _tn = lambda s: re.sub(r"\s*\(page does not exist\)\s*$", "", _html.unescape(s)).strip()
         out.append({"blue": fix_case(_tn(teams[0])), "red": fix_case(_tn(teams[1])), "idx": _ti,
-                    "game": gno, "win": win, "bp": bp, "stage": stage})
+                    "game": gno, "win": win, "bp": bp, "stage": stage, "sec2": sec2, "sec3": sec3})
     return out
 
 
@@ -404,6 +420,21 @@ def tour_rosters(page):
     return out
 
 
+def _ros_of(ros, team):
+    """查該隊名單，隊名允許互為前綴。PB 頁常用短名、名單頁用全名
+    （Renegades of Hell↔Renegades of Hell Inner Fire、Isurus↔Isurus Gaming Chile），
+    精確比對會整隊填不到名字。"""
+    k = _norm(team)
+    if not k:
+        return {}
+    if k in ros:
+        return ros[k]
+    for kk, v in ros.items():
+        if kk and (kk.startswith(k) or k.startswith(kk)):
+            return v
+    return {}
+
+
 _PBD_CACHE = {}
 
 
@@ -469,7 +500,10 @@ def patch_of(pbd, date, span=7):
 
 
 def build(job, force=False):
-    year, lg, split, po, pb_page, main_page = job
+    year, lg, split, po, pb_page, main_page = job[:6]
+    # 第 7 個元素（選用）：{"sections": {h2 章節: 賽段名}, "roster_pages": [額外名單頁]}
+    opt = job[6] if len(job) > 6 and isinstance(job[6], dict) else {}
+    SECMAP = opt.get("sections") or {}
     key = f"{lg}_{year}_" + (re.sub(r"[^A-Za-z0-9]+", "", split) or re.sub(r"[^A-Za-z0-9]+", "", pb_page)[:24])
     print(f"\n[{year} {lg} {split or '（無賽段）'}] ← {pb_page}")
     try:
@@ -511,7 +545,11 @@ def build(job, force=False):
     LST = lane_stats(year)
     print(f"    路線統計：{len(LST)} 個英雄（{year} 年有選手名的列）")
     PBD = patch_by_date(year)
-    ROS = tour_rosters(main_page)
+    ROS = dict(tour_rosters(main_page))
+    for _rp in (opt.get("roster_pages") or ()):     # 額外名單頁（分區資格賽等）
+        for _k, _v in (tour_rosters(_rp) or {}).items():
+            ROS.setdefault(_k, _v)
+        time.sleep(2)
     if ROS:
         print(f"    參賽名單：{len(ROS)} 隊五個位置齊全 → 選手名可填")
     from datetime import date as _date, timedelta as _td
@@ -522,10 +560,20 @@ def build(job, force=False):
     # 第 N 次遭遇往後挪一天」準得多——後者會把 BO5 的第 1 局跟後面幾局分到不同天。
     # Group A／Group B 併成同一個「小組賽」階段（使用者定案 2026-07-31：
     # CBLOL 2013 小組賽 7/19、四強 7/20、決賽 7/21）。
-    _sk = lambda s: "Group Stage" if re.match(r"^\s*group\b", str(s or ""), re.I) else str(s or "")
+    def _sk(g):
+        """階段鍵＝上層章節＋輪次。分區賽事（LLA 2013 南北區）兩邊都有 Semifinals，
+        只用輪次會撞成同一階段；Group A／Group B 則相反，要併成一個小組賽階段。"""
+        s2, s3 = str(g.get("sec2") or ""), str(g.get("sec3") or "")
+        # 小組賽層級不固定：CBLOL 是 h2=Group Stage／h3=Group A，GPL 台港澳錦標賽
+        # 直接把 Group A／Group B 當 h2。兩種都要併成同一個小組賽階段——不併的話
+        # 兩個小組會被分到賽事期間的頭尾（實測 Group A=07-03、Group B=08-29）。
+        if re.match(r"^\s*group\b", s3 or s2, re.I):
+            return "Group Stage"
+        return (s2 + "／" + s3) if (s2 and s3) else (s3 or s2)
+
     _stages = []
     for g in games:
-        k = _sk(g.get("stage"))
+        k = _sk(g)
         if k and k not in _stages:
             _stages.append(k)
     _span = (_d1 - _d0).days
@@ -548,8 +596,8 @@ def build(job, force=False):
             i = cur[pair]
         if ds:
             date = ds[min(i, len(ds) - 1)]
-        elif _sdate.get(_sk(g.get("stage"))):
-            date = _sdate[_sk(g["stage"])]          # 依階段（小組賽／四強／決賽）
+        elif _sdate.get(_sk(g)):
+            date = _sdate[_sk(g)]                   # 依階段（小組賽／四強／決賽）
         else:
             # 連階段標題都沒有 → 退回「同一組隊伍的第 N 次遭遇往後挪一天」（夾在賽事期間內）。
             # 全部塞同一天的話，小組賽與季後賽的同組對戰會被當成同一個系列，BO 判定就錯了。
@@ -562,12 +610,14 @@ def build(job, force=False):
         # 光靠 隊伍＋日期＋局號＋遭遇序 還是會撞（實測 LPL 2013 夏季季後賽 7 局只進 5 局）
         # 版本：PB 頁沒有這欄 → 用同年其他比賽的「日期→版本」時間軸推定
         _pt = patch_of(PBD, date)
+        # 賽段：分區賽事用 h2 章節對照（LLA 2013 → 南區／北區／錦標賽），其餘沿用 JOBS 的值
+        _sp = SECMAP.get(str(g.get("sec2") or ""), split)
         gid = f"wikipb_{key}_{g.get('idx', i)}_{_norm(g['blue'])}_{_norm(g['red'])}_{date}_{g['game']}"
         for side, pid in (("blue", 100), ("red", 200)):
             r = [""] * len(hdr)
             put = lambda k, v: r.__setitem__(ix[k], "" if v is None else str(v)) if k in ix else None
             put("gameid", gid); put("datacompleteness", "partial")
-            put("league", lg); put("year", year); put("split", split)
+            put("league", lg); put("year", year); put("split", _sp)
             put("playoffs", 1 if g.get("po") else po)
             put("date", date + " 00:00:00"); put("game", g["game"]); put("participantid", pid)
             put("patch", _pt)
@@ -591,14 +641,14 @@ def build(job, force=False):
                 r = [""] * len(hdr)
                 put2 = lambda k3, v: r.__setitem__(ix[k3], "" if v is None else str(v)) if k3 in ix else None
                 put2("gameid", gid); put2("datacompleteness", "partial")
-                put2("league", lg); put2("year", year); put2("split", split)
+                put2("league", lg); put2("year", year); put2("split", _sp)
                 put2("playoffs", 1 if g.get("po") else po)
                 put2("date", date + " 00:00:00"); put2("game", g["game"])
                 put2("patch", _pt); put2("participantid", base + k2)
                 put2("side", side.capitalize())
                 put2("position", _POS_OE[POSL[k2]])
                 put2("teamname", g[side]); put2("champion", ch)
-                put2("playername", (ROS.get(_norm(g[side])) or {}).get(POSL[k2], ""))
+                put2("playername", (_ros_of(ROS, g[side]) or {}).get(POSL[k2], ""))
                 put2("result", "1" if (g["win"] == (1 if side == "blue" else 2)) else "0")
                 rows.append(r)
     buf = io.StringIO()
@@ -658,8 +708,8 @@ def main():
             D = json.load(open(p, encoding="utf-8"))
         except Exception:
             continue
-        live = {f"{lg}_{yy}_" + (re.sub(r"[^A-Za-z0-9]+", "", sp) or re.sub(r"[^A-Za-z0-9]+", "", pg)[:24])
-                for (yy, lg, sp, _po, pg, _mp) in JOBS if yy == y}
+        live = {f"{j[1]}_{j[0]}_" + (re.sub(r"[^A-Za-z0-9]+", "", j[2]) or re.sub(r"[^A-Za-z0-9]+", "", j[4])[:24])
+                for j in JOBS if j[0] == y}      # JOBS 可能帶第 7 個元素（分區設定），別寫死解包
         drop = [k for k, v in D.items() if "Picks and Bans" in str(v.get("src", "")) and k not in live]
         if drop:
             for k in drop:
