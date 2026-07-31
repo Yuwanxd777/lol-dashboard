@@ -31,17 +31,18 @@ EVENTS = {
     # → 至少讓圖鑑「賽事」樹看得到這些聯賽存在（使用者要求 2026-07-31）。
     # splits＝一個賽段一個頁；po_page＝該賽段的季後賽（2013 GPL 只有夏季有，就 Championship 那一場）
     2013: {
-        # 2013 GPL 只補「台港澳錦標賽」的完整名單：PB 頁收錄的 22 局裡只出現 10 隊，
-        # 實際參賽是 12 隊（Team Ozone Xenon 與 Team Rush 沒有被收錄的場次）。
-        # **賽段名一定要跟比賽資料一致**，不然賽事樹會多長出一列重複的區塊（2026-07-31）
-        "GPL":   {"splits": [{"sp": "台港澳錦標賽", "page": "Season 3 Taiwan Regional Finals"}]},
-        # roster_pages＝只拿名單、不當成賽段的頁：土耳其三個賽段頁各自只登記了 2~4 隊，
-        # 完整名單在年度總決賽 Championship 頁（8 隊 40 人）。加進 splits 會讓賽事樹
-        # 多長一列賽段，所以只借名單。
-        "TCL":   {"splits": [{"sp": "冬季", "page": "Riot Games Turkey/2013 Season/Winter Tournament"},
-                             {"sp": "春季", "page": "Riot Games Turkey/2013 Season/Spring Tournament"},
-                             {"sp": "夏季", "page": "Riot Games Turkey/2013 Season/Summer Tournament"}],
-                  "roster_pages": ["Riot Games Turkey/2013 Season/Championship"]},
+        # **賽段名一定要跟比賽資料一致**，不然賽事樹會多長出一列重複的區塊（2026-07-31）。
+        # 春季／夏季也列進來（2026-08-01 使用者回報 SF5 小框寫「沒有選手資料」）：這兩段
+        # 的比賽是 PB 頁抓的、沒有選手名，名單得另外從 `{賽事}/Team Rosters` 子頁借。
+        # 隊伍本身不會因此多出來——前端對「主數據已有場次」的賽段只拿 wiki 名單對齊、
+        # 不新增沒出賽的隊（見 index.html 的 _abIn／_abG）。
+        "GPL":   {"splits": [{"sp": "台港澳錦標賽", "page": "Season 3 Taiwan Regional Finals"},
+                             {"sp": "春季", "page": "2013 GPL Spring"},
+                             {"sp": "夏季", "page": "2013 GPL Summer"}]},
+        # TCL 只留錦標賽（使用者定案 2026-08-01）：冬／春／夏三段 Leaguepedia 沒有任何逐局
+        # 資料，賽事樹列出來也只是一排沒有比賽的隊伍。改成直接指向年度總決賽 Championship
+        # 頁（8 隊 40 人），錦標賽那段的比賽資料本來就由 PB 頁提供，這裡只補名單。
+        "TCL":   {"page": "Riot Games Turkey/2013 Season/Championship"},
         "CBLOL": {"page": "Riot Season 3 Brazilian Championship"},
         "LCO":   {"page": "Riot Season 3 Oceanic Championship"},
         "LCL":   {"page": "2013 Season CIS Championship"},

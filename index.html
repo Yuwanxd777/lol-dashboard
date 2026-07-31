@@ -308,6 +308,10 @@
   #hoverTip{position:fixed;z-index:300;display:none;max-width:460px;max-height:72vh;overflow-y:auto;background:#10141f;border:1px solid var(--acc);
     border-radius:10px;padding:12px 15px;font-size:13px;line-height:1.6;box-shadow:0 8px 32px rgba(0,0,0,.75)}
   #hoverTip .tipRow>div,#hoverTip .tipEffect>div{white-space:pre-line} /* 只有內文保留換行，模板縮排不會變空白行 */
+  /* 賽事樹的戰隊名單：同一路輪替兩三個選手時整行不折，改讓框自己變寬（使用者定案 2026-08-01）。
+     只放寬帶 .evtRos 的那種懸浮框，英雄／物品／技能的說明仍維持 460px 的折行寬度 */
+  #hoverTip:has(.evtRos){max-width:min(860px,92vw)}
+  .evtRos>div>span{white-space:nowrap}
   #hoverTip .tipTitle{font-weight:bold;font-size:17px;margin-bottom:8px;color:var(--gold);border-bottom:1px solid #2a3550;padding-bottom:6px}
   #hoverTip .tipTitle .meta{font-size:13.5px}
   #hoverTip .tipRow{margin:7px 0;padding:5px 8px;background:#151c2e;border-radius:6px;border-left:2px solid var(--acc)}
@@ -2360,7 +2364,9 @@ const PROMO_TABBR={}; // Leaguepedia 升降賽隊伍縮寫（fetch_promo.py）
 if(window.PROMO_ABBR)Object.entries(PROMO_ABBR).forEach(([n,s])=>{PROMO_TABBR[normT(n)]=s;});
 // 縮寫一律全大寫（使用者定案 2026-07-31）：來源各自的寫法不一致（Leaguepedia 有 ahq／bbq／aAa
 // 這種原樣縮寫），混在同一張表裡看起來很雜。積分那條路的比對本來就經 sqKey 轉小寫，不受影響。
-const abbrOf=t=>{const k=normT(t);return (USER_TABBR[k]||TABBR[k]||STATIC_TABBR[k]||PROMO_TABBR[k]||WIKI_TABBR[k]||(window.LP_TABBR||{})[k]||"").toUpperCase();}; // 最後兜底＝Leaguepedia 全名→Short（team_abbr_wiki.js，歷史次級隊）
+// 縮寫一律去掉小數點（使用者定案 2026-08-01：GG.EU→GGEU）。做在**輸出端**而不是逐筆改表：
+// 兜底來源 team_abbr_wiki.js 光二隊／學院隊就有幾百個 ANW.B／100.A 這種寫法，新資料還會再進來。
+const abbrOf=t=>{const k=normT(t);return (USER_TABBR[k]||TABBR[k]||STATIC_TABBR[k]||PROMO_TABBR[k]||WIKI_TABBR[k]||(window.LP_TABBR||{})[k]||"").toUpperCase().replace(/\./g,"");}; // 最後兜底＝Leaguepedia 全名→Short（team_abbr_wiki.js，歷史次級隊）
 const TEAM_ALIAS={GENG:"GEN",TLAW:"TL",AGAL:"AL",DNF:"DNS",KRX:"DRX"}; const teamFix=t=>TEAM_ALIAS[t]||t; // 全域縮寫統一(GENG→GEN；TLAW=Team Liquid 積分標籤→TL；AGAL=Anyone's Legend 更名(AG.AL)→AL；DNF→DNS＝DN Freecs 比賽改名 DNS；KRX→DRX＝積分帳號別名，主資料用 DRX)
 // 積分鍵解析（鐵則：拿「比賽資料的隊名/選手名」去查積分資料，一律經 sqKey，不可直接組字串）
 // SOLOQ_MATCH_IDX.players / SOLOQ_RECENT.players / __SQCACHE 的鍵＝積分帳號檔的「隊縮寫|選手名」，與比賽資料端有兩種落差：
@@ -2446,7 +2452,8 @@ const mainLg=(cnt,ab)=>{ const e=Object.entries(cnt||{}).sort((x,y)=>y[1]-x[1]);
   return t1?t1[0]:((ab&&CUP_HOME[ab])||(e[0]||[""])[0]||""); };
 // 戰隊縮寫碰撞(同縮寫跨不同聯賽＝不同隊，如 RoX/CIS vs ROX Tigers/LCK)：清單顯示「縮寫(聯賽碼)」以區分。
 // 需「原始全名」才判得出是哪一隊(team_collide.js 由 Leaguepedia Teams 的 Name/Short/Region 建)；純縮寫無全名時退回原樣。
-const _TC=window.TEAM_COLLIDE, _TC_SET=_TC?new Set(_TC.abbrs):null;
+// 碰撞縮寫集合也要跟著去點，否則 abbrOf 交出 GGEU、這裡存的還是 GG.EU，比對永遠不中
+const _TC=window.TEAM_COLLIDE, _TC_SET=_TC?new Set((_TC.abbrs||[]).map(a=>String(a).toUpperCase().replace(/\./g,""))):null;
 const tAbShow=fullName=>{ const ab=tAb(fullName);
   if(!_TC_SET||!fullName||!_TC_SET.has(String(ab).toUpperCase()))return ab;
   const lg=_TC.names[normT(fullName)];
@@ -2800,12 +2807,27 @@ const eventsTreeHTML=()=>{
    Object.entries(EX).forEach(([lg,d])=>{
      if(lg.includes("#"))return; // 鍵含#＝賽段名單補充（LPL#S3 開賽前陣容），不建獨立賽事卡（hover 另行取用）
      const e=byLg[lg]||(byLg[lg]={splits:new Set(),teams:new Set(),releg:new Set(),reg2:new Set(),n:0});
-     (d.teams||[]).forEach(t=>{ if(t){e.teams.add(t); e.reg2.add(t); (e.regN=e.regN||new Set()).add(t);} });
+     // 同上：這個聯賽在主數據已經有場次了，wiki 名單就不再帶進沒出賽的隊（2013 台港澳錦標賽的
+     // Team Ozone Xenon／Team Rush 報名沒打，不過濾的話會從賽段被擠到卡片的「其他」欄去）
+     const _hadG=e.n>0, _abG=_hadG?new Set([...e.teams].map(t2=>tAb(t2))):null;
+     (d.teams||[]).forEach(t=>{ if(!t)return;
+       if(_abG&&!_abG.has(tAb(t)))return;
+       e.teams.add(t); e.reg2.add(t); (e.regN=e.regN||new Set()).add(t); });
      // 補充賽事也能分賽段（2013 GPL 春季／夏季／世界賽資格賽）：填進跟真實比賽同一組欄位，
      // 賽事卡的「逐季度分列＋季後賽綠勾」就自動套用（使用者要求 2026-07-31）
      (d.splits||[]).forEach(s=>{ const sp=s.sp; if(!sp)return; e.splits.add(sp);
-       const _st=e._spTeams=e._spTeams||{}, _ss=_st[sp]=_st[sp]||new Set();
-       (s.teams||[]).forEach(t=>{ if(t){_ss.add(t); e.teams.add(t); e.reg2.add(t); (e.regN=e.regN||new Set()).add(t);} });
+       const _st=e._spTeams=e._spTeams||{};
+       // 這個賽段在主數據已經有出賽隊了 → wiki 名單只拿來對齊，不再新增沒有任何場次的隊
+       //（2026-08-01 使用者回報：2013 台港澳錦標賽實際只打了 10 隊，wiki 的參賽名單多列
+       //  Team Ozone Xenon／Team Rush 兩隊報名沒打，賽事樹就變成 12 隊）。
+       // 完全沒有比賽資料的補充賽事（_had=0）照舊全列，那種卡本來就只能靠 wiki 名單。
+       // 比對用縮寫：wiki 寫「GIA (Taiwanese Team)」、主數據寫「GIA」，直接比全名對不上。
+       const _had=_st[sp]&&_st[sp].size;
+       const _ss=_st[sp]=_st[sp]||new Set();
+       const _abIn=_had?new Set([..._ss].map(t2=>tAb(t2))):null;
+       (s.teams||[]).forEach(t=>{ if(!t)return;
+         if(_abIn&&!_abIn.has(tAb(t)))return;
+         _ss.add(t); e.teams.add(t); e.reg2.add(t); (e.regN=e.regN||new Set()).add(t); });
        if(s.from){ const _sd=e._spDate=e._spDate||{}; if(!_sd[sp]||s.from<_sd[sp])_sd[sp]=s.from; }
        // 補充賽事的對戰表名單存獨立欄位：它只是「進了淘汰賽」，不等於晉級，
        // 優先序要排在「有沒有打進世界賽」後面（2026-07-31 使用者回報 GPL 錦標賽打勾一大票）
@@ -3050,7 +3072,22 @@ const eventsTreeHTML=()=>{
         const _spKeys=Object.keys(_spT).filter(k=>_spT[k].size).sort((a,b)=>{
           const A=_spOrd(a),B=_spOrd(b);
           return (A[0]-B[0])||(A[1]-B[1])||A[2].localeCompare(B[2])||a.localeCompare(b);});
-        if(_spKeys.length>1){
+        // 分區預賽制（2013 LLA：北區／南區各自打完，冠軍再打錦標賽決賽）→ 版面比照 2025 LTA
+        //（使用者定案 2026-08-01）：錦標賽段排最上面，底下灰虛線，再以灰虛豎線把北區｜南區
+        // 左右並排。晉級錦標賽的隊在分區欄裡帶勾。
+        const _nsSp=["北區","南區"].filter(k=>_spT[k]&&_spT[k].size);
+        const _tKey=_spKeys.find(k=>/錦標賽$/.test(k));
+        if(_nsSp.length===2){
+          const _colL=(lb,k)=>{const arr=base.filter(t2=>_spT[k].has(t2));
+            return arr.length?`<div class="evtPromoGrp"><div class="evtPromoLb">${esc(lb)}</div>${chips(arr,_tourAb,x.tinfoNP,k)}</div>`:"";};
+          const _cols=[_colL(LANG==="en"?"North":"北區","北區"),_colL(LANG==="en"?"South":"南區","南區")]
+            .filter(Boolean).join(`<div class="evtPromoVr"></div>`);
+          const _tArr=_tKey?base.filter(t2=>_spT[_tKey].has(t2)):[];
+          const _rest=base.filter(t2=>!_nsSp.some(k=>_spT[k].has(t2))&&!(_tKey&&_spT[_tKey].has(t2)));
+          mainChips=(_rest.length?chips(_rest,advQ,x.tinfo):"")
+            +(_tArr.length?`<span class="evtPromoDiv evtGrpDiv evtGrpNL"><i>${esc(_tKey)}</i></span>`+chips(_tArr,_advOf(_tKey,_tArr)||advQ,x.tinfo,_tKey):"")
+            +(_cols?`<span class="evtPromoDiv evtGrpHr"></span><div class="evtPromoCols">${_cols}</div>`:"")+extSeg;
+        }else if(_spKeys.length>1){
           const _row=(lb,arr,adv)=>`<div class="lgSplitBlk"><span class="lgSplitHd">${esc(lb)}<span class="lgSplitN">${uq(arr)} ${LANG==="en"?"teams":"隊"}</span></span><span class="lgSplitGrps"><div class="lgGrpCol"><span class="lgGrpChips">${chips(arr,adv,x.tinfo)}</span></div></span></div>`;
           let _mc="",_used=new Set();
           _spKeys.forEach(sp=>{ const arr=base.filter(t2=>_spT[sp].has(t2));
@@ -3127,9 +3164,11 @@ const eventsTreeHTML=()=>{
       const ps=Object.entries(m2).sort((a,b)=>b[1]-a[1]).map(([p2,c2])=>`${esc(p2)}<span class="meta">(${c2})</span>`).join("、");
       return `<div style="display:flex;gap:8px;align-items:center">${laneIco2(pid)}<span>${ps}</span></div>`;}).filter(Boolean).join("");
     const wr=n?Math.round(w/n*100):0, wc=wr>=55?"#ff5d5d":(wr<=45?"#37c871":"#cdd6e6");
-    // 補充賽事（events_extra.js）：資料庫沒有比賽場次 → 改列 Leaguepedia 上的參賽名單
+    // 補充賽事（events_extra.js）：資料庫沒有比賽場次 → 改列 Leaguepedia 上的參賽名單。
+    // 「有場次但 rows 是空的」也要走這條（2026-08-01 使用者回報 GPL 的 SF5 寫「沒有選手資料」）：
+    // 2013 GPL 春夏是 PB 頁抓的，只有英雄沒有選手名 → byPid 全空，n>0 卻排不出任何一列。
     let exRows="";
-    if(!n){
+    if(!n||!rows){
       const EX=(window.EVENTS_EXTRA||{})[String(curYear)]||{};
       const ORD={TOP:1,JNG:2,MID:3,BOT:4,SUP:5,COACH:6};
       for(const lg of (lgs||[])){ const d=EX[lg]; if(!d||!d.rosters)continue;
@@ -3167,7 +3206,7 @@ const eventsTreeHTML=()=>{
       <div style="margin:3px 0 6px">${n?`${n} ${en?"games":"場"}｜<b style="color:${wc}">${wr}%</b> ${en?"win":"勝率"}`
         :`<span class="meta">${en?"roster from Leaguepedia (no game data yet)":"參賽名單取自 Leaguepedia（資料庫還沒有比賽場次）"}</span>`}</div>
       ${(bySp.size>1)?`<div class="evtTipSpBox">${spRows}</div>`:""}
-      <div style="display:flex;flex-direction:column;gap:3px;font-size:13px">${spRoster||rows||exRows||`<span class="meta">${en?"no player rows":"無選手資料"}</span>`}</div>`;
+      <div class="evtRos" style="display:flex;flex-direction:column;gap:3px;font-size:13px">${spRoster||rows||exRows||`<span class="meta">${en?"no player rows":"無選手資料"}</span>`}</div>`;
       // 「雙擊改縮寫」的提示改放最上方的小備註（使用者指定 2026-07-28：不佔懸浮框空間）
   };
   const fil=arr=>!q?arr:arr.filter(x=>((x.lg+x.m.zh+(x.m.region||"")+[...x.teams].map(tAb).join("")+[...x.teams].join("")).toLowerCase().includes(q))); // 縮寫＋全名都可搜
