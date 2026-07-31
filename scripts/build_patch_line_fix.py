@@ -24,6 +24,13 @@ OUT = os.path.join(ROOT, "patch_line_fix.js")
 
 # (版本, 英雄id, 原技能名, 內容開頭片段) → 重寫後的整行（"" ＝ 這行不要顯示）
 FIX = [
+    # ── 李星：官方公告把 W 的第二段寫成「W2」，但它有正式名稱「易筋洗髓」──────
+    # W ＝ 鐵璧金身（W1）／易筋洗髓（W2），技能名欄位本來就寫易筋洗髓，內文卻還在講 W2
+    #（2026-07-31 使用者指定）。這行只在官方公告 patches.js 裡，wiki 沒有。
+    ("26.04", "LeeSin", "易筋洗髓（W）", "魔法吸血不要了",
+     "易筋洗髓（W）｜魔法吸血不要了：易筋洗髓會賦予普攻和魔法吸血。"
+     "若目標為士兵、野怪或英雄，易筋洗髓和重擊無法回復生命 ⇒ "
+     "易筋洗髓會賦予全能吸血，且適用於士兵、野怪和英雄"),
     # ── 索娜：力量和絃的三種和絃名沒翻（音樂術語）──────────────────────────
     # 三種和絃是同一件事（各自加了 AP 加成）→ 併成一行，後兩行不再單獨列
     ("3.14", "Sona", "力量和絃", "新增：Staccato",
@@ -301,15 +308,49 @@ def load_patches():
     return load_js("wiki_patches.js", "window.WIKI_PATCHES")
 
 
+def load_js_first_obj(fname, varname):
+    """取 `varname={...}` 的第一個物件。
+    不能沿用 load_js 的 rindex("}")：patches.js 一個檔裡有 5 個 window.* 賦值，
+    rindex 會抓到最後一個物件的結尾、把中間的 `};window.XXX={` 一起吃進去 → json 解析失敗。
+    這裡從 `=` 後的第一個 `{` 開始做大括號配對（略過字串內與跳脫字元）。"""
+    s = io.open(os.path.join(ROOT, fname), encoding="utf-8").read()
+    i = s.index("{", s.index(varname))
+    depth, j, instr, esc = 0, i, False, False
+    while j < len(s):
+        c = s[j]
+        if instr:
+            if esc: esc = False
+            elif c == "\\": esc = True
+            elif c == '"': instr = False
+        elif c == '"': instr = True
+        elif c == "{": depth += 1
+        elif c == "}":
+            depth -= 1
+            if depth == 0: return json.loads(s[i:j + 1])
+        j += 1
+    raise ValueError("大括號沒有配對成功：" + fname)
+
+
+def load_official():
+    """官方公告（patches.js）。有些行只出現在這裡、wiki 沒有（例：26.04 李星的 W2），
+    所以 FIX 的原行要兩邊都找。顯示層 applyPatchLineFix 也已改成兩份都套。"""
+    try:
+        return load_js_first_obj("patches.js", "window.LOL_PATCHES")
+    except Exception as e:
+        print("   讀不到 patches.js（略過官方公告來源）：%s" % e)
+        return {}
+
+
 def main():
     WP = load_patches()
+    OP = load_official()
     out, miss, used = {}, [], set()
     EXj = load_js("wiki_extra.js", "window.WIKI_EXTRA")
     for ver, cid, pre, frag, new in FIX:
         if cid is None:                      # 道具／機制區（wiki_extra）
             arr = [l for a in (EXj.get(ver) or {}).values() if isinstance(a, list) for l in a]
-        else:
-            arr = (WP.get(ver) or {}).get(cid) or []
+        else:   # wiki 找不到就再找官方公告（同一顆英雄同一版）
+            arr = ((WP.get(ver) or {}).get(cid) or []) + ((OP.get(ver) or {}).get(cid) or [])
         hit = None
         for line in arr:
             if line in used:

@@ -4196,19 +4196,38 @@ const PATCH_NOTES=window.LOL_PATCHES||{};
 // ⚠ 一定要在這裡做，不能只在 renderChgLines：技能名前綴決定分組，顯示層才改就來不及了
 // ⚠ wiki_patches.js 是**延遲載入**的（見檔頭 lazyLoad）：主程式跑到這裡時 WIKI_PATCHES 還是空的，
 //   所以不能只在載入時做一次，要在 wiki 到位後（ensureWiki）再套一次。冪等，重複呼叫沒關係。
-let _plfDone=false;
+let _plfDone=false,_plfOff=false;
 function applyPatchLineFix(){
-  const W=window.WIKI_PATCHES||{}; if(_plfDone||!Object.keys(W).length)return;
   const F=window.PATCH_LINE_FIX||{};
+  // ⚠ 上面那段 norm() 會在數字與中文之間插半形空格（"李星的W2會賦予" → "李星的W2 會賦予"），
+  //   而重寫表的 key 是產生器直接從原始 js 撈的、沒有這些空白 → 精確比對會查不到。
+  //   備援：另建一份「去掉所有空白」的索引，精確命中優先、對不到才用寬鬆比對。
+  let _loose=null;
+  const _lk=s=>String(s).replace(/\s+/g,"");
+  const _get=l=>{ const r=F[l]; if(r!==undefined)return r;
+    if(!_loose){ _loose={}; for(const k in F){ const kk=_lk(k); if(!(kk in _loose))_loose[kk]=F[k]; } }
+    return _loose[_lk(l)]; };
+  const _fix=arr=>{ let ch=false; const out=[];
+    for(const l of arr){ const r=_get(l);
+      if(r===undefined){const l2=l.replace(/^屬性(?=｜)/,"基礎能力值"); if(l2!==l)ch=true; out.push(l2); continue;}
+      ch=true; if(r)out.push(r); }
+    return ch?out:null; };
+  // 官方公告（patches.js／LOL_PATCHES）也要套：重寫表原本只作用在 wiki，但有些行只出現在官方公告
+  //（例：26.04 李星把 W 的第二段寫成「W2」，它其實有正式名稱 易筋洗髓 —— 2026-07-31 使用者指定）。
+  // 官方公告不是延遲載入，第一次呼叫就套得到；wiki 要等 ensureWiki 之後才有東西，所以兩者各自記旗標。
+  if(!_plfOff){ const P=window.LOL_PATCHES;
+    if(P&&typeof P==="object"&&Object.keys(P).length){ _plfOff=true;
+      for(const cs of Object.values(P)){
+        if(!cs||typeof cs!=="object")continue;
+        for(const[id,arr]of Object.entries(cs)){ if(!Array.isArray(arr))continue; const o=_fix(arr); if(o)cs[id]=o; }
+      } }
+  }
+  const W=window.WIKI_PATCHES||{}; if(_plfDone||!Object.keys(W).length)return;
   for(const cs of Object.values(W)){
     if(!cs||typeof cs!=="object")continue;
     for(const[id,arr]of Object.entries(cs)){
       if(!Array.isArray(arr))continue;
-      let ch=false; const out=[];
-      for(const l of arr){ const r=F[l];
-        if(r===undefined){const l2=l.replace(/^屬性(?=｜)/,"基礎能力值"); if(l2!==l)ch=true; out.push(l2); continue;}
-        ch=true; if(r)out.push(r); }
-      if(ch)cs[id]=out; }
+      const o=_fix(arr); if(o)cs[id]=o; }
   }
   for(const secs of Object.values(window.WIKI_EXTRA||{})){
     if(!secs||typeof secs!=="object")continue;

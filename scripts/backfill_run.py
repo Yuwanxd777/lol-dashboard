@@ -96,6 +96,18 @@ JOBS = [
     (2015, "TCL", "Summer", 1, ["TCL 2015 Summer Playoffs"]),
     # ── 2016（LPL 只有夏季，補春季）──
     (2016, "LPL", "Spring", 0, ["LPL 2016 Spring"]),
+    # ── 2026-07-31 逐案查證後補的缺口 ──
+    # 判定方式：拿 csv_cache/lpstats（ScoreboardPlayers）的場次比對 data_{年}.js，
+    # **隊名要模糊比對**——直接比會被改名/前後綴誤判成缺（Anarchy↔Rebels Anarchy、
+    # KOO Tigers↔ROX Tigers、SBENU Sonicboom↔SBENU Korea），初估「缺 500 場」其實
+    # 多半是假象。以下是隊名 0% 對得上、確認整段沒有的：
+    (2013, "IEM", "", 0, ["IEM Season 7 World Championship"]),   # 我們同期 0 列
+    (2015, "LCO", "Split 1", 0, ["OPL 2015 Split 1"]),           # LCO 2015 只有夏季
+    (2015, "LCO", "Split 2", 0, ["OPL 2015 Split 2"]),           # 夏季有一部分，補齊
+    (2015, "LJL", "Spring", 0, ["LJL 2015 Season 1"]),           # LJL 2015 整年沒有
+    (2015, "LJL", "Summer", 0, ["LJL 2015 Season 2"]),
+    # 國際外卡賽＝世界賽入圍賽，併進 WLDs 用 split 標（使用者定案 2026-07-31）
+    (2016, "WLDs", "入圍賽", 0, ["IWCQ 2016"]),
 ]
 
 
