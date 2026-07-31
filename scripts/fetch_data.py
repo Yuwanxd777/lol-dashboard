@@ -754,8 +754,11 @@ def merge_stats(year, table):
                 continue
             hit += 1
             for col, val in v.items():
-                j = ix.get(f"{pre}_{col}")
-                if j is None or not val:
+                if not val:
+                    continue
+                # patch 是整列共用欄（非 blue_/red_）：wiki 早年賽事常沒填版本
+                j = ix.get("patch") if col == "patch" else ix.get(f"{pre}_{col}")
+                if j is None:
                     continue
                 if str(r[j] or "").strip() == "":        # 只填空的
                     r[j] = val

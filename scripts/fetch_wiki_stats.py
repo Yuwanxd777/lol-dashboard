@@ -37,6 +37,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 CACHE = os.path.join(ROOT, "csv_cache")
 RAW = os.path.join(CACHE, "lpstats")
+GRAW = os.path.join(CACHE, "lpgames")     # ScoreboardGames（版本號）
 FORM = "https://lol.fandom.com/wiki/Special:CargoExport"
 UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
                     "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -67,16 +68,20 @@ def opener():
     return _OP
 
 
-def fetch_range(f, t):
-    """抓 [f, t) 期間的 ScoreboardPlayers，自動分頁"""
+SBP_FIELDS = ("SP.Name=nm,SP.Champion=ch,SP.Kills=k,SP.Deaths=d,SP.Assists=a,"
+              "SP.Gold=g,SP.CS=cs,SP.DamageToChampions=dmg,SP.VisionScore=vs,"
+              "SP.DateTime_UTC=dt,SP.Team=tm,SP.GameId=gid")
+
+
+def fetch_range(f, t, table="ScoreboardPlayers=SP", fields=None):
+    """抓 [f, t) 期間的資料，自動分頁。table 用 `表名=別名`，where/order 依別名組。"""
+    al = table.split("=")[-1]
     out, off = [], 0
     while True:
-        p = {"tables": "ScoreboardPlayers=SP",
-             "fields": "SP.Name=nm,SP.Champion=ch,SP.Kills=k,SP.Deaths=d,SP.Assists=a,"
-                       "SP.Gold=g,SP.CS=cs,SP.DamageToChampions=dmg,SP.VisionScore=vs,"
-                       "SP.DateTime_UTC=dt,SP.Team=tm,SP.GameId=gid",
-             "where": f'SP.DateTime_UTC >= "{f}" AND SP.DateTime_UTC < "{t}"',
-             "order_by": "SP.GameId", "format": "json",
+        p = {"tables": table,
+             "fields": fields or SBP_FIELDS,
+             "where": f'{al}.DateTime_UTC >= "{f}" AND {al}.DateTime_UTC < "{t}"',
+             "order_by": f"{al}.GameId", "format": "json",
              "limit": str(PAGE), "offset": str(off)}
         url = FORM + "?" + urllib.parse.urlencode(p)
         rows = None
@@ -99,6 +104,84 @@ def fetch_range(f, t):
         off += PAGE
         time.sleep(GAP)
     return out
+
+
+def conv_patch(p):
+    """Leaguepedia 版本 → 儀表板格式。
+
+    LP 寫 "5.2"／"5.11"，儀表板是 fetch_data.py 的 float(patch)+10 兩位小數，
+    也就是 "15.02"／"15.11"。**次號一定要補零再轉**：直接 float("5.2")+10 會
+    變成 15.20（差了 9 個版本），就是 backfill_run.py 註解說的「15.90 之類的
+    錯版本號」。大版本 X 對應年份 2010+X（3.x=2013、6.x=2016）。"""
+    m = re.match(r"^\s*(\d{1,2})\.(\d{1,2})\s*$", str(p or ""))
+    if not m:
+        return ""
+    major, minor = int(m.group(1)), int(m.group(2))
+    if not (1 <= major <= 30):
+        return ""
+    return f"{major + 10}.{minor:02d}"
+
+
+def fix_trailing_zero(items):
+    """還原被截掉的尾隨 0：Leaguepedia 的 Patch 欄是數字型，"4.10" 會變成 "4.1"、
+    "4.20" 變 "4.2"，與真正的 4.1／4.2 撞在一起（實測 2014-07 同時出現 '4.1' 59 場
+    與 '4.11'、'4.12' —— 7 月不可能是 1 月的 4.1）。
+
+    版本號隨時間遞增，所以用時間軸判斷：某個 minor 若「倒退」到前面出現過的值
+    之下且 <= 9，就是被截掉 0 的，還原成 minor*10。
+    items＝[(major, minor, 日期)]，回傳 {(major, minor, 日期): 修正後 minor}。
+    **key 必須含日期**：同一組 (4,1) 會出現兩次——1 月那筆是真的 4.1，6 月那筆
+    才是 4.10，只用 (major,minor) 當 key 會把 1 月的也一起改掉。
+    """
+    fix = {}
+    by_major = collections.defaultdict(list)
+    for major, minor, d in items:
+        by_major[major].append((d, minor))
+    for major, lst in by_major.items():
+        lst.sort()                       # 依日期
+        peak = 0
+        for d, minor in lst:
+            real = minor * 10 if (minor <= 9 and minor < peak) else minor
+            fix[(major, minor, d)] = real
+            peak = max(peak, real)
+    return fix
+
+
+def games_patch(year, force=False):
+    """整年的 GameId → 版本（ScoreboardGames，逐月快取）"""
+    os.makedirs(GRAW, exist_ok=True)
+    out = {}
+    months = [(year - 1, m) for m in (10, 11, 12)] + [(year, m) for m in range(1, 13)]
+    for yy, m in months:
+        f = f"{yy}-{m:02d}-01"
+        t = f"{yy+1}-01-01" if m == 12 else f"{yy}-{m+1:02d}-01"
+        cp = os.path.join(GRAW, f"{yy}-{m:02d}.json")
+        rows = None
+        if os.path.exists(cp) and not force:
+            try:
+                rows = json.load(open(cp, encoding="utf-8"))
+            except Exception:
+                rows = None
+        if rows is None:
+            rows = fetch_range(f, t, table="ScoreboardGames=SG",
+                               fields="SG.GameId=gid,SG.Patch=pt,SG.DateTime_UTC=dt")
+            json.dump(rows, open(cp, "w", encoding="utf-8"), ensure_ascii=False)
+            print(f"    [版本] {yy}-{m:02d}：{len(rows)} 場")
+            time.sleep(GAP)
+        for x in rows:
+            gid = str(x.get("gid") or "")
+            m = re.match(r"^\s*(\d{1,2})\.(\d{1,2})\s*$", str(x.get("pt") or ""))
+            if gid and m:
+                out[gid] = (int(m.group(1)), int(m.group(2)), str(x.get("dt") or "")[:10])
+    # 先用整年的時間軸修正被截掉的尾隨 0，再轉成儀表板格式
+    fix = fix_trailing_zero(list(out.values()))
+    fixed = {}
+    for gid, (major, minor, d) in out.items():
+        real = fix.get((major, minor, d), minor)
+        v = conv_patch(f"{major}.{real}")
+        if v:
+            fixed[gid] = v
+    return fixed
 
 
 def year_rows(year, force=False):
@@ -133,6 +216,8 @@ def build(year, force=False):
     print(f"\n[{year}] 抓 Leaguepedia 逐選手數據…", flush=True)
     rows = year_rows(year, force)
     print(f"  合計 {len(rows)} 列")
+    pmap = games_patch(year, force)
+    print(f"  版本對照：{len(pmap)} 場有版本號")
     out = {}
     stat = collections.Counter()
     for x in rows:
@@ -143,6 +228,10 @@ def build(year, force=False):
                 continue
             vals[oek] = str(v).strip()
             stat[oek] += 1
+        pt = pmap.get(str(x.get("gid") or ""))
+        if pt:
+            vals["patch"] = pt          # 全域欄位（非 blue_/red_），merge_stats 另外處理
+            stat["patch"] += 1
         if not vals:
             continue
         dt = str(x.get("dt") or "")[:16]
