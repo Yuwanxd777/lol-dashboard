@@ -104,7 +104,7 @@ def pb_games(html):
         # 不然那個字串會變成資料庫裡的隊名，縮寫表永遠查不到、篩選列只好顯示全名
         #（2026-07-31 使用者回報：手動改的縮寫沒套用、還是出現全名）
         _tn = lambda s: re.sub(r"\s*\(page does not exist\)\s*$", "", _html.unescape(s)).strip()
-        out.append({"blue": _tn(teams[0]), "red": _tn(teams[1]),
+        out.append({"blue": fix_case(_tn(teams[0])), "red": fix_case(_tn(teams[1])),
                     "game": int(mg.group(1)) if mg else 1, "win": int(w.group(1)) if w else 0, "bp": bp})
     return out
 
@@ -134,6 +134,37 @@ def span_of(html):
 
 
 _norm = lambda s: re.sub(r"[^a-z0-9]", "", str(s or "").lower())
+_TNAME = None
+
+
+def fix_case(nm):
+    """對齊主資料的隊名寫法。
+
+    PB 頁的隊名取自連結 title，走 MediaWiki 頁名規則＝首字母一定大寫
+    （paiN Gaming → PaiN Gaming）→ 跟世界賽那邊的 paiN Gaming 變成兩支不同的隊，
+    「這隊有沒有打進世界賽」就判不出來（2026-07-31 實測 CBLOL 的 paiN 對不上）。
+    以 2016 年起的 OE 原生資料為權威寫法（2015 以前混有 wiki 補的，不能當基準）。
+    """
+    global _TNAME
+    if _TNAME is None:
+        import glob
+        _TNAME = {}
+        for p in sorted(glob.glob(os.path.join(ROOT, "data", "data_*.js"))):
+            try:
+                if int(os.path.basename(p)[5:9]) < 2016:
+                    continue
+                R = json.loads(open(p, encoding="utf-8").read().split("=", 1)[1].strip().rstrip(";"))["tabs"]["RAW_DATA"]
+            except Exception:
+                continue
+            ix = {n: i for i, n in enumerate(R[0])}
+            for k in ("blue_teamname", "red_teamname"):
+                if k not in ix:
+                    continue
+                for r in R[1:]:
+                    v = str(r[ix[k]] or "").strip()
+                    if v:
+                        _TNAME.setdefault(v.casefold(), v)
+    return _TNAME.get(str(nm or "").casefold(), nm)
 
 
 def build(job, force=False):

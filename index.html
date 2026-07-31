@@ -2162,17 +2162,28 @@ const STATIC_TABBR={
 //                          MVP Blue → Samsung Blue ＝ SSB。2016 年那支 MVP 是完全不同的隊，不要動它
 "mvp white":"SSW","mvp ozone":"SSW","samsung ozone":"SSW","samsung white":"SSW",
 "mvp blue":"SSB","samsung blue":"SSB",
-// 2013-2015 補充賽事（events_extra.js）的小隊：Leaguepedia 連隊伍頁都沒建、查不到官方縮寫
-// → 取通稱或字首縮寫，只為了賽事卡不要塞滿長全名（滑到隊伍籤仍看得到完整隊名，也可雙擊自行改）
+// 2013-2015 這些老隊的縮寫**一律以 Leaguepedia 為準**（使用者要求 2026-07-31：wiki 上都有）。
+// 來源有兩處，都比自己猜可靠：① Cargo 的 Teams 表 Name→Short；② Picks and Bans 頁裡
+// 隊伍連結的顯示文字（Leaguepedia 就是拿 short name 在渲染）。
+// 官方縮寫有小寫寫法（playArt／neXi／ahq），abbrOf 會統一轉大寫。
+"ahq esports club":"AHQ","bangkok titans":"BKT","cnb e-sports club":"CNB","dark passage":"DP",
+"dash9 gaming":"D9","e-sports dragons pro":"EDP","gamania bears":"GAB","gaminggear.eu":"GG.EU",
+"good team multigaming":"GTM","instruments of surrender":"INST","keyd team":"KEYD",
+"kuala lumpur hunters":"KLH","lyon gaming (2013 latin american team)":"LYN","manila eagles":"MLE",
+"nex impetus":"NEXI","peesplay gaming":"PPG","playart gaming":"PLAYART",
+"renegades of hell":"ROH","saigon fantastic five":"SF5","saigon jokers":"SAJ",
+"singapore sentinels":"SGS","taipei snipers":"TPS","team ang":"ANG","team immunity":"IM",
+"team lol cave":"TLC","team turquality":"TT","u rage quit":"URQ","wayi spider":"WS",
+"action team eSports":"ATE","action team esports":"ATE","rma e-sports":"RMA","hwa gaming":"HWA",
+// 以下 wiki 沒有登記 Short（連隊伍頁都沒建）→ 取通稱／字首，滑到隊伍籤仍看得到完整隊名
 "cga legends":"CGA","yoe ironmen":"YOE","team ozone xenon":"TOX","team rush":"TR",
 "gia (taiwanese team)":"GIA","gia":"GIA","hsd":"HSD","ticogamers":"TICO",
 "might makes right":"MMR","supermassive tng":"SUPT","就說姊姊好可愛":"SIS",
 "plan b":"PB","soul master":"SM","atar gaming":"ATR","metu esports":"METU","charta nix":"CNIX",
 "shop4gamers":"S4G","hard winter":"HW","metu aa":"MAA","stallions":"STL","ant gamermarket":"ANT",
-"highest esports club":"HEC","centus gaming":"CTS","team turquality red":"TQR","team turquality":"TQ",
-"playart gaming":"PA","keyd team":"KEYD","hotsoggydecimate":"HSD","figjam":"FIGJAM",
-"team exile5 eclipse":"EXL","only gragas":"ONG","good team multigaming":"GTM",
-"instruments of surrender":"IOS","ultimate":"ULT","team fat rabbit":"TFR","team kthxbai":"KTX",
+"highest esports club":"HEC","centus gaming":"CTS","team turquality red":"TQR",
+"hotsoggydecimate":"HSD","hwa gaming babs":"HWAB","team turquality blue":"TQB","figjam":"FIGJAM","team exile5 eclipse":"EXL","only gragas":"ONG",
+"ultimate":"ULT","team fat rabbit":"TFR","team kthxbai":"KTX","gamesatis":"GS",
 "mig blitz":"MiGB","najin shield":"NJSH","najin sword":"NJS",
 "sk telecom t1 1":"SKT1","sk telecom t1 2":"SKT2","team alternate":"ALT",
 "lyon gaming (2013 latin american team)":"LYN","insidious gaming":"INS","logitech g fighter":"LGF",
@@ -2868,21 +2879,29 @@ const eventsTreeHTML=()=>{
         // 該季度打進季後賽的隊帶綠勾（使用者指定 2026-07-31）。只有單一季度就照舊平鋪。
         const _spT=x._spTeams||{}, _poOf=sp=>(x._poSp||{})[sp]||null;
         const _spD=x._spDate||{};
+        // 賽區聯賽的「晉級」＝打進當年世界賽（含入圍賽）。2013 那些錦標賽本來就是在選世界賽代表，
+        // 拿季後賽對戰表當晉級名單會標到一大票（使用者回報：2013 GPL 只有 GAB 進世界賽）。
+        // 代表隊是在**最後一個賽段**決定的 → 只有最後那段標，前面的賽段仍用各自的季後賽名單。
+        const _wSet=byLg["WLDs"]?new Set([...byLg["WLDs"].teams].map(t2=>tAb(t2))):null;
+        const _wAdv=arr=>{ if(!_wSet||!_wSet.size)return null;
+          const s2=new Set(arr.map(t2=>tAb(t2)).filter(a=>_wSet.has(a))); return s2.size?s2:null; };
         const _spKeys=Object.keys(_spT).filter(k=>_spT[k].size)
           .sort((a,b)=>String(_spD[a]||"").localeCompare(String(_spD[b]||""))||a.localeCompare(b));
         if(_spKeys.length>1){
           const _row=(lb,arr,adv)=>`<div class="lgSplitBlk"><span class="lgSplitHd">${esc(lb)}<span class="lgSplitN">${uq(arr)} ${LANG==="en"?"teams":"隊"}</span></span><span class="lgSplitGrps"><div class="lgGrpCol"><span class="lgGrpChips">${chips(arr,adv,x.tinfo)}</span></div></span></div>`;
           let _mc="",_used=new Set();
+          const _lastSp=_spKeys[_spKeys.length-1];
           _spKeys.forEach(sp=>{ const arr=base.filter(t2=>_spT[sp].has(t2));
             if(!arr.length)return; arr.forEach(t2=>_used.add(t2));
-            _mc+=_row(sp,arr,_poOf(sp)||advQ); });
+            _mc+=_row(sp,arr,_poOf(sp)||(sp===_lastSp?_wAdv(arr):null)||advQ); });
           const _rest=base.filter(t2=>!_used.has(t2));
           if(_rest.length)_mc+=_row(LANG==="en"?"Other":"其他",_rest,advQ);
           mainChips=_mc+extSeg;
         }else{
-          // 只有一個賽段（或整年就一個賽事）：晉級名單＝補充賽事的對戰表 ∪ 各賽段的季後賽名單
-          const _pa=new Set([...(x._poAll||[]),...Object.values(x._poSp||{}).flatMap(s2=>[...s2])]);
-          mainChips=chips(base,_pa.size?_pa:advQ)+extSeg;
+          // 只有一個賽段（或整年就一個賽事）：先用真實的季後賽名單，沒有就看誰打進了世界賽，
+          // 再沒有才退到補充賽事的對戰表
+          const _pa=new Set(Object.values(x._poSp||{}).flatMap(s2=>[...s2]));
+          mainChips=chips(base,(_pa.size?_pa:null)||_wAdv(base)||(x._poAll&&x._poAll.size?x._poAll:null)||advQ)+extSeg;
         }
       }
     }
@@ -3989,6 +4008,13 @@ const DIR_OVERRIDE=[
 
   [/霜火風暴：施放大絕時觸發/, 1],                      // 加了5秒緩衝準備 → 增強
   [/參與擊殺獲得\s*1%，最多可疊\s*6\s*層/, -1],          // 0.6%×10層：要疊更多才追平 → 削弱
+
+  // ── 通用語意規則（2026-07-31 使用者判例，都是「文字敘述、沒有數值可比」的類型）──
+  [/⇒\s*僅限/, -1],                                    // 生效對象縮小（李星 W：所有友方單位 ⇒ 僅限英雄）
+  [/⇒\s*(不再|無法)/, -1],                              // 改成做不到某事
+  [/不再(消耗|需要|花費|扣除)/, 1],                      // 移除成本／前提（凱特琳被動：不再消耗當攻擊守衛）
+  [/^\s*新增[：:].{0,80}(獲得|提供|增加|額外|提升|附加)/, 1], // 新增正面效果（希維爾 W：新增…獲得額外攻速）
+  [/^\s*移除[：:]/, -1],                                // 整段效果被拿掉
 ];
 // 由改動文字判斷增強/削弱：⇒ 前後同長度數值逐項比較；成本類數值反向（降=增強）
 // 合成公式判向（2026-07-16 使用者定義）：總價下降＝增強、上升＝削弱；同價 → 比「往下拆到最小件」的件數，多＝合成更平滑＝變相增強
@@ -4076,7 +4102,7 @@ function changeDir(lines){
   return buff>nerf?1:nerf>buff?-1:0; // 1增強 / -1削弱 / 0混合或無法判定
 }
 // ── 版本改動渲染器（全域共用：版本改動分頁＋圖鑑歷年改動）──────────────────
-const COSM=/原畫|造型|背景故事|中版美術|重新上色|推薦裝備|語音(更新|台詞)|(技能)?圖示更新|更新[了]?圖示|特效(已)?更新|視覺效果|粒子效果|模型更新|動畫更新|說明更新|新增語音|音效|現在(能|會)?正確|嚎哭深淵|極地大亂鬥|扭曲叢林|統治戰場|Howling Abyss|Twisted Treeline|Crystal Scar|Dominion|[（(]ARAM[)）]|Level Requirements?|更名|重新命名|renamed|[Nn]ame changed|名稱[：:][^⇒\n]*⇒|(^|｜|\[)\s*(未公告|錯誤|修正了|修復|[Uu]ndocumented|[Bb]ug\s?[Ff]ix|BUG)|(提高|降低|增加|減少)從\s*\d|編按|附註[：:]|並未實裝|官方未記載|並非刻意|此問題可能是在|未列於公告|(邊緣|中心)判定距離|(重新)?編寫程式(碼)?|rescripted?|visual (upgrade|update|effects?)|splash art|voice.?over|icons? (are |have been )?updated|recommended items|lore|chroma|texture|animations? updated|now (correctly|properly)|tooltip/i;
+const COSM=/原畫|造型|背景故事|中版美術|重新上色|推薦裝備|語音(更新|台詞)|(技能)?圖示更新|更新[了]?圖示|特效(已)?更新|視覺效果|粒子效果|模型更新|動畫更新|全新的?[^｜]{0,10}動畫|說明更新|新增語音|音效|現在(能|會)?正確|嚎哭深淵|極地大亂鬥|扭曲叢林|統治戰場|Howling Abyss|Twisted Treeline|Crystal Scar|Dominion|[（(]ARAM[)）]|Level Requirements?|更名|重新命名|renamed|[Nn]ame changed|名稱[：:][^⇒\n]*⇒|(^|｜|\[)\s*(未公告|錯誤|修正了|修復|[Uu]ndocumented|[Bb]ug\s?[Ff]ix|BUG)|(提高|降低|增加|減少)從\s*\d|編按|附註[：:]|並未實裝|官方未記載|並非刻意|此問題可能是在|未列於公告|(邊緣|中心)判定距離|(重新)?編寫程式(碼)?|rescripted?|visual (upgrade|update|effects?)|splash art|voice.?over|icons? (are |have been )?updated|recommended items|lore|chroma|texture|animations? updated|now (correctly|properly)|tooltip/i;
 const dirCls=d=>d==null?"":d>0?"buff":d<0?"nerf":"adj"; // null（僅公式/僅錯誤修正）＝不上色
 // 官方公告「英雄專屬大區塊」註記（PATCH_NOTES[pk]._spotlight，如 26.06 希瓦娜）：新英雄＝CHAMP_RELEASE 落在該版首場 ±30 天，否則大型重製
 const spotTag=(id,pk)=>{const PN=typeof PATCH_NOTES!=="undefined"?PATCH_NOTES:{};
