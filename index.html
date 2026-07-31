@@ -2392,6 +2392,13 @@ const LGC={LCK:"#4f8ef7",LPL:"#e05c5c",LCP:"#2bb3a3",LEC:"#38b6ff",LCS:"#c9a86a"
   //   LLN／CLS → LLA → LTA 南區 都是拉丁美洲
   GPL:"#2bb3a3",LMS:"#2bb3a3",PCS:"#2bb3a3",
   LLA:"#f0a35b",LLN:"#f0a35b",CLS:"#f0a35b",
+  // 外卡賽區的識別色（使用者要求 2026-07-31）。各自挑一個現有色盤沒占用的色相，
+  // 才不會跟 LPL 紅／LEC 藍／LCP 青綠／EWC 紫在同一張圖裡混淆：
+  // 挑的是既有色盤真正的色相空隙（紅0/橘20-40/黃50/綠100/青綠174/藍200-227/紫271/粉320），
+  // 而不是照國旗配色——同一張賽事樹上「分得出來」比「語意像」重要
+  TCL:"#c94fd6",   // 洋紫 294°：與 EWC 271°／ENC 320° 各差 23-26°
+  LCO:"#3fd68a",   // 海洋春綠 155°：與 LCP 174°／CBLOL 100° 各差 19-55°
+  LCL:"#b8d13a",   // 黃綠 72°：與 WLDs 51°／CBLOL 100° 各差 21-28°
   EWCQ北美:"#c9a86a",EWCQ歐洲:"#38b6ff",EWCQ韓國:"#4f8ef7",EWCQ太平洋:"#2bb3a3",EWCQ巴西:"#7ac74f"}; // EWCQ 各分區沿用該賽區色（北美=LCS金、歐洲=LEC藍、韓國=LCK藍、太平洋=LCP綠、巴西=CBLOL綠）
 const LG_NAME={"ALL":"全部","LTA N":"LTA 北區","LTA S":"LTA 南區","WLDs":"WCS"};
 // 國家隊 →「該國所屬賽區」對照（2026 KeSPA 季中邀日本／越南國家隊參賽；ENC 之後整個賽事都是國家隊形式）
@@ -2525,11 +2532,11 @@ const LEAGUE_META={
   "LTA S":{zh:"LTA 南區",grp:"t1",tier:1,region:"美洲南",full:"LTA South"},
   LLA:{zh:"LLA",grp:"t1",tier:1,region:"拉丁美洲",full:"Liga Latinoamérica"},
   LJL:{zh:"LJL",grp:"t1",tier:3,region:"日本",full:"League of Legends Japan League"},
-  TCL:{zh:"TCL",grp:"t1",tier:3,region:"土耳其",full:"Turkish Championship League"},
-  LCL:{zh:"LCL",grp:"t1",tier:3,region:"獨立國協",full:"League of Legends Continental League"},
-  LCO:{zh:"LCO",grp:"t1",tier:3,region:"大洋洲",full:"League of Legends Circuit Oceania"},
-  LLN:{zh:"LLN",grp:"t1",tier:3,region:"拉美北",full:"Liga Latinoamérica Norte"},
-  CLS:{zh:"CLS",grp:"t1",tier:3,region:"拉美南",full:"Copa Latinoamérica Sur"},
+  TCL:{zh:"TCL",grp:"t1",tier:1,region:"土耳其",full:"Turkish Championship League"},
+  LCL:{zh:"LCL",grp:"t1",tier:1,region:"獨立國協",full:"League of Legends Continental League"},
+  LCO:{zh:"LCO",grp:"t1",tier:1,region:"大洋洲",full:"League of Legends Circuit Oceania"},
+  LLN:{zh:"LLN",grp:"t1",tier:1,region:"拉美北",full:"Liga Latinoamérica Norte"},
+  CLS:{zh:"CLS",grp:"t1",tier:1,region:"拉美南",full:"Copa Latinoamérica Sur"},
 };
 const leagueMeta=lg=>{
   if(LEAGUE_META[lg])return LEAGUE_META[lg];
