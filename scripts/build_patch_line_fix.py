@@ -166,6 +166,13 @@ FIX = [
     # 卡力斯 4.9 的孤兒 %（缺數字）
     ("4.9", "Khazix", "Evolved Enlarged Claws", "已移除：% 目標已損失生命的",
      "孤獨的恐懼｜強化後 - 已移除：依目標已損失生命百分比的額外傷害。"),
+    # 魔提斯深淵 13.09：原文 Passive attack damage increased to 1 per 2% of missing
+    # health from 2.5%.（由「已損失生命的 2.5%」改成「每 2% 已損失生命給 1 點」）
+    ("13.09", None, "魔提斯深淵", "被動物攻：2.5% ⇒ 1 每 2%",
+     "魔提斯深淵｜被動物攻：已損失生命的 2.5% ⇒ 每 2% 已損失生命提供 1 點物攻"),
+    # 達瑞文 3.11：機翻語序（現在給予基礎 50 金錢額外於擊殺敵方英雄從 0）
+    ("3.11", "Draven", "瑞文聯盟", "現在給予基礎 50 金錢額外於擊殺",
+     "瑞文聯盟｜擊殺敵方英雄的基礎額外金錢：0 ⇒ 50"),
     # 肯能 4.21 機翻語序（前綴不固定 → None＝任意前綴）
     ("4.21", "Kennen", None, "相同目標超過一次",
      "雷霆風暴｜新增：每 0.5 秒最多只能命中同一目標一次。"),
@@ -281,8 +288,12 @@ def load_patches():
 def main():
     WP = load_patches()
     out, miss, used = {}, [], set()
+    EXj = load_js("wiki_extra.js", "window.WIKI_EXTRA")
     for ver, cid, pre, frag, new in FIX:
-        arr = (WP.get(ver) or {}).get(cid) or []
+        if cid is None:                      # 道具／機制區（wiki_extra）
+            arr = [l for a in (EXj.get(ver) or {}).values() if isinstance(a, list) for l in a]
+        else:
+            arr = (WP.get(ver) or {}).get(cid) or []
         hit = None
         for line in arr:
             if line in used:

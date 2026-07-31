@@ -1446,6 +1446,13 @@ const normTerm=s=>String(s||"")
   // 不是「技能加速」這個屬性，轉了就變成「技能加速 1 秒」語意全錯（2026-08-01 易大師 Q 判例）
   .replace(/技能急速|減少冷卻時間(?!\s*[\d.]+\s*秒)|冷卻時間減少(?!\s*[\d.]+\s*秒)/g,"技能加速")
   .replace(/魔力成長/g,"成長魔力")
+  // 魔力費用／消耗一律寫「魔耗」（使用者定名 2026-08-01）
+  .replace(/(魔力|法力)\s*(費用|消耗)/g,"魔耗").replace(/(費用|消耗)[：:]\s*(\d)/g,(m,a,b)=>"魔耗："+b)
+  // 屬性名前面的「基礎」沒有意義（已經在該技能／基礎能力值底下）→ 拿掉
+  .replace(/(^|[｜：:、；，(（\s])基礎(生命值?|魔力|物防|魔防|物攻|魔攻|攻速|移速|攻擊速度|移動速度|生命回復|魔力回復)/g,"$1$2")
+  // 「攻擊速度每等級」→「成長攻速」（使用者定名 2026-08-01）
+  .replace(/(生命值?|魔力|物防|魔防|物攻|魔攻|攻速|移速|攻擊速度|移動速度|生命回復|魔力回復)每等級/g,"成長$1")
+  .replace(/成長攻擊速度/g,"成長攻速").replace(/成長移動速度/g,"成長移速").replace(/成長生命值/g,"成長生命")
   // 符文樹副系（wiki 混用意志/精準/征服等舊譯）：X次要 → X副系，樹名統一現行譯名
   .replace(/意志次要/g,"堅毅副系").replace(/精準次要/g,"精密副系").replace(/征服次要/g,"主宰副系")
   .replace(/(主宰|精密|堅毅|巫術|啟迪)次要/g,"$1副系")
@@ -3873,7 +3880,12 @@ function latestPatchChg(){
   res.itemLines={}; res.runeLines={}; res.itemDir={}; res.runeDir={}; res.mechLines={}; res.mechDir={};
   notesPks.forEach(pk=>{const ex=(PN[pk]&&PN[pk]._extra)||((window.WIKI_EXTRA||{})[pk]); if(!ex)return;
     [["道具",res.itemLines],["符文",res.runeLines],["機制",res.mechLines]].forEach(([cat,lmap])=>{
-      (ex[cat]||[]).forEach(l=>{const i=l.indexOf("｜"); if(i<0)return; let nm=l.slice(0,i).replace(/^\[[^\]]*\]\s*/,"").trim();
+      (ex[cat]||[]).forEach(l=>{
+        // 圖鑑版本分頁不列的（純表現／聊天訊息／通用章節／造型列表），版本焦點也不列
+        //（2026-08-01 使用者：好友列表、自訂遊戲這種不該出現在版本焦點）
+        if(COSM.test(l)||TRIVIAL_OR_GEN(l))return;
+        const i=l.indexOf("｜"); if(i<0)return; let nm=l.slice(0,i).replace(/^\[[^\]]*\]\s*/,"").trim();
+        if(cat!=="機制"&&isNonSR(nm,curYear))return;   // 非峽谷道具不列
         nm=nm.replace(/（[^（）]*）\s*$/,"").replace(/（[^（）]*）\s*$/,"").trim();      // 尾綴狀態括號（新增）（僅近戰）等（至多兩層）→ 這些寫在詳情，不進焦點名
         if(typeof assetZh==="function")nm=assetZh(nm);                                   // 英文名→官方中文（Titanic Hydra＝泰坦九頭蛇 合併、圖也對得到）
         if(!nm||nm===cat)return; (lmap[nm]=lmap[nm]||[]).push(l.slice(i+1));});});});
@@ -4312,7 +4324,9 @@ function changeDir(lines){
   const gp=lines.filter(l=>!COSM.test(l));
   if(!gp.length)return null;
   lines=gp;
-  const INV=/冷卻|消耗|施放時間|價格|費用|成本/;
+  // ⚠「冷卻時間減免／冷卻縮減／技能加速」是越高越好，不能跟著「冷卻」一起反向
+  //（2026-08-01 使用者：枷蘿 13.13 被動冷卻時間減免 4/8/12/16/20 ⇒ 2/4/6/8/10% 是削弱）
+  const INV=/冷卻(?!(時間)?(減免|縮減))|消耗|魔耗|施放時間|價格|費用|成本/;
   const COST=/魔力|能量/;                    // 技能資源（「魔力：65 ⇒ 75」= 消耗提高 = 削弱）
   const STAT=/基礎|成長|最大|回復|每5秒|係數|加成|比例/; // 屬性面板/傷害加成類的魔力（越高越好）不反向——雷茲的「魔力係數」是傷害係數
   let buff=0,nerf=0,onlyRecipe=true;
@@ -4389,7 +4403,7 @@ function changeDir(lines){
   return buff&&nerf?0:buff?1:nerf?-1:0; // 1增強 / -1削弱 / 0混合或無法判定
 }
 // ── 版本改動渲染器（全域共用：版本改動分頁＋圖鑑歷年改動）──────────────────
-const COSM=/原畫|造型|背景故事|中版美術|重新上色|推薦裝備|語音(更新|台詞)|(技能)?圖示更新|更新[了]?圖示|特效[^｜]{0,6}(更新|升級|改良|重製)|視覺效果|粒子效果|模型更新|動畫更新|全新的?[^｜]{0,10}動畫|新增[^｜]{0,4}動畫|新增[^｜]{0,6}圖示|其圖示更新|圖示更新|說明更新|新增語音|語音包|播報員|音效|手感|操作感|順暢度|流暢度|符文頁|介面(更新|調整)|按鍵綁定|計分板顯示|商店[^｜]{0,12}搜尋|搜尋[^｜]{0,8}關鍵字|(改善|優化|改進)了?[^｜]{0,14}(偵測|判定|辨識|選取|命中框)|(新增|顯示)?[^｜]{0,6}指示器|進度特效|輪替遊戲模式|活動|(^|｜)\s*(客戶端|表情|重播|語音聊天|快捷鍵|遊戲效能|League 語音)｜|反作弊|藍色精華|建議符文|推薦符文|積分衰減|隊伍獎勵|對戰佇列|英雄 Mastery|影像輔助選項|載入畫面|邊框組|Adobe|PvP\.net|羅技|game\.cfg|DX1?[019]|FPS|LogitechSupport|除錯啟動器|寶石合成|實驗性遊戲模式|主堡閃電戰|極速無敵亂鬥|無限火力|URF|鬥魂競技場|[Aa]rena|現在(能|會)?正確|嚎哭深淵|極地大亂鬥|扭曲叢林|統治戰場|Howling Abyss|Twisted Treeline|Crystal Scar|Dominion|[（(]ARAM[)）]|Level Requirements?|更名|重新命名|renamed|[Nn]ame changed|名稱[：:][^⇒\n]*⇒|(^|｜|\[)\s*(未公告|錯誤|修正了|修復|[Uu]ndocumented|[Bb]ug\s?[Ff]ix|BUG)|(提高|降低|增加|減少)從\s*\d|編按|附註[：:]|並未實裝|官方未記載|並非刻意|此問題可能是在|未列於公告|(邊緣|中心)判定距離|(重新)?編寫程式(碼)?|rescripted?|visual (upgrade|update|effects?)|splash art|voice.?over|icons? (are |have been )?updated|recommended items|lore|chroma|texture|animations? updated|now (correctly|properly)|tooltip|\bARAM\b/i;
+const COSM=/原畫|造型|背景故事|中版美術|重新上色|推薦裝備|語音(更新|台詞)|(技能)?圖示更新|更新[了]?圖示|特效[^｜]{0,6}(更新|升級|改良|重製)|視覺效果|粒子效果|模型更新|動畫更新|全新的?[^｜]{0,10}動畫|新增[^｜]{0,4}動畫|新增[^｜]{0,6}圖示|其圖示更新|圖示更新|說明更新|新增語音|語音包|播報員|音效|手感|操作感|順暢度|流暢度|符文頁|介面(更新|調整)|按鍵綁定|計分板顯示|商店[^｜]{0,12}搜尋|搜尋[^｜]{0,8}關鍵字|(改善|優化|改進)了?[^｜]{0,14}(偵測|判定|辨識|選取|命中框)|(新增|顯示)?[^｜]{0,6}指示器|進度特效|輪替遊戲模式|活動|(^|｜)\s*(客戶端|表情|重播|語音聊天|快捷鍵|遊戲效能|League 語音|好友列表|自訂遊戲|對戰佇列|大廳|觀戰|戰績|個人檔案|商店|載入畫面|結算畫面|投降|重新開始)｜|反作弊|藍色精華|建議符文|推薦符文|積分衰減|隊伍獎勵|對戰佇列|英雄 Mastery|影像輔助選項|載入畫面|邊框組|Adobe|PvP\.net|羅技|game\.cfg|DX1?[019]|FPS|LogitechSupport|除錯啟動器|寶石合成|實驗性遊戲模式|主堡閃電戰|極速無敵亂鬥|無限火力|URF|鬥魂競技場|[Aa]rena|現在(能|會)?正確|嚎哭深淵|極地大亂鬥|扭曲叢林|統治戰場|Howling Abyss|Twisted Treeline|Crystal Scar|Dominion|[（(]ARAM[)）]|Level Requirements?|更名|重新命名|renamed|[Nn]ame changed|名稱[：:][^⇒\n]*⇒|(^|｜|\[)\s*(未公告|錯誤|修正了|修復|[Uu]ndocumented|[Bb]ug\s?[Ff]ix|BUG)|(提高|降低|增加|減少)從\s*\d|編按|附註[：:]|並未實裝|官方未記載|並非刻意|此問題可能是在|未列於公告|(邊緣|中心)判定距離|(重新)?編寫程式(碼)?|rescripted?|visual (upgrade|update|effects?)|splash art|voice.?over|icons? (are |have been )?updated|recommended items|lore|chroma|texture|animations? updated|now (correctly|properly)|tooltip|\bARAM\b/i;
 // 版本總覽專用的「瑣碎改動」：純顯示層、完全不影響強弱（聊天訊息顯示名、提示文字…）。
 // 只在版本分頁擋掉，英雄詳情頁仍完整列出（使用者定案 2026-07-31：艾妮維亞蛋型態的聊天名稱）
 // 版本總覽的「瑣碎改動」：純顯示層／風味描述，不影響強弱（使用者陸續指定：
@@ -4419,6 +4433,12 @@ const SKIN_PRE=(l,id)=>{ if(!id)return false;
   try{ return !((SKMAP[id]||{})[sk]||(SKLC[id]||{})[_skKey(sk)]); }catch(e){ return false; } };
 const TRIVIAL_OR_GEN=(l,id)=>{ const t=String(l), b=t.includes("｜")?t.slice(t.indexOf("｜")+1).trim():t.trim();
   return TRIVIAL.test(t)||GEN_PRE.test(t)||NAMELIST.test(b)||SKIN_PRE(t,id); };
+// 非峽谷道具（含 TT／CS 變體）：圖鑑版本分頁與總覽版本焦點共用同一套判斷（2026-08-01）
+const nsrClean=n=>{ let x=String(n).replace(/^所有\s*maps?\s*/i,"").replace(/([A-Za-z])的\s(?=[A-Za-z])/g,"$1's ").trim();
+  for(let g=0;g<3;g++)x=x.replace(/\s*[（(][^（）()]*[）)]\s*$/,"").trim(); return x; };
+const isNonSR=(nm,yr)=>{ const V=(window.ITEM_NONSR||{})[String(yr)]||{}, c=nsrClean(nm);
+  if(V[c])return true; const lc=c.toLowerCase(); for(const k in V)if(k.toLowerCase()===lc)return true;
+  return /（?\s*(TT|CS)\s*[／/]|(TT|CS)\s*version/i.test(String(nm)); };
 const dirCls=d=>d==null?"adj":d>0?"buff":d<0?"nerf":"adj"; // 判不出方向也走「調整」的黃字（使用者定案 2026-07-31：以前就是黃字，不要白字）
 // 官方公告「英雄專屬大區塊」註記（PATCH_NOTES[pk]._spotlight，如 26.06 希瓦娜）：新英雄＝CHAMP_RELEASE 落在該版首場 ±30 天，否則大型重製
 const spotTag=(id,pk)=>{const PN=typeof PATCH_NOTES!=="undefined"?PATCH_NOTES:{};
@@ -6576,7 +6596,10 @@ function renderChgYear(box){
       if(!champs.length){grid.innerHTML=`<div class="card"><span class="meta">尚無 ${curYear} 版本改動資料。執行 update.bat（fetch_patches.py）抓取官方 patch notes 後即會出現。</span></div>`;return;}
       // 依主要路線分五欄；每欄內依「改動次數多寡」往下排。本季沒出賽的英雄直接不列出。
       const byLane={TOP:[],JNG:[],MID:[],BOT:[],SUP:[]}; const shownSet=new Set();
-      const isJgLine=l=>/野怪/.test(l); // 單行含「野怪」→ 屬打野
+      // 單行含「野怪」→ 屬打野。但只是順帶提到不算（達瑞文被動「擊殺小兵、野怪時獲得崇拜」
+      // 講的是這顆被動的觸發條件，不是刷野改動）→ 要求該行的**主題**與野怪有關
+      //（2026-08-01 使用者：達瑞文 13.09 瑞文聯盟被寫進打野區）
+      const isJgLine=l=>/野怪/.test(l)&&!/小兵[、，,和與及]\s*野怪|野怪[、，,和與及]\s*小兵/.test(l);
       flt.forEach(c=>{
         // 每個版本按行分流：含「野怪」的行 → 打野；其餘行 → 原本路線
         const jgArr=[], normArr=[];
@@ -6586,8 +6609,15 @@ function renderChgYear(box){
           if(jgLines.length) jgArr.push({...e,lines:jgLines});
           if(normLines.length) normArr.push({...e,lines:normLines});
         });
-        if(jgArr.length){ // 野怪行 → 打野區
-          byLane.JNG.push({key:c.key,arr:jgArr,latest:jgArr[0].patch}); shownSet.add(c.key);
+        if(jgArr.length){ // 野怪行 → 打野區（但該英雄實際不打野的話，併回原本路線）
+          const _jl=lanesOf(c.key,jgArr[0].patch);
+          if(!_jl.length||_jl.includes("JNG")){
+            byLane.JNG.push({key:c.key,arr:jgArr,latest:jgArr[0].patch}); shownSet.add(c.key);
+          }else{
+            jgArr.forEach(e=>{ const hit=normArr.find(x=>x.patch===e.patch);
+              if(hit)hit.lines=hit.lines.concat(e.lines); else normArr.push(e); });
+            normArr.sort((a,b)=>b.patch.localeCompare(a.patch));
+          }
         }
         if(normArr.length){ // 其餘行 → 照實際出賽位置
           const cc={key:c.key,arr:normArr,latest:normArr[0].patch};
@@ -7200,7 +7230,7 @@ function render(){
           <span>📆 ${en2?`<b>${RC.n7}</b> games in the last 7 days`:`近 7 天 <b>${RC.n7}</b> 場`}</span>
           ${RC.lgs.map(x=>`<span class="ovLgN" data-lg="${esc(x.lg)}" title="${en2?"Filter this event":"只看這個賽事"}">${lgChip(x.lg)}<b>${x.n}</b></span>`).join("")}</div>`
         +(RC.segs.length?`<div class="statline ovStrip2"><span>🏟️ ${isHistYear()?T("最近賽段"):T("進行中賽段")}</span>
-          ${RC.segs.map(s=>`<span class="ovSeg">${lgChip(s.lg)}${s.sp?`<b>${esc(s.sp)}</b>`:""}<span class="meta">${md(s.last)}・${s.n}${en2?"":" 場"}</span></span>`).join("")}</div>`:""));
+          ${RC.segs.map(s=>`<span class="ovSeg">${lgChip(s.lg)}${s.sp?`<b>${esc(spDisp(s.sp))}</b>`:""}<span class="meta">${md(s.last)}・${s.n}${en2?"":" 場"}</span></span>`).join("")}</div>`:""));
       const pl=calcPlayers("").slice(0,5);
       const tm=calcTeams("").slice(0,5);
       const heroAll=calcHeroes("","");
@@ -8879,10 +8909,14 @@ function render(){
       window._BPDL[_dlKey]=_DLF;
     }
     const _dlHTML=FILTERS.map(f=>(_DLF[f.k]&&_DLF[f.k].length)?`<datalist id="bpDL_${f.k}">${_DLF[f.k].map(v=>`<option value="${esc(v)}"></option>`).join("")}</datalist>`:"").join("");
-    const _finput=(f,gr)=>`<span style="position:relative;display:block;flex:${gr||1} 1 0;min-width:0"><input class="bpColF" data-k="${f.k}" list="bpDL_${f.k}" size="1" value="${esc(V.bpColF[f.k]||"")}" placeholder=" " style="display:block;width:100%;min-width:0;font-size:11.5px;padding:2px 15px 2px 4px;box-sizing:border-box;text-align:center;background:#0e1420;border:1px solid #2a3345;border-radius:5px;color:var(--tx)"><span class="bpCx" data-k="${f.k}" title="${LANG==="en"?"clear":"清除"}">✕</span></span>`;
+    const _finput=(f,gr,mw)=>`<span style="position:relative;display:block;flex:${gr||1} 1 0;min-width:0${mw?`;max-width:${mw}`:""}"><input class="bpColF" data-k="${f.k}" list="bpDL_${f.k}" size="1" value="${esc(V.bpColF[f.k]||"")}" placeholder=" " style="display:block;width:100%;min-width:0;font-size:11.5px;padding:2px 15px 2px 4px;box-sizing:border-box;text-align:center;background:#0e1420;border:1px solid #2a3345;border-radius:5px;color:var(--tx)"><span class="bpCx" data-k="${f.k}" title="${LANG==="en"?"clear":"清除"}">✕</span></span>`;
     // 禁用欄的兩格寬度照「該輪次幾張圖」分（前3輪 3 張、後2輪 2 張），gap 與頭像間距一致
     //（2026-07-31 使用者：篩選框太大，跟該輪次 BAN 圖的寬度略大一點就好）
-    const _fcell=c=>_noF.has(c.k)?"":(SUBF[c.k]?`<div style="display:flex;gap:7px">${SUBF[c.k].map(f=>_finput(f,f.g||1)).join("")}</div>`:_finput({k:c.k}));
+    // 篩選框寬度＝該輪次 BAN 圖的總寬（n 張 × 圖寬 + 間距）再多 6px，不要跟著欄寬撐開
+    const _banFW=n=>`calc(${n} * min(80px, 9.5vh - 57px) + ${(n-1)*7+6}px)`;
+    const _fcell=c=>_noF.has(c.k)?"":(SUBF[c.k]
+      ?`<div style="display:flex;gap:7px;justify-content:center">${SUBF[c.k].map(f=>_finput(f,f.g||1,_banFW(f.g||1))).join("")}</div>`
+      :_finput({k:c.k}));
     const _colFActive=()=>FILTERS.some(f=>(V.bpColF[f.k]||"").trim());
     let _bpFocusK=null; // 打字中的欄→重繪後把焦點還回去(表格整塊重建會掉焦點)
     const rerender=()=>{
@@ -10711,13 +10745,7 @@ function render(){
             divider(`${cat==="道具"?"🛡️":cat==="符文"?"🔮":cat==="機制"?"⚙️":"✨"} ${cat}`);
             // 非峽谷道具（含 TT/CS 註記的變體）與純表現卡（動畫/語音）不列（2026-08-01 全面稽核）
             const _yrOfPk=2000+Math.floor(parseFloat(pk)||0);
-            const _NSRv=(window.ITEM_NONSR||{})[String(_yrOfPk)]||{};
-            const _nsrClean=n=>{ let x=String(n).replace(/^所有\s*maps?\s*/i,"").replace(/([A-Za-z])的\s(?=[A-Za-z])/g,"$1's ").trim();
-              for(let g=0;g<3;g++)x=x.replace(/\s*[（(][^（）()]*[）)]\s*$/,"").trim();
-              return x; };
-            const _isNSR=n=>{ const c=_nsrClean(n); if(_NSRv[c])return true;
-              const lc=c.toLowerCase(); for(const k in _NSRv)if(k.toLowerCase()===lc)return true;
-              return /（?\s*(TT|CS)\s*[／/]|(TT|CS)\s*version/i.test(String(n)); };
+            const _nsrClean=nsrClean, _isNSR=n=>isNonSR(n,_yrOfPk);
             list.forEach(([nm,bs])=>{
               if(/^(動畫|語音|音效|模型|美術|插畫)$/.test(nm))return;
               if(_isNSR(nm))return;
