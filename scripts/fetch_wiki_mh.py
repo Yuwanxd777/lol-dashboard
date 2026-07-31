@@ -215,6 +215,7 @@ def to_csv(games, cfg):
     POS5 = ["top", "jng", "mid", "bot", "sup"]
     rows = []
     day = {}
+    sday = {}          # 每天已出現幾個系列賽（給同日多系列排序用）
     # 系列賽內的局號：wiki 的表格已照時間排 → 同一天、同兩隊（藍紅可能互換，所以用 frozenset）
     # 依序 1、2、3…。原本寫死 game=1，同一場 BO5 的三局全變第 1 局，對戰BP 的比分與
     # 「BO3／BO5」判定就全錯（2026-07-31 使用者回報：10-05 WCS RYL vs SKT 三局同一天卻顯示 0-1）
@@ -247,15 +248,21 @@ def to_csv(games, cfg):
         _pair = frozenset((nk(g.get("Blue")), nk(g.get("Red"))))
         _prev = ser.get(_pair)
         if _prev and _dd(_prev[0], d10) <= 1:
-            gno, _start = _prev[1] + 1, _prev[2]
+            gno, _start, _sn = _prev[1] + 1, _prev[2], _prev[3]
         else:
             gno, _start = 1, d10
+            _sn = sday.get(d10, 0) + 1          # 這天的第幾個系列賽（表格已是時間正序）
+            sday[d10] = _sn
         # 比對用「上一局的原始日期」，這樣連續跨天（04-28→29→30）也接得上；
         # 寫進資料的日期則統一成系列賽第一局那天（使用者定案 2026-07-31），
-        # 免得同一個 BO5 在前端被日期切成兩段。時間保留原值，同系列仍能依時序排。
-        ser[_pair] = (d10, gno, _start)
-        if _start != d10:
-            dt = _start + dt[10:]
+        # 免得同一個 BO5 在前端被日期切成兩段。
+        ser[_pair] = (d10, gno, _start, _sn)
+        # wiki 的 Date 只有日期沒有時間 → 同一天的季軍賽與決賽都會是 00:00:00，
+        # 而 fetch_data 是按 (日期, 局號) 排序，先後就沒了依據（使用者回報決賽
+        # 被排到季軍賽下面）。用「當天第幾個系列 × 10 ＋ 局號」補一個遞增時間：
+        # 系列之間分得開、系列內也照 g1→g5 遞增。
+        _mm = _sn * 10 + gno
+        dt = f"{_start} {_mm // 60:02d}:{_mm % 60:02d}:00"
         gid = f"wiki_{cfg['key']}_{d10}_{n}"     # gid 用原始日期，保證唯一
         bt, rt = align(g.get("Blue"), teams_map), align(g.get("Red"), teams_map)
         win = g.get("Winner", "")
