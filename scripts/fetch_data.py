@@ -773,6 +773,49 @@ def merge_stats(year, table):
     return table
 
 
+def merge_patch_release(year, table):
+    """用官方改版日期補空的 patch 欄（csv_cache/patch_release.json，
+    由 scripts/fetch_patch_release.py 從 LoL wiki 的版本頁抓）。
+
+    為什麼需要：早年 wiki 來源（MatchHistoryGame／Picks and Bans）都沒有版本欄，
+    OE 對 2013~2015 本身也大量空缺（實測 2013 有 89%、2014 58%、2015 35% 的場次
+    沒有版本號）。使用者定案 2026-07-31：**用改版日期回推**——比賽日期落在哪兩個
+    改版之間，就算哪一版。
+
+    只填空的，OE／wiki 已有的值一律不動。註：職業賽常鎖舊版，回推值與實際開打
+    版本可能差一版（2013-07-19 那批回推是 3.9，同期 LPL 實際還在打 3.8），
+    這是使用者選定的取捨。"""
+    p = os.path.join(CACHE_DIR, "patch_release.json")
+    if not os.path.exists(p):
+        return table
+    try:
+        REL = json.load(open(p, encoding="utf-8"))
+    except Exception as e:
+        print(f"  ⚠ 改版日期表讀取失敗（版本欄留空）：{e}")
+        return table
+    if not REL:
+        return table
+    rel = sorted(((d, k) for k, d in REL.items() if d), reverse=True)   # 新→舊
+    hdr = table[0]
+    ix = {n: i for i, n in enumerate(hdr)}
+    ip, idt = ix.get("patch"), ix.get("date")
+    if ip is None or idt is None:
+        return table
+    n = 0
+    for r in table[1:]:
+        if str(r[ip] or "").strip():
+            continue
+        d = str(r[idt])[:10]
+        for rd, k in rel:
+            if rd <= d:
+                r[ip] = k
+                n += 1
+                break
+    if n:
+        print(f"  版本補值 {n} 列（依官方改版日期）")
+    return table
+
+
 def merge_fill(year, table):
     """併入 csv_cache/fill_{年}.json：OE 尚未收錄的賽段補充資料（scripts/fetch_fill.py 由 gol.gg 產生）。
 
@@ -860,6 +903,7 @@ def main():
         table = merge_wiki(y, table)
         table = merge_patch(y, table)      # OE 未收錄賽段的補充資料（OE 有的一律以 OE 為準）
         table = merge_stats(y, table)      # 老賽季逐選手 KDA/CS/金錢（wiki 文字版沒有 → 只填空欄位）
+        table = merge_patch_release(y, table)   # 空的版本欄依官方改版日期回推
         table = unify_players(table)       # 選手 ID 大小寫統一（要排在所有 merge 之後，見下）
         write_year(y, table)
     write_manifest()

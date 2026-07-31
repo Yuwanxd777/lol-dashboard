@@ -438,6 +438,41 @@ def _ros_of(ros, team):
 _PBD_CACHE = {}
 
 
+_REL_CACHE = None
+
+
+def patch_release():
+    """改版日期表 {儀表板版本碼: 發布日}，由 scripts/fetch_patch_release.py 從
+    LoL wiki 的版本頁（Infobox 的 Release 欄）抓來。"""
+    global _REL_CACHE
+    if _REL_CACHE is None:
+        p = os.path.join(CACHE, "patch_release.json")
+        try:
+            _REL_CACHE = json.load(open(p, encoding="utf-8")) if os.path.exists(p) else {}
+        except Exception:
+            _REL_CACHE = {}
+    return _REL_CACHE
+
+
+def patch_by_release(date):
+    """比賽日期 → 該日在線的版本（OE 原始格式，process() 會再 +10）。
+
+    使用者定案 2026-07-31：**用改版日期回推，不要用同期比賽在打哪一版**。
+    找最後一個「發布日 <= 比賽日」的版本即可。
+    """
+    rel = patch_release()
+    if not rel or not date:
+        return ""
+    best, bd = "", ""
+    for k, d in rel.items():
+        if d and d <= date[:10] and d > bd:
+            bd, best = d, k
+    if not best:
+        return ""
+    m = re.match(r"^(\d+)\.(\d+)$", best)          # 13.08 → 3.08（存的是儀表板碼）
+    return f"{int(m.group(1)) - 10}.{m.group(2)}" if m else ""
+
+
 def patch_by_date(year):
     """該年的「日期→版本」對照，用來推定 PB 頁比賽的版本。
 
@@ -478,7 +513,16 @@ def patch_by_date(year):
 
 
 def patch_of(pbd, date, span=7):
-    """查該日版本；當天沒有比賽就取最近的一天（預設 7 天內，超過就不猜）"""
+    """查該日版本。
+
+    **以改版日期為準**（使用者定案 2026-07-31）：改版日表查得到就用它，
+    查不到才退回「同期其他比賽在打哪一版」。
+    註：兩者會有落差，職業賽常鎖舊版——2013-07-19 那批，改版日算是 3.9
+    （7/9 發布），但同期 LPL 實際還在打 3.8。使用者要的是前者。
+    """
+    v = patch_by_release(date)
+    if v:
+        return v
     if not pbd or not date:
         return ""
     if date in pbd:
