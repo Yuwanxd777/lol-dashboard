@@ -141,7 +141,10 @@ def fix_trailing_zero(items):
         lst.sort()                       # 依日期
         peak = 0
         for d, minor in lst:
-            real = minor * 10 if (minor <= 9 and minor < peak) else minor
+            # 只有 X.10／X.20 會被截成 X.1／X.2——LoL 一年不到 30 個版本，沒有 X.30 以上，
+            # 所以 minor>=3 一律照原樣。少了這道限制，5.5 出現在 5.9 之後會被還原成
+            # 不存在的 5.50（實測 2015 GPL 冒出 14 局 15.50）。
+            real = minor * 10 if (1 <= minor <= 2 and minor < peak) else minor
             fix[(major, minor, d)] = real
             peak = max(peak, real)
     return fix

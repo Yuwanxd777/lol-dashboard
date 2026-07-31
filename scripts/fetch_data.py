@@ -269,7 +269,10 @@ def process(text, year=DEFAULT_YEAR):
             r[iSplit] = final.replace("Split ", "S")
         else:
             norm = OLD_SPLIT_MAP.get(orig, orig)
-            r[iSplit] = (norm + " PO") if (is_po and norm) else norm
+            # 「錦標賽」是短期盃賽（Championship／Regional Finals，兩三天打完），
+            # 整個賽事本來就是淘汰賽，沒有「例行賽 vs 季後賽」可分
+            #（使用者定案 2026-07-31）→ 不加 PO 後綴
+            r[iSplit] = (norm + " PO") if (is_po and norm and norm != "錦標賽") else norm
 
     # 升降賽標記：以 Leaguepedia 逐場資料為準（fetch_promo.py → promo_games.json）
     # 比對條件：兩隊配對（正規化名）＋日期±1天＋聯賽相符

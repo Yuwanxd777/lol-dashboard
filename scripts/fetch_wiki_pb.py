@@ -23,7 +23,7 @@
   python scripts\fetch_wiki_pb.py                 # 跑 JOBS 全部
   python scripts\fetch_wiki_pb.py --probe "Riot Season 3 Brazilian Championship"
 """
-import argparse, collections, csv, html as _html, io, itertools, json, os, re, sys, time, urllib.parse, urllib.request
+import argparse, collections, csv, glob, html as _html, io, itertools, json, os, re, sys, time, urllib.parse, urllib.request
 
 if (getattr(sys.stdout, "encoding", "") or "").lower().replace("-", "") != "utf8":
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
@@ -105,7 +105,17 @@ def pb_games(html):
       class 後面還會多掛 pb-border 之類的修飾 → 比對要寬鬆，不能寫死整串 class。
     """
     out = []
-    for _ti, t in enumerate(re.findall(r'<table[^>]*class="[^"]*wikitable pb[^"]*"[^>]*>.*?</table>', html, re.S)):
+    # 章節標題（Group A／Group B／Semifinals／Finals）→ 每局屬於哪個階段。
+    # 用途是推日期：PB 頁沒有逐場日期，但賽事的階段順序就是時間順序（使用者定案
+    # 2026-07-31：CBLOL 2013 小組賽 7/19、四強 7/20、決賽 7/21）。
+    _hd = [(m.start(), re.sub(r"\s+", " ", re.sub(r"<[^>]+>", "", m.group(2))).replace("[]", "").strip())
+           for m in re.finditer(r"<h([2-4])[^>]*>(.*?)</h\1>", html, re.S)]
+    for _ti, _mt in enumerate(re.finditer(r'<table[^>]*class="[^"]*wikitable pb[^"]*"[^>]*>.*?</table>', html, re.S)):
+        t = _mt.group(0)
+        stage = ""
+        for _hp, _ht in _hd:
+            if _hp < _mt.start() and _ht and _ht.lower() != "contents":
+                stage = _ht
         cls = re.search(r'class="([^"]*)"', t).group(1)
         mg = re.search(r"pb-game-(\d+)", cls)
         teams = re.findall(r'<a href="/wiki/[^"]+" class="[^"]*\bt[A-Z]{2,}\b[^"]*" title="([^"]+)"', t)
@@ -151,7 +161,7 @@ def pb_games(html):
         #（2026-07-31 使用者回報：手動改的縮寫沒套用、還是出現全名）
         _tn = lambda s: re.sub(r"\s*\(page does not exist\)\s*$", "", _html.unescape(s)).strip()
         out.append({"blue": fix_case(_tn(teams[0])), "red": fix_case(_tn(teams[1])), "idx": _ti,
-                    "game": gno, "win": win, "bp": bp})
+                    "game": gno, "win": win, "bp": bp, "stage": stage})
     return out
 
 
@@ -213,6 +223,18 @@ def mark_po(games, pairs):
 
 
 def span_of(html):
+    """賽事期間：優先取 infobox 的 Start Date／End Date。
+
+    全頁掃日期取最早最晚會撈到不相關的——實測 CBLOL 2013 的 infobox 明明寫
+    07-19~07-21，但賽程表裡有一列「Mon 2013-07-22」，害期間多出一天、
+    階段推算整個往後挪（2026-07-31 使用者提供正確值）。
+    """
+    def _lbl(name):
+        m = re.search(name + r".{0,120}?(20\d\d-\d\d-\d\d)", html, re.S | re.I)
+        return m.group(1) if m else ""
+    s, e = _lbl("Start Date"), _lbl("End Date")
+    if s and e and s <= e:
+        return (s, e)
     ds = sorted(set(re.findall(r"\b(20\d\d-\d\d-\d\d)\b", html)))
     return (ds[0], ds[-1]) if ds else ("", "")
 
@@ -323,6 +345,70 @@ def assign_lanes(champs, st):
     return out                               # [TOP, JNG, MID, BOT, SUP]
 
 
+_PBD_CACHE = {}
+
+
+def patch_by_date(year):
+    """該年的「日期→版本」對照，用來推定 PB 頁比賽的版本。
+
+    PB 頁沒有版本欄，但**同一天的職業賽幾乎都打同一版**，所以拿同年其他有版本號
+    的比賽（csv_cache/lpgames，scripts/fetch_wiki_stats.py 抓的 ScoreboardGames）
+    建時間軸來回推。實測 2013-07-19~21（CBLOL 決賽那三天）每天都有 3.8 的場次，
+    下一版 3.9 要到 8/2 才開打 → 那場就是 3.8。
+    版本號的尾隨 0 會被 Cargo 截掉（4.10→4.1），沿用 fetch_wiki_stats 的還原邏輯。
+    """
+    if year in _PBD_CACHE:
+        return _PBD_CACHE[year]
+    day = collections.defaultdict(collections.Counter)
+    try:
+        import fetch_wiki_stats as WS
+        raw = []
+        for p in glob.glob(os.path.join(CACHE, "lpgames", "*.json")):
+            try:
+                items = json.load(open(p, encoding="utf-8"))
+            except Exception:
+                continue
+            for x in items:
+                m = re.match(r"^\s*(\d{1,2})\.(\d{1,2})\s*$", str(x.get("pt") or ""))
+                d = str(x.get("dt") or "")[:10]
+                if m and d.startswith(str(year)):
+                    raw.append((int(m.group(1)), int(m.group(2)), d))
+        fix = WS.fix_trailing_zero(raw)
+        for major, minor, d in raw:
+            # **填 OE 原始格式（3.08），不是儀表板格式（13.08）**：本檔的列是走 CSV
+            # 進 fetch_data.process()，那裡會統一做 float(patch)+10。先轉好會被加兩次
+            #（實測變成 23.08）。fetch_wiki_stats 的 merge_stats 是直接填進 process 之後
+            # 的表，那邊才要填 13.08。
+            day[d][f"{major}.{fix.get((major, minor, d), minor):02d}"] += 1
+    except Exception as e:
+        print(f"    ⚠ 版本對照建立失敗（版本欄留空）：{str(e)[:70]}")
+    out = {d: c.most_common(1)[0][0] for d, c in day.items()}
+    _PBD_CACHE[year] = out
+    return out
+
+
+def patch_of(pbd, date, span=7):
+    """查該日版本；當天沒有比賽就取最近的一天（預設 7 天內，超過就不猜）"""
+    if not pbd or not date:
+        return ""
+    if date in pbd:
+        return pbd[date]
+    from datetime import date as _dt
+    try:
+        d0 = _dt(*map(int, date[:10].split("-")))
+    except Exception:
+        return ""
+    best, gap = "", 10 ** 9
+    for d, v in pbd.items():
+        try:
+            g = abs((_dt(*map(int, d.split("-"))) - d0).days)
+        except Exception:
+            continue
+        if g < gap:
+            gap, best = g, v
+    return best if gap <= span else ""
+
+
 def build(job, force=False):
     year, lg, split, po, pb_page, main_page = job
     key = f"{lg}_{year}_" + (re.sub(r"[^A-Za-z0-9]+", "", split) or re.sub(r"[^A-Za-z0-9]+", "", pb_page)[:24])
@@ -365,9 +451,27 @@ def build(job, force=False):
     rows, used, cur = [], {}, {}
     LST = lane_stats(year)
     print(f"    路線統計：{len(LST)} 個英雄（{year} 年有選手名的列）")
+    PBD = patch_by_date(year)
     from datetime import date as _date, timedelta as _td
     _d0 = _date(*map(int, first.split("-")))
     _d1 = _date(*map(int, (last or first).split("-")))
+    # ── 階段 → 日期：把賽事期間平均分給各階段（小組賽 → 四強 → 決賽）──
+    # PB 頁沒有逐場日期，賽事又常只有兩三天。階段順序就是時間順序，比「同一組隊伍
+    # 第 N 次遭遇往後挪一天」準得多——後者會把 BO5 的第 1 局跟後面幾局分到不同天。
+    # Group A／Group B 併成同一個「小組賽」階段（使用者定案 2026-07-31：
+    # CBLOL 2013 小組賽 7/19、四強 7/20、決賽 7/21）。
+    _sk = lambda s: "Group Stage" if re.match(r"^\s*group\b", str(s or ""), re.I) else str(s or "")
+    _stages = []
+    for g in games:
+        k = _sk(g.get("stage"))
+        if k and k not in _stages:
+            _stages.append(k)
+    _span = (_d1 - _d0).days
+    _sdate = {}
+    if len(_stages) > 1 and _span > 0:
+        for _k, _st in enumerate(_stages):
+            _sdate[_st] = (_d0 + _td(days=round(_k * _span / (len(_stages) - 1)))).isoformat()
+        print("    階段→日期：" + "、".join(f"{k}={v[5:]}" for k, v in _sdate.items()))
     for g in games:
         pair = frozenset((_norm(g["blue"]), _norm(g["red"])))
         ds = dmap.get(pair) or []
@@ -382,10 +486,11 @@ def build(job, force=False):
             i = cur[pair]
         if ds:
             date = ds[min(i, len(ds) - 1)]
+        elif _sdate.get(_sk(g.get("stage"))):
+            date = _sdate[_sk(g["stage"])]          # 依階段（小組賽／四強／決賽）
         else:
-            # 主頁只有 Start/End Date、沒有逐場日期（2013 這些都是兩三天的線下賽）→
-            # 同一組隊伍的第 N 次遭遇往後挪一天（夾在賽事期間內）。全部塞同一天的話，
-            # 小組賽與季後賽的同組對戰會被當成同一個系列，BO 判定就錯了。
+            # 連階段標題都沒有 → 退回「同一組隊伍的第 N 次遭遇往後挪一天」（夾在賽事期間內）。
+            # 全部塞同一天的話，小組賽與季後賽的同組對戰會被當成同一個系列，BO 判定就錯了。
             date = min(_d0 + _td(days=i), _d1).isoformat()
         # 隊名要用完整的正規化字串，不能截斷：Saigon Jokers 與 Saigon Fantastic Five 取前 6 字
         # 都是 saigon，gameid 會撞在一起互相覆蓋（實測 GPL 春季 56 局只剩 22 局）
@@ -393,6 +498,8 @@ def build(job, force=False):
         # 光靠 日期＋局號 還是會撞（CBLOL 19 局少 1、CIS 7 局少 1）
         # 用「表格在頁面中的序號」當識別，保證唯一：局號會重複（同一頁多個系列都各有第 2 局），
         # 光靠 隊伍＋日期＋局號＋遭遇序 還是會撞（實測 LPL 2013 夏季季後賽 7 局只進 5 局）
+        # 版本：PB 頁沒有這欄 → 用同年其他比賽的「日期→版本」時間軸推定
+        _pt = patch_of(PBD, date)
         gid = f"wikipb_{key}_{g.get('idx', i)}_{_norm(g['blue'])}_{_norm(g['red'])}_{date}_{g['game']}"
         for side, pid in (("blue", 100), ("red", 200)):
             r = [""] * len(hdr)
@@ -401,6 +508,7 @@ def build(job, force=False):
             put("league", lg); put("year", year); put("split", split)
             put("playoffs", 1 if g.get("po") else po)
             put("date", date + " 00:00:00"); put("game", g["game"]); put("participantid", pid)
+            put("patch", _pt)
             put("side", side.capitalize()); put("position", "team")
             put("teamname", g[side])
             put("result", "1" if (g["win"] == (1 if side == "blue" else 2)) else "0")
@@ -424,7 +532,7 @@ def build(job, force=False):
                 put2("league", lg); put2("year", year); put2("split", split)
                 put2("playoffs", 1 if g.get("po") else po)
                 put2("date", date + " 00:00:00"); put2("game", g["game"])
-                put2("participantid", base + k2)
+                put2("patch", _pt); put2("participantid", base + k2)
                 put2("side", side.capitalize())
                 put2("position", _POS_OE[POSL[k2]])
                 put2("teamname", g[side]); put2("champion", ch)
