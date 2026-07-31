@@ -33,9 +33,10 @@ JOBS = [
     #   api.php?action=pfautocomplete&cargo_table=Tournaments&cargo_field=Name&substr=關鍵字
     # 早年頁名不照現代規則（土耳其＝Riot Turkey Season 3…、CIS＝Regional CIS Championship 2013）
     # 世界賽本體的 split 留空（其他年份的 WLDs 也是空的，篩選列才不會冒出「Main」）；
-    # 外卡賽是賽前另一個獨立賽事 → 自成一個聯賽碼 IWCT（index.html 的 LEAGUE_META 已登記為盃賽）
+    # 國際外卡賽（賽前一個月打、勝者進世界賽）＝世界賽的入圍賽，併進 WLDs 用 split 標
+    #（使用者定案 2026-07-31），不要拆成獨立聯賽碼
     (2013, "WLDs", "", 0, ["Season 3 World Championship"]),
-    (2013, "IWCT", "", 0, ["IWCT 2013"]),
+    (2013, "WLDs", "入圍賽", 0, ["IWCT 2013"]),
     (2013, "CBLOL", "Season", 0, ["Riot Season 3 Brazilian Championship"]),
     (2013, "LCO", "Season", 0, ["Riot Season 3 Oceanic Championship"]),
     (2013, "TCL", "Winter", 0, ["Riot Turkey Season 3 Winter Tournament"]),
@@ -80,7 +81,9 @@ def main():
     for (year, lg, split, po, names) in JOBS:
         if yrs and year not in yrs:
             continue
-        key = f"{lg}_{year}_{re.sub(r'[^A-Za-z0-9]+','',split)}"
+        # split 是中文或空字串時（如 WLDs 的「入圍賽」）去符號後會變空 → 同年同聯賽的兩個賽事撞 key
+        # → 退而用賽事名當識別（WLDs_2013_IWCT2013）
+        key = f"{lg}_{year}_{re.sub(r'[^A-Za-z0-9]+','',split) or re.sub(r'[^A-Za-z0-9]+','',names[0])}"
         print(f"\n[{year} {lg} {split}]", flush=True)
         done = False
         for nm in names:
@@ -104,7 +107,8 @@ def main():
             D = json.load(open(p, encoding="utf-8"))
         except Exception:
             continue
-        live = {f"{lg}_{yy}_{re.sub(r'[^A-Za-z0-9]+','',sp)}" for (yy, lg, sp, _po, _n) in JOBS if yy == y}
+        live = {f"{lg}_{yy}_{re.sub(r'[^A-Za-z0-9]+','',sp) or re.sub(r'[^A-Za-z0-9]+','',nms[0])}"
+                for (yy, lg, sp, _po, nms) in JOBS if yy == y}   # key 規則要跟上面那行一致
         drop = [k for k in D if k not in live] + [k for k, v in D.items() if k in live and not v.get("rows")]
         if drop:
             for k in drop:

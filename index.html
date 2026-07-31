@@ -2475,7 +2475,8 @@ const LEAGUE_META={
   MSI:{zh:"季中邀請賽",grp:"intl",full:"Mid-Season Invitational"},
   FST:{zh:"初陣對抗賽",en:"First Stand Tournament",grp:"intl",full:"First Stand Tournament"},
   WQS:{zh:"中國區世界賽資格賽",en:"Worlds Qualifier (China)",grp:"cup",region:"中國",full:"LPL Regional Qualifier for Worlds"}, // 2025 資料中被誤標 WLDs 的 9 月場次＝LPL 區資格賽,
-  IWCT:{zh:"國際外卡賽",en:"International Wildcard",grp:"cup",full:"International Wildcard Tournament"}, // 2013-2015 外卡賽區爭世界賽/MSI 名額（S3 那屆＝Season 3 IWCT）
+  // 國際外卡賽（IWCT）不另立聯賽碼：它是外卡賽區爭世界賽名額的賽事 → 併進 WLDs，
+  // 用 split「入圍賽」標（使用者定案 2026-07-31），賽事樹的世界賽卡會自動分出入圍賽段
   KeSPA:{zh:"KeSPA 盃",grp:"cup",region:"韓國",full:"KeSPA Cup"},
   IEM:{zh:"IEM",grp:"cup",full:"Intel Extreme Masters"},
   EWC:{zh:"電競世界盃",grp:"cup",full:"Esports World Cup"},
@@ -2604,7 +2605,10 @@ const eventsTreeHTML=()=>{
       else { const _sp=String(o.split).replace(/ PO$/,"").replace(/季後$/,""); // 該賽段打進季後賽的隊（賽事樹打勾用）
         const _pb=e._poSp=e._poSp||{}; const _s2=_pb[_sp]=_pb[_sp]||new Set();
         if(bt)_s2.add(tAb(bt)); if(rt)_s2.add(tAb(rt)); } }
-    if(lg==="WLDs"||lg==="MSI"){const d=String(o.date).slice(0,10); const s=(e.wDates=e.wDates||{})[d]=(e.wDates||{})[d]||new Set(); if(bt)s.add(bt); if(rt)s.add(rt);} // 世界賽/MSI：每日出賽隊(入圍賽分段用)
+    if(lg==="WLDs"||lg==="MSI"){const d=String(o.date).slice(0,10); const s=(e.wDates=e.wDates||{})[d]=(e.wDates||{})[d]||new Set(); if(bt)s.add(bt); if(rt)s.add(rt); // 世界賽/MSI：每日出賽隊(入圍賽分段用)
+      // 資料本身有標入圍賽就直接用（2013 的國際外卡賽在正賽前一個月打完，靠日期推斷抓不到）
+      const _s4=/入圍|Play-?In/i.test(String(o.split||""))?(e._piT=e._piT||new Set()):(e._mnT=e._mnT||new Set());
+      if(bt)_s4.add(bt); if(rt)_s4.add(rt);}
     { const ti=e.tinfo=e.tinfo||{}; const d2=String(o.date).slice(0,10); // 每隊最後出賽日＋末戰勝負（chip 依淘汰時間排序）
       if(bt&&(!ti[bt]||d2>=ti[bt].d))ti[bt]={d:d2,w:o.result===1};
       if(rt&&(!ti[rt]||d2>=ti[rt].d))ti[rt]={d:d2,w:o.result===2};
@@ -2745,11 +2749,14 @@ const eventsTreeHTML=()=>{
         mainStart=({2022:"2022-10-07"})[+curYear]||days.find(d=>x.wDates[d].size>=12);
       }
       const _wAll=new Set(); days.forEach(d=>x.wDates[d].forEach(t2=>_wAll.add(t2))); // 世界賽本體（正賽+入圍）的隊
+      // 資料已標入圍賽（2013 國際外卡賽）就直接照它分，不必猜日期
+      const _hasPI=x._piT&&x._piT.size&&x._mnT&&x._mnT.size;
       let inner;
-      if(!mainStart){ inner=chips([..._wAll]); }
+      if(!mainStart&&!_hasPI){ inner=chips([..._wAll]); }
       else{
-        const pin=new Set(), mn=new Set();
-        days.forEach(d=>{x.wDates[d].forEach(t2=>{(d<mainStart?pin:mn).add(t2);});});
+        let pin=new Set(), mn=new Set();
+        if(_hasPI){ pin=x._piT; mn=x._mnT; }
+        else days.forEach(d=>{x.wDates[d].forEach(t2=>{(d<mainStart?pin:mn).add(t2);});});
         const _mnAb=new Set([...mn].map(t2=>tAb(t2))), _piAb=new Set([...pin].map(t2=>tAb(t2)));
         const _advAb=new Set([..._piAb].filter(ab=>_mnAb.has(ab))); // 入圍賽→正賽晉級＝綠框
         const seg=(lb,arr,adv)=>arr.length?`<span class="evtPromoDiv evtGrpDiv"><i>${lb}</i></span>`+chips(arr,adv):"";
@@ -8027,6 +8034,10 @@ function render(){
     // 逐欄篩選：每欄一個「取可搜字串」函式；英雄欄比對「資料名(英)＋chName(中)」→ 中英名都搜得到
     const _cTxt=c=>{ if(!c)return ""; const id=(typeof champId==="function")?champId(c):c; return (c+" "+((typeof chName==="function"&&chName(id))||"")).toLowerCase(); };
     const _cL=c=>({k:c[0],ph:c[1],w:c[2],dl:c[3]||"",get:c[4]}); // [key,placeholder,寬px,datalist類,取值]
+    // 3 禁年份（2014 以前）只有第一輪禁、沒有第二輪 → 禁用欄只給一個篩選框，欄寬也跟著收窄
+    //（2026-07-31 使用者指定）。用資料實際的最大禁用手數判定，不寫死年份，資料有缺也不會誤判。
+    const _maxBan=calcMatches("").reduce((a,m)=>Math.max(a,(m.blue.bans||[]).length,(m.red.bans||[]).length),0);
+    const _b5=_maxBan>3, _banW=_b5?268:150;   // 頭像 44px＋間距 7px：5 禁 268、3 禁 150
     const COLF=[
       _cL(["date", LANG==="en"?"date":"日期", 90, "",     m=>String(m.date).toLowerCase()]),
       _cL(["lg",   LANG==="en"?"event":"賽事",140,"lg",   m=>((typeof lgName==="function"?lgName(m.league):m.league)+" "+(m.league||"")+" "+(m.split||"")).toLowerCase()]),
@@ -8034,16 +8045,19 @@ function render(){
       _cL(["gl",   LANG==="en"?"time":"時長", 66, "",     m=>mmss(m.gl)]),
       _cL(["win",  LANG==="en"?"win":"勝",    66, "team", m=>String(m.win).toLowerCase()]),
       _cL(["bt",   LANG==="en"?"blue":"藍方", 78, "team", m=>String(sides(m).L.team).toLowerCase()]),
-      _cL(["bb",   LANG==="en"?"ban":"禁",    268,"champ",m=>(sides(m).L.bans||[]).map(_cTxt).join(" ")]),
+      _cL(["bb",   LANG==="en"?"ban":"禁",    _banW,"champ",m=>(sides(m).L.bans||[]).map(_cTxt).join(" ")]),
       _cL(["bl0","TOP",62,"champ",m=>_cTxt(sides(m).L.lane[0])]),_cL(["bl1","JNG",62,"champ",m=>_cTxt(sides(m).L.lane[1])]),_cL(["bl2","MID",62,"champ",m=>_cTxt(sides(m).L.lane[2])]),_cL(["bl3","BOT",62,"champ",m=>_cTxt(sides(m).L.lane[3])]),_cL(["bl4","SUP",62,"champ",m=>_cTxt(sides(m).L.lane[4])]),
       _cL(["rt",   LANG==="en"?"red":"紅方",  78, "team", m=>String(sides(m).R.team).toLowerCase()]),
-      _cL(["rb",   LANG==="en"?"ban":"禁",    268,"champ",m=>(sides(m).R.bans||[]).map(_cTxt).join(" ")]),
+      _cL(["rb",   LANG==="en"?"ban":"禁",    _banW,"champ",m=>(sides(m).R.bans||[]).map(_cTxt).join(" ")]),
       _cL(["rl0","TOP",62,"champ",m=>_cTxt(sides(m).R.lane[0])]),_cL(["rl1","JNG",62,"champ",m=>_cTxt(sides(m).R.lane[1])]),_cL(["rl2","MID",62,"champ",m=>_cTxt(sides(m).R.lane[2])]),_cL(["rl3","BOT",62,"champ",m=>_cTxt(sides(m).R.lane[3])]),_cL(["rl4","SUP",62,"champ",m=>_cTxt(sides(m).R.lane[4])]),
     ];
     const _noF=new Set(["date","lg","patch"]); // 這幾欄不放篩選框(上方全域篩選已有 年份/賽事/賽季/版本)
-    const SUBF={ // 禁用欄拆成兩格各自篩：前3(第一輪禁)｜後2(第二輪禁)
+    const SUBF=_b5?{ // 禁用欄拆成兩格各自篩：前3(第一輪禁)｜後2(第二輪禁)
       bb:[{k:"bb1",dl:"champ",get:m=>(sides(m).L.bans||[]).slice(0,3).map(_cTxt).join(" ")},{k:"bb2",dl:"champ",get:m=>(sides(m).L.bans||[]).slice(3).map(_cTxt).join(" ")}],
       rb:[{k:"rb1",dl:"champ",get:m=>(sides(m).R.bans||[]).slice(0,3).map(_cTxt).join(" ")},{k:"rb2",dl:"champ",get:m=>(sides(m).R.bans||[]).slice(3).map(_cTxt).join(" ")}],
+    }:{ // 3 禁年份沒有第二輪禁 → 整欄一格（bb2/rb2 的殘留輸入值由下面那行自動清掉）
+      bb:[{k:"bb1",dl:"champ",get:m=>(sides(m).L.bans||[]).map(_cTxt).join(" ")}],
+      rb:[{k:"rb1",dl:"champ",get:m=>(sides(m).R.bans||[]).map(_cTxt).join(" ")}],
     };
     const FILTERS=[]; COLF.forEach(c=>{ if(SUBF[c.k])FILTERS.push(...SUBF[c.k]); else if(!_noF.has(c.k))FILTERS.push({k:c.k,dl:c.dl,get:c.get}); }); // 攤平：實際可篩的欄(禁用拆兩格；去掉日期/賽事/版本)
     {const _fk=new Set(FILTERS.map(f=>f.k)); Object.keys(V.bpColF).forEach(k=>{ if(!_fk.has(k))delete V.bpColF[k]; });} // 清掉不再有輸入框的殘留值
