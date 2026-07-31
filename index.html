@@ -818,6 +818,7 @@
    首載 JS 從 ~8.3MB 降到 ~3MB。skills.js 是全站中文英雄名來源（chName）→ 維持同步。先給空預設讓各處守衛正常。 */
 window.WIKI_PATCHES=window.WIKI_PATCHES||{}; window.WIKI_EXTRA=window.WIKI_EXTRA||{}; window.WIKI_OBJECTIVES=window.WIKI_OBJECTIVES||{};</script>
 <script src="skills.js" onerror="window.CHAMP_SKILLS=null"></script>
+<script src="skill_keys.js" onerror="window.SKILL_KEYS={}"></script>
 <script src="assets.js" onerror="window.LOL_ASSETS=null"></script>
 <script src="items.js" onerror="window.ITEM_DESC=null"></script>
 <script src="item_nostore.js" onerror="window.ITEM_NOSTORE=null"></script>
@@ -4339,12 +4340,15 @@ const wikiUrlOfPk=pk=>{
 };
 // 技能名 → 按鍵（Q/W/E/R/被動）對照，補上 wiki 行缺的按鍵標註
 const SKMAP=(()=>{
-  const m={}, D=(window.CHAMP_SKILLS||{}).d||{};
+  // 底是**歷代**技能名對照（skill_keys.js，含英雄重做前的舊名），再用現行版覆蓋上去。
+  // 只用現行版的話，重做過的英雄在舊版本改動裡就沒有按鍵標註
+  //（2026-07-31 使用者回報：加里歐 2013 的 R「杜蘭德石像」沒寫是哪一顆）
+  const m={}, H=window.SKILL_KEYS||{}, D=(window.CHAMP_SKILLS||{}).d||{};
+  for(const[id,o]of Object.entries(H))m[id]=Object.assign({},o);
   for(const[id,c]of Object.entries(D)){
-    const o={};
+    const o=m[id]=m[id]||{};
     if(c.p&&c.p.n)o[c.p.n]="被動";
     (c.s||[]).forEach(s=>{if(s.n)o[s.n]=s.k;});
-    m[id]=o;
   }
   return m;
 })();
