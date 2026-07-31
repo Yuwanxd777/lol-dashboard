@@ -2152,8 +2152,13 @@ const normT=s=>String(s).replace(/[⁠​﻿]/g,"").trim().toLowerCase();
 const STATIC_TABBR={
 // 2013 補齊後才出現的老隊伍：Leaguepedia 的 Teams 表沒收（或隊名寫法對不上）→ 縮寫用當年通稱
 "energy pacemaker.hk":"EPH","good game university":"GGU","kt rolster a":"KTA","kt rolster b":"KTB",
-"mvp white":"MVPW","mvp blue":"MVPB","mig blitz":"MiGB","najin shield":"NJSH","najin sword":"NJS",
-"sk telecom t1 1":"SKT1","sk telecom t1 2":"SKT2","team alternate":"ALT","samsung ozone":"SSO",
+// 三星 2013 年八月（世界賽前）買下 MVP 兩支隊伍，同一隊只是換贊助商 → 縮寫一路沿用到底
+//（使用者定案 2026-07-31）：MVP White → MVP Ozone → Samsung Ozone → Samsung White ＝ SSW；
+//                          MVP Blue → Samsung Blue ＝ SSB。2016 年那支 MVP 是完全不同的隊，不要動它
+"mvp white":"SSW","mvp ozone":"SSW","samsung ozone":"SSW","samsung white":"SSW",
+"mvp blue":"SSB","samsung blue":"SSB",
+"mig blitz":"MiGB","najin shield":"NJSH","najin sword":"NJS",
+"sk telecom t1 1":"SKT1","sk telecom t1 2":"SKT2","team alternate":"ALT",
 "lyon gaming (2013 latin american team)":"LYN","insidious gaming":"INS","logitech g fighter":"LGF",
 "alterego gaming":"AEG","ascension":"ASC","imperium":"IMP","kabum! orange":"KBO","team strix":"STX",
 "tt gaming":"TT", // 2026 EWC 中國區資格賽名單（events_extra.js）用 Leaguepedia 全名，資料庫沒這隊 → 補縮寫
@@ -2183,7 +2188,7 @@ let TABBR={}, CABBR={};
 const WIKI_TABBR={
 // LCK / Champions Korea
 "sk telecom t1":"SKT","sk telecom t1 k":"SKTK","sk telecom t1 s":"SKTS","samsung galaxy":"SSG",
-"samsung galaxy blue":"SSB","samsung galaxy white":"SSW","samsung galaxy ozone":"SSO",
+"samsung galaxy blue":"SSB","samsung galaxy white":"SSW","samsung galaxy ozone":"SSW", /* Ozone 就是後來的 White，同隊 */
 "najin white shield":"NWS","najin black sword":"NBS","najin e-mfire":"NJE",
 "kt rolster bullets":"KTB","kt rolster arrows":"KTA","cj entus":"CJ","cj entus blaze":"BLZ","cj entus frost":"FRO",
 "jin air green wings":"JAG","jin air falcons":"JAGF","jin air stealths":"JAGS",
