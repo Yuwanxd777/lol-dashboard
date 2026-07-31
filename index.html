@@ -8278,7 +8278,10 @@ function render(){
     const _dlKey="bp2|"+(V.bpSideMode||"br")+"|"+vcKey(); window._BPDL=window._BPDL||{}; // 快取鍵含模式(切模式→下拉重算)
     let _DLF=window._BPDL[_dlKey];
     if(!_DLF){ const S={}; FILTERS.forEach(f=>{S[f.k]=new Set();});
-      for(const m of calcMatches("")){ FILTERS.forEach(f=>{ _fdv(f.k,m).forEach(v=>{ if(!v)return; let disp=v; if(f.dl==="champ"){ const cn=((typeof chName==="function")&&chName(champId(v)))||""; disp=(cn&&cn!==v)?cn+" "+v:(cn||v); } S[f.k].add(disp); }); }); } // 英雄下拉值＝「中文 English」→ 中文顯示為主、打英文也搜得到
+      // 英雄下拉只放中文名（沒中譯才退回英文）：原本放「中文 English」，像「好運姐 Miss Fortune」
+      // 在窄框裡英文整段被切掉，看起來像壞掉（2026-07-31 使用者回報）。
+      // **打英文照樣搜得到**——比對走 _cTxt，那裡本來就同時含資料名(英)與 chName(中)。
+      for(const m of calcMatches("")){ FILTERS.forEach(f=>{ _fdv(f.k,m).forEach(v=>{ if(!v)return; let disp=v; if(f.dl==="champ"){ disp=((typeof chName==="function")&&chName(champId(v)))||v; } S[f.k].add(disp); }); }); }
       _DLF={}; FILTERS.forEach(f=>{_DLF[f.k]=[...S[f.k]].sort((a,b)=>String(a).localeCompare(b));});
       _DLF["gl"]=GLB.map(x=>x[0]); // 時長改用固定分桶清單
       window._BPDL[_dlKey]=_DLF;
