@@ -88,8 +88,15 @@ STAT_DESC = {
     "物攻": ["攻擊力", "物理傷害", "物攻"], "魔攻": ["法術強度", "技能強度", "魔攻"],
     "生命": ["生命"], "魔力": ["魔力", "法力"],
     "生命回復": ["生命回復"], "魔力回復": ["魔力回復"],
-    "移動速度": ["移動速度", "移速"], "攻速": ["攻擊速度", "攻速"],
+    "移動速度": ["移動速度", "移速", "跑速"], "攻速": ["攻擊速度", "攻速"],
     "法術吸血": ["法術吸血"], "冷卻縮減": ["冷卻縮減", "冷卻時間減免"],
+}
+# 早年說明文字的特殊寫法（不是「N 生命回復」而是「每 5 秒回復 10 生命」這種）
+STAT_ALT = {
+    "生命回復": [r"每\s*5\s*秒回復\s*([\d.]+)()\s*點?\s*生命"],
+    "魔力回復": [r"每\s*5\s*秒回復\s*([\d.]+)()\s*點?\s*魔力"],
+    "魔力": [r"([\d.]+)\s*(%)\s*基礎魔力"],
+    "生命": [r"([\d.]+)\s*(%)\s*基礎生命"],
 }
 _STAT_PAT = "|".join(sorted(STAT_DESC, key=len, reverse=True))
 
@@ -136,6 +143,12 @@ def main():
                             nolonger.setdefault((major, minor), []).append((line, nm, m3.group(0)))
                         elif re.search(r"不再(給予|提供|附帶)\s*(唯一)?(光環|靈氣)", tail):
                             nolonger.setdefault((major, minor), []).append((line, nm, "光環"))
+                    elif "⇒" not in line and not re.search(r"\d", body):
+                        # 「物防移除。」「生命回復移除。」這種也沒寫原本多少
+                        #（2026-07-31 使用者：指揮旗幟 13.14、歐姆破壞者 13.14）
+                        m5 = re.match(r"^\s*(%s)\s*移除\s*[。.]?\s*$" % _STAT_PAT, body)
+                        if m5:
+                            nolonger.setdefault((major, minor), []).append((line, nm, m5.group(1)))
     print("需要補前後值的行：屬性 %d 行、落單合成公式 %d 行、不再提供 %d 行（涉及 %d 個版本）"
           % (sum(len(v) for v in todo.values()), sum(len(v) for v in recipes.values()),
              sum(len(v) for v in nolonger.values()), len(set(todo) | set(recipes) | set(nolonger))))
@@ -246,10 +259,16 @@ def main():
                     m0 = re.search(r"(唯一)?\s*(光環|靈氣)", desc)
                     desc = desc[m0.end():] if m0 else ""
                 for word in (STAT_DESC.get(stat) or []):
-                    m2 = re.search(r"([\d.]+)\s*(%?)\s*點?\s*" + word, desc)
+                    m2 = re.search(r"([\d.]+)\s*(%?)\s*點?\s*(?:基礎|額外|最大|總|周圍|友軍的)*\s*" + word, desc)
                     if m2:
                         val = m2.group(1) + m2.group(2)
                         break
+                if not val:
+                    for pat in (STAT_ALT.get(stat) or []):
+                        m2 = re.search(pat, desc)
+                        if m2:
+                            val = m2.group(1) + (m2.group(2) or "")
+                            break
             if not val:
                 miss += 1
                 why.setdefault("不再提供：DDragon 查不到原本數值", []).append("%d.%d %s %s" % (major, minor, nm, stat))

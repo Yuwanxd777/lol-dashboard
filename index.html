@@ -4282,7 +4282,12 @@ function changeDir(lines){
       const ao=avg(o),an=avg(n);
       if(an>ao)d=1; else if(an<ao)d=-1; else continue;
     }
-    if(INV.test(t)||(COST.test(t)&&!STAT.test(t)))d=-d;
+    // 「魔力／能量」反向（越高越差）只適用**技能資源消耗**。道具屬性的魔力越高越好，
+    // 反向會把「魔力：300 ⇒ 0」判成增強（2026-07-31 使用者：女妖面紗 13.10）。
+    // 分辨法：技能消耗不會是 0、也不會到 250 以上 → 出現 0 或 ≥250 就當道具屬性。
+    const _mpStat=COST.test(t)&&!INV.test(t)&&(()=>{const ns=(t.match(/\d+(?:\.\d+)?/g)||[]).map(Number);
+      return ns.some(v=>v===0)||(ns.length&&Math.max(...ns)>=250);})();
+    if(INV.test(t)||(COST.test(t)&&!STAT.test(t)&&!_mpStat))d=-d;
     if(d>0)buff++;else if(d<0)nerf++;
   }
   if(onlyRecipe)return null; // 只有合成公式/路徑變動 → 不列入版本焦點、不上色（判例 2026-07-16：公式照列但不算調整）

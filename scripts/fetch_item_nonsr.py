@@ -102,7 +102,7 @@ def main():
     MANUAL = {
         2013: ["月華法刃", "Moonflair Spellblade", "光之使者", "Lightbringer",
                "海克斯清除者", "Hextech Sweeper", "格雷提燈", "Grez's Spectral Lantern",
-               "烏莉特的法帽", "Ohmwrecker", "奧丁面紗", "Odyn's Veil"],
+               "烏莉特的法帽", "Wooglet's Witchcap", "奧丁面紗", "Odyn's Veil"],
         2014: ["月華法刃", "Moonflair Spellblade", "光之使者", "Lightbringer"],
         2015: ["月華法刃", "Moonflair Spellblade", "光之使者", "Lightbringer"],
     }
