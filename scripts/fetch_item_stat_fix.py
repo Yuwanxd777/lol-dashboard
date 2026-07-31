@@ -69,35 +69,46 @@ def fmt(f):
     return str(int(f)) if abs(f - int(f)) < 1e-9 else str(f)
 
 
+def clean_recipe(s):
+    return re.sub(r"[\s＋+金＝=]", "", str(s))
+
+
 def main():
     EX = load_extra()
-    # 1) 收集需要補值的行：sec=道具、body 以「屬性：」開頭、沒有 ⇒、不是新增道具
-    todo = {}   # ddragon_minor -> [(line, itemname)]
+    # 1) 收集需要補值的行
+    #    todo    ＝「屬性：a, b, c。」只寫改完後、沒寫改動前
+    #    recipes ＝「新增合成公式：X」而同一張卡沒有「舊合成公式」可配對
+    todo, recipes = {}, {}
     for ver, secs in EX.items():
         if not isinstance(secs, dict):
             continue
+        m = re.match(r"^(\d{2})\.(\d{1,2})$", str(ver))
+        if not m:
+            continue
+        major, minor = int(m.group(1)) - 10, int(m.group(2))
         for sec, arr in secs.items():
             if sec != "道具" or not isinstance(arr, list):
                 continue
+            by_item = {}
             for line in arr:
-                if "⇒" in line:
-                    continue
                 p = line.find("｜")
-                if p <= 0:
-                    continue
-                pre, body = line[:p], line[p + 1:]
-                if not re.match(r"^\s*屬性[：:]", body):
-                    continue
+                if p > 0:
+                    by_item.setdefault(line[:p], []).append(line)
+            for pre, ls in by_item.items():
                 if re.search(r"新增道具|全新道具|新道具登場", pre):
                     continue
-                m = re.match(r"^(\d{2})\.(\d{1,2})$", str(ver))
-                if not m:
-                    continue
-                major, minor = int(m.group(1)) - 10, int(m.group(2))
-                todo.setdefault((major, minor), []).append((line, clname(pre)))
-    print("需要補前後值的行：%d（涉及 %d 個版本）"
-          % (sum(len(v) for v in todo.values()), len(todo)))
-    if not todo:
+                nm = clname(pre)
+                has_old = any(re.match(r"^\s*舊合成公式", l[l.find("｜") + 1:]) for l in ls)
+                for line in ls:
+                    body = line[line.find("｜") + 1:]
+                    if "⇒" not in line and re.match(r"^\s*屬性[：:]", body):
+                        todo.setdefault((major, minor), []).append((line, nm))
+                    elif not has_old and re.match(r"^\s*新增合成公式[：:]", body):
+                        recipes.setdefault((major, minor), []).append((line, nm))
+    print("需要補前後值的行：屬性 %d 行、落單合成公式 %d 行（涉及 %d 個版本）"
+          % (sum(len(v) for v in todo.values()), sum(len(v) for v in recipes.values()),
+             len(set(todo) | set(recipes))))
+    if not todo and not recipes:
         return
 
     # 2) DDragon 版本清單：每個 major.minor 取最後（最新）的三段號
@@ -111,34 +122,76 @@ def main():
     cache = {}
 
     def items_of(v):
+        """回傳 (依名稱查道具, 依 id 查名稱)"""
         if v in cache:
             return cache[v]
         try:
             d = json.loads(geturl(
                 "https://ddragon.leagueoflegends.com/cdn/%s/data/zh_TW/item.json" % v))["data"]
-            cache[v] = {clname(it.get("name")): (it.get("stats") or {}) for it in d.values()}
+            by_name = {clname(it.get("name")): it for it in d.values()}
+            by_id = {str(k): clname(it.get("name")) for k, it in d.items()}
+            cache[v] = (by_name, by_id)
         except Exception as e:
             print("   %s：抓不到（%s）" % (v, type(e).__name__))
-            cache[v] = {}
+            cache[v] = ({}, {})
         return cache[v]
 
+    def recipe_of(it, by_id):
+        """DDragon 道具 → 「材料A＋材料B＋合成費 金 = 總價 金」"""
+        g = it.get("gold") or {}
+        parts = [by_id.get(str(x), "") for x in (it.get("from") or [])]
+        parts = [p for p in parts if p]
+        if not parts:
+            return ""
+        base, total = g.get("base"), g.get("total")
+        s = "＋".join(parts)
+        if base:
+            s += "＋%d 金" % base
+        return s + (" = %d 金" % total if total else "")
+
     out, hit, miss, why = {}, 0, 0, {}
-    for (major, minor), rows in sorted(todo.items()):
+    for (major, minor) in sorted(set(todo) | set(recipes)):
+        rows = todo.get((major, minor), [])
         if (major, minor) not in last:
-            print("  %d.%d：DDragon 沒有這個版本，跳過（%d 行）" % (major, minor, len(rows)))
-            miss += len(rows)
+            n2 = len(rows) + len(recipes.get((major, minor), []))
+            print("  %d.%d：DDragon 沒有這個版本，跳過（%d 行）" % (major, minor, n2))
+            miss += n2
             why.setdefault("DDragon 沒有這個版本", []).append("%d.%d（%d 行）" % (major, minor, len(rows)))
             continue
         cur = last[(major, minor)]
         i = keys.index((major, minor))
         prev = last[keys[i - 1]] if i > 0 else None
         if not prev:
-            miss += len(rows)
+            miss += len(rows) + len(recipes.get((major, minor), []))
             continue
-        A, B = items_of(prev), items_of(cur)
+        (An, Ai), (Bn, Bi) = items_of(prev), items_of(cur)
+        # ── 落單的「新增合成公式：X」（同一張卡沒有「舊合成公式」可配對）：
+        #    去前一版 DDragon 撈當時的公式，補成「舊 ⇒ 新」，recipeDir 才判得出方向
+        #    （2026-07-31 使用者判例：智慧末刃 13.08「新增合成公式：反曲弓＋抗魔斗篷＋短劍＋700 金 = 2400 金」）
+        for line, nm in recipes.get((major, minor), []):
+            it = An.get(nm)
+            if not it:
+                miss += 1
+                why.setdefault("合成公式：前一版沒有這件道具", []).append("%d.%d %s" % (major, minor, nm))
+                continue
+            old_r = recipe_of(it, Ai)
+            if not old_r:
+                miss += 1
+                why.setdefault("合成公式：前一版沒有合成路徑", []).append("%d.%d %s" % (major, minor, nm))
+                continue
+            p = line.find("｜")
+            body = line[p + 1:]
+            new_r = re.sub(r"^\s*新增合成公式[：:]\s*", "", body).rstrip("。.")
+            if clean_recipe(old_r) == clean_recipe(new_r):
+                miss += 1
+                why.setdefault("合成公式：前後版一樣", []).append("%d.%d %s" % (major, minor, nm))
+                continue
+            out[line] = line[:p + 1] + "合成公式：" + old_r + " ⇒ " + new_r
+            hit += 1
+            print("   %s 合成公式 → %s ⇒ %s" % (nm, old_r, new_r))
         for line, nm in rows:
-            a, b = A.get(nm), B.get(nm)
-            if a is None or b is None:
+            a, b = (An.get(nm) or {}).get("stats"), (Bn.get(nm) or {}).get("stats")
+            if nm not in An or nm not in Bn:
                 miss += 1
                 why.setdefault("道具名對不到 DDragon", []).append("%d.%d %s" % (major, minor, nm))
                 continue
