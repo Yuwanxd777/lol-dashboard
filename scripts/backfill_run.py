@@ -24,6 +24,8 @@ JOBS = [
     #（韓國＝Korea Regional Finals Season 3、中國＝China Regional Finals Season 3）
     (2013, "LCK", "錦標賽", 0, ["Korea Regional Finals Season 3", "Season 3 Korea Regional Finals"]),
     (2013, "LPL", "錦標賽", 0, ["China Regional Finals Season 3", "Season 3 China Regional Finals"]),
+    # 夏季季後賽在 MHG[tournament] 查不到 → 走賽事頁的 /Match History 嵌入表（第 7 元素）
+    (2013, "LPL", "Summer", 1, ["LPL 2013 Summer Playoffs"], "", "LPL/2013 Season/Summer Playoffs/Match History"),
     (2013, "LPL", "Spring", 0, ["LPL 2013 Spring"]),
     (2013, "LPL", "Summer", 0, ["LPL 2013 Summer"]),
     (2013, "LEC", "Spring", 0, ["EU LCS 2013 Spring", "EU LCS Season 3 Spring"]),
@@ -106,6 +108,7 @@ def main():
     for job in JOBS:
         year, lg, split, po, names = job[:5]
         pver = job[5] if len(job) > 5 else ""
+        emb = job[6] if len(job) > 6 else ""
         if yrs and year not in yrs:
             continue
         # split 是中文或空字串時（如 WLDs 的「入圍賽」）去符號後會變空 → 同年同聯賽的兩個賽事撞 key
@@ -116,7 +119,7 @@ def main():
         done = False
         for nm in names:
             cfg = {"tour": nm, "league": lg, "split": split, "year": year, "playoffs": po,
-                       "key": key, "patch": pver}
+                       "key": key, "patch": pver, "embed": emb}
             try:
                 t = MH.build(cfg, force=A.force)
             except Exception as e:

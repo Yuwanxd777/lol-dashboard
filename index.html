@@ -4094,8 +4094,14 @@ const DIR_OVERRIDE=[
   [/⇒\s*僅限/, -1],                                    // 生效對象縮小（李星 W：所有友方單位 ⇒ 僅限英雄）
   [/⇒\s*(不再|無法)/, -1],                              // 改成做不到某事
   [/不再(消耗|需要|花費|扣除)/, 1],                      // 移除成本／前提（凱特琳被動：不再消耗當攻擊守衛）
-  [/^\s*新增[：:].{0,80}(獲得|提供|增加|額外|提升|附加)/, 1], // 新增正面效果（希維爾 W：新增…獲得額外攻速）
-  [/^\s*移除[：:]/, -1],                                // 整段效果被拿掉
+  // ⚠ 這些行前面通常還有「技能名｜」前綴 → 一律用 (^|｜) 開頭，不能寫死 ^
+  // 「新增：◯◯」預設就是增強（新加一個效果）；只有新增的是成本／限制類才反過來
+  //（2026-07-31 判例：葵恩 Q「新增：（＋50% AP）係數」、W「新增：被動給予…額外移動速度」）
+  [/(^|｜)\s*新增[：:](?![^｜]{0,24}(冷卻|消耗|花費|限制|上限|降低|減少|懲罰))/, 1],
+  [/(^|｜)\s*移除[：:]/, -1],                            // 整段效果被拿掉
+  // 「加倍」要看對象：正面數值加倍＝增強、成本類加倍＝削弱（2026-07-31 賽恩暴怒／維迦 Q 判例）
+  [/(冷卻|消耗|花費|耗費)[^｜]{0,12}(加倍|翻倍)/, -1],
+  [/(生命|魔攻|物攻|傷害|護盾|回復|移速|攻速|射程|層數)[^｜]{0,12}(加倍|翻倍)/, 1],
   [/不再.{0,8}(降低|減少|扣除).{0,10}傷害/, 1],          // 移除自身傷害懲罰（蓋倫 E：不再對野怪降低傷害）
   [/不再(受到|吃到|觸發).{0,10}(懲罰|減益|限制)/, 1],
 ];
@@ -4138,7 +4144,11 @@ function changeDir(lines){
   const COST=/魔力|能量/;                    // 技能資源（「魔力：65 ⇒ 75」= 消耗提高 = 削弱）
   const STAT=/基礎|成長|最大|回復|每5秒|係數|加成|比例/; // 屬性面板/傷害加成類的魔力（越高越好）不反向——雷茲的「魔力係數」是傷害係數
   let buff=0,nerf=0,onlyRecipe=true;
+  // 同一批行裡有「總價不變」→ 合成費用的變動只是子件價格調整，不是強度改動
+  //（2026-07-31 判例：狂怒九頭蛇 13.06 合成費用 200⇒600 但總價不變）
+  const _keepTotal=lines.some(l=>/總價(不變|維持|沒有變|未變)/.test(String(l)));
   for(const t of lines){
+    if(_keepTotal&&/合成費用/.test(t)&&!/總價/.test(t))continue;
     const _fx=(window.PATCH_DIR_FIX||{})[String(t).trim()]; // 逐行人工判例最優先（166 筆語義覆核）
     if(_fx===1||_fx===-1||_fx===0){ onlyRecipe=false; if(_fx>0)buff++; else if(_fx<0)nerf++; continue; }
     const ov=DIR_OVERRIDE.find(([re])=>re.test(t));
@@ -4188,7 +4198,9 @@ function changeDir(lines){
 const COSM=/原畫|造型|背景故事|中版美術|重新上色|推薦裝備|語音(更新|台詞)|(技能)?圖示更新|更新[了]?圖示|特效(已)?更新|視覺效果|粒子效果|模型更新|動畫更新|全新的?[^｜]{0,10}動畫|新增[^｜]{0,6}圖示|其圖示更新|圖示更新|說明更新|新增語音|音效|現在(能|會)?正確|嚎哭深淵|極地大亂鬥|扭曲叢林|統治戰場|Howling Abyss|Twisted Treeline|Crystal Scar|Dominion|[（(]ARAM[)）]|Level Requirements?|更名|重新命名|renamed|[Nn]ame changed|名稱[：:][^⇒\n]*⇒|(^|｜|\[)\s*(未公告|錯誤|修正了|修復|[Uu]ndocumented|[Bb]ug\s?[Ff]ix|BUG)|(提高|降低|增加|減少)從\s*\d|編按|附註[：:]|並未實裝|官方未記載|並非刻意|此問題可能是在|未列於公告|(邊緣|中心)判定距離|(重新)?編寫程式(碼)?|rescripted?|visual (upgrade|update|effects?)|splash art|voice.?over|icons? (are |have been )?updated|recommended items|lore|chroma|texture|animations? updated|now (correctly|properly)|tooltip/i;
 // 版本總覽專用的「瑣碎改動」：純顯示層、完全不影響強弱（聊天訊息顯示名、提示文字…）。
 // 只在版本分頁擋掉，英雄詳情頁仍完整列出（使用者定案 2026-07-31：艾妮維亞蛋型態的聊天名稱）
-const TRIVIAL=/聊天訊息|訊息(現在)?會顯示|顯示專屬的英雄名稱|提示文字|字型|排版調整|chat message/i;
+// 版本總覽的「瑣碎改動」：純顯示層／風味描述，不影響強弱（使用者陸續指定：
+// 聊天訊息顯示名、擊殺時會大笑這類）。英雄詳情頁仍完整列出，只有版本總覽不列。
+const TRIVIAL=/聊天訊息|訊息(現在)?會顯示|顯示專屬的英雄名稱|提示文字|字型|排版調整|chat message|會大笑|笑聲|會說出?[「"]|台詞|嘲諷動作|表情動作/i;
 const dirCls=d=>d==null?"":d>0?"buff":d<0?"nerf":"adj"; // null（僅公式/僅錯誤修正）＝不上色
 // 官方公告「英雄專屬大區塊」註記（PATCH_NOTES[pk]._spotlight，如 26.06 希瓦娜）：新英雄＝CHAMP_RELEASE 落在該版首場 ±30 天，否則大型重製
 const spotTag=(id,pk)=>{const PN=typeof PATCH_NOTES!=="undefined"?PATCH_NOTES:{};
@@ -4249,12 +4261,21 @@ const normTxt=s=>uniStat(s)
   .replace(/([一-鿿])(?=\d)/g,"$1 ")
   .replace(/([\d%])(?=[一-鿿])/g,"$1 ")
   .replace(/\s{2,}/g," ").trim();
-const renderChgLines=lines=>{
+const renderChgLines=(lines,cardName)=>{
+  // 卡片標題已經寫了道具名，行前綴再寫一次就變成「黑魔禁書黑魔禁書」（2026-07-31 使用者回報）
+  if(cardName){ const _cn=String(cardName).trim();
+    lines=lines.map(l=>{const i=String(l).indexOf("｜"); return (i>0&&String(l).slice(0,i).trim()===_cn)?String(l).slice(i+1):l;}); }
   // 回音行保險：「死亡領域（R）｜死亡領域」這種 body＝前綴技能名（wiki 擷取的名稱列殘留）→ 不列
   const _nrm=s=>String(s||"").replace(/[\s（(].*$/,"").trim();
   lines=lines.filter(l=>{const p=String(l).indexOf("｜"); if(p<0)return true;
     const a=_nrm(l.slice(0,p)), b=String(l).slice(p+1).trim();
     return !(a&&(b===a||_nrm(b)===a&&b.length<=a.length+3));});
+  // 「合成費用：200 ⇒ 600」與「總價不變。」拆成兩行看起來像兩件事 → 合併成一行
+  {const _ci=lines.findIndex(l=>/合成費用/.test(String(l))&&!/總價/.test(String(l)));
+   const _ti=lines.findIndex(l=>/^\s*總價(不變|維持|沒有變|未變)/.test(String(l).replace(/^[^｜]*｜/,"")));
+   if(_ci>=0&&_ti>=0){ lines=lines.slice();
+     lines[_ci]=String(lines[_ci]).replace(/\s*$/,"")+"（總價不變）";
+     lines.splice(_ti,1); }}
   // 新道具登場/升級而成：只留一句介紹，屬性/效果等清單行不列（有 ⇒ 的實際改動仍保留）
   const NEWIT=/全新道具登場|全新(符文|裝備|道具)加入|升級而成/;
   if(lines.some(l=>NEWIT.test(l)))
@@ -6261,9 +6282,10 @@ function renderChgYear(box){
         byCat.機制=byCat.機制.filter(hitL);
         LANE5.forEach(L=>laneMech[L]=laneMech[L].filter(hitL));
       }
-      const patchBlocks=arr=>arr.map(e=>{const pd2=changeDir(e.lines); return `<div class="chgPatch">
+      // cardName＝卡片標題：行前綴與它同名時去掉，免得變成「黑魔禁書黑魔禁書」（2026-07-31）
+      const patchBlocks=(arr,cardName)=>arr.map(e=>{const pd2=changeDir(e.lines); return `<div class="chgPatch">
           ${e.url?`<a class="pTag ${dirCls(pd2)}" href="${esc(e.url)}" target="_blank" rel="noopener">${e.patch}</a>`:`<span class="pTag ${dirCls(pd2)}">${e.patch}</span>`}
-          ${renderChgLines(e.lines)}
+          ${renderChgLines(e.lines,cardName)}
         </div>`;}).join("");
       // 雙名卡（基礎／升級）若兩件效果名一致 → 標題只顯示基礎件
       const effSet=nm=>{const k=xKey(EXTRA_INFO,nm);const i2=k&&EXTRA_INFO[k];
@@ -6288,14 +6310,14 @@ function renderChgYear(box){
         const im=xImg(zh)||xImg(raw)||(CAT_ICO2[title]?`<span class="cc" style="font-size:22px;line-height:1;margin-right:4px">${CAT_ICO2[title]}</span>`:""); // 統稱卡（無實體名的彙總行）給類別 emoji
         return `<div class="card">
         <div class="chgHead"><span class="heroname" data-tip="x" data-name="${esc(zh)}">${im}${esc(title)}</span><span class="cnt">${e.arr.length} ${T("次改動")}</span></div>
-        <div class="chgBody">${patchBlocks(arr)}</div></div>`;
+        <div class="chgBody">${patchBlocks(arr,title)}</div></div>`;
       };
       const catCardHTML=(name,arr)=>`<div class="card">
         <div class="chgHead"><span style="font-size:19px;font-weight:bold">${CAT_ICON[name]||""} ${name}</span><span class="cnt">${arr.length} 版</span></div>
         <div class="chgBody">${patchBlocks(arr)}</div></div>`;
       const objCardHTML=e=>`<div class="card">
         <div class="chgHead"><span class="heroname"><span class="cc"><img loading="lazy" src="${OBJ_BASE+e.icon}" alt="" onerror="this.remove()"></span>${esc(e.name)}</span><span class="cnt">${e.arr.length} ${T("次改動")}</span></div>
-        <div class="chgBody">${patchBlocks(e.arr)}</div></div>`;
+        <div class="chgBody">${patchBlocks(e.arr,e.name)}</div></div>`;
       const objCards=[...byObj.values()]
         .sort((a,b)=>b.arr[0].patch.localeCompare(a.arr[0].patch)||b.arr.length-a.arr.length)
         .map(objCardHTML).join("");
@@ -8186,7 +8208,7 @@ function render(){
           <table class="ov"><thead><tr>${["日期","賽事","對手","比分","勝敗"].map(h=>`<th>${mLabel(h)}</th>`).join("")}</tr></thead><tbody>${
             [...D2.recent].reverse().map(s2=>{const w2=s2.w>s2.l;
               return `<tr><td>${md(s2.from)}${s2.to!==s2.from?`–${md(s2.to)}`:""}</td>
-              <td>${lgChip(s2.league)}${s2.split?` <span class="meta">${esc(s2.split)}</span>`:""}</td>
+              <td>${lgChip(s2.league)}${s2.split?` <span class="meta">${esc(spDisp(s2.split))}</span>`:""}</td>
               <td><b>${esc(tAb(s2.opp))}</b> <span class="meta">${esc(s2.opp)}</span></td>
               <td class="num"><b>${s2.w}</b> - ${s2.l}</td>
               <td style="color:${w2?"#ff4d4d":s2.w===s2.l?"var(--tx2)":"#37c871"};font-weight:700">${s2.w===s2.l?(en2?"Tie":"和"):w2?(en2?"Win":"勝"):(en2?"Loss":"敗")}</td></tr>`;}).join("")}</tbody></table></div>

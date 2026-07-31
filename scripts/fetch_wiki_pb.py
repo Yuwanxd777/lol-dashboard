@@ -35,10 +35,7 @@ GAP = 3.0
 
 # (年, 聯賽碼, 賽段, 季後賽, PB 頁, 取日期用的主頁)
 JOBS = [
-    # 季後賽的 PB 頁常常掛在「例行賽頁面底下」的子頁（使用者提示 2026-07-31：
-    # 沒寫季後賽的賽事，資料多半藏在 {聯賽}/{年} Season/{賽段} Playoffs/Picks and Bans）
-    (2013, "LPL", "夏季", 1, "LPL/2013 Season/Summer Playoffs/Picks and Bans",
-     "LPL/2013 Season/Summer Playoffs"),
+    # LPL 2013 夏季季後賽改由 backfill_run 走 /Match History 嵌入表（有選手名單，比 PB 頁完整）
     (2013, "GPL", "春季", 0, "2013 GPL Spring/Picks and Bans", "2013 GPL Spring"),
     (2013, "GPL", "夏季", 0, "2013 GPL Summer/Picks and Bans", "2013 GPL Summer"),
     # 賽段寫「夏季」就好，PO 後綴由 fetch_data 依 playoffs 欄自己加；

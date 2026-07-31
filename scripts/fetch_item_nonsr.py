@@ -36,8 +36,8 @@ VERS = {
 }
 
 
-def get(v):
-    u = "https://ddragon.leagueoflegends.com/cdn/%s/data/zh_TW/item.json" % v
+def get(v, loc="zh_TW"):
+    u = "https://ddragon.leagueoflegends.com/cdn/%s/data/%s/item.json" % (v, loc)
     try:
         return json.loads(urllib.request.urlopen(urllib.request.Request(u, headers=UA), timeout=60).read())["data"]
     except Exception as e:
@@ -75,16 +75,23 @@ def main():
             d = get(v)
             if not d:
                 continue
+            # 也收英文名：版本改動頁常常直接寫英文道具名（Moonflair Spellblade），
+            # 只有中文名的話對不上、擋不掉（2026-07-31 使用者回報）
+            den = get(v, "en_US")
             nb = 0
             for iid, it in d.items():
                 nm = clname(it.get("name"))
+                en = clname((den.get(iid) or {}).get("name")) if den else ""
                 if not nm:
                     continue
+                _keys = [nm] + ([en] if en and en != nm else [])
                 if non_sr(it, iid):
-                    bad[nm] = bad.get(nm, 0) + 1
+                    for _k in _keys:
+                        bad[_k] = bad.get(_k, 0) + 1
                     nb += 1
                 else:
-                    ok[nm] = ok.get(nm, 0) + 1
+                    for _k in _keys:
+                        ok[_k] = ok.get(_k, 0) + 1
             print("   %s：%d 件，非峽谷 %d 件" % (v, len(d), nb))
         y = {nm: 1 for nm, n in bad.items() if n > ok.get(nm, 0)}
         if y:

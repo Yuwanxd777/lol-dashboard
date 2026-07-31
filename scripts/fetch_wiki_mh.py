@@ -76,6 +76,46 @@ def fetch(tour, force=False):
     return ""
 
 
+def cells_html(row):
+    """把每格轉成文字，但**隊伍欄用 title 屬性補**。
+
+    賽事頁的 `/Match History` 子頁（嵌入版）隊名是圖片，純文字化後只剩零寬字元 →
+    Blue/Red/Winner 三欄會變空（2026-07-31 使用者提供 LPL 2013 夏季季後賽的正確來源）。
+    """
+    out = []
+    for c in re.findall(r"<t[hd][^>]*>(.*?)</t[hd]>", row, re.S):
+        txt = html.unescape(re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", c))).strip()
+        txt = txt.replace("⁠", "").strip()
+        if not txt:
+            m = re.search(r'<a[^>]+title="([^"]+)"', c)
+            if m:
+                txt = html.unescape(m.group(1)).strip()
+        out.append(txt)
+    return out
+
+
+def fetch_embed(page, force=False):
+    """賽事頁的 `/Match History` 子頁（action=parse），回傳 HTML"""
+    os.makedirs(HTML_DIR, exist_ok=True)
+    fp = os.path.join(HTML_DIR, "embed_" + re.sub(r"[^A-Za-z0-9]+", "_", page)[:110] + ".html")
+    if os.path.exists(fp) and os.path.getsize(fp) > 3000 and not force:
+        return open(fp, encoding="utf-8").read()
+    u = "https://lol.fandom.com/api.php?" + urllib.parse.urlencode(
+        {"action": "parse", "page": page, "prop": "text", "format": "json"})
+    for a in range(3):
+        try:
+            r = json.loads(opener().open(urllib.request.Request(u, headers=UA), timeout=120).read())
+            if "error" in r:
+                print(f"    {page}：{r['error'].get('info','')[:70]}"); return ""
+            b = r["parse"]["text"]["*"]
+            open(fp, "w", encoding="utf-8").write(b)
+            time.sleep(GAP)
+            return b
+        except Exception as e:
+            print(f"    嵌入頁失敗（{a+1}/3）{type(e).__name__}"); time.sleep(10 * (a + 1))
+    return ""
+
+
 def cells(row):
     return [html.unescape(re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", c))).strip()
             for c in re.findall(r"<t[hd][^>]*>(.*?)</t[hd]>", row, re.S)]
@@ -91,7 +131,7 @@ def parse(hml):
     hdr = None
     out = []
     for r in rows:
-        c = cells(r)
+        c = cells_html(r)
         if not c or all(not x for x in c):
             continue
         if hdr is None:
@@ -249,7 +289,9 @@ def to_csv(games, cfg):
 
 
 def build(cfg, force=False):
-    hml = fetch(cfg["tour"], force=force)
+    # cfg["embed"]＝賽事頁的 `/Match History` 子頁；有些賽事在 MHG[tournament] 查不到
+    # （LPL 2013 夏季季後賽），但賽事頁自己嵌了同一張表（2026-07-31 使用者提供）
+    hml = fetch_embed(cfg["embed"], force=force) if cfg.get("embed") else fetch(cfg["tour"], force=force)
     if not hml:
         return None
     hdr0, games = parse(hml)
