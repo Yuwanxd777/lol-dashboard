@@ -32,7 +32,9 @@ FORCE = "--force" in sys.argv
 NOHASH = "--nohash" in sys.argv          # 只建名稱/年份索引，不下載圖片算雜湊（快，但沒有「歷代頭像」分段）
 
 # 各年最後一版（與 index.html 的 HIST_VER 一致；當年用最新版）
-HIST_VER = {2014: "4.21.5", 2015: "5.24.2", 2016: "6.24.1", 2017: "7.24.2", 2018: "8.24.1",
+# 2013＝3.15.5（S3 最後一版，資產完整）。只有「實際發佈過的三段號」拿得到，
+# lolpatch_3.15／3.15.3／4.1.1 這類寫法一律 403。與 index.html 的 HIST_VER 一致（2026-07-31）
+HIST_VER = {2013: "3.15.5", 2014: "4.21.5", 2015: "5.24.2", 2016: "6.24.1", 2017: "7.24.2", 2018: "8.24.1",
             2019: "9.24.2", 2020: "10.25.1", 2021: "11.24.1", 2022: "12.23.1", 2023: "13.24.1",
             2024: "14.24.1", 2025: "15.24.1"}
 
@@ -92,7 +94,7 @@ def year_versions():
     out = {}
     for major, vs in by_season.items():
         y = season_year(major)
-        if y < 2014:
+        if y < 2013:
             continue
         vs = sorted(set(vs), key=lambda s: [int(x) for x in s.split(".")])
         pick = [vs[0], vs[len(vs)//3], vs[2*len(vs)//3], vs[-1]] if len(vs) >= 4 else vs

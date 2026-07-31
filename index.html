@@ -1798,10 +1798,10 @@ function fillTableWidth(root){
 const setHdrH=()=>{const h=document.querySelector("header");document.documentElement.style.setProperty("--hdrH",(h?h.offsetHeight:0)+"px");};
 addEventListener("resize",setHdrH); addEventListener("load",setHdrH); setHdrH();
 // ── 年份感知詳細說明：當年＝最新版數值；歷史年＝該年最後版本的 DDragon 數值 ──
-// 2013＝DDragon 最早還拿得到的版本（實測 4.2.6 以前——含 lolpatch_3.15、4.1.1——CDN 全部 403，
-// 2013 的資產已下架）。4.2.6 是 2014 年 2 月，英雄／道具／天賦符文與 2013 年末幾乎相同，
-// 拿它當 2013 的代理版本，比整年退回現行版（2026 的英雄與道具）正確太多。
-const HIST_VER={2013:"4.2.6",2014:"4.21.5",2015:"5.24.2",2016:"6.24.1",2017:"7.24.2",2018:"8.24.1",2019:"9.24.2",
+// 2013＝3.15.5，就是 S3 的最後一版（英雄 117 隻含 Yasuo、道具／舊天賦／舊符文全都拿得到）。
+// 注意版本字串的寫法：lolpatch_3.15、3.15.3、4.1.1 這些都 403，只有 3.15.5／3.13.8／3.10.3 這種
+// 「實際發佈過的三段號」才有資產（2026-07-31 實測）。
+const HIST_VER={2013:"3.15.5",2014:"4.21.5",2015:"5.24.2",2016:"6.24.1",2017:"7.24.2",2018:"8.24.1",2019:"9.24.2",
   2020:"10.25.1",2021:"11.24.1",2022:"12.23.1",2023:"13.24.1",2024:"14.24.1",2025:"15.24.1"};
 const NOWY=new Date().getFullYear();
 // 「是不是歷史年」只看年份，不要看 HIST_VER 有沒有登記：2013 的 DDragon 資產（lolpatch_3.15）
@@ -2165,7 +2165,8 @@ const STATIC_TABBR={
 // 2013-2015 補充賽事（events_extra.js）的小隊：Leaguepedia 連隊伍頁都沒建、查不到官方縮寫
 // → 取通稱或字首縮寫，只為了賽事卡不要塞滿長全名（滑到隊伍籤仍看得到完整隊名，也可雙擊自行改）
 "cga legends":"CGA","yoe ironmen":"YOE","team ozone xenon":"TOX","team rush":"TR",
-"gia (taiwanese team)":"GIA","就說姊姊好可愛":"SIS",
+"gia (taiwanese team)":"GIA","gia":"GIA","hsd":"HSD","ticogamers":"TICO",
+"might makes right":"MMR","supermassive tng":"SUPT","就說姊姊好可愛":"SIS",
 "plan b":"PB","soul master":"SM","atar gaming":"ATR","metu esports":"METU","charta nix":"CNIX",
 "shop4gamers":"S4G","hard winter":"HW","metu aa":"MAA","stallions":"STL","ant gamermarket":"ANT",
 "highest esports club":"HEC","centus gaming":"CTS","team turquality red":"TQR","team turquality":"TQ",

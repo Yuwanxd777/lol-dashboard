@@ -39,17 +39,21 @@ JOBS = [
     (2013, "GPL", "夏季", 0, "2013 GPL Summer/Picks and Bans", "2013 GPL Summer"),
     # 賽段寫「夏季」就好，PO 後綴由 fetch_data 依 playoffs 欄自己加；
     # 自己先寫 "夏季 PO" 會變成「夏季 PO PO」，前端只去掉一個 PO → 賽事卡多長出一列（2026-07-31）
-    (2013, "GPL", "夏季", 1, "2013 GPL Championship/Picks and Bans", "2013 GPL Championship"),
-    (2013, "GPL", "世界賽資格賽", 0, "Season 3 Taiwan Regional Finals/Picks and Bans",
+    # 賽事名叫 Championship／Regional Finals 的，賽段一律標「錦標賽」（使用者定案 2026-07-31）
+    (2013, "GPL", "錦標賽", 0, "2013 GPL Championship/Picks and Bans", "2013 GPL Championship"),
+    (2013, "GPL", "錦標賽", 0, "Season 3 Taiwan Regional Finals/Picks and Bans",
      "Season 3 Taiwan Regional Finals"),
-    (2013, "CBLOL", "", 0, "Riot Season 3 Brazilian Championship/Picks and Bans",
+    (2013, "CBLOL", "錦標賽", 0, "Riot Season 3 Brazilian Championship/Picks and Bans",
      "Riot Season 3 Brazilian Championship"),
-    (2013, "LLA", "", 0, "Season 3 Latin America Regional Finals/Picks and Bans",
+    (2013, "LLA", "錦標賽", 0, "Season 3 Latin America Regional Finals/Picks and Bans",
      "Season 3 Latin America Regional Finals"),
-    (2013, "LCO", "", 0, "Riot Season 3 Oceanic Championship/Picks and Bans",
+    (2013, "LCO", "錦標賽", 0, "Riot Season 3 Oceanic Championship/Picks and Bans",
      "Riot Season 3 Oceanic Championship"),
-    (2013, "LCL", "", 0, "2013 Season CIS Championship/Picks and Bans", "2013 Season CIS Championship"),
-    # 土耳其（Riot Games Turkey/2013 Season/…）沒有 Picks and Bans 子頁 → 只能留在 events_extra 的補充賽事
+    (2013, "LCL", "錦標賽", 0, "2013 Season CIS Championship/Picks and Bans", "2013 Season CIS Championship"),
+    # 土耳其：冬／春／夏三個 Tournament 沒有 PB 子頁，但年度總決賽 Championship 有（21 局）。
+    # 使用者提供 2026-07-31：Gamescom 外卡賽的土耳其席次就是「Season 3 Turkish Championship winner」
+    (2013, "TCL", "錦標賽", 0, "Riot Games Turkey/2013 Season/Championship/Picks and Bans",
+     "Riot Games Turkey/2013 Season/Championship"),
 ]
 
 
@@ -96,7 +100,11 @@ def pb_games(html):
             bp[s][k].append(_html.unescape(c.group(1)).strip() if c else "")
         if len(teams) < 2 or not bp["blue"]["pick"]:
             continue
-        out.append({"blue": _html.unescape(teams[0]).strip(), "red": _html.unescape(teams[1]).strip(),
+        # wiki 沒建隊伍頁的小隊，title 會是「FIGJAM (page does not exist)」→ 後綴一定要剝掉，
+        # 不然那個字串會變成資料庫裡的隊名，縮寫表永遠查不到、篩選列只好顯示全名
+        #（2026-07-31 使用者回報：手動改的縮寫沒套用、還是出現全名）
+        _tn = lambda s: re.sub(r"\s*\(page does not exist\)\s*$", "", _html.unescape(s)).strip()
+        out.append({"blue": _tn(teams[0]), "red": _tn(teams[1]),
                     "game": int(mg.group(1)) if mg else 1, "win": int(w.group(1)) if w else 0, "bp": bp})
     return out
 

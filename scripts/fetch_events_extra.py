@@ -34,7 +34,7 @@ EVENTS = {
         # 打完才定出世界賽代表隊 → 當成 GPL 的一個賽段（使用者指定 2026-07-31）
         "GPL":   {"splits": [{"sp": "春季", "page": "2013 GPL Spring"},
                              {"sp": "夏季", "page": "2013 GPL Summer", "po_page": "2013 GPL Championship"},
-                             {"sp": "世界賽資格賽", "page": "Season 3 Taiwan Regional Finals"}]},
+                             {"sp": "錦標賽", "page": "Season 3 Taiwan Regional Finals"}]},
         "TCL":   {"splits": [{"sp": "冬季", "page": "Riot Games Turkey/2013 Season/Winter Tournament"},
                              {"sp": "春季", "page": "Riot Games Turkey/2013 Season/Spring Tournament"},
                              {"sp": "夏季", "page": "Riot Games Turkey/2013 Season/Summer Tournament"}]},
