@@ -37,4 +37,8 @@ window.SKILL_ALIAS = {
   Swain: { "惡魔閃焰": ["R"] },
   AurelionSol: { "天穹墜落": ["R"] },
   Aphelios: { "熾焰": ["Q"] },
+  // 特朗德 3.6 重做：wiki 混用英文原名與舊譯名（2026-08-01 使用者點名）
+  Trundle: { "Rabid Bite": ["Q", "狂野撕咬"], "Contaminate": ["W", "極凍領地"],
+             "Pillar of Filth": ["E", "狡詰冰柱"], "汙穢之柱": ["E", "狡詰冰柱"],
+             "劇痛": ["R", "盛怒霸體"] },
 };

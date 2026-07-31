@@ -4149,6 +4149,11 @@ const DIR_OVERRIDE=[
   //（2026-07-31 判例：塞拉斯 13.12 影襲「傷害減免：所有物傷 ⇒ 普攻」＝適用面縮小＝削弱）
   // 「◯◯，而非立即△△」要看哪一邊是好事：原本立即消失改成慢慢衰減＝增強；
   // 原本立即生效改成要等飛行／延遲＝削弱（2026-07-31 判例：巨魔 W 增強、克格莫 Q／飛斯 R 削弱）
+  // ⚠ 判向吃的是 renderChgLines **改寫後**的文字（見 chgLi 的 dirCls(changeDir([l]))），
+  //   「改為X，而非Y」在顯示層已被改寫成「Y ⇒ X」→ 這裡要有對應 ⇒ 寫法的規則
+  //   （2026-08-01 使用者：蓋倫 W 改寫後沒判成削弱）
+  [/總(物防|魔防|防禦|物攻|魔攻|生命|攻速)[^｜]{0,24}⇒[^｜]{0,24}額外/, -1],
+  [/額外(物防|魔防|防禦|物攻|魔攻|生命|攻速)[^｜]{0,24}⇒[^｜]{0,24}總/, 1],
   // 從「總防禦／總物攻」改成「額外防禦／額外物攻」＝加成基數變小＝削弱（反向則增強）
   [/額外(物防|魔防|防禦|物攻|魔攻|生命|攻速)[^｜]{0,30}而非[^｜]{0,20}總/, -1],
   [/總(物防|魔防|防禦|物攻|魔攻|生命|攻速)[^｜]{0,30}而非[^｜]{0,20}額外/, 1],
@@ -4258,6 +4263,19 @@ const recipeDir=t=>{
   if(b.leaves!==a.leaves)return b.leaves>a.leaves?1:-1;         // 同價：小件數多＝平滑＝增強
   if(b.fee!==a.fee)return b.fee<a.fee?1:-1;                     // 件數同：最後比合成費，升＝削弱（2026-07-16 判例：300⇒350=Nerf）
   return 0; };
+// 人工判例查表：顯示層會改標點、補括號說明（「（等級 18 時傷害相同）」），
+// 硬比全文一定對不上 → 去掉空白後比，再退一步用「原句是不是這一行的開頭」比
+let _pdfN=null;
+function _pdfOf(t){
+  const D=window.PATCH_DIR_FIX||{}, s=String(t).trim();
+  if(s in D)return D[s];
+  const _nk=x=>String(x).replace(/\s/g,"").replace(/＋/g,"+").replace(/／/g,"/");
+  if(!_pdfN){ _pdfN={}; for(const k in D)_pdfN[_nk(k)]=D[k]; }
+  const n=_nk(s);
+  if(n in _pdfN)return _pdfN[n];
+  for(const k in _pdfN)if(k.length>=12&&n.startsWith(k))return _pdfN[k];
+  return undefined;
+}
 function changeDir(lines){
   // 「錯誤修正與體驗改善(Bugfixes & QoL)」類的行沒有數值變動、無法判斷增強削弱——先濾掉。
   // 若一個英雄/道具在此版本「只有」這種改動 → 回 null（版本焦點與 Tier 邊框都不列入、不標黃色的調整）。
@@ -4274,7 +4292,7 @@ function changeDir(lines){
   const _keepTotal=lines.some(l=>/總價(不變|維持|沒有變|未變)|合成費用不變|合成費用維持/.test(String(l)));
   for(const t of lines){
     if(_keepTotal&&/(合成費用|總價)/.test(t))continue;
-    const _fx=(window.PATCH_DIR_FIX||{})[String(t).trim()]; // 逐行人工判例最優先（166 筆語義覆核）
+    const _fx=_pdfOf(t); // 逐行人工判例最優先
     if(_fx===1||_fx===-1||_fx===0){ onlyRecipe=false; if(_fx>0)buff++; else if(_fx<0)nerf++; continue; }
     // 第三欄 1＝只在整行沒有 ⇒ 時套用：有 ⇒ 的行「傷害提升：35% ⇒ 30%」方向要看數值，
     // 句子裡的「提升」只是量詞名稱（2026-07-31 回歸檢查判例）
