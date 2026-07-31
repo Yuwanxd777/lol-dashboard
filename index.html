@@ -820,6 +820,7 @@
 window.WIKI_PATCHES=window.WIKI_PATCHES||{}; window.WIKI_EXTRA=window.WIKI_EXTRA||{}; window.WIKI_OBJECTIVES=window.WIKI_OBJECTIVES||{};</script>
 <script src="skills.js" onerror="window.CHAMP_SKILLS=null"></script>
 <script src="skill_keys.js" onerror="window.SKILL_KEYS={}"></script>
+<script src="skill_alias.js" onerror="window.SKILL_ALIAS={}"></script>
 <script src="assets.js" onerror="window.LOL_ASSETS=null"></script>
 <script src="items.js" onerror="window.ITEM_DESC=null"></script>
 <script src="item_nostore.js" onerror="window.ITEM_NOSTORE=null"></script>
@@ -3983,18 +3984,30 @@ function scoreKFor(games){ let bi=6; for(let i=0;i<K_BANDS.length;i++){if(games>
 function scoreHeroRows(rows,W,gameN,refRows){ // 同路內：各項取百分位×權重→遞減曲線→BP%修正
   const useRef=refRows&&refRows!==rows&&refRows.length>1; // refRows：排名參考母體（篩選選手時＝該範圍全部同路英雄）
   const gv=(r,k)=>{let v=r[k]; return v==null?(k==="後選率"?0.5:0):v;};
-  let WSUM=0; HERO_METRICS.forEach(([k])=>WSUM+=(W[k]||0)); if(!WSUM)WSUM=1;
+  // 這個資料範圍「整欄都沒有資料」的項目要退出評分（2026-07-31 使用者回報：2013/2014 Tier 壞掉）。
+  // 2013/2014 的 wiki 來源沒有分均輸出／視野分數／金差／參與率／贏線率…，這些項每隻英雄都拿 0 分，
+  // 但權重照樣算進分母 → 整年最高分只到 70 幾，沒有英雄搆得到 S(90)／A(80)，全部擠在 B 以下。
+  // 只留「至少有一隻英雄有值」的項目參與加權，缺資料的年份就用它真正有的欄位互比。
+  const _live={}; HERO_METRICS.forEach(([k])=>{ if(W[k])_live[k]=rows.some(r=>r[k]!=null); });
+  let WSUM=0; HERO_METRICS.forEach(([k])=>{ if(W[k]&&_live[k])WSUM+=W[k]; }); if(!WSUM)WSUM=1;
   const R={};
-  HERO_METRICS.forEach(([k,asc])=>{ if(!W[k])return;
-    if(useRef){ const T=refRows.length, ref=refRows.map(r=>gv(r,k));
-      R[k]=rows.map(r=>{const v=gv(r,k), rank=1+ref.filter(x=>asc?x<v:x>v).length;
-        return Math.max(0,Math.min(1,(T-rank)/(T-1)));}); // 該值落在參考母體的百分位
-    }else R[k]=rankT(rows.map(r=>gv(r,k)),!!asc); });
+  // 單一欄位缺值（該英雄那年沒有這項資料）不能當成 0＝同路最差：2013/2014 有 289 局是
+  //「只有 BP、沒有選手明細」的來源，那些英雄會被整排 0 打到墊底。缺值一律給中性 0.5。
+  HERO_METRICS.forEach(([k,asc])=>{ if(!W[k]||!_live[k])return;
+    if(useRef){ const T=refRows.length, ref=refRows.map(r=>r[k]).filter(v=>v!=null), T2=ref.length||1;
+      R[k]=rows.map(r=>{const v=r[k]; if(v==null)return 0.5;
+        const rank=1+ref.filter(x=>asc?x<v:x>v).length;
+        return T2<=1?0.5:Math.max(0,Math.min(1,(T2-rank)/(T2-1)));}); // 該值落在參考母體的百分位
+    }else{
+      const idx=[],sub=[]; rows.forEach((r,i)=>{ if(r[k]!=null){idx.push(i);sub.push(r[k]);} });
+      const pr=rankT(sub,!!asc), out=new Array(rows.length).fill(0.5);
+      idx.forEach((i,j)=>out[i]=pr[j]); R[k]=out;
+    } });
   const refBP=useRef?new Map(refRows.map(r=>[r._key||r._full,r["BP%"]||0])):null; // 選手/戰隊篩選：BP%修正改用該英雄在母體的熱度（配對用 _key 避免同ADC碰撞）
   // 小樣本豁免：資料範圍總場數 gameN 越小，越少扣分。<30 豁免3場、<20 豁免2場、<10 豁免1場（即完全不扣，含 BP%）
   const bpOn=gameN>=10;                                // <10 場超小樣本(整體資料)：BP% 不扣
   // 加權百分位 → 凸曲線映射；上限依場數動態：場數少→上限接近100(唯有各項近乎同路第一才逼近)、場數多→95
-  const raw=rows.map((r,i)=>{let ws=0;HERO_METRICS.forEach(([k])=>{if(W[k])ws+=R[k][i]*W[k];});return ws/WSUM;});
+  const raw=rows.map((r,i)=>{let ws=0;HERO_METRICS.forEach(([k])=>{if(W[k]&&_live[k])ws+=R[k][i]*W[k];});return ws/WSUM;});
   rows.forEach((r,i)=>{
     const exp=(V.scoreExp!=null?V.scoreExp:1), base0=(V.scoreBase0!=null?V.scoreBase0:20);
     const lin=base0+90*Math.pow(raw[i],exp); // 基礎 + 90×加權值^指數（指數=1→線性、<1→凹/S曲線）
@@ -4098,6 +4111,9 @@ const DIR_OVERRIDE=[
   // ── 通用語意規則（2026-07-31 使用者判例，都是「文字敘述、沒有數值可比」的類型）──
   // 生效範圍的文字對照（兩側都沒數字才套，免得跟數值比較打架）
   //（2026-07-31 判例：塞拉斯 13.12 影襲「傷害減免：所有物傷 ⇒ 普攻」＝適用面縮小＝削弱）
+  [/(改為|變為|變成|現在(是|為))[^｜]{0,10}唯一/, -1],   // 改成唯一＝多件不疊加
+  [/(全圖|全域|全地圖|全場)[^｜⇒]{0,6}⇒\s*[^｜]{0,10}\d/, -1],   // 全圖 ⇒ 800＝範圍縮小
+  [/⇒\s*[^｜]{0,10}(全圖|全域|全地圖|全場)/, 1],
   [/(所有|全部|任何)[^｜⇒\d]{0,12}⇒\s*[^｜\d]{1,14}$/, -1],
   [/⇒\s*[^｜\d]{0,12}(所有|全部|任何)[^｜\d]{0,12}$/, 1],
   [/⇒\s*僅限/, -1],                                    // 生效對象縮小（李星 W：所有友方單位 ⇒ 僅限英雄）
@@ -4246,7 +4262,7 @@ function changeDir(lines){
   return buff>nerf?1:nerf>buff?-1:0; // 1增強 / -1削弱 / 0混合或無法判定
 }
 // ── 版本改動渲染器（全域共用：版本改動分頁＋圖鑑歷年改動）──────────────────
-const COSM=/原畫|造型|背景故事|中版美術|重新上色|推薦裝備|語音(更新|台詞)|(技能)?圖示更新|更新[了]?圖示|特效(已)?更新|視覺效果|粒子效果|模型更新|動畫更新|全新的?[^｜]{0,10}動畫|新增[^｜]{0,4}動畫|新增[^｜]{0,6}圖示|其圖示更新|圖示更新|說明更新|新增語音|語音包|播報員|音效|符文頁|介面(更新|調整)|按鍵綁定|計分板顯示|(新增|顯示)?[^｜]{0,6}指示器|進度特效|輪替遊戲模式|活動|極速無敵亂鬥|無限火力|URF|鬥魂競技場|[Aa]rena|現在(能|會)?正確|嚎哭深淵|極地大亂鬥|扭曲叢林|統治戰場|Howling Abyss|Twisted Treeline|Crystal Scar|Dominion|[（(]ARAM[)）]|Level Requirements?|更名|重新命名|renamed|[Nn]ame changed|名稱[：:][^⇒\n]*⇒|(^|｜|\[)\s*(未公告|錯誤|修正了|修復|[Uu]ndocumented|[Bb]ug\s?[Ff]ix|BUG)|(提高|降低|增加|減少)從\s*\d|編按|附註[：:]|並未實裝|官方未記載|並非刻意|此問題可能是在|未列於公告|(邊緣|中心)判定距離|(重新)?編寫程式(碼)?|rescripted?|visual (upgrade|update|effects?)|splash art|voice.?over|icons? (are |have been )?updated|recommended items|lore|chroma|texture|animations? updated|now (correctly|properly)|tooltip/i;
+const COSM=/原畫|造型|背景故事|中版美術|重新上色|推薦裝備|語音(更新|台詞)|(技能)?圖示更新|更新[了]?圖示|特效[^｜]{0,6}(更新|升級|改良|重製)|視覺效果|粒子效果|模型更新|動畫更新|全新的?[^｜]{0,10}動畫|新增[^｜]{0,4}動畫|新增[^｜]{0,6}圖示|其圖示更新|圖示更新|說明更新|新增語音|語音包|播報員|音效|符文頁|介面(更新|調整)|按鍵綁定|計分板顯示|(新增|顯示)?[^｜]{0,6}指示器|進度特效|輪替遊戲模式|活動|極速無敵亂鬥|無限火力|URF|鬥魂競技場|[Aa]rena|現在(能|會)?正確|嚎哭深淵|極地大亂鬥|扭曲叢林|統治戰場|Howling Abyss|Twisted Treeline|Crystal Scar|Dominion|[（(]ARAM[)）]|Level Requirements?|更名|重新命名|renamed|[Nn]ame changed|名稱[：:][^⇒\n]*⇒|(^|｜|\[)\s*(未公告|錯誤|修正了|修復|[Uu]ndocumented|[Bb]ug\s?[Ff]ix|BUG)|(提高|降低|增加|減少)從\s*\d|編按|附註[：:]|並未實裝|官方未記載|並非刻意|此問題可能是在|未列於公告|(邊緣|中心)判定距離|(重新)?編寫程式(碼)?|rescripted?|visual (upgrade|update|effects?)|splash art|voice.?over|icons? (are |have been )?updated|recommended items|lore|chroma|texture|animations? updated|now (correctly|properly)|tooltip/i;
 // 版本總覽專用的「瑣碎改動」：純顯示層、完全不影響強弱（聊天訊息顯示名、提示文字…）。
 // 只在版本分頁擋掉，英雄詳情頁仍完整列出（使用者定案 2026-07-31：艾妮維亞蛋型態的聊天名稱）
 // 版本總覽的「瑣碎改動」：純顯示層／風味描述，不影響強弱（使用者陸續指定：
@@ -4319,6 +4335,11 @@ const renderChgLines=(lines,cardName)=>{
   lines=lines.map(l=>String(l)
     .replace(/(已)?移除[：:]\s*從遊戲\s*[。.]?/g,"已從遊戲中移除。")          // Removed: from game
     .replace(/移除從遊戲\s*[。.]?/g,"已從遊戲中移除。")
+    // Vilemaw（蜘蛛之神）是扭曲叢林的野怪，召喚峽谷沒有這隻 → 整串改寫成「大型野怪」
+    //（2026-07-31 使用者判例：「不再降低巴龍、巨龍或 Vilemaw 的魔防」）
+    .replace(/巴龍[、,／\/]\s*(巨龍|飛龍|小龍)\s*[或和與、]?\s*Vilemaw/gi,"大型野怪")
+    .replace(/Vilemaw\s*[或和與、]?\s*/gi,"大型野怪")
+    .replace(/射程[：:]\s*(全圖|全域|全地圖)/g,"生效範圍：$1")
     // 「◯◯降低 A 從 B」＝ reduced to A from B → 轉成全站統一的「◯◯：B ⇒ A」
     .replace(/([^：:｜。]{1,12}?)\s*(降低|減少|提高|增加|提升)\s*([\d.]+)\s*從\s*([\d.]+)\s*[。.]?/g,"$1：$4 ⇒ $3")
     .replace(/\s+/g," ").trim());
@@ -4427,13 +4448,31 @@ const SKMAP=(()=>{
 // 技能名小寫索引 + 英文名→中文名：wiki 早年的改動文字有些技能名直接寫英文原名，
 // 而且大小寫跟官方不一致（wiki「On the Hunt」vs DDragon「On The Hunt」）
 //（2026-07-31 使用者回報：2013 希維爾 On the Hunt 既沒翻中文也沒標 R）
+// ⚠ 兩個坑（2026-07-31 掃描 wiki 全量技能名前綴才發現，原本 1385 種對不到按鍵）：
+//  ① DDragon 有些技能名帶尾端空白（貝爾薇斯「虛空強襲 」）→ 一律 trim
+//  ② 變身英雄的技能名是複合的（傑西「浩瀚無垠／電磁脈衝」、史加納「翻天覆地/尖岩飛彈」），
+//     wiki 只寫其中一半 → 用 ／ / | 拆開，每一段都建索引
+const _skSplit=nm=>{ const a=[String(nm).trim()];
+  String(nm).split(/[／\/|｜]/).forEach(x=>{ x=x.trim(); if(x&&!a.includes(x))a.push(x); });
+  return a; };
 const SKLC=(()=>{ const m={};
   for(const[id,o]of Object.entries(SKMAP)){ const t=m[id]={};
-    for(const[nm,k]of Object.entries(o))t[nm.toLowerCase()]=k; }
+    for(const[nm,k]of Object.entries(o))_skSplit(nm).forEach(x=>{ if(!t[x.toLowerCase()])t[x.toLowerCase()]=k; }); }
+  // 人工別名（skill_alias.js）：DDragon 沒有、只在 wiki 改動文字裡出現的舊譯名／變身子技能名
+  for(const[id,o]of Object.entries(window.SKILL_ALIAS||{})){ const t=m[id]=m[id]||{};
+    for(const[nm,v]of Object.entries(o)){ const k=Array.isArray(v)?v[0]:v; if(k)t[String(nm).trim().toLowerCase()]=k; } }
+  return m; })();
+// 別名→現行名（有指定第二欄才換；換掉後同一顆技能的改動才會併成一塊）
+const SKREN=(()=>{ const m={};
+  for(const[id,o]of Object.entries(window.SKILL_ALIAS||{})){ const t=m[id]={};
+    for(const[nm,v]of Object.entries(o))if(Array.isArray(v)&&v[1])t[String(nm).trim().toLowerCase()]=v[1]; }
   return m; })();
 const SKZH=(()=>{ const m={}, Z=window.SKILL_ZH||{};
   for(const[id,o]of Object.entries(Z)){ const t=m[id]={};
-    for(const[en,zh]of Object.entries(o))t[en.toLowerCase()]=zh; }
+    for(const[en,zh]of Object.entries(o)){ const zt=String(zh).trim();
+      _skSplit(en).forEach((x,i)=>{ const k=x.toLowerCase(); if(t[k])return;
+        // 複合名分段對分段：「To the Skies! / Shock Blast」→「浩瀚無垠／電磁脈衝」逐段配對
+        const zp=_skSplit(zh); t[k]=(i>0&&zp[i])?zp[i]:zt; }); } }
   return m; })();
 // 22.17 起官方繁中公告齊全 → wiki 補充只收繁中行（英文行必為重複或雜訊）
 // 改版文本：資料同時含中文與英文行（"技能名｜改動文字"）。中文模式留中文改動行；英文模式留英文改動行（技能名前綴仍中文，改動內容為官方英文）
@@ -4452,6 +4491,7 @@ const addKey=(id,l)=>{
   // 純英文技能名先換成中文（中文模式才換；英文模式維持原文）
   const _lc=sk.toLowerCase();
   if(LANG!=="en"&&!/[一-鿿]/.test(sk)){ const zh=(SKZH[id]||{})[_lc]; if(zh)sk=zh; }
+  if(LANG!=="en"){ const rn=(SKREN[id]||{})[sk.toLowerCase()]; if(rn)sk=rn; }  // 舊譯名換現行名
   const k=(SKMAP[id]||{})[sk]||(SKLC[id]||{})[sk.toLowerCase()]||(SKLC[id]||{})[_lc];
   return k?`${sk}（${k}）｜${l.slice(i+1)}`:(sk!==l.slice(0,i).trim()?`${sk}｜${l.slice(i+1)}`:l);
 };
