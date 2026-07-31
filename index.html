@@ -8613,7 +8613,10 @@ function render(){
       const base=teamRoster(team), out={};
       POSN.forEach(pos=>{ const g=base&&base[pos];
         if(!g){ out[pos]=null; return; }
-        out[pos]={def:g.def, players:g.players.map(x=>{ const a=CA.p[x.p]||{n:0,w:0,c:{},l:""};
+        // 同 ID 不同人（例：LPL 的 Uzi 簡自豪 vs 越南的 Uzi Lê Thanh Hà）：先用
+        // 「隊伍|名字」查 career.js 的 d 表對到正確人格，查不到就沿用原名＝主人格。
+        // d 表由 scripts/player_disambig.json 經 build_career.py 產生。
+        out[pos]={def:g.def, players:g.players.map(x=>{ const a=CA.p[(CA.d&&CA.d[team+"|"+x.p])||x.p]||{n:0,w:0,c:{},l:""};
           const pool=Object.keys(a.c||{}).map(ch=>({ch,n:a.c[ch][0],w:a.c[ch][1],ob:a.c[ch][2],
               banRate:a.n?a.c[ch][2]/a.n:0,last:a.c[ch][3]||null})).filter(c=>c.n>0).sort((u,v)=>v.n-u.n);
           return {p:x.p,total:a.n,winrate:a.n?a.w/a.n:0,recent:a.l||x.recent,pool,
