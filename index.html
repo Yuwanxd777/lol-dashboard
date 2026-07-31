@@ -5824,6 +5824,8 @@ function sqHeroDetail(cid){
     }
     const RACC={版本:g=>g.t,使用選手:g=>g.pkey,位置:g=>g.pos,勝敗:g=>g.won?1:0,
       "K/D/A":g=>(g.k+g.a)/Math.max(1,g.de),參與率:g=>g.kp,
+      // ⚠ dpm 評分一律「顯示四捨五入、排序吃原始小數」（2026-08-01 使用者定案）：
+      //   這裡的 g.sc 是未經處理的原始值，顯示端才 Math.round，兩個都是 81 的列仍會依 81.07/80.6 正確排序。
       "金差@15":g=>g.gd15,"經差@15":g=>g.xd15,符文:g=>g.r,對位英雄:g=>cAb(g.och)||g.och,評分:g=>g.sc};
     // 預設＝版本降冪（與職業版一致）。版本排序鍵取時間戳：時間戳的順序本來就等同
     // 「先版本、同版再依日期」，不必再補第二鍵（2026-07-31 使用者指定）。
@@ -5850,7 +5852,7 @@ function sqHeroDetail(cid){
         ${cell(g.gd15)}${cell(g.xd15)}
         <td>${runeKS(g,26)}</td>
         <td class="mvOpp" data-och="${esc(g.och)}"><span class="heroname">${g.och?cImg(g.och):""}${g.och?(cAb(g.och)||esc(chName(champId(g.och))||g.och)):"—"}</span></td>
-        <td>${g.sc==null?"—":`<b style="color:${scCol(g.sc)}">${d1s(g.sc)}</b>`}</td></tr>`).join("")
+        <td>${g.sc==null?"—":`<b style="color:${scCol(g.sc)}" title="${g.sc}">${Math.round(g.sc)}</b>`}</td></tr>`).join("")
     }</tbody></table></div>`;
   }
   // 名片副標與職業版統一：「路線｜選手 X｜對位 Y｜🛠️ 出裝／符文 →」（2026-07-31 使用者指定）。
@@ -5881,8 +5883,8 @@ function sqHeroDetail(cid){
     +`<div class="card" id="trendCard" style="display:none"><h2>📈 <span id="trendTitle"></span> <span class="sub"><span style="color:#ff4d4d">▲${T("增強")}</span>　<span style="color:#37c871">▼${T("削弱")}</span>　<span style="color:#ffd60a">●${T("調整")}</span>｜${en?"hover for details (source: Riot official patch notes)":"滑上去看細節（來源：Riot 官方版本說明）"}</span></h2><div class="chartbox" style="height:320px"><canvas id="trend"></canvas></div></div>`
     +`<div class="card"><h2>📜 ${T("出場紀錄")} <span class="sub">${en?"most recent games (up to 100 kept) | click a column to sort":"最近出場（最多保留 100 場）｜點欄位名稱可排序"}</span></h2>${recInner}</div>`;
   bindFilters(render);
-  bindCombo("hdOppSel",oppOpts,V.hdOpp,hit=>{V.hdOpp=hit; saveState(); render();},true);
-  bindCombo("hdPlSel",plOpts,V.hdPlayer,hit=>{V.hdPlayer=hit; saveState(); render();}); // 使用選手（與對位一樣只作用在出場紀錄，名片統計來自彙總檔、只吃路線）
+  bindCombo("hdOppSel",oppOpts,V.hdOpp,hit=>{V.hdOpp=hit; saveState(); render();},true,170);
+  bindCombo("hdPlSel",plOpts,V.hdPlayer,hit=>{V.hdPlayer=hit; saveState(); render();},false,170); // 使用選手（與對位一樣只作用在出場紀錄，名片統計來自彙總檔、只吃路線）
   // 符文欄要 RUNE_MAP（DDragon runesReforged，延遲載入）。原本只有圖鑑與積分逐場會觸發載入，
   // 這頁不載就整欄畫空圈（2026-07-31 新增符文欄時踩到）。載好後重繪一次。
   if(!RUNE_MAP) loadRunes(()=>{ if(curView==="英雄"&&V.heroDetail===cid&&V.heroMode==="soloq") render(); });
@@ -6743,14 +6745,16 @@ document.addEventListener("click",e=>{
   if(m&&m.dataset.mgo)dexGo("item",m.dataset.mgo,"符文");
 });
 // 篩選框鐵則：寬度以候選清單中最長名字為準（含 placeholder），不裁字
-function fitComboW(inp,texts){
+function fitComboW(inp,texts,minW){
   const ctx=window._cmeas||(window._cmeas=document.createElement("canvas").getContext("2d"));
   ctx.font=getComputedStyle(inp).font;
   let mx=ctx.measureText(inp.placeholder||"").width;
   texts.forEach(t=>{if(t)mx=Math.max(mx,ctx.measureText(String(t)).width);});
-  inp.style.width=Math.ceil(mx+14+30)+"px"; // 左內距 + ✕ 鈕保留區
+  // minW＝寬度下限：候選清單短的時候不要縮回去，否則切資料源／切篩選時整排框會左右飄
+  //（2026-08-01 使用者回報）。內容真的更長時照樣撐開，「不裁字」的鐵則不變。
+  inp.style.width=Math.max(minW||0,Math.ceil(mx+14+30))+"px"; // 左內距 + ✕ 鈕保留區
 }
-function bindCombo(id,options,cur,cb,abbr){ // options:[{v,l,a,d,n}] v=值 l=縮寫/顯示名 a=別名陣列(全名/英文/中文都可搜) d=清單輔助說明 n=場數(清單依篩選範圍多→少排序)
+function bindCombo(id,options,cur,cb,abbr,minW){ // options:[{v,l,a,d,n}] v=值 l=縮寫/顯示名 a=別名陣列(全名/英文/中文都可搜) d=清單輔助說明 n=場數(清單依篩選範圍多→少排序)；minW=寬度下限
   const inp=document.getElementById(id),dl=document.getElementById(id+"dl");
   if(options.some(o=>o.n!=null))options=[...options].sort((a,b)=>(b.n||0)-(a.n||0)); // 鐵則：清單依範圍(場數)多→少
   const lc={}; if(abbr)options.forEach(o=>{const l=o.l||o.v; lc[l]=(lc[l]||0)+1;});
@@ -6760,7 +6764,7 @@ function bindCombo(id,options,cur,cb,abbr){ // options:[{v,l,a,d,n}] v=值 l=縮
     if(!o)return v; const l=o.l||o.v; return lc[l]>1?o.v:l; }; // 縮寫唯一→顯示縮寫；縮寫重複（不同隊撞縮寫）才退回全名
   // datalist 顯示縮寫/顯示名(l)為可選值、全名(或 d)為輔助說明 → 縮寫/全名/別名都可搜；瀏覽器會同時比對 value 與說明文字
   dl.innerHTML=options.map(o=>`<option value="${esc(o.l||o.v)}">${esc(o.l&&o.l!==o.v?o.v:(o.d||""))}</option>`).join("");
-  fitComboW(inp,options.map(o=>abbr?disp(o.v):o.v));
+  fitComboW(inp,options.map(o=>abbr?disp(o.v):o.v),minW);
   inp.value=disp(cur||"");
   const keys=o=>[o.v,o.l,...(o.a||[])].filter(Boolean).map(s=>String(s).toLowerCase()); // 值/顯示名/別名一起比對
   inp.onchange=()=>{
@@ -10468,8 +10472,8 @@ function render(){
             <td>${g.sit?`<span style="color:${SIT_COL[g.sit]||""};font-weight:600">${(LANG==="en"?SIT_EN:SIT_ZH)[g.sit]||g.sit}</span>`:"—"}</td></tr>`).join("")
         }</tbody></table></div></div>`;
     bindFilters(render); // 上方標準篩選（年份／賽事／賽季／版本／時間）＋說明按鈕
-    bindCombo("hdOppSel",oppOpts,V.hdOpp,hit=>{V.hdOpp=hit; saveState(); render();},true); // 對位英雄篩選
-    bindCombo("hdPlSel",plOpts,V.hdPlayer,hit=>{V.hdPlayer=hit; saveState(); render();}); // 使用選手篩選
+    bindCombo("hdOppSel",oppOpts,V.hdOpp,hit=>{V.hdOpp=hit; saveState(); render();},true,170); // 對位英雄篩選
+    bindCombo("hdPlSel",plOpts,V.hdPlayer,hit=>{V.hdPlayer=hit; saveState(); render();},false,170); // 使用選手篩選
     {const gd=document.getElementById("sqGoDex"); if(gd)gd.onclick=()=>dexGo("champ",champId(ch));} // 🛠️ 出裝／符文 → 圖鑑
     // 詳情頁也能切職業賽／積分（2026-07-31 使用者要求）：留在同一隻英雄，只換資料源，
     // 路線／對位／選手都保留不清（使用者：切換時篩選列的參數不要動）。
