@@ -35,7 +35,9 @@ JOBS = [
     # 世界賽本體的 split 留空（其他年份的 WLDs 也是空的，篩選列才不會冒出「Main」）；
     # 國際外卡賽（賽前一個月打、勝者進世界賽）＝世界賽的入圍賽，併進 WLDs 用 split 標
     #（使用者定案 2026-07-31），不要拆成獨立聯賽碼
-    (2013, "WLDs", "", 0, ["Season 3 World Championship"]),
+    # 第 6 個元素＝版本覆寫：wiki 的 MatchHistoryGame 對 2013 世界賽沒填 Patch 欄，
+    # 但那屆就是 3.11 打完的（使用者提供 2026-07-31）→ 儀表板格式 13.11
+    (2013, "WLDs", "", 0, ["Season 3 World Championship"], "3.11"),
     (2013, "WLDs", "入圍賽", 0, ["IWCT 2013"]),
     (2013, "CBLOL", "Season", 0, ["Riot Season 3 Brazilian Championship"]),
     (2013, "LCO", "Season", 0, ["Riot Season 3 Oceanic Championship"]),
@@ -78,7 +80,9 @@ def main():
     A = ap.parse_args()
     yrs = {int(x) for x in A.years.split(",") if x.strip()} if A.years else None
     ok, miss = [], []
-    for (year, lg, split, po, names) in JOBS:
+    for job in JOBS:
+        year, lg, split, po, names = job[:5]
+        pver = job[5] if len(job) > 5 else ""
         if yrs and year not in yrs:
             continue
         # split 是中文或空字串時（如 WLDs 的「入圍賽」）去符號後會變空 → 同年同聯賽的兩個賽事撞 key
@@ -87,7 +91,8 @@ def main():
         print(f"\n[{year} {lg} {split}]", flush=True)
         done = False
         for nm in names:
-            cfg = {"tour": nm, "league": lg, "split": split, "year": year, "playoffs": po, "key": key}
+            cfg = {"tour": nm, "league": lg, "split": split, "year": year, "playoffs": po,
+                       "key": key, "patch": pver}
             try:
                 t = MH.build(cfg, force=A.force)
             except Exception as e:
@@ -108,8 +113,12 @@ def main():
         except Exception:
             continue
         live = {f"{lg}_{yy}_{re.sub(r'[^A-Za-z0-9]+','',sp) or re.sub(r'[^A-Za-z0-9]+','',nms[0])}"
-                for (yy, lg, sp, _po, nms) in JOBS if yy == y}   # key 規則要跟上面那行一致
-        drop = [k for k in D if k not in live] + [k for k, v in D.items() if k in live and not v.get("rows")]
+                for (yy, lg, sp, _po, nms, *_x) in JOBS if yy == y}   # key 規則要跟上面那行一致
+        # ⚠ 只清「本檔（MatchHistoryGame）產的」key。fetch_wiki_pb.py 的成果存在同一個檔裡，
+        #   不排除的話兩支腳本會互相把對方的資料當孤兒刪掉（2026-07-31 實測整批 PB 資料被清光）
+        _mine = lambda v: "Picks and Bans" not in str(v.get("src", ""))
+        drop = ([k for k, v in D.items() if k not in live and _mine(v)]
+                + [k for k, v in D.items() if k in live and not v.get("rows")])
         if drop:
             for k in drop:
                 D.pop(k, None)

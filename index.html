@@ -2383,23 +2383,29 @@ const cAb=c=>{
   return c;
 };
 // 聯賽色（全站共用）
-const LGC={LCK:"#4f8ef7",LPL:"#e05c5c",LCP:"#2bb3a3",LEC:"#38b6ff",LCS:"#c9a86a",CBLOL:"#7ac74f",
-  MSI:"#f5b942",EWC:"#b083f0",FST:"#f08b5b",WLDs:"#ffd700",ENC:"#ff8ad4",KeSPA:"#9fb4ff",
-  "EU LCS":"#38b6ff","NA LCS":"#c9a86a",IEM:"#b0c4de",VCS:"#ffb6b6",
-  "LTA N":"#5bb0f0","LTA S":"#f0a35b",LTA:"#c9a86a",
-  // 同一個賽區的歷代聯賽用同一個色（使用者定案 2026-07-31）：
-  //   GPL → LMS → PCS → LCP 都是太平洋（早年台港澳＋東南亞同一個聯賽）
-  //   LLN／CLS → LLA → LTA 南區 都是拉丁美洲
-  GPL:"#2bb3a3",LMS:"#2bb3a3",PCS:"#2bb3a3",
-  LLA:"#f0a35b",LLN:"#f0a35b",CLS:"#f0a35b",
-  // 外卡賽區的識別色（使用者要求 2026-07-31）。各自挑一個現有色盤沒占用的色相，
-  // 才不會跟 LPL 紅／LEC 藍／LCP 青綠／EWC 紫在同一張圖裡混淆：
-  // 挑的是既有色盤真正的色相空隙（紅0/橘20-40/黃50/綠100/青綠174/藍200-227/紫271/粉320），
-  // 而不是照國旗配色——同一張賽事樹上「分得出來」比「語意像」重要
-  TCL:"#c94fd6",   // 洋紫 294°：與 EWC 271°／ENC 320° 各差 23-26°
-  LCO:"#3fd68a",   // 海洋春綠 155°：與 LCP 174°／CBLOL 100° 各差 19-55°
-  LCL:"#b8d13a",   // 黃綠 72°：與 WLDs 51°／CBLOL 100° 各差 21-28°
-  EWCQ北美:"#c9a86a",EWCQ歐洲:"#38b6ff",EWCQ韓國:"#4f8ef7",EWCQ太平洋:"#2bb3a3",EWCQ巴西:"#7ac74f"}; // EWCQ 各分區沿用該賽區色（北美=LCS金、歐洲=LEC藍、韓國=LCK藍、太平洋=LCP綠、巴西=CBLOL綠）
+// ── 聯賽識別色（使用者定案 2026-07-31：整盤依「賽區」重新設計）──────────────────────
+// 準則：**同一個賽區的歷代聯賽用同一個色相**，彼此以明暗區分。賽區被併掉之後，
+// 觀眾是用「它後來屬於哪一區」在認的，所以歸屬比國旗色、比色相空隙都重要。
+//   韓國＝#4f8ef7 藍　　中國＝#e05c5c 紅　　巴西＝#7ac74f 綠（CBLOL 品牌色，單獨保留）
+//   歐洲＝#38b6ff 亮藍：LEC／EU LCS ← TCL（土耳其）、LCL（獨立國協）後來都併進歐洲
+//   北美＝#c9a86a 金　：LCS／NA LCS ← LTA 北區就是 LCS 的那一年
+//   美洲南＝#f0a35b 橘：LTA 南區 ← LLA ← LLN／CLS（拉美北／南）
+//   太平洋＝#2bb3a3 青綠：LCP ← PCS ← LMS ← GPL（主線，年份幾乎不重疊 → 同色）
+//                          ＋同期併存的 LCO（大洋洲）／LJL（日本）／VCS（越南）用明暗分開
+// 同賽區內同時存在的聯賽才需要分辨（例：2020-2024 的 PCS／LCO／LJL／VCS），
+// 主線那幾個年份不重疊，共用本色不會混淆。
+const LGC={
+  LCK:"#4f8ef7",LPL:"#e05c5c",CBLOL:"#7ac74f",
+  LEC:"#38b6ff","EU LCS":"#38b6ff",TCL:"#1d6fa8",LCL:"#7fcdf7",           // 歐洲
+  LCS:"#c9a86a","NA LCS":"#c9a86a","LTA N":"#e0c48c",LTA:"#c9a86a",       // 北美
+  "LTA S":"#f0a35b",LLA:"#f0a35b",LLN:"#c47a33",CLS:"#f7bc85",            // 美洲南
+  LCP:"#2bb3a3",PCS:"#2bb3a3",LMS:"#2bb3a3",GPL:"#2bb3a3",                // 太平洋主線
+  LCO:"#8ae8d8",LJL:"#3ddbc4",VCS:"#16786e",                              // 太平洋同期併存（亮→暗四階）
+  MSI:"#f5b942",EWC:"#b083f0",FST:"#f08b5b",WLDs:"#ffd700",ENC:"#ff8ad4",
+  KeSPA:"#9fb4ff",IEM:"#b0c4de",
+  // EWCQ 各分區沿用該賽區色
+  EWCQ北美:"#c9a86a",EWCQ歐洲:"#38b6ff",EWCQ韓國:"#4f8ef7",EWCQ中國:"#e05c5c",
+  EWCQ太平洋:"#2bb3a3",EWCQ巴西:"#7ac74f"};
 const LG_NAME={"ALL":"全部","LTA N":"LTA 北區","LTA S":"LTA 南區","WLDs":"WCS"};
 // 國家隊 →「該國所屬賽區」對照（2026 KeSPA 季中邀日本／越南國家隊參賽；ENC 之後整個賽事都是國家隊形式）
 // 用途：國家隊沒有母聯賽出賽紀錄，賽事樹的賽區色框要靠這張表才上得了色

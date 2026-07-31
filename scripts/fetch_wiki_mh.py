@@ -216,7 +216,7 @@ def to_csv(games, cfg):
             put("gameid", gid); put("datacompleteness", "partial")
             put("league", cfg["league"]); put("year", cfg["year"]); put("split", cfg["split"])
             put("playoffs", cfg.get("playoffs", 0)); put("date", dt)
-            put("game", gno); put("patch", _patch(g.get("P", ""))); put("participantid", pid)
+            put("game", gno); put("patch", _patch(g.get("P", "") or cfg.get("patch", ""))); put("participantid", pid)
             put("side", side.capitalize()); put("position", pos)
             put("teamname", bt if side == "blue" else rt)
             put("result", "1" if (bwin if side == "blue" else not bwin) else "0")
