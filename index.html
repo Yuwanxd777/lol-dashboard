@@ -2249,6 +2249,8 @@ const STATIC_TABBR={
 //（使用者定案 2026-07-31）：MVP White → MVP Ozone → Samsung Ozone → Samsung White ＝ SSW；
 //                          MVP Blue → Samsung Blue ＝ SSB。2016 年那支 MVP 是完全不同的隊，不要動它
 "mvp white":"SSW","mvp ozone":"SSW","samsung ozone":"SSW","samsung white":"SSW",
+// Lyon Gaming（2013 拉美那支、以及後來 LLA 那支）跟現在的 LYON 是同一家公司 → 縮寫一律寫
+// LYON、不留舊的 LYN（使用者定案 2026-08-01）。下面三處 lyon* 的值都是這條的落點。
 "mvp blue":"SSB","samsung blue":"SSB",
 // 2013-2015 這些老隊的縮寫**一律以 Leaguepedia 為準**（使用者要求 2026-07-31：wiki 上都有）。
 // 來源有兩處，都比自己猜可靠：① Cargo 的 Teams 表 Name→Short；② Picks and Bans 頁裡
@@ -2257,7 +2259,7 @@ const STATIC_TABBR={
 "ahq esports club":"AHQ","bangkok titans":"BKT","cnb e-sports club":"CNB","dark passage":"DP",
 "dash9 gaming":"D9","e-sports dragons pro":"EDP","gamania bears":"GAB","gaminggear.eu":"GG.EU",
 "good team multigaming":"GTM","instruments of surrender":"INST","keyd team":"KEYD",
-"kuala lumpur hunters":"KLH","lyon gaming (2013 latin american team)":"LYN","manila eagles":"MLE",
+"kuala lumpur hunters":"KLH","lyon gaming (2013 latin american team)":"LYON","manila eagles":"MLE",
 "nex impetus":"NEXI","peesplay gaming":"PPG","playart gaming":"PLAYART",
 "renegades of hell":"ROH","saigon fantastic five":"SF5","saigon jokers":"SAJ",
 "singapore sentinels":"SGS","taipei snipers":"TPS","team ang":"ANG","team immunity":"IM",
@@ -2274,7 +2276,7 @@ const STATIC_TABBR={
 "ultimate":"ULT","team fat rabbit":"TFR","team kthxbai":"KTX","gamesatis":"GS",
 "mig blitz":"MiGB","najin shield":"NJSH","najin sword":"NJS",
 "sk telecom t1 1":"SKT1","sk telecom t1 2":"SKT","team alternate":"ALT",
-"lyon gaming (2013 latin american team)":"LYN","insidious gaming":"INS","logitech g fighter":"LGF",
+"lyon gaming (2013 latin american team)":"LYON","insidious gaming":"INS","logitech g fighter":"LGF",
 "alterego gaming":"AEG","ascension":"ASC","imperium":"IMP","kabum! orange":"KBO","team strix":"STX",
 "tt gaming":"TT", // 2026 EWC 中國區資格賽名單（events_extra.js）用 Leaguepedia 全名，資料庫沒這隊 → 補縮寫
 "leviatan":"LEV","pain gaming":"PNG","red canids":"RED","vivo keyd stars":"VKS",
@@ -2349,7 +2351,7 @@ const WIKI_TABBR={
 "saigon buffalo":"SGB","unsold stuff gaming":"USG","rampage":"RPG","pentagram":"PGM",
 "detonation gaming":"DFM","1907 fenerbahce":"FB","supermassive":"SUP","royal youth":"RYL",
 "kaos latin gamers":"KLG","isurus gaming":"ISG","rainbow7":"R7","infinity esports":"INF",
-"lyon gaming":"LYN","xten esports":"XTEN","estral esports":"EST","all knights":"AK",
+"lyon gaming":"LYON","xten esports":"XTEN","estral esports":"EST","all knights":"AK",
 };
 // 使用者自填縮寫（資料庫分頁編輯，存本機）＞ Data 分頁 ＞ 你給的清單 ＞ WIKI ＞ 顯示全名
 let USER_TABBR={};
@@ -2435,8 +2437,13 @@ const CUP_LG=/^(WLDs|MSI|EWCQ|EWC|ENC|FST|KeSPA|IEM)/i;
 // 戰隊/選手的「所屬賽區」＝出賽最多的**聯賽**；完全沒打過聯賽（只有世界賽等盃賽）才退回盃賽。
 // 2013 NaJin Black Sword（LCK 6＋WLDs 8）、SK Telecom T1（LCK 4＋WLDs 18）這種
 // 只因盃賽場次多就被標成 WCS，賽區標示等於沒意義（2026-07-31 使用者回報）。
-const mainLg=cnt=>{ const e=Object.entries(cnt||{}).sort((x,y)=>y[1]-x[1]);
-  return ((e.find(([l])=>!CUP_LG.test(l))||e[0]||[""])[0])||""; };
+// 整年只打過盃賽、主數據裡查不到母聯賽的隊 → 指定母賽區（使用者逐條定案）。2013 IEM 的
+// Anexis eSports／Millenium 是歐洲隊，但那年的歐洲二級賽事沒收進主數據，只剩 IEM 場次，
+// 不指定就會被標成「IEM」（2026-08-01 使用者定案：這兩隊算 LEC）。
+const CUP_HOME={AXS:"LEC", MIL:"LEC"};
+const mainLg=(cnt,ab)=>{ const e=Object.entries(cnt||{}).sort((x,y)=>y[1]-x[1]);
+  const t1=e.find(([l])=>!CUP_LG.test(l));
+  return t1?t1[0]:((ab&&CUP_HOME[ab])||(e[0]||[""])[0]||""); };
 // 戰隊縮寫碰撞(同縮寫跨不同聯賽＝不同隊，如 RoX/CIS vs ROX Tigers/LCK)：清單顯示「縮寫(聯賽碼)」以區分。
 // 需「原始全名」才判得出是哪一隊(team_collide.js 由 Leaguepedia Teams 的 Name/Short/Region 建)；純縮寫無全名時退回原樣。
 const _TC=window.TEAM_COLLIDE, _TC_SET=_TC?new Set(_TC.abbrs):null;
@@ -2887,7 +2894,7 @@ const eventsTreeHTML=()=>{
     const c={}; Object.entries(homeCnt).forEach(([t,cc])=>{ if(!g2.includes(normT(t)))return;
       Object.entries(cc).forEach(([lg,n])=>{c[lg]=(c[lg]||0)+n;}); }); return c;};
   const _homeCol=team=>{if(isNatTeam(team))return NAT_COL; // 國家隊：沒有母賽區 → 全部同一個顏色（使用者定案）
-    const best=_pickT1(homeCnt[team])||_pickT1(_linCnt(team))||_pickT1(_homeAb[tAb(team)]);
+    const best=_pickT1(homeCnt[team])||_pickT1(_linCnt(team))||_pickT1(_homeAb[tAb(team)])||CUP_HOME[tAb(team)];
     return best&&LGC[best]?LGC[best]:null;};
   const node=x=>{
     const m=x.m, hasReleg=x.releg.size>0;
@@ -3022,8 +3029,20 @@ const eventsTreeHTML=()=>{
         //   賽季（春季／夏季／冬季…）＝打進該季季後賽的隊
         //   錦標賽／資格賽／入圍賽＝晉級到下一階段的隊（通常就是打進世界賽的那一隊）
         const _isTour=sp=>/錦標賽|資格賽|入圍賽|決賽|Regional|Qualif|Final/i.test(String(sp));
+        // 地區預賽（2013 LLA 分北區／南區各打各的，各出一隊進錦標賽決賽）：晉級＝進了同聯賽
+        // 錦標賽那段的隊（使用者定案 2026-08-01）。只認分區名，不用「有沒有出現在後面的賽段」
+        // 這種通則——GPL 的春季／夏季是各自獨立的聯賽賽季，不是預賽，套下去會標到一整排。
+        const _tourAb=(()=>{const k=Object.keys(_spT).find(s=>/錦標賽$/.test(s));
+          return k?new Set([..._spT[k]].map(t2=>tAb(t2))):null;})();
+        const _qAdv=arr=>{ if(!_tourAb||!_tourAb.size)return null;
+          const s2=new Set(arr.map(t2=>tAb(t2)).filter(a=>_tourAb.has(a))); return s2.size?s2:null; };
+        // 補充賽事的對戰表（_poX）只代表「進了淘汰賽」，不等於晉級：涵蓋該段過半隊伍時它顯然
+        // 不是晉級名單，整段不打勾（2026-08-01 使用者回報 TCL 春季 9 隊標了 7 個勾）
+        const _poXOf=(sp,arr)=>{const s2=(x._poX||{})[sp];
+          return (s2&&s2.size&&s2.size*2<uq(arr))?s2:null;};
         const _advOf=(sp,arr)=>_isTour(sp)?_wAdv(arr)
-          :(_poOf(sp)||((x._poX||{})[sp])||null);
+          :/^(北區|南區|東區|西區)$/.test(String(sp))?_qAdv(arr)
+          :(_poOf(sp)||_poXOf(sp,arr)||null);
         const _spKeys=Object.keys(_spT).filter(k=>_spT[k].size).sort((a,b)=>{
           const A=_spOrd(a),B=_spOrd(b);
           return (A[0]-B[0])||(A[1]-B[1])||A[2].localeCompare(B[2])||a.localeCompare(b);});
@@ -3415,7 +3434,14 @@ function splitMatch(o,sv){
   if(!sv)return true;
   if(sv.startsWith("G:")){ // 整賽段：依時間歸季（含該季例行/季後/國際賽事）
     const base=sv.slice(2);
-    return /^S[123]$/.test(base)?seasonOf(o)===base:(o.split===base||o.split===base+" PO");
+    if(/^S[123]$/.test(base))return seasonOf(o)===base;
+    if(o.split===base||o.split===base+" PO")return true;
+    // 舊年份的國際賽沒有賽段標記（2013 的 IEM 三月、世界賽八～十月都是空賽段），字串比對
+    // 一定落空 → 整賽段改依開打月份歸季：上半年算春季、下半年算夏季。這樣選「春季」看得到
+    // IEM、選「夏季」看得到 WCS（含入圍賽）（使用者定案 2026-08-01）。
+    const _b=String(o.split||"");
+    if(!_b||_b==="入圍賽")return base===(+String(o.date).slice(5,7)<=6?"春季":"夏季");
+    return false;
   }
   if(sv.startsWith("T:")){ // 錦標賽群組：賽季清單只顯示「錦標賽」，地區（台港澳／東南亞）
     const t=sv.slice(2);   // 留到「賽事」那邊再篩（使用者定案 2026-07-31）
@@ -3547,7 +3573,7 @@ function calcPlayers(pos,splitTeam){
     const kda10=a.kdaN?((a.k10+a.a10)/Math.max(1,a.d10))-((a.ok10+a.oa10)/Math.max(1,a.od10)):null;
     const gd10=a.g10N?a.gd10/a.g10N:null, gd25=a.g25N?a.gd25/a.g25N:null;
     rows.push({
-      選手:tAb(a.team)+" "+a.name, _lg:mainLg(a.lgCnt), 位置:a.posLabel||"", 場數:a.n, 勝率:a.w/a.n,
+      選手:tAb(a.team)+" "+a.name, _lg:mainLg(a.lgCnt,tAb(a.team)), 位置:a.posLabel||"", 場數:a.n, 勝率:a.w/a.n,
       // 這幾項全都要「有資料才給值」：2013 這種只有 BP／勝負的年份，分子分母都是 0，
       // 算出來是 0% 會被誤讀成「真的是 0%」（2026-07-31 使用者三度回報）
       參與率:((a.kN||a.a2N)&&a.tkN)?(a.k+a.a2)/Math.max(1,a.tk):null, "贏線率(金差@10)":a.g10N?a.winL/a.g10N:null,
@@ -3660,7 +3686,7 @@ function calcTeams(vsTeam){
     if(!a.n)continue;
     const min=a.gl/60;
     rows.push({
-      戰隊:a.disp||tAb(a.full||t), _full:a.full, _lg:mainLg(a.lgCnt), 場數:a.n, 勝率:a.w/a.n,
+      戰隊:a.disp||tAb(a.full||t), _full:a.full, _lg:mainLg(a.lgCnt,tAb(a.full||t)), 場數:a.n, 勝率:a.w/a.n,
       藍方:a.bn?(a.bw||0)/a.bn:null, 紅方:a.rn?(a.rw||0)/a.rn:null, // 一勝未得的隊伍是 0%，不是「沒資料」
       大場勝率:a.dwN?a.dw/a.dwN:null,
       角色池:a.champs.size, 時間:a.glN?a.gl/a.n/60:null, 首殺:a.fbkN?(a.fbk||0)/a.n:null,
@@ -6001,14 +6027,10 @@ function filterOpts(){
   // 錦標賽（台港澳／東南亞）在賽季清單合成一個「錦標賽」，地區留到「賽事」那邊再篩
   //（使用者定案 2026-07-31）
   const _isT=b=>/錦標賽$|^入圍賽$/.test(String(b));
-  const _tShown=new Set();
-  // 入圍賽不單獨列：它屬於世界賽、世界賽屬於夏季 → 選「夏季」就會涵蓋（見 splitMatch）
-  bases.filter(b=>_isT(b)&&!/^入圍賽$/.test(String(b))).forEach(b=>{
-    const lb=/錦標賽$/.test(b)?"錦標賽":b, sv="T:"+lb;
-    if(_tShown.has(lb))return; _tShown.add(lb);
-    const av=SPLITS.some(x=>{const b2=String(x).replace(/ PO$/,""); return b2===lb||b2.endsWith(lb);});
-    if(av||F.split===sv)so.push(`<option value="${sv}" ${F.split===sv?"selected":""}>${esc(lb)}</option>`);
-  });
+  // 錦標賽也不列進賽季清單（使用者定案 2026-08-01）：它不是「賽季」而是各聯賽底下的
+  // 獨立賽事。有多個錦標賽的聯賽（GPL 的台港澳／東南亞、LLA 的南北區）改由賽事下拉
+  // 右邊的子選單挑；只有單一錦標賽的（TCL／CBLOL／LCO／LCL）選該聯賽就等於全部。
+  // 入圍賽本來也不列：它屬於世界賽、世界賽屬於夏季 → 選「夏季」就涵蓋（見 splitMatch）。
   // GPL 專屬賽段不進賽季清單：它們不是「賽季」而是同一年底下的獨立賽事，
   // 混在春季/夏季旁邊會讓人以為 2013 有個叫 TESL 的賽季 → 改列在「賽事」的 GPL 子清單
   //（使用者定案 2026-08-01）。錦標賽類本來就被 _isT 合成一個「錦標賽」選項。
@@ -6054,9 +6076,12 @@ function filterOpts(){
     const gs=lg==="LPL"?lplAllGroups(curYear):lplGroupNamesOfSplit(curYear,lplSelSplit(curYear,"","LCK"),"LCK");
     if(!gs.length||!has(lg))return "";
     return `<optgroup label="${lg} ${LANG==="en"?"groups":"分組"}">`+gs.map(g=>`<option value="${lg}#${g}" data-c="${lplGrpColor(g,curYear,"")}" data-s="${esc(lplGrpName(g))}" ${F.league===lg+"#"+g?"selected":""}>${esc(lgName(lg+"#"+g))}</option>`).join("")+`</optgroup>`; };
-  // GPL 子清單：2013 的 GPL 底下其實有好幾個獨立賽事（東南亞錦標賽／台港澳錦標賽／TESL），
-  // 賽段名各異又不是「賽季」→ 從賽季清單移出來、改成賽事下拉的子項（使用者定案 2026-08-01）。
-  // 值用 GPL#賽段，lgPass 依 split 比對（與 LPL#分組 是不同的判定路徑）。
+  // 某聯賽底下的獨立賽事（GPL 的 TESL／台港澳錦標賽／東南亞錦標賽、LLA 的南北區）：
+  // 賽段名各異又不是「賽季」→ 從賽季清單移出來、改掛成賽事下拉的子項。值一樣用
+  // 「聯賽#賽段」，fancySelectOpen 會把含 # 的選項收進父列，滑到 GPL 時往右飛出第二層
+  //（使用者定案 2026-08-01；跟 LPL／LCK 分組同一套 UI）。不硬編哪個聯賽有子清單：
+  // 掃出來只要有 2 個以上非標準賽段就給，單一個的（TCL／CBLOL／LCO／LCL 只有錦標賽）
+  // 選該聯賽本身就等於全部，多一層反而囉嗦。
   const _subOpts=lg=>{
     if(!has(lg))return "";
     const _first={};
@@ -6067,12 +6092,12 @@ function filterOpts(){
       if(!_first[s]||d<_first[s])_first[s]=d;                // 依該賽段最早開打日排序
     });
     const subs=Object.keys(_first).sort((a,b)=>_first[a]<_first[b]?-1:1);
-    if(!subs.length)return "";
-    return `<optgroup label="${esc(lg)}">`+subs.map(s=>
-      `<option value="${esc(lg)}#${esc(s)}" ${F.league===lg+"#"+s?"selected":""}>${esc(s)}</option>`).join("")+`</optgroup>`;
+    if(subs.length<2)return "";
+    // textContent 帶聯賽前綴（收起時按鈕上要看得出是哪個聯賽），data-s 是子清單裡的短名
+    return subs.map(s=>`<option value="${esc(lg)}#${esc(s)}" data-s="${esc(s)}" ${F.league===lg+"#"+s?"selected":""}>${esc(lg)} ${esc(s)}</option>`).join("");
   };
   const lo=items.map(([l])=>`<option value="${l}" ${F.league===l?"selected":""}>${lgName(l)}</option>`
-    +(l==="LPL"||l==="LCK"?_grpOpts(l):(l==="GPL"||l==="LLA")?_subOpts(l):""));
+    +(l==="LPL"||l==="LCK"?_grpOpts(l):_subOpts(l)));
   // 版本：只列其他篩選下仍有比賽的（＋保留目前選取）
   let pkList=PATCHES.filter(p=>pkAvail.has(p)||F.patch===p);
   // 版本清單全站統一（2026-07-18 使用者定案）：積分先行版本（職業賽還沒打到的 26.14、跳過的 26.12）當年在所有分頁都列出
@@ -6232,7 +6257,10 @@ function fancySelectOpen(sel,btn){
   pop.id="fselPop"; pop._sel=sel; pop._btn=btn;
   pop.style.visibility="hidden";
   // 二段式（使用者定案 2026-07-29）：分組/分區子項不佔主清單，滑到父列時往右飛出
-  const kidOf=o=>{const v=String(o.value); if(v.startsWith("LPL#"))return "LPL"; if(v.startsWith("LCK#"))return "LCK"; if(/^EWCQ/.test(v))return "EWC"; return null;};
+  // 誰是子項：值長「父#子」就歸到父列底下（LPL#分組、LCK#分組、GPL#TESL、LLA#北區…）。
+  // 不列舉聯賽名（2026-08-01 改）：以前硬寫 LPL#／LCK#，新增的 GPL#／LLA# 認不出來，
+  // 就整排攤在主清單裡沒收進第二層。
+  const kidOf=o=>{const v=String(o.value); const i=v.indexOf("#"); if(i>0)return v.slice(0,i); if(/^EWCQ/.test(v))return "EWC"; return null;};
   const kids={};
   opts.forEach((o,i)=>{const p=kidOf(o); if(p)(kids[p]=kids[p]||[]).push([o,i]);});
   pop.innerHTML=opts.map((o,i)=>{
@@ -7418,7 +7446,7 @@ function ovStreaks(){ return _ovMemo("streak",()=>{
   byT.forEach(a=>{ if(a.arr.length<2)return;
     const last=a.arr[a.arr.length-1].w; let s=0,gw=0,gl=0;
     for(let i=a.arr.length-1;i>=0&&a.arr[i].w===last;i--){ s++; gw+=a.arr[i].gw; gl+=a.arr[i].gl; }
-    rows.push({ab:a.ab,lg:mainLg(a.lgN),n:a.arr.length,w:a.arr.filter(x=>x.w).length,
+    rows.push({ab:a.ab,lg:mainLg(a.lgN,a.ab),n:a.arr.length,w:a.arr.filter(x=>x.w).length,
       streak:last?s:-s,gw,gl,date:a.last}); });
   if(!rows.length)return out;
   return {_empty:false,
