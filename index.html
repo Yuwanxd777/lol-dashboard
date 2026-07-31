@@ -6223,7 +6223,7 @@ function renderChgYear(box){
       const wk2=wikiFull[pk]; if(!wk2)return;
       Object.entries(wk2).forEach(([id,lines])=>{
         if(byChamp[id]&&byChamp[id].some(e=>e.patch===pk))return; // 官方已有 → 不重覆
-        const ls=zhOnly(pk,lines.filter(l=>!JUNK.test(String(l).trim())&&!COSM.test(l))).map(l=>addKey(id,l));
+        const ls=zhOnly(pk,lines.filter(l=>!JUNK.test(String(l).trim())&&!COSM.test(l)&&!TRIVIAL.test(l))).map(l=>addKey(id,l));
         if(ls.length)(byChamp[id]=byChamp[id]||[]).push({patch:pk,lines:ls,url:(PATCH_NOTES[pk]&&PATCH_NOTES[pk]._url)||wikiUrl[pk]||""});
       });
     };
@@ -6232,7 +6232,9 @@ function renderChgYear(box){
       if(wk){ // wiki 補的版本：直接掛進各英雄（先清掉章節標頭等無意義字串）
         MECH_LEFT[pk]=[];
         Object.entries(wk).forEach(([id,lines])=>{
-          const ls=zhOnly(pk,lines.filter(l=>!JUNK.test(String(l).trim())&&!COSM.test(l))).map(l=>addKey(id,l));
+          // TRIVIAL＝聊天訊息／擊殺時大笑／台詞這類純風味改動：版本改動分頁不列
+          //（2026-07-31 使用者第三度回報艾妮維亞蛋妮維亞；前兩次我改到別的畫面去了）
+          const ls=zhOnly(pk,lines.filter(l=>!JUNK.test(String(l).trim())&&!COSM.test(l)&&!TRIVIAL.test(l))).map(l=>addKey(id,l));
           if(ls.length)(byChamp[id]=byChamp[id]||[]).push({patch:pk,lines:ls,url:wikiUrl[pk]||""});
         });
         return;
@@ -6249,12 +6251,12 @@ function renderChgYear(box){
       });
       Object.keys(pd).forEach(key=>{
         if(key.startsWith("_"))return; // _url/_extra/_lang 等中繼欄位跳過
-        const lines=(routed[key]?[...pd[key],...routed[key]]:pd[key]).filter(l=>!COSM.test(l)).map(l=>addKey(key,l)); // 官方行也過 COSM：編按/附註/未實裝等編註不列
+        const lines=(routed[key]?[...pd[key],...routed[key]]:pd[key]).filter(l=>!COSM.test(l)&&!TRIVIAL.test(l)).map(l=>addKey(key,l)); // 官方行也過 COSM/TRIVIAL：編按、聊天訊息這類不列
         delete routed[key];
         if(lines.length)(byChamp[key]=byChamp[key]||[]).push({patch:pk,lines,url:pd._url});
       });
       Object.keys(routed).forEach(id=>{
-        const ls=routed[id].filter(l=>!COSM.test(l));
+        const ls=routed[id].filter(l=>!COSM.test(l)&&!TRIVIAL.test(l));
         if(ls.length)(byChamp[id]=byChamp[id]||[]).push({patch:pk,lines:ls,url:pd._url});
       });
       wikiSupp(pk); // 官方漏掉的英雄用 wiki 補
