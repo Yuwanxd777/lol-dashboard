@@ -826,6 +826,7 @@ window.WIKI_PATCHES=window.WIKI_PATCHES||{}; window.WIKI_EXTRA=window.WIKI_EXTRA
 <script src="skill_keys.js" onerror="window.SKILL_KEYS={}"></script>
 <script src="skill_alias.js" onerror="window.SKILL_ALIAS={}"></script>
 <script src="item_stat_fix.js" onerror="window.ITEM_STAT_FIX={}"></script>
+<script src="patch_line_fix.js" onerror="window.PATCH_LINE_FIX={}"></script>
 <script src="assets.js" onerror="window.LOL_ASSETS=null"></script>
 <script src="items.js" onerror="window.ITEM_DESC=null"></script>
 <script src="item_nostore.js" onerror="window.ITEM_NOSTORE=null"></script>
@@ -3331,6 +3332,8 @@ function splitMatch(o,sv){
     const b=String(o.split||"").replace(/ PO$/,"");
     return b===t||b.endsWith(t);
   }
+  // 世界賽入圍賽歸夏季（使用者定案 2026-07-31：入圍賽屬於世界賽、世界賽屬於夏季）
+  if(sv==="夏季"&&String(o.split||"")==="入圍賽")return true;
   return o.split===sv; // 例行賽／季後賽／升降賽：用原始標籤
 }
 // 職業資料的有效版本（2026-07-18，版本選單全站統一配套）：選到積分先行版本（26.14/26.12 職業賽沒打到）時，
@@ -4105,6 +4108,21 @@ const PATCH_NOTES=window.LOL_PATCHES||{};
     });
   });
 })();
+// 人工重寫（patch_line_fix.js）：wiki 早年把技能名寫成「New:／Old:／舊：」、內容夾雜英文，
+// 通用規則救不回來 → 資料進畫面之前就地換掉整行（值是空字串＝那行不要顯示）。
+// ⚠ 一定要在這裡做，不能只在 renderChgLines：技能名前綴決定分組，顯示層才改就來不及了
+(function(){ const F=window.PATCH_LINE_FIX||{}; if(!Object.keys(F).length)return;
+  for(const cs of Object.values(window.WIKI_PATCHES||{})){
+    if(!cs||typeof cs!=="object")continue;
+    for(const[id,arr]of Object.entries(cs)){
+      if(!Array.isArray(arr))continue;
+      let ch=false; const out=[];
+      for(const l of arr){ const r=F[l];
+        if(r===undefined){out.push(l.replace(/^屬性(?=｜)/,"基礎能力值"));continue;}
+        ch=true; if(r)out.push(r); }
+      if(ch)cs[id]=out; }
+  }
+})();
 // 人工語意覆寫：數值規則判不出方向的改動（使用者判定）。[比對正則, 1=增強/-1=削弱]
 const DIR_OVERRIDE=[
   [/冷卻.{0,12}(消失|結束|落地|返回)後(才)?(開始|計算)/,-1], // 冷卻延後起算＝實質變長＝削弱（2026-07-29 妮可W判例：分身消失後才開始）
@@ -4397,6 +4415,8 @@ const renderChgLines=(lines,cardName)=>{
     .replace(/」\s*「/g,"；")
     .replace(/「\s*([^「」]*[\d%][^「」]*?)\s*」/g,"$1")   // 只去掉「包住數值」的引號，正常引用的詞不動
     .replace(/\s*；\s*/g,"；")
+    // 加號與數字之間不留空白（wiki 原文常寫「（＋ 80% 魔攻）」，norm 只處理半形 +）
+    .replace(/([+＋])\s+(?=[\d.])/g,"$1")
     // 英文寫法省略前導 0（.75 ⇒ 0）看起來像漏字（2026-07-31 使用者：凱爾 13.03 魔防每等級 .75）
     .replace(/(^|[^\d\w.])\.(\d)/g,"$10.$2")
     // 「屬性」一律寫成「基礎能力值」（使用者定名 2026-07-31）
@@ -4435,6 +4455,22 @@ const renderChgLines=(lines,cardName)=>{
      const i0=at.get(key);
      out3[i0]=String(out3[i0]).replace(/[。.]?\s*$/,"")+"；"+b.replace(HEAD,"").replace(/[。.]?\s*$/,""); });
    lines=out3;}
+  // 基礎值那行＋緊接的「◯◯係數／加成」那行 → 併成一個完整運算式，而不是用分號串起來
+  //（2026-07-31 使用者：治療：125…345 ⇒ 90…250；AP 係數：（+100% AP） ⇒ （+75% AP）
+  //   應該寫成 治療：125…345（+100% AP） ⇒ 90…250（+75% AP））
+  {const _bd5=l=>String(l).replace(/^[^｜]*｜/,""), _pf5=l=>{const i=String(l).indexOf("｜");return i>0?String(l).slice(0,i+1):"";};
+   const COEF=/^[^：:]{0,10}(?:係數|加成)[：:]\s*(.+?)\s*⇒\s*(.+?)\s*$/;
+   const BASE=/^(.*?[：:])\s*(.+?)\s*⇒\s*(.+?)\s*$/;
+   const wrap=v=>{v=String(v).trim().replace(/[。.]$/,""); return /^[（(]/.test(v)?v:`（${v}）`;};
+   const out5=[];
+   for(let i=0;i<lines.length;i++){ const a=String(lines[i]), b=lines[i+1]==null?null:String(lines[i+1]);
+     if(b&&_pf5(a)===_pf5(b)){ const ba=_bd5(a).trim(), bb=_bd5(b).trim();
+       const ma=ba.match(BASE), mb=bb.match(COEF);
+       if(ma&&mb&&!COEF.test(ba)){
+         out5.push(_pf5(a)+ma[1]+ma[2].trim()+wrap(mb[1])+" ⇒ "+ma[3].trim()+wrap(mb[2]));
+         i++; continue; } }
+     out5.push(lines[i]); }
+   lines=out5;}
   // 相鄰兩行講同一件事（同技能、body 開頭有 ≥4 字共同前綴、且第二行剩下的還帶「：」＝另一個具名子項）
   //（2026-07-31 判例：妮德莉 3.14 擲標槍「額外傷害的計算起點：…」與「額外傷害的累積起點：…」）
   {const _bd2=l=>String(l).replace(/^[^｜]*｜/,""), _pf2=l=>{const i=String(l).indexOf("｜");return i>0?String(l).slice(0,i):"";};
@@ -4448,7 +4484,7 @@ const renderChgLines=(lines,cardName)=>{
        //「治療：…」與「治療 AP 係數：…」）→ 視為同一件事（2026-07-31 努努 13.07 判例）
        const _long=n>=4&&(/[：:]/.test(rest)||/[：:]\s*$/.test(head2));
        const _short=n>=2&&/^\s/.test(rest)&&/[：:]/.test(rest);
-       if((_long||_short)&&!/^(新增|已移除|移除|屬性|基礎能力值|總價|合成費用)[：:]?$/.test(head2)){
+       if((_long||_short)&&!/^(新增|已移除|移除|屬性|基礎能力值|總價|合成費用|新版|舊版|新效果|舊效果)\s*[-－—：:]?\s*$/.test(head2)){
          out2.push(a.replace(/[。.]?\s*$/,"")+"；"+rest.trim()); i++; continue; } }
      out2.push(lines[i]); }
    lines=out2;}
@@ -5435,7 +5471,8 @@ function filterOpts(){
   //（使用者定案 2026-07-31）
   const _isT=b=>/錦標賽$|^入圍賽$/.test(String(b));
   const _tShown=new Set();
-  bases.filter(_isT).forEach(b=>{
+  // 入圍賽不單獨列：它屬於世界賽、世界賽屬於夏季 → 選「夏季」就會涵蓋（見 splitMatch）
+  bases.filter(b=>_isT(b)&&!/^入圍賽$/.test(String(b))).forEach(b=>{
     const lb=/錦標賽$/.test(b)?"錦標賽":b, sv="T:"+lb;
     if(_tShown.has(lb))return; _tShown.add(lb);
     const av=SPLITS.some(x=>{const b2=String(x).replace(/ PO$/,""); return b2===lb||b2.endsWith(lb);});
