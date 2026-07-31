@@ -9039,23 +9039,28 @@ function render(){
       _cL(["rl0","TOP",_laneW,"champ",m=>_cTxt(sides(m).R.lane[0])]),_cL(["rl1","JNG",_laneW,"champ",m=>_cTxt(sides(m).R.lane[1])]),_cL(["rl2","MID",_laneW,"champ",m=>_cTxt(sides(m).R.lane[2])]),_cL(["rl3","BOT",_laneW,"champ",m=>_cTxt(sides(m).R.lane[3])]),_cL(["rl4","SUP",_laneW,"champ",m=>_cTxt(sides(m).R.lane[4])]),
     ];
     const _noF=new Set(["date","lg","patch"]); // 這幾欄不放篩選框(上方全域篩選已有 年份/賽事/賽季/版本)
-    // 禁用欄：每「一手禁用」各給一個篩選框，一格對一張 BAN 圖 → 5 禁年代 5 格、3 禁年代 3 格
-    //（2026-07-31 使用者指定；原本是「前3(第一輪禁)｜後2(第二輪禁)」兩格，篩不出「第 n 手禁誰」）
+    // 禁用欄：每一手禁用各給一個篩選框，一格對一張 BAN 圖 → 5 禁年代 5 格、3 禁年代 3 格。
+    // ⚠ 比對範圍是「整個禁用階段」，不是那一手（2026-07-31 使用者指定）：
+    //   5 禁年代 第一階段＝前 3 手、第二階段＝後 2 手；3 禁年代只有一個階段（3 手）。
+    //   在第 1 格打卡蜜兒 → 該階段任一手（1/2/3）禁到卡蜜兒的比賽都會列出來（BAN 的先後沒有意義）。
+    //   同階段多格各打不同英雄＝「這個階段這幾隻都被禁」，順序不拘。
     const _banSlots=_b5?5:3;
-    const _banSub=side=>Array.from({length:_banSlots},(_,i)=>({k:side+(i+1),dl:"champ",
-      get:m=>_cTxt((sides(m)[side==="bb"?"L":"R"].bans||[])[i])})); // bb1~bb5／rb1~rb5＝該顯示側的第 i+1 手禁用
+    const _banPh=i=>(_b5&&i>=3)?[3,_banSlots]:[0,_b5?3:_banSlots]; // 第 i 手所屬階段的 [起,迄)
+    const _banSub=side=>Array.from({length:_banSlots},(_,i)=>{ const [a,z]=_banPh(i);
+      return {k:side+(i+1),dl:"champ",
+        get:m=>(sides(m)[side==="bb"?"L":"R"].bans||[]).slice(a,z).map(_cTxt).join(" ")}; }); // bb1~bb5／rb1~rb5
     const SUBF={bb:_banSub("bb"),rb:_banSub("rb")}; // 格數變動時(3禁↔5禁)，多出來的舊 key 由下面那行自動清掉
     const FILTERS=[]; COLF.forEach(c=>{ if(SUBF[c.k])FILTERS.push(...SUBF[c.k]); else if(!_noF.has(c.k))FILTERS.push({k:c.k,dl:c.dl,get:c.get}); }); // 攤平：實際可篩的欄(禁用拆兩格；去掉日期/賽事/版本)
     {const _fk=new Set(FILTERS.map(f=>f.k)); Object.keys(V.bpColF).forEach(k=>{ if(!_fk.has(k))delete V.bpColF[k]; });} // 清掉不再有輸入框的殘留值
     // 每欄各自下拉：只列「該欄實際出現過的值」；英雄依網站語言(chName)、隊伍用縮寫；依全域 vcKey 快取(欄篩選變動不重算)
     const _fdv=(k,m)=>{ const md=V.bpSideMode||"br"; if(k==="win")return[m.win];
-      const gb=/^([br])b([1-9])$/.exec(k); // 禁用逐手：bb1~bb5／rb1~rb5 → 只取該手那一隻
+      const gb=/^([br])b([1-9])$/.exec(k); // 禁用格：下拉範圍＝該手所屬的整個禁用階段（與上面的比對範圍一致）
       if(md!=="br"){ // fp/team：左右欄可能來自任一實際邊 → 下拉取兩邊聯集
         if(k==="bt"||k==="rt")return[m.blue.team,m.red.team];
-        if(gb){const i=+gb[2]-1;return[(m.blue.bans||[])[i],(m.red.bans||[])[i]];}
+        if(gb){const[a,z]=_banPh(+gb[2]-1);return[...(m.blue.bans||[]).slice(a,z),...(m.red.bans||[]).slice(a,z)];}
         const g2=/^[br]l([0-4])$/.exec(k); if(g2){const i=+g2[1];return[m.blue.lane[i],m.red.lane[i]];} return []; }
       if(k==="bt")return[m.blue.team]; if(k==="rt")return[m.red.team];
-      if(gb)return[((gb[1]==="b"?m.blue:m.red).bans||[])[+gb[2]-1]];
+      if(gb){const[a,z]=_banPh(+gb[2]-1);return((gb[1]==="b"?m.blue:m.red).bans||[]).slice(a,z);}
       const g=/^([br])l([0-4])$/.exec(k); if(g)return[(g[1]==="b"?m.blue:m.red).lane[+g[2]]]; return []; }; // 時長等：無下拉
     const _dlKey="bp2|"+(V.bpSideMode||"br")+"|"+vcKey(); window._BPDL=window._BPDL||{}; // 快取鍵含模式(切模式→下拉重算)
     let _DLF=window._BPDL[_dlKey];
