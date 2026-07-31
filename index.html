@@ -4119,7 +4119,7 @@ function heroTrend(ch,pos,sq){
     const L3=pos?({TOP:"TOP",JNG:"JUNGLE",MID:"MIDDLE",BOT:"BOTTOM",SUP:"UTILITY"}[pos]||null):null;
     const rows=Object.keys(hp).sort((a,b)=>parseFloat(a)-parseFloat(b)).map(p=>{
       let n=0,w=0; Object.entries(hp[p]).forEach(([ln,s])=>{ if(L3&&ln!==L3)return; n+=s[0]||0; w+=s[1]||0; });
-      return {patch:p,勝率:n?w/n*100:null,presence:null,選取率:null,禁用率:null,場數:n};
+      return {patch:p,勝率:n?w/n*100:null,presence:null,選取率:null,禁用率:null,場數:n,_w:w};
     }).filter(r=>r.場數>0);
     const mx=rows.length?Math.max(...rows.map(r=>r.場數)):0; // 場數%＝跟自己比：最多場的版本＝100%
     rows.forEach(r=>r.場數pct=mx?r.場數/mx*100:null);
@@ -4148,7 +4148,9 @@ function heroTrend(ch,pos,sq){
     .map(p=>({patch:p, 勝率:per[p].n?per[p].w/per[p].n*100:null,
       presence:Math.min(100,(per[p].n+per[p].ban)/per[p].games*100),
       選取率:per[p].games?per[p].n/per[p].games*100:null,
-      禁用率:per[p].games?per[p].ban/per[p].games*100:null, 場數:per[p].n}));
+      禁用率:per[p].games?per[p].ban/per[p].games*100:null, 場數:per[p].n,
+      // 原始次數：tooltip 除了趴數還要寫「幾場之中的幾場」（2026-07-31 使用者要求）
+      _w:per[p].w, _ban:per[p].ban, _games:per[p].games}));
 }
 let tchart=null;
 // ── 官方 patch notes 改動（patches.js，由 fetch_patches.py 解析）──
@@ -5196,17 +5198,32 @@ function drawTrend(ch,pos,sq){
     options:{maintainAspectRatio:false,interaction:{mode:"nearest",intersect:true},
       scales:{y:{min:0,max:118,title:{display:true,text:"%"},
           ticks:{stepSize:20,callback:v=>v<=100?v:undefined}}}, // 刻度只到100，上方留給標記
-      plugins:{legend:{labels:{boxWidth:12,filter:it=>it.text!=="版本改動"&&(sq?(it.text==="勝率"||it.text==="場數%"):it.text!=="場數%")}},
+      plugins:{legend:{labels:{boxWidth:12,filter:it=>it.text!=="版本改動"&&(sq?(it.text==="勝率"||it.text==="場數%"):it.text!=="場數%")},
+        // Chart.js 預設的圖例點擊走 hide()/show()，帶 show/hide 過場動畫：關掉選取率後再開禁用率，
+        // 選取率會被動畫多畫一格才消失＝畫面上閃一下（2026-07-31 使用者回報）。
+        // 改成直接切可見度＋update("none")（完全不跑動畫），切換即時生效、不會有殘影。
+        onClick:(e,item,legend)=>{ const ci=legend.chart, i=item.datasetIndex;
+          const vis=!ci.isDatasetVisible(i); ci.setDatasetVisibility(i,vis); item.hidden=!vis; ci.update("none"); }},
         tooltip:{callbacks:{
-          title:items=>items.length?`${labels[items[0].dataIndex]} 版本${sq&&data[items[0].dataIndex]?`｜${data[items[0].dataIndex].場數} ${LANG==="en"?"games":"場"}`:""}`:"",
+          // 標題：版本＋該版出場場數；每條線再補自己的原始次數（使用者：不要只寫趴數）
+          title:items=>{ if(!items.length)return "";
+            const d0=data[items[0].dataIndex], g=LANG==="en"?"games":"場";
+            return `${labels[items[0].dataIndex]} ${LANG==="en"?"patch":"版本"}${d0&&d0.場數!=null?`｜${T("出場")} ${d0.場數} ${g}`:""}`; },
           label:ctx=>{
             if(ctx.dataset.label==="版本改動"){
               const p=labels[ctx.dataIndex], d=dirOf(p);
               const hd=d>0?"▲ "+T("增強"):d<0?"▼ "+T("削弱"):"● "+T("調整");
               return [hd,...linesOf(p)];
             }
-            const v=ctx.parsed.y;
-            return `${ctx.dataset.label}：${v==null?"無":Math.round(v)+"%"}`;
+            const v=ctx.parsed.y, d0=data[ctx.dataIndex]||{}, g=LANG==="en"?"g":"場";
+            if(v==null)return `${ctx.dataset.label}：${LANG==="en"?"no data":"無"}`;
+            let ext="";   // 分子/分母寫清楚：那個趴數是怎麼算出來的一眼看得出來
+            if(ctx.dataset.label==="勝率"&&d0.場數)ext=`（${d0._w}-${d0.場數-d0._w}）`;
+            else if(ctx.dataset.label==="BP%"&&d0._games)ext=`（${d0.場數+d0._ban} / ${d0._games} ${g}）`;
+            else if(ctx.dataset.label==="選取率"&&d0._games)ext=`（${d0.場數} / ${d0._games} ${g}）`;
+            else if(ctx.dataset.label==="禁用率"&&d0._games)ext=`（${d0._ban} / ${d0._games} ${g}）`;
+            else if(ctx.dataset.label==="場數%"&&d0.場數!=null)ext=`（${d0.場數} ${g}）`;
+            return `${ctx.dataset.label}：${Math.round(v)}%${ext}`;
           }
         }}}}});
   card.scrollIntoView({behavior:"smooth",block:"nearest"});
