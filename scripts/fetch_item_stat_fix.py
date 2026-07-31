@@ -121,7 +121,9 @@ def main():
             continue
         major, minor = int(m.group(1)) - 10, int(m.group(2))
         for sec, arr in secs.items():
-            if sec != "道具" or not isinstance(arr, list):
+            # 道具改動有時被 wiki 歸在「機制」分區（13.14 亡靈戰魂）→ 一併掃，
+            # 查不到 DDragon 的自然會跳過
+            if sec not in ("道具", "機制", "符文") or not isinstance(arr, list):
                 continue
             by_item = {}
             for line in arr:

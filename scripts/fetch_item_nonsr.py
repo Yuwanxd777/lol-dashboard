@@ -107,6 +107,7 @@ def main():
         # Nexus Blitz（2018 快閃模式）／ARAM 專屬（2026-08-01 全面稽核）
         2018: ["Bloodletter's Veil", "放血者的面紗"],
         2021: ["Cloudbringer's Grace", "引雲者的恩典"],
+        2014: ["Hand 巴龍", "巴龍之手", "Hand of Baron"],
         2015: ["Altars", "祭壇", "月華法刃", "Moonflair Spellblade", "光之使者", "Lightbringer"],
         2022: ["Cloudbringer's Grace", "引雲者的恩典"],
     }
