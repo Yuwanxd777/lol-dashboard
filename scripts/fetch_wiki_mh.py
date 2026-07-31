@@ -114,6 +114,53 @@ def parse(hml):
 SPL = lambda s: [x.strip() for x in str(s or "").split(",") if x.strip()]
 
 
+_PNAME = None
+
+
+def pname(nm):
+    """wiki 的選手 ID 是「當年寫法」，OE 用的是統一寫法（2013 是 bengi、2015 之後 OE 寫 Bengi）。
+
+    不對齊的話同一個人會被拆成兩份生涯統計（2026-07-31 使用者提醒：抓 Match History 要抓選手名稱，
+    不然選手生涯統計會漏）。以 2016 年起的 OE 原生資料為權威寫法，用 casefold 比對換過來；
+    對不上的（早年就退役、OE 沒收）保留 wiki 原寫法，反正那些人只出現在補進來的年份、彼此一致。
+    """
+    global _PNAME
+    if _PNAME is None:
+        import glob
+        _PNAME = {}
+        for p in sorted(glob.glob(os.path.join(ROOT, "data", "data_*.js"))):
+            try:
+                y = int(os.path.basename(p)[5:9])
+            except ValueError:
+                continue
+            if y < 2016:                      # 2015 以前混有 wiki 補的資料，不能當權威
+                continue
+            try:
+                R = json.loads(open(p, encoding="utf-8").read().split("=", 1)[1].strip().rstrip(";"))["tabs"]["RAW_DATA"]
+            except Exception:
+                continue
+            ix = {n: i for i, n in enumerate(R[0])}
+            for k in ("blue_playername", "red_playername"):
+                if k not in ix:
+                    continue
+                for r in R[1:]:
+                    v = str(r[ix[k]] or "").strip()
+                    if v:
+                        _PNAME.setdefault(v.casefold(), v)
+    return _PNAME.get(str(nm or "").casefold(), nm)
+
+
+def _patch(v):
+    """wiki 的版本欄補零成 OE 格式（"3.9"→"3.09"）。
+
+    OE 自己就是補零的（CSV 實測全是 5.09/5.11），fetch_data 之後統一 +10 換成 13.xx／15.xx。
+    不補零的話 float("3.9")+10 會被格式化成 "13.90"，看起來像第 90 個版本，
+    而且同一個版本會裂成 15.90／15.09 兩種值（2026-07-31 使用者回報）。
+    """
+    m = re.match(r"^\s*(\d+)\.(\d+)\s*$", str(v or ""))
+    return f"{m.group(1)}.{int(m.group(2)):02d}" if m else str(v or "")
+
+
 def to_csv(games, cfg):
     import fetch_fill as _ff
     hdr = _ff.oe_header()
@@ -139,6 +186,15 @@ def to_csv(games, cfg):
         if m:
             secs = str(int(m.group(1)) * 60 + int(m.group(2)))
         bans = {"blue": SPL(g.get("Bans")), "red": SPL(g.get("Bans2"))}
+        # wiki 的 Bans 欄整格只寫一個 "None" ＝ 那一隊**整輪都沒禁**，不是「只有一手沒禁」→
+        # 展開成該局應有的禁用數（對手有幾手就幾手，兩邊都 None 就用該年制度：2014 以前 3 禁、2015 起 5 禁），
+        # 否則畫面上只會出現一個空 BAN 圖（2026-07-31 使用者回報：None 應該是三個禁用圖）。
+        _allnone = lambda a: (not a) or all(str(x).strip().lower() == "none" for x in a)
+        for _s in ("blue", "red"):
+            if _allnone(bans[_s]):
+                _o = "red" if _s == "blue" else "blue"
+                bans[_s] = [""] * (len(bans[_o]) if not _allnone(bans[_o])
+                                   else (3 if int(cfg["year"]) <= 2014 else 5))
         picks = {"blue": SPL(g.get("Picks")), "red": SPL(g.get("Picks2"))}
         roster = {"blue": SPL(g.get("Blue Roster")), "red": SPL(g.get("Red Roster"))}
         num = lambda k: re.sub(r"[^0-9.]", "", str(g.get(k, "") or ""))
@@ -153,7 +209,7 @@ def to_csv(games, cfg):
             put("gameid", gid); put("datacompleteness", "partial")
             put("league", cfg["league"]); put("year", cfg["year"]); put("split", cfg["split"])
             put("playoffs", cfg.get("playoffs", 0)); put("date", dt)
-            put("game", 1); put("patch", g.get("P", "")); put("participantid", pid)
+            put("game", 1); put("patch", _patch(g.get("P", ""))); put("participantid", pid)
             put("side", side.capitalize()); put("position", pos)
             put("teamname", bt if side == "blue" else rt)
             put("result", "1" if (bwin if side == "blue" else not bwin) else "0")
@@ -167,12 +223,14 @@ def to_csv(games, cfg):
                 r, put = base(side, POS5[i], pid)
                 nm = roster[side][i] if i < len(roster[side]) else ""
                 nm = re.sub(r"\s*\(.*?\)$", "", nm).strip()      # 「Woong (Jang Gun-woong)」→ Woong
-                put("playername", align(nm, players_map))
+                put("playername", pname(align(nm, players_map)))   # 對齊 OE 的統一寫法（bengi→Bengi）
                 put("champion", align(picks[side][i] if i < len(picks[side]) else "", champs_map))
                 rows.append(r)
             r, put = base(side, "team", 100 if side == "blue" else 200)
+            # wiki 用字串 "None" 表示「那一手真的沒禁」→ 存成空字串（位置照留，前端才畫得出空 BAN 圖）。
+            # 直接丟給 align() 會變成一隻叫 None 的英雄（2026-07-31 使用者回報對戰BP 出現 None）。
             for i2, ch in enumerate(bans[side][:5]):
-                put(f"ban{i2+1}", align(ch, champs_map))
+                put(f"ban{i2+1}", "" if str(ch).strip().lower() in ("none", "") else align(ch, champs_map))
             for i2, ch in enumerate(picks[side][:5]):
                 put(f"pick{i2+1}", align(ch, champs_map))
             o = obj[side]

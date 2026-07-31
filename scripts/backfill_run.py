@@ -28,25 +28,43 @@ JOBS = [
     (2013, "LCS", "Summer", 0, ["NA LCS 2013 Summer", "NA LCS Season 3 Summer"]),
     (2013, "GPL", "Spring", 0, ["GPL 2013 Spring"]),
     (2013, "GPL", "Summer", 0, ["GPL 2013 Summer"]),
-    (2013, "TCL", "Summer", 0, ["TCL 2013 Summer", "TCL 2013 Winter"]),
+    # ── 2013 外卡／其他賽區（使用者 2026-07-31 追加的 wiki 連結）──
+    # 賽事名一律用 Page Forms 的自動完成 API 查出來的 Tournaments.Name（別自己猜）：
+    #   api.php?action=pfautocomplete&cargo_table=Tournaments&cargo_field=Name&substr=關鍵字
+    # 早年頁名不照現代規則（土耳其＝Riot Turkey Season 3…、CIS＝Regional CIS Championship 2013）
+    # 世界賽本體的 split 留空（其他年份的 WLDs 也是空的，篩選列才不會冒出「Main」）；
+    # 外卡賽是賽前另一個獨立賽事 → 自成一個聯賽碼 IWCT（index.html 的 LEAGUE_META 已登記為盃賽）
+    (2013, "WLDs", "", 0, ["Season 3 World Championship"]),
+    (2013, "IWCT", "", 0, ["IWCT 2013"]),
+    (2013, "CBLOL", "Season", 0, ["Riot Season 3 Brazilian Championship"]),
+    (2013, "LCO", "Season", 0, ["Riot Season 3 Oceanic Championship"]),
+    (2013, "TCL", "Winter", 0, ["Riot Turkey Season 3 Winter Tournament"]),
+    (2013, "TCL", "Spring", 0, ["Riot Turkey Season 3 Spring Tournament"]),
+    (2013, "TCL", "Summer", 0, ["Riot Turkey Season 3 Summer Tournament"]),
+    (2013, "LCL", "Season", 0, ["Regional CIS Championship 2013"]),
     # ── 2014 ──
     (2014, "LCK", "Winter", 0, ["Champions 2014 Winter"]),
     (2014, "LCK", "Spring", 0, ["Champions 2014 Spring"]),
     (2014, "LCK", "Summer", 0, ["Champions 2014 Summer"]),
     (2014, "LPL", "Spring", 0, ["LPL 2014 Spring"]),
     (2014, "LPL", "Summer", 0, ["LPL 2014 Summer"]),
-    (2014, "LMS", "Summer", 0, ["LMS 2014 Summer", "GPL 2014 Summer"]),
+    # LMS 2014 不存在（LMS 2015 才開賽，2014 台港澳在 GPL 底下）→ 不要再加回來
+    (2014, "GPL", "Winter", 0, ["GPL 2014 Winter"]),
     (2014, "GPL", "Spring", 0, ["GPL 2014 Spring"]),
-    (2014, "CBLOL", "Spring", 0, ["CBLOL 2014 Split 1", "CBLOL 2014 Spring"]),
-    (2014, "CBLOL", "Summer", 0, ["CBLOL 2014 Split 2", "CBLOL 2014 Summer"]),
-    (2014, "TCL", "Summer", 0, ["TCL 2014 Summer", "TCL 2014 Winter"]),
+    (2014, "GPL", "Summer", 0, ["GPL 2014 Summer"]),
+    (2014, "CBLOL", "Season", 0, ["Brazilian Champions Series 2014"]),
+    (2014, "TCL", "Winter", 0, ["TCL 2014 Winter"]),
+    (2014, "TCL", "Spring", 0, ["TCL 2014 Spring"]),
+    (2014, "TCL", "Summer", 0, ["TCL 2014 Summer"]),
     # ── 2015 ──
     (2015, "LPL", "Spring", 0, ["LPL 2015 Spring"]),
     (2015, "LPL", "Summer", 0, ["LPL 2015 Summer"]),
-    (2015, "CBLOL", "Spring", 0, ["CBLOL 2015 Split 1", "CBLOL 2015 Spring"]),
-    (2015, "CBLOL", "Summer", 0, ["CBLOL 2015 Split 2", "CBLOL 2015 Summer"]),
+    (2015, "CBLOL", "Split 1", 0, ["CBLOL 2015 Split 1"]),
+    (2015, "CBLOL", "Split 2", 0, ["CBLOL 2015 Split 2"]),
     (2015, "GPL", "Spring", 0, ["GPL 2015 Spring"]),
     (2015, "GPL", "Summer", 0, ["GPL 2015 Summer"]),
+    (2015, "TCL", "Winter", 0, ["TCL 2015 Winter"]),
+    (2015, "TCL", "Summer", 0, ["TCL 2015 Summer"]),
     # ── 2016（LPL 只有夏季，補春季）──
     (2016, "LPL", "Spring", 0, ["LPL 2016 Spring"]),
 ]
@@ -75,6 +93,25 @@ def main():
                 ok.append((year, lg, split, nm, len(t) - 1)); done = True; break
         if not done:
             miss.append(f"{year} {lg} {split}（試過：{names}）")
+    # 清孤兒 key：JOBS 改過名（CBLOL_2015_Spring → CBLOL_2015_Split1）之後，舊 key 還留在
+    # wikifill_{年}.json 裡 → 同一批比賽被併進去兩次，而且帶著補零前的錯版本號（15.90 之類）。
+    # 只清「這次有跑到的年份」，且以 JOBS 目前的 key 集合為準。（2026-07-31）
+    for y in sorted({j[0] for j in JOBS if not yrs or j[0] in yrs}):
+        p = os.path.join(MH.CACHE, f"wikifill_{y}.json")
+        if not os.path.exists(p):
+            continue
+        try:
+            D = json.load(open(p, encoding="utf-8"))
+        except Exception:
+            continue
+        live = {f"{lg}_{yy}_{re.sub(r'[^A-Za-z0-9]+','',sp)}" for (yy, lg, sp, _po, _n) in JOBS if yy == y}
+        drop = [k for k in D if k not in live] + [k for k, v in D.items() if k in live and not v.get("rows")]
+        if drop:
+            for k in drop:
+                D.pop(k, None)
+            json.dump(D, open(p, "w", encoding="utf-8"), ensure_ascii=False)
+            print(f"\n[{y}] 清掉 {len(drop)} 個孤兒／空的 key：{drop}")
+
     print("\n" + "=" * 60)
     print(f"完成 {len(ok)} 個賽段：")
     for y, lg, sp, nm, n in ok:

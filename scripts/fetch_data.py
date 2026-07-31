@@ -34,7 +34,9 @@ TIER1_YEARS = {
     "TCL": (2015, 2022), "LCO": (2015, 2024), "LCL": (2016, 2022),  # LCO=OPL 改名(2021)，2025 併入 LCP
     "LCP": (2025, 2099), "LTA": (2025, 2025), "LTA N": (2025, 2025), "LTA S": (2025, 2025),
 }
-INTL_LEAGUES = {"WLDS", "MSI", "EWC", "FST", "ENC", "KESPA", "IEM"}  # 國際賽/盃賽不分級
+# 國際賽/盃賽不分級。IWCT＝2013-2015 的國際外卡賽（外卡賽區爭世界賽／MSI 名額），
+# 不在 TIER1_YEARS 裡 → 不列進來的話整個賽事會被 league_ok 丟掉（wiki 抓到 17 局卻 0 列）
+INTL_LEAGUES = {"WLDS", "MSI", "EWC", "FST", "ENC", "KESPA", "IEM", "IWCT"}
 
 def league_ok(lg, year):
     if lg.upper() in INTL_LEAGUES:
@@ -49,6 +51,24 @@ FILTER_LEAGUES = ["LPL","LCK","CBLOL","LCP","LEC","LCS","LTA S","LTA N","LTA",
                   "FST","MSI","EWC","ENC","WLDs","KeSPA","LMS","EU LCS","NA LCS",
                   "OGN","IEM","OPL","TCL",   # （保留給舊碼參考；實際過濾改用 TIER1_YEARS）
                   "RR","IEM","MSC"]
+
+# 選手 ID 大小寫變體 → 統一寫法（casefold 當 key，值取場次多的那個寫法）。
+# 只收「同一支隊伍、時間相鄰」的組合＝確定是同一人，來源寫法不一致而已；
+# 不同隊不同時期的同名異寫（ARK/Ark、bless/Bless、FATE/fate、Mountain/MounTain…）多半是**不同人**，
+# 一律不併。不併的話生涯統計會被拆成兩份（2026-07-31 使用者提醒：選手生涯統計會漏）。
+PLAYER_ALIAS = {
+    "bigpomelo": "bigpomelo",       # Oh My God 2013
+    "fzzf": "Fzzf",                 # EDward Gaming 2013-2014
+    "imaqtpie": "Imaqtpie",         # Dignitas 2013-2014
+    "miso": "MiSo",                 # Jin Air Falcons 2013-2014
+    "noname": "NONAME",             # LMQ 2013-2014
+    "puszu": "puszu",               # Fnatic 2013
+    "san": "san",                   # Oh My God 2013-2015
+    "watch": "Watch",               # NaJin 2013-2015
+    "weiwei": "Weiwei",             # LNG/BLG 2019-2026
+    "wuxx": "Wuxx",                 # Royal Never Give Up 2015-2017
+    "xiaoweixiao": "xiaoweixiao",   # LMQ／Team Impulse 2013-2015
+}
 
 SHARED_COLS = ["league","split","date","game","result","patch","participantid"]
 # 效能已非問題 → 全部留存。只刪「識別碼」與「已被 banlist/picklist/pid 取代」的冗欄。
@@ -185,6 +205,9 @@ def process(text, year=DEFAULT_YEAR):
         if lg in RENAME:
             lg = RENAME[lg]; r[iLeague] = lg
         if not league_ok(lg, year): continue  # 只收該年度的一級聯賽與國際賽
+        if iPlayer >= 0:                      # 選手 ID 大小寫統一（見 PLAYER_ALIAS）
+            _pn = (r[iPlayer] or "").strip()
+            if _pn and _pn.casefold() in PLAYER_ALIAS: r[iPlayer] = PLAYER_ALIAS[_pn.casefold()]
         if gi("firstPick") == width-1 and len(r) == width and r[iFP] == "":
             r[iFP] = "1" if (r[iSide] or "").lower()=="blue" else "0"
         filtered.append(r)
@@ -604,6 +627,31 @@ def merge_wiki(year, table):
     return table
 
 
+def unify_players(table):
+    """選手 ID 大小寫統一（PLAYER_ALIAS）。
+
+    必須排在 merge_fill／merge_wiki／merge_patch **之後**：那些補充來源存的是「process() 之後的列」，
+    直接併進 table，不會經過 process() 裡那次正規化 → 只改 process() 的話，wiki 補回來的
+    watch/San 之類仍會跟 OE 的 Watch/san 拆成兩份生涯（2026-07-31 實測）。
+    """
+    if not table or not PLAYER_ALIAS:
+        return table
+    ix = {n: i for i, n in enumerate(table[0])}
+    cols = [ix[c] for c in ("blue_playername", "red_playername") if c in ix]
+    if not cols:
+        return table
+    n = 0
+    for r in table[1:]:
+        for c in cols:
+            v = str(r[c] or "").strip()
+            t = PLAYER_ALIAS.get(v.casefold())
+            if t and t != v:
+                r[c] = t; n += 1
+    if n:
+        print(f"  選手 ID 大小寫統一：{n} 處")
+    return table
+
+
 def merge_patch(year, table):
     """併入 csv_cache/patch_{年}.json：OE 有這局、但某些欄位是空的（如 07-28 KeSPA BRO vs DNS 的 BP）
     → 由 scripts/fetch_bp_fill.py 從 gol.gg 補。**只填空欄位**，OE 已有值的一律不動（以 OE 為準）。
@@ -727,6 +775,7 @@ def main():
         table = merge_fill(y, table)
         table = merge_wiki(y, table)
         table = merge_patch(y, table)      # OE 未收錄賽段的補充資料（OE 有的一律以 OE 為準）
+        table = unify_players(table)       # 選手 ID 大小寫統一（要排在所有 merge 之後，見下）
         write_year(y, table)
     write_manifest()
     print("完成")

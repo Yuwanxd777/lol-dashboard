@@ -224,6 +224,9 @@
   .bans .cc img{width:44px;height:44px;filter:grayscale(.85) brightness(.75);border-radius:9px} /* 與 PICK 同尺寸（使用者定案 2026-07-29）；灰階保留＝一眼分辨 BAN */
   .bans .cc img.nobanImg{filter:none}   /* 空 BAN 圖本來就是紅圈禁止符號，不要再灰掉 */
   .bans .cc{margin-right:7px} .bans .cc:last-child{margin-right:0} /* 禁用頭像間距 ≥7px（使用者定案 2026-07-31：原本 join("") 相鄰＝0px 太擠） */
+  /* 整局沒有禁用資料＝問號（跟「空 BAN」要分得出來：空 BAN 是紅圈禁止符號） */
+  .bans .cc.noBpQ{display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;
+    border-radius:9px;background:#141a26;border:2px solid #2a3346;color:var(--dim,#8a93a6);font-size:22px;font-weight:900}
   .heroname .cc img{width:28px;height:28px;margin-right:6px}
   /* 數字輸入框：全站移除上下調整鈕（要改就按 ✕ 重打） */
   input[type=number]::-webkit-outer-spin-button,input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
@@ -1796,8 +1799,11 @@ addEventListener("resize",setHdrH); addEventListener("load",setHdrH); setHdrH();
 const HIST_VER={2014:"4.21.5",2015:"5.24.2",2016:"6.24.1",2017:"7.24.2",2018:"8.24.1",2019:"9.24.2",
   2020:"10.25.1",2021:"11.24.1",2022:"12.23.1",2023:"13.24.1",2024:"14.24.1",2025:"15.24.1"};
 const NOWY=new Date().getFullYear();
-const isHistYear=()=>+curYear!==NOWY&&HIST_VER[+curYear];
-const yearVer=()=>isHistYear()?HIST_VER[+curYear]:DDV;
+// 「是不是歷史年」只看年份，不要看 HIST_VER 有沒有登記：2013 的 DDragon 資產（lolpatch_3.15）
+// 整包 403 拿不到，沒得登記 → 舊寫法會把 2013 判成「當年」，於是把積分(SOLOQ_BUILDS)的 26.xx
+// 版本混進 2013 的版本篩選清單（2026-07-31 使用者回報）。沒登記年末版本的年份圖／數值退回現行版。
+const isHistYear=()=>+curYear!==NOWY;
+const yearVer=()=>HIST_VER[+curYear]||DDV;
 // 道具圖示：把 EXTRA_IMG 內的 /img/item/ 版本改成篩選年最後一版（該年沒有的圖會 404→onerror 隱藏）
 const itemVerImg=u=>(typeof u==="string")?u.replace(/\/cdn\/[^/]+\/img\/item\//,`/cdn/${yearVer()}/img/item/`):u;
 
@@ -1868,7 +1874,7 @@ async function champTipHTML(key,detailed){
 // 歷史年道具/符文資料：該年最後版本的 DDragon item/runes（首次右鍵時載入並快取）
 const _HIST={};
 async function histYearData(){
-  const y=+curYear, ver=HIST_VER[y];
+  const y=+curYear, ver=yearVer();     // 沒登記年末版本的年份（2013）退回現行版，別送出 undefined 的網址
   if(_HIST[y])return _HIST[y];
   const items={}, byId={};
   try{
@@ -1928,7 +1934,7 @@ async function histItemTipHTML(name){
     if(s.h==="屬性")return `<div class="tipRow"><b>${LANG==="en"?"Stats":"屬性"}</b><div>${hiNum(esc(s.t))}</div></div>`;
     return `<div class="tipRow">${hiNum(esc(s.t)).replace(/\n/g,"<br>")}</div>`;
   }).join("");
-  return `<div class="tipTitle">${esc(k)} <span class="meta">${T(inf.t)}${inf.g?(LANG==="en"?`｜Total $${inf.g}`:`｜總價 $${inf.g}`):""}｜${curYear} ${LANG==="en"?`year-end (${HIST_VER[+curYear]})`:`年末版本（${HIST_VER[+curYear]}）`}</span></div>${comps}${secs}${ups}`;
+  return `<div class="tipTitle">${esc(k)} <span class="meta">${T(inf.t)}${inf.g?(LANG==="en"?`｜Total $${inf.g}`:`｜總價 $${inf.g}`):""}${HIST_VER[+curYear]?`｜${curYear} ${LANG==="en"?`year-end (${HIST_VER[+curYear]})`:`年末版本（${HIST_VER[+curYear]}）`}`:""}</span></div>${comps}${secs}${ups}`;
 }
 // 圖鑑道具/符文 hover 附加：把它當核心裝的英雄 / 最常帶它的英雄（頭像；資料＝soloq_builds.js）
 function runeIdByName(name){ const trees=(window._RTREE&&_RTREE[yearVer()])||null; if(!trees)return null;
@@ -2143,7 +2149,14 @@ const num=v=>{ if(v===""||v==null||v==="-")return null; const n=+v; return isNaN
 
 // 戰隊縮寫：Data 分頁優先，內建表補漏（key 正規化：去隱形字元/大小寫）
 const normT=s=>String(s).replace(/[⁠​﻿]/g,"").trim().toLowerCase();
-const STATIC_TABBR={"tt gaming":"TT", // 2026 EWC 中國區資格賽名單（events_extra.js）用 Leaguepedia 全名，資料庫沒這隊 → 補縮寫
+const STATIC_TABBR={
+// 2013 補齊後才出現的老隊伍：Leaguepedia 的 Teams 表沒收（或隊名寫法對不上）→ 縮寫用當年通稱
+"energy pacemaker.hk":"EPH","good game university":"GGU","kt rolster a":"KTA","kt rolster b":"KTB",
+"mvp white":"MVPW","mvp blue":"MVPB","mig blitz":"MiGB","najin shield":"NJSH","najin sword":"NJS",
+"sk telecom t1 1":"SKT1","sk telecom t1 2":"SKT2","team alternate":"ALT","samsung ozone":"SSO",
+"lyon gaming (2013 latin american team)":"LYN","insidious gaming":"INS","logitech g fighter":"LGF",
+"alterego gaming":"AEG","ascension":"ASC","imperium":"IMP","kabum! orange":"KBO","team strix":"STX",
+"tt gaming":"TT", // 2026 EWC 中國區資格賽名單（events_extra.js）用 Leaguepedia 全名，資料庫沒這隊 → 補縮寫
 "leviatan":"LEV","pain gaming":"PNG","red canids":"RED","vivo keyd stars":"VKS",
 "fluxo w7m":"FX7M","løs":"LOS","loud":"LOUD","furia":"FUR","movistar r7":"R7",
 "chinese taipei (national team)":"TPE","vietnam (national team)":"VIE","japan (national team)":"JPN",
@@ -2462,6 +2475,7 @@ const LEAGUE_META={
   MSI:{zh:"季中邀請賽",grp:"intl",full:"Mid-Season Invitational"},
   FST:{zh:"初陣對抗賽",en:"First Stand Tournament",grp:"intl",full:"First Stand Tournament"},
   WQS:{zh:"中國區世界賽資格賽",en:"Worlds Qualifier (China)",grp:"cup",region:"中國",full:"LPL Regional Qualifier for Worlds"}, // 2025 資料中被誤標 WLDs 的 9 月場次＝LPL 區資格賽,
+  IWCT:{zh:"國際外卡賽",en:"International Wildcard",grp:"cup",full:"International Wildcard Tournament"}, // 2013-2015 外卡賽區爭世界賽/MSI 名額（S3 那屆＝Season 3 IWCT）
   KeSPA:{zh:"KeSPA 盃",grp:"cup",region:"韓國",full:"KeSPA Cup"},
   IEM:{zh:"IEM",grp:"cup",full:"Intel Extreme Masters"},
   EWC:{zh:"電競世界盃",grp:"cup",full:"Esports World Cup"},
@@ -2522,6 +2536,9 @@ function editEvtAbbr(sp){
       names.forEach(nm=>{const k=normT(nm); if(v)USER_TABBR[k]=v; else delete USER_TABBR[k];});
       try{localStorage.setItem("user_tabbr",JSON.stringify(USER_TABBR));}catch(e){}
       try{window._EVT_CACHE={};}catch(e){}
+      // 縮寫是「算好之後存進快取」的（對戰BP 的 _MCACHE 存的是 tAb 後的字串）→ 不清快取就看不到改動
+      // （2026-07-31 使用者回報：改了 2013 的縮寫，對戰BP 還是顯示全名）
+      try{vcInvalidate();}catch(e){}
       render();
     } else sp.innerHTML=orig; };
   inp.addEventListener("keydown",e=>{ e.stopPropagation();
@@ -2576,6 +2593,13 @@ const eventsTreeHTML=()=>{
       if(bt&&(!pt[bt]||dp>=pt[bt].d))pt[bt]={d:dp,w:o.result===1};
       if(rt&&(!pt[rt]||dp>=pt[rt].d))pt[rt]={d:dp,w:o.result===2}; }
     else { if(bt)e.reg2.add(bt); if(rt)e.reg2.add(rt);
+      // 賽段基底（季後賽併回它所屬的季度）→ 賽事卡「一個季度一列」用（使用者指定 2026-07-31）
+      { const _spb=String(o.split||"").replace(/ PO$/,"").replace(/季後$/,"");
+        if(_spb){ const _sm=e._spTeams=e._spTeams||{}; const _st=_sm[_spb]=_sm[_spb]||new Set();
+          if(bt)_st.add(bt); if(rt)_st.add(rt);
+          // 各段最早比賽日 → 分列時照時間排（字串排序會把「夏季」排到「春季」前、Closing 排到 Opening 前）
+          const _sd=e._spDate=e._spDate||{}, _d3=String(o.date).slice(0,10);
+          if(!_sd[_spb]||_d3<_sd[_spb])_sd[_spb]=_d3; } }
       if(!/PO$|季後/.test(String(o.split||""))){ if(bt)(e.regN=e.regN||new Set()).add(bt); if(rt)(e.regN=e.regN||new Set()).add(rt); } // 例行賽成員（外賽區晉級季後賽的隊只有 PO 場）
       else { const _sp=String(o.split).replace(/ PO$/,"").replace(/季後$/,""); // 該賽段打進季後賽的隊（賽事樹打勾用）
         const _pb=e._poSp=e._poSp||{}; const _s2=_pb[_sp]=_pb[_sp]||new Set();
@@ -2776,7 +2800,24 @@ const eventsTreeHTML=()=>{
       }else if(gcfg){ const gset=new Set(gcfg.abs);
         const gArr=base.filter(t2=>gset.has(tAb(t2))), rest3=base.filter(t2=>!gset.has(tAb(t2)));
         mainChips=chips(rest3,advQ)+(gArr.length?`<span class="evtPromoDiv evtGrpDiv"><i>${gcfg.lb}</i></span>`+chips(gArr,advQ):"")+extSeg;
-      }else mainChips=chips(base,advQ)+extSeg;
+      }else{
+        // 一般聯賽：一年有兩個以上季度就逐季度分列（版面沿用 LPL/LCK 的 lgSplitBlk），
+        // 該季度打進季後賽的隊帶綠勾（使用者指定 2026-07-31）。只有單一季度就照舊平鋪。
+        const _spT=x._spTeams||{}, _poOf=sp=>(x._poSp||{})[sp]||null;
+        const _spD=x._spDate||{};
+        const _spKeys=Object.keys(_spT).filter(k=>_spT[k].size)
+          .sort((a,b)=>String(_spD[a]||"").localeCompare(String(_spD[b]||""))||a.localeCompare(b));
+        if(_spKeys.length>1){
+          const _row=(lb,arr,adv)=>`<div class="lgSplitBlk"><span class="lgSplitHd">${esc(lb)}</span><span class="lgSplitGrps"><div class="lgGrpCol"><span class="lgGrpChips">${chips(arr,adv,x.tinfo)}</span></div></span></div>`;
+          let _mc="",_used=new Set();
+          _spKeys.forEach(sp=>{ const arr=base.filter(t2=>_spT[sp].has(t2));
+            if(!arr.length)return; arr.forEach(t2=>_used.add(t2));
+            _mc+=_row(sp,arr,_poOf(sp)||advQ); });
+          const _rest=base.filter(t2=>!_used.has(t2));
+          if(_rest.length)_mc+=_row(LANG==="en"?"Other":"其他",_rest,advQ);
+          mainChips=_mc+extSeg;
+        }else mainChips=chips(base,advQ)+extSeg;
+      }
     }
     let promoBlock="";
     if(x._grp&&x._preleg&&Object.values(x._preleg).some(s2=>s2.size)){ // LTA：金實線 → 北區升降｜灰虛豎線｜南區升降（完整參賽名單，含保級聯賽隊；末戰勝＝晉級2026＝黃框）
@@ -4358,15 +4399,27 @@ function _calcMatches0(team){
     // 合併的 banlist 濾掉空 BAN 後再對半切會整個歪掉——JDG 空了一手 → 9 個 ban 切成 5/4，
     // WE 的第一個 ban 被算進 JDG、WE 只剩 4 個（少一 BAN 記在錯的隊上）。
     // 空 BAN 少見但確實會發生（忘記按或戰術性空 BAN）→ 分邊欄位不受影響，且保留中間的空位。
-    const _bl=v=>{const a=String(v==null?"":v).split("|"); if(a.length&&a[0]==="")a.shift(); if(a.length&&a[a.length-1]==="")a.pop(); return a;};
-    const _bB=C.blue_banlist!=null?_bl(r[C.blue_banlist]):null, _bR=C.red_banlist!=null?_bl(r[C.red_banlist]):null;
+    // 空字串 "||" 去頭尾後會剩下 [""]（長度 1），跟「只禁一手」的 "|Ahri|" 分不出來
+    // → 整串沒有任何英雄名就直接回 []，這樣「沒有 BP 資料」才判得出來（2026-07-31）
+    const _bl=v=>{const s=String(v==null?"":v); if(!s.replace(/\|/g,"").trim())return [];
+      const a=s.split("|"); if(a.length&&a[0]==="")a.shift(); if(a.length&&a[a.length-1]==="")a.pop(); return a;};
+    let _bB=C.blue_banlist!=null?_bl(r[C.blue_banlist]):null, _bR=C.red_banlist!=null?_bl(r[C.red_banlist]):null;
+    // 同一局兩邊的禁用手數一定相同 → 一邊有、另一邊整排空＝那隊「整輪都沒禁」（wiki 的 Bans 欄寫 None，
+    // 資料端會把尾端空位砍掉而剩 0 個）→ 補成同樣數量的空 BAN 圖；兩邊都空才是來源沒有 BP 資料（畫問號）。
+    //（2026-07-31 使用者回報：None 應該是三個禁用圖，不是一個）
+    if(_bB&&_bR){ if(_bB.length&&!_bR.length)_bR=Array(_bB.length).fill("");
+                  else if(_bR.length&&!_bB.length)_bB=Array(_bR.length).fill(""); }
     const _sided=(_bB&&_bB.length)||(_bR&&_bR.length);   // 舊年份沒有分邊欄位 → 退回舊的對半切
     const bans=String(r[C.banlist]).split("|").filter(x=>x!=="");
     const half=Math.ceil(bans.length/2); // 早年 3 禁＝6 隻(3+3)、現代 5 禁＝10 隻(5+5)：依總數對半分，不寫死 5
     const bl=String(r[C.blue_Lane]).split("|").filter(x=>x!=="");
     const rl=String(r[C.red_Lane]).split("|").filter(x=>x!=="");
     const bpo=String(r[C.blue_po]).split("|"), rpo=String(r[C.red_po]).split("|");
-    const first=+r[C.blue_firstPick]===1?"blue":"red";
+    // 「選邊（先選／後選）」是 2026 才上路的制度，2025 以前（含 2025）一律藍方先選。
+    // 早年 OE 根本沒有 blue_firstPick 欄、wiki 補回來的更是全空 → 原本的 ===1 會一路落到 "red"，
+    // 害 2013~2025 的對戰BP 全部標成紅方先選（2026-07-31 使用者回報）。沒值時同樣預設藍方。
+    const _fpRaw=String(r[C.blue_firstPick]==null?"":r[C.blue_firstPick]).trim();
+    const first=(+String(o.date).slice(0,4)<2026||_fpRaw==="")?"blue":(+_fpRaw===1?"blue":"red");
     out.push({date:o.date.slice(5),_d:o.date,_dt:o.dt||o.date,_g:num(r[C.game])||0,league:o.league,split:o.split,patch:o.patch,
       win:o.result===1?tAb(bt):tAb(rt), first, blueWin:o.result===1,
       gl:num(r[C.blue_gamelength]),
@@ -8038,8 +8091,15 @@ function render(){
       const laneCells=(s,won)=>[0,1,2,3,4].map(i=>`<td class="${won?"bpw":""}">${cImg(s.lane[i]||"",s.po[i]&&s.po[i]!=="0"?s.po[i]:"")}</td>`).join("");
       // 空 BAN（該手沒禁：忘記按或戰術性空 BAN）→ 用模擬BP 的空 BAN 圖佔位，不要留空
       // （2026-07-31 使用者定案；資料端已保留空位，見 fetch_data.py 的 bans_raw）
-      const _bIco=b=>b?cImg(b):`<span class="cc"><img class="nobanImg" src="${NOBAN_SVG}" alt="${LANG==="en"?"no ban":"空BAN"}" title="${LANG==="en"?"no ban this turn":"該手沒有禁用"}"></span>`;
-      const banCells=(s,won)=>`<td class="bans${won?" bpw":""}">${s.bans.slice(0,3).map(_bIco).join("")}${s.bans.length>3?`<span class="banSep"></span>`:""}${s.bans.slice(3).map(_bIco).join("")}</td>`; // 禁用前3(第一輪禁)｜後2(第二輪禁)以分隔線分開
+      // wiki 早年是用字串 "None" 表示「這手真的沒禁」→ 跟空字串一樣當空 BAN 畫禁用圖示。
+      // 「整局沒有禁用資料」（來源根本沒收錄 BP）是另一回事，畫問號，不能跟空 BAN 混為一談。
+      //（2026-07-31 使用者指定）
+      const _noBan=b=>{const s=String(b==null?"":b).trim(); return !s||s.toLowerCase()==="none";};
+      const _bIco=b=>_noBan(b)?`<span class="cc"><img class="nobanImg" src="${NOBAN_SVG}" alt="${LANG==="en"?"no ban":"空BAN"}" title="${LANG==="en"?"no ban this turn":"該手沒有禁用"}"></span>`:cImg(b);
+      const _bpQ=`<span class="cc noBpQ" title="${LANG==="en"?"no draft data for this game":"這局沒有禁用資料"}">？</span>`;
+      const banCells=(s,won)=>`<td class="bans${won?" bpw":""}">`+(
+        s.bans.length?`${s.bans.slice(0,3).map(_bIco).join("")}${s.bans.length>3?`<span class="banSep"></span>`:""}${s.bans.slice(3).map(_bIco).join("")}`:_bpQ
+      )+`</td>`; // 禁用前3(第一輪禁)｜後2(第二輪禁)以分隔線分開；整局沒資料＝一個問號
       const rowHTML=(m,gno)=>{
         const cell=(s,isBlue,won)=>{
           const first=m.first===(isBlue?"blue":"red");
@@ -10183,6 +10243,8 @@ function render(){
           if(v)USER_TABBR[k]=v; else delete USER_TABBR[k];
         });
         localStorage.setItem("user_tabbr",JSON.stringify(USER_TABBR));
+        try{window._EVT_CACHE={};}catch(e){}
+        try{vcInvalidate();}catch(e){}   // 同上：對戰BP／英雄數據的快取存的是算好的縮寫
         // 同一隊出現在多張賽事卡（如 TSW 在 FST 與 MSI）→ 其他卡的輸入框即時同步
         document.querySelectorAll(".abbr").forEach(o=>{
           if(o!==inp&&o.dataset.t===inp.dataset.t)o.value=inp.value;
