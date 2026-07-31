@@ -10240,7 +10240,7 @@ function render(){
       ${heroModeSegHTML("pro")}`)
       +`
       <div class="card"><h2>
-        <span class="heroname" style="font-size:22px">${cImg(ch)} ${ch}</span>
+        <span class="heroname" style="font-size:22px">${cImg(ch)} ${esc(chName(champId(ch))||ch)}</span>
         <span class="sub">${CABBR[ch]?`${T("縮寫")} ${CABBR[ch]}｜`:""}${_subF}</span></h2>
         <div class="statline">
           <span>${LANG==="en"?"Games":"出場"} <b>${n}</b>${LANG==="en"?"":" 場"}</span>
