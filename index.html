@@ -3430,16 +3430,19 @@ function calcPlayers(pos,splitTeam){
     const gd10=a.g10N?a.gd10/a.g10N:null, gd25=a.g25N?a.gd25/a.g25N:null;
     rows.push({
       選手:tAb(a.team)+" "+a.name, _lg:(Object.entries(a.lgCnt||{}).sort((x,y)=>y[1]-x[1])[0]||[""])[0], 位置:a.posLabel||"", 場數:a.n, 勝率:a.w/a.n,
-      參與率:(a.k+a.a2)/Math.max(1,a.tk), "贏線率(金差@10)":a.g10N?a.winL/a.g10N:null,
-      後選率:a.lateN?(duo?a.late/a.lateN:a.late/a.n):0, 輸出比:a.ds/a.n, 死亡比:a.d/Math.max(1,a.td),
+      // 這幾項全都要「有資料才給值」：2013 這種只有 BP／勝負的年份，分子分母都是 0，
+      // 算出來是 0% 會被誤讀成「真的是 0%」（2026-07-31 使用者三度回報）
+      參與率:a.tk?(a.k+a.a2)/a.tk:null, "贏線率(金差@10)":a.g10N?a.winL/a.g10N:null,
+      後選率:a.lateN?(duo?a.late/a.lateN:a.late/a.n):null,
+      輸出比:a.ds?a.ds/a.n:null, 死亡比:a.td?a.d/a.td:null,
       首殺率:a.fbN?a.fb/a.fbN:null, 被首殺率:a.fvN?a.fv/a.fvN:null,
       金轉傷:a.gold?a.dmg/a.gold:null, 分均輸出:a.dpm?a.dpm/a.n:null, 分均承傷:a.dt?a.dt/a.n:null,
       分均金錢:(a.gl&&a.gold)?a.gold/(a.gl/60):null,
       "經驗差@10":a.g10N?a.xd10/a.g10N:null, "CS差@10":a.g10N?(a.cd10||0)/a.g10N:null,
       "金差@10":gd10,
       中期金差:(gd10!=null&&gd25!=null)?gd25-gd10:null,
-      分均視分:a.vs/a.n, "KDA差@10":kda10, KDA:(a.k+a.a2)/Math.max(1,a.d),
-      "K/D/A":`${d1s(a.k/a.n)} / ${d1s(a.d/a.n)} / ${d1s(a.a2/a.n)}`,
+      分均視分:a.vs?a.vs/a.n:null, "KDA差@10":kda10, KDA:(a.k||a.a2||a.d)?(a.k+a.a2)/Math.max(1,a.d):null,
+      "K/D/A":(a.k||a.a2||a.d)?`${d1s(a.k/a.n)} / ${d1s(a.d/a.n)} / ${d1s(a.a2/a.n)}`:"",
       角色池:a.champs.size
     });
   }
@@ -3869,7 +3872,8 @@ function calcHeroes(pos,player,team){
       "BP%":Math.min(1,(a.n+laneBans)/dedAvail),  // 出場+(分攤後)禁用 熱門度（gol.gg 的 Presence，已按可用場數修正）
       場數:a.n, _pb:a.n+laneBans, _banN:bans, "勝-敗":`${a.w}-${a.n-a.w}`, 勝率:a.w/a.n, "勝率(勝-敗)":a.w/a.n, // _banN：原始禁用場次(篩選時＝對手BAN次數)
       禁用率:Math.min(1,laneBans/avail),
-      KDA:(a.k+a.as)/Math.max(1,a.d), _ak:a.k/a.n,_ad:a.d/a.n,_aa:a.as/a.n, "K/D/A":`${d1s(a.k/a.n)} / ${d1s(a.d/a.n)} / ${d1s(a.as/a.n)}`, 參與率:(a.k+a.as)/Math.max(1,a.tk),
+      KDA:(a.k||a.as||a.d)?(a.k+a.as)/Math.max(1,a.d):null, _ak:a.k/a.n,_ad:a.d/a.n,_aa:a.as/a.n,
+      "K/D/A":(a.k||a.as||a.d)?`${d1s(a.k/a.n)} / ${d1s(a.d/a.n)} / ${d1s(a.as/a.n)}`:"", 參與率:a.tk?(a.k+a.as)/a.tk:null,
       DPM:a.dpm?a.dpm/a.n:null, 分均輸出:a.dpm?a.dpm/a.n:null, 中期金差:a.midN?a.mid/a.midN:null,
       分均金錢:(a.gl&&a.gold)?a.gold/(a.gl/60):null, 分均承傷:a.dt?a.dt/a.n:null, 分均視分:a.vs?a.vs/a.n:null,
       "金差@10":a.g10N?a.gd10/a.g10N:null, "CS差@10":a.g10N?a.cd10/a.g10N:null,
@@ -3948,7 +3952,7 @@ function calcHeroPairs(pos,player,team){
     rows.push({ 英雄:cAb(a.cA)+" + "+cAb(a.cB), _pair:[a.cA,a.cB], _full:a.cA, _key:key, 路線:2, _laneIcons:laneIcons,
       "BP%":((bpOf[a.cA]||0)+(bpOf[a.cB]||0))/2, 場數:a.n, "勝-敗":`${a.w}-${a.n-a.w}`, 勝率:a.w/a.n, "勝率(勝-敗)":a.w/a.n, 禁用率:((banOf[a.cA]||0)+(banOf[a.cB]||0))/2,
       KDA:(a.kM+a.asM)/Math.max(1,a.dM)+(a.kS+a.asS)/Math.max(1,a.dS), "K/D/A":`${d1s((a.kM+a.kS)/a.n)} / ${d1s((a.dM+a.dS)/a.n)} / ${d1s((a.asM+a.asS)/a.n)}`, 參與率:(a.kM+a.asM+a.kS+a.asS)/Math.max(1,2*a.tk),
-      分均輸出:a.dpm/a.n, 分均金錢:a.gl?a.gold/(a.gl/60):0, 分均承傷:a.dt/a.n, 分均視分:a.vs/a.n,
+      分均輸出:a.dpm/a.n, 分均金錢:a.gl?a.gold/(a.gl/60):0, 分均承傷:a.dt/a.n, 分均視分:a.vs?a.vs/a.n:null,
       中期金差:(a.midNM+a.midNS)?((a.midNM?a.midM/a.midNM:0)+(a.midNS?a.midS/a.midNS:0)):null, 贏線率:a.g10N?a.winL/a.g10N:null, 後選率:a.lateN?a.late/a.lateN:null });
   }
   if(rows.length){ const ref=(player||team)?calcHeroPairs(pos,""):null; scoreHeroRows(rows,PAIR_W[pos],gameN,ref); }
