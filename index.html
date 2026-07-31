@@ -7469,9 +7469,12 @@ function render(){
         const empL=()=>({TOP:[],JNG:[],MID:[],BOT:[],SUP:[]});
         const tiers=TH.map(([n])=>{const o=oldByName[n]; return {n, c:(o&&o.c)||"", ids:[], lanes:empL()};});
         let total=0;
+        const _diag={raw:0,pass:0,noId:0};   // 診斷用：原始筆數／過門檻／查不到英雄 id
         LANE5v.forEach(L=>{ // 各路依「該路評分」分階
-          calcHeroes(L).filter(r=>r.場數>=minG).sort((a,b)=>b.評分-a.評分).forEach(r=>{
-            const id=champId(r._full); if(!id||!D2[id])return;
+          const _all=calcHeroes(L); _diag.raw+=_all.length;
+          _all.filter(r=>r.場數>=minG).sort((a,b)=>b.評分-a.評分).forEach(r=>{
+            _diag.pass++;
+            const id=champId(r._full); if(!id||!D2[id]){_diag.noId++;return;}
             const bi=((r["BP%"]||0)<qzBP&&(r.場數||0)<=qzG)?TH.length-1:Math.min(TH.length-2,binOf(r.評分||0)); // 只有符合奇招條件才進奇招；其餘依評分分階但最低到 C（不會因低分掉進奇招）
             tiers[bi].lanes[L].push(id); tiers[bi].ids.push({id,lane:L}); // 五路與混合兩種結構都填：⇄切模式都要有資料（2026-07-18 使用者定案）
             total++;
@@ -7487,7 +7490,10 @@ function render(){
           // 空範圍：把生效中的篩選寫進訊息（如賽季停在還沒開打的 S3）；由 switchSrc 決定 alert(手動點) 或行內警示(自動重產)
           const fp=[]; if(F.split)fp.push("賽季="+String(F.split).replace(/^G:/,"")); if(F.league&&F.league!=="ALL")fp.push("賽事="+F.league);
           if(F.patch)fp.push("版本="+F.patch); if(F.d1||F.d2)fp.push("日期="+(F.d1||"…")+"~"+(F.d2||"…")); if(F.minG)fp.push("場數下限="+F.minG);
-          window._tierGenMsg="目前數據範圍沒有英雄資料"+(fp.length?"（目前篩選："+fp.join("、")+"）":"")+"，板子維持上次內容，可按「↺」還原篩選";
+          // 診斷數字直接寫進訊息：沒有它就只能猜「是篩選空、還是算不出來、還是英雄對不到」
+          window._tierGenMsg="目前數據範圍沒有英雄資料"+(fp.length?"（目前篩選："+fp.join("、")+"）":"")
+            +"，板子維持上次內容，可按「↺」還原篩選"
+            +`　〔診斷：比賽 ${GAMES.length} 局・英雄庫 ${Object.keys(D2).length} 隻・五路原始 ${_diag.raw} 筆・過場數門檻(${minG}) ${_diag.pass} 筆・對不到英雄 ${_diag.noId} 筆〕`;
           return null;}
         return finishGen(tiers,base);
       };
@@ -8226,7 +8232,11 @@ function render(){
     V.bpSideMode=(["br","fp","team"].includes(V.bpSideMode))?V.bpSideMode:"br"; // 左側代表：br 藍紅／fp 先選方／team 搜尋的戰隊
     const _bpModeLbl=md=>({br:LANG==="en"?"🟦🟥 Blue / Red":"🟦🟥 藍紅",fp:LANG==="en"?"🥇 First-pick":"🥇 先選",team:LANG==="en"?"🏴 Team":"🏴 戰隊"}[md]||md);
     main.innerHTML=filterBar("")
-      +`<div class="card"><h2 style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">🎯 ${T("BP 紀錄")} <span class="sub" id="cnt"></span><span class="sub" style="flex:1 1 220px">${LANG==="en"?`gold number = pick order (1-7), <span class="fp">gold bold</span> = first-pick side, <span style="background:rgba(255,255,255,.14);padding:0 5px;border-radius:3px">white row-band</span> = winning team, newest first｜type in a column header to filter`:`金色數字＝選角順位(1-7)，<span class="fp">金色粗體</span>＝先選方，<span style="background:rgba(255,255,255,.14);padding:0 5px;border-radius:3px">白底那隊</span>＝勝方，最新在上｜在欄名下方輸入即逐欄篩選`}</span>${segHTML("bpSideSeg",[["br",LANG==="en"?"🔵 Blue/Red":"🔵 藍紅","左側＝藍方"],["fp",LANG==="en"?"🥇 First pick":"🥇 先選","左側＝先選方"],["team",LANG==="en"?"🟦 Team":"🟦 該隊","左側＝搜尋的戰隊"]],V.bpSideMode||"br","sm","margin-left:auto")}</h2><div id="tbl"></div></div>`;
+      +`<div class="card"><h2 style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">🎯 ${T("BP 紀錄")} <span class="sub" id="cnt"></span><span class="sub" style="flex:1 1 220px">${LANG==="en"?`gold number = pick order (1-7), <span class="fp">gold bold</span> = first-pick side, <span style="background:rgba(255,255,255,.14);padding:0 5px;border-radius:3px">white row-band</span> = winning team, newest first｜type in a column header to filter`:`金色數字＝選角順位(1-7)，<span class="fp">金色粗體</span>＝先選方，<span style="background:rgba(255,255,255,.14);padding:0 5px;border-radius:3px">白底那隊</span>＝勝方，最新在上｜在欄名下方輸入即逐欄篩選`}</span>${segHTML("bpSideSeg",[["br",LANG==="en"?"🔵 Blue/Red":"🔵 藍紅","左側＝藍方"],
+      /* 選邊是 2026 才有的制度，之前藍方一律先選 → 「先選」模式與「藍紅」完全重複，不顯示（2026-07-31 使用者） */
+      ...(+curYear>=2026?[["fp",LANG==="en"?"🥇 First pick":"🥇 先選","左側＝先選方"]]:[]),
+      ["team",LANG==="en"?"🟦 Team":"🟦 該隊","左側＝搜尋的戰隊"]],
+      (+curYear<2026&&V.bpSideMode==="fp")?"br":(V.bpSideMode||"br"),"sm","margin-left:auto")}</h2><div id="tbl"></div></div>`;
     const mmss=s=>s?`${Math.floor(s/60)}:${String(Math.round(s%60)).padStart(2,"0")}`:"–";
     // 賽事欄 LPL 常規賽附組名(季後賽/升降不標；系列賽兩隊同組才明確標)：teams＝已 tAb 的縮寫
     const _lplGrpTag=(league,split,teams)=>{ if((league!=="LPL"&&league!=="LCK")||!split||/PO$|季後|升降/.test(String(split))||!teams)return "";
@@ -8372,7 +8382,7 @@ function render(){
         <span>${LANG==="en"?`<b>${n}</b> games`:`共 <b>${n}</b> 場`}${grouped?`　<span class="meta">${LANG==="en"?`<b style="color:${totalMiss?"#e0574d":"var(--tx2)"}">${totalMiss}</b> missing in range`:`範圍內缺 <b style="color:${totalMiss?"#e0574d":"var(--tx2)"}">${totalMiss}</b> 場`}</span>`:""}</span>
         <span>${LR.li} ${LR.ln} <b>${Math.round(lw/n*100)}%</b>${LANG==="en"?` (${lw}W)`:`（${lw} 勝）`}</span>
         <span>${LR.ri} ${LR.rn} <b>${Math.round((n-lw)/n*100)}%</b>${LANG==="en"?` (${n-lw}W)`:`（${n-lw} 勝）`}</span>
-        ${(fpN&&mode!=="fp")?`<span>🥇 ${LANG==="en"?"First-pick win%":"先選勝率"} <b>${Math.round(fpW/fpN*100)}%</b>${LANG==="en"?` (${fpW}W)`:`（${fpW} 勝）`}</span>
+        ${(fpN&&mode!=="fp"&&+curYear>=2026)?`<span>🥇 ${LANG==="en"?"First-pick win%":"先選勝率"} <b>${Math.round(fpW/fpN*100)}%</b>${LANG==="en"?` (${fpW}W)`:`（${fpW} 勝）`}</span>
         <span>🥈 ${LANG==="en"?"Second-pick win%":"後選勝率"} <b>${Math.round((fpN-fpW)/fpN*100)}%</b>${LANG==="en"?` (${fpN-fpW}W)`:`（${fpN-fpW} 勝）`}</span>`:""}
         <span>⏱️ ${T("場均時長")} <b>${mmss(avg)}</b></span>
       </div>`:"";
