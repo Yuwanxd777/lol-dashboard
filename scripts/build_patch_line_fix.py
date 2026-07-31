@@ -227,6 +227,14 @@ EXTRA = [
     ("*", "符文", "Trait: Sorcery", None, "巫術系"),
     ("*", "符文", "Trait: Resolve", None, "堅毅系"),
     ("*", "符文", "Trait: Inspiration", None, "啟迪系"),
+    # 機制區的機翻卡名（2026-08-01 稽核）
+    ("*", "機制", "攻擊且技能 Queueing", None, "普攻與技能的指令佇列"),
+    ("*", "機制", "League 客戶端更新", None, "客戶端更新"),
+    ("*", "機制", "守衛 Reveal Rewards", None, "守衛顯現獎勵"),
+    ("*", "機制", "飛龍 Slayer", None, "屠龍者"),
+    ("*", "*", "飛龍 Slayer", None, "屠龍者"),
+    ("*", "*", "Hand 巴龍", None, "巴龍之手"),
+    ("*", "*", "Altars", None, "祭壇"),
 ]
 
 

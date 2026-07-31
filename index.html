@@ -1225,7 +1225,17 @@ const ITEM_ALIAS={"剔除鐮刀":"汰除品","熾天使之擁":"熾天使的擁�
 "Timeworn Frost Queen's Claim":"陳舊的冰霜女王旨意","Timeworn Nomad's Medallion":"陳舊的流浪者勳章",
 "Timeworn Relic 護盾":"陳舊的聖物之盾","Timeworn Spellthief's Edge":"陳舊的竊法之刃",
 "Timeworn Talisman Ascension":"陳舊的昇華護符","Timeworn Targon's Brace":"陳舊的塔貢護臂",
-"Timeworn Face Mountain":"陳舊的山岳之面"};
+"Timeworn Face Mountain":"陳舊的山岳之面",
+"Greater Glyphs":"高階符文","Greater Quintessences":"高階精華","Greater Seals":"高階符印",
+"Trinkets":"飾品","Garrison":"守備","Unleashed Teleport":"強化傳送",
+"Oblivion Orb":"遺忘法球","Spellbinder":"法術束縛者","Lifeline":"生命線",
+"Runic Echoes":"符文迴響","Quill Coat":"羽刺外衣","Bloodletter's Veil":"放血者的面紗",
+"Shurelya's Reverie":"舒瑞亞的戰歌","Luden's Echo":"魯登的回聲","Cinderhulk":"附魔：餘燼",
+"Witch's Hat":"女巫之帽","Wriggle's Lantern":"蘭頓之兆",
+"Nomad's Eye":"浪人之眼","Eye of Ascension":"昇華之眼","Celestial Eye":"天神之眼",
+"Eye of Frost":"寒霜之眼","Eye of the Aspect":"星靈之眼","Blackfire Torch":"黑焰火炬",
+"Ultimate Hat":"終極之帽","Ultimate Hunter":"終極獵手","大絕 Hat":"終極之帽","大絕 Hunter":"終極獵手",
+"Circlet of the Iron Solari":"鋼鐵日炎頭冠","Locket of the Iron Solari":"鋼鐵日炎懸章"};
 // 舊制天賦重製為現行符文（使用者判定）：詳情頁補生涯徽章（舊天賦年段＋重製回歸年）
 window.MASTERY_REWORKED={"冥火之觸":"2026"};
 // 名稱容錯查 key：原字 → 去空格 → 鏈/鍊 異體字互換（官方公告與 DDragon 用字不一致）
@@ -4378,7 +4388,7 @@ function changeDir(lines){
   return buff&&nerf?0:buff?1:nerf?-1:0; // 1增強 / -1削弱 / 0混合或無法判定
 }
 // ── 版本改動渲染器（全域共用：版本改動分頁＋圖鑑歷年改動）──────────────────
-const COSM=/原畫|造型|背景故事|中版美術|重新上色|推薦裝備|語音(更新|台詞)|(技能)?圖示更新|更新[了]?圖示|特效[^｜]{0,6}(更新|升級|改良|重製)|視覺效果|粒子效果|模型更新|動畫更新|全新的?[^｜]{0,10}動畫|新增[^｜]{0,4}動畫|新增[^｜]{0,6}圖示|其圖示更新|圖示更新|說明更新|新增語音|語音包|播報員|音效|手感|操作感|順暢度|流暢度|符文頁|介面(更新|調整)|按鍵綁定|計分板顯示|商店[^｜]{0,12}搜尋|搜尋[^｜]{0,8}關鍵字|(改善|優化|改進)了?[^｜]{0,14}(偵測|判定|辨識|選取|命中框)|(新增|顯示)?[^｜]{0,6}指示器|進度特效|輪替遊戲模式|活動|極速無敵亂鬥|無限火力|URF|鬥魂競技場|[Aa]rena|現在(能|會)?正確|嚎哭深淵|極地大亂鬥|扭曲叢林|統治戰場|Howling Abyss|Twisted Treeline|Crystal Scar|Dominion|[（(]ARAM[)）]|Level Requirements?|更名|重新命名|renamed|[Nn]ame changed|名稱[：:][^⇒\n]*⇒|(^|｜|\[)\s*(未公告|錯誤|修正了|修復|[Uu]ndocumented|[Bb]ug\s?[Ff]ix|BUG)|(提高|降低|增加|減少)從\s*\d|編按|附註[：:]|並未實裝|官方未記載|並非刻意|此問題可能是在|未列於公告|(邊緣|中心)判定距離|(重新)?編寫程式(碼)?|rescripted?|visual (upgrade|update|effects?)|splash art|voice.?over|icons? (are |have been )?updated|recommended items|lore|chroma|texture|animations? updated|now (correctly|properly)|tooltip|\bARAM\b/i;
+const COSM=/原畫|造型|背景故事|中版美術|重新上色|推薦裝備|語音(更新|台詞)|(技能)?圖示更新|更新[了]?圖示|特效[^｜]{0,6}(更新|升級|改良|重製)|視覺效果|粒子效果|模型更新|動畫更新|全新的?[^｜]{0,10}動畫|新增[^｜]{0,4}動畫|新增[^｜]{0,6}圖示|其圖示更新|圖示更新|說明更新|新增語音|語音包|播報員|音效|手感|操作感|順暢度|流暢度|符文頁|介面(更新|調整)|按鍵綁定|計分板顯示|商店[^｜]{0,12}搜尋|搜尋[^｜]{0,8}關鍵字|(改善|優化|改進)了?[^｜]{0,14}(偵測|判定|辨識|選取|命中框)|(新增|顯示)?[^｜]{0,6}指示器|進度特效|輪替遊戲模式|活動|(^|｜)\s*(客戶端|表情|重播|語音聊天|快捷鍵|遊戲效能|League 語音)｜|反作弊|藍色精華|寶石合成|實驗性遊戲模式|主堡閃電戰|極速無敵亂鬥|無限火力|URF|鬥魂競技場|[Aa]rena|現在(能|會)?正確|嚎哭深淵|極地大亂鬥|扭曲叢林|統治戰場|Howling Abyss|Twisted Treeline|Crystal Scar|Dominion|[（(]ARAM[)）]|Level Requirements?|更名|重新命名|renamed|[Nn]ame changed|名稱[：:][^⇒\n]*⇒|(^|｜|\[)\s*(未公告|錯誤|修正了|修復|[Uu]ndocumented|[Bb]ug\s?[Ff]ix|BUG)|(提高|降低|增加|減少)從\s*\d|編按|附註[：:]|並未實裝|官方未記載|並非刻意|此問題可能是在|未列於公告|(邊緣|中心)判定距離|(重新)?編寫程式(碼)?|rescripted?|visual (upgrade|update|effects?)|splash art|voice.?over|icons? (are |have been )?updated|recommended items|lore|chroma|texture|animations? updated|now (correctly|properly)|tooltip|\bARAM\b/i;
 // 版本總覽專用的「瑣碎改動」：純顯示層、完全不影響強弱（聊天訊息顯示名、提示文字…）。
 // 只在版本分頁擋掉，英雄詳情頁仍完整列出（使用者定案 2026-07-31：艾妮維亞蛋型態的聊天名稱）
 // 版本總覽的「瑣碎改動」：純顯示層／風味描述，不影響強弱（使用者陸續指定：
@@ -4388,7 +4398,11 @@ const TRIVIAL=/聊天訊息|訊息(現在)?會顯示|顯示專屬的英雄名稱
 // 版本分頁不列，只在英雄詳情頁完整呈現（使用者定案 2026-08-01）
 const GEN_PRE=/^\s*(通用|一般|General)\s*(（[^）]*）)?\s*｜/i;
 // 版本性質畫面的統一排除條件（版本改動分頁／圖鑑版本分頁／總覽版本焦點都用這個）
-const TRIVIAL_OR_GEN=l=>TRIVIAL.test(l)||GEN_PRE.test(l);
+// 純名詞列表（「企業家蒙多、摔角手蒙多、劊子手蒙多、蒙多先生、蒙多蒙多與 TPA 蒙多」）＝
+// wiki 造型章節混進來的，沒有冒號／⇒／數字，只是一串名字 → 版本頁不列（2026-08-01 稽核）
+const NAMELIST=/^[^｜⇒：:\d]{2,20}(、[^｜⇒：:\d]{2,20}){2,}(\s*(與|and)\s*[^｜⇒：:\d]{2,20})?[。.]?$/;
+const TRIVIAL_OR_GEN=l=>{ const t=String(l), b=t.includes("｜")?t.slice(t.indexOf("｜")+1).trim():t.trim();
+  return TRIVIAL.test(t)||GEN_PRE.test(t)||NAMELIST.test(b); };
 const dirCls=d=>d==null?"adj":d>0?"buff":d<0?"nerf":"adj"; // 判不出方向也走「調整」的黃字（使用者定案 2026-07-31：以前就是黃字，不要白字）
 // 官方公告「英雄專屬大區塊」註記（PATCH_NOTES[pk]._spotlight，如 26.06 希瓦娜）：新英雄＝CHAMP_RELEASE 落在該版首場 ±30 天，否則大型重製
 const spotTag=(id,pk)=>{const PN=typeof PATCH_NOTES!=="undefined"?PATCH_NOTES:{};
@@ -4511,6 +4525,23 @@ const renderChgLines=(lines,cardName)=>{
     .replace(/\bDoT\b/g,"持續傷害").replace(/\bAoE\b/g,"範圍傷害")
     .replace(/\bLeague of Legends\b/g,"英雄聯盟").replace(/\bQueueing\b/gi,"排隊")
     .replace(/\btick(s|ing)?\b/gi,"跳動").replace(/\bshop\b/gi,"商店")
+    .replace(/\bStorm's Edge\b/g,"風暴之刃").replace(/\bDissolve\b/g,"消融").replace(/\bCommit\b/g,"決意")
+    .replace(/\bAnti-Tower Socks\b/g,"防塔襪").replace(/\bContraption\b/g,"巧思").replace(/\bVitality\b/g,"活力")
+    .replace(/\bThirsting Slash\b/g,"渴血斬").replace(/\bHalting Slash\b/g,"制動斬")
+    .replace(/\bSandswipe\b/g,"沙掃斬").replace(/\bGlaciate\b/g,"極凍").replace(/\bSnowbind\b/g,"霜縛")
+    .replace(/\bSupersonic\b/g,"超音速衝刺").replace(/\bSoulrend\b/g,"裂魂")
+    .replace(/\bSpelldance\b/g,"法舞").replace(/\bSpite\b/g,"怨懟")
+    .replace(/\bHextech Prowess\b/g,"海克斯精通").replace(/\bChemtech Blight\b/g,"煉金枯萎")
+    .replace(/\bScryer's Bloom\b/g,"探知之花").replace(/\bDeathfire Grasp\b/g,"死火之握")
+    .replace(/\bAflame\b/g,"熾燃").replace(/\bArisen\b/g,"飛升")
+    .replace(/\bCrimson Rush\b/g,"血色狂奔").replace(/\bIncandescence\b/g,"熾光")
+    .replace(/\bGloom\b/g,"陰霾").replace(/\bDoom\b/g,"絕望").replace(/\bAccelerando\b/g,"漸快")
+    .replace(/\bPhenomenal Evil( Power)?\b/g,"異常邪惡之力").replace(/\bFlux\b/g,"魔力波動")
+    .replace(/\bLover's Leap\b/g,"戀人之躍").replace(/\bIcathian Surprise\b/g,"依卡西亞驚喜")
+    .replace(/\bRise of the Thorns\b/g,"荊棘再生").replace(/\bOmen of Death\b/g,"死亡預兆")
+    .replace(/\bRat-Ta-Tat-Tat\b/g,"隨機掃射").replace(/\bRimeforged Grasp\b/g,"霜鑄之握")
+    .replace(/\bCloudbringer's Grace\b/g,"引雲者的恩典")
+    .replace(/\bUI\b/g,"介面").replace(/\bUX\b/g,"操作體驗")
     .replace(/\bCinderling(s)?\b/g,"燼火幼魔").replace(/\bWight\b/g,"屍妖").replace(/\bFeral\b/g,"野性")
     .replace(/\bRhaast\b/g,"拉亞斯特").replace(/\bChemtech\b/g,"煉金科技").replace(/\bQueueing\b/gi,"排隊")
     // 中文後面掛的純英文括號註記（「舊恨（Ancient Grudge）」「活體砲擊（Living Artillery）」）→ 拿掉
@@ -4539,6 +4570,14 @@ const renderChgLines=(lines,cardName)=>{
         if(/^Enchantment:\s*/i.test(k))put(k.replace(/^Enchantment:\s*/i,""),zh); }
       // 舊天賦（masteries.js）的英文名 → 中文（15.09 艾希備註裡的 Frenzy 這類）
       for(const[en,e]of Object.entries(window.LOL_MASTERIES||{}))put(en,e&&e.zh);
+      // 全英雄技能英文名（跨英雄引用時用：葛雷夫的行提到 Twitch 的 Rat-Ta-Tat-Tat）。
+      // 長度 ≥6 才收，避免 Doom／Shift 這種一般英文詞被誤翻
+      for(const o of Object.values(window.SKILL_ZH||{}))
+        for(const[en,zh]of Object.entries(o)){
+          const ep=_skSplit(en), zp=_skSplit(zh);
+          ep.forEach((x,i)=>{ if(x.length>=6)put(x,(zp[i]||zp[0]||zh)); }); }
+      for(const[id,o]of Object.entries(window.SKILL_ALIAS||{}))
+        for(const[nm,v]of Object.entries(o))if(Array.isArray(v)&&v[1]&&nm.length>=6&&!/[一-鿿]/.test(nm))put(nm,v[1]);
       ks.sort((a,b)=>b.length-a.length);
       window._EN2ZH=m;
       try{ window._EN2ZHRE=new RegExp("(?<![A-Za-z'])("+ks.map(x=>x.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")).join("|")+")(?![A-Za-z])","g"); }
