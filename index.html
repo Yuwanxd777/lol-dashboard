@@ -9023,10 +9023,12 @@ function render(){
       _cL(["win",  LANG==="en"?"win":"勝",    66, "team", m=>String(m.win).toLowerCase()]),
       _cL(["bt",   LANG==="en"?"blue":"藍方", 78, "team", m=>String(sides(m).L.team).toLowerCase()]),
       _cL(["bb",   LANG==="en"?"ban":"禁",    _banW,"champ",m=>(sides(m).L.bans||[]).map(_cTxt).join(" ")]),
-      _cL(["bl0","TOP",62,"champ",m=>_cTxt(sides(m).L.lane[0])]),_cL(["bl1","JNG",62,"champ",m=>_cTxt(sides(m).L.lane[1])]),_cL(["bl2","MID",62,"champ",m=>_cTxt(sides(m).L.lane[2])]),_cL(["bl3","BOT",62,"champ",m=>_cTxt(sides(m).L.lane[3])]),_cL(["bl4","SUP",62,"champ",m=>_cTxt(sides(m).L.lane[4])]),
+      // 選用欄寬 72＝〔頭像 44 ＋ .cc gap 3 ＋ 選角順位數字 9〕＋ td 左右內距 16。
+      // 原本 62 少了 10px，頭像＋順位數字整組會溢出到隔壁欄（也讓篩選框放不下）。
+      _cL(["bl0","TOP",72,"champ",m=>_cTxt(sides(m).L.lane[0])]),_cL(["bl1","JNG",72,"champ",m=>_cTxt(sides(m).L.lane[1])]),_cL(["bl2","MID",72,"champ",m=>_cTxt(sides(m).L.lane[2])]),_cL(["bl3","BOT",72,"champ",m=>_cTxt(sides(m).L.lane[3])]),_cL(["bl4","SUP",72,"champ",m=>_cTxt(sides(m).L.lane[4])]),
       _cL(["rt",   LANG==="en"?"red":"紅方",  78, "team", m=>String(sides(m).R.team).toLowerCase()]),
       _cL(["rb",   LANG==="en"?"ban":"禁",    _banW,"champ",m=>(sides(m).R.bans||[]).map(_cTxt).join(" ")]),
-      _cL(["rl0","TOP",62,"champ",m=>_cTxt(sides(m).R.lane[0])]),_cL(["rl1","JNG",62,"champ",m=>_cTxt(sides(m).R.lane[1])]),_cL(["rl2","MID",62,"champ",m=>_cTxt(sides(m).R.lane[2])]),_cL(["rl3","BOT",62,"champ",m=>_cTxt(sides(m).R.lane[3])]),_cL(["rl4","SUP",62,"champ",m=>_cTxt(sides(m).R.lane[4])]),
+      _cL(["rl0","TOP",72,"champ",m=>_cTxt(sides(m).R.lane[0])]),_cL(["rl1","JNG",72,"champ",m=>_cTxt(sides(m).R.lane[1])]),_cL(["rl2","MID",72,"champ",m=>_cTxt(sides(m).R.lane[2])]),_cL(["rl3","BOT",72,"champ",m=>_cTxt(sides(m).R.lane[3])]),_cL(["rl4","SUP",72,"champ",m=>_cTxt(sides(m).R.lane[4])]),
     ];
     const _noF=new Set(["date","lg","patch"]); // 這幾欄不放篩選框(上方全域篩選已有 年份/賽事/賽季/版本)
     // 禁用欄：每「一手禁用」各給一個篩選框，一格對一張 BAN 圖 → 5 禁年代 5 格、3 禁年代 3 格
@@ -9050,29 +9052,43 @@ function render(){
     const _dlKey="bp2|"+(V.bpSideMode||"br")+"|"+vcKey(); window._BPDL=window._BPDL||{}; // 快取鍵含模式(切模式→下拉重算)
     let _DLF=window._BPDL[_dlKey];
     if(!_DLF){ const S={}; FILTERS.forEach(f=>{S[f.k]=new Set();});
-      // 英雄下拉只放中文名（沒中譯才退回英文）：原本放「中文 English」，像「好運姐 Miss Fortune」
-      // 在窄框裡英文整段被切掉，看起來像壞掉（2026-07-31 使用者回報）。
-      // **打英文照樣搜得到**——比對走 _cTxt，那裡本來就同時含資料名(英)與 chName(中)。
+      // 英雄下拉的 option「值」只放中文名：曾經放「好運姐 Miss Fortune」這種一整串，在窄框裡英文
+      // 被切掉看起來像壞掉（2026-07-31 使用者回報）。英文改放 option 內文（＝datalist 的 label，
+      // 瀏覽器會在中文名下面顯示一小列小字），見下面 _dlHTML。
       for(const m of calcMatches("")){ FILTERS.forEach(f=>{ _fdv(f.k,m).forEach(v=>{ if(!v)return; let disp=v; if(f.dl==="champ"){ disp=((typeof chName==="function")&&chName(champId(v)))||v; } S[f.k].add(disp); }); }); }
       _DLF={}; FILTERS.forEach(f=>{_DLF[f.k]=[...S[f.k]].sort((a,b)=>String(a).localeCompare(b));});
       _DLF["gl"]=GLB.map(x=>x[0]); // 時長改用固定分桶清單
       window._BPDL[_dlKey]=_DLF;
     }
-    const _dlHTML=FILTERS.map(f=>(_DLF[f.k]&&_DLF[f.k].length)?`<datalist id="bpDL_${f.k}">${_DLF[f.k].map(v=>`<option value="${esc(v)}"></option>`).join("")}</datalist>`:"").join("");
+    // 英雄下拉：option 值＝網站語言的顯示名，option 內文＝另一語言的名字。
+    // 瀏覽器把內文當 label，在中文名下方顯示一小列小字英文，**而且比對同時吃 value 與 label**
+    // → 繁中模式打「Cam」就會跳出「卡蜜兒／Camille」的建議（2026-07-31 使用者指定，
+    //   做法沿用積分逐場的英雄／對位篩選框）。CHAMP_EN 沒載到時退回 DDragon id，離線也有英文可搜。
+    const _dlAlt=(()=>{ const m={}, D=((window.CHAMP_SKILLS||{}).d)||{};
+      for(const id in D){ const nm=chName(id);
+        const alt=LANG==="en"?((D[id]||{}).n||""):((window.CHAMP_EN||{})[id]||(id!==nm?id:""));
+        if(nm&&alt&&alt!==nm)m[nm]=alt; }
+      return m; })();
+    const _dlHTML=FILTERS.map(f=>(_DLF[f.k]&&_DLF[f.k].length)?`<datalist id="bpDL_${f.k}">${_DLF[f.k].map(v=>`<option value="${esc(v)}">${f.dl==="champ"?esc(_dlAlt[v]||""):""}</option>`).join("")}</datalist>`:"").join("");
     const _finput=(f,xs)=>`<span style="position:relative;display:block;flex:1 1 0;min-width:0${xs?";"+xs:""}"><input class="bpColF" data-k="${f.k}" list="bpDL_${f.k}" size="1" value="${esc(V.bpColF[f.k]||"")}" placeholder=" " style="display:block;width:100%;min-width:0;font-size:11.5px;padding:2px 15px 2px 4px;box-sizing:border-box;text-align:center;background:#0e1420;border:1px solid #2a3345;border-radius:5px;color:var(--tx)"><span class="bpCx" data-k="${f.k}" title="${LANG==="en"?"clear":"清除"}">✕</span></span>`;
-    // 禁用欄逐手篩選框：一格＝一手禁用，尺寸與底下那張 BAN 圖完全一樣（44px），正上方切齊
-    //（2026-07-31 使用者指定）。格子與圖同寬 ⇒ 格距只能等於圖距，否則就對不準：
-    //   同一輪 7px（.bans .cc 的 margin-right）；第一輪禁(前3)｜第二輪禁(後2) 之間 15px
-    //   （前一顆頭像 7px ＋ .banSep 的 1px 框線與 7px margin）→ 第 4 格補 15−7＝8px。
-    // 圖在 td（左內距 8px）、格在 th（左內距 3px）→ 容器往右推 5px，左緣即與第一張圖切齊。
-    // 選用（五路）篩選框：寬度＝英雄圖左右各再 +5px（2026-07-31 使用者指定）。
-    // td 左內距 8px、th 左內距 3px → 靠左擺就正好是 圖左緣−5px 起、圖右緣+5px 止。
+    // 逐欄篩選框一律「置中」對齊底下的資料（.bp td 是 text-align:center）。
+    // BAN 圖排的幾何：圖 44px、同一輪圖距 7px、第一輪禁(前3)｜第二輪禁(後2) 之間 15px
+    //（前一顆頭像 7px ＋ .banSep 的 1px 框線與 7px margin）→ 第 4 格要多補 15−7＝8px 才對得上。
+    // ⚠ 不要用「靠左推固定 px」：那只有在欄寬剛好等於內容寬時才準，欄一被表格撐寬就整排歪掉
+    //   （2026-07-31 使用者回報：篩選框跟底下英雄圖沒有垂直、很醜）。置中則與欄寬無關，永遠對齊。
+    // 禁用：格寬＝BAN 圖左右各放大 2px；格距＝圖心間距−格寬，整組置中 → 每格中心壓在自己那張圖上。
+    // 選用：格寬＝英雄圖左右各放大 10px，單純置中 → 與表頭那顆「路線圖示」同一條垂直線
+    //   （2026-07-31 使用者指定：對齊上面的路線圖，不是對齊底下被順位數字推偏的頭像）。
     const _BIW=44,_BG1=7,_BG2=15;             // BAN 圖寬／同一輪圖距／輪次之間的圖距
+    const _BGROW=2,_LGROW=10;                 // 禁用格／選用格 相對英雄圖左右各放大幾 px（2026-07-31 使用者指定）
+    const _BFW=_BIW+_BGROW*2;                 // 禁用格寬 48
     const _isLane=k=>/^[br]l[0-4]$/.test(k);  // bl0~bl4／rl0~rl4＝五路選用欄
     const _fcell=c=>_noF.has(c.k)?"":(SUBF[c.k]
-      ?`<div style="display:flex;gap:${_BG1}px;margin-left:5px">${SUBF[c.k].map((f,i,a)=>
-          _finput(f,`flex:0 0 ${_BIW}px${(a.length>3&&i===3)?`;margin-left:${_BG2-_BG1}px`:""}`)).join("")}</div>`
-      :_finput({k:c.k},_isLane(c.k)?`width:${_BIW+10}px`:""));
+      ?`<div style="display:flex;gap:${_BIW+_BG1-_BFW}px;justify-content:center">${SUBF[c.k].map((f,i,a)=>
+          _finput(f,`flex:0 0 ${_BFW}px${(a.length>3&&i===3)?`;margin-left:${_BG2-_BG1}px`:""}`)).join("")}</div>`
+      :_isLane(c.k)
+        ?`<div style="display:flex;justify-content:center">${_finput({k:c.k},`flex:0 0 ${_BIW+_LGROW*2}px`)}</div>`
+        :_finput({k:c.k}));
     const _colFActive=()=>FILTERS.some(f=>(V.bpColF[f.k]||"").trim());
     let _bpFocusK=null; // 打字中的欄→重繪後把焦點還回去(表格整塊重建會掉焦點)
     const rerender=()=>{
