@@ -2637,6 +2637,10 @@ function initData(){
 // 只是排序偏好，不是白名單——沒列到的聯賽照樣會列出（依資料本身的順序接在後面）。
 const LG_TAIL_PREF=["LCP","CBLOL","LTA","LTA N","LTA S","LLA","LLN","CLS",
                     "PCS","LJL","VCS","LCO","LMS","GPL","TCL","LCL","KeSPA","IEM","MSC","RR"];
+// 賽事清單裡緊接在某個群組後面顯示的聯賽（使用者定案 2026-08-01：GPL 接在 LPL 後，
+// CBLOL／TCL／LCL 依序接在 LCS 後）。**只影響清單排序**，不進 LG_GROUP——那份是篩選語意，
+// 選「中韓」仍然只篩 LCK+LPL，不會把 GPL 一起撈進來。群組當年沒隊伍時這些照樣回尾段列出。
+const LG_GROUP_TAIL={ "中韓":["GPL"], "歐美":["CBLOL","TCL","LCL"] };
 const LG_GROUP={ "中韓":["LCK","LPL"], "歐美":["LEC","LCS"], // 使用者定義：中韓=LCK+LPL、歐美=LEC+LCS
                  "國際賽":["FST","MSI","EWC","ENC","WLDs","RR","IEM","MSC",
                           "EWCQ歐洲","EWCQ韓國","EWCQ中國","EWCQ太平洋","EWCQ巴西","EWCQ北美"] };
@@ -6059,16 +6063,18 @@ function filterOpts(){
   //   LLA・LCO・LCL・TCL・GPL・LMS・VCS・LJL・PCS 這些有資料卻進不了清單，只有「目前選取」才看得到）。
   const inGrp=new Set(Object.values(LG_GROUP).flat());
   const items=[["ALL",true]];
+  const _pin=new Set();                                // 已附掛到群組後面的，尾段不再重複列
   Object.keys(LG_GROUP).forEach(g=>{
     const ms=(LG_GROUP[g]||[]).filter(has);
     if(!ms.length)return;
     if(!(g==="國際賽"&&F.split))items.push([g,true]);  // 有選賽段時不列「國際賽」群組（沿用原規則）
     ms.forEach(l=>items.push([l,true]));
+    (LG_GROUP_TAIL[g]||[]).filter(has).forEach(l=>{items.push([l,true]);_pin.add(l);});
   });
   // 尾段：先照 LG_TAIL_PREF 的偏好順序（一級賽區在前、盃賽在後），沒列到的再照資料本身的順序，
   // 所以新賽事不用改程式也會自己出現
   const _ti=l=>{const i=LG_TAIL_PREF.indexOf(l); return i<0?999:i;};
-  LEAGUES.filter(l=>has(l)&&!inGrp.has(l))
+  LEAGUES.filter(l=>has(l)&&!inGrp.has(l)&&!_pin.has(l))
     .sort((a,b)=>_ti(a)-_ti(b)||LEAGUES.indexOf(a)-LEAGUES.indexOf(b))
     .forEach(l=>items.push([l,true]));
   if(F.league&&F.league!=="ALL"&&!F.league.includes("#")&&!items.some(([l])=>l===F.league))items.push([F.league,true]); // 目前選取一定保留（#分組值由 optgroup 涵蓋）
