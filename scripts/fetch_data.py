@@ -88,7 +88,10 @@ SPLIT_MAP = {
 }
 CBLOL_SPLIT_MAP = {"Split 1":"Split 2","Split 2":"Split 3"}
 # 2025 前的賽制統一為春季/夏季（Winter/Fall/Split 1-2 只是各地區稱法不同）
-OLD_SPLIT_MAP = {"Spring":"春季","Winter":"春季","Split 1":"春季",
+# Winter 是真的多打的一季（LCK 2013/2014 的 Champions、TCL 2013-2016、GPL 2014），
+# 併進「春季」等於把兩個賽段的隊伍與戰績混在一起，圖鑑賽事也看不到冬季賽
+#（2026-07-31 使用者回報 LCK 冬季賽沒出現）→ 獨立成「冬季」
+OLD_SPLIT_MAP = {"Spring":"春季","Winter":"冬季","Split 1":"春季",
                  "Summer":"夏季","Fall":"夏季","Split 2":"夏季","Split 3":"夏季",
                  "Summer Placements":"夏季","Finals":"夏季","Championship":"夏季",
                  "Lock-In":"春季","Kickoff":"春季"}
@@ -102,6 +105,17 @@ OLD_SPLIT_MAP = {"Spring":"春季","Winter":"春季","Split 1":"春季",
 #   LCS 2026 Lock-In  瑞士制三輪 1/24–2/01 → Last Chance 2/02（第 6 種子加賽，等同 Play-In）→ Playoffs 2/07–3/02
 #                     https://lol.fandom.com/wiki/LCS/2026_Season/Lock-In
 PO_START = {
+    # 2013-2014 的 Champions／GPL：wiki 的 MatchHistoryGame 沒有 playoffs 欄。
+    # 分界是看得出來的——小組賽每天 4 隊（兩場 BO），季後賽每天只有 2 隊（單一系列賽）
+    #（2026-07-31 使用者要求把 LCK 各季的季後賽標出來）
+    (2013, "LCK",   "Winter"):  "2012-12-26",
+    (2013, "LCK",   "Spring"):  "2013-05-08",
+    (2013, "LCK",   "Summer"):  "2013-08-07",
+    (2014, "LCK",   "Winter"):  "2013-12-25",
+    (2014, "LCK",   "Spring"):  "2014-04-16",
+    (2014, "LCK",   "Summer"):  "2014-07-16",
+    (2014, "GPL",   "Winter"):  "2013-12-04",
+    (2014, "GPL",   "Summer"):  "2014-07-16",
     (2026, "LCK",   "Cup"):     "2026-01-28",
     (2026, "CBLOL", "Cup"):     "2026-02-02",
     (2026, "LCS",   "Lock-In"): "2026-02-02",

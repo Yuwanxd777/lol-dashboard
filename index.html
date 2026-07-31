@@ -2507,7 +2507,7 @@ function initData(){
   }
   const _splitOrd=s=>{ if(s==="升降賽")return 999; const po=/ PO$/.test(s)?1:0; const b2=String(s).replace(/ PO$/,"");
     const m2=/^S(\d+)$/.exec(b2); if(m2)return (+m2[1])*10+po;
-    if(b2==="春季")return 110+po; if(b2==="夏季")return 120+po; return 600+po; }; // 春→夏→其他→升降賽最後
+    if(b2==="冬季")return 100+po; if(b2==="春季")return 110+po; if(b2==="夏季")return 120+po; return 600+po; }; // 春→夏→其他→升降賽最後
   SPLITS=[...new Set(RAW.slice(1).map(r=>r[C.split]))].filter(s=>s).sort((a2,b2)=>_splitOrd(a2)-_splitOrd(b2)||String(a2).localeCompare(String(b2)));
   LEAGUES=[...new Set(RAW.slice(1).map(r=>r[C.league]))].filter(s=>s).sort();
   PATCHES=[...new Set(RAW.slice(1).map(r=>String(r[C.patch]).trim()))].filter(s=>s).sort();
@@ -2881,29 +2881,41 @@ const eventsTreeHTML=()=>{
         // 該季度打進季後賽的隊帶綠勾（使用者指定 2026-07-31）。只有單一季度就照舊平鋪。
         const _spT=x._spTeams||{}, _poOf=sp=>(x._poSp||{})[sp]||null;
         const _spD=x._spDate||{};
+        // 賽段順序：有登記的照人工順序、其餘照最早比賽日排在後面。
+        // TESL 與 GPL 夏季同期進行（4/19 開打、比夏季早），但使用者指定要排在夏季之後（2026-07-31）
+        const SP_ORD={"冬季":0,"春季":1,"夏季":2,"TESL":3};
+        const _spOrd=k=>SP_ORD[k]!=null?[0,SP_ORD[k],""]:[1,0,String(_spD[k]||"")];
         // 賽區聯賽的「晉級」＝打進當年世界賽（含入圍賽）。2013 那些錦標賽本來就是在選世界賽代表，
         // 拿季後賽對戰表當晉級名單會標到一大票（使用者回報：2013 GPL 只有 GAB 進世界賽）。
         // 代表隊是在**最後一個賽段**決定的 → 只有最後那段標，前面的賽段仍用各自的季後賽名單。
         const _wSet=byLg["WLDs"]?new Set([...byLg["WLDs"].teams].map(t2=>tAb(t2))):null;
         const _wAdv=arr=>{ if(!_wSet||!_wSet.size)return null;
           const s2=new Set(arr.map(t2=>tAb(t2)).filter(a=>_wSet.has(a))); return s2.size?s2:null; };
-        const _spKeys=Object.keys(_spT).filter(k=>_spT[k].size)
-          .sort((a,b)=>String(_spD[a]||"").localeCompare(String(_spD[b]||""))||a.localeCompare(b));
+        // 「晉級」對不同賽段是不同意思（使用者定案 2026-07-31）：
+        //   賽季（春季／夏季／冬季…）＝打進該季季後賽的隊
+        //   錦標賽／資格賽／入圍賽＝晉級到下一階段的隊（通常就是打進世界賽的那一隊）
+        const _isTour=sp=>/錦標賽|資格賽|入圍賽|決賽|Regional|Qualif|Final/i.test(String(sp));
+        const _advOf=(sp,arr)=>_isTour(sp)?_wAdv(arr)
+          :(_poOf(sp)||((x._poX||{})[sp])||null);
+        const _spKeys=Object.keys(_spT).filter(k=>_spT[k].size).sort((a,b)=>{
+          const A=_spOrd(a),B=_spOrd(b);
+          return (A[0]-B[0])||(A[1]-B[1])||A[2].localeCompare(B[2])||a.localeCompare(b);});
         if(_spKeys.length>1){
           const _row=(lb,arr,adv)=>`<div class="lgSplitBlk"><span class="lgSplitHd">${esc(lb)}<span class="lgSplitN">${uq(arr)} ${LANG==="en"?"teams":"隊"}</span></span><span class="lgSplitGrps"><div class="lgGrpCol"><span class="lgGrpChips">${chips(arr,adv,x.tinfo)}</span></div></span></div>`;
           let _mc="",_used=new Set();
-          const _lastSp=_spKeys[_spKeys.length-1];
           _spKeys.forEach(sp=>{ const arr=base.filter(t2=>_spT[sp].has(t2));
             if(!arr.length)return; arr.forEach(t2=>_used.add(t2));
-            _mc+=_row(sp,arr,_poOf(sp)||(sp===_lastSp?_wAdv(arr):null)||((x._poX||{})[sp])||advQ); });
+            _mc+=_row(sp,arr,_advOf(sp,arr)||advQ); });
           const _rest=base.filter(t2=>!_used.has(t2));
           if(_rest.length)_mc+=_row(LANG==="en"?"Other":"其他",_rest,advQ);
           mainChips=_mc+extSeg;
         }else{
           // 只有一個賽段（或整年就一個賽事）：先用真實的季後賽名單，沒有就看誰打進了世界賽，
           // 再沒有才退到補充賽事的對戰表
+          const _sp0=_spKeys[0]||"";
           const _pa=new Set(Object.values(x._poSp||{}).flatMap(s2=>[...s2]));
-          mainChips=chips(base,(_pa.size?_pa:null)||_wAdv(base)||(x._poAll&&x._poAll.size?x._poAll:null)||advQ)+extSeg;
+          const _a0=_isTour(_sp0)?_wAdv(base):((_pa.size?_pa:null)||(x._poAll&&x._poAll.size?x._poAll:null));
+          mainChips=chips(base,_a0||_wAdv(base)||advQ)+extSeg;
         }
       }
     }
@@ -3166,8 +3178,12 @@ async function jungleHTML(box){
 function oldMasteryRunesHTML(year){
   const y=+year, s6=y>=2016; // 2016-17＝兇猛/詭詐/堅毅（最底列基石）；2014-15＝攻擊/防禦/通用（純數值、無基石）
   const TD=(window.LOL_MASTERY_TREES||{})[y]||(window.LOL_MASTERY_TREES||{})[String(y)];
-  const META={Ferocity:["⚔️","兇猛 Ferocity","#dc4747"],Cunning:["🗡️","詭詐 Cunning","#49aab9"],Resolve:["🛡️","堅毅 Resolve","#a1d586"],
-    Offense:["⚔️","攻擊 Offense","#dc4747"],Defense:["🛡️","防禦 Defense","#a1d586"],Utility:["✨","通用 Utility","#49aab9"]};
+  // 名稱跟著網站語言走，不要中英並列（使用者定案 2026-07-31：中文模式就只顯示中文）
+  const _L=(zh,en)=>LANG==="en"?en:zh;
+  const META={Ferocity:["⚔️",_L("兇猛","Ferocity"),"#dc4747"],Cunning:["🗡️",_L("詭詐","Cunning"),"#49aab9"],
+    Resolve:["🛡️",_L("堅毅","Resolve"),"#a1d586"],
+    Offense:["⚔️",_L("攻擊","Offense"),"#dc4747"],Defense:["🛡️",_L("防禦","Defense"),"#a1d586"],
+    Utility:["✨",_L("通用","Utility"),"#49aab9"]};
   let treesHTML;
   if(TD&&TD.trees&&TD.trees.length){
     treesHTML=`<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:0;align-items:stretch;border:1px solid #222a3c;border-radius:10px;overflow:hidden">${TD.trees.map((t,ti)=>{
@@ -3210,10 +3226,10 @@ function oldMasteryRunesHTML(year){
   const P="https://ddragon.leagueoflegends.com/cdn/img/perk-images/StatMods/";
   const ic=f=>`<img src="${P}${f}" style="width:26px;height:26px;vertical-align:middle;border-radius:4px" onerror="this.style.display='none'">`;
   const runes=[
-    {e:"🔴",n:"印記 Marks（紅）",c:"#dc4747",ic:ic("StatModsAttackSpeedIcon.png"),d:"攻擊向：攻擊力（滿頁約 +8.5 AD）、攻速、物穿、法穿。"},
-    {e:"🟡",n:"護符 Seals（黃）",c:"#c8aa6e",ic:ic("StatModsHealthPlusIcon.png"),d:"防禦/成長向：護甲（滿頁約 +9）、每級生命、每級生命/法力回復。"},
-    {e:"🔵",n:"雕紋 Glyphs（藍）",c:"#6c75f5",ic:ic("StatModsCDRScalingIcon.png"),d:"法術向：魔法抗性、法術強度、冷卻縮減（每級，滿頁約 -8%）、法力。"},
-    {e:"🟣",n:"精華 Quintessences（紫）",c:"#a879e0",ic:ic("StatModsAdaptiveForceIcon.png"),d:"效果最強、一頁 3 顆：攻擊力（+6.75）、移速（+4.5%）、生命（+78）、攻速、吸血等。"}
+    {e:"🔴",n:_L("印記（紅）","Marks (Red)"),c:"#dc4747",ic:ic("StatModsAttackSpeedIcon.png"),d:"攻擊向：攻擊力（滿頁約 +8.5 AD）、攻速、物穿、法穿。"},
+    {e:"🟡",n:_L("護符（黃）","Seals (Yellow)"),c:"#c8aa6e",ic:ic("StatModsHealthPlusIcon.png"),d:"防禦/成長向：護甲（滿頁約 +9）、每級生命、每級生命/法力回復。"},
+    {e:"🔵",n:_L("雕紋（藍）","Glyphs (Blue)"),c:"#6c75f5",ic:ic("StatModsCDRScalingIcon.png"),d:"法術向：魔法抗性、法術強度、冷卻縮減（每級，滿頁約 -8%）、法力。"},
+    {e:"🟣",n:_L("精華（紫）","Quintessences (Purple)"),c:"#a879e0",ic:ic("StatModsAdaptiveForceIcon.png"),d:"效果最強、一頁 3 顆：攻擊力（+6.75）、移速（+4.5%）、生命（+78）、攻速、吸血等。"}
   ];
   const rCard=t=>`<div style="border-top:3px solid ${t.c};background:rgba(255,255,255,.03);border-radius:8px;padding:11px 13px">
     <div style="font-weight:bold;color:${t.c};font-size:15px;margin-bottom:5px;display:flex;align-items:center;gap:7px">${t.ic}<span>${t.e} ${esc(t.n)}</span></div>
@@ -4037,6 +4053,8 @@ const DIR_OVERRIDE=[
   [/不再(消耗|需要|花費|扣除)/, 1],                      // 移除成本／前提（凱特琳被動：不再消耗當攻擊守衛）
   [/^\s*新增[：:].{0,80}(獲得|提供|增加|額外|提升|附加)/, 1], // 新增正面效果（希維爾 W：新增…獲得額外攻速）
   [/^\s*移除[：:]/, -1],                                // 整段效果被拿掉
+  [/不再.{0,8}(降低|減少|扣除).{0,10}傷害/, 1],          // 移除自身傷害懲罰（蓋倫 E：不再對野怪降低傷害）
+  [/不再(受到|吃到|觸發).{0,10}(懲罰|減益|限制)/, 1],
 ];
 // 由改動文字判斷增強/削弱：⇒ 前後同長度數值逐項比較；成本類數值反向（降=增強）
 // 合成公式判向（2026-07-16 使用者定義）：總價下降＝增強、上升＝削弱；同價 → 比「往下拆到最小件」的件數，多＝合成更平滑＝變相增強
@@ -4125,6 +4143,9 @@ function changeDir(lines){
 }
 // ── 版本改動渲染器（全域共用：版本改動分頁＋圖鑑歷年改動）──────────────────
 const COSM=/原畫|造型|背景故事|中版美術|重新上色|推薦裝備|語音(更新|台詞)|(技能)?圖示更新|更新[了]?圖示|特效(已)?更新|視覺效果|粒子效果|模型更新|動畫更新|全新的?[^｜]{0,10}動畫|說明更新|新增語音|音效|現在(能|會)?正確|嚎哭深淵|極地大亂鬥|扭曲叢林|統治戰場|Howling Abyss|Twisted Treeline|Crystal Scar|Dominion|[（(]ARAM[)）]|Level Requirements?|更名|重新命名|renamed|[Nn]ame changed|名稱[：:][^⇒\n]*⇒|(^|｜|\[)\s*(未公告|錯誤|修正了|修復|[Uu]ndocumented|[Bb]ug\s?[Ff]ix|BUG)|(提高|降低|增加|減少)從\s*\d|編按|附註[：:]|並未實裝|官方未記載|並非刻意|此問題可能是在|未列於公告|(邊緣|中心)判定距離|(重新)?編寫程式(碼)?|rescripted?|visual (upgrade|update|effects?)|splash art|voice.?over|icons? (are |have been )?updated|recommended items|lore|chroma|texture|animations? updated|now (correctly|properly)|tooltip/i;
+// 版本總覽專用的「瑣碎改動」：純顯示層、完全不影響強弱（聊天訊息顯示名、提示文字…）。
+// 只在版本分頁擋掉，英雄詳情頁仍完整列出（使用者定案 2026-07-31：艾妮維亞蛋型態的聊天名稱）
+const TRIVIAL=/聊天訊息|訊息(現在)?會顯示|顯示專屬的英雄名稱|提示文字|字型|排版調整|chat message/i;
 const dirCls=d=>d==null?"":d>0?"buff":d<0?"nerf":"adj"; // null（僅公式/僅錯誤修正）＝不上色
 // 官方公告「英雄專屬大區塊」註記（PATCH_NOTES[pk]._spotlight，如 26.06 希瓦娜）：新英雄＝CHAMP_RELEASE 落在該版首場 ±30 天，否則大型重製
 const spotTag=(id,pk)=>{const PN=typeof PATCH_NOTES!=="undefined"?PATCH_NOTES:{};
@@ -4262,9 +4283,13 @@ const SKMAP=(()=>{
 // 22.17 起官方繁中公告齊全 → wiki 補充只收繁中行（英文行必為重複或雜訊）
 // 改版文本：資料同時含中文與英文行（"技能名｜改動文字"）。中文模式留中文改動行；英文模式留英文改動行（技能名前綴仍中文，改動內容為官方英文）
 const _chgTxt=l=>{const i=String(l).indexOf("｜"); return i>=0?String(l).slice(i+1):String(l);};
-const zhOnly=(pk,ls)=>{ if(parseFloat(pk)<22.17)return ls;
+// 中文模式一律「有中文就只留中文」：舊寫法用 22.17 當門檻，2013-2021 的 wiki 資料
+// 同一則常常中英各一行，英文那行是重複的原文 → 版面一半是英文（2026-07-31 使用者回報）。
+// 整段都沒有中文（真的沒人翻）才退回英文原文，不會把資料弄不見。
+const zhOnly=(pk,ls)=>{
   if(LANG==="en"){ const en=ls.filter(l=>!/[一-鿿]/.test(_chgTxt(l))); return en.length?en:ls.filter(l=>/[一-鿿]/.test(l)); }
-  return ls.filter(l=>/[一-鿿]/.test(l)); };
+  const zh=ls.filter(l=>/[一-鿿]/.test(_chgTxt(l)));
+  return zh.length?zh:ls; };
 const addKey=(id,l)=>{
   const i=l.indexOf("｜"); if(i<=0)return l;
   const sk=l.slice(0,i);
@@ -4283,7 +4308,7 @@ function champHistory(id){
       const ls=pd[id]; if(ls&&ls.length)put(pk,ls.map(l=>addKey(id,l)),pd._url||""); } };
   const addWiki=()=>{ for(const[wv,cs]of Object.entries(window.WIKI_PATCHES||{})){
     const pk=wikiVerPk(wv); if(!pk||byPk[pk])continue;
-    const ls=zhOnly(pk,(cs[id]||[]).filter(l=>!COSM.test(l)&&!JUNK.test(String(l).trim()))).map(l=>addKey(id,l));
+    const ls=zhOnly(pk,(cs[id]||[]).filter(l=>!COSM.test(l)&&!TRIVIAL.test(l)&&!JUNK.test(String(l).trim()))).map(l=>addKey(id,l));
     // 連結優先序：官方 → wiki
     if(ls.length)put(pk,ls,(PATCH_NOTES[pk]&&PATCH_NOTES[pk]._url)||`https://wiki.leagueoflegends.com/en-us/V${wv}`); } };
   // 英文模式優先序：官方英文 → wiki 英文 → 官方中文（補漏）；中文模式：官方中文 → wiki

@@ -30,11 +30,10 @@ EVENTS = {
     # → 至少讓圖鑑「賽事」樹看得到這些聯賽存在（使用者要求 2026-07-31）。
     # splits＝一個賽段一個頁；po_page＝該賽段的季後賽（2013 GPL 只有夏季有，就 Championship 那一場）
     2013: {
-        # GPL 底下還有一個「台灣區世界賽資格賽」（Season 3 Taiwan Regional Finals），
-        # 打完才定出世界賽代表隊 → 當成 GPL 的一個賽段（使用者指定 2026-07-31）
-        "GPL":   {"splits": [{"sp": "春季", "page": "2013 GPL Spring"},
-                             {"sp": "夏季", "page": "2013 GPL Summer", "po_page": "2013 GPL Championship"},
-                             {"sp": "錦標賽", "page": "Season 3 Taiwan Regional Finals"}]},
+        # 2013 GPL 只補「台港澳錦標賽」的完整名單：PB 頁收錄的 22 局裡只出現 10 隊，
+        # 實際參賽是 12 隊（Team Ozone Xenon 與 Team Rush 沒有被收錄的場次）。
+        # **賽段名一定要跟比賽資料一致**，不然賽事樹會多長出一列重複的區塊（2026-07-31）
+        "GPL":   {"splits": [{"sp": "台港澳錦標賽", "page": "Season 3 Taiwan Regional Finals"}]},
         "TCL":   {"splits": [{"sp": "冬季", "page": "Riot Games Turkey/2013 Season/Winter Tournament"},
                              {"sp": "春季", "page": "Riot Games Turkey/2013 Season/Spring Tournament"},
                              {"sp": "夏季", "page": "Riot Games Turkey/2013 Season/Summer Tournament"}]},
@@ -187,7 +186,9 @@ def main():
             old = json.loads(re.sub(r"^window\.EVENTS_EXTRA=|;\s*$", "", open(OUT, encoding="utf-8").read().strip()))
         except Exception:
             old = {}
-    data = {str(y): dict(old.get(str(y), {})) for y in EVENTS}
+    # 只保留「EVENTS 裡還登記著的賽事碼」：從設定移除的（例：2013 GPL 已有完整比賽資料）
+    # 若沿用舊檔就會一直留著，賽事樹會多長出賽段名不同步的重複區塊（2026-07-31）
+    data = {str(y): {k: v for k, v in old.get(str(y), {}).items() if k in evs} for y, evs in EVENTS.items()}
     for year, evs in EVENTS.items():
         for code, cfg in evs.items():
             kind = cfg.get("kind", "team")

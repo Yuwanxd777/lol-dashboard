@@ -40,9 +40,19 @@ JOBS = [
     # 賽段寫「夏季」就好，PO 後綴由 fetch_data 依 playoffs 欄自己加；
     # 自己先寫 "夏季 PO" 會變成「夏季 PO PO」，前端只去掉一個 PO → 賽事卡多長出一列（2026-07-31）
     # 賽事名叫 Championship／Regional Finals 的，賽段一律標「錦標賽」（使用者定案 2026-07-31）
-    (2013, "GPL", "錦標賽", 0, "2013 GPL Championship/Picks and Bans", "2013 GPL Championship"),
-    (2013, "GPL", "錦標賽", 0, "Season 3 Taiwan Regional Finals/Picks and Bans",
+    # TESL（台灣電子競技聯盟職業挑戰賽）：與 GPL 夏季同期進行的台灣本土聯賽，
+    # MatchHistory 沒收（0 局）但 PB 頁有 75 局。使用者指定放在 GPL 底下、夏季之後（2026-07-31）
+    (2013, "GPL", "TESL", 0, "Taiwan eSports League/Professional Challenges/Picks and Bans",
+     "Taiwan eSports League/Professional Challenges"),
+    # GPL 的兩個錦標賽分開標（使用者定案 2026-07-31）：
+    #   台港澳＝GPL 年度總決賽（春夏冠軍對決，兩隊都是台灣隊）＋台灣區世界賽代表選拔
+    #   東南亞＝Season 3 Southeast Asia Regional Finals（KLH／SGS／SAJ／BKT／Mineski／Xgame 六隊；
+    #           Qualifiers 不列，PB 頁本來就只收正賽 11 局）
+    (2013, "GPL", "台港澳錦標賽", 0, "2013 GPL Championship/Picks and Bans", "2013 GPL Championship"),
+    (2013, "GPL", "台港澳錦標賽", 0, "Season 3 Taiwan Regional Finals/Picks and Bans",
      "Season 3 Taiwan Regional Finals"),
+    (2013, "GPL", "東南亞錦標賽", 0, "Season 3 Southeast Asia Regional Finals/Picks and Bans",
+     "Season 3 Southeast Asia Regional Finals"),
     (2013, "CBLOL", "錦標賽", 0, "Riot Season 3 Brazilian Championship/Picks and Bans",
      "Riot Season 3 Brazilian Championship"),
     (2013, "LLA", "錦標賽", 0, "Season 3 Latin America Regional Finals/Picks and Bans",
