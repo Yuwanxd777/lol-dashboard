@@ -264,6 +264,8 @@
   .rosterGrid table{font-size:15.5px;table-layout:auto;width:max-content;min-width:100%} /* 內容優先，不裁字 */
   .rosterGrid .card{overflow-x:auto} /* 塞不下時卡內橫捲 */
   .rosterGrid .heroname{cursor:pointer}
+  .rosterGrid td.rsGo{cursor:pointer;position:relative} /* 場數＝跳到英雄詳情的入口（2026-07-31 使用者要求） */
+  .rosterGrid td.rsGo:hover{background:rgba(255,255,255,.10);border-radius:5px;text-decoration:underline}
   .rosterGrid .heroname.chi .cc img{transform:scale(1.1);position:relative;z-index:3;border-radius:4px;
     box-shadow:0 0 6px 1px rgba(255,255,255,.9),0 0 14px 4px rgba(255,255,255,.45)} /* 重複英雄 hover：全部一起放大10%＋白光 */
   .rosterGrid td:has(.heroname.chi){overflow:visible} /* 白光不被裁 */
@@ -5769,7 +5771,27 @@ function sqHeroDetail(cid){
       list.forEach(g=>{const[t,p]=String(g.pkey).split("|"); if(!p)return; c.set(p,(c.get(p)||0)+1); if(!tm[p])tm[p]=t||"";});
       return [...c.keys()].map(p=>({v:p,l:p,a:[tm[p],teamFix(tm[p]||"")].filter(Boolean),d:teamFix(tm[p]||""),n:c.get(p)})); })();
     if(V.hdPlayer&&!plOpts.some(o=>o.v===V.hdPlayer))V.hdPlayer="";
-    if(V.hdPlayer)list=list.filter(g=>String(g.pkey).split("|")[1]===V.hdPlayer);
+    if(V.hdPlayer){
+      // ⚠ SOLOQ_CHGAMES 只留「每隻英雄最近 100 場」，而且是全體追蹤選手混在一起 →
+      //   篩到單一選手常常只剩個位數，跟陣容頁那格看到的場數差很多（2026-07-31 從陣容跳過來時發現）。
+      //   有該選手自己的逐場檔就改讀那份（同一個人的完整紀錄，最多千場），沒有才退回全域清單。
+      const IP=(window.SOLOQ_MATCH_IDX||{}).players;
+      const key=IP&&Object.keys(IP).find(k=>String(k).split("|")[1]===V.hdPlayer);
+      const meta=key&&IP[key], cache=key&&window.__SQCACHE[key];
+      if(meta&&!cache){ // 該選手的檔還沒載 → 掛上去，載完自動重繪（__sqLoad 會呼叫 render）
+        if(!document.querySelector('script[data-sqf="'+meta.f+'"]')){
+          const sc=document.createElement("script"); sc.src="soloq_matches/"+meta.f;
+          sc.setAttribute("data-sqf",meta.f); sc.onerror=()=>{window.__SQCACHE[key]={matches:[]};};
+          document.body.appendChild(sc); }
+      }
+      if(cache){
+        const PNS2={TOP:"TOP",JUNGLE:"JNG",MIDDLE:"MID",BOTTOM:"BOT",UTILITY:"SUP"};
+        list=(cache.matches||[]).filter(g=>g.c===cid).map(g=>({t:g.t,pkey:key,pos:PNS2[g.pos]||"",won:!!g.w,
+          k:g.k,de:g.de,a:g.a,kp:g.kp,och:g.o||"",gd15:g.gd15,xd15:g.xd15,sc:g.sc,r:g.r,rs:g.rs||[]}));
+        if(V.hdLane)list=list.filter(g=>g.pos===V.hdLane);
+        if(V.hdOpp)list=list.filter(g=>g.och===V.hdOpp);
+      } else list=list.filter(g=>String(g.pkey).split("|")[1]===V.hdPlayer);
+    }
     const RACC={版本:g=>g.t,使用選手:g=>g.pkey,位置:g=>g.pos,勝敗:g=>g.won?1:0,
       "K/D/A":g=>(g.k+g.a)/Math.max(1,g.de),參與率:g=>g.kp,
       "金差@15":g=>g.gd15,"經差@15":g=>g.xd15,符文:g=>g.r,對位英雄:g=>cAb(g.och)||g.och,評分:g=>g.sc};
@@ -8727,12 +8749,13 @@ function render(){
       };
     };
     const recent2w=d=>d&&!isNaN(Date.parse(d))&&(Date.now()-Date.parse(d))<=14*864e5; // 最近兩週內→亮黃
-    const poolRows=pool=>{
+    // pos/who 只有職業賽與積分模式會傳（生涯模式跨年份跨隊，跳到「今年的英雄詳情」會查無資料 → 不給點）
+    const poolRows=(pool,pos,who)=>{
       const el=pool.filter(c=>c.n>=3); // 低於3場不列入排名、不上色，名次自動遞補
       const rG=rankCls(el.map(c=>c.n)),rW=rankCls(el.map(c=>c.w/c.n)),rB=rankCls(el.map(c=>c.banRate));
       return pool.map(c=>{const wr=c.w/c.n;return `<tr>
         <td><span class="heroname" data-ch="${esc(c.ch)}">${cImg(c.ch)}${cAb(c.ch)}</span></td>
-        <td class="${rG(c.n,c.n)}">${c.n}</td>
+        <td class="${rG(c.n,c.n)}${pos?" rsGo":""}"${pos?` data-ch="${esc(c.ch)}" data-pos="${esc(pos)}" data-p="${esc(who||"")}" title="${LANG==="en"?"open champion detail (this player · this lane)":"到英雄詳情看這位選手這一路的紀錄"}"`:""}>${c.n}</td>
         <td class="${rW(wr,c.n)}">${Math.round(wr*100)}%</td>
         <td class="${rB(c.banRate,c.n)}">${Math.round(c.banRate*100)}%</td>
         <td class="meta"${recent2w(c.last)?' style="color:#ffd60a;font-weight:600"':''}>${lastTxt(c.last)}</td></tr>`;}).join("");
@@ -8745,12 +8768,12 @@ function render(){
       const n=Math.max(0,Math.round((Date.now()-t)/864e5));
       return n===0?(LANG==="en"?"today":"今天"):(LANG==="en"?n+"d":n+" 天前"); };
     // 積分模式：英雄/場/勝率/KDA/評分（從逐場聚合，含 dpm 評分）
-    const poolRowsSoloq=pool=>{
+    const poolRowsSoloq=(pool,pos,who)=>{
       const el=pool.filter(c=>c.n>=3);
       const rG=rankCls(el.map(c=>c.n)),rW=rankCls(el.map(c=>c.w/c.n)),rK=rankCls(el.map(c=>c._kda));
       return pool.map(c=>{const wr=c.n?c.w/c.n:0;return `<tr>
         <td><span class="heroname" data-ch="${esc(c.ch)}">${cImg(c.ch)}${cAb(c.ch)}</span></td>
-        <td class="${rG(c.n,c.n)}">${c.n}</td>
+        <td class="${rG(c.n,c.n)}${pos?" rsGo":""}"${pos?` data-ch="${esc(c.ch)}" data-pos="${esc(pos)}" data-p="${esc(who||"")}" title="${LANG==="en"?"open champion detail (this player · this lane)":"到英雄詳情看這位選手這一路的紀錄"}"`:""}>${c.n}</td>
         <td class="${rW(wr,c.n)}">${Math.round(wr*100)}%</td>
         <td class="${rK(c._kda,c.n)} num">${c._kda.toFixed(1)}</td>
         <td class="meta"${recent2w(c.last)?' style="color:#ffd60a;font-weight:600"':''}>${c.last?c.last.slice(5):"—"}</td></tr>`;}).join("");
@@ -8822,7 +8845,7 @@ function render(){
           if(sp.loading)return hd2(LANG==="en"?"loading…":"載入中…")+`</div>`;
           const tot=sp.pool.reduce((s,c)=>s+c.n,0), tw=sp.pool.reduce((s,c)=>s+c.w,0), wr=tot?tw/tot:0;
           return hd2(LANG==="en"?`Pool ${sp.pool.length}　Games ${tot}　Win% ${Math.round(wr*100)}%`:`角色池 ${sp.pool.length}　總場 ${tot}　勝率 ${Math.round(wr*100)}%`)
-            +`<table class="ov"><thead><tr>${rHead(pos)}</tr></thead><tbody>${poolRowsSoloq(sortPool(sp.pool,pos))}</tbody></table></div>`;
+            +`<table class="ov"><thead><tr>${rHead(pos)}</tr></thead><tbody>${poolRowsSoloq(sortPool(sp.pool,pos),pos,sel)}</tbody></table></div>`;
         }
         if(careerMode){ // 年份寫該選手自己的生涯範圍（新人可能只有 2025~2026），不是資料庫全域範圍
           const yr=d._y0?(d._y1&&d._y1!==d._y0?`${d._y0}~${d._y1}`:d._y0):"";
@@ -8830,7 +8853,7 @@ function render(){
                                 :`${yr}｜角色池 ${d.pool.length}｜總場 ${d.total}｜勝率 ${Math.round(d.winrate*100)}%`)
             +`<table class="ov"><thead><tr>${rHead(pos)}</tr></thead><tbody>${poolRows(sortPool(d.pool,pos))}</tbody></table></div>`; }
         return hd2(LANG==="en"?`Pool ${d.pool.length}　Games ${d.total}　Win% ${Math.round(d.winrate*100)}%`:`角色池 ${d.pool.length}　總場 ${d.total}　勝率 ${Math.round(d.winrate*100)}%`)
-          +`<table class="ov"><thead><tr>${rHead(pos)}</tr></thead><tbody>${poolRows(sortPool(d.pool,pos))}</tbody></table></div>`;
+          +`<table class="ov"><thead><tr>${rHead(pos)}</tr></thead><tbody>${poolRows(sortPool(d.pool,pos),pos,sel)}</tbody></table></div>`;
       }).join("")}</div>`;
       box.querySelectorAll(".pickSel").forEach(s=>s.onchange=()=>{V.rosterPick[s.dataset.pos]=s.value; saveState(); rerender();});
       box.querySelectorAll("th[data-rk]").forEach(th=>th.onclick=()=>{
@@ -8838,6 +8861,17 @@ function render(){
         V.rosterSort[pos]=(s&&s.k===k)?{k,d:-s.d}:{k,d:-1};
         saveState(); rerender();
       });
+      // 場數 → 英雄詳情（2026-07-31 使用者要求）：帶著「同一個資料源＋該選手＋該路線」跳過去。
+      // 英雄鍵在兩種資料源不同（職業賽是資料原始名 "Lee Sin"、積分是 DDragon id "LeeSin"）→ 走 heroKeyFor 換算。
+      box.querySelectorAll("td.rsGo").forEach(td=>{ td.onclick=()=>{
+        const ch=td.dataset.ch; if(!ch)return;
+        const mode=soloqMode?"soloq":"pro";
+        V.heroMode=mode; V.heroDetail=heroKeyFor(mode,ch);
+        V.hdLane=td.dataset.pos||""; V.hdPlayer=td.dataset.p||""; V.hdOpp=""; V.recSort=null;
+        curView="英雄";
+        document.querySelectorAll("nav .tab").forEach(x=>x.classList.toggle("on",x.dataset.view==="英雄"));
+        saveState(); render();
+      }; });
       // 重複英雄（跨路線／選手同一隻）：滑到英雄圖或名 → 全部一起放大10%＋白光
       box.querySelectorAll(".heroname").forEach(hn=>{
         hn.onmouseenter=()=>box.querySelectorAll(`.heroname[data-ch="${CSS.escape(hn.dataset.ch)}"]`).forEach(x=>x.classList.add("chi"));
