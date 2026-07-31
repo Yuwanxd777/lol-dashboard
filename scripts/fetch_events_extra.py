@@ -16,7 +16,8 @@ EWCQ* 會再被合併卡吸收成 EWC 卡底下的資格賽分段。
 """
 import io, sys, os, re, json, time, html as _html, urllib.request, urllib.parse
 
-sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
+if (getattr(sys.stdout, "encoding", "") or "").lower().replace("-", "") != "utf8":
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 OUT = os.path.join(ROOT, "events_extra.js")

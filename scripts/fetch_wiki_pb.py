@@ -13,7 +13,11 @@
     實測 Keyd vs RMA g1 紅方 pick 序 TF→Caitlyn→Nasus→Renekton→Lulu，
     正確排成 Renekton(TOP)／Nasus(JNG)／TF(MID)／Caitlyn(BOT)／Lulu(SUP)
     ——Nasus 2013 有 81% 在打野，照 pick 序硬排就會錯。
-  ✘ **選手名**（PB 頁根本沒有）→ 選手列的 playername 留空，選手生涯統計不受影響。
+  ✔ **選手名＝賽事登錄名單**：PB 頁沒有，但賽事主頁的參賽名單有，而且是照
+    TOP→JNG→MID→BOT→SUP 排的（使用者提供 2026-07-31：CBLOL 2013 Keyd Team＝
+    Mylon／Revolta／Snowlz／Haelz／Loop）。位置既然已經推定，就能把名字填回去。
+    **是「該賽事的登錄名單」不是逐局先發**——有替補或位置輪換就會掛錯人，
+    所以只在該隊五個位置齊全時才填。這批資料會進選手生涯統計。
   ✘ 日期（PB 頁沒有）→ 從賽事主頁的比賽列表依「隊伍組合」配對；配不到就退用賽事起始日。
 
 輸出：csv_cache/wikifill_{年}.json（與 fetch_wiki_mh 同一個檔、同一套 key），
@@ -280,15 +284,34 @@ _POS_OE = {"TOP": "top", "JNG": "jng", "MID": "mid", "BOT": "bot", "SUP": "sup"}
 _LANE_CACHE = {}
 
 
+def pb_segments(year):
+    """該年由本檔（PB 頁）產生的 (聯賽, 賽段)——這些列的路線是推定值，
+    不能拿回來當統計證據。src 標記存在 wikifill_{年}.json 裡。"""
+    out = set()
+    p = os.path.join(CACHE, f"wikifill_{year}.json")
+    if os.path.exists(p):
+        try:
+            for v in json.load(open(p, encoding="utf-8")).values():
+                if "Picks and Bans" in str(v.get("src", "")):
+                    out.add((str(v.get("league") or ""), str(v.get("split") or "").split(" PO")[0]))
+        except Exception:
+            pass
+    return out
+
+
 def lane_stats(year):
-    """該年「英雄→各路線出場次數」，取自 data_{年}.js 裡有選手名的列。
+    """該年「英雄→各路線出場次數」，取自 data_{年}.js 的**真實**列。
 
     PB 頁只給英雄與**選擇順序**（第幾手），不是路線順序，所以要靠這張表把 5 個
-    pick 排回 TOP/JNG/MID/BOT/SUP。**只採計有選手名的列**：本腳本自己推定出來的
-    列沒有選手名，排除掉才不會自我強化（第二次跑時把推定值當成證據）。"""
+    pick 排回 TOP/JNG/MID/BOT/SUP。
+
+    **必須排除本檔自己產生的賽段**，否則第二次跑會把上一輪的推定值當成證據自我
+    強化。原本靠「沒有選手名」就能濾掉，但自從選手名改成從參賽名單填回去之後，
+    PB 的列也有名字了 → 改用 wikifill 的 src 標記逐賽段排除。"""
     if year in _LANE_CACHE:
         return _LANE_CACHE[year]
     st = collections.defaultdict(collections.Counter)
+    skip = pb_segments(year)
     p = os.path.join(ROOT, "data", f"data_{year}.js")
     if os.path.exists(p):
         try:
@@ -303,6 +326,8 @@ def lane_stats(year):
                     continue
                 if pid not in _PID2POS:
                     continue
+                if (str(r[ix["league"]] or ""), str(r[ix["split"]] or "").split(" PO")[0]) in skip:
+                    continue                      # 本檔推定的賽段，不當證據
                 for side in (0, 1):
                     o = RB if side else 0
                     nm = str(r[ix["blue_playername"] + o] or "").strip()
@@ -343,6 +368,40 @@ def assign_lanes(champs, st):
     for i, j in enumerate(best):
         out[j] = champs[i]
     return out                               # [TOP, JNG, MID, BOT, SUP]
+
+
+_ROS_CACHE = {}
+
+
+def tour_rosters(page):
+    """賽事主頁的參賽名單 → {正規化隊名: {位置: 選手名}}。
+
+    PB 頁只有英雄，沒有選手名；但賽事主頁有「Team Rosters／Participants」表，
+    而且是照 TOP→JNG→MID→BOT→SUP 排的（使用者提供 2026-07-31：CBLOL 2013
+    Keyd Team＝Mylon／Revolta／Snowlz／Haelz／Loop）。
+    英雄的位置已由 assign_lanes 推定，對上位置就能把名字填回去。
+
+    來源用 Cargo 表 TournamentPlayers（見 fetch_events_extra.cargo_rosters），
+    不吃 HTML 版型。**這是「該賽事的登錄名單」不是逐局先發**：有替補或位置輪換
+    就會掛錯人，所以只在該隊剛好五個位置各一人時才填。
+    """
+    if page in _ROS_CACHE:
+        return _ROS_CACHE[page]
+    out = {}
+    try:
+        import fetch_events_extra as EE
+        for tm, pl in (EE.cargo_rosters(page) or {}).items():
+            m = {}
+            for p in pl:
+                r = p.get("r")
+                if r in POSL and r not in m:
+                    m[r] = p.get("n") or ""
+            if len(m) == 5:            # 五個位置齊全才用，缺角就整隊不填
+                out[_norm(tm)] = m
+    except Exception as e:
+        print(f"    ⚠ 參賽名單取得失敗（選手名留空）：{str(e)[:70]}")
+    _ROS_CACHE[page] = out
+    return out
 
 
 _PBD_CACHE = {}
@@ -452,6 +511,9 @@ def build(job, force=False):
     LST = lane_stats(year)
     print(f"    路線統計：{len(LST)} 個英雄（{year} 年有選手名的列）")
     PBD = patch_by_date(year)
+    ROS = tour_rosters(main_page)
+    if ROS:
+        print(f"    參賽名單：{len(ROS)} 隊五個位置齊全 → 選手名可填")
     from datetime import date as _date, timedelta as _td
     _d0 = _date(*map(int, first.split("-")))
     _d1 = _date(*map(int, (last or first).split("-")))
@@ -536,6 +598,7 @@ def build(job, force=False):
                 put2("side", side.capitalize())
                 put2("position", _POS_OE[POSL[k2]])
                 put2("teamname", g[side]); put2("champion", ch)
+                put2("playername", (ROS.get(_norm(g[side])) or {}).get(POSL[k2], ""))
                 put2("result", "1" if (g["win"] == (1 if side == "blue" else 2)) else "0")
                 rows.append(r)
     buf = io.StringIO()
