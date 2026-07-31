@@ -6227,9 +6227,12 @@ function renderChgYear(box){
             name=name.replace(/^\[[^\]]*\]\s*/,"");
             // wiki 常把「一起改的兩個天賦／道具」寫成「A and B」→ 轉成站內雙名格式「A／B」，
             // 卡片才會各自顯示圖示（2026-07-31 判例：Legendary Guardian and Tenacious）
-            // 英文的 and 前後一定有空白；中文的「與／且」沒有 → 兩條規則分開，中文那條限定中文字元避免誤傷
-            name=name.replace(/^(.{2,24}?)\s+and\s+(.{2,24})$/i,"$1／$2")
-                     .replace(/^([一-鿿]{2,10})[與且]([一-鿿]{2,10})$/,"$1／$2");
+            // wiki 把「一起改的兩個天賦／道具」寫成「A and B」時，**只取前者**當卡名
+            //（使用者定案 2026-07-31：「傳奇護衛／堅韌」改寫成「傳奇護衛」——那則改動的主體
+            //  是前者，後者只是被提到而已）。英文 and 前後有空白、中文「與」沒有 → 兩條分開，
+            //  中文那條限定中文字元避免誤傷（「熾天使之擁」這種名稱不會被切）
+            name=name.replace(/^(.{2,24}?)\s+and\s+.{2,24}$/i,"$1")
+                     .replace(/^([一-鿿]{2,10})[與且][一-鿿]{2,10}$/,"$1");
             const _ct=chgNameTag(name); const _tag=(_ct.nm!==name)?_ct.tag:""; name=_ct.nm; // 去 " - Added/Rework" 後綴，記標籤
             name=name.split("／").map(p=>ITEM_ALIAS[p.trim()]||p.trim()).join("／"); // 舊譯名統一為現行名（剔除鐮刀→汰除品）
             if(!selP){ // 「全年」視圖限定：登場/移除寫在道具詳情就好，這裡不列
