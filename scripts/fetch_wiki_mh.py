@@ -223,14 +223,21 @@ def to_csv(games, cfg):
     # 第 1 局在 04-28、其餘四局在 04-29），用 (日期,兩隊) 當鍵會拆成兩個系列、
     # 各自從 1 重編 → 局號變成 [1,1,2,3,4]，前端按 (日期,局號) 去重就少三局
     #（2026-07-31 使用者回報「漏了三場」）。
-    # 改成同兩隊且與上一局相隔 <=1 天就算同一系列；隔更久（例行賽下一輪再戰）才重新編。
-    def _dd(a, b):
+    # 改成同兩隊且與上一局間隔夠短就算同一系列；隔更久（例行賽下一輪再戰）才重新編。
+    # 用**原始時間差**而不是日期差（2026-08-01 修）：日期差 <=1 天會把「連兩天各打一場
+    # 單局」也併成系列——2013 EU LCS 夏季 NiP vs Fnatic 在 08-16 19:00 打例行賽最後一輪、
+    # 08-17 19:00 打 Tiebreaker，兩場都是獨立的 BO1，卻被併成 1-1 的系列，前端據此判定
+    # 「BO3 缺第 3 局」（使用者回報）。真正跨天的 BO5 各局只隔 1 小時（NA LCS 2013 春季
+    # 決賽 TSM vs GGU：04-28 23:00 → 04-29 00:00/01:00/02:00/03:00），8 小時的門檻兩者
+    # 都判得對。Date 欄本來就帶時分秒，不必另外抓資料。
+    SERIES_GAP_H = 8
+    def _hh(a, b):
         try:
-            from datetime import date as _dt
-            x = _dt(*map(int, a.split("-"))); y = _dt(*map(int, b.split("-")))
-            return abs((y - x).days)
+            from datetime import datetime as _dtm
+            f = "%Y-%m-%d %H:%M:%S"
+            return abs((_dtm.strptime(b[:19], f) - _dtm.strptime(a[:19], f)).total_seconds()) / 3600.0
         except Exception:
-            return 99
+            return 999.0
     # wiki 的 MatchHistoryGame 結果表是**新→舊倒序**，不反轉的話系列賽會從最後一局
     # 開始編號、日期也會取到最後一天（實測 NA LCS 2013 春季決賽第一局在 04-28，
     # 卻被編成 g5、整個系列掛在 04-29）。只在確定倒序時反轉，正序的賽事不動。
@@ -247,16 +254,16 @@ def to_csv(games, cfg):
         day[d10] = n
         _pair = frozenset((nk(g.get("Blue")), nk(g.get("Red"))))
         _prev = ser.get(_pair)
-        if _prev and _dd(_prev[0], d10) <= 1:
+        if _prev and _hh(_prev[0], dt) <= SERIES_GAP_H:
             gno, _start, _sn = _prev[1] + 1, _prev[2], _prev[3]
         else:
             gno, _start = 1, d10
             _sn = sday.get(d10, 0) + 1          # 這天的第幾個系列賽（表格已是時間正序）
             sday[d10] = _sn
-        # 比對用「上一局的原始日期」，這樣連續跨天（04-28→29→30）也接得上；
+        # 比對用「上一局的原始時間」，這樣連續跨天（04-28 23:00→04-29 00:00）也接得上；
         # 寫進資料的日期則統一成系列賽第一局那天（使用者定案 2026-07-31），
         # 免得同一個 BO5 在前端被日期切成兩段。
-        ser[_pair] = (d10, gno, _start, _sn)
+        ser[_pair] = (dt, gno, _start, _sn)
         # 時間整段重算成「當天第幾個系列 × 10 ＋ 局號」，不沿用 wiki 的原始時鐘。
         # 原因：日期已被統一成系列第一局那天，但原始時間還是各局自己的——跨午夜的
         # BO5 會變成 g1=23:00、g2=00:00，時序整個顛倒（實測 NA LCS 2013 春季決賽）。
