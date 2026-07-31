@@ -126,7 +126,11 @@ def parse(hml):
     tabs = re.findall(r"<table[^>]*>.*?</table>", hml, re.S)
     if not tabs:
         return [], []
-    big = max(tabs, key=lambda t: len(re.findall(r"<tr", t)))
+    # ⚠ 別用「tr 最多的表」：局數少的賽事（季後賽常常只有 4-5 局）會被頁尾那張表蓋過去，
+    #   結果整個賽事變 0 局（2026-07-31 使用者回報 LPL 2013 夏季季後賽）。
+    #   RunQuery 的結果表一定帶 class="…mhgame…"，先用它挑，挑不到才退回 tr 最多。
+    mh = [t for t in tabs if "mhgame" in (re.match(r"<table[^>]*>", t) or [""])[0]]
+    big = max(mh or tabs, key=lambda t: len(re.findall(r"<tr", t)))
     rows = re.findall(r"<tr[^>]*>(.*?)</tr>", big, re.S)
     hdr = None
     out = []

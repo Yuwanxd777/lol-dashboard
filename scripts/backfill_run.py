@@ -24,8 +24,10 @@ JOBS = [
     #（韓國＝Korea Regional Finals Season 3、中國＝China Regional Finals Season 3）
     (2013, "LCK", "錦標賽", 0, ["Korea Regional Finals Season 3", "Season 3 Korea Regional Finals"]),
     (2013, "LPL", "錦標賽", 0, ["China Regional Finals Season 3", "Season 3 China Regional Finals"]),
-    # 夏季季後賽在 MHG[tournament] 查不到 → 走賽事頁的 /Match History 嵌入表（第 7 元素）
-    (2013, "LPL", "Summer", 1, ["LPL 2013 Summer Playoffs"], "", "LPL/2013 Season/Summer Playoffs/Match History"),
+    # 夏季季後賽的 Tournament 名是「LPL/2013 Season/Summer Playoffs」（不是 LPL 2013 Summer Playoffs）。
+    # 之前查不到才改走 /Match History 嵌入表，但那張表的英雄是圖片、純文字化後只剩選手名
+    # → 英雄欄全空（2026-07-31 使用者回報）。改回 MatchHistoryGame 純文字版，英雄與選手都齊全。
+    (2013, "LPL", "Summer", 1, ["LPL/2013 Season/Summer Playoffs", "LPL 2013 Summer Playoffs"]),
     (2013, "LPL", "Spring", 0, ["LPL 2013 Spring"]),
     (2013, "LPL", "Summer", 0, ["LPL 2013 Summer"]),
     (2013, "LEC", "Spring", 0, ["EU LCS 2013 Spring", "EU LCS Season 3 Spring"]),
@@ -79,8 +81,7 @@ JOBS = [
     (2013, "LEC", "Summer", 1, ["EU LCS 2013 Summer Playoffs"]),
     (2013, "LCS", "Spring", 1, ["NA LCS 2013 Spring Playoffs"]),
     (2013, "LCS", "Summer", 1, ["NA LCS 2013 Summer Playoffs"]),
-    (2013, "LPL", "Spring", 1, ["LPL 2013 Spring Playoffs"]),
-    (2013, "LPL", "Summer", 1, ["LPL 2013 Summer Playoffs"]),
+    (2013, "LPL", "Spring", 1, ["LPL/2013 Season/Spring Playoffs", "LPL 2013 Spring Playoffs"]),
     (2014, "LEC", "Spring", 1, ["EU LCS 2014 Spring Playoffs"]),
     (2014, "LEC", "Summer", 1, ["EU LCS 2014 Summer Playoffs"]),
     (2014, "LCS", "Spring", 1, ["NA LCS 2014 Spring Playoffs"]),

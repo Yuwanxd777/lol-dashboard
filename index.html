@@ -2903,7 +2903,7 @@ const eventsTreeHTML=()=>{
           }).join("")
           :(base.length?(base.forEach(t2=>_used.add(t2)),`<div class="lgGrpCol"><span class="lgGrpChips">${chips(base,_poOf(sp)||advQ,x.tinfo)}</span></div>`):"");
           if(gcols){ const _n2=uq(base.filter(t2=>!_gns.length||_gns.includes(lplSplitGroupOf(teamFix(tAb(t2)),curYear,sp,_glg))));
-            _mc+=`<div class="lgSplitBlk"><span class="lgSplitHd">${esc(sp)}<span class="lgSplitN">${_n2} ${LANG==="en"?"teams":"隊"}</span></span><span class="lgSplitGrps">${gcols}</span></div>`; }
+            _mc+=`<div class="lgSplitBlk"><span class="lgSplitHd">${esc(spDisp(sp))}<span class="lgSplitN">${_n2} ${LANG==="en"?"teams":"隊"}</span></span><span class="lgSplitGrps">${gcols}</span></div>`; }
         });
         const _rest=base.filter(t2=>!_used.has(t2));
         if(_rest.length)_mc+=`<div class="lgSplitBlk"><span class="lgSplitHd">${LANG==="en"?"Other":"其他"}<span class="lgSplitN">${uq(_rest)} ${LANG==="en"?"teams":"隊"}</span></span><span class="lgSplitGrps"><div class="lgGrpCol"><span class="lgGrpChips">${chips(_rest,advQ)}</span></div></span></div>`;
@@ -3030,7 +3030,7 @@ const eventsTreeHTML=()=>{
       const rs=EXS&&EXS.rosters&&names.map(nm=>EXS.rosters[nm]).find(x=>x&&x.length);
       if(rs){ const ORD={TOP:1,JNG:2,MID:3,BOT:4,SUP:5,COACH:6}, byR={};
         rs.forEach(p2=>{(byR[p2.r||"?"]=byR[p2.r||"?"]||[]).push(p2.n);});
-        spRoster=`<div class="meta" style="margin:4px 0 3px">${esc(sp)} ${en?"roster (Leaguepedia)":"名單（Leaguepedia）"}</div>`
+        spRoster=`<div class="meta" style="margin:4px 0 3px">${esc(spDisp(sp))} ${en?"roster (Leaguepedia)":"名單（Leaguepedia）"}</div>`
           +Object.keys(byR).sort((a3,b3)=>(ORD[a3]||9)-(ORD[b3]||9)).map(r2=>{
             const src=(typeof POS_B64!=="undefined"&&POS_B64[r2])||"";
             const ic=src?`<img src="${src}" alt="${r2}" style="width:20px;height:20px;object-fit:contain;flex:0 0 auto">`
@@ -4342,7 +4342,16 @@ const normTxt=s=>uniStat(s)
 const renderChgLines=(lines,cardName)=>{
   // 只寫了改完後屬性、沒寫改動前的行 → 補上 DDragon 實際比對出來的變動
   //（item_stat_fix.js，2026-07-31 使用者要求「去翻 DD 看以前的數值多少」）
-  {const _SF=window.ITEM_STAT_FIX||{}; lines=lines.map(l=>_SF[String(l)]||l);}
+  // ⚠ 索引要同時收「完整行」與「切掉道具名前綴後的 body」：道具詳情頁是用 l.slice(i+1)
+  //   把前綴拿掉才送進來的，只用完整行當 key 一輩子對不上（2026-07-31 使用者回報沒生效）
+  //   另外空白／全形＋／冒號在載入時會被 norm 改寫 → key 一律先壓掉這些差異
+  {const _SF=window.ITEM_STAT_FIX||{};
+   const _nk=x=>String(x).replace(/[\s＋+]/g,"").replace(/:/g,"：");
+   if(!window._SFI){ const m={};
+     for(const[k,v]of Object.entries(_SF)){ const i=k.indexOf("｜"), j=v.indexOf("｜");
+       m[_nk(k)]=v; if(i>0)m[_nk(k.slice(i+1))]=(j>0?v.slice(j+1):v); }
+     window._SFI=m; }
+   lines=lines.map(l=>window._SFI[_nk(l)]||l);}
   // ⚠ 一定要排在標點正規化之前：查表的 key 是 wiki 原文（含半形逗號），正規化過就對不上了
   // 半形標點正規化：wiki 原文的逗號／冒號常是半形，混在中文裡很難看（2026-07-31 使用者回報）
   lines=lines.map(l=>String(l).replace(/,\s*/g,"，").replace(/\s*:\s*(?![0-9])/g,"：").replace(/，\s*$/,""));
@@ -8607,7 +8616,7 @@ function render(){
         }
         const warn=miss?` <span style="color:#e0574d;font-weight:bold">⚠ ${LANG==="en"?`missing game ${miss.miss.join(", ")}`:`缺第 ${miss.miss.join("、")} 局`}</span>`:"";
         return `<tr class="seriesHead"><td colspan="19">
-          <span class="sMeta">${s.date}</span> ${lgChip(s.league)} <span class="meta">${s.split}${_lplGrpTag(s.league,s.split,s.teams)}</span>
+          <span class="sMeta">${s.date}</span> ${lgChip(s.league)} <span class="meta">${spDisp(s.split)}${_lplGrpTag(s.league,s.split,s.teams)}</span>
           <span class="sVs"><span class="${sa>sb?'sWin':''}">${A}</span> <b class="${sa>sb?'win':''}">${sa}</b>-<b class="${sb>sa?'win':''}">${sb}</b> <span class="${sb>sa?'sWin':''}">${B}</span></span>
           <span class="meta">${s.games.length}${miss?`${LANG==="en"?"/":"／"}${miss.total}`:""} ${LANG==="en"?"games":"局"}・${s.patch}</span>${warn}</td></tr>`
           +rows;
