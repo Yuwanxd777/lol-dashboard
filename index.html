@@ -5952,6 +5952,15 @@ function lgPass(o){ // 賽事(聯賽)篩選判定：全部/群組/EWCQ 前綴/LP
     // 否則選了組別會整片空白（使用者回報 2026-07-29）
     const _esp=lplGroupNamesOfSplit(curYear,sp,_lg).length?sp:lplSelSplit(curYear,"",_lg);
     return lplSplitGroupOf(teamFix(tAb(o.raw[C.blue_teamname])),curYear,_esp,_lg)===grp&&lplSplitGroupOf(teamFix(tAb(o.raw[C.red_teamname])),curYear,_esp,_lg)===grp; }
+  // 聯賽#賽段（GPL 的 TESL／台港澳錦標賽／東南亞錦標賽、LLA 的北區／南區／錦標賽）：
+  // 這些是同一年同一個聯賽底下的獨立賽事，賽段名各異又不是「賽季」→ 從賽季清單移到
+  // 賽事下拉的子項（使用者定案 2026-08-01）。與 LPL#分組 是不同的判定路徑：那個比隊伍分組，
+  // 這個直接比 split。
+  if(/^(GPL|LLA)#/.test(F.league)){
+    const i=F.league.indexOf("#");
+    if(o.league!==F.league.slice(0,i))return false;
+    return String(o.split||"").replace(/ PO$/,"")===F.league.slice(i+1);
+  }
   if(F.league==="EWCQ")return String(o.league).startsWith("EWCQ");
   const g=LG_GROUP[F.league];
   return g?g.includes(o.league):o.league===F.league;
@@ -6000,7 +6009,11 @@ function filterOpts(){
     const av=SPLITS.some(x=>{const b2=String(x).replace(/ PO$/,""); return b2===lb||b2.endsWith(lb);});
     if(av||F.split===sv)so.push(`<option value="${sv}" ${F.split===sv?"selected":""}>${esc(lb)}</option>`);
   });
-  bases.filter(b=>!_isT(b)).forEach(b=>{
+  // GPL 專屬賽段不進賽季清單：它們不是「賽季」而是同一年底下的獨立賽事，
+  // 混在春季/夏季旁邊會讓人以為 2013 有個叫 TESL 的賽季 → 改列在「賽事」的 GPL 子清單
+  //（使用者定案 2026-08-01）。錦標賽類本來就被 _isT 合成一個「錦標賽」選項。
+  const _lgSub=new Set(["TESL","北區","南區"]);
+  bases.filter(b=>!_isT(b)&&!_lgSub.has(b)).forEach(b=>{
     const hasReg=SPLITS.includes(b), hasPO=SPLITS.includes(b+" PO");
     const avGrp=/^S[123]$/.test(b)?splSeason.has(b):(splLabel.has(b)||splLabel.has(b+" PO"));
     // 整賽段(G:)的顯示條件＝「這個賽季在目前篩選下有比賽」，**不可要求全年同時有例行+季後標籤**：
@@ -6041,7 +6054,25 @@ function filterOpts(){
     const gs=lg==="LPL"?lplAllGroups(curYear):lplGroupNamesOfSplit(curYear,lplSelSplit(curYear,"","LCK"),"LCK");
     if(!gs.length||!has(lg))return "";
     return `<optgroup label="${lg} ${LANG==="en"?"groups":"分組"}">`+gs.map(g=>`<option value="${lg}#${g}" data-c="${lplGrpColor(g,curYear,"")}" data-s="${esc(lplGrpName(g))}" ${F.league===lg+"#"+g?"selected":""}>${esc(lgName(lg+"#"+g))}</option>`).join("")+`</optgroup>`; };
-  const lo=items.map(([l])=>`<option value="${l}" ${F.league===l?"selected":""}>${lgName(l)}</option>`+(l==="LPL"||l==="LCK"?_grpOpts(l):""));
+  // GPL 子清單：2013 的 GPL 底下其實有好幾個獨立賽事（東南亞錦標賽／台港澳錦標賽／TESL），
+  // 賽段名各異又不是「賽季」→ 從賽季清單移出來、改成賽事下拉的子項（使用者定案 2026-08-01）。
+  // 值用 GPL#賽段，lgPass 依 split 比對（與 LPL#分組 是不同的判定路徑）。
+  const _subOpts=lg=>{
+    if(!has(lg))return "";
+    const _first={};
+    optGames("league").filter(o=>o.league===lg).forEach(o=>{
+      const s=String(o.split||"").replace(/ PO$/,"");
+      if(!s||/^(春|夏|冬|秋)季$|^S[123]$|^升降賽$/.test(s))return;
+      const d=String(o.date).slice(0,10);
+      if(!_first[s]||d<_first[s])_first[s]=d;                // 依該賽段最早開打日排序
+    });
+    const subs=Object.keys(_first).sort((a,b)=>_first[a]<_first[b]?-1:1);
+    if(!subs.length)return "";
+    return `<optgroup label="${esc(lg)}">`+subs.map(s=>
+      `<option value="${esc(lg)}#${esc(s)}" ${F.league===lg+"#"+s?"selected":""}>${esc(s)}</option>`).join("")+`</optgroup>`;
+  };
+  const lo=items.map(([l])=>`<option value="${l}" ${F.league===l?"selected":""}>${lgName(l)}</option>`
+    +(l==="LPL"||l==="LCK"?_grpOpts(l):(l==="GPL"||l==="LLA")?_subOpts(l):""));
   // 版本：只列其他篩選下仍有比賽的（＋保留目前選取）
   let pkList=PATCHES.filter(p=>pkAvail.has(p)||F.patch===p);
   // 版本清單全站統一（2026-07-18 使用者定案）：積分先行版本（職業賽還沒打到的 26.14、跳過的 26.12）當年在所有分頁都列出
