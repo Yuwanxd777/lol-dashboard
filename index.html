@@ -199,7 +199,14 @@
   .bp .cc img{width:44px;height:44px;border-radius:9px}
   .bp .cc .po{font-size:13.5px}
   .fp{font-weight:900;color:var(--gold)}  /* 先選方：粗體＋金色 */
-  .bp td.bpw,.bp tr.subrow td.bpw{background:rgba(255,255,255,.11)} /* 勝方白底：必須比 .bp tr.subrow td 更高優先權，否則系列賽分組(預設檢視)整片被蓋掉看不到 */  /* 勝方整隊範圍(隊名＋禁用＋五路)：小白底(取代⭐) */
+  /* 整隊範圍(隊名＋禁用＋五路)底色：藍方淺藍、紅方淺紅，勝方(.bpw)同色加深
+     （2026-07-31 使用者指定，取代原本「勝方小白底」）。三種左右模式都依實際邊上色。
+     ⚠ 每條都要再補一份 .bp tr.subrow td… ：.bp tr.subrow td 的優先權比 .bp td.xxx 高，
+       少了它，系列賽分組(預設檢視)的小局整片會被 subrow 底色蓋掉、顏色看不見 */
+  .bp td.bpB,.bp tr.subrow td.bpB{background:rgba(58,130,246,.14)}
+  .bp td.bpR,.bp tr.subrow td.bpR{background:rgba(239,68,68,.12)}
+  .bp td.bpB.bpw,.bp tr.subrow td.bpB.bpw{background:rgba(58,130,246,.32)}
+  .bp td.bpR.bpw,.bp tr.subrow td.bpR.bpw{background:rgba(239,68,68,.28)}
   .bsHistIt{padding:3px 10px;border-radius:6px;cursor:pointer;font-size:15.5px;line-height:1.55}
   .bsHistIt:hover{background:#2a3345}
   .posic{height:30px;width:30px;object-fit:contain;vertical-align:middle}
@@ -9119,7 +9126,11 @@ function render(){
       const HL=mode==="fp"?[T("先選"),LANG==="en"?"2nd pick":"後選"]:mode==="team"?[LANG==="en"?"This team":"該隊",LANG==="en"?"Opponent":"對手"]:[T("藍方"),T("紅方")]; // 左右方表頭標籤
       const gls=ms.map(m=>m.gl).filter(x=>x);
       const avg=gls.length?gls.reduce((s,x)=>s+x,0)/gls.length:0;
-      const laneCells=(s,won)=>[0,1,2,3,4].map(i=>`<td class="${won?"bpw":""}">${cImg(s.lane[i]||"",s.po[i]&&s.po[i]!=="0"?s.po[i]:"")}</td>`).join("");
+      // 整隊範圍(隊名＋禁用＋五路)的底色：藍方淺藍、紅方淺紅，勝方(.bpw)同色加深（2026-07-31 使用者指定）。
+      // 三種左右模式都依「實際邊」上色 → fp／team 模式下左右欄會對調，顏色跟著真正的藍/紅方走，
+      // 順便看得出該隊當局在哪一邊（那兩個模式的表頭只寫 先選/後選、該隊/對手，本來看不出來）。
+      const sCls=(isBlue,won)=>`${isBlue?"bpB":"bpR"}${won?" bpw":""}`;
+      const laneCells=(s,won,isBlue)=>[0,1,2,3,4].map(i=>`<td class="${sCls(isBlue,won)}">${cImg(s.lane[i]||"",s.po[i]&&s.po[i]!=="0"?s.po[i]:"")}</td>`).join("");
       // 空 BAN（該手沒禁：忘記按或戰術性空 BAN）→ 用模擬BP 的空 BAN 圖佔位，不要留空
       // （2026-07-31 使用者定案；資料端已保留空位，見 fetch_data.py 的 bans_raw）
       // wiki 早年是用字串 "None" 表示「這手真的沒禁」→ 跟空字串一樣當空 BAN 畫禁用圖示。
@@ -9128,21 +9139,21 @@ function render(){
       const _noBan=b=>{const s=String(b==null?"":b).trim(); return !s||s.toLowerCase()==="none";};
       const _bIco=b=>_noBan(b)?`<span class="cc"><img class="nobanImg" src="${NOBAN_SVG}" alt="${LANG==="en"?"no ban":"空BAN"}" title="${LANG==="en"?"no ban this turn":"該手沒有禁用"}"></span>`:cImg(b);
       const _bpQ=`<span class="cc noBpQ" title="${LANG==="en"?"no draft data for this game":"這局沒有禁用資料"}">？</span>`;
-      const banCells=(s,won)=>`<td class="bans${won?" bpw":""}">`+(
+      const banCells=(s,won,isBlue)=>`<td class="bans ${sCls(isBlue,won)}">`+(
         s.bans.length?`${s.bans.slice(0,3).map(_bIco).join("")}${s.bans.length>3?`<span class="banSep"></span>`:""}${s.bans.slice(3).map(_bIco).join("")}`:_bpQ
       )+`</td>`; // 禁用前3(第一輪禁)｜後2(第二輪禁)以分隔線分開；整局沒資料＝一個問號
       const rowHTML=(m,gno)=>{
         const cell=(s,isBlue,won)=>{
           const first=m.first===(isBlue?"blue":"red");
-          return `<td class="${won?"bpw":""}">${first?`<span class="fp">${s.team}</span>`:s.team}</td>`; // 勝方整隊範圍給小白底(取代⭐)
+          return `<td class="${sCls(isBlue,won)}">${first?`<span class="fp">${s.team}</span>`:s.team}</td>`;
         };
         // gno 有值＝系列賽底下的小局：日期欄改成「└ 第N局」並縮排，聯賽欄留白
         const head=gno?`<td class="subg">└ 第${gno}局</td><td></td>`:`<td>${m.date}</td><td>${lgChip(m.league)} <span class="meta">${spDisp(m.split)}${_lplGrpTag(m.league,m.split,[m.blue.team,m.red.team])}</span></td>`;
         const S=sides(m); // 依模式決定左右實際邊
-        const lWon=S.LisBlue===m.blueWin, rWon=!lWon; // 哪一顯示側獲勝→整隊範圍加白底
+        const lWon=S.LisBlue===m.blueWin, rWon=!lWon; // 哪一顯示側獲勝→整隊範圍底色加深
         return `<tr${gno?' class="subrow"':''}>${head}<td>${m.patch}</td><td class="meta">${mmss(m.gl)}</td><td class="win">${m.win}</td>
-        ${cell(S.L,S.LisBlue,lWon)}${banCells(S.L,lWon)}${laneCells(S.L,lWon)}
-        ${cell(S.R,!S.LisBlue,rWon)}${banCells(S.R,rWon)}${laneCells(S.R,rWon)}</tr>`;
+        ${cell(S.L,S.LisBlue,lWon)}${banCells(S.L,lWon,S.LisBlue)}${laneCells(S.L,lWon,S.LisBlue)}
+        ${cell(S.R,!S.LisBlue,rWon)}${banCells(S.R,rWon,!S.LisBlue)}${laneCells(S.R,rWon,!S.LisBlue)}</tr>`;
       };
       // 沒設任何逐局篩選 → 用「系列賽（大場）」呈現，底下列出各局（小場）
       const grouped=!_colFActive();  // 沒有任何欄位篩選＝系列賽分組；有篩選＝逐場平列
