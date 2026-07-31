@@ -4406,8 +4406,15 @@ const NAMELIST=/^[^｜⇒\d]{2,24}(、[^｜⇒\d]{2,24}){2,}(\s*(與|and)\s*[^�
 const SKIN_PRE=(l,id)=>{ if(!id)return false;
   const i=String(l).indexOf("｜"); if(i<=0)return false;
   const sk=String(l).slice(0,i).trim();
-  const zh=(typeof chName==="function")?chName(id):""; if(!zh||zh===id)return false;
-  if(!sk.includes(zh)||sk===zh)return false;
+  const zh=(typeof chName==="function")?chName(id):"";
+  let hit=(zh&&zh!==id&&sk.includes(zh))||sk.includes(id);   // 造型名可能寫英文（Original Sona）
+  // wiki 的造型名用的可能是舊譯（「妖刀崔達米爾」vs 現譯「泰達米爾」、「EDG 佐伊」vs「柔依」）
+  // → 用 assets 的英雄歷代名集合再比一次
+  if(!hit){ if(!window._CHNAMES){ const st=new Set();
+      try{ for(const[n,v]of Object.entries(ASSET_IDX.byName))if(v.kind==="champ"&&n.length>=2&&/[一-鿿]/.test(n))st.add(n); }catch(e){}
+      window._CHNAMES=[...st].sort((a,b)=>b.length-a.length); }
+    hit=window._CHNAMES.some(n=>sk.includes(n)); }
+  if(!hit||sk===zh||sk===id)return false;
   try{ return !((SKMAP[id]||{})[sk]||(SKLC[id]||{})[_skKey(sk)]); }catch(e){ return false; } };
 const TRIVIAL_OR_GEN=(l,id)=>{ const t=String(l), b=t.includes("｜")?t.slice(t.indexOf("｜")+1).trim():t.trim();
   return TRIVIAL.test(t)||GEN_PRE.test(t)||NAMELIST.test(b)||SKIN_PRE(t,id); };
