@@ -336,6 +336,7 @@
   table.ov{table-layout:auto} /* 總覽/賽事樹小表：依內容定寬——全域 fixed 會把「名字＋賽區籤」欄壓到裁字（2026-07-28 體檢）*/
   /* 圖鑑分頁 */
   .dexGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:10px;margin-top:8px} /* 容納四路圖示單列 */
+  .dexGrid.dexGridCh{grid-template-columns:repeat(auto-fill,minmax(172px,1fr))} /* 英雄圖鑑要放五路圖示：5×30px＋左右內距 6px×2＋框線 1px×2＝164px，取 172px 留餘裕（道具/符文格線維持 148px） */
   .dexIt{text-align:center;padding:10px 6px;border:1px solid var(--line);border-radius:10px;background:var(--card2);font-size:15.5px;line-height:1.4}
   .dexIt:hover{border-color:var(--acc)}
   .dexIt img{width:56px;height:56px;border-radius:8px;border:1px solid #33405c;margin-bottom:4px}
@@ -1464,6 +1465,7 @@ const txtClean=s=>normTerm(String(s||"").replace(/([一-鿿])(-(?=[\d.]))/g,"$1 
   .replace(/[ \t]*\/[ \t]*/g,"／") // RQ1 / RE1 → RQ1／RE1(斜線全形、去左右空白)
   .replace(/([一-鿿])\s*,\s*(?=[一-鿿])/g,"$1，") // 中文之間的半形逗號「, 」→ 全形「，」(翻譯殘留)
   .replace(/：。/g,"：") // 「技能：。」翻譯殘留 → 收成冒號
+  .replace(/[；;]\s*[：:]/g,"：") // 「…改為物傷；：30／80…」合併後多出來的分號 → 收成冒號
   .replace(/[（(]/g,"（").replace(/[)）]/g,"）") // 括號一律全形
   .replace(/[ \t]{2,}/g," "));
 const stripT=s=>txtClean(String(s||"").replace(/<br\s*\/?>/gi,"\n").replace(/<[^>]+>/g,"").replace(/[̀-ͯ҃-҉]/g,"")).replace(/\n{2,}/g,"\n").trim();
@@ -4562,6 +4564,10 @@ const renderChgLines=(lines,cardName)=>{
     .replace(/([A-Za-z])的\s(?=[A-Za-z])/g,"$1's ")
     // ＋號後面接中文/括號也不留空白（（＋ 目標已損生命的 8.7%）→（＋目標已損生命的 8.7%））
     .replace(/([+＋])\s+(?=[（(一-鿿])/g,"$1")
+    // 「魔攻係數降低（+30% AP）從（+35% AP）。」＝ reduced to A from B → 「魔攻係數：+35% AP ⇒ +30% AP」
+    //（2026-08-01 使用者：阿璃 3.13 這種寫法不直觀）
+    .replace(/([^｜。，,：:]{0,14}?)(降低|提高|增加|減少|提升|調降|調升)\s*[（(]([^（）()]+)[）)]\s*從\s*[（(]([^（）()]+)[）)]\s*[。.]?/g,
+             (m,pre,vb,nw,od)=>(pre.trim()?pre.trim()+"：":"")+od.trim()+" ⇒ "+nw.trim())
     // 「攻擊速度額外：」＝機翻語序 → 「額外攻擊速度：」
     .replace(/((?:攻擊速度|移動速度|生命回復|魔力回復|物理防禦|魔法防禦|物防|魔防|物攻|魔攻|生命值?|魔力|攻速|移速)(?:[且與、](?:物防|魔防|物攻|魔攻|攻擊速度|移動速度))*)額外([：:])/g,"額外$1$2")
     // 沒進 DDragon 的專有名詞小詞典（索娜和絃／犽宿氣／雷葛爾嗜血氣息…）
@@ -4662,6 +4668,24 @@ const renderChgLines=(lines,cardName)=>{
    const ord=[], grp=new Map();
    lines.forEach(l=>{const k=_pf6(l); if(!grp.has(k)){grp.set(k,[]);ord.push(k);} grp.get(k).push(l);});
    if(ord.length<lines.length)lines=ord.reduce((a,k)=>a.concat(grp.get(k)),[]);}
+  // ⇒ 兩側的基礎數值一模一樣、只有括號裡的係數變 → 只留變動的係數並脫掉括號
+  //（2026-08-01 使用者：主動傷害 30/80/130/180/230（+150% AD） ⇒ 30/80/130/180/230（+120/…% AD）
+  //   應該寫成 +150% AD ⇒ +120/…% AD）。限定括號內含 %／AP／AD／係數且沒有巢狀括號，
+  //   免得把「4 +（6 × 等級）」這種基礎值＋成長值的寫法也砍掉。
+  {const PAREN=/^[（(][^（）()]*[）)]$/;
+   lines=lines.map(l=>{ const s0=String(l), p0=s0.indexOf("｜");
+     const pf=p0>0?s0.slice(0,p0+1):"", bd=p0>0?s0.slice(p0+1):s0;
+     const j=bd.indexOf("⇒"); if(j<0)return l;
+     const a=bd.slice(0,j).trim(), b=bd.slice(j+1).trim();
+     const k=a.lastIndexOf("："), head=k>=0?a.slice(0,k+1):"", av=k>=0?a.slice(k+1).trim():a;
+     let n=0; while(n<av.length&&n<b.length&&av[n]===b[n])n++;
+     while(n>0&&!/\s/.test(av[n-1]))n--;                       // 退回到空白邊界，別把數字切一半
+     if(n<3)return l;
+     const ra=av.slice(n).trim(), rb=b.slice(n).trim();
+     if(!PAREN.test(ra)||!PAREN.test(rb))return l;
+     if(!/[%％]|AP|AD|係數/.test(ra))return l;
+     const hd=head.replace(/[；;]\s*[：:]\s*$/,"：");
+     return pf+hd+ra.replace(/^[（(]|[）)]$/g,"").trim()+" ⇒ "+rb.replace(/^[（(]|[）)]$/g,"").trim(); });}
   // 光環／靈氣：同一個光環名下的多行一律併成一行，寫成
   //「唯一光環 – 軍團：物防：10 ⇒ 0；魔防：15 ⇒ 20；不再給予小兵額外加成」
   //（2026-07-31 使用者：所有道具的光環寫法都要統一成這樣）。不限相鄰，wiki 的順序常是散的。
@@ -4687,7 +4711,10 @@ const renderChgLines=(lines,cardName)=>{
      if(b&&_pf5(a)===_pf5(b)){ const ba=_bd5(a).trim(), bb=_bd5(b).trim();
        const ma=ba.match(BASE), mb=bb.match(COEF);
        if(ma&&mb&&!COEF.test(ba)){
-         out5.push(_pf5(a)+ma[1]+ma[2].trim()+wrap(mb[1])+" ⇒ "+ma[3].trim()+wrap(mb[2]));
+         // wiki 有時已經在其中一側寫了係數（阿璃 3.13「⇒ 70/110/150（+30% AP）」）
+         // → 先剝掉兩側的係數括號再統一接上，否則會出現兩個（+30% AP）
+         const _sfx=v=>String(v).replace(/\s*[（(][^（）()]*(?:[%％]|AP|AD|魔攻|物攻)[^（）()]*[）)]\s*$/,"").trim();
+         out5.push(_pf5(a)+ma[1]+_sfx(ma[2])+wrap(mb[1])+" ⇒ "+_sfx(ma[3])+wrap(mb[2]));
          i++; continue; } }
      out5.push(lines[i]); }
    lines=out5;}
@@ -10871,7 +10898,7 @@ function render(){
             .filter(c=>!V.dexCTag||((window._CHTAGS&&_CHTAGS[c.id])||[]).includes(V.dexCTag))
             .sort((a,b)=>b.pk-a.pk||b.ban-a.ban||a.n.localeCompare(b.n,"zh-Hant"));
           box.innerHTML=`<div class="card"><h2>🦸 ${T("英雄圖鑑")} <span class="sub">${LANG==="en"?`sorted by ${curYear} pick count｜hover a portrait for abilities & passive`:`${curYear} 年選用次數排序｜滑上頭像看技能與被動數值`}</span></h2>
-            <div class="dexGrid">${list.map(c=>`<div class="dexIt${(!c.pk&&!c.ban)?" dexGone":""}">
+            <div class="dexGrid dexGridCh">${list.map(c=>`<div class="dexIt${(!c.pk&&!c.ban)?" dexGone":""}">
               <img loading="lazy" data-tip="champ" data-key="${c.id}" data-cid="${c.id}" data-fbmode="hide" onerror="champImgFb(this)" src="https://ddragon.leagueoflegends.com/cdn/${yearVer()}/img/champion/${c.id}.png">
               <div class="plink dexNm" data-id="${c.id}" data-full="${esc(rev[c.id]||"")}" title="點擊展開歷年改動">${esc(c.n)}</div>
               <div class="meta">${T("選")} ${c.pk}｜${T("禁")} ${c.ban}</div>
