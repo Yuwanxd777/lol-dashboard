@@ -5683,7 +5683,8 @@ function sqHeroDetail(cid){
   main.innerHTML=filterBar(`
     <label>${en?"Lane":"路線"}</label><select id="hdLaneSel" style="min-width:118px"><option value="">${en?"All lanes":"全部路線"}</option>${lanes.map(l=>`<option value="${PNS[l]}" ${PNS[l]===V.hdLane?"selected":""}>${LZ[PNS[l]]}（${H[l][0]}）</option>`).join("")}</select>
     <label>${en?"Player":"選手"}</label>${comboHTML("hdPlSel",en?"Player":"使用選手",170)}
-    <label>${en?"Opponent":"對位"}</label>${comboHTML("hdOppSel",en?"Opponent":"對位英雄",170)}`)
+    <label>${en?"Opponent":"對位"}</label>${comboHTML("hdOppSel",en?"Opponent":"對位英雄",170)}
+    ${heroModeSegHTML("soloq")}`)
     +`<div class="card"><h2>
       <span class="heroname" style="font-size:22px">${cImg(cid)} ${esc(chName(champId(cid))||cid)}</span>
       <span class="sub">🎯 ${en?"soloq (this year, tracked pros)":"積分（今年，追蹤職業選手單雙排）"}｜${en?"source dpm.lol":"資料來源 dpm.lol"}｜<span class="plink" id="sqGoDex">🛠️ ${en?"Builds & runes →":"出裝／符文 →"}</span></span></h2>
@@ -5701,6 +5702,7 @@ function sqHeroDetail(cid){
   bindFilters(render);
   bindCombo("hdOppSel",oppOpts,V.hdOpp,hit=>{V.hdOpp=hit; saveState(); render();},true);
   bindCombo("hdPlSel",plOpts,V.hdPlayer,hit=>{V.hdPlayer=hit; saveState(); render();}); // 使用選手（與對位一樣只作用在出場紀錄，名片統計來自彙總檔、只吃路線）
+  segBind("heroModeSeg",v=>{ if(v===V.heroMode)return; V.heroMode=v; V.hdOpp="";V.hdLane="";V.hdPlayer=""; saveState(); render(); }); // 同上：詳情頁切資料源
   document.getElementById("hdLaneSel").onchange=e=>{V.hdLane=e.target.value; V.hdOpp=""; saveState(); render();};
   document.querySelectorAll(".recTbl th[data-rs]").forEach(th=>th.onclick=()=>{
     const kk=th.dataset.rs, s2=V.recSort;
@@ -5919,6 +5921,13 @@ function segHTML(id,opts,cur,cls,style){
   return `<span class="segBtn${cls?" "+cls:""}"${id?` id="${id}"`:""}${style?` style="${style}"`:""}>${
     opts.map(([v,lb,ttl,bid])=>`<button type="button" data-v="${esc(v)}"${bid?` id="${bid}"`:""}${ttl?` title="${esc(ttl)}"`:""}${String(v)===String(cur)?' class="on"':""}>${lb}</button>`).join("")}</span>`;
 }
+// 英雄分頁的「🏆 職業賽／🎯 積分」切換：列表頁與英雄詳情頁共用同一顆（2026-07-31 使用者要求詳情頁也要能切）。
+// cur 傳「實際正在渲染的模式」而不是 V.heroMode：某些英雄沒有積分資料時會退回職業版，
+// 這樣按鈕亮的段永遠等於畫面上真正的資料源。歷史年沒有積分資料 → 整顆不顯示。
+const heroModeSegHTML=(cur,order)=>isHistYear()?"":segHTML("heroModeSeg",
+  [["pro",LANG==="en"?"🏆 Pro":"🏆 職業賽",LANG==="en"?"Pro match data":"看職業賽數據"],
+   ["soloq",LANG==="en"?"🎯 Soloq":"🎯 積分",LANG==="en"?"Solo queue data":"看積分（單雙排）數據"]],
+  cur,"",`order:${order||1}`);
 function segBind(id,fn){
   const el=typeof id==="string"?document.getElementById(id):id;
   if(!el)return;
@@ -8745,8 +8754,9 @@ function render(){
     V.heroMode=V.heroMode||"pro"; const sqMode=!isHistYear()&&V.heroMode==="soloq"; // 積分數據版只在最新年可用
     V.heroViz=V.heroViz||"table"; const vizScatter=V.heroViz==="scatter"; // 版面：表格 / 散布圖(X/Y 軸可自選)
     V.scatterX=V.scatterX||"KDA"; V.scatterY=V.scatterY||"場數"; // 散布圖預設軸
-    const _modeBtn=!isHistYear()?segHTML("heroModeSeg",[["pro",LANG==="en"?"🏆 Pro":"🏆 職業賽",LANG==="en"?"Pro match data":"看職業賽數據"],["soloq",LANG==="en"?"🎯 Soloq":"🎯 積分",LANG==="en"?"Solo queue data":"看積分（單雙排）數據"]],sqMode?"soloq":"pro","","order:1"):"";
-    const _vizBtn=segHTML("heroVizSeg",[["table",LANG==="en"?"📋 Table":"📋 表格",LANG==="en"?"Table view":"表格檢視"],["scatter",LANG==="en"?"📊 Scatter":"📊 散布圖",LANG==="en"?"Scatter (KDA vs games)":"散布圖（KDA vs 場數）"]],vizScatter?"scatter":"table","","order:2");
+    // order：表格／散布圖 在左、職業賽／積分 在右（2026-07-31 使用者指定兩區對調）
+    const _modeBtn=heroModeSegHTML(sqMode?"soloq":"pro",2);
+    const _vizBtn=segHTML("heroVizSeg",[["table",LANG==="en"?"📋 Table":"📋 表格",LANG==="en"?"Table view":"表格檢視"],["scatter",LANG==="en"?"📊 Scatter":"📊 散布圖",LANG==="en"?"Scatter (KDA vs games)":"散布圖（KDA vs 場數）"]],vizScatter?"scatter":"table","","order:1");
     const _lanes=sqMode?["","TOP","JNG","MID","BOT","SUP"]:["","TOP","JNG","MID","BOT","SUP","下路組","中野組"]; // 積分無雙人組資料→跳過
     main.innerHTML=filterBar(`
       <label>${LANG==="en"?"Lane":"路線"}</label><select id="vPos">${_lanes.map(p=>`<option value="${p}" ${V.pos===p?"selected":""}>${p?T(p):T("全部")}</option>`).join("")}</select>
@@ -10198,7 +10208,8 @@ function render(){
     main.innerHTML=filterBar(`
       <label>${LANG==="en"?"Lane":"路線"}</label><select id="hdLaneSel" style="min-width:118px"><option value="">${LANG==="en"?"All lanes":"全部路線"}</option>${laneOpts.slice().sort((a,b)=>a.pid-b.pid).map(l=>`<option value="${l.lane}" ${l.lane===V.hdLane?"selected":""}>${LZ[l.lane]}（${l.n}）</option>`).join("")}</select>
       <label>${LANG==="en"?"Player":"選手"}</label>${comboHTML("hdPlSel",LANG==="en"?"Player":"使用選手",170)}
-      <label>${LANG==="en"?"Opponent":"對位"}</label>${comboHTML("hdOppSel",LANG==="en"?"Opponent":"對位英雄",170)}`)
+      <label>${LANG==="en"?"Opponent":"對位"}</label>${comboHTML("hdOppSel",LANG==="en"?"Opponent":"對位英雄",170)}
+      ${heroModeSegHTML("pro")}`)
       +`
       <div class="card"><h2>
         <span class="heroname" style="font-size:22px">${cImg(ch)} ${ch}</span>
@@ -10229,6 +10240,9 @@ function render(){
     bindFilters(render); // 上方標準篩選（年份／賽事／賽季／版本／時間）＋說明按鈕
     bindCombo("hdOppSel",oppOpts,V.hdOpp,hit=>{V.hdOpp=hit; saveState(); render();},true); // 對位英雄篩選
     bindCombo("hdPlSel",plOpts,V.hdPlayer,hit=>{V.hdPlayer=hit; saveState(); render();}); // 使用選手篩選
+    // 詳情頁也能切職業賽／積分（2026-07-31 使用者要求）：留在同一隻英雄，只換資料源；
+    // 兩邊的路線/對位/選手候選來源不同 → 一併清掉，避免帶著另一模式的值進來變 0 筆
+    segBind("heroModeSeg",v=>{ if(v===V.heroMode)return; V.heroMode=v; V.hdOpp="";V.hdLane="";V.hdPlayer=""; saveState(); render(); });
     document.getElementById("hdLaneSel").onchange=e=>{V.hdLane=e.target.value; V.hdOpp=""; saveState(); render();}; // 路線篩選（換路線清空對位；選手不清，換路線後若無場次會自動失效）
     document.querySelectorAll(".recTbl th[data-rs]").forEach(th=>th.onclick=()=>{
       const kk=th.dataset.rs, s=V.recSort;
