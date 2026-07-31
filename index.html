@@ -1027,7 +1027,7 @@ setTimeout(ensureBuilds,600);
 if(LANG==="en")lazyLoad("en").then(()=>{ try{_lpcCache=null;}catch(e){} try{if(typeof VIEW_CACHE!=="undefined")VIEW_CACHE.slots={};}catch(e){} if(typeof D!=="undefined"&&D&&typeof render==="function")render(); });
 // 英雄顯示名：英文模式優先用 en_US 名，抓不到退回中文資料名，再退回 id
 // 顯示名覆寫：官方繁中名太長／不合口語（使用者 2026-07-31 指定努努只寫「努努」）
-const CH_DISP={"努努和威朗普":"努努","Nunu & Willump":"Nunu"};
+const CH_DISP={"努努和威朗普":"努努","Nunu & Willump":"Nunu","嘉文四世":"嘉文","Jarvan IV":"Jarvan"}; // 顯示名縮短（2026-07-31 使用者指定）
 function chName(id){ if(LANG==="en"){ const e=(window.CHAMP_EN||{})[id]; if(e)return CH_DISP[e]||e; } const c=((window.CHAMP_SKILLS||{}).d||{})[id]; const n=(c&&c.n)||id; return CH_DISP[n]||n; }
 const CHAMP_FIX={"Wukong":"MonkeyKing","LeBlanc":"Leblanc","Renata Glasc":"Renata","Nunu & Willump":"Nunu",
   "Dr. Mundo":"DrMundo","Kha'Zix":"Khazix","Kai'Sa":"Kaisa","Cho'Gath":"Chogath","Vel'Koz":"Velkoz",
@@ -1481,7 +1481,7 @@ const txtClean=s=>normTerm(String(s||"").replace(/([一-鿿])(-(?=[\d.]))/g,"$1 
   .replace(/([一-鿿])\s*,\s*(?=[一-鿿])/g,"$1，") // 中文之間的半形逗號「, 」→ 全形「，」(翻譯殘留)
   .replace(/：。/g,"：") // 「技能：。」翻譯殘留 → 收成冒號
   .replace(/[；;]\s*[：:]/g,"：") // 「…改為物傷；：30／80…」合併後多出來的分號 → 收成冒號
-  .replace(/努努和威朗普/g,"努努") // 顯示名統一（同 CH_DISP，版本改動內文也要吃到）
+  .replace(/努努和威朗普/g,"努努").replace(/嘉文四世/g,"嘉文") // 顯示名統一（同 CH_DISP，版本改動內文也要吃到）
   .replace(/[（(]/g,"（").replace(/[)）]/g,"）") // 括號一律全形
   .replace(/[ \t]{2,}/g," "));
 const stripT=s=>txtClean(String(s||"").replace(/<br\s*\/?>/gi,"\n").replace(/<[^>]+>/g,"").replace(/[̀-ͯ҃-҉]/g,"")).replace(/\n{2,}/g,"\n").trim();
@@ -1615,7 +1615,7 @@ const TAB_HELP={
 "圖鑑":"多個分區，上方分頁切換：\n<b>版本</b>＝全年或單版本的英雄／裝備改動（點版本號看官方公告）\n<b>英雄</b>＝點名字看歷年改動與<b>專屬機制</b>大框\n<b>道具</b>／<b>符文</b>／<b>物件</b>＝建築、史詩野怪、龍魂等官方數值\n<b>賽事</b>＝當年聯賽樹狀圖（三大國際賽／一二三級賽區／盃賽，含各隊縮寫，國際賽帶母賽區色框；綠勾 ✓＝晉級隊）\n多數分區可搜尋、滑上看說明。",
 "模擬BP":"自己排 BAN／PICK、即時看路線判定；模擬局在左、角色池在中、<b>雙方BAN過／其他英雄</b>在最右直欄（局號 1→N，最新局在最右、緊貼角色池）。\n操作：上方選<b>戰隊A／B</b>帶出雙方角色池；<b>拖曳</b>或<b>左鍵拎起</b>池中英雄→到格內左鍵放入、右鍵取消；點已填格移除、點<b>先選／後選</b>切順位、<b>⇄</b>換輪替選手。\n滑到模擬局英雄→右側顯示<b>詳細數據</b>（BAN 顯示<b>對手</b>使用數據；沒選該隊＝看目前數據範圍），同英雄會在所有模擬局一起發光。\n路線判定：隊上選手池＝實心、全庫近況補的＝半透明（點半透明確認正路即變實心）。\n標記：<b>金光</b>＝全場只有他會用、<b>青框</b>＝同隊多人會用、<b>禁用圖示</b>＝對手慣用但沒選過的禁招。\n按鈕：⏵自動（點池自動填下一格；開新局請點 ＋）、全局／一般（全局＝Fearless：PICK 從池消失、BAN 不消耗、最多五局）、📥匯入BP、🗑清空（清空全部局）、📸截圖。\n📥<b>匯入BP</b>：把真實系列賽帶進來（全局模式會先清掉其他局）；匯入的局<b>只能換英雄、不能改順位</b>（整局可刪），標題顯示該場<b>日期與賽事</b>。",
 "英雄Tier":"依你的判斷把英雄分級（S／A／B…）。\n操作：左側角色池<b>拖曳</b>或<b>左鍵拎起</b>→放到右邊 Tier 列（列間可互拖、拖回池或點一下移回、右鍵取消）。\n階列：可<b>改名</b>、點色塊<b>換色</b>、<b>✕</b>刪階（英雄回池）、下方<b>＋</b>加階、右側<b>⠿</b>拖曳整階排序。\n按鈕：⇄五路／混合、🎯積分數據／📊比賽數據／✏️自訂（三向模式切換，各自獨立板子互不覆蓋：數據模式自動分階、再點一次依目前篩選重新產生；滑鼠移到英雄上顯示該模式的數據，自訂模式積分與比賽都列）、⚙參數（門檻與奇招條件）、🗑清空、📸截圖。\n評分<b>不無條件進位</b>（89.9 仍在 A）；英雄圖邊框紅＝版本增強、綠＝削弱、黃＝調整。",
-"積分":"各隊選手的<b>單雙排（solo queue）積分</b>排行，最新在上。\n<b>每位選手只列牌位最高的那一隻帳號</b>（一人多帳號時）；<b>整年沒有比賽出場過的人不列</b>（純教練等）。\n操作：上方<b>搜尋</b>選手或戰隊、點<b>欄位名</b>排序；<b>路線</b>／<b>賽區</b>可篩選。\n<b>賽區</b>＝該選手<b>戰隊的參賽賽區</b>（不是伺服器位置）：聯賽＋盃賽都可選，一隊可同時屬多區（如 GEN＝LCK＋MSI＋FST）；盃賽只列 FST／MSI／WCS／EWC／ENC。\n看法：牌位依 菁英＞宗師＞大師＞鑽石… 排，大師以上不分段直接看 LP；未定位或找不到帳號的排最底（灰字）。\n<b>常用英雄</b>：滑上去看完整角色池（場數／勝率／KDA，勝率越高越紅）。\n<b>點選手名</b>→逐場單雙積分戰績（合併該選手所有帳號、只收本命路線：英雄／對位／KDA／KP%／dpm 評分／符文／出裝／技能加點；滑技能看加點順序、滑裝備看出裝順序）。\n帳號來源：LPL／LCK 以 <b>OBGG</b> 為主、LCS／LEC／CBLOL 以 <b>dpm</b> 為主、其餘統整；<b>峽谷之巔</b>與近兩月沒打的帳號自動濾掉。牌位由 <b>Riot API</b> 每日更新、逐場由 dpm 抓。\n<b>📅 每日戰況</b>（左上切換）：改看<b>各隊一區塊</b>，每位選手<b>昨天／近3天／近7天</b>打了幾場、幾勝幾敗、用了哪些英雄（<b>勝藍圈・敗紅圈</b>，以韓服日界定）；點選手名一樣進逐場。\n<b>LPL 分組</b>：選 LPL 賽區會出現該年常規賽分組（如 Ascend／Nirvana）子篩選，每日戰況也依組分開排、賽事樹卡內分組列出；<b>季後賽不分組</b>。"
+"積分":"各隊選手的<b>單雙排（solo queue）積分</b>排行，最新在上。\n<b>每位選手只列牌位最高的那一隻帳號</b>（一人多帳號時）；<b>整年沒有比賽出場過的人不列</b>（純教練等）。\n操作：上方<b>搜尋</b>選手或戰隊、點<b>欄位名</b>排序；<b>路線</b>／<b>賽區</b>可篩選。\n<b>賽區</b>＝該選手<b>戰隊的參賽賽區</b>（不是伺服器位置）：聯賽＋盃賽都可選，一隊可同時屬多區（如 GEN＝LCK＋MSI＋FST）；盃賽只列 FST／MSI／WCS／EWC／ENC。\n看法：牌位依 菁英＞宗師＞大師＞鑽石… 排，大師以上不分段直接看 LP；未定位或找不到帳號的排最底（灰字）。\n<b>常用英雄</b>：滑上去看完整角色池（場數／勝率／KDA，勝率越高越紅）。\n<b>點選手名</b>→逐場單雙積分戰績（合併該選手所有帳號、只收本命路線：英雄／對位／KDA／參與率／dpm 評分／符文／出裝／技能加點；滑技能看加點順序、滑裝備看出裝順序）。\n帳號來源：LPL／LCK 以 <b>OBGG</b> 為主、LCS／LEC／CBLOL 以 <b>dpm</b> 為主、其餘統整；<b>峽谷之巔</b>與近兩月沒打的帳號自動濾掉。牌位由 <b>Riot API</b> 每日更新、逐場由 dpm 抓。\n<b>📅 每日戰況</b>（左上切換）：改看<b>各隊一區塊</b>，每位選手<b>昨天／近3天／近7天</b>打了幾場、幾勝幾敗、用了哪些英雄（<b>勝藍圈・敗紅圈</b>，以韓服日界定）；點選手名一樣進逐場。\n<b>LPL 分組</b>：選 LPL 賽區會出現該年常規賽分組（如 Ascend／Nirvana）子篩選，每日戰況也依組分開排、賽事樹卡內分組列出；<b>季後賽不分組</b>。"
 };
 // 圖鑑各分區的說明（原本頁面內文的小字 note 移來這，改由「本頁說明」按鈕依目前分區顯示）
 const DEX_HELP={
@@ -4579,6 +4579,16 @@ const normTxt=s=>uniStat(s)
   .replace(/(\d)\s*\/\s*(?=\d)/g,"$1 / ")
   .replace(/([一-鿿])(?=\d)/g,"$1 ")
   .replace(/([\d%])(?=[一-鿿])/g,"$1 ")
+  // 道具的唯一效果寫法：官方混用「新唯一：控場：…」「唯一 - 黯影：…」兩種，
+  // 統一成「新增唯一效果－控場：…」「唯一效果－黯影：…」（2026-07-31 使用者指定）
+  // 「新增：」統一寫成「新增」（2026-07-31 使用者指定）。全庫 2858 行是行首寫法，
+  // 只有 2 行是句中出現（「…優先順序 新增：…」），一併套用不影響語意。
+  .replace(/新增\s*[：:]\s*/g,"「新增」")
+  .replace(/新唯一\s*[－-]\s*/g,"新增唯一效果－").replace(/新唯一\s*[：:]\s*/g,"新增唯一效果－")
+  .replace(/唯一\s*[－-]\s*/g,"唯一效果－")
+  // 中文語系的版本文一律用全形連字號：官方公告夾在中文裡的半形「 - 」兩側空白特別突兀
+  //（2026-07-31 使用者指定）。英文模式維持半形，英文本來就這樣寫。
+  .replace(/ - /g,LANG==="en"?" - ":"－")
   .replace(/\s{2,}/g," ").trim();
 const renderChgLines=(lines,cardName)=>{
   // 只寫了改完後屬性、沒寫改動前的行 → 補上 DDragon 實際比對出來的變動
@@ -10435,7 +10445,7 @@ function render(){
         if(!(g.rp&&g.rp.length))return `<div class="tipTitle">${en?"Keystone":"關鍵符文"}</div><div>${runeImg(g.r,30)}</div>`;
         return `<div class="tipTitle">${en?"Runes":"符文頁"}</div><div style="display:flex;align-items:center;gap:6px;margin:8px 0"><b class="meta" style="width:44px">${en?"Primary":"主系"}</b>${line(g.rp,26)}</div><div style="display:flex;align-items:center;gap:6px;margin:8px 0"><b class="meta" style="width:44px">${en?"Secondary":"副系"}</b>${line(g.rs,24)}</div>${shard?`<div style="display:flex;align-items:center;gap:6px;margin:8px 0"><b class="meta" style="width:44px">${en?"Shards":"碎片"}</b>${shard}</div>`:""}`; };
       const hc=(k,lb)=>k?`<div data-gsort="${k}" class="sqSortH">${lb}${gArrow(k)}</div>`:`<div>${lb}</div>`;
-      const sqHead=`<div class="sqHead sqCols">${hc("date",en?"Date":"日期")}${hc("dur",en?"Time":"時長")}${hc("champ",en?"Champ":"英雄")}${hc("opp",en?"Vs":"對位")}${hc("kda","K/D/A")}${hc("kp","KP%")}${hc("l15",en?"Lane@15":"對線@15")}${hc("rune",en?"Rune":"符文")}${hc(null,en?"Skills":"技能")}${hc(null,en?"Items":"出裝")}${hc("score",en?"Score":"評分")}</div>`;
+      const sqHead=`<div class="sqHead sqCols">${hc("date",en?"Date":"日期")}${hc("dur",en?"Time":"時長")}${hc("champ",en?"Champ":"英雄")}${hc("opp",en?"Vs":"對位")}${hc("kda","K/D/A")}${hc("kp",en?"KP%":"參與率")}${hc("l15",en?"Lane@15":"對線@15")}${hc("rune",en?"Rune":"符文")}${hc(null,en?"Skills":"技能")}${hc(null,en?"Items":"出裝")}${hc("score",en?"Score":"評分")}</div>`;
       const card=(g,i)=>`<div class="sqGame sqCols ${g.w?"win":"loss"}" data-gi="${i}">
         <div class="sqWhen"><span class="wl">${g.w?(en?"WIN":"勝"):(en?"LOSS":"敗")}</span><span style="white-space:nowrap">${dfmt(g.t)} ${dtime(g.t)}</span></div>
         <div class="meta" style="font-size:13.5px">${mmss(g.d)}</div>
