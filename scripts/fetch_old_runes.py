@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""舊符文系統（Runes Reforged 之前，2014–2017）→ old_runes.js
+"""舊符文系統（Runes Reforged 之前，2013–2017）→ old_runes.js
 資料源：DDragon 各年賽季中版本 rune.json（zh_TW；符文以道具形式存在，rune.tier 1~3、type red/yellow/blue/black）。
 圖鑑「符文」分區 ≤2017 年的「符文頁」用：只列 tier 3（頂級，玩家實際用的等級），依 印記紅/護符黃/雕紋藍/精華紫 分組。
 用法：python scripts\\fetch_old_runes.py
@@ -11,7 +11,8 @@ HERE = os.path.dirname(os.path.abspath(__file__)); ROOT = os.path.dirname(HERE)
 OUT = os.path.join(ROOT, "old_runes.js")
 CDN = "https://ddragon.leagueoflegends.com/cdn"
 # 賽季中版本（與天賦樹同原則：年末版本已是次年賽季）
-VERS = {2014: "4.16.1", 2015: "5.16.1", 2016: "6.16.2", 2017: "7.16.1"}
+# 2013＝3.15.5（S3 最後一版，rune.json 拿得到）→ 符文頁才有資料版可畫（2026-07-31）
+VERS = {2013: "3.15.5", 2014: "4.16.1", 2015: "5.16.1", 2016: "6.16.2", 2017: "7.16.1"}
 
 
 def g(u):

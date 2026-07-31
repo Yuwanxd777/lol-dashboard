@@ -22,7 +22,7 @@ OUT_DIR = ROOT / "csv_cache/wikiv"
 OUT_JS  = ROOT / "wiki_extra.js"
 BASE    = "https://wiki.leagueoflegends.com/en-us/V{v}"
 DELAY   = 1.0
-MAJORS  = range(4, 13)         # V4.x–V12.x = 2014–2022（2019–2022 官方是英文版面、當時只解析了英雄區；2023+ 繁中官方已含道具/系統）
+MAJORS  = range(3, 13)         # V3.x–V12.x = 2013–2022（2013 是使用者要求補的：圖鑑版本區要有當年的道具/天賦符文改動）（2019–2022 官方是英文版面、當時只解析了英雄區；2023+ 繁中官方已含道具/系統）
 MINORS  = range(1, 26)
 
 FORCE = "--force" in sys.argv
@@ -91,7 +91,7 @@ def _sample_versions():
     except Exception:
         return ["4.20.1", "6.24.1", "8.24.1", "13.13.1"]
     out = ["13.13.1"]
-    for maj in ("4", "5", "6", "7", "8", "9", "10", "11", "12"):
+    for maj in ("3", "4", "5", "6", "7", "8", "9", "10", "11", "12"):   # 3＝2013（DDragon 的 3.x 資產拿得到）
         g = [v for v in vs if v.split(".")[0] == maj]
         if g:
             out += [g[0], g[len(g)//2], g[-1]]   # versions.json 新在前
