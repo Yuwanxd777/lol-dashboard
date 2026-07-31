@@ -427,17 +427,25 @@ def tour_rosters(page):
     return out
 
 
+# 名單頁 role-sprite 的 title → 位置；Sub/… 與 Coach 不在表內＝直接跳過
+ROLE_SPRITE = {"top laner": "TOP", "top": "TOP", "jungler": "JNG", "jungle": "JNG",
+               "mid laner": "MID", "middle": "MID", "mid": "MID",
+               "bot laner": "BOT", "ad carry": "BOT", "adc": "BOT", "bottom": "BOT",
+               "support": "SUP"}
+
+
 def rosters_from_page(page, force=False):
     """從 `{賽事}/Team Rosters` 子頁解析名單 → {正規化隊名: {位置: 選手}}。
 
     給 Cargo 查不到的賽事用。版型（實測 2013 TESL）：一隊一個 h3 標題，
     後面接一個 table.extended-rosters，欄位是 ID／Name／R1~R5——**沒有 Role 欄**，
     所以 fetch_events_extra.rosters_alt（期望 ID/Name/Role）會回 0 隊。
-    這種版型**沒有位置欄**（R1~R12 全是空的），只能靠名單順序推——所以
-    **限剛好五人的隊才用**：ahq 的 Prydz／Lantyr／westdoor／MrAlbis／GreenTea
-    確實是 TOP→SUP，但 Gamania Bears 列了七人（Steak／yaumo／Galala／Winds／
-    IcefenG／Maple／NL），取前五會把打野 Winds 排成 BOT。
-    多於五人的隊一律不猜，交給 Cargo 的 TournamentPlayers（那邊有 Role）。
+    位置在 `td.extended-rosters-role` 的 span title（Top Laner／Jungler／
+    Mid Laner／Bot Laner／Support），選手 ID 在 `td.extended-rosters-id`。
+    **不要靠名單順序推**：這些名單都列 6~10 人含替補與教練（Wayi Spider 9 人、
+    yoe IRONMEN 10 人），取前五會排錯——Gamania Bears 會把打野 Winds 當成 BOT。
+    替補與教練的 title 是 Sub/… 或 Coach，直接跳過（使用者指出 2026-07-31：
+    扣掉教練就是五人）。R1~R12 那些欄是逐輪先發標記，不是位置。
     """
     try:
         html = parse_page(page, force)
@@ -454,22 +462,20 @@ def rosters_from_page(page, force=False):
                 tm = ht
         if not tm:
             continue
-        # 取每列的第一欄（ID）。**不能用 catlink-players**：沒有建 wiki 頁的選手
-        # 不是連結會整個漏掉，位置就往前擠——實測 ahq 少了 MrAlbis，GreenTea 被
-        # 排到 BOT、GarnetDevil 變 SUP；Taipei Snipers 與 Wayi Spider 更是整隊解析不到。
-        seen, names = set(), []
+        five = {}
         for tr in re.findall(r"<tr[^>]*>(.*?)</tr>", mt.group(0), re.S):
-            cells = [re.sub(r"\s+", " ", _html.unescape(re.sub(r"<[^>]+>", " ", c))).strip()
-                     for c in re.findall(r"<t[dh][^>]*>(.*?)</t[dh]>", tr, re.S)]
-            cells = [c for c in cells if c]      # 第一欄常是國旗/圖示，是空的
-            if not cells:
+            mr = re.search(r'class="[^"]*extended-rosters-role[^"]*"[^>]*>\s*<span[^>]*title="([^"]*)"', tr)
+            mi = re.search(r'class="[^"]*extended-rosters-id[^"]*"[^>]*>(.*?)</td>', tr, re.S)
+            if not mr or not mi:
                 continue
-            nm = cells[0]
-            if nm.lower() in ("id", "player", "name") or nm in seen:
+            role = ROLE_SPRITE.get(_html.unescape(mr.group(1)).strip().lower())
+            if not role or role in five:        # 替補/教練 → None；同位置只取第一個
                 continue
-            seen.add(nm); names.append(nm)
-        if len(names) == 5:      # 只有剛好五人時，順序才等於五路
-            out[_norm(tm)] = {POSL[i]: names[i] for i in range(5)}
+            nm = re.sub(r"\s+", " ", _html.unescape(re.sub(r"<[^>]+>", " ", mi.group(1)))).strip()
+            if nm:
+                five[role] = nm
+        if len(five) == 5:
+            out[_norm(tm)] = five
     return out
 
 
@@ -642,14 +648,19 @@ def build(job, force=False):
     LST = lane_stats(year)
     print(f"    路線統計：{len(LST)} 個英雄（{year} 年有選手名的列）")
     PBD = patch_by_date(year)
-    ROS = dict(tour_rosters(main_page))
+    # `/Team Rosters` 子頁**優先於** Cargo：那頁的 role-sprite 標的是該賽事的正選五人，
+    # Cargo 的 TournamentPlayers 是登錄名單，會把替補當成先發——實測 TESL 的 ahq
+    # 打野被記成 GarnetDevil、Gamania Bears 上路被記成 Galala，但使用者指出
+    # 該賽事 ahq 打野以 Lantyr 為主、GAB 上路以 Steak 為主（2026-07-31），
+    # 與子頁一致。子頁沒有的隊才退回 Cargo。
+    ROS = {}
+    for _rp in (opt.get("roster_html") or ()):
+        ROS.update(rosters_from_page(_rp, force) or {})
+        time.sleep(2)
+    for _k, _v in (tour_rosters(main_page) or {}).items():
+        ROS.setdefault(_k, _v)
     for _rp in (opt.get("roster_pages") or ()):     # 額外名單頁（分區資格賽等）
         for _k, _v in (tour_rosters(_rp) or {}).items():
-            ROS.setdefault(_k, _v)
-        time.sleep(2)
-    # Cargo 沒收錄的隊，再試賽事的 `/Team Rosters` 子頁（HTML 版型，位置靠名單順序）
-    for _rp in (opt.get("roster_html") or ()):
-        for _k, _v in (rosters_from_page(_rp, force) or {}).items():
             ROS.setdefault(_k, _v)
         time.sleep(2)
     if ROS:
