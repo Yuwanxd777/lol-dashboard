@@ -2640,7 +2640,7 @@ const LG_TAIL_PREF=["LCP","CBLOL","LTA","LTA N","LTA S","LLA","LLN","CLS",
 // 賽事清單裡緊接在某個群組後面顯示的聯賽（使用者定案 2026-08-01：GPL 接在 LPL 後，
 // CBLOL／TCL／LCL 依序接在 LCS 後）。**只影響清單排序**，不進 LG_GROUP——那份是篩選語意，
 // 選「中韓」仍然只篩 LCK+LPL，不會把 GPL 一起撈進來。群組當年沒隊伍時這些照樣回尾段列出。
-const LG_GROUP_TAIL={ "中韓":["GPL"], "歐美":["CBLOL","TCL","LCL"] };
+const LG_GROUP_TAIL={ "中韓":["GPL"], "歐美":["LLA","CBLOL","TCL","LCL","LCO"] };
 const LG_GROUP={ "中韓":["LCK","LPL"], "歐美":["LEC","LCS"], // 使用者定義：中韓=LCK+LPL、歐美=LEC+LCS
                  "國際賽":["FST","MSI","EWC","ENC","WLDs","RR","IEM","MSC",
                           "EWCQ歐洲","EWCQ韓國","EWCQ中國","EWCQ太平洋","EWCQ巴西","EWCQ北美"] };
