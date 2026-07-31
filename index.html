@@ -9222,8 +9222,6 @@ function render(){
       });
       box.querySelectorAll(".bpCx").forEach(x=>{ x.onclick=()=>{ V.bpColF[x.dataset.k]=""; saveState(); rerender(); }; }); // ✕ 清除該欄
       if(_bpFocusK){ const el=box.querySelector('.bpColF[data-k="'+_bpFocusK+'"]'); if(el){ el.focus(); try{el.setSelectionRange(el.value.length,el.value.length);}catch(_e){} } _bpFocusK=null; }
-      {const cb=document.getElementById("bpColClr"); // 沒有任何欄位篩選＝沒東西可清
-       if(cb){const on=_colFActive(); cb.disabled=!on; cb.style.opacity=on?"1":".45";}}
     };
     { // 左側代表（藍紅／先選／該隊）＋ 清空欄位篩選：併進篩選列右側，擺在本頁說明左邊
       //（2026-07-31 使用者指定；最右三顆 說明／預設／返回 位置不動）
@@ -9237,7 +9235,7 @@ function render(){
           v=>{ if(v===(V.bpSideMode||"br"))return; V.bpSideMode=v; saveState(); rerender(); },"");
         anchor.parentNode.insertBefore(seg,anchor);
         const cb=document.createElement("button"); cb.id="bpColClr"; cb.className="sqbtn";
-        cb.textContent="🗑"; cb.title=LANG==="en"?"Clear the column filters":"清空欄位篩選（欄名下方那列）";
+        cb.textContent="🗑"; cb.title=LANG==="en"?"Clear the column filters":"清空欄位篩選（欄名下方那列）"; // 外觀比照模擬BP／英雄Tier 的 🗑：永遠可按、不變淡
         cb.onclick=()=>{ V.bpColF={}; saveState(); rerender(); };
         anchor.parentNode.insertBefore(cb,anchor);
       }
