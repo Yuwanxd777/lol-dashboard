@@ -230,6 +230,14 @@ def to_csv(games, cfg):
             return abs((y - x).days)
         except Exception:
             return 99
+    # wiki 的 MatchHistoryGame 結果表是**新→舊倒序**，不反轉的話系列賽會從最後一局
+    # 開始編號、日期也會取到最後一天（實測 NA LCS 2013 春季決賽第一局在 04-28，
+    # 卻被編成 g5、整個系列掛在 04-29）。只在確定倒序時反轉，正序的賽事不動。
+    if len(games) > 1:
+        _d0 = (games[0].get("Date") or "")[:10]
+        _dN = (games[-1].get("Date") or "")[:10]
+        if _d0 and _dN and _d0 > _dN:
+            games = list(reversed(games))
     ser = {}
     for g in games:
         dt = g.get("Date", "")[:19]
@@ -238,9 +246,17 @@ def to_csv(games, cfg):
         day[d10] = n
         _pair = frozenset((nk(g.get("Blue")), nk(g.get("Red"))))
         _prev = ser.get(_pair)
-        gno = (_prev[1] + 1) if (_prev and _dd(_prev[0], d10) <= 1) else 1
-        ser[_pair] = (d10, gno)
-        gid = f"wiki_{cfg['key']}_{d10}_{n}"
+        if _prev and _dd(_prev[0], d10) <= 1:
+            gno, _start = _prev[1] + 1, _prev[2]
+        else:
+            gno, _start = 1, d10
+        # 比對用「上一局的原始日期」，這樣連續跨天（04-28→29→30）也接得上；
+        # 寫進資料的日期則統一成系列賽第一局那天（使用者定案 2026-07-31），
+        # 免得同一個 BO5 在前端被日期切成兩段。時間保留原值，同系列仍能依時序排。
+        ser[_pair] = (d10, gno, _start)
+        if _start != d10:
+            dt = _start + dt[10:]
+        gid = f"wiki_{cfg['key']}_{d10}_{n}"     # gid 用原始日期，保證唯一
         bt, rt = align(g.get("Blue"), teams_map), align(g.get("Red"), teams_map)
         win = g.get("Winner", "")
         bwin = nk(win) == nk(g.get("Blue"))
