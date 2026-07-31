@@ -52,8 +52,15 @@ JOBS = [
     # 賽事名叫 Championship／Regional Finals 的，賽段一律標「錦標賽」（使用者定案 2026-07-31）
     # TESL（台灣電子競技聯盟職業挑戰賽）：與 GPL 夏季同期進行的台灣本土聯賽，
     # MatchHistory 沒收（0 局）但 PB 頁有 75 局。使用者指定放在 GPL 底下、夏季之後（2026-07-31）
+    # TESL：Cargo 的 TournamentPlayers 只收到 5 隊，缺 Wayi Spider（＝WS，台灣隊，
+    # 與 LPL 的 Wayi Spider China 同名不同隊，不能拿後者的名單頂替）。
+    # /Team Rosters 子頁（使用者提供 2026-07-31）補不了：那版型沒有 Role 欄，
+    # 每隊又都列了 6~10 人含替補（Wayi Spider 9 人），順序推位置會排錯
+    # ——Gamania Bears 取前五會把打野 Winds 排成 BOT。保留 roster_html 機制給
+    # 「剛好五人」的賽事用，TESL 自己補不到 → WS 那 15 局的選手名留空。
     (2013, "GPL", "TESL", 0, "Taiwan eSports League/Professional Challenges/Picks and Bans",
-     "Taiwan eSports League/Professional Challenges"),
+     "Taiwan eSports League/Professional Challenges",
+     {"roster_html": ["Taiwan eSports League/Professional Challenges/Team Rosters"]}),
     # GPL 的兩個錦標賽分開標（使用者定案 2026-07-31）：
     #   台港澳＝GPL 年度總決賽（春夏冠軍對決，兩隊都是台灣隊）＋台灣區世界賽代表選拔
     #   東南亞＝Season 3 Southeast Asia Regional Finals（KLH／SGS／SAJ／BKT／Mineski／Xgame 六隊；
@@ -420,6 +427,52 @@ def tour_rosters(page):
     return out
 
 
+def rosters_from_page(page, force=False):
+    """從 `{賽事}/Team Rosters` 子頁解析名單 → {正規化隊名: {位置: 選手}}。
+
+    給 Cargo 查不到的賽事用。版型（實測 2013 TESL）：一隊一個 h3 標題，
+    後面接一個 table.extended-rosters，欄位是 ID／Name／R1~R5——**沒有 Role 欄**，
+    所以 fetch_events_extra.rosters_alt（期望 ID/Name/Role）會回 0 隊。
+    這種版型**沒有位置欄**（R1~R12 全是空的），只能靠名單順序推——所以
+    **限剛好五人的隊才用**：ahq 的 Prydz／Lantyr／westdoor／MrAlbis／GreenTea
+    確實是 TOP→SUP，但 Gamania Bears 列了七人（Steak／yaumo／Galala／Winds／
+    IcefenG／Maple／NL），取前五會把打野 Winds 排成 BOT。
+    多於五人的隊一律不猜，交給 Cargo 的 TournamentPlayers（那邊有 Role）。
+    """
+    try:
+        html = parse_page(page, force)
+    except Exception as e:
+        print(f"    名單子頁失敗：{str(e)[:70]}")
+        return {}
+    heads = [(m.start(), _html.unescape(re.sub(r"<[^>]+>", "", m.group(1))).replace("⁠", "").strip())
+             for m in re.finditer(r"<h3[^>]*>(.*?)</h3>", html, re.S)]
+    out = {}
+    for mt in re.finditer(r'<table[^>]*class="[^"]*extended-rosters[^"]*"[^>]*>.*?</table>', html, re.S):
+        tm = ""
+        for hp, ht in heads:
+            if hp < mt.start() and ht:
+                tm = ht
+        if not tm:
+            continue
+        # 取每列的第一欄（ID）。**不能用 catlink-players**：沒有建 wiki 頁的選手
+        # 不是連結會整個漏掉，位置就往前擠——實測 ahq 少了 MrAlbis，GreenTea 被
+        # 排到 BOT、GarnetDevil 變 SUP；Taipei Snipers 與 Wayi Spider 更是整隊解析不到。
+        seen, names = set(), []
+        for tr in re.findall(r"<tr[^>]*>(.*?)</tr>", mt.group(0), re.S):
+            cells = [re.sub(r"\s+", " ", _html.unescape(re.sub(r"<[^>]+>", " ", c))).strip()
+                     for c in re.findall(r"<t[dh][^>]*>(.*?)</t[dh]>", tr, re.S)]
+            cells = [c for c in cells if c]      # 第一欄常是國旗/圖示，是空的
+            if not cells:
+                continue
+            nm = cells[0]
+            if nm.lower() in ("id", "player", "name") or nm in seen:
+                continue
+            seen.add(nm); names.append(nm)
+        if len(names) == 5:      # 只有剛好五人時，順序才等於五路
+            out[_norm(tm)] = {POSL[i]: names[i] for i in range(5)}
+    return out
+
+
 def _ros_of(ros, team):
     """查該隊名單，隊名允許互為前綴。PB 頁常用短名、名單頁用全名
     （Renegades of Hell↔Renegades of Hell Inner Fire、Isurus↔Isurus Gaming Chile），
@@ -592,6 +645,11 @@ def build(job, force=False):
     ROS = dict(tour_rosters(main_page))
     for _rp in (opt.get("roster_pages") or ()):     # 額外名單頁（分區資格賽等）
         for _k, _v in (tour_rosters(_rp) or {}).items():
+            ROS.setdefault(_k, _v)
+        time.sleep(2)
+    # Cargo 沒收錄的隊，再試賽事的 `/Team Rosters` 子頁（HTML 版型，位置靠名單順序）
+    for _rp in (opt.get("roster_html") or ()):
+        for _k, _v in (rosters_from_page(_rp, force) or {}).items():
             ROS.setdefault(_k, _v)
         time.sleep(2)
     if ROS:
