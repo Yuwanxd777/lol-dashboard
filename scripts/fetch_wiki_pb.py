@@ -7,8 +7,13 @@
 
 能拿到什麼、拿不到什麼（很重要，別誤以為資料是完整的）：
   ✔ 藍紅隊名、3+3 禁用、5+5 選用、勝方、系列賽內局號
-  ✘ **選手名與路線**（PB 頁根本沒有）→ 只產生隊伍列（pid 100/200），不產生選手列。
-    選手生涯統計因此不會被這批資料影響；對戰BP 的路線欄會是空的，這是誠實的空，不是 bug。
+  ✔ **路線＝推定值**：PB 頁的 5 個 pick 是「選擇順序」（第幾手），不是路線順序。
+    用該年「英雄→路線」分布（取自同年有選手名的比賽）做 5×5 最佳指派排回五路，
+    產生 participantid 1-5／6-10 的選手列（使用者指定 2026-07-31）。
+    實測 Keyd vs RMA g1 紅方 pick 序 TF→Caitlyn→Nasus→Renekton→Lulu，
+    正確排成 Renekton(TOP)／Nasus(JNG)／TF(MID)／Caitlyn(BOT)／Lulu(SUP)
+    ——Nasus 2013 有 81% 在打野，照 pick 序硬排就會錯。
+  ✘ **選手名**（PB 頁根本沒有）→ 選手列的 playername 留空，選手生涯統計不受影響。
   ✘ 日期（PB 頁沒有）→ 從賽事主頁的比賽列表依「隊伍組合」配對；配不到就退用賽事起始日。
 
 輸出：csv_cache/wikifill_{年}.json（與 fetch_wiki_mh 同一個檔、同一套 key），
@@ -18,7 +23,7 @@
   python scripts\fetch_wiki_pb.py                 # 跑 JOBS 全部
   python scripts\fetch_wiki_pb.py --probe "Riot Season 3 Brazilian Championship"
 """
-import argparse, csv, html as _html, io, json, os, re, sys, time, urllib.parse, urllib.request
+import argparse, collections, csv, html as _html, io, itertools, json, os, re, sys, time, urllib.parse, urllib.request
 
 if (getattr(sys.stdout, "encoding", "") or "").lower().replace("-", "") != "utf8":
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
@@ -229,6 +234,78 @@ def fix_case(nm):
     return _TNAME.get(str(nm or "").casefold(), nm)
 
 
+POSL = ["TOP", "JNG", "MID", "BOT", "SUP"]
+_PID2POS = {1: "TOP", 2: "JNG", 3: "MID", 4: "BOT", 5: "SUP"}
+# OE 的 position 欄位值（process() 只靠 participantid 判位，這欄是給人看的）
+_POS_OE = {"TOP": "top", "JNG": "jng", "MID": "mid", "BOT": "bot", "SUP": "sup"}
+_LANE_CACHE = {}
+
+
+def lane_stats(year):
+    """該年「英雄→各路線出場次數」，取自 data_{年}.js 裡有選手名的列。
+
+    PB 頁只給英雄與**選擇順序**（第幾手），不是路線順序，所以要靠這張表把 5 個
+    pick 排回 TOP/JNG/MID/BOT/SUP。**只採計有選手名的列**：本腳本自己推定出來的
+    列沒有選手名，排除掉才不會自我強化（第二次跑時把推定值當成證據）。"""
+    if year in _LANE_CACHE:
+        return _LANE_CACHE[year]
+    st = collections.defaultdict(collections.Counter)
+    p = os.path.join(ROOT, "data", f"data_{year}.js")
+    if os.path.exists(p):
+        try:
+            J = json.loads(open(p, encoding="utf-8").read().split("=", 1)[1].strip().rstrip(";"))
+            T = J["tabs"]["RAW_DATA"]
+            ix = {n: i for i, n in enumerate(T[0])}
+            RB = ix["red_champion"] - ix["blue_champion"]
+            for r in T[1:]:
+                try:
+                    pid = int(r[ix["participantid"]])
+                except Exception:
+                    continue
+                if pid not in _PID2POS:
+                    continue
+                for side in (0, 1):
+                    o = RB if side else 0
+                    nm = str(r[ix["blue_playername"] + o] or "").strip()
+                    ch = str(r[ix["blue_champion"] + o] or "").strip()
+                    if ch and nm:
+                        st[ch][_PID2POS[pid]] += 1
+        except Exception as e:
+            print(f"    ⚠ 路線統計失敗（改用平均分配）：{str(e)[:70]}")
+    _LANE_CACHE[year] = st
+    return st
+
+
+def assign_lanes(champs, st):
+    """5 個 pick（依選擇順序）→ 指派到 TOP/JNG/MID/BOT/SUP。
+
+    5×5 完美匹配，5!=120 種直接窮舉取聯合機率最大者（不必上匈牙利演算法）。
+    +0.02 平滑：某英雄該年沒打過某路線時機率為 0，整條排列會被歸零，
+    導致有解也選不出來。"""
+    champs = [str(c or "").strip() for c in champs][:5]
+    if len(champs) < 5:
+        champs += [""] * (5 - len(champs))
+
+    def pr(ch, pos):
+        c = st.get(ch)
+        if not c:
+            return 0.2                      # 該年沒資料 → 五路均等
+        n = sum(c.values()) or 1
+        return c.get(pos, 0) / n
+
+    best, bs = tuple(range(5)), -1.0
+    for perm in itertools.permutations(range(5)):
+        s = 1.0
+        for i, j in enumerate(perm):
+            s *= pr(champs[i], POSL[j]) + 0.02
+        if s > bs:
+            bs, best = s, perm
+    out = [""] * 5
+    for i, j in enumerate(best):
+        out[j] = champs[i]
+    return out                               # [TOP, JNG, MID, BOT, SUP]
+
+
 def build(job, force=False):
     year, lg, split, po, pb_page, main_page = job
     key = f"{lg}_{year}_" + (re.sub(r"[^A-Za-z0-9]+", "", split) or re.sub(r"[^A-Za-z0-9]+", "", pb_page)[:24])
@@ -269,6 +346,8 @@ def build(job, force=False):
         hdr = fetch_fill.oe_header()
     ix = {n: i for i, n in enumerate(hdr)}
     rows, used = [], {}
+    LST = lane_stats(year)
+    print(f"    路線統計：{len(LST)} 個英雄（{year} 年有選手名的列）")
     from datetime import date as _date, timedelta as _td
     _d0 = _date(*map(int, first.split("-")))
     _d1 = _date(*map(int, (last or first).split("-")))
@@ -307,6 +386,27 @@ def build(job, force=False):
             for i2, ch in enumerate(g["bp"][side]["pick"][:5]):
                 put(f"pick{i2+1}", ch)
             rows.append(r)
+        # ── 逐選手列（participantid 1-5 藍／6-10 紅）──
+        # PB 頁給的是英雄與**選擇順序**（第幾手），不是路線順序 → 用當年的英雄路線
+        # 分布排回五路（使用者指定 2026-07-31）。少了這段，這些比賽只有隊伍列，
+        # 英雄完全進不了圖鑑／英雄統計，等於白抓。選手名 wiki 沒有 → 留空。
+        for side, base in (("blue", 1), ("red", 6)):
+            lanes = assign_lanes(g["bp"][side]["pick"], LST)
+            for k2, ch in enumerate(lanes):
+                if not ch:
+                    continue
+                r = [""] * len(hdr)
+                put2 = lambda k3, v: r.__setitem__(ix[k3], "" if v is None else str(v)) if k3 in ix else None
+                put2("gameid", gid); put2("datacompleteness", "partial")
+                put2("league", lg); put2("year", year); put2("split", split)
+                put2("playoffs", 1 if g.get("po") else po)
+                put2("date", date + " 00:00:00"); put2("game", g["game"])
+                put2("participantid", base + k2)
+                put2("side", side.capitalize())
+                put2("position", _POS_OE[POSL[k2]])
+                put2("teamname", g[side]); put2("champion", ch)
+                put2("result", "1" if (g["win"] == (1 if side == "blue" else 2)) else "0")
+                rows.append(r)
     buf = io.StringIO()
     w = csv.writer(buf, lineterminator="\n")
     w.writerow(hdr); w.writerows(rows)
@@ -323,7 +423,7 @@ def build(job, force=False):
         except Exception:
             D = {}
     D[key] = {"header": table[0], "rows": table[1:], "games": len(games),
-              "src": "leaguepedia Picks and Bans（無選手／路線）", "tour": pb_page,
+              "src": "leaguepedia Picks and Bans（無選手名；路線由當年英雄路線分布推定）", "tour": pb_page,
               "league": lg, "split": split}
     json.dump(D, open(p, "w", encoding="utf-8"), ensure_ascii=False)
     print(f"    → {p}（{key}）")
