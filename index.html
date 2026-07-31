@@ -5673,11 +5673,11 @@ function sqHeroDetail(cid){
         <td>${g.sc==null?"—":`<b style="color:${scCol(g.sc)}">${d1s(g.sc)}</b>`}</td></tr>`).join("")
     }</tbody></table></div>`;
   }
-  // 篩選列順序：路線緊接標準篩選的「場數」右邊（2026-07-31 使用者指定），再來對位、選手
+  // 篩選列順序：路線緊接標準篩選的「場數」右邊，再來選手、對位（2026-07-31 使用者指定）
   main.innerHTML=filterBar(`
     <label>${en?"Lane":"路線"}</label><select id="hdLaneSel" style="min-width:118px"><option value="">${en?"All lanes":"全部路線"}</option>${lanes.map(l=>`<option value="${PNS[l]}" ${PNS[l]===V.hdLane?"selected":""}>${LZ[PNS[l]]}（${H[l][0]}）</option>`).join("")}</select>
-    <label>${en?"Opponent":"對位"}</label>${comboHTML("hdOppSel",en?"Opponent":"對位英雄",170)}
-    <label>${en?"Player":"選手"}</label>${comboHTML("hdPlSel",en?"Player":"使用選手",170)}`)
+    <label>${en?"Player":"選手"}</label>${comboHTML("hdPlSel",en?"Player":"使用選手",170)}
+    <label>${en?"Opponent":"對位"}</label>${comboHTML("hdOppSel",en?"Opponent":"對位英雄",170)}`)
     +`<div class="card"><h2>
       <span class="heroname" style="font-size:22px">${cImg(cid)} ${esc(chName(champId(cid))||cid)}</span>
       <span class="sub">🎯 ${en?"soloq (this year, tracked pros)":"積分（今年，追蹤職業選手單雙排）"}｜${en?"source dpm.lol":"資料來源 dpm.lol"}｜<span class="plink" id="sqGoDex">🛠️ ${en?"Builds & runes →":"出裝／符文 →"}</span></span></h2>
@@ -10187,12 +10187,12 @@ function render(){
       }
     }
     const avail=Math.max(1,total-unav);
-    const _subF=filtered?[V.hdLane?LZ[V.hdLane]:"",V.hdOpp?`${LANG==="en"?"vs ":"對位 "}${esc(chName(champId(V.hdOpp)))}`:"",V.hdPlayer?`${LANG==="en"?"by ":"選手 "}${esc(V.hdPlayer)}`:""].filter(x=>x).join("｜"):(LANG==="en"?`all ${curYear} games`:`${curYear} 年全部比賽`);
-    // 篩選列順序：路線緊接在標準篩選的「場數」右邊（2026-07-31 使用者指定），再來對位、選手
+    const _subF=filtered?[V.hdLane?LZ[V.hdLane]:"",V.hdPlayer?`${LANG==="en"?"by ":"選手 "}${esc(V.hdPlayer)}`:"",V.hdOpp?`${LANG==="en"?"vs ":"對位 "}${esc(chName(champId(V.hdOpp)))}`:""].filter(x=>x).join("｜"):(LANG==="en"?`all ${curYear} games`:`${curYear} 年全部比賽`);
+    // 篩選列順序：路線緊接在標準篩選的「場數」右邊，再來選手、對位（2026-07-31 使用者指定）
     main.innerHTML=filterBar(`
       <label>${LANG==="en"?"Lane":"路線"}</label><select id="hdLaneSel" style="min-width:118px"><option value="">${LANG==="en"?"All lanes":"全部路線"}</option>${laneOpts.slice().sort((a,b)=>a.pid-b.pid).map(l=>`<option value="${l.lane}" ${l.lane===V.hdLane?"selected":""}>${LZ[l.lane]}（${l.n}）</option>`).join("")}</select>
-      <label>${LANG==="en"?"Opponent":"對位"}</label>${comboHTML("hdOppSel",LANG==="en"?"Opponent":"對位英雄",170)}
-      <label>${LANG==="en"?"Player":"選手"}</label>${comboHTML("hdPlSel",LANG==="en"?"Player":"使用選手",170)}`)
+      <label>${LANG==="en"?"Player":"選手"}</label>${comboHTML("hdPlSel",LANG==="en"?"Player":"使用選手",170)}
+      <label>${LANG==="en"?"Opponent":"對位"}</label>${comboHTML("hdOppSel",LANG==="en"?"Opponent":"對位英雄",170)}`)
       +`
       <div class="card"><h2>
         <span class="heroname" style="font-size:22px">${cImg(ch)} ${ch}</span>
