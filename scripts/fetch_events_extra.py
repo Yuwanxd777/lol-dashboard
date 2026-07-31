@@ -34,9 +34,13 @@ EVENTS = {
         # 實際參賽是 12 隊（Team Ozone Xenon 與 Team Rush 沒有被收錄的場次）。
         # **賽段名一定要跟比賽資料一致**，不然賽事樹會多長出一列重複的區塊（2026-07-31）
         "GPL":   {"splits": [{"sp": "台港澳錦標賽", "page": "Season 3 Taiwan Regional Finals"}]},
+        # roster_pages＝只拿名單、不當成賽段的頁：土耳其三個賽段頁各自只登記了 2~4 隊，
+        # 完整名單在年度總決賽 Championship 頁（8 隊 40 人）。加進 splits 會讓賽事樹
+        # 多長一列賽段，所以只借名單。
         "TCL":   {"splits": [{"sp": "冬季", "page": "Riot Games Turkey/2013 Season/Winter Tournament"},
                              {"sp": "春季", "page": "Riot Games Turkey/2013 Season/Spring Tournament"},
-                             {"sp": "夏季", "page": "Riot Games Turkey/2013 Season/Summer Tournament"}]},
+                             {"sp": "夏季", "page": "Riot Games Turkey/2013 Season/Summer Tournament"}],
+                  "roster_pages": ["Riot Games Turkey/2013 Season/Championship"]},
         "CBLOL": {"page": "Riot Season 3 Brazilian Championship"},
         "LCO":   {"page": "Riot Season 3 Oceanic Championship"},
         "LCL":   {"page": "2013 Season CIS Championship"},
@@ -218,6 +222,65 @@ def bracket_of(html):
     return out
 
 
+CARGO_FORM = "https://lol.fandom.com/wiki/Special:CargoExport"
+CARGO_UA = {"User-Agent": UA["User-Agent"],
+            "Accept": "text/html,application/xhtml+xml,*/*;q=0.9",
+            "Accept-Language": "en-US,en;q=0.9", "Referer": CARGO_FORM}
+_COP = None
+
+
+def _cargo_opener():
+    """CargoExport 走一般頁面請求（action=cargoquery 對匿名存取限流極兇）；要先拿 cookie 否則 403"""
+    global _COP
+    if _COP is None:
+        import http.cookiejar
+        cj = http.cookiejar.CookieJar()
+        _COP = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(cj))
+        try:
+            _COP.open(urllib.request.Request(CARGO_FORM, headers=CARGO_UA), timeout=60).read()
+            time.sleep(2)
+        except Exception as e:
+            print(f"   ⚠ Cargo 取 cookie 失敗（仍試著繼續）：{type(e).__name__}")
+    return _COP
+
+
+def cargo_rosters(page):
+    """用 Cargo 表 TournamentPlayers 取參賽名單 → {隊名:[{n,r}]}。
+
+    為什麼要這層：HTML 版型有好幾代，`table.tournament-roster` 與 `/Team Rosters`
+    子頁都解析不到時整個賽事就是 0 隊名單（實測 2013 TCL 17 隊、GPL 12 隊全空，
+    前端戰隊小框只能顯示「無選手資料」）。Cargo 表不吃版型，穩定得多。
+    """
+    q = {"tables": "TournamentPlayers=TP",
+         "fields": "TP.Team=tm,TP.Player=pl,TP.Role=rl",
+         "where": 'TP.OverviewPage="%s"' % str(page).replace('"', '\\"'),
+         "format": "json", "limit": "500"}
+    url = CARGO_FORM + "?" + urllib.parse.urlencode(q)
+    try:
+        raw = _cargo_opener().open(urllib.request.Request(url, headers=CARGO_UA), timeout=90).read().decode("utf-8", "replace")
+    except Exception as e:
+        print(f"   Cargo 名單失敗：{type(e).__name__}"); return {}
+    if raw.lstrip()[:1] not in "[{":
+        return {}
+    try:
+        rows = json.loads(raw)
+    except Exception:
+        return {}
+    out = {}
+    for r in rows:
+        tm = fix_case(str(r.get("tm") or "").strip())
+        # 選手名帶消歧後綴（crueL (Ceyhun Ünlü)、Icarus (Turkish Player)）→ 顯示用去掉
+        nm = re.sub(r"\s*\([^)]*\)\s*$", "", str(r.get("pl") or "")).strip()
+        if not tm or not nm:
+            continue
+        role = ROLE_EN.get(str(r.get("rl") or "").strip().title(), "")
+        out.setdefault(tm, []).append({"n": nm, "r": role})
+    ORD = {"TOP": 1, "JNG": 2, "MID": 3, "BOT": 4, "SUP": 5, "COACH": 6}
+    for tm in out:
+        out[tm].sort(key=lambda p: ORD.get(p["r"], 9))
+    return out
+
+
 def grab(page, kind, roster_page=None):
     html = parse_page(page)
     frm, to = dates_of(html)
@@ -228,7 +291,29 @@ def grab(page, kind, roster_page=None):
             time.sleep(2)
         except Exception as e:
             print(f"   名單子頁失敗：{str(e)[:70]}")
-    return ([fix_case(t) for t in teams_of(html, kind)], rs, frm, to, bracket_of(html))
+    teams = [fix_case(t) for t in teams_of(html, kind)]
+    # 兩種 HTML 解析都不足 → 用 Cargo 補（只補缺的隊，已解析到的不覆蓋）
+    if len(rs) < len(teams):
+        cr = cargo_rosters(page)
+        if cr:
+            add = [t for t in cr if t not in rs]
+            rs = {**cr, **rs}
+            if add:
+                print(f"   Cargo 名單：+{len(add)} 隊（{page}）")
+            time.sleep(2)
+    return (teams, rs, frm, to, bracket_of(html))
+
+
+def align_keys(teams, rosters):
+    """名單的隊名對齊 teams 的寫法：HTML 與 Cargo 的大小寫常不同（paiN Gaming／
+    PaiN Gaming），前端是用隊名精確查 rosters，對不上就顯示「無選手資料」。"""
+    if not rosters:
+        return {}
+    idx = {str(t).lower(): t for t in teams}
+    out = {}
+    for tm, pl in rosters.items():
+        out[idx.get(str(tm).lower(), tm)] = pl
+    return out
 
 
 def main():
@@ -281,7 +366,22 @@ def main():
                 for t in allt:
                     if t not in seen:
                         seen.add(t); uniq.append(t)
-                data[str(year)][code] = {"teams": uniq, "rosters": {}, "splits": segs,
+                # 各賽段的名單要併到頂層：前端戰隊小框讀的是頂層 rosters，
+                # 只留在 segs[].rosters 裡的話整個賽事都會顯示「無選手資料」
+                merged = {}
+                for s in segs:
+                    for tm, pl in (s.get("rosters") or {}).items():
+                        if len(pl) > len(merged.get(tm, ())):
+                            merged[tm] = pl
+                for rp in (cfg.get("roster_pages") or ()):   # 只借名單、不當賽段的頁
+                    for tm, pl in (cargo_rosters(rp) or {}).items():
+                        if len(pl) > len(merged.get(tm, ())):
+                            merged[tm] = pl
+                    time.sleep(2)
+                merged = align_keys(uniq, merged)
+                if merged:
+                    print(f"   併賽段名單：{len(merged)} 隊")
+                data[str(year)][code] = {"teams": uniq, "rosters": merged, "splits": segs,
                                          "from": frm0, "to": to0, "page": cfg["splits"][0]["page"],
                                          "url": "https://lol.fandom.com/wiki/" + urllib.parse.quote(cfg["splits"][0]["page"].replace(" ", "_"))}
                 continue
@@ -290,6 +390,7 @@ def main():
                 teams, rosters, frm, to, brk = grab(cfg["page"], kind, cfg["page"]+"/Team Rosters")
             except Exception as e:
                 print("   失敗，保留舊資料：", str(e)[:120]); continue
+            rosters = align_keys(teams, rosters)
             data[str(year)][code] = {"teams": teams, "rosters": rosters, "from": frm, "to": to,
                                      "po": (brk if 0 < len(brk) < len(teams) else []), "page": cfg["page"],
                                      "url": "https://lol.fandom.com/wiki/" + urllib.parse.quote(cfg["page"].replace(" ", "_"))}
