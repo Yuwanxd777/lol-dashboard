@@ -218,15 +218,28 @@ def to_csv(games, cfg):
     # 系列賽內的局號：wiki 的表格已照時間排 → 同一天、同兩隊（藍紅可能互換，所以用 frozenset）
     # 依序 1、2、3…。原本寫死 game=1，同一場 BO5 的三局全變第 1 局，對戰BP 的比分與
     # 「BO3／BO5」判定就全錯（2026-07-31 使用者回報：10-05 WCS RYL vs SKT 三局同一天卻顯示 0-1）
+    # 系列賽鍵**不能含日期**：BO5 常跨午夜或跨天（NA LCS 2013 春季決賽 TSM vs GGU
+    # 第 1 局在 04-28、其餘四局在 04-29），用 (日期,兩隊) 當鍵會拆成兩個系列、
+    # 各自從 1 重編 → 局號變成 [1,1,2,3,4]，前端按 (日期,局號) 去重就少三局
+    #（2026-07-31 使用者回報「漏了三場」）。
+    # 改成同兩隊且與上一局相隔 <=1 天就算同一系列；隔更久（例行賽下一輪再戰）才重新編。
+    def _dd(a, b):
+        try:
+            from datetime import date as _dt
+            x = _dt(*map(int, a.split("-"))); y = _dt(*map(int, b.split("-")))
+            return abs((y - x).days)
+        except Exception:
+            return 99
     ser = {}
     for g in games:
         dt = g.get("Date", "")[:19]
         d10 = dt[:10]
         n = day.get(d10, 0) + 1
         day[d10] = n
-        _sk = (d10, frozenset((nk(g.get("Blue")), nk(g.get("Red")))))
-        gno = ser.get(_sk, 0) + 1
-        ser[_sk] = gno
+        _pair = frozenset((nk(g.get("Blue")), nk(g.get("Red"))))
+        _prev = ser.get(_pair)
+        gno = (_prev[1] + 1) if (_prev and _dd(_prev[0], d10) <= 1) else 1
+        ser[_pair] = (d10, gno)
         gid = f"wiki_{cfg['key']}_{d10}_{n}"
         bt, rt = align(g.get("Blue"), teams_map), align(g.get("Red"), teams_map)
         win = g.get("Winner", "")
