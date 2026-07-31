@@ -3823,10 +3823,10 @@ function refNotesPks(){
 function champChangesForPk(pk){
   const PN=typeof PATCH_NOTES!=="undefined"?PATCH_NOTES:{}, out={}, pd=PN[pk];
   if(pd){ Object.keys(pd).forEach(k=>{ if(k.startsWith("_"))return; const v=pd[k]; if(!Array.isArray(v)||!v.length)return;
-    const ls=v.filter(l=>!COSM.test(l)&&!TRIVIAL.test(l)); if(!ls.length)return;   // 官方行也過 COSM/TRIVIAL（編按、聊天訊息這類不列，版本焦點同步乾淨）
+    const ls=v.filter(l=>!COSM.test(l)&&!TRIVIAL_OR_GEN(l)); if(!ls.length)return;   // 官方行也過 COSM/TRIVIAL（編按、聊天訊息這類不列，版本焦點同步乾淨）
     const id=champId(k); if(!id)return; (out[id]=out[id]||[]).push(...ls); }); return out; }
   for(const[wv,cs]of Object.entries(window.WIKI_PATCHES||{})){ if(wikiVerPk(wv)!==pk)continue;
-    Object.keys(cs).forEach(id=>{ const ls=(cs[id]||[]).filter(l=>!COSM.test(l)&&!TRIVIAL.test(l)); if(ls.length)(out[id]=out[id]||[]).push(...ls); }); }
+    Object.keys(cs).forEach(id=>{ const ls=(cs[id]||[]).filter(l=>!COSM.test(l)&&!TRIVIAL_OR_GEN(l)); if(ls.length)(out[id]=out[id]||[]).push(...ls); }); }
   return out;
 }
 // 該英雄在「當下」是否已登入召喚峽谷（角色池不顯示尚未推出的英雄）；無登入日資料的一律顯示
@@ -4318,6 +4318,11 @@ const COSM=/原畫|造型|背景故事|中版美術|重新上色|推薦裝備|�
 // 版本總覽的「瑣碎改動」：純顯示層／風味描述，不影響強弱（使用者陸續指定：
 // 聊天訊息顯示名、擊殺時會大笑這類）。英雄詳情頁仍完整列出，只有版本總覽不列。
 const TRIVIAL=/聊天訊息|訊息(現在)?會顯示|顯示專屬的英雄名稱|提示文字|字型|排版調整|chat message|會大笑|笑聲|會說出?[「"]|台詞|嘲諷動作|表情動作/i;
+// wiki 的「通用（General）」章節＝不屬於任何技能的雜項（動畫、選取範圍、尋路半徑、稱號…）
+// 版本分頁不列，只在英雄詳情頁完整呈現（使用者定案 2026-08-01）
+const GEN_PRE=/^\s*(通用|一般|General)\s*(（[^）]*）)?\s*｜/i;
+// 版本性質畫面的統一排除條件（版本改動分頁／圖鑑版本分頁／總覽版本焦點都用這個）
+const TRIVIAL_OR_GEN=l=>TRIVIAL.test(l)||GEN_PRE.test(l);
 const dirCls=d=>d==null?"adj":d>0?"buff":d<0?"nerf":"adj"; // 判不出方向也走「調整」的黃字（使用者定案 2026-07-31：以前就是黃字，不要白字）
 // 官方公告「英雄專屬大區塊」註記（PATCH_NOTES[pk]._spotlight，如 26.06 希瓦娜）：新英雄＝CHAMP_RELEASE 落在該版首場 ±30 天，否則大型重製
 const spotTag=(id,pk)=>{const PN=typeof PATCH_NOTES!=="undefined"?PATCH_NOTES:{};
@@ -6260,7 +6265,7 @@ function renderChgYear(box){
       const wk2=wikiFull[pk]; if(!wk2)return;
       Object.entries(wk2).forEach(([id,lines])=>{
         if(byChamp[id]&&byChamp[id].some(e=>e.patch===pk))return; // 官方已有 → 不重覆
-        const ls=zhOnly(pk,lines.filter(l=>!JUNK.test(String(l).trim())&&!COSM.test(l)&&!TRIVIAL.test(l))).map(l=>addKey(id,l));
+        const ls=zhOnly(pk,lines.filter(l=>!JUNK.test(String(l).trim())&&!COSM.test(l)&&!TRIVIAL_OR_GEN(l))).map(l=>addKey(id,l));
         if(ls.length)(byChamp[id]=byChamp[id]||[]).push({patch:pk,lines:ls,url:(PATCH_NOTES[pk]&&PATCH_NOTES[pk]._url)||wikiUrl[pk]||""});
       });
     };
@@ -6271,7 +6276,7 @@ function renderChgYear(box){
         Object.entries(wk).forEach(([id,lines])=>{
           // TRIVIAL＝聊天訊息／擊殺時大笑／台詞這類純風味改動：版本改動分頁不列
           //（2026-07-31 使用者第三度回報艾妮維亞蛋妮維亞；前兩次我改到別的畫面去了）
-          const ls=zhOnly(pk,lines.filter(l=>!JUNK.test(String(l).trim())&&!COSM.test(l)&&!TRIVIAL.test(l))).map(l=>addKey(id,l));
+          const ls=zhOnly(pk,lines.filter(l=>!JUNK.test(String(l).trim())&&!COSM.test(l)&&!TRIVIAL_OR_GEN(l))).map(l=>addKey(id,l));
           if(ls.length)(byChamp[id]=byChamp[id]||[]).push({patch:pk,lines:ls,url:wikiUrl[pk]||""});
         });
         return;
@@ -6288,12 +6293,12 @@ function renderChgYear(box){
       });
       Object.keys(pd).forEach(key=>{
         if(key.startsWith("_"))return; // _url/_extra/_lang 等中繼欄位跳過
-        const lines=(routed[key]?[...pd[key],...routed[key]]:pd[key]).filter(l=>!COSM.test(l)&&!TRIVIAL.test(l)).map(l=>addKey(key,l)); // 官方行也過 COSM/TRIVIAL：編按、聊天訊息這類不列
+        const lines=(routed[key]?[...pd[key],...routed[key]]:pd[key]).filter(l=>!COSM.test(l)&&!TRIVIAL_OR_GEN(l)).map(l=>addKey(key,l)); // 官方行也過 COSM/TRIVIAL：編按、聊天訊息這類不列
         delete routed[key];
         if(lines.length)(byChamp[key]=byChamp[key]||[]).push({patch:pk,lines,url:pd._url});
       });
       Object.keys(routed).forEach(id=>{
-        const ls=routed[id].filter(l=>!COSM.test(l)&&!TRIVIAL.test(l));
+        const ls=routed[id].filter(l=>!COSM.test(l)&&!TRIVIAL_OR_GEN(l));
         if(ls.length)(byChamp[id]=byChamp[id]||[]).push({patch:pk,lines:ls,url:pd._url});
       });
       wikiSupp(pk); // 官方漏掉的英雄用 wiki 補
@@ -10422,14 +10427,14 @@ function render(){
             if(k.startsWith("_")||byC[k])return; // _url/_extra/_lang 等中繼欄位跳過
             // 聊天訊息／擊殺時大笑／台詞這類純風味改動：版本分頁不列，只有英雄詳情頁完整列出
             //（2026-07-31 使用者重申：艾妮維亞蛋妮維亞、維迦大笑）
-            const ls=src[k].map(l=>addKey(k,l)).filter(l=>!COSM.test(l)&&!TRIVIAL.test(l));
+            const ls=src[k].map(l=>addKey(k,l)).filter(l=>!COSM.test(l)&&!TRIVIAL_OR_GEN(l));
             if(ls.length)byC[k]=ls;
           }); };
           const addWiki=()=>{ for(const[wv,cs]of Object.entries(window.WIKI_PATCHES||{})){
             if(wikiVerPk(wv)!==pk)continue;
             Object.entries(cs).forEach(([id,ls])=>{
               if(byC[id])return;
-              const l2=zhOnly(pk,ls.filter(l=>!COSM.test(l)&&!TRIVIAL.test(l)&&!JUNK2.test(String(l).trim()))).map(l=>addKey(id,l));
+              const l2=zhOnly(pk,ls.filter(l=>!COSM.test(l)&&!TRIVIAL_OR_GEN(l)&&!JUNK2.test(String(l).trim()))).map(l=>addKey(id,l));
               if(l2.length)byC[id]=l2;
             });
           } };
