@@ -12,9 +12,18 @@ fails = []
 
 # ── ① 資料檔語法 ──
 html = open(os.path.join(ROOT, "index.html"), encoding="utf-8", errors="replace").read()
-srcs = set(re.findall(r'src="([^"]+\.js)"', html))
-srcs |= set(re.findall(r'"([a-z_0-9]+\.js)"', html.split("_LAZYSRC", 1)[1][:400])) if "_LAZYSRC" in html else set()
-srcs = sorted(s for s in srcs if "://" not in s)
+# 掃「index.html 裡出現、且檔案真的存在」的每一個 .js 名稱。
+# ⚠ 舊寫法有兩個洞，兩個都會讓最該檢查的大檔溜過去（2026-08-01 全面稽核抓到）：
+#   ① 只認 src="xxx.js"：data.js／career.js 改成帶快取破壞參數（src="data.js?t=…"、document.write
+#      組出來的）之後就再也掃不到；bp_live_ui.js 同理。
+#   ② _LAZYSRC 用 split("_LAZYSRC",1)[1][:400] 取清單，但檔案裡**第一個** _LAZYSRC 出現在一行註解
+#      （「見下方 _LAZYSRC.builds + ensureBuilds」），於是取到的 400 字是註解本文，
+#      wiki_patches(3.0MB)／career(5.8MB)／leaguepedia(3.3MB)／soloq_builds(1.5MB)…
+#      這些延遲載入的大檔一個都沒被檢查。守門的意義就是擋半寫入／截斷的資料檔，漏掉它們等於沒守。
+# 新寫法：把所有字串字面值裡的 .js 名稱都撈出來（允許後面接 ?query），再用「檔案存在」過濾。
+# 多檢查幾個檔沒有壞處；漏檢才有。
+cand = set(re.findall(r'["\'(]\s*([A-Za-z0-9_\-./]+\.js)(?:\?[^"\')]*)?', html))
+srcs = sorted(s for s in cand if "://" not in s and os.path.isfile(os.path.join(ROOT, s)))
 node = "node"
 for s in srcs:
     p = os.path.join(ROOT, s)
