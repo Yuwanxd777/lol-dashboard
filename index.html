@@ -5770,24 +5770,28 @@ function sqHeroDetail(cid){
     const RACC={版本:g=>g.t,使用選手:g=>g.pkey,位置:g=>g.pos,勝敗:g=>g.won?1:0,
       "K/D/A":g=>(g.k+g.a)/Math.max(1,g.de),參與率:g=>g.kp,
       "金差@15":g=>g.gd15,"經差@15":g=>g.xd15,對位英雄:g=>cAb(g.och)||g.och,評分:g=>g.sc};
+    // 預設＝版本降冪（與職業版一致）。版本排序鍵取時間戳：時間戳的順序本來就等同
+    // 「先版本、同版再依日期」，不必再補第二鍵（2026-07-31 使用者指定）。
+    if(!V.recSort)V.recSort={k:"版本",d:-1};
     if(V.recSort&&RACC[V.recSort.k]){
-      const f=RACC[V.recSort.k], dd2=V.recSort.d;
+      const f=RACC[V.recSort.k], dd2=V.recSort.d, byPatch=V.recSort.k==="版本";
       list=[...list].sort((x,y)=>{const a2=f(x),b2=f(y);
-        if(a2==null&&b2==null)return 0; if(a2==null)return 1; if(b2==null)return -1;
-        return (typeof a2==="string"?String(a2).localeCompare(String(b2)):a2-b2)*dd2;});
+        if(a2==null&&b2==null)return byPatch?(x.t-y.t)*dd2:0;
+        if(a2==null)return 1; if(b2==null)return -1;
+        const r=(typeof a2==="string"?String(a2).localeCompare(String(b2)):a2-b2)*dd2;
+        return r||(byPatch?(x.t-y.t)*dd2:0);});
     }else list=[...list].sort((x,y)=>y.t-x.t);
     const dstr=t=>{const dt=new Date(t);return `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,"0")}-${String(dt.getDate()).padStart(2,"0")}`;};
     const cell=v=>`<td style="color:${v==null?"var(--tx2)":v>0?"#ff6b6b":v<0?"#37c871":""}">${v==null?"—":(v>0?"+":"")+Math.round(v)}</td>`;
     const scCol=s=>{if(s==null)return"#8aa0c0"; const v=Math.max(0,Math.min(100,s)); return `hsl(${Math.round(120*(1-v/100))},72%,58%)`;}; // 評分 0→100 綠→黃→紅（同積分逐場 scoreCol）
     recInner=`<div class="tblwrap"><table class="recTbl"><thead><tr>
-      <th>#</th>${["版本","使用選手","位置","勝敗","K/D/A","參與率","金差@15","經差@15","對位英雄","評分"].map(k2=>{const _s=V.recSort,_on=_s&&_s.k===k2,_up=_on&&_s.d>0;return `<th data-rs="${k2}" style="cursor:pointer"><span class="thL">${mLabel(k2)}<span class="sortArr${_on?" on":""}${_on?(_up?" asc":" desc"):""}">${_up?"▲":"▼"}</span></span></th>`;}).join("")}</tr></thead><tbody>${
+      <th>#</th>${["使用選手","版本","位置","勝敗","K/D/A","金差@15","經差@15","對位英雄","評分"].map(k2=>{const _s=V.recSort,_on=_s&&_s.k===k2,_up=_on&&_s.d>0;return `<th data-rs="${k2}" style="cursor:pointer"><span class="thL">${mLabel(k2)}<span class="sortArr${_on?" on":""}${_on?(_up?" asc":" desc"):""}">${_up?"▲":"▼"}</span></span></th>`;}).join("")}</tr></thead><tbody>${
       list.map((g,i)=>`<tr><td class="rk">${i+1}</td>
-        <td class="meta" title="${dstr(g.t)}">${patchOfTs(g.t)||"–"}</td>
         <td>${(()=>{const[tm,pl]=g.pkey.split("|");return `<span class="meta">${esc(teamFix(tm||""))}</span> ${esc(pl||"")}`;})()}</td>
+        <td class="meta" title="${dstr(g.t)}">${patchOfTs(g.t)||"–"}</td>
         <td>${posImg(g.pos)}</td>
         <td>${g.won?`<span style="color:#ff6b6b">${en?"W":"勝"}</span>`:`<span style="color:#6ea8ff">${en?"L":"敗"}</span>`}</td>
         <td>${g.k}/${g.de}/${g.a}</td>
-        <td>${g.kp==null?"—":g.kp+"%"}</td>
         ${cell(g.gd15)}${cell(g.xd15)}
         <td class="mvOpp" data-och="${esc(g.och)}"><span class="heroname">${g.och?cImg(g.och):""}${g.och?(cAb(g.och)||esc(chName(champId(g.och))||g.och)):"—"}</span></td>
         <td>${g.sc==null?"—":`<b style="color:${scCol(g.sc)}">${d1s(g.sc)}</b>`}</td></tr>`).join("")
