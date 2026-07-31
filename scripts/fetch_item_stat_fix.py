@@ -73,12 +73,33 @@ def clean_recipe(s):
     return re.sub(r"[\s＋+金＝=]", "", str(s))
 
 
+# 「不再提供◯◯」裡的屬性 → DDragon stats 欄位（查道具自身屬性用）
+STAT_KEY = {
+    "物防": ["FlatArmorMod"], "魔防": ["FlatSpellBlockMod"],
+    "物攻": ["FlatPhysicalDamageMod"], "魔攻": ["FlatMagicDamageMod"],
+    "生命": ["FlatHPPoolMod"], "魔力": ["FlatMPPoolMod"],
+    "生命回復": ["FlatHPRegenMod"], "魔力回復": ["FlatMPRegenMod"],
+    "移動速度": ["FlatMovementSpeedMod", "PercentMovementSpeedMod"],
+    "攻速": ["PercentAttackSpeedMod"], "爆擊率": ["FlatCritChanceMod"],
+}
+# 同上 → 說明文字裡的寫法（光環數值只寫在 description，stats 抓不到）
+STAT_DESC = {
+    "物防": ["物理防禦", "護甲", "物防"], "魔防": ["魔法防禦", "魔抗", "魔防"],
+    "物攻": ["攻擊力", "物理傷害", "物攻"], "魔攻": ["法術強度", "技能強度", "魔攻"],
+    "生命": ["生命"], "魔力": ["魔力", "法力"],
+    "生命回復": ["生命回復"], "魔力回復": ["魔力回復"],
+    "移動速度": ["移動速度", "移速"], "攻速": ["攻擊速度", "攻速"],
+    "法術吸血": ["法術吸血"], "冷卻縮減": ["冷卻縮減", "冷卻時間減免"],
+}
+_STAT_PAT = "|".join(sorted(STAT_DESC, key=len, reverse=True))
+
+
 def main():
     EX = load_extra()
     # 1) 收集需要補值的行
     #    todo    ＝「屬性：a, b, c。」只寫改完後、沒寫改動前
     #    recipes ＝「新增合成公式：X」而同一張卡沒有「舊合成公式」可配對
-    todo, recipes = {}, {}
+    todo, recipes, nolonger = {}, {}, {}
     for ver, secs in EX.items():
         if not isinstance(secs, dict):
             continue
@@ -105,10 +126,18 @@ def main():
                         todo.setdefault((major, minor), []).append((line, nm))
                     elif not has_old and re.match(r"^\s*新增合成公式[：:]", body):
                         recipes.setdefault((major, minor), []).append((line, nm))
-    print("需要補前後值的行：屬性 %d 行、落單合成公式 %d 行（涉及 %d 個版本）"
+                    elif "⇒" not in line and re.search(r"不再(提供|給予|附帶)", body):
+                        # 只收「沒寫數值」的（有寫的顯示層自己會改成 X ⇒ 0）
+                        tail = body[body.find("不再"):]
+                        if re.search(r"\d", tail):
+                            continue
+                        m3 = re.search(_STAT_PAT, tail)
+                        if m3:
+                            nolonger.setdefault((major, minor), []).append((line, nm, m3.group(0)))
+    print("需要補前後值的行：屬性 %d 行、落單合成公式 %d 行、不再提供 %d 行（涉及 %d 個版本）"
           % (sum(len(v) for v in todo.values()), sum(len(v) for v in recipes.values()),
-             len(set(todo) | set(recipes))))
-    if not todo and not recipes:
+             sum(len(v) for v in nolonger.values()), len(set(todo) | set(recipes) | set(nolonger))))
+    if not todo and not recipes and not nolonger:
         return
 
     # 2) DDragon 版本清單：每個 major.minor 取最後（最新）的三段號
@@ -149,22 +178,70 @@ def main():
             s += "＋%d 金" % base
         return s + (" = %d 金" % total if total else "")
 
+    def pick(major, minor):
+        """(改動後的版本, 改動前的版本)。DDragon 早年不是每個 minor 都有（沒有 3.8、3.14…），
+        找不到精確版本時：改動後＝第一個比它新的版本、改動前＝最後一個比它舊的版本。"""
+        older = [k for k in keys if k < (major, minor)]
+        if (major, minor) in last:
+            cur = last[(major, minor)]
+        else:
+            newer = [k for k in keys if k > (major, minor)]
+            cur = last[newer[0]] if newer else None
+        prev = last[older[-1]] if older else None
+        return cur, prev
+
     out, hit, miss, why = {}, 0, 0, {}
-    for (major, minor) in sorted(set(todo) | set(recipes)):
+    for (major, minor) in sorted(set(todo) | set(recipes) | set(nolonger)):
         rows = todo.get((major, minor), [])
-        if (major, minor) not in last:
-            n2 = len(rows) + len(recipes.get((major, minor), []))
-            print("  %d.%d：DDragon 沒有這個版本，跳過（%d 行）" % (major, minor, n2))
-            miss += n2
-            why.setdefault("DDragon 沒有這個版本", []).append("%d.%d（%d 行）" % (major, minor, len(rows)))
-            continue
-        cur = last[(major, minor)]
-        i = keys.index((major, minor))
-        prev = last[keys[i - 1]] if i > 0 else None
-        if not prev:
-            miss += len(rows) + len(recipes.get((major, minor), []))
+        n_all = len(rows) + len(recipes.get((major, minor), [])) + len(nolonger.get((major, minor), []))
+        cur, prev = pick(major, minor)
+        if not cur or not prev:
+            print("  %d.%d：DDragon 沒有可比對的版本，跳過（%d 行）" % (major, minor, n_all))
+            miss += n_all
+            why.setdefault("DDragon 沒有可比對的版本", []).append("%d.%d（%d 行）" % (major, minor, n_all))
             continue
         (An, Ai), (Bn, Bi) = items_of(prev), items_of(cur)
+        # ── 「不再提供◯◯。」但沒寫本來多少（2026-07-31 使用者判例：
+        #    軍團聖盾 13.10「唯一光環 – 軍團：不再提供物防。」）
+        #    先查道具自身屬性（stats），查不到再從前一版的說明文字撈光環數值
+        for line, nm, stat in nolonger.get((major, minor), []):
+            it_a, it_b = An.get(nm), Bn.get(nm)
+            if not it_a:
+                miss += 1
+                why.setdefault("不再提供：前一版沒有這件道具", []).append("%d.%d %s" % (major, minor, nm))
+                continue
+            # 講「光環／靈氣」的行不能用道具自身屬性回答：軍團聖盾自己 +20 物防，
+            # 但光環給友軍的是 10 → 只從說明文字裡「光環／靈氣」之後那一段找（2026-07-31 判例）
+            is_aura = bool(re.search(r"光環|靈氣|aura", line, re.I))
+            val = ""
+            if not is_aura:
+                sa, sb = (it_a.get("stats") or {}), ((it_b or {}).get("stats") or {})
+                for k in (STAT_KEY.get(stat) or []):
+                    va, vb = num(sa.get(k, 0), k), num(sb.get(k, 0), k)
+                    if va and not vb:
+                        val = fmt(va) + ("%" if k in PCT else "")
+                        break
+            if not val:                                   # 光環類：數值只寫在說明文字裡
+                desc = re.sub(r"<[^>]+>", " ", it_a.get("description") or "")
+                desc = re.sub(r"\s+", " ", desc)
+                if is_aura:
+                    m0 = re.search(r"(唯一)?\s*(光環|靈氣)", desc)
+                    desc = desc[m0.end():] if m0 else ""
+                for word in (STAT_DESC.get(stat) or []):
+                    m2 = re.search(r"([\d.]+)\s*(%?)\s*點?\s*" + word, desc)
+                    if m2:
+                        val = m2.group(1) + m2.group(2)
+                        break
+            if not val:
+                miss += 1
+                why.setdefault("不再提供：DDragon 查不到原本數值", []).append("%d.%d %s %s" % (major, minor, nm, stat))
+                continue
+            p = line.find("｜")
+            body = line[p + 1:]
+            new_body = re.sub(r"不再(提供|給予|附帶)[^｜。，,]*[。.]?$", "%s：%s ⇒ 0" % (stat, val), body)
+            out[line] = line[:p + 1] + new_body
+            hit += 1
+            print("   %s %s → %s：%s ⇒ 0" % (nm, stat, stat, val))
         # ── 落單的「新增合成公式：X」（同一張卡沒有「舊合成公式」可配對）：
         #    去前一版 DDragon 撈當時的公式，補成「舊 ⇒ 新」，recipeDir 才判得出方向
         #    （2026-07-31 使用者判例：智慧末刃 13.08「新增合成公式：反曲弓＋抗魔斗篷＋短劍＋700 金 = 2400 金」）
