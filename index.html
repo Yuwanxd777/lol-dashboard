@@ -826,6 +826,7 @@ window.WIKI_PATCHES=window.WIKI_PATCHES||{}; window.WIKI_EXTRA=window.WIKI_EXTRA
 <script src="team_collide.js" onerror="window.TEAM_COLLIDE=null"></script>
 <script src="team_abbr_wiki.js" onerror="window.LP_TABBR=null"></script>
 <script src="obj_stats.js" onerror="window.OBJ_STATS=null"></script>
+<script src="item_nonsr.js" onerror="window.ITEM_NONSR={}"></script>
 <script src="rune_icons.js" onerror="window.RUNE_ICONS=null"></script>
 <script src="league_struct.js" onerror="window.LEAGUE_STRUCT=null"></script>
 <script src="lpl_groups.js" onerror="window.LPL_GROUPS=null"></script><script src="lck_groups.js" onerror="window.LCK_GROUPS=null"></script><script src="patch_dir_fix.js" onerror="window.PATCH_DIR_FIX=null"></script><!-- 判向覆核判例(逐行) --><!-- LCK Rounds 分組(scripts/fetch_lck_groups.py，成員+組名皆取自 Wiki Participants) --><!-- LPL 常規賽分組(scripts/fetch_lpl_groups.py，成員=同組互打連通分量、組名=Wiki AutoStandings) -->
@@ -6130,10 +6131,16 @@ function renderChgYear(box){
         const purl=(pd&&pd._url)||wikiUrl[pk]||"";
         const mechLines=[], laneML={};
         // 機制也一起跑 resolveType：抓官方公告分錯區、實為道具/符文/召喚師技能的行
+        // 當年不屬於召喚峽谷的道具（扭曲叢林／統治戰場／決勝慶典）不列：wiki 版本頁把各模式的
+        // 改動寫在一起，而這條路只有文字沒有 id → 用逐年名單擋（2026-07-31 使用者：光之使者、
+        // 海克斯清除者根本不是召喚峽谷的道具）。名單分年份是因為中譯會撞名（見 fetch_item_nonsr.py）
+        const _NSR=(window.ITEM_NONSR||{})[String(curYear)]||{};
         ["道具","符文","召喚師技能","機制"].forEach(cat=>{
           const src=cat==="機制"?(MECH_LEFT[pk]||ex.機制||[]):(ex[cat]||[]);
           src.forEach(l=>{
             if(COSM.test(l))return; // 美術/裝飾類不列
+            {const _i0=l.indexOf("｜"); const _n0=(_i0>0?l.slice(0,_i0):"").replace(/^\[[^\]]*\]\s*/,"").replace(/\s*[（(][^（）()]*[）)]\s*$/,"").trim();
+             if(_n0&&_NSR[_n0])return;}
             const i=l.indexOf("｜");
             let name=i>0?l.slice(0,i):cat; const body=i>0?l.slice(i+1):l;
             name=name.replace(/^\[[^\]]*\]\s*/,"");
@@ -9124,11 +9131,16 @@ function render(){
         S.g=[]; S.n=0; S.fp=[]; S.side=[]; S.meta=[]; S.tm=[]; S.pk1={}; S.pk2={}; S.uid=0;
         saveState(); rerender(); };
       fr.parentNode.insertBefore(rbp,fr);
-      const _bmCur=(V.bpMode||"global")==="global"?"global":"normal";
-      const mb=segEl("bpModeSeg",[["global",LANG==="en"?"🌐 Fearless":"🌐 全局","全局模式：PICK 過的英雄從角色池移除（Fearless）"],
-                                  ["normal",LANG==="en"?"Normal":"一般","一般模式：PICK 不移除角色池英雄"]],_bmCur,
-        v=>{ if(v===_bmCur)return; V.bpMode=v; saveState(); rerender(); },"","order:63");
-      fr.parentNode.insertBefore(mb,fr);
+      // 全局 BP（Fearless）是 2025 才上路的賽制 → 2024 以前不顯示這顆，並強制回到一般模式
+      //（2026-07-31 使用者指定）
+      if(+curYear<2025){ if((V.bpMode||"global")==="global"){V.bpMode="normal"; saveState();} }
+      else{
+        const _bmCur=(V.bpMode||"global")==="global"?"global":"normal";
+        const mb=segEl("bpModeSeg",[["global",LANG==="en"?"🌐 Fearless":"🌐 全局","全局模式：PICK 過的英雄從角色池移除（Fearless）"],
+                                    ["normal",LANG==="en"?"Normal":"一般","一般模式：PICK 不移除角色池英雄"]],_bmCur,
+          v=>{ if(v===_bmCur)return; V.bpMode=v; saveState(); rerender(); },"","order:63");
+        fr.parentNode.insertBefore(mb,fr);
+      }
       // 🎯 新增近期積分：把兩隊每位選手最近兩週積分用過的英雄加進其角色池(綠框標記)
       // 積分(soloq)資料只有當年 → 歷史年份不顯示此按鈕（也強制關閉，避免帶著舊狀態）
       if(isHistYear()){ V.bpSoloqPool=false; }
