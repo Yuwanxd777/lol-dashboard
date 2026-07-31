@@ -2230,7 +2230,7 @@ const STATIC_TABBR={
 "hotsoggydecimate":"HSD","hwa gaming babs":"HWAB","team turquality blue":"TQB","figjam":"FIGJAM","team exile5 eclipse":"EXL","only gragas":"ONG",
 "ultimate":"ULT","team fat rabbit":"TFR","team kthxbai":"KTX","gamesatis":"GS",
 "mig blitz":"MiGB","najin shield":"NJSH","najin sword":"NJS",
-"sk telecom t1 1":"SKT1","sk telecom t1 2":"SKT2","team alternate":"ALT",
+"sk telecom t1 1":"SKT1","sk telecom t1 2":"SKT","team alternate":"ALT",
 "lyon gaming (2013 latin american team)":"LYN","insidious gaming":"INS","logitech g fighter":"LGF",
 "alterego gaming":"AEG","ascension":"ASC","imperium":"IMP","kabum! orange":"KBO","team strix":"STX",
 "tt gaming":"TT", // 2026 EWC 中國區資格賽名單（events_extra.js）用 Leaguepedia 全名，資料庫沒這隊 → 補縮寫
@@ -2828,7 +2828,7 @@ const eventsTreeHTML=()=>{
   const TEAM_LINEAGE=[
     ["mvp white","mvp ozone","samsung ozone","samsung white"],   // ＝ SSW
     ["mvp blue","samsung blue"],                                 // ＝ SSB
-    ["sk telecom t1 2","sk telecom t1 k"],                       // Faker 那隊
+    ["sk telecom t1 2","sk telecom t1","sk telecom t1 k"],       // Faker 那隊（＝SKT，2013 世界賽登錄名沒有編號）
     ["sk telecom t1 1","sk telecom t1 s"],
   ];
   const _LIN={}; TEAM_LINEAGE.forEach(g2=>g2.forEach(n=>{_LIN[n]=g2;}));
@@ -3439,12 +3439,12 @@ function calcPlayers(pos,splitTeam){
       if(duo){
         const lane=String(side?r[C.red_Lane]:r[C.blue_Lane]);
         const seg=lane.split("|"); if(seg.length<4)continue;
-        key=B(C.blue_teamname)+"§"+seg[2]+" & "+seg[3];
+        key=teamKeyOf(B(C.blue_teamname))+"§"+seg[2]+" & "+seg[3];
         isMain=o.pid===mainPid;
         if(isMain){ const a=get(key); a.champs.add(seg[0]+"|"+seg[1]); a.posLabel=pos; }
       }else{
         const p=B(C.blue_playername); if(!p)continue;
-        key=splitTeam?B(C.blue_teamname)+"§"+p:p; isMain=true; // splitTeam：同名選手在不同隊分開計算（選手分頁用；季中轉隊分兩列）
+        key=splitTeam?teamKeyOf(B(C.blue_teamname))+"§"+p:p; isMain=true; // splitTeam：同名選手在不同隊分開計算（選手分頁用；季中轉隊分兩列）。用 teamKeyOf 而非原始登錄名，同隊多登錄名才不會拆成重複兩列
         const a=get(key);
         a.champs.add(B(C.blue_champion));
         a.posCnt[o.pid]=(a.posCnt[o.pid]||0)+1;
@@ -6484,7 +6484,10 @@ function bindCombo(id,options,cur,cb,abbr){ // options:[{v,l,a,d,n}] v=值 l=縮
   const inp=document.getElementById(id),dl=document.getElementById(id+"dl");
   if(options.some(o=>o.n!=null))options=[...options].sort((a,b)=>(b.n||0)-(a.n||0)); // 鐵則：清單依範圍(場數)多→少
   const lc={}; if(abbr)options.forEach(o=>{const l=o.l||o.v; lc[l]=(lc[l]||0)+1;});
-  const disp=v=>{ if(!abbr||!v)return v||""; const o=options.find(x=>x.v===v); if(!o)return v; const l=o.l||o.v; return lc[l]>1?o.v:l; }; // 縮寫唯一→顯示縮寫；縮寫重複→顯示全名
+  const _lcv=v=>String(v).toLowerCase();
+  const disp=v=>{ if(!abbr||!v)return v||"";
+    const o=options.find(x=>x.v===v)||options.find(x=>(x.a||[]).some(s=>_lcv(s)===_lcv(v))); // 併名後舊存檔的登錄名靠別名回查
+    if(!o)return v; const l=o.l||o.v; return lc[l]>1?o.v:l; }; // 縮寫唯一→顯示縮寫；縮寫重複（不同隊撞縮寫）才退回全名
   // datalist 顯示縮寫/顯示名(l)為可選值、全名(或 d)為輔助說明 → 縮寫/全名/別名都可搜；瀏覽器會同時比對 value 與說明文字
   dl.innerHTML=options.map(o=>`<option value="${esc(o.l||o.v)}">${esc(o.l&&o.l!==o.v?o.v:(o.d||""))}</option>`).join("");
   fitComboW(inp,options.map(o=>abbr?disp(o.v):o.v));
@@ -6503,7 +6506,13 @@ function bindCombo(id,options,cur,cb,abbr){ // options:[{v,l,a,d,n}] v=值 l=縮
 // 戰隊 combo 選項（全站共用）：l=縮寫(碰撞隊帶聯賽碼)、a=原始縮寫別名、n=場數 → 清單多→少、縮寫/全名都可搜
 function teamComboOpts(teams){
   const cnt={}; for(const o of GAMES){ const b=o.raw[C.blue_teamname],r=o.raw[C.red_teamname]; if(b)cnt[b]=(cnt[b]||0)+1; if(r)cnt[r]=(cnt[r]||0)+1; }
-  return teams.map(t=>({v:t,l:tAbShow(t),a:[tAb(t)],n:cnt[t]||0}));
+  // 同一支隊的多個登錄名（SK Telecom T1／SK Telecom T1 2）併成一個選項：篩選本來就用 teamKeyOf
+  // 比對、兩個選項篩出來的結果一模一樣，清單列兩次只會讓人以為是兩支隊（2026-07-31 使用者）
+  const m=new Map();
+  for(const t of teams){ const k=teamKeyOf(t), n=cnt[t]||0, e=m.get(k);
+    if(!e){ m.set(k,{v:t,l:tAbShow(t),a:[tAb(t),t],n,_top:n}); }
+    else { e.n+=n; e.a.push(t); if(n>e._top){ e._top=n; e.v=t; e.l=tAbShow(t); } } } // 代表名＝場數最多的那個登錄名
+  return [...m.values()];
 }
 // 英雄 combo 選項（全站共用）：v=資料名、l=顯示名(依網站語言)、a=DDragon id＋英文名＋中文名(打哪種都能中)、n=場數
 function champComboOpts(list,cnt){
@@ -7537,7 +7546,7 @@ function render(){
       // 參考官方改動版本＝與版本焦點共用同一規則（refNotesPks：嚴格窗口 (前一個有比賽的版本, 最後一場比賽的版本]）
       const notesPks=refNotesPks();
       CHGV=notesPks.join("、");
-      notesPks.forEach(pk=>{const pd=PN[pk];Object.keys(pd).forEach(k=>{
+      notesPks.forEach(pk=>{const pd=PN[pk]; if(!pd)return; Object.keys(pd).forEach(k=>{
         if(k.startsWith("_"))return;
         const lines=pd[k]; if(!Array.isArray(lines)||!lines.length)return;
         const id=champId(k); if(!id||!D2[id])return;
