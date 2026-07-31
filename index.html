@@ -4211,7 +4211,8 @@ function applyPatchLineFix(){
     return _loose[_lk(l)]; };
   const _fix=arr=>{ let ch=false; const out=[];
     for(const l of arr){ const r=_get(l);
-      if(r===undefined){const l2=l.replace(/^屬性(?=｜)/,"基礎能力值"); if(l2!==l)ch=true; out.push(l2); continue;}
+      // 「屬性」與官方公告沒翻到的「Base Stats」都統一成「基礎能力值」（2026-07-31 使用者回報 23.07 李星）
+      if(r===undefined){const l2=l.replace(/^(屬性|Base\s*Stats)(?=｜)/i,"基礎能力值"); if(l2!==l)ch=true; out.push(l2); continue;}
       ch=true; if(r)out.push(r); }
     return ch?out:null; };
   // 官方公告（patches.js／LOL_PATCHES）也要套：重寫表原本只作用在 wiki，但有些行只出現在官方公告
@@ -4974,7 +4975,10 @@ const zhOnly=(pk,ls)=>{
 const addKey=(id,l)=>{
   const i=l.indexOf("｜"); if(i<=0)return l;
   let sk=l.slice(0,i).trim();
-  if(/（[QWER被]|\([QWER]\)/.test(sk))return l;      // 已有按鍵標註
+  // 已有按鍵標註 → 不再查表，但分隔符兩側的空白還是要壓平：
+  // DDragon 的李星寫「虎嘯龍吟 ／ 震驚百里」有空格、Ambessa 寫「暗襲／裂斬」沒有，
+  // 不壓平的話同一顆技能會因為差一個空格被拆成兩個區塊（2026-07-31 使用者回報）
+  if(/（[QWER被]|\([QWER]\)/.test(sk)){ const s2=sk.replace(/\s*[／\/｜]\s*/g,"／"); return s2===sk?l:s2+l.slice(i); }
   // 純英文技能名先換成中文（中文模式才換；英文模式維持原文）
   const _lc=_skKey(sk);
   if(LANG!=="en"&&!/[一-鿿]/.test(sk)){ const zh=(SKZH[id]||{})[_lc]; if(zh)sk=zh; }
