@@ -2617,7 +2617,9 @@ function initData(){
   // 而版本改動／生涯聚合／積分逐場那些後續步驟還要跑很久（2026-07-31 使用者回報還是寫 10:00）
   document.getElementById("meta").textContent=`資料時間 ${(_pub&&window.PUSH_TIME)?window.PUSH_TIME:((M&&M.updated)||D.fetched_at)}`;
   const ys=document.getElementById("yearSel");
-  ys.innerHTML=(M.years.length?M.years:[curYear]).map(y=>`<option ${+y===+curYear?"selected":""}>${y}</option>`).join("");
+  // 年份清單一律「近→遠」（2026-07-31 使用者指定）：manifest 存的是舊→新，這裡排序後再列，
+  // 常用的今年永遠在最上面。不動 M.years 本身，其他地方（版本/生涯範圍）仍拿得到原順序。
+  ys.innerHTML=(M.years.length?[...M.years].sort((a,b)=>b-a):[curYear]).map(y=>`<option ${+y===+curYear?"selected":""}>${y}</option>`).join("");
 }
 const LG_GROUP={ "中韓":["LCK","LPL"], "歐美":["LEC","LCS"], // 使用者定義：中韓=LCK+LPL、歐美=LEC+LCS
                  "國際賽":["FST","MSI","EWC","ENC","WLDs","RR","IEM","MSC",
