@@ -64,6 +64,9 @@ JOBS = [
     (2013, "LCO", "錦標賽", 0, "Riot Season 3 Oceanic Championship/Picks and Bans",
      "Riot Season 3 Oceanic Championship"),
     (2013, "LCL", "錦標賽", 0, "2013 Season CIS Championship/Picks and Bans", "2013 Season CIS Championship"),
+    # 2015 GPL：MatchHistory 是 0 局，但 PB 頁有（春 96／夏 49）
+    (2015, "GPL", "春季", 0, "2015 GPL Spring/Picks and Bans", "2015 GPL Spring"),
+    (2015, "GPL", "夏季", 0, "2015 GPL Summer/Picks and Bans", "2015 GPL Summer"),
     # 土耳其：冬／春／夏三個 Tournament 沒有 PB 子頁，但年度總決賽 Championship 有（21 局）。
     # 使用者提供 2026-07-31：Gamescom 外卡賽的土耳其席次就是「Season 3 Turkish Championship winner」
     (2013, "TCL", "錦標賽", 0, "Riot Games Turkey/2013 Season/Championship/Picks and Bans",
@@ -100,7 +103,7 @@ def pb_games(html):
       class 後面還會多掛 pb-border 之類的修飾 → 比對要寬鬆，不能寫死整串 class。
     """
     out = []
-    for t in re.findall(r'<table[^>]*class="[^"]*wikitable pb[^"]*"[^>]*>.*?</table>', html, re.S):
+    for _ti, t in enumerate(re.findall(r'<table[^>]*class="[^"]*wikitable pb[^"]*"[^>]*>.*?</table>', html, re.S)):
         cls = re.search(r'class="([^"]*)"', t).group(1)
         mg = re.search(r"pb-game-(\d+)", cls)
         teams = re.findall(r'<a href="/wiki/[^"]+" class="[^"]*\bt[A-Z]{2,}\b[^"]*" title="([^"]+)"', t)
@@ -128,7 +131,7 @@ def pb_games(html):
         # 不然那個字串會變成資料庫裡的隊名，縮寫表永遠查不到、篩選列只好顯示全名
         #（2026-07-31 使用者回報：手動改的縮寫沒套用、還是出現全名）
         _tn = lambda s: re.sub(r"\s*\(page does not exist\)\s*$", "", _html.unescape(s)).strip()
-        out.append({"blue": fix_case(_tn(teams[0])), "red": fix_case(_tn(teams[1])),
+        out.append({"blue": fix_case(_tn(teams[0])), "red": fix_case(_tn(teams[1])), "idx": _ti,
                     "game": int(mg.group(1)) if mg else 1, "win": win, "bp": bp})
     return out
 
@@ -150,6 +153,44 @@ def dates_of(html):
         if len(uniq) >= 2:
             out.append((d, uniq[0], uniq[1]))
     return out
+
+
+def bracket_pairs(html):
+    """主頁季後賽對戰表的配對 {frozenset(隊A,隊B), ...}。
+
+    2013 這些小賽事的小組賽與季後賽寫在同一個 PB 頁，wiki 也沒有獨立的 Playoffs 賽事
+    → 用主頁 bracket 的對戰組合來認季後賽（使用者 2026-07-31：CBLOL 也有季後賽，在底下有寫）。
+    """
+    tms = []
+    for m in re.finditer(r'<div class="bracket-team[^"]*"[^>]*>(.*?)(?=<div class="bracket-team|</div>\s*</div>)',
+                         html, re.S):
+        t = re.search(r'title="([^"]+)"', m.group(1))
+        if t:
+            tms.append(re.sub(r"\s*\(page does not exist\)\s*$", "", _html.unescape(t.group(1))).strip())
+    out = set()
+    for i in range(0, len(tms) - 1, 2):      # bracket 內兩兩成對
+        a, b = _norm(tms[i]), _norm(tms[i + 1])
+        if a and b and a != b:
+            out.add(frozenset((a, b)))
+    return out
+
+
+def mark_po(games, pairs):
+    """由後往前掃：符合對戰表配對的局標成季後賽。
+
+    小組賽也可能出現同樣的兩隊 → 連續 3 局都對不上就停，不再往前標。
+    """
+    if not pairs:
+        return 0
+    n, miss = 0, 0
+    for g in reversed(games):
+        if frozenset((_norm(g["blue"]), _norm(g["red"]))) in pairs:
+            g["po"] = 1; n += 1; miss = 0
+        else:
+            miss += 1
+            if miss >= 3:
+                break
+    return n
 
 
 def span_of(html):
@@ -208,6 +249,15 @@ def build(job, force=False):
     try:
         mh = parse_page(main_page, force)
         first, last = span_of(mh)
+        _npo = mark_po(games, bracket_pairs(mh))
+        if _npo >= len(games):
+            # 全部都符合對戰表＝整個賽事本來就是淘汰賽（大洋洲／CIS／土耳其／東南亞錦標賽），
+            # 那就沒有「例行賽 vs 季後賽」可言 → 不標（2026-07-31）
+            for _g in games:
+                _g.pop("po", None)
+            _npo = 0
+        if _npo:
+            print(f"    季後賽（依主頁對戰表）：{_npo} 局")
         for d, a, b in dates_of(mh):
             dmap.setdefault(frozenset((_norm(a), _norm(b))), []).append(d)
     except Exception as e:
@@ -242,12 +292,15 @@ def build(job, force=False):
         # 都是 saigon，gameid 會撞在一起互相覆蓋（實測 GPL 春季 56 局只剩 22 局）
         # 再帶上「第幾次遭遇」：賽事只有三四天時，同一組隊伍多次對戰的推得日期會被夾在同一天，
         # 光靠 日期＋局號 還是會撞（CBLOL 19 局少 1、CIS 7 局少 1）
-        gid = f"wikipb_{key}_{_norm(g['blue'])}_{_norm(g['red'])}_{date}_{g['game']}_{i}"
+        # 用「表格在頁面中的序號」當識別，保證唯一：局號會重複（同一頁多個系列都各有第 2 局），
+        # 光靠 隊伍＋日期＋局號＋遭遇序 還是會撞（實測 LPL 2013 夏季季後賽 7 局只進 5 局）
+        gid = f"wikipb_{key}_{g.get('idx', i)}_{_norm(g['blue'])}_{_norm(g['red'])}_{date}_{g['game']}"
         for side, pid in (("blue", 100), ("red", 200)):
             r = [""] * len(hdr)
             put = lambda k, v: r.__setitem__(ix[k], "" if v is None else str(v)) if k in ix else None
             put("gameid", gid); put("datacompleteness", "partial")
-            put("league", lg); put("year", year); put("split", split); put("playoffs", po)
+            put("league", lg); put("year", year); put("split", split)
+            put("playoffs", 1 if g.get("po") else po)
             put("date", date + " 00:00:00"); put("game", g["game"]); put("participantid", pid)
             put("side", side.capitalize()); put("position", "team")
             put("teamname", g[side])

@@ -2445,6 +2445,8 @@ const lgName=l=>{ if(l&&typeof l==="string"&&/^(LPL|LCK)#/.test(l))return l.slic
 const d1s=v=>(+v).toFixed(1).replace(/\.0$/,""); // 一位小數；小數為 0 就不顯示小數點（3.0→3、2.5→2.5）
 const lgTagOn=()=>F.league==="ALL"||!!LG_GROUP[F.league]||F.league==="EWCQ"; // 全部或群組篩選＝混合聯賽 → 名稱旁要標賽區
 const stripRgnParen=s=>String(s).replace(/（[^（）]*）\s*$/,""); // 名稱旁已有賽區色塊(lgChip)時，去掉碰撞縮寫尾端重複的（聯賽碼）；選手名不以（）結尾＝無操作
+// 賽段顯示名：資料值用 " PO" 標季後賽，畫面一律寫成「◯◯季後賽」（2026-07-31 使用者指定）
+const spDisp=sp=>{const t=String(sp||""); return / PO$/.test(t)?t.replace(/ PO$/,"")+(LANG==="en"?" Playoffs":"季後賽"):t;};
 const lgChip=l=>{if(!l)return `<span class="meta">—</span>`;const c=LGC[l]||"#8a93a6";
   return `<span class="lg" style="background:${c}22;color:${c}">${lgName(l)}</span>`;};
 
@@ -3394,12 +3396,16 @@ function calcPlayers(pos,splitTeam){
       }
       const a=get(key);
       a.team=B(C.blue_teamname);
+      const _acc0=(k,v)=>{ if(String(v==null?"":v).trim()===""){return;} a[k]=(a[k]||0)+(num(v)||0); a[k+"N"]=(a[k+"N"]||0)+1; };
       a.lgCnt=a.lgCnt||{}; a.lgCnt[o.league]=(a.lgCnt[o.league]||0)+1; // 所屬聯賽＝出賽最多的
-      a.dpm+=num(B(C.blue_dpm))||0; a.ds+=num(B(C.blue_damageshare))||0;
-      a.dt+=num(B(C.blue_damagetakenperminute))||0; a.vs+=num(B(C.blue_vspm))||0;
-      a.k+=num(B(C.blue_kills))||0; a.d+=num(B(C.blue_deaths))||0; a.a2+=num(B(C.blue_assists))||0;
-      a.tk+=num(B(C.blue_teamkills))||0; a.td+=num(B(C.blue_teamdeaths))||0;
-      a.dmg+=num(B(C.blue_damagetochampions))||0; a.gold+=num(B(C.blue_totalgold))||0;
+      // 逐欄位記「有沒有值」：2013 的 wiki 資料有 gamelength 卻沒有其餘統計，
+      // 用總和是否為 0 判斷會分不出「沒資料」與「真的是 0」（2026-07-31）
+      const _pa=(k,v)=>{ if(String(v==null?"":v).trim()===""){return;} a[k]=(a[k]||0)+(num(v)||0); a[k+"N"]=(a[k+"N"]||0)+1; };
+      _pa("dpm",B(C.blue_dpm)); _pa("ds",B(C.blue_damageshare));
+      _pa("dt",B(C.blue_damagetakenperminute)); _pa("vs",B(C.blue_vspm));
+      _pa("k",B(C.blue_kills)); _pa("d",B(C.blue_deaths)); _pa("a2",B(C.blue_assists));
+      _pa("tk",B(C.blue_teamkills)); _pa("td",B(C.blue_teamdeaths));
+      _pa("dmg",B(C.blue_damagetochampions)); _pa("gold",B(C.blue_totalgold));
       a.gl=(a.gl||0)+(num(r[C.blue_gamelength])||0); // gamelength 是全場欄位，不分側
       const k10=num(B(C.blue_killsat10));
       if(k10!=null){ a.kdaN++; a.k10+=k10; a.a10+=num(B(C.blue_assistsat10))||0; a.d10+=num(B(C.blue_deathsat10))||0;
@@ -3433,17 +3439,17 @@ function calcPlayers(pos,splitTeam){
       選手:tAb(a.team)+" "+a.name, _lg:(Object.entries(a.lgCnt||{}).sort((x,y)=>y[1]-x[1])[0]||[""])[0], 位置:a.posLabel||"", 場數:a.n, 勝率:a.w/a.n,
       // 這幾項全都要「有資料才給值」：2013 這種只有 BP／勝負的年份，分子分母都是 0，
       // 算出來是 0% 會被誤讀成「真的是 0%」（2026-07-31 使用者三度回報）
-      參與率:a.tk?(a.k+a.a2)/a.tk:null, "贏線率(金差@10)":a.g10N?a.winL/a.g10N:null,
+      參與率:a.tkN?(a.k+a.a2)/Math.max(1,a.tk):null, "贏線率(金差@10)":a.g10N?a.winL/a.g10N:null,
       後選率:a.lateN?(duo?a.late/a.lateN:a.late/a.n):null,
-      輸出比:a.ds?a.ds/a.n:null, 死亡比:a.td?a.d/a.td:null,
+      輸出比:a.dsN?a.ds/a.n:null, 死亡比:a.tdN?a.d/Math.max(1,a.td):null,
       首殺率:a.fbN?a.fb/a.fbN:null, 被首殺率:a.fvN?a.fv/a.fvN:null,
-      金轉傷:a.gold?a.dmg/a.gold:null, 分均輸出:a.dpm?a.dpm/a.n:null, 分均承傷:a.dt?a.dt/a.n:null,
-      分均金錢:(a.gl&&a.gold)?a.gold/(a.gl/60):null,
+      金轉傷:(a.goldN&&a.gold)?a.dmg/a.gold:null, 分均輸出:a.dpmN?a.dpm/a.n:null, 分均承傷:a.dtN?a.dt/a.n:null,
+      分均金錢:(a.glN&&a.goldN&&a.gl)?a.gold/(a.gl/60):null,
       "經驗差@10":a.g10N?a.xd10/a.g10N:null, "CS差@10":a.g10N?(a.cd10||0)/a.g10N:null,
       "金差@10":gd10,
       中期金差:(gd10!=null&&gd25!=null)?gd25-gd10:null,
-      分均視分:a.vs?a.vs/a.n:null, "KDA差@10":kda10, KDA:(a.k||a.a2||a.d)?(a.k+a.a2)/Math.max(1,a.d):null,
-      "K/D/A":(a.k||a.a2||a.d)?`${d1s(a.k/a.n)} / ${d1s(a.d/a.n)} / ${d1s(a.a2/a.n)}`:"",
+      分均視分:a.vsN?a.vs/a.n:null, "KDA差@10":kda10, KDA:(a.kN||a.a2N||a.dN)?(a.k+a.a2)/Math.max(1,a.d):null,
+      "K/D/A":(a.kN||a.a2N||a.dN)?`${d1s(a.k/a.n)} / ${d1s(a.d/a.n)} / ${d1s(a.a2/a.n)}`:"",
       角色池:a.champs.size
     });
   }
@@ -3500,21 +3506,23 @@ function calcTeams(vsTeam){
       const B=i=>r[i+(side?RB:0)], O=i=>r[i+(side?0:RB)];
       const a=get(teamKeyOf(team)); if(!a.full){a.full=team; a.disp=tAbShow(team);} // 合併鍵：縮寫（碰撞縮寫帶聯賽碼分開）；disp＝表格顯示名
       const won=o.result===(side?2:1);
+      const _acc0=(k,v)=>{ if(String(v==null?"":v).trim()===""){return;} a[k]=(a[k]||0)+(num(v)||0); a[k+"N"]=(a[k+"N"]||0)+1; };
       a.lgCnt=a.lgCnt||{}; a.lgCnt[o.league]=(a.lgCnt[o.league]||0)+1; // 所屬聯賽＝出賽最多的
       a.n++; if(won)a.w++;
       if(side){a.rn=(a.rn||0)+1; if(won)a.rw=(a.rw||0)+1;}
       else{a.bn=(a.bn||0)+1; if(won)a.bw=(a.bw||0)+1;}
-      a.fbk=(a.fbk||0)+(num(B(C.blue_firstblood))||0);
+      _acc0("fbk",B(C.blue_firstblood));
       const dw=+r[C.decider_winner]||0;
       if(dw>0){ a.dwN++; if(dw===(side?2:1))a.dw++; }
-      // 這局有沒有逐局統計（PB 來源的比賽只有隊名／BP／勝負，其餘全空）→ 全隊都沒有的話，
-      // 那些欄位要顯示 –，不能顯示 0（2026-07-31 使用者：不要整串都寫 0）
-      if(String(B(C.blue_gamelength)||"")!==""||String(B(C.blue_totalgold)||"")!=="")a.stN=(a.stN||0)+1;
-      a.gl+=num(B(C.blue_gamelength))||0;
-      a.k+=num(B(C.blue_teamkills))||0; a.d+=num(B(C.blue_teamdeaths))||0;
-      a.ass+=num(B(C.blue_assists))||0; a.gold+=num(B(C.blue_totalgold))||0;
-      a.dmg+=num(B(C.blue_damagetochampions))||0; a.vs+=num(B(C.blue_vspm))||0;
-      a.ft+=num(B(C.blue_firsttower))||0;
+      // **逐欄位**記「這局有沒有值」：不能用一個共用旗標，因為 2013 的 wiki 資料有 gamelength
+      // 卻沒有擊殺／金錢／輸出／首殺／首塔／小龍 → 共用旗標會被 gamelength 撐起來，那些欄位
+      // 還是顯示 0（2026-07-31 使用者第三次回報：首殺／首塔／小龍／分均輸出／視野分數還是整排 0）
+      const _acc=(k,v)=>{ if(String(v==null?"":v).trim()===""){return;} a[k]=(a[k]||0)+(num(v)||0); a[k+"N"]=(a[k+"N"]||0)+1; };
+      _acc("gl",B(C.blue_gamelength));
+      _acc("k",B(C.blue_teamkills)); _acc("d",B(C.blue_teamdeaths));
+      _acc("ass",B(C.blue_assists)); _acc("gold",B(C.blue_totalgold));
+      _acc("dmg",B(C.blue_damagetochampions)); _acc("vs",B(C.blue_vspm));
+      _acc("ft",B(C.blue_firsttower));
       const fmt=B(C.blue_firstmidtower); if(fmt!==""||O(C.blue_firstmidtower)!==""){a.fmtN++; a.fmt+=+fmt||0;}
       const vg=num(B(C.blue_void_grubs)), ovg=num(O(C.blue_void_grubs));
       if((vg||0)+(ovg||0)>=1){ a.vgN++; if((vg||0)>=2)a.vg2++; }
@@ -3522,7 +3530,7 @@ function calcTeams(vsTeam){
       if((hd||0)+(ohd||0)>=1){ a.hdN++; a.hd+=hd||0; }
       const fd=num(B(C.blue_firstdragon)), ofd=num(O(C.blue_firstdragon));
       if((fd||0)+(ofd||0)>=1){ a.fdN++; a.fd+=fd||0; }
-      a.dg+=num(B(C.blue_dragons))||0;
+      _acc("dg",B(C.blue_dragons));
       const fb=num(B(C.blue_firstbaron)), ofb=num(O(C.blue_firstbaron));
       if((fb||0)+(ofb||0)>=1){ a.fbN++; a.fb+=fb||0; }
       const k10=num(B(C.blue_killsat10));
@@ -3544,17 +3552,17 @@ function calcTeams(vsTeam){
       戰隊:a.disp||tAb(a.full||t), _full:a.full, _lg:(Object.entries(a.lgCnt||{}).sort((x,y)=>y[1]-x[1])[0]||[""])[0], 場數:a.n, 勝率:a.w/a.n,
       藍方:a.bn?a.bw/a.bn:null, 紅方:a.rn?a.rw/a.rn:null,
       大場勝率:a.dwN?a.dw/a.dwN:null,
-      角色池:a.champs.size, 時間:a.stN?a.gl/a.n/60:null, 首殺:a.stN?(a.fbk||0)/a.n:null,
-      首塔:a.stN?a.ft/a.n:null, "2+巢蟲":a.vgN?a.vg2/a.vgN:null, 首龍:a.fdN?a.fd/a.fdN:null,
-      預示者:a.hdN?a.hd/a.hdN:null, 小龍:a.stN?a.dg/a.n:null, 首巴龍:a.fbN?a.fb/a.fbN:null,
+      角色池:a.champs.size, 時間:a.glN?a.gl/a.n/60:null, 首殺:a.fbkN?(a.fbk||0)/a.n:null,
+      首塔:a.ftN?a.ft/a.n:null, "2+巢蟲":a.vgN?a.vg2/a.vgN:null, 首龍:a.fdN?a.fd/a.fdN:null,
+      預示者:a.hdN?a.hd/a.hdN:null, 小龍:a.dgN?a.dg/a.n:null, 首巴龍:a.fbN?a.fb/a.fbN:null,
       首中塔:a.fmtN?a.fmt/a.fmtN:null,
       "KD差@10":a.k10N?(a.k10-a.d10)/a.n:null,
       "金錢差@10":a.g10any?(a.g10s-a.g10o)/a.n:null,
       中期金差:a.g25any?((a.g25s-a.g25o)-(a.g10s-a.g10o))/a.n:null,
       領先勝率:a.leadN?a.leadW/a.leadN:null, _leadW:a.leadW, _leadN:a.leadN,
-      分均金錢:(min&&a.stN)?a.gold/min:null, 分均輸出:(min&&a.stN)?a.dmg/min:null,
-      分均擊殺:(min&&a.stN)?a.k/min:null, 分均死亡:(min&&a.stN)?a.d/min:null,
-      助攻:(min&&a.stN)?a.ass/min:null, 視野分數:a.stN?a.vs/a.n:null
+      分均金錢:(min&&a.goldN)?a.gold/min:null, 分均輸出:(min&&a.dmgN)?a.dmg/min:null,
+      分均擊殺:(min&&a.kN)?a.k/min:null, 分均死亡:(min&&a.dN)?a.d/min:null,
+      助攻:(min&&a.assN)?a.ass/min:null, 視野分數:a.vsN?a.vs/a.n:null
     });
   }
   if(!rows.length)return rows;
@@ -3670,11 +3678,13 @@ function _heroScan(player,team){
       let a=accP.get(ch); if(!a){a=mk(); accP.set(ch,a);}
       a.lane[o.pid]=(a.lane[o.pid]||0)+1;
       a.n++; if(o.result===(side?2:1))a.w++;
-      a.dpm+=num(B(C.blue_dpm))||0; a.dt+=num(B(C.blue_damagetakenperminute))||0;
-      a.vs+=num(B(C.blue_vspm))||0;
-      a.gold+=num(B(C.blue_totalgold))||0; a.gl+=num(r[C.blue_gamelength])||0;
-      a.k+=num(B(C.blue_kills))||0; a.d+=num(B(C.blue_deaths))||0; a.as+=num(B(C.blue_assists))||0;
-      a.tk+=num(B(C.blue_teamkills))||0;
+      // 逐欄位記「有沒有值」（2013 的 wiki 資料只有 gamelength，其餘統計全空）
+      const _ha=(k,v)=>{ if(String(v==null?"":v).trim()===""){return;} a[k]=(a[k]||0)+(num(v)||0); a[k+"N"]=(a[k+"N"]||0)+1; };
+      _ha("dpm",B(C.blue_dpm)); _ha("dt",B(C.blue_damagetakenperminute));
+      _ha("vs",B(C.blue_vspm));
+      _ha("gold",B(C.blue_totalgold)); _ha("gl",r[C.blue_gamelength]);
+      _ha("k",B(C.blue_kills)); _ha("d",B(C.blue_deaths)); _ha("as",B(C.blue_assists));
+      _ha("tk",B(C.blue_teamkills));
       const g10=num(B(C.blue_goldat10)), og10=num(O(C.blue_goldat10));
       if(g10!=null){ a.g10N++; a.gd10+=g10-(og10||0);
         a.cd10+=num(B(C.blue_csdiffat10))||0;
@@ -3873,10 +3883,10 @@ function calcHeroes(pos,player,team){
       "BP%":Math.min(1,(a.n+laneBans)/dedAvail),  // 出場+(分攤後)禁用 熱門度（gol.gg 的 Presence，已按可用場數修正）
       場數:a.n, _pb:a.n+laneBans, _banN:bans, "勝-敗":`${a.w}-${a.n-a.w}`, 勝率:a.w/a.n, "勝率(勝-敗)":a.w/a.n, // _banN：原始禁用場次(篩選時＝對手BAN次數)
       禁用率:Math.min(1,laneBans/avail),
-      KDA:(a.k||a.as||a.d)?(a.k+a.as)/Math.max(1,a.d):null, _ak:a.k/a.n,_ad:a.d/a.n,_aa:a.as/a.n,
-      "K/D/A":(a.k||a.as||a.d)?`${d1s(a.k/a.n)} / ${d1s(a.d/a.n)} / ${d1s(a.as/a.n)}`:"", 參與率:a.tk?(a.k+a.as)/a.tk:null,
+      KDA:(a.kN||a.asN||a.dN)?(a.k+a.as)/Math.max(1,a.d):null, _ak:a.k/a.n,_ad:a.d/a.n,_aa:a.as/a.n,
+      "K/D/A":(a.kN||a.asN||a.dN)?`${d1s(a.k/a.n)} / ${d1s(a.d/a.n)} / ${d1s(a.as/a.n)}`:"", 參與率:a.tkN?(a.k+a.as)/Math.max(1,a.tk):null,
       DPM:a.dpm?a.dpm/a.n:null, 分均輸出:a.dpm?a.dpm/a.n:null, 中期金差:a.midN?a.mid/a.midN:null,
-      分均金錢:(a.gl&&a.gold)?a.gold/(a.gl/60):null, 分均承傷:a.dt?a.dt/a.n:null, 分均視分:a.vs?a.vs/a.n:null,
+      分均金錢:(a.glN&&a.goldN&&a.gl)?a.gold/(a.gl/60):null, 分均承傷:a.dt?a.dt/a.n:null, 分均視分:a.vsN?a.vs/a.n:null,
       "金差@10":a.g10N?a.gd10/a.g10N:null, "CS差@10":a.g10N?a.cd10/a.g10N:null,
       贏線率:a.g10N?a.winL/a.g10N:null, 後選率:a.lateN?a.late/a.lateN:null });
   }
@@ -3953,7 +3963,7 @@ function calcHeroPairs(pos,player,team){
     rows.push({ 英雄:cAb(a.cA)+" + "+cAb(a.cB), _pair:[a.cA,a.cB], _full:a.cA, _key:key, 路線:2, _laneIcons:laneIcons,
       "BP%":((bpOf[a.cA]||0)+(bpOf[a.cB]||0))/2, 場數:a.n, "勝-敗":`${a.w}-${a.n-a.w}`, 勝率:a.w/a.n, "勝率(勝-敗)":a.w/a.n, 禁用率:((banOf[a.cA]||0)+(banOf[a.cB]||0))/2,
       KDA:(a.kM+a.asM)/Math.max(1,a.dM)+(a.kS+a.asS)/Math.max(1,a.dS), "K/D/A":`${d1s((a.kM+a.kS)/a.n)} / ${d1s((a.dM+a.dS)/a.n)} / ${d1s((a.asM+a.asS)/a.n)}`, 參與率:(a.kM+a.asM+a.kS+a.asS)/Math.max(1,2*a.tk),
-      分均輸出:a.dpm/a.n, 分均金錢:a.gl?a.gold/(a.gl/60):0, 分均承傷:a.dt/a.n, 分均視分:a.vs?a.vs/a.n:null,
+      分均輸出:a.dpm/a.n, 分均金錢:a.gl?a.gold/(a.gl/60):0, 分均承傷:a.dt/a.n, 分均視分:a.vsN?a.vs/a.n:null,
       中期金差:(a.midNM+a.midNS)?((a.midNM?a.midM/a.midNM:0)+(a.midNS?a.midS/a.midNS:0)):null, 贏線率:a.g10N?a.winL/a.g10N:null, 後選率:a.lateN?a.late/a.lateN:null });
   }
   if(rows.length){ const ref=(player||team)?calcHeroPairs(pos,""):null; scoreHeroRows(rows,PAIR_W[pos],gameN,ref); }
@@ -4175,7 +4185,7 @@ function changeDir(lines){
   return buff>nerf?1:nerf>buff?-1:0; // 1增強 / -1削弱 / 0混合或無法判定
 }
 // ── 版本改動渲染器（全域共用：版本改動分頁＋圖鑑歷年改動）──────────────────
-const COSM=/原畫|造型|背景故事|中版美術|重新上色|推薦裝備|語音(更新|台詞)|(技能)?圖示更新|更新[了]?圖示|特效(已)?更新|視覺效果|粒子效果|模型更新|動畫更新|全新的?[^｜]{0,10}動畫|說明更新|新增語音|音效|現在(能|會)?正確|嚎哭深淵|極地大亂鬥|扭曲叢林|統治戰場|Howling Abyss|Twisted Treeline|Crystal Scar|Dominion|[（(]ARAM[)）]|Level Requirements?|更名|重新命名|renamed|[Nn]ame changed|名稱[：:][^⇒\n]*⇒|(^|｜|\[)\s*(未公告|錯誤|修正了|修復|[Uu]ndocumented|[Bb]ug\s?[Ff]ix|BUG)|(提高|降低|增加|減少)從\s*\d|編按|附註[：:]|並未實裝|官方未記載|並非刻意|此問題可能是在|未列於公告|(邊緣|中心)判定距離|(重新)?編寫程式(碼)?|rescripted?|visual (upgrade|update|effects?)|splash art|voice.?over|icons? (are |have been )?updated|recommended items|lore|chroma|texture|animations? updated|now (correctly|properly)|tooltip/i;
+const COSM=/原畫|造型|背景故事|中版美術|重新上色|推薦裝備|語音(更新|台詞)|(技能)?圖示更新|更新[了]?圖示|特效(已)?更新|視覺效果|粒子效果|模型更新|動畫更新|全新的?[^｜]{0,10}動畫|新增[^｜]{0,6}圖示|其圖示更新|圖示更新|說明更新|新增語音|音效|現在(能|會)?正確|嚎哭深淵|極地大亂鬥|扭曲叢林|統治戰場|Howling Abyss|Twisted Treeline|Crystal Scar|Dominion|[（(]ARAM[)）]|Level Requirements?|更名|重新命名|renamed|[Nn]ame changed|名稱[：:][^⇒\n]*⇒|(^|｜|\[)\s*(未公告|錯誤|修正了|修復|[Uu]ndocumented|[Bb]ug\s?[Ff]ix|BUG)|(提高|降低|增加|減少)從\s*\d|編按|附註[：:]|並未實裝|官方未記載|並非刻意|此問題可能是在|未列於公告|(邊緣|中心)判定距離|(重新)?編寫程式(碼)?|rescripted?|visual (upgrade|update|effects?)|splash art|voice.?over|icons? (are |have been )?updated|recommended items|lore|chroma|texture|animations? updated|now (correctly|properly)|tooltip/i;
 // 版本總覽專用的「瑣碎改動」：純顯示層、完全不影響強弱（聊天訊息顯示名、提示文字…）。
 // 只在版本分頁擋掉，英雄詳情頁仍完整列出（使用者定案 2026-07-31：艾妮維亞蛋型態的聊天名稱）
 const TRIVIAL=/聊天訊息|訊息(現在)?會顯示|顯示專屬的英雄名稱|提示文字|字型|排版調整|chat message/i;
@@ -6141,8 +6151,20 @@ function renderChgYear(box){
             if(COSM.test(l))return; // 美術/裝飾類不列
             {const _i0=l.indexOf("｜"); const _n0=(_i0>0?l.slice(0,_i0):"").replace(/^\[[^\]]*\]\s*/,"").replace(/\s*[（(][^（）()]*[）)]\s*$/,"").trim();
              if(_n0&&_NSR[_n0])return;}
-            const i=l.indexOf("｜");
-            let name=i>0?l.slice(0,i):cat; const body=i>0?l.slice(i+1):l;
+            let i=l.indexOf("｜");
+            let name=i>0?l.slice(0,i):cat; let body=i>0?l.slice(i+1):l;
+            // wiki 的「群組敘述｜道具名」寫法（following 道具移除從遊戲｜奇蹟之石、Enabled:｜黎安卓的折磨…）：
+            // 真正的道具名在「｜」後面 → 對調，並把群組敘述正規化成看得懂的中文
+            //（2026-07-31 使用者回報：移除不應該是這種寫法）
+            {const _GP=[[/^following\s*(道具|item)?\s*(移除從遊戲|removed from game)/i,"已從遊戲移除"],
+                        [/^following\s*(道具|item)?\s*remade\s*[（(]?移除/i,"已重做（原道具移除）"],
+                        [/^Enabled\s*[:：]/i,"已啟用"],
+                        [/^(已)?移除\s*[:：]?$/,"已移除"],
+                        [/^新增\s*[:：]?$/,"新增"],
+                        [/^following\s*/i,""]];
+             for(const [rx,zh] of _GP){ if(rx.test(name)){ const _nm2=body.trim();
+               if(_nm2&&!/[：:｜]/.test(_nm2)&&_nm2.length<=24){ name=_nm2; body=zh||name; }
+               break; } }}
             name=name.replace(/^\[[^\]]*\]\s*/,"");
             const _ct=chgNameTag(name); const _tag=(_ct.nm!==name)?_ct.tag:""; name=_ct.nm; // 去 " - Added/Rework" 後綴，記標籤
             name=name.split("／").map(p=>ITEM_ALIAS[p.trim()]||p.trim()).join("／"); // 舊譯名統一為現行名（剔除鐮刀→汰除品）
@@ -8349,7 +8371,7 @@ function render(){
           return `<td class="${won?"bpw":""}">${first?`<span class="fp">${s.team}</span>`:s.team}</td>`; // 勝方整隊範圍給小白底(取代⭐)
         };
         // gno 有值＝系列賽底下的小局：日期欄改成「└ 第N局」並縮排，聯賽欄留白
-        const head=gno?`<td class="subg">└ 第${gno}局</td><td></td>`:`<td>${m.date}</td><td>${lgChip(m.league)} <span class="meta">${m.split}${_lplGrpTag(m.league,m.split,[m.blue.team,m.red.team])}</span></td>`;
+        const head=gno?`<td class="subg">└ 第${gno}局</td><td></td>`:`<td>${m.date}</td><td>${lgChip(m.league)} <span class="meta">${spDisp(m.split)}${_lplGrpTag(m.league,m.split,[m.blue.team,m.red.team])}</span></td>`;
         const S=sides(m); // 依模式決定左右實際邊
         const lWon=S.LisBlue===m.blueWin, rWon=!lWon; // 哪一顯示側獲勝→整隊範圍加白底
         return `<tr${gno?' class="subrow"':''}>${head}<td>${m.patch}</td><td class="meta">${mmss(m.gl)}</td><td class="win">${m.win}</td>

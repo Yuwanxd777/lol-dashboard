@@ -42,10 +42,7 @@ EVENTS = {
         "LCL":   {"page": "2013 Season CIS Championship"},
         "LLA":   {"page": "Season 3 Latin America Regional Finals"},
     },
-    2015: {
-        "GPL":   {"splits": [{"sp": "春季", "page": "2015 GPL Spring", "po_page": "2015 GPL Spring/Playoffs"},
-                             {"sp": "夏季", "page": "2015 GPL Summer", "po_page": "2015 GPL Summer/Playoffs"}]},
-    },
+    # 2015 GPL 已由 PB 頁補到 145 局（春 96／夏 49）→ 不再需要補充名單
     2026: {
         "EWCQ中國": {"page": "Esports World Cup 2026/Online Qualifiers/China", "kind": "team"},
         "ENC":      {"page": "Esports Nations Cup 2026",                       "kind": "nation"},
@@ -100,9 +97,26 @@ def rosters_of(html):
     out = {}
     for t in re.findall(r'<table[^>]*class="[^"]*tournament-roster[^"]*"[^>]*>.*?</table>', html, re.S):
         mt = re.search(r'class="[^"]*catlink-teams[^"]*"[^>]*title="([^"]+)"', t)
-        if not mt:
-            continue
-        team = _html.unescape(mt.group(1)).strip()
+        if mt:
+            team = _html.unescape(mt.group(1)).strip()
+        else:
+            # 沒建隊伍頁的隊，隊名是純文字（CBLOL 的 Keyd Team）→ 標籤換成分隔號後取第一段文字。
+            # 注意 &#160;（不斷行空格）與 &#8288;（零寬）unescape 後是  /⁠，要一起當分隔
+            _txt = _html.unescape(re.sub(r"<[^>]+>", "|", t))
+            _parts = [x.strip() for x in re.split(r"[| ⁠\s]+", _txt) if x.strip()]
+            # 隊名後面緊接著就是選手名，切不出邊界 → 拿主資料的隊名清單比對，取**最長**能對上的組合
+            fix_case("")            # 先觸發 _TNAME 初始化
+            team = ""
+            for _n in range(4, 0, -1):
+                _cand = " ".join(_parts[:_n]).strip()
+                if _cand and _cand.casefold() in (_TNAME or {}):
+                    team = _TNAME[_cand.casefold()]
+                    break
+            if not team:
+                team = " ".join(_parts[:2]).strip()
+            if len(team) < 2:
+                continue
+        team = re.sub(r"\s*\(page does not exist\)\s*$", "", team).strip()
         players, seen = [], set()
         # 每個選手格：<span title="Jungler" …> 之後跟著 catlink-players（順序穩定）
         for m in re.finditer(r'<span[^>]*title="([^"]*)"[^>]*class="[^"]*sprite[^"]*"[^>]*>|class="[^"]*catlink-players[^"]*"[^>]*>([^<]+)</a>', t):
