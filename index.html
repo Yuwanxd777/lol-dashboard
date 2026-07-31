@@ -283,7 +283,10 @@
   .chgHead .cnt{margin-left:auto;font-size:13px;color:var(--tx2)}
   .chgPatch{margin-top:8px;padding-top:8px;border-top:1px solid var(--line)}
   .chgPatch:first-of-type{border-top:none;padding-top:2px}
-  .pTag{display:inline-block;font-weight:bold;font-size:15px;padding:2px 8px;border-radius:6px;margin-bottom:3px;text-decoration:none}
+  /* 預設要有底色：判不出增強/削弱的版本（例如只有「總價⇒；合成費用不變」這種帳面調整）
+     沒有 buff/nerf/adj class，原本會變成完全透明的按鈕，看起來像壞掉（2026-07-31 使用者回報） */
+  .pTag{display:inline-block;font-weight:bold;font-size:15px;padding:2px 8px;border-radius:6px;margin-bottom:3px;
+    text-decoration:none;background:rgba(255,255,255,.08);color:var(--tx2)}
   .pTag.buff{background:#ff6b6b22;color:#ff6b6b} .pTag.nerf{background:#5fbf7f22;color:#5fbf7f} .pTag.adj{background:#f5b94222;color:#f5b942}
   .chgLi{font-size:16px;line-height:1.65;margin:2px 0;padding-left:15px;position:relative}
   .chgLi::before{content:"›";position:absolute;left:3px;color:var(--tx2)}
@@ -1722,6 +1725,9 @@ const objCanon=n=>{const nn=s=>String(s||"").toLowerCase().replace(/[\s·]+/g,""
   for(const key in W){ if(nn(key)===k)return key; }
   return "";};
 const xImg=n=>{
+  // alt 一律留空、名稱改放 title：圖示旁邊本來就有文字標題，圖片還在載入（lazy）或
+  // 尚未觸發 onerror 時瀏覽器會把 alt 畫出來 → 看起來變成「黑魔禁書黑魔禁書」
+  //（2026-07-31 使用者連續回報，先前誤判成行前綴重複）
   // A／B 升級前後同一裝備 → 試各部分找圖，優先用前者；名稱尾端的狀態標（（新增）／（重做）／（移除）＝wiki sfx）先剝掉再查
   // （名稱不過 normTerm：那是敘述用語表，會把天賦「穿甲」改成查不到的「物穿」；舊譯名靠 masteries/assets 別名解析）
   const parts=String(n).split(/[／\/]/).map(s=>s.trim().replace(/（(新增|重做|移除)）\s*$/,""));
@@ -1729,18 +1735,18 @@ const xImg=n=>{
   for(const p of parts){
     // 歷史年份優先用資產索引的「當年正確圖」：EXTRA_IMG 是現行 id，用 itemVerImg 改版本會對到當年不存在的 id 而 404
     // （如 2017 遺跡之盾當年 id 3302，現行 3858）。當年資產查無再退回 EXTRA_IMG。
-    if(hist){ const au=assetImg(p,curYear); if(au)return `<span class="cc"><img loading="lazy" src="${au}" alt="${esc(n)}" onerror="this.parentNode.remove()"></span>`; }
+    if(hist){ const au=assetImg(p,curYear); if(au)return `<span class="cc"><img loading="lazy" src="${au}" alt="" title="${esc(n)}" onerror="this.parentNode.remove()"></span>`; }
     const k=EXTRA_IMG&&xKey(EXTRA_IMG,p);
-    if(k)return `<span class="cc"><img loading="lazy" src="${itemVerImg(EXTRA_IMG[k])}" alt="${esc(n)}" onerror="this.parentNode.remove()"></span>`;
+    if(k)return `<span class="cc"><img loading="lazy" src="${itemVerImg(EXTRA_IMG[k])}" alt="" title="${esc(n)}" onerror="this.parentNode.remove()"></span>`;
     // EXTRA_IMG 只涵蓋取樣到的版本 → 查不到就用歷史資產索引（含已移除道具/符文、英文名）
     const au=assetImg(p,curYear);
-    if(au)return `<span class="cc"><img loading="lazy" src="${au}" alt="${esc(n)}" onerror="this.parentNode.remove()"></span>`;
+    if(au)return `<span class="cc"><img loading="lazy" src="${au}" alt="" title="${esc(n)}" onerror="this.parentNode.remove()"></span>`;
     // 最後防線：符文圖正解表（含樹的歷代譯名，如 8.1.1 的「精準」＝現行「精密」）
     const ru=(typeof runeImgOf==="function")&&runeImgOf(p);
-    if(ru)return `<span class="cc"><img loading="lazy" src="${ru}" alt="${esc(n)}" onerror="this.parentNode.remove()"></span>`;
+    if(ru)return `<span class="cc"><img loading="lazy" src="${ru}" alt="" title="${esc(n)}" onerror="this.parentNode.remove()"></span>`;
     // 物件（藍Buff/巴龍…）：公告的野區/物件條目不是道具，用官方小地圖/野怪圖
     const oi=objIco(p);
-    if(oi)return `<span class="cc"><img loading="lazy" src="${oi}" alt="${esc(n)}" onerror="this.parentNode.remove()"></span>`;
+    if(oi)return `<span class="cc"><img loading="lazy" src="${oi}" alt="" title="${esc(n)}" onerror="this.parentNode.remove()"></span>`;
   }
   return "";
 };
@@ -4104,6 +4110,10 @@ const DIR_OVERRIDE=[
   // ⚠ 要排在「不再消耗／需要」那條之後，那條是增強
   [/(物防|魔防|物攻|魔攻|生命|法力|攻速|移速|冷卻(時間)?減免|冷卻縮減|技能加速|吸血|穿透|回復)[^｜]{0,8}移除/, -1],
   [/不再(提供|給予|附帶|提高|增加)/, -1],
+  // 「減半」依對象：成本類減半＝增強，效果類減半＝削弱
+  //（2026-07-31 判例：三相之力「唯一被動 - 狂怒：移速加成對遠程英雄減半」）
+  [/(冷卻|消耗|花費|耗費|價格|費用)[^｜]{0,12}減半/, 1],
+  [/減半/, -1],
   // 「加倍」要看對象：正面數值加倍＝增強、成本類加倍＝削弱（2026-07-31 賽恩暴怒／維迦 Q 判例）
   [/(冷卻|消耗|花費|耗費)[^｜]{0,12}(加倍|翻倍)/, -1],
   [/(生命|魔攻|物攻|傷害|護盾|回復|移速|攻速|射程|層數)[^｜]{0,12}(加倍|翻倍)/, 1],
