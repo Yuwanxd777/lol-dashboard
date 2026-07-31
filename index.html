@@ -3820,10 +3820,10 @@ function refNotesPks(){
 function champChangesForPk(pk){
   const PN=typeof PATCH_NOTES!=="undefined"?PATCH_NOTES:{}, out={}, pd=PN[pk];
   if(pd){ Object.keys(pd).forEach(k=>{ if(k.startsWith("_"))return; const v=pd[k]; if(!Array.isArray(v)||!v.length)return;
-    const ls=v.filter(l=>!COSM.test(l)); if(!ls.length)return;   // 官方行也過 COSM（編按/附註/未實裝等編註不列，版本焦點同步乾淨）
+    const ls=v.filter(l=>!COSM.test(l)&&!TRIVIAL.test(l)); if(!ls.length)return;   // 官方行也過 COSM/TRIVIAL（編按、聊天訊息這類不列，版本焦點同步乾淨）
     const id=champId(k); if(!id)return; (out[id]=out[id]||[]).push(...ls); }); return out; }
   for(const[wv,cs]of Object.entries(window.WIKI_PATCHES||{})){ if(wikiVerPk(wv)!==pk)continue;
-    Object.keys(cs).forEach(id=>{ const ls=(cs[id]||[]).filter(l=>!COSM.test(l)); if(ls.length)(out[id]=out[id]||[]).push(...ls); }); }
+    Object.keys(cs).forEach(id=>{ const ls=(cs[id]||[]).filter(l=>!COSM.test(l)&&!TRIVIAL.test(l)); if(ls.length)(out[id]=out[id]||[]).push(...ls); }); }
   return out;
 }
 // 該英雄在「當下」是否已登入召喚峽谷（角色池不顯示尚未推出的英雄）；無登入日資料的一律顯示
@@ -4294,7 +4294,7 @@ function changeDir(lines){
   return buff>nerf?1:nerf>buff?-1:0; // 1增強 / -1削弱 / 0混合或無法判定
 }
 // ── 版本改動渲染器（全域共用：版本改動分頁＋圖鑑歷年改動）──────────────────
-const COSM=/原畫|造型|背景故事|中版美術|重新上色|推薦裝備|語音(更新|台詞)|(技能)?圖示更新|更新[了]?圖示|特效[^｜]{0,6}(更新|升級|改良|重製)|視覺效果|粒子效果|模型更新|動畫更新|全新的?[^｜]{0,10}動畫|新增[^｜]{0,4}動畫|新增[^｜]{0,6}圖示|其圖示更新|圖示更新|說明更新|新增語音|語音包|播報員|音效|符文頁|介面(更新|調整)|按鍵綁定|計分板顯示|(新增|顯示)?[^｜]{0,6}指示器|進度特效|輪替遊戲模式|活動|極速無敵亂鬥|無限火力|URF|鬥魂競技場|[Aa]rena|現在(能|會)?正確|嚎哭深淵|極地大亂鬥|扭曲叢林|統治戰場|Howling Abyss|Twisted Treeline|Crystal Scar|Dominion|[（(]ARAM[)）]|Level Requirements?|更名|重新命名|renamed|[Nn]ame changed|名稱[：:][^⇒\n]*⇒|(^|｜|\[)\s*(未公告|錯誤|修正了|修復|[Uu]ndocumented|[Bb]ug\s?[Ff]ix|BUG)|(提高|降低|增加|減少)從\s*\d|編按|附註[：:]|並未實裝|官方未記載|並非刻意|此問題可能是在|未列於公告|(邊緣|中心)判定距離|(重新)?編寫程式(碼)?|rescripted?|visual (upgrade|update|effects?)|splash art|voice.?over|icons? (are |have been )?updated|recommended items|lore|chroma|texture|animations? updated|now (correctly|properly)|tooltip/i;
+const COSM=/原畫|造型|背景故事|中版美術|重新上色|推薦裝備|語音(更新|台詞)|(技能)?圖示更新|更新[了]?圖示|特效[^｜]{0,6}(更新|升級|改良|重製)|視覺效果|粒子效果|模型更新|動畫更新|全新的?[^｜]{0,10}動畫|新增[^｜]{0,4}動畫|新增[^｜]{0,6}圖示|其圖示更新|圖示更新|說明更新|新增語音|語音包|播報員|音效|符文頁|介面(更新|調整)|按鍵綁定|計分板顯示|商店[^｜]{0,12}搜尋|搜尋[^｜]{0,8}關鍵字|(改善|優化|改進)了?[^｜]{0,14}(偵測|判定|辨識|選取|命中框)|(新增|顯示)?[^｜]{0,6}指示器|進度特效|輪替遊戲模式|活動|極速無敵亂鬥|無限火力|URF|鬥魂競技場|[Aa]rena|現在(能|會)?正確|嚎哭深淵|極地大亂鬥|扭曲叢林|統治戰場|Howling Abyss|Twisted Treeline|Crystal Scar|Dominion|[（(]ARAM[)）]|Level Requirements?|更名|重新命名|renamed|[Nn]ame changed|名稱[：:][^⇒\n]*⇒|(^|｜|\[)\s*(未公告|錯誤|修正了|修復|[Uu]ndocumented|[Bb]ug\s?[Ff]ix|BUG)|(提高|降低|增加|減少)從\s*\d|編按|附註[：:]|並未實裝|官方未記載|並非刻意|此問題可能是在|未列於公告|(邊緣|中心)判定距離|(重新)?編寫程式(碼)?|rescripted?|visual (upgrade|update|effects?)|splash art|voice.?over|icons? (are |have been )?updated|recommended items|lore|chroma|texture|animations? updated|now (correctly|properly)|tooltip/i;
 // 版本總覽專用的「瑣碎改動」：純顯示層、完全不影響強弱（聊天訊息顯示名、提示文字…）。
 // 只在版本分頁擋掉，英雄詳情頁仍完整列出（使用者定案 2026-07-31：艾妮維亞蛋型態的聊天名稱）
 // 版本總覽的「瑣碎改動」：純顯示層／風味描述，不影響強弱（使用者陸續指定：
@@ -4368,11 +4368,18 @@ const renderChgLines=(lines,cardName)=>{
   //   另外空白／全形＋／冒號在載入時會被 norm 改寫 → key 一律先壓掉這些差異
   {const _SF=window.ITEM_STAT_FIX||{};
    const _nk=x=>String(x).replace(/[\s＋+]/g,"").replace(/:/g,"：");
-   if(!window._SFI){ const m={};
+   if(!window._SFI){ const m={}, dup=new Set();
      for(const[k,v]of Object.entries(_SF)){ const i=k.indexOf("｜"), j=v.indexOf("｜");
-       m[_nk(k)]=v; if(i>0)m[_nk(k.slice(i+1))]=(j>0?v.slice(j+1):v); }
+       m[_nk(k)]=v;
+       // 裸 body 當 key 有撞名風險：「生命值回復移除。」米凱的魔鍋與歐姆破壞者都有，
+       // 後寫的會蓋掉前面的、值就張冠李戴了（2026-07-31 真實資料驗證抓到）→ 撞到就整個作廢
+       if(i>0){ const bk=_nk(k.slice(i+1)), bv=(j>0?v.slice(j+1):v);
+         if(dup.has(bk))continue; if(bk in m&&m[bk]!==bv){ dup.add(bk); delete m[bk]; } else m[bk]=bv; } }
      window._SFI=m; }
-   lines=lines.map(l=>window._SFI[_nk(l)]||l);}
+   // 有卡片名（版本分頁／道具詳情頁都會傳）就優先用「道具名｜body」精準比對
+   lines=lines.map(l=>{ const s2=String(l);
+     if(cardName){ const hit=window._SFI[_nk(cardName+"｜"+s2)]; if(hit)return hit.replace(/^[^｜]*｜/,""); }
+     return window._SFI[_nk(s2)]||l; });}
   // ⚠ 一定要排在標點正規化之前：查表的 key 是 wiki 原文（含半形逗號），正規化過就對不上了
   // 半形標點正規化：wiki 原文的逗號／冒號常是半形，混在中文裡很難看（2026-07-31 使用者回報）
   lines=lines.map(l=>String(l).replace(/,\s*/g,"，").replace(/\s*:\s*(?![0-9])/g,"：").replace(/，\s*$/,""));
@@ -4394,6 +4401,11 @@ const renderChgLines=(lines,cardName)=>{
     .replace(/(^|[^\d\w.])\.(\d)/g,"$10.$2")
     // 「屬性」一律寫成「基礎能力值」（使用者定名 2026-07-31）
     .replace(/(^|｜)\s*屬性(?=[｜：:])/g,"$1基礎能力值")
+    // 「消耗當◯◯」＝ consumed when ◯◯ 的機翻語序（2026-07-31 使用者：艾希 13.02
+    //「不再是消耗當攻擊守衛。」應該是「攻擊守衛時不再消耗。」）
+    // ⚠ (?!前) 是為了避開姬亞娜「消耗當前元素」——那個「當前」不是 when
+    .replace(/不再是?消耗當(?!前)([^｜。，,、]{1,16})/g,"$1時不再消耗")
+    .replace(/([^｜：:。，,]{1,14})消耗當(?!前)([^｜。，,、]{1,16})/g,"$2時$1消耗")
     // 「不再提供 25 物攻。」＝該屬性歸零 → 改寫成全站統一的「物攻：25 ⇒ 0」
     //（2026-07-31 使用者判例：軍團聖盾「唯一光環 – 軍團：不再提供物防」沒寫本來多少）
     .replace(/(?:已移除[：:]\s*)?([^｜。，,]{0,14}?)不再(?:提供|給予|附帶)\s*([\d.]+\s*%?)\s*(?:點\s*)?([^｜。，,、]{1,12}?)\s*[。.]?$/,
@@ -4432,8 +4444,12 @@ const renderChgLines=(lines,cardName)=>{
        let n=0; while(n<x.length&&n<y.length&&x[n]===y[n])n++;
        const rest=y.slice(n);
        const head2=x.slice(0,n);
-       if(n>=4&&(/[：:]/.test(rest)||/[：:]\s*$/.test(head2))&&!/^(新增|已移除|移除|屬性|基礎能力值|總價|合成費用)[：:]?$/.test(head2)){
-         out2.push(a.replace(/[。.]?\s*$/,"")+"；"+rest); i++; continue; } }
+       // 共同前綴 ≥4 字（或 ≥2 字但第二行剛好接空白＋另一個具名子項，如
+       //「治療：…」與「治療 AP 係數：…」）→ 視為同一件事（2026-07-31 努努 13.07 判例）
+       const _long=n>=4&&(/[：:]/.test(rest)||/[：:]\s*$/.test(head2));
+       const _short=n>=2&&/^\s/.test(rest)&&/[：:]/.test(rest);
+       if((_long||_short)&&!/^(新增|已移除|移除|屬性|基礎能力值|總價|合成費用)[：:]?$/.test(head2)){
+         out2.push(a.replace(/[。.]?\s*$/,"")+"；"+rest.trim()); i++; continue; } }
      out2.push(lines[i]); }
    lines=out2;}
   // 「傷害相同等級 18。」這種補充句 → 併進前一行的括號，並把語序轉正成「等級 18 時傷害相同」
@@ -4599,13 +4615,11 @@ function champHistory(id){
   const put=(pk,lines,url)=>{ if(!byPk[pk]&&lines&&lines.length)byPk[pk]={lines,url:url||""}; };
   const addOfficial=store=>{ if(!store)return;
     for(const[pk,pd]of Object.entries(store)){ if(!pd||typeof pd!=="object")continue;
-      // 聊天訊息／笑聲／台詞這類：官方公告來源以前沒過濾，英雄詳情頁還是會冒出來
-      //（2026-07-31 使用者：維迦「現在會大笑」、艾妮維亞「聊天訊息顯示蛋妮維亞」都不要列）
-      const ls=(pd[id]||[]).filter(l=>!TRIVIAL.test(l));
-      if(ls.length)put(pk,ls.map(l=>addKey(id,l)),pd._url||""); } };
+      const ls=pd[id]; if(ls&&ls.length)put(pk,ls.map(l=>addKey(id,l)),pd._url||""); } };
   const addWiki=()=>{ for(const[wv,cs]of Object.entries(window.WIKI_PATCHES||{})){
     const pk=wikiVerPk(wv); if(!pk||byPk[pk])continue;
-    const ls=zhOnly(pk,(cs[id]||[]).filter(l=>!COSM.test(l)&&!TRIVIAL.test(l)&&!JUNK.test(String(l).trim()))).map(l=>addKey(id,l));
+    // 這裡是英雄詳情頁的歷年改動＝**完整列出**，不套 TRIVIAL（聊天訊息／笑聲只有版本分頁不列）
+    const ls=zhOnly(pk,(cs[id]||[]).filter(l=>!COSM.test(l)&&!JUNK.test(String(l).trim()))).map(l=>addKey(id,l));
     // 連結優先序：官方 → wiki
     if(ls.length)put(pk,ls,(PATCH_NOTES[pk]&&PATCH_NOTES[pk]._url)||`https://wiki.leagueoflegends.com/en-us/V${wv}`); } };
   // 英文模式優先序：官方英文 → wiki 英文 → 官方中文（補漏）；中文模式：官方中文 → wiki
@@ -10367,14 +10381,16 @@ function render(){
           const pd=pdEn||pdZh; // _extra / _url 來源
           const addOfficial=(src)=>{ if(src)Object.keys(src).forEach(k=>{
             if(k.startsWith("_")||byC[k])return; // _url/_extra/_lang 等中繼欄位跳過
-            const ls=src[k].map(l=>addKey(k,l)).filter(l=>!COSM.test(l));
+            // 聊天訊息／擊殺時大笑／台詞這類純風味改動：版本分頁不列，只有英雄詳情頁完整列出
+            //（2026-07-31 使用者重申：艾妮維亞蛋妮維亞、維迦大笑）
+            const ls=src[k].map(l=>addKey(k,l)).filter(l=>!COSM.test(l)&&!TRIVIAL.test(l));
             if(ls.length)byC[k]=ls;
           }); };
           const addWiki=()=>{ for(const[wv,cs]of Object.entries(window.WIKI_PATCHES||{})){
             if(wikiVerPk(wv)!==pk)continue;
             Object.entries(cs).forEach(([id,ls])=>{
               if(byC[id])return;
-              const l2=zhOnly(pk,ls.filter(l=>!COSM.test(l)&&!JUNK2.test(String(l).trim()))).map(l=>addKey(id,l));
+              const l2=zhOnly(pk,ls.filter(l=>!COSM.test(l)&&!TRIVIAL.test(l)&&!JUNK2.test(String(l).trim()))).map(l=>addKey(id,l));
               if(l2.length)byC[id]=l2;
             });
           } };
@@ -10429,7 +10445,7 @@ function render(){
             list.forEach(([nm,bs])=>{
               const zh=cat!=="機制"&&typeof assetZh==="function"?assetZh(nm):nm; // 英文/歷代名 → 官方中文名（Cinderhulk → 附魔：餘燼）
               const tip=cat!=="機制"?` data-tip="x" data-name="${esc(zh)}" data-sec="${esc(cat)}"`:"";
-              secs.push(`<div class="chgPatch"><span class="heroname"${tip} style="font-weight:bold">${cat!=="機制"?itemImg(zh):""}${esc(zh)}</span>${renderChgLines(bs)}</div>`);
+              secs.push(`<div class="chgPatch"><span class="heroname"${tip} style="font-weight:bold">${cat!=="機制"?itemImg(zh):""}${esc(zh)}</span>${renderChgLines(bs,nm)}</div>`);
             });
           });
           box.innerHTML=`<div id="dexHistPage"><div class="card"><h2>📦 ${pk} ${T("版本改動")} <span class="sub">${LANG==="en"?`${nCh} champions｜<a class="pTag adj" href="${esc(url)}" target="_blank" rel="noopener">${pk} official notes</a>｜switch via the Patch dropdown above, search to filter`:`英雄 ${nCh} 隻｜<a class="pTag adj" href="${esc(url)}" target="_blank" rel="noopener">${pk} 官方公告</a>｜上方「版本」下拉切換、搜尋可過濾`}</span></h2>

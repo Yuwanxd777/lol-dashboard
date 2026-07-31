@@ -98,7 +98,11 @@ STAT_ALT = {
     "魔力": [r"([\d.]+)\s*(%)\s*基礎魔力"],
     "生命": [r"([\d.]+)\s*(%)\s*基礎生命"],
 }
-_STAT_PAT = "|".join(sorted(STAT_DESC, key=len, reverse=True))
+# wiki 的寫法變體 → 標準屬性名（歐姆破壞者寫的是「生命值回復移除。」）
+STAT_ALIAS = {"生命值回復": "生命回復", "魔力值回復": "魔力回復", "法力值回復": "魔力回復",
+              "法力回復": "魔力回復", "生命值": "生命", "魔力值": "魔力", "法力值": "魔力",
+              "法力": "魔力", "護甲": "物防", "魔抗": "魔防", "移速": "移動速度"}
+_STAT_PAT = "|".join(sorted(list(STAT_DESC) + list(STAT_ALIAS), key=len, reverse=True))
 
 
 def main():
@@ -140,7 +144,8 @@ def main():
                             continue
                         m3 = re.search(_STAT_PAT, tail)
                         if m3:
-                            nolonger.setdefault((major, minor), []).append((line, nm, m3.group(0)))
+                            nolonger.setdefault((major, minor), []).append(
+                                (line, nm, STAT_ALIAS.get(m3.group(0), m3.group(0))))
                         elif re.search(r"不再(給予|提供|附帶)\s*(唯一)?(光環|靈氣)", tail):
                             nolonger.setdefault((major, minor), []).append((line, nm, "光環"))
                     elif "⇒" not in line and not re.search(r"\d", body):
@@ -148,7 +153,8 @@ def main():
                         #（2026-07-31 使用者：指揮旗幟 13.14、歐姆破壞者 13.14）
                         m5 = re.match(r"^\s*(%s)\s*移除\s*[。.]?\s*$" % _STAT_PAT, body)
                         if m5:
-                            nolonger.setdefault((major, minor), []).append((line, nm, m5.group(1)))
+                            nolonger.setdefault((major, minor), []).append(
+                                (line, nm, STAT_ALIAS.get(m5.group(1), m5.group(1))))
     print("需要補前後值的行：屬性 %d 行、落單合成公式 %d 行、不再提供 %d 行（涉及 %d 個版本）"
           % (sum(len(v) for v in todo.values()), sum(len(v) for v in recipes.values()),
              sum(len(v) for v in nolonger.values()), len(set(todo) | set(recipes) | set(nolonger))))
@@ -275,8 +281,16 @@ def main():
                 continue
             p = line.find("｜")
             body = line[p + 1:]
-            new_body = re.sub(r"不再(提供|給予|附帶)[^｜。，,]*[。.]?$", "%s：%s ⇒ 0" % (stat, val), body)
-            out[line] = line[:p + 1] + new_body
+            rep = "%s：%s ⇒ 0" % (stat, val)
+            def _keep(m):
+                head = m.group(1).strip().rstrip("：: ")
+                return (head + "：" if head else "") + rep
+            nb = re.sub(r"^(.*?)\s*不再(?:提供|給予|附帶)[^｜]*$", _keep, body)
+            if nb == body:                      # 「物防移除。」「生命值回復移除。」這種句型
+                nb = re.sub(r"^(.*?)[^\s｜]*?移除\s*[。.]?\s*$", _keep, body)
+            if nb == body:                      # 兩種都套不上 → 至少把原值附在後面，不要靜靜地什麼都沒改
+                nb = body.rstrip("。.") + "（原本 %s）" % val
+            out[line] = line[:p + 1] + nb
             hit += 1
             print("   %s %s → %s：%s ⇒ 0" % (nm, stat, stat, val))
         # ── 落單的「新增合成公式：X」（同一張卡沒有「舊合成公式」可配對）：
