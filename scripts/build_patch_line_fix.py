@@ -124,6 +124,51 @@ FIX = [
      "移行瞬影｜模仿：冷卻時間：返回傳送點後 ⇒ 施放時"),
     ("3.9", "Leblanc", "模仿：幻影鎖鍊", "模仿：幻影鎖鍊於標記時",
      "幻影鎖鍊｜模仿：於標記時與定身時各造成 100 / 200 / 300（+65% AP）傷害。"),
+
+    # ── 2026-08-01 全面稽核補：其餘還掛著 New:/Old:/舊： 前綴或機翻破碎的行 ──
+    # 婕莉 12.23 大絕重做（8 行 → 4 行「舊 ⇒ 新」）
+    ("12.23", "Zeri", "新增：", "175 / 275 / 375",
+     "雷霆萬鈞｜爆發傷害：150 / 250 / 350（+80% 額外 AD）（+80% AP）魔傷 "
+     "⇒ 175 / 275 / 375（+100% 額外 AD）（+110% AP）魔傷"),
+    ("12.23", "Zeri", "舊：", "150 / 250 / 350", ""),
+    ("12.23", "Zeri", "新增：", "持續 5 秒",
+     "雷霆萬鈞｜過載持續時間：6 ⇒ 5 秒；期間對敵人造成傷害可延長 1.5 秒（最多延長至原本的持續時間）"),
+    ("12.23", "Zeri", "舊：", "持續 6 秒", ""),
+    ("12.23", "Zeri", "激電連彈 3", "650 單位",
+     "雷霆萬鈞｜超載強化的激電連彈：對第一個目標與 450 單位內最近的可見敵人連鎖（最多 4 個），"
+     "並附帶 5 / 10 / 15（+15% AP）額外魔傷 ⇒ 連鎖範圍擴大至 650 單位（最多 4 個）、移除額外魔傷；"
+     "超載期間另新增 10% 額外移動速度（原本僅 30% 額外攻速）"),
+    ("12.23", "Zeri", "激電連彈 3", "450 單位", ""),
+    ("12.23", "Zeri", "普攻 2", "持續 1.5 秒",
+     "雷霆萬鈞｜超載層數：每層 0.5% 額外移速並延長超載 2 秒（雷霆萬鈞命中一次 8 層） "
+     "⇒ 每層 0.5% 額外移速僅持續 1.5 秒、不再延長超載（技能爆擊 3 層；激電連彈僅第一個命中目標產生層數）"),
+    ("12.23", "Zeri", "普攻 2", "8 層", ""),
+    # 卡莎碧雅 26.01 被動重做（3 行 → 1 行）
+    ("26.01", "Cassiopeia", "新增：", "提升 6%",
+     "致命節奏｜移速機制：獲得 4 – 72（依等級）額外移速、無法購買鞋子"
+     "（諾克薩斯祝福：額外移速再 +1 – 18，總計 5 – 90） "
+     "⇒ 改為將所有移動速度加成的效果提升 6% – 40%（依等級）"),
+    ("26.01", "Cassiopeia", "舊：", "4 – 72", ""),
+    ("26.01", "Cassiopeia", "舊：", "諾克薩斯祝福", ""),
+    # 菲歐拉 25.14 的舊版數值補充
+    ("25.14", "Fiora", "頂尖對決", "舊版：先前每秒回復",
+     "頂尖對決｜（舊版數值）每秒回復：30 – 75 / 40 – 100 / 50 – 125"
+     "（依命中的弱點數與技能等級）（+24% – 60% 額外物攻）生命。"),
+    # 珍娜 15.04 被動生效對象（機翻破碎）
+    ("5.4", "Janna", "順風而行", "其範圍",
+     "順風而行｜額外移動速度的生效對象：範圍內所有友軍 ⇒ 正在朝珍娜移動的友軍"),
+    # 達瑞斯 5.16：前綴被寫成英文句子（Now deals Physical damage from Magic.）
+    ("5.16", "Darius", "Now deals Physical damage from Magic.", "每層傷害",
+     "絞喉｜每層傷害：12 – 36（依等級）魔傷 ⇒ 9 +（每等級 1），即 10 – 27（依等級）物傷"),
+    ("5.16", "Darius", "Now deals Physical damage from Magic.", "總傷害",
+     "絞喉｜總傷害：60 – 180（依等級）魔傷 ⇒ 45 +（每等級 5），即 50 – 135（依等級）物傷（額外 AD 係數不變）"),
+    ("5.16", "Darius", "Now deals Physical damage from Magic.", "係數不變", ""),
+    # 卡力斯 4.9 的孤兒 %（缺數字）
+    ("4.9", "Khazix", "Evolved Enlarged Claws", "已移除：% 目標已損失生命的",
+     "孤獨的恐懼｜強化後 - 已移除：依目標已損失生命百分比的額外傷害。"),
+    # 肯能 4.21 機翻語序（前綴不固定 → None＝任意前綴）
+    ("4.21", "Kennen", None, "相同目標超過一次",
+     "雷霆風暴｜新增：每 0.5 秒最多只能命中同一目標一次。"),
 ]
 
 
@@ -133,10 +178,10 @@ FIX = [
 EVOLVE = {
     "Khazix": {
         "孤獨的恐懼": ["Evolved Enlarged Claws", "進化巨爪", "進化巨型利爪", "進化利爪"],
-        "虛空尖刺": ["Evolved Spike Racks", "進化尖刺陣", "進化尖刺"],
+        "虛空尖刺": ["Evolved Spike Racks", "進化尖刺陣", "進化尖刺", "進化尖刺彈幕"],
         "掠翅飛躍": ["Evolved Wings", "進化之翼", "進化翅膀"],
         "虛空突襲": ["Evolved Active Camouflage", "Evolved Adaptive Cloaking",
-                     "進化主動隱蔽", "進化活性迷彩"],
+                     "進化主動隱蔽", "進化活性迷彩", "進化主動迷彩"],
     },
 }
 
@@ -164,11 +209,36 @@ def evolve_rules(WP):
     return out
 
 
-def load_patches():
-    p = os.path.join(ROOT, "wiki_patches.js")
+# wiki_extra（道具／符文／召技／機制區）的重寫：
+#   (版本或"*", 分區或"*", 原前綴, 內容片段 或 None, 新內容)
+#   ‧ 片段為 None ＝「改名模式」：該前綴的每一行都把前綴換成新名（body 不動）
+#   ‧ 片段為字串 ＝ 整行重寫（"" ＝ 該行不顯示）
+EXTRA = [
+    # 13.14 的三張「following …」群組卡（機翻頭）→ 中文卡名
+    ("13.14", "道具", "following 道具移除從遊戲", None, "已從遊戲移除的道具"),
+    ("13.14", "道具", "following 道具 remade（移除）", None, "重做的道具（原版本移除）"),
+    ("13.10", "道具", "Enabled:", None, "重新啟用的道具"),
+    ("14.03", "道具", "靈魂 Stone, 靈魂 Ancient Golem, 靈魂 Elder Lizard 且靈魂 Spectral Wraith",
+     None, "靈魂石系列"),
+    ("15.01", "道具", "道具 exchanges （utility）", None, "通用道具調整"),
+    # 18.x 符文樹卡名（Trait: X）→ 現行譯名
+    ("*", "符文", "Trait: Domination", None, "主宰系"),
+    ("*", "符文", "Trait: Precision", None, "精密系"),
+    ("*", "符文", "Trait: Sorcery", None, "巫術系"),
+    ("*", "符文", "Trait: Resolve", None, "堅毅系"),
+    ("*", "符文", "Trait: Inspiration", None, "啟迪系"),
+]
+
+
+def load_js(fname, varname):
+    p = os.path.join(ROOT, fname)
     s = io.open(p, encoding="utf-8").read()
-    i = s.index("=", s.index("window.WIKI_PATCHES"))
+    i = s.index("=", s.index(varname))
     return json.loads(s[i + 1:s.rindex("}") + 1])
+
+
+def load_patches():
+    return load_js("wiki_patches.js", "window.WIKI_PATCHES")
 
 
 def main():
@@ -183,7 +253,7 @@ def main():
             i = line.find("｜")
             if i <= 0:
                 continue
-            if line[:i].strip() != pre:
+            if pre is not None and line[:i].strip() != pre:
                 continue
             if frag not in line[i + 1:]:
                 continue
@@ -196,6 +266,31 @@ def main():
         out[hit] = new
     for k, v in evolve_rules(WP).items():
         out.setdefault(k, v)
+    # wiki_extra 的重寫（applyPatchLineFix 現在也會套到 WIKI_EXTRA）
+    EX = load_js("wiki_extra.js", "window.WIKI_EXTRA")
+    ex_hit = 0
+    for pk0, cat0, pre, frag, new in EXTRA:
+        for pk, secs in EX.items():
+            if pk0 != "*" and pk != pk0:
+                continue
+            if not isinstance(secs, dict):
+                continue
+            for cat, arr in secs.items():
+                if cat0 != "*" and cat != cat0:
+                    continue
+                if not isinstance(arr, list):
+                    continue
+                for line in arr:
+                    i = line.find("｜")
+                    if i <= 0 or line[:i].strip() != pre:
+                        continue
+                    if frag is None:                     # 改名模式
+                        out.setdefault(line, new + "｜" + line[i + 1:])
+                        ex_hit += 1
+                    elif frag in line[i + 1:]:
+                        out.setdefault(line, new)
+                        ex_hit += 1
+    print("   wiki_extra 重寫：%d 行" % ex_hit)
     with io.open(OUT, "w", encoding="utf-8") as f:
         f.write("// 版本改動行的人工重寫（scripts/build_patch_line_fix.py 產生，勿手改）" + chr(10))
         f.write("window.PATCH_LINE_FIX=" + json.dumps(out, ensure_ascii=False, separators=(",", ":")) + ";")

@@ -1219,7 +1219,13 @@ const bootEnchOf=n=>{ if(!/附魔|Enchantment/i.test(String(n)))return null;
   const k=(typeof xKey==="function")?(xKey(E,n)||n):n; const inf=E[k]; if(!inf||inf.t!=="道具")return null;
   return (inf.f||[]).find(x=>/之靴|足具|護脛|戰靴|涼鞋/.test(String(x)))||null; };
 // 同件道具的新舊譯名：舊名 → 現行名（圖鑑只列現行名，查詢兩者互通）
-const ITEM_ALIAS={"剔除鐮刀":"汰除品","熾天使之擁":"熾天使的擁抱","魔宗":"終極魔劍","魔切":"魔劍正宗","餘燼巨人":"巴米灰燼","Challenging 重擊":"挑戰重擊","Chilling 重擊":"冰寒重擊","死亡之火觸擊":"冥火之觸","好戰之心":"好戰者鎧甲","傳奇守衛":"傳奇護衛"};
+const ITEM_ALIAS={"剔除鐮刀":"汰除品","熾天使之擁":"熾天使的擁抱","魔宗":"終極魔劍","魔切":"魔劍正宗","餘燼巨人":"巴米灰燼","Challenging 重擊":"挑戰重擊","Chilling 重擊":"冰寒重擊","死亡之火觸擊":"冥火之觸","好戰之心":"好戰者鎧甲","傳奇守衛":"傳奇護衛",
+"護盾 Bash":"護盾猛擊","時間 Warp Tonic":"時間彎曲補劑","Greater Seals":"高階符印",
+"Timeworn Ancient Coin":"陳舊的遠古錢幣","Timeworn Frostfang":"陳舊的霜牙",
+"Timeworn Frost Queen's Claim":"陳舊的冰霜女王旨意","Timeworn Nomad's Medallion":"陳舊的流浪者勳章",
+"Timeworn Relic 護盾":"陳舊的聖物之盾","Timeworn Spellthief's Edge":"陳舊的竊法之刃",
+"Timeworn Talisman Ascension":"陳舊的昇華護符","Timeworn Targon's Brace":"陳舊的塔貢護臂",
+"Timeworn Face Mountain":"陳舊的山岳之面"};
 // 舊制天賦重製為現行符文（使用者判定）：詳情頁補生涯徽章（舊天賦年段＋重製回歸年）
 window.MASTERY_REWORKED={"冥火之觸":"2026"};
 // 名稱容錯查 key：原字 → 去空格 → 鏈/鍊 異體字互換（官方公告與 DDragon 用字不一致）
@@ -1257,7 +1263,7 @@ const srItemOK=(d,iid)=>{
 // 註：別模式變體(快速充能等)在 srItemOK 已先濾掉，這裡不會造成峽谷本體與變體撞名
 const clItemName=n=>String(n||"").replace(/：\s+/g,"：").replace(/[（(][^（）()]*[)）]/g,"").trim(); // 全形冒號後空白收斂（5.16「附魔： 偃月」）＋去括號尾綴
 // 版本改動的道具名帶 " - Added / - Rework / - Removed" 後綴（wiki 原文）→ 取乾淨名＋對應標籤
-const _CHG_SFX=/\s*[-–－—]\s*(Added|New|Rework(?:ed)?|Remade|Removed|重做|重製|重新設計|新增(道具|裝備)?|已?移除(道具|裝備)?)\s*$/i;
+const _CHG_SFX=/\s*[-–－—]\s*(Added|New|Rework(?:ed)?|Remade|Removed|重做|重製|重新設計|新增\s*(道具|裝備|符文|rune)?|已?移除(道具|裝備)?)\s*[!！]?\s*$/i;
 const chgNameTag=nm=>{ const s=String(nm); const m=s.match(_CHG_SFX);
   if(!m)return {nm:s,tag:""};
   const w=m[1].toLowerCase(), tag=/add|new|新增/.test(w)?"🆕 新增道具":/remov|移除/.test(w)?"❌ 已從遊戲中移除":"🔧 重做登場";
@@ -1407,7 +1413,7 @@ const assetImg=(n,year)=>{ const a=assetOf(n); if(!a){const mm=masteryOf(n); ret
   gs.forEach(g=>{ const d=(y<g.y1)?(g.y1-y):(y>g.y2?y-g.y2:0); if(d<bd){bd=d;best=g;} });
   return assetGroupUrl(best._kind||a.kind,best,best._id!=null?best._id:a.id); };
 // 英文/任一歷代名 → 官方中文名；優先回「命中那一段當時的中文名」（8135 用 Ravenous Hunter 查＝嗜血獵人，不是現行寶藏獵人）；查無再試舊天賦
-const assetZh=n=>{ const a=assetOf(n); if(a)return (a.hit&&a.hit.zh)||a.e.zh; const mm=masteryOf(n); return (mm&&mm.zh)||n; };
+const assetZh=n=>{ const a=assetOf(n); if(a)return (a.hit&&a.hit.zh)||a.e.zh; const mm=masteryOf(n); return (mm&&mm.zh)||ITEM_ALIAS[String(n).trim()]||n; };
 // 服役年份文字（不連續年段以「、」隔開）：「2018–2023」或「2014–2019、2024–2026」
 const assetSpanText=n=>{ const a=assetOf(n);
   const M=(typeof assetMergedOf==="function")?assetMergedOf(n):null; // 同名跨 id 合併（寒冰霸拳＝2014–2020、2022–2026）
@@ -1430,6 +1436,9 @@ const normTerm=s=>String(s||"")
   // 不是「技能加速」這個屬性，轉了就變成「技能加速 1 秒」語意全錯（2026-08-01 易大師 Q 判例）
   .replace(/技能急速|減少冷卻時間(?!\s*[\d.]+\s*秒)|冷卻時間減少(?!\s*[\d.]+\s*秒)/g,"技能加速")
   .replace(/魔力成長/g,"成長魔力")
+  // 符文樹副系（wiki 混用意志/精準/征服等舊譯）：X次要 → X副系，樹名統一現行譯名
+  .replace(/意志次要/g,"堅毅副系").replace(/精準次要/g,"精密副系").replace(/征服次要/g,"主宰副系")
+  .replace(/(主宰|精密|堅毅|巫術|啟迪)次要/g,"$1副系")
   .replace(/生命值/g,"生命")
   .replace(/\+/g,()=>(typeof LANG!=="undefined"&&LANG==="en")?"+":"＋"); // 中文語境加號一律全形＋（2026-07-16 判例；英文維持半形）
 const txtClean=s=>normTerm(String(s||"").replace(/([一-鿿])(-(?=[\d.]))/g,"$1 $2")
@@ -4131,6 +4140,16 @@ function applyPatchLineFix(){
         ch=true; if(r)out.push(r); }
       if(ch)cs[id]=out; }
   }
+  for(const secs of Object.values(window.WIKI_EXTRA||{})){
+    if(!secs||typeof secs!=="object")continue;
+    for(const[cat,arr]of Object.entries(secs)){
+      if(!Array.isArray(arr))continue;
+      let ch=false; const out=[];
+      for(const l of arr){ const r=F[l];
+        if(r===undefined){out.push(l);continue;}
+        ch=true; if(r)out.push(r); }
+      if(ch)secs[cat]=out; }
+  }
   _plfDone=true;
 }
 applyPatchLineFix();
@@ -4354,15 +4373,17 @@ function changeDir(lines){
     if(d>0)buff++;else if(d<0)nerf++;
   }
   if(onlyRecipe)return null; // 只有合成公式/路徑變動 → 不列入版本焦點、不上色（判例 2026-07-16：公式照列但不算調整）
-  return buff>nerf?1:nerf>buff?-1:0; // 1增強 / -1削弱 / 0混合或無法判定
+  // 有增有減＝白字（使用者定案 2026-08-01「各有調整就是白字」；先前是多數決，
+  // 軍團聖盾 13.10 那種 3 增 4 削的卡會被判成削弱）
+  return buff&&nerf?0:buff?1:nerf?-1:0; // 1增強 / -1削弱 / 0混合或無法判定
 }
 // ── 版本改動渲染器（全域共用：版本改動分頁＋圖鑑歷年改動）──────────────────
-const COSM=/原畫|造型|背景故事|中版美術|重新上色|推薦裝備|語音(更新|台詞)|(技能)?圖示更新|更新[了]?圖示|特效[^｜]{0,6}(更新|升級|改良|重製)|視覺效果|粒子效果|模型更新|動畫更新|全新的?[^｜]{0,10}動畫|新增[^｜]{0,4}動畫|新增[^｜]{0,6}圖示|其圖示更新|圖示更新|說明更新|新增語音|語音包|播報員|音效|手感|操作感|順暢度|流暢度|符文頁|介面(更新|調整)|按鍵綁定|計分板顯示|商店[^｜]{0,12}搜尋|搜尋[^｜]{0,8}關鍵字|(改善|優化|改進)了?[^｜]{0,14}(偵測|判定|辨識|選取|命中框)|(新增|顯示)?[^｜]{0,6}指示器|進度特效|輪替遊戲模式|活動|極速無敵亂鬥|無限火力|URF|鬥魂競技場|[Aa]rena|現在(能|會)?正確|嚎哭深淵|極地大亂鬥|扭曲叢林|統治戰場|Howling Abyss|Twisted Treeline|Crystal Scar|Dominion|[（(]ARAM[)）]|Level Requirements?|更名|重新命名|renamed|[Nn]ame changed|名稱[：:][^⇒\n]*⇒|(^|｜|\[)\s*(未公告|錯誤|修正了|修復|[Uu]ndocumented|[Bb]ug\s?[Ff]ix|BUG)|(提高|降低|增加|減少)從\s*\d|編按|附註[：:]|並未實裝|官方未記載|並非刻意|此問題可能是在|未列於公告|(邊緣|中心)判定距離|(重新)?編寫程式(碼)?|rescripted?|visual (upgrade|update|effects?)|splash art|voice.?over|icons? (are |have been )?updated|recommended items|lore|chroma|texture|animations? updated|now (correctly|properly)|tooltip/i;
+const COSM=/原畫|造型|背景故事|中版美術|重新上色|推薦裝備|語音(更新|台詞)|(技能)?圖示更新|更新[了]?圖示|特效[^｜]{0,6}(更新|升級|改良|重製)|視覺效果|粒子效果|模型更新|動畫更新|全新的?[^｜]{0,10}動畫|新增[^｜]{0,4}動畫|新增[^｜]{0,6}圖示|其圖示更新|圖示更新|說明更新|新增語音|語音包|播報員|音效|手感|操作感|順暢度|流暢度|符文頁|介面(更新|調整)|按鍵綁定|計分板顯示|商店[^｜]{0,12}搜尋|搜尋[^｜]{0,8}關鍵字|(改善|優化|改進)了?[^｜]{0,14}(偵測|判定|辨識|選取|命中框)|(新增|顯示)?[^｜]{0,6}指示器|進度特效|輪替遊戲模式|活動|極速無敵亂鬥|無限火力|URF|鬥魂競技場|[Aa]rena|現在(能|會)?正確|嚎哭深淵|極地大亂鬥|扭曲叢林|統治戰場|Howling Abyss|Twisted Treeline|Crystal Scar|Dominion|[（(]ARAM[)）]|Level Requirements?|更名|重新命名|renamed|[Nn]ame changed|名稱[：:][^⇒\n]*⇒|(^|｜|\[)\s*(未公告|錯誤|修正了|修復|[Uu]ndocumented|[Bb]ug\s?[Ff]ix|BUG)|(提高|降低|增加|減少)從\s*\d|編按|附註[：:]|並未實裝|官方未記載|並非刻意|此問題可能是在|未列於公告|(邊緣|中心)判定距離|(重新)?編寫程式(碼)?|rescripted?|visual (upgrade|update|effects?)|splash art|voice.?over|icons? (are |have been )?updated|recommended items|lore|chroma|texture|animations? updated|now (correctly|properly)|tooltip|\bARAM\b/i;
 // 版本總覽專用的「瑣碎改動」：純顯示層、完全不影響強弱（聊天訊息顯示名、提示文字…）。
 // 只在版本分頁擋掉，英雄詳情頁仍完整列出（使用者定案 2026-07-31：艾妮維亞蛋型態的聊天名稱）
 // 版本總覽的「瑣碎改動」：純顯示層／風味描述，不影響強弱（使用者陸續指定：
 // 聊天訊息顯示名、擊殺時會大笑這類）。英雄詳情頁仍完整列出，只有版本總覽不列。
-const TRIVIAL=/聊天訊息|訊息(現在)?會顯示|顯示專屬的英雄名稱|提示文字|字型|排版調整|chat message|會大笑|笑聲|會說出?[「"]|台詞|嘲諷動作|表情動作/i;
+const TRIVIAL=/聊天訊息|訊息(現在)?會顯示|顯示專屬的英雄名稱|提示文字|字型|排版調整|chat message|會大笑|笑聲|會說出?[「"]|台詞|嘲諷動作|表情動作|臉部表情|選取範圍|尋路半徑|稱號[：:]/i;
 // wiki 的「通用（General）」章節＝不屬於任何技能的雜項（動畫、選取範圍、尋路半徑、稱號…）
 // 版本分頁不列，只在英雄詳情頁完整呈現（使用者定案 2026-08-01）
 const GEN_PRE=/^\s*(通用|一般|General)\s*(（[^）]*）)?\s*｜/i;
@@ -4476,6 +4497,25 @@ const renderChgLines=(lines,cardName)=>{
     .replace(/(^|[^\d\w.])\.(\d)/g,"$10.$2")
     // 「屬性」一律寫成「基礎能力值」（使用者定名 2026-07-31）
     .replace(/(^|｜)\s*屬性(?=[｜：:])/g,"$1基礎能力值")
+    // 「X的 Y」＝英文所有格 's 被詞典翻成「的」的殘留（Shurelya的 Reverie）→ 還原成 's 再交給下面的英名轉中
+    .replace(/([A-Za-z])的\s(?=[A-Za-z])/g,"$1's ")
+    // ＋號後面接中文/括號也不留空白（（＋ 目標已損生命的 8.7%）→（＋目標已損生命的 8.7%））
+    .replace(/([+＋])\s+(?=[（(一-鿿])/g,"$1")
+    // 「攻擊速度額外：」＝機翻語序 → 「額外攻擊速度：」
+    .replace(/((?:攻擊速度|移動速度|生命回復|魔力回復|物理防禦|魔法防禦|物防|魔防|物攻|魔攻|生命值?|魔力|攻速|移速)(?:[且與、](?:物防|魔防|物攻|魔攻|攻擊速度|移動速度))*)額外([：:])/g,"額外$1$2")
+    // 沒進 DDragon 的專有名詞小詞典（索娜和絃／犽宿氣／雷葛爾嗜血氣息…）
+    .replace(/\bStaccato\b/g,"斷奏").replace(/\bDiminuendo\b/g,"漸弱").replace(/\bTempo\b/g,"節拍")
+    .replace(/\bFlow\b/g,"氣").replace(/\bBlood Scent\b/g,"嗜血氣息").replace(/\bVelocity\b/g,"速度增幅")
+    .replace(/\bDeath Surge\b/g,"死亡狂湧").replace(/\bDeathly Leap\b/g,"死亡躍擊")
+    .replace(/現在觸發效果被觸發\s*DoT\s*AoE\s*技能/g,"現在會被持續傷害與範圍傷害技能觸發")
+    .replace(/\bDoT\b/g,"持續傷害").replace(/\bAoE\b/g,"範圍傷害")
+    .replace(/\bLeague of Legends\b/g,"英雄聯盟").replace(/\bQueueing\b/gi,"排隊")
+    .replace(/\btick(s|ing)?\b/gi,"跳動").replace(/\bshop\b/gi,"商店")
+    .replace(/\bCinderling(s)?\b/g,"燼火幼魔").replace(/\bWight\b/g,"屍妖").replace(/\bFeral\b/g,"野性")
+    .replace(/\bRhaast\b/g,"拉亞斯特").replace(/\bChemtech\b/g,"煉金科技").replace(/\bQueueing\b/gi,"排隊")
+    // 中文後面掛的純英文括號註記（「舊恨（Ancient Grudge）」「活體砲擊（Living Artillery）」）→ 拿掉
+    // ⚠ 括號內要 ≥3 字元才算註記：技能按鍵標註「（W）」與單位「（AP）」都不能被吃掉
+    .replace(/([一-鿿])\s*[（(][A-Za-z][A-Za-z' .\-]{2,}[）)]/g,"$1")
     // 「消耗當◯◯」＝ consumed when ◯◯ 的機翻語序（2026-07-31 使用者：艾希 13.02
     //「不再是消耗當攻擊守衛。」應該是「攻擊守衛時不再消耗。」）
     // ⚠ (?!前) 是為了避開姬亞娜「消耗當前元素」——那個「當前」不是 when
@@ -4488,6 +4528,24 @@ const renderChgLines=(lines,cardName)=>{
     // 「◯◯降低 A 從 B」＝ reduced to A from B → 轉成全站統一的「◯◯：B ⇒ A」
     .replace(/([^：:｜。]{1,12}?)\s*(降低|減少|提高|增加|提升)\s*([\d.]+)\s*從\s*([\d.]+)\s*[。.]?/g,"$1：$4 ⇒ $3")
     .replace(/\s+/g," ").trim());
+  // 英文道具/符文/英雄名 → 官方中文（assets 全庫歷代名；2026-08-01 全面稽核）。
+  // 一次建好大正則快取；名稱長度 ≥5 才收，避免 AD/AP 這類縮寫被誤翻
+  if(window._EN2ZH===undefined){
+    if(typeof ASSET_IDX!=="undefined"&&ASSET_IDX){ const m={},ks=[];
+      const put=(k,zh)=>{ if(!k||m[k]||!/^[A-Za-z]/.test(k)||k.length<5)return; if(!zh||/^[A-Za-z]/.test(zh))return; m[k]=zh; ks.push(k); };
+      for(const[k,v]of Object.entries(ASSET_IDX.byName)){
+        const zh=(v.hit&&v.hit.zh)||(v.e&&v.e.zh); put(k,zh);
+        // 「Enchantment: Cinderhulk」也登記裸名「Cinderhulk」（wiki 內文常只寫簡稱）
+        if(/^Enchantment:\s*/i.test(k))put(k.replace(/^Enchantment:\s*/i,""),zh); }
+      // 舊天賦（masteries.js）的英文名 → 中文（15.09 艾希備註裡的 Frenzy 這類）
+      for(const[en,e]of Object.entries(window.LOL_MASTERIES||{}))put(en,e&&e.zh);
+      ks.sort((a,b)=>b.length-a.length);
+      window._EN2ZH=m;
+      try{ window._EN2ZHRE=new RegExp("(?<![A-Za-z'])("+ks.map(x=>x.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")).join("|")+")(?![A-Za-z])","g"); }
+      catch(e){ window._EN2ZHRE=null; }
+    } else window._EN2ZH=null;
+  }
+  if(window._EN2ZHRE)lines=lines.map(l=>String(l).replace(window._EN2ZHRE,x=>window._EN2ZH[x]||x));
   // 卡片標題已經寫了道具名，行前綴再寫一次就變成「黑魔禁書黑魔禁書」（2026-07-31 使用者回報）
   if(cardName){ const _st=x=>String(x).replace(/\s*[（(][^（）()]*[）)]\s*/g,"").trim();
     const _cn=_st(cardName);
@@ -4558,15 +4616,19 @@ const renderChgLines=(lines,cardName)=>{
    //   「此技能不再…」是獨立的改動，不能併）
    const NOTE=/^(此|該|這)(數值|項|為|改動|變更|調整|效果)[^｜]{2,70}$/;
    const out4=[];
-   lines.forEach(l=>{ const b=_bd4(l).trim().replace(/[。.]\s*$/,"");
-     {const prev0=out4.length?out4[out4.length-1]:null;
-      if(prev0&&NOTE.test(b)&&!/⇒/.test(b)&&_pf4(l)===_pf4(prev0)&&/⇒/.test(String(prev0))){
-        out4[out4.length-1]=String(prev0).replace(/[。.]?\s*$/,"")+`（${b}）`; return; }}
+   // 往回找同技能的行（不限相鄰：wiki 的行序常是散的）
+   const back=(pf,pred)=>{ for(let j=out4.length-1;j>=0;j--){ if(_pf4(out4[j])!==pf)continue; if(pred(out4[j]))return j; } return -1; };
+   lines.forEach(l=>{ const pf=_pf4(l), b=_bd4(l).trim().replace(/[。.]\s*$/,"");
+     if(NOTE.test(b)&&!/⇒/.test(b)){
+       const j=back(pf,x=>/⇒/.test(String(x)));
+       const j2=j>=0?j:back(pf,()=>true);
+       if(j2>=0){ out4[j2]=String(out4[j2]).replace(/[。.]?\s*$/,"")+`（${b}）`; return; } }
      const m=b.match(/^(.{1,8}?)(相同|不變|維持不變)(.{0,14})$/);
-     const prev=out4.length?out4[out4.length-1]:null;
-     if(m&&prev&&_pf4(l)===_pf4(prev)&&_bd4(prev).startsWith(m[1])&&/⇒/.test(String(prev))){
-       const note=(m[3].trim()?`${m[3].trim()}時${m[1]}${m[2]}`:`${m[1]}${m[2]}`).replace(/(\d)([一-鿿])/g,"$1 $2");
-       out4[out4.length-1]=String(prev).replace(/[。.]?\s*$/,"")+`（${note}）`; return; }
+     if(m&&!/⇒/.test(b)){
+       const j=back(pf,x=>_bd4(x).startsWith(m[1])&&/⇒/.test(String(x)));
+       if(j>=0){
+         const note=(m[3].trim()?`${m[3].trim()}時${m[1]}${m[2]}`:`${m[1]}${m[2]}`).replace(/(\d)([一-鿿])/g,"$1 $2");
+         out4[j]=String(out4[j]).replace(/[。.]?\s*$/,"")+`（${note}）`; return; } }
      out4.push(l); });
    lines=out4;}
   // 「總價」與「合成費用」是同一件事的兩面，wiki 拆成兩行看起來像兩件事 → 合併
@@ -4690,6 +4752,11 @@ const SKZH=(()=>{ const m={}, Z=window.SKILL_ZH||{};
       _skSplit(en).forEach((x,i)=>{ const k=x.toLowerCase(); if(t[k])return;
         // 複合名分段對分段：「To the Skies! / Shock Blast」→「浩瀚無垠／電磁脈衝」逐段配對
         const zp=_skSplit(zh); t[k]=(i>0&&zp[i])?zp[i]:zt; }); } }
+  // skill_alias 的英文別名也收：內文裡的舊英文技能名（Calibrum／Dragon Force）才轉得掉
+  for(const[id,o]of Object.entries(window.SKILL_ALIAS||{})){ const t=m[id]=m[id]||{};
+    for(const[nm,v]of Object.entries(o)){ if(!Array.isArray(v)||!v[1])continue;
+      const k=String(nm).trim(); if(/[一-鿿]/.test(k))continue;
+      if(!t[k.toLowerCase()])t[k.toLowerCase()]=v[1]; } }
   return m; })();
 // 22.17 起官方繁中公告齊全 → wiki 補充只收繁中行（英文行必為重複或雜訊）
 // 改版文本：資料同時含中文與英文行（"技能名｜改動文字"）。中文模式留中文改動行；英文模式留英文改動行（技能名前綴仍中文，改動內容為官方英文）
@@ -4710,7 +4777,14 @@ const addKey=(id,l)=>{
   if(LANG!=="en"&&!/[一-鿿]/.test(sk)){ const zh=(SKZH[id]||{})[_lc]; if(zh)sk=zh; }
   if(LANG!=="en"){ const rn=(SKREN[id]||{})[sk.toLowerCase()]; if(rn)sk=rn; }  // 舊譯名換現行名
   const k=(SKMAP[id]||{})[sk]||(SKLC[id]||{})[sk.toLowerCase()]||(SKLC[id]||{})[_lc];
-  return k?`${sk}（${k}）｜${l.slice(i+1)}`:(sk!==l.slice(0,i).trim()?`${sk}｜${l.slice(i+1)}`:l);
+  // 內文裡的英文技能名也轉中文（13.01 漢默丁格「被 CH-1 Concussion Grenade 命中」這類；
+  // 只用該英雄自己的技能對照，不會誤翻其他字）
+  let bd=l.slice(i+1);
+  if(LANG!=="en"&&SKZH[id]){ const C=window._SKB=window._SKB||{}; let ent=C[id];
+    if(ent===undefined){ const Z=SKZH[id], ks=Object.keys(Z).filter(x=>x.length>=4).sort((a,b)=>b.length-a.length);
+      ent=C[id]=ks.length?{re:new RegExp("(?<![A-Za-z'])("+ks.map(x=>x.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")).join("|")+")(?![A-Za-z])","gi"),m:Z}:null; }
+    if(ent)bd=bd.replace(ent.re,x=>ent.m[x.toLowerCase()]||x); }
+  return k?`${sk}（${k}）｜${bd}`:(sk!==l.slice(0,i).trim()||bd!==l.slice(i+1)?`${sk}｜${bd}`:l);
 };
 // 英雄跨年度改動史（官方優先，wiki 補缺版）
 function champHistory(id){
@@ -10536,7 +10610,7 @@ function render(){
             return u?`<img src="${u.indexOf("communitydragon")>=0?u:itemVerImg(u)}" style="width:28px;height:28px;border-radius:5px;border:1px solid #33405c;vertical-align:middle;margin-right:6px" onerror="this.remove()">`:"";
           };
           ["道具","符文","召喚師技能","機制"].forEach(cat=>{
-            const ls=zhOnly(pk,(ex[cat]||[]).filter(l=>!COSM.test(l)));
+            const ls=zhOnly(pk,(ex[cat]||[]).filter(l=>!COSM.test(l)&&!TRIVIAL.test(l)));
             // 依「名稱｜」逐項分組；名稱去除 " - Added/Rework/Removed" 後綴，改成標籤列
             const ents={}, tags={};
             ls.forEach(l=>{
@@ -10550,8 +10624,19 @@ function render(){
               .sort((a,b)=>dirRank(a[1])-dirRank(b[1])||a[0].localeCompare(b[0],"zh-Hant"));
             if(!list.length)return;
             divider(`${cat==="道具"?"🛡️":cat==="符文"?"🔮":cat==="機制"?"⚙️":"✨"} ${cat}`);
+            // 非峽谷道具（含 TT/CS 註記的變體）與純表現卡（動畫/語音）不列（2026-08-01 全面稽核）
+            const _yrOfPk=2000+Math.floor(parseFloat(pk)||0);
+            const _NSRv=(window.ITEM_NONSR||{})[String(_yrOfPk)]||{};
+            const _nsrClean=n=>{ let x=String(n).replace(/^所有\s*maps?\s*/i,"").replace(/([A-Za-z])的\s(?=[A-Za-z])/g,"$1's ").trim();
+              for(let g=0;g<3;g++)x=x.replace(/\s*[（(][^（）()]*[）)]\s*$/,"").trim();
+              return x; };
+            const _isNSR=n=>{ const c=_nsrClean(n); if(_NSRv[c])return true;
+              const lc=c.toLowerCase(); for(const k in _NSRv)if(k.toLowerCase()===lc)return true;
+              return /（?\s*(TT|CS)\s*[／/]|(TT|CS)\s*version/i.test(String(n)); };
             list.forEach(([nm,bs])=>{
-              const zh=cat!=="機制"&&typeof assetZh==="function"?assetZh(nm):nm; // 英文/歷代名 → 官方中文名（Cinderhulk → 附魔：餘燼）
+              if(/^(動畫|語音|音效|模型|美術|插畫)$/.test(nm))return;
+              if(cat!=="機制"&&_isNSR(nm))return;
+              const zh=cat!=="機制"&&typeof assetZh==="function"?assetZh(_nsrClean(nm)===nm?nm:_nsrClean(nm)):nm; // 英文/歷代名 → 官方中文名（Cinderhulk → 附魔：餘燼）
               const tip=cat!=="機制"?` data-tip="x" data-name="${esc(zh)}" data-sec="${esc(cat)}"`:"";
               secs.push(`<div class="chgPatch"><span class="heroname"${tip} style="font-weight:bold">${cat!=="機制"?itemImg(zh):""}${esc(zh)}</span>${renderChgLines(bs,nm)}</div>`);
             });
