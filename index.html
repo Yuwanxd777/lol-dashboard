@@ -4467,6 +4467,13 @@ const renderChgLines=(lines,cardName)=>{
   lines=lines.filter(l=>{const p=String(l).indexOf("｜"); if(p<0)return true;
     const a=_nrm(l.slice(0,p)), b=String(l).slice(p+1).trim();
     return !(a&&(b===a||_nrm(b)===a&&b.length<=a.length+3));});
+  // 同一顆技能的改動集中在一起（wiki 原本的順序常是散的；模仿版／進化版重寫回本體技能後更明顯，
+  //  同一顆技能會在畫面上重複出現好幾次）。用首次出現順序當群組順序，群內順序不動。
+  //（2026-08-01 使用者：勒布朗 13.09 的沉默封印／移行瞬影／幻影鎖鍊各出現兩次）
+  {const _pf6=l=>{const i=String(l).indexOf("｜");return i>0?String(l).slice(0,i):"";};
+   const ord=[], grp=new Map();
+   lines.forEach(l=>{const k=_pf6(l); if(!grp.has(k)){grp.set(k,[]);ord.push(k);} grp.get(k).push(l);});
+   if(ord.length<lines.length)lines=ord.reduce((a,k)=>a.concat(grp.get(k)),[]);}
   // 光環／靈氣：同一個光環名下的多行一律併成一行，寫成
   //「唯一光環 – 軍團：物防：10 ⇒ 0；魔防：15 ⇒ 20；不再給予小兵額外加成」
   //（2026-07-31 使用者：所有道具的光環寫法都要統一成這樣）。不限相鄰，wiki 的順序常是散的。
