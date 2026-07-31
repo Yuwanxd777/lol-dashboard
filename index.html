@@ -4151,9 +4151,10 @@ function changeDir(lines){
   let buff=0,nerf=0,onlyRecipe=true;
   // 同一批行裡有「總價不變」→ 合成費用的變動只是子件價格調整，不是強度改動
   //（2026-07-31 判例：狂怒九頭蛇 13.06 合成費用 200⇒600 但總價不變）
-  const _keepTotal=lines.some(l=>/總價(不變|維持|沒有變|未變)/.test(String(l)));
+  // 總價或合成費用其中一邊明寫「不變」→ 這組價格變動只是子件調整，不計強弱（白字）
+  const _keepTotal=lines.some(l=>/總價(不變|維持|沒有變|未變)|合成費用不變|合成費用維持/.test(String(l)));
   for(const t of lines){
-    if(_keepTotal&&/合成費用/.test(t)&&!/總價/.test(t))continue;
+    if(_keepTotal&&/(合成費用|總價)/.test(t))continue;
     const _fx=(window.PATCH_DIR_FIX||{})[String(t).trim()]; // 逐行人工判例最優先（166 筆語義覆核）
     if(_fx===1||_fx===-1||_fx===0){ onlyRecipe=false; if(_fx>0)buff++; else if(_fx<0)nerf++; continue; }
     const ov=DIR_OVERRIDE.find(([re])=>re.test(t));
@@ -4267,20 +4268,39 @@ const normTxt=s=>uniStat(s)
   .replace(/([\d%])(?=[一-鿿])/g,"$1 ")
   .replace(/\s{2,}/g," ").trim();
 const renderChgLines=(lines,cardName)=>{
+  // 半形標點正規化：wiki 原文的逗號／冒號常是半形，混在中文裡很難看（2026-07-31 使用者回報）
+  lines=lines.map(l=>String(l).replace(/,\s*/g,"，").replace(/\s*:\s*(?![0-9])/g,"：").replace(/，\s*$/,""));
   // 卡片標題已經寫了道具名，行前綴再寫一次就變成「黑魔禁書黑魔禁書」（2026-07-31 使用者回報）
-  if(cardName){ const _cn=String(cardName).trim();
-    lines=lines.map(l=>{const i=String(l).indexOf("｜"); return (i>0&&String(l).slice(0,i).trim()===_cn)?String(l).slice(i+1):l;}); }
+  if(cardName){ const _st=x=>String(x).replace(/\s*[（(][^（）()]*[）)]\s*/g,"").trim();
+    const _cn=_st(cardName);
+    lines=lines.map(l=>{const i=String(l).indexOf("｜"); return (i>0&&_st(String(l).slice(0,i))===_cn)?String(l).slice(i+1):l;}); }
   // 回音行保險：「死亡領域（R）｜死亡領域」這種 body＝前綴技能名（wiki 擷取的名稱列殘留）→ 不列
   const _nrm=s=>String(s||"").replace(/[\s（(].*$/,"").trim();
   lines=lines.filter(l=>{const p=String(l).indexOf("｜"); if(p<0)return true;
     const a=_nrm(l.slice(0,p)), b=String(l).slice(p+1).trim();
     return !(a&&(b===a||_nrm(b)===a&&b.length<=a.length+3));});
+  // 「總價」與「合成費用」是同一件事的兩面，wiki 拆成兩行看起來像兩件事 → 合併
+  //（2026-07-31 判例：守望者鎧甲 13.10、冰霜之心 13.10、狂怒九頭蛇 13.06、長劍 13.14）
+  {const _bd=l=>String(l).replace(/^[^｜]*｜/,"");
+   const _ti2=lines.findIndex(l=>/總價/.test(_bd(l)));
+   const _ci2=lines.findIndex(l=>/合成費用/.test(_bd(l)));
+   if(_ti2>=0&&_ci2>=0&&_ti2!==_ci2){ lines=lines.slice();
+     const _a=_ti2<_ci2?_ti2:_ci2, _b=_ti2<_ci2?_ci2:_ti2;
+     lines[_a]=String(lines[_a]).replace(/[。.]?\s*$/,"")+"；"+_bd(lines[_b]).replace(/[。.]\s*$/,"");
+     lines.splice(_b,1); }}
   // 「合成費用：200 ⇒ 600」與「總價不變。」拆成兩行看起來像兩件事 → 合併成一行
   {const _ci=lines.findIndex(l=>/合成費用/.test(String(l))&&!/總價/.test(String(l)));
-   const _ti=lines.findIndex(l=>/^\s*總價(不變|維持|沒有變|未變)/.test(String(l).replace(/^[^｜]*｜/,"")));
+   const _ti=lines.findIndex(l=>/總價(不變|維持不變|沒有變|未變)|總價維持/.test(String(l).replace(/^[^｜]*｜/,"")));
    if(_ci>=0&&_ti>=0){ lines=lines.slice();
      lines[_ci]=String(lines[_ci]).replace(/\s*$/,"")+"（總價不變）";
-     lines.splice(_ti,1); }}
+     lines.splice(_ti,1); }
+   // 「費用：X ⇒ Y」＋「所有以◯◯為材料的道具…總價維持不變」也是同一件事 → 併成一行
+   const _fi=lines.findIndex(l=>/費用[:：]/.test(String(l))&&/⇒/.test(String(l)));
+   const _si=lines.findIndex(l=>/總價維持不變|總價不變/.test(String(l))&&!/⇒/.test(String(l)));
+   if(_fi>=0&&_si>=0&&_fi!==_si){ lines=lines.slice();
+     const _sb=String(lines[_si]).replace(/^[^｜]*｜/,"").replace(/[。.]\s*$/,"");
+     lines[_fi]=String(lines[_fi]).replace(/\s*$/,"")+"；"+_sb;   // 說明本身常已帶括號，用分號接不要再包一層
+     lines.splice(_si,1); }}
   // 新道具登場/升級而成：只留一句介紹，屬性/效果等清單行不列（有 ⇒ 的實際改動仍保留）
   const NEWIT=/全新道具登場|全新(符文|裝備|道具)加入|升級而成/;
   if(lines.some(l=>NEWIT.test(l)))
@@ -6195,6 +6215,11 @@ function renderChgYear(box){
                if(_nm2&&!/[：:｜]/.test(_nm2)&&_nm2.length<=24){ name=_nm2; body=zh||name; }
                break; } }}
             name=name.replace(/^\[[^\]]*\]\s*/,"");
+            // wiki 常把「一起改的兩個天賦／道具」寫成「A and B」→ 轉成站內雙名格式「A／B」，
+            // 卡片才會各自顯示圖示（2026-07-31 判例：Legendary Guardian and Tenacious）
+            // 英文的 and 前後一定有空白；中文的「與／且」沒有 → 兩條規則分開，中文那條限定中文字元避免誤傷
+            name=name.replace(/^(.{2,24}?)\s+and\s+(.{2,24})$/i,"$1／$2")
+                     .replace(/^([一-鿿]{2,10})[與且]([一-鿿]{2,10})$/,"$1／$2");
             const _ct=chgNameTag(name); const _tag=(_ct.nm!==name)?_ct.tag:""; name=_ct.nm; // 去 " - Added/Rework" 後綴，記標籤
             name=name.split("／").map(p=>ITEM_ALIAS[p.trim()]||p.trim()).join("／"); // 舊譯名統一為現行名（剔除鐮刀→汰除品）
             if(!selP){ // 「全年」視圖限定：登場/移除寫在道具詳情就好，這裡不列

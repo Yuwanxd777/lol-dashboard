@@ -97,6 +97,19 @@ def main():
         if y:
             out[str(yr)] = y
         print("  => %d：%d 個非峽谷道具名" % (yr, len(y)))
+    # 人工補充：DDragon 的 maps 旗標認不出、但確定不是召喚峽谷的（中譯與英文名都要收，
+    # 版本改動頁兩種寫法都會出現）。2026-07-31 使用者點名：月華法刃 Moonflair Spellblade
+    MANUAL = {
+        2013: ["月華法刃", "Moonflair Spellblade", "光之使者", "Lightbringer",
+               "海克斯清除者", "Hextech Sweeper", "格雷提燈", "Grez's Spectral Lantern",
+               "烏莉特的法帽", "Ohmwrecker", "奧丁面紗", "Odyn's Veil"],
+        2014: ["月華法刃", "Moonflair Spellblade", "光之使者", "Lightbringer"],
+        2015: ["月華法刃", "Moonflair Spellblade", "光之使者", "Lightbringer"],
+    }
+    for yr, names in MANUAL.items():
+        y2 = out.setdefault(str(yr), {})
+        for nm in names:
+            y2[nm] = 1
     with open(OUT, "w", encoding="utf-8") as f:
         f.write("window.ITEM_NONSR=" + json.dumps(out, ensure_ascii=False, separators=(",", ":")) + ";")
     print("")
