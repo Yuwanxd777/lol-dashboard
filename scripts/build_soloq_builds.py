@@ -217,11 +217,14 @@ def main():
             lk = None if _hl == "?" else _hl  # 每路線聚合的路線鍵（未知路線不入 byLane，仍計整體）
             _opp = CHAMP_FIX.get(g.get("o"), g.get("o"))
             if _opp: _m = muCnt[c][_opp]; _m[0] += 1; _m[1] += win
-            # 逐場（出場紀錄）：[t, 選手key, 路線縮寫, 勝, K, D, A, KP, 對位, 金差15, 經差15, 評分]
+            # 逐場（出場紀錄）：[t, 選手key, 路線縮寫, 勝, K, D, A, KP, 對位, 金差15, 經差15, 評分, 關鍵符文]
+            # 第 13 欄 keystone（g["r"]）是 2026-07-31 新增：英雄詳情的出場紀錄要顯示符文欄。
+            # 原本符文只存在逐選手的 soloq_matches/pN.js（點到該選手才載入），做英雄層級的表
+            # 等於要一次載入上百個檔 → 直接在這裡多存一個數字，檔案只大一點點。
             chGames[c].append((g.get("t") or 0, pkey, {"TOP": "T", "JUNGLE": "J", "MIDDLE": "M", "BOTTOM": "B", "UTILITY": "U"}.get(_hl, ""),
                                win, g.get("k") or 0, g.get("de") or 0, g.get("a") or 0,
                                (round(g["kp"]) if g.get("kp") is not None else None), _opp or "",
-                               g.get("gd15"), g.get("xd15"), g.get("sc")))
+                               g.get("gd15"), g.get("xd15"), g.get("sc"), g.get("r")))
             _su = [x for x in (g.get("su") or []) if x]
             if len(_su) == 2:
                 _sp2 = tuple(sorted(_su)); suCnt[c][_sp2] += 1

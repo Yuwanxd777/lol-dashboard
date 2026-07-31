@@ -5758,7 +5758,8 @@ function sqHeroDetail(cid){
     recInner=`<span class="meta">${en?"Loading games…":"載入出場紀錄中…"}</span>`;
   }else{
     const POS1={T:"TOP",J:"JNG",M:"MID",B:"BOT",U:"SUP"};
-    let list=(CG[cid]||[]).map(r=>({t:r[0],pkey:r[1]||"",pos:POS1[r[2]]||"",won:!!r[3],k:r[4],de:r[5],a:r[6],kp:r[7],och:r[8]||"",gd15:r[9],xd15:r[10],sc:r[11]}));
+    // r[12]＝關鍵符文（2026-07-31 起 build_soloq_builds.py 多存的第 13 欄；舊檔沒有 → undefined，畫空圈）
+    let list=(CG[cid]||[]).map(r=>({t:r[0],pkey:r[1]||"",pos:POS1[r[2]]||"",won:!!r[3],k:r[4],de:r[5],a:r[6],kp:r[7],och:r[8]||"",gd15:r[9],xd15:r[10],sc:r[11],r:r[12]}));
     if(V.hdLane)list=list.filter(g=>g.pos===V.hdLane);
     if(V.hdOpp)list=list.filter(g=>g.och===V.hdOpp);
     // 選手篩選（2026-07-31 使用者要求）：pkey＝「隊伍|選手」，只比對選手名，跟職業版同一個 V.hdPlayer
@@ -5769,7 +5770,7 @@ function sqHeroDetail(cid){
     if(V.hdPlayer)list=list.filter(g=>String(g.pkey).split("|")[1]===V.hdPlayer);
     const RACC={版本:g=>g.t,使用選手:g=>g.pkey,位置:g=>g.pos,勝敗:g=>g.won?1:0,
       "K/D/A":g=>(g.k+g.a)/Math.max(1,g.de),參與率:g=>g.kp,
-      "金差@15":g=>g.gd15,"經差@15":g=>g.xd15,對位英雄:g=>cAb(g.och)||g.och,評分:g=>g.sc};
+      "金差@15":g=>g.gd15,"經差@15":g=>g.xd15,符文:g=>g.r,對位英雄:g=>cAb(g.och)||g.och,評分:g=>g.sc};
     // 預設＝版本降冪（與職業版一致）。版本排序鍵取時間戳：時間戳的順序本來就等同
     // 「先版本、同版再依日期」，不必再補第二鍵（2026-07-31 使用者指定）。
     if(!V.recSort)V.recSort={k:"版本",d:-1};
@@ -5785,7 +5786,7 @@ function sqHeroDetail(cid){
     const cell=v=>`<td style="color:${v==null?"var(--tx2)":v>0?"#ff6b6b":v<0?"#37c871":""}">${v==null?"—":(v>0?"+":"")+Math.round(v)}</td>`;
     const scCol=s=>{if(s==null)return"#8aa0c0"; const v=Math.max(0,Math.min(100,s)); return `hsl(${Math.round(120*(1-v/100))},72%,58%)`;}; // 評分 0→100 綠→黃→紅（同積分逐場 scoreCol）
     recInner=`<div class="tblwrap"><table class="recTbl"><thead><tr>
-      <th>#</th>${["使用選手","版本","位置","勝敗","K/D/A","金差@15","經差@15","對位英雄","評分"].map(k2=>{const _s=V.recSort,_on=_s&&_s.k===k2,_up=_on&&_s.d>0;return `<th data-rs="${k2}" style="cursor:pointer"><span class="thL">${mLabel(k2)}<span class="sortArr${_on?" on":""}${_on?(_up?" asc":" desc"):""}">${_up?"▲":"▼"}</span></span></th>`;}).join("")}</tr></thead><tbody>${
+      <th>#</th>${["使用選手","版本","位置","勝敗","K/D/A","金差@15","經差@15","符文","對位英雄","評分"].map(k2=>{const _s=V.recSort,_on=_s&&_s.k===k2,_up=_on&&_s.d>0;return `<th data-rs="${k2}" style="cursor:pointer"><span class="thL">${mLabel(k2)}<span class="sortArr${_on?" on":""}${_on?(_up?" asc":" desc"):""}">${_up?"▲":"▼"}</span></span></th>`;}).join("")}</tr></thead><tbody>${
       list.map((g,i)=>`<tr><td class="rk">${i+1}</td>
         <td>${(()=>{const[tm,pl]=g.pkey.split("|");return `<span class="meta">${esc(teamFix(tm||""))}</span> ${esc(pl||"")}`;})()}</td>
         <td class="meta" title="${dstr(g.t)}">${patchOfTs(g.t)||"–"}</td>
@@ -5793,6 +5794,7 @@ function sqHeroDetail(cid){
         <td>${g.won?`<span style="color:#ff6b6b">${en?"W":"勝"}</span>`:`<span style="color:#6ea8ff">${en?"L":"敗"}</span>`}</td>
         <td>${g.k}/${g.de}/${g.a}</td>
         ${cell(g.gd15)}${cell(g.xd15)}
+        <td>${runeImg(g.r,26)}</td>
         <td class="mvOpp" data-och="${esc(g.och)}"><span class="heroname">${g.och?cImg(g.och):""}${g.och?(cAb(g.och)||esc(chName(champId(g.och))||g.och)):"—"}</span></td>
         <td>${g.sc==null?"—":`<b style="color:${scCol(g.sc)}">${d1s(g.sc)}</b>`}</td></tr>`).join("")
     }</tbody></table></div>`;
@@ -5820,6 +5822,9 @@ function sqHeroDetail(cid){
   bindFilters(render);
   bindCombo("hdOppSel",oppOpts,V.hdOpp,hit=>{V.hdOpp=hit; saveState(); render();},true);
   bindCombo("hdPlSel",plOpts,V.hdPlayer,hit=>{V.hdPlayer=hit; saveState(); render();}); // 使用選手（與對位一樣只作用在出場紀錄，名片統計來自彙總檔、只吃路線）
+  // 符文欄要 RUNE_MAP（DDragon runesReforged，延遲載入）。原本只有圖鑑與積分逐場會觸發載入，
+  // 這頁不載就整欄畫空圈（2026-07-31 新增符文欄時踩到）。載好後重繪一次。
+  if(!RUNE_MAP) loadRunes(()=>{ if(curView==="英雄"&&V.heroDetail===cid&&V.heroMode==="soloq") render(); });
   segBind("heroModeSeg",v=>{ if(v===V.heroMode)return; V.heroDetail=heroKeyFor(v,V.heroDetail); V.heroMode=v; V.hdOpp="";V.hdLane="";V.hdPlayer=""; saveState(); render(); }); // 同上：詳情頁切資料源
   document.getElementById("hdLaneSel").onchange=e=>{V.hdLane=e.target.value; V.hdOpp=""; saveState(); render();};
   document.querySelectorAll(".recTbl th[data-rs]").forEach(th=>th.onclick=()=>{
