@@ -4934,7 +4934,9 @@ const _skSplit=nm=>{ const a=[String(nm).trim()];
   return a; };
 // 技能名查表用的正規化鍵：wiki 寫「Mimic: Distortion」（半形冒號＋空格），
 // 別名表與 DDragon 寫「Mimic：Distortion」（全形）→ 冒號與空白一律壓平（2026-08-01 稽核）
-const _skKey=x=>String(x).trim().toLowerCase().replace(/\s*[:：]\s*/g,"：").replace(/\s+/g," ");
+// 「／」兩側的空白也要壓平：DDragon 自己就不一致（李星「虎嘯龍吟 ／ 震驚百里」有空格、
+//  Ambessa「暗襲／裂斬」沒有），不正規化的話同一顆技能寫法差一格就查不到（2026-07-31）
+const _skKey=x=>String(x).trim().toLowerCase().replace(/\s*[:：]\s*/g,"：").replace(/\s*[／\/|｜]\s*/g,"／").replace(/\s+/g," ");
 const SKLC=(()=>{ const m={};
   for(const[id,o]of Object.entries(SKMAP)){ const t=m[id]={};
     for(const[nm,k]of Object.entries(o))_skSplit(nm).forEach(x=>{ if(!t[_skKey(x)])t[_skKey(x)]=k; }); }
