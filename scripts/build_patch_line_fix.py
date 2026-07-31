@@ -113,6 +113,43 @@ FIX = [
 ]
 
 
+# 進化／強化版技能的行 → 歸回本體技能，內容前面標「強化後」
+#（2026-08-01 使用者：Evolved Enlarged Claws 是強化的 Q，要列在 Q 底下）
+# 卡力斯四顆技能的進化版在 wiki 上被當成獨立技能名，中英文寫法都有
+EVOLVE = {
+    "Khazix": {
+        "孤獨的恐懼": ["Evolved Enlarged Claws", "進化巨爪", "進化巨型利爪", "進化利爪"],
+        "虛空尖刺": ["Evolved Spike Racks", "進化尖刺陣", "進化尖刺"],
+        "掠翅飛躍": ["Evolved Wings", "進化之翼", "進化翅膀"],
+        "虛空突襲": ["Evolved Active Camouflage", "Evolved Adaptive Cloaking",
+                     "進化主動隱蔽", "進化活性迷彩"],
+    },
+}
+
+
+def evolve_rules(WP):
+    """掃全部版本，把進化版技能名的行改寫成「本體技能｜強化後…」"""
+    out = {}
+    for cid, mp in EVOLVE.items():
+        alias = {a: main for main, arr in mp.items() for a in arr}
+        for cs in WP.values():
+            arr = (cs or {}).get(cid)
+            if not isinstance(arr, list):
+                continue
+            for line in arr:
+                i = line.find("｜")
+                if i <= 0:
+                    continue
+                main = alias.get(line[:i].strip())
+                if not main:
+                    continue
+                body = line[i + 1:].strip()
+                # 「新增：…」這種本身就有冒號的，用「強化後 - 」接才通順
+                body = ("強化後 - " + body) if re.match(r"^(新增|已移除|移除|舊版|新版)[：:]", body)                     else ("強化後" + body)
+                out[line] = main + "｜" + body
+    return out
+
+
 def load_patches():
     p = os.path.join(ROOT, "wiki_patches.js")
     s = io.open(p, encoding="utf-8").read()
@@ -143,6 +180,8 @@ def main():
             continue
         used.add(hit)
         out[hit] = new
+    for k, v in evolve_rules(WP).items():
+        out.setdefault(k, v)
     with io.open(OUT, "w", encoding="utf-8") as f:
         f.write("// 版本改動行的人工重寫（scripts/build_patch_line_fix.py 產生，勿手改）" + chr(10))
         f.write("window.PATCH_LINE_FIX=" + json.dumps(out, ensure_ascii=False, separators=(",", ":")) + ";")
