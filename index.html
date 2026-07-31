@@ -5758,8 +5758,10 @@ function sqHeroDetail(cid){
     recInner=`<span class="meta">${en?"Loading games…":"載入出場紀錄中…"}</span>`;
   }else{
     const POS1={T:"TOP",J:"JNG",M:"MID",B:"BOT",U:"SUP"};
-    // r[12]＝關鍵符文（2026-07-31 起 build_soloq_builds.py 多存的第 13 欄；舊檔沒有 → undefined，畫空圈）
-    let list=(CG[cid]||[]).map(r=>({t:r[0],pkey:r[1]||"",pos:POS1[r[2]]||"",won:!!r[3],k:r[4],de:r[5],a:r[6],kp:r[7],och:r[8]||"",gd15:r[9],xd15:r[10],sc:r[11],r:r[12]}));
+    // r[12]＝關鍵符文、r[13]＝副系第一顆符文（2026-07-31 起 build_soloq_builds.py 多存的兩欄）。
+    // rs 包成陣列是為了直接餵 runeKS（它吃 g.rs 陣列、取第一個有值的反查副系）；
+    // 舊檔沒有這兩欄時是 undefined／空陣列，runeKS 會只畫主符文、不會壞。
+    let list=(CG[cid]||[]).map(r=>({t:r[0],pkey:r[1]||"",pos:POS1[r[2]]||"",won:!!r[3],k:r[4],de:r[5],a:r[6],kp:r[7],och:r[8]||"",gd15:r[9],xd15:r[10],sc:r[11],r:r[12],rs:r[13]==null?[]:[r[13]]}));
     if(V.hdLane)list=list.filter(g=>g.pos===V.hdLane);
     if(V.hdOpp)list=list.filter(g=>g.och===V.hdOpp);
     // 選手篩選（2026-07-31 使用者要求）：pkey＝「隊伍|選手」，只比對選手名，跟職業版同一個 V.hdPlayer
@@ -5794,7 +5796,7 @@ function sqHeroDetail(cid){
         <td>${g.won?`<span style="color:#ff6b6b">${en?"W":"勝"}</span>`:`<span style="color:#6ea8ff">${en?"L":"敗"}</span>`}</td>
         <td>${g.k}/${g.de}/${g.a}</td>
         ${cell(g.gd15)}${cell(g.xd15)}
-        <td>${runeImg(g.r,26)}</td>
+        <td>${runeKS(g,26)}</td>
         <td class="mvOpp" data-och="${esc(g.och)}"><span class="heroname">${g.och?cImg(g.och):""}${g.och?(cAb(g.och)||esc(chName(champId(g.och))||g.och)):"—"}</span></td>
         <td>${g.sc==null?"—":`<b style="color:${scCol(g.sc)}">${d1s(g.sc)}</b>`}</td></tr>`).join("")
     }</tbody></table></div>`;
