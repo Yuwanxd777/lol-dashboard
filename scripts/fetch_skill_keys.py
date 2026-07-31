@@ -9,6 +9,11 @@
 收 {英雄id: {技能名: 按鍵}}。同名衝突時以**較舊的版本**為準——這份的用途就是補舊名，
 現行名 index.html 本來就有。
 
+**中英對照**（2026-07-31 使用者回報：2013 希維爾「On the Hunt」既沒翻中文也沒標 R）：
+早年 wiki 的改動文字有些技能名是英文原名，中文對照表當然對不到。所以這裡連 en_US 一起抓，
+同一個 spell 的英文名也寫進 SKILL_KEYS（讓按鍵標註吃得到），另外輸出 SKILL_ZH＝
+{英雄id: {英文技能名: 中文技能名}} 給顯示層把前綴換成中文。
+
 用法：python scripts\\fetch_skill_keys.py
 """
 import io, json, os, sys, urllib.request
@@ -27,8 +32,8 @@ VERS = ["16.15.1", "15.24.1", "14.24.1", "13.24.1", "12.23.1", "11.24.1", "10.25
 KEYS = ["Q", "W", "E", "R"]
 
 
-def get(v):
-    u = "https://ddragon.leagueoflegends.com/cdn/%s/data/zh_TW/championFull.json" % v
+def get(v, loc="zh_TW"):
+    u = "https://ddragon.leagueoflegends.com/cdn/%s/data/%s/championFull.json" % (v, loc)
     try:
         return json.loads(urllib.request.urlopen(urllib.request.Request(u, headers=UA), timeout=90).read())["data"]
     except Exception as e:
@@ -37,29 +42,51 @@ def get(v):
 
 
 def main():
-    out = {}
+    out, zh = {}, {}
     for v in VERS:
         d = get(v)
         if not d:
             continue
+        de = get(v, "en_US") or {}
         add = 0
         for cid, c in d.items():
             o = out.setdefault(cid, {})
+            z = zh.setdefault(cid, {})
+            ce = de.get(cid) or {}
+            # 被動
             p = (c.get("passive") or {}).get("name")
-            if p and p not in o:
-                o[p] = "被動"; add += 1
-            for i, sp in enumerate(c.get("spells") or []):
+            pe = (ce.get("passive") or {}).get("name")
+            for nm in (p, pe):
+                if nm and nm not in o:
+                    o[nm] = "被動"; add += 1
+            if p and pe and pe != p and pe not in z:
+                z[pe] = p
+            # Q/W/E/R
+            sl, se = c.get("spells") or [], ce.get("spells") or []
+            for i, sp in enumerate(sl):
+                if i >= 4:
+                    break
                 nm = sp.get("name")
-                if nm and i < 4 and nm not in o:
-                    o[nm] = KEYS[i]; add += 1
+                en = (se[i].get("name") if i < len(se) else "") or ""
+                for x in (nm, en):
+                    if x and x not in o:
+                        o[x] = KEYS[i]; add += 1
+                if nm and en and en != nm and en not in z:
+                    z[en] = nm
         print("   %s：%d 隻英雄，新增 %d 個技能名" % (v, len(d), add))
+    out = {k: v for k, v in out.items() if v}
+    zh = {k: v for k, v in zh.items() if v}
     tot = sum(len(v) for v in out.values())
     with open(OUT, "w", encoding="utf-8") as f:
-        f.write("window.SKILL_KEYS=" + json.dumps(out, ensure_ascii=False, separators=(",", ":")) + ";")
+        f.write("window.SKILL_KEYS=" + json.dumps(out, ensure_ascii=False, separators=(",", ":")) + ";" + chr(10))
+        f.write("window.SKILL_ZH=" + json.dumps(zh, ensure_ascii=False, separators=(",", ":")) + ";")
     print("")
-    print("OK skill_keys.js：%d 隻英雄、%d 個技能名" % (len(out), tot))
-    g = out.get("Galio") or {}
-    print("   驗證 Galio：" + "、".join("%s=%s" % (k, x) for k, x in g.items()))
+    print("OK skill_keys.js：%d 隻英雄、%d 個技能名、%d 組英→中對照"
+          % (len(out), tot, sum(len(v) for v in zh.values())))
+    for cid in ("Galio", "Sivir"):
+        g = out.get(cid) or {}
+        print("   驗證 %s：%s" % (cid, "、".join("%s=%s" % (k, x) for k, x in g.items())))
+        print("     英→中：%s" % "、".join("%s→%s" % (k, x) for k, x in (zh.get(cid) or {}).items()))
 
 
 if __name__ == "__main__":
