@@ -4773,29 +4773,32 @@ const SKMAP=(()=>{
 const _skSplit=nm=>{ const a=[String(nm).trim()];
   String(nm).split(/[／\/|｜]/).forEach(x=>{ x=x.trim(); if(x&&!a.includes(x))a.push(x); });
   return a; };
+// 技能名查表用的正規化鍵：wiki 寫「Mimic: Distortion」（半形冒號＋空格），
+// 別名表與 DDragon 寫「Mimic：Distortion」（全形）→ 冒號與空白一律壓平（2026-08-01 稽核）
+const _skKey=x=>String(x).trim().toLowerCase().replace(/\s*[:：]\s*/g,"：").replace(/\s+/g," ");
 const SKLC=(()=>{ const m={};
   for(const[id,o]of Object.entries(SKMAP)){ const t=m[id]={};
-    for(const[nm,k]of Object.entries(o))_skSplit(nm).forEach(x=>{ if(!t[x.toLowerCase()])t[x.toLowerCase()]=k; }); }
+    for(const[nm,k]of Object.entries(o))_skSplit(nm).forEach(x=>{ if(!t[_skKey(x)])t[_skKey(x)]=k; }); }
   // 人工別名（skill_alias.js）：DDragon 沒有、只在 wiki 改動文字裡出現的舊譯名／變身子技能名
   for(const[id,o]of Object.entries(window.SKILL_ALIAS||{})){ const t=m[id]=m[id]||{};
-    for(const[nm,v]of Object.entries(o)){ const k=Array.isArray(v)?v[0]:v; if(k)t[String(nm).trim().toLowerCase()]=k; } }
+    for(const[nm,v]of Object.entries(o)){ const k=Array.isArray(v)?v[0]:v; if(k)t[_skKey(nm)]=k; } }
   return m; })();
 // 別名→現行名（有指定第二欄才換；換掉後同一顆技能的改動才會併成一塊）
 const SKREN=(()=>{ const m={};
   for(const[id,o]of Object.entries(window.SKILL_ALIAS||{})){ const t=m[id]={};
-    for(const[nm,v]of Object.entries(o))if(Array.isArray(v)&&v[1])t[String(nm).trim().toLowerCase()]=v[1]; }
+    for(const[nm,v]of Object.entries(o))if(Array.isArray(v)&&v[1])t[_skKey(nm)]=v[1]; }
   return m; })();
 const SKZH=(()=>{ const m={}, Z=window.SKILL_ZH||{};
   for(const[id,o]of Object.entries(Z)){ const t=m[id]={};
     for(const[en,zh]of Object.entries(o)){ const zt=String(zh).trim();
-      _skSplit(en).forEach((x,i)=>{ const k=x.toLowerCase(); if(t[k])return;
+      _skSplit(en).forEach((x,i)=>{ const k=_skKey(x); if(t[k])return;
         // 複合名分段對分段：「To the Skies! / Shock Blast」→「浩瀚無垠／電磁脈衝」逐段配對
         const zp=_skSplit(zh); t[k]=(i>0&&zp[i])?zp[i]:zt; }); } }
   // skill_alias 的英文別名也收：內文裡的舊英文技能名（Calibrum／Dragon Force）才轉得掉
   for(const[id,o]of Object.entries(window.SKILL_ALIAS||{})){ const t=m[id]=m[id]||{};
     for(const[nm,v]of Object.entries(o)){ if(!Array.isArray(v)||!v[1])continue;
       const k=String(nm).trim(); if(/[一-鿿]/.test(k))continue;
-      if(!t[k.toLowerCase()])t[k.toLowerCase()]=v[1]; } }
+      if(!t[_skKey(k)])t[_skKey(k)]=v[1]; } }
   return m; })();
 // 22.17 起官方繁中公告齊全 → wiki 補充只收繁中行（英文行必為重複或雜訊）
 // 改版文本：資料同時含中文與英文行（"技能名｜改動文字"）。中文模式留中文改動行；英文模式留英文改動行（技能名前綴仍中文，改動內容為官方英文）
@@ -4812,10 +4815,10 @@ const addKey=(id,l)=>{
   let sk=l.slice(0,i).trim();
   if(/（[QWER被]|\([QWER]\)/.test(sk))return l;      // 已有按鍵標註
   // 純英文技能名先換成中文（中文模式才換；英文模式維持原文）
-  const _lc=sk.toLowerCase();
+  const _lc=_skKey(sk);
   if(LANG!=="en"&&!/[一-鿿]/.test(sk)){ const zh=(SKZH[id]||{})[_lc]; if(zh)sk=zh; }
-  if(LANG!=="en"){ const rn=(SKREN[id]||{})[sk.toLowerCase()]; if(rn)sk=rn; }  // 舊譯名換現行名
-  const k=(SKMAP[id]||{})[sk]||(SKLC[id]||{})[sk.toLowerCase()]||(SKLC[id]||{})[_lc];
+  if(LANG!=="en"){ const rn=(SKREN[id]||{})[_skKey(sk)]; if(rn)sk=rn; }  // 舊譯名換現行名
+  const k=(SKMAP[id]||{})[sk]||(SKLC[id]||{})[_skKey(sk)]||(SKLC[id]||{})[_lc];
   // 內文裡的英文技能名也轉中文（13.01 漢默丁格「被 CH-1 Concussion Grenade 命中」這類；
   // 只用該英雄自己的技能對照，不會誤翻其他字）
   let bd=l.slice(i+1);
