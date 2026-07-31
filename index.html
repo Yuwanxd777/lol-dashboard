@@ -208,7 +208,11 @@
   /* 系列賽（大場）標題列＋小局縮排 */
   .bp tr.seriesHead td{background:var(--card2);border-top:2px solid var(--line);padding:7px 10px;font-size:13.5px;text-align:left}
   .bp tr.seriesHead .sMeta{font-weight:bold}
-  .bp tr.seriesHead .sVs{font-weight:bold;font-size:15px;margin:0 12px}
+  /* 系列賽標題列：日期／賽事／賽季／比分／局數版本 之間的間距統一（2026-07-31 使用者要求「平均點」）。
+     原本只有 .sVs 兩側有 12px、其餘靠 HTML 的空白字元約 4px → 疏密不一。
+     ⚠ 不要把 flex 設在 td 上：colspan 的 td 改 display 會影響表格欄寬計算，改包一層 .shRow */
+  .bp tr.seriesHead .shRow{display:flex;align-items:center;gap:4px 12px;flex-wrap:wrap}
+  .bp tr.seriesHead .sVs{font-weight:bold;font-size:15px}
   .bp tr.seriesHead .sWin{background:rgba(255,255,255,.10);border-radius:5px;padding:1px 7px} /* 系列賽勝方隊名也給小白底＝與逐局「白底那隊＝勝方」一致 */
   .bp tr.seriesHead .sVs b{color:var(--tx2)}
   .bp tr.seriesHead .sVs b.win{color:var(--gold)}
@@ -8615,10 +8619,11 @@ function render(){
           else { const m=s.games[gi++]; if(m)rows+=rowHTML(m,n); }
         }
         const warn=miss?` <span style="color:#e0574d;font-weight:bold">⚠ ${LANG==="en"?`missing game ${miss.miss.join(", ")}`:`缺第 ${miss.miss.join("、")} 局`}</span>`:"";
-        return `<tr class="seriesHead"><td colspan="19">
-          <span class="sMeta">${s.date}</span> ${lgChip(s.league)} <span class="meta">${spDisp(s.split)}${_lplGrpTag(s.league,s.split,s.teams)}</span>
-          <span class="sVs"><span class="${sa>sb?'sWin':''}">${A}</span> <b class="${sa>sb?'win':''}">${sa}</b>-<b class="${sb>sa?'win':''}">${sb}</b> <span class="${sb>sa?'sWin':''}">${B}</span></span>
-          <span class="meta">${s.games.length}${miss?`${LANG==="en"?"/":"／"}${miss.total}`:""} ${LANG==="en"?"games":"局"}・${s.patch}</span>${warn}</td></tr>`
+        return `<tr class="seriesHead"><td colspan="19"><div class="shRow">`
+          +`<span class="sMeta">${s.date}</span>${lgChip(s.league)}<span class="meta">${spDisp(s.split)}${_lplGrpTag(s.league,s.split,s.teams)}</span>`
+          +`<span class="sVs"><span class="${sa>sb?'sWin':''}">${A}</span> <b class="${sa>sb?'win':''}">${sa}</b>-<b class="${sb>sa?'win':''}">${sb}</b> <span class="${sb>sa?'sWin':''}">${B}</span></span>`
+          +`<span class="meta">${s.games.length}${miss?`${LANG==="en"?"/":"／"}${miss.total}`:""} ${LANG==="en"?"games":"局"}・${s.patch}</span>${warn}`
+          +`</div></td></tr>`
           +rows;
       };
       document.getElementById("tbl").innerHTML=strip+`<div class="tblwrap"><table class="bp" style="table-layout:fixed"><colgroup>${COLF.map(c=>`<col style="width:${c.w}px">`).join("")}</colgroup><thead><tr>
