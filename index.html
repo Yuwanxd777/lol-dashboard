@@ -10709,7 +10709,7 @@ function render(){
               return /（?\s*(TT|CS)\s*[／/]|(TT|CS)\s*version/i.test(String(n)); };
             list.forEach(([nm,bs])=>{
               if(/^(動畫|語音|音效|模型|美術|插畫)$/.test(nm))return;
-              if(cat!=="機制"&&_isNSR(nm))return;
+              if(_isNSR(nm))return;
               const zh=cat!=="機制"&&typeof assetZh==="function"?assetZh(_nsrClean(nm)===nm?nm:_nsrClean(nm)):nm; // 英文/歷代名 → 官方中文名（Cinderhulk → 附魔：餘燼）
               const tip=cat!=="機制"?` data-tip="x" data-name="${esc(zh)}" data-sec="${esc(cat)}"`:"";
               secs.push(`<div class="chgPatch"><span class="heroname"${tip} style="font-weight:bold">${cat!=="機制"?itemImg(zh):""}${esc(zh)}</span>${renderChgLines(bs,nm)}</div>`);

@@ -177,7 +177,7 @@ FIX = [
 # 卡力斯四顆技能的進化版在 wiki 上被當成獨立技能名，中英文寫法都有
 EVOLVE = {
     "Khazix": {
-        "孤獨的恐懼": ["Evolved Enlarged Claws", "進化巨爪", "進化巨型利爪", "進化利爪"],
+        "孤獨的恐懼": ["Evolved Enlarged Claws", "進化巨爪", "進化巨型利爪", "進化利爪", "進化死神之爪"],
         "虛空尖刺": ["Evolved Spike Racks", "進化尖刺陣", "進化尖刺", "進化尖刺彈幕"],
         "掠翅飛躍": ["Evolved Wings", "進化之翼", "進化翅膀"],
         "虛空突襲": ["Evolved Active Camouflage", "Evolved Adaptive Cloaking",

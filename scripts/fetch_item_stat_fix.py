@@ -81,6 +81,7 @@ STAT_KEY = {
     "生命回復": ["FlatHPRegenMod"], "魔力回復": ["FlatMPRegenMod"],
     "移動速度": ["FlatMovementSpeedMod", "PercentMovementSpeedMod"],
     "攻速": ["PercentAttackSpeedMod"], "爆擊率": ["FlatCritChanceMod"],
+    "法術吸血": ["PercentSpellVampMod"], "吸血": ["PercentLifeStealMod"],
 }
 # 同上 → 說明文字裡的寫法（光環數值只寫在 description，stats 抓不到）
 STAT_DESC = {
@@ -89,13 +90,14 @@ STAT_DESC = {
     "生命": ["生命"], "魔力": ["魔力", "法力"],
     "生命回復": ["生命回復"], "魔力回復": ["魔力回復"],
     "移動速度": ["移動速度", "移速", "跑速"], "攻速": ["攻擊速度", "攻速"],
-    "法術吸血": ["法術吸血"], "冷卻縮減": ["冷卻縮減", "冷卻時間減免"],
+    "法術吸血": ["法術吸血", "技能吸血"], "冷卻縮減": ["冷卻縮減", "冷卻時間減免"],
 }
 # 早年說明文字的特殊寫法（不是「N 生命回復」而是「每 5 秒回復 10 生命」這種）
 STAT_ALT = {
     "生命回復": [r"每\s*5\s*秒回復\s*([\d.]+)()\s*點?\s*生命"],
     "魔力回復": [r"每\s*5\s*秒回復\s*([\d.]+)()\s*點?\s*魔力"],
     "魔力": [r"([\d.]+)\s*(%)\s*基礎魔力"],
+    "法術吸血": [r"([\d.]+)\s*(%)\s*技能吸血"],
     "生命": [r"([\d.]+)\s*(%)\s*基礎生命"],
 }
 # wiki 的寫法變體 → 標準屬性名（歐姆破壞者寫的是「生命值回復移除。」）
@@ -140,7 +142,7 @@ def main():
                     elif "⇒" not in line and re.search(r"不再(提供|給予|附帶)", body):
                         # 只收「沒寫數值」的（有寫的顯示層自己會改成 X ⇒ 0）
                         tail = body[body.find("不再"):]
-                        if re.search(r"\d", tail):
+                        if re.search(r"\d", re.sub(r"[（(][^（）()]*[）)]", "", tail)):
                             continue
                         m3 = re.search(_STAT_PAT, tail)
                         if m3:
@@ -151,7 +153,8 @@ def main():
                     elif "⇒" not in line and not re.search(r"\d", body):
                         # 「物防移除。」「生命回復移除。」這種也沒寫原本多少
                         #（2026-07-31 使用者：指揮旗幟 13.14、歐姆破壞者 13.14）
-                        m5 = re.match(r"^\s*(%s)\s*移除\s*[。.]?\s*$" % _STAT_PAT, body)
+                        m5 = re.match(r"^\s*(?:唯一)?\s*(?:光環|靈氣)?\s*(%s)\s*移除\s*[。.]?\s*$"
+                                      % _STAT_PAT, body)
                         if m5:
                             nolonger.setdefault((major, minor), []).append(
                                 (line, nm, STAT_ALIAS.get(m5.group(1), m5.group(1))))
