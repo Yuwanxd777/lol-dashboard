@@ -9012,9 +9012,19 @@ function render(){
     // 3 禁年份（2014 以前）只有第一輪禁、沒有第二輪 → 禁用欄少兩格篩選框，欄寬也跟著收窄
     //（2026-07-31 使用者指定）。用資料實際的最大禁用手數判定，不寫死年份，資料有缺也不會誤判。
     const _maxBan=calcMatches("").reduce((a,m)=>Math.max(a,(m.blue.bans||[]).length,(m.red.bans||[]).length),0);
-    // 欄寬＝BAN 圖排總寬＋td 左右內距 8px：5 禁 = 5×44+(7+7+15+7)+16 = 272、3 禁 = 3×44+(7+7)+16 = 162
+    // ── 逐欄篩選框與欄寬的共用幾何（改一處就好，欄寬會跟著框寬走）──
+    const _BIW=44,_BG1=7,_BG2=15;   // 英雄圖寬／BAN 同一輪圖距／第一輪禁｜第二輪禁 之間的圖距
+    const _POW=9,_CCG=3;            // .cc .po 的 min-width、.cc 的 gap（選用格右邊那個選角順位數字）
+    const _TDP=8;                   // .bp td 的左右內距
+    const _BGROW=2,_LGROW=15;       // 禁用格／選用格 相對英雄圖左右各放大幾 px（使用者逐次指定 2026-07-31）
+    const _BFW=_BIW+_BGROW*2;       // 禁用格寬 48
+    const _LFW=_BIW+_LGROW*2;       // 選用格寬 74
+    // 禁用欄寬＝BAN 圖排總寬＋td 內距：5 禁 = 5×44+(7+7+15+7)+16 = 272、3 禁 = 3×44+(7+7)+16 = 162
     //（原本 268／150 少算了第一輪｜第二輪分隔線多佔的 8px 與部分內距，圖會溢出到隔壁欄）
     const _b5=_maxBan>3, _banW=_b5?272:162;
+    // 選用欄寬：要同時容得下〔頭像 44＋gap 3＋順位數字 9〕＋td 內距 16＝72，以及選用篩選框＋8px 間距
+    //（原本寫死 62，兩者都放不下 → 頭像組溢出隔壁欄、篩選框互相重疊）
+    const _laneW=Math.max(_BIW+_CCG+_POW+_TDP*2, _LFW+8);
     const COLF=[
       _cL(["date", LANG==="en"?"date":"日期", 90, "",     m=>String(m.date).toLowerCase()]),
       _cL(["lg",   LANG==="en"?"event":"賽事",140,"lg",   m=>((typeof lgName==="function"?lgName(m.league):m.league)+" "+(m.league||"")+" "+(m.split||"")).toLowerCase()]),
@@ -9023,12 +9033,10 @@ function render(){
       _cL(["win",  LANG==="en"?"win":"勝",    66, "team", m=>String(m.win).toLowerCase()]),
       _cL(["bt",   LANG==="en"?"blue":"藍方", 78, "team", m=>String(sides(m).L.team).toLowerCase()]),
       _cL(["bb",   LANG==="en"?"ban":"禁",    _banW,"champ",m=>(sides(m).L.bans||[]).map(_cTxt).join(" ")]),
-      // 選用欄寬 72＝〔頭像 44 ＋ .cc gap 3 ＋ 選角順位數字 9〕＋ td 左右內距 16。
-      // 原本 62 少了 10px，頭像＋順位數字整組會溢出到隔壁欄（也讓篩選框放不下）。
-      _cL(["bl0","TOP",72,"champ",m=>_cTxt(sides(m).L.lane[0])]),_cL(["bl1","JNG",72,"champ",m=>_cTxt(sides(m).L.lane[1])]),_cL(["bl2","MID",72,"champ",m=>_cTxt(sides(m).L.lane[2])]),_cL(["bl3","BOT",72,"champ",m=>_cTxt(sides(m).L.lane[3])]),_cL(["bl4","SUP",72,"champ",m=>_cTxt(sides(m).L.lane[4])]),
+      _cL(["bl0","TOP",_laneW,"champ",m=>_cTxt(sides(m).L.lane[0])]),_cL(["bl1","JNG",_laneW,"champ",m=>_cTxt(sides(m).L.lane[1])]),_cL(["bl2","MID",_laneW,"champ",m=>_cTxt(sides(m).L.lane[2])]),_cL(["bl3","BOT",_laneW,"champ",m=>_cTxt(sides(m).L.lane[3])]),_cL(["bl4","SUP",_laneW,"champ",m=>_cTxt(sides(m).L.lane[4])]),
       _cL(["rt",   LANG==="en"?"red":"紅方",  78, "team", m=>String(sides(m).R.team).toLowerCase()]),
       _cL(["rb",   LANG==="en"?"ban":"禁",    _banW,"champ",m=>(sides(m).R.bans||[]).map(_cTxt).join(" ")]),
-      _cL(["rl0","TOP",72,"champ",m=>_cTxt(sides(m).R.lane[0])]),_cL(["rl1","JNG",72,"champ",m=>_cTxt(sides(m).R.lane[1])]),_cL(["rl2","MID",72,"champ",m=>_cTxt(sides(m).R.lane[2])]),_cL(["rl3","BOT",72,"champ",m=>_cTxt(sides(m).R.lane[3])]),_cL(["rl4","SUP",72,"champ",m=>_cTxt(sides(m).R.lane[4])]),
+      _cL(["rl0","TOP",_laneW,"champ",m=>_cTxt(sides(m).R.lane[0])]),_cL(["rl1","JNG",_laneW,"champ",m=>_cTxt(sides(m).R.lane[1])]),_cL(["rl2","MID",_laneW,"champ",m=>_cTxt(sides(m).R.lane[2])]),_cL(["rl3","BOT",_laneW,"champ",m=>_cTxt(sides(m).R.lane[3])]),_cL(["rl4","SUP",_laneW,"champ",m=>_cTxt(sides(m).R.lane[4])]),
     ];
     const _noF=new Set(["date","lg","patch"]); // 這幾欄不放篩選框(上方全域篩選已有 年份/賽事/賽季/版本)
     // 禁用欄：每「一手禁用」各給一個篩選框，一格對一張 BAN 圖 → 5 禁年代 5 格、3 禁年代 3 格
@@ -9077,18 +9085,16 @@ function render(){
     // ⚠ 不要用「靠左推固定 px」：那只有在欄寬剛好等於內容寬時才準，欄一被表格撐寬就整排歪掉
     //   （2026-07-31 使用者回報：篩選框跟底下英雄圖沒有垂直、很醜）。置中則與欄寬無關，永遠對齊。
     // 禁用：格寬＝BAN 圖左右各放大 2px；格距＝圖心間距−格寬，整組置中 → 每格中心壓在自己那張圖上。
-    // 選用：格寬＝英雄圖左右各放大 10px，單純置中 → 與表頭那顆「路線圖示」同一條垂直線
+    // 選用：格寬＝英雄圖左右各放大 15px，單純置中 → 與表頭那顆「路線圖示」同一條垂直線
     //   （2026-07-31 使用者指定：對齊上面的路線圖，不是對齊底下被順位數字推偏的頭像）。
-    const _BIW=44,_BG1=7,_BG2=15;             // BAN 圖寬／同一輪圖距／輪次之間的圖距
-    const _BGROW=2,_LGROW=10;                 // 禁用格／選用格 相對英雄圖左右各放大幾 px（2026-07-31 使用者指定）
-    const _BFW=_BIW+_BGROW*2;                 // 禁用格寬 48
+    // 其餘欄（時長／勝／藍方／紅方）：原本撐滿整欄，略窄 20% 置中（2026-07-31 使用者指定）。
     const _isLane=k=>/^[br]l[0-4]$/.test(k);  // bl0~bl4／rl0~rl4＝五路選用欄
     const _fcell=c=>_noF.has(c.k)?"":(SUBF[c.k]
       ?`<div style="display:flex;gap:${_BIW+_BG1-_BFW}px;justify-content:center">${SUBF[c.k].map((f,i,a)=>
           _finput(f,`flex:0 0 ${_BFW}px${(a.length>3&&i===3)?`;margin-left:${_BG2-_BG1}px`:""}`)).join("")}</div>`
       :_isLane(c.k)
-        ?`<div style="display:flex;justify-content:center">${_finput({k:c.k},`flex:0 0 ${_BIW+_LGROW*2}px`)}</div>`
-        :_finput({k:c.k}));
+        ?`<div style="display:flex;justify-content:center">${_finput({k:c.k},`flex:0 0 ${_LFW}px`)}</div>`
+        :_finput({k:c.k},"width:80%;margin-left:auto;margin-right:auto"));
     const _colFActive=()=>FILTERS.some(f=>(V.bpColF[f.k]||"").trim());
     let _bpFocusK=null; // 打字中的欄→重繪後把焦點還回去(表格整塊重建會掉焦點)
     const rerender=()=>{
