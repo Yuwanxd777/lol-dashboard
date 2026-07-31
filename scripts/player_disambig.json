@@ -1,0 +1,1476 @@
+{
+ "_readme": {
+  "用途": "同 ID 但不同人的選手拆分表。build_career.py 讀本表，把 (隊伍,名字) 對到正確的人。",
+  "persons": "依總場次多→少排序；第一個是主人格，key 沿用原名，前端沒改也不會壞。",
+  "teams": "該人格在 OE 資料裡用過的隊名。沒列到的隊伍一律歸主人格（安全預設）。",
+  "reviewed": "填了這欄＝人工確認是同一人（誤報），check_player_dup 就不再報。",
+  "來源": "scripts/fetch_player_ids.py 由 Leaguepedia ScoreboardPlayers.Link 產生；可人工編輯。"
+ },
+ "Uzi": {
+  "persons": [
+   {
+    "key": "Uzi",
+    "link": "Uzi (Jian Zi-Hao)",
+    "teams": [
+     "Royal Never Give Up",
+     "Royal Club",
+     "Oh My God",
+     "Star Horn Royal Club",
+     "EDward Gaming",
+     "Gank Me",
+     "Qiao Gu Reapers",
+     "LPL Allstars",
+     "China (National Team)",
+     "Bilibili Gaming",
+     "Team Ice"
+    ],
+    "games_lp": 774,
+    "games_oe": 635,
+    "first": "2013-03-16",
+    "last": "2024-11-27"
+   },
+   {
+    "key": "Uzi (Lê Thanh Hà)",
+    "link": "Uzi (Lê Thanh Hà)",
+    "teams": [
+     "Saigon Fantastic Five",
+     "Saigon Jokers"
+    ],
+    "games_lp": 26,
+    "games_oe": 17,
+    "first": "2014-06-13",
+    "last": "2015-04-13"
+   }
+  ],
+  "source": "leaguepedia"
+ },
+ "Violet": {
+  "persons": [
+   {
+    "key": "Violet",
+    "link": "Violet (Vincent Wong)",
+    "teams": [
+     "PEACE (Oceanic Team)",
+     "Team Bliss",
+     "Pentanet.GG",
+     "Avant Gaming",
+     "Saving OCE",
+     "Golden Guardians Academy",
+     "Chiefs Esports Club",
+     "Umgunner"
+    ],
+    "games_lp": 279,
+    "games_oe": 230,
+    "first": "2020-02-14",
+    "last": "2025-10-01"
+   },
+   {
+    "key": "Violet (Ngô Mạnh Quyền)",
+    "link": "Violet (Ngô Mạnh Quyền)",
+    "teams": [
+     "Full Louis",
+     "EVOS Esports",
+     "Saigon Jokers"
+    ],
+    "games_lp": 95,
+    "games_oe": 76,
+    "first": "2012-10-04",
+    "last": "2018-06-22"
+   },
+   {
+    "key": "Violet (Lim Doo-sung)",
+    "link": "Violet (Lim Doo-sung)",
+    "teams": [
+     "Incredible Miracle 1",
+     "MKZ",
+     "Incredible Miracle"
+    ],
+    "games_lp": 27,
+    "games_oe": 12,
+    "first": "2014-02-16",
+    "last": "2014-07-26"
+   },
+   {
+    "key": "Violet (North American Player)",
+    "link": "Violet (North American Player)",
+    "teams": [
+     "Pearl",
+     "Amethyst (North American Team)"
+    ],
+    "games_lp": 19,
+    "games_oe": 0,
+    "first": "2024-08-17",
+    "last": "2024-09-01"
+   }
+  ],
+  "source": "leaguepedia"
+ },
+ "Light": {
+  "persons": [
+   {
+    "key": "Light",
+    "link": "Light (Wang Guang-Yu)",
+    "teams": [
+     "Weibo Gaming",
+     "LNG Esports",
+     "LNG Academy",
+     "Snake WuDu",
+     "Snake Esports"
+    ],
+    "games_lp": 848,
+    "games_oe": 703,
+    "first": "2017-11-18",
+    "last": "2025-10-11"
+   },
+   {
+    "key": "Light (Nguyễn Đức Minh)",
+    "link": "Light (Nguyễn Đức Minh)",
+    "teams": [
+     "Vikings Gaming"
+    ],
+    "games_lp": 34,
+    "games_oe": 34,
+    "first": "2018-07-19",
+    "last": "2018-11-30"
+   },
+   {
+    "key": "Light (Roybie Segovia)",
+    "link": "Light (Roybie Segovia)",
+    "teams": [
+     "Imperium Pro Team",
+     "Wargods"
+    ],
+    "games_lp": 35,
+    "games_oe": 26,
+    "first": "2014-02-12",
+    "last": "2016-04-09"
+   },
+   {
+    "key": "Light (Kwon Sun-ho)",
+    "link": "Light (Kwon Sun-ho)",
+    "teams": [
+     "Jin Air Green Wings",
+     "ES Sharks",
+     "Team Dynamics"
+    ],
+    "games_lp": 152,
+    "games_oe": 19,
+    "first": "2018-12-21",
+    "last": "2020-08-31"
+   }
+  ],
+  "source": "leaguepedia",
+  "_未對應隊伍": {
+   "Gyeonggi": 1
+  }
+ },
+ "QTV": {
+  "reviewed": "Leaguepedia 只有一位（QTV）→ 同一人，誤報",
+  "link": "QTV"
+ },
+ "Knight": {
+  "persons": [
+   {
+    "key": "Knight",
+    "link": "Knight (Zhuo Ding)",
+    "teams": [
+     "Young Miracles",
+     "Suning",
+     "Topsports Gaming"
+    ],
+    "games_lp": 182,
+    "games_oe": 468,
+    "first": "2017-02-07",
+    "last": "2018-12-23"
+   },
+   {
+    "key": "Knight (Vũ Hồng Sơn)",
+    "link": "Knight (Vũ Hồng Sơn)",
+    "teams": [
+     "FTV Esports",
+     "CERBERUS Esports (Vietnamese Team)"
+    ],
+    "games_lp": 69,
+    "games_oe": 68,
+    "first": "2018-01-18",
+    "last": "2019-06-22"
+   },
+   {
+    "key": "Knight (Isaac Pardo)",
+    "link": "Knight (Isaac Pardo)",
+    "teams": [
+     "God's Plan"
+    ],
+    "games_lp": 10,
+    "games_oe": 0,
+    "first": "2020-11-03",
+    "last": "2020-12-02"
+   },
+   {
+    "key": "Knight (Isaac Chico)",
+    "link": "Knight (Isaac Chico)",
+    "teams": [
+     "GeekSide Esports"
+    ],
+    "games_lp": 8,
+    "games_oe": 0,
+    "first": "2021-01-28",
+    "last": "2021-02-19"
+   },
+   {
+    "key": "Knight (Kim Hong-ju)",
+    "link": "Knight (Kim Hong-ju)",
+    "teams": [
+     "Team KungFu"
+    ],
+    "games_lp": 4,
+    "games_oe": 0,
+    "first": "2016-05-31",
+    "last": "2016-06-07"
+   },
+   {
+    "key": "Knight (Lee Geon)",
+    "link": "Knight (Lee Geon)",
+    "teams": [
+     "Sentinels ESC",
+     "TEAM4NOT.OCE"
+    ],
+    "games_lp": 4,
+    "games_oe": 0,
+    "first": "2016-02-04",
+    "last": "2016-03-10"
+   },
+   {
+    "key": "Knight (Jose Andres Caballero)",
+    "link": "Knight (Jose Andres Caballero)",
+    "teams": [
+     "Hooked Esports"
+    ],
+    "games_lp": 3,
+    "games_oe": 0,
+    "first": "2020-11-03",
+    "last": "2020-11-18"
+   }
+  ],
+  "source": "leaguepedia",
+  "_未對應隊伍": {
+   "Team Dragon Knights": 4,
+   "JD Gaming": 124,
+   "Bilibili Gaming": 459
+  }
+ },
+ "Hope": {
+  "persons": [
+   {
+    "key": "Hope",
+    "link": "Hope (Wang Jie)",
+    "teams": [
+     "Anyone's Legend",
+     "EDward Gaming",
+     "JD Gaming",
+     "Team WE",
+     "EDward Gaming Youth Team",
+     "AG.AL"
+    ],
+    "games_lp": 761,
+    "games_oe": 664,
+    "first": "2018-03-05",
+    "last": "2026-07-26"
+   },
+   {
+    "key": "Hope (Phạm Trung Hiếu)",
+    "link": "Hope (Phạm Trung Hiếu)",
+    "teams": [
+     "V Gaming Adonis",
+     "An Phat Ultimate",
+     "GAM Esports"
+    ],
+    "games_lp": 21,
+    "games_oe": 18,
+    "first": "2015-03-15",
+    "last": "2020-04-04"
+   },
+   {
+    "key": "Hope (Guillermo Cortes)",
+    "link": "Hope (Guillermo Cortes)",
+    "teams": [
+     "LK Gaming",
+     "FROM ZERO TO HERO"
+    ],
+    "games_lp": 11,
+    "games_oe": 0,
+    "first": "2021-04-17",
+    "last": "2021-06-25"
+   },
+   {
+    "key": "Hope (British Player)",
+    "link": "Hope (British Player)",
+    "teams": [
+     "DMU Esports"
+    ],
+    "games_lp": 6,
+    "games_oe": 0,
+    "first": "2021-04-17",
+    "last": "2021-04-24"
+   },
+   {
+    "key": "Hope (Gabriel Pérez)",
+    "link": "Hope (Gabriel Pérez)",
+    "teams": [
+     "ESTORM"
+    ],
+    "games_lp": 1,
+    "games_oe": 0,
+    "first": "2019-10-23",
+    "last": "2019-10-23"
+   }
+  ],
+  "source": "leaguepedia"
+ },
+ "Prime": {
+  "persons": [
+   {
+    "key": "Prime",
+    "link": "Prime (Olivier Payet)",
+    "teams": [
+     "SK Gaming Prime",
+     "Team GO",
+     "Ici Japon Corp. Esport",
+     "Karmine Corp Blue",
+     "Eintracht Spandau",
+     "GameWard",
+     "Splyce Vipers",
+     "MAD Lions Madrid",
+     "ASUS ROG Army",
+     "MAD Lions E.C."
+    ],
+    "games_lp": 532,
+    "games_oe": 11,
+    "first": "2018-05-26",
+    "last": "2026-07-30"
+   },
+   {
+    "key": "Prime (Yoon Du-sik)",
+    "link": "Prime (Yoon Du-sik)",
+    "teams": [
+     "Quantic Gaming",
+     "KT Rolster Bullets",
+     "MiG Blitz",
+     "KT Rolster"
+    ],
+    "games_lp": 31,
+    "games_oe": 6,
+    "first": "2013-07-05",
+    "last": "2014-12-11"
+   },
+   {
+    "key": "Prime (Nick Van Den Bergh)",
+    "link": "Prime (Nick Van Den Bergh)",
+    "teams": [
+     "Bastards Esports",
+     "Vanguard Esports",
+     "Sector One"
+    ],
+    "games_lp": 37,
+    "games_oe": 0,
+    "first": "2019-10-24",
+    "last": "2021-08-08"
+   },
+   {
+    "key": "Prime (Polish Player)",
+    "link": "Prime (Polish Player)",
+    "teams": [
+     "NLTEAM"
+    ],
+    "games_lp": 2,
+    "games_oe": 0,
+    "first": "2024-06-02",
+    "last": "2024-06-02"
+   },
+   {
+    "key": "Prime (Mustafa Bilici)",
+    "link": "Prime (Mustafa Bilici)",
+    "teams": [
+     "Beşiktaş Academy"
+    ],
+    "games_lp": 1,
+    "games_oe": 0,
+    "first": "2019-08-01",
+    "last": "2019-08-01"
+   }
+  ],
+  "source": "leaguepedia"
+ },
+ "Avenger": {
+  "persons": [
+   {
+    "key": "Avenger",
+    "link": "Avenger (Adriano Perassoli)",
+    "teams": [
+     "RED Canids",
+     "Liberty",
+     "Liberty Academy"
+    ],
+    "games_lp": 141,
+    "games_oe": 98,
+    "first": "2019-01-21",
+    "last": "2023-08-06"
+   },
+   {
+    "key": "Avenger (Yu Rui)",
+    "link": "Avenger (Yu Rui)",
+    "teams": [
+     "LMQ"
+    ],
+    "games_lp": 18,
+    "games_oe": 18,
+    "first": "2013-07-12",
+    "last": "2013-09-01"
+   },
+   {
+    "key": "Avenger (Yoo Seon-woo)",
+    "link": "Avenger (Yoo Seon-woo)",
+    "teams": [
+     "CJ Entus"
+    ],
+    "games_lp": 5,
+    "games_oe": 0,
+    "first": "2017-02-17",
+    "last": "2017-03-27"
+   }
+  ],
+  "source": "leaguepedia"
+ },
+ "Amazing": {
+  "persons": [
+   {
+    "key": "Amazing",
+    "link": "Amazing (Maurice Stückenschneider)",
+    "teams": [
+     "Origen",
+     "TSM",
+     "Copenhagen Wolves",
+     "FC Schalke 04 Esports",
+     "Mysterious Monkeys",
+     "MOUZ",
+     "Fnatic Academy",
+     "100 Thieves",
+     "Bethany Lutheran College",
+     "Fnatic",
+     "Team Ice"
+    ],
+    "games_lp": 408,
+    "games_oe": 326,
+    "first": "2013-11-23",
+    "last": "2024-04-03"
+   },
+   {
+    "key": "Amazing (Liu Shi-Yu)",
+    "link": "Amazing (Liu Shi-Yu)",
+    "teams": [
+     "Oh My Dream"
+    ],
+    "games_lp": 20,
+    "games_oe": 42,
+    "first": "2015-01-22",
+    "last": "2015-04-01",
+    "teams_oe_manual": [
+     "Oh My God"
+    ]
+   },
+   {
+    "key": "Amazing (Secundino Gómez)",
+    "link": "Amazing (Secundino Gómez)",
+    "teams": [
+     "Darkness Eagles Esports"
+    ],
+    "games_lp": 4,
+    "games_oe": 0,
+    "first": "2016-09-02",
+    "last": "2016-09-03"
+   }
+  ],
+  "source": "leaguepedia",
+  "note": "OE 把 OMG 青訓隊 Oh My Dream 的比賽記在一隊 Oh My God 名下；該批 42 場輔助是劉世宇，不是歐洲打野 Maurice",
+  "teams_add": {
+   "Amazing (Liu Shi-Yu)": [
+    "Oh My God"
+   ]
+  }
+ },
+ "Moopz": {
+  "persons": [
+   {
+    "key": "Moopz",
+    "link": "Moopz",
+    "teams": [
+     "Team MCES",
+     "KRC Genk Esports",
+     "SUPA HOT CREW",
+     "Team-LDLC",
+     "Inspire eSports",
+     "Team Sypher",
+     "Les Touristes",
+     "mousesports",
+     "pah",
+     "Gambit Gaming"
+    ],
+    "games_lp": 286,
+    "games_oe": 21,
+    "first": "2012-01-20",
+    "last": "2022-10-01"
+   },
+   {
+    "key": "Moopz (Marc Jazztine Barrion)",
+    "link": "Moopz (Marc Jazztine Barrion)",
+    "teams": [
+     "Inferno Esports (Filipino Team)",
+     "Kyo eSports",
+     "Guardians Hive"
+    ],
+    "games_lp": 43,
+    "games_oe": 7,
+    "first": "2023-11-03",
+    "last": "2025-10-02"
+   }
+  ],
+  "source": "leaguepedia"
+ },
+ "Nova": {
+  "persons": [
+   {
+    "key": "Nova",
+    "link": "Nova (Park Chan-ho)",
+    "teams": [
+     "Jin Air Green Wings",
+     "APK Prince",
+     "Seorabeol Gaming"
+    ],
+    "games_lp": 196,
+    "games_oe": 87,
+    "first": "2017-01-16",
+    "last": "2020-04-30"
+   },
+   {
+    "key": "Nova (Kim Dong-hyeon)",
+    "link": "Nova (Kim Dong-hyeon)",
+    "teams": [
+     "2144 Gaming",
+     "All Knights",
+     "Hong Kong Attitude",
+     "Alienware Arena"
+    ],
+    "games_lp": 100,
+    "games_oe": 41,
+    "first": "2013-11-15",
+    "last": "2019-08-31"
+   },
+   {
+    "key": "Nova (Motoyuki Yamanaka)",
+    "link": "Nova (Motoyuki Yamanaka)",
+    "teams": [
+     "SCARZ"
+    ],
+    "games_lp": 17,
+    "games_oe": 2,
+    "first": "2016-02-25",
+    "last": "2016-05-25"
+   },
+   {
+    "key": "Nova (Jonathan Baadsgaard)",
+    "link": "Nova (Jonathan Baadsgaard)",
+    "teams": [
+     "University of St. Thomas",
+     "Radiance",
+     "Jake's Kittens"
+    ],
+    "games_lp": 32,
+    "games_oe": 0,
+    "first": "2021-06-19",
+    "last": "2022-11-09"
+   },
+   {
+    "key": "Nova (Napat Trichok)",
+    "link": "Nova (Napat Trichok)",
+    "teams": [
+     "SleepyGoose"
+    ],
+    "games_lp": 26,
+    "games_oe": 0,
+    "first": "2025-07-16",
+    "last": "2025-08-18"
+   }
+  ],
+  "source": "leaguepedia"
+ },
+ "Slayer": {
+  "persons": [
+   {
+    "key": "Slayer",
+    "link": "Slayer (Jordan Lum)",
+    "teams": [
+     "Insidious Gaming Legends"
+    ],
+    "games_lp": 10,
+    "games_oe": 10,
+    "first": "2014-06-12",
+    "last": "2014-07-10"
+   },
+   {
+    "key": "Slayer (Kim Jin-young)",
+    "link": "Slayer (Kim Jin-young)",
+    "teams": [
+     "DN Freecs Challengers",
+     "Gen.G Global Academy",
+     "BNK FEARX Youth",
+     "Gen.G Scholars",
+     "BNK FEARX",
+     "Kwangdong Freecs"
+    ],
+    "games_lp": 351,
+    "games_oe": 6,
+    "first": "2023-10-21",
+    "last": "2026-07-30"
+   },
+   {
+    "key": "Slayer (Nuno Moutinho)",
+    "link": "Slayer (Nuno Moutinho)",
+    "teams": [
+     "EGN Esports",
+     "AlienTech eSports"
+    ],
+    "games_lp": 62,
+    "games_oe": 0,
+    "first": "2017-01-10",
+    "last": "2020-11-22"
+   },
+   {
+    "key": "Slayer (Ivan Bilous)",
+    "link": "Slayer (Ivan Bilous)",
+    "teams": [
+     "GIANTX PRIDE"
+    ],
+    "games_lp": 14,
+    "games_oe": 0,
+    "first": "2024-10-08",
+    "last": "2024-11-16"
+   }
+  ],
+  "source": "leaguepedia",
+  "_未對應隊伍": {
+   "DN SOOPers": 5
+  }
+ },
+ "Rain": {
+  "persons": [
+   {
+    "key": "Rain",
+    "link": "Rain (An Hyeon-guk)",
+    "teams": [
+     "Team AURORA",
+     "Invictus Gaming",
+     "bbq Olivers",
+     "Rain's Never Surrender",
+     "Royal Club",
+     "ESports Connected"
+    ],
+    "games_lp": 203,
+    "games_oe": 115,
+    "first": "2016-02-20",
+    "last": "2025-05-17"
+   },
+   {
+    "key": "Rain (Kim Sang-hyeon)",
+    "link": "Rain (Kim Sang-hyeon)",
+    "teams": [
+     "IN Gaming"
+    ],
+    "games_lp": 5,
+    "games_oe": 46,
+    "first": "2016-03-29",
+    "last": "2016-04-06"
+   },
+   {
+    "key": "Rain (Liu Min-Hung)",
+    "link": "Rain (Liu Min-Hung)",
+    "teams": [
+     "Flash Husky",
+     "Team Mist",
+     "Flash Wolves Junior"
+    ],
+    "games_lp": 68,
+    "games_oe": 35,
+    "first": "2016-02-28",
+    "last": "2016-09-11"
+   },
+   {
+    "key": "Rain (South Korean Team)",
+    "link": "Rain (South Korean Team)",
+    "teams": [
+     "코알라"
+    ],
+    "games_lp": 4,
+    "games_oe": 0,
+    "first": "2025-12-06",
+    "last": "2025-12-06"
+   },
+   {
+    "key": "Rain (Park Dan-won)",
+    "link": "Rain (Park Dan-won)",
+    "teams": [
+     "NaJin e-mFire"
+    ],
+    "games_lp": 3,
+    "games_oe": 0,
+    "first": "2015-02-25",
+    "last": "2015-02-25"
+   },
+   {
+    "key": "Rain (Fabian Prenzel)",
+    "link": "Rain (Fabian Prenzel)",
+    "teams": [
+     "Team 7AM",
+     "TeamOrangeGaming"
+    ],
+    "games_lp": 2,
+    "games_oe": 0,
+    "first": "2021-08-04",
+    "last": "2022-07-11"
+   }
+  ],
+  "source": "leaguepedia",
+  "_未對應隊伍": {
+   "DarlingYou": 2,
+   "Never Give Up": 13
+  }
+ },
+ "Luo": {
+  "persons": [
+   {
+    "key": "Luo",
+    "link": "Luo (Luo Ci-rui)",
+    "teams": [
+     "Oh My God"
+    ],
+    "games_lp": 28,
+    "games_oe": 26,
+    "first": "2015-01-17",
+    "last": "2016-06-12"
+   },
+   {
+    "key": "Luo (Yin Peng)",
+    "link": "Luo (Yin Peng)",
+    "teams": [
+     "Newbee Young",
+     "Newbee",
+     "Energy Pacemaker",
+     "Gamtee"
+    ],
+    "games_lp": 62,
+    "games_oe": 6,
+    "first": "2015-01-16",
+    "last": "2016-04-06"
+   }
+  ],
+  "source": "leaguepedia"
+ },
+ "Caos": {
+  "persons": [
+   {
+    "key": "Caos",
+    "link": "Caos (Jonas Vriesman)",
+    "teams": [
+     "Iron Hawks e-Sports",
+     "INTZ Red",
+     "RED Canids",
+     "Evilvice Esports",
+     "Vivo Keyd",
+     "YGG E-Sports",
+     "Sob Nova Direção",
+     "Renegades of Challenger Series"
+    ],
+    "games_lp": 163,
+    "games_oe": 62,
+    "first": "2015-03-07",
+    "last": "2020-04-26"
+   },
+   {
+    "key": "Caos (Nicolás Guzmán)",
+    "link": "Caos (Nicolás Guzmán)",
+    "teams": [
+     "Legatum",
+     "Universidad Católica Esports",
+     "Santiago Wanderers eSports",
+     "Bencheados",
+     "Last Kings",
+     "Furious Gaming"
+    ],
+    "games_lp": 179,
+    "games_oe": 39,
+    "first": "2016-06-24",
+    "last": "2021-06-10"
+   }
+  ],
+  "source": "leaguepedia"
+ },
+ "Raven": {
+  "persons": [
+   {
+    "key": "Raven",
+    "link": "Raven (Kenneth Goh Kai Yang)",
+    "teams": [
+     "Resurgence"
+    ],
+    "games_lp": 48,
+    "games_oe": 41,
+    "first": "2018-07-21",
+    "last": "2020-09-08"
+   },
+   {
+    "key": "Raven (Kim Ae-jun)",
+    "link": "Raven (Kim Ae-jun)",
+    "teams": [
+     "SK Telecom T1 1",
+     "Jin Air Green Wings Falcons"
+    ],
+    "games_lp": 29,
+    "games_oe": 22,
+    "first": "2013-03-07",
+    "last": "2013-08-14"
+   },
+   {
+    "key": "Raven (Miłosz Domagalski)",
+    "link": "Raven (Miłosz Domagalski)",
+    "teams": [
+     "Team Queso",
+     "Wisła Płock eSports",
+     "QLASH Forge",
+     "iDomina eSports",
+     "Team DPD",
+     "Illuminar Gaming",
+     "Digital Paradox",
+     "PRIDE (Polish Team)",
+     "ProXima Gaming",
+     "Avia Deceptor"
+    ],
+    "games_lp": 158,
+    "games_oe": 0,
+    "first": "2018-05-06",
+    "last": "2020-11-06"
+   },
+   {
+    "key": "Raven (Kosikan Kulasingham)",
+    "link": "Raven (Kosikan Kulasingham)",
+    "teams": [
+     "Sin Academy",
+     "Dark Sided",
+     "Corvidae"
+    ],
+    "games_lp": 17,
+    "games_oe": 0,
+    "first": "2017-02-03",
+    "last": "2018-06-21"
+   },
+   {
+    "key": "Raven (Raphael Sancio)",
+    "link": "Raven (Raphael Sancio)",
+    "teams": [
+     "PAPAGAIO"
+    ],
+    "games_lp": 7,
+    "games_oe": 0,
+    "first": "2020-05-13",
+    "last": "2020-05-14"
+   },
+   {
+    "key": "Raven (Arthur Rodrigo)",
+    "link": "Raven (Arthur Rodrigo)",
+    "teams": [
+     "UFRPE Blackbulls Gaming"
+    ],
+    "games_lp": 2,
+    "games_oe": 0,
+    "first": "2019-11-16",
+    "last": "2019-11-16"
+   },
+   {
+    "key": "Raven (Bryce Klair)",
+    "link": "Raven (Bryce Klair)",
+    "teams": [
+     "Marist College"
+    ],
+    "games_lp": 2,
+    "games_oe": 0,
+    "first": "2021-05-01",
+    "last": "2021-05-01"
+   }
+  ],
+  "source": "leaguepedia"
+ },
+ "Scarlet": {
+  "persons": [
+   {
+    "key": "Scarlet",
+    "link": "Scarlet (Jeong Jae-ho)",
+    "teams": [
+     "Incredible Miracle 2"
+    ],
+    "games_lp": 6,
+    "games_oe": 6,
+    "first": "2013-07-05",
+    "last": "2013-07-27"
+   },
+   {
+    "key": "Scarlet (Marcel Wiederhofer)",
+    "link": "Scarlet (Marcel Wiederhofer)",
+    "teams": [
+     "Solary",
+     "Spinebusters E-Sport",
+     "EURONICS Gaming",
+     "RNL ROAR",
+     "OpTic Gaming Academy",
+     "ERN ROAR",
+     "Origen",
+     "Millenium",
+     "OpTic Gaming"
+    ],
+    "games_lp": 322,
+    "games_oe": 2,
+    "first": "2017-06-18",
+    "last": "2024-09-07"
+   },
+   {
+    "key": "Scarlet (Cha Hee-min)",
+    "link": "Scarlet (Cha Hee-min)",
+    "teams": [
+     "Element Mystic",
+     "GC Busan Ascension"
+    ],
+    "games_lp": 74,
+    "games_oe": 0,
+    "first": "2019-12-25",
+    "last": "2020-08-14"
+   },
+   {
+    "key": "Scarlet (Angelique Ramos)",
+    "link": "Scarlet (Angelique Ramos)",
+    "teams": [
+     "ATK Valkyrie"
+    ],
+    "games_lp": 2,
+    "games_oe": 0,
+    "first": "2023-03-16",
+    "last": "2023-03-17"
+   }
+  ],
+  "source": "leaguepedia",
+  "_未對應隊伍": {
+   "HWA Gaming": 33
+  }
+ },
+ "Carry": {
+  "persons": [
+   {
+    "key": "Carry",
+    "link": "Carry (Wang Zu-Jing)",
+    "teams": [
+     "Vici Gaming"
+    ],
+    "games_lp": 60,
+    "games_oe": 54,
+    "first": "2015-01-17",
+    "last": "2015-05-24"
+   },
+   {
+    "key": "Carry (Mustafa Selim Yılmaz)",
+    "link": "Carry (Mustafa Selim Yılmaz)",
+    "teams": [
+     "Papara SuperMassive",
+     "BoostGate Esports",
+     "Fenerbahçe Academy",
+     "Galatasaray Academy",
+     "Fenerbahçe Esports",
+     "Misa Esports",
+     "Anubis Gaming",
+     "Galakticos",
+     "Bushido Wildcats"
+    ],
+    "games_lp": 344,
+    "games_oe": 33,
+    "first": "2020-06-08",
+    "last": "2026-07-30"
+   },
+   {
+    "key": "Carry (Marcel John)",
+    "link": "Carry (Marcel John)",
+    "teams": [
+     "Mysterious Monkeys"
+    ],
+    "games_lp": 4,
+    "games_oe": 0,
+    "first": "2016-01-13",
+    "last": "2016-01-13"
+   }
+  ],
+  "source": "leaguepedia"
+ },
+ "Hoon": {
+  "reviewed": "Leaguepedia 只有一位（Hoon (Lee Jang-hoon)）→ 同一人，誤報",
+  "link": "Hoon (Lee Jang-hoon)"
+ },
+ "Save": {
+  "reviewed": "Leaguepedia 只有一位（Save）→ 同一人，誤報",
+  "link": "Save"
+ },
+ "Jun": {
+  "persons": [
+   {
+    "key": "Jun",
+    "link": "Jun (Yoon Se-jun)",
+    "teams": [
+     "GIANTX",
+     "Fnatic",
+     "DRX Challengers",
+     "Kwangdong Freecs",
+     "DRX"
+    ],
+    "games_lp": 374,
+    "games_oe": 222,
+    "first": "2021-01-18",
+    "last": "2026-06-01"
+   },
+   {
+    "key": "Jun (Chen Lin-Jun)",
+    "link": "Jun (Chen Lin-Jun)",
+    "teams": [
+     "Wayi Spider China"
+    ],
+    "games_lp": 25,
+    "games_oe": 25,
+    "first": "2013-03-16",
+    "last": "2013-05-18"
+   },
+   {
+    "key": "Jun (Oscar Hernández)",
+    "link": "Jun (Oscar Hernández)",
+    "teams": [
+     "Janus Esports"
+    ],
+    "games_lp": 16,
+    "games_oe": 0,
+    "first": "2021-05-26",
+    "last": "2021-07-09"
+   }
+  ],
+  "source": "leaguepedia",
+  "_未對應隊伍": {
+   "Kiwoom DRX": 25,
+   "DN SOOPers": 42
+  }
+ },
+ "Yume": {
+  "persons": [
+   {
+    "key": "Yume",
+    "link": "Yume (Danyll Jann Balisi)",
+    "teams": [
+     "Mineski"
+    ],
+    "games_lp": 27,
+    "games_oe": 27,
+    "first": "2013-09-16",
+    "last": "2015-07-15"
+   },
+   {
+    "key": "Yume (Châu Kim Bảo)",
+    "link": "Yume (Châu Kim Bảo)",
+    "teams": [
+     "SN CyberCore Esports",
+     "CERBERUS Esports (Vietnamese Team)"
+    ],
+    "games_lp": 33,
+    "games_oe": 7,
+    "first": "2024-06-22",
+    "last": "2026-03-01"
+   }
+  ],
+  "source": "leaguepedia"
+ },
+ "Coma": {
+  "reviewed": "Leaguepedia 只有一位（Coma (Hong Hee-bum)）→ 同一人，誤報",
+  "link": "Coma (Hong Hee-bum)"
+ },
+ "LIMIT": {
+  "reviewed": "Leaguepedia 只有一位（LIMIT (Dino Tot)）→ 同一人，誤報",
+  "link": "LIMIT (Dino Tot)"
+ },
+ "Vin": {
+  "persons": [
+   {
+    "key": "Vin",
+    "link": "Vin (Trần Hoài Vinh)",
+    "teams": [
+     "SN CyberCore Esports",
+     "Hyper Vortex Esports",
+     "OverPower Esports",
+     "Ngựa Hí Esports"
+    ],
+    "games_lp": 81,
+    "games_oe": 14,
+    "first": "2020-06-19",
+    "last": "2026-06-14"
+   },
+   {
+    "key": "Vin (Shin Min-jae)",
+    "link": "Vin (Shin Min-jae)",
+    "teams": [
+     "Jin Air Green Wings Falcons",
+     "Kx.Happy",
+     "Xenics Storm",
+     "Revenger (Chinese Team)"
+    ],
+    "games_lp": 31,
+    "games_oe": 12,
+    "first": "2014-03-19",
+    "last": "2016-07-27"
+   },
+   {
+    "key": "Vin (Elvin Berisha)",
+    "link": "Vin (Elvin Berisha)",
+    "teams": [
+     "MT1 Esports"
+    ],
+    "games_lp": 65,
+    "games_oe": 0,
+    "first": "2026-01-15",
+    "last": "2026-07-28"
+   }
+  ],
+  "source": "leaguepedia",
+  "_未對應隊伍": {
+   "APOLLO GAMING": 25,
+   "MGN Blue Esports": 12
+  }
+ },
+ "Curse": {
+  "persons": [
+   {
+    "key": "Curse",
+    "link": "Curse (Raí Yamada)",
+    "teams": [
+     "LØS",
+     "RED Canids",
+     "RED Academy",
+     "MIBR.LOS"
+    ],
+    "games_lp": 85,
+    "games_oe": 110,
+    "first": "2026-01-17",
+    "last": "2026-07-25"
+   },
+   {
+    "key": "Curse (Min-Woo Jong-Bok)",
+    "link": "Curse (Min-Woo Jong-Bok)",
+    "teams": [
+     "Outlaws"
+    ],
+    "games_lp": 13,
+    "games_oe": 5,
+    "first": "2017-07-27",
+    "last": "2017-09-04"
+   },
+   {
+    "key": "Curse (Chen Chen)",
+    "link": "Curse (Chen Chen)",
+    "teams": [
+     "Oh My God",
+     "Oh My Dream"
+    ],
+    "games_lp": 181,
+    "games_oe": 0,
+    "first": "2019-02-27",
+    "last": "2020-08-07"
+   },
+   {
+    "key": "Curse (Davide Renz)",
+    "link": "Curse (Davide Renz)",
+    "teams": [
+     "Corax Gaming Club"
+    ],
+    "games_lp": 4,
+    "games_oe": 0,
+    "first": "2022-07-24",
+    "last": "2022-07-31"
+   }
+  ],
+  "source": "leaguepedia"
+ },
+ "JoJo": {
+  "persons": [
+   {
+    "key": "JoJo",
+    "link": "JoJo (Gabriel Dzelme)",
+    "teams": [
+     "FURIA",
+     "RED Canids",
+     "Fluxo"
+    ],
+    "games_lp": 383,
+    "games_oe": 376,
+    "first": "2021-01-16",
+    "last": "2026-07-25"
+   },
+   {
+    "key": "JoJo (Kan Yiu-Tou)",
+    "link": "JoJo (Kan Yiu-Tou)",
+    "teams": [
+     "Positive Energy",
+     "Hyper Youth Gaming"
+    ],
+    "games_lp": 116,
+    "games_oe": 92,
+    "first": "2013-03-16",
+    "last": "2015-12-18"
+   }
+  ],
+  "source": "leaguepedia",
+  "_未對應隊伍": {
+   "Team oNe eSports": 25,
+   "Flamengo MDL": 17
+  }
+ },
+ "Diamond": {
+  "persons": [
+   {
+    "key": "Diamond",
+    "link": "Diamond (David Bérubé)",
+    "teams": [
+     "FlyQuest Academy",
+     "Cloud9 Academy",
+     "Supernova",
+     "Dignitas Challengers",
+     "FlyQuest",
+     "Citadel Gaming",
+     "Team Ocean Drake (NASG Team)",
+     "Dignitas",
+     "Cloud9"
+    ],
+    "games_lp": 410,
+    "games_oe": 47,
+    "first": "2018-11-14",
+    "last": "2025-08-20"
+   },
+   {
+    "key": "Diamond (Danil Reshetnikov)",
+    "link": "Diamond (Danil Reshetnikov)",
+    "teams": [
+     "Gambit Gaming"
+    ],
+    "games_lp": 87,
+    "games_oe": 30,
+    "first": "2013-02-09",
+    "last": "2015-04-05"
+   }
+  ],
+  "source": "leaguepedia"
+ },
+ "Jay": {
+  "persons": [
+   {
+    "key": "Jay",
+    "link": "Jay (Chen Bo)",
+    "teams": [
+     "TWELVE",
+     "Vici Gaming",
+     "Vici Gaming Potential",
+     "LGD Gaming"
+    ],
+    "games_lp": 245,
+    "games_oe": 93,
+    "first": "2019-01-16",
+    "last": "2022-03-20"
+   },
+   {
+    "key": "Jay (Li Chieh)",
+    "link": "Jay (Li Chieh)",
+    "teams": [
+     "Taipei Assassins",
+     "J Team"
+    ],
+    "games_lp": 296,
+    "games_oe": 66,
+    "first": "2013-10-30",
+    "last": "2017-08-26"
+   },
+   {
+    "key": "Jay (Park Jin-cheol)",
+    "link": "Jay (Park Jin-cheol)",
+    "teams": [
+     "Ever8 Winners"
+    ],
+    "games_lp": 62,
+    "games_oe": 0,
+    "first": "2016-01-19",
+    "last": "2016-08-09"
+   },
+   {
+    "key": "Jay (Jasmin Ajanovic)",
+    "link": "Jay (Jasmin Ajanovic)",
+    "teams": [
+     "Playing Ducks"
+    ],
+    "games_lp": 11,
+    "games_oe": 0,
+    "first": "2020-06-01",
+    "last": "2020-07-20"
+   }
+  ],
+  "source": "leaguepedia"
+ },
+ "Leo": {
+  "persons": [
+   {
+    "key": "Leo",
+    "link": "Leo (Han Gyeo-re)",
+    "teams": [
+     "Geekay Esports",
+     "Afreeca Freecs",
+     "FENNEL",
+     "OKSavingsBank BRION Challengers",
+     "SANDBOX Gaming",
+     "Liiv SANDBOX",
+     "SK Telecom T1"
+    ],
+    "games_lp": 243,
+    "games_oe": 82,
+    "first": "2018-06-20",
+    "last": "2025-08-27"
+   },
+   {
+    "key": "Leo (Dai Cheng)",
+    "link": "Leo (Dai Cheng)",
+    "teams": [
+     "Gamtee"
+    ],
+    "games_lp": 8,
+    "games_oe": 8,
+    "first": "2015-01-16",
+    "last": "2015-01-25"
+   },
+   {
+    "key": "Leo (José Rojas)",
+    "link": "Leo (José Rojas)",
+    "teams": [
+     "Vortex Gaming (Latin American Team)",
+     "Future Gaming"
+    ],
+    "games_lp": 23,
+    "games_oe": 0,
+    "first": "2019-02-17",
+    "last": "2019-08-29"
+   },
+   {
+    "key": "Leo (Leonidas Vogiatzis)",
+    "link": "Leo (Leonidas Vogiatzis)",
+    "teams": [
+     "R5 Esports"
+    ],
+    "games_lp": 16,
+    "games_oe": 0,
+    "first": "2026-01-24",
+    "last": "2026-02-14"
+   },
+   {
+    "key": "Leo (German Player)",
+    "link": "Leo (German Player)",
+    "teams": [
+     "Austrian Force willhaben (Female and Non-Binary Team)",
+     "Star Force"
+    ],
+    "games_lp": 11,
+    "games_oe": 0,
+    "first": "2023-07-01",
+    "last": "2023-10-16"
+   },
+   {
+    "key": "Leo (Seung Kang)",
+    "link": "Leo (Seung Kang)",
+    "teams": [
+     "Evil Geniuses Prodigies"
+    ],
+    "games_lp": 8,
+    "games_oe": 0,
+    "first": "2022-01-10",
+    "last": "2022-01-14"
+   },
+   {
+    "key": "Leo (Li Shi-Rong)",
+    "link": "Leo (Li Shi-Rong)",
+    "teams": [
+     "WuDu"
+    ],
+    "games_lp": 6,
+    "games_oe": 0,
+    "first": "2018-07-29",
+    "last": "2018-08-05"
+   },
+   {
+    "key": "Leo (Jung Young-bin)",
+    "link": "Leo (Jung Young-bin)",
+    "teams": [
+     "Team Green Forest"
+    ],
+    "games_lp": 1,
+    "games_oe": 0,
+    "first": "2013-11-16",
+    "last": "2013-11-16"
+   },
+   {
+    "key": "Leo (Moldovan Player)",
+    "link": "Leo (Moldovan Player)",
+    "teams": [
+     "Moldova (National Team)"
+    ],
+    "games_lp": 1,
+    "games_oe": 0,
+    "first": "2026-06-19",
+    "last": "2026-06-19"
+   }
+  ],
+  "source": "leaguepedia",
+  "_未對應隊伍": {
+   "DN SOOPers": 50
+  }
+ },
+ "Smiley": {
+  "persons": [
+   {
+    "key": "Smiley",
+    "link": "Smiley (Ludvig Granquist)",
+    "teams": [
+     "Vivo Keyd Stars",
+     "Vivo Keyd Stars Academy"
+    ],
+    "games_lp": 104,
+    "games_oe": 71,
+    "first": "2024-01-20",
+    "last": "2025-06-09"
+   },
+   {
+    "key": "Smiley (Austrian Player)",
+    "link": "Smiley (Austrian Player)",
+    "teams": [
+     "MCI Management Center Innsbruck"
+    ],
+    "games_lp": 4,
+    "games_oe": 0,
+    "first": "2026-01-10",
+    "last": "2026-01-11"
+   }
+  ],
+  "source": "leaguepedia",
+  "_未對應隊伍": {
+   "Vega Squadron": 12
+  }
+ }
+}

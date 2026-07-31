@@ -54,6 +54,10 @@ rem rank ladder auto-update: uses the locally saved key from the dashboard "add 
 python scripts\fetch_soloq_auto.py >> "%LOG%" 2>&1
 rem Text corpus lint: reports leftovers/broken sentences into the log (never blocks the update)
 python scripts\lint_text.py --quiet >> "%LOG%" 2>&1
+rem Same-ID-different-person check: new data may bring in a name that collides with an
+rem existing player. Reports into the log only (never blocks). Verdicts go into
+rem scripts\player_disambig.json via: python scripts\fetch_player_ids.py
+python scripts\check_player_dup.py --quiet >> "%LOG%" 2>&1
 rem stamp data.js updated = real pipeline finish time (fetch_data writes its own start time = 10:00)
 python scripts\stamp_updated.py >> "%LOG%" 2>&1
 

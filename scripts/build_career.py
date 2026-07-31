@@ -26,6 +26,48 @@ plr = {}        # player -> {n,w,f,l,c:{champ:[n,w,ob,last]}}
 POS = {1: "TOP", 2: "JNG", 3: "MID", 4: "BOT", 5: "SUP"}
 years = []
 
+# ── 同名選手拆分（同 ID 其實是不同人）────────────────────────────────
+# OE 資料只有顯示 ID，沒有唯一識別，同名的不同人（例：LPL 的 Uzi 簡自豪 vs
+# 越南的 Uzi Lê Thanh Hà）會被合併成一份生涯。scripts/player_disambig.json
+# 由 fetch_player_ids.py 從 Leaguepedia 產生，用「隊伍」把場次分回正確的人。
+# 主人格的 key 沿用原名 → 前端還沒改查詢時，行為與過去相同，不會壞。
+_DIS = {}
+_dp = os.path.join(ROOT, "scripts", "player_disambig.json")
+if os.path.exists(_dp):
+    try:
+        _DIS = {k: v for k, v in json.load(open(_dp, encoding="utf-8")).items()
+                if not k.startswith("_") and isinstance(v, dict) and v.get("persons")}
+    except Exception as e:
+        print(f"⚠ player_disambig.json 讀取失敗，不做拆分：{e}")
+dmap = {}       # "隊伍|原名" -> 人格 key（只記與原名不同的，給前端查）
+
+
+def _nt(t):
+    """隊名正規化（同 fetch_player_ids.py）：GiantX/GIANTX、尾括號註記"""
+    t = re.sub(r"\s*\([^)]*\)\s*$", "", str(t))
+    t = re.sub(r"\b(e-?sports?|gaming|club|team)\b", "", t, flags=re.I)
+    return re.sub(r"[^a-z0-9]", "", t.lower())
+
+
+def resolve(name, team):
+    """(名字,隊伍) → 該場次真正屬於誰。對不上的隊一律歸主人格＝維持原本行為。"""
+    e = _DIS.get(name)
+    if not e:
+        return name
+    ps = e["persons"]
+    a = _nt(team)
+    if a:
+        for p in ps[1:]:                     # 次人格要明確對到隊才拆出去
+            # teams＝Leaguepedia 的隊名；teams_oe_manual＝人工補的 OE 隊名對照
+            # （OE 有時把青訓隊記成一隊，例：Amazing 在 OMD 的比賽被記成 Oh My God）
+            for t in list(p.get("teams") or ()) + list(p.get("teams_oe_manual") or ()):
+                b = _nt(t)
+                if b and (a == b or a.startswith(b) or b.startswith(a)):
+                    k = p["key"]
+                    dmap[team + "|" + name] = k
+                    return k
+    return ps[0]["key"]
+
 for dp in sorted(glob.glob(os.path.join(ROOT, "data", "data_*.js"))):
     y = re.search(r"data_(\d{4})\.js$", dp)
     if not y:
@@ -61,6 +103,7 @@ for dp in sorted(glob.glob(os.path.join(ROOT, "data", "data_*.js"))):
             cmp_ = re.sub(r"[^A-Za-z0-9]", "", str(team))
             if cmp_ and name.startswith(cmp_ + " ") and len(name) > len(cmp_) + 1:
                 name = name[len(cmp_) + 1:]
+            name = resolve(name, str(team))
             won = (r[rs] == (2 if side else 1)) or (str(r[rs]) == str(2 if side else 1))
             t = teams.setdefault(str(team), {}).setdefault(POS[p], {})
             e = t.setdefault(name, [0, ""])
@@ -104,8 +147,13 @@ for tm, ps in teams.items():
 for a in plr.values():
     if a["f"] == "9999":
         a["f"] = ""
-data = {"v": max(years) if years else "", "y": years, "t": tout, "p": plr}
+# d：(隊伍|原名) → 人格 key。只列拆出去的次人格；前端查生涯時先查這張表，
+# 查不到就沿用原名（＝主人格），所以前端沒改也不會壞。
+data = {"v": max(years) if years else "", "y": years, "t": tout, "p": plr, "d": dmap}
 js = "window.CAREER=" + json.dumps(data, ensure_ascii=False, separators=(",", ":")) + ";\n"
 with open(OUT, "w", encoding="utf-8") as f:
     f.write(js)
 print(f"\n→ {OUT}　{len(js)/1048576:.1f} MB　戰隊 {len(tout)}　選手 {len(plr)}　年份 {years[0]}~{years[-1]}")
+if _DIS:
+    print(f"　同名拆分：表內 {len(_DIS)} 個名字，實際拆出 {len(set(dmap.values()))} 個次人格、"
+          f"影響 {len(dmap)} 組（隊伍,名字）")
