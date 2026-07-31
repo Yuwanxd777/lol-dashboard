@@ -214,10 +214,7 @@ def evolve_rules(WP):
 #   ‧ 片段為 None ＝「改名模式」：該前綴的每一行都把前綴換成新名（body 不動）
 #   ‧ 片段為字串 ＝ 整行重寫（"" ＝ 該行不顯示）
 EXTRA = [
-    # 13.14 的三張「following …」群組卡（機翻頭）→ 中文卡名
-    ("13.14", "道具", "following 道具移除從遊戲", None, "已從遊戲移除的道具"),
-    ("13.14", "道具", "following 道具 remade（移除）", None, "重做的道具（原版本移除）"),
-    ("13.10", "道具", "Enabled:", None, "重新啟用的道具"),
+
     ("14.03", "道具", "靈魂 Stone, 靈魂 Ancient Golem, 靈魂 Elder Lizard 且靈魂 Spectral Wraith",
      None, "靈魂石系列"),
     ("15.01", "道具", "道具 exchanges （utility）", None, "通用道具調整"),
@@ -236,6 +233,38 @@ EXTRA = [
     ("*", "*", "Hand 巴龍", None, "巴龍之手"),
     ("*", "*", "Altars", None, "祭壇"),
 ]
+
+
+# 「群組卡名｜道具名」的行要翻轉成「道具名｜敘述」——wiki 把一批道具塞在同一張卡底下，
+# 畫面上就變成一張卡列了一串道具名，看不出各自發生什麼事（2026-08-01 使用者指定一個一個列）
+FLIP = [
+    ("following 道具移除從遊戲", "已從遊戲中移除。"),
+    ("following 道具 remade（移除）", "重做上線，原版本已移除。"),
+    ("Enabled:", "重新啟用。"),
+    ("following 圖示更新：", "圖示更新。"),
+    ("following Chromas packs 新增 store：", "新增炫彩造型組。"),
+]
+
+
+def flip_rules(EX):
+    """群組卡 → 每個項目自己一張卡"""
+    out = {}
+    for secs in EX.values():
+        if not isinstance(secs, dict):
+            continue
+        for arr in secs.values():
+            if not isinstance(arr, list):
+                continue
+            for line in arr:
+                i = line.find("｜")
+                if i <= 0:
+                    continue
+                pre, body = line[:i].strip(), line[i + 1:].strip()
+                for p, txt in FLIP:
+                    if pre == p and body:
+                        out[line] = body + "｜" + txt
+                        break
+    return out
 
 
 def load_js(fname, varname):
@@ -276,6 +305,10 @@ def main():
         out.setdefault(k, v)
     # wiki_extra 的重寫（applyPatchLineFix 現在也會套到 WIKI_EXTRA）
     EX = load_js("wiki_extra.js", "window.WIKI_EXTRA")
+    fl = flip_rules(EX)
+    for k, v in fl.items():
+        out.setdefault(k, v)
+    print("   群組卡翻轉：%d 行" % len(fl))
     ex_hit = 0
     for pk0, cat0, pre, frag, new in EXTRA:
         for pk, secs in EX.items():
