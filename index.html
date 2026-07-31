@@ -828,7 +828,11 @@
 </div>
 <main id="main"></main>
 
-<script src="data.js"></script>
+<!-- data.js 一定要繞過快取：它只有 200 bytes，但 data_{年}.js 的版本參數（?v=M.updated）
+     是從它讀的 → 它被瀏覽器快取住，整條資料鏈都會停在舊版本，畫面看到的還是上一輪的資料
+     （2026-08-01 使用者回報改完資料仍顯示舊的系列賽比分）。document.write 是同步的，
+     不會打亂後面 script 的載入順序。 -->
+<script>document.write('<scr' + 'ipt src="data.js?t=' + Date.now() + '"><\/scr' + 'ipt>');</script>
 <script src="patches.js" onerror="window.LOL_PATCHES={}"></script>
 <script src="push_time.js" onerror="window.PUSH_TIME=''"></script>
 <script>/* 延遲載入（性能）：wiki 三檔＋英文公告＋刷野合計 ~5.2MB，改為進對應分頁或首屏後閒置預載（lazyLoad）才掛載，
