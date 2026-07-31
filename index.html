@@ -1840,9 +1840,16 @@ function alignHeroCols(root){
   });
 }
 // 資料表填滿容器寬：先量各欄內容寬，把多餘空間「平均」分給資料欄(跳過#排行與名稱欄)→ 欄間距一致又不留右側空白；內容已≥容器則維持(可橫捲)
-function fillTableWidth(root){
+// prop=true：多餘空間「依各欄自然寬比例」分配，而不是平均分。
+// 平均分會讓內容很短的欄（位置圖示、勝敗一個字、情境）跟長名字欄拿到一樣多的空白，
+// 整排看起來鬆散又不齊（2026-07-31 使用者：出場紀錄的欄位間隔調整好）。只有指定的表會用。
+function fillTableWidth(root,prop){
   const wrap=(root&&root.classList&&root.classList.contains("tblwrap"))?root:(root||document).querySelector(".tblwrap"); if(!wrap)return;
-  wrap.dataset.fillw="1"; // 標記「填滿容器」式表格：refitLayout 於視窗/縮放改變時會自動重算（px 是量出來的，不重算會殘留舊寬）
+  // 標記「填滿容器」式表格：refitLayout 於視窗/縮放改變時會自動重算（px 是量出來的，不重算會殘留舊寬）。
+  // 分配方式也記在這裡："prop"＝依欄寬比例、"1"＝平均分。refitLayout 只傳 wrap、沒有第二個參數，
+  // 不記的話它每次都會用平均分把比例分配蓋掉（MutationObserver 在渲染後 60ms 就會觸發一次）。
+  if(prop===undefined)prop=wrap.dataset.fillw==="prop";
+  wrap.dataset.fillw=prop?"prop":"1";
   const tbl=wrap.querySelector("table"); if(!tbl)return;
   const ths=[...tbl.querySelectorAll("thead th")]; if(ths.length<3)return;
   tbl.style.tableLayout="auto"; tbl.style.width="max-content"; // 還原成內容寬再量(保留各欄原設寬)
@@ -1850,9 +1857,11 @@ function fillTableWidth(root){
   const natW=ths.map(th=>th.getBoundingClientRect().width/(window._zoomF||1)); // rect=視覺寬，除以縮放倍率轉回版面px才能跟 clientWidth 比（不除→網站放大時誤判塞不下→右側大空位）
   const total=natW.reduce((a,b)=>a+b,0), avail=wrap.clientWidth;
   if(avail-total<=2)return; // 已填滿/超出 → 維持內容寬
-  const per=(avail-total)/(ths.length-2); // 多餘空間平均給資料欄(索引≥2)
+  const extra=avail-total;
+  const base=prop?natW.reduce((a,w,i)=>i>=2?a+w:a,0):0; // 比例分配的分母＝資料欄自然寬總和
+  const per=prop?0:extra/(ths.length-2);                // 多餘空間平均給資料欄(索引≥2)
   tbl.style.tableLayout="fixed"; tbl.style.width=avail+"px";
-  ths.forEach((th,i)=>{th.style.width=(natW[i]+(i>=2?per:0))+"px";});
+  ths.forEach((th,i)=>{const add=i<2?0:(prop?(base?extra*natW[i]/base:0):per); th.style.width=(natW[i]+add)+"px";});
 }
 // 表格欄頭 sticky 的偏移＝頁首實際高度（整頁捲動時欄頭貼在頁首下方）
 const setHdrH=()=>{const h=document.querySelector("header");document.documentElement.style.setProperty("--hdrH",(h?h.offsetHeight:0)+"px");};
@@ -5702,7 +5711,7 @@ function sqHeroDetail(cid){
   bindFilters(render);
   bindCombo("hdOppSel",oppOpts,V.hdOpp,hit=>{V.hdOpp=hit; saveState(); render();},true);
   bindCombo("hdPlSel",plOpts,V.hdPlayer,hit=>{V.hdPlayer=hit; saveState(); render();}); // 使用選手（與對位一樣只作用在出場紀錄，名片統計來自彙總檔、只吃路線）
-  segBind("heroModeSeg",v=>{ if(v===V.heroMode)return; V.heroMode=v; V.hdOpp="";V.hdLane="";V.hdPlayer=""; saveState(); render(); }); // 同上：詳情頁切資料源
+  segBind("heroModeSeg",v=>{ if(v===V.heroMode)return; V.heroDetail=heroKeyFor(v,V.heroDetail); V.heroMode=v; V.hdOpp="";V.hdLane="";V.hdPlayer=""; saveState(); render(); }); // 同上：詳情頁切資料源
   document.getElementById("hdLaneSel").onchange=e=>{V.hdLane=e.target.value; V.hdOpp=""; saveState(); render();};
   document.querySelectorAll(".recTbl th[data-rs]").forEach(th=>th.onclick=()=>{
     const kk=th.dataset.rs, s2=V.recSort;
@@ -5716,7 +5725,7 @@ function sqHeroDetail(cid){
   });
   {const gd=document.getElementById("sqGoDex"); if(gd)gd.onclick=()=>dexGo("champ",cid);}
   alignHeroCols(document.querySelector(".recTbl")&&document.querySelector(".recTbl").closest(".card"));
-  fillTableWidth(document.querySelector(".recTbl")&&document.querySelector(".recTbl").closest(".card"));
+  fillTableWidth(document.querySelector(".recTbl")&&document.querySelector(".recTbl").closest(".card"),true);
   drawTrend(cid,V.hdLane,true); // 積分版版本趨勢（heroP；含職業還沒打到的最新版）
   addSubBack(()=>{V.heroDetail="";V.hdOpp="";V.hdLane="";V.hdPlayer="";saveState();render();});
 }
@@ -5921,6 +5930,22 @@ function segHTML(id,opts,cur,cls,style){
   return `<span class="segBtn${cls?" "+cls:""}"${id?` id="${id}"`:""}${style?` style="${style}"`:""}>${
     opts.map(([v,lb,ttl,bid])=>`<button type="button" data-v="${esc(v)}"${bid?` id="${bid}"`:""}${ttl?` title="${esc(ttl)}"`:""}${String(v)===String(cur)?' class="on"':""}>${lb}</button>`).join("")}</span>`;
 }
+// ⚠ 兩種資料源的「英雄鍵」不一樣：職業賽用資料裡的原始名（"Lee Sin"），積分用 DDragon id（"LeeSin"）。
+// 在詳情頁切換資料源時必須換算，否則原始名≠id 的英雄（李星／好運姐／蒙多醫生／悟空…）會查無資料：
+//   積分→職業賽 變成「出場 0 場、紀錄 0 列」；職業賽→積分 則因為 SOLOQ_BUILDS.hero[鍵] 找不到，
+//   render() 的條件不成立而默默退回職業版——按鈕亮著 🎯 積分、畫面卻還是職業賽數據。
+//（2026-07-31 使用者回報：點李星在職業賽／積分之間來回點就壞掉）
+let _PROCH=null,_PROCHk="";
+function proChampKey(cid){ // DDragon id → 這份職業賽資料實際使用的英雄原始名
+  const k=curYear+"|"+LANES.length;
+  if(_PROCHk!==k){ const m=new Map();
+    for(const o of LANES){ const r=o.raw;
+      for(const s of[0,1]){ const c=r[C.blue_champion+(s?RB:0)]; if(c&&!m.has(champId(c)))m.set(champId(c),c); } }
+    _PROCH=m; _PROCHk=k; }
+  return _PROCH.get(cid)||null;
+}
+const heroKeyFor=(mode,ch)=>{ if(!ch)return ch; const cid=champId(ch);
+  return mode==="soloq"?cid:(proChampKey(cid)||ch); };
 // 英雄分頁的「🏆 職業賽／🎯 積分」切換：列表頁與英雄詳情頁共用同一顆（2026-07-31 使用者要求詳情頁也要能切）。
 // cur 傳「實際正在渲染的模式」而不是 V.heroMode：某些英雄沒有積分資料時會退回職業版，
 // 這樣按鈕亮的段永遠等於畫面上真正的資料源。歷史年沒有積分資料 → 整顆不顯示。
@@ -10162,7 +10187,7 @@ function render(){
         const mid=(g10!=null&&og10!=null&&g25!=null&&og25!=null)?((g25-og25)-(g10-og10)):null; // 中期金差＝25分對位差−10分對位差
         const _och=r[C.blue_champion+(side?0:RB)];
         const sit=sitOf(gd10,mid); // 情境四象限（金差@10 × 中期金差）
-        list.push({date:o.date, lg:o.league, pos:PN[o.pid]||"", won,
+        list.push({date:o.date, patch:o.patch, lg:o.league, pos:PN[o.pid]||"", won,
           p:r[C.blue_playername+(side?RB:0)], tm:r[C.blue_teamname+(side?RB:0)],
           kda:`${kk}/${d2}/${a2}`,
           gd10, mid, sit,
@@ -10172,7 +10197,10 @@ function render(){
     }
     list.sort((a,b)=>b.date.localeCompare(a.date));
     // 出場紀錄排序（點欄頭切換）；預設最新在上
-    const RACC={日期:g=>g.date,賽事:g=>g.lg||"",位置:g=>g.pos||"",使用選手:g=>g.p||"",勝敗:g=>g.won?1:0,
+    // 版本欄取代日期欄（2026-07-31 使用者：看版本比看日期直觀）。排序用數值化的版本號，
+    // 避免字串比較把 26.9 排在 26.10 後面；日期沒有消失，移到該格的 title。
+    const _pv=g=>{const m=String(g.patch||"").match(/(\d+)\.(\d+)/); return m?+m[1]*1000+ +m[2]:null;};
+    const RACC={版本:_pv,賽事:g=>g.lg||"",位置:g=>g.pos||"",使用選手:g=>g.p||"",勝敗:g=>g.won?1:0,
       "K/D/A":g=>{const m=String(g.kda).split("/").map(Number);return m.length===3?(m[0]+m[2])/Math.max(1,m[1]):null;},
       "金差@10":g=>g.gd10,中期金差:g=>g.mid,情境:g=>g.sit?SIT_RANK[g.sit]:null,
       對位英雄:g=>cAb(g.och)||g.och||"",對位選手:g=>g.op||""};
@@ -10224,9 +10252,9 @@ function render(){
       <div class="card" id="trendCard" style="display:none"><h2>📈 <span id="trendTitle"></span> <span class="sub"><span style="color:#ff4d4d">▲${T("增強")}</span>　<span style="color:#37c871">▼${T("削弱")}</span>　<span style="color:#ffd60a">●${T("調整")}</span>｜${LANG==="en"?"hover for details (source: Riot official patch notes)":"滑上去看細節（來源：Riot 官方版本說明）"}</span></h2><div class="chartbox" style="height:320px"><canvas id="trend"></canvas></div></div>
       <div class="card"><h2>📜 ${T("出場紀錄")} <span class="sub">${LANG==="en"?`${n} games, newest first | click a column to sort`:`共 ${n} 場，最新在上｜點欄位名稱可排序`}</span></h2>
         <div class="tblwrap"><table class="recTbl"><thead><tr>
-          <th>#</th>${["日期","賽事","位置","使用選手","勝敗","K/D/A","金差@10","中期金差","情境","對位英雄","對位選手"].map(k=>{const _s=V.recSort,_on=_s&&_s.k===k,_up=_on&&_s.d>0;return `<th data-rs="${k}" style="cursor:pointer"><span class="thL">${mLabel(k)}<span class="sortArr${_on?" on":""}${_on?(_up?" asc":" desc"):""}">${_up?"▲":"▼"}</span></span></th>`;}).join("")}</tr></thead><tbody>${
+          <th>#</th>${["版本","賽事","位置","使用選手","勝敗","K/D/A","金差@10","中期金差","情境","對位英雄","對位選手"].map(k=>{const _s=V.recSort,_on=_s&&_s.k===k,_up=_on&&_s.d>0;return `<th data-rs="${k}" style="cursor:pointer"><span class="thL">${mLabel(k)}<span class="sortArr${_on?" on":""}${_on?(_up?" asc":" desc"):""}">${_up?"▲":"▼"}</span></span></th>`;}).join("")}</tr></thead><tbody>${
           recSorted.map((g,i)=>`<tr><td class="rk">${i+1}</td>
-            <td class="meta">${g.date}</td>
+            <td class="meta" title="${esc(g.date)}">${g.patch||"–"}</td>
             <td>${lgChip(g.lg)}</td><td>${posImg(g.pos)}</td>
             <td>${pCell(tAb(g.tm)+" "+g.p,g.p)}</td>
             <td>${g.won?`<span style="color:#ff6b6b">${LANG==="en"?"W":"勝"}</span>`:`<span style="color:#6ea8ff">${LANG==="en"?"L":"敗"}</span>`}</td>
@@ -10242,7 +10270,7 @@ function render(){
     bindCombo("hdPlSel",plOpts,V.hdPlayer,hit=>{V.hdPlayer=hit; saveState(); render();}); // 使用選手篩選
     // 詳情頁也能切職業賽／積分（2026-07-31 使用者要求）：留在同一隻英雄，只換資料源；
     // 兩邊的路線/對位/選手候選來源不同 → 一併清掉，避免帶著另一模式的值進來變 0 筆
-    segBind("heroModeSeg",v=>{ if(v===V.heroMode)return; V.heroMode=v; V.hdOpp="";V.hdLane="";V.hdPlayer=""; saveState(); render(); });
+    segBind("heroModeSeg",v=>{ if(v===V.heroMode)return; V.heroDetail=heroKeyFor(v,V.heroDetail); V.heroMode=v; V.hdOpp="";V.hdLane="";V.hdPlayer=""; saveState(); render(); });
     document.getElementById("hdLaneSel").onchange=e=>{V.hdLane=e.target.value; V.hdOpp=""; saveState(); render();}; // 路線篩選（換路線清空對位；選手不清，換路線後若無場次會自動失效）
     document.querySelectorAll(".recTbl th[data-rs]").forEach(th=>th.onclick=()=>{
       const kk=th.dataset.rs, s=V.recSort;
@@ -10255,7 +10283,7 @@ function render(){
       td.addEventListener("mouseleave",tipHide);
     });
     alignHeroCols(document.querySelector(".recTbl")&&document.querySelector(".recTbl").closest(".card"));
-    fillTableWidth(document.querySelector(".recTbl")&&document.querySelector(".recTbl").closest(".card")); // 平均分配多餘空間、填滿容器（此頁在 data-view=英雄 下會吃到 min-width:0，需 JS 補填寬）
+    fillTableWidth(document.querySelector(".recTbl")&&document.querySelector(".recTbl").closest(".card"),true); // 平均分配多餘空間、填滿容器（此頁在 data-view=英雄 下會吃到 min-width:0，需 JS 補填寬）
     drawTrend(ch,""); // 詳情頁自動載入版本趨勢（顯示在紀錄上方）
     addSubBack(()=>{V.heroDetail="";V.hdOpp="";V.hdLane="";V.hdPlayer="";saveState();render();}); // 子頁返回鍵→回英雄列表
   }
