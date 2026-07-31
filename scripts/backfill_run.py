@@ -72,6 +72,25 @@ JOBS = [
     (2015, "GPL", "Summer", 0, ["GPL 2015 Summer"]),
     (2015, "TCL", "Winter", 0, ["TCL 2015 Winter"]),
     (2015, "TCL", "Summer", 0, ["TCL 2015 Summer"]),
+    # ── 季後賽（Leaguepedia 各賽區都是獨立賽事；2013 的 LCS/LEC 當年叫 NA LCS／EU LCS）──
+    (2013, "LEC", "Spring", 1, ["EU LCS 2013 Spring Playoffs"]),
+    (2013, "LEC", "Summer", 1, ["EU LCS 2013 Summer Playoffs"]),
+    (2013, "LCS", "Spring", 1, ["NA LCS 2013 Spring Playoffs"]),
+    (2013, "LCS", "Summer", 1, ["NA LCS 2013 Summer Playoffs"]),
+    (2013, "LPL", "Spring", 1, ["LPL 2013 Spring Playoffs"]),
+    (2013, "LPL", "Summer", 1, ["LPL 2013 Summer Playoffs"]),
+    (2014, "LEC", "Spring", 1, ["EU LCS 2014 Spring Playoffs"]),
+    (2014, "LEC", "Summer", 1, ["EU LCS 2014 Summer Playoffs"]),
+    (2014, "LCS", "Spring", 1, ["NA LCS 2014 Spring Playoffs"]),
+    (2014, "LCS", "Summer", 1, ["NA LCS 2014 Summer Playoffs"]),
+    (2014, "LPL", "Spring", 1, ["LPL 2014 Spring Playoffs"]),
+    (2014, "LPL", "Summer", 1, ["LPL 2014 Summer Playoffs"]),
+    (2015, "LPL", "Spring", 1, ["LPL 2015 Spring Playoffs"]),
+    (2015, "LPL", "Summer", 1, ["LPL 2015 Summer Playoffs"]),
+    (2015, "CBLOL", "Split 1", 1, ["CBLOL 2015 Split 1 Playoffs"]),
+    (2015, "CBLOL", "Split 2", 1, ["CBLOL 2015 Split 2 Playoffs"]),
+    (2015, "TCL", "Winter", 1, ["TCL 2015 Winter Playoffs"]),
+    (2015, "TCL", "Summer", 1, ["TCL 2015 Summer Playoffs"]),
     # ── 2016（LPL 只有夏季，補春季）──
     (2016, "LPL", "Spring", 0, ["LPL 2016 Spring"]),
 ]
@@ -91,7 +110,8 @@ def main():
             continue
         # split 是中文或空字串時（如 WLDs 的「入圍賽」）去符號後會變空 → 同年同聯賽的兩個賽事撞 key
         # → 退而用賽事名當識別（WLDs_2013_IWCT2013）
-        key = f"{lg}_{year}_{re.sub(r'[^A-Za-z0-9]+','',split) or re.sub(r'[^A-Za-z0-9]+','',names[0])}"
+        key = (f"{lg}_{year}_{re.sub(r'[^A-Za-z0-9]+','',split) or re.sub(r'[^A-Za-z0-9]+','',names[0])}"
+               + ("_PO" if po else ""))   # 季後賽是獨立賽事，key 不加後綴會跟同賽段的例行賽撞
         print(f"\n[{year} {lg} {split}]", flush=True)
         done = False
         for nm in names:
@@ -117,6 +137,7 @@ def main():
         except Exception:
             continue
         live = {f"{lg}_{yy}_{re.sub(r'[^A-Za-z0-9]+','',sp) or re.sub(r'[^A-Za-z0-9]+','',nms[0])}"
+                + ("_PO" if _po else "")
                 for (yy, lg, sp, _po, nms, *_x) in JOBS if yy == y}   # key 規則要跟上面那行一致
         # ⚠ 只清「本檔（MatchHistoryGame）產的」key。fetch_wiki_pb.py 的成果存在同一個檔裡，
         #   不排除的話兩支腳本會互相把對方的資料當孤兒刪掉（2026-07-31 實測整批 PB 資料被清光）
