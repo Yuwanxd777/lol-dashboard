@@ -1212,7 +1212,7 @@ const bootEnchOf=n=>{ if(!/附魔|Enchantment/i.test(String(n)))return null;
   const k=(typeof xKey==="function")?(xKey(E,n)||n):n; const inf=E[k]; if(!inf||inf.t!=="道具")return null;
   return (inf.f||[]).find(x=>/之靴|足具|護脛|戰靴|涼鞋/.test(String(x)))||null; };
 // 同件道具的新舊譯名：舊名 → 現行名（圖鑑只列現行名，查詢兩者互通）
-const ITEM_ALIAS={"剔除鐮刀":"汰除品","熾天使之擁":"熾天使的擁抱","魔宗":"終極魔劍","魔切":"魔劍正宗","餘燼巨人":"巴米灰燼","Challenging 重擊":"挑戰重擊","Chilling 重擊":"冰寒重擊","死亡之火觸擊":"冥火之觸","好戰之心":"好戰者鎧甲"};
+const ITEM_ALIAS={"剔除鐮刀":"汰除品","熾天使之擁":"熾天使的擁抱","魔宗":"終極魔劍","魔切":"魔劍正宗","餘燼巨人":"巴米灰燼","Challenging 重擊":"挑戰重擊","Chilling 重擊":"冰寒重擊","死亡之火觸擊":"冥火之觸","好戰之心":"好戰者鎧甲","傳奇守衛":"傳奇護衛"};
 // 舊制天賦重製為現行符文（使用者判定）：詳情頁補生涯徽章（舊天賦年段＋重製回歸年）
 window.MASTERY_REWORKED={"冥火之觸":"2026"};
 // 名稱容錯查 key：原字 → 去空格 → 鏈/鍊 異體字互換（官方公告與 DDragon 用字不一致）
@@ -6355,7 +6355,7 @@ function renderChgYear(box){
         const CAT_ICO2={"道具":"🛡️","新增道具":"🛡️","移除道具":"🛡️","符文":"🔮","符文碎片":"🔻","召喚師技能":"✨","機制":"⚙️","挑戰重擊":"⚔️","冰寒重擊":"⚔️","懲戒重擊":"⚔️"};
         const im=xImg(zh)||xImg(raw)||(CAT_ICO2[title]?`<span class="cc" style="font-size:22px;line-height:1;margin-right:4px">${CAT_ICO2[title]}</span>`:""); // 統稱卡（無實體名的彙總行）給類別 emoji
         return `<div class="card">
-        <div class="chgHead"><span class="heroname" data-tip="x" data-name="${esc(zh)}">${im}${esc(title)}</span><span class="cnt">${e.arr.length} ${T("次改動")}</span></div>
+        <div class="chgHead"><span class="heroname" data-tip="x" data-name="${esc(zh)}" data-sec="${esc(e.cat||"道具")}">${im}${esc(title)}</span><span class="cnt">${e.arr.length} ${T("次改動")}</span></div>
         <div class="chgBody">${patchBlocks(arr,title)}</div></div>`;
       };
       const catCardHTML=(name,arr)=>`<div class="card">
@@ -6384,8 +6384,11 @@ function renderChgYear(box){
       });
       // 點道具/符文名/圖 → 跳到該項目詳情（取代 hover ? 游標）
       grid.querySelectorAll(".chgHead .heroname[data-name]").forEach(el=>{ el.style.cursor="pointer";
-        el.addEventListener("click",()=>{ if(typeof dexGo==="function")dexGo("item",el.dataset.name);
-          else{V.dexSec="道具";V.dexDetail={type:"item",name:el.dataset.name};saveState();render();} });});
+        // 一定要帶 data-sec：dexGo 沒收到分類就一律當道具 → 天賦／召喚師技能都被丟到道具區
+        //（2026-07-31 使用者回報）
+        el.addEventListener("click",()=>{ const _sc=el.dataset.sec||"道具";
+          if(typeof dexGo==="function")dexGo("item",el.dataset.name,_sc);
+          else{V.dexSec=(_sc==="符文"||_sc==="召喚師技能")?_sc:"道具";V.dexDetail={type:"item",name:el.dataset.name};saveState();render();} });});
     };
     paint();
     window._chgY={year:curYear,box,paint};
