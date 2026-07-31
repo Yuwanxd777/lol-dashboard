@@ -4118,6 +4118,14 @@ const DIR_OVERRIDE=[
   // ── 通用語意規則（2026-07-31 使用者判例，都是「文字敘述、沒有數值可比」的類型）──
   // 生效範圍的文字對照（兩側都沒數字才套，免得跟數值比較打架）
   //（2026-07-31 判例：塞拉斯 13.12 影襲「傷害減免：所有物傷 ⇒ 普攻」＝適用面縮小＝削弱）
+  // 「◯◯，而非立即△△」要看哪一邊是好事：原本立即消失改成慢慢衰減＝增強；
+  // 原本立即生效改成要等飛行／延遲＝削弱（2026-07-31 判例：巨魔 W 增強、克格莫 Q／飛斯 R 削弱）
+  [/而非立即[^｜]{0,8}(消失|結束|中斷|失效|解除|歸零)/, 1],
+  [/(疊加|累加|累積)[^｜]{0,6}而非(取代|覆蓋|重置)/, 1],
+  [/而非立即/, -1],
+  // 「新／全新／額外 被動－◯◯」＝多一個效果＝增強（2026-07-31 判例：新唯一被動、額外被動 - 普攻…）
+  [/(^|｜|：|:)\s*(全新|新增|新|額外)(唯一)?(被動|主動|光環|持續效果|效果)\s*[-－—：:]/, 1, 1],
+  [/現在視?為[^｜]{0,10}(單體|指向性|指定目標)/, 1],   // 能吃到單體道具/符文效果（2026-07-31 卡莎碧雅 E 判例）
   [/(改為|變為|變成|現在(是|為))[^｜]{0,10}唯一/, -1],   // 改成唯一＝多件不疊加
   [/(全圖|全域|全地圖|全場)[^｜⇒]{0,6}⇒\s*[^｜]{0,10}\d/, -1],   // 全圖 ⇒ 800＝範圍縮小
   [/⇒\s*[^｜]{0,10}(全圖|全域|全地圖|全場)/, 1],
@@ -4173,9 +4181,13 @@ const DIR_OVERRIDE=[
   [/(冷卻(時間)?(?!減免|縮減)|施放時間|消耗|耗費|價格|費用|成本)[^｜]{0,10}(提高|提升|增加|上升|變長)/, -1, 1],
   [/(冷卻(時間)?(?!減免|縮減)|施放時間|消耗|耗費|價格|費用|成本)[^｜]{0,10}(降低|減少|下降|調降|縮短|縮減|變短)/, 1, 1],
   [/(傷害|射程|範圍|半徑|速度|生命|護盾|回復|治療|加成|係數|成長|層數|持續時間|移速|攻速|吸血|穿透|金錢|經驗)[^｜]{0,10}(提高|提升|增加|上升|擴大|增大|加大|放寬|延長)/, 1, 1],
-  [/(傷害|射程|範圍|半徑|速度|生命|護盾|回復|治療|加成|係數|成長|層數|持續時間|移速|攻速|吸血|穿透|金錢|經驗|碰撞|判定)[^｜]{0,10}(降低|減少|下降|調降|縮短|縮減|收窄|變小|減小)/, -1, 1],
+  [/(傷害|射程|範圍|半徑|速度|生命|護盾|回復|治療|加成|係數|成長|層數|持續時間|移速|攻速|吸血|穿透|金錢|經驗|碰撞|判定)[^｜]{0,10}(降低|減少|下降|調降|縮短|縮減|收窄|縮小|變小|減小)/, -1, 1],
   // ⑤ 「現在給予／提供◯◯」＝多了一個效果；「現在皆可獲得」同理
   [/現在(也|皆|都|還)?(可以|可|能|會)?\s*(給予|提供|回復|附帶|獲得|取得|合成)/, 1, 1],
+  // 「現在◯◯時額外回復…」「…時，獲得 X 額外物防」＝條件觸發的新效果＝增強
+  //（2026-07-31 判例：史瓦妮被動「現在擊殺或助攻英雄時額外回復 9% 最大魔力」、霜甲的新增益）
+  [/現在[^｜]{0,24}(額外|還會|也會|多)?\s*(給予|提供|回復|獲得|取得|造成|附帶|治療)/, 1, 1],
+  [/(時|後)[，,]?\s*(獲得|回復|得到|取得)[^｜]{0,26}(額外|抗性|加成|物防|魔防|生命|魔力|移速|攻速|護盾|傷害)/, 1, 1],
   [/不再(可以|可|能|會)?\s*(合成|升級|生效|作用|觸發|疊加|適用)/, -1],
   [/不再對[^｜]{0,14}(生效|作用|造成)/, -1],
   // ⑥ 屬性被整個拿掉：把「經驗值移除。」這類補進來（原清單只有戰鬥屬性）
@@ -4368,6 +4380,11 @@ const renderChgLines=(lines,cardName)=>{
     .replace(/巴龍[、,／\/]\s*(巨龍|飛龍|小龍)\s*[或和與、]?\s*Vilemaw/gi,"大型野怪")
     .replace(/Vilemaw\s*[或和與、]?\s*/gi,"大型野怪")
     .replace(/射程[：:]\s*(全圖|全域|全地圖)/g,"生效範圍：$1")
+    .replace(/(^|｜)(\s*)(全新|新)((?:唯一)?(?:被動|主動|光環)|持續效果|效果)([：:])/g,"$1$2新增$4$5")
+    .replace(/"([^"｜]{1,90})"/g,"「$1」").replace(/[""]/g,"")
+    .replace(/」\s*「/g,"；")
+    .replace(/「\s*([^「」]*[\d%][^「」]*?)\s*」/g,"$1")   // 只去掉「包住數值」的引號，正常引用的詞不動
+    .replace(/\s*；\s*/g,"；")
     // 「不再提供 25 物攻。」＝該屬性歸零 → 改寫成全站統一的「物攻：25 ⇒ 0」
     //（2026-07-31 使用者判例：軍團聖盾「唯一光環 – 軍團：不再提供物防」沒寫本來多少）
     .replace(/(?:已移除[：:]\s*)?([^｜。，,]{0,14}?)不再(?:提供|給予|附帶)\s*([\d.]+\s*%?)\s*(?:點\s*)?([^｜。，,、]{1,12}?)\s*[。.]?$/,
@@ -4384,6 +4401,44 @@ const renderChgLines=(lines,cardName)=>{
   lines=lines.filter(l=>{const p=String(l).indexOf("｜"); if(p<0)return true;
     const a=_nrm(l.slice(0,p)), b=String(l).slice(p+1).trim();
     return !(a&&(b===a||_nrm(b)===a&&b.length<=a.length+3));});
+  // 光環／靈氣：同一個光環名下的多行一律併成一行，寫成
+  //「唯一光環 – 軍團：物防：10 ⇒ 0；魔防：15 ⇒ 20；不再給予小兵額外加成」
+  //（2026-07-31 使用者：所有道具的光環寫法都要統一成這樣）。不限相鄰，wiki 的順序常是散的。
+  {const _bd3=l=>String(l).replace(/^[^｜]*｜/,""), _pf3=l=>{const i=String(l).indexOf("｜");return i>0?String(l).slice(0,i+1):"";};
+   const HEAD=/^\s*([^：:]{2,24})[：:]\s*/;
+   const at=new Map(), out3=[];
+   lines.forEach(l=>{ const b=_bd3(l), m=b.match(HEAD);
+     if(!m||!/光環|靈氣/.test(m[1])){ out3.push(l); return; }
+     const key=_pf3(l)+"\u0000"+m[1].trim();
+     if(!at.has(key)){ at.set(key,out3.length); out3.push(l); return; }
+     const i0=at.get(key);
+     out3[i0]=String(out3[i0]).replace(/[。.]?\s*$/,"")+"；"+b.replace(HEAD,"").replace(/[。.]?\s*$/,""); });
+   lines=out3;}
+  // 相鄰兩行講同一件事（同技能、body 開頭有 ≥4 字共同前綴、且第二行剩下的還帶「：」＝另一個具名子項）
+  //（2026-07-31 判例：妮德莉 3.14 擲標槍「額外傷害的計算起點：…」與「額外傷害的累積起點：…」）
+  {const _bd2=l=>String(l).replace(/^[^｜]*｜/,""), _pf2=l=>{const i=String(l).indexOf("｜");return i>0?String(l).slice(0,i):"";};
+   const out2=[];
+   for(let i=0;i<lines.length;i++){ const a=String(lines[i]), b=lines[i+1]==null?null:String(lines[i+1]);
+     if(b&&_pf2(a)===_pf2(b)){ const x=_bd2(a), y=_bd2(b);
+       let n=0; while(n<x.length&&n<y.length&&x[n]===y[n])n++;
+       const rest=y.slice(n);
+       const head2=x.slice(0,n);
+       if(n>=4&&(/[：:]/.test(rest)||/[：:]\s*$/.test(head2))&&!/^(新增|已移除|移除|屬性|總價|合成費用)[：:]?$/.test(head2)){
+         out2.push(a.replace(/[。.]?\s*$/,"")+"；"+rest); i++; continue; } }
+     out2.push(lines[i]); }
+   lines=out2;}
+  // 「傷害相同等級 18。」這種補充句 → 併進前一行的括號，並把語序轉正成「等級 18 時傷害相同」
+  //（2026-07-31 使用者判例：13.14「傷害：460 ＋（30 × 等級） ⇒ …」與「傷害相同等級 18。」）
+  {const _bd4=l=>String(l).replace(/^[^｜]*｜/,""), _pf4=l=>{const i=String(l).indexOf("｜");return i>0?String(l).slice(0,i):"";};
+   const out4=[];
+   lines.forEach(l=>{ const b=_bd4(l).trim().replace(/[。.]\s*$/,"");
+     const m=b.match(/^(.{1,8}?)(相同|不變|維持不變)(.{0,14})$/);
+     const prev=out4.length?out4[out4.length-1]:null;
+     if(m&&prev&&_pf4(l)===_pf4(prev)&&_bd4(prev).startsWith(m[1])&&/⇒/.test(String(prev))){
+       const note=(m[3].trim()?`${m[3].trim()}時${m[1]}${m[2]}`:`${m[1]}${m[2]}`).replace(/(\d)([一-鿿])/g,"$1 $2");
+       out4[out4.length-1]=String(prev).replace(/[。.]?\s*$/,"")+`（${note}）`; return; }
+     out4.push(l); });
+   lines=out4;}
   // 「總價」與「合成費用」是同一件事的兩面，wiki 拆成兩行看起來像兩件事 → 合併
   //（2026-07-31 判例：守望者鎧甲 13.10、冰霜之心 13.10、狂怒九頭蛇 13.06、長劍 13.14）
   {const _bd=l=>String(l).replace(/^[^｜]*｜/,"");
@@ -4535,7 +4590,10 @@ function champHistory(id){
   const put=(pk,lines,url)=>{ if(!byPk[pk]&&lines&&lines.length)byPk[pk]={lines,url:url||""}; };
   const addOfficial=store=>{ if(!store)return;
     for(const[pk,pd]of Object.entries(store)){ if(!pd||typeof pd!=="object")continue;
-      const ls=pd[id]; if(ls&&ls.length)put(pk,ls.map(l=>addKey(id,l)),pd._url||""); } };
+      // 聊天訊息／笑聲／台詞這類：官方公告來源以前沒過濾，英雄詳情頁還是會冒出來
+      //（2026-07-31 使用者：維迦「現在會大笑」、艾妮維亞「聊天訊息顯示蛋妮維亞」都不要列）
+      const ls=(pd[id]||[]).filter(l=>!TRIVIAL.test(l));
+      if(ls.length)put(pk,ls.map(l=>addKey(id,l)),pd._url||""); } };
   const addWiki=()=>{ for(const[wv,cs]of Object.entries(window.WIKI_PATCHES||{})){
     const pk=wikiVerPk(wv); if(!pk||byPk[pk])continue;
     const ls=zhOnly(pk,(cs[id]||[]).filter(l=>!COSM.test(l)&&!TRIVIAL.test(l)&&!JUNK.test(String(l).trim()))).map(l=>addKey(id,l));

@@ -134,6 +134,8 @@ def main():
                         m3 = re.search(_STAT_PAT, tail)
                         if m3:
                             nolonger.setdefault((major, minor), []).append((line, nm, m3.group(0)))
+                        elif re.search(r"不再(給予|提供|附帶)\s*(唯一)?(光環|靈氣)", tail):
+                            nolonger.setdefault((major, minor), []).append((line, nm, "光環"))
     print("需要補前後值的行：屬性 %d 行、落單合成公式 %d 行、不再提供 %d 行（涉及 %d 個版本）"
           % (sum(len(v) for v in todo.values()), sum(len(v) for v in recipes.values()),
              sum(len(v) for v in nolonger.values()), len(set(todo) | set(recipes) | set(nolonger))))
@@ -209,6 +211,22 @@ def main():
             if not it_a:
                 miss += 1
                 why.setdefault("不再提供：前一版沒有這件道具", []).append("%d.%d %s" % (major, minor, nm))
+                continue
+            # 「不再給予光環。」整個光環沒了、連內容都沒寫 → 把前一版的光環敘述整段補進來
+            #（2026-07-31 使用者：遠古意志「不再給予光環」也是沒寫光環是什麼）
+            if stat == "光環":
+                desc = re.sub(r"<[^>]+>", " ", it_a.get("description") or "")
+                desc = re.sub(r"\s+", " ", desc)
+                m0 = re.search(r"(?:唯一)?\s*(?:光環|靈氣)\s*[：:]\s*([^。]{4,80})", desc)
+                if not m0:
+                    miss += 1
+                    why.setdefault("不再提供：DDragon 查不到原本數值", []).append("%d.%d %s 光環" % (major, minor, nm))
+                    continue
+                p = line.find("｜")
+                txt = m0.group(1).strip().rstrip("。.")
+                out[line] = line[:p + 1] + re.sub(r"[。.]?\s*$", "", line[p + 1:]) + "（原本：" + txt + "）"
+                hit += 1
+                print("   %s 光環 → %s" % (nm, txt[:50]))
                 continue
             # 講「光環／靈氣」的行不能用道具自身屬性回答：軍團聖盾自己 +20 物防，
             # 但光環給友軍的是 10 → 只從說明文字裡「光環／靈氣」之後那一段找（2026-07-31 判例）
