@@ -2621,6 +2621,10 @@ function initData(){
   // 常用的今年永遠在最上面。不動 M.years 本身，其他地方（版本/生涯範圍）仍拿得到原順序。
   ys.innerHTML=(M.years.length?[...M.years].sort((a,b)=>b-a):[curYear]).map(y=>`<option ${+y===+curYear?"selected":""}>${y}</option>`).join("");
 }
+// 賽事下拉尾段（不屬於任何 LG_GROUP 的聯賽）的偏好順序：一級賽區 → 其他賽區 → 盃賽／表演賽。
+// 只是排序偏好，不是白名單——沒列到的聯賽照樣會列出（依資料本身的順序接在後面）。
+const LG_TAIL_PREF=["LCP","CBLOL","LTA","LTA N","LTA S","LLA","LLN","CLS",
+                    "PCS","LJL","VCS","LCO","LMS","GPL","TCL","LCL","KeSPA","IEM","MSC","RR"];
 const LG_GROUP={ "中韓":["LCK","LPL"], "歐美":["LEC","LCS"], // 使用者定義：中韓=LCK+LPL、歐美=LEC+LCS
                  "國際賽":["FST","MSI","EWC","ENC","WLDs","RR","IEM","MSC",
                           "EWCQ歐洲","EWCQ韓國","EWCQ中國","EWCQ太平洋","EWCQ巴西","EWCQ北美"] };
@@ -6009,11 +6013,24 @@ function filterOpts(){
   // 賽事：固定順序，只列在其他篩選下仍有比賽的
   const has=l=>LEAGUES.includes(l)&&lgAvail.has(l);
   const grpHas=g=>(LG_GROUP[g]||[]).some(has);
-  const ewcqLgs=LEAGUES.filter(l=>String(l).startsWith("EWCQ")); // 各 EWCQ 分區(北美/太平洋/巴西/歐洲/韓國)獨立列出
-  const items=[["ALL",true],["中韓",grpHas("中韓")],["LCK",has("LCK")],["LPL",has("LPL")],["LCP",has("LCP")],
-    ["歐美",grpHas("歐美")],["LEC",has("LEC")],["LCS",has("LCS")],["CBLOL",has("CBLOL")],
-    ["國際賽",!F.split&&grpHas("國際賽")],["FST",has("FST")],["MSI",has("MSI")],["WLDs",has("WLDs")],
-    ...ewcqLgs.map(l=>[l,has(l)]),["EWC",has("EWC")],["ENC",has("ENC")],["KeSPA",has("KeSPA")]].filter(([,ok])=>ok);
+  // 賽事清單：保留「群組 → 個別聯賽」兩階段，但個別聯賽改成依 LG_GROUP 歸屬自動展開，
+  // 不屬於任何群組的接在後面——資料有什麼就列什麼，不再是寫死的白名單
+  //（2026-08-01：原本只列 ALL/中韓/LCK/LPL/LCP/歐美/LEC/LCS/CBLOL/國際賽/FST/MSI/WLDs/EWCQ*/EWC/ENC/KeSPA，
+  //   LLA・LCO・LCL・TCL・GPL・LMS・VCS・LJL・PCS 這些有資料卻進不了清單，只有「目前選取」才看得到）。
+  const inGrp=new Set(Object.values(LG_GROUP).flat());
+  const items=[["ALL",true]];
+  Object.keys(LG_GROUP).forEach(g=>{
+    const ms=(LG_GROUP[g]||[]).filter(has);
+    if(!ms.length)return;
+    if(!(g==="國際賽"&&F.split))items.push([g,true]);  // 有選賽段時不列「國際賽」群組（沿用原規則）
+    ms.forEach(l=>items.push([l,true]));
+  });
+  // 尾段：先照 LG_TAIL_PREF 的偏好順序（一級賽區在前、盃賽在後），沒列到的再照資料本身的順序，
+  // 所以新賽事不用改程式也會自己出現
+  const _ti=l=>{const i=LG_TAIL_PREF.indexOf(l); return i<0?999:i;};
+  LEAGUES.filter(l=>has(l)&&!inGrp.has(l))
+    .sort((a,b)=>_ti(a)-_ti(b)||LEAGUES.indexOf(a)-LEAGUES.indexOf(b))
+    .forEach(l=>items.push([l,true]));
   if(F.league&&F.league!=="ALL"&&!F.league.includes("#")&&!items.some(([l])=>l===F.league))items.push([F.league,true]); // 目前選取一定保留（#分組值由 optgroup 涵蓋）
   const _grpOpts=lg=>{ // LCK 只列「最新賽段」的組（使用者定案 2026-07-30：Cup 巴龍/遠古是跨組對戰、放進篩選很怪→不列）
     const gs=lg==="LPL"?lplAllGroups(curYear):lplGroupNamesOfSplit(curYear,lplSelSplit(curYear,"","LCK"),"LCK");
