@@ -5258,8 +5258,10 @@ function drawTrend(ch,pos,sq){
     plugins:[valueLabels],
     data:{labels,datasets:[
       {label:"BP%",hidden:!!sq,data:data.map(d=>d.presence),borderColor:"#f5b942",backgroundColor:"#f5b94233",tension:.25,pointRadius:4},
-      {label:"勝率",hidden:!sq,data:data.map(d=>d.勝率),borderColor:"#ff6b6b",backgroundColor:"#ff6b6b33",tension:.25,spanGaps:true,pointRadius:4},
+      // 積分版的圖例順序＝場數% 在前、勝率在後（2026-08-01 使用者指定）。
+      // 職業版不受影響：圖例過濾器在職業版本來就把場數% 濾掉，剩下的順序不變。
       {label:"場數%",hidden:!sq,data:data.map(d=>d.場數pct!=null?d.場數pct:null),borderColor:"#f5b942",backgroundColor:"#f5b94233",tension:.25,spanGaps:true,pointRadius:4},
+      {label:"勝率",hidden:!sq,data:data.map(d=>d.勝率),borderColor:"#ff6b6b",backgroundColor:"#ff6b6b33",tension:.25,spanGaps:true,pointRadius:4},
       {label:"選取率",hidden:true,data:data.map(d=>d.選取率),borderColor:"#37c871",backgroundColor:"#37c87133",tension:.25,pointRadius:4},
       {label:"禁用率",hidden:true,data:data.map(d=>d.禁用率),borderColor:"#4f8ef7",backgroundColor:"#4f8ef733",tension:.25,pointRadius:4},
       {label:"版本改動",showLine:false, // 放在 100% 線上方（軸延伸到118但刻度只到100）
@@ -5851,6 +5853,13 @@ function sqHeroDetail(cid){
         <td>${g.sc==null?"—":`<b style="color:${scCol(g.sc)}">${d1s(g.sc)}</b>`}</td></tr>`).join("")
     }</tbody></table></div>`;
   }
+  // 名片副標與職業版統一：「路線｜選手 X｜對位 Y｜🛠️ 出裝／符文 →」（2026-07-31 使用者指定）。
+  // 原本積分版還寫著「🎯 積分（今年，追蹤職業選手單雙排）｜資料來源 dpm.lol」——資料源在篩選列
+  // 的 🏆/🎯 切換鈕上看得到，來源說明在本頁 ℹ️ 裡，這裡重複又讓兩個模式長得不一樣。
+  const _subF=[V.hdLane?LZ[V.hdLane]:"",
+               V.hdPlayer?`${en?"by ":"選手 "}${esc(V.hdPlayer)}`:"",
+               V.hdOpp?`${en?"vs ":"對位 "}${esc(chName(champId(V.hdOpp)))}`:""].filter(x=>x).join("｜");
+  const _subFx=_subF?_subF+"｜":"";
   // 篩選列順序：路線緊接標準篩選的「場數」右邊，再來選手、對位（2026-07-31 使用者指定）
   main.innerHTML=filterBar(`
     <label>${en?"Lane":"路線"}</label><select id="hdLaneSel" style="width:150px"><option value="">${en?"All lanes":"全部路線"}</option>${lanes.map(l=>`<option value="${PNS[l]}" ${PNS[l]===V.hdLane?"selected":""}>${LZ[PNS[l]]}（${H[l][0]}）</option>`).join("")}</select>
@@ -5859,7 +5868,7 @@ function sqHeroDetail(cid){
     ${heroModeSegHTML("soloq")}`)
     +`<div class="card"><h2>
       <span class="heroname" style="font-size:22px">${cImg(cid)} ${esc(chName(champId(cid))||cid)}</span>
-      <span class="sub">🎯 ${en?"soloq (this year, tracked pros)":"積分（今年，追蹤職業選手單雙排）"}｜${en?"source dpm.lol":"資料來源 dpm.lol"}｜<span class="plink" id="sqGoDex">🛠️ ${en?"Builds & runes →":"出裝／符文 →"}</span></span></h2>
+      <span class="sub">${_subFx}<span class="plink" id="sqGoDex">🛠️ ${en?"Builds & runes →":"出裝／符文 →"}</span></span></h2>
       <div class="statline">
         <span>${en?"Games":"出場"} <b>${n}</b>${en?"":" 場"}</span>
         <span>${en?"Win%":"勝率"} <b>${n?Math.round(w/n*100):0}%</b>${en?` (${w}W ${n-w}L)`:` (${w} 勝 ${n-w} 敗)`}</span>
@@ -10422,7 +10431,8 @@ function render(){
       }
     }
     const avail=Math.max(1,total-unav);
-    const _subF=filtered?[V.hdLane?LZ[V.hdLane]:"",V.hdPlayer?`${LANG==="en"?"by ":"選手 "}${esc(V.hdPlayer)}`:"",V.hdOpp?`${LANG==="en"?"vs ":"對位 "}${esc(chName(champId(V.hdOpp)))}`:""].filter(x=>x).join("｜"):(LANG==="en"?`all ${curYear} games`:`${curYear} 年全部比賽`);
+    // 副標＝目前套用的篩選；沒篩選就留空（不再寫「2026 年全部比賽」），與積分版長得一樣
+    const _subF=[V.hdLane?LZ[V.hdLane]:"",V.hdPlayer?`${LANG==="en"?"by ":"選手 "}${esc(V.hdPlayer)}`:"",V.hdOpp?`${LANG==="en"?"vs ":"對位 "}${esc(chName(champId(V.hdOpp)))}`:""].filter(x=>x).join("｜");
     // 篩選列順序：路線緊接在標準篩選的「場數」右邊，再來選手、對位（2026-07-31 使用者指定）
     main.innerHTML=filterBar(`
       <label>${LANG==="en"?"Lane":"路線"}</label><select id="hdLaneSel" style="width:150px"><option value="">${LANG==="en"?"All lanes":"全部路線"}</option>${laneOpts.slice().sort((a,b)=>a.pid-b.pid).map(l=>`<option value="${l.lane}" ${l.lane===V.hdLane?"selected":""}>${LZ[l.lane]}（${l.n}）</option>`).join("")}</select>
@@ -10432,7 +10442,7 @@ function render(){
       +`
       <div class="card"><h2>
         <span class="heroname" style="font-size:22px">${cImg(ch)} ${esc(chName(champId(ch))||ch)}</span>
-        <span class="sub">${CABBR[ch]?`${T("縮寫")} ${CABBR[ch]}｜`:""}${_subF}</span></h2>
+        <span class="sub">${CABBR[ch]?`${T("縮寫")} ${CABBR[ch]}｜`:""}${_subF?_subF+"｜":""}<span class="plink" id="sqGoDex">🛠️ ${LANG==="en"?"Builds & runes →":"出裝／符文 →"}</span></span></h2>
         <div class="statline">
           <span>${LANG==="en"?"Games":"出場"} <b>${n}</b>${LANG==="en"?"":" 場"}</span>
           <span>${LANG==="en"?"Win%":"勝率"} <b>${n?Math.round(w/n*100):0}%</b>${LANG==="en"?` (${w}W ${n-w}L)`:` (${w} 勝 ${n-w} 敗)`}</span>
@@ -10460,6 +10470,7 @@ function render(){
     bindFilters(render); // 上方標準篩選（年份／賽事／賽季／版本／時間）＋說明按鈕
     bindCombo("hdOppSel",oppOpts,V.hdOpp,hit=>{V.hdOpp=hit; saveState(); render();},true); // 對位英雄篩選
     bindCombo("hdPlSel",plOpts,V.hdPlayer,hit=>{V.hdPlayer=hit; saveState(); render();}); // 使用選手篩選
+    {const gd=document.getElementById("sqGoDex"); if(gd)gd.onclick=()=>dexGo("champ",champId(ch));} // 🛠️ 出裝／符文 → 圖鑑
     // 詳情頁也能切職業賽／積分（2026-07-31 使用者要求）：留在同一隻英雄，只換資料源，
     // 路線／對位／選手都保留不清（使用者：切換時篩選列的參數不要動）。
     // 帶著另一模式的值過去不會壞：兩邊各自都有「候選裡沒有就自動清掉」的守衛
