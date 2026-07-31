@@ -8192,8 +8192,8 @@ function render(){
     ];
     const _noF=new Set(["date","lg","patch"]); // 這幾欄不放篩選框(上方全域篩選已有 年份/賽事/賽季/版本)
     const SUBF=_b5?{ // 禁用欄拆成兩格各自篩：前3(第一輪禁)｜後2(第二輪禁)
-      bb:[{k:"bb1",dl:"champ",get:m=>(sides(m).L.bans||[]).slice(0,3).map(_cTxt).join(" ")},{k:"bb2",dl:"champ",get:m=>(sides(m).L.bans||[]).slice(3).map(_cTxt).join(" ")}],
-      rb:[{k:"rb1",dl:"champ",get:m=>(sides(m).R.bans||[]).slice(0,3).map(_cTxt).join(" ")},{k:"rb2",dl:"champ",get:m=>(sides(m).R.bans||[]).slice(3).map(_cTxt).join(" ")}],
+      bb:[{k:"bb1",g:3,dl:"champ",get:m=>(sides(m).L.bans||[]).slice(0,3).map(_cTxt).join(" ")},{k:"bb2",g:2,dl:"champ",get:m=>(sides(m).L.bans||[]).slice(3).map(_cTxt).join(" ")}],
+      rb:[{k:"rb1",g:3,dl:"champ",get:m=>(sides(m).R.bans||[]).slice(0,3).map(_cTxt).join(" ")},{k:"rb2",g:2,dl:"champ",get:m=>(sides(m).R.bans||[]).slice(3).map(_cTxt).join(" ")}],
     }:{ // 3 禁年份沒有第二輪禁 → 整欄一格（bb2/rb2 的殘留輸入值由下面那行自動清掉）
       bb:[{k:"bb1",dl:"champ",get:m=>(sides(m).L.bans||[]).map(_cTxt).join(" ")}],
       rb:[{k:"rb1",dl:"champ",get:m=>(sides(m).R.bans||[]).map(_cTxt).join(" ")}],
@@ -8220,8 +8220,10 @@ function render(){
       window._BPDL[_dlKey]=_DLF;
     }
     const _dlHTML=FILTERS.map(f=>(_DLF[f.k]&&_DLF[f.k].length)?`<datalist id="bpDL_${f.k}">${_DLF[f.k].map(v=>`<option value="${esc(v)}"></option>`).join("")}</datalist>`:"").join("");
-    const _finput=f=>`<span style="position:relative;display:block;flex:1 1 0;min-width:0"><input class="bpColF" data-k="${f.k}" list="bpDL_${f.k}" size="1" value="${esc(V.bpColF[f.k]||"")}" placeholder=" " style="display:block;width:100%;min-width:0;font-size:11.5px;padding:2px 15px 2px 4px;box-sizing:border-box;text-align:center;background:#0e1420;border:1px solid #2a3345;border-radius:5px;color:var(--tx)"><span class="bpCx" data-k="${f.k}" title="${LANG==="en"?"clear":"清除"}">✕</span></span>`;
-    const _fcell=c=>_noF.has(c.k)?"":(SUBF[c.k]?`<div style="display:flex;gap:3px">${SUBF[c.k].map(_finput).join("")}</div>`:_finput({k:c.k}));
+    const _finput=(f,gr)=>`<span style="position:relative;display:block;flex:${gr||1} 1 0;min-width:0"><input class="bpColF" data-k="${f.k}" list="bpDL_${f.k}" size="1" value="${esc(V.bpColF[f.k]||"")}" placeholder=" " style="display:block;width:100%;min-width:0;font-size:11.5px;padding:2px 15px 2px 4px;box-sizing:border-box;text-align:center;background:#0e1420;border:1px solid #2a3345;border-radius:5px;color:var(--tx)"><span class="bpCx" data-k="${f.k}" title="${LANG==="en"?"clear":"清除"}">✕</span></span>`;
+    // 禁用欄的兩格寬度照「該輪次幾張圖」分（前3輪 3 張、後2輪 2 張），gap 與頭像間距一致
+    //（2026-07-31 使用者：篩選框太大，跟該輪次 BAN 圖的寬度略大一點就好）
+    const _fcell=c=>_noF.has(c.k)?"":(SUBF[c.k]?`<div style="display:flex;gap:7px">${SUBF[c.k].map(f=>_finput(f,f.g||1)).join("")}</div>`:_finput({k:c.k}));
     const _colFActive=()=>FILTERS.some(f=>(V.bpColF[f.k]||"").trim());
     let _bpFocusK=null; // 打字中的欄→重繪後把焦點還回去(表格整塊重建會掉焦點)
     const rerender=()=>{
