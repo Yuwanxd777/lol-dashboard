@@ -2507,14 +2507,21 @@ function initData(){
   }
   const _splitOrd=s=>{ if(s==="升降賽")return 999; const po=/ PO$/.test(s)?1:0; const b2=String(s).replace(/ PO$/,"");
     const m2=/^S(\d+)$/.exec(b2); if(m2)return (+m2[1])*10+po;
-    if(b2==="冬季")return 100+po; if(b2==="春季")return 110+po; if(b2==="夏季")return 120+po; return 600+po; }; // 春→夏→其他→升降賽最後
+    if(b2==="冬季")return 100+po; if(b2==="春季")return 110+po; if(b2==="夏季")return 120+po;
+    if(b2==="TESL")return 125+po;       /* 與 GPL 夏季同期，使用者指定排在夏季之後 */
+    if(b2==="入圍賽")return 130+po;      /* 世界賽入圍賽一定在夏季之後打 */
+    if(/錦標賽$/.test(b2))return 140+po; /* 賽區錦標賽（選世界賽代表）再更後面 */
+    return 600+po; }; // 春→夏→其他→升降賽最後
   SPLITS=[...new Set(RAW.slice(1).map(r=>r[C.split]))].filter(s=>s).sort((a2,b2)=>_splitOrd(a2)-_splitOrd(b2)||String(a2).localeCompare(String(b2)));
   LEAGUES=[...new Set(RAW.slice(1).map(r=>r[C.league]))].filter(s=>s).sort();
   PATCHES=[...new Set(RAW.slice(1).map(r=>String(r[C.patch]).trim()))].filter(s=>s).sort();
   _seasonBounds=null; // 換年份重算賽季時間邊界
   // 公開版(GitHub Pages)顯示「推送上去的時間」（publish.bat 產 push_time.js）；本機版顯示資料抓取時間
   const _pub=location.protocol!=="file:"&&!["localhost","127.0.0.1"].includes(location.hostname);
-  document.getElementById("meta").textContent=`資料時間 ${(_pub&&window.PUSH_TIME)?window.PUSH_TIME:D.fetched_at}`;
+  // 本機版要顯示「整條管線跑完的時間」＝ manifest 的 updated（stamp_updated.py 在 update.bat
+  // 最後一步寫的）。D.fetched_at 是**該年 CSV 抓下來的當下**，永遠停在排程啟動的 10:00，
+  // 而版本改動／生涯聚合／積分逐場那些後續步驟還要跑很久（2026-07-31 使用者回報還是寫 10:00）
+  document.getElementById("meta").textContent=`資料時間 ${(_pub&&window.PUSH_TIME)?window.PUSH_TIME:((M&&M.updated)||D.fetched_at)}`;
   const ys=document.getElementById("yearSel");
   ys.innerHTML=(M.years.length?M.years:[curYear]).map(y=>`<option ${+y===+curYear?"selected":""}>${y}</option>`).join("");
 }
@@ -2755,9 +2762,27 @@ const eventsTreeHTML=()=>{
   const _homeAb={};
   Object.entries(homeCnt).forEach(([t,c])=>{const ab=tAb(t), e=_homeAb[ab]=_homeAb[ab]||{};
     Object.entries(c).forEach(([lg,n])=>{e[lg]=(e[lg]||0)+n;});});
-  const _pickT1=c=>{let best=null,bn=-1; for(const lg in c||{}){const m2=leagueMeta(lg); if(m2&&m2.grp==="t1"&&c[lg]>bn){bn=c[lg];best=lg;}} return best;};
+  const _pickT1=c=>{let best=null,bn=-1; for(const lg in c||{}){const m2=leagueMeta(lg); if(m2&&m2.grp==="t1"&&c[lg]>bn){bn=c[lg];best=lg;}}
+    if(best)return best;
+    // 整年只打過區域資格賽的隊（Galions／Solary 只有 EWCQ歐洲 場次）→ 用資格賽所屬賽區當母賽區，
+    // LGC 對 EWCQ* 本來就沿用該賽區色（2026-07-31 使用者要求 GL／SLY 要有 LEC 標色）
+    for(const lg in c||{}){ if(/^EWCQ/.test(lg)&&c[lg]>bn){bn=c[lg];best=lg;} }
+    return best;};
+  // 同一支隊的歷代名稱（改名／換贊助商）：母賽區要合起來看。只靠縮寫合併不夠穩——
+  // 使用者手動改過其中一個名字的縮寫，兩邊就分家了（2026-07-31：2013 世界賽的
+  // Samsung Ozone 只有世界賽場次，LCK 場次都掛在改名前的 MVP Ozone 身上）
+  const TEAM_LINEAGE=[
+    ["mvp white","mvp ozone","samsung ozone","samsung white"],   // ＝ SSW
+    ["mvp blue","samsung blue"],                                 // ＝ SSB
+    ["sk telecom t1 2","sk telecom t1 k"],                       // Faker 那隊
+    ["sk telecom t1 1","sk telecom t1 s"],
+  ];
+  const _LIN={}; TEAM_LINEAGE.forEach(g2=>g2.forEach(n=>{_LIN[n]=g2;}));
+  const _linCnt=team=>{const g2=_LIN[normT(team)]; if(!g2)return null;
+    const c={}; Object.entries(homeCnt).forEach(([t,cc])=>{ if(!g2.includes(normT(t)))return;
+      Object.entries(cc).forEach(([lg,n])=>{c[lg]=(c[lg]||0)+n;}); }); return c;};
   const _homeCol=team=>{if(isNatTeam(team))return NAT_COL; // 國家隊：沒有母賽區 → 全部同一個顏色（使用者定案）
-    const best=_pickT1(homeCnt[team])||_pickT1(_homeAb[tAb(team)]);
+    const best=_pickT1(homeCnt[team])||_pickT1(_linCnt(team))||_pickT1(_homeAb[tAb(team)]);
     return best&&LGC[best]?LGC[best]:null;};
   const node=x=>{
     const m=x.m, hasReleg=x.releg.size>0;
@@ -2873,9 +2898,6 @@ const eventsTreeHTML=()=>{
         const _rest=base.filter(t2=>!_used.has(t2));
         if(_rest.length)_mc+=`<div class="lgSplitBlk"><span class="lgSplitHd">${LANG==="en"?"Other":"其他"}<span class="lgSplitN">${uq(_rest)} ${LANG==="en"?"teams":"隊"}</span></span><span class="lgSplitGrps"><div class="lgGrpCol"><span class="lgGrpChips">${chips(_rest,advQ)}</span></div></span></div>`;
         mainChips=_mc+extSeg; // 直接顯示分組排版（二段式已依使用者 2026-07-29 撤回，二段式只留在篩選列下拉）
-      }else if(gcfg){ const gset=new Set(gcfg.abs);
-        const gArr=base.filter(t2=>gset.has(tAb(t2))), rest3=base.filter(t2=>!gset.has(tAb(t2)));
-        mainChips=chips(rest3,advQ)+(gArr.length?`<span class="evtPromoDiv evtGrpDiv"><i>${gcfg.lb}</i></span>`+chips(gArr,advQ):"")+extSeg;
       }else{
         // 一般聯賽：一年有兩個以上季度就逐季度分列（版面沿用 LPL/LCK 的 lgSplitBlk），
         // 該季度打進季後賽的隊帶綠勾（使用者指定 2026-07-31）。只有單一季度就照舊平鋪。
@@ -3026,7 +3048,7 @@ const eventsTreeHTML=()=>{
     return `<div class="evtSec"><div class="evtSecHd">${ic} ${title} <span class="meta">${a.length}</span></div><div class="evtSecBody">${a.map(node).join("")}</div></div>`;};
   return `<div class="evtTree">
     <div class="evtYear">📅 ${curYear} ${LANG==="en"?"season structure":"賽季賽事結構"} <span class="meta">　${LANG==="en"?"switch the year above for other seasons;":"切換上方年份看其他年度；"}<span style="color:#37c871;font-weight:bold">✓</span>${LANG==="en"?"= qualified (play-in / qualifier / promotion); ✎ double-click a team chip to edit its abbreviation":"＝晉級（入圍賽／資格賽／升降賽晉級）；✎ 雙擊隊伍籤可改縮寫"}</span></div>
-    ${section("三大國際賽（世界賽／MSI／First Stand）","🌍",cat.intl)}
+    ${section(LANG==="en"?"Majors (Worlds / MSI / First Stand)":"三大國際賽（世界賽／季中賽／初陣對抗賽）","🌍",cat.intl)}
     ${section("一級聯賽（主要賽區）","🥇",cat.t1)}
     ${section("次級聯賽","🥈",cat.t2,"本年度資料庫無次級聯賽")}
     ${section("三級聯賽","🥉",cat.t3)}
@@ -3289,6 +3311,11 @@ function splitMatch(o,sv){
   if(sv.startsWith("G:")){ // 整賽段：依時間歸季（含該季例行/季後/國際賽事）
     const base=sv.slice(2);
     return /^S[123]$/.test(base)?seasonOf(o)===base:(o.split===base||o.split===base+" PO");
+  }
+  if(sv.startsWith("T:")){ // 錦標賽群組：賽季清單只顯示「錦標賽」，地區（台港澳／東南亞）
+    const t=sv.slice(2);   // 留到「賽事」那邊再篩（使用者定案 2026-07-31）
+    const b=String(o.split||"").replace(/ PO$/,"");
+    return b===t||b.endsWith(t);
   }
   return o.split===sv; // 例行賽／季後賽／升降賽：用原始標籤
 }
@@ -5120,7 +5147,18 @@ function filterOpts(){
   const bases=[...new Set(SPLITS.filter(s=>s&&s!=="升降賽").map(s=>s.replace(/ PO$/,"")))];
   const _reg=LANG==="en"?" Regular":"例行賽", _po=LANG==="en"?" Playoffs":"季後賽";
   const so=[`<option value="" ${!F.split?"selected":""}>${T("全部")}</option>`];
-  bases.forEach(b=>{
+  // 錦標賽／入圍賽：不加「例行賽／季後賽」後綴（它們本來就是單一階段），而且同名的多個
+  // 錦標賽（台港澳／東南亞）在賽季清單合成一個「錦標賽」，地區留到「賽事」那邊再篩
+  //（使用者定案 2026-07-31）
+  const _isT=b=>/錦標賽$|^入圍賽$/.test(String(b));
+  const _tShown=new Set();
+  bases.filter(_isT).forEach(b=>{
+    const lb=/錦標賽$/.test(b)?"錦標賽":b, sv="T:"+lb;
+    if(_tShown.has(lb))return; _tShown.add(lb);
+    const av=SPLITS.some(x=>{const b2=String(x).replace(/ PO$/,""); return b2===lb||b2.endsWith(lb);});
+    if(av||F.split===sv)so.push(`<option value="${sv}" ${F.split===sv?"selected":""}>${esc(lb)}</option>`);
+  });
+  bases.filter(b=>!_isT(b)).forEach(b=>{
     const hasReg=SPLITS.includes(b), hasPO=SPLITS.includes(b+" PO");
     const avGrp=/^S[123]$/.test(b)?splSeason.has(b):(splLabel.has(b)||splLabel.has(b+" PO"));
     // 整賽段(G:)的顯示條件＝「這個賽季在目前篩選下有比賽」，**不可要求全年同時有例行+季後標籤**：
@@ -5174,7 +5212,7 @@ function filterFixedW(){
   cv.font="17px "+getComputedStyle(document.body).fontFamily;
   const w=arr=>Math.ceil(Math.max(0,...arr.map(s=>cv.measureText(s).width)))+40; // ＋下拉箭頭與左右內距
   const bases=[...new Set(SPLITS.filter(s=>s&&s!=="升降賽").map(s=>s.replace(/ PO$/,"")))];
-  const spL=["全部",...bases.flatMap(b=>[b,b+"例行賽",b+"季後賽"]),...(SPLITS.includes("升降賽")?["升降賽"]:[])];
+  const spL=["全部","錦標賽","入圍賽",...bases.flatMap(b=>[b,b+"例行賽",b+"季後賽"]),...(SPLITS.includes("升降賽")?["升降賽"]:[])];
   const ewcqLgs=LEAGUES.filter(l=>String(l).startsWith("EWCQ"));
   const lgFull=["ALL","中韓","LCK","LPL",...lplAllGroups(curYear).map(g=>"LPL#"+g),"LCP","歐美","LEC","LCS","CBLOL","國際賽","FST","MSI","WLDs",...ewcqLgs,"EWC","ENC","KeSPA"].map(lgName);
   const pkL=["全部",...PATCHES];
@@ -6704,6 +6742,26 @@ function render(){
       const gotoVer=()=>{V.dexSec="版本"; V.dexDetail=""; saveState(); curView="圖鑑"; document.querySelectorAll("nav .tab").forEach(x=>x.classList.toggle("on",x.dataset.view==="圖鑑")); render();};
       document.getElementById("ovChgLink").onclick=gotoVer;
       document.querySelectorAll("#ovChg .ovChgIco").forEach(im=>im.onclick=()=>dexGo("champ",im.dataset.id)); // 點英雄頭像→圖鑑該英雄詳情(不再只到版本總覽)
+      // 滑上圖示直接看改動內容（原本只有 title 顯示名字，還要點進去才知道改了什麼）
+      //（2026-07-31 使用者要求）。英雄用 latestPatchChg().lines、道具/符文用 lpc 的行。
+      document.querySelectorAll("#ovChg .ovChgIco").forEach(im=>{
+        const id=im.dataset.id, ls=(chg.lines||{})[id]||[];
+        if(!ls.length)return;
+        im.addEventListener("mouseenter",()=>tipShow(
+          `<div class="tipTitle">${esc(znOf(id))} <span class="meta">${esc(chg.ver||"")}</span></div>`+renderChgLines(ls),
+          im.getBoundingClientRect()));
+        im.addEventListener("mouseleave",()=>{try{tipHide();}catch(e){}});
+      });
+      // 道具／符文／機制的圖示也一樣：滑上去看該版本改了什麼
+      document.querySelectorAll("#ovChg .ovEntIco,#ovChg .ovEntNm").forEach(el=>{
+        const nm=el.dataset.name, sec=el.dataset.sec;
+        const ls=((sec==="道具"?chg.itemLines:sec==="符文"?chg.runeLines:chg.mechLines)||{})[nm]||[];
+        if(!ls.length)return;
+        el.addEventListener("mouseenter",()=>tipShow(
+          `<div class="tipTitle">${esc(assetZh(nm)||nm)} <span class="meta">${esc(chg.ver||"")}</span></div>`+renderChgLines(ls),
+          el.getBoundingClientRect()));
+        el.addEventListener("mouseleave",()=>{try{tipHide();}catch(e){}});
+      });
       document.querySelectorAll("#ovChg .ovEntIco,#ovChg .ovEntNm").forEach(el=>el.onclick=()=>{ if(el.dataset.sec==="機制"){
         const on=(typeof mechObjName==="function")&&mechObjName(el.dataset.name);
         if(on){ V.dexSec="物件"; V.dexDetail={type:"obj",name:on,img:(typeof objIco==="function"&&objIco(on))||""}; saveState(); curView="圖鑑"; document.querySelectorAll("nav .tab").forEach(x=>x.classList.toggle("on",x.dataset.view==="圖鑑")); render(); return; }
@@ -6745,6 +6803,12 @@ function render(){
     }
     // 數據模式依篩選自動變化（2026-07-18 使用者定案）：資料範圍變了→下一拍自動重按目前的數據段重新產生。
     // 先寫 key 再排程：產生失敗（空範圍 alert）時不會每次 render 重跳，維持舊板直到篩選再變
+    // 積分（soloq）資料只有當年 → 停在積分模式切到歷史年份時，每次自動重產都會失敗
+    // （genSoloqTiers 找不到 SOLOQ_BUILDS 就回 null），板子等於被卡死
+    //（2026-07-31 使用者回報 2013/2014 Tier 表壞掉）→ 歷史年份一律改走比賽數據
+    if(V.tierSrc==="soloq"&&typeof isHistYear==="function"&&isHistYear()){
+      V.tierSrc="match"; V.tierGenKey=""; V.tierGenFail="";
+    }
     if(V.tierSrc==="soloq"||V.tierSrc==="match"){
       const gk=tierGenKeyStr(V.tierSrc);
       // gk 變了、或上次失敗且本瀏覽階段還沒對這組 gk 重試過（毒化快取自癒），就自動重產；GAMES 沒載好前不動（避免空掃毒化）

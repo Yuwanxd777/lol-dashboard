@@ -119,6 +119,37 @@ def rosters_of(html):
 
 rosters_of._last_role = ""
 
+ROLE_EN = {"Top": "TOP", "Jungle": "JNG", "Mid": "MID", "AD": "BOT", "ADC": "BOT",
+           "Bot": "BOT", "Support": "SUP", "Coach": "COACH"}
+
+
+def rosters_alt(html):
+    """舊版型的名單頁（2013 的 `{賽事}/Team Rosters` 子頁，使用者提供 2026-07-31）：
+    一隊一個 table.sortable.wikitable，欄位是 ID／Name／Role，隊名在表格前最近的 catlink-teams。
+    """
+    out = {}
+    for m in re.finditer(r'<table[^>]*class="[^"]*sortable wikitable[^"]*"[^>]*>.*?</table>', html, re.S):
+        tb, before = m.group(0), html[:m.start()]
+        mt = None
+        for mm in re.finditer(r'class="[^"]*catlink-teams[^"]*"[^>]*title="([^"]+)"', before):
+            mt = mm                                   # 取最後一個＝離這張表最近的隊名
+        if not mt:
+            continue
+        team = re.sub(r"\s*\(page does not exist\)\s*$", "", _html.unescape(mt.group(1))).strip()
+        players, seen = [], set()
+        for tr in re.findall(r"<tr.*?</tr>", tb, re.S):
+            cells = [re.sub(r"\s+", " ", _html.unescape(re.sub(r"<[^>]+>", "", c))).strip()
+                     for c in re.findall(r"<t[hd][^>]*>(.*?)</t[hd]>", tr, re.S)]
+            if len(cells) < 4 or not cells[1] or cells[1] == "ID":
+                continue
+            if cells[1] in seen:
+                continue
+            seen.add(cells[1])
+            players.append({"n": cells[1], "r": ROLE_EN.get(cells[3], "")})
+        if players:
+            out.setdefault(fix_case(team), players)
+    return out
+
 
 def dates_of(html):
     ds = sorted(set(re.findall(r"\b(20\d\d-\d\d-\d\d)\b", html)))
@@ -173,10 +204,17 @@ def bracket_of(html):
     return out
 
 
-def grab(page, kind):
+def grab(page, kind, roster_page=None):
     html = parse_page(page)
     frm, to = dates_of(html)
-    return ([fix_case(t) for t in teams_of(html, kind)], rosters_of(html), frm, to, bracket_of(html))
+    rs = rosters_of(html)
+    if not rs and roster_page:      # 舊賽事的名單在 `/Team Rosters` 子頁
+        try:
+            rs = rosters_alt(parse_page(roster_page))
+            time.sleep(2)
+        except Exception as e:
+            print(f"   名單子頁失敗：{str(e)[:70]}")
+    return ([fix_case(t) for t in teams_of(html, kind)], rs, frm, to, bracket_of(html))
 
 
 def main():
@@ -199,7 +237,7 @@ def main():
                 segs, allt, frm0, to0 = [], [], "", ""
                 for sp in cfg["splits"]:
                     try:
-                        teams, _rs, frm, to, brk = grab(sp["page"], kind)
+                        teams, _rs, frm, to, brk = grab(sp["page"], kind, sp.get("page","")+"/Team Rosters")
                     except Exception as e:
                         print(f"   {sp['sp']} 失敗：{str(e)[:100]}"); continue
                     # 對戰表涵蓋全部參賽隊＝整個賽事就是淘汰賽（2013 土耳其／大洋洲／CIS 都是）→
@@ -215,7 +253,7 @@ def main():
                         except Exception as e:
                             print(f"   {sp['sp']} 季後賽失敗：{str(e)[:80]}")
                     segs.append({"sp": sp["sp"], "teams": teams, "from": frm, "to": to, "po": po,
-                                 "page": sp["page"]})
+                                 "rosters": _rs or {}, "page": sp["page"]})
                     allt += teams
                     if frm and (not frm0 or frm < frm0):
                         frm0 = frm
@@ -235,7 +273,7 @@ def main():
                 continue
             print(f"[{year}] {code} ← {cfg['page']}")
             try:
-                teams, rosters, frm, to, brk = grab(cfg["page"], kind)
+                teams, rosters, frm, to, brk = grab(cfg["page"], kind, cfg["page"]+"/Team Rosters")
             except Exception as e:
                 print("   失敗，保留舊資料：", str(e)[:120]); continue
             data[str(year)][code] = {"teams": teams, "rosters": rosters, "from": frm, "to": to,
