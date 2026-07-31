@@ -5120,11 +5120,17 @@ function historyCardHTML(title,arr,extraHead){
       ${e.url?`<a class="pTag ${dirCls(changeDir(e.lines))}" href="${esc(e.url)}" target="_blank" rel="noopener">${e.patch}</a>`:`<span class="pTag ${dirCls(changeDir(e.lines))}">${e.patch}</span>`}
       ${renderChgLines(e.lines)}</div>`).join("")}</div></div>`;
 }
+let _trendKey="";
 function drawTrend(ch,pos,sq){
   const data=heroTrend(ch,pos,sq);
   const card=document.getElementById("trendCard");
   if(!card)return;
   card.style.display="block";
+  // 出場紀錄排序之類的操作會整頁重繪，趨勢圖的輸入其實完全沒變。
+  // 這種情況下重播進場動畫＋smooth scroll＝畫面莫名閃一下（2026-07-31 使用者回報）。
+  // 輸入(英雄/路線/資料源/語言/年份)相同就靜默重建：不跑動畫、不捲動。
+  const _tk=[ch,pos||"",sq?1:0,LANG,curYear].join("|");
+  const _quiet=(_trendKey===_tk); _trendKey=_tk;
   const _nm=sq?(chName(champId(ch))||ch):cAb(ch);
   const _posD=pos?((LANG==="en"?{TOP:"Top",JNG:"Jungle",MID:"Mid",BOT:"Bot",SUP:"Support"}:{TOP:"上路",JNG:"打野",MID:"中路",BOT:"下路",SUP:"輔助"})[pos]||pos):"";
   document.getElementById("trendTitle").textContent=LANG==="en"?`${T("版本趨勢")}: ${_nm} (${sq?"Soloq · ":""}${_posD||T("全部路線")})`:`版本趨勢：${_nm}（${sq?"積分．":""}${_posD||"全部路線"}）`;
@@ -5196,6 +5202,7 @@ function drawTrend(ch,pos,sq){
     ]},
     // 滑數據點→看數據；滑改動標記→看改動（各自獨立，不混在一起）
     options:{maintainAspectRatio:false,interaction:{mode:"nearest",intersect:true},
+      ...(_quiet?{animation:false}:{}),
       scales:{y:{min:0,max:118,title:{display:true,text:"%"},
           ticks:{stepSize:20,callback:v=>v<=100?v:undefined}}}, // 刻度只到100，上方留給標記
       plugins:{legend:{labels:{boxWidth:12,filter:it=>it.text!=="版本改動"&&(sq?(it.text==="勝率"||it.text==="場數%"):it.text!=="場數%")},
@@ -5226,7 +5233,7 @@ function drawTrend(ch,pos,sq){
             return `${ctx.dataset.label}：${Math.round(v)}%${ext}`;
           }
         }}}}});
-  card.scrollIntoView({behavior:"smooth",block:"nearest"});
+  if(!_quiet)card.scrollIntoView({behavior:"smooth",block:"nearest"});
   // 趨勢圖下方的改動明細已移除；改動細節改為滑到圖上的 ▲/▼/● 標記查看
 }
 
@@ -10255,12 +10262,18 @@ function render(){
       "K/D/A":g=>{const m=String(g.kda).split("/").map(Number);return m.length===3?(m[0]+m[2])/Math.max(1,m[1]):null;},
       "金差@10":g=>g.gd10,中期金差:g=>g.mid,情境:g=>g.sit?SIT_RANK[g.sit]:null,
       對位英雄:g=>cAb(g.och)||g.och||"",對位選手:g=>g.op||""};
+    // 預設＝版本降冪（新版在上）。版本欄是刻意取代日期的，同一版動輒上百場，
+    // 所以同版之內再用日期當第二排序鍵，升降冪一起走（日期欄雖然沒顯示，順序要對得起來）。
+    //（2026-07-31 使用者指定）
+    if(!V.recSort)V.recSort={k:"版本",d:-1};
     let recSorted=list;
     if(V.recSort&&RACC[V.recSort.k]){
-      const f=RACC[V.recSort.k], d=V.recSort.d;
+      const f=RACC[V.recSort.k], d=V.recSort.d, byPatch=V.recSort.k==="版本";
       recSorted=[...list].sort((a,b)=>{const x=f(a),y=f(b);
-        if(x==null&&y==null)return 0; if(x==null)return 1; if(y==null)return -1; // 「—」(無資料) 一律沉到最底，不受升／降影響
-        return (typeof x==="string"?String(x).localeCompare(String(y)):x-y)*d;});
+        if(x==null&&y==null)return byPatch?String(a.date).localeCompare(String(b.date))*d:0;
+        if(x==null)return 1; if(y==null)return -1; // 「—」(無資料) 一律沉到最底，不受升／降影響
+        const r=(typeof x==="string"?String(x).localeCompare(String(y)):x-y)*d;
+        return r||(byPatch?String(a.date).localeCompare(String(b.date))*d:0);});
     }
     let ban=0, total=0;
     for(const o of GAMES){ if(!passG(o))continue; total++; if(String(o.raw[C.banlist]).includes("|"+ch+"|"))ban++; } // 被禁用/BP% 跟隨標準篩選、但不受對位/路線影響
