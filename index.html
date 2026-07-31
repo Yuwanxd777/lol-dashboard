@@ -2684,7 +2684,9 @@ const eventsTreeHTML=()=>{
        const _st=e._spTeams=e._spTeams||{}, _ss=_st[sp]=_st[sp]||new Set();
        (s.teams||[]).forEach(t=>{ if(t){_ss.add(t); e.teams.add(t); e.reg2.add(t); (e.regN=e.regN||new Set()).add(t);} });
        if(s.from){ const _sd=e._spDate=e._spDate||{}; if(!_sd[sp]||s.from<_sd[sp])_sd[sp]=s.from; }
-       if(s.po&&s.po.length){ const _pb=e._poSp=e._poSp||{}, _p2=_pb[sp]=_pb[sp]||new Set();
+       // 補充賽事的對戰表名單存獨立欄位：它只是「進了淘汰賽」，不等於晉級，
+       // 優先序要排在「有沒有打進世界賽」後面（2026-07-31 使用者回報 GPL 錦標賽打勾一大票）
+       if(s.po&&s.po.length){ const _pb=e._poX=e._poX||{}, _p2=_pb[sp]=_pb[sp]||new Set();
          s.po.forEach(t=>{ if(t)_p2.add(tAb(t)); }); } });
      // 不分賽段的補充賽事（2013 巴西／大洋洲／CIS／拉美＝小組賽與季後賽同一頁）：
      // 晉級名單直接來自 wiki 的季後賽對戰表 → 平鋪時照樣打勾
@@ -2893,7 +2895,7 @@ const eventsTreeHTML=()=>{
           const _lastSp=_spKeys[_spKeys.length-1];
           _spKeys.forEach(sp=>{ const arr=base.filter(t2=>_spT[sp].has(t2));
             if(!arr.length)return; arr.forEach(t2=>_used.add(t2));
-            _mc+=_row(sp,arr,_poOf(sp)||(sp===_lastSp?_wAdv(arr):null)||advQ); });
+            _mc+=_row(sp,arr,_poOf(sp)||(sp===_lastSp?_wAdv(arr):null)||((x._poX||{})[sp])||advQ); });
           const _rest=base.filter(t2=>!_used.has(t2));
           if(_rest.length)_mc+=_row(LANG==="en"?"Other":"其他",_rest,advQ);
           mainChips=_mc+extSeg;
@@ -3407,12 +3409,21 @@ function calcPlayers(pos,splitTeam){
     S死=P(r=>r.死亡比,true), S被=P(r=>r.被首殺率,true), S承=P(r=>r.分均承傷),
     Sx=P(r=>r["經驗差@10"]), Sk=P(r=>r.KDA), S視=P(r=>r.分均視分), S池=P(r=>r.角色池);
   rows.forEach((r,i)=>{
-    const has=k=>r[k]!=null;
-    let an=Sw[i]+S輸[i]+S金傷[i]+SDPM[i]*2, ad=5;
+    // 每一項都「有值才計入」（含基礎項）：2013 這種只有勝率／後選率／角色池的年份，
+    // 原本無條件把輸出比/金轉傷/分均輸出當 0 加進去，所有英雄被拉到同一個水平 →
+    // 評分幾乎沒有差異，Tier 表整片擠在同一階（2026-07-31 使用者回報 2013/2014 Tier 表失效）
+    const has=k=>r[k]!=null&&isFinite(r[k]);
+    let an=Sw[i], ad=1;
+    if(has("輸出比")){an+=S輸[i];ad+=1;} if(has("金轉傷")){an+=S金傷[i];ad+=1;}
+    if(has("分均輸出")){an+=SDPM[i]*2;ad+=2;}
     if(has("贏線率(金差@10)")){an+=S贏[i]*2;ad+=2;} if(has("首殺率")){an+=S首[i];ad+=1;}
     if(has("金差@10")){an+=Sg[i]*2;ad+=2;} if(has("中期金差")){an+=Sm[i]*2;ad+=2;}
     if(has("KDA差@10")){an+=SK10[i];ad+=1;}
-    let dn=Sw[i]+S參[i]+S後[i]+S死[i]+S承[i]+Sk[i]+S視[i]*2+S池[i], dd=9;
+    let dn=Sw[i], dd=1;
+    if(has("參與率")){dn+=S參[i];dd+=1;} if(has("後選率")){dn+=S後[i];dd+=1;}
+    if(has("死亡比")){dn+=S死[i];dd+=1;} if(has("分均承傷")){dn+=S承[i];dd+=1;}
+    if(has("KDA")){dn+=Sk[i];dd+=1;} if(has("分均視分")){dn+=S視[i]*2;dd+=2;}
+    if(has("角色池")){dn+=S池[i];dd+=1;}
     if(has("被首殺率")){dn+=S被[i];dd+=1;} if(has("經驗差@10")){dn+=Sx[i]*2;dd+=2;}
     const pen=penalty(r.場數,thr);
     r.攻擊值=Math.round(curve(an/ad*100)*pen*10)/10;

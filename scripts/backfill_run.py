@@ -20,6 +20,10 @@ JOBS = [
     (2013, "LCK", "Winter", 0, ["Champions 2013 Winter"]),
     (2013, "LCK", "Spring", 0, ["Champions 2013 Spring"]),
     (2013, "LCK", "Summer", 0, ["Champions 2013 Summer"]),
+    # 賽區錦標賽（決定世界賽代表）：韓國與中國都有，賽事名不照同一套規則
+    #（韓國＝Korea Regional Finals Season 3、中國＝China Regional Finals Season 3）
+    (2013, "LCK", "錦標賽", 0, ["Korea Regional Finals Season 3", "Season 3 Korea Regional Finals"]),
+    (2013, "LPL", "錦標賽", 0, ["China Regional Finals Season 3", "Season 3 China Regional Finals"]),
     (2013, "LPL", "Spring", 0, ["LPL 2013 Spring"]),
     (2013, "LPL", "Summer", 0, ["LPL 2013 Summer"]),
     (2013, "LEC", "Spring", 0, ["EU LCS 2013 Spring", "EU LCS Season 3 Spring"]),

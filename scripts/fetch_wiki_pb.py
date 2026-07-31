@@ -92,7 +92,17 @@ def pb_games(html):
         teams = re.findall(r'<a href="/wiki/[^"]+" class="[^"]*\bt[A-Z]{2,}\b[^"]*" title="([^"]+)"', t)
         if len(teams) < 2:
             teams = re.findall(r'class="team-object">.*?title="([^"]+)"', t, re.S)
-        w = re.search(r'<td class="pb-winner">\s*(\d+)\s*</td>', t)
+        # 勝方判定：比分列長這樣 → [藍方比分][show/hide][紅方比分]，**帶 pb-winner class 的那一側就是勝方**。
+        # 格子裡的數字是「系列賽比分」不是勝方編號（實測會出現 0／1／3）→ 只看數字一定判錯
+        #（2026-07-31 使用者回報：LCO 的 Team Immunity 明明 4W0L 卻寫成 0W4L）
+        win = 0
+        for tr in re.findall(r"<tr.*?</tr>", t, re.S):
+            if "pb-winner" not in tr:
+                continue
+            tds = re.findall(r"<td([^>]*)>", tr)
+            if len(tds) >= 3:
+                win = 1 if "pb-winner" in tds[0] else (2 if "pb-winner" in tds[2] else 0)
+            break
         bp = {"blue": {"ban": [], "pick": []}, "red": {"ban": [], "pick": []}}
         for m in re.finditer(r'<td class="[^"]*\bpb-(ban|pick)\b[^"]*\bpb-(blue|red)\b[^"]*"[^>]*>(.*?)</td>', t, re.S):
             k, s, body = m.group(1), m.group(2), m.group(3)
@@ -105,7 +115,7 @@ def pb_games(html):
         #（2026-07-31 使用者回報：手動改的縮寫沒套用、還是出現全名）
         _tn = lambda s: re.sub(r"\s*\(page does not exist\)\s*$", "", _html.unescape(s)).strip()
         out.append({"blue": fix_case(_tn(teams[0])), "red": fix_case(_tn(teams[1])),
-                    "game": int(mg.group(1)) if mg else 1, "win": int(w.group(1)) if w else 0, "bp": bp})
+                    "game": int(mg.group(1)) if mg else 1, "win": win, "bp": bp})
     return out
 
 
