@@ -431,7 +431,9 @@
   .sqbtn.helpBtn{width:36px;padding:0}   /* 使用者定案 2026-07-31：說明鈕只留 ℹ️ 圖示 → 與 ←／↺ 同尺寸的正方形鈕（篩選列最右三顆外觀一致） */
   /* emoji 圖示鈕字級放大到 20px（使用者回報 16px 的 🗑 看起來太小）：emoji 字形本身四周留白多，
      同字級下會比 ←／↺ 這種文字字形視覺上小一圈 → 只放大 emoji 那幾顆，維持整列視覺重量一致 */
-  .sqbtn.helpBtn,#tierReset,#bpResetBoard,#bpShot,#rcShot{font-size:20px;line-height:1}
+  /* 基礎按鈕（🗑 📸 ℹ️ ↺ ←）一律同字級：原本是逐個 id 白名單，新加的鈕沒列到就變 16px，
+     同一顆 🗑 在對戰BP 與模擬BP 大小不一樣（2026-07-31 使用者回報）→ 改成整個 .barBtns 通用 */
+  .filters .barBtns .sqbtn,.sqbtn.helpBtn{font-size:20px;line-height:1}
   #sqApiBtn.helpBtn{width:auto;padding:0 12px;font-size:14px}   /* 積分頁「🔑 添加API」仍是帶字的鈕，沿用舊尺寸 */
   .helpPop{position:fixed;z-index:200;max-height:70vh;overflow:auto;padding:14px 16px;box-shadow:0 12px 34px rgba(0,0,0,.6)}
   .helpPop .helpPopHd{font-weight:bold;font-size:16px;color:#7fd7ff;margin-bottom:8px}
