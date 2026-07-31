@@ -283,10 +283,8 @@
   .chgHead .cnt{margin-left:auto;font-size:13px;color:var(--tx2)}
   .chgPatch{margin-top:8px;padding-top:8px;border-top:1px solid var(--line)}
   .chgPatch:first-of-type{border-top:none;padding-top:2px}
-  /* 預設要有底色：判不出增強/削弱的版本（例如只有「總價⇒；合成費用不變」這種帳面調整）
-     沒有 buff/nerf/adj class，原本會變成完全透明的按鈕，看起來像壞掉（2026-07-31 使用者回報） */
-  .pTag{display:inline-block;font-weight:bold;font-size:15px;padding:2px 8px;border-radius:6px;margin-bottom:3px;
-    text-decoration:none;background:rgba(255,255,255,.08);color:var(--tx2)}
+  /* 顏色一律由 buff/nerf/adj 決定（dirCls 判不出方向時也回 adj＝黃字，不會再有無 class 的透明按鈕） */
+  .pTag{display:inline-block;font-weight:bold;font-size:15px;padding:2px 8px;border-radius:6px;margin-bottom:3px;text-decoration:none}
   .pTag.buff{background:#ff6b6b22;color:#ff6b6b} .pTag.nerf{background:#5fbf7f22;color:#5fbf7f} .pTag.adj{background:#f5b94222;color:#f5b942}
   .chgLi{font-size:16px;line-height:1.65;margin:2px 0;padding-left:15px;position:relative}
   .chgLi::before{content:"›";position:absolute;left:3px;color:var(--tx2)}
@@ -4217,7 +4215,7 @@ const COSM=/原畫|造型|背景故事|中版美術|重新上色|推薦裝備|�
 // 版本總覽的「瑣碎改動」：純顯示層／風味描述，不影響強弱（使用者陸續指定：
 // 聊天訊息顯示名、擊殺時會大笑這類）。英雄詳情頁仍完整列出，只有版本總覽不列。
 const TRIVIAL=/聊天訊息|訊息(現在)?會顯示|顯示專屬的英雄名稱|提示文字|字型|排版調整|chat message|會大笑|笑聲|會說出?[「"]|台詞|嘲諷動作|表情動作/i;
-const dirCls=d=>d==null?"":d>0?"buff":d<0?"nerf":"adj"; // null（僅公式/僅錯誤修正）＝不上色
+const dirCls=d=>d==null?"adj":d>0?"buff":d<0?"nerf":"adj"; // 判不出方向也走「調整」的黃字（使用者定案 2026-07-31：以前就是黃字，不要白字）
 // 官方公告「英雄專屬大區塊」註記（PATCH_NOTES[pk]._spotlight，如 26.06 希瓦娜）：新英雄＝CHAMP_RELEASE 落在該版首場 ±30 天，否則大型重製
 const spotTag=(id,pk)=>{const PN=typeof PATCH_NOTES!=="undefined"?PATCH_NOTES:{};
   if(!(((PN[pk]||{})._spotlight)||[]).includes(id))return "";
@@ -6208,7 +6206,9 @@ function renderChgYear(box){
           const src=cat==="機制"?(MECH_LEFT[pk]||ex.機制||[]):(ex[cat]||[]);
           src.forEach(l=>{
             if(COSM.test(l))return; // 美術/裝飾類不列
-            {const _i0=l.indexOf("｜"); const _n0=(_i0>0?l.slice(0,_i0):"").replace(/^\[[^\]]*\]\s*/,"").replace(/\s*[（(][^（）()]*[）)]\s*$/,"").trim();
+            {const _i0=l.indexOf("｜");
+             // 尾端括號可能有好幾層（「Moonflair Spellblade （遠程僅）（新增）」）→ 全部剝掉再比對
+             const _n0=(_i0>0?l.slice(0,_i0):"").replace(/^\[[^\]]*\]\s*/,"").replace(/(\s*[（(][^（）()]*[）)])+\s*$/,"").trim();
              if(_n0&&_NSR[_n0])return;}
             let i=l.indexOf("｜");
             let name=i>0?l.slice(0,i):cat; let body=i>0?l.slice(i+1):l;
