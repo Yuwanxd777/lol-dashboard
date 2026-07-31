@@ -3477,7 +3477,9 @@ function calcPlayers(pos,splitTeam){
       _pa("k",B(C.blue_kills)); _pa("d",B(C.blue_deaths)); _pa("a2",B(C.blue_assists));
       _pa("tk",B(C.blue_teamkills)); _pa("td",B(C.blue_teamdeaths));
       _pa("dmg",B(C.blue_damagetochampions)); _pa("gold",B(C.blue_totalgold));
-      a.gl=(a.gl||0)+(num(r[C.blue_gamelength])||0); // gamelength 是全場欄位，不分側
+      _pa("gl",r[C.blue_gamelength]); // gamelength 是全場欄位、不分側，但一樣要走 _pa 記 glN：
+      // 分均金錢的條件是 (a.glN&&a.goldN&&a.gl)，先前這行改成直接相加、沒留 glN → 條件永遠 false，
+      // 選手分頁的分均金錢整欄變「–」（2026-07-31 使用者回報）
       const k10=num(B(C.blue_killsat10));
       if(k10!=null){ a.kdaN++; a.k10+=k10; a.a10+=num(B(C.blue_assistsat10))||0; a.d10+=num(B(C.blue_deathsat10))||0;
         a.ok10+=num(O(C.blue_killsat10))||0; a.oa10+=num(O(C.blue_assistsat10))||0; a.od10+=num(O(C.blue_deathsat10))||0; }
@@ -3935,7 +3937,11 @@ function calcHeroes(pos,player,team){
     if(!S.merged){ const M=new Map(); // 全部路線＝五路分桶相加（欄位皆可加總）
       for(const pid of[1,2,3,4,5])for(const[ch,a]of S.byPid[pid]){
         let t=M.get(ch); if(!t){t=S.mk(); M.set(ch,t);}
-        for(const f in a){ if(f==="lane"){for(const p2 in a.lane)t.lane[p2]=(t.lane[p2]||0)+a.lane[p2];} else t[f]+=a[f]; }
+        // ⚠ 一律 (t[f]||0)：_ha() 動態長出來的「有沒有資料」計數器（kN／tkN／goldN／glN／vsN…）
+        // 不在 mk() 的初始欄位裡，直接 t[f]+=a[f] 會是 undefined+n＝NaN，NaN 是 falsy →
+        // 參與率／KDA／分均金錢／分均視分 在「全部路線」全部變成「–」（2026-07-31 使用者回報）。
+        // 單一路線走 S.byPid 不經合併，所以只有全部路線壞掉，很容易誤判成資料問題。
+        for(const f in a){ if(f==="lane"){for(const p2 in a.lane)t.lane[p2]=(t.lane[p2]||0)+a.lane[p2];} else t[f]=(t[f]||0)+a[f]; }
       } S.merged=M; }
     acc=S.merged;
   }
