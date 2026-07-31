@@ -60,7 +60,12 @@ JOBS = [
     # 「剛好五人」的賽事用，TESL 自己補不到 → WS 那 15 局的選手名留空。
     (2013, "GPL", "TESL", 0, "Taiwan eSports League/Professional Challenges/Picks and Bans",
      "Taiwan eSports League/Professional Challenges",
-     {"roster_html": ["Taiwan eSports League/Professional Challenges/Team Rosters"]}),
+     {"roster_html": ["Taiwan eSports League/Professional Challenges/Team Rosters"],
+      # e-Sports Dragons Pro 打野／下路／輔助在名單頁都列了兩個人，wiki 的排序
+      # 不是主力順序 → 使用者定案（2026-07-31）：打野 TooLonG、下路 Demon、
+      # 輔助 Parad1sE 為主
+      "roster_fix": {"E-Sports Dragons Pro": {"JNG": "TooLonG", "BOT": "Demon",
+                                              "SUP": "Parad1sE"}}}),
     # GPL 的兩個錦標賽分開標（使用者定案 2026-07-31）：
     #   台港澳＝GPL 年度總決賽（春夏冠軍對決，兩隊都是台灣隊）＋台灣區世界賽代表選拔
     #   東南亞＝Season 3 Southeast Asia Regional Finals（KLH／SGS／SAJ／BKT／Mineski／Xgame 六隊；
@@ -663,6 +668,11 @@ def build(job, force=False):
         for _k, _v in (tour_rosters(_rp) or {}).items():
             ROS.setdefault(_k, _v)
         time.sleep(2)
+    # 人工覆寫：同一個位置名單頁列了兩個人時，wiki 的排序不代表誰是主力
+    # （使用者逐隊定案 2026-07-31）。只蓋指定的位置，其餘沿用解析結果。
+    for _tm, _fix in (opt.get("roster_fix") or {}).items():
+        _k = _norm(_tm)
+        ROS[_k] = {**(ROS.get(_k) or {}), **_fix}
     if ROS:
         print(f"    參賽名單：{len(ROS)} 隊五個位置齊全 → 選手名可填")
     from datetime import date as _date, timedelta as _td
