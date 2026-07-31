@@ -10221,7 +10221,7 @@ function render(){
         const mid=(g10!=null&&og10!=null&&g25!=null&&og25!=null)?((g25-og25)-(g10-og10)):null; // 中期金差＝25分對位差−10分對位差
         const _och=r[C.blue_champion+(side?0:RB)];
         const sit=sitOf(gd10,mid); // 情境四象限（金差@10 × 中期金差）
-        list.push({date:o.date, patch:o.patch, lg:o.league, pos:PN[o.pid]||"", won,
+        list.push({date:o.date, patch:o.patch, lg:o.league, sp:o.split, pos:PN[o.pid]||"", won,
           p:r[C.blue_playername+(side?RB:0)], tm:r[C.blue_teamname+(side?RB:0)],
           kda:`${kk}/${d2}/${a2}`,
           gd10, mid, sit,
@@ -10234,7 +10234,7 @@ function render(){
     // 版本欄取代日期欄（2026-07-31 使用者：看版本比看日期直觀）。排序用數值化的版本號，
     // 避免字串比較把 26.9 排在 26.10 後面；日期沒有消失，移到該格的 title。
     const _pv=g=>{const m=String(g.patch||"").match(/(\d+)\.(\d+)/); return m?+m[1]*1000+ +m[2]:null;};
-    const RACC={版本:_pv,賽事:g=>g.lg||"",位置:g=>g.pos||"",使用選手:g=>g.p||"",勝敗:g=>g.won?1:0,
+    const RACC={版本:_pv,賽事:g=>`${g.lg||""} ${g.sp||""}`.trim(),位置:g=>g.pos||"",使用選手:g=>g.p||"",勝敗:g=>g.won?1:0,
       "K/D/A":g=>{const m=String(g.kda).split("/").map(Number);return m.length===3?(m[0]+m[2])/Math.max(1,m[1]):null;},
       "金差@10":g=>g.gd10,中期金差:g=>g.mid,情境:g=>g.sit?SIT_RANK[g.sit]:null,
       對位英雄:g=>cAb(g.och)||g.och||"",對位選手:g=>g.op||""};
@@ -10286,18 +10286,19 @@ function render(){
       <div class="card" id="trendCard" style="display:none"><h2>📈 <span id="trendTitle"></span> <span class="sub"><span style="color:#ff4d4d">▲${T("增強")}</span>　<span style="color:#37c871">▼${T("削弱")}</span>　<span style="color:#ffd60a">●${T("調整")}</span>｜${LANG==="en"?"hover for details (source: Riot official patch notes)":"滑上去看細節（來源：Riot 官方版本說明）"}</span></h2><div class="chartbox" style="height:320px"><canvas id="trend"></canvas></div></div>
       <div class="card"><h2>📜 ${T("出場紀錄")} <span class="sub">${LANG==="en"?`${n} games, newest first | click a column to sort`:`共 ${n} 場，最新在上｜點欄位名稱可排序`}</span></h2>
         <div class="tblwrap"><table class="recTbl"><thead><tr>
-          <th>#</th>${["版本","賽事","位置","使用選手","勝敗","K/D/A","金差@10","中期金差","情境","對位英雄","對位選手"].map(k=>{const _s=V.recSort,_on=_s&&_s.k===k,_up=_on&&_s.d>0;return `<th data-rs="${k}" style="cursor:pointer"><span class="thL">${mLabel(k)}<span class="sortArr${_on?" on":""}${_on?(_up?" asc":" desc"):""}">${_up?"▲":"▼"}</span></span></th>`;}).join("")}</tr></thead><tbody>${
+          <th>#</th>${["賽事","版本","位置","使用選手","勝敗","K/D/A","金差@10","中期金差","對位英雄","對位選手","情境"].map(k=>{const _s=V.recSort,_on=_s&&_s.k===k,_up=_on&&_s.d>0;return `<th data-rs="${k}" style="cursor:pointer"><span class="thL">${mLabel(k)}<span class="sortArr${_on?" on":""}${_on?(_up?" asc":" desc"):""}">${_up?"▲":"▼"}</span></span></th>`;}).join("")}</tr></thead><tbody>${
           recSorted.map((g,i)=>`<tr><td class="rk">${i+1}</td>
+            <td>${lgChip(g.lg)}${g.sp?` <span class="meta">${esc(spDisp(g.sp))}</span>`:""}</td>
             <td class="meta" title="${esc(g.date)}">${g.patch||"–"}</td>
-            <td>${lgChip(g.lg)}</td><td>${posImg(g.pos)}</td>
+            <td>${posImg(g.pos)}</td>
             <td>${pCell(tAb(g.tm)+" "+g.p,g.p)}</td>
             <td>${g.won?`<span style="color:#ff6b6b">${LANG==="en"?"W":"勝"}</span>`:`<span style="color:#6ea8ff">${LANG==="en"?"L":"敗"}</span>`}</td>
             <td>${g.kda}</td>
             <td style="color:${g.gd10==null?"var(--tx2)":g.gd10>0?"#ff6b6b":g.gd10<0?"#37c871":""}">${g.gd10==null?"—":(g.gd10>0?"+":"")+g.gd10}</td>
             <td style="color:${g.mid==null?"var(--tx2)":g.mid>0?"#ff6b6b":g.mid<0?"#37c871":""}">${g.mid==null?"—":(g.mid>0?"+":"")+Math.round(g.mid)}</td>
-            <td>${g.sit?`<span style="color:${SIT_COL[g.sit]||""};font-weight:600">${(LANG==="en"?SIT_EN:SIT_ZH)[g.sit]||g.sit}</span>`:"—"}</td>
             <td class="mvOpp" data-och="${esc(g.och)}"><span class="heroname">${cImg(g.och)}${cAb(g.och)||g.och}</span></td>
-            <td>${pCell(tAb(g.otm)+" "+g.op,g.op)}</td></tr>`).join("")
+            <td>${pCell(tAb(g.otm)+" "+g.op,g.op)}</td>
+            <td>${g.sit?`<span style="color:${SIT_COL[g.sit]||""};font-weight:600">${(LANG==="en"?SIT_EN:SIT_ZH)[g.sit]||g.sit}</span>`:"—"}</td></tr>`).join("")
         }</tbody></table></div></div>`;
     bindFilters(render); // 上方標準篩選（年份／賽事／賽季／版本／時間）＋說明按鈕
     bindCombo("hdOppSel",oppOpts,V.hdOpp,hit=>{V.hdOpp=hit; saveState(); render();},true); // 對位英雄篩選
