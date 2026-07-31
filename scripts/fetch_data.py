@@ -10,7 +10,7 @@ LOL 儀表板資料抓取 v2 — 直接從 Oracle's Elixir 官方 S3 下載並�
 
 輸出：data_{年}.js（各年 RAW_DATA）＋ data.js（年份清單 manifest）
 """
-import csv, io, json, os, re, sys, urllib.request
+import collections, csv, io, json, os, re, sys, urllib.request
 from datetime import datetime
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # 專案根目錄（本腳本在 scripts\ 內）
@@ -707,6 +707,66 @@ def merge_patch(year, table):
     return table
 
 
+def merge_stats(year, table):
+    """併入 csv_cache/wikistats_{年}.json（scripts/fetch_wiki_stats.py 由 Leaguepedia
+    Cargo 表 ScoreboardPlayers 產生）：**這局 OE／wiki 都有，但逐選手數據是空的**。
+
+    為什麼需要：2013~2016 老賽季靠 merge_wiki 從 MatchHistoryGame 文字版補進來，
+    那個來源只有選手與英雄，沒有 K/D/A、CS、金錢 → 這些欄位全空
+    （實測空值率 2013 100%／2014 55%／2015 40%／2016 7%）。
+
+    與 merge_patch 相同鐵則：**只填空欄位**，已有值的一律不動。
+    配對鍵：開賽時間+系列賽第幾場+選手；兩邊 game 序號偶爾顛倒，退而用
+    開賽時間+選手+英雄（實測 2013-04 全月覆蓋 100%、歧義 0%）。"""
+    p = os.path.join(CACHE_DIR, f"wikistats_{year}.json")
+    if not os.path.exists(p):
+        return table
+    try:
+        with open(p, encoding="utf-8") as f:
+            S = json.load(f)
+    except Exception as e:
+        print(f"  ⚠ 逐選手數據讀取失敗（略過）：{e}")
+        return table
+    if not S:
+        return table
+    hdr = table[0]
+    ix = {n: i for i, n in enumerate(hdr)}
+    iD, iG = ix.get("date"), ix.get("game")
+    if iD is None or iG is None:
+        return table
+    _n = lambda s: re.sub(r"[^a-z0-9]", "", str(s or "").lower())
+    filled = collections.Counter()
+    hit = miss = 0
+    for r in table[1:]:
+        dt, gm = str(r[iD])[:16], str(r[iG] or "").strip()
+        for pre in ("blue", "red"):
+            ip, ic = ix.get(pre + "_playername"), ix.get(pre + "_champion")
+            if ip is None:
+                continue
+            nm = _n(r[ip])
+            if not nm:
+                continue
+            v = S.get("|".join((dt, gm, nm)))
+            if v is None and ic is not None:
+                v = S.get("|".join((dt, "*", nm, _n(r[ic]))))
+            if v is None:
+                miss += 1
+                continue
+            hit += 1
+            for col, val in v.items():
+                j = ix.get(f"{pre}_{col}")
+                if j is None or not val:
+                    continue
+                if str(r[j] or "").strip() == "":        # 只填空的
+                    r[j] = val
+                    filled[col] += 1
+    if filled:
+        tot = sum(filled.values())
+        print(f"  逐選手數據 {hit} 人次對上（{miss} 落空）／補 {tot} 欄："
+              + "、".join(f"{k} {v}" for k, v in filled.most_common()))
+    return table
+
+
 def merge_fill(year, table):
     """併入 csv_cache/fill_{年}.json：OE 尚未收錄的賽段補充資料（scripts/fetch_fill.py 由 gol.gg 產生）。
 
@@ -793,6 +853,7 @@ def main():
         table = merge_fill(y, table)
         table = merge_wiki(y, table)
         table = merge_patch(y, table)      # OE 未收錄賽段的補充資料（OE 有的一律以 OE 為準）
+        table = merge_stats(y, table)      # 老賽季逐選手 KDA/CS/金錢（wiki 文字版沒有 → 只填空欄位）
         table = unify_players(table)       # 選手 ID 大小寫統一（要排在所有 merge 之後，見下）
         write_year(y, table)
     write_manifest()
