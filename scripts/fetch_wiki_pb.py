@@ -126,7 +126,13 @@ def pb_games(html):
         for m in re.finditer(r'<td class="[^"]*\bpb-(ban|pick)\b[^"]*\bpb-(blue|red)\b[^"]*"[^>]*>(.*?)</td>', t, re.S):
             k, s, body = m.group(1), m.group(2), m.group(3)
             c = re.search(r'title="([^"]+)"', body)
-            bp[s][k].append(_html.unescape(c.group(1)).strip() if c else "")
+            nm = _html.unescape(c.group(1)).strip() if c else ""
+            # wiki 用「Missing Data」標示沒有禁用的空格（2013 GPL 有 96 處）＝空 BAN，
+            # 不是英雄名。使用者指定改寫成「?」（2026-07-31），否則會被當成一隻叫
+            # Missing Data 的英雄混進 banlist。
+            if nm.lower() in ("missing data", "missingdata"):
+                nm = "?"
+            bp[s][k].append(nm)
         if len(teams) < 2 or not bp["blue"]["pick"]:
             continue
         # wiki 沒建隊伍頁的小隊，title 會是「FIGJAM (page does not exist)」→ 後綴一定要剝掉，
