@@ -236,7 +236,8 @@
   .bans .cc img.nobanImg{filter:none}   /* 空 BAN 圖本來就是紅圈禁止符號，不要再灰掉 */
   .bans .cc{margin-right:7px} .bans .cc:last-child{margin-right:0} /* 禁用頭像間距 ≥7px（使用者定案 2026-07-31：原本 join("") 相鄰＝0px 太擠） */
   /* 整局沒有禁用資料＝問號（跟「空 BAN」要分得出來：空 BAN 是紅圈禁止符號） */
-  .bans .cc.noBpQ{display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;
+  /* 選用格也會用到（來源只有勝敗、沒收 BP 的場次）→ 選擇器不限定 .bans */
+  .cc.noBpQ{display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;
     border-radius:9px;background:#141a26;border:2px solid #2a3346;color:var(--dim,#8a93a6);font-size:22px;font-weight:900}
   .heroname .cc img{width:28px;height:28px;margin-right:6px}
   /* 數字輸入框：全站移除上下調整鈕（要改就按 ✕ 重打） */
@@ -9396,7 +9397,14 @@ function render(){
       // 三種左右模式都依「實際邊」上色 → fp／team 模式下左右欄會對調，顏色跟著真正的藍/紅方走，
       // 順便看得出該隊當局在哪一邊（那兩個模式的表頭只寫 先選/後選、該隊/對手，本來看不出來）。
       const sCls=(isBlue,won)=>`${isBlue?"bpB":"bpR"}${won?" bpw":""}`;
-      const laneCells=(s,won,isBlue)=>[0,1,2,3,4].map(i=>`<td class="${sCls(isBlue,won)}">${cImg(s.lane[i]||"",s.po[i]&&s.po[i]!=="0"?s.po[i]:"")}</td>`).join("");
+      // 選用格空著＝來源只收了勝敗、沒有 BP（2013 GPL 有不少這種）→ 掛問號，
+      // 跟禁用欄一致，不要留一片空白讓人以為是渲染壞了（2026-08-01 使用者指定）。
+      const laneCells=(s,won,isBlue)=>[0,1,2,3,4].map(i=>{
+        const ch=String(s.lane[i]==null?"":s.lane[i]).trim();
+        return `<td class="${sCls(isBlue,won)}">${ch
+          ? cImg(ch,s.po[i]&&s.po[i]!=="0"?s.po[i]:"")
+          : _qIco(LANG==="en"?"pick not recorded in source":"來源沒有記錄這局的選用")}</td>`;
+      }).join("");
       // 空 BAN（該手沒禁：忘記按或戰術性空 BAN）→ 用模擬BP 的空 BAN 圖佔位，不要留空
       // （2026-07-31 使用者定案；資料端已保留空位，見 fetch_data.py 的 bans_raw）
       // wiki 早年是用字串 "None" 表示「這手真的沒禁」→ 跟空字串一樣當空 BAN 畫禁用圖示。
