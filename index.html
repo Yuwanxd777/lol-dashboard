@@ -4226,6 +4226,17 @@ function applyPatchLineFix(){
       } }
   }
   const W=window.WIKI_PATCHES||{}; if(_plfDone||!Object.keys(W).length)return;
+  // 補行：抓取端把改動放到錯的版本時，原版本那行在重寫表設成 ""（移除），這裡補到正確版本。
+  // 例：李星「額外物攻係數：200% ⇒ 115%」wiki 掛在 14.9(2024)，但官方 24.09 公告中英文都沒有這筆，
+  // 實際出處是 Riot V4.9(2014)＝儀表板的 14.09（2026-07-31 使用者確認）。
+  for(const[pk,cs]of Object.entries(window.PATCH_LINE_ADD||{})){
+    const tgt=W[pk]=W[pk]||{};
+    for(const[id,arr]of Object.entries(cs||{})){
+      if(!Array.isArray(arr))continue;
+      const cur=Array.isArray(tgt[id])?tgt[id]:(tgt[id]=[]);
+      arr.forEach(l=>{ if(!cur.includes(l))cur.push(l); });   // 冪等：ensureWiki 後會再跑一次
+    }
+  }
   for(const cs of Object.values(W)){
     if(!cs||typeof cs!=="object")continue;
     for(const[id,arr]of Object.entries(cs)){

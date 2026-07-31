@@ -22,6 +22,14 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 OUT = os.path.join(ROOT, "patch_line_fix.js")
 
+# 補行：{版本: {英雄id: [整行, ...]}}。抓取端把改動放到錯的版本時用這個補回正確版本，
+# 原版本那行則在 FIX 裡設成 "" 移除。
+# 李星「額外物攻係數：200% ⇒ 115%」：wiki 掛在 14.9(＝2024 patch 9)，但官方 24.09 公告
+# 中英文都沒有這一筆，實際出處是 Riot V4.9（2014）＝儀表板的 14.09（2026-07-31 使用者確認）。
+ADD = {
+    "4.9": {"LeeSin": ["震驚百里（Q2）｜額外物攻係數：200% ⇒ 115%"]},
+}
+
 # (版本, 英雄id, 原技能名, 內容開頭片段) → 重寫後的整行（"" ＝ 這行不要顯示）
 FIX = [
     # ── 李星 5.16：機翻語序「15 兩者 ⇒ 20 首次且 10 秒」完全看不懂（2026-07-31 使用者回報）。
@@ -34,8 +42,7 @@ FIX = [
     # 畫面上變成「200%. 1 ⇒ 115%…」看不懂。官方英文原文是
     #   "Bonus AD ratio reduced to 115% bonus AD from 200%"（使用者提供）
     # → 真正的改動只有一個方向：200% ⇒ 115%（削弱）。反向那行是腳註產生的重複，刪掉。
-    ("14.9", "LeeSin", "震驚百里", "200%.",
-     "震驚百里（Q2）｜額外物攻係數：200% ⇒ 115%"),
+    ("14.9", "LeeSin", "震驚百里", "200%.", ""),   # 出處其實是 V4.9 → 移到 ADD["4.9"]
     ("14.9", "LeeSin", "震驚百里", "115%.", ""),
     # ── 李星：官方公告整行沒有技能名，中英文公告都掉了標題 → 只補「本來就看得出來」的：
     # 基礎能力值（生命／物攻／物防／成長）、W2 的吸血、R 的三階傷害。
@@ -468,7 +475,9 @@ def main():
     print("   wiki_extra 重寫：%d 行" % ex_hit)
     with io.open(OUT, "w", encoding="utf-8") as f:
         f.write("// 版本改動行的人工重寫（scripts/build_patch_line_fix.py 產生，勿手改）" + chr(10))
-        f.write("window.PATCH_LINE_FIX=" + json.dumps(out, ensure_ascii=False, separators=(",", ":")) + ";")
+        f.write("window.PATCH_LINE_FIX=" + json.dumps(out, ensure_ascii=False, separators=(",", ":")) + ";" + chr(10))
+        f.write("// 補行：抓取端放錯版本的改動，補到正確版本（重寫表只能改寫同一版的行，沒辦法跨版搬）" + chr(10))
+        f.write("window.PATCH_LINE_ADD=" + json.dumps(ADD, ensure_ascii=False, separators=(",", ":")) + ";")
     print("OK patch_line_fix.js：%d 行重寫" % len(out))
     for m in miss:
         print("   對不到原行：" + m)
