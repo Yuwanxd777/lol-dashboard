@@ -2465,14 +2465,16 @@ function competitivePlayers(){
 // 英雄名一律顯示中文：Data 分頁短名 → skills.js 官方繁中名 → 原名（找不到對照才會出現英文）
 const cAb=c=>{
   const k=(typeof champId==="function")?champId(c):c;
-  if(LANG==="en"){ const en=(window.CHAMP_EN||{})[k]; if(en)return en; } // 英文模式：用原始英文名
+  // ⚠ 每一條回傳路徑都要過 CH_DISP：這裡是表格／對位欄／下拉的顯示名來源，
+  //   少套的話 chName 改了短名、cAb 這邊還是全名（2026-07-31 使用者回報努努和威朗普、嘉文四世還在）
+  if(LANG==="en"){ const en=(window.CHAMP_EN||{})[k]; if(en)return CH_DISP[en]||en; } // 英文模式：用原始英文名
   if(CABBR[c])return CABBR[c];
   const d=(window.CHAMP_SKILLS||{}).d;
   if(d&&c){
     const e=d[k]||d[c];
-    if(e&&e.n)return e.n.split(/[·‧・．]/)[0]; // 帶間隔號的全名取前段（睿娜妲‧格萊斯克 → 睿娜妲）
+    if(e&&e.n){ const n=CH_DISP[e.n]||e.n; return n.split(/[·‧・．]/)[0]; } // 帶間隔號的全名取前段（睿娜妲‧格萊斯克 → 睿娜妲）
   }
-  return c;
+  return CH_DISP[c]||c;
 };
 // 聯賽色（全站共用）
 // ── 聯賽識別色（使用者定案 2026-07-31：整盤依「賽區」重新設計）──────────────────────
@@ -9287,8 +9289,15 @@ function render(){
       // 「整局沒有禁用資料」（來源根本沒收錄 BP）是另一回事，畫問號，不能跟空 BAN 混為一談。
       //（2026-07-31 使用者指定）
       const _noBan=b=>{const s=String(b==null?"":b).trim(); return !s||s.toLowerCase()==="none";};
-      const _bIco=b=>_noBan(b)?`<span class="cc"><img class="nobanImg" src="${NOBAN_SVG}" alt="${LANG==="en"?"no ban":"空BAN"}" title="${LANG==="en"?"no ban this turn":"該手沒有禁用"}"></span>`:cImg(b);
-      const _bpQ=`<span class="cc noBpQ" title="${LANG==="en"?"no draft data for this game":"這局沒有禁用資料"}">？</span>`;
+      const _qIco=t=>`<span class="cc noBpQ" title="${t}">？</span>`;
+      // 單手缺資料也用同一顆問號方塊：wiki 的 PB 頁用「Missing Data」標沒收到的那一手，
+      // 抓進來寫成「?」（scripts/fetch_wiki_pb.py）。走 cImg 會查不到圖、退成純文字問號，
+      // 大小與相鄰頭像對不齊（2026-07-31 使用者指定要用問號圖）。
+      const _bIco=b=>_noBan(b)?`<span class="cc"><img class="nobanImg" src="${NOBAN_SVG}" alt="${LANG==="en"?"no ban":"空BAN"}" title="${LANG==="en"?"no ban this turn":"該手沒有禁用"}"></span>`
+        :(String(b==null?"":b).trim()==="?"?_qIco(LANG==="en"?"ban not recorded in source":"來源沒有記錄這一手的禁用"):cImg(b));
+      // 整局沒有禁用資料 → 畫三顆問號（＝第一輪禁用的三手），一顆看起來像「只少一手」
+      //（2026-07-31 使用者指定：2013 LPL 夏季季後賽 OMG 2-3 PE 那 5 局就是這種）
+      const _bpQ=_qIco(LANG==="en"?"no draft data for this game":"這局沒有禁用資料").repeat(3);
       const banCells=(s,won,isBlue)=>`<td class="bans ${sCls(isBlue,won)}">`+(
         s.bans.length?`${s.bans.slice(0,3).map(_bIco).join("")}${s.bans.length>3?`<span class="banSep"></span>`:""}${s.bans.slice(3).map(_bIco).join("")}`:_bpQ
       )+`</td>`; // 禁用前3(第一輪禁)｜後2(第二輪禁)以分隔線分開；整局沒資料＝一個問號

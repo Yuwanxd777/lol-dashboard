@@ -114,14 +114,25 @@ def pb_games(html):
         # 勝方判定：比分列長這樣 → [藍方比分][show/hide][紅方比分]，**帶 pb-winner class 的那一側就是勝方**。
         # 格子裡的數字是「系列賽比分」不是勝方編號（實測會出現 0／1／3）→ 只看數字一定判錯
         #（2026-07-31 使用者回報：LCO 的 Team Immunity 明明 4W0L 卻寫成 0W4L）
-        win = 0
+        win, sb, sr = 0, None, None
         for tr in re.findall(r"<tr.*?</tr>", t, re.S):
             if "pb-winner" not in tr:
                 continue
-            tds = re.findall(r"<td([^>]*)>", tr)
-            if len(tds) >= 3:
-                win = 1 if "pb-winner" in tds[0] else (2 if "pb-winner" in tds[2] else 0)
+            cells = re.findall(r"<td([^>]*)>(.*?)</td>", tr, re.S)
+            if len(cells) >= 3:
+                win = 1 if "pb-winner" in cells[0][0] else (2 if "pb-winner" in cells[2][0] else 0)
+
+                def _num(x):
+                    m2 = re.search(r"\d+", re.sub(r"<[^>]+>", "", x))
+                    return int(m2.group(0)) if m2 else None
+                sb, sr = _num(cells[0][1]), _num(cells[2][1])
             break
+        # 局號＝比分列兩數相加。那兩個數是「系列賽累計比分」，所以第 N 局結束時總和就是 N
+        #（實測 CBLOL 決賽 CNB vs paiN：1-0→g1、1-1→g2、1-2→g3、3-1→g4）。
+        # **不能用 class 的 pb-game-N**：20 局裡只有 5 局帶這個 class，其餘全被當成第 1 局
+        # → BO5 被當成 4 次不同遭遇，日期推算把它們拆到 3 個不同天（2026-07-31 使用者回報）
+        gno = (sb + sr) if (sb is not None and sr is not None and 1 <= sb + sr <= 7) \
+            else (int(mg.group(1)) if mg else 1)
         bp = {"blue": {"ban": [], "pick": []}, "red": {"ban": [], "pick": []}}
         for m in re.finditer(r'<td class="[^"]*\bpb-(ban|pick)\b[^"]*\bpb-(blue|red)\b[^"]*"[^>]*>(.*?)</td>', t, re.S):
             k, s, body = m.group(1), m.group(2), m.group(3)
@@ -140,7 +151,7 @@ def pb_games(html):
         #（2026-07-31 使用者回報：手動改的縮寫沒套用、還是出現全名）
         _tn = lambda s: re.sub(r"\s*\(page does not exist\)\s*$", "", _html.unescape(s)).strip()
         out.append({"blue": fix_case(_tn(teams[0])), "red": fix_case(_tn(teams[1])), "idx": _ti,
-                    "game": int(mg.group(1)) if mg else 1, "win": win, "bp": bp})
+                    "game": gno, "win": win, "bp": bp})
     return out
 
 
@@ -351,7 +362,7 @@ def build(job, force=False):
         import fetch_fill
         hdr = fetch_fill.oe_header()
     ix = {n: i for i, n in enumerate(hdr)}
-    rows, used = [], {}
+    rows, used, cur = [], {}, {}
     LST = lane_stats(year)
     print(f"    路線統計：{len(LST)} 個英雄（{year} 年有選手名的列）")
     from datetime import date as _date, timedelta as _td
@@ -360,7 +371,15 @@ def build(job, force=False):
     for g in games:
         pair = frozenset((_norm(g["blue"]), _norm(g["red"])))
         ds = dmap.get(pair) or []
-        i = used.get(pair, 0)
+        # 「第幾次遭遇」要**整個系列賽共用一個**：第 1 局時取新的序號並記住，第 2 局之後
+        # 沿用。原本在 g1 就把序號 +1，g2 之後拿到的是加過的值 → BO5 的第 1 局被推到前一天、
+        # 跟後面幾局分家（2026-07-31 使用者回報 CBLOL 決賽 CNB vs paiN 被拆到 3 天）。
+        if g["game"] == 1 or pair not in cur:
+            i = used.get(pair, 0)
+            used[pair] = i + 1
+            cur[pair] = i
+        else:
+            i = cur[pair]
         if ds:
             date = ds[min(i, len(ds) - 1)]
         else:
@@ -368,8 +387,6 @@ def build(job, force=False):
             # 同一組隊伍的第 N 次遭遇往後挪一天（夾在賽事期間內）。全部塞同一天的話，
             # 小組賽與季後賽的同組對戰會被當成同一個系列，BO 判定就錯了。
             date = min(_d0 + _td(days=i), _d1).isoformat()
-        if g["game"] == 1:
-            used[pair] = i + 1
         # 隊名要用完整的正規化字串，不能截斷：Saigon Jokers 與 Saigon Fantastic Five 取前 6 字
         # 都是 saigon，gameid 會撞在一起互相覆蓋（實測 GPL 春季 56 局只剩 22 局）
         # 再帶上「第幾次遭遇」：賽事只有三四天時，同一組隊伍多次對戰的推得日期會被夾在同一天，
