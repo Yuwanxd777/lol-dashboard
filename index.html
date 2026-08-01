@@ -1469,7 +1469,14 @@ const assetImg=(n,year)=>{ const a=assetOf(n); if(!a){const mm=masteryOf(n); ret
   gs.forEach(g=>{ const d=(y<g.y1)?(g.y1-y):(y>g.y2?y-g.y2:0); if(d<bd){bd=d;best=g;} });
   return assetGroupUrl(best._kind||a.kind,best,best._id!=null?best._id:a.id); };
 // 英文/任一歷代名 → 官方中文名；優先回「命中那一段當時的中文名」（8135 用 Ravenous Hunter 查＝嗜血獵人，不是現行寶藏獵人）；查無再試舊天賦
-const assetZh=n=>{ const a=assetOf(n); if(a)return (a.hit&&a.hit.zh)||a.e.zh; const mm=masteryOf(n); return (mm&&mm.zh)||ITEM_ALIAS[String(n).trim()]||n; };
+// 2013 舊野怪／介面詞的中文名：資產表只收道具・符文・天賦，wiki 抓回來的這些是英文原文，
+// 版本焦點就顯示成 Ancient Golem／Giant Wolf（2026-08-01 使用者回報「有些還是英文」）。
+// Custom Games／Friends List 翻成中文後也才會被 TRIVIAL_OR_GEN 濾掉、不再佔版面。
+const MONSTER_ZH={"Ancient Golem":"遠古石魔","Big Golem":"大石魔","Golem":"石魔",
+  "Giant Wolf":"巨狼","Lesser Wolf":"小狼","Wraith":"幽魂","Lesser Wraith":"小幽魂",
+  "Wight":"陰屍","Lizard Elder":"蜥蜴長老","Young Lizard":"小蜥蜴",
+  "Crest Ancient Golem":"遠古石魔紋章","Custom Games":"自訂遊戲","Friends List":"好友列表"};
+const assetZh=n=>{ const a=assetOf(n); if(a)return (a.hit&&a.hit.zh)||a.e.zh; const mm=masteryOf(n); const k=String(n).trim(); return (mm&&mm.zh)||ITEM_ALIAS[k]||MONSTER_ZH[k]||MONSTER_ZH[k.replace(/（移除）$/,"")]||n; };
 // 服役年份文字（不連續年段以「、」隔開）：「2018–2023」或「2014–2019、2024–2026」
 const assetSpanText=n=>{ const a=assetOf(n);
   const M=(typeof assetMergedOf==="function")?assetMergedOf(n):null; // 同名跨 id 合併（寒冰霸拳＝2014–2020、2022–2026）
@@ -5221,7 +5228,12 @@ let _patchItemCatDone=false;
 function ensurePatchItemsCategorized(){ if(_patchItemCatDone)return;
   const E=(typeof EXTRA_IMG!=="undefined")?EXTRA_IMG:null; if(!E||!Object.keys(E).length)return; // 等 EXTRA_IMG 載好再做
   _patchItemCatDone=true;
-  const isItem=nm=>nm.split("／").some(b=>{b=b.trim(); return E[b]||E[b.replace(/\s+/g,"")];});
+  // 認不認得是道具，改以「資產登記表」為準，不只看有沒有圖示（2026-08-01 使用者回報
+  // 2013 版本焦點「很多道具被誤判為齒輪」）：亡靈戰魂／遠古戰魂／蜥蜴長老戰魂／精靈石／
+  // 狂暴靈藥 這些早就從遊戲移除，EXTRA_IMG 自然沒有它們的圖，但 assetOf 查得到，
+  // 原本一律留在「機制」。
+  const _isAsset=b=>!!(E[b]||E[b.replace(/\s+/g,"")]||(typeof assetOf==="function"&&assetOf(b)));
+  const isItem=nm=>nm.split("／").some(b=>_isAsset(b.trim()));
   Object.values(PATCH_NOTES).forEach(pd=>{ const ex=pd&&pd._extra; if(!ex||!Array.isArray(ex["機制"]))return;
     const keep=[],moved=[]; ex["機制"].forEach(l=>{ const i=l.indexOf("｜"); const nm=i>0?l.slice(0,i).replace(/^\[[^\]]*\]\s*/,"").trim():""; (nm&&isItem(nm)?moved:keep).push(l); });
     if(moved.length){ ex["道具"]=(ex["道具"]||[]).concat(moved); ex["機制"]=keep; } });
