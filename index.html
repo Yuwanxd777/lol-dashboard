@@ -3008,7 +3008,11 @@ const eventsTreeHTML=()=>{
       const ext=regN.size?mainArr0.filter(t2=>!regN.has(t2)):[];
       const base=regN.size?mainArr0.filter(t2=>regN.has(t2)):mainArr0;
       const extSeg=ext.length?`<span class="evtPromoDiv evtGrpDiv"><i>${LANG==="en"?"Qualified for playoffs (other leagues)":"外賽區晉級季後賽"}</i></span>`+chips(ext,advQ):"";
-      if(x._eds&&x._eds.length>1){ // 同年多屆的盃賽（2026 兩屆 KeSPA）：同一張卡內依屆分段（使用者指定：季前／季中同框）
+      // 有兩個以上具名賽段時改照賽段分列（IEM 的 S7 卡托維茲／S7 世界賽…）：「季前／季中 ·
+      // 日期」那種分屆標籤是給沒有賽段名的盃賽用的（KeSPA 一年兩屆），套在 IEM 上不但看不出
+      // 是哪一站，同一個「季前」還會把奧克蘭與京畿兩站併成一段（2026-08-01 使用者回報）
+      const _spN=Object.keys(x._spTeams||{}).filter(k=>x._spTeams[k]&&x._spTeams[k].size).length;
+      if(x._eds&&x._eds.length>1&&_spN<2){ // 同年多屆的盃賽（2026 兩屆 KeSPA）：同一張卡內依屆分段（使用者指定：季前／季中同框）
         const _seg=(lb,arr,nl)=>arr.length?`<span class="evtPromoDiv evtGrpDiv${nl?" evtGrpNL":""}"><i>${esc(lb)}</i></span>`+chips(arr,advQ,x.tinfo):"";
         let _mc="",_first=true;
         x._eds.forEach(ed=>{ const arr=mainArr0.filter(t2=>ed.teams.has(t2));
