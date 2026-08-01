@@ -600,11 +600,15 @@
   .evtPromoVr{flex:0 0 auto;width:0;border-left:1px dashed #3a4661} /* 北/南升降之間＝灰虛豎線 */
   .evtPromoDiv.evtGrpHr{border-top:1px dashed #3a4661} /* 分組用的無標籤灰虛線（非升降金線） */
   .evtRelegDiv i{color:#f5b942}
-  .evtRelegDiv::after{border-top-style:solid;border-top-color:rgba(245,185,66,.5)} /* 升降分界：金字標籤＋金實線 */
+  .evtRelegDiv::after{content:"";flex:1;border-top:1px solid rgba(245,185,66,.5)} /* 升降分界：金字標籤＋金實線（唯一還畫線的段） */
   .evtGrpDiv{height:auto;border-top:0;display:flex;align-items:center;gap:8px;margin:7px 0 5px} /* LTA 分區線：標籤＋線 */
   .evtGrpDiv i{font-style:normal;font-size:13.5px;color:var(--tx2);white-space:nowrap}
-  .evtGrpDiv::after{content:"";flex:1;border-top:1px dashed #3a4661}
-  .evtGrpNL::after{content:none} /* LTA 段標籤：右邊不畫線 */
+  /* 賽段標籤右邊預設不畫線（使用者定案 2026-08-01）：同一張卡的各賽段（正賽／入圍賽、
+     錦標賽／北區／南區）是同一種架構，之間不該有分隔線；卡片與內容的分界改由 .evtHr 負責。
+     只有升降賽是不同性質，仍保留金實線（見 .evtRelegDiv::after）。 */
+  .evtGrpDiv::after{content:none}
+  .evtGrpNL::after{content:none} /* 保留：呼叫端還在傳這個 class */
+  .evtHr{flex-basis:100%;height:0;border-top:1px dashed #3a4661;margin:2px 0 8px}
   .objTierBadge{position:absolute;right:-4px;bottom:-4px;background:#0d1117;border:1px solid #4a5a7c;border-radius:5px;font-size:11px;line-height:1.4;padding:0 4px;color:var(--gold);font-weight:bold} /* 塔層級 1/2/3 */
   .promoDiv td{color:var(--tx2);text-align:center;font-size:13.5px;padding:5px 0;letter-spacing:2px} /* 分段字樣就夠，不再畫線 */
   #tmGrid th,#tmGrid td{padding:8px 6px} /* 隊伍列間距加大（原 3px 太擠，國際賽分組後更擠） */
@@ -2982,7 +2986,7 @@ const eventsTreeHTML=()=>{
       // 三個段落的標籤各自連 wiki：LTA 跨區賽、北區＝LTA N、南區＝LTA S
       const nsCols=[colL(spLink("LTA N","",LANG==="en"?"North":"北區",true),nArr),
                     colL(spLink("LTA S","",LANG==="en"?"South":"南區",true),sArr)].filter(Boolean).join(`<div class="evtPromoVr"></div>`);
-      mainChips=chips(rest)+seg(spLink("LTA","","LTA",true),qArr,true)+(nsCols?`<span class="evtPromoDiv evtGrpHr"></span><div class="evtPromoCols">${nsCols}</div>`:"");
+      mainChips=chips(rest)+seg(spLink("LTA","","LTA",true),qArr,true)+(nsCols?`<div class="evtPromoCols">${nsCols}</div>`:"");
     }else if(x._ewcQ){ // EWC 合併卡：本賽（EWC 標籤無線）→ 各區資格賽段（完整名單，晉級的照列）
       const _mainAb=new Set([...(x._ewcMain||new Set())].map(t2=>tAb(t2)));
       const _qAb=new Set(); Object.values(x._ewcQ).forEach(s2=>s2.forEach(t2=>_qAb.add(tAb(t2))));
@@ -3117,7 +3121,7 @@ const eventsTreeHTML=()=>{
           const _rest=base.filter(t2=>!_nsSp.some(k=>_spT[k].has(t2))&&!(_tKey&&_spT[_tKey].has(t2)));
           mainChips=(_rest.length?chips(_rest,advQ,x.tinfo):"")
             +(_tArr.length?`<span class="evtPromoDiv evtGrpDiv evtGrpNL"><i>${spLink(x.lg,_tKey,esc(spDisp(_tKey)))}</i></span>`+chips(_tArr,_advOf(_tKey,_tArr)||advQ,x.tinfo,_tKey):"")
-            +(_cols?`<span class="evtPromoDiv evtGrpHr"></span><div class="evtPromoCols">${_cols}</div>`:"")+extSeg;
+            +(_cols?`<div class="evtPromoCols">${_cols}</div>`:"")+extSeg;
         }else if(_spKeys.length>1){
           const _row=(lb,arr,adv)=>`<div class="lgSplitBlk"><span class="lgSplitHd">${spLink(x.lg,lb,esc(spDisp(lb)))}<span class="lgSplitN">${uq(arr)} ${LANG==="en"?"teams":"隊"}</span></span><span class="lgSplitGrps"><div class="lgGrpCol"><span class="lgGrpChips">${chips(arr,adv,x.tinfo)}</span></div></span></div>`;
           let _mc="",_used=new Set();
@@ -3175,6 +3179,10 @@ const eventsTreeHTML=()=>{
       <div class="evtHd">${lgChip(x.lg)}<b>${spLink(x.lg,"",esc(m.zh))}</b>${m.region?`<span class="evtRegion">${esc(m.region)}</span>`:""}<span class="evtCount">${_mainN}${LANG==="en"?" teams":" 隊"}${_poN?(LANG==="en"?`+${_poN} promo`:`＋升降 ${_poN} 隊`):""}</span>${relegTag}${
         x.n===0?`<span class="evtNoData" title="${LANG==="en"?"Only the participant list is available (from Leaguepedia); no game data yet.":"這個賽事目前只有參賽名單（取自 Leaguepedia），資料庫還沒有比賽場次"}">${LANG==="en"?"schedule only":"尚無比賽資料"}${(x._extra&&x._extra.from)?`・${_mdOf(x._extra.from)}${x._extra.to&&x._extra.to!==x._extra.from?"–"+_mdOf(x._extra.to):""}`:""}</span>`:""}</div>
       ${m.full?`<div class="evtFull">${esc(m.full)}</div>`:""}
+      ${/* 英文全名之後畫一條虛線，把「這是什麼賽事」與「底下各賽段」分開（使用者定案
+            2026-08-01）。卡片內各賽段之間不再畫線——正賽／入圍賽、錦標賽／北區／南區
+            都是同一種架構，只靠標籤區分就夠。*/""}
+      <div class="evtHr"></div>
       <div class="evtTeams">${teams||'<span class="meta">—</span>'}</div>
     </div>`;
   };
