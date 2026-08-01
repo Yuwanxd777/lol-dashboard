@@ -6018,6 +6018,26 @@ function champLanes(champ){ const PN5={1:"TOP",2:"JNG",3:"MID",4:"BOT",5:"SUP"},
   return Object.keys(cnt).map(pid=>({pid:+pid,lane:PN5[pid],n:cnt[pid]})).sort((a,b)=>b.n-a.n); }
 
 // 連動篩選：某欄位的可選值＝在「其他已選條件」下仍有比賽的值（賽季↔賽事↔版本互相收斂；忽略自身、不受 H2H 影響）
+// 「聯賽底下的獨立賽事」賽段：GPL 的 TESL／台港澳錦標賽、LLA 的北區／南區、
+// IEM 的 S7 卡托維茲／S7 世界賽…。它們不是「賽季」，所以不進賽季清單，改掛成賽事下拉的
+// 第二層（值＝聯賽#賽段）。判定不硬編名字：掃該聯賽的非標準賽段，**兩個以上**才算——
+// 只有一個的（TCL 只有錦標賽）選聯賽本身就等於全部，多一層反而囉嗦。
+// 用 GAMES 而非 optGames：子清單與寬度不該隨其他篩選伸縮。依最早開打日排序。
+let _SUBSP=null,_SUBSP_Y=null;
+function subSplitMap(){
+  if(_SUBSP&&_SUBSP_Y===curYear)return _SUBSP;
+  const first={},m={};
+  (typeof GAMES!=="undefined"?GAMES:[]).forEach(o=>{
+    const s=String(o.split||"").replace(/ PO$/,"");
+    if(!s||/^(春|夏|冬|秋)季$|^S[123]$|^升降賽$/.test(s))return;
+    const f=first[o.league]=first[o.league]||{}, d=String(o.date).slice(0,10);
+    if(!f[s]||d<f[s])f[s]=d;
+  });
+  Object.keys(first).forEach(lg=>{ const ks=Object.keys(first[lg]);
+    if(ks.length>1)m[lg]=ks.sort((a,b)=>first[lg][a]<first[lg][b]?-1:1); });
+  _SUBSP=m; _SUBSP_Y=curYear; return m;
+}
+const subSplitsOf=lg=>subSplitMap()[lg]||[];
 function lgPass(o){ // 賽事(聯賽)篩選判定：全部/群組/EWCQ 前綴/LPL 分組/單一
   if(!F.league||F.league==="ALL")return true;
   if(/^(LPL|LCK)#/.test(F.league)){ // 賽區分組(值 LPL#Ascend / LCK#Legend)：該場常規賽兩隊都在該組(季後賽/升降不分組)
@@ -6028,14 +6048,17 @@ function lgPass(o){ // 賽事(聯賽)篩選判定：全部/群組/EWCQ 前綴/LP
     // 否則選了組別會整片空白（使用者回報 2026-07-29）
     const _esp=lplGroupNamesOfSplit(curYear,sp,_lg).length?sp:lplSelSplit(curYear,"",_lg);
     return lplSplitGroupOf(teamFix(tAb(o.raw[C.blue_teamname])),curYear,_esp,_lg)===grp&&lplSplitGroupOf(teamFix(tAb(o.raw[C.red_teamname])),curYear,_esp,_lg)===grp; }
-  // 聯賽#賽段（GPL 的 TESL／台港澳錦標賽／東南亞錦標賽、LLA 的北區／南區／錦標賽）：
+  // 聯賽#賽段（GPL 的 TESL／台港澳錦標賽、LLA 的北區／南區、IEM 的 S7 卡托維茲…）：
   // 這些是同一年同一個聯賽底下的獨立賽事，賽段名各異又不是「賽季」→ 從賽季清單移到
   // 賽事下拉的子項（使用者定案 2026-08-01）。與 LPL#分組 是不同的判定路徑：那個比隊伍分組，
-  // 這個直接比 split。
-  if(/^(GPL|LLA)#/.test(F.league)){
+  // 這個直接比 split。**不列舉聯賽名**（2026-08-01 修：原本只寫 GPL|LLA，新抓進來的 IEM
+  // 分站選了整片空白）——上面 LPL/LCK 已經先攔掉，剩下含 # 的一律是賽段。
+  {
     const i=F.league.indexOf("#");
-    if(o.league!==F.league.slice(0,i))return false;
-    return String(o.split||"").replace(/ PO$/,"")===F.league.slice(i+1);
+    if(i>0){
+      if(o.league!==F.league.slice(0,i))return false;
+      return String(o.split||"").replace(/ PO$/,"")===F.league.slice(i+1);
+    }
   }
   if(F.league==="EWCQ")return String(o.league).startsWith("EWCQ");
   const g=LG_GROUP[F.league];
@@ -6084,7 +6107,7 @@ function filterOpts(){
   // GPL 專屬賽段不進賽季清單：它們不是「賽季」而是同一年底下的獨立賽事，
   // 混在春季/夏季旁邊會讓人以為 2013 有個叫 TESL 的賽季 → 改列在「賽事」的 GPL 子清單
   //（使用者定案 2026-08-01）。錦標賽類本來就被 _isT 合成一個「錦標賽」選項。
-  const _lgSub=new Set(["TESL","北區","南區"]);
+  const _lgSub=new Set(Object.values(subSplitMap()).flat());   // 掃出來的，不寫死名字
   bases.filter(b=>!_isT(b)&&!_lgSub.has(b)).forEach(b=>{
     const hasReg=SPLITS.includes(b), hasPO=SPLITS.includes(b+" PO");
     const avGrp=/^S[123]$/.test(b)?splSeason.has(b):(splLabel.has(b)||splLabel.has(b+" PO"));
@@ -6136,15 +6159,8 @@ function filterOpts(){
   // 選該聯賽本身就等於全部，多一層反而囉嗦。
   const _subOpts=lg=>{
     if(!has(lg))return "";
-    const _first={};
-    optGames("league").filter(o=>o.league===lg).forEach(o=>{
-      const s=String(o.split||"").replace(/ PO$/,"");
-      if(!s||/^(春|夏|冬|秋)季$|^S[123]$|^升降賽$/.test(s))return;
-      const d=String(o.date).slice(0,10);
-      if(!_first[s]||d<_first[s])_first[s]=d;                // 依該賽段最早開打日排序
-    });
-    const subs=Object.keys(_first).sort((a,b)=>_first[a]<_first[b]?-1:1);
-    if(subs.length<2)return "";
+    const subs=subSplitsOf(lg);
+    if(!subs.length)return "";
     // textContent 帶聯賽前綴（收起時按鈕上要看得出是哪個聯賽），data-s 是子清單裡的短名
     return subs.map(s=>`<option value="${esc(lg)}#${esc(s)}" data-s="${esc(s)}" ${F.league===lg+"#"+s?"selected":""}>${esc(lg)} ${esc(s)}</option>`).join("");
   };
@@ -6177,7 +6193,10 @@ function filterFixedW(){
   const bases=[...new Set(SPLITS.filter(s=>s&&s!=="升降賽").map(s=>s.replace(/ PO$/,"")))];
   const spL=["全部","錦標賽","入圍賽",...bases.flatMap(b=>[b,b+"例行賽",b+"季後賽"]),...(SPLITS.includes("升降賽")?["升降賽"]:[])];
   const ewcqLgs=LEAGUES.filter(l=>String(l).startsWith("EWCQ"));
-  const lgFull=["ALL","中韓","LCK","LPL",...lplAllGroups(curYear).map(g=>"LPL#"+g),"LCP","歐美","LEC","LCS","CBLOL","國際賽","FST","MSI","WLDs",...ewcqLgs,"EWC","ENC","KeSPA"].map(lgName);
+  // 子項（「IEM S7 卡托維茲」這種）的文字也要納入量測：選了子站之後按鈕上顯示的是它，
+  // 只按主清單算寬度會塞不下而折行（2026-08-01 使用者回報）
+  const subTx=Object.entries(subSplitMap()).flatMap(([l,ss])=>ss.map(s=>l+" "+s));
+  const lgFull=["ALL","中韓","LCK","LPL",...lplAllGroups(curYear).map(g=>"LPL#"+g),"LCP","歐美","LEC","LCS","CBLOL","國際賽","FST","MSI","WLDs",...ewcqLgs,"EWC","ENC","KeSPA"].map(lgName).concat(subTx);
   const pkL=["全部",...PATCHES];
   return {split:w(spL),league:w(lgFull),patch:w(pkL)};
 }
