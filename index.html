@@ -1561,6 +1561,8 @@ const normTerm=s=>String(s||"")
   .replace(/選取半徑/g,"體積")
   // 「百分比生命傷害」＝依目標生命值計算的係數傷害（使用者定名 2026-08-01）
   .replace(/百分比生命傷害/g,"生命傷害係數")
+  // 前綴已經標了（被動），欄位名再寫一次「被動 -」是冗餘（2026-08-01：歡樂時光那條）
+  .replace(/（被動）｜\s*被動\s*[-－–—]\s*/g,"（被動）｜")
   // ⇒ 前後只差**一組括號**時只寫那一組（使用者定案 2026-08-01）：
   //   「額外魔傷：20／50／80／110／140 （＋7% 目標最大生命）（＋60% 魔攻）
   //     ⇒ 20／50／80／110／140 （＋7% 目標最大生命）（＋70% 魔攻）」
@@ -5379,6 +5381,9 @@ function champHistory(id){
      byPk[pk].lines.forEach((l,i)=>{ if(!_pre(l)&&_nums(l))restO.push(i); });
      if(restO.length&&restO.length===restW.length)
        restO.forEach((oi,k2)=>{ byPk[pk].lines[oi]=_pre(wl[restW[k2]])+byPk[pk].lines[oi]; });
+     // 補完前綴要再過一次 addKey：技能代號（Q／W／E／R／被動）是它加的，
+     // 這一段跑在 addKey 之後，不補跑的話新加的技能名會少掉括號（2026-08-01 使用者回報）
+     byPk[pk].lines=byPk[pk].lines.map(l=>addKey(id,String(l)));
    });}
   return Object.entries(byPk).map(([patch,v])=>({patch,lines:v.lines,url:v.url})).sort((a,b)=>b.patch.localeCompare(a.patch));
 }
