@@ -1038,7 +1038,10 @@ function ensureWiki(){ return lazyLoad("wiki").then(()=>{ if(_wikiReady)return; 
   try{_lpcCache=null;}catch(e){}
   try{if(typeof VIEW_CACHE!=="undefined")VIEW_CACHE.slots={};}catch(e){}
   try{window._EVT_CACHE={};}catch(e){}
-  try{if(typeof ensurePatchItemsCategorized==="function")ensurePatchItemsCategorized();}catch(e){}
+  // wiki 資料是延遲載入的：第一次分類時 WIKI_EXTRA 還是空的，一行都搬不動卻已經把
+  // _patchItemCatDone 鎖住 → 這裡要先解鎖再跑，否則歷史年份（2013 那批舊道具）永遠
+  // 留在「機制」（2026-08-01 使用者回報「很多道具被誤判為齒輪」）。
+  try{_patchItemCatDone=false; if(typeof ensurePatchItemsCategorized==="function")ensurePatchItemsCategorized();}catch(e){}
   if(typeof D!=="undefined"&&D&&typeof render==="function")render();
 }); }
 setTimeout(ensureWiki,1200);
@@ -1265,7 +1268,9 @@ const bootEnchOf=n=>{ if(!/附魔|Enchantment/i.test(String(n)))return null;
   const k=(typeof xKey==="function")?(xKey(E,n)||n):n; const inf=E[k]; if(!inf||inf.t!=="道具")return null;
   return (inf.f||[]).find(x=>/之靴|足具|護脛|戰靴|涼鞋/.test(String(x)))||null; };
 // 同件道具的新舊譯名：舊名 → 現行名（圖鑑只列現行名，查詢兩者互通）
-const ITEM_ALIAS={"剔除鐮刀":"汰除品","熾天使之擁":"熾天使的擁抱","魔宗":"終極魔劍","魔切":"魔劍正宗","餘燼巨人":"巴米灰燼","Challenging 重擊":"挑戰重擊","Chilling 重擊":"冰寒重擊","死亡之火觸擊":"冥火之觸","好戰之心":"好戰者鎧甲","傳奇守衛":"傳奇護衛",
+// 2013 的打野基礎道具：早已移除，資產表查不到，wiki 抓回來還是英文（2026-08-01 補）
+const ITEM_ALIAS={"Crest Ancient Golem":"遠古石魔紋章","Crest of the Ancient Golem":"遠古石魔紋章",
+  "剔除鐮刀":"汰除品","熾天使之擁":"熾天使的擁抱","魔宗":"終極魔劍","魔切":"魔劍正宗","餘燼巨人":"巴米灰燼","Challenging 重擊":"挑戰重擊","Chilling 重擊":"冰寒重擊","死亡之火觸擊":"冥火之觸","好戰之心":"好戰者鎧甲","傳奇守衛":"傳奇護衛",
 "護盾 Bash":"護盾猛擊","時間 Warp Tonic":"時間彎曲補劑","Greater Seals":"高階符印",
 "Timeworn Ancient Coin":"陳舊的遠古錢幣","Timeworn Frostfang":"陳舊的霜牙",
 "Timeworn Frost Queen's Claim":"陳舊的冰霜女王旨意","Timeworn Nomad's Medallion":"陳舊的流浪者勳章",
@@ -1475,7 +1480,7 @@ const assetImg=(n,year)=>{ const a=assetOf(n); if(!a){const mm=masteryOf(n); ret
 const MONSTER_ZH={"Ancient Golem":"遠古石魔","Big Golem":"大石魔","Golem":"石魔",
   "Giant Wolf":"巨狼","Lesser Wolf":"小狼","Wraith":"幽魂","Lesser Wraith":"小幽魂",
   "Wight":"陰屍","Lizard Elder":"蜥蜴長老","Young Lizard":"小蜥蜴",
-  "Crest Ancient Golem":"遠古石魔紋章","Custom Games":"自訂遊戲","Friends List":"好友列表"};
+  "Custom Games":"自訂遊戲","Friends List":"好友列表"};
 const assetZh=n=>{ const a=assetOf(n); if(a)return (a.hit&&a.hit.zh)||a.e.zh; const mm=masteryOf(n); const k=String(n).trim(); return (mm&&mm.zh)||ITEM_ALIAS[k]||MONSTER_ZH[k]||MONSTER_ZH[k.replace(/（移除）$/,"")]||n; };
 // 服役年份文字（不連續年段以「、」隔開）：「2018–2023」或「2014–2019、2024–2026」
 const assetSpanText=n=>{ const a=assetOf(n);
@@ -4086,6 +4091,9 @@ function latestPatchChg(){
         if(cat!=="機制"&&isNonSR(nm,curYear))return;   // 非峽谷道具不列
         nm=nm.replace(/（[^（）]*）\s*$/,"").replace(/（[^（）]*）\s*$/,"").trim();      // 尾綴狀態括號（新增）（僅近戰）等（至多兩層）→ 這些寫在詳情，不進焦點名
         if(typeof assetZh==="function")nm=assetZh(nm);                                   // 英文名→官方中文（Titanic Hydra＝泰坦九頭蛇 合併、圖也對得到）
+        // 英雄改動被 wiki 歸進「機制」的不列（2026-08-01：2013 的蓋倫／提摩／璐璐）——
+        // 它們在英雄焦點那區已經有了，重複列在機制只是雜訊
+        if(cat==="機制"&&(window.CH_N2I||{})[nm])return;
         if(!nm||nm===cat)return; (lmap[nm]=lmap[nm]||[]).push(l.slice(i+1));});});});
   Object.keys(res.itemLines).forEach(nm=>{const d=changeDir(res.itemLines[nm]); if(d!=null)res.itemDir[nm]=d;}); // 只有錯誤修正的道具不列入
   Object.keys(res.runeLines).forEach(nm=>{const d=changeDir(res.runeLines[nm]); if(d!=null)res.runeDir[nm]=d;});
@@ -5227,16 +5235,28 @@ function champHistory(id){
 let _patchItemCatDone=false;
 function ensurePatchItemsCategorized(){ if(_patchItemCatDone)return;
   const E=(typeof EXTRA_IMG!=="undefined")?EXTRA_IMG:null; if(!E||!Object.keys(E).length)return; // 等 EXTRA_IMG 載好再做
+  // 資產表也要就緒才做（2026-08-01 修）：舊道具在 EXTRA_IMG 沒有圖、只查得到 assetOf，
+  // 這支比資產表早跑的話它們會全留在「機制」，而 _patchItemCatDone 一設起來就不再重試。
+  // 探針故意用一個**早已移除**的舊道具：現行道具（三相之力）在資產表建好的第一批就查得到，
+  // 拿它當探針會太早放行，那時歷代資產還沒併進去，2013 那批照樣搬不動。
+  if(typeof assetOf!=="function"||!assetOf("瑞格之燈"))return;
   _patchItemCatDone=true;
   // 認不認得是道具，改以「資產登記表」為準，不只看有沒有圖示（2026-08-01 使用者回報
   // 2013 版本焦點「很多道具被誤判為齒輪」）：亡靈戰魂／遠古戰魂／蜥蜴長老戰魂／精靈石／
   // 狂暴靈藥 這些早就從遊戲移除，EXTRA_IMG 自然沒有它們的圖，但 assetOf 查得到，
   // 原本一律留在「機制」。
-  const _isAsset=b=>!!(E[b]||E[b.replace(/\s+/g,"")]||(typeof assetOf==="function"&&assetOf(b)));
+  // 英雄名先排除：資產表對「蓋倫」這類也查得到（技能／造型資料），不擋的話英雄改動會被
+  // 當成道具搬走（2026-08-01 實測 2013 的蓋倫被搬進道具區）。用 CH_N2I 判——champId()
+  // 對中文名回空字串，擋不住。ITEM_ALIAS 也納入判斷：那裡有已移除、資產表查不到的舊道具。
+  const _isAsset=b=>!(window.CH_N2I||{})[b]
+    &&!!(E[b]||E[b.replace(/\s+/g,"")]||(typeof ITEM_ALIAS!=="undefined"&&ITEM_ALIAS[b])||(typeof assetOf==="function"&&assetOf(b)));
   const isItem=nm=>nm.split("／").some(b=>_isAsset(b.trim()));
-  Object.values(PATCH_NOTES).forEach(pd=>{ const ex=pd&&pd._extra; if(!ex||!Array.isArray(ex["機制"]))return;
+  // 兩個來源都要掃（2026-08-01 修）：歷史年份的改動放在 WIKI_EXTRA，原本這段只掃
+  // PATCH_NOTES，2013 那批被誤分「機制」的道具永遠搬不回去。下面的反向搬移早就兩邊都掃了。
+  const _mvItem=src=>{ if(!src)return; Object.values(src).forEach(pd=>{ const ex=(pd&&pd._extra)?pd._extra:pd; if(!ex||!Array.isArray(ex["機制"]))return;
     const keep=[],moved=[]; ex["機制"].forEach(l=>{ const i=l.indexOf("｜"); const nm=i>0?l.slice(0,i).replace(/^\[[^\]]*\]\s*/,"").trim():""; (nm&&isItem(nm)?moved:keep).push(l); });
-    if(moved.length){ ex["道具"]=(ex["道具"]||[]).concat(moved); ex["機制"]=keep; } });
+    if(moved.length){ ex["道具"]=(ex["道具"]||[]).concat(moved); ex["機制"]=keep; } }); };
+  _mvItem(PATCH_NOTES); _mvItem(window.WIKI_EXTRA);
   const MECH_RE=/防禦塔|強化堡壘|銅牆鐵壁|水晶兵營|主堡/; // 反向：誤分「道具」的建築/機制條目 → 搬回「機制」（如 2024 防禦塔護甲和銅牆鐵壁）
   let _movedAny=false;
   const scan=src=>{ if(!src)return; Object.values(src).forEach(pd=>{ const ex=pd&&pd._extra?pd._extra:pd; if(!ex)return;
