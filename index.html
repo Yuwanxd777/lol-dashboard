@@ -4614,7 +4614,11 @@ let _pdfN=null;
 function _pdfOf(t){
   const D=window.PATCH_DIR_FIX||{}, s=String(t).trim();
   if(s in D)return D[s];
-  const _nk=x=>String(x).replace(/\s/g,"").replace(/＋/g,"+").replace(/／/g,"/");
+  // 正規化時也把技能代號後綴拿掉（2026-08-01 修）：畫面上的行是「滾動酒桶（Q）｜…」，
+  // 判例表裡若寫「滾動酒桶｜…」就永遠對不上——實測古拉格斯那八條判例全部落空成「調整」。
+  // 兩邊都去掉後綴再比，往後新增判例不必在意有沒有帶（Q）（W）（E）（R）（被動）。
+  const _nk=x=>String(x).replace(/（(Q|W|E|R|被動|Passive)）/gi,"")
+    .replace(/\s/g,"").replace(/＋/g,"+").replace(/／/g,"/");
   if(!_pdfN){ _pdfN={}; for(const k in D)_pdfN[_nk(k)]=D[k]; }
   const n=_nk(s);
   if(n in _pdfN)return _pdfN[n];
