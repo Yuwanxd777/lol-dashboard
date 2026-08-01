@@ -1807,6 +1807,17 @@ const OBJ_ICO=(()=>{const IB="https://raw.communitydragon.org/latest/game/assets
   put(IB+"minionmapcircle.png","小兵（minions）","小兵","minion","minions","超級士兵（super minion）","超級兵","superminion");
   put(CB+"sru_chaosminionsuper/hud/redmechmelee_circle.png","超級士兵","超級兵","superminion");
   put(CB+"sru_chaosminionmelee/hud/redmelee_circle.png","小兵","minions","minion");
+  // 2013 的舊野怪（使用者要求 2026-08-01：野怪也要有圖）：營地位置與現在對得上，沿用
+  // 現代野怪的官方圖。遠古石魔＝藍 Buff 那隻、蜥蜴長老＝紅 Buff 那隻、石魔營＝現在的
+  // 石甲蟲、狼營＝三狼、幽魂營＝六鳥、陰屍＝後來的啾吉。
+  // 「遠古石魔紋章」是 2013 的打野道具，效果就是藍 Buff（使用者說明）→ 也給藍 Buff 的圖。
+  put(CB+"sru_blue/hud/bluesentinel_circle.png","遠古石魔","ancientgolem","遠古石魔紋章","crestancientgolem");
+  put(CB+"sru_red/hud/brambleback_circle.png","蜥蜴長老","小蜥蜴","lizardelder","younglizard");
+  put(CB+"sru_krug/hud/ancientkrug_circle.png","大石魔","石魔","biggolem","golem");
+  put(CB+"sru_murkwolf/hud/greatermurkwolf_circle.png","巨狼","小狼","giantwolf","lesserwolf");
+  put(CB+"sru_razorbeak/hud/razorbeak_circle.png","幽魂","小幽魂","wraith","lesserwraith");
+  put(CB+"sru_gromp/hud/gromp_circle.png","陰屍","wight");
+  put(IB+"dragon.png","飛龍","小龍","dragon");   // 2013 只有一種龍（當年通稱飛龍），元素龍是 2016 才有
   return m;})();
 const objIco=n=>{const k=String(n||"").toLowerCase().replace(/（[^）]*）/g,"").replace(/[\s·]+/g,"");
   if(!k)return "";
