@@ -4124,7 +4124,31 @@ function champChangesForPk(pk){
   const PN=typeof PATCH_NOTES!=="undefined"?PATCH_NOTES:{}, out={}, pd=PN[pk];
   if(pd){ Object.keys(pd).forEach(k=>{ if(k.startsWith("_"))return; const v=pd[k]; if(!Array.isArray(v)||!v.length)return;
     const ls=v.filter(l=>!COSM.test(l)&&!TRIVIAL_OR_GEN(l,champId(k))); if(!ls.length)return;   // 官方行也過 COSM/TRIVIAL（編按、聊天訊息這類不列，版本焦點同步乾淨）
-    const id=champId(k); if(!id)return; (out[id]=out[id]||[]).push(...ls); }); return out; }
+    const id=champId(k); if(!id)return; (out[id]=out[id]||[]).push(...ls); });
+    // 官方公告常常整段沒寫技能名（古拉格斯 22.11 一次三行都沒有：「基礎傷害：…」「冷卻時間：…」
+    // ×2，讀者根本不知道改的是哪一招）。wiki 版同一版本的行有「技能名｜」前綴 → 拿數值當
+    // 指紋去對，對上就把前綴借過來（2026-08-01 使用者回報）。對不到的維持原樣，不亂猜。
+    // 比對用「數值序列」當指紋，不比欄位名：同一個改動兩邊的寫法常不同
+    //（官方「Damage：80/120/… (+70% AP) ⇒ …(+80% AP)」＝ wiki「魔攻 係數：70% ⇒ 80%」）。
+    // 數值也對不上的，若該英雄兩邊剩餘行數相同就按順序補——官方與 wiki 的排列順序一致。
+    {const _nums=s=>(String(s).replace(/^[^｜]*｜/,"").match(/\d+(?:\.\d+)?/g)||[]).join(",");
+     const _pre=s=>{const i=String(s).indexOf("｜"); return i>0?String(s).slice(0,i+1):"";};
+     const wiki={};
+     for(const[wv,cs]of Object.entries(window.WIKI_PATCHES||{})){ if(wikiVerPk(wv)!==pk)continue;
+       Object.keys(cs).forEach(id2=>{ (cs[id2]||[]).forEach(l=>{ if(_pre(l))(wiki[id2]=wiki[id2]||[]).push(String(l)); }); }); }
+     Object.keys(out).forEach(id2=>{ const wl=wiki[id2]; if(!wl||!wl.length)return;
+       const used=new Set();
+       out[id2]=out[id2].map(l=>{ const s=String(l); if(_pre(s))return l;   // 官方自己有技能名就不動
+         const n=_nums(s); if(!n)return l;
+         const j=wl.findIndex((w,i)=>!used.has(i)&&_nums(w)===n);
+         if(j<0)return l; used.add(j); return _pre(wl[j])+s; });
+       // 剩下靠數值對不到的：兩邊「還沒配對的行」數量一樣就照順序配
+       const restO=[], restW=wl.map((w,i)=>i).filter(i=>!used.has(i));
+       out[id2].forEach((l,i)=>{ if(!_pre(l)&&_nums(l))restO.push(i); });
+       if(restO.length&&restO.length===restW.length)
+         restO.forEach((oi,k2)=>{ out[id2][oi]=_pre(wl[restW[k2]])+out[id2][oi]; });
+     });}
+    return out; }
   for(const[wv,cs]of Object.entries(window.WIKI_PATCHES||{})){ if(wikiVerPk(wv)!==pk)continue;
     Object.keys(cs).forEach(id=>{ const ls=(cs[id]||[]).filter(l=>!COSM.test(l)&&!TRIVIAL_OR_GEN(l,id)); if(ls.length)(out[id]=out[id]||[]).push(...ls); }); }
   return out;
@@ -5317,6 +5341,28 @@ function champHistory(id){
   // 英文模式優先序：官方英文 → wiki 英文 → 官方中文（補漏）；中文模式：官方中文 → wiki
   if(en){ addOfficial(window.LOL_PATCHES_EN); addWiki(); addOfficial(PATCH_NOTES); }
   else { addOfficial(PATCH_NOTES); addWiki(); }
+  // 官方公告常常整段沒寫技能名（古拉格斯 22.11 一次三行都是「基礎傷害：…」「冷卻時間：…」，
+  // 看不出改的是哪一招）。wiki 版同一版本的行有「技能名｜」前綴 → 借過來。
+  // 比對用**數值序列**當指紋，不比欄位名：同一個改動兩邊寫法常不同（官方
+  // 「Damage：80/120/… (+70% AP) ⇒ …(+80% AP)」＝ wiki「魔攻 係數：70% ⇒ 80%」）。
+  // 數值也對不上、但兩邊「還沒配對的行」數量相同時照順序配——兩份公告的排列順序一致。
+  // 都對不到就維持原樣，不亂猜。（使用者回報 2026-08-01）
+  {const _pre=s=>{const i=String(s).indexOf("｜"); return i>0?String(s).slice(0,i+1):"";};
+   const _nums=s=>(String(s).replace(/^[^｜]*｜/,"").match(/\d+(?:\.\d+)?/g)||[]).join(",");
+   const wByPk={};
+   for(const[wv,cs]of Object.entries(window.WIKI_PATCHES||{})){ const pk=wikiVerPk(wv); if(!pk)continue;
+     (cs[id]||[]).forEach(l=>{ if(_pre(l))(wByPk[pk]=wByPk[pk]||[]).push(String(l)); }); }
+   Object.keys(byPk).forEach(pk=>{ const wl=wByPk[pk]; if(!wl||!wl.length)return;
+     const used=new Set();
+     byPk[pk].lines=byPk[pk].lines.map(l=>{ const s=String(l); if(_pre(s))return l;
+       const n=_nums(s); if(!n)return l;
+       const j=wl.findIndex((w,i)=>!used.has(i)&&_nums(w)===n);
+       if(j<0)return l; used.add(j); return _pre(wl[j])+s; });
+     const restO=[], restW=wl.map((w,i)=>i).filter(i=>!used.has(i));
+     byPk[pk].lines.forEach((l,i)=>{ if(!_pre(l)&&_nums(l))restO.push(i); });
+     if(restO.length&&restO.length===restW.length)
+       restO.forEach((oi,k2)=>{ byPk[pk].lines[oi]=_pre(wl[restW[k2]])+byPk[pk].lines[oi]; });
+   });}
   return Object.entries(byPk).map(([patch,v])=>({patch,lines:v.lines,url:v.url})).sort((a,b)=>b.patch.localeCompare(a.patch));
 }
 // 道具跨年度改動史（名稱含新舊譯名互通）
