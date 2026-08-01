@@ -125,70 +125,90 @@ def parse_pb(pages):
                 t1, t2 = g("team1"), g("team2")
                 if not t1 or not t2:
                     continue
+                # ⚠ 2013 的模板兩邊寫法不一樣：藍方 bluepick1、紅方 red_pick1（多一條底線）
+                pk = {}
+                for sd in ("blue", "red"):
+                    pk[sd] = [(g("%spick%d" % (sd, n)) or g("%s_pick%d" % (sd, n)))
+                              for n in range(1, 6)]
                 games.append({"round": ri, "i": seen_in_round, "t1": _tk(t1), "t2": _tk(t2),
-                              "page": page})
+                              "picks": pk, "page": page})
                 seen_in_round += 1
     return games
 
 
-def resolve(rosters, games):
-    """以「每隊自己的出場序」對齊，再逐位置挑出上場的人。
+def lineup_chars(team):
+    """一隊的名單 → [{位置: 選手}, ...]（逐局），以及每組（週/輪）的字元數。
 
-    ⚠ 不能用 PB 頁的 Round 標題當索引：春季 PB 只有 7 個 Round 標題、名單卻是 14 組。
-    兩邊真正的對應是「該隊的第幾場」：
-      ・夏季：PB（主頁＋/8-14 子頁）每隊 28 局、名單也是 28 個字元 → 1:1 逐字元對。
-      ・春季：PB 每隊 14 局、名單 28 個字元分成 14 組 → 一個 PB 區塊＝一場 BO2，
-        對到名單的第 k 組（該組兩個字元＝那場的兩局），只要組內任一局是 y 就算有上場。
-    同一場/組裡同位置有兩個人以上標 y ＝ 中途換人，無法判斷這一局是誰 → 標 ambiguous 不寫。
+    旗標一個字元＝**一局**（使用者定案 2026-08-01：「一場勾勾最多五個，一個 R1(一週)
+    有兩場他也都有分開寫」）。字元的意思：
+      y＝照自己掛的位置上場／n＝沒上場／其他字母＝**當局改打的路線**（wiki 那格畫路線圖示，
+      一樣算有上場，只是換路；使用者補充：「有時候他會給路線圖 那也代表他出賽 只是他換路了」）。
+    實測 16 隊 × 28 局：每局都剛好五個位置、0 個位置衝突 → 不會有「同場換人」的歧義。
     """
+    allg = [g for players in team.values() for g in players.values()]
+    if not allg:
+        return [], []
+    ngroups = max(len(g) for g in allg)
+    sizes = [max((len(g[k]) for g in allg if k < len(g)), default=0) for k in range(ngroups)]
+    per = [dict() for _ in range(sum(sizes))]
+    off = [sum(sizes[:k]) for k in range(ngroups)]
+    for pos, players in team.items():
+        for pl, groups in players.items():
+            for k, gs in enumerate(groups):
+                for c, ch in enumerate(gs):
+                    p2 = pos if ch == "y" else LANE_CH.get(ch.lower())
+                    if p2 and off[k] + c < len(per):
+                        per[off[k] + c][p2] = pl
+    return per, sizes
+
+
+def align_rounds(sizes, counts):
+    """名單的每組字元數 vs PB 每輪該隊局數 → {輪次index: 名單組index}。
+
+    夏季有三隊只有 12 組卻有 13 週（bkt/saj/tpa），直接用輪次當索引會整段錯位；
+    用大小序列做貪婪對齊（可跳過名單組＝該週沒記，或跳過輪次＝名單漏那週），
+    只有大小一致的輪次才配對，其餘留空不寫。
+    """
+    out, gi = {}, 0
+    for ri, n in enumerate(counts):
+        if gi < len(sizes) and sizes[gi] == n:
+            out[ri] = gi; gi += 1
+        elif gi + 1 < len(sizes) and sizes[gi + 1] == n:   # 名單多一組（PB 沒收錄那週）
+            gi += 1; out[ri] = gi; gi += 1
+        else:                                              # 對不上：這一輪不寫，名單也不前進
+            continue
+    return out
+
+
+def resolve(rosters, games):
+    """→ {gi: {隊: {位置: 選手}}}；逐局解析，對不齊的輪次直接略過不寫。"""
     per_team = {}
     for gi, gm in enumerate(games):
         for side in ("t1", "t2"):
             per_team.setdefault(gm[side], []).append(gi)
-    picks = {}                      # gi -> {ab: {pos: player|None}}
-    stat = {"ok": 0, "ambiguous": 0, "norose": 0, "unaligned": [], "modes": {}}
+    picks, stat = {}, {"ok": 0, "skip": 0, "norose": 0, "modes": {}}
     for ab, idxs in per_team.items():
         team = rosters.get(ab)
         if not team:
-            stat["norose"] += len(idxs)
-            continue
-        # ⚠ 要取「全隊最長」的旗標字串：中途加入的選手字串比較短（ahq 春季有人只有 9 字元/5 組），
-        #   拿他當基準會誤判成對不齊
-        allg = [g for players in team.values() for g in players.values()]
-        total = max(sum(len(x) for x in g) for g in allg)
-        ngroups = max(len(g) for g in allg)
-        rounds_of = sorted({games[gi]["round"] for gi in idxs})   # 該隊出現過的週次/輪次
-        mode = None
-        if total == len(idxs):
-            mode = "char"                                   # 1:1 逐字元
-        elif ngroups == len(idxs):
-            mode = "group"                                  # 一個 PB 區塊＝名單的一組（春季 BO2）
-        elif ngroups == len(rounds_of):
-            mode = "week"                                   # 名單一組＝一週；該週的每一局都用同一組
-        if not mode:
-            stat["unaligned"].append(f"{ab}: PB {len(idxs)} 局 vs 名單 {total} 字元/{ngroups} 組")
-            continue
-        stat["modes"][ab] = mode
-        for k, gi in enumerate(idxs):
-            gk = rounds_of.index(games[gi]["round"]) if mode == "week" else k
-            for pos, players in team.items():
-                cand = []
-                for pl, groups in players.items():
-                    if mode in ("group", "week"):
-                        if gk < len(groups) and "y" in groups[gk]:
-                            cand.append(pl)
-                    else:
-                        flat = "".join(groups)
-                        if k < len(flat) and flat[k] == "y":
-                            cand.append(pl)
-                if len(cand) == 1:
-                    picks.setdefault(gi, {}).setdefault(ab, {})[pos] = cand[0]
-                    stat["ok"] += 1
-                elif len(cand) > 1:
-                    picks.setdefault(gi, {}).setdefault(ab, {})[pos] = None
-                    stat["ambiguous"] += 1
+            stat["norose"] += len(idxs); continue
+        per, sizes = lineup_chars(team)
+        rounds_of = sorted({games[gi]["round"] for gi in idxs})
+        counts = [sum(1 for gi in idxs if games[gi]["round"] == r) for r in rounds_of]
+        amap = align_rounds(sizes, counts)
+        stat["modes"][ab] = f"{len(amap)}/{len(rounds_of)} 輪對齊"
+        for ri, r in enumerate(rounds_of):
+            gidx = amap.get(ri)
+            same = [gi for gi in idxs if games[gi]["round"] == r]
+            if gidx is None:
+                stat["skip"] += len(same); continue
+            base = sum(sizes[:gidx])
+            for k, gi in enumerate(same):
+                if base + k >= len(per):
+                    stat["skip"] += 1; continue
+                picks.setdefault(gi, {})[ab] = dict(per[base + k])
+                stat["ok"] += 1
     res = [{"gi": gi, "round": gm["round"], "t1": gm["t1"], "t2": gm["t2"],
-            "teams": picks.get(gi, {})} for gi, gm in enumerate(games)]
+            "picks": gm.get("picks", {}), "teams": picks.get(gi, {})} for gi, gm in enumerate(games)]
     return res, stat
 
 
@@ -209,12 +229,12 @@ def main():
         print(f"   名單 {len(rosters)} 隊（輪數 {sorted(set(rounds.values()))}）｜PB 局數 {len(games)}"
               f"｜輪次 {len(set(g['round'] for g in games))}")
         res, stat = resolve(rosters, games)
-        tot = stat["ok"] + stat["ambiguous"]
-        print(f"   位置配對：唯一 {stat['ok']}／同場換人 {stat['ambiguous']}"
-              f"（可寫入 {stat['ok']*100//max(1,tot)}%）｜名單查無 {stat['norose']} 隊次")
-        print("   對齊方式：", stat["modes"])
-        for u in stat["unaligned"]:
-            print("   ⚠ 對不齊：", u)
+        tot = stat["ok"] + stat["skip"]
+        print(f"   隊次解析：成功 {stat['ok']}／略過 {stat['skip']}"
+              f"（{stat['ok']*100//max(1,tot)}%）｜名單查無 {stat['norose']} 隊次")
+        for ab, mm in sorted(stat["modes"].items()):
+            if not mm.startswith(mm.split("/")[1].split(" ")[0]):
+                print(f"   ⚠ {ab}: {mm}")
         allout[name] = res
     if a.json:
         io.open(a.json, "w", encoding="utf-8").write(json.dumps(allout, ensure_ascii=False, indent=1))
