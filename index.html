@@ -2982,7 +2982,8 @@ const eventsTreeHTML=()=>{
       const _advAb=new Set([..._qAb].filter(ab=>_mainAb.has(ab))); // 資格賽→本賽晉級＝綠框
       const segE=(lb,arr,nl,adv)=>arr.length?`<span class="evtPromoDiv evtGrpDiv${nl?" evtGrpNL":""}"><i>${lb}</i></span>`+chips(arr,adv):"";
       mainChips=chips([...(x._ewcMain||new Set())].filter(t2=>!poSet.has(t2))); // 本賽隊直接列（不加「EWC」標籤塊、不上綠框）
-      Object.entries(x._ewcQ).forEach(([rg,set])=>{ mainChips+=segE((LANG==="en"?"Qualifier · ":"資格賽·")+rg,[...set].filter(t2=>!poSet.has(t2)),false,_advAb); });
+      // 各區資格賽是獨立的聯賽碼（EWCQ歐洲…）→ 標籤連到該區資格賽自己的 wiki 頁
+      Object.entries(x._ewcQ).forEach(([rg,set])=>{ mainChips+=segE(spLink("EWCQ"+rg,"",(LANG==="en"?"Qualifier · ":"資格賽·")+esc(rg)),[...set].filter(t2=>!poSet.has(t2)),false,_advAb); });
     }else if((x.lg==="WLDs"||x.lg==="MSI")&&x.wDates){ // 世界賽/MSI 卡：正賽｜──入圍賽
       // 正賽開始日：世界賽＝首個單日 ≥12 隊（2022 人工定）；MSI＝第一個「空檔日」之後（各年賽程入圍→正賽間都休一天）
       const days=Object.keys(x.wDates).sort();
@@ -3005,12 +3006,13 @@ const eventsTreeHTML=()=>{
         const _mnAb=new Set([...mn].map(t2=>tAb(t2))), _piAb=new Set([...pin].map(t2=>tAb(t2)));
         const _advAb=new Set([..._piAb].filter(ab=>_mnAb.has(ab))); // 入圍賽→正賽晉級＝綠框
         const seg=(lb,arr,adv)=>arr.length?`<span class="evtPromoDiv evtGrpDiv"><i>${lb}</i></span>`+chips(arr,adv):"";
-        inner=chips([...mn])+seg(LANG==="en"?"Play-In":"入圍賽",[...pin],_advAb); // 正賽段不上綠框（晉級標記只留在入圍/資格段）
+        inner=chips([...mn])+seg(spLink(x.lg,"入圍賽",LANG==="en"?"Play-In":"入圍賽"),[...pin],_advAb); // 正賽段不上綠框（晉級標記只留在入圍/資格段）
       }
       if(x._wq){ // 各區資格賽段：晉級＝有進世界賽本體（正賽或入圍）者綠框
         const _wAb=new Set([..._wAll].map(t2=>tAb(t2)));
         const segQ=(lb,arr)=>arr.length?`<span class="evtPromoDiv evtGrpDiv"><i>${lb}</i></span>`+chips(arr,_wAb):"";
-        Object.entries(x._wq).forEach(([rg,set])=>{ inner+=segQ((LANG==="en"?"Qualifier · ":"資格賽·")+rg,[...set]); });
+        // 各區世界賽資格賽也是獨立聯賽碼（WQS中國…）→ 標籤連到該區資格賽的 wiki 頁
+        Object.entries(x._wq).forEach(([rg,set])=>{ inner+=segQ(spLink("WQS"+rg,"",(LANG==="en"?"Qualifier · ":"資格賽·")+esc(rg)),[...set]); });
       }
       mainChips=inner;
     }else{
@@ -3103,7 +3105,7 @@ const eventsTreeHTML=()=>{
           const _tArr=_tKey?base.filter(t2=>_spT[_tKey].has(t2)):[];
           const _rest=base.filter(t2=>!_nsSp.some(k=>_spT[k].has(t2))&&!(_tKey&&_spT[_tKey].has(t2)));
           mainChips=(_rest.length?chips(_rest,advQ,x.tinfo):"")
-            +(_tArr.length?`<span class="evtPromoDiv evtGrpDiv evtGrpNL"><i>${esc(_tKey)}</i></span>`+chips(_tArr,_advOf(_tKey,_tArr)||advQ,x.tinfo,_tKey):"")
+            +(_tArr.length?`<span class="evtPromoDiv evtGrpDiv evtGrpNL"><i>${spLink(x.lg,_tKey,esc(spDisp(_tKey)))}</i></span>`+chips(_tArr,_advOf(_tKey,_tArr)||advQ,x.tinfo,_tKey):"")
             +(_cols?`<span class="evtPromoDiv evtGrpHr"></span><div class="evtPromoCols">${_cols}</div>`:"")+extSeg;
         }else if(_spKeys.length>1){
           const _row=(lb,arr,adv)=>`<div class="lgSplitBlk"><span class="lgSplitHd">${spLink(x.lg,lb,esc(spDisp(lb)))}<span class="lgSplitN">${uq(arr)} ${LANG==="en"?"teams":"隊"}</span></span><span class="lgSplitGrps"><div class="lgGrpCol"><span class="lgGrpChips">${chips(arr,adv,x.tinfo)}</span></div></span></div>`;
@@ -3120,7 +3122,13 @@ const eventsTreeHTML=()=>{
           const _sp0=_spKeys[0]||"";
           const _pa=new Set(Object.values(x._poSp||{}).flatMap(s2=>[...s2]));
           const _a0=_isTour(_sp0)?_wAdv(base):((_pa.size?_pa:null)||(x._poAll&&x._poAll.size?x._poAll:null));
-          mainChips=chips(base,_a0||_wAdv(base)||advQ)+extSeg;
+          const _c0=chips(base,_a0||_wAdv(base)||advQ);
+          // 單一賽段也要把賽段名標出來（使用者要求 2026-08-01）：2013 LCL／LCO／CBLOL／TCL
+          // 這種整年只有一個「錦標賽」的卡片原本直接平鋪隊伍籤，沒有標題就沒有地方可以點去 wiki。
+          // 賽段名是空的（世界賽／MSI 這類本體賽事）維持平鋪——那種卡片標題本身就是賽事名。
+          mainChips=(_sp0
+            ? `<div class="lgSplitBlk"><span class="lgSplitHd">${spLink(x.lg,_sp0,esc(spDisp(_sp0)))}<span class="lgSplitN">${uq(base)} ${LANG==="en"?"teams":"隊"}</span></span><span class="lgSplitGrps"><div class="lgGrpCol"><span class="lgGrpChips">${_c0}</span></div></span></div>`
+            : _c0)+extSeg;
         }
       }
     }
@@ -3144,13 +3152,16 @@ const eventsTreeHTML=()=>{
       const advP=new Set(pAll.filter(nm=>(_pt[nm]||{}).w||(_px&&_px[nm])).map(t2=>tAb(t2)));
       const promoChips=chips(pAll,advP,x.tinfo); // 升降段照升降時間
       const _plb=(({2022:{VCS:LANG==="en"?"Mid-season promotion":"季中升降賽"}})[+curYear]||{})[x.lg]||(LANG==="en"?"End-of-season promotion":"季末升降賽");
-      promoBlock=promoChips?`<span class="evtPromoDiv evtGrpDiv evtRelegDiv"><i>${_plb}</i></span>`+promoChips:"";
+      promoBlock=promoChips?`<span class="evtPromoDiv evtGrpDiv evtRelegDiv"><i>${spLink(x.lg,"升降賽",_plb)}</i></span>`+promoChips:"";
     }
     const _pxN=(({2022:{VCS:{"Team Flash":1}}})[+curYear]||{})[x.lg]||null;
     const _mainN=uq(mainArr0), _poN=uq([...x.releg].concat(_pxN?Object.keys(_pxN).filter(nm=>!x.releg.has(nm)):[])); // 升降計數＝完整參賽隊數（含晉級者＋人工補充）
     const teams=mainChips+promoBlock;
     return `<div class="evtNode">
-      <div class="evtHd">${lgChip(x.lg)}<b>${esc(m.zh)}</b>${m.region?`<span class="evtRegion">${esc(m.region)}</span>`:""}<span class="evtCount">${_mainN}${LANG==="en"?" teams":" 隊"}${_poN?(LANG==="en"?`+${_poN} promo`:`＋升降 ${_poN} 隊`):""}</span>${relegTag}${
+      ${/* 賽段欄是空的賽事（世界賽／MSI／初陣／EWC／KeSPA…）沒有可點的賽段標題 → 讓卡片
+            名稱本身連到 wiki（使用者要求 2026-08-01：每個都要連得到）。有賽段的卡片照樣
+            由賽段標題負責，這裡的 wikiHref(lg,"") 查不到就原樣輸出，不會生出死連結。*/""}
+      <div class="evtHd">${lgChip(x.lg)}<b>${spLink(x.lg,"",esc(m.zh))}</b>${m.region?`<span class="evtRegion">${esc(m.region)}</span>`:""}<span class="evtCount">${_mainN}${LANG==="en"?" teams":" 隊"}${_poN?(LANG==="en"?`+${_poN} promo`:`＋升降 ${_poN} 隊`):""}</span>${relegTag}${
         x.n===0?`<span class="evtNoData" title="${LANG==="en"?"Only the participant list is available (from Leaguepedia); no game data yet.":"這個賽事目前只有參賽名單（取自 Leaguepedia），資料庫還沒有比賽場次"}">${LANG==="en"?"schedule only":"尚無比賽資料"}${(x._extra&&x._extra.from)?`・${_mdOf(x._extra.from)}${x._extra.to&&x._extra.to!==x._extra.from?"–"+_mdOf(x._extra.to):""}`:""}</span>`:""}</div>
       ${m.full?`<div class="evtFull">${esc(m.full)}</div>`:""}
       <div class="evtTeams">${teams||'<span class="meta">—</span>'}</div>

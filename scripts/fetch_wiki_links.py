@@ -175,6 +175,10 @@ def main():
                 pg = idx.get(f"{d}|{(t or '').strip().lower()}")
                 if pg:
                     vote[(lg, sp)][pg] += 1
+                    # 世界賽／MSI 的入圍賽在資料裡沒有獨立賽段（split 是空的），賽事樹是依
+                    # 日期把它分出來的 → 靠 wiki 頁名認出來，另外記一份給「入圍賽」那段用
+                    if re.search(r"Play[- ]?In", pg, re.I):
+                        vote[(lg, "入圍賽")][pg] += 1
                     break
         ymap = {}
         for (lg, sp), c in sorted(vote.items()):
@@ -197,6 +201,11 @@ def main():
                 print(f"   {lg:<8}{(sp or '(空)'):<14}→ {pg}   （管線登記）")
             else:
                 miss.append(f"{y} {lg} {sp or '(空)'}")
+        # 管線登記過、但今年一局都還沒打的（ENC 2026 十一月才開打）→ 也收進來。
+        # 賽事樹會列出這種「尚無比賽資料」的卡片，一樣要點得進 wiki。
+        for (fy, flg, fsp), fpg in FB.items():
+            if fy == y and fpg:
+                ymap.setdefault(flg, {}).setdefault(fsp, fpg)
         if ymap:
             out[str(y)] = ymap
     p = os.path.join(ROOT, "wiki_links.js")
