@@ -1385,6 +1385,12 @@ const _assetMergedOf0=n=>{ if(!ASSET_IDX||!ASSET_IDX.allByName||n==null)return n
     if(seen.has(key))continue; seen.add(key);
     if(m.kind==="item"&&/^\d{5,}$/.test(String(m.id)))continue;
     if(m.e&&m.e.tree)continue;
+    // 模式限定的分身不併入（2026 翡翠模式的 Jade_◯◯ 共 60 隻）：中文名跟本尊一模一樣，
+    // 併進來的話歷代圖示會多長一格「2026」，看起來像那年換過頭像——但正常模式並沒有換
+    //（使用者回報 2026-08-01，以古拉格斯為例）。
+    // 判準＝id 帶底線前綴：正常英雄的 id 一律沒有底線（234 筆裡只有 Jade_ 那 60 筆有）。
+    // 不能用「前綴_本尊id」判——悟空的本尊 id 是 MonkeyKing、分身卻叫 Jade_Wukong，對不上。
+    if(m.kind==="champ"&&/^[A-Za-z]+_/.test(String(m.id)))continue;
     out.push(m); }
   if(!out.length)return null;
   const years=new Set(), gs=[], _chainNames=new Set();
