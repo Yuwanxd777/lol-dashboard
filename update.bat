@@ -60,5 +60,9 @@ rem scripts\player_disambig.json via: python scripts\fetch_player_ids.py
 python scripts\check_player_dup.py --quiet >> "%LOG%" 2>&1
 rem stamp data.js updated = real pipeline finish time (fetch_data writes its own start time = 10:00)
 python scripts\stamp_updated.py >> "%LOG%" 2>&1
+rem Credential health: Riot key / Google service account / GS_API_KEY + freshness of what each
+rem produces. All three fail silently, so this prints a loud block at the very end of the log.
+rem Never blocks (always exit 0). Use --no-live to skip the single Riot API validation call.
+python scripts\check_keys.py >> "%LOG%" 2>&1
 
 type "%LOG%"
