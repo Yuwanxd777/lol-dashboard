@@ -1681,6 +1681,13 @@ const heroMechHTML=(id,zh)=>{
 };
 // 名片/資料卡右側：歷代圖示（英雄頭像／道具／符文共用；Riot 改過圖才有多張；離資訊約 100px 起排）——資料＝assets.js
 function iconHistRight(nameOrId){
+  // 名片那邊傳進來的是**英雄 id**，而資產索引是用名字建的 → 查不到就先換成名字再查一次。
+  // id 與英文名寫法不同的（JarvanIV／Jarvan IV、XinZhao／Xin Zhao、KogMaw、LeeSin…）
+  // 共 21 隻，直接拿 id 查一律落空、整塊歷代圖示消失（2026-08-01 使用者回報嘉文、趙信）。
+  if(typeof assetOf==="function"&&!assetOf(nameOrId)){
+    const _c=((window.LOL_ASSETS||{}).champ||{})[nameOrId];
+    if(_c)nameOrId=(LANG==="en"?(_c.en||_c.zh):(_c.zh||_c.en))||nameOrId;
+  }
   const a=(typeof assetOf==="function")?assetOf(nameOrId):null;
   // 同名跨 id 合併（寒冰霸拳 3025→6662）：歷代圖示要涵蓋重製後的新圖；只取「當時叫這個名字」的年段
   const M=(typeof assetMergedOf==="function")?assetMergedOf(nameOrId):null;
