@@ -585,6 +585,9 @@
   .lgSplitBlk{width:100%;display:flex;flex-direction:column;align-items:stretch;gap:5px;margin-top:7px;padding-top:7px;border-top:1px dashed rgba(255,255,255,.14)}
   /* 賽段標題字級與 .evtPromoLb／.evtGrpDiv i 對齊（使用者要求 2026-08-01：季度文字大小統一） */
   .lgSplitHd{flex:0 0 auto;font-weight:800;color:var(--tx2);font-size:13.5px}
+  /* 賽段標題連到 Leaguepedia：平常看起來就是原本的標題，只加一條虛線底表示可點 */
+  a.spWiki{color:inherit;text-decoration:none;border-bottom:1px dotted rgba(150,165,195,.55)}
+  a.spWiki:hover{color:var(--acc);border-bottom-color:var(--acc)}
   .lgSplitHd .lgSplitN{font-weight:600;color:var(--dim,#8a93a6);margin-left:6px;font-size:12.5px}
   .lgSplitGrps{display:flex;flex-wrap:wrap;gap:6px 22px;flex:1;min-width:0}
   .lgGrpCol{display:flex;flex-direction:column;gap:4px;min-width:0}
@@ -861,6 +864,7 @@ window.WIKI_PATCHES=window.WIKI_PATCHES||{}; window.WIKI_EXTRA=window.WIKI_EXTRA
 <script src="rune_icons.js" onerror="window.RUNE_ICONS=null"></script>
 <script src="league_struct.js" onerror="window.LEAGUE_STRUCT=null"></script>
 <script src="lpl_groups.js" onerror="window.LPL_GROUPS=null"></script><script src="lck_groups.js" onerror="window.LCK_GROUPS=null"></script><script src="patch_dir_fix.js" onerror="window.PATCH_DIR_FIX=null"></script><!-- 判向覆核判例(逐行) --><!-- LCK Rounds 分組(scripts/fetch_lck_groups.py，成員+組名皆取自 Wiki Participants) --><!-- LPL 常規賽分組(scripts/fetch_lpl_groups.py，成員=同組互打連通分量、組名=Wiki AutoStandings) -->
+<script src="wiki_links.js" onerror="window.WIKI_LINKS=null"></script><!-- 年/聯賽/賽段 → Leaguepedia 頁名(scripts/fetch_wiki_links.py)：賽事樹的賽段標題可點去 wiki -->
 <script src="events_extra.js" onerror="window.EVENTS_EXTRA=null"></script><!-- OE 沒收錄但確實存在的賽事名單(scripts/fetch_events_extra.py：EWC 中國區資格賽、ENC 電競國家盃) -->
 
 <script src="promo_abbr.js" onerror="window.PROMO_ABBR={}"></script>
@@ -2555,6 +2559,14 @@ const natAbbrOf=t=>{const m=/^(.+?)\s*\((?:national team|國家隊)\)/i.exec(Str
   const n=m[1].trim(); return NAT_ABBR[n]||n.replace(/[^A-Za-z]/g,"").slice(0,3).toUpperCase();};
 const lgName=l=>{ if(l&&typeof l==="string"&&/^(LPL|LCK)#/.test(l))return l.slice(0,3)+lplGrpName(l.slice(4)); if(LANG==="en"){ const en={"ALL":"All","中韓":"CN+KR","歐美":"EU+NA","國際賽":"Internationals","LTA N":"LTA North","LTA S":"LTA South","WLDs":"Worlds","FST":"First Stand Tournament"}; if(en[l])return en[l]; } return LG_NAME[l]||l; };
 const d1s=v=>(+v).toFixed(1).replace(/\.0$/,""); // 一位小數；小數為 0 就不顯示小數點（3.0→3、2.5→2.5）
+// 賽段 → Leaguepedia 頁的連結（wiki_links.js 由 scripts/fetch_wiki_links.py 產：拿 Cargo
+// ScoreboardGames 每一局帶的 OverviewPage 做多數決，查不到的退回抓取管線登記的頁名）。
+// 查不到就回空字串 → spLink 原樣輸出純文字，不會生出死連結。（使用者要求 2026-08-01）
+const wikiHref=(lg,sp)=>{ const m=(window.WIKI_LINKS||{})[String(curYear)]||{}, e=m[lg]||{};
+  const p=e[sp]||e[String(sp||"").replace(/ PO$/,"")]||"";
+  return p?"https://lol.fandom.com/wiki/"+encodeURI(String(p).replace(/ /g,"_")):""; };
+const spLink=(lg,sp,txt)=>{ const h=wikiHref(lg,sp);
+  return h?`<a class="spWiki" href="${h}" target="_blank" rel="noopener" title="${esc(String(sp||""))}｜到 Leaguepedia 看這個賽段">${txt}</a>`:txt; };
 const lgTagOn=()=>F.league==="ALL"||!!LG_GROUP[F.league]||F.league==="EWCQ"; // 全部或群組篩選＝混合聯賽 → 名稱旁要標賽區
 const stripRgnParen=s=>String(s).replace(/（[^（）]*）\s*$/,""); // 名稱旁已有賽區色塊(lgChip)時，去掉碰撞縮寫尾端重複的（聯賽碼）；選手名不以（）結尾＝無操作
 // 賽段顯示名：資料值用 " PO" 標季後賽，畫面一律寫成「◯◯季後賽」（2026-07-31 使用者指定）
@@ -3037,7 +3049,7 @@ const eventsTreeHTML=()=>{
           }).join("")
           :(base.length?(base.forEach(t2=>_used.add(t2)),`<div class="lgGrpCol"><span class="lgGrpChips">${chips(base,_poOf(sp)||advQ,x.tinfo)}</span></div>`):"");
           if(gcols){ const _n2=uq(base.filter(t2=>!_gns.length||_gns.includes(lplSplitGroupOf(teamFix(tAb(t2)),curYear,sp,_glg))));
-            _mc+=`<div class="lgSplitBlk"><span class="lgSplitHd">${esc(spDisp(sp))}<span class="lgSplitN">${_n2} ${LANG==="en"?"teams":"隊"}</span></span><span class="lgSplitGrps">${gcols}</span></div>`; }
+            _mc+=`<div class="lgSplitBlk"><span class="lgSplitHd">${spLink(x.lg,sp,esc(spDisp(sp)))}<span class="lgSplitN">${_n2} ${LANG==="en"?"teams":"隊"}</span></span><span class="lgSplitGrps">${gcols}</span></div>`; }
         });
         const _rest=base.filter(t2=>!_used.has(t2));
         if(_rest.length)_mc+=`<div class="lgSplitBlk"><span class="lgSplitHd">${LANG==="en"?"Other":"其他"}<span class="lgSplitN">${uq(_rest)} ${LANG==="en"?"teams":"隊"}</span></span><span class="lgSplitGrps"><div class="lgGrpCol"><span class="lgGrpChips">${chips(_rest,advQ)}</span></div></span></div>`;
@@ -3085,7 +3097,7 @@ const eventsTreeHTML=()=>{
         const _tKey=_spKeys.find(k=>/錦標賽$/.test(k));
         if(_nsSp.length===2){
           const _colL=(lb,k)=>{const arr=base.filter(t2=>_spT[k].has(t2));
-            return arr.length?`<div class="evtPromoGrp"><div class="evtPromoLb">${esc(lb)}</div>${chips(arr,_tourAb,x.tinfoNP,k)}</div>`:"";};
+            return arr.length?`<div class="evtPromoGrp"><div class="evtPromoLb">${spLink(x.lg,k,esc(lb))}</div>${chips(arr,_tourAb,x.tinfoNP,k)}</div>`:"";};
           const _cols=[_colL(LANG==="en"?"North":"北區","北區"),_colL(LANG==="en"?"South":"南區","南區")]
             .filter(Boolean).join(`<div class="evtPromoVr"></div>`);
           const _tArr=_tKey?base.filter(t2=>_spT[_tKey].has(t2)):[];
@@ -3094,7 +3106,7 @@ const eventsTreeHTML=()=>{
             +(_tArr.length?`<span class="evtPromoDiv evtGrpDiv evtGrpNL"><i>${esc(_tKey)}</i></span>`+chips(_tArr,_advOf(_tKey,_tArr)||advQ,x.tinfo,_tKey):"")
             +(_cols?`<span class="evtPromoDiv evtGrpHr"></span><div class="evtPromoCols">${_cols}</div>`:"")+extSeg;
         }else if(_spKeys.length>1){
-          const _row=(lb,arr,adv)=>`<div class="lgSplitBlk"><span class="lgSplitHd">${esc(lb)}<span class="lgSplitN">${uq(arr)} ${LANG==="en"?"teams":"隊"}</span></span><span class="lgSplitGrps"><div class="lgGrpCol"><span class="lgGrpChips">${chips(arr,adv,x.tinfo)}</span></div></span></div>`;
+          const _row=(lb,arr,adv)=>`<div class="lgSplitBlk"><span class="lgSplitHd">${spLink(x.lg,lb,esc(spDisp(lb)))}<span class="lgSplitN">${uq(arr)} ${LANG==="en"?"teams":"隊"}</span></span><span class="lgSplitGrps"><div class="lgGrpCol"><span class="lgGrpChips">${chips(arr,adv,x.tinfo)}</span></div></span></div>`;
           let _mc="",_used=new Set();
           _spKeys.forEach(sp=>{ const arr=base.filter(t2=>_spT[sp].has(t2));
             if(!arr.length)return; arr.forEach(t2=>_used.add(t2));

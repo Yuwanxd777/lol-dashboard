@@ -18,6 +18,7 @@
 !lck_groups.js
 !patch_dir_fix.js
 !events_extra.js
+!wiki_links.js
 !chart.umd.min.js
 # leaguepedia.js 不發布：index.html 完全沒有引用它（只有 scripts/*.py 拿它當輸入），
 # 但它有 3.3MB，留在白名單等於每次推送都塞一個死檔給觀眾端（2026-08-01 全面稽核）
