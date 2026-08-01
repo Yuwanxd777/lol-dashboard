@@ -3167,8 +3167,11 @@ const eventsTreeHTML=()=>{
     // 補充賽事（events_extra.js）：資料庫沒有比賽場次 → 改列 Leaguepedia 上的參賽名單。
     // 「有場次但 rows 是空的」也要走這條（2026-08-01 使用者回報 GPL 的 SF5 寫「沒有選手資料」）：
     // 2013 GPL 春夏是 PB 頁抓的，只有英雄沒有選手名 → byPid 全空，n>0 卻排不出任何一列。
-    let exRows="";
+    let exRows="", exNote="";
     if(!n||!rows){
+      // 有場次卻排不出逐選手列（n>0 但 rows 空）＝來源只有英雄沒有選手名（2013 GPL 春夏就是 PB 頁抓的）。
+      // 標題那行還是寫著「28 場｜勝率 X%」，不講清楚會被當成「場數漏掉了」（2026-08-01 使用者問 HSD／SF5）。
+      if(n&&!rows)exNote=`<div class="meta" style="margin-bottom:3px">${en?"roster from Leaguepedia — this event's source has champions only, no player names, so no per-player game counts":"名單取自 Leaguepedia：這個賽事的來源只有英雄、沒有選手名，因此沒有逐選手場數"}</div>`;
       const EX=(window.EVENTS_EXTRA||{})[String(curYear)]||{};
       const ORD={TOP:1,JNG:2,MID:3,BOT:4,SUP:5,COACH:6};
       for(const lg of (lgs||[])){ const d=EX[lg]; if(!d||!d.rosters)continue;
@@ -3206,7 +3209,7 @@ const eventsTreeHTML=()=>{
       <div style="margin:3px 0 6px">${n?`${n} ${en?"games":"場"}｜<b style="color:${wc}">${wr}%</b> ${en?"win":"勝率"}`
         :`<span class="meta">${en?"roster from Leaguepedia (no game data yet)":"參賽名單取自 Leaguepedia（資料庫還沒有比賽場次）"}</span>`}</div>
       ${(bySp.size>1)?`<div class="evtTipSpBox">${spRows}</div>`:""}
-      <div class="evtRos" style="display:flex;flex-direction:column;gap:3px;font-size:13px">${spRoster||rows||exRows||`<span class="meta">${en?"no player rows":"無選手資料"}</span>`}</div>`;
+      <div class="evtRos" style="display:flex;flex-direction:column;gap:3px;font-size:13px">${spRoster||rows||(exRows?exNote+exRows:"")||`<span class="meta">${en?"no player rows":"無選手資料"}</span>`}</div>`;
       // 「雙擊改縮寫」的提示改放最上方的小備註（使用者指定 2026-07-28：不佔懸浮框空間）
   };
   const fil=arr=>!q?arr:arr.filter(x=>((x.lg+x.m.zh+(x.m.region||"")+[...x.teams].map(tAb).join("")+[...x.teams].join("")).toLowerCase().includes(q))); // 縮寫＋全名都可搜
