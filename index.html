@@ -1819,6 +1819,9 @@ const OBJ_ICO=(()=>{const IB="https://raw.communitydragon.org/latest/game/assets
   put(CB+"sru_gromp/hud/gromp_circle.png","陰屍","wight");
   put(IB+"dragon.png","飛龍","小龍","元素龍","dragon");   // 2013 只有一種龍（當年通稱飛龍），元素龍是 2016 才有；
                                                           // 「元素龍」這個鍵是給 mechObjName 對到的物件正名「元素龍（小龍總覽）」用的
+  // 金錢＝遊戲內的金幣圖（使用者指定 2026-08-01：要商店那張）。CD 把它放在 floatingtext
+  // 底下（擊殺後跳出來的金幣數字用的圖），ux/shop 那邊只有整張 texture atlas。
+  put("https://raw.communitydragon.org/latest/game/assets/ux/floatingtext/goldicon.png","金錢","金幣","gold");
   return m;})();
 const objIco=n=>{const k=String(n||"").toLowerCase().replace(/（[^）]*）/g,"").replace(/[\s·]+/g,"");
   if(!k)return "";
@@ -4715,8 +4718,14 @@ const TRIVIAL_OR_GEN=(l,id)=>{ const t=String(l), b=t.includes("｜")?t.slice(t.
 // 非峽谷道具（含 TT／CS 變體）：圖鑑版本分頁與總覽版本焦點共用同一套判斷（2026-08-01）
 const nsrClean=n=>{ let x=String(n).replace(/^所有\s*maps?\s*/i,"").replace(/([A-Za-z])的\s(?=[A-Za-z])/g,"$1's ").trim();
   for(let g=0;g<3;g++)x=x.replace(/\s*[（(][^（）()]*[）)]\s*$/,"").trim(); return x; };
+// 名稱尾巴用括號標了「遊戲模式」的道具＝該模式限定，不是召喚師峽谷的東西，一律不列
+//（使用者定案 2026-08-01：「多蘭之盾（決勝慶典）」Doran's Shield (Showdown) 這種）。
+// 原本只認 TT／CS 的版本標記，靠 ITEM_NONSR 逐年列舉補；改用模式名通用比對，
+// 往後新抓進來的同類不必再逐筆登記。
+const NONSR_MODE=/[（(]\s*(決勝慶典|Showdown|極地大亂鬥|嚎哭深淵|ARAM|Howling\s*Abyss|扭曲叢林|Twisted\s*Treeline|水晶之痕|Crystal\s*Scar|Dominion|統霸戰|Nexus\s*Blitz|終極一戰|One\s*for\s*All|禁區對決|Ultra\s*Rapid\s*Fire|URF)\s*[）)]/i;
 const isNonSR=(nm,yr)=>{ const V=(window.ITEM_NONSR||{})[String(yr)]||{}, c=nsrClean(nm);
   if(V[c])return true; const lc=c.toLowerCase(); for(const k in V)if(k.toLowerCase()===lc)return true;
+  if(NONSR_MODE.test(String(nm)))return true;
   return /（?\s*(TT|CS)\s*[／/]|(TT|CS)\s*version/i.test(String(nm)); };
 const dirCls=d=>d==null?"adj":d>0?"buff":d<0?"nerf":"adj"; // 判不出方向也走「調整」的黃字（使用者定案 2026-07-31：以前就是黃字，不要白字）
 // 官方公告「英雄專屬大區塊」註記（PATCH_NOTES[pk]._spotlight，如 26.06 希瓦娜）：新英雄＝CHAMP_RELEASE 落在該版首場 ±30 天，否則大型重製
