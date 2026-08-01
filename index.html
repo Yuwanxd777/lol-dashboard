@@ -710,7 +710,9 @@
   /* ── 總覽 版本焦點：圖示與字級全區統一（2026-07-28 使用者要求「看起來更舒服」） ── */
   .ovChgRow{display:flex;align-items:center;gap:10px;min-height:52px}
   .ovChgLb{flex:0 0 auto;font-weight:bold;width:104px;white-space:nowrap;font-size:15.5px}
-  .ovChgList{flex:1 1 0;min-width:0;display:flex;align-items:center;gap:6px;flex-wrap:nowrap;overflow-x:auto}
+  /* 放不下就換行，不要橫向捲動（2026-08-01 使用者：整體超過畫面時，比較長的那段要換行）。
+     原本 nowrap+overflow-x:auto 會把 2013 那種 26 個英雄的列變成看不見的橫向捲軸。 */
+  .ovChgList{flex:1 1 0;min-width:0;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
   .ovChgCols{display:flex;flex-direction:column;gap:14px;margin-top:10px}
   .ovChgSub{font-weight:bold;color:var(--tx2);font-size:15.5px;margin:14px 0 2px;border-top:1px solid var(--line);padding-top:10px}
   /* 英雄頭像與道具／符文／機制圖示同尺寸同圓角（aspect-ratio 防變形，見頭像鐵則） */
@@ -1531,7 +1533,13 @@ const normTerm=s=>String(s||"")
   .replace(/(^|｜)(魔法|物理|魔|物)?傷害[：:]/g,"$1基礎傷害：")
   .replace(/(^|｜)(魔傷|物傷)[：:]/g,"$1基礎傷害：")
   // 傷害減免一律寫「減傷」、引導時間一律寫「施法時間」（使用者定名 2026-08-01）
-  .replace(/傷害減免/g,"減傷").replace(/引導時間/g,"施法時間")
+  // 原文「傷害減免 10／12／14…」欄位名後面沒有冒號 → 後面緊接數值時補上（使用者回報
+  // 2026-08-01）。句子中間的（「不再失去傷害減免效果」）不能加，所以先處理帶數值的。
+  .replace(/傷害減免\s*(?=[\d＋+])/g,"減傷：").replace(/傷害減免/g,"減傷")
+  .replace(/引導時間/g,"施法時間")
+  // 基礎能力值那條「魔力：300 ⇒ 400」講的是魔力上限，單寫「魔力」跟魔耗／魔力回復容易
+  // 混淆 → 欄位名位置補成「魔力值」（使用者定案 2026-08-01）。只認行首或「｜」之後。
+  .replace(/(^|｜)魔力[：:]/g,"$1魔力值：")
   // 緩速：wiki 混用「減速」（使用者定名 2026-08-01）。⚠「攻速減速」是降低攻速、
   // 不是位移緩速，前面已由 uniStat 轉成「降低攻速」，這裡不會誤傷。
   .replace(/減速/g,"緩速")
@@ -7998,7 +8006,10 @@ function render(){
       const rightBlk=entEntries.length?subHd("🛡️ "+(LANG==="en"?"Items · Runes · Mechanics":"道具與符文與機制"))+entGrp(entEntries):"";
       const champBlk=subHd("🦸 "+T("英雄"))+`<div class="ovChgCols">${grpRow(1,"▲ "+T("增強"),"#ff4d4d")+grpRow(-1,"▼ "+T("削弱"),"#37c871")+grpRow(0,"● "+T("調整"),"#ffd60a")}</div>`; // 英雄放左半欄
       document.getElementById("ovChg").innerHTML = chg.ver
-        ? (rightBlk?`<div style="display:grid;grid-template-columns:auto minmax(260px,1fr);gap:50px;align-items:start"><div style="min-width:0">${champBlk}</div><div style="min-width:0">${rightBlk}</div></div>`:champBlk)
+        // 兩欄都用 auto：放得下就各自照內容寬度，放不下時 grid 依 max-content 比例壓縮
+        //（＝比較長的那一段先被壓、先換行），不要再讓右欄固定 1fr 把左欄擠到爆
+        //（2026-08-01 使用者：整體超過畫面時，比較長的那段要換行）
+        ? (rightBlk?`<div style="display:grid;grid-template-columns:auto auto;gap:50px;align-items:start"><div style="min-width:0">${champBlk}</div><div style="min-width:0">${rightBlk}</div></div>`:champBlk)
         : `<span class="meta">目前賽季篩選下沒有偵測到最新版本改動。</span>`;
       const gotoVer=()=>{V.dexSec="版本"; V.dexDetail=""; saveState(); curView="圖鑑"; document.querySelectorAll("nav .tab").forEach(x=>x.classList.toggle("on",x.dataset.view==="圖鑑")); render();};
       document.getElementById("ovChgLink").onclick=gotoVer;
