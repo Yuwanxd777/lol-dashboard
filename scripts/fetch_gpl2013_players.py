@@ -41,6 +41,10 @@ _tk = lambda s: TEAM_FIX.get(str(s).strip().lower(), str(s).strip().lower())
 # 位置：wiki 寫法 → 儀表板寫法
 ROLE = {"top": "TOP", "jungle": "JNG", "jg": "JNG", "mid": "MID", "middle": "MID",
         "bot": "BOT", "ad": "BOT", "adc": "BOT", "support": "SUP", "sup": "SUP"}
+# r= 旗標的字元：y＝照自己掛的位置上場、n＝沒上場、
+# 其餘字母＝**當局改打的路線**（wiki 那格會畫路線圖示，一樣算有上場，只是換路）
+#（2026-08-01 使用者指出；ahq 春季第 9 局 Prydz=j／GarnetDevil=t 就是上路與打野互換）
+LANE_CH = {"t": "TOP", "j": "JNG", "m": "MID", "b": "BOT", "s": "SUP", "a": "BOT", "u": "SUP"}
 
 
 def wikitext(page):
@@ -81,11 +85,11 @@ def parse_rosters(page):
                     r_ = g("role%d" % i)
                     if not r_:
                         continue
-                    s = (re.search(r"\|\s*r%d\s*=\s*([ynmtb,]+)" % i, f) or [None, ""])[1]
+                    s = (re.search(r"\|\s*r%d\s*=\s*([A-Za-z,]+)" % i, f) or [None, ""])[1]
                     if s:
                         pairs.append((r_, s))
             else:
-                s = (re.search(r"\|\s*r\s*=\s*([ynmtb,]+)", f) or [None, ""])[1]
+                s = (re.search(r"\|\s*r\s*=\s*([A-Za-z,]+)", f) or [None, ""])[1]
                 if s:
                     pairs.append((g("role"), s))
             for r_, s in pairs:
