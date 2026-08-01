@@ -2566,7 +2566,7 @@ const wikiHref=(lg,sp)=>{ const m=(window.WIKI_LINKS||{})[String(curYear)]||{}, 
   const p=e[sp]||e[String(sp||"").replace(/ PO$/,"")]||"";
   return p?"https://lol.fandom.com/wiki/"+encodeURI(String(p).replace(/ /g,"_")):""; };
 const spLink=(lg,sp,txt)=>{ const h=wikiHref(lg,sp);
-  return h?`<a class="spWiki" href="${h}" target="_blank" rel="noopener" title="${esc(String(sp||""))}｜到 Leaguepedia 看這個賽段">${txt}</a>`:txt; };
+  return h?`<a class="spWiki" href="${h}" target="_blank" rel="noopener" title="${esc(spDisp(sp))}｜到 Leaguepedia 看這個賽段">${txt}</a>`:txt; };
 const lgTagOn=()=>F.league==="ALL"||!!LG_GROUP[F.league]||F.league==="EWCQ"; // 全部或群組篩選＝混合聯賽 → 名稱旁要標賽區
 const stripRgnParen=s=>String(s).replace(/（[^（）]*）\s*$/,""); // 名稱旁已有賽區色塊(lgChip)時，去掉碰撞縮寫尾端重複的（聯賽碼）；選手名不以（）結尾＝無操作
 // 賽段顯示名：資料值用 " PO" 標季後賽，畫面一律寫成「◯◯季後賽」（2026-07-31 使用者指定）
@@ -3215,9 +3215,11 @@ const eventsTreeHTML=()=>{
                         :`<span class="meta" style="flex:0 0 40px">${r2==="COACH"?(en?"Coach":"教練"):esc(r2)}</span>`;
             return `<div style="display:flex;gap:8px;align-items:center">${ic}<span>${byR[r2].map(esc).join("、")}</span></div>`;}).join(""); } }
     // 賽段（季度）逐列：照全域 SPLITS 的既定順序（S1→S1 PO→S2…→升降賽）；季後賽標「季後賽」
+    // 賽段顯示一律走 spDisp（2026-08-01 統一）：這裡原本自己實作一份，中文還多一個空格
+    // 寫成「春季 季後賽」，跟全站的「春季季後賽」對不上
     const spLabel=sp=>{ if(sp==="—")return en?"Other":"其他";
       if(sp==="升降賽")return en?"Promotion":"升降賽";
-      return / PO$/.test(sp)?sp.replace(/ PO$/,"")+(en?" Playoffs":" 季後賽"):sp; };
+      return spDisp(sp); };
     const spOrder=[...SPLITS,"—"];
     const spRows=[...bySp.entries()].sort((a,b)=>{const ia=spOrder.indexOf(a[0]),ib=spOrder.indexOf(b[0]);
         return (ia<0?99:ia)-(ib<0?99:ib);})
