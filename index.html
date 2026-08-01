@@ -582,7 +582,9 @@
   #tmGrid tbody .lg{font-size:15.5px} /* 賽區籤與戰隊名等大 */
   .heroname .lg{font-size:inherit} /* 數據表名稱旁的聯賽籤與名稱等大 */
   /* 賽段區塊：標題(賽段＋隊數)自成一行，戰隊換行列在下面（使用者定案 2026-07-31） */
-  .lgSplitBlk{width:100%;display:flex;flex-direction:column;align-items:stretch;gap:5px;margin-top:7px;padding-top:7px;border-top:1px dashed rgba(255,255,255,.14)}
+  /* 賽段區塊之間不再畫線（使用者定案 2026-08-01：同一張卡的各季度是同一種架構）。
+     卡片與內容的分界由 .evtHr 負責——原本這裡的 border-top 會跟它疊成兩條虛線。 */
+  .lgSplitBlk{width:100%;display:flex;flex-direction:column;align-items:stretch;gap:5px;margin-top:7px}
   /* 賽段標題字級與 .evtPromoLb／.evtGrpDiv i 對齊（使用者要求 2026-08-01：季度文字大小統一） */
   .lgSplitHd{flex:0 0 auto;font-weight:800;color:var(--tx2);font-size:13.5px}
   /* 賽段標題連到 Leaguepedia：平常看起來就是原本的標題，只加一條虛線底表示可點 */
