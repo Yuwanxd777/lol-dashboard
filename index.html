@@ -583,7 +583,8 @@
   .heroname .lg{font-size:inherit} /* 數據表名稱旁的聯賽籤與名稱等大 */
   /* 賽段區塊：標題(賽段＋隊數)自成一行，戰隊換行列在下面（使用者定案 2026-07-31） */
   .lgSplitBlk{width:100%;display:flex;flex-direction:column;align-items:stretch;gap:5px;margin-top:7px;padding-top:7px;border-top:1px dashed rgba(255,255,255,.14)}
-  .lgSplitHd{flex:0 0 auto;font-weight:800;color:var(--tx2)}
+  /* 賽段標題字級與 .evtPromoLb／.evtGrpDiv i 對齊（使用者要求 2026-08-01：季度文字大小統一） */
+  .lgSplitHd{flex:0 0 auto;font-weight:800;color:var(--tx2);font-size:13.5px}
   .lgSplitHd .lgSplitN{font-weight:600;color:var(--dim,#8a93a6);margin-left:6px;font-size:12.5px}
   .lgSplitGrps{display:flex;flex-wrap:wrap;gap:6px 22px;flex:1;min-width:0}
   .lgGrpCol{display:flex;flex-direction:column;gap:4px;min-width:0}
@@ -2446,7 +2447,8 @@ const CUP_LG=/^(WLDs|MSI|EWCQ|EWC|ENC|FST|KeSPA|IEM)/i;
 // 整年只打過盃賽、主數據裡查不到母聯賽的隊 → 指定母賽區（使用者逐條定案）。2013 IEM 的
 // Anexis eSports／Millenium 是歐洲隊，但那年的歐洲二級賽事沒收進主數據，只剩 IEM 場次，
 // 不指定就會被標成「IEM」（2026-08-01 使用者定案：這兩隊算 LEC）。
-const CUP_HOME={AXS:"LEC", MIL:"LEC"};
+// 2013 IEM S8 科隆業餘的 The RED（CIS）與 TCM Gaming（歐洲）也只有盃賽場次（使用者定案 2026-08-01）
+const CUP_HOME={AXS:"LEC", MIL:"LEC", RED:"LCL", TCM:"LEC"};
 const mainLg=(cnt,ab)=>{ const e=Object.entries(cnt||{}).sort((x,y)=>y[1]-x[1]);
   const t1=e.find(([l])=>!CUP_LG.test(l));
   return t1?t1[0]:((ab&&CUP_HOME[ab])||(e[0]||[""])[0]||""); };
@@ -3222,11 +3224,12 @@ const eventsTreeHTML=()=>{
     return `<div class="evtSec"><div class="evtSecHd">${ic} ${title} <span class="meta">${a.length}</span></div><div class="evtSecBody">${a.map(node).join("")}</div></div>`;};
   return `<div class="evtTree">
     <div class="evtYear">📅 ${curYear} ${LANG==="en"?"season structure":"賽季賽事結構"} <span class="meta">　${LANG==="en"?"switch the year above for other seasons;":"切換上方年份看其他年度；"}<span style="color:#37c871;font-weight:bold">✓</span>${LANG==="en"?"= qualified (play-in / qualifier / promotion); ✎ double-click a team chip to edit its abbreviation":"＝晉級（入圍賽／資格賽／升降賽晉級）；✎ 雙擊隊伍籤可改縮寫"}</span></div>
-    ${section(LANG==="en"?"Majors (Worlds / MSI / First Stand)":"三大國際賽（世界賽／季中賽／初陣對抗賽）","🌍",cat.intl)}
+    ${/* 國際賽與盃賽合併成一區（使用者定案 2026-08-01）：原本拆「三大國際賽」與「盃賽／資格賽／
+          其他」兩塊，同性質的東西分兩處反而難找。順序仍是世界賽／季中賽／初陣在前，盃賽在後。*/""}
+    ${section(LANG==="en"?"Internationals & Cups":"國際賽與盃賽","🌍",cat.intl.concat(cat.cup))}
     ${section("一級聯賽（主要賽區）","🥇",cat.t1)}
     ${section("次級聯賽","🥈",cat.t2,"本年度資料庫無次級聯賽")}
     ${section("三級聯賽","🥉",cat.t3)}
-    ${section("盃賽／資格賽／其他","🏆",cat.cup)}
   </div>`;
 };
 // 圖鑑「刷野速度」：把 GS 的刷野刷野速度資料畫出來；技能升級序(如QEQ)用 DDragon 技能圖示顯示
