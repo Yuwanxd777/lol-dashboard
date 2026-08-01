@@ -112,28 +112,31 @@ JOBS = [
     # S11 Challenger（2016-10 法國，22 局）不抓：Leaguepedia 標 IsQualifier=1，性質是
     # IEM Oakland 的資格賽，比照使用者先前定案的「Qualifiers 不抓」。
     # 年份＝比賽實際發生的年份（backfill 依此寫進 wikifill_{年}.json，跨年的站要放對）。
-    (2013, "IEM", "S7 卡托維茲", 0, ["IEM Season 7 Katowice"]),
-    (2013, "IEM", "S7 世界賽",   0, ["IEM Season 7 World Championship"]),
+    # S7 Katowice（2013-01-18，17 局）不收：使用者定案 2026-08-01。那站早於 3.01
+    # （2013-02-01）發布，當年還是 v1.0.0.15x 的編號，patch_release 回推不到版本。
+    # 「World Championship」在儀表板寫「大賽」不寫「世界賽」（使用者定案 2026-08-01）：
+    # 站名寫世界賽會跟 WLDs（真正的世界大賽）混淆。
+    (2013, "IEM", "S7 大賽",     0, ["IEM Season 7 World Championship"]),
     (2013, "IEM", "S8 上海",     0, ["IEM Season 8 Shanghai"]),
     (2013, "IEM", "S8 科隆業餘", 0, ["IEM Season 8 Cologne Amateur"]),
     (2013, "IEM", "S8 新加坡",   0, ["IEM Season 8 Singapore"]),
     (2014, "IEM", "S8 聖保羅",   0, ["IEM Season 8 Sao Paulo"]),
-    (2014, "IEM", "S8 世界賽",   0, ["IEM Season 8 World Championship"]),
+    (2014, "IEM", "S8 大賽",     0, ["IEM Season 8 World Championship"]),
     (2014, "IEM", "S9 深圳",     0, ["IEM Season 9 Shenzhen"]),
     (2014, "IEM", "S9 聖荷西",   0, ["IEM Season 9 San Jose"]),
     (2014, "IEM", "S9 科隆",     0, ["IEM Season 9 Cologne"]),
     (2015, "IEM", "S9 台北",     0, ["IEM Season 9 Taipei"]),
-    (2015, "IEM", "S9 世界賽",   0, ["IEM Season 9 World Championship"]),
+    (2015, "IEM", "S9 大賽",     0, ["IEM Season 9 World Championship"]),
     # ⚠ 下面四站的年份**故意不等於比賽日期的年份**：OE 把 IEM 按「賽季年」歸檔（S10 橫跨
     # 2015-11~2016-03 全放 data_2016、S11 橫跨 2016-10~2017-02 全放 data_2017）。這裡若照
     # 日期年放到 2015／2016，wiki 版與 OE 版就落在不同檔案，merge_wiki 只在同一檔內比對、
     # 去重抓不到，整批變成重複收錄（2026-08-01 實測 data_2015 與 data_2016 各有一份聖荷西）。
     (2016, "IEM", "S10 聖荷西",  0, ["IEM Season 10 San Jose"]),      # 實際 2015-11
     (2016, "IEM", "S10 科隆",    0, ["IEM Season 10 Cologne"]),       # 實際 2015-12
-    (2016, "IEM", "S10 世界賽",  0, ["IEM Season 10 World Championship"]),
+    (2016, "IEM", "S10 大賽",    0, ["IEM Season 10 World Championship"]),
     (2017, "IEM", "S11 奧克蘭",  0, ["IEM Season 11 Oakland"]),       # 實際 2016-11
     (2017, "IEM", "S11 京畿",    0, ["IEM Season 11 Gyeonggi"]),      # 實際 2016-12
-    (2017, "IEM", "S11 世界賽",  0, ["IEM Season 11 World Championship"]),
+    (2017, "IEM", "S11 大賽",    0, ["IEM Season 11 World Championship"]),
     (2015, "LCO", "Split 1", 0, ["OPL 2015 Split 1"]),           # LCO 2015 只有夏季
     (2015, "LCO", "Split 2", 0, ["OPL 2015 Split 2"]),           # 夏季有一部分，補齊
     (2015, "LJL", "Spring", 0, ["LJL 2015 Season 1"]),           # LJL 2015 整年沒有

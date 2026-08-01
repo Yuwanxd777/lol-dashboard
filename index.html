@@ -3486,12 +3486,11 @@ function splitMatch(o,sv){
     const base=sv.slice(2);
     if(/^S[123]$/.test(base))return seasonOf(o)===base;
     if(o.split===base||o.split===base+" PO")return true;
-    // 舊年份的國際賽沒有賽段標記（2013 的 IEM 三月、世界賽八～十月都是空賽段），字串比對
-    // 一定落空 → 整賽段改依開打月份歸季：上半年算春季、下半年算夏季。這樣選「春季」看得到
-    // IEM、選「夏季」看得到 WCS（含入圍賽）（使用者定案 2026-08-01）。
-    const _b=String(o.split||"");
-    if(!_b||_b==="入圍賽")return base===(+String(o.date).slice(5,7)<=6?"春季":"夏季");
-    return false;
+    // 賽段名對不上「春季／夏季／冬季」的，一律依開打月份歸季：上半年春季、下半年夏季。
+    // 涵蓋空賽段（2013 世界賽本體）、入圍賽，以及盃賽分站（IEM 的 S7 大賽、S8 上海…）
+    // 與各賽區的獨立賽事（GPL 的 TESL、LLA 的北區／南區）。使用者逐站確認過 IEM 全部
+    // 17 站要歸哪一季（2026-08-01），對照下來正好就是這條月份規則，不必逐站列表維護。
+    return base===(+String(o.date).slice(5,7)<=6?"春季":"夏季");
   }
   if(sv.startsWith("T:")){ // 錦標賽群組：賽季清單只顯示「錦標賽」，地區（台港澳／東南亞）
     const t=sv.slice(2);   // 留到「賽事」那邊再篩（使用者定案 2026-07-31）
