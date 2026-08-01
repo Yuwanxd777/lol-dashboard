@@ -1817,7 +1817,8 @@ const OBJ_ICO=(()=>{const IB="https://raw.communitydragon.org/latest/game/assets
   put(CB+"sru_murkwolf/hud/greatermurkwolf_circle.png","巨狼","小狼","giantwolf","lesserwolf");
   put(CB+"sru_razorbeak/hud/razorbeak_circle.png","幽魂","小幽魂","wraith","lesserwraith");
   put(CB+"sru_gromp/hud/gromp_circle.png","陰屍","wight");
-  put(IB+"dragon.png","飛龍","小龍","dragon");   // 2013 只有一種龍（當年通稱飛龍），元素龍是 2016 才有
+  put(IB+"dragon.png","飛龍","小龍","元素龍","dragon");   // 2013 只有一種龍（當年通稱飛龍），元素龍是 2016 才有；
+                                                          // 「元素龍」這個鍵是給 mechObjName 對到的物件正名「元素龍（小龍總覽）」用的
   return m;})();
 const objIco=n=>{const k=String(n||"").toLowerCase().replace(/（[^）]*）/g,"").replace(/[\s·]+/g,"");
   if(!k)return "";
@@ -4737,7 +4738,15 @@ const objHistOf=n=>{const k=OBJ_WIKI[n]; return (k&&window.WIKI_OBJECTIVES&&wind
 const OBJ_MECH_RE=[["Turret",/防禦塔|砲塔|強化堡壘|銅牆鐵壁/],["Inhibitor",/水晶兵營|兵營/],["Nexus",/主堡/],
   ["Baron_Nashor",/巴龍/],["Rift_Herald",/預示者|先鋒/],["Voidgrubs",/虛空幼蟲|巢蟲/],["Atakhan",/亞塔坎|阿塔坎/],
   ["Dragon_(League_of_Legends)",/元素龍|小龍/],["Elder_Dragon",/遠古龍/],["Rift_Scuttler",/河蟹|斥候蟹/],
-  ["Blue_Sentinel",/藍\s?Buff|藍色哨兵/i],["Red_Brambleback",/紅\s?Buff|紅色荊棘/i],
+  // 2013 舊名視為現在的 Buff 野怪（使用者定案 2026-08-01）：遠古石魔＝藍 Buff、
+  // 蜥蜴長老／小蜥蜴＝紅 Buff。**「◯◯戰魂」是打野道具、不是野怪**（蜥蜴長老戰魂／
+  // 遠古戰魂），用 (?!戰魂) 擋掉，否則會被當成野怪改動歸進 Buff 的歷年紀錄。
+  ["Blue_Sentinel",/藍\s?Buff|藍色哨兵|遠古石魔(?!戰魂)/i],
+  ["Red_Brambleback",/紅\s?Buff|紅色荊棘|蜥蜴長老(?!戰魂)|小蜥蜴/i],
+  // 其餘 2013 舊野怪 → 現在同一個營地的野怪（順序要在藍／紅 Buff 之後：「遠古石魔」
+  // 也含「石魔」，先比對過 Buff 才輪到這裡）
+  ["Ancient_Krug",/大?石魔|雙石像|石甲蟲/],["Murk_Wolf",/[巨小]狼|三狼/],
+  ["Crimson_Raptor",/小?幽魂|六鳥|猛禽/],["Gromp",/陰屍|啾吉|魔沼蛙/],["Dragon",/飛龍/],
   ["Super_Minion",/超級士兵|超級兵/],["Minion_(League_of_Legends)",/小兵/]];
 const mechObjName=nm=>{for(const[k,re]of OBJ_MECH_RE){ if(re.test(nm)){ const disp=Object.keys(OBJ_WIKI).find(n2=>OBJ_WIKI[n2]===k); if(disp)return disp; } } return null;};
 const mechLinesForObj=objName=>{ const k=OBJ_WIKI[objName]; const ent=OBJ_MECH_RE.find(([k2])=>k2===k); if(!ent)return {};
@@ -7918,7 +7927,10 @@ function render(){
         const _E=(typeof EXTRA_IMG!=="undefined")?EXTRA_IMG:null; let u=_E&&(typeof xKey==="function"?_E[xKey(_E,nm)||nm]:_E[nm]);
         // 歷史年份先查資產索引（身份鏈依年選 id）：現行表檔名經 itemVerImg 釘回舊版會踩 id 重用（2420 在 2022=停滯鐘錶、2024+=探索者護腕）
         u=((typeof isHistYear==="function"&&isHistYear())?assetImg(nm,curYear):"")||(u?itemVerImg(u):assetImg(nm,curYear));
-        if(!u)u=objIco(nm);                       // 物件條目（26.14 藍Buff）→ 官方野怪/小地圖圖
+        // 物件條目（26.14 藍Buff）→ 官方野怪/小地圖圖。**資產表查得到的一律不走這條**：
+        // objIco 是子字串比對，「蜥蜴長老戰魂」（打野道具）會誤中「蜥蜴長老」而掛上紅 Buff
+        // 的野怪圖（2026-08-01 使用者提醒「戰魂是道具，不要混到」）。
+        if(!u&&!(typeof assetOf==="function"&&assetOf(nm)))u=objIco(nm);
         const zh=assetZh(nm);                     // 英文名 → 官方中文名（Predator → 掠食者）
         if(sec==="機制"){ const on=(typeof mechObjName==="function")&&mechObjName(nm); const ou=on&&(typeof objIco==="function")&&objIco(on); // 機制條目：用「它改的那個物件」的官方圖
           if(ou){ const bg={"外塔（一塔）":"1","內塔（二塔）":"2","高地塔（三塔）":"3","主堡雙塔":"4"}[on]; // 塔的層級數字與物件頁一致
