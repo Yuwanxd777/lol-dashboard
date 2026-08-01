@@ -634,17 +634,59 @@ def merge_wiki(year, table):
     iL, iS, iD = hdr.index("league"), hdr.index("split"), hdr.index("date")
     iG, iP = hdr.index("game"), hdr.index("participantid")
     iBT, iRT = hdr.index("blue_teamname"), hdr.index("red_teamname")
-    gkey = lambda r: (r[iL], str(r[iS]).split(" PO")[0], str(r[iD])[:10],
+    # 去重鍵**不含 split**（2026-08-01 修）：OE 對盃賽的賽段欄是空的，wiki 版帶站名
+    #（IEM 的「S9 世界賽」），把 split 算進鍵會判成兩場不同的比賽 → 2015~2017 的 IEM
+    # 整批重複收錄（使用者要求分站後才發現）。兩隊用 frozenset 比，藍紅顛倒也算同一局。
+    iBC, iRC = hdr.index("blue_champion"), hdr.index("red_champion")
+    gkey = lambda r: (r[iL], str(r[iD])[:10],
                       frozenset((r[iBT] or "", r[iRT] or "")), str(r[iG]), str(r[iP]))
+    # 第二層「同一局」判定：日期＋該局十個英雄。同一支隊兩邊寫法可能不同（wiki 的
+    # GE Tigers ＝ OE 的 ROX Tigers），只靠隊名鍵會對不上而把同一局收兩份；而十個英雄
+    # 的組合對一局來說是固定的，跟隊名、局號怎麼標都無關。**不能只用英雄不看局**——
+    # 早年英雄池小，逐列比對（pid＋兩個英雄）會把同日不同場誤判成同一局（實測 2013 掉了
+    # 1474 列）。所以先分組成局，再比整局的英雄集合。（2026-08-01）
+    def _by_game(rows):
+        g = {}
+        for r in rows:
+            g.setdefault((r[iL], str(r[iD])[:10], str(r[iG]),
+                          frozenset((r[iBT] or "", r[iRT] or ""))), []).append(r)
+        return g
+
+    def _cset(rs):
+        return frozenset(str(x) for r in rs for x in (r[iBC], r[iRC]) if x)
+
     have = {gkey(r) for r in table[1:]}
+    oe_c = {}
+    for k, rs in _by_game(table[1:]).items():
+        cs = _cset(rs)
+        if len(cs) >= 8:                       # 十個英雄齊全才拿來當識別（有缺就不夠獨特）
+            oe_c.setdefault((k[0], k[1], cs), []).extend(rs)
     for key, v in D.items():
         rows = remap_rows([v["header"]] + v["rows"], hdr)
-        keep = [r for r in rows if gkey(r) not in have]
+        keep, filled, dup = [], 0, 0
+        for k, rs in _by_game(rows).items():
+            cs = _cset(rs)
+            old = oe_c.get((k[0], k[1], cs)) if len(cs) >= 8 else None
+            if old or all(gkey(r) in have for r in rs):
+                dup += len(rs)
+                sp = next((str(r[iS]) for r in rs if str(r[iS]).strip()), "")
+                if sp and old:                 # OE 沒填賽段（盃賽常見）→ 用 wiki 的站名補上
+                    for o in old:
+                        if not str(o[iS]).strip():
+                            o[iS] = sp; filled += 1
+                continue
+            keep += rs
+            for r in rs:
+                have.add(gkey(r))
+            if len(cs) >= 8:
+                oe_c.setdefault((k[0], k[1], cs), []).extend(rs)
+        if keep:
+            table = table + keep
         if not keep:
-            print(f"  wiki {key}：OE 已全數收錄 → 不併入"); continue
-        table = table + keep
-        have |= {gkey(r) for r in keep}
-        print(f"  wiki {key}：+{len(keep)} 列（{v.get('src','?')}；OE 已有的 {len(rows)-len(keep)} 列略過）")
+            print(f"  wiki {key}：OE 已全數收錄 → 不併入"
+                  + (f"（補上賽段 {filled} 列）" if filled else "")); continue
+        print(f"  wiki {key}：+{len(keep)} 列（{v.get('src','?')}；OE 已有的 {dup} 列略過"
+              + (f"，其中補上賽段 {filled} 列" if filled else "") + "）")
     return table
 
 
@@ -770,6 +812,51 @@ def merge_stats(year, table):
         tot = sum(filled.values())
         print(f"  逐選手數據 {hit} 人次對上（{miss} 落空）／補 {tot} 欄："
               + "、".join(f"{k} {v}" for k, v in filled.most_common()))
+    return table
+
+
+def fill_cup_split(year, table):
+    """分站盃賽（IEM）OE 沒填賽段 → 用同一份資料裡已標好賽段的比賽日期範圍回填。
+
+    merge_wiki 會逐局比對補一輪，但兩邊隊名寫法不同的對不上（wiki 寫 GE Tigers、
+    OE 寫 ROX Tigers），那些列的賽段還是空的。各站的舉辦日期本來就不重疊，
+    用日期落點判斷是安全的。（使用者要求 2026-08-01：IEM 每站站名都要標清楚）
+    """
+    hdr = table[0]
+    iL, iS, iD = hdr.index("league"), hdr.index("split"), hdr.index("date")
+    rng = {}
+    for r in table[1:]:
+        sp = str(r[iS] or "").strip()
+        if r[iL] != "IEM" or not sp:
+            continue
+        d = str(r[iD])[:10]
+        a = rng.get(sp)
+        rng[sp] = (min(a[0], d), max(a[1], d)) if a else (d, d)
+    if not rng:
+        return table
+
+    def _shift(d, k):                          # 日期前後挪一天（不引 datetime，字串夠用）
+        import datetime as _dt
+        try:
+            return (_dt.date(*map(int, d.split("-"))) + _dt.timedelta(days=k)).isoformat()
+        except Exception:
+            return d
+
+    # 範圍前後各放寬一天：OE 用 UTC、Leaguepedia 用當地日期，跨日的決賽會差一天
+    #（IEM Oakland 2016 決賽 wiki 記 11-20、OE 記 11-21）
+    rng = {sp: (_shift(a, -1), _shift(b, 1)) for sp, (a, b) in rng.items()}
+    n = 0
+    for r in table[1:]:
+        if r[iL] != "IEM" or str(r[iS] or "").strip():
+            continue
+        d = str(r[iD])[:10]
+        for sp, (a, b) in rng.items():
+            if a <= d <= b:
+                r[iS] = sp
+                n += 1
+                break
+    if n:
+        print(f"  IEM 賽段依日期回填 {n} 列")
     return table
 
 
@@ -904,6 +991,7 @@ def main():
         table = merge_patch(y, table)      # OE 未收錄賽段的補充資料（OE 有的一律以 OE 為準）
         table = merge_stats(y, table)      # 老賽季逐選手 KDA/CS/金錢（wiki 文字版沒有 → 只填空欄位）
         table = merge_patch_release(y, table)   # 空的版本欄依官方改版日期回推
+        table = fill_cup_split(y, table)   # 盃賽分站：OE 沒填的賽段依日期回填（見函式說明）
         table = unify_players(table)       # 選手 ID 大小寫統一（要排在所有 merge 之後，見下）
         write_year(y, table)
     write_manifest()

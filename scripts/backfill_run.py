@@ -14,6 +14,10 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import fetch_wiki_mh as MH
 
+# wikifill 的 key 片段：只留英數與中日韓字。純去英數會讓「S7 卡托維茲」「S7 世界賽」
+# 一起塌成 S7 而互相覆蓋（2026-08-01 抓 IEM 時發現）。
+_kslug = lambda s: re.sub(r"[^A-Za-z0-9一-鿿぀-ヿ가-힯]+", "", str(s or ""))
+
 # (年, 聯賽碼, 賽段, 季後賽, [賽事名候選])
 JOBS = [
     # ── 2013 ──
@@ -101,7 +105,35 @@ JOBS = [
     # **隊名要模糊比對**——直接比會被改名/前後綴誤判成缺（Anarchy↔Rebels Anarchy、
     # KOO Tigers↔ROX Tigers、SBENU Sonicboom↔SBENU Korea），初估「缺 500 場」其實
     # 多半是假象。以下是隊名 0% 對得上、確認整段沒有的：
-    (2013, "IEM", "", 0, ["IEM Season 7 World Championship"]),   # 我們同期 0 列
+    # ── IEM（使用者定案 2026-08-01）──
+    # 從 2013 的 Katowice 站開始一路抓到最後一站（S11 世界賽，2017-02）；Leaguepedia 之後
+    # 就沒有 LoL 的 IEM 了。賽段寫「S{屆} {站名}」，站名用台灣慣用譯名；World Championship
+    # 不寫地名、只寫「S{屆} 世界賽」。
+    # S11 Challenger（2016-10 法國，22 局）不抓：Leaguepedia 標 IsQualifier=1，性質是
+    # IEM Oakland 的資格賽，比照使用者先前定案的「Qualifiers 不抓」。
+    # 年份＝比賽實際發生的年份（backfill 依此寫進 wikifill_{年}.json，跨年的站要放對）。
+    (2013, "IEM", "S7 卡托維茲", 0, ["IEM Season 7 Katowice"]),
+    (2013, "IEM", "S7 世界賽",   0, ["IEM Season 7 World Championship"]),
+    (2013, "IEM", "S8 上海",     0, ["IEM Season 8 Shanghai"]),
+    (2013, "IEM", "S8 科隆業餘", 0, ["IEM Season 8 Cologne Amateur"]),
+    (2013, "IEM", "S8 新加坡",   0, ["IEM Season 8 Singapore"]),
+    (2014, "IEM", "S8 聖保羅",   0, ["IEM Season 8 Sao Paulo"]),
+    (2014, "IEM", "S8 世界賽",   0, ["IEM Season 8 World Championship"]),
+    (2014, "IEM", "S9 深圳",     0, ["IEM Season 9 Shenzhen"]),
+    (2014, "IEM", "S9 聖荷西",   0, ["IEM Season 9 San Jose"]),
+    (2014, "IEM", "S9 科隆",     0, ["IEM Season 9 Cologne"]),
+    (2015, "IEM", "S9 台北",     0, ["IEM Season 9 Taipei"]),
+    (2015, "IEM", "S9 世界賽",   0, ["IEM Season 9 World Championship"]),
+    # ⚠ 下面四站的年份**故意不等於比賽日期的年份**：OE 把 IEM 按「賽季年」歸檔（S10 橫跨
+    # 2015-11~2016-03 全放 data_2016、S11 橫跨 2016-10~2017-02 全放 data_2017）。這裡若照
+    # 日期年放到 2015／2016，wiki 版與 OE 版就落在不同檔案，merge_wiki 只在同一檔內比對、
+    # 去重抓不到，整批變成重複收錄（2026-08-01 實測 data_2015 與 data_2016 各有一份聖荷西）。
+    (2016, "IEM", "S10 聖荷西",  0, ["IEM Season 10 San Jose"]),      # 實際 2015-11
+    (2016, "IEM", "S10 科隆",    0, ["IEM Season 10 Cologne"]),       # 實際 2015-12
+    (2016, "IEM", "S10 世界賽",  0, ["IEM Season 10 World Championship"]),
+    (2017, "IEM", "S11 奧克蘭",  0, ["IEM Season 11 Oakland"]),       # 實際 2016-11
+    (2017, "IEM", "S11 京畿",    0, ["IEM Season 11 Gyeonggi"]),      # 實際 2016-12
+    (2017, "IEM", "S11 世界賽",  0, ["IEM Season 11 World Championship"]),
     (2015, "LCO", "Split 1", 0, ["OPL 2015 Split 1"]),           # LCO 2015 只有夏季
     (2015, "LCO", "Split 2", 0, ["OPL 2015 Split 2"]),           # 夏季有一部分，補齊
     (2015, "LJL", "Spring", 0, ["LJL 2015 Season 1"]),           # LJL 2015 整年沒有
@@ -125,8 +157,10 @@ def main():
         if yrs and year not in yrs:
             continue
         # split 是中文或空字串時（如 WLDs 的「入圍賽」）去符號後會變空 → 同年同聯賽的兩個賽事撞 key
-        # → 退而用賽事名當識別（WLDs_2013_IWCT2013）
-        key = (f"{lg}_{year}_{re.sub(r'[^A-Za-z0-9]+','',split) or re.sub(r'[^A-Za-z0-9]+','',names[0])}"
+        # → 退而用賽事名當識別（WLDs_2013_IWCT2013）。
+        # 中日韓字要保留（2026-08-01 修）：原本只留 [A-Za-z0-9]，IEM 的「S7 卡托維茲」與
+        # 「S7 世界賽」雙雙變成 S7，同年五個站被壓成兩個 key、資料互相覆蓋。
+        key = (f"{lg}_{year}_{_kslug(split) or _kslug(names[0])}"
                + ("_PO" if po else ""))   # 季後賽是獨立賽事，key 不加後綴會跟同賽段的例行賽撞
         print(f"\n[{year} {lg} {split}]", flush=True)
         done = False
@@ -152,7 +186,7 @@ def main():
             D = json.load(open(p, encoding="utf-8"))
         except Exception:
             continue
-        live = {f"{lg}_{yy}_{re.sub(r'[^A-Za-z0-9]+','',sp) or re.sub(r'[^A-Za-z0-9]+','',nms[0])}"
+        live = {f"{lg}_{yy}_{_kslug(sp) or _kslug(nms[0])}"
                 + ("_PO" if _po else "")
                 for (yy, lg, sp, _po, nms, *_x) in JOBS if yy == y}   # key 規則要跟上面那行一致
         # ⚠ 只清「本檔（MatchHistoryGame）產的」key。fetch_wiki_pb.py 的成果存在同一個檔裡，
