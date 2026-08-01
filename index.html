@@ -2562,10 +2562,14 @@ const d1s=v=>(+v).toFixed(1).replace(/\.0$/,""); // 一位小數；小數為 0 �
 // 賽段 → Leaguepedia 頁的連結（wiki_links.js 由 scripts/fetch_wiki_links.py 產：拿 Cargo
 // ScoreboardGames 每一局帶的 OverviewPage 做多數決，查不到的退回抓取管線登記的頁名）。
 // 查不到就回空字串 → spLink 原樣輸出純文字，不會生出死連結。（使用者要求 2026-08-01）
-const wikiHref=(lg,sp)=>{ const m=(window.WIKI_LINKS||{})[String(curYear)]||{}, e=m[lg]||{};
-  const p=e[sp]||e[String(sp||"").replace(/ PO$/,"")]||"";
+// anyIfMiss＝合併卡的子賽事標籤（PCS 卡上的 LCO／LJL、LTA 卡上的北區／南區）：標籤本身
+// 就是聯賽碼、沒有對應賽段，該聯賽當年若沒有「整個賽事」的頁就退回任一賽段頁——連到該
+// 聯賽總比沒有連結好。一般賽段標題不吃這個退路，免得連到不相干的賽段。
+const wikiHref=(lg,sp,anyIfMiss)=>{ const m=(window.WIKI_LINKS||{})[String(curYear)]||{}, e=m[lg]||{};
+  let p=e[sp]||e[String(sp||"").replace(/ PO$/,"")]||"";
+  if(!p&&anyIfMiss)p=Object.values(e)[0]||"";
   return p?"https://lol.fandom.com/wiki/"+encodeURI(String(p).replace(/ /g,"_")):""; };
-const spLink=(lg,sp,txt)=>{ const h=wikiHref(lg,sp);
+const spLink=(lg,sp,txt,anyIfMiss)=>{ const h=wikiHref(lg,sp,anyIfMiss);
   return h?`<a class="spWiki" href="${h}" target="_blank" rel="noopener" title="${esc(spDisp(sp))}｜到 Leaguepedia 看這個賽段">${txt}</a>`:txt; };
 const lgTagOn=()=>F.league==="ALL"||!!LG_GROUP[F.league]||F.league==="EWCQ"; // 全部或群組篩選＝混合聯賽 → 名稱旁要標賽區
 const stripRgnParen=s=>String(s).replace(/（[^（）]*）\s*$/,""); // 名稱旁已有賽區色塊(lgChip)時，去掉碰撞縮寫尾端重複的（聯賽碼）；選手名不以（）結尾＝無操作
@@ -2960,9 +2964,10 @@ const eventsTreeHTML=()=>{
       const host=x._pcsHost, hostSet=x._pcsRegN&&x._pcsRegN.size?x._pcsRegN:x._pcs[host];
       const hostAb=new Set([...(x._pcs[host]||new Set())].map(t2=>tAb(t2))); // 有 PCS 場次＝晉級季後賽
       const segP=(lb,arr,nl,adv)=>arr.length?`<span class="evtPromoDiv evtGrpDiv${nl?" evtGrpNL":""}"><i>${lb}</i></span>`+chips(arr,adv):"";
-      mainChips=segP(host,[...hostSet].filter(t2=>!poSet.has(t2)),true,null);
+      // 合併卡的子賽事標籤本身就是聯賽碼 → 各自連到該聯賽當年的 wiki 頁
+      mainChips=segP(spLink(host,"",esc(host),true),[...hostSet].filter(t2=>!poSet.has(t2)),true,null);
       Object.entries(x._pcs).forEach(([k,set])=>{ if(k===host)return;
-        mainChips+=segP(k,[...set].filter(t2=>!poSet.has(t2)),false,hostAb); });
+        mainChips+=segP(spLink(k,"",esc(k),true),[...set].filter(t2=>!poSet.has(t2)),false,hostAb); });
     }else if(x._grp){ // LTA 合併卡：晉級 LTA（跨區賽）自成一段 → 北區 → 南區（各段帶標籤分線；一隊只列最高段）
       const qset=x._grp["LTA"]||new Set(), nset=x._grp["LTA N"]||new Set(), sset=x._grp["LTA S"]||new Set();
       const seg=(lb,arr,nl)=>arr.length?`<span class="evtPromoDiv evtGrpDiv${nl?" evtGrpNL":""}"><i>${lb}</i></span>`+chips(arr):"";
@@ -2974,8 +2979,10 @@ const eventsTreeHTML=()=>{
       // 北區/南區與升降區同款左右並排（灰虛線分組 → 北區｜灰虛豎線｜南區）；晉級 LTA 跨區賽的在分區欄亮黃框
       const advQ=new Set([...qset].map(t2=>tAb(t2)));
       const colL=(lb,arr)=>arr.length?`<div class="evtPromoGrp"><div class="evtPromoLb">${lb}</div>${chips(arr,advQ,x.tinfoNP)}</div>`:""; // 分區欄以非升降時間排序
-      const nsCols=[colL(LANG==="en"?"North":"北區",nArr),colL(LANG==="en"?"South":"南區",sArr)].filter(Boolean).join(`<div class="evtPromoVr"></div>`);
-      mainChips=chips(rest)+seg("LTA",qArr,true)+(nsCols?`<span class="evtPromoDiv evtGrpHr"></span><div class="evtPromoCols">${nsCols}</div>`:"");
+      // 三個段落的標籤各自連 wiki：LTA 跨區賽、北區＝LTA N、南區＝LTA S
+      const nsCols=[colL(spLink("LTA N","",LANG==="en"?"North":"北區",true),nArr),
+                    colL(spLink("LTA S","",LANG==="en"?"South":"南區",true),sArr)].filter(Boolean).join(`<div class="evtPromoVr"></div>`);
+      mainChips=chips(rest)+seg(spLink("LTA","","LTA",true),qArr,true)+(nsCols?`<span class="evtPromoDiv evtGrpHr"></span><div class="evtPromoCols">${nsCols}</div>`:"");
     }else if(x._ewcQ){ // EWC 合併卡：本賽（EWC 標籤無線）→ 各區資格賽段（完整名單，晉級的照列）
       const _mainAb=new Set([...(x._ewcMain||new Set())].map(t2=>tAb(t2)));
       const _qAb=new Set(); Object.values(x._ewcQ).forEach(s2=>s2.forEach(t2=>_qAb.add(tAb(t2))));
@@ -2997,16 +3004,20 @@ const eventsTreeHTML=()=>{
       const _wAll=new Set(); days.forEach(d=>x.wDates[d].forEach(t2=>_wAll.add(t2))); // 世界賽本體（正賽+入圍）的隊
       // 資料已標入圍賽（2013 國際外卡賽）就直接照它分，不必猜日期
       const _hasPI=x._piT&&x._piT.size&&x._mnT&&x._mnT.size;
+      const seg=(lb,arr,adv)=>arr.length?`<span class="evtPromoDiv evtGrpDiv"><i>${lb}</i></span>`+chips(arr,adv):"";
+      // 正賽段也要有標題（使用者回報 2026-08-01「世界大賽沒改到」）：原本正賽的隊伍籤直接
+      // 掛在卡名底下、沒有標籤，只有入圍賽那段有 → 正賽就沒有地方可以點去 wiki。
+      // 連的是本體頁（wiki_links 的空賽段，2023 起 Leaguepedia 拆成 .../Main Event）。
+      const _mainLb=spLink(x.lg,"",LANG==="en"?"Main Event":"正賽");
       let inner;
-      if(!mainStart&&!_hasPI){ inner=chips([..._wAll]); }
+      if(!mainStart&&!_hasPI){ inner=seg(_mainLb,[..._wAll]); }
       else{
         let pin=new Set(), mn=new Set();
         if(_hasPI){ pin=x._piT; mn=x._mnT; }
         else days.forEach(d=>{x.wDates[d].forEach(t2=>{(d<mainStart?pin:mn).add(t2);});});
         const _mnAb=new Set([...mn].map(t2=>tAb(t2))), _piAb=new Set([...pin].map(t2=>tAb(t2)));
         const _advAb=new Set([..._piAb].filter(ab=>_mnAb.has(ab))); // 入圍賽→正賽晉級＝綠框
-        const seg=(lb,arr,adv)=>arr.length?`<span class="evtPromoDiv evtGrpDiv"><i>${lb}</i></span>`+chips(arr,adv):"";
-        inner=chips([...mn])+seg(spLink(x.lg,"入圍賽",LANG==="en"?"Play-In":"入圍賽"),[...pin],_advAb); // 正賽段不上綠框（晉級標記只留在入圍/資格段）
+        inner=seg(_mainLb,[...mn])+seg(spLink(x.lg,"入圍賽",LANG==="en"?"Play-In":"入圍賽"),[...pin],_advAb); // 正賽段不上綠框（晉級標記只留在入圍/資格段）
       }
       if(x._wq){ // 各區資格賽段：晉級＝有進世界賽本體（正賽或入圍）者綠框
         const _wAb=new Set([..._wAll].map(t2=>tAb(t2)));

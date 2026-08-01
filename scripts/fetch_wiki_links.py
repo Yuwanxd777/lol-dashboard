@@ -29,6 +29,9 @@ UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.3
 PAGE = 2000        # CargoExport 單次上限
 # 前端的賽段正名（index.html：Opening＝春季、Closing＝夏季，LLA／CBLOL 用語統一成春夏）
 SP_ALIAS = {"Opening": "春季", "Opening PO": "春季 PO", "Closing": "夏季", "Closing PO": "夏季 PO"}
+# 世界賽資格賽的聯賽碼＝WQS＋區域中文名（與 index.html 的 LEAGUE_META.region 對齊）
+WQS_REGION = {"LPL": "中國", "LCK": "韓國", "LEC": "歐洲", "LCS": "北美", "PCS": "太平洋",
+              "VCS": "越南", "CBLOL": "巴西", "LLA": "拉丁美洲", "LJL": "日本"}
 GAP = 1.5
 _OP = None
 
@@ -179,6 +182,13 @@ def main():
                     # 日期把它分出來的 → 靠 wiki 頁名認出來，另外記一份給「入圍賽」那段用
                     if re.search(r"Play[- ]?In", pg, re.I):
                         vote[(lg, "入圍賽")][pg] += 1
+                    # 世界賽卡誤含的各賽區資格賽（2022-2025）：資料檔裡 league 還是 WLDs，
+                    # index.html 載入時才依日期改標成 WQS{區}（見 _WQS_CUT）。抓取端看不到
+                    # 那個碼，改用 wiki 頁名認：各區資格賽的頁是「{聯賽}/…Regional Finals」。
+                    if lg == "WLDs" and re.search(r"Regional Finals", pg, re.I):
+                        rgn = WQS_REGION.get(pg.split("/")[0].strip())
+                        if rgn:
+                            vote[("WQS" + rgn, "")][pg] += 1
                     break
         ymap = {}
         for (lg, sp), c in sorted(vote.items()):
