@@ -39,13 +39,16 @@ UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.3
 GAP = 2.0     # 每次請求間隔（禮貌節流；gol.gg 無硬限流）
 
 # ── 要補的賽段（OE 收錄後自動停用，不必手動刪） ──
+# wiki＝Leaguepedia 的賽事名（給 build_wiki 用）。**兩邊都抓再合併**（2026-08-02 使用者定案）：
+# gol.gg 逐選手數據齊全但**局數會漏**，Leaguepedia 幾乎不漏比賽但沒有逐選手數據——
+# 實測 LPL 2026 Split 3：gol.gg 33 局、Leaguepedia 56 局（差 23 局）。
 FILL = [
-    {"key": "LPL_2026_S3", "tournament": "LPL 2026 Split 3",
+    {"key": "LPL_2026_S3", "tournament": "LPL 2026 Split 3", "wiki": "LPL 2026 Split 3",
      "league": "LPL", "split": "Split 3", "year": 2026, "playoffs": 0},
     # LCK 也開始缺（2026-07-31 使用者回報）：主資料停在 S2 PO 6/14，Rounds 3-4（＝儀表板 S3）一局都沒有。
     # gol.gg 的賽事名是「LCK 2026 Rounds 3-4」（實測 10 個系列賽、已完成 4，最新 7/30）；
     # split 直接寫 S3——`sn` 只會把「Split N」轉成「SN」，本來就是 S3 的照用。
-    {"key": "LCK_2026_S3", "tournament": "LCK 2026 Rounds 3-4",
+    {"key": "LCK_2026_S3", "tournament": "LCK 2026 Rounds 3-4", "wiki": "LCK 2026 Rounds 3-4",
      "league": "LCK", "split": "S3", "year": 2026, "playoffs": 0},
 ]
 
@@ -410,7 +413,12 @@ def to_csv_rows(games, cfg):
 
 
 # ────────────────────────── 主流程 ──────────────────────────
-def build(cfg, force=False, dump=False):
+def gate(cfg):
+    """OE 追上了沒 → (還需要補嗎, OE 局數, prev, fill_path)。gol.gg 與 wiki 兩條補充共用同一道閘門。
+
+    「自己補進去的局」一定要用 fill JSON 存的 gkeys 從 OE 局數扣掉：data_{年}.js 本身已含
+    補充資料，不扣就會把自己補的當成「OE 已追上」而把補充資料刪掉（2026-07-28 實際踩過）。
+    """
     sn = cfg["split"].replace("Split ", "S")
     fill_path = os.path.join(CACHE, f"fill_{cfg['year']}.json")
     prev = {}
@@ -420,13 +428,19 @@ def build(cfg, force=False, dump=False):
     _pv = prev.get(cfg["key"], {})
     mine = _pv.get("gkeys") or []      # 上次自己補進去的局 → 不能算成「OE 已收錄」
     if not mine and _pv.get("rows"):
-        # 舊格式（沒存 gkeys）就地補算：否則 data_{年}.js 裡自己補的那些局會被當成 OE 的，
-        # 誤判「OE 已追上」→ 把補充資料刪掉（2026-07-28 實際踩過一次）
+        # 舊格式（沒存 gkeys）就地補算
         mine = sorted({gkey_of(_pv["header"], r) for r in _pv["rows"]})
         _pv["gkeys"] = mine
     n_oe = oe_games(cfg["year"], cfg["league"], sn, exclude=mine)
-    n_prev = len(prev.get(cfg["key"], {}).get("games") or [])
-    if n_oe and n_oe >= max(n_prev, 1):
+    n_prev = len(_pv.get("games") or [])
+    return (not (n_oe and n_oe >= max(n_prev, 1))), n_oe, prev, fill_path
+
+
+def build(cfg, force=False, dump=False):
+    sn = cfg["split"].replace("Split ", "S")
+    need, n_oe, prev, fill_path = gate(cfg)
+    if not need:
+        n_prev = len(prev.get(cfg["key"], {}).get("games") or [])
         print(f"  {cfg['key']}：OE 已收錄 {n_oe} 局（補充版 {n_prev} 局）→ 停用補充資料")
         if cfg["key"] in prev:
             prev.pop(cfg["key"])
@@ -468,11 +482,50 @@ def build(cfg, force=False, dump=False):
     return table
 
 
+def build_wiki(cfg):
+    """同一賽段再從 Leaguepedia 文字版 MH 抓一份 → wikifill_{年}.json（2026-08-02 使用者定案）。
+
+    **為什麼兩邊都要抓**：gol.gg 逐選手數據齊全（KDA／金錢／CS／傷害／GD@15）但**局數會漏**；
+    Leaguepedia 幾乎不漏比賽，但沒有逐選手數據。實測 LPL 2026 Split 3：gol.gg 33 局、wiki 56 局。
+    合併順序已經是對的（fetch_data：merge_fill 先、merge_wiki 後，同一局已存在就丟掉 wiki 版）
+    → 有 gol.gg 的局用 gol.gg 的完整數據，gol.gg 漏掉的局至少有隊伍／勝負／BP／英雄。
+    逐選手 KDA／CS／金錢之後可再靠 fetch_wiki_stats.py（Cargo ScoreboardPlayers）補空欄位。
+
+    HTML 一律重抓（不吃快取）：賽段進行中，用快取就拿不到這週的新比賽。
+    """
+    if not cfg.get("wiki"):
+        return None
+    need, n_oe, _, _ = gate(cfg)
+    wp = os.path.join(CACHE, f"wikifill_{cfg['year']}.json")
+    if not need:
+        # OE 追上時要跟 gol.gg 版一起停用，否則會留下一批沒有逐選手數據的 wiki 列
+        if os.path.exists(wp):
+            with open(wp, encoding="utf-8") as f:
+                W = json.load(f)
+            if W.pop(cfg["key"], None) is not None:
+                with open(wp, "w", encoding="utf-8") as f:
+                    json.dump(W, f, ensure_ascii=False)
+                print(f"    已移除 wiki 補充資料（{cfg['key']}）")
+        return None
+    sys.path.insert(0, HERE)
+    import fetch_wiki_mh
+    print(f"  {cfg['key']}：Leaguepedia「{cfg['wiki']}」…")
+    try:
+        return fetch_wiki_mh.build({"tour": cfg["wiki"], "league": cfg["league"],
+                                    "split": cfg["split"], "year": cfg["year"],
+                                    "playoffs": cfg.get("playoffs", 0), "key": cfg["key"]},
+                                   force=True)
+    except Exception as e:      # wiki 掛掉不能連帶讓 gol.gg 那份也沒寫成
+        print(f"    ⚠ wiki 補充失敗（略過，gol.gg 版照用）：{type(e).__name__}: {e}")
+        return None
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--force", action="store_true", help="重抓 HTML（賽段進行中要拿新比賽用這個）")
     ap.add_argument("--dump", action="store_true", help="只解析不寫檔")
     ap.add_argument("--status", action="store_true", help="只看 OE / 補充 各幾局")
+    ap.add_argument("--no-wiki", action="store_true", help="只抓 gol.gg，不抓 Leaguepedia")
     A = ap.parse_args()
     for cfg in FILL:
         sn = cfg["split"].replace("Split ", "S")
@@ -483,11 +536,19 @@ def main():
                 with open(p, encoding="utf-8") as f:
                     d = json.load(f).get(cfg["key"], {})
                 n = len(d.get("games") or []); mine = d.get("gkeys") or []
-            print(f"  {cfg['key']:14s} OE={oe_games(cfg['year'], cfg['league'], sn, exclude=mine):3d} 局   補充={n:3d} 局")
+            wn = 0
+            wp = os.path.join(CACHE, f"wikifill_{cfg['year']}.json")
+            if os.path.exists(wp):
+                with open(wp, encoding="utf-8") as f:
+                    wn = json.load(f).get(cfg["key"], {}).get("games") or 0
+            print(f"  {cfg['key']:14s} OE={oe_games(cfg['year'], cfg['league'], sn, exclude=mine):3d} 局"
+                  f"   gol.gg={n:3d} 局   wiki={wn:3d} 局")
             continue
         build(cfg, force=A.force, dump=A.dump)
+        if not (A.dump or A.no_wiki):
+            build_wiki(cfg)
     if not A.status:
-        print("完成。（fetch_data.py 寫檔時會併入，OE 有的同一局一律以 OE 為準）")
+        print("完成。（fetch_data.py 寫檔時會併入：OE > gol.gg > wiki，同一局以先者為準）")
 
 
 if __name__ == "__main__":

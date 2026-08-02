@@ -194,15 +194,26 @@ def pname(nm):
     return _PNAME.get(str(nm or "").casefold(), nm)
 
 
-def _patch(v):
-    """wiki 的版本欄補零成 OE 格式（"3.9"→"3.09"）。
+def _patch(v, year=0):
+    """wiki 的版本欄補零成 OE 格式（"3.9"→"3.09"），並把新制年份編號換回 OE 舊制。
 
-    OE 自己就是補零的（CSV 實測全是 5.09/5.11），fetch_data 之後統一 +10 換成 13.xx／15.xx。
-    不補零的話 float("3.9")+10 會被格式化成 "13.90"，看起來像第 90 個版本，
-    而且同一個版本會裂成 15.90／15.09 兩種值（2026-07-31 使用者回報）。
+    ①補零：OE 自己就是補零的（CSV 實測全是 5.09/5.11），fetch_data 之後統一 +10 換成
+      13.xx／15.xx。不補零的話 float("3.9")+10 會被格式化成 "13.90"，看起來像第 90 個版本，
+      而且同一個版本會裂成 15.90／15.09 兩種值（2026-07-31 使用者回報）。
+
+    ②主版號換算（2026-08-02 修）：Riot 2025 起改用**年份編號**（26.14），但 OE 的 CSV 仍是
+      舊制賽季編號（16.14），`process()` 對所有來源一律 +10 → wiki 版直接變成 **36.14**。
+      判準＝主版號正好等於年份末兩碼（26 之於 2026）就先減 10，讓 +10 之後回到正確值。
+      舊年份不會誤判：2013 的 wiki 版本是 3.x、2016 是 6.x，都不等於 13／16。
+      （gol.gg 那條沒事，它抓到的本來就是 OE 舊制的 16.14。）
     """
     m = re.match(r"^\s*(\d+)\.(\d+)\s*$", str(v or ""))
-    return f"{m.group(1)}.{int(m.group(2)):02d}" if m else str(v or "")
+    if not m:
+        return str(v or "")
+    maj, mnr = int(m.group(1)), int(m.group(2))
+    if year and maj == int(year) % 100:
+        maj -= 10
+    return f"{maj}.{mnr:02d}"
 
 
 def to_csv(games, cfg):
@@ -305,7 +316,9 @@ def to_csv(games, cfg):
             put("gameid", gid); put("datacompleteness", "partial")
             put("league", cfg["league"]); put("year", cfg["year"]); put("split", cfg["split"])
             put("playoffs", cfg.get("playoffs", 0)); put("date", dt)
-            put("game", gno); put("patch", _patch(g.get("P", "") or cfg.get("patch", ""))); put("participantid", pid)
+            put("game", gno)
+            put("patch", _patch(g.get("P", "") or cfg.get("patch", ""), cfg.get("year", 0)))
+            put("participantid", pid)
             put("side", side.capitalize()); put("position", pos)
             put("teamname", bt if side == "blue" else rt)
             put("result", "1" if (bwin if side == "blue" else not bwin) else "0")
