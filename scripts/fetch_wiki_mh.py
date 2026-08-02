@@ -29,6 +29,7 @@ CACHE = os.path.join(ROOT, "csv_cache")
 if not os.path.isdir(CACHE) and os.path.isdir(os.path.join(HERE, "csv_cache")):
     CACHE = os.path.join(HERE, "csv_cache")
 HTML_DIR = os.path.join(CACHE, "wikitxt")
+PB_DIR = os.path.join(CACHE, "wikipb")      # {OverviewPage}/Picks and Bans 頁（真實選角順序）
 sys.path.insert(0, HERE)
 
 BASE = "https://lol.fandom.com/wiki/Special:RunQuery/MatchHistoryGame"
@@ -74,6 +75,114 @@ def fetch(tour, force=False):
             print(f"    抓取失敗（{a+1}/3）：{type(e).__name__} {str(e)[:60]}")
             time.sleep(20 * (a + 1))
     return ""
+
+
+# ──────────────── Picks and Bans 頁：真實選角順序 ────────────────
+# MatchHistoryGame 文字版的 Picks 欄是**路線序**（當初就是靠這點直接配對成逐選手列），
+# 拿它當 pick1~5 會讓 fetch_data 的 calc_po 把路線序當選角序 → 順位整個是假的
+#（2026-08-02 使用者回報：LPL/LCK 補進來的局，順位都是預設的 1,3,3,6,6／2,2,4,5,7）。
+# 真實順序只在 {OverviewPage}/Picks and Bans 頁上（Cargo 的 PicksAndBansS7 對 2026 整批是 null、
+# ScoreboardGames 的 Team1Picks 也是路線序，兩張表都拿不到）。
+# 25 欄固定順序（實測 LPL/2026 Season/Split 3）：
+#   0 Phase 1 Team1 2 Team2 3 Score 4 Winner 5 Patch
+#   6 T1B1 7 T2B1 8 T1B2 9 T2B2 10 T1B3 11 T2B3
+#   12 T1P1 13 T2P1-2 14 T1P2-3 15 T2P3
+#   16 T2B4 17 T1B4 18 T2B5 19 T1B5
+#   20 T2P4 21 T1P4-5 22 T2P5      23 SB 24 VOD
+# ⚠**T1／T2 是「賽程上的隊伍一二」，不是藍／紅方**（同一系列每局換邊）→ 哪一組屬於藍方
+#   一律用「該組五隻英雄＝藍方五隻」判定，不可用隊名或欄位順序。
+#   （已用 gol.gg 已知順序的 33 局交叉驗證：PICK 31/33、BAN 32/33 一致，
+#     兩筆不一致都是 gol.gg 那邊的解析缺口，其中一局只解析到 9 隻英雄。）
+PB_T1P, PB_T2P = (12, 14, 21), (13, 15, 20, 22)
+PB_T1B, PB_T2B = (6, 8, 10, 17, 19), (7, 9, 11, 16, 18)
+pbn = lambda s: re.sub(r"[^a-z0-9]", "", str(s or "").lower())
+
+
+def ov_of(tour):
+    """賽事名 → Leaguepedia OverviewPage：「LPL 2026 Split 3」→「LPL/2026 Season/Split 3」"""
+    m = re.match(r"^(\S+)\s+(\d{4})\s+(.+)$", str(tour or "").strip())
+    return f"{m.group(1)}/{m.group(2)} Season/{m.group(3)}" if m else str(tour or "")
+
+
+def pb_page(tour, force=False):
+    os.makedirs(PB_DIR, exist_ok=True)
+    p = os.path.join(PB_DIR, re.sub(r"[^A-Za-z0-9]+", "_", tour).strip("_").lower() + ".html")
+    if os.path.exists(p) and os.path.getsize(p) > 5000 and not force:
+        return open(p, encoding="utf-8").read()
+    url = ("https://lol.fandom.com/api.php?action=parse&page="
+           + urllib.parse.quote(ov_of(tour) + "/Picks and Bans")
+           + "&prop=text&format=json&formatversion=2")
+    for a in range(3):
+        try:
+            raw = opener().open(urllib.request.Request(url, headers=UA), timeout=120).read().decode("utf-8", "replace")
+            d = json.loads(raw)
+            if "error" in d:
+                print(f"    ⚠ Picks and Bans 頁不存在（{ov_of(tour)}）：{d['error'].get('info','')[:60]}")
+                return ""
+            h = d["parse"]["text"]
+            open(p, "w", encoding="utf-8").write(h)
+            time.sleep(GAP)
+            return h
+        except Exception as e:
+            print(f"    Picks and Bans 抓取失敗（{a+1}/3）：{type(e).__name__} {str(e)[:60]}")
+            time.sleep(15 * (a + 1))
+    return ""
+
+
+def pb_orders(tour, force=False):
+    """→ {十隻英雄的 frozenset: {"p":(隊1五手, 隊2五手), "b":(隊1五禁, 隊2五禁)}}
+
+    用整局十隻英雄當鍵：同一局的英雄組合是固定的，跟隊名寫法、局號怎麼標都無關
+    （merge_wiki 判定同一局也是用這招）。抓不到頁面就回 {}，呼叫端自行退回。
+    """
+    html = pb_page(tour, force=force)
+    if not html:
+        return {}
+    tbl = [t for t in re.findall(r"<table[^>]*>.*?</table>", html, re.S) if "pbh-cn" in t]
+    if not tbl:
+        print("    ⚠ Picks and Bans 頁沒有 pbh-cn 表格（版型可能改了）")
+        return {}
+    out = {}
+    for tr in re.findall(r"<tr[^>]*>(.*?)</tr>", tbl[0], re.S):
+        cs = re.findall(r"<t[dh][^>]*>(.*?)</t[dh]>", tr, re.S)
+        if len(cs) < 23 or "pbh-cn" not in tr:
+            continue
+        ch = lambda i: re.findall(r'data-champion="([^"]+)"', cs[i])
+        t1p = ch(12) + ch(14) + ch(21)
+        t2p = ch(13) + ch(15) + ch(20) + ch(22)
+        if len(t1p) != 5 or len(t2p) != 5:
+            continue
+        key = frozenset(pbn(c) for c in t1p + t2p)
+        if len(key) < 10 or key in out:        # 十隻不齊或兩局英雄完全相同 → 不夠獨特，寧可不用
+            out.pop(key, None)
+            continue
+        out[key] = {"p": (t1p, t2p),
+                    "b": ([(ch(i) or [""])[0] for i in PB_T1B],
+                          [(ch(i) or [""])[0] for i in PB_T2B])}
+    return out
+
+
+def pb_of(pb, blue_champs, red_champs):
+    """查某一局的真實順序 → (藍方五手, 紅方五手, 藍方五禁, 紅方五禁, 藍方是否先選)；查不到回 None。
+
+    T1／T2 不是藍紅方 → 用「哪一組的五隻等於藍方五隻」對齊。
+    **T1 ＝先選方**：拿 gol.gg 有 firstPick 真值的 33 局對照，
+    「gol.gg 說藍方先選」與「T1 是藍方」完全一致（14 局藍先、19 局紅先，33/33）。
+    先選方不是固定藍方（LPL 2026 實測紅方先選佔多數），所以一定要判，不能預設藍方。
+    """
+    if not pb:
+        return None
+    b = {pbn(c) for c in blue_champs if c}
+    m = pb.get(frozenset(b | {pbn(c) for c in red_champs if c}))
+    if not m:
+        return None
+    p1, p2 = m["p"]
+    b1, b2 = m["b"]
+    if {pbn(c) for c in p1} == b:
+        return p1, p2, b1, b2, True            # 藍方＝T1 ＝先選方
+    if {pbn(c) for c in p2} == b:
+        return p2, p1, b2, b1, False           # 藍方＝T2 ＝後選方
+    return None                                # 兩組都對不上藍方 → 寧可不用，不要猜
 
 
 def cells_html(row):
@@ -224,6 +333,8 @@ def to_csv(games, cfg):
     nk = lambda s: re.sub(r"[^0-9a-z]", "", str(s or "").lower())
     align = lambda s, m: m.get(nk(s), s)
     POS5 = ["top", "jng", "mid", "bot", "sup"]
+    PB = pb_orders(cfg["tour"], force=cfg.get("pb_force", True))   # 真實選角順序（賽段進行中要重抓）
+    pb_hit = pb_miss = 0
     rows = []
     day = {}
     sday = {}          # 每天已出現幾個系列賽（給同日多系列排序用）
@@ -303,6 +414,10 @@ def to_csv(games, cfg):
                 bans[_s] = [""] * (len(bans[_o]) if not _allnone(bans[_o])
                                    else (3 if int(cfg["year"]) <= 2014 else 5))
         picks = {"blue": SPL(g.get("Picks")), "red": SPL(g.get("Picks2"))}
+        # 真實選角順序（Picks and Bans 頁）；查不到就回 None，下面退回路線序
+        od = pb_of(PB, picks["blue"], picks["red"])
+        if PB:
+            pb_hit += bool(od); pb_miss += not od
         roster = {"blue": SPL(g.get("Blue Roster")), "red": SPL(g.get("Red Roster"))}
         num = lambda k: re.sub(r"[^0-9.]", "", str(g.get(k, "") or ""))
         obj = {"blue": {"g": num("BG"), "k": num("BK"), "t": num("BT"), "d": num("BD"),
@@ -319,6 +434,11 @@ def to_csv(games, cfg):
             put("game", gno)
             put("patch", _patch(g.get("P", "") or cfg.get("patch", ""), cfg.get("year", 0)))
             put("participantid", pid)
+            # firstPick 一定要填（2026-08-02 修）：OE 表頭本來就有這欄，所以 fetch_data 的
+            # 「沒有這欄就補藍方＝先選」那段**不會觸發**，留空的話 int("") 例外 → first=0
+            # → 整批 wiki 局的藍方都被當成後選方，順位全反。
+            # 有 PB 就用真值（T1＝先選方），沒有才退回標準預設（藍方先選）。
+            put("firstPick", "1" if (side == "blue") == (od[4] if od else True) else "0")
             put("side", side.capitalize()); put("position", pos)
             put("teamname", bt if side == "blue" else rt)
             put("result", "1" if (bwin if side == "blue" else not bwin) else "0")
@@ -336,17 +456,27 @@ def to_csv(games, cfg):
                 put("champion", align(picks[side][i] if i < len(picks[side]) else "", champs_map))
                 rows.append(r)
             r, put = base(side, "team", 100 if side == "blue" else 200)
+            # ban1~5／pick1~5 要的是**選角順序**，不是路線序——fetch_data 的 calc_po 直接拿
+            # 這裡的索引去查順位表。文字版 MH 的 Picks 是路線序，所以優先用 Picks and Bans 頁
+            # 的真實順序；那頁對不到才退回（退回時順位會是假的，所以最後會印出筆數警告）。
+            _p = (od[0] if side == "blue" else od[1]) if od else picks[side]
+            _b = (od[2] if side == "blue" else od[3]) if od else bans[side]
             # wiki 用字串 "None" 表示「那一手真的沒禁」→ 存成空字串（位置照留，前端才畫得出空 BAN 圖）。
             # 直接丟給 align() 會變成一隻叫 None 的英雄（2026-07-31 使用者回報對戰BP 出現 None）。
-            for i2, ch in enumerate(bans[side][:5]):
+            for i2, ch in enumerate(_b[:5]):
                 put(f"ban{i2+1}", "" if str(ch).strip().lower() in ("none", "") else align(ch, champs_map))
-            for i2, ch in enumerate(picks[side][:5]):
+            for i2, ch in enumerate(_p[:5]):
                 put(f"pick{i2+1}", align(ch, champs_map))
             o = obj[side]
             put("totalgold", o["g"].replace(".", "") if o["g"] else "")
             put("towers", o["t"]); put("dragons", o["d"]); put("barons", o["b"])
             put("heralds", o["h"]); put("void_grubs", o["v"])
             rows.append(r)
+    if PB:
+        print(f"    選角順序：Picks and Bans 頁對到 {pb_hit} 局"
+              + (f"、對不到 {pb_miss} 局（這些局的順位會是路線序＝假的）" if pb_miss else ""))
+    else:
+        print("    ⚠ 沒有 Picks and Bans 頁 → 順位退回路線序（假的），請確認 OverviewPage 名稱")
     return hdr, rows
 
 
