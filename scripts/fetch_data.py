@@ -19,6 +19,26 @@ OE_FOLDER = "1gLSw0RLjBbtaNy0dgnGQDAZOHIgCe-HH"
 FIRST_YEAR = 2013   # 2013 起（使用者定案 2026-07-31：一級聯賽補到 2013；OE 沒有 2013→走 wiki）
 NOW = datetime.now()
 DEFAULT_YEAR = NOW.year
+
+
+def keep_stamp(path, field):
+    """沿用磁碟上既有的時間戳；檔案還不存在（第一次建）才寫當下時間。
+
+    「資料時間」的語意＝**整條管線最後一次完整跑完**的時間（使用者 2026-07-31 定案），
+    推進它是 stamp_updated.py（update.bat 最後一行）的職責，不是這裡。
+    本檔只是管線第 3 步：在這裡寫 datetime.now() 會有兩個症狀——
+      ①每天固定寫成排程啟動的整點（10:00），但整條管線還要再跑一個多小時
+      ②管線中途失敗時，時間戳照樣往前跳，等於假裝更新過
+    所以這裡一律原封不動，讓跑到一半的儀表板顯示「上一輪完成時間」而不是半真半假的時間。
+    """
+    try:
+        with io.open(path, encoding="utf-8") as f:
+            m = re.search(r'"%s"\s*:\s*"([^"]*)"' % field, f.read(300))
+        if m and m.group(1):
+            return m.group(1)
+    except OSError:
+        pass
+    return NOW.strftime("%Y-%m-%d %H:%M")
 YEARS = list(range(FIRST_YEAR, DEFAULT_YEAR + 1))
 
 # 保留聯賽（None = 全部）。含 MSI / RR(洲際賽) 等國際賽。
@@ -597,10 +617,10 @@ def remap_rows(src_table, target_hdr):
 
 
 def write_year(year, table):
-    data = {"fetched_at": NOW.strftime("%Y-%m-%d %H:%M"), "year": year,
+    path = os.path.join(HERE, "data", f"data_{year}.js")
+    data = {"fetched_at": keep_stamp(path, "fetched_at"), "year": year,
             "sheet_title": f"Oracle's Elixir {year}", "tabs": {"RAW_DATA": table}}
     js = json.dumps(data, ensure_ascii=False, separators=(",", ":"))
-    path = os.path.join(HERE, "data", f"data_{year}.js")
     with open(path, "w", encoding="utf-8") as f:
         f.write("window.LOL_DATA=" + js + ";")
     print(f"  → data_{year}.js（{len(table)-1} 列，{os.path.getsize(path)//1024} KB）")
@@ -609,8 +629,9 @@ def write_year(year, table):
 def write_manifest():
     years = sorted(int(f[5:9]) for f in os.listdir(os.path.join(HERE, "data"))
                    if f.startswith("data_") and f.endswith(".js") and f[5:9].isdigit())
+    mf = os.path.join(HERE, "data.js")
     m = {"years": years, "default": DEFAULT_YEAR if DEFAULT_YEAR in years else (years[-1] if years else DEFAULT_YEAR),
-         "updated": NOW.strftime("%Y-%m-%d %H:%M")}
+         "updated": keep_stamp(mf, "updated")}
     with open(os.path.join(HERE, "data.js"), "w", encoding="utf-8") as f:
         f.write("window.LOL_MANIFEST=" + json.dumps(m) + ";")
     print(f"manifest：{years}")
