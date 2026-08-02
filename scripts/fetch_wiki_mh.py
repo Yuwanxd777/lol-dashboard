@@ -333,8 +333,13 @@ def to_csv(games, cfg):
     nk = lambda s: re.sub(r"[^0-9a-z]", "", str(s or "").lower())
     align = lambda s, m: m.get(nk(s), s)
     POS5 = ["top", "jng", "mid", "bot", "sup"]
-    PB = pb_orders(cfg["tour"], force=cfg.get("pb_force", True))   # 真實選角順序（賽段進行中要重抓）
-    pb_hit = pb_miss = 0
+    # 真實選角順序。歷史賽事的 PB 頁不會再變 → 走快取；進行中的賽段由 fetch_fill 傳 pb_force=True
+    PB = pb_orders(cfg["tour"], force=cfg.get("pb_force", False))
+    pb_hit = pb_miss = pb_bad = 0
+    # 先選方規則（使用者定案 2026-08-02）：**2026 起是新制**，先選／後選與藍／紅方脫鉤，
+    # 由雙方自己選（LPL 2026 實測紅方先選佔多數）；**2025 以前藍方固定先選**。
+    # 老年份因此多一道驗證：PB 判出「紅方先選」＝我們的藍紅對齊出錯，不是真的 → 整局不採用。
+    _yr = int(cfg.get("year") or 0)
     rows = []
     day = {}
     sday = {}          # 每天已出現幾個系列賽（給同日多系列排序用）
@@ -416,6 +421,8 @@ def to_csv(games, cfg):
         picks = {"blue": SPL(g.get("Picks")), "red": SPL(g.get("Picks2"))}
         # 真實選角順序（Picks and Bans 頁）；查不到就回 None，下面退回路線序
         od = pb_of(PB, picks["blue"], picks["red"])
+        if od and _yr < 2026 and not od[4]:
+            pb_bad += 1; od = None        # 舊制藍方必先選 → 判成紅方先選＝對齊錯了，寧可不用
         if PB:
             pb_hit += bool(od); pb_miss += not od
         roster = {"blue": SPL(g.get("Blue Roster")), "red": SPL(g.get("Red Roster"))}
@@ -437,7 +444,8 @@ def to_csv(games, cfg):
             # firstPick 一定要填（2026-08-02 修）：OE 表頭本來就有這欄，所以 fetch_data 的
             # 「沒有這欄就補藍方＝先選」那段**不會觸發**，留空的話 int("") 例外 → first=0
             # → 整批 wiki 局的藍方都被當成後選方，順位全反。
-            # 有 PB 就用真值（T1＝先選方），沒有才退回標準預設（藍方先選）。
+            # 有 PB 就用真值（T1＝先選方）；沒有的話 2025 以前藍方必先選（正解），
+            # 2026 起是新制、藍方先選只是猜（下面會印出筆數）。
             put("firstPick", "1" if (side == "blue") == (od[4] if od else True) else "0")
             put("side", side.capitalize()); put("position", pos)
             put("teamname", bt if side == "blue" else rt)
@@ -473,10 +481,16 @@ def to_csv(games, cfg):
             put("heralds", o["h"]); put("void_grubs", o["v"])
             rows.append(r)
     if PB:
-        print(f"    選角順序：Picks and Bans 頁對到 {pb_hit} 局"
-              + (f"、對不到 {pb_miss} 局（這些局的順位會是路線序＝假的）" if pb_miss else ""))
+        msg = f"    選角順序：Picks and Bans 頁對到 {pb_hit} 局"
+        if pb_bad:
+            msg += f"、剔除 {pb_bad} 局（判成紅方先選，但 {_yr} 年藍方必先選＝對齊錯了）"
+        if pb_miss:
+            msg += f"、對不到 {pb_miss} 局（順位退回路線序＝假的"
+            msg += "，先選方用藍方＝正解）" if _yr < 2026 else "，先選方只能猜藍方＝新制未必對）"
+        print(msg)
     else:
-        print("    ⚠ 沒有 Picks and Bans 頁 → 順位退回路線序（假的），請確認 OverviewPage 名稱")
+        print(f"    ⚠ 沒有 Picks and Bans 頁 → 順位退回路線序（假的）"
+              + ("；先選方藍方＝舊制正解" if _yr < 2026 else "；先選方新制無從得知，暫用藍方"))
     return hdr, rows
 
 

@@ -716,6 +716,52 @@ def merge_wiki(year, table):
     return table
 
 
+def fix_firstpick(table):
+    """收尾：補上仍為空的 firstPick，並依它把 po 重算一遍。
+
+    為什麼還會有空的（2026-08-02）：補充來源（wikifill_／fill_ JSON）存的是**已經 process 過
+    的列**，改了推導邏輯不會自動生效，要重跑該來源才會。但有些賽段的 Leaguepedia 賽事名
+    已不可考（孤兒 key，2013 GPL 春夏／TESL、各區錦標賽等 427 局），根本無從重生 → 在這裡收尾。
+
+    空字串在 calc_po 是 int("") 例外 → first=0 → **藍方整批被當成後選方，順位左右對調**，
+    而且完全不會報錯。**2025 以前藍方固定先選**（使用者定案 2026-08-02），所以補藍方是正解；
+    2026 起先選與藍紅脫鉤，真值只能來自來源，補不了的只好沿用藍方。
+    po 必須跟著重算，否則 firstPick 補對了、po 還是照 first=0 算出來的（兩者互相矛盾）。
+    """
+    hdr = table[0]
+    try:
+        iFP, iRFP = hdr.index("blue_firstPick"), hdr.index("red_firstPick")
+        iPid, iPL = hdr.index("participantid"), hdr.index("picklist")
+        iBP, iRP = hdr.index("blue_po"), hdr.index("red_po")
+        iBC, iRC = hdr.index("blue_champion"), hdr.index("red_champion")
+        iBL, iRL = hdr.index("blue_Lane"), hdr.index("red_Lane")
+    except ValueError:
+        return table
+    # 隊伍列(pid=100)的 po 是「|」串起來的**路線序**五個值 → 要用 blue_Lane 的路線序英雄去算，
+    # 不能拿 picklist（選角序）當來源，順序會整組錯位。
+    lane5 = lambda v: (str(v).split("|") + [""] * 7)[1:6]
+    n = 0
+    for r in table[1:]:
+        if str(r[iFP]).strip():
+            continue
+        r[iFP], r[iRFP] = "1", "0"          # 藍方先選
+        n += 1
+        pl = [x for x in str(r[iPL]).split("|")]      # "|藍5|紅5|" → 去頭尾空元素
+        pl = pl[1:11] if len(pl) >= 12 else [x for x in pl if x.strip()]
+        if len(pl) < 10:
+            continue
+        bp, rp = pl[:5], pl[5:10]
+        if str(r[iPid]) == "100":
+            r[iBP] = "|".join(str(calc_po(c, bp, True, 1)) for c in lane5(r[iBL]))
+            r[iRP] = "|".join(str(calc_po(c, rp, False, 1)) for c in lane5(r[iRL]))
+        else:
+            r[iBP] = calc_po(r[iBC] or "", bp, True, 1)
+            r[iRP] = calc_po(r[iRC] or "", rp, False, 1)
+    if n:
+        print(f"  firstPick 收尾補值 {n} 列（藍方先選＋重算 po）")
+    return table
+
+
 def unify_players(table):
     """選手 ID 大小寫統一（PLAYER_ALIAS）。
 
@@ -1018,6 +1064,7 @@ def main():
         table = merge_stats(y, table)      # 老賽季逐選手 KDA/CS/金錢（wiki 文字版沒有 → 只填空欄位）
         table = merge_patch_release(y, table)   # 空的版本欄依官方改版日期回推
         table = fill_cup_split(y, table)   # 盃賽分站：OE 沒填的賽段依日期回填（見函式說明）
+        table = fix_firstpick(table)       # 補充來源留下的空 firstPick 收尾（要排在所有 merge 之後）
         table = unify_players(table)       # 選手 ID 大小寫統一（要排在所有 merge 之後，見下）
         write_year(y, table)
     write_manifest()

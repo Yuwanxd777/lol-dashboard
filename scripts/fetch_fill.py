@@ -513,7 +513,8 @@ def build_wiki(cfg):
     try:
         return fetch_wiki_mh.build({"tour": cfg["wiki"], "league": cfg["league"],
                                     "split": cfg["split"], "year": cfg["year"],
-                                    "playoffs": cfg.get("playoffs", 0), "key": cfg["key"]},
+                                    "playoffs": cfg.get("playoffs", 0), "key": cfg["key"],
+                                    "pb_force": True},   # 賽段進行中：Picks and Bans 頁也要重抓
                                    force=True)
     except Exception as e:      # wiki 掛掉不能連帶讓 gol.gg 那份也沒寫成
         print(f"    ⚠ wiki 補充失敗（略過，gol.gg 版照用）：{type(e).__name__}: {e}")
