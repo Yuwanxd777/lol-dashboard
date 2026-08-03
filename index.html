@@ -211,6 +211,11 @@
      2) 浮動橫捲軌道/把手加大到手指尺寸（桌機維持 15/9px 與垂直捲軸一致的規格）。 */
   @media(pointer:coarse){
     select,input,textarea{font-size:16px!important}
+    /* Tier 池標題：桌機為右上絕對定位的搜尋框保留 240px，平板窄卡會把「角色池」擠成
+       一字一行 → 不保留，搜尋框落到標題下一行 */
+    #tierPool .tphdr{padding-right:0!important}
+    #tierPool .tpctl{position:static!important;margin-top:6px;justify-content:flex-start}
+    #tierPks{white-space:normal!important} /* 版本範圍字串窄卡放不下 → 換行不裁 */
     #hsb{height:26px}
     #hsbT{height:16px}
     .tblwrap{-webkit-overflow-scrolling:touch}
@@ -6071,7 +6076,16 @@ window.fitTblWraps=()=>{document.querySelectorAll(".tblwrap").forEach(w=>{
     //（11 吋直向看 24 欄戰隊表這種）殘餘部分留橫捲當退路，不能整段藏起來看不到
     w.classList.toggle("hscroll",over()>1); return;
   }
-  w.classList.toggle("hscroll",over()>1);});};
+  w.classList.toggle("hscroll",over()>1);});
+  // 觸控加掃 .ov 小表（陣容卡的角色池表不在 .tblwrap 體系；12.9 直向 380px 表塞 310px 卡）。
+  // ⚠基準＝**所在卡片的內容寬**：直接父層常常就是被內容撐開的包裝，量它永遠看不到溢出
+  //（實測「上次」欄整排被卡片裁掉、zoom 卻沒套）
+  if(_touchFit)document.querySelectorAll("table.ov").forEach(t=>{
+    t.style.zoom=""; const p=t.closest(".card")||t.parentElement; if(!p||!p.clientWidth)return;
+    const cs=getComputedStyle(p);
+    const avail=p.clientWidth-(parseFloat(cs.paddingLeft)||0)-(parseFloat(cs.paddingRight)||0);
+    if(avail>40&&t.scrollWidth-avail>4)t.style.zoom=String(Math.max(.5,avail/t.scrollWidth));
+  });};
 // 模擬BP 呈現倍率：BP 整區用 CSS zoom 反向校正（見 BP fit()），子樹「視覺÷內部版面」＝window._bpS；BP 內 rect 量測換算要除以這個，不是除以 _zoomF
 const bpNet=()=>window._bpS||1;
 // 表格橫捲位置記憶：排序/篩選等重繪會換掉整個 .tblwrap 節點(scrollLeft 歸零)，重排時按「分頁+第幾個表」還原，不跳回最左
@@ -8689,8 +8703,8 @@ function render(){
     UNDO.track("tierB",V.tierB); // 進頁面先記基準，第一個動作也能返回
     main.innerHTML=filterBar(`<label>${LANG==="en"?"Team":"戰隊"}</label>${comboHTML("tierTm",T("全部戰隊"),230)}`)+`
       <div id="tierWrap" style="display:grid;grid-template-columns:3fr 1fr;gap:var(--gap);align-items:start;user-select:none">
-        <div id="tierRows" style="display:flex;flex-direction:column;gap:10px"></div>
-        <div class="card" id="tierPool" style="margin:0;position:relative"><div class="tphdr" style="margin-bottom:6px;padding-right:240px"><h2 style="display:flex;align-items:center;gap:8px;margin:0">🦸 ${T("角色池")}</h2><div id="tierPks" style="font-size:13.5px;color:#7a8aaa;margin-top:3px;line-height:1.5;white-space:nowrap"></div><div class="tpctl" style="position:absolute;top:10px;right:12px;display:flex;gap:6px;align-items:center"><span class="cwrap"><input id="tierQ" placeholder="${LANG==='en'?'Search':'搜尋'}" value="${esc(V.tierQ||"")}" style="width:190px;padding-right:26px"><button class="cx" tabindex="-1" data-x="tierQ" title="一鍵清除">✕</button></span></div></div>
+        <div id="tierRows" style="display:flex;flex-direction:column;gap:10px;min-width:0"></div>
+        <div class="card" id="tierPool" style="margin:0;position:relative;min-width:0"><div class="tphdr" style="margin-bottom:6px;padding-right:240px"><h2 style="display:flex;align-items:center;gap:8px;margin:0">🦸 ${T("角色池")}</h2><div id="tierPks" style="font-size:13.5px;color:#7a8aaa;margin-top:3px;line-height:1.5;white-space:nowrap"></div><div class="tpctl" style="position:absolute;top:10px;right:12px;display:flex;gap:6px;align-items:center"><span class="cwrap"><input id="tierQ" placeholder="${LANG==='en'?'Search':'搜尋'}" value="${esc(V.tierQ||"")}" style="width:190px;padding-right:26px"><button class="cx" tabindex="-1" data-x="tierQ" title="一鍵清除">✕</button></span></div></div>
           <div id="tierPoolBox"></div></div>
       </div>`;
     // 英雄池範圍＝全站標準篩選（賽季/聯賽/版本/時間，與其他分頁同一套 passG）
@@ -9033,7 +9047,14 @@ function render(){
       // 階數多到超出畫面 → 100% 時右側自己上下捲（一屏設計）；網站縮放≠100% 時解除內部捲軸、整頁自然捲動
       // （使用者指定：縮放時不要出現「Tier區內捲軸＋全頁捲軸」兩支，只留全頁的）
       const tr=document.getElementById("tierRows");
-      if((window._zoomF||1)!==1){
+      if(_touchFit){
+        // 平板（2026-08-04 使用者定案：只上下捲）：解除內捲；寬度縮合在內容建好後補跑
+        //（這段在 innerHTML 之前執行，現在量 scrollWidth 是空的，zoom 要延後到 rAF）
+        tr.style.maxHeight="none"; tr.style.overflowY="visible"; tr.style.overflowX="visible";
+        requestAnimationFrame(()=>{ const t2=document.getElementById("tierRows"); if(!t2)return;
+          t2.style.zoom="";
+          if(t2.scrollWidth-t2.clientWidth>4)t2.style.zoom=String(Math.max(.3,t2.clientWidth/t2.scrollWidth)); });
+      }else if((window._zoomF||1)!==1){
         tr.style.maxHeight="none"; tr.style.overflowY="visible"; tr.style.overflowX="visible";
       }else{
         tr.style.maxHeight=Math.max(200,innerHeight-tr.getBoundingClientRect().top-14)+"px";
@@ -10482,7 +10503,11 @@ function render(){
       </div>`:"";
       const missRowHTML=n=>`<tr class="subrow missrow"><td class="subg">${LANG==="en"?`└ Game ${n}`:`└ 第${n}局`}</td><td colspan="${_hasSel?20:18}" style="color:#e0574d;font-weight:bold">🚫 ${T("資料缺失（此局尚未匯入）")}</td></tr>`;
       const seriesHTML=s=>{
-        const [A,B]=s.teams, sa=s.score[A]||0, sb=s.score[B]||0;
+        // 左右隊序＝**系列第一局的藍方在左**（2026-08-04 使用者指定）；第一局缺就用現存最早那局
+        let [A,B]=s.teams;
+        {const g1=s.games[0];
+         if(g1&&g1.blue&&s.teams.includes(g1.blue.team)){ A=g1.blue.team; B=s.teams.find(t=>t!==A)||B; }}
+        const sa=s.score[A]||0, sb=s.score[B]||0;
         const miss=autoMiss(s), total=miss?miss.total:s.games.length, missSet=new Set(miss?miss.miss:[]);
         let gi=0, rows="";
         for(let n=1;n<=total;n++){ // 逐局：缺的放缺失列，其餘依序填真實局
@@ -10496,7 +10521,7 @@ function render(){
           //（2026-07-31 使用者）。版本也不寫了——每一局自己那列都已經標了版本。
           +`<span class="sMeta">${s.date}</span>${lgChip(s.league)}${_spTxt?`<span class="meta">${_spTxt}</span>`:""}`
           +`<span class="sVs"><span class="${sa>sb?'sWin':''}">${A}</span> <b class="${sa>sb?'win':''}">${sa}</b>-<b class="${sb>sa?'win':''}">${sb}</b> <span class="${sb>sa?'sWin':''}">${B}</span></span>`
-          +`<span class="meta">${s.games.length}${miss?`${LANG==="en"?"/":"／"}${miss.total}`:""} ${LANG==="en"?"games":"局"}</span>${warn}`
+          +warn // 「N 局」不寫了（2026-08-04 使用者：沒意義）；缺局警示照留
           +`</div></td></tr>`
           +rows;
       };
