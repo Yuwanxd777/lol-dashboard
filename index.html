@@ -9847,6 +9847,8 @@ function render(){
       for(const m of calcMatches("")){ FILTERS.forEach(f=>{ _fdv(f.k,m).forEach(v=>{ if(!v)return; let disp=v; if(f.dl==="champ"){ disp=((typeof chName==="function")&&chName(champId(v)))||v; } S[f.k].add(disp); }); }); }
       _DLF={}; FILTERS.forEach(f=>{_DLF[f.k]=[...S[f.k]].sort((a,b)=>String(a).localeCompare(b));});
       _DLF["gl"]=GLB.map(x=>x[0]); // 時長改用固定分桶清單
+      // 選擇欄：值域固定就四種，直接給清單（_fdv 對這個 key 回空陣列 → 不補的話沒有下拉可選）
+      _DLF["bsel"]=_DLF["rsel"]=LANG==="en"?["chose blue","chose red","1st pick","2nd pick"]:["選藍","選紅","先選","後選"];
       window._BPDL[_dlKey]=_DLF;
     }
     // 英雄下拉：option 值＝網站語言的顯示名，option 內文＝另一語言的名字。
@@ -9903,6 +9905,10 @@ function render(){
              :mode==="team"?{li:"🟦",ln:LANG==="en"?"This-team win%":"該隊勝率",ri:"🟥",rn:LANG==="en"?"Opponent win%":"對手勝率"}
              :{li:"🔵",ln:T("藍方勝率"),ri:"🔴",rn:T("紅方勝率")};
       const HL=mode==="fp"?[T("先選"),LANG==="en"?"2nd pick":"後選"]:mode==="team"?[LANG==="en"?"This team":"該隊",LANG==="en"?"Opponent":"對手"]:[T("藍方"),T("紅方")]; // 左右方表頭標籤
+      // 選藍率＝**有選邊權的那一方選了藍的比例**（分母只算查得到選邊權資料的局，
+      // 不是全部場次）——2026 新制才有，2025 以前與 wiki 沒收錄的賽事不計入。
+      const _ssV=ms.map(m=>ssOf(m)).filter(Boolean);
+      const ssN=_ssV.length, ssB=_ssV.filter(x=>x==="b").length;
       const gls=ms.map(m=>m.gl).filter(x=>x);
       const avg=gls.length?gls.reduce((s,x)=>s+x,0)/gls.length:0;
       // 整隊範圍(隊名＋禁用＋五路)的底色：藍方淺藍、紅方淺紅，勝方(.bpw)同色加深（2026-07-31 使用者指定）。
@@ -9983,6 +9989,7 @@ function render(){
         <span>${LR.ri} ${LR.rn} <b>${Math.round((n-lw)/n*100)}%</b>${LANG==="en"?` (${n-lw}W)`:`（${n-lw} 勝）`}</span>
         ${(fpN&&mode!=="fp"&&+curYear>=2026)?`<span>🥇 ${LANG==="en"?"First-pick win%":"先選勝率"} <b>${Math.round(fpW/fpN*100)}%</b>${LANG==="en"?` (${fpW}W)`:`（${fpW} 勝）`}</span>
         <span>🥈 ${LANG==="en"?"Second-pick win%":"後選勝率"} <b>${Math.round((fpN-fpW)/fpN*100)}%</b>${LANG==="en"?` (${fpN-fpW}W)`:`（${fpN-fpW} 勝）`}</span>`:""}
+        ${ssN?`<span>🟦 ${LANG==="en"?"Chose-blue%":"選藍率"} <b>${Math.round(ssB/ssN*100)}%</b>${LANG==="en"?` (${ssB}/${ssN})`:`（${ssB}／${ssN}）`}</span>`:""}
         <span>⏱️ ${T("場均時長")} <b>${mmss(avg)}</b></span>
       </div>`:"";
       const missRowHTML=n=>`<tr class="subrow missrow"><td class="subg">${LANG==="en"?`└ Game ${n}`:`└ 第${n}局`}</td><td colspan="18" style="color:#e0574d;font-weight:bold">🚫 ${T("資料缺失（此局尚未匯入）")}</td></tr>`;
