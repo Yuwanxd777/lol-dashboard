@@ -9660,13 +9660,12 @@ function render(){
       // 主動與被動的先選局——差別看金色字（金＝當局第一選擇權那隊）。
       {const _ths=[...document.querySelectorAll('#tbl th[data-k]')];
        // lb＝比賽BP 選擇欄下拉的正式值（英文的選邊寫 chose blue/red，跟表格顯示的 Blue/Red 不同字）
-       // lb＝比賽BP 選擇欄的完整值「類別#項目」——選擇欄已能分主動/被動（2026-08-04），
-       // 點過去的清單就是**正好**這一格數字的那批局，不再混到另一類
-       const _IT=LANG==="en"?["1st pick","2nd pick","chose blue","chose red"]:["先選","後選","選藍","選紅"];
+       // lb＝比賽BP 選擇欄的值：只帶**類別**（主動權/被動選序/被動選邊），不細到「主動#先選」
+       //（2026-08-04 使用者指定：細項留給使用者自己在選擇欄挑）→ 三欄各只有一個固定值
        const _CT=LANG==="en"?["Initiative","Given order","Given side"]:["主動權","被動選序","被動選邊"];
-       const CFGS={主動權:{ks:["_iaF","_iaS","_iaB","_iaR"],lb:_IT.map(x=>_CT[0]+"#"+x)},
-                   被動選序:{ks:["_poF","_poS"],lb:_IT.slice(0,2).map(x=>_CT[1]+"#"+x)},
-                   被動選邊:{ks:["_pbB","_pbR"],lb:_IT.slice(2).map(x=>_CT[2]+"#"+x)}};
+       const CFGS={主動權:{ks:["_iaF","_iaS","_iaB","_iaR"],lb:[_CT[0],_CT[0],_CT[0],_CT[0]]},
+                   被動選序:{ks:["_poF","_poS"],lb:[_CT[1],_CT[1]]},
+                   被動選邊:{ks:["_pbB","_pbR"],lb:[_CT[2],_CT[2]]}};
        for(const k in CFGS){
          const ci=_ths.findIndex(t=>t.dataset.k===k); if(ci<0)continue;
          document.querySelectorAll("#tbl tbody tr").forEach(tr=>{
