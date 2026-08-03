@@ -156,9 +156,13 @@ def pb_orders(tour, force=False):
         if len(key) < 10 or key in out:        # 十隻不齊或兩局英雄完全相同 → 不夠獨特，寧可不用
             out.pop(key, None)
             continue
+        team = lambda i: (re.search(r'alt="([^"]+?)logo std"', cs[i]) or [None, ""])[1].strip()
         out[key] = {"p": (t1p, t2p),
                     "b": ([(ch(i) or [""])[0] for i in PB_T1B],
-                          [(ch(i) or [""])[0] for i in PB_T2B])}
+                          [(ch(i) or [""])[0] for i in PB_T2B]),
+                    # 補局用的中繼資料（PB 頁只有這些，沒有選手／KDA／路線／時間）
+                    "t1": team(1), "t2": team(2), "win": team(4),
+                    "patch": re.sub(r"<[^>]+>", "", cs[5]).strip()}
     return out
 
 
@@ -373,6 +377,42 @@ def to_csv(games, cfg):
         _dN = (games[-1].get("Date") or "")[:10]
         if _d0 and _dN and _d0 > _dN:
             games = list(reversed(games))
+
+    # ── PB 補局（2026-08-03 使用者回報）──────────────────────────────────────
+    # Picks and Bans 頁是「哪些局打過」最完整的來源：實測 LCK 2026 Rounds 3-4 →
+    # PB 25 局、MH 文字版 23 局、gol.gg 24 局（08-01 DK vs GEN 第 2 局只有 PB 有，
+    # 連 Cargo 的 ScoreboardGames 都還沒填）。MH 沒有的局就用 PB 補一筆。
+    # **不造假選手資料**（使用者定案）：PB 只有隊伍／勝負／版本／BP，沒有選手、KDA、路線
+    # → 補出來的局**只有隊伍列**，不產生五名選手列，那局就不計入任何選手／路線統計。
+    # 兩個已知的近似（PB 頁給不了，且無從查證）：
+    #   ①**藍紅方**：PB 的 Team1／Team2 是賽程隊伍一二、不是藍紅（實測 33 局裡 20 局 T1 是紅方），
+    #     2026 新制先選方又與藍紅脫鉤 → 這裡取 Team1 當藍方（同時也是先選方，自洽）。
+    #   ②**時間**：PB 沒有日期 → 取前後最近「有對到 MH」的那一局的日期，時間往後推。
+    # 兩者在 gol.gg／OE 補上該局後都會被取代（merge_ 系列一律以先者為準）。
+    if PB:
+        _mhkeys = {frozenset(pbn(c) for c in (SPL(g.get("Picks")) + SPL(g.get("Picks2")))) for g in games}
+        _pbchrono = list(PB.items())[::-1]        # PB 頁是新→舊 → 反轉成時間正序
+        _dates = [next((g.get("Date", "")[:19] for g in games
+                        if frozenset(pbn(c) for c in (SPL(g.get("Picks")) + SPL(g.get("Picks2")))) == k), "")
+                  for k, _ in _pbchrono]
+        _add, _seq = [], 0
+        for i, (k, m) in enumerate(_pbchrono):
+            if k in _mhkeys:
+                _seq = 0
+                continue
+            base_dt = next((d for d in _dates[i::-1] if d), "") or next((d for d in _dates[i:] if d), "")
+            if not base_dt:
+                continue                          # 整頁都對不到 → 無從推日期，寧可不補
+            _seq += 1
+            hh = min(23, int(base_dt[11:13] or 0) + _seq)
+            _add.append({"Date": f"{base_dt[:10]} {hh:02d}:{base_dt[14:16] or '00'}:00",
+                         "Blue": m["t1"], "Red": m["t2"], "Winner": m["win"], "P": m["patch"],
+                         "Picks": ",".join(m["p"][0]), "Picks2": ",".join(m["p"][1]),
+                         "Bans": ",".join(m["b"][0]), "Bans2": ",".join(m["b"][1]),
+                         "Blue Roster": "", "Red Roster": "", "Len": "", "_pbonly": True})
+        if _add:
+            games = sorted(games + _add, key=lambda g: g.get("Date", "")[:19])
+            print(f"    PB 補局：MH 沒有但 PB 有的 {len(_add)} 局（只補隊伍列，不含選手資料）")
     ser = {}
     for g in games:
         dt = g.get("Date", "")[:19]
@@ -455,7 +495,7 @@ def to_csv(games, cfg):
             return r, put
 
         for side in ("blue", "red"):
-            for i in range(5):
+            for i in range(5) if not g.get("_pbonly") else ():   # PB 補的局沒有選手資料 → 只出隊伍列
                 pid = i + 1 if side == "blue" else i + 6
                 r, put = base(side, POS5[i], pid)
                 nm = roster[side][i] if i < len(roster[side]) else ""

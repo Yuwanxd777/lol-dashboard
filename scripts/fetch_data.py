@@ -678,8 +678,19 @@ def merge_wiki(year, table):
                           frozenset((r[iBT] or "", r[iRT] or ""))), []).append(r)
         return g
 
+    iPLc = hdr.index("picklist")
+
     def _cset(rs):
-        return frozenset(str(x) for r in rs for x in (r[iBC], r[iRC]) if x)
+        s = {str(x) for r in rs for x in (r[iBC], r[iRC]) if x}
+        # PB 補的局**只有隊伍列、沒有逐選手英雄** → 這裡會是空集合，去重就退回位置式比對
+        # （聯賽+日期+兩隊+局號），而 gol.gg 只抓到系列中一局時局號本來就不可靠
+        # → 曾把「真正缺的那局」當成重複砍掉、留下重複的那局（2026-08-03 實例：
+        #   LCK 08-01 DK vs GEN，gol.gg 標成 G1 的其實是第 2 局）。
+        # 隊伍列本身有 picklist（十隻英雄），拿它補算集合就對得起來了。
+        if len(s) < 8:
+            for r in rs:
+                s |= {x.strip() for x in str(r[iPLc]).split("|") if x.strip()}
+        return frozenset(s)
 
     have = {gkey(r) for r in table[1:]}
     oe_c = {}
@@ -693,7 +704,12 @@ def merge_wiki(year, table):
         for k, rs in _by_game(rows).items():
             cs = _cset(rs)
             old = oe_c.get((k[0], k[1], cs)) if len(cs) >= 8 else None
-            if old or all(gkey(r) in have for r in rs):
+            # 位置式比對（聯賽+日期+兩隊+局號+pid）只在**英雄集合不可用**時才算數。
+            # 十隻英雄齊全卻對不到任何既有局＝真的是另一局，不能因為局號撞到就丟掉：
+            # 來源只抓到系列中一局時局號本來就不可靠（2026-08-03 實例：LCK 08-01 DK vs GEN，
+            # gol.gg 標成 G1 的其實是第 2 局，真正缺的第 1 局因局號同為 1 被誤判成重複）。
+            _gk_dup = all(gkey(r) in have for r in rs) and not (len(cs) >= 8 and not old)
+            if old or _gk_dup:
                 dup += len(rs)
                 sp = next((str(r[iS]) for r in rs if str(r[iS]).strip()), "")
                 if sp and old:                 # OE 沒填賽段（盃賽常見）→ 用 wiki 的站名補上
@@ -713,6 +729,39 @@ def merge_wiki(year, table):
                   + (f"（補上賽段 {filled} 列）" if filled else "")); continue
         print(f"  wiki {key}：+{len(keep)} 列（{v.get('src','?')}；OE 已有的 {dup} 列略過"
               + (f"，其中補上賽段 {filled} 列" if filled else "") + "）")
+    return table
+
+
+def fix_game_no(table):
+    """同一天、同兩隊出現**重複局號**時，依實際時間先後重編。
+
+    為什麼會撞號（2026-08-03 實例）：來源只收錄系列中的一局時，它的局號本來就不可靠——
+    gol.gg 對 LCK 08-01 DK vs GEN 只有第 2 局，卻標成 G1；PB 補進真正的第 1 局後兩局都叫 G1。
+    前端以 (日期,局號) 分辨小局，撞號會少算一局（等於白補）。
+    只動「真的撞號」的組，其他一律不碰。
+    """
+    hdr = table[0]
+    try:
+        iL, iD, iG = hdr.index("league"), hdr.index("date"), hdr.index("game")
+        iBT, iRT = hdr.index("blue_teamname"), hdr.index("red_teamname")
+    except ValueError:
+        return table
+    grp = {}
+    for r in table[1:]:
+        k = (r[iL], str(r[iD])[:10], frozenset((str(r[iBT]), str(r[iRT]))))
+        grp.setdefault(k, {}).setdefault((str(r[iD]), str(r[iG])), []).append(r)
+    n = 0
+    for k, games in grp.items():
+        nums = [g for _, g in games]
+        if len(set(nums)) == len(nums):
+            continue                                   # 沒撞號
+        for i, dtg in enumerate(sorted(games, key=lambda x: x[0]), 1):
+            if str(games[dtg][0][iG]) != str(i):
+                n += 1
+            for r in games[dtg]:
+                r[iG] = i
+    if n:
+        print(f"  局號重編 {n} 局（同日同兩隊撞號 → 依時間先後）")
     return table
 
 
@@ -1064,6 +1113,7 @@ def main():
         table = merge_stats(y, table)      # 老賽季逐選手 KDA/CS/金錢（wiki 文字版沒有 → 只填空欄位）
         table = merge_patch_release(y, table)   # 空的版本欄依官方改版日期回推
         table = fill_cup_split(y, table)   # 盃賽分站：OE 沒填的賽段依日期回填（見函式說明）
+        table = fix_game_no(table)         # 同日同兩隊撞局號 → 依時間重編（要排在所有 merge 之後）
         table = fix_firstpick(table)       # 補充來源留下的空 firstPick 收尾（要排在所有 merge 之後）
         table = unify_players(table)       # 選手 ID 大小寫統一（要排在所有 merge 之後，見下）
         write_year(y, table)
