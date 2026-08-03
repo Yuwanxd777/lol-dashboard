@@ -38,8 +38,18 @@ TXT = lambda s: re.sub(r"\s+", " ", _html.unescape(re.sub(r"<[^>]+>", " ", s or 
 KEYS = ["Blue", "Red", "1st Sel", "Side Sel", "Pick Sel"]
 
 
+# 只抓**一級聯賽＋國際賽**（＝主數據真的收的那些）。二級／區域聯賽（LCK CL、VCS、
+# Rift Legends、Circuito Desafiante、IDL Kings、NACL、Americas Cup…）的局根本不在主數據裡，
+# 抓回來永遠配不到任何一局，只是讓每次更新多花時間（2026-08-03 使用者：只要一級聯賽）。
+# 寫成規則不寫死年份：`LCK/2026 Season/...` 這種頁名格式歷年一致，明年不必改。
+# ⚠ 分隔線一定要是 `/`：`LCK CL/...`（二級）就是靠這個排除的。
+TIER1 = re.compile(r"^(LCK|LPL|LEC|LCS|LCP|CBLOL)/")
+INTL = re.compile(r"(First Stand|KeSPA Cup|Mid-Season Invitational|World Championship|Esports World Cup)", re.I)
+want_ov = lambda ov: bool(TIER1.match(ov or "") or INTL.search(ov or ""))
+
+
 def ov_pages():
-    """2026 有比賽的賽事總覽頁（用 ScoreboardGames 的 OverviewPage 去重）。
+    """2026 有比賽的賽事總覽頁（用 ScoreboardGames 的 OverviewPage 去重），只留一級聯賽＋國際賽。
 
     不寫死清單：新賽段開打就自動出現，也不會抓到還沒打的頁。
     """
@@ -50,7 +60,10 @@ def ov_pages():
     raw = WS.opener().open(urllib.request.Request(url, headers=WS.UA), timeout=120).read().decode("utf-8", "replace")
     if raw.lstrip()[:1] not in "[{":
         print("  ⚠ 賽事頁清單抓取失敗：" + raw[:120]); return []
-    return sorted({r.get("ov") for r in json.loads(raw) if r.get("ov")})
+    all_ov = sorted({r.get("ov") for r in json.loads(raw) if r.get("ov")})
+    keep = [o for o in all_ov if want_ov(o)]
+    print(f"  {YEAR} 有比賽的賽事頁 {len(all_ov)} 個 → 一級聯賽／國際賽 {len(keep)} 個")
+    return keep
 
 
 def live_pages(days):
