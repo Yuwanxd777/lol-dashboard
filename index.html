@@ -81,7 +81,7 @@
   .fsel .fselAr{color:var(--tx2);font-size:12px;flex:0 0 auto}
   /* 比賽BP 逐欄篩選列裡的 fancy 鈕：縮到與輸入框同高同字級；空間只留「四個字＋一個✕」
      （使用者指定 2026-08-04）→ ▾ 不顯示、✕ 收進鈕內排在字後面（蓋掉全域 .bpCx 的絕對定位） */
-  .bpFRow .fsel{height:21px;width:100%;padding:1px 2px;font-size:11px;border-radius:5px;background:#0e1420;border:1px solid #2a3345;gap:0;justify-content:flex-start;position:relative}
+  .bpFRow .fsel{height:21px;width:100%;padding:1px 3px;font-size:11px;border-radius:5px;background:#0e1420;border:1px solid #2a3345;gap:0;justify-content:flex-start;position:relative}
   .bpFRow .fsel .fselAr{display:none}
   .bpFRow .fsel .fselTx{overflow:hidden;white-space:nowrap}
   /* ✕：欄寬與「勝」同款(66px)塞不下常駐 ✕ → 有值且滑過鈕才浮出；
@@ -286,7 +286,7 @@
   /* 比賽BP 逐欄篩選框的清除鍵：有輸入內容(:not(:placeholder-shown))才顯示 */
   .bpFRow th{position:relative}
   .bpCx{display:none;position:absolute;right:7px;top:0;bottom:0;margin:auto 0;height:15px;line-height:15px;background:none;border:none;color:var(--tx2);font-size:12px;cursor:pointer;padding:0 1px;z-index:2}
-  .bpColF:not(:placeholder-shown)~.bpCx{display:block}
+  span:hover>.bpColF:not(:placeholder-shown)~.bpCx{display:block} /* ✕ 只在滑過框時出現（2026-08-04 使用者指定） */
   .bpCx:hover{color:#ff6b6b}
   /* 第二篩選列整列都是輸入框＋建議清單（跟「選戰隊」那顆 combo 同一種清單）。
      時長／選擇曾經改用 <select>，但原生選單的外觀跟建議清單差太多、同一列兩種樣式很雜
@@ -868,7 +868,7 @@
   <span class="meta" id="meta"></span>
   <span style="flex:1"></span>
   <label class="meta" id="lblFont">字體</label><select id="fontSel"><option value="huninn">粉圓</option><option value="jhenghei">微軟正黑體</option><option value="gensen">源泉圓體 TW</option></select>
-  <label class="meta" id="lblZoom">縮放</label><select id="zoomSel" title="全域文字/畫面縮放"><option value="50">50%</option><option value="60">60%</option><option value="75">75%</option><option value="80">80%</option><option value="100" selected>100%</option><option value="125">125%</option><option value="150">150%</option><option value="200">200%</option></select><button id="zoomFitBtn" title="自動調整縮放，讓本頁最寬的表格剛好塞進一個畫面（平板特別好用）">⛶ 貼合</button>
+  <label class="meta" id="lblZoom">縮放</label><select id="zoomSel" title="全域文字/畫面縮放"><option value="50">50%</option><option value="60">60%</option><option value="75">75%</option><option value="80">80%</option><option value="100" selected>100%</option><option value="125">125%</option><option value="150">150%</option><option value="200">200%</option></select>
   <label class="meta" id="lblLang">語言</label><select id="langSel"><option value="zh">繁體中文</option><option value="cn">簡體中文</option><option value="en">English</option></select>
   <label class="meta" id="lblYear">年份</label><select id="yearSel"></select>
   <button id="penBtn" title="畫筆（講解模式）">🖊️</button>
@@ -2060,6 +2060,7 @@ function fillTableWidth(root,prop){
   wrap.dataset.fillw=prop?"prop":"1";
   const tbl=wrap.querySelector("table"); if(!tbl)return;
   const ths=[...tbl.querySelectorAll("thead th")]; if(ths.length<3)return;
+  if(tbl.style.zoom)tbl.style.zoom="";  // 觸控縮合的 zoom 先清掉再量（rect 是視覺值，zoom 會污染欄寬）
   tbl.style.tableLayout="auto"; tbl.style.width="max-content"; // 還原成內容寬再量(保留各欄原設寬)
   ths.forEach(th=>{if(!("ow" in th.dataset))th.dataset.ow=th.style.width||""; th.style.width=th.dataset.ow;});
   const natW=ths.map(th=>th.getBoundingClientRect().width/(window._zoomF||1)); // rect=視覺寬，除以縮放倍率轉回版面px才能跟 clientWidth 比（不除→網站放大時誤判塞不下→右側大空位）
@@ -6049,15 +6050,26 @@ function syncRankedTab(){ const t=document.getElementById("tabRanked"); if(t)t.s
 
 const main=document.getElementById("main");
 // 表格超寬偵測：小幅超寬(≤12%)先試 pt1/pt2 縮左右內距塞回一屏（100% 不出左右捲軸），塞不下才掛 hscroll（表內捲動）
+// 觸控裝置（iPad）鐵則（2026-08-04 使用者定案）：100% 顯示、只留上下捲動、不要左右捲——
+// 桌機寬表在平板上改成「逐表自動縮合」：內距壓縮(pt1/pt2)還塞不下的表格，整張套 CSS zoom
+// 縮到容器寬。字會變小，但這是使用者在「字小」與「要左右捲」之間的明確選擇。
+const _touchFit=(()=>{try{return matchMedia('(pointer:coarse)').matches;}catch(e){return false;}})();
 window.fitTblWraps=()=>{document.querySelectorAll(".tblwrap").forEach(w=>{
   const t=w.querySelector("table"); if(!t)return;
   w.classList.remove("pt1","pt2"); // 每次從原始間距重新判定（空間回來了要能還原）
+  if(t.style.zoom)t.style.zoom="";  // 先還原再量（zoom 會污染 scrollWidth）
   const over=()=>t.scrollWidth-w.clientWidth;
   if(over()>1&&over()<=w.clientWidth*.12){
     w.classList.add("pt1");
     if(over()>1){w.classList.remove("pt1");w.classList.add("pt2");}
     if(over()>1)w.classList.remove("pt2"); // 兩段都塞不下 → 還原間距走橫捲（捲動時保持正常間距）
     else if(w.dataset.fillw)fillTableWidth(w); // 壓縮後塞下了 → 省出的零頭平均分回資料欄
+  }
+  if(_touchFit&&over()>1){
+    t.style.zoom=String(Math.max(.35,w.clientWidth/t.scrollWidth));
+    // 0.35 是可讀性下限：正常情況縮完剛好塞滿(over≤1)不掛橫捲；撞到下限還塞不下的
+    //（11 吋直向看 24 欄戰隊表這種）殘餘部分留橫捲當退路，不能整段藏起來看不到
+    w.classList.toggle("hscroll",over()>1); return;
   }
   w.classList.toggle("hscroll",over()>1);});};
 // 模擬BP 呈現倍率：BP 整區用 CSS zoom 反向校正（見 BP fit()），子樹「視覺÷內部版面」＝window._bpS；BP 內 rect 量測換算要除以這個，不是除以 _zoomF
@@ -7312,12 +7324,10 @@ document.getElementById('fontSel').onchange=e=>{applyFont(e.target.value); if(ty
     localStorage.setItem('dash_zoom',String(z));
     window.applyZoom(z);
   };
-  {const b=document.getElementById('zoomFitBtn'); if(b)b.onclick=()=>window.zoomFit();}
-  // 平板第一次開（沒存過縮放、非網址指定）：預設 75%——iPad 版面寬 1024~1366，100% 時
-  // 桌機寬表什麼都要橫捲。使用者自己選過縮放就永遠尊重（這裡不寫入 localStorage）。
-  const _coarse=(()=>{try{return matchMedia('(pointer:coarse)').matches;}catch(e){return false;}})();
-  const _svz=localStorage.getItem('dash_zoom');
-  const z0=window._URLZ||+(_svz||((_coarse&&innerWidth>=700&&innerWidth<=1500)?"75":"100"))||100;
+  // 觸控裝置維持 100%（2026-08-04 使用者定案）：不再預設縮小、也不用貼合鈕——
+  // 寬表在觸控裝置改成「逐表自動縮合」（fitTblWraps 對超寬表格套 CSS zoom 塞進容器寬，
+  // 只留上下捲動、不要左右捲）。
+  const z0=window._URLZ||+(localStorage.getItem('dash_zoom')||"100")||100;
   if(zs&&![...zs.options].some(o=>+o.value===z0)){const op=document.createElement('option');op.value=String(z0);op.textContent=z0+"%";op.className="fitOp";zs.insertBefore(op,[...zs.options].find(o=>+o.value>z0)||null);} // 存過貼合算出的非標準值(如 68%)：重載也要顯示得出來
   if(zs)zs.value=String(z0); window.applyZoom(z0);
   if(zs)zs.onchange=e=>{const z=+e.target.value||100; localStorage.setItem('dash_zoom',String(z)); window.applyZoom(z);}; }
@@ -7329,8 +7339,6 @@ document.getElementById('fontSel').onchange=e=>{applyFont(e.target.value); if(ty
   if(LANG==='en'){ // 頁首靜態標籤翻英（分頁/篩選由 JS 產生已走 T()）
     const set=(id,tx)=>{const el=document.getElementById(id); if(el)el.textContent=tx;};
     set('lblFont','Font'); set('lblLang','Language'); set('lblYear','Year'); set('lblZoom','Zoom');
-    set('zoomFitBtn','⛶ Fit');
-    {const b=document.getElementById('zoomFitBtn'); if(b)b.title='Auto-zoom so the widest table on this page fits the screen';}
     const st=document.getElementById('siteTitleTx'); if(st&&/LOL數據表$/.test(st.textContent)) st.textContent='LOL Stats';
     
   }
@@ -10321,11 +10329,11 @@ function render(){
         }
         return `<span style="display:block;width:100%"><select class="bpColF" data-k="${f.k}">${oh}</select></span>`;
       }
-      const st=`display:block;width:100%;min-width:0;font-size:11.5px;box-sizing:border-box;text-align:left`;
-      return `<span style="position:relative;display:block;flex:1 1 0;min-width:0${xs?";"+xs:""}"><input class="bpColF${cur?" on":""}" data-k="${f.k}" size="1" value="${esc(cur)}" placeholder=" " autocomplete="off" style="${st};padding:2px 15px 2px 2px"><span class="bpCx" data-k="${f.k}" title="${LANG==="en"?"clear":"清除"}">✕</span></span>`;
+      const st=`display:block;width:100%;min-width:0;font-size:11px;box-sizing:border-box;text-align:left`;
+      return `<span style="position:relative;display:block;flex:1 1 0;min-width:0${xs?";"+xs:""}"><input class="bpColF${cur?" on":""}" data-k="${f.k}" size="1" value="${esc(cur)}" placeholder=" " autocomplete="off" style="${st};padding:2px 15px 2px 3px"><span class="bpCx" data-k="${f.k}" title="${LANG==="en"?"clear":"清除"}">✕</span></span>`;
     };
-    // 逐欄篩選框文字一律「靠左、左邊留 2px」（2026-08-04 使用者指定：置中＋左右內距不對稱
-    // 會讓有的看起來貼邊、有的浮空）。框本身仍置中對齊底下資料（.bp td 是 text-align:center）。
+    // 逐欄篩選框文字一律「靠左、左邊留 3px、字級 11px 全列統一」（2026-08-04 使用者指定）。
+    // 框本身仍置中對齊底下資料（.bp td 是 text-align:center）。
     // BAN 圖排的幾何：圖 44px、同一輪圖距 7px、第一輪禁(前3)｜第二輪禁(後2) 之間 15px
     //（前一顆頭像 7px ＋ .banSep 的 1px 框線與 7px margin）→ 第 4 格要多補 15−7＝8px 才對得上。
     // ⚠ 不要用「靠左推固定 px」：那只有在欄寬剛好等於內容寬時才準，欄一被表格撐寬就整排歪掉
