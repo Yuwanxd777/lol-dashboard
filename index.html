@@ -253,6 +253,20 @@
   .bpCx{display:none;position:absolute;right:7px;top:0;bottom:0;margin:auto 0;height:15px;line-height:15px;background:none;border:none;color:var(--tx2);font-size:12px;cursor:pointer;padding:0 1px;z-index:2}
   .bpColF:not(:placeholder-shown)~.bpCx{display:block}
   .bpCx:hover{color:#ff6b6b}
+  /* 值域固定的篩選欄（時長／選擇）用下拉。原生 select 在 Windows 會套系統樣式：
+     箭頭佔位、選字靠左、展開的選單是亮色，跟整張暗色表格格格不入。
+     appearance:none 收掉原生外觀＋自畫一個小箭頭；color-scheme:dark 讓**展開的清單**
+     也跟著暗色（這行不能省，選項清單是瀏覽器畫的，CSS 管不到內部）。
+     text-align-last 才是真正讓「已選的那個值」置中的屬性（text-align 對 select 沒用）。*/
+  select.bpColF{appearance:none;-webkit-appearance:none;color-scheme:dark;cursor:pointer;
+    text-align:center;text-align-last:center;height:21px;padding-top:0;padding-bottom:0;
+    /* 高度寫死跟輸入框一樣：select 的行高算法與 input 不同，放著會差 1px，同一列看得出來 */
+    background-image:url("data:image/svg+xml;charset=utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%237a8aaa' stroke-width='1.6' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-repeat:no-repeat;background-position:right 5px center;background-size:8px 5px}
+  select.bpColF:hover{border-color:var(--acc)}
+  select.bpColF:focus{outline:none;border-color:var(--acc)}
+  select.bpColF.on{border-color:var(--gold);color:var(--gold)}  /* 有選值＝金框，跟輸入框有值時的視覺一致 */
+  select.bpColF option{background:#0e1420;color:var(--tx)}
   .bans .banSep{display:inline-block;width:0;border-left:1px solid #3a4661;height:44px;margin:0 7px 0 0;vertical-align:middle} /* 禁用：第一輪禁(前3)｜第二輪禁(後2) 分隔線；左側間距由前一顆頭像的 margin-right 提供 → 兩側都是 7px */
   input.combo::-webkit-calendar-picker-indicator,input[list]::-webkit-calendar-picker-indicator{display:none!important;opacity:0;width:0} /* datalist 白三角沒有實用性 → 移除 */
   .cwrap .cal{position:absolute;right:24px;background:none;border:none;cursor:pointer;font-size:13px;padding:0 2px;line-height:1}
@@ -9881,9 +9895,14 @@ function render(){
     const _finput=(f,xs)=>{
       const st=`display:block;width:100%;min-width:0;font-size:11.5px;box-sizing:border-box;text-align:center;background:#0e1420;border:1px solid #2a3345;border-radius:5px;color:var(--tx)`;
       if(_FIXED.has(f.k)){
+        // 預設那一項留空白，不寫「全部」（使用者指定 2026-08-03）：沒篩選時整列乾淨，
+        // 跟旁邊沒填字的輸入框看起來一致。
         const cur=V.bpColF[f.k]||"", opts=(_DLF[f.k]||[]);
-        return `<span style="display:block;flex:1 1 0;min-width:0${xs?";"+xs:""}"><select class="bpColF" data-k="${f.k}" style="${st};padding:2px 2px">`
-          +`<option value="">${LANG==="en"?"all":"全部"}</option>`
+        // 有選值＝金框金字。**必須寫成 inline**：st 裡已經有 border 的 inline 宣告，
+        // 用 class 規則會被 inline 蓋掉（改完看起來沒反應，見 CSS 優先權那條教訓）。
+        const _onS=cur?";border-color:var(--gold);color:var(--gold)":"";
+        return `<span style="display:block;flex:1 1 0;min-width:0${xs?";"+xs:""}"><select class="bpColF${cur?" on":""}" data-k="${f.k}" style="${st};padding:2px 13px 2px 3px${_onS}">`
+          +`<option value="">　</option>`
           +opts.map(v=>`<option value="${esc(v)}"${String(cur).toLowerCase()===String(v).toLowerCase()?" selected":""}>${esc(v)}</option>`).join("")
           +`</select></span>`;
       }
@@ -10019,7 +10038,7 @@ function render(){
       // 前一個的餘數，分成兩行只是重複佔位。顏色依語意——真的分藍紅方的用藍/紅，
       // 先選/後選這種不是邊的用金/灰，免得看起來像在講藍紅方。
       const _pair=(a,tot,ca,cb)=>{const p=Math.round(a/tot*100);
-        return `<b style="color:${ca}">${p}%</b><span class="meta">/</span><b style="color:${cb}">${100-p}%</b>`
+        return `<b style="color:${ca}">${p}%</b><span class="meta">／</span><b style="color:${cb}">${100-p}%</b>`
           +`<span class="meta">${LANG==="en"?` (${a}/${tot})`:`（${a}／${tot}）`}</span>`;};
       // 藍紅模式的左右就是藍紅方 → 標題簡化成「勝率」；該隊/先選模式維持原本的左側名稱
       const _wrLbl=mode==="br"?(LANG==="en"?"win%":"勝率"):LR.ln;
