@@ -9739,7 +9739,10 @@ function render(){
       if(md==="team"){ const foc=(V.bpColF["bt"]||"").trim().toLowerCase();
         if(foc){ const tk=foc.split(/\s+/).filter(Boolean), bl=String(m.blue.team).toLowerCase(), rl=String(m.red.team).toLowerCase();
           if(tk.every(t=>rl.includes(t))&&!tk.every(t=>bl.includes(t))) return {L:m.red,R:m.blue,LisBlue:false}; }
-        return {L:m.blue,R:m.red,LisBlue:true}; }
+        // 沒指定戰隊時，該隊模式本來一律「藍方在左」→ 篩「路西恩 vs 好運姐」只會命中
+        // 路西恩在藍方那些局。_flip＝篩選階段試過左右互換也成立的局，這裡照著換過來，
+        // 藍紅兩種排法就疊在一起了（2026-08-03 使用者指定）。
+        return m._flip?{L:m.red,R:m.blue,LisBlue:false}:{L:m.blue,R:m.red,LisBlue:true}; }
       return {L:m.blue,R:m.red,LisBlue:true}; };
     const GLB=LANG==="en"?[["<20 min",x=>x<20],["20-30 min",x=>x>=20&&x<30],["30-40 min",x=>x>=30&&x<40],["40+ min",x=>x>=40]]
                          :[["20分以下",x=>x<20],["20~30分",x=>x>=20&&x<30],["30~40分",x=>x>=30&&x<40],["40分以上",x=>x>=40]]; // 時長固定分桶(下拉)
@@ -9845,7 +9848,17 @@ function render(){
       const mode=V.bpSideMode||"br";
       let ms=calcMatches("");   // 拿掉戰隊選單→全部比賽，改逐欄篩選
       const _fq=[]; FILTERS.forEach(f=>{const q=(V.bpColF[f.k]||"").trim().toLowerCase(); if(q)_fq.push([f,q.split(/\s+/).filter(Boolean),q]);}); // 空白分詞：下拉值可能是「中文 English」，中英任一詞都要命中(順序無關)
-      if(_fq.length)ms=ms.filter(m=>_fq.every(([f,toks,q])=>{ if(f.k==="gl"){const b=GLB.find(x=>x[0].toLowerCase()===q); if(b)return b[1]((m.gl||0)/60);} const s=f.get(m); return toks.every(t=>s.includes(t)); })); // 時長：命中固定分桶→區間比對
+      const _hit=m=>_fq.every(([f,toks,q])=>{ if(f.k==="gl"){const b=GLB.find(x=>x[0].toLowerCase()===q); if(b)return b[1]((m.gl||0)/60);} const s=f.get(m); return toks.every(t=>s.includes(t)); }); // 時長：命中固定分桶→區間比對
+      // 該隊模式且沒指定戰隊：左右互換再試一次，讓「路西恩 vs 好運姐」不分藍紅方都篩得到
+      //（使用者 2026-08-03）。命中哪一種排法就記在 m._flip，sides() 照著擺，兩邊疊在一起。
+      // 只在這個情境做：有指定戰隊時左邊本來就固定是該隊，換邊會把「該隊/對手」弄反；
+      // 藍紅／先選模式的左右是有意義的，更不能換。
+      const _canFlip=(V.bpSideMode||"br")==="team"&&!(V.bpColF["bt"]||"").trim();
+      if(_fq.length)ms=ms.filter(m=>{ m._flip=false; if(_hit(m))return true;
+        if(!_canFlip)return false;
+        m._flip=true; if(_hit(m))return true;
+        m._flip=false; return false; });
+      else ms.forEach(m=>{ m._flip=false; });   // 清掉上一輪篩選留下的換邊狀態
       document.getElementById("cnt").textContent=`${ms.length}${LANG==="en"?" games":" 場"}`;
       // 統計條：藍紅方勝率、場均時長（gol.gg 風格）；strip 於系列分組後才組（要帶上「範圍內缺幾場」）
       const n=ms.length, bw=ms.filter(m=>m.blueWin).length;
