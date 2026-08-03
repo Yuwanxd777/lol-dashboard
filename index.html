@@ -2449,7 +2449,11 @@ const STATIC_TABBR={
 "lng esports":"LNG","edward gaming":"EDG","rare atom":"RA","ultra prime":"UP","ninjas in pyjamas":"NIP",
 "ag.al":"AL","zsm":"ZSM","frk":"FRK","frank esports":"FAK","hell pigs":"HPS",
 "west point esports philippines":"WP","ctbc flying oyster academy":"CFOA","talon academy":"TLNA",
-"hungkuang falcon":"HKF"};
+"hungkuang falcon":"HKF",
+// Leaguepedia 給 Abyss Academy 的 Short 就是母隊的 ABY → 2017 OPL 那 4 場會併進 Abyss Esports
+// 的 57 場（先發只重疊 2/5、9/4 兩隊還同時在打）。全庫其他學院/二隊都有自己的縮寫
+// （TLA／FNCA／MSFA／CHFA／PSGA／KCB），照同一套給 ABYA（2026-08-03 稽核）
+"abyss academy":"ABYA"};
 let TABBR={}, CABBR={};
 // Leaguepedia(WIKI) 慣用縮寫（歷年主要戰隊，使用者可在資料庫分頁覆寫）
 const WIKI_TABBR={
@@ -2583,6 +2587,9 @@ function lplAllGroups(year){ const out=[]; for(const sp of lplSplitsOf(year))for
 // 套用在 initData（curYear 定案後、且切年份不重載頁面也會重跑）
 const SLOT_SUCCESSION={2022:{LX:"TW"},2023:{CLG:"NRG",TK:"LEV"},2025:{RGE:"NAVI"}}; // 2022：Team Whales 接手 Luxury（VCS/GCD）；2023：NRG 收購 CLG（LCS）、Leviatan 收購 The Kings（LLA）
 if(window.TEAM_COLLIDE&&TEAM_COLLIDE.names&&!TEAM_COLLIDE.names["ag.al"])TEAM_COLLIDE.names["ag.al"]="LPL"; // AG.AL＝AL 更名：碰撞消歧也標 LPL（team_collide.js 重建前的前端補丁）
+// Rich Gang（2015，資料裡打的是 LCO）在碰撞名單被標成 LEC → 跟同縮寫的 Reason Gaming(LEC)
+// 撞成同一把鍵 RG｜LEC，兩支毫無關係的隊（先發 0/5 重疊、同期在不同聯賽）被併成一列 27 場（2026-08-03 稽核）
+if(window.TEAM_COLLIDE&&TEAM_COLLIDE.names)TEAM_COLLIDE.names["rich gang"]="LCO";
 const tAb=t=>{const na=natAbbrOf(t); return na||teamFix(abbrOf(t)||t);}; // 國家隊優先用國碼（ENC 全是國家隊）
 // 盃賽（非常規聯賽）：世界賽/季中賽/電競世界盃(含資格賽)/國家盃/開幕賽/KeSPA 杯/IEM
 const CUP_LG=/^(WLDs|MSI|EWCQ|EWC|ENC|FST|KeSPA|IEM)/i;
