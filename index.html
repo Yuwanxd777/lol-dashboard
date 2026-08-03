@@ -259,6 +259,10 @@
      原本只有 .sVs 兩側有 12px、其餘靠 HTML 的空白字元約 4px → 疏密不一。
      ⚠ 不要把 flex 設在 td 上：colspan 的 td 改 display 會影響表格欄寬計算，改包一層 .shRow */
   .bp tr.seriesHead .shRow{display:flex;align-items:center;gap:4px 12px;flex-wrap:wrap}
+  /* 版型實驗（2026-08-04）：標題列五欄固定位置置左（日期/聯賽/賽段/比分/版本），逐列同位好掃讀；
+     minmax(基準,max-content)＝以對齊為主、內容超長該列自己撐開不裁字 */
+  .bp tr.seriesHead .shRow.shG{display:grid;grid-template-columns:minmax(52px,max-content) minmax(88px,max-content) minmax(150px,max-content) minmax(230px,max-content) minmax(56px,max-content) auto;gap:0 12px;align-items:center}
+  .bp tr.seriesHead .shRow.shG>*{justify-self:start;text-align:left;min-width:0}
   .bp tr.seriesHead .sVs{font-weight:bold;font-size:15px}
   .bp tr.seriesHead .sWin{background:rgba(255,255,255,.10);border-radius:5px;padding:1px 7px} /* 系列賽勝方隊名也給小白底＝與逐局「白底那隊＝勝方」一致 */
   .bp tr.seriesHead .sVs b{color:var(--tx2)}
@@ -10252,10 +10256,10 @@ function render(){
     // 選邊權／先選權是 2026 才上路的制度 → 其他年份整欄不建（使用者指定 2026-08-03：
     // 舊年份維持原本版型）。這個旗標同時控欄位定義、表頭、內容格與 colspan，四處要一致。
     const _hasSel=+curYear>=2026;
+    // 2026-08-04 版型實驗：日期/賽事/版本 三欄收進系列標題列（無論如何保留），
+    // 首欄改成「局數」（清單 1~5 直接篩第幾局）
     const COLF=[
-      _cL(["date", LANG==="en"?"date":"日期", 90, "",     m=>String(m.date).toLowerCase()]),
-      _cL(["lg",   LANG==="en"?"event":"賽事",140,"lg",   m=>((typeof lgName==="function"?lgName(m.league):m.league)+" "+(m.league||"")+" "+(m.split||"")).toLowerCase()]),
-      _cL(["patch",LANG==="en"?"patch":"版本",66, "patch",m=>String(m.patch).toLowerCase()]),
+      _cL(["gno", LANG==="en"?"game":"局數", 84, "", m=>String(m._g)]),
       _cL(["gl",   LANG==="en"?"time":"時長", 66, "",     m=>mmss(m.gl)]),
       _cL(["win",  LANG==="en"?"win":"勝",    66, "team", m=>String(m.win).toLowerCase()]),
       _cL(["bt",   LANG==="en"?"blue":"藍方", 66, "team", m=>String(sides(m).L.team).toLowerCase()]),
@@ -10267,7 +10271,7 @@ function render(){
       _cL(["rb",   LANG==="en"?"ban":"禁",    _banW,"champ",m=>(sides(m).R.bans||[]).map(_cTxt).join(" ")]),
       _cL(["rl0","TOP",_laneW,"champ",m=>_cTxt(sides(m).R.lane[0])]),_cL(["rl1","JNG",_laneW,"champ",m=>_cTxt(sides(m).R.lane[1])]),_cL(["rl2","MID",_laneW,"champ",m=>_cTxt(sides(m).R.lane[2])]),_cL(["rl3","BOT",_laneW,"champ",m=>_cTxt(sides(m).R.lane[3])]),_cL(["rl4","SUP",_laneW,"champ",m=>_cTxt(sides(m).R.lane[4])]),
     ];
-    const _noF=new Set(["date","lg","patch"]); // 這幾欄不放篩選框(上方全域篩選已有 年份/賽事/賽季/版本)
+    const _noF=new Set(); // 全欄都有篩選框（日期/賽事/版本欄已收進系列標題列）
     // 禁用欄：每一手禁用各給一個篩選框，一格對一張 BAN 圖 → 5 禁年代 5 格、3 禁年代 3 格。
     // ⚠ 比對範圍是「整個禁用階段」，不是那一手（2026-07-31 使用者指定）：
     //   5 禁年代 第一階段＝前 3 手、第二階段＝後 2 手；3 禁年代只有一個階段（3 手）。
@@ -10304,6 +10308,7 @@ function render(){
       // 同場數再照字母，順序才穩定。時長／選擇下面會整個換掉，本來就照固定邏輯順序。
       _DLF={}; FILTERS.forEach(f=>{_DLF[f.k]=[...S[f.k].entries()].sort((a,b)=>b[1]-a[1]||String(a[0]).localeCompare(b[0])).map(e=>e[0]);});
       _DLF["gl"]=GLB.map(x=>x[0]); // 時長改用固定分桶清單
+      _DLF["gno"]=["1","2","3","4","5"]; // 局數：直接列 1~5 局
 
       window._BPDL[_dlKey]=_DLF;
     }
@@ -10382,29 +10387,35 @@ function render(){
       // 只在這個情境做：有指定戰隊時左邊本來就固定是該隊，換邊會把「該隊/對手」弄反；
       // 藍紅／先選模式的左右是有意義的，更不能換。
       const _canFlip=(V.bpSideMode||"br")==="team"&&!(V.bpColF["bt"]||"").trim();
-      if(_fq.length)ms=ms.filter(m=>{ m._flip=false; if(_hit(m))return true;
-        if(!_canFlip)return false;
-        m._flip=true; if(_hit(m))return true;
-        m._flip=false; return false; });
+      // 2026-08-04 版型實驗：篩選不再把清單攤平——系列標題列**無論如何保留**（日期/賽事/
+      // 版本都在上面）。改成「命中集合」：ms 保持完整供分組與比分，顯示時只列命中的局。
+      const filtered=_fq.length>0;
+      let visSet=null;
+      if(filtered){ visSet=new Set(); ms.forEach(m=>{ m._flip=false;
+        if(_hit(m)){visSet.add(m);return;}
+        if(!_canFlip)return;
+        m._flip=true; if(_hit(m)){visSet.add(m);return;}
+        m._flip=false; }); }
       else ms.forEach(m=>{ m._flip=false; });   // 清掉上一輪篩選留下的換邊狀態
-      document.getElementById("cnt").textContent=`${ms.length}${LANG==="en"?" games":" 場"}`;
+      const msV=filtered?ms.filter(m=>visSet.has(m)):ms;   // 統計條/場數都以「看得見的局」計
+      document.getElementById("cnt").textContent=`${msV.length}${LANG==="en"?" games":" 場"}`;
       // 統計條：藍紅方勝率、場均時長（gol.gg 風格）；strip 於系列分組後才組（要帶上「範圍內缺幾場」）
-      const n=ms.length, bw=ms.filter(m=>m.blueWin).length;
+      const n=msV.length, bw=msV.filter(m=>m.blueWin).length;
       const _hasFP=m=>m.first==="blue"||m.first==="red"; // 先選/後選勝率：該場先選方是否獲勝
-      const fpN=ms.filter(_hasFP).length, fpW=ms.filter(m=>_hasFP(m)&&((m.first==="blue")===m.blueWin)).length;
-      const lw=mode==="br"?bw:ms.filter(m=>sides(m).LisBlue===m.blueWin).length; // 左方勝場(依模式)
+      const fpN=msV.filter(_hasFP).length, fpW=msV.filter(m=>_hasFP(m)&&((m.first==="blue")===m.blueWin)).length;
+      const lw=mode==="br"?bw:msV.filter(m=>sides(m).LisBlue===m.blueWin).length; // 左方勝場(依模式)
       const LR=mode==="fp"?{li:"🥇",ln:LANG==="en"?"First-pick win%":"先選勝率",ri:"🥈",rn:LANG==="en"?"Second-pick win%":"後選勝率"}
              :mode==="team"?{li:"🟦",ln:LANG==="en"?"This-team win%":"該隊勝率",ri:"🟥",rn:LANG==="en"?"Opponent win%":"對手勝率"}
              :{li:"🔵",ln:T("藍方勝率"),ri:"🔴",rn:T("紅方勝率")};
       const HL=mode==="fp"?[T("先選"),LANG==="en"?"2nd pick":"後選"]:mode==="team"?[LANG==="en"?"This team":"該隊",LANG==="en"?"Opponent":"對手"]:[T("藍方"),T("紅方")]; // 左右方表頭標籤
       // 選藍率＝**有選邊權的那一方選了藍的比例**（分母只算查得到選邊權資料的局，
       // 不是全部場次）——2026 新制才有，2025 以前與 wiki 沒收錄的賽事不計入。
-      const _ssV=ms.map(m=>ssOf(m)).filter(Boolean);
+      const _ssV=msV.map(m=>ssOf(m)).filter(Boolean);
       const ssN=_ssV.length, ssB=_ssV.filter(x=>x==="b").length;
       // 選選序率＝拿到第一選擇權的隊伍**選了先選權**（而不是選邊權）的比例
-      const _ssP=ms.map(m=>(ssRec(m)||{}).p).filter(x=>x===0||x===1);
+      const _ssP=msV.map(m=>(ssRec(m)||{}).p).filter(x=>x===0||x===1);
       const spN=_ssP.length, spY=_ssP.filter(x=>x===1).length;
-      const gls=ms.map(m=>m.gl).filter(x=>x);
+      const gls=msV.map(m=>m.gl).filter(x=>x);
       const avg=gls.length?gls.reduce((s,x)=>s+x,0)/gls.length:0;
       // 整隊範圍(隊名＋禁用＋五路)的底色：藍方淺藍、紅方淺紅，勝方(.bpw)同色加深（2026-07-31 使用者指定）。
       // 三種左右模式都依「實際邊」上色 → fp／team 模式下左右欄會對調，顏色跟著真正的藍/紅方走，
@@ -10451,18 +10462,19 @@ function render(){
         // 隊名不再標「先選方＝金色粗體」（2026-08-03 使用者取消）：右邊的「選擇」欄已經
         // 直接寫先選／後選，重複標示反而讓整列到處都是金色。
         const cell=(s,isBlue,won)=>`<td class="${sCls(isBlue,won)}">${s.team}</td>`;
-        // gno 有值＝系列賽底下的小局：日期欄改成「└ 第N局」並縮排，聯賽欄留白
-        const head=gno?`<td class="subg">└ 第${gno}局</td><td></td>`:`<td>${m.date}</td><td>${lgChip(m.league)} <span class="meta">${spDisp(m.split)}${_lplGrpTag(m.league,m.split,[m.blue.team,m.red.team])}</span></td>`;
+        // 首欄＝「└ 第N局」（日期/賽事/版本都在系列標題列；2026-08-04 版型實驗）
+        const head=`<td class="subg">└ ${LANG==="en"?`Game ${gno}`:`第${gno}局`}</td>`;
         const S=sides(m); // 依模式決定左右實際邊
         const lWon=S.LisBlue===m.blueWin, rWon=!lWon; // 哪一顯示側獲勝→整隊範圍底色加深
-        return `<tr${gno?' class="subrow"':''}>${head}<td>${m.patch}</td><td class="meta">${mmss(m.gl)}</td><td class="win" style="color:${m.blueWin?_CBLU:_CRED}">${m.win}</td>
+        return `<tr class="subrow">${head}<td class="meta">${mmss(m.gl)}</td><td class="win" style="color:${m.blueWin?_CBLU:_CRED}">${m.win}</td>
         ${cell(S.L,S.LisBlue,lWon)}${selCell(m,S.LisBlue,lWon)}${banCells(S.L,lWon,S.LisBlue)}${laneCells(S.L,lWon,S.LisBlue)}
         ${cell(S.R,!S.LisBlue,rWon)}${selCell(m,!S.LisBlue,rWon)}${banCells(S.R,rWon,!S.LisBlue)}${laneCells(S.R,rWon,!S.LisBlue)}</tr>`;
       };
-      // 沒設任何逐局篩選 → 用「系列賽（大場）」呈現，底下列出各局（小場）
-      const grouped=!_colFActive();  // 沒有任何欄位篩選＝系列賽分組；有篩選＝逐場平列
+      // 系列賽分組**永遠做**（2026-08-04 版型實驗：標題列無論如何保留）；
+      // 篩選時比分/缺局仍以完整系列計，只是底下只列命中的局
+      const grouped=true;
       let series=[];
-      if(grouped){
+      {
         // 依「聯賽＋對戰組合」收集，再依(日期,局序)切系列：局序重置(回到較小值)或日期相隔>2天＝不同場系列；
         // 跨午夜的同一系列（相鄰日、局序持續遞增，如第1~4局在14日、第5局在15日）會自動合併成一場
         const dnum=v=>{const p=String(v).slice(0,10).split("-");return p.length===3?Date.UTC(+p[0],+p[1]-1,+p[2])/864e5:0;};
@@ -10477,7 +10489,8 @@ function render(){
           }
         }
         series.sort((a,b)=>a.games[0]._d<b.games[0]._d?1:a.games[0]._d>b.games[0]._d?-1:0); // 系列間近→遠（依首局日期）
-        document.getElementById("cnt").textContent=LANG==="en"?`${series.length} series・${ms.length} games`:`${series.length} 系列・${ms.length} 場`;
+        if(filtered)series=series.filter(s2=>s2.games.some(m=>visSet.has(m)));   // 沒命中任何局的系列整組不列
+        document.getElementById("cnt").textContent=LANG==="en"?`${series.length} series・${msV.length} games`:`${series.length} 系列・${msV.length} 場`;
       }
       // 這個篩選範圍內、系列賽自動偵測出的缺局總數（缺第1局／缺決勝等），寫在「共 N 場」旁
       const totalMiss=series.reduce((a,s)=>{const mm=autoMiss(s);return a+(mm?mm.miss.length:0);},0);
@@ -10501,32 +10514,36 @@ function render(){
         ${spN?`<span>🎯 ${LANG==="en"?"Took pick-order%":"選選序率"} ${_pair(spY,spN,_CGLD,_CMUT)}</span>`:""}
         <span>⏱️ ${T("場均時長")} <b>${mmss(avg)}</b></span>
       </div>`:"";
-      const missRowHTML=n=>`<tr class="subrow missrow"><td class="subg">${LANG==="en"?`└ Game ${n}`:`└ 第${n}局`}</td><td colspan="${_hasSel?20:18}" style="color:#e0574d;font-weight:bold">🚫 ${T("資料缺失（此局尚未匯入）")}</td></tr>`;
+      const missRowHTML=n=>`<tr class="subrow missrow"><td class="subg">${LANG==="en"?`└ Game ${n}`:`└ 第${n}局`}</td><td colspan="${_hasSel?18:16}" style="color:#e0574d;font-weight:bold">🚫 ${T("資料缺失（此局尚未匯入）")}</td></tr>`;
       const seriesHTML=s=>{
         // 左右隊序＝**系列第一局的藍方在左**（2026-08-04 使用者指定）；第一局缺就用現存最早那局
         let [A,B]=s.teams;
         {const g1=s.games[0];
          if(g1&&g1.blue&&s.teams.includes(g1.blue.team)){ A=g1.blue.team; B=s.teams.find(t=>t!==A)||B; }}
         const sa=s.score[A]||0, sb=s.score[B]||0;
-        const miss=autoMiss(s), total=miss?miss.total:s.games.length, missSet=new Set(miss?miss.miss:[]);
+        // 篩選中不判缺局（局是被篩掉的不是缺的）；逐局只列命中的
+        const miss=filtered?null:autoMiss(s), total=miss?miss.total:s.games.length, missSet=new Set(miss?miss.miss:[]);
         let gi=0, rows="";
         for(let n=1;n<=total;n++){ // 逐局：缺的放缺失列，其餘依序填真實局
-          if(missSet.has(n))rows+=missRowHTML(n);
-          else { const m=s.games[gi++]; if(m)rows+=rowHTML(m,n); }
+          if(missSet.has(n)){rows+=missRowHTML(n);continue;}
+          const m=s.games[gi++]; if(!m)continue;
+          if(visSet&&!visSet.has(m))continue;
+          rows+=rowHTML(m,n);
         }
         const warn=miss?` <span style="color:#e0574d;font-weight:bold">⚠ ${LANG==="en"?`missing game ${miss.miss.join(", ")}`:`缺第 ${miss.miss.join("、")} 局`}</span>`:"";
         const _spTxt=`${spDisp(s.split)||""}${_lplGrpTag(s.league,s.split,s.teams)||""}`.trim();
-        return `<tr class="seriesHead"><td colspan="${_hasSel?21:19}"><div class="shRow">`
-          // 季度是空的（WCS 這種沒有分季的賽事）就整個 span 不輸出，否則會多吃一份 flex gap、間隔比別列大
-          //（2026-07-31 使用者）。版本也不寫了——每一局自己那列都已經標了版本。
-          +`<span class="sMeta">${s.date}</span>${lgChip(s.league)}${_spTxt?`<span class="meta">${_spTxt}</span>`:""}`
+        // 標題列固定五欄左對齊（2026-08-04 版型實驗）：日期｜聯賽｜賽段｜比分｜版本——
+        // 每列同位置置左，往下掃著讀；grid 欄寬用 minmax(基準,max-content)：對齊為主、超長不裁字
+        return `<tr class="seriesHead"><td colspan="${_hasSel?19:17}"><div class="shRow shG">`
+          +`<span>${s.date}</span><span>${lgChip(s.league)}</span><span class="meta">${_spTxt||""}</span>`
           +`<span class="sVs"><span class="${sa>sb?'sWin':''}">${A}</span> <b class="${sa>sb?'win':''}">${sa}</b>-<b class="${sb>sa?'win':''}">${sb}</b> <span class="${sb>sa?'sWin':''}">${B}</span></span>`
-          +warn // 「N 局」不寫了（2026-08-04 使用者：沒意義）；缺局警示照留
+          +`<span class="meta">${esc(s.patch||"")}</span>`
+          +`<span>${warn}</span>`
           +`</div></td></tr>`
           +rows;
       };
       document.getElementById("tbl").innerHTML=strip+`<div class="tblwrap"><table class="bp" style="table-layout:fixed"><colgroup>${COLF.map(c=>`<col style="width:${c.w}px">`).join("")}</colgroup><thead><tr>
-        <th>日期</th><th>賽事</th><th>版本</th><th>時長</th><th>勝</th>
+        <th>${LANG==="en"?"Game":"局數"}</th><th>時長</th><th>勝</th>
         <th>${HL[0]}</th>${_selTH}<th>禁用</th><th>${posImg("TOP")}</th><th>${posImg("JNG")}</th><th>${posImg("MID")}</th><th>${posImg("BOT")}</th><th>${posImg("SUP")}</th>
         <th>${HL[1]}</th>${_selTH}<th>禁用</th><th>${posImg("TOP")}</th><th>${posImg("JNG")}</th><th>${posImg("MID")}</th><th>${posImg("BOT")}</th><th>${posImg("SUP")}</th></tr>
         <tr class="bpFRow">${COLF.map(c=>`<th style="padding:2px 3px;top:auto">${_fcell(c)}</th>`).join("")}</tr></thead><tbody id="bpBody"></tbody></table></div>
