@@ -970,7 +970,7 @@ const METRIC_EN={
   // 評分權重表用（附後綴/少見）
   "1st tower":"1st tower","分均擊殺":"Kills/min","助攻":"Assists","經驗差@10":"XPD@10","金差@10":"GD@10",
   "時間(短佳)":"Time (short=good)","分均死亡(少佳)":"Deaths/min (fewer=good)","死亡比(低佳)":"Death% (lower=good)",
-  "被首殺率":"FB victim%","攻擊值":"ATK","防禦值":"DEF",
+  "被首殺率":"FB victim%","首殺差":"FB diff","攻擊值":"ATK","防禦值":"DEF",
   // 散布圖可選軸指標
   "金差@15":"GD@15","經差@15":"XPD@15","分均CS":"CS/min","搶二率":"Lvl2 first%","每場擊殺":"K/game","每場死亡":"D/game","每場助攻":"A/game",
   // 道具 tooltip
@@ -3810,6 +3810,9 @@ function calcPlayers(pos,splitTeam){
       後選率:a.lateN?(duo?a.late/a.lateN:a.late/a.n):null,
       輸出比:a.dsN?a.ds/a.n:null, 死亡比:(a.dN&&a.tdN)?a.d/Math.max(1,a.td):null,
       首殺率:(!fbDead&&a.fbN)?a.fb/a.fbN:null, 被首殺率:(!fvDead&&a.fvN)?a.fv/a.fvN:null,
+      // 首殺差＝首殺率−被首殺率（使用者定案 2026-08-03，越高越好）：一個數就看得出
+      // 「開局搶得到、也不容易被搶」；兩者任一沒值就不算，免得單邊有值時失真
+      首殺差:((!fbDead&&a.fbN)&&(!fvDead&&a.fvN))?(a.fb/a.fbN-a.fv/a.fvN):null,
       金轉傷:(a.goldN&&a.gold)?a.dmg/a.gold:null, 分均輸出:a.dpmN?a.dpm/a.n:null, 分均承傷:a.dtN?a.dt/a.n:null,
       分均金錢:(a.glN&&a.goldN&&a.gl)?a.gold/(a.gl/60):null,
       "經驗差@10":a.g10N?a.xd10/a.g10N:null, "CS差@10":a.g10N?(a.cd10||0)/a.g10N:null,
@@ -6022,11 +6025,13 @@ const fmt={
   score:v=>!_fin(v)?"–":scoreCell(v)
 };
 const PCOLS=[["選手",fmt.raw,"15em"],["場數",fmt.int],["勝率",fmt.pct],["角色池",fmt.int],
+  ["參與率",fmt.pct],["後選率",fmt.pct],
   ["KDA",(v,r)=>!_fin(v)?"–":`${d1s(v)}<span class="meta"> (${r["K/D/A"]||""})</span>`,"10em"],
-  ["KDA差@10",fmt.sign1],["參與率",fmt.pct],
+  ["KDA差@10",fmt.sign1],
   ["贏線率(金差@10)",(v,r)=>!_fin(v)?"–":`${Math.round(v*100)}%<span class="meta"> (${r["金差@10"]==null?"–":(r["金差@10"]>0?"+":"")+Math.round(r["金差@10"])})</span>`,"9.5em"],
-  ["後選率",fmt.pct],["輸出比",fmt.pct],["死亡比",fmt.pct],
-  ["首殺率",fmt.pct],["被首殺率",fmt.pct],["金轉傷",fmt.pct],["中期金差",fmt.sign],
+  ["輸出比",fmt.pct],["死亡比",fmt.pct],
+  ["首殺差",v=>!_fin(v)?"–":(v>0?"+":"")+Math.round(v*100)+"%"],
+  ["金轉傷",fmt.pct],["中期金差",fmt.sign],
   ["分均金錢",fmt.int],["分均輸出",fmt.int],["分均承傷",fmt.int],["分均視分",fmt.d1],
   ["攻擊值",fmt.score],["防禦值",fmt.score],["評分",fmt.score]];
 const TCOLS=[["戰隊",fmt.raw,"10em"],["場數",fmt.int],["大場勝率",fmt.pct],["勝率",fmt.pct],["藍方",fmt.pct],["紅方",fmt.pct],
@@ -6847,6 +6852,7 @@ const COL_DEF={
 "後選率":["被「後手」選出的比例——對方先選、之後才跟著選的場次占比。","Share of games picked after the opponent (counter-pick position)."],
 "贏線率":["10 分鐘時金錢領先同路對手的場次比例。","Share of games with a gold lead over the lane opponent at 10 min."],
 "首殺率":["拿下第一滴血的場次比例。","Share of games with first blood."],
+"首殺差":["首殺率減被首殺率——開局搶得到、又不容易被搶，這個數才高；兩者任一沒樣本就不計。","First-blood rate minus first-blood-victim rate — high means you get first blood and rarely give it up; blank if either side lacks samples."],
 "被首殺率":["被對手拿下第一滴血的場次比例。","Share of games where the opponent got first blood."]};
 const COL_DEF_BY={
 player:{
