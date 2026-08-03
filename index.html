@@ -253,20 +253,15 @@
   .bpCx{display:none;position:absolute;right:7px;top:0;bottom:0;margin:auto 0;height:15px;line-height:15px;background:none;border:none;color:var(--tx2);font-size:12px;cursor:pointer;padding:0 1px;z-index:2}
   .bpColF:not(:placeholder-shown)~.bpCx{display:block}
   .bpCx:hover{color:#ff6b6b}
-  /* 值域固定的篩選欄（時長／選擇）用下拉。原生 select 在 Windows 會套系統樣式：
-     箭頭佔位、選字靠左、展開的選單是亮色，跟整張暗色表格格格不入。
-     appearance:none 收掉原生外觀＋自畫一個小箭頭；color-scheme:dark 讓**展開的清單**
-     也跟著暗色（這行不能省，選項清單是瀏覽器畫的，CSS 管不到內部）。
-     text-align-last 才是真正讓「已選的那個值」置中的屬性（text-align 對 select 沒用）。*/
-  select.bpColF{appearance:none;-webkit-appearance:none;color-scheme:dark;cursor:pointer;
-    text-align:center;text-align-last:center;height:21px;padding-top:0;padding-bottom:0;
-    /* 高度寫死跟輸入框一樣：select 的行高算法與 input 不同，放著會差 1px，同一列看得出來 */
-    background-image:url("data:image/svg+xml;charset=utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%237a8aaa' stroke-width='1.6' stroke-linecap='round'/%3E%3C/svg%3E");
-    background-repeat:no-repeat;background-position:right 5px center;background-size:8px 5px}
-  select.bpColF:hover{border-color:var(--acc)}
-  select.bpColF:focus{outline:none;border-color:var(--acc)}
-  select.bpColF.on{border-color:var(--gold);color:var(--gold)}  /* 有選值＝金框，跟輸入框有值時的視覺一致 */
-  select.bpColF option{background:#0e1420;color:var(--tx)}
+  /* 第二篩選列整列都是輸入框＋建議清單（跟「選戰隊」那顆 combo 同一種清單）。
+     時長／選擇曾經改用 <select>，但原生選單的外觀跟建議清單差太多、同一列兩種樣式很雜
+     （使用者 2026-08-03）→ 收回；值域固定那幾欄改用 _snap 吸附到清單選項來擋亂打的字。
+     外框顏色一律寫在**這裡**不要寫進 inline style：inline 的 border 會蓋掉 hover/focus/有值
+     這三條規則，改了看起來沒反應（CSS 優先權那條教訓）。*/
+  .bpColF{background:#0e1420;border:1px solid #2a3345;border-radius:5px;color:var(--tx)}
+  .bpColF.on{border-color:var(--gold);color:var(--gold)}   /* 有值＝金框金字 */
+  .bpColF:hover{border-color:var(--acc)}
+  .bpColF:focus{outline:none;border-color:var(--acc)}
   .bans .banSep{display:inline-block;width:0;border-left:1px solid #3a4661;height:44px;margin:0 7px 0 0;vertical-align:middle} /* 禁用：第一輪禁(前3)｜第二輪禁(後2) 分隔線；左側間距由前一顆頭像的 margin-right 提供 → 兩側都是 7px */
   input.combo::-webkit-calendar-picker-indicator,input[list]::-webkit-calendar-picker-indicator{display:none!important;opacity:0;width:0} /* datalist 白三角沒有實用性 → 移除 */
   .cwrap .cal{position:absolute;right:24px;background:none;border:none;cursor:pointer;font-size:13px;padding:0 2px;line-height:1}
@@ -2609,12 +2604,17 @@ const mainLg=(cnt,ab)=>{ const e=Object.entries(cnt||{}).sort((x,y)=>y[1]-x[1]);
 // 碰撞縮寫集合也要跟著去點，否則 abbrOf 交出 GGEU、這裡存的還是 GG.EU，比對永遠不中
 const _TC=window.TEAM_COLLIDE, _TC_SET=_TC?new Set((_TC.abbrs||[]).map(a=>String(a).toUpperCase().replace(/\./g,""))):null;
 const _TC_LGS=_TC?new Set(Object.values(_TC.names||{})):null; // 碰撞名單裡出現過的賽區碼（用來認鍵尾是賽區還是退回的全名）
+// （賽區）括號只在**當年真的有兩支隊共用這個縮寫**時才加（使用者指定 2026-08-03）：
+// TEAM_COLLIDE 的碰撞名單是「歷年」的，UP 會標成 UP（LPL）只是因為以前有另一支 UP，
+// 當年只有一支就不該掛括號。後台的合併鍵仍然是完整的「縮寫｜賽區」，只有顯示不掛。
 const tAbShow=fullName=>{ const ab=tAb(fullName);
   if(!_TC_SET||!fullName||!_TC_SET.has(String(ab).toUpperCase()))return ab;
+  teamKeyFix(); if(!_TKAMB||!_TKAMB.has(ab))return ab;
   // 賽區籤要跟**合併後的鍵**一致：Ninjas in Pyjamas.CN 自己查不到賽區，但它已經併進 NIP｜LPL，
   // 顯示名還寫「NIP」就會同一隊時而有籤時而沒有（看那列第一場先遇到哪個寫法）
-  const lg=(teamKeyOf(fullName).split("｜")[1])||"";
-  return (lg&&_TC_LGS&&_TC_LGS.has(lg))?`${ab}（${lg}）`:ab; };
+  const key=teamKeyOf(fullName), tail=key.split("｜")[1]||"";
+  const lg=(tail&&_TC_LGS&&_TC_LGS.has(tail))?tail:((_TKLG&&_TKLG[key])||"");
+  return lg?`${ab}（${lg}）`:ab; };
 // 戰隊「合併鍵」：預設＝縮寫（同隊改名合併，如 Team Secret／Team Secret Whales＝TSW）；
 // 碰撞縮寫（同縮寫跨不同聯賽＝不同隊，如 RoX/CIS vs ROX Tigers/LCK）→ 縮寫＋聯賽碼各自聚合，數據不再混在一起
 const _tKey0=t=>{ const ab=tAb(t);
@@ -2631,7 +2631,7 @@ const _tKey0=t=>{ const ab=tAb(t);
 //      Dire Wolves／Dark Wolves、2016-18 ROX＝ROX Tigers／RoX…）主聯賽都不一樣，不會被誤併
 //   ② 從沒正面對打過：同聯賽的兩支隊一定交手過，用來擋 ① 的漏網
 // 逐年重算，且**一定要用 RAW 不能用 GAMES**——GAMES 會隨上方篩選變動，鍵跟著跑就全亂了。
-let _TKFIX=null,_TKFIX_K="";
+let _TKFIX=null,_TKFIX_K="",_TKAMB=null,_TKLG=null;
 function teamKeyFix(){
   const ck=String(curYear)+"|"+((typeof RAW!=="undefined"&&RAW)?RAW.length:0);
   if(_TKFIX&&_TKFIX_K===ck)return _TKFIX;
@@ -2656,7 +2656,15 @@ function teamKeyFix(){
         if(top(a)!==top(b)||info[a].vs[b]||info[b].vs[a])continue;
         m[b]=a; }
     }
-  }
+    // 併完之後還真的有兩支以上的隊共用同一縮寫 → 這個縮寫**當年**才需要加（賽區）區分
+    _TKAMB=new Set();
+    for(const ab in byAb){ if(new Set(byAb[ab].map(k=>m[k]||k)).size>1)_TKAMB.add(ab); }
+    // 每把（合併後的）鍵當年主要打哪個聯賽：碰撞名單查不到賽區的隊（鍵尾是全名，如 2015 的
+    // Imperium）拿這個當括號內容，不然同一年兩支 IMP 會一個寫 IMP（CBLOL）、一個只寫 IMP
+    _TKLG={};
+    for(const k in info){ const c=m[k]||k, t=(_TKLG[c]=_TKLG[c]||{}); for(const lg in info[k].lg)t[lg]=(t[lg]||0)+info[k].lg[lg]; }
+    for(const c in _TKLG)_TKLG[c]=(Object.entries(_TKLG[c]).sort((x,y)=>y[1]-x[1])[0]||[""])[0];
+  } else { _TKAMB=new Set(); _TKLG={}; }
   _TKFIX=m; _TKFIX_K=ck; return m;
 }
 const teamKeyOf=t=>{ const k=_tKey0(t); return teamKeyFix()[k]||k; };
@@ -3861,7 +3869,7 @@ function calcPlayers(pos,splitTeam){
     const kda10=a.kdaN?((a.k10+a.a10)/Math.max(1,a.d10))-((a.ok10+a.oa10)/Math.max(1,a.od10)):null;
     const gd10=a.g10N?a.gd10/a.g10N:null, gd25=a.g25N?a.gd25/a.g25N:null;
     rows.push({
-      選手:tAb(a.team)+" "+a.name, _lg:mainLg(a.lgCnt,tAb(a.team)), 位置:a.posLabel||"", 場數:a.n, 勝率:a.w/a.n,
+      選手:tAb(a.team)+" "+a.name, _team:tAb(a.team), _lg:mainLg(a.lgCnt,tAb(a.team)), 位置:a.posLabel||"", 場數:a.n, 勝率:a.w/a.n,
       // 這幾項全都要「有資料才給值」：2013 這種只有 BP／勝負的年份，分子分母都是 0，
       // 算出來是 0% 會被誤讀成「真的是 0%」（2026-07-31 使用者三度回報）
       參與率:((a.kN||a.a2N)&&a.tkN)?(a.k+a.a2)/Math.max(1,a.tk):null, "贏線率(金差@10)":a.g10N?a.winL/a.g10N:null,
@@ -6899,7 +6907,12 @@ function scoreTip(c,type){
 }
 function tableHTML(cols,rows,nameImg,limit){ // limit：只渲染排序後前 N 列（排名門檻與名次仍以全部計算）；用於選手等長表分批顯示避免卡頓
   const arrow=k=>{const on=sortK===k, up=on&&sortDir>0; return `<span class="sortArr${on?" on":""}${on?(up?" asc":" desc"):""}">${up?"▲":"▼"}</span>`;}; // 升幕▲紅、降幕▼綠；絕對定位不位移底下資料
-  const sorted=[...rows].sort((a,b)=>{const x=a[sortK],y=b[sortK];
+  // 名稱欄的排序鍵：戰隊＝賽區→隊名、選手＝賽區→戰隊→選手名（使用者指定 2026-08-03：
+  // 照字母排隊名沒什麼意義，先照賽區分堆比較直觀）。其餘欄照欄位值。
+  const _sv=(r,k)=>k==="戰隊"?`${r._lg||"~"}|${r.戰隊}`
+                  :k==="選手"?`${r._lg||"~"}|${r._team||"~"}|${r.選手}`
+                  :r[k];
+  const sorted=[...rows].sort((a,b)=>{const x=_sv(a,sortK),y=_sv(b,sortK);
     if(x==null)return 1; if(y==null)return -1;
     if(typeof x==="string")return x.localeCompare(y)*sortDir;
     return (x<y?-1:x>y?1:0)*sortDir;});
@@ -9406,6 +9419,9 @@ function render(){
         if(!full)return;
         td.classList.add("plink"); td.title="點擊看該隊 BP 紀錄";
         td.onclick=()=>{
+          // 跳過去＝重新開始看這一隊：比賽BP 原有的逐欄篩選**全部清掉**，只填戰隊，
+          // 並切成「該隊」模式（該隊固定排在左邊，不分藍紅）。（使用者指定 2026-08-03）
+          V.bpColF={bt:tAb(full)}; V.bpSideMode="team";
           V.bpTeam=full; saveState();
           curView="比賽BP";
           document.querySelectorAll("nav .tab").forEach(x=>x.classList.toggle("on",x.dataset.view==="比賽BP"));
@@ -10010,25 +10026,21 @@ function render(){
         if(nm&&alt&&alt!==nm)m[nm]=alt; }
       return m; })();
     const _dlHTML=FILTERS.map(f=>(_DLF[f.k]&&_DLF[f.k].length)?`<datalist id="bpDL_${f.k}">${_DLF[f.k].map(v=>`<option value="${esc(v)}">${f.dl==="champ"?esc(_dlAlt[v]||""):""}</option>`).join("")}</datalist>`:"").join("");
-    // 值域固定的欄（時長分桶、選擇）改用下拉，不給打字（使用者指定 2026-08-03）：
-    // 這兩欄的選項就那幾個，開放輸入只會打出篩不到東西的字。其餘欄仍是輸入框＋建議清單。
-    // class 沿用 bpColF：下面綁定用的是 onchange／.value，select 一樣吃得到。
+    // 整列**同一種**元件：輸入框＋建議清單（跟「選戰隊」那顆 combo 一樣的清單樣式）。
+    // 原本時長／選擇用的是 <select>，展開的是原生選單，跟旁邊的建議清單長得完全不同
+    //（使用者 2026-08-03：第二篩選列的清單統一樣式）。
+    // 這兩欄的值域固定，仍然不接受亂打的字：離開欄位時 _snap 會把輸入吸附到清單裡的選項，
+    // 吸不到就清空 → 效果等同不能輸入文字，但外觀跟整列一致。
     const _FIXED=new Set(["gl","bsel","rsel"]);
+    const _snap=(k,v)=>{ if(!_FIXED.has(k))return v;
+      const t=String(v||"").trim().toLowerCase(); if(!t)return "";
+      const o=(_DLF[k]||[]).map(String);
+      return o.find(x=>x.toLowerCase()===t)||o.find(x=>x.toLowerCase().startsWith(t))||o.find(x=>x.toLowerCase().includes(t))||"";
+    };
     const _finput=(f,xs)=>{
-      const st=`display:block;width:100%;min-width:0;font-size:11.5px;box-sizing:border-box;text-align:center;background:#0e1420;border:1px solid #2a3345;border-radius:5px;color:var(--tx)`;
-      if(_FIXED.has(f.k)){
-        // 預設那一項留空白，不寫「全部」（使用者指定 2026-08-03）：沒篩選時整列乾淨，
-        // 跟旁邊沒填字的輸入框看起來一致。
-        const cur=V.bpColF[f.k]||"", opts=(_DLF[f.k]||[]);
-        // 有選值＝金框金字。**必須寫成 inline**：st 裡已經有 border 的 inline 宣告，
-        // 用 class 規則會被 inline 蓋掉（改完看起來沒反應，見 CSS 優先權那條教訓）。
-        const _onS=cur?";border-color:var(--gold);color:var(--gold)":"";
-        return `<span style="display:block;flex:1 1 0;min-width:0${xs?";"+xs:""}"><select class="bpColF${cur?" on":""}" data-k="${f.k}" style="${st};padding:2px 13px 2px 3px${_onS}">`
-          +`<option value="">　</option>`
-          +opts.map(v=>`<option value="${esc(v)}"${String(cur).toLowerCase()===String(v).toLowerCase()?" selected":""}>${esc(v)}</option>`).join("")
-          +`</select></span>`;
-      }
-      return `<span style="position:relative;display:block;flex:1 1 0;min-width:0${xs?";"+xs:""}"><input class="bpColF" data-k="${f.k}" list="bpDL_${f.k}" size="1" value="${esc(V.bpColF[f.k]||"")}" placeholder=" " style="${st};padding:2px 15px 2px 4px"><span class="bpCx" data-k="${f.k}" title="${LANG==="en"?"clear":"清除"}">✕</span></span>`;
+      const cur=V.bpColF[f.k]||"";
+      const st=`display:block;width:100%;min-width:0;font-size:11.5px;box-sizing:border-box;text-align:center`;
+      return `<span style="position:relative;display:block;flex:1 1 0;min-width:0${xs?";"+xs:""}"><input class="bpColF${cur?" on":""}" data-k="${f.k}" list="bpDL_${f.k}" size="1" value="${esc(cur)}" placeholder=" " style="${st};padding:2px 15px 2px 4px"><span class="bpCx" data-k="${f.k}" title="${LANG==="en"?"clear":"清除"}">✕</span></span>`;
     };
     // 逐欄篩選框一律「置中」對齊底下的資料（.bp td 是 text-align:center）。
     // BAN 圖排的幾何：圖 44px、同一輪圖距 7px、第一輪禁(前3)｜第二輪禁(後2) 之間 15px
@@ -10256,9 +10268,10 @@ function render(){
           return uniq.length===1?uniq[0]:t; }).join(" "); };
       // 逐欄篩選輸入：即時更新狀態＋防抖重繪；重繪重建整表→把焦點還回剛打字的那一欄
       box.querySelectorAll(".bpColF").forEach(inp=>{
+        const _apply=()=>{ inp.value=_snap(inp.dataset.k,_normQ(inp.dataset.k,inp.value)); V.bpColF[inp.dataset.k]=inp.value; saveState(); };
         inp.oninput=()=>{ V.bpColF[inp.dataset.k]=inp.value; };                                   // 打字中：只記值、不重繪→建議清單保留、不逐字篩
-        inp.onchange=()=>{ inp.value=_normQ(inp.dataset.k,inp.value); V.bpColF[inp.dataset.k]=inp.value; saveState(); rerender(); };          // 失焦/選清單項＝輸入完→套用篩選
-        inp.onkeydown=e=>{ if(e.key==="Enter"){ e.preventDefault(); inp.value=_normQ(inp.dataset.k,inp.value); V.bpColF[inp.dataset.k]=inp.value; _bpFocusK=inp.dataset.k; saveState(); rerender(); } }; // Enter＝立即套用＋保留焦點
+        inp.onchange=()=>{ _apply(); rerender(); };                                               // 失焦/選清單項＝輸入完→套用篩選
+        inp.onkeydown=e=>{ if(e.key==="Enter"){ e.preventDefault(); _apply(); _bpFocusK=inp.dataset.k; rerender(); } }; // Enter＝立即套用＋保留焦點
       });
       box.querySelectorAll(".bpCx").forEach(x=>{ x.onclick=()=>{ V.bpColF[x.dataset.k]=""; saveState(); rerender(); }; }); // ✕ 清除該欄
       if(_bpFocusK){ const el=box.querySelector('.bpColF[data-k="'+_bpFocusK+'"]'); if(el){ el.focus(); try{el.setSelectionRange(el.value.length,el.value.length);}catch(_e){} } _bpFocusK=null; }
