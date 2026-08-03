@@ -10502,7 +10502,7 @@ function render(){
       //（2026-07-31 使用者指定；最右三顆 說明／預設／返回 位置不動）
       const anchor=document.getElementById("fHelp")||document.getElementById("fReset");
       if(anchor&&!document.getElementById("bpSideSeg")){
-        const seg=segEl("bpSideSeg",[["br",LANG==="en"?"🔵 Blue/Red":"🔵 藍紅","左側＝藍方"],
+        const seg=segEl("bpSideSeg",[["br",LANG==="en"?"🟣 Blue/Red":"🟣 藍紅","左側＝藍方"],
             /* 選邊是 2026 才有的制度，之前藍方一律先選 →「先選」與「藍紅」完全重複，不顯示 */
             ...(+curYear>=2026?[["fp",LANG==="en"?"🥇 First pick":"🥇 先選","左側＝先選方"]]:[]),
             ["team",LANG==="en"?"🟦 Team":"🟦 該隊","左側＝搜尋的戰隊"]],
