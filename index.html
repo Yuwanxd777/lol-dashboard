@@ -975,7 +975,7 @@ const METRIC_EN={
   "2+巢蟲":"2+ Grubs%","首龍":"1st drake%","預示者":"Herald%","小龍":"Drakes","首巴龍":"1st Baron%",
   "KD差@10":"KD@10","金錢差@10":"GD@10","領先勝率":"Lead win%","分均擊殺":"Kills/min","視野分數":"Vision",
   "勝率(大場勝率)":"Win% (Series%)","藍紅勝率差":"Blue−Red Win%",
-  "選選序率":"Took pick-order%","選先選率":"Chose-1st-pick%","選位率差":"Blue−Red pick%","首塔(首中塔)":"1st tower% (1st mid T%)",
+  "選選序率":"Took pick-order% (order/side)","選先選率":"Chose-1st-pick% (1st/2nd)","選位率差":"Side pick% (B/R)","首塔(首中塔)":"1st tower% (1st mid T%)",
   "中期金差(領先勝率)":"GD@15 (Lead win%)","分均KD(擊殺/死亡)":"KD ratio (K／D per min)",
   // 總覽
   "先取目標":"First obj.","拿到方勝率":"Win% taken","樣本":"Sample","對戰組合":"Matchup","勝方":"Winner",
@@ -3964,9 +3964,6 @@ function calcTeams(vsTeam){
     // 選邊權／先選權（2026 新制，資料＝side_sel.js）：s＝選邊權在藍(b)或紅(r)、
     // p＝拿到第一選擇權的隊伍選了先選權(1)還是選邊權(0)。查不到就整局不計。
     const _ss=(+curYear>=2026)?ssIdx().get(_ssKey(o.date,bt,rt,num(r[C.game])||0)):null;
-    // 這局藍方是不是先選方（null＝來源沒記，不計入選先選率）
-    const _fpRaw=String(r[C.blue_firstPick]==null?"":r[C.blue_firstPick]).trim();
-    const _fpB=_fpRaw===""?null:(+_fpRaw===1);
     for(const side of[0,1]){
       const team=side?rt:bt;
       if(vsA){ if(teamKeyOf(team)===vsA)continue; }
@@ -4021,8 +4018,10 @@ function calcTeams(vsTeam){
         if(_ss.p===0||_ss.p===1){
           if(_ss.p===1?!held:held){ a.fcN=(a.fcN||0)+1; if(_ss.p===1)a.fcP=(a.fcP||0)+1; }
         }
-        // ③握選序權那側（held=false）先選還是後選：先選方看主資料的 blue_firstPick（空＝沒資料不計）
-        if(!held&&_fpB!=null){ a.fpN=(a.fpN||0)+1; if(_fpB===!side)a.fpY=(a.fpY||0)+1; }
+        // ③握選序權那側（held=false）先選還是後選：直接用 wiki Pick Sel 顏色（pc=1 先選/2 後選）。
+        // ⚠不可用主資料的 blue_firstPick——它有一堆是管線預設填藍方的，LGD 七次全後選被算成有先選
+        //（2026-08-03 使用者抓包，比對 wiki 標色）。pc=0（wiki 沒記錄）不計入。
+        if(!held&&(_ss.pc===1||_ss.pc===2)){ a.fpN=(a.fpN||0)+1; if(_ss.pc===1)a.fpY=(a.fpY||0)+1; }
       }
       const lane=String(side?r[C.red_Lane]:r[C.blue_Lane]).split("|").filter(x=>x);
       lane.slice(0,5).forEach(ch=>a.champs.add(ch));
@@ -4048,10 +4047,12 @@ function calcTeams(vsTeam){
       分均擊殺:(min&&a.kN)?a.k/min:null, 分均死亡:(min&&a.dN)?a.d/min:null,
       助攻:(min&&a.assN)?a.ass/min:null, 視野分數:a.vsN?a.vs/a.n:null,
       // 三個比率的分母各不相同（都不是全部出賽）：選選序率＝拿到第一選擇權的局、
-      // 選藍率＝自己拿到選邊權的局、選先選率＝自己拿到選序權的局
-      選選序率:a.fcN?(a.fcP||0)/a.fcN:null, 選先選率:a.fpN?(a.fpY||0)/a.fpN:null,
-      // 選位率差＝選藍率−選紅率（＝2×選藍率−1）：正＝偏好藍方，0＝兩邊都選
-      選藍率:a.ssN?(a.ssB||0)/a.ssN:null, 選位率差:a.ssN?(2*(a.ssB||0)-a.ssN)/a.ssN:null
+      // 選位率差＝自己拿到選邊權的局、選先選率＝自己拿到選序權的局。
+      // 括號顯示**次數**（使用者 2026-08-03 指定）：_fc/_fp/_sb 系列＝各欄括號的分子/分母原始數
+      選選序率:a.fcN?(a.fcP||0)/a.fcN:null, _fcP:a.fcP||0, _fcN:a.fcN||0,
+      選先選率:a.fpN?(a.fpY||0)/a.fpN:null, _fpY:a.fpY||0, _fpN:a.fpN||0,
+      // 選位率差＝選藍率−選紅率（＝2×選藍率−1）：正＝偏好藍方，0＝兩邊各半
+      選位率差:a.ssN?(2*(a.ssB||0)-a.ssN)/a.ssN:null, _sbB:a.ssB||0, _sbN:a.ssN||0
     };
     // 合併欄的鍵（表格排序、雷達軸都直接讀這些）：主值就是括號前那一項；分均KD＝總擊殺÷總死亡
     _row["勝率(大場勝率)"]=_row.勝率;
@@ -5820,10 +5821,11 @@ function ssIdx(){
   if(_SSI)return _SSI;
   _SSI=new Map();
   for(const r of (window.SIDE_SEL||[])){
-    // p＝「拿到第一選擇權的隊伍選了先選權」：1st Sel 與 Pick Sel 同一隊＝它把先選權拿走、
+    // p＝「拿到第一選擇權的隊伍選了選序權」：1st Sel 與 Pick Sel 同一隊＝它把選序權拿走、
     // 選邊權留給對手；不同隊＝它拿走選邊權。兩欄有一邊沒填就不判（null）。
+    // pc＝握選序權那隊實際選了先選(1)還是後選(2)——wiki Pick Sel 格的顏色 class，0＝沒記錄。
     const p = (r.fs && r.ps) ? (r.fs === r.ps ? 1 : 0) : null;
-    _SSI.set(_ssKey(r.d,r.t1,r.t2,r.gi), {s:r.ss, p});
+    _SSI.set(_ssKey(r.d,r.t1,r.t2,r.gi), {s:r.ss, p, pc:r.pc||0});
   }
   return _SSI;
 }
@@ -5889,7 +5891,13 @@ function _calcMatches0(team){
     // 早年 OE 根本沒有 blue_firstPick 欄、wiki 補回來的更是全空 → 原本的 ===1 會一路落到 "red"，
     // 害 2013~2025 的比賽BP 全部標成紅方先選（2026-07-31 使用者回報）。沒值時同樣預設藍方。
     const _fpRaw=String(r[C.blue_firstPick]==null?"":r[C.blue_firstPick]).trim();
-    const first=(+String(o.date).slice(0,4)<2026||_fpRaw==="")?"blue":(+_fpRaw===1?"blue":"red");
+    let first=(+String(o.date).slice(0,4)<2026||_fpRaw==="")?"blue":(+_fpRaw===1?"blue":"red");
+    // 2026：wiki「VODs & Match Links」的 Pick Sel 顏色是先選/後選的**官方紀錄**，有就以它為準——
+    // 主資料的 blue_firstPick 有一堆是管線預設填藍方的（2026-08-03 使用者抓包：LGD 七次全後選、
+    // 我們卻標先選）。握選序權的隊＝選邊權(s)的對面；pc=1 它先選、pc=2 它後選。
+    {const _sr=(+String(o.date).slice(0,4)>=2026)?ssIdx().get(_ssKey(o.date,bt,rt,num(r[C.game])||0)):null;
+     if(_sr&&_sr.s&&(_sr.pc===1||_sr.pc===2)){ const pkSide=_sr.s==="b"?"red":"blue";
+       first=_sr.pc===1?pkSide:(pkSide==="red"?"blue":"red"); }}
     out.push({date:o.date.slice(5),_d:o.date,_dt:o.dt||o.date,_g:num(r[C.game])||0,league:o.league,split:o.split,patch:o.patch,
       win:o.result===1?tAb(bt):tAb(rt), first, blueWin:o.result===1,
       gl:num(r[C.blue_gamelength]),
@@ -6191,7 +6199,14 @@ const TCOLS_ALL=[["戰隊",fmt.raw,"10em"],["場數",fmt.int],["時間",fmt.d1],
   // 藍紅勝率差＝藍方勝率−紅方勝率、選位率差＝選藍率−選紅率（都是正＝偏藍）。
   // 這兩欄是全站唯一**不走「越高越紅」**的——藍/紅在這裡是「哪一邊」不是好壞：
   // ≥+10% 亮藍、≤−10% 亮紅，中間不上色，也不吃名次紅藍上色（見 NO_RANK_COLS）
-  ["選選序率",fmt.pct],["選先選率",fmt.pct],["選位率差",_sideDiff],
+  // 三欄括號＝**次數**不是比例（使用者 2026-08-03 指定）：選序/選位、先選/後選、藍/紅
+  ["選選序率",withPlain((v,r)=>!_fin(v)?"–":_cP(v)+_sub(`${r._fcP}/${r._fcN-r._fcP}`),_cP),"",LANG==="en"?null:"選選序率(選序/選位)"],
+  ["選先選率",withPlain((v,r)=>!_fin(v)?"–":_cP(v)+_sub(`${r._fpY}/${r._fpN-r._fpY}`),_cP),"",LANG==="en"?null:"選先選率(先選/後選)"],
+  ["選位率差",withPlain((v,r)=>{ if(!_fin(v))return "–";
+      const p=Math.round(v*100), t=(p>0?"+":"")+p+"%";
+      const m0=p>=10?`<span style="color:#6aa8ff">${t}</span>`:p<=-10?`<span style="color:#e0574d">${t}</span>`:t;
+      return m0+`<span class="meta"> (</span><span style="color:#6aa8ff">${r._sbB}</span><span class="meta">/</span><span style="color:#e0574d">${r._sbN-r._sbB}</span><span class="meta">)</span>`; },
+    (v,r)=>!_fin(v)?"–":((v>0?"+":"")+Math.round(v*100)+"%"+(r?` (${r._sbB}/${r._sbN-r._sbB})`:""))),"",LANG==="en"?null:"選位率差(藍/紅)"],
   ["藍紅勝率差",_sideDiff,"",LANG==="en"?null:"藍紅<br>勝率差"],
   ["角色池",fmt.int],
   ["首塔(首中塔)",withPlain((v,r)=>!_fin(v)?"–":_cP(v)+_sub(_cP(r.首中塔)),_cP)],
@@ -7052,9 +7067,9 @@ team:{
 "戰隊":["點隊名看該隊的比賽 BP 紀錄；同縮寫的改名隊會自動合併。","Click a team for its match BP records; renamed teams sharing an abbreviation are merged."],
 "勝率(大場勝率)":["小局勝率＝勝場÷場數；括號內是<b>大場勝率</b>（BO3／BO5 整個系列只算一場）。排序看小局勝率。","Per-game win rate; bracket = <b>series</b> win rate (a whole BO3/BO5 counts as one). Sorts by the per-game rate."],
 "藍紅勝率差":["藍方勝率減紅方勝率——正數＝這隊在藍方比較強，負數＝紅方比較強，接近 0 代表兩邊一樣穩。哪一邊沒出賽就不計。","Blue-side win rate minus red-side win rate — positive means the team is stronger on blue, negative on red, near 0 means side-agnostic. Blank if it never played a side."],
-"選位率差":["該隊<b>自己拿到選邊權</b>時，選藍的比例減選紅的比例——分母只算它握有選邊權的局。<b>+100%＝每次都選藍</b>、0%＝兩邊各半、−100%＝每次都選紅；±10% 以上才上色。2026 新制才有資料。","When this team <b>held the side pick</b>: share of blue minus share of red — denominator counts only those games. <b>+100% = always blue</b>, 0% = even split, −100% = always red; colored past ±10%. 2026 ruleset only."],
-"選選序率":["該隊拿到<b>第一選擇權（1st Sel）</b>時，選走<b>選序權</b>而不是<b>選邊權</b>的比例——分母只算它有第一選擇權的局。2026 新制才有資料。","When this team had the <b>first choice (1st Sel)</b>, how often it took the <b>pick-order</b> right instead of the <b>side</b> right — denominator counts only games where it had the first choice. 2026 ruleset only."],
-"選先選率":["該隊<b>拿到選序權</b>時（自己選的、或對手拿走選邊權留給它的都算），決定當<b>先選方</b>的比例。與左邊的選選序率是兩件事：那個是「選不選序」，這個是「選了序之後要先還是後」。","When this team <b>held the pick-order</b> right (whether it chose it or the opponent took the side), how often it opted to be the <b>first pick</b>. Different from 選選序率 on the left: that one is whether to take pick-order, this one is what it did with it."],
+"選位率差":["該隊<b>自己拿到選邊權</b>時，選藍的比例減選紅的比例；<b>括號＝選藍/選紅的次數</b>。<b>+100%＝每次都選藍</b>、0%＝兩邊各半、−100%＝每次都選紅；±10% 以上才上色。2026 新制才有資料。","When this team <b>held the side pick</b>: share of blue minus share of red; <b>bracket = times it chose blue / red</b>. <b>+100% = always blue</b>, 0% = even split, −100% = always red; colored past ±10%. 2026 ruleset only."],
+"選選序率":["該隊拿到<b>第一選擇權（1st Sel）</b>時，選走<b>選序權</b>而不是<b>選邊權</b>的比例；<b>括號＝選走選序/選走選位的次數</b>。2026 新制才有資料。","When this team had the <b>first choice (1st Sel)</b>, how often it took the <b>pick-order</b> right instead of the <b>side</b> right; <b>bracket = times it took order / side</b>. 2026 ruleset only."],
+"選先選率":["該隊<b>拿到選序權</b>時（自己選的、或對手拿走選邊權留給它的都算），決定當<b>先選方</b>的比例；<b>括號＝先選/後選的次數</b>，資料取自 wiki Pick Sel 欄的標色（藍＝先選、紅＝後選）。與左邊的選選序率是兩件事：那個是「選不選序」，這個是「選了序之後要先還是後」。","When this team <b>held the pick-order</b> right (whether it chose it or the opponent took the side), how often it opted to be the <b>first pick</b>; <b>bracket = times picking 1st / 2nd</b> (from the wiki Pick Sel cell color: blue = 1st, red = 2nd). Different from 選選序率 on the left: that one is whether to take pick-order, this one is what it did with it."],
 "首塔(首中塔)":["推掉第一座防禦塔的場次比例；括號內是<b>首座中路塔</b>的比例（分母只算有紀錄的場次）。排序看首塔。","Share of games taking the first tower; bracket = <b>first mid tower</b> (only games with data). Sorts by first tower."],
 "中期金差(領先勝率)":["10→25 分鐘<b>之間</b>拉開的金錢差；括號內是<b>25 分金錢領先時的勝率</b>。排序看中期金差。","Gold lead gained <b>between</b> 10 and 25 min; bracket = win rate <b>when ahead in gold at 25 min</b>. Sorts by the gold swing."],
 "分均KD(擊殺/死亡)":["擊殺÷死亡；括號內是分均擊殺／分均死亡兩個原始值。排序看比值。","Kills ÷ deaths; bracket = kills per min / deaths per min. Sorts by the ratio."]},

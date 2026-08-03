@@ -131,7 +131,11 @@ def parse(ov, htm):
     out, cur = [], None
     idx = None
     for tr in re.findall(r"<tr[^>]*>(.*?)</tr>", tbl, re.S):
-        cells = re.findall(r"<t[dh][^>]*>(.*?)</t[dh]>", tr, re.S)
+        # attrs 要另外留一份：cells 只擷取 <td> 的**內容**，而先選/後選的顏色 class 在
+        # <td> 標籤本身上（standings-mhBlue/mhRed）——只看內容永遠讀不到。
+        _cell2 = re.findall(r"<t[dh]([^>]*)>(.*?)</t[dh]>", tr, re.S)
+        cells = [c for _, c in _cell2]
+        attrs = [a0 for a0, _ in _cell2]
         if not cells:
             continue
         txt = [TXT(c) for c in cells]
@@ -189,7 +193,15 @@ def parse(ov, htm):
         if not side:
             cur["n"] -= 1
             continue
-        cur["games"].append({"gi": cur["n"], "blue": bl, "red": rd, "ss": side,
+        # 先選/後選記在 Pick Sel 那格的**顏色 class** 上（格子文字只有「握選序權的隊名」）：
+        # standings-mhBlue＝這隊選了先選、standings-mhRed＝選了後選（wiki 藍/紅色重複利用成 1st/2nd）。
+        # 2026-08-03 使用者抓包：LGD S3 七次握選序全選後選(wiki 全紅)，我們的選先選率卻不是 0%——
+        # 之前那欄是拿主資料 blue_firstPick 推的，而它在 2026 有一堆是預設藍方，這格才是正解。
+        _pi = idx.get("Pick Sel")
+        _pj = None if _pi is None else (_pi if is_match else _pi - base)
+        _pattr = attrs[_pj] if (_pj is not None and 0 <= _pj < len(attrs)) else ""
+        pc = 1 if "standings-mhBlue" in _pattr else (2 if "standings-mhRed" in _pattr else 0)
+        cur["games"].append({"gi": cur["n"], "blue": bl, "red": rd, "ss": side, "pc": pc,
                              "first_sel": g("1st Sel"), "pick_sel": g("Pick Sel")})
     return out
 
@@ -272,7 +284,7 @@ def main():
             d, t1, t2, _ = sc[pair[i]]
             for g in s["games"]:
                 allrec.append({"d": d, "t1": t1, "t2": t2, "gi": g["gi"], "ss": g["ss"],
-                               "blue": g["blue"], "red": g["red"],
+                               "blue": g["blue"], "red": g["red"], "pc": g.get("pc") or 0,
                                "fs": g["first_sel"], "ps": g["pick_sel"], "ov": ov})
                 n += 1
         print(f"  ✓ {ov}：{len(sers)} 場 / {n} 局")
