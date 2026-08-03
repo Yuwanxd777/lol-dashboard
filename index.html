@@ -2601,15 +2601,58 @@ const mainLg=(cnt,ab)=>{ const e=Object.entries(cnt||{}).sort((x,y)=>y[1]-x[1]);
 // 需「原始全名」才判得出是哪一隊(team_collide.js 由 Leaguepedia Teams 的 Name/Short/Region 建)；純縮寫無全名時退回原樣。
 // 碰撞縮寫集合也要跟著去點，否則 abbrOf 交出 GGEU、這裡存的還是 GG.EU，比對永遠不中
 const _TC=window.TEAM_COLLIDE, _TC_SET=_TC?new Set((_TC.abbrs||[]).map(a=>String(a).toUpperCase().replace(/\./g,""))):null;
+const _TC_LGS=_TC?new Set(Object.values(_TC.names||{})):null; // 碰撞名單裡出現過的賽區碼（用來認鍵尾是賽區還是退回的全名）
 const tAbShow=fullName=>{ const ab=tAb(fullName);
   if(!_TC_SET||!fullName||!_TC_SET.has(String(ab).toUpperCase()))return ab;
-  const lg=_TC.names[normT(fullName)];
-  return lg?`${ab}（${lg}）`:ab; };
+  // 賽區籤要跟**合併後的鍵**一致：Ninjas in Pyjamas.CN 自己查不到賽區，但它已經併進 NIP｜LPL，
+  // 顯示名還寫「NIP」就會同一隊時而有籤時而沒有（看那列第一場先遇到哪個寫法）
+  const lg=(teamKeyOf(fullName).split("｜")[1])||"";
+  return (lg&&_TC_LGS&&_TC_LGS.has(lg))?`${ab}（${lg}）`:ab; };
 // 戰隊「合併鍵」：預設＝縮寫（同隊改名合併，如 Team Secret／Team Secret Whales＝TSW）；
 // 碰撞縮寫（同縮寫跨不同聯賽＝不同隊，如 RoX/CIS vs ROX Tigers/LCK）→ 縮寫＋聯賽碼各自聚合，數據不再混在一起
-const teamKeyOf=t=>{ const ab=tAb(t);
+const _tKey0=t=>{ const ab=tAb(t);
   if(_TC_SET&&ab&&_TC_SET.has(String(ab).toUpperCase())){ const lg=(_TC&&_TC.names[normT(t)])||""; return ab+"｜"+(lg||normT(t)); }
   return ab; };
+// ── 同一支隊被切成兩把鍵的修正（2026-08-03 使用者回報「NIP 怎麼只有兩場」）────────────
+// 碰撞鍵要拿**全名**去 team_collide.js 查賽區，查不到就退回「縮寫｜全名」當鍵 → 來源換個寫法
+// 就多出一列，兩列的數據還各自獨立：
+//   2026 NIP：主資料寫 Ninjas in Pyjamas(69 場)、wiki 補的兩場寫 Ninjas in Pyjamas.CN → 69/2
+//   2023 WP ：West Point Esports(17) 與 WP Gaming(1) 是同一批先發，只是來源寫法不同
+//   2023 LEV：The Kings→Leviatan 是席次繼承(SLOT_SUCCESSION)，縮寫已經統一又被碰撞鍵拆回去
+// 判準（兩條都成立才併；讓資料自己說了算，不維護別名表——來源寫法會一直冒出新的）：
+//   ① 主聯賽相同：真的是兩支隊的（2013 IM＝Incredible Miracle／Team Immunity、2015 DW＝
+//      Dire Wolves／Dark Wolves、2016-18 ROX＝ROX Tigers／RoX…）主聯賽都不一樣，不會被誤併
+//   ② 從沒正面對打過：同聯賽的兩支隊一定交手過，用來擋 ① 的漏網
+// 逐年重算，且**一定要用 RAW 不能用 GAMES**——GAMES 會隨上方篩選變動，鍵跟著跑就全亂了。
+let _TKFIX=null,_TKFIX_K="";
+function teamKeyFix(){
+  const ck=String(curYear)+"|"+((typeof RAW!=="undefined"&&RAW)?RAW.length:0);
+  if(_TKFIX&&_TKFIX_K===ck)return _TKFIX;
+  const m={}, info={}, get=k=>info[k]||(info[k]={n:0,lg:{},vs:{}});
+  if(typeof RAW!=="undefined"&&RAW&&RAW.length&&typeof C!=="undefined"&&C&&C.blue_teamname!=null&&C.participantid!=null){
+    for(let i=1;i<RAW.length;i++){
+      const r=RAW[i]; if(+r[C.participantid]!==100)continue; // 隊伍列＝一局一筆
+      const bn=r[C.blue_teamname], rn=r[C.blue_teamname+RB]; if(!bn||!rn)continue;
+      const bk=_tKey0(bn), rk=_tKey0(rn), lg=r[C.league]||"";
+      const A=get(bk), B=get(rk);
+      A.n++; B.n++; A.lg[lg]=(A.lg[lg]||0)+1; B.lg[lg]=(B.lg[lg]||0)+1; A.vs[rk]=1; B.vs[bk]=1;
+    }
+    const top=k=>(Object.entries(info[k].lg).sort((x,y)=>y[1]-x[1])[0]||[""])[0];
+    const byAb={};
+    for(const k in info){ const ab=k.split("｜")[0]; (byAb[ab]=byAb[ab]||[]).push(k); }
+    for(const ab in byAb){
+      // 主鍵優先取「鍵尾是真的賽區碼」那把（退回全名的那把當不了代表，賽區籤會時有時無），
+      // 同級再比場次多寡
+      const _wf=k=>{const p=k.split("｜")[1]; return (p===undefined||(_TC_LGS&&_TC_LGS.has(p)))?1:0;};
+      const ks=byAb[ab].sort((x,y)=>_wf(y)-_wf(x)||info[y].n-info[x].n);
+      for(let i=1;i<ks.length;i++){ const a=ks[0], b=ks[i];
+        if(top(a)!==top(b)||info[a].vs[b]||info[b].vs[a])continue;
+        m[b]=a; }
+    }
+  }
+  _TKFIX=m; _TKFIX_K=ck; return m;
+}
+const teamKeyOf=t=>{ const k=_tKey0(t); return teamKeyFix()[k]||k; };
 // 戰隊→參賽賽區(聯賽+盃賽)對照：從主數據 RAW 建當年每支戰隊打過哪些聯賽/盃賽(縮寫為 key)，供積分「賽區」篩選；依 curYear 記憶
 let _TEAM_LG=null,_TEAM_LG_Y=null;
 function teamLeagueMap(){
@@ -2757,6 +2800,11 @@ function initData(){
     if(/^EWCQ/.test(String(r[C.league]||""))&&+String(r[C.date]).slice(5,7)>=7)r[C.league]="EWC";
     // 2022 VCS 季中升降賽（5/6-5/8）部分場次被上游錯標成「夏季」（TF 對 ASE/SKY 的 8 場；真夏季 6 月開打）→ 正名
     if(String(r[C.league])==="VCS"&&String(r[C.date]).slice(0,10)>="2022-05-06"&&String(r[C.date]).slice(0,10)<="2022-05-08"&&r[C.split]!=="升降賽")r[C.split]="升降賽";
+    // 2022 VCS 冬季 2021-12-07 對 GAM 的那一局，上游的藍方隊名是空字串 → 戰隊表會多出一列
+    // 沒有名字、只有 1 場的隊。先發五人裡有四位（Marcus／Jarvis／Jetsu／Soraaa）當年其餘場次
+    // 全掛 Team Flash → 補回 Team Flash（2026-08-03 稽核；全庫就這一局有這個洞）
+    if(C.red_teamname!=null&&!String(r[C.blue_teamname]||"").trim()&&String(r[C.date]).slice(0,10)==="2021-12-07"
+       &&r[C.league]==="VCS"&&String(r[C.red_teamname]).trim()==="GAM Esports")r[C.blue_teamname]="Team Flash";
     // 賽段正名（使用者判例）：Opening＝春季、Closing＝夏季（LLA/CBLOL 用語 → 全站統一春夏）
     {const _SP={"Opening":"春季","Opening PO":"春季 PO","Closing":"夏季","Closing PO":"夏季 PO"}; if(_SP[r[C.split]])r[C.split]=_SP[r[C.split]];}
     // 2025 LTA 北/南區的無標籤場次（9月底-10月中）＝各區升降保衛戰 → 標成升降賽（金框/升降籤/分段才吃得到）
@@ -6058,6 +6106,8 @@ const _cP=v=>!_fin(v)?"–":Math.round(v*100)+"%";        // 百分比
 const _cSg=v=>!_fin(v)?"–":(v>0?"+":"")+Math.round(v);  // 帶正負號整數
 const _cN2=v=>!_fin(v)?"–":(+v).toFixed(2);             // 兩位小數（分均擊殺/死亡都在 0.4 上下，一位小數看不出差別）
 const _sub=s=>`<span class="meta"> (${s})</span>`;      // 括號內的次要值（灰字）
+// 不吃「前三紅／後三藍」名次上色的欄：欄位自己的顏色另有意義，兩套顏色疊在一起會互相打架
+const NO_RANK_COLS=new Set(["藍紅勝率差"]);
 const PCOLS=[["選手",fmt.raw,"15em"],["場數",fmt.int],["勝率",fmt.pct],["角色池",fmt.int],
   ["參與率",fmt.pct],["後選率",fmt.pct],
   ["KDA",(v,r)=>!_fin(v)?"–":`${d1s(v)}<span class="meta"> (${r["K/D/A"]||""})</span>`,"10em"],
@@ -6073,8 +6123,13 @@ const PCOLS=[["選手",fmt.raw,"15em"],["場數",fmt.int],["勝率",fmt.pct],["�
 // 「選擇」欄一樣只在 2026 起出現，2025 以前保持跟以前一樣。
 const TCOLS_ALL=[["戰隊",fmt.raw,"10em"],["場數",fmt.int],["時間",fmt.d1],
   ["勝率(大場勝率)",withPlain((v,r)=>!_fin(v)?"–":_cP(v)+_sub(_cP(r.大場勝率)),_cP)],
-  // 藍紅勝率差＝藍方勝率−紅方勝率（正＝藍方比較強）；兩邊任一沒場次就不算
-  ["藍紅勝率差",fmt.signPct],
+  // 藍紅勝率差＝藍方勝率−紅方勝率（正＝藍方比較強）；兩邊任一沒場次就不算。
+  // 這是全站唯一**不走「越高越紅」**的欄——這裡的藍/紅是「哪一邊」不是好壞：
+  // ≥+10% 亮藍（藍方明顯較強）、≤−10% 亮紅，中間不上色，也不吃名次紅藍上色（見 NO_RANK_COLS）
+  ["藍紅勝率差",withPlain(v=>{ if(!_fin(v))return "–";
+      const p=Math.round(v*100), t=(p>0?"+":"")+p+"%";
+      return p>=10?`<span style="color:#6aa8ff">${t}</span>`:p<=-10?`<span style="color:#e0574d">${t}</span>`:t; },fmt.signPct),
+    "",LANG==="en"?null:"藍紅<br>勝率差"],
   ["選藍率",fmt.pct],["選先選率",fmt.pct],
   ["角色池",fmt.int],
   ["首塔(首中塔)",withPlain((v,r)=>!_fin(v)?"–":_cP(v)+_sub(_cP(r.首中塔)),_cP)],
@@ -6848,7 +6903,7 @@ function tableHTML(cols,rows,nameImg,limit){ // limit：只渲染排序後前 N 
   const rankOf={};
   const elig=r=>r.場數==null||r.場數>=3; // 低於3場沒意義：不列入排名也不上色
   cols.forEach(([c,f],i)=>{
-    if(i===0||f===fmt.score||c==="路線")return;
+    if(i===0||f===fmt.score||c==="路線"||NO_RANK_COLS.has(c))return;
     const vals=rows.filter(elig).map(r=>r[c]).filter(v=>typeof v==="number");
     if(vals.length<4)return; // 太少列就不標
     const d=[...vals].sort((a,b)=>b-a);
