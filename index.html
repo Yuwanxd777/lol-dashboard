@@ -96,9 +96,16 @@
   .fselIt{padding:5px 11px;border-radius:7px;cursor:pointer;white-space:nowrap;line-height:1.25}
   #fselPop .fselIt:hover{background:#1e2942;color:var(--acc)}
   #fselPop .fselIt.on{background:linear-gradient(135deg,var(--acc),var(--acc2));color:#fff;font-weight:bold}
-  /* 比賽BP 第二篩選列開出的清單：縮成跟該列其他建議清單一樣的小字小間距 */
-  #fselPop.fselSm{font-size:12.5px;padding:5px 6px;gap:1px 8px;border-radius:8px}
-  #fselPop.fselSm .fselIt{padding:3px 8px;border-radius:5px}
+  /* 比賽BP 第二篩選列開出的清單：仿「瀏覽器原生建議清單」的長相（方角、深灰、單欄、
+     無膠囊高亮），跟該列其他欄的 datalist 視覺一致（2026-08-04 使用者要求同款） */
+  #fselPop.fselSm{font-size:12.5px;padding:2px 0;gap:0;border-radius:3px;background:#1e232d;
+    border:1px solid #3a4254;box-shadow:0 4px 14px rgba(0,0,0,.45)}
+  #fselPop.fselSm .fselIt{padding:4px 12px;border-radius:0}
+  #fselPop.fselSm .fselIt:hover{background:#2c3446;color:var(--tx)}
+  #fselPop.fselSm .fselIt.on{background:#2c3446;color:var(--gold);font-weight:normal}
+  #fselPop.fselSm .fselSub{border-radius:3px;padding:2px 0;background:#1e232d;border:1px solid #3a4254}
+  #fselPop.fselSm .fselAr2{font-size:10px}
+  .bpFRow .fsel:hover{border-color:var(--acc)}
   select,input,textarea,button{background:var(--card2);color:var(--tx);border:1px solid var(--line);
     border-radius:9px;padding:8px 12px;font-family:inherit;font-size:15.5px;outline:none}
   select:focus,input:focus,textarea:focus{border-color:var(--acc)}
@@ -6923,7 +6930,8 @@ function fancySelectOpen(sel,btn){
   if(!opts.length)return;
   const pop=document.createElement("div");
   pop.id="fselPop"; pop._sel=sel; pop._btn=btn;
-  if(btn.closest&&btn.closest(".bpFRow"))pop.classList.add("fselSm"); // 第二篩選列的清單縮小版
+  if(btn.closest&&btn.closest(".bpFRow")){ pop.classList.add("fselSm"); // 第二篩選列的清單縮小版
+    pop.style.minWidth=Math.round(btn.getBoundingClientRect().width)+"px"; } // 原生建議清單至少與框同寬
   pop.style.visibility="hidden";
   // 二段式（使用者定案 2026-07-29）：分組/分區子項不佔主清單，滑到父列時往右飛出
   // 誰是子項：值長「父#子」就歸到父列底下（LPL#分組、LCK#分組、GPL#TESL、LLA#北區…）。
