@@ -1078,10 +1078,11 @@ function champImgFb(img){
 const esc=s=>String(s).replace(/"/g,"&quot;");
 // 空 BAN 圖（模擬BP 與 比賽BP 共用；2026-07-31 起比賽BP 的空 BAN 也用這張佔位）
 const NOBAN_SVG="data:image/svg+xml,"+encodeURIComponent("<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'><rect x='1' y='1' width='38' height='38' rx='6' fill='#141a26' stroke='#000' stroke-width='2'/><circle cx='20' cy='20' r='11' fill='none' stroke='#e0574d' stroke-width='3.6'/><line x1='12' y1='12' x2='28' y2='28' stroke='#e0574d' stroke-width='3.6'/></svg>");
-const cImg=(name,po)=>{
+const cImg=(name,po,tip)=>{
   if(!name)return "";
   // 英雄頭像用「當年最後一個版本」的圖（歷史年＝該年末版本、當年＝現行版本）；抓不到退回名字
-  return `<span class="cc"><img loading="lazy" data-cid="${champId(name)}" src="https://ddragon.leagueoflegends.com/cdn/${yearVer()}/img/champion/${champId(name)}.png" alt="${esc(name)}" onerror="champImgFb(this)">${po?`<span class="po">${po}</span>`:""}</span>`;
+  // tip＝滑上去顯示的小框內容（比賽BP 用來標「這隻是誰用的」）
+  return `<span class="cc"${tip?` title="${esc(tip)}"`:""}><img loading="lazy" data-cid="${champId(name)}" src="https://ddragon.leagueoflegends.com/cdn/${yearVer()}/img/champion/${champId(name)}.png" alt="${esc(name)}" onerror="champImgFb(this)">${po?`<span class="po">${po}</span>`:""}</span>`;
 };
 // ── 積分逐場：以「數字ID」解析道具/召喚師技能/符文/技能加點的圖示 ──（dpm 逐場資料給的是 ID）
 const itemImg=(id,s)=>id?`<img loading="lazy" src="https://ddragon.leagueoflegends.com/cdn/${DDV}/img/item/${id}.png" style="width:${s||26}px;height:${s||26}px;border-radius:5px;background:#0d1524;vertical-align:middle" onerror="this.style.visibility='hidden'">`:`<span style="display:inline-block;width:${s||26}px;height:${s||26}px;border-radius:5px;background:#131c2e;vertical-align:middle"></span>`;
@@ -5670,6 +5671,12 @@ function calcMatches(team){
   if(_MCACHE.size>40)_MCACHE.clear(); // 防無限成長（切很多隊時）
   _MCACHE.set(_mk,out); return out;
 }
+// blue_Lane 的格式是「|英雄×5|選手×5|」→ 後五格就是各路選手名。
+// 這裡**不可以濾掉空格子**（lane 那邊的 filter 會讓缺一個名字時整排往前擠、對到錯的路），
+// 只去頭尾的空字串，中間空位照留 → 沒有選手資料的局（PB 補的那種）取到空字串，顯示問號。
+const _lnP=v=>{const a=String(v==null?"":v).split("|");
+  if(a.length&&a[0]==="")a.shift(); if(a.length&&a[a.length-1]==="")a.pop();
+  return a.slice(5,10);};
 function _calcMatches0(team){
   const out=[];
   for(const o of GAMES){
@@ -5705,8 +5712,8 @@ function _calcMatches0(team){
     out.push({date:o.date.slice(5),_d:o.date,_dt:o.dt||o.date,_g:num(r[C.game])||0,league:o.league,split:o.split,patch:o.patch,
       win:o.result===1?tAb(bt):tAb(rt), first, blueWin:o.result===1,
       gl:num(r[C.blue_gamelength]),
-      blue:{team:tAb(bt),bans:_sided?_bB:bans.slice(0,half),lane:bl,po:bpo},
-      red:{team:tAb(rt),bans:_sided?_bR:bans.slice(half),lane:rl,po:rpo}});
+      blue:{team:tAb(bt),bans:_sided?_bB:bans.slice(0,half),lane:bl,po:bpo,p:_lnP(r[C.blue_Lane])},
+      red:{team:tAb(rt),bans:_sided?_bR:bans.slice(half),lane:rl,po:rpo,p:_lnP(r[C.red_Lane])}});
   }
   // 用完整時間戳(含時分秒)由近到遠：跨日、同日、系列內都一致；時間相同再依 game 序號
   return out.sort((a,b)=>b._dt.localeCompare(a._dt)||b._g-a._g);
@@ -9879,8 +9886,10 @@ function render(){
       // 跟禁用欄一致，不要留一片空白讓人以為是渲染壞了（2026-08-01 使用者指定）。
       const laneCells=(s,won,isBlue)=>[0,1,2,3,4].map(i=>{
         const ch=String(s.lane[i]==null?"":s.lane[i]).trim();
+        // 滑到選用頭像顯示「是誰用的」；來源沒有選手資料（PB 補的局、早年缺欄）就寫問號
+        const pn=String((s.p||[])[i]==null?"":(s.p||[])[i]).trim()||"？";
         return `<td class="${sCls(isBlue,won)}">${ch
-          ? cImg(ch,s.po[i]&&s.po[i]!=="0"?s.po[i]:"")
+          ? cImg(ch,s.po[i]&&s.po[i]!=="0"?s.po[i]:"",pn)
           : _qIco(LANG==="en"?"pick not recorded in source":"來源沒有記錄這局的選用")}</td>`;
       }).join("");
       // 空 BAN（該手沒禁：忘記按或戰術性空 BAN）→ 用模擬BP 的空 BAN 圖佔位，不要留空
