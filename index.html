@@ -9991,15 +9991,25 @@ function render(){
       }
       // 這個篩選範圍內、系列賽自動偵測出的缺局總數（缺第1局／缺決勝等），寫在「共 N 場」旁
       const totalMiss=series.reduce((a,s)=>{const mm=autoMiss(s);return a+(mm?mm.miss.length:0);},0);
+      // 統計條每一項都寫成「A%/B%」並各自上色（2026-08-03 使用者指定）：右邊那個數本來就是
+      // 前一個的餘數，分成兩行只是重複佔位。顏色依語意——真的分藍紅方的用藍/紅，
+      // 先選/後選這種不是邊的用金/灰，免得看起來像在講藍紅方。
+      const _CBLU="#6aa8ff",_CRED="#e0574d",_CGLD="var(--gold)",_CMUT="var(--tx2)";
+      const _pair=(a,tot,ca,cb)=>{const p=Math.round(a/tot*100);
+        return `<b style="color:${ca}">${p}%</b><span class="meta">/</span><b style="color:${cb}">${100-p}%</b>`
+          +`<span class="meta">${LANG==="en"?` (${a}/${tot})`:`（${a}／${tot}）`}</span>`;};
+      // 藍紅模式的左右就是藍紅方 → 標題簡化成「勝率」；該隊/先選模式維持原本的左側名稱
+      const _wrLbl=mode==="br"?(LANG==="en"?"win%":"勝率"):LR.ln;
+      const _cL1=mode==="br"?_CBLU:_CGLD, _cR1=mode==="br"?_CRED:_CMUT;
       const strip=n?`<div class="statline">
         <span>${LANG==="en"?`<b>${n}</b> games`:`共 <b>${n}</b> 場`}${grouped?`　<span class="meta">${LANG==="en"?`<b style="color:${totalMiss?"#e0574d":"var(--tx2)"}">${totalMiss}</b> missing in range`:`範圍內缺 <b style="color:${totalMiss?"#e0574d":"var(--tx2)"}">${totalMiss}</b> 場`}</span>`:""}</span>
-        <span>${LR.li} ${LR.ln} <b>${Math.round(lw/n*100)}%</b>${LANG==="en"?` (${lw}W)`:`（${lw} 勝）`}</span>
-        ${ssN?`<span>🟦 ${LANG==="en"?"Chose-blue%":"選藍率"} <b>${Math.round(ssB/ssN*100)}%</b>${LANG==="en"?` (${ssB}/${ssN})`:`（${ssB}／${ssN}）`}</span>`:""}
-        ${(fpN&&mode!=="fp"&&+curYear>=2026)?`<span>🥇 ${LANG==="en"?"First-pick win%":"先選勝率"} <b>${Math.round(fpW/fpN*100)}%</b>${LANG==="en"?` (${fpW}W)`:`（${fpW} 勝）`}</span>`:""}
-        ${spN?`<span>🎯 ${LANG==="en"?"Chose-1st-pick%":"選先選率"} <b>${Math.round(spY/spN*100)}%</b>${LANG==="en"?` (${spY}/${spN})`:`（${spY}／${spN}）`}</span>`:""}
+        <span>${LR.li}${LR.ri} ${_wrLbl} ${_pair(lw,n,_cL1,_cR1)}</span>
+        ${ssN?`<span>🟦 ${LANG==="en"?"Chose-blue%":"選藍率"} ${_pair(ssB,ssN,_CBLU,_CRED)}</span>`:""}
+        ${(fpN&&mode!=="fp"&&+curYear>=2026)?`<span>🥇 ${LANG==="en"?"First-pick win%":"先選勝率"} ${_pair(fpW,fpN,_CGLD,_CMUT)}</span>`:""}
+        ${spN?`<span>🎯 ${LANG==="en"?"Chose-1st-pick%":"選先選率"} ${_pair(spY,spN,_CGLD,_CMUT)}</span>`:""}
         <span>⏱️ ${T("場均時長")} <b>${mmss(avg)}</b></span>
       </div>`:"";
-      const missRowHTML=n=>`<tr class="subrow missrow"><td class="subg">${LANG==="en"?`└ Game ${n}`:`└ 第${n}局`}</td><td colspan="18" style="color:#e0574d;font-weight:bold">🚫 ${T("資料缺失（此局尚未匯入）")}</td></tr>`;
+      const missRowHTML=n=>`<tr class="subrow missrow"><td class="subg">${LANG==="en"?`└ Game ${n}`:`└ 第${n}局`}</td><td colspan="20" style="color:#e0574d;font-weight:bold">🚫 ${T("資料缺失（此局尚未匯入）")}</td></tr>`;
       const seriesHTML=s=>{
         const [A,B]=s.teams, sa=s.score[A]||0, sb=s.score[B]||0;
         const miss=autoMiss(s), total=miss?miss.total:s.games.length, missSet=new Set(miss?miss.miss:[]);
@@ -10010,7 +10020,7 @@ function render(){
         }
         const warn=miss?` <span style="color:#e0574d;font-weight:bold">⚠ ${LANG==="en"?`missing game ${miss.miss.join(", ")}`:`缺第 ${miss.miss.join("、")} 局`}</span>`:"";
         const _spTxt=`${spDisp(s.split)||""}${_lplGrpTag(s.league,s.split,s.teams)||""}`.trim();
-        return `<tr class="seriesHead"><td colspan="19"><div class="shRow">`
+        return `<tr class="seriesHead"><td colspan="21"><div class="shRow">`
           // 季度是空的（WCS 這種沒有分季的賽事）就整個 span 不輸出，否則會多吃一份 flex gap、間隔比別列大
           //（2026-07-31 使用者）。版本也不寫了——每一局自己那列都已經標了版本。
           +`<span class="sMeta">${s.date}</span>${lgChip(s.league)}${_spTxt?`<span class="meta">${_spTxt}</span>`:""}`
