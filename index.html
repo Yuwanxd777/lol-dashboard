@@ -6776,6 +6776,65 @@ function tableHTML(cols,rows,nameImg,limit){ // limit：只渲染排序後前 N 
     }).join("")}</tr>`).join("")
   }</tbody></table></div>`;
 }
+// ── 表格欄名小框說明（滑欄名顯示；評分／攻擊值／防禦值另有權重視窗，優先） ──────────
+// 目的是講清楚「這一欄到底在算什麼」，尤其是同名不同義與名字看不出定義的欄：
+//   戰隊頁「勝率」＝小局、「大場勝率」才是系列賽；「中期金差」是 10→25 分**之間拉開的**
+//   金差（不是 25 分當下的金差）；「領先勝率」是 25 分金錢領先時的勝率。
+// 定義都對過實際算式，不是照欄名猜的。
+const COL_DEF={
+"場數":["目前篩選範圍內的出賽小局數（系列賽每一局各算一場）。","Games played in the current filter range — each game of a series counts separately."],
+"勝率":["小局勝率＝勝場÷場數。","Per-game win rate = wins ÷ games."],
+"角色池":["這個範圍內用過的不同英雄數。","Number of distinct champions used in this range."],
+"KDA":["（擊殺＋助攻）÷死亡；括號內是場均 K／D／A。","(Kills + Assists) ÷ Deaths; the bracket shows average K/D/A."],
+"中期金差":["10→25 分鐘<b>之間</b>拉開的金錢差（＝25 分金差 − 10 分金差），看的是中期運營，不是對線。","Gold lead gained <b>between</b> 10 and 25 min (GD@25 − GD@10) — mid-game execution, not laning."],
+"分均金錢":["每分鐘取得的金錢。","Gold earned per minute."],
+"分均輸出":["每分鐘對英雄造成的傷害。","Damage to champions per minute."],
+"分均承傷":["每分鐘承受的傷害。","Damage taken per minute."],
+"分均視分":["每分鐘的視野分數。","Vision score per minute."],
+"參與率":["隊伍擊殺中有參與（擊殺或助攻）的比例。","Share of the team's kills you took part in (kill or assist)."],
+"後選率":["被「後手」選出的比例——對方先選、之後才跟著選的場次占比。","Share of games picked after the opponent (counter-pick position)."],
+"贏線率":["10 分鐘時金錢領先同路對手的場次比例。","Share of games with a gold lead over the lane opponent at 10 min."],
+"首殺率":["拿下第一滴血的場次比例。","Share of games with first blood."],
+"被首殺率":["被對手拿下第一滴血的場次比例。","Share of games where the opponent got first blood."]};
+const COL_DEF_BY={
+player:{
+"KDA差@10":["10 分鐘時的 KDA 與同路對手的差距。","KDA differential vs. the lane opponent at 10 min."],
+"贏線率(金差@10)":["10 分鐘金錢領先同路對手的場次比例；括號內是平均金差＠10。","Share of games leading the lane opponent in gold at 10 min; bracket = average GD@10."],
+"輸出比":["佔隊伍總輸出的比例。","Share of the team's total damage."],
+"死亡比":["佔隊伍總死亡數的比例。","Share of the team's total deaths."],
+"金轉傷":["每 1 點金錢換到的傷害——把資源轉成輸出的效率。","Damage per gold — how efficiently resources are turned into damage."],
+"選手":["點名字進雷達詳情；數值旁 #N 是該項的全體排名。","Click a name for the radar detail; #N next to a value is its overall rank."]},
+team:{
+"大場勝率":["系列賽勝率——BO3／BO5 整個系列只算一場，與左邊小局「勝率」不同。","Series win rate — a whole BO3/BO5 counts as one, unlike the per-game 勝率 next to it."],
+"藍方":["在藍方時的小局勝率。","Per-game win rate when on blue side."],
+"紅方":["在紅方時的小局勝率。","Per-game win rate when on red side."],
+"時間":["場均比賽時長（分鐘）。","Average game length in minutes."],
+"首殺":["拿下第一滴血的場次比例。","Share of games with first blood."],
+"首塔":["推掉第一座防禦塔的場次比例。","Share of games taking the first tower."],
+"首中塔":["推掉第一座中路塔的場次比例。","Share of games taking the first mid tower."],
+"2+巢蟲":["單場拿下 2 隻以上巢蟲的比例（只計有巢蟲的場次）。","Share of games taking 2+ void grubs (only games with grubs count)."],
+"首龍":["拿下第一條小龍的場次比例。","Share of games taking the first drake."],
+"預示者":["拿下峽谷先鋒的場次比例。","Share of games taking the Rift Herald."],
+"小龍":["場均拿到的小龍數。","Average drakes taken per game."],
+"首巴龍":["拿下第一隻巴龍的場次比例。","Share of games taking the first Baron."],
+"KD差@10":["10 分鐘時的擊殺數減死亡數。","Kills minus deaths at 10 min."],
+"金錢差@10":["10 分鐘時與對手的金錢差。","Gold difference vs. the opponent at 10 min."],
+"領先勝率":["25 分鐘金錢<b>領先</b>的那些場次裡的勝率；括號內是勝-敗場數。","Win rate in games where this team is <b>ahead in gold at 25 min</b>; bracket = wins-losses."],
+"分均擊殺":["每分鐘的擊殺數。","Kills per minute."],
+"分均死亡":["每分鐘的死亡數。","Deaths per minute."],
+"視野分數":["場均視野分數。","Average vision score per game."],
+"戰隊":["點隊名看該隊的比賽 BP 紀錄；同縮寫的改名隊會自動合併。","Click a team for its match BP records; renamed teams sharing an abbreviation are merged."]},
+hero:{
+"路線":["這隻英雄在目前範圍內出場過的路線。","Lanes this champion appeared in within the current range."],
+"BP%":["登場率＝（被選＋被禁）÷該範圍總場數。篩選特定戰隊／選手時會改稱戰隊／選手 BP%，定義也跟著改。","Presence = (picks + bans) ÷ total games in range. Filtering by team/player switches to that team's/player's own definition."],
+"禁用率":["被禁掉的場次比例。","Share of games where this champion was banned."],
+"勝率(勝-敗)":["小局勝率；括號內是勝場-敗場。","Per-game win rate; bracket = wins-losses."],
+"英雄":["點英雄名進詳情：版本趨勢、出場紀錄與對位克制。","Click a champion for details: patch trends, game log and matchups."]}};
+function colDefTip(c,type){
+  const d=(COL_DEF_BY[type]||{})[c]||COL_DEF[c];
+  if(!d)return "";
+  return `<div class="tipTitle">${mLabel(c)}</div><div class="tipRow"><div>${LANG==="en"?d[1]:d[0]}</div></div>`;
+}
 function bindSort(rerender){
   const ths=[...document.querySelectorAll("th[data-k]")];
   const names=ths.map(t=>t.dataset.k);
@@ -6783,7 +6842,9 @@ function bindSort(rerender){
   ths.forEach(th=>{
     th.onclick=()=>{const k=th.dataset.k;
       if(sortK===k)sortDir*=-1; else{sortK=k;sortDir=-1;} rerender();};
-    const tip=scoreTip(th.dataset.k,type); // 評分/攻擊值/防禦值：欄頭 hover 顯示權重視窗（顯示在欄名上方，不擋表格；不用 help 游標）
+    // 欄頭 hover 小框：評分/攻擊值/防禦值顯示權重視窗，其餘欄顯示定義說明
+    //（顯示在欄名上方，不擋表格；不用 help 游標）
+    const tip=scoreTip(th.dataset.k,type)||colDefTip(th.dataset.k,type);
     if(tip){th.style.cursor="pointer";
       th.onmouseenter=()=>tipShow(tip,th.getBoundingClientRect(),"up");
       th.onmouseleave=tipHide;}
