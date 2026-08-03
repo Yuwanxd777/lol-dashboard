@@ -10533,9 +10533,9 @@ function render(){
         // 標題列：日期｜聯賽｜賽段｜比分｜版本，間隔走原本的 flex gap（2026-08-04 使用者：
         // 固定欄位版試過改回）；空賽段不輸出 span（不多吃一份 gap）
         return `<tr class="seriesHead"><td colspan="${_hasSel?19:17}"><div class="shRow">`
-          +`<span class="sMeta">${s.date}</span>${lgChip(s.league)}${_spTxt?`<span class="meta">${_spTxt}</span>`:""}`
+          +`<span class="sMeta">${s.date}</span><span class="meta">${esc(s.patch||"")}</span>${lgChip(s.league)}${_spTxt?`<span class="meta">${_spTxt}</span>`:""}`
           +`<span class="sVs"><span class="${sa>sb?'sWin':''}">${A}</span> <b class="${sa>sb?'win':''}">${sa}</b>-<b class="${sb>sa?'win':''}">${sb}</b> <span class="${sb>sa?'sWin':''}">${B}</span></span>`
-          +`<span class="meta">${esc(s.patch||"")}</span>${warn}`
+          +warn
           +`</div></td></tr>`
           +rows;
       };
