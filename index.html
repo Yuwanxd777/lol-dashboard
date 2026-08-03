@@ -965,7 +965,7 @@ const METRIC_EN={
   "大場勝率":"Series%","藍方":"Blue%","紅方":"Red%","首殺":"FB%","首塔":"1st tower%","首中塔":"1st mid T%",
   "2+巢蟲":"2+ Grubs%","首龍":"1st drake%","預示者":"Herald%","小龍":"Drakes","首巴龍":"1st Baron%",
   "KD差@10":"KD@10","金錢差@10":"GD@10","領先勝率":"Lead win%","分均擊殺":"Kills/min","視野分數":"Vision",
-  "勝率(大場勝率)":"Win% (Series%)","藍紅勝率(藍方／紅方)":"Side win% (Blue／Red)",
+  "勝率(大場勝率)":"Win% (Series%)","藍紅勝率差":"Blue−Red Win%",
   "選藍率":"Chose-blue%","選先選率":"Chose-1st-pick%","首塔(首中塔)":"1st tower% (1st mid T%)",
   "中期金差(領先勝率)":"GD@15 (Lead win%)","分均KD(擊殺/死亡)":"KD ratio (K／D per min)",
   // 總覽
@@ -3954,7 +3954,7 @@ function calcTeams(vsTeam){
     };
     // 合併欄的鍵（表格排序、雷達軸都直接讀這些）：主值就是括號前那一項；分均KD＝總擊殺÷總死亡
     _row["勝率(大場勝率)"]=_row.勝率;
-    _row["藍紅勝率(藍方／紅方)"]=_row.藍方;
+    _row["藍紅勝率差"]=(_fin(_row.藍方)&&_fin(_row.紅方))?_row.藍方-_row.紅方:null;
     _row["首塔(首中塔)"]=_row.首塔;
     _row["中期金差(領先勝率)"]=_row.中期金差;
     _row["分均KD(擊殺/死亡)"]=(a.kN&&a.dN&&a.d>0)?a.k/a.d:null;
@@ -6045,6 +6045,7 @@ const fmt={
   sign:v=>!_fin(v)?"–":(v>0?"+":"")+Math.round(v),
   d1:v=>!_fin(v)?"–":d1s(v),
   sign1:v=>!_fin(v)?"–":(v>0?"+":"")+d1s(v),
+  signPct:v=>!_fin(v)?"–":(v>0?"+":"")+Math.round(v*100)+"%", // 差值型百分比（首殺差、藍紅勝率差）
   raw:v=>v==null||v!==v?"–":v,
   leadPct:(v,r)=>!_fin(v)?"–":`${Math.round(v*100)}%<span class="meta"> (${r._leadW||0}-${(r._leadN||0)-(r._leadW||0)})</span>`,
   score:v=>!_fin(v)?"–":scoreCell(v)
@@ -6052,6 +6053,7 @@ const fmt={
 // 合併欄（一欄塞主值＋括號次值）的格式化函式是 HTML，雷達 tooltip 與 AI 問答的 CSV 不能用它。
 // 用 .pf 掛一份「純文字版」上去，那兩處優先讀 .pf；沒掛的話它們會退回原始值，印出 0.5416 這種東西。
 const withPlain=(f,pf)=>(f.pf=pf,f);
+fmt.signPct.pf=fmt.signPct; // 它的輸出本來就是純文字 → 雷達/CSV 直接沿用同一份
 const _cP=v=>!_fin(v)?"–":Math.round(v*100)+"%";        // 百分比
 const _cSg=v=>!_fin(v)?"–":(v>0?"+":"")+Math.round(v);  // 帶正負號整數
 const _cN2=v=>!_fin(v)?"–":(+v).toFixed(2);             // 兩位小數（分均擊殺/死亡都在 0.4 上下，一位小數看不出差別）
@@ -6062,7 +6064,7 @@ const PCOLS=[["選手",fmt.raw,"15em"],["場數",fmt.int],["勝率",fmt.pct],["�
   ["KDA差@10",fmt.sign1],
   ["贏線率(金差@10)",(v,r)=>!_fin(v)?"–":`${Math.round(v*100)}%<span class="meta"> (${r["金差@10"]==null?"–":(r["金差@10"]>0?"+":"")+Math.round(r["金差@10"])})</span>`,"9.5em"],
   ["輸出比",fmt.pct],["死亡比",fmt.pct],
-  ["首殺差",v=>!_fin(v)?"–":(v>0?"+":"")+Math.round(v*100)+"%"],
+  ["首殺差",fmt.signPct],
   ["金轉傷",fmt.pct],["中期金差",fmt.sign],
   ["分均金錢",fmt.int],["分均輸出",fmt.int],["分均承傷",fmt.int],["分均視分",fmt.d1],
   ["攻擊值",fmt.score],["防禦值",fmt.score],["評分",fmt.score]];
@@ -6071,9 +6073,8 @@ const PCOLS=[["選手",fmt.raw,"15em"],["場數",fmt.int],["勝率",fmt.pct],["�
 // 「選擇」欄一樣只在 2026 起出現，2025 以前保持跟以前一樣。
 const TCOLS_ALL=[["戰隊",fmt.raw,"10em"],["場數",fmt.int],["時間",fmt.d1],
   ["勝率(大場勝率)",withPlain((v,r)=>!_fin(v)?"–":_cP(v)+_sub(_cP(r.大場勝率)),_cP)],
-  // 藍紅勝率：兩個值都要看，所以不做主次而是並列上色（藍/紅同比賽BP 的色）；排序值＝藍方勝率
-  ["藍紅勝率(藍方／紅方)",withPlain((v,r)=>`<span style="color:#6aa8ff">${_cP(v)}</span><span class="meta">／</span><span style="color:#e0574d">${_cP(r.紅方)}</span>`,
-    (v,r)=>r?`${_cP(v)}／${_cP(r.紅方)}`:_cP(v))],  // 純文字版：雷達只拿得到單一數值(無 r)，就只印藍方
+  // 藍紅勝率差＝藍方勝率−紅方勝率（正＝藍方比較強）；兩邊任一沒場次就不算
+  ["藍紅勝率差",fmt.signPct],
   ["選藍率",fmt.pct],["選先選率",fmt.pct],
   ["角色池",fmt.int],
   ["首塔(首中塔)",withPlain((v,r)=>!_fin(v)?"–":_cP(v)+_sub(_cP(r.首中塔)),_cP)],
@@ -6928,7 +6929,7 @@ team:{
 "視野分數":["場均視野分數。","Average vision score per game."],
 "戰隊":["點隊名看該隊的比賽 BP 紀錄；同縮寫的改名隊會自動合併。","Click a team for its match BP records; renamed teams sharing an abbreviation are merged."],
 "勝率(大場勝率)":["小局勝率＝勝場÷場數；括號內是<b>大場勝率</b>（BO3／BO5 整個系列只算一場）。排序看小局勝率。","Per-game win rate; bracket = <b>series</b> win rate (a whole BO3/BO5 counts as one). Sorts by the per-game rate."],
-"藍紅勝率(藍方／紅方)":["在藍方／在紅方時的小局勝率，兩邊並列。排序看藍方勝率。","Per-game win rate on blue side / on red side. Sorts by the blue-side rate."],
+"藍紅勝率差":["藍方勝率減紅方勝率——正數＝這隊在藍方比較強，負數＝紅方比較強，接近 0 代表兩邊一樣穩。哪一邊沒出賽就不計。","Blue-side win rate minus red-side win rate — positive means the team is stronger on blue, negative on red, near 0 means side-agnostic. Blank if it never played a side."],
 "選藍率":["該隊<b>自己拿到選邊權</b>的局裡選了藍方的比例——分母只算它握有選邊權的場次，不是全部出賽。2026 新制才有資料。","Share of blue picked in games where this team <b>held the side pick</b> — the denominator counts only those games, not all games. 2026 ruleset only."],
 "選先選率":["該隊<b>拿到第一選擇權</b>時，選走「先選權」而不是「選邊權」的比例。2026 新制才有資料。","When this team <b>had the first choice</b>, how often it took first pick instead of side choice. 2026 ruleset only."],
 "首塔(首中塔)":["推掉第一座防禦塔的場次比例；括號內是<b>首座中路塔</b>的比例（分母只算有紀錄的場次）。排序看首塔。","Share of games taking the first tower; bracket = <b>first mid tower</b> (only games with data). Sorts by first tower."],
