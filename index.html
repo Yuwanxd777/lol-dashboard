@@ -84,9 +84,10 @@
   .bpFRow .fsel{height:21px;width:100%;padding:1px 2px;font-size:11px;border-radius:5px;background:#0e1420;border:1px solid #2a3345;gap:0;justify-content:center;position:relative}
   .bpFRow .fsel .fselAr{display:none}
   .bpFRow .fsel .fselTx{overflow:hidden;white-space:nowrap}
-  /* ✕：欄寬與「勝」同款(66px)塞不下常駐 ✕ → 有值且滑過鈕才浮出（蓋在字尾上一瞬間，可接受） */
-  .bpFRow .fsel .bpCx{display:none;position:absolute;right:2px;top:50%;transform:translateY(-50%);padding:0 2px;font-size:11px;line-height:1;background:#0e1420}
-  .bpFRow .fsel.hasV:hover .bpCx{display:inline}
+  /* ✕：欄寬與「勝」同款(66px)塞不下常駐 ✕ → 有值且滑過鈕才浮出；
+     樣式對齊全域 .bpCx（同位置/字級/無底色，hover 變紅走全域規則），別自成一格 */
+  .bpFRow .fsel .bpCx{display:none;position:absolute;right:7px;top:0;bottom:0;margin:auto 0;height:15px;line-height:15px;font-size:12px;padding:0 1px}
+  .bpFRow .fsel.hasV:hover .bpCx{display:block}
   .fsel.on{border-color:var(--acc)}
   #fselPop{position:fixed;z-index:9999;display:grid;grid-auto-flow:column;gap:2px 10px;padding:7px 8px;
     background:#141a28;border:1px solid var(--acc);border-radius:11px;box-shadow:0 10px 34px rgba(0,0,0,.55);font-size:17px}
@@ -10226,7 +10227,7 @@ function render(){
     const COLF=[
       _cL(["date", LANG==="en"?"date":"日期", 90, "",     m=>String(m.date).toLowerCase()]),
       _cL(["lg",   LANG==="en"?"event":"賽事",140,"lg",   m=>((typeof lgName==="function"?lgName(m.league):m.league)+" "+(m.league||"")+" "+(m.split||"")).toLowerCase()]),
-      _cL(["patch",LANG==="en"?"patch":"版本",68, "patch",m=>String(m.patch).toLowerCase()]),
+      _cL(["patch",LANG==="en"?"patch":"版本",66, "patch",m=>String(m.patch).toLowerCase()]),
       _cL(["gl",   LANG==="en"?"time":"時長", 66, "",     m=>mmss(m.gl)]),
       _cL(["win",  LANG==="en"?"win":"勝",    66, "team", m=>String(m.win).toLowerCase()]),
       _cL(["bt",   LANG==="en"?"blue":"藍方", 66, "team", m=>String(sides(m).L.team).toLowerCase()]),
