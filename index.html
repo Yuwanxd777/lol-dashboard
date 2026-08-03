@@ -180,6 +180,20 @@
     background:#44557f;box-shadow:0 2px 8px rgba(0,0,0,.5);cursor:grab;touch-action:none}
   #hsbT:hover,#hsbT.drag{background:#5f76ab}
   #hsbT.drag{cursor:grabbing}
+  /* ── 觸控裝置（iPad 等）：pointer 類型與寬度/縮放無關，可用 @media；
+     ⚠ 這塊必須放在 #hsb/#hsbT 基準規則**之後**——同特異度後者勝，放前面高度會被蓋回去 ──
+     1) iOS Safari 對「字級 <16px 的可聚焦控件」會在點擊時自動把整頁放大、而且不會自己縮回
+        （2026-08-03 iPad Pro 使用者回報「縮放很不方便」的主因）——全站控件基準字級 15.5px
+        剛好全滅這個門檻 → 觸控裝置一律 16px；比賽BP 逐欄篩選那種 inline 小字級要用
+        !important 才蓋得過（stylesheet 的 !important 優先權高於 inline 宣告）。
+        字級門檻看的是「計算值」，#main 的 transform:scale 縮小不影響判定。
+     2) 浮動橫捲軌道/把手加大到手指尺寸（桌機維持 15/9px 與垂直捲軸一致的規格）。 */
+  @media(pointer:coarse){
+    select,input,textarea{font-size:16px!important}
+    #hsb{height:26px}
+    #hsbT{height:16px}
+    .tblwrap{-webkit-overflow-scrolling:touch}
+  }
   @container mainc (max-width:1980px){th,td{padding:8px 7px}} /* 1080P 縮內距，讓大表盡量不用捲 */
   th[data-k]{white-space:normal;line-height:1.25;vertical-align:middle;text-wrap:balance} /* 長標題換行且行長平衡（四字斷成2+2非3+1） */
   .hi{color:var(--gold);font-weight:bold}
@@ -833,7 +847,7 @@
   <span class="meta" id="meta"></span>
   <span style="flex:1"></span>
   <label class="meta" id="lblFont">字體</label><select id="fontSel"><option value="huninn">粉圓</option><option value="jhenghei">微軟正黑體</option><option value="gensen">源泉圓體 TW</option></select>
-  <label class="meta" id="lblZoom">縮放</label><select id="zoomSel" title="全域文字/畫面縮放"><option value="50">50%</option><option value="75">75%</option><option value="100" selected>100%</option><option value="125">125%</option><option value="150">150%</option><option value="200">200%</option></select>
+  <label class="meta" id="lblZoom">縮放</label><select id="zoomSel" title="全域文字/畫面縮放"><option value="50">50%</option><option value="60">60%</option><option value="75">75%</option><option value="80">80%</option><option value="100" selected>100%</option><option value="125">125%</option><option value="150">150%</option><option value="200">200%</option></select><button id="zoomFitBtn" title="自動調整縮放，讓本頁最寬的表格剛好塞進一個畫面（平板特別好用）">⛶ 貼合</button>
   <label class="meta" id="lblLang">語言</label><select id="langSel"><option value="zh">繁體中文</option><option value="cn">簡體中文</option><option value="en">English</option></select>
   <label class="meta" id="lblYear">年份</label><select id="yearSel"></select>
   <button id="penBtn" title="畫筆（講解模式）">🖊️</button>
@@ -7138,7 +7152,47 @@ document.getElementById('fontSel').onchange=e=>{applyFont(e.target.value); if(ty
     // （不重算就是「縮小靠左一坨、放大爆出右邊」的根因——量出來的 px 寬殘留舊值）
     if(window.refitLayout)requestAnimationFrame(()=>refitLayout());
     try{dispatchEvent(new Event('resize'));}catch(e){} };
-  const z0=window._URLZ||+(localStorage.getItem('dash_zoom')||"100")||100; if(zs)zs.value=String(z0); window.applyZoom(z0);
+  // ⛶ 貼合：自動算一個縮放比例，讓「本頁最寬的表格」剛好塞進一屏（2026-08-03 iPad Pro
+  // 使用者回報：一個平板畫面塞不下想看的資料、手動縮放又麻煩）。
+  // 量的是表格的**自然寬（max-content）**：fillTableWidth 可能已把表格撐滿容器或鎖 fixed 寬，
+  // 直接讀 scrollWidth 只會量到「現在的寬」——已縮小過再按一次就回不去了 → 先還原成
+  // auto/max-content 量完再復原（與 fillTableWidth 同一套量法，rect 要除以 _zoomF 轉版面 px）。
+  const _natOf=w=>{const t=w.querySelector("table"); if(!t)return 0;
+    const ths=[...t.querySelectorAll("thead th")];
+    const o=[t.style.tableLayout,t.style.width], ow=ths.map(th=>th.style.width);
+    t.style.tableLayout="auto"; t.style.width="max-content";
+    ths.forEach(th=>{ if("ow" in th.dataset)th.style.width=th.dataset.ow; });
+    const nat=t.getBoundingClientRect().width/(window._zoomF||1);
+    t.style.tableLayout=o[0]; t.style.width=o[1]; ths.forEach((th,i)=>{th.style.width=ow[i];});
+    return nat;};
+  window.zoomFit=()=>{
+    const m=document.getElementById('main'); if(!m)return;
+    let extra=null; // 最寬表格與其容器的差：正＝溢出(要縮)、負＝有餘裕(可放大回去)
+    document.querySelectorAll(".tblwrap").forEach(w=>{
+      if(!w.offsetParent||!w.clientWidth)return;
+      const d=_natOf(w)-w.clientWidth;
+      if(extra==null||d>extra)extra=d;
+    });
+    // 本頁沒表格（總覽卡片這類流動版面）→ 回 100%；有表格→ 反推倍率，-1% 吃掉邊框/捲軸零頭。
+    // 縮完若跨過容器斷點（如 1980 的 td 內距）造成小幅超寬，pt1/pt2 內距壓縮會把它收回。
+    let z=extra==null?100:Math.floor(innerWidth/(m.clientWidth+extra)*100)-1;
+    z=Math.max(40,Math.min(100,z));
+    if(zs){ zs.querySelectorAll("option.fitOp").forEach(o=>o.remove()); // 上次貼合的動態選項只留一個
+      if(![...zs.options].some(o=>+o.value===z)){
+        const op=document.createElement('option'); op.value=String(z); op.textContent=z+"%"; op.className="fitOp";
+        zs.insertBefore(op,[...zs.options].find(o=>+o.value>z)||null); }
+      zs.value=String(z); }
+    localStorage.setItem('dash_zoom',String(z));
+    window.applyZoom(z);
+  };
+  {const b=document.getElementById('zoomFitBtn'); if(b)b.onclick=()=>window.zoomFit();}
+  // 平板第一次開（沒存過縮放、非網址指定）：預設 75%——iPad 版面寬 1024~1366，100% 時
+  // 桌機寬表什麼都要橫捲。使用者自己選過縮放就永遠尊重（這裡不寫入 localStorage）。
+  const _coarse=(()=>{try{return matchMedia('(pointer:coarse)').matches;}catch(e){return false;}})();
+  const _svz=localStorage.getItem('dash_zoom');
+  const z0=window._URLZ||+(_svz||((_coarse&&innerWidth>=700&&innerWidth<=1500)?"75":"100"))||100;
+  if(zs&&![...zs.options].some(o=>+o.value===z0)){const op=document.createElement('option');op.value=String(z0);op.textContent=z0+"%";op.className="fitOp";zs.insertBefore(op,[...zs.options].find(o=>+o.value>z0)||null);} // 存過貼合算出的非標準值(如 68%)：重載也要顯示得出來
+  if(zs)zs.value=String(z0); window.applyZoom(z0);
   if(zs)zs.onchange=e=>{const z=+e.target.value||100; localStorage.setItem('dash_zoom',String(z)); window.applyZoom(z);}; }
 // 語言切換（中/英）：改語系→清 DDragon 快取→重載（狀態已存 localStorage，重載後接回）
 { const ls=document.getElementById('langSel');
@@ -7147,7 +7201,9 @@ document.getElementById('fontSel').onchange=e=>{applyFont(e.target.value); if(ty
   }
   if(LANG==='en'){ // 頁首靜態標籤翻英（分頁/篩選由 JS 產生已走 T()）
     const set=(id,tx)=>{const el=document.getElementById(id); if(el)el.textContent=tx;};
-    set('lblFont','Font'); set('lblLang','Language'); set('lblYear','Year');
+    set('lblFont','Font'); set('lblLang','Language'); set('lblYear','Year'); set('lblZoom','Zoom');
+    set('zoomFitBtn','⛶ Fit');
+    {const b=document.getElementById('zoomFitBtn'); if(b)b.title='Auto-zoom so the widest table on this page fits the screen';}
     const st=document.getElementById('siteTitleTx'); if(st&&/LOL數據表$/.test(st.textContent)) st.textContent='LOL Stats';
     
   }
