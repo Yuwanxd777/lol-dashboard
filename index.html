@@ -6175,14 +6175,18 @@ fmt.signPct.pf=fmt.signPct; // 它的輸出本來就是純文字 → 雷達/CSV 
 const _cP=v=>!_fin(v)?"–":Math.round(v*100)+"%";        // 百分比
 const _cSg=v=>!_fin(v)?"–":(v>0?"+":"")+Math.round(v);  // 帶正負號整數
 const _cN2=v=>!_fin(v)?"–":(+v).toFixed(2);             // 兩位小數（分均擊殺/死亡都在 0.4 上下，一位小數看不出差別）
-const _sub=s=>`<span class="meta"> (${s})</span>`;      // 括號內的次要值（灰字）
+// 括號次要值開關（英雄/選手/戰隊篩選列的 () 鈕；預設顯示）：關掉時所有欄位的括號整段
+// 不輸出——是重繪不是 CSS 藏字，colFloor/fillTableWidth 才會跟著重算、欄位真的變窄。
+window.SHOW_BRK=(function(){try{return localStorage.getItem("dash_brk")!=="0";}catch(e){return true;}})();
+const _brk=h=>window.SHOW_BRK?h:"";
+const _sub=s=>_brk(`<span class="meta"> (${s})</span>`);      // 括號內的次要值（灰字）
 // 不吃「前三紅／後三藍」名次上色的欄：欄位自己的顏色另有意義，兩套顏色疊在一起會互相打架
 const NO_RANK_COLS=new Set(["藍紅勝率差","選序位差","選先後差","選位率差"]);
 // 方位差欄工廠：主值 ±10% 亮藍/亮紅、括號＝次數（藍色分子/紅色其餘）；bK=分子欄 nK=分母欄
 const _diffFmt=(bK,nK)=>withPlain((v,r)=>{ if(!_fin(v))return "–";
   const p=Math.round(v*100), t=(p>0?"+":"")+p+"%";
   const m0=p>=10?`<span style="color:#6aa8ff">${t}</span>`:p<=-10?`<span style="color:#e0574d">${t}</span>`:t;
-  return m0+`<span class="meta"> (</span><span style="color:#6aa8ff">${r[bK]}</span><span class="meta">/</span><span style="color:#e0574d">${r[nK]-r[bK]}</span><span class="meta">)</span>`; },
+  return m0+_brk(`<span class="meta"> (</span><span style="color:#6aa8ff">${r[bK]}</span><span class="meta">/</span><span style="color:#e0574d">${r[nK]-r[bK]}</span><span class="meta">)</span>`); },
   (v,r)=>!_fin(v)?"–":((v>0?"+":"")+Math.round(v*100)+"%"+(r?` (${r[bK]}/${r[nK]-r[bK]})`:"")));
 // 方位差欄的共用格式：±10% 以上就用藍/紅標出偏向哪一邊（中間留白＝兩邊差不多）
 const _sideDiff=withPlain(v=>{ if(!_fin(v))return "–";
@@ -6190,9 +6194,9 @@ const _sideDiff=withPlain(v=>{ if(!_fin(v))return "–";
   return p>=10?`<span style="color:#6aa8ff">${t}</span>`:p<=-10?`<span style="color:#e0574d">${t}</span>`:t; },fmt.signPct);
 const PCOLS=[["選手",fmt.raw,"15em"],["場數",fmt.int],["勝率",fmt.pct],["角色池",fmt.int],
   ["參與率",fmt.pct],["後選率",fmt.pct],
-  ["KDA",(v,r)=>!_fin(v)?"–":`${d1s(v)}<span class="meta"> (${r["K/D/A"]||""})</span>`,"10em"],
+  ["KDA",(v,r)=>!_fin(v)?"–":`${d1s(v)}${_brk(`<span class="meta"> (${r["K/D/A"]||""})</span>`)}`,"10em"],
   ["KDA差@10",fmt.sign1],
-  ["贏線率(金差@10)",(v,r)=>!_fin(v)?"–":`${Math.round(v*100)}%<span class="meta"> (${r["金差@10"]==null?"–":(r["金差@10"]>0?"+":"")+Math.round(r["金差@10"])})</span>`,"9.5em"],
+  ["贏線率(金差@10)",(v,r)=>!_fin(v)?"–":`${Math.round(v*100)}%${_brk(`<span class="meta"> (${r["金差@10"]==null?"–":(r["金差@10"]>0?"+":"")+Math.round(r["金差@10"])})</span>`)}`,"9.5em"],
   ["輸出比",fmt.pct],["死亡比",fmt.pct],
   ["首殺差",fmt.signPct],
   ["金轉傷",fmt.pct],["中期金差",fmt.sign],
@@ -6222,14 +6226,14 @@ const TCOLS_ALL=[["戰隊",fmt.raw,"10em"],["場數",fmt.int],["時間",fmt.d1],
 const _T_SEL2026=new Set(["選序位差","選先後差","選位率差"]);
 const tcols=()=>TCOLS_ALL.filter(c=>+curYear>=2026||!_T_SEL2026.has(c[0]));
 const HCOLS=[["英雄",fmt.raw,"11.5em"],["路線",(v,r)=>r._laneIcons||"–","11em"],["BP%",fmt.pct],["禁用率",fmt.pct],["場數",fmt.int],
-  ["勝率(勝-敗)",(v,r)=>`${Math.round((v||0)*100)}% (${esc(r["勝-敗"]||"")})`],
-  ["贏線率",fmt.pct],["後選率",fmt.pct],["參與率",fmt.pct],["KDA",(v,r)=>!_fin(v)?"–":`${fmt.d1(v)}<span class="meta"> (${esc(r["K/D/A"]||"")})</span>`],
+  ["勝率(勝-敗)",(v,r)=>`${Math.round((v||0)*100)}%${_brk(` (${esc(r["勝-敗"]||"")})`)}`],
+  ["贏線率",fmt.pct],["後選率",fmt.pct],["參與率",fmt.pct],["KDA",(v,r)=>!_fin(v)?"–":`${fmt.d1(v)}${_brk(`<span class="meta"> (${esc(r["K/D/A"]||"")})</span>`)}`],
   ["中期金差",v=>!_fin(v)?"–":(v>0?"+":"")+Math.round(v)],
   ["分均金錢",fmt.int],["分均輸出",fmt.int],["分均承傷",fmt.int],["分均視分",fmt.d1],["評分",fmt.score]];
 // 英雄分頁「積分數據版」欄位（積分沒有的參數一律跳過：無 BP%/禁用/贏線/後選/評分等賽事專屬欄）；搶二率＝先到 2 等場數÷有紀錄場數
 const HSCOLS=[["英雄",fmt.raw,"11.5em"],["路線",(v,r)=>r._laneIcons||"–","11em"],["場數",fmt.int],
-  ["勝率(勝-敗)",(v,r)=>`${Math.round((v||0)*100)}% (${esc(r["勝-敗"]||"")})`],
-  ["KDA",(v,r)=>!_fin(v)?"–":`${fmt.d1(v)}<span class="meta"> (${esc(r["K/D/A"]||"")})</span>`],
+  ["勝率(勝-敗)",(v,r)=>`${Math.round((v||0)*100)}%${_brk(` (${esc(r["勝-敗"]||"")})`)}`],
+  ["KDA",(v,r)=>!_fin(v)?"–":`${fmt.d1(v)}${_brk(`<span class="meta"> (${esc(r["K/D/A"]||"")})</span>`)}`],
   ["參與率",fmt.pct],["分均CS",fmt.d1],
   ["金差@15",v=>!_fin(v)?"–":(v>0?"+":"")+Math.round(v)],["經差@15",v=>!_fin(v)?"–":(v>0?"+":"")+Math.round(v)],
   ["搶二率",fmt.pct],["評分",fmt.score]];
@@ -6746,6 +6750,26 @@ function bindFilters(cb){
     if(id==="fMin")el.oninput=deb(el.onchange,250); // 最少場數：邊打邊生效（防抖 250ms，不用等失焦也不會每個數字都整頁重繪）
   }};
   on("fSplit","split"); on("fLg","league"); on("fPatch","patch"); on("fD1","d1"); on("fD2","d2"); on("fMin","minG");
+  // （）開關：英雄/選手/戰隊三頁專屬——切換數據欄位括號裡的次要值（預設顯示）。
+  // 插在基礎按鈕（ℹ️ ↺ …）左邊，同 BP 模式鈕的作法；重繪走 cb（該頁自己的 rerender），
+  // 並清光分頁快取——其他兩頁的快取是舊括號狀態渲染的，不清會還原出來。
+  if(["英雄","選手","戰隊"].includes(curView)){
+    const anchor=document.getElementById("fHelp")||document.getElementById("fReset");
+    if(anchor&&!document.getElementById("brkBtn")){
+      const b=document.createElement("button"); b.id="brkBtn"; b.className="sqbtn"; b.textContent="()";
+      const paint=()=>{const on2=!!window.SHOW_BRK;
+        b.title=LANG==="en"?(on2?"Hide bracketed sub-values":"Show bracketed sub-values")
+                           :(on2?"隱藏欄位括號裡的次要數據":"顯示欄位括號裡的次要數據");
+        b.style.borderColor=on2?"":"var(--gold)"; b.style.color=on2?"":"var(--gold)";};
+      paint();
+      b.onclick=()=>{window.SHOW_BRK=!window.SHOW_BRK;
+        try{localStorage.setItem("dash_brk",window.SHOW_BRK?"1":"0");}catch(e){}
+        paint();
+        try{if(typeof VIEW_CACHE!=="undefined"&&VIEW_CACHE)VIEW_CACHE.slots={};}catch(e){}
+        cb();};
+      anchor.parentNode.insertBefore(b,anchor);
+    }
+  }
   ["fD1","fD2"].forEach(id=>{ // 📅 日曆選日：隱形 date input 承接，值取月日回填
     const btn=document.getElementById(id+"btn"), c=document.getElementById(id+"c");
     if(!btn||!c)return;
