@@ -259,10 +259,7 @@
      原本只有 .sVs 兩側有 12px、其餘靠 HTML 的空白字元約 4px → 疏密不一。
      ⚠ 不要把 flex 設在 td 上：colspan 的 td 改 display 會影響表格欄寬計算，改包一層 .shRow */
   .bp tr.seriesHead .shRow{display:flex;align-items:center;gap:4px 12px;flex-wrap:wrap}
-  /* 版型實驗（2026-08-04）：標題列五欄固定位置置左（日期/聯賽/賽段/比分/版本），逐列同位好掃讀；
-     minmax(基準,max-content)＝以對齊為主、內容超長該列自己撐開不裁字 */
-  .bp tr.seriesHead .shRow.shG{display:grid;grid-template-columns:minmax(52px,max-content) minmax(88px,max-content) minmax(150px,max-content) minmax(230px,max-content) minmax(56px,max-content) auto;gap:0 12px;align-items:center}
-  .bp tr.seriesHead .shRow.shG>*{justify-self:start;text-align:left;min-width:0}
+
   .bp tr.seriesHead .sVs{font-weight:bold;font-size:15px}
   .bp tr.seriesHead .sWin{background:rgba(255,255,255,.10);border-radius:5px;padding:1px 7px} /* 系列賽勝方隊名也給小白底＝與逐局「白底那隊＝勝方」一致 */
   .bp tr.seriesHead .sVs b{color:var(--tx2)}
@@ -10259,7 +10256,8 @@ function render(){
     // 2026-08-04 版型實驗：日期/賽事/版本 三欄收進系列標題列（無論如何保留），
     // 首欄改成「局數」（清單 1~5 直接篩第幾局）
     const COLF=[
-      _cL(["gno", LANG==="en"?"game":"局數", 84, "", m=>String(m._g)]),
+      _cL(["gno", LANG==="en"?"game":"局數", 66, "", m=>{const CN=["","一","二","三","四","五"];
+        return (LANG==="en"?`game ${m._g}`:`第${CN[m._g]||m._g}局 ${m._g}`);}]),
       _cL(["gl",   LANG==="en"?"time":"時長", 66, "",     m=>mmss(m.gl)]),
       _cL(["win",  LANG==="en"?"win":"勝",    66, "team", m=>String(m.win).toLowerCase()]),
       _cL(["bt",   LANG==="en"?"blue":"藍方", 66, "team", m=>String(sides(m).L.team).toLowerCase()]),
@@ -10308,7 +10306,7 @@ function render(){
       // 同場數再照字母，順序才穩定。時長／選擇下面會整個換掉，本來就照固定邏輯順序。
       _DLF={}; FILTERS.forEach(f=>{_DLF[f.k]=[...S[f.k].entries()].sort((a,b)=>b[1]-a[1]||String(a[0]).localeCompare(b[0])).map(e=>e[0]);});
       _DLF["gl"]=GLB.map(x=>x[0]); // 時長改用固定分桶清單
-      _DLF["gno"]=["1","2","3","4","5"]; // 局數：直接列 1~5 局
+      _DLF["gno"]=LANG==="en"?["Game 1","Game 2","Game 3","Game 4","Game 5"]:["第一局","第二局","第三局","第四局","第五局"]; // 局數清單（get 同時帶數字，打 3 也搜得到）
 
       window._BPDL[_dlKey]=_DLF;
     }
@@ -10532,13 +10530,12 @@ function render(){
         }
         const warn=miss?` <span style="color:#e0574d;font-weight:bold">⚠ ${LANG==="en"?`missing game ${miss.miss.join(", ")}`:`缺第 ${miss.miss.join("、")} 局`}</span>`:"";
         const _spTxt=`${spDisp(s.split)||""}${_lplGrpTag(s.league,s.split,s.teams)||""}`.trim();
-        // 標題列固定五欄左對齊（2026-08-04 版型實驗）：日期｜聯賽｜賽段｜比分｜版本——
-        // 每列同位置置左，往下掃著讀；grid 欄寬用 minmax(基準,max-content)：對齊為主、超長不裁字
-        return `<tr class="seriesHead"><td colspan="${_hasSel?19:17}"><div class="shRow shG">`
-          +`<span>${s.date}</span><span>${lgChip(s.league)}</span><span class="meta">${_spTxt||""}</span>`
+        // 標題列：日期｜聯賽｜賽段｜比分｜版本，間隔走原本的 flex gap（2026-08-04 使用者：
+        // 固定欄位版試過改回）；空賽段不輸出 span（不多吃一份 gap）
+        return `<tr class="seriesHead"><td colspan="${_hasSel?19:17}"><div class="shRow">`
+          +`<span class="sMeta">${s.date}</span>${lgChip(s.league)}${_spTxt?`<span class="meta">${_spTxt}</span>`:""}`
           +`<span class="sVs"><span class="${sa>sb?'sWin':''}">${A}</span> <b class="${sa>sb?'win':''}">${sa}</b>-<b class="${sb>sa?'win':''}">${sb}</b> <span class="${sb>sa?'sWin':''}">${B}</span></span>`
-          +`<span class="meta">${esc(s.patch||"")}</span>`
-          +`<span>${warn}</span>`
+          +`<span class="meta">${esc(s.patch||"")}</span>${warn}`
           +`</div></td></tr>`
           +rows;
       };
