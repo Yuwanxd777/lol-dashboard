@@ -98,14 +98,16 @@
   #fselPop .fselIt.on{background:linear-gradient(135deg,var(--acc),var(--acc2));color:#fff;font-weight:bold}
   /* 比賽BP 第二篩選列開出的清單：仿「瀏覽器原生建議清單」的長相（方角、深灰、單欄、
      無膠囊高亮），跟該列其他欄的 datalist 視覺一致（2026-08-04 使用者要求同款） */
-  #fselPop.fselSm{font-size:12.5px;padding:2px 0;gap:0;border-radius:3px;background:#1e232d;
+  #fselPop.fselSm,#bpSug{font-size:12.5px;padding:2px 0;gap:0;border-radius:3px;background:#1e232d;
     border:1px solid #3a4254;box-shadow:0 4px 14px rgba(0,0,0,.45)}
-  #fselPop.fselSm .fselIt{padding:4px 12px;border-radius:0}
-  #fselPop.fselSm .fselIt:hover{background:#2c3446;color:var(--tx)}
+  #fselPop.fselSm .fselIt,#bpSug .fselIt{padding:4px 12px;border-radius:0;cursor:pointer;white-space:nowrap;line-height:1.3}
+  #fselPop.fselSm .fselIt:hover,#bpSug .fselIt:hover,#bpSug .fselIt.on{background:#2c3446;color:var(--tx)}
   #fselPop.fselSm .fselIt.on{background:#2c3446;color:var(--gold);font-weight:normal}
   #fselPop.fselSm .fselSub{border-radius:3px;padding:2px 0;background:#1e232d;border:1px solid #3a4254}
   #fselPop.fselSm .fselAr2{font-size:10px}
   .bpFRow .fsel:hover{border-color:var(--acc)}
+  /* 第二篩選列的自訂建議清單（取代原生 datalist：原生的樣式改不了，整列統一用這款） */
+  #bpSug{position:fixed;z-index:9999;display:none;max-height:300px;overflow-y:auto}
   select,input,textarea,button{background:var(--card2);color:var(--tx);border:1px solid var(--line);
     border-radius:9px;padding:8px 12px;font-family:inherit;font-size:15.5px;outline:none}
   select:focus,input:focus,textarea:focus{border-color:var(--acc)}
@@ -10222,11 +10224,11 @@ function render(){
       _cL(["gl",   LANG==="en"?"time":"時長", 66, "",     m=>mmss(m.gl)]),
       _cL(["win",  LANG==="en"?"win":"勝",    66, "team", m=>String(m.win).toLowerCase()]),
       _cL(["bt",   LANG==="en"?"blue":"藍方", 94, "team", m=>String(sides(m).L.team).toLowerCase()]),
-      ...(_hasSel?[_cL(["bsel", LANG==="en"?"choice":"選擇",70,"", m=>ssCatLbl(m,sides(m).LisBlue).toLowerCase()])]:[]),
+      ...(_hasSel?[_cL(["bsel", LANG==="en"?"choice":"選擇",80,"", m=>ssCatLbl(m,sides(m).LisBlue).toLowerCase()])]:[]),
       _cL(["bb",   LANG==="en"?"ban":"禁",    _banW,"champ",m=>(sides(m).L.bans||[]).map(_cTxt).join(" ")]),
       _cL(["bl0","TOP",_laneW,"champ",m=>_cTxt(sides(m).L.lane[0])]),_cL(["bl1","JNG",_laneW,"champ",m=>_cTxt(sides(m).L.lane[1])]),_cL(["bl2","MID",_laneW,"champ",m=>_cTxt(sides(m).L.lane[2])]),_cL(["bl3","BOT",_laneW,"champ",m=>_cTxt(sides(m).L.lane[3])]),_cL(["bl4","SUP",_laneW,"champ",m=>_cTxt(sides(m).L.lane[4])]),
       _cL(["rt",   LANG==="en"?"red":"紅方",  94, "team", m=>String(sides(m).R.team).toLowerCase()]),
-      ...(_hasSel?[_cL(["rsel", LANG==="en"?"choice":"選擇",70,"", m=>ssCatLbl(m,!sides(m).LisBlue).toLowerCase()])]:[]),
+      ...(_hasSel?[_cL(["rsel", LANG==="en"?"choice":"選擇",80,"", m=>ssCatLbl(m,!sides(m).LisBlue).toLowerCase()])]:[]),
       _cL(["rb",   LANG==="en"?"ban":"禁",    _banW,"champ",m=>(sides(m).R.bans||[]).map(_cTxt).join(" ")]),
       _cL(["rl0","TOP",_laneW,"champ",m=>_cTxt(sides(m).R.lane[0])]),_cL(["rl1","JNG",_laneW,"champ",m=>_cTxt(sides(m).R.lane[1])]),_cL(["rl2","MID",_laneW,"champ",m=>_cTxt(sides(m).R.lane[2])]),_cL(["rl3","BOT",_laneW,"champ",m=>_cTxt(sides(m).R.lane[3])]),_cL(["rl4","SUP",_laneW,"champ",m=>_cTxt(sides(m).R.lane[4])]),
     ];
@@ -10279,7 +10281,7 @@ function render(){
         const alt=LANG==="en"?((D[id]||{}).n||""):((window.CHAMP_EN||{})[id]||(id!==nm?id:""));
         if(nm&&alt&&alt!==nm)m[nm]=alt; }
       return m; })();
-    const _dlHTML=FILTERS.map(f=>(_DLF[f.k]&&_DLF[f.k].length)?`<datalist id="bpDL_${f.k}">${_DLF[f.k].map(v=>`<option value="${esc(v)}">${f.dl==="champ"?esc(_dlAlt[v]||""):""}</option>`).join("")}</datalist>`:"").join("");
+    // 原生 datalist 已退役（樣式改不了、跟選擇欄的清單長不一樣）→ 改用 #bpSug 自訂建議清單（見 rerender 綁定）
     // 整列**同一種**元件：輸入框＋建議清單（跟「選戰隊」那顆 combo 一樣的清單樣式）。
     // 原本時長／選擇用的是 <select>，展開的是原生選單，跟旁邊的建議清單長得完全不同
     //（使用者 2026-08-03：第二篩選列的清單統一樣式）。
@@ -10311,10 +10313,10 @@ function render(){
           for(const it of items){ const v2=cat+"#"+it;
             oh+=`<option value="${esc(v2)}"${cur===v2?" selected":""} data-s="${esc(it)}" data-b="${esc(en?px+"·"+IT_B[it]:px+it)}">${esc(en?px+"·"+it:px+it)}</option>`; }
         }
-        return `<span style="display:block;width:calc(100% + 12px);margin:0 -6px"><select class="bpColF" data-k="${f.k}">${oh}</select></span>`;
+        return `<span style="display:block;width:100%"><select class="bpColF" data-k="${f.k}">${oh}</select></span>`;
       }
       const st=`display:block;width:100%;min-width:0;font-size:11.5px;box-sizing:border-box;text-align:center`;
-      return `<span style="position:relative;display:block;flex:1 1 0;min-width:0${xs?";"+xs:""}"><input class="bpColF${cur?" on":""}" data-k="${f.k}" list="bpDL_${f.k}" size="1" value="${esc(cur)}" placeholder=" " style="${st};padding:2px 15px 2px 4px"><span class="bpCx" data-k="${f.k}" title="${LANG==="en"?"clear":"清除"}">✕</span></span>`;
+      return `<span style="position:relative;display:block;flex:1 1 0;min-width:0${xs?";"+xs:""}"><input class="bpColF${cur?" on":""}" data-k="${f.k}" size="1" value="${esc(cur)}" placeholder=" " autocomplete="off" style="${st};padding:2px 15px 2px 4px"><span class="bpCx" data-k="${f.k}" title="${LANG==="en"?"clear":"清除"}">✕</span></span>`;
     };
     // 逐欄篩選框一律「置中」對齊底下的資料（.bp td 是 text-align:center）。
     // BAN 圖排的幾何：圖 44px、同一輪圖距 7px、第一輪禁(前3)｜第二輪禁(後2) 之間 15px
@@ -10488,7 +10490,7 @@ function render(){
         <th>${HL[0]}</th>${_selTH}<th>禁用</th><th>${posImg("TOP")}</th><th>${posImg("JNG")}</th><th>${posImg("MID")}</th><th>${posImg("BOT")}</th><th>${posImg("SUP")}</th>
         <th>${HL[1]}</th>${_selTH}<th>禁用</th><th>${posImg("TOP")}</th><th>${posImg("JNG")}</th><th>${posImg("MID")}</th><th>${posImg("BOT")}</th><th>${posImg("SUP")}</th></tr>
         <tr class="bpFRow">${COLF.map(c=>`<th style="padding:2px 3px;top:auto">${_fcell(c)}</th>`).join("")}</tr></thead><tbody id="bpBody"></tbody></table></div>
-        <div class="row" style="justify-content:center;margin-top:10px"><button id="bpMore" class="primary"></button></div>`+_dlHTML;
+        <div class="row" style="justify-content:center;margin-top:10px"><button id="bpMore" class="primary"></button></div>`;
       // 分批渲染：先 200 場，按需載入，避免上萬節點一次撐爆版面
       const body=document.getElementById("bpBody"), moreBtn=document.getElementById("bpMore");
       const glowIdx=new Map(); let lit=null, shown=0;
@@ -10541,15 +10543,56 @@ function render(){
           const hit=Object.keys(_chLK).filter(x=>x.startsWith(lc)); // 打一半也認：前綴唯一才換
           const uniq=[...new Set(hit.map(x=>_chLK[x]))];
           return uniq.length===1?uniq[0]:t; }).join(" "); };
+      // 自訂建議清單（#bpSug，樣式＝選擇欄那款）：原生 datalist 退役（使用者 2026-08-04：
+      // 清單樣式整列統一）。行為照抄原生：點空框列全部、打字過濾（中英名都比）、點選帶入即套用、
+      // ↑↓ 移動、Enter 選取（沒選中就套用打的字）、Esc 關閉、失焦關閉。
+      const _sug=document.getElementById("bpSug")||(()=>{const d=document.createElement("div");d.id="bpSug";document.body.appendChild(d);
+        document.addEventListener("click",e=>{ if(d.style.display!=="none"&&e.target!==d._for&&!d.contains(e.target)){d.style.display="none";d._for=null;} });
+        window.addEventListener("scroll",()=>{ if(d.style.display!=="none"){d.style.display="none";d._for=null;} },true);
+        return d;})();
+      const _sugClose=()=>{_sug.style.display="none";_sug._for=null;};
+      const _sugPick=v=>{ const inp=_sug._for; if(!inp)return; _sugClose();
+        inp.value=v; V.bpColF[inp.dataset.k]=v; saveState(); rerender(); };
+      const _sugShow=inp=>{ const k=inp.dataset.k, opts=_DLF[k]||[];
+        if(!opts.length){_sugClose();return;}
+        const q=inp.value.trim().toLowerCase();
+        const hit=opts.filter(v=>{const lv=String(v).toLowerCase();
+          return !q||lv.includes(q)||String(_dlAlt[v]||"").toLowerCase().includes(q);}).slice(0,60);
+        if(!hit.length){_sugClose();return;}
+        _sug.innerHTML=hit.map(v=>`<div class="fselIt" data-v="${esc(v)}">${esc(v)}${_dlAlt[v]?`<span class="meta" style="margin-left:8px;font-size:11px">${esc(_dlAlt[v])}</span>`:""}</div>`).join("");
+        const r=inp.getBoundingClientRect(), M=8;
+        _sug.style.display="block"; _sug.style.visibility="hidden"; _sug.style.minWidth=Math.round(r.width)+"px";
+        const pr=_sug.getBoundingClientRect();
+        let left=r.left; if(left+pr.width>innerWidth-M)left=Math.max(M,innerWidth-M-pr.width);
+        const below=(innerHeight-r.bottom)>=Math.min(pr.height,220)+10;
+        _sug.style.left=left+"px";
+        _sug.style.top=below?(r.bottom+3)+"px":(Math.max(M,r.top-3-pr.height))+"px";
+        _sug.style.visibility=""; _sug._for=inp; _sug._hi=-1; };
+      _sug.onmousedown=e=>{ e.preventDefault(); const it=e.target.closest(".fselIt"); if(it)_sugPick(it.dataset.v); }; // mousedown＝搶在 blur 前
       // 逐欄篩選輸入：即時更新狀態＋防抖重繪；重繪重建整表→把焦點還回剛打字的那一欄
-      box.querySelectorAll(".bpColF").forEach(inp=>{
+      box.querySelectorAll("input.bpColF").forEach(inp=>{
         const _apply=()=>{ inp.value=_snap(inp.dataset.k,_normQ(inp.dataset.k,inp.value)); V.bpColF[inp.dataset.k]=inp.value; saveState(); };
-        inp.oninput=()=>{ V.bpColF[inp.dataset.k]=inp.value; };                                   // 打字中：只記值、不重繪→建議清單保留、不逐字篩
-        inp.onchange=()=>{ _apply(); rerender(); };                                               // 失焦/選清單項＝輸入完→套用篩選
-        inp.onkeydown=e=>{ if(e.key==="Enter"){ e.preventDefault(); _apply(); _bpFocusK=inp.dataset.k; rerender(); } }; // Enter＝立即套用＋保留焦點
+        inp.onfocus=()=>_sugShow(inp);
+        inp.oninput=()=>{ V.bpColF[inp.dataset.k]=inp.value; _sugShow(inp); };                    // 打字中：只記值＋過濾清單、不逐字重繪
+        inp.onchange=()=>{ _apply(); rerender(); };                                               // 失焦/輸入完→套用篩選
+        inp.onblur=()=>setTimeout(()=>{ if(_sug._for===inp)_sugClose(); },120);
+        inp.onkeydown=e=>{
+          const its=(_sug._for===inp)?[..._sug.querySelectorAll(".fselIt")]:[];
+          if(e.key==="ArrowDown"||e.key==="ArrowUp"){ if(!its.length){_sugShow(inp);return;}
+            e.preventDefault();
+            _sug._hi=(_sug._hi+(e.key==="ArrowDown"?1:-1)+its.length)%its.length;
+            its.forEach((x,i)=>x.classList.toggle("on",i===_sug._hi));
+            its[_sug._hi].scrollIntoView({block:"nearest"}); return; }
+          if(e.key==="Escape"){ _sugClose(); return; }
+          if(e.key==="Enter"){ e.preventDefault();
+            if(_sug._for===inp&&_sug._hi>=0&&its[_sug._hi]){ _sugPick(its[_sug._hi].dataset.v); return; }
+            _sugClose(); _apply(); _bpFocusK=inp.dataset.k; rerender(); } };
       });
       // 選擇欄的二段式下拉：select 藏起來、掛 fancy 鈕（每次重繪 DOM 全新，重新 init）
       box.querySelectorAll("select.bpColF").forEach(se=>{ fancySelectInit(se);
+        // ⚠ onchange 要在這裡自己綁：上面的逐欄綁定已改成只抓 input.bpColF，select 不在裡面
+        //（漏綁的話二段清單點了沒反應——2026-08-04 實測抓包）
+        se.onchange=()=>{ V.bpColF[se.dataset.k]=se.value; saveState(); rerender(); };
         const b2=se._fancyBtn; if(!b2)return;
         // 鈕上用 data-b 縮短字（欄位小）；清單顯示照走 option textContent／data-s
         se._fancySync=()=>{ const o=se.options[se.selectedIndex];
