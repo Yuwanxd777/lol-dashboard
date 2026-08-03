@@ -250,7 +250,7 @@ def process(text, year=DEFAULT_YEAR):
         # **不可只在「本欄是新補的」時才填**（原本的 gi==width-1 條件，2026-08-02 修）：
         # 來源本身帶了這一欄但沒填值時就漏掉了，而空字串在 calc_po 是 int("") 例外 → first=0
         # → 藍方整批被當成後選方、順位左右對調。中招的是所有 wiki 來源的局（2013 全年 1490 局、
-        # 2016 全年 3177 局），症狀是對戰BP 的金色順位數字全反，且不會報錯。
+        # 2016 全年 3177 局），症狀是比賽BP 的金色順位數字全反，且不會報錯。
         if iFP >= 0 and len(r) > iFP and r[iFP] == "":
             r[iFP] = "1" if (r[iSide] or "").lower() == "blue" else "0"
         filtered.append(r)

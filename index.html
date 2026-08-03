@@ -70,7 +70,7 @@
   .filters .tab{cursor:pointer;border:1px solid var(--line);border-radius:999px;transition:border-color .12s,color .12s}
   .filters .tab:hover:not(.on){border-color:var(--acc);color:var(--acc)}
   .filters .tab.on{color:#fff}
-  .filters .posLbl .posic{width:22px;height:22px} /* 對戰BP路線圖示縮小省寬 */
+  .filters .posLbl .posic{width:22px;height:22px} /* 比賽BP路線圖示縮小省寬 */
   .filters{display:flex;flex-wrap:wrap;gap:10px 11px;align-items:center;border:1px solid var(--line);
     border-radius:14px;padding:12px 18px;margin-bottom:var(--gap);background:linear-gradient(180deg,#161c2b,#131826)}
   .filters label{color:var(--tx2);font-size:17px}
@@ -230,7 +230,7 @@
   .cc img{width:34px;height:34px;border-radius:8px;border:1px solid #33405c;display:block}
   /* 滑過英雄 → 同英雄一段式即時發光（outline 便宜、無動畫、無模糊） */
   .cc img.glow{transform:scale(1.1);position:relative;z-index:3;border-color:transparent;
-    box-shadow:0 0 6px 1px rgba(255,255,255,.9),0 0 14px 4px rgba(255,255,255,.45)} /* 對戰BP 聯動高亮：放大10%＋漸層白光 */
+    box-shadow:0 0 6px 1px rgba(255,255,255,.9),0 0 14px 4px rgba(255,255,255,.45)} /* 比賽BP 聯動高亮：放大10%＋漸層白光 */
   .cc .po{font-size:12px;color:var(--gold);font-weight:bold;min-width:9px}
   .bans .cc img{width:44px;height:44px;filter:grayscale(.85) brightness(.75);border-radius:9px} /* 與 PICK 同尺寸（使用者定案 2026-07-29）；灰階保留＝一眼分辨 BAN */
   .bans .cc img.nobanImg{filter:none}   /* 空 BAN 圖本來就是紅圈禁止符號，不要再灰掉 */
@@ -248,7 +248,7 @@
   .cwrap .combo{padding-right:26px}
   .cx{position:absolute;right:5px;background:none;border:none;color:var(--tx2);padding:0 3px;font-size:13px;cursor:pointer;line-height:1}
   .cx:hover{color:#ff6b6b}
-  /* 對戰BP 逐欄篩選框的清除鍵：有輸入內容(:not(:placeholder-shown))才顯示 */
+  /* 比賽BP 逐欄篩選框的清除鍵：有輸入內容(:not(:placeholder-shown))才顯示 */
   .bpFRow th{position:relative}
   .bpCx{display:none;position:absolute;right:7px;top:0;bottom:0;margin:auto 0;height:15px;line-height:15px;background:none;border:none;color:var(--tx2);font-size:12px;cursor:pointer;padding:0 1px;z-index:2}
   .bpColF:not(:placeholder-shown)~.bpCx{display:block}
@@ -446,7 +446,7 @@
   /* emoji 圖示鈕字級放大到 20px（使用者回報 16px 的 🗑 看起來太小）：emoji 字形本身四周留白多，
      同字級下會比 ←／↺ 這種文字字形視覺上小一圈 → 只放大 emoji 那幾顆，維持整列視覺重量一致 */
   /* 基礎按鈕（🗑 📸 ℹ️ ↺ ←）一律同字級：原本是逐個 id 白名單，新加的鈕沒列到就變 16px，
-     同一顆 🗑 在對戰BP 與模擬BP 大小不一樣（2026-07-31 使用者回報）→ 改成整個 .barBtns 通用 */
+     同一顆 🗑 在比賽BP 與模擬BP 大小不一樣（2026-07-31 使用者回報）→ 改成整個 .barBtns 通用 */
   .filters .barBtns .sqbtn,.sqbtn.helpBtn{font-size:20px;line-height:1}
   #sqApiBtn.helpBtn{width:auto;padding:0 12px;font-size:14px}   /* 積分頁「🔑 添加API」仍是帶字的鈕，沿用舊尺寸 */
   .helpPop{position:fixed;z-index:200;max-height:70vh;overflow:auto;padding:14px 16px;box-shadow:0 12px 34px rgba(0,0,0,.6)}
@@ -478,10 +478,10 @@
   .bpPoolRow:has(.bpChip .cc img.glow){overflow:visible!important}
   .bpChips:has(.bpChip .cc img.glow){overflow:visible}
   .bpChip:has(.cc img.glow){z-index:5}
-  /* 英雄Tier / 對戰BP：英雄圖滑過同款 放大10%＋漸層白光 */
+  /* 英雄Tier / 比賽BP：英雄圖滑過同款 放大10%＋漸層白光 */
   #main[data-view="英雄Tier"] .tChip:hover>img,
   #main[data-view="英雄Tier"] .tChip>img.tglow, /* 同英雄多路線一起：放大10%＋白光（池與 Tier 表都亮） */
-  #main[data-view="對戰BP"] .cc:hover img{transform:scale(1.1);position:relative;z-index:3;
+  #main[data-view="比賽BP"] .cc:hover img{transform:scale(1.1);position:relative;z-index:3;
     box-shadow:0 0 6px 1px rgba(255,255,255,.9),0 0 14px 4px rgba(255,255,255,.45)}
   /* 混合路線圖示：英雄圖放大時不消失，一併放大＋白光（層級高於英雄圖） */
   #main[data-view="英雄Tier"] .tChip:hover .tlic img,
@@ -916,7 +916,7 @@ const DDLOC = LANG==="en" ? "en_US" : "zh_TW"; // DDragon 資料語系
 const I18N = {
   // 導覽分頁（顯示用；curView 內部仍用中文 key）
   "總覽":"Overview","英雄":"Champions","選手":"Players","戰隊":"Teams","陣容":"Team Comps",
-  "對戰BP":"Match BP","模擬BP":"BP Sim","英雄Tier":"Champion Tiers","積分":"Ranked","圖鑑":"Codex","近況":"Team Form","AI 問答":"AI Chat",
+  "比賽BP":"Match BP","模擬BP":"BP Sim","英雄Tier":"Champion Tiers","積分":"Ranked","圖鑑":"Codex","近況":"Team Form","AI 問答":"AI Chat",
   // 篩選列
   "賽季":"Split","賽事":"League","版本":"Patch","時間":"Date","場數":"Games","搜尋":"Search",
   "分區":"Section","分類":"Category","類型":"Type","全年":"Full year",
@@ -1009,7 +1009,7 @@ fetch("https://ddragon.leagueoflegends.com/api/versions.json").then(r=>r.json())
 }).catch(()=>{});
 // 抓 DDragon en_US 英雄名 → id→英文名 對照。
 // 英文模式：其餘頁的英雄名原本來自中文資料檔，要靠它顯示英文。
-// 中文模式也要載（2026-07-31 使用者回報「繁中模式沒辦法用英文篩選」）：全站搜尋框（對戰BP 逐欄
+// 中文模式也要載（2026-07-31 使用者回報「繁中模式沒辦法用英文篩選」）：全站搜尋框（比賽BP 逐欄
 // 篩選、圖鑑、英雄搜尋）都拿它當「打英文也搜得到」的比對來源，沒有它就只剩 DDragon id 可比，
 // Wukong(MonkeyKing)／Nunu & Willump(Nunu)／Renata Glasc(Renata) 這種 id≠英文全名的就搜不到。
 window.CHAMP_EN={};
@@ -1076,7 +1076,7 @@ function champImgFb(img){
   else if(img.parentNode) img.parentNode.textContent=img.getAttribute("alt")||"";
 }
 const esc=s=>String(s).replace(/"/g,"&quot;");
-// 空 BAN 圖（模擬BP 與 對戰BP 共用；2026-07-31 起對戰BP 的空 BAN 也用這張佔位）
+// 空 BAN 圖（模擬BP 與 比賽BP 共用；2026-07-31 起比賽BP 的空 BAN 也用這張佔位）
 const NOBAN_SVG="data:image/svg+xml,"+encodeURIComponent("<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'><rect x='1' y='1' width='38' height='38' rx='6' fill='#141a26' stroke='#000' stroke-width='2'/><circle cx='20' cy='20' r='11' fill='none' stroke='#e0574d' stroke-width='3.6'/><line x1='12' y1='12' x2='28' y2='28' stroke='#e0574d' stroke-width='3.6'/></svg>");
 const cImg=(name,po)=>{
   if(!name)return "";
@@ -1742,7 +1742,7 @@ const TAB_HELP={
 "戰隊":"戰隊數據與<b>評分</b>。\n操作：<b>對戰</b>下拉只看面對某隊的成績、勾<b>僅限雙方對戰</b>讓雷達只比直接交手、點<b>欄位名</b>排序、點<b>戰隊名</b>看該隊<b>BP 紀錄</b>。\n<b>同縮寫的改名隊自動合併</b>（如 Team Secret／Team Secret Whales＝TSW）。\n數值上色走台灣習慣（越高越紅）；場數過少不列入排名上色。",
 "陣容":"一隊<b>五路先發</b>的角色池。\n操作：上方<b>戰隊</b>下拉選隊、每一路點<b>欄位名</b>各自排序。\n欄位含出場、勝率、被禁率、上次使用日；場數低於 3 場不列入排名上色。\n左上三顆切換角色池來源：<b>🏆 職業賽</b>＝比賽先發（跟隨上方篩選）、<b>📜 職業生涯</b>＝該選手 <b>2014~現在的職業生涯全部</b>（跨隊、不受上方篩選影響；每路可從下拉挑該隊歷代選手）、<b>🎯 積分</b>＝選手單雙排常用英雄。",
 "近況":"輸入一個戰隊，一頁看完它的<b>近期狀況</b>（方便直接截圖）。範圍＝目前篩選下該隊<b>最近 5 個系列賽</b>。\n<b>標頭</b>＝連勝／連敗、這段期間的系列與小局戰績。\n<b>近期賽果</b>＝五個系列的日期／賽事／對手／比分。\n<b>五路先發</b>＝每路出賽最多的選手：場數／勝率／KDA／慣用英雄（滑上看場數勝率）；當年另有<b>近 7 天積分</b>場數勝敗與常用英雄。\n<b>BP 傾向</b>＝這段期間該隊常選、我方常 Ban、被對手針對 Ban 的英雄。\n右上 <b>📸</b> 一鍵輸出 1080p 截圖（檔名＝縮寫_近況_日期）。",
-"對戰BP":"兩隊<b>系列賽 BP 紀錄</b>，最新在上。\n操作：上方<b>戰隊</b>下拉指定戰隊（可只填一隊看其所有系列）。\n看法：<b>金色數字</b>＝選角順位 1 到 7、<b>金色粗體</b>＝先選方、<b>星號</b>＝勝方。\n標題會自動標<b>缺場</b>（BO5 打到 2-2 卻少第 5 局等）；BO2 的 1-1 和局不算缺。",
+"比賽BP":"兩隊<b>系列賽 BP 紀錄</b>，最新在上。\n操作：上方<b>戰隊</b>下拉指定戰隊（可只填一隊看其所有系列）。\n看法：<b>金色數字</b>＝選角順位 1 到 7、<b>金色粗體</b>＝先選方、<b>星號</b>＝勝方。\n標題會自動標<b>缺場</b>（BO5 打到 2-2 卻少第 5 局等）；BO2 的 1-1 和局不算缺。",
 "圖鑑":"多個分區，上方分頁切換：\n<b>版本</b>＝全年或單版本的英雄／裝備改動（點版本號看官方公告）\n<b>英雄</b>＝點名字看歷年改動與<b>專屬機制</b>大框\n<b>道具</b>／<b>符文</b>／<b>物件</b>＝建築、史詩野怪、龍魂等官方數值\n<b>賽事</b>＝當年聯賽樹狀圖（三大國際賽／一二三級賽區／盃賽，含各隊縮寫，國際賽帶母賽區色框；綠勾 ✓＝晉級隊）\n多數分區可搜尋、滑上看說明。",
 "模擬BP":"自己排 BAN／PICK、即時看路線判定；模擬局在左、角色池在中、<b>雙方BAN過／其他英雄</b>在最右直欄（局號 1→N，最新局在最右、緊貼角色池）。\n操作：上方選<b>戰隊A／B</b>帶出雙方角色池；<b>拖曳</b>或<b>左鍵拎起</b>池中英雄→到格內左鍵放入、右鍵取消；點已填格移除、點<b>先選／後選</b>切順位、<b>⇄</b>換輪替選手。\n滑到模擬局英雄→右側顯示<b>詳細數據</b>（BAN 顯示<b>對手</b>使用數據；沒選該隊＝看目前數據範圍），同英雄會在所有模擬局一起發光。\n路線判定：隊上選手池＝實心、全庫近況補的＝半透明（點半透明確認正路即變實心）。\n標記：<b>金光</b>＝全場只有他會用、<b>青框</b>＝同隊多人會用、<b>禁用圖示</b>＝對手慣用但沒選過的禁招。\n按鈕：⏵自動（點池自動填下一格；開新局請點 ＋）、全局／一般（全局＝Fearless：PICK 從池消失、BAN 不消耗、最多五局）、📥匯入BP、🗑清空（清空全部局）、📸截圖。\n📥<b>匯入BP</b>：把真實系列賽帶進來（全局模式會先清掉其他局）；匯入的局<b>只能換英雄、不能改順位</b>（整局可刪），標題顯示該場<b>日期與賽事</b>。",
 "英雄Tier":"依你的判斷把英雄分級（S／A／B…）。\n操作：左側角色池<b>拖曳</b>或<b>左鍵拎起</b>→放到右邊 Tier 列（列間可互拖、拖回池或點一下移回、右鍵取消）。\n階列：可<b>改名</b>、點色塊<b>換色</b>、<b>✕</b>刪階（英雄回池）、下方<b>＋</b>加階、右側<b>⠿</b>拖曳整階排序。\n按鈕：⇄五路／混合、🎯積分數據／📊比賽數據／✏️自訂（三向模式切換，各自獨立板子互不覆蓋：數據模式自動分階、再點一次依目前篩選重新產生；滑鼠移到英雄上顯示該模式的數據，自訂模式積分與比賽都列）、⚙參數（門檻與奇招條件）、🗑清空、📸截圖。\n評分<b>不無條件進位</b>（89.9 仍在 A）；英雄圖邊框紅＝版本增強、綠＝削弱、黃＝調整。",
@@ -1766,7 +1766,7 @@ const TAB_HELP_EN={
 "戰隊":"Team stats and <b>Rating</b>.\nHow-to: the <b>vs</b> dropdown shows the record against one team, check <b>Head-to-head only</b> so the radar compares direct matchups, click a <b>column header</b> to sort, click a <b>team name</b> for its <b>BP records</b>.\n<b>Renamed teams with the same abbreviation are merged automatically</b> (e.g. Team Secret / Team Secret Whales = TSW).\nColors follow the Taiwan convention (higher = redder); low-sample teams aren't ranked or colored.",
 "陣容":"One team's <b>five-role starting</b> champion pools.\nHow-to: pick a team from the <b>Team</b> dropdown above, click a <b>column header</b> in each lane to sort it.\nColumns include games, win rate, ban rate and last-used date; champions with under 3 games are not ranked or colored.\nThree buttons top-left switch the pool source: <b>🏆 Pro</b> = match starters (follows the filters above), <b>📜 Career</b> = that player's <b>whole pro career 2014~now</b> (across all teams, ignores the filters; each lane lists every player who held it for this team), <b>🎯 Soloq</b> = players' ranked go-to champions.",
 "近況":"Type a team and get its <b>recent form</b> on one page (made for screenshots). Range = the team's <b>last 5 series</b> under the current filters.\n<b>Header</b> = current streak plus series/game record over the window.\n<b>Recent results</b> = date / event / opponent / score of the five series.\n<b>Starters</b> = the most-fielded player per role: games / win% / KDA / go-to champions (hover for numbers); in the current year also <b>7-day ranked</b> record and top champions.\n<b>BP tendencies</b> = most picked, most banned by them, and most target-banned against them in the window.\nThe <b>📸</b> button exports a 1080p PNG (named abbr_Form_date).",
-"對戰BP":"Two teams' <b>series BP records</b>, newest first.\nHow-to: pick teams from the <b>Team</b> dropdowns above (fill just one to see all its series).\nReading: <b>gold number</b> = pick order 1–7, <b>gold bold</b> = first-pick side, <b>star</b> = winner.\nThe title auto-flags <b>missing games</b> (e.g. a BO5 at 2-2 missing game 5); a 1-1 draw in a BO2 doesn't count as missing.",
+"比賽BP":"Two teams' <b>series BP records</b>, newest first.\nHow-to: pick teams from the <b>Team</b> dropdowns above (fill just one to see all its series).\nReading: <b>gold number</b> = pick order 1–7, <b>gold bold</b> = first-pick side, <b>star</b> = winner.\nThe title auto-flags <b>missing games</b> (e.g. a BO5 at 2-2 missing game 5); a 1-1 draw in a BO2 doesn't count as missing.",
 "圖鑑":"Sections, switch via the tabs above:\n<b>Patch</b> = champion/item changes for the whole year or a single patch (click a patch number for official notes)\n<b>Champions</b> = click a name for patch history and its <b>unique mechanic</b> panel\n<b>Items</b> / <b>Runes</b> / <b>Objectives</b> = buildings, epic monsters, dragon souls and official values\n<b>Esports</b> = that year's league tree (3 internationals / tier 1-2-3 regions / cups, with each team's abbreviation, international team chips carry their home-region color frame; green check = qualified through play-in/qualifier)\nMost sections are searchable and have hover tooltips.",
 "模擬BP":"Draft your own BANs / PICKs and see lane assignment live; champion pool on the right, sim games on the left (game 1→N, newest game on the far right next to the pool).\nHow-to: pick <b>Team A / B</b> above to load both pools; <b>drag</b> or <b>left-click to lift</b> a champion → left-click into a slot, right-click to cancel; click a filled slot to remove, click <b>FP / SP</b> (<b>FP</b> = First Pick, <b>SP</b> = Second Pick) to toggle order, <b>⇄</b> to swap the rotating player.\nHover a champion in a sim game → the right panel shows <b>detailed stats</b> (a BAN shows the <b>opponent's</b> usage; if that team isn't selected it shows the current data range); the same champion glows across all sim games.\nLane logic: the team's own player pool = solid, filled from the global recent pool = translucent (click a translucent one to confirm the lane and make it solid).\nMarkers: <b>gold glow</b> = only this player uses it, <b>cyan frame</b> = multiple teammates use it, <b>ban icon</b> = an opponent favorite that hasn't been picked.\nButtons: ⏵ auto (clicking the pool fills the next slot; use ＋ for a new game), Fearless/Normal (Fearless: PICKs vanish from the pool, BANs don't consume, up to five games), 📥 Import BP, 🗑 Clear (clear all games), 📸 Screenshot.\n📥 <b>Import BP</b>: brings a real series in (Fearless mode clears other games first); imported games <b>can only swap champions, not change order</b> (the whole game can be deleted), and the title shows that game's <b>date and event</b>.",
 "英雄Tier":"Tier champions by your own judgment (S / A / B…).\nHow-to: <b>drag</b> or <b>left-click to lift</b> from the pool on the left → drop into a Tier row on the right (rows can be dragged into each other, dragged back to the pool or clicked to return, right-click to cancel).\nTier rows: <b>rename</b>, click the color swatch to <b>recolor</b>, <b>✕</b> deletes the tier (champions return to pool), <b>＋</b> below adds a tier, <b>⠿</b> on the right drags to reorder tiers.\nButtons: <b>⇄</b> five-lane/mixed, then a three-way mode toggle — <b>🎯 Ranked</b> (auto-tier S~D by soloq rating), <b>📊 Match</b> (auto-tier S~C + Off-meta by current-range rating), <b>✏️ Custom</b> (free arrangement, never overwritten by data modes). Each mode keeps its own board; in a data mode, clicking the current mode again <b>regenerates by the current filters</b>; hover a champion to see that mode's stats (Custom shows both soloq and match). Then <b>⚙</b> Params (thresholds & off-meta criteria), <b>🗑</b> Clear, <b>📸</b> Screenshot.\nSoloq mode is hidden in historical years. Rating <b>doesn't round up</b> (89.9 stays in A); champion border red = patch buff, green = nerf, yellow = adjustment.",
@@ -2411,7 +2411,7 @@ const STATIC_TABBR={
 "alterego gaming":"AEG","ascension":"ASC","imperium":"IMP","kabum! orange":"KBO","team strix":"STX",
 "tt gaming":"TT", // 2026 EWC 中國區資格賽名單（events_extra.js）用 Leaguepedia 全名，資料庫沒這隊 → 補縮寫
 "leviatan":"LEV","pain gaming":"PNG","red canids":"RED","vivo keyd stars":"VKS",
-"fluxo w7m":"FX7M","løs":"LOS","loud":"LOUD","furia":"FUR","movistar r7":"R7",
+"fluxo w7m":"FX","løs":"LOS","loud":"LOUD","furia":"FUR","movistar r7":"R7",
 "chinese taipei (national team)":"TPE","vietnam (national team)":"VIE","japan (national team)":"JPN",
 "dn soopers":"DNS","hanwha life esports":"HLE","gen.g":"GEN","nongshim redforce":"NS","t1":"T1",
 "drx":"KRX","kt rolster":"KT","brion":"BRO","dplus kia":"DK","bnk fearx":"BFX","hanjin brion":"BRO",
@@ -2862,8 +2862,8 @@ function editEvtAbbr(sp){
       names.forEach(nm=>{const k=normT(nm); if(v)USER_TABBR[k]=v; else delete USER_TABBR[k];});
       try{localStorage.setItem("user_tabbr",JSON.stringify(USER_TABBR));}catch(e){}
       try{window._EVT_CACHE={};}catch(e){}
-      // 縮寫是「算好之後存進快取」的（對戰BP 的 _MCACHE 存的是 tAb 後的字串）→ 不清快取就看不到改動
-      // （2026-07-31 使用者回報：改了 2013 的縮寫，對戰BP 還是顯示全名）
+      // 縮寫是「算好之後存進快取」的（比賽BP 的 _MCACHE 存的是 tAb 後的字串）→ 不清快取就看不到改動
+      // （2026-07-31 使用者回報：改了 2013 的縮寫，比賽BP 還是顯示全名）
       try{vcInvalidate();}catch(e){}
       render();
     } else sp.innerHTML=orig; };
@@ -4723,6 +4723,11 @@ function changeDir(lines){
   const gp=lines.filter(l=>!COSM.test(l));
   if(!gp.length)return null;
   lines=gp;
+  // 新登場／重製登場／重返遊戲：**沒有對照物就談不上增強削弱**（使用者定案 2026-08-03）。
+  // 這類條目本來就是「這件東西現在長這樣」，不是跟前一版比出來的差異，所以整個條目回 0
+  //（＝白字、照列在版本焦點，只是不上紅／綠、Tier 邊框也不算增削）。
+  // ⚠「已從遊戲中移除」不在此列：那是有對照物的真改動（下架＝削弱），仍走原規則。
+  if(lines.some(l=>DEBUT_NODIR.test(l)))return 0;
   // ⚠「冷卻時間減免／冷卻縮減／技能加速」是越高越好，不能跟著「冷卻」一起反向
   //（2026-08-01 使用者：枷蘿 13.13 被動冷卻時間減免 4/8/12/16/20 ⇒ 2/4/6/8/10% 是削弱）
   // 「越小越好」的欄位（數值變小＝增強）。飛行時間也算：投射物飛得快＝比較好命中
@@ -4805,6 +4810,10 @@ function changeDir(lines){
   // 軍團聖盾 13.10 那種 3 增 4 削的卡會被判成削弱）
   return buff&&nerf?0:buff?1:nerf?-1:0; // 1增強 / -1削弱 / 0混合或無法判定
 }
+// 「這件東西第一次以現在的樣子出現」的生命週期行（多半是 fetch_patches 注入的，見 SYN）：
+// 新登場／重製登場／重返遊戲都**沒有對照物**，不能判增強削弱（使用者定案 2026-08-03）。
+// 「已從遊戲中移除」刻意不收——下架是有對照物的真改動，仍算削弱。
+const DEBUT_NODIR=/全新道具登場|全新(符文|裝備|道具)加入|重(做|製)登場|重返遊戲|升級而成/;
 // ── 版本改動渲染器（全域共用：版本改動分頁＋圖鑑歷年改動）──────────────────
 const COSM=/原畫|造型|背景故事|中版美術|重新上色|推薦裝備|語音(更新|台詞)|(技能)?圖示更新|更新[了]?圖示|特效[^｜]{0,6}(更新|升級|改良|重製)|視覺效果|粒子效果|模型更新|動畫更新|全新的?[^｜]{0,10}動畫|新增[^｜]{0,4}動畫|新增[^｜]{0,6}圖示|其圖示更新|圖示更新|說明更新|新增語音|語音(的)?播放|語音包|播報員|音效|手感|操作感|順暢度|流暢度|符文頁|介面(更新|調整)|按鍵綁定|計分板顯示|商店[^｜]{0,12}搜尋|搜尋[^｜]{0,8}關鍵字|(改善|優化|改進)了?[^｜]{0,14}(偵測|判定|辨識|選取|命中框)|(新增|顯示)?[^｜]{0,6}指示器|浮動文字|進度特效|輪替遊戲模式|活動|(^|｜)\s*(客戶端|表情|重播|語音聊天|快捷鍵|遊戲效能|League 語音|好友列表|自訂遊戲|對戰佇列|大廳|觀戰|戰績|個人檔案|商店|載入畫面|結算畫面|投降|重新開始)｜|反作弊|藍色精華|建議符文|推薦符文|彩蛋[：:]|搜尋到。|金錢價值如下表|官方立場|積分衰減|隊伍獎勵|對戰佇列|英雄 Mastery|影像輔助選項|載入畫面|邊框組|Adobe|PvP\.net|羅技|game\.cfg|DX1?[019]|FPS|LogitechSupport|除錯啟動器|寶石合成|實驗性遊戲模式|主堡閃電戰|極速無敵亂鬥|無限火力|URF|鬥魂競技場|[Aa]rena|現在(能|會)?正確|嚎哭深淵|極地大亂鬥|扭曲叢林|統治戰場|Howling Abyss|Twisted Treeline|Crystal Scar|Dominion|[（(]ARAM[)）]|Level Requirements?|更名|重新命名|renamed|[Nn]ame changed|名稱[：:][^⇒\n]*⇒|(^|｜|\[)\s*(未公告|錯誤|修正了|修復|[Uu]ndocumented|[Bb]ug\s?[Ff]ix|BUG)|(提高|降低|增加|減少)從\s*\d|編按|附註[：:]|並未實裝|官方未記載|並非刻意|此問題可能是在|未列於公告|(邊緣|中心)判定距離|(重新)?編寫程式(碼)?|rescripted?|visual (upgrade|update|effects?)|splash art|voice.?over|icons? (are |have been )?updated|recommended items|lore|chroma|texture|animations? updated|now (correctly|properly)|tooltip|\bARAM\b/i;
 // 版本總覽專用的「瑣碎改動」：純顯示層、完全不影響強弱（聊天訊息顯示名、提示文字…）。
@@ -5653,7 +5662,7 @@ function drawTrend(ch,pos,sq){
 // ============================================================
 //  對戰 BP
 // ============================================================
-const _MCACHE=new Map(); // 對戰BP 底層資料快取（性能）：同篩選＋同戰隊重複進頁/切子篩選不再重掃 GAMES；鍵含 vcKey，全域篩選變更自動失效
+const _MCACHE=new Map(); // 比賽BP 底層資料快取（性能）：同篩選＋同戰隊重複進頁/切子篩選不再重掃 GAMES；鍵含 vcKey，全域篩選變更自動失效
 function calcMatches(team){
   const _mk=vcKey()+"|"+(team||"");
   const _mh=_MCACHE.get(_mk); if(_mh)return _mh;
@@ -5690,7 +5699,7 @@ function _calcMatches0(team){
     const bpo=String(r[C.blue_po]).split("|"), rpo=String(r[C.red_po]).split("|");
     // 「選邊（先選／後選）」是 2026 才上路的制度，2025 以前（含 2025）一律藍方先選。
     // 早年 OE 根本沒有 blue_firstPick 欄、wiki 補回來的更是全空 → 原本的 ===1 會一路落到 "red"，
-    // 害 2013~2025 的對戰BP 全部標成紅方先選（2026-07-31 使用者回報）。沒值時同樣預設藍方。
+    // 害 2013~2025 的比賽BP 全部標成紅方先選（2026-07-31 使用者回報）。沒值時同樣預設藍方。
     const _fpRaw=String(r[C.blue_firstPick]==null?"":r[C.blue_firstPick]).trim();
     const first=(+String(o.date).slice(0,4)<2026||_fpRaw==="")?"blue":(+_fpRaw===1?"blue":"red");
     out.push({date:o.date.slice(5),_d:o.date,_dt:o.dt||o.date,_g:num(r[C.game])||0,league:o.league,split:o.split,patch:o.patch,
@@ -5734,7 +5743,7 @@ if(IS_PUBLIC){ // 網路版標題
   document.title="LOL數據表公開版";
   const st=document.getElementById("siteTitleTx"); if(st)st.textContent="LOL數據表公開版";
 }
-const VIEWS=["總覽","近況","英雄","選手","戰隊","陣容","對戰BP","模擬BP","英雄Tier","積分","圖鑑"]; // 近況緊跟總覽（使用者指定 2026-07-28） // AI 問答已移除（使用者：沒意思）；渲染分支留為死碼（curView 恆在 VIEWS 內 → 不會進到那個 catch-all else）
+const VIEWS=["總覽","近況","英雄","選手","戰隊","陣容","比賽BP","模擬BP","英雄Tier","積分","圖鑑"]; // 近況緊跟總覽（使用者指定 2026-07-28） // AI 問答已移除（使用者：沒意思）；渲染分支留為死碼（curView 恆在 VIEWS 內 → 不會進到那個 catch-all else）
 let curView="總覽", chart=null, radar=null, sortK="評分", sortDir=-1;
 const V={pos:"",player:"",vsTeam:"",bpTeam:"",r1:"",r2:"",r3:"",t1:"",t2:"",t3:"",hdOpp:"",hdLane:"",hdPlayer:"",rankQ:"",rankSort:null,rankDetail:"",rankDetLane:"",rankShow:100,rankGSort:null,rankGChamp:"",rankGOpp:"",rankRole:"",rankRegion:""};
 // ---------- 選項自動記憶（重開免重設）----------
@@ -5745,6 +5754,7 @@ F.minG=0; // 最少場數每次開頁都從 0 開始（不留存）
 if(/^\d{4}-/.test(F.d1||""))F.d1=F.d1.slice(5); // 舊存檔的年月日 → 月日
 if(/^\d{4}-/.test(F.d2||""))F.d2=F.d2.slice(5);
 if(SAVED.view==="版本改動"){curView="圖鑑";V.dexSec="版本";} // 版本改動已併入 圖鑑→版本
+else if(SAVED.view==="對戰BP")curView="比賽BP";               // 舊名（2026-08-03 改名）→ 不遷移的話舊存檔會落回總覽
 else if(SAVED.view&&VIEWS.includes(SAVED.view))curView=SAVED.view;
 // 網址參數：?view=分頁&zoom=125 直接開指定分頁/縮放（分享連結、無頭驗證用；zoom 只作用本次、不寫入使用者設定）
 try{const _q=new URLSearchParams(location.search); const _qv=_q.get("view");
@@ -7647,7 +7657,7 @@ const VIEW_CACHE={key:"",slots:{}};
 const laySig=()=>innerWidth+"x"+innerHeight+"@"+(window._zoomF||1); // 版面簽章：視窗大小＋網站縮放倍率——px 量測式版面只在同簽章下可重用
 const vcKey=()=>JSON.stringify([F.split,F.league,F.patch,F.d1,F.d2,F.minG,curYear,V.scoreK?[V.scoreK.lo,V.scoreK.hi]:0,V.scoreExp,V.scoreBase0]);
 // 外部導頁會改的子狀態：不同就不能用快取
-const VC_SUB={"英雄":()=>[V.heroDetail,V.player,V.hdOpp,V.hdLane,V.hdPlayer],"圖鑑":()=>[V.dexDetail,V.dexSec],"對戰BP":()=>[V.bpSideMode||"br",JSON.stringify(V.bpColF||{})],"模擬BP":()=>[!!V.bpAuto],"近況":()=>[V.recentTeam||""]};
+const VC_SUB={"英雄":()=>[V.heroDetail,V.player,V.hdOpp,V.hdLane,V.hdPlayer],"圖鑑":()=>[V.dexDetail,V.dexSec],"比賽BP":()=>[V.bpSideMode||"br",JSON.stringify(V.bpColF||{})],"模擬BP":()=>[!!V.bpAuto],"近況":()=>[V.recentTeam||""]};
 const vcSub=v=>JSON.stringify((VC_SUB[v]||(()=>[]))());
 function vcInvalidate(){
   Object.values(VIEW_CACHE.slots).forEach(s=>{["chart","radar","tchart"].forEach(k2=>{try{s[k2]&&s[k2].destroy();}catch(e){}});});
@@ -7738,7 +7748,7 @@ function ovStreaks(){ return _ovMemo("streak",()=>{
   if(!GAMES.length)return out;
   const gs=GAMES.filter(o=>passG(o));
   if(!gs.length)return out;
-  // ① 小局 → 系列賽：沿用對戰BP 的切分規則（同聯賽＋同對戰組合；局序重置或日期相隔 >2 天＝另一場系列）
+  // ① 小局 → 系列賽：沿用比賽BP 的切分規則（同聯賽＋同對戰組合；局序重置或日期相隔 >2 天＝另一場系列）
   const dnum=v=>{const p=String(v).slice(0,10).split("-"); return p.length===3?Date.UTC(+p[0],+p[1]-1,+p[2])/864e5:0;};
   const grp={};
   for(const o of gs){ const a=tAb(o.raw[C.blue_teamname]), b=tAb(o.raw[C.red_teamname]);
@@ -7846,7 +7856,7 @@ function globalFilterReset(){
   Object.assign(V,{pos:"",player:"",heroTeam:"",heroSel:"",tpSel:"",teamSel:"",vsTeam:"",bpTeam:"",bpHero:"",bpHeroMode:"both",bpPlayer:"",bpWin:"",bpFirst:"",search:"",r1:"",r2:"",r3:"",t1:"",t2:"",t3:"",dexQ:"",dexTag:"",dexCTag:"",rankQ:"",rankRole:"",rankRegion:"",rankSort:null,tierQ:""});
   if(curView==="英雄Tier")V.tierTeam="";
   if(curView==="陣容")V.rosterTeam="";
-  if(curView==="對戰BP"){V.bpColF={};V.bpSideMode="br";} // 對戰BP：預設(↺)清空所有欄位篩選＋回藍紅模式
+  if(curView==="比賽BP"){V.bpColF={};V.bpSideMode="br";} // 比賽BP：預設(↺)清空所有欄位篩選＋回藍紅模式
   if(curView==="模擬BP"&&V.bpSim){V.bpSim.t1="";V.bpSim.t2="";} // 模擬BP：只清戰隊A/B、模擬局保留
   saveState(); try{if(typeof vcInvalidate==="function")vcInvalidate(); delete VIEW_CACHE.slots[curView];}catch(e){} render();
 }
@@ -9162,8 +9172,8 @@ function render(){
         td.classList.add("plink"); td.title="點擊看該隊 BP 紀錄";
         td.onclick=()=>{
           V.bpTeam=full; saveState();
-          curView="對戰BP";
-          document.querySelectorAll("nav .tab").forEach(x=>x.classList.toggle("on",x.dataset.view==="對戰BP"));
+          curView="比賽BP";
+          document.querySelectorAll("nav .tab").forEach(x=>x.classList.toggle("on",x.dataset.view==="比賽BP"));
           render();
         };
       });
@@ -9460,7 +9470,7 @@ function render(){
   }
   else if(curView==="近況"){
     // ── 近況（2026-07-28 使用者需求）：輸入一個戰隊，一頁列出近期資料，方便截圖 ──
-    // 範圍＝目前全域篩選下，該隊「最近 5 個系列賽」的場次（系列切分規則沿用對戰BP／總覽戰隊近況）
+    // 範圍＝目前全域篩選下，該隊「最近 5 個系列賽」的場次（系列切分規則沿用比賽BP／總覽戰隊近況）
     const teams=sortTeamsByLeague([...new Set(GAMES.flatMap(o=>[o.raw[C.blue_teamname],o.raw[C.red_teamname]]))]);
     main.innerHTML=filterBar(`<label>${T("戰隊")}</label>${comboHTML("vRecent",T("輸入戰隊（如 GEN）"),180)}<button id="rcShot" class="sqbtn" style="order:1" title="${LANG==="en"?"Export this page as a 1080p PNG":"整頁輸出 1080p 截圖"}">📸</button>`)
       +`<div id="rcWrap"></div>`;
@@ -9626,7 +9636,7 @@ function render(){
     };
     rerender();
   }
-  else if(curView==="對戰BP"){
+  else if(curView==="比賽BP"){
     // 自動偵測「資料缺局」：系列已在下方分組時合併跨午夜的同一場（相鄰日、局序遞增）。此處判斷：
     //  ① 局序有缺口（如資料庫只有第2、3局→缺第1局；有到第5局就往前檢查1~4）
     //  ② 決勝局未收錄：比分 2-2 但沒有第5局→BO5 缺第5局；比分 1-1 且只打到第2局→BO3 缺第3局
@@ -12046,7 +12056,7 @@ function render(){
         });
         localStorage.setItem("user_tabbr",JSON.stringify(USER_TABBR));
         try{window._EVT_CACHE={};}catch(e){}
-        try{vcInvalidate();}catch(e){}   // 同上：對戰BP／英雄數據的快取存的是算好的縮寫
+        try{vcInvalidate();}catch(e){}   // 同上：比賽BP／英雄數據的快取存的是算好的縮寫
         // 同一隊出現在多張賽事卡（如 TSW 在 FST 與 MSI）→ 其他卡的輸入框即時同步
         document.querySelectorAll(".abbr").forEach(o=>{
           if(o!==inp&&o.dataset.t===inp.dataset.t)o.value=inp.value;

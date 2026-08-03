@@ -344,7 +344,7 @@ def to_csv(games, cfg):
     day = {}
     sday = {}          # 每天已出現幾個系列賽（給同日多系列排序用）
     # 系列賽內的局號：wiki 的表格已照時間排 → 同一天、同兩隊（藍紅可能互換，所以用 frozenset）
-    # 依序 1、2、3…。原本寫死 game=1，同一場 BO5 的三局全變第 1 局，對戰BP 的比分與
+    # 依序 1、2、3…。原本寫死 game=1，同一場 BO5 的三局全變第 1 局，比賽BP 的比分與
     # 「BO3／BO5」判定就全錯（2026-07-31 使用者回報：10-05 WCS RYL vs SKT 三局同一天卻顯示 0-1）
     # 系列賽鍵**不能含日期**：BO5 常跨午夜或跨天（NA LCS 2013 春季決賽 TSM vs GGU
     # 第 1 局在 04-28、其餘四局在 04-29），用 (日期,兩隊) 當鍵會拆成兩個系列、
@@ -470,7 +470,7 @@ def to_csv(games, cfg):
             _p = (od[0] if side == "blue" else od[1]) if od else picks[side]
             _b = (od[2] if side == "blue" else od[3]) if od else bans[side]
             # wiki 用字串 "None" 表示「那一手真的沒禁」→ 存成空字串（位置照留，前端才畫得出空 BAN 圖）。
-            # 直接丟給 align() 會變成一隻叫 None 的英雄（2026-07-31 使用者回報對戰BP 出現 None）。
+            # 直接丟給 align() 會變成一隻叫 None 的英雄（2026-07-31 使用者回報比賽BP 出現 None）。
             for i2, ch in enumerate(_b[:5]):
                 put(f"ban{i2+1}", "" if str(ch).strip().lower() in ("none", "") else align(ch, champs_map))
             for i2, ch in enumerate(_p[:5]):
