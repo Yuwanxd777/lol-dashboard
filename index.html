@@ -6022,6 +6022,7 @@ document.addEventListener("scroll",e=>{const t=e.target; if(t&&t.classList&&t.cl
 // 只做「不動 DOM 結構」的樣式重算（避免觸發下方 MutationObserver 造成迴圈）
 window.refitLayout=()=>{
   setHdrH();
+  if(window.refitFilterW)refitFilterW(); // 篩選列下拉寬度重算（字體載入完成/切字體後字寬會變）
   document.querySelectorAll(".tblwrap[data-fillw]").forEach(w=>{w.classList.remove("pt1","pt2");fillTableWidth(w);}); // 先還原間距再量，量測基準才一致
   fitTblWraps();
   document.querySelectorAll(".tblwrap.hscroll").forEach(w=>{const x=window._twSL[twKey(w)]; if(x&&Math.abs(w.scrollLeft-x)>1)w.scrollLeft=x;}); // 重繪後還原橫捲位置
@@ -6692,17 +6693,32 @@ function syncFilterOpts(){
 function filterFixedW(){
   const cv=window._fmeas||(window._fmeas=document.createElement("canvas").getContext("2d"));
   cv.font="17px "+getComputedStyle(document.body).fontFamily;
-  const w=arr=>Math.ceil(Math.max(0,...arr.map(s=>cv.measureText(s).width)))+40; // ＋下拉箭頭與左右內距
+  // +46＝自訂下拉(.fsel)的實際外框：左右內距 12+12＋文字與箭頭間隙 8＋箭頭 ~12＋邊框 2。
+  // 以前只加 40 → 「全部」「S3例行賽」這種剛好貼齊的字差 4~6px 被裁（2026-08-04 使用者回報）
+  const w=arr=>Math.ceil(Math.max(0,...arr.map(s=>cv.measureText(s).width)))+46;
   const bases=[...new Set(SPLITS.filter(s=>s&&s!=="升降賽").map(s=>s.replace(/ PO$/,"")))];
-  const spL=["全部","錦標賽","入圍賽",...bases.flatMap(b=>[b,b+"例行賽",b+"季後賽"]),...(SPLITS.includes("升降賽")?["升降賽"]:[])];
+  // 量測用的標籤要跟實際顯示同語言：英文的「S3 Regular」比中文「S3例行賽」寬窄不同，
+  // 只量中文的話英文模式會塞不下（同 2026-08-04 超框回報的一環）
+  const _reg=LANG==="en"?" Regular":"例行賽", _po=LANG==="en"?" Playoffs":"季後賽";
+  const spL=[T("全部"),T("錦標賽"),T("入圍賽"),...bases.flatMap(b=>[b,b+_reg,b+_po]),...(SPLITS.includes("升降賽")?[T("升降賽")]:[])];
   const ewcqLgs=LEAGUES.filter(l=>String(l).startsWith("EWCQ"));
   // 子項（「IEM S7 卡托維茲」這種）的文字也要納入量測：選了子站之後按鈕上顯示的是它，
   // 只按主清單算寬度會塞不下而折行（2026-08-01 使用者回報）
   const subTx=Object.entries(subSplitMap()).flatMap(([l,ss])=>ss.map(s=>l+" "+s));
   const lgFull=["ALL","中韓","LCK","LPL",...lplAllGroups(curYear).map(g=>"LPL#"+g),"LCP","歐美","LEC","LCS","CBLOL","國際賽","FST","MSI","WLDs",...ewcqLgs,"EWC","ENC","KeSPA"].map(lgName).concat(subTx);
-  const pkL=["全部",...PATCHES];
+  const pkL=[T("全部"),...PATCHES];
   return {split:w(spL),league:w(lgFull),patch:w(pkL)};
 }
+// 篩選列三個下拉的寬度是「渲染當下」量字算的：自訂字體（粉圓）還沒載完時 canvas 量到的是
+// 後備字體，載完後實際字形更寬 → 「S3例行賽」「全部」偶爾超出框（2026-08-04 使用者回報）。
+// 掛進 refitLayout：fonts.ready／resize／縮放／切字體都會重跑，量測與顯示永遠同一套字體。
+window.refitFilterW=()=>{ if(!document.getElementById("fSplit"))return;
+  const W=filterFixedW();
+  [["fSplit",W.split],["fLg",W.league],["fPatch",W.patch]].forEach(([id,px])=>{
+    const el=document.getElementById(id); if(!el)return;
+    el.style.width=px+"px";
+    if(el._fancyBtn)el._fancyBtn.style.width=px+"px"; }); // 三顆其實是 fancySelect：原生 select 藏著，寬度要同步到自製鈕上
+};
 function filterBar(extra){
   const O=filterOpts(), W=filterFixedW();
   return `<div class="filters">
@@ -7115,7 +7131,9 @@ const applyFont=k=>{const f=FONT_SETS[k]||FONT_SETS.huninn;
   document.body.style.fontFamily=f; Chart.defaults.font.family=f;
   document.body.style.fontSynthesis=(k==='huninn')?'none':''; // 粉圓單字重：關掉合成粗體避免小字黏團
   localStorage.setItem('dash_font',k);
-  const sel=document.getElementById('fontSel'); if(sel)sel.value=FONT_SETS[k]?k:'huninn';};
+  const sel=document.getElementById('fontSel'); if(sel)sel.value=FONT_SETS[k]?k:'huninn';
+  // 切字體＝全站字寬都變：量出來的欄寬/篩選框寬要重算（新字體可能還在載 → 延遲再補一次）
+  if(window.refitLayout){ requestAnimationFrame(()=>refitLayout()); setTimeout(()=>{try{refitLayout();}catch(e){}},450); }};
 applyFont(localStorage.getItem('dash_font')||'huninn');
 // 通用截圖：把指定元素離屏複製一份 → html2canvas 輸出 1920px 寬 PNG（prep 可對複本再加工）
 async function shotEl(src,name,prep){
