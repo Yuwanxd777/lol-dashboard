@@ -166,6 +166,37 @@ def pb_orders(tour, force=False):
     return out
 
 
+def pb_list(tour, force=False):
+    """→ 依頁面順序的逐局清單 [{t1,t2,win,patch,t1p,t2p,t1b,t2b}]。
+
+    pb_orders() 是以「整局十隻英雄」當鍵的字典，查得快但**丟掉了順序與系列歸屬**；
+    補缺局要知道「這是某系列的第幾局」，所以另出一個保留順序的版本（同一份解析，不重抓）。
+    """
+    page = pb_page(tour, force=force)      # 不可命名為 html：會把模組 html 蓋掉，unescape 就沒了
+    if not page:
+        return []
+    tbl = [t for t in re.findall(r"<table[^>]*>.*?</table>", page, re.S) if "pbh-cn" in t]
+    if not tbl:
+        return []
+    out = []
+    for tr in re.findall(r"<tr[^>]*>(.*?)</tr>", tbl[0], re.S):
+        cs = re.findall(r"<t[dh][^>]*>(.*?)</t[dh]>", tr, re.S)
+        if len(cs) < 23 or "pbh-cn" not in tr:
+            continue
+        ch = lambda i: re.findall(r'data-champion="([^"]+)"', cs[i])
+        team = lambda i: html.unescape((re.search(r'alt="([^"]+?)logo std"', cs[i]) or [None, ""])[1]).strip()
+        t1p, t2p = ch(12) + ch(14) + ch(21), ch(13) + ch(15) + ch(20) + ch(22)
+        if len(t1p) != 5 or len(t2p) != 5:
+            continue
+        out.append({"t1": team(1), "t2": team(2), "win": team(4),
+                    "patch": re.sub(r"<[^>]+>", "", cs[5]).strip(),
+                    "score": re.sub(r"<[^>]+>", "", cs[3]).strip(),
+                    "t1p": t1p, "t2p": t2p,
+                    "t1b": [(ch(i) or [""])[0] for i in PB_T1B],
+                    "t2b": [(ch(i) or [""])[0] for i in PB_T2B]})
+    return out
+
+
 def pb_of(pb, blue_champs, red_champs):
     """查某一局的真實順序 → (藍方五手, 紅方五手, 藍方五禁, 紅方五禁, 藍方是否先選)；查不到回 None。
 
@@ -389,7 +420,10 @@ def to_csv(games, cfg):
     #     2026 新制先選方又與藍紅脫鉤 → 這裡取 Team1 當藍方（同時也是先選方，自洽）。
     #   ②**時間**：PB 沒有日期 → 取前後最近「有對到 MH」的那一局的日期，時間往後推。
     # 兩者在 gol.gg／OE 補上該局後都會被取代（merge_ 系列一律以先者為準）。
-    if PB:
+    # pb_nofill＝呼叫端自己已經從 PB 頁挑好要哪幾局（fill_missing_games 補缺局就是這樣）
+    # → 這裡不可以再把「MH 沒有的」全部補進去，否則會把整個賽事灌進來
+    #（2026-08-03 實際踩過：只想補 1 局，結果 2018 VCS 多出 260 局幽靈比賽）
+    if PB and not cfg.get("pb_nofill"):
         _mhkeys = {frozenset(pbn(c) for c in (SPL(g.get("Picks")) + SPL(g.get("Picks2")))) for g in games}
         _pbchrono = list(PB.items())[::-1]        # PB 頁是新→舊 → 反轉成時間正序
         _dates = [next((g.get("Date", "")[:19] for g in games
