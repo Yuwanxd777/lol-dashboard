@@ -965,6 +965,9 @@ const METRIC_EN={
   "大場勝率":"Series%","藍方":"Blue%","紅方":"Red%","首殺":"FB%","首塔":"1st tower%","首中塔":"1st mid T%",
   "2+巢蟲":"2+ Grubs%","首龍":"1st drake%","預示者":"Herald%","小龍":"Drakes","首巴龍":"1st Baron%",
   "KD差@10":"KD@10","金錢差@10":"GD@10","領先勝率":"Lead win%","分均擊殺":"Kills/min","視野分數":"Vision",
+  "勝率(大場勝率)":"Win% (Series%)","藍紅勝率(藍方／紅方)":"Side win% (Blue／Red)",
+  "選藍率":"Chose-blue%","選先選率":"Chose-1st-pick%","首塔(首中塔)":"1st tower% (1st mid T%)",
+  "中期金差(領先勝率)":"GD@15 (Lead win%)","分均KD(擊殺/死亡)":"KD ratio (K／D per min)",
   // 總覽
   "先取目標":"First obj.","拿到方勝率":"Win% taken","樣本":"Sample","對戰組合":"Matchup","勝方":"Winner",
   // 評分權重表用（附後綴/少見）
@@ -1755,7 +1758,7 @@ const TAB_HELP={
 "總覽":"<b>這頁</b>：全站首頁，隨上方<b>年份／賽事／賽季／版本</b>篩選即時連動（版本下拉已統一含最新<b>積分版本</b>）。\n<b>版面</b>：分三段——<b>近況帶 → 近期動態 → 範圍排行</b>。\n<b>近況帶</b>（最上方三列）＝範圍場數與藍紅勝率／資料更新時間與最新比賽日／近 7 天各賽事場數與進行中賽段。\n<b>版本焦點</b>＝目前版本的英雄／裝備／符文重點改動（附圖示）。\n<b>英雄動態</b>＝上一版與本版的變化：左卡<b>職業比賽 BP%</b>、右卡<b>積分出場率</b>。副標標出兩版各自場數，樣本太少會註明。\n<b>戰隊近況</b>＝目前範圍內連勝／連敗最長的各五隊（一路往回數到中斷為止，不是只看最近五場），賽區籤取該隊出賽最多的一級聯賽。\n<b>積分快照</b>＝追蹤選手最近一個完整日子的單雙排，<b>各路線當天最常拿的前 10 隻</b>。\n<b>範圍排行</b>＝選手／戰隊評分前 5、熱門英雄 BP% 前 10、首殺／首塔／首龍／首巴龍／首先鋒的搶下後勝率。\n<b>操作</b>：點<b>賽事籤</b>＝只看該賽事、點<b>英雄</b>進圖鑑詳情、點<b>選手／戰隊名</b>進詳情。\n<b>看法</b>：英雄動態的<b>▲紅＝竄升、▼綠＝暴跌</b>；積分快照數字＝場數，滑上看勝率。\n<b>注意</b>：每頁篩選列最右固定三顆——<b>返回（←）／回復預設（↺）／本頁說明（ℹ️）</b>。",
 "英雄":"<b>這頁</b>：每隻英雄的出場、勝率、KDA、<b>BP%</b>（禁＋選登場率）與<b>評分</b>。\n<b>操作</b>：點<b>欄位名</b>排序、上方選<b>路線</b>或<b>搜尋</b>戰隊／選手縮小範圍；右上<b>🎯 積分</b>切換積分數據版。\n點<b>英雄名</b>進詳情頁：<b>版本增減趨勢圖</b>＋逐場出場紀錄＋<b>對位／克制</b>（誰克牠、牠克誰，可切路線與情境康特／逆康特／扛壓／菜）。\n<b>看法</b>：<b>滑欄位名看該欄定義</b>（評分欄另外顯示加權權重）；數值上色走台灣習慣，<b>越高越紅、越低越綠</b>。\n<b>注意</b>：篩選特定戰隊／選手時 <b>BP%</b> 會改稱<b>戰隊／選手 BP%</b>（自己選＋對手禁÷該隊出賽，非全站定義）。\n積分數據版＝職業選手今年單雙排全季彙總（勝率／KDA／參與率／分均 CS／金差＠15／經差＠15／<b>搶二率</b>＝先到 2 等的比例）；積分沒有的欄位自動隱藏，也<b>不受聯賽／版本篩選影響</b>。",
 "選手":"<b>這頁</b>：選手數據與<b>評分</b>。\n<b>操作</b>：上方選<b>路線</b>或<b>搜尋</b>名字、點<b>欄位名</b>排序、按<b>顯示更多</b>展開前百名以外。\n點<b>選手名</b>看<b>雷達詳情</b>；上方兩個下拉可挑兩人做<b>雷達對比</b>。\n<b>看法</b>：<b>滑欄位名看該欄定義</b>（評分／攻擊值／防禦值另外顯示加權權重）；雷達詳情數值旁 #N＝該項全體排名；上色走台灣習慣（<b>越高越紅</b>）。\n<b>注意</b>：勾<b>僅限雙方對戰</b>只算兩人直接交手的場次；場數過少不列入排名上色。",
-"戰隊":"<b>這頁</b>：戰隊數據與<b>評分</b>。\n<b>操作</b>：<b>對戰</b>下拉只看面對某隊的成績、點<b>欄位名</b>排序、點<b>戰隊名</b>看該隊<b>BP 紀錄</b>。\n<b>看法</b>：<b>滑欄位名看該欄定義</b>——同名不同義的要注意，<b>勝率</b>是小局、<b>大場勝率</b>才是系列賽；上色走台灣習慣（越高越紅）。\n<b>注意</b>：勾<b>僅限雙方對戰</b>讓雷達只比直接交手；<b>同縮寫的改名隊自動合併</b>（如 Team Secret／Team Secret Whales＝TSW）；場數過少不列入排名上色。",
+"戰隊":"<b>這頁</b>：戰隊數據與<b>評分</b>。\n<b>操作</b>：<b>對戰</b>下拉只看面對某隊的成績、點<b>欄位名</b>排序、點<b>戰隊名</b>看該隊<b>BP 紀錄</b>。\n<b>看法</b>：<b>滑欄位名看該欄定義</b>——<b>括號裡是次要值</b>（如 <b>勝率(大場勝率)</b> 前面是小局、括號內才是系列賽），<b>排序一律照括號前那個主值</b>；上色走台灣習慣（越高越紅）。\n<b>2026 新制</b>：<b>選藍率</b>＝自己拿到選邊權時選藍的比例、<b>選先選率</b>＝拿到第一選擇權時選走先選權的比例，兩欄只有 2026 起才有資料。\n<b>注意</b>：勾<b>僅限雙方對戰</b>讓雷達只比直接交手；<b>同縮寫的改名隊自動合併</b>（如 Team Secret／Team Secret Whales＝TSW）；場數過少不列入排名上色。",
 "陣容":"<b>這頁</b>：一隊<b>五路先發</b>的角色池。\n<b>操作</b>：上方<b>戰隊</b>下拉選隊、每一路點<b>欄位名</b>各自排序。\n左上三顆切換角色池來源：<b>🏆 職業賽</b>＝比賽先發（跟隨上方篩選）、<b>📜 職業生涯</b>＝該選手 <b>2014~現在的職業生涯全部</b>（跨隊、不受上方篩選影響；每路可從下拉挑該隊歷代選手）、<b>🎯 積分</b>＝選手單雙排常用英雄。\n<b>看法</b>：欄位含出場、勝率、被禁率、上次使用日。\n<b>注意</b>：場數低於 3 場不列入排名上色。",
 "近況":"<b>這頁</b>：輸入一個戰隊，一頁看完它的<b>近期狀況</b>（方便直接截圖）。範圍＝目前篩選下該隊<b>最近 5 個系列賽</b>。\n<b>版面</b>：<b>標頭</b>＝連勝／連敗、這段期間的系列與小局戰績。\n<b>近期賽果</b>＝五個系列的日期／賽事／對手／比分。\n<b>五路先發</b>＝每路出賽最多的選手：場數／勝率／KDA／慣用英雄；當年另有<b>近 7 天積分</b>場數勝敗與常用英雄。\n<b>BP 傾向</b>＝這段期間該隊常選、我方常 Ban、被對手針對 Ban 的英雄。\n<b>操作</b>：右上 <b>📸</b> 一鍵輸出 1080p 截圖（檔名＝縮寫_近況_日期）。\n<b>看法</b>：慣用英雄滑上去看場數勝率。",
 "比賽BP":"<b>這頁</b>：兩隊<b>系列賽 BP 紀錄</b>，最新在上。\n<b>操作</b>：上方<b>戰隊</b>下拉指定戰隊（可只填一隊看其所有系列）；在欄名下方輸入即逐欄篩選。\n<b>看法</b>：<b>金色數字</b>＝選角順位 1 到 7、<b>星號</b>＝勝方；藍方／紅方右邊的<b>選擇</b>欄寫這局誰拿走選邊權（<b>選藍／選紅</b>）、誰拿走先選權（<b>先選／後選</b>）。\n<b>注意</b>：標題會自動標<b>缺場</b>（BO5 打到 2-2 卻少第 5 局等）；BO2 的 1-1 和局不算缺。\n<b>先選方不等於藍方</b>——2026 起是新制，先選／後選由雙方自己選，與藍紅方脫鉤；2025 以前才是藍方固定先選。",
@@ -1779,7 +1782,7 @@ const TAB_HELP_EN={
 "總覽":"Site home page; updates live with the <b>Year / League / Split / Patch</b> filters above (the Patch dropdown includes the latest <b>soloq patch</b>). Three sections: <b>status strip → recent movement → range rankings</b>.\n<b>Status strip</b> (top three rows) = games and blue/red win rate in range / data timestamp and latest game day / games per event over the last 7 days (<b>click an event chip to filter to it</b>) and the splits currently running.\n<b>Patch highlights</b> = key champion/item/rune changes of the current patch (with icons; click through for official notes).\n<b>Champion movement</b> = last patch vs this patch: left card is <b>pro BP%</b>, right card is <b>soloq pick rate</b>; <b>red ▲ = rising, green ▼ = falling</b>, click a champion for its Dex page. The subtitle shows each patch game count and flags small samples.\n<b>Team form</b> = the five longest win and losing streaks in range (counted back until broken, not capped at five games); the region tag is the tier-1 league that team played most.\n<b>Ranked snapshot</b> = tracked pros solo queue on the last complete day, <b>top 10 champions per role</b> (number = games, hover for win rate).\n<b>Top-5 players / teams by rating</b> = highest overall rating in range, click a name for details.\n<b>Top-10 champions by Presence</b> = highest ban+pick presence.\n<b>First blood / tower / drake / Baron / Herald</b> = win rate after taking each objective.\nEvery page keeps three fixed buttons at the far right of the filter bar: <b>Back (←) / Reset (↺) / Help (ℹ️)</b>.",
 "英雄":"Each champion's games, win rate, KDA, <b>Presence</b> (ban+pick) and <b>Rating</b>.\nHow-to: click a <b>column header</b> to sort, hover the <b>Rating</b> header for weights, use the lane picker or search a team/player above to narrow the range.\nClick a <b>champion name</b> for its detail page: <b>patch-change trend chart</b> + per-game log + <b>matchups/counters</b> (what counters it, what it beats — switch lane and situation Counter/Anti-counter/Pressured/Outmatched; the old Matchup tab is merged in here).\nTop-right <b>🎯 Soloq</b> toggles the soloq view: full-season ranked aggregate of tracked pros (win rate / KDA / KP / CS per min / GD@15 / XPD@15 / <b>1st Lv2%</b> = first-to-level-2 rate). Pro-only columns are hidden and global league/patch filters don't apply.\nWhen filtered to a team/player, <b>Presence</b> becomes <b>team/player Presence</b> (own picks + opponent bans ÷ that team's games).\nColors follow the Taiwan convention: <b>higher = redder, lower = greener</b>.",
 "選手":"Player stats and <b>Rating</b>.\nHow-to: pick a <b>lane</b> or <b>search</b> a name above, click a <b>column header</b> to sort, hit <b>Show more</b> to expand past the top 100.\nClick a <b>player name</b> for <b>radar details</b> (#N next to a value = overall rank of that stat).\nThe two dropdowns above let you pick two players for a <b>radar compare</b>; check <b>Head-to-head only</b> to count just their direct matchups.\nColors follow the Taiwan convention (<b>higher = redder</b>); low-sample players aren't ranked or colored.",
-"戰隊":"Team stats and <b>Rating</b>.\nHow-to: the <b>vs</b> dropdown shows the record against one team, check <b>Head-to-head only</b> so the radar compares direct matchups, click a <b>column header</b> to sort, click a <b>team name</b> for its <b>BP records</b>.\n<b>Renamed teams with the same abbreviation are merged automatically</b> (e.g. Team Secret / Team Secret Whales = TSW).\nColors follow the Taiwan convention (higher = redder); low-sample teams aren't ranked or colored.",
+"戰隊":"Team stats and <b>Rating</b>.\nHow-to: the <b>vs</b> dropdown shows the record against one team, check <b>Head-to-head only</b> so the radar compares direct matchups, click a <b>column header</b> to sort, click a <b>team name</b> for its <b>BP records</b>.\n<b>Bracketed values are secondary</b> (e.g. Win% (Series%) — the first number is per-game, the bracket is the series rate); <b>sorting always uses the primary value</b>. <b>Chose-blue%</b> / <b>Chose-1st-pick%</b> only have data from 2026 (new ruleset).\n<b>Renamed teams with the same abbreviation are merged automatically</b> (e.g. Team Secret / Team Secret Whales = TSW).\nColors follow the Taiwan convention (higher = redder); low-sample teams aren't ranked or colored.",
 "陣容":"One team's <b>five-role starting</b> champion pools.\nHow-to: pick a team from the <b>Team</b> dropdown above, click a <b>column header</b> in each lane to sort it.\nColumns include games, win rate, ban rate and last-used date; champions with under 3 games are not ranked or colored.\nThree buttons top-left switch the pool source: <b>🏆 Pro</b> = match starters (follows the filters above), <b>📜 Career</b> = that player's <b>whole pro career 2014~now</b> (across all teams, ignores the filters; each lane lists every player who held it for this team), <b>🎯 Soloq</b> = players' ranked go-to champions.",
 "近況":"Type a team and get its <b>recent form</b> on one page (made for screenshots). Range = the team's <b>last 5 series</b> under the current filters.\n<b>Header</b> = current streak plus series/game record over the window.\n<b>Recent results</b> = date / event / opponent / score of the five series.\n<b>Starters</b> = the most-fielded player per role: games / win% / KDA / go-to champions (hover for numbers); in the current year also <b>7-day ranked</b> record and top champions.\n<b>BP tendencies</b> = most picked, most banned by them, and most target-banned against them in the window.\nThe <b>📸</b> button exports a 1080p PNG (named abbr_Form_date).",
 "比賽BP":"Two teams' <b>series BP records</b>, newest first.\nHow-to: pick teams from the <b>Team</b> dropdowns above (fill just one to see all its series).\nReading: <b>gold number</b> = pick order 1–7, <b>gold bold</b> = first-pick side, <b>star</b> = winner.\nThe title auto-flags <b>missing games</b> (e.g. a BO5 at 2-2 missing game 5); a 1-1 draw in a BO2 doesn't count as missing.",
@@ -3870,6 +3873,9 @@ function calcTeams(vsTeam){
     const r=o.raw;
     const bt=r[C.blue_teamname], rt=r[C.red_teamname];
     if(vsA&&teamKeyOf(bt)!==vsA&&teamKeyOf(rt)!==vsA)continue;
+    // 選邊權／先選權（2026 新制，資料＝side_sel.js）：s＝選邊權在藍(b)或紅(r)、
+    // p＝拿到第一選擇權的隊伍選了先選權(1)還是選邊權(0)。查不到就整局不計。
+    const _ss=(+curYear>=2026)?ssIdx().get(_ssKey(o.date,bt,rt,num(r[C.game])||0)):null;
     for(const side of[0,1]){
       const team=side?rt:bt;
       if(vsA){ if(teamKeyOf(team)===vsA)continue; }
@@ -3910,6 +3916,16 @@ function calcTeams(vsTeam){
       const g25=num(B(C.blue_goldat25)), og25=num(O(C.blue_goldat25));
       if(g25!=null||og25!=null){ a.g25any++; a.g25s+=g25||0; a.g25o+=og25||0;
         if((g25||0)>(og25||0)){ a.leadN++; if(o.result===(side?2:1))a.leadW++; } }
+      if(_ss&&_ss.s){
+        // 握選邊權的一定是「s 指的那一邊」——它選了哪邊就會坐在哪邊。
+        const held=_ss.s===(side?"r":"b");
+        if(held){ a.ssN=(a.ssN||0)+1; if(!side)a.ssB=(a.ssB||0)+1; } // 該隊有選邊權：選藍率的分母/分子
+        // 第一選擇權在誰手上要反推：p=1（它拿先選權）→ 選邊權留給對手，所以它 held=false；
+        // p=0（它拿選邊權）→ held=true。
+        if(_ss.p===0||_ss.p===1){
+          if(_ss.p===1?!held:held){ a.fcN=(a.fcN||0)+1; if(_ss.p===1)a.fcP=(a.fcP||0)+1; }
+        }
+      }
       const lane=String(side?r[C.red_Lane]:r[C.blue_Lane]).split("|").filter(x=>x);
       lane.slice(0,5).forEach(ch=>a.champs.add(ch));
     }
@@ -3918,7 +3934,7 @@ function calcTeams(vsTeam){
   for(const[t,a]of acc){
     if(!a.n)continue;
     const min=a.gl/60;
-    rows.push({
+    const _row={
       戰隊:a.disp||tAb(a.full||t), _full:a.full, _lg:mainLg(a.lgCnt,tAb(a.full||t)), 場數:a.n, 勝率:a.w/a.n,
       藍方:a.bn?(a.bw||0)/a.bn:null, 紅方:a.rn?(a.rw||0)/a.rn:null, // 一勝未得的隊伍是 0%，不是「沒資料」
       大場勝率:a.dwN?a.dw/a.dwN:null,
@@ -3932,8 +3948,17 @@ function calcTeams(vsTeam){
       領先勝率:a.leadN?a.leadW/a.leadN:null, _leadW:a.leadW, _leadN:a.leadN,
       分均金錢:(min&&a.goldN)?a.gold/min:null, 分均輸出:(min&&a.dmgN)?a.dmg/min:null,
       分均擊殺:(min&&a.kN)?a.k/min:null, 分均死亡:(min&&a.dN)?a.d/min:null,
-      助攻:(min&&a.assN)?a.ass/min:null, 視野分數:a.vsN?a.vs/a.n:null
-    });
+      助攻:(min&&a.assN)?a.ass/min:null, 視野分數:a.vsN?a.vs/a.n:null,
+      // 選邊率：分母只算**該隊自己拿到選邊權**的局（不是全部場次）；選先選率同理只算它拿到第一選擇權的局
+      選藍率:a.ssN?(a.ssB||0)/a.ssN:null, 選先選率:a.fcN?(a.fcP||0)/a.fcN:null
+    };
+    // 合併欄的鍵（表格排序、雷達軸都直接讀這些）：主值就是括號前那一項；分均KD＝總擊殺÷總死亡
+    _row["勝率(大場勝率)"]=_row.勝率;
+    _row["藍紅勝率(藍方／紅方)"]=_row.藍方;
+    _row["首塔(首中塔)"]=_row.首塔;
+    _row["中期金差(領先勝率)"]=_row.中期金差;
+    _row["分均KD(擊殺/死亡)"]=(a.kN&&a.dN&&a.d>0)?a.k/a.d:null;
+    rows.push(_row);
   }
   if(!rows.length)return rows;
   const thr=threshold(rows.map(r=>r.場數));
@@ -6024,6 +6049,13 @@ const fmt={
   leadPct:(v,r)=>!_fin(v)?"–":`${Math.round(v*100)}%<span class="meta"> (${r._leadW||0}-${(r._leadN||0)-(r._leadW||0)})</span>`,
   score:v=>!_fin(v)?"–":scoreCell(v)
 };
+// 合併欄（一欄塞主值＋括號次值）的格式化函式是 HTML，雷達 tooltip 與 AI 問答的 CSV 不能用它。
+// 用 .pf 掛一份「純文字版」上去，那兩處優先讀 .pf；沒掛的話它們會退回原始值，印出 0.5416 這種東西。
+const withPlain=(f,pf)=>(f.pf=pf,f);
+const _cP=v=>!_fin(v)?"–":Math.round(v*100)+"%";        // 百分比
+const _cSg=v=>!_fin(v)?"–":(v>0?"+":"")+Math.round(v);  // 帶正負號整數
+const _cN2=v=>!_fin(v)?"–":(+v).toFixed(2);             // 兩位小數（分均擊殺/死亡都在 0.4 上下，一位小數看不出差別）
+const _sub=s=>`<span class="meta"> (${s})</span>`;      // 括號內的次要值（灰字）
 const PCOLS=[["選手",fmt.raw,"15em"],["場數",fmt.int],["勝率",fmt.pct],["角色池",fmt.int],
   ["參與率",fmt.pct],["後選率",fmt.pct],
   ["KDA",(v,r)=>!_fin(v)?"–":`${d1s(v)}<span class="meta"> (${r["K/D/A"]||""})</span>`,"10em"],
@@ -6034,12 +6066,25 @@ const PCOLS=[["選手",fmt.raw,"15em"],["場數",fmt.int],["勝率",fmt.pct],["�
   ["金轉傷",fmt.pct],["中期金差",fmt.sign],
   ["分均金錢",fmt.int],["分均輸出",fmt.int],["分均承傷",fmt.int],["分均視分",fmt.d1],
   ["攻擊值",fmt.score],["防禦值",fmt.score],["評分",fmt.score]];
-const TCOLS=[["戰隊",fmt.raw,"10em"],["場數",fmt.int],["大場勝率",fmt.pct],["勝率",fmt.pct],["藍方",fmt.pct],["紅方",fmt.pct],
-  ["時間",fmt.d1],["角色池",fmt.int],["首殺",fmt.pct],
-  ["首塔",fmt.pct],["首中塔",fmt.pct],["2+巢蟲",fmt.pct],["首龍",fmt.pct],["預示者",fmt.pct],
-  ["小龍",fmt.d1],["首巴龍",fmt.pct],["KD差@10",fmt.sign1],["金錢差@10",fmt.sign],
-  ["中期金差",fmt.sign],["領先勝率",fmt.leadPct,"8.5em"],["分均金錢",fmt.int],["分均輸出",fmt.int],["分均擊殺",fmt.d1],
-  ["分均死亡",fmt.d1],["視野分數",fmt.d1],["攻擊值",fmt.score],["防禦值",fmt.score],["評分",fmt.score]];
+// 戰隊欄：合併欄的**主值＝括號前那一項**（排序、名次上色都看它），括號內是次要值（灰字）。
+// 選邊率／選先選率是 2026 新制才有的資料（side_sel.js），其他年份整欄都是「–」→ 跟比賽BP 的
+// 「選擇」欄一樣只在 2026 起出現，2025 以前保持跟以前一樣。
+const TCOLS_ALL=[["戰隊",fmt.raw,"10em"],["場數",fmt.int],["時間",fmt.d1],
+  ["勝率(大場勝率)",withPlain((v,r)=>!_fin(v)?"–":_cP(v)+_sub(_cP(r.大場勝率)),_cP)],
+  // 藍紅勝率：兩個值都要看，所以不做主次而是並列上色（藍/紅同比賽BP 的色）；排序值＝藍方勝率
+  ["藍紅勝率(藍方／紅方)",withPlain((v,r)=>`<span style="color:#6aa8ff">${_cP(v)}</span><span class="meta">／</span><span style="color:#e0574d">${_cP(r.紅方)}</span>`,
+    (v,r)=>r?`${_cP(v)}／${_cP(r.紅方)}`:_cP(v))],  // 純文字版：雷達只拿得到單一數值(無 r)，就只印藍方
+  ["選藍率",fmt.pct],["選先選率",fmt.pct],
+  ["角色池",fmt.int],
+  ["首塔(首中塔)",withPlain((v,r)=>!_fin(v)?"–":_cP(v)+_sub(_cP(r.首中塔)),_cP)],
+  ["2+巢蟲",fmt.pct],["首龍",fmt.pct],["預示者",fmt.pct],
+  ["小龍",fmt.d1],["首巴龍",fmt.pct],["金錢差@10",fmt.sign],
+  ["中期金差(領先勝率)",withPlain((v,r)=>!_fin(v)?"–":_cSg(v)+_sub(_cP(r.領先勝率)),_cSg)],
+  ["分均金錢",fmt.int],["分均輸出",fmt.int],
+  ["分均KD(擊殺/死亡)",withPlain((v,r)=>!_fin(v)?"–":_cN2(v)+_sub(`${_cN2(r.分均擊殺)}/${_cN2(r.分均死亡)}`),_cN2)],
+  ["視野分數",fmt.d1],["攻擊值",fmt.score],["防禦值",fmt.score],["評分",fmt.score]];
+const _T_SEL2026=new Set(["選藍率","選先選率"]);
+const tcols=()=>TCOLS_ALL.filter(c=>+curYear>=2026||!_T_SEL2026.has(c[0]));
 const HCOLS=[["英雄",fmt.raw,"11.5em"],["路線",(v,r)=>r._laneIcons||"–","11em"],["BP%",fmt.pct],["禁用率",fmt.pct],["場數",fmt.int],
   ["勝率(勝-敗)",(v,r)=>`${Math.round((v||0)*100)}% (${esc(r["勝-敗"]||"")})`],
   ["贏線率",fmt.pct],["後選率",fmt.pct],["參與率",fmt.pct],["KDA",(v,r)=>!_fin(v)?"–":`${fmt.d1(v)}<span class="meta"> (${esc(r["K/D/A"]||"")})</span>`],
@@ -6881,7 +6926,14 @@ team:{
 "分均擊殺":["每分鐘的擊殺數。","Kills per minute."],
 "分均死亡":["每分鐘的死亡數。","Deaths per minute."],
 "視野分數":["場均視野分數。","Average vision score per game."],
-"戰隊":["點隊名看該隊的比賽 BP 紀錄；同縮寫的改名隊會自動合併。","Click a team for its match BP records; renamed teams sharing an abbreviation are merged."]},
+"戰隊":["點隊名看該隊的比賽 BP 紀錄；同縮寫的改名隊會自動合併。","Click a team for its match BP records; renamed teams sharing an abbreviation are merged."],
+"勝率(大場勝率)":["小局勝率＝勝場÷場數；括號內是<b>大場勝率</b>（BO3／BO5 整個系列只算一場）。排序看小局勝率。","Per-game win rate; bracket = <b>series</b> win rate (a whole BO3/BO5 counts as one). Sorts by the per-game rate."],
+"藍紅勝率(藍方／紅方)":["在藍方／在紅方時的小局勝率，兩邊並列。排序看藍方勝率。","Per-game win rate on blue side / on red side. Sorts by the blue-side rate."],
+"選藍率":["該隊<b>自己拿到選邊權</b>的局裡選了藍方的比例——分母只算它握有選邊權的場次，不是全部出賽。2026 新制才有資料。","Share of blue picked in games where this team <b>held the side pick</b> — the denominator counts only those games, not all games. 2026 ruleset only."],
+"選先選率":["該隊<b>拿到第一選擇權</b>時，選走「先選權」而不是「選邊權」的比例。2026 新制才有資料。","When this team <b>had the first choice</b>, how often it took first pick instead of side choice. 2026 ruleset only."],
+"首塔(首中塔)":["推掉第一座防禦塔的場次比例；括號內是<b>首座中路塔</b>的比例（分母只算有紀錄的場次）。排序看首塔。","Share of games taking the first tower; bracket = <b>first mid tower</b> (only games with data). Sorts by first tower."],
+"中期金差(領先勝率)":["10→25 分鐘<b>之間</b>拉開的金錢差；括號內是<b>25 分金錢領先時的勝率</b>。排序看中期金差。","Gold lead gained <b>between</b> 10 and 25 min; bracket = win rate <b>when ahead in gold at 25 min</b>. Sorts by the gold swing."],
+"分均KD(擊殺/死亡)":["擊殺÷死亡；括號內是分均擊殺／分均死亡兩個原始值。排序看比值。","Kills ÷ deaths; bracket = kills per min / deaths per min. Sorts by the ratio."]},
 hero:{
 "路線":["這隻英雄在目前範圍內出場過的路線。","Lanes this champion appeared in within the current range."],
 "BP%":["登場率＝（被選＋被禁）÷該範圍總場數。篩選特定戰隊／選手時會改稱戰隊／選手 BP%，定義也跟著改。","Presence = (picks + bans) ÷ total games in range. Filtering by team/player switches to that team's/player's own definition."],
@@ -6896,7 +6948,7 @@ function colDefTip(c,type){
 function bindSort(rerender){
   const ths=[...document.querySelectorAll("th[data-k]")];
   const names=ths.map(t=>t.dataset.k);
-  const type=names.includes("首塔")?"team":names.includes("輸出比")?"player":"hero";
+  const type=names.includes("首巴龍")?"team":names.includes("輸出比")?"player":"hero"; // 認欄名判斷是哪張表（首塔已併成「首塔(首中塔)」，改用只有戰隊表有的首巴龍）
   ths.forEach(th=>{
     th.onclick=()=>{const k=th.dataset.k;
       if(sortK===k)sortDir*=-1; else{sortK=k;sortDir=-1;} rerender();};
@@ -7000,7 +7052,8 @@ function drawBar(rows,labelK,valK,asc){ // asc=true 取升冪前十
 // ---------- 雷達對比（可自訂軸 3~12 邊、同路對比、自動記憶）----------
 const RCOLORS=["#4f8ef7","#e05c5c","#f5b942"];
 const DEF_AXES_P=["勝率","角色池","KDA","參與率","贏線率(金差@10)","分均金錢","分均輸出","分均承傷"];
-const DEF_AXES_T=["勝率","角色池","首塔","2+巢蟲","首龍","預示者","首巴龍","中期金差","分均金錢","分均輸出","分均擊殺","分均死亡"];
+// 軸名要用**現行欄名**（雷達的可選軸清單就是 cols()）；欄位合併後跟著改，store 也跟著跳號讓舊設定重置
+const DEF_AXES_T=["勝率(大場勝率)","角色池","首塔(首中塔)","2+巢蟲","首龍","預示者","首巴龍","中期金差(領先勝率)","分均金錢","分均輸出","分均KD(擊殺/死亡)","視野分數"];
 const loadAxes=(k,def)=>{try{const a=JSON.parse(localStorage.getItem(k));return Array.isArray(a)&&a.length>=3?a:[...def];}catch(e){return [...def];}};
 // 兩位選手（含雙人組）同場對戰的場次集合（標籤格式與 calcPlayers 的「隊縮寫 名字」一致）
 function h2hSetP(pos,l1,l2){
@@ -7048,14 +7101,14 @@ const CFG_P={axes:loadAxes("raxes_p4",DEF_AXES_P),def:DEF_AXES_P,store:"raxes_p4
   h2h:ids=>{const l1=V[ids[0]],l2=V[ids[1]]; if(!l1||!l2)return null;
     const pos=V.pos==="全部"?"":V.pos;
     return h2hRows(h2hSetP(pos,l1,l2),()=>calcPlayers(pos));}};
-const CFG_T={axes:loadAxes("raxes_t5",DEF_AXES_T),def:DEF_AXES_T,store:"raxes_t5",asc:new Set(["時間","分均死亡"]),cols:()=>TCOLS,
+const CFG_T={axes:loadAxes("raxes_t6",DEF_AXES_T),def:DEF_AXES_T,store:"raxes_t6",asc:new Set(["時間"]),cols:()=>tcols(),
   h2h:ids=>{const l1=V[ids[0]],l2=V[ids[1]]; if(!l1||!l2)return null;
     return h2hRows(h2hSetT(l1,l2),()=>calcTeams());}};
-const plainF=f=>(f===fmt.pct||f===fmt.leadPct)?(v=>!_fin(v)?"–":Math.round(v*100)+"%")
+const plainF=f=>f.pf||((f===fmt.pct||f===fmt.leadPct)?(v=>!_fin(v)?"–":Math.round(v*100)+"%")
   :(f===fmt.d1||f===fmt.sign1)?(v=>!_fin(v)?"–":(f===fmt.sign1&&v>0?"+":"")+d1s(v))
   :(f===fmt.score)?(v=>!_fin(v)?"–":Math.floor(v)) // 評分：無條件退位，與表格徽章一致
   :(f===fmt.int||f===fmt.sign)?(v=>!_fin(v)?"–":Math.round(v))
-  :(v=>v==null||v!==v?"–":v);
+  :(v=>v==null||v!==v?"–":v));
 // 每軸用當前列表 min-max 正規化到 5~100（升冪指標反轉），tooltip 顯示原始值
 // 最差的不畫到原點：保留 5 的底，圖形才不會縮成尖刺
 function axisNorm(rows,axis,asc){
@@ -9281,7 +9334,7 @@ function render(){
     // 表格獨立重畫：升降冪排序只動表格，雷達不刷新
     const paintTbl=rows=>{
       document.getElementById("cnt").textContent=`${rows.length}${LANG==="en"?" teams":" 隊"}`;
-      document.getElementById("tbl").innerHTML=tableHTML(TCOLS,rows);
+      document.getElementById("tbl").innerHTML=tableHTML(tcols(),rows);
       alignHeroCols(document.getElementById("tbl")); // 名稱+區域以最長者為支點置中、組內置左
       bindSort(()=>paintTbl(rows));
       // 點戰隊名 → 該隊 BP 紀錄
@@ -12334,8 +12387,8 @@ function render(){
     document.getElementById("histClear").onclick=()=>{if(confirm("確定清空所有問答紀錄？")){saveHist([]);renderHist();}};
     const plain={pct:v=>!_fin(v)?"–":Math.round(v*100)+"%",int:v=>!_fin(v)?"–":Math.round(v),
       d1:v=>!_fin(v)?"–":d1s(v),raw:v=>v==null||v!==v?"–":v,score:v=>!_fin(v)?"–":Math.round(v)};
-    const pmap=f=>(f===fmt.pct||f===fmt.leadPct)?plain.pct:(f===fmt.int||f===fmt.sign)?plain.int:(f===fmt.d1||f===fmt.sign1)?plain.d1:f===fmt.score?plain.score:plain.raw;
-    const toCSV=(cols,rows)=>cols.map(([c])=>c).join(",")+"\n"+rows.map(r=>cols.map(([c,f])=>pmap(f)(r[c])).join(",")).join("\n");
+    const pmap=f=>f.pf||((f===fmt.pct||f===fmt.leadPct)?plain.pct:(f===fmt.int||f===fmt.sign)?plain.int:(f===fmt.d1||f===fmt.sign1)?plain.d1:f===fmt.score?plain.score:plain.raw);
+    const toCSV=(cols,rows)=>cols.map(([c])=>c).join(",")+"\n"+rows.map(r=>cols.map(([c,f])=>pmap(f)(r[c],r)).join(",")).join("\n");
     async function ask(){
       const q=document.getElementById("question").value.trim();
       const key=keyInput.value.trim();
@@ -12356,7 +12409,7 @@ function render(){
             "anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
           body:JSON.stringify({model,max_tokens:1500,
             system:"你是 LOL 職業賽事數據分析師。你沒有網路查詢能力：所有數字與結論只能來自使用者提供的 CSV 數據，先仔細閱讀並思考數據再回答；資料裡沒有的就明說「資料中沒有」，絕不用你的既有知識補數字。用繁體中文（台灣用語）。評分滿分100（攻擊70%+防守30%加權百分位）。輸出風格：像資深分析師跟朋友講話——先一句結論，再用自然短段落帶依據，不要寫成報告。需要比較多筆數據時可以用一個 Markdown 表格（僅此而已）。嚴禁：#標題、---分隔線、emoji 編號（1️⃣）、粗體濫用（整段最多粗體一兩處）、巢狀條列、「指標：值」式的機械條列。你無法畫圖，別嘗試 ASCII 圖。",
-            messages:[{role:"user",content:`資料範圍：${curYear} 全年、全聯賽、全賽段、全版本（資料時間 ${D.fetched_at}）\n\n【選手數據】\n${toCSV(PCOLS,pl)}\n\n【戰隊數據】\n${toCSV(TCOLS,tm)}\n\n問題：${q}`}]})
+            messages:[{role:"user",content:`資料範圍：${curYear} 全年、全聯賽、全賽段、全版本（資料時間 ${D.fetched_at}）\n\n【選手數據】\n${toCSV(PCOLS,pl)}\n\n【戰隊數據】\n${toCSV(tcols(),tm)}\n\n問題：${q}`}]})
         });
         const j=await res.json();
         if(j.error)throw new Error(j.error.message);
