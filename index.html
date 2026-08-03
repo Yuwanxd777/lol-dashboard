@@ -9796,12 +9796,16 @@ function render(){
     const _BIW=44,_BG1=7,_BG2=15;   // 英雄圖寬／BAN 同一輪圖距／第一輪禁｜第二輪禁 之間的圖距
     const _POW=9,_CCG=3;            // .cc .po 的 min-width、.cc 的 gap（選用格右邊那個選角順位數字）
     const _TDP=8;                   // .bp td 的左右內距
-    const _BGROW=2,_LGROW=15;       // 禁用格／選用格 相對英雄圖左右各放大幾 px（使用者逐次指定 2026-07-31）
+    // 禁用格／選用格 相對英雄圖左右各放大幾 px。
+    // 選用格 15→6（2026-08-03 使用者：五路的間隔收緊）：篩選框原本 74px 把欄寬撐到 82，
+    // 但頭像組只要 72（44＋gap3＋順位9＋td 內距 16）→ 五路每欄省 10px、兩邊共省 100px，
+    // 拿去加寬隊名／選擇／禁用欄，讓「隊名｜禁用｜五路」之間的間隔看得出分組。
+    const _BGROW=2,_LGROW=6;
     const _BFW=_BIW+_BGROW*2;       // 禁用格寬 48
     const _LFW=_BIW+_LGROW*2;       // 選用格寬 74
     // 禁用欄寬＝BAN 圖排總寬＋td 內距：5 禁 = 5×44+(7+7+15+7)+16 = 272、3 禁 = 3×44+(7+7)+16 = 162
     //（原本 268／150 少算了第一輪｜第二輪分隔線多佔的 8px 與部分內距，圖會溢出到隔壁欄）
-    const _b5=_maxBan>3, _banW=_b5?272:162;
+    const _b5=_maxBan>3, _banW=_b5?284:174;   // 五路收緊後把空間分一些給禁用欄（2026-08-03）
     // 選用欄寬：要同時容得下〔頭像 44＋gap 3＋順位數字 9〕＋td 內距 16＝72，以及選用篩選框＋8px 間距
     //（原本寫死 62，兩者都放不下 → 頭像組溢出隔壁欄、篩選框互相重疊）
     const _laneW=Math.max(_BIW+_CCG+_POW+_TDP*2, _LFW+8);
@@ -9814,12 +9818,12 @@ function render(){
       _cL(["patch",LANG==="en"?"patch":"版本",68, "patch",m=>String(m.patch).toLowerCase()]),
       _cL(["gl",   LANG==="en"?"time":"時長", 66, "",     m=>mmss(m.gl)]),
       _cL(["win",  LANG==="en"?"win":"勝",    66, "team", m=>String(m.win).toLowerCase()]),
-      _cL(["bt",   LANG==="en"?"blue":"藍方", 78, "team", m=>String(sides(m).L.team).toLowerCase()]),
-      ...(_hasSel?[_cL(["bsel", LANG==="en"?"choice":"選擇",62,"", m=>ssLbl(m,sides(m).LisBlue).toLowerCase()])]:[]),
+      _cL(["bt",   LANG==="en"?"blue":"藍方", 94, "team", m=>String(sides(m).L.team).toLowerCase()]),
+      ...(_hasSel?[_cL(["bsel", LANG==="en"?"choice":"選擇",76,"", m=>ssLbl(m,sides(m).LisBlue).toLowerCase()])]:[]),
       _cL(["bb",   LANG==="en"?"ban":"禁",    _banW,"champ",m=>(sides(m).L.bans||[]).map(_cTxt).join(" ")]),
       _cL(["bl0","TOP",_laneW,"champ",m=>_cTxt(sides(m).L.lane[0])]),_cL(["bl1","JNG",_laneW,"champ",m=>_cTxt(sides(m).L.lane[1])]),_cL(["bl2","MID",_laneW,"champ",m=>_cTxt(sides(m).L.lane[2])]),_cL(["bl3","BOT",_laneW,"champ",m=>_cTxt(sides(m).L.lane[3])]),_cL(["bl4","SUP",_laneW,"champ",m=>_cTxt(sides(m).L.lane[4])]),
-      _cL(["rt",   LANG==="en"?"red":"紅方",  78, "team", m=>String(sides(m).R.team).toLowerCase()]),
-      ...(_hasSel?[_cL(["rsel", LANG==="en"?"choice":"選擇",62,"", m=>ssLbl(m,!sides(m).LisBlue).toLowerCase()])]:[]),
+      _cL(["rt",   LANG==="en"?"red":"紅方",  94, "team", m=>String(sides(m).R.team).toLowerCase()]),
+      ...(_hasSel?[_cL(["rsel", LANG==="en"?"choice":"選擇",76,"", m=>ssLbl(m,!sides(m).LisBlue).toLowerCase()])]:[]),
       _cL(["rb",   LANG==="en"?"ban":"禁",    _banW,"champ",m=>(sides(m).R.bans||[]).map(_cTxt).join(" ")]),
       _cL(["rl0","TOP",_laneW,"champ",m=>_cTxt(sides(m).R.lane[0])]),_cL(["rl1","JNG",_laneW,"champ",m=>_cTxt(sides(m).R.lane[1])]),_cL(["rl2","MID",_laneW,"champ",m=>_cTxt(sides(m).R.lane[2])]),_cL(["rl3","BOT",_laneW,"champ",m=>_cTxt(sides(m).R.lane[3])]),_cL(["rl4","SUP",_laneW,"champ",m=>_cTxt(sides(m).R.lane[4])]),
     ];
@@ -9870,7 +9874,21 @@ function render(){
         if(nm&&alt&&alt!==nm)m[nm]=alt; }
       return m; })();
     const _dlHTML=FILTERS.map(f=>(_DLF[f.k]&&_DLF[f.k].length)?`<datalist id="bpDL_${f.k}">${_DLF[f.k].map(v=>`<option value="${esc(v)}">${f.dl==="champ"?esc(_dlAlt[v]||""):""}</option>`).join("")}</datalist>`:"").join("");
-    const _finput=(f,xs)=>`<span style="position:relative;display:block;flex:1 1 0;min-width:0${xs?";"+xs:""}"><input class="bpColF" data-k="${f.k}" list="bpDL_${f.k}" size="1" value="${esc(V.bpColF[f.k]||"")}" placeholder=" " style="display:block;width:100%;min-width:0;font-size:11.5px;padding:2px 15px 2px 4px;box-sizing:border-box;text-align:center;background:#0e1420;border:1px solid #2a3345;border-radius:5px;color:var(--tx)"><span class="bpCx" data-k="${f.k}" title="${LANG==="en"?"clear":"清除"}">✕</span></span>`;
+    // 值域固定的欄（時長分桶、選擇）改用下拉，不給打字（使用者指定 2026-08-03）：
+    // 這兩欄的選項就那幾個，開放輸入只會打出篩不到東西的字。其餘欄仍是輸入框＋建議清單。
+    // class 沿用 bpColF：下面綁定用的是 onchange／.value，select 一樣吃得到。
+    const _FIXED=new Set(["gl","bsel","rsel"]);
+    const _finput=(f,xs)=>{
+      const st=`display:block;width:100%;min-width:0;font-size:11.5px;box-sizing:border-box;text-align:center;background:#0e1420;border:1px solid #2a3345;border-radius:5px;color:var(--tx)`;
+      if(_FIXED.has(f.k)){
+        const cur=V.bpColF[f.k]||"", opts=(_DLF[f.k]||[]);
+        return `<span style="display:block;flex:1 1 0;min-width:0${xs?";"+xs:""}"><select class="bpColF" data-k="${f.k}" style="${st};padding:2px 2px">`
+          +`<option value="">${LANG==="en"?"all":"全部"}</option>`
+          +opts.map(v=>`<option value="${esc(v)}"${String(cur).toLowerCase()===String(v).toLowerCase()?" selected":""}>${esc(v)}</option>`).join("")
+          +`</select></span>`;
+      }
+      return `<span style="position:relative;display:block;flex:1 1 0;min-width:0${xs?";"+xs:""}"><input class="bpColF" data-k="${f.k}" list="bpDL_${f.k}" size="1" value="${esc(V.bpColF[f.k]||"")}" placeholder=" " style="${st};padding:2px 15px 2px 4px"><span class="bpCx" data-k="${f.k}" title="${LANG==="en"?"clear":"清除"}">✕</span></span>`;
+    };
     // 逐欄篩選框一律「置中」對齊底下的資料（.bp td 是 text-align:center）。
     // BAN 圖排的幾何：圖 44px、同一輪圖距 7px、第一輪禁(前3)｜第二輪禁(後2) 之間 15px
     //（前一顆頭像 7px ＋ .banSep 的 1px 框線與 7px margin）→ 第 4 格要多補 15−7＝8px 才對得上。
