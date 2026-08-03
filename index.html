@@ -1192,6 +1192,16 @@ function soloqBuildHTML(cid){ if(typeof isHistYear==="function"&&isHistYear())re
   // 召喚師技能欄（框內第 2 欄首段）：每組直列一行（兩圖＋%）；有閃現一律排第二格（穩定排序，其他組合順序不變）
   const spCol=spArr=>(spArr||[]).map(p=>{const ss=[...(p.s||[])].sort((a,b)=>(a==="閃現")-(b==="閃現"));
     return `<div style="display:flex;align-items:center;gap:3px;margin-bottom:6px">${ss.map(nm=>{const u=(typeof EXTRA_IMG!=="undefined")&&EXTRA_IMG&&EXTRA_IMG[nm];return u?`<img loading="lazy" src="${u}" title="${esc(nm)}" style="width:26px;height:26px;border-radius:5px;border:1px solid #33405c">`:esc(nm);}).join("")}<span class="num" style="font-size:12.5px;margin-left:5px">${p.pct}%</span></div>`;}).join("")||'<span class="meta">—</span>';
+  // 常配英雄（積分）：dpm 逐場的 duoChampionName＝該局跟他配的那一路，配對關係是
+  //   上→打野、打野→中、中→打野、下→輔助、輔助→下（使用者 2026-08-03 指定的就是這組）。
+  // 只列前五、附場數與勝率；點頭像跳該英雄詳情（沿用符文盒「常對到」那套 .dexChGo）。
+  // 舊資料沒有 duo 欄（要重抓積分才會有）→ 沒有就整段不顯示。
+  const duoCol=arr=>(arr&&arr.length)?arr.map(([id,n2,w2])=>{const wr=n2?Math.round(w2/n2*100):0;
+    return `<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
+      <img loading="lazy" class="dexChGo" data-cid="${esc(id)}" data-fbmode="hide" onerror="champImgFb(this)" title="${esc(chName(id))}" src="https://ddragon.leagueoflegends.com/cdn/${yearVer()}/img/champion/${esc(id)}.png" style="width:26px;height:26px;border-radius:5px;cursor:pointer">
+      <span style="font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:96px">${esc(chName(id))}</span>
+      <span class="meta" style="font-size:12.5px;margin-left:auto;white-space:nowrap">${n2}${en?"g":"場"}</span>
+      <b style="color:${wrCol(wr)};font-size:13px;white-space:nowrap">${wr}%</b></div>`;}).join(""):"";
   // 一路一框，框內四欄：①符文排列 ②召喚師技能＋起手裝＋鞋子＋剩餘 ③核心裝＋流派 ④近兩版
   // 多路線時預設只展開場數最多的路線，其餘收合、點標頭（▶/▼）展開
   const laneBox=(pos,D,st,hh,spArr,i,collapsible,mix)=>{
@@ -1208,7 +1218,8 @@ function soloqBuildHTML(cid){ if(typeof isHistYear==="function"&&isHistYear())re
       <div${headAttr}>${all?"":laneIco(pos)}<span style="font-weight:bold;font-size:17px">${all?(en?"All lanes":"全部路線"):(POSZH[pos]||pos)}</span><span class="meta" style="font-size:13px">${ln}${en?"g":"場"}</span>${lwr!=null?`<b style="color:${wrCol(lwr)};font-size:14px">${lwr}%</b>`:""}${all&&mix&&mix.txt?`<span class="meta" style="font-size:12px;opacity:.75">${mix.txt}</span>`:""}${arrow}</div>
       <div class="lbBody" style="display:${open?"":"none"};padding:1px 16px 14px">
       <div style="display:flex;gap:22px;flex-wrap:wrap;align-items:flex-start">
-        ${column([[en?"Rune setups (top keystones)":"符文排列（前三基石）",runesGrid(D.runesKS)]],250)}
+        ${column([[en?"Rune setups (top keystones)":"符文排列（前三基石）",runesGrid(D.runesKS)],
+                  ...(duoCol(D.duo)?[[en?"Usual partner (top 5)":"常配英雄（前五）",duoCol(D.duo)]]:[])],250)}
         ${column([[en?"Summoners":"召喚師技能",spCol(spArr)],[pos==="UTILITY"?(en?"Support item":"輔助裝"):(en?"Starting item":"起手裝"),st?`<div style="display:flex;flex-wrap:wrap">${itemsPct(st.items)}</div>`:'<span class="meta">—</span>'],[en?"Boots":"鞋子",wrap(itemsPct(D.boots))],[en?"Other viable items":"剩餘適合裝備",`<div style="display:flex;flex-wrap:wrap;width:252px">${itemsPct(D.rest)}</div>`]],270)}
         ${column([[en?"Core items (build rate)":"核心裝（出裝率）",wrap(itemsPct(D.core))],[en?"Main build paths (order + win%)":"主要出裝流派（購買順序＋勝率）",seqRows(D.paths,true)]],300)}
         ${column([[(en?("Core items"+(p2v?` (${p2v})`:" (last 2 patches)")):("近兩版核心裝"+(p2v?`（${p2v}）`:""))),wrap(itemsPct(D.core100))],[p2t,seqRows(D.paths2p||D.paths100,true)]],300)}

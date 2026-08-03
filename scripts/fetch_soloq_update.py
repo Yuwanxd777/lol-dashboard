@@ -84,7 +84,11 @@ JS_NEW = """async(args)=>{ const [PU,tok,newestT]=args; const out=[]; let ID=nul
         w:!!p.win,k:p.kills,de:p.deaths,a:p.assists,kp:Math.round(p.killParticipation||0),sc:p.dpmScore,scr:p.dpmScoreRank,
         pos:p.lane||null, su:[p.summoner1Id,p.summoner2Id], r:p.primaryRuneId,
         rp:[p.primaryRuneId,p.primaryRuneId2,p.primaryRuneId3,p.primaryRuneId4], rs:[p.secondaryRuneId,p.secondaryRuneId2,p.secondaryRuneId3], rst:[p.perksStat1,p.perksStat2,p.perksStat3],
-        sk:(p.skillLevelUps||[]).slice(0,5),
+        sk:p.skillLevelUps||[],
+        // 搭檔／對手（dpm 的 duo 就是使用者要的配對：上→野、野→中、中→野、下→輔、輔→下）
+        du:p.duoChampionName||null, dul:p.duoLane||null, duo:p.duoOpponentChampionName||null,
+        // 該局當下的 Riot ID：帳號改名史就是靠逐場這一欄還原（dpm 沒有歷史 ID 端點）
+        rid:((p.gameName||'')+(p.tagLine?'#'+p.tagLine:''))||null,
         it:(p.itemIds||[]).filter(id=>[1104,3330,3340,3348,3349,3363,3364,3513,6702].indexOf(id)<0), st:p.startItems||[], ib:buy, cs:(p.totalMinionsKilled||0)+(p.neutralMinionsKilled||0),
         gd15:p.goldDiffAt15, dpm:p.damagePerMinute, tr:p.tier||null, lp:(p.lp!=null?p.lp:p.leaguePoints),
         // Laning Phase(at 15) 追加（與 fetch_soloq_year.py 同步）：xp diff＋first to level 2；cs diff 不抓（使用者指定）

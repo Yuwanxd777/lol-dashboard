@@ -179,6 +179,11 @@ def main():
         i = bisect.bisect_right(_bd, d) - 1
         return _bp[i] if i >= 0 else _bp[0]
     muCnt = defaultdict(lambda: defaultdict(lambda: [0, 0]))  # 積分對位：英雄 -> 對位英雄 -> [場,勝]（g.o＝dpm 的對位欄）
+    # 常配英雄：英雄 -> 搭檔英雄 -> [場,勝]。搭檔來自 dpm 的 duoChampionName，它的配對正好是
+    # 上→野、野→中、中→野、下→輔、輔→下（2026-08-03 使用者指定的那組）。逐路線版另存 duCntL。
+    duCnt = defaultdict(lambda: defaultdict(lambda: [0, 0]))
+    duCntL = defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: [0, 0])))
+    ridHist = defaultdict(lambda: defaultdict(lambda: [0, 0, 0]))  # 選手key -> Riot ID -> [場, 最早t, 最晚t]
     suCnt = defaultdict(Counter)                              # 召喚師技能組合：英雄 -> (id小,id大) -> 場數
     ksOpp = defaultdict(lambda: defaultdict(Counter))         # 符文盒「常對到」：英雄 -> keystone -> 對位英雄 -> 場數
     recentCore = defaultdict(list)  # 英雄 -> [(t, (大裝tuple))]：算近100場核心裝
@@ -217,6 +222,16 @@ def main():
             lk = None if _hl == "?" else _hl  # 每路線聚合的路線鍵（未知路線不入 byLane，仍計整體）
             _opp = CHAMP_FIX.get(g.get("o"), g.get("o"))
             if _opp: _m = muCnt[c][_opp]; _m[0] += 1; _m[1] += win
+            _du = CHAMP_FIX.get(g.get("du"), g.get("du"))
+            if _du:
+                _d0 = duCnt[c][_du]; _d0[0] += 1; _d0[1] += win
+                if lk: _d1 = duCntL[c][lk][_du]; _d1[0] += 1; _d1[1] += win
+            _rid = g.get("rid")
+            if _rid:
+                _rh = ridHist[pkey][_rid]; _t0 = g.get("t") or 0
+                _rh[0] += 1
+                if not _rh[1] or _t0 < _rh[1]: _rh[1] = _t0
+                if _t0 > _rh[2]: _rh[2] = _t0
             # 逐場（出場紀錄）：[t, 選手key, 路線縮寫, 勝, K, D, A, KP, 對位, 金差15, 經差15, 評分,
             #                    關鍵符文, 副系第一顆符文]
             # 第 13/14 欄是 2026-07-31 新增：英雄詳情的出場紀錄要顯示符文欄，且要與積分逐場一致
@@ -364,7 +379,9 @@ def main():
             if ids: coreP[P] = ids
         # 符文排列：依「最大顆符文(keystone＝主系第一顆)」分組 → 前三 keystone×各前二配置（邏輯在 _runes_ks）
         runesKS = _runes_ks(runePage[c], runePageW[c], ksOpp[c])
-        champs[c] = {"n": n, "start": startByPos, "boots": bootsTop, "core": coreTop, "rest": restTop, "core100": core100, "paths": pathTop, "paths2p": pathTop2p, "coreP": coreP, "runesKS": runesKS}
+        # 常配英雄前五：[英雄, 場數, 勝場]（前端自己算勝率與佔比）
+        _duTop = sorted(duCnt[c].items(), key=lambda kv: (-kv[1][0], kv[0]))[:5]
+        champs[c] = {"n": n, "duo": [[k2, v2[0], v2[1]] for k2, v2 in _duTop], "start": startByPos, "boots": bootsTop, "core": coreTop, "rest": restTop, "core100": core100, "paths": pathTop, "paths2p": pathTop2p, "coreP": coreP, "runesKS": runesKS}
         # ── byLane：多路線英雄逐路線分開（路線需 ≥max(30, 5%總場)；只有 1 條達標＝單路線英雄 → 不輸出，前端沿用整體）──
         _majors = [(p3, laneGames[c].get(p3, 0)) for p3 in ("TOP", "JUNGLE", "MIDDLE", "BOTTOM", "UTILITY")]
         _majors = [(p3, ln3) for p3, ln3 in _majors if ln3 >= max(30, 0.05 * n)]
@@ -376,7 +393,9 @@ def main():
                               "core100": _recent_core(recentCoreL[c][p3]),
                               "paths": _path_pack(pathsL[c][p3], pathWL[c][p3]),
                               "paths2p": _path_recent(recentPathL[c][p3]),
-                              "runesKS": _runes_ks(runePageL[c][p3], runePageWL[c][p3], ksOppL[c][p3])}
+                              "runesKS": _runes_ks(runePageL[c][p3], runePageWL[c][p3], ksOppL[c][p3]),
+                              "duo": [[k2, v2[0], v2[1]] for k2, v2 in
+                                      sorted(duCntL[c][p3].items(), key=lambda kv: (-kv[1][0], kv[0]))[:5]]}
             champs[c]["byLane"] = byLane  # 起手裝不重複存：前端直接讀 champs[c].start[路線]
     # 反向：道具→把它當核心裝的英雄(依該英雄此裝出裝%排序、上限15)
     itemChamps = defaultdict(list)
@@ -433,6 +452,15 @@ def main():
     with open(OUT2, "w", encoding="utf-8") as f:
         f.write("window.SOLOQ_CHGAMES=" + json.dumps(cg, ensure_ascii=False) + ";\n")
     print(f"出場紀錄：{len(cg)} 英雄 × 最近100場 → {OUT2}（{os.path.getsize(OUT2)/1024:.0f} KB）")
+    # 帳號改名史：dpm 沒有「歷史 ID」端點，但逐場都帶著該局當下的 Riot ID(rid) → 逐場掃出來就是改名史。
+    # 只留真的改過名的選手（同一 key 出現 2 個以上 ID），每個 ID 記場數與最早/最晚出現時間。
+    # 掛在這支腳本是因為它本來就要讀完整個 soloq_matches（203MB），不值得為此再掃一次。
+    hist = {k: sorted([[rid, v[0], v[1], v[2]] for rid, v in m.items()], key=lambda x: -x[3])
+            for k, m in ridHist.items() if len(m) > 1}
+    OUT3 = os.path.join(ROOT, "soloq_id_hist.js")
+    with open(OUT3, "w", encoding="utf-8") as f:
+        f.write("window.SOLOQ_ID_HIST=" + json.dumps(hist, ensure_ascii=False) + ";\n")
+    print(f"帳號改名史：{len(hist)} 位選手改過 ID → {OUT3}（{os.path.getsize(OUT3)/1024:.0f} KB）")
 
 if __name__ == "__main__":
     main()

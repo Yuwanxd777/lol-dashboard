@@ -3,7 +3,10 @@
 抓「全職業選手 2026 整年、職業出場路線的單雙排(Solo/Duo)逐場」→ 每位選手一個檔(懶載)。
 - 職業路線：每帳號查 5 條路的 totalCount 取最大＝該帳號主導路線；同一選手(同隊同名)取「主帳(場數最多)」的主導路線當職業路線，套用到該選手所有帳號。
 - 只抓 queueId==420、gameCreation >= 2026-01-01。
-- 精簡欄位：技能只留前 3 點(sk)、符文只留主符文第一個 keystone(r)。
+- 逐場欄位：技能點法整串(sk，最多 18 點)、符文、搭檔/對手英雄、該局當下的 Riot ID(rid)。
+  搭檔(du/dul)＝dpm 的 duoChampionName，它的配對正好是上→野、野→中、中→野、下→輔、輔→下。
+  ⚠dpm 逐場只回「該選手一人」(participants 長度 1)，**拿不到對手的帳號 ID**（只有對手英雄名）；
+  要判斷對手是不是職業選手得走 Riot match-v5(需金鑰、每場一次呼叫)。
 - 輸出：soloq_matches/p{n}.js（每檔 `window.__sqLoad("隊|選手",{role,matches:[...]})`，前端點到才載）
          soloq_match_index.js（`window.SOLOQ_MATCH_IDX`，小檔，開頁載，知道誰可點/檔名/場數）
 
@@ -87,7 +90,11 @@ JS_YEAR = """async(args)=>{ const [PU, tok, CUT]=args; const out=[];
         w:!!p.win,k:p.kills,de:p.deaths,a:p.assists,kp:Math.round(p.killParticipation||0),sc:p.dpmScore,scr:p.dpmScoreRank,
         pos:p.lane||null, su:[p.summoner1Id,p.summoner2Id], r:p.primaryRuneId,
         rp:[p.primaryRuneId,p.primaryRuneId2,p.primaryRuneId3,p.primaryRuneId4], rs:[p.secondaryRuneId,p.secondaryRuneId2,p.secondaryRuneId3], rst:[p.perksStat1,p.perksStat2,p.perksStat3],
-        sk:(p.skillLevelUps||[]).slice(0,5),
+        sk:p.skillLevelUps||[],
+        // 搭檔／對手（dpm 的 duo 就是使用者要的配對：上→野、野→中、中→野、下→輔、輔→下）
+        du:p.duoChampionName||null, dul:p.duoLane||null, duo:p.duoOpponentChampionName||null,
+        // 該局當下的 Riot ID：帳號改名史就是靠逐場這一欄還原（dpm 沒有歷史 ID 端點）
+        rid:((p.gameName||'')+(p.tagLine?'#'+p.tagLine:''))||null,
         it:(p.itemIds||[]).filter(id=>[1104,3330,3340,3348,3349,3363,3364,3513,6702].indexOf(id)<0), st:p.startItems||[], ib:buy, cs:(p.totalMinionsKilled||0)+(p.neutralMinionsKilled||0),
         gd15:p.goldDiffAt15, xd15:p.xpDiffAt15, dpm:p.damagePerMinute, tr:p.tier||null, lp:(p.lp!=null?p.lp:p.leaguePoints),
         // Laning Phase(at 15) 追加：xp diff(xd15)＋first to level 2(fl2)；gold diff 已是 gd15。cs diff 不抓。
