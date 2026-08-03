@@ -10128,8 +10128,8 @@ function render(){
     const players=[...new Set(LANES.flatMap(o=>[o.raw[C.blue_playername],o.raw[C.red_playername]]))].filter(x=>x).sort();
     const POSN=["TOP","JNG","MID","BOT","SUP"];
     V.bpLane=V.bpLane||{}; V.bpColF=(V.bpColF&&typeof V.bpColF==="object")?V.bpColF:{}; // 每欄篩選狀態(欄key→關鍵字)
-    V.bpSideMode=(["br","fp","team"].includes(V.bpSideMode))?V.bpSideMode:"br"; // 左側代表：br 藍紅／fp 先選方／team 搜尋的戰隊
-    const _bpModeLbl=md=>({br:LANG==="en"?"🟦🟥 Blue / Red":"🟦🟥 藍紅",fp:LANG==="en"?"🥇 First-pick":"🥇 先選",team:LANG==="en"?"🏴 Team":"🏴 戰隊"}[md]||md);
+    V.bpSideMode=(["br","team"].includes(V.bpSideMode))?V.bpSideMode:"br"; // 左側代表：br 一般（藍左紅右）／team 混合（搜尋的戰隊在左）；先選模式已移除（2026-08-04 使用者指定，fp 舊存檔自動退回一般）
+    const _bpModeLbl=md=>({br:LANG==="en"?"🟣 Default":"🟣 一般",team:LANG==="en"?"🟪 Mixed":"🟪 混合"}[md]||md);
     main.innerHTML=filterBar("")
       +`<div class="card"><h2 style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">🎯 ${T("BP 紀錄")} <span class="sub" id="cnt"></span><span class="sub" style="flex:1 1 220px">${LANG==="en"?`gold number = pick order (1-7), <span style="background:rgba(255,255,255,.14);padding:0 5px;border-radius:3px">white row-band</span> = winning team, newest first｜type in a column header to filter`:`金色數字＝選角順位(1-7)，<span style="background:rgba(255,255,255,.14);padding:0 5px;border-radius:3px">白底那隊</span>＝勝方，最新在上｜在欄名下方輸入即逐欄篩選`}</span></h2><div id="tbl"></div></div>`;
     const mmss=s=>s?`${Math.floor(s/60)}:${String(Math.round(s%60)).padStart(2,"0")}`:"–";
@@ -10502,11 +10502,9 @@ function render(){
       //（2026-07-31 使用者指定；最右三顆 說明／預設／返回 位置不動）
       const anchor=document.getElementById("fHelp")||document.getElementById("fReset");
       if(anchor&&!document.getElementById("bpSideSeg")){
-        const seg=segEl("bpSideSeg",[["br",LANG==="en"?"🟣 Blue/Red":"🟣 藍紅","左側＝藍方"],
-            /* 選邊是 2026 才有的制度，之前藍方一律先選 →「先選」與「藍紅」完全重複，不顯示 */
-            ...(+curYear>=2026?[["fp",LANG==="en"?"🥇 First pick":"🥇 先選","左側＝先選方"]]:[]),
-            ["team",LANG==="en"?"🟪 Team":"🟪 該隊","左側＝搜尋的戰隊"]],
-          (+curYear<2026&&V.bpSideMode==="fp")?"br":(V.bpSideMode||"br"),
+        const seg=segEl("bpSideSeg",[["br",LANG==="en"?"🟣 Default":"🟣 一般","左側＝藍方"],
+            ["team",LANG==="en"?"🟪 Mixed":"🟪 混合","左側＝搜尋的戰隊（紅藍混合疊在一起）"]],
+          V.bpSideMode||"br",
           v=>{ if(v===(V.bpSideMode||"br"))return; V.bpSideMode=v; saveState(); rerender(); },"");
         anchor.parentNode.insertBefore(seg,anchor);
         const cb=document.createElement("button"); cb.id="bpColClr"; cb.className="sqbtn";
