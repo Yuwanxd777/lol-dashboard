@@ -122,7 +122,9 @@ def parse(ov, htm):
         base = idx["Blue"]
         is_match = "logo std" in (cells[0] if cells else "")   # 系列層級列＝第一格是隊伍 logo
         if is_match:
-            team = lambda i: (re.search(r'alt="([^"]+?)logo std"', cells[i]) or [None, ""])[1].strip()
+            # alt 取出來要 unescape：`Anyone&#39;s Legend` 不還原的話正規化成 anyone39slegend，
+            # 跟賽程的 anyoneslegend 對不上，整個 LPL 就會因配對率不足被跳過（實測 20/26）。
+            team = lambda i: _html.unescape((re.search(r'alt="([^"]+?)logo std"', cells[i]) or [None, ""])[1]).strip()
             # 系列一律先進 out（即使一局都沒收）：out 的順序要與賽程清單逐項對齊，
             # 少一個未打的系列就會整串錯位。
             cur = {"t1": team(0), "t2": team(1), "score": txt[2] if len(txt) > 2 else "", "n": 0, "games": []}
@@ -188,18 +190,37 @@ def main():
         if not sers:
             continue
         sc = sched(ov)
-        # 逐場對齊＋用比分驗證：對不上就整個賽事不採用（寧可沒有，也不要掛錯日期）
-        # 只拿**已打完**的場次驗證：還沒打的頁面寫 TBD、賽程寫 None - None，本來就對不上，
-        # 把它們算進去會讓對齊率永遠不及格（LCP 實測 25 場裡 14 場未打）。
-        done = [i for i, s in enumerate(sers) if re.match(r"^\d+\s*-\s*\d+$", s["score"] or "")]
-        ok = sum(1 for i in done if i < len(sc) and sers[i]["score"] == sc[i][3])
-        if len(sc) < len(sers) or (done and ok < len(done) * 0.9):
-            print(f"  ⚠ {ov}：賽程對齊失敗（{ok}/{len(done)} 場比分吻合、清單 {len(sc)} 場）→ 跳過")
+        # **不能用位置對齊**：季後賽頁面按賽制分組（勝部／敗部），頁面順序不等於時間順序
+        #（LPL Split 1 Playoffs 實測前 10 場對得上、第 11 場起整個錯位）。
+        # 改成「兩隊＋比分」配對：逐一在賽程清單裡找還沒被用過、兩隊與比分都吻合的那場。
+        # 隊名比對用**互相包含**：頁面的隊名取自 logo alt（"We"），賽程給的是全名（"Team WE"）。
+        # 還沒打完的（頁面 TBD）本來就沒有比分可配，直接跳過不收。
+        nkq = lambda s: re.sub(r"[^a-z0-9]", "", str(s or "").lower())
+
+        def same(a, b):
+            a, b = nkq(a), nkq(b)
+            return bool(a) and bool(b) and (a in b or b in a)
+
+        used, pair = set(), {}
+        for i, s in enumerate(sers):
+            if not re.match(r"^\d+\s*-\s*\d+$", s["score"] or ""):
+                continue
+            for j, (d0, a0, b0, sco) in enumerate(sc):
+                if j in used or sco != s["score"]:
+                    continue
+                if (same(s["t1"], a0) and same(s["t2"], b0)) or (same(s["t1"], b0) and same(s["t2"], a0)):
+                    used.add(j); pair[i] = j; break
+        need = [i for i, s in enumerate(sers) if s["games"]]
+        got = [i for i in need if i in pair]
+        if need and len(got) < len(need) * 0.9:
+            print(f"  ⚠ {ov}：賽程配對失敗（{len(got)}/{len(need)} 場配到日期）→ 跳過")
             continue
         hit += 1
         n = 0
         for i, s in enumerate(sers):
-            d, t1, t2, _ = sc[i]
+            if i not in pair:
+                continue                      # 配不到日期的場次寧可不收，不掛錯日期
+            d, t1, t2, _ = sc[pair[i]]
             for g in s["games"]:
                 allrec.append({"d": d, "t1": t1, "t2": t2, "gi": g["gi"], "ss": g["ss"],
                                "blue": g["blue"], "red": g["red"],
