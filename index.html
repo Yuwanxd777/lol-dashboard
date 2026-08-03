@@ -10400,7 +10400,7 @@ function render(){
       const _wrLbl=mode==="br"?(LANG==="en"?"win%":"勝率"):LR.ln;
       // 藍紅模式的「勝率」是藍紅合在一起看的一項 → 用紫色圖示（藍＋紅）取代 🔵🔴 兩顆
       //（使用者指定 2026-08-03）；該隊／先選模式仍用各自的兩顆圖示。
-      const _wrIco=mode==="br"?"🟣":(LR.li+LR.ri);
+      const _wrIco=mode==="br"?"🟣":mode==="fp"?LR.li:"🟪"; // 先選模式只掛 🥇、該隊模式掛紫方塊（2026-08-04 使用者指定；🟣＝藍紅合併同款邏輯）
       const _cL1=mode==="br"?_CBLU:_CGLD, _cR1=mode==="br"?_CRED:_CMUT;
       const strip=n?`<div class="statline">
         <span>${LANG==="en"?`<b>${n}</b> games`:`共 <b>${n}</b> 場`}${grouped?`　<span class="meta">${LANG==="en"?`<b style="color:${totalMiss?"#e0574d":"var(--tx2)"}">${totalMiss}</b> missing in range`:`範圍內缺 <b style="color:${totalMiss?"#e0574d":"var(--tx2)"}">${totalMiss}</b> 場`}</span>`:""}</span>
