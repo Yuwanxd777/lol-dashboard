@@ -79,10 +79,12 @@
   .fsel{height:36px;box-sizing:border-box;padding:4px 12px;font-size:17px;display:inline-flex;align-items:center;
     justify-content:space-between;gap:8px;background:var(--card2);border:1px solid var(--line);border-radius:9px;text-align:left}
   .fsel .fselAr{color:var(--tx2);font-size:12px;flex:0 0 auto}
-  /* 比賽BP 逐欄篩選列裡的 fancy 鈕：縮到與輸入框同高同字級 */
-  .bpFRow .fsel{height:21px;width:100%;padding:1px 6px;font-size:11.5px;border-radius:5px;background:#0e1420;border:1px solid #2a3345;gap:3px}
-  .bpFRow .fsel .fselAr{font-size:9px}
-  .bpFRow .fsel .fselTx{overflow:hidden;white-space:nowrap}
+  /* 比賽BP 逐欄篩選列裡的 fancy 鈕：縮到與輸入框同高同字級；空間只留「四個字＋一個✕」
+     （使用者指定 2026-08-04）→ ▾ 不顯示、✕ 收進鈕內排在字後面（蓋掉全域 .bpCx 的絕對定位） */
+  .bpFRow .fsel{height:21px;width:100%;padding:1px 4px;font-size:11.5px;border-radius:5px;background:#0e1420;border:1px solid #2a3345;gap:0;justify-content:space-between}
+  .bpFRow .fsel .fselAr{display:none}
+  .bpFRow .fsel .fselTx{overflow:hidden;white-space:nowrap;margin:0 auto}
+  .bpFRow .fsel .bpCx{position:static;display:none;padding:0 0 0 2px;font-size:11px;height:auto;line-height:1}
   .fsel.on{border-color:var(--acc)}
   #fselPop{position:fixed;z-index:9999;display:grid;grid-auto-flow:column;gap:2px 10px;padding:7px 8px;
     background:#141a28;border:1px solid var(--acc);border-radius:11px;box-shadow:0 10px 34px rgba(0,0,0,.55);font-size:17px}
@@ -94,6 +96,9 @@
   .fselIt{padding:5px 11px;border-radius:7px;cursor:pointer;white-space:nowrap;line-height:1.25}
   #fselPop .fselIt:hover{background:#1e2942;color:var(--acc)}
   #fselPop .fselIt.on{background:linear-gradient(135deg,var(--acc),var(--acc2));color:#fff;font-weight:bold}
+  /* 比賽BP 第二篩選列開出的清單：縮成跟該列其他建議清單一樣的小字小間距 */
+  #fselPop.fselSm{font-size:12.5px;padding:5px 6px;gap:1px 8px;border-radius:8px}
+  #fselPop.fselSm .fselIt{padding:3px 8px;border-radius:5px}
   select,input,textarea,button{background:var(--card2);color:var(--tx);border:1px solid var(--line);
     border-radius:9px;padding:8px 12px;font-family:inherit;font-size:15.5px;outline:none}
   select:focus,input:focus,textarea:focus{border-color:var(--acc)}
@@ -6918,6 +6923,7 @@ function fancySelectOpen(sel,btn){
   if(!opts.length)return;
   const pop=document.createElement("div");
   pop.id="fselPop"; pop._sel=sel; pop._btn=btn;
+  if(btn.closest&&btn.closest(".bpFRow"))pop.classList.add("fselSm"); // 第二篩選列的清單縮小版
   pop.style.visibility="hidden";
   // 二段式（使用者定案 2026-07-29）：分組/分區子項不佔主清單，滑到父列時往右飛出
   // 誰是子項：值長「父#子」就歸到父列底下（LPL#分組、LCK#分組、GPL#TESL、LLA#北區…）。
@@ -10208,11 +10214,11 @@ function render(){
       _cL(["gl",   LANG==="en"?"time":"時長", 66, "",     m=>mmss(m.gl)]),
       _cL(["win",  LANG==="en"?"win":"勝",    66, "team", m=>String(m.win).toLowerCase()]),
       _cL(["bt",   LANG==="en"?"blue":"藍方", 94, "team", m=>String(sides(m).L.team).toLowerCase()]),
-      ...(_hasSel?[_cL(["bsel", LANG==="en"?"choice":"選擇",100,"", m=>ssCatLbl(m,sides(m).LisBlue).toLowerCase()])]:[]),
+      ...(_hasSel?[_cL(["bsel", LANG==="en"?"choice":"選擇",70,"", m=>ssCatLbl(m,sides(m).LisBlue).toLowerCase()])]:[]),
       _cL(["bb",   LANG==="en"?"ban":"禁",    _banW,"champ",m=>(sides(m).L.bans||[]).map(_cTxt).join(" ")]),
       _cL(["bl0","TOP",_laneW,"champ",m=>_cTxt(sides(m).L.lane[0])]),_cL(["bl1","JNG",_laneW,"champ",m=>_cTxt(sides(m).L.lane[1])]),_cL(["bl2","MID",_laneW,"champ",m=>_cTxt(sides(m).L.lane[2])]),_cL(["bl3","BOT",_laneW,"champ",m=>_cTxt(sides(m).L.lane[3])]),_cL(["bl4","SUP",_laneW,"champ",m=>_cTxt(sides(m).L.lane[4])]),
       _cL(["rt",   LANG==="en"?"red":"紅方",  94, "team", m=>String(sides(m).R.team).toLowerCase()]),
-      ...(_hasSel?[_cL(["rsel", LANG==="en"?"choice":"選擇",100,"", m=>ssCatLbl(m,!sides(m).LisBlue).toLowerCase()])]:[]),
+      ...(_hasSel?[_cL(["rsel", LANG==="en"?"choice":"選擇",70,"", m=>ssCatLbl(m,!sides(m).LisBlue).toLowerCase()])]:[]),
       _cL(["rb",   LANG==="en"?"ban":"禁",    _banW,"champ",m=>(sides(m).R.bans||[]).map(_cTxt).join(" ")]),
       _cL(["rl0","TOP",_laneW,"champ",m=>_cTxt(sides(m).R.lane[0])]),_cL(["rl1","JNG",_laneW,"champ",m=>_cTxt(sides(m).R.lane[1])]),_cL(["rl2","MID",_laneW,"champ",m=>_cTxt(sides(m).R.lane[2])]),_cL(["rl3","BOT",_laneW,"champ",m=>_cTxt(sides(m).R.lane[3])]),_cL(["rl4","SUP",_laneW,"champ",m=>_cTxt(sides(m).R.lane[4])]),
     ];
@@ -10284,16 +10290,20 @@ function render(){
       // option 的 data-s＝飛出清單顯示的短名、textContent＝選中後鈕上顯示的全名）。
       if(f.k==="bsel"||f.k==="rsel"){
         const en=LANG==="en";
-        const CATS=[[en?"Initiative":"主動權",en?["1st pick","2nd pick","chose blue","chose red"]:["先選","後選","選藍","選紅"],en?"Init":"主"],
-                    [en?"Given order":"被動選序",en?["1st pick","2nd pick"]:["先選","後選"],en?"Ord":"序"],
-                    [en?"Given side":"被動選邊",en?["chose blue","chose red"]:["選藍","選紅"],en?"Side":"邊"]];
+        // 第 3 欄＝鈕上前綴（子項鈕字＝前綴+項目＝四個字：主動選藍/被動先選…）、第 4 欄＝父層自己被選時的鈕字
+        const CATS=[[en?"Initiative":"主動權",en?["1st pick","2nd pick","chose blue","chose red"]:["先選","後選","選藍","選紅"],en?"Act":"主動",en?"Init":"主動權"],
+                    [en?"Given order":"被動選序",en?["1st pick","2nd pick"]:["先選","後選"],en?"Psv":"被動",en?"Ord":"被動選序"],
+                    [en?"Given side":"被動選邊",en?["chose blue","chose red"]:["選藍","選紅"],en?"Psv":"被動",en?"Side":"被動選邊"]];
+        // data-b＝鈕上顯示字（使用者指定 2026-08-04：就四個字——主動選藍/主動先選/被動先選…；
+        // 欄位縮到「四個字＋一個✕」的寬度）；清單裡照舊全名/短項名
+        const IT_B=en?{"1st pick":"1st","2nd pick":"2nd","chose blue":"Blue","chose red":"Red"}:null;
         let oh=`<option value=""${cur===""?" selected":""}>　</option>`;
-        for(const [cat,items,px] of CATS){
-          oh+=`<option value="${esc(cat)}"${cur===cat?" selected":""}>${esc(cat)}</option>`;
+        for(const [cat,items,px,pb] of CATS){
+          oh+=`<option value="${esc(cat)}"${cur===cat?" selected":""} data-b="${esc(pb)}">${esc(cat)}</option>`;
           for(const it of items){ const v2=cat+"#"+it;
-            oh+=`<option value="${esc(v2)}"${cur===v2?" selected":""} data-s="${esc(it)}">${esc(px+"·"+it)}</option>`; }
+            oh+=`<option value="${esc(v2)}"${cur===v2?" selected":""} data-s="${esc(it)}" data-b="${esc(en?px+"·"+IT_B[it]:px+it)}">${esc(en?px+"·"+it:px+it)}</option>`; }
         }
-        return `<span style="display:block;flex:1 1 0;min-width:0${xs?";"+xs:""}"><select class="bpColF" data-k="${f.k}">${oh}</select></span>`;
+        return `<span style="display:block;width:calc(100% + 12px);margin:0 -6px"><select class="bpColF" data-k="${f.k}">${oh}</select></span>`;
       }
       const st=`display:block;width:100%;min-width:0;font-size:11.5px;box-sizing:border-box;text-align:center`;
       return `<span style="position:relative;display:block;flex:1 1 0;min-width:0${xs?";"+xs:""}"><input class="bpColF${cur?" on":""}" data-k="${f.k}" list="bpDL_${f.k}" size="1" value="${esc(cur)}" placeholder=" " style="${st};padding:2px 15px 2px 4px"><span class="bpCx" data-k="${f.k}" title="${LANG==="en"?"clear":"清除"}">✕</span></span>`;
@@ -10530,11 +10540,17 @@ function render(){
         inp.onchange=()=>{ _apply(); rerender(); };                                               // 失焦/選清單項＝輸入完→套用篩選
         inp.onkeydown=e=>{ if(e.key==="Enter"){ e.preventDefault(); _apply(); _bpFocusK=inp.dataset.k; rerender(); } }; // Enter＝立即套用＋保留焦點
       });
-      box.querySelectorAll(".bpCx").forEach(x=>{ x.onclick=()=>{ V.bpColF[x.dataset.k]=""; saveState(); rerender(); }; }); // ✕ 清除該欄
       // 選擇欄的二段式下拉：select 藏起來、掛 fancy 鈕（每次重繪 DOM 全新，重新 init）
       box.querySelectorAll("select.bpColF").forEach(se=>{ fancySelectInit(se);
         const b2=se._fancyBtn; if(!b2)return;
+        // 鈕上用 data-b 縮短字（欄位小）；清單顯示照走 option textContent／data-s
+        se._fancySync=()=>{ const o=se.options[se.selectedIndex];
+          b2.innerHTML=`<span class="fselTx">${esc(o?(o.dataset.b||o.textContent):"")}</span>`
+            +`<span class="bpCx" data-k="${esc(se.dataset.k)}" title="${LANG==="en"?"clear":"清除"}" style="display:${se.value?"inline":"none"}">✕</span>`; };
+        se._fancySync();
         if(se.value){ b2.style.borderColor="var(--gold)"; b2.style.color="var(--gold)"; } });
+      // ✕ 清除該欄（放在 fancy init 之後，鈕內的 ✕ 才綁得到；stopPropagation 免得順手打開清單）
+      box.querySelectorAll(".bpCx").forEach(x=>{ x.onclick=e=>{ e.stopPropagation(); V.bpColF[x.dataset.k]=""; saveState(); rerender(); }; });
       if(_bpFocusK){ const el=box.querySelector('.bpColF[data-k="'+_bpFocusK+'"]'); if(el){ el.focus(); try{el.setSelectionRange(el.value.length,el.value.length);}catch(_e){} } _bpFocusK=null; }
     };
     { // 左側代表（藍紅／先選／該隊）＋ 清空欄位篩選：併進篩選列右側，擺在本頁說明左邊
