@@ -79,6 +79,10 @@
   .fsel{height:36px;box-sizing:border-box;padding:4px 12px;font-size:17px;display:inline-flex;align-items:center;
     justify-content:space-between;gap:8px;background:var(--card2);border:1px solid var(--line);border-radius:9px;text-align:left}
   .fsel .fselAr{color:var(--tx2);font-size:12px;flex:0 0 auto}
+  /* 比賽BP 逐欄篩選列裡的 fancy 鈕：縮到與輸入框同高同字級 */
+  .bpFRow .fsel{height:21px;width:100%;padding:1px 6px;font-size:11.5px;border-radius:5px;background:#0e1420;border:1px solid #2a3345;gap:3px}
+  .bpFRow .fsel .fselAr{font-size:9px}
+  .bpFRow .fsel .fselTx{overflow:hidden;white-space:nowrap}
   .fsel.on{border-color:var(--acc)}
   #fselPop{position:fixed;z-index:9999;display:grid;grid-auto-flow:column;gap:2px 10px;padding:7px 8px;
     background:#141a28;border:1px solid var(--acc);border-radius:11px;box-shadow:0 10px 34px rgba(0,0,0,.55);font-size:17px}
@@ -5856,6 +5860,17 @@ const ssFirst = (m, isBlue) => { const r = ssRec(m);
   const held = r.s === (isBlue ? "b" : "r");
   return r.p === 1 ? !held : held;
 };
+// 這一側的「類別#項目」：主動權(有第一選擇權)/被動選序/被動選邊 ＋ 先選/後選/選藍/選紅。
+// 比賽BP「選擇」欄的二段式篩選用（2026-08-04 使用者指定）。沒有 1st Sel 資料的賽事
+// （VCS 這類只有 Side Sel 的表）分不出主動/被動 → 退回只給項目，類別篩選自然不含它們。
+const ssCatLbl = (m, isBlue) => { const rec = ssRec(m), item = ssLbl(m, isBlue);
+  if(!item)return "";
+  if(!rec || (rec.p !== 0 && rec.p !== 1))return item;
+  const held = rec.s === (isBlue ? "b" : "r");
+  const first = rec.p === 1 ? !held : held;
+  const CAT = LANG==="en" ? ["Initiative","Given order","Given side"] : ["主動權","被動選序","被動選邊"];
+  return (first ? CAT[0] : (held ? CAT[2] : CAT[1])) + "#" + item;
+};
 const ssLbl = (m, isBlue) => {
   const ss = ssOf(m);
   if(!ss)return "";
@@ -9622,9 +9637,13 @@ function render(){
       // 主動與被動的先選局——差別看金色字（金＝當局第一選擇權那隊）。
       {const _ths=[...document.querySelectorAll('#tbl th[data-k]')];
        // lb＝比賽BP 選擇欄下拉的正式值（英文的選邊寫 chose blue/red，跟表格顯示的 Blue/Red 不同字）
-       const CFGS={主動權:{ks:["_iaF","_iaS","_iaB","_iaR"],lb:LANG==="en"?["1st pick","2nd pick","chose blue","chose red"]:["先選","後選","選藍","選紅"]},
-                   被動選序:{ks:["_poF","_poS"],lb:LANG==="en"?["1st pick","2nd pick"]:["先選","後選"]},
-                   被動選邊:{ks:["_pbB","_pbR"],lb:LANG==="en"?["chose blue","chose red"]:["選藍","選紅"]}};
+       // lb＝比賽BP 選擇欄的完整值「類別#項目」——選擇欄已能分主動/被動（2026-08-04），
+       // 點過去的清單就是**正好**這一格數字的那批局，不再混到另一類
+       const _IT=LANG==="en"?["1st pick","2nd pick","chose blue","chose red"]:["先選","後選","選藍","選紅"];
+       const _CT=LANG==="en"?["Initiative","Given order","Given side"]:["主動權","被動選序","被動選邊"];
+       const CFGS={主動權:{ks:["_iaF","_iaS","_iaB","_iaR"],lb:_IT.map(x=>_CT[0]+"#"+x)},
+                   被動選序:{ks:["_poF","_poS"],lb:_IT.slice(0,2).map(x=>_CT[1]+"#"+x)},
+                   被動選邊:{ks:["_pbB","_pbR"],lb:_IT.slice(2).map(x=>_CT[2]+"#"+x)}};
        for(const k in CFGS){
          const ci=_ths.findIndex(t=>t.dataset.k===k); if(ci<0)continue;
          document.querySelectorAll("#tbl tbody tr").forEach(tr=>{
@@ -9636,7 +9655,8 @@ function render(){
            const c=CFGS[k].ks.map(k2=>r[k2]||0); if(!c.some(Boolean))return;
            const lb=CFGS[k].lb[_domPick(c,r,CFGS[k].ks)];
            td.classList.add("plink");
-           td.title=LANG==="en"?`View this team's "${lb}" games in Match BP`:`點擊看該隊「${lb}」的比賽BP`;
+           const lbShow=lb.split("#").join("·");
+           td.title=LANG==="en"?`View this team's "${lbShow}" games in Match BP`:`點擊看該隊「${lbShow}」的比賽BP`;
            td.onclick=()=>{
              V.bpColF={bt:tAb(full),bsel:lb}; V.bpSideMode="team"; V.bpTeam=full; saveState();
              curView="比賽BP";
@@ -10188,11 +10208,11 @@ function render(){
       _cL(["gl",   LANG==="en"?"time":"時長", 66, "",     m=>mmss(m.gl)]),
       _cL(["win",  LANG==="en"?"win":"勝",    66, "team", m=>String(m.win).toLowerCase()]),
       _cL(["bt",   LANG==="en"?"blue":"藍方", 94, "team", m=>String(sides(m).L.team).toLowerCase()]),
-      ...(_hasSel?[_cL(["bsel", LANG==="en"?"choice":"選擇",76,"", m=>ssLbl(m,sides(m).LisBlue).toLowerCase()])]:[]),
+      ...(_hasSel?[_cL(["bsel", LANG==="en"?"choice":"選擇",100,"", m=>ssCatLbl(m,sides(m).LisBlue).toLowerCase()])]:[]),
       _cL(["bb",   LANG==="en"?"ban":"禁",    _banW,"champ",m=>(sides(m).L.bans||[]).map(_cTxt).join(" ")]),
       _cL(["bl0","TOP",_laneW,"champ",m=>_cTxt(sides(m).L.lane[0])]),_cL(["bl1","JNG",_laneW,"champ",m=>_cTxt(sides(m).L.lane[1])]),_cL(["bl2","MID",_laneW,"champ",m=>_cTxt(sides(m).L.lane[2])]),_cL(["bl3","BOT",_laneW,"champ",m=>_cTxt(sides(m).L.lane[3])]),_cL(["bl4","SUP",_laneW,"champ",m=>_cTxt(sides(m).L.lane[4])]),
       _cL(["rt",   LANG==="en"?"red":"紅方",  94, "team", m=>String(sides(m).R.team).toLowerCase()]),
-      ...(_hasSel?[_cL(["rsel", LANG==="en"?"choice":"選擇",76,"", m=>ssLbl(m,!sides(m).LisBlue).toLowerCase()])]:[]),
+      ...(_hasSel?[_cL(["rsel", LANG==="en"?"choice":"選擇",100,"", m=>ssCatLbl(m,!sides(m).LisBlue).toLowerCase()])]:[]),
       _cL(["rb",   LANG==="en"?"ban":"禁",    _banW,"champ",m=>(sides(m).R.bans||[]).map(_cTxt).join(" ")]),
       _cL(["rl0","TOP",_laneW,"champ",m=>_cTxt(sides(m).R.lane[0])]),_cL(["rl1","JNG",_laneW,"champ",m=>_cTxt(sides(m).R.lane[1])]),_cL(["rl2","MID",_laneW,"champ",m=>_cTxt(sides(m).R.lane[2])]),_cL(["rl3","BOT",_laneW,"champ",m=>_cTxt(sides(m).R.lane[3])]),_cL(["rl4","SUP",_laneW,"champ",m=>_cTxt(sides(m).R.lane[4])]),
     ];
@@ -10233,8 +10253,7 @@ function render(){
       // 同場數再照字母，順序才穩定。時長／選擇下面會整個換掉，本來就照固定邏輯順序。
       _DLF={}; FILTERS.forEach(f=>{_DLF[f.k]=[...S[f.k].entries()].sort((a,b)=>b[1]-a[1]||String(a[0]).localeCompare(b[0])).map(e=>e[0]);});
       _DLF["gl"]=GLB.map(x=>x[0]); // 時長改用固定分桶清單
-      // 選擇欄：值域固定就四種，直接給清單（_fdv 對這個 key 回空陣列 → 不補的話沒有下拉可選）
-      _DLF["bsel"]=_DLF["rsel"]=LANG==="en"?["chose blue","chose red","1st pick","2nd pick"]:["選藍","選紅","先選","後選"];
+
       window._BPDL[_dlKey]=_DLF;
     }
     // 英雄下拉：option 值＝網站語言的顯示名，option 內文＝另一語言的名字。
@@ -10252,7 +10271,7 @@ function render(){
     //（使用者 2026-08-03：第二篩選列的清單統一樣式）。
     // 這兩欄的值域固定，仍然不接受亂打的字：離開欄位時 _snap 會把輸入吸附到清單裡的選項，
     // 吸不到就清空 → 效果等同不能輸入文字，但外觀跟整列一致。
-    const _FIXED=new Set(["gl","bsel","rsel"]);
+    const _FIXED=new Set(["gl"]);
     const _snap=(k,v)=>{ if(!_FIXED.has(k))return v;
       const t=String(v||"").trim().toLowerCase(); if(!t)return "";
       const o=(_DLF[k]||[]).map(String);
@@ -10260,6 +10279,22 @@ function render(){
     };
     const _finput=(f,xs)=>{
       const cur=V.bpColF[f.k]||"";
+      // 選擇欄（2026-08-04 使用者指定）：二段式下拉——第一層 主動權/被動選序/被動選邊，
+      // 滑過往右飛出第二層列該類的項目。沿用賽事下拉的 fancySelect（值「父#子」自動歸父列；
+      // option 的 data-s＝飛出清單顯示的短名、textContent＝選中後鈕上顯示的全名）。
+      if(f.k==="bsel"||f.k==="rsel"){
+        const en=LANG==="en";
+        const CATS=[[en?"Initiative":"主動權",en?["1st pick","2nd pick","chose blue","chose red"]:["先選","後選","選藍","選紅"],en?"Init":"主"],
+                    [en?"Given order":"被動選序",en?["1st pick","2nd pick"]:["先選","後選"],en?"Ord":"序"],
+                    [en?"Given side":"被動選邊",en?["chose blue","chose red"]:["選藍","選紅"],en?"Side":"邊"]];
+        let oh=`<option value=""${cur===""?" selected":""}>　</option>`;
+        for(const [cat,items,px] of CATS){
+          oh+=`<option value="${esc(cat)}"${cur===cat?" selected":""}>${esc(cat)}</option>`;
+          for(const it of items){ const v2=cat+"#"+it;
+            oh+=`<option value="${esc(v2)}"${cur===v2?" selected":""} data-s="${esc(it)}">${esc(px+"·"+it)}</option>`; }
+        }
+        return `<span style="display:block;flex:1 1 0;min-width:0${xs?";"+xs:""}"><select class="bpColF" data-k="${f.k}">${oh}</select></span>`;
+      }
       const st=`display:block;width:100%;min-width:0;font-size:11.5px;box-sizing:border-box;text-align:center`;
       return `<span style="position:relative;display:block;flex:1 1 0;min-width:0${xs?";"+xs:""}"><input class="bpColF${cur?" on":""}" data-k="${f.k}" list="bpDL_${f.k}" size="1" value="${esc(cur)}" placeholder=" " style="${st};padding:2px 15px 2px 4px"><span class="bpCx" data-k="${f.k}" title="${LANG==="en"?"clear":"清除"}">✕</span></span>`;
     };
@@ -10496,6 +10531,10 @@ function render(){
         inp.onkeydown=e=>{ if(e.key==="Enter"){ e.preventDefault(); _apply(); _bpFocusK=inp.dataset.k; rerender(); } }; // Enter＝立即套用＋保留焦點
       });
       box.querySelectorAll(".bpCx").forEach(x=>{ x.onclick=()=>{ V.bpColF[x.dataset.k]=""; saveState(); rerender(); }; }); // ✕ 清除該欄
+      // 選擇欄的二段式下拉：select 藏起來、掛 fancy 鈕（每次重繪 DOM 全新，重新 init）
+      box.querySelectorAll("select.bpColF").forEach(se=>{ fancySelectInit(se);
+        const b2=se._fancyBtn; if(!b2)return;
+        if(se.value){ b2.style.borderColor="var(--gold)"; b2.style.color="var(--gold)"; } });
       if(_bpFocusK){ const el=box.querySelector('.bpColF[data-k="'+_bpFocusK+'"]'); if(el){ el.focus(); try{el.setSelectionRange(el.value.length,el.value.length);}catch(_e){} } _bpFocusK=null; }
     };
     { // 左側代表（藍紅／先選／該隊）＋ 清空欄位篩選：併進篩選列右側，擺在本頁說明左邊
