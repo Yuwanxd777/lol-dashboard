@@ -40,6 +40,8 @@ rem league promotion/qualifier supplement table (reads Leaguepedia cache, no API
 python scripts\build_league_struct.py >> "%LOG%" 2>&1
 rem extra events OE match data does not cover (EWC 2026 China qualifier, ENC 2026 national teams)
 python scripts\fetch_events_extra.py >> "%LOG%" 2>&1
+rem 2026 side/pick selection rights (new ruleset): wiki "VODs and Match Links" table -> side_sel.js
+python scripts\fetch_side_sel.py >> "%LOG%" 2>&1
 rem OBGG pro-account list refresh (LPL/LCK primary; drops accounts inactive ~2 months; routing merge with dpm)
 python scripts\fetch_obgg_accounts.py >> "%LOG%" 2>&1
 rem dpm pro-account refresh: /v1/pros per player (LCS/LEC/CBLOL primary=replace, others=union); only match-data players; puuid included
