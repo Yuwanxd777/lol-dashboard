@@ -811,6 +811,80 @@ def fix_firstpick(table):
     return table
 
 
+def fix_firstpick_wiki(table, year):
+    """2026 起：以 wiki「VODs & Match Links」的 Pick Sel 顏色（side_sel.js 的 pc）校正
+    blue_firstPick／red_firstPick，並把 po 重算。
+
+    為什麼需要（2026-08-03 使用者抓包 LGD）：OE 沒給 firstPick 的局，fix_firstpick 一律
+    補「藍方先選」，但 2026 新制先選與藍紅脫鉤——實測 35 局與 wiki 官方紀錄相反
+    （LPL 20／EWC 6／LCK 2…），而 po 就是照錯的先選方算的。前端已在顯示層以 wiki 覆寫
+    先選/後選標籤，這裡把資料本體連 po 一起修，兩邊才不會互相矛盾（選擇欄寫後選、
+    金字順位卻是先選那組）。
+
+    對齊鍵與前端 ssRec 同一套：日期(前10碼)＋兩隊全名正規化(去括號註記/去非英數/去 CN 尾綴)
+    排序＋局號。握選序權的隊＝選邊權(ss)的對面；pc=1 它先選、pc=2 它後選。
+    """
+    if int(year) < 2026:
+        return table
+    sp = os.path.join(HERE, "side_sel.js")
+    if not os.path.exists(sp):
+        return table
+    try:
+        recs = json.loads(open(sp, encoding="utf-8").read().split("=", 1)[1].strip().rstrip(";"))
+    except Exception as e:
+        print(f"  ⚠ side_sel.js 讀取失敗（{type(e).__name__}）→ 跳過 firstPick 校正")
+        return table
+    norm = lambda s: re.sub(r"cn$", "", re.sub(r"[^a-z0-9]", "", re.sub(r"\([^)]*\)", "", str(s or "")).lower()))
+    truth = {}
+    for r in recs:
+        if r.get("ss") not in ("b", "r") or r.get("pc") not in (1, 2):
+            continue
+        pk_blue = r["ss"] == "r"                       # 選邊權在紅 → 選序權在藍
+        first_blue = pk_blue == (r["pc"] == 1)         # 選序那隊 pc=1 先選／pc=2 後選
+        key = (str(r.get("d"))[:10], "|".join(sorted([norm(r.get("t1")), norm(r.get("t2"))])), str(r.get("gi") or ""))
+        truth[key] = "1" if first_blue else "0"
+    if not truth:
+        return table
+    hdr = table[0]
+    try:
+        iFP, iRFP = hdr.index("blue_firstPick"), hdr.index("red_firstPick")
+        iPid, iPL = hdr.index("participantid"), hdr.index("picklist")
+        iBP, iRP = hdr.index("blue_po"), hdr.index("red_po")
+        iBC, iRC = hdr.index("blue_champion"), hdr.index("red_champion")
+        iBL, iRL = hdr.index("blue_Lane"), hdr.index("red_Lane")
+        iBT, iRT = hdr.index("blue_teamname"), hdr.index("red_teamname")
+        iD, iG = hdr.index("date"), hdr.index("game")
+    except ValueError:
+        return table
+    lane5 = lambda v: (str(v).split("|") + [""] * 7)[1:6]
+    n = 0
+    for r in table[1:]:
+        key = (str(r[iD])[:10], "|".join(sorted([norm(r[iBT]), norm(r[iRT])])), str(r[iG]).strip())
+        fb = truth.get(key)
+        if fb is None:
+            continue
+        cur = "1" if str(r[iFP]).strip() in ("1", "1.0") else "0"
+        if cur == fb:
+            continue
+        r[iFP], r[iRFP] = fb, ("0" if fb == "1" else "1")
+        first = 1 if fb == "1" else 0
+        pl = [x for x in str(r[iPL]).split("|")]
+        pl = pl[1:11] if len(pl) >= 12 else [x for x in pl if x.strip()]
+        n += 1
+        if len(pl) < 10:
+            continue
+        bp, rp = pl[:5], pl[5:10]
+        if str(r[iPid]) == "100":
+            r[iBP] = "|".join(str(calc_po(c, bp, True, first)) for c in lane5(r[iBL]))
+            r[iRP] = "|".join(str(calc_po(c, rp, False, first)) for c in lane5(r[iRL]))
+        else:
+            r[iBP] = calc_po(r[iBC] or "", bp, True, first)
+            r[iRP] = calc_po(r[iRC] or "", rp, False, first)
+    if n:
+        print(f"  firstPick 依 wiki 校正 {n} 列（含 po 重算）")
+    return table
+
+
 def unify_players(table):
     """選手 ID 大小寫統一（PLAYER_ALIAS）。
 
@@ -1115,6 +1189,7 @@ def main():
         table = fill_cup_split(y, table)   # 盃賽分站：OE 沒填的賽段依日期回填（見函式說明）
         table = fix_game_no(table)         # 同日同兩隊撞局號 → 依時間重編（要排在所有 merge 之後）
         table = fix_firstpick(table)       # 補充來源留下的空 firstPick 收尾（要排在所有 merge 之後）
+        table = fix_firstpick_wiki(table, y)  # 2026+：wiki Pick Sel 顏色校正先選方＋po（要在 fix_firstpick 之後）
         table = unify_players(table)       # 選手 ID 大小寫統一（要排在所有 merge 之後，見下）
         write_year(y, table)
     write_manifest()
