@@ -10505,7 +10505,7 @@ function render(){
         const seg=segEl("bpSideSeg",[["br",LANG==="en"?"🟣 Blue/Red":"🟣 藍紅","左側＝藍方"],
             /* 選邊是 2026 才有的制度，之前藍方一律先選 →「先選」與「藍紅」完全重複，不顯示 */
             ...(+curYear>=2026?[["fp",LANG==="en"?"🥇 First pick":"🥇 先選","左側＝先選方"]]:[]),
-            ["team",LANG==="en"?"🟦 Team":"🟦 該隊","左側＝搜尋的戰隊"]],
+            ["team",LANG==="en"?"🟪 Team":"🟪 該隊","左側＝搜尋的戰隊"]],
           (+curYear<2026&&V.bpSideMode==="fp")?"br":(V.bpSideMode||"br"),
           v=>{ if(v===(V.bpSideMode||"br"))return; V.bpSideMode=v; saveState(); rerender(); },"");
         anchor.parentNode.insertBefore(seg,anchor);
