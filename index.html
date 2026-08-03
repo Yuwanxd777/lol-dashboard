@@ -7058,7 +7058,15 @@ function bindSort(rerender){
       th.onmouseenter=()=>tipShow(tip,th.getBoundingClientRect(),"up");
       th.onmouseleave=tipHide;}
   });
-  fillTableWidth(document.getElementById("tbl")); // 平均分配多餘空間、填滿容器
+  // 排版一次到位。原本這裡只做 fillTableWidth（平均分配多餘空間、填滿容器），但 pt1/pt2
+  // 內距壓縮是掛在 MutationObserver 上、**渲染後 60ms 才套** → 每次點欄名排序都會先閃一格
+  // 「沒壓縮、比容器寬」的版面再縮回來，看起來就是欄位在飄（2026-08-03 使用者回報）。
+  // 實測 2560 寬的戰隊表：點下去當下 2538px（溢出）→ 60ms 後 2246 → 再撐回 2455，跳兩次。
+  // 這裡先量一次（順便標記 data-fillw，refitLayout 只認有這個標記的表），再同步跑一次全域
+  // 重排管線把內距壓縮與橫捲位置一起處理掉。refitLayout 只動 class/style 不動 DOM 結構，
+  // 不會再觸發那個 observer；60ms 後那次照跑，但已經是同樣結果的 no-op。
+  fillTableWidth(document.getElementById("tbl"));
+  if(window.refitLayout)refitLayout();
 }
 Chart.defaults.color="#8b98ad"; Chart.defaults.borderColor="#2a3345";
 // 字體切換：粉圓（預設）/ 微軟正黑體，存 localStorage
