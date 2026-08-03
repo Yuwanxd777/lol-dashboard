@@ -9979,6 +9979,8 @@ function render(){
       const banCells=(s,won,isBlue)=>`<td class="bans ${sCls(isBlue,won)}">`+(
         s.bans.length?`${s.bans.slice(0,3).map(_bIco).join("")}${s.bans.length>3?`<span class="banSep"></span>`:""}${s.bans.slice(3).map(_bIco).join("")}`:_bpQ
       )+`</td>`; // 禁用前3(第一輪禁)｜後2(第二輪禁)以分隔線分開；整局沒資料＝一個問號
+      // 藍紅共用色票：勝方欄與統計條都用這組（改一處兩邊一致）
+      const _CBLU="#6aa8ff",_CRED="#e0574d",_CGLD="var(--gold)",_CMUT="var(--tx2)";
       const rowHTML=(m,gno)=>{
         // 隊名不再標「先選方＝金色粗體」（2026-08-03 使用者取消）：右邊的「選擇」欄已經
         // 直接寫先選／後選，重複標示反而讓整列到處都是金色。
@@ -9987,7 +9989,7 @@ function render(){
         const head=gno?`<td class="subg">└ 第${gno}局</td><td></td>`:`<td>${m.date}</td><td>${lgChip(m.league)} <span class="meta">${spDisp(m.split)}${_lplGrpTag(m.league,m.split,[m.blue.team,m.red.team])}</span></td>`;
         const S=sides(m); // 依模式決定左右實際邊
         const lWon=S.LisBlue===m.blueWin, rWon=!lWon; // 哪一顯示側獲勝→整隊範圍底色加深
-        return `<tr${gno?' class="subrow"':''}>${head}<td>${m.patch}</td><td class="meta">${mmss(m.gl)}</td><td class="win">${m.win}</td>
+        return `<tr${gno?' class="subrow"':''}>${head}<td>${m.patch}</td><td class="meta">${mmss(m.gl)}</td><td class="win" style="color:${m.blueWin?_CBLU:_CRED}">${m.win}</td>
         ${cell(S.L,S.LisBlue,lWon)}${selCell(m,S.LisBlue,lWon)}${banCells(S.L,lWon,S.LisBlue)}${laneCells(S.L,lWon,S.LisBlue)}
         ${cell(S.R,!S.LisBlue,rWon)}${selCell(m,!S.LisBlue,rWon)}${banCells(S.R,rWon,!S.LisBlue)}${laneCells(S.R,rWon,!S.LisBlue)}</tr>`;
       };
@@ -10016,7 +10018,6 @@ function render(){
       // 統計條每一項都寫成「A%/B%」並各自上色（2026-08-03 使用者指定）：右邊那個數本來就是
       // 前一個的餘數，分成兩行只是重複佔位。顏色依語意——真的分藍紅方的用藍/紅，
       // 先選/後選這種不是邊的用金/灰，免得看起來像在講藍紅方。
-      const _CBLU="#6aa8ff",_CRED="#e0574d",_CGLD="var(--gold)",_CMUT="var(--tx2)";
       const _pair=(a,tot,ca,cb)=>{const p=Math.round(a/tot*100);
         return `<b style="color:${ca}">${p}%</b><span class="meta">/</span><b style="color:${cb}">${100-p}%</b>`
           +`<span class="meta">${LANG==="en"?` (${a}/${tot})`:`（${a}／${tot}）`}</span>`;};
