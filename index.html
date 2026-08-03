@@ -6228,9 +6228,9 @@ const TCOLS_ALL=[["戰隊",fmt.raw,"10em"],["場數",fmt.int],["時間",fmt.d1],
   //   被動選邊＝對手拿走選序、選邊被留給該隊時選藍/選紅
   //   被動選序＝對手拿走選邊、選序留給該隊時先選/後選
   // 排序值＝最高那項的占比（越接近 100%＝策略越固定）。共用 _domFmt 工廠。
-  ["主動權",_domFmt(["_iaF","_iaS","_iaB","_iaR"],["先選","後選","選藍","選紅"],["1st pick","2nd pick","Blue","Red"],["var(--gold)","var(--tx2)","#6aa8ff","#e0574d"]),"",LANG==="en"?null:"主動權(先/後/藍/紅)"],
+  ["主動權",_domFmt(["_iaF","_iaS","_iaB","_iaR"],["先選","後選","選藍","選紅"],["1st pick","2nd pick","Blue","Red"],["var(--gold)","var(--tx)","#6aa8ff","#e0574d"]),"",LANG==="en"?null:"主動權(先/後/藍/紅)"],
   ["被動選邊",_domFmt(["_pbB","_pbR"],["選藍","選紅"],["Blue","Red"],["#6aa8ff","#e0574d"]),"",LANG==="en"?null:"被動選邊(藍/紅)"],
-  ["被動選序",_domFmt(["_poF","_poS"],["先選","後選"],["1st pick","2nd pick"],["var(--gold)","var(--tx2)"]),"",LANG==="en"?null:"被動選序(先/後)"],
+  ["被動選序",_domFmt(["_poF","_poS"],["先選","後選"],["1st pick","2nd pick"],["var(--gold)","var(--tx)"]),"",LANG==="en"?null:"被動選序(先/後)"],
 
   ["藍紅勝率差",_sideDiff,"",LANG==="en"?null:"藍紅<br>勝率差"],
   ["角色池",fmt.int],
