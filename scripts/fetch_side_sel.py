@@ -53,6 +53,30 @@ def ov_pages():
     return sorted({r.get("ov") for r in json.loads(raw) if r.get("ov")})
 
 
+def live_pages(days):
+    """最近 days 天內有比賽的賽事頁＝**還在進行中**，每次更新都要重抓頁面。
+
+    ⚠這條是這支腳本能不能天天長新資料的關鍵：page_html 有磁碟快取，
+    一旦某個賽事頁抓過就再也不會重抓 → 該賽段後來打的每一局都不會進 side_sel.js
+    （2026-08-03 使用者：「選邊只有 WIKI 有紀錄，需要每次更新時都自動去抓」）。
+    打完的賽事（近 days 天沒有比賽）維持吃快取，不然 190 幾頁每次跑要 20 分鐘。
+    """
+    from datetime import date, timedelta
+    since = (date.today() - timedelta(days=days)).isoformat()
+    p = {"tables": "ScoreboardGames=SG", "fields": "SG.OverviewPage=ov",
+         "where": 'SG.DateTime_UTC >= "%s"' % since,
+         "group_by": "SG.OverviewPage", "format": "json", "limit": "500"}
+    url = WS.FORM + "?" + urllib.parse.urlencode(p)
+    try:
+        raw = WS.opener().open(urllib.request.Request(url, headers=WS.UA), timeout=120).read().decode("utf-8", "replace")
+        if raw.lstrip()[:1] not in "[{":
+            return None                       # 查不到就回 None＝不確定 → 呼叫端全部重抓，寧可慢不要漏
+        return {r.get("ov") for r in json.loads(raw) if r.get("ov")}
+    except Exception as e:
+        print(f"  ⚠ 進行中賽事查詢失敗（{type(e).__name__}）→ 這次全部重抓")
+        return None
+
+
 def page_html(ov, force=False):
     os.makedirs(CACHE, exist_ok=True)
     f = os.path.join(CACHE, re.sub(r"[^A-Za-z0-9]+", "_", ov).strip("_").lower() + ".html")
@@ -112,8 +136,14 @@ def parse(ov, htm):
                         j = next((i for i, t in enumerate(txt) if t.startswith(k)), -1)
                     if j >= 0:
                         idx[k] = j
-                if len(idx) < len(KEYS):
-                    print(f"    ⚠ {ov}：表頭少了 {set(KEYS)-set(idx)}，跳過"); return []
+                miss = set(KEYS) - set(idx)
+                # 1st Sel／Pick Sel 是**選配**：VCS／Rift Legends／NACL 的表只有 Side Sel，
+                # 硬要五欄齊全會把這些聯賽整個丟掉（實測 7 個賽事、幾百局的選邊資料全沒收）。
+                # 少了它們就只出選邊權，前端的「選選序率」自然不計這些局。
+                if miss - {"1st Sel", "Pick Sel"}:
+                    print(f"    ⚠ {ov}：表頭少了 {miss}，跳過"); return []
+                if miss:
+                    print(f"    · {ov}：只有選邊欄（沒有 {sorted(miss)}）→ 只收選邊權")
             continue
         # 巢狀表是「每週一張」，每張都自帶表頭 → 後面還會再遇到表頭列，不能當成資料
         #（會產出 blue='Team 1' red='Team 2' 這種垃圾列）。
@@ -129,9 +159,9 @@ def parse(ov, htm):
             # 少一個未打的系列就會整串錯位。
             cur = {"t1": team(0), "t2": team(1), "score": txt[2] if len(txt) > 2 else "", "n": 0, "games": []}
             out.append(cur)
-            g = lambda k: txt[idx[k]] if len(txt) > idx[k] else ""
-        elif cur and len(cells) >= len(KEYS) - 1:
-            g = lambda k: txt[idx[k] - base] if len(txt) > idx[k] - base else ""
+            g = lambda k: (txt[idx[k]] if (k in idx and len(txt) > idx[k]) else "")
+        elif cur and len(cells) >= len(idx) - 1:
+            g = lambda k: (txt[idx[k] - base] if (k in idx and len(txt) > idx[k] - base) else "")
         else:
             continue
         cur["n"] += 1
@@ -175,15 +205,21 @@ def sched(ov):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--page", action="append", default=[], help="只抓指定 OverviewPage（可重複）")
-    ap.add_argument("--force", action="store_true", help="重抓頁面（不吃快取）")
+    ap.add_argument("--force", action="store_true", help="重抓所有頁面（不吃快取）")
+    ap.add_argument("--fresh-days", type=int, default=14,
+                    help="最近幾天內有比賽的賽事＝進行中，每次都重抓頁面（預設 14）")
     ap.add_argument("--dump", action="store_true", help="只印不寫檔")
     A = ap.parse_args()
 
     pages = A.page or ov_pages()
-    print(f"賽事頁 {len(pages)} 個")
+    # 進行中的賽事一律重抓（快取只服務已經打完的賽事）——不這樣做的話，賽段中途新打的局
+    # 永遠不會進 side_sel.js，因為那一頁第一次抓完就一直吃快取。
+    live = None if (A.force or A.page) else live_pages(A.fresh_days)
+    print(f"賽事頁 {len(pages)} 個"
+          + ("（全部重抓）" if live is None else f"，其中進行中 {len(live & set(pages))} 個要重抓，其餘吃快取"))
     allrec, hit = [], 0
     for ov in pages:
-        h = page_html(ov, force=A.force)
+        h = page_html(ov, force=A.force or live is None or ov in live)
         if not h:
             continue
         sers = parse(ov, h)
