@@ -81,7 +81,7 @@
   .fsel .fselAr{color:var(--tx2);font-size:12px;flex:0 0 auto}
   /* 比賽BP 逐欄篩選列裡的 fancy 鈕：縮到與輸入框同高同字級；空間只留「四個字＋一個✕」
      （使用者指定 2026-08-04）→ ▾ 不顯示、✕ 收進鈕內排在字後面（蓋掉全域 .bpCx 的絕對定位） */
-  .bpFRow .fsel{height:21px;width:100%;padding:1px 2px;font-size:11px;border-radius:5px;background:#0e1420;border:1px solid #2a3345;gap:0;justify-content:center;position:relative}
+  .bpFRow .fsel{height:21px;width:100%;padding:1px 2px;font-size:11px;border-radius:5px;background:#0e1420;border:1px solid #2a3345;gap:0;justify-content:flex-start;position:relative}
   .bpFRow .fsel .fselAr{display:none}
   .bpFRow .fsel .fselTx{overflow:hidden;white-space:nowrap}
   /* ✕：欄寬與「勝」同款(66px)塞不下常駐 ✕ → 有值且滑過鈕才浮出；
@@ -10322,10 +10322,11 @@ function render(){
         }
         return `<span style="display:block;width:100%"><select class="bpColF" data-k="${f.k}">${oh}</select></span>`;
       }
-      const st=`display:block;width:100%;min-width:0;font-size:11.5px;box-sizing:border-box;text-align:center`;
-      return `<span style="position:relative;display:block;flex:1 1 0;min-width:0${xs?";"+xs:""}"><input class="bpColF${cur?" on":""}" data-k="${f.k}" size="1" value="${esc(cur)}" placeholder=" " autocomplete="off" style="${st};padding:2px 15px 2px 4px"><span class="bpCx" data-k="${f.k}" title="${LANG==="en"?"clear":"清除"}">✕</span></span>`;
+      const st=`display:block;width:100%;min-width:0;font-size:11.5px;box-sizing:border-box;text-align:left`;
+      return `<span style="position:relative;display:block;flex:1 1 0;min-width:0${xs?";"+xs:""}"><input class="bpColF${cur?" on":""}" data-k="${f.k}" size="1" value="${esc(cur)}" placeholder=" " autocomplete="off" style="${st};padding:2px 15px 2px 2px"><span class="bpCx" data-k="${f.k}" title="${LANG==="en"?"clear":"清除"}">✕</span></span>`;
     };
-    // 逐欄篩選框一律「置中」對齊底下的資料（.bp td 是 text-align:center）。
+    // 逐欄篩選框文字一律「靠左、左邊留 2px」（2026-08-04 使用者指定：置中＋左右內距不對稱
+    // 會讓有的看起來貼邊、有的浮空）。框本身仍置中對齊底下資料（.bp td 是 text-align:center）。
     // BAN 圖排的幾何：圖 44px、同一輪圖距 7px、第一輪禁(前3)｜第二輪禁(後2) 之間 15px
     //（前一顆頭像 7px ＋ .banSep 的 1px 框線與 7px margin）→ 第 4 格要多補 15−7＝8px 才對得上。
     // ⚠ 不要用「靠左推固定 px」：那只有在欄寬剛好等於內容寬時才準，欄一被表格撐寬就整排歪掉
