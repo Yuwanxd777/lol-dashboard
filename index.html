@@ -872,6 +872,7 @@ window.WIKI_PATCHES=window.WIKI_PATCHES||{}; window.WIKI_EXTRA=window.WIKI_EXTRA
 <script src="rune_icons.js" onerror="window.RUNE_ICONS=null"></script>
 <script src="league_struct.js" onerror="window.LEAGUE_STRUCT=null"></script>
 <script src="lpl_groups.js" onerror="window.LPL_GROUPS=null"></script><script src="lck_groups.js" onerror="window.LCK_GROUPS=null"></script><script src="patch_dir_fix.js" onerror="window.PATCH_DIR_FIX=null"></script><!-- 判向覆核判例(逐行) --><!-- LCK Rounds 分組(scripts/fetch_lck_groups.py，成員+組名皆取自 Wiki Participants) --><!-- LPL 常規賽分組(scripts/fetch_lpl_groups.py，成員=同組互打連通分量、組名=Wiki AutoStandings) -->
+<script src="side_sel.js" onerror="window.SIDE_SEL=null"></script><!-- 2026 新制選邊權/先選權(scripts/fetch_side_sel.py，取自 wiki 各賽事「VODs & Match Links」表) -->
 <script src="wiki_links.js" onerror="window.WIKI_LINKS=null"></script><!-- 年/聯賽/賽段 → Leaguepedia 頁名(scripts/fetch_wiki_links.py)：賽事樹的賽段標題可點去 wiki -->
 <script src="events_extra.js" onerror="window.EVENTS_EXTRA=null"></script><!-- OE 沒收錄但確實存在的賽事名單(scripts/fetch_events_extra.py：EWC 中國區資格賽、ENC 電競國家盃) -->
 
@@ -5664,6 +5665,29 @@ function drawTrend(ch,pos,sq){
 //  對戰 BP
 // ============================================================
 const _MCACHE=new Map(); // 比賽BP 底層資料快取（性能）：同篩選＋同戰隊重複進頁/切子篩選不再重掃 GAMES；鍵含 vcKey，全域篩選變更自動失效
+// ── 選邊權／先選權（2026 新制；資料＝side_sel.js）─────────────────────────────
+// 2026 起先選權與藍紅方脫鉤：一隊拿走選邊權、另一隊拿走先選權。wiki 各賽事的
+// 「VODs & Match Links」表逐局記錄了誰拿走哪一個，抓取端已把它化簡成「選邊權在藍或紅」(ss)。
+// 隊名正規化要**去掉括號註記與 .CN 尾綴**：wiki 寫 `Ninjas in Pyjamas.CN`、
+// `LYON (2024 American Team)`，不處理就對不上主資料的隊名（實測這兩隊共 122 局落空）。
+let _SSI = null;
+const _ssNorm = s => String(s || "").replace(/\([^)]*\)/g, "").toLowerCase().replace(/[^a-z0-9]/g, "").replace(/cn$/, "");
+const _ssKey = (d, a, b, g) => String(d).slice(0, 10) + "|" + [_ssNorm(a), _ssNorm(b)].sort().join("|") + "|" + g;
+function ssIdx(){
+  if(_SSI)return _SSI;
+  _SSI=new Map();
+  for(const r of (window.SIDE_SEL||[]))_SSI.set(_ssKey(r.d,r.t1,r.t2,r.gi),r.ss);
+  return _SSI;
+}
+const ssOf = m => ssIdx().get(_ssKey(m._d, m._btf, m._rtf, m._g)) || "";
+// 該側拿到的是什麼：選邊權→依它實際在哪一邊寫「選藍/選紅」；否則就是拿先選權→依是否為
+// 先選方寫「先選/後選」。查不到資料（2025 以前、或 wiki 沒收錄的賽事）回空字串。
+const ssLbl = (m, isBlue) => {
+  const ss = ssOf(m);
+  if(!ss)return "";
+  if(ss === (isBlue ? "b" : "r"))return isBlue ? (LANG==="en"?"chose blue":"選藍") : (LANG==="en"?"chose red":"選紅");
+  return (m.first === (isBlue ? "blue" : "red")) ? (LANG==="en"?"1st pick":"先選") : (LANG==="en"?"2nd pick":"後選");
+};
 function calcMatches(team){
   const _mk=vcKey()+"|"+(team||"");
   const _mh=_MCACHE.get(_mk); if(_mh)return _mh;
@@ -5712,6 +5736,7 @@ function _calcMatches0(team){
     out.push({date:o.date.slice(5),_d:o.date,_dt:o.dt||o.date,_g:num(r[C.game])||0,league:o.league,split:o.split,patch:o.patch,
       win:o.result===1?tAb(bt):tAb(rt), first, blueWin:o.result===1,
       gl:num(r[C.blue_gamelength]),
+      _btf:bt,_rtf:rt,   // 隊伍全名：選邊權資料(side_sel.js)是用 Leaguepedia 全名建索引，縮寫對不起來
       blue:{team:tAb(bt),bans:_sided?_bB:bans.slice(0,half),lane:bl,po:bpo,p:_lnP(r[C.blue_Lane])},
       red:{team:tAb(rt),bans:_sided?_bR:bans.slice(half),lane:rl,po:rpo,p:_lnP(r[C.red_Lane])}});
   }
@@ -9781,9 +9806,11 @@ function render(){
       _cL(["gl",   LANG==="en"?"time":"時長", 66, "",     m=>mmss(m.gl)]),
       _cL(["win",  LANG==="en"?"win":"勝",    66, "team", m=>String(m.win).toLowerCase()]),
       _cL(["bt",   LANG==="en"?"blue":"藍方", 78, "team", m=>String(sides(m).L.team).toLowerCase()]),
+      _cL(["bsel", LANG==="en"?"choice":"選擇",62,"",     m=>ssLbl(m,sides(m).LisBlue).toLowerCase()]),
       _cL(["bb",   LANG==="en"?"ban":"禁",    _banW,"champ",m=>(sides(m).L.bans||[]).map(_cTxt).join(" ")]),
       _cL(["bl0","TOP",_laneW,"champ",m=>_cTxt(sides(m).L.lane[0])]),_cL(["bl1","JNG",_laneW,"champ",m=>_cTxt(sides(m).L.lane[1])]),_cL(["bl2","MID",_laneW,"champ",m=>_cTxt(sides(m).L.lane[2])]),_cL(["bl3","BOT",_laneW,"champ",m=>_cTxt(sides(m).L.lane[3])]),_cL(["bl4","SUP",_laneW,"champ",m=>_cTxt(sides(m).L.lane[4])]),
       _cL(["rt",   LANG==="en"?"red":"紅方",  78, "team", m=>String(sides(m).R.team).toLowerCase()]),
+      _cL(["rsel", LANG==="en"?"choice":"選擇",62,"",     m=>ssLbl(m,!sides(m).LisBlue).toLowerCase()]),
       _cL(["rb",   LANG==="en"?"ban":"禁",    _banW,"champ",m=>(sides(m).R.bans||[]).map(_cTxt).join(" ")]),
       _cL(["rl0","TOP",_laneW,"champ",m=>_cTxt(sides(m).R.lane[0])]),_cL(["rl1","JNG",_laneW,"champ",m=>_cTxt(sides(m).R.lane[1])]),_cL(["rl2","MID",_laneW,"champ",m=>_cTxt(sides(m).R.lane[2])]),_cL(["rl3","BOT",_laneW,"champ",m=>_cTxt(sides(m).R.lane[3])]),_cL(["rl4","SUP",_laneW,"champ",m=>_cTxt(sides(m).R.lane[4])]),
     ];
@@ -9882,6 +9909,11 @@ function render(){
       // 三種左右模式都依「實際邊」上色 → fp／team 模式下左右欄會對調，顏色跟著真正的藍/紅方走，
       // 順便看得出該隊當局在哪一邊（那兩個模式的表頭只寫 先選/後選、該隊/對手，本來看不出來）。
       const sCls=(isBlue,won)=>`${isBlue?"bpB":"bpR"}${won?" bpw":""}`;
+      // 選邊權／先選權欄（2026 新制才有資料）：一隊拿選邊、另一隊拿先選，所以左右一定各出現一個；
+      // 2025 以前與 wiki 沒收錄的賽事留空。
+      const _selH=LANG==="en"?"choice":"選擇";
+      const selCell=(m,isBlue,won)=>{const t=ssLbl(m,isBlue);
+        return `<td class="${sCls(isBlue,won)}" style="font-size:12px;white-space:nowrap">${t||`<span class="meta">–</span>`}</td>`;};
       // 選用格空著＝來源只收了勝敗、沒有 BP（2013 GPL 有不少這種）→ 掛問號，
       // 跟禁用欄一致，不要留一片空白讓人以為是渲染壞了（2026-08-01 使用者指定）。
       const laneCells=(s,won,isBlue)=>[0,1,2,3,4].map(i=>{
@@ -9920,8 +9952,8 @@ function render(){
         const S=sides(m); // 依模式決定左右實際邊
         const lWon=S.LisBlue===m.blueWin, rWon=!lWon; // 哪一顯示側獲勝→整隊範圍底色加深
         return `<tr${gno?' class="subrow"':''}>${head}<td>${m.patch}</td><td class="meta">${mmss(m.gl)}</td><td class="win">${m.win}</td>
-        ${cell(S.L,S.LisBlue,lWon)}${banCells(S.L,lWon,S.LisBlue)}${laneCells(S.L,lWon,S.LisBlue)}
-        ${cell(S.R,!S.LisBlue,rWon)}${banCells(S.R,rWon,!S.LisBlue)}${laneCells(S.R,rWon,!S.LisBlue)}</tr>`;
+        ${cell(S.L,S.LisBlue,lWon)}${selCell(m,S.LisBlue,lWon)}${banCells(S.L,lWon,S.LisBlue)}${laneCells(S.L,lWon,S.LisBlue)}
+        ${cell(S.R,!S.LisBlue,rWon)}${selCell(m,!S.LisBlue,rWon)}${banCells(S.R,rWon,!S.LisBlue)}${laneCells(S.R,rWon,!S.LisBlue)}</tr>`;
       };
       // 沒設任何逐局篩選 → 用「系列賽（大場）」呈現，底下列出各局（小場）
       const grouped=!_colFActive();  // 沒有任何欄位篩選＝系列賽分組；有篩選＝逐場平列
@@ -9975,8 +10007,8 @@ function render(){
       };
       document.getElementById("tbl").innerHTML=strip+`<div class="tblwrap"><table class="bp" style="table-layout:fixed"><colgroup>${COLF.map(c=>`<col style="width:${c.w}px">`).join("")}</colgroup><thead><tr>
         <th>日期</th><th>賽事</th><th>版本</th><th>時長</th><th>勝</th>
-        <th>${HL[0]}</th><th>禁用</th><th>${posImg("TOP")}</th><th>${posImg("JNG")}</th><th>${posImg("MID")}</th><th>${posImg("BOT")}</th><th>${posImg("SUP")}</th>
-        <th>${HL[1]}</th><th>禁用</th><th>${posImg("TOP")}</th><th>${posImg("JNG")}</th><th>${posImg("MID")}</th><th>${posImg("BOT")}</th><th>${posImg("SUP")}</th></tr>
+        <th>${HL[0]}</th><th>${_selH}</th><th>禁用</th><th>${posImg("TOP")}</th><th>${posImg("JNG")}</th><th>${posImg("MID")}</th><th>${posImg("BOT")}</th><th>${posImg("SUP")}</th>
+        <th>${HL[1]}</th><th>${_selH}</th><th>禁用</th><th>${posImg("TOP")}</th><th>${posImg("JNG")}</th><th>${posImg("MID")}</th><th>${posImg("BOT")}</th><th>${posImg("SUP")}</th></tr>
         <tr class="bpFRow">${COLF.map(c=>`<th style="padding:2px 3px;top:auto">${_fcell(c)}</th>`).join("")}</tr></thead><tbody id="bpBody"></tbody></table></div>
         <div class="row" style="justify-content:center;margin-top:10px"><button id="bpMore" class="primary"></button></div>`+_dlHTML;
       // 分批渲染：先 200 場，按需載入，避免上萬節點一次撐爆版面
