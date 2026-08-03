@@ -10005,12 +10005,16 @@ function render(){
       const g=/^([br])l([0-4])$/.exec(k); if(g)return[(g[1]==="b"?m.blue:m.red).lane[+g[2]]]; return []; }; // 時長等：無下拉
     const _dlKey="bp2|"+(V.bpSideMode||"br")+"|"+vcKey(); window._BPDL=window._BPDL||{}; // 快取鍵含模式(切模式→下拉重算)
     let _DLF=window._BPDL[_dlKey];
-    if(!_DLF){ const S={}; FILTERS.forEach(f=>{S[f.k]=new Set();});
+    if(!_DLF){ const S={}; FILTERS.forEach(f=>{S[f.k]=new Map();}); // 值→出現場數（清單要照場數排）
       // 英雄下拉的 option「值」只放中文名：曾經放「好運姐 Miss Fortune」這種一整串，在窄框裡英文
       // 被切掉看起來像壞掉（2026-07-31 使用者回報）。英文改放 option 內文（＝datalist 的 label，
       // 瀏覽器會在中文名下面顯示一小列小字），見下面 _dlHTML。
-      for(const m of calcMatches("")){ FILTERS.forEach(f=>{ _fdv(f.k,m).forEach(v=>{ if(!v)return; let disp=v; if(f.dl==="champ"){ disp=((typeof chName==="function")&&chName(champId(v)))||v; } S[f.k].add(disp); }); }); }
-      _DLF={}; FILTERS.forEach(f=>{_DLF[f.k]=[...S[f.k]].sort((a,b)=>String(a).localeCompare(b));});
+      for(const m of calcMatches("")){ FILTERS.forEach(f=>{ const seen=new Set(); _fdv(f.k,m).forEach(v=>{ if(!v)return; let disp=v; if(f.dl==="champ"){ disp=((typeof chName==="function")&&chName(champId(v)))||v; }
+        if(seen.has(disp))return; seen.add(disp);   // 同一局同一欄重複出現(禁用階段兩邊都禁同一隻)只算一場
+        S[f.k].set(disp,(S[f.k].get(disp)||0)+1); }); }); }
+      // 清單一律**依場數多→少**排（全站鐵則，見 bindCombo）：常用的排前面才好挑；
+      // 同場數再照字母，順序才穩定。時長／選擇下面會整個換掉，本來就照固定邏輯順序。
+      _DLF={}; FILTERS.forEach(f=>{_DLF[f.k]=[...S[f.k].entries()].sort((a,b)=>b[1]-a[1]||String(a[0]).localeCompare(b[0])).map(e=>e[0]);});
       _DLF["gl"]=GLB.map(x=>x[0]); // 時長改用固定分桶清單
       // 選擇欄：值域固定就四種，直接給清單（_fdv 對這個 key 回空陣列 → 不補的話沒有下拉可選）
       _DLF["bsel"]=_DLF["rsel"]=LANG==="en"?["chose blue","chose red","1st pick","2nd pick"]:["選藍","選紅","先選","後選"];
