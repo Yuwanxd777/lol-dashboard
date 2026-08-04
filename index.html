@@ -11793,7 +11793,11 @@ function render(){
         // 等級在上、技能在下；每 6 等換行＝6/6/8 三行（上路最高能點到 20 等；2026-08-04 使用者指定）
         const _cellSk=(v,i)=>`<span style="display:inline-flex;flex-direction:column;align-items:center;width:20px"><span class="meta" style="font-size:10px">${i+1}</span><b style="color:${SKC[SKL[v]]||"#cdd6e6"}">${SKL[v]}</b></span>`;
         const _rowSk=(a2,off)=>a2.length?`<div style="display:flex;gap:3px 4px;margin-top:3px">${a2.map((v,i)=>_cellSk(v,i+off)).join("")}</div>`:"";
-        const html=`<div class="tipTitle">${en?"Skill order (full game)":"全場技能點法"}</div>`
+        // 標題「點法」＋主副：先點滿(5 點、不含 R)的是主、第二個點滿的是副（skillMainOrder
+        // 就是這個定義；沒點滿的依總點數排，殘局也給得出主副）
+        const _mo=skillMainOrder(seq), _c=l=>`<b style="color:${SKC[l]||"#cdd6e6"}">${l}</b>`;
+        const _ms=_mo.length?(en?` ${_c(_mo[0])} main${_mo[1]?` · ${_c(_mo[1])} sub`:""}`:` 主${_c(_mo[0])}${_mo[1]?`副${_c(_mo[1])}`:""}`):"";
+        const html=`<div class="tipTitle">${en?"Skill order":"點法"}${_ms}</div>`
           +_rowSk(seq.slice(0,6),0)+_rowSk(seq.slice(6,12),6)+_rowSk(seq.slice(12,20),12);
         el.style.cursor="default";
         el.onmouseenter=()=>tipShow(html,el.getBoundingClientRect(),"up");
