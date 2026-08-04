@@ -178,6 +178,9 @@ def main():
                 pg = idx.get(f"{d}|{(t or '').strip().lower()}")
                 if pg:
                     vote[(lg, sp)][pg] += 1
+                    # 同年多屆盃賽（2026 兩屆 KeSPA）各屆有各自的頁，但 split 都是空的 →
+                    # 眾數只會留下其中一屆。另外記「@比賽年」鍵，前端分屆標籤用它連各屆的頁。
+                    vote[(lg, "@" + d[:4])][pg] += 1
                     # 世界賽／MSI 的入圍賽在資料裡沒有獨立賽段（split 是空的），賽事樹是依
                     # 日期把它分出來的 → 靠 wiki 頁名認出來，另外記一份給「入圍賽」那段用
                     if re.search(r"Play[- ]?In", pg, re.I):

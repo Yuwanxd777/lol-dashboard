@@ -3259,7 +3259,9 @@ const eventsTreeHTML=()=>{
       const _qAb=new Set(); Object.values(x._ewcQ).forEach(s2=>s2.forEach(t2=>_qAb.add(tAb(t2))));
       const _advAb=new Set([..._qAb].filter(ab=>_mainAb.has(ab))); // 資格賽→本賽晉級＝綠框
       const segE=(lb,arr,nl,adv)=>arr.length?`<span class="evtPromoDiv evtGrpDiv${nl?" evtGrpNL":""}"><i>${lb}</i></span>`+chips(arr,adv):"";
-      mainChips=chips([...(x._ewcMain||new Set())].filter(t2=>!poSet.has(t2))); // 本賽隊直接列（不加「EWC」標籤塊、不上綠框）
+      // 正賽段也給標題＋wiki 連結（2026-08-04 使用者回報 EWC 正賽沒得點；比照世界賽/MSI 的正賽段）
+      mainChips=`<span class="evtPromoDiv evtGrpDiv evtGrpNL"><i>${spLink("EWC","",LANG==="en"?"Main Event":"正賽",true)}</i></span>`
+        +chips([...(x._ewcMain||new Set())].filter(t2=>!poSet.has(t2))); // 正賽段不上綠框
       // 各區資格賽是獨立的聯賽碼（EWCQ歐洲…）→ 標籤連到該區資格賽自己的 wiki 頁
       Object.entries(x._ewcQ).forEach(([rg,set])=>{ mainChips+=segE(spLink("EWCQ"+rg,"",(LANG==="en"?"Qualifier · ":"資格賽·")+esc(rg)),[...set].filter(t2=>!poSet.has(t2)),false,_advAb); });
     }else if((x.lg==="WLDs"||x.lg==="MSI")&&x.wDates){ // 世界賽/MSI 卡：正賽｜──入圍賽
@@ -3288,7 +3290,7 @@ const eventsTreeHTML=()=>{
         else days.forEach(d=>{x.wDates[d].forEach(t2=>{(d<mainStart?pin:mn).add(t2);});});
         const _mnAb=new Set([...mn].map(t2=>tAb(t2))), _piAb=new Set([...pin].map(t2=>tAb(t2)));
         const _advAb=new Set([..._piAb].filter(ab=>_mnAb.has(ab))); // 入圍賽→正賽晉級＝綠框
-        inner=seg(_mainLb,[...mn])+seg(spLink(x.lg,"入圍賽",LANG==="en"?"Play-In":"入圍賽"),[...pin],_advAb); // 正賽段不上綠框（晉級標記只留在入圍/資格段）
+        inner=seg(_mainLb,[...mn])+seg(spLink(x.lg,"入圍賽",LANG==="en"?"Play-In":"入圍賽",true),[...pin],_advAb); // 正賽段不上綠框（晉級標記只留在入圍/資格段）；入圍賽沒獨立頁時退連本體頁（2026 MSI）
       }
       if(x._wq){ // 各區資格賽段：晉級＝有進世界賽本體（正賽或入圍）者綠框
         const _wAb=new Set([..._wAll].map(t2=>tAb(t2)));
@@ -3311,10 +3313,16 @@ const eventsTreeHTML=()=>{
       // 是哪一站，同一個「季前」還會把奧克蘭與京畿兩站併成一段（2026-08-01 使用者回報）
       const _spN=Object.keys(x._spTeams||{}).filter(k=>x._spTeams[k]&&x._spTeams[k].size).length;
       if(x._eds&&x._eds.length>1&&_spN<2){ // 同年多屆的盃賽（2026 兩屆 KeSPA）：同一張卡內依屆分段（使用者指定：季前／季中同框）
-        const _seg=(lb,arr,nl)=>arr.length?`<span class="evtPromoDiv evtGrpDiv${nl?" evtGrpNL":""}"><i>${esc(lb)}</i></span>`+chips(arr,advQ,x.tinfo):"";
+        const _seg=(lb,arr,nl)=>arr.length?`<span class="evtPromoDiv evtGrpDiv${nl?" evtGrpNL":""}"><i>${lb}</i></span>`+chips(arr,advQ,x.tinfo):"";
         let _mc="",_first=true;
         x._eds.forEach(ed=>{ const arr=mainArr0.filter(t2=>ed.teams.has(t2));
-          _mc+=_seg(`${evtEdLabel(ed.ed)} · ${_mdOf(ed.from)}–${_mdOf(ed.to)}`,arr,_first); _first=false; });
+          // 分屆標籤連到「該屆自己的頁」：wiki_links 的 @比賽年 鍵（兩屆 KeSPA 各自的 wiki 頁；
+          // 2026-08-04 使用者回報季前/季中沒得點）。查不到（舊 wiki_links.js）就維持純文字。
+          const _lb=`${evtEdLabel(ed.ed)} · ${_mdOf(ed.from)}–${_mdOf(ed.to)}`;
+          const _e2=((window.WIKI_LINKS||{})[String(curYear)]||{})[x.lg]||{};
+          const _pg=_e2["@"+String(ed.from).slice(0,4)]||"";
+          const _lk=_pg?`<a class="spWiki" href="https://lol.fandom.com/wiki/${encodeURI(String(_pg).replace(/ /g,"_"))}" target="_blank" rel="noopener" title="${esc(_lb)}｜到 Leaguepedia 看這一屆">${esc(_lb)}</a>`:esc(_lb);
+          _mc+=_seg(_lk,arr,_first); _first=false; });
         mainChips=_mc+extSeg;
       }else if((x.lg==="LPL"||x.lg==="LCK")&&lplSplitsOf(curYear,x.lg).length){ const _glg=x.lg; // LPL 每賽段分組不同：卡內逐賽段列各組（S1 · Ascend、S2 · Ascend…）；季後賽不分＝lpl_groups 只含常規賽
         // 該賽段打進季後賽的隊＝綠勾（使用者指定 2026-07-28；每段各自判定，不是整年共用）
@@ -3410,7 +3418,10 @@ const eventsTreeHTML=()=>{
           // 賽段名是空的（世界賽／MSI 這類本體賽事）維持平鋪——那種卡片標題本身就是賽事名。
           mainChips=(_sp0
             ? `<div class="lgSplitBlk"><span class="lgSplitHd">${spLink(x.lg,_sp0,esc(spDisp(_sp0)))}<span class="lgSplitN">${uq(base)} ${LANG==="en"?"teams":"隊"}</span></span><span class="lgSplitGrps"><div class="lgGrpCol"><span class="lgGrpChips">${_c0}</span></div></span></div>`
-            : _c0)+extSeg;
+            : (m.grp==="intl"&&wikiHref(x.lg,"",true)
+               // 國際賽本體卡（FST）：賽段名是空的也補「正賽」標題＋wiki 連結（2026-08-04 使用者回報 FST 正賽沒得點）
+               ? `<span class="evtPromoDiv evtGrpDiv evtGrpNL"><i>${spLink(x.lg,"",LANG==="en"?"Main Event":"正賽",true)}</i></span>`+_c0
+               : _c0))+extSeg;
         }
       }
     }
