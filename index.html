@@ -741,6 +741,7 @@
   .sqGame.win{border-left-color:#3d8bff;background:linear-gradient(90deg,rgba(61,139,255,.12),rgba(61,139,255,.02))}
   .sqGame.loss{border-left-color:#e0555f;background:linear-gradient(90deg,rgba(224,85,95,.12),rgba(224,85,95,.02))}
   .sqGame .wl{font-weight:800;font-size:14px}
+  .sqMate img.posic{width:16px;height:16px;vertical-align:-3px;margin-right:4px}
   .sqGame.win .wl{color:#5ea2ff} .sqGame.loss .wl{color:#ec6b73}
   .sqWhen{display:flex;flex-direction:column;align-items:center;gap:1px;font-size:13.5px;line-height:1.3;color:var(--tx2)}
   .sqChampWrap{position:relative;display:inline-block}
@@ -11790,22 +11791,24 @@ function render(){
         })()}
         <span style="flex:1"></span>
         ${IDX&&IDX.fetched_at?`<span class="meta">${en?"Updated":"更新"} ${esc(IDX.fetched_at)}${IDX.year?"·"+IDX.year:""}</span>`:""}</div>
-        ${(()=>{ // 同隊其他選手的逐場捷徑（2026-08-04 使用者指定：放在篩選列上面）
-          const tm0=teamFix(pl.team||""); if(!tm0)return "";
-          const seen=new Set(), mates=[];
-          (((SD&&SD.players)||[])).forEach(p2=>{ if(teamFix(p2.team||"")!==tm0)return;
-            const k2=(p2.team||"")+"|"+(p2.player||"");
-            if(seen.has(k2))return; seen.add(k2);
-            const meta2=IDX&&IDX.players&&IDX.players[k2];
-            if(!meta2)return;                                  // 沒有逐場檔＝點了也是空的，不列
-            mates.push({p:p2.player,rid:p2.riotId,role:meta2.role||"",me:p2.player===pl.player}); });
-          if(mates.length<2)return "";
-          const RO={TOP:0,JUNGLE:1,MIDDLE:2,BOTTOM:3,UTILITY:4};
-          mates.sort((x,y)=>(RO[x.role]??9)-(RO[y.role]??9)||String(x.p).localeCompare(String(y.p)));
-          return `<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:8px"><span class="meta">${esc(tm0)}</span>`
-            +mates.map(m2=>`<button class="sqLaneBtn${m2.me?" on":""} sqMate" data-rid="${esc(m2.rid||"")}"${m2.me?' style="cursor:default"':''}>${esc(m2.p)}</button>`).join("")+`</div>`;
-        })()}
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
+          ${(()=>{ // 同隊其他選手的逐場捷徑：放在篩選列最左（2026-08-04 使用者指定）
+            const tm0=teamFix(pl.team||""); if(!tm0)return "";
+            const seen=new Set(), mates=[];
+            (((SD&&SD.players)||[])).forEach(p2=>{ if(teamFix(p2.team||"")!==tm0)return;
+              const k2=(p2.team||"")+"|"+(p2.player||"");
+              if(seen.has(k2))return; seen.add(k2);
+              const meta2=IDX&&IDX.players&&IDX.players[k2];
+              if(!meta2)return;                                // 沒有逐場檔＝點了也是空的，不列
+              mates.push({p:p2.player,rid:p2.riotId,role:meta2.role||"",me:p2.player===pl.player}); });
+            if(mates.length<2)return "";
+            const RO={TOP:0,JUNGLE:1,MIDDLE:2,BOTTOM:3,UTILITY:4}, R3={TOP:"TOP",JUNGLE:"JNG",MIDDLE:"MID",BOTTOM:"BOT",UTILITY:"SUP"};
+            mates.sort((x,y)=>(RO[x.role]??9)-(RO[y.role]??9)||String(x.p).localeCompare(String(y.p)));
+            // 自己不列（2026-08-04）；鈕內左側放路線圖示
+            return `<span class="meta">${esc(tm0)}</span>`
+              +mates.filter(m2=>!m2.me).map(m2=>`<button class="sqLaneBtn sqMate" data-rid="${esc(m2.rid||"")}">${R3[m2.role]?posImg(R3[m2.role]):""}${esc(m2.p)}</button>`).join("")
+              +`<span style="width:6px"></span>`;
+          })()}
           ${gfilter("gChampF","dlChamp",V.rankGChamp,champOpts,en?"Champion":"英雄")}${gfilter("gOppF","dlOpp",V.rankGOpp,oppOpts,en?"Opponent":"對位英雄")}
           <span class="cwrap"><input id="gVsF" class="combo" list="dlVs" value="${V.rankGVs==="@路人"?(en?"regular":"路人"):(V.rankGVs?esc(_vDisp(V.rankGVs)):"")}" placeholder="${en?"Vs player":"對位人員"}" autocomplete="off" style="width:134px;padding-right:26px"><button class="cx" tabindex="-1" data-x="gVsF" title="${en?"Clear":"一鍵清除"}">✕</button></span><datalist id="dlVs">${_vReg?`<option value="${en?"regular":"路人"}">${_vReg}${en?" games":" 場"}</option>`:""}${vsOpts.map(k=>`<option value="${esc(_vDisp(k))}">${_vcnt[k]}${en?" games":" 場"}</option>`).join("")}</datalist>
           ${(V.rankGChamp||V.rankGOpp||V.rankGVs)?`<button id="gClrF" class="sqLaneBtn">${en?"clear":"清除"}</button>`:""}</div>
