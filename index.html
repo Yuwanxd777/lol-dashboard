@@ -10095,7 +10095,10 @@ function render(){
     V.rosterLayout=V.rosterLayout||"v"; const layH=V.rosterLayout==="h"; // 直式(預設)=五路並排；橫式=每路一整列、角色池轉置
     const _rlSegs=[["v",LANG==="en"?"▥ Vertical":"▥ 直式",LANG==="en"?"Five lanes side by side":"五路並排（每路一張直卡）"],
                    ["h",LANG==="en"?"▤ Horizontal":"▤ 橫式",LANG==="en"?"One full-width row per lane":"每路一整列（角色池橫向展開）"]];
-    main.innerHTML=filterBar(`<label>${T("戰隊")}</label>${comboHTML("vRoster",T("輸入戰隊（如 GEN）"),180)}${segHTML("rosterLaySeg",_rlSegs,V.rosterLayout,"","order:2")}${segHTML("rosterModeSeg",_rmSegs,V.rosterMode,"","order:1")}`)
+    V.rosterLane=V.rosterLane||""; // 路線篩選（2026-08-05 使用者新增）：空=全部五路
+    main.innerHTML=filterBar(`<label>${T("戰隊")}</label>${comboHTML("vRoster",T("輸入戰隊（如 GEN）"),180)}
+      <label>${LANG==="en"?"Lane":"路線"}</label><select id="vRosterLane">${["","TOP","JNG","MID","BOT","SUP"].map(p=>`<option value="${p}" ${V.rosterLane===p?"selected":""}>${p?(LANG==="en"?T(p):({TOP:"上路",JNG:"打野",MID:"中路",BOT:"下路",SUP:"輔助"}[p])):T("全部")}</option>`).join("")}</select>
+      ${segHTML("rosterLaySeg",_rlSegs,V.rosterLayout,"","order:2")}${segHTML("rosterModeSeg",_rmSegs,V.rosterMode,"","order:1")}`)
       +`<div id="rosterBox"></div>`;
     const POSN=["TOP","JNG","MID","BOT","SUP"];
     // 欄內排名上色（同主表：前三紅第一粗、後三藍最後粗）
@@ -10211,7 +10214,8 @@ function render(){
       // 兩種版面共用出口：直式＝原本的直表；橫式＝轉置表
       const tblFor=(pool,pos,who,go)=>layH?poolH(pool,pos,who,go)
         :`<table class="ov"><thead><tr>${rHead(pos)}</tr></thead><tbody>${soloqMode?poolRowsSoloq(pool,go?pos:null,go?who:null):poolRows(pool,go?pos:null,go?who:null)}</tbody></table>`;
-      box.innerHTML=`<div class="rosterGrid${layH?" rosterH":""}">${POSN.map(pos=>{
+      const posList=V.rosterLane?POSN.filter(p=>p===V.rosterLane):POSN; // 路線篩選：只畫選定那一路
+      box.innerHTML=`<div class="rosterGrid${layH?" rosterH":""}"${(!layH&&posList.length===1)?' style="grid-template-columns:minmax(0,560px)"':''}>${posList.map(pos=>{
         const g=R[pos];
         if(!g)return `<div class="card"><h2>${posImg(pos)}</h2><span class="meta">此篩選下無資料</span></div>`;
         // 單張卡（sel＝選手名、d＝該選手資料、withSel＝是否放選人下拉）——直式一路一卡（可下拉換人）、
@@ -10247,6 +10251,7 @@ function render(){
         return mkCard(sel,d,true);
       }).join("")}</div>`;
       box.querySelectorAll(".pickSel").forEach(s=>s.onchange=()=>{V.rosterPick[s.dataset.pos]=s.value; saveState(); rerender();});
+      {const ls=document.getElementById("vRosterLane"); if(ls&&!ls._b){ls._b=1; ls.onchange=()=>{V.rosterLane=ls.value; saveState(); rerender();};}}
       box.querySelectorAll("th[data-rk]").forEach(th=>th.onclick=()=>{
         const k=th.dataset.rk, pos=th.dataset.pos, s=V.rosterSort[pos];
         V.rosterSort[pos]=(s&&s.k===k)?{k,d:-s.d}:{k,d:-1};
