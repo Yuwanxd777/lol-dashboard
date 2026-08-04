@@ -11686,6 +11686,10 @@ function render(){
       // 同隊選手捷徑（基礎按鈕那一列最左）：**兩個分支都要注入**——載入中的中繼畫面沒有
       // 隊友列的話，切到未快取的選手會先閃一幀矮 bar 再長高，看起來整條在跳
       //（2026-08-04 使用者回報「篩選列在選擇不同選手時會跳動」的根因之二；之一是 rAF 延後）。
+      // 隊徽（img/teams/{縮寫}.webp＝fetch_team_logos.py 從 dpm 抓；GEN 源檔叫 GENG 已在抓取端對應）
+      // 載入失敗（dpm 沒這隊：SEN/VIE）自動退回文字縮寫
+      const teamLogoHTML=(ab,size)=>{ ab=teamFix(String(ab||"")); if(!ab)return "";
+        return `<img src="img/teams/${encodeURIComponent(ab)}.webp" alt="${esc(ab)}" title="${esc(ab)}" style="width:${size}px;height:${size}px;object-fit:contain;vertical-align:middle" onerror="this.replaceWith(document.createTextNode(this.alt))">`; };
       const matesHTML=()=>{ const tm0=teamFix(pl.team||""); if(!tm0)return "";
         const seen=new Set(), mates=[];
         (((SD&&SD.players)||[])).forEach(p2=>{ if(teamFix(p2.team||"")!==tm0)return;
@@ -11697,7 +11701,7 @@ function render(){
         if(mates.length<2)return "";
         const RO={TOP:0,JUNGLE:1,MIDDLE:2,BOTTOM:3,UTILITY:4}, R3={TOP:"TOP",JUNGLE:"JNG",MIDDLE:"MID",BOTTOM:"BOT",UTILITY:"SUP"};
         mates.sort((x,y)=>(RO[x.role]??9)-(RO[y.role]??9)||String(x.p).localeCompare(String(y.p)));
-        return `<span class="meta">${esc(tm0)}</span>`
+        return `<span style="line-height:0">${teamLogoHTML(tm0,30)}</span>`
           +mates.filter(m2=>!m2.me).map(m2=>`<button class="sqLaneBtn sqMate" data-rid="${esc(m2.rid||"")}">${R3[m2.role]?posImg(R3[m2.role]):""}${esc(m2.p)}</button>`).join("");
       };
       const _injectMates=()=>{ if(typeof ensureBackBtn==="function")ensureBackBtn();
@@ -11715,7 +11719,7 @@ function render(){
       };
       if(meta && !cache){ // 尚未載入該選手的逐場檔→注入＋顯示載入中；__sqLoad 載好後會重繪
         if(!document.querySelector('script[data-sqf="'+meta.f+'"]')){ const s=document.createElement("script"); s.src="soloq_matches/"+meta.f; s.setAttribute("data-sqf",meta.f); s.onerror=()=>{window.__SQCACHE[key]={role:meta.role,matches:[]}; if(curView==="積分"&&V.rankDetail)render();}; document.body.appendChild(s); }
-        main.innerHTML=`<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:10px">${bkBtn}${(()=>{const R3={TOP:"TOP",JUNGLE:"JNG",MIDDLE:"MID",BOTTOM:"BOT",UTILITY:"SUP"};const rl=meta&&meta.role;return rl&&R3[rl]?`<span class="sqDetLane" style="line-height:0">${posImg(R3[rl])}</span>`:"";})()}<h2 style="margin:0"><span class="meta" style="font-size:16px">${esc(teamFix(pl.team||""))}</span> ${esc(pl.player||rid.split("#")[0])}</h2><span class="meta">${en?"loading games…":"載入逐場中…"}</span></div>`;
+        main.innerHTML=`<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:10px">${bkBtn}${(()=>{const R3={TOP:"TOP",JUNGLE:"JNG",MIDDLE:"MID",BOTTOM:"BOT",UTILITY:"SUP"};const rl=meta&&meta.role;return rl&&R3[rl]?`<span class="sqDetLane" style="line-height:0">${posImg(R3[rl])}</span>`:"";})()}<h2 style="margin:0;display:flex;align-items:center;gap:8px">${teamLogoHTML(pl.team,26)}<span>${esc(pl.player||rid.split("#")[0])}</span></h2><span class="meta">${en?"loading games…":"載入逐場中…"}</span></div>`;
         bindBack();
       _injectMates();
       } else {
@@ -11818,7 +11822,7 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
         ${bkBtn}
         ${(()=>{const R3={TOP:"TOP",JUNGLE:"JNG",MIDDLE:"MID",BOTTOM:"BOT",UTILITY:"SUP"};
           return role&&R3[role]?`<span class="sqDetLane" style="line-height:0" title="${posLb(role)}">${posImg(R3[role])}</span>`:"";})()}
-        <h2 style="margin:0"><span class="meta" style="font-size:16px">${esc(teamFix(pl.team||""))}</span> ${esc(pl.player||rid.split("#")[0])}</h2>
+        <h2 style="margin:0;display:flex;align-items:center;gap:8px">${teamLogoHTML(pl.team,26)}<span>${esc(pl.player||rid.split("#")[0])}</span></h2>
         ${acctsShow.length>1?`<span class="meta">${en?`${acctsShow.length} accts:`:`合併 ${acctsShow.length} 帳號：`}</span>`:""}${acctChips}
         <span style="flex:1"></span>
         </div>
