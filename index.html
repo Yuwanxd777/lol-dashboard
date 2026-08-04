@@ -6338,9 +6338,9 @@ const HCOLS=[["英雄",fmt.raw,"11.5em"],["路線",(v,r)=>r._laneIcons||"–","1
 const HSCOLS=[["英雄",fmt.raw,"11.5em"],["路線",(v,r)=>r._laneIcons||"–","11em"],["場數",fmt.int],
   ["勝率(勝-敗)",(v,r)=>`${Math.round((v||0)*100)}%${_brk(` (${esc(r["勝-敗"]||"")})`)}`],
   ["KDA",(v,r)=>!_fin(v)?"–":`${fmt.d1(v)}${_brk(`<span class="meta"> (${esc(r["K/D/A"]||"")})</span>`)}`],
-  ["參與率",fmt.pct],["分均CS",fmt.d1],
+  ["參與率",fmt.pct],["搶二率",fmt.pct],
   ["金差@15",v=>!_fin(v)?"–":(v>0?"+":"")+Math.round(v)],["經差@15",v=>!_fin(v)?"–":(v>0?"+":"")+Math.round(v)],
-  ["搶二率",fmt.pct],["評分",fmt.score]];
+  ["評分",fmt.score]]; // 2026-08-04：分均CS 移除、搶二率移到金差@15 左（與積分逐場欄序一致）
 // 積分雙人組（下路組/中野組）欄位：只列配對聚合真的有的欄（無 KP/CS/經差/搶二 等單人欄）
 const HSPCOLS=[["英雄",fmt.raw,"14em"],["路線",(v,r)=>r._laneIcons||"–","11em"],["場數",fmt.int],
   ["勝率(勝-敗)",(v,r)=>`${Math.round((v||0)*100)}%${_brk(` (${esc(r["勝-敗"]||"")})`)}`],
@@ -6416,7 +6416,8 @@ const SCATTER_METRICS=[
   {k:"_ak",lb:"每場擊殺",f:"d1"},{k:"_ad",lb:"每場死亡",f:"d1"},{k:"_aa",lb:"每場助攻",f:"d1"},
   {k:"BP%",f:"pct"},{k:"禁用率",f:"pct"},{k:"分均輸出",f:"int"},{k:"分均承傷",f:"int"},{k:"分均金錢",f:"int"},
   {k:"分均視分",f:"d1"},{k:"中期金差",f:"sgn"},{k:"贏線率",f:"pct"},
-  {k:"分均CS",f:"d1"},{k:"金差@15",f:"sgn"},{k:"經差@15",f:"sgn"},{k:"搶二率",f:"pct"},
+  {k:"搶二率",f:"pct"},{k:"金差@15",f:"sgn"},{k:"經差@15",f:"sgn"}, // 分均CS 已從積分表移除(2026-08-04)，散布圖軸也不再列
+
 ];
 function scatterMetrics(rows){ // 目前 rows 有足夠有限值(≥20%或3列)的指標才列入可選
   const need=Math.max(3,rows.length*0.2);
