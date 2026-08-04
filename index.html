@@ -11809,7 +11809,7 @@ function render(){
       let acctsShow=accts.filter(ac=>_lgOf(ac)>=_y0);
       if(!acctsShow.length)acctsShow=accts;
       const acctChips=acctsShow.map(ac=>{
-        const tl=ac.found&&ac.tier?`<span style="color:${TIER_COL[ac.tier]||""};font-weight:600">${esc(tierLabel(ac))}${ac.lp!=null?" "+ac.lp+"LP":""}</span>`:`<span class="meta">${en?"unranked":"未定位"}</span>`;
+        const tl=ac.found&&ac.tier?`<span style="color:${TIER_COL[ac.tier]||""};font-weight:600">${esc(tierLabel(ac))}${ac.lp!=null?" "+ac.lp:""}</span>`:`<span class="meta">${en?"unranked":"未定位"}</span>`;
         return `<span class="acctChip"><span class="meta">${esc(platDisp(ac.platform))}</span> <a href="${dpmUrl(ac.platform,ac.riotId)}" target="_blank" rel="noopener" class="acctLink">${esc(ac.riotId)}</a> ${tl}</span>`;
       }).join("");
 const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按「顯示更多」展開
