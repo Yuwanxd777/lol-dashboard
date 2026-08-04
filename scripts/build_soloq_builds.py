@@ -271,7 +271,8 @@ def main():
                                win, g.get("k") or 0, g.get("de") or 0, g.get("a") or 0,
                                (round(g["kp"]) if g.get("kp") is not None else None), _opp or "",
                                g.get("gd15"), g.get("xd15"), g.get("sc"), g.get("r"), _rs2,
-                               "".join(str(v) for v in (g.get("sk") or [])[:20] if v in (1, 2, 3, 4))))  # 第15欄=點法數字串(1=Q2=W3=E4=R)
+                               "".join(str(v) for v in (g.get("sk") or [])[:20] if v in (1, 2, 3, 4)),  # 第15欄=點法數字串(1=Q2=W3=E4=R)
+                               _du or ""))  # 第16欄=搭檔英雄（積分配對詳情的逐場過濾用；依 dul 路線對應）
             _su = [x for x in (g.get("su") or []) if x]
             if len(_su) == 2:
                 _sp2 = tuple(sorted(_su)); suCnt[c][_sp2] += 1

@@ -6368,7 +6368,7 @@ function calcHeroesSoloq(pos){
       const w=v[1]||0,kM=v[2],dM=v[3],aM=v[4],nM=v[5],gdMn=v[6],gdMs=v[7],kS=v[8],dS=v[9],aS=v[10],nS=v[11],gdSn=v[12],gdSs=v[13];
       const kda=(nM?(kM+aM)/Math.max(1,dM):0)+(nS?(kS+aS)/Math.max(1,dS):0);
       const gdA=gdMn?gdMs/gdMn:null, gdB=gdSn?gdSs/gdSn:null;
-      rows.push({英雄:cAb(cA)+" + "+cAb(cB),_full:"",_pair:[cA,cB],路線:2,_laneIcons:laneIcons,
+      rows.push({英雄:cAb(cA)+" + "+cAb(cB),_full:"",_pair:[cA,cB],_pk:pos+"|"+cA+"|"+cB,路線:2,_laneIcons:laneIcons,
         場數:n,"勝-敗":`${w}-${n-w}`,勝率:w/n,"勝率(勝-敗)":w/n,
         KDA:kda||null,_ak:(nM+nS)?(kM+kS)/(nM+nS):null,_ad:(nM+nS)?(dM+dS)/(nM+nS):null,_aa:(nM+nS)?(aM+aS)/(nM+nS):null,
         "K/D/A":(nM+nS)?`${d1s((kM+kS)/(nM+nS))} / ${d1s((dM+dS)/(nM+nS))} / ${d1s((aM+aS)/(nM+nS))}`:"",
@@ -6754,11 +6754,140 @@ function heroPairDetail(key){
     +`<div class="card"><h2>📜 ${T("出場紀錄")} <span class="sub">${en?"both lanes merged per game (K/D/A & gold = pair totals) | click a column to sort":"每場＝兩隻合併（K/D/A、金差為兩隻合計）｜點欄位名稱可排序"}</span></h2>${recInner}</div>`;
   bindFilters(render);
   bindCombo("hdPlSel",plOpts,V.hdPlayer,hit=>{V.hdPlayer=hit; saveState(); render();},false,170);
-  segBind("heroModeSeg",v=>{ if(v==="pro")return; V.heroDetail=""; V.heroMode=v; saveState(); render(); }); // 切積分→回積分雙人組列表（積分配對無逐場詳情）
+  segBind("heroModeSeg",v=>{ if(v==="pro")return; V.heroMode=v; saveState(); render(); }); // 切積分→同一配對的積分詳情（鍵不變、dispatch 分流）
   document.querySelectorAll(".recTbl th[data-rs]").forEach(th=>th.onclick=()=>{
     const kk=th.dataset.rs, s2=V.recSort;
     V.recSort=(s2&&s2.k===kk)?{k:kk,d:-s2.d}:{k:kk,d:-1};
     saveState(); render();
+  });
+  {const a=document.getElementById("pdDexA"); if(a)a.onclick=()=>dexGo("champ",cA);
+   const b=document.getElementById("pdDexB"); if(b)b.onclick=()=>dexGo("champ",cB);}
+  alignHeroCols(document.querySelector(".recTbl")&&document.querySelector(".recTbl").closest(".card"));
+  fillTableWidth(document.querySelector(".recTbl")&&document.querySelector(".recTbl").closest(".card"),true);
+  addSubBack(()=>{V.heroDetail="";V.hdPlayer="";saveState();render();});
+}
+// ── 積分版雙人組配對詳情頁（英雄分頁積分模式點配對；鍵與職業版共用="組別|主|副"）──
+// 名片＝SOLOQ_BUILDS.pairs 全季聚合（去重場數）；出場紀錄＝兩側 chGames（每英雄最近100場）
+// 依第16欄「搭檔英雄」過濾——所以逐場只涵蓋落在該窗內的場次，數量會少於名片場數（表頭有註記）。
+// 每列＝一位收錄選手「自己那隻」的數據（欄序與積分單人詳情一致，位置後多一欄「英雄」標明是哪隻）。
+function sqPairDetail(key){
+  const en=LANG==="en", B=window.SOLOQ_BUILDS||{};
+  const seg0=String(key).split("|"), pos=seg0[0], cA=seg0[1]||"", cB=seg0[2]||"";
+  const lt=pos==="下路組"?"BOT":"JNG", mainL=pos==="下路組"?"BOT":"JNG", subL=pos==="下路組"?"SUP":"MID";
+  const laneIcons=[mainL,subL].map(l=>posImg(l)).filter(Boolean).join("");
+  // 名片＝全季配對聚合（[場,勝]+主側6欄(k,d,a,n,gd樣本,gd和)+副側6欄）
+  const v=((B.pairs||{})[lt]||{})[cA+"|"+cB]||[];
+  const n=v[0]||0,w=v[1]||0,kM=v[2]||0,dM=v[3]||0,aM=v[4]||0,nM=v[5]||0,gdMn=v[6]||0,gdMs=v[7]||0,
+        kS=v[8]||0,dS=v[9]||0,aS=v[10]||0,nS=v[11]||0,gdSn=v[12]||0,gdSs=v[13]||0;
+  const kda=(nM?(kM+aM)/Math.max(1,dM):0)+(nS?(kS+aS)/Math.max(1,dS):0);
+  const gdA=gdMn?gdMs/gdMn:null, gdB=gdSn?gdSs/gdSn:null;
+  const sg=x=>x==null?"—":(x>0?"+":"")+Math.round(x);
+  const mu=(B.mu)||{}; // 對位小卡用（該側英雄 vs 對位）
+  // 出場紀錄（延遲載入；與單人詳情同一份 soloq_champ_games.js）
+  const CG=window.SOLOQ_CHGAMES;
+  if(!window.SOLOQ_VS&&!window._vsLoading){ window._vsLoading=1; // 對位選手 hover
+    const sv=document.createElement("script"); sv.src="soloq_vs.js";
+    sv.onload=()=>{ if((curView==="英雄"&&V.heroDetail)||(curView==="積分"&&V.rankDetail))render(); };
+    sv.onerror=()=>{ window.SOLOQ_VS={p:[],m:{}}; };
+    document.body.appendChild(sv); }
+  let recInner, plOpts=[];
+  if(!CG){
+    lazyLoad("sqg").then(()=>{ if(curView==="英雄"&&V.heroDetail)render(); });
+    recInner=`<span class="meta">${en?"Loading games…":"載入出場紀錄中…"}</span>`;
+  }else{
+    const POS1={T:"TOP",J:"JNG",M:"MID",B:"BOT",U:"SUP"};
+    const pick=(cid,wantPos,mate)=>(CG[cid]||[]).filter(r=>POS1[r[2]]===wantPos&&(r[15]||"")===mate)
+      .map(r=>({t:r[0],pkey:r[1]||"",pos:POS1[r[2]]||"",ch:cid,won:!!r[3],k:r[4],de:r[5],a:r[6],kp:r[7],och:r[8]||"",gd15:r[9],xd15:r[10],sc:r[11],r:r[12],rs:r[13]==null?[]:[r[13]],sk:r[14]||""}));
+    let list=[...pick(cA,mainL,cB),...pick(cB,subL,cA)];
+    // 選手篩選（與單人詳情同一個 V.hdPlayer）
+    plOpts=(()=>{ const c=new Map(),tm={};
+      list.forEach(g=>{const[t,p]=String(g.pkey).split("|"); if(!p)return; c.set(p,(c.get(p)||0)+1); if(!tm[p])tm[p]=t||"";});
+      return [...c.keys()].map(p=>({v:p,l:p,a:[tm[p],teamFix(tm[p]||"")].filter(Boolean),d:teamFix(tm[p]||""),n:c.get(p)})); })();
+    if(V.hdPlayer&&!plOpts.some(o=>o.v===V.hdPlayer))V.hdPlayer="";
+    if(V.hdPlayer)list=list.filter(g=>String(g.pkey).split("|")[1]===V.hdPlayer);
+    const RACC={版本:g=>g.t,位置:g=>g.pos,英雄:g=>cAb(g.ch)||g.ch,使用選手:g=>g.pkey,勝敗:g=>g.won?1:0,
+      "K/D/A":g=>(g.k+g.a)/Math.max(1,g.de),
+      "金差@15":g=>g.gd15,"經差@15":g=>g.xd15,符文:g=>g.r,
+      點法:g=>{const o=skillMainOrder([...String(g.sk||"")].map(Number).filter(x=>x>=1&&x<=4)); return o.length?o.join(""):null;},
+      對位英雄:g=>cAb(g.och)||g.och,評分:g=>g.sc};
+    if(!V.recSort||!RACC[V.recSort.k])V.recSort={k:"版本",d:-1};
+    {const f=RACC[V.recSort.k], dd2=V.recSort.d, byPatch=V.recSort.k==="版本";
+     list=[...list].sort((x,y)=>{const a2=f(x),b2=f(y);
+       if(a2==null&&b2==null)return byPatch?(x.t-y.t)*dd2:0;
+       if(a2==null)return 1; if(b2==null)return -1;
+       const r=(typeof a2==="string"?String(a2).localeCompare(String(b2)):a2-b2)*dd2;
+       return r||(byPatch?(x.t-y.t)*dd2:0);});}
+    const dstr=t=>{const dt=new Date(t);return `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,"0")}-${String(dt.getDate()).padStart(2,"0")}`;};
+    const cell=x=>`<td style="color:${x==null?"var(--tx2)":x>0?"#ff6b6b":x<0?"#37c871":""}">${x==null?"—":(x>0?"+":"")+Math.round(x)}</td>`;
+    const scCol=s=>{if(s==null)return"#8aa0c0"; const x=Math.max(0,Math.min(100,s)); return `hsl(${Math.round(120*(1-x/100))},72%,58%)`;};
+    recInner=`<div class="tblwrap"><table class="recTbl"><thead><tr>
+      <th>#</th>${["版本","位置","英雄","使用選手","勝敗","K/D/A","金差@15","經差@15","符文","點法","對位英雄","評分"].map(k2=>{const _s=V.recSort,_on=_s&&_s.k===k2,_up=_on&&_s.d>0;return `<th data-rs="${k2}" style="cursor:pointer"><span class="thL">${mLabel(k2)}<span class="sortArr${_on?" on":""}${_on?(_up?" asc":" desc"):""}">${_up?"▲":"▼"}</span></span></th>`;}).join("")}</tr></thead><tbody>${
+      list.map((g,i)=>`<tr><td class="rk">${i+1}</td>
+        <td class="meta" title="${dstr(g.t)}">${patchOfTs(g.t)||"–"}</td>
+        <td>${posImg(g.pos)}</td>
+        <td><span class="heroname">${cImg(g.ch)}${cAb(g.ch)||esc(chName(champId(g.ch))||g.ch)}</span></td>
+        <td>${(()=>{const[tm,pl]=g.pkey.split("|");return `<span class="meta">${esc(teamFix(tm||""))}</span> ${esc(pl||"")}`;})()}</td>
+        <td>${g.won?`<span style="color:#ff6b6b">${en?"W":"勝"}</span>`:`<span style="color:#6ea8ff">${en?"L":"敗"}</span>`}</td>
+        <td>${g.k}/${g.de}/${g.a}</td>
+        ${cell(g.gd15)}${cell(g.xd15)}
+        <td>${runeKS(g,26)}</td>
+        <td class="sqSkillR" data-sks="${g.sk||""}" style="white-space:nowrap">${g.sk?[...String(g.sk)].slice(0,5).map(s=>`<b style="color:${SKC[SKL[+s]]||"#cdd6e6"}">${SKL[+s]}</b>`).join('<span style="color:#5a6784">·</span>'):'<span class="meta">—</span>'}</td>
+        <td class="mvOpp" data-och="${esc(g.och)}" data-ch="${esc(g.ch)}" data-t="${g.t||""}"><span class="heroname">${g.och?cImg(g.och):""}${g.och?(cAb(g.och)||esc(chName(champId(g.och))||g.och)):"—"}</span></td>
+        <td>${g.sc==null?"—":`<b style="color:${scCol(g.sc)}" title="${g.sc}">${Math.round(g.sc)}</b>`}</td></tr>`).join("")
+    }</tbody></table></div>`;
+  }
+  main.innerHTML=filterBar(`
+    <label>${en?"Player":"選手"}</label>${comboHTML("hdPlSel",en?"Player":"使用選手",170)}
+    ${heroModeSegHTML("soloq")}`)
+    +`<div class="card"><h2>
+      <span class="heroname" style="font-size:22px"><span class="pairNm">${cImg(cA)}${esc(chName(champId(cA))||cA)}</span><span class="pairNm">${cImg(cB)}${esc(chName(champId(cB))||cB)}</span></span>
+      <span class="sub">${laneIcons}${V.hdPlayer?`｜${en?"by ":"選手 "}${esc(V.hdPlayer)}`:""}｜<span class="plink" id="pdDexA">🛠️ ${esc(cAb(cA)||"")}${en?" builds →":" 出裝 →"}</span>　<span class="plink" id="pdDexB">🛠️ ${esc(cAb(cB)||"")}${en?" builds →":" 出裝 →"}</span></span></h2>
+      <div class="statline">
+        <span>${en?"Games":"出場"} <b>${n}</b>${en?"":" 場"}</span>
+        <span>${en?"Win%":"勝率"} <b>${n?Math.round(w/n*100):0}%</b><span class="meta">(${w}-${n-w})</span></span>
+        <span>KDA <b>${kda?d1s(kda):"—"}</b><span class="meta">${en?"(sum of both)":"（兩隻相加）"}</span></span>
+        <span>${en?"GD@15":"金差@15"} <b>${(gdA!=null||gdB!=null)?sg((gdA||0)+(gdB||0)):"—"}</b><span class="meta">${en?"(pair total)":"（兩隻合計）"}</span></span>
+      </div></div>`
+    +`<div class="card"><h2>📜 ${T("出場紀錄")} <span class="sub">${en?"each row = one tracked player's own champion | only games within each champion's most-recent-100 window | click a column to sort":"每列＝一位收錄選手自己那隻的數據｜只涵蓋各英雄最近 100 場窗內的場次（少於名片場數）｜點欄位名稱可排序"}</span></h2>${recInner}</div>`;
+  bindFilters(render);
+  bindCombo("hdPlSel",plOpts,V.hdPlayer,hit=>{V.hdPlayer=hit; saveState(); render();},false,170);
+  if(!RUNE_MAP) loadRunes(()=>{ if(curView==="英雄"&&V.heroDetail===key&&V.heroMode==="soloq") render(); });
+  segBind("heroModeSeg",v=>{ if(v==="soloq")return; V.heroMode=v; saveState(); render(); }); // 切職業→同一配對的職業詳情（鍵不變）
+  document.querySelectorAll(".recTbl th[data-rs]").forEach(th=>th.onclick=()=>{
+    const kk=th.dataset.rs, s2=V.recSort;
+    V.recSort=(s2&&s2.k===kk)?{k:kk,d:-s2.d}:{k:kk,d:-1};
+    saveState(); render();
+  });
+  // 對位英雄 hover：該側英雄 vs 對位的積分小卡＋該場對位選手（與單人詳情同款；路人不顯示選手）
+  document.querySelectorAll(".recTbl td.mvOpp[data-och]").forEach(td=>{
+    const op=td.dataset.och, chp=td.dataset.ch; if(!op)return;
+    td.addEventListener("mouseenter",()=>{
+      const m2=(mu[chp]||{})[op]; let plLine="";
+      { const VS=window.SOLOQ_VS, t=+td.dataset.t||0, e=t&&VS&&VS.m[String(t)], i2=e&&e[op];
+        if(i2!=null){ const k2=VS.p[i2]||"", tm=k2.split("|")[0]||"", nm=k2.split("|")[1]||"";
+          plLine=`<div class="tipRow">${en?"Player":"對位選手"} <span class="num">${esc((teamFix(tm)+" "+nm).trim())}</span></div>`; } }
+      if(!m2&&!plLine)return;
+      const h2=`<div class="tipTitle">${cImg(chp)} ${esc(chName(champId(chp)))} <span class="meta">vs</span> ${cImg(op)} ${esc(chName(champId(op)))}</div>`
+        +(m2?`<div class="tipRow">${en?"Games":"對戰"} <span class="num">${m2[0]}</span>${en?"":" 場"}｜${en?"Win%":"勝率"} <span class="num">${Math.round(m2[1]/m2[0]*100)}%</span> (${m2[1]}-${m2[0]-m2[1]})</div>`:"")
+        +plLine;
+      tipShow(h2,td.getBoundingClientRect());
+    });
+    td.addEventListener("mouseleave",tipHide);
+  });
+  // 點法 hover：全場逐級點法（與單人詳情同款）
+  document.querySelectorAll(".recTbl td.sqSkillR[data-sks]").forEach(el=>{
+    const seq=[...(el.dataset.sks||"")].map(Number).filter(x=>x>=1&&x<=4);
+    if(!seq.length)return;
+    const _cellSk=(x,i)=>`<span style="display:inline-flex;flex-direction:column;align-items:center;width:20px"><span class="meta" style="font-size:10px">${i+1}</span><b style="color:${SKC[SKL[x]]||"#cdd6e6"}">${SKL[x]}</b></span>`;
+    const _rowSk=(a2,off)=>a2.length?`<div style="display:flex;gap:3px 4px;margin-top:3px">${a2.map((x,i)=>_cellSk(x,i+off)).join("")}</div>`:"";
+    const _mo=skillMainOrder(seq), _c=l=>`<b style="color:${SKC[l]||"#cdd6e6"}">${l}</b>`;
+    const _w=t2=>`<span style="color:var(--tx)">${t2}</span>`;
+    const _ms=_mo.length?(en?` ${_c(_mo[0])}${_w(" main")}${_mo[1]?` · ${_c(_mo[1])}${_w(" sub")}`:""}`:` ${_w("主")}${_c(_mo[0])}${_mo[1]?`${_w("副")}${_c(_mo[1])}`:""}`):"";
+    const html=`<div class="tipTitle">${_w(en?"Skill order":"點法")}${_ms}</div>`
+      +_rowSk(seq.slice(0,6),0)+_rowSk(seq.slice(6,12),6)+_rowSk(seq.slice(12,20),12);
+    el.style.cursor="default";
+    el.onmouseenter=()=>tipShow(html,el.getBoundingClientRect(),"up");
+    el.onmouseleave=tipHide;
   });
   {const a=document.getElementById("pdDexA"); if(a)a.onclick=()=>dexGo("champ",cA);
    const b=document.getElementById("pdDexB"); if(b)b.onclick=()=>dexGo("champ",cB);}
@@ -10152,8 +10281,8 @@ function render(){
       document.getElementById("tbl").innerHTML=tableHTML(hcols,rows,true);
       alignHeroCols(document.getElementById("tbl")); // 英雄欄：以最長「圖+名」為寬度置中、其餘靠左對齊(圖對齊)
       bindSort(rerender);
-      // 點英雄名 → 詳情頁。雙人組：職業版跳「配對詳情」(鍵=組別|主|副)；積分雙人組無逐場資料、不可點
-      const byName={}; rows.forEach(r=>byName[r.英雄]=r._pair?(sqMode?"":V.pos+"|"+r._pair.join("|")):r._full);
+      // 點英雄名 → 詳情頁。雙人組：兩模式都跳「配對詳情」(鍵=組別|主|副；dispatch 依 heroMode 分流職業/積分版)
+      const byName={}; rows.forEach(r=>byName[r.英雄]=r._pair?(r._pk||""):r._full);
       document.querySelectorAll("#tbl tbody td:nth-child(2)").forEach(td=>{
         const full=byName[td.dataset.nm||td.textContent.trim()]; // 配對列顯示文字已無「 + 」，改由 data-nm 對照原始鍵
         if(!full)return;
@@ -11634,7 +11763,9 @@ function render(){
     rerender();
   }
   else if(curView==="英雄"&&V.heroDetail&&String(V.heroDetail).includes("|")){
-    heroPairDetail(V.heroDetail); // 雙人組配對詳情（鍵=組別|主|副；只有職業資料有配對逐場）
+    // 雙人組配對詳情（鍵=組別|主|副）：依資料源分流；同一個鍵在兩模式間切換不清空
+    if(!isHistYear()&&V.heroMode==="soloq")sqPairDetail(V.heroDetail);
+    else heroPairDetail(V.heroDetail);
   }
   else if(curView==="英雄"&&V.heroDetail&&!isHistYear()&&V.heroMode==="soloq"&&window.SOLOQ_BUILDS&&SOLOQ_BUILDS.hero&&SOLOQ_BUILDS.hero[V.heroDetail]){
     // ── 積分版英雄詳情頁（與職業版同構：名片＋版本趨勢＋出場紀錄；函式定義在 calcHeroesSoloq 後）──
