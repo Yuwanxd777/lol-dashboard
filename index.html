@@ -710,7 +710,7 @@
   .favStar.on{color:var(--gold)}
   .favStar:hover{color:var(--gold)}
   /* 積分逐場戰績：一列表格式（表頭與資料列共用 .sqCols 欄寬；全固定欄寬＋統一 gap＝間隔一致） */
-  .sqCols{grid-template-columns:92px 58px 66px 56px 138px 58px 112px 46px 100px 244px 80px;justify-content:start;justify-items:center;text-align:center} /* +對線@15 欄(112px) */
+  .sqCols{grid-template-columns:92px 58px 66px 56px 112px 138px 58px 50px 46px 100px 244px 80px;justify-content:start;justify-items:center;text-align:center} /* 日期|時長|英雄|對位|對位人員|KDA|KP|召喚師|符文|技能|出裝|評分（2026-08-04 改版：對線@15 移除、召喚師獨立欄、加對位人員） */
   .sqHead{display:grid;align-items:center;gap:14px;padding:2px 16px 7px;border-left:5px solid transparent;font-size:13px;color:var(--tx2)}
   /* ── 積分「每日戰況」各隊卡片 ── 欄位對齊靠 grid；勝負只用細框＋敗方微降透明度（避免整片彩色圈很吵） */
   .dlyGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(352px,1fr));gap:14px;align-items:start}
@@ -744,8 +744,10 @@
   .sqGame.win .wl{color:#5ea2ff} .sqGame.loss .wl{color:#ec6b73}
   .sqWhen{display:flex;flex-direction:column;align-items:center;gap:1px;font-size:13.5px;line-height:1.3;color:var(--tx2)}
   .sqChampWrap{position:relative;display:inline-block}
-  .sqSumm{position:absolute;right:-6px;bottom:-4px;display:flex;flex-direction:column;gap:2px}
-  .sqSumm img{width:19px;height:19px;border-radius:4px;border:1px solid #0d1524}
+  .sqDuo{position:absolute;right:-6px;bottom:-4px;line-height:0} /* 搭檔英雄角標（英雄圖右下） */
+  .sqDuo img{width:20px;height:20px;border-radius:5px;border:1px solid #0d1524}
+  .sqSummCol{display:flex;gap:3px}
+  .sqSummCol img{width:20px;height:20px;border-radius:4px;border:1px solid #33405c}
   .sqSkill{font-size:15px;letter-spacing:.5px}
   .sqRunes{display:flex;align-items:center;gap:3px}
   .sqItems{display:flex;align-items:center;gap:4px;flex-wrap:nowrap;overflow:hidden}
@@ -11659,6 +11661,12 @@ function render(){
     if(V.rankDetail){
       // ── 逐場戰績詳情（每人一檔懶載：soloq_match_index.js 記檔名，soloq_matches/pN.js 點到才注入；檔內已合併該選手所有帳號、只職業路線）──
       const rid=V.rankDetail, en=LANG==="en";
+      // 對位人員索引（812KB 懶載）：同場 gameCreation 完全相同 → 對位英雄＝另一位收錄選手用的英雄
+      if(!window.SOLOQ_VS&&!window._vsLoading){ window._vsLoading=1;
+        const sv=document.createElement("script"); sv.src="soloq_vs.js";
+        sv.onload=()=>{ if(curView==="積分"&&V.rankDetail)render(); };
+        sv.onerror=()=>{ window.SOLOQ_VS={p:[],m:{}}; };
+        document.body.appendChild(sv); }
       const pl=((SD&&SD.players)||[]).find(p=>p.riotId===rid)||{riotId:rid};
       const sameP=p=>(p.team||"")===(pl.team||"")&&(p.player||"")===(pl.player||"");
       const accts=((SD&&SD.players)||[]).filter(sameP); if(!accts.length)accts.push(pl);
@@ -11721,24 +11729,25 @@ function render(){
         if(!(g.rp&&g.rp.length))return `<div class="tipTitle">${en?"Keystone":"關鍵符文"}</div><div>${runeImg(g.r,30)}</div>`;
         return `<div class="tipTitle">${en?"Runes":"符文頁"}</div><div style="display:flex;align-items:center;gap:6px;margin:8px 0"><b class="meta" style="width:44px">${en?"Primary":"主系"}</b>${line(g.rp,26)}</div><div style="display:flex;align-items:center;gap:6px;margin:8px 0"><b class="meta" style="width:44px">${en?"Secondary":"副系"}</b>${line(g.rs,24)}</div>${shard?`<div style="display:flex;align-items:center;gap:6px;margin:8px 0"><b class="meta" style="width:44px">${en?"Shards":"碎片"}</b>${shard}</div>`:""}`; };
       const hc=(k,lb)=>k?`<div data-gsort="${k}" class="sqSortH">${lb}${gArrow(k)}</div>`:`<div>${lb}</div>`;
-      const sqHead=`<div class="sqHead sqCols">${hc("date",en?"Date":"日期")}${hc("dur",en?"Time":"時長")}${hc("champ",en?"Champ":"英雄")}${hc("opp",en?"Vs":"對位")}${hc("kda","K/D/A")}${hc("kp",en?"KP%":"參與率")}${hc("l15",en?"Lane@15":"對線@15")}${hc("rune",en?"Rune":"符文")}${hc(null,en?"Skills":"技能")}${hc(null,en?"Items":"出裝")}${hc("score",en?"Score":"評分")}</div>`;
+      const sqHead=`<div class="sqHead sqCols">${hc("date",en?"Date":"日期")}${hc("dur",en?"Time":"時長")}${hc("champ",en?"Champ":"英雄")}${hc("opp",en?"Vs":"對位英雄")}${hc(null,en?"Vs player":"對位人員")}${hc("kda","K/D/A")}${hc("kp",en?"KP%":"參與率")}${hc(null,en?"Summs":"召喚師")}${hc("rune",en?"Rune":"符文")}${hc(null,en?"Skills":"技能")}${hc(null,en?"Items":"出裝")}${hc("score",en?"Score":"評分")}</div>`;
+      // 對位人員：查同場（gameCreation 相同）的收錄選手；索引還沒載完顯示 …、查無＝路人
+      const vsCell=g=>{ const VS=window.SOLOQ_VS;
+        if(!VS)return `<span class="meta">…</span>`;
+        const e=g.t&&VS.m[String(g.t)], i2=e&&e[g.o];
+        if(i2==null)return `<span class="meta">${en?"regular":"路人"}</span>`;
+        const key=VS.p[i2]||"", tm=key.split("|")[0]||"", nm=key.split("|")[1]||"";
+        return `<span class="sqVsPro" data-vt="${esc(tm)}" data-vp="${esc(nm)}" title="${en?"tracked pro — click to open their games":"收錄選手——點擊看他的逐場"}" style="cursor:pointer;color:var(--acc);font-weight:600">${esc(teamFix(tm))} ${esc(nm)}</span>`; };
       const card=(g,i)=>`<div class="sqGame sqCols ${g.w?"win":"loss"}" data-gi="${i}">
         <div class="sqWhen"><span class="wl">${g.w?(en?"WIN":"勝"):(en?"LOSS":"敗")}</span><span style="white-space:nowrap">${dfmt(g.t)} ${dtime(g.t)}</span></div>
         <div class="meta" style="font-size:13.5px">${mmss(g.d)}</div>
-        <div><span class="sqChampWrap">${champIco(g.c,48)}<span class="sqSumm">${summImg(g.su&&g.su[0],18)}${summImg(g.su&&g.su[1],18)}</span></span></div>
+        <div><span class="sqChampWrap">${champIco(g.c,48)}${g.du?`<span class="sqDuo" title="${en?"duo lane partner":"搭檔英雄"}${g.dul?`（${g.dul}）`:""}">${champIco(g.du,20)}</span>`:""}</span></div>
         <div>${g.o?champIco(g.o,40):`<span class="meta">—</span>`}</div>
+        <div style="font-size:13px">${vsCell(g)}</div>
         <div style="font-size:15px;color:#e8edf6"><b>${kn(g.k)} <span class="meta">/</span> ${kn(g.de)} <span class="meta">/</span> ${kn(g.a)}</b> <span class="meta">(${((g.k+g.a)/Math.max(1,g.de)).toFixed(1)})</span></div>
         <div style="font-size:15px;color:#e8edf6">${g.kp}%</div>
-        ${(()=>{ // 對線@15：金差/經驗差（正紅負綠，台灣配色）＋⚡先到2等
-          const dv=v=>v==null?`<span class="meta">—</span>`:`<span class="num" style="color:${v>0?"#ff5d5d":v<0?"#37c871":"#cdd6e6"}">${v>0?"+":""}${v}</span>`;
-          const has=g.gd15!=null||g.xd15!=null||g.fl2!=null;
-          if(!has)return `<div class="meta">—</div>`;
-          const fl2=g.fl2===true||g.fl2===1||g.fl2==="true";
-          return `<div style="font-size:12.5px;line-height:1.55;text-align:left" title="${en?"Laning at 15: gold diff / xp diff":"對線 15 分：金錢差／經驗差"}${fl2?(en?" | first to level 2":"｜先到 2 等"):""}">
-            <div><span class="meta">${en?"G":"金"}</span> ${dv(g.gd15)}</div>
-            <div><span class="meta">${en?"XP":"經"}</span> ${dv(g.xd15)}${fl2?` <span title="${en?"first to level 2":"先到 2 等"}">⚡</span>`:""}</div></div>`; })()}
+        <div class="sqSummCol">${summImg(g.su&&g.su[0],20)}${summImg(g.su&&g.su[1],20)}</div>
         <div class="sqRunes">${runeKS(g,32)}</div>
-        <div class="sqSkill" title="${en?"first 5 skill points":"前 5 點技能"}">${skill3HTML(g.sk)}</div>
+        <div class="sqSkill" data-sks="${(g.sk||[]).join("")}">${skill3HTML(g.sk)}</div>
         <div class="sqItems">${sqFinalItems(g,itemSlots).map(id=>itemImg(id,30)).join("")}</div>
         <div><b style="font-size:18px;color:${scoreCol(g.sc)}">${g.sc!=null?Math.round(g.sc):"—"}</b> <span class="meta" style="font-size:12px">${g.scr?"(#"+g.scr+")":""}</span></div></div>`;
       const acctChips=accts.map(ac=>{
@@ -11771,6 +11780,23 @@ function render(){
         ${games.length?sqHead+games.slice(0,show).map(card).join(""):`<div class="note">${en?"No solo/duo games collected for this player yet.":"這位選手還沒有蒐集到單雙積分逐場資料。"}</div>`}
         ${show<games.length?`<div style="display:flex;gap:10px;justify-content:center;margin-top:12px"><button id="sqMore" class="sqMoreBtn">${en?"Show more (+100)":"顯示更多（＋100）"}</button><button id="sqAll" class="sqMoreBtn">${en?`Show all (${games.length})`:`全部展開（${games.length}）`}</button></div>`:""}</div>`;
       bindBack();
+      // 對位人員：點擊 → 開那位選手的逐場詳情（用隊+名回查他的主 riotId）
+      main.querySelectorAll(".sqVsPro").forEach(el=>el.onclick=()=>{
+        const q=((SD&&SD.players)||[]).find(p2=>String(p2.player||"")===el.dataset.vp&&teamFix(tAb(p2.team||"")||p2.team||"")===teamFix(el.dataset.vt));
+        const q2=q||((SD&&SD.players)||[]).find(p2=>String(p2.player||"")===el.dataset.vp);
+        if(q2&&q2.riotId){ V.rankDetail=q2.riotId; V.rankShow=100; V.rankGSort=null; V.rankGChamp=""; V.rankGOpp=""; V.rankDetLane=""; saveState(); render(); }
+      });
+      // 技能 hover：全場點法（1~18 逐級、QWER 上色）
+      main.querySelectorAll(".sqSkill[data-sks]").forEach(el=>{
+        const seq=[...(el.dataset.sks||"")].map(Number).filter(v=>v>=1&&v<=4);
+        if(!seq.length)return;
+        const html=`<div class="tipTitle">${en?"Skill order (full game)":"全場技能點法"}</div>`
+          +`<div style="display:flex;flex-wrap:wrap;gap:3px 4px;max-width:400px">`
+          +seq.map((v,i)=>`<span style="display:inline-flex;flex-direction:column;align-items:center;width:20px"><b style="color:${SKC[SKL[v]]||"#cdd6e6"}">${SKL[v]}</b><span class="meta" style="font-size:10px">${i+1}</span></span>`).join("")+`</div>`;
+        el.style.cursor="default";
+        el.onmouseenter=()=>tipShow(html,el.getBoundingClientRect(),"up");
+        el.onmouseleave=tipHide;
+      });
       addSubBack(()=>{V.rankDetail="";saveState();render();}); // 子頁返回鍵→回積分列表
       main.querySelectorAll(".sqLaneBtn[data-lane]").forEach(b=>b.onclick=()=>{V.rankDetLane=b.dataset.lane; V.rankShow=100; V.rankGSort=null; V.rankGChamp=""; V.rankGOpp=""; saveState(); render();});
       main.querySelectorAll(".sqHead [data-gsort]").forEach(h=>h.onclick=()=>{const k=h.dataset.gsort,s=V.rankGSort,strCol=(k==="champ"||k==="opp"); V.rankGSort=(s&&s.k===k)?{k,d:-s.d}:{k,d:strCol?1:-1}; V.rankShow=100; saveState(); render();}); // 升降幕

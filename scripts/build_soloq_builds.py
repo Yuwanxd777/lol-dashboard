@@ -184,6 +184,7 @@ def main():
     duCnt = defaultdict(lambda: defaultdict(lambda: [0, 0]))
     duCntL = defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: [0, 0])))
     ridHist = defaultdict(lambda: defaultdict(lambda: [0, 0, 0]))  # 選手key -> Riot ID -> [場, 最早t, 最晚t]
+    vsL = []  # (gameCreation, 我的英雄, 對位英雄, 選手key)：對位人員交叉索引用（同場 t 完全相同）
     suCnt = defaultdict(Counter)                              # 召喚師技能組合：英雄 -> (id小,id大) -> 場數
     ksOpp = defaultdict(lambda: defaultdict(Counter))         # 符文盒「常對到」：英雄 -> keystone -> 對位英雄 -> 場數
     recentCore = defaultdict(list)  # 英雄 -> [(t, (大裝tuple))]：算近100場核心裝
@@ -240,6 +241,7 @@ def main():
             # 原本符文只存在逐選手的 soloq_matches/pN.js（點到該選手才載入），做英雄層級的表
             # 等於要一次載入上百個檔 → 直接在這裡多存兩個數字，檔案只大一點點。
             _rs2 = next((x for x in (g.get("rs") or []) if x), None)
+            vsL.append((g.get("t") or 0, c, _opp or "", pkey))
             chGames[c].append((g.get("t") or 0, pkey, {"TOP": "T", "JUNGLE": "J", "MIDDLE": "M", "BOTTOM": "B", "UTILITY": "U"}.get(_hl, ""),
                                win, g.get("k") or 0, g.get("de") or 0, g.get("a") or 0,
                                (round(g["kp"]) if g.get("kp") is not None else None), _opp or "",
@@ -461,6 +463,31 @@ def main():
     with open(OUT3, "w", encoding="utf-8") as f:
         f.write("window.SOLOQ_ID_HIST=" + json.dumps(hist, ensure_ascii=False) + ";\n")
     print(f"帳號改名史：{len(hist)} 位選手改過 ID → {OUT3}（{os.path.getsize(OUT3)/1024:.0f} KB）")
+    # 對位人員（2026-08-04 使用者指定）：dpm 逐場沒有對手身分，但同一場比賽的 gameCreation
+    # 毫秒值完全相同 → 依 t 分組，「A 的對位英雄＝同場另一位收錄選手用的英雄」就是對上了。
+    # 只輸出有配對到的場（其餘前端顯示「路人」）；毫秒撞場機率可忽略。
+    byT = defaultdict(list)
+    for t0, cc, oo, pk2 in vsL:
+        if t0:
+            byT[t0].append((cc, oo, pk2))
+    pidx, plist, vm = {}, [], {}
+    for t0, arr in byT.items():
+        if len(arr) < 2:
+            continue
+        cmap = {cc: pk2 for cc, oo, pk2 in arr}
+        ent = {}
+        for cc, oo, pk2 in arr:
+            qpk = cmap.get(oo)
+            if qpk and qpk != pk2:                 # 對位英雄＝同場另一位收錄選手
+                if qpk not in pidx:
+                    pidx[qpk] = len(plist); plist.append(qpk)
+                ent[oo] = pidx[qpk]
+        if ent:
+            vm[str(t0)] = ent
+    OUT4 = os.path.join(ROOT, "soloq_vs.js")
+    with open(OUT4, "w", encoding="utf-8") as f:
+        f.write("window.SOLOQ_VS=" + json.dumps({"p": plist, "m": vm}, ensure_ascii=False) + ";\n")
+    print(f"對位人員索引：{len(vm)} 場對上收錄選手 → {OUT4}（{os.path.getsize(OUT4)/1024:.0f} KB）")
 
 if __name__ == "__main__":
     main()
