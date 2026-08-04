@@ -12096,7 +12096,7 @@ function render(){
     });
     alignHeroCols(document.querySelector(".recTbl")&&document.querySelector(".recTbl").closest(".card"));
     fillTableWidth(document.querySelector(".recTbl")&&document.querySelector(".recTbl").closest(".card"),true); // 平均分配多餘空間、填滿容器（此頁在 data-view=英雄 下會吃到 min-width:0，需 JS 補填寬）
-    drawTrend(ch,""); // 詳情頁自動載入版本趨勢（顯示在紀錄上方）
+    drawTrend(ch,V.hdLane||""); // 詳情頁自動載入版本趨勢（顯示在紀錄上方）；跟隨路線篩選（2026-08-05 使用者指定：標題與數據都要換路線）
     addSubBack(()=>{V.heroDetail="";V.hdOpp="";V.hdLane="";V.hdPlayer="";saveState();render();}); // 子頁返回鍵→回英雄列表
   }
   else if(curView==="積分"){
