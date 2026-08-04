@@ -10214,28 +10214,37 @@ function render(){
       box.innerHTML=`<div class="rosterGrid${layH?" rosterH":""}">${POSN.map(pos=>{
         const g=R[pos];
         if(!g)return `<div class="card"><h2>${posImg(pos)}</h2><span class="meta">此篩選下無資料</span></div>`;
+        // 單張卡（sel＝選手名、d＝該選手資料、withSel＝是否放選人下拉）——直式一路一卡（可下拉換人）、
+        // 橫式一路「每位選手各一卡」全列出（2026-08-05 使用者指定：先路線、再選手場數排序）
+        const mkCard=(sel,d,withSel)=>{
+          const opts=g.players.map(x=>`<option ${x.p===sel?"selected":""}>${x.p}</option>`).join("");
+          const who=(withSel&&g.players.length>1)?`<select class="pickSel" data-pos="${pos}">${opts}</select>`:pCell(sel,sel);
+          // 使用者定案 2026-07-31：這串要跟選手名字同列；生涯模式字串最長（多了年份範圍）→ 縮小字級、
+          // 用窄分隔「｜」取代全形空白、不換行（放不下才由 flex-wrap 退成第二行，不裁字）
+          const hd2=inner=>`<div class="card"><h2 style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">${posImg(pos)}${who}<span class="meta" style="margin-left:auto;font-weight:normal;font-size:${careerMode?"12.5":"15.5"}px;white-space:nowrap">${inner}</span></h2>`;
+          if(soloqMode){
+            const sp=soloqPool(tAb(V.rosterTeam),sel);
+            if(sp.noAcct)return hd2(LANG==="en"?"no ranked account":"缺積分帳號資料")+`</div>`;
+            if(sp.loading)return hd2(LANG==="en"?"loading…":"載入中…")+`</div>`;
+            const tot=sp.pool.reduce((s,c)=>s+c.n,0), tw=sp.pool.reduce((s,c)=>s+c.w,0), wr=tot?tw/tot:0;
+            return hd2(LANG==="en"?`Pool ${sp.pool.length}　Games ${tot}　Win% ${Math.round(wr*100)}%`:`角色池 ${sp.pool.length}　總場 ${tot}　勝率 ${Math.round(wr*100)}%`)
+              +tblFor(sortPool(sp.pool,pos),pos,sel,true)+`</div>`;
+          }
+          if(careerMode){ // 年份寫該選手自己的生涯範圍（新人可能只有 2025~2026），不是資料庫全域範圍
+            const yr=d._y0?(d._y1&&d._y1!==d._y0?`${d._y0}~${d._y1}`:d._y0):"";
+            return hd2(LANG==="en"?`${yr}｜Pool ${d.pool.length}｜Games ${d.total}｜Win% ${Math.round(d.winrate*100)}%`
+                                  :`${yr}｜角色池 ${d.pool.length}｜總場 ${d.total}｜勝率 ${Math.round(d.winrate*100)}%`)
+              +tblFor(sortPool(d.pool,pos),pos,null,false)+`</div>`; }
+          return hd2(LANG==="en"?`Pool ${d.pool.length}　Games ${d.total}　Win% ${Math.round(d.winrate*100)}%`:`角色池 ${d.pool.length}　總場 ${d.total}　勝率 ${Math.round(d.winrate*100)}%`)
+            +tblFor(sortPool(d.pool,pos),pos,sel,true)+`</div>`;
+        };
+        if(layH){ // 橫式：該路全部選手各一卡，依（職業）出賽場數多→少
+          return [...g.players].sort((a,b)=>(b.total||0)-(a.total||0)||String(a.p).localeCompare(String(b.p)))
+            .map(x=>mkCard(x.p,x,false)).join("");
+        }
         const sel=(V.rosterPick[pos]&&g.players.some(x=>x.p===V.rosterPick[pos]))?V.rosterPick[pos]:g.def;
         const d=g.players.find(x=>x.p===sel);
-        const opts=g.players.map(x=>`<option ${x.p===sel?"selected":""}>${x.p}</option>`).join("");
-        const who=g.players.length>1?`<select class="pickSel" data-pos="${pos}">${opts}</select>`:pCell(sel,sel);
-        // 使用者定案 2026-07-31：這串要跟選手名字同列；生涯模式字串最長（多了年份範圍）→ 縮小字級、
-        // 用窄分隔「｜」取代全形空白、不換行（放不下才由 flex-wrap 退成第二行，不裁字）
-        const hd2=inner=>`<div class="card"><h2 style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">${posImg(pos)}${who}<span class="meta" style="margin-left:auto;font-weight:normal;font-size:${careerMode?"12.5":"15.5"}px;white-space:nowrap">${inner}</span></h2>`;
-        if(soloqMode){
-          const sp=soloqPool(tAb(V.rosterTeam),sel);
-          if(sp.noAcct)return hd2(LANG==="en"?"no ranked account":"缺積分帳號資料")+`</div>`;
-          if(sp.loading)return hd2(LANG==="en"?"loading…":"載入中…")+`</div>`;
-          const tot=sp.pool.reduce((s,c)=>s+c.n,0), tw=sp.pool.reduce((s,c)=>s+c.w,0), wr=tot?tw/tot:0;
-          return hd2(LANG==="en"?`Pool ${sp.pool.length}　Games ${tot}　Win% ${Math.round(wr*100)}%`:`角色池 ${sp.pool.length}　總場 ${tot}　勝率 ${Math.round(wr*100)}%`)
-            +tblFor(sortPool(sp.pool,pos),pos,sel,true)+`</div>`;
-        }
-        if(careerMode){ // 年份寫該選手自己的生涯範圍（新人可能只有 2025~2026），不是資料庫全域範圍
-          const yr=d._y0?(d._y1&&d._y1!==d._y0?`${d._y0}~${d._y1}`:d._y0):"";
-          return hd2(LANG==="en"?`${yr}｜Pool ${d.pool.length}｜Games ${d.total}｜Win% ${Math.round(d.winrate*100)}%`
-                                :`${yr}｜角色池 ${d.pool.length}｜總場 ${d.total}｜勝率 ${Math.round(d.winrate*100)}%`)
-            +tblFor(sortPool(d.pool,pos),pos,null,false)+`</div>`; }
-        return hd2(LANG==="en"?`Pool ${d.pool.length}　Games ${d.total}　Win% ${Math.round(d.winrate*100)}%`:`角色池 ${d.pool.length}　總場 ${d.total}　勝率 ${Math.round(d.winrate*100)}%`)
-          +tblFor(sortPool(d.pool,pos),pos,sel,true)+`</div>`;
+        return mkCard(sel,d,true);
       }).join("")}</div>`;
       box.querySelectorAll(".pickSel").forEach(s=>s.onchange=()=>{V.rosterPick[s.dataset.pos]=s.value; saveState(); rerender();});
       box.querySelectorAll("th[data-rk]").forEach(th=>th.onclick=()=>{
