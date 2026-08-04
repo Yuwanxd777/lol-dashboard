@@ -6864,6 +6864,10 @@ function bindFilters(cb){
         try{if(typeof VIEW_CACHE!=="undefined"&&VIEW_CACHE)VIEW_CACHE.slots={};}catch(e){}
         cb();};
       anchor.parentNode.insertBefore(b,anchor);
+      // 英雄分頁渲染後會把基礎按鈕重組進右側 .barBtns，() 會被留在外面被其他鈕擠走 →
+      // 渲染收尾再歸位：() 是基礎按鈕，永遠貼在說明(ℹ️)左邊（2026-08-04 使用者定案）
+      requestAnimationFrame(()=>{ const h=document.getElementById("fHelp"), b2=document.getElementById("brkBtn");
+        if(h&&b2&&b2.nextElementSibling!==h)h.parentNode.insertBefore(b2,h); });
     }
   }
   ["fD1","fD2"].forEach(id=>{ // 📅 日曆選日：隱形 date input 承接，值取月日回填
@@ -11774,6 +11778,22 @@ function render(){
         const tl=ac.found&&ac.tier?`<span style="color:${TIER_COL[ac.tier]||""};font-weight:600">${esc(tierLabel(ac))}${ac.lp!=null?" "+ac.lp+"LP":""}</span>`:`<span class="meta">${en?"unranked":"未定位"}</span>`;
         return `<span class="acctChip"><span class="meta">${esc(platDisp(ac.platform))}</span> <a href="${dpmUrl(ac.platform,ac.riotId)}" target="_blank" rel="noopener" class="acctLink">${esc(ac.riotId)}</a> ${tl}</span>`;
       }).join("");
+      // 同隊選手捷徑（2026-08-04 使用者定案：放在「基礎按鈕那一列」＝ensureBackBtn 建的
+      // 頂部 .filters 條的最左）。那條 bar 是 render 收尾才建的 → rAF 注入（見下方綁定區）。
+      const matesHTML=()=>{ const tm0=teamFix(pl.team||""); if(!tm0)return "";
+        const seen=new Set(), mates=[];
+        (((SD&&SD.players)||[])).forEach(p2=>{ if(teamFix(p2.team||"")!==tm0)return;
+          const k2=(p2.team||"")+"|"+(p2.player||"");
+          if(seen.has(k2))return; seen.add(k2);
+          const meta2=IDX&&IDX.players&&IDX.players[k2];
+          if(!meta2)return;                                  // 沒有逐場檔＝點了也是空的，不列
+          mates.push({p:p2.player,rid:p2.riotId,role:meta2.role||"",me:p2.player===pl.player}); });
+        if(mates.length<2)return "";
+        const RO={TOP:0,JUNGLE:1,MIDDLE:2,BOTTOM:3,UTILITY:4}, R3={TOP:"TOP",JUNGLE:"JNG",MIDDLE:"MID",BOTTOM:"BOT",UTILITY:"SUP"};
+        mates.sort((x,y)=>(RO[x.role]??9)-(RO[y.role]??9)||String(x.p).localeCompare(String(y.p)));
+        return `<span class="meta">${esc(tm0)}</span>`
+          +mates.filter(m2=>!m2.me).map(m2=>`<button class="sqLaneBtn sqMate" data-rid="${esc(m2.rid||"")}">${R3[m2.role]?posImg(R3[m2.role]):""}${esc(m2.p)}</button>`).join("");
+      };
       const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按「顯示更多」展開
       main.innerHTML=`<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px">
         ${bkBtn}
@@ -11792,23 +11812,7 @@ function render(){
         <span style="flex:1"></span>
         ${IDX&&IDX.fetched_at?`<span class="meta">${en?"Updated":"更新"} ${esc(IDX.fetched_at)}${IDX.year?"·"+IDX.year:""}</span>`:""}</div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
-          ${(()=>{ // 同隊其他選手的逐場捷徑：放在篩選列最左（2026-08-04 使用者指定）
-            const tm0=teamFix(pl.team||""); if(!tm0)return "";
-            const seen=new Set(), mates=[];
-            (((SD&&SD.players)||[])).forEach(p2=>{ if(teamFix(p2.team||"")!==tm0)return;
-              const k2=(p2.team||"")+"|"+(p2.player||"");
-              if(seen.has(k2))return; seen.add(k2);
-              const meta2=IDX&&IDX.players&&IDX.players[k2];
-              if(!meta2)return;                                // 沒有逐場檔＝點了也是空的，不列
-              mates.push({p:p2.player,rid:p2.riotId,role:meta2.role||"",me:p2.player===pl.player}); });
-            if(mates.length<2)return "";
-            const RO={TOP:0,JUNGLE:1,MIDDLE:2,BOTTOM:3,UTILITY:4}, R3={TOP:"TOP",JUNGLE:"JNG",MIDDLE:"MID",BOTTOM:"BOT",UTILITY:"SUP"};
-            mates.sort((x,y)=>(RO[x.role]??9)-(RO[y.role]??9)||String(x.p).localeCompare(String(y.p)));
-            // 自己不列（2026-08-04）；鈕內左側放路線圖示
-            return `<span class="meta">${esc(tm0)}</span>`
-              +mates.filter(m2=>!m2.me).map(m2=>`<button class="sqLaneBtn sqMate" data-rid="${esc(m2.rid||"")}">${R3[m2.role]?posImg(R3[m2.role]):""}${esc(m2.p)}</button>`).join("")
-              +`<span style="width:6px"></span>`;
-          })()}
+          
           ${gfilter("gChampF","dlChamp",V.rankGChamp,champOpts,en?"Champion":"英雄")}${gfilter("gOppF","dlOpp",V.rankGOpp,oppOpts,en?"Opponent":"對位英雄")}
           <span class="cwrap"><input id="gVsF" class="combo" list="dlVs" value="${V.rankGVs==="@路人"?(en?"regular":"路人"):(V.rankGVs?esc(_vDisp(V.rankGVs)):"")}" placeholder="${en?"Vs player":"對位人員"}" autocomplete="off" style="width:134px;padding-right:26px"><button class="cx" tabindex="-1" data-x="gVsF" title="${en?"Clear":"一鍵清除"}">✕</button></span><datalist id="dlVs">${_vReg?`<option value="${en?"regular":"路人"}">${_vReg}${en?" games":" 場"}</option>`:""}${vsOpts.map(k=>`<option value="${esc(_vDisp(k))}">${_vcnt[k]}${en?" games":" 場"}</option>`).join("")}</datalist>
           ${(V.rankGChamp||V.rankGOpp||V.rankGVs)?`<button id="gClrF" class="sqLaneBtn">${en?"clear":"清除"}</button>`:""}</div>
@@ -11817,10 +11821,18 @@ function render(){
         ${games.length?sqHead+games.slice(0,show).map(card).join(""):`<div class="note">${en?"No solo/duo games collected for this player yet.":"這位選手還沒有蒐集到單雙積分逐場資料。"}</div>`}
         ${show<games.length?`<div style="display:flex;gap:10px;justify-content:center;margin-top:12px"><button id="sqMore" class="sqMoreBtn">${en?"Show more (+100)":"顯示更多（＋100）"}</button><button id="sqAll" class="sqMoreBtn">${en?`Show all (${games.length})`:`全部展開（${games.length}）`}</button></div>`:""}</div>`;
       bindBack();
-      // 同隊選手捷徑
-      main.querySelectorAll(".sqMate[data-rid]").forEach(el=>el.onclick=()=>{ const r2=el.dataset.rid;
-        if(!r2||r2===rid)return;
-        V.rankDetail=r2; V.rankDetLane=""; V.rankShow=100; V.rankGSort=null; V.rankGChamp=""; V.rankGOpp=""; V.rankGVs=""; saveState(); render(); });
+      // 同隊選手捷徑：注入頂部 .filters 條最左（ensureBackBtn 建的那條，render 收尾才有 → rAF）
+      requestAnimationFrame(()=>{ const bar=document.querySelector("#main .filters"); if(!bar)return;
+        let mt=document.getElementById("sqMates");
+        const html=matesHTML();
+        if(!html){ if(mt)mt.remove(); return; }
+        if(!mt){ mt=document.createElement("span"); mt.id="sqMates";
+          mt.style.cssText="display:inline-flex;gap:6px;align-items:center;flex-wrap:wrap"; }
+        if(bar.firstChild!==mt)bar.insertBefore(mt,bar.firstChild);
+        mt.innerHTML=html;
+        mt.querySelectorAll(".sqMate[data-rid]").forEach(el=>el.onclick=()=>{ const r2=el.dataset.rid;
+          if(!r2||r2===rid)return;
+          V.rankDetail=r2; V.rankDetLane=""; V.rankShow=100; V.rankGSort=null; V.rankGChamp=""; V.rankGOpp=""; V.rankGVs=""; saveState(); render(); }); });
       // 對位人員：點擊 → 開那位選手的逐場詳情（用隊+名回查他的主 riotId）
       main.querySelectorAll(".sqVsPro").forEach(el=>el.onclick=()=>{
         const q=((SD&&SD.players)||[]).find(p2=>String(p2.player||"")===el.dataset.vp&&teamFix(tAb(p2.team||"")||p2.team||"")===teamFix(el.dataset.vt));
