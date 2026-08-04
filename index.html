@@ -745,6 +745,7 @@
   #sqMates .meta{font-size:20px}
   #sqMates .sqMate{font-size:16px;padding:5px 14px;color:var(--tx)} /* 要贏過後面的 .sqLaneBtn 12.5px（後者宣告在後、同特異度會蓋掉） */
   .sqMate img.posic{width:16px;height:16px;vertical-align:-2px;margin-right:5px}
+  .sqDetLane img.posic{width:30px;height:30px} /* 積分詳情標頭的路線圖 */
   .sqGame.win .wl{color:#5ea2ff} .sqGame.loss .wl{color:#ec6b73}
   .sqWhen{display:flex;flex-direction:column;align-items:center;gap:1px;font-size:13.5px;line-height:1.3;color:var(--tx2)}
   .sqChampWrap{position:relative;display:inline-block}
@@ -11714,7 +11715,7 @@ function render(){
       };
       if(meta && !cache){ // 尚未載入該選手的逐場檔→注入＋顯示載入中；__sqLoad 載好後會重繪
         if(!document.querySelector('script[data-sqf="'+meta.f+'"]')){ const s=document.createElement("script"); s.src="soloq_matches/"+meta.f; s.setAttribute("data-sqf",meta.f); s.onerror=()=>{window.__SQCACHE[key]={role:meta.role,matches:[]}; if(curView==="積分"&&V.rankDetail)render();}; document.body.appendChild(s); }
-        main.innerHTML=`<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:10px">${bkBtn}<h2 style="margin:0">${esc(pl.player||rid.split("#")[0])} <span class="meta" style="font-size:14px">${esc(teamFix(pl.team||""))}</span></h2><span class="meta">${en?"loading games…":"載入逐場中…"}</span></div>`;
+        main.innerHTML=`<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:10px">${bkBtn}${(()=>{const R3={TOP:"TOP",JUNGLE:"JNG",MIDDLE:"MID",BOTTOM:"BOT",UTILITY:"SUP"};const rl=meta&&meta.role;return rl&&R3[rl]?`<span class="sqDetLane" style="line-height:0">${posImg(R3[rl])}</span>`:"";})()}<h2 style="margin:0"><span class="meta" style="font-size:16px">${esc(teamFix(pl.team||""))}</span> ${esc(pl.player||rid.split("#")[0])}</h2><span class="meta">${en?"loading games…":"載入逐場中…"}</span></div>`;
         bindBack();
         _injectMates();
       } else {
@@ -11815,8 +11816,9 @@ function render(){
 const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按「顯示更多」展開
       main.innerHTML=`<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px">
         ${bkBtn}
-        <h2 style="margin:0">${esc(pl.player||rid.split("#")[0])} <span class="meta" style="font-size:14px">${esc(teamFix(pl.team||""))}</span></h2>
-        ${role?`<span class="sqLaneBtn on" style="cursor:default">${posLb(role)}</span>`:""}
+        ${(()=>{const R3={TOP:"TOP",JUNGLE:"JNG",MIDDLE:"MID",BOTTOM:"BOT",UTILITY:"SUP"};
+          return role&&R3[role]?`<span class="sqDetLane" style="line-height:0" title="${posLb(role)}">${posImg(R3[role])}</span>`:"";})()}
+        <h2 style="margin:0"><span class="meta" style="font-size:16px">${esc(teamFix(pl.team||""))}</span> ${esc(pl.player||rid.split("#")[0])}</h2>
         ${acctsShow.length>1?`<span class="meta">${en?`${acctsShow.length} accts:`:`合併 ${acctsShow.length} 帳號：`}</span>`:""}${acctChips}
         ${(()=>{ // 曾用ID（soloq_id_hist.js＝逐場當下的 gameName#tagLine 還原；只有改過名的選手才有）
           const H=(window.SOLOQ_ID_HIST||{})[(teamFix(tAb(pl.team||""))||pl.team||"")+"|"+(pl.player||"")]
