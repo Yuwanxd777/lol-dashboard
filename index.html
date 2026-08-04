@@ -7625,6 +7625,15 @@ async function shotEl(src,name,prep){
     clone.style.cssText=`position:fixed;left:-99999px;top:0;width:${w}px;padding:10px;box-sizing:content-box;background:#0b0e14`;
     if(prep)prep(clone); // prep 在設定樣式之後跑，才能覆寫寬度／排版
     document.body.appendChild(clone);
+    // 畫面外的懶載圖（loading=lazy）原頁還沒載過 → html2canvas 內部 iframe 會用「無 CORS」
+    // 原樣載入畫上 canvas，第一次截圖就 Tainted（重試會因快取成功，看起來時好時壞——
+    // 2026-08-05 陣容橫式 10 張卡直向排、下面的卡都在畫面外，必踩）。
+    // 先把 clone 內所有 https 圖改 eager＋anonymous 並等載完，html2canvas 的 CORS 取圖就穩定命中。
+    clone.querySelectorAll("img").forEach(im=>{ im.loading="eager";
+      if(/^https?:/i.test(im.src))im.setAttribute("crossorigin","anonymous"); });
+    await Promise.all([...clone.querySelectorAll("img")].map(im=>new Promise(r=>{
+      if(im.complete&&im.naturalWidth)return r();
+      im.onload=r; im.onerror=r; setTimeout(r,4000); })));
     const cv=await html2canvas(clone,{backgroundColor:"#0b0e14",useCORS:true,
       scale:Math.min(3,1920/Math.max(1,clone.scrollWidth)),
       width:clone.scrollWidth,height:clone.scrollHeight,
@@ -10184,11 +10193,13 @@ function render(){
     };
     const rerender=()=>{
       const box=document.getElementById("rosterBox");
-      if(!V.rosterTeam){box.innerHTML=`<div class="card"><span class="meta">請先在上方選擇戰隊，即可看到五路先發選手的角色池。</span></div>`;return;}
+      // 戰隊可空、但至少要選一條路線（2026-08-05 使用者指定：只篩路線＝跨全部戰隊列該路選手；兩者皆空資料量太大不呈現）
+      if(!V.rosterTeam&&!V.rosterLane){box.innerHTML=`<div class="card"><span class="meta">${LANG==="en"?"Pick a team above (or at least a lane) to see champion pools.":"請先在上方選擇戰隊（或至少選一條路線），即可看到選手的角色池。"}</span></div>`;return;}
       if(careerMode&&!ensureCareer()){box.innerHTML=`<div class="card"><span class="meta">${LANG==="en"?"loading career data…":"載入生涯資料中…（2014~現在，約 5 MB，只載一次）"}</span></div>`;return;}
       if(careerMode&&window.CAREER&&window.CAREER._err){box.innerHTML=`<div class="card"><span class="meta">${LANG==="en"?"career.js not found — run scripts/build_career.py":"找不到 career.js —— 請先跑 <b>python scripts/build_career.py</b> 產生生涯資料"}</span></div>`;return;}
-      const R=careerMode?careerRoster(V.rosterTeam):teamRoster(V.rosterTeam);
-      if(!R){box.innerHTML=`<div class="card"><span class="meta">此戰隊沒有生涯資料</span></div>`;return;}
+      const crossTeam=!V.rosterTeam; // 戰隊空＋路線有＝跨全部戰隊列該路選手
+      const R=crossTeam?null:(careerMode?careerRoster(V.rosterTeam):teamRoster(V.rosterTeam));
+      if(!crossTeam&&!R){box.innerHTML=`<div class="card"><span class="meta">此戰隊沒有生涯資料</span></div>`;return;}
       V.rosterPick=V.rosterPick||{}; V.rosterSort=V.rosterSort||{};
       const rArrow=(pos,k)=>{const s=V.rosterSort[pos],on=s&&s.k===k,up=on&&s.d>0; return `<span class="sortArr${on?" on":""}${on?(up?" asc":" desc"):""}">${up?"▲":"▼"}</span>`;};
       const RCOLS=soloqMode?["英雄","場","勝率","KDA","上次"]:["英雄","場","勝率","被禁","上次"];
@@ -10215,41 +10226,53 @@ function render(){
       const tblFor=(pool,pos,who,go)=>layH?poolH(pool,pos,who,go)
         :`<table class="ov"><thead><tr>${rHead(pos)}</tr></thead><tbody>${soloqMode?poolRowsSoloq(pool,go?pos:null,go?who:null):poolRows(pool,go?pos:null,go?who:null)}</tbody></table>`;
       const posList=V.rosterLane?POSN.filter(p=>p===V.rosterLane):POSN; // 路線篩選：只畫選定那一路
-      box.innerHTML=`<div class="rosterGrid${layH?" rosterH":""}"${(!layH&&posList.length===1)?' style="grid-template-columns:minmax(0,560px)"':''}>${posList.map(pos=>{
-        const g=R[pos];
-        if(!g)return `<div class="card"><h2>${posImg(pos)}</h2><span class="meta">此篩選下無資料</span></div>`;
-        // 單張卡（sel＝選手名、d＝該選手資料、withSel＝是否放選人下拉）——直式一路一卡（可下拉換人）、
-        // 橫式一路「每位選手各一卡」全列出（2026-08-05 使用者指定：先路線、再選手場數排序）
-        const mkCard=(sel,d,withSel)=>{
-          const opts=g.players.map(x=>`<option ${x.p===sel?"selected":""}>${x.p}</option>`).join("");
-          const who=(withSel&&g.players.length>1)?`<select class="pickSel" data-pos="${pos}">${opts}</select>`:pCell(sel,sel);
-          // 使用者定案 2026-07-31：這串要跟選手名字同列；生涯模式字串最長（多了年份範圍）→ 縮小字級、
-          // 用窄分隔「｜」取代全形空白、不換行（放不下才由 flex-wrap 退成第二行，不裁字）
-          const hd2=inner=>`<div class="card"><h2 style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">${posImg(pos)}${who}<span class="meta" style="margin-left:auto;font-weight:normal;font-size:${careerMode?"12.5":"15.5"}px;white-space:nowrap">${inner}</span></h2>`;
-          if(soloqMode){
-            const sp=soloqPool(tAb(V.rosterTeam),sel);
-            if(sp.noAcct)return hd2(LANG==="en"?"no ranked account":"缺積分帳號資料")+`</div>`;
-            if(sp.loading)return hd2(LANG==="en"?"loading…":"載入中…")+`</div>`;
-            const tot=sp.pool.reduce((s,c)=>s+c.n,0), tw=sp.pool.reduce((s,c)=>s+c.w,0), wr=tot?tw/tot:0;
-            return hd2(LANG==="en"?`Pool ${sp.pool.length}　Games ${tot}　Win% ${Math.round(wr*100)}%`:`角色池 ${sp.pool.length}　總場 ${tot}　勝率 ${Math.round(wr*100)}%`)
-              +tblFor(sortPool(sp.pool,pos),pos,sel,true)+`</div>`;
-          }
-          if(careerMode){ // 年份寫該選手自己的生涯範圍（新人可能只有 2025~2026），不是資料庫全域範圍
-            const yr=d._y0?(d._y1&&d._y1!==d._y0?`${d._y0}~${d._y1}`:d._y0):"";
-            return hd2(LANG==="en"?`${yr}｜Pool ${d.pool.length}｜Games ${d.total}｜Win% ${Math.round(d.winrate*100)}%`
-                                  :`${yr}｜角色池 ${d.pool.length}｜總場 ${d.total}｜勝率 ${Math.round(d.winrate*100)}%`)
-              +tblFor(sortPool(d.pool,pos),pos,null,false)+`</div>`; }
-          return hd2(LANG==="en"?`Pool ${d.pool.length}　Games ${d.total}　Win% ${Math.round(d.winrate*100)}%`:`角色池 ${d.pool.length}　總場 ${d.total}　勝率 ${Math.round(d.winrate*100)}%`)
-            +tblFor(sortPool(d.pool,pos),pos,sel,true)+`</div>`;
-        };
-        if(layH){ // 橫式：該路全部選手各一卡，依（職業）出賽場數多→少
-          return [...g.players].sort((a,b)=>(b.total||0)-(a.total||0)||String(a.p).localeCompare(String(b.p)))
-            .map(x=>mkCard(x.p,x,false)).join("");
+      // 單張卡（pos/g＝該路資料、sel＝選手名、d＝該選手資料、withSel＝是否放選人下拉、team＝所屬隊）——
+      // 直式一路一卡（可下拉換人）、橫式與跨隊模式「每位選手各一卡」（2026-08-05 使用者指定）
+      const mkCard=(pos,g,sel,d,withSel,team)=>{
+        const opts=g.players.map(x=>`<option ${x.p===sel?"selected":""}>${x.p}</option>`).join("");
+        const who=(withSel&&g.players.length>1)?`<select class="pickSel" data-pos="${pos}">${opts}</select>`:pCell(sel,sel);
+        const tmTag=crossTeam?`<b style="font-size:17px;color:var(--tx2)">${esc(tAb(team)||team||"")}</b>`:""; // 跨隊模式：名字前標隊伍縮寫
+        // 使用者定案 2026-07-31：這串要跟選手名字同列；生涯模式字串最長（多了年份範圍）→ 縮小字級、
+        // 用窄分隔「｜」取代全形空白、不換行（放不下才由 flex-wrap 退成第二行，不裁字）
+        const hd2=inner=>`<div class="card"><h2 style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">${posImg(pos)}${tmTag}${who}<span class="meta" style="margin-left:auto;font-weight:normal;font-size:${careerMode?"12.5":"15.5"}px;white-space:nowrap">${inner}</span></h2>`;
+        if(soloqMode){
+          const sp=soloqPool(tAb(team),sel);
+          if(sp.noAcct)return hd2(LANG==="en"?"no ranked account":"缺積分帳號資料")+`</div>`;
+          if(sp.loading)return hd2(LANG==="en"?"loading…":"載入中…")+`</div>`;
+          const tot=sp.pool.reduce((s,c)=>s+c.n,0), tw=sp.pool.reduce((s,c)=>s+c.w,0), wr=tot?tw/tot:0;
+          return hd2(LANG==="en"?`Pool ${sp.pool.length}　Games ${tot}　Win% ${Math.round(wr*100)}%`:`角色池 ${sp.pool.length}　總場 ${tot}　勝率 ${Math.round(wr*100)}%`)
+            +tblFor(sortPool(sp.pool,pos),pos,sel,true)+`</div>`;
         }
-        const sel=(V.rosterPick[pos]&&g.players.some(x=>x.p===V.rosterPick[pos]))?V.rosterPick[pos]:g.def;
-        const d=g.players.find(x=>x.p===sel);
-        return mkCard(sel,d,true);
-      }).join("")}</div>`;
+        if(careerMode){ // 年份寫該選手自己的生涯範圍（新人可能只有 2025~2026），不是資料庫全域範圍
+          const yr=d._y0?(d._y1&&d._y1!==d._y0?`${d._y0}~${d._y1}`:d._y0):"";
+          return hd2(LANG==="en"?`${yr}｜Pool ${d.pool.length}｜Games ${d.total}｜Win% ${Math.round(d.winrate*100)}%`
+                                :`${yr}｜角色池 ${d.pool.length}｜總場 ${d.total}｜勝率 ${Math.round(d.winrate*100)}%`)
+            +tblFor(sortPool(d.pool,pos),pos,null,false)+`</div>`; }
+        return hd2(LANG==="en"?`Pool ${d.pool.length}　Games ${d.total}　Win% ${Math.round(d.winrate*100)}%`:`角色池 ${d.pool.length}　總場 ${d.total}　勝率 ${Math.round(d.winrate*100)}%`)
+          +tblFor(sortPool(d.pool,pos),pos,sel,true)+`</div>`;
+      };
+      let cardsHTML;
+      if(crossTeam){ // 跨隊單路：全部戰隊該路的選手各一卡，依出賽場數多→少（兩種版面都一樣列全部）
+        const pos=V.rosterLane, all=[];
+        teams.forEach(t=>{ const R2=careerMode?careerRoster(t):teamRoster(t); const g2=R2&&R2[pos]; if(!g2)return;
+          g2.players.forEach(x=>all.push({t,g:g2,x})); });
+        all.sort((a,b)=>(b.x.total||0)-(a.x.total||0)||String(a.x.p).localeCompare(String(b.x.p)));
+        cardsHTML=all.length?all.map(e=>mkCard(pos,e.g,e.x.p,e.x,false,e.t)).join("")
+          :`<div class="card"><h2>${posImg(pos)}</h2><span class="meta">此篩選下無資料</span></div>`;
+      }else{
+        cardsHTML=posList.map(pos=>{
+          const g=R[pos];
+          if(!g)return `<div class="card"><h2>${posImg(pos)}</h2><span class="meta">此篩選下無資料</span></div>`;
+          if(layH){ // 橫式：該路全部選手各一卡，依（職業）出賽場數多→少
+            return [...g.players].sort((a,b)=>(b.total||0)-(a.total||0)||String(a.p).localeCompare(String(b.p)))
+              .map(x=>mkCard(pos,g,x.p,x,false,V.rosterTeam)).join("");
+          }
+          const sel=(V.rosterPick[pos]&&g.players.some(x=>x.p===V.rosterPick[pos]))?V.rosterPick[pos]:g.def;
+          const d=g.players.find(x=>x.p===sel);
+          return mkCard(pos,g,sel,d,true,V.rosterTeam);
+        }).join("");
+      }
+      box.innerHTML=`<div class="rosterGrid${layH?" rosterH":""}"${(!layH&&!crossTeam&&posList.length===1)?' style="grid-template-columns:minmax(0,560px)"':''}>${cardsHTML}</div>`;
       box.querySelectorAll(".pickSel").forEach(s=>s.onchange=()=>{V.rosterPick[s.dataset.pos]=s.value; saveState(); rerender();});
       {const ls=document.getElementById("vRosterLane"); if(ls&&!ls._b){ls._b=1; ls.onchange=()=>{V.rosterLane=ls.value; saveState(); rerender();};}}
       box.querySelectorAll("th[data-rk]").forEach(th=>th.onclick=()=>{
