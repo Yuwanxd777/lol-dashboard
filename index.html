@@ -337,7 +337,8 @@
   .rosterGrid.rosterH table.rsH{width:max-content;min-width:0}
   .rsH th[data-rk]{width:auto;text-align:left;white-space:nowrap}
   .rsH td{text-align:center;padding:4px 8px}
-  .rsH td:has(.heroname){text-align:left;padding-left:4px;padding-right:12px}
+  .rsH td:has(.heroname){text-align:center;padding:4px 8px} /* 橫式只列圖示不列名（滑上看名字）→ 置中 */
+  .rsH .heroname .cc img{margin-right:0}
   .pickSel{font-size:17px;font-weight:bold;color:var(--acc);background:var(--card2);
     border:1px solid var(--line);border-radius:8px;padding:3px 8px;max-width:150px}
   /* 版本改動分頁 */
@@ -10194,7 +10195,7 @@ function render(){
         const row=(k,tds)=>`<tr>${rTh(k)}${tds}</tr>`;
         const _goAttr=c=>go?` data-ch="${esc(c.ch)}" data-pos="${esc(pos)}" data-p="${esc(who||"")}" title="${LANG==="en"?"open champion detail (this player · this lane)":"到英雄詳情看這位選手這一路的紀錄"}"`:"";
         return `<table class="ov rsH"><tbody>
-          ${row("英雄",pool.map(c=>`<td><span class="heroname" data-ch="${esc(c.ch)}">${cImg(c.ch)}${cAb(c.ch)}</span></td>`).join(""))}
+          ${row("英雄",pool.map(c=>`<td><span class="heroname" data-ch="${esc(c.ch)}" title="${esc(chName(champId(c.ch))||c.ch)}">${cImg(c.ch)}</span></td>`).join(""))}
           ${row("場",pool.map(c=>`<td class="${rG(c.n,c.n)}${go?" rsGo":""}"${_goAttr(c)}>${c.n}</td>`).join(""))}
           ${row("勝率",pool.map(c=>{const wr=c.n?c.w/c.n:0;return `<td class="${rW(wr,c.n)}">${Math.round(wr*100)}%</td>`;}).join(""))}
           ${soloqMode?row("KDA",pool.map(c=>`<td class="${rK(c._kda,c.n)} num">${c._kda.toFixed(1)}</td>`).join(""))
