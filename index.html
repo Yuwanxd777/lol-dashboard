@@ -6575,11 +6575,11 @@ function sqHeroDetail(cid){
     const cell=v=>`<td style="color:${v==null?"var(--tx2)":v>0?"#ff6b6b":v<0?"#37c871":""}">${v==null?"—":(v>0?"+":"")+Math.round(v)}</td>`;
     const scCol=s=>{if(s==null)return"#8aa0c0"; const v=Math.max(0,Math.min(100,s)); return `hsl(${Math.round(120*(1-v/100))},72%,58%)`;}; // 評分 0→100 綠→黃→紅（同積分逐場 scoreCol）
     recInner=`<div class="tblwrap"><table class="recTbl"><thead><tr>
-      <th>#</th>${["使用選手","版本","位置","勝敗","K/D/A","金差@15","經差@15","符文","點法","對位英雄","評分"].map(k2=>{const _s=V.recSort,_on=_s&&_s.k===k2,_up=_on&&_s.d>0;return `<th data-rs="${k2}" style="cursor:pointer"><span class="thL">${mLabel(k2)}<span class="sortArr${_on?" on":""}${_on?(_up?" asc":" desc"):""}">${_up?"▲":"▼"}</span></span></th>`;}).join("")}</tr></thead><tbody>${
+      <th>#</th>${["版本","位置","使用選手","勝敗","K/D/A","金差@15","經差@15","符文","點法","對位英雄","評分"].map(k2=>{const _s=V.recSort,_on=_s&&_s.k===k2,_up=_on&&_s.d>0;return `<th data-rs="${k2}" style="cursor:pointer"><span class="thL">${mLabel(k2)}<span class="sortArr${_on?" on":""}${_on?(_up?" asc":" desc"):""}">${_up?"▲":"▼"}</span></span></th>`;}).join("")}</tr></thead><tbody>${
       list.map((g,i)=>`<tr><td class="rk">${i+1}</td>
-        <td>${(()=>{const[tm,pl]=g.pkey.split("|");return `<span class="meta">${esc(teamFix(tm||""))}</span> ${esc(pl||"")}`;})()}</td>
         <td class="meta" title="${dstr(g.t)}">${patchOfTs(g.t)||"–"}</td>
         <td>${posImg(g.pos)}</td>
+        <td>${(()=>{const[tm,pl]=g.pkey.split("|");return `<span class="meta">${esc(teamFix(tm||""))}</span> ${esc(pl||"")}`;})()}</td>
         <td>${g.won?`<span style="color:#ff6b6b">${en?"W":"勝"}</span>`:`<span style="color:#6ea8ff">${en?"L":"敗"}</span>`}</td>
         <td>${g.k}/${g.de}/${g.a}</td>
         ${cell(g.gd15)}${cell(g.xd15)}
@@ -6705,7 +6705,7 @@ function heroPairDetail(key){
   const _pv=g=>{const m=String(g.patch||"").match(/(\d+)\.(\d+)/); return m?+m[1]*1000+ +m[2]:null;};
   const _gd=g=>(g.gdA!=null&&g.gdB!=null)?g.gdA+g.gdB:null, _md=g=>(g.midA!=null&&g.midB!=null)?g.midA+g.midB:null;
   const _sit=g=>{const gd=_gd(g),mid=_md(g); if(gd==null||mid==null)return null; return gd>=0?(mid>=0?"壓制":"沒擴大"):(mid>=0?"逆轉":"被壓制");};
-  const RACC={版本:_pv,賽事:g=>`${g.lg||""} ${g.sp||""}`.trim(),使用選手:g=>g.pA||"",勝敗:g=>g.won?1:0,
+  const RACC={版本:_pv,賽事:g=>`${g.lg||""} ${g.sp||""}`.trim(),位置:g=>"",使用選手:g=>g.pA||"",勝敗:g=>g.won?1:0,
     "K/D/A":g=>(g.k+g.a)/Math.max(1,g.de),"金差@10":_gd,中期金差:_md,情境:g=>{const s=_sit(g);return s?SIT_RANK[s]:null;},
     對位配對:g=>cAb(g.ochA)||g.ochA||"",對位選手:g=>g.opA||""};
   if(!V.recSort||!RACC[V.recSort.k])V.recSort={k:"版本",d:-1};
@@ -6718,18 +6718,19 @@ function heroPairDetail(key){
   const cell=v=>`<td style="color:${v==null?"var(--tx2)":v>0?"#ff6b6b":v<0?"#37c871":""}">${v==null?"—":(v>0?"+":"")+Math.round(v)}</td>`;
   const pairName=`${esc(chName(champId(cA))||cA)} + ${esc(chName(champId(cB))||cB)}`;
   const recInner=`<div class="tblwrap"><table class="recTbl"><thead><tr>
-    <th>#</th>${["使用選手","版本","賽事","勝敗","K/D/A","金差@10","中期金差","情境","對位配對","對位選手"].map(k2=>{const _s=V.recSort,_on=_s&&_s.k===k2,_up=_on&&_s.d>0;return `<th data-rs="${k2}" style="cursor:pointer"><span class="thL">${mLabel(k2)}<span class="sortArr${_on?" on":""}${_on?(_up?" asc":" desc"):""}">${_up?"▲":"▼"}</span></span></th>`;}).join("")}</tr></thead><tbody>${
+    <th>#</th>${["賽事","版本","位置","使用選手","勝敗","K/D/A","金差@10","中期金差","對位配對","對位選手","情境"].map(k2=>{const _s=V.recSort,_on=_s&&_s.k===k2,_up=_on&&_s.d>0;return `<th data-rs="${k2}" style="cursor:pointer"><span class="thL">${mLabel(k2)}<span class="sortArr${_on?" on":""}${_on?(_up?" asc":" desc"):""}">${_up?"▲":"▼"}</span></span></th>`;}).join("")}</tr></thead><tbody>${
     list.map((g,i)=>{const sit=_sit(g);
       return `<tr><td class="rk">${i+1}</td>
-      <td><span class="meta">${esc(tAb(g.tm)||g.tm||"")}</span> ${esc(g.pA)}＋${esc(g.pB)}</td>
-      <td class="meta" title="${esc(g.date||"")}">${esc(g.patch||"–")}</td>
       <td class="meta">${esc(`${g.lg||""} ${g.sp||""}`.trim()||"–")}</td>
+      <td class="meta" title="${esc(g.date||"")}">${esc(g.patch||"–")}</td>
+      <td>${laneIcons}</td>
+      <td><span class="meta">${esc(tAb(g.tm)||g.tm||"")}</span> ${esc(g.pA)}＋${esc(g.pB)}</td>
       <td>${g.won?`<span style="color:#ff6b6b">${en?"W":"勝"}</span>`:`<span style="color:#6ea8ff">${en?"L":"敗"}</span>`}</td>
       <td>${g.k}/${g.de}/${g.a}</td>
       ${cell(_gd(g))}${cell(_md(g))}
-      <td>${sit?`<b style="color:${SIT_COL[sit]}">${en?SIT_EN[sit]:sit}</b>`:"—"}</td>
       <td><span class="heroname">${g.ochA?cImg(g.ochA):""}${g.ochA?(cAb(g.ochA)||""):"—"} + ${g.ochB?cImg(g.ochB):""}${g.ochB?(cAb(g.ochB)||""):"—"}</span></td>
-      <td>${esc(g.opA||"–")}＋${esc(g.opB||"–")}</td></tr>`;}).join("")
+      <td>${esc(g.opA||"–")}＋${esc(g.opB||"–")}</td>
+      <td>${sit?`<b style="color:${SIT_COL[sit]}">${en?SIT_EN[sit]:sit}</b>`:"—"}</td></tr>`;}).join("")
   }</tbody></table></div>`;
   main.innerHTML=filterBar(`
     <label>${en?"Player":"選手"}</label>${comboHTML("hdPlSel",en?"Player":"使用選手",170)}
