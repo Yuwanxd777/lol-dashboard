@@ -6716,7 +6716,7 @@ function heroPairDetail(key){
      const r=(typeof a2==="string"?String(a2).localeCompare(String(b2)):a2-b2)*d2;
      return r||String(x.date).localeCompare(String(y.date))*d2;});}
   const cell=v=>`<td style="color:${v==null?"var(--tx2)":v>0?"#ff6b6b":v<0?"#37c871":""}">${v==null?"—":(v>0?"+":"")+Math.round(v)}</td>`;
-  const pairName=`${esc(chName(champId(cA))||cA)} + ${esc(chName(champId(cB))||cB)}`;
+  const _gap5=`<span style="display:inline-block;width:5px"></span>`; // 配對間隔一律 5px 空格、不用「 + 」（2026-08-04 使用者指定）
   const recInner=`<div class="tblwrap"><table class="recTbl"><thead><tr>
     <th>#</th>${["賽事","版本","位置","使用選手","勝敗","K/D/A","金差@10","中期金差","對位配對","對位選手","情境"].map(k2=>{const _s=V.recSort,_on=_s&&_s.k===k2,_up=_on&&_s.d>0;return `<th data-rs="${k2}" style="cursor:pointer"><span class="thL">${mLabel(k2)}<span class="sortArr${_on?" on":""}${_on?(_up?" asc":" desc"):""}">${_up?"▲":"▼"}</span></span></th>`;}).join("")}</tr></thead><tbody>${
     list.map((g,i)=>{const sit=_sit(g);
@@ -6728,7 +6728,7 @@ function heroPairDetail(key){
       <td>${g.won?`<span style="color:#ff6b6b">${en?"W":"勝"}</span>`:`<span style="color:#6ea8ff">${en?"L":"敗"}</span>`}</td>
       <td>${g.k}/${g.de}/${g.a}</td>
       ${cell(_gd(g))}${cell(_md(g))}
-      <td><span class="heroname">${g.ochA?cImg(g.ochA):""}${g.ochA?(cAb(g.ochA)||""):"—"} + ${g.ochB?cImg(g.ochB):""}${g.ochB?(cAb(g.ochB)||""):"—"}</span></td>
+      <td><span class="heroname">${g.ochA?cImg(g.ochA):""}${g.ochA?(cAb(g.ochA)||""):"—"}${_gap5}${g.ochB?cImg(g.ochB):""}${g.ochB?(cAb(g.ochB)||""):"—"}</span></td>
       <td>${esc(g.opA||"–")}＋${esc(g.opB||"–")}</td>
       <td>${sit?`<b style="color:${SIT_COL[sit]}">${en?SIT_EN[sit]:sit}</b>`:"—"}</td></tr>`;}).join("")
   }</tbody></table></div>`;
@@ -6736,7 +6736,7 @@ function heroPairDetail(key){
     <label>${en?"Player":"選手"}</label>${comboHTML("hdPlSel",en?"Player":"使用選手",170)}
     ${heroModeSegHTML("pro")}`)
     +`<div class="card"><h2>
-      <span class="heroname" style="font-size:22px">${cImg(cA)} ${cImg(cB)} ${pairName}</span>
+      <span class="heroname" style="font-size:22px">${cImg(cA)} ${esc(chName(champId(cA))||cA)}${_gap5}${cImg(cB)} ${esc(chName(champId(cB))||cB)}</span>
       <span class="sub">${laneIcons}${V.hdPlayer?`｜${en?"by ":"選手 "}${esc(V.hdPlayer)}`:""}｜<span class="plink" id="pdDexA">🛠️ ${esc(cAb(cA)||"")}${en?" builds →":" 出裝 →"}</span>　<span class="plink" id="pdDexB">🛠️ ${esc(cAb(cB)||"")}${en?" builds →":" 出裝 →"}</span></span></h2>
       <div class="statline">
         <span>${en?"Games":"出場"} <b>${n}</b>${en?"":" 場"}</span>
@@ -7315,9 +7315,13 @@ function tableHTML(cols,rows,nameImg,limit){ // limit：只渲染排序後前 N 
   return `<div class="tblwrap"><table><thead><tr><th class="rkh">#</th>${cols.map(([c,,w,lbl],ci)=>{const _st=w?`width:${w}`:(colFloor[ci]?`min-width:calc(${colFloor[ci]}ch + 6px)`:""); return `<th data-k="${c}"${_st?` style="${_st}"`:""}><span class="thL">${thBrk(lbl||mLabel(c))}${arrow(c)}</span></th>`;}).join("")}</tr></thead><tbody>${
     show.map((r,ri)=>`<tr><td class="rk${ri<3?` rk${ri+1}`:""}">${ri+1}</td>${cols.map(([c,f],i)=>{
       let v=f(r[c],r);
-      if(i===0&&nameImg&&r._pair)v=`<span class="heroname">${cImg(r._pair[0])}${cImg(r._pair[1])}${v}</span>`; // 英雄配對：兩隻圖並排
-      else if(i===0&&nameImg&&r._full)v=`<span class="heroname">${cImg(r._full)}${v}</span>`;
       let nmAttr="";
+      if(i===0&&nameImg&&r._pair){ // 英雄配對：各自 圖+名、間隔 5px（2026-08-04 使用者指定，不用「 + 」）；點擊對照改吃 data-nm（顯示文字已不含 + ）
+        const _pn=p=>cAb(p)||esc(chName(champId(p))||p);
+        v=`<span class="heroname">${cImg(r._pair[0])}${_pn(r._pair[0])}<span style="display:inline-block;width:5px"></span>${cImg(r._pair[1])}${_pn(r._pair[1])}</span>`;
+        nmAttr=` data-nm="${esc(String(r[c]))}"`;
+      }
+      else if(i===0&&nameImg&&r._full)v=`<span class="heroname">${cImg(r._full)}${v}</span>`;
       if(i===0&&r._lg!==undefined){ // 選手/戰隊欄鐵則：名稱置左＋3px 放區域籤；整組以最長者置中（alignHeroCols）
         nmAttr=` data-nm="${esc(String(r[c]))}"`;
         {const _on=r._lg&&lgTagOn(); v=`<span class="heroname" style="display:inline-flex;align-items:center;gap:3px">${_on?stripRgnParen(v):v}${_on?lgChip(r._lg):""}</span>`;} // 有色塊就去掉重複的（聯賽碼）
@@ -10147,7 +10151,7 @@ function render(){
       // 點英雄名 → 詳情頁。雙人組：職業版跳「配對詳情」(鍵=組別|主|副)；積分雙人組無逐場資料、不可點
       const byName={}; rows.forEach(r=>byName[r.英雄]=r._pair?(sqMode?"":V.pos+"|"+r._pair.join("|")):r._full);
       document.querySelectorAll("#tbl tbody td:nth-child(2)").forEach(td=>{
-        const full=byName[td.textContent.trim()];
+        const full=byName[td.dataset.nm||td.textContent.trim()]; // 配對列顯示文字已無「 + 」，改由 data-nm 對照原始鍵
         if(!full)return;
         td.classList.add("plink");
         td.title=sqMode?(LANG==="en"?"Open soloq detail (trend & game log)":"點擊看積分詳情（版本趨勢＋出場紀錄）"):"點擊看詳情與版本趨勢";
