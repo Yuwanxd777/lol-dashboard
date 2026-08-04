@@ -281,6 +281,10 @@
   .cc.noBpQ{display:inline-flex;align-items:center;justify-content:center;width:50px;height:50px;
     border-radius:9px;background:#141a26;border:2px solid #2a3346;color:var(--dim,#8a93a6);font-size:22px;font-weight:900}
   .heroname .cc img{width:28px;height:28px;margin-right:6px}
+  /* 配對顯示規格（2026-08-04 使用者指定）：圖A 5px 名A 10px 圖B 5px 名B */
+  .heroname .pairNm{display:inline-flex;align-items:center;gap:5px}
+  .heroname .pairNm .cc img{margin-right:0}
+  .heroname .pairNm+.pairNm{margin-left:10px}
   /* 數字輸入框：全站移除上下調整鈕（要改就按 ✕ 重打） */
   input[type=number]::-webkit-outer-spin-button,input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
   input[type=number]{-moz-appearance:textfield;appearance:textfield}
@@ -6716,7 +6720,7 @@ function heroPairDetail(key){
      const r=(typeof a2==="string"?String(a2).localeCompare(String(b2)):a2-b2)*d2;
      return r||String(x.date).localeCompare(String(y.date))*d2;});}
   const cell=v=>`<td style="color:${v==null?"var(--tx2)":v>0?"#ff6b6b":v<0?"#37c871":""}">${v==null?"—":(v>0?"+":"")+Math.round(v)}</td>`;
-  const _gap5=`<span style="display:inline-block;width:5px"></span>`; // 配對間隔一律 5px 空格、不用「 + 」（2026-08-04 使用者指定）
+  // 配對顯示規格＝.pairNm（圖 5px 名、兩組間 10px；CSS 在 .heroname 區塊），不用「 + 」
   const recInner=`<div class="tblwrap"><table class="recTbl"><thead><tr>
     <th>#</th>${["賽事","版本","位置","使用選手","勝敗","K/D/A","金差@10","中期金差","對位配對","對位選手","情境"].map(k2=>{const _s=V.recSort,_on=_s&&_s.k===k2,_up=_on&&_s.d>0;return `<th data-rs="${k2}" style="cursor:pointer"><span class="thL">${mLabel(k2)}<span class="sortArr${_on?" on":""}${_on?(_up?" asc":" desc"):""}">${_up?"▲":"▼"}</span></span></th>`;}).join("")}</tr></thead><tbody>${
     list.map((g,i)=>{const sit=_sit(g);
@@ -6728,7 +6732,7 @@ function heroPairDetail(key){
       <td>${g.won?`<span style="color:#ff6b6b">${en?"W":"勝"}</span>`:`<span style="color:#6ea8ff">${en?"L":"敗"}</span>`}</td>
       <td>${g.k}/${g.de}/${g.a}</td>
       ${cell(_gd(g))}${cell(_md(g))}
-      <td><span class="heroname">${g.ochA?cImg(g.ochA):""}${g.ochA?(cAb(g.ochA)||""):"—"}${_gap5}${g.ochB?cImg(g.ochB):""}${g.ochB?(cAb(g.ochB)||""):"—"}</span></td>
+      <td><span class="heroname"><span class="pairNm">${g.ochA?cImg(g.ochA)+(cAb(g.ochA)||""):"—"}</span><span class="pairNm">${g.ochB?cImg(g.ochB)+(cAb(g.ochB)||""):"—"}</span></span></td>
       <td>${esc(g.opA||"–")}＋${esc(g.opB||"–")}</td>
       <td>${sit?`<b style="color:${SIT_COL[sit]}">${en?SIT_EN[sit]:sit}</b>`:"—"}</td></tr>`;}).join("")
   }</tbody></table></div>`;
@@ -6736,7 +6740,7 @@ function heroPairDetail(key){
     <label>${en?"Player":"選手"}</label>${comboHTML("hdPlSel",en?"Player":"使用選手",170)}
     ${heroModeSegHTML("pro")}`)
     +`<div class="card"><h2>
-      <span class="heroname" style="font-size:22px">${cImg(cA)} ${esc(chName(champId(cA))||cA)}${_gap5}${cImg(cB)} ${esc(chName(champId(cB))||cB)}</span>
+      <span class="heroname" style="font-size:22px"><span class="pairNm">${cImg(cA)}${esc(chName(champId(cA))||cA)}</span><span class="pairNm">${cImg(cB)}${esc(chName(champId(cB))||cB)}</span></span>
       <span class="sub">${laneIcons}${V.hdPlayer?`｜${en?"by ":"選手 "}${esc(V.hdPlayer)}`:""}｜<span class="plink" id="pdDexA">🛠️ ${esc(cAb(cA)||"")}${en?" builds →":" 出裝 →"}</span>　<span class="plink" id="pdDexB">🛠️ ${esc(cAb(cB)||"")}${en?" builds →":" 出裝 →"}</span></span></h2>
       <div class="statline">
         <span>${en?"Games":"出場"} <b>${n}</b>${en?"":" 場"}</span>
@@ -7318,7 +7322,7 @@ function tableHTML(cols,rows,nameImg,limit){ // limit：只渲染排序後前 N 
       let nmAttr="";
       if(i===0&&nameImg&&r._pair){ // 英雄配對：各自 圖+名、間隔 5px（2026-08-04 使用者指定，不用「 + 」）；點擊對照改吃 data-nm（顯示文字已不含 + ）
         const _pn=p=>cAb(p)||esc(chName(champId(p))||p);
-        v=`<span class="heroname">${cImg(r._pair[0])}${_pn(r._pair[0])}<span style="display:inline-block;width:5px"></span>${cImg(r._pair[1])}${_pn(r._pair[1])}</span>`;
+        v=`<span class="heroname"><span class="pairNm">${cImg(r._pair[0])}${_pn(r._pair[0])}</span><span class="pairNm">${cImg(r._pair[1])}${_pn(r._pair[1])}</span></span>`;
         nmAttr=` data-nm="${esc(String(r[c]))}"`;
       }
       else if(i===0&&nameImg&&r._full)v=`<span class="heroname">${cImg(r._full)}${v}</span>`;
