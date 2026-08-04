@@ -11842,7 +11842,8 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
               <span class="meta" style="font-size:12px">${h[1]}${en?" games":" 場"}・${fd(h[2])}~${fd(h[3])}</span></div>`).join("");
          main.querySelectorAll(".acctChip").forEach(el=>{
            el.style.cursor="default";
-           el.onmouseenter=()=>tipShow(html,el.getBoundingClientRect(),"up");
+           // 往下開（上方是頁首、空間有限）；預設分支塞不下才翻上，內容短不會出現內捲
+           el.onmouseenter=()=>tipShow(html,el.getBoundingClientRect());
            el.onmouseleave=tipHide; }); }}
       _injectMates();
       // 對位人員：點擊 → 開那位選手的逐場詳情（用隊+名回查他的主 riotId）
