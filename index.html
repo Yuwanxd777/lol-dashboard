@@ -1722,7 +1722,25 @@ const normTerm=s=>String(s||"")
   .replace(/(主宰|精密|堅毅|巫術|啟迪)次要/g,"$1副系")
   .replace(/生命值/g,"生命")
   .replace(/\+/g,()=>(typeof LANG!=="undefined"&&LANG==="en")?"+":"＋"); // 中文語境加號一律全形＋（2026-07-16 判例；英文維持半形）
-const txtClean=s=>normTerm(String(s||"").replace(/([一-鿿])(-(?=[\d.]))/g,"$1 $2")
+// 括號配平（2026-08-05 全掃描：wiki/官方原文有 35 行括號不對稱——原文就截斷或多殼）：
+// 多出來的「）」刪掉、沒關上的「（」行尾補關。「1）2）」條列編號不算閉括號
+//（世界地圖那行的判例：它的「）」是編號，配平會把編號刪光）。冪等。
+const _parenFix=s=>{
+  if(s.indexOf("（")<0&&s.indexOf("）")<0)return s;
+  let depth=0,out="";
+  for(let i=0;i<s.length;i++){const ch=s[i];
+    if(ch==="（"){depth++;out+=ch;continue;}
+    if(ch==="）"){
+      if(depth>0){depth--;out+=ch;continue;}
+      const p1=s[i-1]||"",p2=s[i-2]||"";
+      if(/\d/.test(p1)&&(i<2||/[：。；、\s]/.test(p2))){out+=ch;continue;} // 條列編號「1）」保留
+      continue; // 無對應開括號 → 丟棄
+    }
+    out+=ch;
+  }
+  return (depth>0?out+"）".repeat(depth):out).replace(/[ \t]{2,}/g," "); // 丟括號後殘留的連續空格順手收斂
+};
+const txtClean=s=>_parenFix(normTerm(String(s||"").replace(/([一-鿿])(-(?=[\d.]))/g,"$1 $2")
   .replace(/@[A-Za-z][\w.]*@/g,"") // 未解析的變數佔位符(如 @HealAmount@)→移除，不顯示英文殘留
   .replace(/\[([\d.][^\]\n]*?)\]/g," $1 ") // 數字範圍的半形中括號 [40-150] → 40-150(加空格)
   .replace(/[ \t]*\/[ \t]*/g,"／") // RQ1 / RE1 → RQ1／RE1(斜線全形、去左右空白)
@@ -1731,7 +1749,7 @@ const txtClean=s=>normTerm(String(s||"").replace(/([一-鿿])(-(?=[\d.]))/g,"$1 
   .replace(/[；;]\s*[：:]/g,"：") // 「…改為物傷；：30／80…」合併後多出來的分號 → 收成冒號
   .replace(_CHDISP_RE,m=>CH_DISP[m]||m) // 顯示名統一（規則來自 CH_DISP）
   .replace(/[（(]/g,"（").replace(/[)）]/g,"）") // 括號一律全形
-  .replace(/[ \t]{2,}/g," "));
+  .replace(/[ \t]{2,}/g," ")));
 const stripT=s=>txtClean(String(s||"").replace(/<br\s*\/?>/gi,"\n").replace(/<[^>]+>/g,"").replace(/[̀-ͯ҃-҉]/g,"")).replace(/\n{2,}/g,"\n").trim();
 // 道具原始 HTML → 結構化區塊：<stats>=屬性一區；每個 <passive>/<active> 具名效果各一區
 const parseItemDesc=html=>{
