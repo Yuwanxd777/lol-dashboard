@@ -183,6 +183,12 @@ def main():
     # 上→野、野→中、中→野、下→輔、輔→下（2026-08-03 使用者指定的那組）。逐路線版另存 duCntL。
     duCnt = defaultdict(lambda: defaultdict(lambda: [0, 0]))
     duCntL = defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: [0, 0])))
+    # 雙人組配對（英雄分頁 下路組/中野組 的積分版）：BOT=下路+輔助、JNG=打野+中路，鍵="主|副"。
+    # 場數/勝場用 (t,主,副) 去重（同場兩位都被收錄會各記一次）；兩側各自的 K/D/A、金差@15
+    # 不去重（各是自己那隻的數據）：主側佔 pairSide[0:6]=k,d,a,n,gd樣本,gd和、副側佔 [6:12]。
+    pairCnt = defaultdict(lambda: defaultdict(lambda: [0, 0]))
+    pairSide = defaultdict(lambda: defaultdict(lambda: [0] * 12))
+    pairSeen = set()
     ridHist = defaultdict(lambda: defaultdict(lambda: [0, 0, 0]))  # 選手key -> Riot ID -> [場, 最早t, 最晚t]
     vsL = []  # (gameCreation, 我的英雄, 對位英雄, 選手key)：對位人員交叉索引用（同場 t 完全相同）
     suCnt = defaultdict(Counter)                              # 召喚師技能組合：英雄 -> (id小,id大) -> 場數
@@ -227,6 +233,25 @@ def main():
             if _du:
                 _d0 = duCnt[c][_du]; _d0[0] += 1; _d0[1] += win
                 if lk: _d1 = duCntL[c][lk][_du]; _d1[0] += 1; _d1[1] += win
+                # 雙人組配對聚合（見 pairCnt 註解）：只收 下+輔 / 野+中 兩種組合
+                _dl = g.get("dul")
+                _pk2 = None
+                if _hl == "BOTTOM" and _dl == "UTILITY": _pk2 = ("BOT", c, _du, True)
+                elif _hl == "UTILITY" and _dl == "BOTTOM": _pk2 = ("BOT", _du, c, False)
+                elif _hl == "JUNGLE" and _dl == "MIDDLE": _pk2 = ("JNG", c, _du, True)
+                elif _hl == "MIDDLE" and _dl == "JUNGLE": _pk2 = ("JNG", _du, c, False)
+                if _pk2:
+                    _lt, _ca, _cb, _isMain = _pk2
+                    _pkey2 = _ca + "|" + _cb
+                    _pgid = (g.get("t") or 0, _ca, _cb)
+                    if _pgid not in pairSeen:
+                        pairSeen.add(_pgid)
+                        _pa = pairCnt[_lt][_pkey2]; _pa[0] += 1; _pa[1] += win
+                    _ps = pairSide[_lt][_pkey2]; _off = 0 if _isMain else 6
+                    _ps[_off] += g.get("k") or 0; _ps[_off + 1] += g.get("de") or 0
+                    _ps[_off + 2] += g.get("a") or 0; _ps[_off + 3] += 1
+                    if g.get("gd15") is not None:
+                        _ps[_off + 4] += 1; _ps[_off + 5] += g["gd15"]
             _rid = g.get("rid")
             if _rid:
                 _rh = ridHist[pkey][_rid]; _t0 = g.get("t") or 0
@@ -245,7 +270,8 @@ def main():
             chGames[c].append((g.get("t") or 0, pkey, {"TOP": "T", "JUNGLE": "J", "MIDDLE": "M", "BOTTOM": "B", "UTILITY": "U"}.get(_hl, ""),
                                win, g.get("k") or 0, g.get("de") or 0, g.get("a") or 0,
                                (round(g["kp"]) if g.get("kp") is not None else None), _opp or "",
-                               g.get("gd15"), g.get("xd15"), g.get("sc"), g.get("r"), _rs2))
+                               g.get("gd15"), g.get("xd15"), g.get("sc"), g.get("r"), _rs2,
+                               "".join(str(v) for v in (g.get("sk") or [])[:20] if v in (1, 2, 3, 4))))  # 第15欄=點法數字串(1=Q2=W3=E4=R)
             _su = [x for x in (g.get("su") or []) if x]
             if len(_su) == 2:
                 _sp2 = tuple(sorted(_su)); suCnt[c][_sp2] += 1
@@ -444,7 +470,11 @@ def main():
             top = [{"s": [SUM_NAME.get(a, str(a)), SUM_NAME.get(b, str(b))], "pct": round(n2 / tot * 100)}
                    for (a, b), n2 in cnt.most_common(3) if n2 / tot * 100 >= 5]
             if top: blob["sp"] = top
-    payload = {"champs": champs, "items": items, "runes": runes, "p2patches": p2v, "hero": hero, "heroP": heroP, "patches": sq_patches, "mu": mu, "sp": sp}  # p2patches＝「近兩版流派」的兩個版本號(前端標題顯示)
+    # 雙人組配對輸出（下路組/中野組積分版）：值=[場(去重),勝]+pairSide 12 欄；場數 >=5 才列，控檔案大小
+    pairs = {lt: {k2: v2 + pairSide[lt][k2] for k2, v2 in cnts.items() if v2[0] >= 5}
+             for lt, cnts in pairCnt.items()}
+    pairs = {lt: d2 for lt, d2 in pairs.items() if d2}
+    payload = {"champs": champs, "items": items, "runes": runes, "p2patches": p2v, "hero": hero, "heroP": heroP, "patches": sq_patches, "mu": mu, "pairs": pairs, "sp": sp}  # p2patches＝「近兩版流派」的兩個版本號(前端標題顯示)
     with open(OUT, "w", encoding="utf-8") as f:
         f.write("window.SOLOQ_BUILDS=" + json.dumps(payload, ensure_ascii=False) + ";\n")
     print(f"完成：{len(champs)} 英雄 / {len(items)} 道具 / {len(runes)} 符文（掃 {scanned} 場）→ {OUT}（{os.path.getsize(OUT)/1024:.0f} KB）")

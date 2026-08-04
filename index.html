@@ -4545,7 +4545,7 @@ function calcHeroPairs(pos,player,team){
   const bpOf={},banOf={}; single.forEach(r=>{bpOf[r._full]=r["BP%"]||0; banOf[r._full]=r.禁用率||0;});
   const rows=[];
   for(const[key,a]of acc){ if(!a.n)continue;
-    rows.push({ 英雄:cAb(a.cA)+" + "+cAb(a.cB), _pair:[a.cA,a.cB], _full:a.cA, _key:key, 路線:2, _laneIcons:laneIcons,
+    rows.push({ 英雄:cAb(a.cA)+" + "+cAb(a.cB), _pair:[a.cA,a.cB], _full:a.cA, _pk:pos+"|"+a.cA+"|"+a.cB, _key:key, 路線:2, _laneIcons:laneIcons,
       "BP%":((bpOf[a.cA]||0)+(bpOf[a.cB]||0))/2, 場數:a.n, "勝-敗":`${a.w}-${a.n-a.w}`, 勝率:a.w/a.n, "勝率(勝-敗)":a.w/a.n, 禁用率:((banOf[a.cA]||0)+(banOf[a.cB]||0))/2,
       KDA:(a.kM+a.asM)/Math.max(1,a.dM)+(a.kS+a.asS)/Math.max(1,a.dS), "K/D/A":`${d1s((a.kM+a.kS)/a.n)} / ${d1s((a.dM+a.dS)/a.n)} / ${d1s((a.asM+a.asS)/a.n)}`, 參與率:(a.kM+a.asM+a.kS+a.asS)/Math.max(1,2*a.tk),
       分均輸出:a.dpm/a.n, 分均金錢:a.gl?a.gold/(a.gl/60):0, 分均承傷:a.dt/a.n, 分均視分:a.vsN?a.vs/a.n:null,
@@ -6337,6 +6337,11 @@ const HSCOLS=[["英雄",fmt.raw,"11.5em"],["路線",(v,r)=>r._laneIcons||"–","
   ["參與率",fmt.pct],["分均CS",fmt.d1],
   ["金差@15",v=>!_fin(v)?"–":(v>0?"+":"")+Math.round(v)],["經差@15",v=>!_fin(v)?"–":(v>0?"+":"")+Math.round(v)],
   ["搶二率",fmt.pct],["評分",fmt.score]];
+// 積分雙人組（下路組/中野組）欄位：只列配對聚合真的有的欄（無 KP/CS/經差/搶二 等單人欄）
+const HSPCOLS=[["英雄",fmt.raw,"14em"],["路線",(v,r)=>r._laneIcons||"–","11em"],["場數",fmt.int],
+  ["勝率(勝-敗)",(v,r)=>`${Math.round((v||0)*100)}%${_brk(` (${esc(r["勝-敗"]||"")})`)}`],
+  ["KDA",(v,r)=>!_fin(v)?"–":`${fmt.d1(v)}${_brk(`<span class="meta"> (${esc(r["K/D/A"]||"")})</span>`)}`],
+  ["金差@15",v=>!_fin(v)?"–":(v>0?"+":"")+Math.round(v)],["評分",fmt.score]];
 // 英雄分頁積分版資料：SOLOQ_BUILDS.hero（build_soloq_builds.py 全季彙總；英雄→路線→[n,w,k,d,a,cs,dur,kp和,kp樣本,gd樣本,gd和,xd樣本,xd和,fl2樣本,fl2先到]）
 // 版本篩選（F.patch）時改用 SOLOQ_BUILDS.heroP（英雄→版本→路線→同 15 欄）；積分比職業賽早上新版（26.14），清單由 filterOpts 併入
 function calcHeroesSoloq(pos){
@@ -6348,6 +6353,24 @@ function calcHeroesSoloq(pos){
   const L2={TOP:"TOP",JNG:"JUNGLE",MID:"MIDDLE",BOT:"BOTTOM",SUP:"UTILITY"}[pos]||null;
   const PNS={TOP:"TOP",JUNGLE:"JNG",MIDDLE:"MID",BOTTOM:"BOT",UTILITY:"SUP"};
   const rows=[];
+  if(pos==="下路組"||pos==="中野組"){
+    // 雙人組（B.pairs＝builder 依 dpm 搭檔欄聚合：BOT=下+輔、JNG=野+中；值=[場(去重),勝,主k,主d,主a,主n,副k,副d,副a,副n,主gd樣本,主gd和,副gd樣本,副gd和]）
+    // 全季彙總、無版本分桶 → 版本篩選在雙人組不生效（列表標題有註記）。KDA＝兩隻各自 KDA 相加（與職業版配對同規）。
+    const P=(B.pairs||{})[pos==="下路組"?"BOT":"JNG"]||{};
+    const laneIcons=(pos==="下路組"?["BOT","SUP"]:["JNG","MID"]).map(l=>posImg(l)).filter(Boolean).join("");
+    for(const k2 in P){ const v=P[k2], n=v[0]||0; if(n<15)continue; // 門檻同全季單人（15 場）
+      const [cA,cB]=k2.split("|");
+      // 值排列＝[場,勝]+主側6欄(k,d,a,n,gd樣本,gd和)+副側6欄（builder pairSide 的固定順序）
+      const w=v[1]||0,kM=v[2],dM=v[3],aM=v[4],nM=v[5],gdMn=v[6],gdMs=v[7],kS=v[8],dS=v[9],aS=v[10],nS=v[11],gdSn=v[12],gdSs=v[13];
+      const kda=(nM?(kM+aM)/Math.max(1,dM):0)+(nS?(kS+aS)/Math.max(1,dS):0);
+      const gdA=gdMn?gdMs/gdMn:null, gdB=gdSn?gdSs/gdSn:null;
+      rows.push({英雄:cAb(cA)+" + "+cAb(cB),_full:"",_pair:[cA,cB],路線:2,_laneIcons:laneIcons,
+        場數:n,"勝-敗":`${w}-${n-w}`,勝率:w/n,"勝率(勝-敗)":w/n,
+        KDA:kda||null,_ak:(nM+nS)?(kM+kS)/(nM+nS):null,_ad:(nM+nS)?(dM+dS)/(nM+nS):null,_aa:(nM+nS)?(aM+aS)/(nM+nS):null,
+        "K/D/A":(nM+nS)?`${d1s((kM+kS)/(nM+nS))} / ${d1s((dM+dS)/(nM+nS))} / ${d1s((aM+aS)/(nM+nS))}`:"",
+        "金差@15":(gdA!=null||gdB!=null)?(gdA||0)+(gdB||0):null});
+    }
+  } else
   for(const ch in H){
     const lanes=usingP?H[ch][pk]:H[ch];
     if(!lanes)continue;
@@ -6402,7 +6425,8 @@ function heroScatterHTML(rows, metrics, xKey, yKey){
   const opts=sel=>metrics.map(m=>`<option value="${esc(m.k)}"${m.k===sel?" selected":""}>${esc(T(m.lb||m.k))}</option>`).join("");
   const axisBar=`<div class="hscAxes"><label>Y</label><select id="hscY">${opts(yM.k)}</select><label>X</label><select id="hscX">${opts(xM.k)}</select></div>`;
   const pts=rows.filter(r=>_fin(r[xM.k])&&_fin(r[yM.k])&&(r.場數||0)>=3).map(r=>({ // 至少 3 場，濾掉極端小樣本
-    id:champId(r._full), full:r._full, zh:chName(champId(r._full)), x:r[xM.k], y:r[yM.k], n:r.場數, wr:r.勝率}));
+    // 雙人組列：頭像用主側英雄、名稱用組合名；點擊鍵＝職業版配對詳情鍵(_pk)，積分雙人組無詳情→空鍵不可點
+    id:champId(r._pair?r._pair[0]:r._full), full:r._pair?(r._pk||""):r._full, zh:r._pair?r.英雄:chName(champId(r._full)), x:r[xM.k], y:r[yM.k], n:r.場數, wr:r.勝率}));
   if(!pts.length)return axisBar+`<div class="meta" style="padding:24px 8px">${en?"No champions match the current filter.":"目前篩選下沒有英雄資料。"}</div>`;
   const xs=pts.map(p=>p.x), ys=pts.map(p=>p.y);
   const niceStep=(range,target)=>{const raw=(range||1)/target, mag=Math.pow(10,Math.floor(Math.log10(Math.abs(raw)||1))), n=raw/mag; return (n<=1?1:n<=2?2:n<=2.5?2.5:n<=5?5:10)*mag;};
@@ -6464,12 +6488,24 @@ function sqHeroDetail(cid){
   const mu=(B.mu&&B.mu[cid])||{};
   if(V.hdOpp&&!mu[V.hdOpp])V.hdOpp="";
   const oppOpts=champComboOpts(Object.keys(mu),new Map(Object.entries(mu).map(([o,v])=>[o,v[0]])));
-  // 滑對位英雄 → 積分對戰小卡
-  const sqOppTip=op=>{ const m2=mu[op]; if(!m2)return "";
-    return `<div class="tipTitle">${cImg(cid)} ${esc(chName(champId(cid)))} <span class="meta">vs</span> ${cImg(op)} ${esc(chName(champId(op)))} <span class="meta">🎯 ${en?"soloq this year":"積分（今年）"}</span></div>`
-      +`<div class="tipRow">${en?"Games":"對戰"} <span class="num">${m2[0]}</span>${en?"":" 場"}｜${en?"Win%":"勝率"} <span class="num">${Math.round(m2[1]/m2[0]*100)}%</span> (${m2[1]}-${m2[0]-m2[1]})</div>`; };
+  // 滑對位英雄 → 積分對戰小卡＋該場對位選手（soloq_vs 同場索引；路人不顯示——2026-08-04 使用者指定）
+  const sqOppTip=(op,t)=>{ const m2=mu[op];
+    let plLine="";
+    { const VS=window.SOLOQ_VS, e=t&&VS&&VS.m[String(t)], i2=e&&e[op];
+      if(i2!=null){ const k2=VS.p[i2]||"", tm=k2.split("|")[0]||"", nm=k2.split("|")[1]||"";
+        plLine=`<div class="tipRow">${en?"Player":"對位選手"} <span class="num">${esc((teamFix(tm)+" "+nm).trim())}</span></div>`; } }
+    if(!m2&&!plLine)return "";
+    return `<div class="tipTitle">${cImg(cid)} ${esc(chName(champId(cid)))} <span class="meta">vs</span> ${cImg(op)} ${esc(chName(champId(op)))}</div>`
+      +(m2?`<div class="tipRow">${en?"Games":"對戰"} <span class="num">${m2[0]}</span>${en?"":" 場"}｜${en?"Win%":"勝率"} <span class="num">${Math.round(m2[1]/m2[0]*100)}%</span> (${m2[1]}-${m2[0]-m2[1]})</div>`:"")
+      +plLine; };
   // 出場紀錄（延遲載入）
   const CG=window.SOLOQ_CHGAMES;
+  // 對位選手 hover 需要 soloq_vs.js（812KB 懶載；與積分逐場詳情共用同一份與同一個載入旗標）
+  if(!window.SOLOQ_VS&&!window._vsLoading){ window._vsLoading=1;
+    const sv=document.createElement("script"); sv.src="soloq_vs.js";
+    sv.onload=()=>{ if((curView==="英雄"&&V.heroDetail)||(curView==="積分"&&V.rankDetail))render(); };
+    sv.onerror=()=>{ window.SOLOQ_VS={p:[],m:{}}; };
+    document.body.appendChild(sv); }
   let recInner, plOpts=[]; // plOpts＝使用選手篩選的候選（出場紀錄載入後才算得出來）
   if(!CG){
     lazyLoad("sqg").then(()=>{ if(curView==="英雄"&&V.heroDetail)render(); });
@@ -6479,7 +6515,7 @@ function sqHeroDetail(cid){
     // r[12]＝關鍵符文、r[13]＝副系第一顆符文（2026-07-31 起 build_soloq_builds.py 多存的兩欄）。
     // rs 包成陣列是為了直接餵 runeKS（它吃 g.rs 陣列、取第一個有值的反查副系）；
     // 舊檔沒有這兩欄時是 undefined／空陣列，runeKS 會只畫主符文、不會壞。
-    let list=(CG[cid]||[]).map(r=>({t:r[0],pkey:r[1]||"",pos:POS1[r[2]]||"",won:!!r[3],k:r[4],de:r[5],a:r[6],kp:r[7],och:r[8]||"",gd15:r[9],xd15:r[10],sc:r[11],r:r[12],rs:r[13]==null?[]:[r[13]]}));
+    let list=(CG[cid]||[]).map(r=>({t:r[0],pkey:r[1]||"",pos:POS1[r[2]]||"",won:!!r[3],k:r[4],de:r[5],a:r[6],kp:r[7],och:r[8]||"",gd15:r[9],xd15:r[10],sc:r[11],r:r[12],rs:r[13]==null?[]:[r[13]],sk:r[14]||""}));
     if(V.hdLane)list=list.filter(g=>g.pos===V.hdLane);
     if(V.hdOpp)list=list.filter(g=>g.och===V.hdOpp);
     // 選手篩選（2026-07-31 使用者要求）：pkey＝「隊伍|選手」，只比對選手名，跟職業版同一個 V.hdPlayer
@@ -6512,7 +6548,7 @@ function sqHeroDetail(cid){
       if(cache){
         const PNS2={TOP:"TOP",JUNGLE:"JNG",MIDDLE:"MID",BOTTOM:"BOT",UTILITY:"SUP"};
         list=(cache.matches||[]).filter(g=>g.c===cid).map(g=>({t:g.t,pkey:key,pos:PNS2[g.pos]||"",won:!!g.w,
-          k:g.k,de:g.de,a:g.a,kp:g.kp,och:g.o||"",gd15:g.gd15,xd15:g.xd15,sc:g.sc,r:g.r,rs:g.rs||[]}));
+          k:g.k,de:g.de,a:g.a,kp:g.kp,och:g.o||"",gd15:g.gd15,xd15:g.xd15,sc:g.sc,r:g.r,rs:g.rs||[],sk:(g.sk||[]).filter(v=>v>=1&&v<=4).slice(0,20).join("")}));
         if(V.hdLane)list=list.filter(g=>g.pos===V.hdLane);
         if(V.hdOpp)list=list.filter(g=>g.och===V.hdOpp);
       } else list=list.filter(g=>String(g.pkey).split("|")[1]===V.hdPlayer);
@@ -6521,7 +6557,9 @@ function sqHeroDetail(cid){
       "K/D/A":g=>(g.k+g.a)/Math.max(1,g.de),參與率:g=>g.kp,
       // ⚠ dpm 評分一律「顯示四捨五入、排序吃原始小數」（2026-08-01 使用者定案）：
       //   這裡的 g.sc 是未經處理的原始值，顯示端才 Math.round，兩個都是 81 的列仍會依 81.07/80.6 正確排序。
-      "金差@15":g=>g.gd15,"經差@15":g=>g.xd15,符文:g=>g.r,對位英雄:g=>cAb(g.och)||g.och,評分:g=>g.sc};
+      "金差@15":g=>g.gd15,"經差@15":g=>g.xd15,符文:g=>g.r,
+      點法:g=>{const o=skillMainOrder([...String(g.sk||"")].map(Number).filter(v=>v>=1&&v<=4)); return o.length?o.join(""):null;},
+      對位英雄:g=>cAb(g.och)||g.och,評分:g=>g.sc};
     // 預設＝版本降冪（與職業版一致）。版本排序鍵取時間戳：時間戳的順序本來就等同
     // 「先版本、同版再依日期」，不必再補第二鍵（2026-07-31 使用者指定）。
     if(!V.recSort)V.recSort={k:"版本",d:-1};
@@ -6537,7 +6575,7 @@ function sqHeroDetail(cid){
     const cell=v=>`<td style="color:${v==null?"var(--tx2)":v>0?"#ff6b6b":v<0?"#37c871":""}">${v==null?"—":(v>0?"+":"")+Math.round(v)}</td>`;
     const scCol=s=>{if(s==null)return"#8aa0c0"; const v=Math.max(0,Math.min(100,s)); return `hsl(${Math.round(120*(1-v/100))},72%,58%)`;}; // 評分 0→100 綠→黃→紅（同積分逐場 scoreCol）
     recInner=`<div class="tblwrap"><table class="recTbl"><thead><tr>
-      <th>#</th>${["使用選手","版本","位置","勝敗","K/D/A","金差@15","經差@15","符文","對位英雄","評分"].map(k2=>{const _s=V.recSort,_on=_s&&_s.k===k2,_up=_on&&_s.d>0;return `<th data-rs="${k2}" style="cursor:pointer"><span class="thL">${mLabel(k2)}<span class="sortArr${_on?" on":""}${_on?(_up?" asc":" desc"):""}">${_up?"▲":"▼"}</span></span></th>`;}).join("")}</tr></thead><tbody>${
+      <th>#</th>${["使用選手","版本","位置","勝敗","K/D/A","金差@15","經差@15","符文","點法","對位英雄","評分"].map(k2=>{const _s=V.recSort,_on=_s&&_s.k===k2,_up=_on&&_s.d>0;return `<th data-rs="${k2}" style="cursor:pointer"><span class="thL">${mLabel(k2)}<span class="sortArr${_on?" on":""}${_on?(_up?" asc":" desc"):""}">${_up?"▲":"▼"}</span></span></th>`;}).join("")}</tr></thead><tbody>${
       list.map((g,i)=>`<tr><td class="rk">${i+1}</td>
         <td>${(()=>{const[tm,pl]=g.pkey.split("|");return `<span class="meta">${esc(teamFix(tm||""))}</span> ${esc(pl||"")}`;})()}</td>
         <td class="meta" title="${dstr(g.t)}">${patchOfTs(g.t)||"–"}</td>
@@ -6546,7 +6584,8 @@ function sqHeroDetail(cid){
         <td>${g.k}/${g.de}/${g.a}</td>
         ${cell(g.gd15)}${cell(g.xd15)}
         <td>${runeKS(g,26)}</td>
-        <td class="mvOpp" data-och="${esc(g.och)}"><span class="heroname">${g.och?cImg(g.och):""}${g.och?(cAb(g.och)||esc(chName(champId(g.och))||g.och)):"—"}</span></td>
+        <td class="sqSkillR" data-sks="${g.sk||""}" style="white-space:nowrap">${g.sk?[...String(g.sk)].slice(0,5).map(s=>`<b style="color:${SKC[SKL[+s]]||"#cdd6e6"}">${SKL[+s]}</b>`).join('<span style="color:#5a6784">·</span>'):'<span class="meta">—</span>'}</td>
+        <td class="mvOpp" data-och="${esc(g.och)}" data-t="${g.t||""}"><span class="heroname">${g.och?cImg(g.och):""}${g.och?(cAb(g.och)||esc(chName(champId(g.och))||g.och)):"—"}</span></td>
         <td>${g.sc==null?"—":`<b style="color:${scCol(g.sc)}" title="${g.sc}">${Math.round(g.sc)}</b>`}</td></tr>`).join("")
     }</tbody></table></div>`;
   }
@@ -6592,14 +6631,135 @@ function sqHeroDetail(cid){
   });
   document.querySelectorAll(".recTbl td.mvOpp[data-och]").forEach(td=>{
     const op=td.dataset.och; if(!op)return;
-    td.addEventListener("mouseenter",()=>{const h2=sqOppTip(op); if(h2)tipShow(h2,td.getBoundingClientRect());});
+    td.addEventListener("mouseenter",()=>{const h2=sqOppTip(op,+td.dataset.t||0); if(h2)tipShow(h2,td.getBoundingClientRect());});
     td.addEventListener("mouseleave",tipHide);
+  });
+  // 點法 hover：全場逐級點法（與積分逐場詳情同款：主副標示＋每 6 等換行 6/6/8）
+  document.querySelectorAll(".recTbl td.sqSkillR[data-sks]").forEach(el=>{
+    const seq=[...(el.dataset.sks||"")].map(Number).filter(v=>v>=1&&v<=4);
+    if(!seq.length)return;
+    const _cellSk=(v,i)=>`<span style="display:inline-flex;flex-direction:column;align-items:center;width:20px"><span class="meta" style="font-size:10px">${i+1}</span><b style="color:${SKC[SKL[v]]||"#cdd6e6"}">${SKL[v]}</b></span>`;
+    const _rowSk=(a2,off)=>a2.length?`<div style="display:flex;gap:3px 4px;margin-top:3px">${a2.map((v,i)=>_cellSk(v,i+off)).join("")}</div>`:"";
+    const _mo=skillMainOrder(seq), _c=l=>`<b style="color:${SKC[l]||"#cdd6e6"}">${l}</b>`;
+    const _w=t2=>`<span style="color:var(--tx)">${t2}</span>`;
+    const _ms=_mo.length?(en?` ${_c(_mo[0])}${_w(" main")}${_mo[1]?` · ${_c(_mo[1])}${_w(" sub")}`:""}`:` ${_w("主")}${_c(_mo[0])}${_mo[1]?`${_w("副")}${_c(_mo[1])}`:""}`):"";
+    const html=`<div class="tipTitle">${_w(en?"Skill order":"點法")}${_ms}</div>`
+      +_rowSk(seq.slice(0,6),0)+_rowSk(seq.slice(6,12),6)+_rowSk(seq.slice(12,20),12);
+    el.style.cursor="default";
+    el.onmouseenter=()=>tipShow(html,el.getBoundingClientRect(),"up");
+    el.onmouseleave=tipHide;
   });
   {const gd=document.getElementById("sqGoDex"); if(gd)gd.onclick=()=>dexGo("champ",cid);}
   alignHeroCols(document.querySelector(".recTbl")&&document.querySelector(".recTbl").closest(".card"));
   fillTableWidth(document.querySelector(".recTbl")&&document.querySelector(".recTbl").closest(".card"),true);
   drawTrend(cid,V.hdLane,true); // 積分版版本趨勢（heroP；含職業還沒打到的最新版）
   addSubBack(()=>{V.heroDetail="";V.hdOpp="";V.hdLane="";V.hdPlayer="";saveState();render();});
+}
+// ── 職業版雙人組配對詳情頁（英雄分頁 下路組/中野組 點配對進入；鍵="組別|主英雄|副英雄"）──
+// 名片＋出場紀錄（每場＝main/sub 兩行合併，K/D/A、金差為兩隻合計）；無版本趨勢（趨勢是單英雄概念）。
+// 2026-08-04 使用者回報：點配對只開出主側英雄的單人詳情 → 改開這頁。
+function heroPairDetail(key){
+  const en=LANG==="en";
+  const seg0=String(key).split("|"), pos=seg0[0], cA=seg0[1]||"", cB=seg0[2]||"";
+  const mainPid=pos==="下路組"?4:2, subPid=pos==="下路組"?5:3;
+  const laneIcons=(pos==="下路組"?["BOT","SUP"]:["JNG","MID"]).map(l=>posImg(l)).filter(Boolean).join("");
+  // 配對逐場：同場同側 main+sub 兩行合併成一筆
+  const acc=new Map();
+  for(const o of LANES){
+    if(!passG(o))continue;
+    if(o.pid!==mainPid&&o.pid!==subPid)continue;
+    const r=o.raw;
+    for(const side of[0,1]){
+      const sg2=String(side?r[C.red_Lane]:r[C.blue_Lane]).split("|");
+      if(sg2.length<4||sg2[0]!==cA||sg2[1]!==cB)continue;
+      const B=i=>r[i+(side?RB:0)], O=i=>r[i+(side?0:RB)];
+      const kk2=gkey(o)+"§"+side;
+      let e=acc.get(kk2);
+      if(!e){e={date:o.date,patch:o.patch,lg:o.league,sp:o.split,won:o.result===(side?2:1),
+        tm:B(C.blue_teamname)||"",pA:sg2[2]||"",pB:sg2[3]||"",k:0,de:0,a:0,tk:0,
+        gdA:null,gdB:null,midA:null,midB:null,ochA:"",ochB:"",opA:"",opB:""}; acc.set(kk2,e);}
+      e.k+=num(B(C.blue_kills))||0; e.de+=num(B(C.blue_deaths))||0; e.a+=num(B(C.blue_assists))||0;
+      const g10=num(B(C.blue_goldat10)),og10=num(O(C.blue_goldat10));
+      const g25=num(B(C.blue_goldat25)),og25=num(O(C.blue_goldat25));
+      const gd=(g10!=null&&og10!=null)?g10-og10:null;
+      const mid=(gd!=null&&g25!=null&&og25!=null)?((g25-og25)-gd):null;
+      if(o.pid===mainPid){ e.gdA=gd; e.midA=mid; e.ochA=O(C.blue_champion)||""; e.opA=O(C.blue_playername)||""; e.tk=num(B(C.blue_teamkills))||0; }
+      else { e.gdB=gd; e.midB=mid; e.ochB=O(C.blue_champion)||""; e.opB=O(C.blue_playername)||""; }
+    }
+  }
+  let list=[...acc.values()];
+  // 選手篩選（配對任一位符合即算；沿用單英雄詳情的 V.hdPlayer）
+  const plCnt=new Map(), plTeam={};
+  list.forEach(g=>[g.pA,g.pB].forEach(p=>{ if(!p)return; plCnt.set(p,(plCnt.get(p)||0)+1); if(!plTeam[p])plTeam[p]=g.tm; }));
+  if(V.hdPlayer&&!plCnt.has(V.hdPlayer))V.hdPlayer="";
+  const plOpts=[...plCnt.keys()].map(p=>{const tm=plTeam[p]||"",ab=tAb(tm); return {v:p,l:p,a:[ab,tm].filter(Boolean),d:ab||tm,n:plCnt.get(p)};});
+  if(V.hdPlayer)list=list.filter(g=>g.pA===V.hdPlayer||g.pB===V.hdPlayer);
+  // 名片統計（跟隨選手篩選）；參與率＝兩隻(K+A)合計÷(2×團隊擊殺)（與配對列表同規）
+  let n=0,w=0,k=0,dd=0,as=0,tkS=0,gdS=0,gdN=0,mdS=0,mdN=0,wl=0,wlN=0;
+  list.forEach(g=>{ n++; if(g.won)w++; k+=g.k; dd+=g.de; as+=g.a; tkS+=g.tk;
+    const gd=(g.gdA!=null&&g.gdB!=null)?g.gdA+g.gdB:null, mid=(g.midA!=null&&g.midB!=null)?g.midA+g.midB:null;
+    if(gd!=null){gdS+=gd;gdN++; wlN++; if(gd>0)wl++;}
+    if(mid!=null){mdS+=mid;mdN++;} });
+  const sg=v=>v==null?"—":(v>0?"+":"")+Math.round(v);
+  // 出場紀錄排序（同單英雄詳情：預設版本降冪、同版比日期）
+  const _pv=g=>{const m=String(g.patch||"").match(/(\d+)\.(\d+)/); return m?+m[1]*1000+ +m[2]:null;};
+  const _gd=g=>(g.gdA!=null&&g.gdB!=null)?g.gdA+g.gdB:null, _md=g=>(g.midA!=null&&g.midB!=null)?g.midA+g.midB:null;
+  const _sit=g=>{const gd=_gd(g),mid=_md(g); if(gd==null||mid==null)return null; return gd>=0?(mid>=0?"壓制":"沒擴大"):(mid>=0?"逆轉":"被壓制");};
+  const RACC={版本:_pv,賽事:g=>`${g.lg||""} ${g.sp||""}`.trim(),使用選手:g=>g.pA||"",勝敗:g=>g.won?1:0,
+    "K/D/A":g=>(g.k+g.a)/Math.max(1,g.de),"金差@10":_gd,中期金差:_md,情境:g=>{const s=_sit(g);return s?SIT_RANK[s]:null;},
+    對位配對:g=>cAb(g.ochA)||g.ochA||"",對位選手:g=>g.opA||""};
+  if(!V.recSort||!RACC[V.recSort.k])V.recSort={k:"版本",d:-1};
+  {const f=RACC[V.recSort.k], d2=V.recSort.d;
+   list.sort((x,y)=>{const a2=f(x),b2=f(y);
+     if(a2==null&&b2==null)return String(x.date).localeCompare(String(y.date))*d2;
+     if(a2==null)return 1; if(b2==null)return -1;
+     const r=(typeof a2==="string"?String(a2).localeCompare(String(b2)):a2-b2)*d2;
+     return r||String(x.date).localeCompare(String(y.date))*d2;});}
+  const cell=v=>`<td style="color:${v==null?"var(--tx2)":v>0?"#ff6b6b":v<0?"#37c871":""}">${v==null?"—":(v>0?"+":"")+Math.round(v)}</td>`;
+  const pairName=`${esc(chName(champId(cA))||cA)} + ${esc(chName(champId(cB))||cB)}`;
+  const recInner=`<div class="tblwrap"><table class="recTbl"><thead><tr>
+    <th>#</th>${["使用選手","版本","賽事","勝敗","K/D/A","金差@10","中期金差","情境","對位配對","對位選手"].map(k2=>{const _s=V.recSort,_on=_s&&_s.k===k2,_up=_on&&_s.d>0;return `<th data-rs="${k2}" style="cursor:pointer"><span class="thL">${mLabel(k2)}<span class="sortArr${_on?" on":""}${_on?(_up?" asc":" desc"):""}">${_up?"▲":"▼"}</span></span></th>`;}).join("")}</tr></thead><tbody>${
+    list.map((g,i)=>{const sit=_sit(g);
+      return `<tr><td class="rk">${i+1}</td>
+      <td><span class="meta">${esc(tAb(g.tm)||g.tm||"")}</span> ${esc(g.pA)}＋${esc(g.pB)}</td>
+      <td class="meta" title="${esc(g.date||"")}">${esc(g.patch||"–")}</td>
+      <td class="meta">${esc(`${g.lg||""} ${g.sp||""}`.trim()||"–")}</td>
+      <td>${g.won?`<span style="color:#ff6b6b">${en?"W":"勝"}</span>`:`<span style="color:#6ea8ff">${en?"L":"敗"}</span>`}</td>
+      <td>${g.k}/${g.de}/${g.a}</td>
+      ${cell(_gd(g))}${cell(_md(g))}
+      <td>${sit?`<b style="color:${SIT_COL[sit]}">${en?SIT_EN[sit]:sit}</b>`:"—"}</td>
+      <td><span class="heroname">${g.ochA?cImg(g.ochA):""}${g.ochA?(cAb(g.ochA)||""):"—"} + ${g.ochB?cImg(g.ochB):""}${g.ochB?(cAb(g.ochB)||""):"—"}</span></td>
+      <td>${esc(g.opA||"–")}＋${esc(g.opB||"–")}</td></tr>`;}).join("")
+  }</tbody></table></div>`;
+  main.innerHTML=filterBar(`
+    <label>${en?"Player":"選手"}</label>${comboHTML("hdPlSel",en?"Player":"使用選手",170)}
+    ${heroModeSegHTML("pro")}`)
+    +`<div class="card"><h2>
+      <span class="heroname" style="font-size:22px">${cImg(cA)} ${cImg(cB)} ${pairName}</span>
+      <span class="sub">${laneIcons}${V.hdPlayer?`｜${en?"by ":"選手 "}${esc(V.hdPlayer)}`:""}｜<span class="plink" id="pdDexA">🛠️ ${esc(cAb(cA)||"")}${en?" builds →":" 出裝 →"}</span>　<span class="plink" id="pdDexB">🛠️ ${esc(cAb(cB)||"")}${en?" builds →":" 出裝 →"}</span></span></h2>
+      <div class="statline">
+        <span>${en?"Games":"出場"} <b>${n}</b>${en?"":" 場"}</span>
+        <span>${en?"Win%":"勝率"} <b>${n?Math.round(w/n*100):0}%</b><span class="meta">(${w}-${n-w})</span></span>
+        <span>${T("場均 K/D/A")} <b>${n?`${d1s(k/n)} / ${d1s(dd/n)} / ${d1s(as/n)}`:"—"}</b></span>
+        <span>${en?"KP%":"參與率"} <b>${tkS?Math.round((k+as)/(2*tkS)*100)+"%":"—"}</b></span>
+        <span>${en?"GD@10":"金差@10"} <b>${gdN?sg(gdS/gdN):"—"}</b></span>
+        <span>${en?"Mid GD":"中期金差"} <b>${mdN?sg(mdS/mdN):"—"}</b></span>
+        <span>${en?"Lane%":"贏線率"} <b>${wlN?Math.round(wl/wlN*100)+"%":"—"}</b></span>
+      </div></div>`
+    +`<div class="card"><h2>📜 ${T("出場紀錄")} <span class="sub">${en?"both lanes merged per game (K/D/A & gold = pair totals) | click a column to sort":"每場＝兩隻合併（K/D/A、金差為兩隻合計）｜點欄位名稱可排序"}</span></h2>${recInner}</div>`;
+  bindFilters(render);
+  bindCombo("hdPlSel",plOpts,V.hdPlayer,hit=>{V.hdPlayer=hit; saveState(); render();},false,170);
+  segBind("heroModeSeg",v=>{ if(v==="pro")return; V.heroDetail=""; V.heroMode=v; saveState(); render(); }); // 切積分→回積分雙人組列表（積分配對無逐場詳情）
+  document.querySelectorAll(".recTbl th[data-rs]").forEach(th=>th.onclick=()=>{
+    const kk=th.dataset.rs, s2=V.recSort;
+    V.recSort=(s2&&s2.k===kk)?{k:kk,d:-s2.d}:{k:kk,d:-1};
+    saveState(); render();
+  });
+  {const a=document.getElementById("pdDexA"); if(a)a.onclick=()=>dexGo("champ",cA);
+   const b=document.getElementById("pdDexB"); if(b)b.onclick=()=>dexGo("champ",cB);}
+  alignHeroCols(document.querySelector(".recTbl")&&document.querySelector(".recTbl").closest(".card"));
+  fillTableWidth(document.querySelector(".recTbl")&&document.querySelector(".recTbl").closest(".card"),true);
+  addSubBack(()=>{V.heroDetail="";V.hdPlayer="";saveState();render();});
 }
 // 情境分類標籤/顏色（供英雄詳情頁出場紀錄的「情境」欄）；四象限：X=金差@10、Y=中期金差(皆對 0)：Q1(都正)=壓制、Q2(X負Y正)=逆轉、Q3(都負)=被壓制、Q4(X正Y負)=沒擴大
 const SIT_ZH={壓制:"壓制",逆轉:"逆轉",沒擴大:"沒擴大",被壓制:"被壓制"};
@@ -9615,7 +9775,7 @@ function render(){
     const _sDl=_sTeamsF.map(t=>{const a=tAbShow(t); if(_seenAb.has(a))return ""; _seenAb.add(a); return `<option value="${esc(a)}">${esc(t)}</option>`;}).join("")
       +_sPls.map(p=>`<option value="${esc((tAb(_pTeam[p]||"")+" "+p).trim())}"></option>`).join("");   // 選手一律帶純縮寫前綴（T1 Keria；混合清單鐵則）
     main.innerHTML=filterBar(`
-      <label>${LANG==="en"?"Lane":"路線"}</label><select id="vPos">${["","TOP","JNG","MID","BOT","SUP","下路組","中野組"].map(p=>`<option value="${p}" ${V.pos===p?"selected":""}>${p?T(p):T("全部")}</option>`).join("")}</select>
+      <label>${LANG==="en"?"Lane":"路線"}</label><select id="vPos">${["","TOP","JNG","MID","BOT","SUP","下路組","中野組"].map(p=>`<option value="${p}" ${V.pos===p?"selected":""}>${p?(LANG==="en"?T(p):({TOP:"上路",JNG:"打野",MID:"中路",BOT:"下路",SUP:"輔助"}[p]||T(p))):T("全部")}</option>`).join("")}</select>
       <label>${T("戰隊或選手")}</label><span class="cwrap"><input type="text" id="vSearch" list="vSearchDl" value="${esc(V.tpSel||"")}" placeholder="${LANG==="en"?"Player / Team…":"選手 / 戰隊…"}" style="width:190px;padding-right:26px" autocomplete="off"><button class="cx" tabindex="-1" data-x="vSearch" title="一鍵清除">✕</button></span><datalist id="vSearchDl">${_sDl}</datalist>`)
       +`<div class="grid">
         <div class="card full"><h2 style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">🕸️ ${T("選手對比")} ${comboHTML("r1",T("選手1"))}${comboHTML("r2",T("選手2"))}<span id="radLg" style="margin-left:auto;display:flex;gap:14px;font-weight:normal;font-size:15.5px"></span></h2><div style="display:flex;gap:12px;align-items:flex-start"><div style="flex:0 0 auto"><label style="font-weight:normal;font-size:14.5px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;margin-bottom:6px"><input type="checkbox" id="h2hChk" ${V.h2h?"checked":""}> ${T("僅限雙方對戰數據")}</label><span id="h2hN" class="meta"></span><div id="axesBox"></div></div><div class="chartbox" style="flex:1;min-width:0"><canvas id="radar"></canvas></div></div></div>
@@ -9952,14 +10112,16 @@ function render(){
     // order：表格／散布圖 在左、職業賽／積分 在右（2026-07-31 使用者指定兩區對調）
     const _modeBtn=heroModeSegHTML(sqMode?"soloq":"pro",2);
     const _vizBtn=segHTML("heroVizSeg",[["table",LANG==="en"?"📋 Table":"📋 表格",LANG==="en"?"Table view":"表格檢視"],["scatter",LANG==="en"?"📊 Scatter":"📊 散布圖",LANG==="en"?"Scatter (KDA vs games)":"散布圖（KDA vs 場數）"]],vizScatter?"scatter":"table","","order:1");
-    const _lanes=sqMode?["","TOP","JNG","MID","BOT","SUP"]:["","TOP","JNG","MID","BOT","SUP","下路組","中野組"]; // 積分無雙人組資料→跳過
+    const _lanes=["","TOP","JNG","MID","BOT","SUP","下路組","中野組"]; // 2026-08-04 起積分也有雙人組（builder pairs 聚合）
     main.innerHTML=filterBar(`
-      <label>${LANG==="en"?"Lane":"路線"}</label><select id="vPos">${_lanes.map(p=>`<option value="${p}" ${V.pos===p?"selected":""}>${p?T(p):T("全部")}</option>`).join("")}</select>
+      <label>${LANG==="en"?"Lane":"路線"}</label><select id="vPos">${_lanes.map(p=>`<option value="${p}" ${V.pos===p?"selected":""}>${p?(LANG==="en"?T(p):({TOP:"上路",JNG:"打野",MID:"中路",BOT:"下路",SUP:"輔助"}[p]||T(p))):T("全部")}</option>`).join("")}</select>
       ${sqMode?"":`<label>${T("戰隊或選手")}</label>${comboHTML("vSel",T("輸入戰隊或選手（空=全部）"))}`}${_modeBtn}${_vizBtn}`)
       +`<div class="card"><h2>🦸 ${T("英雄")} <span class="sub" id="cnt"></span><span class="sub">${sqMode?(LANG==="en"?"Soloq of tracked pros this season · Rating = percentile blend (Wilson win% ×4 + games ×2 + KDA ×2 + GD@15 ×2) · Patch filter works (soloq is ahead of pro, e.g. 26.14) · other global filters don't apply | click a champion for details":"積分數據＝追蹤職業選手今年單雙排彙總｜評分＝同表百分位加權（Wilson 勝率 ×4＋場數 ×2＋KDA ×2＋金差@15 ×2）｜<b>版本</b>可篩（積分比職業賽早上新版）、其他全域篩選不影響｜點英雄名看詳情"):T("評分＝同路百分位加權（滑欄名看權重）｜點英雄名看版本趨勢與出場紀錄")}</span></h2><div id="tbl"></div></div>`;
     const rerender=()=>{
       const rows=sqMode?calcHeroesSoloq(V.pos==="全部"?"":V.pos):calcHeroes(V.pos==="全部"?"":V.pos,V.player,V.heroTeam);
-      document.getElementById("cnt").textContent=`${rows.length}${LANG==="en"?" champions":" 隻"}`;
+      const _isPairPos=V.pos==="下路組"||V.pos==="中野組";
+      document.getElementById("cnt").textContent=`${rows.length}${_isPairPos?(LANG==="en"?" pairs":" 組"):(LANG==="en"?" champions":" 隻")}`
+        +(sqMode&&_isPairPos?(LANG==="en"?" · season totals (patch filter n/a for duos)":" ｜ 雙人組＝全季彙總，版本篩選不生效"):"");
       if(vizScatter){ // 散布圖版面：X/Y 軸可自選，點擊進英雄詳情(與表格同動線)
         const scM=scatterMetrics(rows), scK=new Set(scM.map(m=>m.k));
         if(!scK.has(V.scatterX))V.scatterX=scK.has("KDA")?"KDA":(scM[0]&&scM[0].k); // 選的指標在目前模式不存在(如切到積分沒 BP%)→退回預設
@@ -9969,11 +10131,11 @@ function render(){
         {const bx=document.getElementById("hscX"),by=document.getElementById("hscY");
          if(bx)bx.onchange=()=>{V.scatterX=bx.value; saveState(); rerender();};
          if(by)by.onchange=()=>{V.scatterY=by.value; saveState(); rerender();};}
-        document.querySelectorAll("#tbl .hscDot").forEach(d=>{ d.onclick=()=>{V.heroDetail=d.dataset.full; V.hdOpp="";V.hdLane="";V.hdPlayer=""; curView="英雄"; saveState();
+        document.querySelectorAll("#tbl .hscDot").forEach(d=>{ d.onclick=()=>{ if(!d.dataset.full)return; V.heroDetail=d.dataset.full; V.hdOpp="";V.hdLane="";V.hdPlayer=""; curView="英雄"; saveState();
           document.querySelectorAll("nav .tab").forEach(x=>x.classList.toggle("on",x.dataset.view==="英雄")); render();}; });
         return;
       }
-      let hcols=sqMode?HSCOLS:HCOLS;
+      let hcols=sqMode?((V.pos==="下路組"||V.pos==="中野組")?HSPCOLS:HSCOLS):HCOLS;
       if(!sqMode&&(V.heroTeam||V.player)){ // 篩選戰隊/選手：BP% 改名為戰隊BP%／選手BP%，以免與一般 BP% 混淆（自己選＋對手禁÷該隊出賽）
         const bpLbl=V.heroTeam?(LANG==="en"?"Team Presence":"戰隊BP%"):(LANG==="en"?"Player Presence":"選手BP%");
         hcols=HCOLS.map(col=>col[0]==="BP%"?[col[0],col[1],col[2],bpLbl]:col);
@@ -9981,8 +10143,8 @@ function render(){
       document.getElementById("tbl").innerHTML=tableHTML(hcols,rows,true);
       alignHeroCols(document.getElementById("tbl")); // 英雄欄：以最長「圖+名」為寬度置中、其餘靠左對齊(圖對齊)
       bindSort(rerender);
-      // 點英雄名 → 跳圖鑑詳情頁（含版本趨勢）
-      const byName={}; rows.forEach(r=>byName[r.英雄]=r._full);
+      // 點英雄名 → 詳情頁。雙人組：職業版跳「配對詳情」(鍵=組別|主|副)；積分雙人組無逐場資料、不可點
+      const byName={}; rows.forEach(r=>byName[r.英雄]=r._pair?(sqMode?"":V.pos+"|"+r._pair.join("|")):r._full);
       document.querySelectorAll("#tbl tbody td:nth-child(2)").forEach(td=>{
         const full=byName[td.textContent.trim()];
         if(!full)return;
@@ -9996,7 +10158,7 @@ function render(){
     };
     bindFilters(rerender);
     document.getElementById("vPos").onchange=e=>{V.pos=e.target.value==="全部"?"":e.target.value; saveState(); rerender();};
-    segBind("heroModeSeg",v=>{ if(v===(sqMode?"soloq":"pro"))return; V.heroMode=v; if(V.pos==="下路組"||V.pos==="中野組")V.pos=""; saveState(); render(); });
+    segBind("heroModeSeg",v=>{ if(v===(sqMode?"soloq":"pro"))return; V.heroMode=v; saveState(); render(); }); // 雙人組兩模式都有了，切換不再清路線
     segBind("heroVizSeg",v=>{ if(v===(vizScatter?"scatter":"table"))return; V.heroViz=v; saveState(); render(); });
     if(!sqMode){
     // 從點選手名跳進來（pGo 設了 V.player 但 heroSel 沒同步）→ 自動把選手/戰隊名填進上方篩選框，不用手動刷新
@@ -11462,6 +11624,9 @@ function render(){
     }
     rerender();
   }
+  else if(curView==="英雄"&&V.heroDetail&&String(V.heroDetail).includes("|")){
+    heroPairDetail(V.heroDetail); // 雙人組配對詳情（鍵=組別|主|副；只有職業資料有配對逐場）
+  }
   else if(curView==="英雄"&&V.heroDetail&&!isHistYear()&&V.heroMode==="soloq"&&window.SOLOQ_BUILDS&&SOLOQ_BUILDS.hero&&SOLOQ_BUILDS.hero[V.heroDetail]){
     // ── 積分版英雄詳情頁（與職業版同構：名片＋版本趨勢＋出場紀錄；函式定義在 calcHeroesSoloq 後）──
     sqHeroDetail(V.heroDetail);
@@ -11701,8 +11866,9 @@ function render(){
         if(mates.length<2)return "";
         const RO={TOP:0,JUNGLE:1,MIDDLE:2,BOTTOM:3,UTILITY:4}, R3={TOP:"TOP",JUNGLE:"JNG",MIDDLE:"MID",BOTTOM:"BOT",UTILITY:"SUP"};
         mates.sort((x,y)=>(RO[x.role]??9)-(RO[y.role]??9)||String(x.p).localeCompare(String(y.p)));
+        // 當前選手也放進來（亮起、點了不動作）——2026-08-04 使用者指定；標題列隊徽同日移除，隊徽只留這裡
         return `<span style="line-height:0">${teamLogoHTML(tm0,30)}</span>`
-          +mates.filter(m2=>!m2.me).map(m2=>`<button class="sqLaneBtn sqMate" data-rid="${esc(m2.rid||"")}">${R3[m2.role]?posImg(R3[m2.role]):""}${esc(m2.p)}</button>`).join("");
+          +mates.map(m2=>`<button class="sqLaneBtn sqMate${m2.me?" on":""}" data-rid="${esc(m2.rid||"")}">${R3[m2.role]?posImg(R3[m2.role]):""}${esc(m2.p)}</button>`).join("");
       };
       const _injectMates=()=>{ if(typeof ensureBackBtn==="function")ensureBackBtn();
         const bar=document.querySelector("#main .filters"); if(!bar)return;
@@ -11714,12 +11880,12 @@ function render(){
         if(bar.firstChild!==mt)bar.insertBefore(mt,bar.firstChild);
         mt.innerHTML=html;
         mt.querySelectorAll(".sqMate[data-rid]").forEach(el=>el.onclick=()=>{ const r2=el.dataset.rid;
-          if(!r2||r2===rid)return;
+          if(!r2||r2===rid||el.classList.contains("on"))return; // 自己的按鈕不動作（V.rankDetail 可能是副帳 rid，別誤跳主帳）
           V.rankDetail=r2; V.rankDetLane=""; V.rankShow=100; V.rankGSort=null; V.rankGChamp=""; V.rankGOpp=""; V.rankGVs=""; saveState(); render(); });
       };
       if(meta && !cache){ // 尚未載入該選手的逐場檔→注入＋顯示載入中；__sqLoad 載好後會重繪
         if(!document.querySelector('script[data-sqf="'+meta.f+'"]')){ const s=document.createElement("script"); s.src="soloq_matches/"+meta.f; s.setAttribute("data-sqf",meta.f); s.onerror=()=>{window.__SQCACHE[key]={role:meta.role,matches:[]}; if(curView==="積分"&&V.rankDetail)render();}; document.body.appendChild(s); }
-        main.innerHTML=`<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px">${bkBtn}${(()=>{const R3={TOP:"TOP",JUNGLE:"JNG",MIDDLE:"MID",BOTTOM:"BOT",UTILITY:"SUP"};const rl=meta&&meta.role;return rl&&R3[rl]?`<span class="sqDetLane" style="line-height:0">${posImg(R3[rl])}</span>`:"";})()}<h2 style="margin:0;display:flex;align-items:center;gap:10px">${teamLogoHTML(pl.team,26)}<span>${esc(pl.player||rid.split("#")[0])}</span></h2><span class="meta">${en?"loading games…":"載入逐場中…"}</span></div>`;
+        main.innerHTML=`<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px">${bkBtn}${(()=>{const R3={TOP:"TOP",JUNGLE:"JNG",MIDDLE:"MID",BOTTOM:"BOT",UTILITY:"SUP"};const rl=meta&&meta.role;return rl&&R3[rl]?`<span class="sqDetLane" style="line-height:0">${posImg(R3[rl])}</span>`:"";})()}<h2 style="margin:0;display:flex;align-items:center;gap:10px"><span>${esc(pl.player||rid.split("#")[0])}</span></h2><span class="meta">${en?"loading games…":"載入逐場中…"}</span></div>`;
         bindBack();
       _injectMates();
       } else {
@@ -11822,7 +11988,7 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
         ${bkBtn}
         ${(()=>{const R3={TOP:"TOP",JUNGLE:"JNG",MIDDLE:"MID",BOTTOM:"BOT",UTILITY:"SUP"};
           return role&&R3[role]?`<span class="sqDetLane" style="line-height:0" title="${posLb(role)}">${posImg(R3[role])}</span>`:"";})()}
-        <h2 style="margin:0;display:flex;align-items:center;gap:10px">${teamLogoHTML(pl.team,26)}<span>${esc(pl.player||rid.split("#")[0])}</span></h2>
+        <h2 style="margin:0;display:flex;align-items:center;gap:10px"><span>${esc(pl.player||rid.split("#")[0])}</span></h2>
         ${acctsShow.length>1?`<span class="meta">${en?`${acctsShow.length} accts:`:`合併 ${acctsShow.length} 帳號：`}</span>`:""}${acctChips}
         <span style="flex:1"></span>
         </div>
