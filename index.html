@@ -11796,8 +11796,10 @@ function render(){
         // 標題「點法」＋主副：先點滿(5 點、不含 R)的是主、第二個點滿的是副（skillMainOrder
         // 就是這個定義；沒點滿的依總點數排，殘局也給得出主副）
         const _mo=skillMainOrder(seq), _c=l=>`<b style="color:${SKC[l]||"#cdd6e6"}">${l}</b>`;
-        const _ms=_mo.length?(en?` ${_c(_mo[0])} main${_mo[1]?` · ${_c(_mo[1])} sub`:""}`:` 主${_c(_mo[0])}${_mo[1]?`副${_c(_mo[1])}`:""}`):"";
-        const html=`<div class="tipTitle">${en?"Skill order":"點法"}${_ms}</div>`
+        // 「點法/主/副」用白字（tipTitle 預設金色），QWER 字母維持各自技能色
+        const _w=t2=>`<span style="color:var(--tx)">${t2}</span>`;
+        const _ms=_mo.length?(en?` ${_c(_mo[0])}${_w(" main")}${_mo[1]?` · ${_c(_mo[1])}${_w(" sub")}`:""}`:` ${_w("主")}${_c(_mo[0])}${_mo[1]?`${_w("副")}${_c(_mo[1])}`:""}`):"";
+        const html=`<div class="tipTitle">${_w(en?"Skill order":"點法")}${_ms}</div>`
           +_rowSk(seq.slice(0,6),0)+_rowSk(seq.slice(6,12),6)+_rowSk(seq.slice(12,20),12);
         el.style.cursor="default";
         el.onmouseenter=()=>tipShow(html,el.getBoundingClientRect(),"up");
