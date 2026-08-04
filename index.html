@@ -10267,7 +10267,7 @@ function render(){
           const def=all.map(key).filter(k=>!picks.includes(k));
           while(picks.length<Math.min(5,all.length)&&def.length)picks.push(def.shift()); // 空槽依場數遞補
           V.rosterPickX[pos]=picks;
-          const optHTML=cur=>all.map(e=>`<option value="${esc(key(e))}"${key(e)===cur?" selected":""}>${esc(((tAb(e.t)||e.t)+" "+e.x.p).trim())}（${e.x.total||0}）</option>`).join("");
+          const optHTML=cur=>all.map(e=>`<option value="${esc(key(e))}"${key(e)===cur?" selected":""}>${esc(((tAb(e.t)||e.t)+" "+e.x.p).trim())}</option>`).join("");
           cardsHTML=picks.map((k,i)=>{ const e=all.find(x2=>key(x2)===k);
             const whoSel=`<select class="pickSel pickSelX" data-pos="${pos}" data-slot="${i}">${optHTML(k)}</select>`;
             return mkCard(pos,e.g,e.x.p,e.x,false,e.t,whoSel); }).join("");
