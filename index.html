@@ -10290,13 +10290,13 @@ function render(){
       // 跨隊直式插槽下拉（要綁在 .pickSel 之後蓋掉它的 onchange：值是「隊|選手」不是純名字）
       box.querySelectorAll(".pickSelX").forEach(s=>s.onchange=()=>{
         (V.rosterPickX[s.dataset.pos]||[])[+s.dataset.slot]=s.value; saveState(); rerender();});
-      // 插槽下拉寬度＝所選 ID 文字寬 +10px（2026-08-05 使用者指定；select 預設會撐到「最長選項」寬）
+      // 插槽下拉寬度＝所選 ID 文字寬 +20px（2026-08-05 使用者指定；select 預設會撐到「最長選項」寬）
       {const _cv=document.createElement("canvas"), _cx=_cv.getContext("2d");
        box.querySelectorAll(".pickSelX").forEach(s=>{ const cs=getComputedStyle(s);
          _cx.font=`${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
          const t=s.options[s.selectedIndex]?s.options[s.selectedIndex].textContent:"";
          const pad=(parseFloat(cs.paddingLeft)||0)+(parseFloat(cs.paddingRight)||0)+(parseFloat(cs.borderLeftWidth)||0)+(parseFloat(cs.borderRightWidth)||0);
-         s.style.width=Math.ceil(_cx.measureText(t).width+10+(cs.boxSizing==="border-box"?pad:0))+"px"; });}
+         s.style.width=Math.ceil(_cx.measureText(t).width+20+(cs.boxSizing==="border-box"?pad:0))+"px"; });}
       {const ls=document.getElementById("vRosterLane"); if(ls&&!ls._b){ls._b=1; ls.onchange=()=>{V.rosterLane=ls.value; saveState(); rerender();};}}
       box.querySelectorAll("th[data-rk]").forEach(th=>th.onclick=()=>{
         const k=th.dataset.rk, pos=th.dataset.pos, s=V.rosterSort[pos];
