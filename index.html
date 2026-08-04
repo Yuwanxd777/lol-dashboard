@@ -711,7 +711,7 @@
   .favStar:hover{color:var(--gold)}
   /* 積分逐場戰績：一列表格式（表頭與資料列共用 .sqCols 欄寬；全固定欄寬＋統一 gap＝間隔一致） */
   .sqCols{grid-template-columns:92px 58px 66px 56px 112px 138px 58px 74px 74px 44px 50px 46px 100px 244px 80px;justify-content:start;justify-items:center;text-align:center} /* 日期|時長|英雄|對位|對位人員|KDA|KP|金差@15|經差@15|搶二|召喚師|符文|技能|出裝|評分（2026-08-04） */
-  .sqHead{display:grid;align-items:center;gap:14px;padding:2px 16px 7px;border-left:5px solid transparent;font-size:13px;color:var(--tx2)}
+  .sqHead{display:grid;align-items:center;gap:20px;padding:2px 16px 7px;border-left:5px solid transparent;font-size:13px;color:var(--tx2)}
   /* ── 積分「每日戰況」各隊卡片 ── 欄位對齊靠 grid；勝負只用細框＋敗方微降透明度（避免整片彩色圈很吵） */
   .dlyGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(352px,1fr));gap:14px;align-items:start}
   .dlyCard{background:linear-gradient(180deg,rgba(255,255,255,.045),rgba(255,255,255,.018));border:1px solid #26304a;
@@ -737,7 +737,7 @@
   .dlyChip{display:inline-block;line-height:0;border-radius:6px;box-shadow:0 0 0 1.5px var(--c)}
   .dlyMore{align-self:center;font-size:11px;opacity:.5;margin-left:2px}
   .sqSortH{cursor:pointer;user-select:none} .sqSortH:hover{color:var(--acc)}
-  .sqGame{display:grid;align-items:center;gap:14px;padding:9px 16px;border-radius:9px;border-left:5px solid #3a4666;background:#141b2b;margin-bottom:6px}
+  .sqGame{display:grid;align-items:center;gap:20px;padding:9px 16px;border-radius:9px;border-left:5px solid #3a4666;background:#141b2b;margin-bottom:6px}
   .sqGame.win{border-left-color:#3d8bff;background:linear-gradient(90deg,rgba(61,139,255,.12),rgba(61,139,255,.02))}
   .sqGame.loss{border-left-color:#e0555f;background:linear-gradient(90deg,rgba(224,85,95,.12),rgba(224,85,95,.02))}
   .sqGame .wl{font-weight:800;font-size:14px}
