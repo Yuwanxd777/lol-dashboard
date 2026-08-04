@@ -938,6 +938,7 @@ window.__SQCACHE={}; window.__sqLoad=function(k,d){ window.__SQCACHE[k]=d;
     ||(curView==="英雄" && V.heroDetail && V.heroMode==="soloq" && V.hdPlayer))) render(); };</script>
 <script src="soloq_match_index.js" onerror="window.SOLOQ_MATCH_IDX=null"></script>
 <script src="soloq_acc_lastgame.js" onerror="window.SOLOQ_ACC_LG=null"></script>
+<script src="soloq_id_hist.js" onerror="window.SOLOQ_ID_HIST=null"></script><!-- 帳號改名史（build_soloq_builds 由逐場 rid 還原；只收改過名的選手） -->
 <script>/* 📡 直播同步（模擬BP）：功能碼在 bp_live_ui.js，該檔刻意不進 .gitignore 白名單＝不發布。
    只有 file://或 localhost 才載入 → 公開版連這個請求都不會發出，觀眾端沒有此功能。 */
 if(location.protocol==="file:"||/^(localhost|127\.)/.test(location.hostname)){
@@ -10353,11 +10354,11 @@ function render(){
         }
         return `<span style="display:block;width:100%"><select class="bpColF" data-k="${f.k}">${oh}</select></span>`;
       }
-      const st=`display:block;width:100%;min-width:0;font-size:11px;box-sizing:border-box;text-align:left`;
-      return `<span style="position:relative;display:block;flex:1 1 0;min-width:0${xs?";"+xs:""}"><input class="bpColF${cur?" on":""}" data-k="${f.k}" size="1" value="${esc(cur)}" placeholder=" " autocomplete="off" style="${st};padding:2px 15px 2px 3px"><span class="bpCx" data-k="${f.k}" title="${LANG==="en"?"clear":"清除"}">✕</span></span>`;
+      const st=`display:block;width:100%;min-width:0;font-size:11px;box-sizing:border-box`;
+      return `<span style="position:relative;display:block;flex:1 1 0;min-width:0${xs?";"+xs:""}"><input class="bpColF${cur?" on":""}" data-k="${f.k}" size="1" value="${esc(cur)}" placeholder=" " autocomplete="off" style="${st};padding:2px 3px"><span class="bpCx" data-k="${f.k}" title="${LANG==="en"?"clear":"清除"}">✕</span></span>`;
     };
-    // 逐欄篩選框文字一律「靠左、左邊留 3px、字級 11px 全列統一」（2026-08-04 使用者指定）。
-    // 框本身仍置中對齊底下資料（.bp td 是 text-align:center）。
+    // 逐欄篩選框文字「塞得下就置中、超出框才置左」（2026-08-04 使用者指定），對齊由
+    // 綁定區的 _fitAlign 依內容量測；字級 11px 全列統一、內距對稱 3px（✕ 是 hover 才浮出的覆蓋）。
     // BAN 圖排的幾何：圖 44px、同一輪圖距 7px、第一輪禁(前3)｜第二輪禁(後2) 之間 15px
     //（前一顆頭像 7px ＋ .banSep 的 1px 框線與 7px margin）→ 第 4 格要多補 15−7＝8px 才對得上。
     // ⚠ 不要用「靠左推固定 px」：那只有在欄寬剛好等於內容寬時才準，欄一被表格撐寬就整排歪掉
@@ -10628,11 +10629,14 @@ function render(){
         _sug.style.top=below?(r.bottom+3)+"px":(Math.max(M,r.top-3-pr.height))+"px";
         _sug.style.visibility=""; _sug._for=inp; _sug._hi=-1; };
       _sug.onmousedown=e=>{ e.preventDefault(); const it=e.target.closest(".fselIt"); if(it)_sugPick(it.dataset.v); }; // mousedown＝搶在 blur 前
+      // 文字「塞得下就置中、超出才置左」（2026-08-04 使用者指定）：CSS 讀不到溢出，用 scrollWidth 判
+      const _fitAlign=inp=>{ inp.style.textAlign=inp.scrollWidth>inp.clientWidth+1?"left":"center"; };
       // 逐欄篩選輸入：即時更新狀態＋防抖重繪；重繪重建整表→把焦點還回剛打字的那一欄
       box.querySelectorAll("input.bpColF").forEach(inp=>{
         const _apply=()=>{ inp.value=_snap(inp.dataset.k,_normQ(inp.dataset.k,inp.value)); V.bpColF[inp.dataset.k]=inp.value; saveState(); };
+        _fitAlign(inp);
         inp.onfocus=()=>_sugShow(inp);
-        inp.oninput=()=>{ V.bpColF[inp.dataset.k]=inp.value; _sugShow(inp); };                    // 打字中：只記值＋過濾清單、不逐字重繪
+        inp.oninput=()=>{ V.bpColF[inp.dataset.k]=inp.value; _sugShow(inp); _fitAlign(inp); };    // 打字中：只記值＋過濾清單、不逐字重繪
         inp.onchange=()=>{ _apply(); rerender(); };                                               // 失焦/輸入完→套用篩選
         inp.onblur=()=>setTimeout(()=>{ if(_sug._for===inp)_sugClose(); },120);
         inp.onkeydown=e=>{
@@ -10657,7 +10661,9 @@ function render(){
         se._fancySync=()=>{ const o=se.options[se.selectedIndex];
           b2.classList.toggle("hasV",!!se.value);
           b2.innerHTML=`<span class="fselTx">${esc(o?(o.dataset.b||o.textContent):"")}</span>`
-            +`<span class="bpCx" data-k="${esc(se.dataset.k)}" title="${LANG==="en"?"clear":"清除"}">✕</span>`; };
+            +`<span class="bpCx" data-k="${esc(se.dataset.k)}" title="${LANG==="en"?"clear":"清除"}">✕</span>`;
+          const tx=b2.querySelector(".fselTx");                       // 塞得下置中、超出才置左（同輸入框）
+          b2.style.justifyContent=tx&&tx.scrollWidth>b2.clientWidth-8?"flex-start":"center"; };
         se._fancySync();
         if(se.value){ b2.style.borderColor="var(--gold)"; b2.style.color="var(--gold)"; } });
       // ✕ 清除該欄（放在 fancy init 之後，鈕內的 ✕ 才綁得到；stopPropagation 免得順手打開清單）
@@ -11745,6 +11751,15 @@ function render(){
         <h2 style="margin:0">${esc(pl.player||rid.split("#")[0])} <span class="meta" style="font-size:14px">${esc(teamFix(pl.team||""))}</span></h2>
         ${role?`<span class="sqLaneBtn on" style="cursor:default">${posLb(role)}</span>`:""}
         ${accts.length>1?`<span class="meta">${en?`${accts.length} accts:`:`合併 ${accts.length} 帳號：`}</span>`:""}${acctChips}
+        ${(()=>{ // 曾用ID（soloq_id_hist.js＝逐場當下的 gameName#tagLine 還原；只有改過名的選手才有）
+          const H=(window.SOLOQ_ID_HIST||{})[(teamFix(tAb(pl.team||""))||pl.team||"")+"|"+(pl.player||"")]
+                ||(window.SOLOQ_ID_HIST||{})[(pl.team||"")+"|"+(pl.player||"")]||[];
+          if(H.length<2)return "";
+          const fd=t=>t?new Date(t).toISOString().slice(5,10):"?";
+          return `<span class="meta" style="font-size:12.5px;flex-basis:100%">${en?"Past IDs":"曾用ID"}：`
+            +[...H].reverse().map(h=>`<span title="${h[1]}${en?" games":" 場"}・${fd(h[2])}~${fd(h[3])}" style="cursor:default">${esc(h[0])}</span>`)
+              .join(`<span style="opacity:.55"> → </span>`)+`</span>`;
+        })()}
         <span style="flex:1"></span>
         ${IDX&&IDX.fetched_at?`<span class="meta">${en?"Updated":"更新"} ${esc(IDX.fetched_at)}${IDX.year?"·"+IDX.year:""}</span>`:""}</div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
