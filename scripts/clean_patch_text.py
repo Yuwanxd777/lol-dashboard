@@ -114,7 +114,9 @@ def transform_line(ln, name_map, name_keys, manual):
             elif k.upper() != k and k.upper() in out:  # 全大寫標頭（W - WARRIOR TRICKSTER）也對照
                 out = re.sub(r"(?<![A-Za-z])" + re.escape(k.upper()) + r"(?![A-Za-z])", name_map[k], out)
         out = re.sub(r"([一-鿿！？」]) ([一-鿿「])", r"\1\2", out)  # 對照後中文間殘留空格收斂（衝天轟擊！ 傷害→衝天轟擊！傷害 不收——僅中文-中文）
-    return out
+    # 人工表在「轉換後」再查一次：fetch 重建出來的原始行是英文形（AP/AD 未換），人工表的 key
+    # 是清理後的樣子，轉完才對得上（2026-08-05：107 條官方錯誤修正翻譯第一次就沒落地的教訓）
+    return manual.get(out.strip(), out)
 
 def process(path, var_name):
     t = open(path, encoding="utf-8").read()
