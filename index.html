@@ -7166,7 +7166,7 @@ function bindFilters(cb){
       const paint=()=>{const on2=!!window.SHOW_BRK;
         b.title=LANG==="en"?(on2?"Hide bracketed sub-values":"Show bracketed sub-values")
                            :(on2?"隱藏欄位括號裡的次要數據":"顯示欄位括號裡的次要數據");
-        b.style.borderColor=on2?"":"var(--gold)"; b.style.color=on2?"":"var(--gold)";};
+        b.style.borderColor=on2?"var(--gold)":""; b.style.color=on2?"var(--gold)":"";}; // 亮黃邊＝開啟中（預設開）
       paint();
       b.onclick=()=>{window.SHOW_BRK=!window.SHOW_BRK;
         try{localStorage.setItem("dash_brk",window.SHOW_BRK?"1":"0");}catch(e){}
@@ -7456,8 +7456,13 @@ function tableHTML(cols,rows,nameImg,limit){ // limit：只渲染排序後前 N 
     return "";
   };
   const thBrk=n=>{if(n==="勝率(勝-敗)"||n==="金差@15"||n==="經差@15"||n==="GD@15"||n==="XPD@15")return n; let s=(LANG==="en")?n.replace(/ +/g," ").trim():n; const i=s.search(/[（(@]/); if(i>0)s=`${s.slice(0,i)}<br>${s.slice(i)}`; s=s.replace(/→/g,"→<br>"); if(LANG==="en")s=s.replace(/ /g,"<br>"); return s.replace(/(<br>){2,}/g,"<br>");}; // 表頭遇括號/@/箭頭換行（積分表 @15 欄名短→整欄一行不斷）；英文再於半形空格處換行（只斷空格、不硬斷字）；合併連續<br>避免多空行
+  // （）開關開啟時：欄名的括號註記也拿掉（資料格已顯示括號值，表頭再寫一次是重複；2026-08-04 使用者指定）
+  // 只作用在有（）鈕的三頁；關閉時保留完整欄名，讓人知道括號裡原本是什麼。
+  const _thNm=n=>{ if(window.SHOW_BRK&&typeof curView!=="undefined"&&["英雄","選手","戰隊"].includes(curView)){
+      const s=String(n).replace(/[（(][^（）()]*[）)]/g,"").trim(); if(s)return s; }
+    return n; };
   const show=(limit&&limit<sorted.length)?sorted.slice(0,limit):sorted; // 分批：只渲染前 N 列（名次仍用完整排序索引 ri）
-  return `<div class="tblwrap"><table><thead><tr><th class="rkh">#</th>${cols.map(([c,,w,lbl],ci)=>{const _st=w?`width:${w}`:(colFloor[ci]?`min-width:calc(${colFloor[ci]}ch + 6px)`:""); return `<th data-k="${c}"${_st?` style="${_st}"`:""}><span class="thL">${thBrk(lbl||mLabel(c))}${arrow(c)}</span></th>`;}).join("")}</tr></thead><tbody>${
+  return `<div class="tblwrap"><table><thead><tr><th class="rkh">#</th>${cols.map(([c,,w,lbl],ci)=>{const _st=w?`width:${w}`:(colFloor[ci]?`min-width:calc(${colFloor[ci]}ch + 6px)`:""); return `<th data-k="${c}"${_st?` style="${_st}"`:""}><span class="thL">${thBrk(_thNm(lbl||mLabel(c)))}${arrow(c)}</span></th>`;}).join("")}</tr></thead><tbody>${
     show.map((r,ri)=>`<tr><td class="rk${ri<3?` rk${ri+1}`:""}">${ri+1}</td>${cols.map(([c,f],i)=>{
       let v=f(r[c],r);
       let nmAttr="";
