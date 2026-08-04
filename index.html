@@ -7607,6 +7607,25 @@ const applyFont=k=>{const f=FONT_SETS[k]||FONT_SETS.huninn;
   if(window.refitLayout){ requestAnimationFrame(()=>refitLayout()); setTimeout(()=>{try{refitLayout();}catch(e){}},450); }};
 applyFont(localStorage.getItem('dash_font')||'huninn');
 // 通用截圖：把指定元素離屏複製一份 → html2canvas 輸出 1920px 寬 PNG（prep 可對複本再加工）
+// 截圖前的圖片暖身（所有 📸 流程共用）：畫面外的懶載圖（loading=lazy）原頁還沒載過 →
+// html2canvas 內部 iframe 會用「無 CORS」原樣載入畫上 canvas，第一次截圖就 Tainted、重試因快取
+// 成功（時好時壞——2026-08-05 陣容橫式先踩到，近況整頁截圖同病）。把 clone 內所有 https 圖
+// 改 eager＋anonymous 並等載完，html2canvas 的 CORS 取圖就穩定命中。
+async function _shotWarm(clone){
+  // file:// 環境：本機圖（路線圖 img/*.png、隊徽…）畫上 canvas 一律污染 → 路線圖換內嵌
+  // base64（POS_B64、依 alt 對照），其餘本機圖隱藏。發布站是同源 https，這段不動作。
+  if(location.protocol==="file:")clone.querySelectorAll("img").forEach(im=>{
+    const s=im.getAttribute("src")||"";
+    if(/^https?:|^data:/i.test(s))return;
+    const k=im.getAttribute("alt")||"", b64=(typeof POS_B64!=="undefined"&&POS_B64)?POS_B64[k]:null;
+    if(b64)im.src=b64; else im.style.visibility="hidden";
+  });
+  clone.querySelectorAll("img").forEach(im=>{ im.loading="eager";
+    if(/^https?:/i.test(im.src))im.setAttribute("crossorigin","anonymous"); });
+  await Promise.all([...clone.querySelectorAll("img")].map(im=>new Promise(r=>{
+    if(im.complete&&im.naturalWidth)return r();
+    im.onload=r; im.onerror=r; setTimeout(r,4000); })));
+}
 async function shotEl(src,name,prep){
   if(!src){alert("找不到要截圖的內容");return;}
   const btn=document.activeElement&&document.activeElement.classList.contains("sqbtn")?document.activeElement:null;
@@ -7625,15 +7644,7 @@ async function shotEl(src,name,prep){
     clone.style.cssText=`position:fixed;left:-99999px;top:0;width:${w}px;padding:10px;box-sizing:content-box;background:#0b0e14`;
     if(prep)prep(clone); // prep 在設定樣式之後跑，才能覆寫寬度／排版
     document.body.appendChild(clone);
-    // 畫面外的懶載圖（loading=lazy）原頁還沒載過 → html2canvas 內部 iframe 會用「無 CORS」
-    // 原樣載入畫上 canvas，第一次截圖就 Tainted（重試會因快取成功，看起來時好時壞——
-    // 2026-08-05 陣容橫式 10 張卡直向排、下面的卡都在畫面外，必踩）。
-    // 先把 clone 內所有 https 圖改 eager＋anonymous 並等載完，html2canvas 的 CORS 取圖就穩定命中。
-    clone.querySelectorAll("img").forEach(im=>{ im.loading="eager";
-      if(/^https?:/i.test(im.src))im.setAttribute("crossorigin","anonymous"); });
-    await Promise.all([...clone.querySelectorAll("img")].map(im=>new Promise(r=>{
-      if(im.complete&&im.naturalWidth)return r();
-      im.onload=r; im.onerror=r; setTimeout(r,4000); })));
+    await _shotWarm(clone);
     const cv=await html2canvas(clone,{backgroundColor:"#0b0e14",useCORS:true,
       scale:Math.min(3,1920/Math.max(1,clone.scrollWidth)),
       width:clone.scrollWidth,height:clone.scrollHeight,
@@ -9932,6 +9943,7 @@ function render(){
         const rowW=Math.ceil(maxW+30);
         clone.style.cssText=`display:flex;flex-direction:column;gap:10px;padding:10px;box-sizing:content-box;position:fixed;left:-99999px;top:0;background:#0b0e14;width:${rowW}px`;
         document.body.appendChild(clone);
+        await _shotWarm(clone); // 懶載圖暖身（見 _shotWarm 註解；四個 📸 流程統一）
         const cv=await html2canvas(clone,{
           backgroundColor:"#0b0e14",useCORS:true,
           scale:1920/clone.scrollWidth,
@@ -10600,6 +10612,7 @@ function render(){
         clone.querySelectorAll(".card").forEach(cd=>{cd.style.backgroundImage="none"; cd.style.backgroundColor="#141a26";}); // html2canvas 對 linear-gradient 會渲染出黑塊
         clone.style.cssText=`position:fixed;left:-99999px;top:0;background:#0b0e14;padding:14px;box-sizing:content-box;width:${src.clientWidth}px`;
         document.body.appendChild(clone);
+        await _shotWarm(clone); // 懶載圖暖身（近況整頁很長、下方圖都在畫面外，首拍必污染——2026-08-05 修）
         const cv=await html2canvas(clone,{backgroundColor:"#0b0e14",useCORS:true,
           scale:1920/clone.scrollWidth,width:clone.scrollWidth,height:clone.scrollHeight,
           windowWidth:Math.max(document.documentElement.scrollWidth,clone.scrollWidth)});
@@ -11857,6 +11870,7 @@ function render(){
           clone.style.cssText=`display:grid;grid-template-columns:repeat(${keep.length},${Math.round(card0.width)}px);gap:14px;padding:10px;position:fixed;left:-99999px;top:0;background:#0b0e14`;
           document.body.appendChild(clone);
           const target=clone;
+          await _shotWarm(target); // 懶載圖暖身（見 _shotWarm 註解；四個 📸 流程統一）
           const cv=await html2canvas(target,{
             backgroundColor:"#0b0e14",useCORS:true,
             scale:1920/target.scrollWidth,             // 無論螢幕解析度，輸出寬固定 1920
