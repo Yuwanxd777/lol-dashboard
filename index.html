@@ -338,6 +338,11 @@
   .rsH th[data-rk]{width:auto;text-align:left;white-space:nowrap}
   .rsH td{text-align:center;padding:4px 8px}
   .rsH td:has(.heroname){text-align:center;padding:4px 8px} /* 橫式只列圖示不列名（滑上看名字）→ 置中 */
+  /* 橫式斑馬紋改「直條」：表是轉置的（欄=英雄），橫紋會把同一列數據刷成一色、看不出欄的分隔 →
+     改成每隔一欄一條（含列標所在的第 1 欄），蓋掉全域的 tr 橫紋 */
+  .rsH tbody tr:nth-child(odd) td,.rsH tbody tr:nth-child(even) td{background:transparent}
+  .rsH tbody tr td:nth-child(odd),.rsH tbody tr th{background:#161c2b}
+  .rsH tbody tr td:nth-child(even){background:#1a202f}
   .rsH .heroname .cc img{margin-right:0;width:36px;height:36px} /* 橫式頭像放大（直式維持 28px）*/
   .pickSel{font-size:17px;font-weight:bold;color:var(--acc);background:var(--card2);
     border:1px solid var(--line);border-radius:8px;padding:3px 8px;max-width:150px}
