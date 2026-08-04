@@ -710,7 +710,7 @@
   .favStar.on{color:var(--gold)}
   .favStar:hover{color:var(--gold)}
   /* 積分逐場戰績：一列表格式（表頭與資料列共用 .sqCols 欄寬；全固定欄寬＋統一 gap＝間隔一致） */
-  .sqCols{grid-template-columns:92px 58px 66px 56px 112px 138px 58px 50px 46px 100px 244px 80px;justify-content:start;justify-items:center;text-align:center} /* 日期|時長|英雄|對位|對位人員|KDA|KP|召喚師|符文|技能|出裝|評分（2026-08-04 改版：對線@15 移除、召喚師獨立欄、加對位人員） */
+  .sqCols{grid-template-columns:92px 58px 66px 56px 112px 138px 58px 74px 74px 44px 50px 46px 100px 244px 80px;justify-content:start;justify-items:center;text-align:center} /* 日期|時長|英雄|對位|對位人員|KDA|KP|金差@15|經差@15|搶二|召喚師|符文|技能|出裝|評分（2026-08-04） */
   .sqHead{display:grid;align-items:center;gap:14px;padding:2px 16px 7px;border-left:5px solid transparent;font-size:13px;color:var(--tx2)}
   /* ── 積分「每日戰況」各隊卡片 ── 欄位對齊靠 grid；勝負只用細框＋敗方微降透明度（避免整片彩色圈很吵） */
   .dlyGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(352px,1fr));gap:14px;align-items:start}
@@ -11709,7 +11709,7 @@ function render(){
       // 英雄/對位篩選框：cwrap＋✕ 一鍵清除（全站慣例）；每英雄一筆：值=網站語言顯示名、說明=另一語言 → 打英文清單仍顯示中文
       const gfilter=(id,dlid,cur,opts,label)=>`<span class="cwrap"><input id="${id}" class="combo" list="${dlid}" value="${cur?esc(chName(champId(cur))):""}" placeholder="${label}" autocomplete="off" style="width:134px;padding-right:26px"><button class="cx" tabindex="-1" data-x="${id}" title="${en?"Clear":"一鍵清除"}">✕</button></span><datalist id="${dlid}">${opts.map(c=>{const cid=champId(c),nm=chName(cid),dd=(((window.CHAMP_SKILLS||{}).d)||{})[cid];const alt=en?((dd&&dd.n)||""):((window.CHAMP_EN||{})[cid]||(cid!==nm?cid:""));return `<option value="${esc(nm)}">${esc(alt||"")}</option>`;}).join("")}</datalist>`;
       // 升降幕：點表頭排序（— / null 一律沉底）；預設不排＝檔案順序(最新在上)
-      const GSV={date:g=>g.t,dur:g=>g.d,champ:g=>chName(champId(g.c)),opp:g=>g.o?chName(champId(g.o)):null,kda:g=>(g.k+g.a)/Math.max(1,g.de),kp:g=>g.kp,l15:g=>g.gd15!=null?g.gd15:null,rune:g=>g.r,score:g=>g.sc}; // l15：以金差@15排序
+      const GSV={date:g=>g.t,dur:g=>g.d,champ:g=>chName(champId(g.c)),opp:g=>g.o?chName(champId(g.o)):null,kda:g=>(g.k+g.a)/Math.max(1,g.de),kp:g=>g.kp,gd15:g=>g.gd15!=null?g.gd15:null,xd15:g=>g.xd15!=null?g.xd15:null,fl2:g=>g.fl2==null?null:(g.fl2===true||g.fl2===1||g.fl2==="true"?1:0),rune:g=>g.r,score:g=>g.sc};
       const RG=V.rankGSort; let games=filtered;
       if(RG&&GSV[RG.k]){ const f=GSV[RG.k]; games=[...filtered].sort((a,b)=>{const x=f(a),y=f(b);
         if(x==null&&y==null)return 0; if(x==null)return 1; if(y==null)return -1;
@@ -11729,7 +11729,7 @@ function render(){
         if(!(g.rp&&g.rp.length))return `<div class="tipTitle">${en?"Keystone":"關鍵符文"}</div><div>${runeImg(g.r,30)}</div>`;
         return `<div class="tipTitle">${en?"Runes":"符文頁"}</div><div style="display:flex;align-items:center;gap:6px;margin:8px 0"><b class="meta" style="width:44px">${en?"Primary":"主系"}</b>${line(g.rp,26)}</div><div style="display:flex;align-items:center;gap:6px;margin:8px 0"><b class="meta" style="width:44px">${en?"Secondary":"副系"}</b>${line(g.rs,24)}</div>${shard?`<div style="display:flex;align-items:center;gap:6px;margin:8px 0"><b class="meta" style="width:44px">${en?"Shards":"碎片"}</b>${shard}</div>`:""}`; };
       const hc=(k,lb)=>k?`<div data-gsort="${k}" class="sqSortH">${lb}${gArrow(k)}</div>`:`<div>${lb}</div>`;
-      const sqHead=`<div class="sqHead sqCols">${hc("date",en?"Date":"日期")}${hc("dur",en?"Time":"時長")}${hc("champ",en?"Champ":"英雄")}${hc("opp",en?"Vs":"對位英雄")}${hc(null,en?"Vs player":"對位人員")}${hc("kda","K/D/A")}${hc("kp",en?"KP%":"參與率")}${hc(null,en?"Summs":"召喚師")}${hc("rune",en?"Rune":"符文")}${hc(null,en?"Skills":"技能")}${hc(null,en?"Items":"出裝")}${hc("score",en?"Score":"評分")}</div>`;
+      const sqHead=`<div class="sqHead sqCols">${hc("date",en?"Date":"日期")}${hc("dur",en?"Time":"時長")}${hc("champ",en?"Champ":"英雄")}${hc("opp",en?"Vs":"對位英雄")}${hc(null,en?"Vs player":"對位人員")}${hc("kda","K/D/A")}${hc("kp",en?"KP%":"參與率")}${hc("gd15",en?"GD@15":"金差@15")}${hc("xd15",en?"XPD@15":"經差@15")}${hc("fl2",en?"Lv2":"搶二")}${hc(null,en?"Summs":"召喚師")}${hc("rune",en?"Rune":"符文")}${hc(null,en?"Skills":"技能")}${hc(null,en?"Items":"出裝")}${hc("score",en?"Score":"評分")}</div>`;
       // 對位人員：查同場（gameCreation 相同）的收錄選手；索引還沒載完顯示 …、查無＝路人
       const vsCell=g=>{ const VS=window.SOLOQ_VS;
         if(!VS)return `<span class="meta">…</span>`;
@@ -11745,6 +11745,10 @@ function render(){
         <div style="font-size:13px">${vsCell(g)}</div>
         <div style="font-size:15px;color:#e8edf6"><b>${kn(g.k)} <span class="meta">/</span> ${kn(g.de)} <span class="meta">/</span> ${kn(g.a)}</b> <span class="meta">(${((g.k+g.a)/Math.max(1,g.de)).toFixed(1)})</span></div>
         <div style="font-size:15px;color:#e8edf6">${g.kp}%</div>
+        ${(()=>{ // 金差/經差@15：正紅負綠（台灣配色）；搶二：✓金/✗灰、來源沒記＝–
+          const dv=v=>v==null?`<span class="meta">—</span>`:`<span class="num" style="font-size:13px;color:${v>0?"#ff5d5d":v<0?"#37c871":"#cdd6e6"}">${v>0?"+":""}${v}</span>`;
+          const f2=g.fl2==null?`<span class="meta">–</span>`:((g.fl2===true||g.fl2===1||g.fl2==="true")?`<b style="color:var(--gold)">✓</b>`:`<span style="color:var(--tx2)">✗</span>`);
+          return `<div>${dv(g.gd15)}</div><div>${dv(g.xd15)}</div><div title="${en?"first to level 2":"先到 2 等"}">${f2}</div>`; })()}
         <div class="sqSummCol">${summImg(g.su&&g.su[0],20)}${summImg(g.su&&g.su[1],20)}</div>
         <div class="sqRunes">${runeKS(g,32)}</div>
         <div class="sqSkill" data-sks="${(g.sk||[]).join("")}">${skill3HTML(g.sk)}</div>
