@@ -10228,10 +10228,10 @@ function render(){
       const posList=V.rosterLane?POSN.filter(p=>p===V.rosterLane):POSN; // 路線篩選：只畫選定那一路
       // 單張卡（pos/g＝該路資料、sel＝選手名、d＝該選手資料、withSel＝是否放選人下拉、team＝所屬隊）——
       // 直式一路一卡（可下拉換人）、橫式與跨隊模式「每位選手各一卡」（2026-08-05 使用者指定）
-      const mkCard=(pos,g,sel,d,withSel,team)=>{
+      const mkCard=(pos,g,sel,d,withSel,team,whoOverride)=>{
         const opts=g.players.map(x=>`<option ${x.p===sel?"selected":""}>${x.p}</option>`).join("");
-        const who=(withSel&&g.players.length>1)?`<select class="pickSel" data-pos="${pos}">${opts}</select>`:pCell(sel,sel);
-        const tmTag=crossTeam?`<b style="font-size:17px;color:var(--tx2)">${esc(tAb(team)||team||"")}</b>`:""; // 跨隊模式：名字前標隊伍縮寫
+        const who=whoOverride||((withSel&&g.players.length>1)?`<select class="pickSel" data-pos="${pos}">${opts}</select>`:pCell(sel,sel));
+        const tmTag=(crossTeam&&!whoOverride)?`<b style="font-size:17px;color:var(--tx2)">${esc(tAb(team)||team||"")}</b>`:""; // 跨隊模式：名字前標隊伍縮寫（下拉本身已含隊名就不重複）
         // 使用者定案 2026-07-31：這串要跟選手名字同列；生涯模式字串最長（多了年份範圍）→ 縮小字級、
         // 用窄分隔「｜」取代全形空白、不換行（放不下才由 flex-wrap 退成第二行，不裁字）
         const hd2=inner=>`<div class="card"><h2 style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">${posImg(pos)}${tmTag}${who}<span class="meta" style="margin-left:auto;font-weight:normal;font-size:${careerMode?"12.5":"15.5"}px;white-space:nowrap">${inner}</span></h2>`;
@@ -10252,17 +10252,26 @@ function render(){
           +tblFor(sortPool(d.pool,pos),pos,sel,true)+`</div>`;
       };
       let cardsHTML, moreNote="";
-      if(crossTeam){ // 跨隊單路：全部戰隊該路的選手各一卡，依出賽場數多→少；直式預設只列前 5（2026-08-05 使用者指定）
+      if(crossTeam){ // 跨隊單路：全部戰隊該路的選手，依出賽場數多→少。
+        // 直式＝五個「插槽」卡，每卡有下拉可從全清單挑人（預設前 5；2026-08-05 使用者指定「像篩選選手那樣點出清單挑」）；橫式＝列全部
         const pos=V.rosterLane, all=[];
         teams.forEach(t=>{ const R2=careerMode?careerRoster(t):teamRoster(t); const g2=R2&&R2[pos]; if(!g2)return;
           g2.players.forEach(x=>all.push({t,g:g2,x})); });
         all.sort((a,b)=>(b.x.total||0)-(a.x.total||0)||String(a.x.p).localeCompare(String(b.x.p)));
-        const show=(!layH&&all.length>5)?all.slice(0,5):all;
-        if(show.length<all.length)moreNote=`<div class="meta" style="margin-top:2px">${LANG==="en"
-          ?`Vertical shows the top 5 by games (of ${all.length}); switch to ▤ Horizontal or narrow with the filters to see the rest.`
-          :`直式預設只列出賽場數前 5 位（共 ${all.length} 位）｜要看全部：切換 ▤ 橫式，或用上方篩選縮小範圍`}</div>`;
-        cardsHTML=show.length?show.map(e=>mkCard(pos,e.g,e.x.p,e.x,false,e.t)).join("")
-          :`<div class="card"><h2>${posImg(pos)}</h2><span class="meta">此篩選下無資料</span></div>`;
+        if(!all.length){ cardsHTML=`<div class="card"><h2>${posImg(pos)}</h2><span class="meta">此篩選下無資料</span></div>`; }
+        else if(layH){ cardsHTML=all.map(e=>mkCard(pos,e.g,e.x.p,e.x,false,e.t)).join(""); }
+        else{
+          const key=e=>e.t+"|"+e.x.p;
+          V.rosterPickX=V.rosterPickX||{};
+          let picks=(V.rosterPickX[pos]||[]).filter(k=>all.some(e=>key(e)===k));
+          const def=all.map(key).filter(k=>!picks.includes(k));
+          while(picks.length<Math.min(5,all.length)&&def.length)picks.push(def.shift()); // 空槽依場數遞補
+          V.rosterPickX[pos]=picks;
+          const optHTML=cur=>all.map(e=>`<option value="${esc(key(e))}"${key(e)===cur?" selected":""}>${esc(((tAb(e.t)||e.t)+" "+e.x.p).trim())}（${e.x.total||0}）</option>`).join("");
+          cardsHTML=picks.map((k,i)=>{ const e=all.find(x2=>key(x2)===k);
+            const whoSel=`<select class="pickSel pickSelX" data-pos="${pos}" data-slot="${i}">${optHTML(k)}</select>`;
+            return mkCard(pos,e.g,e.x.p,e.x,false,e.t,whoSel); }).join("");
+        }
       }else{
         cardsHTML=posList.map(pos=>{
           const g=R[pos];
@@ -10278,6 +10287,9 @@ function render(){
       }
       box.innerHTML=`<div class="rosterGrid${layH?" rosterH":""}"${(!layH&&!crossTeam&&posList.length===1)?' style="grid-template-columns:minmax(0,560px)"':''}>${cardsHTML}</div>`+moreNote;
       box.querySelectorAll(".pickSel").forEach(s=>s.onchange=()=>{V.rosterPick[s.dataset.pos]=s.value; saveState(); rerender();});
+      // 跨隊直式插槽下拉（要綁在 .pickSel 之後蓋掉它的 onchange：值是「隊|選手」不是純名字）
+      box.querySelectorAll(".pickSelX").forEach(s=>s.onchange=()=>{
+        (V.rosterPickX[s.dataset.pos]||[])[+s.dataset.slot]=s.value; saveState(); rerender();});
       {const ls=document.getElementById("vRosterLane"); if(ls&&!ls._b){ls._b=1; ls.onchange=()=>{V.rosterLane=ls.value; saveState(); rerender();};}}
       box.querySelectorAll("th[data-rk]").forEach(th=>th.onclick=()=>{
         const k=th.dataset.rk, pos=th.dataset.pos, s=V.rosterSort[pos];
