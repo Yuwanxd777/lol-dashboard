@@ -11790,9 +11790,11 @@ function render(){
       main.querySelectorAll(".sqSkill[data-sks]").forEach(el=>{
         const seq=[...(el.dataset.sks||"")].map(Number).filter(v=>v>=1&&v<=4);
         if(!seq.length)return;
+        // 等級在上、技能在下；每 6 等換行＝6/6/8 三行（上路最高能點到 20 等；2026-08-04 使用者指定）
+        const _cellSk=(v,i)=>`<span style="display:inline-flex;flex-direction:column;align-items:center;width:20px"><span class="meta" style="font-size:10px">${i+1}</span><b style="color:${SKC[SKL[v]]||"#cdd6e6"}">${SKL[v]}</b></span>`;
+        const _rowSk=(a2,off)=>a2.length?`<div style="display:flex;gap:3px 4px;margin-top:3px">${a2.map((v,i)=>_cellSk(v,i+off)).join("")}</div>`:"";
         const html=`<div class="tipTitle">${en?"Skill order (full game)":"全場技能點法"}</div>`
-          +`<div style="display:flex;flex-wrap:wrap;gap:3px 4px;max-width:400px">`
-          +seq.map((v,i)=>`<span style="display:inline-flex;flex-direction:column;align-items:center;width:20px"><b style="color:${SKC[SKL[v]]||"#cdd6e6"}">${SKL[v]}</b><span class="meta" style="font-size:10px">${i+1}</span></span>`).join("")+`</div>`;
+          +_rowSk(seq.slice(0,6),0)+_rowSk(seq.slice(6,12),6)+_rowSk(seq.slice(12,20),12);
         el.style.cursor="default";
         el.onmouseenter=()=>tipShow(html,el.getBoundingClientRect(),"up");
         el.onmouseleave=tipHide;
