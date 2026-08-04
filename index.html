@@ -11719,7 +11719,7 @@ function render(){
       };
       if(meta && !cache){ // 尚未載入該選手的逐場檔→注入＋顯示載入中；__sqLoad 載好後會重繪
         if(!document.querySelector('script[data-sqf="'+meta.f+'"]')){ const s=document.createElement("script"); s.src="soloq_matches/"+meta.f; s.setAttribute("data-sqf",meta.f); s.onerror=()=>{window.__SQCACHE[key]={role:meta.role,matches:[]}; if(curView==="積分"&&V.rankDetail)render();}; document.body.appendChild(s); }
-        main.innerHTML=`<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:10px">${bkBtn}${(()=>{const R3={TOP:"TOP",JUNGLE:"JNG",MIDDLE:"MID",BOTTOM:"BOT",UTILITY:"SUP"};const rl=meta&&meta.role;return rl&&R3[rl]?`<span class="sqDetLane" style="line-height:0">${posImg(R3[rl])}</span>`:"";})()}<h2 style="margin:0;display:flex;align-items:center;gap:8px">${teamLogoHTML(pl.team,26)}<span>${esc(pl.player||rid.split("#")[0])}</span></h2><span class="meta">${en?"loading games…":"載入逐場中…"}</span></div>`;
+        main.innerHTML=`<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px">${bkBtn}${(()=>{const R3={TOP:"TOP",JUNGLE:"JNG",MIDDLE:"MID",BOTTOM:"BOT",UTILITY:"SUP"};const rl=meta&&meta.role;return rl&&R3[rl]?`<span class="sqDetLane" style="line-height:0">${posImg(R3[rl])}</span>`:"";})()}<h2 style="margin:0;display:flex;align-items:center;gap:10px">${teamLogoHTML(pl.team,26)}<span>${esc(pl.player||rid.split("#")[0])}</span></h2><span class="meta">${en?"loading games…":"載入逐場中…"}</span></div>`;
         bindBack();
       _injectMates();
       } else {
@@ -11822,7 +11822,7 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
         ${bkBtn}
         ${(()=>{const R3={TOP:"TOP",JUNGLE:"JNG",MIDDLE:"MID",BOTTOM:"BOT",UTILITY:"SUP"};
           return role&&R3[role]?`<span class="sqDetLane" style="line-height:0" title="${posLb(role)}">${posImg(R3[role])}</span>`:"";})()}
-        <h2 style="margin:0;display:flex;align-items:center;gap:8px">${teamLogoHTML(pl.team,26)}<span>${esc(pl.player||rid.split("#")[0])}</span></h2>
+        <h2 style="margin:0;display:flex;align-items:center;gap:10px">${teamLogoHTML(pl.team,26)}<span>${esc(pl.player||rid.split("#")[0])}</span></h2>
         ${acctsShow.length>1?`<span class="meta">${en?`${acctsShow.length} accts:`:`合併 ${acctsShow.length} 帳號：`}</span>`:""}${acctChips}
         <span style="flex:1"></span>
         </div>
