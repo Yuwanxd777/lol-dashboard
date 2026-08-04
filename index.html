@@ -1024,6 +1024,7 @@ const METRIC_EN={
   "被首殺率":"FB victim%","首殺差":"FB diff","攻擊值":"ATK","防禦值":"DEF",
   // 散布圖可選軸指標
   "金差@15":"GD@15","經差@15":"XPD@15","分均CS":"CS/min","搶二率":"Lvl2 first%","每場擊殺":"K/game","每場死亡":"D/game","每場助攻":"A/game",
+  "常配英雄":"Duo top 3","常打英雄":"Vs top 3",
   // 道具 tooltip
   "合成":"Builds from","可合成":"Builds into","符文系":"Rune tree","召喚師技能":"Summoner spell",
   // 篩選/其他零散
@@ -6334,13 +6335,16 @@ const HCOLS=[["英雄",fmt.raw,"11.5em"],["路線",(v,r)=>r._laneIcons||"–","1
   ["贏線率",fmt.pct],["後選率",fmt.pct],["參與率",fmt.pct],["KDA",(v,r)=>!_fin(v)?"–":`${fmt.d1(v)}${_brk(`<span class="meta"> (${esc(r["K/D/A"]||"")})</span>`)}`],
   ["中期金差",v=>!_fin(v)?"–":(v>0?"+":"")+Math.round(v)],
   ["分均金錢",fmt.int],["分均輸出",fmt.int],["分均承傷",fmt.int],["分均視分",fmt.d1],["評分",fmt.score]];
+// 常配/常打英雄小圖列（積分英雄表「評分」左兩欄）：a=[[英雄,場,勝],…]，滑圖示看 名｜場數｜勝率
+const _trio3=a=>a&&a.length?`<span style="display:inline-flex;gap:3px;vertical-align:middle">${a.map(x=>`<img loading="lazy" data-cid="${champId(x[0])}" data-fbmode="hide" onerror="champImgFb(this)" src="https://ddragon.leagueoflegends.com/cdn/${yearVer()}/img/champion/${champId(x[0])}.png" style="width:24px;height:24px;border-radius:5px;vertical-align:middle" title="${esc(chName(champId(x[0])))}｜${x[1]}${LANG==="en"?" games":" 場"}｜${Math.round(x[2]/x[1]*100)}%">`).join("")}</span>`:"–";
 // 英雄分頁「積分數據版」欄位（積分沒有的參數一律跳過：無 BP%/禁用/贏線/後選/評分等賽事專屬欄）；搶二率＝先到 2 等場數÷有紀錄場數
 const HSCOLS=[["英雄",fmt.raw,"11.5em"],["路線",(v,r)=>r._laneIcons||"–","11em"],["場數",fmt.int],
   ["勝率(勝-敗)",(v,r)=>`${Math.round((v||0)*100)}%${_brk(` (${esc(r["勝-敗"]||"")})`)}`],
   ["KDA",(v,r)=>!_fin(v)?"–":`${fmt.d1(v)}${_brk(`<span class="meta"> (${esc(r["K/D/A"]||"")})</span>`)}`],
   ["參與率",fmt.pct],["搶二率",fmt.pct],
   ["金差@15",v=>!_fin(v)?"–":(v>0?"+":"")+Math.round(v)],["經差@15",v=>!_fin(v)?"–":(v>0?"+":"")+Math.round(v)],
-  ["評分",fmt.score]]; // 2026-08-04：分均CS 移除、搶二率移到金差@15 左（與積分逐場欄序一致）
+  ["常配英雄",(v,r)=>_trio3(r._duo3),"88px"],["常打英雄",(v,r)=>_trio3(r._vs3),"88px"],
+  ["評分",fmt.score]]; // 2026-08-04：分均CS 移除、搶二率移到金差左；評分左加 常配英雄/常打英雄 各前三（滑圖示看場數勝率）
 // 積分雙人組（下路組/中野組）欄位：只列配對聚合真的有的欄（無 KP/CS/經差/搶二 等單人欄）
 const HSPCOLS=[["英雄",fmt.raw,"14em"],["路線",(v,r)=>r._laneIcons||"–","11em"],["場數",fmt.int],
   ["勝率(勝-敗)",(v,r)=>`${Math.round((v||0)*100)}%${_brk(` (${esc(r["勝-敗"]||"")})`)}`],
@@ -6386,7 +6390,14 @@ function calcHeroesSoloq(pos){
     if(!n||n<minN)continue; // 樣本門檻（全季 15／單版本 5）
     const laneIcons=Object.entries(lanes).filter(([ln])=>PNS[ln]).sort((x,y)=>y[1][0]-x[1][0])
       .map(([ln])=>posImg(PNS[ln])).filter(Boolean).join("");
+    // 常配英雄（champs.duo；有路線篩選且該路有 byLane 就用該路的）／常打英雄（mu 對位聚合）各取前三
+    const _cc2=(B.champs||{})[ch]||{};
+    let _duoL=_cc2.duo||[];
+    if(L2&&_cc2.byLane&&_cc2.byLane[L2]&&_cc2.byLane[L2].duo)_duoL=_cc2.byLane[L2].duo;
+    const _mu2=(B.mu||{})[ch];
+    const _vs3=_mu2?Object.entries(_mu2).map(([o,x])=>[o,x[0],x[1]]).sort((x,y)=>y[1]-x[1]).slice(0,3):[];
     rows.push({英雄:cAb(ch),_full:ch,路線:Object.keys(lanes).filter(l=>PNS[l]).length,_laneIcons:laneIcons,
+      _duo3:_duoL.slice(0,3),_vs3,
       場數:n,"勝-敗":`${w}-${n-w}`,勝率:w/n,"勝率(勝-敗)":w/n,
       KDA:(k+a)/Math.max(1,d),_ak:k/n,_ad:d/n,_aa:a/n,"K/D/A":`${d1s(k/n)} / ${d1s(d/n)} / ${d1s(a/n)}`,
       參與率:kpN?kpS/kpN/100:null,
