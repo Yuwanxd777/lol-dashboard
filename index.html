@@ -11717,18 +11717,6 @@ function render(){
         if(!document.querySelector('script[data-sqf="'+meta.f+'"]')){ const s=document.createElement("script"); s.src="soloq_matches/"+meta.f; s.setAttribute("data-sqf",meta.f); s.onerror=()=>{window.__SQCACHE[key]={role:meta.role,matches:[]}; if(curView==="積分"&&V.rankDetail)render();}; document.body.appendChild(s); }
         main.innerHTML=`<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:10px">${bkBtn}${(()=>{const R3={TOP:"TOP",JUNGLE:"JNG",MIDDLE:"MID",BOTTOM:"BOT",UTILITY:"SUP"};const rl=meta&&meta.role;return rl&&R3[rl]?`<span class="sqDetLane" style="line-height:0">${posImg(R3[rl])}</span>`:"";})()}<h2 style="margin:0"><span class="meta" style="font-size:16px">${esc(teamFix(pl.team||""))}</span> ${esc(pl.player||rid.split("#")[0])}</h2><span class="meta">${en?"loading games…":"載入逐場中…"}</span></div>`;
         bindBack();
-        // 曾用ID：滑到帳號籤時小框顯示（2026-08-04 使用者定案：不佔標頭一行）。
-      // 資料＝soloq_id_hist.js（該選手當年所有出現過的 ID；只有改過的才有）
-      {const H=(window.SOLOQ_ID_HIST||{})[(pl.team||"")+"|"+(pl.player||"")]||[];
-       if(H.length>1){ const fd=t=>t?new Date(t).toISOString().slice(5,10):"?";
-         const html=`<div class="tipTitle">${en?"Past IDs":"曾用ID"}</div>`
-           +[...H].reverse().map((h,i,arr)=>`<div style="display:flex;gap:10px;align-items:baseline;margin:4px 0">
-              <b style="color:${i===arr.length-1?"var(--gold)":"var(--tx)"}">${esc(h[0])}</b>
-              <span class="meta" style="font-size:12px">${h[1]}${en?" games":" 場"}・${fd(h[2])}~${fd(h[3])}</span></div>`).join("");
-         main.querySelectorAll(".acctChip").forEach(el=>{
-           el.style.cursor="default";
-           el.onmouseenter=()=>tipShow(html,el.getBoundingClientRect(),"up");
-           el.onmouseleave=tipHide; }); }}
       _injectMates();
       } else {
       const data=cache||{role:(meta&&meta.role)||null,matches:[]};
@@ -11844,6 +11832,18 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
         ${games.length?sqHead+games.slice(0,show).map(card).join(""):`<div class="note">${en?"No solo/duo games collected for this player yet.":"這位選手還沒有蒐集到單雙積分逐場資料。"}</div>`}
         ${show<games.length?`<div style="display:flex;gap:10px;justify-content:center;margin-top:12px"><button id="sqMore" class="sqMoreBtn">${en?"Show more (+100)":"顯示更多（＋100）"}</button><button id="sqAll" class="sqMoreBtn">${en?`Show all (${games.length})`:`全部展開（${games.length}）`}</button></div>`:""}</div>`;
       bindBack();
+        // 曾用ID：滑到帳號籤時小框顯示（2026-08-04 使用者定案：不佔標頭一行）。
+      // 資料＝soloq_id_hist.js（該選手當年所有出現過的 ID；只有改過的才有）
+      {const H=(window.SOLOQ_ID_HIST||{})[(pl.team||"")+"|"+(pl.player||"")]||[];
+       if(H.length>1){ const fd=t=>t?new Date(t).toISOString().slice(5,10):"?";
+         const html=`<div class="tipTitle">${en?"Past IDs":"曾用ID"}</div>`
+           +[...H].reverse().map((h,i,arr)=>`<div style="display:flex;gap:10px;align-items:baseline;margin:4px 0">
+              <b style="color:${i===arr.length-1?"var(--gold)":"var(--tx)"}">${esc(h[0])}</b>
+              <span class="meta" style="font-size:12px">${h[1]}${en?" games":" 場"}・${fd(h[2])}~${fd(h[3])}</span></div>`).join("");
+         main.querySelectorAll(".acctChip").forEach(el=>{
+           el.style.cursor="default";
+           el.onmouseenter=()=>tipShow(html,el.getBoundingClientRect(),"up");
+           el.onmouseleave=tipHide; }); }}
       _injectMates();
       // 對位人員：點擊 → 開那位選手的逐場詳情（用隊+名回查他的主 riotId）
       main.querySelectorAll(".sqVsPro").forEach(el=>el.onclick=()=>{
