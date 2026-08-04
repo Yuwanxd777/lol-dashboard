@@ -100,6 +100,12 @@ def transform_line(ln, name_map, name_keys, manual):
     out = re.sub(r"%i:[A-Za-z0-9_]+%\s*", "", out)
     for rx, rep in PREFIX_RULES: out = rx.sub(rep, out)
     for rx, rep in APAD: out = rx.sub(rep, out)
+    # T3 神話鞋成對名（貪婪護脛／不朽之道 這類）的「總價格：950 ⇒ 1000」：官方原文 Total Cost 就標錯，
+    # 950/1000 連二級鞋都買不起，實際是升級費（2026-08-05 使用者判定）→ 正名「升級價格」。
+    # 只認「A／B 成對道具名＋兩邊都 ≤1200」：凜冬將至／大天使這類變形裝總價 2400+ 不會誤中。
+    m2 = re.match(r"^([^｜]*／[^｜]*)｜總價格([：:]\s*([\d,]+)\s*(?:金錢\s*)?⇒\s*([\d,]+).*)$", out)
+    if m2 and int(m2.group(3).replace(",", "")) <= 1200 and int(m2.group(4).replace(",", "")) <= 1200:
+        out = m2.group(1) + "｜升級價格" + m2.group(2)
     if re.search(r"[A-Za-z][’‘][A-Za-z ]", out): out = out.replace("’", "'").replace("‘", "'")  # 英文名內彎引號→直引號（Bop ‘n’ Block 等才能對上官方表）
     if re.search(r"[A-Za-z]{4,}", out) and re.search(r"[一-鿿]", out):  # 混合行才做英名對照
         for k in name_keys:
