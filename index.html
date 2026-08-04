@@ -10251,13 +10251,17 @@ function render(){
         return hd2(LANG==="en"?`Pool ${d.pool.length}　Games ${d.total}　Win% ${Math.round(d.winrate*100)}%`:`角色池 ${d.pool.length}　總場 ${d.total}　勝率 ${Math.round(d.winrate*100)}%`)
           +tblFor(sortPool(d.pool,pos),pos,sel,true)+`</div>`;
       };
-      let cardsHTML;
-      if(crossTeam){ // 跨隊單路：全部戰隊該路的選手各一卡，依出賽場數多→少（兩種版面都一樣列全部）
+      let cardsHTML, moreNote="";
+      if(crossTeam){ // 跨隊單路：全部戰隊該路的選手各一卡，依出賽場數多→少；直式預設只列前 5（2026-08-05 使用者指定）
         const pos=V.rosterLane, all=[];
         teams.forEach(t=>{ const R2=careerMode?careerRoster(t):teamRoster(t); const g2=R2&&R2[pos]; if(!g2)return;
           g2.players.forEach(x=>all.push({t,g:g2,x})); });
         all.sort((a,b)=>(b.x.total||0)-(a.x.total||0)||String(a.x.p).localeCompare(String(b.x.p)));
-        cardsHTML=all.length?all.map(e=>mkCard(pos,e.g,e.x.p,e.x,false,e.t)).join("")
+        const show=(!layH&&all.length>5)?all.slice(0,5):all;
+        if(show.length<all.length)moreNote=`<div class="meta" style="margin-top:2px">${LANG==="en"
+          ?`Vertical shows the top 5 by games (of ${all.length}); switch to ▤ Horizontal or narrow with the filters to see the rest.`
+          :`直式預設只列出賽場數前 5 位（共 ${all.length} 位）｜要看全部：切換 ▤ 橫式，或用上方篩選縮小範圍`}</div>`;
+        cardsHTML=show.length?show.map(e=>mkCard(pos,e.g,e.x.p,e.x,false,e.t)).join("")
           :`<div class="card"><h2>${posImg(pos)}</h2><span class="meta">此篩選下無資料</span></div>`;
       }else{
         cardsHTML=posList.map(pos=>{
@@ -10272,7 +10276,7 @@ function render(){
           return mkCard(pos,g,sel,d,true,V.rosterTeam);
         }).join("");
       }
-      box.innerHTML=`<div class="rosterGrid${layH?" rosterH":""}"${(!layH&&!crossTeam&&posList.length===1)?' style="grid-template-columns:minmax(0,560px)"':''}>${cardsHTML}</div>`;
+      box.innerHTML=`<div class="rosterGrid${layH?" rosterH":""}"${(!layH&&!crossTeam&&posList.length===1)?' style="grid-template-columns:minmax(0,560px)"':''}>${cardsHTML}</div>`+moreNote;
       box.querySelectorAll(".pickSel").forEach(s=>s.onchange=()=>{V.rosterPick[s.dataset.pos]=s.value; saveState(); rerender();});
       {const ls=document.getElementById("vRosterLane"); if(ls&&!ls._b){ls._b=1; ls.onchange=()=>{V.rosterLane=ls.value; saveState(); rerender();};}}
       box.querySelectorAll("th[data-rk]").forEach(th=>th.onclick=()=>{
