@@ -1081,7 +1081,7 @@ const METRIC_EN={
   "🐲 首巴":"🐲 First Baron","📈 前15分領先":"📈 Lead @15","被禁用":"Banned","出場":"Games","縮寫":"Abbr",
   "全部路線":"All lanes","版本趨勢":"Patch trend","雷達軸":"Radar axes","＋軸":"+Axis","場均 K/D/A":"Avg K/D/A",
   "資料缺失（此局尚未匯入）":"Missing data (game not imported)",
-  "戰隊A":"Team A","戰隊B":"Team B","隊A":"Team A","隊B":"Team B","後選":"Counter","匯入BP":"Import BP",
+  "戰隊A":"Team A","戰隊B":"Team B","隊A":"Team A","隊B":"Team B","後選":"Counter","匯入比賽":"Import games",
 };
 // 各分頁 <h2> 標題與說明（分批擴充）
 Object.assign(I18N,{
@@ -1914,7 +1914,7 @@ const TAB_HELP={
 "近況":"<b>這頁</b>：輸入一個戰隊，一頁看完它的<b>近期狀況</b>（方便直接截圖）。範圍＝目前篩選下該隊<b>最近 5 個系列賽</b>。\n<b>版面</b>：<b>標頭</b>＝連勝／連敗、這段期間的系列與小局戰績。\n<b>近期賽果</b>＝五個系列的日期／賽事／對手／比分。\n<b>五路先發</b>＝每路出賽最多的選手：場數／勝率／KDA／慣用英雄；當年另有<b>近 7 天積分</b>場數勝敗與常用英雄。\n<b>BP 傾向</b>＝這段期間該隊常選、我方常 Ban、被對手針對 Ban 的英雄。\n<b>操作</b>：右上 <b>📸</b> 一鍵輸出 1080p 截圖（檔名＝縮寫_近況_日期）。\n<b>看法</b>：慣用英雄滑上去看場數勝率。",
 "比賽BP":"<b>這頁</b>：兩隊<b>系列賽 BP 紀錄</b>，最新在上。\n<b>操作</b>：上方<b>戰隊</b>下拉指定戰隊（可只填一隊看其所有系列）；在欄名下方輸入即逐欄篩選；右上三段模式鈕——<b>🟣 一般</b>（五路・藍左紅右）｜<b>🟪 混合</b>（五路・搜尋的戰隊固定在左）｜<b>🛣️ 路線</b>（選角順序時間軸，同 wiki PB 頁：依<b>出手順</b>排 B1~B3 → P1~P4 → B4~B5 → P5~P7，<b>白線</b>分隔出手階段、<b>藍框／紅框</b>＝該邊、<b>灰階</b>＝禁用）。\n<b>看法</b>：<b>金色數字</b>＝選角順位 1 到 7、<b>星號</b>＝勝方；藍方／紅方右邊的<b>選擇</b>欄寫這局誰拿走選邊權（<b>選藍／選紅</b>）、誰拿走先選權（<b>先選／後選</b>）。\n<b>注意</b>：標題會自動標<b>缺場</b>（BO5 打到 2-2 卻少第 5 局等）；BO2 的 1-1 和局不算缺。\n<b>先選方不等於藍方</b>——2026 起是新制，先選／後選由雙方自己選，與藍紅方脫鉤；2025 以前才是藍方固定先選。",
 "圖鑑":"<b>這頁</b>：資料庫總集，上方分頁切換分區。\n<b>版面</b>：<b>版本</b>＝全年或單版本的英雄／裝備改動（點版本號看官方公告）。\n<b>英雄</b>＝點名字看歷年改動與<b>專屬機制</b>大框。\n<b>道具</b>／<b>符文</b>／<b>物件</b>＝建築、史詩野怪、龍魂等官方數值。\n<b>賽事</b>＝當年聯賽樹狀圖（三大國際賽／一二級賽區／盃賽，含各隊縮寫，國際賽帶母賽區色框）。\n<b>操作</b>：多數分區可搜尋、滑上看說明。\n<b>看法</b>：改動卡片邊框<b>紅＝增強、綠＝削弱、黃＝調整</b>；賽事樹綠勾 ✓＝晉級隊。\n<b>注意</b>：<b>新登場／重製登場／重返遊戲不標增強削弱</b>——那是「現在長這樣」，沒有對照物。",
-"模擬BP":"<b>這頁</b>：自己排 BAN／PICK、即時看路線判定。\n<b>版面</b>：模擬局在左、角色池在中、<b>雙方BAN過／其他英雄</b>在最右直欄（局號 1→N，最新局在最右、緊貼角色池）。\n<b>操作</b>：上方選<b>戰隊A／B</b>帶出雙方角色池；<b>拖曳</b>或<b>左鍵拎起</b>池中英雄→到格內左鍵放入、右鍵取消；點已填格移除、點<b>先選／後選</b>切順位、<b>⇄</b>換輪替選手。\n按鈕：⏵自動（點池自動填下一格；開新局請點 ＋）、全局／一般（全局＝Fearless：PICK 從池消失、BAN 不消耗、最多五局）、📥匯入BP、🗑清空、📸截圖。\n<b>看法</b>：滑到模擬局英雄→右側顯示<b>詳細數據</b>（BAN 顯示<b>對手</b>使用數據），同英雄會在所有模擬局一起發光。\n路線判定：隊上選手池＝實心、全庫近況補的＝半透明（點半透明確認正路即變實心）。\n標記：<b>金光</b>＝全場只有他會用、<b>青框</b>＝同隊多人會用、<b>禁用圖示</b>＝對手慣用但沒選過的禁招。\n<b>注意</b>：📥<b>匯入BP</b>把真實系列賽帶進來（全局模式會先清掉其他局）；匯入的局<b>只能換英雄、不能改順位</b>（整局可刪）。",
+"模擬BP":"<b>這頁</b>：自己排 BAN／PICK、即時看路線判定。\n<b>版面</b>：模擬局在左、角色池在中、<b>雙方BAN過／其他英雄</b>在最右直欄（局號 1→N，最新局在最右、緊貼角色池）。\n<b>操作</b>：上方選<b>戰隊A／B</b>帶出雙方角色池；<b>拖曳</b>或<b>左鍵拎起</b>池中英雄→到格內左鍵放入、右鍵取消；點已填格移除、點<b>先選／後選</b>切順位、<b>⇄</b>換輪替選手。\n按鈕：⏵自動（點池自動填下一格；開新局請點 ＋）、全局／一般（全局＝Fearless：PICK 從池消失、BAN 不消耗、最多五局）、📥匯入比賽、🗑清空、📸截圖；🎯近期積分<b>右鍵</b>可改範圍（一週~半年）。\n<b>看法</b>：滑到模擬局英雄→右側顯示<b>詳細數據</b>（BAN 顯示<b>對手</b>使用數據），同英雄會在所有模擬局一起發光。\n路線判定：隊上選手池＝實心、全庫近況補的＝半透明（點半透明確認正路即變實心）。\n標記：<b>金光</b>＝全場只有他會用、<b>青框</b>＝同隊多人會用、<b>禁用圖示</b>＝對手慣用但沒選過的禁招。\n<b>注意</b>：📥<b>匯入比賽</b>把真實系列賽帶進來（全局模式會先清掉其他局）；匯入的局<b>只能換英雄、不能改順位</b>（整局可刪）。",
 "英雄Tier":"<b>這頁</b>：依你的判斷把英雄分級（S／A／B…）。\n<b>操作</b>：左側角色池<b>拖曳</b>或<b>左鍵拎起</b>→放到右邊 Tier 列（列間可互拖、拖回池或點一下移回、右鍵取消）。\n階列：可<b>改名</b>、點色塊<b>換色</b>、<b>✕</b>刪階（英雄回池）、下方<b>＋</b>加階、右側<b>⠿</b>拖曳整階排序。\n按鈕：⇄五路／混合、🎯積分數據／📊比賽數據／✏️自訂、⚙參數（門檻與奇招條件）、🗑清空、📸截圖。\n<b>看法</b>：三向模式各自獨立、互不覆蓋；數據模式自動分階、再點一次依目前篩選重新產生；滑鼠移到英雄上顯示該模式的數據（自訂模式積分與比賽都列）。\n英雄圖邊框<b>紅＝版本增強、綠＝削弱、黃＝調整</b>。\n<b>注意</b>：評分<b>不無條件進位</b>（89.9 仍在 A）。",
 "積分":"<b>這頁</b>：各隊選手的<b>單雙排（solo queue）積分</b>排行，最新在上。\n<b>操作</b>：上方<b>搜尋</b>選手或戰隊、點<b>欄位名</b>排序；<b>路線</b>／<b>賽區</b>可篩選；左上可切<b>📅 每日戰況</b>。\n<b>點選手名</b>→逐場單雙積分戰績（合併該選手所有帳號、只收本命路線：英雄／對位／KDA／參與率／dpm 評分／符文／出裝／技能加點；滑技能看加點順序、滑裝備看出裝順序）。\n<b>看法</b>：牌位依 菁英＞宗師＞大師＞鑽石… 排，大師以上不分段直接看 LP；未定位或找不到帳號的排最底（灰字）。\n<b>常用英雄</b>滑上去看完整角色池（場數／勝率／KDA，勝率越高越紅）。\n<b>📅 每日戰況</b>＝改看<b>各隊一區塊</b>，每位選手<b>昨天／近3天／近7天</b>打了幾場、幾勝幾敗、用了哪些英雄（<b>勝藍圈・敗紅圈</b>，以韓服日界定）。\n<b>注意</b>：<b>每位選手只列牌位最高的那一隻帳號</b>；<b>整年沒有比賽出場過的人不列</b>（純教練等）。\n<b>賽區</b>＝該選手<b>戰隊的參賽賽區</b>（不是伺服器位置）：一隊可同時屬多區（如 GEN＝LCK＋MSI＋FST）；盃賽只列 FST／MSI／WCS／EWC／ENC。\n<b>LPL 分組</b>：選 LPL 賽區會出現該年常規賽分組（如 Ascend／Nirvana）子篩選，每日戰況也依組分開排；<b>季後賽不分組</b>。\n帳號來源：LPL／LCK 以 <b>OBGG</b> 為主、LCS／LEC／CBLOL 以 <b>dpm</b> 為主；<b>峽谷之巔</b>與近兩月沒打的帳號自動濾掉。牌位由 <b>Riot API</b> 每日更新、逐場由 dpm 抓。"
 };
@@ -1938,7 +1938,7 @@ const TAB_HELP_EN={
 "近況":"Type a team and get its <b>recent form</b> on one page (made for screenshots). Range = the team's <b>last 5 series</b> under the current filters.\n<b>Header</b> = current streak plus series/game record over the window.\n<b>Recent results</b> = date / event / opponent / score of the five series.\n<b>Starters</b> = the most-fielded player per role: games / win% / KDA / go-to champions (hover for numbers); in the current year also <b>7-day ranked</b> record and top champions.\n<b>BP tendencies</b> = most picked, most banned by them, and most target-banned against them in the window.\nThe <b>📸</b> button exports a 1080p PNG (named abbr_Form_date).",
 "比賽BP":"Two teams' <b>series BP records</b>, newest first.\nHow-to: pick teams from the <b>Team</b> dropdowns above (fill just one to see all its series).\nReading: <b>gold number</b> = pick order 1–7, <b>gold bold</b> = first-pick side, <b>star</b> = winner.\nThe title auto-flags <b>missing games</b> (e.g. a BO5 at 2-2 missing game 5); a 1-1 draw in a BO2 doesn't count as missing.",
 "圖鑑":"Sections, switch via the tabs above:\n<b>Patch</b> = champion/item changes for the whole year or a single patch (click a patch number for official notes)\n<b>Champions</b> = click a name for patch history and its <b>unique mechanic</b> panel\n<b>Items</b> / <b>Runes</b> / <b>Objectives</b> = buildings, epic monsters, dragon souls and official values\n<b>Esports</b> = that year's league tree (3 internationals / tier 1-2-3 regions / cups, with each team's abbreviation, international team chips carry their home-region color frame; green check = qualified through play-in/qualifier)\nMost sections are searchable and have hover tooltips.",
-"模擬BP":"Draft your own BANs / PICKs and see lane assignment live; champion pool on the right, sim games on the left (game 1→N, newest game on the far right next to the pool).\nHow-to: pick <b>Team A / B</b> above to load both pools; <b>drag</b> or <b>left-click to lift</b> a champion → left-click into a slot, right-click to cancel; click a filled slot to remove, click <b>FP / SP</b> (<b>FP</b> = First Pick, <b>SP</b> = Second Pick) to toggle order, <b>⇄</b> to swap the rotating player.\nHover a champion in a sim game → the right panel shows <b>detailed stats</b> (a BAN shows the <b>opponent's</b> usage; if that team isn't selected it shows the current data range); the same champion glows across all sim games.\nLane logic: the team's own player pool = solid, filled from the global recent pool = translucent (click a translucent one to confirm the lane and make it solid).\nMarkers: <b>gold glow</b> = only this player uses it, <b>cyan frame</b> = multiple teammates use it, <b>ban icon</b> = an opponent favorite that hasn't been picked.\nButtons: ⏵ auto (clicking the pool fills the next slot; use ＋ for a new game), Fearless/Normal (Fearless: PICKs vanish from the pool, BANs don't consume, up to five games), 📥 Import BP, 🗑 Clear (clear all games), 📸 Screenshot.\n📥 <b>Import BP</b>: brings a real series in (Fearless mode clears other games first); imported games <b>can only swap champions, not change order</b> (the whole game can be deleted), and the title shows that game's <b>date and event</b>.",
+"模擬BP":"Draft your own BANs / PICKs and see lane assignment live; champion pool on the right, sim games on the left (game 1→N, newest game on the far right next to the pool).\nHow-to: pick <b>Team A / B</b> above to load both pools; <b>drag</b> or <b>left-click to lift</b> a champion → left-click into a slot, right-click to cancel; click a filled slot to remove, click <b>FP / SP</b> (<b>FP</b> = First Pick, <b>SP</b> = Second Pick) to toggle order, <b>⇄</b> to swap the rotating player.\nHover a champion in a sim game → the right panel shows <b>detailed stats</b> (a BAN shows the <b>opponent's</b> usage; if that team isn't selected it shows the current data range); the same champion glows across all sim games.\nLane logic: the team's own player pool = solid, filled from the global recent pool = translucent (click a translucent one to confirm the lane and make it solid).\nMarkers: <b>gold glow</b> = only this player uses it, <b>cyan frame</b> = multiple teammates use it, <b>ban icon</b> = an opponent favorite that hasn't been picked.\nButtons: ⏵ auto (clicking the pool fills the next slot; use ＋ for a new game), Fearless/Normal (Fearless: PICKs vanish from the pool, BANs don't consume, up to five games), 📥 Import games, 🗑 Clear (clear all games), 📸 Screenshot.\n📥 <b>Import games</b>: brings a real series in (Fearless mode clears other games first); imported games <b>can only swap champions, not change order</b> (the whole game can be deleted), and the title shows that game's <b>date and event</b>.",
 "英雄Tier":"Tier champions by your own judgment (S / A / B…).\nHow-to: <b>drag</b> or <b>left-click to lift</b> from the pool on the left → drop into a Tier row on the right (rows can be dragged into each other, dragged back to the pool or clicked to return, right-click to cancel).\nTier rows: <b>rename</b>, click the color swatch to <b>recolor</b>, <b>✕</b> deletes the tier (champions return to pool), <b>＋</b> below adds a tier, <b>⠿</b> on the right drags to reorder tiers.\nButtons: <b>⇄</b> five-lane/mixed, then a three-way mode toggle — <b>🎯 Ranked</b> (auto-tier S~D by soloq rating), <b>📊 Match</b> (auto-tier S~C + Off-meta by current-range rating), <b>✏️ Custom</b> (free arrangement, never overwritten by data modes). Each mode keeps its own board; in a data mode, clicking the current mode again <b>regenerates by the current filters</b>; hover a champion to see that mode's stats (Custom shows both soloq and match). Then <b>⚙</b> Params (thresholds & off-meta criteria), <b>🗑</b> Clear, <b>📸</b> Screenshot.\nSoloq mode is hidden in historical years. Rating <b>doesn't round up</b> (89.9 stays in A); champion border red = patch buff, green = nerf, yellow = adjustment.",
 "積分":"Each team's players' <b>solo queue ranked</b>, highest first.\n<b>Only the highest-rank account per player is listed</b> (when a player has several); <b>players with no match appearance all year are omitted</b> (pure coaches etc.).\nHow-to: <b>search</b> a player or team above, click a <b>column header</b> to sort; filter by <b>role</b> / <b>region</b>.\n<b>Region</b> = the player's <b>team competitive region</b> (not server location): leagues + cups, a team can belong to several (e.g. GEN = LCK + MSI + FST); cups are limited to FST / MSI / WCS / EWC / ENC.\nReading: tier order Challenger > Grandmaster > Master > Diamond…; Master+ has no division, sorted by LP; unranked / not-found accounts sink to the bottom (greyed).\n<b>Champions</b>: hover for the full champion pool (games / win% / KDA; higher win% is redder).\n<b>Click a player's name</b> → per-game Solo/Duo history (all of that player's accounts merged, main role only: champ / matchup / KDA / KP% / dpm score / runes / items / skill order; hover skills for level order, items for build order).\nAccount source: LPL / LCK mainly <b>OBGG</b>, LCS / LEC / CBLOL mainly <b>dpm</b>, others merged; the <b>Challenger practice server</b> and accounts inactive over two months are auto-filtered. Ranks refresh daily via the <b>Riot API</b>, per-game via dpm.\n<b>📅 Daily</b> (top-left toggle): switch to a <b>per-team board</b> showing each player's <b>yesterday / last 3 / last 7 days</b> — games played, W-L and champions used (<b>blue ring = win, red ring = loss</b>, bucketed by KST day); click a name for the full game log.\n<b>LPL groups</b>: selecting the LPL region shows that year's regular-season group sub-filter (Ascend / Nirvana, etc.); the daily board and the Esports tree also split LPL by group. <b>Playoffs are not split.</b>"
 };
@@ -11414,7 +11414,7 @@ function render(){
     while(S.g.length<S.n){S.g.push(EMPTY()); S.fp.push(0); S.side.push(0);} // 補足資料格
     main.innerHTML=filterBar(`
       <span style="order:59;display:inline-flex;align-items:center;gap:10px 11px;flex-wrap:wrap"><label>${T("戰隊A")}</label>${comboHTML("bsT1",T("戰隊A"),230)}<label>${T("戰隊B")}</label>${comboHTML("bsT2",T("戰隊B"),230)}</span>
-      <span style="order:60;position:relative;display:inline-flex"><button id="bsHist" class="pgbtn" title="把真實系列賽的 BP 匯入為新模擬局（兩隊近10系列，上方兩隊角色池不變）">📥 ${T("匯入BP")}</button><div id="bsHistPop" style="display:none;position:absolute;top:calc(100% + 6px);right:0;z-index:90;background:#141a28;border:1px solid var(--line);border-radius:10px;padding:12px 16px;gap:26px;box-shadow:0 10px 28px rgba(0,0,0,.55);white-space:nowrap"></div></span>
+      <span style="order:60;position:relative;display:inline-flex"><button id="bsHist" class="pgbtn" title="把真實系列賽的 BP 匯入為新模擬局（兩隊近10系列，上方兩隊角色池不變）">📥 ${T("匯入比賽")}</button><div id="bsHistPop" style="display:none;position:absolute;top:calc(100% + 6px);right:0;z-index:90;background:#141a28;border:1px solid var(--line);border-radius:10px;padding:12px 16px;gap:26px;box-shadow:0 10px 28px rgba(0,0,0,.55);white-space:nowrap"></div></span>
 `)
       +`<div id="bsWrap" style="display:grid;grid-template-columns:minmax(260px,1fr) repeat(5,minmax(170px,300px));gap:var(--gap);align-items:stretch"></div>`;
     const wrap=document.getElementById("bsWrap");
@@ -11451,7 +11451,7 @@ function render(){
       // 近期積分：某選手最近兩週積分逐場用過的英雄(id→{n,w})；需該選手逐場已懶載進 __SQCACHE
       const sqRecent=(team,player)=>{ const IDX=window.SOLOQ_MATCH_IDX; if(!V.bpSoloqPool||!IDX||!IDX.players||!team||!player)return null;
         const key=sqKey(IDX.players,tAb(team),player), cache=key&&window.__SQCACHE[key]; if(!cache||!cache.matches)return null;
-        const cut=Date.now()-14*24*3600*1000, out={}; // 兩週(半個月)
+        const cut=Date.now()-(+V.bpSqDays||14)*24*3600*1000, out={}; // 範圍可調（鈕上右鍵選）：預設兩週
         for(const g of cache.matches){ if((g.t||0)<cut)continue; const id=(typeof champId==="function"&&champId(g.c))||g.c; if(!id)continue; const o=out[id]||(out[id]={n:0,w:0}); o.n++; if(g.w)o.w++; }
         return out; };
       const selPool=(R,pos,st,team)=>{ // 該隊該路「目前選定選手」的池
@@ -12105,15 +12105,37 @@ function render(){
       // 積分(soloq)資料只有當年 → 歷史年份不顯示此按鈕（也強制關閉，避免帶著舊狀態）
       if(isHistYear()){ V.bpSoloqPool=false; }
       else{
-        // 單顆切換鈕（2026-08-05 使用者：「開｜關」兩段改成一顆，鈕面寫目前狀態）；開啟時黃邊（（）鈕慣例）
-        const _spTtl="把兩隊每位選手最近兩週(半個月)積分逐場用過的英雄加進角色池（綠框標記）｜點擊切換開關";
+        // 單顆切換鈕（2026-08-05 使用者定案）：鈕面只寫「🎯 近期積分」，黃邊＝開啟中（（）鈕慣例）；
+        // **右鍵**開範圍選單：一週/兩週/一個月/三個月/半年（V.bpSqDays，sqRecent 讀它）
+        const _sqNm=d=>({7:LANG==="en"?"1 week":"一週",14:LANG==="en"?"2 weeks":"兩週",30:LANG==="en"?"1 month":"一個月",
+                         90:LANG==="en"?"3 months":"三個月",180:LANG==="en"?"6 months":"半年"}[d]||d+(LANG==="en"?"d":"天"));
         const spb=document.createElement("button");
-        spb.id="bpSoloqPool"; spb.style.order="64"; spb.title=_spTtl;
-        const _spPaint=()=>{ spb.textContent=(LANG==="en"?"🎯 Ranked ":"🎯 近期積分 ")+(V.bpSoloqPool?(LANG==="en"?"On":"開"):(LANG==="en"?"Off":"關"));
+        spb.id="bpSoloqPool"; spb.style.order="64";
+        const _spPaint=()=>{ spb.textContent=LANG==="en"?"🎯 Ranked":"🎯 近期積分";
+          spb.title=(LANG==="en"
+            ?`Add each player's ranked champs from the last ${_sqNm(+V.bpSqDays||14)} to the pool (green frame)｜left-click: toggle｜right-click: change range`
+            :`把兩隊每位選手最近${_sqNm(+V.bpSqDays||14)}積分逐場用過的英雄加進角色池（綠框標記）｜左鍵開關、右鍵改範圍`);
           spb.style.borderColor=V.bpSoloqPool?"var(--gold)":""; spb.style.color=V.bpSoloqPool?"var(--gold)":""; };
         _spPaint();
         // rerender 只重畫內容區、不重建工具列 → 鈕面要在點擊時自己更新
         spb.onclick=()=>{ V.bpSoloqPool=!V.bpSoloqPool; saveState(); _spPaint(); rerender(); };
+        spb.oncontextmenu=e=>{ e.preventDefault();
+          const old=document.getElementById("bpSqMenu"); if(old)old.remove();
+          const mn=document.createElement("div"); mn.id="bpSqMenu";
+          mn.style.cssText="position:fixed;z-index:9999;background:#141b2a;border:1px solid #3a4a6b;border-radius:8px;padding:4px;box-shadow:0 4px 14px rgba(0,0,0,.5);font-size:14px";
+          [7,14,30,90,180].forEach(d=>{ const it=document.createElement("div");
+            const cur=(+V.bpSqDays||14)===d;
+            it.textContent=(cur?"✓ ":"　")+_sqNm(d);
+            it.style.cssText="padding:5px 14px;cursor:pointer;border-radius:5px;white-space:nowrap"+(cur?";color:var(--gold)":"");
+            it.onmouseenter=()=>{it.style.background="#243046";}; it.onmouseleave=()=>{it.style.background="";};
+            it.onclick=()=>{ V.bpSqDays=d; saveState(); mn.remove(); _spPaint(); if(V.bpSoloqPool)rerender(); };
+            mn.appendChild(it); });
+          document.body.appendChild(mn);
+          const r=spb.getBoundingClientRect();
+          mn.style.left=Math.min(r.left,innerWidth-mn.offsetWidth-8)+"px"; mn.style.top=(r.bottom+4)+"px";
+          const close=ev=>{ if(!mn.contains(ev.target)){ mn.remove(); document.removeEventListener("mousedown",close,true); } };
+          document.addEventListener("mousedown",close,true);
+        };
         fr.parentNode.insertBefore(spb,fr);
       }
       // 📸 截圖：擷取全部模擬局，輸出固定 1080p（1920px 寬）畫質
@@ -12168,10 +12190,14 @@ function render(){
       };
       fr.parentNode.insertBefore(sb,fr);
       // 自動模式：左鍵點角色池英雄 → 依選角順序自動填入下一格（左鍵拖曳仍可放任意格）
-      const _abTtl="自動模式：左鍵點角色池英雄自動填入待填格（發光處），左鍵拖曳仍可自由放格";
-      const ab=segEl("bpAutoBtn",[["on",(LANG==="en"?"⏵ Auto ":"⏵ 自動 ")+(LANG==="en"?"On":"開"),_abTtl],
-                                  ["off",LANG==="en"?"Off":"關",_abTtl]],V.bpAuto?"on":"off",
-        v=>{ const nv=v==="on"; if(nv===!!V.bpAuto)return; V.bpAuto=nv; saveState(); rerender(); },"","order:62");
+      // 單顆切換鈕（2026-08-05 使用者：跟近期積分同款）：鈕面「⏵ 自動」，黃邊＝開啟中
+      const _abTtl="自動模式：左鍵點角色池英雄自動填入待填格（發光處），左鍵拖曳仍可自由放格｜點擊切換開關";
+      const ab=document.createElement("button");
+      ab.id="bpAutoBtn"; ab.style.order="62"; ab.title=_abTtl;
+      const _abPaint=()=>{ ab.textContent=LANG==="en"?"⏵ Auto":"⏵ 自動";
+        ab.style.borderColor=V.bpAuto?"var(--gold)":""; ab.style.color=V.bpAuto?"var(--gold)":""; };
+      _abPaint();
+      ab.onclick=()=>{ V.bpAuto=!V.bpAuto; saveState(); _abPaint(); rerender(); };
       fr.parentNode.insertBefore(ab,sb);
       // ↩ 返回上一步已移除：改用篩選列右側「全域返回鍵」(navBack，會還原 bpSim)
       UNDO.track("bpSim",V.bpSim); // 進頁面先記基準(全域返回也吃這份快照概念)
@@ -12552,7 +12578,8 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
           
           ${gfilter("gChampF","dlChamp",V.rankGChamp,champOpts,en?"Champion":"英雄")}${gfilter("gOppF","dlOpp",V.rankGOpp,oppOpts,en?"Opponent":"對位英雄")}
           <span class="cwrap"><input id="gVsF" class="combo" list="dlVs" value="${V.rankGVs==="@路人"?(en?"regular":"路人"):(V.rankGVs?esc(_vDisp(V.rankGVs)):"")}" placeholder="${en?"Vs player":"對位人員"}" autocomplete="off" style="width:134px;padding-right:26px"><button class="cx" tabindex="-1" data-x="gVsF" title="${en?"Clear":"一鍵清除"}">✕</button></span><datalist id="dlVs">${_vReg?`<option value="${en?"regular":"路人"}">${_vReg}${en?" games":" 場"}</option>`:""}${vsOpts.map(k=>`<option value="${esc(_vDisp(k))}">${_vcnt[k]}${en?" games":" 場"}</option>`).join("")}</datalist>
-          ${(V.rankGChamp||V.rankGOpp||V.rankGVs)?`<button id="gClrF" class="sqLaneBtn">${en?"clear":"清除"}</button>`:""}</div>
+          ${(V.rankGChamp||V.rankGOpp||V.rankGVs)?`<button id="gClrF" class="sqLaneBtn">${en?"clear":"清除"}</button>`:""}
+</div>
         ${distinctLanes>1?`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">${LKEYS.map(([k,zh,eng])=>{const n=k?(laneCounts[k]||0):allG.length; if(k&&!n)return ""; return `<button class="sqLaneBtn${lf===k?" on":""}" data-lane="${k}">${en?eng:zh} <span class="meta">${n}</span></button>`;}).join("")}</div>`:""}
         <div class="card"><h2 style="font-size:16.5px">📋 ${en?"Solo/Duo games":"單雙積分逐場"} <span class="meta" style="font-size:12px">${en?`showing ${show} / ${games.length}`:`顯示 ${show} / ${games.length} 場`}</span> <span class="sub" style="font-size:12px">${en?"newest first · main role only · hover items for build order":"最新在上 · 只收職業路線 · 滑裝備看出裝順序"}</span> <span class="sub" style="font-size:12px">·&nbsp;${en?"data from":"資料來源"} <a href="${dpmUrl(pl.platform,pl.riotId)}" target="_blank" rel="noopener" style="color:var(--acc)">dpm.lol</a></span></h2>
         ${games.length?sqHead+games.slice(0,show).map(card).join(""):`<div class="note">${en?"No solo/duo games collected for this player yet.":"這位選手還沒有蒐集到單雙積分逐場資料。"}</div>`}
