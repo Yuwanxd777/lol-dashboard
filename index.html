@@ -11656,6 +11656,9 @@ function render(){
       // 全局模式＝PICK 過從角色池移除（Fearless）；一般模式＝角色池不移除
       if(!Array.isArray(S.meta))S.meta=[]; S.uid=S.uid||0;
       if(!Array.isArray(S.tm))S.tm=[]; // 每局隊伍覆寫（匯入局用），null＝跟著上方兩隊
+      // 全局(Fearless)最多五局：超過的直接刪掉（2026-08-06 使用者指定）。原本只有「加號消失、不能再新增」，
+      // 一般模式開了 6+ 局再切到全局，多的會留著（Fearless 一個系列最多五局，留著沒有意義）。
+      if((V.bpMode||"global")==="global"&&S.n>5){ S.n=5; saveState(); }
       if(S.g.length>S.n){S.g.length=S.n; S.fp.length=Math.min(S.fp.length,S.n); S.side.length=Math.min(S.side.length,S.n); S.meta.length=Math.min(S.meta.length,S.n); S.tm.length=Math.min(S.tm.length,S.n);} // 陣列永遠對齊局數
       while(S.g.length<S.n){S.g.push(EMPTY()); S.fp.push(1); S.side.push(0);} // 加局時補足資料格（預設紅方先選）
       while(S.meta.length<S.g.length)S.meta.push({id:++S.uid,src:null});
