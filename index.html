@@ -2231,6 +2231,19 @@ function fitAutoTable(tb){
   tb.style.tableLayout="fixed"; tb.style.minWidth=""; tb.style.width=avail+"px";
   ths.forEach((th,i)=>{ th.style.width=(nat[i]+per)+"px"; });
 }
+// 卡內水平捲軸不撐高卡片（2026-08-05 使用者回報：陣容橫式英雄多到出現左右捲軸時，框框被往下擴）：
+// overflow-x:auto 的容器高度＝內容＋內距＋捲軸，捲軸一出現整張卡就長高 9px、整排卡片跟著位移。
+// 作法：捲軸佔多高就從**下內距**扣多少，卡片外框總高不變（內容位置也不動，捲軸等於畫在原本的下內距裡）。
+// 扣的量是執行時實測（offsetHeight−clientHeight−上下框線），疊加式捲軸(佔 0)自動不扣 → 跨平台安全。
+function fitCardScrollPad(c){
+  const cs=getComputedStyle(c);
+  if(!("pb0" in c.dataset))c.dataset.pb0=cs.paddingBottom;   // 記住原本的下內距（只記一次，之後都以它為基準）
+  const base=parseFloat(c.dataset.pb0)||0;
+  const bw=(parseFloat(cs.borderTopWidth)||0)+(parseFloat(cs.borderBottomWidth)||0);
+  const bar=c.offsetHeight-c.clientHeight-bw;                // ＝水平捲軸實際佔的高（clientHeight 不含捲軸）
+  const want=(c.scrollWidth>c.clientWidth+2&&bar>0.5)?Math.max(0,base-bar)+"px":"";
+  if(c.style.paddingBottom!==want)c.style.paddingBottom=want;
+}
 // 表格欄頭 sticky 的偏移＝頁首實際高度（整頁捲動時欄頭貼在頁首下方）
 const setHdrH=()=>{const h=document.querySelector("header");document.documentElement.style.setProperty("--hdrH",(h?h.offsetHeight:0)+"px");};
 addEventListener("resize",setHdrH); addEventListener("load",setHdrH); setHdrH();
@@ -6302,6 +6315,7 @@ window.refitLayout=()=>{
   if(window.refitFilterW)refitFilterW(); // 篩選列下拉寬度重算（字體載入完成/切字體後字寬會變）
   document.querySelectorAll(".tblwrap[data-fillw]").forEach(w=>{w.classList.remove("pt1","pt2");fillTableWidth(w);}); // 先還原間距再量，量測基準才一致
   document.querySelectorAll("table").forEach(t=>{try{fitAutoTable(t);}catch(e){}}); // 餘寬平均分（左右邊距對稱，見 fitAutoTable）
+  document.querySelectorAll(".card").forEach(c=>{try{fitCardScrollPad(c);}catch(e){}}); // 卡內水平捲軸不撐高卡片
   fitTblWraps();
   document.querySelectorAll(".tblwrap.hscroll").forEach(w=>{const x=window._twSL[twKey(w)]; if(x&&Math.abs(w.scrollLeft-x)>1)w.scrollLeft=x;}); // 重繪後還原橫捲位置
   if(window.fixZoomHeight)fixZoomHeight();
@@ -6317,7 +6331,8 @@ new MutationObserver(ms=>{
   for(const m of ms){ for(const n of m.addedNodes){
       if(n.nodeType===1&&(n.tagName==="TABLE"||(n.querySelector&&n.querySelector("table")))){hasT=true;break;} }
     if(hasT)break; }
-  if(hasT)document.querySelectorAll("table").forEach(t=>{try{fitAutoTable(t);}catch(e){}});
+  if(hasT){ document.querySelectorAll("table").forEach(t=>{try{fitAutoTable(t);}catch(e){}});
+    document.querySelectorAll(".card").forEach(c=>{try{fitCardScrollPad(c);}catch(e){}}); }
   clearTimeout(window._ftw);window._ftw=setTimeout(refitLayout,60);})
   .observe(main,{childList:true,subtree:true});
 addEventListener("resize",()=>{clearTimeout(window._ftw);window._ftw=setTimeout(refitLayout,120);});
