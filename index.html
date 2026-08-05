@@ -625,7 +625,7 @@
   /* 雙方BAN過 ＋ 其他英雄 合併成一條流：框高＝選手格高，英雄多就縮小＋換行塞滿框(不捲動)，其他英雄灰色 */
   /* 「雙方BAN過／其他英雄」＝角色池右側獨立直欄：圖示由上往下排、一欄排滿再往右換欄（尺寸由 fitPool 的 --csother 算到剛好塞滿、不捲動） */
   .bpMid:has(.bpChip .cc img.glow){overflow:visible!important}
-  .bpMergeFlow{display:flex;flex-direction:column;flex-wrap:wrap;gap:4px;row-gap:var(--csotherGap,4px);align-content:flex-start;justify-content:flex-start;overflow:visible} /* 直向間距由 fitPool 算（變數掛在 #bsWrap 上跨重繪保留，重繪第一幀就是最終值、不閃） */
+  .bpMergeFlow{display:flex;flex-direction:column;flex-wrap:wrap;gap:4px;row-gap:var(--csotherGap,4px);max-height:var(--csotherH,none);align-content:flex-start;justify-content:flex-start;overflow:visible} /* 直向間距與換欄高度由 fitPool 算（變數掛在 #bsWrap 上跨重繪保留，重繪第一幀就是最終值、不閃） */
   .bpMergeFlow .bpChip{padding:0;border:none;background:none;margin:0}
   .bpMergeFlow .bpChip .cc img{width:var(--csother,40px);height:var(--csother,40px);object-fit:cover;border-radius:5px;display:block}
   .bpMergeFlow .bpChip.bpGrey{opacity:.5}
@@ -11982,22 +11982,34 @@ function render(){
           // 算式上 per 顆恰好等於框高＝卡在臨界值，實際排版一遇到零點幾 px 的捨入，最後一顆就被擠到
           // 下一欄；欄與欄的顆數因此在 12/13 之間來回跳，第二欄以後整片位移＝看起來一直閃。
           // 扣掉安全邊、間距再往下取到 0.1px，per 顆就一定塞得進去，分佈才穩定。
-          const mH=Math.max(0,mf.clientHeight-1.5);
+          mf.style.maxHeight="none";                                   // 先解除上一輪釘住的換欄高再量，
+          const mH=Math.max(0,mf.clientHeight-1.5);                     // 否則量到的是被釘住的高度→越算越小（死亡螺旋）
+          mf.style.maxHeight="";                                        // 量完交還給 --csotherH
           let cs2=Math.round(avg*0.6);
           if(cnt&&mW>0&&mH>0){
-            const perOf=sz=>Math.max(1,Math.floor((mH+gp)/(sz+gp)));            // 一欄放幾顆(吃高度)
-            const fits=sz=>Math.ceil(cnt/perOf(sz))*(sz+gp)-gp<=mW;             // 需要的欄數塞不塞得進寬度
-            let best=8;
-            for(let sz=Math.min(86,avg);sz>=8;sz--){ if(fits(sz)){best=sz;break;} }
-            // 尺寸有黏性（2026-08-06 使用者回報自動模式每放一顆就跳）：放一顆英雄→那顆從池消失、
-            // 落進「其他」→顆數變→尺寸重算→整欄重排。舊尺寸只要還塞得下、而且最佳尺寸沒有大很多(<8px)，
-            // 就沿用舊的，畫面才不會每點一次就動一次；真的塞不下時才縮。
-            const prev=parseFloat(wrap.style.getPropertyValue("--csother"))||0;
-            if(prev>=8&&prev<=Math.min(86,avg)&&fits(prev)&&best<prev+8)best=prev;
+            const colsOf=sz=>Math.max(1,Math.floor((mW+gp)/(sz+gp)));           // 寬度放得下幾欄
+            const maxPerOf=sz=>Math.max(1,Math.floor((mH+gp)/(sz+gp)));         // 高度最多放幾顆
+            // 每欄顆數改「平均分配」而不是「塞好塞滿」：53 顆原本排成 13,13,13,13,1，最後一欄只剩
+            // 空BAN 一顆、右邊空一大塊（2026-08-06 使用者回報）。改成 ceil(顆數/欄數) 讓每欄差不多高。
+            const perOf=sz=>Math.max(1,Math.min(maxPerOf(sz),Math.ceil(cnt/colsOf(sz))));
+            const ok=(sz,per)=>per<=maxPerOf(sz)&&colsOf(sz)*per>=cnt;          // 這個尺寸/每欄顆數放得下全部
+            let best=0,bestPer=0;
+            for(let sz=Math.min(86,avg);sz>=8;sz--){ const per=perOf(sz); if(ok(sz,per)){best=sz;bestPer=per;break;} }
+            if(!best){best=8;bestPer=maxPerOf(8);}
+            // 黏性（使用者回報自動模式每放一顆就跳）：放一顆英雄→那顆從池消失、落進「其他」→顆數變
+            // →尺寸/每欄顆數重算→整欄重排。舊版面只要還放得下全部，就原封不動沿用。
+            const pSz=parseFloat(wrap.style.getPropertyValue("--csother"))||0,
+                  pPer=parseFloat(wrap.style.getPropertyValue("--csotherPer"))||0;
+            // 沿用的前提還要「仍然夠平均」：不然像 61 顆時算出的每欄 13 顆，掉到 53 顆還沿用，
+            // 就會排成 13,13,13,13,1、右邊空一大塊（容差 +1 讓抽換一兩顆時不會動不動就重排）
+            if(pSz>=8&&pPer>=1&&pSz<=Math.min(86,avg)&&ok(pSz,pPer)&&pPer<=Math.ceil(cnt/colsOf(pSz))+1){best=pSz;bestPer=pPer;}
             cs2=best;
-            // 撐滿高度：把「一欄的 per 顆圖」之間的直向間距拉大到接近填滿整欄高（往下取 0.1px，不碰臨界值）
-            const fullPer=Math.min(perOf(best),cnt);
-            wrap.style.setProperty("--csotherGap",(fullPer>1?Math.max(gp,Math.min(16,Math.floor((mH-fullPer*best)/(fullPer-1)*10)/10)):gp)+"px");
+            // 間距拉到讓 bestPer 顆填滿整欄高（往下取 0.1px、上限 16）；若上限卡住就用 max-height
+            // 把換欄點釘在 bestPer 顆，否則瀏覽器會多塞一顆進來、平均分配就破功。
+            const vg=bestPer>1?Math.max(gp,Math.min(16,Math.floor((mH-bestPer*best)/(bestPer-1)*10)/10)):gp;
+            wrap.style.setProperty("--csotherGap",vg+"px");
+            wrap.style.setProperty("--csotherPer",bestPer);
+            wrap.style.setProperty("--csotherH",(bestPer*best+(bestPer-1)*vg+0.5)+"px");
           }
           // 尺寸與間距寫在 wrap（跨重繪保留）：寫在每次重建的 .bpMid／.bpMergeFlow 上的話，
           // 重繪後第一幀會先吃 CSS 預設值、下一拍才被改回來＝看得到閃一下
