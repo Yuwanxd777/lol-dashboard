@@ -326,14 +326,15 @@
      → 用更高權重把它壓掉，跟整列同進退（2026-08-05 使用者回報前兩欄白底交錯怪） */
   table.bp.bpDraft tbody tr.subrow td:nth-child(1),table.bp.bpDraft tbody tr.subrow td:nth-child(2){background:transparent}
   table.bp.bpDraft tbody tr.subrow.zebA td:nth-child(1),table.bp.bpDraft tbody tr.subrow.zebA td:nth-child(2){background:rgba(255,255,255,.055)}
-  .bp.bpDraft td.draftc{border-left:1px solid rgba(255,255,255,.3);padding-left:20px}
+  .bp.bpDraft td.draftc{border-left:3px solid rgba(255,255,255,.3);padding-left:18px} /* 欄界線＝階段線同粗 3px（2026-08-05）；內距 18 補回線寬、到 B1 仍約 20px */
   .bp.bpDraft tbody tr.subrow td{padding-top:12px;padding-bottom:12px} /* 路線模式列距加大（2026-08-05 使用者：6→12） */ /* 紅方選擇｜B1 之間的欄界線（與段間白線同款）＋線到 B1 間隔 20px */
   /* 出手階段分段（2026-08-05 使用者定案）：B1 B2 B3｜P1 P2 P3 P4｜B4 B5｜P5 P6 P7 共 12 段，
      段與段之間用**白色細線**隔開（白底斑馬紋已退回；線上下貫穿整列＝跨列連成直線）；
      圖距/段距 20px，線畫在段距正中 → 跨段的圖距視覺上也是 20；分邊用藍/紅外框 */
   /* 間距（2026-08-05 使用者定案）：同階段圖距 20；圖與白線的間隔兩側各 20（段距＝20+線1+20） */
   .draftc .dSeg{display:inline-flex;gap:20px;margin-right:41px;vertical-align:middle;position:relative}
-  .draftc .dSeg+.dSeg::before{content:"";position:absolute;left:-21px;top:-13px;bottom:-13px;width:0;border-left:1px solid rgba(255,255,255,.3)} /* 貫穿加大後的上下內距（12+1） */
+  .draftc .dSeg+.dSeg::before{content:"";position:absolute;left:-21px;top:-14px;bottom:-14px;width:0;border-left:1px solid rgba(255,255,255,.3)} /* -14＝蓋過上下內距12+列框線，局與局之間不斷線（2026-08-05 使用者回報小斷裂） */ /* 貫穿加大後的上下內距（12+1） */
+  .draftc .dSeg.dPhSeg::before{left:-22px;border-left-width:3px} /* 階段界線（B3|P1、P4|B4、B5|P5）加粗（2026-08-05 使用者指定） */
   .draftc .dSeg:last-child{margin-right:0}
   .draftc .cc{margin-right:0}
   .draftc .cc img{width:50px;height:50px;border-radius:9px} /* 與一般/混合模式同大（2026-08-05 使用者指定） */
@@ -858,12 +859,13 @@
   .segBtn{display:inline-flex;border:1px solid var(--line);border-radius:9px;overflow:hidden;
     height:30px;box-sizing:border-box;flex:0 0 auto;vertical-align:middle} /* 2026-08-05 與篩選框同高 30 */
   .segBtn button{border:none;background:transparent;padding:0 12px;cursor:pointer;color:var(--tx2);
-    font:inherit;font-size:15px;border-radius:0;height:100%;white-space:nowrap;box-sizing:border-box}
+    font:inherit;font-size:15px;border-radius:0;height:100%;white-space:nowrap;box-sizing:border-box;
+    display:inline-flex;align-items:center;justify-content:center;gap:5px} /* flex 置中：emoji 與路線圖示才會同一水平線（2026-08-05 使用者回報選序圖示不水平） */
   .segBtn button+button{border-left:1px solid var(--line)}  /* 邊框顏色/粗細與 select、input 完全一致；唯一的金色＝目前選中的那段 */
   .segBtn button:hover:not(.on){background:rgba(255,255,255,.06)}
   .segBtn button.on{background:rgba(245,185,66,.22);color:var(--gold);font-weight:700} /* 作用中只用底色，不再疊 inset 框（會看起來像 2px） */
   .segBtn.sm{height:28px} .segBtn.sm button{font-size:13.5px;padding:0 10px}
-  .segBtn .posic{width:18px;height:18px;vertical-align:middle;margin-right:2px} /* 分段鈕內的路線圖示（選序段用中路圖）縮到字高 */
+  .segBtn .posic{width:18px;height:18px;display:block} /* 分段鈕內的路線圖示（選序段用中路圖）縮到字高；間距走按鈕 gap */
   .ovTrGrid{display:grid;grid-template-columns:1fr 1fr;gap:6px 22px}
   .ovTrHd{font-weight:bold;font-size:15.5px;margin:0 0 6px}
   .ovTrRow{display:flex;align-items:center;gap:8px;padding:4px 6px;border-radius:8px;
@@ -11129,7 +11131,7 @@ function render(){
           return `${LANG==="en"?`pick ${n}`:`第 ${n} 手選用`}・${s.team}${pl?`・${pl}`:""}`;};
         const _bTip=(s,n)=>`${LANG==="en"?`ban ${n}`:`第 ${n} 手禁用`}・${s.team}`;
         // 出手階段色塊：B1~B3＝第一輪每手（雙方各一顆）、P1~P4＝第一輪選、B4~B5、P5~P7
-        const seg=html=>`<span class="dSeg">${html}</span>`;
+        const seg=(html,ph)=>`<span class="dSeg${ph?' dPhSeg':''}">${html}</span>`; // ph＝階段起始段（其左側線加粗）
         const fbn=F.bans||[], sbn=S.bans||[];
         const has5=Math.max(fbn.length,sbn.length)>3;
         let out="";
@@ -11137,15 +11139,15 @@ function render(){
           for(let i=0;i<3;i++)out+=seg(_dIco(fbn[i],fs,_bTip(F,i*2+1),1)+_dIco(sbn[i],ss,_bTip(S,i*2+2),1));
         } else out+=_qIco(LANG==="en"?"no ban data":"這局沒有禁用資料");
         if(Fp&&Sp){                                    // P1｜P2＝S1 S2｜P3＝F2 F3｜P4
-          out+=seg(_dIco(Fp[0],fs,_pTip(F,Fp[0],1)))
+          out+=seg(_dIco(Fp[0],fs,_pTip(F,Fp[0],1)),1)
               +seg(_dIco(Sp[0],ss,_pTip(S,Sp[0],2))+_dIco(Sp[1],ss,_pTip(S,Sp[1],3)))
               +seg(_dIco(Fp[1],fs,_pTip(F,Fp[1],4))+_dIco(Fp[2],fs,_pTip(F,Fp[2],5)))
               +seg(_dIco(Sp[2],ss,_pTip(S,Sp[2],6)));
           if(has5){                                    // B4 B5：第二輪禁，每手＝S+F 一段
-            out+=seg(_dIco(sbn[3],ss,_bTip(S,7),1)+_dIco(fbn[3],fs,_bTip(F,8),1))
+            out+=seg(_dIco(sbn[3],ss,_bTip(S,7),1)+_dIco(fbn[3],fs,_bTip(F,8),1),1)
                 +seg(_dIco(sbn[4],ss,_bTip(S,9),1)+_dIco(fbn[4],fs,_bTip(F,10),1));
           }
-          out+=seg(_dIco(Sp[3],ss,_pTip(S,Sp[3],7)))   // P5｜P6＝F4 F5｜P7
+          out+=seg(_dIco(Sp[3],ss,_pTip(S,Sp[3],7)),1)   // P5｜P6＝F4 F5｜P7
               +seg(_dIco(Fp[3],fs,_pTip(F,Fp[3],8))+_dIco(Fp[4],fs,_pTip(F,Fp[4],9)))
               +seg(_dIco(Sp[4],ss,_pTip(S,Sp[4],10)));
         } else out+=_qIco(LANG==="en"?"no pick-order data for this game":"這局沒有選角順序資料");
@@ -11258,7 +11260,7 @@ function render(){
       document.getElementById("tbl").innerHTML=strip+`<div class="tblwrap"><table class="bp${_dm?" bpDraft":""}" style="table-layout:fixed"><colgroup>${COLF.map(c=>`<col style="width:${c.w}px">`).join("")}</colgroup><thead><tr>
         ${_dm?`<th>${LANG==="en"?"date":"日期"}</th><th>${LANG==="en"?"patch":"版本"}</th><th>${LANG==="en"?"event":"賽事"}</th>`:""}
         <th>${LANG==="en"?"Game":"局數"}</th><th>時長</th><th>勝</th>
-        ${_dm?`<th>${LANG==="en"?"Blue":"藍方"}</th>${_selTH}<th>${LANG==="en"?"Red":"紅方"}</th>${_selTH}<th style="text-align:left">${LANG==="en"?"draft order (ban 1 → picks → ban 2 → picks)":"BAN｜PICK 順序（第一輪禁 → 選角 → 第二輪禁 → 選角）"}</th>`
+        ${_dm?`<th>${LANG==="en"?"Blue":"藍方"}</th>${_selTH}<th>${LANG==="en"?"Red":"紅方"}</th>${_selTH}<th style="text-align:left"><div style="display:flex;gap:41px;padding-left:15px">${(_b5?["BAN 1","BAN 2","BAN 3","PICK 1","PICK 2","PICK 3","PICK 4","BAN 4","BAN 5","PICK 5","PICK 6","PICK 7"]:["BAN 1","BAN 2","BAN 3","PICK 1","PICK 2","PICK 3","PICK 4","PICK 5","PICK 6","PICK 7"]).map((lb,i)=>`<span style="flex:0 0 ${_dsCnt[i]===1?50:120}px;text-align:center;white-space:nowrap">${lb}</span>`).join("")}</div></th>`
         :`<th>${HL[0]}</th>${_selTH}<th>禁用</th><th>${posImg("TOP")}</th><th>${posImg("JNG")}</th><th>${posImg("MID")}</th><th>${posImg("BOT")}</th><th>${posImg("SUP")}</th>
         <th>${HL[1]}</th>${_selTH}<th>禁用</th><th>${posImg("TOP")}</th><th>${posImg("JNG")}</th><th>${posImg("MID")}</th><th>${posImg("BOT")}</th><th>${posImg("SUP")}</th>`}</tr>
         <tr class="bpFRow">${COLF.map(c=>`<th style="padding:2px 3px;top:auto">${_fcell(c)}</th>`).join("")}</tr></thead><tbody id="bpBody"></tbody></table></div>
