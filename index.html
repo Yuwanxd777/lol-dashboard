@@ -320,6 +320,7 @@
      藍框＝藍方、紅框＝紅方；禁用灰階；細線＝同輪內的出手組、粗線＝禁用/選角階段分界 */
   .bp td.draftc{white-space:nowrap;text-align:left;position:relative;z-index:0} /* z-index:0 建立堆疊上下文：白條(::before z-index:-1)才會停在列/格底色之上、圖之下（沒有它會掉到列背景後面看不見） */
   .bp.bpDraft tbody tr.subrow:nth-child(odd) td{background:rgba(255,255,255,.055)} /* 路線模式：一列一列交錯白底（2026-08-05 使用者定案；上在 td 才不會被表格底色蓋掉） */
+  .bp.bpDraft td.draftc{border-left:1px solid rgba(255,255,255,.3);padding-left:15px} /* 紅方選擇｜B1 之間的欄界線（與段間白線同款）＋左距對稱 */
   /* 出手階段分段（2026-08-05 使用者定案）：B1 B2 B3｜P1 P2 P3 P4｜B4 B5｜P5 P6 P7 共 12 段，
      段與段之間用**白色細線**隔開（白底斑馬紋已退回；線上下貫穿整列＝跨列連成直線）；
      圖距/段距 20px，線畫在段距正中 → 跨段的圖距視覺上也是 20；分邊用藍/紅外框 */
