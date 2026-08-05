@@ -9192,7 +9192,7 @@ function render(){
     TB.tiers.forEach(t=>{t.lanes=t.lanes||{};LANE5v.forEach(L=>t.lanes[L]=t.lanes[L]||[]);});
     const tierCnt=t=>t.ids.length+LANE5v.reduce((s,L)=>s+((t.lanes&&t.lanes[L])?t.lanes[L].length:0),0);
     UNDO.track("tierB",V.tierB); // 進頁面先記基準，第一個動作也能返回
-    main.innerHTML=filterBar(`<label>${LANG==="en"?"Team":"戰隊"}</label>${comboHTML("tierTm",T("全部戰隊"),230)}`)+`
+    main.innerHTML=filterBar(`<label>${LANG==="en"?"Team":"戰隊"}</label>${comboHTML("tierTm",T("輸入戰隊（如 GEN）"),180)}`)+` <!-- placeholder 與 近況/戰隊/陣容 同字 → fitComboW 算出同寬（2026-08-05 使用者：同名篩選框與文字全站一致） -->`+`
       <div id="tierWrap" style="display:grid;grid-template-columns:3fr 1fr;gap:var(--gap);align-items:start;user-select:none">
         <div id="tierRows" style="display:flex;flex-direction:column;gap:10px;min-width:0"></div>
         <div class="card" id="tierPool" style="margin:0;position:relative;min-width:0"><div class="tphdr" style="margin-bottom:6px;padding-right:240px"><h2 style="display:flex;align-items:center;gap:8px;margin:0">🦸 ${T("角色池")}</h2><div id="tierPks" style="font-size:13.5px;color:#7a8aaa;margin-top:3px;line-height:1.5;white-space:nowrap"></div><div class="tpctl" style="position:absolute;top:10px;right:12px;display:flex;gap:6px;align-items:center"><span class="cwrap"><input id="tierQ" placeholder="${LANG==='en'?'Search':'搜尋'}" value="${esc(V.tierQ||"")}" style="width:190px;padding-right:26px"><button class="cx" tabindex="-1" data-x="tierQ" title="一鍵清除">✕</button></span></div></div>
@@ -10510,7 +10510,7 @@ function render(){
     const _lanes=["","TOP","JNG","MID","BOT","SUP","下路組","中野組"]; // 2026-08-04 起積分也有雙人組（builder pairs 聚合）
     main.innerHTML=filterBar(`
       <label>${LANG==="en"?"Lane":"路線"}</label><select id="vPos" style="width:150px">${_lanes.map(p=>`<option value="${p}" ${V.pos===p?"selected":""}>${p?(LANG==="en"?T(p):({TOP:"上路",JNG:"打野",MID:"中路",BOT:"下路",SUP:"輔助"}[p]||T(p))):T("全部")}</option>`).join("")}</select>
-      ${sqMode?"":`<label>${T("戰隊或選手")}</label>${comboHTML("vSel",T("輸入戰隊或選手（空=全部）"))}`}${_modeBtn}${_vizBtn}`)
+      ${sqMode?"":`<label>${T("戰隊或選手")}</label>${comboHTML("vSel",LANG==="en"?"Player / Team…":"選手 / 戰隊…",190)}`}${_modeBtn}${_vizBtn}`)
       +`<div class="card"><h2>🦸 ${T("英雄")} <span class="sub" id="cnt"></span><span class="sub">${sqMode?(LANG==="en"?"Soloq of tracked pros this season · Rating = percentile blend (Wilson win% ×4 + games ×2 + KDA ×2 + GD@15 ×2) · Patch filter works (soloq is ahead of pro, e.g. 26.14) · other global filters don't apply | click a champion for details":"積分數據＝追蹤職業選手今年單雙排彙總｜評分＝同表百分位加權（Wilson 勝率 ×4＋場數 ×2＋KDA ×2＋金差@15 ×2）｜<b>版本</b>可篩（積分比職業賽早上新版）、其他全域篩選不影響｜點英雄名看詳情"):T("評分＝同路百分位加權（滑欄名看權重）｜點英雄名看版本趨勢與出場紀錄")}</span></h2><div id="tbl"></div></div>`;
     const rerender=()=>{
       const rows=sqMode?calcHeroesSoloq(V.pos==="全部"?"":V.pos):calcHeroes(V.pos==="全部"?"":V.pos,V.player,V.heroTeam);
@@ -10567,6 +10567,7 @@ function render(){
       else if(o&&o._k==="player"){V.player=o._t; V.heroTeam="";}
       else {V.player=""; V.heroTeam="";}
       V.tpSel=hit; saveState(); rerender();});
+    {const e=document.getElementById("vSel"); if(e)e.style.width="190px";} // 與選手分頁「戰隊或選手」同規格：190px 固定、placeholder 同字（2026-08-05 使用者：同名篩選全站一致；fitComboW 會被長選項撐開所以綁完鎖回）
     // 點篩選框時：若目前選的是某選手(如 T1 Doran)，帶出其隊名(T1)→清單即列出該隊與所有隊友供改選
     const selInp=document.getElementById("vSel");
     selInp.addEventListener("focus",()=>{
