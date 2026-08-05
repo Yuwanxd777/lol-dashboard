@@ -11923,11 +11923,24 @@ function render(){
           </div></div>
           <div class="card bpPool" style="margin:0;overflow:hidden;display:flex;flex-direction:column;flex:0 0 auto;width:${poolW}px">${_poolH}</div>
           ${midHTML?`<div class="card bpMid" style="margin:0;padding:10px;overflow:hidden;display:flex;flex-direction:column;flex:0 0 auto;width:${midW}px">${midHTML}</div>`:""}`;
+        // ① 整欄內容一字不差 → 直接搬回舊節點；② 有變動 → 逐顆對位沿用（keyed diff）：
+        // 以 data-ch 為鍵，只要那顆的 HTML 沒變就把**舊元素**搬過去，只有真正變動的才新建。
+        // 沒有這層的話，自動模式每放一顆英雄整欄上百張 <img> 就全部重造、畫面閃一下
+        //（2026-08-06 使用者回報「每點一個英雄到模擬局，BAN過與其他區就閃一次」）。
+        const _reuseChips=(oldRoot,newRoot)=>{ if(!oldRoot||!newRoot)return;
+          const ob=[...oldRoot.querySelectorAll(".bpChips,.bpMergeFlow")], nb=[...newRoot.querySelectorAll(".bpChips,.bpMergeFlow")];
+          if(!ob.length||ob.length!==nb.length)return;             // 版型不同就不省（避免對錯位）
+          nb.forEach((nBox,i)=>{ const oBox=ob[i]; if(!oBox)return;
+            const map=new Map();
+            [...oBox.children].forEach(c=>{ const k=c.dataset.ch||""; if(!k)return; (map.get(k)||map.set(k,[]).get(k)).push(c); });
+            [...nBox.children].forEach(nc=>{ const k=nc.dataset.ch||""; const arr=k&&map.get(k);
+              if(arr&&arr.length&&arr[0].outerHTML===nc.outerHTML)nBox.replaceChild(arr.shift(),nc); }); });
+        };
         [[".bpPool",wrap._lastPool===_poolH],[".bpMid",wrap._lastMid===midHTML]].forEach(([sel,same])=>{
-          const o=_keep[sel]; if(!o||!same)return; const ne=wrap.querySelector(sel);
-          if(!ne)return;
-          o.setAttribute("style",ne.getAttribute("style")||"");   // 版型寬度仍吃新算的
-          ne.replaceWith(o); });                                  // 內容相同 → 沿用舊節點，圖不重建
+          const o=_keep[sel]; if(!o)return; const ne=wrap.querySelector(sel); if(!ne)return;
+          if(same){ o.setAttribute("style",ne.getAttribute("style")||""); ne.replaceWith(o); }  // 版型寬度仍吃新算的
+          else _reuseChips(o,ne);
+        });
         wrap._lastPool=_poolH; wrap._lastMid=midHTML;
         const gsc1=wrap.querySelector("#bsGames"); if(gsc1)gsc1.scrollLeft=keepSL;
       }
