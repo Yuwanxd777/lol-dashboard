@@ -10817,6 +10817,10 @@ function render(){
     // 間隔維持 15px；階段色塊版重新實測回推）
     const _draftW=_b5?1600:1280;
     const COLF=_dm?[
+      // 路線模式＝**平面表格**（2026-08-05 使用者：取消系列標題列）→ 日期/版本/賽事改回欄位
+      _cL(["dt", LANG==="en"?"date":"日期", 76, "", m=>String(m.date)]),
+      _cL(["pt", LANG==="en"?"patch":"版本", 66, "", m=>String(m.patch||"")]),
+      _cL(["lg", LANG==="en"?"event":"賽事", 88, "", m=>`${m.league} ${(typeof lgName==="function"&&lgName(m.league))||""}`.toLowerCase()]),
       ..._leadCols,
       _cL(["bt",   LANG==="en"?"blue":"藍方", 66, "team", m=>String(m.blue.team).toLowerCase()]),
       ...(_hasSel?[_cL(["bsel", LANG==="en"?"choice":"選擇",66,"", m=>ssCatLbl(m,true).toLowerCase()])]:[]),
@@ -10852,6 +10856,7 @@ function render(){
     // 每欄各自下拉：只列「該欄實際出現過的值」；英雄依網站語言(chName)、隊伍用縮寫；依全域 vcKey 快取(欄篩選變動不重算)
     const _fdv=(k,m)=>{ const md=V.bpSideMode||"br"; if(k==="win")return[m.win];
       if(k==="draft")return[...(m.blue.bans||[]),...(m.red.bans||[]),...m.blue.lane.slice(0,5),...m.red.lane.slice(0,5)]; // 選角順序欄：下拉＝整局禁選全部英雄
+      if(k==="dt")return[m.date]; if(k==="pt")return[m.patch]; if(k==="lg")return[(typeof lgName==="function"&&lgName(m.league))||m.league]; // 平面模式的日期/版本/賽事
       if(_dm&&(k==="bt"||k==="rt"))return[(k==="bt"?m.blue:m.red).team]; // draft 檢視固定藍左紅右
       const gb=/^([br])b([1-9])$/.exec(k); // 禁用格：下拉範圍＝該手所屬的整個禁用階段（與上面的比對範圍一致）
       if(md!=="br"){ // fp/team：左右欄可能來自任一實際邊 → 下拉取兩邊聯集
@@ -10939,7 +10944,7 @@ function render(){
     // 資訊欄（局數/時長/勝/隊名/選擇）的篩選框**固定同寬**：原本 width:80% 跟著 th 實際寬
     // 跑（欄被填滿容器的餘寬撐開後大小不一，局數 60、時長 48…）→ 統一 _INFOW
     //（2026-08-05 使用者定案 55；含 bsel/rsel 的 fancy 鈕）
-    const _INFOW=55, _isInfo=k=>["gno","gl","win","bt","bsel","rt","rsel"].includes(k);
+    const _INFOW=55, _isInfo=k=>["dt","pt","lg","gno","gl","win","bt","bsel","rt","rsel"].includes(k);
     const _fcell=c=>_noF.has(c.k)?"":(SUBF[c.k]
       ?`<div style="display:flex;gap:${_BIW+_BG1-_BFW}px;justify-content:center">${SUBF[c.k].map((f,i,a)=>
           _finput(f,`flex:0 0 ${_BFW}px${(a.length>3&&i===3)?`;margin-left:${_BG2-_BG1}px`:""}`)).join("")}</div>`
@@ -11083,14 +11088,16 @@ function render(){
         const cell=(s,isBlue,won)=>`<td class="${sCls(isBlue,won)}">${s.team}</td>`;
         // 首欄＝「└ 第N局」（日期/賽事/版本都在系列標題列；2026-08-04 版型實驗）
         const head=`<td class="subg">└ ${LANG==="en"?`Game ${gno}`:`第${gno}局`}</td>`;
-        if(_dm){ // 選角順序檢視：隊名固定藍左紅右（時間軸本身就依實際邊上色）
+        if(_dm){ // 選角順序檢視＝平面表格：日期/版本/賽事各自成欄、局數不掛「└」；隊名固定藍左紅右
           const bWon=m.blueWin, rWon2=!m.blueWin;
+          const flatHead=`<td class="meta">${m.date}</td><td class="meta">${esc(String(m.patch||""))}</td><td>${lgChip(m.league)}</td>`
+            +`<td class="subg" style="padding-left:8px">${LANG==="en"?`Game ${m._g}`:`第${m._g}局`}</td>`;
           // 沒有選序資料的局＝標示為缺場（2026-08-05 使用者指定）：整條時間軸畫問號
-          // 反而像壞掉，改用缺場列的紅字樣式明講「來源沒記錄」；局數/時長/勝/隊名照常列
+          // 反而像壞掉，改用缺場列的紅字樣式明講「來源沒記錄」；其餘欄照常列
           const _noPk=!(m.blue.pk&&m.blue.pk.length>=5&&m.red.pk&&m.red.pk.length>=5);
-          if(_noPk)return `<tr class="subrow missrow">${head}<td class="meta">${mmss(m.gl)}</td><td class="win" style="color:${m.blueWin?_CBLU:_CRED}">${m.win}</td>
+          if(_noPk)return `<tr class="subrow missrow">${flatHead}<td class="meta">${mmss(m.gl)}</td><td class="win" style="color:${m.blueWin?_CBLU:_CRED}">${m.win}</td>
           ${cell(m.blue,true,bWon)}${selCell(m,true,bWon)}${cell(m.red,false,rWon2)}${selCell(m,false,rWon2)}<td class="draftc" style="color:#e0574d;font-weight:bold">🚫 ${LANG==="en"?"missing: source has no draft-order data for this game":"缺場：來源沒有記錄這局的選序資料"}</td></tr>`;
-          return `<tr class="subrow">${head}<td class="meta">${mmss(m.gl)}</td><td class="win" style="color:${m.blueWin?_CBLU:_CRED}">${m.win}</td>
+          return `<tr class="subrow">${flatHead}<td class="meta">${mmss(m.gl)}</td><td class="win" style="color:${m.blueWin?_CBLU:_CRED}">${m.win}</td>
           ${cell(m.blue,true,bWon)}${selCell(m,true,bWon)}${cell(m.red,false,rWon2)}${selCell(m,false,rWon2)}${draftCell(m)}</tr>`;
         }
         const S=sides(m); // 依模式決定左右實際邊
@@ -11101,7 +11108,7 @@ function render(){
       };
       // 系列賽分組**永遠做**（2026-08-04 版型實驗：標題列無論如何保留）；
       // 篩選時比分/缺局仍以完整系列計，只是底下只列命中的局
-      const grouped=true;
+      const grouped=!_dm; // 路線（選角順序）模式＝平面表格不分系列（2026-08-05 使用者指定）；五路模式維持系列分組
       let series=[];
       {
         // 依「聯賽＋對戰組合」收集，再依(日期,局序)切系列：局序重置(回到較小值)或日期相隔>2天＝不同場系列；
@@ -11171,6 +11178,7 @@ function render(){
           +rows;
       };
       document.getElementById("tbl").innerHTML=strip+`<div class="tblwrap"><table class="bp" style="table-layout:fixed"><colgroup>${COLF.map(c=>`<col style="width:${c.w}px">`).join("")}</colgroup><thead><tr>
+        ${_dm?`<th>${LANG==="en"?"date":"日期"}</th><th>${LANG==="en"?"patch":"版本"}</th><th>${LANG==="en"?"event":"賽事"}</th>`:""}
         <th>${LANG==="en"?"Game":"局數"}</th><th>時長</th><th>勝</th>
         ${_dm?`<th>${LANG==="en"?"Blue":"藍方"}</th>${_selTH}<th>${LANG==="en"?"Red":"紅方"}</th>${_selTH}<th style="text-align:left">${LANG==="en"?"draft order (ban 1 → picks → ban 2 → picks)":"BAN｜PICK 順序（第一輪禁 → 選角 → 第二輪禁 → 選角）"}</th>`
         :`<th>${HL[0]}</th>${_selTH}<th>禁用</th><th>${posImg("TOP")}</th><th>${posImg("JNG")}</th><th>${posImg("MID")}</th><th>${posImg("BOT")}</th><th>${posImg("SUP")}</th>
