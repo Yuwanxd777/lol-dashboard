@@ -274,7 +274,7 @@
   .cc img{width:34px;height:34px;border-radius:8px;border:1px solid #33405c;display:block}
   /* 滑過英雄 → 同英雄一段式即時發光（outline 便宜、無動畫、無模糊） */
   .cc img.glow{transform:scale(1.05);position:relative;z-index:3;border-color:transparent;
-    box-shadow:0 0 10px 5px rgba(255,255,255,.5)} /* 比賽BP 聯動高亮：放大10%＋漸層白光 */
+    box-shadow:0 0 5px 3px rgba(255,255,255,.3)} /* 比賽BP 聯動高亮：放大10%＋漸層白光 */
   /* 選角順位＝英雄圖右上角小框（2026-08-05 使用者指定，比照模擬BP左上路線徽章的掛法：
      絕對定位、微微超出圖框）。深底描邊小方框讓金字不受原畫底色影響；不佔排版寬、
      沒偵測到選序（po=0）時 cImg 根本不輸出這個 span＝什麼都不寫 */
@@ -361,7 +361,7 @@
   .rosterGrid td.rsGo{cursor:pointer;position:relative} /* 場數＝跳到英雄詳情的入口（2026-07-31 使用者要求） */
   .rosterGrid td.rsGo:hover{background:rgba(255,255,255,.10);border-radius:5px;text-decoration:underline}
   .rosterGrid .heroname.chi .cc img{transform:scale(1.05);position:relative;z-index:3;border-radius:4px;
-    box-shadow:0 0 10px 5px rgba(255,255,255,.5)} /* 重複英雄 hover：全部一起放大10%＋白光 */
+    box-shadow:0 0 5px 3px rgba(255,255,255,.3)} /* 重複英雄 hover：全部一起放大10%＋白光 */
   .rosterGrid td:has(.heroname.chi){overflow:visible} /* 白光不被裁 */
   .rosterGrid .heroname{min-width:max-content!important} /* 蓋掉 alignHeroCols 殘留的 minWidth:0，名稱永遠完整 */
   .rosterGrid td:first-child,.rosterGrid th:first-child{min-width:128px} /* 英雄名欄保底寬：auto 版面壓縮時不切名 */
@@ -574,9 +574,9 @@
   .bpChip:has(.cc img.glow) .bpSqLbl,.bpChip:hover .bpSqLbl{transform:translate(-50%,-50%) scale(1.05)} /* 滑上放大時字跟著放大(與 img.glow 同 1.1 倍) */
   .bpChip.bpIco .cc img{width:44px;height:44px;border-radius:7px;display:block}
   .bpChip .cc img.glow{outline:none;transform:scale(1.05);border-color:transparent;
-    box-shadow:0 0 10px 5px rgba(255,255,255,.5)} /* 角色池滑過：放大10%＋漸層白光 */
-  .bpSlot .cc img.glowS{box-shadow:0 0 10px 5px rgba(255,255,255,.5)} /* BAN/PICK 格同英雄：白光不放大 */
-  .bpSlot .cc img.bpLit{transform:scale(1.05);position:relative;z-index:3;box-shadow:0 0 10px 5px rgba(255,255,255,.5)} /* 滑上模擬局英雄：同英雄在所有模擬局格放大發白光（角色池不連動）*/
+    box-shadow:0 0 5px 3px rgba(255,255,255,.3)} /* 角色池滑過：放大10%＋漸層白光 */
+  .bpSlot .cc img.glowS{box-shadow:0 0 5px 3px rgba(255,255,255,.3)} /* BAN/PICK 格同英雄：白光不放大 */
+  .bpSlot .cc img.bpLit{transform:scale(1.05);position:relative;z-index:3;box-shadow:0 0 5px 3px rgba(255,255,255,.3)} /* 滑上模擬局英雄：同英雄在所有模擬局格放大發白光（角色池不連動）*/
   .bpSlot:has(.cc img.bpLit){overflow:visible;z-index:3} /* 放大時不被格子邊框切掉 */
   /* 角色池滑過放大發光時，讓「池／該路列／chips框」都不要切掉白光（只在有 glow 時放開，平時維持 hidden 版型）*/
   .bpPool:has(.bpChip .cc img.glow){overflow:visible!important}
@@ -587,7 +587,7 @@
   #main[data-view="英雄Tier"] .tChip:hover>img,
   #main[data-view="英雄Tier"] .tChip>img.tglow, /* 同英雄多路線一起：放大10%＋白光（池與 Tier 表都亮） */
   #main[data-view="比賽BP"] .cc:hover img{transform:scale(1.05);position:relative;z-index:3;
-    box-shadow:0 0 10px 5px rgba(255,255,255,.5)}
+    box-shadow:0 0 5px 3px rgba(255,255,255,.3)}
   /* 混合路線圖示：英雄圖放大時不消失，一併放大＋白光（層級高於英雄圖） */
   #main[data-view="英雄Tier"] .tChip:hover .tlic img,
   #main[data-view="英雄Tier"] .tChip:has(>img.tglow) .tlic img{transform:scale(1.05);filter:drop-shadow(0 0 4px rgba(255,255,255,.95))}
