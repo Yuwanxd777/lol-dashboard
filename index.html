@@ -319,6 +319,7 @@
   /* ── 比賽BP 選角順序檢視（wiki PB 版型；2026-08-05）── 整條 draft 時間軸：
      藍框＝藍方、紅框＝紅方；禁用灰階；細線＝同輪內的出手組、粗線＝禁用/選角階段分界 */
   .bp td.draftc{white-space:nowrap;text-align:left;position:relative;z-index:0} /* z-index:0 建立堆疊上下文：白條(::before z-index:-1)才會停在列/格底色之上、圖之下（沒有它會掉到列背景後面看不見） */
+  .bp.bpDraft tbody tr.subrow:nth-child(odd) td{background:rgba(255,255,255,.055)} /* 路線模式：一列一列交錯白底（2026-08-05 使用者定案；上在 td 才不會被表格底色蓋掉） */
   /* 出手階段分段（2026-08-05 使用者定案）：B1 B2 B3｜P1 P2 P3 P4｜B4 B5｜P5 P6 P7 共 12 段，
      段與段之間用**白色細線**隔開（白底斑馬紋已退回；線上下貫穿整列＝跨列連成直線）；
      圖距/段距 20px，線畫在段距正中 → 跨段的圖距視覺上也是 20；分邊用藍/紅外框 */
@@ -11089,16 +11090,20 @@ function render(){
         // 首欄＝「└ 第N局」（日期/賽事/版本都在系列標題列；2026-08-04 版型實驗）
         const head=`<td class="subg">└ ${LANG==="en"?`Game ${gno}`:`第${gno}局`}</td>`;
         if(_dm){ // 選角順序檢視＝平面表格：日期/版本/賽事各自成欄、局數不掛「└」；隊名固定藍左紅右
-          const bWon=m.blueWin, rWon2=!m.blueWin;
+          // 2026-08-05 使用者定案：藍方/紅方/選擇欄**不上底色**（bpB/bpR 不用），
+          // 改成**隊名文字上藍/紅色**；列與列交錯白底（.bpDraft 的 nth-child 規則）
           const flatHead=`<td class="meta">${m.date}</td><td class="meta">${esc(String(m.patch||""))}</td><td>${lgChip(m.league)}</td>`
             +`<td class="subg" style="padding-left:8px">${LANG==="en"?`Game ${m._g}`:`第${m._g}局`}</td>`;
+          const tCell=(s,isBlue)=>`<td style="color:${isBlue?_CBLU:_CRED};font-weight:600">${s.team}</td>`;
+          const selCellD=(m2,isBlue)=>{ if(!_hasSel)return ""; const t=ssLbl(m2,isBlue), f=t&&ssFirst(m2,isBlue);
+            return `<td style="font-size:12px;white-space:nowrap${f?";color:var(--gold);font-weight:700":""}" ${f?`title="${LANG==="en"?"had the first choice":"這隊拿到第一選擇權"}"`:""}>${t||`<span class="meta">–</span>`}</td>`;};
           // 沒有選序資料的局＝標示為缺場（2026-08-05 使用者指定）：整條時間軸畫問號
           // 反而像壞掉，改用缺場列的紅字樣式明講「來源沒記錄」；其餘欄照常列
           const _noPk=!(m.blue.pk&&m.blue.pk.length>=5&&m.red.pk&&m.red.pk.length>=5);
           if(_noPk)return `<tr class="subrow missrow">${flatHead}<td class="meta">${mmss(m.gl)}</td><td class="win" style="color:${m.blueWin?_CBLU:_CRED}">${m.win}</td>
-          ${cell(m.blue,true,bWon)}${selCell(m,true,bWon)}${cell(m.red,false,rWon2)}${selCell(m,false,rWon2)}<td class="draftc" style="color:#e0574d;font-weight:bold">🚫 ${LANG==="en"?"missing: source has no draft-order data for this game":"缺場：來源沒有記錄這局的選序資料"}</td></tr>`;
+          ${tCell(m.blue,true)}${selCellD(m,true)}${tCell(m.red,false)}${selCellD(m,false)}<td class="draftc" style="color:#e0574d;font-weight:bold">🚫 ${LANG==="en"?"missing: source has no draft-order data for this game":"缺場：來源沒有記錄這局的選序資料"}</td></tr>`;
           return `<tr class="subrow">${flatHead}<td class="meta">${mmss(m.gl)}</td><td class="win" style="color:${m.blueWin?_CBLU:_CRED}">${m.win}</td>
-          ${cell(m.blue,true,bWon)}${selCell(m,true,bWon)}${cell(m.red,false,rWon2)}${selCell(m,false,rWon2)}${draftCell(m)}</tr>`;
+          ${tCell(m.blue,true)}${selCellD(m,true)}${tCell(m.red,false)}${selCellD(m,false)}${draftCell(m)}</tr>`;
         }
         const S=sides(m); // 依模式決定左右實際邊
         const lWon=S.LisBlue===m.blueWin, rWon=!lWon; // 哪一顯示側獲勝→整隊範圍底色加深
@@ -11177,7 +11182,7 @@ function render(){
           +`</div></td></tr>`
           +rows;
       };
-      document.getElementById("tbl").innerHTML=strip+`<div class="tblwrap"><table class="bp" style="table-layout:fixed"><colgroup>${COLF.map(c=>`<col style="width:${c.w}px">`).join("")}</colgroup><thead><tr>
+      document.getElementById("tbl").innerHTML=strip+`<div class="tblwrap"><table class="bp${_dm?" bpDraft":""}" style="table-layout:fixed"><colgroup>${COLF.map(c=>`<col style="width:${c.w}px">`).join("")}</colgroup><thead><tr>
         ${_dm?`<th>${LANG==="en"?"date":"日期"}</th><th>${LANG==="en"?"patch":"版本"}</th><th>${LANG==="en"?"event":"賽事"}</th>`:""}
         <th>${LANG==="en"?"Game":"局數"}</th><th>時長</th><th>勝</th>
         ${_dm?`<th>${LANG==="en"?"Blue":"藍方"}</th>${_selTH}<th>${LANG==="en"?"Red":"紅方"}</th>${_selTH}<th style="text-align:left">${LANG==="en"?"draft order (ban 1 → picks → ban 2 → picks)":"BAN｜PICK 順序（第一輪禁 → 選角 → 第二輪禁 → 選角）"}</th>`
