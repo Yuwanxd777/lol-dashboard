@@ -6368,7 +6368,12 @@ if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>{try{refit
       const ox=getComputedStyle(el).overflowX; if(ox!=="auto"&&ox!=="scroll")return;
       const r=el.getBoundingClientRect();
       if(r.bottom<=vh-2||r.top>=vh-40||r.right<=0||r.left>=vw)return; // 自身捲軸看得到（底在窗內）或不在畫面 → 不接手
-      const a=Math.min(r.bottom,vh)-Math.max(r.top,0); if(a>bestA){bestA=a;best={el,r};} });
+      const a=Math.min(r.bottom,vh)-Math.max(r.top,0);
+      // 還要「佔掉畫面一大塊」才接手：只露一角的容器（例如陣容橫式最下方剛冒出頭的那張卡）也接手的話，
+      // 使用者拉底部這條，捲的是畫面外看不到的東西＝「拉了沒反應」（2026-08-06 使用者回報）。
+      // 門檻＝整個容器都看得到，或至少佔半個視窗高（長表格只露中段仍然接手，那才是這條捲軸的用途）。
+      if(a<Math.min(r.height,vh*0.5))return;
+      if(a>bestA){bestA=a;best={el,r};} });
     return best; };
   window.hsbUpdate=()=>{ const b=pick();
     if(!b){ hsb.style.display="none"; cur=null; return; }
