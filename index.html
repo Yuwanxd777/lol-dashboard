@@ -44,8 +44,8 @@
   ::-webkit-scrollbar{width:9px;height:9px}
   ::-webkit-scrollbar-thumb{background:#2e3a52;border-radius:9px}
   ::-webkit-scrollbar-track{background:transparent}
-  .filters select,.filters input{height:36px;box-sizing:border-box;padding-top:4px;padding-bottom:4px;line-height:1.2} /* 各分區篩選列控件統一高度→整列高度一致(縮上下內距避免文字被邊框吃掉) */
-  .filters .pgbtn,.filters .pgbtn *{height:36px;box-sizing:border-box} .filters .pgbtn{padding-top:4px;padding-bottom:4px;line-height:1.2;display:inline-flex;align-items:center} /* 模式按鈕與其他控件同高，避免撐高篩選列 */
+  .filters select,.filters input{height:32px;box-sizing:border-box;padding-top:3px;padding-bottom:3px;line-height:1.2} /* 2026-08-05 使用者：篩選列整體縮小（36→32） */ /* 各分區篩選列控件統一高度→整列高度一致(縮上下內距避免文字被邊框吃掉) */
+  .filters .pgbtn,.filters .pgbtn *{height:32px;box-sizing:border-box} .filters .pgbtn{padding-top:3px;padding-bottom:3px;line-height:1.2;display:inline-flex;align-items:center} /* 模式按鈕與其他控件同高，避免撐高篩選列 */
   header{display:flex;align-items:center;gap:14px;padding:12px 30px;position:sticky;top:0;z-index:100;flex-wrap:wrap;
     background:rgba(15,19,30,.85);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
   #penCanvas{position:fixed;top:0;left:0;z-index:90;display:none;touch-action:none;cursor:crosshair} /* 視窗大小(非整頁)：整頁太高時畫布過大會嚴重卡頓 */
@@ -73,10 +73,10 @@
   .filters .posLbl .posic{width:22px;height:22px} /* 比賽BP路線圖示縮小省寬 */
   .filters{display:flex;flex-wrap:wrap;gap:10px 11px;align-items:center;border:1px solid var(--line);
     border-radius:14px;padding:12px 18px;margin-bottom:var(--gap);background:linear-gradient(180deg,#161c2b,#131826)}
-  .filters label{color:var(--tx2);font-size:17px}
-  .filters select,.filters input{font-size:17px}
+  .filters label{color:var(--tx2);font-size:15.5px}
+  .filters select,.filters input{font-size:15.5px}
   /* 「一次顯示全部」下拉（賽事用；原生 select 超過約 20 項就自己捲動，使用者要求全列） */
-  .fsel{height:36px;box-sizing:border-box;padding:4px 12px;font-size:17px;display:inline-flex;align-items:center;
+  .fsel{height:32px;box-sizing:border-box;padding:3px 12px;font-size:15.5px;display:inline-flex;align-items:center;
     justify-content:space-between;gap:8px;background:var(--card2);border:1px solid var(--line);border-radius:9px;text-align:left}
   .fsel .fselAr{color:var(--tx2);font-size:12px;flex:0 0 auto}
   /* 比賽BP 逐欄篩選列裡的 fancy 鈕：縮到與輸入框同高同字級；空間只留「四個字＋一個✕」
