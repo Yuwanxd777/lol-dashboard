@@ -359,11 +359,11 @@
   .rosterGrid .heroname.chi .cc img{transform:scale(1.05);position:relative;z-index:3;border-radius:4px;
     box-shadow:0 0 5px 3px rgba(255,255,255,.3)} /* 重複英雄 hover：全部一起放大10%＋白光 */
   .rosterGrid td:has(.heroname.chi){overflow:visible} /* 白光不被裁 */
-  .rosterGrid .heroname{min-width:max-content!important} /* 蓋掉 alignHeroCols 殘留的 minWidth:0，名稱永遠完整 */
-  .rosterGrid td:first-child,.rosterGrid th:first-child{min-width:128px} /* 英雄名欄保底寬：auto 版面壓縮時不切名 */
-  .rosterGrid th,.rosterGrid td{padding:4px 3px} /* 縮小欄距，把空間讓給英雄名 */
-  .rosterGrid th[data-rk="英雄"]{width:30%}      /* 英雄欄寬度貼合名字長度，其餘四欄平分 */
-  .rosterGrid td:has(.heroname){text-align:left;padding-left:3%} /* 置左對齊＋微縮排 */
+  /* 直式英雄格：**只留圖、不寫名**（2026-08-05 使用者指定，與橫式一致；名字進 title 滑上去看），
+     圖同橫式放大到 36px。名字拿掉後欄寬從 128 縮到一顆圖，卡片不再被撐爆需要橫捲。 */
+  .rosterGrid .heroname .cc img{width:36px;height:36px;margin-right:0}
+  .rosterGrid th,.rosterGrid td{padding:4px 3px} /* 縮小欄距 */
+  .rosterGrid td:has(.heroname){text-align:center;padding-left:3px} /* 只有一顆圖 → 置中 */
   .rosterGrid .pickSel{font-size:19px;font-weight:bold;background:#161c2b;color:var(--tx);border:1px solid var(--line);border-radius:6px;padding:1px 8px;cursor:pointer} /* 選手ID=標題19px；深底避免下拉清單白底白字 */
   .rosterGrid .pickSel option{background:#161c2b;color:var(--tx)}
   .rosterGrid .heroname{min-width:0}
@@ -10326,7 +10326,7 @@ function render(){
       const el=pool.filter(c=>c.n>=3); // 低於3場不列入排名、不上色，名次自動遞補
       const rG=rankCls(el.map(c=>c.n)),rW=rankCls(el.map(c=>c.w/c.n)),rB=rankCls(el.map(c=>c.banRate));
       return pool.map(c=>{const wr=c.w/c.n;return `<tr>
-        <td><span class="heroname" data-ch="${esc(c.ch)}">${cImg(c.ch)}${cAb(c.ch)}</span></td>
+        <td><span class="heroname" data-ch="${esc(c.ch)}" title="${esc(chName(champId(c.ch))||c.ch)}">${cImg(c.ch)}</span></td>
         <td class="${rG(c.n,c.n)}${pos?" rsGo":""}"${pos?` data-ch="${esc(c.ch)}" data-pos="${esc(pos)}" data-p="${esc(who||"")}" title="${LANG==="en"?"open champion detail (this player · this lane)":"到英雄詳情看這位選手這一路的紀錄"}"`:""}>${c.n}</td>
         <td class="${rW(wr,c.n)}">${Math.round(wr*100)}%</td>
         <td class="${rB(c.banRate,c.n)}">${Math.round(c.banRate*100)}%</td>
@@ -10344,7 +10344,7 @@ function render(){
       const el=pool.filter(c=>c.n>=3);
       const rG=rankCls(el.map(c=>c.n)),rW=rankCls(el.map(c=>c.w/c.n)),rK=rankCls(el.map(c=>c._kda));
       return pool.map(c=>{const wr=c.n?c.w/c.n:0;return `<tr>
-        <td><span class="heroname" data-ch="${esc(c.ch)}">${cImg(c.ch)}${cAb(c.ch)}</span></td>
+        <td><span class="heroname" data-ch="${esc(c.ch)}" title="${esc(chName(champId(c.ch))||c.ch)}">${cImg(c.ch)}</span></td>
         <td class="${rG(c.n,c.n)}${pos?" rsGo":""}"${pos?` data-ch="${esc(c.ch)}" data-pos="${esc(pos)}" data-p="${esc(who||"")}" title="${LANG==="en"?"open champion detail (this player · this lane)":"到英雄詳情看這位選手這一路的紀錄"}"`:""}>${c.n}</td>
         <td class="${rW(wr,c.n)}">${Math.round(wr*100)}%</td>
         <td class="${rK(c._kda,c.n)} num">${c._kda.toFixed(1)}</td>
