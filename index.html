@@ -11554,7 +11554,14 @@ function render(){
         while(ch){ch=false;
           placed.forEach(i=>{if(done.has(i))return; const av=cand[i].filter(L=>lanesLeft.has(L)); if(av.length===1){res[i]=av[0];lanesLeft.delete(av[0]);done.add(i);ch=true;}}); // 英雄(依隊伍實走路線)只剩一路可走→確定並佔路；連鎖收斂：如卡瑪佔輔、悟空佔野→杰西只剩上→佔走上→冰鳥只剩中
         }
-        placed.forEach(i=>{if(done.has(i))return; const av=candShow[i].filter(L=>lanesLeft.has(L)); possible[i]=av.length?av:[...lanesLeft];}); // 仍多路（含半透明的全庫路）→全部保留，待點選確定
+        placed.forEach(i=>{if(done.has(i))return; const av=candShow[i].filter(L=>lanesLeft.has(L));
+          if(av.length){possible[i]=av;}
+          else{ // 該英雄在隊上走過的路**全被其他選角佔走**（如墨菲特只打野、打野已被別隻佔）
+            // → 退回列所有剩餘路線，但要標**半透明**＝純推測——原本畫實線，看起來像
+            // 這隊真的四路都會玩（2026-08-05 使用者回報 T1 墨菲特顯示上中下輔）
+            possible[i]=[...lanesLeft];
+            laneSoft[i]=laneSoft[i]||{}; possible[i].forEach(L=>laneSoft[i][L]=true);
+          }}); // 仍多路（含半透明的全庫路）→全部保留，待點選確定
         return _laneAsg[key]={res,possible,soft:laneSoft};
       };
       const slot=(gi,side,kind,i,inBox)=>{
