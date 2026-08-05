@@ -320,21 +320,25 @@
   /* ── 比賽BP 選角順序檢視（wiki PB 版型；2026-08-05）── 整條 draft 時間軸：
      藍框＝藍方、紅框＝紅方；禁用灰階；細線＝同輪內的出手組、粗線＝禁用/選角階段分界 */
   .bp td.draftc{white-space:nowrap;text-align:left;position:relative;z-index:0} /* z-index:0 建立堆疊上下文：白條(::before z-index:-1)才會停在列/格底色之上、圖之下（沒有它會掉到列背景後面看不見） */
-  .bp.bpDraft tbody tr.subrow td{background:transparent} /* 路線模式：底色改成**每系列交替**（2026-08-05 使用者定案）——逐列斑馬取消 */
-  .bp.bpDraft tbody tr.subrow.zebA td{background:rgba(255,255,255,.055)}
+  .bp.bpDraft tbody tr.subrow td{background-color:transparent} /* 路線模式：底色改成**每系列交替**（2026-08-05 使用者定案）——逐列斑馬取消 */
+  .bp.bpDraft tbody tr.subrow.zebA td{background-color:rgba(255,255,255,.055)}
   /* 前兩欄有「固定欄逐列斑馬」規則（.tblwrap …:nth-child(even) td:nth-child(1/2)）會蓋回逐列交錯
      → 用更高權重把它壓掉，跟整列同進退（2026-08-05 使用者回報前兩欄白底交錯怪） */
-  table.bp.bpDraft tbody tr.subrow td:nth-child(1),table.bp.bpDraft tbody tr.subrow td:nth-child(2){background:transparent}
-  table.bp.bpDraft tbody tr.subrow.zebA td:nth-child(1),table.bp.bpDraft tbody tr.subrow.zebA td:nth-child(2){background:rgba(255,255,255,.055)}
+  table.bp.bpDraft tbody tr.subrow td:nth-child(1),table.bp.bpDraft tbody tr.subrow td:nth-child(2){background-color:transparent}
+  table.bp.bpDraft tbody tr.subrow.zebA td:nth-child(1),table.bp.bpDraft tbody tr.subrow.zebA td:nth-child(2){background-color:rgba(255,255,255,.055)}
   .bp.bpDraft td.draftc{border-left:3px solid #5c6474;padding-left:18px} /* 欄界線＝階段線同粗 3px（2026-08-05）；內距 18 補回線寬、到 B1 仍約 20px */
+  /* 選序模式分隔線＝畫在 td 背景的直條（滿格高、跨列天然連續；::before 逐列拼接會有接縫，
+     2026-08-05 使用者三度回報中斷感後改制）。座標＝固定幾何（padding18/圖50/段內20/段距41）；
+     階段線(B3|P1、P4|B4、B5|P5) 3px。本欄橫向列框線拿掉，直條才不被 1px 深線切斷 */
+  .bp.bpDraft td.draftc.dLines5{background-image:linear-gradient(#5c6474,#5c6474),linear-gradient(#5c6474,#5c6474),linear-gradient(#5c6474,#5c6474),linear-gradient(#5c6474,#5c6474),linear-gradient(#5c6474,#5c6474),linear-gradient(#5c6474,#5c6474),linear-gradient(#5c6474,#5c6474),linear-gradient(#5c6474,#5c6474),linear-gradient(#5c6474,#5c6474),linear-gradient(#5c6474,#5c6474),linear-gradient(#5c6474,#5c6474);background-size:1px 100%,1px 100%,1px 100%,1px 100%,1px 100%,1px 100%,1px 100%,1px 100%,3px 100%,3px 100%,3px 100%;background-position:158px 0,339px 0,611px 0,772px 0,933px 0,1185px 0,1437px 0,1598px 0,519px 0,1023px 0,1345px 0;background-repeat:no-repeat}
+  .bp.bpDraft td.draftc.dLines3{background-image:linear-gradient(#5c6474,#5c6474),linear-gradient(#5c6474,#5c6474),linear-gradient(#5c6474,#5c6474),linear-gradient(#5c6474,#5c6474),linear-gradient(#5c6474,#5c6474),linear-gradient(#5c6474,#5c6474),linear-gradient(#5c6474,#5c6474),linear-gradient(#5c6474,#5c6474),linear-gradient(#5c6474,#5c6474);background-size:1px 100%,1px 100%,1px 100%,1px 100%,1px 100%,1px 100%,1px 100%,3px 100%,3px 100%;background-position:158px 0,339px 0,611px 0,772px 0,933px 0,1115px 0,1276px 0,519px 0,1023px 0;background-repeat:no-repeat}
+  .bp.bpDraft td.draftc{border-top:0!important;border-bottom:0!important}
   .bp.bpDraft tbody tr.subrow td{padding-top:12px;padding-bottom:12px} /* 路線模式列距加大（2026-08-05 使用者：6→12） */ /* 紅方選擇｜B1 之間的欄界線（與段間白線同款）＋線到 B1 間隔 20px */
   /* 出手階段分段（2026-08-05 使用者定案）：B1 B2 B3｜P1 P2 P3 P4｜B4 B5｜P5 P6 P7 共 12 段，
      段與段之間用**白色細線**隔開（白底斑馬紋已退回；線上下貫穿整列＝跨列連成直線）；
      圖距/段距 20px，線畫在段距正中 → 跨段的圖距視覺上也是 20；分邊用藍/紅外框 */
   /* 間距（2026-08-05 使用者定案）：同階段圖距 20；圖與白線的間隔兩側各 20（段距＝20+線1+20） */
   .draftc .dSeg{display:inline-flex;gap:20px;margin-right:41px;vertical-align:middle;position:relative}
-  .draftc .dSeg+.dSeg::before{content:"";position:absolute;left:-21px;top:-14px;bottom:-14px;width:0;border-left:1px solid #5c6474} /* -14＝蓋過上下內距12+列框線，局與局之間不斷線（2026-08-05 使用者回報小斷裂） */ /* 貫穿加大後的上下內距（12+1） */
-  .draftc .dSeg.dPhSeg::before{left:-22px;border-left-width:3px} /* 階段界線（B3|P1、P4|B4、B5|P5）加粗（2026-08-05 使用者指定） */
   .draftc .dSeg:last-child{margin-right:0}
   .draftc .cc{margin-right:0}
   .draftc .cc img{width:50px;height:50px;border-radius:9px} /* 與一般/混合模式同大（2026-08-05 使用者指定） */
@@ -744,8 +748,8 @@
      取消 hover 底色（維持原斑馬色），改成整列**上下金色邊線** */
   .bp tbody tr.subrow:nth-child(odd):hover td:not(.bpB):not(.bpR){background:#161c2b}
   .bp tbody tr.subrow:nth-child(even):hover td:not(.bpB):not(.bpR){background:#1a202f}
-  table.bp.bpDraft tbody tr.subrow:hover td:not(.bpB):not(.bpR){background:transparent}
-  table.bp.bpDraft tbody tr.subrow.zebA:hover td:not(.bpB):not(.bpR){background:rgba(255,255,255,.055)}
+  table.bp.bpDraft tbody tr.subrow:hover td:not(.bpB):not(.bpR){background-color:transparent}
+  table.bp.bpDraft tbody tr.subrow.zebA:hover td:not(.bpB):not(.bpR){background-color:rgba(255,255,255,.055)}
   .bp tbody tr.subrow:hover td{box-shadow:inset 0 1px 0 var(--gold),inset 0 -1px 0 var(--gold)} /* 用 inset 陰影畫上下金線：border 會被 border-collapse 跟鄰列（系列標題）的框合併吃掉（2026-08-05 使用者回報系列末局下線消失） */
   /* 英雄Tier：圓形色彩選擇塊（點擊開圓盤色盤） */
   .tClr{flex:0 0 auto;width:26px;height:26px;padding:0;border:1px solid #33405c;cursor:pointer;border-radius:50%}
@@ -11015,8 +11019,8 @@ function render(){
       ?(c.k==="draft"
         // 路線模式 BP 階段格：格寬＝該階段圖排寬（border-box 下 1 顆 50、2 顆 120）、格距＝段距 41、
         // 左推 18（td 是 border1+padding20=21、th 是 padding3+18=21）→ 每格壓在自己那個階段底下
-        ?`<div style="display:flex;gap:41px;justify-content:flex-start;padding-left:18px">${SUBF[c.k].map((f,i)=>
-            _finput(f,`flex:0 0 ${_dsCnt[i]===1?50:120}px`)).join("")}</div>`
+        ?`<div style="display:flex;gap:31px;justify-content:flex-start;padding-left:11.5px">${SUBF[c.k].map((f,i)=>
+            _finput(f,`flex:0 0 ${_dsCnt[i]===1?60:130}px`)).join("")}</div>`
         :`<div style="display:flex;gap:${_BIW+_BG1-_BFW}px;justify-content:center">${SUBF[c.k].map((f,i,a)=>
           _finput(f,`flex:0 0 ${_BFW}px${(a.length>3&&i===3)?`;margin-left:${_BG2-_BG1}px`:""}`)).join("")}</div>`)
       :_isLane(c.k)
@@ -11151,7 +11155,7 @@ function render(){
               +seg(_dIco(Fp[3],fs,_pTip(F,Fp[3],8))+_dIco(Fp[4],fs,_pTip(F,Fp[4],9)))
               +seg(_dIco(Sp[4],ss,_pTip(S,Sp[4],10)));
         } else out+=_qIco(LANG==="en"?"no pick-order data for this game":"這局沒有選角順序資料");
-        return `<td class="draftc">${out}</td>`;
+        return `<td class="draftc ${has5?"dLines5":"dLines3"}">${out}</td>`;
       };
       const rowHTML=(m,gno)=>{
         // 隊名不再標「先選方＝金色粗體」（2026-08-03 使用者取消）：右邊的「選擇」欄已經
