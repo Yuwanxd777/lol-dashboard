@@ -10963,12 +10963,16 @@ function render(){
       // 大小與相鄰頭像對不齊（2026-07-31 使用者指定要用問號圖）。
       const _bIco=b=>_noBan(b)?`<span class="cc"><img class="nobanImg" src="${NOBAN_SVG}" alt="${LANG==="en"?"no ban":"空BAN"}" title="${LANG==="en"?"no ban this turn":"該手沒有禁用"}"></span>`
         :(String(b==null?"":b).trim()==="?"?_qIco(LANG==="en"?"ban not recorded in source":"來源沒有記錄這一手的禁用"):cImg(b));
-      // 整局沒有禁用資料 → 畫三顆問號（＝第一輪禁用的三手），一顆看起來像「只少一手」
-      //（2026-07-31 使用者指定：2013 LPL 夏季季後賽 OMG 2-3 PE 那 5 局就是這種）
-      const _bpQ=_qIco(LANG==="en"?"no draft data for this game":"這局沒有禁用資料").repeat(3);
-      const banCells=(s,won,isBlue)=>`<td class="bans ${sCls(isBlue,won)}">`+(
-        s.bans.length?`${s.bans.slice(0,3).map(_bIco).join("")}${s.bans.length>3?`<span class="banSep"></span>`:""}${s.bans.slice(3).map(_bIco).join("")}`:_bpQ
-      )+`</td>`; // 禁用前3(第一輪禁)｜後2(第二輪禁)以分隔線分開；整局沒資料＝一個問號
+      // 整局沒有禁用資料 → 問號數依**該場的禁用制度**：2017 夏季（7.11）起每隊 5 禁、
+      // 之前 3 禁——寫死 3 顆會讓 5 禁年代的缺資料局看起來像「後兩手沒禁」
+      //（2026-08-05 使用者回報：KeSPA 08-04 T1 vs HLE，OE 沒 BAN、應為 5 顆問號；
+      // 3 顆的老案例是 2013 LPL OMG 2-3 PE，兩者都要對）。排版比照真實禁用（前3｜後2）。
+      const _q1=_qIco(LANG==="en"?"no draft data for this game":"這局沒有禁用資料");
+      const _bpQ=m=>{const y=+String(m._d).slice(0,4),mo=+String(m._d).slice(5,7);
+        return (y>2017||(y===2017&&mo>=6))?_q1.repeat(3)+`<span class="banSep"></span>`+_q1.repeat(2):_q1.repeat(3);};
+      const banCells=(s,won,isBlue,m)=>`<td class="bans ${sCls(isBlue,won)}">`+(
+        s.bans.length?`${s.bans.slice(0,3).map(_bIco).join("")}${s.bans.length>3?`<span class="banSep"></span>`:""}${s.bans.slice(3).map(_bIco).join("")}`:_bpQ(m)
+      )+`</td>`; // 禁用前3(第一輪禁)｜後2(第二輪禁)以分隔線分開；整局沒資料＝整排問號
       // 藍紅共用色票：勝方欄與統計條都用這組（改一處兩邊一致）
       const _CBLU="#6aa8ff",_CRED="#e0574d",_CGLD="var(--gold)",_CMUT="var(--tx2)";
       const rowHTML=(m,gno)=>{
@@ -10980,8 +10984,8 @@ function render(){
         const S=sides(m); // 依模式決定左右實際邊
         const lWon=S.LisBlue===m.blueWin, rWon=!lWon; // 哪一顯示側獲勝→整隊範圍底色加深
         return `<tr class="subrow">${head}<td class="meta">${mmss(m.gl)}</td><td class="win" style="color:${m.blueWin?_CBLU:_CRED}">${m.win}</td>
-        ${cell(S.L,S.LisBlue,lWon)}${selCell(m,S.LisBlue,lWon)}${banCells(S.L,lWon,S.LisBlue)}${laneCells(S.L,lWon,S.LisBlue)}
-        ${cell(S.R,!S.LisBlue,rWon)}${selCell(m,!S.LisBlue,rWon)}${banCells(S.R,rWon,!S.LisBlue)}${laneCells(S.R,rWon,!S.LisBlue)}</tr>`;
+        ${cell(S.L,S.LisBlue,lWon)}${selCell(m,S.LisBlue,lWon)}${banCells(S.L,lWon,S.LisBlue,m)}${laneCells(S.L,lWon,S.LisBlue)}
+        ${cell(S.R,!S.LisBlue,rWon)}${selCell(m,!S.LisBlue,rWon)}${banCells(S.R,rWon,!S.LisBlue,m)}${laneCells(S.R,rWon,!S.LisBlue)}</tr>`;
       };
       // 系列賽分組**永遠做**（2026-08-04 版型實驗：標題列無論如何保留）；
       // 篩選時比分/缺局仍以完整系列計，只是底下只列命中的局
