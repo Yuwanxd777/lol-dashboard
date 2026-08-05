@@ -1071,8 +1071,8 @@ const METRIC_EN={
   "下路組":"Bot duo","中野組":"Mid+JG","全部路線":"All lanes","全部戰隊":"All teams","全部類型":"All types",
   "全部分類":"All categories","選":"Picks","禁":"Bans","增強":"Buff","削弱":"Nerf","調整":"Adjustment",
   "中韓":"CN+KR","歐美":"EU+NA","國際賽":"Internationals","輸入戰隊…":"Enter team…","本年已移除":"Removed this year",
-  "對戰":"vs","戰隊或選手":"Team or player","輸入戰隊（如 GEN）":"Enter team (e.g. GEN)",
-  "輸入戰隊或選手（空=全部）":"Enter team or player (empty = all)","被禁英雄":"Banned champ","路線":"Lane",
+  "對戰":"vs","戰隊選手":"Team or player","輸入戰隊":"Enter team",
+  "被禁英雄":"Banned champ","路線":"Lane",
   "方":"Side","皆可":"Any","藍方":"Blue","紅方":"Red","勝方":"Winner","藍方勝":"Blue win","紅方勝":"Red win",
   "該隊勝":"Team win","該隊敗":"Team loss","先選":"First pick","藍方先":"Blue first","紅方先":"Red first",
   // 總覽strip/目標表/選手戰隊詳情/雷達/BP缺場
@@ -9192,7 +9192,7 @@ function render(){
     TB.tiers.forEach(t=>{t.lanes=t.lanes||{};LANE5v.forEach(L=>t.lanes[L]=t.lanes[L]||[]);});
     const tierCnt=t=>t.ids.length+LANE5v.reduce((s,L)=>s+((t.lanes&&t.lanes[L])?t.lanes[L].length:0),0);
     UNDO.track("tierB",V.tierB); // 進頁面先記基準，第一個動作也能返回
-    main.innerHTML=filterBar(`<label>${LANG==="en"?"Team":"戰隊"}</label>${comboHTML("tierTm",T("輸入戰隊（如 GEN）"),180)}`)+` <!-- placeholder 與 近況/戰隊/陣容 同字 → fitComboW 算出同寬（2026-08-05 使用者：同名篩選框與文字全站一致） -->`+`
+    main.innerHTML=filterBar(`<label>${LANG==="en"?"Team":"戰隊"}</label>${comboHTML("tierTm",T("輸入戰隊"),180)}`)+` <!-- placeholder 與 近況/戰隊/陣容 同字 → fitComboW 算出同寬（2026-08-05 使用者：同名篩選框與文字全站一致） -->`+`
       <div id="tierWrap" style="display:grid;grid-template-columns:3fr 1fr;gap:var(--gap);align-items:start;user-select:none">
         <div id="tierRows" style="display:flex;flex-direction:column;gap:10px;min-width:0"></div>
         <div class="card" id="tierPool" style="margin:0;position:relative;min-width:0"><div class="tphdr" style="margin-bottom:6px;padding-right:240px"><h2 style="display:flex;align-items:center;gap:8px;margin:0">🦸 ${T("角色池")}</h2><div id="tierPks" style="font-size:13.5px;color:#7a8aaa;margin-top:3px;line-height:1.5;white-space:nowrap"></div><div class="tpctl" style="position:absolute;top:10px;right:12px;display:flex;gap:6px;align-items:center"><span class="cwrap"><input id="tierQ" placeholder="${LANG==='en'?'Search':'搜尋'}" value="${esc(V.tierQ||"")}" style="width:190px;padding-right:26px"><button class="cx" tabindex="-1" data-x="tierQ" title="一鍵清除">✕</button></span></div></div>
@@ -10085,7 +10085,7 @@ function render(){
   }
   else if(curView==="選手"){
     // 搜尋框掛 datalist 清單：戰隊縮寫（依聯賽排序）＋選手名，點選即過濾（值＝contains 比對字串）
-    if(V.tpSel==null)V.tpSel=V.heroSel||V.search||"";   // 與英雄分頁「戰隊或選手」共用（舊存檔鍵遷移）
+    if(V.tpSel==null)V.tpSel=V.heroSel||V.search||"";   // 與英雄分頁「戰隊選手」共用（舊存檔鍵遷移）
     const _tCnt={}; GAMES.forEach(o=>{[o.raw[C.blue_teamname],o.raw[C.red_teamname]].forEach(t=>{if(t)_tCnt[t]=(_tCnt[t]||0)+1;});});
     const _pCnt={},_pTeam={}; LANES.forEach(o=>{[[o.raw[C.blue_playername],o.raw[C.blue_teamname]],[o.raw[C.red_playername],o.raw[C.red_teamname]]].forEach(([p,tm])=>{if(p){_pCnt[p]=(_pCnt[p]||0)+1; if(tm)_pTeam[p]=tm;}});});
     const _sTeamsF=Object.keys(_tCnt).sort((a,b)=>_tCnt[b]-_tCnt[a]);   // 清單依場數多→少（鐵則）；值=縮寫、說明=全名（打全名也會浮出）
@@ -10095,7 +10095,7 @@ function render(){
       +_sPls.map(p=>`<option value="${esc((tAb(_pTeam[p]||"")+" "+p).trim())}"></option>`).join("");   // 選手一律帶純縮寫前綴（T1 Keria；混合清單鐵則）
     main.innerHTML=filterBar(`
       <label>${LANG==="en"?"Lane":"路線"}</label><select id="vPos" style="width:150px">${["","TOP","JNG","MID","BOT","SUP","下路組","中野組"].map(p=>`<option value="${p}" ${V.pos===p?"selected":""}>${p?(LANG==="en"?T(p):({TOP:"上路",JNG:"打野",MID:"中路",BOT:"下路",SUP:"輔助"}[p]||T(p))):T("全部")}</option>`).join("")}</select>
-      <label>${T("戰隊或選手")}</label><span class="cwrap"><input type="text" id="vSearch" list="vSearchDl" value="${esc(V.tpSel||"")}" placeholder="${LANG==="en"?"Player / Team…":"選手 / 戰隊…"}" style="width:190px;padding-right:26px" autocomplete="off"><button class="cx" tabindex="-1" data-x="vSearch" title="一鍵清除">✕</button></span><datalist id="vSearchDl">${_sDl}</datalist>`)
+      <label>${T("戰隊選手")}</label><span class="cwrap"><input type="text" id="vSearch" list="vSearchDl" value="${esc(V.tpSel||"")}" placeholder="${LANG==="en"?"Enter team or player":"輸入戰隊或選手"}" style="width:190px;padding-right:26px" autocomplete="off"><button class="cx" tabindex="-1" data-x="vSearch" title="一鍵清除">✕</button></span><datalist id="vSearchDl">${_sDl}</datalist>`)
       +`<div class="grid">
         <div class="card full"><h2 style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">🕸️ ${T("選手對比")} ${comboHTML("r1",T("選手1"))}${comboHTML("r2",T("選手2"))}<span id="radLg" style="margin-left:auto;display:flex;gap:14px;font-weight:normal;font-size:15.5px"></span></h2><div style="display:flex;gap:12px;align-items:flex-start"><div style="flex:0 0 auto"><label style="font-weight:normal;font-size:14.5px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;margin-bottom:6px"><input type="checkbox" id="h2hChk" ${V.h2h?"checked":""}> ${T("僅限雙方對戰數據")}</label><span id="h2hN" class="meta"></span><div id="axesBox"></div></div><div class="chartbox" style="flex:1;min-width:0"><canvas id="radar"></canvas></div></div></div>
         <div class="card full"><h2>📋 ${T("選手數據")} <span class="sub" id="cnt"></span></h2><div id="tbl"></div>
@@ -10131,7 +10131,7 @@ function render(){
     let baseRows=null; // 基底列快取：搜尋打字只重過濾，不重算全部數據
     const apply=()=>{
       let rows=baseRows;
-      const kw=(V.tpSel||"").toLowerCase(); // 與英雄分頁「戰隊或選手」共用同一個值（切分頁不清空）
+      const kw=(V.tpSel||"").toLowerCase(); // 與英雄分頁「戰隊選手」共用同一個值（切分頁不清空）
       if(kw){ // 縮寫/選手名直接比對；戰隊「全名」也可搜（全名→縮寫 → 對上「縮寫 選手」列首）
         const abs=new Set(_sTeamsF.filter(t=>t.toLowerCase().includes(kw)).map(t=>tAb(t).toLowerCase()));
         rows=rows.filter(r=>{const s=r.選手.toLowerCase(); return s.includes(kw)||abs.has(s.split(" ")[0]);});
@@ -10149,7 +10149,7 @@ function render(){
   else if(curView==="戰隊"){
     const teams=sortTeamsByLeague([...new Set(GAMES.flatMap(o=>[o.raw[C.blue_teamname],o.raw[C.red_teamname]]))]);
     main.innerHTML=filterBar(`
-      <label>${T("戰隊")}</label>${comboHTML("vVs",T("輸入戰隊（如 GEN）"))}`)
+      <label>${T("戰隊")}</label>${comboHTML("vVs",T("輸入戰隊"))}`)
       +`<div class="grid">
         <div class="card full"><h2 style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">🕸️ ${T("戰隊對比")} ${comboHTML("t1",T("戰隊1"))}${comboHTML("t2",T("戰隊2"))}<span id="radLg" style="margin-left:auto;display:flex;gap:14px;font-weight:normal;font-size:15.5px"></span></h2><div style="display:flex;gap:12px;align-items:flex-start"><div style="flex:0 0 auto"><label style="font-weight:normal;font-size:14.5px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;margin-bottom:6px"><input type="checkbox" id="h2hChk" ${V.h2h?"checked":""}> ${T("僅限雙方對戰數據")}</label><span id="h2hN" class="meta"></span><div id="axesBox"></div></div><div class="chartbox" style="flex:1;min-width:0"><canvas id="radar"></canvas></div></div></div>
         <div class="card full"><h2>📋 ${T("戰隊數據")} <span class="sub" id="cnt"></span><span class="sub">${T("「對戰」= 各隊面對該隊時的成績")}</span></h2><div id="tbl"></div></div>
@@ -10238,7 +10238,7 @@ function render(){
                    ["h",LANG==="en"?"▤ Horizontal":"▤ 橫式",LANG==="en"?"One full-width row per lane":"每路一整列（角色池橫向展開）"]];
     V.rosterLane=V.rosterLane||""; // 路線篩選（2026-08-05 使用者新增）：空=全部五路
     main.innerHTML=filterBar(`<label>${LANG==="en"?"Lane":"路線"}</label><select id="vRosterLane" style="width:150px">${["","TOP","JNG","MID","BOT","SUP"].map(p=>`<option value="${p}" ${V.rosterLane===p?"selected":""}>${p?(LANG==="en"?T(p):({TOP:"上路",JNG:"打野",MID:"中路",BOT:"下路",SUP:"輔助"}[p])):T("全部")}</option>`).join("")}</select>
-      <label>${T("戰隊")}</label>${comboHTML("vRoster",T("輸入戰隊（如 GEN）"),180)}
+      <label>${T("戰隊")}</label>${comboHTML("vRoster",T("輸入戰隊"),180)}
       ${segHTML("rosterLaySeg",_rlSegs,V.rosterLayout,"","order:2")}${segHTML("rosterModeSeg",_rmSegs,V.rosterMode,"","order:1")}`)
       +`<div id="rosterBox"></div>`;
     const POSN=["TOP","JNG","MID","BOT","SUP"];
@@ -10510,7 +10510,7 @@ function render(){
     const _lanes=["","TOP","JNG","MID","BOT","SUP","下路組","中野組"]; // 2026-08-04 起積分也有雙人組（builder pairs 聚合）
     main.innerHTML=filterBar(`
       <label>${LANG==="en"?"Lane":"路線"}</label><select id="vPos" style="width:150px">${_lanes.map(p=>`<option value="${p}" ${V.pos===p?"selected":""}>${p?(LANG==="en"?T(p):({TOP:"上路",JNG:"打野",MID:"中路",BOT:"下路",SUP:"輔助"}[p]||T(p))):T("全部")}</option>`).join("")}</select>
-      ${sqMode?"":`<label>${T("戰隊或選手")}</label>${comboHTML("vSel",LANG==="en"?"Player / Team…":"選手 / 戰隊…",190)}`}${_modeBtn}${_vizBtn}`)
+      ${sqMode?"":`<label>${T("戰隊選手")}</label>${comboHTML("vSel",LANG==="en"?"Enter team or player":"輸入戰隊或選手",190)}`}${_modeBtn}${_vizBtn}`)
       +`<div class="card"><h2>🦸 ${T("英雄")} <span class="sub" id="cnt"></span><span class="sub">${sqMode?(LANG==="en"?"Soloq of tracked pros this season · Rating = percentile blend (Wilson win% ×4 + games ×2 + KDA ×2 + GD@15 ×2) · Patch filter works (soloq is ahead of pro, e.g. 26.14) · other global filters don't apply | click a champion for details":"積分數據＝追蹤職業選手今年單雙排彙總｜評分＝同表百分位加權（Wilson 勝率 ×4＋場數 ×2＋KDA ×2＋金差@15 ×2）｜<b>版本</b>可篩（積分比職業賽早上新版）、其他全域篩選不影響｜點英雄名看詳情"):T("評分＝同路百分位加權（滑欄名看權重）｜點英雄名看版本趨勢與出場紀錄")}</span></h2><div id="tbl"></div></div>`;
     const rerender=()=>{
       const rows=sqMode?calcHeroesSoloq(V.pos==="全部"?"":V.pos):calcHeroes(V.pos==="全部"?"":V.pos,V.player,V.heroTeam);
@@ -10567,7 +10567,7 @@ function render(){
       else if(o&&o._k==="player"){V.player=o._t; V.heroTeam="";}
       else {V.player=""; V.heroTeam="";}
       V.tpSel=hit; saveState(); rerender();});
-    {const e=document.getElementById("vSel"); if(e)e.style.width="190px";} // 與選手分頁「戰隊或選手」同規格：190px 固定、placeholder 同字（2026-08-05 使用者：同名篩選全站一致；fitComboW 會被長選項撐開所以綁完鎖回）
+    {const e=document.getElementById("vSel"); if(e)e.style.width="190px";} // 與選手分頁「戰隊選手」同規格：190px 固定、placeholder 同字（2026-08-05 使用者：同名篩選全站一致；fitComboW 會被長選項撐開所以綁完鎖回）
     // 點篩選框時：若目前選的是某選手(如 T1 Doran)，帶出其隊名(T1)→清單即列出該隊與所有隊友供改選
     const selInp=document.getElementById("vSel");
     selInp.addEventListener("focus",()=>{
@@ -10582,7 +10582,7 @@ function render(){
     // ── 近況（2026-07-28 使用者需求）：輸入一個戰隊，一頁列出近期資料，方便截圖 ──
     // 範圍＝目前全域篩選下，該隊「最近 5 個系列賽」的場次（系列切分規則沿用比賽BP／總覽戰隊近況）
     const teams=sortTeamsByLeague([...new Set(GAMES.flatMap(o=>[o.raw[C.blue_teamname],o.raw[C.red_teamname]]))]);
-    main.innerHTML=filterBar(`<label>${T("戰隊")}</label>${comboHTML("vRecent",T("輸入戰隊（如 GEN）"),180)}<button id="rcShot" class="sqbtn" style="order:1" title="${LANG==="en"?"Export this page as a 1080p PNG":"整頁輸出 1080p 截圖"}">📸</button>`)
+    main.innerHTML=filterBar(`<label>${T("戰隊")}</label>${comboHTML("vRecent",T("輸入戰隊"),180)}<button id="rcShot" class="sqbtn" style="order:1" title="${LANG==="en"?"Export this page as a 1080p PNG":"整頁輸出 1080p 截圖"}">📸</button>`)
       +`<div id="rcWrap"></div>`;
     const en2=LANG==="en";
     const SERIES_N=5, POSN5={1:"TOP",2:"JNG",3:"MID",4:"BOT",5:"SUP"};
