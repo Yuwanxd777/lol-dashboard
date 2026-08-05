@@ -373,6 +373,11 @@
   /* 橫式（2026-08-05 使用者新增）：每路一整列、角色池轉置＝欄=英雄、列=數據；卡內橫捲不裁字 */
   .rosterGrid.rosterH{grid-template-columns:1fr}
   .rosterGrid.rosterH table.rsH{width:max-content;min-width:0}
+  /* 橫式每格固定寬（見 rerender 內量測 --rsCellW／--rsLblW）：各卡不再各自照內容定寬，
+     不同選手的第 N 個英雄才會垂直對齊（2026-08-05 使用者指定）。寬度取全部卡片的最大格 → 不裁字 */
+  .rosterGrid.rosterH table.rsH{table-layout:fixed}
+  .rosterGrid.rosterH .rsH td{width:var(--rsCellW,56px)}
+  .rosterGrid.rosterH .rsH th{width:var(--rsLblW,64px)}
   .rsH th[data-rk]{width:auto;text-align:left;white-space:nowrap}
   .rsH td{text-align:center;padding:4px 8px}
   .rsH td:has(.heroname){text-align:center;padding:4px 8px} /* 橫式只列圖示不列名（滑上看名字）→ 置中 */
@@ -10503,6 +10508,21 @@ function render(){
         }).join("");
       }
       box.innerHTML=`<div class="rosterGrid${layH?" rosterH":""}"${(!layH&&!crossTeam&&posList.length===1)?' style="grid-template-columns:minmax(0,560px)"':''}>${cardsHTML}</div>`+moreNote;
+      // 橫式：所有卡片的英雄格統一寬度（2026-08-05 使用者指定）。各卡本來各自照內容定寬，
+      // 「上次」的日期長度一變（08-04／—／生涯的「1234 天前」）整欄就寬窄不一 →
+      // A 選手的第 10 個英雄跟 B 選手的第 10 個對不到同一條垂直線。
+      // 作法：先還原成內容寬量出「全部卡片中最寬的那一格」，寫進 CSS 變數，CSS 端用 table-layout:fixed
+      // 讓每格都吃這個寬 → 跨卡片垂直對齊。取最大值＝不會裁字；量測與套用在同一個 task 內，畫面不會閃。
+      if(layH){ const tbs=[...box.querySelectorAll("table.rsH")];
+        if(tbs.length){ const z=window._zoomF||1;
+          tbs.forEach(t=>{t.style.tableLayout="auto";});               // 先脫離 fixed 才量得到內容寬
+          let cw=0,lw=0;
+          tbs.forEach(t=>t.querySelectorAll("tbody tr").forEach(tr=>{
+            [...tr.children].forEach((c,i)=>{ const w=c.getBoundingClientRect().width/z;
+              if(i===0)lw=Math.max(lw,w); else cw=Math.max(cw,w); }); }));
+          tbs.forEach(t=>{t.style.tableLayout="";});                    // 交還給 CSS 的 fixed
+          if(cw>0){ box.style.setProperty("--rsCellW",Math.ceil(cw)+"px");
+                    box.style.setProperty("--rsLblW",Math.ceil(lw)+"px"); } } }
       box.querySelectorAll(".pickSel").forEach(s=>s.onchange=()=>{V.rosterPick[s.dataset.pos]=s.value; saveState(); rerender();});
       // 跨隊直式插槽下拉（要綁在 .pickSel 之後蓋掉它的 onchange：值是「隊|選手」不是純名字）
       box.querySelectorAll(".pickSelX").forEach(s=>s.onchange=()=>{
