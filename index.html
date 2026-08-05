@@ -11231,7 +11231,9 @@ function render(){
         let a=glowIdx.get(im.alt); if(!a){a=[];glowIdx.set(im.alt,a);}
         a.push(im);
       });
-      const units=grouped?series:ms;
+      // 平面模式（路線）要自己吃 visSet：分組模式的隱藏是 seriesHTML 內做的，
+      // 這裡不濾的話「篩選有算、列全都還在」（2026-08-05 使用者回報篩選不出東西）
+      const units=grouped?series:(filtered&&visSet?ms.filter(m=>visSet.has(m)):ms);
       const render1=grouped?seriesHTML:(m=>rowHTML(m));
       const total=units.length, unitLbl=LANG==="en"?(grouped?"series":"games"):(grouped?"系列":"場");
       const addRows=step=>{
