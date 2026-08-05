@@ -10809,8 +10809,9 @@ function render(){
       _cL(["gl",   LANG==="en"?"time":"時長", 66, "",     m=>mmss(m.gl)]),
       _cL(["win",  LANG==="en"?"win":"勝",    66, "team", m=>String(m.win).toLowerCase()]),
     ];
-    // 選角順序檢視的 draft 欄寬：圖 50＋框 4＋距 15＝69/顆；5 禁年代 20 顆、3 禁 16 顆＋分隔與內距
-    const _draftW=_b5?1520:1210;
+    // 選角順序檢視的 draft 欄寬＝實測內容寬＋5px 餘裕（2026-08-05 使用者：右邊不留空隔、
+    // 間隔維持 15px——估算式一直高估，改用瀏覽器實測回推：5 禁內容 1435、3 禁 1157）
+    const _draftW=_b5?1440:1165;
     const COLF=_dm?[
       ..._leadCols,
       _cL(["bt",   LANG==="en"?"blue":"藍方", 66, "team", m=>String(m.blue.team).toLowerCase()]),
@@ -11182,7 +11183,7 @@ function render(){
       window._bpColFit=()=>{ const wrap=document.querySelector("#tbl .tblwrap"); if(!wrap)return;
         const cols=[...wrap.querySelectorAll("colgroup col")]; if(cols.length!==COLF.length)return;
         const tot=COLF.reduce((a,c)=>a+c.w,0), avail=wrap.clientWidth;
-        const lane=COLF.map((c,i)=>/^[br]l[0-4]$/.test(c.k)?i:-1).filter(i=>i>=0);
+        const lane=COLF.map((c,i)=>(/^[br]l[0-4]$/.test(c.k)||c.k==="draft")?i:-1).filter(i=>i>=0); // draft 欄同五路：定寬不吃餘寬（寬螢幕不留右側死空間）
         if(avail<=tot+2){ cols.forEach((el,i)=>{el.style.width=COLF[i].w+"px";}); return; } // 塞不下→維持設定寬(走橫向捲)
         const per=(avail-tot)/(COLF.length-lane.length), laneSet=new Set(lane);
         cols.forEach((el,i)=>{el.style.width=(COLF[i].w+(laneSet.has(i)?0:per))+"px";}); };
