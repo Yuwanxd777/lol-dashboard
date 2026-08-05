@@ -10853,13 +10853,26 @@ function render(){
     const _banSub=side=>Array.from({length:_banSlots},(_,i)=>{ const [a,z]=_banPh(i);
       return {k:side+(i+1),dl:"champ",
         get:m=>(sides(m)[side==="bb"?"L":"R"].bans||[]).slice(a,z).map(_cTxt).join(" ")}; }); // bb1~bb5／rb1~rb5
-    const SUBF={bb:_banSub("bb"),rb:_banSub("rb")}; // 格數變動時(3禁↔5禁)，多出來的舊 key 由下面那行自動清掉
+    // 路線模式：BAN｜PICK 順序欄的第二篩選列＝**每個出手階段一格**（2026-08-05 使用者指定）：
+    // B1 B2 B3｜P1~P4｜B4 B5｜P5~P7，各格只比對該階段的英雄（1~2 顆）；3 禁年代自動少 B4/B5
+    const _dStages=m=>{ const fB=m.first!=="red"; const F=fB?m.blue:m.red, S=fB?m.red:m.blue;
+      const Fp=(F.pk&&F.pk.length>=5)?F.pk:[], Sp=(S.pk&&S.pk.length>=5)?S.pk:[];
+      const fb=F.bans||[], sb=S.bans||[];
+      const st=[[fb[0],sb[0]],[fb[1],sb[1]],[fb[2],sb[2]],[Fp[0]],[Sp[0],Sp[1]],[Fp[1],Fp[2]],[Sp[2]]];
+      if(_b5)st.push([sb[3],fb[3]],[sb[4],fb[4]]);
+      st.push([Sp[3]],[Fp[3],Fp[4]],[Sp[4]]);
+      return st.map(a=>a.filter(x=>x&&String(x).trim()&&String(x).trim()!=="?")); };
+    const _dsCnt=_b5?[2,2,2,1,2,2,1,2,2,1,2,1]:[2,2,2,1,2,2,1,1,2,1]; // 各階段圖數（格寬對齊用）
+    const _dSub=Array.from({length:_dsCnt.length},(_,i)=>({k:"ds"+(i+1),dl:"champ",
+      get:m=>(_dStages(m)[i]||[]).map(_cTxt).join(" ")}));
+    const SUBF=_dm?{draft:_dSub}:{bb:_banSub("bb"),rb:_banSub("rb")}; // 格數變動時(3禁↔5禁)，多出來的舊 key 由下面那行自動清掉
     const FILTERS=[]; COLF.forEach(c=>{ if(SUBF[c.k])FILTERS.push(...SUBF[c.k]); else if(!_noF.has(c.k))FILTERS.push({k:c.k,dl:c.dl,get:c.get}); }); // 攤平：實際可篩的欄(禁用拆兩格；去掉日期/賽事/版本)
     {const _fk=new Set(FILTERS.map(f=>f.k)); Object.keys(V.bpColF).forEach(k=>{ if(!_fk.has(k))delete V.bpColF[k]; });} // 清掉不再有輸入框的殘留值
     // 每欄各自下拉：只列「該欄實際出現過的值」；英雄依網站語言(chName)、隊伍用縮寫；依全域 vcKey 快取(欄篩選變動不重算)
     const _fdv=(k,m)=>{ const md=V.bpSideMode||"br"; if(k==="win")return[m.win];
       if(k==="draft")return[...(m.blue.bans||[]),...(m.red.bans||[]),...m.blue.lane.slice(0,5),...m.red.lane.slice(0,5)]; // 選角順序欄：下拉＝整局禁選全部英雄
       if(k==="dt")return[m.date]; if(k==="pt")return[m.patch]; if(k==="lg")return[(typeof lgName==="function"&&lgName(m.league))||m.league]; // 平面模式的日期/版本/賽事
+      {const g3=/^ds(\d+)$/.exec(k); if(g3)return _dStages(m)[+g3[1]-1]||[];} // 路線模式階段格：下拉＝該階段的英雄
       if(_dm&&(k==="bt"||k==="rt"))return[(k==="bt"?m.blue:m.red).team]; // draft 檢視固定藍左紅右
       const gb=/^([br])b([1-9])$/.exec(k); // 禁用格：下拉範圍＝該手所屬的整個禁用階段（與上面的比對範圍一致）
       if(md!=="br"){ // fp/team：左右欄可能來自任一實際邊 → 下拉取兩邊聯集
@@ -10949,8 +10962,13 @@ function render(){
     //（2026-08-05 使用者定案 55；含 bsel/rsel 的 fancy 鈕）
     const _INFOW=55, _isInfo=k=>["dt","pt","lg","gno","gl","win","bt","bsel","rt","rsel"].includes(k);
     const _fcell=c=>_noF.has(c.k)?"":(SUBF[c.k]
-      ?`<div style="display:flex;gap:${_BIW+_BG1-_BFW}px;justify-content:center">${SUBF[c.k].map((f,i,a)=>
-          _finput(f,`flex:0 0 ${_BFW}px${(a.length>3&&i===3)?`;margin-left:${_BG2-_BG1}px`:""}`)).join("")}</div>`
+      ?(c.k==="draft"
+        // 路線模式 BP 階段格：格寬＝該階段圖排寬（border-box 下 1 顆 50、2 顆 120）、格距＝段距 41、
+        // 左推 18（td 是 border1+padding20=21、th 是 padding3+18=21）→ 每格壓在自己那個階段底下
+        ?`<div style="display:flex;gap:41px;justify-content:flex-start;padding-left:18px">${SUBF[c.k].map((f,i)=>
+            _finput(f,`flex:0 0 ${_dsCnt[i]===1?50:120}px`)).join("")}</div>`
+        :`<div style="display:flex;gap:${_BIW+_BG1-_BFW}px;justify-content:center">${SUBF[c.k].map((f,i,a)=>
+          _finput(f,`flex:0 0 ${_BFW}px${(a.length>3&&i===3)?`;margin-left:${_BG2-_BG1}px`:""}`)).join("")}</div>`)
       :_isLane(c.k)
         ?`<div style="display:flex;justify-content:center">${_finput({k:c.k},`flex:0 0 ${_LFW}px`)}</div>`
       :_isInfo(c.k)
