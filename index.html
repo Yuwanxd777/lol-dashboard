@@ -517,7 +517,7 @@
   /* 圖鑑「刷野速度」*/
   .jgGrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
   .jgCtrl{display:inline-flex;align-items:center;gap:8px} /* 排序＋第一攤 篩選（置於篩選列右側） */
-  .jgCtrl select,.jgCtrl #jgSortBtn{height:36px;box-sizing:border-box;padding-top:4px;padding-bottom:4px;line-height:1.2} /* 與其他篩選列同高，不撐高整列(縮上下內距避免文字被邊框吃掉) */
+  .jgCtrl select,.jgCtrl #jgSortBtn{height:30px;box-sizing:border-box;padding-top:3px;padding-bottom:3px;line-height:1.2;font-size:15px} /* 30px＝全站篩選控件標準高（2026-08-06 使用者：圖鑑刷野速度那列原本 36px 把整列撐成 62px，其他分頁都是 56px） */
   .jgCard{margin:0;padding:10px 14px}
   .jgHd{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:15px;margin-bottom:6px;border-bottom:1px solid var(--line);padding-bottom:6px}
   .jgHd .cc img{width:34px;height:34px;border-radius:8px}
@@ -3838,11 +3838,12 @@ async function jungleHTML(box){
   // 排序＋第一攤 兩個篩選項移到上方篩選列右側（#jgCtrl）
   const ctrl=document.getElementById("jgCtrl");
   if(ctrl){
-    ctrl.innerHTML=`<label>${T("英雄排序")}</label><button id="jgSortBtn" class="sqbtn" style="width:auto;padding:5px 14px;font-size:14px">${sortLabel}</button><label>${T("第一攤")}</label><select id="jgCampSel">${campSel}</select>`;
+    ctrl.innerHTML=`<label>${T("英雄排序")}</label><button id="jgSortBtn" class="sqbtn" style="width:auto;padding:3px 14px;font-size:15px">${sortLabel}</button><label>${T("第一攤")}</label><select id="jgCampSel">${campSel}</select>`;
     const sb=ctrl.querySelector("#jgSortBtn");
     if(sb)sb.onclick=()=>{ V.jgSort=(V.jgSort==="speed"?"usage":"speed"); try{saveState&&saveState();}catch(e){} jungleHTML(box); };
     const cs=ctrl.querySelector("#jgCampSel");
     if(cs)cs.onchange=()=>{ V.jgCamp=cs.value; try{saveState&&saveState();}catch(e){} jungleHTML(box); };
+    try{fancyAllFilters();}catch(e){}   // 這排是渲染後才填進篩選列的 → 補套自製下拉(▾ 與全站一致)
   }
   const srcLink=`<a href="${esc(M.url||"#")}" target="_blank" rel="noopener" style="color:var(--acc)">${esc(M.src||"Jungle Clear Compilation")}</a>`;
   const disLink=`<a href="${esc(M.discord||"#")}" target="_blank" rel="noopener" style="color:var(--acc)">Discord</a>`;
@@ -6219,6 +6220,7 @@ if(IS_PUBLIC){ // 網路版標題
   const st=document.getElementById("siteTitleTx"); if(st)st.textContent="LOL數據表公開版";
 }
 const VIEWS=["總覽","近況","英雄","選手","戰隊","陣容","比賽BP","模擬BP","英雄Tier","積分","圖鑑"]; // 近況緊跟總覽（使用者指定 2026-07-28） // AI 問答已移除（使用者：沒意思）；渲染分支留為死碼（curView 恆在 VIEWS 內 → 不會進到那個 catch-all else）
+const FW_FILTER=104; // 篩選列「戰隊／戰隊A／戰隊B／路線」共用寬度（2026-08-06 使用者定案：同類篩選框一樣大）
 let curView="總覽", chart=null, radar=null, sortK="評分", sortDir=-1;
 // 升降幕三段循環（2026-08-06 使用者定案，全站一致）：第 1 下降序 ▼ → 第 2 下升序 ▲ → 第 3 下**取消排序** → 再循環。
 // 第三下回傳 {k:"",d:0}＝明確取消（沒有任何欄亮箭頭、列回資料原始順序）；
@@ -8977,6 +8979,16 @@ function orderBaseBtns(){
     b.classList.add("sqbtn"); b.style.order=""; b.style.marginLeft="";
     if(b.parentNode!==bb)bb.appendChild(b); });
   [...bb.children].filter(b=>key(b)>=0).sort((a,c)=>key(a)-key(c)).forEach(b=>bb.appendChild(b));
+  // 右群一體化（2026-08-06 使用者指定）：縮放拉高導致篩選列換行時，「置左的留第一列靠左、
+  // 置右的整組掉到第二列靠右」。原本模式鈕(order≥1)與基礎鈕各自是獨立 flex 項目，會各自換行
+  // 散在不同列（實測 150% 時模式鈕在第二列、基礎鈕又自己跑到第三列）。收進同一個容器就整組走。
+  let br=f.querySelector(".barRight");
+  if(!br){ br=document.createElement("span"); br.className="barRight";
+    br.style.cssText="display:inline-flex;flex-wrap:wrap;gap:10px 11px;align-items:center;justify-content:flex-end;margin-left:auto;order:399";
+    f.appendChild(br); }
+  const ord=el=>parseInt(getComputedStyle(el).order)||0;
+  [...f.children].filter(k=>k!==br&&ord(k)>=1).sort((a,c)=>ord(a)-ord(c)).forEach(k=>br.appendChild(k));
+  bb.style.marginLeft="";   // 進了 barRight 就不必自己靠右（否則會在群內把基礎鈕拉開）
 }
 function ensureBackBtn(){
   const m=document.getElementById("main"); if(!m)return;
@@ -9921,7 +9933,7 @@ function render(){
     bindFilters(()=>render()); // 標準篩選：改任何條件整頁重算（英雄池跟著變）
     {
       const teams=sortTeamsByLeague([...new Set(GAMES.flatMap(o=>[o.raw[C.blue_teamname],o.raw[C.red_teamname]]))]);
-      bindCombo("tierTm",teamComboOpts(teams),V.tierTeam,hit=>{V.tierTeam=hit; saveState(); render();},true);
+      bindCombo("tierTm",teamComboOpts(teams),V.tierTeam,hit=>{V.tierTeam=hit; saveState(); render();},true,FW_FILTER);
     }
     { // 混合/五路 + Tier預設(🗑) + 📸 ↩ 併入標準篩選列（最右仍是篩選 ↺）
       const fr=document.getElementById("fReset");
@@ -10210,7 +10222,7 @@ function render(){
     const _sDl=_sTeamsF.map(t=>{const a=tAbShow(t); if(_seenAb.has(a))return ""; _seenAb.add(a); return `<option value="${esc(a)}">${esc(t)}</option>`;}).join("")
       +_sPls.map(p=>`<option value="${esc((tAb(_pTeam[p]||"")+" "+p).trim())}"></option>`).join("");   // 選手一律帶純縮寫前綴（T1 Keria；混合清單鐵則）
     main.innerHTML=filterBar(`
-      <label>${LANG==="en"?"Lane":"路線"}</label><select id="vPos" style="width:150px">${["","TOP","JNG","MID","BOT","SUP","下路組","中野組"].map(p=>`<option value="${p}" ${V.pos===p?"selected":""}>${p?(LANG==="en"?T(p):({TOP:"上路",JNG:"打野",MID:"中路",BOT:"下路",SUP:"輔助"}[p]||T(p))):T("全部")}</option>`).join("")}</select>
+      <label>${LANG==="en"?"Lane":"路線"}</label><select id="vPos" style="width:${FW_FILTER}px">${["","TOP","JNG","MID","BOT","SUP","下路組","中野組"].map(p=>`<option value="${p}" ${V.pos===p?"selected":""}>${p?(LANG==="en"?T(p):({TOP:"上路",JNG:"打野",MID:"中路",BOT:"下路",SUP:"輔助"}[p]||T(p))):T("全部")}</option>`).join("")}</select>
       <label>${T("戰隊選手")}</label><span class="cwrap"><input type="text" id="vSearch" list="vSearchDl" value="${esc(V.tpSel||"")}" placeholder="${LANG==="en"?"Enter team or player":"輸入戰隊或選手"}" style="width:190px;padding-right:26px" autocomplete="off"><button class="cx" tabindex="-1" data-x="vSearch" title="一鍵清除">✕</button></span><datalist id="vSearchDl">${_sDl}</datalist>`)
       +`<div class="grid">
         <div class="card full"><h2 style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">🕸️ ${T("選手對比")} ${comboHTML("r1",T("選手1"))}${comboHTML("r2",T("選手2"))}<span id="radLg" style="margin-left:auto;display:flex;gap:14px;font-weight:normal;font-size:15.5px"></span></h2><div style="display:flex;gap:12px;align-items:flex-start"><div style="flex:0 0 auto"><label style="font-weight:normal;font-size:14.5px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;margin-bottom:6px"><input type="checkbox" id="h2hChk" ${V.h2h?"checked":""}> ${T("僅限雙方對戰數據")}</label><span id="h2hN" class="meta"></span><div id="axesBox"></div></div><div class="chartbox" style="flex:1;min-width:0"><canvas id="radar"></canvas></div></div></div>
@@ -10336,7 +10348,7 @@ function render(){
     bindFilters(rerender);
     if(V.teamSel==null)V.teamSel=V.vsTeam||V.rosterTeam||"";   // 與陣容分頁「戰隊」共用（切分頁不清空）
     if(V.vsTeam!==V.teamSel){V.vsTeam=V.teamSel;}
-    bindCombo("vVs",teamComboOpts(teams),V.teamSel,hit=>{V.teamSel=hit; V.vsTeam=hit; saveState(); rerender();},true);
+    bindCombo("vVs",teamComboOpts(teams),V.teamSel,hit=>{V.teamSel=hit; V.vsTeam=hit; saveState(); rerender();},true,FW_FILTER);
     sortK="評分"; rerender();
   }
   else if(curView==="陣容"){
@@ -10353,7 +10365,7 @@ function render(){
     const _rlSegs=[["v",LANG==="en"?"▥ Vertical":"▥ 直式",LANG==="en"?"Five lanes side by side":"五路並排（每路一張直卡）"],
                    ["h",LANG==="en"?"▤ Horizontal":"▤ 橫式",LANG==="en"?"One full-width row per lane":"每路一整列（角色池橫向展開）"]];
     V.rosterLane=V.rosterLane||""; // 路線篩選（2026-08-05 使用者新增）：空=全部五路
-    main.innerHTML=filterBar(`<label>${LANG==="en"?"Lane":"路線"}</label><select id="vRosterLane" style="width:150px">${["","TOP","JNG","MID","BOT","SUP"].map(p=>`<option value="${p}" ${V.rosterLane===p?"selected":""}>${p?(LANG==="en"?T(p):({TOP:"上路",JNG:"打野",MID:"中路",BOT:"下路",SUP:"輔助"}[p])):T("全部")}</option>`).join("")}</select>
+    main.innerHTML=filterBar(`<label>${LANG==="en"?"Lane":"路線"}</label><select id="vRosterLane" style="width:${FW_FILTER}px">${["","TOP","JNG","MID","BOT","SUP"].map(p=>`<option value="${p}" ${V.rosterLane===p?"selected":""}>${p?(LANG==="en"?T(p):({TOP:"上路",JNG:"打野",MID:"中路",BOT:"下路",SUP:"輔助"}[p])):T("全部")}</option>`).join("")}</select>
       <label>${T("戰隊")}</label>${comboHTML("vRoster",T("輸入戰隊"),180)}
       ${segHTML("rosterLaySeg",_rlSegs,V.rosterLayout,"","order:2")}${segHTML("rosterModeSeg",_rmSegs,V.rosterMode,"","order:1")}`)
       +`<div id="rosterBox"></div>`;
@@ -10634,7 +10646,7 @@ function render(){
     }
     if(V.teamSel==null)V.teamSel=V.vsTeam||V.rosterTeam||"";   // 與戰隊分頁「戰隊」共用
     if(V.rosterTeam!==V.teamSel){V.rosterTeam=V.teamSel; V.rosterPick={};} // 帶新值進來才重設選人
-    bindCombo("vRoster",teamComboOpts(teams),V.teamSel,hit=>{V.teamSel=hit; V.rosterTeam=hit; V.rosterPick={}; saveState(); rerender();},true);
+    bindCombo("vRoster",teamComboOpts(teams),V.teamSel,hit=>{V.teamSel=hit; V.rosterTeam=hit; V.rosterPick={}; saveState(); rerender();},true,FW_FILTER);
     segBind("rosterModeSeg",v=>{ if(v===V.rosterMode)return; V.rosterMode=v; V.rosterSort={}; V.rosterPick={}; saveState(); render(); });
     segBind("rosterLaySeg",v=>{ if(v===V.rosterLayout)return; V.rosterLayout=v; saveState(); render(); }); // 直式/橫式（排序/選人狀態不動）
     rerender();
@@ -10660,7 +10672,7 @@ function render(){
     const _vizBtn=segHTML("heroVizSeg",[["table",LANG==="en"?"📋 Table":"📋 表格",LANG==="en"?"Table view":"表格檢視"],["scatter",LANG==="en"?"📊 Scatter":"📊 散布圖",LANG==="en"?"Scatter (KDA vs games)":"散布圖（KDA vs 場數）"]],vizScatter?"scatter":"table","","order:1");
     const _lanes=["","TOP","JNG","MID","BOT","SUP","下路組","中野組"]; // 2026-08-04 起積分也有雙人組（builder pairs 聚合）
     main.innerHTML=filterBar(`
-      <label>${LANG==="en"?"Lane":"路線"}</label><select id="vPos" style="width:150px">${_lanes.map(p=>`<option value="${p}" ${V.pos===p?"selected":""}>${p?(LANG==="en"?T(p):({TOP:"上路",JNG:"打野",MID:"中路",BOT:"下路",SUP:"輔助"}[p]||T(p))):T("全部")}</option>`).join("")}</select>
+      <label>${LANG==="en"?"Lane":"路線"}</label><select id="vPos" style="width:${FW_FILTER}px">${_lanes.map(p=>`<option value="${p}" ${V.pos===p?"selected":""}>${p?(LANG==="en"?T(p):({TOP:"上路",JNG:"打野",MID:"中路",BOT:"下路",SUP:"輔助"}[p]||T(p))):T("全部")}</option>`).join("")}</select>
       ${sqMode?"":`<label>${T("戰隊選手")}</label>${comboHTML("vSel",LANG==="en"?"Enter team or player":"輸入戰隊或選手",190)}`}${_modeBtn}${_vizBtn}`)
       +`<div class="card"><h2>🦸 ${T("英雄")} <span class="sub" id="cnt"></span><span class="sub">${sqMode?(LANG==="en"?"Soloq of tracked pros this season · Rating = percentile blend (Wilson win% ×4 + games ×2 + KDA ×2 + GD@15 ×2) · Patch filter works (soloq is ahead of pro, e.g. 26.14) · other global filters don't apply | click a champion for details":"積分數據＝追蹤職業選手今年單雙排彙總｜評分＝同表百分位加權（Wilson 勝率 ×4＋場數 ×2＋KDA ×2＋金差@15 ×2）｜<b>版本</b>可篩（積分比職業賽早上新版）、其他全域篩選不影響｜點英雄名看詳情"):T("評分＝同路百分位加權（滑欄名看權重）｜點英雄名看版本趨勢與出場紀錄")}</span></h2><div id="tbl"></div></div>`;
     const rerender=()=>{
@@ -10871,7 +10883,7 @@ function render(){
     bindFilters(rerender);
     if(V.teamSel==null)V.teamSel=V.vsTeam||V.rosterTeam||"";
     if(V.recentTeam!==V.teamSel)V.recentTeam=V.teamSel;      // 與 戰隊/陣容 分頁共用同一個選隊
-    bindCombo("vRecent",teamComboOpts(teams),V.teamSel,hit=>{V.teamSel=hit; V.recentTeam=hit; saveState(); rerender();},true);
+    bindCombo("vRecent",teamComboOpts(teams),V.teamSel,hit=>{V.teamSel=hit; V.recentTeam=hit; saveState(); rerender();},true,FW_FILTER);
     // 📸 整頁截圖（比照英雄Tier：html2canvas、1920 寬、檔名 縮寫_近況_日期）
     document.getElementById("rcShot").onclick=async()=>{
       if(!V.recentTeam){alert(en2?"Pick a team first":"請先選擇戰隊");return;}
@@ -12216,9 +12228,10 @@ function render(){
         const gsc=wrap.querySelector("#bsGames"); if(gsc)gsc.scrollLeft=gsc.scrollWidth; }; // 新增局在最右（緊貼角色池），捲到最右顯示新局
     };
     bindFilters(rerender);
-    bindCombo("bsT1",teamComboOpts(teams),S.t1,hit=>{S.t1=hit; saveState(); rerender();},true);
-    bindCombo("bsT2",teamComboOpts(teams),S.t2,hit=>{S.t2=hit; saveState(); rerender();},true);
-    ["bsT1","bsT2"].forEach(id=>{const el=document.getElementById(id); if(el&&parseFloat(el.style.width)>150)el.style.width="150px";}); // 框內只顯示縮寫 → 寬度夾在 150px
+    bindCombo("bsT1",teamComboOpts(teams),S.t1,hit=>{S.t1=hit; saveState(); rerender();},true,FW_FILTER);
+    bindCombo("bsT2",teamComboOpts(teams),S.t2,hit=>{S.t2=hit; saveState(); rerender();},true,FW_FILTER);
+    // 框內只顯示縮寫 → 寬度以 FW_FILTER 為下限、上限夾 150（與各分頁「戰隊」框同大小，2026-08-06 使用者定案）
+    ["bsT1","bsT2"].forEach(id=>{const el=document.getElementById(id); if(el&&parseFloat(el.style.width)>150)el.style.width="150px";});
     // 📥 匯入真實系列賽 BP：自訂面板兩欄 20 場一次全顯；點選把整個系列「新增」為模擬局（上方兩隊與角色池不變，＋號新局仍用上方兩隊）
     {
       const histBtn=document.getElementById("bsHist"), pop=document.getElementById("bsHistPop");
@@ -14033,7 +14046,7 @@ document.getElementById("yearSel").onchange=async e=>{
   finally{ ov.style.display="none"; }
 };
 // 全域返回鍵：包裝 render，繪製後「同步」補上返回鍵到篩選列(不用 microtask，避免延後注入造成篩選列跳動)
-{const _origRender=render; render=function(){const _r=_origRender.apply(this,arguments); try{ensureBackBtn();}catch(e){} try{fancyAllFilters();}catch(e){} /* 圖鑑等自建篩選列的頁沒走 bindFilters，這裡補 */ try{if(window.fixZoomHeight)window.fixZoomHeight();}catch(e){} try{applyT2S();}catch(e){} return _r;};}
+{const _origRender=render; render=function(){const _r=_origRender.apply(this,arguments); try{ensureBackBtn();}catch(e){} try{orderBaseBtns();}catch(e){} /* 同步排一次：等 setTimeout 才排會看到按鈕跳位 */ try{fancyAllFilters();}catch(e){} /* 圖鑑等自建篩選列的頁沒走 bindFilters，這裡補 */ try{if(window.fixZoomHeight)window.fixZoomHeight();}catch(e){} try{applyT2S();}catch(e){} return _r;};}
 // 簡體中文：MutationObserver 攔截「動態新增」的節點(tooltip/說明浮層/非同步填入)也轉簡體，補 render 後 applyT2S 之外的漏網
 if(LANG==="cn"){ try{
   const cjk=/[㐀-鿿豈-﫿]/, t2sNode=nd=>{ if(nd.nodeType===1)applyT2S(nd);
