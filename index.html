@@ -10836,7 +10836,8 @@ function render(){
     const _cL=c=>({k:c[0],ph:c[1],w:c[2],dl:c[3]||"",get:c[4]}); // [key,placeholder,寬px,datalist類,取值]
     // 3 禁年份（2014 以前）只有第一輪禁、沒有第二輪 → 禁用欄少兩格篩選框，欄寬也跟著收窄
     //（2026-07-31 使用者指定）。用資料實際的最大禁用手數判定，不寫死年份，資料有缺也不會誤判。
-    const _maxBan=calcMatches("").reduce((a,m)=>Math.max(a,(m.blue.bans||[]).length,(m.red.bans||[]).length),0);
+    const _allM=calcMatches("");   // 全量（只吃全域篩選、不吃第二列逐欄篩選）→ 欄寬算得出「任何篩選下的最大需求」
+    const _maxBan=_allM.reduce((a,m)=>Math.max(a,(m.blue.bans||[]).length,(m.red.bans||[]).length),0);
     // ── 逐欄篩選框與欄寬的共用幾何（改一處就好，欄寬會跟著框寬走）──
     const _BIW=50,_BG1=12,_BG2=20;  // 英雄圖寬（2026-08-04 使用者：44→50）／BAN 同一輪圖距／第一輪禁｜第二輪禁 之間的圖距（2026-08-05 各 +5）
     const _POW=0,_CCG=0;            // 選角順位已改疊在英雄圖正中（絕對定位不佔寬）→ 旁掛數字的寬與 gap 歸零
@@ -10869,11 +10870,25 @@ function render(){
     // 選角順序檢視的 draft 欄寬＝實測內容寬＋5px 餘裕（2026-08-05 使用者：右邊不留空隔、
     // 間隔維持 15px；階段色塊版重新實測回推）
     const _draftW=_b5?1645:1320;
+    // 賽事欄寬＝**全量資料**最長的賽事籤，不是「目前顯示的列」（2026-08-05 使用者回報第二篩選列跳動）：
+    // 基準 88 容得下 CBLOL(57)，卻容不下 EWCQ太平洋(91)＋td 內距 16＝107 → 篩到那些局才臨時撐寬，
+    // 右邊 BAN 1~PICK 7 整排跟著平移。量法：離屏放一份所有賽事籤實測（比 canvas 估字準，
+    // 連 letter-spacing/字重都算得到），同時放一個已知 100px 的參考塊反推版面縮放比。
+    const _lgW=(()=>{ const base=88; if(!_dm)return base;
+      const box=document.createElement("div");
+      box.style.cssText="position:absolute;left:-9999px;top:0;visibility:hidden;white-space:nowrap";
+      box.innerHTML=`<i class="_lgRef" style="display:block;width:100px;height:1px"></i>`
+        +[...new Set(_allM.map(m=>m.league))].map(l=>`<div>${lgChip(l)}</div>`).join("");
+      document.body.appendChild(box);
+      const sc=(box.querySelector("._lgRef").getBoundingClientRect().width/100)||1;
+      const mx=Math.max(0,...[...box.querySelectorAll("span.lg")].map(s=>s.getBoundingClientRect().width/sc));
+      box.remove();
+      return Math.max(base,Math.ceil(mx)+_TDP*2+1); })();
     const COLF=_dm?[
       // 路線模式＝**平面表格**（2026-08-05 使用者：取消系列標題列）→ 日期/版本/賽事改回欄位
       _cL(["dt", LANG==="en"?"date":"日期", 76, "", m=>String(m.date)]),
       _cL(["pt", LANG==="en"?"patch":"版本", 66, "", m=>String(m.patch||"")]),
-      _cL(["lg", LANG==="en"?"event":"賽事", 88, "", m=>`${m.league} ${(typeof lgName==="function"&&lgName(m.league))||""}`.toLowerCase()]),
+      _cL(["lg", LANG==="en"?"event":"賽事", _lgW, "", m=>`${m.league} ${(typeof lgName==="function"&&lgName(m.league))||""}`.toLowerCase()]),
       ..._leadCols,
       _cL(["bt",   LANG==="en"?"blue":"藍方", 66, "team", m=>String(m.blue.team).toLowerCase()]),
       ...(_hasSel?[_cL(["bsel", LANG==="en"?"choice":"選擇",66,"", m=>ssCatLbl(m,true).toLowerCase()])]:[]),
@@ -11270,13 +11285,28 @@ function render(){
       // 多幾 px → 頭像間隔跑掉（設 65 量到 67）。把「補滿容器」的餘寬**只分給非五路欄**，
       // colgroup 各欄設定寬總和＝容器寬後就沒有比例分配的空間，五路間隔才會精準 15px
       //（2026-08-05 使用者指定）。resize/縮放時由同一個掛一次的 listener 重算。
+      // 欄寬只增不減（2026-08-05 使用者定案）：欄寬若跟著「目前顯示的列」走，第二篩選列換一批列
+      // 就會改寬、右邊整排平移。_bpW 記住每欄曾經需要過的最大寬，同一組欄位之後只會變寬不會縮回去。
+      window._bpWAll=window._bpWAll||{};
+      const _bpWK=(_dm?"d":mode)+"|"+LANG+"|"+(_b5?5:3)+"|"+COLF.length;   // 欄位組成不同就各記一份
+      const _bpW=window._bpWAll[_bpWK]||(window._bpWAll[_bpWK]={});
+      const _cw=i=>Math.max(COLF[i].w,_bpW[COLF[i].k]||0);
       window._bpColFit=()=>{ const wrap=document.querySelector("#tbl .tblwrap"); if(!wrap)return;
         const cols=[...wrap.querySelectorAll("colgroup col")]; if(cols.length!==COLF.length)return;
-        const tot=COLF.reduce((a,c)=>a+c.w,0), avail=wrap.clientWidth;
+        const tot=COLF.reduce((a,c,i)=>a+_cw(i),0), avail=wrap.clientWidth;
         const lane=COLF.map((c,i)=>(/^[br]l[0-4]$/.test(c.k)||c.k==="draft")?i:-1).filter(i=>i>=0); // draft 欄同五路：定寬不吃餘寬（寬螢幕不留右側死空間）
-        if(avail<=tot+2){ cols.forEach((el,i)=>{el.style.width=COLF[i].w+"px";}); return; } // 塞不下→維持設定寬(走橫向捲)
-        const per=(avail-tot)/(COLF.length-lane.length), laneSet=new Set(lane);
-        cols.forEach((el,i)=>{el.style.width=(COLF[i].w+(laneSet.has(i)?0:per))+"px";}); };
+        const laneSet=new Set(lane);
+        const per=avail<=tot+2?0:(avail-tot)/(COLF.length-lane.length);   // 塞不下→per 0（維持設定寬，走橫向捲）
+        window._bpStr=COLF.map((c,i)=>laneSet.has(i)?0:per);
+        cols.forEach((el,i)=>{el.style.width=(_cw(i)+window._bpStr[i])+"px";}); };
+      // 收尾防線：真有欄被內容撐寬（table-layout:fixed 遇到塞不下的格子仍會長），
+      // 把「內容需要的寬」（扣掉補滿容器的餘寬）記進 _bpW → 那一欄從此以它為基準，不會再隨篩選跳。
+      window._bpColLock=()=>{ const wrap=document.querySelector("#tbl .tblwrap"); if(!wrap)return;
+        const ths=[...wrap.querySelectorAll("thead tr:first-child th")]; if(ths.length!==COLF.length)return;
+        const z=window._zoomF||1; let grew=false;
+        ths.forEach((th,i)=>{ const need=Math.ceil(th.getBoundingClientRect().width/z-((window._bpStr||[])[i]||0)-0.5);
+          if(need>_cw(i)){ _bpW[COLF[i].k]=need; grew=true; } });
+        if(grew)window._bpColFit(); };
       if(!window._bpColFitHook){ window._bpColFitHook=1; addEventListener("resize",()=>{ if(window._bpColFit)window._bpColFit(); }); }
       window._bpColFit();
       // 分批渲染：先 200 場，按需載入，避免上萬節點一次撐爆版面
@@ -11311,6 +11341,7 @@ function render(){
           body.appendChild(frag);
           shown+=chunk.length;
         }
+        if(window._bpColLock)window._bpColLock();   // 新增的列可能更寬 → 立刻鎖進基準（見 _bpColLock）
         const left=total-shown;
         moreBtn.style.display=left>0?"":"none";
         moreBtn.textContent=LANG==="en"?`Show more (${shown} / ${total} ${unitLbl})`:`顯示更多（已列 ${shown}／共 ${total} ${unitLbl}）`;
