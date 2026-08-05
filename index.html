@@ -12104,10 +12104,15 @@ function render(){
       // 積分(soloq)資料只有當年 → 歷史年份不顯示此按鈕（也強制關閉，避免帶著舊狀態）
       if(isHistYear()){ V.bpSoloqPool=false; }
       else{
-        const _spTtl="把兩隊每位選手最近兩週(半個月)積分逐場用過的英雄加進角色池（綠框標記）";
-        const spb=segEl("bpSoloqPool",[["on",(LANG==="en"?"🎯 Ranked ":"🎯 近期積分 ")+(LANG==="en"?"On":"開"),_spTtl],
-                                       ["off",LANG==="en"?"Off":"關",_spTtl]],V.bpSoloqPool?"on":"off",
-          v=>{ const nv=v==="on"; if(nv===!!V.bpSoloqPool)return; V.bpSoloqPool=nv; saveState(); rerender(); },"","order:64");
+        // 單顆切換鈕（2026-08-05 使用者：「開｜關」兩段改成一顆，鈕面寫目前狀態）；開啟時黃邊（（）鈕慣例）
+        const _spTtl="把兩隊每位選手最近兩週(半個月)積分逐場用過的英雄加進角色池（綠框標記）｜點擊切換開關";
+        const spb=document.createElement("button");
+        spb.id="bpSoloqPool"; spb.style.order="64"; spb.title=_spTtl;
+        const _spPaint=()=>{ spb.textContent=(LANG==="en"?"🎯 Ranked ":"🎯 近期積分 ")+(V.bpSoloqPool?(LANG==="en"?"On":"開"):(LANG==="en"?"Off":"關"));
+          spb.style.borderColor=V.bpSoloqPool?"var(--gold)":""; spb.style.color=V.bpSoloqPool?"var(--gold)":""; };
+        _spPaint();
+        // rerender 只重畫內容區、不重建工具列 → 鈕面要在點擊時自己更新
+        spb.onclick=()=>{ V.bpSoloqPool=!V.bpSoloqPool; saveState(); _spPaint(); rerender(); };
         fr.parentNode.insertBefore(spb,fr);
       }
       // 📸 截圖：擷取全部模擬局，輸出固定 1080p（1920px 寬）畫質
