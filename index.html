@@ -319,13 +319,13 @@
   /* ── 比賽BP 選角順序檢視（wiki PB 版型；2026-08-05）── 整條 draft 時間軸：
      藍框＝藍方、紅框＝紅方；禁用灰階；細線＝同輪內的出手組、粗線＝禁用/選角階段分界 */
   .bp td.draftc{white-space:nowrap;text-align:left}
-  .draftc .cc{margin-right:10px} .draftc .cc:last-child{margin-right:0} /* 英雄間隔 10px（2026-08-05 使用者指定） */
+  .draftc .cc{margin-right:15px} .draftc .cc:last-child{margin-right:0} /* 英雄間隔 15px（2026-08-05 使用者：10→15） */
   .draftc .cc img{width:50px;height:50px;border-radius:9px} /* 與一般/混合模式同大（2026-08-05 使用者指定） */
   .draftc .cc.dB img{border:2px solid #6aa8ff}
   .draftc .cc.dR img{border:2px solid #e0574d}
   .draftc .cc.dBan img{filter:grayscale(.85) brightness(.75)}
   .draftc .cc.dBan img.nobanImg{filter:none}
-  .draftc .dSep{display:inline-block;width:0;border-left:1px solid #3a4661;height:50px;margin:0 10px 0 0;vertical-align:middle} /* 左側間距由前一顆的 margin-right(10) 提供 → 兩側對稱 */
+  .draftc .dSep{display:inline-block;width:0;border-left:1px solid #3a4661;height:50px;margin:0 15px 0 0;vertical-align:middle} /* 左側間距由前一顆的 margin-right(15) 提供 → 兩側對稱 */
   .draftc .dSep.dPh{border-left-width:3px;border-color:#55648a}
   .draftc .noBpQ{width:50px;height:50px;line-height:50px}
   input.combo::-webkit-calendar-picker-indicator,input[list]::-webkit-calendar-picker-indicator{display:none!important;opacity:0;width:0} /* datalist 白三角沒有實用性 → 移除 */
@@ -10809,8 +10809,8 @@ function render(){
       _cL(["gl",   LANG==="en"?"time":"時長", 66, "",     m=>mmss(m.gl)]),
       _cL(["win",  LANG==="en"?"win":"勝",    66, "team", m=>String(m.win).toLowerCase()]),
     ];
-    // 選角順序檢視的 draft 欄寬：圖 50＋框 4＋距 10＝64/顆；5 禁年代 20 顆、3 禁 16 顆＋分隔與內距
-    const _draftW=_b5?1410:1120;
+    // 選角順序檢視的 draft 欄寬：圖 50＋框 4＋距 15＝69/顆；5 禁年代 20 顆、3 禁 16 顆＋分隔與內距
+    const _draftW=_b5?1520:1210;
     const COLF=_dm?[
       ..._leadCols,
       _cL(["bt",   LANG==="en"?"blue":"藍方", 66, "team", m=>String(m.blue.team).toLowerCase()]),
