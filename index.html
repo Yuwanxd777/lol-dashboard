@@ -843,7 +843,7 @@
   .rcChip b{font-variant-numeric:tabular-nums;min-width:16px;font-size:14px;color:var(--tx2)}
   /* ── 全站統一的分段切換鈕（2026-07-28 使用者定案：所有模式切換一律「A｜B」，點哪段哪段亮） ── */
   .segBtn{display:inline-flex;border:1px solid var(--line);border-radius:9px;overflow:hidden;
-    height:36px;box-sizing:border-box;flex:0 0 auto;vertical-align:middle}
+    height:30px;box-sizing:border-box;flex:0 0 auto;vertical-align:middle} /* 2026-08-05 與篩選框同高 30 */
   .segBtn button{border:none;background:transparent;padding:0 12px;cursor:pointer;color:var(--tx2);
     font:inherit;font-size:15px;border-radius:0;height:100%;white-space:nowrap;box-sizing:border-box}
   .segBtn button+button{border-left:1px solid var(--line)}  /* 邊框顏色/粗細與 select、input 完全一致；唯一的金色＝目前選中的那段 */
@@ -12924,7 +12924,7 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
     if(V.dexDetail){
       const dd=V.dexDetail;
       // 子頁（詳情）篩選列左側也放分區按鈕，方便直接跳到其他分區（點擊清掉當前詳情）
-      const secTabs=`<label>${T("分區")}</label>`+DEX_SECS.map(s=>`<span class="tab dexTab${V.dexSec===s?" on":""}" data-s="${esc(s)}" style="padding:6px 18px">${s==="符文"&&+curYear<=2016?T("天賦與符文"):T(s)}</span>`).join("");
+      const secTabs=`<label>${T("分區")}</label>`+DEX_SECS.map(s=>`<span class="tab dexTab${V.dexSec===s?" on":""}" data-s="${esc(s)}" style="padding:3px 18px;height:30px;box-sizing:border-box;display:inline-flex;align-items:center">${s==="符文"&&+curYear<=2016?T("天賦與符文"):T(s)}</span>`).join("");
       main.innerHTML=`<div class="filters">${secTabs}</div><div id="dexHistPage"></div>`;
       main.querySelectorAll(".filters .dexTab").forEach(b=>b.onclick=()=>{V.dexSec=b.dataset.s;V.dexDetail=null;saveState();render();});
       const hp=document.getElementById("dexHistPage");
@@ -13010,7 +13010,7 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
     const TAG_EN={"":"All categories","Damage":"AD","SpellDamage":"AP","AttackSpeed":"Attack speed","CriticalStrike":"Crit","ArmorPenetration":"Armor pen","MagicPenetration":"Magic pen","OnHit":"On-hit","Health":"Health","Armor":"Armor","SpellBlock":"MR","AbilityHaste":"Ability haste","Mana":"Mana","ManaRegen":"Mana regen","HealthRegen":"Health regen","LifeSteal":"Lifesteal","SpellVamp":"Spell/omni vamp","NonbootsMovement":"Movement","Boots":"Boots","Jungle":"Jungle","Tenacity":"Tenacity","Slow":"Slow","Active":"Active","Consumable":"Consumable","Trinket":"Trinket","Vision":"Vision","GoldPer":"Gold income"};
     const tagLbl=(v,l)=>LANG==="en"?(TAG_EN[v]||l):l;
     const hid=on=>on?"":' style="display:none"'; // 不適用的控件直接不佔位（置右時才不會留中空）
-    main.innerHTML=`<div class="filters"><label>${T("分區")}</label>${SECS.map(s=>`<span class="tab dexTab${V.dexSec===s?" on":""}" data-s="${s}" style="padding:6px 18px">${s==="符文"&&+curYear<=2016?T("天賦與符文"):T(s)}</span>`).join("")}
+    main.innerHTML=`<div class="filters"><label>${T("分區")}</label>${SECS.map(s=>`<span class="tab dexTab${V.dexSec===s?" on":""}" data-s="${s}" style="padding:3px 18px;height:30px;box-sizing:border-box;display:inline-flex;align-items:center">${s==="符文"&&+curYear<=2016?T("天賦與符文"):T(s)}</span>`).join("")}
       <span style="flex:1"></span><span id="jgCtrl" class="jgCtrl"${hid(V.dexSec==="刷野速度")}></span><label${hid(V.dexSec==="道具")}>${T("分類")}</label><select id="dexTag"${hid(V.dexSec==="道具")}>${TAG_ZH.map(([v,l])=>`<option value="${v}" ${V.dexTag===v?"selected":""}>${tagLbl(v,l)}</option>`).join("")}</select>
       <label${hid(V.dexSec==="英雄")}>${T("類型")}</label><select id="dexCTag"${hid(V.dexSec==="英雄")}>${[["","全部類型"],["Fighter","鬥士"],["Tank","坦克"],["Mage","法師"],["Assassin","刺客"],["Marksman","射手"],["Support","輔助"]].map(([v,l])=>`<option value="${v}" ${V.dexCTag===v?"selected":""}>${LANG==="en"?(v||"All types"):l}</option>`).join("")}</select>
       <label${hid(V.dexSec==="版本")}>${T("版本")}</label><select id="dexVer"${hid(V.dexSec==="版本")}>${["全年",...VPKS].map(p=>`<option value="${p}" ${V.dexVer===p?"selected":""}>${p==="全年"?T("全年"):p}</option>`).join("")}</select>
