@@ -625,7 +625,7 @@
   /* 雙方BAN過 ＋ 其他英雄 合併成一條流：框高＝選手格高，英雄多就縮小＋換行塞滿框(不捲動)，其他英雄灰色 */
   /* 「雙方BAN過／其他英雄」＝角色池右側獨立直欄：圖示由上往下排、一欄排滿再往右換欄（尺寸由 fitPool 的 --csother 算到剛好塞滿、不捲動） */
   .bpMid:has(.bpChip .cc img.glow){overflow:visible!important}
-  .bpMergeFlow{display:flex;flex-direction:column;flex-wrap:wrap;gap:4px;align-content:flex-start;justify-content:flex-start;overflow:visible}
+  .bpMergeFlow{display:flex;flex-direction:column;flex-wrap:wrap;gap:4px;row-gap:var(--csotherGap,4px);align-content:flex-start;justify-content:flex-start;overflow:visible} /* 直向間距由 fitPool 算（變數掛在 #bsWrap 上跨重繪保留，重繪第一幀就是最終值、不閃） */
   .bpMergeFlow .bpChip{padding:0;border:none;background:none;margin:0}
   .bpMergeFlow .bpChip .cc img{width:var(--csother,40px);height:var(--csother,40px);object-fit:cover;border-radius:5px;display:block}
   .bpMergeFlow .bpChip.bpGrey{opacity:.5}
@@ -11670,10 +11670,12 @@ function render(){
       for(let i=0;i<S.n;i++)resolve(i);
       const used=new Set();
       if((V.bpMode||"global")==="global")S.g.slice(0,S.n).forEach(gm=>[...gm.p1,...gm.p2].forEach(c=>{if(c)used.add(c);}));
-      // 自動模式：正在進行的那一局（第一個還有空格的局，即自動填格所在的局）BAN 掉的英雄也暫時從角色池消失，直到該局選完、進入下一局才回來
-      if(V.bpAuto){ let cgi=-1;
+      // 正在進行的那一局（第一個還有空格的局）**已 BAN 或已 PICK** 的英雄暫時從角色池消失，
+      // 直到該局選完、進入下一局才回來。2026-08-06 使用者指定：一般模式也要、PICK 也算，
+      // 且不限自動模式（原本只有自動模式、且只算 BAN）。
+      { let cgi=-1;
         for(let gi=0;gi<S.n;gi++){ const g=S.g[gi]; if([...g.b1,...g.b2,...g.p1,...g.p2].some(x=>!x)){cgi=gi;break;} }
-        if(cgi>=0)[...S.g[cgi].b1,...S.g[cgi].b2].forEach(c=>{if(c&&c!==NOBAN)used.add(c);}); }
+        if(cgi>=0)[...S.g[cgi].b1,...S.g[cgi].b2,...S.g[cgi].p1,...S.g[cgi].p2].forEach(c=>{if(c&&c!==NOBAN)used.add(c);}); }
       // 角色池：左=隊A獨有、中=兩隊該路共用、右=隊B獨有；五路一列一列；純頭像
       const R1=S.t1?teamRoster(S.t1):null, R2=S.t2?teamRoster(S.t2):null;
       S.pk1=S.pk1||{}; S.pk2=S.pk2||{}; // 每路選定的選手（輪替時點路線圖換人）
@@ -11982,16 +11984,24 @@ function render(){
           // 扣掉安全邊、間距再往下取到 0.1px，per 顆就一定塞得進去，分佈才穩定。
           const mH=Math.max(0,mf.clientHeight-1.5);
           let cs2=Math.round(avg*0.6);
-          mf.style.rowGap=""; // 還原，重新量
-          if(cnt&&mW>0&&mH>0){ let best=8, bestPer=1;
-            for(let sz=Math.min(86,avg);sz>=8;sz--){ const per=Math.max(1,Math.floor((mH+gp)/(sz+gp))), cols=Math.ceil(cnt/per); // per=一欄放幾顆(吃高度)、cols=需要幾欄(吃寬度)
-              if(cols*(sz+gp)-gp<=mW){best=sz;bestPer=per;break;} }
+          if(cnt&&mW>0&&mH>0){
+            const perOf=sz=>Math.max(1,Math.floor((mH+gp)/(sz+gp)));            // 一欄放幾顆(吃高度)
+            const fits=sz=>Math.ceil(cnt/perOf(sz))*(sz+gp)-gp<=mW;             // 需要的欄數塞不塞得進寬度
+            let best=8;
+            for(let sz=Math.min(86,avg);sz>=8;sz--){ if(fits(sz)){best=sz;break;} }
+            // 尺寸有黏性（2026-08-06 使用者回報自動模式每放一顆就跳）：放一顆英雄→那顆從池消失、
+            // 落進「其他」→顆數變→尺寸重算→整欄重排。舊尺寸只要還塞得下、而且最佳尺寸沒有大很多(<8px)，
+            // 就沿用舊的，畫面才不會每點一次就動一次；真的塞不下時才縮。
+            const prev=parseFloat(wrap.style.getPropertyValue("--csother"))||0;
+            if(prev>=8&&prev<=Math.min(86,avg)&&fits(prev)&&best<prev+8)best=prev;
             cs2=best;
             // 撐滿高度：把「一欄的 per 顆圖」之間的直向間距拉大到接近填滿整欄高（往下取 0.1px，不碰臨界值）
-            const fullPer=Math.min(bestPer,cnt);
-            if(fullPer>1){ const vg=Math.max(gp,Math.min(16,Math.floor((mH-fullPer*best)/(fullPer-1)*10)/10)); mf.style.rowGap=vg+"px"; }
+            const fullPer=Math.min(perOf(best),cnt);
+            wrap.style.setProperty("--csotherGap",(fullPer>1?Math.max(gp,Math.min(16,Math.floor((mH-fullPer*best)/(fullPer-1)*10)/10)):gp)+"px");
           }
-          mc.style.setProperty("--csother",cs2+"px");
+          // 尺寸與間距寫在 wrap（跨重繪保留）：寫在每次重建的 .bpMid／.bpMergeFlow 上的話，
+          // 重繪後第一幀會先吃 CSS 預設值、下一拍才被改回來＝看得到閃一下
+          wrap.style.setProperty("--csother",cs2+"px");
           // 欄高在 fitPool 跑完之後才定案（實測算的時候 729、最後變 723）→ 用舊高度算出的「一欄放 13 顆」
           // 實際只塞得下 12 顆，第 13 顆被擠到下一欄，欄與欄的顆數就在 12/13 之間來回跳＝畫面一直閃。
           // 盯著它的尺寸，一變就重算一次；fitPool 只改內部的 --csother／rowGap，不會改到自己的框大小，
