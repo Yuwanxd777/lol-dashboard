@@ -237,7 +237,7 @@
   .bp td{padding:6px 8px;font-size:16px}
   .bp .bans{white-space:nowrap}
   .bp .cc img{width:50px;height:50px;border-radius:9px}
-  .bp .cc .po{font-size:13.5px}
+  .bp .cc .po{font-size:16px}
   .fp{font-weight:900;color:var(--gold)}  /* 先選方：粗體＋金色 */
   /* 整隊範圍(隊名＋禁用＋五路)底色：藍方淺藍、紅方淺紅，勝方(.bpw)同色加深
      （2026-07-31 使用者指定，取代原本「勝方小白底」）。三種左右模式都依實際邊上色。
@@ -267,12 +267,16 @@
   .bp tr.subrow td{background:rgba(255,255,255,.02)}
   .bp td.subg{padding-left:22px;color:var(--tx2);font-size:13px;white-space:nowrap}
   .note{color:var(--tx2);font-size:13.5px;margin-top:8px}
-  .cc{display:inline-flex;align-items:center;gap:3px;vertical-align:middle}
+  .cc{display:inline-flex;align-items:center;gap:3px;vertical-align:middle;position:relative}
   .cc img{width:34px;height:34px;border-radius:8px;border:1px solid #33405c;display:block}
   /* 滑過英雄 → 同英雄一段式即時發光（outline 便宜、無動畫、無模糊） */
   .cc img.glow{transform:scale(1.1);position:relative;z-index:3;border-color:transparent;
     box-shadow:0 0 6px 1px rgba(255,255,255,.9),0 0 14px 4px rgba(255,255,255,.45)} /* 比賽BP 聯動高亮：放大10%＋漸層白光 */
-  .cc .po{font-size:12px;color:var(--gold);font-weight:bold;min-width:9px}
+  /* 選角順位改疊在英雄圖正中間（2026-08-05 使用者指定）：金字＋黑描邊才壓得住各種原畫底色；
+     絕對定位不佔寬、沒偵測到選序（po=0）時 cImg 根本不輸出這個 span＝什麼都不寫 */
+  .cc .po{position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);text-align:center;
+    font-size:13px;color:var(--gold);font-weight:800;pointer-events:none;z-index:2;
+    text-shadow:-1px -1px 0 #000,1px -1px 0 #000,-1px 1px 0 #000,1px 1px 0 #000,0 0 4px #000}
   .bans .cc img{width:50px;height:50px;filter:grayscale(.85) brightness(.75);border-radius:9px} /* 與 PICK 同尺寸（使用者定案 2026-07-29）；灰階保留＝一眼分辨 BAN */
   .bans .cc img.nobanImg{filter:none}   /* 空 BAN 圖本來就是紅圈禁止符號，不要再灰掉 */
   .bans .cc{margin-right:7px} .bans .cc:last-child{margin-right:0} /* 禁用頭像間距 ≥7px（使用者定案 2026-07-31：原本 join("") 相鄰＝0px 太擠） */
@@ -10750,7 +10754,7 @@ function render(){
     const _maxBan=calcMatches("").reduce((a,m)=>Math.max(a,(m.blue.bans||[]).length,(m.red.bans||[]).length),0);
     // ── 逐欄篩選框與欄寬的共用幾何（改一處就好，欄寬會跟著框寬走）──
     const _BIW=50,_BG1=7,_BG2=15;   // 英雄圖寬（2026-08-04 使用者：44→50）／BAN 同一輪圖距／第一輪禁｜第二輪禁 之間的圖距
-    const _POW=9,_CCG=3;            // .cc .po 的 min-width、.cc 的 gap（選用格右邊那個選角順位數字）
+    const _POW=0,_CCG=0;            // 選角順位已改疊在英雄圖正中（絕對定位不佔寬）→ 旁掛數字的寬與 gap 歸零
     const _TDP=8;                   // .bp td 的左右內距
     // 禁用格／選用格 相對英雄圖左右各放大幾 px。
     // 選用格 15→6（2026-08-03 使用者：五路的間隔收緊）：篩選框原本 74px 把欄寬撐到 82，
