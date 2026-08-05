@@ -12328,7 +12328,14 @@ function render(){
           s.games.push(o);
         }
         list.forEach(s=>s.games.sort((a,b)=>(num(a.raw[C.game])||0)-(num(b.raw[C.game])||0)));
-        return list.sort((a,b)=>b.date.localeCompare(a.date)).slice(0,10);
+        // 資料不齊的系列不列進匯入清單（2026-08-06 使用者指定）：來源對最新幾天的比賽常常還沒補上 BP，
+        // 匯進來會是一整排空格（實測 KeSPA 08-04 三局 picklist 全空）→ 乾脆不給選。
+        // 判準：該系列**每一局**都要有十隻 PICK，且至少有一手 BAN（空 BAN 槽是合法的、不算缺）。
+        const _full=o=>{ const pk=String(o.raw[C.picklist]||"").split("|").filter(x=>x.trim()).length;
+          const bn=String(o.raw[C.banlist]||"").split("|").filter(x=>x.trim()).length;
+          return pk>=10&&bn>=1; };
+        return list.filter(s=>s.games.length&&s.games.every(_full))
+                   .sort((a,b)=>b.date.localeCompare(a.date)).slice(0,10);
       };
       const cnN=n=>["","一局","兩局","三局","四局","五局"][n]||n+"局";
       const doImport=v=>{

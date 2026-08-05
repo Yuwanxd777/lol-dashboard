@@ -1084,8 +1084,9 @@ def fix_draft_wiki(table, year):
         if r0 is None:
             continue
         pk, bb, rb = slots(r0[iPL]), slots(r0[iBB]), slots(r0[iRB])
-        if not any(x.strip() for x in pk + bb + rb):
-            continue                               # 整局沒 BP＝gol.gg 補檔（merge_patch）的守備範圍
+        # 整局沒 BP 的也收（2026-08-06 使用者回報：KeSPA 08-04 匯入模擬BP 是空的）——
+        # 原本讓給 gol.gg 補檔（merge_patch），但最新的比賽 gol.gg 往往還沒上，wiki PB 頁卻已經有了。
+        # 下面用「整局十隻上場英雄」對回 PB 頁，對不上就不動，所以多收這一類不會誤填。
         po = str(r0[iBP]).split("|") + str(r0[iRP]).split("|")
         if (len(pk) == 10 and all(x.strip() for x in pk)
                 and len(bb) == 5 and len(rb) == 5 and "0" not in po):
@@ -1094,7 +1095,7 @@ def fix_draft_wiki(table, year):
         red5 = [str(r[iRC]) for r in rs if str(r[iPid]) in ("1", "2", "3", "4", "5")]
         if len([c for c in blue5 if c.strip()]) < 5 or len([c for c in red5 if c.strip()]) < 5:
             continue                               # 隊伍列局沒有十隻可對，pb_of 無從精準比對
-        broken.append((k, rs, blue5, red5))
+        broken.append((k, rs, blue5, red5, any(x.strip() for x in pk + bb + rb)))
     if not broken:
         return table
     try:
@@ -1114,7 +1115,7 @@ def fix_draft_wiki(table, year):
             if v.strip():
                 disp.setdefault(nk(v), v)
     pbs, n = {}, 0
-    for (lg, sp, d, g, _t), rs, blue5, red5 in broken:
+    for (lg, sp, d, g, _t), rs, blue5, red5, _had in broken:
         ov = (W.get(str(year), {}).get(str(lg), {}) or {}).get(sp)
         if not ov:
             print(f"  ⚠ 選序修補：{lg} {sp or '(無賽段)'} 查無 wiki 頁名 → 跳過"); continue
@@ -1122,7 +1123,10 @@ def fix_draft_wiki(table, year):
             pbs[ov] = MH.pb_orders(ov)
         od = MH.pb_of(pbs[ov], blue5, red5)
         if not od:
-            print(f"  ⚠ 選序修補：{lg} {str(d)[:10]} G{g} 在 PB 頁對不到十隻 → 不動"); continue
+            # 只有「原本有部分 BP」才值得警告；整局沒 BP 的多半是剛打完、wiki 也還沒收錄（下次更新會再試）
+            if _had:
+                print(f"  ⚠ 選序修補：{lg} {str(d)[:10]} G{g} 在 PB 頁對不到十隻 → 不動")
+            continue
         mp = dict(disp); mp.update({nk(c): str(c) for c in blue5 + red5 if str(c).strip()})
         name = lambda c: "" if str(c).strip().lower() in ("", "none") else mp.get(nk(c), str(c))
         bp5, rp5 = [name(c) for c in od[0]], [name(c) for c in od[1]]
