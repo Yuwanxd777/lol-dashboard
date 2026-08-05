@@ -625,9 +625,10 @@
   /* 雙方BAN過 ＋ 其他英雄 合併成一條流：框高＝選手格高，英雄多就縮小＋換行塞滿框(不捲動)，其他英雄灰色 */
   /* 「雙方BAN過／其他英雄」＝角色池右側獨立直欄：圖示由上往下排、一欄排滿再往右換欄（尺寸由 fitPool 的 --csother 算到剛好塞滿、不捲動） */
   .bpMid:has(.bpChip .cc img.glow){overflow:visible!important}
-  .bpMergeFlow{display:flex;flex-direction:column;flex-wrap:wrap;gap:4px;row-gap:var(--csotherGap,4px);max-height:var(--csotherH,none);align-content:center;justify-content:flex-start;overflow:visible} /* 直向間距與換欄高度由 fitPool 算（變數掛在 #bsWrap 上跨重繪保留，重繪第一幀就是最終值、不閃）；
-     align-content:center＝欄位整組水平置中 → 首欄離左框與末欄離右框天然相等（2026-08-06 使用者指定；
-     寬度收斂會在 262↔266 之間震盪，靠置中吸收剩下的幾 px） */
+  .bpMergeFlow{display:flex;flex-direction:column;flex-wrap:wrap;gap:4px;row-gap:var(--csotherGap,4px);max-height:var(--csotherH,none);align-content:center;justify-content:flex-start;overflow:visible;margin-top:auto;margin-bottom:auto} /* 直向間距與換欄高度由 fitPool 算（變數掛在 #bsWrap 上跨重繪保留，重繪第一幀就是最終值、不閃）；
+     align-content:center＝欄位整組水平置中 → 首欄離左框與末欄離右框天然相等（2026-08-06 使用者指定）；
+     margin-top/bottom:auto＝間距拉到上限(16px)仍填不滿時，剩下的空白平均分到上下 → 上下離框距離一致、
+     底下不會單獨空一大塊（2026-08-06 使用者指定） */
   .bpMergeFlow .bpChip{padding:0;border:none;background:none;margin:0}
   .bpMergeFlow .bpChip .cc img{width:var(--csother,40px);height:var(--csother,40px);object-fit:cover;border-radius:5px;display:block}
   .bpMergeFlow .bpChip.bpGrey{opacity:.5}
@@ -2250,11 +2251,14 @@ function fitAutoTable(tb){
 // 扣的量是執行時實測（offsetHeight−clientHeight−上下框線），疊加式捲軸(佔 0)自動不扣 → 跨平台安全。
 function fitCardScrollPad(c){
   const cs=getComputedStyle(c);
-  if(!("pb0" in c.dataset))c.dataset.pb0=cs.paddingBottom;   // 記住原本的下內距（只記一次，之後都以它為基準）
+  if(!("pb0" in c.dataset)){c.dataset.pb0=cs.paddingBottom; c.dataset.pb0i=c.style.paddingBottom;} // 記住原本的下內距與原本的 inline 值（只記一次，之後都以它為基準）
   const base=parseFloat(c.dataset.pb0)||0;
   const bw=(parseFloat(cs.borderTopWidth)||0)+(parseFloat(cs.borderBottomWidth)||0);
   const bar=c.offsetHeight-c.clientHeight-bw;                // ＝水平捲軸實際佔的高（clientHeight 不含捲軸）
-  const want=(c.scrollWidth>c.clientWidth+2&&bar>0.5)?Math.max(0,base-bar)+"px":"";
+  // 沒捲軸要還原成「原本的 inline 值」，不能設成空字串：卡片寫 style="padding:10px" 這種簡寫時，
+  // 把 paddingBottom 設成 "" 會把簡寫展開出來的那條 longhand 整條刪掉 → 下內距掉回 .card 的 16px。
+  // （實測 .bpMid 下方憑空多空 6px，還害 fitPool 把右欄可用高算多、多長出一欄被 overflow 裁掉）
+  const want=(c.scrollWidth>c.clientWidth+2&&bar>0.5)?Math.max(0,base-bar)+"px":(c.dataset.pb0i||"");
   if(c.style.paddingBottom!==want)c.style.paddingBottom=want;
 }
 // 表格欄頭 sticky 的偏移＝頁首實際高度（整頁捲動時欄頭貼在頁首下方）
@@ -11916,14 +11920,18 @@ function render(){
         const showAdd=!((V.bpMode||"global")==="global"&&S.n>=5); // 全局(Fearless)模式滿五局：拿掉加號、不再新增局（一般模式不限，最多 20 局）
         const availW=(S.n===0?W-46-gap*2:Math.max(260,W-nRef*g-46-gap*(nRef+1)))+(showAdd?0:46+gap); // 0 局＝角色池全寬；沒加號時把那格空間還給角色池
         const midHTML=midColHTML();                                      // 右側「雙方BAN過／其他英雄」直欄（沒選隊/無內容＝不出現）
-        const midW=midHTML?Math.max(110,Math.min(300,Math.round(availW*.22))):0;
+        // 初始寬沿用上一輪 fitPool 算好的值（availW 沒變就照用）→ 重繪的第一幀就是接近最終的版型；
+        // fitPool 仍會在同一拍內算出精確值再寫一次（同步執行、不會多畫一幀）
+        const midW=midHTML?(Math.abs((wrap._availW||-1)-availW)<0.5&&wrap._midW>0
+          ?Math.max(110,Math.min(wrap._midW,Math.max(110,availW-gap-360)))
+          :Math.max(110,Math.min(300,Math.round(availW*.22)))):0;
+        wrap._availW=availW; wrap._bpGap=gap;                            // fitPool 用：總可用寬與欄間距（不必再從 DOM 反推）
         const poolW=availW-(midW?midW+gap:0);
         wrap.style.display="flex"; wrap.style.gap=gap+"px"; wrap.style.gridTemplateColumns="";
         // 重繪前留住角色池／右欄舊節點：整片 innerHTML 會把上百張 <img> 全部重造，瀏覽器要重新
         // 解碼＋重排，那兩欄就會閃一下、圖跳動（2026-08-06 使用者回報切一般↔全局時 BAN過與其他區跳動）。
         // 下面重建完會比對 innerHTML，一模一樣就把舊節點搬回去（圖不重建＝完全不跳）。
         const _keep={".bpPool":wrap.querySelector(".bpPool"),".bpMid":wrap.querySelector(".bpMid")};
-        wrap._midFit=0;   // 右欄寬度每次重繪最多調 4 次到收斂（見 fitPool 內 _midFit）
         const _poolH=poolColHTML();   // 先算好才能跟上次比（不能比 live innerHTML：fitPool 會在子元素寫 inline style 污染比對）
         wrap.innerHTML=`<div id="bsGames" style="flex:1;min-width:0;overflow-x:${S.n>5?"auto":"hidden"};overflow-y:hidden"><div style="display:grid;grid-template-columns:repeat(${S.n},${g}px)${showAdd?" 46px":""};gap:${gap}px;height:100%;align-items:stretch;width:max-content;min-width:100%">
             ${[...Array(S.n).keys()].map(gameCard).join("")}
@@ -11952,95 +11960,104 @@ function render(){
         wrap._lastPool=_poolH; wrap._lastMid=midHTML;
         const gsc1=wrap.querySelector("#bsGames"); if(gsc1)gsc1.scrollLeft=keepSL;
       }
-      // 池區頭貼動態尺寸：框內動態——每一路依自己框的寬高與英雄數各自最大化
+      // 池區頭貼動態尺寸：**全部一次算完、只寫一次**（純算式，不做「量→寫→下一幀再量」的多幀收斂）。
+      // 舊版靠 rAF 最多跑 10 回合逼近，加上 .bpMergeFlow 的 ResizeObserver 會再補一拍，每一回合都會畫出一幀 →
+      // 自動模式每點一顆英雄，頭像就忽大忽小 2~4 次（2026-08-06 使用者回報「一直閃爍跳動」；實測 2560×1300
+      // 一次點擊右欄寬 198→274→266→262→266、池頭像 64→68→65→65）。
+      // 現在的作法：① 先量「與欄寬無關」的常數（每列扣掉頭像區以外的寬 extra、列高、右欄可用高、標籤基準寬）
+      // ② 用純算式解出鐵則「右欄圖示＝角色池最小那一列的圖示」的不動點 ③ 一次寫回。
+      // 全程不回頭量自己寫下的東西＝沒有回授迴圈＝同一輪 render 只畫一幀。
       const fitPool=()=>{
+        const pc=wrap.querySelector(".bpPool"); if(!pc)return;
         // 先把十位選手的前綴（路線圖+ID+⇄）鎖成同寬＝最長者 → 英雄一律從其右 20px 起排
         const pres=[...wrap.querySelectorAll(".bpPool .bpPre")];
-        let pw=0;
-        pres.forEach(p=>{p.style.width="auto"; pw=Math.max(pw,p.getBoundingClientRect().width/bpNet());}); // rect 除以 BP 淨倍率轉回子樹版面 px（BP 整區有反向 zoom，不能除 _zoomF）
-        pres.forEach(p=>{p.style.width=Math.ceil(pw)+"px";});
-        let poolByW=false;   // 角色池是否有列被寬度卡住（沒有的話是高度決定尺寸，右欄讓寬也沒用）
-        const els=[...wrap.querySelectorAll(".bpPool .bpChips")];
-        const sizes=[];
-        els.forEach(el=>{
+        let pfw=0;
+        pres.forEach(p=>{p.style.width="auto"; pfw=Math.max(pfw,p.getBoundingClientRect().width/bpNet());}); // rect 除以 BP 淨倍率轉回子樹版面 px（BP 整區有反向 zoom，不能除 _zoomF）
+        pres.forEach(p=>{p.style.width=Math.ceil(pfw)+"px";});
+        const GAP=wrap._bpGap||14, mf=wrap.querySelector(".bpMergeFlow"), mc=mf&&mf.closest(".bpMid");
+        const pcW=parseFloat(pc.style.width)||pc.offsetWidth;
+        const availW=wrap._availW>0?wrap._availW:pcW+(mc?(parseFloat(mc.style.width)||mc.offsetWidth)+GAP:0);
+        // ① 量常數：每列「頭像區以外吃掉的寬」（extra＝框內距＋前綴＋20px）與列高，都不隨欄寬改變
+        //（列高＝選手框 flex 分到的高，只跟整區高度有關）→ 之後任何欄寬都能純算，不必再回頭量 DOM
+        const rows=[...wrap.querySelectorAll(".bpPool .bpChips")].map(el=>{
           const chips=[...el.querySelectorAll(".bpChip")];
-          const cnt=chips.length; if(!cnt)return;
-          // 單列吃的是寬度：縮小 80% 的以 0.8 加權；間隙 2px 逐顆扣
-          const nEff=chips.reduce((a,c)=>a+(c.classList.contains("bpSm")?0.8:1),0);
-          const w=el.clientWidth, h=el.clientHeight;
-          // 一列 vs 兩列取頭貼較大者（英雄多時折兩列反而能放大）
-          const calc=r=>{
-            const per=Math.ceil(cnt/r);
-            const sw=Math.floor((w-5*(per-1))/(nEff/r));
-            const sh=Math.floor((h-5*(r-1))/r)-4; // 邊距，不貼死邊框
-            return {s:Math.min(110,sw,sh), byW:sw<Math.min(110,sh)}; // byW＝這一列是被「寬度」卡住的
-          };
-          const c1=calc(1), c2=calc(2), win=(c1.s>=c2.s?c1:c2);
-          if(win.byW)poolByW=true;                 // 有列被寬度卡住 → 右欄讓寬才有意義（見下方 _midFit）
-          const s=Math.max(12,win.s);
-          el.style.setProperty("--cs",s+"px"); sizes.push(s);
+          return {el,cnt:chips.length,
+                  nEff:chips.reduce((a,c)=>a+(c.classList.contains("bpSm")?0.8:1),0), // 縮小 80% 的以 0.8 加權
+                  extra:pcW-el.clientWidth, h:el.clientHeight};
+        }).filter(r=>r.cnt);
+        // 角色池頭像＝純函數：欄寬進去、十列尺寸出來。一列 vs 兩列取頭像較大者（英雄多到一列會太小時，
+        // 折成兩列反而能放大 → 使用者指定「小到可以兩列呈現也可以兩列」）
+        const poolSizes=poolW=>rows.map(r=>{
+          const w=poolW-r.extra;
+          const calc=k=>Math.min(110,Math.floor((w-5*(Math.ceil(r.cnt/k)-1))/(r.nEff/k)),Math.floor((r.h-5*(k-1))/k)-4); // −4：不貼死邊框
+          return Math.max(12,Math.max(calc(1),calc(2)));
         });
-        const pc=wrap.querySelector(".bpPool");
-        const avg=sizes.length?Math.round(sizes.reduce((a,b)=>a+b,0)/sizes.length):60; // 角色池頭像均值（兩隊池皆無資料時給預設值，右欄仍要算得出尺寸）
-        if(pc&&sizes.length)pc.style.setProperty("--cs",avg+"px");
-        // 右側直欄（雙方BAN過＋其他英雄）：圖示由上往下排、排滿一欄往右換欄 → 尺寸縮到剛好塞滿框、不捲動不被裁
-        // 鐵則：此計算不可綁在「池有資料」的條件下——池空時英雄全落到這欄、數量最多，反而更需要算（否則吃 CSS 預設 40px 撐爆被裁）
-        const mf=wrap.querySelector(".bpMergeFlow"), mc=mf&&mf.closest(".bpMid");
-        if(mf&&mc){ const cnt=mf.querySelectorAll(".bpChip").length, gp=4, gap2=14;
+        let poolW=availW, sizes=null;
+        // 右側直欄（雙方BAN過＋其他英雄）：圖示由上往下排、排滿一欄往右換欄
+        // 鐵則：此計算不可綁在「池有資料」的條件下——池空時英雄全落到這欄、數量最多，反而更需要算
+        if(mf&&mc){
+          const cnt=mf.querySelectorAll(".bpChip").length, gp=4;
+          const cm=getComputedStyle(mc);
           // padW＝右欄除了圖以外吃掉的寬（左右內距＋框線）。box-sizing:border-box 下 style.width 含這些，
-          // 少算就會讓「末欄離右框」比「首欄離左框」小個 2~3px（2026-08-06 使用者回報跑掉了）
-          const _csM=getComputedStyle(mc), padW=(parseFloat(_csM.paddingLeft)||0)+(parseFloat(_csM.paddingRight)||0)
-            +(parseFloat(_csM.borderLeftWidth)||0)+(parseFloat(_csM.borderRightWidth)||0);
-          mf.style.maxHeight="none";                                    // 先解除上一輪釘住的換欄高再量，
-          const mH=Math.max(0,mf.clientHeight-1.5);                      // 否則量到被釘住的高度→越算越小（死亡螺旋）
-          mf.style.maxHeight="";                                         // 量完交還給 --csotherH
-          // 鐵則（2026-08-06 使用者定案）：**右欄圖示大小＝角色池最小那一列的圖示大小**。
-          // 尺寸不再由「填滿分配到的寬」決定，而是先鎖定尺寸，再回頭算需要多寬 → 右欄只佔該佔的寬，
-          // 省下的還給角色池（原本固定 22%、圖被撐大、底下又空一塊）。
-          let cs2=Math.max(8,Math.min(110,sizes.length?Math.min(...sizes):Math.round(avg)));
-          if(cnt&&mH>0){
-            const pc2=wrap.querySelector(".bpPool");
-            const pw=pc2?pc2.getBoundingClientRect().width/bpNet():0;
-            const mwNow=mc.getBoundingClientRect().width/bpNet();
-            const wCap=Math.min(420,Math.max(110,mwNow+Math.max(0,pw-360)));   // 右欄最寬能到多少（角色池至少留 360；上限放到 420 才不會為了 1px 破壞「圖示等大」的鐵則）
-            const maxPerOf=s=>Math.max(1,Math.floor((mH+gp)/(s+gp)));
-            const colsOf=s=>Math.max(1,Math.ceil(cnt/maxPerOf(s)));
-            while(cs2>8&&colsOf(cs2)*(cs2+gp)-gp+padW>wCap)cs2--;              // 真的塞不下才被迫縮小
-            const cols=colsOf(cs2), per=Math.max(1,Math.min(maxPerOf(cs2),Math.ceil(cnt/cols))); // 每欄顆數平均分配
-            const needW=Math.max(110,Math.min(wCap,cols*(cs2+gp)-gp+padW));
-            // 間距拉到讓 per 顆填滿整欄高（往下取 0.1px、上限 16）；上限卡住時用 max-height 把換欄點
-            // 釘在 per 顆，否則瀏覽器會多塞一顆進來、平均分配就破功
-            const vg=per>1?Math.max(gp,Math.min(16,Math.floor((mH-per*cs2)/(per-1)*10)/10)):gp;
-            wrap.style.setProperty("--csotherGap",vg+"px");
-            wrap.style.setProperty("--csotherPer",per);
-            wrap.style.setProperty("--csotherH",(per*cs2+(per-1)*vg+0.5)+"px");
-            // 讓寬要能「收斂」：縮右欄→池變寬→池圖變大→右欄圖跟著變大→又需要更多寬。
-            // 只調一次會停在中間狀態（實測右欄 196 但內容需要 272＝末欄溢出 76px）→ 允許最多 10 次、
-            // 差距 ≤2px 就停，確保最後首欄離左框＝末欄離右框。
-            if((wrap._midFit||0)<10&&pc2&&Math.abs(mwNow-needW)>2){ wrap._midFit=(wrap._midFit||0)+1;
-              mc.style.width=needW+"px"; pc2.style.width=(pw+(mwNow-needW))+"px";
-              requestAnimationFrame(()=>{ try{fitPool();}catch(e){} });        // 寬度變了→兩邊尺寸重算一次
-            }
+          // 少算就會讓「末欄離右框」比「首欄離左框」小個 2~3px
+          const padW=(parseFloat(cm.paddingLeft)||0)+(parseFloat(cm.paddingRight)||0)+(parseFloat(cm.borderLeftWidth)||0)+(parseFloat(cm.borderRightWidth)||0);
+          // chip 的外框比圖本身大一點（inline 行高／間隙）→ 換欄與換行是照 chip 外框算的。
+          // 拿圖高當單位會高估每欄塞得下幾顆，右欄就會多長出一欄、被 overflow:hidden 裁掉
+          //（實測 2560×950 裁掉 13 顆）→ 直接量「chip 外框 − 圖」的差當固定額外量
+          const c0=mf.querySelector(".bpChip"), i0=c0&&c0.querySelector("img");
+          let ovH=0, ovW=0;
+          if(c0&&i0){ const cr=c0.getBoundingClientRect(), ir=i0.getBoundingClientRect();
+            ovH=Math.max(0,(cr.height-ir.height)/bpNet()); ovW=Math.max(0,(cr.width-ir.width)/bpNet()); }
+          // 標籤「🚫 BAN過與其他」是 nowrap，框窄時會被 overflow:hidden 切掉 → 依可用寬等比縮字
+          //（使用者指定：直接縮小字，不要被切）。先量 19px 的**文字實寬**：不能用 scrollWidth，
+          // 文字比框窄時 scrollWidth＝框寬，會誤判成「需要縮字」（實測標籤被縮到 15.7px、還連帶算錯可用高）
+          const hd=mc.querySelector(".bpMidLbl");
+          wrap.style.setProperty("--csotherLbl","19px");
+          let lw19=0, lh19=0;
+          if(hd){ hd.style.width="max-content"; const lr=hd.getBoundingClientRect();
+            lw19=lr.width/bpNet(); lh19=lr.height/bpNet(); hd.style.width=""; }
+          const lblFs=w=>(hd&&lw19>w-padW+0.5&&w-padW>0)?Math.max(11,Math.floor(19*(w-padW)/lw19*10)/10):19;
+          // 可用高直接量「解除換欄上限後」流區的實際高度 → 卡片內距、框線、標籤高全部自動算進去，
+          // 不必自己從 clientHeight 推（推出來會漏掉 refitLayout 事後改動的內距）。
+          // 這個值與我們寫下的 --csother／--csotherGap／--csotherH 無關，所以不構成回授迴圈
+          const _mh0=mf.style.maxHeight; mf.style.maxHeight="none";
+          const availH=mf.clientHeight; mf.style.maxHeight=_mh0;
+          const midH=w=>Math.max(0,availH+(hd?lh19-Math.ceil(lh19*lblFs(w)/19):0)-1); // 標籤縮字省下的高還給流區；−1 是整數捨入的安全邊
+          const wCap=Math.min(420,Math.max(110,availW-GAP-360));                       // 角色池至少留 360
+          // 某個圖示尺寸下右欄「剛好裝得下」需要多寬＝欄數×(圖+欄距)−欄距＋左右內距 → 右欄只佔該佔的寬，
+          // 右邊不留多餘空白，省下的全部還給角色池；標籤縮字會回頭改可用高，純算式跑三圈就收斂
+          const perOf=(cs,w)=>Math.max(1,Math.floor((midH(w)+gp)/(cs+ovH+gp)));
+          const needW=cs=>{ let w=wCap;
+            for(let k=0;k<3;k++){
+              const cols=Math.max(1,Math.ceil(cnt/perOf(cs,w)));
+              const nw=Math.max(110,Math.min(wCap,cols*(cs+ovW+gp)-gp+padW));
+              if(Math.abs(nw-w)<0.5){w=nw;break;} w=nw; }
+            return w; };
+          // 鐵則（使用者定案）：右欄圖示大小＝角色池最小那一列的圖示大小。兩者互相牽制（右欄變寬→池變窄→
+          // 池圖變小→右欄該跟著變小），是個不動點問題：f(cs)=「右欄用 cs 時池的最小圖」隨 cs 遞減，
+          // 取「最大的 cs 使 f(cs) ≥ cs」即為解。純算術掃描（≤103 圈、完全不碰 DOM），一次得到答案
+          let cs2=8;
+          for(let cs=110;cs>=8;cs--){
+            const s=poolSizes(availW-GAP-needW(cs));
+            if((s.length?Math.min(...s):60)>=cs){cs2=cs;break;}
           }
+          const mW=needW(cs2); poolW=availW-GAP-mW; sizes=poolSizes(poolW);
+          const mH=midH(mW), maxPer=perOf(cs2,mW), uH=cs2+ovH;
+          const per=Math.max(1,Math.min(maxPer,Math.ceil(cnt/Math.max(1,Math.ceil(cnt/maxPer))))); // 每欄顆數平均分配（不然是 13,13,13,13,1、右邊空一大塊）
+          const vg=per>1?Math.max(gp,Math.min(16,Math.floor((mH-per*uH)/(per-1)*10)/10)):gp;       // 直向間距拉到填滿整欄高 → 底下不留空；拉到上限仍有剩的由 margin:auto 平均分到上下
+          mc.style.width=mW+"px"; wrap._midW=mW;
           // 尺寸與間距寫在 wrap（跨重繪保留）：寫在每次重建的 .bpMid／.bpMergeFlow 上的話，
           // 重繪後第一幀會先吃 CSS 預設值、下一拍才被改回來＝看得到閃一下
           wrap.style.setProperty("--csother",cs2+"px");
-          // 標題「🚫 BAN過與其他」是 nowrap，框窄時會被 .bpMid 的 overflow:hidden 切掉 →
-          // 依可用寬等比縮字（2026-08-06 使用者指定：直接縮小字，不要被切）
-          { const hd=mc.querySelector(".bpMidLbl");
-            if(hd){ const cs=getComputedStyle(mc);
-              const availW=mc.clientWidth-(parseFloat(cs.paddingLeft)||0)-(parseFloat(cs.paddingRight)||0);
-              wrap.style.setProperty("--csotherLbl","19px");            // 先還原成基準再量真實需要寬
-              const need=hd.scrollWidth;
-              if(need>availW+0.5&&availW>0)wrap.style.setProperty("--csotherLbl",Math.max(11,Math.floor(19*availW/need*10)/10)+"px"); } }
-          // 欄高在 fitPool 跑完之後才定案 → 尺寸一變就重算一次；fitPool 只改內部的 --csother／rowGap，
-          // 不會改到自己的框大小，所以不會無限循環（另有 _roBusy 擋連續觸發）
-          if(!mf._ro&&window.ResizeObserver){
-            mf._ro=new ResizeObserver(()=>{ if(mf._roBusy||!document.body.contains(mf))return; mf._roBusy=1;
-              requestAnimationFrame(()=>{ mf._roBusy=0; try{fitPool();}catch(e){} }); });
-            mf._ro.observe(mf);
-          }
+          wrap.style.setProperty("--csotherGap",vg+"px");
+          wrap.style.setProperty("--csotherPer",per);
+          wrap.style.setProperty("--csotherH",(per*uH+(per-1)*vg+0.5)+"px"); // 釘住換欄點，否則瀏覽器會多塞一顆進來、平均分配就破功
+          wrap.style.setProperty("--csotherLbl",lblFs(mW)+"px");
         }
+        if(!sizes)sizes=poolSizes(poolW);
+        pc.style.width=poolW+"px";
+        rows.forEach((r,i)=>r.el.style.setProperty("--cs",sizes[i]+"px"));
+        pc.style.setProperty("--cs",(sizes.length?Math.round(sizes.reduce((a,b)=>a+b,0)/sizes.length):60)+"px"); // 均值：給按比例縮的小圖（.bpChipsS）用
       };
       // 整頁剛好一屏：內容高度鎖到視窗底、不產生頁面捲動
       // 收斂式一屏：呈現倍率 s 從上限 min(縮放,1.5) 開始，渲染後直接量「最後一個格子的實際底部」有沒有超出外框，
