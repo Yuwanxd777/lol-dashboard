@@ -7441,6 +7441,7 @@ function bindFilters(cb){
   if(hb)hb.onclick=e=>{e.stopPropagation(); toggleHelpPop(hb);};
   fancySelectInit(document.getElementById("fLg")); // 賽事：改用「一次顯示全部」的自訂下拉
   fancySelectInit(document.getElementById("fSplit")); fancySelectInit(document.getElementById("fPatch")); // 賽季/版本同款（使用者定案 2026-07-29：三清單邊框格式統一）
+  fancyAllFilters();
 }
 // ── 分段切換鈕（2026-07-28 使用者定案：全站「能切換的按鈕」一律做成 A｜B，點哪段哪段亮起來）──
 // segHTML 給模板字串用（之後配 segBind 綁事件）；segEl 給動態 DOM 插入用。
@@ -7488,6 +7489,15 @@ function segEl(id,opts,cur,fn,cls,style){
 // ── 一次顯示全部的下拉（2026-07-28 使用者指定：賽事清單不要捲動）──
 // 原生 <select> 完全保留（值/選項/change 事件都照舊，syncFilterOpts 與 bindFilters 不用改），
 // 只是隱藏起來、由按鈕＋面板代替顯示；面板放不下就自動分欄，永遠不出現捲軸。
+// 篩選列的下拉一律同款（2026-08-06 使用者指定）：原生 <select> 的箭頭是系統樣式（Windows 是粗的 V），
+// 跟賽季/賽事/版本的小倒三角 ▾ 不一致 → 路線／圖鑑分類等剩下的 select 也套同一個元件。
+// 跳過「本來就被藏起來」的（圖鑑用 hid() 依分區隱藏 dexTag/dexVer）：否則會替看不到的欄位冒出一顆按鈕。
+// fancySelectInit 保留原生 select（值/選項/change 全照舊），重複呼叫有 dataset.fancy 擋著。
+function fancyAllFilters(){
+  document.querySelectorAll(".filters select").forEach(s=>{
+    if(!s.dataset.fancy&&getComputedStyle(s).display==="none")return;
+    fancySelectInit(s); });
+}
 function fancySelectInit(sel){
   if(!sel||sel.dataset.fancy)return;
   sel.dataset.fancy="1";
@@ -14023,7 +14033,7 @@ document.getElementById("yearSel").onchange=async e=>{
   finally{ ov.style.display="none"; }
 };
 // 全域返回鍵：包裝 render，繪製後「同步」補上返回鍵到篩選列(不用 microtask，避免延後注入造成篩選列跳動)
-{const _origRender=render; render=function(){const _r=_origRender.apply(this,arguments); try{ensureBackBtn();}catch(e){} try{if(window.fixZoomHeight)window.fixZoomHeight();}catch(e){} try{applyT2S();}catch(e){} return _r;};}
+{const _origRender=render; render=function(){const _r=_origRender.apply(this,arguments); try{ensureBackBtn();}catch(e){} try{fancyAllFilters();}catch(e){} /* 圖鑑等自建篩選列的頁沒走 bindFilters，這裡補 */ try{if(window.fixZoomHeight)window.fixZoomHeight();}catch(e){} try{applyT2S();}catch(e){} return _r;};}
 // 簡體中文：MutationObserver 攔截「動態新增」的節點(tooltip/說明浮層/非同步填入)也轉簡體，補 render 後 applyT2S 之外的漏網
 if(LANG==="cn"){ try{
   const cjk=/[㐀-鿿豈-﫿]/, t2sNode=nd=>{ if(nd.nodeType===1)applyT2S(nd);
