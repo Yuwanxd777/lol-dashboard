@@ -327,12 +327,12 @@
   table.bp.bpDraft tbody tr.subrow td:nth-child(1),table.bp.bpDraft tbody tr.subrow td:nth-child(2){background-color:transparent}
   table.bp.bpDraft tbody tr.subrow.zebA td:nth-child(1),table.bp.bpDraft tbody tr.subrow.zebA td:nth-child(2){background-color:rgba(255,255,255,.055)}
   .bp.bpDraft td.draftc{border-left:3px solid #5c6474;padding-left:18px} /* 欄界線＝階段線同粗 3px（2026-08-05）；內距 18 補回線寬、到 B1 仍約 20px */
-  /* 選序模式分隔線＝畫在 td 背景的直條（滿格高、跨列天然連續；::before 逐列拼接會有接縫，
-     2026-08-05 使用者三度回報中斷感後改制）。座標＝固定幾何（padding18/圖50/段內20/段距41）；
-     階段線(B3|P1、P4|B4、B5|P5) 3px。本欄橫向列框線拿掉，直條才不被 1px 深線切斷 */
-  .bp.bpDraft td.draftc.dLines5{background-image:linear-gradient(#5c6474,#5c6474),linear-gradient(#5c6474,#5c6474),linear-gradient(#5c6474,#5c6474),linear-gradient(#5c6474,#5c6474),linear-gradient(#5c6474,#5c6474),linear-gradient(#5c6474,#5c6474),linear-gradient(#5c6474,#5c6474),linear-gradient(#5c6474,#5c6474),linear-gradient(#5c6474,#5c6474),linear-gradient(#5c6474,#5c6474),linear-gradient(#5c6474,#5c6474);background-size:1px 100%,1px 100%,1px 100%,1px 100%,1px 100%,1px 100%,1px 100%,1px 100%,3px 100%,3px 100%,3px 100%;background-position:158px 0,339px 0,611px 0,772px 0,933px 0,1185px 0,1437px 0,1598px 0,519px 0,1023px 0,1345px 0;background-repeat:no-repeat}
-  .bp.bpDraft td.draftc.dLines3{background-image:linear-gradient(#5c6474,#5c6474),linear-gradient(#5c6474,#5c6474),linear-gradient(#5c6474,#5c6474),linear-gradient(#5c6474,#5c6474),linear-gradient(#5c6474,#5c6474),linear-gradient(#5c6474,#5c6474),linear-gradient(#5c6474,#5c6474),linear-gradient(#5c6474,#5c6474),linear-gradient(#5c6474,#5c6474);background-size:1px 100%,1px 100%,1px 100%,1px 100%,1px 100%,1px 100%,1px 100%,3px 100%,3px 100%;background-position:158px 0,339px 0,611px 0,772px 0,933px 0,1115px 0,1276px 0,519px 0,1023px 0;background-repeat:no-repeat}
+  /* 選序模式分隔線＝畫在 td 背景的直條（滿格高、跨列天然連續；::before 逐列拼接會有接縫）。
+     座標**不可手算**（實測會漂 1.5px、縮放下整組歪）→ 渲染後由 _paintDraftLines() 量實際
+     段落位置動態生成（#dLineCSS）；階段線 3px。本欄橫向列框線拿掉，直條才不被深線切斷 */
   .bp.bpDraft td.draftc{border-top:0!important;border-bottom:0!important}
+  .bp.bpDraft tbody tr.subrow td{border-bottom:0!important;border-top:0!important} /* 同系列局與局之間不畫橫線（2026-08-05 使用者指定） */
+  .bp.bpDraft tbody tr.subrow.serTop td:not(.draftc){border-top:1px solid var(--line)!important} /* 系列交界維持一條（時間軸欄不切，直條保持連續） */
   .bp.bpDraft tbody tr.subrow td{padding-top:12px;padding-bottom:12px} /* 路線模式列距加大（2026-08-05 使用者：6→12） */ /* 紅方選擇｜B1 之間的欄界線（與段間白線同款）＋線到 B1 間隔 20px */
   /* 出手階段分段（2026-08-05 使用者定案）：B1 B2 B3｜P1 P2 P3 P4｜B4 B5｜P5 P6 P7 共 12 段，
      段與段之間用**白色細線**隔開（白底斑馬紋已退回；線上下貫穿整列＝跨列連成直線）；
@@ -11174,9 +11174,9 @@ function render(){
           // 沒有選序資料的局＝標示為缺場（2026-08-05 使用者指定）：整條時間軸畫問號
           // 反而像壞掉，改用缺場列的紅字樣式明講「來源沒記錄」；其餘欄照常列
           const _noPk=!(m.blue.pk&&m.blue.pk.length>=5&&m.red.pk&&m.red.pk.length>=5);
-          if(_noPk)return `<tr class="subrow missrow${m._zeb?" zebA":""}">${flatHead}<td class="meta">${mmss(m.gl)}</td><td class="win" style="color:${m.blueWin?_CBLU:_CRED}">${m.win}</td>
+          if(_noPk)return `<tr class="subrow missrow${m._zeb?" zebA":""}${m._serTop?" serTop":""}">${flatHead}<td class="meta">${mmss(m.gl)}</td><td class="win" style="color:${m.blueWin?_CBLU:_CRED}">${m.win}</td>
           ${tCell(m.blue,true)}${selCellD(m,true)}${tCell(m.red,false)}${selCellD(m,false)}<td class="draftc" style="color:#e0574d;font-weight:bold">🚫 ${LANG==="en"?"missing: source has no draft-order data for this game":"缺場：來源沒有記錄這局的選序資料"}</td></tr>`;
-          return `<tr class="subrow${m._zeb?" zebA":""}">${flatHead}<td class="meta">${mmss(m.gl)}</td><td class="win" style="color:${m.blueWin?_CBLU:_CRED}">${m.win}</td>
+          return `<tr class="subrow${m._zeb?" zebA":""}${m._serTop?" serTop":""}">${flatHead}<td class="meta">${mmss(m.gl)}</td><td class="win" style="color:${m.blueWin?_CBLU:_CRED}">${m.win}</td>
           ${tCell(m.blue,true)}${selCellD(m,true)}${tCell(m.red,false)}${selCellD(m,false)}${draftCell(m)}</tr>`;
         }
         const S=sides(m); // 依模式決定左右實際邊
@@ -11300,7 +11300,7 @@ function render(){
         return out;})();
       // 路線模式底色＝**每個系列賽交替**（2026-08-05 使用者定案，取代逐列交錯）：
       // 依顯示順序走訪，換到不同系列就翻面 → 同系列各局同色、相鄰系列必不同色
-      if(!grouped){let par=0,prev=null; units.forEach(m=>{const s=m._serRef||m; if(s!==prev){if(prev!==null)par^=1; prev=s;} m._zeb=par;});}
+      if(!grouped){let par=0,prev=null; units.forEach(m=>{const s=m._serRef||m; m._serTop=(s!==prev); if(s!==prev){if(prev!==null)par^=1; prev=s;} m._zeb=par;});} // _serTop＝系列首列（畫系列交界線用）
       const render1=grouped?seriesHTML:(m=>rowHTML(m));
       const total=units.length, unitLbl=LANG==="en"?(grouped?"series":"games"):(grouped?"系列":"場");
       const addRows=step=>{
@@ -11320,6 +11320,19 @@ function render(){
       };
       moreBtn.onclick=()=>addRows(grouped?150:500);
       addRows(grouped?50:200);
+      // 選序模式：量第一列實際段落位置 → 動態生成 td 背景直條（座標手算會漂；縮放要除 _zoomF）
+      if(_dm){ const z=window._zoomF||1;
+        const full=[...document.querySelectorAll("td.draftc.dLines5,td.draftc.dLines3")].find(x=>x.querySelector(".dSeg"));
+        if(full){ const cls=full.classList.contains("dLines5")?"dLines5":"dLines3";
+          const bl=parseFloat(getComputedStyle(full).borderLeftWidth)||0;
+          const origin=full.getBoundingClientRect().left/z+bl;
+          const segs=[...full.querySelectorAll(".dSeg")];
+          const imgs=[],sizes=[],poss=[];
+          for(let i=1;i<segs.length;i++){ const a=segs[i-1].getBoundingClientRect(),b=segs[i].getBoundingClientRect();
+            const mid=(a.right+b.left)/2/z-origin, ph=segs[i].classList.contains("dPhSeg");
+            imgs.push("linear-gradient(#5c6474,#5c6474)"); sizes.push((ph?3:1)+"px 100%"); poss.push((mid-(ph?1.5:.5)).toFixed(1)+"px 0"); }
+          let st=document.getElementById("dLineCSS"); if(!st){st=document.createElement("style");st.id="dLineCSS";document.head.appendChild(st);}
+          st.textContent=`.bp.bpDraft td.draftc.${cls}{background-image:${imgs.join(",")};background-size:${sizes.join(",")};background-position:${poss.join(",")};background-repeat:no-repeat}`; } }
       const box=document.getElementById("tbl");
       const unlit=()=>{if(lit){(glowIdx.get(lit)||[]).forEach(im=>im.classList.remove("glow"));lit=null;}};
       box.onmouseover=e=>{
