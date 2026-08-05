@@ -2196,10 +2196,36 @@ function fillTableWidth(root,prop){
   // 比例模式從第 2 欄(索引1)就開始分：平均模式固定跳過前兩欄(#、日期/版本)，
   // 但比例模式下那欄不長會變成「左邊擠、右邊鬆」（2026-07-31 使用者回報職業賽/積分兩張表都是）。
   const from=prop?1:2;
-  const base=prop?natW.reduce((a,w,i)=>i>=from?a+w:a,0):0; // 比例分配的分母＝可長欄的自然寬總和
-  const per=prop?0:extra/(ths.length-2);                   // 多餘空間平均給資料欄(索引≥2)
+  // 末欄同樣不吃餘寬（2026-08-05 使用者回報「第一欄貼邊、最後一欄離邊很遠」）：餘寬灑到末欄，
+  // 內容置中後離右邊框特別遠（總覽實測 83px，第一欄只有 22px）。末欄留在自然寬＝最靠邊的內容
+  // 只隔一個 td 內距，與第一欄（本來就不吃餘寬）左右對稱；它那份餘寬改分給中間欄位。
+  const last=ths.length-1, nFill=ths.length-from-1;
+  const base=prop?natW.reduce((a,w,i)=>(i>=from&&i<last)?a+w:a,0):0; // 比例分配的分母＝可長欄的自然寬總和
+  const per=prop?0:(nFill>0?extra/nFill:0);                // 多餘空間平均給資料欄(索引≥2、不含末欄)
   tbl.style.tableLayout="fixed"; tbl.style.width=avail+"px";
-  ths.forEach((th,i)=>{const add=i<from?0:(prop?(base?extra*natW[i]/base:0):per); th.style.width=(natW[i]+add)+"px";});
+  ths.forEach((th,i)=>{const add=(i<from||(i===last&&nFill>0))?0:(prop?(base?extra*natW[i]/base:0):per); th.style.width=(natW[i]+add)+"px";});
+}
+// 餘寬平均分給每一欄（2026-08-05 使用者回報「第一欄距離邊框很小、最後一欄距離邊框又很大」）：
+// 沒走 fillTableWidth 的表（總覽 table.ov、積分 recTbl…）靠 CSS 的 min-width:100% 撐滿容器，
+// 餘寬由瀏覽器 auto 版面「按內容比例」灑 → 內容長的欄吃走一大塊、末欄也被撐寬，
+// 置中後離右邊框特別遠（總覽實測右 83px vs 左 22px）。
+// 改成每欄加**同樣的量**：每欄內距一致 → 首欄左邊距＝末欄右邊距（都是內距＋餘寬/2），
+// 欄與欄之間的節奏也一致。加的是「自然寬之上」的量 → 絕不裁字、不會多折一行。
+// 走 fillTableWidth 的表在那支自己分（前兩欄與末欄不吃餘寬）；BP 表有自己的 colgroup，都跳過。
+function fitAutoTable(tb){
+  if(tb.classList.contains("bp")||tb.closest(".tblwrap[data-fillw]"))return;
+  const ths=[...tb.querySelectorAll("thead tr:first-child th")];
+  if(ths.length<3||ths.some(th=>th.colSpan>1))return;      // 表頭有跨欄 → 欄位對不上，不碰
+  const box=tb.parentElement; if(!box)return;
+  const z=window._zoomF||1;
+  ths.forEach(th=>{ if(!("ow0" in th.dataset))th.dataset.ow0=th.style.width||""; th.style.width=th.dataset.ow0; });
+  tb.style.tableLayout="auto"; tb.style.minWidth="0"; tb.style.width="max-content";   // 還原成內容寬再量
+  const nat=ths.map(th=>th.getBoundingClientRect().width/z);  // rect＝視覺px→除縮放倍率轉版面px
+  const tot=nat.reduce((a,b)=>a+b,0), avail=box.clientWidth;
+  if(avail-tot<=2){ tb.style.tableLayout=""; tb.style.minWidth=""; tb.style.width=""; return; } // 已填滿/超出→維持原樣（走橫捲）
+  const per=(avail-tot)/ths.length;
+  tb.style.tableLayout="fixed"; tb.style.minWidth=""; tb.style.width=avail+"px";
+  ths.forEach((th,i)=>{ th.style.width=(nat[i]+per)+"px"; });
 }
 // 表格欄頭 sticky 的偏移＝頁首實際高度（整頁捲動時欄頭貼在頁首下方）
 const setHdrH=()=>{const h=document.querySelector("header");document.documentElement.style.setProperty("--hdrH",(h?h.offsetHeight:0)+"px");};
@@ -6271,6 +6297,7 @@ window.refitLayout=()=>{
   setHdrH();
   if(window.refitFilterW)refitFilterW(); // 篩選列下拉寬度重算（字體載入完成/切字體後字寬會變）
   document.querySelectorAll(".tblwrap[data-fillw]").forEach(w=>{w.classList.remove("pt1","pt2");fillTableWidth(w);}); // 先還原間距再量，量測基準才一致
+  document.querySelectorAll("table").forEach(t=>{try{fitAutoTable(t);}catch(e){}}); // 餘寬平均分（左右邊距對稱，見 fitAutoTable）
   fitTblWraps();
   document.querySelectorAll(".tblwrap.hscroll").forEach(w=>{const x=window._twSL[twKey(w)]; if(x&&Math.abs(w.scrollLeft-x)>1)w.scrollLeft=x;}); // 重繪後還原橫捲位置
   if(window.fixZoomHeight)fixZoomHeight();
