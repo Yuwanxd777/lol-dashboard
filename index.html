@@ -8847,7 +8847,7 @@ function globalFilterReset(){
   saveState(); try{if(typeof vcInvalidate==="function")vcInvalidate(); delete VIEW_CACHE.slots[curView];}catch(e){} render();
 }
 // 每次繪製後確保篩選列「最右邊固定三顆」：右→左＝返回(←)／預設(↺)／本頁說明(ℹ️)，每頁都要有、順序一致。
-// 篩選列不存在的詳情頁自建一條精簡列。返回鍵沒有上一步時隱藏(但預設/說明恆在)。
+// 篩選列不存在的詳情頁自建一條精簡列。三顆（返回/預設/說明）恆顯示；返回鍵沒有上一步時按了沒反應。
 // 基礎按鈕（使用者定案 2026-07-31）：篩選列最右一律 🗑 📸 ℹ️ ↺ ←，缺哪個就往右遞補，
 // 樣式一律 .sqbtn（36×36 圖示方鈕）。各頁自己加的 🗑／📸 一律收進 .barBtns 排到正確位置，
 // 其他功能鈕（⚙ 參數、📊 數據來源…）不動，留在基礎按鈕左邊。
@@ -8873,7 +8873,7 @@ function ensureBackBtn(){
   put("fHelp",()=>{const b=document.createElement("button");b.id="fHelp";b.className="sqbtn helpBtn";b.innerHTML="ℹ️"; b.title=(LANG==="en"?"Help":"本頁說明"); /* 使用者定案 2026-07-31：只留圖示、說明文字收進 title */ return b;},el=>el.onclick=e=>{e.stopPropagation();toggleHelpPop(el);}); // 說明(最左)
   put("fReset",()=>{const b=document.createElement("button");b.id="fReset";b.className="sqbtn";b.textContent="↺";b.title=(LANG==="en"?"Reset to default":"所有篩選一鍵回復預設");return b;},el=>el.onclick=globalFilterReset); // 預設
   const gb=put("globalBack",()=>{const b=document.createElement("button");b.id="globalBack";b.className="sqbtn";b.textContent="←";b.title=(LANG==="en"?"Back":"返回上一頁");return b;},el=>el.onclick=navBack); // 返回(最右)
-  gb.style.display=(window._navHist&&window._navHist.length)?"":"none";
+  gb.style.display=""; // 恆顯示（2026-08-05 使用者指定：重整後沒歷史也要在，按了沒反應即可——navBack 空堆疊本來就直接 return）
   const xa=bar.querySelector("#sqApiBtn"); if(xa&&xa.parentNode!==box)box.insertBefore(xa,box.firstChild); // 頁面專屬鈕(積分「添加API」)收進同一容器＝與本頁說明固定 11px 間距
 }
 // 簡體中文：整頁文字用繁→簡單字對照(T2S)轉換(以繁體資料渲染後再轉，見 [[dashboard]] 語言段)。冪等，可重複跑。
