@@ -11918,6 +11918,7 @@ function render(){
         // 解碼＋重排，那兩欄就會閃一下、圖跳動（2026-08-06 使用者回報切一般↔全局時 BAN過與其他區跳動）。
         // 下面重建完會比對 innerHTML，一模一樣就把舊節點搬回去（圖不重建＝完全不跳）。
         const _keep={".bpPool":wrap.querySelector(".bpPool"),".bpMid":wrap.querySelector(".bpMid")};
+        wrap._midFit=0;   // 右欄寬度每次重繪只調一次（見 fitPool 內 _midFit）
         const _poolH=poolColHTML();   // 先算好才能跟上次比（不能比 live innerHTML：fitPool 會在子元素寫 inline style 污染比對）
         wrap.innerHTML=`<div id="bsGames" style="flex:1;min-width:0;overflow-x:${S.n>5?"auto":"hidden"};overflow-y:hidden"><div style="display:grid;grid-template-columns:repeat(${S.n},${g}px)${showAdd?" 46px":""};gap:${gap}px;height:100%;align-items:stretch;width:max-content;min-width:100%">
             ${[...Array(S.n).keys()].map(gameCard).join("")}
@@ -11953,6 +11954,7 @@ function render(){
         let pw=0;
         pres.forEach(p=>{p.style.width="auto"; pw=Math.max(pw,p.getBoundingClientRect().width/bpNet());}); // rect 除以 BP 淨倍率轉回子樹版面 px（BP 整區有反向 zoom，不能除 _zoomF）
         pres.forEach(p=>{p.style.width=Math.ceil(pw)+"px";});
+        let poolByW=false;   // 角色池是否有列被寬度卡住（沒有的話是高度決定尺寸，右欄讓寬也沒用）
         const els=[...wrap.querySelectorAll(".bpPool .bpChips")];
         const sizes=[];
         els.forEach(el=>{
@@ -11966,9 +11968,11 @@ function render(){
             const per=Math.ceil(cnt/r);
             const sw=Math.floor((w-5*(per-1))/(nEff/r));
             const sh=Math.floor((h-5*(r-1))/r)-4; // 邊距，不貼死邊框
-            return Math.min(110,sw,sh);
+            return {s:Math.min(110,sw,sh), byW:sw<Math.min(110,sh)}; // byW＝這一列是被「寬度」卡住的
           };
-          const s=Math.max(12,Math.max(calc(1),calc(2)));
+          const c1=calc(1), c2=calc(2), win=(c1.s>=c2.s?c1:c2);
+          if(win.byW)poolByW=true;                 // 有列被寬度卡住 → 右欄讓寬才有意義（見下方 _midFit）
+          const s=Math.max(12,win.s);
           el.style.setProperty("--cs",s+"px"); sizes.push(s);
         });
         const pc=wrap.querySelector(".bpPool");
@@ -12013,6 +12017,27 @@ function render(){
           }
           // 尺寸與間距寫在 wrap（跨重繪保留）：寫在每次重建的 .bpMid／.bpMergeFlow 上的話，
           // 重繪後第一幀會先吃 CSS 預設值、下一拍才被改回來＝看得到閃一下
+          // 右欄只留「內容需要的寬」，省下的還給角色池（2026-08-06 使用者：底下空太多、框框太寬把角色池壓小）。
+          // 圖示是依分配到的寬長大的，框框永遠看起來滿的 → 要省寬度得先決定欄數：由少往多試，
+          // 取第一個「圖示仍有最佳尺寸四分之三」的欄數（欄數少＝框窄＝角色池變寬；太少欄圖會小到不能看）。
+          // 每次重繪只調一次（_midFit），避免與角色池尺寸互相追。
+          // 只有「角色池真的被寬度卡住」才讓寬：池若是高度決定尺寸(常見於視窗矮)，把右欄縮小只會讓右欄圖變小、
+          // 池的圖一點也不會變大（實測 2560×950 池列高 57→圖 53，給再多寬度也一樣）＝白白犧牲。
+          if(cnt&&mW>0&&mH>0&&poolByW&&!wrap._midFit){ wrap._midFit=1;
+            const pc2=wrap.querySelector(".bpPool"), padW=20, gap2=14;   // .bpMid 左右內距／兩欄間距
+            const pw=pc2?pc2.getBoundingClientRect().width/bpNet():0;
+            const bothW=mW+padW+gap2+pw;                                 // 右欄＋角色池可分配的總寬
+            const szOf=c=>{ const per=Math.ceil(cnt/c);
+              return Math.min(86,avg,Math.floor((mH+gp)/per)-gp,Math.floor((bothW-padW-gap2-360+gp)/c)-gp); }; // 角色池至少留 360
+            let mx=0; for(let c=1;c<=8;c++)mx=Math.max(mx,szOf(c));
+            let pick=0; for(let c=1;c<=8;c++){ const s2=szOf(c); if(s2>=8&&s2>=mx*0.75){pick=c;break;} } // 0.75＝右欄圖至少保有最佳尺寸的四分之三
+            if(pick){ const s2=szOf(pick), needW=Math.max(110,Math.min(300,pick*(s2+gp)-gp+padW));
+              const curW=mc.getBoundingClientRect().width/bpNet();
+              if(Math.abs(curW-needW)>8&&pc2){
+                mc.style.width=needW+"px"; pc2.style.width=(pw+(curW-needW))+"px";
+                requestAnimationFrame(()=>{ try{fitPool();}catch(e){} });  // 寬度變了→兩邊尺寸重算一次
+              } }
+          }
           wrap.style.setProperty("--csother",cs2+"px");
           // 欄高在 fitPool 跑完之後才定案（實測算的時候 729、最後變 723）→ 用舊高度算出的「一欄放 13 顆」
           // 實際只塞得下 12 顆，第 13 顆被擠到下一欄，欄與欄的顆數就在 12/13 之間來回跳＝畫面一直閃。
