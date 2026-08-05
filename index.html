@@ -2216,12 +2216,16 @@ function fitAutoTable(tb){
   if(tb.classList.contains("bp")||tb.closest(".tblwrap[data-fillw]"))return;
   const ths=[...tb.querySelectorAll("thead tr:first-child th")];
   if(ths.length<3||ths.some(th=>th.colSpan>1))return;      // 表頭有跨欄 → 欄位對不上，不碰
-  const box=tb.parentElement; if(!box)return;
+  if(!tb.parentElement)return;
   const z=window._zoomF||1;
   ths.forEach(th=>{ if(!("ow0" in th.dataset))th.dataset.ow0=th.style.width||""; th.style.width=th.dataset.ow0; });
   tb.style.tableLayout="auto"; tb.style.minWidth="0"; tb.style.width="max-content";   // 還原成內容寬再量
   const nat=ths.map(th=>th.getBoundingClientRect().width/z);  // rect＝視覺px→除縮放倍率轉版面px
-  const tot=nat.reduce((a,b)=>a+b,0), avail=box.clientWidth;
+  const tot=nat.reduce((a,b)=>a+b,0);
+  // 可用寬＝表格設 width:100% 時實際拿到的寬。**不可用 parentElement.clientWidth**：那個值含容器
+  // 左右內距，卡片有內距時會多算（近況實測多 32px → 表格被撐出框外，2026-08-05 使用者回報）。
+  tb.style.width="100%";
+  const avail=tb.getBoundingClientRect().width/z;
   if(avail-tot<=2){ tb.style.tableLayout=""; tb.style.minWidth=""; tb.style.width=""; return; } // 已填滿/超出→維持原樣（走橫捲）
   const per=(avail-tot)/ths.length;
   tb.style.tableLayout="fixed"; tb.style.minWidth=""; tb.style.width=avail+"px";
