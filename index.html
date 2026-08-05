@@ -44,8 +44,8 @@
   ::-webkit-scrollbar{width:9px;height:9px}
   ::-webkit-scrollbar-thumb{background:#2e3a52;border-radius:9px}
   ::-webkit-scrollbar-track{background:transparent}
-  .filters select,.filters input{height:32px;box-sizing:border-box;padding-top:3px;padding-bottom:3px;line-height:1.2} /* 2026-08-05 使用者：篩選列整體縮小（36→32） */ /* 各分區篩選列控件統一高度→整列高度一致(縮上下內距避免文字被邊框吃掉) */
-  .filters .pgbtn,.filters .pgbtn *{height:32px;box-sizing:border-box} .filters .pgbtn{padding-top:3px;padding-bottom:3px;line-height:1.2;display:inline-flex;align-items:center} /* 模式按鈕與其他控件同高，避免撐高篩選列 */
+  .filters select,.filters input{height:30px;box-sizing:border-box;padding-top:3px;padding-bottom:3px;line-height:1.2} /* 2026-08-05 使用者定案：篩選框 30、字級 15 */ /* 各分區篩選列控件統一高度→整列高度一致(縮上下內距避免文字被邊框吃掉) */
+  .filters .pgbtn,.filters .pgbtn *{height:30px;box-sizing:border-box} .filters .pgbtn{padding-top:3px;padding-bottom:3px;line-height:1.2;display:inline-flex;align-items:center} /* 模式按鈕與其他控件同高，避免撐高篩選列 */
   header{display:flex;align-items:center;gap:14px;padding:12px 30px;position:sticky;top:0;z-index:100;flex-wrap:wrap;
     background:rgba(15,19,30,.85);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
   #penCanvas{position:fixed;top:0;left:0;z-index:90;display:none;touch-action:none;cursor:crosshair} /* 視窗大小(非整頁)：整頁太高時畫布過大會嚴重卡頓 */
@@ -73,10 +73,10 @@
   .filters .posLbl .posic{width:22px;height:22px} /* 比賽BP路線圖示縮小省寬 */
   .filters{display:flex;flex-wrap:wrap;gap:10px 11px;align-items:center;border:1px solid var(--line);
     border-radius:14px;padding:12px 18px;margin-bottom:var(--gap);background:linear-gradient(180deg,#161c2b,#131826)}
-  .filters label{color:var(--tx2);font-size:15.5px}
-  .filters select,.filters input{font-size:15.5px}
+  .filters label{color:var(--tx2);font-size:15px}
+  .filters select,.filters input{font-size:15px}
   /* 「一次顯示全部」下拉（賽事用；原生 select 超過約 20 項就自己捲動，使用者要求全列） */
-  .fsel{height:32px;box-sizing:border-box;padding:3px 12px;font-size:15.5px;display:inline-flex;align-items:center;
+  .fsel{height:30px;box-sizing:border-box;padding:3px 12px;font-size:15px;display:inline-flex;align-items:center;
     justify-content:space-between;gap:8px;background:var(--card2);border:1px solid var(--line);border-radius:9px;text-align:left}
   .fsel .fselAr{color:var(--tx2);font-size:12px;flex:0 0 auto}
   /* 比賽BP 逐欄篩選列裡的 fancy 鈕：縮到與輸入框同高同字級；空間只留「四個字＋一個✕」
@@ -117,7 +117,7 @@
   button{cursor:pointer;transition:.15s} button:hover{border-color:var(--acc)}
   button.primary{background:linear-gradient(135deg,var(--acc),var(--acc2));border-color:transparent;color:#fff;font-weight:bold}
   button.primary:hover{filter:brightness(1.15)}
-  .sqbtn{width:36px;height:36px;padding:0;font-size:16px;line-height:1;flex:0 0 auto;
+  .sqbtn{width:30px;height:30px;padding:0;font-size:15px;line-height:1;flex:0 0 auto;
     display:inline-flex;align-items:center;justify-content:center} /* 全域：返回/截圖/預設 統一圖示正方形鈕；flex 置中——() 與 emoji 字形基線各不同，靠 line-height 對不齊（2026-08-05 使用者回報 ()/📸 沒置中） */
   .pgbtn{border-color:var(--line)} /* 2026-07-28 起金色只保留給「分段鈕的作用中段」，動作鈕一律中性框（邊框全站一致） */
   /* 子頁返回鍵：詳情框右上、比一般返回鍵稍大＋金框，與篩選列的全域返回鍵做區分（清掉該分頁的子頁詳情，回到該分頁列表） */
@@ -536,12 +536,12 @@
   .jgSmite{width:18px;height:18px;border-radius:4px;vertical-align:middle} /* 重擊圖示：N 次就 N 個 */
   .jgPlayer{font-size:14px;color:#7a8aaa}
   /* 右上「ℹ️ 說明」按鈕＋浮層 */
-  .sqbtn.helpBtn{width:36px;padding:0}   /* 使用者定案 2026-07-31：說明鈕只留 ℹ️ 圖示 → 與 ←／↺ 同尺寸的正方形鈕（篩選列最右三顆外觀一致） */
+  .sqbtn.helpBtn{width:30px;padding:0}   /* 使用者定案 2026-07-31：說明鈕只留 ℹ️ 圖示 → 與 ←／↺ 同尺寸的正方形鈕（篩選列最右三顆外觀一致） */
   /* emoji 圖示鈕字級放大到 20px（使用者回報 16px 的 🗑 看起來太小）：emoji 字形本身四周留白多，
      同字級下會比 ←／↺ 這種文字字形視覺上小一圈 → 只放大 emoji 那幾顆，維持整列視覺重量一致 */
   /* 基礎按鈕（🗑 📸 ℹ️ ↺ ←）一律同字級：原本是逐個 id 白名單，新加的鈕沒列到就變 16px，
      同一顆 🗑 在比賽BP 與模擬BP 大小不一樣（2026-07-31 使用者回報）→ 改成整個 .barBtns 通用 */
-  .filters .barBtns .sqbtn,.sqbtn.helpBtn{font-size:20px;line-height:1}
+  .filters .barBtns .sqbtn,.sqbtn.helpBtn{font-size:17px;line-height:1}
   #sqApiBtn.helpBtn{width:auto;padding:0 12px;font-size:14px}   /* 積分頁「🔑 添加API」仍是帶字的鈕，沿用舊尺寸 */
   .helpPop{position:fixed;z-index:200;max-height:70vh;overflow:auto;padding:14px 16px;box-shadow:0 12px 34px rgba(0,0,0,.6)}
   .helpPop .helpPopHd{font-weight:bold;font-size:16px;color:#7fd7ff;margin-bottom:8px}
