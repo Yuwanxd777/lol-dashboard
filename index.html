@@ -733,6 +733,12 @@
   .tblwrap tbody tr:nth-child(even) td:nth-child(2){background:#1a202f}
   .tblwrap tbody tr:hover td:nth-child(1),
   .tblwrap tbody tr:hover td:nth-child(2){background:#1e2740}
+  /* 比賽BP hover（2026-08-05 使用者定案）：底色亮起只在無色帶的前排欄看得到、像壞掉 →
+     取消 hover 底色（維持原斑馬色），改成整列**上下金色邊線** */
+  .bp tbody tr.subrow:nth-child(odd):hover td:not(.bpB):not(.bpR){background:#161c2b}
+  .bp tbody tr.subrow:nth-child(even):hover td:not(.bpB):not(.bpR){background:#1a202f}
+  .bp.bpDraft tbody tr.subrow:nth-child(odd):hover td:not(.bpB):not(.bpR){background:rgba(255,255,255,.055)}
+  .bp tbody tr.subrow:hover td{border-top:1px solid var(--gold);border-bottom:1px solid var(--gold)}
   /* 英雄Tier：圓形色彩選擇塊（點擊開圓盤色盤） */
   .tClr{flex:0 0 auto;width:26px;height:26px;padding:0;border:1px solid #33405c;cursor:pointer;border-radius:50%}
   /* 英雄Tier：整階拖曳把手 */
