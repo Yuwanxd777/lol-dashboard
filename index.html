@@ -529,6 +529,7 @@
   .jgPlayer{font-size:14px;color:#7a8aaa}
   /* 右上「ℹ️ 說明」按鈕＋浮層 */
   .sqbtn.helpBtn{width:36px;padding:0}   /* 使用者定案 2026-07-31：說明鈕只留 ℹ️ 圖示 → 與 ←／↺ 同尺寸的正方形鈕（篩選列最右三顆外觀一致） */
+  .bpmOn{border-color:var(--gold);color:var(--gold)} /* 比賽BP 模式鈕：黃邊＝目前模式（同（）鈕的開啟慣例） */
   /* emoji 圖示鈕字級放大到 20px（使用者回報 16px 的 🗑 看起來太小）：emoji 字形本身四周留白多，
      同字級下會比 ←／↺ 這種文字字形視覺上小一圈 → 只放大 emoji 那幾顆，維持整列視覺重量一致 */
   /* 基礎按鈕（🗑 📸 ℹ️ ↺ ←）一律同字級：原本是逐個 id 白名單，新加的鈕沒列到就變 16px，
@@ -10742,15 +10743,23 @@ function render(){
     V.bpSideMode=(["br","team"].includes(V.bpSideMode))?V.bpSideMode:"br"; // 左側代表：br 一般（藍左紅右）／team 混合（搜尋的戰隊在左）；先選模式已移除（2026-08-04 使用者指定，fp 舊存檔自動退回一般）
     const _bpModeLbl=md=>({br:LANG==="en"?"🟣 Default":"🟣 一般",team:LANG==="en"?"🟪 Mixed":"🟪 混合"}[md]||md);
     // 選角順序檢視（wiki Picks and Bans 版型；2026-08-05 使用者指定）：整條 draft 時間軸
-    // （禁選全依出手順、藍紅框色分邊）取代 禁用＋五路 欄位；切換鈕走 filterBar 的 extra 槽
+    // （禁選全依出手順、藍紅框色分邊）取代 禁用＋五路 欄位。
+    // 模式鈕三顆攤開（2026-08-05 使用者指定「🟣 一般 🟪 混合 🛣️ 路線」）：
+    //   🟣 一般＝五路檢視・藍左紅右／🟪 混合＝五路檢視・搜尋戰隊在左（亮黃邊＝目前模式）；
+    //   第三顆＝檢視切換：五路時「📋 選角順序」、選角順序時「🛣️ 路線」（點一般/混合也會跳回五路）
     V.bpDraftMode=!!V.bpDraftMode;
     const _dm=V.bpDraftMode;
-    main.innerHTML=filterBar(`<button id="bpDraftT" title="${_dm?(LANG==="en"?"Back to lane view":"切回路線檢視（TOP~SUP 五欄）"):(LANG==="en"?"Draft-order view (wiki PB style)":"切成選角順序檢視（照 BAN/PICK 出手順排列，同 wiki PB 頁）")}">${_dm?"🛣️ "+(LANG==="en"?"Lane view":"路線檢視"):"📋 "+(LANG==="en"?"Draft order":"選角順序")}</button>`)
+    main.innerHTML=filterBar(
+      `<button id="bpModeBr" class="${(!_dm&&V.bpSideMode!=="team")?"bpmOn":""}" title="${LANG==="en"?"Lane view, blue left / red right":"五路檢視・藍方在左、紅方在右"}">${_bpModeLbl("br")}</button>`
+      +`<button id="bpModeTeam" class="${(!_dm&&V.bpSideMode==="team")?"bpmOn":""}" title="${LANG==="en"?"Lane view, searched team on the left":"五路檢視・搜尋的戰隊固定在左（不分藍紅）"}">${_bpModeLbl("team")}</button>`
+      +`<button id="bpDraftT" class="${_dm?"bpmOn":""}" title="${_dm?(LANG==="en"?"Back to lane view (TOP~SUP)":"切回五路檢視（TOP~SUP 五欄）"):(LANG==="en"?"Draft-order view (wiki PB style)":"切成選角順序檢視（照 BAN/PICK 出手順排列，同 wiki PB 頁）")}">${_dm?"🛣️ "+(LANG==="en"?"Lanes":"路線"):"📋 "+(LANG==="en"?"Draft order":"選角順序")}</button>`)
       +`<div class="card"><h2 style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">🎯 ${T("BP 紀錄")} <span class="sub" id="cnt"></span><span class="sub" style="flex:1 1 220px">${_dm
         ?(LANG==="en"?`draft order left→right (ban phase 1 → picks → ban phase 2 → picks), blue/red frame = side, grayscale = ban, newest first`:`由左至右＝出手順（第一輪禁用 → 選角 → 第二輪禁用 → 選角），藍/紅框＝該邊、灰階＝禁用，最新在上`)
         :(LANG==="en"?`gold number = pick order (1-7), <span style="background:rgba(255,255,255,.14);padding:0 5px;border-radius:3px">white row-band</span> = winning team, newest first｜type in a column header to filter`:`金色數字＝選角順位(1-7)，<span style="background:rgba(255,255,255,.14);padding:0 5px;border-radius:3px">白底那隊</span>＝勝方，最新在上｜在欄名下方輸入即逐欄篩選`)}</span></h2><div id="tbl"></div></div>`;
-    // ⚠ 要整頁 render()：欄組(COLF)/表頭都在外層算，局部 rerender() 只重畫表身、換不了版型
-    {const _bt=document.getElementById("bpDraftT"); if(_bt)_bt.onclick=()=>{V.bpDraftMode=!V.bpDraftMode;saveState();render();};}
+    // ⚠ 都要整頁 render()：欄組(COLF)/表頭都在外層算，局部 rerender() 只重畫表身、換不了版型
+    {const _bt=document.getElementById("bpDraftT"); if(_bt)_bt.onclick=()=>{V.bpDraftMode=!V.bpDraftMode;saveState();render();};
+     const _b1=document.getElementById("bpModeBr"); if(_b1)_b1.onclick=()=>{V.bpSideMode="br";V.bpDraftMode=false;saveState();render();};
+     const _b2=document.getElementById("bpModeTeam"); if(_b2)_b2.onclick=()=>{V.bpSideMode="team";V.bpDraftMode=false;saveState();render();};}
     const mmss=s=>s?`${Math.floor(s/60)}:${String(Math.round(s%60)).padStart(2,"0")}`:"–";
     // 賽事欄 LPL 常規賽附組名(季後賽/升降不標；系列賽兩隊同組才明確標)：teams＝已 tAb 的縮寫
     const _lplGrpTag=(league,split,teams)=>{ if((league!=="LPL"&&league!=="LCK")||!split||/PO$|季後|升降/.test(String(split))||!teams)return "";
