@@ -53,8 +53,12 @@ def ov_pages():
 
     不寫死清單：新賽段開打就自動出現，也不會抓到還沒打的頁。
     """
+    # 起點抓到前一年 10 月：跨年賽事（賽季的季前 KeSPA 杯在前一年 12 月開打，頁名掛前一年，
+    # 如「2025 LoL KeSPA Cup」）只用當年窗永遠發現不了。⚠ 2025-12 那屆實查頁面**沒有**
+    # Side Sel／1st Sel 欄（選邊權欄位是 2026 新制才開始記），所以該屆 56 局仍然無解；
+    # 放寬視窗是為了明年起的季前賽事能自動被發現（2026-08-05 使用者回報選邊缺漏後查明）。
     p = {"tables": "ScoreboardGames=SG", "fields": "SG.OverviewPage=ov",
-         "where": 'SG.DateTime_UTC >= "%d-01-01" AND SG.DateTime_UTC < "%d-01-01"' % (YEAR, YEAR + 1),
+         "where": 'SG.DateTime_UTC >= "%d-10-01" AND SG.DateTime_UTC < "%d-01-01"' % (YEAR - 1, YEAR + 1),
          "group_by": "SG.OverviewPage", "format": "json", "limit": "500"}
     url = WS.FORM + "?" + urllib.parse.urlencode(p)
     raw = WS.opener().open(urllib.request.Request(url, headers=WS.UA), timeout=120).read().decode("utf-8", "replace")

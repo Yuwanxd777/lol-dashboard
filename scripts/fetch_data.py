@@ -732,6 +732,48 @@ def merge_wiki(year, table):
     return table
 
 
+# 人工判定的幽靈局（來源殘留的假局）：刪除該局所有列，並把同系列剩餘局依時間重編 1..n。
+# ⚠ 判定用**完整時間戳前綴**不用局號——這裡跑在 fix_game_no 之前，撞號還沒重編，
+# 用局號會連真局一起殺（實測 game=1 會同時吃掉 gol.gg 殘局與 PB 真局 6 列）。
+# 2026-08-01 LCK DK vs GEN：真實只有兩局（wiki 記 gi1,2），資料裡卻多一個只有 1 列、
+# 00:21 的殘局（gol.gg 補檔殘留），把真局擠成 2、3 → BP 顯示多一局、選邊也對不上
+#（2026-08-05 使用者回報）。來源修好後可移除該條。
+BAD_GAMES = [("LCK", "2026-08-01 00:21", "Dplus Kia", "Gen.G")]
+
+
+def fix_bad_games(table):
+    hdr = table[0]
+    try:
+        iL, iD, iG = hdr.index("league"), hdr.index("date"), hdr.index("game")
+        iBT, iRT = hdr.index("blue_teamname"), hdr.index("red_teamname")
+    except ValueError:
+        return table
+    out = [hdr]
+    dropped = 0
+    touched = set()
+    for r in table[1:]:
+        hit = next((b for b in BAD_GAMES
+                    if r[iL] == b[0] and str(r[iD]).startswith(b[1])
+                    and {str(r[iBT]), str(r[iRT])} == {b[2], b[3]}), None)
+        if hit:
+            dropped += 1
+            touched.add((r[iL], str(r[iD])[:10], frozenset((str(r[iBT]), str(r[iRT])))))
+            continue
+        out.append(r)
+    if not dropped:
+        return table
+    # 同系列（同日同兩隊）剩餘局依 (完整時間, 原局號) 重編 1..n，
+    # 不然殘局剔除後局號從 2 起跳，選邊比對用的 gi 會全部落空。
+    for grp in touched:
+        rows = [r for r in out[1:] if (r[iL], str(r[iD])[:10], frozenset((str(r[iBT]), str(r[iRT])))) == grp]
+        seq = sorted({(str(r[iD]), str(r[iG])) for r in rows})
+        num = {k: i + 1 for i, k in enumerate(seq)}
+        for r in rows:
+            r[iG] = num[(str(r[iD]), str(r[iG]))]
+    print(f"  幽靈局剔除 {dropped} 列（{len(touched)} 個系列重編局號）")
+    return out
+
+
 def fix_game_no(table):
     """同一天、同兩隊出現**重複局號**時，依實際時間先後重編。
 
@@ -1187,6 +1229,7 @@ def main():
         table = merge_stats(y, table)      # 老賽季逐選手 KDA/CS/金錢（wiki 文字版沒有 → 只填空欄位）
         table = merge_patch_release(y, table)   # 空的版本欄依官方改版日期回推
         table = fill_cup_split(y, table)   # 盃賽分站：OE 沒填的賽段依日期回填（見函式說明）
+        table = fix_bad_games(table)       # 人工判定的幽靈局剔除＋該系列局號重編（要在 fix_game_no 前）
         table = fix_game_no(table)         # 同日同兩隊撞局號 → 依時間重編（要排在所有 merge 之後）
         table = fix_firstpick(table)       # 補充來源留下的空 firstPick 收尾（要排在所有 merge 之後）
         table = fix_firstpick_wiki(table, y)  # 2026+：wiki Pick Sel 顏色校正先選方＋po（要在 fix_firstpick 之後）

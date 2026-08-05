@@ -5946,7 +5946,12 @@ const _MCACHE=new Map(); // 比賽BP 底層資料快取（性能）：同篩選�
 // 隊名正規化要**去掉括號註記與 .CN 尾綴**：wiki 寫 `Ninjas in Pyjamas.CN`、
 // `LYON (2024 American Team)`，不處理就對不上主資料的隊名（實測這兩隊共 122 局落空）。
 let _SSI = null;
-const _ssNorm = s => String(s || "").replace(/\([^)]*\)/g, "").toLowerCase().replace(/[^a-z0-9]/g, "").replace(/cn$/, "");
+// wiki 各賽事頁對同一支隊常用不同縮寫（LCK Cup 頁寫 BRION/DRX、EWC 頁寫 MIBR.LOS/AG.AL，
+// 主資料卻是 HANJIN BRION／Kiwoom DRX／LØS…），正規化後仍對不上 → 建別名表收斂到主資料
+// 那一側的正規化字串（實測補回 LCK 45＋EWC 9 局）。鍵值都是 _ssNorm 之後的形式；
+// LØS 的 Ø 非 ASCII 會被砍掉所以是 "ls"，Los Ratones 是同組織改名前的隊名、一併收斂。
+const _SS_ALIAS = {brion:"hanjinbrion", drx:"kiwoomdrx", mibrlos:"ls", agal:"anyoneslegend", teamsecret:"teamsecretwhales", losratones:"ls"};
+const _ssNorm = s => { const n = String(s || "").replace(/\([^)]*\)/g, "").toLowerCase().replace(/[^a-z0-9]/g, "").replace(/cn$/, ""); return _SS_ALIAS[n] || n; };
 const _ssKey = (d, a, b, g) => String(d).slice(0, 10) + "|" + [_ssNorm(a), _ssNorm(b)].sort().join("|") + "|" + g;
 function ssIdx(){
   if(_SSI)return _SSI;
@@ -5960,7 +5965,11 @@ function ssIdx(){
   }
   return _SSI;
 }
-const ssRec = m => ssIdx().get(_ssKey(m._d, m._btf, m._rtf, m._g)) || null;
+// 日期 ±1 天備援：跨午夜比賽兩邊記的日期會差一天（主資料用開賽當地/UTC 時刻、wiki 用賽程日，
+// 實測 LCS 12＋CBLOL 3 局因此落空）。先精準比對，落空才試 ±1，避免誤吃到連日對戰的另一場。
+const _ssShift = (d, n) => { const t = new Date(String(d).slice(0, 10) + "T00:00:00Z"); t.setUTCDate(t.getUTCDate() + n); return t.toISOString().slice(0, 10); };
+const ssRec = m => { const I = ssIdx();
+  return I.get(_ssKey(m._d, m._btf, m._rtf, m._g)) || I.get(_ssKey(_ssShift(m._d, -1), m._btf, m._rtf, m._g)) || I.get(_ssKey(_ssShift(m._d, 1), m._btf, m._rtf, m._g)) || null; };
 const ssOf = m => (ssRec(m)||{}).s || "";
 // 該側拿到的是什麼：選邊權→依它實際在哪一邊寫「選藍/選紅」；否則就是拿先選權→依是否為
 // 先選方寫「先選/後選」。查不到資料（2025 以前、或 wiki 沒收錄的賽事）回空字串。
