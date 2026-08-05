@@ -173,6 +173,9 @@
   th{color:var(--tx2);cursor:pointer;position:sticky;top:var(--hdrH,0);background:#161c2b;z-index:1;font-weight:600} /* 整頁捲動時欄頭貼在頁首下方 */
   th:hover{color:var(--acc)}
   /* 表格英雄格：置左＋固定縮排——任何名字長度左緣都對齊，且不貼死左邊 */
+  /* 出場紀錄（英雄/選手詳情）：首末欄離框邊留 30px（2026-08-06 使用者指定，原本 11px 看起來貼邊） */
+  .recTbl th:first-child,.recTbl td:first-child{padding-left:30px}
+  .recTbl th:last-child,.recTbl td:last-child{padding-right:30px}
   td:has(.heroname){text-align:left;padding-left:1em}
   /* 選手數據的選手欄：跟英雄欄同款置左模式 */
   #tbl.nameL td:nth-child(2){text-align:left;padding-left:1em}
@@ -267,7 +270,7 @@
   .bp tr.seriesHead .sVs b{color:var(--tx2)}
   .bp tr.seriesHead .sVs b.win{color:var(--gold)}
   .bp tr.subrow td{background:rgba(255,255,255,.02)}
-  .bp td.subg{padding-left:22px;color:var(--tx2);font-size:13px;white-space:nowrap}
+  .bp td.subg{padding-left:8px;padding-right:8px;color:var(--tx2);font-size:13px;white-space:nowrap} /* 左右內距對稱＝「└ 第N局」與上方「局數」同軸置中（2026-08-06 使用者回報偏左；原本 padding-left:22 讓內容右移 7px） */
   .note{color:var(--tx2);font-size:13.5px;margin-top:8px}
   .cc{display:inline-flex;align-items:center;gap:3px;vertical-align:middle;position:relative}
   .cc img{width:34px;height:34px;border-radius:8px;border:1px solid #33405c;display:block}
