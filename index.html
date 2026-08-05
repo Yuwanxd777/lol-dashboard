@@ -10355,13 +10355,13 @@ function render(){
         <td class="${rB(c.banRate,c.n)}">${Math.round(c.banRate*100)}%</td>
         <td class="meta"${recent2w(c.last)?' style="color:#ffd60a;font-weight:600"':''}>${lastTxt(c.last)}</td></tr>`;}).join("");
     };
-    // 上次使用：一般模式寫月-日；**生涯模式改寫「N 天前」**（使用者定案 2026-07-31：跨十幾年的日期
-    // 用月-日或年份都要心算，天數一眼就知道多久沒拿）
+    // 上次使用：一般模式寫月-日；**生涯模式改寫「N天」**（使用者定案 2026-07-31：跨十幾年的日期
+    // 用月-日或年份都要心算，天數一眼就知道多久沒拿；2026-08-05 由「N 天前」縮成「N天」＝格子更窄）
     const lastTxt=d=>{ if(!d)return"—";
       if(!careerMode)return d.slice(5);
       const t=new Date(d+"T00:00:00").getTime(); if(isNaN(t))return d.slice(5);
       const n=Math.max(0,Math.round((Date.now()-t)/864e5));
-      return n===0?(LANG==="en"?"today":"今天"):(LANG==="en"?n+"d":n+" 天前"); };
+      return n===0?(LANG==="en"?"today":"今天"):(LANG==="en"?n+"d":n+"天"); };
     // 積分模式：英雄/場/勝率/KDA/評分（從逐場聚合，含 dpm 評分）
     const poolRowsSoloq=(pool,pos,who)=>{
       const el=pool.filter(c=>c.n>=3);
@@ -10509,7 +10509,7 @@ function render(){
       }
       box.innerHTML=`<div class="rosterGrid${layH?" rosterH":""}"${(!layH&&!crossTeam&&posList.length===1)?' style="grid-template-columns:minmax(0,560px)"':''}>${cardsHTML}</div>`+moreNote;
       // 橫式：所有卡片的英雄格統一寬度（2026-08-05 使用者指定）。各卡本來各自照內容定寬，
-      // 「上次」的日期長度一變（08-04／—／生涯的「1234 天前」）整欄就寬窄不一 →
+      // 「上次」的日期長度一變（08-04／—／生涯的「1234天」）整欄就寬窄不一 →
       // A 選手的第 10 個英雄跟 B 選手的第 10 個對不到同一條垂直線。
       // 作法：先還原成內容寬量出「全部卡片中最寬的那一格」，寫進 CSS 變數，CSS 端用 table-layout:fixed
       // 讓每格都吃這個寬 → 跨卡片垂直對齊。取最大值＝不會裁字；量測與套用在同一個 task 內，畫面不會閃。
