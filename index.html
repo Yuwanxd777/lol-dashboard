@@ -4274,6 +4274,28 @@ function fearlessUnavail(){
 function teamRoster(team){
   const POS={1:"TOP",2:"JNG",3:"MID",4:"BOT",5:"SUP"};
   const byPos={1:{},2:{},3:{},4:{},5:{}};
+  // ── 先發判定（2026-08-05 使用者定案）：**最近三個系列賽**（BO1/BO3/BO5 各算一場系列）
+  // 上場局數最多者；平手 → 比該選手在目前資料範圍（今年）於該隊的出賽總數；再平手比最近出賽日。
+  // 舊規則「最近一場上場的人」會被單場輪換誤導。系列切法與比賽BP一致：
+  // 同聯賽同對手、局號重置或相隔 >2 天＝另一場系列。
+  const _gk=r=>`${r[C.date]}|${r[C.game]}|${r[C.blue_teamname]}|${r[C.red_teamname]}`;
+  const top3keys=(()=>{
+    const dnum=v=>{const p=String(v).slice(0,10).split("-");return p.length===3?Date.UTC(+p[0],+p[1]-1,+p[2])/864e5:0;};
+    const tg=[];
+    for(const o of GAMES){ if(!passG(o))continue; const r=o.raw;
+      const side=r[C.blue_teamname]===team?0:r[C.red_teamname]===team?1:-1; if(side<0)continue;
+      tg.push({dt:String(r[C.date]||""),g:+r[C.game]||0,lg:o.league,
+        opp:side?r[C.blue_teamname]:r[C.red_teamname],key:_gk(r)}); }
+    tg.sort((a,b)=>a.dt<b.dt?-1:a.dt>b.dt?1:a.g-b.g);
+    const byOpp={}; tg.forEach(x=>{const k=x.lg+"|"+x.opp;(byOpp[k]=byOpp[k]||[]).push(x);});
+    const sers=[];
+    for(const k in byOpp){ let pg=0,pd=null,cur=null;
+      byOpp[k].forEach(x=>{ if(!cur||x.g<=pg||(pd!==null&&dnum(x.dt)-pd>2)){cur={last:"",keys:[]};sers.push(cur);}
+        cur.last=x.dt; cur.keys.push(x.key); pg=x.g; pd=dnum(x.dt); }); }
+    sers.sort((a,b)=>a.last<b.last?1:-1);
+    const s=new Set(); sers.slice(0,3).forEach(sr=>sr.keys.forEach(k=>s.add(k)));
+    return s;
+  })();
   for(const o of LANES){
     if(!passG(o))continue;
     const r=o.raw, pid=o.pid; if(!POS[pid])continue;
@@ -4282,8 +4304,9 @@ function teamRoster(team){
       const p=r[C.blue_playername+(side?RB:0)], ch=r[C.blue_champion+(side?RB:0)];
       if(!p||!ch)continue;
       const won=o.result===(side?2:1);
-      const m=byPos[pid]; let a=m[p]; if(!a){a={p,n:0,recent:"",champs:{},ban:{}}; m[p]=a;}
+      const m=byPos[pid]; let a=m[p]; if(!a){a={p,n:0,n3:0,recent:"",champs:{},ban:{}}; m[p]=a;}
       a.n++; if(o.date>a.recent)a.recent=o.date;
+      if(top3keys.has(_gk(r)))a.n3++;          // 最近三個系列賽的上場局數
       let c=a.champs[ch]; if(!c){c={n:0,w:0,last:""}; a.champs[ch]=c;}
       c.n++; if(won)c.w++; if(o.date>c.last)c.last=o.date;
       // 該英雄被「對手」禁的場次（自己隊 ban 的不算；舊資料檔沒有分邊欄位時退回合併名單）
@@ -4295,13 +4318,13 @@ function teamRoster(team){
   for(let pid=1;pid<=5;pid++){
     const players=Object.values(byPos[pid]);
     if(!players.length){out[POS[pid]]=null; continue;}
-    // 整理每位選手的英雄池；依「最近出賽」排序，最新在最上（先發＝最近一場的人）
+    // 每位選手的英雄池；排序＝先發判定順位：最近三系列局數 → 今年在隊出賽 → 最近出賽日
     const list=players.map(a=>{
       const pool=Object.entries(a.champs).map(([ch,c])=>({ch,n:c.n,w:c.w,last:c.last,
         ob:a.ban[ch]||0,banRate:(a.ban[ch]||0)/a.n})).sort((x,y)=>y.n-x.n||y.w/y.n-x.w/x.n);
       const w=pool.reduce((s,c)=>s+c.w,0);
-      return {p:a.p, total:a.n, winrate:a.n?w/a.n:0, recent:a.recent, pool};
-    }).sort((x,y)=>y.recent.localeCompare(x.recent)||y.total-x.total);
+      return {p:a.p, total:a.n, n3:a.n3, winrate:a.n?w/a.n:0, recent:a.recent, pool};
+    }).sort((x,y)=>y.n3-x.n3||y.total-x.total||y.recent.localeCompare(x.recent));
     out[POS[pid]]={players:list, def:list[0].p};
   }
   return out;
