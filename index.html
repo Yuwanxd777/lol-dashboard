@@ -11981,68 +11981,40 @@ function render(){
         // 右側直欄（雙方BAN過＋其他英雄）：圖示由上往下排、排滿一欄往右換欄 → 尺寸縮到剛好塞滿框、不捲動不被裁
         // 鐵則：此計算不可綁在「池有資料」的條件下——池空時英雄全落到這欄、數量最多，反而更需要算（否則吃 CSS 預設 40px 撐爆被裁）
         const mf=wrap.querySelector(".bpMergeFlow"), mc=mf&&mf.closest(".bpMid");
-        if(mf&&mc){ const cnt=mf.querySelectorAll(".bpChip").length, mW=mf.clientWidth, gp=4;
-          // 安全邊 1.5px（2026-08-06 使用者指出畫面閃爍的真因）：舊版把間距拉到「剛好塞滿整欄高」，
-          // 算式上 per 顆恰好等於框高＝卡在臨界值，實際排版一遇到零點幾 px 的捨入，最後一顆就被擠到
-          // 下一欄；欄與欄的顆數因此在 12/13 之間來回跳，第二欄以後整片位移＝看起來一直閃。
-          // 扣掉安全邊、間距再往下取到 0.1px，per 顆就一定塞得進去，分佈才穩定。
-          mf.style.maxHeight="none";                                   // 先解除上一輪釘住的換欄高再量，
-          const mH=Math.max(0,mf.clientHeight-1.5);                     // 否則量到的是被釘住的高度→越算越小（死亡螺旋）
-          mf.style.maxHeight="";                                        // 量完交還給 --csotherH
-          let cs2=Math.round(avg*0.6);
-          if(cnt&&mW>0&&mH>0){
-            const colsOf=sz=>Math.max(1,Math.floor((mW+gp)/(sz+gp)));           // 寬度放得下幾欄
-            const maxPerOf=sz=>Math.max(1,Math.floor((mH+gp)/(sz+gp)));         // 高度最多放幾顆
-            // 每欄顆數改「平均分配」而不是「塞好塞滿」：53 顆原本排成 13,13,13,13,1，最後一欄只剩
-            // 空BAN 一顆、右邊空一大塊（2026-08-06 使用者回報）。改成 ceil(顆數/欄數) 讓每欄差不多高。
-            const perOf=sz=>Math.max(1,Math.min(maxPerOf(sz),Math.ceil(cnt/colsOf(sz))));
-            const ok=(sz,per)=>per<=maxPerOf(sz)&&colsOf(sz)*per>=cnt;          // 這個尺寸/每欄顆數放得下全部
-            let best=0,bestPer=0;
-            for(let sz=Math.min(86,avg);sz>=8;sz--){ const per=perOf(sz); if(ok(sz,per)){best=sz;bestPer=per;break;} }
-            if(!best){best=8;bestPer=maxPerOf(8);}
-            // 黏性（使用者回報自動模式每放一顆就跳）：放一顆英雄→那顆從池消失、落進「其他」→顆數變
-            // →尺寸/每欄顆數重算→整欄重排。舊版面只要還放得下全部，就原封不動沿用。
-            const pSz=parseFloat(wrap.style.getPropertyValue("--csother"))||0,
-                  pPer=parseFloat(wrap.style.getPropertyValue("--csotherPer"))||0;
-            // 沿用的前提還要「仍然夠平均」：不然像 61 顆時算出的每欄 13 顆，掉到 53 顆還沿用，
-            // 就會排成 13,13,13,13,1、右邊空一大塊（容差 +1 讓抽換一兩顆時不會動不動就重排）
-            if(pSz>=8&&pPer>=1&&pSz<=Math.min(86,avg)&&ok(pSz,pPer)&&pPer<=Math.ceil(cnt/colsOf(pSz))+1){best=pSz;bestPer=pPer;}
-            cs2=best;
-            // 間距拉到讓 bestPer 顆填滿整欄高（往下取 0.1px、上限 16）；若上限卡住就用 max-height
-            // 把換欄點釘在 bestPer 顆，否則瀏覽器會多塞一顆進來、平均分配就破功。
-            const vg=bestPer>1?Math.max(gp,Math.min(16,Math.floor((mH-bestPer*best)/(bestPer-1)*10)/10)):gp;
+        if(mf&&mc){ const cnt=mf.querySelectorAll(".bpChip").length, gp=4, padW=20, gap2=14;
+          mf.style.maxHeight="none";                                    // 先解除上一輪釘住的換欄高再量，
+          const mH=Math.max(0,mf.clientHeight-1.5);                      // 否則量到被釘住的高度→越算越小（死亡螺旋）
+          mf.style.maxHeight="";                                         // 量完交還給 --csotherH
+          // 鐵則（2026-08-06 使用者定案）：**右欄圖示大小＝角色池最小那一列的圖示大小**。
+          // 尺寸不再由「填滿分配到的寬」決定，而是先鎖定尺寸，再回頭算需要多寬 → 右欄只佔該佔的寬，
+          // 省下的還給角色池（原本固定 22%、圖被撐大、底下又空一塊）。
+          let cs2=Math.max(8,Math.min(110,sizes.length?Math.min(...sizes):Math.round(avg)));
+          if(cnt&&mH>0){
+            const pc2=wrap.querySelector(".bpPool");
+            const pw=pc2?pc2.getBoundingClientRect().width/bpNet():0;
+            const mwNow=mc.getBoundingClientRect().width/bpNet();
+            const wCap=Math.min(420,Math.max(110,mwNow+Math.max(0,pw-360)));   // 右欄最寬能到多少（角色池至少留 360；上限放到 420 才不會為了 1px 破壞「圖示等大」的鐵則）
+            const maxPerOf=s=>Math.max(1,Math.floor((mH+gp)/(s+gp)));
+            const colsOf=s=>Math.max(1,Math.ceil(cnt/maxPerOf(s)));
+            while(cs2>8&&colsOf(cs2)*(cs2+gp)-gp+padW>wCap)cs2--;              // 真的塞不下才被迫縮小
+            const cols=colsOf(cs2), per=Math.max(1,Math.min(maxPerOf(cs2),Math.ceil(cnt/cols))); // 每欄顆數平均分配
+            const needW=Math.max(110,Math.min(wCap,cols*(cs2+gp)-gp+padW));
+            // 間距拉到讓 per 顆填滿整欄高（往下取 0.1px、上限 16）；上限卡住時用 max-height 把換欄點
+            // 釘在 per 顆，否則瀏覽器會多塞一顆進來、平均分配就破功
+            const vg=per>1?Math.max(gp,Math.min(16,Math.floor((mH-per*cs2)/(per-1)*10)/10)):gp;
             wrap.style.setProperty("--csotherGap",vg+"px");
-            wrap.style.setProperty("--csotherPer",bestPer);
-            wrap.style.setProperty("--csotherH",(bestPer*best+(bestPer-1)*vg+0.5)+"px");
+            wrap.style.setProperty("--csotherPer",per);
+            wrap.style.setProperty("--csotherH",(per*cs2+(per-1)*vg+0.5)+"px");
+            if(!wrap._midFit&&pc2&&Math.abs(mwNow-needW)>6){ wrap._midFit=1;   // 每次重繪只調一次寬，避免與池尺寸互相追
+              mc.style.width=needW+"px"; pc2.style.width=(pw+(mwNow-needW))+"px";
+              requestAnimationFrame(()=>{ try{fitPool();}catch(e){} });        // 寬度變了→兩邊尺寸重算一次
+            }
           }
           // 尺寸與間距寫在 wrap（跨重繪保留）：寫在每次重建的 .bpMid／.bpMergeFlow 上的話，
           // 重繪後第一幀會先吃 CSS 預設值、下一拍才被改回來＝看得到閃一下
-          // 右欄只留「內容需要的寬」，省下的還給角色池（2026-08-06 使用者：底下空太多、框框太寬把角色池壓小）。
-          // 圖示是依分配到的寬長大的，框框永遠看起來滿的 → 要省寬度得先決定欄數：由少往多試，
-          // 取第一個「圖示仍有最佳尺寸四分之三」的欄數（欄數少＝框窄＝角色池變寬；太少欄圖會小到不能看）。
-          // 每次重繪只調一次（_midFit），避免與角色池尺寸互相追。
-          // 只有「角色池真的被寬度卡住」才讓寬：池若是高度決定尺寸(常見於視窗矮)，把右欄縮小只會讓右欄圖變小、
-          // 池的圖一點也不會變大（實測 2560×950 池列高 57→圖 53，給再多寬度也一樣）＝白白犧牲。
-          if(cnt&&mW>0&&mH>0&&poolByW&&!wrap._midFit){ wrap._midFit=1;
-            const pc2=wrap.querySelector(".bpPool"), padW=20, gap2=14;   // .bpMid 左右內距／兩欄間距
-            const pw=pc2?pc2.getBoundingClientRect().width/bpNet():0;
-            const bothW=mW+padW+gap2+pw;                                 // 右欄＋角色池可分配的總寬
-            const szOf=c=>{ const per=Math.ceil(cnt/c);
-              return Math.min(86,avg,Math.floor((mH+gp)/per)-gp,Math.floor((bothW-padW-gap2-360+gp)/c)-gp); }; // 角色池至少留 360
-            let mx=0; for(let c=1;c<=8;c++)mx=Math.max(mx,szOf(c));
-            let pick=0; for(let c=1;c<=8;c++){ const s2=szOf(c); if(s2>=8&&s2>=mx*0.75){pick=c;break;} } // 0.75＝右欄圖至少保有最佳尺寸的四分之三
-            if(pick){ const s2=szOf(pick), needW=Math.max(110,Math.min(300,pick*(s2+gp)-gp+padW));
-              const curW=mc.getBoundingClientRect().width/bpNet();
-              if(Math.abs(curW-needW)>8&&pc2){
-                mc.style.width=needW+"px"; pc2.style.width=(pw+(curW-needW))+"px";
-                requestAnimationFrame(()=>{ try{fitPool();}catch(e){} });  // 寬度變了→兩邊尺寸重算一次
-              } }
-          }
           wrap.style.setProperty("--csother",cs2+"px");
-          // 欄高在 fitPool 跑完之後才定案（實測算的時候 729、最後變 723）→ 用舊高度算出的「一欄放 13 顆」
-          // 實際只塞得下 12 顆，第 13 顆被擠到下一欄，欄與欄的顆數就在 12/13 之間來回跳＝畫面一直閃。
-          // 盯著它的尺寸，一變就重算一次；fitPool 只改內部的 --csother／rowGap，不會改到自己的框大小，
-          // 所以不會無限循環（另有 _roBusy 擋連續觸發）。
+          // 欄高在 fitPool 跑完之後才定案 → 尺寸一變就重算一次；fitPool 只改內部的 --csother／rowGap，
+          // 不會改到自己的框大小，所以不會無限循環（另有 _roBusy 擋連續觸發）
           if(!mf._ro&&window.ResizeObserver){
             mf._ro=new ResizeObserver(()=>{ if(mf._roBusy||!document.body.contains(mf))return; mf._roBusy=1;
               requestAnimationFrame(()=>{ mf._roBusy=0; try{fitPool();}catch(e){} }); });
