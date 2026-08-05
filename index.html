@@ -12081,7 +12081,7 @@ function render(){
     if(window.__bpLiveMount)try{window.__bpLiveMount({S,EMPTY,rerender,saveState});}catch(e){}
     // 模式切換鈕（放在 ↺ 預設旁）：全局模式=PICK 消耗角色池、一般模式=不消耗
     {
-      const fr=document.getElementById("fReset"); fr.style.order="67"; // 篩選列排序（使用者定案 2026-07-30 左→右）：戰隊59 匯入60 直播同步61 自動62 全局63 近期積分64 清空65 截圖 返回 重製篩選67
+      const fr=document.getElementById("fReset"); fr.style.order="67"; // 篩選列排序（2026-08-05 更新 左→右）：戰隊(依DOM在場數右) 匯入60 直播同步61 近期積分62 自動63 全局64 清空65 截圖 返回 重製篩選67
       {const hb=document.getElementById("fHelp"); if(hb)hb.style.order="64";} // 本頁說明統一擺到截圖(拍照)左邊
       // 🗑 重製BP表：清空所有模擬局（上方兩隊保留），可 ↩ 復原
       const rbp=document.createElement("button");
@@ -12098,7 +12098,7 @@ function render(){
         const _bmCur=(V.bpMode||"global")==="global"?"global":"normal";
         const mb=segEl("bpModeSeg",[["global",LANG==="en"?"🌐 Fearless":"🌐 全局","全局模式：PICK 過的英雄從角色池移除（Fearless）"],
                                     ["normal",LANG==="en"?"Normal":"一般","一般模式：PICK 不移除角色池英雄"]],_bmCur,
-          v=>{ if(v===_bmCur)return; V.bpMode=v; saveState(); rerender(); },"","order:63");
+          v=>{ if(v===_bmCur)return; V.bpMode=v; saveState(); rerender(); },"","order:64");
         fr.parentNode.insertBefore(mb,fr);
       }
       // 🎯 新增近期積分：把兩隊每位選手最近兩週積分用過的英雄加進其角色池(綠框標記)
@@ -12110,7 +12110,7 @@ function render(){
         const _sqNm=d=>({7:LANG==="en"?"1 week":"一週",14:LANG==="en"?"2 weeks":"兩週",30:LANG==="en"?"1 month":"一個月",
                          90:LANG==="en"?"3 months":"三個月",180:LANG==="en"?"6 months":"半年"}[d]||d+(LANG==="en"?"d":"天"));
         const spb=document.createElement("button");
-        spb.id="bpSoloqPool"; spb.style.order="64";
+        spb.id="bpSoloqPool"; spb.style.order="62";
         const _spPaint=()=>{ spb.textContent=LANG==="en"?"🎯 Ranked":"🎯 近期積分";
           spb.title=(LANG==="en"
             ?`Add each player's ranked champs from the last ${_sqNm(+V.bpSqDays||14)} to the pool (green frame)｜left-click: toggle｜right-click: change range`
@@ -12193,7 +12193,7 @@ function render(){
       // 單顆切換鈕（2026-08-05 使用者：跟近期積分同款）：鈕面「⏵ 自動」，黃邊＝開啟中
       const _abTtl="自動模式：左鍵點角色池英雄自動填入待填格（發光處），左鍵拖曳仍可自由放格｜點擊切換開關";
       const ab=document.createElement("button");
-      ab.id="bpAutoBtn"; ab.style.order="62"; ab.title=_abTtl;
+      ab.id="bpAutoBtn"; ab.style.order="63"; ab.title=_abTtl;
       const _abPaint=()=>{ ab.textContent=LANG==="en"?"⏵ Auto":"⏵ 自動";
         ab.style.borderColor=V.bpAuto?"var(--gold)":""; ab.style.color=V.bpAuto?"var(--gold)":""; };
       _abPaint();
