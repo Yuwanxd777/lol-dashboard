@@ -316,6 +316,18 @@
   .bpColF:hover{border-color:var(--acc)}
   .bpColF:focus{outline:none;border-color:var(--acc)}
   .bans .banSep{display:inline-block;width:0;border-left:1px solid #3a4661;height:50px;margin:0 7px 0 0;vertical-align:middle} /* 禁用：第一輪禁(前3)｜第二輪禁(後2) 分隔線；左側間距由前一顆頭像的 margin-right(12) 提供＋線1＋右7＝跨輪 20px */
+  /* ── 比賽BP 選角順序檢視（wiki PB 版型；2026-08-05）── 整條 draft 時間軸：
+     藍框＝藍方、紅框＝紅方；禁用灰階；細線＝同輪內的出手組、粗線＝禁用/選角階段分界 */
+  .bp td.draftc{white-space:nowrap;text-align:left}
+  .draftc .cc{margin-right:4px} .draftc .cc:last-child{margin-right:0}
+  .draftc .cc img{width:36px;height:36px;border-radius:7px}
+  .draftc .cc.dB img{border:2px solid #6aa8ff}
+  .draftc .cc.dR img{border:2px solid #e0574d}
+  .draftc .cc.dBan img{filter:grayscale(.85) brightness(.75)}
+  .draftc .cc.dBan img.nobanImg{filter:none}
+  .draftc .dSep{display:inline-block;width:0;border-left:1px solid #3a4661;height:36px;margin:0 8px 0 4px;vertical-align:middle}
+  .draftc .dSep.dPh{border-left-width:3px;border-color:#55648a}
+  .draftc .noBpQ{width:36px;height:36px;line-height:36px}
   input.combo::-webkit-calendar-picker-indicator,input[list]::-webkit-calendar-picker-indicator{display:none!important;opacity:0;width:0} /* datalist 白三角沒有實用性 → 移除 */
   .cwrap .cal{position:absolute;right:24px;background:none;border:none;cursor:pointer;font-size:13px;padding:0 2px;line-height:1}
   .cwrap .cal:hover{filter:brightness(1.4)}
@@ -1892,7 +1904,7 @@ const TAB_HELP={
 "戰隊":"<b>這頁</b>：戰隊數據與<b>評分</b>。\n<b>操作</b>：<b>對戰</b>下拉只看面對某隊的成績、點<b>欄位名</b>排序、點<b>戰隊名</b>看該隊<b>BP 紀錄</b>。\n<b>看法</b>：<b>滑欄位名看該欄定義</b>——<b>括號裡是次要值</b>（如 <b>勝率(大場勝率)</b> 前面是小局、括號內才是系列賽），<b>排序一律照括號前那個主值</b>；上色走台灣習慣（越高越紅）。\n<b>2026 新制</b>：拿到<b>第一選擇權(1st Sel)</b> 的隊伍先決定要「選邊」還是「選序」，另一項就歸對手。三欄都寫<b>次數最高那項＋括號各項次數</b>——<b>主動權</b>＝有第一選擇權時做了什麼（先選/後選/選藍/選紅）、<b>被動選邊</b>＝選邊被留給該隊時選藍還是選紅、<b>被動選序</b>＝選序留給該隊時排先還是排後。三欄只有 2026 起才有資料；比賽BP 的「選擇」欄金色字＝當局拿到第一選擇權的那隊。\n<b>注意</b>：勾<b>僅限雙方對戰</b>讓雷達只比直接交手；<b>同縮寫的改名隊自動合併</b>（如 Team Secret／Team Secret Whales＝TSW）；場數過少不列入排名上色。",
 "陣容":"<b>這頁</b>：一隊<b>五路先發</b>的角色池。\n<b>操作</b>：上方<b>戰隊</b>下拉選隊、每一路點<b>欄位名</b>各自排序。\n左上三顆切換角色池來源：<b>🏆 職業賽</b>＝比賽先發（跟隨上方篩選）、<b>📜 職業生涯</b>＝該選手 <b>2014~現在的職業生涯全部</b>（跨隊、不受上方篩選影響；每路可從下拉挑該隊歷代選手）、<b>🎯 積分</b>＝選手單雙排常用英雄。\n<b>看法</b>：欄位含出場、勝率、被禁率、上次使用日。\n<b>注意</b>：場數低於 3 場不列入排名上色。",
 "近況":"<b>這頁</b>：輸入一個戰隊，一頁看完它的<b>近期狀況</b>（方便直接截圖）。範圍＝目前篩選下該隊<b>最近 5 個系列賽</b>。\n<b>版面</b>：<b>標頭</b>＝連勝／連敗、這段期間的系列與小局戰績。\n<b>近期賽果</b>＝五個系列的日期／賽事／對手／比分。\n<b>五路先發</b>＝每路出賽最多的選手：場數／勝率／KDA／慣用英雄；當年另有<b>近 7 天積分</b>場數勝敗與常用英雄。\n<b>BP 傾向</b>＝這段期間該隊常選、我方常 Ban、被對手針對 Ban 的英雄。\n<b>操作</b>：右上 <b>📸</b> 一鍵輸出 1080p 截圖（檔名＝縮寫_近況_日期）。\n<b>看法</b>：慣用英雄滑上去看場數勝率。",
-"比賽BP":"<b>這頁</b>：兩隊<b>系列賽 BP 紀錄</b>，最新在上。\n<b>操作</b>：上方<b>戰隊</b>下拉指定戰隊（可只填一隊看其所有系列）；在欄名下方輸入即逐欄篩選。\n<b>看法</b>：<b>金色數字</b>＝選角順位 1 到 7、<b>星號</b>＝勝方；藍方／紅方右邊的<b>選擇</b>欄寫這局誰拿走選邊權（<b>選藍／選紅</b>）、誰拿走先選權（<b>先選／後選</b>）。\n<b>注意</b>：標題會自動標<b>缺場</b>（BO5 打到 2-2 卻少第 5 局等）；BO2 的 1-1 和局不算缺。\n<b>先選方不等於藍方</b>——2026 起是新制，先選／後選由雙方自己選，與藍紅方脫鉤；2025 以前才是藍方固定先選。",
+"比賽BP":"<b>這頁</b>：兩隊<b>系列賽 BP 紀錄</b>，最新在上。\n<b>操作</b>：上方<b>戰隊</b>下拉指定戰隊（可只填一隊看其所有系列）；在欄名下方輸入即逐欄篩選；<b>📋 選角順序</b>切換檢視——路線檢視（TOP~SUP 五欄）⇄ 選角順序檢視（同 wiki PB 頁：整條時間軸依<b>出手順</b>排「第一輪禁 → 選角 → 第二輪禁 → 選角」，<b>藍框／紅框</b>＝該邊、<b>灰階</b>＝禁用，細線分出手組、粗線分階段）。\n<b>看法</b>：<b>金色數字</b>＝選角順位 1 到 7、<b>星號</b>＝勝方；藍方／紅方右邊的<b>選擇</b>欄寫這局誰拿走選邊權（<b>選藍／選紅</b>）、誰拿走先選權（<b>先選／後選</b>）。\n<b>注意</b>：標題會自動標<b>缺場</b>（BO5 打到 2-2 卻少第 5 局等）；BO2 的 1-1 和局不算缺。\n<b>先選方不等於藍方</b>——2026 起是新制，先選／後選由雙方自己選，與藍紅方脫鉤；2025 以前才是藍方固定先選。",
 "圖鑑":"<b>這頁</b>：資料庫總集，上方分頁切換分區。\n<b>版面</b>：<b>版本</b>＝全年或單版本的英雄／裝備改動（點版本號看官方公告）。\n<b>英雄</b>＝點名字看歷年改動與<b>專屬機制</b>大框。\n<b>道具</b>／<b>符文</b>／<b>物件</b>＝建築、史詩野怪、龍魂等官方數值。\n<b>賽事</b>＝當年聯賽樹狀圖（三大國際賽／一二級賽區／盃賽，含各隊縮寫，國際賽帶母賽區色框）。\n<b>操作</b>：多數分區可搜尋、滑上看說明。\n<b>看法</b>：改動卡片邊框<b>紅＝增強、綠＝削弱、黃＝調整</b>；賽事樹綠勾 ✓＝晉級隊。\n<b>注意</b>：<b>新登場／重製登場／重返遊戲不標增強削弱</b>——那是「現在長這樣」，沒有對照物。",
 "模擬BP":"<b>這頁</b>：自己排 BAN／PICK、即時看路線判定。\n<b>版面</b>：模擬局在左、角色池在中、<b>雙方BAN過／其他英雄</b>在最右直欄（局號 1→N，最新局在最右、緊貼角色池）。\n<b>操作</b>：上方選<b>戰隊A／B</b>帶出雙方角色池；<b>拖曳</b>或<b>左鍵拎起</b>池中英雄→到格內左鍵放入、右鍵取消；點已填格移除、點<b>先選／後選</b>切順位、<b>⇄</b>換輪替選手。\n按鈕：⏵自動（點池自動填下一格；開新局請點 ＋）、全局／一般（全局＝Fearless：PICK 從池消失、BAN 不消耗、最多五局）、📥匯入BP、🗑清空、📸截圖。\n<b>看法</b>：滑到模擬局英雄→右側顯示<b>詳細數據</b>（BAN 顯示<b>對手</b>使用數據），同英雄會在所有模擬局一起發光。\n路線判定：隊上選手池＝實心、全庫近況補的＝半透明（點半透明確認正路即變實心）。\n標記：<b>金光</b>＝全場只有他會用、<b>青框</b>＝同隊多人會用、<b>禁用圖示</b>＝對手慣用但沒選過的禁招。\n<b>注意</b>：📥<b>匯入BP</b>把真實系列賽帶進來（全局模式會先清掉其他局）；匯入的局<b>只能換英雄、不能改順位</b>（整局可刪）。",
 "英雄Tier":"<b>這頁</b>：依你的判斷把英雄分級（S／A／B…）。\n<b>操作</b>：左側角色池<b>拖曳</b>或<b>左鍵拎起</b>→放到右邊 Tier 列（列間可互拖、拖回池或點一下移回、右鍵取消）。\n階列：可<b>改名</b>、點色塊<b>換色</b>、<b>✕</b>刪階（英雄回池）、下方<b>＋</b>加階、右側<b>⠿</b>拖曳整階排序。\n按鈕：⇄五路／混合、🎯積分數據／📊比賽數據／✏️自訂、⚙參數（門檻與奇招條件）、🗑清空、📸截圖。\n<b>看法</b>：三向模式各自獨立、互不覆蓋；數據模式自動分階、再點一次依目前篩選重新產生；滑鼠移到英雄上顯示該模式的數據（自訂模式積分與比賽都列）。\n英雄圖邊框<b>紅＝版本增強、綠＝削弱、黃＝調整</b>。\n<b>注意</b>：評分<b>不無條件進位</b>（89.9 仍在 A）。",
@@ -6062,12 +6074,16 @@ function _calcMatches0(team){
     {const _sr=(+String(o.date).slice(0,4)>=2026)?ssIdx().get(_ssKey(o.date,bt,rt,num(r[C.game])||0)):null;
      if(_sr&&_sr.s&&(_sr.pc===1||_sr.pc===2)){ const pkSide=_sr.s==="b"?"red":"blue";
        first=_sr.pc===1?pkSide:(pkSide==="red"?"blue":"red"); }}
+    // pk＝各邊「選角序」的五隻（picklist 前5藍後5紅，各半段本身就是該邊的出手順）：
+    // 選角順序檢視（wiki PB 版型）要靠它重建整條 draft 時間軸，缺的局給空陣列（畫問號）
+    const _pkA=String(r[C.picklist]).split("|");
+    const _pk=_pkA.length>=12?_pkA.slice(1,11):_pkA.filter(x=>x.trim());
     out.push({date:o.date.slice(5),_d:o.date,_dt:o.dt||o.date,_g:num(r[C.game])||0,league:o.league,split:o.split,patch:o.patch,
       win:o.result===1?tAb(bt):tAb(rt), first, blueWin:o.result===1,
       gl:num(r[C.blue_gamelength]),
       _btf:bt,_rtf:rt,   // 隊伍全名：選邊權資料(side_sel.js)是用 Leaguepedia 全名建索引，縮寫對不起來
-      blue:{team:tAb(bt),bans:_sided?_bB:bans.slice(0,half),lane:bl,po:bpo,p:_lnP(r[C.blue_Lane])},
-      red:{team:tAb(rt),bans:_sided?_bR:bans.slice(half),lane:rl,po:rpo,p:_lnP(r[C.red_Lane])}});
+      blue:{team:tAb(bt),bans:_sided?_bB:bans.slice(0,half),lane:bl,po:bpo,p:_lnP(r[C.blue_Lane]),pk:_pk.length>=10?_pk.slice(0,5):[]},
+      red:{team:tAb(rt),bans:_sided?_bR:bans.slice(half),lane:rl,po:rpo,p:_lnP(r[C.red_Lane]),pk:_pk.length>=10?_pk.slice(5,10):[]}});
   }
   // 用完整時間戳(含時分秒)由近到遠：跨日、同日、系列內都一致；時間相同再依 game 序號
   return out.sort((a,b)=>b._dt.localeCompare(a._dt)||b._g-a._g);
@@ -10725,8 +10741,16 @@ function render(){
     V.bpLane=V.bpLane||{}; V.bpColF=(V.bpColF&&typeof V.bpColF==="object")?V.bpColF:{}; // 每欄篩選狀態(欄key→關鍵字)
     V.bpSideMode=(["br","team"].includes(V.bpSideMode))?V.bpSideMode:"br"; // 左側代表：br 一般（藍左紅右）／team 混合（搜尋的戰隊在左）；先選模式已移除（2026-08-04 使用者指定，fp 舊存檔自動退回一般）
     const _bpModeLbl=md=>({br:LANG==="en"?"🟣 Default":"🟣 一般",team:LANG==="en"?"🟪 Mixed":"🟪 混合"}[md]||md);
-    main.innerHTML=filterBar("")
-      +`<div class="card"><h2 style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">🎯 ${T("BP 紀錄")} <span class="sub" id="cnt"></span><span class="sub" style="flex:1 1 220px">${LANG==="en"?`gold number = pick order (1-7), <span style="background:rgba(255,255,255,.14);padding:0 5px;border-radius:3px">white row-band</span> = winning team, newest first｜type in a column header to filter`:`金色數字＝選角順位(1-7)，<span style="background:rgba(255,255,255,.14);padding:0 5px;border-radius:3px">白底那隊</span>＝勝方，最新在上｜在欄名下方輸入即逐欄篩選`}</span></h2><div id="tbl"></div></div>`;
+    // 選角順序檢視（wiki Picks and Bans 版型；2026-08-05 使用者指定）：整條 draft 時間軸
+    // （禁選全依出手順、藍紅框色分邊）取代 禁用＋五路 欄位；切換鈕走 filterBar 的 extra 槽
+    V.bpDraftMode=!!V.bpDraftMode;
+    const _dm=V.bpDraftMode;
+    main.innerHTML=filterBar(`<button id="bpDraftT" title="${_dm?(LANG==="en"?"Back to lane view":"切回路線檢視（TOP~SUP 五欄）"):(LANG==="en"?"Draft-order view (wiki PB style)":"切成選角順序檢視（照 BAN/PICK 出手順排列，同 wiki PB 頁）")}">${_dm?"🛣️ "+(LANG==="en"?"Lane view":"路線檢視"):"📋 "+(LANG==="en"?"Draft order":"選角順序")}</button>`)
+      +`<div class="card"><h2 style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">🎯 ${T("BP 紀錄")} <span class="sub" id="cnt"></span><span class="sub" style="flex:1 1 220px">${_dm
+        ?(LANG==="en"?`draft order left→right (ban phase 1 → picks → ban phase 2 → picks), blue/red frame = side, grayscale = ban, newest first`:`由左至右＝出手順（第一輪禁用 → 選角 → 第二輪禁用 → 選角），藍/紅框＝該邊、灰階＝禁用，最新在上`)
+        :(LANG==="en"?`gold number = pick order (1-7), <span style="background:rgba(255,255,255,.14);padding:0 5px;border-radius:3px">white row-band</span> = winning team, newest first｜type in a column header to filter`:`金色數字＝選角順位(1-7)，<span style="background:rgba(255,255,255,.14);padding:0 5px;border-radius:3px">白底那隊</span>＝勝方，最新在上｜在欄名下方輸入即逐欄篩選`)}</span></h2><div id="tbl"></div></div>`;
+    // ⚠ 要整頁 render()：欄組(COLF)/表頭都在外層算，局部 rerender() 只重畫表身、換不了版型
+    {const _bt=document.getElementById("bpDraftT"); if(_bt)_bt.onclick=()=>{V.bpDraftMode=!V.bpDraftMode;saveState();render();};}
     const mmss=s=>s?`${Math.floor(s/60)}:${String(Math.round(s%60)).padStart(2,"0")}`:"–";
     // 賽事欄 LPL 常規賽附組名(季後賽/升降不標；系列賽兩隊同組才明確標)：teams＝已 tAb 的縮寫
     const _lplGrpTag=(league,split,teams)=>{ if((league!=="LPL"&&league!=="LCK")||!split||/PO$|季後|升降/.test(String(split))||!teams)return "";
@@ -10779,11 +10803,24 @@ function render(){
     const _hasSel=+curYear>=2026;
     // 2026-08-04 版型實驗：日期/賽事/版本 三欄收進系列標題列（無論如何保留），
     // 首欄改成「局數」（清單 1~5 直接篩第幾局）
-    const COLF=[
+    const _leadCols=[
       _cL(["gno", LANG==="en"?"game":"局數", 66, "", m=>{const CN=["","一","二","三","四","五"];
         return (LANG==="en"?`game ${m._g}`:`第${CN[m._g]||m._g}局 ${m._g}`);}]),
       _cL(["gl",   LANG==="en"?"time":"時長", 66, "",     m=>mmss(m.gl)]),
       _cL(["win",  LANG==="en"?"win":"勝",    66, "team", m=>String(m.win).toLowerCase()]),
+    ];
+    // 選角順序檢視的 draft 欄寬：圖 36＋框 4＋距 4 ≒ 44/顆；5 禁年代 20 顆、3 禁 16 顆＋分隔與內距
+    const _draftW=_b5?1010:830;
+    const COLF=_dm?[
+      ..._leadCols,
+      _cL(["bt",   LANG==="en"?"blue":"藍方", 66, "team", m=>String(m.blue.team).toLowerCase()]),
+      ...(_hasSel?[_cL(["bsel", LANG==="en"?"choice":"選擇",66,"", m=>ssCatLbl(m,true).toLowerCase()])]:[]),
+      _cL(["rt",   LANG==="en"?"red":"紅方",  66, "team", m=>String(m.red.team).toLowerCase()]),
+      ...(_hasSel?[_cL(["rsel", LANG==="en"?"choice":"選擇",66,"", m=>ssCatLbl(m,false).toLowerCase()])]:[]),
+      _cL(["draft", LANG==="en"?"draft":"BAN｜PICK 順序", _draftW, "champ",
+        m=>[...(m.blue.bans||[]),...(m.red.bans||[]),...m.blue.lane.slice(0,5),...m.red.lane.slice(0,5)].map(_cTxt).join(" ")]),
+    ]:[
+      ..._leadCols,
       _cL(["bt",   LANG==="en"?"blue":"藍方", 66, "team", m=>String(sides(m).L.team).toLowerCase()]),
       ...(_hasSel?[_cL(["bsel", LANG==="en"?"choice":"選擇",66,"", m=>ssCatLbl(m,sides(m).LisBlue).toLowerCase()])]:[]),
       _cL(["bb",   LANG==="en"?"ban":"禁",    _banW,"champ",m=>(sides(m).L.bans||[]).map(_cTxt).join(" ")]),
@@ -10809,6 +10846,8 @@ function render(){
     {const _fk=new Set(FILTERS.map(f=>f.k)); Object.keys(V.bpColF).forEach(k=>{ if(!_fk.has(k))delete V.bpColF[k]; });} // 清掉不再有輸入框的殘留值
     // 每欄各自下拉：只列「該欄實際出現過的值」；英雄依網站語言(chName)、隊伍用縮寫；依全域 vcKey 快取(欄篩選變動不重算)
     const _fdv=(k,m)=>{ const md=V.bpSideMode||"br"; if(k==="win")return[m.win];
+      if(k==="draft")return[...(m.blue.bans||[]),...(m.red.bans||[]),...m.blue.lane.slice(0,5),...m.red.lane.slice(0,5)]; // 選角順序欄：下拉＝整局禁選全部英雄
+      if(_dm&&(k==="bt"||k==="rt"))return[(k==="bt"?m.blue:m.red).team]; // draft 檢視固定藍左紅右
       const gb=/^([br])b([1-9])$/.exec(k); // 禁用格：下拉範圍＝該手所屬的整個禁用階段（與上面的比對範圍一致）
       if(md!=="br"){ // fp/team：左右欄可能來自任一實際邊 → 下拉取兩邊聯集
         if(k==="bt"||k==="rt")return[m.blue.team,m.red.team];
@@ -10817,7 +10856,7 @@ function render(){
       if(k==="bt")return[m.blue.team]; if(k==="rt")return[m.red.team];
       if(gb){const[a,z]=_banPh(+gb[2]-1);return((gb[1]==="b"?m.blue:m.red).bans||[]).slice(a,z);}
       const g=/^([br])l([0-4])$/.exec(k); if(g)return[(g[1]==="b"?m.blue:m.red).lane[+g[2]]]; return []; }; // 時長等：無下拉
-    const _dlKey="bp2|"+(V.bpSideMode||"br")+"|"+vcKey(); window._BPDL=window._BPDL||{}; // 快取鍵含模式(切模式→下拉重算)
+    const _dlKey="bp2|"+(V.bpSideMode||"br")+"|"+(_dm?"d":"l")+"|"+vcKey(); window._BPDL=window._BPDL||{}; // 快取鍵含模式與檢視(切換→下拉重算)
     let _DLF=window._BPDL[_dlKey];
     if(!_DLF){ const S={}; FILTERS.forEach(f=>{S[f.k]=new Map();}); // 值→出現場數（清單要照場數排）
       // 英雄下拉的 option「值」只放中文名：曾經放「好運姐 Miss Fortune」這種一整串，在窄框裡英文
@@ -10984,12 +11023,62 @@ function render(){
       )+`</td>`; // 禁用前3(第一輪禁)｜後2(第二輪禁)以分隔線分開；整局沒資料＝整排問號
       // 藍紅共用色票：勝方欄與統計條都用這組（改一處兩邊一致）
       const _CBLU="#6aa8ff",_CRED="#e0574d",_CGLD="var(--gold)",_CMUT="var(--tx2)";
+      // ── 選角順序檢視（wiki Picks and Bans 版型；2026-08-05）──
+      // 整條 draft 時間軸由左至右＝真實出手順：第一輪禁 → 第一輪選 → 第二輪禁 → 第二輪選。
+      // 先選方(F)＝m.first 那一邊；順位結構（PO_TABLES 同款）：
+      //   選角＝F1｜S1 S2｜F2 F3｜S3 ‖ S4｜F4 F5｜S5（3 禁年代同）
+      //   禁用＝F S F S F S（第一輪 3 手交錯）‖ S F S F（第二輪；3 禁年代只有第一輪）
+      // 各邊選角序用 pk（picklist 半段＝該邊出手順）；藍/紅框＝該邊、灰階＝禁用。
+      const _dIco=(ch,side,tip,ban)=>{const cls=`d${side==="b"?"B":"R"}${ban?" dBan":""}`;
+        if(ban&&_noBan(ch))return `<span class="cc ${cls}"><img class="nobanImg" src="${NOBAN_SVG}" alt="${LANG==="en"?"no ban":"空BAN"}" title="${esc(tip)}"></span>`;
+        if(!ch||String(ch).trim()==="?")return `<span class="cc ${cls} noBpQ" title="${esc(tip)}">？</span>`;
+        return `<span class="cc ${cls}" title="${esc(tip)}"><img loading="lazy" data-cid="${champId(ch)}" src="https://ddragon.leagueoflegends.com/cdn/${yearVer()}/img/champion/${champId(ch)}.png" alt="${esc(ch)}" onerror="champImgFb(this)"></span>`;};
+      const draftCell=m=>{
+        const fB=m.first!=="red";                       // 先選方是不是藍方
+        const F=fB?m.blue:m.red, S=fB?m.red:m.blue, fs=fB?"b":"r", ss=fB?"r":"b";
+        const _tm=s=>s===F?F.team:S.team;
+        const pkOf=s=>(s.pk&&s.pk.length>=5)?s.pk:null;
+        const Fp=pkOf(F), Sp=pkOf(S);
+        const _pTip=(s,ch,n)=>{const i=(s.lane||[]).indexOf(ch); const pl=i>=0?String((s.p||[])[i]||"").trim():"";
+          return `${LANG==="en"?`pick ${n}`:`第 ${n} 手選用`}・${s.team}${pl?`・${pl}`:""}`;};
+        const _bTip=(s,n)=>`${LANG==="en"?`ban ${n}`:`第 ${n} 手禁用`}・${s.team}`;
+        const sep=`<span class="dSep"></span>`, ph=`<span class="dSep dPh"></span>`;
+        const fbn=F.bans||[], sbn=S.bans||[];
+        const has5=Math.max(fbn.length,sbn.length)>3;
+        let out="";
+        if(fbn.length||sbn.length){                    // 第一輪禁：F S F S F S（各 3 手）
+          const b1=[];
+          for(let i=0;i<3;i++){ b1.push(_dIco(fbn[i],fs,_bTip(F,i*2+1),1)); b1.push(_dIco(sbn[i],ss,_bTip(S,i*2+2),1)); }
+          out+=b1.join("");
+        } else out+=_qIco(LANG==="en"?"no ban data":"這局沒有禁用資料");
+        out+=ph;
+        if(Fp&&Sp){                                    // 第一輪選：F1｜S1 S2｜F2 F3｜S3
+          out+=_dIco(Fp[0],fs,_pTip(F,Fp[0],1))+sep
+              +_dIco(Sp[0],ss,_pTip(S,Sp[0],2))+_dIco(Sp[1],ss,_pTip(S,Sp[1],3))+sep
+              +_dIco(Fp[1],fs,_pTip(F,Fp[1],4))+_dIco(Fp[2],fs,_pTip(F,Fp[2],5))+sep
+              +_dIco(Sp[2],ss,_pTip(S,Sp[2],6));
+          if(has5){                                    // 第二輪禁：S F S F
+            out+=ph+[_dIco(sbn[3],ss,_bTip(S,7),1),_dIco(fbn[3],fs,_bTip(F,8),1),
+                     _dIco(sbn[4],ss,_bTip(S,9),1),_dIco(fbn[4],fs,_bTip(F,10),1)].join("");
+          }
+          out+=ph                                      // 第二輪選：S4｜F4 F5｜S5
+              +_dIco(Sp[3],ss,_pTip(S,Sp[3],7))+sep
+              +_dIco(Fp[3],fs,_pTip(F,Fp[3],8))+_dIco(Fp[4],fs,_pTip(F,Fp[4],9))+sep
+              +_dIco(Sp[4],ss,_pTip(S,Sp[4],10));
+        } else out+=_qIco(LANG==="en"?"no pick-order data for this game":"這局沒有選角順序資料");
+        return `<td class="draftc">${out}</td>`;
+      };
       const rowHTML=(m,gno)=>{
         // 隊名不再標「先選方＝金色粗體」（2026-08-03 使用者取消）：右邊的「選擇」欄已經
         // 直接寫先選／後選，重複標示反而讓整列到處都是金色。
         const cell=(s,isBlue,won)=>`<td class="${sCls(isBlue,won)}">${s.team}</td>`;
         // 首欄＝「└ 第N局」（日期/賽事/版本都在系列標題列；2026-08-04 版型實驗）
         const head=`<td class="subg">└ ${LANG==="en"?`Game ${gno}`:`第${gno}局`}</td>`;
+        if(_dm){ // 選角順序檢視：隊名固定藍左紅右（時間軸本身就依實際邊上色）
+          const bWon=m.blueWin, rWon2=!m.blueWin;
+          return `<tr class="subrow">${head}<td class="meta">${mmss(m.gl)}</td><td class="win" style="color:${m.blueWin?_CBLU:_CRED}">${m.win}</td>
+          ${cell(m.blue,true,bWon)}${selCell(m,true,bWon)}${cell(m.red,false,rWon2)}${selCell(m,false,rWon2)}${draftCell(m)}</tr>`;
+        }
         const S=sides(m); // 依模式決定左右實際邊
         const lWon=S.LisBlue===m.blueWin, rWon=!lWon; // 哪一顯示側獲勝→整隊範圍底色加深
         return `<tr class="subrow">${head}<td class="meta">${mmss(m.gl)}</td><td class="win" style="color:${m.blueWin?_CBLU:_CRED}">${m.win}</td>
@@ -11040,7 +11129,7 @@ function render(){
         ${spN?`<span>🎯 ${LANG==="en"?"Took pick-order%":"選選序率"} ${_pair(spY,spN,_CGLD,_CMUT)}</span>`:""}
         <span>⏱️ ${T("場均時長")} <b>${mmss(avg)}</b></span>
       </div>`:"";
-      const missRowHTML=n=>`<tr class="subrow missrow"><td class="subg">${LANG==="en"?`└ Game ${n}`:`└ 第${n}局`}</td><td colspan="${_hasSel?18:16}" style="color:#e0574d;font-weight:bold">🚫 ${T("資料缺失（此局尚未匯入）")}</td></tr>`;
+      const missRowHTML=n=>`<tr class="subrow missrow"><td class="subg">${LANG==="en"?`└ Game ${n}`:`└ 第${n}局`}</td><td colspan="${COLF.length-1}" style="color:#e0574d;font-weight:bold">🚫 ${T("資料缺失（此局尚未匯入）")}</td></tr>`;
       const seriesHTML=s=>{
         // 左右隊序＝**系列第一局的藍方在左**（2026-08-04 使用者指定）；第一局缺就用現存最早那局
         let [A,B]=s.teams;
@@ -11060,7 +11149,7 @@ function render(){
         const _spTxt=`${spDisp(s.split)||""}${_lplGrpTag(s.league,s.split,s.teams)||""}`.trim();
         // 標題列：日期｜聯賽｜賽段｜比分｜版本，間隔走原本的 flex gap（2026-08-04 使用者：
         // 固定欄位版試過改回）；空賽段不輸出 span（不多吃一份 gap）
-        return `<tr class="seriesHead"><td colspan="${_hasSel?19:17}"><div class="shRow">`
+        return `<tr class="seriesHead"><td colspan="${COLF.length}"><div class="shRow">`
           +`<span class="sMeta">${s.date}</span><span class="meta">${esc(s.patch||"")}</span>${lgChip(s.league)}${_spTxt?`<span class="meta">${_spTxt}</span>`:""}`
           +`<span class="sVs"><span class="${sa>sb?'sWin':''}">${A}</span> <b class="${sa>sb?'win':''}">${sa}</b>-<b class="${sb>sa?'win':''}">${sb}</b> <span class="${sb>sa?'sWin':''}">${B}</span></span>`
           +warn
@@ -11069,8 +11158,9 @@ function render(){
       };
       document.getElementById("tbl").innerHTML=strip+`<div class="tblwrap"><table class="bp" style="table-layout:fixed"><colgroup>${COLF.map(c=>`<col style="width:${c.w}px">`).join("")}</colgroup><thead><tr>
         <th>${LANG==="en"?"Game":"局數"}</th><th>時長</th><th>勝</th>
-        <th>${HL[0]}</th>${_selTH}<th>禁用</th><th>${posImg("TOP")}</th><th>${posImg("JNG")}</th><th>${posImg("MID")}</th><th>${posImg("BOT")}</th><th>${posImg("SUP")}</th>
-        <th>${HL[1]}</th>${_selTH}<th>禁用</th><th>${posImg("TOP")}</th><th>${posImg("JNG")}</th><th>${posImg("MID")}</th><th>${posImg("BOT")}</th><th>${posImg("SUP")}</th></tr>
+        ${_dm?`<th>${LANG==="en"?"Blue":"藍方"}</th>${_selTH}<th>${LANG==="en"?"Red":"紅方"}</th>${_selTH}<th style="text-align:left">${LANG==="en"?"draft order (ban 1 → picks → ban 2 → picks)":"BAN｜PICK 順序（第一輪禁 → 選角 → 第二輪禁 → 選角）"}</th>`
+        :`<th>${HL[0]}</th>${_selTH}<th>禁用</th><th>${posImg("TOP")}</th><th>${posImg("JNG")}</th><th>${posImg("MID")}</th><th>${posImg("BOT")}</th><th>${posImg("SUP")}</th>
+        <th>${HL[1]}</th>${_selTH}<th>禁用</th><th>${posImg("TOP")}</th><th>${posImg("JNG")}</th><th>${posImg("MID")}</th><th>${posImg("BOT")}</th><th>${posImg("SUP")}</th>`}</tr>
         <tr class="bpFRow">${COLF.map(c=>`<th style="padding:2px 3px;top:auto">${_fcell(c)}</th>`).join("")}</tr></thead><tbody id="bpBody"></tbody></table></div>
         <div class="row" style="justify-content:center;margin-top:10px"><button id="bpMore" class="primary"></button></div>`;
       // 五路欄寬固定：.tblwrap 的 min-width:100% 會把不足容器的表格按比例撐開、每欄偷偷
