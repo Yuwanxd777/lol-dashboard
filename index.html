@@ -738,7 +738,7 @@
   .bp tbody tr.subrow:nth-child(odd):hover td:not(.bpB):not(.bpR){background:#161c2b}
   .bp tbody tr.subrow:nth-child(even):hover td:not(.bpB):not(.bpR){background:#1a202f}
   .bp.bpDraft tbody tr.subrow:nth-child(odd):hover td:not(.bpB):not(.bpR){background:rgba(255,255,255,.055)}
-  .bp tbody tr.subrow:hover td{border-top:1px solid var(--gold);border-bottom:1px solid var(--gold)}
+  .bp tbody tr.subrow:hover td{box-shadow:inset 0 1px 0 var(--gold),inset 0 -1px 0 var(--gold)} /* 用 inset 陰影畫上下金線：border 會被 border-collapse 跟鄰列（系列標題）的框合併吃掉（2026-08-05 使用者回報系列末局下線消失） */
   /* 英雄Tier：圓形色彩選擇塊（點擊開圓盤色盤） */
   .tClr{flex:0 0 auto;width:26px;height:26px;padding:0;border:1px solid #33405c;cursor:pointer;border-radius:50%}
   /* 英雄Tier：整階拖曳把手 */
@@ -11208,9 +11208,12 @@ function render(){
       const _wrIco=mode==="br"?"🟣":mode==="fp"?LR.li:"🟪"; // 先選模式只掛 🥇、該隊模式掛紫方塊（2026-08-04 使用者指定；🟣＝藍紅合併同款邏輯）
       const _cL1=mode==="br"?_CBLU:_CGLD, _cR1=mode==="br"?_CRED:_CMUT;
       // 缺場字樣：0 場不顯示、三種模式（含路線）都寫（2026-08-05 使用者定案）；
+      // 路線模式的缺場＝未匯入缺局＋**缺選序資料的局**（畫 🚫 缺場列那些；使用者回報有列卻沒計數）
       // 場均時長移到「共 N 場」右邊
+      const _noPkN=_dm?msV.filter(m=>!(m.blue.pk&&m.blue.pk.length>=5&&m.red.pk&&m.red.pk.length>=5)).length:0;
+      const missN=totalMiss+_noPkN;
       const strip=n?`<div class="statline">
-        <span>${LANG==="en"?`<b>${n}</b> games`:`共 <b>${n}</b> 場`}${totalMiss?`　<span class="meta">${LANG==="en"?`<b style="color:#e0574d">${totalMiss}</b> missing in range`:`範圍內缺 <b style="color:#e0574d">${totalMiss}</b> 場`}</span>`:""}</span>
+        <span>${LANG==="en"?`<b>${n}</b> games`:`共 <b>${n}</b> 場`}${missN?`　<span class="meta">${LANG==="en"?`<b style="color:#e0574d">${missN}</b> missing in range`:`範圍內缺 <b style="color:#e0574d">${missN}</b> 場`}</span>`:""}</span>
         <span>⏱️ ${T("場均時長")} <b>${mmss(avg)}</b></span>
         <span>${_wrIco} ${_wrLbl} ${_pair(lw,n,_cL1,_cR1)}</span>
         ${ssN?`<span>🟦 ${LANG==="en"?"Chose-blue%":"選藍率"} ${_pair(ssB,ssN,_CBLU,_CRED)}</span>`:""}
