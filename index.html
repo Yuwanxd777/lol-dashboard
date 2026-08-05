@@ -86,8 +86,7 @@
   .bpFRow .fsel .fselTx{overflow:hidden;white-space:nowrap}
   /* ✕：欄寬與「勝」同款(66px)塞不下常駐 ✕ → 有值且滑過鈕才浮出；
      樣式對齊全域 .bpCx（同位置/字級/無底色，hover 變紅走全域規則），別自成一格 */
-  .bpFRow .fsel .bpCx{display:none;position:absolute;right:7px;top:0;bottom:0;margin:auto 0;height:15px;line-height:15px;font-size:12px;padding:0 1px}
-  .bpFRow .fsel.hasV:hover .bpCx{display:block}
+  .bpFRow .fsel.hasV:hover,.bpFRow input.bpColF.on:hover{cursor:pointer;background-image:linear-gradient(#e0574d,#e0574d);background-repeat:no-repeat;background-size:calc(100% - 12px) 2px;background-position:center} /* 有值滑過→中央紅線＝可刪，左鍵清除（2026-08-05 使用者定案，取代 ✕） */
   .fsel.on{border-color:var(--acc)}
   #fselPop{position:fixed;z-index:9999;display:grid;grid-auto-flow:column;gap:2px 10px;padding:7px 8px;
     background:#141a28;border:1px solid var(--acc);border-radius:11px;box-shadow:0 10px 34px rgba(0,0,0,.55);font-size:17px}
@@ -304,9 +303,6 @@
   .cx:hover{color:#ff6b6b}
   /* 比賽BP 逐欄篩選框的清除鍵：有輸入內容(:not(:placeholder-shown))才顯示 */
   .bpFRow th{position:relative}
-  .bpCx{display:none;position:absolute;right:7px;top:0;bottom:0;margin:auto 0;height:15px;line-height:15px;background:none;border:none;color:var(--tx2);font-size:12px;cursor:pointer;padding:0 1px;z-index:2}
-  span:hover>.bpColF:not(:placeholder-shown)~.bpCx{display:block} /* ✕ 只在滑過框時出現（2026-08-04 使用者指定） */
-  .bpCx:hover{color:#ff6b6b}
   /* 第二篩選列整列都是輸入框＋建議清單（跟「選戰隊」那顆 combo 同一種清單）。
      時長／選擇曾經改用 <select>，但原生選單的外觀跟建議清單差太多、同一列兩種樣式很雜
      （使用者 2026-08-03）→ 收回；值域固定那幾欄改用 _snap 吸附到清單選項來擋亂打的字。
@@ -10998,7 +10994,7 @@ function render(){
         return `<span style="display:block;width:100%${xs?";"+xs:""}"><select class="bpColF" data-k="${f.k}">${oh}</select></span>`;
       }
       const st=`display:block;width:100%;min-width:0;font-size:11px;box-sizing:border-box`;
-      return `<span style="position:relative;display:block;flex:1 1 0;min-width:0${xs?";"+xs:""}"><input class="bpColF${cur?" on":""}" data-k="${f.k}" size="1" value="${esc(cur)}" placeholder=" " autocomplete="off" style="${st};padding:2px 3px"><span class="bpCx" data-k="${f.k}" title="${LANG==="en"?"clear":"清除"}">✕</span></span>`;
+      return `<span style="position:relative;display:block;flex:1 1 0;min-width:0${xs?";"+xs:""}"><input class="bpColF${cur?" on":""}" data-k="${f.k}" size="1" value="${esc(cur)}" placeholder=" " autocomplete="off" style="${st};padding:2px 3px"></span>`;
     };
     // 逐欄篩選框文字「塞得下就置中、超出框才置左」（2026-08-04 使用者指定），對齊由
     // 綁定區的 _fitAlign 依內容量測；字級 11px 全列統一、內距對稱 3px（✕ 是 hover 才浮出的覆蓋）。
@@ -11419,15 +11415,18 @@ function render(){
         // 鈕上用 data-b 縮短字（欄位小）；清單顯示照走 option textContent／data-s
         se._fancySync=()=>{ const o=se.options[se.selectedIndex];
           b2.classList.toggle("hasV",!!se.value);
-          b2.innerHTML=`<span class="fselTx">${esc(o?(o.dataset.b||o.textContent):"")}</span>`
-            +`<span class="bpCx" data-k="${esc(se.dataset.k)}" title="${LANG==="en"?"clear":"清除"}">✕</span>`;
+          b2.innerHTML=`<span class="fselTx">${esc(o?(o.dataset.b||o.textContent):"")}</span>`;
           const tx=b2.querySelector(".fselTx");                       // 塞得下置中、超出才置左（同輸入框）
           b2.style.justifyContent=tx&&tx.scrollWidth>b2.clientWidth-8?"flex-start":"center"; };
         se._fancySync();
         if(se.value){ b2.style.borderColor="var(--gold)"; b2.style.color="var(--gold)"; } });
-      // ✕ 清除該欄（放在 fancy init 之後，鈕內的 ✕ 才綁得到；stopPropagation 免得順手打開清單）
-      box.querySelectorAll(".bpCx").forEach(x=>{ x.onclick=e=>{ e.stopPropagation(); V.bpColF[x.dataset.k]=""; saveState(); rerender(); }; });
-      if(_bpFocusK){ const el=box.querySelector('.bpColF[data-k="'+_bpFocusK+'"]'); if(el){ el.focus(); try{el.setSelectionRange(el.value.length,el.value.length);}catch(_e){} } _bpFocusK=null; }
+      // ✕ 已移除（2026-08-05 使用者定案）：框內有字→滑過顯示紅線、左鍵＝清除
+      box.querySelectorAll("input.bpColF").forEach(inp=>{ inp.addEventListener("mousedown",e=>{
+        if(e.button===0&&inp.value.trim()){ e.preventDefault(); V.bpColF[inp.dataset.k]=""; saveState(); rerender(); } }); });
+      box.querySelectorAll("select.bpColF").forEach(se=>{ const b2=se._fancyBtn; if(!b2)return;
+        b2.addEventListener("mousedown",e=>{ if(e.button===0&&se.value){ e.preventDefault(); e.stopPropagation();
+          V.bpColF[se.dataset.k]=""; saveState(); rerender(); } },true); });
+      if(_bpFocusK){ const el=box.querySelector('.bpColF[data-k="'+_bpFocusK+'"]'); if(el){ el.focus({preventScroll:true}); try{el.setSelectionRange(el.value.length,el.value.length);}catch(_e){} } _bpFocusK=null; } // preventScroll：focus 會把水平捲動拉到框位置＝篩選時整表跳動（2026-08-05 使用者回報）
     };
     { // 左側代表（藍紅／該隊）＋選角順序檢視＋清空欄位篩選：併進篩選列右側，擺在本頁說明左邊
       //（2026-07-31 使用者指定；最右三顆 說明／預設／返回 位置不動）
