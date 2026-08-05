@@ -283,7 +283,7 @@
     pointer-events:none;z-index:2;box-sizing:border-box}
   .bans .cc img{width:50px;height:50px;filter:grayscale(.85) brightness(.75);border-radius:9px} /* 與 PICK 同尺寸（使用者定案 2026-07-29）；灰階保留＝一眼分辨 BAN */
   .bans .cc img.nobanImg{filter:none}   /* 空 BAN 圖本來就是紅圈禁止符號，不要再灰掉 */
-  .bans .cc{margin-right:7px} .bans .cc:last-child{margin-right:0} /* 禁用頭像間距 ≥7px（使用者定案 2026-07-31：原本 join("") 相鄰＝0px 太擠） */
+  .bans .cc{margin-right:12px} .bans .cc:last-child{margin-right:0} /* 禁用頭像間距 12px（2026-08-05 使用者：BAN/PICK 間隔各 +5；2026-07-31 定案的 7px 基礎上加） */
   /* 整局沒有禁用資料＝問號（跟「空 BAN」要分得出來：空 BAN 是紅圈禁止符號） */
   /* 選用格也會用到（來源只有勝敗、沒收 BP 的場次）→ 選擇器不限定 .bans */
   .cc.noBpQ{display:inline-flex;align-items:center;justify-content:center;width:50px;height:50px;
@@ -315,7 +315,7 @@
   .bpColF.on{border-color:var(--gold);color:var(--gold)}   /* 有值＝金框金字 */
   .bpColF:hover{border-color:var(--acc)}
   .bpColF:focus{outline:none;border-color:var(--acc)}
-  .bans .banSep{display:inline-block;width:0;border-left:1px solid #3a4661;height:50px;margin:0 7px 0 0;vertical-align:middle} /* 禁用：第一輪禁(前3)｜第二輪禁(後2) 分隔線；左側間距由前一顆頭像的 margin-right 提供 → 兩側都是 7px */
+  .bans .banSep{display:inline-block;width:0;border-left:1px solid #3a4661;height:50px;margin:0 7px 0 0;vertical-align:middle} /* 禁用：第一輪禁(前3)｜第二輪禁(後2) 分隔線；左側間距由前一顆頭像的 margin-right(12) 提供＋線1＋右7＝跨輪 20px */
   input.combo::-webkit-calendar-picker-indicator,input[list]::-webkit-calendar-picker-indicator{display:none!important;opacity:0;width:0} /* datalist 白三角沒有實用性 → 移除 */
   .cwrap .cal{position:absolute;right:24px;background:none;border:none;cursor:pointer;font-size:13px;padding:0 2px;line-height:1}
   .cwrap .cal:hover{filter:brightness(1.4)}
@@ -10757,7 +10757,7 @@ function render(){
     //（2026-07-31 使用者指定）。用資料實際的最大禁用手數判定，不寫死年份，資料有缺也不會誤判。
     const _maxBan=calcMatches("").reduce((a,m)=>Math.max(a,(m.blue.bans||[]).length,(m.red.bans||[]).length),0);
     // ── 逐欄篩選框與欄寬的共用幾何（改一處就好，欄寬會跟著框寬走）──
-    const _BIW=50,_BG1=7,_BG2=15;   // 英雄圖寬（2026-08-04 使用者：44→50）／BAN 同一輪圖距／第一輪禁｜第二輪禁 之間的圖距
+    const _BIW=50,_BG1=12,_BG2=20;  // 英雄圖寬（2026-08-04 使用者：44→50）／BAN 同一輪圖距／第一輪禁｜第二輪禁 之間的圖距（2026-08-05 各 +5）
     const _POW=0,_CCG=0;            // 選角順位已改疊在英雄圖正中（絕對定位不佔寬）→ 旁掛數字的寬與 gap 歸零
     const _TDP=8;                   // .bp td 的左右內距
     // 禁用格／選用格 相對英雄圖左右各放大幾 px。
@@ -10769,10 +10769,10 @@ function render(){
     const _LFW=_BIW+_LGROW*2;       // 選用格寬 74
     // 禁用欄寬＝BAN 圖排總寬＋td 內距：5 禁 = 5×44+(7+7+15+7)+16 = 272、3 禁 = 3×44+(7+7)+16 = 162
     //（原本 268／150 少算了第一輪｜第二輪分隔線多佔的 8px 與部分內距，圖會溢出到隔壁欄）
-    const _b5=_maxBan>3, _banW=_b5?_BIW*5+64:_BIW*3+42;   // 由圖寬推（44 時＝284/174 同舊值）；含輪距/內距/12px 餘裕
-    // 選用欄寬＝頭像 50＋間隔 20（td.lc 內距歸零、置中 → 相鄰頭像間隔恰為欄寬−圖寬；
-    // 2026-08-05 使用者先指定 15px、隨後定案 20px），同時要容得下選用篩選框＋8px 間距
-    const _LGAP=20;
+    const _b5=_maxBan>3, _banW=_b5?_BIW*5+(_BG1*3+_BG2)+28:_BIW*3+_BG1*2+28;   // 圖寬×n＋圖距＋td 內距 16＋12px 餘裕
+    // 選用欄寬＝頭像 50＋間隔 25（td.lc 內距歸零、置中 → 相鄰頭像間隔恰為欄寬−圖寬；
+    // 2026-08-05 使用者：15→20→BAN/PICK 各 +5＝25），同時要容得下選用篩選框＋8px 間距
+    const _LGAP=25;
     const _laneW=Math.max(_BIW+_LGAP, _LFW+8);
     // 選邊權／先選權是 2026 才上路的制度 → 其他年份整欄不建（使用者指定 2026-08-03：
     // 舊年份維持原本版型）。這個旗標同時控欄位定義、表頭、內容格與 colspan，四處要一致。
@@ -10883,7 +10883,7 @@ function render(){
     // 逐欄篩選框文字「塞得下就置中、超出框才置左」（2026-08-04 使用者指定），對齊由
     // 綁定區的 _fitAlign 依內容量測；字級 11px 全列統一、內距對稱 3px（✕ 是 hover 才浮出的覆蓋）。
     // BAN 圖排的幾何：圖 44px、同一輪圖距 7px、第一輪禁(前3)｜第二輪禁(後2) 之間 15px
-    //（前一顆頭像 7px ＋ .banSep 的 1px 框線與 7px margin）→ 第 4 格要多補 15−7＝8px 才對得上。
+    //（前一顆頭像 12px ＋ .banSep 的 1px 框線與 7px margin）→ 第 4 格要多補 _BG2−_BG1＝8px 才對得上。
     // ⚠ 不要用「靠左推固定 px」：那只有在欄寬剛好等於內容寬時才準，欄一被表格撐寬就整排歪掉
     //   （2026-07-31 使用者回報：篩選框跟底下英雄圖沒有垂直、很醜）。置中則與欄寬無關，永遠對齊。
     // 禁用：格寬＝BAN 圖左右各放大 2px；格距＝圖心間距−格寬，整組置中 → 每格中心壓在自己那張圖上。
