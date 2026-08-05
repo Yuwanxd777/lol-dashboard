@@ -911,6 +911,54 @@ def fix_pick_side(table):
     return table
 
 
+def fix_foreign_bp(table):
+    """整組 BP 是別場比賽的 → 清空。判定：picklist 十隻齊、兩邊上場英雄也齊，但**怎麼換邊
+    都對不上**（fix_pick_side 的雙向驗證都失敗）＝補檔來源把別場的 BP 接到這局
+    （2021 LJL/PCS、2022 VCS/LCO/TCL 共 7 局，picklist 跟上場英雄完全無交集，
+    有的還是同日另一場的陣容；2026-08-05 全庫掃描發現）。pick 是外來的，同組抓進來的
+    ban 同樣不可信 → banlist／picklist／po 整組清空，前端會畫問號（＝來源沒收錄），
+    比顯示錯的資料誠實。上場英雄（lane）是主資料自己的，不動。"""
+    hdr = table[0]
+    try:
+        iL, iD, iG = hdr.index("league"), hdr.index("date"), hdr.index("game")
+        iBT, iRT = hdr.index("blue_teamname"), hdr.index("red_teamname")
+        iPid, iPL = hdr.index("participantid"), hdr.index("picklist")
+        iBP, iRP = hdr.index("blue_po"), hdr.index("red_po")
+        iBL, iRL = hdr.index("blue_Lane"), hdr.index("red_Lane")
+        iBan = hdr.index("banlist")
+        iBanB, iBanR = hdr.index("blue_banlist"), hdr.index("red_banlist")
+    except ValueError:
+        return table
+    lane5 = lambda v: [x for x in (str(v).split("|") + [""] * 7)[1:6] if x]
+    games = {}
+    for r in table[1:]:
+        games.setdefault((r[iL], str(r[iD]), str(r[iG]),
+                          frozenset((str(r[iBT]), str(r[iRT])))), []).append(r)
+    n = 0
+    for rs in games.values():
+        r0 = next((r for r in rs if str(r[iPid]) == "100"), None)
+        if r0 is None:
+            continue
+        pl = [x for x in str(r0[iPL]).split("|")]
+        pl = pl[1:11] if len(pl) >= 12 else [x for x in pl if x.strip()]
+        bset, rset = set(lane5(r0[iBL])), set(lane5(r0[iRL]))
+        if len(pl) < 10 or len(bset) < 5 or len(rset) < 5:
+            continue
+        if set(pl[:5]) == bset or set(pl[5:10]) == bset:
+            continue                                   # 正向或換邊能對上 → 不是外來的
+        for r in rs:
+            r[iPL] = "||"
+            r[iBan] = "||"
+            r[iBanB] = "||"
+            r[iBanR] = "||"
+            r[iBP] = "0|0|0|0|0" if str(r[iPid]) == "100" else 0
+            r[iRP] = "0|0|0|0|0" if str(r[iPid]) == "100" else 0
+        n += 1
+    if n:
+        print(f"  外來 BP 清空 {n} 局（picklist 與上場英雄無交集）")
+    return table
+
+
 def fix_teamrow_side_wiki(table, year):
     """MH 文字版補的「只有隊伍列」的局，藍紅方是猜的（T1 當藍方）——文字版沒有藍紅欄、
     又沒有每邊英雄可對齊（2026-08-01 DK vs GEN G1：我們記 DK 藍方、wiki VODs 表記 GEN 藍方，
@@ -996,22 +1044,23 @@ def fix_teamrow_side_wiki(table, year):
 
 
 def fix_po_missing(table):
-    """只有隊伍列＋picklist、沒有分路資料的局（PB 頁／wiki 文字版補的，如 2026-08-01
-    DK vs GEN G1）：po 一直是 0 → 比賽BP 畫不出選角與順位（2026-08-05 使用者回報）。
-    這種局前端會退回「選角序」顯示（前 5 藍、後 5 紅），po 就按各半段的手順算，兩邊對齊。"""
+    """po 全 0 但 picklist 十隻齊的列，收尾補算——前面的修復都有各自的觸發條件
+    （fix_firstpick 只碰空 firstPick、fix_firstpick_wiki 只碰 wiki 不同意的），有 picklist
+    卻沒人算 po 的局會漏下來（2026 實測 8 局＋DK vs GEN G1；2026-08-05 使用者回報）。
+    有分路資料→照路線序算（跟主流程一致）；沒有→按選角手順算（前端會退回選角序顯示，
+    前 5 藍後 5 紅，兩邊對齊）。"""
     hdr = table[0]
     try:
         iPid, iPL = hdr.index("participantid"), hdr.index("picklist")
         iBP, iRP = hdr.index("blue_po"), hdr.index("red_po")
-        iBL = hdr.index("blue_Lane")
+        iBL, iRL = hdr.index("blue_Lane"), hdr.index("red_Lane")
+        iBC, iRC = hdr.index("blue_champion"), hdr.index("red_champion")
         iFP = hdr.index("blue_firstPick")
     except ValueError:
         return table
-    lane_empty = lambda v: not [x for x in str(v).split("|") if x.strip()]
+    lane5 = lambda v: [x for x in (str(v).split("|") + [""] * 7)[1:6] if x]
     n = 0
     for r in table[1:]:
-        if str(r[iPid]) != "100" or not lane_empty(r[iBL]):
-            continue
         if str(r[iBP]).replace("|", "").replace("0", "").strip():
             continue                                   # 已有 po 就不動
         pl = [x for x in str(r[iPL]).split("|")]
@@ -1023,11 +1072,18 @@ def fix_po_missing(table):
         except (ValueError, TypeError):
             first = 0
         bp, rp = pl[:5], pl[5:10]
-        r[iBP] = "|".join(str(calc_po(c, bp, True, first)) for c in bp)
-        r[iRP] = "|".join(str(calc_po(c, rp, False, first)) for c in rp)
+        if str(r[iPid]) == "100":
+            bl, rl = lane5(r[iBL]), lane5(r[iRL])
+            r[iBP] = "|".join(str(calc_po(c, bp, True, first)) for c in (bl if len(bl) >= 5 else bp))
+            r[iRP] = "|".join(str(calc_po(c, rp, False, first)) for c in (rl if len(rl) >= 5 else rp))
+        else:
+            if not str(r[iBC] or "").strip() and not str(r[iRC] or "").strip():
+                continue
+            r[iBP] = calc_po(str(r[iBC] or ""), bp, True, first)
+            r[iRP] = calc_po(str(r[iRC] or ""), rp, False, first)
         n += 1
     if n:
-        print(f"  無分路局 po 依選角序補齊 {n} 局")
+        print(f"  po 缺值補算 {n} 列（有分路照路線序、無分路照選角序）")
     return table
 
 
@@ -1495,6 +1551,7 @@ def main():
         table = fix_bad_games(table)       # 人工判定的幽靈局剔除＋該系列局號重編（要在 fix_game_no 前）
         table = fix_game_no(table)         # 同日同兩隊撞局號 → 依時間重編（要排在所有 merge 之後）
         table = fix_pick_side(table)       # picklist 兩半錯邊矯正（要在 firstpick 系列之前，po 才算得對）
+        table = fix_foreign_bp(table)      # 別場比賽的 BP 整組清空（換邊也對不上＝外來資料）
         table = fix_teamrow_side_wiki(table, y)  # MH 隊伍列藍紅方依 wiki VODs 校正（要在 firstpick 系列之前）
         table = fix_firstpick(table)       # 補充來源留下的空 firstPick 收尾（要排在所有 merge 之後）
         table = fix_firstpick_wiki(table, y)  # 2026+：wiki Pick Sel 顏色校正先選方＋po（要在 fix_firstpick 之後）
