@@ -11975,18 +11975,32 @@ function render(){
         // 右側直欄（雙方BAN過＋其他英雄）：圖示由上往下排、排滿一欄往右換欄 → 尺寸縮到剛好塞滿框、不捲動不被裁
         // 鐵則：此計算不可綁在「池有資料」的條件下——池空時英雄全落到這欄、數量最多，反而更需要算（否則吃 CSS 預設 40px 撐爆被裁）
         const mf=wrap.querySelector(".bpMergeFlow"), mc=mf&&mf.closest(".bpMid");
-        if(mf&&mc){ const cnt=mf.querySelectorAll(".bpChip").length, mW=mf.clientWidth, mH=mf.clientHeight, gp=4;
+        if(mf&&mc){ const cnt=mf.querySelectorAll(".bpChip").length, mW=mf.clientWidth, gp=4;
+          // 安全邊 1.5px（2026-08-06 使用者指出畫面閃爍的真因）：舊版把間距拉到「剛好塞滿整欄高」，
+          // 算式上 per 顆恰好等於框高＝卡在臨界值，實際排版一遇到零點幾 px 的捨入，最後一顆就被擠到
+          // 下一欄；欄與欄的顆數因此在 12/13 之間來回跳，第二欄以後整片位移＝看起來一直閃。
+          // 扣掉安全邊、間距再往下取到 0.1px，per 顆就一定塞得進去，分佈才穩定。
+          const mH=Math.max(0,mf.clientHeight-1.5);
           let cs2=Math.round(avg*0.6);
           mf.style.rowGap=""; // 還原，重新量
           if(cnt&&mW>0&&mH>0){ let best=8, bestPer=1;
             for(let sz=Math.min(86,avg);sz>=8;sz--){ const per=Math.max(1,Math.floor((mH+gp)/(sz+gp))), cols=Math.ceil(cnt/per); // per=一欄放幾顆(吃高度)、cols=需要幾欄(吃寬度)
               if(cols*(sz+gp)-gp<=mW){best=sz;bestPer=per;break;} }
             cs2=best;
-            // 撐滿高度：把「一欄的 per 顆圖」之間的直向間距拉大到剛好填滿整欄高，讓最後一顆貼齊框底、不留大空白
+            // 撐滿高度：把「一欄的 per 顆圖」之間的直向間距拉大到接近填滿整欄高（往下取 0.1px，不碰臨界值）
             const fullPer=Math.min(bestPer,cnt);
-            if(fullPer>1){ const vg=Math.max(gp,Math.min(16,(mH-fullPer*best)/(fullPer-1))); mf.style.rowGap=vg+"px"; }
+            if(fullPer>1){ const vg=Math.max(gp,Math.min(16,Math.floor((mH-fullPer*best)/(fullPer-1)*10)/10)); mf.style.rowGap=vg+"px"; }
           }
           mc.style.setProperty("--csother",cs2+"px");
+          // 欄高在 fitPool 跑完之後才定案（實測算的時候 729、最後變 723）→ 用舊高度算出的「一欄放 13 顆」
+          // 實際只塞得下 12 顆，第 13 顆被擠到下一欄，欄與欄的顆數就在 12/13 之間來回跳＝畫面一直閃。
+          // 盯著它的尺寸，一變就重算一次；fitPool 只改內部的 --csother／rowGap，不會改到自己的框大小，
+          // 所以不會無限循環（另有 _roBusy 擋連續觸發）。
+          if(!mf._ro&&window.ResizeObserver){
+            mf._ro=new ResizeObserver(()=>{ if(mf._roBusy||!document.body.contains(mf))return; mf._roBusy=1;
+              requestAnimationFrame(()=>{ mf._roBusy=0; try{fitPool();}catch(e){} }); });
+            mf._ro.observe(mf);
+          }
         }
       };
       // 整頁剛好一屏：內容高度鎖到視窗底、不產生頁面捲動
@@ -12355,7 +12369,10 @@ function render(){
         const _bmCur=(V.bpMode||"global")==="global"?"global":"normal";
         const mb=segEl("bpModeSeg",[["global",LANG==="en"?"🌐 Fearless":"🌐 全局","全局模式：PICK 過的英雄從角色池移除（Fearless）"],
                                     ["normal",LANG==="en"?"Normal":"一般","一般模式：PICK 不移除角色池英雄"]],_bmCur,
-          v=>{ if(v===_bmCur)return; V.bpMode=v; saveState(); rerender(); },"","order:64");
+          v=>{ // 比現值不比建立當下的 _bmCur：切模式只跑 rerender()（不重建篩選列），
+               // 用捕捉值的話切回去會早退＝按了亮起來但模式沒變（2026-08-06 使用者回報，此為舊有問題）
+               if(v===((V.bpMode||"global")==="global"?"global":"normal"))return;
+               V.bpMode=v; saveState(); rerender(); },"","order:64");
         fr.parentNode.insertBefore(mb,fr);
       }
       // 🎯 新增近期積分：把兩隊每位選手最近兩週積分用過的英雄加進其角色池(綠框標記)
