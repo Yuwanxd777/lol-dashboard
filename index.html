@@ -6220,6 +6220,15 @@ if(IS_PUBLIC){ // 網路版標題
 }
 const VIEWS=["總覽","近況","英雄","選手","戰隊","陣容","比賽BP","模擬BP","英雄Tier","積分","圖鑑"]; // 近況緊跟總覽（使用者指定 2026-07-28） // AI 問答已移除（使用者：沒意思）；渲染分支留為死碼（curView 恆在 VIEWS 內 → 不會進到那個 catch-all else）
 let curView="總覽", chart=null, radar=null, sortK="評分", sortDir=-1;
+// 升降幕三段循環（2026-08-06 使用者定案，全站一致）：第 1 下降序 ▼ → 第 2 下升序 ▲ → 第 3 下**取消排序** → 再循環。
+// 第三下回傳 {k:"",d:0}＝明確取消（沒有任何欄亮箭頭、列回資料原始順序）；
+// 用空字串而不是 null，才能跟「還沒設過」(null/undefined＝開頁預設排序) 區分開。
+// 各消費端的查表都會在 k="" 落空而略過排序（RSACC/RACC/GSV），主表另外判 sortK 是否為空。
+// firstDir：該欄第一下的方向（文字欄習慣升序 1，數值欄降序 -1）。
+const sortNext=(s,k,firstDir)=>{ const d0=firstDir||-1;
+  if(!s||s.k!==k)return {k,d:d0};
+  if(s.d===d0)return {k,d:-d0};
+  return {k:"",d:0}; };
 const V={pos:"",player:"",vsTeam:"",bpTeam:"",r1:"",r2:"",r3:"",t1:"",t2:"",t3:"",hdOpp:"",hdLane:"",hdPlayer:"",rankQ:"",rankSort:null,rankDetail:"",rankDetLane:"",rankShow:100,rankGSort:null,rankGChamp:"",rankGOpp:"",rankGVs:"",rankRole:"",rankRegion:""};
 // ---------- 選項自動記憶（重開免重設）----------
 const SAVED=(()=>{try{return JSON.parse(localStorage.getItem("dash_state")||"{}")}catch(e){return{}}})();
@@ -6865,8 +6874,8 @@ function sqHeroDetail(cid){
   segBind("heroModeSeg",v=>{ if(v===V.heroMode)return; V.heroDetail=heroKeyFor(v,V.heroDetail); V.heroMode=v; saveState(); render(); }); // 同上：詳情頁切資料源
   document.getElementById("hdLaneSel").onchange=e=>{V.hdLane=e.target.value; V.hdOpp=""; saveState(); render();};
   document.querySelectorAll(".recTbl th[data-rs]").forEach(th=>th.onclick=()=>{
-    const kk=th.dataset.rs, s2=V.recSort;
-    V.recSort=(s2&&s2.k===kk)?{k:kk,d:-s2.d}:{k:kk,d:-1};
+    const kk=th.dataset.rs;
+    V.recSort=sortNext(V.recSort,kk);                      // 三段循環：第三下取消排序（RACC[""] 落空＝不排序）
     saveState(); render();
   });
   document.querySelectorAll(".recTbl td.mvOpp[data-och]").forEach(td=>{
@@ -7653,7 +7662,7 @@ function tableHTML(cols,rows,nameImg,limit){ // limit：只渲染排序後前 N 
   const _sv=(r,k)=>k==="戰隊"?`${r._lg||"~"}|${r.戰隊}`
                   :k==="選手"?`${r._lg||"~"}|${r._team||"~"}|${r.選手}`
                   :r[k];
-  const sorted=[...rows].sort((a,b)=>{const x=_sv(a,sortK),y=_sv(b,sortK);
+  const sorted=!sortK?[...rows]:[...rows].sort((a,b)=>{const x=_sv(a,sortK),y=_sv(b,sortK);   // sortK 空＝使用者按到第三下取消排序 → 維持資料原始順序
     if(x==null)return 1; if(y==null)return -1;
     if(typeof x==="string")return x.localeCompare(y)*sortDir;
     return (x<y?-1:x>y?1:0)*sortDir;});
@@ -7787,7 +7796,9 @@ function bindSort(rerender){
   const type=names.includes("首巴龍")?"team":names.includes("輸出比")?"player":"hero"; // 認欄名判斷是哪張表（首塔已併成「首塔(首中塔)」，改用只有戰隊表有的首巴龍）
   ths.forEach(th=>{
     th.onclick=()=>{const k=th.dataset.k;
-      if(sortK===k)sortDir*=-1; else{sortK=k;sortDir=-1;} rerender();};
+      const nx=sortNext({k:sortK,d:sortDir},k);            // 三段循環：降→升→取消（見 sortNext）
+      sortK=nx.k; sortDir=nx.d;
+      rerender();};
     // 欄頭 hover 小框：評分/攻擊值/防禦值顯示權重視窗，其餘欄顯示定義說明
     //（顯示在欄名上方，不擋表格；不用 help 游標）
     const tip=scoreTip(th.dataset.k,type)||colDefTip(th.dataset.k,type);
@@ -10556,8 +10567,8 @@ function render(){
          s.style.width=Math.ceil(_cx.measureText(t).width+20+(cs.boxSizing==="border-box"?pad:0))+"px"; });}
       {const ls=document.getElementById("vRosterLane"); if(ls&&!ls._b){ls._b=1; ls.onchange=()=>{V.rosterLane=ls.value; saveState(); rerender();};}}
       box.querySelectorAll("th[data-rk]").forEach(th=>th.onclick=()=>{
-        const k=th.dataset.rk, kk=sortKey(th.dataset.pos,th.dataset.who), s=V.rosterSort[kk];
-        V.rosterSort[kk]=(s&&s.k===k)?{k,d:-s.d}:{k,d:-1};
+        const k=th.dataset.rk, kk=sortKey(th.dataset.pos,th.dataset.who);
+        V.rosterSort[kk]=sortNext(V.rosterSort[kk],k);    // 三段循環：第三下取消排序＝回角色池原始順序
         saveState(); rerender();
       });
       // 場數 → 英雄詳情（2026-07-31 使用者要求）：帶著「同一個資料源＋該選手＋該路線」跳過去。
@@ -12579,8 +12590,8 @@ function render(){
     segBind("heroModeSeg",v=>{ if(v===V.heroMode)return; V.heroDetail=heroKeyFor(v,V.heroDetail); V.heroMode=v; saveState(); render(); });
     document.getElementById("hdLaneSel").onchange=e=>{V.hdLane=e.target.value; V.hdOpp=""; saveState(); render();}; // 路線篩選（換路線清空對位；選手不清，換路線後若無場次會自動失效）
     document.querySelectorAll(".recTbl th[data-rs]").forEach(th=>th.onclick=()=>{
-      const kk=th.dataset.rs, s=V.recSort;
-      V.recSort=(s&&s.k===kk)?{k:kk,d:-s.d}:{k:kk,d:-1};
+      const kk=th.dataset.rs;
+      V.recSort=sortNext(V.recSort,kk);                    // 三段循環：第三下取消排序
       saveState(); render();
     });
     document.querySelectorAll(".recTbl td.mvOpp[data-och]").forEach(td=>{ // 滑對位英雄 → 對戰詳情
@@ -12817,7 +12828,7 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
       });
       addSubBack(()=>{V.rankDetail="";saveState();render();}); // 子頁返回鍵→回積分列表
       main.querySelectorAll(".sqLaneBtn[data-lane]").forEach(b=>b.onclick=()=>{V.rankDetLane=b.dataset.lane; V.rankShow=100; V.rankGSort=null; V.rankGChamp=""; V.rankGOpp=""; V.rankGVs=""; saveState(); render();});
-      main.querySelectorAll(".sqHead [data-gsort]").forEach(h=>h.onclick=()=>{const k=h.dataset.gsort,s=V.rankGSort,strCol=(k==="champ"||k==="opp"); V.rankGSort=(s&&s.k===k)?{k,d:-s.d}:{k,d:strCol?1:-1}; V.rankShow=100; saveState(); render();}); // 升降幕
+      main.querySelectorAll(".sqHead [data-gsort]").forEach(h=>h.onclick=()=>{const k=h.dataset.gsort,strCol=(k==="champ"||k==="opp"); V.rankGSort=sortNext(V.rankGSort,k,strCol?1:-1); /* 三段循環：第三下取消排序 */ V.rankShow=100; saveState(); render();}); // 升降幕
       {const bad=()=>V.rankGChamp&&V.rankGOpp&&!allG.some(g=>g.c===V.rankGChamp&&g.o===V.rankGOpp&&(!lf||g.pos===lf)); // (英雄,對位)無此組合
        const nid=v=>{ if(!v)return ""; const hit=nameId[v]||nameId[v.toLowerCase()]; if(hit)return hit;
          const t=v.toLowerCase(), names=c=>{const cid=champId(c),dd=(((window.CHAMP_SKILLS||{}).d)||{})[cid];
@@ -13016,7 +13027,7 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
           return `<tr class="rankGrpHd"><td colspan="${cspan}" style="padding:7px 11px;background:${gcol}22;border-top:2px solid ${gcol};font-weight:700;color:${gcol}">${esc(lplGrpName(lbl))} <span class="meta" style="font-weight:400">${nTm}${LANG==="en"?" teams · ":" 隊・"}${rows.length}${LANG==="en"?" players":" 人"}</span></td></tr>`+rows.map((r,i)=>rowHtml(r,i)).join("");}).join("");
       }else tbodyHtml=show.map((r,i)=>rowHtml(r,i)).join("");
       box.innerHTML=`<div class="tblwrap"><table class="recTbl"><thead><tr><th class="rkh">#</th>${cols.map(c=>c.sort===false?`<th><span class="thL">${c.lb}</span></th>`:`<th data-rk="${c.k}" style="cursor:pointer"><span class="thL">${c.lb}${arrow(c.k)}</span></th>`).join("")}</tr></thead><tbody>${tbodyHtml}</tbody></table></div>`;
-      box.querySelectorAll(".recTbl th[data-rk]").forEach(th=>th.onclick=()=>{const k=th.dataset.rk,s=V.rankSort; V.rankSort=(s&&s.k===k)?{k,d:-s.d}:{k,d:(k==="選手"||k==="_role"||k==="platform")?1:-1}; saveState(); paint();});
+      box.querySelectorAll(".recTbl th[data-rk]").forEach(th=>th.onclick=()=>{const k=th.dataset.rk; V.rankSort=sortNext(V.rankSort,k,(k==="選手"||k==="_role"||k==="platform")?1:-1); /* 三段循環：第三下取消排序（d=0 → 比較恆等、維持原始順序） */ saveState(); paint();});
       box.querySelectorAll(".soloChamps[data-rid]").forEach(sp=>{const rid=sp.dataset.rid; // 滑常用英雄 → 完整英雄池(場數/勝率/KDA)
         sp.addEventListener("mouseenter",()=>tipShow(soloqChampTip(rid),sp.getBoundingClientRect())); sp.addEventListener("mouseleave",tipHide);});
       box.querySelectorAll(".rankName[data-detail]").forEach(sp=>sp.onclick=()=>{V.rankDetail=sp.dataset.detail; V.rankDetLane=""; V.rankShow=100; V.rankGSort=null; V.rankGChamp=""; V.rankGOpp=""; V.rankGVs=""; saveState(); render();}); // 點選手名 → 逐場戰績(先列前100)
