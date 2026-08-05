@@ -8,13 +8,23 @@
 輸出 career.js：
   window.CAREER={
     v:"建置日", y:[年份...],
+    d0:"2013-01-01",          // 逐場列的日期基準（第 0 天）
+    ch:[ "<英雄資料名>", ... ], // 英雄字典（逐場列用索引，base36）
+    pk:[ "<版本>", ... ],       // 版本字典（同上）
     t:{ "<戰隊全名>":{ "TOP":[ ["<選手>", 場數, 最後出賽日], ... ] } },   // 依最後出賽日新→舊
     p:{ "<選手>":{ n:總場, w:勝場, f:首戰日, l:末戰日,
-                   c:{ "<英雄資料名>":[場,勝,被對手禁,最後使用日] } } }   // 生涯＝跨隊全部
+                   c:{ "<英雄資料名>":[場,勝,被對手禁,最後使用日] },      // 生涯總計＝跨隊全部
+                   g:"<逐場列>" } }                                      // 見下
   }
+
+逐場列 g（2026-08-06 使用者要求：陣容生涯模式的「版本」與「時間」篩選也要正常套用）：
+  c{} 是生涯總計、沒有時間維度，套不了篩選 → 另外附一份逐場列，前端有篩選時才解析、重新聚合。
+  格式＝各場以 ";" 相接，每場 "<英雄idx>,<第幾天>,<版本idx>,<勝0/1>[,<對手ban的英雄idx>-...]"，
+  數字一律 base36。對手 ban 只記「該選手生涯有打過的英雄」——沒打過的在前端本來就被 n>0 濾掉、
+  記了純浪費（可省下約六成的 ban 量）。
 用法：python scripts/build_career.py
 """
-import glob, io, json, os, re, sys
+import datetime, glob, io, json, os, re, sys
 
 if (getattr(sys.stdout, "encoding", "") or "").lower().replace("-", "") != "utf8":
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
@@ -25,6 +35,34 @@ teams = {}      # team -> pos -> player -> [n, last]
 plr = {}        # player -> {n,w,f,l,c:{champ:[n,w,ob,last]}}
 POS = {1: "TOP", 2: "JNG", 3: "MID", 4: "BOT", 5: "SUP"}
 years = []
+
+# ── 逐場列用的字典與編碼 ─────────────────────────────────────────
+D0 = datetime.date(2011, 1, 1)          # 第 0 天。要早於資料最早日期（data_2013.js 其實收到 2012-11-09，
+                                        # 基準日設 2013-01-01 會把 2012 的場次全部夾成第 0 天、最後使用日算錯）
+B36 = "0123456789abcdefghijklmnopqrstuvwxyz"
+chI, pkI = {}, {}                        # 英雄/版本 → 索引
+rowsOf = {}                              # player -> [(champIdx, day, patchIdx, win, (banIdx...)), ...]
+playedOf = {}                            # player -> {champIdx} 生涯真的打過的英雄（ban 只留這些）
+
+
+def b36(n):
+    if n <= 0:
+        return "0"
+    s = ""
+    while n:
+        s = B36[n % 36] + s
+        n //= 36
+    return s
+
+
+def dayIdx(d):
+    try:
+        n = (datetime.date(int(d[:4]), int(d[5:7]), int(d[8:10])) - D0).days
+    except Exception:
+        return 0
+    if n < 0:                            # 比基準日還早＝基準日設錯了，寧可吵也不要靜靜算錯
+        raise SystemExit(f"✗ 日期 {d} 早於基準日 {D0}，請把 build_career.py 的 D0 往前調")
+    return n
 
 # ── 同名選手拆分（同 ID 其實是不同人）────────────────────────────────
 # OE 資料只有顯示 ID，沒有唯一識別，同名的不同人（例：LPL 的 Uzi 簡自豪 vs
@@ -84,6 +122,7 @@ for dp in sorted(glob.glob(os.path.join(ROOT, "data", "data_*.js"))):
     pi, dt, rs = ix["participantid"], ix["date"], ix["result"]
     bt, bp, bc = ix["blue_teamname"], ix["blue_playername"], ix["blue_champion"]
     bl = ix.get("blue_banlist"); rl = ix.get("red_banlist"); ban1 = ix.get("banlist")
+    pkc = ix.get("patch")
     n0 = len(plr)
     for r in R[1:]:
         try:
@@ -93,6 +132,9 @@ for dp in sorted(glob.glob(os.path.join(ROOT, "data", "data_*.js"))):
         if p not in POS:
             continue
         d = str(r[dt])[:10]
+        dix = dayIdx(d)
+        pv = str(r[pkc]) if pkc is not None and r[pkc] is not None else ""
+        pix = pkI.setdefault(pv, len(pkI))
         for side in (0, 1):
             off = RB if side else 0
             team, name, ch = r[bt + off], r[bp + off], r[bc + off]
@@ -124,6 +166,9 @@ for dp in sorted(glob.glob(os.path.join(ROOT, "data", "data_*.js"))):
                 c[1] += 1
             if d > c[3]:
                 c[3] = d
+            cix = chI.setdefault(str(ch), len(chI))
+            playedOf.setdefault(name, set()).add(cix)
+            bix = []
             # 被「對手」禁：對手的 banlist（沒有分邊欄位的舊檔退回合併名單）
             col = (bl if side else rl)
             if col is None:
@@ -133,6 +178,8 @@ for dp in sorted(glob.glob(os.path.join(ROOT, "data", "data_*.js"))):
                     if b:
                         bb = a["c"].setdefault(b, [0, 0, 0, ""])
                         bb[2] += 1
+                        bix.append(chI.setdefault(b, len(chI)))
+            rowsOf.setdefault(name, []).append((cix, dix, pix, 1 if won else 0, bix))
     years.append(y)
     print(f"  {y}: 累計選手 {len(plr)}（+{len(plr)-n0}）", flush=True)
 
@@ -147,13 +194,36 @@ for tm, ps in teams.items():
 for a in plr.values():
     if a["f"] == "9999":
         a["f"] = ""
+# 逐場列字串化：對手 ban 只留「該選手生涯打過的英雄」（沒打過的前端本來就被 n>0 濾掉）
+nrow = nban = nban0 = 0
+for name, rows in rowsOf.items():
+    played = playedOf.get(name) or set()
+    out = []
+    for cix, dix, pix, won, bix in rows:
+        nrow += 1
+        nban0 += len(bix)
+        bb = sorted(x for x in set(bix) if x in played)
+        nban += len(bb)
+        s = f"{b36(cix)},{b36(dix)},{b36(pix)},{won}"
+        if bb:
+            s += "," + "-".join(b36(x) for x in bb)
+        out.append(s)
+    plr[name]["g"] = ";".join(out)
+chOut = [None] * len(chI)
+for k, v in chI.items():
+    chOut[v] = k
+pkOut = [None] * len(pkI)
+for k, v in pkI.items():
+    pkOut[v] = k
 # d：(隊伍|原名) → 人格 key。只列拆出去的次人格；前端查生涯時先查這張表，
 # 查不到就沿用原名（＝主人格），所以前端沒改也不會壞。
-data = {"v": max(years) if years else "", "y": years, "t": tout, "p": plr, "d": dmap}
+data = {"v": max(years) if years else "", "y": years, "d0": D0.isoformat(),
+        "ch": chOut, "pk": pkOut, "t": tout, "p": plr, "d": dmap}
 js = "window.CAREER=" + json.dumps(data, ensure_ascii=False, separators=(",", ":")) + ";\n"
 with open(OUT, "w", encoding="utf-8") as f:
     f.write(js)
 print(f"\n→ {OUT}　{len(js)/1048576:.1f} MB　戰隊 {len(tout)}　選手 {len(plr)}　年份 {years[0]}~{years[-1]}")
+print(f"　逐場列 {nrow} 場｜ban 記錄 {nban}（未打過的已省略 {nban0-nban}）｜英雄字典 {len(chOut)}｜版本字典 {len(pkOut)}")
 if _DIS:
     print(f"　同名拆分：表內 {len(_DIS)} 個名字，實際拆出 {len(set(dmap.values()))} 個次人格、"
           f"影響 {len(dmap)} 組（隊伍,名字）")
