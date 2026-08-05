@@ -17969,7 +17969,7 @@
  "元素之形｜皇家特權's cooldown on all targets is reset upon gathering or changing an Element.": "元素之形｜取得或更換元素時，皇家特權對所有目標的冷卻都會重置。",
  "元素峽谷｜地獄巨龍　地獄烈焰燃起！撕裂召喚峽谷。最靠近藍buff與紅buff的草叢會被燒盡，並在藍buff與紅buff坑穴中開闢出新的路徑。巨龍坑的入口也隨之拓寬。": "元素峽谷｜地獄巨龍　地獄烈焰燃起！撕裂召喚峽谷。最靠近藍buff與紅buff的草叢會被燒盡，並在藍buff與紅buff坑穴中開闢出新的路徑。巨龍坑的入口也隨之拓寬。",
  "元素峽谷｜海洋巨龍　海洋帶來生機！為召喚峽谷注入新生。野區大部分的草叢會長得更大，並在buff營地附近生成新的蜜漿果。整座野區各處會匯聚出水窪，可與姬雅娜的塑地術及水行者產生互動。巨龍坑周圍也會冒出新的草叢。": "元素峽谷｜海洋巨龍　海洋帶來生機！為召喚峽谷注入新生。野區大部分的草叢會長得更大，並在buff營地附近生成新的蜜漿果。整座野區各處會匯聚出水窪，可與姬雅娜的塑地術及水行者產生互動。巨龍坑周圍也會冒出新的草叢。",
- "元素峽谷｜風龍 雲之風加速了！氣流會流經藍 buff 與紅 buff 周圍的區域，為身處其中的所有人提供加速。巨龍坑也會變成加速的風洞。": "元素峽谷｜風龍　雲之風加速了！氣流會流經藍buff與紅buff周圍的區域，為身處其中的所有人提供加速。巨龍坑也會變成加速的風洞。",
+ "元素峽谷｜風龍 雲之風加速了！氣流會流經藍 buff 與紅 buff 周圍的區域，為身處其中的所有人提供加速。巨龍坑也會變成加速的風洞。": "元素峽谷｜風龍 雲之風加速了！氣流會流經藍 buff 與紅 buff 周圍的區域，為身處其中的所有人提供加速。巨龍坑也會變成加速的風洞。",
  "元素龍｜Elemental Drake health changed:：New Health: 2650 (+ 240 per level, minimum level 6) before the Rift transforms; 4350 (+ 240 per level, minimum level 6) for the third drake onward.": "元素龍｜元素龍生命調整：新生命：峽谷變化前 2650（每級 +240，最低 6 級）；第三條龍起 4350（每級 +240，最低 6 級）。",
  "元素龍｜Elemental Drake health changed:：Old Health: 3500 (+240 per level, minimum level 6).": "元素龍｜元素龍生命調整：舊生命：3500（每級 +240，最低 6 級）。",
  "元素龍｜New Spawning Rules: / Elder Dragon: Once a team has killed their fourth drake:：The next dragon to spawn with be the Elder Dragon , which spawns 6 minutes after the last drake has been killed. If it is killed, another Elder Dragon spawns after 6 minutes, and so on.": "元素龍｜新生成規則：／遠古巨龍：當一隊擊殺己方第四條龍後：下一條生成的龍將是遠古巨龍，於最後一條龍被擊殺後 6 分鐘生成。若被擊殺，6 分鐘後再生成一條遠古巨龍，依此類推。",
@@ -23157,5 +23157,10 @@
  "星光吐息｜[錯誤修正] Burst damage now properly draws the aggro of nearby enemy minions.": "星光吐息｜[錯誤修正] 爆發傷害現在會正確吸引附近敵方小兵的仇恨。",
  "通用｜[錯誤修正] Now properly displays tooltips for his abilities in the death recap.": "通用｜[錯誤修正] 死亡回顧現在會正確顯示他技能的提示文字。",
  "英靈之門｜[錯誤修正] Decal visibility in the river for Mythmaker 加里歐 has been improved.": "英靈之門｜[錯誤修正] Mythmaker 加里歐的河道貼花能見度改善。",
- "通用｜全新語音，Praetorian 與 Surprise Party 各有獨立語音。": "通用｜全新語音，禁衛軍與驚喜派對造型各有獨立語音。"
+ "通用｜全新語音，Praetorian 與 Surprise Party 各有獨立語音。": "通用｜全新語音，禁衛軍與驚喜派對造型各有獨立語音。",
+ "True Damage Akali｜讀取畫面邊框改為 True Damage 系列專屬配色。": "True Damage 阿卡莉｜讀取畫面邊框改為 True Damage 系列專屬配色。",
+ "True Damage Ekko｜讀取畫面邊框改為 True Damage 系列專屬配色。": "True Damage 艾克｜讀取畫面邊框改為 True Damage 系列專屬配色。",
+ "True Damage Qiyana｜讀取畫面邊框改為 True Damage 系列專屬配色。": "True Damage 姬亞娜｜讀取畫面邊框改為 True Damage 系列專屬配色。",
+ "True Damage Senna｜讀取畫面邊框改為 True Damage 系列專屬配色。": "True Damage 姍娜｜讀取畫面邊框改為 True Damage 系列專屬配色。",
+ "True Damage Yasuo｜讀取畫面邊框改為 True Damage 系列專屬配色。": "True Damage 犽宿｜讀取畫面邊框改為 True Damage 系列專屬配色。"
 }

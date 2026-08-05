@@ -65,4 +65,8 @@ print("重建輸出檔…")
 for s in ("fetch_wiki.py", "fetch_wiki_extra.py", "fetch_wiki_objectives.py"):
     subprocess.run([sys.executable, os.path.join(HERE, "scripts", s)], cwd=HERE)
 subprocess.run([sys.executable, os.path.join(HERE, "scripts", "fetch_patches.py"), "--skip-discover"], cwd=HERE)
+# 清理管線一定要跟著跑（2026-08-05 修）：fetch_patches 重建出來的是未清理版，
+# clean_patch_text 原本只在 update.bat（排程）跑 → merge 完的新譯文要等下次排程才落地，
+# 期間 commit 進去的是未清理狀態（實測 patches 1,466＋wiki 9,418 行差異）。
+subprocess.run([sys.executable, os.path.join(HERE, "scripts", "clean_patch_text.py")], cwd=HERE)
 print("完成。重新整理網頁即可看到翻譯。")

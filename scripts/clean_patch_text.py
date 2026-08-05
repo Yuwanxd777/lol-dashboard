@@ -155,8 +155,14 @@ def process(path, var_name):
 if __name__ == "__main__":
     NAME_MAP = finalize_map(build_name_map())
     NAME_KEYS = sorted(NAME_MAP.keys(), key=len, reverse=True)
-    mp = os.path.join(HERE, "tr_fix.json")
-    MANUAL = json.load(open(mp, encoding="utf-8")) if os.path.exists(mp) else {}
+    # 人工表＝manual_tr.json（翻譯池，2.3 萬條）＋ tr_fix.json（人工逐行修正表，衝突時它贏）。
+    # 原本只吃 tr_fix → manual_tr 裡「鍵＝清理後形」的譯文永遠落不了地（實測 31 行有更好
+    # 譯文卻一直顯示舊形，如 VACUUM→真空、賽娜→姍娜；2026-08-05 使用者續翻時查出）。
+    MANUAL = {}
+    for fn2 in ("manual_tr.json", "tr_fix.json"):
+        mp = os.path.join(HERE, fn2)
+        if os.path.exists(mp):
+            MANUAL.update(json.load(open(mp, encoding="utf-8")))
     all_remown = []
     for fn, var in [("patches.js", "LOL_PATCHES"), ("wiki_patches.js", "WIKI_PATCHES")]:
         st, rem = process(os.path.join(ROOT, fn), var)
