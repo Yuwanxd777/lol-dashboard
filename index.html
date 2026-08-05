@@ -11556,9 +11556,13 @@ function render(){
         }
         placed.forEach(i=>{if(done.has(i))return; const av=candShow[i].filter(L=>lanesLeft.has(L));
           if(av.length){possible[i]=av;}
-          else{ // 該英雄在隊上走過的路**全被其他選角佔走**（如墨菲特只打野、打野已被別隻佔）
-            // → 退回列所有剩餘路線，但要標**半透明**＝純推測——原本畫實線，看起來像
-            // 這隊真的四路都會玩（2026-08-05 使用者回報 T1 墨菲特顯示上中下輔）
+          else if(placed.length<5){ // 該英雄隊內實走的路被其他選角佔走，但**五隻還沒選齊**：
+            // 先照樣顯示牠隊內實走的路（2026-08-05 使用者指定：選齊五隻才做剩餘路線判斷）
+            possible[i]=candShow[i].slice();
+          }
+          else{ // 五隻選齊且牠隊內的路全被佔（如墨菲特只打野、打野已被別隻佔）
+            // → 退回列所有剩餘路線，標**半透明**＝純推測——畫實線會看起來像這隊真的都會玩
+            //（2026-08-05 使用者回報 T1 墨菲特顯示上中下輔）
             possible[i]=[...lanesLeft];
             laneSoft[i]=laneSoft[i]||{}; possible[i].forEach(L=>laneSoft[i][L]=true);
           }}); // 仍多路（含半透明的全庫路）→全部保留，待點選確定
