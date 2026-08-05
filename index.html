@@ -6307,7 +6307,18 @@ window.refitLayout=()=>{
   if(window.fixZoomHeight)fixZoomHeight();
   if(window.hsbUpdate)hsbUpdate();
 };
-new MutationObserver(()=>{clearTimeout(window._ftw);window._ftw=setTimeout(refitLayout,60);})
+new MutationObserver(ms=>{
+  // 餘寬分配必須「同一幀」完成（2026-08-05 使用者回報陣容表頭飄移）：等下面那個 60ms 的
+  // refitLayout 才分，使用者會先看到 CSS 自動版面、再看到欄位往右跳一下——實測 2560 寬切模式，
+  // 重繪後 ~250ms（多批 DOM 變動一直把 60ms 計時器往後推）欄位整排右移 7px。
+  // MutationObserver 回呼是微任務、早於繪製 → 在這裡先分好，畫面只會出現最終版面。
+  // 只在「這批變動有帶進表格」時跑，避免每次 DOM 異動都做整頁強制重排。
+  let hasT=false;
+  for(const m of ms){ for(const n of m.addedNodes){
+      if(n.nodeType===1&&(n.tagName==="TABLE"||(n.querySelector&&n.querySelector("table")))){hasT=true;break;} }
+    if(hasT)break; }
+  if(hasT)document.querySelectorAll("table").forEach(t=>{try{fitAutoTable(t);}catch(e){}});
+  clearTimeout(window._ftw);window._ftw=setTimeout(refitLayout,60);})
   .observe(main,{childList:true,subtree:true});
 addEventListener("resize",()=>{clearTimeout(window._ftw);window._ftw=setTimeout(refitLayout,120);});
 if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>{try{refitLayout();}catch(e){}}); // 字體換載後字寬會變，量好的欄寬要重算
