@@ -1043,6 +1043,112 @@ def fix_teamrow_side_wiki(table, year):
     return table
 
 
+def fix_draft_wiki(table, year):
+    """選序殘缺的局用 Leaguepedia「Picks and Bans」頁整組修回（2026-08-05 使用者回報）。
+
+    實例：LPL 07-24 JDG vs WE G3——OE 的 picklist 只有 9 隻且藍紅混雜、po 三個 0，
+    前端選序模式整局標「缺場」；wiki PB 頁卻有完整記錄。另有 LEC／KeSPA／EWCQ 數局
+    ban 少一「槽」（哪一手沒禁的位置資訊掉了）。
+
+    判定「殘缺」一律看**槽位**不看隻數：空槽＝真的放棄禁用（wiki 寫 None），不算殘缺——
+    pick 槽 ≠10 或有空槽、任一邊 ban 槽 ≠5、po 十值含 0，才算。
+    修法：pb_of() 以「整局十隻上場英雄」對回 PB 頁真實順序（兩邊都吻合才用，
+    對不上寧可不動），picklist／兩邊 banlist（保留空槽）／firstPick（T1＝先選方）
+    整組重寫＋po 重算。ban 的英雄未必上過場 → 顯示名用全表出現過的正名反查。
+    只動 2026 起：老年份 3 禁年代 ban<5 是常態，逐年展開要先各自查證。
+    PB 頁有磁碟快取，修不到的局每次更新重試也不會重抓網路。
+    """
+    if int(year) < 2026:
+        return table
+    hdr = table[0]
+    try:
+        iL, iSp, iD, iG = hdr.index("league"), hdr.index("split"), hdr.index("date"), hdr.index("game")
+        iBT, iRT = hdr.index("blue_teamname"), hdr.index("red_teamname")
+        iPid, iPL = hdr.index("participantid"), hdr.index("picklist")
+        iBP, iRP = hdr.index("blue_po"), hdr.index("red_po")
+        iBan = hdr.index("banlist")
+        iBB, iRB = hdr.index("blue_banlist"), hdr.index("red_banlist")
+        iBC, iRC = hdr.index("blue_champion"), hdr.index("red_champion")
+        iBL, iRL = hdr.index("blue_Lane"), hdr.index("red_Lane")
+        iFB, iFR = hdr.index("blue_firstPick"), hdr.index("red_firstPick")
+    except ValueError:
+        return table
+    slots = lambda v: str(v or "").split("|")[1:-1]
+    games = {}
+    for r in table[1:]:
+        games.setdefault((r[iL], str(r[iSp]), str(r[iD]), str(r[iG]),
+                          frozenset((str(r[iBT]), str(r[iRT])))), []).append(r)
+    broken = []
+    for k, rs in games.items():
+        r0 = next((r for r in rs if str(r[iPid]) == "100"), None)
+        if r0 is None:
+            continue
+        pk, bb, rb = slots(r0[iPL]), slots(r0[iBB]), slots(r0[iRB])
+        if not any(x.strip() for x in pk + bb + rb):
+            continue                               # 整局沒 BP＝gol.gg 補檔（merge_patch）的守備範圍
+        po = str(r0[iBP]).split("|") + str(r0[iRP]).split("|")
+        if (len(pk) == 10 and all(x.strip() for x in pk)
+                and len(bb) == 5 and len(rb) == 5 and "0" not in po):
+            continue                               # 槽位齊全 → 不是殘缺
+        blue5 = [str(r[iBC]) for r in rs if str(r[iPid]) in ("1", "2", "3", "4", "5")]
+        red5 = [str(r[iRC]) for r in rs if str(r[iPid]) in ("1", "2", "3", "4", "5")]
+        if len([c for c in blue5 if c.strip()]) < 5 or len([c for c in red5 if c.strip()]) < 5:
+            continue                               # 隊伍列局沒有十隻可對，pb_of 無從精準比對
+        broken.append((k, rs, blue5, red5))
+    if not broken:
+        return table
+    try:
+        import fetch_wiki_mh as MH
+        W = json.loads(io.open(os.path.join(HERE, "wiki_links.js"), encoding="utf-8")
+                       .read().split("=", 1)[1].rstrip().rstrip(";"))
+    except Exception as e:
+        print(f"  ⚠ 選序修補略過（wiki 模組／連結載入失敗：{e}）")
+        return table
+    nk = MH.pbn
+    disp = {}                                      # 正名反查：ban 的英雄未必在這局上過場
+    for r in table[1:]:
+        for v in (r[iBC], r[iRC]):
+            if str(v or "").strip():
+                disp.setdefault(nk(v), str(v))
+        for v in slots(r[iBan]):
+            if v.strip():
+                disp.setdefault(nk(v), v)
+    pbs, n = {}, 0
+    for (lg, sp, d, g, _t), rs, blue5, red5 in broken:
+        ov = (W.get(str(year), {}).get(str(lg), {}) or {}).get(sp)
+        if not ov:
+            print(f"  ⚠ 選序修補：{lg} {sp or '(無賽段)'} 查無 wiki 頁名 → 跳過"); continue
+        if ov not in pbs:
+            pbs[ov] = MH.pb_orders(ov)
+        od = MH.pb_of(pbs[ov], blue5, red5)
+        if not od:
+            print(f"  ⚠ 選序修補：{lg} {str(d)[:10]} G{g} 在 PB 頁對不到十隻 → 不動"); continue
+        mp = dict(disp); mp.update({nk(c): str(c) for c in blue5 + red5 if str(c).strip()})
+        name = lambda c: "" if str(c).strip().lower() in ("", "none") else mp.get(nk(c), str(c))
+        bp5, rp5 = [name(c) for c in od[0]], [name(c) for c in od[1]]
+        bb5, rb5 = [name(c) for c in od[2]], [name(c) for c in od[3]]
+        first = 1 if od[4] else 0
+        pl_new = "|" + "|".join(bp5 + rp5) + "|"
+        lane5 = lambda v: [x for x in (str(v).split("|") + [""] * 7)[1:6] if x]
+        for r in rs:
+            r[iPL] = pl_new
+            r[iBB] = "|" + "|".join(bb5) + "|"
+            r[iRB] = "|" + "|".join(rb5) + "|"
+            r[iBan] = "|" + "|".join([c for c in bb5 + rb5 if c]) + "|"   # 合併欄慣例：空槽不進
+            r[iFB], r[iFR] = str(first), str(1 - first)
+            if str(r[iPid]) == "100":
+                r[iBP] = "|".join(str(calc_po(c, bp5, True, first)) for c in lane5(r[iBL]))
+                r[iRP] = "|".join(str(calc_po(c, rp5, False, first)) for c in lane5(r[iRL]))
+            else:
+                r[iBP] = calc_po(str(r[iBC] or ""), bp5, True, first)
+                r[iRP] = calc_po(str(r[iRC] or ""), rp5, False, first)
+        n += 1
+        print(f"  選序修補：{lg} {str(d)[:10]} G{g} ← wiki PB（ban {sum(1 for x in bb5 if x)}+{sum(1 for x in rb5 if x)}、先選={'藍' if first else '紅'}方）")
+    if n:
+        print(f"  選序殘缺修補 {n} 局（wiki Picks and Bans 頁）")
+    return table
+
+
 def fix_po_missing(table):
     """po 全 0 但 picklist 十隻齊的列，收尾補算——前面的修復都有各自的觸發條件
     （fix_firstpick 只碰空 firstPick、fix_firstpick_wiki 只碰 wiki 不同意的），有 picklist
@@ -1553,6 +1659,7 @@ def main():
         table = fix_pick_side(table)       # picklist 兩半錯邊矯正（要在 firstpick 系列之前，po 才算得對）
         table = fix_foreign_bp(table)      # 別場比賽的 BP 整組清空（換邊也對不上＝外來資料）
         table = fix_teamrow_side_wiki(table, y)  # MH 隊伍列藍紅方依 wiki VODs 校正（要在 firstpick 系列之前）
+        table = fix_draft_wiki(table, y)  # 選序殘缺依 wiki PB 頁整組修回（要在 firstpick 系列之前）
         table = fix_firstpick(table)       # 補充來源留下的空 firstPick 收尾（要排在所有 merge 之後）
         table = fix_firstpick_wiki(table, y)  # 2026+：wiki Pick Sel 顏色校正先選方＋po（要在 fix_firstpick 之後）
         table = fix_po_missing(table)      # 無分路局的 po 依選角序補齊（要在 firstPick 全部定案之後）
