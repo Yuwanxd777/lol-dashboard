@@ -10788,9 +10788,9 @@ function render(){
     // 選用格 15→6（2026-08-03 使用者：五路的間隔收緊）：篩選框原本 74px 把欄寬撐到 82，
     // 但頭像組只要 72（44＋gap3＋順位9＋td 內距 16）→ 五路每欄省 10px、兩邊共省 100px，
     // 拿去加寬隊名／選擇／禁用欄，讓「隊名｜禁用｜五路」之間的間隔看得出分組。
-    const _BGROW=2,_LGROW=6;        // 選用篩選框寬＝50＋6×2＝62（欄寬 70＝62＋8px 框距，剛好放得下）
-    const _BFW=_BIW+_BGROW*2;       // 禁用格寬 48
-    const _LFW=_BIW+_LGROW*2;       // 選用格寬 74
+    // 篩選框三種規格（2026-08-05 使用者定案：資訊 55／禁用 55／五路 65）
+    const _BFW=55;                  // 禁用篩選格寬
+    const _LFW=65;                  // 選用（五路）篩選格寬；_laneW=max(50+25, 65+8)=75 不變
     // 禁用欄寬＝BAN 圖排總寬＋td 內距：5 禁 = 5×44+(7+7+15+7)+16 = 272、3 禁 = 3×44+(7+7)+16 = 162
     //（原本 268／150 少算了第一輪｜第二輪分隔線多佔的 8px 與部分內距，圖會溢出到隔壁欄）
     const _b5=_maxBan>3, _banW=_b5?_BIW*5+(_BG1*3+_BG2)+28:_BIW*3+_BG1*2+28;   // 圖寬×n＋圖距＋td 內距 16＋12px 餘裕
@@ -10932,9 +10932,9 @@ function render(){
     // 其餘欄（時長／勝／藍方／紅方）：原本撐滿整欄，略窄 20% 置中（2026-07-31 使用者指定）。
     const _isLane=k=>/^[br]l[0-4]$/.test(k);  // bl0~bl4／rl0~rl4＝五路選用欄
     // 資訊欄（局數/時長/勝/隊名/選擇）的篩選框**固定同寬**：原本 width:80% 跟著 th 實際寬
-    // 跑（欄被填滿容器的餘寬撐開後大小不一，局數 60、時長 48…）→ 統一 43px
-    //（2026-08-05 使用者指定：時長現寬 48 − 5）
-    const _INFOW=43, _isInfo=k=>["gno","gl","win","bt","bsel","rt","rsel"].includes(k);
+    // 跑（欄被填滿容器的餘寬撐開後大小不一，局數 60、時長 48…）→ 統一 _INFOW
+    //（2026-08-05 使用者定案 55；含 bsel/rsel 的 fancy 鈕）
+    const _INFOW=55, _isInfo=k=>["gno","gl","win","bt","bsel","rt","rsel"].includes(k);
     const _fcell=c=>_noF.has(c.k)?"":(SUBF[c.k]
       ?`<div style="display:flex;gap:${_BIW+_BG1-_BFW}px;justify-content:center">${SUBF[c.k].map((f,i,a)=>
           _finput(f,`flex:0 0 ${_BFW}px${(a.length>3&&i===3)?`;margin-left:${_BG2-_BG1}px`:""}`)).join("")}</div>`
