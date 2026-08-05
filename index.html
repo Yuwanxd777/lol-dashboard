@@ -7598,7 +7598,7 @@ function tableHTML(cols,rows,nameImg,limit){ // limit：只渲染排序後前 N 
     if(val<=rk.lo)return val===rk.bot?(inv?"hi1":"lo1"):(inv?"hi3":"lo3");
     return "";
   };
-  const thBrk=n=>{if(n==="勝率(勝-敗)"||n==="金差@15"||n==="經差@15"||n==="GD@15"||n==="XPD@15")return n; let s=(LANG==="en")?n.replace(/ +/g," ").trim():n; const i=s.search(/[（(@]/); if(i>0)s=`${s.slice(0,i)}<br>${s.slice(i)}`; s=s.replace(/→/g,"→<br>"); if(LANG==="en")s=s.replace(/ /g,"<br>"); return s.replace(/(<br>){2,}/g,"<br>");}; // 表頭遇括號/@/箭頭換行（積分表 @15 欄名短→整欄一行不斷）；英文再於半形空格處換行（只斷空格、不硬斷字）；合併連續<br>避免多空行
+  const thBrk=n=>{if(n==="勝率(勝-敗)"||n==="金差@15"||n==="經差@15"||n==="GD@15"||n==="XPD@15")return n; if(n==="視野分數")return "視野<br>分數"; let s=(LANG==="en")?n.replace(/ +/g," ").trim():n; const i=s.search(/[（(@]/); if(i>0)s=`${s.slice(0,i)}<br>${s.slice(i)}`; s=s.replace(/→/g,"→<br>"); if(LANG==="en")s=s.replace(/ /g,"<br>"); return s.replace(/(<br>){2,}/g,"<br>");}; // 表頭遇括號/@/箭頭換行（積分表 @15 欄名短→整欄一行不斷）；視野分數固定兩行（2026-08-05 使用者指定）；英文再於半形空格處換行（只斷空格、不硬斷字）；合併連續<br>避免多空行
   // （）開關開啟時：欄名的括號註記也拿掉（資料格已顯示括號值，表頭再寫一次是重複；2026-08-04 使用者指定）
   // 只作用在有（）鈕的三頁；關閉時保留完整欄名，讓人知道括號裡原本是什麼。
   const _thNm=n=>{ if(window.SHOW_BRK&&typeof curView!=="undefined"&&["英雄","選手","戰隊"].includes(curView)){
