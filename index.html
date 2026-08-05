@@ -11027,6 +11027,7 @@ function render(){
     const _colFActive=()=>FILTERS.some(f=>(V.bpColF[f.k]||"").trim());
     let _bpFocusK=null; // 打字中的欄→重繪後把焦點還回去(表格整塊重建會掉焦點)
     const rerender=()=>{
+      const _bpSX=window.scrollX,_bpSY=window.scrollY,_bpTW=document.querySelector("#tbl .tblwrap"),_bpTL=_bpTW?_bpTW.scrollLeft:0; // 重繪前記捲動位置（含 tblwrap 水平捲動——重繪換新容器 scrollLeft 歸零＝表頭跳回左邊；尾端還原）
       const mode=V.bpSideMode||"br";
       let ms=calcMatches("");   // 拿掉戰隊選單→全部比賽，改逐欄篩選
       const _fq=[]; FILTERS.forEach(f=>{const q=(V.bpColF[f.k]||"").trim().toLowerCase(); if(q)_fq.push([f,q.split(/\s+/).filter(Boolean),q]);}); // 空白分詞：下拉值可能是「中文 English」，中英任一詞都要命中(順序無關)
@@ -11427,6 +11428,10 @@ function render(){
         b2.addEventListener("mousedown",e=>{ if(e.button===0&&se.value){ e.preventDefault(); e.stopPropagation();
           V.bpColF[se.dataset.k]=""; saveState(); rerender(); } },true); });
       if(_bpFocusK){ const el=box.querySelector('.bpColF[data-k="'+_bpFocusK+'"]'); if(el){ el.focus({preventScroll:true}); try{el.setSelectionRange(el.value.length,el.value.length);}catch(_e){} } _bpFocusK=null; } // preventScroll：focus 會把水平捲動拉到框位置＝篩選時整表跳動（2026-08-05 使用者回報）
+      // 還原捲動位置：重繪換掉 .tblwrap → 其 scrollLeft 歸零 →
+      // 捲到右側篩選(如 BAN/PICK 各格)每次套用整片標籤跳回左邊（2026-08-05 使用者二度回報）
+      window.scrollTo(_bpSX,_bpSY);
+      if(_bpTL){ const tw2=document.querySelector("#tbl .tblwrap"); if(tw2){ tw2.scrollLeft=_bpTL; if(window.hsbUpdate)hsbUpdate(); } }
     };
     { // 左側代表（藍紅／該隊）＋選角順序檢視＋清空欄位篩選：併進篩選列右側，擺在本頁說明左邊
       //（2026-07-31 使用者指定；最右三顆 說明／預設／返回 位置不動）
