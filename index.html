@@ -6035,8 +6035,13 @@ function _calcMatches0(team){
     const _sided=(_bB&&_bB.length)||(_bR&&_bR.length);   // 舊年份沒有分邊欄位 → 退回舊的對半切
     const bans=String(r[C.banlist]).split("|").filter(x=>x!=="");
     const half=Math.ceil(bans.length/2); // 早年 3 禁＝6 隻(3+3)、現代 5 禁＝10 隻(5+5)：依總數對半分，不寫死 5
-    const bl=String(r[C.blue_Lane]).split("|").filter(x=>x!=="");
-    const rl=String(r[C.red_Lane]).split("|").filter(x=>x!=="");
+    let bl=String(r[C.blue_Lane]).split("|").filter(x=>x!=="");
+    let rl=String(r[C.red_Lane]).split("|").filter(x=>x!=="");
+    // PB 頁／wiki 文字版補的局只有隊伍列：分路欄全空、但 picklist 有完整十隻（2026-08-01
+    // DK vs GEN G1）→ 退回「選角序」顯示（前 5 藍、後 5 紅）。po 在資料端已按同一順序補齊
+    //（fetch_data 的 fix_po_missing），順位數字對得上；選手名維持問號（來源真的沒有）。
+    if(!bl.length&&!rl.length){const _pk=String(r[C.picklist]).split("|").filter(x=>x!=="");
+      if(_pk.length>=10){bl=_pk.slice(0,5);rl=_pk.slice(5,10);}}
     const bpo=String(r[C.blue_po]).split("|"), rpo=String(r[C.red_po]).split("|");
     // 「選邊（先選／後選）」是 2026 才上路的制度，2025 以前（含 2025）一律藍方先選。
     // 早年 OE 根本沒有 blue_firstPick 欄、wiki 補回來的更是全空 → 原本的 ===1 會一路落到 "red"，
