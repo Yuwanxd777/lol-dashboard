@@ -10914,7 +10914,8 @@ function render(){
           for(const it of items){ const v2=cat+"#"+it;
             oh+=`<option value="${esc(v2)}"${cur===v2?" selected":""} data-s="${esc(it)}" data-b="${esc(en?px+"·"+IT_B[it]:px+it)}">${esc(en?px+"·"+it:px+it)}</option>`; }
         }
-        return `<span style="display:block;width:100%"><select class="bpColF" data-k="${f.k}">${oh}</select></span>`;
+        // xs（外部指定寬，如資訊欄統一 43px）附加在 width:100% 之後 → 內含的 width 會覆蓋掉它
+        return `<span style="display:block;width:100%${xs?";"+xs:""}"><select class="bpColF" data-k="${f.k}">${oh}</select></span>`;
       }
       const st=`display:block;width:100%;min-width:0;font-size:11px;box-sizing:border-box`;
       return `<span style="position:relative;display:block;flex:1 1 0;min-width:0${xs?";"+xs:""}"><input class="bpColF${cur?" on":""}" data-k="${f.k}" size="1" value="${esc(cur)}" placeholder=" " autocomplete="off" style="${st};padding:2px 3px"><span class="bpCx" data-k="${f.k}" title="${LANG==="en"?"clear":"清除"}">✕</span></span>`;
@@ -10930,11 +10931,17 @@ function render(){
     //   （2026-07-31 使用者指定：對齊上面的路線圖，不是對齊底下被順位數字推偏的頭像）。
     // 其餘欄（時長／勝／藍方／紅方）：原本撐滿整欄，略窄 20% 置中（2026-07-31 使用者指定）。
     const _isLane=k=>/^[br]l[0-4]$/.test(k);  // bl0~bl4／rl0~rl4＝五路選用欄
+    // 資訊欄（局數/時長/勝/隊名/選擇）的篩選框**固定同寬**：原本 width:80% 跟著 th 實際寬
+    // 跑（欄被填滿容器的餘寬撐開後大小不一，局數 60、時長 48…）→ 統一 43px
+    //（2026-08-05 使用者指定：時長現寬 48 − 5）
+    const _INFOW=43, _isInfo=k=>["gno","gl","win","bt","bsel","rt","rsel"].includes(k);
     const _fcell=c=>_noF.has(c.k)?"":(SUBF[c.k]
       ?`<div style="display:flex;gap:${_BIW+_BG1-_BFW}px;justify-content:center">${SUBF[c.k].map((f,i,a)=>
           _finput(f,`flex:0 0 ${_BFW}px${(a.length>3&&i===3)?`;margin-left:${_BG2-_BG1}px`:""}`)).join("")}</div>`
       :_isLane(c.k)
         ?`<div style="display:flex;justify-content:center">${_finput({k:c.k},`flex:0 0 ${_LFW}px`)}</div>`
+      :_isInfo(c.k)
+        ?`<div style="display:flex;justify-content:center">${_finput({k:c.k},`flex:0 0 ${_INFOW}px;width:${_INFOW}px`)}</div>`
         :_finput({k:c.k},"width:80%;margin-left:auto;margin-right:auto"));
     const _colFActive=()=>FILTERS.some(f=>(V.bpColF[f.k]||"").trim());
     let _bpFocusK=null; // 打字中的欄→重繪後把焦點還回去(表格整塊重建會掉焦點)
