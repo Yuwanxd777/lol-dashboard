@@ -7598,10 +7598,11 @@ function tableHTML(cols,rows,nameImg,limit){ // limit：只渲染排序後前 N 
     if(val<=rk.lo)return val===rk.bot?(inv?"hi1":"lo1"):(inv?"hi3":"lo3");
     return "";
   };
-  const thBrk=n=>{if(n==="勝率(勝-敗)"||n==="金差@15"||n==="經差@15"||n==="GD@15"||n==="XPD@15")return n; let s=(LANG==="en")?n.replace(/ +/g," ").trim():n;
-    // 純中文 ≥4 字的欄名每 2 字斷行（視野/分數、中期/金差…）：欄寬不再被長標籤撐開、
-    // 數據欄間隔一致（2026-08-05 使用者定案；≤3 字維持單行）
-    if(LANG!=="en"&&s.length>=4&&!/[A-Za-z0-9@（()）%]/.test(s))return s.match(/.{1,2}/g).join("<br>");
+  const thBrk=(n,noChunk)=>{if(n==="勝率(勝-敗)"||n==="金差@15"||n==="經差@15"||n==="GD@15"||n==="XPD@15")return n; let s=(LANG==="en")?n.replace(/ +/g," ").trim():n;
+    // 純中文 ≥4 字的欄名每 2 字斷行（視野/分數…）：欄寬不再被長標籤撐開、數據欄間隔一致
+    //（2026-08-05 使用者定案；≤3 字維持單行）。noChunk＝該欄資料本身夠寬（放得下整個標籤）
+    // → 不斷行（同日追加：資料長度夠長就單行）
+    if(!noChunk&&LANG!=="en"&&s.length>=4&&!/[A-Za-z0-9@（()）%]/.test(s))return s.match(/.{1,2}/g).join("<br>");
     const i=s.search(/[（(@]/); if(i>0)s=`${s.slice(0,i)}<br>${s.slice(i)}`; s=s.replace(/→/g,"→<br>"); if(LANG==="en")s=s.replace(/ /g,"<br>"); return s.replace(/(<br>){2,}/g,"<br>");}; // 表頭遇括號/@/箭頭換行（積分表 @15 欄名短→整欄一行不斷）；英文再於半形空格處換行（只斷空格、不硬斷字）；合併連續<br>避免多空行
   // （）開關開啟時：欄名的括號註記也拿掉（資料格已顯示括號值，表頭再寫一次是重複；2026-08-04 使用者指定）
   // 只作用在有（）鈕的三頁；關閉時保留完整欄名，讓人知道括號裡原本是什麼。
@@ -7609,7 +7610,11 @@ function tableHTML(cols,rows,nameImg,limit){ // limit：只渲染排序後前 N 
       const s=String(n).replace(/[（(][^（）()]*[）)]/g,"").trim(); if(s)return s; }
     return n; };
   const show=(limit&&limit<sorted.length)?sorted.slice(0,limit):sorted; // 分批：只渲染前 N 列（名次仍用完整排序索引 ri）
-  return `<div class="tblwrap"><table><thead><tr><th class="rkh">#</th>${cols.map(([c,,w,lbl],ci)=>{const _st=w?`width:${w}`:(colFloor[ci]?`min-width:calc(${colFloor[ci]}ch + 6px)`:""); return `<th data-k="${c}"${_st?` style="${_st}"`:""}><span class="thL">${thBrk(_thNm(lbl||mLabel(c)))}${arrow(c)}</span></th>`;}).join("")}</tr></thead><tbody>${
+  // 該欄資料寬 ≥ 標籤寬 → 標籤單行（中文字約 2ch；資料寬用 colFloor 的最長字元數估）
+  const _thFit=(nm,ci)=>{const fl=colFloor[ci]; if(!fl)return false;
+    const zh=(String(nm).match(/[^\x00-\xff]/g)||[]).length;
+    return fl>=zh*2+(String(nm).length-zh); };
+  return `<div class="tblwrap"><table><thead><tr><th class="rkh">#</th>${cols.map(([c,,w,lbl],ci)=>{const _st=w?`width:${w}`:(colFloor[ci]?`min-width:calc(${colFloor[ci]}ch + 6px)`:""); const _nm=_thNm(lbl||mLabel(c)); return `<th data-k="${c}"${_st?` style="${_st}"`:""}><span class="thL">${thBrk(_nm,_thFit(_nm,ci))}${arrow(c)}</span></th>`;}).join("")}</tr></thead><tbody>${
     show.map((r,ri)=>`<tr><td class="rk${ri<3?` rk${ri+1}`:""}">${ri+1}</td>${cols.map(([c,f],i)=>{
       let v=f(r[c],r);
       let nmAttr="";
