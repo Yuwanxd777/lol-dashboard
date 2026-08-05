@@ -117,7 +117,8 @@
   button{cursor:pointer;transition:.15s} button:hover{border-color:var(--acc)}
   button.primary{background:linear-gradient(135deg,var(--acc),var(--acc2));border-color:transparent;color:#fff;font-weight:bold}
   button.primary:hover{filter:brightness(1.15)}
-  .sqbtn{width:36px;height:36px;padding:0;font-size:16px;line-height:1;flex:0 0 auto} /* 全域：返回/截圖/預設 統一圖示正方形鈕 */
+  .sqbtn{width:36px;height:36px;padding:0;font-size:16px;line-height:1;flex:0 0 auto;
+    display:inline-flex;align-items:center;justify-content:center} /* 全域：返回/截圖/預設 統一圖示正方形鈕；flex 置中——() 與 emoji 字形基線各不同，靠 line-height 對不齊（2026-08-05 使用者回報 ()/📸 沒置中） */
   .pgbtn{border-color:var(--line)} /* 2026-07-28 起金色只保留給「分段鈕的作用中段」，動作鈕一律中性框（邊框全站一致） */
   /* 子頁返回鍵：詳情框右上、比一般返回鍵稍大＋金框，與篩選列的全域返回鍵做區分（清掉該分頁的子頁詳情，回到該分頁列表） */
   .subBack{position:absolute;top:12px;right:14px;z-index:6;width:36px;height:36px;padding:0;font-size:16px;line-height:1;border-radius:8px;border:2px solid var(--gold);background:#1b2333;color:var(--gold);cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.4)}
