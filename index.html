@@ -10408,8 +10408,11 @@ function render(){
       return out; };
     // 點欄頭排序（每個路線框各自獨立）
     const RSACC={英雄:c=>cAb(c.ch),場:c=>c.n,勝率:c=>c.w/c.n,被禁:c=>c.banRate,上次:c=>c.last||"",KDA:c=>c._kda,評分:c=>c._sc};
-    const sortPool=(pool,pos)=>{
-      const s=(V.rosterSort||{})[pos], f=s&&RSACC[s.k]; if(!f)return pool;
+    // 排序鍵：直式一路一張卡→用路線；橫式同一路每位選手各一張卡→要加上選手，否則
+    // 調整上路 A 的升降序會連上路 B 一起排（2026-08-06 使用者回報）
+    const sortKey=(pos,who)=>(V.rosterLayout==="h"&&who)?pos+"|"+who:pos;
+    const sortPool=(pool,pos,who)=>{
+      const s=(V.rosterSort||{})[sortKey(pos,who)], f=s&&RSACC[s.k]; if(!f)return pool;
       return [...pool].sort((a,b)=>{const x=f(a),y=f(b);
         return (typeof x==="string"?String(x).localeCompare(String(y)):x-y)*s.d;});
     };
@@ -10423,16 +10426,16 @@ function render(){
       const R=crossTeam?null:(careerMode?careerRoster(V.rosterTeam):teamRoster(V.rosterTeam));
       if(!crossTeam&&!R){box.innerHTML=`<div class="card"><span class="meta">此戰隊沒有生涯資料</span></div>`;return;}
       V.rosterPick=V.rosterPick||{}; V.rosterSort=V.rosterSort||{};
-      const rArrow=(pos,k)=>{const s=V.rosterSort[pos],on=s&&s.k===k,up=on&&s.d>0; return `<span class="sortArr${on?" on":""}${on?(up?" asc":" desc"):""}">${up?"▲":"▼"}</span>`;};
+      const rArrow=(pos,k,who)=>{const s=V.rosterSort[sortKey(pos,who)],on=s&&s.k===k,up=on&&s.d>0; return `<span class="sortArr${on?" on":""}${on?(up?" asc":" desc"):""}">${up?"▲":"▼"}</span>`;};
       const RCOLS=soloqMode?["英雄","場","勝率","KDA","上次"]:["英雄","場","勝率","被禁","上次"];
-      const rHead=pos=>RCOLS.map(k=>`<th data-rk="${k}" data-pos="${pos}" style="cursor:pointer"><span class="thL">${k==="場"?(LANG==="en"?"Games":"場數"):mLabel(k)}${rArrow(pos,k)}</span></th>`).join("");
+      const rHead=(pos,who)=>RCOLS.map(k=>`<th data-rk="${k}" data-pos="${pos}" data-who="${esc(who||"")}" style="cursor:pointer"><span class="thL">${k==="場"?(LANG==="en"?"Games":"場數"):mLabel(k)}${rArrow(pos,k,who)}</span></th>`).join("");
       // 橫式：角色池轉置（欄=英雄、列=數據）；列標可點排序（同一套 V.rosterSort），rsGo/名次上色/近兩週亮黃照舊
       const poolH=(pool,pos,who,go)=>{
         const el=pool.filter(c=>c.n>=3);
         const rG=rankCls(el.map(c=>c.n)),rW=rankCls(el.map(c=>c.w/c.n)),
               rB=rankCls(el.map(c=>c.banRate)),rK=rankCls(el.map(c=>c._kda));
         const lbl=k=>k==="場"?(LANG==="en"?"Games":"場數"):mLabel(k);
-        const rTh=k=>`<th data-rk="${k}" data-pos="${pos}" style="cursor:pointer"><span class="thL">${lbl(k)}${rArrow(pos,k)}</span></th>`;
+        const rTh=k=>`<th data-rk="${k}" data-pos="${pos}" data-who="${esc(who||"")}" style="cursor:pointer"><span class="thL">${lbl(k)}${rArrow(pos,k,who)}</span></th>`;
         const row=(k,tds)=>`<tr>${rTh(k)}${tds}</tr>`;
         const _goAttr=c=>go?` data-ch="${esc(c.ch)}" data-pos="${esc(pos)}" data-p="${esc(who||"")}" title="${LANG==="en"?"open champion detail (this player · this lane)":"到英雄詳情看這位選手這一路的紀錄"}"`:"";
         return `<table class="ov rsH"><tbody>
@@ -10446,7 +10449,7 @@ function render(){
       };
       // 兩種版面共用出口：直式＝原本的直表；橫式＝轉置表
       const tblFor=(pool,pos,who,go)=>layH?poolH(pool,pos,who,go)
-        :`<table class="ov"><thead><tr>${rHead(pos)}</tr></thead><tbody>${soloqMode?poolRowsSoloq(pool,go?pos:null,go?who:null):poolRows(pool,go?pos:null,go?who:null)}</tbody></table>`;
+        :`<table class="ov"><thead><tr>${rHead(pos,who)}</tr></thead><tbody>${soloqMode?poolRowsSoloq(pool,go?pos:null,go?who:null):poolRows(pool,go?pos:null,go?who:null)}</tbody></table>`;
       const posList=V.rosterLane?POSN.filter(p=>p===V.rosterLane):POSN; // 路線篩選：只畫選定那一路
       // 單張卡（pos/g＝該路資料、sel＝選手名、d＝該選手資料、withSel＝是否放選人下拉、team＝所屬隊）——
       // 直式一路一卡（可下拉換人）、橫式與跨隊模式「每位選手各一卡」（2026-08-05 使用者指定）
@@ -10463,15 +10466,15 @@ function render(){
           if(sp.loading)return hd2(LANG==="en"?"loading…":"載入中…")+`</div>`;
           const tot=sp.pool.reduce((s,c)=>s+c.n,0), tw=sp.pool.reduce((s,c)=>s+c.w,0), wr=tot?tw/tot:0;
           return hd2(LANG==="en"?`Pool ${sp.pool.length}　Games ${tot}　Win% ${Math.round(wr*100)}%`:`角色池 ${sp.pool.length}　總場 ${tot}　勝率 ${Math.round(wr*100)}%`)
-            +tblFor(sortPool(sp.pool,pos),pos,sel,true)+`</div>`;
+            +tblFor(sortPool(sp.pool,pos,sel),pos,sel,true)+`</div>`;
         }
         if(careerMode){ // 年份寫該選手自己的生涯範圍（新人可能只有 2025~2026），不是資料庫全域範圍
           const yr=d._y0?(d._y1&&d._y1!==d._y0?`${d._y0}~${d._y1}`:d._y0):"";
           return hd2(LANG==="en"?`${yr}｜Pool ${d.pool.length}｜Games ${d.total}｜Win% ${Math.round(d.winrate*100)}%`
                                 :`${yr}｜角色池 ${d.pool.length}｜總場 ${d.total}｜勝率 ${Math.round(d.winrate*100)}%`)
-            +tblFor(sortPool(d.pool,pos),pos,null,false)+`</div>`; }
+            +tblFor(sortPool(d.pool,pos,sel),pos,sel,false)+`</div>`; }
         return hd2(LANG==="en"?`Pool ${d.pool.length}　Games ${d.total}　Win% ${Math.round(d.winrate*100)}%`:`角色池 ${d.pool.length}　總場 ${d.total}　勝率 ${Math.round(d.winrate*100)}%`)
-          +tblFor(sortPool(d.pool,pos),pos,sel,true)+`</div>`;
+          +tblFor(sortPool(d.pool,pos,sel),pos,sel,true)+`</div>`;
       };
       let cardsHTML, moreNote="";
       if(crossTeam){ // 跨隊單路：全部戰隊該路的選手，依出賽場數多→少。
@@ -10553,8 +10556,8 @@ function render(){
          s.style.width=Math.ceil(_cx.measureText(t).width+20+(cs.boxSizing==="border-box"?pad:0))+"px"; });}
       {const ls=document.getElementById("vRosterLane"); if(ls&&!ls._b){ls._b=1; ls.onchange=()=>{V.rosterLane=ls.value; saveState(); rerender();};}}
       box.querySelectorAll("th[data-rk]").forEach(th=>th.onclick=()=>{
-        const k=th.dataset.rk, pos=th.dataset.pos, s=V.rosterSort[pos];
-        V.rosterSort[pos]=(s&&s.k===k)?{k,d:-s.d}:{k,d:-1};
+        const k=th.dataset.rk, kk=sortKey(th.dataset.pos,th.dataset.who), s=V.rosterSort[kk];
+        V.rosterSort[kk]=(s&&s.k===k)?{k,d:-s.d}:{k,d:-1};
         saveState(); rerender();
       });
       // 場數 → 英雄詳情（2026-07-31 使用者要求）：帶著「同一個資料源＋該選手＋該路線」跳過去。
