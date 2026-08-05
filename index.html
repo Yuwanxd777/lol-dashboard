@@ -322,6 +322,10 @@
   .bp td.draftc{white-space:nowrap;text-align:left;position:relative;z-index:0} /* z-index:0 建立堆疊上下文：白條(::before z-index:-1)才會停在列/格底色之上、圖之下（沒有它會掉到列背景後面看不見） */
   .bp.bpDraft tbody tr.subrow td{background:transparent} /* 路線模式：底色改成**每系列交替**（2026-08-05 使用者定案）——逐列斑馬取消 */
   .bp.bpDraft tbody tr.subrow.zebA td{background:rgba(255,255,255,.055)}
+  /* 前兩欄有「固定欄逐列斑馬」規則（.tblwrap …:nth-child(even) td:nth-child(1/2)）會蓋回逐列交錯
+     → 用更高權重把它壓掉，跟整列同進退（2026-08-05 使用者回報前兩欄白底交錯怪） */
+  table.bp.bpDraft tbody tr.subrow td:nth-child(1),table.bp.bpDraft tbody tr.subrow td:nth-child(2){background:transparent}
+  table.bp.bpDraft tbody tr.subrow.zebA td:nth-child(1),table.bp.bpDraft tbody tr.subrow.zebA td:nth-child(2){background:rgba(255,255,255,.055)}
   .bp.bpDraft td.draftc{border-left:1px solid rgba(255,255,255,.3);padding-left:20px}
   .bp.bpDraft tbody tr.subrow td{padding-top:12px;padding-bottom:12px} /* 路線模式列距加大（2026-08-05 使用者：6→12） */ /* 紅方選擇｜B1 之間的欄界線（與段間白線同款）＋線到 B1 間隔 20px */
   /* 出手階段分段（2026-08-05 使用者定案）：B1 B2 B3｜P1 P2 P3 P4｜B4 B5｜P5 P6 P7 共 12 段，
