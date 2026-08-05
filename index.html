@@ -235,6 +235,9 @@
   @keyframes sp{to{transform:rotate(360deg)}}
   table.bp{table-layout:auto} /* BP 表欄寬照內容：禁用5圖示完整、路線欄緊湊 */
   .bp td{padding:6px 8px;font-size:16px}
+  /* 選用格（五路）：左右內距歸零＋置中 → 相鄰頭像間隔＝欄寬−圖寬，由欄寬公式精準控制
+     （2026-08-05 使用者指定五路間隔 15px；內距 8px 會把最小間隔卡在 16px，所以獨立出來） */
+  .bp td.lc{padding-left:0;padding-right:0;text-align:center}
   .bp .bans{white-space:nowrap}
   .bp .cc img{width:50px;height:50px;border-radius:9px}
   .fp{font-weight:900;color:var(--gold)}  /* 先選方：粗體＋金色 */
@@ -10761,15 +10764,16 @@ function render(){
     // 選用格 15→6（2026-08-03 使用者：五路的間隔收緊）：篩選框原本 74px 把欄寬撐到 82，
     // 但頭像組只要 72（44＋gap3＋順位9＋td 內距 16）→ 五路每欄省 10px、兩邊共省 100px，
     // 拿去加寬隊名／選擇／禁用欄，讓「隊名｜禁用｜五路」之間的間隔看得出分組。
-    const _BGROW=2,_LGROW=6;
+    const _BGROW=2,_LGROW=3;        // 選用篩選框 6→3（2026-08-05）：欄寬收到 65 後框要 ≤57 才擺得下
     const _BFW=_BIW+_BGROW*2;       // 禁用格寬 48
     const _LFW=_BIW+_LGROW*2;       // 選用格寬 74
     // 禁用欄寬＝BAN 圖排總寬＋td 內距：5 禁 = 5×44+(7+7+15+7)+16 = 272、3 禁 = 3×44+(7+7)+16 = 162
     //（原本 268／150 少算了第一輪｜第二輪分隔線多佔的 8px 與部分內距，圖會溢出到隔壁欄）
     const _b5=_maxBan>3, _banW=_b5?_BIW*5+64:_BIW*3+42;   // 由圖寬推（44 時＝284/174 同舊值）；含輪距/內距/12px 餘裕
-    // 選用欄寬：要同時容得下〔頭像 44＋gap 3＋順位數字 9〕＋td 內距 16＝72，以及選用篩選框＋8px 間距
-    //（原本寫死 62，兩者都放不下 → 頭像組溢出隔壁欄、篩選框互相重疊）
-    const _laneW=Math.max(_BIW+_CCG+_POW+_TDP*2, _LFW+8);
+    // 選用欄寬＝頭像 50＋間隔 15（td.lc 內距歸零、置中 → 相鄰頭像間隔恰為欄寬−圖寬；
+    // 2026-08-05 使用者指定五路間隔 15px），同時要容得下選用篩選框＋8px 間距
+    const _LGAP=15;
+    const _laneW=Math.max(_BIW+_LGAP, _LFW+8);
     // 選邊權／先選權是 2026 才上路的制度 → 其他年份整欄不建（使用者指定 2026-08-03：
     // 舊年份維持原本版型）。這個旗標同時控欄位定義、表頭、內容格與 colspan，四處要一致。
     const _hasSel=+curYear>=2026;
@@ -10952,7 +10956,7 @@ function render(){
         const ch=String(s.lane[i]==null?"":s.lane[i]).trim();
         // 滑到選用頭像顯示「是誰用的」；來源沒有選手資料（PB 補的局、早年缺欄）就寫問號
         const pn=String((s.p||[])[i]==null?"":(s.p||[])[i]).trim()||"？";
-        return `<td class="${sCls(isBlue,won)}">${ch
+        return `<td class="lc ${sCls(isBlue,won)}">${ch
           ? cImg(ch,s.po[i]&&s.po[i]!=="0"?s.po[i]:"",pn)
           : _qIco(LANG==="en"?"pick not recorded in source":"來源沒有記錄這局的選用")}</td>`;
       }).join("");
@@ -11069,6 +11073,19 @@ function render(){
         <th>${HL[1]}</th>${_selTH}<th>禁用</th><th>${posImg("TOP")}</th><th>${posImg("JNG")}</th><th>${posImg("MID")}</th><th>${posImg("BOT")}</th><th>${posImg("SUP")}</th></tr>
         <tr class="bpFRow">${COLF.map(c=>`<th style="padding:2px 3px;top:auto">${_fcell(c)}</th>`).join("")}</tr></thead><tbody id="bpBody"></tbody></table></div>
         <div class="row" style="justify-content:center;margin-top:10px"><button id="bpMore" class="primary"></button></div>`;
+      // 五路欄寬固定：.tblwrap 的 min-width:100% 會把不足容器的表格按比例撐開、每欄偷偷
+      // 多幾 px → 頭像間隔跑掉（設 65 量到 67）。把「補滿容器」的餘寬**只分給非五路欄**，
+      // colgroup 各欄設定寬總和＝容器寬後就沒有比例分配的空間，五路間隔才會精準 15px
+      //（2026-08-05 使用者指定）。resize/縮放時由同一個掛一次的 listener 重算。
+      window._bpColFit=()=>{ const wrap=document.querySelector("#tbl .tblwrap"); if(!wrap)return;
+        const cols=[...wrap.querySelectorAll("colgroup col")]; if(cols.length!==COLF.length)return;
+        const tot=COLF.reduce((a,c)=>a+c.w,0), avail=wrap.clientWidth;
+        const lane=COLF.map((c,i)=>/^[br]l[0-4]$/.test(c.k)?i:-1).filter(i=>i>=0);
+        if(avail<=tot+2){ cols.forEach((el,i)=>{el.style.width=COLF[i].w+"px";}); return; } // 塞不下→維持設定寬(走橫向捲)
+        const per=(avail-tot)/(COLF.length-lane.length), laneSet=new Set(lane);
+        cols.forEach((el,i)=>{el.style.width=(COLF[i].w+(laneSet.has(i)?0:per))+"px";}); };
+      if(!window._bpColFitHook){ window._bpColFitHook=1; addEventListener("resize",()=>{ if(window._bpColFit)window._bpColFit(); }); }
+      window._bpColFit();
       // 分批渲染：先 200 場，按需載入，避免上萬節點一次撐爆版面
       const body=document.getElementById("bpBody"), moreBtn=document.getElementById("bpMore");
       const glowIdx=new Map(); let lit=null, shown=0;
