@@ -11912,12 +11912,23 @@ function render(){
         const midW=midHTML?Math.max(110,Math.min(300,Math.round(availW*.22))):0;
         const poolW=availW-(midW?midW+gap:0);
         wrap.style.display="flex"; wrap.style.gap=gap+"px"; wrap.style.gridTemplateColumns="";
+        // 重繪前留住角色池／右欄舊節點：整片 innerHTML 會把上百張 <img> 全部重造，瀏覽器要重新
+        // 解碼＋重排，那兩欄就會閃一下、圖跳動（2026-08-06 使用者回報切一般↔全局時 BAN過與其他區跳動）。
+        // 下面重建完會比對 innerHTML，一模一樣就把舊節點搬回去（圖不重建＝完全不跳）。
+        const _keep={".bpPool":wrap.querySelector(".bpPool"),".bpMid":wrap.querySelector(".bpMid")};
+        const _poolH=poolColHTML();   // 先算好才能跟上次比（不能比 live innerHTML：fitPool 會在子元素寫 inline style 污染比對）
         wrap.innerHTML=`<div id="bsGames" style="flex:1;min-width:0;overflow-x:${S.n>5?"auto":"hidden"};overflow-y:hidden"><div style="display:grid;grid-template-columns:repeat(${S.n},${g}px)${showAdd?" 46px":""};gap:${gap}px;height:100%;align-items:stretch;width:max-content;min-width:100%">
             ${[...Array(S.n).keys()].map(gameCard).join("")}
             ${showAdd?`<div class="card bsGAddCol" style="margin:0;display:flex;align-items:center;justify-content:center;font-size:28px;color:#5fbf7f;cursor:pointer;min-width:46px;user-select:none" title="新增一局（放在最右邊、緊貼角色池方便拖曳；超過五局往左捲動看較舊的局）">＋</div>`:""}
           </div></div>
-          <div class="card bpPool" style="margin:0;overflow:hidden;display:flex;flex-direction:column;flex:0 0 auto;width:${poolW}px">${poolColHTML()}</div>
+          <div class="card bpPool" style="margin:0;overflow:hidden;display:flex;flex-direction:column;flex:0 0 auto;width:${poolW}px">${_poolH}</div>
           ${midHTML?`<div class="card bpMid" style="margin:0;padding:10px;overflow:hidden;display:flex;flex-direction:column;flex:0 0 auto;width:${midW}px">${midHTML}</div>`:""}`;
+        [[".bpPool",wrap._lastPool===_poolH],[".bpMid",wrap._lastMid===midHTML]].forEach(([sel,same])=>{
+          const o=_keep[sel]; if(!o||!same)return; const ne=wrap.querySelector(sel);
+          if(!ne)return;
+          o.setAttribute("style",ne.getAttribute("style")||"");   // 版型寬度仍吃新算的
+          ne.replaceWith(o); });                                  // 內容相同 → 沿用舊節點，圖不重建
+        wrap._lastPool=_poolH; wrap._lastMid=midHTML;
         const gsc1=wrap.querySelector("#bsGames"); if(gsc1)gsc1.scrollLeft=keepSL;
       }
       // 池區頭貼動態尺寸：框內動態——每一路依自己框的寬高與英雄數各自最大化
