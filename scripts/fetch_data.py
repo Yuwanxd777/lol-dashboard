@@ -642,6 +642,38 @@ def write_manifest():
     print(f"manifest：{years}")
 
 
+# 一局的統計值指紋（時長＋雙方擊殺的無序對）與相容性判定：merge_wiki／merge_fill 的
+# 「同陣容＝同一局」去重共用。擊殺用無序比是因為兩源可能藍紅顛倒（同隊名集合、同英雄集合）。
+def _mk_gstats(hdr):
+    iGL = hdr.index("blue_gamelength")
+    iBK = hdr.index("blue_teamkills") if "blue_teamkills" in hdr else None
+    iRK = hdr.index("red_teamkills") if "red_teamkills" in hdr else None
+
+    def _num(v):
+        v = str(v).strip()
+        try:
+            return float(v)
+        except ValueError:
+            return None
+
+    def g(rs):
+        gl = next((x for x in (_num(r[iGL]) for r in rs) if x is not None), None)
+        bk = next((x for x in (_num(r[iBK]) for r in rs) if x is not None), None) if iBK is not None else None
+        rk = next((x for x in (_num(r[iRK]) for r in rs) if x is not None), None) if iRK is not None else None
+        ks = frozenset((bk, rk)) if bk is not None and rk is not None else None
+        return (gl, ks)
+    return g
+
+
+def _stats_compat(a, b):
+    (gl1, k1), (gl2, k2) = a, b
+    if gl1 is not None and gl2 is not None and abs(gl1 - gl2) > 10:
+        return False
+    if k1 is not None and k2 is not None and k1 != k2:
+        return False
+    return True                                # 缺統計值（隊伍列）從寬當同一局
+
+
 def merge_wiki(year, table):
     """併入 csv_cache/wikifill_{年}.json（scripts/fetch_wiki_mh.py 由 Leaguepedia 文字版 Match History 產生）。
     用途＝**OE 根本沒收錄的老賽季**（如 LPL 2016 春季以前、2013 全年）。
@@ -671,10 +703,14 @@ def merge_wiki(year, table):
     # 的組合對一局來說是固定的，跟隊名、局號怎麼標都無關。**不能只用英雄不看局**——
     # 早年英雄池小，逐列比對（pid＋兩個英雄）會把同日不同場誤判成同一局（實測 2013 掉了
     # 1474 列）。所以先分組成局，再比整局的英雄集合。（2026-08-01）
+    # ⚠ 分組鍵用**完整時間戳**不是日期（2026-08-05 修）：OE 自己也會撞號（IEM 2016-03-04
+    # ESC/TSM 兩場都標 G1，fix_game_no 要到最後才重編），用日期+局號分組會把兩局黏成一組、
+    # 識別集合變 15 隻英雄 → 誰都對不上，wiki 版整批漏進來變重複。同一局的列時間戳一定相同，
+    # 拿它分組才能把撞號的局拆開；identity 鍵（oe_c）仍用日期，跨源時間戳本來就對不齊。
     def _by_game(rows):
         g = {}
         for r in rows:
-            g.setdefault((r[iL], str(r[iD])[:10], str(r[iG]),
+            g.setdefault((r[iL], str(r[iD]), str(r[iG]),
                           frozenset((r[iBT] or "", r[iRT] or ""))), []).append(r)
         return g
 
@@ -692,18 +728,26 @@ def merge_wiki(year, table):
                 s |= {x.strip() for x in str(r[iPLc]).split("|") if x.strip()}
         return frozenset(s)
 
+    # 統計值防呆（2026-08-05 全庫掃描後加）：**同陣容再戰是真的會發生的**（重賽規則同
+    # draft 重打、或兩隊真的重選同十隻，全庫 13 年有 18 例），只看英雄組合會把真局當
+    # 重複丟掉。同一局的鐵證是統計值也一致：時長差 >10 秒、或雙方擊殺組合不同（無序比，
+    # 避免兩源藍紅顛倒誤傷）就判不同局；缺統計值的（隊伍列）從寬當同一局。
+    _gstats = _mk_gstats(hdr)
+    _scomp = _stats_compat
+
     have = {gkey(r) for r in table[1:]}
     oe_c = {}
     for k, rs in _by_game(table[1:]).items():
         cs = _cset(rs)
         if len(cs) >= 8:                       # 十個英雄齊全才拿來當識別（有缺就不夠獨特）
-            oe_c.setdefault((k[0], k[1], cs), []).extend(rs)
+            oe_c.setdefault((k[0], k[1][:10], cs), []).append(rs)
     for key, v in D.items():
         rows = remap_rows([v["header"]] + v["rows"], hdr)
         keep, filled, dup = [], 0, 0
         for k, rs in _by_game(rows).items():
             cs = _cset(rs)
-            old = oe_c.get((k[0], k[1], cs)) if len(cs) >= 8 else None
+            cands = oe_c.get((k[0], k[1][:10], cs), []) if len(cs) >= 8 else []
+            old = next((o for o in cands if _scomp(_gstats(o), _gstats(rs))), None)
             # 位置式比對（聯賽+日期+兩隊+局號+pid）只在**英雄集合不可用**時才算數。
             # 十隻英雄齊全卻對不到任何既有局＝真的是另一局，不能因為局號撞到就丟掉：
             # 來源只抓到系列中一局時局號本來就不可靠（2026-08-03 實例：LCK 08-01 DK vs GEN，
@@ -721,7 +765,7 @@ def merge_wiki(year, table):
             for r in rs:
                 have.add(gkey(r))
             if len(cs) >= 8:
-                oe_c.setdefault((k[0], k[1], cs), []).extend(rs)
+                oe_c.setdefault((k[0], k[1][:10], cs), []).append(rs)
         if keep:
             table = table + keep
         if not keep:
@@ -735,10 +779,11 @@ def merge_wiki(year, table):
 # 人工判定的幽靈局（來源殘留的假局）：刪除該局所有列，並把同系列剩餘局依時間重編 1..n。
 # ⚠ 判定用**完整時間戳前綴**不用局號——這裡跑在 fix_game_no 之前，撞號還沒重編，
 # 用局號會連真局一起殺（實測 game=1 會同時吃掉 gol.gg 殘局與 PB 真局 6 列）。
-# 2026-08-01 LCK DK vs GEN：真實只有兩局（wiki 記 gi1,2），資料裡卻多一個只有 1 列、
-# 00:21 的殘局（gol.gg 補檔殘留），把真局擠成 2、3 → BP 顯示多一局、選邊也對不上
-#（2026-08-05 使用者回報）。來源修好後可移除該條。
-BAD_GAMES = [("LCK", "2026-08-01 00:21", "Dplus Kia", "Gen.G")]
+# 2026-08-05 教訓：LCK 08-01 DK vs GEN 的「多一局」其實是 gol.gg 與 OE 把**同一局**
+# 各收一份（局號標得不同、位置鍵對不上），第一版誤把 wiki 補的真第 1 局（00:21，
+# 只有隊伍列＋BP）當幽靈砍掉。真因已在 merge_fill 用英雄組合去重根治 → 這裡清空，
+# 只留機制備用；再新增條目前先確認到底哪份才是假的（比對兩局內容是否一致）。
+BAD_GAMES = []
 
 
 def fix_bad_games(table):
@@ -1164,17 +1209,56 @@ def merge_fill(year, table):
     iBT, iRT = hdr.index("blue_teamname"), hdr.index("red_teamname")
     gkey = lambda r: (r[iL], str(r[iS]).split(" PO")[0], str(r[iD])[:10],
                       frozenset((r[iBT] or "", r[iRT] or "")), str(r[iG]), str(r[iP]))
+    # 第二層「同一局」判定＝日期＋該局十個英雄（跟 merge_wiki 同一招）：位置式鍵含局號，
+    # 而來源只收到系列中一局時局號本來就不可靠——gol.gg 把 LCK 08-01 DK vs GEN 的第 2 局
+    # 標成 G1，OE 自己收的是 G2 → 位置鍵對不上，同一局收了兩份、內容完全一致
+    #（2026-08-05 使用者抓到：兩局資料一模一樣）。英雄組合跟局號怎麼標無關，拿它擋掉。
+    iBC, iRC = hdr.index("blue_champion"), hdr.index("red_champion")
+    iPLc = hdr.index("picklist")
+
+    # 分組鍵用完整時間戳（同 merge_wiki 2026-08-05 修）：撞號的局用日期+局號分組會黏成一組
+    def _by_game(rows):
+        g = {}
+        for r in rows:
+            g.setdefault((r[iL], str(r[iD]), str(r[iG]),
+                          frozenset((r[iBT] or "", r[iRT] or ""))), []).append(r)
+        return g
+
+    def _cset(rs):
+        s = {str(x) for r in rs for x in (r[iBC], r[iRC]) if x}
+        if len(s) < 8:
+            for r in rs:
+                s |= {x.strip() for x in str(r[iPLc]).split("|") if x.strip()}
+        return frozenset(s)
+
+    _gstats = _mk_gstats(hdr)
     have = {gkey(r) for r in table[1:]}
+    oe_c = {}
+    for k, rs in _by_game(table[1:]).items():
+        cs = _cset(rs)
+        if len(cs) >= 8:                       # 十個英雄齊全才拿來當識別（有缺就不夠獨特）
+            oe_c.setdefault((k[0], k[1][:10], cs), []).append(_gstats(rs))
     added = 0
     for key, v in D.items():
         rows = remap_rows([v["header"]] + v["rows"], hdr)
-        keep = [r for r in rows if gkey(r) not in have]
+        keep, dup = [], 0
+        for k, rs in _by_game(rows).items():
+            cs = _cset(rs)
+            cdup = len(cs) >= 8 and any(_stats_compat(s, _gstats(rs)) for s in oe_c.get((k[0], k[1][:10], cs), []))
+            if cdup or all(gkey(r) in have for r in rs):
+                dup += len(rs)
+                continue
+            keep += rs
+            for r in rs:
+                have.add(gkey(r))
+            if len(cs) >= 8:
+                oe_c.setdefault((k[0], k[1][:10], cs), []).append(_gstats(rs))
         if not keep:
             print(f"  補充 {key}：OE 已全數收錄 → 不併入")
             continue
         table = table + keep
         added += len(keep)
-        print(f"  補充 {key}：+{len(keep)} 列（{v.get('src','?')}；OE 已有的 {len(rows)-len(keep)} 列略過）")
+        print(f"  補充 {key}：+{len(keep)} 列（{v.get('src','?')}；OE 已有的 {dup} 列略過）")
     if added:
         d_lg, d_dt = hdr.index("league"), hdr.index("date")
         d_gm, d_pid = hdr.index("game"), hdr.index("participantid")
