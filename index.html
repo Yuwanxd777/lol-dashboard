@@ -11083,6 +11083,11 @@ function render(){
         const head=`<td class="subg">└ ${LANG==="en"?`Game ${gno}`:`第${gno}局`}</td>`;
         if(_dm){ // 選角順序檢視：隊名固定藍左紅右（時間軸本身就依實際邊上色）
           const bWon=m.blueWin, rWon2=!m.blueWin;
+          // 沒有選序資料的局＝標示為缺場（2026-08-05 使用者指定）：整條時間軸畫問號
+          // 反而像壞掉，改用缺場列的紅字樣式明講「來源沒記錄」；局數/時長/勝/隊名照常列
+          const _noPk=!(m.blue.pk&&m.blue.pk.length>=5&&m.red.pk&&m.red.pk.length>=5);
+          if(_noPk)return `<tr class="subrow missrow">${head}<td class="meta">${mmss(m.gl)}</td><td class="win" style="color:${m.blueWin?_CBLU:_CRED}">${m.win}</td>
+          ${cell(m.blue,true,bWon)}${selCell(m,true,bWon)}${cell(m.red,false,rWon2)}${selCell(m,false,rWon2)}<td class="draftc" style="color:#e0574d;font-weight:bold">🚫 ${LANG==="en"?"missing: source has no draft-order data for this game":"缺場：來源沒有記錄這局的選序資料"}</td></tr>`;
           return `<tr class="subrow">${head}<td class="meta">${mmss(m.gl)}</td><td class="win" style="color:${m.blueWin?_CBLU:_CRED}">${m.win}</td>
           ${cell(m.blue,true,bWon)}${selCell(m,true,bWon)}${cell(m.red,false,rWon2)}${selCell(m,false,rWon2)}${draftCell(m)}</tr>`;
         }
