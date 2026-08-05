@@ -625,7 +625,9 @@
   /* 雙方BAN過 ＋ 其他英雄 合併成一條流：框高＝選手格高，英雄多就縮小＋換行塞滿框(不捲動)，其他英雄灰色 */
   /* 「雙方BAN過／其他英雄」＝角色池右側獨立直欄：圖示由上往下排、一欄排滿再往右換欄（尺寸由 fitPool 的 --csother 算到剛好塞滿、不捲動） */
   .bpMid:has(.bpChip .cc img.glow){overflow:visible!important}
-  .bpMergeFlow{display:flex;flex-direction:column;flex-wrap:wrap;gap:4px;row-gap:var(--csotherGap,4px);max-height:var(--csotherH,none);align-content:flex-start;justify-content:flex-start;overflow:visible} /* 直向間距與換欄高度由 fitPool 算（變數掛在 #bsWrap 上跨重繪保留，重繪第一幀就是最終值、不閃） */
+  .bpMergeFlow{display:flex;flex-direction:column;flex-wrap:wrap;gap:4px;row-gap:var(--csotherGap,4px);max-height:var(--csotherH,none);align-content:center;justify-content:flex-start;overflow:visible} /* 直向間距與換欄高度由 fitPool 算（變數掛在 #bsWrap 上跨重繪保留，重繪第一幀就是最終值、不閃）；
+     align-content:center＝欄位整組水平置中 → 首欄離左框與末欄離右框天然相等（2026-08-06 使用者指定；
+     寬度收斂會在 262↔266 之間震盪，靠置中吸收剩下的幾 px） */
   .bpMergeFlow .bpChip{padding:0;border:none;background:none;margin:0}
   .bpMergeFlow .bpChip .cc img{width:var(--csother,40px);height:var(--csother,40px);object-fit:cover;border-radius:5px;display:block}
   .bpMergeFlow .bpChip.bpGrey{opacity:.5}
@@ -11769,7 +11771,7 @@ function render(){
         const banChips=banL.map(([ch,c])=>`<span class="bpChip" draggable="true" data-ch="${esc(ch)}" title="${esc(cAb(ch))}｜雙方 BAN 過 ${c} 次">${cImg(ch)}</span>`).join("");
         const otherChips=otherL.map(ch=>`<span class="bpChip bpGrey" draggable="true" data-ch="${esc(ch)}" title="${esc(cAb(ch))}｜${LANG==="en"?"Other champ":"其他英雄"}">${cImg(ch)}</span>`).join("");
         const noBanChip=`<span class="bpChip bpNoBan" draggable="true" data-ch="${NOBAN}" title="空 BAN（只能放到 BAN 位，可無限使用不消耗）">${noBanIco()}</span>`; // 永遠放最後
-        return `<div style="flex:0 0 auto;font-weight:bold;font-size:19px;line-height:1.3;color:var(--tx);white-space:nowrap;margin-bottom:10px">🚫 ${LANG==="en"?"Banned & others":"BAN過與其他"}</div>
+        return `<div class="bpMidLbl" style="flex:0 0 auto;font-weight:bold;font-size:var(--csotherLbl,19px);line-height:1.3;color:var(--tx);white-space:nowrap;margin-bottom:10px">🚫 ${LANG==="en"?"Banned & others":"BAN過與其他"}</div>
           <div class="bpMergeFlow" style="flex:1 1 0;min-height:0">${banChips}${otherChips}${noBanChip}</div>`;
       };
       const poolColHTML=()=>{
@@ -11918,7 +11920,7 @@ function render(){
         // 解碼＋重排，那兩欄就會閃一下、圖跳動（2026-08-06 使用者回報切一般↔全局時 BAN過與其他區跳動）。
         // 下面重建完會比對 innerHTML，一模一樣就把舊節點搬回去（圖不重建＝完全不跳）。
         const _keep={".bpPool":wrap.querySelector(".bpPool"),".bpMid":wrap.querySelector(".bpMid")};
-        wrap._midFit=0;   // 右欄寬度每次重繪只調一次（見 fitPool 內 _midFit）
+        wrap._midFit=0;   // 右欄寬度每次重繪最多調 4 次到收斂（見 fitPool 內 _midFit）
         const _poolH=poolColHTML();   // 先算好才能跟上次比（不能比 live innerHTML：fitPool 會在子元素寫 inline style 污染比對）
         wrap.innerHTML=`<div id="bsGames" style="flex:1;min-width:0;overflow-x:${S.n>5?"auto":"hidden"};overflow-y:hidden"><div style="display:grid;grid-template-columns:repeat(${S.n},${g}px)${showAdd?" 46px":""};gap:${gap}px;height:100%;align-items:stretch;width:max-content;min-width:100%">
             ${[...Array(S.n).keys()].map(gameCard).join("")}
@@ -11981,7 +11983,11 @@ function render(){
         // 右側直欄（雙方BAN過＋其他英雄）：圖示由上往下排、排滿一欄往右換欄 → 尺寸縮到剛好塞滿框、不捲動不被裁
         // 鐵則：此計算不可綁在「池有資料」的條件下——池空時英雄全落到這欄、數量最多，反而更需要算（否則吃 CSS 預設 40px 撐爆被裁）
         const mf=wrap.querySelector(".bpMergeFlow"), mc=mf&&mf.closest(".bpMid");
-        if(mf&&mc){ const cnt=mf.querySelectorAll(".bpChip").length, gp=4, padW=20, gap2=14;
+        if(mf&&mc){ const cnt=mf.querySelectorAll(".bpChip").length, gp=4, gap2=14;
+          // padW＝右欄除了圖以外吃掉的寬（左右內距＋框線）。box-sizing:border-box 下 style.width 含這些，
+          // 少算就會讓「末欄離右框」比「首欄離左框」小個 2~3px（2026-08-06 使用者回報跑掉了）
+          const _csM=getComputedStyle(mc), padW=(parseFloat(_csM.paddingLeft)||0)+(parseFloat(_csM.paddingRight)||0)
+            +(parseFloat(_csM.borderLeftWidth)||0)+(parseFloat(_csM.borderRightWidth)||0);
           mf.style.maxHeight="none";                                    // 先解除上一輪釘住的換欄高再量，
           const mH=Math.max(0,mf.clientHeight-1.5);                      // 否則量到被釘住的高度→越算越小（死亡螺旋）
           mf.style.maxHeight="";                                         // 量完交還給 --csotherH
@@ -12005,7 +12011,10 @@ function render(){
             wrap.style.setProperty("--csotherGap",vg+"px");
             wrap.style.setProperty("--csotherPer",per);
             wrap.style.setProperty("--csotherH",(per*cs2+(per-1)*vg+0.5)+"px");
-            if(!wrap._midFit&&pc2&&Math.abs(mwNow-needW)>6){ wrap._midFit=1;   // 每次重繪只調一次寬，避免與池尺寸互相追
+            // 讓寬要能「收斂」：縮右欄→池變寬→池圖變大→右欄圖跟著變大→又需要更多寬。
+            // 只調一次會停在中間狀態（實測右欄 196 但內容需要 272＝末欄溢出 76px）→ 允許最多 10 次、
+            // 差距 ≤2px 就停，確保最後首欄離左框＝末欄離右框。
+            if((wrap._midFit||0)<10&&pc2&&Math.abs(mwNow-needW)>2){ wrap._midFit=(wrap._midFit||0)+1;
               mc.style.width=needW+"px"; pc2.style.width=(pw+(mwNow-needW))+"px";
               requestAnimationFrame(()=>{ try{fitPool();}catch(e){} });        // 寬度變了→兩邊尺寸重算一次
             }
@@ -12013,6 +12022,14 @@ function render(){
           // 尺寸與間距寫在 wrap（跨重繪保留）：寫在每次重建的 .bpMid／.bpMergeFlow 上的話，
           // 重繪後第一幀會先吃 CSS 預設值、下一拍才被改回來＝看得到閃一下
           wrap.style.setProperty("--csother",cs2+"px");
+          // 標題「🚫 BAN過與其他」是 nowrap，框窄時會被 .bpMid 的 overflow:hidden 切掉 →
+          // 依可用寬等比縮字（2026-08-06 使用者指定：直接縮小字，不要被切）
+          { const hd=mc.querySelector(".bpMidLbl");
+            if(hd){ const cs=getComputedStyle(mc);
+              const availW=mc.clientWidth-(parseFloat(cs.paddingLeft)||0)-(parseFloat(cs.paddingRight)||0);
+              wrap.style.setProperty("--csotherLbl","19px");            // 先還原成基準再量真實需要寬
+              const need=hd.scrollWidth;
+              if(need>availW+0.5&&availW>0)wrap.style.setProperty("--csotherLbl",Math.max(11,Math.floor(19*availW/need*10)/10)+"px"); } }
           // 欄高在 fitPool 跑完之後才定案 → 尺寸一變就重算一次；fitPool 只改內部的 --csother／rowGap，
           // 不會改到自己的框大小，所以不會無限循環（另有 _roBusy 擋連續觸發）
           if(!mf._ro&&window.ResizeObserver){
