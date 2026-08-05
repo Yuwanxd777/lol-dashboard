@@ -11285,7 +11285,12 @@ function render(){
       });
       // 平面模式（路線）要自己吃 visSet：分組模式的隱藏是 seriesHTML 內做的，
       // 這裡不濾的話「篩選有算、列全都還在」（2026-08-05 使用者回報篩選不出東西）
-      const units=grouped?series:(filtered&&visSet?ms.filter(m=>visSet.has(m)):ms);
+      // 路線模式清單＝**以系列為單位**排（系列間新→舊；系列內第 1→n 局由上而下）：
+      // 純時間排序會讓同時段交錯開打的兩個系列的局互相穿插、底色連不成一整塊，
+      // 而且系列內變成 3→1 倒著列（2026-08-05 使用者定案）
+      const units=grouped?series:(()=>{const out=[];
+        for(const s of series){ for(const m of [...s.games].sort((a,b)=>a._g-b._g)){ if(filtered&&visSet&&!visSet.has(m))continue; out.push(m); } }
+        return out;})();
       // 路線模式底色＝**每個系列賽交替**（2026-08-05 使用者定案，取代逐列交錯）：
       // 依顯示順序走訪，換到不同系列就翻面 → 同系列各局同色、相鄰系列必不同色
       if(!grouped){let par=0,prev=null; units.forEach(m=>{const s=m._serRef||m; if(s!==prev){if(prev!==null)par^=1; prev=s;} m._zeb=par;});}
