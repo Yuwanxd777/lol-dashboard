@@ -373,10 +373,10 @@
   /* 橫式（2026-08-05 使用者新增）：每路一整列、角色池轉置＝欄=英雄、列=數據；卡內橫捲不裁字 */
   .rosterGrid.rosterH{grid-template-columns:1fr}
   .rosterGrid.rosterH table.rsH{width:max-content;min-width:0}
-  /* 橫式每格固定寬（見 rerender 內量測 --rsCellW／--rsLblW）：各卡不再各自照內容定寬，
-     不同選手的第 N 個英雄才會垂直對齊（2026-08-05 使用者指定）。寬度取全部卡片的最大格 → 不裁字 */
+  /* 橫式每格固定 65px（2026-08-05 使用者定案）：各卡不再各自照內容定寬，不同選手的第 N 個英雄
+     才會垂直對齊。塞不下的列由 rerender 端整列等比縮字（不裁字），列標欄寬走 --rsLblW */
   .rosterGrid.rosterH table.rsH{table-layout:fixed}
-  .rosterGrid.rosterH .rsH td{width:var(--rsCellW,56px)}
+  .rosterGrid.rosterH .rsH td{width:var(--rsCellW,65px)}
   .rosterGrid.rosterH .rsH th{width:var(--rsLblW,64px)}
   .rsH th[data-rk]{width:auto;text-align:left;white-space:nowrap}
   .rsH td{text-align:center;padding:4px 8px}
@@ -10356,12 +10356,12 @@ function render(){
         <td class="meta"${recent2w(c.last)?' style="color:#ffd60a;font-weight:600"':''}>${lastTxt(c.last)}</td></tr>`;}).join("");
     };
     // 上次使用：一般模式寫月-日；**生涯模式改寫「N天」**（使用者定案 2026-07-31：跨十幾年的日期
-    // 用月-日或年份都要心算，天數一眼就知道多久沒拿；2026-08-05 由「N 天前」縮成「N天」＝格子更窄）
+    // 用月-日或年份都要心算，天數一眼就知道多久沒拿；2026-08-05 定案寫「N天前」，格子固定 65px、塞不下就整列縮字）
     const lastTxt=d=>{ if(!d)return"—";
       if(!careerMode)return d.slice(5);
       const t=new Date(d+"T00:00:00").getTime(); if(isNaN(t))return d.slice(5);
       const n=Math.max(0,Math.round((Date.now()-t)/864e5));
-      return n===0?(LANG==="en"?"today":"今天"):(LANG==="en"?n+"d":n+"天"); };
+      return n===0?(LANG==="en"?"today":"今天"):(LANG==="en"?n+"d":n+"天前"); };
     // 積分模式：英雄/場/勝率/KDA/評分（從逐場聚合，含 dpm 評分）
     const poolRowsSoloq=(pool,pos,who)=>{
       const el=pool.filter(c=>c.n>=3);
@@ -10508,21 +10508,38 @@ function render(){
         }).join("");
       }
       box.innerHTML=`<div class="rosterGrid${layH?" rosterH":""}"${(!layH&&!crossTeam&&posList.length===1)?' style="grid-template-columns:minmax(0,560px)"':''}>${cardsHTML}</div>`+moreNote;
-      // 橫式：所有卡片的英雄格統一寬度（2026-08-05 使用者指定）。各卡本來各自照內容定寬，
-      // 「上次」的日期長度一變（08-04／—／生涯的「1234天」）整欄就寬窄不一 →
-      // A 選手的第 10 個英雄跟 B 選手的第 10 個對不到同一條垂直線。
-      // 作法：先還原成內容寬量出「全部卡片中最寬的那一格」，寫進 CSS 變數，CSS 端用 table-layout:fixed
-      // 讓每格都吃這個寬 → 跨卡片垂直對齊。取最大值＝不會裁字；量測與套用在同一個 task 內，畫面不會閃。
+      // 橫式：英雄格**三種資料來源一律 65px 固定寬**（2026-08-05 使用者定案）。各卡若各自照內容定寬，
+      // 「上次」的長度一變（08-04／—／生涯的「1234天前」）整欄就寬窄不一，A 選手的第 10 個英雄
+      // 跟 B 選手的第 10 個對不到同一條垂直線。固定寬＝跨卡片一定垂直對齊。
+      // 塞不下的那一列（生涯的「1234天前」）不裁字，改成**整列等比縮字**：同一列所有卡片用同一個
+      // 字級（取全體最寬的內容去算），縮完仍在同一條基準上。量測與套用在同一個 task 內，畫面不會閃。
       if(layH){ const tbs=[...box.querySelectorAll("table.rsH")];
-        if(tbs.length){ const z=window._zoomF||1;
-          tbs.forEach(t=>{t.style.tableLayout="auto";});               // 先脫離 fixed 才量得到內容寬
-          let cw=0,lw=0;
-          tbs.forEach(t=>t.querySelectorAll("tbody tr").forEach(tr=>{
-            [...tr.children].forEach((c,i)=>{ const w=c.getBoundingClientRect().width/z;
-              if(i===0)lw=Math.max(lw,w); else cw=Math.max(cw,w); }); }));
-          tbs.forEach(t=>{t.style.tableLayout="";});                    // 交還給 CSS 的 fixed
-          if(cw>0){ box.style.setProperty("--rsCellW",Math.ceil(cw)+"px");
-                    box.style.setProperty("--rsLblW",Math.ceil(lw)+"px"); } } }
+        if(tbs.length){ const z=window._zoomF||1, rg=document.createRange();
+          const CW=65;                                                 // 英雄格固定寬（使用者定案）
+          let lw=0;                                                    // 列標欄（英雄/場數/…）照內容
+          tbs.forEach(t=>{ t.style.width=""; t.querySelectorAll("tbody tr").forEach(tr=>{ const c=tr.children[0];
+            if(c)lw=Math.max(lw,c.getBoundingClientRect().width/z); }); });
+          lw=Math.ceil(lw); if(lw>0)box.style.setProperty("--rsLblW",lw+"px");
+          // 表格要給**定寬**：width:max-content 配 table-layout:fixed 時，欄位仍會被塞不下的內容撐開
+          // （生涯的「1848天前」把 65 撐成 76，卡片之間就又不齊了）→ 寬度＝列標欄＋格數×65 鎖死。
+          tbs.forEach(t=>{ const tr=t.querySelector("tbody tr");
+            if(tr)t.style.width=(lw+(tr.children.length-1)*CW)+"px"; });
+          const nRow=tbs[0].querySelectorAll("tbody tr").length;
+          for(let i=0;i<nRow;i++){
+            let need=0,avail=0,fs=0;
+            tbs.forEach(t=>{ const tr=t.querySelectorAll("tbody tr")[i]; if(!tr)return;
+              [...tr.children].slice(1).forEach(td=>{ td.style.fontSize=""; }); });   // 先還原再量（資料變了要重算）
+            tbs.forEach(t=>{ const tr=t.querySelectorAll("tbody tr")[i]; if(!tr)return;
+              [...tr.children].slice(1).forEach(td=>{ rg.selectNodeContents(td);
+                need=Math.max(need,rg.getBoundingClientRect().width/z);
+                if(!avail){ const cs=getComputedStyle(td);
+                  avail=td.getBoundingClientRect().width/z-(parseFloat(cs.paddingLeft)||0)-(parseFloat(cs.paddingRight)||0);
+                  fs=parseFloat(cs.fontSize)||15.5; } }); });
+            // 字級要設在**格子**上：上次那欄帶 .meta（自己有字級），設在 <tr> 會被 class 蓋掉沒作用
+            if(need>avail+0.5&&need>0&&avail>0){ const nf=Math.floor(fs*avail/need*10)/10;
+              tbs.forEach(t=>{ const tr=t.querySelectorAll("tbody tr")[i]; if(!tr)return;
+                [...tr.children].slice(1).forEach(td=>{ td.style.fontSize=nf+"px"; }); }); }
+          } } }
       box.querySelectorAll(".pickSel").forEach(s=>s.onchange=()=>{V.rosterPick[s.dataset.pos]=s.value; saveState(); rerender();});
       // 跨隊直式插槽下拉（要綁在 .pickSel 之後蓋掉它的 onchange：值是「隊|選手」不是純名字）
       box.querySelectorAll(".pickSelX").forEach(s=>s.onchange=()=>{
