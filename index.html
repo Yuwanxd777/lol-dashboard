@@ -10285,10 +10285,10 @@ function render(){
     V.rosterMode=V.rosterMode||"pro";
     const soloqMode=!isHistYear()&&V.rosterMode==="soloq"; // 積分模式只在最新年可用
     const careerMode=V.rosterMode==="career";              // 生涯：跨年份聚合(career.js)，與目前年份/篩選無關
-    // 順序：職業賽 → 職業生涯 → 積分（2026-08-01 使用者指定；歷史年沒有積分資料，那顆不出現）
+    // 順序：職業賽 → 積分 → 職業生涯（2026-08-05 使用者指定，原本生涯在中間；歷史年沒有積分資料，那顆不出現）
     const _rmSegs=[["pro",LANG==="en"?"🏆 Pro":"🏆 職業賽",LANG==="en"?"Roles from pro matches":"角色池來源＝職業賽先發（跟隨上方篩選）"],
-      ["career",LANG==="en"?"📜 Career":"📜 職業生涯",LANG==="en"?"Whole pro career (2014~now), ignores the filters above":"角色池來源＝職業生涯（2014~現在，不受上方篩選影響）"],
-      ...(!isHistYear()?[["soloq",LANG==="en"?"🎯 Soloq":"🎯 積分",LANG==="en"?"Roles from solo queue":"角色池來源＝選手單雙排常用英雄"]]:[])];
+      ...(!isHistYear()?[["soloq",LANG==="en"?"🎯 Soloq":"🎯 積分",LANG==="en"?"Roles from solo queue":"角色池來源＝選手單雙排常用英雄"]]:[]),
+      ["career",LANG==="en"?"📜 Career":"📜 職業生涯",LANG==="en"?"Whole pro career (2014~now), ignores the filters above":"角色池來源＝職業生涯（2014~現在，不受上方篩選影響）"]];
     V.rosterLayout=V.rosterLayout||"v"; const layH=V.rosterLayout==="h"; // 直式(預設)=五路並排；橫式=每路一整列、角色池轉置
     const _rlSegs=[["v",LANG==="en"?"▥ Vertical":"▥ 直式",LANG==="en"?"Five lanes side by side":"五路並排（每路一張直卡）"],
                    ["h",LANG==="en"?"▤ Horizontal":"▤ 橫式",LANG==="en"?"One full-width row per lane":"每路一整列（角色池橫向展開）"]];
