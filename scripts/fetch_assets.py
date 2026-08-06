@@ -117,6 +117,19 @@ def main():
         cache.setdefault("kinds", {})          # 版本變了：當年那筆要重抓，其餘沿用
         cache["kinds"].pop(str(max(years)), None)
     cache.setdefault("kinds", {})
+    # 快取自我清理：抓取當下的過濾（見下方 CLASSIC_RE）只擋「這次新抓的版本」，
+    # 之前抓過、已經帶著分支服的快取條目會原封不動流進輸出——2026-08-06 使用者第二次回報
+    # 英雄Tier 出現舊版頭像，就是 2026|16.15.1 這筆卡在快取裡。舊快取一律就地清掉，不必重抓。
+    _cl = 0
+    for _ent in cache["kinds"].values():
+        for _k in ("item", "rune", "champ"):
+            _m = _ent.get(_k)
+            if not _m:
+                continue
+            for _id in [x for x in _m if CLASSIC_RE.match(x)]:
+                del _m[_id]; _cl += 1
+    if _cl:
+        print(f"（快取清掉 {_cl} 筆分支服資料）")
 
     # kinds[年_版本] = {"item":{id:{zh,en,img}}, "rune":…, "champ":…}；同一年會有多個取樣版本
     jobs = []
@@ -174,6 +187,8 @@ def main():
         y = int(key.split("|")[0]); ent = cache["kinds"][key]; v = ent["v"]
         for kind, _ in KINDS:
             for iid, d in ent[kind].items():
+                if CLASSIC_RE.match(iid):        # 輸出層再擋一次：任何來源（快取／上游）都進不了 assets.js
+                    continue
                 rep[kind].setdefault(iid, {})[y] = (v, d["img"], d["zh"], d["en"])
 
     def url_of(kind, v, f):

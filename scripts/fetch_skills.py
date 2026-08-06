@@ -496,6 +496,13 @@ def main():
     if cache.get("ver") != ddv:
         cache = {"ver": ddv, "champs": {}}
     done = cache["champs"]
+    # 快取自我清理：上面的過濾只擋「這次要建的清單」，之前建過的分支服條目會留在快取裡、
+    # 原封不動寫進 skills.js（2026-08-06 使用者回報英雄Tier 又出現舊版頭像）
+    _cl = [k for k in done if CLASSIC_RE.match(k)]
+    for _k in _cl:
+        del done[_k]
+    if _cl:
+        print(f"（快取清掉 {len(_cl)} 位分支服英雄）")
     todo = [SINGLE] if SINGLE else champs
     print(f"DDragon {ddv}｜共 {len(todo)} 位英雄")
     for i, cid in enumerate(todo):
@@ -513,8 +520,9 @@ def main():
             CACHE.write_text(json.dumps(cache, ensure_ascii=False), encoding="utf-8")
     CACHE.parent.mkdir(parents=True, exist_ok=True)
     CACHE.write_text(json.dumps(cache, ensure_ascii=False), encoding="utf-8")
-    js = "window.CHAMP_SKILLS=" + json.dumps(
-        {"v": ddv, "d": done}, ensure_ascii=False, separators=(",", ":")) + ";"
+    js = "window.CHAMP_SKILLS=" + json.dumps(   # 輸出層再擋一次分支服，任何來源都進不了 skills.js
+        {"v": ddv, "d": {k: v for k, v in done.items() if not CLASSIC_RE.match(k)}},
+        ensure_ascii=False, separators=(",", ":")) + ";"
     OUT_JS.write_text(js, encoding="utf-8")
     ok = sum(1 for c in done.values() if not any(s.get("fb") for s in c["s"]))
     print(f"\n✅ skills.js：{len(done)} 位英雄（{ok} 位全技能含數值）")

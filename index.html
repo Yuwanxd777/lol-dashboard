@@ -1484,6 +1484,17 @@ const chgNameTag=nm=>{ const s=String(nm); const m=s.match(_CHG_SFX);
 // 解決：①已移除的道具/符文在歷史年份沒圖（圖示 URL 被改寫成該年版本，但那年它不存在／id 不同 → 404）
 //      ②舊改動行用英文名（Predator / Ravenous Hunter）→ 查不到中文名與圖
 //      ③圖鑑詳情要列「歷代圖示＋服役年份」（Riot 換過圖的分段顯示；靠 fetch_assets 算的圖片雜湊分段）
+// 分支服（LoL Classic，DDragon 內部代號 Jade_*）一律不進資料：它的中英文名與現行英雄**完全相同**、
+// 圖卻是舊版頭像 → 混進來會造成圖鑑同名重複卡，以及英雄Tier／歷代圖示挑到舊頭像。
+// 抓取端（fetch_assets / fetch_skills / fetch_skill_keys）已經擋掉，這裡再擋一層：
+// 只要哪天快取或上游又漏進來，畫面不會又冒出舊頭像（2026-07-31、2026-08-06 使用者兩度回報）。
+(()=>{ const BR=/^(Jade|Classic|Legacy)_/i, drop=m=>{ if(!m)return 0; let n=0;
+    Object.keys(m).forEach(k=>{ if(BR.test(k)){delete m[k];n++;} }); return n; };
+  const A=window.LOL_ASSETS; if(A)["champ","item","rune"].forEach(k=>drop(A[k]));
+  drop((window.CHAMP_SKILLS||{}).d);                              // 技能：key＝英雄 id
+  drop(window.SKILL_KEYS); drop(window.SKILL_ZH);                 // 技能鍵位/中英對照：key＝英雄 id
+  drop(window.CHAMP_RELEASE);                                     // 登場版本：key＝英雄 id
+})();
 const ASSET_IDX=(()=>{ const A=window.LOL_ASSETS; if(!A)return null;
   const TREE_IDS=new Set(["8000","8100","8200","8300","8400"]); // 符文系(樹)：舊版譯名(如 8100 Domination 曾叫「征服」)會誤蓋掉同名符文，名稱查詢時跳過
   const byName={}, allByName={}; // allByName：同名的「所有」條目（Riot 重做常換 id：寒冰霸拳 3025→6662 → 服役期/歷代圖示要跨 id 合併）

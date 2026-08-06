@@ -16,7 +16,12 @@
 
 用法：python scripts\\fetch_skill_keys.py
 """
-import io, json, os, sys, urllib.request
+import io, json, os, re, sys, urllib.request
+
+# 經典服（LoL Classic，DDragon 內部代號 Jade_*）不是我們要的資料（2026-07-31、2026-08-06 使用者兩度
+# 回報英雄Tier 出現舊版頭像）——它的 zh/en 名稱與現行英雄**完全相同**，混進來會造成同名重複與圖片誤植。
+# 日後若 Riot 再開別的分支服，一樣在這裡擋掉。
+CLASSIC_RE = re.compile(r"^(Jade|Classic|Legacy)_", re.I)   # 分支服前綴：不進資料
 
 if (getattr(sys.stdout, "encoding", "") or "").lower().replace("-", "") != "utf8":
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
@@ -50,6 +55,8 @@ def main():
         de = get(v, "en_US") or {}
         add = 0
         for cid, c in d.items():
+            if CLASSIC_RE.match(cid):          # 濾掉分支服（見檔頭 CLASSIC_RE）
+                continue
             o = out.setdefault(cid, {})
             z = zh.setdefault(cid, {})
             ce = de.get(cid) or {}
