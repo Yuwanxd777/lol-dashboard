@@ -2803,7 +2803,11 @@ function playedNames(){
   _MNSET=s; _MNKEY=k; return s;
 }
 const RANK_WL=new Set(["theshy"]);   // 白名單：整年 0 場但仍要列（復出中）。要加人往這放（小寫、去頭尾空白）
-const RANK_BL=new Set(["castle"]);   // 黑名單：一律不列（與 scripts/fetch_dpm_soloq_accounts.py 的 BLOCK_PLAYERS 一致）
+// 黑名單：積分頁（排行榜＋每日戰況）一律不列（與 scripts/fetch_dpm_soloq_accounts.py 的 BLOCK_PLAYERS 一致）。
+// ⚠ 只擋積分那一側：**比賽紀錄一律保留**——英雄/選手/戰隊/比賽BP/陣容職業賽都照常收，
+//    這裡的判準只被 13158（排行榜）與 13247（每日戰況）呼叫。
+// naiyou：2026-08-06 使用者指示，打假賽遭永久禁賽 → 從積分與每日戰況移除，比賽紀錄保留。
+const RANK_BL=new Set(["castle","naiyou"]);
 const rankShow=p=>{ const n=String(p||"").trim().toLowerCase();
   if(RANK_BL.has(n))return false;
   const mn=playedNames(); return !mn.size || mn.has(n) || RANK_WL.has(n); };  // RAW 沒載到(size 0)就不過濾＝保險

@@ -24,8 +24,11 @@ PLAT = {"NA1": "na1", "KR": "kr", "KR1": "kr", "EUW1": "euw1", "EUN1": "eun1", "
 TEAM_ALIAS = {"GEN": "GENG", "DNF": "DNS", "LLL": "LOUD"}  # dpm 隊碼→本清單碼；DNF→DNS(改名)、LOUD 在 dpm 用 LLL
 # 使用者本機(localStorage USER_TABBR)改過、但 STATIC_TABBR 仍是舊值的縮寫覆寫（Python 抓不到 localStorage，這裡補）；key=隊全名小寫
 ABBR_OVERRIDE = {"fluxo w7m": "FX"}
-# 積分頁不列/不抓的選手（已離隊且不再於一級聯賽出場等）；正規化小寫名
-BLOCK_PLAYERS = {"castle"}
+# 積分頁不列/不抓的選手（已離隊且不再於一級聯賽出場、遭永久禁賽等）；正規化小寫名。
+# ⚠ 只擋積分（排位）那一側，**比賽紀錄一律保留**——他打過的職業比賽是既成事實，
+#    英雄/選手/戰隊/比賽BP/陣容職業賽都照常收。要同步改 index.html 的 RANK_BL。
+# naiyou：2026-08-06 使用者指示，打假賽遭永久禁賽 → 積分與每日戰況都不列。
+BLOCK_PLAYERS = {"castle", "naiyou"}
 
 
 def norm(s):
