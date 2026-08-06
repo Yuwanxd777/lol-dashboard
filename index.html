@@ -12064,23 +12064,34 @@ function render(){
           const _mh0=mf.style.maxHeight; mf.style.maxHeight="none";
           const availH=mf.clientHeight; mf.style.maxHeight=_mh0;
           const midH=w=>Math.max(0,availH+(hd?lh19-Math.ceil(lh19*lblFs(w)/19):0)-1); // 標籤縮字省下的高還給流區；−1 是整數捨入的安全邊
-          const wCap=Math.min(420,Math.max(110,availW-GAP-360));                       // 角色池至少留 360
+          // 角色池要留多寬：有英雄圖時至少 360；**整個池是空的**時（例：篩到雙方都沒出賽過的賽事，
+          // 所有英雄都落到這一欄）池裡只剩選手名，留 360 是浪費 → 只留放得下前綴的寬，其餘全給這一欄
+          const poolMin=rows.length?360:Math.max(150,Math.ceil(pfw)+70);
+          const wCap=rows.length?Math.min(420,Math.max(110,availW-GAP-poolMin))
+                                :Math.max(110,availW-GAP-poolMin);
           // 某個圖示尺寸下右欄「剛好裝得下」需要多寬＝欄數×(圖+欄距)−欄距＋左右內距 → 右欄只佔該佔的寬，
           // 右邊不留多餘空白，省下的全部還給角色池；標籤縮字會回頭改可用高，純算式跑三圈就收斂
           const perOf=(cs,w)=>Math.max(1,Math.floor((midH(w)+gp)/(cs+ovH+gp)));
+          const colsOf=(cs,w)=>Math.max(1,Math.ceil(cnt/perOf(cs,w)));
+          const rawW=(cs,w)=>colsOf(cs,w)*(cs+ovW+gp)-gp+padW;   // 不夾上下限＝這個尺寸「真正」需要多寬
           const needW=cs=>{ let w=wCap;
             for(let k=0;k<3;k++){
-              const cols=Math.max(1,Math.ceil(cnt/perOf(cs,w)));
-              const nw=Math.max(110,Math.min(wCap,cols*(cs+ovW+gp)-gp+padW));
+              const nw=Math.max(110,Math.min(wCap,rawW(cs,w)));
               if(Math.abs(nw-w)<0.5){w=nw;break;} w=nw; }
             return w; };
+          // 連寬度上限都塞不下的尺寸不能用——needW 會被夾在 wCap，內容照樣長出去、被 overflow:hidden 裁掉。
+          // 2026-08-06 使用者回報：雙方都沒角色池（篩到都沒出賽過的賽事）時全部英雄落到這欄，
+          // 154 顆用 60px 要 892px、框只有 420px，直接裁掉 88 顆。
+          const fitsW=cs=>{ const w=needW(cs); return rawW(cs,w)<=w+0.5; };
           // 鐵則（使用者定案）：右欄圖示大小＝角色池最小那一列的圖示大小。兩者互相牽制（右欄變寬→池變窄→
           // 池圖變小→右欄該跟著變小），是個不動點問題：f(cs)=「右欄用 cs 時池的最小圖」隨 cs 遞減，
           // 取「最大的 cs 使 f(cs) ≥ cs」即為解。純算術掃描（≤103 圈、完全不碰 DOM），一次得到答案
+          // 池空時沒有「池最小圖」可對齊（rows 空）→ 該條鐵則不適用，改成純粹取「塞得下的最大尺寸」
           let cs2=8;
           for(let cs=110;cs>=8;cs--){
+            if(!fitsW(cs))continue;
             const s=poolSizes(availW-GAP-needW(cs));
-            if((s.length?Math.min(...s):60)>=cs){cs2=cs;break;}
+            if((s.length?Math.min(...s):110)>=cs){cs2=cs;break;}
           }
           const mW=needW(cs2); poolW=availW-GAP-mW; sizes=poolSizes(poolW);
           const mH=midH(mW), maxPer=perOf(cs2,mW), uH=cs2+ovH;
