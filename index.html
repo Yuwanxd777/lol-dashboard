@@ -2791,17 +2791,27 @@ const sqKey=(o,ab,player)=>{ if(!o||!ab||!player)return null;
 // ── 積分頁「該不該列這位選手」的唯一判準（排行榜與每日戰況共用）──
 // 規則（使用者定案）：**今年沒在比賽出場過就不列**——教練、已離開職業者（如 TW BeanJ／Glory）
 // 即使還在打排位、OBGG 名單也還掛著，一樣不該出現。以前只有排行榜擋，每日戰況沒擋（2026-07-29 修）。
-let _MNSET=null, _MNKEY="";
+let _MNSET=null, _MNROLE=null, _MNKEY="";
+// participantid 1~5 → Riot 的路線碼（積分那側用長碼 TOP/JUNGLE/MIDDLE/BOTTOM/UTILITY）
+const _PID_ROLE=["","TOP","JUNGLE","MIDDLE","BOTTOM","UTILITY"];
 function playedNames(){
   const k=String(typeof curYear!=="undefined"?curYear:"")+"|"+((typeof RAW!=="undefined"&&RAW)?RAW.length:0);
   if(_MNSET&&_MNKEY===k)return _MNSET;
-  const s=new Set(), nn=x=>String(x||"").trim().toLowerCase();
+  const s=new Set(), cnt={}, nn=x=>String(x||"").trim().toLowerCase();
   if(typeof RAW!=="undefined"&&RAW&&typeof C!=="undefined"&&C&&C.blue_playername!=null&&C.participantid!=null){
+    const bump=(x,pid)=>{ const n=nn(x); if(!n)return; s.add(n);
+      const m=cnt[n]||(cnt[n]={}); const r=_PID_ROLE[pid]; m[r]=(m[r]||0)+1; };
     for(let i=1;i<RAW.length;i++){ const r0=RAW[i], pid=+r0[C.participantid]; if(!(pid>=1&&pid<=5))continue;
-      const a=r0[C.blue_playername], b=r0[C.blue_playername+RB]; if(a)s.add(nn(a)); if(b)s.add(nn(b)); }
+      bump(r0[C.blue_playername],pid); bump(r0[C.blue_playername+RB],pid); }
   }
+  // 主要路線＝今年出場最多的那一路（同一趟掃描順便算，不必再掃一次 RAW）
+  _MNROLE={}; for(const n in cnt){ let best="", bn=0; for(const r in cnt[n])if(cnt[n][r]>bn){bn=cnt[n][r]; best=r;} if(best)_MNROLE[n]=best; }
   _MNSET=s; _MNKEY=k; return s;
 }
+// 選手主要路線（來源＝今年的比賽出場，最完整）：積分那側 soloq_recent／match_index 沒有
+// 逐場檔的人（例：有牌位帳號但這陣子沒打排位）就靠這個補，不然每日戰況會顯示「–」
+// （2026-08-06 使用者回報「有些人沒有路線圖」，實測 425 列中 8 列缺）
+const playedRole=p=>{ playedNames(); return _MNROLE[String(p||"").trim().toLowerCase()]||null; };
 const RANK_WL=new Set(["theshy"]);   // 白名單：整年 0 場但仍要列（復出中）。要加人往這放（小寫、去頭尾空白）
 // 黑名單：積分頁（排行榜＋每日戰況）一律不列（與 scripts/fetch_dpm_soloq_accounts.py 的 BLOCK_PLAYERS 一致）。
 // ⚠ 只擋積分那一側：**比賽紀錄一律保留**——英雄/選手/戰隊/比賽BP/陣容職業賽都照常收，
@@ -13147,12 +13157,14 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
       const rows=SD.players.map(p=>{const g=(p.wins||0)+(p.losses||0); const _ik=IDX&&IDX.players&&sqKey(IDX.players,p.team||"",p.player||""); const ix=(_ik&&IDX.players[_ik])||{}; // SD 與 IDX 同源鍵一致，走 sqKey 只是防未來標籤漂移
         return {...p,_score:soloqScore(p),_wr:(p.found&&g)?p.wins/g:null,
           _last10:ix.last10||[],_wr7:(ix.wr7!=null?ix.wr7:null),_sc7:(ix.sc7!=null?ix.sc7:null),_kda7:(ix.kda7!=null?ix.kda7:null),_n7:(ix.n7!=null?ix.n7:null),
-          _w7:(ix.w7!=null?ix.w7:(ix.wr7!=null&&ix.n7!=null?Math.round(ix.n7*ix.wr7/100):null)),_lt:(ix.lt!=null?ix.lt:null),_role:(ix.role||null)};});
+          // 路線：逐場索引沒有的（有牌位帳號但還沒有逐場檔）退回今年比賽出場的主要路線，
+          // 不然這一欄會顯示「—」（2026-08-06 與每日戰況同一個缺口，實測排行榜 4 列）
+          _w7:(ix.w7!=null?ix.w7:(ix.wr7!=null&&ix.n7!=null?Math.round(ix.n7*ix.wr7/100):null)),_lt:(ix.lt!=null?ix.lt:null),_role:(ix.role||playedRole(p.player)||null)};});
       // 把「比賽出賽過但沒抓到積分帳號」的選手也列出(灰、置底)：主數據選手 − 已有 soloq 帳號的
       const _nn=s=>String(s||"").trim().toLowerCase();
       const covered=new Set(SD.players.map(p=>_nn(p.player)));
       competitivePlayers().filter(c=>c.player&&!covered.has(_nn(c.player))).forEach(c=>rows.push(
-        {team:c.team,player:c.player,_role:c.role||null,_missing:true,found:false,_score:-2,
+        {team:c.team,player:c.player,_role:c.role||playedRole(c.player)||null,_missing:true,found:false,_score:-2,
          _wr:null,_last10:[],_wr7:null,_sc7:null,_kda7:null,_n7:null,_lt:null,riotId:"",platform:"",wins:0,losses:0,lp:null,tier:null}));
       // 只列「整年有比賽出場過」的選手(教練等整年0場才排除，例：BRO Duke)＋每位選手只留牌位最高的一列(使用者定案 2026-07-19)
       // ★判準抽到全域 rankShow()／playedNames()（每日戰況共用、結果記憶化，不必每次 render 重掃整份 RAW）
@@ -13254,12 +13266,14 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
           if((V.rankRegion==="LPL"||V.rankRegion==="LCK")&&V.rankLplGrp&&lplSplitGroupOf(ab,curYear,lplSel,grpLg)!==V.rankLplGrp)return false; }
         if(q&&!((ab+" "+player).toLowerCase().includes(q)||String(teamRaw||"").toLowerCase().includes(q)))return false; return true; };
       // ① 排行榜名冊 SD.players（一人一列＝取牌位最高帳號）
-      SD.players.forEach(p=>{ if(!p.player)return; const ab=teamFix(p.team||""), nk=ab+"|"+p.player, rk=recByNorm[nk]||null, role=(rk&&REC.players[rk].r)||idxRole[nk]||null;
+      // 路線來源依序：逐場檔(soloq_recent) → 逐場索引 → **今年比賽出場的主要路線**。
+      // 最後那層是 2026-08-06 補的：只有牌位帳號、還沒有逐場檔的人前兩層都查不到，會顯示「–」
+      SD.players.forEach(p=>{ if(!p.player)return; const ab=teamFix(p.team||""), nk=ab+"|"+p.player, rk=recByNorm[nk]||null, role=(rk&&REC.players[rk].r)||idxRole[nk]||playedRole(p.player)||null;
         if(!pass(ab,p.player,role,p.team))return; const sc=soloqScore(p);
         if(!(nk in roster)||sc>roster[nk]._sc) roster[nk]={ab,player:p.player,riotId:p.riotId,role,reckey:rk,_sc:sc,
           tier:p.tier,division:p.division,lp:p.lp,found:p.found}; });   // 帶上牌位/LP：每日戰況每列要顯示積分
       // ② 有打積分(soloq_recent 有逐場)但不在名冊的（換隊／找不到牌位帳號）也一律列出
-      Object.keys(recByNorm).forEach(nk=>{ if(nk in roster)return; const rk=recByNorm[nk], i=nk.indexOf("|"), ab=nk.slice(0,i), player=nk.slice(i+1), teamRaw=rk.slice(0,rk.indexOf("|")), role=REC.players[rk].r||null;
+      Object.keys(recByNorm).forEach(nk=>{ if(nk in roster)return; const rk=recByNorm[nk], i=nk.indexOf("|"), ab=nk.slice(0,i), player=nk.slice(i+1), teamRaw=rk.slice(0,rk.indexOf("|")), role=REC.players[rk].r||playedRole(player)||null;
         if(!pass(ab,player,role,teamRaw))return; roster[nk]={ab,player,riotId:"",role,reckey:rk,_sc:-1}; });
       const teams={}; Object.values(roster).forEach(pl=>{(teams[pl.ab]=teams[pl.ab]||[]).push(pl);});
       const tLgIdx=ab=>{ const s=TLG[ab]; if(!s)return 99; let best=99; s.forEach(l=>{const i=LEAGUE_PREF.indexOf(l); if(i>=0&&i<best)best=i;}); return best; };
