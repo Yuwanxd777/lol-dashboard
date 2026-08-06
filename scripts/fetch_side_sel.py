@@ -117,13 +117,26 @@ def page_html(ov, force=False):
 
 
 def parse(ov, htm):
-    """→ [{t1,t2,score,gi,blue,red,first_sel,side_sel,pick_sel}]（逐局一筆）"""
+    """→ [{t1,t2,score,gi,blue,red,first_sel,side_sel,pick_sel}]（逐局一筆）
+
+    錨點依序試 Side Sel → 1st Sel：只記選擇權的表（EWC 資格賽）沒有 Side Sel 欄，
+    但反過來若哪天「1st Sel」以純文字出現在正表之前，直接取最小位置就會定位到錯的表、
+    整頁靜靜跳過 → 一個個試，抓得到表頭的才算數。
+    """
+    for _a in ("Side Sel", "1st Sel"):
+        p0 = htm.find(_a)
+        if p0 < 0:
+            continue
+        got = _parse_from(ov, htm, p0)
+        if got:
+            return got
+    return []
+
+
+def _parse_from(ov, htm, pos):
     # ⚠這張表是**巢狀**的（外層一張、每週一張內層）→ 不能用非貪婪的 <table>.*?</table>：
     # 那樣只會切到第一個 </table>（實測只拿到 1596 字元、資料列全在外面）。
     # 改成從表頭位置往回找最近的 <table，再用配對計數找出真正的結尾。
-    pos = htm.find("Side Sel")
-    if pos < 0:
-        return []
     s = htm.rfind("<table", 0, pos)
     if s < 0:
         return []
@@ -146,7 +159,7 @@ def parse(ov, htm):
         if idx is None:                                   # 表頭：記下五個逐局欄的位置
             # 用**前綴**比對不用精確比對：最後一格是「Pick Sel 1st Pick 2nd Pick」
             # （Pick Sel 底下還有子表頭，純文字化後會黏成一格）。
-            if any(t.startswith("Side Sel") for t in txt):
+            if any(t.startswith(("Side Sel", "1st Sel")) for t in txt):
                 # **先精確比對再退回前綴**：只用前綴的話 "Red" 會先命中 "Reddit" 欄
                 #（LEC/LCK 這類表有 Reddit），整欄取到垃圾、選邊權判不出來（實測 36% 落空）。
                 # 需要前綴的只有最後那格「Pick Sel 1st Pick 2nd Pick」。
@@ -158,13 +171,15 @@ def parse(ov, htm):
                     if j >= 0:
                         idx[k] = j
                 miss = set(KEYS) - set(idx)
-                # 1st Sel／Pick Sel 是**選配**：VCS／Rift Legends／NACL 的表只有 Side Sel，
-                # 硬要五欄齊全會把這些聯賽整個丟掉（實測 7 個賽事、幾百局的選邊資料全沒收）。
-                # 少了它們就只出選邊權，前端的「選選序率」自然不計這些局。
-                if miss - {"1st Sel", "Pick Sel"}:
-                    print(f"    ⚠ {ov}：表頭少了 {miss}，跳過"); return []
+                # 五欄不必齊全（各賽事記法不同，硬要齊全會整個聯賽丟掉——實測曾少收 7 個賽事、
+                # 幾百局）。真正必要的只有：Blue／Red，加上 Side Sel 或 1st Sel 至少有一個。
+                #  · 只有 Side Sel：VCS／Rift Legends／NACL 這類 → 只出選邊權
+                #  · 只有 1st Sel：EWC 資格賽這類 → 選邊權由 1st Sel 推得（見下方 pfirst 那段）
+                if (miss & {"Blue", "Red"}) or not ({"Side Sel", "1st Sel"} & set(idx)):
+                    print(f"    ⚠ {ov}：表頭少了 {sorted(miss)}，跳過"); return []
                 if miss:
-                    print(f"    · {ov}：只有選邊欄（沒有 {sorted(miss)}）→ 只收選邊權")
+                    print(f"    · {ov}：欄位較少（沒有 {sorted(miss)}）"
+                          + ("→ 選邊權由 1st Sel 推得" if "Side Sel" in miss else "→ 只收選邊權"))
             continue
         # 巢狀表是「每週一張」，每張都自帶表頭 → 後面還會再遇到表頭列，不能當成資料
         #（會產出 blue='Team 1' red='Team 2' 這種垃圾列）。
@@ -186,10 +201,26 @@ def parse(ov, htm):
         else:
             continue
         cur["n"] += 1
-        bl, rd, ss = g("Blue"), g("Red"), g("Side Sel")
+        bl, rd = g("Blue"), g("Red")
         if not (bl or rd):
             continue
-        # **關鍵簡化**：Side Sel 必定是該局藍紅其中一隊 → 這裡就算成「選邊權在哪一邊」，
+        ss, fs, ps = g("Side Sel"), g("1st Sel"), g("Pick Sel")
+        # Side Sel 沒記時用 1st Sel 推（2026-08-06 使用者指出 EWC 資格賽就是這種表）。
+        # 1st Sel＝握第一選擇權的隊；它到底選了什麼，看表上還有什麼可選：
+        #  · 表裡根本沒有 Pick Sel 欄 → 這賽制只有「選邊」一件事可選 → 選擇權那隊就是選邊那隊
+        #  · 有 Pick Sel 欄 → 二選一，用 Pick Sel 反推：寫自己＝他選了選序、選邊權歸對手；
+        #    寫對手＝他自己選了邊
+        # 兩者都判不出來（有 Pick Sel 欄但該格空）就不猜，維持沒有選邊權資料。
+        # 注意 1st Sel 不是「先選方」：實測 EWCQ 南美 G1 Blue=VKS 而 1st Sel=LOUD，
+        # 若它等於先選方就會恆等於 Blue。
+        pfirst = None      # 「第一選擇權那隊選了選序權」＝1／「選了選邊」＝0；前端平常由 fs vs ps 自行判定
+        if not ss and fs:
+            if "Pick Sel" not in idx:
+                ss = fs
+                pfirst = 0     # 沒有選序可選 → 握選擇權的那隊必然是「選了邊」，前端才標得出主動權
+            elif ps:
+                ss = (rd if fs == bl else bl) if ps == fs else fs
+        # **關鍵簡化**：選邊權必定是該局藍紅其中一隊 → 這裡就算成「選邊權在哪一邊」，
         # 前端不必再做 wiki 縮寫→資料庫縮寫的對照（逐局欄是純文字縮寫、沒有連結可查全名）。
         side = "b" if ss and ss == bl else ("r" if ss and ss == rd else "")
         # 還沒打的場次（Blue/Red 都寫 TBD、選擇權欄全空）不收——實測 2758 列裡有 829 列是這種。
@@ -206,7 +237,7 @@ def parse(ov, htm):
         _pattr = attrs[_pj] if (_pj is not None and 0 <= _pj < len(attrs)) else ""
         pc = 1 if "standings-mhBlue" in _pattr else (2 if "standings-mhRed" in _pattr else 0)
         cur["games"].append({"gi": cur["n"], "blue": bl, "red": rd, "ss": side, "pc": pc,
-                             "first_sel": g("1st Sel"), "pick_sel": g("Pick Sel")})
+                             "first_sel": g("1st Sel"), "pick_sel": g("Pick Sel"), "p": pfirst})
     return out
 
 
@@ -287,9 +318,12 @@ def main():
                 continue                      # 配不到日期的場次寧可不收，不掛錯日期
             d, t1, t2, _ = sc[pair[i]]
             for g in s["games"]:
-                allrec.append({"d": d, "t1": t1, "t2": t2, "gi": g["gi"], "ss": g["ss"],
-                               "blue": g["blue"], "red": g["red"], "pc": g.get("pc") or 0,
-                               "fs": g["first_sel"], "ps": g["pick_sel"], "ov": ov})
+                _r = {"d": d, "t1": t1, "t2": t2, "gi": g["gi"], "ss": g["ss"],
+                      "blue": g["blue"], "red": g["red"], "pc": g.get("pc") or 0,
+                      "fs": g["first_sel"], "ps": g["pick_sel"], "ov": ov}
+                if g.get("p") is not None:
+                    _r["p"] = g["p"]      # 只有推導出來的才寫；沒寫＝前端照舊由 fs/ps 判
+                allrec.append(_r)
                 n += 1
         print(f"  ✓ {ov}：{len(sers)} 場 / {n} 局")
     print(f"有選邊權欄位的賽事 {hit}／{len(pages)}，合計 {len(allrec)} 局")

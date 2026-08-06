@@ -6098,8 +6098,9 @@ function ssIdx(){
   for(const r of (window.SIDE_SEL||[])){
     // p＝「拿到第一選擇權的隊伍選了選序權」：1st Sel 與 Pick Sel 同一隊＝它把選序權拿走、
     // 選邊權留給對手；不同隊＝它拿走選邊權。兩欄有一邊沒填就不判（null）。
+    // r.p＝抓取端已經推導出來的（賽事表只有 1st Sel、沒有 Pick Sel 欄時，握選擇權的必然是選了邊）→ 優先採用。
     // pc＝握選序權那隊實際選了先選(1)還是後選(2)——wiki Pick Sel 格的顏色 class，0＝沒記錄。
-    const p = (r.fs && r.ps) ? (r.fs === r.ps ? 1 : 0) : null;
+    const p = (r.p === 0 || r.p === 1) ? r.p : ((r.fs && r.ps) ? (r.fs === r.ps ? 1 : 0) : null);
     _SSI.set(_ssKey(r.d,r.t1,r.t2,r.gi), {s:r.ss, p, pc:r.pc||0});
   }
   return _SSI;
