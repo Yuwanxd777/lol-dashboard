@@ -11911,29 +11911,27 @@ function render(){
         const placed=picks.map((c,i)=>c?i:-1).filter(i=>i>=0);
         if(!placed.length)return _laneAsg[key]={res,possible,soft:{}};
         const plm=(side==="1"?gm.plm1:gm.plm2)||[];
-        // 候選層級（使用者定案 2026-08-06，依「🎯 近期積分」開關分成兩條路）：
-        //   層級1 該隊選手的**比賽**使用數據（實線、佔位）——永遠優先，有就只看這層
-        //   層級2 該戰隊**先發五人**的近期積分（半透明）── 只在**有開**近期積分時接在層級1 後面
-        //   層級3 這隻在目前篩選範圍內**實際打過的路**（半透明，全體戰隊的比賽資料）── 只在**沒開**近期積分、
-        //         且層級1 空的時候用；只收斂「顯示哪幾條」，不拿去把某一路判成確定（見 occ）
-        //   層級4 萬用五路（半透明）── 以上都沒有才退到這裡
-        // 2026-07-31 的定案「全庫推路不可蓋過該隊資料」仍然成立：層級3 只在該隊完全沒資料時才登場，
-        // 而且佔位一律當萬用五路，不會讓別隊的數據把某一路變成實線。
+        // 候選層級（使用者定案 2026-08-06，**依序疊加**＝把各層的路接在後面，不是「上一層沒有才看下一層」）：
+        //   層級1 該隊選手的**比賽**使用數據（實線）
+        //   層級3 這隻在目前篩選範圍內**實際打過的路**（半透明，全體戰隊的比賽資料）
+        //   層級2 該戰隊**先發五人**的近期積分（半透明）── 只在有開「🎯 近期積分」時加入
+        //   層級4 萬用五路（半透明）── 以上全空才退到這裡
+        //   沒開積分＝1→3→4；有開積分＝1→3→2→4（順序就是路線圖列出來的先後）
+        // ⚠ 這條取代 2026-07-31 的「全庫推路已移除」：層級3 現在常駐，使用者已知悉「該隊本來就有資料時
+        //   也會跟著加進來、可能冒出跟這支隊伍無關的路」仍選擇這樣。折衷是**佔位只認層級1＋2**
+        //  （跟這支隊伍有關的），層級3 只放寬顯示、不參與約束傳播，所以別隊資料不會把某一路判成實線。
         const sqOn=!!V.bpSoloqPool;
-        const cand={}, candShow={}, laneSoft={}; // cand=佔位/推定用；candShow=顯示用；laneSoft[i][L]=推測來源→半透明
+        const cand={}, candShow={}, laneSoft={}; // cand=佔位/推定用(團隊相關)；candShow=顯示用(團隊∪全庫)；laneSoft[i][L]=推測來源→半透明
         placed.forEach(i=>{const c=picks[i];
           const teamL=POSN.filter(L=>pools[L]&&pools[L][c]&&!pools[L][c].sqOnly).sort((a,b)=>(pools[b][c].n||0)-(pools[a][c].n||0)); // 依該隊在各路使用這英雄的場數多→少排序（列出順序＝場數高的在前）
-          const soft={};
-          const show=teamL.slice();
-          if(sqOn){ // 層級2：先發五人的近期積分（半透明，來源不同一眼可分）
-            sqStartLanes(side==="1"?R1:R2,side==="1"?S.t1:S.t2,c).forEach(L=>{
-              if(!show.includes(L)){show.push(L); soft[L]=true;}}); }
-          let occ=show.slice();
-          if(!show.length){
-            // 層級3／4：沒開近期積分才查全體戰隊的比賽資料；有開就直接退五路（使用者指定的兩條路徑）
-            const dbL=sqOn?[]:chLanes(c);
-            occ=POSN.slice(); show.push(...(dbL.length?dbL:POSN)); show.forEach(L=>soft[L]=true);
-          }
+          const sqL=sqOn?sqStartLanes(side==="1"?R1:R2,side==="1"?S.t1:S.t2,c):[];   // 層級2
+          const soft={}, show=teamL.slice();
+          const add=L=>{ if(!show.includes(L)){show.push(L); soft[L]=true;} };        // 後面接進來的一律半透明
+          chLanes(c).forEach(add);   // 層級3（依全庫場數多→少）
+          sqL.forEach(add);          // 層級2
+          let occ=teamL.concat(sqL.filter(L=>!teamL.includes(L)));                    // 佔位＝層級1＋2
+          if(!show.length){ show.push(...POSN); POSN.forEach(L=>soft[L]=true); }      // 層級4
+          if(!occ.length)occ=POSN.slice();                                            // 該隊完全沒資料＝萬用五路佔位
           cand[i]=occ; candShow[i]=show; laneSoft[i]=soft;});
         const lanesLeft=new Set(POSN), done=new Set();
         placed.forEach(i=>{const m=plm[i]; if(m&&lanesLeft.has(m)&&candShow[i].includes(m)){res[i]=m;lanesLeft.delete(m);done.add(i);}}); // 手動點擊指定＝固定並佔路（可指定半透明的全庫路，指定後視為確定）
