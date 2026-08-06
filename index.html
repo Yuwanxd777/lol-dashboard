@@ -629,6 +629,11 @@
      align-content:center＝欄位整組水平置中 → 首欄離左框與末欄離右框天然相等（2026-08-06 使用者指定）；
      margin-top/bottom:auto＝間距拉到上限(16px)仍填不滿時，剩下的空白平均分到上下 → 上下離框距離一致、
      底下不會單獨空一大塊（2026-08-06 使用者指定） */
+  /* 局卡底部的選角評分列（2026-08-06）：兩隊各一個分數、中間差值。高度固定，一隻都沒選時也留位不跳版 */
+  .bsScore{flex:0 0 auto;display:flex;align-items:center;justify-content:center;gap:10px;height:26px;margin-top:6px;
+    border-top:1px solid rgba(255,255,255,.07);padding-top:5px}
+  .bsScNum{font-size:17px;font-weight:800;font-variant-numeric:tabular-nums;cursor:help;min-width:46px;text-align:center}
+  .bsScD{font-size:12.5px;font-weight:700;color:var(--tx2);font-variant-numeric:tabular-nums;min-width:38px;text-align:center}
   .bpMergeFlow .bpChip{padding:0;border:none;background:none;margin:0}
   .bpMergeFlow .bpChip .cc img{width:var(--csother,40px);height:var(--csother,40px);object-fit:cover;border-radius:5px;display:block}
   .bpMergeFlow .bpChip.bpGrey{opacity:.5}
@@ -1955,7 +1960,7 @@ const TAB_HELP={
 "近況":"<b>這頁</b>：輸入一個戰隊，一頁看完它的<b>近期狀況</b>（方便直接截圖）。範圍＝目前篩選下該隊<b>最近 5 個系列賽</b>。\n<b>版面</b>：<b>標頭</b>＝連勝／連敗、這段期間的系列與小局戰績。\n<b>近期賽果</b>＝五個系列的日期／賽事／對手／比分。\n<b>五路先發</b>＝每路出賽最多的選手：場數／勝率／KDA／慣用英雄；當年另有<b>近 7 天積分</b>場數勝敗與常用英雄。\n<b>BP 傾向</b>＝這段期間該隊常選、我方常 Ban、被對手針對 Ban 的英雄。\n<b>操作</b>：右上 <b>📸</b> 一鍵輸出 1080p 截圖（檔名＝縮寫_近況_日期）。\n<b>看法</b>：慣用英雄滑上去看場數勝率。",
 "比賽BP":"<b>這頁</b>：兩隊<b>系列賽 BP 紀錄</b>，最新在上。\n<b>操作</b>：上方<b>戰隊</b>下拉指定戰隊（可只填一隊看其所有系列）；在欄名下方輸入即逐欄篩選；右上三段模式鈕——<b>🟣 一般</b>（五路・藍左紅右）｜<b>🟪 混合</b>（五路・搜尋的戰隊固定在左）｜<b>選序</b>（選角順序時間軸，同 wiki PB 頁：依<b>出手順</b>排 B1~B3 → P1~P4 → B4~B5 → P5~P7，<b>白線</b>分隔出手階段、<b>藍框／紅框</b>＝該邊、<b>灰階</b>＝禁用）。\n<b>看法</b>：<b>金色數字</b>＝選角順位 1 到 7、<b>星號</b>＝勝方；藍方／紅方右邊的<b>選擇</b>欄寫這局誰拿走選邊權（<b>選藍／選紅</b>）、誰拿走先選權（<b>先選／後選</b>）。\n<b>注意</b>：標題會自動標<b>缺場</b>（BO5 打到 2-2 卻少第 5 局等）；BO2 的 1-1 和局不算缺。\n<b>先選方不等於藍方</b>——2026 起是新制，先選／後選由雙方自己選，與藍紅方脫鉤；2025 以前才是藍方固定先選。",
 "圖鑑":"<b>這頁</b>：資料庫總集，上方分頁切換分區。\n<b>版面</b>：<b>版本</b>＝全年或單版本的英雄／裝備改動（點版本號看官方公告）。\n<b>英雄</b>＝點名字看歷年改動與<b>專屬機制</b>大框。\n<b>道具</b>／<b>符文</b>／<b>物件</b>＝建築、史詩野怪、龍魂等官方數值。\n<b>賽事</b>＝當年聯賽樹狀圖（三大國際賽／一二級賽區／盃賽，含各隊縮寫，國際賽帶母賽區色框）。\n<b>操作</b>：多數分區可搜尋、滑上看說明。\n<b>看法</b>：改動卡片邊框<b>紅＝增強、綠＝削弱、黃＝調整</b>；賽事樹綠勾 ✓＝晉級隊。\n<b>注意</b>：<b>新登場／重製登場／重返遊戲不標增強削弱</b>——那是「現在長這樣」，沒有對照物。",
-"模擬BP":"<b>這頁</b>：自己排 BAN／PICK、即時看路線判定。\n<b>版面</b>：模擬局在左、角色池在中、<b>雙方BAN過／其他英雄</b>在最右直欄（局號 1→N，最新局在最右、緊貼角色池）。\n<b>操作</b>：上方選<b>戰隊A／B</b>帶出雙方角色池；<b>拖曳</b>或<b>左鍵拎起</b>池中英雄→到格內左鍵放入、右鍵取消；點已填格移除、點<b>先選／後選</b>切順位、<b>⇄</b>換輪替選手。\n按鈕：⏵自動（點池自動填下一格；開新局請點 ＋）、全局／一般（全局＝Fearless：PICK 從池消失、BAN 不消耗、最多五局）、📥匯入比賽、🗑清空、📸截圖；🎯近期積分<b>右鍵</b>可改範圍（一週~半年）。\n<b>看法</b>：滑到模擬局英雄→右側顯示<b>詳細數據</b>（BAN 顯示<b>對手</b>使用數據），同英雄會在所有模擬局一起發光。\n路線判定：隊上選手池＝實心、全庫近況補的＝半透明（點半透明確認正路即變實心）。\n標記：<b>金光</b>＝全場只有他會用、<b>青框</b>＝同隊多人會用、<b>禁用圖示</b>＝對手慣用但沒選過的禁招。\n<b>注意</b>：📥<b>匯入比賽</b>把真實系列賽帶進來（全局模式會先清掉其他局）；匯入的局<b>只能換英雄、不能改順位</b>（整局可刪）。",
+"模擬BP":"<b>這頁</b>：自己排 BAN／PICK、即時看路線判定。\n<b>版面</b>：模擬局在左、角色池在中、<b>雙方BAN過／其他英雄</b>在最右直欄（局號 1→N，最新局在最右、緊貼角色池）。\n<b>操作</b>：上方選<b>戰隊A／B</b>帶出雙方角色池；<b>拖曳</b>或<b>左鍵拎起</b>池中英雄→到格內左鍵放入、右鍵取消；點已填格移除、點<b>先選／後選</b>切順位、<b>⇄</b>換輪替選手。\n按鈕：⏵自動（點池自動填下一格；開新局請點 ＋）、全局／一般（全局＝Fearless：PICK 從池消失、BAN 不消耗、最多五局）、📥匯入比賽、🗑清空、📸截圖；🎯近期積分<b>右鍵</b>可改範圍（一週~半年）。\n<b>看法</b>：滑到模擬局英雄→右側顯示<b>詳細數據</b>（BAN 顯示<b>對手</b>使用數據），同英雄會在所有模擬局一起發光。\n路線判定：隊上選手池＝實心、全庫近況補的＝半透明（點半透明確認正路即變實心）。\n標記：<b>金光</b>＝全場只有他會用、<b>青框</b>＝同隊多人會用、<b>禁用圖示</b>＝對手慣用但沒選過的禁招。\n<b>選角評分</b>（局卡最下面）：兩隊各一個 0~100 分＋差值，滑上去看拆解。＝<b>英雄強度</b>(60%，就是英雄頁那個評分、跟著上方篩選走)＋<b>選手熟練</b>(25%，該路選手在該英雄的場數與勝率；沒打過算中性不扣分；按了🎯近期積分會把積分場次以半場計入)＋<b>對線對位</b>(15%，同路雙方英雄的歷史對戰勝率，樣本 &lt;10 場不計)。只把<b>有資料的項目</b>算進來再重新歸一。\n<b>注意</b>：📥<b>匯入比賽</b>把真實系列賽帶進來（全局模式會先清掉其他局）；匯入的局<b>只能換英雄、不能改順位</b>（整局可刪）。",
 "英雄Tier":"<b>這頁</b>：依你的判斷把英雄分級（S／A／B…）。\n<b>操作</b>：左側角色池<b>拖曳</b>或<b>左鍵拎起</b>→放到右邊 Tier 列（列間可互拖、拖回池或點一下移回、右鍵取消）。\n階列：可<b>改名</b>、點色塊<b>換色</b>、<b>✕</b>刪階（英雄回池）、下方<b>＋</b>加階、右側<b>⠿</b>拖曳整階排序。\n按鈕：⇄五路／混合、🎯積分數據／📊比賽數據／✏️自訂、⚙參數（門檻與奇招條件）、🗑清空、📸截圖。\n<b>看法</b>：三向模式各自獨立、互不覆蓋；數據模式自動分階、再點一次依目前篩選重新產生；滑鼠移到英雄上顯示該模式的數據（自訂模式積分與比賽都列）。\n英雄圖邊框<b>紅＝版本增強、綠＝削弱、黃＝調整</b>。\n<b>注意</b>：評分<b>不無條件進位</b>（89.9 仍在 A）。",
 "積分":"<b>這頁</b>：各隊選手的<b>單雙排（solo queue）積分</b>排行，最新在上。\n<b>操作</b>：上方<b>搜尋</b>選手或戰隊、點<b>欄位名</b>排序；<b>路線</b>／<b>賽區</b>可篩選；左上可切<b>📅 每日戰況</b>。\n<b>點選手名</b>→逐場單雙積分戰績（合併該選手所有帳號、只收本命路線：英雄／對位／KDA／參與率／dpm 評分／符文／出裝／技能加點；滑技能看加點順序、滑裝備看出裝順序）。\n<b>看法</b>：牌位依 菁英＞宗師＞大師＞鑽石… 排，大師以上不分段直接看 LP；未定位或找不到帳號的排最底（灰字）。\n<b>常用英雄</b>滑上去看完整角色池（場數／勝率／KDA，勝率越高越紅）。\n<b>📅 每日戰況</b>＝改看<b>各隊一區塊</b>，每位選手<b>昨天／近3天／近7天</b>打了幾場、幾勝幾敗、用了哪些英雄（<b>勝藍圈・敗紅圈</b>，以韓服日界定）。\n<b>注意</b>：<b>每位選手只列牌位最高的那一隻帳號</b>；<b>整年沒有比賽出場過的人不列</b>（純教練等）。\n<b>賽區</b>＝該選手<b>戰隊的參賽賽區</b>（不是伺服器位置）：一隊可同時屬多區（如 GEN＝LCK＋MSI＋FST）；盃賽只列 FST／MSI／WCS／EWC／ENC。\n<b>LPL 分組</b>：選 LPL 賽區會出現該年常規賽分組（如 Ascend／Nirvana）子篩選，每日戰況也依組分開排；<b>季後賽不分組</b>。\n帳號來源：LPL／LCK 以 <b>OBGG</b> 為主、LCS／LEC／CBLOL 以 <b>dpm</b> 為主；<b>峽谷之巔</b>與近兩月沒打的帳號自動濾掉。牌位由 <b>Riot API</b> 每日更新、逐場由 dpm 抓。"
 };
@@ -12010,6 +12015,63 @@ function render(){
         ];
         return `<div style="flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-start">${items.join("")}</div>`;
       };
+      // ── 選角評分（2026-08-06 使用者定案）─────────────────────────────────────────
+      // 局卡最下面一條：兩隊各一個 0~100 分＋差值。三塊加權合成（60/25/15），
+      // **只把有資料的那幾塊算進來再重新歸一**（與 calcHeroes 的「有值才計入」同一個原則，
+      // 否則資料稀薄的年份／窄篩選會被無資料項拉成同一個水平）。
+      //   ① 英雄強度：直接取英雄頁現成的評分（同路百分位、跟著上方篩選走）→ 版本強弱自動生效
+      //   ② 選手熟練：該路選定選手在該英雄的比賽場數與勝率；沒打過＝中性 50（不懲罰新招）。
+      //      按了「🎯 近期積分」時積分場次以**半場**計入（使用者定案：按了就算進去）
+      //   ③ 對線對位：同路藍紅英雄的歷史對位勝率，樣本 <10 場不計——唯一讓兩隊互相影響的項目
+      const _hrS={};                        // 路線 → (champId → 英雄評分)；calcHeroes 自己有 HCACHE
+      const hrScore=(L,c)=>{ let m=_hrS[L];
+        if(!m){ m=_hrS[L]={}; try{ (calcHeroes(L)||[]).forEach(r=>{ const ci=champId(r._full); if(ci&&r.評分!=null&&isFinite(r.評分))m[ci]=r.評分; }); }catch(e){} }
+        const v=m[champId(c)]; return (v==null)?null:v; };
+      let _muI=null;                        // 對位索引：路線|我方|對方 → {n,w}；整份 LANES 只掃一次
+      const muRec=(L,a,b)=>{ if(!_muI){ _muI={};
+          for(const o of LANES){ if(!passG(o))continue; const L2=PID2LANE[o.pid]; if(!L2)continue;
+            const bc=champId(o.raw[C.blue_champion]), rc=champId(o.raw[C.blue_champion+RB]);
+            if(!bc||!rc)continue; const bw=o.result===1;
+            const e1=_muI[L2+"|"+bc+"|"+rc]||(_muI[L2+"|"+bc+"|"+rc]={n:0,w:0}); e1.n++; if(bw)e1.w++;
+            const e2=_muI[L2+"|"+rc+"|"+bc]||(_muI[L2+"|"+rc+"|"+bc]={n:0,w:0}); e2.n++; if(!bw)e2.w++; } }
+        return _muI[L+"|"+champId(a)+"|"+champId(b)]||null; };
+      const curOf=(R,L,st)=>{ const ps=R&&R[L]&&R[L].players; if(!ps||!ps.length)return null;
+        return (st&&st[L]&&ps.find(x=>x.p===st[L]))||ps[0]; };
+      const _sat=(n,f)=>Math.min(1,n/f);
+      const _clamp=v=>Math.max(0,Math.min(100,v));
+      const draftScore=gi=>{
+        const gm=S.g[gi]; if(!gm)return null;
+        const side2={};
+        ["1","2"].forEach(sd=>{
+          const picks=gm["p"+sd]||[], asg=laneAssign(gi,sd);
+          const pools=sd==="1"?poolsA:poolsB, R0=sd==="1"?R1:R2, st0=sd==="1"?S.pk1:S.pk2, tm=sd==="1"?S.t1:S.t2;
+          const lanes={}, hs=[], ps=[];
+          picks.forEach((c,i)=>{ if(!c||c===NOBAN)return;
+            const L=asg.res[i]||((asg.possible[i]||[])[0])||null; lanes[i]=L;
+            const h=L?hrScore(L,c):null; if(h!=null)hs.push(h);
+            let n=0,w=0; const e=L&&pools[L]&&pools[L][c];
+            if(e&&!e.sqOnly){ n+=e.n||0; w+=e.w||0; }
+            if(V.bpSoloqPool&&L){ const cur=curOf(R0,L,st0), sq=cur&&sqRecent(tm,cur.p), o=sq&&sq[champId(c)];
+              if(o){ n+=0.5*(o.n||0); w+=0.5*(o.w||0); } }
+            ps.push(n>0?_clamp(50+_sat(n,8)*(15+35*(2*(w/n)-1))):50); });  // 沒資料＝中性 50
+          side2[sd]={picks,lanes,hs,ps,ms:[]};
+        });
+        ["1","2"].forEach(sd=>{ const me=side2[sd], op=side2[sd==="1"?"2":"1"];
+          Object.keys(me.lanes).forEach(i=>{ const L=me.lanes[i]; if(!L)return;
+            const j=Object.keys(op.lanes).find(k=>op.lanes[k]===L); if(j===undefined)return;
+            const a=me.picks[i], b=op.picks[j]; if(!a||!b)return;
+            const r=muRec(L,a,b); if(!r||r.n<10)return;
+            me.ms.push(_clamp(50+(r.w/r.n-0.5)*100*_sat(r.n,20))); }); });
+        const avg=a=>a.length?a.reduce((x,y)=>x+y,0)/a.length:null, r1=v=>v==null?null:Math.round(v*10)/10;
+        const fin={};
+        ["1","2"].forEach(sd=>{ const o=side2[sd], nP=o.picks.filter(c=>c&&c!==NOBAN).length;
+          const parts=[[avg(o.hs),0.6],[avg(o.ps),0.25],[avg(o.ms),0.15]].filter(p=>p[0]!=null);
+          const tw=parts.reduce((s,p)=>s+p[1],0);
+          fin[sd]={sc:tw?r1(parts.reduce((s,p)=>s+p[0]*p[1],0)/tw):null,
+                   h:r1(avg(o.hs)), p:r1(avg(o.ps)), m:r1(avg(o.ms)),
+                   n:nP, noH:nP-o.hs.length, nM:o.ms.length}; });
+        return fin;
+      };
       const gameCard=gi=>{ // 職業賽 BP 畫面：上=雙方 BAN 橫排、下=左右兩排大 PICK
         const fp=S.fp[gi]||0, flip=S.side[gi]||0;
         // 每局隊伍：匯入局記在 S.tm[gi]（不跟著上方兩隊）、一般局＝上方兩隊
@@ -12024,7 +12086,26 @@ function render(){
             <span style="display:flex;align-items:center;gap:6px;justify-content:space-between;white-space:nowrap;min-width:0"><span style="color:#6ea8ff">${esc(tAb(L.t)||L.def)}</span>${tag(L.fpIdx)}</span>
             <span class="meta">vs</span>
             <span style="display:flex;align-items:center;gap:6px;justify-content:space-between;white-space:nowrap;min-width:0">${tag(R.fpIdx)}<span style="color:#ff6b6b">${esc(tAb(R.t)||R.def)}</span></span></div>
-          <div style="display:flex;gap:8px;flex:1;min-height:0">${sideCol(gi,L.k,false,fp===L.fpIdx)}${sideCol(gi,R.k,true,fp===R.fpIdx)}</div></div>`;
+          <div style="display:flex;gap:8px;flex:1;min-height:0">${sideCol(gi,L.k,false,fp===L.fpIdx)}${sideCol(gi,R.k,true,fp===R.fpIdx)}</div>
+          ${scoreBar(gi,L,R)}</div>`;
+      };
+      // 局卡底部的選角評分列。左右兩隊各一個分數、中間差值 chip；滑上去看三塊拆解。
+      // ⚠ class 要保留 bsScore：BP 的一屏 fit() 靠它把這一列算進高度預算（見 fit 的 selector）
+      const scoreBar=(gi,L,R)=>{
+        const f=draftScore(gi); if(!f)return "";
+        const a=f[L.k], b=f[R.k];
+        if(a.sc==null&&b.sc==null)return `<div class="bsScore"></div>`;   // 一隻都還沒選：留空位不跳版
+        const d=(a.sc!=null&&b.sc!=null)?Math.round((a.sc-b.sc)*10)/10:null;
+        const tip=s=>{ if(s.sc==null)return "";
+          const L2=[]; if(s.h!=null)L2.push(`${LANG==="en"?"Champion":"英雄強度"} ${s.h}（60%）`);
+          if(s.p!=null)L2.push(`${LANG==="en"?"Proficiency":"選手熟練"} ${s.p}（25%）`);
+          if(s.m!=null)L2.push(`${LANG==="en"?"Matchup":"對線對位"} ${s.m}（15%）`);
+          L2.push(`${LANG==="en"?"picks":"已選"} ${s.n}/5`);
+          if(s.noH)L2.push(`${s.noH} ${LANG==="en"?"champ(s) without rating":"隻無評分資料"}`);
+          L2.push(`${LANG==="en"?"matchups counted":"對位計入"} ${s.nM} ${LANG==="en"?"lane(s)":"路"}`);
+          return esc(L2.join("｜")); };
+        const one=(s,col)=>`<span class="bsScNum" style="color:${col}" title="${tip(s)}">${s.sc==null?"–":s.sc}</span>`;
+        return `<div class="bsScore">${one(a,"#6ea8ff")}<span class="bsScD">${d==null?"":(d>0?"+":"")+d}</span>${one(b,"#ff6b6b")}</div>`;
       };
       // 角色池固定在右（欄寬鎖定五局版型不壓縮）；局區在左、獨立橫向捲動——局號 1→N 由左到右，最新一局在最右、緊貼角色池
       {
@@ -12204,7 +12285,8 @@ function render(){
           wrap.style.zoom=String(s/zf); window._bpS=s;
           wrap.style.height=(bve/s)+"px";
           const wb=wrap.getBoundingClientRect().bottom;
-          let mb=0; wrap.querySelectorAll("#bsGames .bpSlot,#bsGames .bpPickBox").forEach(el=>{const b=el.getBoundingClientRect().bottom; if(b>mb)mb=b;});
+          // 選角評分列(.bsScore)也要算進來，不然它會被擠到一屏預算之外看不到（2026-08-06 新增）
+          let mb=0; wrap.querySelectorAll("#bsGames .bpSlot,#bsGames .bpPickBox,#bsGames .bsScore").forEach(el=>{const b=el.getBoundingClientRect().bottom; if(b>mb)mb=b;});
           if(!mb||mb<=wb-3)break;                                            // 塞下了（留 3px 呼吸）
           s=Math.max(.4*sf,s*(wb-top-6)/(mb-top));                          // 依「外框可用高/內容實際高」比例縮小（下限 0.4 同樣是設計 px 倍率）
         }
