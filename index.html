@@ -1983,6 +1983,17 @@ const TAB_HELP_EN={
 "英雄Tier":"Tier champions by your own judgment (S / A / B…).\nHow-to: <b>drag</b> or <b>left-click to lift</b> from the pool on the left → drop into a Tier row on the right (rows can be dragged into each other, dragged back to the pool or clicked to return, right-click to cancel).\nTier rows: <b>rename</b>, click the color swatch to <b>recolor</b>, <b>✕</b> deletes the tier (champions return to pool), <b>＋</b> below adds a tier, <b>⠿</b> on the right drags to reorder tiers.\nButtons: <b>⇄</b> five-lane/mixed, then a three-way mode toggle — <b>🎯 Ranked</b> (auto-tier S~D by soloq rating), <b>📊 Match</b> (auto-tier S~C + Off-meta by current-range rating), <b>✏️ Custom</b> (free arrangement, never overwritten by data modes). Each mode keeps its own board; in a data mode, clicking the current mode again <b>regenerates by the current filters</b>; hover a champion to see that mode's stats (Custom shows both soloq and match). Then <b>⚙</b> Params (thresholds & off-meta criteria), <b>🗑</b> Clear, <b>📸</b> Screenshot.\nSoloq mode is hidden in historical years. Rating <b>doesn't round up</b> (89.9 stays in A); champion border red = patch buff, green = nerf, yellow = adjustment.",
 "積分":"Each team's players' <b>solo queue ranked</b>, highest first.\n<b>Only the highest-rank account per player is listed</b> (when a player has several); <b>players with no match appearance all year are omitted</b> (pure coaches etc.).\nHow-to: <b>search</b> a player or team above, click a <b>column header</b> to sort; filter by <b>role</b> / <b>region</b>.\n<b>Region</b> = the player's <b>team competitive region</b> (not server location): leagues + cups, a team can belong to several (e.g. GEN = LCK + MSI + FST); cups are limited to FST / MSI / WCS / EWC / ENC.\nReading: tier order Challenger > Grandmaster > Master > Diamond…; Master+ has no division, sorted by LP; unranked / not-found accounts sink to the bottom (greyed).\n<b>Champions</b>: hover for the full champion pool (games / win% / KDA; higher win% is redder).\n<b>Click a player's name</b> → per-game Solo/Duo history (all of that player's accounts merged, main role only: champ / matchup / KDA / KP% / dpm score / runes / items / skill order; hover skills for level order, items for build order).\nAccount source: LPL / LCK mainly <b>OBGG</b>, LCS / LEC / CBLOL mainly <b>dpm</b>, others merged; the <b>Challenger practice server</b> and accounts inactive over two months are auto-filtered. Ranks refresh daily via the <b>Riot API</b>, per-game via dpm.\n<b>📅 Daily</b> (top-left toggle): switch to a <b>per-team board</b> showing each player's <b>yesterday / last 3 / last 7 days</b> — games played, W-L and champions used (<b>blue ring = win, red ring = loss</b>, bucketed by KST day); click a name for the full game log.\n<b>LPL groups</b>: selecting the LPL region shows that year's regular-season group sub-filter (Ascend / Nirvana, etc.); the daily board and the Esports tree also split LPL by group. <b>Playoffs are not split.</b>"
 };
+// ── 浮層定位鐵則（2026-08-06 全站等比縮放之後）────────────────────────────────
+// getBoundingClientRect／clientX／innerWidth 都是**視覺 px**，而 style.top/left/width
+// 寫進去是**版面 px**——兩者差一個 window._zoomF。非 2560 螢幕若直接把 rect 寫進 style，
+// 浮層會偏掉：實測 3840 螢幕(倍率1.5)時說明浮層 left 算成 4757，整個跑出視窗外。
+// → 定位一律走 vRect()／vW()／vH()／vPt()，拿到的就是可以直接寫進 style 的版面 px。
+const _vz=()=>window._zoomF||1;
+const vRect=el=>{ const r=el.getBoundingClientRect(), z=_vz();
+  return {left:r.left/z,top:r.top/z,right:r.right/z,bottom:r.bottom/z,width:r.width/z,height:r.height/z}; };
+const vW=()=>(window.innerWidth||0)/_vz();
+const vH=()=>(window.innerHeight||0)/_vz();
+const vPt=n=>n/_vz();                       // 單一視覺座標（clientX/clientY）→ 版面 px
 const DEX_HELP_EN={
 "版本":"Overview of champion/item changes for the whole year or one patch.\nUse the <b>Patch</b> dropdown for full year or a specific patch, <b>search</b> to filter champion/item names or change text.\nCard border colors: <b>red = buff, green = nerf, yellow = adjustment</b>; click a <b>patch number</b> for the official patch notes.\nJungle-related changes are grouped separately.",
 "英雄":"Each champion's changes and mechanic for the year.\nClick a <b>champion name</b> for its detail page: <b>yearly patch-change trend chart</b>, the <b>unique mechanic</b> panel (e.g. special mechanics like Kha'Zix Isolation), per-game log and <b>matchups/counters</b> (the old Matchup tab is merged in here).\nUse <b>Type</b> above to filter by Fighter/Tank/Mage/Assassin/Marksman/Support, <b>search</b> by name.",
@@ -2013,7 +2024,7 @@ function toggleHelpPop(btn){
   pop.innerHTML=`<div class="helpPopHd">${hd}</div><div class="helpPopBody">${body}</div>`;
   pop.addEventListener("wheel",e=>{ e.preventDefault(); e.stopPropagation(); },{passive:false}); // 清單無內捲：滾輪吃掉，不讓頁面跟著捲（頁面一捲清單就被關）
   document.body.appendChild(pop);
-  const r=btn.getBoundingClientRect(), w=Math.min(460,window.innerWidth-24);
+  const r=vRect(btn), w=Math.min(460,vW()-24);
   pop.style.width=w+"px"; pop.style.top=(r.bottom+8)+"px"; pop.style.left=Math.max(12,r.right-w)+"px";
   setTimeout(()=>document.addEventListener("mousedown",_helpOutside,true),0);
 }
@@ -2164,7 +2175,10 @@ const xImg=n=>{
 // ---------- 版本改動 hover 提示：英雄=被動+QWER 現況數值；道具=合成+效果；符文=效果 ----------
 let tipEl=null, tipToken=0, tipCur=null; const CHAMP_CACHE={};
 // 錨定在目標元素下方（放不下改上方），顯示後位置固定
-const tipPlace=(r,pref)=>{ if(!tipEl)return;
+const tipPlace=(r0,pref)=>{ if(!tipEl)return;
+  // 呼叫端傳進來的是視覺 px 的 rect，這裡統一換成版面 px 再算（tipEl 的 offsetWidth/style 都是版面 px）
+  const _z=_vz(), r={left:r0.left/_z,top:r0.top/_z,right:r0.right/_z,bottom:r0.bottom/_z,width:r0.width/_z,height:r0.height/_z};
+  const innerWidth=vW(), innerHeight=vH();
   tipEl.style.maxHeight=""; tipEl.style.overflowY="";           // 每次重算（上一次可能夾過高度）
   let w=tipEl.offsetWidth,h=tipEl.offsetHeight, L=r.left, T;
   if(pref==="up"){                                              // 欄位說明框：一律顯示在欄名「上方」，不擋表格
@@ -6244,7 +6258,7 @@ function carryStart(ch,imgSrc,extra){
   document.body.classList.add("carrying");
 }
 function carryEnd(){ if(_carry){ if(_carry.el)_carry.el.remove(); _carry=null; document.body.classList.remove("carrying"); } }
-document.addEventListener("mousemove",e=>{ if(_carry&&_carry.el){ _carry.el.style.left=e.clientX+"px"; _carry.el.style.top=e.clientY+"px"; } });
+document.addEventListener("mousemove",e=>{ if(_carry&&_carry.el){ _carry.el.style.left=vPt(e.clientX)+"px"; _carry.el.style.top=vPt(e.clientY)+"px"; } }); // clientX/Y＝視覺 px，style＝版面 px
 document.addEventListener("contextmenu",e=>{ if(_carry){ e.preventDefault(); carryEnd(); } }); // 右鍵取消
 document.addEventListener("keydown",e=>{ if(e.key==="Escape"&&_carry)carryEnd(); });
 // 英雄名帶間隔號的全名一律縮短（睿娜妲‧格萊斯克 → 睿娜妲）：資料載入時統一處理，全站生效
@@ -6413,9 +6427,10 @@ if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>{try{refit
     return best; };
   window.hsbUpdate=()=>{ const b=pick();
     if(!b){ hsb.style.display="none"; cur=null; return; }
-    const {el,r}=b, vw=innerWidth;
-    const left=Math.max(r.left,0), w=Math.min(r.right,vw)-left;
-    if(w<80){ hsb.style.display="none"; cur=null; return; }
+    const {el,r}=b, vw=innerWidth, _z=_vz();
+    // pick() 全程用視覺 px 比較（rect vs innerWidth）沒問題，但 #hsb 是 fixed、style 吃版面 px → 這裡要換算
+    const left=(Math.max(r.left,0))/_z, w=(Math.min(r.right,vw)-Math.max(r.left,0))/_z;
+    if(w*_z<80){ hsb.style.display="none"; cur=null; return; }
     hsb.style.display="block"; hsb.style.left=left+"px"; hsb.style.width=w+"px";
     if(cur!==el){ cur=el; if(!bound.has(el)){bound.add(el); el.addEventListener("scroll",()=>{if(cur===el)paint();},{passive:true});} }
     paint(); };
@@ -6424,13 +6439,13 @@ if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>{try{refit
   th.addEventListener("pointerdown",e=>{ const g=geom(); if(!g||!cur)return;
     drag={x:e.clientX,left:parseFloat(th.style.left)||0,g,el:cur}; th.classList.add("drag"); th.setPointerCapture(e.pointerId); e.preventDefault(); });
   th.addEventListener("pointermove",e=>{ if(!drag)return;
-    const nx=Math.max(0,Math.min(drag.g.range,drag.left-1+e.clientX-drag.x));
+    const nx=Math.max(0,Math.min(drag.g.range,drag.left-1+(e.clientX-drag.x)/_vz())); // 位移是視覺 px，把手 left 是版面 px
     drag.el.scrollLeft=drag.g.range?nx/drag.g.range*drag.g.m:0; });
   const dragEnd=()=>{drag=null;th.classList.remove("drag");};
   th.addEventListener("pointerup",dragEnd); th.addEventListener("pointercancel",dragEnd);
   // 點軌道空白處＝跳到該位置（把手中心對齊點擊點）；滾輪在軌道上＝橫向捲動
   hsb.addEventListener("pointerdown",e=>{ if(e.target===th)return; const g=geom(); if(!g||!cur)return;
-    const x=e.clientX-hsb.getBoundingClientRect().left-g.w/2, nx=Math.max(0,Math.min(g.range,x));
+    const x=(e.clientX-hsb.getBoundingClientRect().left)/_vz()-g.w/2, nx=Math.max(0,Math.min(g.range,x)); // 兩者視覺 px 相減後換版面 px（g.w 是版面 px）
     cur.scrollLeft=g.range?nx/g.range*g.m:0; });
   hsb.addEventListener("wheel",e=>{ if(!cur)return; e.preventDefault(); cur.scrollLeft+=(e.deltaY||e.deltaX); },{passive:false});
   addEventListener("scroll",()=>{ if(!window._hsbR)window._hsbR=requestAnimationFrame(()=>{window._hsbR=0;hsbUpdate();}); },{passive:true});
@@ -7585,16 +7600,17 @@ function fancySelectOpen(sel,btn){
   }).join("");
   pop.addEventListener("wheel",e=>{ e.preventDefault(); e.stopPropagation(); },{passive:false}); // 清單無內捲：滾輪吃掉，不讓頁面跟著捲（頁面一捲清單就被關）
   document.body.appendChild(pop);
-  // 分欄：量單列高，算「上方或下方哪邊空間大」能放幾列，放不下就往右加欄（rect＝視覺 px，fixed 面板同座標系）
-  const r=btn.getBoundingClientRect();
-  const M=12, below=(window.innerHeight-r.bottom)>=r.top;
-  const avail=Math.max(120,(below?window.innerHeight-r.bottom:r.top)-M-8);
-  const ih=(pop.firstElementChild?pop.firstElementChild.getBoundingClientRect().height:30)+2;
+  // 分欄：量單列高，算「上方或下方哪邊空間大」能放幾列，放不下就往右加欄
+  //（rect 要換成版面 px 才能寫進 fixed 面板的 style，見 vRect 的鐵則）
+  const r=vRect(btn);
+  const M=12, below=(vH()-r.bottom)>=r.top;
+  const avail=Math.max(120,(below?vH()-r.bottom:r.top)-M-8);   // r 已是版面 px（見下方 vRect）
+  const ih=(pop.firstElementChild?vRect(pop.firstElementChild).height:30)+2;
   const perCol=Math.max(1,Math.floor((avail-16)/ih));
   const visN=pop.children.length; // 實際列數（分組子項收進父列不佔行；用 opts.length 會在底部多留空行）
   pop.style.gridTemplateRows=`repeat(${Math.min(visN,perCol)},max-content)`;
-  const pr=pop.getBoundingClientRect();
-  let left=r.left; if(left+pr.width>window.innerWidth-M)left=Math.max(M,window.innerWidth-M-pr.width);
+  const pr=vRect(pop);
+  let left=r.left; if(left+pr.width>vW()-M)left=Math.max(M,vW()-M-pr.width);
   pop.style.left=left+"px";
   pop.style.top=(below?r.bottom+6:Math.max(M,r.top-6-pr.height))+"px";
   pop.style.visibility="";
@@ -7932,22 +7948,40 @@ async function shotEl(src,name,prep){
 // 使用者 ID：截圖檔名前綴（ID_原名）
 window.uidPrefix=()=>"";  // ID 前綴功能已移除（使用者要求 2026-07-16）
 document.getElementById('fontSel').onchange=e=>{applyFont(e.target.value); if(typeof render==='function')render();};
-// 全域縮放拉桿：套用 CSS zoom 到 #main 內容區(header 不縮)，存 localStorage；render() 只改 innerHTML 不動 style，縮放會保留
+// ── 全站等比縮放（2026-08-06 使用者定案：任何 16:9 螢幕在 100% 時要跟 2K 長得一模一樣）──
+// 作法：以 ZOOM_BASE(=2560) 為**設計基準寬**，對 <html> 下 CSS zoom = 視窗寬 ÷ 2560。
+// 為什麼用 root zoom 而不是舊的 #main transform：
+//   ① zoom 會真正**回流**——版面寬永遠是 2560 設計 px（實測 1920→2552、3840→2551），
+//      所以 @container 斷點、欄寬分配、換行位置在每個螢幕都完全相同＝同一張畫面。
+//      transform 只是事後放大，內容仍以「視窗寬÷倍率」回流，這點兩者相同；但 transform 不含
+//      <header>，做不到使用者要的「頁首一起縮放、截圖疊上去完全重合」。
+//   ② 座標語意正好符合本專案既有鐵則：rect＝視覺 px、clientWidth/offsetWidth＝版面 px
+//      （實測 zoom .75 下 th rect 116／offsetWidth 154），既有的「rect ÷ _zoomF」全部照舊可用。
+//   ③ window.innerWidth **不受 zoom 影響**（實測 1920/3840 恆定）→ 倍率算式不會自我回授。
+// 倍率分三個，用途不可混：
+//   _zoomU＝使用者拉桿（政策判斷用：Tier 內捲軸、模擬BP 呈現倍率上限）
+//   _zoomSF＝螢幕係數＝視窗寬÷2560（設計 px ↔ 視覺 px 的橋）
+//   _zoomF＝兩者相乘＝總倍率（**所有 rect→版面 px 的換算一律除這個**）
 { const zs=document.getElementById('zoomSel');
-  window.fixZoomHeight=function(){ const m=document.getElementById('main'), f=window._zoomF||1; if(!m)return;
-    if(f===1){ m.style.marginBottom=''; return; }
-    m.style.marginBottom='0'; const h=m.getBoundingClientRect().height; m.style.marginBottom=(h-h/f)+'px'; }; // transform:scale 不影響文件捲高→補 margin 讓可捲到底(f<1 用負 margin 去掉底部空白)
-  window.applyZoom=z=>{const zv=(+z||100), f=zv/100; window._zoomF=f; const m=document.getElementById('main');
-    document.documentElement.style.zoom=''; // 清掉先前 html-root 做法殘留
-    // 縮放＝內容區(#main) transform:scale ＋「寬度反比」(width=100/倍率%)：先讓內容依「視窗寬÷倍率」回流(填滿/塞得下)，再放大回視窗寬。
-    // →任何比例都填滿寬度、不留右側空白、不裁右側資料(往下縮欄位平均延伸、放大自動換行不切)；頁首不縮、縮放鈕維持原大小。
-    if(m){ if(zv===100){m.style.transform='';m.style.width='';m.style.transformOrigin='';m.style.marginBottom='';}
-      else{ m.style.transformOrigin='top left'; m.style.transform='scale('+f+')'; m.style.width=(100/f)+'%'; } }
-    window.fixZoomHeight();
-    // 版面寬變了(#main width=100/倍率%)：跑全域重排＋補發 resize，讓 fillTableWidth/hscroll/Tier/模擬BP 全跟著重算
+  window.ZOOM_BASE=2560;
+  window.screenF=()=>{ const w=window.innerWidth||ZOOM_BASE; return Math.max(0.2,w/ZOOM_BASE); };
+  window.fixZoomHeight=function(){ const m=document.getElementById('main'); if(m&&m.style.marginBottom)m.style.marginBottom=''; };
+    // root zoom 會連文件高度一起回流，不必再補 margin（舊的 transform 做法才需要）→ 只負責清掉殘留值
+  window.applyZoom=z=>{const zv=(+z||100), fu=zv/100, sf=screenF(), f=fu*sf;
+    window._zoomU=fu; window._zoomSF=sf; window._zoomF=f;
+    const m=document.getElementById('main');
+    if(m){m.style.transform='';m.style.width='';m.style.transformOrigin='';m.style.marginBottom='';} // 清掉舊做法殘留
+    document.documentElement.style.zoom=(Math.abs(f-1)<0.0005)?'':String(f);
+    // 版面寬變了：跑全域重排＋補發 resize，讓 fillTableWidth/hscroll/Tier/模擬BP 全跟著重算
     // （不重算就是「縮小靠左一坨、放大爆出右邊」的根因——量出來的 px 寬殘留舊值）
     if(window.refitLayout)requestAnimationFrame(()=>refitLayout());
     try{dispatchEvent(new Event('resize'));}catch(e){} };
+  // 視窗大小一變，螢幕係數就變 → 重新套用（debounce 與 refitLayout 的 120ms 一致；
+  // guard 掉「倍率其實沒變」的情況，避免每次 resize 都整頁重排）
+  addEventListener('resize',()=>{ clearTimeout(window._zRz); window._zRz=setTimeout(()=>{
+    const want=(window._zoomU||1)*screenF();
+    if(Math.abs(want-(window._zoomF||1))>0.0005)applyZoom((window._zoomU||1)*100);
+  },120); });
   // ⛶ 貼合：自動算一個縮放比例，讓「本頁最寬的表格」剛好塞進一屏（2026-08-03 iPad Pro
   // 使用者回報：一個平板畫面塞不下想看的資料、手動縮放又麻煩）。
   // 量的是表格的**自然寬（max-content）**：fillTableWidth 可能已把表格撐滿容器或鎖 fixed 寬，
@@ -9521,9 +9555,9 @@ function render(){
       pop.appendChild(sysRow);
       pop.addEventListener("wheel",e=>{ e.preventDefault(); e.stopPropagation(); },{passive:false}); // 清單無內捲：滾輪吃掉，不讓頁面跟著捲（頁面一捲清單就被關）
   document.body.appendChild(pop);
-      const pw=pop.getBoundingClientRect();
-      let L=Math.max(8,anchor.right-pw.width),T=anchor.bottom+6;
-      if(T+pw.height>innerHeight-8)T=Math.max(8,anchor.top-pw.height-6);
+      const pw=vRect(pop), _z=_vz(), an={right:anchor.right/_z,bottom:anchor.bottom/_z,top:anchor.top/_z}; // 換版面 px 才能寫進 style
+      let L=Math.max(8,an.right-pw.width),T=an.bottom+6;
+      if(T+pw.height>vH()-8)T=Math.max(8,an.top-pw.height-6);
       pop.style.left=L+"px";pop.style.top=T+"px";
       setTimeout(()=>{const off=e=>{if(!document.body.contains(pop))return document.removeEventListener("click",off);
         if(!pop.contains(e.target)){pop.remove();document.removeEventListener("click",off);}};
@@ -9673,7 +9707,7 @@ function render(){
             const cell=document.querySelector(`.tierRow .tLane[data-lane="${L}"]`);
             const ico=bar.querySelector(`.tLaneIco[data-lane="${L}"]`);
             if(cell&&ico){const rc=cell.getBoundingClientRect();
-              ico.style.left=Math.round((rc.left+rc.right)/2-b.left)+"px";}
+              ico.style.left=Math.round(((rc.left+rc.right)/2-b.left)/_vz())+"px";} // 兩個都是視覺 px，寫進 style 前要換版面 px
           });
         }
       }
@@ -9707,10 +9741,11 @@ function render(){
         requestAnimationFrame(()=>{ const t2=document.getElementById("tierRows"); if(!t2)return;
           t2.style.zoom="";
           if(t2.scrollWidth-t2.clientWidth>4)t2.style.zoom=String(Math.max(.3,t2.clientWidth/t2.scrollWidth)); });
-      }else if((window._zoomF||1)!==1){
+      }else if((window._zoomU||1)!==1){   // 判「使用者有沒有拉縮放」要用 _zoomU：_zoomF 已含螢幕係數，非 2560 螢幕恆≠1 會把一屏設計整個關掉
         tr.style.maxHeight="none"; tr.style.overflowY="visible"; tr.style.overflowX="visible";
       }else{
-        tr.style.maxHeight=Math.max(200,innerHeight-tr.getBoundingClientRect().top-14)+"px";
+        // innerHeight 與 rect 都是視覺 px，maxHeight 是版面 px → 要除以總倍率換算（見頂部座標鐵則）
+        tr.style.maxHeight=Math.max(200,(innerHeight-tr.getBoundingClientRect().top-14)/(window._zoomF||1))+"px";
         tr.style.overflowY="auto";
         tr.style.scrollbarGutter="stable"; // 捲軸出現/消失不擠壓列寬（切換混合/五路框框不位移）；同時避免垂直捲軸擠出假的水平捲軸
         // 水平捲軸：先 hidden 量真實內容寬。100% 正常顯示塞得下→維持 hidden（不冒多餘小捲軸）；
@@ -10143,7 +10178,7 @@ function render(){
           <div style="display:flex;gap:8px"><button id="tpApply" class="primary" style="flex:1">套用</button><button id="tpClose" style="flex:0 0 auto">關閉</button></div>`;
         pop.addEventListener("wheel",e=>{ e.preventDefault(); e.stopPropagation(); },{passive:false}); // 清單無內捲：滾輪吃掉，不讓頁面跟著捲（頁面一捲清單就被關）
   document.body.appendChild(pop);
-        const rc=pb.getBoundingClientRect(); pop.style.left=Math.min(rc.left,innerWidth-pop.offsetWidth-10)+"px"; pop.style.top=(rc.bottom+6)+"px";
+        const rc=vRect(pb); pop.style.left=Math.min(rc.left,vW()-pop.offsetWidth-10)+"px"; pop.style.top=(rc.bottom+6)+"px";
         pop.querySelector("#tpClose").onclick=()=>pop.remove();
         pop.querySelector("#tpApply").onclick=()=>{
           const g=id=>parseFloat(pop.querySelector("#"+id).value);
@@ -11609,11 +11644,11 @@ function render(){
           return !q||lv.includes(q)||String(_dlAlt[v]||"").toLowerCase().includes(q);}).slice(0,60);
         if(!hit.length){_sugClose();return;}
         _sug.innerHTML=hit.map(v=>`<div class="fselIt" data-v="${esc(v)}">${esc(v)}${_dlAlt[v]?`<span class="meta" style="margin-left:8px;font-size:11px">${esc(_dlAlt[v])}</span>`:""}</div>`).join("");
-        const r=inp.getBoundingClientRect(), M=8;
+        const r=vRect(inp), M=8;   // 版面 px（vRect 鐵則）
         _sug.style.display="block"; _sug.style.visibility="hidden"; _sug.style.minWidth=Math.round(r.width)+"px";
-        const pr=_sug.getBoundingClientRect();
-        let left=r.left; if(left+pr.width>innerWidth-M)left=Math.max(M,innerWidth-M-pr.width);
-        const below=(innerHeight-r.bottom)>=Math.min(pr.height,220)+10;
+        const pr=vRect(_sug);
+        let left=r.left; if(left+pr.width>vW()-M)left=Math.max(M,vW()-M-pr.width);
+        const below=(vH()-r.bottom)>=Math.min(pr.height,220)+10;
         _sug.style.left=left+"px";
         _sug.style.top=below?(r.bottom+3)+"px":(Math.max(M,r.top-3-pr.height))+"px";
         _sug.style.visibility=""; _sug._for=inp; _sug._hi=-1; };
@@ -11966,7 +12001,9 @@ function render(){
       // 角色池固定在右（欄寬鎖定五局版型不壓縮）；局區在左、獨立橫向捲動——局號 1→N 由左到右，最新一局在最右、緊貼角色池
       {
         const gsc0=wrap.querySelector("#bsGames"), keepSL=gsc0?gsc0.scrollLeft:0; // 重繪不歸零捲動位置
-        {const _z=window._zoomF||1, _s0=Math.max(1,Math.min(_z,1.5)); const _ws=Math.min(window._bpS||_s0,_s0);
+        {const _z=window._zoomF||1, _sf=window._zoomSF||1, _s0=Math.max(_sf,Math.min(_z,1.5*_sf)); const _ws=Math.min(window._bpS||_s0,_s0);
+         // 呈現倍率的上下限要乘上螢幕係數：這裡的 1/1.5 是「設計 px 下的倍率」，非 2560 螢幕若不乘，
+         // BP 區會維持原生大小、不跟著整頁等比縮小（2026-08-06 全站等比縮放）
          wrap.style.zoom=String(_ws/_z); window._bpWS=_ws;} // 先套呈現倍率再量寬：排寬與 fit() 同座標系（不然縮放切換時 W 讀到上一輪座標、池寬會吃掉模擬局）；fit 收斂後若差>0.05 會帶新倍率重排一次
         const gap=14, W=wrap.clientWidth||wrap.parentElement.clientWidth||1600;
         const base=n=>Math.min(300,Math.max(170,(W-46-gap*(n+1)-260)/n));
@@ -12129,18 +12166,19 @@ function render(){
       // 收斂式一屏：呈現倍率 s 從上限 min(縮放,1.5) 開始，渲染後直接量「最後一個格子的實際底部」有沒有超出外框，
       // 超出就按比例縮小 s 重排（所有內部長度都隨 s 線性縮放→一兩次收斂）。任何情況 B4/B5/PICK4-5 都不會被裁；
       // ≤150% 視覺剛好一屏、>150% 預算按 150% 比例放寬＝自然溢出改整頁捲（使用者指定）
-      const fit=()=>{ const zf=window._zoomF||1, zc=Math.min(zf,1.5);
+      // 倍率的 1／1.5 兩個界線都是「設計 px 下」的值 → 一律乘上螢幕係數 sf，非 2560 螢幕才會跟著整頁等比縮小
+      const fit=()=>{ const zf=window._zoomF||1, sf=window._zoomSF||1, zc=Math.min(zf,1.5*sf);
         wrap.style.zoom="1"; wrap.style.height="auto";
         const top=wrap.getBoundingClientRect().top;
-        const bve=Math.max(420,(window.innerHeight-top-14)*zf/zc);           // 視覺預算
-        let s=Math.max(1,zc);                                                // 呈現倍率起點=clamp(縮放,1,1.5)：縮小模式也維持 100% 樣貌（不然 50% 時整區半尺寸、寬度分配全歪）
+        const bve=Math.max(420*sf,(window.innerHeight-top-14)*zf/zc);        // 視覺預算（下限 420 也是設計 px）
+        let s=Math.max(sf,zc);                                               // 呈現倍率起點=clamp(縮放,1,1.5)×螢幕係數：縮小模式也維持 100% 樣貌（不然 50% 時整區半尺寸、寬度分配全歪）
         for(let i=0;i<6;i++){
           wrap.style.zoom=String(s/zf); window._bpS=s;
           wrap.style.height=(bve/s)+"px";
           const wb=wrap.getBoundingClientRect().bottom;
           let mb=0; wrap.querySelectorAll("#bsGames .bpSlot,#bsGames .bpPickBox").forEach(el=>{const b=el.getBoundingClientRect().bottom; if(b>mb)mb=b;});
           if(!mb||mb<=wb-3)break;                                            // 塞下了（留 3px 呼吸）
-          s=Math.max(.4,s*(wb-top-6)/(mb-top));                              // 依「外框可用高/內容實際高」比例縮小
+          s=Math.max(.4*sf,s*(wb-top-6)/(mb-top));                          // 依「外框可用高/內容實際高」比例縮小（下限 0.4 同樣是設計 px 倍率）
         }
         if(!window._bpRR&&Math.abs((window._bpWS||s)-s)>0.05){window._bpRR=1;try{rerender();}catch(e){}window._bpRR=0;return;} // 收斂倍率與排寬倍率差太多→帶新倍率整組重排一次（guard 防遞迴）
         fitPool(); };
@@ -12319,12 +12357,13 @@ function render(){
           tipShow(dataHtml+laneHtml,sl.getBoundingClientRect());
           tipEl.style.pointerEvents="none";
           // 詳細資訊統一擺在「這一局框框」的右邊——完全不蓋到當下這局（右邊放不下才改放左邊）；不捲動、直接完整列出（tip 無法互動，捲軸沒意義）
-          const card=sl.closest(".bsGCard"), cr=card?card.getBoundingClientRect():sl.getBoundingClientRect();
+          // tipEl 掛在 body、吃版面 px；BP 區的 rect 是視覺 px（含 BP 自己的 zoom）→ 一律用 vRect 換算
+          const card=sl.closest(".bsGCard"), cr=vRect(card||sl);
           tipEl.style.maxHeight="none"; tipEl.style.overflowY="visible"; // 蓋過 #hoverTip 的 72vh/auto，完整顯示不出捲軸
-          const tw=tipEl.offsetWidth, th=tipEl.offsetHeight;
-          let L=cr.right+8; if(L+tw>innerWidth-8){ L=cr.left-tw-8; if(L<8)L=Math.max(8,innerWidth-tw-8); } // 水平：靠局框右邊（放不下改左邊）→不蓋到當下這局
-          const sr=sl.getBoundingClientRect(); // 垂直：對齊滑鼠所在的那個英雄格＝該英雄的正右邊
-          let T=sr.top+(sr.height-th)/2; if(T<8)T=8; else if(T+th>innerHeight-8)T=Math.max(8,innerHeight-th-8);
+          const tw=tipEl.offsetWidth, th=tipEl.offsetHeight, iw=vW(), ih2=vH();
+          let L=cr.right+8; if(L+tw>iw-8){ L=cr.left-tw-8; if(L<8)L=Math.max(8,iw-tw-8); } // 水平：靠局框右邊（放不下改左邊）→不蓋到當下這局
+          const sr=vRect(sl); // 垂直：對齊滑鼠所在的那個英雄格＝該英雄的正右邊
+          let T=sr.top+(sr.height-th)/2; if(T<8)T=8; else if(T+th>ih2-8)T=Math.max(8,ih2-th-8);
           tipEl.style.left=L+"px"; tipEl.style.top=T+"px";
         });
         if(sl.classList.contains("filled")) sl.addEventListener("mouseleave",()=>{tipHide(); if(tipEl){tipEl.style.maxHeight="";tipEl.style.overflowY="";} wrap.querySelectorAll(".bsGCard .bpSlot .cc img.bpLit").forEach(im=>im.classList.remove("bpLit"));});
@@ -12534,8 +12573,8 @@ function render(){
             it.onclick=()=>{ V.bpSqDays=d; saveState(); mn.remove(); _spPaint(); if(V.bpSoloqPool)rerender(); };
             mn.appendChild(it); });
           document.body.appendChild(mn);
-          const r=spb.getBoundingClientRect();
-          mn.style.left=Math.min(r.left,innerWidth-mn.offsetWidth-8)+"px"; mn.style.top=(r.bottom+4)+"px";
+          const r=vRect(spb);
+          mn.style.left=Math.min(r.left,vW()-mn.offsetWidth-8)+"px"; mn.style.top=(r.bottom+4)+"px";
           const close=ev=>{ if(!mn.contains(ev.target)){ mn.remove(); document.removeEventListener("mousedown",close,true); } };
           document.addEventListener("mousedown",close,true);
         };
