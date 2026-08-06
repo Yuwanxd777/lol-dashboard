@@ -45,11 +45,15 @@ GAP = 2.0     # 每次請求間隔（禮貌節流；gol.gg 無硬限流）
 FILL = [
     {"key": "LPL_2026_S3", "tournament": "LPL 2026 Split 3", "wiki": "LPL 2026 Split 3",
      "league": "LPL", "split": "Split 3", "year": 2026, "playoffs": 0},
-    # LCK 也開始缺（2026-07-31 使用者回報）：主資料停在 S2 PO 6/14，Rounds 3-4（＝儀表板 S3）一局都沒有。
-    # gol.gg 的賽事名是「LCK 2026 Rounds 3-4」（實測 10 個系列賽、已完成 4，最新 7/30）；
-    # split 直接寫 S3——`sn` 只會把「Split N」轉成「SN」，本來就是 S3 的照用。
-    {"key": "LCK_2026_S3", "tournament": "LCK 2026 Rounds 3-4", "wiki": "LCK 2026 Rounds 3-4",
-     "league": "LCK", "split": "S3", "year": 2026, "playoffs": 0},
+    # ⚠ LCK 已停用（2026-08-07 使用者定案：「OE 的 LCK 數據回復了，接下來 LCK 以 OE 為主，
+    #   但 LPL 一樣要去 WIKI+GOL 找」）。當時實測 LCK S3 有選手資料的 34 局裡，**30 局是真 OE**
+    #   （7/29~8/5，有 @10／earnedgold 這些補檔填不了的欄位），只剩最新的 8/6 還沒上。
+    #   而補檔繼續跑會製造幽靈局：wiki 版把 8/6 的 DK vs T1、DRX vs DNS 記成 **8/5 00:31/00:41**
+    #   （合成時間），gol.gg 版是正確的 8/6 09:00 → 兩份日期不同，以日期為鍵的去重攔不到，
+    #   主資料就同時出現 8/5 與 8/6 兩份同一場（使用者回報「T1 8/5 沒有跟 DK 打」）。
+    #   OE 哪天又停更再把這筆打開即可（連同 csv_cache 的 LCK_2026_S3 一起清掉再重抓）。
+    # {"key": "LCK_2026_S3", "tournament": "LCK 2026 Rounds 3-4", "wiki": "LCK 2026 Rounds 3-4",
+    #  "league": "LCK", "split": "S3", "year": 2026, "playoffs": 0},
 ]
 
 POS5 = ["top", "jng", "mid", "bot", "sup"]
