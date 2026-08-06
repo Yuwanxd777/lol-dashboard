@@ -55,6 +55,13 @@ FILL = [
     # {"key": "LCK_2026_S3", "tournament": "LCK 2026 Rounds 3-4", "wiki": "LCK 2026 Rounds 3-4",
     #  "league": "LCK", "split": "S3", "year": 2026, "playoffs": 0},
 ]
+# ⚠ csv_cache/wikifill_2026.json 裡另有一筆**人工釘住**的 key「PBFIX_2026_LCK_S3」：
+#   8/1 GEN vs DK 官方 0-2 共兩局，但 **OE 與 gol.gg 收到的是同一局**（十隻英雄完全一致、
+#   只是一個標 g1 一個標 g2——就是本檔一直在講的「局號不可靠」），真正缺的那局只有
+#   Leaguepedia 的 Picks and Bans 有 → 沿用 fill_missing_games.py 的 PBFIX 格式釘住那一列
+#   （只有隊伍列＋BP，不造假選手資料）。
+#   本腳本只會動自己 FILL 清單裡的 key，不會清掉它；OE 哪天補上那局，merge_wiki 的英雄組合
+#   去重會自動讓這筆落空。（2026-08-07 使用者指示「8/1 的補就好，8/6 剛過等 OE 自己補」）
 
 POS5 = ["top", "jng", "mid", "bot", "sup"]
 ROLE2POS = {"TOP": "top", "JUNGLE": "jng", "JUNGLER": "jng", "MID": "mid", "MIDDLE": "mid",
