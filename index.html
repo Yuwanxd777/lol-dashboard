@@ -11892,6 +11892,15 @@ function render(){
               const m=_chLaneIdx[cid]||(_chLaneIdx[cid]={}); m[L]=(m[L]||0)+1; } } }
         const m=_chLaneIdx[id]||{};
         return POSN.filter(L=>m[L]>0).sort((a,b)=>(m[b]||0)-(m[a]||0)); };
+      // 層級2 的來源（使用者定案 2026-08-06）：**該戰隊先發五人**的近期積分——固定取每一路的先發
+      // players[0]，不跟著 ⇄ 換人走（推路要問的是「這支先發陣容誰會這隻」，不是當下切到誰）。
+      // sqRecent 在沒開「🎯 近期積分」時回 null → 這層自然為空，剛好對上使用者定的兩種情況。
+      const _sqStartC={};
+      const sqStartLanes=(R,team,c)=>{ const id=champId(c); if(!id||!R)return [];
+        return POSN.filter(L=>{ const ps=R[L]&&R[L].players, st=ps&&ps[0]; if(!st)return false;
+          const k=(team||"")+"|"+L; let m=_sqStartC[k];
+          if(m===undefined)m=_sqStartC[k]=sqRecent(team,st.p)||{};
+          return !!m[id]; }); };
       // PICK 路線推定：只用「約束傳播」確定唯一解，不硬猜；仍不確定的顯示所有『尚未被佔用』的可能路線，交由使用者點路線圖手動指定
       const _laneAsg={};
       const laneAssign=(gi,side)=>{
@@ -11902,24 +11911,27 @@ function render(){
         const placed=picks.map((c,i)=>c?i:-1).filter(i=>i>=0);
         if(!placed.length)return _laneAsg[key]={res,possible,soft:{}};
         const plm=(side==="1"?gm.plm1:gm.plm2)||[];
-        // 候選（使用者定案 2026-07-31）：**只看該隊選手的比賽使用數據**（實線佔位）；
-        // 勾選「🎯 近期積分」時把該選手的積分英雄也列入判定（半透明、同樣佔位）；都沒有才當萬用(五路)。
-        // 「全庫近30場」推路已移除——那是別隊的比賽數據，會推出跟這支隊伍無關的路線。
-        const cand={}, candShow={}, laneSoft={}; // cand=佔位/推定用(純團隊)；candShow=顯示用(團隊∪全庫)；laneSoft[i][L]=該路來自全庫→半透明
+        // 候選層級（使用者定案 2026-08-06，依「🎯 近期積分」開關分成兩條路）：
+        //   層級1 該隊選手的**比賽**使用數據（實線、佔位）——永遠優先，有就只看這層
+        //   層級2 該戰隊**先發五人**的近期積分（半透明）── 只在**有開**近期積分時接在層級1 後面
+        //   層級3 這隻在目前篩選範圍內**實際打過的路**（半透明，全體戰隊的比賽資料）── 只在**沒開**近期積分、
+        //         且層級1 空的時候用；只收斂「顯示哪幾條」，不拿去把某一路判成確定（見 occ）
+        //   層級4 萬用五路（半透明）── 以上都沒有才退到這裡
+        // 2026-07-31 的定案「全庫推路不可蓋過該隊資料」仍然成立：層級3 只在該隊完全沒資料時才登場，
+        // 而且佔位一律當萬用五路，不會讓別隊的數據把某一路變成實線。
+        const sqOn=!!V.bpSoloqPool;
+        const cand={}, candShow={}, laneSoft={}; // cand=佔位/推定用；candShow=顯示用；laneSoft[i][L]=推測來源→半透明
         placed.forEach(i=>{const c=picks[i];
           const teamL=POSN.filter(L=>pools[L]&&pools[L][c]&&!pools[L][c].sqOnly).sort((a,b)=>(pools[b][c].n||0)-(pools[a][c].n||0)); // 依該隊在各路使用這英雄的場數多→少排序（列出順序＝場數高的在前）
-          const sqL=POSN.filter(L=>pools[L]&&pools[L][c]&&pools[L][c].sqOnly); // 該路選定選手的近期積分用過（比賽 0 場）；沒勾近期積分時恆為空
           const soft={};
           const show=teamL.slice();
-          sqL.forEach(L=>{if(!show.includes(L)){show.push(L); soft[L]=true;}});   // 積分推得的路：半透明（來源不同，一眼可分）
+          if(sqOn){ // 層級2：先發五人的近期積分（半透明，來源不同一眼可分）
+            sqStartLanes(side==="1"?R1:R2,side==="1"?S.t1:S.t2,c).forEach(L=>{
+              if(!show.includes(L)){show.push(L); soft[L]=true;}}); }
           let occ=show.slice();
           if(!show.length){
-            // 該隊完全沒用過這隻 → 不要直接列五路：改列「這隻在目前篩選範圍內實際打過的路」，
-            // 至少把不可能的路拿掉（2026-08-06 使用者回報：HLE 沒人用過婕莉卻列五路，
-            // 但滑上去看 tooltip 只有上路與下路有出場）。
-            // **佔位仍當萬用五路**：2026-08-05 已定案「全庫推路不可蓋過該隊資料」，所以別隊的
-            // 數據只用來收斂「顯示哪幾條」，不拿去把某一路判成確定（實線）。全庫也沒出場過才退回五路。
-            const dbL=chLanes(c);
+            // 層級3／4：沒開近期積分才查全體戰隊的比賽資料；有開就直接退五路（使用者指定的兩條路徑）
+            const dbL=sqOn?[]:chLanes(c);
             occ=POSN.slice(); show.push(...(dbL.length?dbL:POSN)); show.forEach(L=>soft[L]=true);
           }
           cand[i]=occ; candShow[i]=show; laneSoft[i]=soft;});
