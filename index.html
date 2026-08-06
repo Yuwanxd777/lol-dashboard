@@ -11882,6 +11882,16 @@ function render(){
         const gap=`<div style="margin-top:8px"></div>`;
         return (blueA?blockA:blockB)+gap+(blueA?blockB:blockA); // 雙方BAN過/其他英雄已移到右側 .bpMid 直欄
       };
+      // 這隻英雄在**目前篩選範圍內**實際打過哪些路（場數多→少）。與 PICK tooltip 的場數統計同一個來源，
+      // 只在「該隊完全沒用過這隻」時拿來收斂顯示用的候選路線。整份 LANES 只掃一次、隨每次重繪重建。
+      let _chLaneIdx=null;
+      const chLanes=c=>{ const id=champId(c); if(!id)return [];
+        if(!_chLaneIdx){ _chLaneIdx={};
+          for(const o of LANES){ if(!passG(o))continue; const L=PID2LANE[o.pid]; if(!L)continue;
+            for(const sd of[0,1]){ const cid=champId(o.raw[C.blue_champion+(sd?RB:0)]); if(!cid)continue;
+              const m=_chLaneIdx[cid]||(_chLaneIdx[cid]={}); m[L]=(m[L]||0)+1; } } }
+        const m=_chLaneIdx[id]||{};
+        return POSN.filter(L=>m[L]>0).sort((a,b)=>(m[b]||0)-(m[a]||0)); };
       // PICK 路線推定：只用「約束傳播」確定唯一解，不硬猜；仍不確定的顯示所有『尚未被佔用』的可能路線，交由使用者點路線圖手動指定
       const _laneAsg={};
       const laneAssign=(gi,side)=>{
@@ -11903,7 +11913,15 @@ function render(){
           const show=teamL.slice();
           sqL.forEach(L=>{if(!show.includes(L)){show.push(L); soft[L]=true;}});   // 積分推得的路：半透明（來源不同，一眼可分）
           let occ=show.slice();
-          if(!show.length){ occ=POSN.slice(); show.push(...POSN); POSN.forEach(L=>soft[L]=true); } // 該隊完全沒用過＝萬用五路，半透明
+          if(!show.length){
+            // 該隊完全沒用過這隻 → 不要直接列五路：改列「這隻在目前篩選範圍內實際打過的路」，
+            // 至少把不可能的路拿掉（2026-08-06 使用者回報：HLE 沒人用過婕莉卻列五路，
+            // 但滑上去看 tooltip 只有上路與下路有出場）。
+            // **佔位仍當萬用五路**：2026-08-05 已定案「全庫推路不可蓋過該隊資料」，所以別隊的
+            // 數據只用來收斂「顯示哪幾條」，不拿去把某一路判成確定（實線）。全庫也沒出場過才退回五路。
+            const dbL=chLanes(c);
+            occ=POSN.slice(); show.push(...(dbL.length?dbL:POSN)); show.forEach(L=>soft[L]=true);
+          }
           cand[i]=occ; candShow[i]=show; laneSoft[i]=soft;});
         const lanesLeft=new Set(POSN), done=new Set();
         placed.forEach(i=>{const m=plm[i]; if(m&&lanesLeft.has(m)&&candShow[i].includes(m)){res[i]=m;lanesLeft.delete(m);done.add(i);}}); // 手動點擊指定＝固定並佔路（可指定半透明的全庫路，指定後視為確定）
