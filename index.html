@@ -12315,10 +12315,28 @@ function render(){
       +"Rengar1 Sivir1 Trundle1 Veigar1 XinZhao1 KSante1 Naafiri1 Briar1 Aurora1 Zaahen1")
         .split(/\s+/).forEach(s=>{ const m2=s.match(/^(.+?)([12])$/); if(m2)_EGW[m2[1]]=+m2[2]; });
       const _egMap=()=>_EGW;
-      // 加權總分（0~10）分三段。**不逐分一桶**：逐分的話 5 分那格會凹下去（48.6% vs 4 分 51.7%），
-      // 但兩邊各約 1000 樣本、差距只有 1.4 個標準差＝雜訊。三段各有 710／2047／1725 局，
-      // 勝率 45.1%／50.0%／52.1% 自然單調，不必硬套單調假設。
-      const _egB=v=>v<=3?0:(v<=5?1:2);
+      // 加權總分（0~10）→ 分數：**保序回歸（PAVA）＋區塊間線性內插**。
+      // 為什麼不逐分一桶：5 分那格的原始勝率 48.6% 比 4 分的 51.7% 低（1.4 個標準差＝雜訊），
+      //   逐分的話「開戰更多反而扣分」，看起來就是壞的。
+      // 為什麼不寫死三段：那樣 4 分與 5 分會拿到**完全一樣**的分數（使用者一眼看出來）。
+      // PAVA 只在真的違反單調的地方把相鄰點合併（合併後的區塊用樣本加權的重心當 x），
+      // 再在區塊之間內插 → 每個總分都有自己的值，且不會出現「更多開戰分數更低」。
+      const _pava=pts=>{ const blk=[];
+        pts.forEach(p=>{ blk.push({n:p.n, w:p.w, sx:p.x*p.n});
+          while(blk.length>1){ const b2=blk[blk.length-1], b1=blk[blk.length-2];
+            if(b1.w/b1.n<=b2.w/b2.n)break;
+            blk.pop(); blk.pop(); blk.push({n:b1.n+b2.n, w:b1.w+b2.w, sx:b1.sx+b2.sx}); } });
+        return blk.map(b=>({x:b.sx/b.n, y:b.w/b.n})); };
+      // 在保序後的節點上內插並拉成 0~100（最差 0、最好 100）
+      const _egAt=(v,kn)=>{ if(!kn||kn.length<2)return null;
+        const lo=kn[0].y, hi=kn[kn.length-1].y; if(!(hi>lo))return null;
+        let y;
+        if(v<=kn[0].x)y=kn[0].y;
+        else if(v>=kn[kn.length-1].x)y=kn[kn.length-1].y;
+        else { let i=1; while(i<kn.length&&kn[i].x<v)i++;
+          const a=kn[i-1], b=kn[i];
+          y=a.y+(b.y-a.y)*((v-a.x)/Math.max(1e-9,b.x-a.x)); }
+        return _clamp(100*(y-lo)/(hi-lo)); };
       // ・傷害偏向的路線權重（使用者指定 2026-08-08）：中路／下路 ×1、上路／打野 ×0.5、輔助不計。
       //   主要傷害來源就是中下，五路平均會被輔助跟坦克上路稀釋掉。沒有路線資訊時退回五路平均。
       const _WLANE={TOP:0.5, JNG:0.5, MID:1, BOT:1, SUP:0};
@@ -12360,7 +12378,8 @@ function render(){
         _sides.forEach(g=>{ const m=_compMet(POSN.map(L=>g.L[L]).filter(Boolean), g.L);
           if(m&&m.n>=5){ ap.push(m.ap); fr.push(m.fr); leanAll.push(m.lean);
             if(_p3s.has(_pn(g.pt)))leanRc.push(m.lean);
-            const e=egB[_egB(m.eg*m.n)]||(egB[_egB(m.eg*m.n)]={n:0,w:0}); e.n++; if(g.win)e.w++; } });
+            const _b=Math.round(m.eg*m.n);              // 逐分收集，合併交給 PAVA 決定
+            const e=egB[_b]||(egB[_b]={n:0,w:0}); e.n++; if(g.win)e.w++; } });
         if(ap.length<50)return _compRef={ok:false};        // 標籤沒載到或母體太小＝這一項不計入
         const med=a=>{ const s=a.slice().sort((x,y)=>x-y); return s[Math.floor(s.length/2)]; };
         const mAp=med(ap), mFr=med(fr);
@@ -12371,12 +12390,10 @@ function render(){
         // 拿它當外界會讓剛超出死區的陣容只扣 2~3 分＝等於沒扣。p99 約 25pp，超出死區才真的痛。
         const _dv=_lp.map(v=>Math.abs(v-mLean)).sort((a,b)=>a-b);
         const maxDev=Math.max(_LEANBAND+0.02, _dv[Math.floor((_dv.length-1)*0.99)]||0);
-        // 開戰的刻度**不發明理想值**：拿母體裡各段的實際勝率，線性拉到 0~100（最差 0、最好 100）。
-        let egSc=null;
-        const bk=Object.keys(egB).filter(k=>egB[k].n>=200);
-        if(bk.length>=2){ const wr={}; bk.forEach(k=>wr[k]=egB[k].w/egB[k].n);
-          const vs=bk.map(k=>wr[k]), lo=Math.min.apply(null,vs), hi=Math.max.apply(null,vs);
-          if(hi>lo){ egSc={}; bk.forEach(k=>egSc[k]=_clamp(100*(wr[k]-lo)/(hi-lo))); } }
+        // 開戰的刻度**不發明理想值**：拿母體裡逐分的實際勝率跑保序回歸，節點間再內插（見 _pava/_egAt）。
+        const egPts=Object.keys(egB).map(Number).sort((a,b)=>a-b)
+          .filter(k=>egB[k].n>=20).map(k=>({x:k, n:egB[k].n, w:egB[k].w}));
+        const egKn=egPts.length>=3?_pava(egPts):null;
         // ── 傷害配置：傷害量 × 前排的**二維查表**（使用者定案 2026-08-08，取代原本單軸的前排典型度）
         // 為什麼要合成一格而不是兩個獨立子項：實測 0 坦克陣容勝率 53.3%（561 個）、3 坦克 47.8%，
         // **坦克越多反而略差**——單軸的「偏離中位越遠越扣」在低的那一側方向是錯的。
@@ -12399,7 +12416,7 @@ function render(){
           const vs=Object.keys(wr).map(k=>wr[k]), lo=Math.min.apply(null,vs), hi=Math.max.apply(null,vs);
           if(hi>lo){ cfgSc={}; Object.keys(wr).forEach(k=>cfgSc[k]=_clamp(100*(wr[k]-lo)/(hi-lo))); }
         }
-        return _compRef={ok:true, mAp, mFr, n:ap.length, egSc, mLean, maxDev, leanRecent, nLean:_lp.length,
+        return _compRef={ok:true, mAp, mFr, n:ap.length, egKn, mLean, maxDev, leanRecent, nLean:_lp.length,
           pr:_pr, cfgSc, cfgCX, cfgCY, nCfg:cfgRows.length,
           dAp:ap.map(v=>Math.abs(v-mAp)).sort((x,y)=>x-y),
           dFr:fr.map(v=>Math.abs(v-mFr)).sort((x,y)=>x-y)}; };
@@ -12427,7 +12444,7 @@ function render(){
         if(sf==null){ cfgX=cfgY=null; sf=_typ(Math.abs(m.fr-X.mFr),X.dFr); }
         // 開戰：把「每手均分」還原成滿編五人的總分再查刻度 → 還沒選滿也能比（與傷害配置同精神）
         const ec=m.eg*5;
-        const se=(X.egSc&&X.egSc[_egB(ec)]!=null)?X.egSc[_egB(ec)]:null;
+        const se=_egAt(ec,X.egKn);
         const ps=(se==null)?[sd,sf]:[sd,sf,se];
         return {v:ps.reduce((a,b)=>a+b,0)/ps.length, dmg:sd, fr:sf, eng:se,
                 egCnt:Math.round(ec*10)/10, leanPct:Math.round(m.lean*100), frPct:Math.round(m.fr*100),
