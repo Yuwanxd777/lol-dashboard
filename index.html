@@ -11965,7 +11965,13 @@ function render(){
         const key=gi+"|"+side; if(_laneAsg[key])return _laneAsg[key];
         const gm=S.g[gi], picks=gm["p"+side]||[], pools=(side==="1"?poolsA:poolsB);
         const res={}, possible={};
-        if(gm._lockLane){ const pl=(side==="1"?gm.pl1:gm.pl2)||[]; picks.forEach((c,i)=>{if(c&&pl[i])res[i]=pl[i];}); return _laneAsg[key]={res,possible,soft:{}}; } // 匯入未編輯：資料庫固定路線
+        // 匯入未編輯：資料庫記到的路線＝權威，直接用。但**有些局的 Lane 欄整欄是空的**
+        //（實測 2242 局中有 7 局／70 手，都是只有隊伍層資料的 LPL/LCK 補件，逐選手資料也補不回來）
+        // → 以前整段 return，那幾手就永遠沒有路線標示（2026-08-07 使用者回報）。
+        // 改成：有記到的釘住，缺的那幾手照樣走下面的一般推路（半透明＝推測），不再是空白。
+        const lockL=gm._lockLane?((side==="1"?gm.pl1:gm.pl2)||[]):null;
+        if(lockL){ picks.forEach((c,i)=>{if(c&&lockL[i])res[i]=lockL[i];});
+          if(!picks.some((c,i)=>c&&c!==NOBAN&&!lockL[i]))return _laneAsg[key]={res,possible,soft:{}}; }
         const placed=picks.map((c,i)=>c?i:-1).filter(i=>i>=0);
         if(!placed.length)return _laneAsg[key]={res,possible,soft:{}};
         const plm=(side==="1"?gm.plm1:gm.plm2)||[];
@@ -11992,6 +11998,8 @@ function render(){
           if(!occ.length)occ=POSN.slice();                                            // 該隊完全沒資料＝萬用五路佔位
           cand[i]=occ; candShow[i]=show; laneSoft[i]=soft;});
         const lanesLeft=new Set(POSN), done=new Set();
+        // 匯入局有記到的路先釘住並佔位（資料是權威，不管這隻在別處走沒走過那條路）→ 剩下的路才輪給缺的那幾手
+        if(lockL)placed.forEach(i=>{const m=lockL[i]; if(m&&lanesLeft.has(m)){res[i]=m;lanesLeft.delete(m);done.add(i);}});
         placed.forEach(i=>{const m=plm[i]; if(m&&lanesLeft.has(m)&&candShow[i].includes(m)){res[i]=m;lanesLeft.delete(m);done.add(i);}}); // 手動點擊指定＝固定並佔路（可指定半透明的全庫路，指定後視為確定）
         let ch=true;
         while(ch){ch=false;
@@ -12023,7 +12031,10 @@ function render(){
         const asg=laneAssign(gi,side);
         const lanes = v ? (asg.res[i] ? [asg.res[i]] : (asg.possible[i]||[])) : [];
         const softM = (asg.soft&&asg.soft[i])||{}; // 全庫來源的路線→半透明
-        const canClick = v && !S.g[gi]._lockLane; // 非匯入局：路線圖可點擊指定
+        // 匯入局：資料庫記到的那條路是權威、不給改；但**資料沒記到**的那幾手是推測出來的，
+        // 開放點擊修正（否則使用者看到推錯的路只能乾瞪眼）。非匯入局一律可點，行為不變。
+        const _lk=S.g[gi]._lockLane?((side==="1"?S.g[gi].pl1:S.g[gi].pl2)||[]):null;
+        const canClick = !!v && (!_lk || !_lk[i]);
         const badge=lanes.length?`<span class="bpLaneBadge">${lanes.map(l=>`<span class="bpLaneIco${canClick?" pick":""}${softM[l]?" bpLaneSoft":""}" data-lane="${l}" data-g="${gi}" data-side="${side}" data-i="${i}">${posImg(l)}</span>`).join("")}</span>`:"";
         const pTtl=""; // 已填格不放原生 title（改用右側詳細框）
         return `<div class="bpSlot bpPickS${inBox?" bpInBox":""}${v?" filled":""}"${drag}${st} data-g="${gi}" data-side="${side}" data-kind="p" data-i="${i}"${pTtl?` title="${pTtl}"`:""}>${badge}${v?cImg(v):(inBox?"":`<span class="meta">PICK ${i+1}</span>`)}</div>`;
