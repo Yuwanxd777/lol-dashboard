@@ -12239,7 +12239,7 @@ function render(){
           picks.forEach((c,i)=>{ if(!c||c===NOBAN)return;
             const L=asg.res[i]||((asg.possible[i]||[])[0])||null; lanes[i]=L; if(L&&!byLane[L])byLane[L]=c; });
           per[sd]={picks,lanes,byLane,tm,pools,R0,st0,tb:(tm?tmBase(tm):{b:0.5,n:0}),
-                   hr:[],pl:[],tm2:[],mu:[],duo:[],pbs:[],muD:[]};
+                   hr:[],pl:[],tm2:[],mu:[],duo:[],pbs:[],muD:[],duoD:[]};
         });
         // ①的基準：該路選手在目前篩選下的整體勝率。母體必須與 ① 完全一致——
         // 比賽池排除 sqOnly（那是純積分、沒有比賽場次），開「🎯 近期積分」時再加 0.5× 積分場，
@@ -12267,8 +12267,6 @@ function render(){
             else me.pl.push(50);
             // ② 戰隊勝率（相對該隊自己的整體勝率）
             const t=me.tm&&tmChRec(me.tm,c); const t2=t&&_wrScB(t.n,t.w,10,3,me.tb.b); if(t2!=null)me.tm2.push(t2);
-            // ④ 隊友組合
-            if(L){ const r=duoRec(L,me.byLane); const v=r&&_wrSc(r.n,r.w,20,10); if(v!=null)me.duo.push(v); }
           });
           // ③ 對位：**逐路**算一次、固定五路（不是逐 pick）。逐 pick 的話，路線判定把兩隻都判到
           // 同一路時該路會被算兩次、明細也會冒出兩列同一路（2026-08-07 使用者要「五路一路一路看」時抓到）。
@@ -12279,6 +12277,16 @@ function render(){
             me.muD.push({L,c,oc,v:v==null?null:Math.round(v*10)/10,
                          gd:(r&&r.gn>=5)?Math.round(r.gs/r.gn):null, n:r?r.n:0, gn:r?r.gn:0});
             if(v!=null){ me.mu.push(v); if(r.gn>=5){ me.gdN=(me.gdN||0)+1; me.gdS=(me.gdS||0)+r.gs/r.gn; } } });
+          // ④ 隊友組合：**逐配對**算一次、固定三組。使用者原本講的是五句（上與野／野與中／中與野／
+          // 下與輔／輔與下），但實際只有三組配對；原本逐路算 → 野中、下輔各被算兩次，
+          // 權重變成 2/5 而上野只有 1/5（2026-08-07 使用者要求「拆開列出」時發現）。
+          // DUO_OF 的 TOP/JNG/BOT 剛好就是那三組，所以拿它們當代表查一次即可。
+          [["TOP","JNG"],["JNG","MID"],["BOT","SUP"]].forEach(pr=>{
+            const ca=me.byLane[pr[0]], cb=me.byLane[pr[1]];
+            if(!ca||!cb){ me.duoD.push({pr,a:ca||null,b:cb||null,v:null,n:0,w:0}); return; }
+            const r=duoRec(pr[0],me.byLane), v=r&&_wrSc(r.n,r.w,20,10);
+            me.duoD.push({pr,a:ca,b:cb,v:v==null?null:Math.round(v*10)/10,n:r?r.n:0,w:r?r.w:0});
+            if(v!=null)me.duo.push(v); });
           // ⑤ 陣容（整組一個值）
           const cr=compRec(me.picks.filter(c=>c&&c!==NOBAN).map(champId));
           me.comp=cr?_wrSc(cr.n,cr.w,10,5):null; me.compN=cr?cr.n:0;
@@ -12295,7 +12303,7 @@ function render(){
                    gd:o.gdN?Math.round(o.gdS/o.gdN):null,
                    // 基準值要露出來：①② 是「相對於平常」的分數，不講相對於什麼就沒法解讀
                    tmB:o.tb.n?Math.round(o.tb.b*100):null, plB:o.pbs.length?Math.round(avg(o.pbs)*100):null,
-                   muD:o.muD,
+                   muD:o.muD, duoD:o.duoD,
                    n:nP, nHr:o.hr.length, nTm:o.tm2.length, nMu:o.mu.length, nDuo:o.duo.length, nComp:o.compN}; });
         return fin;
       };
@@ -12358,6 +12366,17 @@ function render(){
             +`<td style="${td};text-align:right;font-weight:bold;color:${scCol(d.v)}">${d.v==null?"—":d.v}</td>`
             +`<td style="${td}"></td>`
             +`<td class="scD" style="padding:1px 0">${pair}${note?"　"+note:""}</td></tr>`; }).join("");
+        // 隊友組合逐配對明細（三組：上野／野中／下輔）
+        const duoRows=()=>(s.duoD||[]).map(d=>{
+          const who=`<span style="color:var(--tx2)">${LZ[d.pr[0]]}&${LZ[d.pr[1]]}</span>`;
+          const pair=(d.a&&d.b)?`${cAb(d.a)} <span style="color:var(--tx2)">＋</span> ${cAb(d.b)}`
+                    :`<span style="color:var(--tx2)">${en?"not both picked yet":"這兩路還沒選齊"}</span>`;
+          const note=d.v==null?(d.a&&d.b?`<span style="color:var(--tx2)">${en?"too few games":"樣本不足"}</span>`:"")
+            :hiNum(`${d.n}${en?" games":" 場"}・${en?"win rate ":"勝率 "}${Math.round(d.w/d.n*100)}%`);
+          return `<tr style="font-size:12.5px"><td style="${td};padding-left:14px">${who}</td>`
+            +`<td style="${td};text-align:right;font-weight:bold;color:${scCol(d.v)}">${d.v==null?"—":d.v}</td>`
+            +`<td style="${td}"></td>`
+            +`<td class="scD" style="padding:1px 0">${pair}${note?"　"+note:""}</td></tr>`; }).join("");
         const rows=SCF.map(([k,zh,ea,w,dz,de])=>{ const v=s[k], nm=en?ea:zh;
           const desc=v==null?`<span style="color:var(--tx2)">${en?"too few games — left out":"樣本不足，未計入"}</span>`
                             :hiNum((en?de:dz)+(ex[k]?(en?` (${ex[k]})`:`（${ex[k]}）`):""));
@@ -12365,7 +12384,7 @@ function render(){
             +`<td style="${td};text-align:right;font-weight:bold;color:${scCol(v)}">${v==null?"—":v}</td>`
             +`<td style="${td};text-align:right;color:var(--tx2)">${w}%</td>`
             +`<td class="scD" style="padding:2px 0;color:var(--tx2)">${desc}</td></tr>`
-            +(k==="mu"?muRows():""); }).join("");
+            +(k==="mu"?muRows():k==="duo"?duoRows():""); }).join("");
         return `<div class="scTip"><div class="tipTitle">${en?"Draft score":"選角評分"} <span style="color:${col};font-size:19px">${s.sc}</span>`
             +`<span style="color:var(--tx2);font-weight:normal;font-size:13px">　${en?"picks":"已選"} ${s.n}/5</span></div>`
           +`<div style="color:var(--tx2);margin-bottom:7px">${hiNum(en
