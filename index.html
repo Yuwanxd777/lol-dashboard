@@ -428,6 +428,8 @@
   #hoverTip:has(.scTip){max-width:min(640px,92vw)}
   #hoverTip .scTip td{border-bottom:none;text-align:left;overflow:visible;text-overflow:clip}
   #hoverTip .scTip td.scD{white-space:normal}
+  /* 全域 table 是 width:100%，四欄會被平均撐成一樣寬、數字散開；這裡改成依內容寬（但不得超出框） */
+  #hoverTip .scTip table{width:auto;max-width:100%}
   .evtRos>div>span{white-space:nowrap}
   #hoverTip .tipTitle{font-weight:bold;font-size:17px;margin-bottom:8px;color:var(--gold);border-bottom:1px solid #2a3550;padding-bottom:6px}
   #hoverTip .tipTitle .meta{font-size:13.5px}
@@ -12336,64 +12338,30 @@ function render(){
         const one=(s,col,k)=>`<span class="bsScNum" style="color:${col}" data-g="${gi}" data-k="${k}">${s.sc==null?"–":s.sc}</span>`;
         return `<div class="bsScore">${one(a,"#6ea8ff",L.k)}<span class="bsScD">${d==null?"":(d>0?"+":"")+d}</span>${one(b,"#ff6b6b",R.k)}</div>`;
       };
-      // 滑到分數 → 浮框告訴使用者「這分怎麼給的」（2026-08-07 使用者指定）：
-      // 每一項列出「分數・權重・它在量什麼・樣本/基準」，沒算到的那幾項也照列並標明原因。
-      const SCF=[
-        ["hr","版本強弱","Meta strength",15,"近三版裡，這隻在同路英雄中的強度百分位","within-lane strength percentile over the last 3 patches"],
-        ["pl","選手熟練","Proficiency",35,"該路選手在這隻的場數與勝率，跟他自己平常的勝率比","that player's games & win rate on it, vs his own usual"],
-        ["tm","戰隊勝率","Team win%",25,"該隊用這隻的勝率，跟該隊整體勝率比","the team's win rate on it, vs the team's overall"],
-        ["mu","對線對位","Matchup",10,"同路雙方英雄的歷史金錢差@10","historical gold diff @10 between the two lane champions"],
-        ["duo","隊友組合","Duo synergy",10,"上與野／野與中／下與輔的歷史勝率","top&jng / jng&mid / bot&sup win rate"],
-        ["comp","陣容","Composition",5,"歷史上有三隻以上相同的局的勝率","win rate of past sides sharing 3+ champions"]
-      ];
+      // 滑到分數 → 浮框（2026-08-07 使用者定案）：**只寫項目與分數**，不寫逐項說明文字。
+      // 可以再拆的項目把子分數用括號內聯：對位五路 (上/野/中/下/輔)、組合三對 (上野/野中/下輔)。
+      const SCF=[["hr","版本強弱","Meta",15],["pl","選手熟練","Proficiency",35],
+                 ["tm","戰隊勝率","Team win%",25],["mu","對線對位","Matchup",10],
+                 ["duo","隊友組合","Duo synergy",10],["comp","陣容","Composition",5]];
       const scCol=v=>v==null?"var(--tx2)":(v>=56?"#ff5d5d":v<=44?"#37c871":"#cdd6e6"); // 台灣習慣：越高越紅、越低越綠
       const scoreTipHTML=(s,col)=>{ if(!s||s.sc==null)return "";
-        const en=LANG==="en", td="padding:2px 9px 2px 0;white-space:nowrap";
-        const ex={hr:s.nHr?`${s.nHr}${en?" champs":" 隻"}`:"",
-          pl:s.plB!=null?`${en?"baseline ":"基準 "}${s.plB}%`:"",
-          tm:[s.nTm?`${s.nTm}${en?" champs":" 隻"}`:"",s.tmB!=null?`${en?"baseline ":"基準 "}${s.tmB}%`:""].filter(Boolean).join("・"),
-          mu:[s.nMu?`${s.nMu}${en?" lanes":" 路"}`:"",s.gd!=null?`${en?"avg GD@10 ":"平均金差@10 "}${s.gd>0?"+":""}${s.gd}`:""].filter(Boolean).join("・"),
-          duo:s.nDuo?`${s.nDuo}${en?" pairs":" 組"}`:"", comp:s.nComp?`${s.nComp}${en?" similar games":" 場相似"}`:""};
-        // 對位逐路明細（使用者 2026-08-07 指定：五路要一路一路看，沒對上的也要列出原因）
-        const LZ=en?{TOP:"Top",JNG:"Jng",MID:"Mid",BOT:"Bot",SUP:"Sup"}:{TOP:"上路",JNG:"打野",MID:"中路",BOT:"下路",SUP:"輔助"};
-        const muRows=()=>(s.muD||[]).map(d=>{
-          const pair=(d.c&&d.oc)?`${cAb(d.c)} <span style="color:var(--tx2)">vs</span> ${cAb(d.oc)}`
-                    :`<span style="color:var(--tx2)">${en?(d.c?"opponent not picked yet":"己方尚未選"):(d.c?"對手該路還沒選":"己方該路還沒選")}</span>`;
-          const note=d.v==null?(d.c&&d.oc?`<span style="color:var(--tx2)">${en?"too few games":"樣本不足"}</span>`:"")
-            :hiNum(d.gn>=5?`${en?"avg GD@10 ":"平均金差@10 "}${d.gd>0?"+":""}${d.gd}（${d.gn}${en?" games":" 場"}）`
-                          :`${en?"win rate fallback ":"退回對戰勝率 "}（${d.n}${en?" games":" 場"}）`);
-          return `<tr style="font-size:12.5px"><td style="${td};padding-left:14px;color:var(--tx2)">${LZ[d.L]||d.L}</td>`
-            +`<td style="${td};text-align:right;font-weight:bold;color:${scCol(d.v)}">${d.v==null?"—":d.v}</td>`
-            +`<td style="${td}"></td>`
-            +`<td class="scD" style="padding:1px 0">${pair}${note?"　"+note:""}</td></tr>`; }).join("");
-        // 隊友組合逐配對明細（三組：上野／野中／下輔）
-        const duoRows=()=>(s.duoD||[]).map(d=>{
-          const who=`<span style="color:var(--tx2)">${LZ[d.pr[0]]}&${LZ[d.pr[1]]}</span>`;
-          const pair=(d.a&&d.b)?`${cAb(d.a)} <span style="color:var(--tx2)">＋</span> ${cAb(d.b)}`
-                    :`<span style="color:var(--tx2)">${en?"not both picked yet":"這兩路還沒選齊"}</span>`;
-          const note=d.v==null?(d.a&&d.b?`<span style="color:var(--tx2)">${en?"too few games":"樣本不足"}</span>`:"")
-            :hiNum(`${d.n}${en?" games":" 場"}・${en?"win rate ":"勝率 "}${Math.round(d.w/d.n*100)}%`);
-          return `<tr style="font-size:12.5px"><td style="${td};padding-left:14px">${who}</td>`
-            +`<td style="${td};text-align:right;font-weight:bold;color:${scCol(d.v)}">${d.v==null?"—":d.v}</td>`
-            +`<td style="${td}"></td>`
-            +`<td class="scD" style="padding:1px 0">${pair}${note?"　"+note:""}</td></tr>`; }).join("");
-        const rows=SCF.map(([k,zh,ea,w,dz,de])=>{ const v=s[k], nm=en?ea:zh;
-          const desc=v==null?`<span style="color:var(--tx2)">${en?"too few games — left out":"樣本不足，未計入"}</span>`
-                            :hiNum((en?de:dz)+(ex[k]?(en?` (${ex[k]})`:`（${ex[k]}）`):""));
-          return `<tr${v==null?' style="opacity:.5"':''}><td style="${td}">${nm}</td>`
-            +`<td style="${td};text-align:right;font-weight:bold;color:${scCol(v)}">${v==null?"—":v}</td>`
+        const en=LANG==="en", td="padding:3px 12px 3px 0;white-space:nowrap";
+        // 子分數：全空就不列括號（整項樣本不足時列一排「–」只是雜訊）
+        const sub=a=>a.some(v=>v!=null)
+          ?`<span style="font-variant-numeric:tabular-nums">(${a.map(v=>`<span style="color:${scCol(v)}">${v==null?"–":v}</span>`).join(" / ")})</span>`:"";
+        const muS=(s.muD||[]).map(d=>d.v), duoS=(s.duoD||[]).map(d=>d.v);
+        const rows=SCF.map(([k,zh,ea,w])=>{ const v=s[k];
+          return `<tr${v==null?' style="opacity:.5"':''}><td style="${td}">${en?ea:zh}</td>`
+            +`<td style="${td};text-align:right;font-weight:bold;color:${scCol(v)};font-variant-numeric:tabular-nums">${v==null?"—":v}</td>`
             +`<td style="${td};text-align:right;color:var(--tx2)">${w}%</td>`
-            +`<td class="scD" style="padding:2px 0;color:var(--tx2)">${desc}</td></tr>`
-            +(k==="mu"?muRows():k==="duo"?duoRows():""); }).join("");
+            // 括號欄要可折行（scD）：全域 th,td 是 nowrap，撐不下時整張表會超出浮框寬度（實測 676 vs 608）
+            +`<td class="scD" style="padding:3px 0;color:var(--tx2)">${k==="mu"?sub(muS):k==="duo"?sub(duoS):""}</td></tr>`; }).join("");
         return `<div class="scTip"><div class="tipTitle">${en?"Draft score":"選角評分"} <span style="color:${col};font-size:19px">${s.sc}</span>`
             +`<span style="color:var(--tx2);font-weight:normal;font-size:13px">　${en?"picks":"已選"} ${s.n}/5</span></div>`
-          +`<div style="color:var(--tx2);margin-bottom:7px">${hiNum(en
-              ?"Six factors, each neutral at 50, weighted-averaged then rescaled so 50 = the historical median (calibrated on 4456 real drafts, 90% land in 27~75)."
-              :"六項各以 50 為中性，加權平均後再校準成「50＝歷史中位」（拿 4456 個真實 BP 校準，九成落在 27~75）。")}</div>`
           +`<table style="border-collapse:collapse">${rows}</table>`
           +`<div style="color:var(--tx2);margin-top:7px;border-top:1px solid #2a3550;padding-top:6px">${hiNum(en
-              ?"Sample too small on a factor → it is left out and the remaining weights are renormalized. Reference pool = the whole year, all leagues, not the filters above. Proficiency and team win% both subtract that player's / that team's own baseline, so a strong team does not score high automatically."
-              :"某一項樣本不足就整項不計入、其餘權重重新歸一。參照母體＝當年度全賽事，不跟上方篩選走。熟練與戰隊勝率都已扣掉該選手／該隊自己的平常水準，所以強隊不會自動高分。")}</div></div>`;
+              ?"Brackets = per-lane matchup (top/jng/mid/bot/sup) and per-pair synergy (top&jng / jng&mid / bot&sup). 50 = historical median. A factor with too few games is left out and the rest renormalize. Reference = the whole year, all leagues (meta strength: last 3 patches only)."
+              :"括號＝對位五路（上／野／中／下／輔）與組合三對（上野／野中／下輔）。50＝歷史中位。某項樣本不足就整項不計入、其餘權重重新歸一。參照母體＝當年度全賽事（版本強弱只看近三版）。")}</div></div>`;
       };
       // 角色池固定在右（欄寬鎖定五局版型不壓縮）；局區在左、獨立橫向捲動——局號 1→N 由左到右，最新一局在最右、緊貼角色池
       {
