@@ -437,7 +437,12 @@ def main():
                 _w = ((_e.get("pct") if isinstance(_e, dict) else None) or 100) / 100.0
                 _ad += _t[0] * _w; _ap += _t[1] * _w
         champs[c] = {"n": n, "duo": [[k2, v2[0], v2[1]] for k2, v2 in _duTop], "start": startByPos, "boots": bootsTop, "core": coreTop, "rest": restTop, "core100": core100, "paths": pathTop, "paths2p": pathTop2p, "coreP": coreP, "runesKS": runesKS}
-        if _ad + _ap > 0:
+        # ⚠ 只有「有 AD/AP 裝」不夠，還要**證據夠多**才輸出。純坦克的核心裝多半攻擊力/法強都是 0，
+        #   偶爾摻一件低出場率的輸出裝就會把整隻英雄定性成 100% 物理或 100% 法系。
+        #   實例（修正前）：慎 apr=0% 只靠 13% 出場的泰坦九頭蛇（證據量 5.2，全庫中位 236）；
+        #   睿娜妲/史瓦妮/拉姆斯 被判 100% 法系，證據量只有 12~21。
+        #   低於門檻＝這隻英雄不是傷害來源 → 不輸出 apr，傷害偏向那一項就不把他算進去。
+        if _ad + _ap >= 30:
             champs[c]["apr"] = round(_ap / (_ad + _ap), 3)
         # ── byLane：多路線英雄逐路線分開（路線需 ≥max(30, 5%總場)；只有 1 條達標＝單路線英雄 → 不輸出，前端沿用整體）──
         _majors = [(p3, laneGames[c].get(p3, 0)) for p3 in ("TOP", "JUNGLE", "MIDDLE", "BOTTOM", "UTILITY")]
