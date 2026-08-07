@@ -11831,13 +11831,15 @@ function render(){
         const ps=R[pos].players;
         const cur=(st[pos]&&ps.find(x=>x.p===st[pos]))||ps[0];
         const m={};
-        const mg=Math.max(1,F.minG||0); // 低於最少場數不刪除、標記縮小 50%（使用 0 次仍不列）
-        cur.pool.forEach(c=>{if(c.n>0)m[c.ch]={n:c.n,ob:c.ob||0,w:c.w,sm:c.n<mg};});
+        // 「最少場數」＝**直接不列**（2026-08-07 使用者定案）。原本是「不刪除、只把圖示縮到 80%」，
+        // 但使用者要的是篩掉：門檻設 5 之後滑過去還看得到只打過 1 場的英雄，就等於沒篩。
+        // 比賽場數與積分場數各自對門檻——那是 chip 上顯示的數字，篩選要跟顯示的數字一致。
+        // 被比賽場數篩掉、但積分有練到門檻的，會在下面以 SoloQ 英雄身分重新列入（合理：比賽沒打但排位在練）。
+        const mg=Math.max(1,F.minG||0);   // 使用 0 次仍不列
+        cur.pool.forEach(c=>{if(c.n>=mg)m[c.ch]={n:c.n,ob:c.ob||0,w:c.w};});
         const sq=sqRecent(team,cur.p); // 併入該選手近期積分英雄(以英雄id比對，已在池的標記 sq，新增的標 sqOnly)
-        // 積分英雄一樣吃「最少場數」（2026-08-07 使用者指定）：原本寫死 sm:false，
-        // 導致比賽只打過 1 場的被縮小、積分只打過 1 場的卻是全尺寸，同一條篩選兩套標準。
-        // 已在比賽池裡的（ex）維持用比賽場數判定——那是 chip 上顯示的數字，標記要跟顯示一致。
-        if(sq){ for(const id in sq){ let ex=null; for(const ch in m){if(champId(ch)===id){ex=ch;break;}} if(ex){m[ex].sq=true;} else {m[id]={n:sq[id].n,w:sq[id].w,ob:0,sm:sq[id].n<mg,sq:true,sqOnly:true};} } }
+        if(sq){ for(const id in sq){ let ex=null; for(const ch in m){if(champId(ch)===id){ex=ch;break;}}
+          if(ex){m[ex].sq=true;} else if(sq[id].n>=mg){m[id]={n:sq[id].n,w:sq[id].w,ob:0,sq:true,sqOnly:true};} } }
         return {m,ps,cur};
       };
       const chip=(ch,i,mk,pos)=>`<span class="bpChip bpIco${i.sm?" bpSm":""}${i.sqOnly?" bpSqOnly":i.sq?" bpSq":""}${mk?" "+mk:""}" draggable="true" data-ch="${esc(ch)}"${pos?` data-pos="${pos}"`:""} title="${esc(cAb(ch))}${i.sqOnly?`｜近期積分 ${i.n} 場 勝率 ${i.n?Math.round(i.w/i.n*100):0}%`:`｜選 ${i.n} 場 勝率 ${i.n?Math.round(i.w/i.n*100):0}%｜被對手禁 ${i.ob} 次`}${i.sq&&!i.sqOnly?"｜近期積分也用":""}${mk==="bpDupT"?"｜同隊多人使用":mk==="bpUni"?"｜全場只有他會用":""}">${cImg(ch)}${i.sqOnly?`<span class="bpSqLbl">SoloQ</span>`:""}</span>`;
