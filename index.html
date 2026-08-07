@@ -434,12 +434,16 @@
     border-bottom:1px solid rgba(255,255,255,.05)}
   #hoverTip .scRow:last-of-type{border-bottom:none}
   #hoverTip .scRow.off{opacity:.42}
-  #hoverTip .scNm{flex:0 0 auto;min-width:5.2em;color:var(--tx);font-size:13.5px}
-  #hoverTip .scV{flex:0 0 auto;width:3.1em;text-align:right;font-weight:700;font-size:15.5px;
+  #hoverTip .scNm{flex:1 1 auto;min-width:5.2em;color:var(--tx);font-size:13.5px}
+  #hoverTip .scV{flex:0 0 auto;width:3.4em;text-align:right;font-weight:700;font-size:15.5px;
     font-variant-numeric:tabular-nums}
-  #hoverTip .scW{flex:0 0 auto;width:2.6em;text-align:right;color:#6b7a95;font-size:11.5px}
-  #hoverTip .scSub{flex:1 1 auto;color:#8090ad;font-size:12.5px;font-variant-numeric:tabular-nums;
-    white-space:normal;padding-left:4px}
+  #hoverTip .scW{flex:0 0 auto;width:2.6em;text-align:right;color:#6b7a95;font-size:11.5px;margin-right:6px}
+  #hoverTip .scHd{float:right;font-weight:normal;font-size:14px;color:var(--tx);
+    font-variant-numeric:tabular-nums;padding-top:3px}
+  #hoverTip .scHd .scVs{color:#6b7a95;font-size:11.5px;padding:0 7px}
+  #hoverTip .scSubRow{display:flex;gap:10px;padding:0 2px 5px;flex-wrap:wrap}
+  #hoverTip .scSub{color:#8090ad;font-size:12px;font-variant-numeric:tabular-nums;
+    white-space:nowrap;padding-left:6px}
   #hoverTip .scSub i{font-style:normal;color:#41506d;padding:0 4px}
   #hoverTip .scFoot{margin-top:9px;padding-top:8px;border-top:1px solid #2a3550;
     color:#6b7a95;font-size:11.5px;line-height:1.65}
@@ -656,8 +660,8 @@
   /* 局卡底部的選角評分列（2026-08-06）：兩隊各一個分數、中間差值。高度固定，一隻都沒選時也留位不跳版 */
   .bsScore{flex:0 0 auto;display:flex;align-items:center;justify-content:center;gap:10px;height:26px;margin-top:6px;
     border-top:1px solid rgba(255,255,255,.07);padding-top:5px}
-  .bsScNum{font-size:17px;font-weight:800;font-variant-numeric:tabular-nums;cursor:help;min-width:46px;text-align:center}
-  .bsScD{font-size:12.5px;font-weight:700;color:var(--tx2);font-variant-numeric:tabular-nums;min-width:38px;text-align:center}
+  .bsScNum{font-size:17px;font-weight:800;font-variant-numeric:tabular-nums;min-width:46px;text-align:center}
+  .bsScD{font-size:12.5px;font-weight:700;color:var(--tx2);font-variant-numeric:tabular-nums;min-width:38px;text-align:center;cursor:default}
   .bpMergeFlow .bpChip{padding:0;border:none;background:none;margin:0}
   .bpMergeFlow .bpChip .cc img{width:var(--csother,40px);height:var(--csother,40px);object-fit:cover;border-radius:5px;display:block}
   .bpMergeFlow .bpChip.bpGrey{opacity:.5}
@@ -1984,7 +1988,7 @@ const TAB_HELP={
 "近況":"<b>這頁</b>：輸入一個戰隊，一頁看完它的<b>近期狀況</b>（方便直接截圖）。範圍＝目前篩選下該隊<b>最近 5 個系列賽</b>。\n<b>版面</b>：<b>標頭</b>＝連勝／連敗、這段期間的系列與小局戰績。\n<b>近期賽果</b>＝五個系列的日期／賽事／對手／比分。\n<b>五路先發</b>＝每路出賽最多的選手：場數／勝率／KDA／慣用英雄；當年另有<b>近 7 天積分</b>場數勝敗與常用英雄。\n<b>BP 傾向</b>＝這段期間該隊常選、我方常 Ban、被對手針對 Ban 的英雄。\n<b>操作</b>：右上 <b>📸</b> 一鍵輸出 1080p 截圖（檔名＝縮寫_近況_日期）。\n<b>看法</b>：慣用英雄滑上去看場數勝率。",
 "比賽BP":"<b>這頁</b>：兩隊<b>系列賽 BP 紀錄</b>，最新在上。\n<b>操作</b>：上方<b>戰隊</b>下拉指定戰隊（可只填一隊看其所有系列）；在欄名下方輸入即逐欄篩選；右上三段模式鈕——<b>🟣 一般</b>（五路・藍左紅右）｜<b>🟪 混合</b>（五路・搜尋的戰隊固定在左）｜<b>選序</b>（選角順序時間軸，同 wiki PB 頁：依<b>出手順</b>排 B1~B3 → P1~P4 → B4~B5 → P5~P7，<b>白線</b>分隔出手階段、<b>藍框／紅框</b>＝該邊、<b>灰階</b>＝禁用）。\n<b>看法</b>：<b>金色數字</b>＝選角順位 1 到 7、<b>星號</b>＝勝方；藍方／紅方右邊的<b>選擇</b>欄寫這局誰拿走選邊權（<b>選藍／選紅</b>）、誰拿走先選權（<b>先選／後選</b>）。\n<b>注意</b>：標題會自動標<b>缺場</b>（BO5 打到 2-2 卻少第 5 局等）；BO2 的 1-1 和局不算缺。\n<b>先選方不等於藍方</b>——2026 起是新制，先選／後選由雙方自己選，與藍紅方脫鉤；2025 以前才是藍方固定先選。",
 "圖鑑":"<b>這頁</b>：資料庫總集，上方分頁切換分區。\n<b>版面</b>：<b>版本</b>＝全年或單版本的英雄／裝備改動（點版本號看官方公告）。\n<b>英雄</b>＝點名字看歷年改動與<b>專屬機制</b>大框。\n<b>道具</b>／<b>符文</b>／<b>物件</b>＝建築、史詩野怪、龍魂等官方數值。\n<b>賽事</b>＝當年聯賽樹狀圖（三大國際賽／一二級賽區／盃賽，含各隊縮寫，國際賽帶母賽區色框）。\n<b>操作</b>：多數分區可搜尋、滑上看說明。\n<b>看法</b>：改動卡片邊框<b>紅＝增強、綠＝削弱、黃＝調整</b>；賽事樹綠勾 ✓＝晉級隊。\n<b>注意</b>：<b>新登場／重製登場／重返遊戲不標增強削弱</b>——那是「現在長這樣」，沒有對照物。",
-"模擬BP":"<b>這頁</b>：自己排 BAN／PICK、即時看路線判定。\n<b>版面</b>：模擬局在左、角色池在中、<b>🚫 禁用過</b>（含其他英雄）在最右直欄（局號 1→N，最新局在最右、緊貼角色池）。\n<b>操作</b>：上方選<b>戰隊A／B</b>帶出雙方角色池；<b>拖曳</b>或<b>左鍵拎起</b>池中英雄→到格內左鍵放入、右鍵取消；點已填格移除、點<b>先選／後選</b>切順位、<b>⇄</b>換輪替選手。\n按鈕：⏵自動（點池自動填下一格；開新局請點 ＋）、全局／一般（全局＝Fearless：PICK 從池消失、BAN 不消耗、最多五局）、📥匯入比賽、🗑清空、📸截圖；🎯近期積分<b>右鍵</b>可改範圍（一週~半年）。\n<b>看法</b>：滑到模擬局英雄→右側顯示<b>詳細數據</b>（BAN 顯示<b>對手</b>使用數據），同英雄會在所有模擬局一起發光。\n路線判定：隊上選手池＝實心、全庫近況補的＝半透明（點半透明確認正路即變實心）。\n標記：<b>金光</b>＝全場只有他會用、<b>青框</b>＝同隊多人會用、<b>禁用圖示</b>＝對手慣用但沒選過的禁招。\n<b>選角評分</b>（局卡最下面）：兩隊各一個 0~100 分＋差值，滑上去看六項拆解。＝<b>版本強弱</b>(20%，只看<b>最近三個版本</b>——這項問的是「現在強不強」。開了 <b>🎯 近期積分</b> 才吃積分，比例 <b>職業賽 60%＋積分 40%</b>：職業賽用英雄頁評分的同路百分位；積分<b>只看使用場數與金錢差@15、不看勝率</b>（排位勝率被四個路人稀釋、歸因不到本人），場數 70%＋金差 30%。近三版積分約 5 萬場，職業賽同期只有 365 局)＋<b>選手熟練</b>(25%，該路選手在該英雄的場數與勝率，<b>跟他自己平常的勝率比</b>；沒打過算中性不扣分；按了🎯近期積分把積分場次以半場計入)＋<b>戰隊勝率</b>(10%，該隊用這隻的勝率，<b>跟該隊整體勝率比</b>)＋<b>對線對位</b>(25%，同路雙方英雄的歷史<b>金錢差</b>——對位要問的是「這條線吃不吃香」，那就是金差直接量的東西；±400 金換算成 ±50 分。該賽區沒有 @10 資料時（LPL）退回對戰勝率。開了 <b>🎯 近期積分</b> 才吃積分，同樣是<b>職業賽 60%＋積分 40%</b>：積分有 9583 組對位、每組中位 10 場，職業賽同期 93% 的組合樣本不足。積分金差會先<b>扣掉共同基準</b>——那份資料是職業選手打排位、本來就在輾壓路人，不扣的話每個對位都會貼到滿分)＋<b>隊友組合</b>(10%，上與野／野與中／下與輔)＋<b>陣容</b>(10%，歷史上有三隻以上相同的局)。樣本不足的<b>單項</b>（某一隻英雄／某一路對位／某一組配對）以<b>中性 50</b> 計入——不扣分也不加分，權重不變；整項一筆資料都沒有時 tooltip 那一列會變淡。（比起「整項剔除、其餘權重歸一」，這樣才不會拿一路的資料去講五路的話——實測走前命中 54.2%→54.9%、隊伍實力落差 5.8→5.5，每項指標都更好。）<b>參照母體</b>：統計一律用<b>當年度全賽事</b>的資料（版本強弱除外，它只看最近三版），<b>不跟著上方篩選走</b>——篩選只決定你在看誰的角色池，分數的參照固定不變（篩到單一盃賽時每項只剩十幾場，那是在讀雜訊）。<b>刻度</b>：<b>50＝歷史中位</b>——拿 4456 個真實 BP 校準過，九成落在 27~75，極端的才會碰到 0/100。<b>強隊不會自動高分</b>：熟練與戰隊勝率都已扣掉該選手／該隊自己的平常水準（tooltip 標了基準%），所以問的是「這副牌<b>對這支隊伍</b>來說好不好」，不是「哪隊比較強」——58 隊的「隊伍勝率 vs 平均分」落差已從 22.3 分壓到 7.0 分。<b>準確度</b>：拿 2228 局歷史比賽回測（<b>只用該局之前</b>的資料），分數較高那邊實際獲勝約 <b>54%</b>——而一律猜藍方也是 54%，所以<b>這個分數幾乎不帶勝負預測力，不要拿來猜輸贏</b>。這是刻意的：權重把重心放在<b>選角本身</b>（版本強弱＋對線對位共 45%）而不是隊伍實力，而對位量的是「這條線吃不吃香」（金差@10），那件事本身是真的，只是不轉換成勝負。想要能猜勝負就得把權重移回選手熟練與戰隊勝率（可到 56%），但那樣分數又退化成「哪隊比較強」。\n<b>注意</b>：📥<b>匯入比賽</b>把真實系列賽帶進來（全局模式會先清掉其他局）；匯入的局<b>只能換英雄、不能改順位</b>（整局可刪）。角色池的每路選手會自動切成<b>該系列實際上場的人</b>（同系列換過人就取上場較多的那位，之後仍可用 <b>⇄</b> 自己換）。",
+"模擬BP":"<b>這頁</b>：自己排 BAN／PICK、即時看路線判定。\n<b>版面</b>：模擬局在左、角色池在中、<b>🚫 禁用過</b>（含其他英雄）在最右直欄（局號 1→N，最新局在最右、緊貼角色池）。\n<b>操作</b>：上方選<b>戰隊A／B</b>帶出雙方角色池；<b>拖曳</b>或<b>左鍵拎起</b>池中英雄→到格內左鍵放入、右鍵取消；點已填格移除、點<b>先選／後選</b>切順位、<b>⇄</b>換輪替選手。\n按鈕：⏵自動（點池自動填下一格；開新局請點 ＋）、全局／一般（全局＝Fearless：PICK 從池消失、BAN 不消耗、最多五局）、📥匯入比賽、🗑清空、📸截圖；🎯近期積分<b>右鍵</b>可改範圍（一週~半年）。\n<b>看法</b>：滑到模擬局英雄→右側顯示<b>詳細數據</b>（BAN 顯示<b>對手</b>使用數據），同英雄會在所有模擬局一起發光。\n路線判定：隊上選手池＝實心、全庫近況補的＝半透明（點半透明確認正路即變實心）。\n標記：<b>金光</b>＝全場只有他會用、<b>青框</b>＝同隊多人會用、<b>禁用圖示</b>＝對手慣用但沒選過的禁招。\n<b>選角評分</b>（局卡最下面）：兩隊各一個 0~100 分＋差值，滑上去看六項拆解。＝<b>版本強弱</b>(20%，只看<b>最近三個版本</b>——這項問的是「現在強不強」。開了 <b>🎯 近期積分</b> 才吃積分，比例 <b>職業賽 60%＋積分 40%</b>：職業賽用英雄頁評分的同路百分位；積分<b>只看使用場數與金錢差@15、不看勝率</b>（排位勝率被四個路人稀釋、歸因不到本人），場數 70%＋金差 30%。近三版積分約 5 萬場，職業賽同期只有 365 局)＋<b>選手熟練</b>(25%，該路選手在該英雄的場數與勝率，<b>跟他自己平常的勝率比</b>；沒打過算中性不扣分；按了🎯近期積分把積分場次以半場計入)＋<b>戰隊勝率</b>(10%，該隊用這隻的勝率，<b>跟該隊整體勝率比</b>)＋<b>對線對位</b>(25%，同路雙方英雄的歷史<b>金錢差</b>——對位要問的是「這條線吃不吃香」，那就是金差直接量的東西；<b>刻度由資料自己決定</b>——扣基準後金差的 p95 對應 95 分，職業賽的金差@10 與積分的金差@15 各用各的尺，不寫死金額。該賽區沒有 @10 資料時（LPL）退回對戰勝率。開了 <b>🎯 近期積分</b> 才吃積分，同樣是<b>職業賽 60%＋積分 40%</b>：積分有 9583 組對位、每組中位 10 場，職業賽同期 93% 的組合樣本不足。<b>兩邊</b>的金差都先<b>扣掉該英雄自己對其他英雄的中位</b>，剩下的才是純粹的對位差異——那份資料是職業選手打排位、本來就在輾壓路人（全體中位 +538），而且強勢英雄對誰都能壓；不扣的話每個對位都會貼到滿分，也會跟版本強弱重複計算。另外<b>反推對手</b>：一場「A 打 B」對 B 而言就是負的金差，把反向資料併進來後達門檻的對位組合從 4883 增為 7580)＋<b>隊友組合</b>(10%，上與野／野與中／下與輔)＋<b>陣容</b>(10%，歷史上有三隻以上相同的局)。樣本不足的<b>單項</b>（某一隻英雄／某一路對位／某一組配對）以<b>中性 50</b> 計入——不扣分也不加分，權重不變；整項一筆資料都沒有時 tooltip 那一列會變淡。（比起「整項剔除、其餘權重歸一」，這樣才不會拿一路的資料去講五路的話——實測走前命中 54.2%→54.9%、隊伍實力落差 5.8→5.5，每項指標都更好。）<b>參照母體</b>：統計一律用<b>當年度全賽事</b>的資料（版本強弱除外，它只看最近三版），<b>不跟著上方篩選走</b>——篩選只決定你在看誰的角色池，分數的參照固定不變（篩到單一盃賽時每項只剩十幾場，那是在讀雜訊）。<b>刻度</b>：<b>50＝歷史中位</b>——拿 4456 個真實 BP 校準過，九成落在 27~75，極端的才會碰到 0/100。<b>強隊不會自動高分</b>：熟練與戰隊勝率都已扣掉該選手／該隊自己的平常水準（tooltip 標了基準%），所以問的是「這副牌<b>對這支隊伍</b>來說好不好」，不是「哪隊比較強」——58 隊的「隊伍勝率 vs 平均分」落差已從 22.3 分壓到 7.0 分。<b>準確度</b>：拿 2228 局歷史比賽回測（<b>只用該局之前</b>的資料），分數較高那邊實際獲勝約 <b>54%</b>——而一律猜藍方也是 54%，所以<b>這個分數幾乎不帶勝負預測力，不要拿來猜輸贏</b>。這是刻意的：權重把重心放在<b>選角本身</b>（版本強弱＋對線對位共 45%）而不是隊伍實力，而對位量的是「這條線吃不吃香」（金差@10），那件事本身是真的，只是不轉換成勝負。想要能猜勝負就得把權重移回選手熟練與戰隊勝率（可到 56%），但那樣分數又退化成「哪隊比較強」。\n<b>注意</b>：📥<b>匯入比賽</b>把真實系列賽帶進來（全局模式會先清掉其他局）；匯入的局<b>只能換英雄、不能改順位</b>（整局可刪）。角色池的每路選手會自動切成<b>該系列實際上場的人</b>（同系列換過人就取上場較多的那位，之後仍可用 <b>⇄</b> 自己換）。",
 "英雄Tier":"<b>這頁</b>：依你的判斷把英雄分級（S／A／B…）。\n<b>操作</b>：左側角色池<b>拖曳</b>或<b>左鍵拎起</b>→放到右邊 Tier 列（列間可互拖、拖回池或點一下移回、右鍵取消）。\n階列：可<b>改名</b>、點色塊<b>換色</b>、<b>✕</b>刪階（英雄回池）、下方<b>＋</b>加階、右側<b>⠿</b>拖曳整階排序。\n按鈕：⇄五路／混合、🎯積分數據／📊比賽數據／✏️自訂、⚙參數（門檻與奇招條件）、🗑清空、📸截圖。\n<b>看法</b>：三向模式各自獨立、互不覆蓋；數據模式自動分階、再點一次依目前篩選重新產生；滑鼠移到英雄上顯示該模式的數據（自訂模式積分與比賽都列）。\n英雄圖邊框<b>紅＝版本增強、綠＝削弱、黃＝調整</b>。\n<b>注意</b>：評分<b>不無條件進位</b>（89.9 仍在 A）。",
 "積分":"<b>這頁</b>：各隊選手的<b>單雙排（solo queue）積分</b>排行，最新在上。\n<b>操作</b>：上方<b>搜尋</b>選手或戰隊、點<b>欄位名</b>排序；<b>路線</b>／<b>賽區</b>可篩選；左上可切<b>📅 每日戰況</b>。\n<b>點選手名</b>→逐場單雙積分戰績（合併該選手所有帳號、只收本命路線：英雄／對位／KDA／參與率／dpm 評分／符文／出裝／技能加點；滑技能看加點順序、滑裝備看出裝順序）。\n<b>看法</b>：牌位依 菁英＞宗師＞大師＞鑽石… 排，大師以上不分段直接看 LP；未定位或找不到帳號的排最底（灰字）。\n<b>常用英雄</b>滑上去看完整角色池（場數／勝率／KDA，勝率越高越紅）。\n<b>📅 每日戰況</b>＝改看<b>各隊一區塊</b>，每位選手<b>昨天／近3天／近7天</b>打了幾場、幾勝幾敗、用了哪些英雄（<b>勝藍圈・敗紅圈</b>，以韓服日界定）。\n<b>注意</b>：<b>每位選手只列牌位最高的那一隻帳號</b>；<b>整年沒有比賽出場過的人不列</b>（純教練等）。\n<b>賽區</b>＝該選手<b>戰隊的參賽賽區</b>（不是伺服器位置）：一隊可同時屬多區（如 GEN＝LCK＋MSI＋FST）；盃賽只列 FST／MSI／WCS／EWC／ENC。\n<b>LPL 分組</b>：選 LPL 賽區會出現該年常規賽分組（如 Ascend／Nirvana）子篩選，每日戰況也依組分開排；<b>季後賽不分組</b>。\n帳號來源：LPL／LCK 以 <b>OBGG</b> 為主、LCS／LEC／CBLOL 以 <b>dpm</b> 為主；<b>峽谷之巔</b>與近兩月沒打的帳號自動濾掉。牌位由 <b>Riot API</b> 每日更新、逐場由 dpm 抓。"
 };
@@ -2008,7 +2012,7 @@ const TAB_HELP_EN={
 "近況":"Type a team and get its <b>recent form</b> on one page (made for screenshots). Range = the team's <b>last 5 series</b> under the current filters.\n<b>Header</b> = current streak plus series/game record over the window.\n<b>Recent results</b> = date / event / opponent / score of the five series.\n<b>Starters</b> = the most-fielded player per role: games / win% / KDA / go-to champions (hover for numbers); in the current year also <b>7-day ranked</b> record and top champions.\n<b>BP tendencies</b> = most picked, most banned by them, and most target-banned against them in the window.\nThe <b>📸</b> button exports a 1080p PNG (named abbr_Form_date).",
 "比賽BP":"Two teams' <b>series BP records</b>, newest first.\nHow-to: pick teams from the <b>Team</b> dropdowns above (fill just one to see all its series).\nReading: <b>gold number</b> = pick order 1–7, <b>gold bold</b> = first-pick side, <b>star</b> = winner.\nThe title auto-flags <b>missing games</b> (e.g. a BO5 at 2-2 missing game 5); a 1-1 draw in a BO2 doesn't count as missing.",
 "圖鑑":"Sections, switch via the tabs above:\n<b>Patch</b> = champion/item changes for the whole year or a single patch (click a patch number for official notes)\n<b>Champions</b> = click a name for patch history and its <b>unique mechanic</b> panel\n<b>Items</b> / <b>Runes</b> / <b>Objectives</b> = buildings, epic monsters, dragon souls and official values\n<b>Esports</b> = that year's league tree (3 internationals / tier 1-2-3 regions / cups, with each team's abbreviation, international team chips carry their home-region color frame; green check = qualified through play-in/qualifier)\nMost sections are searchable and have hover tooltips.",
-"模擬BP":"Draft your own BANs / PICKs and see lane assignment live; champion pool on the right, sim games on the left (game 1→N, newest game on the far right next to the pool).\nHow-to: pick <b>Team A / B</b> above to load both pools; <b>drag</b> or <b>left-click to lift</b> a champion → left-click into a slot, right-click to cancel; click a filled slot to remove, click <b>FP / SP</b> (<b>FP</b> = First Pick, <b>SP</b> = Second Pick) to toggle order, <b>⇄</b> to swap the rotating player.\nHover a champion in a sim game → the right panel shows <b>detailed stats</b> (a BAN shows the <b>opponent's</b> usage; if that team isn't selected it shows the current data range); the same champion glows across all sim games.\nLane logic: the team's own player pool = solid, filled from the global recent pool = translucent (click a translucent one to confirm the lane and make it solid).\nMarkers: <b>gold glow</b> = only this player uses it, <b>cyan frame</b> = multiple teammates use it, <b>ban icon</b> = an opponent favorite that hasn't been picked.\nButtons: ⏵ auto (clicking the pool fills the next slot; use ＋ for a new game), Fearless/Normal (Fearless: PICKs vanish from the pool, BANs don't consume, up to five games), 📥 Import games, 🗑 Clear (clear all games), 📸 Screenshot.\n<b>Draft score</b> (bottom of each game card): 0~100 per side plus the gap; hover for the six-factor breakdown. = <b>Meta strength</b> (20%, <b>last 3 patches only</b> — this factor asks how strong it is right now. Ranked only counts with <b>🎯 recent solo queue</b> on, weighted <b>60% pro + 40% ranked</b>: the pro half is the Champions-page rating as a within-lane percentile; the ranked half uses <b>games played and gold diff @15 only, never win rate</b> (ranked win rate is diluted by four random teammates), weighted 70% games / 30% gold diff. Ranked has ~50,000 games over those 3 patches vs 365 pro games) + <b>Proficiency</b> (25%, that lane's player's games and win rate on the champion, <b>compared with his own usual win rate</b>; never played = neutral, no penalty; with 🎯 recent solo queue on, ranked games count as half a game each) + <b>Team win%</b> (10%, the team's win rate on the champion, <b>compared with that team's overall win rate</b>) + <b>Matchup</b> (25%, the historical <b>gold diff</b> between the two champions in that lane — what a matchup should answer is whether the lane goes well, and that is exactly what gold diff measures; ±400 gold maps to ±50 points; regions with no @10 data (LPL) fall back to head-to-head win rate. Ranked only counts with <b>🎯 recent solo queue</b> on, again <b>60% pro + 40% ranked</b>: ranked has 9,583 matchup pairs, median 10 games each, while 93% of pro pairs over the same window fall below threshold. The ranked gold diff is <b>centred on its own baseline</b> first — that data is pros playing ranked and they crush the average opponent, so without centring every matchup would peg at full marks) + <b>Duo synergy</b> (10%, top&jungle / jungle&mid / bot&support) + <b>Composition</b> (10%, past game sides sharing three or more of the same champions). A <b>single item</b> with too few games (one champion, one lane matchup, one pair) counts as a <b>neutral 50</b> — no penalty, no bonus, weights unchanged; a factor with no data at all is dimmed in the tooltip. (Better than dropping the whole factor and renormalizing: it stops one lane's data from speaking for all five — measured walk-forward accuracy 54.2%→54.9% and team-strength spread 5.8→5.5.) <b>Reference pool</b>: all six factors are computed over <b>the whole year, all leagues</b> and do <b>not</b> follow the filters above — the filters only decide whose champion pool you are looking at, the statistical reference stays fixed (filter down to a single cup and every factor is left with a dozen games, which is just noise). <b>Scale</b>: <b>50 = historical median</b>, calibrated on 4456 real drafts, 90% landing in 27~75. <b>Strong teams do not score high automatically</b>: proficiency and team win% both subtract that player's / that team's own baseline (shown as a % in the tooltip), so the question it answers is “is this a good draft <b>for this team</b>”, not “which team is stronger” — across 58 teams the spread between the highest- and lowest-scoring team fell from 22.3 to 7.0 points. <b>Accuracy</b>: back-tested over 2228 games (<b>using only data from before each game</b>), the higher-scoring side actually won about <b>54%</b> — and always guessing blue side also gives 54%, so <b>this score carries almost no win-prediction power; do not bet on it</b>. That is deliberate: the weights put the emphasis on the <b>draft itself</b> (meta strength + matchup together 45%) rather than on team strength, and matchup measures whether a lane goes well (gold diff @10) — real in itself, but it does not translate into wins. Shifting weight back to proficiency and team win% would reach 56%, but then the score degenerates into telling you which team is stronger.\n📥 <b>Import games</b>: brings a real series in (Fearless mode clears other games first); imported games <b>can only swap champions, not change order</b> (the whole game can be deleted), and the title shows that game's <b>date and event</b>. The champion pools also switch to <b>the players who actually played that series</b> (if a lane was substituted, whoever played more games); you can still change them with <b>⇄</b>.",
+"模擬BP":"Draft your own BANs / PICKs and see lane assignment live; champion pool on the right, sim games on the left (game 1→N, newest game on the far right next to the pool).\nHow-to: pick <b>Team A / B</b> above to load both pools; <b>drag</b> or <b>left-click to lift</b> a champion → left-click into a slot, right-click to cancel; click a filled slot to remove, click <b>FP / SP</b> (<b>FP</b> = First Pick, <b>SP</b> = Second Pick) to toggle order, <b>⇄</b> to swap the rotating player.\nHover a champion in a sim game → the right panel shows <b>detailed stats</b> (a BAN shows the <b>opponent's</b> usage; if that team isn't selected it shows the current data range); the same champion glows across all sim games.\nLane logic: the team's own player pool = solid, filled from the global recent pool = translucent (click a translucent one to confirm the lane and make it solid).\nMarkers: <b>gold glow</b> = only this player uses it, <b>cyan frame</b> = multiple teammates use it, <b>ban icon</b> = an opponent favorite that hasn't been picked.\nButtons: ⏵ auto (clicking the pool fills the next slot; use ＋ for a new game), Fearless/Normal (Fearless: PICKs vanish from the pool, BANs don't consume, up to five games), 📥 Import games, 🗑 Clear (clear all games), 📸 Screenshot.\n<b>Draft score</b> (bottom of each game card): 0~100 per side plus the gap; hover for the six-factor breakdown. = <b>Meta strength</b> (20%, <b>last 3 patches only</b> — this factor asks how strong it is right now. Ranked only counts with <b>🎯 recent solo queue</b> on, weighted <b>60% pro + 40% ranked</b>: the pro half is the Champions-page rating as a within-lane percentile; the ranked half uses <b>games played and gold diff @15 only, never win rate</b> (ranked win rate is diluted by four random teammates), weighted 70% games / 30% gold diff. Ranked has ~50,000 games over those 3 patches vs 365 pro games) + <b>Proficiency</b> (25%, that lane's player's games and win rate on the champion, <b>compared with his own usual win rate</b>; never played = neutral, no penalty; with 🎯 recent solo queue on, ranked games count as half a game each) + <b>Team win%</b> (10%, the team's win rate on the champion, <b>compared with that team's overall win rate</b>) + <b>Matchup</b> (25%, the historical <b>gold diff</b> between the two champions in that lane — what a matchup should answer is whether the lane goes well, and that is exactly what gold diff measures; the <b>scale comes from the data itself</b> — the p95 of the centred gold diff maps to 95 points, so pro GD@10 and ranked GD@15 each use their own yardstick instead of a hardcoded amount; regions with no @10 data (LPL) fall back to head-to-head win rate. Ranked only counts with <b>🎯 recent solo queue</b> on, again <b>60% pro + 40% ranked</b>: ranked has 9,583 matchup pairs, median 10 games each, while 93% of pro pairs over the same window fall below threshold. <b>Both</b> gold diffs are first <b>centred on that champion's own median across all its opponents</b>, so what remains is the matchup difference alone — the data is pros playing ranked (they crush the average opponent, global median +538) and a strong champion beats everyone, so without centring every matchup would peg at full marks and it would double-count meta strength. Games are also <b>inferred in reverse</b>: an “A vs B” game is a negative gold diff for B, and folding that in raises qualifying pairs from 4,883 to 7,580) + <b>Duo synergy</b> (10%, top&jungle / jungle&mid / bot&support) + <b>Composition</b> (10%, past game sides sharing three or more of the same champions). A <b>single item</b> with too few games (one champion, one lane matchup, one pair) counts as a <b>neutral 50</b> — no penalty, no bonus, weights unchanged; a factor with no data at all is dimmed in the tooltip. (Better than dropping the whole factor and renormalizing: it stops one lane's data from speaking for all five — measured walk-forward accuracy 54.2%→54.9% and team-strength spread 5.8→5.5.) <b>Reference pool</b>: all six factors are computed over <b>the whole year, all leagues</b> and do <b>not</b> follow the filters above — the filters only decide whose champion pool you are looking at, the statistical reference stays fixed (filter down to a single cup and every factor is left with a dozen games, which is just noise). <b>Scale</b>: <b>50 = historical median</b>, calibrated on 4456 real drafts, 90% landing in 27~75. <b>Strong teams do not score high automatically</b>: proficiency and team win% both subtract that player's / that team's own baseline (shown as a % in the tooltip), so the question it answers is “is this a good draft <b>for this team</b>”, not “which team is stronger” — across 58 teams the spread between the highest- and lowest-scoring team fell from 22.3 to 7.0 points. <b>Accuracy</b>: back-tested over 2228 games (<b>using only data from before each game</b>), the higher-scoring side actually won about <b>54%</b> — and always guessing blue side also gives 54%, so <b>this score carries almost no win-prediction power; do not bet on it</b>. That is deliberate: the weights put the emphasis on the <b>draft itself</b> (meta strength + matchup together 45%) rather than on team strength, and matchup measures whether a lane goes well (gold diff @10) — real in itself, but it does not translate into wins. Shifting weight back to proficiency and team win% would reach 56%, but then the score degenerates into telling you which team is stronger.\n📥 <b>Import games</b>: brings a real series in (Fearless mode clears other games first); imported games <b>can only swap champions, not change order</b> (the whole game can be deleted), and the title shows that game's <b>date and event</b>. The champion pools also switch to <b>the players who actually played that series</b> (if a lane was substituted, whoever played more games); you can still change them with <b>⇄</b>.",
 "英雄Tier":"Tier champions by your own judgment (S / A / B…).\nHow-to: <b>drag</b> or <b>left-click to lift</b> from the pool on the left → drop into a Tier row on the right (rows can be dragged into each other, dragged back to the pool or clicked to return, right-click to cancel).\nTier rows: <b>rename</b>, click the color swatch to <b>recolor</b>, <b>✕</b> deletes the tier (champions return to pool), <b>＋</b> below adds a tier, <b>⠿</b> on the right drags to reorder tiers.\nButtons: <b>⇄</b> five-lane/mixed, then a three-way mode toggle — <b>🎯 Ranked</b> (auto-tier S~D by soloq rating), <b>📊 Match</b> (auto-tier S~C + Off-meta by current-range rating), <b>✏️ Custom</b> (free arrangement, never overwritten by data modes). Each mode keeps its own board; in a data mode, clicking the current mode again <b>regenerates by the current filters</b>; hover a champion to see that mode's stats (Custom shows both soloq and match). Then <b>⚙</b> Params (thresholds & off-meta criteria), <b>🗑</b> Clear, <b>📸</b> Screenshot.\nSoloq mode is hidden in historical years. Rating <b>doesn't round up</b> (89.9 stays in A); champion border red = patch buff, green = nerf, yellow = adjustment.",
 "積分":"Each team's players' <b>solo queue ranked</b>, highest first.\n<b>Only the highest-rank account per player is listed</b> (when a player has several); <b>players with no match appearance all year are omitted</b> (pure coaches etc.).\nHow-to: <b>search</b> a player or team above, click a <b>column header</b> to sort; filter by <b>role</b> / <b>region</b>.\n<b>Region</b> = the player's <b>team competitive region</b> (not server location): leagues + cups, a team can belong to several (e.g. GEN = LCK + MSI + FST); cups are limited to FST / MSI / WCS / EWC / ENC.\nReading: tier order Challenger > Grandmaster > Master > Diamond…; Master+ has no division, sorted by LP; unranked / not-found accounts sink to the bottom (greyed).\n<b>Champions</b>: hover for the full champion pool (games / win% / KDA; higher win% is redder).\n<b>Click a player's name</b> → per-game Solo/Duo history (all of that player's accounts merged, main role only: champ / matchup / KDA / KP% / dpm score / runes / items / skill order; hover skills for level order, items for build order).\nAccount source: LPL / LCK mainly <b>OBGG</b>, LCS / LEC / CBLOL mainly <b>dpm</b>, others merged; the <b>Challenger practice server</b> and accounts inactive over two months are auto-filtered. Ranks refresh daily via the <b>Riot API</b>, per-game via dpm.\n<b>📅 Daily</b> (top-left toggle): switch to a <b>per-team board</b> showing each player's <b>yesterday / last 3 / last 7 days</b> — games played, W-L and champions used (<b>blue ring = win, red ring = loss</b>, bucketed by KST day); click a name for the full game log.\n<b>LPL groups</b>: selecting the LPL region shows that year's regular-season group sub-filter (Ascend / Nirvana, etc.); the daily board and the Esports tree also split LPL by group. <b>Playoffs are not split.</b>"
 };
@@ -12263,32 +12267,61 @@ function render(){
             add(L2+"|"+bc+"|"+rc, bw, isFinite(gb)?gb:null);
             add(L2+"|"+rc+"|"+bc, !bw, isFinite(gr)?gr:null); } }
         return _muI[L+"|"+champId(a)+"|"+champId(b)]||null; };
-      // 對位分：GD@10 為主。刻度＝±400 金 ↔ ±50 分（實測 820 組對位的分佈：中位 0、
-      // 四分位 ∓121、p5/p95 ∓342、極值 ±630），信心隨樣本飽和（15 場給滿）。
-      const MU_GD_FULL=400;
-      const _gdSc=(gd,n,full)=>_clamp(50+gd/MU_GD_FULL*50*_sat(n,full));
-      // 積分對位（2026-08-07 使用者定案）：職業賽 60%／積分 40%，**積分只看金差、不看勝率**。
-      // SOLOQ_BUILDS.mu[英雄][對手]＝[場, 勝, 金差@15場數, 金差@15總]（後兩欄是這次加的，
-      // 要重跑 build_soloq_builds.py 才有 → 這裡容忍舊的兩欄格式，沒有就當積分沒資料）。
-      // 實測 mu 有 9583 組對位、每組中位 10 場，職業賽同期 93% 的組合達不到門檻，補得很有價值。
-      // ⚠ 積分金差**必須扣掉共同基準**：mu 是「被追蹤的職業選手打排位」的資料，他們本來就在
-      // 輾壓路人 → 不管什麼對位，金差都系統性偏正（實測 4883 組的中位 +538、p25 +164、p95 +1615）。
-      // 直接套 ±400金↔±50分 的刻度會讓每個對位都貼到 100（實測分數從 64.9 暴衝到 78.1）。
-      // 扣掉全體平均後，剩下的才是「這個對位相對其他對位吃不吃香」——跟隊伍實力正規化同一個道理。
-      let _sqMuBase=null;
-      const sqMuBase=()=>{ if(_sqMuBase!=null)return _sqMuBase;
-        const M=(window.SOLOQ_BUILDS||{}).mu; if(!M)return _sqMuBase=0;
-        let n=0,s=0; for(const c in M)for(const o in M[c]){ const r=M[c][o];
-          if(r.length>=4&&r[2]>0){ n+=r[2]; s+=r[3]; } }
-        return _sqMuBase=n?s/n:0; };
-      const sqMuRec=(a,b)=>{ if(!V.bpSoloqPool)return null;   // 同上：只在開「🎯 近期積分」時計入
-        const M=(window.SOLOQ_BUILDS||{}).mu; if(!M)return null;
-        const r=M[champId(a)]&&M[champId(a)][champId(b)]; if(!r||r.length<4)return null;
-        return (r[2]>=10)?{gd:r[3]/r[2]-sqMuBase(), raw:r[3]/r[2], n:r[2]}:null; };   // 金差要 10 場才算
-      const muScore=(r,a,b)=>{
-        const pro=r?((r.gn>=5)?_gdSc(r.gs/r.gn,r.gn,15):_wrSc(r.n,r.w,20,10)):null; // 沒有 GD 資料才退回勝率
+      // ── 對位分（2026-08-07 使用者定案：兩邊都不准寫死金額刻度）──────────────────────
+      // 共通做法，職業賽與積分各跑一次：
+      //  ① 基準＝**該英雄對其他英雄的中位金差**（不是全體平均）。全體平均只扣得掉「整體偏移」，
+      //     扣不掉「這隻本來就很會壓線」；用自己的中位當基準，剩下的才是純粹的對位差異，
+      //     也不會跟「版本強弱」重複計算「這隻很強」。取中位不取平均：對位有極端值，中位才穩。
+      //  ② 刻度＝**該側扣基準後金差的 p95**，對應 95 分（不是寫死 ±400／±1000）。
+      //     這樣職業賽的金差@10 與積分的金差@15 各自用自己的尺，換資料也自動跟著校準。
+      //  ③ 積分還多一步「反推對手」：一場「A 打 B」只記在 A 身上（B 不是被追蹤的選手），
+      //     但那一場對 B 而言金差就是 −該值 → 把 mu[B][A] 取負併進 A→B。實測達門檻的對位組合
+      //     從 4883 增為 7580（1.55 倍），且合併後完全反對稱（12616 組零誤差）。
+      const _medOf=a=>{ if(!a.length)return null; const s=a.slice().sort((x,y)=>x-y);
+        return s[Math.floor(s.length/2)]; };
+      const _p95=a=>{ if(!a.length)return null; const s=a.map(Math.abs).sort((x,y)=>x-y);
+        return s[Math.floor((s.length-1)*0.95)]||null; };
+      // 職業賽：_muI 的鍵是「路線|我|敵」，基準逐(路線,英雄)算
+      let _muP=null;
+      const muProIdx=()=>{ if(_muP)return _muP;
+        muRec("TOP","",""); const M=_muI||{};                    // 觸發索引建立
+        const by={};                                             // 路線|我 -> [各對手的平均金差]
+        for(const k2 in M){ const e=M[k2]; if(!e.gn||e.gn<5)continue;
+          const p2=k2.split("|"); const kk=p2[0]+"|"+p2[1];
+          (by[kk]=by[kk]||[]).push(e.gs/e.gn); }
+        const base={}; for(const kk in by)if(by[kk].length>=3)base[kk]=_medOf(by[kk]);
+        const dv=[]; for(const k2 in M){ const e=M[k2]; if(!e.gn||e.gn<5)continue;
+          const p2=k2.split("|"), b2=base[p2[0]+"|"+p2[1]]; if(b2==null)continue;
+          dv.push(e.gs/e.gn-b2); }
+        return _muP={base, scale:_p95(dv)||400}; };
+      // 積分：mu[我][敵]，基準逐英雄算（積分沒有分路線）
+      let _sqMuIdx=null;
+      const sqMuIdx=()=>{ if(_sqMuIdx)return _sqMuIdx;
+        const M=(window.SOLOQ_BUILDS||{}).mu||{}, pair={};
+        const add=(a,b,n,s)=>{ const m=pair[a]||(pair[a]={}), e=m[b]||(m[b]={n:0,s:0}); e.n+=n; e.s+=s; };
+        for(const a in M)for(const b in M[a]){ const r=M[a][b];
+          if(!r||r.length<4||!r[2])continue;                     // 舊的兩欄格式＝沒有金差，當沒資料
+          add(a,b,r[2],r[3]); add(b,a,r[2],-r[3]); }             // 正向＋反推
+        const base={};
+        for(const a in pair){ const vs=[];
+          for(const b in pair[a]){ const e=pair[a][b]; if(e.n>=10)vs.push(e.s/e.n); }
+          if(vs.length>=3)base[a]=_medOf(vs); }
+        const dv=[]; for(const a in pair){ const b2=base[a]; if(b2==null)continue;
+          for(const b in pair[a]){ const e=pair[a][b]; if(e.n>=10)dv.push(e.s/e.n-b2); } }
+        return _sqMuIdx={pair, base, scale:_p95(dv)||1000}; };
+      const _gdSc=(gd,n,full,scale)=>_clamp(50+gd/(scale||400)*45*_sat(n,full));  // p95 對應 95 分
+      const sqMuRec=(a,b)=>{ if(!V.bpSoloqPool)return null;      // 只在開「🎯 近期積分」時計入
+        const X=sqMuIdx(), A=champId(a), B=champId(b);
+        const e=X.pair[A]&&X.pair[A][B]; if(!e||e.n<10)return null;   // 金差要 10 場才算
+        const bs=X.base[A]; if(bs==null)return null;                  // 該英雄對位組合太少、算不出基準
+        return {gd:e.s/e.n-bs, raw:e.s/e.n, n:e.n, scale:X.scale}; };
+      const muScore=(r,a,b,L)=>{
+        let pro=null;
+        if(r){ const X=muProIdx(), bs=(a&&L!=null)?X.base[L+"|"+champId(a)]:null;
+          pro=(r.gn>=5&&bs!=null)?_gdSc(r.gs/r.gn-bs,r.gn,15,X.scale)
+              :(r.gn>=5?_gdSc(r.gs/r.gn,r.gn,15,X.scale):_wrSc(r.n,r.w,20,10)); } // 沒有 GD 資料才退回勝率
         const s=(a&&b)?sqMuRec(a,b):null;
-        const sq=s?_gdSc(s.gd,s.n,30):null;                 // 積分樣本大，飽和門檻放寬到 30 場
+        const sq=s?_gdSc(s.gd,s.n,30,s.scale):null;               // 積分樣本大，飽和門檻放寬到 30 場
         if(pro==null&&sq==null)return null;
         if(sq==null)return pro; if(pro==null)return sq;
         return pro*(1-SC_SQ_MIX)+sq*SC_SQ_MIX; };
@@ -12321,12 +12354,14 @@ function render(){
       //   ④ 樣本不足改成項目層中性 50 後：中位 50.9 不變、σ 5.66 → 5.13（不確定的項目被拉回中間）
       //   ⑤ 版本強弱併入積分（職業60/積分40）後：中位 50.9 → 53.8、σ 5.13 → 4.48
       //   ⑥ 對線對位也併入積分後：中位 53.8 → 53.1、σ 4.48 → 4.64
+      //   ⑦ 對位改成「扣該英雄自己的中位＋刻度由資料的 p95 決定」（兩邊都不再寫死金額）＋反推對手：
+      //      關 中位 50.9→50.8／σ 5.13→4.64；開 中位 53.1→53.2／σ 4.64→3.91
       // ⚠ 積分是可開關的（🎯 近期積分），兩種狀態的分佈不同 → **刻度要跟著切**，
       //   否則按一下開關整體分數就位移。實測：關 中位 50.9／σ 5.13；開 中位 53.1／σ 4.64。
       // 重新校準方法：跑 scratchpad/weight_ab.py（或 neutral_ab.py／ref_dist.py）取新的中位，GAIN 用 15/σ；
       //   兩種開關狀態各測一次。
       const _SQON=!!V.bpSoloqPool;
-      const SC_MID=_SQON?53.1:50.9, SC_GAIN=_SQON?3.23:2.92;
+      const SC_MID=_SQON?53.2:50.8, SC_GAIN=_SQON?3.84:3.23;
       const draftScore=gi=>{
         const gm=S.g[gi]; if(!gm)return null;
         const per={};
@@ -12378,7 +12413,7 @@ function render(){
           // 沒對上的（自己或對手該路還沒選）也要列出來並標明原因，不是默默消失。
           POSN.forEach(L=>{ const c=me.byLane[L], oc=op.byLane[L];
             if(!c||!oc){ me.muD.push({L,c:c||null,oc:oc||null,v:null,gd:null,n:0,gn:0}); me.mu.push(50); return; }
-            const r=muRec(L,c,oc), v=muScore(r,c,oc), sq=sqMuRec(c,oc);
+            const r=muRec(L,c,oc), v=muScore(r,c,oc,L), sq=sqMuRec(c,oc);
             me.muD.push({L,c,oc,v:v==null?null:Math.round(v*10)/10,
                          gd:(r&&r.gn>=5)?Math.round(r.gs/r.gn):null, n:r?r.n:0, gn:r?r.gn:0,
                          sqGd:sq?Math.round(sq.gd):null, sqN:sq?sq.n:0});
@@ -12442,10 +12477,12 @@ function render(){
         const a=f[L.k], b=f[R.k];
         if(a.sc==null&&b.sc==null)return `<div class="bsScore"></div>`;   // 一隻都還沒選：留空位不跳版
         const d=(a.sc!=null&&b.sc!=null)?Math.round((a.sc-b.sc)*10)/10:null;
-        const en2=LANG==="en";
-        // 說明改走站上的浮框（見 scoreTipHTML）：原本只有原生 title，六項拆解擠成一長行看不出結構
-        const one=(s,col,k)=>`<span class="bsScNum" style="color:${col}" data-g="${gi}" data-k="${k}">${s.sc==null?"–":s.sc}</span>`;
-        return `<div class="bsScore">${one(a,"#6ea8ff",L.k)}<span class="bsScD">${d==null?"":(d>0?"+":"")+d}</span>${one(b,"#ff6b6b",R.k)}</div>`;
+        // 說明浮框由**中間的差值**觸發（使用者定案 2026-08-07）：兩隊在同一個框裡對照才好比較，
+        // 分別掛在兩個分數上會變成看完藍方再看紅方、對不起來。游標不給 help（不要小問號）。
+        const one=(s,col)=>`<span class="bsScNum" style="color:${col}">${s.sc==null?"–":s.sc}</span>`;
+        return `<div class="bsScore">${one(a,"#6ea8ff")}`
+          +`<span class="bsScD" data-g="${gi}" data-a="${L.k}" data-b="${R.k}">${d==null?"":(d>0?"+":"")+d}</span>`
+          +`${one(b,"#ff6b6b")}</div>`;
       };
       // 滑到分數 → 浮框（2026-08-07 使用者定案）：**只寫項目與分數**，不寫逐項說明文字。
       // 可以再拆的項目把子分數用括號內聯：對位五路 (上/野/中/下/輔)、組合三對 (上野/野中/下輔)。
@@ -12454,27 +12491,30 @@ function render(){
                  ["tm","戰隊勝率","Team win%",10],["mu","對線對位","Matchup",25],
                  ["duo","隊友組合","Duo synergy",10],["comp","陣容","Composition",10]];
       const scCol=v=>v==null?"var(--tx2)":(v>=56?"#ff5d5d":v<=44?"#37c871":"#cdd6e6"); // 台灣習慣：越高越紅、越低越綠
-      const scoreTipHTML=(s,col)=>{ if(!s||s.sc==null)return "";
-        const en=LANG==="en";
-        // 子分數：全空就不列括號（整項樣本不足時列一排「–」只是雜訊）
-        const sub=a=>a.some(v=>v!=null)
-          ?`(${a.map(v=>`<span style="color:${scCol(v)}">${v==null?"–":v}</span>`).join("<i>/</i>")})`:"";
-        const muS=(s.muD||[]).map(d=>d.v), duoS=(s.duoD||[]).map(d=>d.v);
-        // 整項一筆真資料都沒有（全靠中性 50 撐著）→ 整列變淡，讓使用者看得出這一項沒在說話
-        const rows=SCF.map(([k,zh,ea,w])=>{ const v=s[k], none=!((s.ok||{})[k]);
-          return `<div class="scRow${none?" off":""}"><span class="scNm">${en?ea:zh}</span>`
-            +`<span class="scV" style="color:${scCol(v)}">${v==null?"—":v}</span>`
-            +`<span class="scW">${w}%</span>`
-            +`<span class="scSub">${k==="mu"?sub(muS):k==="duo"?sub(duoS):""}</span></div>`; }).join("");
+      const scoreTipHTML=(A,B,nA,nB)=>{ if(!A||!B)return "";
+        const en=LANG==="en", CA="#6ea8ff", CB="#ff6b6b";
+        const num=(v,c)=>`<span class="scV" style="color:${v==null?"var(--tx2)":scCol(v)}">${v==null?"—":v}</span>`;
+        const sub=(arr,col)=>arr.some(v=>v!=null)
+          ?`<span class="scSub" style="border-left:2px solid ${col}">${arr.map(v=>
+              `<span style="color:${scCol(v)}">${v==null?"–":v}</span>`).join("<i>/</i>")}</span>`:"";
+        const rows=SCF.map(([k,zh,ea,w])=>{
+          const none=!((A.ok||{})[k])&&!((B.ok||{})[k]);
+          let r=`<div class="scRow${none?" off":""}"><span class="scNm">${en?ea:zh}</span>`
+            +`<span class="scW">${w}%</span>${num(A[k])}${num(B[k])}</div>`;
+          if(k==="mu"||k==="duo"){ const ga=(k==="mu"?A.muD:A.duoD)||[], gb=(k==="mu"?B.muD:B.duoD)||[];
+            const sa=sub(ga.map(d=>d.v),CA), sb=sub(gb.map(d=>d.v),CB);
+            if(sa||sb)r+=`<div class="scSubRow">${sa}${sb}</div>`; }
+          return r; }).join("");
         return `<div class="scTip"><div class="tipTitle">${en?"Draft score":"選角評分"}`
-            +`<span style="color:${col};font-size:21px;margin-left:9px">${s.sc}</span>`
-            +`<span class="scPk">${en?"picks":"已選"} ${s.n}/5</span></div>`
+            +`<span class="scHd"><b style="color:${CA}">${esc(nA||"")}</b> ${A.sc==null?"–":A.sc}`
+            +`<span class="scVs">vs</span>`
+            +`${B.sc==null?"–":B.sc} <b style="color:${CB}">${esc(nB||"")}</b></span></div>`
           +rows
           +`<div class="scFoot">${hiNum(en
-              ?"Brackets = matchup by lane (top / jng / mid / bot / sup) and synergy by pair (top&jng / jng&mid / bot&sup)."
-              :"括號＝對位五路（上／野／中／下／輔）、組合三對（上野／野中／下輔）。")}<br>${hiNum(en
-              ?"50 = historical median. Any single item with too few games (a champion, a lane, a pair) counts as a neutral 50 instead of being dropped; a factor with no data at all is dimmed. Reference = the whole year, all leagues (meta strength: last 3 patches)."
-              :"50＝歷史中位。樣本不足的<b>單項</b>（某一隻／某一路／某一組）以中性 50 計入，不扣分也不加分；整項一筆資料都沒有時該列變淡。參照母體＝當年度全賽事（版本強弱只看近三版）。")}</div></div>`;
+              ?"Sub-lines = matchup by lane (top / jng / mid / bot / sup) and synergy by pair (top&jng / jng&mid / bot&sup), coloured by side."
+              :"子列＝對位五路（上／野／中／下／輔）與組合三對（上野／野中／下輔），依藍紅方標色。")}<br>${hiNum(en
+              ?"50 = historical median. Any single item with too few games counts as a neutral 50; a factor with no data on either side is dimmed."
+              :"50＝歷史中位。樣本不足的<b>單項</b>以中性 50 計入；兩隊都沒資料的項目整列變淡。")}</div></div>`;
       };
       // 角色池固定在右（欄寬鎖定五局版型不壓縮）；局區在左、獨立橫向捲動——局號 1→N 由左到右，最新一局在最右、緊貼角色池
       {
@@ -12681,13 +12721,16 @@ function render(){
         fitPool(); };
       // 縮放/改視窗大小：整塊重繪（重算池寬、局寬），避免只調高度造成版面跑掉
       fit(); window.onresize=()=>{clearTimeout(window._bpRz); window._bpRz=setTimeout(()=>{if(curView==="模擬BP")rerender();},120);}; // guard：window.onresize 會殘留到離開分頁之後，不 guard 會對舊 DOM 重繪
-      // 分數浮框：滑上去才算（draftScore 有索引快取，重算很便宜）
-      wrap.querySelectorAll(".bsScNum").forEach(el=>{
-        el.addEventListener("mouseenter",()=>{ const f=draftScore(+el.dataset.g); if(!f)return;
-          const h=scoreTipHTML(f[el.dataset.k],el.style.color||"var(--gold)");
+      // 分數浮框：掛在中間的差值上（draftScore 有索引快取，重算很便宜）
+      wrap.querySelectorAll(".bsScD[data-g]").forEach(el=>{
+        el.addEventListener("mouseenter",()=>{ const gi=+el.dataset.g, f=draftScore(gi); if(!f)return;
+          const gt=(S.tm||[])[gi]||null, tA=gt?gt.a:S.t1, tB=gt?gt.b:S.t2;
+          const nm=k=>{ const flip=S.side[gi]||0; const t2=(k==="1")?tA:tB; return tAb(t2)||(k==="1"?T("戰隊A"):T("戰隊B")); };
+          const h=scoreTipHTML(f[el.dataset.a],f[el.dataset.b],nm(el.dataset.a),nm(el.dataset.b));
           if(h)tipShow(h,el.getBoundingClientRect(),"up"); });
         el.addEventListener("mouseleave",tipHide);
       });
+
       wrap.querySelectorAll(".bpChip").forEach(ch=>{
         ch.ondragstart=ev=>ev.dataTransfer.setData("text/plain",JSON.stringify({ch:ch.dataset.ch,pos:ch.dataset.pos||""}));
         // 滑過 → 全池同英雄一起發光（不同路線出現同一隻時一眼看見）
