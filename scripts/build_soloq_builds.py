@@ -125,9 +125,19 @@ def load_items():
     ver = json.load(urllib.request.urlopen("https://ddragon.leagueoflegends.com/api/versions.json"))[0]
     data = json.load(urllib.request.urlopen(f"https://ddragon.leagueoflegends.com/cdn/{ver}/data/en_US/item.json"))["data"]
     leg = set(); excl = set(); boots = set(); gold = {}  # leg=大裝, excl=起手排除(飾品+消耗), boots=鞋, gold=各裝總價(選單一起手裝用)
+    # dmg={道具:(攻擊力,法術強度)}：用來由「這隻英雄實際買什麼」判物理/魔法傾向（見下方 apr）。
+    # 比 DDragon 的 info.attack/magic（設計師 1-10 主觀評分）準得多——那兩個量的是
+    # 「靠普攻還是靠技能」不是傷害類型，實測姬亞娜被標 100% 法系（她是物理）、
+    # 黛安娜只有 53%（她是純法系）、伊澤瑞爾 46%（純物理）。出裝是行為證據。
+    dmg = {}
     for i, v in data.items():
         g = v.get("gold", {}); tg = v.get("tags", [])
         gold[int(i)] = g.get("total", 0)
+        _st = v.get("stats") or {}
+        _ad = _st.get("FlatPhysicalDamageMod") or 0
+        _ap = _st.get("FlatMagicDamageMod") or 0
+        if _ad or _ap:
+            dmg[int(i)] = (_ad, _ap)
         if "Trinket" in tg or "Consumable" in tg: excl.add(int(i))
         if "Boots" in tg and g.get("purchasable"): boots.add(int(i))
         if g.get("purchasable") and not v.get("into") and g.get("total", 0) >= 1100 and "Boots" not in tg and "Trinket" not in tg:
@@ -149,10 +159,10 @@ def load_items():
         while x in boot_base and x not in seen: seen.add(x); x = boot_base[x]
         return x
     boot_base = {k: _resolve(k) for k in boot_base}
-    return leg, excl, boots, boot_base, gold
+    return leg, excl, boots, boot_base, gold, dmg
 
 def main():
-    leg, EXCL, BOOTS, BOOT_BASE, GOLD = load_items(); leg -= CORE_EXCLUDE  # 排除滾雪球裝(靈魂竊取者)不當核心裝/流派
+    leg, EXCL, BOOTS, BOOT_BASE, GOLD, IDMG = load_items(); leg -= CORE_EXCLUDE  # 排除滾雪球裝(靈魂竊取者)不當核心裝/流派
     pstart = load_patch_bounds(); uni = sorted(pstart.keys(), key=patch_key)  # 版本→最早比賽日、版本序(供「前三版核心裝」coreP)
     sp = season_patches()                            # 近兩版＝官方公告當季最新兩版(職業賽跳過的版本也算，如 26.12)
     p2v = sp[-2:] if len(sp) >= 2 else (sp or uni[-2:])
@@ -415,7 +425,20 @@ def main():
         runesKS = _runes_ks(runePage[c], runePageW[c], ksOpp[c])
         # 常配英雄前五：[英雄, 場數, 勝場]（前端自己算勝率與佔比）
         _duTop = sorted(duCnt[c].items(), key=lambda kv: (-kv[1][0], kv[0]))[:5]
+        # apr＝這隻英雄的魔法傷害傾向，由**實際買的核心裝**算（攻擊力 vs 法術強度，依出裝率加權）。
+        # 模擬BP 選角評分的「傷害偏向」子項用。純坦克/輔助沒有 AD/AP 裝 → 不輸出（他們本來就不是
+        # 傷害來源，那一項的路線權重也是 上0.5/野0.5/中1/下1/輔0）。
+        _ad = _ap = 0.0
+        for _src in (coreTop, core100):
+            for _e in (_src or []):
+                _t = IDMG.get(_e["id"] if isinstance(_e, dict) else _e)
+                if not _t:
+                    continue
+                _w = ((_e.get("pct") if isinstance(_e, dict) else None) or 100) / 100.0
+                _ad += _t[0] * _w; _ap += _t[1] * _w
         champs[c] = {"n": n, "duo": [[k2, v2[0], v2[1]] for k2, v2 in _duTop], "start": startByPos, "boots": bootsTop, "core": coreTop, "rest": restTop, "core100": core100, "paths": pathTop, "paths2p": pathTop2p, "coreP": coreP, "runesKS": runesKS}
+        if _ad + _ap > 0:
+            champs[c]["apr"] = round(_ap / (_ad + _ap), 3)
         # ── byLane：多路線英雄逐路線分開（路線需 ≥max(30, 5%總場)；只有 1 條達標＝單路線英雄 → 不輸出，前端沿用整體）──
         _majors = [(p3, laneGames[c].get(p3, 0)) for p3 in ("TOP", "JUNGLE", "MIDDLE", "BOTTOM", "UTILITY")]
         _majors = [(p3, ln3) for p3, ln3 in _majors if ln3 >= max(30, 0.05 * n)]

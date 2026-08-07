@@ -12348,9 +12348,22 @@ function render(){
           eg+=EM[ci]||0; });
         if(!n)return null;
         let wad=0, wap=0;
-        if(byLane)POSN.forEach(L=>{ const d=_CTAG[byLane[L]]; if(!d)return;
-          const i2=d.i||[0,0,0]; wad+=(i2[0]||0)*_WLANE[L]; wap+=(i2[2]||0)*_WLANE[L]; });
-        const lean=(wad+wap)?wap/(wad+wap):((ap+ad)?ap/(ap+ad):0.5);
+        // 傷害偏向優先用 soloq_builds 的 apr＝**這隻英雄實際買什麼裝**算出的法傷佔比（行為證據）。
+        // ⚠ 不要退回用 DDragon 的 info.attack/magic 當主要來源：那兩個量的是「靠普攻還是靠技能」、
+        //   不是傷害類型，實測姬亞娜被標 100% 法系（她是純物理）、黛安娜只有 53%（她是純法系）、
+        //   伊澤瑞爾 46%（純物理）、慎 50%（純物理）。出裝判定與技能敘述相關 0.877、與 info 只有 0.824，
+        //   而且逐隻人工核對出裝全對。純坦/輔（雷歐娜、亞歷斯塔、卡桑帝…14 隻）沒有 AD/AP 裝 →
+        //   不計入，他們本來就不是傷害來源。
+        const _BC=((window.SOLOQ_BUILDS||{}).champs)||{};
+        let ws=0, wn=0;
+        if(byLane)POSN.forEach(L=>{ const w=_WLANE[L]; if(!w)return;
+          const r=(_BC[byLane[L]]||{}).apr; if(r==null)return;
+          ws+=r*w; wn+=w; });
+        let lean;
+        if(wn>0)lean=ws/wn;
+        else { if(byLane)POSN.forEach(L=>{ const d=_CTAG[byLane[L]]; if(!d)return;   // 退路：builds 還沒載到
+            const i2=d.i||[0,0,0]; wad+=(i2[0]||0)*_WLANE[L]; wap+=(i2[2]||0)*_WLANE[L]; });
+          lean=(wad+wap)?wap/(wad+wap):((ap+ad)?ap/(ap+ad):0.5); }
         return {ap:(ap+ad)?ap/(ap+ad):0.5, lean, fr:fr/n, eg:eg/n, n}; };
       // 傷害配置的兩軸：五路先驗加總（沒選滿就依已選手數等比放大到滿編五人，還沒選滿也能比）
       const _cfgMet=(byLane,pr)=>{ if(!byLane||!pr)return null; let d=0, m=0, n=0;
@@ -12359,8 +12372,12 @@ function render(){
           d+=p.ds/p.dn; m+=p.ms/p.mn; n++; });
         return n?{d:d*5/n, m:m*5/n, n}:null; };
       const _cfgBi=(v,cuts)=>{ let i=0; while(i<cuts.length&&v>=cuts[i])i++; return i; };
-      let _compRef=null;
-      const compRefIdx=()=>{ if(_compRef)return _compRef;
+      // ⚠ soloq_builds.js 是延遲載入的（見 ensureBuilds）。傷害偏向的中位要用 apr 算，
+      //   所以參照母體必須記住「建的時候 builds 到了沒」，狀態一變就重算——否則會永遠卡在退路版的基準。
+      let _compRef=null, _compRefB=null;
+      const compRefIdx=()=>{ const _bR=!!((window.SOLOQ_BUILDS||{}).champs);
+        if(_compRef&&_compRefB===_bR)return _compRef;
+        _compRefB=_bR;
         const ap=[], fr=[], egB={}, leanAll=[], leanRc=[];
         // 傷害偏向的中位只看**最近三個版本**（使用者指定 2026-08-08）：meta 會整個位移——
         // 實測近三版中位 51.5%、當年度 47.6%，差 4pp，用全年當基準會把整批法系陣容誤判成偏。
