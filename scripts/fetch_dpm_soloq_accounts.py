@@ -342,6 +342,28 @@ def main():
                 diff_lines.append(f"  [補] {tm}|{pl}: +{[e['riotId'] for e in addl]}（保留 {len(existing)} 舊）")
             else:
                 kept += 1
+        # 同一個 dpmPuuid 只留一筆（2026-08-07 修）：改名後 dpm 回的是**新** riotId，
+        # 但既有清單裡還留著舊的，而上面只比對 riotId → 兩筆並存。後果：
+        #   ・fetch_soloq.py 會拿舊 ID 去查牌位，查到的是「接手舊名的別人」→ found:false 的雜訊
+        #     （HLE Zeus 就是這樣：zeus#glgl 與 Athene#lll 同一個 dpmPuuid，牌位掛在舊的那筆上）
+        #   ・fetch_soloq_update.py 會用同一個 puuid 白抓兩次（合併時靠時間戳去重才沒重複計算）
+        # 保留規則：優先留「dpm 這次回報的 riotId」＝當前名字。
+        if use:
+            dpm_rids = {norm(e["riotId"]) for e in dpm_ents}
+            byp, nopu, dropped = {}, [], []
+            for e in use:
+                pu = e.get("dpmPuuid")
+                if not pu:
+                    nopu.append(e); continue
+                if pu not in byp:
+                    byp[pu] = e; continue
+                a0, b0 = byp[pu], e
+                keep = b0 if (norm(b0["riotId"]) in dpm_rids and norm(a0["riotId"]) not in dpm_rids) else a0
+                byp[pu] = keep; dropped.append(b0 if keep is a0 else a0)
+            if dropped:
+                diff_lines.append(f"  [併] {tm}|{pl}: 同 puuid 去重 −{[e['riotId'] for e in dropped]}"
+                                  f"（留 {[byp[e['dpmPuuid']]['riotId'] for e in dropped]}）")
+            use = list(byp.values()) + nopu
         new_acc.extend(use)
 
     out = PREVIEW if not apply else ACCOUNTS
