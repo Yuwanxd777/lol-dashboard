@@ -19,6 +19,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 ACCOUNTS = os.path.join(HERE, "soloq_accounts.json")
 OUT = os.path.join(ROOT, "soloq.js")
+TODAY = time.strftime("%Y-%m-%d")   # 對照帳號的 dpmSeen＝dpm 選手檔今天確認過該 riotId（改名回寫的守門用）
 
 KEY = os.environ.get("RIOT_API_KEY", "").strip()
 if not KEY:
@@ -141,15 +142,23 @@ def main():
         game, tagl = a["riotId"].rsplit("#", 1)
         print(f"[{tag_lbl}] {a.get('player','?')} ({a.get('team','?')}) {a['riotId']} @{plat}")
         acc = get_account(cluster, game.strip(), tagl.strip())  # dpm 的 puuid 非 Riot puuid，用 account-v1 解析真 puuid
+        via_prev = False
         if not acc:  # 舊 ID 查不到（改名/暫時性失敗）→ 用上次 puuid 反查目前 ID（改名自動修復）
-            pu2 = PREV_ID.get((a["riotId"], plat)) or PREV_TP.get((a.get("team"), a.get("player"), plat))
+            # PREV_ID 以 (riotId,platform) 為鍵＝同一個帳號，安全；
+            # PREV_TP 以 (team,player,platform) 為鍵＝**該選手在該區的任一帳號**，可能根本不是這筆的
+            # puuid。若 dpm 選手檔今天才確認過這個名字，就不准用這條鬆散反查——否則會拿到別人的
+            # 帳號、把牌位查成空的，還會把正確的新名字回寫成舊名。
+            # （HLE Zeus：Athene#lll 查不到 → PREV_TP 給了舊 puuid → 反查回 zeus#glgl＝接手舊名的別人）
+            pu2 = PREV_ID.get((a["riotId"], plat))
+            if not pu2 and a.get("dpmSeen") != TODAY:
+                pu2 = PREV_TP.get((a.get("team"), a.get("player"), plat))
             if pu2:
-                acc = get_account_by_puuid(cluster, pu2)
+                acc = get_account_by_puuid(cluster, pu2); via_prev = True
                 if acc: print(f"    ♻ 以 puuid 反查成功：目前 ID = {acc.get('gameName')}#{acc.get('tagLine')}")
         puuid = acc.get("puuid") if acc else None
         curId = (acc.get("gameName","")+"#"+acc.get("tagLine","")) if acc else None  # Riot 目前的 Riot ID(可能已改名)
         if curId and curId != a["riotId"]:
-            RENAMES[(a.get("team",""), a.get("player",""), a["riotId"])] = curId
+            RENAMES[(a.get("team",""), a.get("player",""), a["riotId"])] = (curId, via_prev)
         rec = {"player": a.get("player",""), "team": a.get("team",""), "platform": plat,
                "riotId": a["riotId"], "puuid": puuid, "curId": curId,
                "tier": None, "division": None, "lp": None,
@@ -204,15 +213,22 @@ def main():
     ok = sum(1 for r in out if r["found"])
     print(f"\n完成：{ok}/{len(out)} 有排名 → 已寫入 {OUT}")
     if RENAMES:  # 改名自動同步回帳號清單：下次起直接用新 ID 查
-        raw = json.load(open(ACCOUNTS, encoding="utf-8")); n = 0
+        raw = json.load(open(ACCOUNTS, encoding="utf-8")); n = 0; skipped = []
         for a in raw:
             k = (a.get("team",""), a.get("player",""), a.get("riotId",""))
-            if k in RENAMES:
-                a["riotId"] = RENAMES[k]; n += 1
+            if k not in RENAMES: continue
+            new, via_prev = RENAMES[k]
+            # 反查來的名字不可信（用的 puuid 未必是這筆帳號的），不准蓋掉 dpm 選手檔今天確認過的名字
+            if via_prev and a.get("dpmSeen") == TODAY:
+                skipped.append((k[0], k[1], a.get("riotId",""), new)); continue
+            a["riotId"] = new; n += 1
         if n:
             json.dump(raw, open(ACCOUNTS, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
             print(f"♻ 改名自動更新 {n} 個帳號 → soloq_accounts.json：")
-            for (tm, pl, old), new in RENAMES.items(): print(f"   {tm} {pl}: {old} → {new}")
+            for (tm, pl, old), (new, _v) in RENAMES.items(): print(f"   {tm} {pl}: {old} → {new}")
+        if skipped:
+            print(f"⏭ 略過 {len(skipped)} 個反查來的改名（dpm 選手檔今天確認過現有名字）：")
+            for tm, pl, old, new in skipped: print(f"   {tm} {pl}: 保留 {old}（未採用反查到的 {new}）")
 
 if __name__ == "__main__":
     main()

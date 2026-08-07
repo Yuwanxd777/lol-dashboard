@@ -81,9 +81,19 @@ def main():
                     return [(e.get("player") if isinstance(e, dict) and isinstance(e.get("player"), dict) else e) for e in v]
             return []
 
-        n_ok = n_fail = done = 0
+        # 同一個 dpmPuuid 不可以同時屬於兩位選手（那代表其中一位的逐場會混進別人的對局）。
+        # 先記下現有的歸屬，反查到已被別人佔用的 puuid 就拒絕，寧可留空等下次也不要配錯。
+        # （2026-08-08：KT|Bdd 파피몬#1111 與 KRX|Willer 김정현#Kjh1 曾共用同一個 puuid，
+        #   兩人是不同帳號、不同路線，逐場互相混入。清掉後就是靠這道防線避免再被配回去。）
+        owner = {}
+        for e in acc:
+            if e.get("dpmPuuid"):
+                owner.setdefault(e["dpmPuuid"], set()).add(f'{e.get("team")}|{e.get("player")}')
+
+        n_ok = n_fail = n_conf = done = 0
         for a in todo:
             rid = a["riotId"]; gn, _, tl = rid.partition("#")
+            me = f'{a.get("team")}|{a.get("player")}'
             r = query(gn); hit = None
             if r.get("st") == 200:
                 for c in pick_arr(r["j"]):
@@ -93,19 +103,25 @@ def main():
                             and str(c.get("tagLine", "")).strip().lower() == tl.strip().lower()
                             and c.get("puuid")):
                         hit = c; break
-            if hit:
+            if hit and (owner.get(hit["puuid"], set()) - {me}):
+                n_conf += 1
+                print(f"  ⚠ {me} {rid}：反查到的 puuid 已屬於 "
+                      f"{sorted(owner[hit['puuid']] - {me})} → 拒絕配對，留空待下次", flush=True)
+            elif hit:
                 a["dpmPuuid"] = hit["puuid"]; n_ok += 1
-                print(f"  ✓ {a.get('team')}|{a.get('player')} {rid}", flush=True)
+                owner.setdefault(hit["puuid"], set()).add(me)
+                print(f"  ✓ {me} {rid}", flush=True)
             else:
                 n_fail += 1
-                print(f"  ✗ {a.get('team')}|{a.get('player')} {rid}（查無相符，st={r.get('st')}）", flush=True)
+                print(f"  ✗ {me} {rid}（查無相符，st={r.get('st')}）", flush=True)
             done += 1
             if done % 10 == 0:
                 json.dump(acc, open(ACCOUNTS, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
             time.sleep(0.8)
         b.close()
     json.dump(acc, open(ACCOUNTS, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
-    print(f"\n完成：補上 {n_ok} 個 dpmPuuid｜查無 {n_fail} 個 → soloq_accounts.json", flush=True)
+    print(f"\n完成：補上 {n_ok} 個 dpmPuuid｜查無 {n_fail} 個"
+          f"{f'｜拒絕 {n_conf} 個（puuid 已屬於別位選手）' if n_conf else ''} → soloq_accounts.json", flush=True)
 
 
 if __name__ == "__main__":

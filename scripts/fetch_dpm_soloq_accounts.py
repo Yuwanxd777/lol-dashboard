@@ -20,6 +20,7 @@ UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
 DPM_LEAGUES = ["lcs", "lec", "cblol"]           # 以 dpm 為主的職業聯賽
 PLAT = {"NA1": "na1", "KR": "kr", "KR1": "kr", "EUW1": "euw1", "EUN1": "eun1", "BR1": "br1",
         "LA1": "la1", "LA2": "la2", "OC1": "oc1", "TR1": "tr1", "RU": "ru", "JP1": "jp1"}
+TODAY = time.strftime("%Y-%m-%d")   # 寫進每筆的 dpmSeen（dpm 選手檔今天確認過這個 riotId）
 # 隊碼正規化（僅列已知差異；相同者不需列）。右邊一律是 **load_abbr() 的真縮寫**，一份表兩個用途：
 #   ① dpm／OBGG 的隊碼 → 本清單隊碼（LOUD 在 dpm 叫 LLL、Team Liquid 叫 TLAW）
 #   ② 清單裡殘留的舊隊碼 → 同一個真縮寫。不收斂的話 (選手,隊) 分組會把同一人拆成兩組互相
@@ -310,10 +311,14 @@ def main():
                 use_as = plist                                                   # 同名只有一位職業選手→直接採用(縮寫跟 DPM 對不上也抓得到)
             else:
                 use_as = []                                                      # 同名跨多隊且無一相符→無法安全消歧，跳過(避免抓錯人)
+            # dpmSeen＝dpm 選手檔（/v1/pros）今天確認過「這個 riotId 現在就是他的名字」。
+            # 用途見 fetch_soloq_update.py / fetch_soloq.py 的改名回寫：那兩支拿到的名字來源
+            # 是「某一場比賽的參賽者名」或「用舊 puuid 反查」，都可能是過期快照，不可以蓋掉
+            # 今天才由選手檔確認過的名字（Zeus 改名後被蓋回舊名就是這樣來的）。
             ents = [{"player": pl, "team": tm,
                      "platform": PLAT.get(a.get("platform"), str(a.get("platform") or "").lower()),
                      "riotId": f"{a.get('gameName')}#{a.get('tagLine')}", "dpmPuuid": a.get("puuid"),
-                     "dpmRank": dpm_rank(a)} for a in use_as]
+                     "dpmRank": dpm_rank(a), "dpmSeen": TODAY} for a in use_as]
             # 去重（同 riotId）
             uniq = {}
             for e in ents:
@@ -350,6 +355,7 @@ def main():
                 de = dbr.get(norm(e["riotId"]))
                 if de:
                     e = dict(e)
+                    e["dpmSeen"] = de.get("dpmSeen")   # dpm 今天仍回報這個名字 → 蓋新日期（沒有 de 就留舊日期，改名回寫的守門自然失效）
                     if de.get("dpmRank"):
                         e["dpmRank"] = de["dpmRank"]
                     if de.get("dpmPuuid") and not e.get("dpmPuuid"):

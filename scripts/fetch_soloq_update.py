@@ -214,14 +214,26 @@ def main():
                 print(f"[{i}/{len(keys)}] {key}  +{len(newg)} 新（共 {len(merged)}）")
         b.close()
     if RENAME:  # 改名自動同步：更新 soloq_accounts.json 的 riotId（fetch_soloq 牌位查詢下輪直接用新 ID）
-        raw = json.load(open(ACCOUNTS, encoding="utf-8")); n = 0
+        # ⚠ 這裡的「新名字」來源是 dpm 最近一場比賽的參賽者名，那是**該局當下**的 ID（見 JS_NEW 的
+        #   rid 註解），選手改名後若還沒再打一場，讀到的就是舊名。所以不可以蓋掉今天才由 dpm
+        #   選手檔(/v1/pros)確認過的名字（dpmSeen==今天）——否則會把正確的新名改回舊名，而且
+        #   下一支 fetch_soloq.py 又會改回來，兩支每天來回震盪。
+        #   實例：HLE Zeus 改名 Athene#lll，這裡讀到舊名 Zeus#glgl 蓋回去 → 牌位永遠查不到。
+        _today = time.strftime("%Y-%m-%d")
+        raw = json.load(open(ACCOUNTS, encoding="utf-8")); n = 0; skipped = []
         for e in raw:
             k = (f'{e.get("team","")}|{e.get("player","")}', e.get("riotId",""))
-            if k in RENAME: e["riotId"] = RENAME[k]; n += 1
+            if k not in RENAME: continue
+            if e.get("dpmSeen") == _today:
+                skipped.append((k[0], e.get("riotId",""), RENAME[k])); continue
+            e["riotId"] = RENAME[k]; n += 1
         if n:
             json.dump(raw, open(ACCOUNTS, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
             print(f"♻ 改名自動更新 {n} 個帳號 → soloq_accounts.json：")
             for (key2, old), new in RENAME.items(): print(f"   {key2}: {old} → {new}")
+        if skipped:
+            print(f"⏭ 略過 {len(skipped)} 個改名（dpm 選手檔今天確認過現有名字，比賽紀錄裡的是舊快照）：")
+            for key2, old, new in skipped: print(f"   {key2}: 保留 {old}（未採用比賽紀錄的 {new}）")
     if ACC_LG:  # 每帳號最後 soloq 時間（合併既有）→ 積分頁挑帳號用
         tot = write_acc_lastgame(ACC_LG)
         print(f"每帳號最後 soloq 時間：本次更新 {len(ACC_LG)} 個 → soloq_acc_lastgame.js（累計 {tot}）")
