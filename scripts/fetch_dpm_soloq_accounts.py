@@ -20,8 +20,14 @@ UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
 DPM_LEAGUES = ["lcs", "lec", "cblol"]           # 以 dpm 為主的職業聯賽
 PLAT = {"NA1": "na1", "KR": "kr", "KR1": "kr", "EUW1": "euw1", "EUN1": "eun1", "BR1": "br1",
         "LA1": "la1", "LA2": "la2", "OC1": "oc1", "TR1": "tr1", "RU": "ru", "JP1": "jp1"}
-# dpm 隊碼 → 本清單隊碼（僅列已知差異；相同者不需列）
-TEAM_ALIAS = {"GEN": "GENG", "DNF": "DNS", "LLL": "LOUD"}  # dpm 隊碼→本清單碼；DNF→DNS(改名)、LOUD 在 dpm 用 LLL
+# 隊碼正規化（僅列已知差異；相同者不需列）。右邊一律是 **load_abbr() 的真縮寫**，一份表兩個用途：
+#   ① dpm／OBGG 的隊碼 → 本清單隊碼（LOUD 在 dpm 叫 LLL、Team Liquid 叫 TLAW）
+#   ② 清單裡殘留的舊隊碼 → 同一個真縮寫。不收斂的話 (選手,隊) 分組會把同一人拆成兩組互相
+#      看不到，帳號各存一份、逐場各抓一份、積分排行榜出現重複列（實測 Aiming 6 列但只有 3 個帳號）。
+# ⚠ 方向別寫反：真縮寫是 GEN／TL／KRX／DNS／LOUD（比賽資料 match_roster 給的就是這些），
+#    GENG／TLAW／DRX／DNF 才是外來碼。前端 index.html 的 TEAM_ALIAS 是**顯示用**、方向相反
+#    （KRX→DRX 顯示成 DRX），兩者不要混為一談。
+TEAM_ALIAS = {"GENG": "GEN", "TLAW": "TL", "DRX": "KRX", "DNF": "DNS", "LLL": "LOUD"}
 # 使用者本機(localStorage USER_TABBR)改過、但 STATIC_TABBR 仍是舊值的縮寫覆寫（Python 抓不到 localStorage，這裡補）；key=隊全名小寫
 ABBR_OVERRIDE = {"fluxo w7m": "FX"}
 # 積分頁不列/不抓的選手（已離隊且不再於一級聯賽出場、遭永久禁賽等）；正規化小寫名。
@@ -106,7 +112,7 @@ def fix_legacy_team_codes(acc, abbr, fullnames=None):
     截斷碼是可反推的（同一套算法），唯一對應時才改，避免誤判。
     fullnames＝主資料實際出現過的隊全名；**只用這些來反推**，否則 wiki 表裡的青訓隊會造成歧義
     （Top Esports / Top Esports Challenger 前 5 字都是 TOPES → 不唯一就永遠修不掉）。"""
-    valid = {str(v).upper() for v in abbr.values() if v}   # 真正在用的縮寫，一律不動（DRX/GENG 等都在裡面）
+    valid = {str(v).upper() for v in abbr.values() if v}   # 真正在用的縮寫，一律不動（GEN/TL/KRX/DNS 等都在裡面；GENG/TLAW/DRX/DNF 不在，那些走 TEAM_ALIAS）
     src = {f.lower(): abbr.get(f.lower()) for f in (fullnames or [])} if fullnames else abbr
     trunc = {}
     for full, ab in src.items():
@@ -194,6 +200,20 @@ def main():
     except Exception as _e:
         print(f"（隊全名清單載入失敗：{_e}）", flush=True)
     acc = fix_legacy_team_codes(acc, ABBR, _fulls)   # 先把舊的假隊碼(TOPES/THUND…)改回真縮寫，否則同一選手會被拆成兩隊
+    # 舊隊碼收斂（2026-08-07）：同一隊在清單裡有兩個碼(DNF/DNS、KRX/DRX)時，下面的 (選手,隊)
+    # 分組會把同一人拆成兩組互相看不到 → 帳號各存一份、逐場各抓一份、積分排行榜出現重複列
+    # （實測 DRX Aiming 6 列但其實只有 3 個帳號）。只在目標是 load_abbr() 的真縮寫時才換，
+    # 對照表寫錯也只會是 no-op。
+    _valid_ab = {str(v).upper() for v in ABBR.values() if v}
+    _ren = {}
+    for a in acc:
+        t0 = str(a.get("team") or "")
+        t1 = canon_team(t0)
+        if t1 != t0 and t1.upper() in _valid_ab:
+            a["team"] = t1
+            _ren[t0] = t1
+    if _ren:
+        print("  舊隊碼收斂：" + "、".join(f"{k}→{v}" for k, v in sorted(_ren.items())), flush=True)
     # 名單＝現有 (player, team)（比賽數據出現過的）；記住既有帳號供 union / 保留
     roster = []
     seen_pt = set()
@@ -366,6 +386,66 @@ def main():
             use = list(byp.values()) + nopu
         new_acc.extend(use)
 
+    # ── 跨選手清理（2026-08-07 使用者定案）。上面的去重只在同一個 (選手,隊) 內做，
+    #    抓錯人造成的「同一個帳號掛在兩位不同選手名下」它看不到。
+    #    ① 同 riotId 跨選手 ＝ 其中一位抓錯人。判準＝dpm 這次把它回報在誰名下，只留那位。
+    #       實例：May#KR43 同時掛 GZ|Betty 與 OMG|Starry，dpm 只回報給 Betty →
+    #       Starry 積分頁顯示的其實是 Betty 的對局（兩人逐場檔都是 381 場）。
+    #       Starry 自己的帳號是 May#0411，是靠名字相近被誤配的。
+    #    ② 不同 riotId 卻共用同一個 dpmPuuid ＝ 不同帳號不可能是同一個 dpm 身分，
+    #       必有一邊是 resolve_obgg_dpmpuuid.py 的 best-effort 搜尋配錯。判不出是哪邊時
+    #       **兩邊都清掉** 讓它下一輪重解——留著錯的會讓兩人的逐場互相混入。
+    #       實例：KRX|Willer 김정현#Kjh1 與 KT|Bdd 파피몬#1111 共用一個 puuid，兩個名字 dpm 都已不回報。
+    cross_lines = []
+
+    def _dpm_has(e):
+        return norm(e["riotId"]) in {norm(x["riotId"]) for x in dpm_by_pt.get((e["player"], e["team"]), [])}
+
+    def _pkey(e):
+        return e["team"] + "|" + e["player"]
+
+    by_rid = {}
+    for e in new_acc:
+        by_rid.setdefault(norm(e["riotId"]), []).append(e)
+    drop = []
+    for _rid, es in by_rid.items():
+        if len({e["player"] for e in es}) < 2:
+            continue
+        ok = [e for e in es if _dpm_has(e)]
+        if len(ok) != 1:
+            cross_lines.append(f"  [跨] ⚠ 同 riotId {es[0]['riotId']} 跨選手 {[_pkey(x) for x in es]}"
+                               f"：dpm 確認 {len(ok)} 筆 → 判不出歸屬，保留不動")
+            continue
+        rest = [e for e in es if e is not ok[0]]
+        # 安全閥：刪到某人一個帳號都不剩就不刪（寧可留著重複也不要讓他整個消失）
+        left = {_pkey(e): 0 for e in rest}
+        for e in new_acc:
+            if _pkey(e) in left and not any(e is r for r in rest):
+                left[_pkey(e)] += 1
+        if any(v == 0 for v in left.values()):
+            cross_lines.append(f"  [跨] ⚠ 同 riotId {es[0]['riotId']} 跨選手 {[_pkey(x) for x in es]}"
+                               f"：刪掉會讓 {[k for k, v in left.items() if v == 0]} 沒有任何帳號 → 保留不動")
+            continue
+        drop += rest
+        cross_lines.append(f"  [跨] 同 riotId {es[0]['riotId']} 跨選手 → 留 {_pkey(ok[0])}（dpm 現行歸屬）、"
+                           f"刪 {[_pkey(x) for x in rest]}")
+    if drop:
+        new_acc = [e for e in new_acc if not any(e is d for d in drop)]
+
+    by_pu = {}
+    for e in new_acc:
+        if e.get("dpmPuuid"):
+            by_pu.setdefault(e["dpmPuuid"], []).append(e)
+    for pu, es in by_pu.items():
+        if len({e["player"] for e in es}) < 2 or len({norm(e["riotId"]) for e in es}) < 2:
+            continue
+        ok = [e for e in es if _dpm_has(e)]
+        victims = [e for e in es if not any(e is o for o in ok)] if len(ok) == 1 else es
+        for e in victims:
+            e.pop("dpmPuuid", None)
+        cross_lines.append(f"  [跨] 不同 riotId 共用 dpmPuuid {pu[:16]}…："
+                           f"{[_pkey(x) + ' ' + x['riotId'] for x in es]} → 清掉 {len(victims)} 筆的 dpmPuuid 待重解")
+
     out = PREVIEW if not apply else ACCOUNTS
     if apply:
         json.dump(acc, open(ACCOUNTS + ".bak", "w", encoding="utf-8"), ensure_ascii=False, indent=1)
@@ -377,6 +457,8 @@ def main():
         print(ln, flush=True)
     if len(diff_lines) > 80:
         print(f"  …還有 {len(diff_lines) - 80} 條變更", flush=True)
+    for ln in cross_lines:      # 跨選手清理筆數少但每一條都要看到，不隨 diff_lines 被截斷
+        print(ln, flush=True)
     print(f"\n{'已覆寫 soloq_accounts.json（備份 .bak）' if apply else '→ 寫到 soloq_accounts.preview.json（現行檔未動）。確認後跑 --apply'}", flush=True)
 
 
