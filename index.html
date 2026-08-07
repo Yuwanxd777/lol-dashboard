@@ -425,11 +425,24 @@
   #hoverTip:has(.evtRos){max-width:min(860px,92vw)}
   /* 選角評分浮框：全域 th,td 帶 nowrap+ellipsis，說明欄會被裁成「…」（鐵則：不可裁字）→ 這裡覆寫掉，
      說明允許折行、框放寬到 640。前三欄仍 nowrap 保持對齊 */
-  #hoverTip:has(.scTip){max-width:min(640px,92vw)}
-  #hoverTip .scTip td{border-bottom:none;text-align:left;overflow:visible;text-overflow:clip}
-  #hoverTip .scTip td.scD{white-space:normal}
-  /* 全域 table 是 width:100%，四欄會被平均撐成一樣寬、數字散開；這裡改成依內容寬（但不得超出框） */
-  #hoverTip .scTip table{width:auto;max-width:100%}
+  /* 選角評分浮框：**刻意不用 table**——全域表格帶斑馬紋(tbody tr:nth-child odd/even 有底色)、
+     置中、nowrap+ellipsis、table-layout:fixed，塞進浮框裡就是一塊突兀的深色表格（使用者 2026-08-07
+     回報「很醜」）。改用 flex 列，欄位對齊靠固定寬度，跟全域表格樣式完全脫鉤。 */
+  #hoverTip .scTip{min-width:330px}
+  #hoverTip .scTip .scPk{float:right;font-weight:normal;color:#6b7a95;font-size:12.5px;padding-top:5px}
+  #hoverTip .scRow{display:flex;align-items:baseline;gap:9px;padding:4.5px 2px;
+    border-bottom:1px solid rgba(255,255,255,.05)}
+  #hoverTip .scRow:last-of-type{border-bottom:none}
+  #hoverTip .scRow.off{opacity:.42}
+  #hoverTip .scNm{flex:0 0 auto;min-width:5.2em;color:var(--tx);font-size:13.5px}
+  #hoverTip .scV{flex:0 0 auto;width:3.1em;text-align:right;font-weight:700;font-size:15.5px;
+    font-variant-numeric:tabular-nums}
+  #hoverTip .scW{flex:0 0 auto;width:2.6em;text-align:right;color:#6b7a95;font-size:11.5px}
+  #hoverTip .scSub{flex:1 1 auto;color:#8090ad;font-size:12.5px;font-variant-numeric:tabular-nums;
+    white-space:normal;padding-left:4px}
+  #hoverTip .scSub i{font-style:normal;color:#41506d;padding:0 4px}
+  #hoverTip .scFoot{margin-top:9px;padding-top:8px;border-top:1px solid #2a3550;
+    color:#6b7a95;font-size:11.5px;line-height:1.65}
   .evtRos>div>span{white-space:nowrap}
   #hoverTip .tipTitle{font-weight:bold;font-size:17px;margin-bottom:8px;color:var(--gold);border-bottom:1px solid #2a3550;padding-bottom:6px}
   #hoverTip .tipTitle .meta{font-size:13.5px}
@@ -12345,23 +12358,25 @@ function render(){
                  ["duo","隊友組合","Duo synergy",10],["comp","陣容","Composition",5]];
       const scCol=v=>v==null?"var(--tx2)":(v>=56?"#ff5d5d":v<=44?"#37c871":"#cdd6e6"); // 台灣習慣：越高越紅、越低越綠
       const scoreTipHTML=(s,col)=>{ if(!s||s.sc==null)return "";
-        const en=LANG==="en", td="padding:3px 12px 3px 0;white-space:nowrap";
+        const en=LANG==="en";
         // 子分數：全空就不列括號（整項樣本不足時列一排「–」只是雜訊）
         const sub=a=>a.some(v=>v!=null)
-          ?`<span style="font-variant-numeric:tabular-nums">(${a.map(v=>`<span style="color:${scCol(v)}">${v==null?"–":v}</span>`).join(" / ")})</span>`:"";
+          ?`(${a.map(v=>`<span style="color:${scCol(v)}">${v==null?"–":v}</span>`).join("<i>/</i>")})`:"";
         const muS=(s.muD||[]).map(d=>d.v), duoS=(s.duoD||[]).map(d=>d.v);
         const rows=SCF.map(([k,zh,ea,w])=>{ const v=s[k];
-          return `<tr${v==null?' style="opacity:.5"':''}><td style="${td}">${en?ea:zh}</td>`
-            +`<td style="${td};text-align:right;font-weight:bold;color:${scCol(v)};font-variant-numeric:tabular-nums">${v==null?"—":v}</td>`
-            +`<td style="${td};text-align:right;color:var(--tx2)">${w}%</td>`
-            // 括號欄要可折行（scD）：全域 th,td 是 nowrap，撐不下時整張表會超出浮框寬度（實測 676 vs 608）
-            +`<td class="scD" style="padding:3px 0;color:var(--tx2)">${k==="mu"?sub(muS):k==="duo"?sub(duoS):""}</td></tr>`; }).join("");
-        return `<div class="scTip"><div class="tipTitle">${en?"Draft score":"選角評分"} <span style="color:${col};font-size:19px">${s.sc}</span>`
-            +`<span style="color:var(--tx2);font-weight:normal;font-size:13px">　${en?"picks":"已選"} ${s.n}/5</span></div>`
-          +`<table style="border-collapse:collapse">${rows}</table>`
-          +`<div style="color:var(--tx2);margin-top:7px;border-top:1px solid #2a3550;padding-top:6px">${hiNum(en
-              ?"Brackets = per-lane matchup (top/jng/mid/bot/sup) and per-pair synergy (top&jng / jng&mid / bot&sup). 50 = historical median. A factor with too few games is left out and the rest renormalize. Reference = the whole year, all leagues (meta strength: last 3 patches only)."
-              :"括號＝對位五路（上／野／中／下／輔）與組合三對（上野／野中／下輔）。50＝歷史中位。某項樣本不足就整項不計入、其餘權重重新歸一。參照母體＝當年度全賽事（版本強弱只看近三版）。")}</div></div>`;
+          return `<div class="scRow${v==null?" off":""}"><span class="scNm">${en?ea:zh}</span>`
+            +`<span class="scV" style="color:${scCol(v)}">${v==null?"—":v}</span>`
+            +`<span class="scW">${w}%</span>`
+            +`<span class="scSub">${k==="mu"?sub(muS):k==="duo"?sub(duoS):""}</span></div>`; }).join("");
+        return `<div class="scTip"><div class="tipTitle">${en?"Draft score":"選角評分"}`
+            +`<span style="color:${col};font-size:21px;margin-left:9px">${s.sc}</span>`
+            +`<span class="scPk">${en?"picks":"已選"} ${s.n}/5</span></div>`
+          +rows
+          +`<div class="scFoot">${hiNum(en
+              ?"Brackets = matchup by lane (top / jng / mid / bot / sup) and synergy by pair (top&jng / jng&mid / bot&sup)."
+              :"括號＝對位五路（上／野／中／下／輔）、組合三對（上野／野中／下輔）。")}<br>${hiNum(en
+              ?"50 = historical median. A factor with too few games is left out and the rest renormalize. Reference = the whole year, all leagues (meta strength: last 3 patches)."
+              :"50＝歷史中位・樣本不足的項目不計入、其餘權重重新歸一・參照當年度全賽事（版本強弱只看近三版）。")}</div></div>`;
       };
       // 角色池固定在右（欄寬鎖定五局版型不壓縮）；局區在左、獨立橫向捲動——局號 1→N 由左到右，最新一局在最右、緊貼角色池
       {
