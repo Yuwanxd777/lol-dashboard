@@ -585,10 +585,14 @@
   .bpSlot .cc img.glowS{box-shadow:0 0 5px 3px rgba(255,255,255,.3)} /* BAN/PICK 格同英雄：白光不放大 */
   .bpSlot .cc img.bpLit{transform:scale(1.05);position:relative;z-index:3;box-shadow:0 0 5px 3px rgba(255,255,255,.3)} /* 滑上模擬局英雄：同英雄在所有模擬局格放大發白光（角色池不連動）*/
   .bpSlot:has(.cc img.bpLit){overflow:visible;z-index:3} /* 放大時不被格子邊框切掉 */
-  /* 角色池滑過放大發光時，讓「池／該路列／chips框」都不要切掉白光（只在有 glow 時放開，平時維持 hidden 版型）*/
-  .bpPool:has(.bpChip .cc img.glow){overflow:visible!important}
-  .bpPoolRow:has(.bpChip .cc img.glow){overflow:visible!important}
-  .bpChips:has(.bpChip .cc img.glow){overflow:visible}
+  /* 角色池的「池／該路列／chips框」一律 overflow:visible（2026-08-07 修 BUG）。
+     原本是「平時 hidden、只在有 glow 時放開」，但那會製造一個假發光：
+     bpUni 的金光往外擴 17px，平時被該列的 hidden 裁掉（實測 17 隻金光有 12 隻被裁，
+     茂凱／劫 上緣各被裁 13.8px），滑到**同一列**的任一隻英雄時該列裁切被放開，
+     那幾隻的金光整個露出來 → 看起來就像「滑到特朗德，茂凱跟劫也跟著發光」
+     （使用者 2026-08-07 回報，並自己指出是「同一選手的黃光被觸發」——正好對上逐列的 :has）。
+     實測強制放開後整池只有 0.19% 像素改變、且全在池內＝除了金光沒有任何東西真的溢出，
+     所以直接常開，金光永遠完整、hover 不再改變它。 */
   .bpChip:has(.cc img.glow){z-index:5}
   /* 英雄Tier / 比賽BP：英雄圖滑過同款 放大10%＋漸層白光 */
   #main[data-view="英雄Tier"] .tChip:hover>img,
@@ -11865,7 +11869,7 @@ function render(){
         ${extra||""}
         ${POSN.map((pos,ri)=>{
           const p=selPool(R,pos,st,sideKey==="1"?S.t1:S.t2);
-          return `<div class="bpPoolRow" style="flex:1.5 1 0;min-height:0;overflow:hidden;display:flex;align-items:center;background:linear-gradient(180deg,#161c2b,#121722);border:1px solid var(--line);border-radius:10px;padding:3px 7px;margin-top:4px">
+          return `<div class="bpPoolRow" style="flex:1.5 1 0;min-height:0;overflow:visible;display:flex;align-items:center;background:linear-gradient(180deg,#161c2b,#121722);border:1px solid var(--line);border-radius:10px;padding:3px 7px;margin-top:4px">
             <span class="bpPre" style="display:flex;align-items:center;gap:6px;flex:0 0 auto">${icBtn(p,sideKey,pos)}<span class="bpPlName" style="white-space:nowrap">${p.cur?esc(p.cur.p):""}</span>${swBtn(p,sideKey,pos)}</span>
             <div class="bpChips" style="margin:0 0 0 20px;align-self:stretch;align-items:center;align-content:center">${cellG(Object.keys(p.m),p.m,ch=>markOf(sideKey,pos,ch),pos)}</div></div>`;
         }).join("")}`;
@@ -12338,7 +12342,7 @@ function render(){
             ${[...Array(S.n).keys()].map(gameCard).join("")}
             ${showAdd?`<div class="card bsGAddCol" style="margin:0;display:flex;align-items:center;justify-content:center;font-size:28px;color:#5fbf7f;cursor:pointer;min-width:46px;user-select:none" title="新增一局（放在最右邊、緊貼角色池方便拖曳；超過五局往左捲動看較舊的局）">＋</div>`:""}
           </div></div>
-          <div class="card bpPool" style="margin:0;overflow:hidden;display:flex;flex-direction:column;flex:0 0 auto;width:${poolW}px">${_poolH}</div>
+          <div class="card bpPool" style="margin:0;overflow:visible;display:flex;flex-direction:column;flex:0 0 auto;width:${poolW}px">${_poolH}</div>
           ${midHTML?`<div class="card bpMid" style="margin:0;padding:10px;overflow:hidden;display:flex;flex-direction:column;flex:0 0 auto;width:${midW}px">${midHTML}</div>`:""}`;
         // ① 整欄內容一字不差 → 直接搬回舊節點；② 有變動 → 逐顆對位沿用（keyed diff）：
         // 以 data-ch 為鍵，只要那顆的 HTML 沒變就把**舊元素**搬過去，只有真正變動的才新建。
