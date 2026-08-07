@@ -2221,6 +2221,13 @@ const tipPlace=(r0,pref)=>{ if(!tipEl)return;
     if(h>space){ tipEl.style.maxHeight=Math.max(120,space)+"px"; tipEl.style.overflowY="auto"; h=tipEl.offsetHeight; } // 高度超過上方空間 → 夾高＋內部捲動
     T=Math.max(8,r.top-h-8);
   }
+  else if(pref==="side"){   // 選角評分：擺在**該局卡片的側邊**，不遮住那一局（2026-08-07 使用者指定）
+    // r 傳進來的是局卡的框：優先靠右擺，右邊放不下改靠左，兩邊都不夠才夾回視窗內
+    if(h>innerHeight-16){ tipEl.style.maxHeight=(innerHeight-16)+"px"; tipEl.style.overflowY="auto"; h=tipEl.offsetHeight; }
+    L=r.right+10;
+    if(L+w>innerWidth-8){ const l2=r.left-w-10; L=l2>=8?l2:Math.max(8,innerWidth-w-8); }
+    T=Math.max(8,Math.min(r.top+(r.height-h)/2, innerHeight-h-8));   // 垂直對齊卡片中線
+  }
   else { T=r.bottom+8; if(T+h>innerHeight-8){ const up=r.top-h-8; T=up>=8?up:Math.max(8,innerHeight-h-8); } }
   if(L+w>innerWidth-8)L=Math.max(8,innerWidth-w-8);
   tipEl.style.left=L+"px"; tipEl.style.top=T+"px"; };
@@ -12797,7 +12804,9 @@ function render(){
           const gt=(S.tm||[])[gi]||null, tA=gt?gt.a:S.t1, tB=gt?gt.b:S.t2;
           const nm=k=>{ const flip=S.side[gi]||0; const t2=(k==="1")?tA:tB; return tAb(t2)||(k==="1"?T("戰隊A"):T("戰隊B")); };
           const h=scoreTipHTML(f[el.dataset.a],f[el.dataset.b],nm(el.dataset.a),nm(el.dataset.b));
-          if(h)tipShow(h,el.getBoundingClientRect(),"up"); });
+          // 定位基準用**局卡**而不是差值本身：要的是「擺在這一局旁邊」，不是「擺在數字旁邊」
+          const card=el.closest(".bsGCard")||el;
+          if(h)tipShow(h,card.getBoundingClientRect(),"side"); });
         el.addEventListener("mouseleave",tipHide);
       });
 
