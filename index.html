@@ -12300,12 +12300,25 @@ function render(){
       //   留下拉克絲、珍娜、悠咪這種遠程輔助——因為真開戰是貼上去打，射程本來就只有 600~900。
       // ⚠ 這一項對清單很敏感（只動 3 隻英雄，0 手陣容的勝率就從 48.3% 變 52.6%），所以它只值
       //   1/3 個 5% 因子（約總分 1.7%），不要因為它看起來像新維度就加權重。
-      const _EGSET={}; ("Alistar Amumu Annie Ashe Blitzcrank Camille Chogath Diana Galio Gnar Gragas "
-        +"Hecarim JarvanIV Jax Kennen KSante LeeSin Leona Lissandra Malphite Maokai MonkeyKing "
-        +"Nautilus Neeko Nocturne Nunu Orianna Ornn Pantheon Poppy Pyke Rakan Rell Renekton Rengar "
-        +"Sejuani Seraphine Sett Shen Shyvana Sion Skarner Sona Sylas Thresh TwistedFate Urgot "
-        +"Vex Vi Volibear Warwick XinZhao Zac Zyra Elise").split(" ").forEach(c=>_EGSET[c]=1);
-      const _egMap=()=>_EGSET;
+      // ★清單與權重由使用者手列（2026-08-08）：**大開戰 2 分、小開戰 1 分、其餘 0**。
+      //   實測走前 53.4%（判定 1816 局），是所有試過的版本裡唯一有單調趨勢的：
+      //   1分 45.1%／2分 42.1%／3分 46.0%／4分 51.7%／5分 48.6%／6分 52.2%／7分 52.0%／8分 52.3%
+      //   低分區與高分區差近 10pp。**動這份清單前先想清楚**——這一項對分類極度敏感。
+      const _EGW={};
+      ("MonkeyKing2 Leona2 Alistar2 Ornn2 Camille2 Galio2 Lillia2 Gragas2 Vi2 Gnar2 Kennen2 Rakan2 "
+      +"Maokai2 Malphite2 Nautilus2 Rell2 Bard2 Sion2 Sejuani2 Seraphine2 JarvanIV2 Qiyana2 "
+      +"Lissandra2 Skarner2 Annie2 Kled2 Ahri2 Amumu2 Diana2 Fiddlesticks2 Nami2 Nocturne2 "
+      +"Rammus2 Zac2 Zyra2 Neeko2 Ambessa2 "
+      +"Renata1 Nunu1 Pantheon1 Orianna1 Taliyah1 Syndra1 Thresh1 Sett1 Hecarim1 Volibear1 Shen1 "
+      +"Sylas1 Gangplank1 Ashe1 Ekko1 LeeSin1 Braum1 Azir1 Cassiopeia1 Kalista1 Morgana1 Rumble1 "
+      +"Lulu1 TahmKench1 Fizz1 Poppy1 RekSai1 Ryze1 Taric1 Pyke1 Blitzcrank1 Malzahar1 Kayn1 "
+      +"Rengar1 Sivir1 Trundle1 Veigar1 XinZhao1 KSante1 Naafiri1 Briar1 Aurora1 Zaahen1")
+        .split(/\s+/).forEach(s=>{ const m2=s.match(/^(.+?)([12])$/); if(m2)_EGW[m2[1]]=+m2[2]; });
+      const _egMap=()=>_EGW;
+      // 加權總分（0~10）分三段。**不逐分一桶**：逐分的話 5 分那格會凹下去（48.6% vs 4 分 51.7%），
+      // 但兩邊各約 1000 樣本、差距只有 1.4 個標準差＝雜訊。三段各有 710／2047／1725 局，
+      // 勝率 45.1%／50.0%／52.1% 自然單調，不必硬套單調假設。
+      const _egB=v=>v<=3?0:(v<=5?1:2);
       // ・傷害偏向的路線權重（使用者指定 2026-08-08）：中路／下路 ×1、上路／打野 ×0.5、輔助不計。
       //   主要傷害來源就是中下，五路平均會被輔助跟坦克上路稀釋掉。沒有路線資訊時退回五路平均。
       const _WLANE={TOP:0.5, JNG:0.5, MID:1, BOT:1, SUP:0};
@@ -12347,8 +12360,7 @@ function render(){
         _sides.forEach(g=>{ const m=_compMet(POSN.map(L=>g.L[L]).filter(Boolean), g.L);
           if(m&&m.n>=5){ ap.push(m.ap); fr.push(m.fr); leanAll.push(m.lean);
             if(_p3s.has(_pn(g.pt)))leanRc.push(m.lean);
-            const b=Math.max(1,Math.min(4,Math.round(m.eg*m.n)));   // 桶 ≤1／2／3／4+（0 手只有 2.5%，併進 1）
-            const e=egB[b]||(egB[b]={n:0,w:0}); e.n++; if(g.win)e.w++; } });
+            const e=egB[_egB(m.eg*m.n)]||(egB[_egB(m.eg*m.n)]={n:0,w:0}); e.n++; if(g.win)e.w++; } });
         if(ap.length<50)return _compRef={ok:false};        // 標籤沒載到或母體太小＝這一項不計入
         const med=a=>{ const s=a.slice().sort((x,y)=>x-y); return s[Math.floor(s.length/2)]; };
         const mAp=med(ap), mFr=med(fr);
@@ -12359,10 +12371,7 @@ function render(){
         // 拿它當外界會讓剛超出死區的陣容只扣 2~3 分＝等於沒扣。p99 約 25pp，超出死區才真的痛。
         const _dv=_lp.map(v=>Math.abs(v-mLean)).sort((a,b)=>a-b);
         const maxDev=Math.max(_LEANBAND+0.02, _dv[Math.floor((_dv.length-1)*0.99)]||0);
-        // 開戰的刻度**同樣不發明理想值**：拿母體裡各手數的實際勝率，線性拉到 0~100（最差手數 0、最好 100）。
-        // ⚠ 不可以做成「越多越好」——實測 ≤1手 46%／2手 50.6%／3手 52.1%／4+手 51.0%，3 手之後就不再變好。
-        //   用實際勝率當刻度就自動吃到這個轉折，不必硬定上限。
-        // 樣本 <200 的桶不參與定端點（0 手只有 114 個＝2.5%，單獨拆會被雜訊帶著跑，故併進 1 手）。
+        // 開戰的刻度**不發明理想值**：拿母體裡各段的實際勝率，線性拉到 0~100（最差 0、最好 100）。
         let egSc=null;
         const bk=Object.keys(egB).filter(k=>egB[k].n>=200);
         if(bk.length>=2){ const wr={}; bk.forEach(k=>wr[k]=egB[k].w/egB[k].n);
@@ -12416,12 +12425,12 @@ function render(){
         if(X.cfgSc&&cf){ cfgX=_cfgBi(cf.d,X.cfgCX); cfgY=_cfgBi(cf.m,X.cfgCY);
           const v2=X.cfgSc[cfgY+"|"+cfgX]; if(v2!=null)sf=v2; }
         if(sf==null){ cfgX=cfgY=null; sf=_typ(Math.abs(m.fr-X.mFr),X.dFr); }
-        // 開戰：把「每手比例」還原成滿編五人的手數再查刻度 → 還沒選滿也能比（與前排同精神）
-        const ec=Math.max(1,Math.min(4,Math.round(m.eg*5)));
-        const se=(X.egSc&&X.egSc[ec]!=null)?X.egSc[ec]:null;
+        // 開戰：把「每手均分」還原成滿編五人的總分再查刻度 → 還沒選滿也能比（與傷害配置同精神）
+        const ec=m.eg*5;
+        const se=(X.egSc&&X.egSc[_egB(ec)]!=null)?X.egSc[_egB(ec)]:null;
         const ps=(se==null)?[sd,sf]:[sd,sf,se];
         return {v:ps.reduce((a,b)=>a+b,0)/ps.length, dmg:sd, fr:sf, eng:se,
-                egCnt:Math.round(m.eg*5), leanPct:Math.round(m.lean*100), frPct:Math.round(m.fr*100),
+                egCnt:Math.round(ec*10)/10, leanPct:Math.round(m.lean*100), frPct:Math.round(m.fr*100),
                 devPct:Math.round(dev*100), band:Math.round(_LEANBAND*100),
                 cfgX:cfgX==null?null:cfgX+1, cfgY:cfgY==null?null:cfgY+1,
                 mLean:Math.round(X.mLean*100), leanRecent:X.leanRecent, mFr:Math.round(X.mFr*100)}; };
@@ -12721,7 +12730,7 @@ function render(){
             // 開戰只在刻度算得出來時才列（母體不足／清單沒載到就整列不出現，不顯示假的 50）
             if((ca&&ca.eng!=null)||(cb&&cb.eng!=null))
               r+=sub(en?"Engage":"開戰",
-                     _du(ca?ca.egCnt+(en?"":" 手"):null, cb?cb.egCnt+(en?"":" 手"):null),
+                     _du(ca?ca.egCnt+(en?"":" 分"):null, cb?cb.egCnt+(en?"":" 分"):null),
                      ca?ca.eng:null, cb?cb.eng:null); }
           return r; }).join("");
         return `<div class="scTip"><div class="tipTitle">${en?"Draft score":"選角評分"}</div>`
