@@ -12595,10 +12595,12 @@ function render(){
         const f=draftScore(gi); if(!f)return "";
         const a=f[L.k], b=f[R.k];
         if(a.sc==null&&b.sc==null)return `<div class="bsScore"></div>`;   // 一隻都還沒選：留空位不跳版
-        const d=(a.sc!=null&&b.sc!=null)?Math.round((a.sc-b.sc)*10)/10:null;
+        // 這一列**一律四捨五入到整數**（使用者定案 2026-08-08）：小數點留給滑上去的小框。
+        // 差值取「兩個整數相減」而不是「差值再四捨五入」，否則會出現 79 − 70 顯示 +9.2 這種對不起來的畫面。
+        const d=(a.sc!=null&&b.sc!=null)?Math.round(a.sc)-Math.round(b.sc):null;
         // 說明浮框由**中間的差值**觸發（使用者定案 2026-08-07）：兩隊在同一個框裡對照才好比較，
         // 分別掛在兩個分數上會變成看完藍方再看紅方、對不起來。游標不給 help（不要小問號）。
-        const one=(s,col)=>`<span class="bsScNum" style="color:${col}">${s.sc==null?"–":s.sc}</span>`;
+        const one=(s,col)=>`<span class="bsScNum" style="color:${col}">${s.sc==null?"–":Math.round(s.sc)}</span>`;
         return `<div class="bsScore">${one(a,"#6ea8ff")}`
           +`<span class="bsScD" data-g="${gi}" data-a="${L.k}" data-b="${R.k}">${d==null?"":(d>0?"+":"")+d}</span>`
           +`${one(b,"#ff6b6b")}</div>`;
