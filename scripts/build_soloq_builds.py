@@ -178,7 +178,10 @@ def main():
         if not d or not _bd: return None
         i = bisect.bisect_right(_bd, d) - 1
         return _bp[i] if i >= 0 else _bp[0]
-    muCnt = defaultdict(lambda: defaultdict(lambda: [0, 0]))  # 積分對位：英雄 -> 對位英雄 -> [場,勝]（g.o＝dpm 的對位欄）
+    # 積分對位：英雄 -> 對位英雄 -> [場, 勝, 金差@15場數, 金差@15總]
+    # 後兩欄是 2026-08-07 加的：模擬BP 的選角評分要用**金差**評對位（排位勝率被四個路人稀釋、
+    # 歸因不到本人），逐場本來就有 gd15，只是以前聚合時沒收。前端讀取一律要容忍舊的兩欄格式。
+    muCnt = defaultdict(lambda: defaultdict(lambda: [0, 0, 0, 0]))
     # 常配英雄：英雄 -> 搭檔英雄 -> [場,勝]。搭檔來自 dpm 的 duoChampionName，它的配對正好是
     # 上→野、野→中、中→野、下→輔、輔→下（2026-08-03 使用者指定的那組）。逐路線版另存 duCntL。
     duCnt = defaultdict(lambda: defaultdict(lambda: [0, 0]))
@@ -228,7 +231,9 @@ def main():
                 if g.get("fl2") is not None: _ha[13] += 1; _ha[14] += 1 if g["fl2"] else 0
             lk = None if _hl == "?" else _hl  # 每路線聚合的路線鍵（未知路線不入 byLane，仍計整體）
             _opp = CHAMP_FIX.get(g.get("o"), g.get("o"))
-            if _opp: _m = muCnt[c][_opp]; _m[0] += 1; _m[1] += win
+            if _opp:
+                _m = muCnt[c][_opp]; _m[0] += 1; _m[1] += win
+                if g.get("gd15") is not None: _m[2] += 1; _m[3] += g["gd15"]
             _du = CHAMP_FIX.get(g.get("du"), g.get("du"))
             if _du:
                 _d0 = duCnt[c][_du]; _d0[0] += 1; _d0[1] += win
