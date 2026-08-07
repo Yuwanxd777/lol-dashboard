@@ -437,7 +437,14 @@ def build_champ(cid, ddv, st=None):
         ctx = all_ctx.get(leaf)
         if ctx is not None:
             ctx.fmap = F_MAP.get((cid, keys[i]), {})   # 該技能的 f-token 對照（見 F_MAP）
-        entry = {"k": keys[i], "n": sp["name"],
+        # rg＝施放距離（取各級最大；DDragon 的 range 是每級一個值）。
+        # 給模擬BP 選角評分的「開戰能力」判定用（使用者定義 2026-08-08）：
+        # 能在 >700 碼打出硬控、或能位移 >=700 碼者算開戰手段。原本用人工清單，
+        # 使用者給了客觀定義後改成由這個數值＋技能敘述的硬控關鍵字自動判。
+        # 全域技能（艾希R、逆命R 等）DDragon 給 25000，照收——那本來就是超遠距離起手。
+        _rg = sp.get("range")
+        _rg = max([v for v in _rg if isinstance(v, (int, float))] or [0]) if isinstance(_rg, list) else 0
+        entry = {"k": keys[i], "n": sp["name"], "rg": int(_rg),
                  "cd": sp.get("cooldownBurn", ""), "co": sp.get("costBurn", "")}
         desc_plain = plain(sp.get("description", ""))
         tpl = sp.get("tooltip", "")

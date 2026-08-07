@@ -12288,17 +12288,29 @@ function render(){
       //   48.3% 變 52.6%、整個分布的形狀都變了。所以它只值 1/3 個 5% 因子（約總分 1.7%），
       //   不要因為它看起來像新維度就加權重。與前排子項相關 0.387＝本來就有一半是同一件事
       //   （會開戰的多半就是坦克），這也是不再往上加的理由。
-      const _EGLIST=("Alistar Amumu Annie Ashe Blitzcrank Camille Chogath Diana Galio Gnar Gragas "
+      // 判定＝**人工清單**。以下兩條自動判定法都實測過、都不行，**不要再試**：
+      // ①技能敘述關鍵字比對：漏掉墨菲特（R 寫「將敵人擊飛」少了範圍字）、嘉文（「拉向」被歸成 CC
+      //   沒歸成位移）、納帝魯斯、菲艾、銳兒、札克；反而把風女／璐璐／卡瑪這種**反開戰**大絕算進去。
+      // ②射程門檻（使用者定義：>N 碼打出硬控 或 位移 >=N 碼；skills.js 的 rg＝DDragon spells[].range）：
+      //   **DDragon 的 range 承載不了這個語意**——自身施放的範圍大絕（阿姆姆R／凱能R／悟空R／賽特R）
+      //   射程欄是 0~1，最典型的開戰技能永遠抓不到；另有 25000／10000 的佔位值（厄薩斯Q、賽恩Q、
+      //   巴德Q）讓任何門檻都失效。實測門檻 700/800/900/1000/1100/1200 的走前準確率
+      //   ＝49.5／50.0／49.6／48.9／50.0／52.0%，**全都是擲銅板**；而且門檻越高越糟：1000 碼會把
+      //   嘉文、趙信、潘森、菲艾、賽恩、悟空、亞歷斯塔、加里歐、茂凱、凱能等 41 隻真開戰刷掉，
+      //   留下拉克絲、珍娜、悠咪這種遠程輔助——因為真開戰是貼上去打，射程本來就只有 600~900。
+      // ⚠ 這一項對清單很敏感（只動 3 隻英雄，0 手陣容的勝率就從 48.3% 變 52.6%），所以它只值
+      //   1/3 個 5% 因子（約總分 1.7%），不要因為它看起來像新維度就加權重。
+      const _EGSET={}; ("Alistar Amumu Annie Ashe Blitzcrank Camille Chogath Diana Galio Gnar Gragas "
         +"Hecarim JarvanIV Jax Kennen KSante LeeSin Leona Lissandra Malphite Maokai MonkeyKing "
         +"Nautilus Neeko Nocturne Nunu Orianna Ornn Pantheon Poppy Pyke Rakan Rell Renekton Rengar "
         +"Sejuani Seraphine Sett Shen Shyvana Sion Skarner Sona Sylas Thresh TwistedFate Urgot "
-        +"Vex Vi Volibear Warwick XinZhao Zac Zyra Elise").split(" ");
-      const _EGSET={}; _EGLIST.forEach(c=>_EGSET[c]=1);
+        +"Vex Vi Volibear Warwick XinZhao Zac Zyra Elise").split(" ").forEach(c=>_EGSET[c]=1);
+      const _egMap=()=>_EGSET;
       // ・傷害偏向的路線權重（使用者指定 2026-08-08）：中路／下路 ×1、上路／打野 ×0.5、輔助不計。
       //   主要傷害來源就是中下，五路平均會被輔助跟坦克上路稀釋掉。沒有路線資訊時退回五路平均。
       const _WLANE={TOP:0.5, JNG:0.5, MID:1, BOT:1, SUP:0};
       const _LEANBAND=0.20;   // 傷害偏向的死區半寬（使用者定案）：離中位 ±20pp 以內不扣分
-      const _compMet=(cids,byLane)=>{ let ap=0, ad=0, fr=0, eg=0, n=0; const EM=_EGSET;
+      const _compMet=(cids,byLane)=>{ let ap=0, ad=0, fr=0, eg=0, n=0; const EM=_egMap();
         cids.forEach(ci=>{ const d=_CTAG[ci]; if(!d)return; n++;
           const i2=d.i||[0,0,0]; ad+=i2[0]||0; ap+=i2[2]||0;
           const tg=d.t||[]; fr+=tg.indexOf("Tank")>=0?1:(tg.indexOf("Fighter")>=0?0.5:0);
