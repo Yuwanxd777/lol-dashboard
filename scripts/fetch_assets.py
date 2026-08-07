@@ -238,11 +238,26 @@ def main():
             for g in e["g"]:
                 g.pop("_sig", None)   # 簽章只用於分段，不寫進輸出（省體積）
             acc[iid] = e
+    # 英雄分類標籤（模擬BP 選角評分的「陣容」項用）：只取**現行版本**，不需要逐年歷史——
+    # 那一項問的是「這套陣容配置合不合理」，用當下的分類即可。
+    #   t＝Riot 官方分類（Tank/Fighter/Mage/Assassin/Marksman/Support）
+    #   i＝設計面評分 0~10 的 [攻擊, 防禦, 魔法]，用來判斷傷害類型偏向（比賽資料沒有物理/魔法拆分）
+    try:
+        _cj = gj(f"{CDN}/{cur}/data/en_US/champion.json")["data"]
+        out["ctag"] = {cid: {"t": d.get("tags") or [],
+                             "i": [(d.get("info") or {}).get("attack", 0),
+                                   (d.get("info") or {}).get("defense", 0),
+                                   (d.get("info") or {}).get("magic", 0)]}
+                       for cid, d in _cj.items() if not CLASSIC_RE.match(cid)}
+        print(f"  英雄分類標籤：{len(out['ctag'])} 隻")
+    except Exception as e:
+        print(f"  英雄分類標籤失敗：{e}")
+        out["ctag"] = {}
     json.dump(out, open(OUT, "w", encoding="utf-8"), ensure_ascii=False)
     raw = open(OUT, encoding="utf-8").read()
     open(OUT, "w", encoding="utf-8").write("window.LOL_ASSETS=" + raw + ";\n")
-    print("✅ assets.js：道具 %d、符文 %d、英雄 %d（%d 年）"
-          % (len(out["item"]), len(out["rune"]), len(out["champ"]), len(out["years"])))
+    print("✅ assets.js：道具 %d、符文 %d、英雄 %d（%d 年）、分類標籤 %d"
+          % (len(out["item"]), len(out["rune"]), len(out["champ"]), len(out["years"]), len(out.get("ctag") or {})))
 
 if __name__ == "__main__":
     main()

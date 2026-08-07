@@ -425,29 +425,31 @@
   #hoverTip:has(.evtRos){max-width:min(860px,92vw)}
   /* 選角評分浮框：全域 th,td 帶 nowrap+ellipsis，說明欄會被裁成「…」（鐵則：不可裁字）→ 這裡覆寫掉，
      說明允許折行、框放寬到 640。前三欄仍 nowrap 保持對齊 */
-  /* 選角評分浮框：**刻意不用 table**——全域表格帶斑馬紋(tbody tr:nth-child odd/even 有底色)、
-     置中、nowrap+ellipsis、table-layout:fixed，塞進浮框裡就是一塊突兀的深色表格（使用者 2026-08-07
-     回報「很醜」）。改用 flex 列，欄位對齊靠固定寬度，跟全域表格樣式完全脫鉤。 */
-  #hoverTip .scTip{min-width:330px}
-  #hoverTip .scTip .scPk{float:right;font-weight:normal;color:#6b7a95;font-size:12.5px;padding-top:5px}
-  #hoverTip .scRow{display:flex;align-items:baseline;gap:9px;padding:4.5px 2px;
-    border-bottom:1px solid rgba(255,255,255,.05)}
-  #hoverTip .scRow:last-of-type{border-bottom:none}
-  #hoverTip .scRow.off{opacity:.42}
-  #hoverTip .scNm{flex:1 1 auto;min-width:5.2em;color:var(--tx);font-size:13.5px}
-  #hoverTip .scV{flex:0 0 auto;width:3.4em;text-align:right;font-weight:700;font-size:15.5px;
-    font-variant-numeric:tabular-nums}
-  #hoverTip .scW{flex:0 0 auto;width:2.6em;text-align:right;color:#6b7a95;font-size:11.5px;margin-right:6px}
-  #hoverTip .scHd{float:right;font-weight:normal;font-size:14px;color:var(--tx);
-    font-variant-numeric:tabular-nums;padding-top:3px}
-  #hoverTip .scHd .scVs{color:#6b7a95;font-size:11.5px;padding:0 7px}
-  #hoverTip .scSubRow{display:flex;gap:10px;padding:0 2px 5px;flex-wrap:wrap}
-  #hoverTip .scSub{color:#8090ad;font-size:12px;font-variant-numeric:tabular-nums;
-    white-space:nowrap;padding-left:6px}
-  #hoverTip .scSub i{font-style:normal;color:#41506d;padding:0 4px}
+  /* 選角評分浮框：**刻意不用 table**——全域表格帶斑馬紋、置中、nowrap+ellipsis、table-layout:fixed，
+     塞進浮框裡就是一塊突兀的深色表格。這裡改用 CSS grid：四欄固定，
+     因子列與逐路子列**共用同一組欄**，兩隊的數字才會垂直對齊、可以直接上下比對
+     （2026-08-07 使用者回報「很難對比」→ 原本子分數擠成一行跑版）。 */
+  #hoverTip .scTip{min-width:300px}
+  #hoverTip .scGrid{display:grid;grid-template-columns:auto 2.6em 4.1em 4.1em;
+    column-gap:10px;align-items:baseline}
+  #hoverTip .scGrid>*{padding:3.5px 0}
+  #hoverTip .scTeam{text-align:right;font-weight:bold;font-size:13px;padding-bottom:1px}
+  #hoverTip .scTot{text-align:right;font-weight:800;font-size:20px;font-variant-numeric:tabular-nums;
+    padding-top:0;border-bottom:1px solid #2a3550;padding-bottom:7px;margin-bottom:4px}
+  #hoverTip .scLine{border-bottom:1px solid #2a3550;margin-bottom:4px;padding:0}
+  #hoverTip .scNm{color:var(--tx);font-size:13.5px}
+  #hoverTip .scW{text-align:right;color:#6b7a95;font-size:11.5px}
+  #hoverTip .scV{text-align:right;font-weight:700;font-size:15px;font-variant-numeric:tabular-nums}
+  #hoverTip .scSubNm{color:#6b7a95;font-size:12px;padding-left:15px}
+  #hoverTip .scSubV{text-align:right;font-size:12.5px;font-variant-numeric:tabular-nums}
+  #hoverTip .scRow0{opacity:.42}
+  /* 較高的一邊給淡底。用 background 而不是 ::after 外擴：::after 撐出去 3px 會讓 scrollWidth
+     大於 clientWidth（雖然 overflow:visible 沒真的裁到，但不該外溢，也會誤觸裁字檢查）。
+     左右內距**每一格都給**，不是只給有底的那格，否則數字會左右跳動。 */
+  #hoverTip .scV,#hoverTip .scSubV{padding-left:4px;padding-right:4px;border-radius:3px}
+  #hoverTip .scWin{background:rgba(255,255,255,.06)}
   #hoverTip .scFoot{margin-top:9px;padding-top:8px;border-top:1px solid #2a3550;
     color:#6b7a95;font-size:11.5px;line-height:1.65}
-  .evtRos>div>span{white-space:nowrap}
   #hoverTip .tipTitle{font-weight:bold;font-size:17px;margin-bottom:8px;color:var(--gold);border-bottom:1px solid #2a3550;padding-bottom:6px}
   #hoverTip .tipTitle .meta{font-size:13.5px}
   #hoverTip .tipRow{margin:7px 0;padding:5px 8px;background:#151c2e;border-radius:6px;border-left:2px solid var(--acc)}
@@ -12493,27 +12495,40 @@ function render(){
       const scCol=v=>v==null?"var(--tx2)":(v>=56?"#ff5d5d":v<=44?"#37c871":"#cdd6e6"); // 台灣習慣：越高越紅、越低越綠
       const scoreTipHTML=(A,B,nA,nB)=>{ if(!A||!B)return "";
         const en=LANG==="en", CA="#6ea8ff", CB="#ff6b6b";
-        const num=(v,c)=>`<span class="scV" style="color:${v==null?"var(--tx2)":scCol(v)}">${v==null?"—":v}</span>`;
-        const sub=(arr,col)=>arr.some(v=>v!=null)
-          ?`<span class="scSub" style="border-left:2px solid ${col}">${arr.map(v=>
-              `<span style="color:${scCol(v)}">${v==null?"–":v}</span>`).join("<i>/</i>")}</span>`:"";
+        const LZ=en?{TOP:"Top",JNG:"Jng",MID:"Mid",BOT:"Bot",SUP:"Sup"}
+                   :{TOP:"上路",JNG:"打野",MID:"中路",BOT:"下路",SUP:"輔助"};
+        // 同一列兩隊比高低：高的那邊加淡底（.scWin），一眼看得出誰佔優
+        const duo=(va,vb,cls)=>{ const w=(va==null||vb==null||va===vb)?0:(va>vb?1:2);
+          const one=(v,side)=>`<span class="${cls}${w===side?" scWin":""}" style="color:${
+            v==null?"var(--tx2)":scCol(v)}">${v==null?"–":v}</span>`;
+          return one(va,1)+one(vb,2); };
         const rows=SCF.map(([k,zh,ea,w])=>{
           const none=!((A.ok||{})[k])&&!((B.ok||{})[k]);
-          let r=`<div class="scRow${none?" off":""}"><span class="scNm">${en?ea:zh}</span>`
-            +`<span class="scW">${w}%</span>${num(A[k])}${num(B[k])}</div>`;
-          if(k==="mu"||k==="duo"){ const ga=(k==="mu"?A.muD:A.duoD)||[], gb=(k==="mu"?B.muD:B.duoD)||[];
-            const sa=sub(ga.map(d=>d.v),CA), sb=sub(gb.map(d=>d.v),CB);
-            if(sa||sb)r+=`<div class="scSubRow">${sa}${sb}</div>`; }
+          let r=`<span class="scNm${none?" scRow0":""}">${en?ea:zh}</span>`
+               +`<span class="scW${none?" scRow0":""}">${w}%</span>`
+               +duo(A[k],B[k],"scV"+(none?" scRow0":""));
+          if(k==="mu"||k==="duo"){
+            const ga=(k==="mu"?A.muD:A.duoD)||[], gb=(k==="mu"?B.muD:B.duoD)||[];
+            const nm=d=>k==="mu"?(LZ[d.L]||d.L):(LZ[d.pr[0]]+"&"+LZ[d.pr[1]]);
+            const n2=Math.max(ga.length,gb.length);
+            for(let x=0;x<n2;x++){ const da=ga[x], db=gb[x]; if(!da&&!db)continue;
+              r+=`<span class="scSubNm">${nm(da||db)}</span><span></span>`
+                +duo(da?da.v:null, db?db.v:null, "scSubV"); } }
           return r; }).join("");
-        return `<div class="scTip"><div class="tipTitle">${en?"Draft score":"選角評分"}`
-            +`<span class="scHd"><b style="color:${CA}">${esc(nA||"")}</b> ${A.sc==null?"–":A.sc}`
-            +`<span class="scVs">vs</span>`
-            +`${B.sc==null?"–":B.sc} <b style="color:${CB}">${esc(nB||"")}</b></span></div>`
-          +rows
+        return `<div class="scTip"><div class="tipTitle">${en?"Draft score":"選角評分"}</div>`
+          +`<div class="scGrid">`
+            +`<span></span><span></span>`
+            +`<span class="scTeam" style="color:${CA}">${esc(nA||"")}</span>`
+            +`<span class="scTeam" style="color:${CB}">${esc(nB||"")}</span>`
+            +`<span></span><span></span>`
+            +`<span class="scTot" style="color:${CA}">${A.sc==null?"–":A.sc}</span>`
+            +`<span class="scTot" style="color:${CB}">${B.sc==null?"–":B.sc}</span>`
+            +rows
+          +`</div>`
           +`<div class="scFoot">${hiNum(en
-              ?"Sub-lines = matchup by lane (top / jng / mid / bot / sup) and synergy by pair (top&jng / jng&mid / bot&sup), coloured by side."
-              :"子列＝對位五路（上／野／中／下／輔）與組合三對（上野／野中／下輔），依藍紅方標色。")}<br>${hiNum(en
-              ?"50 = historical median. Any single item with too few games counts as a neutral 50; a factor with no data on either side is dimmed."
+              ?"Indented rows = matchup lane by lane and synergy pair by pair. The higher side of each row is shaded."
+              :"縮排的列＝對位逐路、組合逐對。每一列較高的那一邊有淡底。")}<br>${hiNum(en
+              ?"50 = historical median. A single item with too few games counts as a neutral 50; a factor with no data on either side is dimmed."
               :"50＝歷史中位。樣本不足的<b>單項</b>以中性 50 計入；兩隊都沒資料的項目整列變淡。")}</div></div>`;
       };
       // 角色池固定在右（欄寬鎖定五局版型不壓縮）；局區在左、獨立橫向捲動——局號 1→N 由左到右，最新一局在最右、緊貼角色池
