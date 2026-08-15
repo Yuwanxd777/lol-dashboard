@@ -13,7 +13,7 @@ DDragon 的道具描述缺數字（如 電流旋風劍「蒼穹」的 %），
 """
 import json, re, sys, urllib.request
 from pathlib import Path
-from fetch_skills import SpellCtx, eval_calc, render_val, Miss, hget  # 重用技能管線的計算式求值器
+from fetch_skills import SpellCtx, eval_calc, render_val, Miss, hget, HOLE_RE  # 重用技能管線的計算式求值器與破句偵測
 
 ROOT   = Path(__file__).resolve().parent.parent  # 專案根目錄（本腳本在 scripts\ 內）
 CACHE_DIR = ROOT / "csv_cache"
@@ -52,6 +52,16 @@ def build_lut(entry):
         n, v = d.get("mName"), d.get("mValue")
         if n is not None and v is not None:
             lut[n.lower()] = v
+    # @Effect3Amount@ 這一族的來源是 mEffectAmount 陣列（2026-08-15 補）。以前沒收 → 模板填不出來，
+    # 留下「在 秒內持續造成共 魔法傷害」這種沒有數字的句子（餘燼之刃／支配寶匣／探索者護腕…）。
+    # ⚠ 索引是 **1 起算、無前置佔位**（Effect3Amount＝陣列第 3 個）——與**技能** bin 的 mEffectAmount
+    #   不同，那邊有前置佔位（見 fetch_skills 的註解）。三筆實測對得上 DDragon 原文：
+    #   1035 Effect3=5 秒、4402 Effect1=3 秒、2420 Effect2=2.5 秒。
+    ea = entry.get("mEffectAmount")
+    if isinstance(ea, list):
+        for i, v in enumerate(ea):
+            if isinstance(v, (int, float)) and not isinstance(v, bool):
+                lut[f"effect{i+1}amount"] = v
     return lut
 
 def build_calcs(entry, lut):
@@ -167,6 +177,12 @@ def main():
         body, miss = fill(tpl, lut, calcs, item_ctx(entry))
         if miss > 3:
             continue  # 解不出的太多，寧可用 DDragon 原文
+        # 值被剝掉留下「持續秒」這種沒有數字的句子 → 整件不收（2026-08-15 加，同 fetch_skills.HOLE_RE）。
+        # ⚠ 不要「猜一個名字相近的欄位」來補：狂暴利刃(3097) 的模板要 @BleedDuration@、bin 只有
+        #   BuffDuration=1.5，看起來可以套，但那是**字串表模板過期**（描述的是舊版的流血效果，
+        #   bin 的值對應的是現版的充能箭）——套了會產生「數字對、文案錯」，比缺值更糟。
+        if HOLE_RE.search(re.sub(r"<[^>]+>", "", body)):
+            continue
         sm = re.search(r"<stats>[\s\S]*?</stats>", dd[iid].get("description", ""))
         stats = sm.group(0) + "<br><br>" if sm else ""
         out[name] = f"<mainText>{stats}{body}</mainText>"

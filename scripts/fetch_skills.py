@@ -10,6 +10,9 @@
     python fetch_skills.py              # 版本沒變且已有快取的英雄跳過
     python fetch_skills.py --force      # 全部重算
     python fetch_skills.py --champ Taliyah   # 只跑一位（測試）
+
+⚠ 快取用**兩把鍵**：DDragon 版本（變了整份重建）＋ CDragon build 版本（變了只重建缺過值的英雄）。
+  只用 DDragon 版本會讓「改版當天 CDragon 還沒跟上」建出的破文案卡整個版本週期，見 main() 的註解。
 """
 import json, re, sys, time, urllib.request
 from pathlib import Path
@@ -297,6 +300,21 @@ F_MAP = {
 F_TOK = re.compile(r"^(f\d+)(?:\.\d+)?$", re.I)   # f11.1 的 .1＝小數位數指定，不是數值的一部分
 SKIP_TOKENS = {"spellmodifierdescriptionappend"}
 
+# ── 破句偵測（2026-08-15 加）────────────────────────────────────────────────
+# token 填不出來時 finish() 會把 {{ }} 清掉，留下「持續秒」「在秒內」「賦予%最大生命」
+# 這種**沒有數字的句子**——比整句不見還糟（使用者看到的是壞掉的文案，而不是少一句）。
+# 只認「期待數值的動詞／副詞後面直接接單位或百分號」，才不會誤傷「一層堆層」「三次」「地點」
+# 這類正常中文（那是我第一版規則踩過的坑：208 筆裡只有 4 筆是真的）。
+# 實測：這條規則套過全庫 173 位英雄＋323 件道具，命中全部是真破句、零誤判（2026-08-15）。
+# 要加單位字之前先跑一次全庫檢視——誤判的代價是好句子被整句刪掉。
+# ⚠「發／顆／隻」已試過並移除：「持續發射兩列飛彈」（風暴手套）會被「持續」＋「發」打到。
+#   單位字只留下不會當動詞用的那幾個。
+# ⚠ 單位字後面要排掉「它其實是另一個詞的第一個字」的情形：秒表(Stopwatch)、個人檔案、名字…
+HOLE_RE = re.compile(
+    r"(?:持續|在|最多|最少|共|達|增加|獲得|回復|提升|縮短|延長|緩速|賦予)\s*"
+    r"(?:秒(?![表錶])|層|次|碼|％|名(?![字稱單義])|個(?![人別體性月案]))(?![數量])"
+    r"|(?<![\d.）)\]％%XxＸ])%(?=[一-鿿])")
+
 def resolve_token(ctx, all_ctx, tok, mult):
     tok = tok.lower()
     if tok in SKIP_TOKENS:
@@ -366,7 +384,9 @@ def resolve_token(ctx, all_ctx, tok, mult):
                     pass
     raise Miss(tok)
 
-def fill_tooltip(tpl, ctx, all_ctx):
+def fill_tooltip(tpl, ctx, all_ctx, strict=False):
+    """strict＝**任何**填不出來的 token 都比照 f-token 整句刪掉。
+    只在第一輪填出破句（HOLE_RE）時才用，見 build_champ。"""
     miss = []
     def rep(m):
         tok, mul = m.group(1), float(m.group(2) or 1)
@@ -376,7 +396,7 @@ def fill_tooltip(tpl, ctx, all_ctx):
             miss.append(tok)
             # 無解的 f-token＝執行時才有的值（凱莎「當前擁有」、巴德「目前神龕數」…）→ 標記後整句刪，
             # 直接換成空字串會留下「當前擁有：/50額外攻速」這種殘句
-            return SENT if F_TOK.match(tok) else ""
+            return SENT if (strict or F_TOK.match(tok)) else ""
     t = STRIP_RE.sub("", TAG_RE.sub("\n", TOKEN_RE.sub(rep, tpl)))
     if SENT in t:                                    # 先拆括號註記（墨菲特/賽特那種行內註記），再刪整句（凱莎/巴德那種獨立句）
         t = re.sub(r"[（(][^（()）]*" + SENT + r"[^（()）]*[)）]", "", t)
@@ -450,10 +470,18 @@ def build_champ(cid, ddv, st=None):
         tpl = sp.get("tooltip", "")
         if ctx and tpl:
             txt, miss = fill_tooltip(tpl, ctx, all_ctx)
+            holed = 0
+            # 值被剝掉後留下「持續秒」「賦予%最大生命」這種破句 → 改成把**那一句**丟掉。
+            # 寧可少一句也不要沒有數字的句子（塔里克 W 就是這樣：被動那句是好的、主動那句壞掉）。
+            if txt and HOLE_RE.search(txt):
+                txt2, _m2 = fill_tooltip(tpl, ctx, all_ctx, strict=True)
+                txt, holed = (txt2 if txt2 and not HOLE_RE.search(txt2) else ""), 1
             if txt and len(miss) <= 2:
                 entry["d"] = txt
                 if miss:
                     entry["m"] = len(miss)
+                if holed:
+                    entry["hole"] = 1      # 給快取失效用：CDragon 補上數值後要重建（見 main）
             else:
                 entry["d"] = desc_plain
                 entry["fb"] = 1
@@ -503,6 +531,24 @@ def main():
     if cache.get("ver") != ddv:
         cache = {"ver": ddv, "champs": {}}
     done = cache["champs"]
+    # ★快取只以 DDragon 版本為鍵是不夠的（2026-08-15 真實案發）：改版當天 CDragon 的 bin 常常
+    #   還沒跟上，這時建出來的條目缺數值，而 DDragon 版本一整個週期都不會再變 → 破掉的文案卡到下次改版。
+    #   症狀＝卡特蓮娜 W「在秒內衰減至失效的%跑速」、塔里克 W「賦予%最大生命的護盾，持續秒」。
+    #   解法：拿 CDragon 自己的 build 版本當第二把鍵，它一變就把「缺過值」的英雄丟掉重建
+    #   （只丟 fb／hole 那些，不是全部——一般條目沒必要每週重抓 173 份 bin）。
+    cdver = ""
+    try:
+        cdver = str(get_json("https://raw.communitydragon.org/latest/content-metadata.json").get("version", ""))
+    except Exception as e:
+        print(f"（CDragon 版本查詢失敗，跳過缺值重建：{e}）")
+    if cdver and cache.get("cdver") != cdver:
+        stale = [k for k, v in done.items()
+                 if any(s.get("fb") or s.get("hole") for s in v.get("s", []))]
+        for k in stale:
+            del done[k]
+        if stale:
+            print(f"（CDragon 更新至 {cdver} → {len(stale)} 位缺值英雄重建）")
+        cache["cdver"] = cdver
     # 快取自我清理：上面的過濾只擋「這次要建的清單」，之前建過的分支服條目會留在快取裡、
     # 原封不動寫進 skills.js（2026-08-06 使用者回報英雄Tier 又出現舊版頭像）
     _cl = [k for k in done if CLASSIC_RE.match(k)]
@@ -532,7 +578,9 @@ def main():
         ensure_ascii=False, separators=(",", ":")) + ";"
     OUT_JS.write_text(js, encoding="utf-8")
     ok = sum(1 for c in done.values() if not any(s.get("fb") for s in c["s"]))
-    print(f"\n✅ skills.js：{len(done)} 位英雄（{ok} 位全技能含數值）")
+    hole = sum(1 for c in done.values() for s in c["s"] if s.get("hole"))
+    print(f"\n✅ skills.js：{len(done)} 位英雄（{ok} 位全技能含數值）"
+          + (f"，{hole} 個技能有句子因缺值被略過（CDragon 補上後會自動重建）" if hole else ""))
 
 if __name__ == "__main__":
     main()
