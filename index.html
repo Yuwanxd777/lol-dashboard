@@ -12404,18 +12404,37 @@ function render(){
       //   與禁用／對位同樣是「講選角本身的真話但不轉換成勝負」。刻度用百分位不是勝率。
       // ⚠ 門檻不要往上調：>10 之後名單會掉到 24 隻、把潘森(野/輔)、阿卡莉(上/中)、賽勒斯 這種
       //   真正的 flex pick 洗掉，而準確率也沒有變好。
-      const _FLEXMIN=5;
+      // ★2026-08-15 修：**積分那半邊不能跟比賽共用「>5 場」這個絕對門檻**（使用者回報開積分時整項失效）。
+      //   量級差 11.6 倍：比賽 23880 個英雄×路線觀測、積分 277904。直接相加再套 >5 的結果是
+      //   173 隻裡有 141 隻被判成可錯位、94% 的陣容落在 4~5 隻＝**沒有變異**，分數只在 27.7／74.7
+      //   兩個值之間跳（而且滿編 5 隻只拿 74.7，因為百分位平手取中點）。
+      //   多出來的全是雜訊：雷茲(上57/中1119)、伊澤(中14/下1127) 這種 5% 的偶發。
+      // ⚠ 試過的錯解：①把積分場數等比縮到比賽量級再套 >5 → 仍是 84 隻，雷茲/伊澤照樣進來
+      //   （因為縮放不改變「絕對場數」與「佔比」脫鉤這件事）。②改用純比例門檻 → **比賽名單會壞**，
+      //   share≥8% 就把潘森/塔莉雅/賽勒斯/阿卡莉/賈克斯/卡蜜兒 洗掉（比賽資料稀疏，8 場已經很多）。
+      // ★定案＝聯集規則：比賽側維持 >5 場（使用者定案，一字不動）；積分側額外要求
+      //   「該路至少佔該英雄積分總場數 15%」。結果 78 隻、分布 596/1502/1591/857/206/24（變異回來了），
+      //   比賽的 33 隻一隻沒掉，多出來的是姍娜(下/輔)、勒布朗(中/輔)、犽宿(上/中/下)、拉克絲(下/輔)、
+      //   茂凱(野/輔)、齊勒斯(中/下) 這種真的 flex pick。量測腳本 scratchpad/flex_union.py。
+      // ⚠ 快取鍵要含 **soloq_builds 載入狀態**（同 _compRefB）：builds 是延遲載入的，
+      //   開關已經是 on 但 hero 還沒到就會把「純比賽版」永久快取起來。
+      const _FLEXMIN=5, _FLEXSQSH=0.15;
       let _flexI=null, _flexIK=null;
-      const flexIdx=()=>{ const key=V.bpSoloqPool?"sq":"pro";
+      const flexIdx=()=>{ const key=(V.bpSoloqPool?"sq":"pro")+"|"+(!!((window.SOLOQ_BUILDS||{}).hero));
         if(_flexI&&_flexIK===key)return _flexI;
-        _flexIK=key; const CL={};
+        _flexIK=key; const CL={}, SQ={};
         gameSides().forEach(g=>POSN.forEach(L=>{ const c=g.L[L]; if(!c)return;
           (CL[c]=CL[c]||{})[L]=((CL[c]||{})[L]||0)+1; }));
         if(V.bpSoloqPool){ const H=(window.SOLOQ_BUILDS||{}).hero||{};
           const LZ={TOP:"TOP",JUNGLE:"JNG",MIDDLE:"MID",BOTTOM:"BOT",UTILITY:"SUP"};
           for(const c in H)for(const sl in H[c]){ const L=LZ[sl]||sl; const n=(H[c][sl]||[])[0]||0;
-            if(n)(CL[c]=CL[c]||{})[L]=((CL[c]||{})[L]||0)+n; } }
-        const M={}; for(const c in CL){ let k=0; POSN.forEach(L=>{ if((CL[c][L]||0)>_FLEXMIN)k++; }); M[c]=k; }
+            if(n)(SQ[c]=SQ[c]||{})[L]=((SQ[c]||{})[L]||0)+n; } }
+        const M={}, all={}; Object.keys(CL).forEach(c=>all[c]=1); Object.keys(SQ).forEach(c=>all[c]=1);
+        for(const c in all){ const s=SQ[c]||null;
+          const st=s?POSN.reduce((t,L)=>t+(s[L]||0),0):0;
+          let k=0; POSN.forEach(L=>{ const pn=(CL[c]||{})[L]||0, sn=s?(s[L]||0):0;
+            if(pn>_FLEXMIN||(sn>_FLEXMIN&&st>0&&sn/st>=_FLEXSQSH))k++; });
+          M[c]=k; }
         return _flexI=M; };
       // 前排的桶＝自然級距（滿編五人的 Tank1/Fighter0.5 總分）：≤0.5／1／1.5／2／≥2.5
       // 對應母體樣本 492／1439／1019／799／381，每桶都夠。
