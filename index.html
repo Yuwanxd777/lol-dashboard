@@ -11871,6 +11871,14 @@ function render(){
         if(cgi>=0)[...S.g[cgi].b1,...S.g[cgi].b2,...S.g[cgi].p1,...S.g[cgi].p2].forEach(c=>{if(c&&c!==NOBAN)used.add(c);}); }
       // 角色池：左=隊A獨有、中=兩隊該路共用、右=隊B獨有；五路一列一列；純頭像
       const R1=S.t1?teamRoster(S.t1):null, R2=S.t2?teamRoster(S.t2):null;
+      // 匯入的真實比賽要用**該局自己那兩隊**的名單（見 draftScore 的 _gt）：匯入清單列的是
+      // 「該隊最近的系列」，對手常常不是上方選的隊 B，沿用 R1/R2 會拿錯人去算選手熟練／對位／組合。
+      // teamRoster 會掃整份 GAMES，很重 → 快取；名字剛好是上方兩隊時直接沿用已算好的 R1/R2。
+      const _rosC={};
+      const rosterOf=t=>{ if(!t)return null;
+        if(t===S.t1&&R1)return R1; if(t===S.t2&&R2)return R2;
+        if(t in _rosC)return _rosC[t];
+        try{ return _rosC[t]=teamRoster(t); }catch(e){ return _rosC[t]=null; } };
       S.pk1=S.pk1||{}; S.pk2=S.pk2||{}; // 每路選定的選手（輪替時點路線圖換人）
       if(V.bpSoloqPool){ const IDX=window.SOLOQ_MATCH_IDX; if(IDX&&IDX.players){ // 近期積分開啟→懶載兩隊每位選手逐場檔(載好 __sqLoad 會重繪)
         [[R1,S.t1],[R2,S.t2]].forEach(([R,team])=>{ if(!R||!team)return; Object.keys(R).forEach(pos=>{ const cell=R[pos]; if(!cell)return; cell.players.forEach(pl=>{ const key=sqKey(IDX.players,tAb(team),pl.p), meta=key&&IDX.players[key];
@@ -12791,8 +12799,10 @@ function render(){
         const per={};
         ["1","2"].forEach(sd=>{
           const picks=gm["p"+sd]||[], asg=laneAssign(gi,sd);
-          const pools=sd==="1"?poolsA:poolsB, R0=sd==="1"?R1:R2, st0=sd==="1"?S.pk1:S.pk2,
-                tm=_gt?(sd==="1"?_gt.a:_gt.b):(sd==="1"?S.t1:S.t2);
+          const pools=sd==="1"?poolsA:poolsB, st0=sd==="1"?S.pk1:S.pk2,
+                tm=_gt?(sd==="1"?_gt.a:_gt.b):(sd==="1"?S.t1:S.t2),
+                // 名單也要跟著該局的隊伍走（S.pk1/S.pk2 在匯入時就已經設成該系列實際上場的人）
+                R0=_gt?rosterOf(tm):(sd==="1"?R1:R2);
           const lanes={}, byLane={};
           picks.forEach((c,i)=>{ if(!c||c===NOBAN)return;
             const L=asg.res[i]||((asg.possible[i]||[])[0])||null; lanes[i]=L; if(L&&!byLane[L])byLane[L]=c; });
