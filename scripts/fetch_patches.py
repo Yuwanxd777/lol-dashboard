@@ -362,6 +362,11 @@ PRE_TOP = [
     ("stacks required", "所需層數"),
     ("damage per stack", "每層傷害"), ("damage per second", "每秒傷害"),   # 「X per Y」中文要倒過來講
     ("damage per hit", "每次命中傷害"), ("damage per tick", "每跳傷害"),
+    # 沒有 damage 前綴的 per hit／per attack 也要成組吃掉，否則會逐字翻成怪句
+    # （wiki 舊資料留下「能量回復秒命中」＝ Energy Restore Per Hit，2026-08-15 體檢抓到）。
+    # ⚠ 必須排在上面那條 "damage per hit" **之後**，否則「傷害」會被切掉。
+    # ⚠ on-hit 不要再加：第 256 行已有（"on-hit"→命中觸發），再加一條會出現兩種譯法。
+    ("per hit", "每次命中"), ("per attack", "每次攻擊"),
     ("can no longer", "不再能"), ("now specifies that", "現在會標明"),
     ("damage reduction", "傷害減免"), ("crowd control", "控場"),
     ("fixed a bug", "錯誤修正"), ("fixed an issue", "錯誤修正"),
