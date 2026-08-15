@@ -678,9 +678,9 @@
   /* 局欄 PICK 格：正方形 70px（BAN 49px＝70% 同比連動），欄寬不足時自動縮 */
   /* 縮放對策在 JS：#bsWrap(局+池整區) 設 CSS zoom=1/min(縮放,1.5)（見 BP fit()）——≤150% 時 BP 等同 100% 版面剛好一屏、
      >150% 依 150% 尺寸放大自然溢出頁捲；所以這裡的 vh 公式照 100% 情境寫即可 */
-  .bpSlot.bpPickS{flex:0 0 auto;width:min(100px,calc(11.9vh - 71px));aspect-ratio:1/1;height:auto;min-height:0;align-self:center;justify-content:center;overflow:visible}
+  .bpSlot.bpPickS{flex:0 0 auto;width:min(100px,calc(var(--bpvh,14.4px)*13.43 - 71px));aspect-ratio:1/1;height:auto;min-height:0;align-self:center;justify-content:center;overflow:visible}
   /* PICK 同選角順位合併框：兩格虛線框直接合併成一個框，寫「Pick N M」；框內兩格不再各自加框 */
-  .bpPickBox{position:relative;display:flex;flex-direction:column;gap:7px;align-items:center;border:2px dashed #33405c;border-radius:12px;padding:0;width:min(100px,calc(11.9vh - 71px))} /* 不變大框：外框寬度＝單一 PICK 格寬(border-box)，只把兩格的虛線連成一個外框；框內兩英雄圖間隔 7px */
+  .bpPickBox{position:relative;display:flex;flex-direction:column;gap:7px;align-items:center;border:2px dashed #33405c;border-radius:12px;padding:0;width:min(100px,calc(var(--bpvh,14.4px)*13.43 - 71px))} /* 不變大框：外框寬度＝單一 PICK 格寬(border-box)，只把兩格的虛線連成一個外框；框內兩英雄圖間隔 7px */
   .bpPickBox.bpBoxOn{border-style:solid} /* 放入英雄後 虛線→實線(與一般格一致) */
   .bpPickBoxLbl{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:13px;color:var(--tx2);font-weight:bold;letter-spacing:.3px;white-space:nowrap;pointer-events:none} /* 正中央寫 Pick N M */
   .bpPickBox .bpSlot.bpPickS{margin:0}
@@ -698,7 +698,11 @@
   .bpLaneBadge .bpLaneIco.bpLaneSoft.pick:hover{opacity:.85}
   .bpLaneBadge .bpLaneIco img,.bpLaneBadge .bpLaneIco .posic{width:100%;height:100%;object-fit:contain;display:block}
   /* BAN/PICK 皆為正方形格；頭貼填滿格子。目標 PICK=70px、BAN=49px（70%），欄寬不足時自動縮 */
-  .bpSlot.bpBanS{flex:0 0 auto;width:min(80px,calc(9.5vh - 57px));aspect-ratio:1/1;height:auto;min-height:0;align-self:center;justify-content:center;opacity:.9}
+  /* ⚠ PICK/BAN 格的尺寸**不可以用 vh**（2026-08-15 修）：vh 是螢幕單位，但 BP 區跑的是
+     「設計 px ＋ zoom」座標系（見 fit()）。1920x1080 時畫布仍是 ~1271 設計 px 高、跟 2560 幾乎一樣，
+     但 vh 只看到 1080 → 格子縮 43%，再被 zoom 0.75 縮一次＝縮兩次，圖變超小、局卡中間空 300px。
+     改吃 --bpvh（＝設計 px 畫布高/100，由 fit() 寫上 #bsWrap），倍率已重新校準成 2560 下數值不變。 */
+  .bpSlot.bpBanS{flex:0 0 auto;width:min(80px,calc(var(--bpvh,14.4px)*10.72 - 57px));aspect-ratio:1/1;height:auto;min-height:0;align-self:center;justify-content:center;opacity:.9}
   .bpSlot.bpBanS .cc{display:flex;height:94%;aspect-ratio:1/1;width:auto}
   .bpSlot.bpBanS .cc img{width:100%;height:100%;object-fit:cover;border-radius:6px}
   .bpSlot.bpBanS.filled .cc img:not(.nobanImg){filter:grayscale(.5) brightness(.95)} /* BAN 微灰即可（不要太灰）；空BAN 圖不灰 */
@@ -13081,11 +13085,19 @@ function render(){
         for(let i=0;i<6;i++){
           wrap.style.zoom=String(s/zf); window._bpS=s;
           wrap.style.height=(bve/s)+"px";
+          wrap.style.setProperty("--bpvh",(bve/s/100)+"px");   // 設計 px 版的 1vh：BAN/PICK 格尺寸吃它（見上方 .bpPickS 註解）
           const wb=wrap.getBoundingClientRect().bottom;
-          // 選角評分列(.bsScore)也要算進來，不然它會被擠到一屏預算之外看不到（2026-08-06 新增）
-          let mb=0; wrap.querySelectorAll("#bsGames .bpSlot,#bsGames .bpPickBox,#bsGames .bsScore").forEach(el=>{const b=el.getBoundingClientRect().bottom; if(b>mb)mb=b;});
-          if(!mb||mb<=wb-3)break;                                            // 塞下了（留 3px 呼吸）
-          s=Math.max(.4*sf,s*(wb-top-6)/(mb-top));                          // 依「外框可用高/內容實際高」比例縮小（下限 0.4 同樣是設計 px 倍率）
+          // 選角評分列要留位子，但**不可以把 .bsScore 算進 mb**（2026-08-15 修）：
+          // 它是貼在局卡底部的，而局卡被拉伸到跟 wrap 一樣高、wrap 高度又是 bve/s
+          // → 縮得越小、容器 CSS 越高、評分列跟著往下跑 → 再縮，形成回饋迴圈。
+          // 1920x1080 實測會一路縮到 0.75：英雄圖被斷點縮一次又被 fit 縮一次，
+          // 局卡中間空出 300px、評分列被壓到最底，就是使用者說的「顯示很怪」。
+          // 改成只量真正的內容（BAN/PICK 格），評分列改用「保留一列高度」從預算裡扣。
+          let mb=0; wrap.querySelectorAll("#bsGames .bpSlot,#bsGames .bpPickBox").forEach(el=>{const b=el.getBoundingClientRect().bottom; if(b>mb)mb=b;});
+          const _sc=wrap.querySelector("#bsGames .bsScore");
+          const scH=_sc?_sc.getBoundingClientRect().height+6:0;               // +6＝它的 margin-top
+          if(!mb||mb+scH<=wb-3)break;                                        // 塞下了（留 3px 呼吸）
+          s=Math.max(.4*sf,s*(wb-top-6-scH)/(mb-top));                      // 依「外框可用高/內容實際高」比例縮小（下限 0.4 同樣是設計 px 倍率）
         }
         if(!window._bpRR&&Math.abs((window._bpWS||s)-s)>0.05){window._bpRR=1;try{rerender();}catch(e){}window._bpRR=0;return;} // 收斂倍率與排寬倍率差太多→帶新倍率整組重排一次（guard 防遞迴）
         fitPool(); };
