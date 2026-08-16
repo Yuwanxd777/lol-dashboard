@@ -11336,7 +11336,7 @@ function render(){
       const cv=document.getElementById("rcTrend");
       if(cv&&trendPts.length){
         const WIN="#ff4d4d", LOSS="#37c871";
-        const labels=trendPts.map(p=>`${md(p.d)} ${p.opp}`);
+        const labels=trendPts.map(p=>[md(p.d),p.opp]);   // 陣列＝X 軸刻度分兩行：上日期、下對手縮寫
         const scs=trendPts.map(p=>p.sc);
         const lo=Math.min(...scs), hi=Math.max(...scs);
         const pad=Math.max(6,(hi-lo)*0.35);
@@ -11346,8 +11346,16 @@ function render(){
           // 賽段分界：評分是「該賽段從頭累積到當下」，換賽段就重新開始累積，
           // 前一兩個系列樣本太少一定偏低（今年視圖會看到明顯的鋸齒）。畫虛線＋標賽段名，
           // 免得那些 V 型被當成戰隊崩盤或程式出錯。
-          const ca=ch.chartArea, rowEnd=[0,0];   // 兩排輪放：賽段密集時（EWC 資格賽夾在 LCK 中間）名稱會疊在一起
-          ctx.save(); ctx.lineWidth=1;
+          const ca=ch.chartArea;
+          // 先算出「評分／名次」標籤佔掉的方框（還不畫），賽段名要閃開它們，否則今年視圖會疊成一團
+          const busy=[];
+          ctx.save(); ctx.font=`bold 14px ${ff}`;
+          meta.data.forEach((pt,i)=>{ const p=trendPts[i]; if(!p||pt==null||!trLab(i))return;
+            const w=Math.max(ctx.measureText(String(Math.round(p.sc*10)/10)).width,34);
+            busy.push({x1:pt.x-w/2-3,x2:pt.x+w/2+3,y1:pt.y-32,y2:pt.y-1}); });
+          ctx.restore();
+          const clash=b=>busy.some(r=>!(b.x2<r.x1||b.x1>r.x2||b.y2<r.y1||b.y1>r.y2));
+          ctx.save(); ctx.lineWidth=1; ctx.font=`11px ${ff}`; ctx.textAlign="left";
           meta.data.forEach((pt,i)=>{ if(!i||pt==null)return;
             const a=trendPts[i-1], b2=trendPts[i]; if(!a||!b2||(a.lg===b2.lg&&a.sp===b2.sp))return;
             const x=(meta.data[i-1].x+pt.x)/2;
@@ -11356,10 +11364,11 @@ function render(){
             // 同一個賽事只換賽段就不重複寫賽事名（字短才排得下）
             const tx=a.lg===b2.lg?(b2.sp?spDisp(b2.sp):lgName(b2.lg))
                                  :(lgName(b2.lg)+(b2.sp?" "+spDisp(b2.sp):""));
-            ctx.setLineDash([]); ctx.font=`11px ${ff}`; ctx.fillStyle="#8b98ad"; ctx.textAlign="left";
-            const w=ctx.measureText(tx).width, r=rowEnd[0]<=x?0:rowEnd[1]<=x?1:-1;
-            if(r<0)return;                        // 兩排都卡住就只留分界線，不硬塞疊字
-            rowEnd[r]=x+4+w+8; ctx.fillText(tx,x+4,ca.top+10+r*13); });
+            const w=ctx.measureText(tx).width;
+            for(let r=0;r<4;r++){ const y=ca.top+10+r*13,
+                bx={x1:x+2,x2:x+6+w+6,y1:y-9,y2:y+3};
+              if(clash(bx))continue;
+              busy.push(bx); ctx.setLineDash([]); ctx.fillStyle="#8b98ad"; ctx.fillText(tx,x+4,y); break; } });
           ctx.restore();
           ctx.save(); ctx.textAlign="center";
           meta.data.forEach((pt,i)=>{ const p=trendPts[i]; if(!p||pt==null||!trLab(i))return;
@@ -11370,10 +11379,9 @@ function render(){
           ctx.restore(); }};
         window._rcChart=new Chart(cv,{type:"line",plugins:[ptLabels],
           data:{labels,datasets:[{label:en2?"Rating":"評分",data:scs,
+            // 換賽事/賽段**照樣連線**（2026-08-17 使用者指定）：斷開會看起來像圖壞掉；
+            // 分界靠虛線＋賽段名表達就夠了
             borderColor:"#6ea8ff",backgroundColor:"#6ea8ff22",tension:.25,fill:true,
-            // 跨賽段不連線：兩段之間沒有可比性（各自從頭累積）
-            segment:{borderColor:c=>{const a=trendPts[c.p0DataIndex],b2=trendPts[c.p1DataIndex];
-              return a&&b2&&(a.lg!==b2.lg||a.sp!==b2.sp)?"transparent":"#6ea8ff";}},
             pointRadius:trendPts.length>24?4:6,pointHoverRadius:8,pointBorderWidth:2,pointBorderColor:"#0b0e14",
             pointBackgroundColor:trendPts.map(p=>p.tie?"#8b98ad":p.win?WIN:LOSS)}]},
           options:{maintainAspectRatio:false,layout:{padding:{top:34}},
