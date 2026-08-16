@@ -225,6 +225,10 @@
   }
   @container mainc (max-width:1980px){th,td{padding:8px 7px}} /* 1080P 縮內距，讓大表盡量不用捲 */
   th[data-k]{white-space:normal;line-height:1.25;vertical-align:middle;text-wrap:balance} /* 長標題換行且行長平衡（四字斷成2+2非3+1） */
+  /* 等距欄寬的表（fillTableWidth 走「欄寬只看資料、每欄同留白」時掛上 .tblEven，2026-08-16 使用者定案）：
+     欄名不再決定欄寬 → 塞不下就讓它自己折行，否則 th 的 overflow:hidden 會把欄名裁掉（違反不裁字鐵則）。
+     .thL 平常是 nowrap（只認 <br>），這裡放行；排序三角形的 13px 保留區維持不動。 */
+  table.tblEven .thL{white-space:normal}
   .hi{color:var(--gold);font-weight:bold}
   .win{color:var(--green);font-weight:bold}
   .scorebar{display:inline-block;min-width:34px;text-align:center;padding:1px 7px;border-radius:6px;font-weight:bold}
@@ -2329,18 +2333,42 @@ function fillTableWidth(root,prop){
       const fixedW=natW.reduce((a,w,i)=>a+((i<from||i===last)?w:0),0);
       const budget=avail-fixedW;
       if(idx.length&&budget>0&&dataW.every(w=>isFinite(w))){
-        let lo=0, hi=budget;                                   // f(s)=Σ max(natW,dataW+s) 對 s 單調遞增
-        for(let k=0;k<40;k++){ const s=(lo+hi)/2;
-          (idx.reduce((a,i)=>a+Math.max(natW[i],dataW[i]+s),0)<budget)?lo=s:hi=s; }
-        wSol={}; idx.forEach(i=>{ wSol[i]=Math.max(natW[i],dataW[i]+lo); });
+        // ★2026-08-16 使用者定案：「**忽略欄名**，欄名已經很小了」——欄寬**只由資料決定**，
+        //   每欄拿到完全相同的留白 s，所以同一頁的欄距完全一致（落差 0）。
+        //   以前是 max(自然寬, 資料寬+s)，自然寬含欄名 → 欄名比資料寬的欄（角色池 欄名95/資料41）
+        //   就把留白撐到 75px，而勝率、主動權那種資料寬的欄只有 32px，看起來忽大忽小。
+        //   欄名塞不下就讓它自己折行（見 .tblEven 的 .thL 覆寫）——.thL 本來 nowrap 只認 <br>，
+        //   而且左右各留 13px 給排序三角形，那 26px 正是多數欄名「看起來很寬」的來源。
+        const s=(budget-idx.reduce((a,i)=>a+dataW[i],0))/idx.length;
+        if(s>0){ wSol={}; idx.forEach(i=>{ wSol[i]=dataW[i]+s; }); tbl.classList.add("tblEven"); }
       }
     }
   }
   tbl.style.tableLayout="fixed"; tbl.style.width=avail+"px";
-  ths.forEach((th,i)=>{
+  const setW=()=>ths.forEach((th,i)=>{
     if(i<from||(i===last&&nFill>0)){ th.style.width=natW[i]+"px"; return; }   // 前兩欄與末欄不吃餘寬（2026-08-05 定案）
     if(wSol&&wSol[i]!=null){ th.style.width=wSol[i]+"px"; return; }
     th.style.width=(natW[i]+(prop?(base?extra*natW[i]/base:0):per))+"px"; });
+  setW();
+  // 收尾保險（不裁字鐵則）：欄寬只看資料之後，少數欄名可能連折行都塞不下（實測戰隊「2+巢蟲」——
+  // 含數字與加號，瀏覽器不給斷）。掃一次被裁的欄補足，差額從其他欄的留白**平均**扣回來，
+  // 總寬不變＝不會多長出一條橫捲軸。只做一輪（補完的欄不會再變窄，不需要迭代）。
+  if(wSol){
+    const z2=window._zoomF||1, need={};
+    ths.forEach((th,i)=>{ if(wSol[i]==null)return;
+      let sw=th.scrollWidth;
+      const td=tbl.querySelector(`tbody tr td:nth-child(${i+1})`); if(td)sw=Math.max(sw,td.scrollWidth);
+      if(sw>th.clientWidth+1)need[i]=sw+2; });
+    const ks=Object.keys(need).map(Number);
+    if(ks.length){
+      const short=ks.reduce((a,i)=>a+(need[i]-wSol[i]),0);
+      const rest=Object.keys(wSol).map(Number).filter(i=>!(i in need));
+      if(rest.length){ const cut=short/rest.length;
+        rest.forEach(i=>{ wSol[i]=Math.max(1,wSol[i]-cut); }); }
+      ks.forEach(i=>{ wSol[i]=need[i]; });
+      setW();
+    }
+  }
 }
 // 餘寬平均分給每一欄（2026-08-05 使用者回報「第一欄距離邊框很小、最後一欄距離邊框又很大」）：
 // 沒走 fillTableWidth 的表（總覽 table.ov、積分 recTbl…）靠 CSS 的 min-width:100% 撐滿容器，
