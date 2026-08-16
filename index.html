@@ -11222,6 +11222,41 @@ function render(){
       // 五路先發表（歷史年份無積分欄）
       const showSq=!isHistYear();
       if(showSq&&!window.SOLOQ_RECENT)lazyLoad("recent").then(()=>{ if(curView==="近況")rerender(); });
+      // ── 評分走勢（2026-08-16 使用者需求）──────────────────────────────────
+      // 範圍內**每一場比賽一個點**，標「當下評分」與「該賽事那個賽段的名次」。
+      // 「當下」＝只用該場（含）之前的比賽算 → 看得出一路走來的起伏，而不是拿現在的總成績回填。
+      // 借用 calcTeams()：暫時把 F 換成「該場的賽事＋賽段＋日期上限」，算完一定還原。
+      // ⚠ F.d1/F.d2 只比**月日**（見 passG），同一年份內夠用（近況本來就只看當前年份）。
+      // ⚠ 以「賽事|賽段|日期」為鍵快取：同一天的多局共用一次計算，5 個系列大約只算 5~8 次。
+      const _snapC={};
+      const snapAt=(lg,sp,upto)=>{ const k=lg+"|"+sp+"|"+upto;
+        if(_snapC[k])return _snapC[k];
+        const sv={split:F.split,league:F.league,patch:F.patch,d1:F.d1,d2:F.d2,minG:F.minG}, svH=H2H;
+        let rows=[];
+        try{
+          // 逐**場**（不是逐日）：F.d1/F.d2 只比月日，同一天的三局會拿到一樣的分數。
+          // 改用 H2H 這個「場次白名單」閘門（passG 的第一關）挑出「該場含以前」的所有局；
+          // ⚠ 時序要用 **o.dt**（帶時分秒）不是 o.date（只到日，同一天三局會一模一樣）。
+          // 實測 calcTeams 一次只要 1~2ms，14 個點約 20ms。
+          const set=new Set();
+          for(const o of GAMES){ if(lg&&o.league!==lg)continue; if(sp&&o.split!==sp)continue;
+            if(String(o.dt||o.date)<=upto)set.add(gkey(o)); }
+          H2H=set;
+          // 賽事/賽段照樣設：分組扣分(grpPenalty)看的是 F.league，不設的話名次會少掉扣分、與戰隊頁不一致
+          F.league=lg||"ALL"; F.split=sp||""; F.patch=""; F.d1=""; F.d2=""; F.minG=0;
+          rows=calcTeams()||[];
+        }catch(e){ rows=[]; }
+        Object.assign(F,sv); H2H=svH;
+        return _snapC[k]=rows; };
+      const trendPts=[];
+      D2.recent.forEach(s2=>s2.games.forEach(o=>{
+        const rows=snapAt(o.league,o.split,String(o.dt||o.date));
+        const i=rows.findIndex(r=>r._full===V.recentTeam);
+        if(i<0)return;
+        const isB=o.raw[C.blue_teamname]===V.recentTeam;
+        trendPts.push({d:o.date, lg:o.league, sp:o.split, opp:tAb(s2.opp), g:num(o.game)||0,
+                       win:o.result===(isB?1:2), sc:rows[i].評分, rk:i+1, n:rows.length});
+      }));
       const POS_ORD=["TOP","JNG","MID","BOT","SUP"];
       const stRows=POS_ORD.map(pos=>{
         const a=D2.starters[pos]; if(!a)return "";
@@ -11257,6 +11292,8 @@ function render(){
               <td><b>${esc(tAb(s2.opp))}</b> <span class="meta">${esc(s2.opp)}</span></td>
               <td class="num"><b>${s2.w}</b> - ${s2.l}</td>
               <td style="color:${w2?"#ff4d4d":s2.w===s2.l?"var(--tx2)":"#37c871"};font-weight:700">${s2.w===s2.l?(en2?"Tie":"和"):w2?(en2?"Win":"勝"):(en2?"Loss":"敗")}</td></tr>`;}).join("")}</tbody></table></div>
+        ${trendPts.length?`<div class="card"><h2>📈 ${en2?"Rating trend":"評分走勢"} <span class="sub">${en2?"one point per game — label = rating at that moment / rank in that split":"每一場比賽一個點；標籤＝當下評分／該賽段名次"}</span></h2>
+          <div style="height:270px"><canvas id="rcTrend"></canvas></div></div>`:""}
         <div class="card"><h2>🧑‍🤝‍🧑 ${en2?"Starters":"五路先發"} <span class="sub">${en2?"most-fielded player per role in the window":"窗口內各路出賽最多的選手"}</span></h2>
           <table class="ov"><thead><tr><th style="width:44px">${en2?"Role":"路線"}</th><th>${mLabel("選手")}</th><th>${mLabel("場數")}</th><th>${mLabel("勝率")}</th><th>KDA</th><th style="text-align:left">${en2?"Go-to champions":"慣用英雄"}</th>${showSq?`<th>${en2?"7d ranked":"積分7天"}</th><th style="text-align:left">${en2?"Ranked champs":"積分常用"}</th>`:""}</tr></thead><tbody>${stRows}</tbody></table></div>
         <div class="card"><h2>🎯 ${en2?"BP tendencies":"BP 傾向"} <span class="sub">${en2?"within the last 5 series":"這 5 個系列賽內"}</span></h2>
@@ -11264,6 +11301,42 @@ function render(){
             bpRow(en2?"Picked":"我方常選",D2.pick,true)+
             bpRow(en2?"Our bans":"我方常 Ban",D2.ownBan,false)+
             bpRow(en2?"Banned vs us":"被對手 Ban",D2.oppBan,false)}</div></div>`;
+      // 折線圖：勝紅敗綠（台灣配色），點上方標「評分」與「#名次/總隊數」
+      if(window._rcChart){try{window._rcChart.destroy();}catch(e){} window._rcChart=null;}
+      const cv=document.getElementById("rcTrend");
+      if(cv&&trendPts.length){
+        const WIN="#ff4d4d", LOSS="#37c871";
+        const labels=trendPts.map(p=>`${md(p.d)} ${p.opp}${p.g?" G"+p.g:""}`);
+        const scs=trendPts.map(p=>p.sc);
+        const lo=Math.min(...scs), hi=Math.max(...scs);
+        const pad=Math.max(6,(hi-lo)*0.35);
+        const ptLabels={id:"rcPtLabels",afterDatasetsDraw(ch){
+          const ctx=ch.ctx, meta=ch.getDatasetMeta(0); if(!meta)return;
+          const ff=getComputedStyle(document.body).fontFamily;
+          ctx.save(); ctx.textAlign="center";
+          meta.data.forEach((pt,i)=>{ const p=trendPts[i]; if(!p||pt==null)return;
+            ctx.font=`bold 14px ${ff}`; ctx.fillStyle="#e6ecf5";
+            ctx.fillText(String(Math.round(p.sc*10)/10), pt.x, pt.y-22);
+            ctx.font=`12px ${ff}`; ctx.fillStyle="#8b98ad";
+            ctx.fillText(`#${p.rk}/${p.n}`, pt.x, pt.y-8); });
+          ctx.restore(); }};
+        window._rcChart=new Chart(cv,{type:"line",plugins:[ptLabels],
+          data:{labels,datasets:[{label:en2?"Rating":"評分",data:scs,
+            borderColor:"#6ea8ff",backgroundColor:"#6ea8ff22",tension:.25,fill:true,
+            pointRadius:6,pointHoverRadius:8,pointBorderWidth:2,pointBorderColor:"#0b0e14",
+            pointBackgroundColor:trendPts.map(p=>p.win?WIN:LOSS)}]},
+          options:{maintainAspectRatio:false,layout:{padding:{top:34}},
+            plugins:{legend:{display:false},tooltip:{callbacks:{
+              title:it=>{const p=trendPts[it[0].dataIndex];
+                return `${p.d.slice(5,10)}　${lgName(p.lg)}${p.sp?" "+spDisp(p.sp):""}　vs ${p.opp}${p.g?" G"+p.g:""}`;},
+              label:it=>{const p=trendPts[it.dataIndex];
+                return [`${en2?"Rating":"評分"} ${Math.round(p.sc*10)/10}`,
+                        `${en2?"Rank":"名次"} #${p.rk} / ${p.n}`,
+                        p.win?(en2?"Win":"勝"):(en2?"Loss":"敗")];}}}},
+            scales:{y:{suggestedMin:Math.max(0,lo-pad),suggestedMax:Math.min(100,hi+pad),
+                       title:{display:true,text:en2?"Rating":"評分"}},
+                    x:{ticks:{maxRotation:0,autoSkip:false,font:{size:11}}}}}});
+      }
     };
     bindFilters(rerender);
     if(V.teamSel==null)V.teamSel=V.vsTeam||V.rosterTeam||"";
