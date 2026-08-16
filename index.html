@@ -3116,6 +3116,18 @@ const stripRgnParen=s=>String(s).replace(/（[^（）]*）\s*$/,""); // 名稱�
 const spDisp=sp=>{const t=String(sp||""); return / PO$/.test(t)?t.replace(/ PO$/,"")+(LANG==="en"?" Playoffs":"季後賽"):t;};
 const lgChip=l=>{if(!l)return `<span class="meta">—</span>`;const c=LGC[l]||"#8a93a6";
   return `<span class="lg" style="background:${c}22;color:${c}">${lgName(l)}</span>`;};
+// 分組籤（2026-08-16 使用者指定）：戰隊/選手名稱後面接著標所屬**組別**，
+// 「除非篩選已經精細到組別」才不用寫；有分組的賽事都要（目前 LPL／LCK，資料在 lpl_groups.js／lck_groups.js）。
+//   ・篩到組別＝賽事選的是 "LCK#Legend" 這種帶 # 的值 → 整欄都同一組，再標就是重複
+//   ・季後賽不分組（同 _lplGrpTag 的規則）→ 不標
+const grpTagOn=()=>!String(F.league||"").includes("#")&&!/PO$|季後|升降/.test(String(F.split||""));
+// 查哪一個賽段的分組：篩選有指定賽段就用那一段（S1/S2/S3），否則用「最新有分組的賽段」
+//（與積分頁同一套，使用者 2026-07-29 定案：只顯示當前賽事的組別）
+const grpSplitOf=lg=>{ const m=String(F.split||"").match(/S(\d)/); return lplSelSplit(curYear,m?("S"+m[1]):"",lg); };
+const grpChip=(ab,lg)=>{ if(!ab||(lg!=="LPL"&&lg!=="LCK"))return "";     // 只有這兩個聯賽有分組資料
+  const sp=grpSplitOf(lg), g=sp?lplSplitGroupOf(teamFix(String(ab)),curYear,sp,lg):null;
+  if(!g)return ""; const c=lplGrpColor(g,curYear,sp,lg);
+  return `<span class="lg" style="background:${c}22;color:${c}">${esc(lplGrpName(g))}</span>`; };
 
 // ---------- 前處理 / 全域篩選（initData 填入）----------
 let LANES=[], GAMES=[], SPLITS=[], LEAGUES=[], PATCHES=[];
@@ -7893,7 +7905,12 @@ function tableHTML(cols,rows,nameImg,limit){ // limit：只渲染排序後前 N 
       else if(i===0&&nameImg&&r._full)v=`<span class="heroname">${cImg(r._full)}${v}</span>`;
       if(i===0&&r._lg!==undefined){ // 選手/戰隊欄鐵則：名稱置左＋3px 放區域籤；整組以最長者置中（alignHeroCols）
         nmAttr=` data-nm="${esc(String(r[c]))}"`;
-        {const _on=r._lg&&lgTagOn(); v=`<span class="heroname" style="display:inline-flex;align-items:center;gap:3px">${_on?stripRgnParen(v):v}${_on?lgChip(r._lg):""}</span>`;} // 有色塊就去掉重複的（聯賽碼）
+        // 賽區籤之後再接**分組籤**（2026-08-16 使用者指定）：篩到 LCK S3 這種還沒細到組別時，
+        // 隊名/選手名後面要看得出是哪一組；賽事已經篩到組別（LCK#Legend）就不標，見 grpTagOn。
+        {const _on=r._lg&&lgTagOn();
+         const _ab=r._team||(r._full?tAb(r._full):null);
+         const _gp=grpTagOn()?grpChip(_ab,r._lg):"";
+         v=`<span class="heroname" style="display:inline-flex;align-items:center;gap:3px">${_on?stripRgnParen(v):v}${_on?lgChip(r._lg):""}${_gp}</span>`;} // 有色塊就去掉重複的（聯賽碼）
       }
       return `<td class="${cellCls(c,r[c],r)}"${nmAttr}>${v}</td>`;
     }).join("")}</tr>`).join("")
