@@ -706,10 +706,10 @@
   .bpLaneBadge .bpLaneIco.pick:hover{transform:scale(1.15);filter:drop-shadow(0 0 4px #fff)}
   /* 右鍵路線圖 →「其他路線」浮層：列出目前沒顯示的路，臨時換位時可以手動指定（2026-08-16 使用者定案）。
      浮層掛在 body、吃版面 px → 定位一律走 vRect()/vW()/vH()（見那組函式上方的鐵則註解）。 */
-  #bpLanePop{position:fixed;z-index:9999;display:flex;align-items:center;gap:8px;padding:7px 10px;
-    background:#141a28;border:1px solid var(--acc);border-radius:11px;box-shadow:0 10px 34px rgba(0,0,0,.55)}
-  #bpLanePop .bpLanePopHd{font-size:13px;color:var(--tx2);white-space:nowrap}
-  #bpLanePop .posic{width:30px;height:30px;display:block}
+  #bpLanePop{position:fixed;z-index:9999;display:flex;align-items:center;gap:5px;padding:4px 7px;
+    background:#141a28;border:1px solid var(--acc);border-radius:8px;box-shadow:0 8px 26px rgba(0,0,0,.55)}
+  #bpLanePop .bpLanePopHd{font-size:11.5px;color:var(--tx2);white-space:nowrap;margin-right:1px}
+  #bpLanePop .posic{width:22px;height:22px;display:block}   /* 使用者 2026-08-16：框再小一點 */
   #bpLanePop .bpLaneIco{cursor:pointer;display:inline-flex;opacity:.85}
   #bpLanePop .bpLaneIco:hover{opacity:1;transform:scale(1.15);filter:drop-shadow(0 0 4px #fff)}
   .bpLaneBadge .bpLaneIco.bpLaneSoft{opacity:.7}                          /* 推測來源（全庫近30場／勾選時的近期積分）、該隊比賽沒走過的路：透明度 70%（不透太多、仍與實線區分） */
@@ -8940,6 +8940,20 @@ const laySig=()=>innerWidth+"x"+innerHeight+"@"+(window._zoomF||1); // 版面簽
 // REF_MODE 一定要進快取鍵：參照母體算的是「最近三版全球」，與「使用者真的沒篩選」的 F 值相同，
 // 不區分的話兩者會共用 HCACHE/_HSCAN 的同一格、互相污染（見 withRef）
 const vcKey=()=>JSON.stringify([REF_MODE?"REF"+REF_N+(REF_ANCHOR?"@"+REF_ANCHOR:""):0,F.split,F.league,F.patch,F.d1,F.d2,F.minG,curYear,V.scoreK?[V.scoreK.lo,V.scoreK.hi]:0,V.scoreExp,V.scoreBase0]);
+// ── 模擬BP 評分索引的跨重繪快取（2026-08-16）──────────────────────────────────
+// 這些索引（gameSides／banRefIdx／compRefIdx／對位／隊伍…）原本宣告在 BP 的 render 閉包裡，
+// **每次重繪都整份重建**。自動模式每點一顆英雄就 rerender 一次 → 實測每次點擊 87~152ms，
+// CPU profile 顯示一半以上花在這幾組（母體是「當年度全賽事」，一次要掃 14419 列主資料）。
+// 快取鍵必須同時綁三種東西，少一個就會出事：
+//   ① vcKey()＝篩選＋年份（全庫路線索引吃 passG，跟著篩選走）
+//   ② 資料載入狀態（LANES 筆數、soloq 檔載到沒）——**漏掉就會複製 HCACHE 那次「資料還沒載完
+//      就被快取毒化」的老問題**：空結果被同一把鍵記住，重新整理也不會好
+//   ③ 🎯 近期積分開關與天數：compRefIdx／plFlexIdx 的內容會跟著變
+window._BPIX=window._BPIX||{k:null,v:null};
+const bpIdx=()=>{ const k=vcKey()+"|"+LANES.length+"|"+(window.SOLOQ_BUILDS?1:0)+"|"+(window.SOLOQ_RECENT?1:0)
+    +"|"+(V.bpSoloqPool?1:0)+"|"+(+V.bpSqDays||0);
+  if(window._BPIX.k!==k)window._BPIX={k,v:{}};
+  return window._BPIX.v; };
 // 外部導頁會改的子狀態：不同就不能用快取
 const VC_SUB={"英雄":()=>[V.heroDetail,V.player,V.hdOpp,V.hdLane,V.hdPlayer],"圖鑑":()=>[V.dexDetail,V.dexSec],"比賽BP":()=>[V.bpSideMode||"br",JSON.stringify(V.bpColF||{})],"模擬BP":()=>[!!V.bpAuto],"近況":()=>[V.recentTeam||""]};
 const vcSub=v=>JSON.stringify((VC_SUB[v]||(()=>[]))());
@@ -12009,20 +12023,21 @@ function render(){
       };
       // 這隻英雄在**目前篩選範圍內**實際打過哪些路（場數多→少）。與 PICK tooltip 的場數統計同一個來源，
       // 只在「該隊完全沒用過這隻」時拿來收斂顯示用的候選路線。整份 LANES 只掃一次、隨每次重繪重建。
-      let _chLaneIdx=null;
+      // 評分索引一律放跨重繪的共用桶（見 bpIdx 註解）：閉包變數會被每次 rerender 沖掉
+      const _IX=bpIdx();
       const chLanes=c=>{ const id=champId(c); if(!id)return [];
-        if(!_chLaneIdx){ _chLaneIdx={};
+        if(!_IX.chLane){ _IX.chLane={};
           for(const o of LANES){ if(!passG(o))continue; const L=PID2LANE[o.pid]; if(!L)continue;
             for(const sd of[0,1]){ const cid=champId(o.raw[C.blue_champion+(sd?RB:0)]); if(!cid)continue;
-              const m=_chLaneIdx[cid]||(_chLaneIdx[cid]={}); m[L]=(m[L]||0)+1; } } }
-        const m=_chLaneIdx[id]||{};
+              const m=_IX.chLane[cid]||(_IX.chLane[cid]={}); m[L]=(m[L]||0)+1; } } }
+        const m=_IX.chLane[id]||{};
         return POSN.filter(L=>m[L]>0).sort((a,b)=>(m[b]||0)-(m[a]||0)); };
       // 該英雄在**全庫**（目前篩選範圍內所有戰隊）走某一路的場數。
       // 推測路線（層級3）就是靠這個數字推出來的，小框要拿它當第三層佐證——
       // 否則「這隊 0 場、這選手積分也 0 場」的路線那一欄會整個留空，只剩路線名
       //（2026-08-16 使用者回報「推測路線沒有寫場數 只有寫路線」）。
-      const chLaneCnt=(c,L)=>{ chLanes(c); const id=champId(c);   // 先呼叫一次確保索引已建（_chLaneIdx 是懶建的）
-        return (_chLaneIdx&&_chLaneIdx[id]&&_chLaneIdx[id][L])||0; };
+      const chLaneCnt=(c,L)=>{ chLanes(c); const id=champId(c);   // 先呼叫一次確保索引已建（_IX.chLane 是懶建的）
+        return (_IX.chLane&&_IX.chLane[id]&&_IX.chLane[id][L])||0; };
       // 層級2b 的來源（使用者指定 2026-08-16）：**全庫積分近三版**的路線——該隊比賽與積分都沒有
       // 這隻英雄時才用。資料＝SOLOQ_BUILDS.heroP（英雄→版本→路線→[場數,…]，母體是**全部職業選手的
       // 排位**，不是這一隊的），路線碼是 Riot 長碼要轉回站內碼。
@@ -12239,8 +12254,7 @@ function render(){
       //   載完 ensureBuilds 會重繪（已把 模擬BP 加進它的重繪清單）
       const SC_SQ_MIX=0.4, SQ_N_W=0.7;
       const _SQLN={TOP:"TOP",JUNGLE:"JNG",MIDDLE:"MID",BOTTOM:"BOT",UTILITY:"SUP"};
-      let _sqHr=null, _sqHrTried=false;
-      const sqHrIdx=()=>{ if(_sqHrTried)return _sqHr; _sqHrTried=true;
+      const sqHrIdx=()=>{ if(_IX.sqHrTried)return _IX.sqHr; _IX.sqHrTried=true;
         if(!V.bpSoloqPool)return null;      // 使用者定案：積分只在「🎯 近期積分」開啟時才計入
         const hp=(window.SOLOQ_BUILDS||{}).heroP; if(!hp)return null;
         const ref=lastPatches(SC_HR_PATCHES), agg={};
@@ -12266,7 +12280,7 @@ function render(){
           const mm={}; es.forEach(([c2])=>{ const a=pn[c2], b=pg[c2];
             mm[c2]=(a==null)?(b==null?null:b):(b==null?a:a*SQ_N_W+b*(1-SQ_N_W)); });
           out[L]=mm; }
-        return _sqHr=out; };
+        return _IX.sqHr=out; };
       const _wrSc=(n,w,full,min)=>(n>=(min||1))?_clamp(50+(w/n-0.5)*100*_sat(n,full)):null; // 勝率型：信心隨樣本飽和
       // ── 隊伍實力正規化（2026-08-07 使用者定案）────────────────────────────────────
       // 問題：① 選手熟練 與 ② 戰隊勝率 都是**絕對勝率**，而兩者合計 60% 權重 → 總分幾乎
@@ -12292,8 +12306,7 @@ function render(){
       // 一趟掃出「每一局每一邊」的五路英雄＋勝負＋隊名＋選手，①②③④⑤ 全部由它派生。
       // ⚠ 母體是 inRef（最近三版全球聯賽）而**不是** passG：見 passG 上方「參照母體」那段。
       //   篩選只決定角色池顯示什麼，分數的統計來源固定不變——否則篩到小型盃賽時每一項都只剩十幾場。
-      let _gsI=null, _tmChI=null, _duoI=null, _plChI=null;
-      const gameSides=()=>{ if(_gsI)return _gsI;
+      const gameSides=()=>{ if(_IX.gs)return _IX.gs;
         const m=new Map();
         for(const o of LANES){ if(!inRef(o))continue; const L=PID2LANE[o.pid]; if(!L)continue;
           const k=gkey(o);
@@ -12319,19 +12332,18 @@ function render(){
             // 順手收金錢差@10：對位因子的主要依據（LPL 這欄全空 → 該賽區自動退回勝率，見 muRec）
             const _g=parseFloat(o.raw[C.blue_golddiffat10+off]);
             if(isFinite(_g))e.G[L]=_g; } }
-        _gsI=[...m.values()]; return _gsI; };
+        _IX.gs=[...m.values()]; return _IX.gs; };
       // ② 戰隊×英雄（不分路線，樣本較大；名稱一律過 teamFix 收斂改名隊）
-      const tmChRec=(tm,c)=>{ if(!_tmChI){ _tmChI={};
+      const tmChRec=(tm,c)=>{ if(!_IX.tmCh){ _IX.tmCh={};
           gameSides().forEach(g=>{ const t=teamFix(g.tm||""); if(!t)return;
-            for(const L in g.L){ const k=t+"|"+g.L[L]; const e=_tmChI[k]||(_tmChI[k]={n:0,w:0}); e.n++; if(g.win)e.w++; } }); }
-        return _tmChI[teamFix(tm||"")+"|"+champId(c)]||null; };
+            for(const L in g.L){ const k=t+"|"+g.L[L]; const e=_IX.tmCh[k]||(_IX.tmCh[k]={n:0,w:0}); e.n++; if(g.win)e.w++; } }); }
+        return _IX.tmCh[teamFix(tm||"")+"|"+champId(c)]||null; };
       // ②的基準：該隊整體勝率。單位要跟 tmChRec 一致——同一隻英雄一邊最多出現一次，
       // 所以 tmChRec 的 n＝「該隊用這隻的局數」，這裡的 n＝「該隊總局數」，兩者可直接相減。
-      let _tmTotI=null;
-      const tmBase=tm=>{ if(!_tmTotI){ _tmTotI={};
+      const tmBase=tm=>{ if(!_IX.tmTot){ _IX.tmTot={};
           gameSides().forEach(g=>{ const t=teamFix(g.tm||""); if(!t)return;
-            const e=_tmTotI[t]||(_tmTotI[t]={n:0,w:0}); e.n++; if(g.win)e.w++; }); }
-        const e=_tmTotI[teamFix(tm||"")];
+            const e=_IX.tmTot[t]||(_IX.tmTot[t]={n:0,w:0}); e.n++; if(g.win)e.w++; }); }
+        const e=_IX.tmTot[teamFix(tm||"")];
         return {b:_shrunk(e?e.n:0,e?e.w:0), n:e?e.n:0}; };
       // ⑧ 戰隊近況（使用者定案 2026-08-15）：該隊**最近 10 場的勝率**，對線對位讓出 5% 給它。
       // ⚠ 這一項是全系統**最強的單一預測因子**：單獨走前 61.5%（戰隊勝率 56.6%、選手熟練 56.3%）。
@@ -12342,13 +12354,12 @@ function render(){
       //   而且它有真實勝負訊號，用勝率當刻度本來就對（與禁用／可錯位那種沒訊號的不同）。
       // ⚠ 不足 5 場＝中性 50（同全站慣例，不懲罰資料少的隊）。母體同其他因子＝當年度全賽事。
       const _FORMN=10, _FORMMIN=5;
-      let _tmFormI=null;
-      const tmFormIdx=()=>{ if(_tmFormI)return _tmFormI;
+      const tmFormIdx=()=>{ if(_IX.tmForm)return _IX.tmForm;
         const H={};
         gameSides().forEach(g=>{ const t=teamFix(g.tm||""); if(!t)return;
           (H[t]=H[t]||[]).push({d:String(g.dt||""), w:!!g.win}); });
         for(const t in H)H[t].sort((a,b)=>a.d<b.d?-1:a.d>b.d?1:0);
-        return _tmFormI=H; };
+        return _IX.tmForm=H; };
       // before＝匯入的真實比賽要從**那一場的時間點**往前推十場（使用者定案 2026-08-15），
       // 不是今天的近況。同一天的其他場次一律不算——同系列的比分先後在資料裡分不出來。
       const formRec=(tm,before)=>{ const t=teamFix(tm||""); if(!t)return null;
@@ -12360,11 +12371,11 @@ function render(){
       // ① 選手×英雄／選手總計。**不能用畫面上的角色池數字**——那是篩選後的，篩到單一盃賽就只剩幾場；
       // 這裡跟其他因子一樣走參照母體（最近三版全球），選手名以小寫收斂（各站大小寫不一致）。
       const _plK=p=>String(p||"").trim().toLowerCase();
-      const plIdx=()=>{ if(!_plChI){ _plChI={ch:{},tot:{}};
+      const plIdx=()=>{ if(!_IX.plCh){ _IX.plCh={ch:{},tot:{}};
           gameSides().forEach(g=>{ for(const L in g.L){ const p=_plK(g.P[L]); if(!p)continue;
-            const a=_plChI.ch[p+"|"+g.L[L]]||(_plChI.ch[p+"|"+g.L[L]]={n:0,w:0}); a.n++; if(g.win)a.w++;
-            const t=_plChI.tot[p]||(_plChI.tot[p]={n:0,w:0}); t.n++; if(g.win)t.w++; } }); }
-        return _plChI; };
+            const a=_IX.plCh.ch[p+"|"+g.L[L]]||(_IX.plCh.ch[p+"|"+g.L[L]]={n:0,w:0}); a.n++; if(g.win)a.w++;
+            const t=_IX.plCh.tot[p]||(_IX.plCh.tot[p]={n:0,w:0}); t.n++; if(g.win)t.w++; } }); }
+        return _IX.plCh; };
       const plChRec=(p,c)=>plIdx().ch[_plK(p)+"|"+champId(c)]||null;
       const plTotRec=p=>plIdx().tot[_plK(p)]||null;
       // ④ 隊友組合：使用者指定的配對＝上與野、野與中、中與野、下與輔、輔與下
@@ -12372,11 +12383,11 @@ function render(){
       const DUO_OF={TOP:["TOP","JNG"],JNG:["JNG","MID"],MID:["JNG","MID"],BOT:["BOT","SUP"],SUP:["BOT","SUP"]};
       const duoRec=(L,mine)=>{ const pr=DUO_OF[L]; if(!pr)return null;
         const a=mine[pr[0]], b=mine[pr[1]]; if(!a||!b)return null;              // 兩路都選了才算
-        if(!_duoI){ _duoI={};
+        if(!_IX.duo){ _IX.duo={};
           gameSides().forEach(g=>{ ["TOP|JNG","JNG|MID","BOT|SUP"].forEach(pk=>{
             const [x,y]=pk.split("|"); const cx=g.L[x], cy=g.L[y]; if(!cx||!cy)return;
-            const k=pk+"|"+cx+"|"+cy; const e=_duoI[k]||(_duoI[k]={n:0,w:0}); e.n++; if(g.win)e.w++; }); }); }
-        return _duoI[pr.join("|")+"|"+champId(a)+"|"+champId(b)]||null; };
+            const k=pk+"|"+cx+"|"+cy; const e=_IX.duo[k]||(_IX.duo[k]={n:0,w:0}); e.n++; if(g.win)e.w++; }); }); }
+        return _IX.duo[pr.join("|")+"|"+champId(a)+"|"+champId(b)]||null; };
       // ⑤ 陣容：**規則型的陣容合理性**（2026-08-07 使用者定案），取代原本「歷史上有三隻以上相同的
       // 局的勝率」。換掉的理由是實測出來的：舊做法與「隊友組合」相關 0.45（每一組配對都是陣容的
       // 子集，證據互相包含），而且走前準確率 52.8%＝近乎空的，拿掉完全不影響分數。
@@ -12520,17 +12531,16 @@ function render(){
       //   阿卡莉(上1/中11)、加里歐(上2/中9)、塔莉雅(中8/下5)、慎(上1/輔6)——都對。
       //   量測腳本 scratchpad/flex_team.py（看隊名版）與 flex_team2.py（看選手版，定案）。
       const _FLEXSQMIN=5;
-      let _plFlexI=null, _plFlexIK=null;
       // 選手 → 他會用的英雄集合（比賽選過的 ∪ 積分超過五場的）
       const plFlexIdx=()=>{ const key=V.bpSoloqPool?("sq"+(+V.bpSqDays||14)):"pro";
-        if(_plFlexI&&_plFlexIK===key)return _plFlexI;
-        _plFlexIK=key; const P={};
+        if(_IX.plFlex&&_IX.plFlexK===key)return _IX.plFlex;
+        _IX.plFlexK=key; const P={};
         const tmOf={};
         gameSides().forEach(g=>POSN.forEach(L=>{ const c=g.L[L], p=_plK(g.P[L]); if(!c||!p)return;
           (P[p]=P[p]||{})[c]=1; tmOf[p]=g.tm; }));
         if(V.bpSoloqPool)for(const p in tmOf){ const sq=sqRecent(tmOf[p],p);
           if(sq)for(const id in sq){ if((sq[id].n||0)>_FLEXSQMIN)(P[p]=P[p]||{})[id]=1; } }
-        return _plFlexI=P; };
+        return _IX.plFlex=P; };
       // 這一組英雄裡，有幾隻是「≥2 個隊友會用」的。players＝{路線:選手名}
       const flexCnt=(players,cids)=>{ const P=plFlexIdx();
         const pl=POSN.map(L=>P[_plK(players&&players[L])]).filter(Boolean);
@@ -12544,10 +12554,9 @@ function render(){
       const _frB=v=>Math.max(0,Math.min(4,Math.round(v*2)-1));
       // ⚠ soloq_builds.js 是延遲載入的（見 ensureBuilds）。傷害偏向的中位要用 apr 算，
       //   所以參照母體必須記住「建的時候 builds 到了沒」，狀態一變就重算——否則會永遠卡在退路版的基準。
-      let _compRef=null, _compRefB=null;
       const compRefIdx=()=>{ const _bR=(!!((window.SOLOQ_BUILDS||{}).champs))+"|"+(V.bpSoloqPool?1:0);
-        if(_compRef&&_compRefB===_bR)return _compRef;   // builds 載入狀態或積分開關一變就重算（錯位索引吃積分）
-        _compRefB=_bR;
+        if(_IX.compRef&&_IX.compRefB===_bR)return _IX.compRef;   // builds 載入狀態或積分開關一變就重算（錯位索引吃積分）
+        _IX.compRefB=_bR;
         const ap=[], fr=[], egB={}, leanAll=[], leanRc=[];
         // 傷害偏向的中位只看**最近三個版本**（使用者指定 2026-08-08）：meta 會整個位移——
         // 實測近三版中位 51.5%、當年度 47.6%，差 4pp，用全年當基準會把整批法系陣容誤判成偏。
@@ -12567,7 +12576,7 @@ function render(){
             if(_p3s.has(_pn(g.pt)))leanRc.push(m.lean);
             const _b=Math.round(m.eg*m.n);              // 逐分收集，合併交給 PAVA 決定
             const e=egB[_b]||(egB[_b]={n:0,w:0}); e.n++; if(g.win)e.w++; } });
-        if(ap.length<50)return _compRef={ok:false};        // 標籤沒載到或母體太小＝這一項不計入
+        if(ap.length<50)return _IX.compRef={ok:false};        // 標籤沒載到或母體太小＝這一項不計入
         const med=a=>{ const s=a.slice().sort((x,y)=>x-y); return s[Math.floor(s.length/2)]; };
         const mAp=med(ap), mFr=med(fr);
         // 近三版樣本不足（新賽季剛開、或篩到小賽事）就退回全年，寧可基準舊一點也不要基準亂跳
@@ -12611,7 +12620,7 @@ function render(){
         _sides.forEach(g=>{ if(!POSN.every(L=>g.L[L]&&g.P[L]))return;
           fxD.push(flexCnt(g.P, POSN.map(L=>g.L[L])).k); });
         fxD.sort((a,b)=>a-b);
-        return _compRef={ok:true, mAp, mFr, n:ap.length, egKn, mLean, maxDev, leanRecent, nLean:_lp.length,
+        return _IX.compRef={ok:true, mAp, mFr, n:ap.length, egKn, mLean, maxDev, leanRecent, nLean:_lp.length,
           pr:_pr, cfgSc, cfgCX, cfgCY, nCfg:cfgRows.length, fxD,
           dAp:ap.map(v=>Math.abs(v-mAp)).sort((x,y)=>x-y),
           dFr:fr.map(v=>Math.abs(v-mFr)).sort((x,y)=>x-y)}; };
@@ -12667,8 +12676,7 @@ function render(){
       //   （壓制戰隊池 49.0/48.8、壓制選手本命 49.1/49.3、禁高出場 51.6/50.6、禁高勝率 49.6/48.7）。
       //   使用者知情並仍要它，理由與對位那項相同：它講的是選角本身的一句真話，只是不轉換成勝負。
       // ⚠ 刻度用**百分位**不是實際勝率——沒有勝率訊號的東西拿勝率當刻度只會放大雜訊。
-      let _banRef=null;
-      const banRefIdx=()=>{ if(_banRef)return _banRef;
+      const banRefIdx=()=>{ if(_IX.banRef)return _IX.banRef;
         const sides=gameSides();
         const _pn=p=>{ const mm=String(p||"").match(/^(\d+)\.(\d+)/); return mm?(+mm[1])*100+(+mm[2]):null; };
         const p3=new Set([...new Set(sides.map(g=>_pn(g.pt)).filter(v=>v!=null))].sort((a,b)=>b-a).slice(0,3));
@@ -12694,7 +12702,7 @@ function render(){
             POSN.forEach(L=>{ if(!op)return; mx=Math.max(mx, X.sigrate(op.tm, op.P[L], bn[i])); }); s2+=mx; }
           d1.push(s1); d2.push(s2); });
         d1.sort((a,b)=>a-b); d2.sort((a,b)=>a-b);
-        return _banRef={ok:d1.length>=200, X, d1, d2}; };
+        return _IX.banRef={ok:d1.length>=200, X, d1, d2}; };
       const _pctOf=(v,sorted)=>{ const N=sorted.length; if(!N)return 50;
         let lo=0,hi=N; while(lo<hi){ const m2=(lo+hi)>>1; if(sorted[m2]<v)lo=m2+1; else hi=m2; }
         let le=lo,h2=N; while(le<h2){ const m2=(le+h2)>>1; if(sorted[m2]<=v)le=m2+1; else h2=m2; }
@@ -12717,9 +12725,8 @@ function render(){
       // 同時累計「勝負」與「金錢差@10」：使用者定案 2026-08-07——對位要回答的是**這條線吃不吃香**，
       // 那就是 GD@10 直接量的東西；對位勝率會被其他四條線嚴重汙染（實測拿它預測勝負只有 51.8%，
       // 跟擲硬幣差不多）。所以 GD 有樣本就用 GD，沒有（LPL 這欄全空）才退回勝率。
-      let _muI=null;
-      const muRec=(L,a,b)=>{ if(!_muI){ _muI={};
-          const add=(k,w,g)=>{ const e=_muI[k]||(_muI[k]={n:0,w:0,gn:0,gs:0});
+      const muRec=(L,a,b)=>{ if(!_IX.mu){ _IX.mu={};
+          const add=(k,w,g)=>{ const e=_IX.mu[k]||(_IX.mu[k]={n:0,w:0,gn:0,gs:0});
             e.n++; if(w)e.w++; if(g!=null){ e.gn++; e.gs+=g; } };
           for(const o of LANES){ if(!inRef(o))continue; const L2=PID2LANE[o.pid]; if(!L2)continue;
             const bc=champId(o.raw[C.blue_champion]), rc=champId(o.raw[C.blue_champion+RB]);
@@ -12727,7 +12734,7 @@ function render(){
             const gb=parseFloat(o.raw[C.blue_golddiffat10]), gr=parseFloat(o.raw[C.blue_golddiffat10+RB]);
             add(L2+"|"+bc+"|"+rc, bw, isFinite(gb)?gb:null);
             add(L2+"|"+rc+"|"+bc, !bw, isFinite(gr)?gr:null); } }
-        return _muI[L+"|"+champId(a)+"|"+champId(b)]||null; };
+        return _IX.mu[L+"|"+champId(a)+"|"+champId(b)]||null; };
       // ── 對位分（2026-08-07 使用者定案：兩邊都不准寫死金額刻度）──────────────────────
       // 共通做法，職業賽與積分各跑一次：
       //  ① 基準＝**該英雄對其他英雄的中位金差**（不是全體平均）。全體平均只扣得掉「整體偏移」，
@@ -12742,10 +12749,9 @@ function render(){
         return s[Math.floor(s.length/2)]; };
       const _p95=a=>{ if(!a.length)return null; const s=a.map(Math.abs).sort((x,y)=>x-y);
         return s[Math.floor((s.length-1)*0.95)]||null; };
-      // 職業賽：_muI 的鍵是「路線|我|敵」，基準逐(路線,英雄)算
-      let _muP=null;
-      const muProIdx=()=>{ if(_muP)return _muP;
-        muRec("TOP","",""); const M=_muI||{};                    // 觸發索引建立
+      // 職業賽：_IX.mu 的鍵是「路線|我|敵」，基準逐(路線,英雄)算
+      const muProIdx=()=>{ if(_IX.muP)return _IX.muP;
+        muRec("TOP","",""); const M=_IX.mu||{};                    // 觸發索引建立
         const by={};                                             // 路線|我 -> [各對手的平均金差]
         for(const k2 in M){ const e=M[k2]; if(!e.gn||e.gn<5)continue;
           const p2=k2.split("|"); const kk=p2[0]+"|"+p2[1];
@@ -12754,10 +12760,9 @@ function render(){
         const dv=[]; for(const k2 in M){ const e=M[k2]; if(!e.gn||e.gn<5)continue;
           const p2=k2.split("|"), b2=base[p2[0]+"|"+p2[1]]; if(b2==null)continue;
           dv.push(e.gs/e.gn-b2); }
-        return _muP={base, scale:_p95(dv)||400}; };
+        return _IX.muP={base, scale:_p95(dv)||400}; };
       // 積分：mu[我][敵]，基準逐英雄算（積分沒有分路線）
-      let _sqMuIdx=null;
-      const sqMuIdx=()=>{ if(_sqMuIdx)return _sqMuIdx;
+      const sqMuIdx=()=>{ if(_IX.sqMu)return _IX.sqMu;
         const M=(window.SOLOQ_BUILDS||{}).mu||{}, pair={};
         const add=(a,b,n,s)=>{ const m=pair[a]||(pair[a]={}), e=m[b]||(m[b]={n:0,s:0}); e.n+=n; e.s+=s; };
         for(const a in M)for(const b in M[a]){ const r=M[a][b];
@@ -12769,7 +12774,7 @@ function render(){
           if(vs.length>=3)base[a]=_medOf(vs); }
         const dv=[]; for(const a in pair){ const b2=base[a]; if(b2==null)continue;
           for(const b in pair[a]){ const e=pair[a][b]; if(e.n>=10)dv.push(e.s/e.n-b2); } }
-        return _sqMuIdx={pair, base, scale:_p95(dv)||1000}; };
+        return _IX.sqMu={pair, base, scale:_p95(dv)||1000}; };
       const _gdSc=(gd,n,full,scale)=>_clamp(50+gd/(scale||400)*45*_sat(n,full));  // p95 對應 95 分
       const sqMuRec=(a,b)=>{ if(!V.bpSoloqPool)return null;      // 只在開「🎯 近期積分」時計入
         const X=sqMuIdx(), A=champId(a), B=champId(b);
