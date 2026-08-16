@@ -2311,8 +2311,36 @@ function fillTableWidth(root,prop){
   const last=ths.length-1, nFill=ths.length-from-1;
   const base=prop?natW.reduce((a,w,i)=>(i>=from&&i<last)?a+w:a,0):0; // 比例分配的分母＝可長欄的自然寬總和
   const per=prop?0:(nFill>0?extra/nFill:0);                // 多餘空間平均給資料欄(索引≥2、不含末欄)
+  // ★平均模式改成「等留白」水填（2026-08-16 使用者回報「欄位間隔有的大有的小」）：
+  //   每欄加同樣的量只是整排平移，各欄本來的鬆緊差原封不動留著——實測戰隊頁「資料周圍留白」
+  //   13~76px、落差 63px：表頭比資料寬很多的欄（角色池 表頭66/資料20）很鬆，資料比表頭寬的欄
+  //   （勝率 50/82、主動權 66/110、中期金差 82/108）擠到快貼邊，看起來就是間隔忽大忽小。
+  //   改成解一個共同留白 s，可長的欄一律變成「資料寬 + s」；本來就比 s 鬆的欄維持自然寬
+  //   （**不能縮，會裁字**——那是鐵則）。這樣欄與欄之間的節奏才一致。
+  let wSol=null;
+  if(!prop&&nFill>0){
+    // 資料寬＝把表頭藏起來再量一次（欄寬在 auto/max-content 下就是「所有 td 的最大內容寬」）
+    const thead=tbl.querySelector("thead"), row0=tbl.querySelector("tbody tr");
+    if(thead&&row0&&row0.children.length===ths.length&&![...row0.children].some(td=>td.colSpan>1)){
+      thead.style.display="none";
+      const dataW=[...row0.children].map(td=>td.getBoundingClientRect().width/(window._zoomF||1));
+      thead.style.display="";
+      const idx=[]; for(let i=from;i<last;i++)idx.push(i);
+      const fixedW=natW.reduce((a,w,i)=>a+((i<from||i===last)?w:0),0);
+      const budget=avail-fixedW;
+      if(idx.length&&budget>0&&dataW.every(w=>isFinite(w))){
+        let lo=0, hi=budget;                                   // f(s)=Σ max(natW,dataW+s) 對 s 單調遞增
+        for(let k=0;k<40;k++){ const s=(lo+hi)/2;
+          (idx.reduce((a,i)=>a+Math.max(natW[i],dataW[i]+s),0)<budget)?lo=s:hi=s; }
+        wSol={}; idx.forEach(i=>{ wSol[i]=Math.max(natW[i],dataW[i]+lo); });
+      }
+    }
+  }
   tbl.style.tableLayout="fixed"; tbl.style.width=avail+"px";
-  ths.forEach((th,i)=>{const add=(i<from||(i===last&&nFill>0))?0:(prop?(base?extra*natW[i]/base:0):per); th.style.width=(natW[i]+add)+"px";});
+  ths.forEach((th,i)=>{
+    if(i<from||(i===last&&nFill>0)){ th.style.width=natW[i]+"px"; return; }   // 前兩欄與末欄不吃餘寬（2026-08-05 定案）
+    if(wSol&&wSol[i]!=null){ th.style.width=wSol[i]+"px"; return; }
+    th.style.width=(natW[i]+(prop?(base?extra*natW[i]/base:0):per))+"px"; });
 }
 // 餘寬平均分給每一欄（2026-08-05 使用者回報「第一欄距離邊框很小、最後一欄距離邊框又很大」）：
 // 沒走 fillTableWidth 的表（總覽 table.ov、積分 recTbl…）靠 CSS 的 min-width:100% 撐滿容器，
