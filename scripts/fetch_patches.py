@@ -178,7 +178,7 @@ def clean(s):
 BREAK_TITLES = (
     "增幅裝置", "特別嘉賓", "系統", "道具", "裝備", "英雄", "符文", "錯誤修正", "遊戲更新",
     "競技場", "旅法師", "小兵", "野怪", "地圖", "史詩級", "電競", "活動", "商城", "新內容",
-    "即將到來", "實用資訊", "回饋", "平衡", "資訊",
+    "即將到來", "實用資訊", "回饋", "平衡", "資訊", "經典模式",
     # 英文頁的分區標題(2019~2022 抓英文版時用)
     "Items", "Item", "Runes", "Rune", "Arena", "Bugfixes", "Bug Fixes", "Systems", "System",
     "ARAM", "Jungle", "Minions", "Summoner Spells", "Objectives", "Map", "Emotes", "Store",
@@ -605,8 +605,13 @@ EXTRA_CATS = [
 
 
 # 遇到這些標題代表已離開道具/符文/機制區(進入競技場/積分/活動…)→ 停止
+# ⚠「經典模式」是 2026 新增的**懷舊模式**（限定英雄池、還會「新增 阿卡莉/凱能/慎」、另有經典造型），
+#   不是召喚峽谷本身。26.16 首次出現時整段（英雄/符文/系統/防禦塔數值）被吃進道具區
+#   （2026-08-17 使用者回報）。
 STOP_HEADERS = ("召喚峽谷積分", "競技場", "活動", "增幅裝置", "特別嘉賓", "電競", "實用資訊",
-                "遊戲更新", "即將", "賽事", "隨機單中", "大亂鬥", "ARAM")
+                "遊戲更新", "即將", "賽事", "隨機單中", "大亂鬥", "ARAM", "經典模式",
+                # 英文頁（patches_en 用同一套解析器）："Classic"＝經典模式那一段
+                "Classic", "Arena", "Bugfixes", "Upcoming", "Related Articles")
 
 
 _ITEM_NAMES = None
@@ -641,6 +646,26 @@ def _grab(seg):
             if txt and txt not in SECTION_WORDS:
                 cur = txt
         elif m.group(3) is not None:            # li 改動行
+            # ⚠ Riot 偶爾把「小標題＋說明＋改動清單」整包塞進一個外層 <li>（26.16 的「打野夥伴」）。
+            #   外層 li 的非貪婪比對會一路吃到第一個內層 </li>，clean() 之後標題、說明、數值黏成一行，
+            #   還會掛到**上一個**小標題底下（26.16 變成「ADC魔防｜打野夥伴說到更加多元的…」）。
+            #   li 內若還有 h3~5 小標題就遞迴解析內層。只認 h3~5，不認 <ul>：巢狀 <ul> 是一般的
+            #   子項清單，改判會動到所有歷史版本。
+            #   補一個 </li>：外層 li 的比對停在第一個 </li>，內層那條改動的收尾標籤被吃掉了，
+            #   不補的話遞迴進去會整條漏掉（26.16 的「打野夥伴｜每次普攻傷害」）。
+            if re.search(r"<h[3-5][^>]*>", m.group(3)):
+                lines.extend(_grab(m.group(3) + "</li>"))
+                continue
+            # ⚠ Riot 偶爾把兩條改動塞進同一個 <li>（26.16「突破天際」：治療…⇒… 後面直接接 生命：400 ⇒ 450），
+            #   清成純文字會黏成「…+4%已損失生命生命：400 ⇒ 450」。
+            #   規則：某個 </strong> 後面又出現「<strong>短標籤</strong>：」就切開，且切完要有兩段以上帶 ⇒。
+            parts = re.split(r"(?<=</strong>)\s*(?=<strong>[^<]{1,20}</strong>\s*[：:])", m.group(3))
+            if len(parts) > 1 and sum(1 for x in parts if "⇒" in x) > 1:
+                for x in parts:
+                    tx = clean(x)
+                    if tx and "⇒" in tx:
+                        lines.append(f"{cur}｜{tx}" if cur else tx)
+                continue
             t = clean(m.group(3))
             if t and "⇒" in t:
                 lines.append(f"{cur}｜{t}" if cur else t)
@@ -702,21 +727,32 @@ def extract_extra(html_text):
     if not it:  # 新版型(Riot 2026 改版，只剩 patch-notes-container 錨點)：改用 <h*>道具</h*> 標題定位
         # **只在「競技場之前」找道具**：patch-arena 之後全是競技場專屬道具改動（女妖面紗/魔提斯深/機會…都是競技場的，
         # 不是召喚峽谷的），若整份文件搜尋會抓到競技場的 <h4>道具</h4>。用 patch-arena／<h*>競技場</h*> 當上界。
-        arena = re.search(r'id="patch-arena"|id="patch-esports"|<h[1-4][^>]*>\s*競技場\s*</h[1-4]>', html_text)
+        arena = re.search(r'id="patch-arena"|id="patch-esports"'
+                          r'|<h[1-4][^>]*>\s*(?:競技場|Arena)\s*</h[1-4]>', html_text)
         scope = html_text[:arena.start()] if arena else html_text
-        hm2 = re.search(r'<h[1-4][^>]*>\s*道具\s*</h[1-4]>', scope)
+        hm2 = re.search(r'<h[1-4][^>]*>\s*(?:道具|Items?)\s*</h[1-4]>', scope)
         if hm2:
             it = _cut_stop(scope[hm2.start():])  # _grab 只收 ⇒/已知道具名行，後面系統段會被濾掉
     if it:
-        rm = re.search(r"<h[2-4][^>]*>\s*符文\s*</h[2-4]>", it)
+        rm = re.search(r"<h[2-4][^>]*>\s*(?:符文|Runes?)\s*</h[2-4]>", it)
         item_seg = _cut_stop(it[:rm.start()] if rm else it)
         li_it = _grab(item_seg)
         if li_it:
             out["道具"] = li_it
         if rm:
-            lr = _grab(_cut_stop(it[rm.start():]))
+            rest = _cut_stop(it[rm.start():])
+            # 2026 新版型：符文之後還接一個 <h2>系統</h2>（ADC魔防／打野夥伴／輔助角色任務…）。
+            # 沒切開的話整段都會被當成符文（26.16 實測符文區被灌成 71 行）。
+            sm2 = re.search(r"<h[2-4][^>]*>\s*(?:系統|機制|Systems?)\s*</h[2-4]>", rest)
+            cut = sm2.start() if sm2 else len(rest)
+            lr = _grab(rest[:cut])
             if lr:
                 out["符文"] = lr
+            if sm2:
+                mech2 = out.setdefault("機制", [])
+                for l in _grab(rest[cut:]):
+                    if l not in mech2:
+                        mech2.append(l)
     # 召喚師技能：文字標題(若有)
     sm = re.search(r"<h[2-4][^>]*>[^<]*召喚師技能[^<]*</h[2-4]>", html_text)
     if sm:
@@ -875,6 +911,13 @@ def parse_new(html_text):
     return out
 
 
+def _iname(x):
+    """DDragon 的道具名偶爾帶 Riot 圖示佔位符（歐恩大師之作：「%i:ornnIcon% 指揮所」）。
+    直接拿去組「｜全新道具登場」會把佔位符寫進 patches.js，前端照原樣顯示、lint_text 也會判錯誤
+    （2026-08-17 重建 26.16 時炸出 23 筆）。"""
+    return re.sub(r"%i:[A-Za-z0-9_]+%\s*", "", str(x.get("name", "") if isinstance(x, dict) else x)).strip()
+
+
 def item_debuts():
     """當季新道具首發偵測：掃 DDragon 本季各小版本 item.json 做差集。
     回傳 {道具名: {"pk": "26.05", "lines": [首發介紹行...]}}；結果快取，最新版號沒變就沿用。"""
@@ -905,7 +948,7 @@ def item_debuts():
         try:
             d0 = json.loads(urllib.request.urlopen(
                 f"https://ddragon.leagueoflegends.com/cdn/{pv}/data/zh_TW/item.json", timeout=60).read())["data"]
-            seen_names |= {x["name"] for x in d0.values()}
+            seen_names |= {_iname(x) for x in d0.values()}
         except Exception:
             pass
     for v in minors:
@@ -923,7 +966,7 @@ def item_debuts():
         if prev is not None:
             pk = f"{yy}.{int(v.split('.')[1]):02d}"
             for iid2 in set(cur) - set(prev):
-                x = cur[iid2]; n = x["name"]
+                x = cur[iid2]; n = _iname(x)
                 relaunch = n in seen_names  # 本季曾出現過同名＝重做版（如 26.09 貪婪護脛換新 id）
                 desc = x.get("description", "")
                 sm = re.search(r"<stats>(.*?)</stats>", desc, re.S)
@@ -935,7 +978,7 @@ def item_debuts():
                 if stats: lines.append(f"{n}｜屬性：{stats}")
                 if eff:   lines.append(f"{n}｜效果：{'、'.join(dict.fromkeys(eff))}")
                 debut.setdefault(n, {"pk": pk, "lines": lines})
-        seen_names |= {x["name"] for x in cur.values()}
+        seen_names |= {_iname(x) for x in cur.values()}
         prev = cur
     json.dump({"_last": minors[-1], "debut": debut}, open(vf, "w", encoding="utf-8"), ensure_ascii=False)
     return debut
@@ -981,7 +1024,7 @@ def item_removals():
             if int(iid) >= 200000: continue
             if (x.get("maps") or {}).get("11") is False: continue
             if (x.get("gold") or {}).get("purchasable") is False: continue
-            out[iid] = x["name"]
+            out[iid] = _iname(x)
         return out
 
     by_major = bm0
