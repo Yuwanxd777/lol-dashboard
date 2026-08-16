@@ -226,9 +226,13 @@
   @container mainc (max-width:1980px){th,td{padding:8px 7px}} /* 1080P 縮內距，讓大表盡量不用捲 */
   th[data-k]{white-space:normal;line-height:1.25;vertical-align:middle;text-wrap:balance} /* 長標題換行且行長平衡（四字斷成2+2非3+1） */
   /* 等距欄寬的表（fillTableWidth 走「欄寬只看資料、每欄同留白」時掛上 .tblEven，2026-08-16 使用者定案）：
-     欄名不再決定欄寬 → 塞不下就讓它自己折行，否則 th 的 overflow:hidden 會把欄名裁掉（違反不裁字鐵則）。
-     .thL 平常是 nowrap（只認 <br>），這裡放行；排序三角形的 13px 保留區維持不動。 */
-  table.tblEven .thL{white-space:normal}
+     ★**三個字不換行**（使用者指定）→ .thL 維持 nowrap，只認 thBrk 放的 <br>。
+     那怎麼塞得下？把**排序三角形的 13px 保留區拿掉**：那 26px 才是欄名「看起來很寬」的主因
+     （角色池 文字 66px、含保留區要 95px）。原本要保留是為了「顯示/隱藏三角形不改變欄寬」，
+     但這種表的欄寬只由資料決定、根本不看欄名，那個理由就不成立了。
+     三角形改成坐在 th 自己的內距上（right:-10px），不再佔欄名的寬度、也不會蓋到字。 */
+  table.tblEven .thL{padding:0}
+  table.tblEven .sortArr{right:-12px}   /* 坐在 th 內距上：不佔欄名寬度、也不壓到最後一個字 */
   .hi{color:var(--gold);font-weight:bold}
   .win{color:var(--green);font-weight:bold}
   .scorebar{display:inline-block;min-width:34px;text-align:center;padding:1px 7px;border-radius:6px;font-weight:bold}
@@ -3186,8 +3190,13 @@ const grpTagOn=()=>!lgTagOn()&&!String(F.league||"").includes("#")&&!/PO$|季後
 //（與積分頁同一套，使用者 2026-07-29 定案：只顯示當前賽事的組別）
 const grpSplitOf=lg=>{ const m=String(F.split||"").match(/S(\d)/); return lplSelSplit(curYear,m?("S"+m[1]):"",lg); };
 const grpChip=(ab,lg)=>{ if(!ab||(lg!=="LPL"&&lg!=="LCK"))return "";     // 只有這兩個聯賽有分組資料
-  const sp=grpSplitOf(lg), g=sp?lplSplitGroupOf(teamFix(String(ab)),curYear,sp,lg):null;
-  if(!g)return ""; const c=lplGrpColor(g,curYear,sp,lg);
+  const sp=grpSplitOf(lg); if(!sp)return "";
+  const g=lplSplitGroupOf(teamFix(String(ab)),curYear,sp,lg);
+  // 該賽段有分組、但這隊不在任何一組裡＝沒打進那個賽段 → 標「淘汰」（2026-08-16 使用者指定；
+  // 實例：LPL 2026 S3 只有登峰 8 隊＋涅槃 4 隊，OMG／UP 不在分組內）。用中性灰，不搶組別色。
+  if(!g){ if(!lplGroupNamesOfSplit(curYear,sp,lg).length)return "";
+    return `<span class="lg" style="background:#8a93a622;color:#8a93a6">${LANG==="en"?"Out":"淘汰"}</span>`; }
+  const c=lplGrpColor(g,curYear,sp,lg);
   return `<span class="lg" style="background:${c}22;color:${c}">${esc(lplGrpName(g))}</span>`; };
 
 // ---------- 前處理 / 全域篩選（initData 填入）----------
