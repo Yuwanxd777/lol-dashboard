@@ -231,7 +231,6 @@
      （角色池 文字 66px、含保留區要 95px）。原本要保留是為了「顯示/隱藏三角形不改變欄寬」，
      但這種表的欄寬只由資料決定、根本不看欄名，那個理由就不成立了。
      三角形改成坐在 th 自己的內距上（right:-10px），不再佔欄名的寬度、也不會蓋到字。 */
-  td.tdL{text-align:left}   /* 主動權／被動選序／被動選邊：文字＋括號數字，靠左字首才對得齊（2026-08-16 使用者指定；表頭仍置中） */
   table.tblEven .thL{padding:0}
   table.tblEven .sortArr{right:-12px}   /* 坐在 th 內距上：不佔欄名寬度、也不壓到最後一個字 */
   .hi{color:var(--gold);font-weight:bold}
@@ -7967,6 +7966,9 @@ function tableHTML(cols,rows,nameImg,limit){ // limit：只渲染排序後前 N 
   // 資料靠左的欄（2026-08-16 使用者指定）：這三欄是「文字＋括號數字」（先選 (3/0/2/0)、選藍 (4/0)），
   // 置中會讓「先選／後選／選藍」的字首每一列左右跳動、對不齊；靠左才看得出同一列在講哪一種。
   // 表頭照舊置中（比照名稱欄的既有慣例）。
+  // ★靠左的方式要與戰隊/選手名稱欄**完全相同**（2026-08-16 使用者指定）：不是齊到欄的左邊框，
+  //   而是包成 .heroname → alignHeroCols 用「該欄最長者」當寬度、**整組在欄內置中、組內靠左**，
+  //   表頭照常置中。齊左邊框會讓整欄偏左、右邊空一大塊，跟名稱欄的做法不一致。
   const TD_LEFT=new Set(["主動權","被動選序","被動選邊"]);
   const _cellRank=(c,val,r)=>{
     const rk=rankOf[c];
@@ -7976,8 +7978,7 @@ function tableHTML(cols,rows,nameImg,limit){ // limit：只渲染排序後前 N 
     if(val<=rk.lo)return val===rk.bot?(inv?"hi1":"lo1"):(inv?"hi3":"lo3");
     return "";
   };
-  const cellCls=(c,val,r)=>{ const k=_cellRank(c,val,r);
-    return TD_LEFT.has(c)?(k?k+" tdL":"tdL"):k; };
+  const cellCls=(c,val,r)=>_cellRank(c,val,r);   // 靠左改由 .heroname＋alignHeroCols 處理，不再用 class 直接 text-align
   const thBrk=(n,noChunk)=>{if(n==="勝率(勝-敗)"||n==="金差@15"||n==="經差@15"||n==="GD@15"||n==="XPD@15")return n; let s=(LANG==="en")?n.replace(/ +/g," ").trim():n;
     // 純中文 ≥4 字的欄名每 2 字斷行（視野/分數…）：欄寬不再被長標籤撐開、數據欄間隔一致
     //（2026-08-05 使用者定案；≤3 字維持單行）。noChunk＝該欄資料本身夠寬（放得下整個標籤）
@@ -8004,6 +8005,8 @@ function tableHTML(cols,rows,nameImg,limit){ // limit：只渲染排序後前 N 
         nmAttr=` data-nm="${esc(String(r[c]))}"`;
       }
       else if(i===0&&nameImg&&r._full)v=`<span class="heroname">${cImg(r._full)}${v}</span>`;
+      // 資料靠左的欄：包成 .heroname → 由 alignHeroCols 以「該欄最長者」為寬度整組置中、組內靠左
+      if(TD_LEFT.has(c))v=`<span class="heroname">${v}</span>`;
       if(i===0&&r._lg!==undefined){ // 選手/戰隊欄鐵則：名稱置左＋3px 放區域籤；整組以最長者置中（alignHeroCols）
         nmAttr=` data-nm="${esc(String(r[c]))}"`;
         // 賽區籤之後再接**分組籤**（2026-08-16 使用者指定）：篩到 LCK S3 這種還沒細到組別時，
