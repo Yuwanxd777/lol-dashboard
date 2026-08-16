@@ -36,6 +36,7 @@ rem rune icon truth table (CDragon perks.json, incl. removed runes)
 python scripts\fetch_rune_icons.py >> "%LOG%" 2>&1
 rem team logos from dpm (cached; only downloads missing) -> img/teams/{abbr}.webp
 python scripts\fetch_team_logos.py >> "%LOG%" 2>&1
+python scripts\fetch_flags.py >> "%LOG%" 2>&1
 rem tier1 regions = leagues with Worlds seats that year (lol.fandom Worlds page, cached)
 python scripts\fetch_worlds_tier1.py >> "%LOG%" 2>&1
 rem league promotion/qualifier supplement table (reads Leaguepedia cache, no API calls)

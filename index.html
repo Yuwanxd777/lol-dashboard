@@ -3193,6 +3193,19 @@ const stripRgnParen=s=>String(s).replace(/（[^（）]*）\s*$/,""); // 名稱�
 const spDisp=sp=>{const t=String(sp||""); return / PO$/.test(t)?t.replace(/ PO$/,"")+(LANG==="en"?" Playoffs":"季後賽"):t;};
 const lgChip=l=>{if(!l)return `<span class="meta">—</span>`;const c=LGC[l]||"#8a93a6";
   return `<span class="lg" style="background:${c}22;color:${c}">${lgName(l)}</span>`;};
+// 隊徽（img/teams/{縮寫}.webp＝scripts/fetch_team_logos.py 從 dpm 抓；GEN 的源檔叫 GENG，抓取端已對應）。
+// 2026 用到的 64 個縮寫中 61 個有檔，缺 JPN／SEN／VIE（國家隊，dpm 沒有）→ onerror 自動退回文字縮寫。
+const teamLogoHTML=(ab,size,noText)=>{ ab=teamFix(String(ab||"")); if(!ab)return "";
+  // 三層退路（鏈式 onerror）：隊徽 → 國旗 → 文字縮寫。
+  // 國家隊（ENC 電競國家盃那種）沒有隊徽，改用國旗（使用者定案 2026-08-16）；檔名用 IOC 三碼，
+  // 與 NAT_ABBR 一致，由 scripts/fetch_flags.py 抓。
+  // ⚠ **不能用 emoji 國旗**：Windows 的 Segoe UI Emoji 不含國旗，🇯🇵 會被畫成「JP」兩個字母方塊
+  //   （2026-08-16 實測），所以只能走圖檔。
+  // noText＝旁邊已經有縮寫文字了（表格名稱欄），最後一層失敗要**直接移除**不要再補一次文字，
+  // 否則會變成「SENSEN」（2026-08-16 實測 SEN 的隊徽 dpm 沒有，就撞到這個）。
+  const st=`width:${size||18}px;height:${size||18}px;object-fit:contain;vertical-align:middle;flex:0 0 auto`;
+  const fin=noText?"this.remove()":"this.replaceWith(document.createTextNode(this.alt))";
+  return `<img src="img/teams/${encodeURIComponent(ab)}.webp" alt="${esc(ab)}" title="${esc(ab)}" style="${st}" data-flag="img/flags/${encodeURIComponent(ab)}.png" onerror="if(this.dataset.flag){this.src=this.dataset.flag;this.removeAttribute('data-flag');}else{${fin};}">`; };
 // 分組籤（2026-08-16 使用者指定）：戰隊/選手名稱後面接著標所屬**組別**，
 // 「除非篩選已經精細到組別」才不用寫；有分組的賽事都要（目前 LPL／LCK，資料在 lpl_groups.js／lck_groups.js）。
 //   ・**賽事篩「全部」（或中韓/歐美這種跨聯賽群組）不標**（2026-08-16 使用者指定）：那時候是混合聯賽，
@@ -8037,7 +8050,10 @@ function tableHTML(cols,rows,nameImg,limit){ // limit：只渲染排序後前 N 
         {const _on=r._lg&&lgTagOn();
          const _ab=r._team||(r._full?tAb(r._full):null);
          const _gp=grpTagOn()?grpChip(_ab,r._lg):"";
-         v=`<span class="heroname" style="display:inline-flex;align-items:center;gap:3px">${_on?stripRgnParen(v):v}${_on?lgChip(r._lg):""}${_gp}</span>`;} // 有色塊就去掉重複的（聯賽碼）
+         // 戰隊列：縮寫前面加小隊徽（使用者 2026-08-16：小圖＋縮寫＋賽區）。選手列不加——
+         // 選手名本來就是「隊縮寫 選手名」，再放隊徽會讓名稱欄變很長、擠掉其他欄的空間。
+         const _lo=(r._full!==undefined&&_ab)?teamLogoHTML(_ab,18,true):"";
+         v=`<span class="heroname" style="display:inline-flex;align-items:center;gap:3px">${_lo}${_on?stripRgnParen(v):v}${_on?lgChip(r._lg):""}${_gp}</span>`;} // 有色塊就去掉重複的（聯賽碼）
       }
       return `<td class="${cellCls(c,r[c],r)}"${nmAttr}>${v}</td>`;
     }).join("")}</tr>`).join("")
@@ -14243,8 +14259,7 @@ function render(){
       //（2026-08-04 使用者回報「篩選列在選擇不同選手時會跳動」的根因之二；之一是 rAF 延後）。
       // 隊徽（img/teams/{縮寫}.webp＝fetch_team_logos.py 從 dpm 抓；GEN 源檔叫 GENG 已在抓取端對應）
       // 載入失敗（dpm 沒這隊：SEN/VIE）自動退回文字縮寫
-      const teamLogoHTML=(ab,size)=>{ ab=teamFix(String(ab||"")); if(!ab)return "";
-        return `<img src="img/teams/${encodeURIComponent(ab)}.webp" alt="${esc(ab)}" title="${esc(ab)}" style="width:${size}px;height:${size}px;object-fit:contain;vertical-align:middle" onerror="this.replaceWith(document.createTextNode(this.alt))">`; };
+      // teamLogoHTML 已提到模組層（見 lgChip 附近），這裡沿用
       const matesHTML=()=>{ const tm0=teamFix(pl.team||""); if(!tm0)return "";
         const seen=new Set(), mates=[];
         (((SD&&SD.players)||[])).forEach(p2=>{ if(teamFix(p2.team||"")!==tm0)return;
