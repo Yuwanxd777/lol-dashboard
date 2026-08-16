@@ -177,6 +177,10 @@
   .recTbl th:first-child,.recTbl td:first-child{padding-left:30px}
   .recTbl th:last-child,.recTbl td:last-child{padding-right:30px}
   td:has(.heroname){text-align:left;padding-left:1em}
+  /* 借用 .heroname 只為了對齊機制的**資料欄**（主動權/被動選序/被動選邊）：不可吃到上面那條給
+     名稱欄用的 1em 左內距——會讓該欄左右內距不對稱(15.5/11)、整欄比別欄多 4.5px 留白，
+     使用者 2026-08-16 回報「間隔又怪怪的」。必須放在上面那條之後、且同樣帶 :has 才蓋得掉。 */
+  td.tdSym:has(.heroname){padding-left:11px}
   /* 選手數據的選手欄：跟英雄欄同款置左模式 */
   #tbl.nameL td:nth-child(2){text-align:left;padding-left:1em}
   /* 出場紀錄/熱門英雄：JS 量測最長名字後整組置中（見 alignHeroCols） */
@@ -224,6 +228,7 @@
     .tblwrap{-webkit-overflow-scrolling:touch}
   }
   @container mainc (max-width:1980px){th,td{padding:8px 7px}} /* 1080P 縮內距，讓大表盡量不用捲 */
+  @container mainc (max-width:1980px){td.tdSym:has(.heroname){padding-left:7px}} /* 同上：窄容器時也要跟著縮，否則又不對稱 */
   th[data-k]{white-space:normal;line-height:1.25;vertical-align:middle;text-wrap:balance} /* 長標題換行且行長平衡（四字斷成2+2非3+1） */
   /* 等距欄寬的表（fillTableWidth 走「欄寬只看資料、每欄同留白」時掛上 .tblEven，2026-08-16 使用者定案）：
      ★**三個字不換行**（使用者指定）→ .thL 維持 nowrap，只認 thBrk 放的 <br>。
@@ -8010,7 +8015,8 @@ function tableHTML(cols,rows,nameImg,limit){ // limit：只渲染排序後前 N 
     if(val<=rk.lo)return val===rk.bot?(inv?"hi1":"lo1"):(inv?"hi3":"lo3");
     return "";
   };
-  const cellCls=(c,val,r)=>_cellRank(c,val,r);   // 靠左改由 .heroname＋alignHeroCols 處理，不再用 class 直接 text-align
+  const cellCls=(c,val,r)=>{ const k=_cellRank(c,val,r);   // tdSym＝借用 .heroname 對齊但維持左右對稱內距
+    return TD_LEFT.has(c)?(k?k+" tdSym":"tdSym"):k; };
   const thBrk=(n,noChunk)=>{if(n==="勝率(勝-敗)"||n==="金差@15"||n==="經差@15"||n==="GD@15"||n==="XPD@15")return n; let s=(LANG==="en")?n.replace(/ +/g," ").trim():n;
     // 純中文 ≥4 字的欄名每 2 字斷行（視野/分數…）：欄寬不再被長標籤撐開、數據欄間隔一致
     //（2026-08-05 使用者定案；≤3 字維持單行）。noChunk＝該欄資料本身夠寬（放得下整個標籤）
