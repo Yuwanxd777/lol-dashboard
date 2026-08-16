@@ -11336,12 +11336,16 @@ function render(){
       const cv=document.getElementById("rcTrend");
       if(cv&&trendPts.length){
         const WIN="#ff4d4d", LOSS="#37c871";
-        const labels=trendPts.map(p=>[md(p.d),p.opp]);   // 陣列＝X 軸刻度分兩行：上日期、下對手縮寫
+        // 陣列＝X 軸刻度分三行：日期／對手縮寫／勝敗（2026-08-17 使用者指定）
+        const labels=trendPts.map(p=>[md(p.d),p.opp,
+          p.tie?(en2?"Tie":"和"):p.win?(en2?"W":"勝"):(en2?"L":"敗")]);
         const scs=trendPts.map(p=>p.sc);
         // Y 軸跟著資料縮放、不固定 0~100（2026-08-17 使用者指定），上下各留一點空間才好看。
         // ⚠ 留白別給太多：原本 35% 會讓 25~95 的資料被撐回 0~100，等於沒縮放。
+        // 格線每 20 分一條（使用者指定）；上下界對齊 10 的倍數，格線才不會落在 36/56/76 這種怪數字。
+        // ⚠ 別對齊到 20 的倍數：38.9~90.4 會被推成 20~100，整條 20~40 幾乎是空的。
         const lo=Math.min(...scs), hi=Math.max(...scs);
-        const pad=Math.max(4,(hi-lo)*0.12);
+        const yLo=Math.max(0,Math.floor((lo-2)/10)*10), yHi=Math.min(100,Math.ceil((hi+2)/10)*10);
         const ptLabels={id:"rcPtLabels",afterDatasetsDraw(ch){
           const ctx=ch.ctx, meta=ch.getDatasetMeta(0); if(!meta)return;
           const ff=getComputedStyle(document.body).fontFamily;
@@ -11409,7 +11413,8 @@ function render(){
                         `${en2?"Rank":"名次"} #${p.rk} / ${p.n}`,
                         `${p.w}-${p.l}　${p.tie?(en2?"Tie":"和"):p.win?(en2?"Win":"勝"):(en2?"Loss":"敗")}`,
                         `${en2?"Based on":"評分取樣"} ${p.sn}${en2?" games in this split":" 場（該賽段累計）"}`];}}}},
-            scales:{y:{min:Math.max(0,Math.floor(lo-pad)),max:Math.min(100,Math.ceil(hi+pad)),
+            // includeBounds:false＝不要為了上下界硬補一條刻度（否則 30 與 40 會擠在一起變 10 分一條）
+            scales:{y:{min:yLo,max:yHi,ticks:{stepSize:20,includeBounds:false},
                        title:{display:true,text:en2?"Rating":"評分"}},
                     x:{ticks:{maxRotation:0,autoSkip:trendPts.length>16,font:{size:11}}}}}});
       }
