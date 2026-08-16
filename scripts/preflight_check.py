@@ -41,7 +41,9 @@ try:
     from playwright.sync_api import sync_playwright
     import pathlib
     with sync_playwright() as pw:
-        b = pw.chromium.launch(headless=True); pg = b.new_page()
+        b = pw.chromium.launch(headless=True)
+        # 固定 1920x1080：欄距/邊距要有可比性，預設小視窗會走到不同的容器斷點
+        pg = b.new_page(viewport={"width": 1920, "height": 1080})
         errs = []
         pg.on("pageerror", lambda e: errs.append(str(e)[:150]))
         pg.goto(pathlib.Path(os.path.join(ROOT, "index.html")).resolve().as_uri() + "?y=2026")
@@ -54,31 +56,31 @@ try:
             if not rows: fails.append("英雄分頁 0 列")
         except Exception as e:
             fails.append(f"英雄分頁開啟失敗：{str(e)[:80]}")
-        # ── ③ 表格欄距一致性（2026-08-16 加）───────────────────────────────
-        # 使用者一再回報「欄位間隔忽大忽小」，而每次都是**別的改動順手弄壞的**（最近一次：把三個資料欄
-        # 包進 .heroname 借用對齊機制，連帶吃到 td:has(.heroname) 給名稱欄用的 1em 左內距）。
-        # 規則寫在記憶裡擋不住 → 改成機器檢查：量每個資料欄的「欄寬 − 該欄最寬內容」，
-        # 允許**最多一欄**因欄名塞不下被保險機制補寬，其餘必須落在中位數 ±2.5px 內。
+        # ── ③ 表格欄距一致性（2026-08-16）─────────────────────────────────
+        # 使用者一再回報「欄位間隔忽大忽小」，而每次都是**別的改動順手弄壞的**，寫在記憶裡擋不住。
+        # ⚠ 量的是**相鄰兩欄內容之間的空白**（使用者原話：「我要的是空白處的間隔一致」）。
+        #   不要改成量「單欄留白」——那會漏掉首欄／名稱欄／末欄，而那三個正是最常出包的位置。
         MEAS = """() => {
           const wrap=document.querySelector('.tblwrap'); if(!wrap)return null;
           const tb=wrap.querySelector('table'); if(!tb)return null;
           const ths=[...tb.querySelectorAll('thead th')]; if(ths.length<4)return null;
           const rows=[...tb.querySelectorAll('tbody tr')]; if(!rows.length)return null;
           const z=window._zoomF||1;
-          const cw=el=>{const r=document.createRange();r.selectNodeContents(el);
-            return r.getBoundingClientRect().width/z;};
           const box=el=>{const r=document.createRange();r.selectNodeContents(el);
             return r.getBoundingClientRect();};
-          const pads=[]; let cut=0;
-          ths.forEach((th,i)=>{
-            const w=th.getBoundingClientRect().width/z;
-            let m=0; rows.forEach(tr=>{const td=tr.children[i]; if(td)m=Math.max(m,cw(td));});
-            if(i>=2&&i<ths.length-1)pads.push(Math.round((w-m)*10)/10);
-          });
+          const L=[],R=[];
+          ths.forEach((_,i)=>{ let l=1e9,r=-1e9;
+            rows.forEach(tr=>{const td=tr.children[i]; if(!td)return;
+              const b=box(td); if(b.width){l=Math.min(l,b.left/z); r=Math.max(r,b.right/z);} });
+            L.push(l); R.push(r); });
+          const gaps=[];
+          for(let i=0;i<ths.length-1;i++){ if(isFinite(L[i+1])&&isFinite(R[i]))
+            gaps.push(Math.round((L[i+1]-R[i])*10)/10); }
+          let cut=0;
           tb.querySelectorAll('thead th,tbody td').forEach(c=>{if(c.scrollWidth>c.clientWidth+1)cut++;});
-          const wr=wrap.getBoundingClientRect(), r0=rows[0].children;
-          const L=(box(r0[0]).left-wr.left)/z, R=(wr.right-box(r0[r0.length-1]).right)/z;
-          return {pads, cut, L:Math.round(L*10)/10, R:Math.round(R*10)/10};
+          const wr=wrap.getBoundingClientRect();
+          return {gaps, cut, L:Math.round((L[0]-wr.left/z)*10)/10,
+                  R:Math.round((wr.right/z-R[ths.length-1])*10)/10};
         }"""
         for view in ("英雄", "選手", "戰隊"):
             try:
@@ -86,19 +88,19 @@ try:
                 m = pg.evaluate(MEAS)
             except Exception as e:
                 fails.append(f"{view}分頁欄距檢查失敗：{str(e)[:70]}"); continue
-            if not m or not m["pads"]:
+            if not m or not m["gaps"]:
                 fails.append(f"{view}分頁量不到欄距"); continue
             if m["cut"]:
                 fails.append(f"{view}分頁有 {m['cut']} 格被裁字（不裁字鐵則）")
-            ps = sorted(m["pads"]); mid = ps[len(ps)//2]
-            bad = [p for p in m["pads"] if abs(p - mid) > 2.5]   # 正常只有四捨五入誤差(<1px)；門檻放到 6 會擋不住實際 5px 的偏差
+            gs = sorted(m["gaps"]); mid = gs[len(gs)//2]
+            bad = [g for g in m["gaps"] if abs(g - mid) > 3]   # 只允許一個空隙偏離（欄名塞不下被補寬時）
             if len(bad) > 1:
-                fails.append(f"{view}分頁欄距不一致：{len(bad)}/{len(m['pads'])} 欄偏離中位 {mid}px（{bad[:5]}）")
-            if m["R"] < 19.5:
-                fails.append(f"{view}分頁末欄離右框只有 {m['R']}px（鐵則至少 20px）")
-            if abs(m["R"] - m["L"]) > 8:
-                fails.append(f"{view}分頁左右邊距不對稱：左 {m['L']}px / 右 {m['R']}px")
-        print("③ 表格欄距檢查完成" + ("，通過" if not any(("欄距" in f) or ("裁字" in f) or ("邊距" in f) or ("右框" in f) for f in fails) else ""))
+                fails.append(f"{view}分頁欄距不一致：{len(bad)}/{len(m['gaps'])} 個空隙偏離中位 {mid}px（{bad[:5]}）")
+            if m["L"] < 19.5 or m["R"] < 19.5:
+                fails.append(f"{view}分頁內容離框太近：左 {m['L']}px／右 {m['R']}px（鐵則至少 20px）")
+            if abs(m["R"] - m["L"]) > 4:
+                fails.append(f"{view}分頁左右邊距不對稱：左 {m['L']}px／右 {m['R']}px")
+        print("③ 表格欄距檢查完成" + ("，通過" if not any(("欄距" in f) or ("裁字" in f) or ("邊距" in f) or ("離框" in f) for f in fails) else ""))
         for e in errs: fails.append(f"pageerror：{e}")
         b.close()
     print("② headless 開機檢查完成" + ("，通過" if not any("pageerror" in f or "開機" in f or "英雄分頁" in f for f in fails) else ""))

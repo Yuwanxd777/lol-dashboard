@@ -181,6 +181,9 @@
      名稱欄用的 1em 左內距——會讓該欄左右內距不對稱(15.5/11)、整欄比別欄多 4.5px 留白，
      使用者 2026-08-16 回報「間隔又怪怪的」。必須放在上面那條之後、且同樣帶 :has 才蓋得掉。 */
   td.tdSym:has(.heroname){padding-left:11px}
+  /* 等距表（.tblEven）裡連**名稱欄**也要對稱：那條 1em 左內距會讓名稱整塊右移 4.5px，
+     於是「#→戰隊」的空隙比其他地方大 4.5px（2026-08-16 使用者：空白處的間隔要一致）。 */
+  table.tblEven td:has(.heroname){padding-left:11px}
   /* 選手數據的選手欄：跟英雄欄同款置左模式 */
   #tbl.nameL td:nth-child(2){text-align:left;padding-left:1em}
   /* 出場紀錄/熱門英雄：JS 量測最長名字後整組置中（見 alignHeroCols） */
@@ -229,6 +232,7 @@
   }
   @container mainc (max-width:1980px){th,td{padding:8px 7px}} /* 1080P 縮內距，讓大表盡量不用捲 */
   @container mainc (max-width:1980px){td.tdSym:has(.heroname){padding-left:7px}} /* 同上：窄容器時也要跟著縮，否則又不對稱 */
+  @container mainc (max-width:1980px){table.tblEven td:has(.heroname){padding-left:7px}}
   th[data-k]{white-space:normal;line-height:1.25;vertical-align:middle;text-wrap:balance} /* 長標題換行且行長平衡（四字斷成2+2非3+1） */
   /* 等距欄寬的表（fillTableWidth 走「欄寬只看資料、每欄同留白」時掛上 .tblEven，2026-08-16 使用者定案）：
      ★**三個字不換行**（使用者指定）→ .thL 維持 nowrap，只認 thBrk 放的 <br>。
@@ -2338,9 +2342,12 @@ function fillTableWidth(root,prop){
       thead.style.display="none";
       const dataW=[...row0.children].map(td=>td.getBoundingClientRect().width/(window._zoomF||1));
       thead.style.display="";
-      const idx=[]; for(let i=from;i<last;i++)idx.push(i);
-      const fixedW=natW.reduce((a,w,i)=>a+((i<from||i===last)?w:0),0);
-      const budget=avail-fixedW;
+      // ★2026-08-16 使用者定案（第二次澄清）：「**我要的是空白處的間隔一致**，不要固定給一欄多寬」。
+      // → **每一欄都參與均分**（含 #、名稱欄、末欄）。以前沿用舊制的「前兩欄與末欄不吃餘寬」，
+      //   那三欄留在自然寬 → 實測戰隊「戰隊→場數 35.4px、防禦值→評分 52.8px」，中間卻都是 46.3px。
+      //   數學上：每欄寬＝資料寬＋s（內容置中）⇒ 相鄰空隙一律 s、左右邊距各 s/2，全部自動一致。
+      const idx=[]; for(let i=0;i<ths.length;i++)idx.push(i);
+      const budget=avail;
       if(idx.length&&budget>0&&dataW.every(w=>isFinite(w))){
         // ★2026-08-16 使用者定案：「**忽略欄名**，欄名已經很小了」——欄寬**只由資料決定**，
         //   每欄拿到完全相同的留白 s，所以同一頁的欄距完全一致（落差 0）。
@@ -2355,8 +2362,8 @@ function fillTableWidth(root,prop){
   }
   tbl.style.tableLayout="fixed"; tbl.style.width=avail+"px";
   const setW=()=>ths.forEach((th,i)=>{
-    if(i<from||(i===last&&nFill>0)){ th.style.width=natW[i]+"px"; return; }   // 前兩欄與末欄不吃餘寬（2026-08-05 定案）
-    if(wSol&&wSol[i]!=null){ th.style.width=wSol[i]+"px"; return; }
+    if(wSol&&wSol[i]!=null){ th.style.width=wSol[i]+"px"; return; }   // 均分模式：每欄都吃（含首尾），空隙才會一致
+    if(i<from||(i===last&&nFill>0)){ th.style.width=natW[i]+"px"; return; }   // 比例模式仍沿用舊規則
     th.style.width=(natW[i]+(prop?(base?extra*natW[i]/base:0):per))+"px"; });
   setW();
   // 收尾保險（不裁字鐵則）：欄寬只看資料之後，少數欄名可能連折行都塞不下（實測戰隊「2+巢蟲」——
@@ -2378,30 +2385,8 @@ function fillTableWidth(root,prop){
       setW();
     }
   }
-  // 末欄離右邊框的距離（2026-08-16 使用者回報「評分欄離邊框太近，說過至少要 20px」）：
-  // 末欄不吃餘寬 → 它只有自然寬，內容置中後右邊距只剩 12px，而首欄左邊距有 30.6px，左右不對稱。
-  // 目標＝max(20, 首欄左邊距)，同時滿足「至少 20px」與「左右邊距對稱」（2026-08-05 定案）。
-  // ⚠ 內容是**置中**的：欄要加寬 2×缺口，單邊才會多出缺口那麼多。加寬的量從中間欄的留白平均扣回，
-  //   總寬不變＝不會多長出橫捲軸。
-  if(wSol&&nFill>0){
-    const row=tbl.querySelector("tbody tr");
-    if(row&&row.children.length===ths.length){
-      const z3=window._zoomF||1, wr=wrap.getBoundingClientRect();
-      const rng=el=>{ const r=document.createRange(); r.selectNodeContents(el);
-        const b=r.getBoundingClientRect(); if(r.detach)r.detach(); return b; };
-      const lft=(rng(row.children[0]).left-wr.left)/z3;
-      const rgt=(wr.right-rng(row.children[last]).right)/z3;
-      const want=Math.max(20,lft), gap=want-rgt;
-      if(gap>0.5){
-        const addW=gap*2, rest=Object.keys(wSol).map(Number);
-        if(rest.length){
-          const cut=addW/rest.length;
-          rest.forEach(i=>{ wSol[i]=Math.max(1,wSol[i]-cut); });
-          natW[last]+=addW; setW();
-        }
-      }
-    }
-  }
+  // ⚠ 末欄右邊距不再另外補正：每欄同留白之後，左右邊距自動各等於 s/2、且與所有空隙一致。
+  // （舊版因為末欄不吃餘寬才需要補，補完反而讓「防禦值→評分」比別處寬 6.5px。）
 }
 // 餘寬平均分給每一欄（2026-08-05 使用者回報「第一欄距離邊框很小、最後一欄距離邊框又很大」）：
 // 沒走 fillTableWidth 的表（總覽 table.ov、積分 recTbl…）靠 CSS 的 min-width:100% 撐滿容器，
