@@ -3215,7 +3215,10 @@ const teamLogoHTML=(ab,size,noText)=>{ ab=teamFix(String(ab||"")); if(!ab)return
 const grpTagOn=()=>!lgTagOn()&&!String(F.league||"").includes("#")&&!/PO$|季後|升降/.test(String(F.split||""));
 // 查哪一個賽段的分組：篩選有指定賽段就用那一段（S1/S2/S3），否則用「最新有分組的賽段」
 //（與積分頁同一套，使用者 2026-07-29 定案：只顯示當前賽事的組別）
-const grpSplitOf=lg=>{ const m=String(F.split||"").match(/S(\d)/); return lplSelSplit(curYear,m?("S"+m[1]):"",lg); };
+// GRP_SP_OVR：近況「評分走勢」的快照會把 F.split 清空（改用場次白名單圈範圍，才能把季後賽
+// 併進例行賽一起算），這時分組扣分要靠這個覆蓋值才知道自己在算哪一段，否則會退回「最新賽段」的分組。
+let GRP_SP_OVR="";
+const grpSplitOf=lg=>{ const m=String(GRP_SP_OVR||F.split||"").match(/S(\d)/); return lplSelSplit(curYear,m?("S"+m[1]):"",lg); };
 const grpChip=(ab,lg)=>{ if(!ab||(lg!=="LPL"&&lg!=="LCK"))return "";     // 只有這兩個聯賽有分組資料
   const sp=grpSplitOf(lg); if(!sp)return "";
   const g=lplSplitGroupOf(teamFix(String(ab)),curYear,sp,lg);
@@ -11229,24 +11232,32 @@ function render(){
       // ⚠ F.d1/F.d2 只比**月日**（見 passG），同一年份內夠用（近況本來就只看當前年份）。
       // ⚠ 以「賽事|賽段|日期」為鍵快取：同一天的多局共用一次計算，5 個系列大約只算 5~8 次。
       const _snapC={};
-      const snapAt=(lg,sp,upto)=>{ const k=lg+"|"+sp+"|"+upto;
+      const snapAt=(lg,sp,upto)=>{
+        // 季後賽**不另外算一套**（2026-08-17 使用者指定）：季後賽併回同賽段的例行賽一起累積，
+        // 否則進季後賽的第一場又要從零開始，分數再崩一次。原始賽段名是 "S2"／"S2 PO"。
+        const base=String(sp||"").replace(/ PO$/,"");
+        const k=lg+"|"+base+"|"+upto;
         if(_snapC[k])return _snapC[k];
-        const sv={split:F.split,league:F.league,patch:F.patch,d1:F.d1,d2:F.d2,minG:F.minG}, svH=H2H;
+        const sv={split:F.split,league:F.league,patch:F.patch,d1:F.d1,d2:F.d2,minG:F.minG},
+              svH=H2H, svG=GRP_SP_OVR;
         let rows=[];
         try{
           // 逐**場**（不是逐日）：F.d1/F.d2 只比月日，同一天的三局會拿到一樣的分數。
           // 改用 H2H 這個「場次白名單」閘門（passG 的第一關）挑出「該場含以前」的所有局；
           // ⚠ 時序要用 **o.dt**（帶時分秒）不是 o.date（只到日，同一天三局會一模一樣）。
-          // 實測 calcTeams 一次只要 1~2ms，14 個點約 20ms。
+          // 實測 calcTeams 一次只要 1~2ms，61 個點約 75ms。
           const set=new Set();
-          for(const o of GAMES){ if(lg&&o.league!==lg)continue; if(sp&&o.split!==sp)continue;
+          for(const o of GAMES){ if(lg&&o.league!==lg)continue;
+            if(base&&o.split!==base&&o.split!==base+" PO")continue;
             if(String(o.dt||o.date)<=upto)set.add(gkey(o)); }
           H2H=set;
-          // 賽事/賽段照樣設：分組扣分(grpPenalty)看的是 F.league，不設的話名次會少掉扣分、與戰隊頁不一致
-          F.league=lg||"ALL"; F.split=sp||""; F.patch=""; F.d1=""; F.d2=""; F.minG=0;
+          // ⚠ F.split 要清空：例行賽＋季後賽是兩個賽段值，passG 的 splitMatch 只認一個，
+          //   設下去會把另一半擋掉；範圍已經由上面的白名單圈好了。
+          //   但分組扣分(grpPenalty)得知道是哪一段 → 用 GRP_SP_OVR 補回去。
+          F.league=lg||"ALL"; F.split=""; GRP_SP_OVR=base; F.patch=""; F.d1=""; F.d2=""; F.minG=0;
           rows=calcTeams()||[];
         }catch(e){ rows=[]; }
-        Object.assign(F,sv); H2H=svH;
+        Object.assign(F,sv); H2H=svH; GRP_SP_OVR=svG;
         return _snapC[k]=rows; };
       // 走勢的範圍與頁面其他區塊（最近 5 系列）**脫鉤**：右上可切「近一個月／今年」（2026-08-17 使用者指定）。
       // 「近一個月」的基準點是**該隊最後一場比賽**、不是今天——休賽期或賽段之間用今天當基準會直接畫出空圖。
@@ -11336,9 +11347,12 @@ function render(){
       const cv=document.getElementById("rcTrend");
       if(cv&&trendPts.length){
         const WIN="#ff4d4d", LOSS="#37c871";
-        // 陣列＝X 軸刻度分三行：日期／對手縮寫／勝敗（2026-08-17 使用者指定）
-        const labels=trendPts.map(p=>[md(p.d),p.opp,
-          p.tie?(en2?"Tie":"和"):p.win?(en2?"W":"勝"):(en2?"L":"敗")]);
+        // 陣列＝X 軸刻度分兩行：日期／對手縮寫。
+        // 第三行「勝敗」不放這裡——Chart.js 的刻度顏色是整個標籤一起換，放進來就只能整欄上色
+        // （2026-08-17 實測太醜）。改成外掛自己畫在下方保留的空白區（見 layout.padding.bottom）。
+        const labels=trendPts.map(p=>[md(p.d),p.opp]);
+        const wlTx=p=>p.tie?(en2?"Tie":"和"):p.win?(en2?"W":"勝"):(en2?"L":"敗");
+        const wlCol=p=>p.tie?"#8b98ad":p.win?WIN:LOSS;
         const scs=trendPts.map(p=>p.sc);
         // Y 軸跟著資料縮放、不固定 0~100（2026-08-17 使用者指定），上下各留一點空間才好看。
         // ⚠ 留白別給太多：原本 35% 會讓 25~95 的資料被撐回 0~100，等於沒縮放。
@@ -11390,6 +11404,15 @@ function render(){
             for(let r=0;r<4;r++){ const y=ca.top+10+r*13, bx={x1:x+2,x2:x+10+w,y1:y-9,y2:y+3};
               if(clash(bx))continue; busy.push(bx); ctx.fillText(s,x+4,y); break; } });
           ctx.restore();
+          // 勝敗那一行自己畫（2026-08-17 使用者指定「只要勝敗上色」）：Chart.js 的刻度顏色
+          // 是整個標籤一起換，塞進 labels 就只能整欄變紅綠。畫在 layout.padding.bottom 留出來的空白。
+          const xs=ch.scales.x;
+          // ⚠ 字級不能比照刻度的 11px：整個 #main 被 _zoomF 縮到 0.75，11px 的「勝」會糊成一坨紅塊
+          //   （2026-08-17 實測）。中文筆畫多，這行要 15px 才看得出字。
+          if(xs){ ctx.save(); ctx.textAlign="center"; ctx.font=`15px ${ff}`;
+            (xs.ticks||[]).forEach(t=>{ const p=trendPts[t.value], pt=meta.data[t.value];
+              if(!p||pt==null)return; ctx.fillStyle=wlCol(p); ctx.fillText(wlTx(p),pt.x,xs.bottom+16); });
+            ctx.restore(); }
           ctx.save(); ctx.textAlign="center";
           put.forEach(q=>{ const p=trendPts[q.i], pt=meta.data[q.i];
             ctx.font=`bold ${F1}px ${ff}`; ctx.fillStyle="#e6ecf5";
@@ -11404,7 +11427,7 @@ function render(){
             borderColor:"#6ea8ff",backgroundColor:"#6ea8ff22",tension:.25,fill:true,
             pointRadius:trendPts.length>24?4:6,pointHoverRadius:8,pointBorderWidth:2,pointBorderColor:"#0b0e14",
             pointBackgroundColor:trendPts.map(p=>p.tie?"#8b98ad":p.win?WIN:LOSS)}]},
-          options:{maintainAspectRatio:false,layout:{padding:{top:34}},
+          options:{maintainAspectRatio:false,layout:{padding:{top:34,bottom:24}},   // bottom＝留給自己畫的勝敗那行
             plugins:{legend:{display:false},tooltip:{callbacks:{
               title:it=>{const p=trendPts[it[0].dataIndex];
                 return `${p.d.slice(5,10)}　${lgName(p.lg)}${p.sp?" "+spDisp(p.sp):""}　vs ${p.opp}`;},
@@ -11418,10 +11441,9 @@ function render(){
                        title:{display:true,text:en2?"Rating":"評分"}},
                     // 只留橫線，直的格線拿掉（2026-08-17 使用者指定）；
                     // S1/S2/S3 的分界虛線是外掛自己畫的，不受這個影響
-                    // 勝敗上色（2026-08-17 使用者指定）：Chart.js 的刻度顏色是「整個刻度標籤」一起換，
-                    // 沒辦法只染第三行 → 整欄（日期/對手/勝敗）一起走勝紅敗綠，剛好跟圓點對得起來
-                    x:{grid:{display:false},ticks:{maxRotation:0,autoSkip:trendPts.length>16,font:{size:11},
-                       color:c=>{const p=trendPts[c.index]; return p?(p.tie?"#8b98ad":p.win?WIN:LOSS):"#8b98ad";}}}}}});
+                    // 只留橫線，直的格線拿掉（2026-08-17 使用者指定）；
+                    // S1/S2/S3 的分界虛線是外掛自己畫的，不受這個影響
+                    x:{grid:{display:false},ticks:{maxRotation:0,autoSkip:trendPts.length>16,font:{size:11}}}}}});
       }
     };
     bindFilters(rerender);
