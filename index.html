@@ -9115,7 +9115,7 @@ const bpIdx=()=>{ const k=vcKey()+"|"+LANES.length+"|"+(window.SOLOQ_BUILDS?1:0)
   if(window._BPIX.k!==k)window._BPIX={k,v:{}};
   return window._BPIX.v; };
 // 外部導頁會改的子狀態：不同就不能用快取
-const VC_SUB={"英雄":()=>[V.heroDetail,V.player,V.hdOpp,V.hdLane,V.hdPlayer],"圖鑑":()=>[V.dexDetail,V.dexSec],"比賽BP":()=>[V.bpSideMode||"br",JSON.stringify(V.bpColF||{})],"模擬BP":()=>[!!V.bpAuto],"近況":()=>[V.recentTeam||""]};
+const VC_SUB={"英雄":()=>[V.heroDetail,V.player,V.hdOpp,V.hdLane,V.hdPlayer],"圖鑑":()=>[V.dexDetail,V.dexSec],"比賽BP":()=>[V.bpSideMode||"br",JSON.stringify(V.bpColF||{})],"模擬BP":()=>[!!V.bpAuto],"近況":()=>[V.recentTeam||"",V.rcTrendRng||""]};
 const vcSub=v=>JSON.stringify((VC_SUB[v]||(()=>[]))());
 function vcInvalidate(){
   Object.values(VIEW_CACHE.slots).forEach(s=>{["chart","radar","tchart"].forEach(k2=>{try{s[k2]&&s[k2].destroy();}catch(e){}});});
@@ -11248,15 +11248,41 @@ function render(){
         }catch(e){ rows=[]; }
         Object.assign(F,sv); H2H=svH;
         return _snapC[k]=rows; };
+      // 走勢的範圍與頁面其他區塊（最近 5 系列）**脫鉤**：右上可切「近一個月／今年」（2026-08-17 使用者指定）。
+      // 「近一個月」的基準點是**該隊最後一場比賽**、不是今天——休賽期或賽段之間用今天當基準會直接畫出空圖。
+      const TR_RNG=V.rcTrendRng==="yr"?"yr":"1m";
+      const tgAll=[];
+      for(const o of GAMES){ if(!passG(o))continue;
+        if(o.raw[C.blue_teamname]!==V.recentTeam&&o.raw[C.red_teamname]!==V.recentTeam)continue;
+        tgAll.push(o); }
+      tgAll.sort((x,y)=>String(x.dt||x.date).localeCompare(String(y.dt||y.date))||(num(x.game)||0)-(num(y.game)||0));
+      const lastD=tgAll.length?String(tgAll[tgAll.length-1].date).slice(0,10):"";
+      const cutD=TR_RNG==="1m"&&lastD?new Date(Date.parse(lastD+"T00:00:00Z")-30*864e5).toISOString().slice(0,10):"";
+      // **一個系列賽（或一天）一個點，不是一局一個點**（2026-08-17 使用者指定）：
+      // 一局一點在 BO3/BO5 會出現同一天三個點擠在一起、看不出趨勢。分組鍵＝日期＋對手（＋賽事賽段），
+      // 快照取該組**最後一局**之後的狀態；順帶把 calcTeams 的呼叫次數從「每局」降到「每系列」。
+      const trGrp=[];
+      (cutD?tgAll.filter(o=>String(o.date).slice(0,10)>=cutD):tgAll).forEach(o=>{
+        const isB=o.raw[C.blue_teamname]===V.recentTeam;
+        const opp=isB?o.raw[C.red_teamname]:o.raw[C.blue_teamname];
+        const k=String(o.date).slice(0,10)+"|"+opp+"|"+o.league+"|"+o.split;
+        let g2=trGrp.length?trGrp[trGrp.length-1]:null;
+        if(!g2||g2.k!==k){g2={k,d:o.date,lg:o.league,sp:o.split,opp:tAb(opp),w:0,l:0,last:""};trGrp.push(g2);}
+        if(o.result===(isB?1:2))g2.w++; else g2.l++;
+        const t=String(o.dt||o.date); if(t>g2.last)g2.last=t;
+      });
       const trendPts=[];
-      D2.recent.forEach(s2=>s2.games.forEach(o=>{
-        const rows=snapAt(o.league,o.split,String(o.dt||o.date));
+      trGrp.forEach(g2=>{
+        const rows=snapAt(g2.lg,g2.sp,g2.last);
         const i=rows.findIndex(r=>r._full===V.recentTeam);
         if(i<0)return;
-        const isB=o.raw[C.blue_teamname]===V.recentTeam;
-        trendPts.push({d:o.date, lg:o.league, sp:o.split, opp:tAb(s2.opp), g:num(o.game)||0,
-                       win:o.result===(isB?1:2), sc:rows[i].評分, rk:i+1, n:rows.length});
-      }));
+        trendPts.push({d:g2.d, lg:g2.lg, sp:g2.sp, opp:g2.opp, w:g2.w, l:g2.l,
+                       win:g2.w>g2.l, tie:g2.w===g2.l, sc:rows[i].評分, rk:i+1, n:rows.length});
+      });
+      // 「今年」可能幾十場，每點都標會糊成一團 → 每點都標到 20 點為止，超過就等距抽（最後一場一定標）
+      const TR_STEP=Math.max(1,Math.ceil(trendPts.length/20));
+      const trLab=i=>i===trendPts.length-1||i%TR_STEP===0;
+      const trSub=trendPts.length?`${md(trendPts[0].d)} – ${md(trendPts[trendPts.length-1].d)}・${trendPts.length}${en2?" series":" 個系列"}`:"";
       const POS_ORD=["TOP","JNG","MID","BOT","SUP"];
       const stRows=POS_ORD.map(pos=>{
         const a=D2.starters[pos]; if(!a)return "";
@@ -11278,6 +11304,7 @@ function render(){
           arr.length?arr.map(c2=>chipIco(c2.ch,c2.n,`${chName(champId(c2.ch))}｜${c2.n}${en2?"":" 次"}${c2.w!=null?`・${Math.round(c2.w/c2.n*100)}%${en2?" win":" 勝率"}`:""}`)).join(""):'<span class="meta">—</span>'}</span></div>`;};
       box.innerHTML=`
         <div class="card rcHead"><div class="rcHeadL">
+            ${teamLogoHTML(ab,40)}
             <span class="rcAb">${esc(ab)}</span>
             <span class="rcFull">${esc(V.recentTeam)}</span>${lgChip(D2.recent[D2.recent.length-1].league)}</div>
           <div class="rcHeadR">${stTx}
@@ -11289,11 +11316,13 @@ function render(){
             [...D2.recent].reverse().map(s2=>{const w2=s2.w>s2.l;
               return `<tr><td>${md(s2.from)}${s2.to!==s2.from?`–${md(s2.to)}`:""}</td>
               <td>${lgChip(s2.league)}${s2.split?` <span class="meta">${esc(spDisp(s2.split))}</span>`:""}</td>
-              <td><b>${esc(tAb(s2.opp))}</b> <span class="meta">${esc(s2.opp)}</span></td>
+              <td><span style="display:inline-flex;align-items:center;gap:6px">${teamLogoHTML(tAb(s2.opp),20,true)}<b>${esc(tAb(s2.opp))}</b> <span class="meta">${esc(s2.opp)}</span></span></td>
               <td class="num"><b>${s2.w}</b> - ${s2.l}</td>
               <td style="color:${w2?"#ff4d4d":s2.w===s2.l?"var(--tx2)":"#37c871"};font-weight:700">${s2.w===s2.l?(en2?"Tie":"和"):w2?(en2?"Win":"勝"):(en2?"Loss":"敗")}</td></tr>`;}).join("")}</tbody></table></div>
-        ${trendPts.length?`<div class="card"><h2>📈 ${en2?"Rating trend":"評分走勢"} <span class="sub">${en2?"one point per game — label = rating at that moment / rank in that split":"每一場比賽一個點；標籤＝當下評分／該賽段名次"}</span></h2>
-          <div style="height:270px"><canvas id="rcTrend"></canvas></div></div>`:""}
+        ${tgAll.length?`<div class="card"><h2>📈 ${en2?"Rating trend":"評分走勢"} <span class="sub">${en2?"one point per series — label = rating at that moment / rank in that split":"每個系列賽一個點；標籤＝當下評分／該賽段名次"}${trSub?"・"+trSub:""}</span>
+          ${segHTML("rcTrRng",[["1m",en2?"Last month":"近一個月"],["yr",en2?"This year":"今年"]],TR_RNG,"sm","margin-left:auto")}</h2>
+          ${trendPts.length?`<div style="height:270px"><canvas id="rcTrend"></canvas></div>`
+            :`<span class="meta">${en2?"No games in this range.":"這個範圍內沒有比賽。"}</span>`}</div>`:""}
         <div class="card"><h2>🧑‍🤝‍🧑 ${en2?"Starters":"五路先發"} <span class="sub">${en2?"most-fielded player per role in the window":"窗口內各路出賽最多的選手"}</span></h2>
           <table class="ov"><thead><tr><th style="width:44px">${en2?"Role":"路線"}</th><th>${mLabel("選手")}</th><th>${mLabel("場數")}</th><th>${mLabel("勝率")}</th><th>KDA</th><th style="text-align:left">${en2?"Go-to champions":"慣用英雄"}</th>${showSq?`<th>${en2?"7d ranked":"積分7天"}</th><th style="text-align:left">${en2?"Ranked champs":"積分常用"}</th>`:""}</tr></thead><tbody>${stRows}</tbody></table></div>
         <div class="card"><h2>🎯 ${en2?"BP tendencies":"BP 傾向"} <span class="sub">${en2?"within the last 5 series":"這 5 個系列賽內"}</span></h2>
@@ -11301,20 +11330,39 @@ function render(){
             bpRow(en2?"Picked":"我方常選",D2.pick,true)+
             bpRow(en2?"Our bans":"我方常 Ban",D2.ownBan,false)+
             bpRow(en2?"Banned vs us":"被對手 Ban",D2.oppBan,false)}</div></div>`;
+      segBind("rcTrRng",v=>{V.rcTrendRng=v; saveState(); rerender();});
       // 折線圖：勝紅敗綠（台灣配色），點上方標「評分」與「#名次/總隊數」
       if(window._rcChart){try{window._rcChart.destroy();}catch(e){} window._rcChart=null;}
       const cv=document.getElementById("rcTrend");
       if(cv&&trendPts.length){
         const WIN="#ff4d4d", LOSS="#37c871";
-        const labels=trendPts.map(p=>`${md(p.d)} ${p.opp}${p.g?" G"+p.g:""}`);
+        const labels=trendPts.map(p=>`${md(p.d)} ${p.opp}`);
         const scs=trendPts.map(p=>p.sc);
         const lo=Math.min(...scs), hi=Math.max(...scs);
         const pad=Math.max(6,(hi-lo)*0.35);
         const ptLabels={id:"rcPtLabels",afterDatasetsDraw(ch){
           const ctx=ch.ctx, meta=ch.getDatasetMeta(0); if(!meta)return;
           const ff=getComputedStyle(document.body).fontFamily;
+          // 賽段分界：評分是「該賽段從頭累積到當下」，換賽段就重新開始累積，
+          // 前一兩個系列樣本太少一定偏低（今年視圖會看到明顯的鋸齒）。畫虛線＋標賽段名，
+          // 免得那些 V 型被當成戰隊崩盤或程式出錯。
+          const ca=ch.chartArea, rowEnd=[0,0];   // 兩排輪放：賽段密集時（EWC 資格賽夾在 LCK 中間）名稱會疊在一起
+          ctx.save(); ctx.lineWidth=1;
+          meta.data.forEach((pt,i)=>{ if(!i||pt==null)return;
+            const a=trendPts[i-1], b2=trendPts[i]; if(!a||!b2||(a.lg===b2.lg&&a.sp===b2.sp))return;
+            const x=(meta.data[i-1].x+pt.x)/2;
+            ctx.setLineDash([4,4]); ctx.strokeStyle="#4a5570";
+            ctx.beginPath(); ctx.moveTo(x,ca.top); ctx.lineTo(x,ca.bottom); ctx.stroke();
+            // 同一個賽事只換賽段就不重複寫賽事名（字短才排得下）
+            const tx=a.lg===b2.lg?(b2.sp?spDisp(b2.sp):lgName(b2.lg))
+                                 :(lgName(b2.lg)+(b2.sp?" "+spDisp(b2.sp):""));
+            ctx.setLineDash([]); ctx.font=`11px ${ff}`; ctx.fillStyle="#8b98ad"; ctx.textAlign="left";
+            const w=ctx.measureText(tx).width, r=rowEnd[0]<=x?0:rowEnd[1]<=x?1:-1;
+            if(r<0)return;                        // 兩排都卡住就只留分界線，不硬塞疊字
+            rowEnd[r]=x+4+w+8; ctx.fillText(tx,x+4,ca.top+10+r*13); });
+          ctx.restore();
           ctx.save(); ctx.textAlign="center";
-          meta.data.forEach((pt,i)=>{ const p=trendPts[i]; if(!p||pt==null)return;
+          meta.data.forEach((pt,i)=>{ const p=trendPts[i]; if(!p||pt==null||!trLab(i))return;
             ctx.font=`bold 14px ${ff}`; ctx.fillStyle="#e6ecf5";
             ctx.fillText(String(Math.round(p.sc*10)/10), pt.x, pt.y-22);
             ctx.font=`12px ${ff}`; ctx.fillStyle="#8b98ad";
@@ -11323,19 +11371,22 @@ function render(){
         window._rcChart=new Chart(cv,{type:"line",plugins:[ptLabels],
           data:{labels,datasets:[{label:en2?"Rating":"評分",data:scs,
             borderColor:"#6ea8ff",backgroundColor:"#6ea8ff22",tension:.25,fill:true,
-            pointRadius:6,pointHoverRadius:8,pointBorderWidth:2,pointBorderColor:"#0b0e14",
-            pointBackgroundColor:trendPts.map(p=>p.win?WIN:LOSS)}]},
+            // 跨賽段不連線：兩段之間沒有可比性（各自從頭累積）
+            segment:{borderColor:c=>{const a=trendPts[c.p0DataIndex],b2=trendPts[c.p1DataIndex];
+              return a&&b2&&(a.lg!==b2.lg||a.sp!==b2.sp)?"transparent":"#6ea8ff";}},
+            pointRadius:trendPts.length>24?4:6,pointHoverRadius:8,pointBorderWidth:2,pointBorderColor:"#0b0e14",
+            pointBackgroundColor:trendPts.map(p=>p.tie?"#8b98ad":p.win?WIN:LOSS)}]},
           options:{maintainAspectRatio:false,layout:{padding:{top:34}},
             plugins:{legend:{display:false},tooltip:{callbacks:{
               title:it=>{const p=trendPts[it[0].dataIndex];
-                return `${p.d.slice(5,10)}　${lgName(p.lg)}${p.sp?" "+spDisp(p.sp):""}　vs ${p.opp}${p.g?" G"+p.g:""}`;},
+                return `${p.d.slice(5,10)}　${lgName(p.lg)}${p.sp?" "+spDisp(p.sp):""}　vs ${p.opp}`;},
               label:it=>{const p=trendPts[it.dataIndex];
                 return [`${en2?"Rating":"評分"} ${Math.round(p.sc*10)/10}`,
                         `${en2?"Rank":"名次"} #${p.rk} / ${p.n}`,
-                        p.win?(en2?"Win":"勝"):(en2?"Loss":"敗")];}}}},
+                        `${p.w}-${p.l}　${p.tie?(en2?"Tie":"和"):p.win?(en2?"Win":"勝"):(en2?"Loss":"敗")}`];}}}},
             scales:{y:{suggestedMin:Math.max(0,lo-pad),suggestedMax:Math.min(100,hi+pad),
                        title:{display:true,text:en2?"Rating":"評分"}},
-                    x:{ticks:{maxRotation:0,autoSkip:false,font:{size:11}}}}}});
+                    x:{ticks:{maxRotation:0,autoSkip:trendPts.length>16,font:{size:11}}}}}});
       }
     };
     bindFilters(rerender);
