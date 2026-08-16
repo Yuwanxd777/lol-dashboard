@@ -11416,7 +11416,12 @@ function render(){
             // includeBounds:false＝不要為了上下界硬補一條刻度（否則 30 與 40 會擠在一起變 10 分一條）
             scales:{y:{min:yLo,max:yHi,ticks:{stepSize:20,includeBounds:false},
                        title:{display:true,text:en2?"Rating":"評分"}},
-                    x:{ticks:{maxRotation:0,autoSkip:trendPts.length>16,font:{size:11}}}}}});
+                    // 只留橫線，直的格線拿掉（2026-08-17 使用者指定）；
+                    // S1/S2/S3 的分界虛線是外掛自己畫的，不受這個影響
+                    // 勝敗上色（2026-08-17 使用者指定）：Chart.js 的刻度顏色是「整個刻度標籤」一起換，
+                    // 沒辦法只染第三行 → 整欄（日期/對手/勝敗）一起走勝紅敗綠，剛好跟圓點對得起來
+                    x:{grid:{display:false},ticks:{maxRotation:0,autoSkip:trendPts.length>16,font:{size:11},
+                       color:c=>{const p=trendPts[c.index]; return p?(p.tie?"#8b98ad":p.win?WIN:LOSS):"#8b98ad";}}}}}});
       }
     };
     bindFilters(rerender);
