@@ -946,8 +946,8 @@
   .rcHeadR{display:inline-flex;align-items:center;gap:10px 22px;flex-wrap:wrap;font-size:16px}
   .rcHeadR b{color:var(--gold);font-variant-numeric:tabular-nums}
   .rcStk{font-size:19px;font-weight:800}
-  .rcChip{display:inline-flex;align-items:center;gap:3px;margin-right:7px}
-  .rcChip .cc img{width:28px;height:28px}
+  .rcChip{display:inline-flex;align-items:center;gap:4px;margin-right:8px}
+  .rcChip .cc img{width:38px;height:38px}   /* 近況是拿來截圖的頁，英雄圖放大（2026-08-17 使用者指定）*/
   .rcChip b{font-variant-numeric:tabular-nums;min-width:16px;font-size:14px;color:var(--tx2)}
   /* ── 全站統一的分段切換鈕（2026-07-28 使用者定案：所有模式切換一律「A｜B」，點哪段哪段亮） ── */
   .segBtn{display:inline-flex;border:1px solid var(--line);border-radius:9px;overflow:hidden;
@@ -11211,7 +11211,8 @@ function render(){
       let n=0,w=0; const cm={};
       days.forEach(dd=>{(p2.d[dd]||[]).forEach(g=>{n++; if(g[1])w++; const e=cm[g[0]]=cm[g[0]]||{n:0,w:0}; e.n++; if(g[1])e.w++;});});
       if(!n)return {n:0,w:0,top:[]};
-      return {n,w,top:Object.entries(cm).map(([ch,e])=>({ch,...e})).sort((x,y)=>y.n-x.n).slice(0,3)};
+      // 積分常用最多列 5 隻（2026-08-17 使用者指定；與左邊「慣用英雄」同寬度）
+      return {n,w,top:Object.entries(cm).map(([ch,e])=>({ch,...e})).sort((x,y)=>y.n-x.n).slice(0,5)};
     };
     const chipIco=(ch,cnt,ttl)=>`<span class="rcChip" title="${esc(ttl)}">${cImg(ch)}<b>${cnt}</b></span>`;
     const rerender=()=>{
@@ -11327,7 +11328,7 @@ function render(){
             [...D2.recent].reverse().map(s2=>{const w2=s2.w>s2.l;
               return `<tr><td>${md(s2.from)}${s2.to!==s2.from?`–${md(s2.to)}`:""}</td>
               <td>${lgChip(s2.league)}${s2.split?` <span class="meta">${esc(spDisp(s2.split))}</span>`:""}</td>
-              <td><span style="display:inline-flex;align-items:center;gap:6px">${teamLogoHTML(tAb(s2.opp),20,true)}<b>${esc(tAb(s2.opp))}</b> <span class="meta">${esc(s2.opp)}</span></span></td>
+              <td><span style="display:inline-flex;align-items:center;gap:6px" title="${esc(s2.opp)}">${teamLogoHTML(tAb(s2.opp),22,true)}<b>${esc(tAb(s2.opp))}</b></span></td>
               <td class="num"><b>${s2.w}</b> - ${s2.l}</td>
               <td style="color:${w2?"#ff4d4d":s2.w===s2.l?"var(--tx2)":"#37c871"};font-weight:700">${s2.w===s2.l?(en2?"Tie":"和"):w2?(en2?"Win":"勝"):(en2?"Loss":"敗")}</td></tr>`;}).join("")}</tbody></table></div>
         ${tgAll.length?`<div class="card"><h2>📈 ${en2?"Rating trend":"評分走勢"} <span class="sub">${en2?"one point per series — label = rating at that moment / rank in that split":"每個系列賽一個點；標籤＝當下評分／該賽段名次"}${trSub?"・"+trSub:""}</span>
