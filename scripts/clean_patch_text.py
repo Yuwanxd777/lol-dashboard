@@ -118,6 +118,41 @@ def transform_line(ln, name_map, name_keys, manual):
     # 是清理後的樣子，轉完才對得上（2026-08-05：107 條官方錯誤修正翻譯第一次就沒落地的教訓）
     return manual.get(out.strip(), out)
 
+def _dex_item_names():
+    """圖鑑用的道具名集合（items.js＝當前版本、assets.js＝歷年含已移除）"""
+    out = set()
+    for fn, var in (("items.js", "ITEM_DESC"), ("items.js", "ITEM_XTRA"), ("assets.js", "LOL_ASSETS")):
+        fp = os.path.join(ROOT, fn)
+        if not os.path.exists(fp):
+            continue
+        t = io.open(fp, encoding="utf-8").read()
+        m = re.search(r"window\." + var + r"=(\{)", t)
+        if not m:
+            continue
+        i, d = m.start(1), 0
+        for j in range(i, len(t)):
+            if t[j] == "{":
+                d += 1
+            elif t[j] == "}":
+                d -= 1
+                if d == 0:
+                    obj = json.loads(t[i:j + 1]); break
+        else:
+            continue
+        if var == "LOL_ASSETS":
+            def walk(o):
+                if isinstance(o, dict):
+                    for v in o.values(): walk(v)
+                elif isinstance(o, list):
+                    for v in o: walk(v)
+                elif isinstance(o, str) and re.search(r"[一-鿿]", o):
+                    out.add(o)
+            walk(obj.get("item", {}))
+        else:
+            out |= set(obj)
+    return out
+
+
 def process(path, var_name):
     t = open(path, encoding="utf-8").read()
     i = t.find(f"window.{var_name}=")
@@ -130,6 +165,10 @@ def process(path, var_name):
         for key in list(pd.keys()):
             v = pd[key]
             def do(lines, tag):
+                # 道具名的「名稱｜」前綴套人工校正表（scripts/item_name_fix.json）。
+                # **只在 _extra 的非英雄區套**（道具/裝備/機制/符文…）：日蝕同時是雷歐娜 W 的技能名，
+                # 全域取代會把英雄改動也一起改掉；英雄改動一律掛在英雄鍵底下，不會走這裡。
+                item_sec = tag.startswith("_extra/")
                 out = []
                 for ln in lines:
                     if not isinstance(ln, str): out.append(ln); continue
@@ -141,6 +180,21 @@ def process(path, var_name):
                     _chk = re.sub(r"[（(][A-Za-z'’\- ]+[)）]", "", _chk)  # 括號內英文原名註記（（WARMONGER））＝刻意保留，不算殘英
                     _chk = re.sub(r"(?<![A-Za-z])(ARAM|ARURF|URF|PVP|Clash|Ctrl|Shift|Buff|buff|VFX|Riot|Gamma|BUG|Ping)(?![A-Za-z])", "", _chk)  # 通用縮寫白名單（\b 在中文旁失效→用拉丁邊界）
                     if re.search(r"[A-Za-z]{4,}", re.sub(r"[A-Za-z']+[’']s\b", "", _chk)): remain.append(f"{os.path.basename(path)}|{ver}|{tag}|{nl}")
+                    if item_sec and "｜" in nl:
+                        _n, _rest = nl.split("｜", 1)
+                        if _n.strip() in ITEM_FIX:
+                            nl = ITEM_FIX[_n.strip()] + "｜" + _rest
+                            stats["chg"] += 1
+                        # Riot 常把兩件裝的共同改動併成一個標題（26.10「貪婪護脛／不朽之道」）。
+                        # 併著寫的話兩邊都對不上圖鑑名 → 抓不到道具圖示也連不到詳情頁，拆成兩行。
+                        # 只在「每一段都是圖鑑裡的道具名」時才拆，避免把「A／B 效果」這種敘述切壞。
+                        _ps = [x.strip() for x in re.split(r"[／/]", nl.split("｜", 1)[0])]
+                        if len(_ps) > 1 and all(x in DEX_ITEMS for x in _ps):
+                            _r2 = nl.split("｜", 1)[1]
+                            for x in _ps:
+                                out.append(x + "｜" + _r2)
+                            stats["chg"] += 1
+                            continue
                     out.append(nl)
                 return out
             if key == "_extra" and isinstance(v, dict):
@@ -153,6 +207,10 @@ def process(path, var_name):
     return stats, remain
 
 if __name__ == "__main__":
+    _inf = os.path.join(HERE, "item_name_fix.json")
+    ITEM_FIX = {k: v for k, v in (json.load(open(_inf, encoding="utf-8")) if os.path.exists(_inf) else {}).items()
+                if not k.startswith("_")}
+    DEX_ITEMS = _dex_item_names()
     NAME_MAP = finalize_map(build_name_map())
     NAME_KEYS = sorted(NAME_MAP.keys(), key=len, reverse=True)
     # 人工表＝manual_tr.json（翻譯池，2.3 萬條）＋ tr_fix.json（人工逐行修正表，衝突時它贏）。
