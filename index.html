@@ -12009,6 +12009,12 @@ function render(){
               const m=_chLaneIdx[cid]||(_chLaneIdx[cid]={}); m[L]=(m[L]||0)+1; } } }
         const m=_chLaneIdx[id]||{};
         return POSN.filter(L=>m[L]>0).sort((a,b)=>(m[b]||0)-(m[a]||0)); };
+      // 該英雄在**全庫**（目前篩選範圍內所有戰隊）走某一路的場數。
+      // 推測路線（層級3）就是靠這個數字推出來的，小框要拿它當第三層佐證——
+      // 否則「這隊 0 場、這選手積分也 0 場」的路線那一欄會整個留空，只剩路線名
+      //（2026-08-16 使用者回報「推測路線沒有寫場數 只有寫路線」）。
+      const chLaneCnt=(c,L)=>{ chLanes(c); const id=champId(c);   // 先呼叫一次確保索引已建（_chLaneIdx 是懶建的）
+        return (_chLaneIdx&&_chLaneIdx[id]&&_chLaneIdx[id][L])||0; };
       // 層級2 的來源（使用者定案 2026-08-06）：**該戰隊先發五人**的近期積分——固定取每一路的先發
       // players[0]，不跟著 ⇄ 換人走（推路要問的是「這支先發陣容誰會這隻」，不是當下切到誰）。
       // sqRecent 在沒開「🎯 近期積分」時回 null → 這層自然為空，剛好對上使用者定的兩種情況。
@@ -13441,10 +13447,16 @@ function render(){
               const tiedTop=mx>0&&topN>=2;    // 有並列最高（如兩路都1場）→ 改列勝敗、不標可能性較高
               const anySoft=lanes.some(l=>soft[l]&&asg.res[i]!==l); // 有全庫推測來源的路線 → 標在標題
               const rows2=lanes.map(l=>{ const cnt=laneCnt[l]||0, wins=laneWin[l]||0, isTop=mx>0&&cnt===mx;
-                // 比賽 0 場的路線：不留空白，改標「積分 N 場」（該路目前選手的近期積分；沒勾/沒資料則維持空）
+                // 比賽 0 場的路線：不留空白，依序退到「積分 N 場」→「全庫 N 場」。
+                //   ① 該隊在該路的比賽場數（cnt）
+                //   ② 該路**目前選定選手**的近期積分場數（沒勾🎯或查不到就跳過）
+                //   ③ 這隻在**全庫**（範圍內所有戰隊）走該路的場數＝推測路線的依據本身
+                // 沒有 ③ 的話，推測出來的路線那一欄會整個留空、只剩路線名（2026-08-16 使用者回報）。
                 const _sq=!cnt&&sqOf(l), sqTxt=_sq?`<span class="meta" style="margin-left:0">${LANG==="en"?"soloq ":"積分 "}<span class="num">${_sq.n}</span>${LANG==="en"?"g":" 場"}</span>`:""; // margin-left:0：抵銷 .tipRow .meta 的 6px 縮排，跟上下行場數同一起點
+                const _gl=(!cnt&&!_sq)?chLaneCnt(v,l):0;
+                const glTxt=_gl?`<span class="meta" style="margin-left:0">${LANG==="en"?"all teams ":"全庫 "}<span class="num">${_gl}</span>${LANG==="en"?"g":" 場"}</span>`:"";
                 // 兩欄排版：路線名固定欄寬 → 各路的場數/積分數字同一起點置左對齊
-                const val=cnt?`<span class="num">${cnt}</span>${LANG==="en"?"":" 場"}${tiedTop&&isTop?`　<span class="num">${wins}-${cnt-wins}</span>`:""}`:sqTxt;
+                const val=cnt?`<span class="num">${cnt}</span>${LANG==="en"?"":" 場"}${tiedTop&&isTop?`　<span class="num">${wins}-${cnt-wins}</span>`:""}`:(sqTxt||glTxt);
                 return `<div style="display:flex;align-items:baseline"><span style="flex:0 0 ${LANG==="en"?"4.8em":"3.4em"}">${LZ[l]||l}</span><span style="text-align:left">${val}</span>${uniqueMax&&isTop?`<span style="color:var(--gold);font-weight:bold;margin-left:6px">${LANG==="en"?"← more likely":"← 可能性較高"}</span>`:""}</div>`;}).join("");
               laneHtml=`<div class="tipRow"><b>${LANG==="en"?"Lane":"路線"}</b> <span class="meta">${LANG==="en"?`undecided${anySoft?" (inferred)":""}`:`待定${anySoft?"（推測）":""}`}</span>${rows2}</div>`;
             }}
