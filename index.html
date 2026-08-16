@@ -3222,6 +3222,21 @@ const grpChip=(ab,lg)=>{ if(!ab||(lg!=="LPL"&&lg!=="LCK"))return "";     // 只�
     return `<span class="lg" style="background:#8a93a622;color:#8a93a6">${LANG==="en"?"Out":"淘汰"}</span>`; }
   const c=lplGrpColor(g,curYear,sp,lg);
   return `<span class="lg" style="background:${c}22;color:${c}">${esc(lplGrpName(g))}</span>`; };
+// 分組扣分（2026-08-16 使用者指定）：**有列出組別時**，每往下一組把最終評分扣 10 分（-10／-20…）。
+// 名次用 lplGroupNamesOfSplit 的順序（它已按組別強度排：登峰>堅毅>涅槃、傳奇>崛起、巴龍>遠古）；
+// 沒進分組（顯示「淘汰」的）＝排在最後一組之後，再低一級。
+// ⚠ 只扣**最終評分**，攻擊值／防禦值不動（使用者：「直接最終-20就好」）→ 評分不再等於
+//   攻擊×0.7＋防禦×0.3，這是刻意的，欄名小框的權重視窗講的是扣分前的組成。
+// ⚠ 條件與分組籤完全綁在一起（grpTagOn）：沒列組別就不扣，所以賽事＝全部、跨賽區群組、
+//   已篩到單一組別、季後賽 都不會扣。
+const GRP_PEN=10;   // 每往下一組扣 10（第二組 -10、第三組 -20…；2026-08-16 使用者由 20 改為 10）
+const grpPenalty=(ab,lg)=>{ if(!grpTagOn()||!ab||(lg!=="LPL"&&lg!=="LCK"))return 0;
+  const sp=grpSplitOf(lg); if(!sp)return 0;
+  const ns=lplGroupNamesOfSplit(curYear,sp,lg); if(!ns.length)return 0;
+  const g=lplSplitGroupOf(teamFix(String(ab)),curYear,sp,lg);
+  const i=g?ns.indexOf(g):ns.length;        // 找不到組＝淘汰，排在最後一組之後
+  return (i>0?i:0)*GRP_PEN; };
+const grpPenOf=r=>grpPenalty(r&&(r._team||(r._full?tAb(r._full):null)),r&&r._lg);
 
 // ---------- 前處理 / 全域篩選（initData 填入）----------
 let LANES=[], GAMES=[], SPLITS=[], LEAGUES=[], PATCHES=[];
@@ -4418,7 +4433,8 @@ function calcPlayers(pos,splitTeam){
     const pen=penalty(r.場數,thr);
     r.攻擊值=Math.round(curve(an/ad*100)*pen*10)/10;
     r.防禦值=Math.round(curve(dn/dd*100)*pen*10)/10;
-    r.評分=Math.round((r.攻擊值*0.7+r.防禦值*0.3)*10)/10;
+    // 有列組別時每往下一組扣分（見 grpPenalty）；沒列組別就不扣
+    r.評分=Math.round((r.攻擊值*0.7+r.防禦值*0.3-grpPenOf(r))*10)/10;
   });
   return rows.filter(r=>r.場數>=F.minG).sort((a,b)=>b.評分-a.評分||b.攻擊值-a.攻擊值);
 }
@@ -4571,7 +4587,8 @@ function calcTeams(vsTeam){
     let dn=0,dd=0; DK.forEach((k,j)=>{ if(_ok(r[k])){dn+=df[j][i];dd++;} });
     r.攻擊值=ad?Math.round(curve(an/ad*100)*pen*10)/10:null;
     r.防禦值=dd?Math.round(curve(dn/dd*100)*pen*10)/10:null;
-    r.評分=(_ok(r.攻擊值)&&_ok(r.防禦值))?Math.round((r.攻擊值*0.7+r.防禦值*0.3)*10)/10:null;
+    // 有列組別時每往下一組扣分（見 grpPenalty）；沒列組別就不扣
+    r.評分=(_ok(r.攻擊值)&&_ok(r.防禦值))?Math.round((r.攻擊值*0.7+r.防禦值*0.3-grpPenOf(r))*10)/10:null;
   });
   return rows.filter(r=>r.場數>=F.minG).sort((a,b)=>(_ok(b.評分)?b.評分:-1)-(_ok(a.評分)?a.評分:-1));
 }
@@ -7873,7 +7890,22 @@ function scoreTip(c,type){
         row(LANG==="en"?"weight sums per lane":"各路權重總和",[["Top","÷27.5"],["Jungle","÷29"],["Mid/Bot","÷29"],["Support","÷32"]])+
         noteN(curveNote)+noteN(penNote);
     }
-    return `<div class="tipTitle">${mLabel("評分")} ${LANG==="en"?"weights":"權重"}</div>`+row(LANG==="en"?"composition":"組成",[["攻擊值","×70%"],["防禦值","×30%"]]);
+    // 分組扣分要寫進權重說明（2026-08-16 使用者指定）：直接把**當下這個賽段的實際級距**列出來，
+    // 因為扣多少取決於該賽段有幾組（LPL S3 兩組＝涅槃 -10／淘汰 -20；三組的賽段就會多一級）。
+    let gp="";
+    if(typeof grpTagOn==="function"&&grpTagOn()){
+      const lg=String(F.league||""), sp=(lg==="LPL"||lg==="LCK")?grpSplitOf(lg):"";
+      const ns=sp?lplGroupNamesOfSplit(curYear,sp,lg):[];
+      if(ns.length){
+        const items=ns.map((g,i)=>[lplGrpName(g),i?("−"+i*GRP_PEN):"0"])
+          .concat([[LANG==="en"?"Out":"淘汰","−"+ns.length*GRP_PEN]]);
+        gp=row(LANG==="en"?`group penalty (off the final score)`:`分組扣分（直接扣最終評分）`,items)
+          +noteN(LANG==="en"
+            ?`Only applied while a group tag is shown: one step down a group = −${GRP_PEN}. Teams that did not make the split show "Out" and take one more step. No penalty when the event filter is All / a cross-region group / already narrowed to one group / playoffs.`
+            :`只有「有列出組別」時才扣：每往下一組扣 ${GRP_PEN} 分，沒打進該賽段的標「淘汰」再低一級。賽事篩全部、跨賽區群組、已篩到單一組別、季後賽 都不扣。`);
+      }
+    }
+    return `<div class="tipTitle">${mLabel("評分")} ${LANG==="en"?"weights":"權重"}</div>`+row(LANG==="en"?"composition":"組成",[["攻擊值","×70%"],["防禦值","×30%"]])+gp;
   }
   if(c==="攻擊值"){
     const nn=LANG==="en"?"through a diminishing curve × games correction":"過遞減曲線×場數修正";
