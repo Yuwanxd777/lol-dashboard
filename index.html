@@ -11277,11 +11277,11 @@ function render(){
         const i=rows.findIndex(r=>r._full===V.recentTeam);
         if(i<0)return;
         trendPts.push({d:g2.d, lg:g2.lg, sp:g2.sp, opp:g2.opp, w:g2.w, l:g2.l,
-                       win:g2.w>g2.l, tie:g2.w===g2.l, sc:rows[i].評分, rk:i+1, n:rows.length});
+                       win:g2.w>g2.l, tie:g2.w===g2.l, sc:rows[i].評分, rk:i+1, n:rows.length,
+                       // 樣本場數：換賽段時評分會「打掉重算」，前一兩個系列只有 1~3 場，
+                       // 分數自然大起大落（使用者 2026-08-17 問「為何突然掉 50 分」）→ 放進 tooltip 供對照
+                       sn:rows[i].場數||0});
       });
-      // 「今年」可能幾十場，每點都標會糊成一團 → 每點都標到 20 點為止，超過就等距抽（最後一場一定標）
-      const TR_STEP=Math.max(1,Math.ceil(trendPts.length/20));
-      const trLab=i=>i===trendPts.length-1||i%TR_STEP===0;
       const trSub=trendPts.length?`${md(trendPts[0].d)} – ${md(trendPts[trendPts.length-1].d)}・${trendPts.length}${en2?" series":" 個系列"}`:"";
       const POS_ORD=["TOP","JNG","MID","BOT","SUP"];
       const stRows=POS_ORD.map(pos=>{
@@ -11338,44 +11338,60 @@ function render(){
         const WIN="#ff4d4d", LOSS="#37c871";
         const labels=trendPts.map(p=>[md(p.d),p.opp]);   // 陣列＝X 軸刻度分兩行：上日期、下對手縮寫
         const scs=trendPts.map(p=>p.sc);
+        // Y 軸跟著資料縮放、不固定 0~100（2026-08-17 使用者指定），上下各留一點空間才好看。
+        // ⚠ 留白別給太多：原本 35% 會讓 25~95 的資料被撐回 0~100，等於沒縮放。
         const lo=Math.min(...scs), hi=Math.max(...scs);
-        const pad=Math.max(6,(hi-lo)*0.35);
+        const pad=Math.max(4,(hi-lo)*0.12);
         const ptLabels={id:"rcPtLabels",afterDatasetsDraw(ch){
           const ctx=ch.ctx, meta=ch.getDatasetMeta(0); if(!meta)return;
           const ff=getComputedStyle(document.body).fontFamily;
           // 賽段分界：評分是「該賽段從頭累積到當下」，換賽段就重新開始累積，
           // 前一兩個系列樣本太少一定偏低（今年視圖會看到明顯的鋸齒）。畫虛線＋標賽段名，
           // 免得那些 V 型被當成戰隊崩盤或程式出錯。
-          const ca=ch.chartArea;
-          // 先算出「評分／名次」標籤佔掉的方框（還不畫），賽段名要閃開它們，否則今年視圖會疊成一團
-          const busy=[];
-          ctx.save(); ctx.font=`bold 14px ${ff}`;
-          meta.data.forEach((pt,i)=>{ const p=trendPts[i]; if(!p||pt==null||!trLab(i))return;
-            const w=Math.max(ctx.measureText(String(Math.round(p.sc*10)/10)).width,34);
-            busy.push({x1:pt.x-w/2-3,x2:pt.x+w/2+3,y1:pt.y-32,y2:pt.y-1}); });
-          ctx.restore();
+          const ca=ch.chartArea, n=trendPts.length, many=n>24, F1=many?12:14, F2=many?10:12;
+          const busy=[], put=[];
           const clash=b=>busy.some(r=>!(b.x2<r.x1||b.x1>r.x2||b.y2<r.y1||b.y1>r.y2));
-          ctx.save(); ctx.lineWidth=1; ctx.font=`11px ${ff}`; ctx.textAlign="left";
+          // ① 先挑出「排得下」的分數／名次標籤：**轉折點（高低點）優先**，再由左到右塞滿，會疊的跳過。
+          //    原本是「每 N 點抽一個」，密的地方照樣疊、疏的地方卻白白空著
+          //    （2026-08-17 使用者回報「有些圓點上沒有寫分數跟排名」）。
+          const ord=[]; if(n)ord.push(n-1,0);
+          for(let i=1;i<n-1;i++){ const a=trendPts[i-1].sc,b2=trendPts[i].sc,c2=trendPts[i+1].sc;
+            if((b2>=a&&b2>=c2)||(b2<=a&&b2<=c2))ord.push(i); }
+          for(let i=0;i<n;i++)ord.push(i);
+          const seen=new Set();
+          ctx.save();
+          ord.forEach(i=>{ if(seen.has(i))return; seen.add(i);
+            const p=trendPts[i], pt=meta.data[i]; if(!p||pt==null)return;
+            ctx.font=`bold ${F1}px ${ff}`; const w1=ctx.measureText(String(Math.round(p.sc*10)/10)).width;
+            ctx.font=`${F2}px ${ff}`; const w2=ctx.measureText(`#${p.rk}/${p.n}`).width;
+            const hw=Math.max(w1,w2)/2+3;
+            // 頭尾兩點的標籤會被畫布邊緣切掉（鐵則：數據不可裁字）→ 貼邊時把標籤往內推
+            const lx=Math.min(Math.max(pt.x,hw+2),ch.width-hw-2);
+            const b={x1:lx-hw,x2:lx+hw,y1:pt.y-(F1+F2+12),y2:pt.y-2};
+            if(clash(b))return; busy.push(b); put.push({i,x:lx}); });
+          ctx.restore();
+          // ② 分界虛線**只留常規賽段 S1／S2／S3**（2026-08-17 使用者指定：其他賽事的分界線拿掉）。
+          //    這幾條正好就是評分打掉重算的地方——換賽段樣本歸零，前一兩個系列必定偏低。
+          const segOf=p=>{ const t=spDisp(p&&p.sp||""); return /^S\d$/.test(t)?t:""; };
+          const done=new Set(); if(n&&segOf(trendPts[0]))done.add(segOf(trendPts[0]));
+          ctx.save(); ctx.lineWidth=1; ctx.textAlign="left"; ctx.font=`11px ${ff}`;
           meta.data.forEach((pt,i)=>{ if(!i||pt==null)return;
-            const a=trendPts[i-1], b2=trendPts[i]; if(!a||!b2||(a.lg===b2.lg&&a.sp===b2.sp))return;
+            const s=segOf(trendPts[i]); if(!s||done.has(s)||s===segOf(trendPts[i-1]))return;
+            done.add(s);
             const x=(meta.data[i-1].x+pt.x)/2;
             ctx.setLineDash([4,4]); ctx.strokeStyle="#4a5570";
             ctx.beginPath(); ctx.moveTo(x,ca.top); ctx.lineTo(x,ca.bottom); ctx.stroke();
-            // 同一個賽事只換賽段就不重複寫賽事名（字短才排得下）
-            const tx=a.lg===b2.lg?(b2.sp?spDisp(b2.sp):lgName(b2.lg))
-                                 :(lgName(b2.lg)+(b2.sp?" "+spDisp(b2.sp):""));
-            const w=ctx.measureText(tx).width;
-            for(let r=0;r<4;r++){ const y=ca.top+10+r*13,
-                bx={x1:x+2,x2:x+6+w+6,y1:y-9,y2:y+3};
-              if(clash(bx))continue;
-              busy.push(bx); ctx.setLineDash([]); ctx.fillStyle="#8b98ad"; ctx.fillText(tx,x+4,y); break; } });
+            ctx.setLineDash([]); ctx.fillStyle="#8b98ad";
+            const w=ctx.measureText(s).width;
+            for(let r=0;r<4;r++){ const y=ca.top+10+r*13, bx={x1:x+2,x2:x+10+w,y1:y-9,y2:y+3};
+              if(clash(bx))continue; busy.push(bx); ctx.fillText(s,x+4,y); break; } });
           ctx.restore();
           ctx.save(); ctx.textAlign="center";
-          meta.data.forEach((pt,i)=>{ const p=trendPts[i]; if(!p||pt==null||!trLab(i))return;
-            ctx.font=`bold 14px ${ff}`; ctx.fillStyle="#e6ecf5";
-            ctx.fillText(String(Math.round(p.sc*10)/10), pt.x, pt.y-22);
-            ctx.font=`12px ${ff}`; ctx.fillStyle="#8b98ad";
-            ctx.fillText(`#${p.rk}/${p.n}`, pt.x, pt.y-8); });
+          put.forEach(q=>{ const p=trendPts[q.i], pt=meta.data[q.i];
+            ctx.font=`bold ${F1}px ${ff}`; ctx.fillStyle="#e6ecf5";
+            ctx.fillText(String(Math.round(p.sc*10)/10), q.x, pt.y-F2-10);
+            ctx.font=`${F2}px ${ff}`; ctx.fillStyle="#8b98ad";
+            ctx.fillText(`#${p.rk}/${p.n}`, q.x, pt.y-8); });
           ctx.restore(); }};
         window._rcChart=new Chart(cv,{type:"line",plugins:[ptLabels],
           data:{labels,datasets:[{label:en2?"Rating":"評分",data:scs,
@@ -11391,8 +11407,9 @@ function render(){
               label:it=>{const p=trendPts[it.dataIndex];
                 return [`${en2?"Rating":"評分"} ${Math.round(p.sc*10)/10}`,
                         `${en2?"Rank":"名次"} #${p.rk} / ${p.n}`,
-                        `${p.w}-${p.l}　${p.tie?(en2?"Tie":"和"):p.win?(en2?"Win":"勝"):(en2?"Loss":"敗")}`];}}}},
-            scales:{y:{suggestedMin:Math.max(0,lo-pad),suggestedMax:Math.min(100,hi+pad),
+                        `${p.w}-${p.l}　${p.tie?(en2?"Tie":"和"):p.win?(en2?"Win":"勝"):(en2?"Loss":"敗")}`,
+                        `${en2?"Based on":"評分取樣"} ${p.sn}${en2?" games in this split":" 場（該賽段累計）"}`];}}}},
+            scales:{y:{min:Math.max(0,Math.floor(lo-pad)),max:Math.min(100,Math.ceil(hi+pad)),
                        title:{display:true,text:en2?"Rating":"評分"}},
                     x:{ticks:{maxRotation:0,autoSkip:trendPts.length>16,font:{size:11}}}}}});
       }
