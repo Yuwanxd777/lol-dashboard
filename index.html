@@ -974,7 +974,9 @@
   .segBtn.sm{height:28px} .segBtn.sm button{font-size:13.5px;padding:0 10px}
   .segBtn .posic{width:18px;height:18px;display:block} /* 分段鈕內的路線圖示（選序段用中路圖）縮到字高；間距走按鈕 gap */
   .ovTrGrid{display:grid;grid-template-columns:1fr 1fr;gap:6px 22px}
-  .ovTrHd{font-weight:bold;font-size:15.5px;margin:0 0 6px}
+  /* 近期動態四格的內距要一致（2026-08-17 使用者回報「資料與邊框的距離都沒抓好」）：
+     列（.ovTrRow/.ovStkRow）左右有 6px 內距，欄頭與積分快照的列也一律縮同樣的 6px，四格的文字／圖示左緣、數字右緣才對齊 */
+  .ovTrHd{font-weight:bold;font-size:15.5px;margin:0 0 6px;padding:0 6px}
   .ovTrRow{display:flex;align-items:center;gap:8px;padding:4px 6px;border-radius:8px;
     font-size:15.5px;white-space:nowrap}
   .ovTrRow{cursor:pointer} .ovTrRow:hover,.ovStkRow:hover{background:#1a2233}
@@ -991,14 +993,16 @@
   .ovStkNm{display:inline-flex;align-items:center;gap:5px;font-weight:bold;min-width:0}
   .ovStkS{font-weight:bold} .ovStkS b{font-size:19px;margin-left:3px}
   .ovStkG{color:var(--tx2)} .ovStkWl{color:#7a8aaa}
-  .ovSqLane{display:flex;align-items:flex-start;gap:9px;padding:4px 0;border-top:1px solid #1e2739}
-  .ovSqLane:first-child{border-top:0}
+  .ovSqLane{display:flex;align-items:flex-start;gap:9px;padding:4px 1px 4px 6px;border-top:1px solid #1e2739}   /* 右邊 1px：籤自己還有 5px 內距，場數右緣才跟其他三格的數字同一條線 */
+  .ovSqLane:first-child{border-top:0;padding-top:0}   /* 第一列不再多 4px：與其他三格的第一行同高（原本低 7px） */
   .ovSqPos{width:26px;height:26px;object-fit:contain;flex:0 0 auto;margin-top:4px;aspect-ratio:1/1}
-  .ovSqChips{display:flex;flex-wrap:wrap;gap:7px}
-  .ovSqCh{display:inline-flex;align-items:center;gap:3px;cursor:pointer;padding:2px 5px;border-radius:8px}
+  /* 十隻英雄平均鋪滿整列（10 等分格；圖示靠左、場數靠右）：原本 flex 靠左堆，右邊留 400 多 px 空白，
+     跟另外三格「數字貼右緣」的版面不搭 */
+  .ovSqChips{flex:1 1 auto;min-width:0;display:grid;grid-template-columns:repeat(10,minmax(0,1fr));gap:4px 7px}
+  .ovSqCh{display:inline-flex;align-items:center;justify-content:space-between;gap:3px;cursor:pointer;padding:2px 5px;border-radius:8px;min-width:0}
   .ovSqCh:hover{background:#1e2942}
   .ovSqCh b{font-variant-numeric:tabular-nums;min-width:22px;display:inline-block;text-align:right}
-  @container mainc (max-width:900px){ .ovTrGrid{grid-template-columns:1fr} }
+  @container mainc (max-width:900px){ .ovTrGrid{grid-template-columns:1fr} .ovSqChips{grid-template-columns:repeat(5,minmax(0,1fr))} }
   .statline{display:flex;gap:22px;flex-wrap:wrap;align-items:center;margin-bottom:var(--gap);
     background:var(--card2);border-radius:10px;padding:9px 16px}
   .statline b{color:var(--gold)}
