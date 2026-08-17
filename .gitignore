@@ -58,6 +58,7 @@
 !img/flags/*.png
 !fonts/*.ttf
 !fonts/*.otf
+!fonts/*.woff2
 !scripts/*.py
 !scripts/soloq_accounts.json
 !scripts/tr_fix.json

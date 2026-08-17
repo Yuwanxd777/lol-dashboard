@@ -5,6 +5,12 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>LOL數據表</title>
 <link rel="icon" type="image/png" sizes="64x64" href="img/favicon.png?v=2">
+<!-- 英雄／道具／符文圖全部在這兩個 CDN：先把連線握好（DNS+TLS 約 100~300ms），首屏圖片不用等（2026-08-17 效能體檢） -->
+<!-- <img> 是 no-cors 連線、fetch(json) 是 CORS 連線，兩種各要一條 preconnect 才對得上 -->
+<link rel="preconnect" href="https://ddragon.leagueoflegends.com">
+<link rel="preconnect" href="https://ddragon.leagueoflegends.com" crossorigin>
+<link rel="preconnect" href="https://raw.communitydragon.org">
+<link rel="preconnect" href="https://raw.communitydragon.org" crossorigin>
 <!-- chart.js 收進本機（2026-07-28 體檢）：CDN 同步載入冷快取時會卡整個啟動 ~3 秒；本機檔失敗才退回 CDN -->
 <script src="chart.umd.min.js" onerror="document.write('<script src=&quot;https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js&quot;><\/script>')"></script>
 <style>
@@ -31,11 +37,11 @@
   html,body{overflow-x:hidden} /* 全站禁止左右滑動（見鐵則1：內容必須自己收進橫捲容器） */
   html{scrollbar-gutter:stable} /* 永遠保留垂直捲軸的槽位：有無捲軸時內容不會左右位移(切分頁不跳動) */
   /* 圓體字的垂直度量對齊微軟正黑體（ascent/descent 覆寫），粉圓字形偏小再放大 5%——否則整站文字會偏低偏扁 */
-  @font-face{font-family:"jf-openhuninn";src:url("fonts/jf-openhuninn.ttf") format("truetype");font-display:swap;
+  @font-face{font-family:"jf-openhuninn";src:url("fonts/jf-openhuninn.woff2") format("woff2"),url("fonts/jf-openhuninn.ttf") format("truetype");font-display:swap;
     ascent-override:106.7%;descent-override:26.7%;line-gap-override:0%}
-  @font-face{font-family:"GenSenRounded TW";font-weight:400;src:url("fonts/GenSenRounded2TW-L.otf") format("opentype");font-display:swap;
+  @font-face{font-family:"GenSenRounded TW";font-weight:400;src:url("fonts/GenSenRounded2TW-L.woff2") format("woff2"),url("fonts/GenSenRounded2TW-L.otf") format("opentype");font-display:swap;
     ascent-override:106.7%;descent-override:26.7%;line-gap-override:0%} /* 內文用 Light，小字不糊 */
-  @font-face{font-family:"GenSenRounded TW";font-weight:700;src:url("fonts/GenSenRounded2TW-R.otf") format("opentype");font-display:swap;
+  @font-face{font-family:"GenSenRounded TW";font-weight:700;src:url("fonts/GenSenRounded2TW-R.woff2") format("woff2"),url("fonts/GenSenRounded2TW-R.otf") format("opentype");font-display:swap;
     ascent-override:106.7%;descent-override:26.7%;line-gap-override:0%} /* 粗體用 Regular */
   body{margin:0;color:var(--tx);font-family:"jf-openhuninn","Microsoft JhengHei","Segoe UI",sans-serif;font-size:16.5px;
     background:radial-gradient(1200px 500px at 15% -10%,#1a2340 0%,transparent 60%),
@@ -1118,12 +1124,23 @@ if(location.protocol==="file:"||/^(localhost|127\.)/.test(location.hostname)){
 // ---------- 年份資料（data.js=manifest，data_{年}.js=各年 RAW_DATA）----------
 const M=window.LOL_MANIFEST||{years:[],default:new Date().getFullYear()};
 let D=null, curYear=M.default;
-function loadYear(y){return new Promise((res,rej)=>{
-  const s=document.createElement("script");
-  s.src=`data/data_${y}.js?v=${encodeURIComponent(M.updated||Math.random())}`;
-  s.onload=res; s.onerror=()=>rej(new Error(`找不到 data_${y}.js，請先跑 update.bat`));
-  document.head.appendChild(s);
-});}
+// 年度資料 26MB：用 <script> 標籤載入時 V8 要把整個物件字面值編譯一遍，首次約 3.9 秒；
+// 改成 fetch 純文字 → 去掉 "window.LOL_DATA=" 前綴 → JSON.parse，同一份檔案約 0.3 秒（2026-08-17 實測）。
+// file:// 直接開（fetch 會被擋）或任何失敗都退回 <script> 標籤，行為與以前完全一樣。
+function loadYear(y){
+  const url=`data/data_${y}.js?v=${encodeURIComponent(M.updated||Math.random())}`;
+  const viaTag=()=>new Promise((res,rej)=>{
+    const s=document.createElement("script"); s.src=url;
+    s.onload=res; s.onerror=()=>rej(new Error(`找不到 data_${y}.js，請先跑 update.bat`));
+    document.head.appendChild(s);
+  });
+  if(location.protocol==="file:")return viaTag();
+  return fetch(url,{cache:"no-cache"}).then(r=>{ if(!r.ok)throw new Error("HTTP "+r.status); return r.text(); }).then(t=>{
+    const i=t.indexOf("="); if(i<0||!/^\s*window\.LOL_DATA\s*$/.test(t.slice(0,i)))throw new Error("format");
+    let body=t.slice(i+1).trim(); if(body.endsWith(";"))body=body.slice(0,-1);
+    window.LOL_DATA=JSON.parse(body);
+  }).catch(()=>viaTag());
+}
 
 // ---------- i18n（中文／English；分批擴充，內部 key 一律保持中文，只翻顯示文字）----------
 let LANG = (l=>l==="en"?"en":(l==="cn"?"cn":"zh"))(localStorage.getItem("lang")); // zh=繁體 cn=簡體(以繁體資料再字級轉簡) en=English
