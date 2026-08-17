@@ -9525,13 +9525,13 @@ function render(){
         <div class="ovSecHd full">⚡ ${T("近期動態")}</div>
         <div class="card ovPad30"><h2>📈 ${T("英雄動態")}<span class="ovTag">📊 ${T("比賽")}</span> <span class="sub" id="ovTrendProSub"></span></h2><div id="ovTrendPro"></div></div>
         ${isHistYear()?"":`<div class="card ovPad30"><h2>📈 ${T("英雄動態")}<span class="ovTag">🎯 ${T("積分")}</span> <span class="sub" id="ovTrendSqSub"></span></h2><div id="ovTrendSq"></div></div>`}
-        <div class="card ovPad30"><h2>🔥 ${T("戰隊近況")} <span class="sub">${T("系列賽（大場）連勝／連敗最長的各五隊；小局＝這段期間的單局戰績、系列＝範圍內總戰績")}</span></h2><div id="ovStk"></div></div>
+        <div class="card ovPad30"><h2>👀 ${T("戰隊近況")} <span class="sub">${T("系列賽（大場）連勝／連敗最長的各五隊；小局＝這段期間的單局戰績、系列＝範圍內總戰績")}</span></h2><div id="ovStk"></div></div>
         ${isHistYear()?"":`<div class="card ovPad30"><h2>🎯 ${T("積分快照")} <span class="sub" id="ovSqSub"></span></h2><div id="ovSq"></div></div>`}
         <div class="ovSecHd full">📊 ${T("範圍排行")}</div>
-        <div class="card"><h2>🏆 ${T("選手評分排行")} <span class="sub">${T("目前篩選下綜合評分最高的五位")}</span></h2><div id="ovP"></div></div>
-        <div class="card"><h2>🛡️ ${T("戰隊評分排行")} <span class="sub">${T("目前篩選下綜合評分最高的五隊")}</span></h2><div id="ovT"></div></div>
-        <div class="card"><h2>🔥 ${T("熱門英雄")} <span class="sub">${T("BP%（出場＋被禁用）最高的十隻")}</span></h2><div id="ovH"></div></div>
-        <div class="card"><h2>🎯 ${T("先取目標勝率")} <span class="sub">${T("拿到該目標的一方最終勝率（目前篩選範圍）")}</span></h2><div id="ovObj"></div></div>
+        <div class="card ovPad30"><h2>🏆 ${T("選手評分排行")} <span class="sub">${T("目前篩選下綜合評分最高的五位")}</span></h2><div id="ovP"></div></div>
+        <div class="card ovPad30"><h2>🛡️ ${T("戰隊評分排行")} <span class="sub">${T("目前篩選下綜合評分最高的五隊")}</span></h2><div id="ovT"></div></div>
+        <div class="card ovPad30"><h2>🔥 ${T("熱門英雄")} <span class="sub">${T("BP%（出場＋被禁用）最高的十隻")}</span></h2><div id="ovH"></div></div>
+        <div class="card ovPad30"><h2>🎯 ${T("先取目標勝率")} <span class="sub">${T("拿到該目標的一方最終勝率（目前篩選範圍）")}</span></h2><div id="ovObj"></div></div>
       </div>`;
     const rerender=()=>{
       const games=GAMES.filter(o=>passG(o));
