@@ -2432,6 +2432,11 @@ function fitAutoTable(tb){
   if(ths.length<3||ths.some(th=>th.colSpan>1))return;      // 表頭有跨欄 → 欄位對不上，不碰
   if(!tb.parentElement)return;
   const z=window._zoomF||1;
+  // 同一張表、同容器寬、同縮放、同字型世代、同列數 → 上次量的結果還有效，跳過（一次 fit 要三趟強制重排，
+  // 大表 100ms 起跳；每次重繪／從 VIEW_CACHE 還原時 MutationObserver＋render＋60ms 計時器會連跑三次）
+  const _fk=tb.parentElement.clientWidth+"|"+z+"|"+ths.length+"|"+(window._fitEpoch||0)+"|"+tb.rows.length;
+  if(tb._fitKey===_fk)return;
+  tb._fitKey=_fk;
   ths.forEach(th=>{ if(!("ow0" in th.dataset))th.dataset.ow0=th.style.width||""; th.style.width=th.dataset.ow0; });
   tb.style.tableLayout="auto"; tb.style.minWidth="0"; tb.style.width="max-content";   // 還原成內容寬再量
   const nat=ths.map(th=>th.getBoundingClientRect().width/z);  // rect＝視覺px→除縮放倍率轉版面px
@@ -6602,6 +6607,7 @@ const UNDO={st:{bpSim:[],tierB:[]},last:{},
     if(s!==this.last[k]){this.st[k].push(this.last[k]);if(this.st[k].length>30)this.st[k].shift();this.last[k]=s;}},
   pop(k){const a=this.st[k];if(!a.length)return null;const v=a.pop();this.last[k]=v;return JSON.parse(v);}};
 function saveState(){
+  if(window._warming)return; // 閒置預熱的背景繪製不是使用者動作：不存狀態、不進返回歷史（否則重整會落在被預熱的分頁）
   UNDO.track("bpSim",V.bpSim); UNDO.track("tierB",V.tierB);
   const {r1,r2,r3,t1,t2,t3,chgFilter,chgPatch,...keep}=V; // 對比人選、版本改動的搜尋/版本選擇不儲存：每次進來都是乾淨預設
   localStorage.setItem("dash_state",JSON.stringify({F,V:keep,view:curView,year:curYear}));
@@ -6695,7 +6701,7 @@ new MutationObserver(ms=>{
   clearTimeout(window._ftw);window._ftw=setTimeout(refitLayout,60);})
   .observe(main,{childList:true,subtree:true});
 addEventListener("resize",()=>{clearTimeout(window._ftw);window._ftw=setTimeout(refitLayout,120);});
-if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>{try{refitLayout();}catch(e){}}); // 字體換載後字寬會變，量好的欄寬要重算
+if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>{window._fitEpoch=(window._fitEpoch||0)+1; try{refitLayout();}catch(e){}}); // 字體換載後字寬會變，量好的欄寬要重算
 // ── 浮動水平捲軸（#hsb 軌道＋#hsbT 自製把手）：畫面內橫捲容器自己的底部捲軸在視窗外時，於視窗底浮出代理捲軸雙向同步 ──
 { const hsb=document.createElement("div"); hsb.id="hsb"; const th=document.createElement("div"); th.id="hsbT"; hsb.appendChild(th); document.body.appendChild(hsb);
   let cur=null; const bound=new WeakSet();
@@ -8218,7 +8224,8 @@ const applyFont=k=>{const f=FONT_SETS[k]||FONT_SETS.huninn;
   localStorage.setItem('dash_font',k);
   const sel=document.getElementById('fontSel'); if(sel)sel.value=FONT_SETS[k]?k:'huninn';
   // 切字體＝全站字寬都變：量出來的欄寬/篩選框寬要重算（新字體可能還在載 → 延遲再補一次）
-  if(window.refitLayout){ requestAnimationFrame(()=>refitLayout()); setTimeout(()=>{try{refitLayout();}catch(e){}},450); }};
+  window._fitEpoch=(window._fitEpoch||0)+1;   // 字寬變了：fitAutoTable 的記憶化作廢
+  if(window.refitLayout){ requestAnimationFrame(()=>refitLayout()); setTimeout(()=>{window._fitEpoch=(window._fitEpoch||0)+1; try{refitLayout();}catch(e){}},450); }};
 applyFont(localStorage.getItem('dash_font')||'huninn');
 // 通用截圖：把指定元素離屏複製一份 → html2canvas 輸出 1920px 寬 PNG（prep 可對複本再加工）
 // 截圖前的圖片暖身（所有 📸 流程共用）：畫面外的懶載圖（loading=lazy）原頁還沒載過 →
@@ -9438,7 +9445,7 @@ function render(){
   main.dataset.view=curView; // 分頁級 CSS 掛鉤（hover 白光等）
   // 轉跳到新頁(分頁/詳情頁改變)就捲回最上方；排序/篩選/搜尋等原地更新不捲
   {const _pk=[curView,V.heroDetail||"",V.rankDetail||"",V.dexSec||"",V.dexDetail?JSON.stringify(V.dexDetail):""].join("|");
-   if(window._lastPageKey!==_pk){window._lastPageKey=_pk; try{window.scrollTo(0,0);}catch(e){}}} // 換頁捲回頂端(返回歷史在 saveState 追蹤；全域返回鍵由 render 包裝同步注入，見檔尾)
+   if(window._lastPageKey!==_pk){window._lastPageKey=_pk; if(!window._warming)try{window.scrollTo(0,0);}catch(e){}}} // 換頁捲回頂端(返回歷史在 saveState 追蹤；全域返回鍵由 render 包裝同步注入，見檔尾)；預熱中的背景繪製不捲
   document.documentElement.style.overflowY=""; // 一屏分頁 100% 無捲軸；放大後可捲
   const vk=vcKey();
   const keyChanged=VIEW_CACHE.key!==vk;
@@ -15892,7 +15899,7 @@ document.getElementById("yearSel").onchange=async e=>{
     document.querySelectorAll("nav .tab").forEach(t=>t.classList.toggle("on",t.dataset.view==="總覽"));
     initData();
     try{vcInvalidate&&vcInvalidate();}catch(e){}
-    saveState(); render(); }
+    saveState(); render(); scheduleWarmup(1500); }
   catch(err){ main.innerHTML=`<div class="err">${err.message}</div>`; }
   finally{ ov.style.display="none"; }
 };
@@ -15904,11 +15911,89 @@ if(LANG==="cn"){ try{
     else if(nd.nodeType===3&&window.T2S&&nd.nodeValue&&cjk.test(nd.nodeValue)){const M=window.T2S;let o="";for(const ch of nd.nodeValue)o+=M[ch]||ch;if(o!==nd.nodeValue)nd.nodeValue=o;} };
   new MutationObserver(ms=>{for(const m of ms)for(const nd of m.addedNodes)t2sNode(nd);}).observe(document.body,{childList:true,subtree:true});
 }catch(e){} }
+// ---------- 閒置預熱（2026-08-17 使用者：開站／切年份可以久一點，但開始操作後要快）----------
+// 每個分頁第一次打開要現算 100~250ms（主要是建 DOM），之後靠 VIEW_CACHE 還原只要幾 ms。
+// 做法：資料就緒、畫面靜止 1.2 秒後，把延遲載入的資料檔全部拉齊，再一頁一頁在背景把各分頁畫一遍塞進 VIEW_CACHE：
+//   - 蓋一層「目前畫面的靜態複製」在 main 上（連 canvas 內容一起複製、內層 id 拿掉免得 getElementById 撿到複製品），
+//     main 本身隱形＋鎖高度做背景繪製 → 使用者看到的畫面完全不動、頁面高度也不跳。
+//   - 任何輸入（滑鼠移動／按鍵／滾輪／觸控）立刻中止並還原，還原＝從 VIEW_CACHE 取回，只要幾 ms。
+//   - 背景繪製期間 saveState／捲頂都跳過（window._warming）。篩選一變 vcInvalidate 會清掉快取，之後照舊現算。
+const WARM_ORDER=["英雄","選手","戰隊","比賽BP","近況","積分","模擬BP","英雄Tier","圖鑑","陣容","總覽"];
+let _warmSeq=0;
+function scheduleWarmup(delay){
+  const seq=++_warmSeq; window._warmAbort=true;               // 重新排程＝舊的作廢
+  setTimeout(()=>{ if(seq!==_warmSeq)return; _runWarmup(seq); }, delay||1200);
+}
+function _runWarmup(seq){
+  if(typeof D==="undefined"||!D||!GAMES.length||typeof render!=="function")return;
+  window._warmAbort=false;
+  // 先把延遲載入的資料檔拉齊（ensureWiki／ensureBuilds 載完會清 VIEW_CACHE，一定要等它們做完才開始預熱）
+  const pre=[];
+  try{pre.push(ensureWiki());}catch(e){}
+  try{pre.push(ensureBuilds());}catch(e){}
+  ["recent","sqg","sqch"].forEach(g=>{try{pre.push(lazyLoad(g));}catch(e){}});
+  Promise.all(pre).then(()=>setTimeout(()=>{ if(seq===_warmSeq&&!window._warmAbort)_warmViews(seq); },300)).catch(()=>{});
+}
+function _warmViews(seq){
+  const cur=curView, curSub=vcSub(cur), vk=vcKey();
+  const todo=WARM_ORDER.filter(v=>v!==cur&&VIEWS.includes(v)&&!(v==="積分"&&isHistYear())&&!VIEW_CACHE.slots[v]);
+  if(!todo.length)return;
+  // 覆蓋層＝目前畫面的靜態複製
+  const cover=document.createElement("div"); cover.id="warmCover";
+  const clone=main.cloneNode(true); clone.removeAttribute("id");
+  clone.querySelectorAll("[id]").forEach(e=>e.removeAttribute("id"));
+  {const a=main.querySelectorAll("canvas"), b2=clone.querySelectorAll("canvas");
+   for(let i=0;i<a.length&&i<b2.length;i++){try{b2[i].width=a[i].width;b2[i].height=a[i].height;b2[i].getContext("2d").drawImage(a[i],0,0);}catch(e){}}}
+  const cs=getComputedStyle(main);
+  cover.style.cssText=`position:absolute;left:${main.offsetLeft}px;top:${main.offsetTop}px;width:${main.offsetWidth}px;height:${main.offsetHeight}px;box-sizing:border-box;padding:${cs.padding};z-index:40;overflow:hidden;visibility:visible;pointer-events:none`;
+  clone.style.cssText="padding:0;margin:0;max-width:none;position:static";
+  cover.appendChild(clone);
+  const savedStyle=main.getAttribute("style")||"";
+  const H=main.offsetHeight;
+  let done=false;
+  const finish=()=>{ if(done)return; done=true;
+    document.removeEventListener("pointermove",abort,true); document.removeEventListener("pointerdown",abort,true);
+    document.removeEventListener("keydown",abort,true); document.removeEventListener("wheel",abort,true); document.removeEventListener("touchstart",abort,true);
+    window.removeEventListener("resize",abort);
+    try{ if(curView!==cur){curView=cur; render();} }catch(e){}   // 從 VIEW_CACHE 還原目前分頁（幾 ms）
+    window._warming=false;
+    if(savedStyle)main.setAttribute("style",savedStyle); else main.removeAttribute("style");
+    cover.remove();
+    try{if(typeof refitLayout==="function")refitLayout();}catch(e){}
+    if(seq===_warmSeq&&!window._warmAbort)_prefetchIcons();
+  };
+  const abort=()=>{ window._warmAbort=true; finish(); };
+  window._warming=true;
+  main.parentNode.insertBefore(cover,main);
+  main.style.visibility="hidden"; main.style.height=H+"px"; main.style.overflow="hidden";
+  document.addEventListener("pointermove",abort,true); document.addEventListener("pointerdown",abort,true);
+  document.addEventListener("keydown",abort,true); document.addEventListener("wheel",abort,true); document.addEventListener("touchstart",abort,true);
+  window.addEventListener("resize",abort);
+  const step=()=>{
+    if(done)return;
+    if(seq!==_warmSeq||window._warmAbort||vcKey()!==vk||!todo.length){finish();return;}
+    const v=todo.shift();
+    try{ curView=v; render(); }catch(e){}
+    if(todo.length)(window.requestIdleCallback||(f=>setTimeout(f,40)))(step,{timeout:800}); else finish();
+  };
+  (window.requestIdleCallback||(f=>setTimeout(f,40)))(step,{timeout:800});
+}
+// 本機小頭像先拉進瀏覽器快取（406KB）：第一次打開圖多的分頁不用等圖
+let _iconsPrefetched=false;
+function _prefetchIcons(){
+  if(_iconsPrefetched||!window.CHAMP_ICONS||!CHAMP_ICONS.ids)return; _iconsPrefetched=true;
+  const list=CHAMP_ICONS.ids.map(id=>`img/champ/${id}.webp`).concat((CHAMP_ICONS.runes||[]).map(f=>`img/rune/${f}.webp`));
+  let i=0; const go=()=>{ if(i>=list.length)return; const end=Math.min(i+24,list.length);
+    for(;i<end;i++){try{fetch(list[i],{priority:"low"}).catch(()=>{});}catch(e){}}
+    (window.requestIdleCallback||(f=>setTimeout(f,60)))(go,{timeout:1000}); };
+  go();
+}
 (async()=>{
   try{
     if(!M.years.length) throw new Error("尚未產生資料");
     if(!M.years.includes(+curYear)) curYear=M.default;
     await loadYear(curYear); initData(); render();
+    scheduleWarmup(1500);
   }catch(e){
     main.innerHTML=`<div class="err"><b>${e.message}</b><br>請先雙擊 update.bat 抓資料（第一次會下載全部年份的 Oracle's Elixir 資料，需要幾分鐘），完成後重新整理本頁。</div>`;
   }
