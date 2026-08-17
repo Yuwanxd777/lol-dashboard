@@ -974,9 +974,12 @@
   .segBtn.sm{height:28px} .segBtn.sm button{font-size:13.5px;padding:0 10px}
   .segBtn .posic{width:18px;height:18px;display:block} /* 分段鈕內的路線圖示（選序段用中路圖）縮到字高；間距走按鈕 gap */
   .ovTrGrid{display:grid;grid-template-columns:1fr 1fr;gap:6px 22px}
-  /* 近期動態四格的內距要一致（2026-08-17 使用者回報「資料與邊框的距離都沒抓好」）：
-     列（.ovTrRow/.ovStkRow）左右有 6px 內距，欄頭與積分快照的列也一律縮同樣的 6px，四格的文字／圖示左緣、數字右緣才對齊 */
-  .ovTrHd{font-weight:bold;font-size:15.5px;margin:0 0 6px;padding:0 6px}
+  /* 近期動態四格（2026-08-17 使用者定案）：資料與左右邊框一律 30px（與版本焦點那張同 30px 內距）。
+     列（.ovTrRow/.ovStkRow/.ovStkHd）本身左右有 6px 內距給 hover 底色用，用負 margin 抵掉 → 欄頭、列文字、
+     圖示、最右數字全部貼在同一條 30px 線上；hover 底色往外多 6px 無妨（在內距裡） */
+  .card.ovPad30{padding-left:30px;padding-right:30px}
+  .ovPad30 .ovTrRow,.ovPad30 .ovStkRow,.ovPad30 .ovStkHd{margin-left:-6px;margin-right:-6px}
+  .ovTrHd{font-weight:bold;font-size:15.5px;margin:0 0 6px}
   .ovTrRow{display:flex;align-items:center;gap:8px;padding:4px 6px;border-radius:8px;
     font-size:15.5px;white-space:nowrap}
   .ovTrRow{cursor:pointer} .ovTrRow:hover,.ovStkRow:hover{background:#1a2233}
@@ -993,16 +996,16 @@
   .ovStkNm{display:inline-flex;align-items:center;gap:5px;font-weight:bold;min-width:0}
   .ovStkS{font-weight:bold} .ovStkS b{font-size:19px;margin-left:3px}
   .ovStkG{color:var(--tx2)} .ovStkWl{color:#7a8aaa}
-  .ovSqLane{display:flex;align-items:flex-start;gap:9px;padding:4px 1px 4px 6px;border-top:1px solid #1e2739}   /* 右邊 1px：籤自己還有 5px 內距，場數右緣才跟其他三格的數字同一條線 */
+  .ovSqLane{display:flex;align-items:flex-start;gap:9px;padding:4px 0;border-top:1px solid #1e2739}
   .ovSqLane:first-child{border-top:0;padding-top:0}   /* 第一列不再多 4px：與其他三格的第一行同高（原本低 7px） */
   .ovSqPos{width:26px;height:26px;object-fit:contain;flex:0 0 auto;margin-top:4px;aspect-ratio:1/1}
-  /* 十隻英雄平均鋪滿整列（10 等分格；圖示靠左、場數靠右）：原本 flex 靠左堆，右邊留 400 多 px 空白，
-     跟另外三格「數字貼右緣」的版面不搭 */
-  .ovSqChips{flex:1 1 auto;min-width:0;display:grid;grid-template-columns:repeat(10,minmax(0,1fr));gap:4px 7px}
-  .ovSqCh{display:inline-flex;align-items:center;justify-content:space-between;gap:3px;cursor:pointer;padding:2px 5px;border-radius:8px;min-width:0}
+  /* 英雄籤緊湊靠左排（圖示＋場數貼在一起，gap 7px）。⚠ 2026-08-17 曾改成 10 等分鋪滿整列（圖示靠左、場數靠右），
+     使用者：「間距變得很醜、我不是要這樣」→ 改回；右側留白是可以接受的，別再動 */
+  .ovSqChips{display:flex;flex-wrap:wrap;gap:7px}
+  .ovSqCh{display:inline-flex;align-items:center;gap:3px;cursor:pointer;padding:2px 5px;border-radius:8px}
   .ovSqCh:hover{background:#1e2942}
   .ovSqCh b{font-variant-numeric:tabular-nums;min-width:22px;display:inline-block;text-align:right}
-  @container mainc (max-width:900px){ .ovTrGrid{grid-template-columns:1fr} .ovSqChips{grid-template-columns:repeat(5,minmax(0,1fr))} }
+  @container mainc (max-width:900px){ .ovTrGrid{grid-template-columns:1fr} }
   .statline{display:flex;gap:22px;flex-wrap:wrap;align-items:center;margin-bottom:var(--gap);
     background:var(--card2);border-radius:10px;padding:9px 16px}
   .statline b{color:var(--gold)}
@@ -9520,10 +9523,10 @@ function render(){
       +`<div id="ovStrip"></div><div class="grid">
         <div class="card full" style="padding-left:30px;padding-right:30px"><h2 style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">🩹 ${T("版本焦點")} <span class="sub" id="ovChgVer"></span><span class="sub" id="ovChgLink" style="margin-left:auto;cursor:pointer;color:var(--acc)">${T("→ 版本改動詳情")}</span></h2><div id="ovChg"></div></div>
         <div class="ovSecHd full">⚡ ${T("近期動態")}</div>
-        <div class="card"><h2>📈 ${T("英雄動態")}<span class="ovTag">📊 ${T("比賽")}</span> <span class="sub" id="ovTrendProSub"></span></h2><div id="ovTrendPro"></div></div>
-        ${isHistYear()?"":`<div class="card"><h2>📈 ${T("英雄動態")}<span class="ovTag">🎯 ${T("積分")}</span> <span class="sub" id="ovTrendSqSub"></span></h2><div id="ovTrendSq"></div></div>`}
-        <div class="card"><h2>🔥 ${T("戰隊近況")} <span class="sub">${T("系列賽（大場）連勝／連敗最長的各五隊；小局＝這段期間的單局戰績、系列＝範圍內總戰績")}</span></h2><div id="ovStk"></div></div>
-        ${isHistYear()?"":`<div class="card"><h2>🎯 ${T("積分快照")} <span class="sub" id="ovSqSub"></span></h2><div id="ovSq"></div></div>`}
+        <div class="card ovPad30"><h2>📈 ${T("英雄動態")}<span class="ovTag">📊 ${T("比賽")}</span> <span class="sub" id="ovTrendProSub"></span></h2><div id="ovTrendPro"></div></div>
+        ${isHistYear()?"":`<div class="card ovPad30"><h2>📈 ${T("英雄動態")}<span class="ovTag">🎯 ${T("積分")}</span> <span class="sub" id="ovTrendSqSub"></span></h2><div id="ovTrendSq"></div></div>`}
+        <div class="card ovPad30"><h2>🔥 ${T("戰隊近況")} <span class="sub">${T("系列賽（大場）連勝／連敗最長的各五隊；小局＝這段期間的單局戰績、系列＝範圍內總戰績")}</span></h2><div id="ovStk"></div></div>
+        ${isHistYear()?"":`<div class="card ovPad30"><h2>🎯 ${T("積分快照")} <span class="sub" id="ovSqSub"></span></h2><div id="ovSq"></div></div>`}
         <div class="ovSecHd full">📊 ${T("範圍排行")}</div>
         <div class="card"><h2>🏆 ${T("選手評分排行")} <span class="sub">${T("目前篩選下綜合評分最高的五位")}</span></h2><div id="ovP"></div></div>
         <div class="card"><h2>🛡️ ${T("戰隊評分排行")} <span class="sub">${T("目前篩選下綜合評分最高的五隊")}</span></h2><div id="ovT"></div></div>
