@@ -947,7 +947,7 @@
   /* ── 近況分頁（一隊近期狀況一頁看完，截圖用） ── */
   .rcHead{display:flex;align-items:center;gap:14px 26px;flex-wrap:wrap;justify-content:space-between}
   .rcHeadL{display:inline-flex;align-items:center;gap:12px;min-width:0}
-  .rcAb{font-size:34px;font-weight:800;letter-spacing:1px}
+  .rcAb{font-size:24px;font-weight:800;letter-spacing:1px}   /* 34 → 24：使用者 2026-08-17「戰隊名稱太大」 */
   .rcFull{font-size:16px;color:var(--tx2)}
   .rcHeadR{display:inline-flex;align-items:center;gap:10px 22px;flex-wrap:wrap;font-size:16px}
   .rcHeadR b{color:var(--gold);font-variant-numeric:tabular-nums}
@@ -11422,7 +11422,7 @@ function render(){
         <div class="card"><h2>🧑‍🤝‍🧑 ${en2?"Players":"選手"} <span class="sub">${en2?"starters (most-fielded per role) then substitutes — current filter":"先發（各路出賽最多）在上、替補在下，依路線排序；範圍＝目前篩選"}</span></h2>
           <table class="ov"><thead><tr><th style="width:44px">${en2?"Role":"路線"}</th><th>${mLabel("選手")}</th><th>${mLabel("場數")}</th><th>${mLabel("勝率")}</th><th>KDA</th><th style="text-align:left">${en2?"Go-to champions":"慣用英雄"}</th>${showSq?`<th>${en2?"7d ranked":"積分7天"}</th><th style="text-align:left">${en2?"Ranked champs":"積分常用"}</th>`:""}</tr></thead><tbody>${stRows}</tbody></table></div>
         <div class="card"><h2>🎯 ${en2?"BP tendencies":"BP 傾向"} <span class="sub">${en2?`current filter・${D2.allN} games`:`範圍＝目前篩選・${D2.allN} 小局`}</span></h2>
-          <div class="ovChgCols" style="margin-top:2px">${
+          <div class="ovChgCols" style="margin-top:2px;padding-left:28px">${   /* 標籤與圖離左框遠一點，跟表格內文的內縮一致（2026-08-17 使用者：資料距離左邊邊框太近） */
             bpRow(en2?"Picked":"我方常選",D2.pick,true)+
             bpRow(en2?"Our bans":"我方常 Ban",D2.ownBan,false)+
             bpRow(en2?"Banned vs us":"被對手 Ban",D2.oppBan,false)}</div></div>`;
