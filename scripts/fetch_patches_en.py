@@ -6,7 +6,7 @@
   python fetch_patches_en.py --force         # 全部重抓
 排程：與 fetch_patches.py 同邏輯（當年版本每次試抓、舊年 404 永久跳過、未來版本跳過）。
 """
-import os, sys, json
+import os, sys, json, re
 from datetime import date
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -78,6 +78,17 @@ def main():
         print(f"  {pk}: {len([k for k in champs if k not in ('_url','_extra')])} champs (en)")
 
     json.dump(sorted(missing), open(miss_path, "w", encoding="utf-8"), ensure_ascii=False)
+    # 官方英文原文偶爾「數字 空格 %」（(+10 % AP)、(+0.025 % per stack)）→ 收斂成 10%（lint_text 錯誤級規則；只動輸出不動快取）
+    _pct = re.compile(r"(\d) +%")
+    def _fix(o):
+        if isinstance(o, str):
+            return _pct.sub(r"\1%", o)
+        if isinstance(o, list):
+            return [_fix(x) for x in o]
+        if isinstance(o, dict):
+            return {k: _fix(v) for k, v in o.items()}
+        return o
+    all_en = _fix(all_en)
     js = json.dumps(all_en, ensure_ascii=False, separators=(",", ":"))
     out = os.path.join(fp.HERE, "patches_en.js")
     open(out, "w", encoding="utf-8").write("window.LOL_PATCHES_EN=" + js + ";")

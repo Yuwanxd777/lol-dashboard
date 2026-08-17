@@ -4793,6 +4793,27 @@ function bo2Leagues(){
   const set=new Set(); for(const lg in cnt)if(cnt[lg]>=3)set.add(lg);
   _bo2Cache=set; return set;
 }
+// 「聯賽｜賽段」多數系列都打 ≥2 局＝BO3 以上的脈絡（LPL/LCK 例行賽、季後賽…）。
+// 只有一局的 1-0 系列在這種脈絡下＝第 2 局還沒匯入 → 比賽BP 標「缺第 2 局」
+//（2026-08-17 使用者回報：LPL S3 登峰 TES 1-0 EDG 沒標缺場——autoMiss 原本只認 1-1／2-2 與局序斷號）。
+// BO1 賽段（LEC 例行賽）多數系列只有 1 局、Worlds 瑞士制 BO1/BO3 各半（<60%）都不會進來，避免把正常 BO1 標成缺場。
+// 快取綁年份＋筆數（換年／資料補齊要重算）。
+let _bo3Cache=null,_bo3Key="";
+function bo3Splits(){
+  const key=curYear+"|"+GAMES.length; if(_bo3Cache&&_bo3Key===key)return _bo3Cache;
+  const dn=v=>{const p=String(v).slice(0,10).split("-");return p.length===3?Date.UTC(+p[0],+p[1]-1,+p[2])/864e5:0;};
+  const grp={};
+  for(const o of GAMES){const bt=o.raw[C.blue_teamname],rt=o.raw[C.red_teamname]; if(!bt||!rt)continue;
+    const k=o.league+"|"+(o.split||"")+"|"+[bt,rt].sort().join("|"); (grp[k]=grp[k]||[]).push({d:String(o.date).slice(0,10),g:+o.game,ls:o.league+"|"+(o.split||"")});}
+  const tot={},ge2={};
+  const flush=s=>{ if(!s)return; tot[s.ls]=(tot[s.ls]||0)+1; if(s.n>=2)ge2[s.ls]=(ge2[s.ls]||0)+1; };
+  for(const k in grp){const arr=grp[k].sort((a,b)=>a.d<b.d?-1:a.d>b.d?1:a.g-b.g);
+    let cur=null,pgN=0,pd=null;
+    for(const m of arr){if(!cur||m.g<=pgN||(pd!==null&&dn(m.d)-pd>2)){flush(cur);cur={ls:m.ls,n:0};}cur.n++;pgN=m.g;pd=dn(m.d);}
+    flush(cur);}
+  const set=new Set(); for(const k in tot)if(tot[k]>=3&&(ge2[k]||0)/tot[k]>=0.6)set.add(k);
+  _bo3Cache=set;_bo3Key=key; return set;
+}
 // 「最新版本」英雄改動方向：回 {ver:版本字串, byId:{id->1增強/-1削弱/0調整}, lines:{id->改動行}}
 // 定義同英雄Tier：上一個有比賽的版本「之後」的所有官方改動版本（例 26.11、26.13 有比賽 → 26.12、26.13 的改動都算）
 let _lpcCache=null,_lpcYear=null;
@@ -5657,7 +5678,8 @@ const renderChgLines=(lines,cardName)=>{
      return window._SFI[_nk(s2)]||l; });}
   // ⚠ 一定要排在標點正規化之前：查表的 key 是 wiki 原文（含半形逗號），正規化過就對不上了
   // 半形標點正規化：wiki 原文的逗號／冒號常是半形，混在中文裡很難看（2026-07-31 使用者回報）
-  lines=lines.map(l=>String(l).replace(/,\s*/g,"，").replace(/\s*:\s*(?![0-9])/g,"：").replace(/，\s*$/,""));
+  // 千分位逗號（11,500）不是標點，要留著：先藏起來再換（2026-08-17 25.15/25.16 巴龍生命 11,500 曾顯示成「11，500」）
+  lines=lines.map(l=>String(l).replace(/(\d),(?=\d{3}(?!\d))/g,"$1\uE000").replace(/,\s*/g,"，").replace(/\uE000/g,",").replace(/\s*:\s*(?![0-9])/g,"：").replace(/，\s*$/,""));
   // 機翻語序修補：wiki 原文是英文句構，直譯後中文不通（2026-07-31 使用者點名「已移除：從遊戲。」）
   lines=lines.map(l=>String(l)
     .replace(/(已)?移除[：:]\s*從遊戲\s*[。.]?/g,"已從遊戲中移除。")          // Removed: from game
@@ -11510,6 +11532,9 @@ function render(){
       let total=maxG;
       if(scStr==="2-2"&&!nums.includes(5))total=5;                 // BO5：2-2 進第5局決勝，資料庫卻沒有→缺第5局
       else if(scStr==="1-1"&&!nums.includes(3)&&maxG<=2&&!bo2Leagues().has(s.league))total=3; // BO3：1-1 缺第3局；但若該聯賽是 BO2（1-1 為正常和局）則不視為缺局
+      // 只有第 1 局的 1-0：該聯賽＋賽段多數系列打 ≥2 局（BO3 以上）→ 第 2 局還沒匯入＝缺第 2 局
+      //（第 3 局有沒有無法確定，只標確定缺的那局；2026-08-17 使用者回報 LPL S3 登峰 TES 1-0 EDG）
+      else if(scStr==="1-0"&&maxG===1&&bo3Splits().has(s.league+"|"+(s.split||"")))total=2;
       const have=new Set(nums), miss=[];
       for(let n=1;n<=total;n++)if(!have.has(n))miss.push(n);
       return miss.length?{total,miss}:null;

@@ -15,7 +15,7 @@ patch 已發布就不再變 → 解析結果永久快取，只補缺的。
   - 舊年版本：404 後永久跳過（不再重試）
   - 未來版本：估算發布日尚未到 → 直接跳過，不發 404 請求
 """
-import urllib.request, re, json, os, html as H
+import urllib.request, re, json, os, io, html as H
 from datetime import datetime, date, timedelta
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # 專案根目錄（本腳本在 scripts\ 內）
@@ -610,8 +610,19 @@ EXTRA_CATS = [
 #   （2026-08-17 使用者回報）。
 STOP_HEADERS = ("召喚峽谷積分", "競技場", "活動", "增幅裝置", "特別嘉賓", "電競", "實用資訊",
                 "遊戲更新", "即將", "賽事", "隨機單中", "大亂鬥", "ARAM", "經典模式",
+                # 其他模式（25.15「隨機阿福」的英雄平衡曾被吃進道具區）、頁尾（錯誤修正／造型／相關文章）
+                "阿福", "URF", "亂鬥", "末日機兵", "超速衝點", "快速對戰", "無限火力", "聯盟戰棋", "Clash",
+                "閃電急擊", "終極法書", "Ultimate Spellbook", "Nexus Blitz",
                 # 英文頁（patches_en 用同一套解析器）："Classic"＝經典模式那一段
-                "Classic", "Arena", "Bugfixes", "Upcoming", "Related Articles")
+                "Classic", "Arena", "Upcoming",
+                "Brawl", "Swiftplay", "Doom Bots", "Nexus Blitz", "TFT")
+# 頁尾段落（錯誤修正／造型／相關文章）：**只在 h2 大段落標題**判定，不進 _cut_stop——
+# 期中更新裡的 h4「翱銳龍獸錯誤修正」（23.03）也含這個詞，拿它當小標題停止會把整段熱修砍掉。
+# 「商店／聖所」也只在 h2：24.19 的 h4「道具商店以及預購」是遊戲體驗段的小節，拿它當停止會把後面的防禦塔金錢改動砍掉。
+# 積分／配對／行為系統／榮譽：場外系統，不是遊戲內機制（26.02 的「大師可與鑽石1⇒宗師雙排」、24.15 拒絕列隊處罰）。
+TAIL_HEADERS = ("錯誤修正", "造型", "相關文章", "商店", "聖所", "積分", "配對", "行為系統", "榮譽", "競技相關", "觀戰",
+                "Bugfixes", "Bug Fixes", "Skins", "Chromas", "Related Articles", "Shop", "Sanctum",
+                "Ranked", "Matchmaking", "Behavioral", "Honor", "Competitive", "Spectator")
 
 
 _ITEM_NAMES = None
@@ -630,6 +641,118 @@ def item_names():
     return _ITEM_NAMES
 
 SECTION_WORDS = {"道具", "符文", "機制", "裝備", "召喚師技能", "系統"}   # 區段標題（不是道具/符文名）
+GENERIC_SUBTITLES = {"基礎能力值", "基礎數值", "Base Stats", "Base Statistics"}   # 通用小節名（不當子項標題）
+MIDPATCH_RE = re.compile(r"期中更新|Mid-?Patch", re.I)   # 版本期中更新（英雄熱修）區段的標題特徵
+
+
+_RUNE_NAMES = None
+def rune_names():
+    """符文名單（中英，含已移除）：assets.js 的 rune 區＋rune_icons.js。給「機制／道具區內的符文改動」改掛到符文用。"""
+    global _RUNE_NAMES
+    if _RUNE_NAMES is None:
+        _RUNE_NAMES = set()
+        for fn, var in (("assets.js", "LOL_ASSETS"), ("rune_icons.js", "RUNE_ICONS")):
+            fp = os.path.join(HERE, fn)
+            try:
+                t = io.open(fp, encoding="utf-8").read()
+                m = re.search(r"window\." + var + r"\s*=", t)
+                d, _ = json.JSONDecoder().raw_decode(t, m.end())
+                sec = d.get("rune", {}) if var == "LOL_ASSETS" else d.get("byId", {})
+                for v in sec.values():
+                    if not isinstance(v, dict):
+                        continue
+                    for k in ("zh", "en"):
+                        if isinstance(v.get(k), str) and v[k].strip():
+                            _RUNE_NAMES.add(v[k].strip())
+                    for nm in v.get("nm", []) or []:      # 歷年改名
+                        for k in ("zh", "en"):
+                            if isinstance(nm.get(k), str) and nm[k].strip():
+                                _RUNE_NAMES.add(nm[k].strip())
+            except Exception:
+                pass
+    return _RUNE_NAMES
+
+
+def _asset_item_names():
+    """圖鑑道具名（assets.js item 區，中英＋歷年改名）：補 CDragon 字串表沒有的英文名。"""
+    out = set()
+    fp = os.path.join(HERE, "assets.js")
+    try:
+        t = io.open(fp, encoding="utf-8").read()
+        m = re.search(r"window\.LOL_ASSETS\s*=", t)
+        d, _ = json.JSONDecoder().raw_decode(t, m.end())
+        for v in d.get("item", {}).values():
+            if not isinstance(v, dict):
+                continue
+            for k in ("zh", "en"):
+                if isinstance(v.get(k), str) and v[k].strip():
+                    out.add(v[k].strip())
+            for nm in v.get("nm", []) or []:
+                for k in ("zh", "en"):
+                    if isinstance(nm.get(k), str) and nm[k].strip():
+                        out.add(nm[k].strip())
+    except Exception:
+        pass
+    return out
+
+
+_ITEM_FIX = None
+def _item_name_fix():
+    """scripts/item_name_fix.json：公告道具譯名 → 圖鑑名（clean_patch_text 也用同一張表）。"""
+    global _ITEM_FIX
+    if _ITEM_FIX is None:
+        try:
+            d = json.load(open(os.path.join(HERE, "scripts", "item_name_fix.json"), encoding="utf-8"))
+            _ITEM_FIX = {k: v for k, v in d.items() if not k.startswith("_")}
+        except Exception:
+            _ITEM_FIX = {}
+    return _ITEM_FIX
+
+
+def route_extra(out):
+    """依子項標題把走錯區的行改掛：已知符文名 → 符文、已知道具名 → 道具（機制／道具／符文三區互調）。
+    26.11 Riot 把輔助道具與符文的改動放在英雄之前的「輔助調整」段（帝王命令／月之石／召喚艾莉／神聖守護…），
+    依錨點會整包落到機制。名字同時是道具也是符文的（極少）維持原區。"""
+    # 路線任務（中路任務／打野任務獎勵…）在遊戲資料裡是「道具」，但公告把它放在「路線任務調整」的系統段，
+    # 使用者也會去機制找 → 不改掛。
+    # 只認圖鑑道具名（assets.js）：CDragon 字串表還有「輔助／坦克／射手」這種內部標記道具，26.01「輔助｜完成任務後…」會被誤掛。
+    items = {_norm_name(n) for n in _asset_item_names() if not re.search(r"任務|獎勵|Quest", n)}
+    runes = {_norm_name(n) for n in rune_names()}
+    champs = champ_name_map()
+    fix = _item_name_fix()
+    moved = {}
+    for cat in ("機制", "道具", "符文", "召喚師技能"):
+        keep = []
+        for l in out.get(cat, []):
+            n = _norm_name(l.split("｜", 1)[0]) if "｜" in l else ""
+            n = fix.get(n, n)
+            tgt = None
+            if n:
+                is_r, is_i = n in runes, n in items
+                if is_r and not is_i and cat != "符文":
+                    tgt = "符文"
+                elif is_i and not is_r and cat != "道具":
+                    tgt = "道具"
+                elif not is_r and not is_i and n in SUMMONER_SPELLS and cat != "召喚師技能":
+                    tgt = "召喚師技能"
+                elif not is_r and not is_i and n in champs:
+                    # 以英雄名當小標題的改動（期中更新沒頭像的版型）→ 交回英雄（parse_new 併入），行首去掉英雄名
+                    out.setdefault("_champ", {}).setdefault(champs[n], []).append(l.split("｜", 1)[1].strip())
+                    continue
+            if tgt:
+                moved.setdefault(tgt, []).append(l)
+            else:
+                keep.append(l)
+        if keep:
+            out[cat] = keep
+        elif cat in out:
+            del out[cat]
+    for cat, ls in moved.items():
+        dst = out.setdefault(cat, [])
+        for l in ls:
+            if l not in dst:
+                dst.append(l)
+    return out
 
 def _grab(seg):
     """抓 seg 內的 子項標題(道具/符文名)＋改動(含 ⇒)，子項標題用 ｜ 帶上。
@@ -643,6 +766,10 @@ def _grab(seg):
     for m in re.finditer(r"<(h[3-5])[^>]*>(.*?)</\1>|<li[^>]*>(.*?)</li>|<(strong|b)[^>]*>(.*?)</\4>", seg, re.S):
         if m.group(1):                          # h3~5 標題
             txt = clean(m.group(2))
+            # 「基礎能力值」是通用小節名（25.15 巴龍納什→基礎能力值→每5秒生命回復…），
+            # 有母標題時保留母標題，行才會是「巴龍納什｜…」而不是「基礎能力值｜…」。
+            if txt in GENERIC_SUBTITLES and cur:
+                continue
             if txt and txt not in SECTION_WORDS:
                 cur = txt
         elif m.group(3) is not None:            # li 改動行
@@ -671,6 +798,8 @@ def _grab(seg):
                 lines.append(f"{cur}｜{t}" if cur else t)
             elif t and cur and cur in names:
                 lines.append(f"{cur}｜{t}")     # 新道具首發介紹
+            elif t and re.match(r"^已移除以下道具", t):
+                lines.append(t)                 # 24.01「已移除以下道具：飲血戰錘、聖裂之杖…」（沒 ⇒ 也沒子項標題）
         else:                                   # li 之外的 strong/b＝可能是道具名區塊標題
             txt = clean(m.group(5))
             if txt and txt not in SECTION_WORDS and "⇒" not in txt and not txt.rstrip().endswith(("：", ":")):
@@ -687,82 +816,238 @@ def _grab(seg):
     return uniq
 
 
-def _cut_stop(seg):
+DATED_RE = re.compile(r"\d+月\d+日|\d{4}年|20\d\d/\d+|[A-Z][a-z]+ \d{1,2}(st|nd|rd|th)?,? 20\d\d")
+
+def _cut_stop(seg, resume_dated=False):
+    """遇到模式小標題（競技場／隨機單中…）就砍到段尾。
+    resume_dated（期中更新段用）：模式小節之後若又出現**帶日期**的小標題（23.24「12月7日，…赫威相關調整」），
+    代表新一批熱修，從那裡恢復——期中更新常常一段裡混著多天、多模式的更新。"""
+    def _stop(t):
+        if not _has_word(t, STOP_HEADERS):
+            return False
+        # 帶日期又是「A 與 B」的批次標題（23.24「2023年12月12日平衡調整與競技場」）＝混合批次，不是模式段本身；
+        # 底下的「競技場平衡調整」小標題會再各自停止。純模式的「2024年5月3日競技場調整」照樣停。
+        return not (DATED_RE.search(t) and re.search(r"[與和及&]|\band\b", t))
+    if not resume_dated:
+        for hm in re.finditer(r"<h[2-4][^>]*>(.*?)</h[2-4]>", seg, re.S):
+            if _stop(clean(hm.group(1))):
+                return seg[:hm.start()]
+        return seg
+    parts, pos, cutting = [], 0, False
     for hm in re.finditer(r"<h[2-4][^>]*>(.*?)</h[2-4]>", seg, re.S):
         t = clean(hm.group(1))
-        if t and any(s in t for s in STOP_HEADERS):
-            return seg[:hm.start()]
-    return seg
+        is_stop = _stop(t)
+        if not cutting and is_stop:
+            parts.append(seg[pos:hm.start()]); cutting = True
+        elif cutting and not is_stop and DATED_RE.search(t):
+            pos = hm.start(); cutting = False
+    if not cutting:
+        parts.append(seg[pos:])
+    return "".join(parts)
 
 
-def _sec(html_text, start_id, end_ids):
-    i = html_text.find(start_id)
-    if i < 0:
-        return ""
-    ends = [e for e in (html_text.find(x, i + len(start_id)) for x in end_ids) if e >= 0]
-    return html_text[i: min(ends) if ends else len(html_text)]
+def _sections(html_text):
+    """頁內大段落：以 <h2> 切（有 id="patch-…" 錨點的與沒有的都算），回傳 [(id, 標題, 起, 迄)]。
+    2019~2025 版型每個大段都有錨點；2026 新版型多數 h2 沒有 id（道具／隨機單中／競技場…都沒有）。"""
+    hs = []
+    for m in re.finditer(r"<h2([^>]*)>(.*?)</h2>", html_text, re.S):
+        idm = re.search(r'id="([^"]+)"', m.group(1))
+        hs.append((idm.group(1) if idm else "", clean(m.group(2)), m.start()))
+    return [(hid, t, pos, hs[i + 1][2] if i + 1 < len(hs) else len(html_text))
+            for i, (hid, t, pos) in enumerate(hs)]
+
+
+# 有正式錨點 id 的召喚峽谷大段（Riot 版型固定給的 id）；模式底下自動產生的同名段落 id 長得不一樣
+# （25.16 競技場底下的「道具」是 patch-Items-，召喚峽谷的是 patch-items）
+CANON_IDS = {"patch-items", "patch-runes", "patch-champions", "patch-systems", "patch-summoner-spells"}
+CATEGORY_TITLES = {"道具", "裝備", "符文", "系統", "機制", "英雄", "錯誤修正", "增幅裝置", "特別嘉賓", "召喚師技能",
+                   "Items", "Item", "Runes", "Systems", "Champions", "Bugfixes", "Bug Fixes", "Augments", "Summoner Spells"}
+
+
+def _iter_sections(html_text):
+    """走訪要解析的大段落（extract_extra 與 parse_new 共用），已排除：
+    - 模式／頁尾段（_is_stop）：有錨點的 h2 自己決定；**沒錨點的 h2 承襲前一段**（25.15 隨機單中底下還有
+      「系統／英雄／道具」三個沒 id 的 h2）；全頁無錨點（26.05）則每個 h2 都是頂層。
+    - 模式段後面「標題只是分類字、id 又不是正式錨點」的有錨點段（25.16 競技場 → 英雄（競技場） → 增幅裝置與鐵砧 →
+      道具 [patch-Items-] → 競技場錯誤修正）＝還在模式裡；22.23 ARAM 之後的 Items [patch-items] 是正式錨點＝召喚峽谷。
+    - 頁首（patch-top／版本概要／WASD）與英雄專區（patch-xxx-update／rework，champ_spotlights 處理）。
+    - 頁尾（相關文章／全新造型）之後整份停止：23.17 繁中頁在造型段後面附了整份英文版。"""
+    secs = _sections(html_text)
+    has_anchor = any(hid.startswith("patch-") for hid, _, _, _ in secs)
+    slugs = _champ_slugs()
+    in_stop = False      # 目前在模式／頁尾段裡
+    in_mode = False      # 目前在「模式」段裡（競技場／隨機單中…；積分／錯誤修正這種頁尾段不算）
+    for hid, t, s0, s1 in secs:
+        if _is_tail(t):
+            break
+        anchored = hid.startswith("patch-") or not has_anchor
+        stop = _is_stop(t)
+        mode = _has_word(t, STOP_HEADERS)
+        if anchored:
+            if stop:
+                in_stop, in_mode = True, mode
+            elif has_anchor and in_mode and (t in CATEGORY_TITLES or t.title() in CATEGORY_TITLES) and hid not in CANON_IDS:
+                pass                                    # 模式底下的分類段（25.16 競技場的「道具」patch-Items-），維持在模式裡
+            else:
+                in_stop = in_mode = False
+        else:
+            in_stop = in_stop or stop
+            in_mode = in_mode or mode
+        if in_stop or not t:
+            continue
+        if hid in ("patch-notes-container", "patch-top", "patch-patch-highlights", "patch-wasd") \
+                or "概要" in t or "Highlights" in t or "WASD" in t:
+            continue
+        mm = re.match(r"^patch-([a-z0-9-]+?)-(?:update|rework)$", hid)
+        if mm and slugs.get(re.sub(r"[^a-z]", "", mm.group(1))):
+            continue
+        yield hid, t, s0, s1
+
+
+def _has_word(t, words):
+    """標題含任一關鍵詞（英文不分大小寫：24.09 英文頁的「5/3/2024 ARENA ADJUSTMENTS」全大寫）"""
+    if not t:
+        return False
+    tl = t.lower()
+    return any(w.lower() in tl for w in words)
+
+
+def _is_stop(t):
+    """大段落（h2）標題是不是模式／頁尾＝整段跳過"""
+    return _has_word(t, STOP_HEADERS + TAIL_HEADERS)
+
+
+def _is_tail(t):
+    """整份公告的結尾（其後不再解析）：相關文章、或「全新／即將推出的造型與炫彩造型」——那永遠是最後一個內容段。
+    ⚠ 只認這幾個，不能拿 TAIL_HEADERS 全部來斷：26.04 開頭就有「冬奧系列造型回歸」，斷在那裡整份都沒了。"""
+    return bool(t) and (("相關文章" in t) or ("related articles" in t.lower())
+                        or re.match(r"^(全新|即將|新)[^，。]*造型", t) is not None
+                        or re.match(r"^Upcoming\s+Skins", t, re.I) is not None)
+
+
+# 召喚師技能名（中英）：改動散在系統段（23.15 重擊放在打野調整）時改掛到「召喚師技能」
+SUMMONER_SPELLS = {"閃現", "傳送", "解放型傳送", "重擊", "精密重擊", "凜冽重擊", "點燃", "治療", "治癒", "屏障", "光盾", "淨化", "虛弱", "鬼步", "清晰術",
+                   "Flash", "Teleport", "Unleashed Teleport", "Smite", "Ignite", "Heal", "Barrier", "Cleanse", "Exhaust", "Ghost"}
+
+
+def _norm_name(n):
+    return n.replace("’", "'").replace("‘", "'").strip()
+
+
+_CHAMP_NAMES = None
+def champ_name_map():
+    """英雄名（中英＋歷年改名＋Key）→ DDragon Key；來源 assets.js champ 區＋champ_slugs。
+    期中更新／系統段落裡以英雄名當小標題的改動行（23.03「安妮｜物理防禦成長：5.2 ⇒ 4.7」）靠這張表併回英雄。"""
+    global _CHAMP_NAMES
+    if _CHAMP_NAMES is None:
+        _CHAMP_NAMES = {}
+        try:
+            t = io.open(os.path.join(HERE, "assets.js"), encoding="utf-8").read()
+            m = re.search(r"window\.LOL_ASSETS\s*=", t)
+            d, _ = json.JSONDecoder().raw_decode(t, m.end())
+            for key, v in d.get("champ", {}).items():
+                names = {key}
+                for k in ("zh", "en"):
+                    if isinstance(v.get(k), str) and v[k].strip():
+                        names.add(v[k].strip())
+                for nm in v.get("nm", []) or []:
+                    for k in ("zh", "en"):
+                        if isinstance(nm.get(k), str) and nm[k].strip():
+                            names.add(nm[k].strip())
+                for n in names:
+                    _CHAMP_NAMES[_norm_name(n)] = key
+        except Exception:
+            pass
+        for slug, key in _champ_slugs().items():
+            _CHAMP_NAMES.setdefault(key, key)
+    return _CHAMP_NAMES
+
+
+def _is_champ_title(t):
+    """英雄改動區的標題（英雄／英雄（小型改動）／英雄改動／Champions）。
+    「英雄半徑」「英雄賞金」「選擇英雄」「英雄基礎能力值精簡」都不是——那些是機制段（26.03 英雄賞金曾因此整段被跳過）。"""
+    if t in ("英雄", "Champions", "Champion"):
+        return True
+    if re.match(r"^(英雄|Champions?)\s*[（(]", t):
+        return True
+    return re.match(r"^英雄(改動|調整|更新|平衡)$", t) is not None or re.match(r"^Champion (Changes|Updates|Balance)$", t) is not None
+
+
+def _cat_of_title(t):
+    """大段落標題 → 分類（道具／符文／召喚師技能；其餘一律機制，None 表示交給呼叫端）。"""
+    if "召喚師技能" in t or re.search(r"Summoner Spells?", t, re.I):
+        return "召喚師技能"
+    if "道具" in t or "裝備" in t or re.search(r"\bItems?\b", t):
+        return "道具"
+    if "符文" in t or re.search(r"\bRunes?\b", t):
+        return "符文"
+    return None
+
+
+_SUB_CATS = (
+    ("召喚師技能", ("召喚師技能", "Summoner Spells", "Summoner Spell")),
+    ("道具", ("道具", "裝備", "Items", "Item")),
+    ("符文", ("符文", "Runes", "Rune")),
+    ("機制", ("系統", "機制", "Systems", "System")),
+)
+
+def _split_sub(seg, cat):
+    """段落內再以 h3/h4 的**區段字**（道具／符文／系統…）切成子段：Riot 常把「符文」「系統」放在道具區底下當小標題
+    （2026 新版型：道具 → 符文 → 系統 連著寫；26.16 沒切開時符文區被灌成 71 行）。"""
+    marks = []
+    for hm in re.finditer(r"<h[3-4][^>]*>(.*?)</h[3-4]>", seg, re.S):
+        t = clean(hm.group(1))
+        for c, words in _SUB_CATS:
+            if t in words:
+                marks.append((hm.start(), c))
+                break
+    if not marks:
+        return [(cat, seg)]
+    out, prev, pc = [], 0, cat
+    for pos, c in marks:
+        out.append((pc, seg[prev:pos]))
+        prev, pc = pos, c
+    out.append((pc, seg[prev:]))
+    return out
+
+
+def _add(out, cat, lines):
+    if not lines:
+        return
+    dst = out.setdefault(cat, [])
+    for l in lines:
+        if l not in dst:
+            dst.append(l)
 
 
 def extract_extra(html_text):
-    """抓 道具/符文/機制/召喚師技能 的數值改動(含 ⇒)。用 id 錨點定位、停止標題防止吃到競技場/積分。"""
+    """抓 道具/符文/機制/召喚師技能 的數值改動(含 ⇒)。
+    做法＝把整頁以 <h2> 切成大段落逐段分類：道具／符文／召喚師技能 依標題，其餘（系統／路線任務／輔助調整／
+    大型遊戲改動／英雄半徑…）都算機制；模式與頁尾（隨機單中／競技場／阿福／錯誤修正／造型…）整段跳過。
+    ⚠ 舊做法「找第一個 <h*>道具</h*>」會撿到隨機單中裡的道具小標題（25.15 阿福英雄平衡因此進了道具區）、
+      而 patch-items 錨點只以固定幾個錨點收尾，24.09 道具在英雄之前時把整個英雄區都吃進道具（114 行）。
+    ⚠ 模式段落的判定：有錨點的 h2 自己決定是不是模式；**沒錨點的 h2 承襲前一段**（25.15 隨機單中底下還有
+      「系統／英雄／道具」三個沒 id 的 h2，都是隨機單中的）。
+    最後 route_extra 依子項名把走錯區的行改掛（26.11 輔助調整段裡的帝王命令／召喚艾莉…）。"""
     out = {}
-    # 機制：英雄段之前的所有 patch-* 段(路線任務/遊戲系統/未來新段落都涵蓋)，排除容器/頂部/亮點
-    anchors = [(m.group(1), m.start()) for m in re.finditer(r'id="(patch-[a-z0-9\-]+)"', html_text)]
-    champ_pos = next((p for n, p in anchors if n == "patch-champions"), len(html_text))
-    SKIP = {"patch-notes-container", "patch-top", "patch-patch-highlights",
-            "patch-champions", "patch-items", "patch-wasd"}
-    mech = []
-    for i, (name, pos) in enumerate(anchors):
-        if name in SKIP or pos >= champ_pos:
-            continue
-        end = anchors[i + 1][1] if i + 1 < len(anchors) else len(html_text)
-        for l in _grab(_cut_stop(html_text[pos:end])):
-            if l not in mech:
-                mech.append(l)
-    if mech:
-        out["機制"] = mech
-    # 道具＋符文：patch-items 段(到競技場/其他錨點)，內部再以「符文」標題切開
-    it = _sec(html_text, 'id="patch-items"',
-              ['id="patch-wasd"', 'id="patch-arena"', 'id="patch-esports"', 'id="patch-download"'])
-    if not it:  # 新版型(Riot 2026 改版，只剩 patch-notes-container 錨點)：改用 <h*>道具</h*> 標題定位
-        # **只在「競技場之前」找道具**：patch-arena 之後全是競技場專屬道具改動（女妖面紗/魔提斯深/機會…都是競技場的，
-        # 不是召喚峽谷的），若整份文件搜尋會抓到競技場的 <h4>道具</h4>。用 patch-arena／<h*>競技場</h*> 當上界。
-        arena = re.search(r'id="patch-arena"|id="patch-esports"'
-                          r'|<h[1-4][^>]*>\s*(?:競技場|Arena)\s*</h[1-4]>', html_text)
-        scope = html_text[:arena.start()] if arena else html_text
-        hm2 = re.search(r'<h[1-4][^>]*>\s*(?:道具|Items?)\s*</h[1-4]>', scope)
-        if hm2:
-            it = _cut_stop(scope[hm2.start():])  # _grab 只收 ⇒/已知道具名行，後面系統段會被濾掉
-    if it:
-        rm = re.search(r"<h[2-4][^>]*>\s*(?:符文|Runes?)\s*</h[2-4]>", it)
-        item_seg = _cut_stop(it[:rm.start()] if rm else it)
-        li_it = _grab(item_seg)
-        if li_it:
-            out["道具"] = li_it
-        if rm:
-            rest = _cut_stop(it[rm.start():])
-            # 2026 新版型：符文之後還接一個 <h2>系統</h2>（ADC魔防／打野夥伴／輔助角色任務…）。
-            # 沒切開的話整段都會被當成符文（26.16 實測符文區被灌成 71 行）。
-            sm2 = re.search(r"<h[2-4][^>]*>\s*(?:系統|機制|Systems?)\s*</h[2-4]>", rest)
-            cut = sm2.start() if sm2 else len(rest)
-            lr = _grab(rest[:cut])
-            if lr:
-                out["符文"] = lr
-            if sm2:
-                mech2 = out.setdefault("機制", [])
-                for l in _grab(rest[cut:]):
-                    if l not in mech2:
-                        mech2.append(l)
-    # 召喚師技能：文字標題(若有)
-    sm = re.search(r"<h[2-4][^>]*>[^<]*召喚師技能[^<]*</h[2-4]>", html_text)
-    if sm:
-        seg = html_text[sm.start():]
-        nid = re.search(r'id="patch-', seg[20:])
-        seg = _cut_stop(seg[: nid.start() + 20] if nid else seg)
-        ls = _grab(seg)
-        if ls:
-            out["召喚師技能"] = ls
-    return out
+    for hid, t, s0, s1 in _iter_sections(html_text):
+        if _is_champ_title(t):
+            continue                                    # 英雄改動 → parse_new 處理
+        seg = _cut_stop(html_text[s0:s1], resume_dated=bool(MIDPATCH_RE.search(t)))
+        # 段落裡的英雄區塊（有頭像的：期中更新熱修、23.03 近戰輔助調整、22.22 英雄基礎能力值精簡…）
+        # 交給 parse_new 併進英雄，這裡先剝掉，剩下的才是機制／道具／符文
+        seg = _strip_champ_blocks(seg)
+        cat = _cat_of_title(t) or "機制"
+        # 沒有子項標題的行冠上段落標題（25.16「巴龍納什」段的「基礎生命：11,500 ⇒ 11,800」、25.01「傳送」段）；
+        # 區段字（道具／系統…）、期中更新、太長的敘述式標題不冠。
+        pre = t if (len(t) <= 12 and t not in SECTION_WORDS and not MIDPATCH_RE.search(t)
+                    and not _cat_of_title(t) and not DATED_RE.search(t)) else ""
+        for sub_cat, sub_seg in _split_sub(seg, cat):
+            ls = _grab(sub_seg)
+            if pre:
+                ls = [l if "｜" in l else f"{pre}｜{l}" for l in ls]
+            _add(out, sub_cat, ls)
+    return route_extra(out)
 
 
 def _champ_slugs():
@@ -872,22 +1157,72 @@ def parse_new(html_text):
         a = fm.start() if fm else -1
     if a < 0:
         return {}
-    # 終點：id="patch-items"；無則第一個道具/符文圖
+    # 終點：id="patch-items"；無則第一個道具/符文圖；再不然到第一個模式段落（隨機單中／競技場…）為止
     b = html_text.find('id="patch-items"', a)
     if b < 0:
         im = re.search(r'/img/(?:item|perk)', html_text[a:])
         b = a + im.start() if im else len(html_text)
+    for _hid, _t, _s0, _s1 in _sections(html_text):
+        if _s0 > a and _is_stop(_t):
+            b = min(b, _s0)
+            break
     seg = html_text[a:b]
-    heads = list(re.finditer(r'/img/champion/([A-Za-z0-9_]+)\.png', seg))
+    out = _champ_blocks(seg)
+    # 英雄區以外的段落也掃英雄區塊：版本期中更新（英雄熱修，25.18 尤娜拉／25.24 九隻）、
+    # 系統段裡的英雄小節（23.03 近戰輔助調整／22.22 英雄基礎能力值精簡）——都是這個版本的正式改動，
+    # 併進該英雄（同一隻兩邊都有 → 聯集，主段在前）。以前這些不是掉進「機制／符文」就是整個漏掉。
+    # 模式／頁尾段落跳過（隨機單中的英雄平衡不是召喚峽谷）；英雄專區交給 champ_spotlights。
+    for _hid, _t, _s0, _s1 in _iter_sections(html_text):
+        if _s0 < b and _s1 > a:
+            continue                                    # 與主英雄段重疊＝已經解析過
+        for k, ls in _champ_blocks(_cut_stop(html_text[_s0:_s1], resume_dated=bool(MIDPATCH_RE.search(_t)))).items():
+            cur = out.get(k) or []
+            out[k] = cur + [x for x in ls if x not in cur]
+    extra = extract_extra(html_text)  # 道具/符文/機制/召喚師技能
+    for k, ls in (extra.pop("_champ", None) or {}).items():   # 以英雄名當小標題、沒頭像的熱修行
+        cur = out.get(k) or []
+        out[k] = cur + [x for x in ls if x not in cur]
+    if extra:
+        out["_extra"] = extra
+    return out
+
+
+def _block_starts(seg):
+    """英雄區塊起點：頭像位置；頭像若包在 <h3~5> 標題裡（期中更新版型 <h4><img 頭像>翱銳龍獸</h4>），
+    起點提前到該標題的開頭，否則 h4 的開頭標籤落在區塊外、整個標題結構抓不到。"""
+    heads = []
+    for m in re.finditer(r'/img/champion/([A-Za-z0-9_]+)\.png', seg):
+        st = m.start()
+        hs = seg.rfind("<h", 0, st)
+        if hs >= 0 and re.match(r"<h[3-5][\s>]", seg[hs:hs + 4]) and seg.find("</h", hs, st) < 0:
+            st = hs
+        heads.append((st, m.group(1)))
+    return heads
+
+
+def _champ_blocks(seg, spans=None):
+    """英雄區塊解析：以英雄頭像切段，h4 技能標題帶上；同一隻出現兩次取行數多的（摘要區誤入的頭像沒技能標題會被濾掉）。
+    spans（可選 list）：回填有解析出改動的區塊範圍 [(起, 迄)]，給 extract_extra 把英雄區塊從段落剝掉。"""
+    heads = _block_starts(seg)
+    cnames = champ_name_map()
     out = {}
-    for i, m in enumerate(heads):
-        key = m.group(1)
-        blk = seg[m.start(): heads[i + 1].start() if i + 1 < len(heads) else len(seg)]
+    for i, (st, key) in enumerate(heads):
+        blk = seg[st: heads[i + 1][0] if i + 1 < len(heads) else len(seg)]
         blk = cut_at_section(blk)  # 截掉尾巴誤灌的競技場/道具/系統等非英雄內容
+        blk = blk[:_champ_block_end(blk)]  # 段落裡最後一隻英雄後面直接接道具（22.23 期中更新 Zed → Jak'Sho…）也要截
+        my_names = {n for n, k in cnames.items() if k == key}
         lines, had_h4 = [], False
         # 有 h4 技能標題就帶上（新版）
         for am in re.finditer(r'<h4[^>]*>(.*?)</h4>(.*?)(?=<h4|$)', blk, re.S):
             title = clean(am.group(1))
+            # 標題就是英雄名（期中更新版型）→ 不當技能名；「翱銳龍獸錯誤修正」→ 去掉英雄名留「錯誤修正」
+            if _norm_name(title) in my_names:
+                title = ""
+            else:
+                for n in sorted(my_names, key=len, reverse=True):
+                    if title.startswith(n) and len(title) > len(n):
+                        title = title[len(n):].strip("：: -－")
+                        break
             for li in re.findall(r'<li[^>]*>(.*?)</li>', am.group(2), re.S):
                 t = clean(li)
                 if t:
@@ -903,12 +1238,44 @@ def parse_new(html_text):
         # 保留條件：有數值改動(⇒)，或有技能標題結構的純文字改動（如 26.04 雷茲 R 機制修正）
         # ——摘要區誤入的頭像沒有技能標題，仍會被濾掉
         if lines and (any("⇒" in x for x in lines) or had_h4):
-            if key not in out or len(lines) > len(out[key]):
-                out[key] = lines
-    extra = extract_extra(html_text)  # 道具/符文/機制/召喚師技能(用 id 錨點定位)
-    if extra:
-        out["_extra"] = extra
+            # 同一隻在同一段出現兩次（25.07 約瑞科分「增強」「削弱」兩個小節）→ 聯集；摘要區的頭像沒 li 早被上面濾掉
+            cur = out.get(key) or []
+            out[key] = cur + [x for x in lines if x not in cur]
+            if spans is not None:
+                spans.append((st, st + len(blk)))
     return out
+
+
+_BLOCK_END_NAMES = None
+def _champ_block_end(blk):
+    """英雄區塊的實際結尾：遇到「道具／符文的小標題」就停——標題帶 /img/item/ 或 perk 圖、或標題文字本身是圖鑑道具／符文名。
+    ⚠ 不能用「任何非英雄圖片」判：技能小標題常帶技能圖（舊版 /img/spell/、20.11 起也有 CMS 圖）。"""
+    global _BLOCK_END_NAMES
+    if _BLOCK_END_NAMES is None:
+        _BLOCK_END_NAMES = {_norm_name(n) for n in _asset_item_names()} | {_norm_name(n) for n in rune_names()}
+    for hm in re.finditer(r"<(h[3-5])[^>]*>(.*?)</\1>", blk, re.S):
+        inner = hm.group(2)
+        if re.search(r'<img[^>]*src="[^"]*(?:/img/item/|perk-images|/img/perk)', inner):
+            return hm.start()
+        if _norm_name(clean(inner)) in _BLOCK_END_NAMES:
+            return hm.start()
+    m = re.search(r'<img[^>]*src="[^"]*(?:/img/item/|perk-images|/img/perk)[^>]*>\s*(?:<[^>]*>\s*)*<h[3-5]', blk)
+    return m.start() if m else len(blk)
+
+
+def _strip_champ_blocks(seg):
+    """把段落裡解析得出改動的英雄區塊剝掉，剩下的給 _grab 當機制／道具／符文。"""
+    spans = []
+    _champ_blocks(seg, spans)
+    if not spans:
+        return seg
+    parts, prev = [], 0
+    for st, en in sorted(spans):
+        if st > prev:
+            parts.append(seg[prev:st])
+        prev = max(prev, en)
+    parts.append(seg[prev:])
+    return "".join(parts)
 
 
 def _iname(x):
