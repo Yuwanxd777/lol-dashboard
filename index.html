@@ -15919,8 +15919,9 @@ if(LANG==="cn"){ try{
 //   - 任何輸入（滑鼠移動／按鍵／滾輪／觸控）立刻中止並還原，還原＝從 VIEW_CACHE 取回，只要幾 ms。
 //   - 背景繪製期間 saveState／捲頂都跳過（window._warming）。篩選一變 vcInvalidate 會清掉快取，之後照舊現算。
 const WARM_ORDER=["英雄","選手","戰隊","比賽BP","近況","積分","模擬BP","英雄Tier","圖鑑","陣容","總覽"];
-let _warmSeq=0;
-function scheduleWarmup(delay){
+let _warmSeq=0, _warmTries=0;
+function scheduleWarmup(delay,retry){
+  if(retry){ if(_warmTries>=6)return; _warmTries++; } else _warmTries=0;   // 被中止就晚點再試（最多 6 次），開站／換年份重新計數
   const seq=++_warmSeq; window._warmAbort=true;               // 重新排程＝舊的作廢
   setTimeout(()=>{ if(seq!==_warmSeq)return; _runWarmup(seq); }, delay||1200);
 }
@@ -15962,7 +15963,7 @@ function _warmViews(seq){
     try{if(typeof refitLayout==="function")refitLayout();}catch(e){}
     if(seq===_warmSeq&&!window._warmAbort)_prefetchIcons();
   };
-  const abort=()=>{ window._warmAbort=true; finish(); };
+  const abort=()=>{ window._warmAbort=true; finish(); scheduleWarmup(3000,true); };   // 使用者在動：先還原，靜下來再繼續補剩下的分頁
   window._warming=true;
   main.parentNode.insertBefore(cover,main);
   main.style.visibility="hidden"; main.style.height=H+"px"; main.style.overflow="hidden";
