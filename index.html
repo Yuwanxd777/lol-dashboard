@@ -4775,9 +4775,9 @@ const PID2LANE={1:"TOP",2:"JNG",3:"MID",4:"BOT",5:"SUP"};
 // 疑似 BO2 的聯賽偵測（避免把 BO2 的正常和局 1-1 誤判成「缺第3局」）：
 // 全庫合併跨日系列後，統計每個聯賽「完整 2 局且比分 1-1」的系列數；BO3/BO5 不可能有完整 1-1，
 // 一旦某聯賽出現 ≥3 次，代表它是 BO2（1-1 是正常結果），該聯賽的 1-1 就不再標記缺決勝。
-let _bo2Cache=null;
+let _bo2Cache=null,_bo2Key="";
 function bo2Leagues(){
-  if(_bo2Cache)return _bo2Cache;
+  const _k=curYear+"|"+GAMES.length; if(_bo2Cache&&_bo2Key===_k)return _bo2Cache; // 綁年份＋筆數（以前永不重算，切年份會沿用上一年的 BO2 判定）
   const dn=v=>{const p=String(v).slice(0,10).split("-");return p.length===3?Date.UTC(+p[0],+p[1]-1,+p[2])/864e5:0;};
   const grp={};
   for(const o of GAMES){const bt=o.raw[C.blue_teamname],rt=o.raw[C.red_teamname]; if(!bt||!rt)continue;
@@ -4791,7 +4791,7 @@ function bo2Leagues(){
     for(const m of arr){if(!cur||m.g<=pgN||(pd!==null&&dn(m.d)-pd>2)){flush(cur);cur={league:m.league,pair:m.pair,games:{}};}cur.games[m.g]={win:m.win};pgN=m.g;pd=dn(m.d);}
     flush(cur);}
   const set=new Set(); for(const lg in cnt)if(cnt[lg]>=3)set.add(lg);
-  _bo2Cache=set; return set;
+  _bo2Cache=set;_bo2Key=_k; return set;
 }
 // 「聯賽｜賽段」多數系列都打 ≥2 局＝BO3 以上的脈絡（LPL/LCK 例行賽、季後賽…）。
 // 只有一局的 1-0 系列在這種脈絡下＝第 2 局還沒匯入 → 比賽BP 標「缺第 2 局」

@@ -584,12 +584,19 @@ def ai_translate_champ(champ_en, lines_en):
         return [translate(l) for l in lines_en]
 
 
+# 技能小標題長相：「符文禁錮（W）」「符文破刃（被動）」「W - Rune Prison」「Passive - Runic Blade」
+SKILL_TITLE_RE = re.compile(r"[（(](被動|Q|W|E|R|Q1|Q2|W1|W2|R\+E|R \+ E)[）)]|^(Passive|Q|W|E|R)\s*[-－–—]\s*\S", re.I)
+
+
 def cut_at_section(blk):
-    """把英雄區塊截斷到第一個「非英雄分區標題」之前，濾掉被誤灌進來的其他段落。"""
+    """把英雄區塊截斷到第一個「非英雄分區標題」之前，濾掉被誤灌進來的其他段落。
+    ⚠ 分區字是「開頭比對」，技能名開頭剛好撞字的不能當分區：雷茲 W「符文禁錮」、雷玟被動「符文破刃」
+    以前撞到「符文」→ 整塊被截掉，兩隻英雄在 24.08／25.11／25.13／25.14／25.23／26.03 都整個消失
+    （2026-08-17 對照英文版才發現）。長得像技能標題（帶（Q）／（被動）／「W - 」）的一律不算分區。"""
     cut = len(blk)
     for hm in re.finditer(r"<h[2-5][^>]*>(.*?)</h[2-5]>", blk, re.S):
         t = clean(hm.group(1))
-        if t and any(t == b or t.startswith(b) for b in BREAK_TITLES):
+        if t and any(t == b or t.startswith(b) for b in BREAK_TITLES) and not SKILL_TITLE_RE.search(t):
             cut = hm.start()
             break
     return blk[:cut]
