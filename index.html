@@ -3264,6 +3264,9 @@ const grpTagOn=()=>!lgTagOn()&&!String(F.league||"").includes("#")&&!/PO$|季後
 // GRP_SP_OVR：近況「評分走勢」的快照會把 F.split 清空（改用場次白名單圈範圍，才能把季後賽
 // 併進例行賽一起算），這時分組扣分要靠這個覆蓋值才知道自己在算哪一段，否則會退回「最新賽段」的分組。
 let GRP_SP_OVR="";
+// GRP_FORCE：近況「評分走勢」快照對全資料庫戰隊評分（賽事＝全部，本來不標組別也不扣分），
+// 但使用者要「身處低一點的組別那一個賽段要扣分」→ 強制依 GRP_SP_OVR 那一段的組別扣（2026-08-17）。
+let GRP_FORCE=false;
 const grpSplitOf=lg=>{ const m=String(GRP_SP_OVR||F.split||"").match(/S(\d)/); return lplSelSplit(curYear,m?("S"+m[1]):"",lg); };
 const grpChip=(ab,lg)=>{ if(!ab||(lg!=="LPL"&&lg!=="LCK"))return "";     // 只有這兩個聯賽有分組資料
   const sp=grpSplitOf(lg); if(!sp)return "";
@@ -3282,7 +3285,7 @@ const grpChip=(ab,lg)=>{ if(!ab||(lg!=="LPL"&&lg!=="LCK"))return "";     // 只�
 // ⚠ 條件與分組籤完全綁在一起（grpTagOn）：沒列組別就不扣，所以賽事＝全部、跨賽區群組、
 //   已篩到單一組別、季後賽 都不會扣。
 const GRP_PEN=10;   // 每往下一組扣 10（第二組 -10、第三組 -20…；2026-08-16 使用者由 20 改為 10）
-const grpPenalty=(ab,lg)=>{ if(!grpTagOn()||!ab||(lg!=="LPL"&&lg!=="LCK"))return 0;
+const grpPenalty=(ab,lg)=>{ if((!grpTagOn()&&!GRP_FORCE)||!ab||(lg!=="LPL"&&lg!=="LCK"))return 0;
   const sp=grpSplitOf(lg); if(!sp)return 0;
   const ns=lplGroupNamesOfSplit(curYear,sp,lg); if(!ns.length)return 0;
   const g=lplSplitGroupOf(teamFix(String(ab)),curYear,sp,lg);
@@ -11318,38 +11321,32 @@ function render(){
       // ⚠ F.d1/F.d2 只比**月日**（見 passG），同一年份內夠用（近況本來就只看當前年份）。
       // ⚠ 以「賽事|賽段|日期」為鍵快取：同一天的多局共用一次計算，5 個系列大約只算 5~8 次。
       const _snapC={};
+      // 2026-08-17 使用者改規則：**從年初累積到該場、不吃任何篩選、對全資料庫的戰隊評分**
+      //（不再是「該賽段從頭累積、只跟同賽事比」，那樣換賽段就打掉重算、分數大起大落）。
+      // 唯一保留的賽段概念＝分組扣分：這一點所在的賽段（S1/S2/S3）該隊若在低一點的組別，照組別扣分（GRP_FORCE 強制開）。
       const snapAt=(lg,sp,upto)=>{
-        // 季後賽**不另外算一套**（2026-08-17 使用者指定）：季後賽併回同賽段的例行賽一起累積，
-        // 否則進季後賽的第一場又要從零開始，分數再崩一次。原始賽段名是 "S2"／"S2 PO"。
-        const base=String(sp||"").replace(/ PO$/,"");
-        const k=lg+"|"+base+"|"+upto;
+        const base=String(sp||"").replace(/ PO$/,"");   // 分組只認 S1/S2/S3，季後賽併回同賽段
+        const k=base+"|"+upto;
         if(_snapC[k])return _snapC[k];
         const sv={split:F.split,league:F.league,patch:F.patch,d1:F.d1,d2:F.d2,minG:F.minG},
-              svH=H2H, svG=GRP_SP_OVR;
+              svH=H2H, svG=GRP_SP_OVR, svF=GRP_FORCE;
         let rows=[];
         try{
-          // 逐**場**（不是逐日）：F.d1/F.d2 只比月日，同一天的三局會拿到一樣的分數。
-          // 改用 H2H 這個「場次白名單」閘門（passG 的第一關）挑出「該場含以前」的所有局；
-          // ⚠ 時序要用 **o.dt**（帶時分秒）不是 o.date（只到日，同一天三局會一模一樣）。
-          // 實測 calcTeams 一次只要 1~2ms，61 個點約 75ms。
+          // 逐**場**（不是逐日）：用 H2H 場次白名單（passG 的第一關）挑出「該場含以前」的所有局，
+          // 時序用 **o.dt**（帶時分秒）不是 o.date（同一天三局會一模一樣）。全年、全聯賽都算進去。
           const set=new Set();
-          for(const o of GAMES){ if(lg&&o.league!==lg)continue;
-            if(base&&o.split!==base&&o.split!==base+" PO")continue;
-            if(String(o.dt||o.date)<=upto)set.add(gkey(o)); }
+          for(const o of GAMES){ if(String(o.dt||o.date)<=upto)set.add(gkey(o)); }
           H2H=set;
-          // ⚠ F.split 要清空：例行賽＋季後賽是兩個賽段值，passG 的 splitMatch 只認一個，
-          //   設下去會把另一半擋掉；範圍已經由上面的白名單圈好了。
-          //   但分組扣分(grpPenalty)得知道是哪一段 → 用 GRP_SP_OVR 補回去。
-          F.league=lg||"ALL"; F.split=""; GRP_SP_OVR=base; F.patch=""; F.d1=""; F.d2=""; F.minG=0;
+          F.league="ALL"; F.split=""; GRP_SP_OVR=base; GRP_FORCE=true; F.patch=""; F.d1=""; F.d2=""; F.minG=0;
           rows=calcTeams()||[];
         }catch(e){ rows=[]; }
-        Object.assign(F,sv); H2H=svH; GRP_SP_OVR=svG;
+        Object.assign(F,sv); H2H=svH; GRP_SP_OVR=svG; GRP_FORCE=svF;
         return _snapC[k]=rows; };
       // 走勢的範圍與頁面其他區塊（最近 5 系列）**脫鉤**：右上可切「近一個月／今年」（2026-08-17 使用者指定）。
       // 「近一個月」的基準點是**該隊最後一場比賽**、不是今天——休賽期或賽段之間用今天當基準會直接畫出空圖。
       const TR_RNG=V.rcTrendRng==="yr"?"yr":"1m";
-      const tgAll=[];
-      for(const o of GAMES){ if(!passG(o))continue;
+      const tgAll=[];   // 走勢不吃篩選（2026-08-17 使用者：篩選都不篩選的狀態）：該隊今年所有比賽
+      for(const o of GAMES){
         if(o.raw[C.blue_teamname]!==V.recentTeam&&o.raw[C.red_teamname]!==V.recentTeam)continue;
         tgAll.push(o); }
       tgAll.sort((x,y)=>String(x.dt||x.date).localeCompare(String(y.dt||y.date))||(num(x.game)||0)-(num(y.game)||0));
@@ -11400,8 +11397,9 @@ function render(){
           +D2.bench.map(a2=>plRow(a2.pos,a2,true)).join(""):"");
       // BP 傾向列
       const bpRow=(lbl,obj,withWr)=>{
-        const arr=Object.entries(obj).map(([ch,v])=>({ch,n:withWr?v.n:v,w:withWr?v.w:null})).sort((x,y)=>y.n-x.n).slice(0,20);   // 20 個（2026-08-17 使用者指定）
-        return `<div class="ovChgRow"><span class="ovChgLb" style="color:var(--tx2)">${lbl}</span><span class="ovChgList">${
+        // 列出佔比 ≥5%（次數／篩選範圍小局數）的英雄，直到一列滿（render 後依實際寬度把換行的裁掉；2026-08-17 使用者指定）
+        const arr=Object.entries(obj).map(([ch,v])=>({ch,n:withWr?v.n:v,w:withWr?v.w:null})).filter(x=>!D2.allN||x.n/D2.allN>=0.05).sort((x,y)=>y.n-x.n);
+        return `<div class="ovChgRow rcBpRow"><span class="ovChgLb" style="color:var(--tx2)">${lbl}</span><span class="ovChgList">${
           arr.length?arr.map(c2=>chipIco(c2.ch,c2.n,`${chName(champId(c2.ch))}｜${c2.n}${en2?"":" 次"}${c2.w!=null?`・${Math.round(c2.w/c2.n*100)}%${en2?" win":" 勝率"}`:""}`)).join(""):'<span class="meta">—</span>'}</span></div>`;};
       box.innerHTML=`
         <div class="card rcHead"><div class="rcHeadL">
@@ -11420,7 +11418,7 @@ function render(){
               <td><span style="display:inline-flex;align-items:center;gap:6px" title="${esc(s2.opp)}">${teamLogoHTML(tAb(s2.opp),22,true)}<b>${esc(tAb(s2.opp))}</b></span></td>
               <td class="num"><b>${s2.w}</b> - ${s2.l}</td>
               <td style="color:${w2?"#ff4d4d":s2.w===s2.l?"var(--tx2)":"#37c871"};font-weight:700">${s2.w===s2.l?(en2?"Tie":"和"):w2?(en2?"Win":"勝"):(en2?"Loss":"敗")}</td></tr>`;}).join("")}</tbody></table></div>
-        ${tgAll.length?`<div class="card"><h2>📈 ${en2?"Rating trend":"評分走勢"} <span class="sub">${en2?"one point per series — label = rating at that moment / rank in that split":"每個系列賽一個點；標籤＝當下評分／該賽段名次"}${trSub?"・"+trSub:""}</span>
+        ${tgAll.length?`<div class="card"><h2>📈 ${en2?"Rating trend":"評分走勢"} <span class="sub">${en2?"one point per series — rating accumulated from Jan 1 to that series vs. every team in the database (no filters; lower group in that split = penalty) / rank among all teams":"每個系列賽一個點；評分＝年初累積到該場、對全資料庫戰隊、不吃篩選（該賽段身處低組別照扣分）；標籤＝當下評分／全庫名次"}${trSub?"・"+trSub:""}</span>
           ${segHTML("rcTrRng",[["1m",en2?"Last month":"近一個月"],["yr",en2?"This year":"今年"]],TR_RNG,"sm","margin-left:auto")}</h2>
           ${trendPts.length?`<div style="height:270px"><canvas id="rcTrend"></canvas></div>`
             :`<span class="meta">${en2?"No games in this range.":"這個範圍內沒有比賽。"}</span>`}</div>`:""}
@@ -11432,6 +11430,14 @@ function render(){
             bpRow(en2?"Our bans":"我方常 Ban",D2.ownBan,false)+
             bpRow(en2?"Banned vs us":"被對手 Ban",D2.oppBan,false)}</div></div>`;
       segBind("rcTrRng",v=>{V.rcTrendRng=v; saveState(); rerender();});
+      // BP 傾向：一列滿就停（把被擠到第二行的籤拿掉；量到不換行為止）
+      box.querySelectorAll(".rcBpRow .ovChgList").forEach(list=>{ list.style.flexWrap="wrap";
+        const chips=[...list.querySelectorAll(".rcChip")]; if(chips.length<2)return;
+        // ⚠ 第一顆的 top 要**每次重讀**：從兩行縮回一行時整條列會往下移幾 px（列高變了、垂直置中重算），
+        //   拿一開始量的 top 比會把第一行也全砍光（實測只剩 1 顆）。判斷「不同行」用半顆籤的高度當門檻。
+        const half=Math.max(8,chips[0].getBoundingClientRect().height/2);
+        for(let i=chips.length-1;i>0;i--){ if(chips[i].getBoundingClientRect().top-chips[0].getBoundingClientRect().top>half)chips[i].remove(); else break; }
+      });
       // 選手欄要跟其他頁同一套：名稱區塊置中、區塊內容置左（2026-08-17 使用者回報標題與資料沒對齊）
       alignHeroCols(box);
       // 折線圖：勝紅敗綠（台灣配色），點上方標「評分」與「#名次/總隊數」
@@ -11527,7 +11533,7 @@ function render(){
                 return [`${en2?"Rating":"評分"} ${Math.round(p.sc*10)/10}`,
                         `${en2?"Rank":"名次"} #${p.rk} / ${p.n}`,
                         `${p.w}-${p.l}　${p.tie?(en2?"Tie":"和"):p.win?(en2?"Win":"勝"):(en2?"Loss":"敗")}`,
-                        `${en2?"Based on":"評分取樣"} ${p.sn}${en2?" games in this split":" 場（該賽段累計）"}`];}}}},
+                        `${en2?"Based on":"評分取樣"} ${p.sn}${en2?" games since Jan 1":" 場（年初起累計）"}`];}}}},
             // includeBounds:false＝不要為了上下界硬補一條刻度（否則 30 與 40 會擠在一起變 10 分一條）
             scales:{y:{min:yLo,max:yHi,ticks:{stepSize:20,includeBounds:false},
                        title:{display:true,text:en2?"Rating":"評分"}},
