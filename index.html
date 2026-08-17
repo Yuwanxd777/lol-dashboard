@@ -72,6 +72,11 @@
   nav .tab.on{background:linear-gradient(135deg,var(--acc),var(--acc2));border-color:transparent;color:#fff;
     font-weight:bold;box-shadow:0 2px 14px rgba(79,142,247,.4)}
   main{max-width:none;margin:0;padding:14px 30px;container-type:inline-size;container-name:mainc} /* 內容區＝container：斷點依 #main 實際版面寬（網站縮放也觸發），見 @container mainc */
+  /* 圖示比旁邊文字略高的統一校正（2026-08-17 使用者回報：全站圖標都比文字稍微高）：粉圓字型 ascent-override 106.7%／descent 26.7% 讓
+     文字框上重下輕，img 用 align-items:center／vertical-align:middle 對的是文字框中心，比英數字的墨跡中心高 ~1.2px（實測 15.5px 字：
+     框中心在基線上 6.2px、BLG／158 的墨跡中心在 5px；中文字只差 0.2px）。用 translate（獨立屬性）把 main 裡所有 img 往下 1px，
+     不動 transform（hover 放大照常）、不動版面。 */
+  #main img{translate:0 1px}
   /* filters 內的分頁籤（圖鑑分區、返回圖鑑）：跟 nav 一樣要有可點的視覺回饋 */
   .filters .tab{cursor:pointer;border:1px solid var(--line);border-radius:999px;transition:border-color .12s,color .12s}
   .filters .tab:hover:not(.on){border-color:var(--acc);color:var(--acc)}
