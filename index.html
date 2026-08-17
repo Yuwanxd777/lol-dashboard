@@ -1738,7 +1738,8 @@ const masteryOf=n=>{ const M=window.LOL_MASTERIES; if(!M||n==null)return null; c
 // 符文圖：rune_icons.js 指到 CDragon 原檔（128~512px PNG，圖鑑符文分區一頁 1.7MB）→ 本機有同檔名的 96px WebP
 // （img/rune/*.webp，scripts/fetch_champ_icons.py 產）就用本機，沒有照舊 CDN（2026-08-17 效能體檢）
 const _runeLocal=u=>{ const M=window.CHAMP_ICONS; if(!M||!M.runes||!u)return u;
-  const f=String(u).split("/").pop().replace(/\.png$/i,""); return (M._rset||(M._rset=new Set(M.runes))).has(f)?`img/rune/${f}.webp`:u; };
+  // 檔名不分大小寫：DDragon 寫 FleetFootwork.png、CDragon（本機檔名來源）寫 fleetfootwork.png，是同一張圖
+  const f=String(u).split("/").pop().replace(/\.png$/i,"").toLowerCase(); return (M._rset||(M._rset=new Set(M.runes.map(x=>String(x).toLowerCase())))).has(f)?`img/rune/${f}.webp`:u; };
 const runeImgOf=k=>{ const R=window.RUNE_ICONS; if(!R||k==null)return "";
   const s=String(k).trim();
   if(R.byId[s])return _runeLocal(R.byId[s].img);
@@ -2251,6 +2252,10 @@ const objIco=n=>{const k=String(n||"").toLowerCase().replace(/（[^）]*）/g,""
   if(OBJ_ICO[k])return OBJ_ICO[k];
   for(const key in OBJ_ICO){ if(k.includes(key))return OBJ_ICO[key]; }
   return "";};
+// 機制條目 → 道具圖：有些「機制」小標題其實是一組道具（打野夥伴＝熾爪幼犬／馭風幼狐／重踏幼螈），
+// 版本焦點用道具圖比齒輪清楚（2026-08-17 使用者指定）。子字串比對，中英都收。
+const MECH_ITEM_ICO=[[/打野夥伴|野區夥伴|打野寵物|jungle\s*(companion|pet)s?/i,()=>`https://ddragon.leagueoflegends.com/cdn/${DDV}/img/item/1102.png`]];
+const mechItemIco=n=>{ const k=String(n||""); for(const[re,f]of MECH_ITEM_ICO){ if(re.test(k))return f(); } return ""; };
 // 物件正名：公告寫「藍Buff」→ 圖鑑物件的正式名「藍 Buff」（OBJ_WIKI 鍵）；點擊跳轉/歷年改動查詢都用正名
 const objCanon=n=>{const nn=s=>String(s||"").toLowerCase().replace(/[\s·]+/g,"");
   const k=nn(n); if(!k)return "";
@@ -9630,12 +9635,15 @@ function render(){
         // objIco 是子字串比對，「蜥蜴長老戰魂」（打野道具）會誤中「蜥蜴長老」而掛上紅 Buff
         // 的野怪圖（2026-08-01 使用者提醒「戰魂是道具，不要混到」）。
         if(!u&&!(typeof assetOf==="function"&&assetOf(nm)))u=objIco(nm);
+        if(sec==="符文"&&typeof _runeLocal==="function")u=_runeLocal(u);   // 符文圖走本機 96px（DDragon 那張是 256px）
         const zh=assetZh(nm);                     // 英文名 → 官方中文名（Predator → 掠食者）
         if(sec==="機制"){ const on=(typeof mechObjName==="function")&&mechObjName(nm); const ou=on&&(typeof objIco==="function")&&objIco(on); // 機制條目：用「它改的那個物件」的官方圖
           if(ou){ const bg={"外塔（一塔）":"1","內塔（二塔）":"2","高地塔（三塔）":"3","主堡雙塔":"4"}[on]; // 塔的層級數字與物件頁一致
             const im=`<img class="ovEntIco ovEntObj" data-name="${esc(nm)}" data-sec="機制" title="${esc(nm)}" src="${ou}" style="border-color:${col}" onerror="this.remove()">`;
             return bg?`<span style="position:relative;display:inline-block;line-height:0;flex:0 0 auto">${im}<span class="objTierBadge">${bg}</span></span>`:im; }
-          return `<span class="ovEntIco ovEntGear" data-name="${esc(nm)}" data-sec="機制" title="${esc(nm)}" style="border-color:${col}">⚙️</span>`; } // 對不到物件才退回齒輪
+          const mi=(typeof mechItemIco==="function")&&mechItemIco(nm);   // 打野夥伴這類「機制條目其實是道具」→ 用道具圖（2026-08-17 使用者：不要齒輪）
+          if(mi)return `<img class="ovEntIco ovEntObj" data-name="${esc(nm)}" data-sec="機制" title="${esc(nm)}" src="${mi}" style="border-color:${col}" onerror="this.outerHTML='<span class=&quot;ovEntIco ovEntGear&quot; data-name=&quot;${esc(nm)}&quot; data-sec=&quot;機制&quot; title=&quot;${esc(nm)}&quot; style=&quot;border-color:${col}&quot;>⚙️</span>'">`;
+          return `<span class="ovEntIco ovEntGear" data-name="${esc(nm)}" data-sec="機制" title="${esc(nm)}" style="border-color:${col}">⚙️</span>`; } // 對不到物件、也不是道具類機制才退回齒輪
         return u?`<img class="ovEntIco" data-name="${esc(nm)}" data-sec="${sec}" title="${esc(zh)}" src="${u}" style="border-color:${col}" onerror="this.remove()">`
                 :`<span class="ovEntNm" data-name="${esc(nm)}" data-sec="${sec}" style="border-color:${col}">${esc(zh)}</span>`;};
       const entGrp=entries=>{const g={1:[],"-1":[],0:[]}; entries.forEach(e=>g[e.d].push(e)); // entries:[{nm,d,sec}]，道具與符文合列(各帶自己的 sec 供點擊跳轉)
@@ -9661,6 +9669,7 @@ function render(){
       document.querySelectorAll("#ovChg .ovChgIco").forEach(im=>{
         const id=im.dataset.id, ls=(chg.lines||{})[id]||[];
         if(!ls.length)return;
+        im.removeAttribute("title");   // 自訂小框已含名稱與改動，原生 title 的小白框重複（2026-08-17 使用者指定拿掉）
         im.addEventListener("mouseenter",()=>tipShow(
           `<div class="tipTitle">${esc(znOf(id))} <span class="meta">${esc(chg.ver||"")}</span></div>`+renderChgLines(ls),
           im.getBoundingClientRect()));
@@ -9671,6 +9680,7 @@ function render(){
         const nm=el.dataset.name, sec=el.dataset.sec;
         const ls=((sec==="道具"?chg.itemLines:sec==="符文"?chg.runeLines:chg.mechLines)||{})[nm]||[];
         if(!ls.length)return;
+        el.removeAttribute("title");   // 同上：小框已重複
         el.addEventListener("mouseenter",()=>tipShow(
           `<div class="tipTitle">${esc(assetZh(nm)||nm)} <span class="meta">${esc(chg.ver||"")}</span></div>`+renderChgLines(ls),
           el.getBoundingClientRect()));

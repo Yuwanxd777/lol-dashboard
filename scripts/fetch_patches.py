@@ -811,6 +811,8 @@ def _grab(seg):
                 lines.append(f"{cur}｜{t}")     # 新道具首發介紹
             elif t and re.match(r"^已移除以下道具", t):
                 lines.append(t)                 # 24.01「已移除以下道具：飲血戰錘、聖裂之杖…」（沒 ⇒ 也沒子項標題）
+            elif t and AFFECTED_RE.match(t):
+                lines.append(f"{cur}｜{t}" if cur else t)   # 26.16「受影響的英雄：埃可尚、亞菲利歐…」名單行，_distribute_affected 用
         else:                                   # li 之外的 strong/b＝可能是道具名區塊標題
             txt = clean(m.group(5))
             if txt and txt not in SECTION_WORDS and "⇒" not in txt and not txt.rstrip().endswith(("：", ":")):
@@ -1215,6 +1217,7 @@ def parse_new(html_text):
             cur = out.get(k) or []
             out[k] = cur + [x for x in ls if x not in cur]
     extra = extract_extra(html_text)  # 道具/符文/機制/召喚師技能
+    _distribute_affected(out, extra)  # 「受影響的英雄：A、B、C ＋ 魔防：30 ⇒ 33」→ 拆給每一隻英雄（26.16 ADC魔防）
     for k, ls in (extra.pop("_champ", None) or {}).items():   # 以英雄名當小標題、沒頭像的熱修行
         cur = out.get(k) or []
         out[k] = cur + [x for x in ls if x not in cur]
@@ -1307,6 +1310,73 @@ def _champ_block_end(blk):
                                  or _norm_name(t) in _BLOCK_END_NAMES):
             return pm.start()
     return end
+
+
+AFFECTED_RE = re.compile(r"^(受影響的?英雄|Affected Champions?)\s*[：:]", re.I)
+BASE_STAT_RE = re.compile(r"^(魔防|物防|生命|魔力|攻速|物攻|跑速|攻擊距離|生命回復|魔力回復|基礎[^：:]{0,6}|[^：:]{0,6}成長|Magic Resist(ance)?|Armor|Health|Mana|Attack Speed|Attack Damage|Move(ment)? Speed|Base [^：:]{0,20}|[^：:]{0,20} Growth)\s*[：:]", re.I)
+
+
+def _distribute_affected(out, extra):
+    """系統段的「受影響的英雄：A、B、C」＋底下的 ⇒ 行（26.16 ADC魔防：魔防 30+1.3 ⇒ 33+1.1、崔絲塔娜魔防 28 ⇒ 33）
+    → 拆給名單裡每一隻英雄的改動（基礎數值類冠「基礎能力值｜」），「某英雄＋屬性」的行只給那隻；
+    群組本身從機制區拿掉（使用者 2026-08-17：要一一列出，不要一顆齒輪）。"""
+    champs = champ_name_map()
+    for cat, ls in list(extra.items()):
+        if not isinstance(ls, list):
+            continue
+        groups = {}
+        for l in ls:
+            if "｜" in l:
+                groups.setdefault(l.split("｜", 1)[0], []).append(l)
+        drop = set()
+        for cur, gl in groups.items():
+            aff = [l for l in gl if AFFECTED_RE.match(l.split("｜", 1)[1])]
+            if not aff:
+                continue
+            body0 = AFFECTED_RE.sub("", aff[0].split("｜", 1)[1])
+            # 名單分隔：有頓號／逗號就只用它們切（英文名有空格 Miss Fortune、努努和威朗普裡有「和」不能切）；
+            # 只有兩個名字時官方會寫「奈德麗和嘉文四世」→ 沒有頓逗號才用 和／與／及／and 切
+            if re.search(r"[、,，/／]", body0):
+                names = [n.strip() for n in re.split(r"\s*[、,，/／]\s*", body0) if n.strip()]
+            else:
+                names = [n.strip() for n in re.split(r"\s*(?:和|與|及|\band\b|&)\s*", body0) if n.strip()]
+            keys = []
+            for n in names:
+                k = champs.get(_norm_name(n))
+                if k and k not in keys:
+                    keys.append(k)
+            if not keys:
+                continue
+            for l in gl:
+                body = l.split("｜", 1)[1]
+                if l in aff:
+                    drop.add(l); continue
+                if "⇒" not in body:
+                    continue
+                label = re.split(r"[：:]", body, 1)[0].strip()
+                target = None
+                ll = label.lower()
+                for n, k in champs.items():                       # 「崔絲塔娜魔防：28 ⇒ 33」→ 只給崔絲塔娜
+                    if len(n) >= 2 and ll.startswith(n) and len(ll) > len(n):
+                        target = (k, body[len(n):].lstrip("：: "))
+                        break
+                is_en = not re.search(r"[一-鿿]", body)
+                pre = ("Base Stats｜" if is_en else "基礎能力值｜")
+                def fmt(b):
+                    return (pre + b) if BASE_STAT_RE.match(b) else f"{cur}｜{b}"
+                if target:
+                    ln = fmt(target[1]); cur_ls = out.get(target[0]) or []
+                    if ln not in cur_ls: out[target[0]] = cur_ls + [ln]
+                else:
+                    ln = fmt(body)
+                    for k in keys:
+                        cur_ls = out.get(k) or []
+                        if ln not in cur_ls: out[k] = cur_ls + [ln]
+                drop.add(l)
+        if drop:
+            extra[cat] = [l for l in ls if l not in drop]
+            if not extra[cat]:
+                del extra[cat]
 
 
 def _strip_champ_blocks(seg):
