@@ -35,6 +35,7 @@
 !jungle.js
 !patches_en.js
 !champ_release.js
+!champ_icons.js
 !soloq.js
 !soloq_champs.js
 !soloq_builds.js
@@ -56,6 +57,7 @@
 !img/*.jpg
 !img/teams/*.webp
 !img/flags/*.png
+!img/champ/*.webp
 !fonts/*.ttf
 !fonts/*.otf
 !fonts/*.woff2

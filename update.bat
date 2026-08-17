@@ -34,6 +34,8 @@ rem old runes (pre Runes Reforged red/yellow/blue/purple 2014-2017): DDragon run
 python scripts\fetch_old_runes.py >> "%LOG%" 2>&1
 rem rune icon truth table (CDragon perks.json, incl. removed runes)
 python scripts\fetch_rune_icons.py >> "%LOG%" 2>&1
+rem local 96px champion icons (img/champ/*.webp + champ_icons.js); skips when version unchanged
+python scripts\fetch_champ_icons.py >> "%LOG%" 2>&1
 rem team logos from dpm (cached; only downloads missing) -> img/teams/{abbr}.webp
 python scripts\fetch_team_logos.py >> "%LOG%" 2>&1
 python scripts\fetch_flags.py >> "%LOG%" 2>&1

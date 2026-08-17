@@ -1097,6 +1097,7 @@ window.WIKI_PATCHES=window.WIKI_PATCHES||{}; window.WIKI_EXTRA=window.WIKI_EXTRA
 
 <script src="promo_abbr.js" onerror="window.PROMO_ABBR={}"></script>
 <script src="champ_release.js" onerror="window.CHAMP_RELEASE=null"></script>
+<script src="champ_icons.js" onerror="window.CHAMP_ICONS=null"></script><!-- 現行版英雄小頭像清單（img/champ/*.webp 96px，scripts/fetch_champ_icons.py）：全站頭像只顯示 15~53px，CDN 的 128px PNG 一頁要拉 3MB -->
 <script src="soloq.js" onerror="window.SOLOQ_DATA=null"></script>
 <script src="patch_dates.js" onerror="window.PATCH_DATES=null"></script><!-- 版本→官方發布日（scripts/build_patch_dates.py 由 csv_cache/patch_dates.json 產出）；積分逐場只有時間戳，靠這個回推版本 -->
 <script src="t2s.js" onerror="window.T2S=null"></script><!-- 繁→簡 單字對照（簡體中文顯示用；scripts/generate_t2s.py 由 opencc 產生） -->
@@ -1304,6 +1305,13 @@ const CHAMP_FIX={"Wukong":"MonkeyKing","LeBlanc":"Leblanc","Renata Glasc":"Renat
   "Dr. Mundo":"DrMundo","Kha'Zix":"Khazix","Kai'Sa":"Kaisa","Cho'Gath":"Chogath","Vel'Koz":"Velkoz",
   "Bel'Veth":"Belveth","Fiddlesticks":"Fiddlesticks","FiddleSticks":"Fiddlesticks","Nunu":"Nunu"};
 const champId=n=>CHAMP_FIX[n]||String(n).replace(/[^A-Za-z0-9]/g,"");
+// 英雄小頭像：同一季（大版號相同）且本機清單有 → img/champ/{id}.webp（96px，~2KB，同源）；其餘照舊 CDN 128px PNG。
+// 歷史年份的 yearVer() 大版號不同（舊美術）→ 走 CDN；本機圖壞掉 → champImgFb 照樣退回 CDN。
+function chIcoUrl(ver,id){
+  const M=window.CHAMP_ICONS;
+  if(M&&M.v&&String(ver).split(".")[0]===String(M.v).split(".")[0]&&(M._set||(M._set=new Set(M.ids))).has(id))return `img/champ/${id}.webp`;
+  return `https://ddragon.leagueoflegends.com/cdn/${ver}/img/champion/${id}.png`;
+}
 // 英雄頭像 fallback：若「當年版本」沒有該英雄的圖（該英雄晚於此年才出），先退到現行版本(DDV，涵蓋所有現存英雄)，再退回文字/隱藏
 function champImgFb(img){
   const id=img.getAttribute("data-cid");
@@ -1318,7 +1326,7 @@ const cImg=(name,po,tip)=>{
   if(!name)return "";
   // 英雄頭像用「當年最後一個版本」的圖（歷史年＝該年末版本、當年＝現行版本）；抓不到退回名字
   // tip＝滑上去顯示的小框內容（比賽BP 用來標「這隻是誰用的」）
-  return `<span class="cc"${tip?` title="${esc(tip)}"`:""}><img loading="lazy" data-cid="${champId(name)}" src="https://ddragon.leagueoflegends.com/cdn/${yearVer()}/img/champion/${champId(name)}.png" alt="${esc(name)}" onerror="champImgFb(this)">${po?`<span class="po">${po}</span>`:""}</span>`;
+  return `<span class="cc"${tip?` title="${esc(tip)}"`:""}><img loading="lazy" data-cid="${champId(name)}" src="${chIcoUrl(yearVer(),champId(name))}" alt="${esc(name)}" onerror="champImgFb(this)">${po?`<span class="po">${po}</span>`:""}</span>`;
 };
 // ── 積分逐場：以「數字ID」解析道具/召喚師技能/符文/技能加點的圖示 ──（dpm 逐場資料給的是 ID）
 const itemImg=(id,s)=>id?`<img loading="lazy" src="https://ddragon.leagueoflegends.com/cdn/${DDV}/img/item/${id}.png" style="width:${s||26}px;height:${s||26}px;border-radius:5px;background:#0d1524;vertical-align:middle" onerror="this.style.visibility='hidden'">`:`<span style="display:inline-block;width:${s||26}px;height:${s||26}px;border-radius:5px;background:#131c2e;vertical-align:middle"></span>`;
@@ -1402,7 +1410,7 @@ function soloqBuildHTML(cid){ if(typeof isHistYear==="function"&&isHistYear())re
       // 用此 keystone 最常對到的英雄（一列頭像，可點跳該英雄詳情）
       const oppRow=(g.opp&&g.opp.length)?`<div style="display:flex;align-items:center;gap:3px;flex-wrap:wrap;margin-top:5px">
         <span class="meta" style="font-size:11.5px;margin-right:3px;white-space:nowrap">${en?"vs":"常對到"}</span>
-        ${g.opp.slice(0,8).map(id=>`<img loading="lazy" class="dexChGo" data-cid="${esc(id)}" data-fbmode="hide" onerror="champImgFb(this)" title="${esc(chName(id))}" src="https://ddragon.leagueoflegends.com/cdn/${yearVer()}/img/champion/${esc(id)}.png" style="width:24px;height:24px;border-radius:5px;cursor:pointer">`).join("")}</div>`:"";
+        ${g.opp.slice(0,8).map(id=>`<img loading="lazy" class="dexChGo" data-cid="${esc(id)}" data-fbmode="hide" onerror="champImgFb(this)" title="${esc(chName(id))}" src="${chIcoUrl(yearVer(),esc(id))}" style="width:24px;height:24px;border-radius:5px;cursor:pointer">`).join("")}</div>`:"";
       // 無框設計：基石標頭列（大圖＋名＋場數勝率）當分組標題，組間用細分隔線（同流派欄列距風格）
       return `<div style="${gi?"border-top:1px solid #222a3c;margin-top:14px;padding-top:14px;":""}">
         <div style="display:flex;align-items:center;gap:8px">
@@ -1421,7 +1429,7 @@ function soloqBuildHTML(cid){ if(typeof isHistYear==="function"&&isHistYear())re
   // 舊資料沒有 duo 欄（要重抓積分才會有）→ 沒有就整段不顯示。
   const duoCol=arr=>(arr&&arr.length)?arr.map(([id,n2,w2])=>{const wr=n2?Math.round(w2/n2*100):0;
     return `<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
-      <img loading="lazy" class="dexChGo" data-cid="${esc(id)}" data-fbmode="hide" onerror="champImgFb(this)" title="${esc(chName(id))}" src="https://ddragon.leagueoflegends.com/cdn/${yearVer()}/img/champion/${esc(id)}.png" style="width:26px;height:26px;border-radius:5px;cursor:pointer">
+      <img loading="lazy" class="dexChGo" data-cid="${esc(id)}" data-fbmode="hide" onerror="champImgFb(this)" title="${esc(chName(id))}" src="${chIcoUrl(yearVer(),esc(id))}" style="width:26px;height:26px;border-radius:5px;cursor:pointer">
       <span style="font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:96px">${esc(chName(id))}</span>
       <span class="meta" style="font-size:12.5px;margin-left:auto;white-space:nowrap">${n2}${en?"g":"場"}</span>
       <b style="color:${wrCol(wr)};font-size:13px;white-space:nowrap">${wr}%</b></div>`;}).join(""):"";
@@ -1979,7 +1987,7 @@ const heroMechHTML=(id,zh)=>{
   const tags=(((window._CHTAGS||{})[id])||[]).map(t=>en?t:(CTAG_ZH[t]||t)).join(en?" · ":"　");
   const nm=en?(chName(id)||id):(zh||c.n||id);
   return `<div class="card heroMechBox" data-mechid="${esc(id)}">
-    <img loading="lazy" data-cid="${id}" data-fbmode="hide" src="https://ddragon.leagueoflegends.com/cdn/${yearVer()}/img/champion/${id}.png" onerror="champImgFb(this)">
+    <img loading="lazy" data-cid="${id}" data-fbmode="hide" src="${chIcoUrl(yearVer(),id)}" onerror="champImgFb(this)">
     <div class="hmInfo">
       <div class="hmNm">${esc(nm)}</div>
       <div class="hmTitle">${(!en&&c.t)?esc(c.t):""}</div>
@@ -2605,7 +2613,7 @@ function soloqTipChampsHTML(name){ if(typeof isHistYear==="function"&&isHistYear
   if(im){ champs=B.items&&B.items[im[1]]; label=en?"Runs it as a core item":"把它當核心裝的英雄"; }
   else { const rid=runeIdByName(name); if(rid!=null){ champs=B.runes&&B.runes[String(rid)]; label=en?"Most-run by":"最常帶它的英雄"; } }
   if(!champs||!champs.length)return "";
-  const av=champs.slice(0,12).map(id=>`<img class="dexChGo" loading="lazy" data-cid="${esc(id)}" data-fbmode="hide" onerror="champImgFb(this)" src="https://ddragon.leagueoflegends.com/cdn/${yearVer()}/img/champion/${esc(id)}.png" title="${esc(chName(id))}｜${LANG==="en"?"click to view":"點擊查看"}" style="width:34px;height:34px;border-radius:6px;margin:2px;cursor:pointer">`).join("");
+  const av=champs.slice(0,12).map(id=>`<img class="dexChGo" loading="lazy" data-cid="${esc(id)}" data-fbmode="hide" onerror="champImgFb(this)" src="${chIcoUrl(yearVer(),esc(id))}" title="${esc(chName(id))}｜${LANG==="en"?"click to view":"點擊查看"}" style="width:34px;height:34px;border-radius:6px;margin:2px;cursor:pointer">`).join("");
   return `<div style="border-top:1px solid #2a3550;margin-top:7px;padding-top:6px"><b>${label}</b><div style="display:flex;flex-wrap:wrap;margin-top:4px">${av}</div></div>`; }
 // 召喚師技能效果數值（精選：DDragon/tooltip 佔位符無法還原具體數字，故人工維護；數值以 wiki 現行版本核對，2026）
 // 冷卻/需求等級改由 yearSet 逐年抓（year-accurate），這裡只放效果magnitude。key＝DDragon zh_TW 技能名。
@@ -6905,7 +6913,7 @@ const HCOLS=[["英雄",fmt.raw,"11.5em"],["路線",(v,r)=>r._laneIcons||"–","1
   ["中期金差",v=>!_fin(v)?"–":(v>0?"+":"")+Math.round(v)],
   ["分均金錢",fmt.int],["分均輸出",fmt.int],["分均承傷",fmt.int],["分均視分",fmt.d1],["評分",fmt.score]];
 // 常配/常打英雄小圖列（積分英雄表「評分」左兩欄）：a=[[英雄,場,勝],…]，滑圖示看 名｜場數｜勝率
-const _trio3=a=>a&&a.length?`<span style="display:inline-flex;gap:3px;vertical-align:middle">${a.map(x=>`<img loading="lazy" data-cid="${champId(x[0])}" data-fbmode="hide" onerror="champImgFb(this)" src="https://ddragon.leagueoflegends.com/cdn/${yearVer()}/img/champion/${champId(x[0])}.png" style="width:24px;height:24px;border-radius:5px;vertical-align:middle" title="${esc(chName(champId(x[0])))}｜${x[1]}${LANG==="en"?" games":" 場"}｜${Math.round(x[2]/x[1]*100)}%">`).join("")}</span>`:"–";
+const _trio3=a=>a&&a.length?`<span style="display:inline-flex;gap:3px;vertical-align:middle">${a.map(x=>`<img loading="lazy" data-cid="${champId(x[0])}" data-fbmode="hide" onerror="champImgFb(this)" src="${chIcoUrl(yearVer(),champId(x[0]))}" style="width:24px;height:24px;border-radius:5px;vertical-align:middle" title="${esc(chName(champId(x[0])))}｜${x[1]}${LANG==="en"?" games":" 場"}｜${Math.round(x[2]/x[1]*100)}%">`).join("")}</span>`:"–";
 // 英雄分頁「積分數據版」欄位（積分沒有的參數一律跳過：無 BP%/禁用/贏線/後選/評分等賽事專屬欄）；搶二率＝先到 2 等場數÷有紀錄場數
 const HSCOLS=[["英雄",fmt.raw,"11.5em"],["路線",(v,r)=>r._laneIcons||"–","11em"],["場數",fmt.int],
   ["勝率(勝-敗)",(v,r)=>`${Math.round((v||0)*100)}%${_brk(` (${esc(r["勝-敗"]||"")})`)}`],
@@ -7038,7 +7046,7 @@ function heroScatterHTML(rows, metrics, xKey, yKey){
   const dots=pts.sort((a,b)=>a.n-b.n).map(p=>{ // 場數少的先畫(墊底)，熱門英雄疊在上面
     const lx=(sx(clamp(p.x,x0,x1))/W*100).toFixed(3), ty=(sy(clamp(p.y,y0,y1))/H*100).toFixed(3); // 離群點夾到可視框邊緣(tooltip 仍顯示真值)
     const tip=`${p.zh}｜${xLab} ${xF(p.x)}｜${yLab} ${yF(p.y)}｜${en?"Win":"勝率"} ${Math.round((p.wr||0)*100)}%`;
-    return `<span class="hscDot" style="left:${lx}%;top:${ty}%;border-color:${wrCol(p.wr)}" data-full="${esc(p.full)}" data-tip="${esc(tip)}"><img loading="lazy" data-cid="${esc(p.id)}" data-fbmode="hide" onerror="champImgFb(this)" src="https://ddragon.leagueoflegends.com/cdn/${yearVer()}/img/champion/${esc(p.id)}.png" alt="${esc(p.zh)}"></span>`;
+    return `<span class="hscDot" style="left:${lx}%;top:${ty}%;border-color:${wrCol(p.wr)}" data-full="${esc(p.full)}" data-tip="${esc(tip)}"><img loading="lazy" data-cid="${esc(p.id)}" data-fbmode="hide" onerror="champImgFb(this)" src="${chIcoUrl(yearVer(),esc(p.id))}" alt="${esc(p.zh)}"></span>`;
   }).join("");
   return axisBar+`<div class="hscWrap"><div class="hscInner">${svg}<div class="hscDots">${dots}</div></div>
     <div class="hscHint meta">${en?"Pick the X / Y metric above · ring color = win rate (red high / green low) · hover for details, click to open champion":"上方可自選 X／Y 指標 ｜ 外框色＝勝率（越高越紅、越低越綠）｜ 滑鼠移上看詳情、點擊進英雄詳情"}</div></div>`;
@@ -9599,7 +9607,7 @@ function render(){
       [1,-1,0].forEach(d=>grpIds[d].sort((a,b)=>(pickCnt[b]||0)-(pickCnt[a]||0)));
       // 圖示與字級統一走 CSS class（.ovChgIco/.ovEntIco 同尺寸、標籤同字級），只有顏色隨 增強/削弱/調整 走 inline
       const avImg=(id,d)=>{const col=d>0?"#ff4d4d":d<0?"#37c871":"#ffd60a";
-        return `<img class="ovChgIco" data-cid="${esc(id)}" data-fbmode="hide" onerror="champImgFb(this)" src="https://ddragon.leagueoflegends.com/cdn/${yearVer()}/img/champion/${id}.png" title="${esc(znOf(id))}" style="border-color:${col}" data-id="${esc(id)}">`;};
+        return `<img class="ovChgIco" data-cid="${esc(id)}" data-fbmode="hide" onerror="champImgFb(this)" src="${chIcoUrl(yearVer(),id)}" title="${esc(znOf(id))}" style="border-color:${col}" data-id="${esc(id)}">`;};
       const grpRow=(d,lbl,col)=>{const ids=grpIds[d]; // 每列固定高：即使是「—」也維持與有圖示時同高(兩半欄對齊)
         return `<div class="ovChgRow"><span class="ovChgLb" style="color:${col}">${lbl} <span class="num">${ids.length}</span></span><span class="ovChgList">${ids.length?ids.map(id=>avImg(id,d)).join(""):'<span class="meta">—</span>'}</span></div>`;};
       // 🩹 裝備／符文焦點：同英雄一樣分 增強/削弱/調整；名稱→EXTRA_IMG 圖示，點擊跳圖鑑該裝備/符文詳情
@@ -9800,7 +9808,7 @@ function render(){
       const lb=iconLane?`<span class="tlic" style="position:absolute;left:-2px;top:-2px;pointer-events:none;z-index:6"><img src="${(typeof POS_B64!=="undefined"&&POS_B64[iconLane])||POS_IMG[iconLane]}" style="width:30px;height:30px;display:block;filter:drop-shadow(0 0 2px #000)"></span>`:"";
       const d=CHG[id];
       const bc=d===undefined?"1px solid #33405c":`2px solid ${d>0?"#ff4d4d":d<0?"#37c871":"#ffd60a"}`; // 最新版本改動→邊框 紅增強/綠削弱/黃調整
-      return `<span class="tChip" draggable="true" data-id="${esc(id)}"${plane?` data-plane="${plane}"`:""} style="cursor:grab;position:relative;display:inline-block"><img data-cid="${esc(id)}" data-fbmode="hide" onerror="champImgFb(this)" src="https://ddragon.leagueoflegends.com/cdn/${yearVer()}/img/champion/${id}.png" style="width:${s}px;height:${s}px;border-radius:6px;border:${bc};display:block${small?";filter:grayscale(.7) brightness(.85)":""}">${lb}</span>`;};
+      return `<span class="tChip" draggable="true" data-id="${esc(id)}"${plane?` data-plane="${plane}"`:""} style="cursor:grab;position:relative;display:inline-block"><img data-cid="${esc(id)}" data-fbmode="hide" onerror="champImgFb(this)" src="${chIcoUrl(yearVer(),id)}" style="width:${s}px;height:${s}px;border-radius:6px;border:${bc};display:block${small?";filter:grayscale(.7) brightness(.85)":""}">${lb}</span>`;};
     const LANE_ZH=LANG==="en"?{TOP:"Top",JNG:"Jungle",MID:"Mid",BOT:"Bot",SUP:"Support"}:{TOP:"上路",JNG:"打野",MID:"中路",BOT:"下路",SUP:"輔助"};
     const SQTC={}; // 積分數據 hover 快取（每次 render 重建；key=路線）
     const sqTipRow=(id,lane)=>{ if(isHistYear()||!window.SOLOQ_BUILDS||typeof calcHeroesSoloq!=="function")return "";
@@ -11901,7 +11909,7 @@ function render(){
       const _dIco=(ch,side,tip,ban)=>{const cls=`d${side==="b"?"B":"R"}${ban?" dBan":""}`;
         if(ban&&_noBan(ch))return `<span class="cc ${cls}"><img class="nobanImg" src="${NOBAN_SVG}" alt="${LANG==="en"?"no ban":"空BAN"}" title="${esc(tip)}"></span>`;
         if(!ch||String(ch).trim()==="?")return `<span class="cc ${cls} noBpQ" title="${esc(tip)}">？</span>`;
-        return `<span class="cc ${cls}" title="${esc(tip)}"><img loading="lazy" data-cid="${champId(ch)}" src="https://ddragon.leagueoflegends.com/cdn/${yearVer()}/img/champion/${champId(ch)}.png" alt="${esc(ch)}" onerror="champImgFb(this)"></span>`;};
+        return `<span class="cc ${cls}" title="${esc(tip)}"><img loading="lazy" data-cid="${champId(ch)}" src="${chIcoUrl(yearVer(),champId(ch))}" alt="${esc(ch)}" onerror="champImgFb(this)"></span>`;};
       const draftCell=m=>{
         const fB=m.first!=="red";                       // 先選方是不是藍方
         const F=fB?m.blue:m.red, S=fB?m.red:m.blue, fs=fB?"b":"r", ss=fB?"r":"b";
@@ -14475,7 +14483,7 @@ function render(){
     const SD=window.SOLOQ_DATA;
     // 常用英雄池（soloq_champs.js＝fetch_soloq_champs.py 由 dpm best-champs 抓，以 riotId 為鍵）
     const SC=rid=>(window.SOLOQ_CHAMPS&&SOLOQ_CHAMPS.champs&&SOLOQ_CHAMPS.champs[rid])||[];
-    const champIco=(n,s)=>`<img loading="lazy" data-cid="${champId(n)}" data-fbmode="hide" onerror="champImgFb(this)" src="https://ddragon.leagueoflegends.com/cdn/${yearVer()}/img/champion/${champId(n)}.png" style="width:${s}px;height:${s}px;border-radius:5px;vertical-align:middle" title="${esc(chName(champId(n)))}">`;
+    const champIco=(n,s)=>`<img loading="lazy" data-cid="${champId(n)}" data-fbmode="hide" onerror="champImgFb(this)" src="${chIcoUrl(yearVer(),champId(n))}" style="width:${s}px;height:${s}px;border-radius:5px;vertical-align:middle" title="${esc(chName(champId(n)))}">`;
     const soloqChampTip=rid=>{ const cs=SC(rid); if(!cs.length)return ""; const en=LANG==="en";
       const rows=cs.slice(0,12).map(c=>{ const wr=c.g?Math.round(c.w/c.g*100):0, kda=((c.k+c.as)/Math.max(1,c.d)).toFixed(1), wc=wr>=52?"#ff6b6b":(wr<=48?"#37c871":"");
         return `<div style="display:flex;align-items:center;gap:7px;padding:2px 0">${champIco(c.c,24)}<b style="min-width:104px">${esc(chName(champId(c.c)))}</b><span class="meta">${c.g}${en?" g":" 場"}</span>｜<span class="num" style="color:${wc}">${wr}%</span> <span class="meta">(${c.w}-${c.g-c.w})</span>｜KDA <span class="num">${kda}</span></div>`;}).join("");
@@ -15463,7 +15471,7 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
             .sort((a,b)=>b.pk-a.pk||b.ban-a.ban||a.n.localeCompare(b.n,"zh-Hant"));
           box.innerHTML=`<div class="card"><h2>🦸 ${T("英雄圖鑑")} <span class="sub">${LANG==="en"?`sorted by ${curYear} pick count｜hover a portrait for abilities & passive`:`${curYear} 年選用次數排序｜滑上頭像看技能與被動數值`}</span></h2>
             <div class="dexGrid dexGridCh">${list.map(c=>`<div class="dexIt${(!c.pk&&!c.ban)?" dexGone":""}">
-              <img loading="lazy" data-tip="champ" data-key="${c.id}" data-cid="${c.id}" data-fbmode="hide" onerror="champImgFb(this)" src="https://ddragon.leagueoflegends.com/cdn/${yearVer()}/img/champion/${c.id}.png">
+              <img loading="lazy" data-tip="champ" data-key="${c.id}" data-cid="${c.id}" data-fbmode="hide" onerror="champImgFb(this)" src="${chIcoUrl(yearVer(),c.id)}">
               <div class="plink dexNm" data-id="${c.id}" data-full="${esc(rev[c.id]||"")}" title="點擊展開歷年改動">${esc(c.n)}</div>
               <div class="meta">${T("選")} ${c.pk}｜${T("禁")} ${c.ban}</div>
               <div class="dexLanes">${c.lanes||'<span class="meta">—</span>'}</div>
