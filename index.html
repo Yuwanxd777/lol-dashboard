@@ -2069,7 +2069,7 @@ const TAB_HELP={
 "選手":"<b>這頁</b>：選手數據與<b>評分</b>。\n<b>操作</b>：上方選<b>路線</b>或<b>搜尋</b>名字、點<b>欄位名</b>排序、按<b>顯示更多</b>展開前百名以外。\n點<b>選手名</b>看<b>雷達詳情</b>；上方兩個下拉可挑兩人做<b>雷達對比</b>。\n<b>看法</b>：<b>滑欄位名看該欄定義</b>（評分／攻擊值／防禦值另外顯示加權權重）；雷達詳情數值旁 #N＝該項全體排名；上色走台灣習慣（<b>越高越紅</b>）。\n<b>注意</b>：勾<b>僅限雙方對戰</b>只算兩人直接交手的場次；場數過少不列入排名上色。",
 "戰隊":"<b>這頁</b>：戰隊數據與<b>評分</b>。\n<b>操作</b>：<b>對戰</b>下拉只看面對某隊的成績、點<b>欄位名</b>排序、點<b>戰隊名</b>看該隊<b>BP 紀錄</b>。\n<b>看法</b>：<b>滑欄位名看該欄定義</b>——<b>括號裡是次要值</b>（如 <b>勝率(大場勝率)</b> 前面是小局、括號內才是系列賽），<b>排序一律照括號前那個主值</b>；上色走台灣習慣（越高越紅）。\n<b>2026 新制</b>：拿到<b>第一選擇權(1st Sel)</b> 的隊伍先決定要「選邊」還是「選序」，另一項就歸對手。三欄都寫<b>次數最高那項＋括號各項次數</b>——<b>主動權</b>＝有第一選擇權時做了什麼（先選/後選/選藍/選紅）、<b>被動選邊</b>＝選邊被留給該隊時選藍還是選紅、<b>被動選序</b>＝選序留給該隊時排先還是排後。三欄只有 2026 起才有資料；比賽BP 的「選擇」欄金色字＝當局拿到第一選擇權的那隊。\n<b>注意</b>：勾<b>僅限雙方對戰</b>讓雷達只比直接交手；<b>同縮寫的改名隊自動合併</b>（如 Team Secret／Team Secret Whales＝TSW）；場數過少不列入排名上色。",
 "陣容":"<b>這頁</b>：一隊<b>五路先發</b>的角色池。\n<b>操作</b>：上方<b>戰隊</b>下拉選隊、每一路點<b>欄位名</b>各自排序。\n左上三顆切換角色池來源：<b>🏆 職業賽</b>＝比賽先發（跟隨上方篩選）、<b>📜 職業生涯</b>＝該選手 <b>2013~現在的職業生涯全部</b>（跨隊；<b>版本</b>與<b>時間</b>篩選會套用——時間只比月日，所以是「每一年的這段期間」；賽季／賽事只影響選手清單。每路可從下拉挑該隊歷代選手）、<b>🎯 積分</b>＝選手單雙排常用英雄。\n<b>看法</b>：欄位含出場、勝率、被禁率、上次使用日。\n<b>注意</b>：場數低於 3 場不列入排名上色。",
-"近況":"<b>這頁</b>：輸入一個戰隊，一頁看完它的<b>近期狀況</b>（方便直接截圖）。範圍＝目前篩選下該隊<b>最近 5 個系列賽</b>。\n<b>版面</b>：<b>標頭</b>＝連勝／連敗、這段期間的系列與小局戰績。\n<b>近期賽果</b>＝五個系列的日期／賽事／對手／比分。\n<b>選手</b>＝先發（各路出賽最多）在上、替補在下，都依路線排序：場數／勝率／KDA／慣用英雄；當年另有<b>近 7 天積分</b>場數勝敗與常用英雄。\n<b>BP 傾向</b>＝該隊常選、我方常 Ban、被對手針對 Ban 的英雄，各列 20 個。<b>選手與 BP 傾向看的是目前篩選的全部場次</b>，不是最近 5 個系列。\n<b>操作</b>：右上 <b>📸</b> 一鍵輸出 1080p 截圖（檔名＝縮寫_近況_日期）。\n<b>看法</b>：慣用英雄滑上去看場數勝率。",
+"近況":"<b>這頁</b>：輸入一個戰隊，一頁看完它的<b>近期狀況</b>（方便直接截圖）。範圍＝目前篩選下該隊<b>最近 5 個系列賽</b>。\n<b>版面</b>：<b>標頭</b>＝連勝／連敗、這段期間的系列與小局戰績。\n<b>近期賽果</b>＝五個系列的日期／賽事／對手／比分。\n<b>選手</b>＝先發（各路出賽最多）在上、替補在下，都依路線排序：場數／勝率／KDA／慣用英雄；當年另有<b>近 7 天積分</b>場數勝敗與常用英雄。\n<b>BP 傾向</b>＝該隊常選、我方常 Ban、被對手針對 Ban 的英雄，各列出佔比 ≥5% 的英雄、一列排滿為止。<b>選手與 BP 傾向看的是目前篩選的全部場次</b>，不是最近 5 個系列。\n<b>評分走勢</b>＝每個系列賽一個點（右上切近一個月／今年，不吃篩選）；評分＝<b>該賽段從頭累積到該場</b>，季後賽與該賽段期間的國際賽／盃賽一併算入，標籤＝當下評分／同賽區名次；分界虛線＝S1／S2／S3 換段（樣本歸零，前一兩個系列分數必然大起大落）。\n<b>操作</b>：右上 <b>📸</b> 一鍵輸出 1080p 截圖（檔名＝縮寫_近況_日期）。\n<b>看法</b>：慣用英雄滑上去看場數勝率。",
 "比賽BP":"<b>這頁</b>：兩隊<b>系列賽 BP 紀錄</b>，最新在上。\n<b>操作</b>：上方<b>戰隊</b>下拉指定戰隊（可只填一隊看其所有系列）；在欄名下方輸入即逐欄篩選；右上三段模式鈕——<b>🟣 一般</b>（五路・藍左紅右）｜<b>🟪 混合</b>（五路・搜尋的戰隊固定在左）｜<b>選序</b>（選角順序時間軸，同 wiki PB 頁：依<b>出手順</b>排 B1~B3 → P1~P4 → B4~B5 → P5~P7，<b>白線</b>分隔出手階段、<b>藍框／紅框</b>＝該邊、<b>灰階</b>＝禁用）。\n<b>看法</b>：<b>金色數字</b>＝選角順位 1 到 7、<b>星號</b>＝勝方；藍方／紅方右邊的<b>選擇</b>欄寫這局誰拿走選邊權（<b>選藍／選紅</b>）、誰拿走先選權（<b>先選／後選</b>）。\n<b>注意</b>：標題會自動標<b>缺場</b>（BO5 打到 2-2 卻少第 5 局等）；BO2 的 1-1 和局不算缺。\n<b>先選方不等於藍方</b>——2026 起是新制，先選／後選由雙方自己選，與藍紅方脫鉤；2025 以前才是藍方固定先選。",
 "圖鑑":"<b>這頁</b>：資料庫總集，上方分頁切換分區。\n<b>版面</b>：<b>版本</b>＝全年或單版本的英雄／裝備改動（點版本號看官方公告）。\n<b>英雄</b>＝點名字看歷年改動與<b>專屬機制</b>大框。\n<b>道具</b>／<b>符文</b>／<b>物件</b>＝建築、史詩野怪、龍魂等官方數值。\n<b>賽事</b>＝當年聯賽樹狀圖（三大國際賽／一二級賽區／盃賽，含各隊縮寫，國際賽帶母賽區色框）。\n<b>操作</b>：多數分區可搜尋、滑上看說明。\n<b>看法</b>：改動卡片邊框<b>紅＝增強、綠＝削弱、黃＝調整</b>；賽事樹綠勾 ✓＝晉級隊。\n<b>注意</b>：<b>新登場／重製登場／重返遊戲不標增強削弱</b>——那是「現在長這樣」，沒有對照物。",
 "模擬BP":"<b>這頁</b>：自己排 BAN／PICK、即時看路線判定。\n<b>版面</b>：模擬局在左、角色池在中、<b>🚫 禁用過</b>（含其他英雄）在最右直欄（局號 1→N，最新局在最右、緊貼角色池）。\n<b>操作</b>：上方選<b>戰隊A／B</b>帶出雙方角色池；<b>拖曳</b>或<b>左鍵拎起</b>池中英雄→到格內左鍵放入、右鍵取消；點已填格移除、點<b>先選／後選</b>切順位、<b>⇄</b>換輪替選手。\n按鈕：⏵自動（點池自動填下一格；開新局請點 ＋）、全局／一般（全局＝Fearless：PICK 從池消失、BAN 不消耗、最多五局）、📥匯入比賽、🗑清空、📸截圖；🎯近期積分<b>右鍵</b>可改範圍（一週~半年）。\n<b>看法</b>：滑到模擬局英雄→右側顯示<b>詳細數據</b>（BAN 顯示<b>對手</b>使用數據），同英雄會在所有模擬局一起發光。\n路線判定：隊上選手池＝實心、全庫近況補的＝半透明（點半透明確認正路即變實心）。<b>該隊比賽與積分都沒碰過</b>這隻英雄時（開了 🎯 近期積分），再補上<b>全庫積分近三版</b>走過的路——母體是所有職業選手的排位，只列<b>佔比 5% 以上</b>的路線。真的<b>完全沒有資料</b>時（連排位都沒有）＝<b>一律列出五路</b>，不會因為別的選角佔走路線就少列，也不會被推成單一路——我們對牠一無所知，五路都讓你點。牠能走的路<b>被同局其他英雄佔走</b>時，仍然列<b>牠自己的路</b>並加<b>紅框</b>標示衝突——不會硬給一條牠從沒走過的路。<b>路線圖按右鍵</b>＝列出<b>目前沒顯示的其他路線</b>，臨時換位（例如輔助英雄跑去下路）推不出來時就用這個手動指定；指定後變實心，再<b>左鍵</b>點同一路即可取消。\n標記：<b>金光</b>＝全場只有他會用、<b>青框</b>＝同隊多人會用、<b>禁用圖示</b>＝對手慣用但沒選過的禁招。\n<b>選角評分</b>（戰隊名稱下方）：兩隊各一個 0~100 分＋差值，滑上去看九項拆解。＝<b>版本強弱</b>(20%，只看<b>最近三個版本</b>——這項問的是「現在強不強」。開了 <b>🎯 近期積分</b> 才吃積分，比例 <b>職業賽 60%＋積分 40%</b>：職業賽用英雄頁評分的同路百分位；積分<b>只看使用場數與金錢差@15、不看勝率</b>（排位勝率被四個路人稀釋、歸因不到本人），場數 70%＋金差 30%。近三版積分約 5 萬場，職業賽同期只有 365 局)＋<b>選手熟練</b>(20%，該路選手在該英雄的場數與勝率，<b>跟他自己平常的勝率比</b>；沒打過算中性不扣分；按了🎯近期積分把積分場次以半場計入)＋<b>戰隊勝率</b>(10%，該隊用這隻的勝率，<b>跟該隊整體勝率比</b>)＋<b>對線對位</b>(20%，同路雙方英雄的歷史<b>金錢差</b>——對位要問的是「這條線吃不吃香」，那就是金差直接量的東西；<b>刻度由資料自己決定</b>——扣基準後金差的 p95 對應 95 分，職業賽的金差@10 與積分的金差@15 各用各的尺，不寫死金額。該賽區沒有 @10 資料時（LPL）退回對戰勝率。開了 <b>🎯 近期積分</b> 才吃積分，同樣是<b>職業賽 60%＋積分 40%</b>：積分有 9583 組對位、每組中位 10 場，職業賽同期 93% 的組合樣本不足。<b>兩邊</b>的金差都先<b>扣掉該英雄自己對其他英雄的中位</b>，剩下的才是純粹的對位差異——那份資料是職業選手打排位、本來就在輾壓路人（全體中位 +538），而且強勢英雄對誰都能壓；不扣的話每個對位都會貼到滿分，也會跟版本強弱重複計算。另外<b>反推對手</b>：一場「A 打 B」對 B 而言就是負的金差，把反向資料併進來後達門檻的對位組合從 4883 增為 7580)＋<b>隊友組合</b>(5%，上與野／野與中／下與輔)＋<b>禁用</b>(10%，<b>兩輪分開看</b>——前三手是盲禁、還沒看到對方選什麼，後兩手已經看完對方第一輪，針對性完全不同，混在一起算會互相抵消。<b>第一輪</b>＝有沒有禁到<b>版本強勢</b>或<b>對手第一輪常選</b>的英雄（兩者取高，禁到任一種都算好）；<b>第二輪</b>＝有沒有禁到<b>對手選手的本命</b>。刻度是<b>百分位</b>：50 分＝跟平常的 BAN 差不多，往上代表比多數人禁得更到位。⚠ 這一項<b>完全沒有預測勝負的能力</b>——四種定義乘兩輪都實測過，準確率 48.7~51.6% 全是擲銅板。留著它跟留著對位是同一個理由：它講的是選角本身的一句真話，只是不轉換成勝負)＋<b>可錯位</b>(5%，這套裡有幾隻是<b>該隊兩個以上隊友都會用</b>的英雄——只看<b>這一隊自己的五個選手</b>，不是整個資料庫。判定：比賽裡<b>選過</b>就算，或積分範圍內<b>超過五場</b>（跟著 <b>🎯 近期積分</b> 的天數設定）。舉例 T1 的 Doran/Oner/Faker/Peyz/Keria：賽勒斯 上1野2中5下1、安比薩 上19野1、阿卡莉 上1中11、加里歐 上2中9、塔莉雅 中8下5、慎 上1輔6——同一隻有兩個位置的人都會用，對手在 BP 階段就預判不到你要放哪一路。⚠ 比賽側的門檻是<b>選過</b>而不是五場：每隊一年才打一百局出頭，同一隻在兩條路各超過五場幾乎不存在，用五場的話 99% 的陣容都會是 0 隻、整項完全沒有變異。刻度是百分位。按 <b>⇄</b> 換輪替選手會改變這一項，那是刻意的——換人本來就換掉了一整套可錯位的牌。⚠ 這一項<b>同樣幾乎沒有預測勝負的能力</b>（走前 51.9%）)＋<b>戰隊近況</b>(5%，該隊<b>最近 10 場的勝率</b>——7 勝 3 敗就是 70 分，不足 5 場算中性 50。這 5% 是 2026-08-15 由對線對位讓出來的。⚠ 它是全系統<b>最強的單一預測因子</b>（單獨走前 61.5%，比戰隊勝率 56.6%、選手熟練 56.3% 都高），但要知道它強在哪：把近 10 場勝率<b>扣掉該隊自己的整體勝率</b>之後（＝純粹的手感起伏）只剩 53.1%、幾乎是擲銅板。<b>所以它準是因為在量「這隊本來就強」，不是在量「最近手感好」</b>。代價寫在隊伍落差上：58 隊的平均分落差從 5.8 擴大到 6.6)＋<b>陣容合理性</b>(5%，量三件事：<b>傷害偏向</b>、<b>傷害配置</b>、<b>開戰能力</b>。<b>傷害偏向</b>＝魔法傷害佔比，<b>只看主要傷害來源</b>：中路與下路各算 1、上路與打野各算 0.5、輔助不計。中位取<b>最近三個版本</b>（meta 會整個位移——近三版中位 51.5%、當年度 47.6%，差 4 個百分點，用全年當基準會把整批法系陣容誤判成偏）。<b>離中位 ±20 個百分點以內完全不扣分</b>，超出才往下扣，<b>兩側都扣</b>——實測近三版超出的 24 個陣容勝率 41.7%，偏物理側 42.9%、偏法系側 40.0%，兩邊一樣慘。只咬得到 3.2% 的陣容，是「罕見但嚴重」的懲罰而不是精細刻度。<b>傷害配置</b>＝<b>傷害量與前排綁在一起看的二維查表</b>：傷害量用真實比賽數據算的英雄先驗（每分鐘對英雄傷害）切五等分，前排＝<b>坦克算 1、鬥士算 0.5</b>（一隻只算一種職業）分成五級，合成 25 格，<b>每一格直接用該格的實際勝率當分數</b>——不預設方向。為什麼要綁在一起：單獨看沒前排其實不吃虧（0 隻坦克的陣容勝率 53.3%，反而是 3 隻坦克只有 47.8%），單獨看傷害高也還好，<b>只有兩個同時到極端才崩</b>——傷害最高且前排最低那一格勝率只有 44.5%（344 局），反過來傷害最低且前排最高那一格是 49.4%（346 局）完全正常。順帶一提<b>五坦克陣容並不存在</b>：全庫最多 4 隻坦克而且只有 4 局。<b>開戰</b>＝能主動開一場團戰的<b>範圍硬 CC</b>（要在大絕、或帶位移衝上去才算；緩速那類軟 CC 不算），刻度<b>直接用母體裡各手數的實際勝率</b>換算：0 手 47.8%、1 手 48.9%、2 手 51.6%、3 手以上 50.6%——<b>2 手之後就不再變好</b>，所以不是越多越好，零開戰才是真的吃虧（全場 13.2% 的陣容是零）。原本這一項是「歷史上有三隻以上相同的局的勝率」，但它與隊友組合相關 0.45（每組配對都是陣容的子集）、走前準確率只有 52.8%，改成規則型才真的多一個獨立維度)。樣本不足的<b>單項</b>（某一隻英雄／某一路對位／某一組配對）以<b>中性 50</b> 計入——不扣分也不加分，權重不變；整項一筆資料都沒有時 tooltip 那一列會變淡。（比起「整項剔除、其餘權重歸一」，這樣才不會拿一路的資料去講五路的話——實測走前命中 54.2%→54.9%、隊伍實力落差 5.8→5.5，每項指標都更好。）<b>參照母體</b>：統計一律用<b>當年度全賽事</b>的資料（版本強弱除外，它只看最近三版），<b>不跟著上方篩選走</b>——篩選只決定你在看誰的角色池，分數的參照固定不變（篩到單一盃賽時每項只剩十幾場，那是在讀雜訊）。<b>匯入的真實比賽</b>會改用<b>那一局當時</b>的時空背景來評（2026-08-15）：<b>版本強弱</b>錨在該局的版本——該局打在 26.11 就問「26.11 的 meta 裡這隻強不強」，不是問今天；錨定時也<b>不混積分</b>，因為排位資料只有現在這幾版、倒不回去。<b>戰隊近況</b>從<b>該局那一天</b>往前推十場（同一天的其他場次不算，同系列的先後在資料裡分不出來）。隊名也改讀該局自己的兩隊——匯入清單列的是該隊最近的系列，對手不一定是你在上方選的隊 B。<b>刻度</b>：<b>50＝歷史中位</b>——拿 4456 個真實 BP 校準過，九成落在 27~75，極端的才會碰到 0/100。<b>強隊不會自動高分</b>：熟練與戰隊勝率都已扣掉該選手／該隊自己的平常水準（tooltip 標了基準%），所以問的是「這副牌<b>對這支隊伍</b>來說好不好」，不是「哪隊比較強」——58 隊的「隊伍勝率 vs 平均分」落差已從 22.3 分壓到 7.0 分。<b>準確度</b>：拿 1911 局歷史比賽回測（<b>只用該局之前</b>的資料），分數較高那邊實際獲勝 <b>57%</b>。對照組是<b>擲銅板的 50%</b>、不是「一律猜藍方」的 55%——因為這個分數<b>完全不看紅藍方</b>（實測藍方平均 51.6 分、紅方 51.7 分，分數較高的那邊是藍方的比例 49.2%，中性剛好是 50%），它被設計成只看 BP，拿一個可以看邊的基準去比並不公平。純看 BP 的<b>天花板實測是 58.5%</b>：把九項權重完全放開跑遍所有組合、或直接用迴歸讓資料自己擬合最佳解，三種算法都收斂在 58% 附近，所以現在的 57% 已經很接近極限，<b>再怎麼調參數也到不了八成</b>——職業賽的勝負大半由執行面決定，不是 BP 決定的。<b>各項單獨的預測力</b>（走前）：戰隊近況 61.5%、戰隊勝率 56.6%、選手熟練 56.3%、陣容 54.4%、隊友組合 53.8%、版本強弱 52.4%、<b>對線對位 50.5%、可錯位 51.9%、禁用 49.8%</b>——最後三項是刻意保留的<b>零預測力</b>項目，它們講的是選角本身的一句真話，只是不轉換成勝負。\n<b>注意</b>：📥<b>匯入比賽</b>把真實系列賽帶進來（全局模式會先清掉其他局）；匯入的局<b>只能換英雄、不能改順位</b>（整局可刪）。角色池的每路選手會自動切成<b>該系列實際上場的人</b>（同系列換過人就取上場較多的那位，之後仍可用 <b>⇄</b> 自己換）。",
@@ -2093,7 +2093,7 @@ const TAB_HELP_EN={
 "選手":"Player stats and <b>Rating</b>.\nHow-to: pick a <b>lane</b> or <b>search</b> a name above, click a <b>column header</b> to sort, hit <b>Show more</b> to expand past the top 100.\nClick a <b>player name</b> for <b>radar details</b> (#N next to a value = overall rank of that stat).\nThe two dropdowns above let you pick two players for a <b>radar compare</b>; check <b>Head-to-head only</b> to count just their direct matchups.\nColors follow the Taiwan convention (<b>higher = redder</b>); low-sample players aren't ranked or colored.",
 "戰隊":"Team stats and <b>Rating</b>.\nHow-to: the <b>vs</b> dropdown shows the record against one team, check <b>Head-to-head only</b> so the radar compares direct matchups, click a <b>column header</b> to sort, click a <b>team name</b> for its <b>BP records</b>.\n<b>Bracketed values are secondary</b> (e.g. Win% (Series%) — the first number is per-game, the bracket is the series rate); <b>sorting always uses the primary value</b>. <b>Chose-blue%</b> / <b>Chose-1st-pick%</b> only have data from 2026 (new ruleset).\n<b>Renamed teams with the same abbreviation are merged automatically</b> (e.g. Team Secret / Team Secret Whales = TSW).\nColors follow the Taiwan convention (higher = redder); low-sample teams aren't ranked or colored.",
 "陣容":"One team's <b>five-role starting</b> champion pools.\nHow-to: pick a team from the <b>Team</b> dropdown above, click a <b>column header</b> in each lane to sort it.\nColumns include games, win rate, ban rate and last-used date; champions with under 3 games are not ranked or colored.\nThree buttons top-left switch the pool source: <b>🏆 Pro</b> = match starters (follows the filters above), <b>📜 Career</b> = that player's <b>whole pro career 2013~now</b> (across all teams; the <b>patch</b> and <b>date</b> filters apply — the date filter compares month-day only, so it means \"this window in every year\"; split/league only affect the player list. Each lane lists every player who held it for this team), <b>🎯 Soloq</b> = players' ranked go-to champions.",
-"近況":"Type a team and get its <b>recent form</b> on one page (made for screenshots). Range = the team's <b>last 5 series</b> under the current filters.\n<b>Header</b> = current streak plus series/game record over the window.\n<b>Recent results</b> = date / event / opponent / score of the five series.\n<b>Starters</b> = the most-fielded player per role: games / win% / KDA / go-to champions (hover for numbers); in the current year also <b>7-day ranked</b> record and top champions.\n<b>BP tendencies</b> = most picked, most banned by them, and most target-banned against them in the window.\nThe <b>📸</b> button exports a 1080p PNG (named abbr_Form_date).",
+"近況":"Type a team and get its <b>recent form</b> on one page (made for screenshots). Range = the team's <b>last 5 series</b> under the current filters.\n<b>Header</b> = current streak plus series/game record over the window.\n<b>Recent results</b> = date / event / opponent / score of the five series.\n<b>Starters</b> = the most-fielded player per role: games / win% / KDA / go-to champions (hover for numbers); in the current year also <b>7-day ranked</b> record and top champions.\n<b>BP tendencies</b> = most picked, most banned by them, and most target-banned against them: every champion at ≥5% share, until the row is full.\n<b>Rating trend</b> = one point per series (top-right: last month / this year; ignores filters); rating = <b>accumulated within that split up to that series</b>, playoffs and internationals/cups held during the split included; label = rating / rank among the home league. Dashed lines = S1/S2/S3 boundaries (sample resets, so the first series or two swing a lot).\nThe <b>📸</b> button exports a 1080p PNG (named abbr_Form_date).",
 "比賽BP":"Two teams' <b>series BP records</b>, newest first.\nHow-to: pick teams from the <b>Team</b> dropdowns above (fill just one to see all its series).\nReading: <b>gold number</b> = pick order 1–7, <b>gold bold</b> = first-pick side, <b>star</b> = winner.\nThe title auto-flags <b>missing games</b> (e.g. a BO5 at 2-2 missing game 5); a 1-1 draw in a BO2 doesn't count as missing.",
 "圖鑑":"Sections, switch via the tabs above:\n<b>Patch</b> = champion/item changes for the whole year or a single patch (click a patch number for official notes)\n<b>Champions</b> = click a name for patch history and its <b>unique mechanic</b> panel\n<b>Items</b> / <b>Runes</b> / <b>Objectives</b> = buildings, epic monsters, dragon souls and official values\n<b>Esports</b> = that year's league tree (3 internationals / tier 1-2-3 regions / cups, with each team's abbreviation, international team chips carry their home-region color frame; green check = qualified through play-in/qualifier)\nMost sections are searchable and have hover tooltips.",
 "模擬BP":"Draft your own BANs / PICKs and see lane assignment live; champion pool on the right, sim games on the left (game 1→N, newest game on the far right next to the pool).\nHow-to: pick <b>Team A / B</b> above to load both pools; <b>drag</b> or <b>left-click to lift</b> a champion → left-click into a slot, right-click to cancel; click a filled slot to remove, click <b>FP / SP</b> (<b>FP</b> = First Pick, <b>SP</b> = Second Pick) to toggle order, <b>⇄</b> to swap the rotating player.\nHover a champion in a sim game → the right panel shows <b>detailed stats</b> (a BAN shows the <b>opponent's</b> usage; if that team isn't selected it shows the current data range); the same champion glows across all sim games.\nLane logic: the team's own player pool = solid, filled from the global recent pool = translucent (click a translucent one to confirm the lane and make it solid).\nMarkers: <b>gold glow</b> = only this player uses it, <b>cyan frame</b> = multiple teammates use it, <b>ban icon</b> = an opponent favorite that hasn't been picked.\nButtons: ⏵ auto (clicking the pool fills the next slot; use ＋ for a new game), Fearless/Normal (Fearless: PICKs vanish from the pool, BANs don't consume, up to five games), 📥 Import games, 🗑 Clear (clear all games), 📸 Screenshot.\n<b>Draft score</b> (bottom of each game card): 0~100 per side plus the gap; hover for the six-factor breakdown. = <b>Meta strength</b> (25%, <b>last 3 patches only</b> — this factor asks how strong it is right now. Ranked only counts with <b>🎯 recent solo queue</b> on, weighted <b>60% pro + 40% ranked</b>: the pro half is the Champions-page rating as a within-lane percentile; the ranked half uses <b>games played and gold diff @15 only, never win rate</b> (ranked win rate is diluted by four random teammates), weighted 70% games / 30% gold diff. Ranked has ~50,000 games over those 3 patches vs 365 pro games) + <b>Proficiency</b> (25%, that lane's player's games and win rate on the champion, <b>compared with his own usual win rate</b>; never played = neutral, no penalty; with 🎯 recent solo queue on, ranked games count as half a game each) + <b>Team win%</b> (10%, the team's win rate on the champion, <b>compared with that team's overall win rate</b>) + <b>Matchup</b> (25%, the historical <b>gold diff</b> between the two champions in that lane — what a matchup should answer is whether the lane goes well, and that is exactly what gold diff measures; the <b>scale comes from the data itself</b> — the p95 of the centred gold diff maps to 95 points, so pro GD@10 and ranked GD@15 each use their own yardstick instead of a hardcoded amount; regions with no @10 data (LPL) fall back to head-to-head win rate. Ranked only counts with <b>🎯 recent solo queue</b> on, again <b>60% pro + 40% ranked</b>: ranked has 9,583 matchup pairs, median 10 games each, while 93% of pro pairs over the same window fall below threshold. <b>Both</b> gold diffs are first <b>centred on that champion's own median across all its opponents</b>, so what remains is the matchup difference alone — the data is pros playing ranked (they crush the average opponent, global median +538) and a strong champion beats everyone, so without centring every matchup would peg at full marks and it would double-count meta strength. Games are also <b>inferred in reverse</b>: an “A vs B” game is a negative gold diff for B, and folding that in raises qualifying pairs from 4,883 to 7,580) + <b>Duo synergy</b> (10%, top&jungle / jungle&mid / bot&support) + <b>Composition</b> (5%, measures <b>damage-type balance</b> (AP share) and <b>frontline ratio</b> (Tank counts 1, Fighter 0.5). No invented ideal: the medians of both metrics are taken from every real composition in the reference pool, and your draft is ranked by <b>how far it deviates from those medians</b> — the most typical scores near 100, the most extreme near 0. This replaced “win rate of past sides sharing 3+ champions”, which correlated 0.45 with duo synergy (every pair is a subset of the composition) and was only 52.8% accurate walk-forward). A <b>single item</b> with too few games (one champion, one lane matchup, one pair) counts as a <b>neutral 50</b> — no penalty, no bonus, weights unchanged; a factor with no data at all is dimmed in the tooltip. (Better than dropping the whole factor and renormalizing: it stops one lane's data from speaking for all five — measured walk-forward accuracy 54.2%→54.9% and team-strength spread 5.8→5.5.) <b>Reference pool</b>: all six factors are computed over <b>the whole year, all leagues</b> and do <b>not</b> follow the filters above — the filters only decide whose champion pool you are looking at, the statistical reference stays fixed (filter down to a single cup and every factor is left with a dozen games, which is just noise). <b>Scale</b>: <b>50 = historical median</b>, calibrated on 4456 real drafts, 90% landing in 27~75. <b>Strong teams do not score high automatically</b>: proficiency and team win% both subtract that player's / that team's own baseline (shown as a % in the tooltip), so the question it answers is “is this a good draft <b>for this team</b>”, not “which team is stronger” — across 58 teams the spread between the highest- and lowest-scoring team fell from 22.3 to 7.0 points. <b>Accuracy</b>: back-tested over 2228 games (<b>using only data from before each game</b>), the higher-scoring side actually won about <b>55%</b> (always guessing blue side gives 54%), so <b>this score carries almost no win-prediction power; do not bet on it</b>. That is deliberate: the weights put the emphasis on the <b>draft itself</b> (meta strength + matchup together 45%) rather than on team strength, and matchup measures whether a lane goes well (gold diff @10) — real in itself, but it does not translate into wins. Shifting weight back to proficiency and team win% would reach 56%, but then the score degenerates into telling you which team is stronger.\n📥 <b>Import games</b>: brings a real series in (Fearless mode clears other games first); imported games <b>can only swap champions, not change order</b> (the whole game can be deleted), and the title shows that game's <b>date and event</b>. The champion pools also switch to <b>the players who actually played that series</b> (if a lane was substituted, whoever played more games); you can still change them with <b>⇄</b>.",
@@ -2344,7 +2344,7 @@ function alignHeroCols(root){
 // prop=true：多餘空間「依各欄自然寬比例」分配，而不是平均分。
 // 平均分會讓內容很短的欄（位置圖示、勝敗一個字、情境）跟長名字欄拿到一樣多的空白，
 // 整排看起來鬆散又不齊（2026-07-31 使用者：出場紀錄的欄位間隔調整好）。只有指定的表會用。
-function fillTableWidth(root,prop){
+function fillTableWidth(root,prop,soft){
   const wrap=(root&&root.classList&&root.classList.contains("tblwrap"))?root:(root||document).querySelector(".tblwrap"); if(!wrap)return;
   // 標記「填滿容器」式表格：refitLayout 於視窗/縮放改變時會自動重算（px 是量出來的，不重算會殘留舊寬）。
   // 分配方式也記在這裡："prop"＝依欄寬比例、"1"＝平均分。refitLayout 只傳 wrap、沒有第二個參數，
@@ -2353,6 +2353,12 @@ function fillTableWidth(root,prop){
   wrap.dataset.fillw=prop?"prop":"1";
   const tbl=wrap.querySelector("table"); if(!tbl)return;
   const ths=[...tbl.querySelectorAll("thead th")]; if(ths.length<3)return;
+  // soft＝refitLayout 那條「保險」呼叫（視窗/縮放/字體/分頁還原後）：同容器寬、同縮放、同字型世代、同欄列數
+  // → 上次算的欄寬還有效，直接跳過（一次要三趟強制重排，英雄大表 40~70ms；從 VIEW_CACHE 還原時會連跑兩次＝
+  // 切分頁最大的延遲來源，2026-08-17 使用者回報「切換分頁延遲變高」）。建表／排序那些明確呼叫不帶 soft，照算。
+  const _fk=wrap.clientWidth+"|"+(window._zoomF||1)+"|"+ths.length+"|"+(window._fitEpoch||0)+"|"+tbl.rows.length+"|"+(prop?1:0);
+  if(soft&&tbl._fillKey===_fk)return;
+  tbl._fillKey=_fk;
   if(tbl.style.zoom)tbl.style.zoom="";  // 觸控縮合的 zoom 先清掉再量（rect 是視覺值，zoom 會污染欄寬）
   tbl.style.tableLayout="auto"; tbl.style.width="max-content"; // 還原成內容寬再量(保留各欄原設寬)
   ths.forEach(th=>{if(!("ow" in th.dataset))th.dataset.ow=th.style.width||""; th.style.width=th.dataset.ow;});
@@ -6691,7 +6697,7 @@ document.addEventListener("scroll",e=>{const t=e.target; if(t&&t.classList&&t.cl
 window.refitLayout=()=>{
   setHdrH();
   if(window.refitFilterW)refitFilterW(); // 篩選列下拉寬度重算（字體載入完成/切字體後字寬會變）
-  document.querySelectorAll(".tblwrap[data-fillw]").forEach(w=>{w.classList.remove("pt1","pt2");fillTableWidth(w);}); // 先還原間距再量，量測基準才一致
+  document.querySelectorAll(".tblwrap[data-fillw]").forEach(w=>{w.classList.remove("pt1","pt2");fillTableWidth(w,undefined,true);}); // 先還原間距再量，量測基準才一致；soft＝版面沒變就跳過
   document.querySelectorAll("table").forEach(t=>{try{fitAutoTable(t);}catch(e){}}); // 餘寬平均分（左右邊距對稱，見 fitAutoTable）
   document.querySelectorAll(".card").forEach(c=>{try{fitCardScrollPad(c);}catch(e){}}); // 卡內水平捲軸不撐高卡片
   fitTblWraps();
@@ -8229,6 +8235,10 @@ function bindSort(rerender){
   if(window.refitLayout)refitLayout();
 }
 Chart.defaults.color="#8b98ad"; Chart.defaults.borderColor="#2a3345";
+// 分頁快取還原（含閒置預熱結束時還原目前分頁）＝把 canvas 從 DOM 拿掉再放回；Chart.js 遇到「重新掛上」(attach)
+// 走的是**預設 1 秒進場動畫**（resize 才是 0ms）→ 使用者沒做任何事，折線卻突然重播一次（2026-08-17 回報
+// 「所有折線圖莫名跳動」）。attach 比照 resize：不跑動畫、直接畫最終狀態。
+Chart.defaults.transitions.attach={animation:{duration:0}};
 // 字體切換：粉圓（預設）/ 微軟正黑體，存 localStorage
 const FONT_SETS={huninn:'"jf-openhuninn","Microsoft JhengHei","Segoe UI",sans-serif',jhenghei:'"Microsoft JhengHei","Segoe UI",sans-serif',gensen:'"GenSenRounded TW","Microsoft JhengHei","Segoe UI",sans-serif'};
 const applyFont=k=>{const f=FONT_SETS[k]||FONT_SETS.huninn;
@@ -9191,7 +9201,9 @@ const bpIdx=()=>{ const k=vcKey()+"|"+LANES.length+"|"+(window.SOLOQ_BUILDS?1:0)
   if(window._BPIX.k!==k)window._BPIX={k,v:{}};
   return window._BPIX.v; };
 // 外部導頁會改的子狀態：不同就不能用快取
-const VC_SUB={"英雄":()=>[V.heroDetail,V.player,V.hdOpp,V.hdLane,V.hdPlayer],"圖鑑":()=>[V.dexDetail,V.dexSec],"比賽BP":()=>[V.bpSideMode||"br",JSON.stringify(V.bpColF||{})],"模擬BP":()=>[!!V.bpAuto],"近況":()=>[V.recentTeam||"",V.rcTrendRng||""]};
+// ⚠ 值要正規化成字串：分頁籤 onclick 會把 V.heroDetail 設成 ""，開站時卻是 undefined/null → 子狀態鍵 [null] vs [""] 不同，
+//   預熱好的英雄分頁第一次點永遠被判「子狀態變了」整頁重建（實測 160ms，白預熱了；2026-08-17）
+const VC_SUB={"英雄":()=>[V.heroDetail||"",V.player||"",V.hdOpp||"",V.hdLane||"",V.hdPlayer||""],"圖鑑":()=>[V.dexDetail,V.dexSec],"比賽BP":()=>[V.bpSideMode||"br",JSON.stringify(V.bpColF||{})],"模擬BP":()=>[!!V.bpAuto],"近況":()=>[V.recentTeam||"",V.rcTrendRng||""]};
 const vcSub=v=>JSON.stringify((VC_SUB[v]||(()=>[]))());
 function vcInvalidate(){
   Object.values(VIEW_CACHE.slots).forEach(s=>{["chart","radar","tchart"].forEach(k2=>{try{s[k2]&&s[k2].destroy();}catch(e){}});});
@@ -11321,24 +11333,40 @@ function render(){
       // ⚠ F.d1/F.d2 只比**月日**（見 passG），同一年份內夠用（近況本來就只看當前年份）。
       // ⚠ 以「賽事|賽段|日期」為鍵快取：同一天的多局共用一次計算，5 個系列大約只算 5~8 次。
       const _snapC={};
-      // 2026-08-17 使用者改規則：**從年初累積到該場、不吃任何篩選、對全資料庫的戰隊評分**
-      //（不再是「該賽段從頭累積、只跟同賽事比」，那樣換賽段就打掉重算、分數大起大落）。
-      // 唯一保留的賽段概念＝分組扣分：這一點所在的賽段（S1/S2/S3）該隊若在低一點的組別，照組別扣分（GRP_FORCE 強制開）。
-      const snapAt=(lg,sp,upto)=>{
-        const base=String(sp||"").replace(/ PO$/,"");   // 分組只認 S1/S2/S3，季後賽併回同賽段
+      // 評分規則（2026-08-17 使用者第二次定案）：**看賽段**——該賽段從頭累積到該場；
+      //   賽段範圍＝母聯賽該賽段的例行賽＋季後賽＋「該賽段期間」的國際賽／盃賽（MSI、EWC、First Stand、KeSPA 盃…）一併算進去。
+      //   「該賽段期間」＝從這一段第一場起、到下一段第一場前（第一段往前含年初、最後一段到年底）→ 每一場比賽都恰好落在一段。
+      //   名次＝同母聯賽的戰隊裡排第幾（跨賽區隊伍雖在池子裡當對手，不進名次）；低組別照組別扣分（GRP_FORCE）。
+      //   ⚠ 曾試過「年初累積到年底、全庫評分」（同日稍早），使用者改回看賽段；別再改回去。
+      const homeLg=(()=>{ const c={}; for(const o of GAMES){ if(CUP_LG.test(o.league))continue;   // 母聯賽＝出賽最多的非盃賽聯賽
+          for(const t of [o.raw[C.blue_teamname],o.raw[C.red_teamname]]){ if(!t)continue; const e=c[t]=c[t]||{}; e[o.league]=(e[o.league]||0)+1; } }
+        const cupC={}; for(const o of GAMES){ if(!CUP_LG.test(o.league))continue;
+          for(const t of [o.raw[C.blue_teamname],o.raw[C.red_teamname]]){ if(!t||c[t])continue; const e=cupC[t]=cupC[t]||{}; e[o.league]=(e[o.league]||0)+1; } }
+        const pick=e=>{ let b=null,bn=-1; for(const l in e)if(e[l]>bn){bn=e[l];b=l;} return b; };
+        return t=>c[t]?pick(c[t]):(cupC[t]?pick(cupC[t]):""); })();
+      const hl=homeLg(V.recentTeam)||"";
+      const spBase=sp=>String(sp||"").replace(/ PO$/,"");
+      // 母聯賽各賽段的起點（第一場 dt）→ 依日期把盃賽／國際賽歸到「那個賽段期間」
+      const spStarts=(()=>{ const m={}; for(const o of GAMES){ if(o.league!==hl)continue; const b2=spBase(o.split), d=String(o.dt||o.date); if(!(b2 in m)||d<m[b2])m[b2]=d; }
+        return Object.entries(m).sort((x,y)=>x[1].localeCompare(y[1])); })();
+      const spOfDate=d=>{ let r=spStarts.length?spStarts[0][0]:""; for(const [b2,st] of spStarts){ if(st<=d)r=b2; else break; } return r; };
+      const spOfGame=o=>o.league===hl?spBase(o.split):spOfDate(String(o.dt||o.date));
+      const snapAt=(base,upto)=>{
         const k=base+"|"+upto;
         if(_snapC[k])return _snapC[k];
         const sv={split:F.split,league:F.league,patch:F.patch,d1:F.d1,d2:F.d2,minG:F.minG},
               svH=H2H, svG=GRP_SP_OVR, svF=GRP_FORCE;
         let rows=[];
         try{
-          // 逐**場**（不是逐日）：用 H2H 場次白名單（passG 的第一關）挑出「該場含以前」的所有局，
-          // 時序用 **o.dt**（帶時分秒）不是 o.date（同一天三局會一模一樣）。全年、全聯賽都算進去。
+          // 逐**場**（不是逐日）：用 H2H 場次白名單（passG 的第一關）圈出「該賽段範圍內、該場含以前」的所有局，
+          // 時序用 **o.dt**（帶時分秒）不是 o.date（同一天三局會一模一樣）。
+          // ⚠ F.split 要清空（例行賽／季後賽是兩個賽段值，splitMatch 只認一個）、F.league 要 ALL（盃賽才進得來），
+          //   範圍全靠白名單；分組扣分改由 GRP_SP_OVR＋GRP_FORCE 指定賽段。
           const set=new Set();
-          for(const o of GAMES){ if(String(o.dt||o.date)<=upto)set.add(gkey(o)); }
+          for(const o of GAMES){ if(String(o.dt||o.date)<=upto&&spOfGame(o)===base)set.add(gkey(o)); }
           H2H=set;
           F.league="ALL"; F.split=""; GRP_SP_OVR=base; GRP_FORCE=true; F.patch=""; F.d1=""; F.d2=""; F.minG=0;
-          rows=calcTeams()||[];
+          rows=(calcTeams()||[]).filter(r=>!hl||homeLg(r._full)===hl);   // 名次只排同母聯賽的隊
         }catch(e){ rows=[]; }
         Object.assign(F,sv); H2H=svH; GRP_SP_OVR=svG; GRP_FORCE=svF;
         return _snapC[k]=rows; };
@@ -11361,16 +11389,16 @@ function render(){
         const opp=isB?o.raw[C.red_teamname]:o.raw[C.blue_teamname];
         const k=String(o.date).slice(0,10)+"|"+opp+"|"+o.league+"|"+o.split;
         let g2=trGrp.length?trGrp[trGrp.length-1]:null;
-        if(!g2||g2.k!==k){g2={k,d:o.date,lg:o.league,sp:o.split,opp:tAb(opp),w:0,l:0,last:""};trGrp.push(g2);}
+        if(!g2||g2.k!==k){g2={k,d:o.date,lg:o.league,sp:o.split,base:spOfGame(o),opp:tAb(opp),w:0,l:0,last:""};trGrp.push(g2);}
         if(o.result===(isB?1:2))g2.w++; else g2.l++;
         const t=String(o.dt||o.date); if(t>g2.last)g2.last=t;
       });
       const trendPts=[];
       trGrp.forEach(g2=>{
-        const rows=snapAt(g2.lg,g2.sp,g2.last);
+        const rows=snapAt(g2.base,g2.last);
         const i=rows.findIndex(r=>r._full===V.recentTeam);
         if(i<0)return;
-        trendPts.push({d:g2.d, lg:g2.lg, sp:g2.sp, opp:g2.opp, w:g2.w, l:g2.l,
+        trendPts.push({d:g2.d, lg:g2.lg, sp:g2.sp, base:g2.base, opp:g2.opp, w:g2.w, l:g2.l,
                        win:g2.w>g2.l, tie:g2.w===g2.l, sc:rows[i].評分, rk:i+1, n:rows.length,
                        // 樣本場數：換賽段時評分會「打掉重算」，前一兩個系列只有 1~3 場，
                        // 分數自然大起大落（使用者 2026-08-17 問「為何突然掉 50 分」）→ 放進 tooltip 供對照
@@ -11418,7 +11446,7 @@ function render(){
               <td><span style="display:inline-flex;align-items:center;gap:6px" title="${esc(s2.opp)}">${teamLogoHTML(tAb(s2.opp),22,true)}<b>${esc(tAb(s2.opp))}</b></span></td>
               <td class="num"><b>${s2.w}</b> - ${s2.l}</td>
               <td style="color:${w2?"#ff4d4d":s2.w===s2.l?"var(--tx2)":"#37c871"};font-weight:700">${s2.w===s2.l?(en2?"Tie":"和"):w2?(en2?"Win":"勝"):(en2?"Loss":"敗")}</td></tr>`;}).join("")}</tbody></table></div>
-        ${tgAll.length?`<div class="card"><h2>📈 ${en2?"Rating trend":"評分走勢"} <span class="sub">${en2?"one point per series — rating accumulated from Jan 1 to that series vs. every team in the database (no filters; lower group in that split = penalty) / rank among all teams":"每個系列賽一個點；評分＝年初累積到該場、對全資料庫戰隊、不吃篩選（該賽段身處低組別照扣分）；標籤＝當下評分／全庫名次"}${trSub?"・"+trSub:""}</span>
+        ${tgAll.length?`<div class="card"><h2>📈 ${en2?"Rating trend":"評分走勢"} <span class="sub">${en2?"one point per series — rating accumulated within that split up to that series (playoffs and internationals/cups held during the split are included; no filters) / rank among the home league's teams":"每個系列賽一個點；評分＝該賽段從頭累積到該場（季後賽＋該賽段期間的國際賽／盃賽一併算入，不吃篩選）；標籤＝當下評分／同賽區名次"}${trSub?"・"+trSub:""}</span>
           ${segHTML("rcTrRng",[["1m",en2?"Last month":"近一個月"],["yr",en2?"This year":"今年"]],TR_RNG,"sm","margin-left:auto")}</h2>
           ${trendPts.length?`<div style="height:270px"><canvas id="rcTrend"></canvas></div>`
             :`<span class="meta">${en2?"No games in this range.":"這個範圍內沒有比賽。"}</span>`}</div>`:""}
@@ -11488,7 +11516,8 @@ function render(){
           ctx.restore();
           // ② 分界虛線**只留常規賽段 S1／S2／S3**（2026-08-17 使用者指定：其他賽事的分界線拿掉）。
           //    這幾條正好就是評分打掉重算的地方——換賽段樣本歸零，前一兩個系列必定偏低。
-          const segOf=p=>{ const t=spDisp(p&&p.sp||""); return /^S\d$/.test(t)?t:""; };
+          //    分界依「歸屬賽段」（p.base：盃賽／國際賽已併入所屬賽段），線就落在評分真正重算的那一點前面。
+          const segOf=p=>{ const t=spDisp(p&&(p.base||p.sp)||""); return /^S\d$/.test(t)?t:""; };
           const done=new Set(); if(n&&segOf(trendPts[0]))done.add(segOf(trendPts[0]));
           ctx.save(); ctx.lineWidth=1; ctx.textAlign="left"; ctx.font=`11px ${ff}`;
           meta.data.forEach((pt,i)=>{ if(!i||pt==null)return;
@@ -11518,6 +11547,10 @@ function render(){
             ctx.font=`${F2}px ${ff}`; ctx.fillStyle="#8b98ad";
             ctx.fillText(`#${p.rk}/${p.n}`, q.x, pt.y-8); });
           ctx.restore(); }};
+        // 同一份輸入重建（例：積分 7 天檔延遲載入回來後整頁 rerender）→ 靜默重畫、不重播動畫（英雄趨勢圖同款 _quiet 規則）
+        const _rck=[V.recentTeam,TR_RNG,LANG,curYear,vcKey(),trendPts.length,trendPts[trendPts.length-1].d].join("|");
+        // 積分檔還沒載到＝馬上會再 rerender 一次：第一次也別跑動畫，否則動畫跑一半被砍掉＝畫面跳一下
+        const rcQuiet=(window._rcTrendKey===_rck)||(showSq&&!window.SOLOQ_RECENT); window._rcTrendKey=_rck;
         window._rcChart=new Chart(cv,{type:"line",plugins:[ptLabels],
           data:{labels,datasets:[{label:en2?"Rating":"評分",data:scs,
             // 換賽事/賽段**照樣連線**（2026-08-17 使用者指定）：斷開會看起來像圖壞掉；
@@ -11526,6 +11559,7 @@ function render(){
             pointRadius:trendPts.length>24?4:6,pointHoverRadius:8,pointBorderWidth:2,pointBorderColor:"#0b0e14",
             pointBackgroundColor:trendPts.map(p=>p.tie?"#8b98ad":p.win?WIN:LOSS)}]},
           options:{maintainAspectRatio:false,layout:{padding:{top:34,bottom:24}},   // bottom＝留給自己畫的勝敗那行
+            ...(rcQuiet?{animation:false}:{}),
             plugins:{legend:{display:false},tooltip:{callbacks:{
               title:it=>{const p=trendPts[it[0].dataIndex];
                 return `${p.d.slice(5,10)}　${lgName(p.lg)}${p.sp?" "+spDisp(p.sp):""}　vs ${p.opp}`;},
@@ -11533,7 +11567,7 @@ function render(){
                 return [`${en2?"Rating":"評分"} ${Math.round(p.sc*10)/10}`,
                         `${en2?"Rank":"名次"} #${p.rk} / ${p.n}`,
                         `${p.w}-${p.l}　${p.tie?(en2?"Tie":"和"):p.win?(en2?"Win":"勝"):(en2?"Loss":"敗")}`,
-                        `${en2?"Based on":"評分取樣"} ${p.sn}${en2?" games since Jan 1":" 場（年初起累計）"}`];}}}},
+                        `${en2?"Based on":"評分取樣"} ${p.sn}${en2?" games in this split (incl. playoffs & cups in range)":" 場（該賽段累計，含季後賽與期間盃賽）"}`];}}}},
             // includeBounds:false＝不要為了上下界硬補一條刻度（否則 30 與 40 會擠在一起變 10 分一條）
             scales:{y:{min:yLo,max:yHi,ticks:{stepSize:20,includeBounds:false},
                        title:{display:true,text:en2?"Rating":"評分"}},
@@ -15934,20 +15968,31 @@ if(LANG==="cn"){ try{
 }catch(e){} }
 // ---------- 閒置預熱（2026-08-17 使用者：開站／切年份可以久一點，但開始操作後要快）----------
 // 每個分頁第一次打開要現算 100~250ms（主要是建 DOM），之後靠 VIEW_CACHE 還原只要幾 ms。
-// 做法：資料就緒、畫面靜止 1.2 秒後，把延遲載入的資料檔全部拉齊，再一頁一頁在背景把各分頁畫一遍塞進 VIEW_CACHE：
-//   - 蓋一層「目前畫面的靜態複製」在 main 上（連 canvas 內容一起複製、內層 id 拿掉免得 getElementById 撿到複製品），
+// 做法：資料就緒後 1.5 秒、且使用者**完全靜止 ≥2 秒**才開工：把延遲載入的資料檔全部拉齊，再一頁一頁在背景把各分頁畫一遍塞進 VIEW_CACHE：
+//   - 蓋一層「目前畫面的靜態複製」在 main 上（連 canvas 內容一起複製；內層 id 要留、複製品插在真 main 後面），
 //     main 本身隱形＋鎖高度做背景繪製 → 使用者看到的畫面完全不動、頁面高度也不跳。
-//   - 任何輸入（滑鼠移動／按鍵／滾輪／觸控）立刻中止並還原，還原＝從 VIEW_CACHE 取回，只要幾 ms。
+//   - 任何輸入（滑鼠移動／按鍵／滾輪／觸控）立刻中止並還原，還原＝從 VIEW_CACHE 取回（幾 ms＋一次版面重排）；
+//     之後退避重試（3s×1.7^n，最多 6 次），使用者持續操作就不再打擾——背景每畫一頁要佔 100~300ms 主執行緒，
+//     操作中硬做反而讓切分頁變頓（2026-08-17 使用者回報過）。不靠 mouseleave 觸發。
 //   - 背景繪製期間 saveState／捲頂都跳過（window._warming）。篩選一變 vcInvalidate 會清掉快取，之後照舊現算。
+//   - 圖表：canvas 拿掉再放回，Chart.js 的 attach 過場已設 0ms（見 Chart.defaults.transitions.attach），不會重播動畫。
 const WARM_ORDER=["英雄","選手","戰隊","比賽BP","近況","積分","模擬BP","英雄Tier","圖鑑","陣容","總覽"];
-let _warmSeq=0, _warmTries=0;
+let _warmSeq=0, _warmTries=0, _lastAct=0;
+// 使用者最後一次輸入的時間：預熱只在「完全靜止 ≥2 秒」時開工。之前一被中止就 3 秒後再試、滑鼠離開內容區也觸發，
+// 使用者操作中背景一直在畫別的分頁（每頁 100~300ms 佔住主執行緒）＋每次動滑鼠就中止還原，
+// 反而讓切分頁／滑鼠都變頓（2026-08-17 使用者回報「切換分頁延遲變高」）。
+["pointermove","pointerdown","keydown","wheel","touchstart"].forEach(ev=>document.addEventListener(ev,()=>{_lastAct=performance.now();},{capture:true,passive:true}));
 function scheduleWarmup(delay,retry){
-  if(retry){ if(_warmTries>=12)return; _warmTries++; } else _warmTries=0;   // 被中止／滑鼠停在內容上就晚點再試（最多 12 次），開站／換年份重新計數
+  if(retry){ if(_warmTries>=6)return; _warmTries++; } else _warmTries=0;   // 被中止就退避重試（最多 6 次），開站／換年份重新計數
   const seq=++_warmSeq; window._warmAbort=true;               // 重新排程＝舊的作廢
   setTimeout(()=>{ if(seq!==_warmSeq)return; _runWarmup(seq); }, delay||1200);
 }
 function _runWarmup(seq){
   if(typeof D==="undefined"||!D||!GAMES.length||typeof render!=="function")return;
+  // 使用者還在動（2 秒內有輸入）→ 不開工，等靜下來再看一次（不耗重試次數；最多等 40 秒放棄，下次開站／換年份再來）
+  if(performance.now()-_lastAct<2000){ window._warmIdleWait=(window._warmIdleWait||0)+1; if(window._warmIdleWait>16)return;
+    setTimeout(()=>{ if(seq===_warmSeq)_runWarmup(seq); },2500); return; }
+  window._warmIdleWait=0;
   window._warmAbort=false;
   // 先把延遲載入的資料檔拉齊（ensureWiki／ensureBuilds 載完會清 VIEW_CACHE，一定要等它們做完才開始預熱）
   const pre=[];
@@ -15981,14 +16026,16 @@ function _warmViews(seq){
     document.removeEventListener("pointermove",abort,true); document.removeEventListener("pointerdown",abort,true);
     document.removeEventListener("keydown",abort,true); document.removeEventListener("wheel",abort,true); document.removeEventListener("touchstart",abort,true);
     window.removeEventListener("resize",abort);
-    try{ if(curView!==cur){curView=cur; render();} }catch(e){}   // 從 VIEW_CACHE 還原目前分頁（幾 ms）
+    // 從 VIEW_CACHE 還原目前分頁（幾 ms）。⚠ 一定要在 _warming 還是 true 時做：render 會把換頁捲頂／saveState 跳過
+    try{ if(curView!==cur){curView=cur; render();} }catch(e){}
     window._warming=false;
     if(savedStyle)main.setAttribute("style",savedStyle); else main.removeAttribute("style");
     cover.remove();
-    try{if(typeof refitLayout==="function")refitLayout();}catch(e){}
+    // render 的還原路徑自己已 refitLayout（寬度沒變）；這裡只補跟高度有關的兩樣（main 高度剛解鎖），不再整頁重排一次
+    try{if(window.fixZoomHeight)fixZoomHeight(); if(window.hsbUpdate)hsbUpdate();}catch(e){}
     if(seq===_warmSeq&&!window._warmAbort)_prefetchIcons();
   };
-  const abort=()=>{ window._warmAbort=true; finish(); scheduleWarmup(3000,true); };   // 使用者在動：先還原，靜下來再繼續補剩下的分頁
+  const abort=()=>{ window._warmAbort=true; finish(); scheduleWarmup(Math.min(20000,Math.round(3000*Math.pow(1.7,_warmTries))),true); };   // 使用者在動：先還原，退避後再補剩下的分頁
   window._warming=true;
   main.parentNode.insertBefore(cover,main.nextSibling);   // 放在真 main 之後（見上）
   {const r0=main.getBoundingClientRect(), r1=cover.getBoundingClientRect();   // offsetTop 是整數、實際位置可能差 0.25px → 對齊到同一個視覺位置，才不會整頁反鋸齒抖一下
@@ -16006,7 +16053,6 @@ function _warmViews(seq){
   };
   (window.requestIdleCallback||(f=>setTimeout(f,40)))(step,{timeout:800});
 }
-main.addEventListener("mouseleave",()=>{ if(_warmSeq&&_warmTries<12&&Object.keys(VIEW_CACHE.slots).length<8)scheduleWarmup(1200,true); });   // 滑鼠離開內容區＝補預熱的好時機
 // 本機小頭像先拉進瀏覽器快取（406KB）：第一次打開圖多的分頁不用等圖
 let _iconsPrefetched=false;
 function _prefetchIcons(){
