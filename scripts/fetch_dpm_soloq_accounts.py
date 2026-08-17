@@ -137,29 +137,70 @@ def fix_legacy_team_codes(acc, abbr, fullnames=None):
 
 
 def match_roster(abbr):
-    """比賽數據(data_2026.js)每位出場選手 → 我方隊縮寫。隊縮寫＝隊全名經 STATIC_TABBR 換算；取該選手最後一次出場的隊。回 {選手名: 隊縮寫}。"""
+    """比賽數據(data_2026.js)每位出場選手 → 我方隊縮寫。隊縮寫＝隊全名經 STATIC_TABBR 換算；取該選手**最後一次出場（依日期）**的隊。
+    ⚠ 2026-08-17 修：以前用「列的先後」當最近，但主資料不是嚴格照日期排（KeSPA 盃 12 月的列在檔尾、gol.gg 補檔在後面），
+       Flandre/fengyue/Jiwoo 會被指到早就離開的隊、Seany/Kati/RayFarky 被指到國家隊。改成比日期，
+       且**國家隊（(National Team)／KeSPA 國家隊）只在該選手今年沒打任何俱樂部時才算**。回 {選手名: 隊縮寫}。"""
     out = {}
     try:
         d0 = open(os.path.join(ROOT, "data", "data_2026.js"), encoding="utf-8", errors="replace").read()
         J = json.loads(re.sub(r";\s*$", "", re.search(r"window\.LOL_DATA\s*=\s*(\{.*)", d0, re.S).group(1)))
         raw = J["tabs"]["RAW_DATA"]; hdr = raw[0]; Cc = {h: i for i, h in enumerate(hdr)}
         bp, rp, pi = Cc.get("blue_playername"), Cc.get("red_playername"), Cc.get("participantid")
-        bt, rt = Cc.get("blue_teamname"), Cc.get("red_teamname")
+        bt, rt, di = Cc.get("blue_teamname"), Cc.get("red_teamname"), Cc.get("date")
+        best = {}   # 選手 → (是否俱樂部, 日期, 隊碼)：俱樂部優先、再比日期
         for r0 in raw[1:]:
             try:
                 if not (1 <= int(r0[pi]) <= 5):
                     continue
             except Exception:
                 continue
+            d = str(r0[di] or "")[:16] if (di is not None and di < len(r0)) else ""
             for pcol, tcol in ((bp, bt), (rp, rt)):
                 if pcol is None or tcol is None or pcol >= len(r0) or not r0[pcol]:
                     continue
-                full = r0[tcol] if (tcol is not None and tcol < len(r0)) else ""
-                ab = abbr.get(str(full).strip().lower(), "") or re.sub(r"[^A-Za-z0-9]", "", str(full))[:5].upper()
-                out[str(r0[pcol]).strip()] = ab   # 後出現覆蓋前面→自然取最近一隊
+                full = str(r0[tcol] if (tcol is not None and tcol < len(r0)) else "").strip()
+                ab = abbr.get(full.lower(), "") or re.sub(r"[^A-Za-z0-9]", "", full)[:5].upper()
+                club = 0 if re.search(r"national team|\(national\)|國家隊", full, re.I) else 1
+                k = str(r0[pcol]).strip()
+                cand = (club, d, ab)
+                if k not in best or cand > best[k]:
+                    best[k] = cand
+        out = {k: v[2] for k, v in best.items()}
     except Exception as e:
         print(f"（match_roster 失敗：{e}）", flush=True)
     return out
+
+
+def _rekey_files(mapping):
+    """轉隊後把逐場檔（soloq_matches/pN.js）內部宣告的 "舊隊|選手" 鍵改成新隊，否則索引裡變孤兒
+    （每日戰況同一人兩列、積分頁點不進去）。索引由檔案內部鍵重建，改鍵後跑 build_soloq_index 即可。"""
+    import glob, subprocess
+    outdir = os.path.join(ROOT, "soloq_matches")
+    n = 0
+    for fp in glob.glob(os.path.join(outdir, "p*.js")):
+        try:
+            with open(fp, encoding="utf-8") as f:
+                head = f.read(400)
+            m = re.match(r'window\.__sqLoad\((".*?"),', head, re.S)
+            if not m:
+                continue
+            key = json.loads(m.group(1))
+            if key not in mapping:
+                continue
+            body = open(fp, encoding="utf-8").read()
+            new_head = "window.__sqLoad(" + json.dumps(mapping[key], ensure_ascii=False) + ","
+            body = new_head + body[len(m.group(0)):]
+            open(fp, "w", encoding="utf-8").write(body)
+            n += 1
+            print(f"  逐場檔改鍵：{os.path.basename(fp)} {key} → {mapping[key]}", flush=True)
+        except Exception as e:
+            print(f"  （逐場檔改鍵失敗 {os.path.basename(fp)}：{e}）", flush=True)
+    if n:
+        try:
+            subprocess.run([sys.executable, os.path.join(HERE, "build_soloq_index.py")], check=False)
+        except Exception as e:
+            print(f"（索引重建失敗：{e}）", flush=True)
 
 
 def _launch(p):
@@ -215,6 +256,31 @@ def main():
             _ren[t0] = t1
     if _ren:
         print("  舊隊碼收斂：" + "、".join(f"{k}→{v}" for k, v in sorted(_ren.items())), flush=True)
+    # ── 轉隊跟著比賽資料走（2026-08-17 全面檢視發現 5 位：Ceos SR→PNG、Kaze/Rabelo RED→LOUD、Kaiwing VKS→GZ、Aria DFM→SHG）──
+    #    帳號檔只記「第一次抓到時的隊」，選手季中換隊後名單分組還是 (選手,舊隊)，dpm 也就一直用舊隊碼寫回；
+    #    積分頁的隊伍欄／賽區篩選都拿帳號檔的隊碼 → 顯示在舊隊底下＝抓錯隊。
+    #    規則：該選手在比賽資料裡「最後出賽的隊」≠帳號檔的隊 → 整批改到新隊；只在**同名選手全站唯一**時做
+    #    （同名不同人如 TL Morgan／BRION Morgan 各自有自己的隊，不動）。逐場檔的鍵在寫檔後一併改（見 _rekey_files）。
+    _mr0 = match_roster(ABBR)
+    _mr_ci = {}
+    for _pl, _ab in _mr0.items():
+        _mr_ci.setdefault(norm(_pl), set()).add(_ab)
+    _acc_teams = {}
+    for a in acc:
+        _acc_teams.setdefault(norm(a.get("player")), set()).add(str(a.get("team") or ""))
+    REKEY = {}   # "舊隊|選手" → "新隊|選手"（逐場檔改鍵用）
+    for a in acc:
+        n0 = norm(a.get("player")); t0 = str(a.get("team") or "")
+        cur = _mr_ci.get(n0)
+        if not cur or len(cur) != 1 or len(_acc_teams.get(n0, ())) != 1:
+            continue                                   # 今年沒出場／同名多隊／帳號檔同名多隊 → 不猜
+        t1 = next(iter(cur))
+        if not t1 or canon_team(t1) == canon_team(t0):
+            continue
+        a["team"] = t1
+        REKEY[t0 + "|" + a.get("player")] = t1 + "|" + a.get("player")
+    if REKEY:
+        print("  轉隊改隊碼：" + "、".join(f"{k}→{v.split('|')[0]}" for k, v in sorted(REKEY.items())), flush=True)
     # 名單＝現有 (player, team)（比賽數據出現過的）；記住既有帳號供 union / 保留
     roster = []
     seen_pt = set()
@@ -338,6 +404,7 @@ def main():
     new_acc = []
     replaced = added = kept = 0
     diff_lines = []
+    ORPHANS = []   # union 分支裡「dpm 有這位選手的檔、卻不含這隻帳號」的既有帳號 → 用 /v1/players/{puuid} 查 dpm 認為它是誰的
     for (pl, tm) in roster:
         existing = exist_by_pt.get((pl, tm), [])   # 探索新增的選手沒有既有帳號→空清單(union 分支會把 dpm 帳號整批補上)
         dpm_ents = dpm_by_pt.get((pl, tm), [])
@@ -350,19 +417,38 @@ def main():
                 diff_lines.append(f"  [換] {tm}|{pl}: {sorted(old_rids)} → {[e['riotId'] for e in use]}")
         else:
             dbr = {norm(e["riotId"]): e for e in dpm_ents}
+            dbp = {e["dpmPuuid"]: e for e in dpm_ents if e.get("dpmPuuid")}
             use = []
             for e in existing:                     # union：保留舊帳號，但同帳號若 dpm 也有→補上新的 dpmRank/dpmPuuid(舊帳號常缺)
+                e = dict(e)
                 de = dbr.get(norm(e["riotId"]))
+                dp = dbp.get(e.get("dpmPuuid") or "")
+                # ⚠ 2026-08-17 全面檢視：帳號檔可能存著「名字對、puuid 卻是另一隻」的錯配（DNS Clozer 的 Maldives#0727 掛著
+                #    舊帳號 인천물주먹 的 puuid → 逐場一直抓到 2025-10 就停、--missing 補回 0 場）。以前這裡只在缺 puuid 時才補，
+                #    錯配永遠不會被修。改成 **dpm 今天回報的 name↔puuid 為準**：
+                #    ① 我方 puuid 在 dpm 名下但名字不同 → 帳號改過名，riotId 回寫成 dpm 現名（舊名若 dpm 也另有一隻，下面會補進來）
+                #    ② 我方名字在 dpm 名下但 puuid 不同、且我方 puuid dpm 不認 → puuid 錯配，換成 dpm 的
+                #    ③ 名字／puuid dpm 都不認 → 留著（OBGG 才有的小號），但記下來給後面查歸屬（/v1/players/{puuid} 的 displayName）
+                if dp and norm(dp["riotId"]) != norm(e["riotId"]):
+                    diff_lines.append(f"  [改名] {tm}|{pl}: {e['riotId']} → {dp['riotId']}（同 puuid，dpm 現名）")
+                    e["riotId"] = dp["riotId"]; e["platform"] = dp.get("platform") or e.get("platform")
+                    de = dp
+                elif de and de.get("dpmPuuid") and e.get("dpmPuuid") and de["dpmPuuid"] != e["dpmPuuid"] and not dp:
+                    diff_lines.append(f"  [錯配] {tm}|{pl}: {e['riotId']} 的 puuid {e['dpmPuuid'][:10]}… ≠ dpm {de['dpmPuuid'][:10]}… → 換成 dpm 的")
+                    e["dpmPuuid"] = de["dpmPuuid"]
                 if de:
-                    e = dict(e)
                     e["dpmSeen"] = de.get("dpmSeen")   # dpm 今天仍回報這個名字 → 蓋新日期（沒有 de 就留舊日期，改名回寫的守門自然失效）
                     if de.get("dpmRank"):
                         e["dpmRank"] = de["dpmRank"]
                     if de.get("dpmPuuid") and not e.get("dpmPuuid"):
                         e["dpmPuuid"] = de["dpmPuuid"]
+                    e.pop("dpmOwner", None)
+                elif e.get("dpmPuuid") and dpm_ents:      # dpm 有這位選手的檔卻不含這隻帳號 → 之後查歸屬
+                    ORPHANS.append(e)
                 use.append(e)
-            seen = set(old_rids)
-            addl = [e for e in dpm_ents if norm(e["riotId"]) not in seen]
+            seen = {norm(e["riotId"]) for e in use}
+            seen_pu = {e.get("dpmPuuid") for e in use if e.get("dpmPuuid")}
+            addl = [e for e in dpm_ents if norm(e["riotId"]) not in seen and e.get("dpmPuuid") not in seen_pu]
             if addl:
                 use += addl; added += 1
                 diff_lines.append(f"  [補] {tm}|{pl}: +{[e['riotId'] for e in addl]}（保留 {len(existing)} 舊）")
@@ -391,6 +477,41 @@ def main():
                                   f"（留 {[byp[e['dpmPuuid']]['riotId'] for e in dropped]}）")
             use = list(byp.values()) + nopu
         new_acc.extend(use)
+
+    # ── 帳號歸屬複查（2026-08-17）：dpm 有這位選手的檔、卻不含這隻帳號 → 問 dpm 這個 puuid 是誰的
+    #    （/v1/players/{puuid} 回 displayName＝dpm 掛牌的職業選手名）。displayName 是**別的職業選手** → 就是張冠李戴
+    #    （OBGG／舊搜尋配錯），直接剔除；displayName 空（一般玩家帳號）或就是本人 → 留著。
+    if ORPHANS:
+        owner_of = {}
+        try:
+            with sync_playwright() as p2:
+                b2 = _launch(p2); pg2 = b2.new_page(user_agent=UA)
+                pg2.goto("https://dpm.lol/", wait_until="domcontentloaded")
+                if _warm(pg2):
+                    for e in ORPHANS:
+                        pu = e.get("dpmPuuid")
+                        if not pu or pu in owner_of:
+                            continue
+                        try:
+                            j = pg2.evaluate("async(u)=>{const r=await fetch(u);return r.ok?await r.json():null;}", "/v1/players/" + pu)
+                        except Exception:
+                            j = None
+                        owner_of[pu] = (j or {}).get("displayName") if isinstance(j, dict) else None
+                        time.sleep(0.25)
+                b2.close()
+        except Exception as _e:
+            print(f"（歸屬複查略過：{_e}）", flush=True)
+        bad_owner = []
+        for e in ORPHANS:
+            o = owner_of.get(e.get("dpmPuuid"))
+            if o and norm(o) != norm(e.get("player")) and norm(re.sub(r"\s*\(.*\)\s*$", "", e.get("player") or "")) != norm(o):
+                bad_owner.append((e, o))
+        if bad_owner:
+            _ids = {id(e) for e, _ in bad_owner}
+            new_acc = [e for e in new_acc if id(e) not in _ids]
+            for e, o in bad_owner:
+                diff_lines.append(f"  [歸屬] {e['team']}|{e['player']}: {e['riotId']} dpm 掛牌是「{o}」的帳號 → 剔除")
+        print(f"  歸屬複查：{len(ORPHANS)} 隻帳號 dpm 選手檔沒列 → 查到掛牌 {sum(1 for v in owner_of.values() if v)} 隻、其中別人的 {len(bad_owner)} 隻已剔除", flush=True)
 
     # ── 跨選手清理（2026-08-07 使用者定案）。上面的去重只在同一個 (選手,隊) 內做，
     #    抓錯人造成的「同一個帳號掛在兩位不同選手名下」它看不到。
@@ -456,6 +577,8 @@ def main():
     if apply:
         json.dump(acc, open(ACCOUNTS + ".bak", "w", encoding="utf-8"), ensure_ascii=False, indent=1)
     json.dump(new_acc, open(out, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
+    if apply and REKEY:
+        _rekey_files(REKEY)
     print(f"\n=== 變更摘要 ===", flush=True)
     print(f"  換帳號（dpm 主）: {replaced} 位｜補帳號（union）: {added} 位｜不變: {kept} 位", flush=True)
     print(f"  帳號總數：{len(acc)} → {len(new_acc)}", flush=True)

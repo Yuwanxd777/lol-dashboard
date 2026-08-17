@@ -312,7 +312,7 @@
   "dpmRank": {
    "tier": "GRANDMASTER",
    "rank": "I",
-   "lp": 1508
+   "lp": 1528
   }
  },
  {
@@ -360,7 +360,7 @@
   "dpmRank": {
    "tier": "GRANDMASTER",
    "rank": "I",
-   "lp": 1719
+   "lp": 1695
   }
  },
  {
@@ -426,7 +426,7 @@
   "dpmRank": {
    "tier": "MASTER",
    "rank": "I",
-   "lp": 1178
+   "lp": 1198
   }
  },
  {
@@ -676,13 +676,6 @@
   "player": "Jwei",
   "team": "WBG",
   "platform": "kr",
-  "riotId": "BJYBJY#0111",
-  "dpmPuuid": "ON5dbRw1CUmZztpJe-sALI8gk7UQOzDwwWAo6plgVJ9h4J-7IyeKWQnEPTQQbqE7X4IzvBKC0IkyJQ"
- },
- {
-  "player": "Jwei",
-  "team": "WBG",
-  "platform": "kr",
   "riotId": "haiyaoduojiu#1111",
   "dpmPuuid": "4ivDfhR4pNKzSJlpJYg0JgeRTGXA_Ojh0PAFnsO8I3y1iU6O5X6KV3OwB_9aSXPusBo7qQ0A7QSLeA",
   "dpmRank": null,
@@ -733,7 +726,7 @@
   "dpmRank": {
    "tier": "GRANDMASTER",
    "rank": "I",
-   "lp": 1708
+   "lp": 1687
   }
  },
  {
@@ -1217,7 +1210,7 @@
   "dpmRank": {
    "tier": "GRANDMASTER",
    "rank": "I",
-   "lp": 1722
+   "lp": 1721
   }
  },
  {
@@ -1259,7 +1252,7 @@
   "dpmRank": {
    "tier": "CHALLENGER",
    "rank": "I",
-   "lp": 2209
+   "lp": 2228
   }
  },
  {
@@ -1298,7 +1291,7 @@
   "dpmRank": {
    "tier": "CHALLENGER",
    "rank": "I",
-   "lp": 2477
+   "lp": 2491
   }
  },
  {
@@ -1439,7 +1432,7 @@
   "dpmRank": {
    "tier": "CHALLENGER",
    "rank": "I",
-   "lp": 2130
+   "lp": 2169
   }
  },
  {
@@ -1463,13 +1456,6 @@
    "rank": "I",
    "lp": 230
   }
- },
- {
-  "player": "Erha",
-  "team": "WE",
-  "platform": "kr",
-  "riotId": "25hdp#JDG",
-  "dpmPuuid": "OQ3IdJO3-FUsLAzVPymIiI-V4hBoZIuu8EfYNILvjBIHRG39k3gbaY5c0x-xH_0G9G6_MxCz3e7lOA"
  },
  {
   "player": "Erha",
@@ -1536,13 +1522,6 @@
   "player": "Care",
   "team": "NIP",
   "platform": "kr",
-  "riotId": "ice seven zero#0721",
-  "dpmPuuid": "yrEXXM4YZ-LUBquyGzzveU13t_hlCVhxbB1DDCzayCywdE03jAXy-0uLGs6Bn-rBaUiYJ75O1OzarQ"
- },
- {
-  "player": "Care",
-  "team": "NIP",
-  "platform": "kr",
   "riotId": "Yondaime#Luo",
   "dpmPuuid": "xGcJ0J3NuocUH3jeg_IckNJV2Odt9kM4qJJPA4fTOUsYdrnf0FtEenK1brDEbR3KDjiBXNZrIFQyPQ",
   "dpmRank": null,
@@ -1558,7 +1537,7 @@
   "dpmRank": {
    "tier": "CHALLENGER",
    "rank": "I",
-   "lp": 2185
+   "lp": 2204
   }
  },
  {
@@ -1584,7 +1563,7 @@
   "dpmRank": {
    "tier": "GRANDMASTER",
    "rank": "I",
-   "lp": 1495
+   "lp": 1474
   }
  },
  {
@@ -1665,7 +1644,7 @@
   "dpmRank": {
    "tier": "GRANDMASTER",
    "rank": "I",
-   "lp": 1565
+   "lp": 1543
   }
  },
  {
@@ -1726,7 +1705,7 @@
   "dpmRank": {
    "tier": "CHALLENGER",
    "rank": "I",
-   "lp": 2056
+   "lp": 2011
   }
  },
  {
@@ -1741,13 +1720,6 @@
    "rank": "I",
    "lp": 2101
   }
- },
- {
-  "player": "haichao",
-  "team": "OMG",
-  "platform": "kr",
-  "riotId": "luck dog#KR1",
-  "dpmPuuid": "wrL51FGQO531cYcYvI11IRcRotGtqYST80eG8TFkFHf6tWV8W01kl3iFSrIVBCEUAQhUNzTWhOWkpA"
  },
  {
   "player": "haichao",
@@ -2440,7 +2412,7 @@
   "player": "Diable",
   "team": "NS",
   "platform": "kr",
-  "riotId": "LSB Diable#KR1",
+  "riotId": "ad1top#CN1",
   "dpmPuuid": "WNAuZy8TZt3b91v0CIs3TphAz7AeTVSkg8ESoCh4zJFFo0TkzYLX3WY-5ujGrf8zqt-e4jiXI_AsKw",
   "dpmSeen": "2026-08-17",
   "dpmRank": {
@@ -2472,6 +2444,19 @@
    "tier": "MASTER",
    "rank": "I",
    "lp": 1206
+  },
+  "dpmSeen": "2026-08-17"
+ },
+ {
+  "player": "Diable",
+  "team": "NS",
+  "platform": "kr",
+  "riotId": "LSB Diable#KR1",
+  "dpmPuuid": "zRj4-6RIOzjasQX58dxe-O5pzCaxL7Uc9whZxbwcMX9bld1Qs1lUGHM35ayS3r6pB3jdcTJ9eAygUg",
+  "dpmRank": {
+   "tier": "DIAMOND",
+   "rank": "II",
+   "lp": 75
   },
   "dpmSeen": "2026-08-17"
  },
@@ -2655,7 +2640,7 @@
   "dpmRank": {
    "tier": "CHALLENGER",
    "rank": "I",
-   "lp": 2473
+   "lp": 2493
   }
  },
  {
@@ -2851,7 +2836,7 @@
   "player": "Clozer",
   "team": "DNS",
   "platform": "kr",
-  "riotId": "Maldives#0727",
+  "riotId": "인천물주먹#인천사람",
   "dpmPuuid": "gEpJAZ4CxMLBuxl-2xGX3d7HV_A6669WuJDKGV_EJpHrG_amPCAjUScezHhe2-PUZJT2CV6lsb2mxQ",
   "dpmSeen": "2026-08-17",
   "dpmRank": {
@@ -2859,6 +2844,19 @@
    "rank": "I",
    "lp": 2145
   }
+ },
+ {
+  "player": "Clozer",
+  "team": "DNS",
+  "platform": "kr",
+  "riotId": "Maldives#0727",
+  "dpmPuuid": "LHcKJIVlU650PTDfIAShWlwLNpJA8K9-_5DHlmn7sP3TG07nY253rDhnben4w9CmyqrztZQZy5eJfQ",
+  "dpmRank": {
+   "tier": "CHALLENGER",
+   "rank": "I",
+   "lp": 2145
+  },
+  "dpmSeen": "2026-08-17"
  },
  {
   "player": "Life",
@@ -2925,7 +2923,7 @@
   "player": "Vincenzo",
   "team": "KRX",
   "platform": "kr",
-  "riotId": "KRX Vincenzo#KR4",
+  "riotId": "meitianfankun#kr2",
   "dpmPuuid": "Cm74yHEWNLEssrDVmM14hwj1zie7rIha91CEXuHfbh0mtxDFS6HrMo5sIDxiM9WtzKfmd6lF7qNuCQ",
   "dpmSeen": "2026-08-17",
   "dpmRank": {
@@ -2933,6 +2931,19 @@
    "rank": "I",
    "lp": 2518
   }
+ },
+ {
+  "player": "Vincenzo",
+  "team": "KRX",
+  "platform": "kr",
+  "riotId": "KRX Vincenzo#KR4",
+  "dpmPuuid": "VWvbs4juZBeJOoTPRB8VOTASqI3sacITxaJWFxXusgpQ1QMHDeWqzXgn5ekbc7cdgKK53jClWmDJag",
+  "dpmRank": {
+   "tier": "CHALLENGER",
+   "rank": "I",
+   "lp": 2518
+  },
+  "dpmSeen": "2026-08-17"
  },
  {
   "player": "Frog",
@@ -2951,7 +2962,7 @@
   "player": "Andil",
   "team": "KRX",
   "platform": "kr",
-  "riotId": "KRX Joker#A i",
+  "riotId": "뭘 봐#kr07",
   "dpmPuuid": "QQ3VQ2RJfyYmUQ_qWKXx-8f51pLSD2k7kmfAhG7W-QTL2ZWybq7uog3sQmRMTiQ60W8lngxVOCbXsg",
   "dpmSeen": "2026-08-17",
   "dpmRank": {
@@ -2966,6 +2977,19 @@
   "platform": "kr",
   "riotId": "poibos#KR2",
   "dpmPuuid": "KkgJ2ChNb26CZZDfyqg0ZOVQHnUthespW_ynrAKzTvQdFwQM3BTFzteqROd-XLKEz1fgZhi1V-k5SA"
+ },
+ {
+  "player": "Andil",
+  "team": "KRX",
+  "platform": "kr",
+  "riotId": "KRX Joker#A i",
+  "dpmPuuid": "nc7GOKMfgFk3WTw1XwBky2AiUFPTW8EuvwP5tkGn3Gqv0Dy3jIpgmvU-0plw71aqr6YE43jWIxM5nQ",
+  "dpmRank": {
+   "tier": "CHALLENGER",
+   "rank": "I",
+   "lp": 2233
+  },
+  "dpmSeen": "2026-08-17"
  },
  {
   "player": "Willer",
@@ -3017,7 +3041,7 @@
   "player": "Taeyoon",
   "team": "BFX",
   "platform": "kr",
-  "riotId": "태 윤#BFX",
+  "riotId": "태 윤#0602",
   "dpmPuuid": "M9VvCnfxY2Ypxt_ayV52_U25pdPTgX32gRJc8CsiFq0LxXxHQFZrEk_nMbAHhb59zuyNkGHZyAYDZw",
   "dpmSeen": "2026-08-17",
   "dpmRank": {
@@ -3046,6 +3070,19 @@
   "riotId": "고수닭갈비#먹고싶다요",
   "dpmPuuid": "__VBVzOUzZCOTk4TV9yb6lXbDOlUmTUjiJw5FtqBA67fgZbHZQ6lxGAdATZsB9CSrRghuRxOyaSecA",
   "dpmRank": null,
+  "dpmSeen": "2026-08-17"
+ },
+ {
+  "player": "Taeyoon",
+  "team": "BFX",
+  "platform": "kr",
+  "riotId": "태 윤#BFX",
+  "dpmPuuid": "0HQ9RK2h74u5CtIHHg7sZqLt3GHRn68FO743Xc4Kqwt9jXNLql9SBN9cNQen1IqKkryt7gKkedVyeA",
+  "dpmRank": {
+   "tier": "GRANDMASTER",
+   "rank": "I",
+   "lp": 1565
+  },
   "dpmSeen": "2026-08-17"
  },
  {
@@ -3149,7 +3186,7 @@
   "dpmRank": {
    "tier": "CHALLENGER",
    "rank": "I",
-   "lp": 1956
+   "lp": 1936
   }
  },
  {
@@ -3310,7 +3347,7 @@
   "dpmRank": {
    "tier": "MASTER",
    "rank": "I",
-   "lp": 1208
+   "lp": 1227
   }
  },
  {
@@ -3436,7 +3473,7 @@
   "dpmRank": {
    "tier": "GRANDMASTER",
    "rank": "I",
-   "lp": 1798
+   "lp": 1744
   }
  },
  {
@@ -3481,7 +3518,7 @@
  },
  {
   "player": "Aria",
-  "team": "DFM",
+  "team": "SHG",
   "platform": "kr",
   "riotId": "뿡치타#0716",
   "dpmPuuid": "jsvJJIx-JtC-0jdi95zNJJeYXQmVjXR85oM7wio99PV5nlr1LJgcAuBYT0mul0c77uceqDRgNf7ULg",
@@ -3576,7 +3613,7 @@
   "dpmRank": {
    "tier": "CHALLENGER",
    "rank": "I",
-   "lp": 1660
+   "lp": 1693
   },
   "dpmSeen": "2026-08-17"
  },
@@ -3633,7 +3670,7 @@
   "dpmRank": {
    "tier": "CHALLENGER",
    "rank": "I",
-   "lp": 2784
+   "lp": 2860
   },
   "dpmSeen": "2026-08-17"
  },
@@ -3703,7 +3740,7 @@
   "dpmRank": {
    "tier": "CHALLENGER",
    "rank": "I",
-   "lp": 2180
+   "lp": 2208
   },
   "dpmSeen": "2026-08-17"
  },
@@ -3911,7 +3948,7 @@
   "dpmRank": {
    "tier": "MASTER",
    "rank": "I",
-   "lp": 763
+   "lp": 730
   },
   "dpmSeen": "2026-08-17"
  },
@@ -3957,19 +3994,6 @@
  {
   "player": "Callme",
   "team": "DSG",
-  "platform": "na1",
-  "riotId": "MIDKING#KKKKK",
-  "dpmPuuid": "xiMXu02AoW7xEcwOUmxA7RF7AGtbRvtTgM4U3GTpm0d6kwBjrHyQ7MOpx4igqBMlEQzz00FyV0-O5g",
-  "dpmRank": {
-   "tier": "CHALLENGER",
-   "rank": "I",
-   "lp": 2171
-  },
-  "dpmSeen": "2026-08-17"
- },
- {
-  "player": "Callme",
-  "team": "DSG",
   "platform": "kr",
   "riotId": "Dont Callme#0530",
   "dpmPuuid": "-XFDLR756ImWHYnbVUUrv79UBqm1ASEMszuaQRccklO3TiiUEoX2_tU1z70BJcGM8nZhDvkfgZAtIQ",
@@ -3983,8 +4007,21 @@
  {
   "player": "Callme",
   "team": "DSG",
+  "platform": "na1",
+  "riotId": "MIDKING#KKKKK",
+  "dpmPuuid": "xiMXu02AoW7xEcwOUmxA7RF7AGtbRvtTgM4U3GTpm0d6kwBjrHyQ7MOpx4igqBMlEQzz00FyV0-O5g",
+  "dpmRank": {
+   "tier": "CHALLENGER",
+   "rank": "I",
+   "lp": 2111
+  },
+  "dpmSeen": "2026-08-17"
+ },
+ {
+  "player": "Callme",
+  "team": "DSG",
   "platform": "euw1",
-  "riotId": "MID KING#kkkk",
+  "riotId": "MIDKING#kkkk",
   "dpmPuuid": "rZVYUBAKzjzsCt93baog8Hg_kY9xh1MizMO_g_pN4R4bs1H9S-TIBUxzT_V7EuzdG9J6k43z0ryCdA",
   "dpmRank": null,
   "dpmSeen": "2026-08-17"
@@ -4281,7 +4318,7 @@
   "dpmRank": {
    "tier": "MASTER",
    "rank": "I",
-   "lp": 418
+   "lp": 490
   },
   "dpmSeen": "2026-08-17"
  },
@@ -4557,18 +4594,18 @@
  {
   "player": "Vladi",
   "team": "FNC",
-  "platform": "kr",
-  "riotId": "Jjimdak#000",
-  "dpmPuuid": "TpfmZiHD_TdvbAQT4h_Q2gy--NFW82VW0jp90oBaPFxr11x2Vkfa9_paFiQM-T6JZYpZIf0CQvaLyw",
+  "platform": "euw1",
+  "riotId": "Vladi#000",
+  "dpmPuuid": "3j4lGwplOGfC5_Ew0t85BFQ1w27kiF-NDO_oOdPHlkCiPnSN0jStHomX0KjrqSdWOMEGQM8F6G1nTQ",
   "dpmRank": null,
   "dpmSeen": "2026-08-17"
  },
  {
   "player": "Vladi",
   "team": "FNC",
-  "platform": "euw1",
-  "riotId": "Vladi#000",
-  "dpmPuuid": "3j4lGwplOGfC5_Ew0t85BFQ1w27kiF-NDO_oOdPHlkCiPnSN0jStHomX0KjrqSdWOMEGQM8F6G1nTQ",
+  "platform": "kr",
+  "riotId": "Jjimdak#000",
+  "dpmPuuid": "TpfmZiHD_TdvbAQT4h_Q2gy--NFW82VW0jp90oBaPFxr11x2Vkfa9_paFiQM-T6JZYpZIf0CQvaLyw",
   "dpmRank": null,
   "dpmSeen": "2026-08-17"
  },
@@ -4858,7 +4895,7 @@
   "dpmRank": {
    "tier": "GRANDMASTER",
    "rank": "I",
-   "lp": 1847
+   "lp": 1879
   },
   "dpmSeen": "2026-08-17"
  },
@@ -5055,7 +5092,7 @@
   "dpmRank": {
    "tier": "GRANDMASTER",
    "rank": "I",
-   "lp": 1453
+   "lp": 1493
   },
   "dpmSeen": "2026-08-17"
  },
@@ -5094,7 +5131,7 @@
   "dpmRank": {
    "tier": "GRANDMASTER",
    "rank": "I",
-   "lp": 1744
+   "lp": 1734
   },
   "dpmSeen": "2026-08-17"
  },
@@ -5136,7 +5173,7 @@
   "dpmRank": {
    "tier": "CHALLENGER",
    "rank": "I",
-   "lp": 2054
+   "lp": 2034
   },
   "dpmSeen": "2026-08-17"
  },
@@ -5149,7 +5186,7 @@
   "dpmRank": {
    "tier": "MASTER",
    "rank": "I",
-   "lp": 1654
+   "lp": 1621
   },
   "dpmSeen": "2026-08-17"
  },
@@ -5162,7 +5199,7 @@
   "dpmRank": {
    "tier": "GRANDMASTER",
    "rank": "I",
-   "lp": 2296
+   "lp": 2262
   },
   "dpmSeen": "2026-08-17"
  },
@@ -5336,7 +5373,7 @@
   "dpmRank": {
    "tier": "CHALLENGER",
    "rank": "I",
-   "lp": 1965
+   "lp": 1944
   },
   "dpmSeen": "2026-08-17"
  },
@@ -5457,7 +5494,7 @@
   "player": "Busio",
   "team": "KC",
   "platform": "kr",
-  "riotId": "Mad Hatter#Hat",
+  "riotId": "MADHATTER#HAT",
   "dpmPuuid": "1Ag3GQ_SyWN-hAhhfCVNlEMzbJ2b3iyNycdnYT4ZbmCtfd9XWYfSF-rAiBEArTdJJB8i3KA9FaydGQ",
   "dpmRank": null,
   "dpmSeen": "2026-08-17"
@@ -5597,8 +5634,8 @@
   "player": "Canna",
   "team": "KC",
   "platform": "euw1",
-  "riotId": "K C#kcwin",
-  "dpmPuuid": "KDBoKLfarKkaqHSD9F72iHhcFIm3ZwzSrIALYowLLEgD61jGOGeRYNqQXJPmnjZEqkWCRKoePZ81eQ",
+  "riotId": "EJRKLJ0#0000",
+  "dpmPuuid": "EIauWANXTXgK48afrr54NdXUkQnGHe2yvUp6EZojceamf4U1Aaki05S1QrE5PiYq-KngK_3S4R-4SA",
   "dpmRank": null,
   "dpmSeen": "2026-08-17"
  },
@@ -5606,8 +5643,8 @@
   "player": "Canna",
   "team": "KC",
   "platform": "euw1",
-  "riotId": "EJRKLJ0#0000",
-  "dpmPuuid": "EIauWANXTXgK48afrr54NdXUkQnGHe2yvUp6EZojceamf4U1Aaki05S1QrE5PiYq-KngK_3S4R-4SA",
+  "riotId": "K C#kcwin",
+  "dpmPuuid": "KDBoKLfarKkaqHSD9F72iHhcFIm3ZwzSrIALYowLLEgD61jGOGeRYNqQXJPmnjZEqkWCRKoePZ81eQ",
   "dpmRank": null,
   "dpmSeen": "2026-08-17"
  },
@@ -5654,7 +5691,7 @@
   "player": "Yike",
   "team": "KC",
   "platform": "kr",
-  "riotId": "yik#yik",
+  "riotId": "YIK#YIK",
   "dpmPuuid": "8hZtnmanF-FtWwRkMskVKy5VTOmhAD-bhs2xakytgAhRooNnrfHFcg9a13JI0fvtG_mJFY55QVRnMQ",
   "dpmRank": null,
   "dpmSeen": "2026-08-17"
@@ -5712,7 +5749,7 @@
   "dpmRank": {
    "tier": "CHALLENGER",
    "rank": "I",
-   "lp": 2382
+   "lp": 2370
   },
   "dpmSeen": "2026-08-17"
  },
@@ -5777,7 +5814,7 @@
   "dpmRank": {
    "tier": "GRANDMASTER",
    "rank": "I",
-   "lp": 2195
+   "lp": 2222
   },
   "dpmSeen": "2026-08-17"
  },
@@ -5790,7 +5827,7 @@
   "dpmRank": {
    "tier": "GRANDMASTER",
    "rank": "I",
-   "lp": 2169
+   "lp": 2138
   },
   "dpmSeen": "2026-08-17"
  },
@@ -5832,7 +5869,7 @@
   "dpmRank": {
    "tier": "CHALLENGER",
    "rank": "I",
-   "lp": 2740
+   "lp": 2766
   },
   "dpmSeen": "2026-08-17"
  },
@@ -5854,7 +5891,7 @@
   "dpmRank": {
    "tier": "GRANDMASTER",
    "rank": "I",
-   "lp": 1352
+   "lp": 1489
   },
   "dpmSeen": "2026-08-17"
  },
@@ -6028,7 +6065,7 @@
   "dpmRank": {
    "tier": "GRANDMASTER",
    "rank": "I",
-   "lp": 1473
+   "lp": 1443
   },
   "dpmSeen": "2026-08-17"
  },
@@ -6324,7 +6361,7 @@
   "player": "Alvaro",
   "team": "MKOI",
   "platform": "na1",
-  "riotId": "Articuno#Sup",
+  "riotId": "Articuno#sup",
   "dpmPuuid": "ic9LycB-2ckH1tMCgsFcnL1iA8JgD5VqU-ChH1KTrm9P6A9q9zJqRDrED4QWyIXukGLBF3sIBSjjWg",
   "dpmRank": null,
   "dpmSeen": "2026-08-17"
@@ -6338,7 +6375,7 @@
   "dpmRank": {
    "tier": "GRANDMASTER",
    "rank": "I",
-   "lp": 1884
+   "lp": 1942
   },
   "dpmSeen": "2026-08-17"
  },
@@ -6360,7 +6397,7 @@
   "dpmRank": {
    "tier": "CHALLENGER",
    "rank": "I",
-   "lp": 2706
+   "lp": 2670
   },
   "dpmSeen": "2026-08-17"
  },
@@ -6721,8 +6758,8 @@
   "player": "Boal",
   "team": "PNG",
   "platform": "na1",
-  "riotId": "byakko#iszo",
-  "dpmPuuid": "VmliHCRSKvQxorsLcYVVv6PIn-3LvFxMQnM_GlyCvxkVRrbEASYh4Gk09akPwPIJiE4YMlmiWG0BVA",
+  "riotId": "guren no yumiya#eesik",
+  "dpmPuuid": "DTunDwb8OotKdyBok9Lom8QGTdpuohTPqOmdtOnahO0e4fksBVO3jnsbE_2FsZpJP5hj6ZFhcbtsWg",
   "dpmRank": null,
   "dpmSeen": "2026-08-17"
  },
@@ -6730,8 +6767,8 @@
   "player": "Boal",
   "team": "PNG",
   "platform": "na1",
-  "riotId": "guren no yumiya#eesik",
-  "dpmPuuid": "DTunDwb8OotKdyBok9Lom8QGTdpuohTPqOmdtOnahO0e4fksBVO3jnsbE_2FsZpJP5hj6ZFhcbtsWg",
+  "riotId": "byakko#iszo",
+  "dpmPuuid": "VmliHCRSKvQxorsLcYVVv6PIn-3LvFxMQnM_GlyCvxkVRrbEASYh4Gk09akPwPIJiE4YMlmiWG0BVA",
   "dpmRank": null,
   "dpmSeen": "2026-08-17"
  },
@@ -6801,7 +6838,7 @@
   "dpmRank": {
    "tier": "CHALLENGER",
    "rank": "I",
-   "lp": 2037
+   "lp": 2047
   },
   "dpmSeen": "2026-08-17"
  },
@@ -6911,7 +6948,7 @@
   "dpmRank": {
    "tier": "CHALLENGER",
    "rank": "I",
-   "lp": 3356
+   "lp": 3377
   },
   "dpmSeen": "2026-08-17"
  },
@@ -6950,7 +6987,7 @@
   "dpmRank": {
    "tier": "CHALLENGER",
    "rank": "I",
-   "lp": 2840
+   "lp": 2869
   },
   "dpmSeen": "2026-08-17"
  },
@@ -7111,7 +7148,7 @@
   "dpmRank": {
    "tier": "GRANDMASTER",
    "rank": "I",
-   "lp": 2204
+   "lp": 2230
   },
   "dpmSeen": "2026-08-17"
  },
@@ -7155,7 +7192,7 @@
   "dpmRank": {
    "tier": "GRANDMASTER",
    "rank": "I",
-   "lp": 2099
+   "lp": 2128
   },
   "dpmSeen": "2026-08-17"
  },
@@ -7181,7 +7218,7 @@
   "dpmRank": {
    "tier": "MASTER",
    "rank": "I",
-   "lp": 1619
+   "lp": 1648
   },
   "dpmSeen": "2026-08-17"
  },
@@ -7207,7 +7244,7 @@
   "dpmRank": {
    "tier": "GRANDMASTER",
    "rank": "I",
-   "lp": 2068
+   "lp": 2122
   },
   "dpmSeen": "2026-08-17"
  },
@@ -7273,7 +7310,7 @@
   "dpmRank": {
    "tier": "MASTER",
    "rank": "I",
-   "lp": 130
+   "lp": 250
   },
   "dpmSeen": "2026-08-17"
  },
@@ -7572,7 +7609,7 @@
   "dpmRank": {
    "tier": "GRANDMASTER",
    "rank": "I",
-   "lp": 1190
+   "lp": 1115
   },
   "dpmSeen": "2026-08-17"
  },
@@ -7790,7 +7827,7 @@
   "dpmRank": {
    "tier": "GRANDMASTER",
    "rank": "I",
-   "lp": 1206
+   "lp": 1236
   },
   "dpmSeen": "2026-08-17"
  },
@@ -7873,7 +7910,7 @@
   "player": "Josedeodo",
   "team": "TL",
   "platform": "kr",
-  "riotId": "josedeodo#2929",
+  "riotId": "Josedeodo#2929",
   "dpmPuuid": "HNwyDhTmGuVViZHqVXrqoUrQ9V8AgFDnJDz8QWJq0LJSZZ4PAzutGQy6vmyC51icXA6N8eM1QS3acg",
   "dpmRank": null,
   "dpmSeen": "2026-08-17"
@@ -7905,7 +7942,7 @@
   "dpmRank": {
    "tier": "MASTER",
    "rank": "I",
-   "lp": 320
+   "lp": 355
   },
   "dpmSeen": "2026-08-17"
  },
@@ -8041,7 +8078,7 @@
   "dpmRank": {
    "tier": "GRANDMASTER",
    "rank": "I",
-   "lp": 1762
+   "lp": 1819
   },
   "dpmSeen": "2026-08-17"
  },
@@ -8171,7 +8208,7 @@
   "player": "Disamis",
   "team": "VKS",
   "platform": "br1",
-  "riotId": "gurincriveI#br1",
+  "riotId": "gurincriveI#BR1",
   "dpmPuuid": "tNe3-XoOQ3nhG9FZwTtz1wW61BmEpSWYdfaOyt10_usdsJinRC_gfd9aoOsDhl3zFsxDT6oW6JPR4Q",
   "dpmRank": {
    "tier": "CHALLENGER",
@@ -8189,7 +8226,7 @@
   "dpmRank": {
    "tier": "MASTER",
    "rank": "I",
-   "lp": 511
+   "lp": 436
   },
   "dpmSeen": "2026-08-17"
  },
@@ -8197,7 +8234,7 @@
   "player": "Disamis",
   "team": "VKS",
   "platform": "br1",
-  "riotId": "Tar2an#br1",
+  "riotId": "Tar2an#BR1",
   "dpmPuuid": "9n23zXLF8uaFadgHR0YtGr70knjB14FDkw9rYX1y6yRwc4QWeirYnvoRjrVHUYYUyAvlbaw3unRC7g",
   "dpmRank": {
    "tier": "EMERALD",
@@ -8364,7 +8401,7 @@
   "dpmRank": {
    "tier": "CHALLENGER",
    "rank": "I",
-   "lp": 1862
+   "lp": 1866
   },
   "dpmSeen": "2026-08-17"
  },
@@ -8481,7 +8518,7 @@
   "dpmRank": {
    "tier": "CHALLENGER",
    "rank": "I",
-   "lp": 1892
+   "lp": 1932
   },
   "dpmSeen": "2026-08-17"
  },
@@ -8729,7 +8766,7 @@
   "dpmRank": {
    "tier": "GRANDMASTER",
    "rank": "I",
-   "lp": 1386
+   "lp": 1361
   },
   "dpmSeen": "2026-08-17"
  },
@@ -8798,7 +8835,7 @@
   "player": "Baus",
   "team": "LR",
   "platform": "euw1",
-  "riotId": "Streaming Badboy#INT",
+  "riotId": "e7c3c0fd-cee3-4399-877b-baf89c9f6f46#EUW",
   "dpmPuuid": "tjcqXCAgQqejjpiDcg4dJUqOJvhe2i91VdM5N4p7AviHIm3sKdBbf8sqhgYKpH4JS4CDxRUqnxCyPA",
   "dpmRank": {
    "tier": "DIAMOND",
@@ -8814,6 +8851,19 @@
   "riotId": "Dangerous Dork#Lick",
   "dpmPuuid": "ZpCgyG3mpPRpI00iw7xGS-ofTTzV6jwfLbXMfLOtS4y292KfKK6HxcHS9oi-48JCNA-FtphyAFIX-w",
   "dpmRank": null,
+  "dpmSeen": "2026-08-17"
+ },
+ {
+  "player": "Baus",
+  "team": "LR",
+  "platform": "euw1",
+  "riotId": "Streaming Badboy#INT",
+  "dpmPuuid": "zk2zQnvgnQ3vJKHT_5yHcR7fHHUwzwjGAzkxC16VU5GCN-ZbSojgTXDQewduckyWnZuStLrUbEZ40w",
+  "dpmRank": {
+   "tier": "DIAMOND",
+   "rank": "II",
+   "lp": 75
+  },
   "dpmSeen": "2026-08-17"
  },
  {
@@ -9007,6 +9057,15 @@
   "player": "Lospa",
   "team": "FNC",
   "platform": "euw1",
+  "riotId": "FUT Lospa#FUT",
+  "dpmPuuid": "zgN1XchIIXPoAc43Yp5aKfdDNCKPE4vJi9X_QGeiSY338innQroKu7Az7WfOleHwAkidsDVVgE7z5w",
+  "dpmRank": null,
+  "dpmSeen": "2026-08-17"
+ },
+ {
+  "player": "Lospa",
+  "team": "FNC",
+  "platform": "euw1",
   "riotId": "Honey Bee#pivel",
   "dpmPuuid": "13Q_AHJocOqV-j2iogqdqV-iE_xWCojKT8YkeyqedYfS81ku4BB_63vV86fXKRE8FhmJcOTWrJoD3g",
   "dpmRank": {
@@ -9014,15 +9073,6 @@
    "rank": "II",
    "lp": 75
   },
-  "dpmSeen": "2026-08-17"
- },
- {
-  "player": "Lospa",
-  "team": "FNC",
-  "platform": "euw1",
-  "riotId": "FUT Lospa#FUT",
-  "dpmPuuid": "zgN1XchIIXPoAc43Yp5aKfdDNCKPE4vJi9X_QGeiSY338innQroKu7Az7WfOleHwAkidsDVVgE7z5w",
-  "dpmRank": null,
   "dpmSeen": "2026-08-17"
  },
  {
@@ -9545,6 +9595,15 @@
  {
   "player": "Jojopyun",
   "team": "MKOI",
+  "platform": "euw1",
+  "riotId": "2001 05 09#2001",
+  "dpmPuuid": "qo84bTEkq6DjVwcD3VKDFeldlPVZZAa3J8lb_VEVScZIg3sxMW21ebxTHokPuWYCALhh24ml5zbWiw",
+  "dpmRank": null,
+  "dpmSeen": "2026-08-17"
+ },
+ {
+  "player": "Jojopyun",
+  "team": "MKOI",
   "platform": "na1",
   "riotId": "KOIIIIIIIII#1234",
   "dpmPuuid": "CHsnW2N31rI7-PdvTpkCPL_K39B-i90ZBeVTnLR6K5h6sBdJ8u2qskCYlDCj0DYvnxtTyTzHdnvOYQ",
@@ -9562,15 +9621,6 @@
    "rank": "I",
    "lp": 75
   },
-  "dpmSeen": "2026-08-17"
- },
- {
-  "player": "Jojopyun",
-  "team": "MKOI",
-  "platform": "euw1",
-  "riotId": "2001 05 09#2001",
-  "dpmPuuid": "qo84bTEkq6DjVwcD3VKDFeldlPVZZAa3J8lb_VEVScZIg3sxMW21ebxTHokPuWYCALhh24ml5zbWiw",
-  "dpmRank": null,
   "dpmSeen": "2026-08-17"
  },
  {
@@ -9768,20 +9818,20 @@
  },
  {
   "player": "Ceos",
-  "team": "SR",
+  "team": "PNG",
   "platform": "br1",
   "riotId": "Ceos#9035",
   "dpmPuuid": "oB7BayZ_2Rz2dZJJ4pWPlhZnyO3JpUuUJAudsYdNGmCltP8pLm7ndQ3otcpLvubejzOn7BryaHGrfw",
   "dpmRank": {
    "tier": "MASTER",
    "rank": "I",
-   "lp": 186
+   "lp": 111
   },
   "dpmSeen": "2026-08-17"
  },
  {
   "player": "Ceos",
-  "team": "SR",
+  "team": "PNG",
   "platform": "na1",
   "riotId": "Ceos#SRE",
   "dpmPuuid": "YvWNwR5tipV4Q9U5irp1HVAOfNWZr7AKjjHuypv1oC-iW2f2hQtHe2dYg9tmntEsubqKbvEQP_w1PQ",
@@ -9794,7 +9844,7 @@
  },
  {
   "player": "Ceos",
-  "team": "SR",
+  "team": "PNG",
   "platform": "kr",
   "riotId": "Ceos#2025",
   "dpmPuuid": "Ox6bmGiktiO4ibT7_knKKN2XELW3Wi48stKCyYSHh3zblRPEABf2IbR0arrdXU66DNGEogPKJCnLmw",
@@ -9888,7 +9938,7 @@
   "player": "Mireu",
   "team": "VKS",
   "platform": "na1",
-  "riotId": "Kimchi Warrior#0325",
+  "riotId": "kimchi warrior#0325",
   "dpmPuuid": "gIs8Q65lf7DIX8gCc2sS-2QaLJM8XTI7JngtZGC4ai8H_V3hiE_-HvF2PC1cRGCOUYEqLgJt-eUFXA",
   "dpmRank": null,
   "dpmSeen": "2026-08-17"
@@ -9960,7 +10010,7 @@
  },
  {
   "player": "Kaiwing",
-  "team": "VKS",
+  "team": "GZ",
   "platform": "br1",
   "riotId": "Celestial Being1#001",
   "dpmPuuid": "ertgwD1vq2aTmWu-sVt77xPVaFBRwY3XUMNfB84v_Ju-ztRilZemp0mnuT1Uj97KmECYEMNuui0Fvw",
@@ -9973,7 +10023,7 @@
  },
  {
   "player": "Kaiwing",
-  "team": "VKS",
+  "team": "GZ",
   "platform": "kr",
   "riotId": "ersopf#KR1",
   "dpmPuuid": "gZCsH7rllmEo9bOuVJvNj7E-OvgY6vmJKf4iMMsIW3ibYWpR9WEhK0Xof2VdJhYuu49XsrU-StvS9Q",
@@ -9986,7 +10036,7 @@
  },
  {
   "player": "Kaiwing",
-  "team": "VKS",
+  "team": "GZ",
   "platform": "br1",
   "riotId": "H2OMan#55699",
   "dpmPuuid": "7KroKut1B2845QV_PcQqYDSTBBaFCgWQ1bL5q8hFOWBdBZ6P4PuqMqJoJ44sT_8VGWeh8ZXDNF-ydg",
@@ -10006,7 +10056,7 @@
   "dpmRank": {
    "tier": "MASTER",
    "rank": "I",
-   "lp": 720
+   "lp": 645
   },
   "dpmSeen": "2026-08-17"
  },
@@ -10086,7 +10136,7 @@
  },
  {
   "player": "Kaze",
-  "team": "RED",
+  "team": "LOUD",
   "platform": "br1",
   "riotId": "GOOD GAME GG XD#0404",
   "dpmPuuid": "f2QlGq9dBNRoYBWEdVlj0v0uhqp-Sn6qnpyC__Kd37FbUxDBGGqi1F-EHCpnCcWI86RGs8eNeQSWig",
@@ -10099,7 +10149,7 @@
  },
  {
   "player": "Kaze",
-  "team": "RED",
+  "team": "LOUD",
   "platform": "br1",
   "riotId": "KAZE#XXDD",
   "dpmPuuid": "vOIFl5dAueGkQaJAOjOmYTnTm-gzD9tet1XXG5jOz7wMG9_x50-S9Z5DemlyT_wtjHbtWjDAqpCU-A",
@@ -10125,7 +10175,7 @@
  },
  {
   "player": "Rabelo",
-  "team": "RED",
+  "team": "LOUD",
   "platform": "br1",
   "riotId": "dr bonifacio#fiel",
   "dpmPuuid": "mfPVdleuWS99pxDAEsPY4usT12RxPAOsu5hHv60kX8M6ZCAvRodV9jtGHLoBnNjJQt9JTtMitGwTgA",
@@ -10138,7 +10188,7 @@
  },
  {
   "player": "Rabelo",
-  "team": "RED",
+  "team": "LOUD",
   "platform": "br1",
   "riotId": "LOUD Rabelo#LYM",
   "dpmPuuid": "v5ZD1fAs1bAeff7YmGyzEiHA6BhK6CmHsWpVhpNGTW_B3mlIVSSGrvpYNTk62mzCtAD27IcmxwKy1g",
@@ -10151,7 +10201,7 @@
  },
  {
   "player": "Rabelo",
-  "team": "RED",
+  "team": "LOUD",
   "platform": "br1",
   "riotId": "rabeloko#RED",
   "dpmPuuid": "JuH2Ra1ClBMSy3BcoHFGlvY5Rqa1GaP223XiM9JNW6mNC1XDLrCksAFQYV6W2E1VAXr8sVrAY7XmIg",
@@ -10188,7 +10238,7 @@
   "player": "BAO",
   "team": "FX",
   "platform": "euw1",
-  "riotId": "Bao#317",
+  "riotId": "BAO#317",
   "dpmPuuid": "SxTsCzKbl6LkERacmN6uDrER4JmNumVwMeCC9bNvi2IpSEzscfs33oSBG5NXHiQIAgrY1YM9oNOwZQ",
   "dpmRank": null,
   "dpmSeen": "2026-08-17"
@@ -10211,7 +10261,7 @@
   "dpmRank": {
    "tier": "GRANDMASTER",
    "rank": "I",
-   "lp": 1447
+   "lp": 1480
   },
   "dpmSeen": "2026-08-17"
  },
@@ -10237,7 +10287,7 @@
   "dpmRank": {
    "tier": "GRANDMASTER",
    "rank": "I",
-   "lp": 1699
+   "lp": 1731
   },
   "dpmSeen": "2026-08-17"
  },
@@ -10276,7 +10326,7 @@
   "dpmRank": {
    "tier": "CHALLENGER",
    "rank": "I",
-   "lp": 2961
+   "lp": 2988
   },
   "dpmSeen": "2026-08-17"
  },
@@ -10320,7 +10370,7 @@
   "dpmRank": {
    "tier": "GRANDMASTER",
    "rank": "I",
-   "lp": 1573
+   "lp": 1613
   },
   "dpmSeen": "2026-08-17"
  },
@@ -10456,7 +10506,7 @@
   "dpmRank": {
    "tier": "CHALLENGER",
    "rank": "I",
-   "lp": 3362
+   "lp": 3357
   },
   "dpmSeen": "2026-08-17"
  },
@@ -10560,12 +10610,12 @@
   "player": "Qats",
   "team": "VKS",
   "platform": "br1",
-  "riotId": "FICA DE QATAO#1004",
-  "dpmPuuid": "CvYqt2Rm3aLuA5OeqAo3JMcCaNWASRDTlPHMHyH4BJNFyYsnn5J77iYm_VG2ilLSEvML_eZXWSZzNA",
+  "riotId": "Qats#BR2",
+  "dpmPuuid": "x4PaZZ4SJWvVnckJW90J6cNq5lyQi7iL43i-HFXHJZbaXyCwf4CIFRV5cLyvqrM4Y4f__ykNg5cfOw",
   "dpmRank": {
-   "tier": "GRANDMASTER",
+   "tier": "CHALLENGER",
    "rank": "I",
-   "lp": 1896
+   "lp": 2579
   },
   "dpmSeen": "2026-08-17"
  },
@@ -10573,12 +10623,12 @@
   "player": "Qats",
   "team": "VKS",
   "platform": "br1",
-  "riotId": "Qats#BR2",
-  "dpmPuuid": "x4PaZZ4SJWvVnckJW90J6cNq5lyQi7iL43i-HFXHJZbaXyCwf4CIFRV5cLyvqrM4Y4f__ykNg5cfOw",
+  "riotId": "FICA DE QATAO#1004",
+  "dpmPuuid": "CvYqt2Rm3aLuA5OeqAo3JMcCaNWASRDTlPHMHyH4BJNFyYsnn5J77iYm_VG2ilLSEvML_eZXWSZzNA",
   "dpmRank": {
-   "tier": "CHALLENGER",
+   "tier": "GRANDMASTER",
    "rank": "I",
-   "lp": 2524
+   "lp": 1896
   },
   "dpmSeen": "2026-08-17"
  },
@@ -10674,12 +10724,12 @@
   "player": "Samkz",
   "team": "PNG",
   "platform": "br1",
-  "riotId": "Samkz#KZ002",
-  "dpmPuuid": "vOXCC69NwZH1udvC43PxvUMBRw9sbKSvxnn0q197F4pbK26zmJhe6BjeEAHnit4OYb86QodyfOdT9w",
+  "riotId": "Samkz#kz01",
+  "dpmPuuid": "2n93mvflSTxTVCfAYjYHBYe9xORevUBtnRE5qKtZzUzcobx2KJrQTV3NxAHSTZ-G5PlGfzRkWnfZvQ",
   "dpmRank": {
    "tier": "GRANDMASTER",
    "rank": "I",
-   "lp": 2019
+   "lp": 1847
   },
   "dpmSeen": "2026-08-17"
  },
@@ -10687,12 +10737,12 @@
   "player": "Samkz",
   "team": "PNG",
   "platform": "br1",
-  "riotId": "Samkz#kz01",
-  "dpmPuuid": "2n93mvflSTxTVCfAYjYHBYe9xORevUBtnRE5qKtZzUzcobx2KJrQTV3NxAHSTZ-G5PlGfzRkWnfZvQ",
+  "riotId": "Samkz#KZ002",
+  "dpmPuuid": "vOXCC69NwZH1udvC43PxvUMBRw9sbKSvxnn0q197F4pbK26zmJhe6BjeEAHnit4OYb86QodyfOdT9w",
   "dpmRank": {
-   "tier": "GRANDMASTER",
+   "tier": "CHALLENGER",
    "rank": "I",
-   "lp": 1763
+   "lp": 2077
   },
   "dpmSeen": "2026-08-17"
  },
@@ -10786,7 +10836,7 @@
   "riotId": "momomomomomomomo#omom",
   "dpmPuuid": "6Zqd7hA9D1txRVixczdDyqbXmGaCQ5yJgE5BtrKuF8onJ2NOw8rwOMJ1wl0gRIFETaQkrdnZCEohIA",
   "dpmRank": {
-   "tier": "CHALLENGER",
+   "tier": "GRANDMASTER",
    "rank": "I",
    "lp": 1931
   },
@@ -10840,7 +10890,7 @@
   "dpmRank": {
    "tier": "DIAMOND",
    "rank": "I",
-   "lp": 5
+   "lp": 85
   },
   "dpmSeen": "2026-08-17"
  },
@@ -11184,7 +11234,7 @@
   "dpmRank": {
    "tier": "GRANDMASTER",
    "rank": "I",
-   "lp": 1236
+   "lp": 1332
   },
   "dpmSeen": "2026-08-17"
  },
@@ -11262,7 +11312,7 @@
   "dpmRank": {
    "tier": "MASTER",
    "rank": "I",
-   "lp": 95
+   "lp": 220
   },
   "dpmSeen": "2026-08-17"
  },
@@ -11327,7 +11377,7 @@
   "dpmRank": {
    "tier": "MASTER",
    "rank": "I",
-   "lp": 995
+   "lp": 1037
   },
   "dpmSeen": "2026-08-17"
  },
@@ -11571,7 +11621,7 @@
   "dpmRank": {
    "tier": "GRANDMASTER",
    "rank": "I",
-   "lp": 1582
+   "lp": 1567
   },
   "dpmSeen": "2026-08-17"
  },
@@ -11623,7 +11673,7 @@
   "dpmRank": {
    "tier": "CHALLENGER",
    "rank": "I",
-   "lp": 1948
+   "lp": 2024
   },
   "dpmSeen": "2026-08-17"
  },
@@ -11649,7 +11699,7 @@
   "dpmRank": {
    "tier": "GRANDMASTER",
    "rank": "I",
-   "lp": 1670
+   "lp": 1650
   },
   "dpmSeen": "2026-08-17"
  },
@@ -11675,7 +11725,7 @@
   "dpmRank": {
    "tier": "GRANDMASTER",
    "rank": "I",
-   "lp": 1643
+   "lp": 1601
   },
   "dpmSeen": "2026-08-17"
  },
@@ -11701,7 +11751,7 @@
   "dpmRank": {
    "tier": "CHALLENGER",
    "rank": "I",
-   "lp": 2049
+   "lp": 2029
   },
   "dpmSeen": "2026-08-17"
  },
@@ -11818,7 +11868,7 @@
   "dpmRank": {
    "tier": "GRANDMASTER",
    "rank": "I",
-   "lp": 1354
+   "lp": 1440
   },
   "dpmSeen": "2026-08-17"
  },
@@ -11997,7 +12047,7 @@
   "dpmRank": {
    "tier": "MASTER",
    "rank": "I",
-   "lp": 818
+   "lp": 876
   },
   "dpmSeen": "2026-08-17"
  },
@@ -12010,7 +12060,7 @@
   "dpmRank": {
    "tier": "GRANDMASTER",
    "rank": "I",
-   "lp": 1741
+   "lp": 1735
   },
   "dpmSeen": "2026-08-17"
  },
@@ -12036,7 +12086,7 @@
   "dpmRank": {
    "tier": "GRANDMASTER",
    "rank": "I",
-   "lp": 1460
+   "lp": 1511
   },
   "dpmSeen": "2026-08-17"
  },
@@ -12049,7 +12099,7 @@
   "dpmRank": {
    "tier": "GRANDMASTER",
    "rank": "I",
-   "lp": 1494
+   "lp": 1493
   },
   "dpmSeen": "2026-08-17"
  },
@@ -12062,7 +12112,7 @@
   "dpmRank": {
    "tier": "MASTER",
    "rank": "I",
-   "lp": 615
+   "lp": 635
   },
   "dpmSeen": "2026-08-17"
  },
@@ -12127,7 +12177,7 @@
   "dpmRank": {
    "tier": "CHALLENGER",
    "rank": "I",
-   "lp": 2658
+   "lp": 2686
   },
   "dpmSeen": "2026-08-17"
  },
@@ -12162,7 +12212,7 @@
   "dpmRank": {
    "tier": "MASTER",
    "rank": "I",
-   "lp": 1261
+   "lp": 1240
   },
   "dpmSeen": "2026-08-17"
  },
@@ -12232,7 +12282,7 @@
   "dpmRank": {
    "tier": "GRANDMASTER",
    "rank": "I",
-   "lp": 1593
+   "lp": 1631
   },
   "dpmSeen": "2026-08-17"
  },
@@ -12280,7 +12330,7 @@
   "dpmRank": {
    "tier": "CHALLENGER",
    "rank": "I",
-   "lp": 2206
+   "lp": 2225
   },
   "dpmSeen": "2026-08-17"
  },
@@ -12293,7 +12343,7 @@
   "dpmRank": {
    "tier": "CHALLENGER",
    "rank": "I",
-   "lp": 2230
+   "lp": 2184
   },
   "dpmSeen": "2026-08-17"
  },
@@ -12306,7 +12356,7 @@
   "dpmRank": {
    "tier": "CHALLENGER",
    "rank": "I",
-   "lp": 2451
+   "lp": 2407
   },
   "dpmSeen": "2026-08-17"
  },
@@ -12319,7 +12369,7 @@
   "dpmRank": {
    "tier": "GRANDMASTER",
    "rank": "I",
-   "lp": 1464
+   "lp": 1442
   },
   "dpmSeen": "2026-08-17"
  },
