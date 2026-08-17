@@ -1209,6 +1209,8 @@ def parse_new(html_text):
     for _hid, _t, _s0, _s1 in _iter_sections(html_text):
         if _s0 < b and _s1 > a:
             continue                                    # 與主英雄段重疊＝已經解析過
+        if NOT_BREAK_RE.search(_t):
+            continue                                    # 「建議符文」這種推薦頁面更新（24.12 逐英雄列符文組合）不是改動
         for k, ls in _champ_blocks(_cut_stop(html_text[_s0:_s1], resume_dated=bool(MIDPATCH_RE.search(_t)))).items():
             cur = out.get(k) or []
             out[k] = cur + [x for x in ls if x not in cur]
@@ -1249,6 +1251,7 @@ def _champ_blocks(seg, spans=None):
         # 有 h4 技能標題就帶上（新版）
         for am in re.finditer(r'<h4[^>]*>(.*?)</h4>(.*?)(?=<h4|$)', blk, re.S):
             title = clean(am.group(1))
+            raw_title = title   # 有標題結構就算「有 h4」，就算標題是英雄名被拿掉（23.12 埃爾文 W 錯誤修正那種純文字行才留得住）
             # 標題就是英雄名（期中更新版型）→ 不當技能名；「翱銳龍獸錯誤修正」→ 去掉英雄名留「錯誤修正」
             if _norm_name(title) in my_names:
                 title = ""
@@ -1261,7 +1264,7 @@ def _champ_blocks(seg, spans=None):
                 t = clean(li)
                 if t:
                     lines.append(f"{title}｜{t}" if title else t)
-                    if title:
+                    if raw_title:
                         had_h4 = True
         # 無 h4 的版型 → 直接抓所有 li
         if not lines:
