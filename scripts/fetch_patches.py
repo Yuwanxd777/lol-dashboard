@@ -585,7 +585,10 @@ def ai_translate_champ(champ_en, lines_en):
 
 
 # 技能小標題長相：「符文禁錮（W）」「符文破刃（被動）」「W - Rune Prison」「Passive - Runic Blade」
-SKILL_TITLE_RE = re.compile(r"[（(](被動|Q|W|E|R|Q1|Q2|W1|W2|R\+E|R \+ E)[）)]|^(Passive|Q|W|E|R)\s*[-－–—]\s*\S", re.I)
+SKILL_TITLE_RE = re.compile(r"[（(](被動|Q|W|E|R|Q1|Q2|W1|W2|R\+E|R \+ E)[）)]|^(Passive|Q|W|E|R)\s*[-－–—]\s*\S"
+                            r"|^Q：|^W：|^E：|^R：|^被動：", re.I)
+# 英雄底下的小節「符文與道具推薦」（24.08 史加納）以「符文」開頭 → 以前被當符文區截掉整隻；推薦類小節不是分區
+NOT_BREAK_RE = re.compile(r"推薦|建議|Recommended", re.I)
 
 
 def cut_at_section(blk):
@@ -596,7 +599,7 @@ def cut_at_section(blk):
     cut = len(blk)
     for hm in re.finditer(r"<h[2-5][^>]*>(.*?)</h[2-5]>", blk, re.S):
         t = clean(hm.group(1))
-        if t and any(t == b or t.startswith(b) for b in BREAK_TITLES) and not SKILL_TITLE_RE.search(t):
+        if t and any(t == b or t.startswith(b) for b in BREAK_TITLES) and not SKILL_TITLE_RE.search(t) and not NOT_BREAK_RE.search(t):
             cut = hm.start()
             break
     return blk[:cut]
@@ -723,6 +726,7 @@ def route_extra(out):
     # 路線任務（中路任務／打野任務獎勵…）在遊戲資料裡是「道具」，但公告把它放在「路線任務調整」的系統段，
     # 使用者也會去機制找 → 不改掛。
     # 只認圖鑑道具名（assets.js）：CDragon 字串表還有「輔助／坦克／射手」這種內部標記道具，26.01「輔助｜完成任務後…」會被誤掛。
+    _SUMM_NORM = {_norm_name(n) for n in SUMMONER_SPELLS}
     items = {_norm_name(n) for n in _asset_item_names() if not re.search(r"任務|獎勵|Quest", n)}
     runes = {_norm_name(n) for n in rune_names()}
     champs = champ_name_map()
@@ -740,7 +744,7 @@ def route_extra(out):
                     tgt = "符文"
                 elif is_i and not is_r and cat != "道具":
                     tgt = "道具"
-                elif not is_r and not is_i and n in SUMMONER_SPELLS and cat != "召喚師技能":
+                elif not is_r and not is_i and n in _SUMM_NORM and cat != "召喚師技能":
                     tgt = "召喚師技能"
                 elif not is_r and not is_i and n in champs:
                     # 以英雄名當小標題的改動（期中更新沒頭像的版型）→ 交回英雄（parse_new 併入），行首去掉英雄名
@@ -825,6 +829,28 @@ def _grab(seg):
 
 DATED_RE = re.compile(r"\d+月\d+日|\d{4}年|20\d\d/\d+|[A-Z][a-z]+ \d{1,2}(st|nd|rd|th)?,? 20\d\d")
 
+# 獨立粗體段落 <p><strong>…</strong></p>：粗體內不能有標籤（[^<]*），否則非貪婪比對會跨到下一段的 </strong>，
+# 把好幾段內文黏成一個「標題」（24.15 道具區因此整段被砍）；帶 ⇒／： 的是改動行不是標題（26.05 版型連改動行都寫成粗體段落）
+STRONG_P_RE = re.compile(r"<p[^>]*>\s*<(strong|b)[^>]*>([^<]{1,60})</\1>\s*</p>")
+H24_RE = re.compile(r"<h[2-4][^>]*>(.*?)</h[2-4]>", re.S)
+
+
+def _strong_title(t):
+    """粗體段落文字能不能當小標題：短、沒有 ⇒／：、不是技能標題"""
+    return bool(t) and "⇒" not in t and "：" not in t and ":" not in t and not SKILL_TITLE_RE.search(t)
+
+
+def _iter_heads(seg):
+    """段落裡的小標題 [(起點, 文字)]：h2~h4 ＋ 獨立粗體段落 <p><strong>…</strong></p>
+    （22.22 英文期中更新的「ARAM Balance Adjustments」就是粗體段落，不是 h 標籤）"""
+    # 兩種樣式各自比對再依位置合併（合成一條 regex 時反向參照 \1 會指到 h 標籤那組，粗體段落永遠比不到）
+    heads = [(hm.start(), clean(hm.group(1))) for hm in H24_RE.finditer(seg)]
+    heads += [(pm.start(), clean(pm.group(2))) for pm in STRONG_P_RE.finditer(seg) if _strong_title(clean(pm.group(2)))]
+    for st, t in sorted(heads):
+        if t:
+            yield st, t
+
+
 def _cut_stop(seg, resume_dated=False):
     """遇到模式小標題（競技場／隨機單中…）就砍到段尾。
     resume_dated（期中更新段用）：模式小節之後若又出現**帶日期**的小標題（23.24「12月7日，…赫威相關調整」），
@@ -836,18 +862,17 @@ def _cut_stop(seg, resume_dated=False):
         # 底下的「競技場平衡調整」小標題會再各自停止。純模式的「2024年5月3日競技場調整」照樣停。
         return not (DATED_RE.search(t) and re.search(r"[與和及&]|\band\b", t))
     if not resume_dated:
-        for hm in re.finditer(r"<h[2-4][^>]*>(.*?)</h[2-4]>", seg, re.S):
-            if _stop(clean(hm.group(1))):
-                return seg[:hm.start()]
+        for st, t in _iter_heads(seg):
+            if _stop(t):
+                return seg[:st]
         return seg
     parts, pos, cutting = [], 0, False
-    for hm in re.finditer(r"<h[2-4][^>]*>(.*?)</h[2-4]>", seg, re.S):
-        t = clean(hm.group(1))
+    for st, t in _iter_heads(seg):
         is_stop = _stop(t)
         if not cutting and is_stop:
-            parts.append(seg[pos:hm.start()]); cutting = True
+            parts.append(seg[pos:st]); cutting = True
         elif cutting and not is_stop and DATED_RE.search(t):
-            pos = hm.start(); cutting = False
+            pos = st; cutting = False
     if not cutting:
         parts.append(seg[pos:])
     return "".join(parts)
@@ -938,7 +963,9 @@ SUMMONER_SPELLS = {"閃現", "傳送", "解放型傳送", "重擊", "精密重�
 
 
 def _norm_name(n):
-    return n.replace("’", "'").replace("‘", "'").strip()
+    """名字比對用的正規化：彎引號→直引號、去逗號、收斂空白、英文小寫
+    （英文頁 "Jak’Sho the Protean" vs 圖鑑 "Jak'Sho The Protean"／"Jak'Sho, the Protean"）"""
+    return re.sub(r"\s+", " ", n.replace("’", "'").replace("‘", "'").replace(",", "").replace("，", "")).strip().lower()
 
 
 _CHAMP_NAMES = None
@@ -1227,7 +1254,7 @@ def _champ_blocks(seg, spans=None):
                 title = ""
             else:
                 for n in sorted(my_names, key=len, reverse=True):
-                    if title.startswith(n) and len(title) > len(n):
+                    if title.lower().startswith(n) and len(title) > len(n):   # my_names 已小寫（_norm_name）
                         title = title[len(n):].strip("：: -－")
                         break
             for li in re.findall(r'<li[^>]*>(.*?)</li>', am.group(2), re.S):
@@ -1267,7 +1294,16 @@ def _champ_block_end(blk):
         if _norm_name(clean(inner)) in _BLOCK_END_NAMES:
             return hm.start()
     m = re.search(r'<img[^>]*src="[^"]*(?:/img/item/|perk-images|/img/perk)[^>]*>\s*(?:<[^>]*>\s*)*<h[3-5]', blk)
-    return m.start() if m else len(blk)
+    end = m.start() if m else len(blk)
+    # 獨立粗體段落當小標題（<p><strong>ARAM Balance Adjustments</strong></p>）：模式字／分區字／道具符文名都算區塊結尾
+    for pm in STRONG_P_RE.finditer(blk):
+        if pm.start() >= end:
+            break
+        t = clean(pm.group(2))
+        if _strong_title(t) and (_has_word(t, STOP_HEADERS) or any(t == b or t.startswith(b) for b in BREAK_TITLES)
+                                 or _norm_name(t) in _BLOCK_END_NAMES):
+            return pm.start()
+    return end
 
 
 def _strip_champ_blocks(seg):
@@ -1567,6 +1603,27 @@ def main():
         cat = pd.setdefault("_extra", {}).setdefault("道具", [])
         if not any(l.startswith(n + "｜") and "登場" in l for l in cat):
             cat[:0] = [f"{n}｜全新道具登場"]
+    # 英文頁獨有的英雄改動：Riot 繁中頁常漏掉後來補上的期中更新（26.01 凱爾／拉姆斯、23.18 布蕾爾、
+    # 24.24 貪啃奇、22.22 拉姆斯／阿姆姆…）→ 只補「繁中完全沒有這隻英雄」且帶 ⇒ 的數值改動行；
+    # 道具／符文名開頭的行不收（英文頁區塊尾巴偶爾黏到道具）。英文行接著走下面的 translate_line，
+    # 剩下的英文由 clean_patch_text 的人工表接手（tr_fix.json）。
+    _nm_ir = {_norm_name(n) for n in _asset_item_names()} | {_norm_name(n) for n in rune_names()}
+    for pk, pd in all_patches.items():
+        if pd.get("_lang") != "zh-tw":
+            continue
+        fe = os.path.join(CACHE, f"patch_en_{pk}.json")
+        if not os.path.exists(fe):
+            continue
+        try:
+            en = json.load(open(fe, encoding="utf-8"))
+        except Exception:
+            continue
+        for k, v in en.items():
+            if k.startswith("_") or not isinstance(v, list) or k in pd:
+                continue
+            ls = [l for l in v if "⇒" in l and not ("｜" in l and _norm_name(l.split("｜", 1)[0]) in _nm_ir)]
+            if ls:
+                pd[k] = ls
     # 輸出前全部重過一次翻譯：詞庫擴充後，舊快取裡的英文殘留也會被修正（中文行不受影響）
     for pk, pd in all_patches.items():
         for k, v in list(pd.items()):
