@@ -15921,7 +15921,7 @@ if(LANG==="cn"){ try{
 const WARM_ORDER=["英雄","選手","戰隊","比賽BP","近況","積分","模擬BP","英雄Tier","圖鑑","陣容","總覽"];
 let _warmSeq=0, _warmTries=0;
 function scheduleWarmup(delay,retry){
-  if(retry){ if(_warmTries>=6)return; _warmTries++; } else _warmTries=0;   // 被中止就晚點再試（最多 6 次），開站／換年份重新計數
+  if(retry){ if(_warmTries>=12)return; _warmTries++; } else _warmTries=0;   // 被中止／滑鼠停在內容上就晚點再試（最多 12 次），開站／換年份重新計數
   const seq=++_warmSeq; window._warmAbort=true;               // 重新排程＝舊的作廢
   setTimeout(()=>{ if(seq!==_warmSeq)return; _runWarmup(seq); }, delay||1200);
 }
@@ -15939,16 +15939,20 @@ function _warmViews(seq){
   const cur=curView, curSub=vcSub(cur), vk=vcKey();
   const todo=WARM_ORDER.filter(v=>v!==cur&&VIEWS.includes(v)&&!(v==="積分"&&isHistYear())&&!VIEW_CACHE.slots[v]);
   if(!todo.length)return;
-  // 覆蓋層＝目前畫面的靜態複製
-  const cover=document.createElement("div"); cover.id="warmCover";
-  const clone=main.cloneNode(true); clone.removeAttribute("id");
-  clone.querySelectorAll("[id]").forEach(e=>e.removeAttribute("id"));
-  {const a=main.querySelectorAll("canvas"), b2=clone.querySelectorAll("canvas");
+  // 滑鼠正停在內容上（hover 效果／提示卡開著）→ 現在蓋複製品會讓 hover 消失（2026-08-17 使用者回報停在版本焦點圖示上
+  // 幾秒後畫面變）：先不做，等滑鼠離開內容區或靜止一陣子再試
+  if(main.matches(":hover")){ scheduleWarmup(3000,true); return; }
+  // 覆蓋層＝目前畫面的靜態複製。**必須是同樣的 <main id="main">**：全站樣式大量寫 #main／main／@container mainc，
+  // 複製品若換成 div 就套不到（2026-08-17 使用者回報：預熱那幾秒圖片變超大、整頁變形）。
+  // 內層 id **要留著**：不少樣式是靠內層 id 選的（#ovChg… 的 .ovEntIco 29px），拿掉會讓複製品裡的符文圖用原尺寸 256px
+  // （2026-08-17 第二次回報的「圖片變很大」）。id 重複沒關係——複製品插在真 main **後面**，getElementById／querySelector
+  // 一律先命中真 main 裡的（render 填子元素、ensureBackBtn 都拿到真的）。
+  const cover=main.cloneNode(true); cover.setAttribute("data-warm-cover","1");
+  {const a=main.querySelectorAll("canvas"), b2=cover.querySelectorAll("canvas");
    for(let i=0;i<a.length&&i<b2.length;i++){try{b2[i].width=a[i].width;b2[i].height=a[i].height;b2[i].getContext("2d").drawImage(a[i],0,0);}catch(e){}}}
-  const cs=getComputedStyle(main);
-  cover.style.cssText=`position:absolute;left:${main.offsetLeft}px;top:${main.offsetTop}px;width:${main.offsetWidth}px;height:${main.offsetHeight}px;box-sizing:border-box;padding:${cs.padding};z-index:40;overflow:hidden;visibility:visible;pointer-events:none`;
-  clone.style.cssText="padding:0;margin:0;max-width:none;position:static";
-  cover.appendChild(clone);
+  cover.style.position="absolute"; cover.style.left=main.offsetLeft+"px"; cover.style.top=main.offsetTop+"px";
+  cover.style.width=main.offsetWidth+"px"; cover.style.height=main.offsetHeight+"px"; cover.style.boxSizing="border-box";
+  cover.style.margin="0"; cover.style.zIndex="40"; cover.style.overflow="hidden"; cover.style.visibility="visible"; cover.style.pointerEvents="none";
   const savedStyle=main.getAttribute("style")||"";
   const H=main.offsetHeight;
   let done=false;
@@ -15965,7 +15969,9 @@ function _warmViews(seq){
   };
   const abort=()=>{ window._warmAbort=true; finish(); scheduleWarmup(3000,true); };   // 使用者在動：先還原，靜下來再繼續補剩下的分頁
   window._warming=true;
-  main.parentNode.insertBefore(cover,main);
+  main.parentNode.insertBefore(cover,main.nextSibling);   // 放在真 main 之後（見上）
+  {const r0=main.getBoundingClientRect(), r1=cover.getBoundingClientRect();   // offsetTop 是整數、實際位置可能差 0.25px → 對齊到同一個視覺位置，才不會整頁反鋸齒抖一下
+   if(Math.abs(r1.left-r0.left)>0.01||Math.abs(r1.top-r0.top)>0.01){cover.style.left=(main.offsetLeft+(r0.left-r1.left))+"px"; cover.style.top=(main.offsetTop+(r0.top-r1.top))+"px";}}
   main.style.visibility="hidden"; main.style.height=H+"px"; main.style.overflow="hidden";
   document.addEventListener("pointermove",abort,true); document.addEventListener("pointerdown",abort,true);
   document.addEventListener("keydown",abort,true); document.addEventListener("wheel",abort,true); document.addEventListener("touchstart",abort,true);
@@ -15979,6 +15985,7 @@ function _warmViews(seq){
   };
   (window.requestIdleCallback||(f=>setTimeout(f,40)))(step,{timeout:800});
 }
+main.addEventListener("mouseleave",()=>{ if(_warmSeq&&_warmTries<12&&Object.keys(VIEW_CACHE.slots).length<8)scheduleWarmup(1200,true); });   // 滑鼠離開內容區＝補預熱的好時機
 // 本機小頭像先拉進瀏覽器快取（406KB）：第一次打開圖多的分頁不用等圖
 let _iconsPrefetched=false;
 function _prefetchIcons(){
