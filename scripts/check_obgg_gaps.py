@@ -70,6 +70,7 @@ def main():
     A = ap.parse_args()
 
     acc = json.load(open(ACCOUNTS, encoding="utf-8"))
+    local_teams = {str(a.get("team") or "") for a in acc}
     local_rid = {norm(a["riotId"]) for a in acc}
     local_by_player = {}
     for a in acc:
@@ -84,7 +85,8 @@ def main():
         print(f"\n{'='*74}\n=== {z}　{len(teams)} 隊 ===")
         for t in teams:
             tm = t["team_name"]
-            tc = ALIAS.get(tm, tm)
+            # 只在本地真的用那個碼時才換（2026-08-17：本地隊碼已收斂成 GEN，硬換成 GENG 會把 Gen.G 全隊誤報「沒帳號」）
+            tc = ALIAS[tm] if (tm in ALIAS and ALIAS[tm] in local_teams) else tm
             rd = get(BASE + "team?name=" + urllib.parse.quote(tm)); time.sleep(0.15)
             roster = rd.get("data") if isinstance(rd, dict) else None
             if not roster:
