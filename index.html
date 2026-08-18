@@ -6351,7 +6351,16 @@ function drawTrend(ch,pos,sq){
        const target=labels.includes(cp)?cp:labels.find(dp=>parseFloat(dp)>v); if(!target)return; // 該版無數據→併到下一個有數據的版本
        coreIds.forEach(iid=>{ const nm=_ITEMID2NM[String(iid)]; if(!nm)return;
          const hist=itemHistory(nm).find(e=>e.patch===cp); if(!hist||!hist.lines.length)return; // 這道具在 cp 版有官方改動才標
-         chgMap[target].push({src:cp,item:nm,lines:hist.lines.map(l=>`🛠️ ${nm}｜${l}`)}); }); }); } }
+         chgMap[target].push({src:cp,item:nm,lines:hist.lines.map(l=>`🛠️ ${nm}｜${l}`)}); }); }); }
+   // #4b：關鍵符文同理（2026-08-18 使用者：卡蜜兒輔助帶刀鋒之雹、26.16 被削卻沒標）。判定＝該版前三版內帶它 ≥10%（builder 的 ksP），
+   //      符文名走 RUNE_ICONS.byId[id].zh → itemHistory 掃「符文」類。只看關鍵符文，小符文全英雄共用、標了等於沒標。
+   if(cd&&cd.ksP&&window.RUNE_ICONS&&RUNE_ICONS.byId){
+     Object.keys(cd.ksP).forEach(cp=>{ const ks=cd.ksP[cp]; if(!ks||!ks.length)return;
+       const v=parseFloat(cp); if(v<seasonLo)return;
+       const target=labels.includes(cp)?cp:labels.find(dp=>parseFloat(dp)>v); if(!target)return;
+       ks.forEach(rid=>{ const r=RUNE_ICONS.byId[String(rid)], nm=r&&r.zh; if(!nm)return;
+         const hist=itemHistory(nm).find(e=>e.patch===cp); if(!hist||!hist.lines.length)return;
+         chgMap[target].push({src:cp,item:nm,lines:hist.lines.map(l=>`🔮 ${nm}｜${l}`)}); }); }); } }
   const linesOf=p=>chgMap[p].flatMap(e=>e.lines);
   const markedOf=p=>chgMap[p].length>0;
   const dirOf=p=>{const l=linesOf(p); return l.length?changeDir(l):null;}; // 1增強/-1削弱/0調整
@@ -7243,7 +7252,7 @@ function sqHeroDetail(cid){
         <span>${en?"XPD@15":"經差@15"} <b>${xdN?sg(xdS/xdN):"—"}</b></span>
         <span>${en?"1st to Lv2":"搶二率"} <b>${flN?Math.round(flY/flN*100)+"%":"—"}</b></span>
       </div></div>`
-    +`<div class="card" id="trendCard" style="display:none"><h2>📈 <span id="trendTitle"></span> <span class="sub"><span style="color:#ff4d4d">▲${T("增強")}</span>　<span style="color:#37c871">▼${T("削弱")}</span>　<span style="color:#ffd60a">●${T("調整")}</span>｜${en?"hover for details (source: Riot official patch notes)":"滑上去看細節（來源：Riot 官方版本說明）"}</span></h2><div class="chartbox" style="height:320px"><canvas id="trend"></canvas></div></div>`
+    +`<div class="card" id="trendCard" style="display:none"><h2>📈 <span id="trendTitle"></span> <span class="sub"><span style="color:#ff4d4d">▲${T("增強")}</span>　<span style="color:#37c871">▼${T("削弱")}</span>　<span style="color:#ffd60a">●${T("調整")}</span>｜${en?"hover for details — includes 🛠️ core items & 🔮 keystone runes (source: Riot official patch notes)":"滑上去看細節，含 🛠️ 核心裝與 🔮 關鍵符文的改動（來源：Riot 官方版本說明）"}</span></h2><div class="chartbox" style="height:320px"><canvas id="trend"></canvas></div></div>`
     +`<div class="card"><h2>📜 ${T("出場紀錄")} <span class="sub">${en?"most recent games (up to 100 kept) | click a column to sort":"最近出場（最多保留 100 場）｜點欄位名稱可排序"}</span></h2>${recInner}</div>`;
   bindFilters(render);
   bindCombo("hdOppSel",oppOpts,V.hdOpp,hit=>{V.hdOpp=hit; saveState(); render();},true,170);
@@ -9839,13 +9848,18 @@ function render(){
       if(window.SOLOQ_BUILDS&&SOLOQ_BUILDS.champs){
         ensurePatchItemsCategorized(); // 把誤分到「機制」的道具改動搬回「道具」(如 26.11)
         if(!window._ITEMID2NM||!Object.keys(window._ITEMID2NM).length){window._ITEMID2NM={};const _E2=(typeof EXTRA_IMG!=="undefined")?EXTRA_IMG:{};for(const nm2 in _E2){const mm=String(_E2[nm2]).match(/\/item\/(\d+)/);if(mm)_ITEMID2NM[mm[1]]=nm2;}}
-        const itemChgByPk={}; // {版本:{道具名:[改動行]}}
-        notesPks.forEach(pk=>{const ex=(PN[pk]&&PN[pk]._extra)||((window.WIKI_EXTRA||{})[pk]); if(!ex||!ex["道具"])return;
-          const mp=itemChgByPk[pk]={};
-          ex["道具"].forEach(l=>{const i=l.indexOf("｜"); if(i<0)return; const nm3=l.slice(0,i).replace(/^\[[^\]]*\]\s*/,"").trim(); (mp[nm3]=mp[nm3]||[]).push(l.slice(i+1));});});
-        seen.forEach(id=>{const cd=SOLOQ_BUILDS.champs[id]; if(!cd||!D2[id]||!cd.coreP)return;
-          notesPks.forEach(pk=>{const coreIds=cd.coreP[pk], mp=itemChgByPk[pk]; if(!coreIds||!mp)return;
-            coreIds.forEach(iid=>{const nm4=_ITEMID2NM[String(iid)]; const ls=nm4&&mp[nm4]; if(ls&&ls.length)(CHGL[id]=CHGL[id]||[]).push(...ls.map(l=>`🛠️ ${nm4}｜${l}`));});});});
+        const itemChgByPk={}, runeChgByPk={}; // {版本:{道具名:[改動行]}}／{版本:{符文名:[改動行]}}
+        notesPks.forEach(pk=>{const ex=(PN[pk]&&PN[pk]._extra)||((window.WIKI_EXTRA||{})[pk]); if(!ex)return;
+          const _split=(arr,mp)=>(arr||[]).forEach(l=>{const i=l.indexOf("｜"); if(i<0)return; const nm3=l.slice(0,i).replace(/^\[[^\]]*\]\s*/,"").trim(); (mp[nm3]=mp[nm3]||[]).push(l.slice(i+1));});
+          if(ex["道具"])_split(ex["道具"],itemChgByPk[pk]={});
+          if(ex["符文"])_split(ex["符文"],runeChgByPk[pk]={});});
+        const _RB=(window.RUNE_ICONS&&RUNE_ICONS.byId)||{};
+        seen.forEach(id=>{const cd=SOLOQ_BUILDS.champs[id]; if(!cd||!D2[id])return;
+          notesPks.forEach(pk=>{const coreIds=cd.coreP&&cd.coreP[pk], mp=itemChgByPk[pk];
+            if(coreIds&&mp)coreIds.forEach(iid=>{const nm4=_ITEMID2NM[String(iid)]; const ls=nm4&&mp[nm4]; if(ls&&ls.length)(CHGL[id]=CHGL[id]||[]).push(...ls.map(l=>`🛠️ ${nm4}｜${l}`));});
+            // #4b：關鍵符文（ksP＝該版前三版內帶它 ≥10%）被增/削 → 同樣併進 CHGL（2026-08-18）
+            const ks=cd.ksP&&cd.ksP[pk], rp=runeChgByPk[pk];
+            if(ks&&rp)ks.forEach(rid=>{const r=_RB[String(rid)], nm5=r&&r.zh; const ls=nm5&&rp[nm5]; if(ls&&ls.length)(CHGL[id]=CHGL[id]||[]).push(...ls.map(l=>`🔮 ${nm5}｜${l}`));});});});
       }
       Object.keys(CHGL).forEach(id=>{const d=changeDir(CHGL[id]); if(d!=null)CHG[id]=d;}); // 只有錯誤修正(null)的英雄不上邊框色
     }
@@ -13952,13 +13966,20 @@ function render(){
           let dataHtml=`<div class="tipTitle">${esc(nm)} <span class="meta">｜${label}</span></div>`;
           dataHtml+=row?statRow(row):`<div class="tipRow"><span class="meta">${LANG==="en"?"Not used in current data range":"目前數據範圍內沒有使用過"}</span></div>`;
           // 積分限定英雄（勾了「近期積分」、比賽 0 場）：補「積分 N 場」——取該路目前選定選手的近期積分數據
+          // ⚠ 層級2 推路固定看**先發**（sqStartLanes 的 players[0]，使用者 2026-08-06 定案），這裡卻查「目前選定選手」：
+          //   按 ⇄ 換人後兩者對不上 → 推出來的路那一欄退到全庫數字、甚至留白，跟推路依據對不上（記憶裡的已知落差）。
+          //   改成：目前選定選手有這隻→用他的；沒有→退回先發的數字並帶 who（顯示時標先發名字），推路依據就一定看得到。
           const sqOf=l=>{ try{ const R0=sl.dataset.side==="1"?R1:R2, st0=sl.dataset.side==="1"?S.pk1:S.pk2;
-            const cur=selPool(R0,l,st0,team).cur; const sq=cur&&sqRecent(team,cur.p);
-            return (sq&&sq[_cid])||null; }catch(e){ return null; } };
+            const cur=selPool(R0,l,st0,team).cur; const sq=cur&&sqRecent(team,cur.p), o=sq&&sq[_cid];
+            if(o)return o;
+            const st=R0&&R0[l]&&R0[l].players&&R0[l].players[0];
+            if(st&&cur&&st.p!==cur.p){ const sq2=sqRecent(team,st.p), o2=sq2&&sq2[_cid]; if(o2)return Object.assign({},o2,{who:st.p}); }
+            return null; }catch(e){ return null; } };
+          const sqWho=o=>o&&o.who?`<span class="meta">${LANG==="en"?"(starter ":"（先發 "}${esc(o.who)}${LANG==="en"?")":"）"}</span>`:"";
           if(!row&&k[0]==="p"){ const asg0=laneAssign(+sl.dataset.g,sl.dataset.side);
             const l0=asg0.res[i]||((asg0.possible[i]||[]).length===1?asg0.possible[i][0]:null);
             const o=l0&&sqOf(l0);
-            if(o)dataHtml+=`<div class="tipRow" style="text-align:left">${LANG==="en"?"Recent soloq":"近期積分"} <span class="num">${o.n}</span>${LANG==="en"?"g":" 場"}｜${LANG==="en"?"Win%":"勝率"} <span class="num">${o.n?Math.round(o.w/o.n*100):0}%</span></div>`; }
+            if(o)dataHtml+=`<div class="tipRow" style="text-align:left">${LANG==="en"?"Recent soloq":"近期積分"} <span class="num">${o.n}</span>${LANG==="en"?"g":" 場"}｜${LANG==="en"?"Win%":"勝率"} <span class="num">${o.n?Math.round(o.w/o.n*100):0}%</span>${sqWho(o)}</div>`; }
           let laneHtml="";
           if(k[0]==="p"){ const asg=laneAssign(+sl.dataset.g,sl.dataset.side);
             const lanes=asg.res[i]?[asg.res[i]]:(asg.possible[i]||[]), soft=(asg.soft&&asg.soft[i])||{};
@@ -13980,7 +14001,7 @@ function render(){
                 //   ② 該路**目前選定選手**的近期積分場數（沒勾🎯或查不到就跳過）
                 //   ③ 這隻在**全庫**（範圍內所有戰隊）走該路的場數＝推測路線的依據本身
                 // 沒有 ③ 的話，推測出來的路線那一欄會整個留空、只剩路線名（2026-08-16 使用者回報）。
-                const _sq=!cnt&&sqOf(l), sqTxt=_sq?`<span class="meta" style="margin-left:0">${LANG==="en"?"soloq ":"積分 "}<span class="num">${_sq.n}</span>${LANG==="en"?"g":" 場"}</span>`:""; // margin-left:0：抵銷 .tipRow .meta 的 6px 縮排，跟上下行場數同一起點
+                const _sq=!cnt&&sqOf(l), sqTxt=_sq?`<span class="meta" style="margin-left:0">${LANG==="en"?"soloq ":"積分 "}<span class="num">${_sq.n}</span>${LANG==="en"?"g":" 場"}${sqWho(_sq)}</span>`:""; // margin-left:0：抵銷 .tipRow .meta 的 6px 縮排，跟上下行場數同一起點
                 const _gl=(!cnt&&!_sq)?chLaneCnt(v,l):0;
                 const glTxt=_gl?`<span class="meta" style="margin-left:0">${LANG==="en"?"all teams ":"全庫 "}<span class="num">${_gl}</span>${LANG==="en"?"g":" 場"}</span>`:"";
                 // ④ 層級2b 推出來的路：全庫積分近三版的場數（不補這個的話，新加的那層又會是空白的）
@@ -14507,7 +14528,7 @@ function render(){
           ${(v=>`<span>${LANG==="en"?"GD@10":"金差@10"} <b style="color:${v==null?"":v>0?"#ff6b6b":v<0?"#37c871":""}">${v==null?"—":(v>0?"+":"")+Math.round(v)}</b></span>`)(gdN?gdS/gdN:null)}
           ${(v=>`<span>${LANG==="en"?"Mid GD":"中期金差"} <b style="color:${v==null?"":v>0?"#ff6b6b":v<0?"#37c871":""}">${v==null?"—":(v>0?"+":"")+Math.round(v)}</b></span>`)(mdN?mdS/mdN:null)}
         </div></div>
-      <div class="card" id="trendCard" style="display:none"><h2>📈 <span id="trendTitle"></span> <span class="sub"><span style="color:#ff4d4d">▲${T("增強")}</span>　<span style="color:#37c871">▼${T("削弱")}</span>　<span style="color:#ffd60a">●${T("調整")}</span>｜${LANG==="en"?"hover for details (source: Riot official patch notes)":"滑上去看細節（來源：Riot 官方版本說明）"}</span></h2><div class="chartbox" style="height:320px"><canvas id="trend"></canvas></div></div>
+      <div class="card" id="trendCard" style="display:none"><h2>📈 <span id="trendTitle"></span> <span class="sub"><span style="color:#ff4d4d">▲${T("增強")}</span>　<span style="color:#37c871">▼${T("削弱")}</span>　<span style="color:#ffd60a">●${T("調整")}</span>｜${LANG==="en"?"hover for details — includes 🛠️ core items & 🔮 keystone runes (source: Riot official patch notes)":"滑上去看細節，含 🛠️ 核心裝與 🔮 關鍵符文的改動（來源：Riot 官方版本說明）"}</span></h2><div class="chartbox" style="height:320px"><canvas id="trend"></canvas></div></div>
       <div class="card"><h2>📜 ${T("出場紀錄")} <span class="sub">${LANG==="en"?`${n} games, newest first | click a column to sort`:`共 ${n} 場，最新在上｜點欄位名稱可排序`}</span></h2>
         <div class="tblwrap"><table class="recTbl"><thead><tr>
           <th>#</th>${["賽事","版本","位置","使用選手","勝敗","K/D/A","金差@10","中期金差","對位英雄","對位選手","情境"].map(k=>{const _s=V.recSort,_on=_s&&_s.k===k,_up=_on&&_s.d>0;return `<th data-rs="${k}" style="cursor:pointer"><span class="thL">${mLabel(k)}<span class="sortArr${_on?" on":""}${_on?(_up?" asc":" desc"):""}">${_up?"▲":"▼"}</span></span></th>`;}).join("")}</tr></thead><tbody>${

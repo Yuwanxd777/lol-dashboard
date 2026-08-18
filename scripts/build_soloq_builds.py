@@ -218,6 +218,7 @@ def main():
     ksOppL = defaultdict(lambda: defaultdict(lambda: defaultdict(Counter)))  # 英雄 -> 路線 -> keystone -> 對位
     suCntL = defaultdict(lambda: defaultdict(Counter))        # 英雄 -> 路線 -> 召技組合
     corePGames = defaultdict(list)  # 英雄 -> [(t, (該場常用道具tuple))]：算 coreP(版本趨勢用；含大裝＋鞋＋起手裝，如多蘭之盔)
+    ksPGames = defaultdict(list)    # 英雄 -> [(t, keystone id)]：算 ksP（版本趨勢/Tier 邊框用「前三版關鍵符文」；2026-08-18 使用者：刀鋒之雹 26.16 被削、卡蜜兒趨勢沒標）
     chGames = defaultdict(list)     # 英雄 -> 逐場（積分版英雄詳情「出場紀錄」用；輸出時每英雄取最近 100 場）
     scanned = 0
     for fp in glob.glob(os.path.join(OUTDIR, "*.js")):
@@ -306,6 +307,8 @@ def main():
             _cpset |= {BOOT_BASE.get(i, i) for i in it0 if i in BOOTS}
             _cpset |= {i for i in (g.get("st") or []) if i and i not in EXCL}
             corePGames[c].append((g.get("t") or 0, tuple(_cpset)))
+            _ks0 = g.get("r") or ((g.get("rp") or [None])[0])
+            if _ks0: ksPGames[c].append((g.get("t") or 0, int(_ks0)))
             _runes = set()  # 全符文(關鍵符文＋主/副系＋碎片)：算「最常帶它的英雄」
             if g.get("r"): _runes.add(g["r"])
             for _arr in (g.get("rp"), g.get("rs"), g.get("rst")):
@@ -421,6 +424,22 @@ def main():
             if tot < COREP_MINWIN: continue
             ids = [iid for iid, k in cnt.items() if k / tot * 100 >= 10]
             if ids: coreP[P] = ids
+        # ksP：與 coreP 同一套視窗（該版前三版），該英雄帶某關鍵符文 ≥10% 才列 → 版本趨勢(#4)/Tier 邊框在符文被增削那版標記。
+        # 只算關鍵符文：小符文（骸骨鍍層/韌性碎片…）幾乎全英雄共用，改一顆會把全部英雄都標到＝沒有資訊。
+        ksP = {}
+        allk = ksPGames[c]
+        for P in uni:
+            priors = [p for p in uni if patch_key(p) < patch_key(P)]
+            if not priors: continue
+            win = priors[-3:]; lo = pstart[win[0]]; hi = pstart[P]
+            cnt = Counter(); tot = 0
+            for t_ms, ksid in allk:
+                d = _date_of(t_ms)
+                if d is None or not (lo <= d < hi): continue
+                tot += 1; cnt[ksid] += 1
+            if tot < COREP_MINWIN: continue
+            ids = [k for k, v in cnt.items() if v / tot * 100 >= 10]
+            if ids: ksP[P] = ids
         # 符文排列：依「最大顆符文(keystone＝主系第一顆)」分組 → 前三 keystone×各前二配置（邏輯在 _runes_ks）
         runesKS = _runes_ks(runePage[c], runePageW[c], ksOpp[c])
         # 常配英雄前五：[英雄, 場數, 勝場]（前端自己算勝率與佔比）
@@ -436,7 +455,7 @@ def main():
                     continue
                 _w = ((_e.get("pct") if isinstance(_e, dict) else None) or 100) / 100.0
                 _ad += _t[0] * _w; _ap += _t[1] * _w
-        champs[c] = {"n": n, "duo": [[k2, v2[0], v2[1]] for k2, v2 in _duTop], "start": startByPos, "boots": bootsTop, "core": coreTop, "rest": restTop, "core100": core100, "paths": pathTop, "paths2p": pathTop2p, "coreP": coreP, "runesKS": runesKS}
+        champs[c] = {"n": n, "duo": [[k2, v2[0], v2[1]] for k2, v2 in _duTop], "start": startByPos, "boots": bootsTop, "core": coreTop, "rest": restTop, "core100": core100, "paths": pathTop, "paths2p": pathTop2p, "coreP": coreP, "ksP": ksP, "runesKS": runesKS}
         # ⚠ 只有「有 AD/AP 裝」不夠，還要**證據夠多**才輸出。純坦克的核心裝多半攻擊力/法強都是 0，
         #   偶爾摻一件低出場率的輸出裝就會把整隻英雄定性成 100% 物理或 100% 法系。
         #   實例（修正前）：慎 apr=0% 只靠 13% 出場的泰坦九頭蛇（證據量 5.2，全庫中位 236）；
