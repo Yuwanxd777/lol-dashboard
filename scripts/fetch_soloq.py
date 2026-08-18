@@ -79,6 +79,11 @@ def get_account(cluster, game_name, tag_line):
     code, data = riot_get(url)
     return data if code == 200 and data else None
 
+def get_region_by_puuid(cluster, puuid):
+    # account-v1 region/by-game：帳號清單缺 platform（dpm 回 null）時，問 Riot 這個 puuid 的 LoL 伺服器（回 "br1"/"kr"…）
+    code, data = riot_get(f"https://{cluster}.api.riotgames.com/riot/account/v1/region/by-game/lol/by-puuid/{puuid}")
+    return (data or {}).get("region", "").lower() if code == 200 and data else None
+
 def get_account_by_puuid(cluster, puuid):
     # 改名自動修復：舊 Riot ID 查不到時，用上次存的 puuid 反查目前 ID（puuid 永不變）
     code, data = riot_get(f"https://{cluster}.api.riotgames.com/riot/account/v1/accounts/by-puuid/{puuid}")
@@ -134,8 +139,8 @@ def main():
         print(f"--failed：只重抓上次失敗的 {len(accounts)} 個帳號（{sorted({a.get('player','') for a in accounts})}）")
     print(f"帳號清單 {len(accounts)} 筆，開始抓取…（依速率限制，約 {len(accounts)*2.5/60:.1f} 分鐘）")
 
-    global PREV_ID, PREV_TP, RENAMES
-    PREV_ID, PREV_TP = load_prev_puuids(); RENAMES = {}
+    global PREV_ID, PREV_TP, RENAMES, PLATFIX
+    PREV_ID, PREV_TP = load_prev_puuids(); RENAMES = {}; PLATFIX = {}   # PLATFIX：缺 platform 的帳號用 Riot 查到的伺服器，最後寫回清單
     def fetch_one(a, tag_lbl):
         plat = ALIAS.get(str(a.get("platform","")).upper(), str(a.get("platform","")).lower())
         cluster = CLUSTER.get(plat, "asia")
@@ -163,6 +168,14 @@ def main():
                "riotId": a["riotId"], "puuid": puuid, "curId": curId,
                "tier": None, "division": None, "lp": None,
                "wins": None, "losses": None, "found": False}
+        if puuid and not plat:  # 清單缺 platform（dpm 偶爾回 null，如 LOS Feisty#LOS）→ 問 Riot 這個 puuid 在哪個伺服器，並記下來寫回清單
+            plat = get_region_by_puuid(cluster, puuid) or ""
+            if plat:
+                PLATFIX[(a.get("team",""), a.get("player",""), a["riotId"])] = plat
+                rec["platform"] = plat
+                print(f"    ♻ 清單缺 platform → Riot 區域端點：{plat}")
+            else:
+                print("    清單缺 platform，Riot 也查不到區域 → 跳過牌位查詢"); return rec
         if not puuid:
             dr = a.get("dpmRank")
             if dr and dr.get("tier"):  # Riot 查不到此舊 riotId(改名等) → 用抓帳號時 dpm 附帶的牌位當備援(如 KT FenRir)
@@ -212,6 +225,16 @@ def main():
         f.write("window.SOLOQ_DATA=" + json.dumps(payload, ensure_ascii=False) + ";\n")
     ok = sum(1 for r in out if r["found"])
     print(f"\n完成：{ok}/{len(out)} 有排名 → 已寫入 {OUT}")
+    if PLATFIX:  # 缺 platform 的帳號補上 Riot 查到的伺服器（否則每天都要多問一次）
+        raw = json.load(open(ACCOUNTS, encoding="utf-8")); n = 0
+        for a in raw:
+            k = (a.get("team",""), a.get("player",""), a.get("riotId",""))
+            if k in PLATFIX and not a.get("platform"):
+                a["platform"] = PLATFIX[k]; n += 1
+        if n:
+            json.dump(raw, open(ACCOUNTS, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
+            print(f"♻ 補上 {n} 個帳號的 platform → soloq_accounts.json：")
+            for (tm, pl, rid), pf in PLATFIX.items(): print(f"   {tm} {pl}: {rid} @{pf}")
     if RENAMES:  # 改名自動同步回帳號清單：下次起直接用新 ID 查
         raw = json.load(open(ACCOUNTS, encoding="utf-8")); n = 0; skipped = []
         for a in raw:

@@ -411,6 +411,18 @@ def main():
         old_rids = {norm(e["riotId"]) for e in existing}
         if tm in dpm_primary and dpm_ents:
             use = dpm_ents
+            # dpm 偶爾回 platform=null（2026-08-18 LOS Feisty「LOS Feisty#LOS」）：空 platform 會讓 fetch_soloq.py
+            # 組出 https://.api.riotgames.com → idna 錯誤重試白跑；dpm 為主隊伍每天整批覆寫，所以要在這裡沿用既有值
+            _oldp = {}
+            for _e in existing:
+                if _e.get("platform"):
+                    _oldp[norm(_e["riotId"])] = _e["platform"]
+                    if _e.get("dpmPuuid"): _oldp[_e["dpmPuuid"]] = _e["platform"]
+            for _e in use:
+                if not _e.get("platform"):
+                    _e["platform"] = _oldp.get(_e.get("dpmPuuid") or "") or _oldp.get(norm(_e["riotId"])) or ""
+                    if not _e["platform"]:
+                        diff_lines.append(f"  [缺區] {tm}|{pl}: {_e['riotId']} dpm 沒給 platform（fetch_soloq.py 會用 Riot 區域端點補）")
             new_rids = {norm(e["riotId"]) for e in use}
             if old_rids != new_rids:
                 replaced += 1
