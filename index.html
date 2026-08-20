@@ -11175,10 +11175,15 @@ function render(){
     const _lanes=["","TOP","JNG","MID","BOT","SUP","下路組","中野組"]; // 2026-08-04 起積分也有雙人組（builder pairs 聚合）
     main.innerHTML=filterBar(`
       <label>${LANG==="en"?"Lane":"路線"}</label><select id="vPos" style="width:${FW_FILTER}px">${_lanes.map(p=>`<option value="${p}" ${V.pos===p?"selected":""}>${p?(LANG==="en"?T(p):({TOP:"上路",JNG:"打野",MID:"中路",BOT:"下路",SUP:"輔助"}[p]||T(p))):T("全部")}</option>`).join("")}</select>
+      <label>${LANG==="en"?"Champion":"英雄"}</label>${comboHTML("vCh",LANG==="en"?"Enter champion":"輸入英雄",190)}
       ${sqMode?"":`<label>${T("戰隊選手")}</label>${comboHTML("vSel",LANG==="en"?"Enter team or player":"輸入戰隊或選手",190)}`}${_modeBtn}${_vizBtn}`)
       +`<div class="card"><h2>🦸 ${T("英雄")} <span class="sub" id="cnt"></span><span class="sub">${sqMode?(LANG==="en"?"Soloq of tracked pros this season · Rating = percentile blend (Wilson win% ×4 + games ×2 + KDA ×2 + GD@15 ×2) · Patch filter works (soloq is ahead of pro, e.g. 26.14) · other global filters don't apply | click a champion for details":"積分數據＝追蹤職業選手今年單雙排彙總｜評分＝同表百分位加權（Wilson 勝率 ×4＋場數 ×2＋KDA ×2＋金差@15 ×2）｜<b>版本</b>可篩（積分比職業賽早上新版）、其他全域篩選不影響｜點英雄名看詳情"):T("評分＝同路百分位加權（滑欄名看權重）｜點英雄名看版本趨勢與出場紀錄")}</span></h2><div id="tbl"></div></div>`;
     const rerender=()=>{
-      const rows=sqMode?calcHeroesSoloq(V.pos==="全部"?"":V.pos):calcHeroes(V.pos==="全部"?"":V.pos,V.player,V.heroTeam);
+      let rows=sqMode?calcHeroesSoloq(V.pos==="全部"?"":V.pos):calcHeroes(V.pos==="全部"?"":V.pos,V.player,V.heroTeam);
+      if(V.heroQ){ // 英雄篩選：中文顯示名與資料名(英文)都比對，contains 不分大小寫
+        const q=String(V.heroQ).trim().toLowerCase();
+        if(q)rows=rows.filter(r=>String(r.英雄||"").toLowerCase().includes(q)||String(r._full||"").toLowerCase().includes(q));
+      }
       const _isPairPos=V.pos==="下路組"||V.pos==="中野組";
       document.getElementById("cnt").textContent=`${rows.length}${_isPairPos?(LANG==="en"?" pairs":" 組"):(LANG==="en"?" champions":" 隻")}`
         +(sqMode&&_isPairPos?(LANG==="en"?" · season totals (patch filter n/a for duos)":" ｜ 雙人組＝全季彙總，版本篩選不生效"):"");
@@ -11218,6 +11223,22 @@ function render(){
     };
     bindFilters(rerender);
     document.getElementById("vPos").onchange=e=>{V.pos=e.target.value==="全部"?"":e.target.value; saveState(); rerender();};
+    // 英雄篩選（2026-08-20 使用者要求）：清單依目前範圍的場數多→少，值＝顯示名，別名吃資料名(英文)＋中文
+    {
+      const _hn=new Map();
+      LANES.forEach(o=>{ if(!passG(o))return;
+        [o.raw[C.blue_champion],o.raw[C.red_champion]].forEach(c=>{ if(c)_hn.set(c,(_hn.get(c)||0)+1); }); });
+      const _hOpts=[..._hn.keys()].sort((x,y)=>_hn.get(y)-_hn.get(x))
+        .map(c=>({v:cAb(c), l:cAb(c), a:[c, cAb(c)], n:_hn.get(c)}));
+      bindCombo("vCh",_hOpts,V.heroQ||"",hit=>{ V.heroQ=hit||""; saveState(); rerender(); },false,190);
+      {const e=document.getElementById("vCh");
+       if(e){ e.style.width="190px";                       // 與其他篩選框同規格（鐵則）
+         e.value=V.heroQ||"";
+         // bindCombo 只在「選到清單項目」時回呼；這裡再掛一個防抖的輸入監聽，
+         // 讓打一半（納、nas）就即時縮小清單（全站搜尋框都用 deb 150ms）
+         e.addEventListener("input",deb(()=>{ const q=e.value.trim(); if(q===(V.heroQ||""))return;
+           V.heroQ=q; saveState(); rerender(); },150)); }}
+    }
     segBind("heroModeSeg",v=>{ if(v===(sqMode?"soloq":"pro"))return; V.heroMode=v; saveState(); render(); }); // 雙人組兩模式都有了，切換不再清路線
     segBind("heroVizSeg",v=>{ if(v===(vizScatter?"scatter":"table"))return; V.heroViz=v; saveState(); render(); });
     if(!sqMode){
