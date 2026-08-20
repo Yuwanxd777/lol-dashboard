@@ -62,6 +62,9 @@ rem soloq per-game: backfill brand-new players that have no file yet (dpm)
 python scripts\fetch_soloq_year.py --missing >> "%LOG%" 2>&1
 rem rank ladder auto-update: uses the locally saved key from the dashboard "add API" button; skips if expired
 python scripts\fetch_soloq_auto.py >> "%LOG%" 2>&1
+rem Auto-label the unknown-champion crops the live BP sync collected yesterday.
+rem (local-only tool: scripts/bplive is not in the publish whitelist, so guard with if exist)
+if exist scripts\bplive\label_pending.py python scripts\bplive\label_pending.py --apply >> "%LOG%" 2>&1
 rem Patch release dates -> patch_dates.js (soloq per-game rows only carry a timestamp; the
 rem champion page maps them back to a patch with this table). It went stale for a month in
 rem 2026-08 (table ended at 26.15, so every game after 07-28 showed as 26.15) because this
