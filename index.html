@@ -12421,6 +12421,25 @@ function render(){
         const cut=Date.now()-(+V.bpSqDays||14)*24*3600*1000, out={}; // 範圍可調（鈕上右鍵選）：預設兩週
         for(const g of cache.matches){ if((g.t||0)<cut)continue; const id=(typeof champId==="function"&&champId(g.c))||g.c; if(!id)continue; const o=out[id]||(out[id]={n:0,w:0}); o.n++; if(g.w)o.w++; }
         return out; };
+      // 選手跨隊出賽索引（2026-08-20 使用者定案）：轉隊選手若只算現隊，角色池會小到不合理
+      //（實測 Jiwoo 剛轉到 KT，池裡只有 4 隻、合計 5 場）。改成把**同一位選手在其他隊**的出賽
+      // 也併進他的池——BP 要問的是「這個人會用什麼」，不是「他在這件隊服底下用過什麼」。
+      // 範圍跟著目前的全域篩選（passG）走，跟池本身同一口徑。
+      let _xPool=null;
+      const crossPool=(player,team)=>{
+        if(!player)return null;
+        if(!_xPool){ _xPool={};
+          for(const o of LANES){ if(!passG(o))continue; const r=o.raw;
+            [[C.blue_playername,C.blue_teamname,C.blue_champion,1],[C.red_playername,C.red_teamname,C.red_champion,0]]
+              .forEach(([pk,tk,ck,isB])=>{ const p=r[pk],t=r[tk],c=r[ck]; if(!p||!c)return;
+                const e=_xPool[p]||(_xPool[p]={}); const q=e[t]||(e[t]={});
+                const x=q[c]||(q[c]={n:0,w:0}); x.n++; if((o.result===1)===!!isB)x.w++; }); } }
+        const byTeam=_xPool[player]; if(!byTeam)return null;
+        const out={};
+        for(const t in byTeam){ if(t===team)continue;      // 現隊的部分本來就在池裡了
+          for(const c in byTeam[t]){ const x=out[c]||(out[c]={n:0,w:0}); x.n+=byTeam[t][c].n; x.w+=byTeam[t][c].w; } }
+        return Object.keys(out).length?out:null;
+      };
       const selPool=(R,pos,st,team)=>{ // 該隊該路「目前選定選手」的池
         if(!R||!R[pos])return {m:{},ps:[],cur:null};
         const ps=R[pos].players;
@@ -12432,6 +12451,11 @@ function render(){
         // 被比賽場數篩掉、但積分有練到門檻的，會在下面以 SoloQ 英雄身分重新列入（合理：比賽沒打但排位在練）。
         const mg=Math.max(1,F.minG||0);   // 使用 0 次仍不列
         cur.pool.forEach(c=>{if(c.n>=mg)m[c.ch]={n:c.n,ob:c.ob||0,w:c.w};});
+        // 併入該選手在別隊的出賽（轉隊才會有）：已在池的直接加場數，沒有的以同樣門檻新增
+        const xt=crossPool(cur.p,team);
+        if(xt){ for(const ch in xt){ const e=m[ch];
+          if(e){ e.n+=xt[ch].n; e.w+=xt[ch].w; }
+          else if(xt[ch].n>=mg){ m[ch]={n:xt[ch].n,w:xt[ch].w,ob:0,xt:true}; } } }
         const sq=sqRecent(team,cur.p); // 併入該選手近期積分英雄(以英雄id比對，已在池的標記 sq，新增的標 sqOnly)
         if(sq){ for(const id in sq){ let ex=null; for(const ch in m){if(champId(ch)===id){ex=ch;break;}}
           if(ex){m[ex].sq=true;} else if(sq[id].n>=mg){m[id]={n:sq[id].n,w:sq[id].w,ob:0,sq:true,sqOnly:true};} } }
