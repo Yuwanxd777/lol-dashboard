@@ -62,6 +62,11 @@ rem soloq per-game: backfill brand-new players that have no file yet (dpm)
 python scripts\fetch_soloq_year.py --missing >> "%LOG%" 2>&1
 rem rank ladder auto-update: uses the locally saved key from the dashboard "add API" button; skips if expired
 python scripts\fetch_soloq_auto.py >> "%LOG%" 2>&1
+rem Patch release dates -> patch_dates.js (soloq per-game rows only carry a timestamp; the
+rem champion page maps them back to a patch with this table). It went stale for a month in
+rem 2026-08 (table ended at 26.15, so every game after 07-28 showed as 26.15) because this
+rem step was never wired into the daily run. Cache-only step unless a patch is missing.
+python scripts\build_patch_dates.py >> "%LOG%" 2>&1
 rem Text corpus lint: reports leftovers/broken sentences into the log (never blocks the update)
 python scripts\lint_text.py --quiet >> "%LOG%" 2>&1
 rem Same-ID-different-person check: new data may bring in a name that collides with an
