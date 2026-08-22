@@ -62,6 +62,8 @@
 !fonts/*.ttf
 !fonts/*.otf
 !fonts/*.woff2
+# huninn.css：字型子集的 @font-face（scripts/build_font_subset.py 產生）
+!fonts/*.css
 !scripts/*.py
 !scripts/soloq_accounts.json
 !scripts/tr_fix.json

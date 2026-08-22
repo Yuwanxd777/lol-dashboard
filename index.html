@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="stylesheet" href="fonts/huninn.css">
 <title>LOL數據表</title>
 <link rel="icon" type="image/png" sizes="64x64" href="img/favicon.png?v=2">
 <!-- 英雄／道具／符文圖全部在這兩個 CDN：先把連線握好（DNS+TLS 約 100~300ms），首屏圖片不用等（2026-08-17 效能體檢） -->
@@ -37,8 +38,10 @@
   html,body{overflow-x:hidden} /* 全站禁止左右滑動（見鐵則1：內容必須自己收進橫捲容器） */
   html{scrollbar-gutter:stable} /* 永遠保留垂直捲軸的槽位：有無捲軸時內容不會左右位移(切分頁不跳動) */
   /* 圓體字的垂直度量對齊微軟正黑體（ascent/descent 覆寫），粉圓字形偏小再放大 5%——否則整站文字會偏低偏扁 */
-  @font-face{font-family:"jf-openhuninn";src:url("fonts/jf-openhuninn.woff2") format("woff2"),url("fonts/jf-openhuninn.ttf") format("truetype");font-display:swap;
-    ascent-override:106.7%;descent-override:26.7%;line-gap-override:0%}
+  /* 內文字型的 @font-face 在 fonts/huninn.css（由 scripts/build_font_subset.py 產生）：
+     同一個 family 名兩個 face——帶 unicode-range 的子集(1.12MB) ＋ 不帶 range 的完整版(2.18MB) 補漏。
+     瀏覽器只會下載碼位有落在範圍內的那份，所以平常只付 1.12MB。詳見那支腳本的說明。 */
+
   @font-face{font-family:"GenSenRounded TW";font-weight:400;src:url("fonts/GenSenRounded2TW-L.woff2") format("woff2"),url("fonts/GenSenRounded2TW-L.otf") format("opentype");font-display:swap;
     ascent-override:106.7%;descent-override:26.7%;line-gap-override:0%} /* 內文用 Light，小字不糊 */
   @font-face{font-family:"GenSenRounded TW";font-weight:700;src:url("fonts/GenSenRounded2TW-R.woff2") format("woff2"),url("fonts/GenSenRounded2TW-R.otf") format("opentype");font-display:swap;

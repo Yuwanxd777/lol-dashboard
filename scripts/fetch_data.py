@@ -14,6 +14,7 @@ import collections, csv, io, json, os, re, sys, urllib.request
 from datetime import datetime
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # 專案根目錄（本腳本在 scripts\ 內）
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))  # 同目錄的 data_cols
 # Oracle's Elixir 官方公開 Google Drive 資料夾（免認證）
 OE_FOLDER = "1gLSw0RLjBbtaNy0dgnGQDAZOHIgCe-HH"
 FIRST_YEAR = 2013   # 2013 起（使用者定案 2026-07-31：一級聯賽補到 2013；OE 沒有 2013→走 wiki）
@@ -622,6 +623,10 @@ def remap_rows(src_table, target_hdr):
 
 
 def write_year(year, table):
+    # 只寫白名單欄位（見 scripts/data_cols.py）：原始表 294 欄裡全站只用得到 57 個欄名，
+    # 砍到 88 欄後年度資料 gzip 6.0MB→2.4MB，首載、JSON.parse 與 heap 一起變小。
+    from data_cols import trim as _trim_cols
+    table = _trim_cols(table)
     path = os.path.join(HERE, "data", f"data_{year}.js")
     data = {"fetched_at": keep_stamp(path, "fetched_at"), "year": year,
             "sheet_title": f"Oracle's Elixir {year}", "tabs": {"RAW_DATA": table}}

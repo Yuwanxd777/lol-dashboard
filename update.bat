@@ -70,6 +70,9 @@ rem champion page maps them back to a patch with this table). It went stale for 
 rem 2026-08 (table ended at 26.15, so every game after 07-28 showed as 26.15) because this
 rem step was never wired into the daily run. Cache-only step unless a patch is missing.
 python scripts\build_patch_dates.py >> "%LOG%" 2>&1
+rem perf: trim data_*.js to the 88 columns actually used (scripts\data_cols.py) and rebuild the font subset
+python scripts	rim_data_cols.py --apply >> "%LOG%" 2>&1
+python scriptsuild_font_subset.py >> "%LOG%" 2>&1
 rem Text corpus lint: reports leftovers/broken sentences into the log (never blocks the update)
 python scripts\lint_text.py --quiet >> "%LOG%" 2>&1
 rem Same-ID-different-person check: new data may bring in a name that collides with an
