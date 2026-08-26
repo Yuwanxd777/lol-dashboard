@@ -140,6 +140,11 @@ PO_START = {
     (2026, "LCK",   "Cup"):     "2026-01-28",
     (2026, "CBLOL", "Cup"):     "2026-02-02",
     (2026, "LCS",   "Lock-In"): "2026-02-02",
+    #   LCP 2026 Split 3  Swiss 7/25–8/13 → Seeding 8/14–8/16 → Playoffs（4 隊雙敗）8/20–8/30
+    #                     8/20 CFO 3-0 MVK（QF）、8/21 TSW 3-1 GAM（QF）、8/22 MVK 3-2 GAM（敗部）、
+    #                     8/23 CFO 0-3 TSW（SF）、8/29、8/30 決賽。OE 這一段整個不標 playoffs。
+    #                     https://lol.fandom.com/wiki/LCP/2026_Season/Split_3
+    (2026, "LCP",   "Split 3"): "2026-08-20",
 }
 LEAGUE_ORDER = {"LCK":0,"LPL":1,"LCP":2,"LEC":3,"LCS":4,"CBLOL":5}
 PO_MAP = {1:1,2:2,3:2,4:3,5:3,6:4,7:5,8:6,9:6,10:7}
@@ -285,12 +290,17 @@ def process(text, year=DEFAULT_YEAR):
         orig = (r[iSplit] or "").strip()
         try: is_po = int(r[iPlayoffs] or 0) == 1
         except ValueError: is_po = False
-        # OE 有些賽事整段沒標 playoffs（LCK 2026 Cup 全部 playoffs=0）→ 用人工「季後賽起始日」補
-        _ps = PO_START.get((year, (r[iLeague] or "").strip(), orig))
+        # OE 有些賽事整段沒標 playoffs（LCK 2026 Cup 全部 playoffs=0）→ 用人工「季後賽起始日」補。
+        # **兩種寫法都查**：OE 的原始 split，以及正規化後的——各聯賽對同一個賽段的叫法不一樣
+        # （Summer／Rounds 3-4／Split 3 正規化後都是 Split 3），只認原始字串很容易 key 對不上而白寫。
+        _norm25 = (CBLOL_SPLIT_MAP.get(orig, SPLIT_MAP.get(orig, orig)) if lg == "CBLOL"
+                   else SPLIT_MAP.get(orig, orig))
+        _lgr = (r[iLeague] or "").strip()
+        _ps = PO_START.get((year, _lgr, orig)) or PO_START.get((year, _lgr, _norm25))
         if _ps and (r[_gi_date] or "")[:10] >= _ps:
             is_po = True
         if year >= 2025:
-            norm = CBLOL_SPLIT_MAP.get(orig, SPLIT_MAP.get(orig, orig)) if lg=="CBLOL" else SPLIT_MAP.get(orig, orig)
+            norm = _norm25
             final = (norm + " PO") if (is_po and norm) else norm
             r[iSplit] = final.replace("Split ", "S")
         else:
