@@ -13525,7 +13525,7 @@ function render(){
       };
       // OBS 疊圖橋接（2026-08-20）：把評分與角色池露給本機專用的 bp_live_ui.js（不在發布白名單），
       // 由它組成觀眾用資料 POST 到 127.0.0.1:8178/overlay。每次重繪都重新指派＝拿到的永遠是當下的池與名單。
-      if(window.__bpLiveMount)window.__bpAPI={draftScore,selPool,R1,R2,POSN,used,S,laneAssign};   // 公開版載不到 bp_live_ui.js → 不掛這個全域
+      if(window.__bpLiveMount)window.__bpAPI={draftScore,selPool,sqRecent,R1,R2,POSN,used,S,laneAssign};   // 公開版載不到 bp_live_ui.js → 不掛這個全域
       const gameCard=gi=>{ // 職業賽 BP 畫面：上=雙方 BAN 橫排、下=左右兩排大 PICK
         const fp=S.fp[gi]||0, flip=S.side[gi]||0;
         // 每局隊伍：匯入局記在 S.tm[gi]（不跟著上方兩隊）、一般局＝上方兩隊
