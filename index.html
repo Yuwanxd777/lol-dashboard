@@ -12489,7 +12489,11 @@ function render(){
           else if(xt[ch].n>=mg){ m[ch]={n:xt[ch].n,w:xt[ch].w,ob:0,xt:true}; } } }
         const sq=sqRecent(team,cur.p); // 併入該選手近期積分英雄(以英雄id比對，已在池的標記 sq，新增的標 sqOnly)
         if(sq){ for(const id in sq){ let ex=null; for(const ch in m){if(champId(ch)===id){ex=ch;break;}}
-          if(ex){m[ex].sq=true;} else if(sq[id].n>=mg){m[id]={n:sq[id].n,w:sq[id].w,ob:0,sq:true,sqOnly:true};} } }
+          // 積分英雄**不套**比賽的「最低場數」門檻（使用者定案 2026-09-01：
+          // 勾了近期積分，積分有在練、比賽還沒選過的一樣要呈現。mg 是給比賽場數用的，
+          // 拿去篩積分等於把「他最近在練什麼」整個擋掉——那正是 BP 最想知道的事）。
+          // 量體本來就有限：sqRecent 只取近 V.bpSqDays 天（預設 14 天）的積分場次。
+          if(ex){m[ex].sq=true;} else {m[id]={n:sq[id].n,w:sq[id].w,ob:0,sq:true,sqOnly:true};} } }
         return {m,ps,cur};
       };
       const chip=(ch,i,mk,pos)=>`<span class="bpChip bpIco${i.sm?" bpSm":""}${i.sqOnly?" bpSqOnly":i.sq?" bpSq":""}${mk?" "+mk:""}" draggable="true" data-ch="${esc(ch)}"${pos?` data-pos="${pos}"`:""} title="${esc(cAb(ch))}${i.sqOnly?`｜近期積分 ${i.n} 場 勝率 ${i.n?Math.round(i.w/i.n*100):0}%`:`｜選 ${i.n} 場 勝率 ${i.n?Math.round(i.w/i.n*100):0}%｜被對手禁 ${i.ob} 次`}${i.sq&&!i.sqOnly?"｜近期積分也用":""}${mk==="bpDupT"?"｜同隊多人使用":mk==="bpUni"?"｜全場只有他會用":""}">${cImg(ch)}${i.sqOnly?`<span class="bpSqLbl">SoloQ</span>`:""}</span>`;
