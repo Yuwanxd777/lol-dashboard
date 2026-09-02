@@ -13537,7 +13537,32 @@ function render(){
       };
       // OBS 疊圖橋接（2026-08-20）：把評分與角色池露給本機專用的 bp_live_ui.js（不在發布白名單），
       // 由它組成觀眾用資料 POST 到 127.0.0.1:8178/overlay。每次重繪都重新指派＝拿到的永遠是當下的池與名單。
-      if(window.__bpLiveMount)window.__bpAPI={draftScore,selPool,sqRecent,R1,R2,POSN,used,S,laneAssign,F,curYear,passG,calcHeroes};   // 公開版載不到 bp_live_ui.js → 不掛這個全域；calcHeroes＝最近一手平均評分的比賽 70% 那半（2026-09-02）
+      // ── 預測專用池（使用者 2026-09-02 定案）：直播預測與角色池「顯示」的篩選**脫鉤**，
+      //    口徑固定＝該隊＋這些選手＋整年全賽事、無最低場數（＝回測台調參的口徑，以預測最精準為主）。
+      //    借 withRef(0,…)：清空 F、版本不限（lastPatches(0)=null＝整年）、算完 finally 自動還原。
+      //    ⚠ crossPool 的 _xPool 快取沒帶篩選鍵 → 換口徑前後都清掉，顯示與預測互不污染。
+      //    有記憶（window._predPC）：同隊同名單同資料量直接回上一份，避免每次 rerender 重掃 LANES。
+      const predPools=()=>{
+        try{
+          const key=[S.t1,S.t2,JSON.stringify(S.pk1),JSON.stringify(S.pk2),
+                     V.bpSoloqPool?1:0,+V.bpSqDays||14,Object.keys(window.__SQCACHE||{}).length,
+                     (typeof LANES!=="undefined"?LANES.length:0)].join("|");
+          const c=window._predPC;
+          if(c&&c.key===key)return c.v;
+          const v=withRef(0,()=>{
+            _xPool=null;
+            const Rp1=S.t1?teamRoster(S.t1):null, Rp2=S.t2?teamRoster(S.t2):null;
+            const A={},B={};
+            try{ POSN.forEach(pos=>{A[pos]=Rp1?selPool(Rp1,pos,S.pk1,S.t1):{m:{},ps:[],cur:null};
+                                    B[pos]=Rp2?selPool(Rp2,pos,S.pk2,S.t2):{m:{},ps:[],cur:null};}); }
+            finally{ _xPool=null; }
+            return {A,B};
+          });
+          window._predPC={key,v};
+          return v;
+        }catch(e){ return null; }
+      };
+      if(window.__bpLiveMount)window.__bpAPI={draftScore,selPool,sqRecent,R1,R2,POSN,used,S,laneAssign,F,curYear,passG,calcHeroes,predPools};   // 公開版載不到 bp_live_ui.js → 不掛這個全域；calcHeroes＝最近一手平均評分的比賽 70% 那半、predPools＝預測專用固定口徑池（2026-09-02）
       const gameCard=gi=>{ // 職業賽 BP 畫面：上=雙方 BAN 橫排、下=左右兩排大 PICK
         const fp=S.fp[gi]||0, flip=S.side[gi]||0;
         // 每局隊伍：匯入局記在 S.tm[gi]（不跟著上方兩隊）、一般局＝上方兩隊
