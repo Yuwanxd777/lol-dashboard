@@ -13441,9 +13441,34 @@ function render(){
                 tm=_gt?(sd==="1"?_gt.a:_gt.b):(sd==="1"?S.t1:S.t2),
                 // 名單也要跟著該局的隊伍走（S.pk1/S.pk2 在匯入時就已經設成該系列實際上場的人）
                 R0=_gt?rosterOf(tm):(sd==="1"?R1:R2);
+          // 方案A（使用者 2026-09-02 核准）：評分的代表路線改用「整組最優指派」。
+          // 舊做法每隻各自取 possible[0]——兩隻搶同一路時，一隻整組對位變中性 50、還空一路，
+          // 路線一定案分數就大跳。改成對「未釘住的手 × 空著的路」枚舉合法指派（≤5!＝120 組），
+          // 權重＝該隊該路用這隻的場數×1000＋候選順位（在 possible 越前面越高）；不在候選的路
+          // 權重 0（只在沒得選時才會被指到）。⚠ 只動評分；顯示層 laneAssign（含半透明
+          // 次要路線＝可錯位資訊）完全不動——路線圖照樣列出所有可能路（使用者同日要求）。
           const lanes={}, byLane={};
+          const pend=[], free=new Set(POSN);
           picks.forEach((c,i)=>{ if(!c||c===NOBAN)return;
-            const L=asg.res[i]||((asg.possible[i]||[])[0])||null; lanes[i]=L; if(L&&!byLane[L])byLane[L]=c; });
+            const Lr=asg.res[i]||null;
+            if(Lr){ lanes[i]=Lr; free.delete(Lr); } else pend.push(i); });
+          if(pend.length){
+            const freeL=POSN.filter(L=>free.has(L));
+            const wOf=(i,L)=>{ const ps=asg.possible[i]||[]; const k=ps.indexOf(L);
+              const e=pools[L]&&pools[L][picks[i]];
+              return (e&&!e.sqOnly?(e.n||0):0)*1000+(k>=0?(ps.length-k)*10:0); };
+            let best=null, bestW=-1;
+            const perm=(k,used,cur,w)=>{
+              if(k===pend.length){ if(w>bestW){ bestW=w; best=cur.slice(); } return; }
+              const i=pend[k];
+              for(const L of freeL){ if(used.has(L))continue;
+                used.add(L); cur.push(L); perm(k+1,used,cur,w+wOf(i,L)); cur.pop(); used.delete(L); }
+              if(freeL.every(L=>used.has(L))){ cur.push(null); perm(k+1,used,cur,w); cur.pop(); } };
+            perm(0,new Set(),[],0);
+            if(best)pend.forEach((i,k)=>{ lanes[i]=best[k]; });
+            else pend.forEach(i=>{ lanes[i]=(asg.possible[i]||[])[0]||null; });   // 保底＝舊行為
+          }
+          picks.forEach((c,i)=>{ if(!c||c===NOBAN)return; const L=lanes[i]; if(L&&!byLane[L])byLane[L]=c; });
           per[sd]={picks,lanes,byLane,tm,pools,R0,st0,tb:(tm?tmBase(tm):{b:0.5,n:0}),
                    hr:[],pl:[],tm2:[],mu:[],duo:[],pbs:[],muD:[],duoD:[],
                    nHrOK:0,nTmOK:0,nMuOK:0,nDuoOK:0,nCompOK:0};
