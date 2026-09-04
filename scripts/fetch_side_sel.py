@@ -157,6 +157,15 @@ def parse(ov, htm):
                         j = next((i for i, t in enumerate(txt) if t.startswith(k)), -1)
                     if j >= 0:
                         idx[k] = j
+                # MVP／VODs（使用者 2026-09-04 要求）：MVP＝**系列**MVP（只出現在系列首列、
+                # 無 rowspan、位置在 Blue 前——這正是逐局列 base 位移一直對得上的原因）；
+                # VODs＝逐局，新版分 PB • Start • Post 三顆連結、舊版單一「Vod」。兩欄都是選配。
+                for k in ("MVP", "VODs"):
+                    j = next((i for i, t in enumerate(txt) if t == k), -1)
+                    if j < 0:
+                        j = next((i for i, t in enumerate(txt) if t.startswith(k)), -1)
+                    if j >= 0:
+                        idx[k] = j
                 miss = set(KEYS) - set(idx)
                 # 1st Sel／Pick Sel 是**選配**：VCS／Rift Legends／NACL 的表只有 Side Sel，
                 # 硬要五欄齊全會把這些聯賽整個丟掉（實測 7 個賽事、幾百局的選邊資料全沒收）。
@@ -181,8 +190,16 @@ def parse(ov, htm):
             cur = {"t1": team(0), "t2": team(1), "score": txt[2] if len(txt) > 2 else "", "n": 0, "games": []}
             out.append(cur)
             g = lambda k: (txt[idx[k]] if (k in idx and len(txt) > idx[k]) else "")
+            graw = lambda k: (cells[idx[k]] if (k in idx and len(cells) > idx[k]) else "")
+            # MVP 兩種版型：LCK 這類＝**系列** MVP、欄在 Blue 前（前導）；LCS 這類＝**逐局** MVP、
+            # 欄在 VODs 後（尾隨）。以表頭位置判別；前導式只把值掛在第 1 局。
+            _mvlead = ("MVP" in idx) and idx["MVP"] < idx["Blue"]
+            _mv = g("MVP") if _mvlead else ""
+            cur["mvp"] = "" if _mv.strip().lower() in ("", "none", "tbd") else _mv.strip()   # wiki 沒頒就寫 None
+            cur["mvlead"] = _mvlead
         elif cur and len(cells) >= len(idx) - 1:
             g = lambda k: (txt[idx[k] - base] if (k in idx and len(txt) > idx[k] - base) else "")
+            graw = lambda k: (cells[idx[k] - base] if (k in idx and len(cells) > idx[k] - base) else "")
         else:
             continue
         cur["n"] += 1
@@ -205,8 +222,39 @@ def parse(ov, htm):
         _pj = None if _pi is None else (_pi if is_match else _pi - base)
         _pattr = attrs[_pj] if (_pj is not None and 0 <= _pj < len(attrs)) else ""
         pc = 1 if "standings-mhBlue" in _pattr else (2 if "standings-mhRed" in _pattr else 0)
+        # 逐局 VOD：新版一格三顆（PB • Start • Post）→ 只取 **PB**（BP 時間軸，使用者 2026-09-04）；
+        # 舊版單一「Vod」連結＝整局，一顆就拿；多顆但沒有 PB（怪表）寧可不取。
+        # VODs 不能用表頭索引：部分表的表頭把「1st Pick／2nd Pick」列成獨立欄、資料列卻沒有
+        # 那兩格（實測 2551 局只抓到 83）。穩健法＝**從列尾往前**找「錨點文字是 PB/Start/Post/Vod」
+        # 的格（LCS 的 VOD 後面還跟一格逐局 MVP 選手連結；⚠ 不能只看「有外部連結」——系列層的
+        # Interview/Reddit 也是外連、錨點文字是 Link，會整排誤收（實測 LPL 被灌 639 個假 VOD））。
+        # ⚠ 錨點文字夾著 U+2060（word joiner，&#8288;）不是空白、TXT 清不掉 → 比對前把非英數全剝掉
+        _atx = lambda tx: re.sub(r"[^A-Za-z0-9]", "", TXT(tx)).upper()
+        _VT = {"PB", "START", "POST", "VOD"}
+        _vod = ""
+        for _c9 in reversed(cells):
+            if 'href="http' not in _c9:
+                continue
+            _ls = [(h, _atx(tx)) for h, tx in re.findall(r'<a[^>]+href="([^"]+)"[^>]*>(.*?)</a>', _c9, re.S)]
+            _q = [(h, tx) for h, tx in _ls if tx in _VT]
+            if not _q:
+                continue                                   # 外連但不是 VOD 格（Interview/Reddit 的 Link）
+            # 只取 PB（BP 時間軸，使用者 2026-09-04）；舊式單一「Vod」＝整片，內含 BP 也收；
+            # 只有 Start/Post 沒有 PB ＝ 開局後才開始，對比賽BP 沒用 → 不取。
+            _vod = next((h for h, tx in _q if tx == "PB"), "")
+            if not _vod and len(_q) == 1 and _q[0][1] == "VOD":
+                _vod = _q[0][0]
+            break
+        # 逐局 MVP（尾隨式，LCS 這類）：最後一格是 /wiki/ 選手連結才算（外連格＝VOD、純文字＝其他欄）
+        _gm = ""
+        if not cur.get("mvlead") and cells and 'href="/wiki/' in cells[-1] and 'href="http' not in cells[-1]:
+            _gm = TXT(cells[-1]).strip()
+            if _gm.lower() in ("none", "tbd"):
+                _gm = ""
         cur["games"].append({"gi": cur["n"], "blue": bl, "red": rd, "ss": side, "pc": pc,
-                             "first_sel": g("1st Sel"), "pick_sel": g("Pick Sel")})
+                             "first_sel": g("1st Sel"), "pick_sel": g("Pick Sel"),
+                             "vod": _html.unescape(_vod),
+                             "mvp": (cur.get("mvp") if (cur.get("mvlead") and cur["n"] == 1) else "") or _gm})
     return out
 
 
@@ -289,7 +337,10 @@ def main():
             for g in s["games"]:
                 allrec.append({"d": d, "t1": t1, "t2": t2, "gi": g["gi"], "ss": g["ss"],
                                "blue": g["blue"], "red": g["red"], "pc": g.get("pc") or 0,
-                               "fs": g["first_sel"], "ps": g["pick_sel"], "ov": ov})
+                               "fs": g["first_sel"], "ps": g["pick_sel"], "ov": ov,
+                               # mvp 一律逐局形式：系列式（LCK）只掛第 1 局、逐局式（LCS）各局各自；
+                               # 前端逐局直接累計即可。vod＝逐局 PB（BP 時間軸）連結
+                               "mvp": g.get("mvp") or "", "vod": g.get("vod") or ""})
                 n += 1
         print(f"  ✓ {ov}：{len(sers)} 場 / {n} 局")
     print(f"有選邊權欄位的賽事 {hit}／{len(pages)}，合計 {len(allrec)} 局")

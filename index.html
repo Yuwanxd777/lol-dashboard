@@ -4456,7 +4456,7 @@ function calcPlayers(pos,splitTeam){
     const kda10=a.kdaN?((a.k10+a.a10)/Math.max(1,a.d10))-((a.ok10+a.oa10)/Math.max(1,a.od10)):null;
     const gd10=a.g10N?a.gd10/a.g10N:null, gd25=a.g25N?a.gd25/a.g25N:null;
     rows.push({
-      選手:tAb(a.team)+" "+a.name, _team:tAb(a.team), _lg:mainLg(a.lgCnt,tAb(a.team)), 位置:a.posLabel||"", 場數:a.n, 勝率:a.w/a.n,
+      選手:tAb(a.team)+" "+a.name, _pn:a.name, _team:tAb(a.team), _lg:mainLg(a.lgCnt,tAb(a.team)), 位置:a.posLabel||"", 場數:a.n, 勝率:a.w/a.n,
       // 這幾項全都要「有資料才給值」：2013 這種只有 BP／勝負的年份，分子分母都是 0，
       // 算出來是 0% 會被誤讀成「真的是 0%」（2026-07-31 使用者三度回報）
       參與率:((a.kN||a.a2N)&&a.tkN)?(a.k+a.a2)/Math.max(1,a.tk):null, "贏線率(金差@10)":a.g10N?a.winL/a.g10N:null,
@@ -4477,8 +4477,12 @@ function calcPlayers(pos,splitTeam){
     });
   }
   if(!rows.length)return rows;
+  // 系列 MVP（wiki VODs&Match Links 表；使用者 2026-09-04）：欄位＋評分權重都吃它。
+  // 沒有覆蓋（2025 以前／未收錄賽事）＝null → 欄顯示「–」、has() 自動不計權。
+  { const _mv=mvpCounts(); rows.forEach(r=>{ r.MVP=_mv.any?(_mv.S.get(String(r._pn||"").trim().toLowerCase())||0):null; }); }
   const g=rows.map(r=>r.場數), thr=threshold(g);
   const P=(getv,asc)=>rankP(rows.map(r=>{const v=getv(r);return v==null?0:v;}),asc);
+  const Smvp=P(r=>r.MVP==null?null:(r.場數?r.MVP/r.場數:0));   // 權重用 MVP「率」（÷場數），不然場多天然佔便宜
   const Sw=P(r=>wilson(r.勝率,r.場數)), S贏=P(r=>r["贏線率(金差@10)"]), S輸=P(r=>r.輸出比),
     S首=P(r=>r.首殺率), S金傷=P(r=>r.金轉傷), SDPM=P(r=>r.分均輸出), Sg=P(r=>r["金差@10"]),
     Sm=P(r=>r.中期金差), SK10=P(r=>r["KDA差@10"]), S參=P(r=>r.參與率), S後=P(r=>r.後選率),
@@ -4495,12 +4499,14 @@ function calcPlayers(pos,splitTeam){
     if(has("贏線率(金差@10)")){an+=S贏[i]*2;ad+=2;} if(has("首殺率")){an+=S首[i];ad+=1;}
     if(has("金差@10")){an+=Sg[i]*2;ad+=2;} if(has("中期金差")){an+=Sm[i]*2;ad+=2;}
     if(has("KDA差@10")){an+=SK10[i];ad+=1;}
+    if(has("MVP")){an+=Smvp[i];ad+=1;}          // 使用者 2026-09-04：MVP 權重 ×1 進攻擊值
     let dn=Sw[i], dd=1;
     if(has("參與率")){dn+=S參[i];dd+=1;} if(has("後選率")){dn+=S後[i];dd+=1;}
     if(has("死亡比")){dn+=S死[i];dd+=1;} if(has("分均承傷")){dn+=S承[i];dd+=1;}
     if(has("KDA")){dn+=Sk[i];dd+=1;} if(has("分均視分")){dn+=S視[i]*2;dd+=2;}
     if(has("角色池")){dn+=S池[i];dd+=1;}
     if(has("被首殺率")){dn+=S被[i];dd+=1;} if(has("經驗差@10")){dn+=Sx[i]*2;dd+=2;}
+    if(has("MVP")){dn+=Smvp[i];dd+=1;}          // 使用者 2026-09-04：MVP 權重 ×1 進防禦值
     const pen=penalty(r.場數,thr);
     r.攻擊值=Math.round(curve(an/ad*100)*pen*10)/10;
     r.防禦值=Math.round(curve(dn/dd*100)*pen*10)/10;
@@ -6470,7 +6476,8 @@ function ssIdx(){
     // 選邊權留給對手；不同隊＝它拿走選邊權。兩欄有一邊沒填就不判（null）。
     // pc＝握選序權那隊實際選了先選(1)還是後選(2)——wiki Pick Sel 格的顏色 class，0＝沒記錄。
     const p = (r.fs && r.ps) ? (r.fs === r.ps ? 1 : 0) : null;
-    _SSI.set(_ssKey(r.d,r.t1,r.t2,r.gi), {s:r.ss, p, pc:r.pc||0});
+    // mvp＝該**系列**的 MVP（抓取端掛在系列每一局上）；vod＝這一局的 PB（BP 時間軸）連結（2026-09-04）
+    _SSI.set(_ssKey(r.d,r.t1,r.t2,r.gi), {s:r.ss, p, pc:r.pc||0, mvp:r.mvp||"", vod:r.vod||""});
   }
   return _SSI;
 }
@@ -6480,6 +6487,23 @@ const _ssShift = (d, n) => { const t = new Date(String(d).slice(0, 10) + "T00:00
 const ssRec = m => { const I = ssIdx();
   return I.get(_ssKey(m._d, m._btf, m._rtf, m._g)) || I.get(_ssKey(_ssShift(m._d, -1), m._btf, m._rtf, m._g)) || I.get(_ssKey(_ssShift(m._d, 1), m._btf, m._rtf, m._g)) || null; };
 const ssOf = m => (ssRec(m)||{}).s || "";
+// ── MVP 計數（wiki VODs&Match Links 表；使用者 2026-09-04：列進選手表攻擊值前、
+//    並以 x1 權重進攻擊值與防禦值）──
+// 抓取端已把兩種版型統一成**逐局**：系列式（LCK＝一系列一位）只掛第 1 局、逐局式（LCS）各局各自
+// → 這裡逐局直接累計就對，不用去重。名字鍵＝小寫修剪（wiki 的 MVP 與主資料 playername 都是選手 ID）。
+// any=false＝這個篩選範圍完全沒有 MVP 資料（2025 以前／wiki 沒收錄）→ 欄顯示「–」、評分權重自動不計。
+let _MVPC=null,_MVPK="";
+function mvpCounts(){
+  const k=(typeof vcKey==="function"?vcKey():String(curYear))+"|mvp";
+  if(_MVPK===k&&_MVPC)return _MVPC;
+  const S=new Map(); let any=false;
+  for(const o of GAMES){ if(!passG(o))continue; const r=o.raw;
+    const rec=ssRec({_d:o.date,_btf:r[C.blue_teamname],_rtf:r[C.red_teamname],_g:+r[C.game]||1});
+    if(!rec||!rec.mvp)continue; any=true;
+    const n=String(rec.mvp).trim().toLowerCase(); S.set(n,(S.get(n)||0)+1);
+  }
+  _MVPK=k; return _MVPC={S,any};
+}
 // 該側拿到的是什麼：選邊權→依它實際在哪一邊寫「選藍/選紅」；否則就是拿先選權→依是否為
 // 先選方寫「先選/後選」。查不到資料（2025 以前、或 wiki 沒收錄的賽事）回空字串。
 // 這一側是不是「1st Sel」（拿到第一選擇權的那隊）→ 比賽BP 的選擇欄用金色標它。
@@ -6934,6 +6958,8 @@ const PCOLS=[["選手",fmt.raw,"15em"],["場數",fmt.int],["勝率",fmt.pct],["�
   ["首殺差",fmt.signPct],
   ["金轉傷",fmt.pct],["中期金差",fmt.sign],
   ["分均金錢",fmt.int],["分均輸出",fmt.int],["分均承傷",fmt.int],["分均視分",fmt.d1],
+  // MVP＝系列 MVP 次數（wiki 資料，2026 起才有；使用者 2026-09-04：列在攻擊值前）。null＝該範圍無資料
+  ["MVP",v=>v==null?"–":String(v)],
   ["攻擊值",fmt.score],["防禦值",fmt.score],["評分",fmt.score]];
 // 戰隊欄：合併欄的**主值＝括號前那一項**（排序、名次上色都看它），括號內是次要值（灰字）。
 // 選邊率／選選序率是 2026 新制才有的資料（side_sel.js），其他年份整欄都是「–」→ 跟比賽BP 的
@@ -8022,14 +8048,14 @@ function scoreTip(c,type){
     if(type==="team")return `<div class="tipTitle">${mLabel("攻擊值")} ${LANG==="en"?"weights":"權重"}</div>`+
       row(LANG==="en"?"11 equal weights (each a team percentile)":"11 項等權（各取全戰隊百分位）",[["勝率","×1"],["首塔","×1"],["2+巢蟲","×1"],["首龍","×1"],["預示者","×1"],["首巴龍","×1"],["KD差@10","×1"],["金錢差@10","×1"],["中期金差","×1"],["分均輸出","×1"],["分均擊殺","×1"]])+note(nn);
     return `<div class="tipTitle">${mLabel("攻擊值")} ${LANG==="en"?"weights":"權重"}</div>`+
-      row(LANG==="en"?"each a player percentile":"各取全選手百分位",[["勝率","×1"],["輸出比","×1"],["金轉傷","×1"],["分均輸出","×2"],["贏線率","×2"],["首殺率","×1"],["金差@10","×2"],["中期金差","×2"],["KDA差@10","×1"]])+note(nn);
+      row(LANG==="en"?"each a player percentile":"各取全選手百分位",[["勝率","×1"],["輸出比","×1"],["金轉傷","×1"],["分均輸出","×2"],["贏線率","×2"],["首殺率","×1"],["金差@10","×2"],["中期金差","×2"],["KDA差@10","×1"],[LANG==="en"?"MVP rate":"MVP率","×1"]])+note(nn);
   }
   if(c==="防禦值"){
     const nn=LANG==="en"?"through a diminishing curve × games correction":"過遞減曲線×場數修正";
     if(type==="team")return `<div class="tipTitle">${mLabel("防禦值")} ${LANG==="en"?"weights":"權重"}</div>`+
       row(LANG==="en"?"10 equal weights (each a team percentile)":"10 項等權（各取全戰隊百分位）",[["大場勝率","×1"],["角色池","×1"],["時間(短佳)","×1"],["首中塔","×1"],["小龍","×1"],["領先勝率","×1"],["分均金錢","×1"],["分均死亡(少佳)","×1"],["助攻","×1"],["視野分數","×1"]])+note(nn);
     return `<div class="tipTitle">${mLabel("防禦值")} ${LANG==="en"?"weights":"權重"}</div>`+
-      row(LANG==="en"?"each a player percentile":"各取全選手百分位",[["勝率","×1"],["參與率","×1"],["後選率","×1"],["死亡比(低佳)","×1"],["分均承傷","×1"],["KDA","×1"],["分均視分","×2"],["角色池","×1"],["被首殺率","×1"],["經驗差@10","×2"]])+note(nn);
+      row(LANG==="en"?"each a player percentile":"各取全選手百分位",[["勝率","×1"],["參與率","×1"],["後選率","×1"],["死亡比(低佳)","×1"],["分均承傷","×1"],["KDA","×1"],["分均視分","×2"],["角色池","×1"],["被首殺率","×1"],["經驗差@10","×2"],[LANG==="en"?"MVP rate":"MVP率","×1"]])+note(nn);
   }
   // 英雄分頁各數據欄的詳細說明（含特殊算法）
   if(type==="hero"){
@@ -12067,13 +12093,17 @@ function render(){
         // 隊名不再標「先選方＝金色粗體」（2026-08-03 使用者取消）：右邊的「選擇」欄已經
         // 直接寫先選／後選，重複標示反而讓整列到處都是金色。
         const cell=(s,isBlue,won)=>`<td class="${sCls(isBlue,won)}">${s.team}</td>`;
-        // 首欄＝「└ 第N局」（日期/賽事/版本都在系列標題列；2026-08-04 版型實驗）
-        const head=`<td class="subg">└ ${LANG==="en"?`Game ${gno}`:`第${gno}局`}</td>`;
+        // 首欄＝「└ 第N局」（日期/賽事/版本都在系列標題列；2026-08-04 版型實驗）。
+        // 有 VOD（wiki 逐局連結，只取 PB＝BP 時間軸）就把「第N局」做成超連結（使用者 2026-09-04）
+        const _vd=(ssRec(m)||{}).vod||"";
+        const _gl=LANG==="en"?`Game ${gno}`:`第${gno}局`;
+        const _glk=_vd?`<a href="${esc(_vd)}" target="_blank" rel="noopener" title="${LANG==="en"?"watch this game's Picks & Bans VOD":"看這局的 BP 過程 VOD（PB 時間軸）"}" style="color:var(--gold);text-decoration:underline dotted">${_gl}</a>`:_gl;
+        const head=`<td class="subg">└ ${_glk}</td>`;
         if(_dm){ // 選角順序檢視＝平面表格：日期/版本/賽事各自成欄、局數不掛「└」；隊名固定藍左紅右
           // 2026-08-05 使用者定案：藍方/紅方/選擇欄**不上底色**（bpB/bpR 不用），
           // 改成**隊名文字上藍/紅色**；列與列交錯白底（.bpDraft 的 nth-child 規則）
           const flatHead=`<td class="meta">${m.date}</td><td class="meta">${esc(String(m.patch||""))}</td><td>${lgChip(m.league)}</td>`
-            +`<td class="subg" style="padding-left:8px">${LANG==="en"?`Game ${m._g}`:`第${m._g}局`}</td>`;
+            +`<td class="subg" style="padding-left:8px">${_vd?`<a href="${esc(_vd)}" target="_blank" rel="noopener" title="${LANG==="en"?"watch this game's Picks & Bans VOD":"看這局的 BP 過程 VOD（PB 時間軸）"}" style="color:var(--gold);text-decoration:underline dotted">${LANG==="en"?`Game ${m._g}`:`第${m._g}局`}</a>`:(LANG==="en"?`Game ${m._g}`:`第${m._g}局`)}</td>`;
           const tCell=(s,isBlue)=>`<td style="color:${isBlue?_CBLU:_CRED};font-weight:600">${s.team}</td>`;
           const selCellD=(m2,isBlue)=>{ if(!_hasSel)return ""; const t=ssLbl(m2,isBlue), f=t&&ssFirst(m2,isBlue);
             return `<td style="font-size:12px;white-space:nowrap${f?";color:var(--gold);font-weight:700":""}" ${f?`title="${LANG==="en"?"had the first choice":"這隊拿到第一選擇權"}"`:""}>${t||`<span class="meta">–</span>`}</td>`;};
