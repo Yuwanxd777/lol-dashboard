@@ -4394,7 +4394,9 @@ function calcPlayers(pos,splitTeam){
     const r=o.raw;
     // POG/POM「機會數」查一次給兩側用（評分的率分母；使用者 09-04 提醒兩種版型不可混算）：
     // POG 制＝每局一次機會、POM 制＝每系列一次（下面按選手用 _pomSeen 去重）。wiki 沒收錄的局不算。
-    const _mr=(typeof ssRec==="function")?ssRec({_d:o.date,_btf:r[C.blue_teamname],_rtf:r[C.red_teamname],_g:+r[C.game]||1}):null;
+    // 效能：2026 前的年份 SIDE_SEL 根本沒資料，13k 列的鍵組字純浪費 → 直接跳過。
+    const _mr=(+curYear>=2026&&window.SIDE_SEL&&SIDE_SEL.length&&typeof ssRec==="function")
+      ?ssRec({_d:o.date,_btf:r[C.blue_teamname],_rtf:r[C.red_teamname],_g:+r[C.game]||1}):null;
     const _mrk=_mr?String(o.date).slice(0,10)+"|"+[_ssNorm(r[C.blue_teamname]),_ssNorm(r[C.red_teamname])].sort().join("|"):"";
     for(const side of[0,1]){
       const B=i=>r[i+(side?RB:0)];
@@ -6485,22 +6487,39 @@ const _ssKey = (d, a, b, g) => String(d).slice(0, 10) + "|" + [_ssNorm(a), _ssNo
 function ssIdx(){
   if(_SSI)return _SSI;
   _SSI=new Map();
-  for(const r of (window.SIDE_SEL||[])){
+  const mk=r=>{
     // p＝「拿到第一選擇權的隊伍選了選序權」：1st Sel 與 Pick Sel 同一隊＝它把選序權拿走、
     // 選邊權留給對手；不同隊＝它拿走選邊權。兩欄有一邊沒填就不判（null）。
     // pc＝握選序權那隊實際選了先選(1)還是後選(2)——wiki Pick Sel 格的顏色 class，0＝沒記錄。
-    const p = (r.fs && r.ps) ? (r.fs === r.ps ? 1 : 0) : null;
     // mvp＝逐局形式（POM 制只掛第 1 局）；mvs＝版型（1=POM 一整場一位、0=POG 一局一位）；
     // vod＝這一局的 PB（BP 時間軸）連結（2026-09-04）
-    _SSI.set(_ssKey(r.d,r.t1,r.t2,r.gi), {s:r.ss, p, pc:r.pc||0, mvp:r.mvp||"", mvs:r.mvs?1:0, vod:r.vod||""});
+    const p = (r.fs && r.ps) ? (r.fs === r.ps ? 1 : 0) : null;
+    return {s:r.ss, p, pc:r.pc||0, mvp:r.mvp||"", mvs:r.mvs?1:0, vod:r.vod||""};
+  };
+  // 效能（2026-09-04 比賽BP 卡頓排查）：±1 天的備援**在建索引時就展開成鍵**，查詢端從
+  // 「最多 3 次 get＋每次重建鍵＋兩個 Date」變成**單次 get**（ssRec 是比賽BP／選手頁的熱路徑，
+  // 一列會被叫 6~8 次）。先放位移鍵、**精準鍵最後放（後蓋前）**＝維持「先精準、落空才 ±1」的
+  // 舊語意——連日對戰同兩隊同局號時，精準那一局永遠贏。
+  for(const r of (window.SIDE_SEL||[])){
+    const v=mk(r);
+    _SSI.set(_ssKey(_ssShift(r.d,-1),r.t1,r.t2,r.gi), v);
+    _SSI.set(_ssKey(_ssShift(r.d,1),r.t1,r.t2,r.gi), v);
+  }
+  for(const r of (window.SIDE_SEL||[])){
+    _SSI.set(_ssKey(r.d,r.t1,r.t2,r.gi), mk(r));
   }
   return _SSI;
 }
 // 日期 ±1 天備援：跨午夜比賽兩邊記的日期會差一天（主資料用開賽當地/UTC 時刻、wiki 用賽程日，
-// 實測 LCS 12＋CBLOL 3 局因此落空）。先精準比對，落空才試 ±1，避免誤吃到連日對戰的另一場。
+// 實測 LCS 12＋CBLOL 3 局因此落空）。位移鍵已在 ssIdx 建索引時展開（見上），查詢單次 get；
+// 另在 m 物件上快取（比賽BP 一列會查 6~8 次：選邊、選擇欄、VOD…同一列永遠同一筆）。
 const _ssShift = (d, n) => { const t = new Date(String(d).slice(0, 10) + "T00:00:00Z"); t.setUTCDate(t.getUTCDate() + n); return t.toISOString().slice(0, 10); };
-const ssRec = m => { const I = ssIdx();
-  return I.get(_ssKey(m._d, m._btf, m._rtf, m._g)) || I.get(_ssKey(_ssShift(m._d, -1), m._btf, m._rtf, m._g)) || I.get(_ssKey(_ssShift(m._d, 1), m._btf, m._rtf, m._g)) || null; };
+const ssRec = m => {
+  if (m && m._ssv !== undefined) return m._ssv;
+  const v = ssIdx().get(_ssKey(m._d, m._btf, m._rtf, m._g)) || null;
+  if (m) m._ssv = v;
+  return v;
+};
 const ssOf = m => (ssRec(m)||{}).s || "";
 // ── POG／POM 計數（wiki VODs&Match Links 表；使用者 2026-09-04 定名：POG＝一局一位、
 //    POM＝一整場（系列）一位；列進選手表攻擊值前，評分權重 POG×1、POM×2）──
@@ -6773,17 +6792,22 @@ window.refitLayout=()=>{
   if(window.hsbUpdate)hsbUpdate();
 };
 new MutationObserver(ms=>{
+  if(window._vcRestoring)return; // 分頁快取快路徑還原（同 sig 同字體 epoch）：節點樣式已是最終版面，不需再排
   // 餘寬分配必須「同一幀」完成（2026-08-05 使用者回報陣容表頭飄移）：等下面那個 60ms 的
   // refitLayout 才分，使用者會先看到 CSS 自動版面、再看到欄位往右跳一下——實測 2560 寬切模式，
   // 重繪後 ~250ms（多批 DOM 變動一直把 60ms 計時器往後推）欄位整排右移 7px。
   // MutationObserver 回呼是微任務、早於繪製 → 在這裡先分好，畫面只會出現最終版面。
   // 只在「這批變動有帶進表格」時跑，避免每次 DOM 異動都做整頁強制重排。
-  let hasT=false;
-  for(const m of ms){ for(const n of m.addedNodes){
-      if(n.nodeType===1&&(n.tagName==="TABLE"||(n.querySelector&&n.querySelector("table")))){hasT=true;break;} }
-    if(hasT)break; }
-  if(hasT){ document.querySelectorAll("table").forEach(t=>{try{fitAutoTable(t);}catch(e){}});
-    document.querySelectorAll(".card").forEach(c=>{try{fitCardScrollPad(c);}catch(e){}}); }
+  // 只 fit **這批新增**的表格／卡片（2026-09-04 卡頓剖析：積分頁逐批加卡片，原本每批都對
+  // 全頁所有表格重跑＝O(n²)；既有表格早 fit 過，樣式烙在節點上不用重做）。60ms 後的完整
+  // refitLayout 照跑，當正確性保險網。
+  const _ts=new Set(),_cs=new Set();
+  for(const m of ms)for(const n of m.addedNodes){ if(n.nodeType!==1)continue;
+    if(n.tagName==="TABLE")_ts.add(n); else if(n.querySelectorAll)n.querySelectorAll("table").forEach(t=>_ts.add(t));
+    const c=n.closest&&n.closest(".card"); if(c)_cs.add(c);
+    if(n.querySelectorAll)n.querySelectorAll(".card").forEach(x=>_cs.add(x)); }
+  if(_ts.size){ _ts.forEach(t=>{try{fitAutoTable(t);}catch(e){}});
+    _cs.forEach(c=>{try{fitCardScrollPad(c);}catch(e){}}); }
   clearTimeout(window._ftw);window._ftw=setTimeout(refitLayout,60);})
   .observe(main,{childList:true,subtree:true});
 addEventListener("resize",()=>{clearTimeout(window._ftw);window._ftw=setTimeout(refitLayout,120);});
@@ -9488,9 +9512,13 @@ function orderBaseBtns(){
     const t=(b.textContent||"").trim();
     if(t.startsWith("🗑"))return 0; if(t.startsWith("📸"))return 1; return -1; };
   f.querySelectorAll("button").forEach(b=>{ if(key(b)<0)return;
-    b.classList.add("sqbtn"); b.style.order=""; b.style.marginLeft="";
+    if(!b.classList.contains("sqbtn"))b.classList.add("sqbtn");
+    if(b.style.order)b.style.order=""; if(b.style.marginLeft)b.style.marginLeft="";
     if(b.parentNode!==bb)bb.appendChild(b); });
-  [...bb.children].filter(b=>key(b)>=0).sort((a,c)=>key(a)-key(c)).forEach(b=>bb.appendChild(b));
+  // 順序已對就**一個都不要動**：appendChild 即使位置沒變也算 DOM 變動，會逼下一次讀 layout
+  // 整個重排（這支每次繪製後都會被叫，積分頁一次切入叫數十次——2026-09-04 卡頓剖析）
+  {const _seq=[...bb.children].filter(b=>key(b)>=0), _srt=[..._seq].sort((a,c)=>key(a)-key(c));
+   if(_seq.some((b,i)=>b!==_srt[i]))_srt.forEach(b=>bb.appendChild(b));}
   // 右群一體化（2026-08-06 使用者指定）：縮放拉高導致篩選列換行時，「置左的留第一列靠左、
   // 置右的整組掉到第二列靠右」。原本模式鈕(order≥1)與基礎鈕各自是獨立 flex 項目，會各自換行
   // 散在不同列（實測 150% 時模式鈕在第二列、基礎鈕又自己跑到第三列）。收進同一個容器就整組走。
@@ -9498,8 +9526,15 @@ function orderBaseBtns(){
   if(!br){ br=document.createElement("span"); br.className="barRight";
     br.style.cssText="display:inline-flex;flex-wrap:wrap;gap:10px 11px;align-items:center;justify-content:flex-end;margin-left:auto;order:399";
     f.appendChild(br); }
-  const ord=el=>parseInt(getComputedStyle(el).order)||0;
-  [...f.children].filter(k=>k!==br&&ord(k)>=1).sort((a,c)=>ord(a)-ord(c)).forEach(k=>br.appendChild(k));
+  // ⚠ 效能（2026-09-04 積分頁卡頓剖析，220ms 熱點）：這支每次繪製後都被叫、積分頁一次切入
+  // 叫數十次。①order 一律先讀**行內 style**——會被搬進 barRight 的元素（segHTML／匯入鈕／📸）
+  // 的 order 全是行內設的，全站沒有 CSS class 對 .filters 子元素設 order（2026-09-04 全檔掃過），
+  // getComputedStyle 只當保險後路並快取在元素上（每叫一次都逼整頁 style recalc，是原本的熱點）。
+  // ②已經搬進 barRight 的不再動、順序沒變不 appendChild（DOM 一動下一輪就得重排）。
+  const ord=el=>{ const s=el.style?el.style.order:""; if(s!=="")return parseInt(s)||0;
+    if(el._ordv===undefined)el._ordv=parseInt(getComputedStyle(el).order)||0; return el._ordv; };
+  const _mv9=[...f.children].filter(k=>k!==br&&ord(k)>=1);
+  if(_mv9.length)_mv9.sort((a,c)=>ord(a)-ord(c)).forEach(k=>br.appendChild(k));
   bb.style.marginLeft="";   // 進了 barRight 就不必自己靠右（否則會在群內把基礎鈕拉開）
 }
 function ensureBackBtn(){
@@ -9551,7 +9586,10 @@ function render(){
   }
   if(!keyChanged&&_prevView&&_prevView!==curView){
     // 離開的分頁整組收進快取（DOM＋圖表實例）
-    VIEW_CACHE.slots[_prevView]={nodes:[...main.childNodes],chart,radar,tchart,sub:vcSub(_prevView),sig:laySig()};
+    // fitE：字體 epoch 簽章，供還原快路徑判斷「存進去時 fit 好的樣式還能不能直接用」。
+    // ⚠ 預熱（_warming）是把 main 藏起來（鎖高＋hidden）畫的，欄寬量測條件跟真實顯示不同
+    // （捲軸有無等）→ 標 -1 永不走快路徑，還原時照舊 refitLayout 校正（2026-09-04 preflight 抓到戰隊欄距 45px 偏差）。
+    VIEW_CACHE.slots[_prevView]={nodes:[...main.childNodes],chart,radar,tchart,sub:vcSub(_prevView),sig:laySig(),fitE:window._warming?-1:(window._fitEpoch||0)};
     chart=null;radar=null;tchart=null;
   }else{
     // 同分頁重建：舊快取作廢、現有圖表銷毀
@@ -9570,11 +9608,20 @@ function render(){
     const slot=VIEW_CACHE.slots[curView];
     if(slot&&slot.sub===vcSub(curView)&&slot.sig===laySig()){ // 直接還原（免重算）；視窗/縮放變過（sig 不符）就重建，避免還原出舊 px 版面
       delete VIEW_CACHE.slots[curView];
+      const _fitSame=slot.fitE===(window._fitEpoch||0); // 字體 epoch 沒變＝存進去時 fit 好的樣式仍有效
+      if(_fitSame)window._vcRestoring=true; // 讓 MutationObserver 跳過這批還原變動（否則 60ms 後又整頁 refitLayout 一次）
       main.replaceChildren(...slot.nodes);
+      if(_fitSame)setTimeout(()=>{window._vcRestoring=false;},0); // 觀察者回呼是微任務、比 timeout 早 → 旗標剛好蓋住這批
       chart=slot.chart;radar=slot.radar;tchart=slot.tchart;
       requestAnimationFrame(()=>{try{chart&&chart.resize();radar&&radar.resize();tchart&&tchart.resize();}catch(e){}});
       if(typeof penResize==="function")penResize();
-      if(typeof refitLayout==="function")refitLayout();
+      if(_fitSame){ // 快路徑：節點是離開時同一批、同 sig 同字體 epoch → 版面早烙在節點上，整段量測全免
+        requestAnimationFrame(()=>{ // 收尾的量測讀取放 rAF（繪製前那一幀）：點擊處理器即刻返回，整頁排版只付一次
+          document.querySelectorAll(".tblwrap.hscroll").forEach(w=>{const x=window._twSL[twKey(w)]; if(x&&Math.abs(w.scrollLeft-x)>1)w.scrollLeft=x;}); // 節點離線期間 scrollLeft 會歸零
+          try{setHdrH();}catch(e){}
+          if(window.fixZoomHeight)fixZoomHeight(); if(window.hsbUpdate)hsbUpdate();
+        });
+      }else if(typeof refitLayout==="function")refitLayout();
       return;
     }
     if(slot){ // 子狀態變了 → 快取作廢重建
@@ -12360,10 +12407,15 @@ function render(){
       _sug.onmousedown=e=>{ e.preventDefault(); const it=e.target.closest(".fselIt"); if(it)_sugPick(it.dataset.v); }; // mousedown＝搶在 blur 前
       // 文字「塞得下就置中、超出才置左」（2026-08-04 使用者指定）：CSS 讀不到溢出，用 scrollWidth 判
       const _fitAlign=inp=>{ inp.style.textAlign=inp.scrollWidth>inp.clientWidth+1?"left":"center"; };
+      // ⚠ 效能（2026-09-04 比賽BP 卡頓剖析）：初始化不可逐格「讀 scrollWidth→寫 textAlign」交錯
+      // ——每一次寫都讓下一次讀強制重排整張大表（十幾格＝十幾次 reflow，佔掉整次切頁的大半）。
+      // 批次化：先一輪全讀、再一輪全寫（打字中的單格 _fitAlign 照舊，一次只動一格沒差）。
+      {const _fis=[...box.querySelectorAll("input.bpColF")];
+       const _need=_fis.map(inp=>inp.scrollWidth>inp.clientWidth+1);
+       _fis.forEach((inp,i)=>{ inp.style.textAlign=_need[i]?"left":"center"; });}
       // 逐欄篩選輸入：即時更新狀態＋防抖重繪；重繪重建整表→把焦點還回剛打字的那一欄
       box.querySelectorAll("input.bpColF").forEach(inp=>{
         const _apply=()=>{ inp.value=_snap(inp.dataset.k,_normQ(inp.dataset.k,inp.value)); V.bpColF[inp.dataset.k]=inp.value; saveState(); };
-        _fitAlign(inp);
         inp.onfocus=()=>_sugShow(inp);
         inp.oninput=()=>{ V.bpColF[inp.dataset.k]=inp.value; _sugShow(inp); _fitAlign(inp); };    // 打字中：只記值＋過濾清單、不逐字重繪
         inp.onchange=()=>{ _apply(); rerender(); };                                               // 失焦/輸入完→套用篩選
