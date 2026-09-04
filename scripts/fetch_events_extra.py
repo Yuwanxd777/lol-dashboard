@@ -51,7 +51,8 @@ EVENTS = {
     # 2015 GPL 已由 PB 頁補到 145 局（春 96／夏 49）→ 不再需要補充名單
     2026: {
         "EWCQ中國": {"page": "Esports World Cup 2026/Online Qualifiers/China", "kind": "team"},
-        "ENC":      {"page": "Esports Nations Cup 2026",                       "kind": "nation"},
+        # ENC 2026 電競國家盃已取消（使用者 2026-09-04 告知）→ 從清單移除；
+        # 輸出層的 keep-filter（main() 開頭）會把舊檔裡的 ENC 一併清掉。若日後復辦再加回。
         "LPL#S3":   {"page": "LPL/2026 Season/Split 3",                        "kind": "team"},
     },
 }
