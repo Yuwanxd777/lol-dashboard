@@ -7047,8 +7047,10 @@ const PCOLS=[["選手",fmt.raw,"15em"],["場數",fmt.int],["勝率",fmt.pct],["�
   // 列在攻擊值前）。使用者 2026-09-04 定案：**兩欄合併成一欄**，寫「POG/POM」，
   // **排序值＝POG＋POM×2**（POM 算 2 點，跟評分權重同一套）。
   // 各自的 null＝該篩選範圍沒有那個版型的資料（只篩 LCK 時 POG 那半寫「–」，因為 LCK 不發逐局獎）。
+  // 標籤列換行、斜線用全形（使用者 2026-09-04）：欄名走第四元素（顯示標籤），
+  // 排序鍵仍是半形的 "POG/POM"（COL_DEF 說明、CSV、data-k 都吃這個鍵，不要跟著改）。
   ["POG/POM",(v,r)=>(r.POG==null&&r.POM==null)?"–"
-    :`${r.POG==null?"–":r.POG}<span class="meta">/</span>${r.POM==null?"–":r.POM}`,"7em"],
+    :`${r.POG==null?"–":r.POG}<span class="meta">／</span>${r.POM==null?"–":r.POM}`,"","POG／<br>POM"],
   ["攻擊值",fmt.score],["防禦值",fmt.score],["評分",fmt.score]];
 // 戰隊欄：合併欄的**主值＝括號前那一項**（排序、名次上色都看它），括號內是次要值（灰字）。
 // 選邊率／選選序率是 2026 新制才有的資料（side_sel.js），其他年份整欄都是「–」→ 跟比賽BP 的
