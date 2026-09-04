@@ -4499,7 +4499,10 @@ function calcPlayers(pos,splitTeam){
     // （聯賽不發）→ 顯示「–」不是 0（鐵則：沒資料顯示 –）；權重那側 has() 也自動不計。
     rows.forEach(r=>{ const cg=_mv.Spog.get(_nm(r))||0, cm=_mv.Spom.get(_nm(r))||0;
                       r.POG=_mv.anyG?(cg>0?cg:(r._pogOpp?0:null)):null;
-                      r.POM=_mv.anyM?(cm>0?cm:(r._pomOpp?0:null)):null; }); }
+                      r.POM=_mv.anyM?(cm>0?cm:(r._pomOpp?0:null)):null;
+                      // 合併欄的**主值＝排序值**（使用者 2026-09-04：POM 算 2 點）；
+                      // 兩邊都沒資料才是 null（整欄「–」、不進排名上色）
+                      r["POG/POM"]=(r.POG==null&&r.POM==null)?null:((r.POG||0)+(r.POM||0)*2); }); }
   const g=rows.map(r=>r.場數), thr=threshold(g);
   const P=(getv,asc)=>rankP(rows.map(r=>{const v=getv(r);return v==null?0:v;}),asc);
   // 權重用「率」＝次數÷**可獲得數**（POG 制＝出賽局數、POM 制＝出賽系列數）：兩版型都歸一到 0~1
@@ -7041,8 +7044,11 @@ const PCOLS=[["選手",fmt.raw,"15em"],["場數",fmt.int],["勝率",fmt.pct],["�
   ["金轉傷",fmt.pct],["中期金差",fmt.sign],
   ["分均金錢",fmt.int],["分均輸出",fmt.int],["分均承傷",fmt.int],["分均視分",fmt.d1],
   // POG＝一局一位、POM＝一整場（系列）一位（使用者 2026-09-04 定名；wiki 資料，2026 起才有；
-  // 列在攻擊值前）。null＝該篩選範圍沒有該版型的資料（例如只篩 LCK 時 POG 整欄「–」）
-  ["POG",v=>v==null?"–":String(v)],["POM",v=>v==null?"–":String(v)],
+  // 列在攻擊值前）。使用者 2026-09-04 定案：**兩欄合併成一欄**，寫「POG/POM」，
+  // **排序值＝POG＋POM×2**（POM 算 2 點，跟評分權重同一套）。
+  // 各自的 null＝該篩選範圍沒有那個版型的資料（只篩 LCK 時 POG 那半寫「–」，因為 LCK 不發逐局獎）。
+  ["POG/POM",(v,r)=>(r.POG==null&&r.POM==null)?"–"
+    :`${r.POG==null?"–":r.POG}<span class="meta">/</span>${r.POM==null?"–":r.POM}`,"7em"],
   ["攻擊值",fmt.score],["防禦值",fmt.score],["評分",fmt.score]];
 // 戰隊欄：合併欄的**主值＝括號前那一項**（排序、名次上色都看它），括號內是次要值（灰字）。
 // 選邊率／選選序率是 2026 新制才有的資料（side_sel.js），其他年份整欄都是「–」→ 跟比賽BP 的
@@ -8303,6 +8309,10 @@ player:{
 "輸出比":["佔隊伍總輸出的比例。","Share of the team's total damage."],
 "死亡比":["佔隊伍總死亡數的比例。","Share of the team's total deaths."],
 "金轉傷":["每 1 點金錢換到的傷害——把資源轉成輸出的效率。","Damage per gold — how efficiently resources are turned into damage."],
+// POG/POM（使用者 2026-09-04 定名並定案合併成一欄）：資料來自 Leaguepedia 各賽事的
+// 「VODs & Match Links」表；只有 2026 起與已回補的 2018-2025 有，其他年份整欄「–」。
+"POG/POM":["兩種單場最有價值選手：<b>POG</b>＝一局一位（Player of the Game）、<b>POM</b>＝一整個系列一位（Player of the Match）。寫成「POG/POM」；<b>排序把 POM 算 2 點</b>（POG＋POM×2）。該聯賽不發那一種就寫「–」（例如 LCK 只發 POM、LPL 兩種都發）。評分權重同樣是 POG×1、POM×2，而且算的是<b>比率</b>（次數÷可獲得數），不是次數。",
+  "Two kinds of MVP award: <b>POG</b> = Player of the Game (one per game), <b>POM</b> = Player of the Match (one per series). Shown as POG/POM; <b>sorting counts POM double</b> (POG + POM×2). A dash means that league does not give that award (LCK gives POM only; LPL gives both). Rating weights are likewise POG×1 / POM×2 and use the <b>rate</b> (awards ÷ chances), not the raw count."],
 "選手":["點名字進雷達詳情；數值旁 #N 是該項的全體排名。","Click a name for the radar detail; #N next to a value is its overall rank."]},
 team:{
 "大場勝率":["系列賽勝率——BO3／BO5 整個系列只算一場，與左邊小局「勝率」不同。","Series win rate — a whole BO3/BO5 counts as one, unlike the per-game 勝率 next to it."],
