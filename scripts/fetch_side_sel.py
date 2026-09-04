@@ -339,8 +339,11 @@ def main():
                                "blue": g["blue"], "red": g["red"], "pc": g.get("pc") or 0,
                                "fs": g["first_sel"], "ps": g["pick_sel"], "ov": ov,
                                # mvp 一律逐局形式：系列式（LCK）只掛第 1 局、逐局式（LCS）各局各自；
-                               # 前端逐局直接累計即可。vod＝逐局 PB（BP 時間軸）連結
-                               "mvp": g.get("mvp") or "", "vod": g.get("vod") or ""})
+                               # mvs＝該賽事的 MVP 版型（1＝一系列一位、0＝一局一位）——評分的
+                               # 「MVP 率」分母要用可獲得數，混算會讓逐局制聯賽天然佔便宜（使用者 09-04 提醒）。
+                               # vod＝逐局 PB（BP 時間軸）連結
+                               "mvp": g.get("mvp") or "", "mvs": 1 if s.get("mvlead") else 0,
+                               "vod": g.get("vod") or ""})
                 n += 1
         print(f"  ✓ {ov}：{len(sers)} 場 / {n} 局")
     print(f"有選邊權欄位的賽事 {hit}／{len(pages)}，合計 {len(allrec)} 局")
