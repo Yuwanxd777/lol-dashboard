@@ -1,4 +1,4 @@
-*
+﻿*
 !*/
 !.gitignore
 !index.html
@@ -47,6 +47,7 @@
 !soloq_recent.js
 !career.js
 !side_sel.js
+!side_sel_*.js
 !soloq_matches/*.js
 !push_time.js
 !patch_dates.js

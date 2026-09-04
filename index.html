@@ -47,9 +47,13 @@
   @font-face{font-family:"GenSenRounded TW";font-weight:700;src:url("fonts/GenSenRounded2TW-R.woff2") format("woff2"),url("fonts/GenSenRounded2TW-R.otf") format("opentype");font-display:swap;
     ascent-override:106.7%;descent-override:26.7%;line-gap-override:0%} /* 粗體用 Regular */
   body{margin:0;color:var(--tx);font-family:"jf-openhuninn","Microsoft JhengHei","Segoe UI",sans-serif;font-size:16.5px;
+    background:var(--bg)}
+  /* 背景漸層放獨立 fixed 圖層（視覺與原本 background-attachment:fixed 完全相同）：
+     fixed 附著的 body 背景會讓**每次捲動都整個視窗重繪**（內容動、背景釘住，光柵器無法用合成位移），
+     是捲動不順的主因之一（2026-09-04 使用者：比賽BP 往下捲會卡）。獨立圖層只合成、不重繪。 */
+  body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;
     background:radial-gradient(1200px 500px at 15% -10%,#1a2340 0%,transparent 60%),
-               radial-gradient(1000px 500px at 95% 0%,#241a3d 0%,transparent 55%),var(--bg);
-    background-attachment:fixed}
+               radial-gradient(1000px 500px at 95% 0%,#241a3d 0%,transparent 55%)}
   ::-webkit-scrollbar{width:9px;height:9px}
   ::-webkit-scrollbar-thumb{background:#2e3a52;border-radius:9px}
   ::-webkit-scrollbar-track{background:transparent}
@@ -4387,6 +4391,7 @@ function calcPlayers(pos,splitTeam){
   // 母體總計：2013 這種年份 firstblood 欄位整欄填 "0"（不是空白），逐列判空分不出
   // 「真的沒拿過首殺」與「這年沒有首殺資料」。每場一定有人拿首殺，母體夠大卻總和 0 ＝資料缺失。
   const TOT={fb:0,fbN:0,fv:0,fvN:0};
+  const _ssHas=typeof ssRec==="function"&&typeof ssData==="function"&&ssData().length>0; // 該年 side_sel 有沒有料（迴圈外判一次）
   for(const o of LANES){
     if(!passG(o))continue;
     if(duo){ if(o.pid!==mainPid&&o.pid!==subPid)continue; }
@@ -4394,8 +4399,8 @@ function calcPlayers(pos,splitTeam){
     const r=o.raw;
     // POG/POM「機會數」查一次給兩側用（評分的率分母；使用者 09-04 提醒兩種版型不可混算）：
     // POG 制＝每局一次機會、POM 制＝每系列一次（下面按選手用 _pomSeen 去重）。wiki 沒收錄的局不算。
-    // 效能：2026 前的年份 SIDE_SEL 根本沒資料，13k 列的鍵組字純浪費 → 直接跳過。
-    const _mr=(+curYear>=2026&&window.SIDE_SEL&&SIDE_SEL.length&&typeof ssRec==="function")
+    // 效能：該年 side_sel 沒資料時，13k 列的鍵組字純浪費 → 直接跳過（歷史年回補後 ssData 有料就會算）。
+    const _mr=_ssHas
       ?ssRec({_d:o.date,_btf:r[C.blue_teamname],_rtf:r[C.red_teamname],_g:+r[C.game]||1}):null;
     const _mrk=_mr?String(o.date).slice(0,10)+"|"+[_ssNorm(r[C.blue_teamname]),_ssNorm(r[C.red_teamname])].sort().join("|"):"";
     for(const side of[0,1]){
@@ -4418,10 +4423,10 @@ function calcPlayers(pos,splitTeam){
       }
       const a=get(key);
       a.team=B(C.blue_teamname);
-      if(!duo&&_mr&&_mr.mvs!==undefined){
-        if(_mr.mvs){ a._pomSeen=a._pomSeen||new Set();
+      if(!duo&&_mr){ // 機會數按「該賽事有發的獎」各自累計（mg=發POG、mm=發POM；LPL 兩個都發）
+        if(_mr.mm){ a._pomSeen=a._pomSeen||new Set();
           if(!a._pomSeen.has(_mrk)){ a._pomSeen.add(_mrk); a.pomOpp=(a.pomOpp||0)+1; } }
-        else a.pogOpp=(a.pogOpp||0)+1;
+        if(_mr.mg)a.pogOpp=(a.pogOpp||0)+1;
       }
       const _acc0=(k,v)=>{ if(String(v==null?"":v).trim()===""){return;} a[k]=(a[k]||0)+(num(v)||0); a[k+"N"]=(a[k+"N"]||0)+1; };
       a.lgCnt=a.lgCnt||{}; a.lgCnt[o.league]=(a.lgCnt[o.league]||0)+1; // 所屬聯賽＝出賽最多的「聯賽」(mainLg)
@@ -4490,8 +4495,11 @@ function calcPlayers(pos,splitTeam){
   if(!rows.length)return rows;
   // POG／POM（使用者 2026-09-04 定名）：欄位＋評分權重都吃它。null＝該範圍無該版型資料 → 欄「–」、不計權。
   { const _mv=mvpCounts(); const _nm=r=>String(r._pn||"").trim().toLowerCase();
-    rows.forEach(r=>{ r.POG=_mv.anyG?(_mv.Spog.get(_nm(r))||0):null;
-                      r.POM=_mv.anyM?(_mv.Spom.get(_nm(r))||0):null; }); }
+    // 個人層再看機會數：全域篩選時 anyG=true（LPL 有發），但 LCK 選手從沒有 POG 機會
+    // （聯賽不發）→ 顯示「–」不是 0（鐵則：沒資料顯示 –）；權重那側 has() 也自動不計。
+    rows.forEach(r=>{ const cg=_mv.Spog.get(_nm(r))||0, cm=_mv.Spom.get(_nm(r))||0;
+                      r.POG=_mv.anyG?(cg>0?cg:(r._pogOpp?0:null)):null;
+                      r.POM=_mv.anyM?(cm>0?cm:(r._pomOpp?0:null)):null; }); }
   const g=rows.map(r=>r.場數), thr=threshold(g);
   const P=(getv,asc)=>rankP(rows.map(r=>{const v=getv(r);return v==null?0:v;}),asc);
   // 權重用「率」＝次數÷**可獲得數**（POG 制＝出賽局數、POM 制＝出賽系列數）：兩版型都歸一到 0~1
@@ -6477,6 +6485,28 @@ const _MCACHE=new Map(); // 比賽BP 底層資料快取（性能）：同篩選�
 // 隊名正規化要**去掉括號註記與 .CN 尾綴**：wiki 寫 `Ninjas in Pyjamas.CN`、
 // `LYON (2024 American Team)`，不處理就對不上主資料的隊名（實測這兩隊共 122 局落空）。
 let _SSI = null;
+// ── 過往年份的 MVP／VOD 回補（使用者 2026-09-04）───────────────────────────
+// side_sel.js＝當年（每日更新）；side_sel_YYYY.js＝歷史年（一次性回補、靜態）。
+// 歷史年檔**只含 mvp/mvs/vod**：舊制頁面的 Side Sel 欄是 wiki 模板統一渲染出來的，
+// 不是 2026 新制的選邊權資料，抓取端已在輸出層清空（ss/fs/ps 空、pc=0），
+// 前端的選邊率／選選序率照舊只認 2026+（見 tcols/_T_SEL2026 的年份門）。
+const ssData=()=>{ const h=(window.SIDE_SEL_HIST||{})[+curYear]; return h||(+curYear>=2026?(window.SIDE_SEL||[]):[]); };
+const _ssHistP={};
+function ensureSSHist(){
+  const y=+curYear;
+  if(y>=2026||(window.SIDE_SEL_HIST&&window.SIDE_SEL_HIST[y]))return;
+  if(_ssHistP[y])return;
+  _ssHistP[y]=new Promise(res=>{ // script 標籤對 404 只觸發 onerror、不會執行錯誤頁，安全
+    const s=document.createElement("script"); s.src=`side_sel_${y}.js`;
+    s.onload=()=>res(1); s.onerror=()=>res(0); document.head.appendChild(s);
+  }).then(ok=>{
+    if(!(ok&&window.SIDE_SEL_HIST&&SIDE_SEL_HIST[y]))return; // 該年沒檔（wiki 太舊沒表）＝欄位維持「–」
+    _SSI=null; _MVPC=null; _MVPK="";                          // 索引與 POG/POM 計數重建
+    try{_MCACHE.clear();}catch(e){}                           // 比賽BP 底層 m 物件掛了 _ssv=null 快取，一併重建
+    try{vcInvalidate&&vcInvalidate();}catch(e){}
+    if(+curYear===y&&typeof D!=="undefined"&&D&&typeof render==="function")render();
+  });
+}
 // wiki 各賽事頁對同一支隊常用不同縮寫（LCK Cup 頁寫 BRION/DRX、EWC 頁寫 MIBR.LOS/AG.AL，
 // 主資料卻是 HANJIN BRION／Kiwoom DRX／LØS…），正規化後仍對不上 → 建別名表收斂到主資料
 // 那一側的正規化字串（實測補回 LCK 45＋EWC 9 局）。鍵值都是 _ssNorm 之後的形式；
@@ -6491,21 +6521,23 @@ function ssIdx(){
     // p＝「拿到第一選擇權的隊伍選了選序權」：1st Sel 與 Pick Sel 同一隊＝它把選序權拿走、
     // 選邊權留給對手；不同隊＝它拿走選邊權。兩欄有一邊沒填就不判（null）。
     // pc＝握選序權那隊實際選了先選(1)還是後選(2)——wiki Pick Sel 格的顏色 class，0＝沒記錄。
-    // mvp＝逐局形式（POM 制只掛第 1 局）；mvs＝版型（1=POM 一整場一位、0=POG 一局一位）；
-    // vod＝這一局的 PB（BP 時間軸）連結（2026-09-04）
+    // mvp＝逐局 POG；mvpm＝系列 POM（只掛系列第 1 局）。兩軌**獨立**（LPL 兩種同時發，
+    // 2026-09-04 使用者抓包舊的單一 mvs 版型旗標把 LPL 逐局 POG 全標成 POM）。
+    // mg/mm＝該賽事頁有沒有發 POG/POM（評分率的分母＝可獲得數）。vod＝這一局的 PB 連結。
     const p = (r.fs && r.ps) ? (r.fs === r.ps ? 1 : 0) : null;
-    return {s:r.ss, p, pc:r.pc||0, mvp:r.mvp||"", mvs:r.mvs?1:0, vod:r.vod||""};
+    return {s:r.ss, p, pc:r.pc||0, mvp:r.mvp||"", mvpm:r.mvpm||"", mg:r.mg?1:0, mm:r.mm?1:0, vod:r.vod||""};
   };
   // 效能（2026-09-04 比賽BP 卡頓排查）：±1 天的備援**在建索引時就展開成鍵**，查詢端從
   // 「最多 3 次 get＋每次重建鍵＋兩個 Date」變成**單次 get**（ssRec 是比賽BP／選手頁的熱路徑，
   // 一列會被叫 6~8 次）。先放位移鍵、**精準鍵最後放（後蓋前）**＝維持「先精準、落空才 ±1」的
   // 舊語意——連日對戰同兩隊同局號時，精準那一局永遠贏。
-  for(const r of (window.SIDE_SEL||[])){
+  const _src=ssData(); // 當年＝side_sel.js、歷史年＝side_sel_YYYY.js（換年由 ensureSSHist 載＋_SSI=null 重建）
+  for(const r of _src){
     const v=mk(r);
     _SSI.set(_ssKey(_ssShift(r.d,-1),r.t1,r.t2,r.gi), v);
     _SSI.set(_ssKey(_ssShift(r.d,1),r.t1,r.t2,r.gi), v);
   }
-  for(const r of (window.SIDE_SEL||[])){
+  for(const r of _src){
     _SSI.set(_ssKey(r.d,r.t1,r.t2,r.gi), mk(r));
   }
   return _SSI;
@@ -6523,9 +6555,10 @@ const ssRec = m => {
 const ssOf = m => (ssRec(m)||{}).s || "";
 // ── POG／POM 計數（wiki VODs&Match Links 表；使用者 2026-09-04 定名：POG＝一局一位、
 //    POM＝一整場（系列）一位；列進選手表攻擊值前，評分權重 POG×1、POM×2）──
-// 抓取端已統一成逐局：POM 制只掛第 1 局、POG 制各局各自 → 逐局直接累計，不用去重。
-// 名字鍵＝小寫修剪（wiki 與主資料 playername 都是選手 ID）。anyG/anyM=false＝該篩選範圍
-// 完全沒有該版型資料（2025 以前／wiki 沒收錄／該聯賽是另一版型）→ 欄顯示「–」、權重自動不計。
+// 兩軌獨立累計（mvp＝逐局 POG、mvpm＝系列 POM 只掛第 1 局）：LPL/LCS 季後賽是兩種**同時發**，
+// 舊的單一版型旗標把 LPL 逐局 POG 全算成 POM（2026-09-04 使用者抓包搞反）。
+// 名字鍵＝小寫修剪（wiki 與主資料 playername 都是選手 ID）。anyG/anyM＝該篩選範圍有沒有
+// **發該獎**的賽事（mg/mm 頁面旗標）——false → 欄顯示「–」、權重自動不計；true 但沒得過＝0。
 let _MVPC=null,_MVPK="";
 function mvpCounts(){
   const k=(typeof vcKey==="function"?vcKey():String(curYear))+"|mvp";
@@ -6533,10 +6566,10 @@ function mvpCounts(){
   const Spog=new Map(), Spom=new Map(); let anyG=false, anyM=false;
   for(const o of GAMES){ if(!passG(o))continue; const r=o.raw;
     const rec=ssRec({_d:o.date,_btf:r[C.blue_teamname],_rtf:r[C.red_teamname],_g:+r[C.game]||1});
-    if(!rec||!rec.mvp)continue;
-    const n=String(rec.mvp).trim().toLowerCase();
-    if(rec.mvs){ anyM=true; Spom.set(n,(Spom.get(n)||0)+1); }
-    else       { anyG=true; Spog.set(n,(Spog.get(n)||0)+1); }
+    if(!rec)continue;
+    if(rec.mg)anyG=true; if(rec.mm)anyM=true;
+    if(rec.mvp){ const n=String(rec.mvp).trim().toLowerCase(); Spog.set(n,(Spog.get(n)||0)+1); }
+    if(rec.mvpm){ const n=String(rec.mvpm).trim().toLowerCase(); Spom.set(n,(Spom.get(n)||0)+1); }
   }
   _MVPK=k; return _MVPC={Spog,Spom,anyG,anyM};
 }
@@ -6856,7 +6889,15 @@ if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>{window._f
     const x=(e.clientX-hsb.getBoundingClientRect().left)/_vz()-g.w/2, nx=Math.max(0,Math.min(g.range,x)); // 兩者視覺 px 相減後換版面 px（g.w 是版面 px）
     cur.scrollLeft=g.range?nx/g.range*g.m:0; });
   hsb.addEventListener("wheel",e=>{ if(!cur)return; e.preventDefault(); cur.scrollLeft+=(e.deltaY||e.deltaX); },{passive:false});
-  addEventListener("scroll",()=>{ if(!window._hsbR)window._hsbR=requestAnimationFrame(()=>{window._hsbR=0;hsbUpdate();}); },{passive:true});
+  // 節流 90ms＋停捲後補一發：pick() 對整頁 .card/.tblwrap 做 gCS＋gBCR，逐幀跑在積分這種
+  // 上百張卡的長頁會掉幀（2026-09-04 捲動卡頓剖析，headless 實測 33ms 長幀就是它）。
+  // 浮動捲軸只是位置跟隨，晚 0.1 秒無感；停捲後的 setTimeout 保證最終位置正確。
+  addEventListener("scroll",()=>{ const _n=performance.now();
+    clearTimeout(window._hsbT); window._hsbT=setTimeout(hsbUpdate,120);
+    if(_n-(window._hsbLast||0)<90)return;
+    window._hsbLast=_n;
+    if(!window._hsbR)window._hsbR=requestAnimationFrame(()=>{window._hsbR=0;hsbUpdate();});
+  },{passive:true});
 }
 
 // ---------- 畫筆（講解模式）：畫在文件座標上，捲動跟著移動 ----------
@@ -16211,6 +16252,8 @@ document.getElementById("yearSel").onchange=async e=>{
     curView="總覽"; V.heroDetail=""; V.rankDetail=""; V.dexDetail=null; V.dexSec="版本"; // 換年份一律回到總覽（清子頁詳情）
     document.querySelectorAll("nav .tab").forEach(t=>t.classList.toggle("on",t.dataset.view==="總覽"));
     initData();
+    _SSI=null; _MVPC=null; _MVPK=""; // side_sel 索引與 POG/POM 計數是按年建的
+    try{ensureSSHist();}catch(e){}   // 歷史年：背景載 side_sel_YYYY.js（載完自己清快取重繪）
     try{vcInvalidate&&vcInvalidate();}catch(e){}
     saveState(); render(); scheduleWarmup(1500); }
   catch(err){ main.innerHTML=`<div class="err">${err.message}</div>`; }
@@ -16326,6 +16369,7 @@ function _prefetchIcons(){
     if(!M.years.length) throw new Error("尚未產生資料");
     if(!M.years.includes(+curYear)) curYear=M.default;
     await loadYear(curYear); initData(); render();
+    try{ensureSSHist();}catch(e){} // 存檔的年份可能是歷史年：開站也要補載該年的 MVP/VOD
     scheduleWarmup(1500);
   }catch(e){
     main.innerHTML=`<div class="err"><b>${e.message}</b><br>請先雙擊 update.bat 抓資料（第一次會下載全部年份的 Oracle's Elixir 資料，需要幾分鐘），完成後重新整理本頁。</div>`;

@@ -30,6 +30,7 @@ sys.path.insert(0, HERE)
 CACHE = os.path.join(ROOT, "csv_cache", "sidesel")
 YEAR = 2026
 GAP = 6.0
+HIST = False   # --year <2026 的歷史回補模式：只收 MVP/VOD（選邊欄位清空），輸出 side_sel_YYYY.js
 
 import fetch_wiki_mh as MH          # 共用 opener（先拿 cookie，否則 302→403）與 UA
 import fetch_wiki_stats as WS       # 共用 Special:CargoExport 通道（不吃 Cargo API 限流）
@@ -44,8 +45,11 @@ KEYS = ["Blue", "Red", "1st Sel", "Side Sel", "Pick Sel"]
 # 寫成規則不寫死年份：`LCK/2026 Season/...` 這種頁名格式歷年一致，明年不必改。
 # ⚠ 分隔線一定要是 `/`：`LCK CL/...`（二級）就是靠這個排除的。
 TIER1 = re.compile(r"^(LCK|LPL|LEC|LCS|LCP|CBLOL)/")
+# 歷史回補（2026-09-04）：2019 前的一級聯賽頁名不同（NA LCS／EU LCS／LMS／
+# Champions＝韓國 OGN 時代、PCS＝LCP 前身、CBLoL 大小寫不同）——只在 HIST 模式放寬。
+TIER1H = re.compile(r"^(LCK|LPL|LEC|LCS|LCP|CBLOL|NA LCS|EU LCS|LMS|Champions|PCS|CBLoL)/", re.I)
 INTL = re.compile(r"(First Stand|KeSPA Cup|Mid-Season Invitational|World Championship|Esports World Cup)", re.I)
-want_ov = lambda ov: bool(TIER1.match(ov or "") or INTL.search(ov or ""))
+want_ov = lambda ov: bool((TIER1H if HIST else TIER1).match(ov or "") or INTL.search(ov or ""))
 
 
 def ov_pages():
@@ -211,9 +215,12 @@ def parse(ov, htm):
         side = "b" if ss and ss == bl else ("r" if ss and ss == rd else "")
         # 還沒打的場次（Blue/Red 都寫 TBD、選擇權欄全空）不收——實測 2758 列裡有 829 列是這種。
         # 全庫沒有「算不出選邊權但有先選權資料」的列，所以 side 空＝這局根本還沒有資料。
+        # ⚠ 歷史回補（HIST）例外：舊賽季頁的 Side Sel 欄常是空的（2026 新制才記），
+        # 但 MVP/VOD 還在——只把 TBD（沒打）的列丟掉，其餘留著收 MVP/VOD。
         if not side:
-            cur["n"] -= 1
-            continue
+            if not HIST or bl.strip().upper() in ("", "TBD") or rd.strip().upper() in ("", "TBD"):
+                cur["n"] -= 1
+                continue
         # 先選/後選記在 Pick Sel 那格的**顏色 class** 上（格子文字只有「握選序權的隊名」）：
         # standings-mhBlue＝這隊選了先選、standings-mhRed＝選了後選（wiki 藍/紅色重複利用成 1st/2nd）。
         # 2026-08-03 使用者抓包：LGD S3 七次握選序全選後選(wiki 全紅)，我們的選先選率卻不是 0%——
@@ -245,16 +252,22 @@ def parse(ov, htm):
             if not _vod and len(_q) == 1 and _q[0][1] == "VOD":
                 _vod = _q[0][0]
             break
-        # 逐局 MVP（尾隨式，LCS 這類）：最後一格是 /wiki/ 選手連結才算（外連格＝VOD、純文字＝其他欄）
+        # 逐局 MVP（尾隨式）：最後一格是 /wiki/ 選手連結才算（外連格＝VOD、純文字＝其他欄）。
+        # ⚠ 不能用 mvlead 排除：LPL/First Stand 是前導系列 POM＋尾隨逐局 POG **同時存在**，
+        # 舊版在前導頁直接跳過尾隨格 → LPL 的 POG 全沒收到（2026-09-04 使用者抓包）。
         _gm = ""
-        if not cur.get("mvlead") and cells and 'href="/wiki/' in cells[-1] and 'href="http' not in cells[-1]:
+        if cells and 'href="/wiki/' in cells[-1] and 'href="http' not in cells[-1]:
             _gm = TXT(cells[-1]).strip()
             if _gm.lower() in ("none", "tbd"):
                 _gm = ""
+        # mvp＝**逐局** MVP（尾隨格），一律不跟系列 MVP 混：LPL/LCS 季後賽/First Stand 是
+        # **兩種同時發**（系列一位 POM＋每局一位 POG），舊版「前導式只掛第 1 局、其餘用逐局」
+        # 把 LPL 的逐局 POG 全標成 POM（2026-09-04 使用者抓包搞反）。系列 MVP 由 main() 用
+        # cur["mvp"]/mvlead 另掛 mvpm。
         cur["games"].append({"gi": cur["n"], "blue": bl, "red": rd, "ss": side, "pc": pc,
                              "first_sel": g("1st Sel"), "pick_sel": g("Pick Sel"),
                              "vod": _html.unescape(_vod),
-                             "mvp": (cur.get("mvp") if (cur.get("mvlead") and cur["n"] == 1) else "") or _gm})
+                             "mvp": _gm})
     return out
 
 
@@ -280,18 +293,25 @@ def sched(ov):
 
 
 def main():
+    global YEAR, HIST
     ap = argparse.ArgumentParser()
     ap.add_argument("--page", action="append", default=[], help="只抓指定 OverviewPage（可重複）")
     ap.add_argument("--force", action="store_true", help="重抓所有頁面（不吃快取）")
     ap.add_argument("--fresh-days", type=int, default=14,
                     help="最近幾天內有比賽的賽事＝進行中，每次都重抓頁面（預設 14）")
+    ap.add_argument("--year", type=int, default=0,
+                    help="歷史回補：抓指定年份的 MVP/VOD → side_sel_YYYY.js（選邊欄位一律清空，"
+                         "舊制頁的 Side Sel 是模板渲染、不是 2026 新制資料）")
     ap.add_argument("--dump", action="store_true", help="只印不寫檔")
     A = ap.parse_args()
+    if A.year and A.year < 2026:
+        YEAR, HIST = A.year, True
 
     pages = A.page or ov_pages()
     # 進行中的賽事一律重抓（快取只服務已經打完的賽事）——不這樣做的話，賽段中途新打的局
     # 永遠不會進 side_sel.js，因為那一頁第一次抓完就一直吃快取。
-    live = None if (A.force or A.page) else live_pages(A.fresh_days)
+    # 歷史回補：賽季早就打完，全部吃快取（live=空集合＝一頁都不用強制重抓）。
+    live = set() if HIST else (None if (A.force or A.page) else live_pages(A.fresh_days))
     print(f"賽事頁 {len(pages)} 個"
           + ("（全部重抓）" if live is None else f"，其中進行中 {len(live & set(pages))} 個要重抓，其餘吃快取"))
     allrec, hit = [], 0
@@ -329,20 +349,41 @@ def main():
             print(f"  ⚠ {ov}：賽程配對失敗（{len(got)}/{len(need)} 場配到日期）→ 跳過")
             continue
         hit += 1
+        # MVP 兩軌各自獨立（2026-09-04 使用者定名並抓包搞反後改制）：
+        #   mvp ＝逐局 POG（每局一位，尾隨格）；mvpm＝系列 POM（一整場一位，前導格，只掛系列第 1 局）。
+        #   LPL/LCS 季後賽/First Stand 兩種**同時發**，不能用單一 mvs 版型旗標。
+        #   mg/mm＝**這個賽事頁**有沒有發 POG/POM——評分「率」的分母要用可獲得數，
+        #   沒發的賽事不能算機會（例：LCK 2026 只發 POM，選手的 POG 分母不含 LCK 局）。
+        hasG = any(g2.get("mvp") for s2 in sers for g2 in s2["games"])
+        hasM = any(s2.get("mvlead") and s2.get("mvp") for s2 in sers)
         n = 0
         for i, s in enumerate(sers):
             if i not in pair:
                 continue                      # 配不到日期的場次寧可不收，不掛錯日期
             d, t1, t2, _ = sc[pair[i]]
+            pm = (s.get("mvp") or "") if s.get("mvlead") else ""
+            first = True
             for g in s["games"]:
+                mvpm = pm if first else ""
+                first = False
+                if HIST:
+                    # 歷史回補：只收 MVP/VOD。選邊欄位**在輸出層清空**（舊制頁的 Side Sel 是
+                    # wiki 模板統一渲染，不是 2026 新制的選邊權資料，流出去會生出假統計）；
+                    # 三樣都沒有的局不寫（省檔案大小，前端查不到本來就顯示「–」）。
+                    if not (g.get("mvp") or mvpm or g.get("vod")):
+                        continue
+                    allrec.append({"d": d, "t1": t1, "t2": t2, "gi": g["gi"], "ss": "",
+                                   "pc": 0, "fs": "", "ps": "", "ov": ov,
+                                   "mvp": g.get("mvp") or "", "mvpm": mvpm,
+                                   "mg": 1 if hasG else 0, "mm": 1 if hasM else 0,
+                                   "vod": g.get("vod") or ""})
+                    n += 1
+                    continue
                 allrec.append({"d": d, "t1": t1, "t2": t2, "gi": g["gi"], "ss": g["ss"],
                                "blue": g["blue"], "red": g["red"], "pc": g.get("pc") or 0,
                                "fs": g["first_sel"], "ps": g["pick_sel"], "ov": ov,
-                               # mvp 一律逐局形式：系列式（LCK）只掛第 1 局、逐局式（LCS）各局各自；
-                               # mvs＝該賽事的 MVP 版型（1＝一系列一位、0＝一局一位）——評分的
-                               # 「MVP 率」分母要用可獲得數，混算會讓逐局制聯賽天然佔便宜（使用者 09-04 提醒）。
-                               # vod＝逐局 PB（BP 時間軸）連結
-                               "mvp": g.get("mvp") or "", "mvs": 1 if s.get("mvlead") else 0,
+                               "mvp": g.get("mvp") or "", "mvpm": mvpm,
+                               "mg": 1 if hasG else 0, "mm": 1 if hasM else 0,
                                "vod": g.get("vod") or ""})
                 n += 1
         print(f"  ✓ {ov}：{len(sers)} 場 / {n} 局")
@@ -353,6 +394,13 @@ def main():
         return
     if not allrec:
         print("沒有任何資料，不覆蓋既有檔案"); return
+    if HIST:
+        p = os.path.join(ROOT, "side_sel_%d.js" % YEAR)
+        with io.open(p, "w", encoding="utf-8") as f:
+            f.write("window.SIDE_SEL_HIST=window.SIDE_SEL_HIST||{};window.SIDE_SEL_HIST[%d]="
+                    % YEAR + json.dumps(allrec, ensure_ascii=False, separators=(",", ":")) + ";")
+        print(f"→ side_sel_{YEAR}.js（{len(allrec)} 局、{os.path.getsize(p)//1024} KB）")
+        return
     p = os.path.join(ROOT, "side_sel.js")
     with io.open(p, "w", encoding="utf-8") as f:
         f.write("window.SIDE_SEL=" + json.dumps(allrec, ensure_ascii=False, separators=(",", ":")) + ";")
