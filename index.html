@@ -13816,7 +13816,7 @@ function render(){
           return v;
         }catch(e){ return null; }
       };
-      if(window.__bpLiveMount)window.__bpAPI={draftScore,selPool,sqRecent,R1,R2,POSN,used,S,laneAssign,F,curYear,passG,calcHeroes,predPools};   // 公開版載不到 bp_live_ui.js → 不掛這個全域；calcHeroes＝最近一手平均評分的比賽 70% 那半、predPools＝預測專用固定口徑池（2026-09-02）
+      if(window.__bpLiveMount)window.__bpAPI={draftScore,selPool,sqRecent,R1,R2,POSN,used,S,laneAssign,F,curYear,passG,calcHeroes,predPools,muRec};   // 公開版載不到 bp_live_ui.js → 不掛這個全域；calcHeroes＝最近一手平均評分的比賽 70% 那半、predPools＝預測專用固定口徑池（2026-09-02）
       const gameCard=gi=>{ // 職業賽 BP 畫面：上=雙方 BAN 橫排、下=左右兩排大 PICK
         const fp=S.fp[gi]||0, flip=S.side[gi]||0;
         // 每局隊伍：匯入局記在 S.tm[gi]（不跟著上方兩隊）、一般局＝上方兩隊
