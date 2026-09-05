@@ -10,6 +10,7 @@ dpmPuuid：本腳本只維護帳號清單；新帳號的 dpmPuuid 由 resolve_ob
 用法：python scripts\\fetch_obgg_accounts.py
 """
 import io, sys, json, os, re, time, urllib.parse, urllib.request
+from concurrent.futures import ThreadPoolExecutor
 
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -60,6 +61,42 @@ def tier_score(t):
     return 0
 
 
+JOBS = 3   # 同一隊的選手並行抓 progamer 的執行緒數（--jobs 可改；1＝舊行為）
+
+
+def _player_accounts(tm, gid, now):
+    """一位選手的可用帳號清單（原本寫在 pull() 迴圈裡，抽出來才能並行）。"""
+    pg = get(BASE + f"progamer?team={urllib.parse.quote(tm)}&game_id={urllib.parse.quote(gid)}")
+    time.sleep(0.15)
+    d = pg.get("data") if isinstance(pg, dict) else None
+    accs = (d or {}).get("accountList", []) if isinstance(d, dict) else []
+    # 先濾掉一定不能用的：峡谷之巅(Riot API/dpm 都查不到)、純數字死號、今年完全沒打
+    cand = []
+    for a in accs:
+        if a.get("regionName") == "峡谷之巅" or str(a.get("region", "")).upper() == "BGP2":
+            continue
+        if num_name(a.get("summonerName")):
+            continue
+        if tier_score(a.get("tier")) <= 0 and int(a.get("yearPlay") or 0) <= 0:
+            continue
+        cand.append(a)
+    # 主帳號＝段位最高、同段位比今年場次；**主帳號不套 60 天規則**
+    # （2026-07-29 修：Tian 5/28、369 4/17 最後一場就被整個砍掉，但他們今年打了 278/133 場，
+    #   儀表板要的是「今年」的積分資料。60 天規則的原意是清掉棄用小號，不該連主帳號一起清。）
+    cand.sort(key=lambda a: (tier_score(a.get("tier")), int(a.get("yearPlay") or 0)), reverse=True)
+    good = []
+    for i, a in enumerate(cand):
+        if i > 0:                       # 小號：維持近 60 天有打才留
+            try:
+                if (now - float(a.get("lastGameTime"))) > CUT_MS:
+                    continue
+            except Exception:
+                continue
+        good.append({"platform": PLAT.get(a.get("regionName"), a.get("region")),
+                     "riotId": a.get("summonerName")})
+    return gid, good
+
+
 def pull():
     now = time.time() * 1000
     out = {}
@@ -75,43 +112,30 @@ def pull():
             roster = rd.get("data") if isinstance(rd, dict) else None
             if not roster:
                 continue
+            # 現役選手名冊（pos 標成五路之一才算；主播/顧問/監督/教練不算）。pos 來自 team 端點，
+            # **不需要 progamer**——所以 dpm 主導賽區也照樣登記得到。
+            # 註：曾用來豁免 dpm 的「今年沒出賽」過濾，2026-07-29 已收回——OBGG 名單會留著已離開職業的人
+            # （TW BeanJ/Glory 今年 0 場仍掛在隊上）。現在只留作診斷用途（check_obgg_gaps.py 等）。
             for p in roster:
-                gid = p["game_id"]
-                pg = get(BASE + f"progamer?team={urllib.parse.quote(tm)}&game_id={urllib.parse.quote(gid)}")
-                time.sleep(0.15)
-                d = pg.get("data") if isinstance(pg, dict) else None
-                accs = (d or {}).get("accountList", []) if isinstance(d, dict) else []
-                # 先濾掉一定不能用的：峡谷之巅(Riot API/dpm 都查不到)、純數字死號、今年完全沒打
-                cand = []
-                for a in accs:
-                    if a.get("regionName") == "峡谷之巅" or str(a.get("region", "")).upper() == "BGP2":
-                        continue
-                    if num_name(a.get("summonerName")):
-                        continue
-                    if tier_score(a.get("tier")) <= 0 and int(a.get("yearPlay") or 0) <= 0:
-                        continue
-                    cand.append(a)
-                # 主帳號＝段位最高、同段位比今年場次；**主帳號不套 60 天規則**
-                # （2026-07-29 修：Tian 5/28、369 4/17 最後一場就被整個砍掉，但他們今年打了 278/133 場，
-                #   儀表板要的是「今年」的積分資料。60 天規則的原意是清掉棄用小號，不該連主帳號一起清。）
-                cand.sort(key=lambda a: (tier_score(a.get("tier")), int(a.get("yearPlay") or 0)), reverse=True)
-                good = []
-                for i, a in enumerate(cand):
-                    if i > 0:                       # 小號：維持近 60 天有打才留
-                        try:
-                            if (now - float(a.get("lastGameTime"))) > CUT_MS:
-                                continue
-                        except Exception:
-                            continue
-                    good.append({"platform": PLAT.get(a.get("regionName"), a.get("region")),
-                                 "riotId": a.get("summonerName")})
+                if re.search(r"-\s*(上|野|中|下|辅)(\s|-|$)", str(p.get("pos") or "")):
+                    ROSTER_PLAYERS.add(p["game_id"])
+            # 2026-09-06（線 3 提速，昨晚這一步 427 秒＝第③階段的 94%）：
+            # ① dpm 主導賽區（LCS/LEC/CBLOL）的 OBGG 帳號本來就不採用（main() 的 obgg_entries 排除
+            #   DPM_ZONES），逐人 progamer 請求純屬浪費 → 整隊跳過。zone_of() 只靠 out[z] 有沒有這隊，
+            #   所以放一個空 dict 讓 team_zone 仍然對得到（保留「dpm 主導 → 保留舊帳號」那條路）。
+            # ② 其餘賽區：同一隊的選手並行抓（JOBS 條執行緒，每條仍睡 0.15 秒）。
+            if z in DPM_ZONES:
+                out[z].setdefault(tm, {})
+                continue
+            gids = [p["game_id"] for p in roster]
+            if JOBS > 1 and len(gids) > 1:
+                with ThreadPoolExecutor(max_workers=min(JOBS, len(gids))) as ex:
+                    results = list(ex.map(lambda g: _player_accounts(tm, g, now), gids))
+            else:
+                results = [_player_accounts(tm, g, now) for g in gids]
+            for gid, good in results:
                 if good:
                     out[z].setdefault(tm, {})[gid] = good
-                # 現役選手名冊（pos 標成五路之一才算；主播/顧問/監督/教練不算）。
-                # 註：曾用來豁免 dpm 的「今年沒出賽」過濾，2026-07-29 已收回——OBGG 名單會留著已離開職業的人
-                # （TW BeanJ/Glory 今年 0 場仍掛在隊上）。現在只留作診斷用途（check_obgg_gaps.py 等）。
-                if re.search(r"-\s*(上|野|中|下|辅)(\s|-|$)", str(p.get("pos") or "")):
-                    ROSTER_PLAYERS.add(gid)
         print(f"  {z}: {sum(len(v) for v in out[z].values())} 帳號", flush=True)
     return out
 
@@ -195,4 +219,7 @@ def main():
 
 
 if __name__ == "__main__":
+    for a in sys.argv[1:]:
+        if a.startswith("--jobs="):
+            JOBS = max(1, int(a.split("=", 1)[1]))
     main()
