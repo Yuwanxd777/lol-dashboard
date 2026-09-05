@@ -12726,6 +12726,14 @@ function render(){
       // 重覆使用標記：同路對線雙方都用過＝黃框；同隊兩人以上用過＝紅框（紅優先）
       const poolsA={}, poolsB={};
       POSN.forEach(pos=>{poolsA[pos]=selPool(R1,pos,S.pk1,S.t1).m; poolsB[pos]=selPool(R2,pos,S.pk2,S.t2).m;});
+      // 選角評分**不吃**依局時間窗（2026-09-05）：那條規則跟「統計一律用當年度全賽事、
+      // 不跟著上方篩選走」是同一條。窗回答的是「他現在可能選什麼」，不是「這隻他熟不熟」——
+      // 用窗過的池去算，三個月前打過 20 場的英雄會被當成沒打過（熟練度掉成中性 50），
+      // 可錯位也會跟著縮水。所以評分另外用一份沒設窗的池；窗關著時就是同一份、沒有成本。
+      let poolsA0=poolsA, poolsB0=poolsB;
+      if(_pwCut){ const _sv=_pwCut; _pwCut=null; poolsA0={}; poolsB0={};
+        try{ POSN.forEach(pos=>{poolsA0[pos]=selPool(R1,pos,S.pk1,S.t1).m; poolsB0[pos]=selPool(R2,pos,S.pk2,S.t2).m;}); }
+        finally{ _pwCut=_sv; } }
       const cntTeam=pools=>{const c={};POSN.forEach(pos=>Object.keys(pools[pos]).forEach(ch=>c[ch]=(c[ch]||0)+1));return c;};
       const cA=cntTeam(poolsA), cB=cntTeam(poolsB);
       const markOf=(team,pos,ch)=>{
@@ -13659,7 +13667,7 @@ function render(){
         const per={};
         ["1","2"].forEach(sd=>{
           const picks=gm["p"+sd]||[], asg=laneAssign(gi,sd);
-          const pools=sd==="1"?poolsA:poolsB, st0=sd==="1"?S.pk1:S.pk2,
+          const pools=sd==="1"?poolsA0:poolsB0, st0=sd==="1"?S.pk1:S.pk2,   // poolsA0/B0＝沒設窗的池（見上面的長註解）
                 tm=_gt?(sd==="1"?_gt.a:_gt.b):(sd==="1"?S.t1:S.t2),
                 // 名單也要跟著該局的隊伍走（S.pk1/S.pk2 在匯入時就已經設成該系列實際上場的人）
                 R0=_gt?rosterOf(tm):(sd==="1"?R1:R2);

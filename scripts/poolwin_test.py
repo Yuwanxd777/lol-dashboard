@@ -31,6 +31,9 @@ SETUP = """(arg) => {
     if (full) { for (let i=0;i<5;i++){ g.b1[i]=chs[i]; g.b2[i]=chs[i+5]; g.p1[i]=chs[i+10]; g.p2[i]=chs[i+15]; } }
     return g; };
   S.g = []; for (let i=0;i<5;i++) S.g.push(mk(i < arg.filled));
+  // partial＝在目前這一局塞三手 PICK（局還沒選完，所以 curGi 不動），這樣才有選角評分可比
+  if (arg.partial) { const g = S.g[arg.filled];
+    for (let i=0;i<3;i++){ g.p1[i]=chs[i]; g.p2[i]=chs[i+3]; } }
   S.n = 5; S.fp = [0,0,0,0,0]; S.side = [0,0,0,0,0]; S.meta = []; S.tm = [];
   S.t1 = arg.t1; S.t2 = arg.t2; S.pk1 = {}; S.pk2 = {};
   V.bpMode = "global";
@@ -194,8 +197,25 @@ with sync_playwright() as pw:
         back = pg.evaluate(READ)
         ok(back["on"] is True, "再點一下開回來")
 
-    # ── ⑤ 沒有任何 JS 例外 ───────────────────────────────────────────
-    print("\n⑤ 頁面例外")
+    # ── ⑤ 選角評分不可以跟著窗變 ────────────────────────────────────
+    # 評分問的是「這隻他熟不熟」，那是母體問題，不是「他現在可能選什麼」。
+    # 用窗過的池去算，三個月前打過 20 場的英雄會被當成沒打過（熟練度掉成中性 50）。
+    print("\n⑤ 選角評分不吃時間窗")
+    SC = '''() => [...document.querySelectorAll(".bsScore")].map(e => e.textContent.trim()).filter(t => t)'''
+    pg.evaluate(SETUP, {"t1": t1, "t2": t2, "chs": chs, "filled": 0, "win": True, "partial": True})
+    pg.wait_for_timeout(1300)
+    sc_on = pg.evaluate(SC)
+    w_on = pg.evaluate(READ)
+    pg.evaluate(SETUP, {"t1": t1, "t2": t2, "chs": chs, "filled": 0, "win": False, "partial": True})
+    pg.wait_for_timeout(1300)
+    sc_off = pg.evaluate(SC)
+    ok(len(sc_on) > 0 and any(any(c.isdigit() for c in t) for t in sc_on), "有算出評分可比", str(sc_on[:1]))
+    ok(w_on["d"] and w_on["d"] != 0, "比較時窗確實是開著的（不是兩邊都全年的假綠）", "窗=%s" % w_on["d"])
+    ok(sc_on == sc_off, "窗開與窗關的評分完全相同",
+       ("開=%s / 關=%s" % (sc_on[:1], sc_off[:1])) if sc_on != sc_off else "")
+
+    # ── ⑥ 沒有任何 JS 例外 ───────────────────────────────────────────
+    print("\n⑥ 頁面例外")
     ok(not errs, "全程沒有 pageerror", (errs[0] if errs else ""))
     b.close()
 
