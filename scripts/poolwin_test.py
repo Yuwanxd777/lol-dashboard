@@ -121,8 +121,10 @@ with sync_playwright() as pw:
     ok(all(s["on"] for s in seen), "四局都認得出局號（on=true）")
     ok([s["tier"] for s in seen] == [0, 1, 2, 3], "階梯跟著局號走",
        str([s["tier"] for s in seen]))
-    ok([s["sq"] for s in seen] == [14, 30, 60, 90], "積分階梯 14/30/60/90 天",
-       str([s["sq"] for s in seen]))
+    # 積分範圍照 🎯 的設定走（使用者 2026-09-05）：不可以跟著局號自己變
+    sqs = [s["sq"] for s in seen]
+    ok(len(set(sqs)) == 1, "積分範圍不跟著局號變（📅 只管比賽池）", str(sqs))
+    ok(sqs[0] == pg.evaluate("() => +V.bpSqDays || 14"), "積分範圍＝🎯 的設定", str(sqs[0]))
     ok(seen[3]["d"] == 0 and seen[3]["cut"] == "", "第 4 局＝全年（不設窗）")
     ok(seen[3]["chips"] == FULL3, "第 4 局的池＝同盤面的全年基準",
        "%d vs %d" % (seen[3]["chips"], FULL3))
@@ -196,6 +198,14 @@ with sync_playwright() as pw:
         pg.click("#bpPoolWin"); pg.wait_for_timeout(1100)
         back = pg.evaluate(READ)
         ok(back["on"] is True, "再點一下開回來")
+
+    # ── ④b 改 🎯 的天數，📅 這邊要跟著動（同一個設定只有一個來源）──────
+    print("\n④b 積分範圍跟著 🎯 走")
+    pg.evaluate("() => { V.bpSqDays = 30; }")
+    pg.evaluate(SETUP, {"t1": t1, "t2": t2, "chs": chs, "filled": 0, "win": True})
+    pg.wait_for_timeout(1100)
+    ok(pg.evaluate(READ)["sq"] == 30, "🎯 改成一個月 → 積分範圍跟著變 30 天")
+    pg.evaluate("() => { V.bpSqDays = 14; }")
 
     # ── ⑤ 選角評分不可以跟著窗變 ────────────────────────────────────
     # 評分問的是「這隻他熟不熟」，那是母體問題，不是「他現在可能選什麼」。
