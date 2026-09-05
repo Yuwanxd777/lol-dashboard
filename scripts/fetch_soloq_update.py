@@ -290,8 +290,13 @@ def main():
     if missing:  # 新選手自動補全年（單次上限 10 位，防守每日排程時長；沒補完的明天續）
         _timed("新選手補全年", [sys.executable, "-u", os.path.join(HERE, "fetch_soloq_year.py"), "--missing", "--max", "10"])
     # 重建索引(彙總，7天滑動窗口每天重算)＋英雄核心裝/流派聚合
-    _timed("重建索引 build_soloq_index", [sys.executable, os.path.join(HERE, "build_soloq_index.py")])
-    _timed("出裝聚合 build_soloq_builds", [sys.executable, os.path.join(HERE, "build_soloq_builds.py")])
+    # 2026-09-06：這兩支重建器 fetch_soloq_year --missing 的尾端也會跑 ⇒ 每次管線掃兩遍 30 萬場。
+    # run_update.py 現在把重建放成獨立的第⑤f 階段、兩支抓取器都帶 --no-rebuild；單獨手跑時照舊會重建。
+    if "--no-rebuild" in sys.argv:
+        print("（--no-rebuild：索引與出裝聚合交給 run_update 的第⑤f 階段一次做）")
+    else:
+        _timed("重建索引 build_soloq_index", [sys.executable, os.path.join(HERE, "build_soloq_index.py")])
+        _timed("出裝聚合 build_soloq_builds", [sys.executable, os.path.join(HERE, "build_soloq_builds.py")])
 
 if __name__ == "__main__":
     main()

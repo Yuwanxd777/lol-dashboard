@@ -80,8 +80,12 @@ PLAN = [
     ("⑤ 積分：帳號（循序）", [S("fetch_dpm_soloq_accounts", "--apply")]),
     ("⑤b 解 puuid", [S("resolve_obgg_dpmpuuid")]),
     ("⑤c 牌位（便宜，全掃）", [S("fetch_soloq_auto")]),
-    ("⑤d 逐場（貴，只抓有動的）", [S("fetch_soloq_update", "--changed")]),
-    ("⑤e 補新人", [S("fetch_soloq_year", "--missing")]),
+    ("⑤d 逐場（貴，只抓有動的）", [S("fetch_soloq_update", "--changed", "--no-rebuild")]),
+    ("⑤e 補新人", [S("fetch_soloq_year", "--missing", "--no-rebuild")]),
+    # 2026-09-06：索引與出裝聚合（掃 30 萬場）原本 ⑤d 與 ⑤e 的尾端各跑一次＝每次管線兩遍；
+    # 而 ⑤e 沒有新選手時會提早 return、連一次都不跑。改成獨立階段：**永遠恰好一次**。
+    ("⑤f 積分索引（一次）", [S("build_soloq_index")]),
+    ("⑤g 出裝聚合（一次）", [S("build_soloq_builds")]),
     # 收尾：彼此不相干，但都要等前面資料齊
     ("⑥ 收尾（互不相干）", [
         SB("label_pending", "--apply"),

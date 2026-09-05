@@ -225,6 +225,56 @@ def _warm(pg):
     return False
 
 
+# ── 2026-09-06 線 3 提速 ─────────────────────────────────────────────────────
+# 舊寫法 436 位逐一 evaluate 一次 fetch（~0.6s）再 sleep 0.5s ＝ 472 秒，其中 218 秒純睡覺。
+# 新寫法：一次 evaluate 用 Promise.all 同時查一批的**第一個名字變體**；查無的才退回舊的逐變體路徑。
+# 每個結果帶 HTTP 狀態，一批裡出現限流／伺服器錯誤就整批退回舊路徑重查，不會把限流記成查無。
+BATCH = 6
+JS_ONE = "async(u)=>{const r=await fetch(u);return r.ok?await r.json():null;}"
+JS_MANY = """async(us)=>Promise.all(us.map(async u=>{ try{ const r=await fetch(u);
+  return {st:r.status, j: r.ok ? await r.json() : null}; }catch(e){ return {st:0, j:null}; } }))"""
+_VARIANTS = lambda pl: [v for v in dict.fromkeys([pl, pl[:1].upper() + pl[1:], pl.title(), pl.upper(), pl.lower()]) if v]
+_OK = lambda j: [a for a in ((j or {}).get("players") or []) if a.get("puuid") and a.get("gameName") and a.get("tagLine")]
+
+
+def fetch_pro_seq(pg, pl):
+    """舊路徑：逐個名字變體查，第一個有結果的就用。"""
+    for _v in _VARIANTS(pl):
+        try:
+            j = pg.evaluate(JS_ONE, "/v1/pros/" + urllib.parse.quote(_v, safe=""))
+        except Exception:
+            j = None
+        plist = _OK(j)
+        if plist:
+            return plist
+    return []
+
+
+def fetch_pros_batch(pg, names):
+    """新路徑：同時查一批的第一個變體；回 {名字: plist}。限流／錯誤 → 整批退回舊路徑。"""
+    urls = ["/v1/pros/" + urllib.parse.quote(_VARIANTS(n)[0], safe="") for n in names]
+    try:
+        res = pg.evaluate(JS_MANY, urls)
+    except Exception:
+        res = None
+    out = {}
+    if not isinstance(res, list) or len(res) != len(names):
+        res = None
+    if res is not None and any((r or {}).get("st") in (429, 403) or (r or {}).get("st", 0) >= 500 for r in res):
+        print("  ⚠ 這一批有限流／伺服器錯誤（%s）→ 睡 5 秒、整批退回逐一查"
+              % sorted({(r or {}).get("st") for r in res}), flush=True)
+        res = None
+    if res is None:
+        time.sleep(5)
+        for n in names:
+            out[n] = fetch_pro_seq(pg, n)
+        return out
+    for n, r in zip(names, res):
+        plist = _OK((r or {}).get("j"))
+        out[n] = plist if plist else fetch_pro_seq(pg, n)    # 第一個變體查無 → 舊路徑試其餘變體
+    return out
+
+
 def main():
     apply = "--apply" in sys.argv
     acc = json.load(open(ACCOUNTS, encoding="utf-8"))
@@ -354,22 +404,36 @@ def main():
                 dpm_primary.add(canon_team(t.get("team")))
         print(f"dpm 為主隊伍（{len(dpm_primary)}）：{sorted(dpm_primary)}", flush=True)
 
+        # --ab N：前 N 位新舊兩條路各查一次，逐位比對（驗收用，不寫檔）
+        if "--ab" in sys.argv:
+            _n = 30
+            for _i, _a9 in enumerate(sys.argv):
+                if _a9 == "--ab" and _i + 1 < len(sys.argv):
+                    try: _n = int(sys.argv[_i + 1])
+                    except ValueError: pass
+            _names = [pl for pl, _ in roster][:_n]
+            _t0 = time.time(); _new = {}
+            for _k in range(0, len(_names), BATCH):
+                _new.update(fetch_pros_batch(pg, _names[_k:_k + BATCH])); time.sleep(0.5)
+            _tb = time.time() - _t0
+            _t0 = time.time(); _old = {n: fetch_pro_seq(pg, n) for n in _names}; _ts = time.time() - _t0
+            _same = sum(1 for n in _names if json.dumps(_new.get(n), sort_keys=True) == json.dumps(_old.get(n), sort_keys=True))
+            for n in _names:
+                if json.dumps(_new.get(n), sort_keys=True) != json.dumps(_old.get(n), sort_keys=True):
+                    print(f"   ✗ {n}: 批次 {len(_new.get(n) or [])} 筆 vs 逐一 {len(_old.get(n) or [])} 筆")
+            print(f"🔎 --ab：{_same}/{len(_names)} 位內容相同；批次 {_tb:.0f}s vs 逐一 {_ts:.0f}s")
+            b.close(); return
+
         n_hit = n_miss = 0
+        # 先整批查完（dpm /v1/pros 區分大小寫：比賽數據常是小寫(ceo/xyno)但 dpm 顯示名是 Ceo/Xyno
+        # → 第一個變體查無時 fetch_pros_batch 會退回逐變體路徑）
+        _names_all = [pl for pl, _ in roster]
+        _plist_by = {}
+        for _k in range(0, len(_names_all), BATCH):
+            _plist_by.update(fetch_pros_batch(pg, _names_all[_k:_k + BATCH]))
+            time.sleep(0.5)
         for i, (pl, tm) in enumerate(roster, 1):
-            # dpm /v1/pros 區分大小寫：比賽數據常是小寫(ceo/xyno)但 dpm 顯示名是 Ceo/Xyno → 查無時自動試大小寫變體
-            plist, _tried = [], []
-            for _v in (pl, pl[:1].upper() + pl[1:], pl.title(), pl.upper(), pl.lower()):
-                if not _v or _v in _tried:
-                    continue
-                _tried.append(_v)
-                try:
-                    j = pg.evaluate("async(u)=>{const r=await fetch(u);return r.ok?await r.json():null;}",
-                                    "/v1/pros/" + urllib.parse.quote(_v, safe=""))
-                except Exception:
-                    j = None
-                plist = [a for a in ((j or {}).get("players") or []) if a.get("puuid") and a.get("gameName") and a.get("tagLine")]
-                if plist:
-                    break
+            plist = _plist_by.get(pl, [])
             teams_seen = {canon_team(a.get("team")) for a in plist}
             if tm in teams_seen:
                 use_as = [a for a in plist if canon_team(a.get("team")) == tm]   # 精確隊碼相符優先
@@ -396,7 +460,6 @@ def main():
                 n_miss += 1
             if i % 25 == 0:
                 print(f"  ...{i}/{len(roster)}（命中 {n_hit}）", flush=True)
-            time.sleep(0.5)
         b.close()
     print(f"dpm /v1/pros：命中 {n_hit} 位、查無 {n_miss} 位", flush=True)
 

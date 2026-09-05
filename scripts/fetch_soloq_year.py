@@ -288,8 +288,11 @@ def main():
               f"  Remove-Item soloq_matches -Recurse -Force; Rename-Item {_OUT} soloq_matches; python scripts\\build_soloq_index.py; python scripts\\build_soloq_builds.py")
     else:
         import subprocess  # 重建索引(彙總)＋英雄核心裝/流派聚合
-        subprocess.run([sys.executable, os.path.join(HERE, "build_soloq_index.py")])
-        subprocess.run([sys.executable, os.path.join(HERE, "build_soloq_builds.py")])
+        if "--no-rebuild" in sys.argv:   # 2026-09-06：管線裡由 run_update 第⑤f 階段一次重建（見 fetch_soloq_update.py）
+            print("（--no-rebuild：索引與出裝聚合交給 run_update 的第⑤f 階段一次做）")
+        else:
+            subprocess.run([sys.executable, os.path.join(HERE, "build_soloq_index.py")])
+            subprocess.run([sys.executable, os.path.join(HERE, "build_soloq_builds.py")])
 
 if __name__ == "__main__":
     main()
