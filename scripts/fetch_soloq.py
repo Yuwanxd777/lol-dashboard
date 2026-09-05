@@ -82,7 +82,9 @@ def _throttle():
         _req_times.popleft()
     for cnt, sec in _LIMITS:
         recent = [t for t in _req_times if now - t < sec]
-        if len(recent) >= max(1, int(cnt * 0.9)):        # 留 10% 餘裕，不要撞到 429
+        # 餘裕只留 2%（至少 1 個名額）：本來寫 10%，但實測金鑰額度就是 100:120，
+        # 留 10 個名額等於**白白慢 10%**（而且改動前的舊碼從沒撞過 429，日誌 429 次數＝0）。
+        if len(recent) >= max(1, cnt - max(1, int(cnt * 0.02))):
             wait = sec - (now - recent[0]) + 0.1
             if wait > 3:
                 print("    ⏸ 速率窗口暫停 %.0fs（額度 %d 次/%gs，來源：%s）"
@@ -229,14 +231,34 @@ def main():
         print(f"--failed：只重抓上次失敗的 {len(accounts)} 個帳號（{sorted({a.get('player','') for a in accounts})}）")
     print(f"帳號清單 {len(accounts)} 筆，開始抓取…（依速率限制，約 {len(accounts)*2.5/60:.1f} 分鐘）")
 
-    global PREV_ID, PREV_TP, RENAMES, PLATFIX
+    global PREV_ID, PREV_TP, RENAMES, PLATFIX, FAST_ID
     PREV_ID, PREV_TP = load_prev_puuids(); RENAMES = {}; PLATFIX = {}   # PLATFIX：缺 platform 的帳號用 Riot 查到的伺服器，最後寫回清單
+    # 有存 puuid 就跳過 account-v1 那一次查詢（見 fetch_one 的註解）。
+    # `--full-id`＝關掉捷徑、走完整路徑把改名補回來（每週全掃那一次用）。
+    FAST_ID = "--full-id" not in sys.argv
+    if FAST_ID:
+        _hit = sum(1 for a in accounts if PREV_ID.get((a["riotId"],
+                   ALIAS.get(str(a.get("platform","")).upper(), str(a.get("platform","")).lower()))))
+        print("puuid 捷徑：%d/%d 個帳號可跳過 account-v1 查詢（請求數約省 %.0f%%）"
+              % (_hit, len(accounts), 100.0 * _hit / max(1, 2 * len(accounts))))
     def fetch_one(a, tag_lbl):
         plat = ALIAS.get(str(a.get("platform","")).upper(), str(a.get("platform","")).lower())
         cluster = CLUSTER.get(plat, "asia")
         game, tagl = a["riotId"].rsplit("#", 1)
         print(f"[{tag_lbl}] {a.get('player','?')} ({a.get('team','?')}) {a['riotId']} @{plat}")
-        acc = get_account(cluster, game.strip(), tagl.strip())  # dpm 的 puuid 非 Riot puuid，用 account-v1 解析真 puuid
+        # ── 捷徑：上一版已經存過這個帳號的 Riot puuid 就直接用（2026-09-05）──────
+        # puuid 是**永久不變**的（改名也不變），所以省掉 account-v1 那一次查詢完全安全。
+        # 這是牌位這一步最大的一刀：1092 個帳號裡 964 個（88%）有存 puuid ⇒
+        # 請求數從 ~2184 降到 ~1220（-44%），而 dev 金鑰的 100 次/2 分鐘正是整條管線的瓶頸。
+        # 代價：**改名不會當天被發現**（用舊 puuid 照樣查得到牌位，只是顯示的 Riot ID 是舊的）
+        # ⇒ `--full-id`（每週全掃那次會帶）仍走完整路徑，把改名補回來。
+        acc = None
+        if FAST_ID:
+            _pu0 = PREV_ID.get((a["riotId"], plat))
+            if _pu0:
+                acc = {"puuid": _pu0, "gameName": game.strip(), "tagLine": tagl.strip(), "_cached": True}
+        if acc is None:
+            acc = get_account(cluster, game.strip(), tagl.strip())  # dpm 的 puuid 非 Riot puuid，用 account-v1 解析真 puuid
         via_prev = False
         if not acc:  # 舊 ID 查不到（改名/暫時性失敗）→ 用上次 puuid 反查目前 ID（改名自動修復）
             # PREV_ID 以 (riotId,platform) 為鍵＝同一個帳號，安全；
@@ -252,7 +274,8 @@ def main():
                 if acc: print(f"    ♻ 以 puuid 反查成功：目前 ID = {acc.get('gameName')}#{acc.get('tagLine')}")
         puuid = acc.get("puuid") if acc else None
         curId = (acc.get("gameName","")+"#"+acc.get("tagLine","")) if acc else None  # Riot 目前的 Riot ID(可能已改名)
-        if curId and curId != a["riotId"]:
+        # ⚠ 走 puuid 捷徑時 curId 是我們自己填的舊名，不是 Riot 現在的名字 ⇒ 不可以拿去判改名
+        if curId and curId != a["riotId"] and not (acc or {}).get("_cached"):
             RENAMES[(a.get("team",""), a.get("player",""), a["riotId"])] = (curId, via_prev)
         rec = {"player": a.get("player",""), "team": a.get("team",""), "platform": plat,
                "riotId": a["riotId"], "puuid": puuid, "curId": curId,
