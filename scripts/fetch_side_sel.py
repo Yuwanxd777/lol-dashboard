@@ -125,17 +125,39 @@ def parse(ov, htm):
     # ⚠這張表是**巢狀**的（外層一張、每週一張內層）→ 不能用非貪婪的 <table>.*?</table>：
     # 那樣只會切到第一個 </table>（實測只拿到 1596 字元、資料列全在外面）。
     # 改成從表頭位置往回找最近的 <table，再用配對計數找出真正的結尾。
-    pos = htm.find("Side Sel")
-    if pos < 0:
+    # 2026-09-05：**不能只看 "Side Sel" 的第一次出現**（查 LPL 2025 少一半資料時抓到）。
+    # LPL 2025 Split 1／Split 2 的頁面上有一個「1v1 Side Selection」活動的連結與 tooltip，
+    # 位置在比賽表**前面** ⇒ 舊寫法從它往回找表格，咬到只有 5 列的導覽表 ⇒ 整頁回空，
+    # 那一段的 MVP／VOD／選邊全部沒收。實測受害頁：LPL 2025 的 Split 1、Split 1 Playoffs、
+    # Split 2、Split 2 Placements、Split 2 Playoffs 共 5 頁（該年只剩 296 局進得來）。
+    # 改成每一次出現都當候選，挑第一個**真的是比賽表**的（同一列表頭要同時有 Blue 與 Red）。
+    def _table_at(p0):
+        s0 = htm.rfind("<table", 0, p0)
+        if s0 < 0:
+            return None
+        depth0, tbl0 = 0, htm[s0:]
+        for m0 in re.finditer(r"<table\b|</table>", htm[s0:]):
+            depth0 += -1 if m0.group(0).startswith("</") else 1
+            if depth0 == 0:
+                tbl0 = htm[s0:s0 + m0.end()]
+                break
+        return tbl0
+
+    def _is_match_table(t):
+        for tr0 in re.findall(r"<tr[^>]*>(.*?)</tr>", t, re.S):
+            cs = [TXT(c) for _, c in re.findall(r"<t[dh]([^>]*)>(.*?)</t[dh]>", tr0, re.S)]
+            if any(c.startswith("Side Sel") for c in cs) and "Blue" in cs and "Red" in cs:
+                return True
+        return False
+
+    tbl = None
+    for m in re.finditer("Side Sel", htm):
+        cand = _table_at(m.start())
+        if cand is not None and _is_match_table(cand):
+            tbl = cand
+            break
+    if tbl is None:
         return []
-    s = htm.rfind("<table", 0, pos)
-    if s < 0:
-        return []
-    depth, tbl = 0, htm[s:]
-    for m in re.finditer(r"<table\b|</table>", htm[s:]):
-        depth += -1 if m.group(0).startswith("</") else 1
-        if depth == 0:
-            tbl = htm[s:s + m.end()]; break
     out, cur = [], None
     idx = None
     for tr in re.findall(r"<tr[^>]*>(.*?)</tr>", tbl, re.S):
@@ -341,15 +363,31 @@ def main():
             a, b = nkq(a), nkq(b)
             return bool(a) and bool(b) and (a in b or b in a)
 
+        # 2026-09-05：Leaguepedia 會在隊名後面加**消歧義後綴**，例如賽程表寫
+        # 「MGN Vikings Esports」而比賽表寫「Vikings Esports (2023 Vietnamese Team)」
+        # ⇒ 兩邊互相都不是對方的子字串 ⇒ 配不上。LCP 2025 Mid Season 因此只配到 21/28、
+        # 整頁被 90% 門檻跳過（連帶 Season Finals／Season Kickoff，共 190 局的 MVP／VOD 沒收）。
+        # 去掉括號後 "vikingsesports" ⊂ "mgnvikingsesports" 就對得上。
+        # ⚠ **分兩輪**：先跑嚴格的一輪，剩下的才用寬鬆規則補。寬鬆規則直接混進第一輪的話，
+        #   只靠括號區分的兩支同名隊（如 MVP (Korean Team) / MVP (Chinese Team)）會被搶先配走。
+        nopar = lambda s2: nkq(re.sub(r"\s*\([^)]*\)", "", str(s2 or "")))
+
+        def same_loose(a, b):
+            a, b = nopar(a), nopar(b)
+            return bool(a) and bool(b) and (a in b or b in a)
+
         used, pair = set(), {}
-        for i, s in enumerate(sers):
-            if not re.match(r"^\d+\s*-\s*\d+$", s["score"] or ""):
-                continue
-            for j, (d0, a0, b0, sco) in enumerate(sc):
-                if j in used or sco != s["score"]:
+        for _cmp in (same, same_loose):
+            for i, s in enumerate(sers):
+                if i in pair:
                     continue
-                if (same(s["t1"], a0) and same(s["t2"], b0)) or (same(s["t1"], b0) and same(s["t2"], a0)):
-                    used.add(j); pair[i] = j; break
+                if not re.match(r"^\d+\s*-\s*\d+$", s["score"] or ""):
+                    continue
+                for j, (d0, a0, b0, sco) in enumerate(sc):
+                    if j in used or sco != s["score"]:
+                        continue
+                    if (_cmp(s["t1"], a0) and _cmp(s["t2"], b0)) or (_cmp(s["t1"], b0) and _cmp(s["t2"], a0)):
+                        used.add(j); pair[i] = j; break
         need = [i for i, s in enumerate(sers) if s["games"]]
         got = [i for i in need if i in pair]
         if need and len(got) < len(need) * 0.9:
