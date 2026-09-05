@@ -904,7 +904,14 @@
   .dlyRec{font-size:13px;font-weight:700;text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
   .dlyRec .w{color:#5ea2ff} .dlyRec .l{color:#ec6b73} .dlyRec .s{opacity:.4;margin:0 1px}
   .dlyChips{display:flex;flex-wrap:wrap;gap:7px;margin:6px 0 1px 29px} /* 英雄圖間隔 7px（2026-08-06 使用者指定；扣掉兩邊各 1.5px 勝負描邊，描邊之間淨 4px） */
-  .dlyChip{display:inline-block;line-height:0;border-radius:6px;box-shadow:0 0 0 1.5px var(--c)}
+  /* 勝負描邊圈畫在**圖本身**上，不要畫在外層 span（2026-09-05 使用者回報「英雄圖下方有點被
+     下一列切到」）。原因：champIco() 產的 <img> 在外層 span 裡會比 span 的盒子低 1px，
+     box-shadow 是繞著 span 畫的 ⇒ 圖把下緣的圈蓋掉，實測像素 上1.5／下0.5／左1.5／右1.5，
+     看起來就是「下面被切掉」。畫在 img 上就永遠貼合，四邊都是 1.5。
+     ⚠ 這條只有**像素**驗得出來：getBoundingClientRect 與 offsetTop 都會說「對齊」（我被騙過兩次），
+     驗收要用 scratchpad 的 dly_px_ab.py 那種量圈厚度的方式。 */
+  .dlyChip{display:inline-block;line-height:0;border-radius:6px}
+  .dlyChip img{display:block;box-shadow:0 0 0 1.5px var(--c)}
   .dlyMore{align-self:center;font-size:11px;opacity:.5;margin-left:2px}
   .sqSortH{cursor:pointer;user-select:none} .sqSortH:hover{color:var(--acc)}
   .sqGame{display:grid;align-items:center;gap:20px;padding:9px 16px;border-radius:9px;border-left:5px solid #3a4666;background:#141b2b;margin-bottom:6px}
@@ -937,6 +944,10 @@
   /* ── 總覽 版本焦點：圖示與字級全區統一（2026-07-28 使用者要求「看起來更舒服」） ── */
   .ovChgRow{display:flex;align-items:center;gap:10px;min-height:52px}
   .ovChgLb{flex:0 0 auto;font-weight:bold;width:104px;white-space:nowrap;font-size:15.5px}
+  /* 英文標籤比中文長（Adjustment／Buffed／Nerfed vs 調整／增強／削弱）：104px 在中文剛好、
+     英文會超出 3~4px（2026-09-05 使用者回報＋en_overflow_audit 量到）。同一欄各列要對齊，
+     所以不能改 width:auto，只能對英文補寬。 */
+  html[data-lang="en"] .ovChgLb{width:124px}
   /* 放不下就換行，不要橫向捲動（2026-08-01 使用者：整體超過畫面時，比較長的那段要換行）。
      原本 nowrap+overflow-x:auto 會把 2013 那種 26 個英雄的列變成看不見的橫向捲軸。 */
   .ovChgList{flex:1 1 0;min-width:0;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
@@ -1164,6 +1175,10 @@ function loadYear(y){
 
 // ---------- i18n（中文／English；分批擴充，內部 key 一律保持中文，只翻顯示文字）----------
 let LANG = (l=>l==="en"?"en":(l==="cn"?"cn":"zh"))(localStorage.getItem("lang")); // zh=繁體 cn=簡體(以繁體資料再字級轉簡) en=English
+// 語言掛鉤（2026-09-05）：讓 CSS 能對英文另開規則。英文字比中文長很多，固定寬度的標籤
+// （如版本焦點的 .ovChgLb）在中文剛好、英文就會爆出框——這種只能靠語言選擇器補寬，
+// 不能改成 auto（同一欄各列要對齊）。用 <html data-lang> 而不是 body：CSS 寫起來最短。
+try{document.documentElement.dataset.lang=LANG;}catch(e){}
 const DDLOC = LANG==="en" ? "en_US" : "zh_TW"; // DDragon 資料語系
 const I18N = {
   // 導覽分頁（顯示用；curView 內部仍用中文 key）
@@ -13906,7 +13921,7 @@ function render(){
         const _poolH=poolColHTML();   // 先算好才能跟上次比（不能比 live innerHTML：fitPool 會在子元素寫 inline style 污染比對）
         wrap.innerHTML=`<div id="bsGames" style="flex:1;min-width:0;overflow-x:${S.n>5?"auto":"hidden"};overflow-y:hidden"><div style="display:grid;grid-template-columns:repeat(${S.n},${g}px)${showAdd?" 46px":""};gap:${gap}px;height:100%;align-items:stretch;width:max-content;min-width:100%">
             ${[...Array(S.n).keys()].map(gameCard).join("")}
-            ${showAdd?`<div class="card bsGAddCol" style="margin:0;display:flex;align-items:center;justify-content:center;font-size:28px;color:#5fbf7f;cursor:pointer;min-width:46px;user-select:none" title="新增一局（放在最右邊、緊貼角色池方便拖曳；超過五局往左捲動看較舊的局）">＋</div>`:""}
+            ${showAdd?`<div class="card bsGAddCol" style="margin:0;padding:0;display:flex;align-items:center;justify-content:center;font-size:28px;color:#5fbf7f;cursor:pointer;min-width:46px;user-select:none" title="新增一局（放在最右邊、緊貼角色池方便拖曳；超過五局往左捲動看較舊的局）">＋</div>`:""}
           </div></div>
           <div class="card bpPool" style="margin:0;overflow:visible;display:flex;flex-direction:column;flex:0 0 auto;width:${poolW}px">${_poolH}</div>
           ${midHTML?`<div class="card bpMid" style="margin:0;padding:10px;overflow:hidden;display:flex;flex-direction:column;flex:0 0 auto;width:${midW}px">${midHTML}</div>`:""}`;
@@ -15534,6 +15549,21 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
       };
       const paintDex=async()=>{
         const q=(V.dexQ||"").trim().toLowerCase();
+        // 名稱單行塞不下就動態縮字。**定義放最前面**：底下好幾個分區（符文／物件／版本…）
+        // 各自 return，定義在函式尾端的話那些分區永遠套不到——英文符文名（Hextech
+        // Flashtraption）因此吐出框 31px（2026-09-05 使用者回報「英文介面文字超出框」）。
+        // ⚠ 量寬度用 **Range**，不能只看 scrollWidth：這些名稱是置中的，溢出時左右各吐一半，
+        // scrollWidth 只算右／下方向 ⇒ 置中溢出量不到。Range rect 是視覺 px、clientWidth 是
+        // 版面 px，要除以 _zoomF 才能比。
+        const _twDex=el=>{ try{ const rg=document.createRange(); rg.selectNodeContents(el);
+          return rg.getBoundingClientRect().width/(window._zoomF||1); }catch(e){ return el.scrollWidth; } };
+        const fitDexNames=()=>box.querySelectorAll(".dexNm,.dexNmI,.runeNm").forEach(el=>{
+          el.style.whiteSpace="nowrap"; el.style.display="block"; // block：名稱維持在圖下方一列
+          el.style.fontSize="";
+          let fs=parseFloat(getComputedStyle(el).fontSize), guard=0;
+          while((_twDex(el)>el.clientWidth+1||el.scrollWidth>el.clientWidth+1)&&fs>10&&guard++<14){fs-=0.5;el.style.fontSize=fs+"px";}
+        });
+        const fitDexLater=()=>{ fitDexNames(); try{document.fonts.ready.then(fitDexNames);}catch(e){} };
         if(V.dexSec==="賽事"){ // 樹只隨年份/語言變（無搜尋時）→ 快取整段 HTML，免每次 render 重掃全年 GAMES
           window._EVT_CACHE=window._EVT_CACHE||{};
           const _eq=(V.dexQ||"").trim(), _ek=curYear+"|"+LANG;
@@ -15794,8 +15824,9 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
           const SHARDS=shardsFor(+curYear);
           const shardHTML=!SHARDS?"":`<div class="card" style="margin:var(--gap) 0 0"><h2 style="color:#c8aa6e">🔻 ${T("符文碎片")} <span class="sub">${LANG==="en"?`Offense / Flex / Defense — pick one per row (${curYear})`:`Stat Shards｜進攻／彈性／防禦 三列各選一個（${curYear} 年配置）`}</span></h2>
             ${SHARDS.map(row=>`
-              <div style="display:grid;grid-template-columns:56px repeat(3,1fr);gap:16px;align-items:center;padding:11px 0;border-top:1px solid var(--line)">
-                <span style="font-weight:bold;color:var(--gold)">${row.row}</span>
+              <div style="display:grid;grid-template-columns:${LANG==="en"?78:56}px repeat(3,1fr);gap:16px;align-items:center;padding:11px 0;border-top:1px solid var(--line)">
+                <!-- 標籤欄寬要看語言：中文「進攻／彈性／防禦」兩個字 56px 剛好，英文 Offense/Defense 會吐出 3~5px（2026-09-05 稽核量到） -->
+                <span style="font-weight:bold;color:var(--gold);white-space:nowrap">${row.row}</span>
                 ${row.items.map(s=>`<div style="display:flex;align-items:center;gap:10px;min-width:0;${dim(s.n)?"opacity:.22":""}">
                   <img src="${SB}${s.ic}" style="width:38px;height:38px;flex:0 0 auto" onerror="this.style.visibility='hidden'">
                   <div style="min-width:0"><div style="font-size:15.5px;white-space:nowrap">${esc(s.n)}</div><div class="meta" style="font-size:12.5px">${hiNum(esc(s.d))}</div></div>
@@ -15814,6 +15845,7 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
             +(+curYear===2017?`<div class="card" style="margin:var(--gap) 0 0"><h2>🧬 ${LANG==="en"?"Old Masteries (before patch 7.22)":"舊天賦系統（7.22 合併前，2017 上半年）"}</h2><span class="meta">${LANG==="en"?"2017 mid-season merged Masteries + Runes into Runes Reforged; both shown.":"2017 賽季中(7.22)把天賦與符文合併成 Runes Reforged，此處一併列出合併前的舊天賦。"}</span></div>`+oldMasteryRunesHTML(2017):"");
           box.querySelectorAll("[data-rgo]").forEach(el=>el.onclick=ev=>{ ev.stopPropagation(); V.dexDetail={type:"item",name:el.dataset.rgo}; saveState(); render(); }); // 點符文圖/名 → 詳細資訊
           bindChgTips(box); bindHoverTips(box);
+          fitDexLater();   // 英文符文名要縮字才塞得進格子（見 fitDexNames 的註解）
           return;
         }
         if(V.dexSec==="英雄"){
@@ -15963,15 +15995,7 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
           });
         }
         bindChgTips(box); bindHoverTips(box);
-        // 名稱單行塞不下就動態縮字（粉圓等字體較寬時「海克斯科技火箭腰帶」這類長名不折行）
-        const fitDexNames=()=>box.querySelectorAll(".dexNm,.dexNmI,.runeNm").forEach(el=>{
-          el.style.whiteSpace="nowrap"; el.style.display="block"; // block：名稱維持在圖下方一列
-          el.style.fontSize="";
-          let fs=parseFloat(getComputedStyle(el).fontSize), guard=0;
-          while(el.scrollWidth>el.clientWidth+1&&fs>10&&guard++<14){fs-=0.5;el.style.fontSize=fs+"px";}
-        });
-        fitDexNames();
-        document.fonts.ready.then(fitDexNames); // 自訂字體晚載入時重新校一次
+        fitDexLater();   // 定義在 paintDex 最前面（早 return 的分區也要用得到），字體晚載入會再校一次
       };
       paintDex();
       const dq=document.getElementById("dexQ");
