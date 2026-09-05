@@ -39,20 +39,57 @@ CLUSTER = {
 ALIAS = {"KR":"kr","NA":"na1","EUW":"euw1","EUNE":"eun1","BR":"br1","JP":"jp1",
          "LAN":"la1","LAS":"la2","OCE":"oc1","TR":"tr1","RU":"ru","VN":"vn2","TW":"tw2","SG":"sg2"}
 
-_req_times = collections.deque()   # 送出時間戳，控 20/s & 100/120s
+_req_times = collections.deque()   # 送出時間戳
+# ── 速率上限：**照 Riot 每次回應的 X-App-Rate-Limit 標頭自動調整**（2026-09-05）──
+# 原本這裡寫死 dev 金鑰的 20/s + 100/2min。使用者其實早就換成長期金鑰
+# （riot_key.local.json 的 permanent:true），額度高得多，卻還是照 dev 的節奏在等——
+# 上一次每日更新因此「速率窗口暫停」**39 次**，光等就吃掉大半時間。
+# 標頭格式：`X-App-Rate-Limit: 20:1,100:120`（次數:秒數，逗號分隔多組）。
+# 抓不到標頭就退回 dev 值＝跟改動前完全一樣的行為（fail-safe）。
+_LIMITS = [(20, 1.0), (100, 120.0)]      # [(次數, 視窗秒數)]；第一次回應後會被真實額度取代
+_LIM_SRC = "預設（dev 金鑰值，還沒讀到標頭）"
+
+
+def _set_limits(hdr):
+    """把 `X-App-Rate-Limit` 解析成 [(次數, 秒)]。解析失敗就不動（保持保守值）。"""
+    global _LIMITS, _LIM_SRC
+    if not hdr:
+        return
+    try:
+        got = []
+        for part in str(hdr).split(","):
+            c, _, s = part.strip().partition(":")
+            c, s = int(c), float(s)
+            if c > 0 and s > 0:
+                got.append((c, s))
+        if got and got != _LIMITS:
+            old = _LIMITS
+            _LIMITS = got
+            _LIM_SRC = "Riot 標頭 " + str(hdr)
+            print("    ⚡ 依 Riot 回傳的額度調整節流：%s → %s"
+                  % (",".join("%d/%gs" % x for x in old), ",".join("%d/%gs" % x for x in got)), flush=True)
+    except Exception:
+        pass
+
+
 def _throttle():
+    """每一組 (次數, 視窗) 都要滿足；只留最長視窗內的時間戳。"""
+    if not _LIMITS:
+        return
+    span = max(s for _, s in _LIMITS)
     now = time.time()
-    while _req_times and now - _req_times[0] > 120: _req_times.popleft()
-    # 100 / 2min
-    if len(_req_times) >= 100:
-        wait = 120 - (now - _req_times[0]) + 0.1
-        if wait > 3:
-            print(f"    ⏸ 速率窗口暫停 {wait:.0f}s（Riot 限 100 次/2 分鐘，約每 50 位選手停一次——正常，不是卡住）", flush=True)
-        if wait > 0: time.sleep(wait)
-    # 20 / 1s
-    recent = [t for t in _req_times if time.time() - t < 1]
-    if len(recent) >= 18:
-        time.sleep(1.0)
+    while _req_times and now - _req_times[0] > span:
+        _req_times.popleft()
+    for cnt, sec in _LIMITS:
+        recent = [t for t in _req_times if now - t < sec]
+        if len(recent) >= max(1, int(cnt * 0.9)):        # 留 10% 餘裕，不要撞到 429
+            wait = sec - (now - recent[0]) + 0.1
+            if wait > 3:
+                print("    ⏸ 速率窗口暫停 %.0fs（額度 %d 次/%gs，來源：%s）"
+                      % (wait, cnt, sec, _LIM_SRC), flush=True)
+            if wait > 0:
+                time.sleep(wait)
+                now = time.time()
 
 def riot_get(url):
     for attempt in range(4):
@@ -61,8 +98,10 @@ def riot_get(url):
         _req_times.append(time.time())
         try:
             with urllib.request.urlopen(req, timeout=15) as r:
+                _set_limits(r.headers.get("X-App-Rate-Limit"))   # 每次都看，額度變了就跟著改
                 return r.getcode(), json.load(r)
         except urllib.error.HTTPError as e:
+            _set_limits(e.headers.get("X-App-Rate-Limit") if e.headers else None)
             if e.code == 429:                       # 被限速 → 等 Retry-After 再試
                 ra = int(e.headers.get("Retry-After", "5"))
                 print(f"    429 限速，等 {ra}s…"); time.sleep(ra + 1); continue
