@@ -93,13 +93,13 @@ def _throttle():
                 time.sleep(wait)
                 now = time.time()
 
-def riot_get(url):
+def riot_get(url, timeout=15):
     for attempt in range(4):
         _throttle()
         req = urllib.request.Request(url, headers={"X-Riot-Token": KEY, "User-Agent": UA})
         _req_times.append(time.time())
         try:
-            with urllib.request.urlopen(req, timeout=15) as r:
+            with urllib.request.urlopen(req, timeout=timeout) as r:
                 _set_limits(r.headers.get("X-App-Rate-Limit"))   # 每次都看，額度變了就跟著改
                 return r.getcode(), json.load(r)
         except urllib.error.HTTPError as e:
@@ -143,6 +143,48 @@ def load_prev_puuids():
     except Exception:
         pass
     return by_id, by_tp
+
+# ── 聯盟名單預抓（2026-09-06，線 3 提速）────────────────────────────────────
+# Master 以上的帳號（實測 1087 個裡有 436 個）不必逐帳號問 entries/by-puuid：
+# league-v4 的 challenger／grandmaster／master leagues by-queue 端點一次回整個階級的名單，
+# 每個 entry 都帶 puuid／leaguePoints／rank／wins／losses。每個平台 3 次呼叫。
+# 只對帳號數 >= LADDER_MIN 的平台做（vn2／tw2／jp1 那種只有幾個帳號的，3 次呼叫換不回來）。
+# 名單 entry 沒有 tier／queueType（在外層），這裡補進去，形狀跟 entries/by-puuid 的一項一樣，
+# fetch_one 那邊拿到就跟以前一模一樣地用。名單若沒帶 puuid（舊 API）→ 表為空 → 自動退回逐帳號。
+LADDER = {}          # (platform, puuid) -> entry
+LADDER_HITS = [0]
+LADDER_MIN = 10
+
+
+def prefetch_ladders(platforms):
+    n = 0
+    for plat in sorted(platforms):
+        for tier in ("challenger", "grandmaster", "master"):
+            # 名單很大（kr/master 上萬人，第一次實測 504）：給 60 秒，5xx 再試一次
+            url9 = f"https://{plat}.api.riotgames.com/lol/league/v4/{tier}leagues/by-queue/RANKED_SOLO_5x5"
+            code, data = riot_get(url9, timeout=60)
+            if code >= 500:
+                time.sleep(3)
+                code, data = riot_get(url9, timeout=90)
+            if code != 200 or not isinstance(data, dict):
+                print(f"    聯盟名單 {plat}/{tier}：HTTP {code}（這一階跳過，走逐帳號）")
+                continue
+            ents = data.get("entries") or []
+            got = 0
+            for e in ents:
+                pu = e.get("puuid")
+                if not pu:
+                    continue
+                e2 = dict(e)
+                e2["tier"] = data.get("tier") or tier.upper()
+                e2["queueType"] = "RANKED_SOLO_5x5"
+                LADDER[(plat, pu)] = e2
+                got += 1
+            n += got
+            print(f"    聯盟名單 {plat}/{tier}：{len(ents)} 人（帶 puuid {got}）")
+    print(f"聯盟名單預抓完成：{n} 個 Master 以上帳號可直接查表，不逐帳號呼叫")
+    return n
+
 
 def get_soloq(platform, puuid):
     """回傳 (單雙排紀錄或 None, 確定嗎)。
@@ -241,6 +283,14 @@ def main():
                    ALIAS.get(str(a.get("platform","")).upper(), str(a.get("platform","")).lower()))))
         print("puuid 捷徑：%d/%d 個帳號可跳過 account-v1 查詢（請求數約省 %.0f%%）"
               % (_hit, len(accounts), 100.0 * _hit / max(1, 2 * len(accounts))))
+    # 聯盟名單預抓（見 prefetch_ladders）：帳號數 >= LADDER_MIN 的平台各 3 次呼叫。--no-ladder 關掉。
+    if "--no-ladder" not in sys.argv:
+        _pc = {}
+        for _a in accounts:
+            _p = ALIAS.get(str(_a.get("platform","")).upper(), str(_a.get("platform","")).lower())
+            if _p:
+                _pc[_p] = _pc.get(_p, 0) + 1
+        prefetch_ladders({p for p, c in _pc.items() if c >= LADDER_MIN})
     def fetch_one(a, tag_lbl):
         plat = ALIAS.get(str(a.get("platform","")).upper(), str(a.get("platform","")).lower())
         cluster = CLUSTER.get(plat, "asia")
@@ -299,17 +349,52 @@ def main():
                 print(f"    ♻ Riot 查無此 ID → DPM 牌位備援：{dr.get('tier')} {dr.get('rank')} {_lp}LP")
                 return rec
             print("    找不到帳號（Riot ID 或區域錯？）"); return rec
-        sq, sure = get_soloq(plat, puuid)
+        _lad = LADDER.get((plat, puuid))
+        if _lad is not None:
+            sq, sure = _lad, True
+            LADDER_HITS[0] += 1
+        else:
+            sq, sure = get_soloq(plat, puuid)
         if sq:
             rec.update(tier=sq.get("tier"), division=sq.get("rank"), lp=sq.get("leaguePoints"),
                        wins=sq.get("wins"), losses=sq.get("losses"), found=True)
-            print(f"    {sq.get('tier')} {sq.get('rank')} {sq.get('leaguePoints')}LP  {sq.get('wins')}W-{sq.get('losses')}L")
+            print(f"    {sq.get('tier')} {sq.get('rank')} {sq.get('leaguePoints')}LP  {sq.get('wins')}W-{sq.get('losses')}L"
+                  + ("　（聯盟名單）" if _lad is not None else ""))
         else:
             # settled＝問到了、答案就是「沒有排名」⇒ 重抓那一輪不要再排它（見 get_soloq）
             rec["settled"] = bool(sure)
             print("    無 solo queue 排名（未定位或無資料）" + ("" if sure else "　※這次沒問成，稍後重抓"))
         return rec
 
+    if "--ladder-check" in sys.argv:
+        _n = 20
+        for _i, _a9 in enumerate(sys.argv):
+            if _a9 == "--ladder-check" and _i + 1 < len(sys.argv):
+                try: _n = int(sys.argv[_i + 1])
+                except ValueError: pass
+        print(f"\n🔎 --ladder-check：抽 {_n} 個名單命中的帳號，再用 entries/by-puuid 逐欄比對")
+        _ok = _bad = _tested = 0
+        for a in accounts:
+            if _tested >= _n:
+                break
+            plat = ALIAS.get(str(a.get("platform","")).upper(), str(a.get("platform","")).lower())
+            pu = PREV_ID.get((a["riotId"], plat))
+            lad = LADDER.get((plat, pu)) if pu else None
+            if not lad:
+                continue
+            _tested += 1
+            sq, sure = get_soloq(plat, pu)
+            same = bool(sq) and all(sq.get(k) == lad.get(k) for k in ("tier", "rank", "leaguePoints", "wins", "losses"))
+            if same:
+                _ok += 1
+            else:
+                _bad += 1
+                print(f"   ✗ {a.get('player')} {a['riotId']}@{plat}：名單 {lad.get('tier')} {lad.get('rank')} "
+                      f"{lad.get('leaguePoints')}LP {lad.get('wins')}W-{lad.get('losses')}L ／ 逐帳號 "
+                      f"{(sq or {}).get('tier')} {(sq or {}).get('rank')} {(sq or {}).get('leaguePoints')}LP "
+                      f"{(sq or {}).get('wins')}W-{(sq or {}).get('losses')}L")
+        print(f"   結果：{_ok} 相同／{_bad} 不同（抽 {_tested} 個）")
+        return
     out = []; retry = []; settled = 0
     for i, a in enumerate(accounts, 1):
         rec = fetch_one(a, f"{i}/{len(accounts)}")
@@ -323,6 +408,8 @@ def main():
             else:
                 retry.append((len(out), a))
         out.append(rec)
+    if LADDER_HITS[0]:
+        print(f"（聯盟名單命中 {LADDER_HITS[0]} 個帳號 → 省下同樣次數的逐帳號請求）")
     if settled:
         print(f"（{settled} 個帳號確定沒有單雙排名次 → 不排進重抓，省下同樣次數的請求）")
     if retry:

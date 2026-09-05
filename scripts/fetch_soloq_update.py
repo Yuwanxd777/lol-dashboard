@@ -186,6 +186,9 @@ def main():
     CROLE = comp_roles()  # 判例：資料庫位置＝權威；index 路線不符 → 蒐集、最後自動用 --only 重建
     MISMATCH = []
     added_tot = 0; upd = 0; RENAME = {}
+    # 2026-09-06 線 3：這一步昨晚 1926 秒（130 位＝每位 15 秒，說明寫的是 1.4 秒）。
+    # 錢花在哪沒有紀錄 ⇒ 印各階段耗時，下一次 10:00 的 update_log 就看得出來。
+    _T0 = time.time(); _TCF = _TPU = 0.0; _TPL = []
     with sync_playwright() as p:
         b = _launch_real(p)
         pg = b.new_context(user_agent=UA, viewport={"width":1400,"height":900}, locale="en-US").new_page()
@@ -195,9 +198,13 @@ def main():
             try:
                 if pg.evaluate("async()=>{const r=await fetch('/v1/esport/soloq/top-teams');return r.status;}") == 200: break
             except Exception: pass
+        _TCF = time.time() - _T0
+        _t1 = time.time()
         if fill_missing_puuids(pg):
             accs = _load_accs()  # 補完 puuid 立即生效：新帳號本輪就進增量/補全年
+        _TPU = time.time() - _t1
         for i, key in enumerate(keys, 1):
+            _tp = time.time()
             meta = idx["players"][key]; role = meta.get("role")
             tok = LANE2TOK.get(role, "middle")
             _comp = CROLE.get(str(key.split("|", 1)[-1]).strip().lower())
@@ -235,7 +242,14 @@ def main():
                     fp.write(f"window.__sqLoad({json.dumps(key,ensure_ascii=False)},{json.dumps(data,ensure_ascii=False)});\n")
                 meta["n"] = len(merged); added_tot += len(newg); upd += 1
                 print(f"[{i}/{len(keys)}] {key}  +{len(newg)} 新（共 {len(merged)}）")
+            _TPL.append((time.time() - _tp, key, len(accs.get(key, []))))
         b.close()
+    if _TPL:
+        _TPL.sort(reverse=True)
+        _tot = sum(t for t, _, _ in _TPL)
+        print("⏱ 逐場階段計時：開瀏覽器＋Cloudflare %.0fs／補 puuid %.0fs／逐人合計 %.0fs（%d 位，平均 %.1fs）"
+              % (_TCF, _TPU, _tot, len(_TPL), _tot / len(_TPL)))
+        print("   最久的 5 位：" + "、".join("%s %.0fs（%d 帳號）" % (k, t, n) for t, k, n in _TPL[:5]))
     if RENAME:  # 改名自動同步：更新 soloq_accounts.json 的 riotId（fetch_soloq 牌位查詢下輪直接用新 ID）
         # ⚠ 這裡的「新名字」來源是 dpm 最近一場比賽的參賽者名，那是**該局當下**的 ID（見 JS_NEW 的
         #   rid 註解），選手改名後若還沒再打一場，讀到的就是舊名。所以不可以蓋掉今天才由 dpm
@@ -264,14 +278,20 @@ def main():
     print(f"\n完成：{upd} 位有新戰績、共 +{added_tot} 場。"
           + (f" 另有 {len(missing)} 位無檔(新選手)→ 自動補抓整年。" if missing else ""))
     import subprocess
+    # 2026-09-06 線 3：這一步的 1926 秒有一大半在下面這四支子程序（補全年、重建索引、掃 30 萬場
+    # 聚合出裝），逐段計時，update_log 才看得出哪一段該減。
+    def _timed(label, cmd):
+        _t = time.time()
+        subprocess.run(cmd)
+        print(f"⏱ {label}：{time.time() - _t:.0f}s")
     if MISMATCH:  # 判例自動修復：以資料庫位置重建這些選手（單次上限 5 位；帳號真的缺主帳的會場數偏少→提醒補帳號）
         print(f"⚠ {len(MISMATCH)} 位「資料庫位置≠積分路線」→ 自動以資料庫位置重建：{MISMATCH[:5]}")
-        subprocess.run([sys.executable, "-u", os.path.join(HERE, "fetch_soloq_year.py"), "--only", ",".join(MISMATCH[:5])])
+        _timed("重建錯路線選手", [sys.executable, "-u", os.path.join(HERE, "fetch_soloq_year.py"), "--only", ",".join(MISMATCH[:5])])
     if missing:  # 新選手自動補全年（單次上限 10 位，防守每日排程時長；沒補完的明天續）
-        subprocess.run([sys.executable, "-u", os.path.join(HERE, "fetch_soloq_year.py"), "--missing", "--max", "10"])
+        _timed("新選手補全年", [sys.executable, "-u", os.path.join(HERE, "fetch_soloq_year.py"), "--missing", "--max", "10"])
     # 重建索引(彙總，7天滑動窗口每天重算)＋英雄核心裝/流派聚合
-    subprocess.run([sys.executable, os.path.join(HERE, "build_soloq_index.py")])
-    subprocess.run([sys.executable, os.path.join(HERE, "build_soloq_builds.py")])
+    _timed("重建索引 build_soloq_index", [sys.executable, os.path.join(HERE, "build_soloq_index.py")])
+    _timed("出裝聚合 build_soloq_builds", [sys.executable, os.path.join(HERE, "build_soloq_builds.py")])
 
 if __name__ == "__main__":
     main()
