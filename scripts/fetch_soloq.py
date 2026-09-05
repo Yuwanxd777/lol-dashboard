@@ -143,17 +143,27 @@ def load_prev_puuids():
     return by_id, by_tp
 
 def get_soloq(platform, puuid):
+    """回傳 (單雙排紀錄或 None, 確定嗎)。
+
+    第二個值是 2026-09-05 加的：**分辨「問到了，他就是沒有排名」與「這次沒問成」**。
+    以前兩者都回 None，呼叫端一律排進重抓 ⇒ 每天為「未定位／沒打排位」的帳號白跑一輪
+    （上一次 1092 個帳號裡有 277 個進重抓，絕大多數是這種永遠不會變的）。
+    確定＝True 時呼叫端不再重抓。
+    """
     # 先試 by-puuid；不支援(404)再退回 summoner-v4 → by-summoner
     code, data = riot_get(f"https://{platform}.api.riotgames.com/lol/league/v4/entries/by-puuid/{puuid}")
     if code == 404:
         c2, s = riot_get(f"https://{platform}.api.riotgames.com/lol/summoner/v4/summoners/by-puuid/{puuid}")
         if c2 == 200 and s and s.get("id"):
             code, data = riot_get(f"https://{platform}.api.riotgames.com/lol/league/v4/entries/by-summoner/{s['id']}")
+        elif c2 == 404:
+            return None, True          # 這個 puuid 在這個區沒有召喚師資料＝確定，不用重抓
     if code == 200 and isinstance(data, list):
         for e in data:
             if e.get("queueType") == "RANKED_SOLO_5x5":
-                return e
-    return None
+                return e, True
+        return None, True              # 200 且是清單、只是沒有單雙排那一項＝**確定沒排名**
+    return None, False                 # 非 200（連線失敗／5xx／限速用完重試次數）＝這次沒問成
 
 def main():
     if not os.path.exists(ACCOUNTS):
@@ -165,6 +175,47 @@ def main():
     seen_a = set(); accounts = [a for a in accounts
         if (k := (a.get("team"), a.get("player"), a.get("platform"), a.get("riotId"))) not in seen_a and not seen_a.add(k)]  # 改名同步後可能出現重複帳號 → 去重
     PREV_ALL = []
+    # ── --active：只更新「最近有打排位」的選手（2026-09-05，使用者要加速每日爬蟲）──
+    # 牌位只有打過的人會變。逐場資料（soloq_recent.js）在 update.bat 裡**跑在這一支之前**，
+    # 所以拿它挑人是新鮮的。挑不到的（沒有逐場檔的新選手／逐場落後）一律當成要更新，
+    # 寧可多抓也不要漏。完整掃描由 fetch_soloq_auto.py 每週排一次（見那支的 --active 判斷）。
+    if "--active" in sys.argv:
+        _days = 3
+        for _i, _a9 in enumerate(sys.argv):
+            if _a9 == "--active-days" and _i + 1 < len(sys.argv):
+                try:
+                    _days = max(1, int(sys.argv[_i + 1]))
+                except ValueError:
+                    pass
+        try:
+            _rt = open(os.path.join(ROOT, "soloq_recent.js"), encoding="utf-8", errors="replace").read()
+            _rm = re.search(r"=\s*\{", _rt)
+            _rec = json.loads(_rt[_rm.end() - 1:].rstrip().rstrip(";"))
+            _gen = str(_rec.get("genDay") or "")
+            _keep = set()
+            import datetime as _dt
+            _base = _dt.date.fromisoformat(_gen) if _gen else _dt.date.today()
+            _win = {(_base - _dt.timedelta(days=i)).isoformat() for i in range(0, _days + 1)}
+            for _k, _v in (_rec.get("players") or {}).items():
+                if any(d in _win and (_v.get("d") or {}).get(d) for d in _win):
+                    _t9, _, _p9 = _k.partition("|")
+                    _keep.add((_t9, _p9))
+            _known = {(_t9, _p9) for _t9, _p9 in
+                      ((str(k).partition("|")[0], str(k).partition("|")[2]) for k in (_rec.get("players") or {}))}
+            _before = len(accounts)
+            # 有逐場檔但這幾天沒打 ⇒ 跳過；**沒有逐場檔的一律保留**（不知道＝要抓）
+            accounts = [a for a in accounts
+                        if (a.get("team"), a.get("player")) in _keep
+                        or (a.get("team"), a.get("player")) not in _known]
+            print("--active：近 %d 天有打排位的選手 %d 位 → 帳號 %d → %d 筆（跳過 %d 筆；"
+                  "沒有逐場檔的一律保留）" % (_days, len(_keep), _before, len(accounts), _before - len(accounts)))
+            if not accounts:
+                print("--active：沒有需要更新的帳號，維持現有 soloq.js。"); return
+            prevh = open(OUT, encoding="utf-8", errors="replace").read()
+            PREV_ALL = json.loads(re.search(r"=\s*(\{.*\});?\s*$", prevh, re.S).group(1)).get("players", [])
+        except Exception as _e9:
+            print("--active：挑選失敗（%s）→ 退回全量抓取" % type(_e9).__name__)
+            PREV_ALL = []
     if "--failed" in sys.argv:  # 只重抓上次 found=false 的選手（該選手全部帳號），結果併回 soloq.js
         try:
             prevh = open(OUT, encoding="utf-8", errors="replace").read()
@@ -225,30 +276,42 @@ def main():
                 print(f"    ♻ Riot 查無此 ID → DPM 牌位備援：{dr.get('tier')} {dr.get('rank')} {_lp}LP")
                 return rec
             print("    找不到帳號（Riot ID 或區域錯？）"); return rec
-        sq = get_soloq(plat, puuid)
+        sq, sure = get_soloq(plat, puuid)
         if sq:
             rec.update(tier=sq.get("tier"), division=sq.get("rank"), lp=sq.get("leaguePoints"),
                        wins=sq.get("wins"), losses=sq.get("losses"), found=True)
             print(f"    {sq.get('tier')} {sq.get('rank')} {sq.get('leaguePoints')}LP  {sq.get('wins')}W-{sq.get('losses')}L")
         else:
-            print("    無 solo queue 排名（未定位或無資料）")
+            # settled＝問到了、答案就是「沒有排名」⇒ 重抓那一輪不要再排它（見 get_soloq）
+            rec["settled"] = bool(sure)
+            print("    無 solo queue 排名（未定位或無資料）" + ("" if sure else "　※這次沒問成，稍後重抓"))
         return rec
 
-    out = []; retry = []
+    out = []; retry = []; settled = 0
     for i, a in enumerate(accounts, 1):
         rec = fetch_one(a, f"{i}/{len(accounts)}")
-        if not rec["found"]:  # 暫時性失敗先跳過，記下位置，全部跑完最後重抓一輪（使用者判例 2026-07-16）
-            retry.append((len(out), a))
+        # 暫時性失敗先跳過，記下位置，全部跑完最後重抓一輪（使用者判例 2026-07-16）。
+        # ⚠ 2026-09-05：**「問到了、確定沒排名」不再排進重抓**——那種帳號（未定位／很久沒打）
+        # 重抓一百次也是同一個答案，卻要照速率限制排隊。上一次 1092 個帳號有 277 個進重抓，
+        # 這一刀砍掉的就是其中永遠不會變的那批。真正的暫時性失敗（連線錯誤／5xx）照舊重抓。
+        if not rec["found"]:
+            if rec.pop("settled", False):
+                settled += 1
+            else:
+                retry.append((len(out), a))
         out.append(rec)
+    if settled:
+        print(f"（{settled} 個帳號確定沒有單雙排名次 → 不排進重抓，省下同樣次數的請求）")
     if retry:
-        print(f"\n🔁 {len(retry)} 個帳號本輪失敗/無排名 → 最後重抓一輪（補救暫時性失敗）…")
+        print(f"\n🔁 {len(retry)} 個帳號本輪失敗 → 最後重抓一輪（補救暫時性失敗）…")
         time.sleep(3)
         for pos, a in retry:
             rec2 = fetch_one(a, "重抓")
             if rec2["found"] or (rec2.get("puuid") and not out[pos].get("puuid")):
                 out[pos] = rec2
 
-    if "--failed" in sys.argv and PREV_ALL:  # 併回：失敗選手整組以新結果取代，其餘紀錄原樣保留
+    # 併回（--failed 與 --active 共用同一條路）：這次抓過的選手整組以新結果取代，其餘原樣保留
+    if ("--failed" in sys.argv or "--active" in sys.argv) and PREV_ALL:
         newby = {}
         for r in out: newby.setdefault((r["team"], r["player"]), []).append(r)
         merged = []; used = set()
@@ -258,6 +321,12 @@ def main():
                 if k not in used: merged.extend(newby[k]); used.add(k)
             else:
                 merged.append(p)
+        # ⚠ 這一輪抓到、但上一版檔案裡沒有的人要補進去（2026-09-05 測試抓到的資料遺失）：
+        # 舊迴圈只走 PREV_ALL，所以**新選手會整個消失**。`--failed` 時剛好碰不到
+        # （失敗的人本來就在檔裡），但 `--active` 會抓「沒有逐場檔的新人」⇒ 一定踩到。
+        for k, rs in newby.items():
+            if k not in used:
+                merged.extend(rs)
         out = merged
     payload = {"fetched_at": datetime.datetime.now().strftime("%Y-%m-%d %H:%M"), "players": out}
     with open(OUT, "w", encoding="utf-8") as f:
