@@ -238,7 +238,7 @@ def parse(ov, htm):
         # ⚠ 錨點文字夾著 U+2060（word joiner，&#8288;）不是空白、TXT 清不掉 → 比對前把非英數全剝掉
         _atx = lambda tx: re.sub(r"[^A-Za-z0-9]", "", TXT(tx)).upper()
         _VT = {"PB", "START", "POST", "VOD"}
-        _vod = ""
+        _vod, _vk = "", ""
         for _c9 in reversed(cells):
             if 'href="http' not in _c9:
                 continue
@@ -246,11 +246,18 @@ def parse(ov, htm):
             _q = [(h, tx) for h, tx in _ls if tx in _VT]
             if not _q:
                 continue                                   # 外連但不是 VOD 格（Interview/Reddit 的 Link）
-            # 只取 PB（BP 時間軸，使用者 2026-09-04）；舊式單一「Vod」＝整片，內含 BP 也收；
-            # 只有 Start/Post 沒有 PB ＝ 開局後才開始，對比賽BP 沒用 → 不取。
+            # 優先 PB（BP 時間軸，使用者 2026-09-04）；舊式單一「Vod」＝整片，內含 BP 也收。
+            # 2026-09-05 使用者定案追加：**沒有 PB 就退回 Start**——LCS 整個聯賽只放 Start，
+            # 照原本的字面規則會整年空白。Start 是開局，看不到 BP 過程，但至少點得到那一局；
+            # 標記寫進 `vodk`（"pb"／"start"／"vod"），前端據此改連結文字提示。
             _vod = next((h for h, tx in _q if tx == "PB"), "")
+            _vk = "pb" if _vod else ""
+            if not _vod:
+                _s0 = next((h for h, tx in _q if tx == "START"), "")
+                if _s0:
+                    _vod, _vk = _s0, "start"
             if not _vod and len(_q) == 1 and _q[0][1] == "VOD":
-                _vod = _q[0][0]
+                _vod, _vk = _q[0][0], "vod"
             break
         # 逐局 MVP（尾隨式）：最後一格是 /wiki/ 選手連結才算（外連格＝VOD、純文字＝其他欄）。
         # ⚠ 不能用 mvlead 排除：LPL/First Stand 是前導系列 POM＋尾隨逐局 POG **同時存在**，
@@ -266,7 +273,7 @@ def parse(ov, htm):
         # cur["mvp"]/mvlead 另掛 mvpm。
         cur["games"].append({"gi": cur["n"], "blue": bl, "red": rd, "ss": side, "pc": pc,
                              "first_sel": g("1st Sel"), "pick_sel": g("Pick Sel"),
-                             "vod": _html.unescape(_vod),
+                             "vod": _html.unescape(_vod), "vodk": _vk,
                              "mvp": _gm})
     return out
 
@@ -376,7 +383,7 @@ def main():
                                    "pc": 0, "fs": "", "ps": "", "ov": ov,
                                    "mvp": g.get("mvp") or "", "mvpm": mvpm,
                                    "mg": 1 if hasG else 0, "mm": 1 if hasM else 0,
-                                   "vod": g.get("vod") or ""})
+                                   "vod": g.get("vod") or "", "vodk": g.get("vodk") or ""})
                     n += 1
                     continue
                 allrec.append({"d": d, "t1": t1, "t2": t2, "gi": g["gi"], "ss": g["ss"],
@@ -384,7 +391,7 @@ def main():
                                "fs": g["first_sel"], "ps": g["pick_sel"], "ov": ov,
                                "mvp": g.get("mvp") or "", "mvpm": mvpm,
                                "mg": 1 if hasG else 0, "mm": 1 if hasM else 0,
-                               "vod": g.get("vod") or ""})
+                               "vod": g.get("vod") or "", "vodk": g.get("vodk") or ""})
                 n += 1
         print(f"  ✓ {ov}：{len(sers)} 場 / {n} 局")
     print(f"有選邊權欄位的賽事 {hit}／{len(pages)}，合計 {len(allrec)} 局")
@@ -394,6 +401,33 @@ def main():
         return
     if not allrec:
         print("沒有任何資料，不覆蓋既有檔案"); return
+    # ── 抓取失敗不可以讓既有資料消失（2026-09-05）──────────────────────────
+    # 實例：LPL Grand Finals 打到一半，wiki 已列 8 個系列、MatchSchedule 只排得到 6 個
+    # ⇒ 配對率 75% < 90% 的門檻 ⇒ **整個賽事被跳過**，重跑一次就從檔案裡少掉 23 局
+    # （那 23 局昨天還在）。門檻本身是對的（配錯日期比沒有更糟），但「這次抓不到」
+    # 不等於「這些資料不存在」⇒ 這一輪沒產出任何一局的賽事，沿用舊檔裡的紀錄。
+    # 只在**全量**跑時做（--page 是單抓，本來就只該動那一頁）。
+    if not A.page:
+        _out = os.path.join(ROOT, "side_sel_%d.js" % YEAR) if HIST else os.path.join(ROOT, "side_sel.js")
+        try:
+            if os.path.exists(_out):
+                _t = io.open(_out, encoding="utf-8").read()
+                # ⚠ 不能用 index("=")／rindex("=") 切：VOD 網址裡就有 `=`（?v=…&t=…）。
+                # 找「= 後面緊接著 [」才是真正的賦值點（兩種輸出格式都適用）。
+                _m9 = re.search(r"=\s*\[", _t)
+                _prev = json.loads(_t[_m9.end() - 1:].rstrip().rstrip(";")) if _m9 else []
+                _have = {r.get("ov") for r in allrec}
+                _keep = [r for r in _prev if r.get("ov") and r["ov"] not in _have]
+                if _keep:
+                    _bys = {}
+                    for r in _keep:
+                        _bys[r["ov"]] = _bys.get(r["ov"], 0) + 1
+                    for ov2, n2 in sorted(_bys.items()):
+                        print("  ↩ %s：這次沒抓到（配對失敗／頁面沒了）→ 沿用舊檔的 %d 局" % (ov2, n2))
+                    allrec += _keep
+                    allrec.sort(key=lambda r: (str(r.get("d") or ""), str(r.get("ov") or ""), r.get("gi") or 0))
+        except Exception as e:
+            print("  ⚠ 舊檔沿用失敗（%s）：這次就只寫新抓到的" % type(e).__name__)
     if HIST:
         p = os.path.join(ROOT, "side_sel_%d.js" % YEAR)
         with io.open(p, "w", encoding="utf-8") as f:

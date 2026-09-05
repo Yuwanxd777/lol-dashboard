@@ -6543,7 +6543,9 @@ function ssIdx(){
     // 2026-09-04 使用者抓包舊的單一 mvs 版型旗標把 LPL 逐局 POG 全標成 POM）。
     // mg/mm＝該賽事頁有沒有發 POG/POM（評分率的分母＝可獲得數）。vod＝這一局的 PB 連結。
     const p = (r.fs && r.ps) ? (r.fs === r.ps ? 1 : 0) : null;
-    return {s:r.ss, p, pc:r.pc||0, mvp:r.mvp||"", mvpm:r.mvpm||"", mg:r.mg?1:0, mm:r.mm?1:0, vod:r.vod||""};
+    // vodk＝這條連結是哪一種：pb＝BP 時間軸（最好）、start＝開局（LCS 只放這種）、vod＝整片
+    return {s:r.ss, p, pc:r.pc||0, mvp:r.mvp||"", mvpm:r.mvpm||"", mg:r.mg?1:0, mm:r.mm?1:0,
+            vod:r.vod||"", vodk:r.vodk||""};
   };
   // 效能（2026-09-04 比賽BP 卡頓排查）：±1 天的備援**在建索引時就展開成鍵**，查詢端從
   // 「最多 3 次 get＋每次重建鍵＋兩個 Date」變成**單次 get**（ssRec 是比賽BP／選手頁的熱路徑，
@@ -12227,16 +12229,22 @@ function render(){
         // 直接寫先選／後選，重複標示反而讓整列到處都是金色。
         const cell=(s,isBlue,won)=>`<td class="${sCls(isBlue,won)}">${s.team}</td>`;
         // 首欄＝「└ 第N局」（日期/賽事/版本都在系列標題列；2026-08-04 版型實驗）。
-        // 有 VOD（wiki 逐局連結，只取 PB＝BP 時間軸）就把「第N局」做成超連結（使用者 2026-09-04）
-        const _vd=(ssRec(m)||{}).vod||"";
+        // 有 VOD（wiki 逐局連結）就把「第N局」做成超連結（使用者 2026-09-04）。
+        // 2026-09-05 起沒有 PB 時退回 Start（LCS 只放 Start，否則整年空白）——
+        // 兩種**用不同顏色與提示**分清楚：金色＝PB（直接跳到 BP），灰金＝Start（開局，看不到 BP）。
+        const _vr=ssRec(m)||{}, _vd=_vr.vod||"", _vk=_vr.vodk||"";
         const _gl=LANG==="en"?`Game ${gno}`:`第${gno}局`;
-        const _glk=_vd?`<a href="${esc(_vd)}" target="_blank" rel="noopener" title="${LANG==="en"?"watch this game's Picks & Bans VOD":"看這局的 BP 過程 VOD（PB 時間軸）"}" style="color:var(--gold);text-decoration:underline dotted">${_gl}</a>`:_gl;
+        const _vTi=_vk==="start"
+          ? (LANG==="en"?"VOD starts at game start (this league has no Picks & Bans timestamp)":"VOD 從開局開始（這個聯賽沒有 BP 時間軸）")
+          : (LANG==="en"?"watch this game's Picks & Bans VOD":"看這局的 BP 過程 VOD（PB 時間軸）");
+        const _vCol=_vk==="start"?"var(--tx2)":"var(--gold)";
+        const _glk=_vd?`<a href="${esc(_vd)}" target="_blank" rel="noopener" title="${_vTi}" style="color:${_vCol};text-decoration:underline dotted">${_gl}</a>`:_gl;
         const head=`<td class="subg">└ ${_glk}</td>`;
         if(_dm){ // 選角順序檢視＝平面表格：日期/版本/賽事各自成欄、局數不掛「└」；隊名固定藍左紅右
           // 2026-08-05 使用者定案：藍方/紅方/選擇欄**不上底色**（bpB/bpR 不用），
           // 改成**隊名文字上藍/紅色**；列與列交錯白底（.bpDraft 的 nth-child 規則）
           const flatHead=`<td class="meta">${m.date}</td><td class="meta">${esc(String(m.patch||""))}</td><td>${lgChip(m.league)}</td>`
-            +`<td class="subg" style="padding-left:8px">${_vd?`<a href="${esc(_vd)}" target="_blank" rel="noopener" title="${LANG==="en"?"watch this game's Picks & Bans VOD":"看這局的 BP 過程 VOD（PB 時間軸）"}" style="color:var(--gold);text-decoration:underline dotted">${LANG==="en"?`Game ${m._g}`:`第${m._g}局`}</a>`:(LANG==="en"?`Game ${m._g}`:`第${m._g}局`)}</td>`;
+            +`<td class="subg" style="padding-left:8px">${_vd?`<a href="${esc(_vd)}" target="_blank" rel="noopener" title="${_vTi}" style="color:${_vCol};text-decoration:underline dotted">${LANG==="en"?`Game ${m._g}`:`第${m._g}局`}</a>`:(LANG==="en"?`Game ${m._g}`:`第${m._g}局`)}</td>`;
           const tCell=(s,isBlue)=>`<td style="color:${isBlue?_CBLU:_CRED};font-weight:600">${s.team}</td>`;
           const selCellD=(m2,isBlue)=>{ if(!_hasSel)return ""; const t=ssLbl(m2,isBlue), f=t&&ssFirst(m2,isBlue);
             return `<td style="font-size:12px;white-space:nowrap${f?";color:var(--gold);font-weight:700":""}" ${f?`title="${LANG==="en"?"had the first choice":"這隊拿到第一選擇權"}"`:""}>${t||`<span class="meta">–</span>`}</td>`;};
