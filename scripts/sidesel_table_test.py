@@ -93,11 +93,16 @@ else:
 # 受測程式碼從 fetch_side_sel.py 抽出來，不另抄一份。
 print("\n④ 賽程配對：括號裡的消歧義後綴")
 src = io.open(os.path.join(ROOT, "scripts", "fetch_side_sel.py"), encoding="utf-8").read()
-ns = {"re": re}
-for pat in (r'        nkq = lambda s: .*\n',
+ns = {"re": re, "unicodedata": __import__("unicodedata")}
+for pat in (r'        _FOLD = \{.*\n',
+            r'        def _fold\(x\):\n(?:.*\n)*?            return "".join\(c for c.*\n',
+            r'        nkq = lambda s: .*\n',
             r'        def same\(a, b\):\n(?:.*\n)*?            return bool\(a\).*\n',
             r'        nopar = lambda s2: .*\n',
-            r'        def same_loose\(a, b\):\n(?:.*\n)*?            return bool\(a\).*\n'):
+            r'        def same_loose\(a, b\):\n(?:.*\n)*?            return bool\(a\).*\n',
+            r'        def _initials\(x\):\n(?:.*\n)*?            return "".join.*\n',
+            r'        def same_abbr\(a, b\):\n(?:.*\n)*?            return \(len\(na\).*\n',
+            r'        same_any = lambda a, b: .*\n'):
     m = re.search(pat, src)
     if not m:
         print("  ✗ 抽不到 %r（原始碼結構變了）" % pat[:28]); FAIL += 1; continue
@@ -114,6 +119,46 @@ if "same" in ns and "same_loose" in ns:
        ns["same_loose"]("MVP (Korean Team)", "MVP (Chinese Team)"), True)
     # 原本就對得上的不可以被弄壞
     ok("原本就對得上的照樣對得上", ns["same_loose"]("CTBC Flying Oyster", "CTBC Flying Oyster"), True)
+
+# ── ⑤ 賽程配對：頁面寫縮寫、賽程表寫全名 ────────────────────────────────
+# 2026-09-05：LCS 2023 的比賽表寫「Eg」，賽程表寫「Evil Geniuses.NA」⇒ "eg" 不是
+# "evilgeniusesna" 的子字串 ⇒ 4 個 LCS 賽事頁＋2022 世界賽 Play-In 全被 90% 門檻跳過
+# （合計 387 局）。第三輪改用「去掉賽區後綴後取首字母」比對。
+print("\n⑤ 賽程配對：縮寫 ↔ 全名首字母")
+if "same_abbr" in ns and "same_any" in ns:
+    ok("⭐ Eg ↔ Evil Geniuses.NA 配得上（那 387 局的解）",
+       ns["same_abbr"]("Eg", "Evil Geniuses.NA"), True)
+    ok("   前兩輪本來都配不上（證明修的是這個點）",
+       ns["same"]("Eg", "Evil Geniuses.NA") or ns["same_loose"]("Eg", "Evil Geniuses.NA"), False)
+    ok("   .NA／.EU 這種賽區後綴要先去掉（不然首字母會多一個 n）",
+       ns["_initials"]("Evil Geniuses.NA"), "eg")
+    # 第一版就是敗在這裡：一場比賽通常只有一隊寫縮寫，另一隊是全名對全名
+    ok("⭐ 同一場的另一隊是全名對全名 → same_abbr 本身回 False",
+       ns["same_abbr"]("Counter Logic Gaming", "Counter Logic Gaming"), False)
+    ok("   所以第三輪要用『寬鬆 or 縮寫』，那一隊才過得了",
+       ns["same_any"]("Counter Logic Gaming", "Counter Logic Gaming"), True)
+    # 反控制：不可以亂配
+    ok("縮寫對不上的隊不會被誤配", ns["same_abbr"]("Eg", "Golden Guardians"), False)
+    ok("兩個長名不會走縮寫規則（避免首字母亂中）",
+       ns["same_abbr"]("Team Liquid Honda", "Team Legends Holding"), False)
+else:
+    print("  ✗ 抽不到 same_abbr／same_any"); FAIL += 1
+
+# ── ⑥ 隊名正規化：非 ASCII 字母要摺疊，不可以被丟掉 ──────────────────────
+# 2026-09-05：CBLOL 2023 頁面寫「LØS」、賽程表寫「Los Grandes」。
+# 舊的 nkq 只留 [a-z0-9] ⇒ Ø 整個被丟掉 ⇒ "ls"（不是 "los"）⇒ 三場配不上、整頁被跳過。
+print("\n⑥ 隊名正規化：Ø／重音字母")
+if "nkq" in ns and "same" in ns:
+    ok("⭐ LØS → los（Ø 摺疊成 o，不是被丟掉）", ns["nkq"]("LØS"), "los")
+    ok("⭐ LØS ↔ Los Grandes 配得上（CBLOL 那 30 局的解）",
+       ns["same"]("LØS", "Los Grandes"), True)
+    ok("   重音字母也要摺疊（é→e）", ns["nkq"]("Café"), "cafe")
+    ok("   ß → ss", ns["nkq"]("Straße"), "strasse")
+    # 反控制：摺疊不可以把不同隊變成同一隊
+    ok("摺疊之後仍分得出不同隊", ns["same"]("LØS", "FURIA"), False)
+    ok("原本就正常的隊名不受影響", ns["nkq"]("paiN Gaming"), "paingaming")
+else:
+    print("  ✗ 抽不到 nkq"); FAIL += 1
 
 print("")
 if SKIP:

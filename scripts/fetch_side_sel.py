@@ -20,7 +20,7 @@
   python scripts\\fetch_side_sel.py --page "LCP/2026 Season/Split 3"   # 只抓指定頁
   python scripts\\fetch_side_sel.py --dump          # 只印不寫檔
 """
-import argparse, html as _html, io, json, os, re, sys, time, urllib.parse, urllib.request
+import argparse, html as _html, io, json, os, re, sys, time, unicodedata, urllib.parse, urllib.request
 
 if (getattr(sys.stdout, "encoding", "") or "").lower().replace("-", "") != "utf8":
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
@@ -357,7 +357,19 @@ def main():
         # 改成「兩隊＋比分」配對：逐一在賽程清單裡找還沒被用過、兩隊與比分都吻合的那場。
         # 隊名比對用**互相包含**：頁面的隊名取自 logo alt（"We"），賽程給的是全名（"Team WE"）。
         # 還沒打完的（頁面 TBD）本來就沒有比分可配，直接跳過不收。
-        nkq = lambda s: re.sub(r"[^a-z0-9]", "", str(s or "").lower())
+        # 2026-09-05：**先把非 ASCII 字母摺疊成 ASCII**，不然它們會被下面的 [^a-z0-9] 整個丟掉。
+        # CBLOL 2023：頁面寫「LØS」、賽程表寫「Los Grandes」⇒ 舊寫法把 Ø 丟掉變成 "ls"
+        # （不是 "los"）⇒ 三場配不上、整頁被 90% 門檻跳過。
+        # NFKD 拆得掉重音（é→e、ñ→n），但 Ø／Æ／ß／Đ／Ł 是獨立字母拆不開，要自己對照。
+        _FOLD = {"ø": "o", "æ": "ae", "ß": "ss", "đ": "d", "ð": "d", "ł": "l", "þ": "th"}
+
+        def _fold(x):
+            x = str(x or "").lower()
+            x = "".join(_FOLD.get(ch, ch) for ch in x)
+            x = unicodedata.normalize("NFKD", x)
+            return "".join(c for c in x if not unicodedata.combining(c))
+
+        nkq = lambda s: re.sub(r"[^a-z0-9]", "", _fold(s))
 
         def same(a, b):
             a, b = nkq(a), nkq(b)
@@ -376,8 +388,28 @@ def main():
             a, b = nopar(a), nopar(b)
             return bool(a) and bool(b) and (a in b or b in a)
 
+        # 第三輪：頁面寫**縮寫**、賽程表寫全名（2026-09-05 查 LCS 2023 配不上時抓到）。
+        # 例：頁面「Eg」vs 賽程表「Evil Geniuses.NA」——"eg" 不是 "evilgeniusesna" 的子字串。
+        # 做法：把全名去掉括號與 **.NA／.EU 這種賽區後綴**之後取各字首字母（Evil Geniuses → eg），
+        # 再跟另一邊比。**只在其中一邊短到像縮寫（<= 4 字）時才允許**，不然 initials 太容易誤中。
+        def _initials(x):
+            x2 = re.sub(r"\s*\([^)]*\)", "", str(x or ""))
+            x2 = re.sub(r"\.[A-Za-z]{2}$", "", x2.strip())
+            ws = [w for w in re.split(r"[^a-z0-9]+", _fold(x2)) if w]   # 同樣先摺疊，Ø 不能被丟掉
+            return "".join(w[0] for w in ws)
+
+        def same_abbr(a, b):
+            na, nb = nopar(a), nopar(b)
+            ia, ib = _initials(a), _initials(b)
+            if not na or not nb or not ia or not ib:
+                return False
+            return (len(na) <= 4 and na == ib) or (len(nb) <= 4 and nb == ia)
+
         used, pair = set(), {}
-        for _cmp in (same, same_loose):
+        # 第三輪要用「寬鬆**或**縮寫」：一場比賽通常只有一隊寫成縮寫，另一隊是全名對全名，
+        # 只用 same_abbr 的話那一隊回 False，整場還是配不上（第一版就是這樣沒生效）。
+        same_any = lambda a, b: same_loose(a, b) or same_abbr(a, b)
+        for _cmp in (same, same_loose, same_any):
             for i, s in enumerate(sers):
                 if i in pair:
                     continue
