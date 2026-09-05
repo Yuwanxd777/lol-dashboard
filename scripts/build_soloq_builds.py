@@ -9,6 +9,7 @@ fetch_soloq_year.py / update.py 末端可連帶呼叫（跟 build_soloq_index �
 用法：  python scripts\build_soloq_builds.py
 """
 import os, re, json, glob, urllib.request, datetime, bisect
+from functools import lru_cache
 from collections import defaultdict, Counter
 
 HERE = os.path.dirname(os.path.abspath(__file__)); ROOT = os.path.dirname(HERE)
@@ -35,12 +36,14 @@ def round_pcts(pairs):
         fl[k][1] += 1                                 # 餘數最大的先 +1
     return [{"id": i, "pct": p} for i, p, _ in fl]
 
+@lru_cache(maxsize=None)   # 2026-09-06：純函式、輸入只有幾百種，卻被叫 4100 萬次（18 秒）
 def patch_key(pstr):  # 版本字串→可排序鍵，"26.10">"26.9"("26.9"其實不會出現，patch 一律兩位小數)
     try:
         a, b = str(pstr).split(".")[:2]; return (int(a), int(b))
     except Exception:
         return (0, 0)
 
+@lru_cache(maxsize=None)   # 2026-09-06：cProfile 抓到它被叫 1.49 億次、289 秒＝整支 75%；30 萬場每場重算 490 次
 def _date_of(t_ms):  # 積分逐場只有 epoch 毫秒時間戳→UTC 日期(YYYY-MM-DD)；版本視窗以「日」為界，時區級誤差不影響 10% 核心判定
     if not t_ms: return None
     try:
