@@ -145,6 +145,51 @@ FS2.riot_get = lambda url: (200, [{"queueType": "RANKED_SOLO_5x5", "tier": "GOLD
 _g, _s = FS2.get_soloq("kr", "p")
 ok("有單雙排 ⇒ 回紀錄且確定", _g and _g.get("tier") == "GOLD" and _s is True)
 
+print("\n⑤ 勝敗場數比對（決定逐場要抓誰；使用者 2026-09-05 定案的順序）")
+# 這一段是 fetch_soloq.py 寫 soloq_played.json 那段的同構重現：拿假的「上一版 vs 這一版」
+# 跑一次，確認四種人各自被分到對的桶。要驗的是**分類規則**，不是檔案 I/O。
+_prev_players = [
+    {"team": "T1", "player": "Faker", "wins": 10, "losses": 5},    # 之後變 11/5 ⇒ 打過
+    {"team": "T1", "player": "Zeus", "wins": 7, "losses": 7},      # 完全沒變 ⇒ 沒打
+    {"team": "GEN", "player": "Chovy", "wins": 3, "losses": 1},    # 這次查不到 ⇒ 無從判斷
+]
+_now_players = [
+    {"team": "T1", "player": "Faker", "wins": 11, "losses": 5},
+    {"team": "T1", "player": "Zeus", "wins": 7, "losses": 7},
+    {"team": "GEN", "player": "Chovy", "wins": None, "losses": None},
+    {"team": "HLE", "player": "Rookie", "wins": 2, "losses": 0},   # 上一版沒有他 ⇒ 無從判斷
+]
+
+
+def classify(prev_players, now_players):
+    prev_wl = {}
+    for p in prev_players:
+        k = (p.get("team"), p.get("player"))
+        if p.get("wins") is not None or p.get("losses") is not None:
+            prev_wl[k] = prev_wl.get(k, 0) + (p.get("wins") or 0) + (p.get("losses") or 0)
+    now_wl, seen = {}, set()
+    for p in now_players:
+        k = (p.get("team"), p.get("player"))
+        if p.get("wins") is not None or p.get("losses") is not None:
+            now_wl[k] = now_wl.get(k, 0) + (p.get("wins") or 0) + (p.get("losses") or 0)
+            seen.add(k)
+    played = [k for k in seen if k in prev_wl and now_wl[k] != prev_wl[k]]
+    unknown = [k for k in seen if k not in prev_wl]
+    unknown += [(p.get("team"), p.get("player")) for p in now_players
+                if (p.get("team"), p.get("player")) not in seen]
+    return played, list(set(unknown))
+
+
+_played, _unknown = classify(_prev_players, _now_players)
+ok("勝敗有變的 Faker 進 played", ("T1", "Faker") in _played, str(_played))
+ok("完全沒變的 Zeus 不在 played", ("T1", "Zeus") not in _played, str(_played))
+ok("這次查不到場數的 Chovy 進 unknown", ("GEN", "Chovy") in _unknown, str(_unknown))
+ok("上一版沒有的 Rookie 進 unknown", ("HLE", "Rookie") in _unknown, str(_unknown))
+ok("Zeus 也不在 unknown（他是**明確**的沒打，不是不知道）", ("T1", "Zeus") not in _unknown, str(_unknown))
+# 負控制：全部人都沒動 ⇒ 兩個桶都要是空的（不然「沒人打過就整步跳過」會失效）
+_p2, _u2 = classify(_prev_players, _prev_players)
+ok("負控制：完全沒人動 ⇒ played 與 unknown 都空", not _p2 and not _u2, "%s / %s" % (_p2, _u2))
+
 import shutil
 shutil.rmtree(TD, ignore_errors=True)
 print(("\n✓ 全部 %d 條通過" % PASS) if not FAIL else ("\n✗ %d 條失敗、%d 條通過" % (FAIL, PASS)))

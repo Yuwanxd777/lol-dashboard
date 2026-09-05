@@ -71,12 +71,17 @@ PLAN = [
         S("fetch_item_nostore"),     # 要 items
         S("build_league_struct"),    # 讀 Leaguepedia 快取
     ]),
-    # soloq 這一串**嚴格循序**：帳號 → puuid → 逐場 → 補新人 → 牌位，後面吃前面的產物
-    ("⑤ 積分（嚴格循序）", [S("fetch_dpm_soloq_accounts", "--apply")]),
-    ("⑤b", [S("resolve_obgg_dpmpuuid")]),
-    ("⑤c", [S("fetch_soloq_update")]),
-    ("⑤d", [S("fetch_soloq_year", "--missing")]),
-    ("⑤e", [S("fetch_soloq_auto")]),
+    # ── soloq 這一串**嚴格循序**，而且順序在 2026-09-05 依使用者的判斷倒過來了 ──
+    # 舊順序：帳號 → 逐場（貴）→ 補新人 → 牌位（便宜）
+    # 新順序：帳號 → **牌位（便宜，全掃）** → 逐場（貴，只抓勝敗有變的）→ 補新人
+    # 理由（實測）：逐場每位 ~1.4 秒（Playwright 開真 Chrome 過 Cloudflare），431 位＝10 分鐘，
+    # **而且沒人打過也要花滿 10 分鐘**；牌位是普通 HTTP、回應本來就帶 wins/losses
+    # ⇒ 讓便宜的先跑、用「勝敗場數有沒有變」這個權威訊號決定貴的要抓誰。
+    ("⑤ 積分：帳號（循序）", [S("fetch_dpm_soloq_accounts", "--apply")]),
+    ("⑤b 解 puuid", [S("resolve_obgg_dpmpuuid")]),
+    ("⑤c 牌位（便宜，全掃）", [S("fetch_soloq_auto")]),
+    ("⑤d 逐場（貴，只抓有動的）", [S("fetch_soloq_update", "--changed")]),
+    ("⑤e 補新人", [S("fetch_soloq_year", "--missing")]),
     # 收尾：彼此不相干，但都要等前面資料齊
     ("⑥ 收尾（互不相干）", [
         SB("label_pending", "--apply"),

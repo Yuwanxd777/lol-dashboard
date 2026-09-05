@@ -158,7 +158,30 @@ def main():
         print("找不到 soloq_match_index.js，請先跑 fetch_soloq_year.py。"); return
     idx = read_js_obj(IDXP, "SOLOQ_MATCH_IDX")
     accs = _load_accs()
-    keys = list(idx["players"].keys());  keys = keys[:MAXP] if MAXP else keys
+    keys = list(idx["players"].keys())
+    # ── --changed：只抓「牌位那一步確認勝敗場數有變」的選手（2026-09-05 使用者定案）──
+    # 為什麼這樣排：這一支每位選手 ~1.4 秒（Playwright 開真 Chrome 過 Cloudflare），
+    # 431 位＝10 分鐘，而且**沒人打過也要花滿 10 分鐘**（實測 --max 3 走完 431 位、0 場）。
+    # 牌位那一支是普通 HTTP、又本來就帶 wins/losses ⇒ 讓便宜的先跑、拿它的結果決定這一支抓誰。
+    # 讀不到名單（牌位沒跑／格式壞了）就**退回全掃**，寧可慢不要漏。
+    if "--changed" in sys.argv:
+        pf = os.path.join(HERE, "soloq_played.json")
+        try:
+            d = json.load(open(pf, encoding="utf-8"))
+            want = set(d.get("played") or []) | set(d.get("unknown") or [])
+            if d.get("scope") != "full":
+                print("--changed：soloq_played.json 是 --active 那一輪寫的（涵蓋範圍不完整）→ 退回全掃")
+            elif not want:
+                print("--changed：牌位比對顯示**沒有人打過排位** → 這一輪不用抓逐場（省下約 10 分鐘）")
+                keys = []
+            else:
+                before = len(keys)
+                keys = [k for k in keys if k in want]
+                print("--changed：牌位比對出 %d 位有動（含無從判斷的）→ 逐場 %d → %d 位"
+                      % (len(want), before, len(keys)))
+        except Exception as e:
+            print("--changed：讀不到名單（%s）→ 退回全掃" % type(e).__name__)
+    keys = keys[:MAXP] if MAXP else keys
     print(f"增量更新 {len(keys)} 位選手（只抓比現有最新更新的 Solo/Duo）…")
     CROLE = comp_roles()  # 判例：資料庫位置＝權威；index 路線不符 → 蒐集、最後自動用 --only 重建
     MISMATCH = []

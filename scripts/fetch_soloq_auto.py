@@ -29,28 +29,16 @@ def main():
     if not key.startswith("RGAPI-") or (not perm and age_h > MAX_AGE_H):
         print(f"牌位自動更新：金鑰已過期（{age_h:.1f} 小時前添加，dev 金鑰 24h 失效），跳過。到積分頁按「添加API」換新的。")
         return
-    # ── 全掃 vs 只掃活躍（2026-09-05，使用者要加速每日爬蟲）────────────────
-    # 牌位只有打過排位的人會變 ⇒ 平常只更新近三天有打的（--active），
-    # **每週至少一次全掃**當安全網（補逐場資料落後、長期沒打卻換了段位、新帳號等）。
-    # 上次全掃的日期記在 scripts/soloq_full_scan.json；讀不到就當「該全掃」。
-    stamp = os.path.join(HERE, "soloq_full_scan.json")
-    full, why = True, "沒有上次全掃的紀錄"
-    try:
-        last = json.load(open(stamp, encoding="utf-8")).get("last", "")
-        d0 = datetime.date.fromisoformat(str(last)[:10])
-        age_d = (datetime.date.today() - d0).days
-        if age_d < FULL_EVERY_D:
-            full, why = False, f"上次全掃是 {age_d} 天前（每 {FULL_EVERY_D} 天一次）"
-        else:
-            why = f"上次全掃已是 {age_d} 天前"
-    except Exception:
-        pass
+    # ── 一律全掃（2026-09-05 下午，使用者定案把順序倒過來之後）──────────────
+    # 早上曾經改成「只掃近三天有打的（--active）」，那是在「逐場先跑、牌位後跑」的舊順序下
+    # 為了省牌位的請求。**順序倒過來之後這個取捨反了**：牌位是便宜的那一邊（普通 HTTP），
+    # 而且它回應裡的 wins/losses 正是決定「逐場要抓誰」的權威訊號——
+    # 只掃一部分＝那個訊號有洞，貴的那一邊就得退回全掃，反而更慢。
+    # ⇒ 牌位全掃、逐場只抓有動的。`--active` 保留在 fetch_soloq.py 裡當手動選項。
     args = [sys.executable, os.path.join(HERE, "fetch_soloq.py")]
-    if not full:
-        args += ["--active", "--active-days", "3"]
-    print("牌位自動更新：使用%s，模式＝%s（%s）"
-          % ("長期金鑰" if perm else f"{age_h:.1f} 小時前添加的金鑰",
-             "全掃" if full else "只掃近 3 天有打的", why))
+    print("牌位自動更新：使用%s，全掃（結果會寫 scripts/soloq_played.json 給逐場那一步用）"
+          % ("長期金鑰" if perm else f"{age_h:.1f} 小時前添加的金鑰"))
+    full = True
     env = dict(os.environ); env["RIOT_API_KEY"] = key
     try:
         rc = subprocess.call(args, cwd=ROOT, env=env)

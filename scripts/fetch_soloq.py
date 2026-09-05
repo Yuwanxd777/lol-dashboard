@@ -13,7 +13,7 @@
 Riot API（免費 dev key，20 req/s、100 req/2min，會照速率限制自動 sleep）。
 金鑰只從環境變數 RIOT_API_KEY 讀，不寫進任何檔案。
 """
-import os, sys, json, time, re, urllib.parse, urllib.request, urllib.error, datetime, collections
+import io, os, sys, json, time, re, urllib.parse, urllib.request, urllib.error, datetime, collections
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
@@ -328,6 +328,50 @@ def main():
             if k not in used:
                 merged.extend(rs)
         out = merged
+    # ── 誰真的打過排位：勝＋敗有沒有變（2026-09-05 使用者定案的順序）────────────
+    # 牌位回應本來就帶 wins／losses，跟上一版比就是**權威**答案——不用猜、也不會落後。
+    # 逐場那一支（Playwright 開真 Chrome 過 Cloudflare）每位選手要 ~1.4 秒、431 位要 10 分鐘，
+    # 而且**沒人打過也要花這 10 分鐘**（實測 --max 3 走完 431 位、結果 0 場）。
+    # ⇒ 便宜的先跑、拿它的結果決定貴的要不要跑。名單寫到 scripts/soloq_played.json，
+    #   由 fetch_soloq_update.py --changed 讀。
+    try:
+        prev_wl = {}
+        if os.path.exists(OUT):
+            _pt = open(OUT, encoding="utf-8", errors="replace").read()
+            for p in json.loads(re.search(r"=\s*(\{.*\});?\s*$", _pt, re.S).group(1)).get("players", []):
+                k = (p.get("team"), p.get("player"))
+                w, l = p.get("wins"), p.get("losses")
+                if w is not None or l is not None:
+                    prev_wl[k] = prev_wl.get(k, 0) + (w or 0) + (l or 0)
+        now_wl, seen_now = {}, set()
+        for p in out:
+            k = (p.get("team"), p.get("player"))
+            w, l = p.get("wins"), p.get("losses")
+            if w is not None or l is not None:
+                now_wl[k] = now_wl.get(k, 0) + (w or 0) + (l or 0)
+                seen_now.add(k)
+        played, unknown = [], []
+        for k in seen_now:
+            if k not in prev_wl:
+                unknown.append(k)                 # 上一版沒有這個人的場數 ⇒ 不知道，當成要抓
+            elif now_wl[k] != prev_wl[k]:
+                played.append(k)
+        # 這一輪完全沒查到場數的人（未定位／查不到帳號）也放進 unknown：他們的排位狀態無從判斷
+        for p in out:
+            k = (p.get("team"), p.get("player"))
+            if k not in seen_now and k not in unknown:
+                unknown.append(k)
+        io.open(os.path.join(HERE, "soloq_played.json"), "w", encoding="utf-8").write(
+            json.dumps({"at": datetime.datetime.now().strftime("%Y-%m-%d %H:%M"),
+                        "scope": "active" if "--active" in sys.argv else "full",
+                        "played": ["%s|%s" % k for k in sorted(played)],
+                        "unknown": ["%s|%s" % k for k in sorted(set(unknown))]},
+                       ensure_ascii=False))
+        print("勝敗場數比對：**%d 位真的打過**、%d 位無從判斷（未定位/查無帳號）→ scripts/soloq_played.json"
+              % (len(played), len(set(unknown))))
+    except Exception as e:
+        print("勝敗場數比對失敗（%s）→ 不寫 soloq_played.json（逐場那支會退回全掃）" % type(e).__name__)
+
     payload = {"fetched_at": datetime.datetime.now().strftime("%Y-%m-%d %H:%M"), "players": out}
     with open(OUT, "w", encoding="utf-8") as f:
         f.write("window.SOLOQ_DATA=" + json.dumps(payload, ensure_ascii=False) + ";\n")
