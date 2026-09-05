@@ -142,10 +142,24 @@ def main():
     for stage, steps in plan:
         print("\n【%s】%d 步%s" % (stage, len(steps), "（並行）" if len(steps) > 1 and A.jobs > 1 else ""))
         t0 = time.time()
-        if A.jobs > 1 and len(steps) > 1:
-            with ThreadPoolExecutor(max_workers=min(A.jobs, len(steps))) as ex:
-                res = list(ex.map(run_one, steps))
-        else:
+        # 2026-09-06：昨晚 22:00 並行在第②階段之後整支炸掉 → update.bat 退回**整條**循序（94 分鐘）。
+        # 改成「哪一階段並行出事，就只把那一階段改循序重跑」，traceback 寫進日誌，其餘階段照常並行。
+        # RUN_UPDATE_FAULT=1 是給測試用的故障注入（並行路徑故意炸），正式跑不會設。
+        try:
+            if A.jobs > 1 and len(steps) > 1:
+                if os.environ.get("RUN_UPDATE_FAULT") == "1":
+                    raise RuntimeError("故障注入：模擬並行階段崩潰")
+                with ThreadPoolExecutor(max_workers=min(A.jobs, len(steps))) as ex:
+                    res = list(ex.map(run_one, steps))
+            else:
+                res = [run_one(s) for s in steps]
+        except Exception:
+            import traceback
+            tb = traceback.format_exc()
+            log.write("\n" + "⚠ 【%s】並行執行炸掉，改循序重跑這一階段：" % stage + "\n" + tb + "\n")
+            log.flush()
+            print("   ⚠ 這一階段並行炸掉（%s）→ 改循序重跑這一階段（traceback 在日誌）"
+                  % tb.strip().splitlines()[-1][:80])
             res = [run_one(s) for s in steps]
         # 寫日誌時照計畫順序，不照完成順序（日誌要能跟舊版對照著看）
         for name, el, rc, out in res:
