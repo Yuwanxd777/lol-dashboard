@@ -52,9 +52,10 @@ def parse_log():
     m = re.search(r"==== (\d{4}/\d{1,2}/\d{1,2}) .*?(\d{1,2}:\d{2}):\d{2}", t)
     if r["runs"]:
         r["start_at"] = r["runs"][0][0]
-    m = re.search(r"錯誤級[^\d]*(\d+)", t)
+    # lint_text 的摘要行長這樣：「文本體檢：掃描 81574 條字串 → 錯誤 0、提醒 7284」
+    m = re.search(r"文本體檢：.*?錯誤 (\d+)、提醒 (\d+)", t)
     if m:
-        r["lint_err"] = int(m.group(1))
+        r["lint_err"] = int(m.group(1)); r["lint_warn"] = int(m.group(2))
     m = re.search(r"未審定的可疑同名 (\d+)", t)
     if m:
         r["dup"] = int(m.group(1))
