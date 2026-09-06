@@ -12364,10 +12364,10 @@ function render(){
       };
       document.getElementById("tbl").innerHTML=strip+`<div class="tblwrap"><table class="bp${_dm?" bpDraft":""}" style="table-layout:fixed"><colgroup>${COLF.map(c=>`<col style="width:${c.w}px">`).join("")}</colgroup><thead><tr>
         ${_dm?`<th>${LANG==="en"?"date":"日期"}</th><th>${LANG==="en"?"patch":"版本"}</th><th>${LANG==="en"?"event":"賽事"}</th>`:""}
-        <th>${LANG==="en"?"Game":"局數"}</th><th>時長</th><th>勝</th>
+        <th>${LANG==="en"?"Game":"局數"}</th><th>${LANG==="en"?"Time":"時長"}</th><th>${LANG==="en"?"W":"勝"}</th>
         ${_dm?`<th>${LANG==="en"?"Blue":"藍方"}</th>${_selTH}<th>${LANG==="en"?"Red":"紅方"}</th>${_selTH}<th style="text-align:left"><div style="display:flex;gap:41px;padding-left:15px">${(_b5?["BAN 1","BAN 2","BAN 3","PICK 1","PICK 2","PICK 3","PICK 4","BAN 4","BAN 5","PICK 5","PICK 6","PICK 7"]:["BAN 1","BAN 2","BAN 3","PICK 1","PICK 2","PICK 3","PICK 4","PICK 5","PICK 6","PICK 7"]).map((lb,i)=>`<span style="flex:0 0 ${_dsCnt[i]===1?50:120}px;text-align:center;white-space:nowrap">${lb}</span>`).join("")}</div></th>`
-        :`<th>${HL[0]}</th>${_selTH}<th>禁用</th><th>${posImg("TOP")}</th><th>${posImg("JNG")}</th><th>${posImg("MID")}</th><th>${posImg("BOT")}</th><th>${posImg("SUP")}</th>
-        <th>${HL[1]}</th>${_selTH}<th>禁用</th><th>${posImg("TOP")}</th><th>${posImg("JNG")}</th><th>${posImg("MID")}</th><th>${posImg("BOT")}</th><th>${posImg("SUP")}</th>`}</tr>
+        :`<th>${HL[0]}</th>${_selTH}<th>${LANG==="en"?"Bans":"禁用"}</th><th>${posImg("TOP")}</th><th>${posImg("JNG")}</th><th>${posImg("MID")}</th><th>${posImg("BOT")}</th><th>${posImg("SUP")}</th>
+        <th>${HL[1]}</th>${_selTH}<th>${LANG==="en"?"Bans":"禁用"}</th><th>${posImg("TOP")}</th><th>${posImg("JNG")}</th><th>${posImg("MID")}</th><th>${posImg("BOT")}</th><th>${posImg("SUP")}</th>`}</tr>
         <tr class="bpFRow">${COLF.map(c=>`<th style="padding:2px 3px;top:auto">${_fcell(c)}</th>`).join("")}</tr></thead><tbody id="bpBody"></tbody></table></div>
         <div class="row" style="justify-content:center;margin-top:10px"><button id="bpMore" class="primary"></button></div>`;
       // 五路欄寬固定：.tblwrap 的 min-width:100% 會把不足容器的表格按比例撐開、每欄偷偷
