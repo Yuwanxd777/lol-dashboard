@@ -25,6 +25,36 @@ HERE = os.path.dirname(os.path.abspath(__file__)); ROOT = os.path.dirname(HERE)
 IDXP = os.path.join(ROOT, "soloq_match_index.js")
 OUTDIR = os.path.join(ROOT, "soloq_matches")
 ACCOUNTS = os.path.join(HERE, "soloq_accounts.json")
+# 2026-09-06 線 3（迴圈 #21）：fetch_soloq_year --missing 對「近 EMPTY_DAYS 天補全年抓到 0 場」的人不重抓（csv_cache/soloq_year_empty.json），
+# 這裡的「另有 N 位無檔」要跟它對齊：略過的分開印、一位都不用抓就不起子程序（日誌才對得上，也省一次子程序啟動）。
+EMPTY_PATH = os.path.join(ROOT, "csv_cache", "soloq_year_empty.json")   # {"隊|選手": {"at": "YYYY-MM-DD", "tries": n}}
+EMPTY_DAYS = 3   # 要跟 fetch_soloq_year.EMPTY_DAYS 一致（fetch_soloq_update_missing_test.py 會比對兩邊）
+
+
+def load_year_empty(path=EMPTY_PATH):
+    try:
+        return json.load(open(path, encoding="utf-8"))
+    except Exception:
+        return {}
+
+
+def split_missing_recent_empty(keys, empty, today=None, days=EMPTY_DAYS):
+    """語意與 fetch_soloq_year.split_recent_empty 相同：0～days-1 天內 0 場的略過 [(key, at)]；沒紀錄／壞日期／過期／未來照抓。
+    不 import fetch_soloq_year（它模組層讀 sys.argv 的 --out／--since／--max）。"""
+    import datetime as _dt
+    today = today or _dt.date.today()
+    go, skip = [], []
+    for k in keys:
+        at = (empty.get(k) or {}).get("at")
+        try:
+            d = _dt.date.fromisoformat(at) if at else None
+        except (TypeError, ValueError):
+            d = None
+        if d is not None and 0 <= (today - d).days < days:
+            skip.append((k, at))
+        else:
+            go.append(k)
+    return go, skip
 # 每帳號最後一場 soloq 時間(ms)：積分頁挑「最近7天有打 soloq 的帳號」用（獨立小檔，合併既有）
 ACC_LG = {}
 ACC_LG_PATH = os.path.join(ROOT, "soloq_acc_lastgame.js")
@@ -274,9 +304,10 @@ def main():
     if ACC_LG:  # 每帳號最後 soloq 時間（合併既有）→ 積分頁挑帳號用
         tot = write_acc_lastgame(ACC_LG)
         print(f"每帳號最後 soloq 時間：本次更新 {len(ACC_LG)} 個 → soloq_acc_lastgame.js（累計 {tot}）")
-    missing = [k for k in accs if k not in idx["players"]]
+    missing, missing_skip = split_missing_recent_empty([k for k in accs if k not in idx["players"]], load_year_empty())
     print(f"\n完成：{upd} 位有新戰績、共 +{added_tot} 場。"
-          + (f" 另有 {len(missing)} 位無檔(新選手)→ 自動補抓整年。" if missing else ""))
+          + (f" 另有 {len(missing)} 位無檔(新選手)→ 自動補抓整年。" if missing else "")
+          + (f" ⏭ {len(missing_skip)} 位上次補全年 0 場、{EMPTY_DAYS} 天內不重抓（不起子程序）。" if missing_skip else ""))
     import subprocess
     # 2026-09-06 線 3：這一步的 1926 秒有一大半在下面這四支子程序（補全年、重建索引、掃 30 萬場
     # 聚合出裝），逐段計時，update_log 才看得出哪一段該減。

@@ -9,7 +9,7 @@ dpmPuuid：本腳本只維護帳號清單；新帳號的 dpmPuuid 由 resolve_ob
 安全門：OBGG 抓取失敗或 LPL/LCK 帳號數異常過少 → 不動 soloq_accounts.json（避免 OBGG 掛掉時誤刪整批）。
 用法：python scripts\\fetch_obgg_accounts.py
 """
-import io, sys, json, os, re, time, urllib.parse, urllib.request
+import io, sys, json, os, re, time, datetime, urllib.parse, urllib.request
 from concurrent.futures import ThreadPoolExecutor
 
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
@@ -26,6 +26,45 @@ ALIAS = {"GEN": "GENG"}              # OBGG 隊碼 → 清單隊碼
 CUT_MS = 60 * 24 * 3600 * 1000       # 近兩個月
 ROSTER_PLAYERS = set()               # OBGG 標為五路的現役選手（診斷用；不再當作帳號保留的豁免依據）
 ROSTER_OUT = os.path.join(ROOT, "csv_cache", "obgg_roster.json")   # csv_cache 在專案根目錄，不是 scripts/ 下
+# 2026-09-06 線 3（迴圈 #21）：LPL/LCK「不在 OBGG 清單就刪」每輪刪 219～232 隻、之後 ⑤ fetch_dpm_soloq_accounts 再原封補回
+# （11:30／22:00 日誌：1091 → 912 → 1090）。最終輸出沒差，但 dpm 那一輪「過不了 Cloudflare，中止」時就會停在 912 去掃牌位
+# ⇒ 56 位 OBGG 沒收錄的選手（KT Pollu／DNS Quantum／GEN Loid／LNG Croco…）整個人從積分頁消失。
+# 改法：dpm 選手檔近 KEEP_DPM_DAYS 天確認過的（dpmSeen）暫留，其餘照舊刪；OBGG 有列的照舊重建。純幂等性修正，最終輸出不變。
+KEEP_DPM_DAYS = 3
+
+
+def dpm_recent(a, today=None, days=KEEP_DPM_DAYS):
+    """dpm 選手檔近 days 天內確認過這隻帳號（dpmSeen，含第 days 天）→ True；缺／壞日期／未來日期 → False（照舊刪）。"""
+    s = a.get("dpmSeen")
+    if not s:
+        return False
+    try:
+        d = datetime.date.fromisoformat(str(s)[:10])
+    except ValueError:
+        return False
+    t = today or datetime.date.today()
+    return 0 <= (t - d).days <= days
+
+
+def prune_old(acc, new, new_rids, zone_of, today=None, days=KEEP_DPM_DAYS):
+    """OBGG 重建後決定舊帳號 acc 哪些併回 new（就地追加）→ (removed, kept_dpm)。
+    OBGG 主導賽區（LPL/LCK）：在 OBGG 清單的上面已重建、不重複；不在清單的只有 dpm 近 days 天確認過才暫留，否則刪。
+    其餘賽區：在清單的已由 union 納入；不在的（dpm 主導／無法分類）一律保留。"""
+    removed = kept_dpm = 0
+    for a in acc:
+        z = zone_of(a.get("team"))
+        if z in OBGG_ZONES:
+            if norm(a["riotId"]) in new_rids:
+                continue
+            if dpm_recent(a, today, days):
+                new.append(a); kept_dpm += 1
+            else:
+                removed += 1
+            continue
+        if norm(a["riotId"]) in new_rids:
+            continue
+        new.append(a)
+    return removed, kept_dpm
 
 
 def get(url, retry=2):
@@ -188,16 +227,7 @@ def main():
     new += obgg_entries(lambda z: z not in OBGG_ZONES and z not in DPM_ZONES)
     new_rids = {norm(e["riotId"]) for e in new}
 
-    removed = 0
-    for a in acc:
-        z = zone_of(a.get("team"))
-        if z in OBGG_ZONES:          # OBGG 主導：舊帳號只有還在 OBGG 清單才留（上面已重建），否則刪
-            if norm(a["riotId"]) not in new_rids:
-                removed += 1
-            continue
-        if norm(a["riotId"]) in new_rids:  # 其餘賽區已由 union 納入
-            continue
-        new.append(a)                # dpm 主導/無法分類：保留
+    removed, kept_dpm = prune_old(acc, new, new_rids, zone_of)   # OBGG 主導：不在清單的舊帳號，dpm 近 3 天確認過才暫留
 
     best = {}
     for e in new:
@@ -214,7 +244,8 @@ def main():
         print(f"（名冊寫出失敗：{e}）")
     json.dump(acc, open(ACCOUNTS + ".bak", "w", encoding="utf-8"), ensure_ascii=False, indent=1)
     json.dump(final, open(ACCOUNTS, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
-    print(f"OBGG 帳號更新：{len(acc)} → {len(final)}（LPL/LCK 刪 {removed} 個近兩月未列；"
+    print(f"OBGG 帳號更新：{len(acc)} → {len(final)}（LPL/LCK 刪 {removed} 個近兩月未列、"
+          f"dpm 近 {KEEP_DPM_DAYS} 天確認過暫留 {kept_dpm} 個；"
           f"無 dpmPuuid {sum(1 for e in final if not e.get('dpmPuuid'))} 個待 resolve_obgg_dpmpuuid.py 補）")
 
 
