@@ -113,11 +113,14 @@ def riot_get(url, timeout=15):
             print(f"    連線錯誤：{ex}，重試…"); time.sleep(2); continue
     return 0, None
 
+ACC_LAST_CODE = [0]   # get_account 最近一次的 HTTP 狀態碼（404＝Riot 明確說沒這個 ID，不是暫時性失敗）
+
 def get_account(cluster, game_name, tag_line):
     # account-v1：回傳含 puuid(永久不變的 UID)＋當前 gameName/tagLine
     url = (f"https://{cluster}.api.riotgames.com/riot/account/v1/accounts/by-riot-id/"
            f"{urllib.parse.quote(game_name)}/{urllib.parse.quote(tag_line)}")
     code, data = riot_get(url)
+    ACC_LAST_CODE[0] = code
     return data if code == 200 and data else None
 
 def get_region_by_puuid(cluster, puuid):
@@ -348,7 +351,11 @@ def main():
                 rec.update(tier=dr.get("tier"), division=dr.get("rank"), lp=_lp, found=True, dpmRank=True)
                 print(f"    ♻ Riot 查無此 ID → DPM 牌位備援：{dr.get('tier')} {dr.get('rank')} {_lp}LP")
                 return rec
-            print("    找不到帳號（Riot ID 或區域錯？）"); return rec
+            # 2026-09-06 線 3：account-v1 回 **404** 是明確答案（這個 Riot ID 現在不存在），二十分鐘後
+            # 重抓一次答案不會變——11:30 那輪 84 個「找不到帳號」全部進了重抓、84 次照樣 404，
+            # 白白排 84 次速率限制隊（約 100 秒／輪）。只有連線錯誤／5xx（code 不是 404）才值得重抓。
+            rec["settled"] = ACC_LAST_CODE[0] == 404 and not (acc or {}).get("_cached")
+            print("    找不到帳號（Riot ID 或區域錯？）" + ("" if rec["settled"] else "　※這次沒問成，稍後重抓")); return rec
         _lad = LADDER.get((plat, puuid))
         if _lad is not None:
             sq, sure = _lad, True
@@ -411,7 +418,7 @@ def main():
     if LADDER_HITS[0]:
         print(f"（聯盟名單命中 {LADDER_HITS[0]} 個帳號 → 省下同樣次數的逐帳號請求）")
     if settled:
-        print(f"（{settled} 個帳號確定沒有單雙排名次 → 不排進重抓，省下同樣次數的請求）")
+        print(f"（{settled} 個帳號確定沒有單雙排名次或 Riot ID 不存在（404） → 不排進重抓，省下同樣次數的請求）")
     if retry:
         print(f"\n🔁 {len(retry)} 個帳號本輪失敗 → 最後重抓一輪（補救暫時性失敗）…")
         time.sleep(3)

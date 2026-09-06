@@ -38,14 +38,13 @@ def main():
     args = [sys.executable, os.path.join(HERE, "fetch_soloq.py")]
     print("牌位自動更新：使用%s，全掃（結果會寫 scripts/soloq_played.json 給逐場那一步用）"
           % ("長期金鑰" if perm else f"{age_h:.1f} 小時前添加的金鑰"))
-    full = True
+    # 2026-09-06 線 3：以前「每週全掃一次」的戳記檔（soloq_full_scan.json）隨 --active 一起拿掉了，
+    # 但寫戳記那三行留著、變數 `stamp` 卻沒了 ⇒ 每一輪日誌都印「執行失敗 name 'stamp' is not defined」
+    # （fetch_soloq.py 其實早就跑完、exit 0，只是這支的收尾炸在 except 裡）。現在一律全掃，戳記沒用了，拿掉。
     env = dict(os.environ); env["RIOT_API_KEY"] = key
     try:
         rc = subprocess.call(args, cwd=ROOT, env=env)
         print(f"牌位自動更新：fetch_soloq.py 結束（exit {rc}）。")
-        if full and rc == 0:
-            json.dump({"last": datetime.date.today().isoformat()},
-                      open(stamp, "w", encoding="utf-8"))
     except Exception as e:
         print(f"牌位自動更新：執行失敗 {e}")
 
