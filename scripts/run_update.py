@@ -90,6 +90,7 @@ PLAN = [
     ("⑥ 收尾（互不相干）", [
         SB("label_pending", "--apply"),
         S("build_patch_dates"),
+        S("build_img_manifest"),       # 隊徽／國旗清單（fetch_team_logos／fetch_flags 之後）
         S("trim_data_cols", "--apply"),
         S("build_font_subset"),
         S("lint_text", "--quiet"),

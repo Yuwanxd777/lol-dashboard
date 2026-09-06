@@ -1116,6 +1116,7 @@ window.WIKI_PATCHES=window.WIKI_PATCHES||{}; window.WIKI_EXTRA=window.WIKI_EXTRA
 <script src="old_runes.js" onerror="window.OLD_RUNES=null"></script>
 <script src="team_collide.js" onerror="window.TEAM_COLLIDE=null"></script>
 <script src="team_abbr_wiki.js" onerror="window.LP_TABBR=null"></script>
+<script src="img_manifest.js" onerror="window.IMG_HAVE=null"></script>
 <script src="obj_stats.js" onerror="window.OBJ_STATS=null"></script>
 <script src="item_nonsr.js" onerror="window.ITEM_NONSR={}"></script>
 <script src="rune_icons.js" onerror="window.RUNE_ICONS=null"></script>
@@ -1181,6 +1182,14 @@ let LANG = (l=>l==="en"?"en":(l==="cn"?"cn":"zh"))(localStorage.getItem("lang"))
 try{document.documentElement.dataset.lang=LANG;}catch(e){}
 const DDLOC = LANG==="en" ? "en_US" : "zh_TW"; // DDragon 資料語系
 const I18N = {
+  // 總覽區塊標題／副標（2026-09-06 線 1 稽核：這些本來就包在 T() 裡，只是字典沒 key → 英文模式漏中文）
+  "近期動態":"Recent Movement","英雄動態":"Champion Movement","戰隊近況":"Team Form","積分快照":"Ranked Snapshot",
+  "範圍排行":"Range Rankings","資料更新":"Data updated","最新比賽":"Latest game","進行中賽段":"Splits in progress",
+  "最近賽段":"Latest splits","竄升":"Rising","暴跌":"Falling","連勝":"Win streaks","連敗":"Loss streaks",
+  "昨天":"yesterday","今天":"today","比賽":"Pro",
+  "系列賽（大場）連勝／連敗最長的各五隊；小局＝這段期間的單局戰績、系列＝範圍內總戰績":
+    "Longest series (match) win/loss streaks, five teams each; Games = single-game record in this range, Series = series record in range",
+  "時長":"Time","勝":"W","禁用":"Bans",
   // 導覽分頁（顯示用；curView 內部仍用中文 key）
   "總覽":"Overview","英雄":"Champions","選手":"Players","戰隊":"Teams","陣容":"Team Comps",
   "比賽BP":"Match BP","模擬BP":"BP Sim","英雄Tier":"Champion Tiers","積分":"Ranked","圖鑑":"Codex","近況":"Team Form","AI 問答":"AI Chat",
@@ -3254,7 +3263,8 @@ const NAT_ABBR={China:"CHN","South Korea":"KOR",Korea:"KOR",Japan:"JPN",Vietnam:
   Algeria:"ALG",Tunisia:"TUN",Morocco:"MAR",Egypt:"EGY","South Africa":"RSA"};
 const natAbbrOf=t=>{const m=/^(.+?)\s*\((?:national team|國家隊)\)/i.exec(String(t||"")); if(!m)return "";
   const n=m[1].trim(); return NAT_ABBR[n]||n.replace(/[^A-Za-z]/g,"").slice(0,3).toUpperCase();};
-const lgName=l=>{ if(l&&typeof l==="string"&&/^(LPL|LCK)#/.test(l))return l.slice(0,3)+lplGrpName(l.slice(4)); if(LANG==="en"){ const en={"ALL":"All","中韓":"CN+KR","歐美":"EU+NA","國際賽":"Internationals","LTA N":"LTA North","LTA S":"LTA South","WLDs":"Worlds","FST":"First Stand Tournament"}; if(en[l])return en[l]; } return LG_NAME[l]||l; };
+const lgName=l=>{ if(l&&typeof l==="string"&&/^(LPL|LCK)#/.test(l))return l.slice(0,3)+lplGrpName(l.slice(4)); if(LANG==="en"){ const en={"ALL":"All","中韓":"CN+KR","歐美":"EU+NA","國際賽":"Internationals","LTA N":"LTA North","LTA S":"LTA South","WLDs":"Worlds","FST":"First Stand Tournament",
+    "EWCQ北美":"EWCQ NA","EWCQ歐洲":"EWCQ EU","EWCQ韓國":"EWCQ KR","EWCQ中國":"EWCQ CN","EWCQ太平洋":"EWCQ APAC","EWCQ巴西":"EWCQ BR"}; if(en[l])return en[l]; } return LG_NAME[l]||l; };
 const d1s=v=>(+v).toFixed(1).replace(/\.0$/,""); // 一位小數；小數為 0 就不顯示小數點（3.0→3、2.5→2.5）
 // 賽段 → Leaguepedia 頁的連結（wiki_links.js 由 scripts/fetch_wiki_links.py 產：拿 Cargo
 // ScoreboardGames 每一局帶的 OverviewPage 做多數決，查不到的退回抓取管線登記的頁名）。
@@ -3286,6 +3296,15 @@ const teamLogoHTML=(ab,size,noText)=>{ ab=teamFix(String(ab||"")); if(!ab)return
   // 否則會變成「SENSEN」（2026-08-16 實測 SEN 的隊徽 dpm 沒有，就撞到這個）。
   const st=`width:${size||18}px;height:${size||18}px;object-fit:contain;vertical-align:middle;flex:0 0 auto`;
   const fin=noText?"this.remove()":"this.replaceWith(document.createTextNode(this.alt))";
+  // 2026-09-06：有 img_manifest.js（window.IMG_HAVE，update 管線第⑥階段產）就先查清單——沒有的檔**不發請求**，
+  // 不然每個沒隊徽的隊（SEN／JPN／VIE 國家隊…）每次重繪都噴 404 到 console（線 1 稽核 8 筆 404＋2 筆 console 全是它）。
+  // 清單缺席（本機沒跑過管線）才退回原本的 onerror 三層鏈。
+  const H=window.IMG_HAVE;
+  if(H&&H.teams&&H.flags){
+    const src=H.teams[ab]?`img/teams/${encodeURIComponent(ab)}.webp`:(H.flags[ab]?`img/flags/${encodeURIComponent(ab)}.png`:"");
+    if(!src)return noText?"":esc(ab);
+    return `<img src="${src}" alt="${esc(ab)}" title="${esc(ab)}" style="${st}" onerror="${fin}">`;
+  }
   return `<img src="img/teams/${encodeURIComponent(ab)}.webp" alt="${esc(ab)}" title="${esc(ab)}" style="${st}" data-flag="img/flags/${encodeURIComponent(ab)}.png" onerror="if(this.dataset.flag){this.src=this.dataset.flag;this.removeAttribute('data-flag');}else{${fin};}">`; };
 // 分組籤（2026-08-16 使用者指定）：戰隊/選手名稱後面接著標所屬**組別**，
 // 「除非篩選已經精細到組別」才不用寫；有分組的賽事都要（目前 LPL／LCK，資料在 lpl_groups.js／lck_groups.js）。
