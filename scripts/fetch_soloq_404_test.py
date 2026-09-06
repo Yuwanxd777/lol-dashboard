@@ -77,6 +77,11 @@ FS.main()
 
 
 def run(negctl):
+    # 兩趟共用同一個暫存目錄：第一趟寫出的 soloq.js 會帶 noAcc（#18 的 404 七天捷徑），
+    # 第二趟（負控制）若讀到它就會直接跳過 Gone、根本不問 Riot ⇒ 負控制誤紅。每趟都從沒有上一版開始。
+    _prev = os.path.join(TD, "soloq.js")
+    if os.path.exists(_prev):
+        os.remove(_prev)
     hp = os.path.join(TD, "harness_%d.py" % int(negctl))
     io.open(hp, "w", encoding="utf-8").write(HARNESS % {"here": HERE, "td": TD, "negctl": negctl})
     r = subprocess.run([sys.executable, hp], capture_output=True, text=True, encoding="utf-8", timeout=120)

@@ -147,6 +147,53 @@ def load_prev_puuids():
         pass
     return by_id, by_tp
 
+# ── 404 帳號 7 天不再問（2026-09-06 線 3）────────────────────────────────────
+# 11:30 那輪 1091 個帳號裡有 132 個**每天**都走 account-v1、每天都 404（84 個「找不到帳號」＋
+# 48 個 DPM 牌位備援）。它們永遠拿不到 puuid，所以永遠進不了 puuid 捷徑 ⇒ 每輪固定白排 132 次
+# 速率限制隊（100 次/2 分鐘 ⇒ 約 160 秒）。Riot 的 404 是「這個 Riot ID 現在不存在」，隔天再問
+# 答案幾乎不會變；會變的只有兩種：改名回來／別人接手這個名字——所以 NOACC_DAYS 天重驗一次。
+# 紀錄格式：soloq.js 的紀錄多一個 `noAcc`＝最後一次親自問到 404 的日期（YYYY-MM-DD）。
+# 跳過時沿用上一版的 noAcc（期限從最後一次真的問過起算，不是每天續命）。
+# 鍵是 (riotId, platform)：dpm 改了名或修了區，鍵就不同 ⇒ 自然重新問。
+# `--full-id`／`--failed`／`--no-noacc-skip` 一律不跳過（那三種本來就是要把「查不到」重問一遍）。
+NOACC_DAYS = 7
+PREV_NOACC = {}
+NOACC_SKIPS = [0]
+SKIP_NOACC = True
+
+
+def load_prev_noacc():
+    out = {}
+    try:
+        h = open(OUT, encoding="utf-8", errors="replace").read()
+        d = json.loads(re.search(r"=\s*(\{.*\});?\s*$", h, re.S).group(1))
+        for p in d.get("players", []):
+            if p.get("noAcc") and not p.get("puuid"):
+                out[(p.get("riotId"), p.get("platform"))] = p["noAcc"]
+    except Exception:
+        pass
+    return out
+
+
+def noacc_fresh(day):
+    """noAcc 日期距今 < NOACC_DAYS 天 ⇒ 還新鮮，不必再問。格式壞掉一律當過期（重問最安全）。"""
+    try:
+        d = datetime.date.fromisoformat(str(day))
+    except Exception:
+        return False
+    return 0 <= (datetime.date.today() - d).days < NOACC_DAYS
+
+
+def dpm_fallback(rec, dr):
+    """Riot 查不到此 riotId ⇒ 用抓帳號時 dpm 附帶的牌位當備援（如 KT FenRir）。有牌位才回 True。"""
+    if not (dr and dr.get("tier")):
+        return False
+    _lp = dr.get("lp")
+    if _lp == 75:
+        _lp = None  # DPM 對非頂端帳號常回佔位 LP=75 → 當未知，只顯示牌位(頂端如 FenRir 1894 才是真值)
+    rec.update(tier=dr.get("tier"), division=dr.get("rank"), lp=_lp, found=True, dpmRank=True)
+    return True
+
 # ── 聯盟名單預抓（2026-09-06，線 3 提速）────────────────────────────────────
 # Master 以上的帳號（實測 1087 個裡有 436 個）不必逐帳號問 entries/by-puuid：
 # league-v4 的 challenger／grandmaster／master leagues by-queue 端點一次回整個階級的名單，
@@ -276,8 +323,16 @@ def main():
         print(f"--failed：只重抓上次失敗的 {len(accounts)} 個帳號（{sorted({a.get('player','') for a in accounts})}）")
     print(f"帳號清單 {len(accounts)} 筆，開始抓取…（依速率限制，約 {len(accounts)*2.5/60:.1f} 分鐘）")
 
-    global PREV_ID, PREV_TP, RENAMES, PLATFIX, FAST_ID
+    global PREV_ID, PREV_TP, RENAMES, PLATFIX, FAST_ID, PREV_NOACC, SKIP_NOACC
     PREV_ID, PREV_TP = load_prev_puuids(); RENAMES = {}; PLATFIX = {}   # PLATFIX：缺 platform 的帳號用 Riot 查到的伺服器，最後寫回清單
+    SKIP_NOACC = not any(f in sys.argv for f in ("--full-id", "--failed", "--no-noacc-skip"))
+    PREV_NOACC = load_prev_noacc() if SKIP_NOACC else {}
+    NOACC_SKIPS[0] = 0
+    if PREV_NOACC:
+        _fresh = sum(1 for a in accounts if noacc_fresh(PREV_NOACC.get((a["riotId"],
+                     ALIAS.get(str(a.get("platform","")).upper(), str(a.get("platform","")).lower())), "")))
+        print("404 捷徑：%d/%d 個帳號上一版已確定 Riot ID 不存在（%d 天內不再問 account-v1）"
+              % (_fresh, len(accounts), NOACC_DAYS))
     # 有存 puuid 就跳過 account-v1 那一次查詢（見 fetch_one 的註解）。
     # `--full-id`＝關掉捷徑、走完整路徑把改名補回來（每週全掃那一次用）。
     FAST_ID = "--full-id" not in sys.argv
@@ -299,6 +354,20 @@ def main():
         cluster = CLUSTER.get(plat, "asia")
         game, tagl = a["riotId"].rsplit("#", 1)
         print(f"[{tag_lbl}] {a.get('player','?')} ({a.get('team','?')}) {a['riotId']} @{plat}")
+        # ── 404 捷徑：上一版已確定這個 Riot ID 不存在、還在 NOACC_DAYS 內 ⇒ 不問 Riot（見 load_prev_noacc）──
+        _na = PREV_NOACC.get((a["riotId"], plat)) if SKIP_NOACC else None
+        if _na and noacc_fresh(_na):
+            NOACC_SKIPS[0] += 1
+            rec = {"player": a.get("player",""), "team": a.get("team",""), "platform": plat,
+                   "riotId": a["riotId"], "puuid": None, "curId": None,
+                   "tier": None, "division": None, "lp": None,
+                   "wins": None, "losses": None, "found": False, "noAcc": _na}
+            if dpm_fallback(rec, a.get("dpmRank")):
+                print(f"    ⏭ 上一版 {_na} 已確定 Riot ID 不存在，{NOACC_DAYS} 天內不再問 → DPM 牌位備援：{rec['tier']} {rec['division']} {rec['lp']}LP")
+            else:
+                rec["settled"] = True
+                print(f"    ⏭ 上一版 {_na} 已確定 Riot ID 不存在（404），{NOACC_DAYS} 天內不再問 Riot")
+            return rec
         # ── 捷徑：上一版已經存過這個帳號的 Riot puuid 就直接用（2026-09-05）──────
         # puuid 是**永久不變**的（改名也不變），所以省掉 account-v1 那一次查詢完全安全。
         # 這是牌位這一步最大的一刀：1092 個帳號裡 964 個（88%）有存 puuid ⇒
@@ -343,18 +412,17 @@ def main():
             else:
                 print("    清單缺 platform，Riot 也查不到區域 → 跳過牌位查詢"); return rec
         if not puuid:
-            dr = a.get("dpmRank")
-            if dr and dr.get("tier"):  # Riot 查不到此舊 riotId(改名等) → 用抓帳號時 dpm 附帶的牌位當備援(如 KT FenRir)
-                _lp = dr.get("lp")
-                if _lp == 75:
-                    _lp = None  # DPM 對非頂端帳號常回佔位 LP=75 → 當未知，只顯示牌位(頂端如 FenRir 1894 才是真值)
-                rec.update(tier=dr.get("tier"), division=dr.get("rank"), lp=_lp, found=True, dpmRank=True)
-                print(f"    ♻ Riot 查無此 ID → DPM 牌位備援：{dr.get('tier')} {dr.get('rank')} {_lp}LP")
+            # account-v1 親自問到 404（不是快取、不是連線錯誤）⇒ 記下日期，NOACC_DAYS 天內不再問（見 load_prev_noacc）
+            _is404 = ACC_LAST_CODE[0] == 404 and not (acc or {}).get("_cached")
+            if _is404:
+                rec["noAcc"] = TODAY
+            if dpm_fallback(rec, a.get("dpmRank")):  # Riot 查不到此舊 riotId(改名等) → 用抓帳號時 dpm 附帶的牌位當備援(如 KT FenRir)
+                print(f"    ♻ Riot 查無此 ID → DPM 牌位備援：{rec['tier']} {rec['division']} {rec['lp']}LP")
                 return rec
             # 2026-09-06 線 3：account-v1 回 **404** 是明確答案（這個 Riot ID 現在不存在），二十分鐘後
             # 重抓一次答案不會變——11:30 那輪 84 個「找不到帳號」全部進了重抓、84 次照樣 404，
             # 白白排 84 次速率限制隊（約 100 秒／輪）。只有連線錯誤／5xx（code 不是 404）才值得重抓。
-            rec["settled"] = ACC_LAST_CODE[0] == 404 and not (acc or {}).get("_cached")
+            rec["settled"] = _is404
             print("    找不到帳號（Riot ID 或區域錯？）" + ("" if rec["settled"] else "　※這次沒問成，稍後重抓")); return rec
         _lad = LADDER.get((plat, puuid))
         if _lad is not None:
@@ -419,6 +487,8 @@ def main():
         print(f"（聯盟名單命中 {LADDER_HITS[0]} 個帳號 → 省下同樣次數的逐帳號請求）")
     if settled:
         print(f"（{settled} 個帳號確定沒有單雙排名次或 Riot ID 不存在（404） → 不排進重抓，省下同樣次數的請求）")
+    if NOACC_SKIPS[0]:
+        print(f"（{NOACC_SKIPS[0]} 個帳號上一版已確定 Riot ID 不存在、{NOACC_DAYS} 天內 → 沒問 account-v1，省下同樣次數的請求）")
     if retry:
         print(f"\n🔁 {len(retry)} 個帳號本輪失敗 → 最後重抓一輪（補救暫時性失敗）…")
         time.sleep(3)
