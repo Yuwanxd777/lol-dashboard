@@ -18,14 +18,18 @@ cd /d "%~dp0"
 
 set LOG=update_log.txt
 echo ==== %date% %time% ==== > "%LOG%"
+echo ==== %date% %time% ==== > update_console.txt
 
 rem 2026-09-06: capture run_update.py's own stdout/stderr too. The 2026-09-05 22:00 run
 rem crashed after stage 2 and fell back to sequential (94 min instead of ~20), but the
 rem traceback went to the hidden console and was lost. Now it lands in the log.
-python scripts\run_update.py --jobs 4 >> "%LOG%" 2>&1
+rem 2026-09-06 10:00 lesson: NEVER redirect into update_log.txt here. run_update.py opens that
+rem same file itself; cmd's redirection holds it and Python gets PermissionError -> nothing runs.
+rem Console output (summary + tracebacks) goes to update_console.txt; update_health.py reads both.
+python scripts\run_update.py --jobs 4 >> update_console.txt 2>&1
 if errorlevel 1 (
   echo run_update.py failed - falling back to sequential >> "%LOG%"
-  python scripts\run_update.py --jobs 1 >> "%LOG%" 2>&1
+  python scripts\run_update.py --jobs 1 >> update_console.txt 2>&1
 )
 
 type "%LOG%"

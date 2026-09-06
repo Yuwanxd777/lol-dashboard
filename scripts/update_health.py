@@ -34,10 +34,17 @@ def js_obj(path):
     return json.loads(m.group(1)) if m else None
 
 
+CONSOLE = os.path.join(ROOT, "update_console.txt")   # run_update 的 console（摘要＋traceback）；2026-09-06 起與 update_log 分開
+
+
 def parse_log():
     if not os.path.exists(LOG):
         return None
     t = io.open(LOG, encoding="utf-8", errors="replace").read()
+    # 2026-09-06 10:00 的教訓：update.bat 不能把 run_update 的輸出導進它自己會開的 update_log.txt
+    # （Windows 檔案鎖 → PermissionError → 整條沒跑）。console 另存一檔，健檢兩個都看。
+    if os.path.exists(CONSOLE):
+        t += "\n" + io.open(CONSOLE, encoding="utf-8", errors="replace").read()
     r = {"runs": re.findall(r"==== run_update (\S+ \S+)（並行 (\d+)）====", t),
          "fallback_whole": t.count("run_update.py failed - falling back to sequential"),
          "stage_fallback": re.findall(r"⚠ 【(.+?)】並行執行炸掉", t),
