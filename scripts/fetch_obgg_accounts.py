@@ -9,7 +9,7 @@ dpmPuuid：本腳本只維護帳號清單；新帳號的 dpmPuuid 由 resolve_ob
 安全門：OBGG 抓取失敗或 LPL/LCK 帳號數異常過少 → 不動 soloq_accounts.json（避免 OBGG 掛掉時誤刪整批）。
 用法：python scripts\\fetch_obgg_accounts.py
 """
-import io, sys, json, os, re, time, datetime, urllib.parse, urllib.request
+import io, sys, json, os, re, time, datetime, threading, urllib.parse, urllib.request
 from concurrent.futures import ThreadPoolExecutor
 
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
@@ -67,7 +67,7 @@ def prune_old(acc, new, new_rids, zone_of, today=None, days=KEEP_DPM_DAYS):
     return removed, kept_dpm
 
 
-def get(url, retry=2):
+def get(url, retry=2, kind=None):
     h = {"User-Agent": UA}  # OBGG API 為公開端點，只需 UA（不帶小程序 appid Referer，避免被誤判為密鑰）
     for i in range(retry + 1):
         try:
@@ -75,6 +75,10 @@ def get(url, retry=2):
             return json.loads(r.read().decode("utf-8-sig", "replace"))
         except Exception as e:
             if i == retry:
+                if kind:                      # 只算重試用盡的最終失敗（中途重試成功的不算）
+                    with ERR_LOCK:
+                        ERRS[kind] = ERRS.get(kind, 0) + 1
+                        ERR_URLS.append(url)
                 return {"_err": str(e)[:100]}
             time.sleep(1.5)
 
@@ -101,11 +105,21 @@ def tier_score(t):
 
 
 JOBS = 3   # 同一隊的選手並行抓 progamer 的執行緒數（--jobs 可改；1＝舊行為）
+# 2026-09-07 線 3（迴圈 #24）：22:00 這一步 199s＝57 隊逐隊 team 請求＋每隊等最慢的 progamer（obgg.net 每請求 0.4～0.6s）。
+# 同一賽區的戰隊也並行（TEAM_JOBS 條，最多 TEAM_JOBS×JOBS＝6 條連線）估 −90s。_team_pull() 只回傳，out[z] 只在 pull() 主執行緒寫；
+# ex.map 保持 teams 順序 ⇒ 帳號檔排序跟逐隊時一模一樣。--team-jobs=1 就是舊行為。03:00 真網路只讀煙霧：108.6s、各區帳號數同 22:00、失敗 0。
+TEAM_JOBS = 2
+# get() 重試用盡的最終失敗以前完全沒印——失敗的隊／人就靜靜消失，LPL/LCK 的舊帳號隨之被當「近兩月未列」刪掉。
+# 現在逐類計數＋留 URL 印進摘要；OBGG 主導賽區失敗 ≥ ERR_ABORT 次就不動帳號檔（docstring 第 9 行的安全門本來就這麼寫）。
+ERRS = {"zone": 0, "team": 0, "progamer": 0}
+ERR_URLS = []
+ERR_LOCK = threading.Lock()
+ERR_ABORT = 3
 
 
 def _player_accounts(tm, gid, now):
     """一位選手的可用帳號清單（原本寫在 pull() 迴圈裡，抽出來才能並行）。"""
-    pg = get(BASE + f"progamer?team={urllib.parse.quote(tm)}&game_id={urllib.parse.quote(gid)}")
+    pg = get(BASE + f"progamer?team={urllib.parse.quote(tm)}&game_id={urllib.parse.quote(gid)}", kind="progamer")
     time.sleep(0.15)
     d = pg.get("data") if isinstance(pg, dict) else None
     accs = (d or {}).get("accountList", []) if isinstance(d, dict) else []
@@ -136,56 +150,88 @@ def _player_accounts(tm, gid, now):
     return gid, good
 
 
+def _team_pull(z, t, now):
+    """一隊：team 請求（登記名冊）＋（非 dpm 主導賽區）逐人 progamer 並行。回 (tm, roster_ok, {gid: good})。
+    **不碰 out**——寫入留給 pull() 的主執行緒，所以多隊可以並行（2026-09-07 迴圈 #24 從 pull() 的迴圈抽出來）。"""
+    tm = t["team_name"]
+    rd = get(BASE + "team?name=" + urllib.parse.quote(tm), kind="team"); time.sleep(0.15)
+    roster = rd.get("data") if isinstance(rd, dict) else None
+    if not roster:
+        return tm, False, {}
+    # 現役選手名冊（pos 標成五路之一才算；主播/顧問/監督/教練不算）。pos 來自 team 端點，
+    # **不需要 progamer**——所以 dpm 主導賽區也照樣登記得到。set.add 在 GIL 下是原子的，多隊並行安全。
+    # 註：曾用來豁免 dpm 的「今年沒出賽」過濾，2026-07-29 已收回——OBGG 名單會留著已離開職業的人
+    # （TW BeanJ/Glory 今年 0 場仍掛在隊上）。現在只留作診斷用途（check_obgg_gaps.py 等）。
+    for p in roster:
+        if re.search(r"-\s*(上|野|中|下|辅)(\s|-|$)", str(p.get("pos") or "")):
+            ROSTER_PLAYERS.add(p["game_id"])
+    # 2026-09-06（線 3 提速，昨晚這一步 427 秒＝第③階段的 94%）：
+    # ① dpm 主導賽區（LCS/LEC/CBLOL）的 OBGG 帳號本來就不採用（main() 的 obgg_entries 排除
+    #   DPM_ZONES），逐人 progamer 請求純屬浪費 → 整隊跳過。zone_of() 只靠 out[z] 有沒有這隊，
+    #   所以 pull() 會放一個空 dict 讓 team_zone 仍然對得到（保留「dpm 主導 → 保留舊帳號」那條路）。
+    # ② 其餘賽區：同一隊的選手並行抓（JOBS 條執行緒，每條仍睡 0.15 秒）。
+    if z in DPM_ZONES:
+        return tm, True, {}
+    gids = [p["game_id"] for p in roster]
+    if JOBS > 1 and len(gids) > 1:
+        with ThreadPoolExecutor(max_workers=min(JOBS, len(gids))) as ex:
+            results = list(ex.map(lambda g: _player_accounts(tm, g, now), gids))
+    else:
+        results = [_player_accounts(tm, g, now) for g in gids]
+    return tm, True, {gid: good for gid, good in results if good}
+
+
 def pull():
+    """→ (out, zone_err)：out[zone][team][gid] = 帳號清單；zone_err[zone] = 抓這一區時 get() 最終失敗的次數。"""
     now = time.time() * 1000
     out = {}
+    zone_err = {}
     for z in ZONES:
-        zd = get(BASE + "zone?name=" + urllib.parse.quote(z) + "&isClick=0")
+        t0 = time.time(); e0 = sum(ERRS.values())
+        zd = get(BASE + "zone?name=" + urllib.parse.quote(z) + "&isClick=0", kind="zone")
         teams = zd.get("data") if isinstance(zd, dict) else None
         if not teams:
+            zone_err[z] = sum(ERRS.values()) - e0
             print(f"  {z}: 無資料（跳過）"); continue
         out[z] = {}
-        for t in teams:
-            tm = t["team_name"]
-            rd = get(BASE + "team?name=" + urllib.parse.quote(tm)); time.sleep(0.15)
-            roster = rd.get("data") if isinstance(rd, dict) else None
-            if not roster:
+        # 2026-09-07（迴圈 #24）：同一賽區的戰隊並行（TEAM_JOBS 條）。ex.map 保持 teams 的順序 ⇒ out[z] 的插入順序、
+        # 最終帳號檔的排序都跟逐隊時一模一樣（--team-jobs=1 可對照）。
+        if TEAM_JOBS > 1 and len(teams) > 1:
+            with ThreadPoolExecutor(max_workers=min(TEAM_JOBS, len(teams))) as ex:
+                results = list(ex.map(lambda t: _team_pull(z, t, now), teams))
+        else:
+            results = [_team_pull(z, t, now) for t in teams]
+        for tm, ok, ps in results:          # out[z] 只在這裡（主執行緒）寫
+            if not ok:
                 continue
-            # 現役選手名冊（pos 標成五路之一才算；主播/顧問/監督/教練不算）。pos 來自 team 端點，
-            # **不需要 progamer**——所以 dpm 主導賽區也照樣登記得到。
-            # 註：曾用來豁免 dpm 的「今年沒出賽」過濾，2026-07-29 已收回——OBGG 名單會留著已離開職業的人
-            # （TW BeanJ/Glory 今年 0 場仍掛在隊上）。現在只留作診斷用途（check_obgg_gaps.py 等）。
-            for p in roster:
-                if re.search(r"-\s*(上|野|中|下|辅)(\s|-|$)", str(p.get("pos") or "")):
-                    ROSTER_PLAYERS.add(p["game_id"])
-            # 2026-09-06（線 3 提速，昨晚這一步 427 秒＝第③階段的 94%）：
-            # ① dpm 主導賽區（LCS/LEC/CBLOL）的 OBGG 帳號本來就不採用（main() 的 obgg_entries 排除
-            #   DPM_ZONES），逐人 progamer 請求純屬浪費 → 整隊跳過。zone_of() 只靠 out[z] 有沒有這隊，
-            #   所以放一個空 dict 讓 team_zone 仍然對得到（保留「dpm 主導 → 保留舊帳號」那條路）。
-            # ② 其餘賽區：同一隊的選手並行抓（JOBS 條執行緒，每條仍睡 0.15 秒）。
             if z in DPM_ZONES:
                 out[z].setdefault(tm, {})
                 continue
-            gids = [p["game_id"] for p in roster]
-            if JOBS > 1 and len(gids) > 1:
-                with ThreadPoolExecutor(max_workers=min(JOBS, len(gids))) as ex:
-                    results = list(ex.map(lambda g: _player_accounts(tm, g, now), gids))
-            else:
-                results = [_player_accounts(tm, g, now) for g in gids]
-            for gid, good in results:
-                if good:
-                    out[z].setdefault(tm, {})[gid] = good
-        print(f"  {z}: {sum(len(v) for v in out[z].values())} 帳號", flush=True)
-    return out
+            for gid, good in ps.items():
+                out[z].setdefault(tm, {})[gid] = good
+        zone_err[z] = sum(ERRS.values()) - e0
+        print(f"  {z}: {sum(len(v) for v in out[z].values())} 帳號（{len(teams)} 隊，{time.time() - t0:.1f}s"
+              + (f"，請求失敗 {zone_err[z]}" if zone_err[z] else "") + "）", flush=True)
+    return out, zone_err
 
 
 def main():
-    obgg = pull()
+    obgg, zone_err = pull()
+    # 2026-09-07（迴圈 #24）：請求最終失敗以前完全看不到，先印再過安全門（LPL 只抓到 11 帳號時才看得出是 team 請求掛了 3 次）。
+    n_all = sum(ERRS.values())
+    if n_all:
+        print(f"⚠ OBGG 請求最終失敗 {n_all} 次（zone {ERRS['zone']}／team {ERRS['team']}／progamer {ERRS['progamer']}）："
+              + "；".join(urllib.parse.unquote(u.replace(BASE, "")) for u in ERR_URLS[:5]) + ("…" if len(ERR_URLS) > 5 else ""))
     # 安全門：OBGG 主導賽區必須抓到夠多帳號，否則不動（避免 OBGG 異常時誤刪整批）
     for z in OBGG_ZONES:
         n = sum(len(v) for v in obgg.get(z, {}).values())
         if n < 20:
             print(f"✗ {z} 只抓到 {n} 帳號（<20），OBGG 可能異常 → 不更新 soloq_accounts.json"); return
+    # 安全門 2（2026-09-07 迴圈 #24）：請求最終失敗的隊／人不在清單，以前會被當「近兩月未列」刪掉（dpm 近 3 天確認過的才暫留）。
+    # OBGG 主導賽區失敗 ≥ ERR_ABORT 次 → 不動帳號檔（跟上面那道門同精神，等下一輪再抓）。
+    n_err = sum(zone_err.get(z, 0) for z in OBGG_ZONES)
+    if n_err >= ERR_ABORT:
+        print(f"✗ LPL/LCK 的請求失敗 {n_err} 次（≥{ERR_ABORT}），失敗的隊／人會被誤判成「未列」→ 不更新 soloq_accounts.json"); return
 
     acc = json.load(open(ACCOUNTS, encoding="utf-8"))
     cur_teams = set(a.get("team") for a in acc)
@@ -253,4 +299,6 @@ if __name__ == "__main__":
     for a in sys.argv[1:]:
         if a.startswith("--jobs="):
             JOBS = max(1, int(a.split("=", 1)[1]))
+        if a.startswith("--team-jobs="):
+            TEAM_JOBS = max(1, int(a.split("=", 1)[1]))
     main()
