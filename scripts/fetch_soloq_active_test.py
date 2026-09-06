@@ -71,6 +71,7 @@ os.environ["RIOT_API_KEY"] = "TEST"
 sys.path.insert(0, r"{HERE}")
 import fetch_soloq as FS
 FS.ROOT = r"{TD}"
+FS.HERE = os.path.join(r"{TD}", "scripts")   # 2026-09-07：soloq_played.json 寫在 FS.HERE 下；不改這行會把真的 scripts/soloq_played.json 覆寫成 scope=active
 FS.OUT = os.path.join(r"{TD}", "soloq.js")
 FS.ACCOUNTS = os.path.join(r"{TD}", "scripts", "soloq_accounts.json")
 called = []

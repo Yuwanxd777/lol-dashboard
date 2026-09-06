@@ -29,7 +29,7 @@ ROOT = os.path.dirname(HERE)
 sys.path.insert(0, HERE)
 CACHE = os.path.join(ROOT, "csv_cache", "sidesel")
 YEAR = 2026
-GAP = 6.0
+GAP = 3.0   # 2026-09-07 線 3：原 6.0 ⇒ 22:00 重抓 11 頁純睡 66 秒。走 api.php?action=parse（一般頁面，不吃 Cargo 限流；fetch_wiki_pb 也才 3 秒）
 HIST = False   # --year <2026 的歷史回補模式：只收 MVP/VOD（選邊欄位清空），輸出 side_sel_YYYY.js
 
 import fetch_wiki_mh as MH          # 共用 opener（先拿 cookie，否則 302→403）與 UA
@@ -107,12 +107,14 @@ def page_html(ov, force=False):
            + "&prop=text&format=json&formatversion=2")
     for a in range(3):
         try:
+            _t0 = time.time()
             d = json.loads(MH.opener().open(urllib.request.Request(url, headers=MH.UA), timeout=120)
                            .read().decode("utf-8", "replace"))
             if "error" in d:
                 return ""
             h = d["parse"]["text"]
             open(f, "w", encoding="utf-8").write(h)
+            print(f"    ⏱ {ov}：{time.time() - _t0:.1f}s（{len(h) // 1024}KB）＋睡 {GAP:g}s")  # 每頁成本進日誌（2026-09-07 線 3）
             time.sleep(GAP)
             return h
         except Exception as e:

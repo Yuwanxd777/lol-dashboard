@@ -259,6 +259,36 @@ def get_soloq(platform, puuid):
         return None, True              # 200 且是清單、只是沒有單雙排那一項＝**確定沒排名**
     return None, False                 # 非 200（連線失敗／5xx／限速用完重試次數）＝這次沒問成
 
+# ── 逐帳號「牌位沒動」名單（2026-09-07 線 3，精進迴圈 #23）────────────────────────
+# 逐人的 played/unknown 只決定「這個人要不要進逐場」；但一位選手平均 2.84 個帳號、每帳號問 dpm 一次 1.7 秒，
+# 22:00 實測 111 位 315 個帳號裡有 100 個「兩版牌位都有、勝＋敗完全沒變」——沒打就是沒打，不用再問 dpm
+# （W+L 只增不減；remake 不計 W/L、dpm 端也濾 duration<600，兩邊口徑一致）。
+# 名單寫進 soloq_played.json 的 acc_static，由 fetch_soloq_update.py --changed 讀（鍵＝acc_key()）；
+# 缺／壞 → 空集合＝全查，跟 played 名單同精神：寧可慢不要漏。
+def acc_key(riot_id, platform):
+    """逐帳號鍵：riotId 小寫 @ platform 小寫。soloq.js 的列與 soloq_accounts.json 的帳號兩邊都用這條算。"""
+    return "%s@%s" % (str(riot_id or "").strip().lower(), str(platform or "").strip().lower())
+
+def acc_static_keys(prev_players, now_players):
+    """兩版牌位列裡都有 wins/losses、而且 W+L 相同的帳號鍵（排序後的 list）。
+    列的 riotId 與 curId 各算一把鍵（牌位掃完改名同步會把帳號檔的 riotId 換成 curId，兩把都收才對得上；
+    對不上的帳號只會「多問一次 dpm」，方向是安全的）。同一把鍵在同一版出現兩次且數字不同 → 不算靜止。"""
+    def _wl(players):
+        d = {}
+        for p in players or []:
+            w, l = p.get("wins"), p.get("losses")
+            if w is None and l is None:
+                continue
+            tot = (w or 0) + (l or 0)
+            for rid in {p.get("riotId"), p.get("curId")}:
+                if not rid:
+                    continue
+                k = acc_key(rid, p.get("platform"))
+                d[k] = tot if (k not in d or d[k] == tot) else None   # 同鍵兩個數字 → None（不靜止）
+        return d
+    prev, now = _wl(prev_players), _wl(now_players)
+    return sorted(k for k, v in now.items() if v is not None and prev.get(k) is not None and prev[k] == v)
+
 def main():
     if not os.path.exists(ACCOUNTS):
         print(f"錯誤：找不到帳號清單 {ACCOUNTS}\n請建立該檔（格式見腳本說明）。")
@@ -522,10 +552,11 @@ def main():
     # ⇒ 便宜的先跑、拿它的結果決定貴的要不要跑。名單寫到 scripts/soloq_played.json，
     #   由 fetch_soloq_update.py --changed 讀。
     try:
-        prev_wl = {}
+        prev_wl = {}; prev_players = []
         if os.path.exists(OUT):
             _pt = open(OUT, encoding="utf-8", errors="replace").read()
-            for p in json.loads(re.search(r"=\s*(\{.*\});?\s*$", _pt, re.S).group(1)).get("players", []):
+            prev_players = json.loads(re.search(r"=\s*(\{.*\});?\s*$", _pt, re.S).group(1)).get("players", [])
+            for p in prev_players:
                 k = (p.get("team"), p.get("player"))
                 w, l = p.get("wins"), p.get("losses")
                 if w is not None or l is not None:
@@ -548,14 +579,17 @@ def main():
             k = (p.get("team"), p.get("player"))
             if k not in seen_now and k not in unknown:
                 unknown.append(k)
+        # 逐帳號靜止名單只在真正全掃時才可信：--active／--failed 的 out 混著上一版沒重掃的列，比出來全是「沒動」
+        acc_static = [] if any(f in sys.argv for f in ("--active", "--failed")) else acc_static_keys(prev_players, out)
         io.open(os.path.join(HERE, "soloq_played.json"), "w", encoding="utf-8").write(
             json.dumps({"at": datetime.datetime.now().strftime("%Y-%m-%d %H:%M"),
                         "scope": "active" if "--active" in sys.argv else "full",
                         "played": ["%s|%s" % k for k in sorted(played)],
-                        "unknown": ["%s|%s" % k for k in sorted(set(unknown))]},
+                        "unknown": ["%s|%s" % k for k in sorted(set(unknown))],
+                        "acc_static": acc_static},
                        ensure_ascii=False))
-        print("勝敗場數比對：**%d 位真的打過**、%d 位無從判斷（未定位/查無帳號）→ scripts/soloq_played.json"
-              % (len(played), len(set(unknown))))
+        print("勝敗場數比對：**%d 位真的打過**、%d 位無從判斷（未定位/查無帳號）、%d 個帳號牌位沒動（逐場那支逐帳號跳過）→ scripts/soloq_played.json"
+              % (len(played), len(set(unknown)), len(acc_static)))
     except Exception as e:
         print("勝敗場數比對失敗（%s）→ 不寫 soloq_played.json（逐場那支會退回全掃）" % type(e).__name__)
 

@@ -56,6 +56,30 @@ def split_missing_recent_empty(keys, empty, today=None, days=EMPTY_DAYS):
             go.append(k)
     return go, skip
 # 每帳號最後一場 soloq 時間(ms)：積分頁挑「最近7天有打 soloq 的帳號」用（獨立小檔，合併既有）
+# ── 逐帳號跳過「牌位沒動」的帳號（2026-09-07 線 3，精進迴圈 #23）────────────────────
+# 名單來源：fetch_soloq.py 牌位那一步比對兩版 soloq.js，逐帳號 W+L 相同的寫進 soloq_played.json 的 acc_static
+# （鍵＝riotId 小寫@platform 小寫，跟這裡的 acc_key 同一條；fetch_soloq_update_accskip_test.py 會比對兩邊）。
+# 22:00 實測 111 位 315 個帳號裡 100 個沒動、每帳號 1.7 秒 ⇒ 省約 170 秒。
+# 名單缺／壞／不是 list → 空集合＝全查；只在 --changed 且 scope=full 時啟用。
+def acc_key(riot_id, platform):
+    return "%s@%s" % (str(riot_id or "").strip().lower(), str(platform or "").strip().lower())
+
+def acc_static_from(d):
+    """soloq_played.json 的 dict → 靜止帳號鍵集合；任何形狀不對都回空集合（＝全查）。"""
+    v = d.get("acc_static") if isinstance(d, dict) else None
+    if not isinstance(v, list):
+        return set()
+    return {s.strip().lower() for s in v if isinstance(s, str) and "@" in s}
+
+def split_static_accounts(acc_list, static):
+    """→ (要問 dpm 的帳號, 跳過的帳號)，順序保留；static 空就全部要問（負控制）。"""
+    if not static:
+        return list(acc_list), []
+    todo, skip = [], []
+    for a in acc_list:
+        (skip if acc_key(a.get("riotId"), a.get("platform")) in static else todo).append(a)
+    return todo, skip
+
 ACC_LG = {}
 ACC_LG_PATH = os.path.join(ROOT, "soloq_acc_lastgame.js")
 def _accnorm(s):
@@ -194,6 +218,7 @@ def main():
     # 431 位＝10 分鐘，而且**沒人打過也要花滿 10 分鐘**（實測 --max 3 走完 431 位、0 場）。
     # 牌位那一支是普通 HTTP、又本來就帶 wins/losses ⇒ 讓便宜的先跑、拿它的結果決定這一支抓誰。
     # 讀不到名單（牌位沒跑／格式壞了）就**退回全掃**，寧可慢不要漏。
+    ACC_STATIC = set()   # 逐帳號靜止名單（只在 --changed 且 scope=full 時填入）
     if "--changed" in sys.argv:
         pf = os.path.join(HERE, "soloq_played.json")
         try:
@@ -207,8 +232,9 @@ def main():
             else:
                 before = len(keys)
                 keys = [k for k in keys if k in want]
-                print("--changed：牌位比對出 %d 位有動（含無從判斷的）→ 逐場 %d → %d 位"
-                      % (len(want), before, len(keys)))
+                ACC_STATIC = acc_static_from(d)   # 逐帳號：牌位沒動的帳號連 dpm 都不問（名單壞→空集合＝全查）
+                print("--changed：牌位比對出 %d 位有動（含無從判斷的）→ 逐場 %d → %d 位；另有 %d 個帳號牌位沒動（逐帳號跳過）"
+                      % (len(want), before, len(keys), len(ACC_STATIC)))
         except Exception as e:
             print("--changed：讀不到名單（%s）→ 退回全掃" % type(e).__name__)
     keys = keys[:MAXP] if MAXP else keys
@@ -218,7 +244,7 @@ def main():
     added_tot = 0; upd = 0; RENAME = {}
     # 2026-09-06 線 3：這一步昨晚 1926 秒（130 位＝每位 15 秒，說明寫的是 1.4 秒）。
     # 錢花在哪沒有紀錄 ⇒ 印各階段耗時，下一次 10:00 的 update_log 就看得出來。
-    _T0 = time.time(); _TCF = _TPU = 0.0; _TPL = []
+    _T0 = time.time(); _TCF = _TPU = 0.0; _TPL = []; _NACC = _NSKIP = 0
     with sync_playwright() as p:
         b = _launch_real(p)
         pg = b.new_context(user_agent=UA, viewport={"width":1400,"height":900}, locale="en-US").new_page()
@@ -244,7 +270,9 @@ def main():
             except Exception as e: print(f"[{i}/{len(keys)}] {key} 讀檔錯 {e}"); continue
             existing = data.get("matches", []); newestT = existing[0]["t"] if existing else 0
             newg = []
-            for a in accs.get(key, []):
+            _todo, _skip = split_static_accounts(accs.get(key, []), ACC_STATIC)
+            _NACC += len(_todo) + len(_skip); _NSKIP += len(_skip)
+            for a in _todo:
                 try:
                     res = pg.evaluate(JS_NEW, [a["dpmPuuid"], tok, newestT])
                     _ms = (res.get("ms") if isinstance(res, dict) else res) or []
@@ -272,9 +300,11 @@ def main():
                     fp.write(f"window.__sqLoad({json.dumps(key,ensure_ascii=False)},{json.dumps(data,ensure_ascii=False)});\n")
                 meta["n"] = len(merged); added_tot += len(newg); upd += 1
                 print(f"[{i}/{len(keys)}] {key}  +{len(newg)} 新（共 {len(merged)}）")
-            _TPL.append((time.time() - _tp, key, len(accs.get(key, []))))
+            _TPL.append((time.time() - _tp, key, len(_todo)))
         b.close()
     if _TPL:
+        if _NSKIP:
+            print("⏭ 跳過 %d 個牌位沒動的帳號（%d → %d 次 dpm 請求）" % (_NSKIP, _NACC, _NACC - _NSKIP))
         _TPL.sort(reverse=True)
         _tot = sum(t for t, _, _ in _TPL)
         print("⏱ 逐場階段計時：開瀏覽器＋Cloudflare %.0fs／補 puuid %.0fs／逐人合計 %.0fs（%d 位，平均 %.1fs）"
