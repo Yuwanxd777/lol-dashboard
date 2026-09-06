@@ -19,10 +19,13 @@ cd /d "%~dp0"
 set LOG=update_log.txt
 echo ==== %date% %time% ==== > "%LOG%"
 
-python scripts\run_update.py --jobs 4
+rem 2026-09-06: capture run_update.py's own stdout/stderr too. The 2026-09-05 22:00 run
+rem crashed after stage 2 and fell back to sequential (94 min instead of ~20), but the
+rem traceback went to the hidden console and was lost. Now it lands in the log.
+python scripts\run_update.py --jobs 4 >> "%LOG%" 2>&1
 if errorlevel 1 (
   echo run_update.py failed - falling back to sequential >> "%LOG%"
-  python scripts\run_update.py --jobs 1
+  python scripts\run_update.py --jobs 1 >> "%LOG%" 2>&1
 )
 
 type "%LOG%"
