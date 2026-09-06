@@ -13,7 +13,8 @@
 用法：  python scripts\fetch_soloq_year.py                (全部 275 帳號，約 1-1.5 小時)
         python scripts\fetch_soloq_year.py --max 3        (只跑前 3 位選手，測試用)
         python scripts\fetch_soloq_year.py --since 2025    (改年份界線)
-        python scripts\fetch_soloq_year.py --missing       (只補「還沒有逐場檔」的新選手；每日排程自動呼叫)
+        python scripts\fetch_soloq_year.py --missing       (只補「還沒有逐場檔」的新選手；每日排程自動呼叫；
+                                                          上次 0 場的 3 天內不重抓，加 --retry-empty 強制)
         python scripts\fetch_soloq_year.py --only "T1|Faker,GEN|Chovy"  (指定選手整年重抓；既有選手加新帳號後用)
 不需 Riot 金鑰。
 """
@@ -45,6 +46,51 @@ CUT  = calendar.timegm((YEAR,1,1,0,0,0)) * 1000          # 該年 1/1 00:00 UTC 
 MAXP = int(arg("--max") or 0)                            # >0＝只跑前 N 位選手(測試；--missing 時＝單次補抓上限)
 ONLY = (arg("--only") or "").strip()                     # 指定選手鍵「隊|選手」逗號分隔：整年重抓這幾位、覆寫原檔
 MISSING = "--missing" in sys.argv                        # 只抓「index 沒有的新選手」，附加進現有索引
+RETRY_EMPTY = "--retry-empty" in sys.argv                # --missing 時連「近 EMPTY_DAYS 天已確認 0 場」的也重抓
+# 2026-09-06 線 3：--missing 補全年抓到 0 場的選手不寫檔 ⇒ 下一輪又是「缺檔」⇒ 每輪重抓（11:30 日誌：5 位各 ~37 秒
+# 全 0 場＝每輪白跑 183 秒）。0 場的記進這個檔，EMPTY_DAYS 天內不重抓；抓到場次就移除；--only／--retry-empty 不受限。
+EMPTY_PATH = os.path.join(ROOT, "csv_cache", "soloq_year_empty.json")   # {"隊|選手": {"at": "YYYY-MM-DD", "tries": n}}
+EMPTY_DAYS = 3
+
+
+def load_year_empty(path=EMPTY_PATH):
+    try:
+        return json.load(open(path, encoding="utf-8"))
+    except Exception:
+        return {}
+
+
+def split_recent_empty(keys, empty, today=None, days=EMPTY_DAYS):
+    """keys → (要抓的, 略過的 [(key, at)])：上次 0 場的日期 at 距今 0～days-1 天的略過；沒紀錄／日期壞掉／過期的照抓。"""
+    import datetime as _dt
+    today = today or _dt.date.today()
+    go, skip = [], []
+    for k in keys:
+        at = (empty.get(k) or {}).get("at")
+        try:
+            d = _dt.date.fromisoformat(at) if at else None
+        except (TypeError, ValueError):
+            d = None
+        if d is not None and 0 <= (today - d).days < days:
+            skip.append((k, at))
+        else:
+            go.append(k)
+    return go, skip
+
+
+def save_year_empty(results, path=EMPTY_PATH, today=None):
+    """results {key: 抓到的場數} → 0 場記今天（tries 累加）、>0 移除；回傳寫出的表。"""
+    import datetime as _dt
+    today = (today or _dt.date.today()).isoformat()
+    m = load_year_empty(path)
+    for k, n in results.items():
+        if n > 0:
+            m.pop(k, None)
+        else:
+            m[k] = {"at": today, "tries": int((m.get(k) or {}).get("tries", 0)) + 1}
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    json.dump(m, open(path, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
+    return m
 TOK2LANE = {"top":"TOP","jungle":"JUNGLE","middle":"MIDDLE","bottom":"BOTTOM","utility":"UTILITY"}
 
 def comp_roles():
@@ -162,6 +208,11 @@ def main():
     if MISSING:
         have = _keys_on_disk(OUTDIR)  # 磁碟上已有檔的選手＝以磁碟為準(索引可能漂移)；k 不在索引「且」不在磁碟才算真缺檔
         keys = [k for k in keys if k not in live_idx and k not in have]
+        if keys and not RETRY_EMPTY:
+            keys, _skip = split_recent_empty(keys, load_year_empty())
+            if _skip:
+                print(f"⏭ {len(_skip)} 位上次補全年 0 場、{EMPTY_DAYS} 天內不重抓（--retry-empty 強制）："
+                      + "、".join(f"{k}({at})" for k, at in _skip))
         if not keys:
             print("--missing：沒有缺檔的新選手，跳過。"); return
         print(f"--missing：{len(keys)} 位新選手待補全年 → {keys}")
@@ -182,6 +233,7 @@ def main():
         if a.get("bad") and a.get("dpmPuuid") and a.get("riotId"):
             BAD_BY_KEY.setdefault(f'{a.get("team","")}|{a.get("player","")}', []).append(a)
     UNBAD = []
+    EMPTY_RES = {}  # --missing：本輪每位抓到的場數（0 場 → save_year_empty 記日期）
     os.makedirs(OUTDIR, exist_ok=True)
     part = (MISSING or ONLY) and not STAGING
     idx = dict(live_idx) if part else {}
@@ -238,6 +290,7 @@ def main():
                     except Exception: pass
                     idx.pop(key, None)
                 print(f"[{i}/{len(keys)}] {key}  ⛔ 無可信帳號 → 移出積分，待補真帳號（確認正確 Riot ID 後跑 resolve_obgg_dpmpuuid.py 補 dpmPuuid）")
+                EMPTY_RES[key] = 0
                 continue
             # Phase2：該選手可信帳號都抓職業路線
             merged = []
@@ -261,7 +314,13 @@ def main():
                             f"{json.dumps({'role':role,'matches':merged},ensure_ascii=False)});\n")
                 idx[key] = {"f": fid+".js", "role": role, "n": len(merged)}
             print(f"[{i}/{len(keys)}] {key}  {role}  {len(merged)} 場（累計 {totG}）")
+            EMPTY_RES[key] = len(merged)
         b.close()
+    if MISSING and not STAGING and EMPTY_RES:
+        _em = save_year_empty(EMPTY_RES)
+        _z = [k for k, n in EMPTY_RES.items() if n == 0]
+        if _z:
+            print(f"0 場的 {len(_z)} 位記進 {os.path.relpath(EMPTY_PATH, ROOT)}（{EMPTY_DAYS} 天內不重抓，累計 {len(_em)} 位）：{_z}")
     _idx_path = os.path.join(OUTDIR, "soloq_match_index.js") if STAGING else IDX  # 暫存模式：索引也寫進暫存夾，絕不碰 live（swap 後由 build_soloq_index 重建）
     with open(_idx_path, "w", encoding="utf-8") as f:
         f.write("window.SOLOQ_MATCH_IDX=" + json.dumps({"fetched_at": time.strftime("%Y-%m-%d %H:%M"),
