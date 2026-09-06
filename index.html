@@ -8866,7 +8866,10 @@ function fitComboW(inp,texts,minW){
   //（2026-08-01 使用者回報）。內容真的更長時照樣撐開，「不裁字」的鐵則不變。
   inp.style.width=Math.max(minW||0,Math.ceil(mx+14+30))+"px"; // 左內距 + ✕ 鈕保留區
 }
-function bindCombo(id,options,cur,cb,abbr,minW){ // options:[{v,l,a,d,n}] v=值 l=縮寫/顯示名 a=別名陣列(全名/英文/中文都可搜) d=清單輔助說明 n=場數(清單依篩選範圍多→少排序)；minW=寬度下限
+function bindCombo(id,options,cur,cb,abbr,minW,strict){ // options:[{v,l,a,d,n}] v=值 l=縮寫/顯示名 a=別名陣列(全名/英文/中文都可搜) d=清單輔助說明 n=場數(清單依篩選範圍多→少排序)；minW=寬度下限
+  // strict（2026-09-06 使用者回報）：只認**完全相符**的選項；打一半的字（Va）當篩選文字原樣保留，
+  // 不再自動跳到第一個前綴相符（英雄篩選框打 Va 表格剩 4 隻，一離開框就被改成法洛士＝第一個 startsWith）。
+  // 戰隊／選手那些 combo 維持原本的模糊解析。
   const inp=document.getElementById(id),dl=document.getElementById(id+"dl");
   if(options.some(o=>o.n!=null))options=[...options].sort((a,b)=>(b.n||0)-(a.n||0)); // 鐵則：清單依範圍(場數)多→少
   const lc={}; if(abbr)options.forEach(o=>{const l=o.l||o.v; lc[l]=(lc[l]||0)+1;});
@@ -8880,13 +8883,13 @@ function bindCombo(id,options,cur,cb,abbr,minW){ // options:[{v,l,a,d,n}] v=值 
   inp.value=disp(cur||"");
   const keys=o=>[o.v,o.l,...(o.a||[])].filter(Boolean).map(s=>String(s).toLowerCase()); // 值/顯示名/別名一起比對
   inp.onchange=()=>{
-    const t=inp.value.trim().toLowerCase();
+    const raw=inp.value.trim(), t=raw.toLowerCase();
     let hit="";
     if(t){const m=options.find(o=>keys(o).some(s=>s===t))
-        ||options.find(o=>keys(o).some(s=>s.startsWith(t)))
-        ||options.find(o=>keys(o).some(s=>s.includes(t)));
-      hit=m?m.v:"";}
-    inp.value=disp(hit); cb(hit);
+        ||(strict?null:options.find(o=>keys(o).some(s=>s.startsWith(t))))
+        ||(strict?null:options.find(o=>keys(o).some(s=>s.includes(t))));
+      hit=m?m.v:(strict?raw:"");}   // strict：沒有完全相符就把打的字原樣當篩選值（呼叫端用 contains 過濾）
+    inp.value=(strict&&hit===raw)?raw:disp(hit); cb(hit);
   };
 }
 // 戰隊 combo 選項（全站共用）：l=縮寫(碰撞隊帶聯賽碼)、a=原始縮寫別名、n=場數 → 清單多→少、縮寫/全名都可搜
@@ -9563,7 +9566,7 @@ function addSubBack(onBack){ const card=document.querySelector("#main .card"); i
 // 「回復預設(↺)」共用邏輯：全域篩選＋各分頁常見篩選一併重置(供 filterBar 的 fReset 與各頁自動補上的 fReset 共用)
 function globalFilterReset(){
   Object.assign(F,{split:"",league:"ALL",patch:"",d1:"",d2:"",minG:0});
-  Object.assign(V,{pos:"",player:"",heroTeam:"",heroSel:"",tpSel:"",teamSel:"",vsTeam:"",bpTeam:"",bpHero:"",bpHeroMode:"both",bpPlayer:"",bpWin:"",bpFirst:"",search:"",r1:"",r2:"",r3:"",t1:"",t2:"",t3:"",dexQ:"",dexTag:"",dexCTag:"",rankQ:"",rankRole:"",rankRegion:"",rankSort:null,tierQ:""});
+  Object.assign(V,{pos:"",player:"",heroTeam:"",heroSel:"",heroQ:"",tpSel:"",teamSel:"",vsTeam:"",bpTeam:"",bpHero:"",bpHeroMode:"both",bpPlayer:"",bpWin:"",bpFirst:"",search:"",r1:"",r2:"",r3:"",t1:"",t2:"",t3:"",dexQ:"",dexTag:"",dexCTag:"",rankQ:"",rankRole:"",rankRegion:"",rankSort:null,tierQ:""}); // heroQ＝英雄分頁的英雄篩選框（2026-09-06 使用者回報 ↺ 沒清到它）
   if(curView==="英雄Tier")V.tierTeam="";
   if(curView==="陣容")V.rosterTeam="";
   if(curView==="比賽BP"){V.bpColF={};V.bpSideMode="br";} // 比賽BP：預設(↺)清空所有欄位篩選＋回藍紅模式
@@ -11399,9 +11402,11 @@ function render(){
       const _hn=new Map();
       LANES.forEach(o=>{ if(!passG(o))return;
         [o.raw[C.blue_champion],o.raw[C.red_champion]].forEach(c=>{ if(c)_hn.set(c,(_hn.get(c)||0)+1); }); });
+      // d＝英文資料名當清單輔助說明（2026-09-06）：瀏覽器比對 value 與說明文字，所以打 Va 也會列出法洛士／汎…
+      // strict＝只認完全相符（打一半的 Va 保留當 contains 篩選，不再一離開框就被改成第一個前綴相符的法洛士）
       const _hOpts=[..._hn.keys()].sort((x,y)=>_hn.get(y)-_hn.get(x))
-        .map(c=>({v:cAb(c), l:cAb(c), a:[c, cAb(c)], n:_hn.get(c)}));
-      bindCombo("vCh",_hOpts,V.heroQ||"",hit=>{ V.heroQ=hit||""; saveState(); rerender(); },false,190);
+        .map(c=>({v:cAb(c), l:cAb(c), a:[c, cAb(c)], d:(cAb(c)===c?"":c), n:_hn.get(c)}));
+      bindCombo("vCh",_hOpts,V.heroQ||"",hit=>{ V.heroQ=hit||""; saveState(); rerender(); },false,190,true);
       {const e=document.getElementById("vCh");
        if(e){ e.style.width="190px";                       // 與其他篩選框同規格（鐵則）
          e.value=V.heroQ||"";
