@@ -98,6 +98,9 @@ def live_pages(days):
         return None
 
 
+_LAST_HIT = [0.0]   # 上一次真的送出 api.php 請求的時刻（0＝還沒送過）
+
+
 def page_html(ov, force=False):
     os.makedirs(CACHE, exist_ok=True)
     f = os.path.join(CACHE, re.sub(r"[^A-Za-z0-9]+", "_", ov).strip("_").lower() + ".html")
@@ -107,17 +110,28 @@ def page_html(ov, force=False):
            + "&prop=text&format=json&formatversion=2")
     for a in range(3):
         try:
+            # GAP ＝**兩次請求之間的最小間隔**，不是「每抓完一頁呆坐 3 秒」（2026-09-07 線 3 #57）。
+            # 舊寫法是抓完就 sleep(GAP)：①中間解析快取頁／查賽程的秒數不算數，明明已經隔了
+            # 好幾秒還要再睡滿 3 秒；②最後一頁抓完也照睡，那 3 秒沒有任何人在等。
+            # 22:00 那班 9 頁重抓＝27 秒純呆坐。改成睡在請求之前、只補不足的部分。
+            _w = GAP - (time.time() - _LAST_HIT[0])
+            if _LAST_HIT[0] and _w > 0:
+                time.sleep(_w)
+            else:
+                _w = 0.0
             _t0 = time.time()
             d = json.loads(MH.opener().open(urllib.request.Request(url, headers=MH.UA), timeout=120)
                            .read().decode("utf-8", "replace"))
+            _LAST_HIT[0] = time.time()
             if "error" in d:
                 return ""
             h = d["parse"]["text"]
             open(f, "w", encoding="utf-8").write(h)
-            print(f"    ⏱ {ov}：{time.time() - _t0:.1f}s（{len(h) // 1024}KB）＋睡 {GAP:g}s")  # 每頁成本進日誌（2026-09-07 線 3）
-            time.sleep(GAP)
+            print(f"    ⏱ {ov}：{time.time() - _t0:.1f}s（{len(h) // 1024}KB）"
+                  + (f"＋前面等了 {_w:.1f}s" if _w else "＋不用等"))  # 每頁成本進日誌（2026-09-07 線 3）
             return h
         except Exception as e:
+            _LAST_HIT[0] = time.time()      # 失敗也算送過一次，重試不可以繞過間隔
             print(f"    抓取失敗（{a+1}/3）：{type(e).__name__}"); time.sleep(12 * (a + 1))
     return ""
 
@@ -302,12 +316,71 @@ def parse(ov, htm):
     return out
 
 
+SCHED_LIMIT = 500    # Cargo 單次回傳上限（跟舊的逐頁查詢同一個值）
+SCHED_PRE = {}       # ov -> [(日期, t1, t2, 'S1 - S2')]；sched_prefetch() 批次預取的結果
+
+
+def _sched_rows(ovs):
+    """一次查多個賽事頁的 MatchSchedule。回 None＝這次結果不可信（查詢失敗／可能被上限截斷）。"""
+    inlist = ",".join('"%s"' % str(o).replace('"', "") for o in ovs)
+    p = {"tables": "MatchSchedule=MS",
+         "fields": "MS.OverviewPage=ov,MS.DateTime_UTC=dt,MS.Team1=t1,MS.Team2=t2,"
+                   "MS.Team1Score=s1,MS.Team2Score=s2",
+         "where": "MS.OverviewPage IN (%s)" % inlist,
+         "order_by": "MS.OverviewPage,MS.DateTime_UTC", "format": "json", "limit": str(SCHED_LIMIT)}
+    url = WS.FORM + "?" + urllib.parse.urlencode(p)
+    try:
+        raw = WS.opener().open(urllib.request.Request(url, headers=WS.UA), timeout=120).read().decode("utf-8", "replace")
+        if raw.lstrip()[:1] not in "[{":
+            return None
+        rows = json.loads(raw)
+    except Exception:
+        return None
+    # 撞到上限就當作被截斷，交給呼叫端切一半重問。**刻意不用 offset 翻頁**：同一個賽事頁
+    # 同一個 DateTime_UTC 的兩場排序不保證穩定，翻頁邊界會漏掉或重複整場。
+    return None if len(rows) >= SCHED_LIMIT else rows
+
+
+def _sched_fill(ovs):
+    """遞迴填 SCHED_PRE：查得動就填，失敗／撞上限就切一半再問；切到剩一頁還是不行就**不填**
+    （⇒ sched() 自然退回原本的逐頁查詢，寧可慢不要漏）。"""
+    rows = _sched_rows(ovs)
+    if rows is None:
+        if len(ovs) > 1:
+            m = len(ovs) // 2
+            _sched_fill(ovs[:m])
+            _sched_fill(ovs[m:])
+        return
+    for o in ovs:
+        SCHED_PRE.setdefault(o, [])
+    for r in rows:
+        SCHED_PRE.setdefault(r.get("ov") or "", []).append(
+            (str(r.get("dt") or "")[:10], r.get("t1") or "", r.get("t2") or "",
+             "%s - %s" % (r.get("s1"), r.get("s2"))))
+
+
+def sched_prefetch(ovs, chunk=8):
+    """把所有賽事頁的賽程一次查回來（2026-09-07 線 3 #57）。
+
+    原本 `sched()` 是**一個賽事頁一個 Cargo 查詢**：45 頁 ≈ 29 秒，佔 fetch_side_sel
+    整整 100.1 秒的三成。實測同樣 10 頁逐頁查 6.39s、`OverviewPage IN (...)` 一次查 0.46s
+    （查詢成本幾乎全在連線往返，不在列數）。⇒ 45 頁只要 6 次查詢。
+    """
+    t0, ovs = time.time(), [o for o in ovs if o]
+    for i in range(0, len(ovs), chunk):
+        _sched_fill(ovs[i:i + chunk])
+    print("  賽程批次預取：%d 個賽事頁、%d 頁有賽程（%.1fs）"
+          % (len(ovs), sum(1 for o in ovs if SCHED_PRE.get(o)), time.time() - t0))
+
+
 def sched(ov):
     """該賽事的比賽清單（依時間）→ [(日期, Team1全名, Team2全名, 'S1-S2')]。
 
     賽程表沒有日期欄（只有週次分組）→ 靠 Cargo 的 MatchSchedule 補：實測它的時間順序
     與頁面列出的順序完全一致，且有比分可以逐場驗證對齊有沒有跑掉。
     """
+    if ov in SCHED_PRE:                 # sched_prefetch() 已經批次拿回來了
+        return SCHED_PRE[ov]
     p = {"tables": "MatchSchedule=MS",
          "fields": "MS.DateTime_UTC=dt,MS.Team1=t1,MS.Team2=t2,MS.Team1Score=s1,MS.Team2Score=s2",
          "where": 'MS.OverviewPage="%s"' % ov.replace('"', ""),
@@ -345,6 +418,7 @@ def main():
     live = set() if HIST else (None if (A.force or A.page) else live_pages(A.fresh_days))
     print(f"賽事頁 {len(pages)} 個"
           + ("（全部重抓）" if live is None else f"，其中進行中 {len(live & set(pages))} 個要重抓，其餘吃快取"))
+    sched_prefetch(pages)      # 賽程一次查完，下面的 sched(ov) 就不再逐頁往返（#57）
     allrec, hit = [], 0
     for ov in pages:
         h = page_html(ov, force=A.force or live is None or ov in live)
