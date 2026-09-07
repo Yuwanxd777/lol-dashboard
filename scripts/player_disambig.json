@@ -1616,5 +1616,161 @@
   "_未對應隊伍": {
    "Ultimate": 2
   }
+ },
+ "Cool": {
+  "persons": [
+   {
+    "key": "Cool",
+    "link": "Cool",
+    "teams": [
+     "FunPlus Phoenix",
+     "LGD Gaming",
+     "Newbee",
+     "All I Want",
+     "传奇TeamB"
+    ],
+    "games_lp": 152,
+    "games_oe": 375,
+    "first": "2017-01-20",
+    "last": "2024-11-23",
+    "teams_oe_manual": [
+     "Oh My God"
+    ]
+   },
+   {
+    "key": "Cool (Ryohei Tsuji)",
+    "link": "Cool (Ryohei Tsuji)",
+    "teams": [
+     "Salvage Javelin"
+    ],
+    "games_lp": 10,
+    "games_oe": 10,
+    "first": "2015-01-24",
+    "last": "2015-03-14"
+   },
+   {
+    "key": "Cool (Michael Thompson)",
+    "link": "Cool (Michael Thompson)",
+    "teams": [
+     "Aquatik Esports"
+    ],
+    "games_lp": 6,
+    "games_oe": 0,
+    "first": "2022-02-12",
+    "last": "2022-02-26"
+   }
+  ],
+  "source": "leaguepedia",
+  "teams_add": {
+   "Cool": [
+    "Oh My God"
+   ]
+  }
+ },
+ "Destroy": {
+  "persons": [
+   {
+    "key": "Destroy",
+    "link": "Destroy (Yoon Jeong-min)",
+    "teams": [
+     "Istanbul Wildcats",
+     "The Kings",
+     "Brion Blade",
+     "Rain's Never Surrender",
+     "Bushido Wildcats",
+     "FURIA",
+     "DRX"
+    ],
+    "games_lp": 215,
+    "games_oe": 19,
+    "first": "2019-06-06",
+    "last": "2025-05-17",
+    "teams_oe_manual": [
+     "Spear Gaming",
+     "Kiwoom DRX"
+    ]
+   },
+   {
+    "key": "Destroy (Nguyễn Anh Tinh)",
+    "link": "Destroy (Nguyễn Anh Tinh)",
+    "teams": [
+     "269 Gaming"
+    ],
+    "games_lp": 4,
+    "games_oe": 16,
+    "first": "2014-12-26",
+    "last": "2015-01-03"
+   }
+  ],
+  "source": "leaguepedia",
+  "teams_add": {
+   "Destroy (Yoon Jeong-min)": [
+    "Spear Gaming",
+    "Kiwoom DRX"
+   ]
+  }
+ },
+ "frosty": {
+  "reviewed": "Leaguepedia 只有一位（frosty (José Eduardo)）→ 同一人，誤報",
+  "link": "frosty (José Eduardo)"
+ },
+ "Chopper": {
+  "reviewed": "Leaguepedia 只有一位（Chopper (Dương Hoàng Sơn)）→ 同一人，誤報",
+  "link": "Chopper (Dương Hoàng Sơn)"
+ },
+ "_hold": {
+  "Demon": {
+   "狀態": "待查，不要採用 Leaguepedia 直接查名字的結果",
+   "理由": "LP 有三位 Demon（Wu Yue-Wei 中國／Lorenzo Marzi 義大利／Zakaria Nagbi），OE 有場次的只有 Wu Yue-Wei（Team WE 2022 TOP 12 場）。2013 GPL E-Sports Dragons Pro 的 BOT 29 場，用隊伍反查 LP 整隊查無 Demon ⇒ 那 29 場只會落回主人格＝仍與 WE 的 Demon 合併，但 persons 一寫就永久靜音（假定案）。",
+   "查到誰再定案": "2013 GPL E-Sports Dragons Pro（BOT，2013-04-19~2013-07-07）那位 Demon 的 LP 選手頁",
+   "撤掉的內容": {
+    "persons": [
+     {
+      "key": "Demon",
+      "link": "Demon (Wu Yue-Wei)",
+      "teams": [
+       "Team WE Academy",
+       "Team WE",
+       "Bilibili Gaming"
+      ],
+      "games_lp": 65,
+      "games_oe": 12,
+      "first": "2020-12-22",
+      "last": "2022-08-14"
+     },
+     {
+      "key": "Demon (Lorenzo Marzi)",
+      "link": "Demon (Lorenzo Marzi)",
+      "teams": [
+       "Team Queso",
+       "Outplayed",
+       "QLASH Forge"
+      ],
+      "games_lp": 49,
+      "games_oe": 0,
+      "first": "2018-05-28",
+      "last": "2020-03-17"
+     },
+     {
+      "key": "Demon (Zakaria Nagbi)",
+      "link": "Demon (Zakaria Nagbi)",
+      "teams": [
+       "Slash Lions",
+       "Fox Gaming",
+       "One More Esports"
+      ],
+      "games_lp": 16,
+      "games_oe": 0,
+      "first": "2023-02-01",
+      "last": "2024-06-20"
+     }
+    ],
+    "source": "leaguepedia",
+    "_未對應隊伍": {
+     "E-Sports Dragons Pro": 29
+    }
+   },
+   "撤除日": "2026-09-07（精進迴圈 #41）"
+  }
  }
 }
