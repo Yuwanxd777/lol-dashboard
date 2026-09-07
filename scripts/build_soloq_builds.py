@@ -51,6 +51,23 @@ def _date_of(t_ms):  # 積分逐場只有 epoch 毫秒時間戳→UTC 日期(YYY
     except Exception:
         return None
 
+def _by_window(rows, pwin):
+    """一位英雄的場次 rows=[(t_ms, 內容), …]（原始順序）× 版本視窗 pwin=[(版本, 起日, 迄日), …]
+    → 逐版本產出 (版本, 視窗內的場次子序列)。子序列**維持原始順序**，Counter 的插入順序（＝輸出 ids 的順序）才跟舊版逐位元相同；
+    視窗場數 < COREP_MINWIN 的直接略過（舊版是數完才判，結果一樣）。
+    2026-09-08 精進迴圈 #61：舊版 coreP／ksP 對每個版本都把該英雄全部場次掃一遍——244 版 × 30 萬場 × 2 ≈ 1.5 億次
+    `_date_of` 呼叫（lru_cache 命中也要 0.2µs），22:00 那班 72.6s 裡佔 31s；而積分逐場只有 2026 年，
+    前 227 版注定是空視窗。改成日期排序一次＋二分搜尋取範圍，每版只碰視窗內的場。"""
+    if not rows or not pwin:
+        return
+    order = sorted(range(len(rows)), key=lambda i: (_date_of(rows[i][0]) or "", i))  # 沒日期的排最前，任何起日都在它後面
+    dates = [_date_of(rows[i][0]) or "" for i in order]
+    for P, lo, hi in pwin:
+        a = bisect.bisect_left(dates, lo); b = bisect.bisect_left(dates, hi)   # 舊版條件 lo <= d < hi
+        if b - a < COREP_MINWIN:
+            continue
+        yield P, [rows[i] for i in sorted(order[a:b])]
+
 def load_patch_bounds():
     """從職業賽資料(data/data_*.js)推導每個版本「最早出現的比賽日期」。
     用真實比賽日當版本分界，避開硬猜各伺服器改版時差(使用者叮囑：以伺服器公告時間為主)。
@@ -394,6 +411,12 @@ def main():
             out.append({"ks": _ks, "n": _kn, "w": _kw, "opp": _opps,
                         "v": [{"rp": list(_s[0]), "rs": list(_s[1]), "n": _c2, "w": _w2} for _s, _c2, _w2 in _vs]})
         return out
+    # coreP／ksP 共用的版本視窗：每版＝「該版前三版的首戰日 ～ 該版首戰日（不含）」；算一次給所有英雄用（語意同舊版逐英雄重算）
+    pwin = []
+    for P in uni:
+        priors = [p for p in uni if patch_key(p) < patch_key(P)]
+        if not priors: continue
+        _w3 = priors[-3:]; pwin.append((P, pstart[_w3[0]], pstart[P]))
     champs = {}
     for c, n in games.items():
         if n < MIN_GAMES: continue
@@ -413,34 +436,19 @@ def main():
         # coreP：每個版本各自的「前三版核心裝」——版本趨勢(#4)判定某版道具被增/削時，只有該英雄在此版前三版內把它當核心裝(≥10%)才標記。
         # 例：26.13 砍無盡→往前看 26.10/11/12 積分數據算核心裝。視窗以「該版前三個職業賽版本的起日～該版起日」的比賽日期界定(交集不受內部版本邊界精度影響)。
         coreP = {}
-        allg = corePGames[c]  # [(t, 常用道具tuple), ...] 全場(含大裝＋鞋＋起手裝)
-        for P in uni:
-            priors = [p for p in uni if patch_key(p) < patch_key(P)]
-            if not priors: continue
-            win = priors[-3:]; lo = pstart[win[0]]; hi = pstart[P]  # 視窗起日(前三版首)～迄日(該版起日，不含該版本自身)
-            cnt = Counter(); tot = 0
-            for t_ms, legs in allg:
-                d = _date_of(t_ms)
-                if d is None or not (lo <= d < hi): continue
-                tot += 1
+        # corePGames[c]=[(t, 常用道具tuple), ...] 全場(含大裝＋鞋＋起手裝)；視窗＝該版前三版首戰日～該版起日（不含該版本自身），見 pwin／_by_window
+        for P, rows in _by_window(corePGames[c], pwin):
+            cnt = Counter(); tot = len(rows)
+            for _t, legs in rows:
                 for iid in set(legs): cnt[iid] += 1
-            if tot < COREP_MINWIN: continue
             ids = [iid for iid, k in cnt.items() if k / tot * 100 >= 10]
             if ids: coreP[P] = ids
         # ksP：與 coreP 同一套視窗（該版前三版），該英雄帶某關鍵符文 ≥10% 才列 → 版本趨勢(#4)/Tier 邊框在符文被增削那版標記。
         # 只算關鍵符文：小符文（骸骨鍍層/韌性碎片…）幾乎全英雄共用，改一顆會把全部英雄都標到＝沒有資訊。
         ksP = {}
-        allk = ksPGames[c]
-        for P in uni:
-            priors = [p for p in uni if patch_key(p) < patch_key(P)]
-            if not priors: continue
-            win = priors[-3:]; lo = pstart[win[0]]; hi = pstart[P]
-            cnt = Counter(); tot = 0
-            for t_ms, ksid in allk:
-                d = _date_of(t_ms)
-                if d is None or not (lo <= d < hi): continue
-                tot += 1; cnt[ksid] += 1
-            if tot < COREP_MINWIN: continue
+        for P, rows in _by_window(ksPGames[c], pwin):
+            cnt = Counter(); tot = len(rows)
+            for _t, ksid in rows: cnt[ksid] += 1
             ids = [k for k, v in cnt.items() if v / tot * 100 >= 10]
             if ids: ksP[P] = ids
         # 符文排列：依「最大顆符文(keystone＝主系第一顆)」分組 → 前三 keystone×各前二配置（邏輯在 _runes_ks）
