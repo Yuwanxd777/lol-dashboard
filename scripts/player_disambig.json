@@ -1718,59 +1718,73 @@
   "reviewed": "Leaguepedia 只有一位（Chopper (Dương Hoàng Sơn)）→ 同一人，誤報",
   "link": "Chopper (Dương Hoàng Sơn)"
  },
- "_hold": {
-  "Demon": {
-   "狀態": "待查，不要採用 Leaguepedia 直接查名字的結果",
-   "理由": "LP 有三位 Demon（Wu Yue-Wei 中國／Lorenzo Marzi 義大利／Zakaria Nagbi），OE 有場次的只有 Wu Yue-Wei（Team WE 2022 TOP 12 場）。2013 GPL E-Sports Dragons Pro 的 BOT 29 場，用隊伍反查 LP 整隊查無 Demon ⇒ 那 29 場只會落回主人格＝仍與 WE 的 Demon 合併，但 persons 一寫就永久靜音（假定案）。",
-   "查到誰再定案": "2013 GPL E-Sports Dragons Pro（BOT，2013-04-19~2013-07-07）那位 Demon 的 LP 選手頁",
-   "撤掉的內容": {
-    "persons": [
-     {
-      "key": "Demon",
-      "link": "Demon (Wu Yue-Wei)",
-      "teams": [
-       "Team WE Academy",
-       "Team WE",
-       "Bilibili Gaming"
-      ],
-      "games_lp": 65,
-      "games_oe": 12,
-      "first": "2020-12-22",
-      "last": "2022-08-14"
-     },
-     {
-      "key": "Demon (Lorenzo Marzi)",
-      "link": "Demon (Lorenzo Marzi)",
-      "teams": [
-       "Team Queso",
-       "Outplayed",
-       "QLASH Forge"
-      ],
-      "games_lp": 49,
-      "games_oe": 0,
-      "first": "2018-05-28",
-      "last": "2020-03-17"
-     },
-     {
-      "key": "Demon (Zakaria Nagbi)",
-      "link": "Demon (Zakaria Nagbi)",
-      "teams": [
-       "Slash Lions",
-       "Fox Gaming",
-       "One More Esports"
-      ],
-      "games_lp": 16,
-      "games_oe": 0,
-      "first": "2023-02-01",
-      "last": "2024-06-20"
-     }
+ "Demon": {
+  "persons_add": [
+   {
+    "link": "Demon (Tsai Tung-Jung)",
+    "teams": [
+     "e-Sports Dragons Pro"
     ],
-    "source": "leaguepedia",
-    "_未對應隊伍": {
-     "E-Sports Dragons Pro": 29
-    }
+    "games_lp": 0,
+    "first": "2013-04-15",
+    "last": "2013-09-01",
+    "note": "2013 GPL e-Sports Dragons Pro 的 BOT。LP 有選手頁（Players 表：Taiwan）與 RosterChanges（2013-04-15 Join Bot／2013-09-01 Leave Bot），也在 TournamentRosters 三個賽事的名單裡，但 LP 整季沒有 2013 GPL 的逐場 ⇒ ScoreboardPlayers 查無，只能人工補。旁證：OE 那 29 場（2013-04-19~07-07）的隊友 KimiK／Parad1sE／TooLonG／GuruCat／Ratis 與 LP 同一批 Join 名單完全一致（精進迴圈 #42 查證）"
+   }
+  ],
+  "查證": "#41 用隊名反查 ScoreboardPlayers 整隊 0 場，當時判為『LP 沒收錄』並暫存 _hold；#42 改查不靠逐場的名單表（TournamentRosters／RosterChanges）就查到了。LP 上叫 Demon 的選手頁其實有 7 個（PlayerRedirects），ScoreboardPlayers 只看得到 3 個。",
+  "persons": [
+   {
+    "key": "Demon",
+    "link": "Demon (Tsai Tung-Jung)",
+    "teams": [
+     "e-Sports Dragons Pro"
+    ],
+    "games_lp": 0,
+    "games_oe": 29,
+    "first": "2013-04-15",
+    "last": "2013-09-01",
+    "manual": "2013 GPL e-Sports Dragons Pro 的 BOT。LP 有選手頁（Players 表：Taiwan）與 RosterChanges（2013-04-15 Join Bot／2013-09-01 Leave Bot），也在 TournamentRosters 三個賽事的名單裡，但 LP 整季沒有 2013 GPL 的逐場 ⇒ ScoreboardPlayers 查無，只能人工補。旁證：OE 那 29 場（2013-04-19~07-07）的隊友 KimiK／Parad1sE／TooLonG／GuruCat／Ratis 與 LP 同一批 Join 名單完全一致（精進迴圈 #42 查證）"
    },
-   "撤除日": "2026-09-07（精進迴圈 #41）"
-  }
+   {
+    "key": "Demon (Wu Yue-Wei)",
+    "link": "Demon (Wu Yue-Wei)",
+    "teams": [
+     "Team WE Academy",
+     "Team WE",
+     "Bilibili Gaming"
+    ],
+    "games_lp": 65,
+    "games_oe": 12,
+    "first": "2020-12-22",
+    "last": "2022-08-14"
+   },
+   {
+    "key": "Demon (Lorenzo Marzi)",
+    "link": "Demon (Lorenzo Marzi)",
+    "teams": [
+     "Team Queso",
+     "Outplayed",
+     "QLASH Forge"
+    ],
+    "games_lp": 49,
+    "games_oe": 0,
+    "first": "2018-05-28",
+    "last": "2020-03-17"
+   },
+   {
+    "key": "Demon (Zakaria Nagbi)",
+    "link": "Demon (Zakaria Nagbi)",
+    "teams": [
+     "Slash Lions",
+     "Fox Gaming",
+     "One More Esports"
+    ],
+    "games_lp": 16,
+    "games_oe": 0,
+    "first": "2023-02-01",
+    "last": "2024-06-20"
+   }
+  ],
+  "source": "leaguepedia"
  }
 }

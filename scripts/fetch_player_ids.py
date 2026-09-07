@@ -214,6 +214,8 @@ def main():
         "persons": "依總場次多→少排序；第一個是主人格，key 沿用原名，前端沒改也不會壞。",
         "teams": "該人格在 OE 資料裡用過的隊名。沒列到的隊伍一律歸主人格（安全預設）。",
         "reviewed": "填了這欄＝人工確認是同一人（誤報），check_player_dup 就不再報。",
+        "persons_add": "人工補的人格（LP 有選手頁但 ScoreboardPlayers 一場都沒有，例：2013 GPL 只有名單沒逐場）。"
+                       "填 link／teams／games_lp／first／last／note，重跑本腳本會合併進 persons，不會被覆寫。",
         "來源": "scripts/fetch_player_ids.py 由 Leaguepedia ScoreboardPlayers.Link 產生；可人工編輯。",
     })
     nsplit = nsingle = nmiss = 0
@@ -244,10 +246,26 @@ def main():
         per, merged = merge_same(dict(per))
         if merged:
             print(f"    ↺ {n}：合併重導頁 " + "、".join(f"{b} → {a}" for b, a in merged.items()))
+        prev = old.get(n) if isinstance(old.get(n), dict) else {}
+        # persons_add＝人工補的人格：LP **有選手頁、但 ScoreboardPlayers 一場都沒有**的人。
+        # 早年賽事 LP 常常只有名單沒有逐場（2013 GPL 例行賽整季都沒有：e-Sports Dragons Pro、
+        # Wayi Spider、Yoe IRONMEN 全是 0 場），那些人只存在於 RosterChanges／TournamentRosters，
+        # 本腳本查 ScoreboardPlayers 永遠看不到 ⇒ 拆不出來。人工查到就寫進 persons_add，
+        # 這裡合併進來一起排序；本腳本只補、不覆寫 persons_add 本身。
+        # 欄位：link（必填，LP 選手頁）／teams（LP 隊名，可空）／games_lp／first／last／note。
+        for mp in prev.get("persons_add") or []:
+            lk = norm_link(str(mp.get("link") or ""))
+            if not lk or lk in per:
+                continue
+            per[lk] = {"n": int(mp.get("games_lp") or 0),
+                       "teams": {t: 0 for t in (mp.get("teams") or [])},
+                       "f": str(mp.get("first") or "9999")[:10],
+                       "l": str(mp.get("last") or "")[:10],
+                       "manual": mp}
+            print(f"    ＋ {n}：人工補人格 {lk}（LP 有頁但無逐場）")
         if len(per) <= 1:
             nsingle += 1
             lk = next(iter(per)) if per else ""
-            prev = old.get(n) if isinstance(old.get(n), dict) else {}
             ent = {k: v for k, v in prev.items() if k not in ("persons",)}
             ent["reviewed"] = f"Leaguepedia 只有一位（{lk}）→ 同一人，誤報"
             ent["link"] = lk
@@ -255,7 +273,6 @@ def main():
             report.append((n, "同一人", [lk]))
             continue
         nsplit += 1
-        prev = old.get(n) if isinstance(old.get(n), dict) else {}
         # teams_add＝人工補的隊名對照（OE 與 LP 隊名不同時用；本腳本不覆寫它）
         add = prev.get("teams_add") or {}
         oc = oet.get(n) or {}
@@ -276,6 +293,8 @@ def main():
                  "first": e["f"], "last": e["l"]}
             if add.get(lk):
                 p["teams_oe_manual"] = list(add[lk])
+            if e.get("manual"):
+                p["manual"] = e["manual"].get("note") or "人工補（LP 有頁但無逐場）"
             persons.append(p)
         ent = {k: v for k, v in prev.items() if k != "reviewed"}
         ent["persons"] = persons
