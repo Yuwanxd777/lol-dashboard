@@ -58,6 +58,22 @@
   ・而且名單裡有「這個 rid 曾從**這個檔的 key** 被剔除」→ 刪，理由記 dpm 說的真主。
 帳號檔哪天又把它登記回本人名下，名單就自動失效（第一個條件不成立），不會累積誤刪。
 
+## 判定四：帳號檔歷史歸屬（2026-09-07 #37 追加，處理「孤兒逐場檔」）
+
+判定一二三都碰不到第四種漏法：**帳號檔某天大搬風，整位選手從帳號檔消失**。
+2026-09-06 01:1x 那次手動跑用了一份異常的 912 筆名單（平常 1082～1092 筆），多出
+`IG|Helper`／`IG|Fury`／`BLG|Ben`／`BLG|Daeny` 這些賽事資料裡沒出場過的人，而且名字與帳號錯位，
+產生三個逐場檔（p431／p432／p433）。下一次跑名單恢復正常 ⇒ 這三個 key 在帳號檔完全不存在＝**孤兒**：
+`fetch_soloq_update` 不再更新它們，rid 誰都沒命中（判定一×）、本檔零實證又沒有第二個檔可對照（判定二×）、
+抓取端沒剔除過（判定三×），可是 `build_soloq_index` 掃資料夾重建，照樣進積分頁與每日戰況。
+
+證據在 git 裡：`scripts/soloq_accounts.json` 每天 commit 兩次。`scripts/soloq_acc_history.py` 把最近
+40 個快照掃成 `rid → 曾經登記給誰`（有快取，之後每天只掃新的），**四個條件全成立**才刪：
+  1. rid 現在誰的帳號檔都沒命中（命中就回到判定一二三）
+  2. 所有快照裡這個 rid 命中的 key **恰好一個**（掛過兩個人以上＝歷史本身是亂帳，不猜）
+  3. 那個 key 不是這個檔的 key
+  4. 兩邊**選手 ID 不同**（`IG|Fury` vs `WE|Fury` ＝同一人換隊，不是別人的比賽）
+
 2026-09-07 首次上線（名單用 `python scripts/soloq_disowned.py --from-log` 從當天日誌回填 3 筆）清掉：
   NIP|Care 356/356 場（ice seven zero#0721＝Beichuan，整頁都是別人的）、
   WBG|Jwei 147/1265 場（BJYBJY#0111＝lamb，其餘 1118 場是他自己的）。
@@ -79,6 +95,7 @@
     python scripts/clean_soloq_matches.py --apply --force   # 超過保險絲也照做
     python scripts/clean_soloq_matches.py --no-oldname      # 關掉判定二（出事時退回舊行為）
     python scripts/clean_soloq_matches.py --no-disowned     # 關掉判定三（歸屬剔除名單）
+    python scripts/clean_soloq_matches.py --no-history      # 關掉判定四（帳號檔歷史歸屬）
 
 排在管線的 ⑤e 之後、⑤f `build_soloq_index` 之前（索引與出裝聚合都是掃逐場檔重建，清完才會生效）。
 """
@@ -99,6 +116,7 @@ ROOT = os.path.dirname(HERE)
 sys.path.insert(0, HERE)
 import soloq_src  # 逐場檔來源 meta：刪場次時同步扣掉 obs，否則 src 會跟 matches 失同步
 import soloq_disowned  # 歸屬複查剔除名單：判定三的證據來源
+import soloq_acc_history  # 帳號檔 git 歷史歸屬：判定四的證據來源
 OUTDIR = os.path.join(ROOT, "soloq_matches")
 ACCOUNTS = os.path.join(HERE, "soloq_accounts.json")
 LOGP = os.path.join(ROOT, "csv_cache", "soloq_clean_log.json")
@@ -218,6 +236,7 @@ def main():
     ap.add_argument("--force", action="store_true", help="超過保險絲上限也照做")
     ap.add_argument("--no-oldname", action="store_true", help="關掉判定二（舊名歸屬），只跑判定一")
     ap.add_argument("--no-disowned", action="store_true", help="關掉判定三（歸屬複查剔除名單）")
+    ap.add_argument("--no-history", action="store_true", help="關掉判定四（帳號檔 git 歷史歸屬）")
     ap.add_argument("--max-files", type=int, default=20, help="一輪最多動幾個檔（預設 20）")
     ap.add_argument("--max-games", type=int, default=3000, help="一輪最多刪幾場（預設 3000）")
     ap.add_argument("--min-accounts", type=int, default=300, help="帳號檔少於這麼多筆就不做（預設 300）")
@@ -233,6 +252,11 @@ def main():
     DIS = {} if A.no_disowned else soloq_disowned.index(soloq_disowned.load())
     if DIS:
         print("歸屬剔除名單：%d 個 riotId（判定三的證據，來源 csv_cache/soloq_disowned.json）" % len(DIS))
+
+    HIST = {} if A.no_history else soloq_acc_history.index(soloq_acc_history.build())
+    if HIST:
+        print("帳號檔歷史：%d 個 riotId（判定四的證據，來源 %d 個 git 快照）"
+              % (len(HIST), len(soloq_acc_history.load_cache().get("commits") or [])))
 
     files, owncnt, ridmap, unreadable = scan_all(owner)
 
@@ -260,6 +284,13 @@ def main():
                 r, key, owner, mine, tags, owncnt, ridmap)
             if hit:
                 drop.append((g, hit[0], "舊名（%s）" % hit[1]))
+                continue
+            # 判定四：這個 rid 在**歷史帳號檔**裡只掛給過另外一位選手（帳號檔某天大搬風、
+            # 這位選手整個人從帳號檔消失＝孤兒逐場檔，判定一二三都碰不到）。
+            d4 = None if (A.no_history or not r or who) else soloq_acc_history.history_owner(
+                HIST, r, key)
+            if d4:
+                drop.append((g, d4[0], "歷史（%s）" % d4[1]))
             else:
                 keep.append(g)
         if drop:
@@ -269,15 +300,18 @@ def main():
                           # byrid 的鍵是「rid＝擁有者〔理由〕」給人看的；扣 src.obs 要純 rid，另外算一份
                           "droprid": collections.Counter(g.get("rid") for g, _, _ in drop if g.get("rid")),
                           "rules": collections.Counter(("二" if why.startswith("舊名")
-                                                        else "三" if why.startswith("剔除") else "一")
+                                                        else "三" if why.startswith("剔除")
+                                                        else "四" if why.startswith("歷史") else "一")
                                                        for _, _, why in drop)})
 
     ngames = sum(p["drop"] for p in plans)
     n2 = sum(p["rules"].get("二", 0) for p in plans)
     n3 = sum(p["rules"].get("三", 0) for p in plans)
+    n4 = sum(p["rules"].get("四", 0) for p in plans)
     print("掃 %d 個逐場檔（%d 個讀不動）：%d 個檔混進別人的比賽，共 %d 場"
-          "（判定一現名 %d、判定二舊名 %d、判定三剔除名單 %d）"
-          % (len(files) + unreadable, unreadable, len(plans), ngames, ngames - n2 - n3, n2, n3))
+          "（判定一現名 %d、判定二舊名 %d、判定三剔除名單 %d、判定四歷史帳號檔 %d）"
+          % (len(files) + unreadable, unreadable, len(plans), ngames,
+             ngames - n2 - n3 - n4, n2, n3, n4))
     for p in sorted(plans, key=lambda x: -x["drop"]):
         print("  %-22s %-9s 刪 %d／共 %d 場（自己剩 %d）%s ← %s"
               % (p["key"], p["fn"], p["drop"], p["total"], len(p["keep"]),
