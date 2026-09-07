@@ -5,6 +5,8 @@
 供下一次比對。**只讀**（只寫 UPDATE_BASELINE.json）。
 
 看什麼：
+  有跑  ‧ **這份日誌是不是這一班寫的**（2026-09-07 #47）——日誌裡有沒有 run_update、有沒有步驟、
+          run 的開始時間距現在多久。publish.bat 呼叫時帶 --from-publish 才判新鮮度（手動跑只顯示）
   速度  ‧ run_update 開始時間、有沒有退回循序、各階段並行是否炸掉（traceback）
         ‧ 最久的 8 步、非零離開碼的步驟、管線總時長（run_update 開始 → 「資料更新時間」那行）
   準確  ‧ data_YYYY.js（**全部 14 年**）列數不可比基準少（縮水＝來源掛了或過濾壞了）
@@ -15,6 +17,7 @@
 用法：python scripts/update_health.py           # 報告＋更新基準
       python scripts/update_health.py --no-save # 只報告
       python scripts/update_health.py --accept  # 認可縮水（資料真的變少時才用），把現值寫成新基準
+      python scripts/update_health.py --from-publish   # publish.bat 用：日誌不新鮮＝異常
 """
 import glob
 import io
@@ -69,6 +72,58 @@ def parse_log():
     if m:
         r["dup"] = int(m.group(1))
     return r
+
+
+# ── 「這一班到底有沒有真的跑」（純函式；scripts/update_health_test.py 在測）──────────
+# 正常一班：10:00 開始、25~30 分鐘跑完，最壞那次退回循序 94 分鐘；健檢緊接在 push 之後跑。
+# 失效那一班：日誌是上一班寫的 ⇒ 至少差 12 小時（兩班間隔）。240 分鐘落在中間，兩邊都有很大餘裕。
+FRESH_MIN = 240
+
+
+def log_age_min(start_at, log_mtime, now_ts):
+    """日誌有多舊（分鐘）。優先用日誌裡 run_update 的開始時間，沒有才退回檔案 mtime。
+
+    為什麼優先用內容而不是 mtime：publish.bat 在健檢跑完後會 `type` 健檢結論折進 update_log.txt，
+    mtime 因此永遠是「剛剛」；而且日誌裡的時間才是這一班真的開始跑的時間。
+    回 None＝兩個都沒有（檔案不存在）。時鐘漂移造成的負值夾成 0。
+    """
+    ts = None
+    if start_at:
+        try:
+            ts = time.mktime(time.strptime(start_at, "%Y-%m-%d %H:%M:%S"))
+        except ValueError:
+            ts = None
+    if ts is None:
+        ts = log_mtime
+    if ts is None:
+        return None
+    return max(0.0, (now_ts - ts) / 60.0)
+
+
+def run_problems(lg, age_min, fresh_min):
+    """這一班的更新到底有沒有跑起來 → bad 訊息 list（fresh_min=None＝手動跑，不判新鮮度）。
+
+    2026-09-07 #47 補的洞：健檢只分析日誌裡「有什麼」，從來不問「這份日誌是不是這一班寫的」。
+    `update.bat` 第一件事就是覆寫 update_log.txt，所以只要它沒跑到（publish.bat 被改壞、
+    call 被跳過、cd /d 失敗），健檢讀到的是**上一班的完整日誌**：42 步全 exit 0、守門通過、
+    資料量也沒變（因為根本沒更新）⇒ 結論「✓ 沒有異常」、不留 HEALTH_ALERT.txt。
+    那正是 2026-09-06 10:00「一步都沒跑還照樣 push」的重演，而健檢就是為了抓它才做的。
+    publish.bat 的註解本來就寫著「exit 1 = ... / no run at all」，程式碼裡卻沒有這條。
+    """
+    if lg is None:
+        return ["找不到 update_log.txt（這一班沒有寫出任何日誌）"]
+    out = []
+    if not lg.get("runs"):
+        out.append("日誌裡沒有 run_update（這一班的更新根本沒開始跑）")
+    elif not lg.get("steps"):
+        out.append("run_update 有開始、卻一個步驟都沒跑完")
+    if fresh_min is None:
+        return out                       # 手動跑（迴圈每輪查）：只問有沒有跑，不判新鮮度
+    if age_min is None:
+        out.append("日誌沒有時間戳，無法判斷是不是這一班寫的")
+    elif age_min > fresh_min:
+        out.append("日誌是 %.1f 小時前的（>%d 分鐘）⇒ 這一班沒有寫新日誌" % (age_min / 60.0, fresh_min))
+    return out
 
 
 def data_counts():
@@ -155,6 +210,15 @@ def main():
         pass
     print("═══ 資料更新健檢 %s ═══" % time.strftime("%Y-%m-%d %H:%M"))
     bad = []
+    # 先問「這份日誌是不是這一班寫的」，再談日誌裡的內容（#47）
+    fresh_min = FRESH_MIN if "--from-publish" in sys.argv else None
+    age = log_age_min((lg or {}).get("start_at"),
+                      os.path.getmtime(LOG) if os.path.exists(LOG) else None, time.time())
+    print("日誌：%s（%s%s）" % (
+        (lg or {}).get("start_at") or "沒有 run_update 時間戳",
+        "年齡不明" if age is None else "%.1f 小時前" % (age / 60.0),
+        "" if fresh_min else "，手動跑不判新鮮度"))
+    bad += run_problems(lg, age, fresh_min)
     if lg:
         print("run_update：%s" % ("、".join("%s（並行 %s）" % x for x in lg["runs"]) or "（日誌裡沒有 run_update）"))
         if lg["fallback_whole"]:
@@ -172,8 +236,9 @@ def main():
             nz = [(n, c) for n, _, c in st if c != 0]
             if nz:
                 bad.append("非零離開碼：" + "、".join("%s(%d)" % x for x in nz))
+        # 失敗優先：日誌萬一同時有兩種字樣（例如手動補跑過），印 ✓ 會跟下面的結論自相矛盾
         print("守門：%s／push：%s／lint 錯誤級：%s／可疑同名：%s" % (
-            "✓" if lg["preflight_ok"] else ("✗ FAILED" if lg["preflight_fail"] else "？"),
+            "✗ FAILED" if lg["preflight_fail"] else ("✓" if lg["preflight_ok"] else "？"),
             "✓" if lg["pushed"] else "？", lg["lint_err"], lg["dup"]))
         if lg["lint_err"]:
             bad.append("lint_text 錯誤級 %d（應為 0）" % lg["lint_err"])

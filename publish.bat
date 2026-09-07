@@ -48,7 +48,12 @@ rem other programs open those, and cmd's lock is what made run_update.py die wit
 rem PermissionError on 2026-09-06 (the 10:00 update silently did nothing and still pushed).
 rem exit 1 = something is off (shrunk data / non-zero step / lint errors / no run at all):
 rem leave a latch file for the improvement loop and the panel; a clean run clears it.
-python scripts\update_health.py > update_health_log.txt 2>&1
+rem --from-publish: also treat a STALE log as a problem (2026-09-07). update.bat overwrites
+rem update_log.txt on its very first line, so if it never ran (call skipped, cd failed, .bat
+rem broken) the health check would read the PREVIOUS shift's log - 42 steps all exit 0, gate
+rem passed, data counts unchanged because nothing was updated - and report 'no problems'.
+rem Manual runs from the improvement loop omit the flag (they run between shifts on purpose).
+python scripts\update_health.py --from-publish > update_health_log.txt 2>&1
 if errorlevel 1 (
   copy /y update_health_log.txt autopilot\HEALTH_ALERT.txt >nul
 ) else (

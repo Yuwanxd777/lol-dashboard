@@ -10,9 +10,12 @@
 用法：python scripts\\update_health_test.py    （exit 0＝全過）
 """
 import glob
-
+import io
 import os
+import shutil
 import sys
+import tempfile
+import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
@@ -100,6 +103,74 @@ eq("data_2013.js" in dc, True, "⑦最早那年也在（舊版 [-3:] 會漏）")
 
 # ── ⑧ 真實資料：現況對現況比對不可以出現任何 shrink ─────────────────────
 eq([k for k, _, _, st in uh.diff_counts(dc, dc) if st == "shrink"], [], "⑧自己比自己沒有縮水")
+
+# ── ⑨ log_age_min：這份日誌有多舊（#47）────────────────────────────────
+NOW = time.mktime(time.strptime("2026-09-07 22:30:00", "%Y-%m-%d %H:%M:%S"))
+eq(round(uh.log_age_min("2026-09-07 22:00:00", None, NOW)), 30, "⑨用日誌裡 run_update 的開始時間")
+# 關鍵：publish.bat 在健檢之後會 type 結論進 update_log.txt，mtime 因此永遠是「剛剛」。
+# 只看 mtime 的話，一份 12 小時前的舊日誌會被當成新鮮的。
+eq(round(uh.log_age_min("2026-09-07 10:00:00", NOW, NOW)), 750, "⑨內容優先於 mtime（mtime 剛被 type 更新過也騙不到）")
+eq(round(uh.log_age_min(None, NOW - 3600, NOW)), 60, "⑨沒有時間戳才退回 mtime")
+eq(uh.log_age_min(None, None, NOW), None, "⑨兩個都沒有＝年齡不明")
+eq(uh.log_age_min("壞掉的時間戳", None, NOW), None, "⑨時間戳解析失敗又沒 mtime")
+eq(uh.log_age_min("2026-09-08 00:00:00", None, NOW), 0.0, "⑨時鐘漂移的負值夾成 0")
+
+# ── ⑩ run_problems：這一班到底有沒有真的跑（#47 的核心）──────────────────
+FULL = {"runs": [("2026-09-07 22:00:01", "4")], "steps": [("a", 1.0, 0)]}
+EMPTY = {"runs": [], "steps": []}
+STARTED = {"runs": [("2026-09-07 22:00:01", "4")], "steps": []}
+eq(uh.run_problems(FULL, 30, uh.FRESH_MIN), [], "⑩正常一班：沒問題")
+
+
+def why(lg, age, fresh=uh.FRESH_MIN):
+    """把訊息接成一條字串再比對——只斷言「有幾條」抓不到「報錯了原因」：
+    2026-09-07 的突變對照就漏抓過一個（把「沒有 run_update」那條拿掉之後，
+    空日誌照樣因為「0 個步驟」而報 1 條，數量沒變、原因全錯）。"""
+    return "／".join(uh.run_problems(lg, age, fresh))
+
+
+eq(why(EMPTY, 0), "日誌裡沒有 run_update（這一班的更新根本沒開始跑）", "⑩日誌裡沒有 run_update ⇒ 異常（且說得出是這個原因）")
+eq(why(STARTED, 30), "run_update 有開始、卻一個步驟都沒跑完", "⑩有開始卻 0 個步驟 ⇒ 異常（且說得出是這個原因）")
+eq(uh.run_problems(None, None, uh.FRESH_MIN), ["找不到 update_log.txt（這一班沒有寫出任何日誌）"],
+   "⑩連日誌都沒有 ⇒ 異常")
+# 這條就是 2026-09-06 10:00 的形狀：日誌整份是上一班的，內容完美無缺
+eq("沒有寫新日誌" in why(FULL, 12 * 60), True, "⑩12 小時前的舊日誌 ⇒ 異常（不新鮮）")
+eq(why(FULL, uh.FRESH_MIN - 1), "", "⑩剛好在門檻內：不報")
+eq("沒有寫新日誌" in why(FULL, uh.FRESH_MIN + 1), True, "⑩剛好超過門檻：報")
+eq("無法判斷" in why(FULL, None), True, "⑩年齡不明也算異常（publish 模式）")
+# 手動跑（迴圈每輪查，常常落在兩班之間）不判新鮮度，但「有沒有跑」照樣要問
+eq(why(FULL, 12 * 60, None), "", "⑩手動模式：舊日誌不報")
+eq(why(FULL, None, None), "", "⑩手動模式：年齡不明不報")
+eq("沒有 run_update" in why(EMPTY, 12 * 60, None), True, "⑩手動模式：沒有 run_update 還是要報")
+eq(uh.FRESH_MIN > 94 + 30, True, "⑩門檻要大於最久那次（94 分退回循序）加緩衝")
+eq(uh.FRESH_MIN < 12 * 60, True, "⑩門檻要小於兩班間隔 12 小時，否則舊日誌照樣過關")
+
+# ── ⑪ 自我污染：健檢結論被 type 折進日誌後，下次 parse 不可以讀出新的 run／步驟 ──
+_real_log, _real_console = uh.LOG, uh.CONSOLE
+try:
+    tmp = tempfile.mkdtemp(prefix="uh_test_")
+    src = io.open(os.path.join(ROOT, "update_log.txt"), encoding="utf-8", errors="replace").read()
+    uh.CONSOLE = os.path.join(tmp, "no_console.txt")
+    uh.LOG = os.path.join(tmp, "log.txt")
+    io.open(uh.LOG, "w", encoding="utf-8").write(src)
+    before = uh.parse_log()
+    verdict = ("═══ 資料更新健檢 2026-09-07 22:31 ═══\n"
+               "日誌：2026-09-07 22:00:01（0.5 小時前）\n"
+               "run_update：2026-09-07 22:00:01（並行 4）\n"
+               "步驟 42 個、相加 28.2 分鐘；最久的 8 步：\n"
+               "   fetch_soloq_matches            639.5s  ⚠ exit 3\n"
+               "守門：✓／push：✓／lint 錯誤級：0／可疑同名：0\n"
+               "結論：⚠ 日誌是 7.5 小時前的（>240 分鐘）⇒ 這一班沒有寫新日誌\n")
+    io.open(uh.LOG, "a", encoding="utf-8").write(verdict * 3)
+    after = uh.parse_log()
+    for k in ("runs", "steps", "start_at", "preflight_fail", "lint_err", "dup", "tracebacks"):
+        eq(after[k], before[k], "⑪折進日誌三次後 %s 不變" % k)
+    # 正控制：真的多一個步驟行就一定要被讀到，否則這組測試是死的
+    io.open(uh.LOG, "a", encoding="utf-8").write("---- 假步驟（12.3s，exit 7）----\n")
+    eq(len(uh.parse_log()["steps"]), len(before["steps"]) + 1, "⑪正控制：真的步驟行讀得到")
+finally:
+    uh.LOG, uh.CONSOLE = _real_log, _real_console
+    shutil.rmtree(tmp, ignore_errors=True)
 
 print("update_health 回歸測試：通過 %d 條" % OK[0] + ("" if not NG else "，失敗 %d 條" % len(NG)))
 for m in NG:
