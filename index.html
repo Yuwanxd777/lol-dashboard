@@ -13554,15 +13554,19 @@ function render(){
       // 同時累計「勝負」與「金錢差@10」：使用者定案 2026-08-07——對位要回答的是**這條線吃不吃香**，
       // 那就是 GD@10 直接量的東西；對位勝率會被其他四條線嚴重汙染（實測拿它預測勝負只有 51.8%，
       // 跟擲硬幣差不多）。所以 GD 有樣本就用 GD，沒有（LPL 這欄全空）才退回勝率。
+      // gs/gn＝**金差@10**（選角評分的對位分吃這一份，刻度是照 @10 校準的，不要動它）；
+      // g5s/g5n＝**金差@15**（2026-09-07 使用者定案：疊圖的對戰列用 @15，因為積分那邊只有 @15，
+      // 兩邊要能加權在一起。實測 2026 年 LPL @10 有值 80%、@15 81%，LCK／LEC 都是 100%）。
       const muRec=(L,a,b)=>{ if(!_IX.mu){ _IX.mu={};
-          const add=(k,w,g)=>{ const e=_IX.mu[k]||(_IX.mu[k]={n:0,w:0,gn:0,gs:0});
-            e.n++; if(w)e.w++; if(g!=null){ e.gn++; e.gs+=g; } };
+          const add=(k,w,g,g5)=>{ const e=_IX.mu[k]||(_IX.mu[k]={n:0,w:0,gn:0,gs:0,g5n:0,g5s:0});
+            e.n++; if(w)e.w++; if(g!=null){ e.gn++; e.gs+=g; } if(g5!=null){ e.g5n++; e.g5s+=g5; } };
           for(const o of LANES){ if(!inRef(o))continue; const L2=PID2LANE[o.pid]; if(!L2)continue;
             const bc=champId(o.raw[C.blue_champion]), rc=champId(o.raw[C.blue_champion+RB]);
             if(!bc||!rc)continue; const bw=o.result===1;
             const gb=parseFloat(o.raw[C.blue_golddiffat10]), gr=parseFloat(o.raw[C.blue_golddiffat10+RB]);
-            add(L2+"|"+bc+"|"+rc, bw, isFinite(gb)?gb:null);
-            add(L2+"|"+rc+"|"+bc, !bw, isFinite(gr)?gr:null); } }
+            const hb=parseFloat(o.raw[C.blue_golddiffat15]), hr=parseFloat(o.raw[C.blue_golddiffat15+RB]);
+            add(L2+"|"+bc+"|"+rc, bw, isFinite(gb)?gb:null, isFinite(hb)?hb:null);
+            add(L2+"|"+rc+"|"+bc, !bw, isFinite(gr)?gr:null, isFinite(hr)?hr:null); } }
         return _IX.mu[L+"|"+champId(a)+"|"+champId(b)]||null; };
       // ── 對位分（2026-08-07 使用者定案：兩邊都不准寫死金額刻度）──────────────────────
       // 共通做法，職業賽與積分各跑一次：
@@ -13851,7 +13855,7 @@ function render(){
           return v;
         }catch(e){ return null; }
       };
-      if(window.__bpLiveMount)window.__bpAPI={draftScore,selPool,sqRecent,R1,R2,POSN,used,S,laneAssign,F,curYear,passG,calcHeroes,predPools,muRec,withPoolWin};   // 公開版載不到 bp_live_ui.js → 不掛這個全域；calcHeroes＝最近一手平均評分的比賽 70% 那半、predPools＝預測專用固定口徑池（2026-09-02）
+      if(window.__bpLiveMount)window.__bpAPI={draftScore,selPool,sqRecent,R1,R2,POSN,used,S,laneAssign,F,curYear,passG,calcHeroes,predPools,muRec,sqMuRec,withPoolWin};   // 公開版載不到 bp_live_ui.js → 不掛這個全域；calcHeroes＝最近一手平均評分的比賽 70% 那半、predPools＝預測專用固定口徑池（2026-09-02）
       const gameCard=gi=>{ // 職業賽 BP 畫面：上=雙方 BAN 橫排、下=左右兩排大 PICK
         const fp=S.fp[gi]||0, flip=S.side[gi]||0;
         // 每局隊伍：匯入局記在 S.tm[gi]（不跟著上方兩隊）、一般局＝上方兩隊
