@@ -20,6 +20,8 @@
 """
 import os, json, sys, time, calendar
 from playwright.sync_api import sync_playwright
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import soloq_src  # 逐場檔來源 meta（哪個 dpmPuuid 抓回哪些 rid）
 
 def _launch_real(p):
     """dpm Cloudflare 對策：真 Chrome/Edge 通道才過 API 挑戰（2026-07 起內建 chromium 一律 403）"""
@@ -294,10 +296,13 @@ def main():
                 continue
             # Phase2：該選手可信帳號都抓職業路線
             merged = []
+            _src = soloq_src.new_src()   # 來源 meta：哪個 dpmPuuid 抓回哪些 rid（見 scripts/soloq_src.py）
+            soloq_src.set_accounts(_src, use)
             for a in use:
                 try: arr = pg.evaluate(JS_YEAR, [a["dpmPuuid"], best_tok, CUT])
                 except Exception as e: print(f"   {a['riotId']} 抓錯 {e}"); arr = []
                 merged.extend(arr)
+                soloq_src.note(_src, a["dpmPuuid"], arr)
                 if arr:  # 記該帳號自己最後一場 soloq 的時間
                     _lg = max((g.get("t") or 0) for g in arr)
                     if _lg: ACC_LG[_accnorm(a.get("riotId"))] = _lg
@@ -309,10 +314,13 @@ def main():
                 else:
                     fid = f"p{done}"; done += 1
                 written += 1; totG += len(merged)
+                _src["full"] = True   # 全年重建＝obs 涵蓋檔內全部場次
                 with open(os.path.join(OUTDIR, fid+".js"), "w", encoding="utf-8") as f:
                     f.write(f"window.__sqLoad({json.dumps(key,ensure_ascii=False)},"
-                            f"{json.dumps({'role':role,'matches':merged},ensure_ascii=False)});\n")
+                            f"{json.dumps({'role':role,'src':_src,'matches':merged},ensure_ascii=False)});\n")
                 idx[key] = {"f": fid+".js", "role": role, "n": len(merged)}
+                for _pu, _want, _got, _n, _tot in soloq_src.mismatches({"src": _src}):
+                    print(f"   ⚠ 來源對帳：帳號 {_want} 的 puuid 抓回來的是 {_got}×{_n}／{_tot} 場（riotId↔dpmPuuid 疑似錯配）")
             print(f"[{i}/{len(keys)}] {key}  {role}  {len(merged)} 場（累計 {totG}）")
             EMPTY_RES[key] = len(merged)
         b.close()

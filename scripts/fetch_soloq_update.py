@@ -22,6 +22,8 @@ def _launch_real(p):
     raise RuntimeError("找不到可用瀏覽器")
 
 HERE = os.path.dirname(os.path.abspath(__file__)); ROOT = os.path.dirname(HERE)
+sys.path.insert(0, HERE)
+import soloq_src  # 逐場檔來源 meta（哪個 dpmPuuid 抓回哪些 rid）
 IDXP = os.path.join(ROOT, "soloq_match_index.js")
 OUTDIR = os.path.join(ROOT, "soloq_matches")
 ACCOUNTS = os.path.join(HERE, "soloq_accounts.json")
@@ -241,6 +243,7 @@ def main():
     print(f"增量更新 {len(keys)} 位選手（只抓比現有最新更新的 Solo/Duo）…")
     CROLE = comp_roles()  # 判例：資料庫位置＝權威；index 路線不符 → 蒐集、最後自動用 --only 重建
     MISMATCH = []
+    _MISSRC = []   # 來源對帳：某 puuid 抓回來的 rid ≠ 帳號檔登記的 riotId（riotId↔dpmPuuid 疑似錯配）
     added_tot = 0; upd = 0; RENAME = {}
     # 2026-09-06 線 3：這一步昨晚 1926 秒（130 位＝每位 15 秒，說明寫的是 1.4 秒）。
     # 錢花在哪沒有紀錄 ⇒ 印各階段耗時，下一次 10:00 的 update_log 就看得出來。
@@ -272,10 +275,12 @@ def main():
             newg = []
             _todo, _skip = split_static_accounts(accs.get(key, []), ACC_STATIC)
             _NACC += len(_todo) + len(_skip); _NSKIP += len(_skip)
+            _perpu = {}   # 這輪每個 dpmPuuid 抓回來的新場次 → 寫進逐場檔的 src（來源對帳用）
             for a in _todo:
                 try:
                     res = pg.evaluate(JS_NEW, [a["dpmPuuid"], tok, newestT])
                     _ms = (res.get("ms") if isinstance(res, dict) else res) or []
+                    if _ms: _perpu.setdefault(a["dpmPuuid"], []).extend(_ms)
                     if _ms:  # 記該帳號自己最後一場 soloq 時間
                         _lg = max((g.get("t") or 0) for g in _ms)
                         if _lg: ACC_LG[_accnorm(a.get("riotId"))] = _lg
@@ -296,6 +301,16 @@ def main():
                     if g["t"] in seen: continue
                     seen.add(g["t"]); merged.append(g)
                 data["matches"] = merged
+                _s = soloq_src.get_src(data)   # 來源 meta：這次的新場次是哪個 puuid 抓來的（見 scripts/soloq_src.py）
+                soloq_src.set_accounts(_s, accs.get(key, []))
+                for _pu, _msl in _perpu.items():
+                    soloq_src.note(_s, _pu, _msl)
+                for _pu, _want, _got, _n, _tot in soloq_src.mismatches(data):
+                    # 改名當輪不是錯配：obs 只有這輪抓回的新名，帳號檔還是舊名（RENAME 要等下面才同步），
+                    # 下一輪 acc 就會是新名而不再報。不濾掉的話每次有人改名就假警報一次。
+                    if soloq_src.same_name(RENAME.get((key, _want)), _got):
+                        continue
+                    _MISSRC.append((key, _want, _got, _n, _tot))
                 with open(os.path.join(OUTDIR, meta["f"]), "w", encoding="utf-8") as fp:
                     fp.write(f"window.__sqLoad({json.dumps(key,ensure_ascii=False)},{json.dumps(data,ensure_ascii=False)});\n")
                 meta["n"] = len(merged); added_tot += len(newg); upd += 1
@@ -345,6 +360,10 @@ def main():
         _t = time.time()
         subprocess.run(cmd)
         print(f"⏱ {label}：{time.time() - _t:.0f}s")
+    if _MISSRC:  # 逐場檔 src 對帳（2026-09-07 #34）：只印不動，累積幾天再決定要不要自動處置
+        print(f"⚠ {len(_MISSRC)} 筆來源對帳不符（帳號 riotId 與該 puuid 實際抓回的 rid 不同，可能是改名或錯配）：")
+        for _k, _want, _got, _n, _tot in _MISSRC[:10]:
+            print(f"   {_k}  帳號 {_want} 的 puuid → 實際 {_got}×{_n}／{_tot} 場")
     if MISMATCH:  # 判例自動修復：以資料庫位置重建這些選手（單次上限 5 位；帳號真的缺主帳的會場數偏少→提醒補帳號）
         print(f"⚠ {len(MISMATCH)} 位「資料庫位置≠積分路線」→ 自動以資料庫位置重建：{MISMATCH[:5]}")
         _timed("重建錯路線選手", [sys.executable, "-u", os.path.join(HERE, "fetch_soloq_year.py"), "--only", ",".join(MISMATCH[:5])])

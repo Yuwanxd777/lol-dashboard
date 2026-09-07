@@ -9,9 +9,11 @@
 每日排程也會透過 update.py 連帶更新（7 天滑動窗口要每天重算）。
 用法：  python scripts\build_soloq_index.py
 """
-import os, re, json, glob, time
+import os, re, json, glob, time, sys
 
 HERE = os.path.dirname(os.path.abspath(__file__)); ROOT = os.path.dirname(HERE)
+sys.path.insert(0, HERE)
+import soloq_src  # 逐場檔來源 meta（哪個 dpmPuuid 抓回哪些 rid）；併檔時要一起合併
 OUTDIR = os.path.join(ROOT, "soloq_matches")
 IDX = os.path.join(ROOT, "soloq_match_index.js")
 RECENT = os.path.join(ROOT, "soloq_recent.js")   # 每日戰況(各隊每人近幾天逐場)：積分頁「每日戰況」視圖用
@@ -64,8 +66,11 @@ def _dedup_files():
                 elif t not in by_t: by_t[t] = g
         merged = sorted(by_t.values(), key=lambda g: g.get("t", 0), reverse=True) + extra
         canon = lst[0][1]; role = lst[0][2].get("role")
+        _out = {'role': role, 'matches': merged}
+        _m = soloq_src.merge([d.get("src") for _, _, d in lst])  # 併檔時保住來源 meta（obs 相加、full 取 and）
+        if _m: _out["src"] = _m
         with open(canon, "w", encoding="utf-8") as wf:
-            wf.write(f"window.__sqLoad({json.dumps(key,ensure_ascii=False)},{json.dumps({'role':role,'matches':merged},ensure_ascii=False)});\n")
+            wf.write(f"window.__sqLoad({json.dumps(key,ensure_ascii=False)},{json.dumps(_out,ensure_ascii=False)});\n")
         dropped = []
         for _, fp, _ in lst[1:]:
             try: os.remove(fp); dropped.append(os.path.basename(fp))

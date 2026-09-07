@@ -77,6 +77,8 @@ if (getattr(sys.stdout, "encoding", "") or "").lower().replace("-", "") != "utf8
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
+sys.path.insert(0, HERE)
+import soloq_src  # 逐場檔來源 meta：刪場次時同步扣掉 obs，否則 src 會跟 matches 失同步
 OUTDIR = os.path.join(ROOT, "soloq_matches")
 ACCOUNTS = os.path.join(HERE, "soloq_accounts.json")
 LOGP = os.path.join(ROOT, "csv_cache", "soloq_clean_log.json")
@@ -232,6 +234,8 @@ def main():
             byrid = collections.Counter("%s＝%s〔%s〕" % (g.get("rid"), w, why) for g, w, why in drop)
             plans.append({"fn": fn, "fp": fp, "key": key, "data": data, "keep": keep,
                           "drop": len(drop), "total": len(ms), "byrid": byrid,
+                          # byrid 的鍵是「rid＝擁有者〔理由〕」給人看的；扣 src.obs 要純 rid，另外算一份
+                          "droprid": collections.Counter(g.get("rid") for g, _, _ in drop if g.get("rid")),
                           "rules": collections.Counter(("二" if why.startswith("舊名") else "一")
                                                        for _, _, why in drop)})
 
@@ -267,6 +271,8 @@ def main():
     for p in plans:
         if p["keep"]:
             p["data"]["matches"] = p["keep"]
+            if isinstance(p["data"].get("src"), dict):
+                soloq_src.drop(p["data"]["src"], dict(p["droprid"]))   # 刪掉的 rid 同步從來源 obs 扣掉
             write_file(p["fp"], p["key"], p["data"])
             act = "改寫"
         else:
