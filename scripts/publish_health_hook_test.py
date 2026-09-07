@@ -26,7 +26,10 @@ BAT = os.path.join(ROOT, "publish.bat")
 TMP = os.path.join(ROOT, "autopilot", "_publish_hook_bt")
 
 START = "rem data health check"
-END = "echo publish done."
+# 2026-09-07 #46：結尾原本是拿 "echo publish done." 當邊界，但那行後來被包進
+# if "%PUBRC%"=="0" (…) else (…) 裡，抽出來的區塊會斷在半個括號中間。改用一行
+# 專門的哨兵註解當邊界（publish.bat 那行存在就是給這兩支測試定位用的，別刪）。
+END = "rem ---- end of health check block ----"
 
 STUB = (
     "# -*- coding: utf-8 -*-\n"
