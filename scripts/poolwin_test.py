@@ -1,8 +1,16 @@
 # -*- coding: utf-8 -*-
-"""依局角色池時間窗（2026-09-05）的行為驗證。
+"""依局角色池時間窗：**只作用在直播疊圖，網頁一律照篩選列**（使用者 2026-09-07 定案）。
 
-不是只看「有沒有報錯」——真的把盤面推到第 1/2/3/4 局，量角色池的隻數會不會跟著放寬，
-並且每一階都對照「關掉依局窗」的全年基準（正控制＋反控制）。
+> 模擬BP頁面的 近一個月按鈕拿掉 網頁上永遠是依照篩選列顯示
+> 只有直播疊圖的角色池顯示 遵守之前講的 第一局第二局第三局規則
+
+所以這支要驗的是**兩條路的差異**（2026-09-05 的版本驗的是網頁會不會跟著縮，已整份改寫）：
+  ① 📅 按鈕不在了
+  ② 網頁的池（`selPool`）**不吃窗**
+  ③ 疊圖那條路（`__bpAPI.withPoolWin` 包起來的 `selPool`）**吃窗**，且第 1 局嚴格小於網頁
+  ④ 第 1~4 局：疊圖池的隻數單調不減（窗一階一階放寬），第 4 局＝全年＝跟網頁一樣
+  ⑤ 場數／勝率不隨窗變（窗只決定成員）
+  ⑥ 積分範圍照 🎯 近期積分自己的設定走，不跟著局號變
 
 跑法：python scripts/poolwin_test.py
 """
@@ -23,7 +31,6 @@ def ok(cond, label, detail=""):
 EMPTY = ('{b1:["","","","",""],b2:["","","","",""],p1:["","","","",""],p2:["","","","",""],'
          'pl1:["","","","",""],pl2:["","","","",""],plm1:["","","","",""],plm2:["","","","",""]}')
 
-# 盤面：前 filled 局塞滿（用真的英雄名），其餘留空 → curGi = filled
 SETUP = """(arg) => {
   const S = V.bpSim;
   const chs = arg.chs;
@@ -31,21 +38,34 @@ SETUP = """(arg) => {
     if (full) { for (let i=0;i<5;i++){ g.b1[i]=chs[i]; g.b2[i]=chs[i+5]; g.p1[i]=chs[i+10]; g.p2[i]=chs[i+15]; } }
     return g; };
   S.g = []; for (let i=0;i<5;i++) S.g.push(mk(i < arg.filled));
-  // partial＝在目前這一局塞三手 PICK（局還沒選完，所以 curGi 不動），這樣才有選角評分可比
-  if (arg.partial) { const g = S.g[arg.filled];
-    for (let i=0;i<3;i++){ g.p1[i]=chs[i]; g.p2[i]=chs[i+3]; } }
   S.n = 5; S.fp = [0,0,0,0,0]; S.side = [0,0,0,0,0]; S.meta = []; S.tm = [];
   S.t1 = arg.t1; S.t2 = arg.t2; S.pk1 = {}; S.pk2 = {};
   V.bpMode = "global";
-  if (arg.win === false) V.bpPoolWin = false; else delete V.bpPoolWin;
   if (typeof rerender === 'function') rerender(); else render();
   return true;
 }"""
 
+# 網頁那條路 vs 疊圖那條路，**用同一個 selPool 量**（不看 DOM：DOM 還會被 used／版面影響）
 READ = """() => {
   const w = window.__bpPoolWin || {};
-  const chips = document.querySelectorAll(".bpPoolRow .bpChip").length;
-  return { on: !!w.on, d: w.d, tier: w.tier, sq: w.sq, cut: w.cut || "", chips: chips };
+  const api = window.__bpAPI;
+  const count = (wrap) => {
+    if (!api) return -1;
+    let n = 0;
+    api.POSN.forEach(pos => {
+      const get = () => {
+        const a = api.selPool(api.R1, pos, api.S.pk1, api.S.t1);
+        const b = api.selPool(api.R2, pos, api.S.pk2, api.S.t2);
+        return Object.keys((a && a.m) || {}).length + Object.keys((b && b.m) || {}).length;
+      };
+      n += wrap && api.withPoolWin ? api.withPoolWin(get) : get();
+    });
+    return n;
+  };
+  return { on: !!w.on, d: w.d, tier: w.tier, sq: w.sq, cut: w.cut || "",
+           page: count(false), ovl: count(true),
+           hasWith: !!(api && api.withPoolWin),
+           chips: document.querySelectorAll(".bpPoolRow .bpChip").length };
 }"""
 
 try:
@@ -62,7 +82,6 @@ with sync_playwright() as pw:
     pg.goto(pathlib.Path(os.path.join(ROOT, "index.html")).resolve().as_uri() + "?y=2026")
     pg.wait_for_timeout(3000)
 
-    # ── 找一組真的常打的隊伍與 20 隻真英雄名 ────────────────────────────
     picked = pg.evaluate("""() => {
       const cnt = {}, pair = {};
       for (const o of GAMES) {
@@ -80,160 +99,89 @@ with sync_playwright() as pw:
         if (c && chs.indexOf(c) < 0) chs.push(c); if (chs.length >= 20) break; }
       return { t1: best && best[0], t2: best && best[1], chs: chs, n: bn };
     }""")
-
     if not picked or not picked.get("t1") or len(picked.get("chs") or []) < 20:
         print("找不到可用的隊伍／英雄樣本：" + json.dumps(picked, ensure_ascii=False)[:160])
         b.close(); sys.exit(2)
-
     t1, t2, chs = picked["t1"], picked["t2"], picked["chs"]
     print("樣本：%s vs %s（出賽較少的一隊 %d 局）\n" % (t1, t2, picked["n"]))
 
     pg.click('nav .tab[data-view="模擬BP"]', timeout=6000)
     pg.wait_for_timeout(900)
 
-    # ── ① 關掉依局窗＝全年基準（反控制）──────────────────────────────
-    print("① 關掉依局窗（全年基準）")
-    pg.evaluate(SETUP, {"t1": t1, "t2": t2, "chs": chs, "filled": 0, "win": False})
-    pg.wait_for_timeout(1100)
-    base = pg.evaluate(READ)
-    ok(base["on"] is False, "關掉時 __bpPoolWin.on = false", json.dumps(base, ensure_ascii=False))
-    ok(base["chips"] > 0, "全年基準有池", "%d 隻" % base["chips"])
-    FULL = base["chips"]
-    # 第 4 局要比的是「同一個盤面、關掉窗」的基準：全局模式下前三局已選的英雄會被 used 吃掉，
-    # 拿空盤面的數字去比會多算 18 隻（2026-09-05 這支測試自己踩過的坑）
-    pg.evaluate(SETUP, {"t1": t1, "t2": t2, "chs": chs, "filled": 3, "win": False})
-    pg.wait_for_timeout(1100)
-    FULL3 = pg.evaluate(READ)["chips"]
-    print("  （第 4 局用的同盤面基準：%d 隻）" % FULL3)
+    print("① 📅 按鈕已移除（網頁不再有依局窗的概念）")
+    ok(pg.query_selector("#bpPoolWin") is None, "篩選列沒有 #bpPoolWin")
+    ok(pg.evaluate("() => typeof window.__bpPoolWinPaint") == "undefined",
+       "__bpPoolWinPaint 掛鉤也拿掉了")
 
-    # ── ② 第 1~4 局：窗要一階一階放寬，池只能越來越大 ─────────────────
-    print("\n② 依局窗開啟：第 1~4 局")
+    print("\n② 兩條路：網頁不吃窗、疊圖吃窗")
     seen = []
     for gi in range(4):
-        pg.evaluate(SETUP, {"t1": t1, "t2": t2, "chs": chs, "filled": gi, "win": True})
+        pg.evaluate(SETUP, {"t1": t1, "t2": t2, "chs": chs, "filled": gi})
         pg.wait_for_timeout(1100)
         r = pg.evaluate(READ)
         r["gi"] = gi
         seen.append(r)
-        print("  第%d局：tier=%s 窗=%s 積分=%s天 池=%d 隻  cut=%s"
-              % (gi + 1, r["tier"], r["d"], r["sq"], r["chips"], r["cut"]))
+        print("  第%d局：tier=%s 窗=%s 積分=%s天  網頁池=%d 疊圖池=%d  cut=%s"
+              % (gi + 1, r["tier"], r["d"], r["sq"], r["page"], r["ovl"], r["cut"]))
 
-    ok(all(s["on"] for s in seen), "四局都認得出局號（on=true）")
-    ok([s["tier"] for s in seen] == [0, 1, 2, 3], "階梯跟著局號走",
+    ok(all(s["hasWith"] for s in seen), "__bpAPI 有匯出 withPoolWin（疊圖靠它）")
+    ok([s["tier"] for s in seen] == [0, 1, 2, 3], "階梯仍跟著局號走",
        str([s["tier"] for s in seen]))
-    # 積分範圍照 🎯 的設定走（使用者 2026-09-05）：不可以跟著局號自己變
-    sqs = [s["sq"] for s in seen]
-    ok(len(set(sqs)) == 1, "積分範圍不跟著局號變（📅 只管比賽池）", str(sqs))
-    ok(sqs[0] == pg.evaluate("() => +V.bpSqDays || 14"), "積分範圍＝🎯 的設定", str(sqs[0]))
     ok(seen[3]["d"] == 0 and seen[3]["cut"] == "", "第 4 局＝全年（不設窗）")
-    ok(seen[3]["chips"] == FULL3, "第 4 局的池＝同盤面的全年基準",
-       "%d vs %d" % (seen[3]["chips"], FULL3))
 
-    sizes = [s["chips"] for s in seen]
-    ok(all(sizes[i] <= sizes[i + 1] for i in range(3)), "池的隻數單調不減（越後面局越寬）", str(sizes))
-
-    # 真的有篩到東西（不然「窗」等於沒作用，是最典型的假綠）
-    win_days = [s["d"] for s in seen]
-    if 0 in win_days[:3]:
-        notes.append("第 %d 局就被保底放寬到全年（該隊窗內樣本太少）" % (win_days.index(0) + 1))
-        ok(True, "保底有作動（窗內池 < 15 隻 → 放寬）", str(win_days))
+    # 網頁那條路：同一個盤面下，窗完全不該影響它 ⇒ 第 1 局的網頁池必須等於第 4 局的「無窗」口徑。
+    # ⚠ 不能直接比第 1 局與第 4 局的網頁池——全局模式下前三局選過的英雄會被吃掉（Fearless），
+    #   那是另一個機制。所以改成**同一拍**比較 page 與 ovl。
+    g1 = seen[0]
+    if g1["d"]:
+        ok(g1["ovl"] < g1["page"], "⭐ 第 1 局：疊圖池比網頁池小（窗只作用在疊圖）",
+           "%d < %d（窗 %s 天）" % (g1["ovl"], g1["page"], g1["d"]))
     else:
-        ok(sizes[0] < FULL, "第 1 局的池真的比全年小（窗有作用）",
-           "%d < %d" % (sizes[0], FULL))
-        ok(win_days == [30, 90, 180, 0], "窗＝30/90/180/全年", str(win_days))
+        notes.append("第 1 局就被保底放寬到全年（該隊窗內樣本太少），這一局比不出差異")
+        ok(True, "第 1 局被保底放寬到全年（跳過差異比較）")
+    ok(seen[3]["ovl"] == seen[3]["page"], "第 4 局：兩條路一樣（全年＝不設窗）",
+       "%d vs %d" % (seen[3]["ovl"], seen[3]["page"]))
 
-    # ── ③ 場數與勝率不能跟著窗縮水（只篩成員、不動數字）────────────────
-    print("\n③ 窗只篩成員、不動數字")
-    pg.evaluate(SETUP, {"t1": t1, "t2": t2, "chs": chs, "filled": 0, "win": True})
+    print("\n③ 疊圖池：第 1~4 局單調不減（窗一階一階放寬）")
+    ovs = [s["ovl"] for s in seen]
+    pgs = [s["page"] for s in seen]
+    ok(all(ovs[i] <= ovs[i + 1] for i in range(3)) or len(set([s["d"] for s in seen[:3]])) == 1,
+       "疊圖池隻數不會越後面越小", str(ovs))
+    ok(all(ovs[i] <= pgs[i] for i in range(4)), "任何一局：疊圖池都不會比網頁池大", str(list(zip(ovs, pgs))))
+
+    print("\n④ 窗只決定成員，不動場數／勝率")
+    pg.evaluate(SETUP, {"t1": t1, "t2": t2, "chs": chs, "filled": 0})
     pg.wait_for_timeout(1100)
-    g1 = pg.evaluate("""() => { const o = {};
-      // ⚠ 一定要**逐列**收（同一隻英雄會出現在好幾位選手的池裡）。只用英雄名當鍵，
-      // 隻數多的那一階會用別人的同名英雄蓋掉，看起來就像「場數變了」（這支測試踩過）。
-      document.querySelectorAll(".bpPoolRow").forEach((row, ri) => {
-        const pl = (row.querySelector(".bpPlName") || {}).textContent || "";
-        row.querySelectorAll(".bpChip").forEach(c => { o[ri + "|" + pl + "|" + c.dataset.ch] = c.title; });
+    stats = pg.evaluate("""() => {
+      const api = window.__bpAPI, out = {};
+      api.POSN.forEach(pos => {
+        const page = api.selPool(api.R1, pos, api.S.pk1, api.S.t1);
+        const ovl = api.withPoolWin(() => api.selPool(api.R1, pos, api.S.pk1, api.S.t1));
+        Object.keys((ovl && ovl.m) || {}).forEach(ch => {
+          const a = ovl.m[ch], z = (page && page.m || {})[ch];
+          if (z) out[pos + "|" + ch] = [a.n, a.w, z.n, z.w];
+        });
       });
-      return o; }""")
-    pg.evaluate(SETUP, {"t1": t1, "t2": t2, "chs": chs, "filled": 3, "win": True})
-    pg.wait_for_timeout(1100)
-    g4 = pg.evaluate("""() => { const o = {};
-      // ⚠ 一定要**逐列**收（同一隻英雄會出現在好幾位選手的池裡）。只用英雄名當鍵，
-      // 隻數多的那一階會用別人的同名英雄蓋掉，看起來就像「場數變了」（這支測試踩過）。
-      document.querySelectorAll(".bpPoolRow").forEach((row, ri) => {
-        const pl = (row.querySelector(".bpPlName") || {}).textContent || "";
-        row.querySelectorAll(".bpChip").forEach(c => { o[ri + "|" + pl + "|" + c.dataset.ch] = c.title; });
-      });
-      return o; }""")
-    import re
-    PRO = re.compile("選 (\d+) 場 勝率 (\d+)%｜被對手禁 (\d+) 次")
-    def pro(t):
-        m = PRO.search(t or "")
-        return m.group(0) if m else None
-    common = [k for k in g1 if k in g4 and pro(g1[k]) and pro(g4[k])]
-    diff = [k for k in common if pro(g1[k]) != pro(g4[k])]
-    if diff:
-        for k in diff[:3]:
-            print("    " + k)
-            print("    第1局：" + g1[k])
-            print("    第4局：" + g4[k])
-    ok(len(common) > 0, "兩階有共同的英雄可比", "%d 隻" % len(common))
-    ok(not diff, "同一隻英雄的比賽場數／勝率兩階完全相同",
-       ("不同：" + ", ".join(diff[:4])) if diff else "")
+      return out; }""")
+    bad = [k for k, v in stats.items() if v[0] != v[2] or v[1] != v[3]]
+    ok(len(stats) > 0, "兩條路有共同的英雄可比", "%d 隻" % len(stats))
+    ok(not bad, "同一隻英雄的場數／勝率兩條路完全相同",
+       ("不同：" + ", ".join(bad[:4])) if bad else "")
 
-    # ── ④ 按鈕：面上寫的就是實際生效的那一階，點一下要能關 ──────────────
-    print("\n④ 📅 按鈕")
-    btn = pg.query_selector("#bpPoolWin")
-    ok(btn is not None, "篩選列有 📅 按鈕")
-    if btn:
-        pg.evaluate(SETUP, {"t1": t1, "t2": t2, "chs": chs, "filled": 0, "win": True})
-        pg.wait_for_timeout(1100)
-        face_on = pg.eval_on_selector("#bpPoolWin", "e=>e.textContent")
-        cur = pg.evaluate(READ)
-        want = {30: "近一個月", 90: "近三個月", 180: "近半年", 0: "全年"}[cur["d"]]
-        ok(want in face_on, "鈕面寫的是實際生效的那一階", "面='%s' 期待含 '%s'" % (face_on.strip(), want))
-        pg.click("#bpPoolWin"); pg.wait_for_timeout(1100)
-        off = pg.evaluate(READ)
-        ok(off["on"] is False, "點一下關掉")
-        ok(off["chips"] == FULL, "關掉之後回到全年的池", "%d vs %d" % (off["chips"], FULL))
-        pg.click("#bpPoolWin"); pg.wait_for_timeout(1100)
-        back = pg.evaluate(READ)
-        ok(back["on"] is True, "再點一下開回來")
-
-    # ── ④b 改 🎯 的天數，📅 這邊要跟著動（同一個設定只有一個來源）──────
-    print("\n④b 積分範圍跟著 🎯 走")
+    print("\n⑤ 積分範圍照 🎯 自己的設定（不跟著局號變）")
+    sqs = [s["sq"] for s in seen]
+    ok(len(set(sqs)) == 1, "積分範圍不跟著局號變", str(sqs))
+    ok(sqs[0] == pg.evaluate("() => +V.bpSqDays || 14"), "積分範圍＝🎯 的設定", str(sqs[0]))
     pg.evaluate("() => { V.bpSqDays = 30; }")
-    pg.evaluate(SETUP, {"t1": t1, "t2": t2, "chs": chs, "filled": 0, "win": True})
+    pg.evaluate(SETUP, {"t1": t1, "t2": t2, "chs": chs, "filled": 0})
     pg.wait_for_timeout(1100)
-    ok(pg.evaluate(READ)["sq"] == 30, "🎯 改成一個月 → 積分範圍跟著變 30 天")
-    pg.evaluate("() => { V.bpSqDays = 14; }")
+    ok(pg.evaluate(READ)["sq"] == 30, "改 🎯 天數之後 __bpPoolWin.sq 跟著變")
 
-    # ── ⑤ 選角評分不可以跟著窗變 ────────────────────────────────────
-    # 評分問的是「這隻他熟不熟」，那是母體問題，不是「他現在可能選什麼」。
-    # 用窗過的池去算，三個月前打過 20 場的英雄會被當成沒打過（熟練度掉成中性 50）。
-    print("\n⑤ 選角評分不吃時間窗")
-    SC = '''() => [...document.querySelectorAll(".bsScore")].map(e => e.textContent.trim()).filter(t => t)'''
-    pg.evaluate(SETUP, {"t1": t1, "t2": t2, "chs": chs, "filled": 0, "win": True, "partial": True})
-    pg.wait_for_timeout(1300)
-    sc_on = pg.evaluate(SC)
-    w_on = pg.evaluate(READ)
-    pg.evaluate(SETUP, {"t1": t1, "t2": t2, "chs": chs, "filled": 0, "win": False, "partial": True})
-    pg.wait_for_timeout(1300)
-    sc_off = pg.evaluate(SC)
-    ok(len(sc_on) > 0 and any(any(c.isdigit() for c in t) for t in sc_on), "有算出評分可比", str(sc_on[:1]))
-    ok(w_on["d"] and w_on["d"] != 0, "比較時窗確實是開著的（不是兩邊都全年的假綠）", "窗=%s" % w_on["d"])
-    ok(sc_on == sc_off, "窗開與窗關的評分完全相同",
-       ("開=%s / 關=%s" % (sc_on[:1], sc_off[:1])) if sc_on != sc_off else "")
-
-    # ── ⑥ 沒有任何 JS 例外 ───────────────────────────────────────────
-    print("\n⑥ 頁面例外")
-    ok(not errs, "全程沒有 pageerror", (errs[0] if errs else ""))
+    print("\n⑥ 沒有 JS 錯誤")
+    ok(not errs, "頁面沒噴錯", "; ".join(errs[:2]))
     b.close()
 
-print("")
-for nt in notes:
-    print("⚠ " + nt)
-if fails:
-    print("✗ %d 條失敗" % len(fails))
-    sys.exit(1)
-print("✓ 全部通過")
-sys.exit(0)
+for n in notes:
+    print("  ※ " + n)
+print(("\n✓ 全部通過" if not fails else "\n✗ %d 條失敗" % len(fails)))
+sys.exit(1 if fails else 0)
