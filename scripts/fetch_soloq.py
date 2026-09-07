@@ -184,6 +184,51 @@ def noacc_fresh(day):
     return 0 <= (datetime.date.today() - d).days < NOACC_DAYS
 
 
+# ── 無排名帳號 N 天不再問（2026-09-07 線 3，精進迴圈 #50）──────────────────────
+# 404 捷徑砍掉的是 account-v1 那一半；剩下的排隊主體是 league-v4 entries/by-puuid。
+# 10:00 那班實測：1091 個帳號扣掉 132 個 404 捷徑、414 個聯盟名單命中，還有 545 次逐帳號 by-puuid，
+# 在 100 次/2 分鐘下就是 654 秒——跟 fetch_soloq_auto 實測的 639.5s 吻合，**這一步幾乎全是排隊**。
+# 那 545 次裡有 200 次問完得到「確定沒有單雙排排名」（未定位／很久沒打／小號）。
+# `autopilot/_r50_norank_churn.py` 用 git 裡 15 個 soloq.js 快照（09-01～09-07）逐班比對同一個 puuid：
+#   無排名→有排名 **2 次**（平均每班 0.14 個）／有排名→無排名 0 次／一直無排名 平均每班 174 個。
+# 也就是每班白排 174 次隊（約 209 秒）換每七班一次的即時性。所以比照 404 做第二層捷徑。
+#
+# 三個安全設計：
+#   ① **只在聯盟名單沒命中時才跳過**。名單預抓是免費的、且發生在這之前，所以「無排名一路衝到
+#      Master 以上」那種最該被看到的躍升照樣當天抓到；被延遲的只有「無排名 → Emerald/Diamond」。
+#   ② 只有 get_soloq 回「確定」（問到了、答案就是沒排名）才記日期；「這次沒問成」不記。
+#   ③ 鍵是 **puuid**（永久不變，改名不影響；帳號被別人接手 ⇒ puuid 不同 ⇒ 自然重問）。
+# 跳過時沿用上一版的 noRank（期限從最後一次真的問過起算，不是每天續命）。
+# `--full-id`／`--failed`／`--no-norank-skip` 一律不跳過。
+NORANK_DAYS = 3
+PREV_NORANK = {}
+NORANK_SKIPS = [0]
+SKIP_NORANK = True
+
+
+def load_prev_norank():
+    """從上一版 soloq.js 讀 {puuid: noRank 日期}。只收「有 puuid、沒排名」的紀錄。"""
+    out = {}
+    try:
+        h = open(OUT, encoding="utf-8", errors="replace").read()
+        d = json.loads(re.search(r"=\s*(\{.*\});?\s*$", h, re.S).group(1))
+        for p in d.get("players", []):
+            if p.get("noRank") and p.get("puuid") and not p.get("found"):
+                out[p["puuid"]] = p["noRank"]
+    except Exception:
+        pass
+    return out
+
+
+def norank_fresh(day):
+    """noRank 日期距今 < NORANK_DAYS 天 ⇒ 還新鮮，不必再問。格式壞掉一律當過期（重問最安全）。"""
+    try:
+        d = datetime.date.fromisoformat(str(day))
+    except Exception:
+        return False
+    return 0 <= (datetime.date.today() - d).days < NORANK_DAYS
+
+
 def dpm_fallback(rec, dr):
     """Riot 查不到此 riotId ⇒ 用抓帳號時 dpm 附帶的牌位當備援（如 KT FenRir）。有牌位才回 True。"""
     if not (dr and dr.get("tier")):
@@ -353,7 +398,7 @@ def main():
         print(f"--failed：只重抓上次失敗的 {len(accounts)} 個帳號（{sorted({a.get('player','') for a in accounts})}）")
     print(f"帳號清單 {len(accounts)} 筆，開始抓取…（依速率限制，約 {len(accounts)*2.5/60:.1f} 分鐘）")
 
-    global PREV_ID, PREV_TP, RENAMES, PLATFIX, FAST_ID, PREV_NOACC, SKIP_NOACC
+    global PREV_ID, PREV_TP, RENAMES, PLATFIX, FAST_ID, PREV_NOACC, SKIP_NOACC, PREV_NORANK, SKIP_NORANK
     PREV_ID, PREV_TP = load_prev_puuids(); RENAMES = {}; PLATFIX = {}   # PLATFIX：缺 platform 的帳號用 Riot 查到的伺服器，最後寫回清單
     SKIP_NOACC = not any(f in sys.argv for f in ("--full-id", "--failed", "--no-noacc-skip"))
     PREV_NOACC = load_prev_noacc() if SKIP_NOACC else {}
@@ -363,6 +408,13 @@ def main():
                      ALIAS.get(str(a.get("platform","")).upper(), str(a.get("platform","")).lower())), "")))
         print("404 捷徑：%d/%d 個帳號上一版已確定 Riot ID 不存在（%d 天內不再問 account-v1）"
               % (_fresh, len(accounts), NOACC_DAYS))
+    SKIP_NORANK = not any(f in sys.argv for f in ("--full-id", "--failed", "--no-norank-skip"))
+    PREV_NORANK = load_prev_norank() if SKIP_NORANK else {}
+    NORANK_SKIPS[0] = 0
+    if PREV_NORANK:
+        _nrf = sum(1 for v in PREV_NORANK.values() if norank_fresh(v))
+        print("無排名捷徑：%d 個帳號上一版已確定沒有單雙排排名（%d 天內不再問 entries/by-puuid；"
+              "聯盟名單命中仍會蓋過）" % (_nrf, NORANK_DAYS))
     # 有存 puuid 就跳過 account-v1 那一次查詢（見 fetch_one 的註解）。
     # `--full-id`＝關掉捷徑、走完整路徑把改名補回來（每週全掃那一次用）。
     FAST_ID = "--full-id" not in sys.argv
@@ -459,6 +511,15 @@ def main():
             sq, sure = _lad, True
             LADDER_HITS[0] += 1
         else:
+            # ── 無排名捷徑：上一版已確定這個 puuid 沒有單雙排、還在 NORANK_DAYS 內 ⇒ 不問 Riot ──
+            # 順序很重要：**聯盟名單查完才輪到它**，所以躍升到 Master 以上照樣當天看到（見 load_prev_norank）。
+            _nr = PREV_NORANK.get(puuid) if SKIP_NORANK else None
+            if _nr and norank_fresh(_nr):
+                NORANK_SKIPS[0] += 1
+                rec["noRank"] = _nr          # 沿用舊日期：期限從最後一次真的問過起算
+                rec["settled"] = True
+                print(f"    ⏭ 上一版 {_nr} 已確定沒有單雙排排名，{NORANK_DAYS} 天內不再問 Riot")
+                return rec
             sq, sure = get_soloq(plat, puuid)
         if sq:
             rec.update(tier=sq.get("tier"), division=sq.get("rank"), lp=sq.get("leaguePoints"),
@@ -468,6 +529,8 @@ def main():
         else:
             # settled＝問到了、答案就是「沒有排名」⇒ 重抓那一輪不要再排它（見 get_soloq）
             rec["settled"] = bool(sure)
+            if sure:
+                rec["noRank"] = TODAY   # 親自問到「確定沒排名」才記日期（見 load_prev_norank）
             print("    無 solo queue 排名（未定位或無資料）" + ("" if sure else "　※這次沒問成，稍後重抓"))
         return rec
 
@@ -519,6 +582,8 @@ def main():
         print(f"（{settled} 個帳號確定沒有單雙排名次或 Riot ID 不存在（404） → 不排進重抓，省下同樣次數的請求）")
     if NOACC_SKIPS[0]:
         print(f"（{NOACC_SKIPS[0]} 個帳號上一版已確定 Riot ID 不存在、{NOACC_DAYS} 天內 → 沒問 account-v1，省下同樣次數的請求）")
+    if NORANK_SKIPS[0]:
+        print(f"（{NORANK_SKIPS[0]} 個帳號上一版已確定沒有單雙排排名、{NORANK_DAYS} 天內 → 沒問 entries/by-puuid，省下同樣次數的請求）")
     if retry:
         print(f"\n🔁 {len(retry)} 個帳號本輪失敗 → 最後重抓一輪（補救暫時性失敗）…")
         time.sleep(3)
