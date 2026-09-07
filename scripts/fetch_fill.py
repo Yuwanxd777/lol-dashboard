@@ -86,7 +86,21 @@ def num(s, d=""):
     return t if m else d
 
 
+_last_req = 0.0   # 上一次真的打 gol.gg 的時刻（節流用）
+
+
+def _throttle():
+    """GAP 是「兩次請求的最小間隔」，不是「每次請求後固定睡」：
+    2026-09-08 線 3 量到每天那班 63.5s 裡有 20s 是四段尾端純睡眠——最後一次請求之後
+    沒有下一次了還照睡（gol.gg 這邊整班只打一次 matchlist，就白睡 2s）。
+    改成請求前看「距上次請求夠不夠 GAP」，中間解析的時間也算進間隔。"""
+    w = GAP - (time.time() - _last_req)
+    if w > 0:
+        time.sleep(w)
+
+
 def get(url, cache_name, force=False):
+    global _last_req
     os.makedirs(HCACHE, exist_ok=True)
     p = os.path.join(HCACHE, cache_name)
     if os.path.exists(p) and not force:
@@ -94,17 +108,53 @@ def get(url, cache_name, force=False):
             return f.read()
     for a in range(3):
         try:
+            _throttle()
             req = urllib.request.Request(url, headers=UA)
             with urllib.request.urlopen(req, timeout=60) as f:
                 body = f.read().decode("utf-8", "replace")
+            _last_req = time.time()
             with open(p, "w", encoding="utf-8") as f:
                 f.write(body)
-            time.sleep(GAP)
             return body
         except Exception as e:
+            _last_req = time.time()      # 失敗也算打過一次
             print(f"      {type(e).__name__}: {str(e)[:80]} → 重試 {a+1}", flush=True)
             time.sleep(5 * (a + 1))
     raise RuntimeError("下載失敗：" + url)
+
+
+# ── 解析結果快取（2026-09-08 線 3）──
+# 每天那班 fetch_fill 63.5s 裡 20.8s 是**冷開 329 個 gol.gg 快取 HTML**（每個 ~600KB、共 240MB，
+# 冷開一次 15~58ms）再重新正則解析。已完成的局不會再變，解析結果也不會變 → 把每局
+# parse_game／parse_fullstats 的結果存成一個 JSON，下一班只開這一個檔。
+# 只存「通過完整性檢查」的局；不完整的（無隊伍區塊／逐選手不足 10 人）照舊每次走 HTML 路徑。
+# --force 時不讀（全部重抓重解析）但會把新結果寫回，所以 --force 也會刷新這份快取。
+PARSED_NAME = "_parsed.json"
+
+
+def _parsed_path():
+    return os.path.join(HCACHE, PARSED_NAME)     # 動態取 HCACHE：測試沙盒改了 HCACHE 也要跟著搬
+
+
+def load_parsed():
+    p = _parsed_path()
+    if not os.path.exists(p):
+        return {}
+    try:
+        with open(p, encoding="utf-8") as f:
+            d = json.load(f)
+        return d.get("games") or {} if isinstance(d, dict) else {}
+    except Exception as e:
+        print(f"      ⚠ 解析快取讀取失敗（重建）：{type(e).__name__}: {str(e)[:60]}", flush=True)
+        return {}
+
+
+def save_parsed(games):
+    os.makedirs(HCACHE, exist_ok=True)
+    tmp = _parsed_path() + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump({"v": 1, "games": games}, f, ensure_ascii=False)
+    os.replace(tmp, _parsed_path())
 
 
 def gkey_of(h, r):
@@ -272,31 +322,53 @@ def collect(cfg, force=False):
     matches = [m for m in parse_matchlist(ml) if m["done"]]
     print(f"    matchlist：{len(matches)} 個已完成系列賽")
 
+    PC = load_parsed()                                   # 整份（可能含別的賽段），寫回時一起保留
+    hit = (lambda gid: None) if force else (lambda gid: PC.get(str(gid)))
+    n_hit = n_parse = 0
+    dirty = False
+
+    def _gd(gid):
+        e = hit(gid)
+        if e is not None:
+            return e["gd"]
+        return parse_game(get(f"https://gol.gg/game/stats/{gid}/page-game/", f"g{gid}_game.html", force=force))
+
+    def _fs(gid):
+        e = hit(gid)
+        if e is not None:
+            return e["fs"]
+        return parse_fullstats(get(f"https://gol.gg/game/stats/{gid}/page-fullstats/",
+                                   f"g{gid}_full.html", force=force))
+
     day_seq, games, seen = {}, [], set()
     for mi, mt in enumerate(sorted(matches, key=lambda x: (x["date"], x["gid"]))):
-        first = get(f"https://gol.gg/game/stats/{mt['gid']}/page-game/",
-                    f"g{mt['gid']}_game.html", force=force)
-        gd0 = parse_game(first)
+        gd0 = _gd(mt["gid"])
         ids = sorted(i for i in gd0["ids"] if i >= mt["gid"]) or [mt["gid"]]
         k = day_seq.get(mt["date"], 0); day_seq[mt["date"]] = k + 1
         for gi, gid in enumerate(ids):
             if gid in seen:
                 continue
             seen.add(gid)
-            gd = gd0 if gid == mt["gid"] else parse_game(
-                get(f"https://gol.gg/game/stats/{gid}/page-game/", f"g{gid}_game.html", force=force))
+            gd = gd0 if gid == mt["gid"] else _gd(gid)
             if not gd.get("sides"):
                 print(f"      ⚠ {gid} 無隊伍區塊，跳過"); continue
-            fs = parse_fullstats(get(f"https://gol.gg/game/stats/{gid}/page-fullstats/",
-                                     f"g{gid}_full.html", force=force))
+            fs = _fs(gid)
             if len(fs.get("champs") or []) < 10 or len(fs["rows"].get("Player") or []) < 10:
                 print(f"      ⚠ {gid} 逐選手資料不全，跳過"); continue
+            if hit(gid) is not None:
+                n_hit += 1
+            else:
+                n_parse += 1
+                PC[str(gid)] = {"gd": gd, "fs": fs}; dirty = True
             hh = min(9 + k * 3 + gi, 23)   # 同日多系列/多局的假時鐘：只為了 date 排序穩定
             games.append({"gid": gid, "game": gi + 1, "date": gd["date"] or mt["date"],
                           "time": "%02d:%02d:00" % (hh, (gi * 7) % 60),
                           "patch": gd["patch"] or mt["patch"], "week": gd.get("week") or mt["week"],
                           "gamelength": gd["gamelength"], "sides": gd["sides"], "bp": gd["bp"], "fs": fs})
         print(f"      [{mi+1}/{len(matches)}] {mt['date']} match {mt['gid']} → {len(ids)} 局", flush=True)
+    if dirty:
+        save_parsed(PC)
+    print(f"    解析快取：命中 {n_hit} 局／新解析 {n_parse} 局（{PARSED_NAME}）", flush=True)
     return games
 
 

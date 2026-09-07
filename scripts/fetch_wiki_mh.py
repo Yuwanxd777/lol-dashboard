@@ -39,6 +39,22 @@ UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.3
       "Accept-Language": "en-US,en;q=0.9", "Referer": BASE, "Upgrade-Insecure-Requests": "1"}
 GAP = 8.0            # 頁面請求間隔（一般頁面，不吃 Cargo 限流；仍禮貌節流）
 _OP = None
+_last_req = 0.0      # 本模組上一次真的打 Leaguepedia 的時刻
+
+
+def _throttle():
+    """GAP 是「本模組兩次請求的最小間隔」，不是「每次請求後固定睡 8 秒」。
+    2026-09-08 線 3：fetch_fill 每天那班 MH 頁→PB 頁各睡 8s，PB 頁之後根本沒有下一次請求，
+    16s 裡有 8s 是白睡。改成請求前補足差額；中間解析的時間也算進間隔。
+    opener() 取 cookie 那 2 秒維持原樣（表單頁不計入節流，行為跟以前一樣）。"""
+    w = GAP - (time.time() - _last_req)
+    if w > 0:
+        time.sleep(w)
+
+
+def _mark():
+    global _last_req
+    _last_req = time.time()
 
 
 def opener():
@@ -67,11 +83,13 @@ def fetch(tour, force=False):
     url = BASE + "?" + urllib.parse.urlencode(q, safe="[]")
     for a in range(3):
         try:
+            _throttle()
             b = opener().open(urllib.request.Request(url, headers=UA), timeout=150).read().decode("utf-8", "replace")
+            _mark()
             open(p, "w", encoding="utf-8").write(b)
-            time.sleep(GAP)
             return b
         except Exception as e:
+            _mark()
             print(f"    抓取失敗（{a+1}/3）：{type(e).__name__} {str(e)[:60]}")
             time.sleep(20 * (a + 1))
     return ""
@@ -114,16 +132,18 @@ def pb_page(tour, force=False):
            + "&prop=text&format=json&formatversion=2")
     for a in range(3):
         try:
+            _throttle()
             raw = opener().open(urllib.request.Request(url, headers=UA), timeout=120).read().decode("utf-8", "replace")
+            _mark()
             d = json.loads(raw)
             if "error" in d:
                 print(f"    ⚠ Picks and Bans 頁不存在（{ov_of(tour)}）：{d['error'].get('info','')[:60]}")
                 return ""
             h = d["parse"]["text"]
             open(p, "w", encoding="utf-8").write(h)
-            time.sleep(GAP)
             return h
         except Exception as e:
+            _mark()
             print(f"    Picks and Bans 抓取失敗（{a+1}/3）：{type(e).__name__} {str(e)[:60]}")
             time.sleep(15 * (a + 1))
     return ""
@@ -248,14 +268,16 @@ def fetch_embed(page, force=False):
         {"action": "parse", "page": page, "prop": "text", "format": "json"})
     for a in range(3):
         try:
+            _throttle()
             r = json.loads(opener().open(urllib.request.Request(u, headers=UA), timeout=120).read())
+            _mark()
             if "error" in r:
                 print(f"    {page}：{r['error'].get('info','')[:70]}"); return ""
             b = r["parse"]["text"]["*"]
             open(fp, "w", encoding="utf-8").write(b)
-            time.sleep(GAP)
             return b
         except Exception as e:
+            _mark()
             print(f"    嵌入頁失敗（{a+1}/3）{type(e).__name__}"); time.sleep(10 * (a + 1))
     return ""
 
