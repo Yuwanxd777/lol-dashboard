@@ -71,6 +71,25 @@ def fake_urlopen(req, timeout=None):
             INFL[kind] -= 1
 
 M.urllib.request.urlopen = fake_urlopen
+# ⚠ 2026-09-07（精進迴圈 #52）：模組後來多了 keep-alive 直連——KEEPALIVE=True 時 _fetch_once 走
+#   http.client.HTTPSConnection，**完全繞過 urlopen**。所以這支宣稱「不打網路」的測試從那天起
+#   靜默地打起真的 OBGG：卡在 SSL read，300 秒連第一行都印不出來（用 faulthandler 抓堆疊才看見）。
+#   隔離要接管「每一個對外入口」，不是只接管當初寫測試時的那一個：
+#     ① 把 KEEPALIVE 關掉 ⇒ 請求走假 urlopen 那條
+#     ② HTTPSConnection 換成會炸的 stub ⇒ 哪天又多一條路、或旗標改名，測試當場紅而不是連上網
+assert hasattr(M, "KEEPALIVE"), "fetch_obgg_accounts 沒有 KEEPALIVE 旗標了：對外入口改過，接管方式要重寫"
+M.KEEPALIVE = False
+BASE_URL = M.BASE
+NET = {"n": 0}
+
+
+class NoNet:
+    def __init__(self, *a, **k):
+        NET["n"] += 1
+        raise AssertionError("測試打到真實網路：http.client.HTTPSConnection(%s)" % (a[0] if a else "?"))
+
+
+M.http.client.HTTPSConnection = NoNet
 M.time.sleep = lambda s: None          # 0.15／1.5 秒的睡都跳過（假伺服器自己用 _real_sleep 0.02s 製造重疊）
 
 def reset(team_jobs, jobs, fail=()):
@@ -97,11 +116,28 @@ ACC0 = [
 ]
 TMP = tempfile.mkdtemp(prefix="obgg_teampar_")
 M.ROSTER_OUT = os.path.join(TMP, "obgg_roster.json")
+# ⚠ 2026-09-07（#52）：模組有兩個路徑常數——ACCOUNTS（讀、判斷要不要留 .bak）與 **OUT（真正寫出的目標，
+#   --out= 旁路後來加的）**。這支原本只接管 ACCOUNTS ⇒ main() 把假帳號寫進**真實的
+#   scripts/soloq_accounts.json**（12507 行變 162 行，本輪跑測試時真的發生了，靠 git checkout 還原）。
+#   接管要涵蓋「每一個出口」，下面的 leaks() 會在每次 main() 前後把這件事變成會翻紅的檢查。
+REAL_ACC = os.path.join(M.HERE, "soloq_accounts.json")
+REAL_MT = os.stat(REAL_ACC).st_mtime
+REAL_BAK = REAL_ACC + ".bak"
+REAL_BAK_MT = os.stat(REAL_BAK).st_mtime if os.path.exists(REAL_BAK) else 0
+M.ACCOUNTS = M.OUT = os.path.join(TMP, "acc_init.json")
+
+
+def leaks():
+    """模組層還指著真實 repo 的檔案路徑常數（＝沒接管到的出入口）"""
+    return {k: v for k, v in vars(M).items()
+            if isinstance(v, str) and v.endswith((".json", ".txt", ".csv"))
+            and os.path.isabs(v) and not v.startswith(TMP)}
 
 def run_main(team_jobs, jobs, fail=()):
     """用暫存帳號檔跑 main()；回 (寫出的帳號檔 bytes 或 None＝沒寫, stdout)。"""
     reset(team_jobs, jobs, fail)
-    M.ACCOUNTS = os.path.join(TMP, f"acc_{team_jobs}_{jobs}_{len(fail)}.json")
+    M.ACCOUNTS = M.OUT = os.path.join(TMP, f"acc_{team_jobs}_{jobs}_{len(fail)}.json")
+    assert not leaks(), f"沙盒沒接管到：{leaks()}"
     before = json.dumps(ACC0, ensure_ascii=False, indent=1).encode("utf-8")
     open(M.ACCOUNTS, "wb").write(before)
     buf = io.StringIO()
@@ -109,6 +145,31 @@ def run_main(team_jobs, jobs, fail=()):
         M.main()
     after = open(M.ACCOUNTS, "rb").read()
     return (None if after == before else after), buf.getvalue()
+
+# ───────────── [0] 隔離：對外入口全被接管（這支不准打真實網路）─────────────
+print("[0] 隔離：對外入口")
+check("KEEPALIVE 已關（開著的話 _fetch_once 會走 http.client 直連、繞過假 urlopen）", M.KEEPALIVE is False)
+_ent = inspect.getsource(M._fetch_once) + inspect.getsource(M._conn)
+check("兩條已知入口都還在（改名了就代表接管要重寫）",
+      all(k in _ent for k in ("urllib.request.urlopen", "http.client.HTTPSConnection")))
+_other = [w for w in ("requests.", "httpx.", "aiohttp", "socket.create_connection",
+                      "http.client.HTTPConnection(") if w in _ent]
+check("沒有第三種對外入口（新增了就要一起接管）", not _other, _other)
+# 正控制：把 keep-alive 打開，_fetch_once 就該撞上 NoNet ⇒ 證明 stub 真的守在那條路上，
+# 不是「反正沒人走所以恆綠」（把來源清空不算隔離，見 CLAUDE.md 2026-09-07 那條）。
+M._drop_conn()
+M.KEEPALIVE = True
+_n0 = NET["n"]
+_r = M.get(BASE_URL + "zone?name=LPL", retry=0)
+M.KEEPALIVE = False
+M._drop_conn()
+check("正控制：keep-alive 那條路確實會撞上假連線（守得到）",
+      NET["n"] == _n0 + 1 and isinstance(_r, dict) and "_err" in _r, (NET["n"] - _n0, _r))
+check("模組層沒有指向真實 repo 的檔案路徑（ACCOUNTS／OUT／ROSTER_OUT 都在暫存目錄）", not leaks(), leaks())
+_sv_out = M.OUT
+M.OUT = REAL_ACC
+check("正控制：把 OUT 指回真實帳號檔，leaks() 抓得到（不是恆綠）", "OUT" in leaks())
+M.OUT = _sv_out
 
 # ───────────── [1] 常數與簽名 ─────────────
 print("[1] 常數與簽名")
@@ -119,7 +180,10 @@ check("ERRS 三類", set(M.ERRS) == {"zone", "team", "progamer"}, M.ERRS)
 check("get() 多了 kind 參數（預設 None，舊呼叫法不變）", inspect.signature(M.get).parameters["kind"].default is None)
 src = open(SRC, encoding="utf-8").read()
 check("_team_pull 的程式碼不碰 out[（註解不算）", not any("out[" in re.sub(r"#.*", "", l) for l in inspect.getsource(M._team_pull).splitlines()))
-check("pull() 在主執行緒合併結果", "for tm, ok, ps in results:" in inspect.getsource(M.pull))
+# #38 把賽區迴圈從 pull() 搬到 _pull_zones()（pull 現在只負責建／收兩個執行緒池），
+# 合併仍在主執行緒，只是換了個函式 ⇒ 這條要看兩支的原始碼合起來，不然是在測「函式叫什麼名字」。
+_pullsrc = inspect.getsource(M.pull) + inspect.getsource(M._pull_zones)
+check("pull()／_pull_zones() 在主執行緒合併結果", "for tm, ok, ps in results:" in _pullsrc)
 check("argv 吃 --team-jobs=", '"--team-jobs="' in src)
 check("zone／team／progamer 三種請求都標了 kind", src.count('kind="zone"') == 1 and src.count('kind="team"') == 1 and src.count('kind="progamer"') == 1)
 
@@ -202,6 +266,12 @@ check("LPL 三隊 team 失敗（剩 11 帳號 <20）→ 第一道門擋、且 �
 print("[6] 負控制")
 out, ze, _, txt = run_pull(1, 3)
 check("TEAM_JOBS=1 也回 (out, zone_err) 兩件、結果同並行", out == out2 and not any(ze.values()))
+
+check("整支跑完沒有任何真實 TLS 握手（CONN_NEW 仍是 0）", M.CONN_NEW[0] == 0, M.CONN_NEW[0])
+check("整支跑完沒有碰真實的 scripts/soloq_accounts.json（mtime 沒變）",
+      os.stat(REAL_ACC).st_mtime == REAL_MT)
+check("整支跑完也沒動真實的 .bak（main() 寫回正本時才會留備份）",
+      (os.stat(REAL_BAK).st_mtime if os.path.exists(REAL_BAK) else 0) == REAL_BAK_MT)
 
 time.sleep = _real_sleep
 print(f"\n{OK} 過／{FAIL} 敗")
