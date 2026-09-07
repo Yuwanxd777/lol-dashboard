@@ -18,10 +18,16 @@
 標點整區收進來（少一個 U+00A0 就會害完整字型被下載——實測踩過）。
 掛在 update.bat 每天重跑，新版本帶進來的新字隔天就會被收進去。
 
-用法：python scripts/build_font_subset.py
+用法：python scripts/build_font_subset.py [--force]
 輸出：fonts/jf-openhuninn-sub.woff2、fonts/huninn.css（index.html 用 <link> 引它）
+
+**輸入沒變就沿用（2026-09-08 精進迴圈 #62）**：24 秒裡 Subsetter 13.8s＋woff2 壓縮 7.7s，收字元只要 1.2s，
+而輸出從 08-22 到 09-07 只真的變過兩次（新版本改動／新選手名帶進新字才會變）。所以收完字元先比
+`csv_cache/font_subset_cache.json`：字元集、原字型、子集選項（CACHE_VER＋OVERRIDE）全一樣、**而且**上次寫出的
+兩個檔 md5 也原封不動 ⇒ 印「沿用」直接收工（約 1.5 秒）；任何一項不同（含有人手改 huninn.css、檔被刪）就照舊全部重算。
+命中時一個位元都不寫，所以 git 不會看到假變動。要強制重算加 `--force` 或刪掉快取檔。
 """
-import glob, io, os, sys
+import glob, hashlib, io, json, os, sys, time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
@@ -31,7 +37,44 @@ if (getattr(sys.stdout, "encoding", "") or "").lower().replace("-", "") != "utf8
 SRC = os.path.join(ROOT, "fonts", "jf-openhuninn.woff2")
 DST = os.path.join(ROOT, "fonts", "jf-openhuninn-sub.woff2")
 CSS = os.path.join(ROOT, "fonts", "huninn.css")
+CACHE = os.path.join(ROOT, "csv_cache", "font_subset_cache.json")   # 上次輸入／輸出的指紋（本機快取，不進 git）
+CACHE_VER = 1   # 子集選項（flavor／layout_features／hinting／desubroutinize）或 CSS 版型有改就 +1，舊快取全部作廢
 OVERRIDE = "ascent-override:106.7%;descent-override:26.7%;line-gap-override:0%"
+
+
+def _md5(p):
+    h = hashlib.md5()
+    with open(p, "rb") as f:
+        for chunk in iter(lambda: f.read(1 << 20), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def _sig(need, src_md5):
+    """輸入指紋：選項版本＋行高覆寫＋原字型 md5＋要收的碼位（排序後）。任一個變就不會命中。"""
+    return hashlib.sha1(("%d|%s|%s|" % (CACHE_VER, OVERRIDE, src_md5) + ",".join(str(c) for c in need)).encode("utf-8")).hexdigest()
+
+
+def cache_hit(need, src_md5):
+    """上次的輸入跟這次一模一樣、而且上次寫出的兩個檔還原封不動（md5 相同）⇒ True。
+    讀不到／格式壞／輸出被動過 ⇒ False，退回全部重算（重算永遠是安全的那一邊）。"""
+    try:
+        c = json.load(io.open(CACHE, encoding="utf-8"))
+    except Exception:
+        return False
+    if c.get("sig") != _sig(need, src_md5):
+        return False
+    for p, k in ((DST, "dst_md5"), (CSS, "css_md5")):
+        if not os.path.exists(p) or _md5(p) != c.get(k):
+            return False
+    return True
+
+
+def save_cache(need, src_md5):
+    os.makedirs(os.path.dirname(CACHE), exist_ok=True)
+    body = {"sig": _sig(need, src_md5), "dst_md5": _md5(DST), "css_md5": _md5(CSS),
+            "n_need": len(need), "saved_at": time.strftime("%Y-%m-%d %H:%M:%S")}
+    io.open(CACHE, "w", encoding="utf-8").write(json.dumps(body, ensure_ascii=False, indent=1))
 
 
 def used_chars():
@@ -79,6 +122,14 @@ def main():
     cmap = set(TTFont(SRC).getBestCmap().keys())
     need = sorted({ord(c) for c in used_chars()} & cmap)
     print("字型 %d 字；專案用到 %d（%d%%）" % (len(cmap), len(need), len(need) / len(cmap) * 100))
+    rngs = ranges_css(need)
+
+    src_md5 = _md5(SRC)
+    if "--force" not in sys.argv and cache_hit(need, src_md5):
+        print("沿用上次輸出：字元集／原字型／選項都沒變、%s 與 %s 也原封不動（要強制重算加 --force 或刪 %s）"
+              % (os.path.basename(DST), os.path.basename(CSS), os.path.relpath(CACHE, ROOT)))
+        _report(rngs)
+        return
 
     # 用 API 不用命令列：幾千個碼位串成 --unicodes= 會超過 Windows 的命令列長度上限
     from fontTools import subset as ss
@@ -95,7 +146,6 @@ def main():
     if not os.path.exists(DST):
         sys.exit("[X] 子集化失敗")
 
-    rngs = ranges_css(need)
     line1 = ('@font-face{font-family:"jf-openhuninn";src:url("jf-openhuninn-sub.woff2") format("woff2");'
              "font-display:swap;" + OVERRIDE + ";unicode-range:" + ",".join(rngs) + "}")
     # 完整 face 也要標 unicode-range——只標它「真正有的字」（全字型 cmap 減掉子集）。
@@ -111,6 +161,11 @@ def main():
     # 反過來寫的話完整版（沒有 range＝涵蓋全部）會把子集整個蓋掉，等於白做（2026-08-22 踩過）。
     body = "/* 這個檔案是 scripts/build_font_subset.py 產生的，不要手改 */" + chr(10) + line2 + chr(10) + line1 + chr(10)
     io.open(CSS, "w", encoding="utf-8", newline=chr(10)).write(body)
+    save_cache(need, src_md5)
+    _report(rngs)
+
+
+def _report(rngs):
     a, b = os.path.getsize(SRC), os.path.getsize(DST)
     print("%s %.2fMB -> %s %.2fMB（省 %d%%）" % (os.path.basename(SRC), a / 1e6,
                                                 os.path.basename(DST), b / 1e6, (1 - b / a) * 100))
