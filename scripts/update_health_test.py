@@ -210,7 +210,8 @@ try:
                "run_update：2026-09-07 22:00:01（並行 4）\n"
                "步驟 42 個、相加 28.2 分鐘；最久的 8 步：\n"
                "   fetch_soloq_matches            639.5s  ⚠ exit 3\n"
-               "守門：✓／push：✓／lint 錯誤級：0／可疑同名：0\n"
+               "那一班的日誌快照（不是現況）：守門：✓／push：✓／lint 錯誤級：0\n"
+               "可疑同名：0（現況重算；那一班日誌是 10，已經是舊帳）\n"
                "結論：⚠ 日誌是 7.5 小時前的（>240 分鐘）⇒ 這一班沒有寫新日誌\n")
     io.open(uh.LOG, "a", encoding="utf-8").write(verdict * 3)
     after = uh.parse_log()
@@ -232,7 +233,7 @@ try:
     uh.SHIFT_GRACE_MIN = 0        # 寬限歸零＝不管這一輪幾點跑，舊日誌一定要被判定成「沒跑」
     uh.CONSOLE = os.path.join(tmp, "no_console.txt")
     uh.LOG = os.path.join(tmp, "log.txt")
-    sys.argv = ["update_health.py", "--no-save"]
+    sys.argv = ["update_health.py", "--no-save", "--no-live"]   # 這組測班次，不必真的去掃 26MB 算同名
 
     def main_out(when_ts):
         s = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(when_ts))
@@ -259,6 +260,61 @@ try:
 finally:
     uh.LOG, uh.CONSOLE, sys.argv = _real_log, _real_console, _real_argv
     uh.SHIFT_GRACE_MIN = _real_grace
+    shutil.rmtree(tmp, ignore_errors=True)
+
+# ── ⑭ 可疑同名：日誌快照 vs 現況（#49 的純函式）─────────────────────────────
+eq(uh.parse_dup_quiet("[check_player_dup] 選手 ID 4087 個，未審定的可疑同名 10 個（跑 … 看明細）"),
+   10, "⑭parse：抓得到 10")
+eq(uh.parse_dup_quiet("[check_player_dup] 選手 ID 4087 個，未審定的可疑同名 0 個"),
+   0, "⑭parse：0 是數字不是 None（0 和「算不出來」不可以混為一談）")
+eq(uh.parse_dup_quiet("Traceback (most recent call last)"), None, "⑭parse：認不得回 None")
+eq(uh.parse_dup_quiet(None), None, "⑭parse：None 不炸")
+
+eq(uh.dup_line(10, 0, ""), "可疑同名：0（現況重算；那一班日誌是 10，已經是舊帳）",
+   "⑭line：今天真的發生過的那種（班後才審定）")
+eq(uh.dup_line(0, 0, ""), "可疑同名：0（現況重算）", "⑭line：一樣就不囉嗦")
+eq(uh.dup_line(0, 5, ""), "可疑同名：5（現況重算；那一班日誌是 0，已經是舊帳）",
+   "⑭line：反向（快照 0、現況 5）＝假綠，一定要講")
+eq(uh.dup_line(None, 3, ""), "可疑同名：3（現況重算）", "⑭line：沒有快照也照樣報現況")
+eq(uh.dup_line(10, None, "重算逾時（>180s）"), "可疑同名：10（那一班日誌的舊數字；重算逾時（>180s））",
+   "⑭line：算不出來要明講印的是舊數字")
+eq(uh.dup_line(None, None, ""), "可疑同名：？（那一班日誌的舊數字；現況算不出來）", "⑭line：兩邊都沒有")
+
+_real_root = uh.ROOT
+try:
+    uh.ROOT = tempfile.mkdtemp(prefix="uh_noroot_")     # 腳本不在 ⇒ 只能回 None，不可以丟例外
+    _n, _e = uh.live_dup()
+    eq((_n, bool(_e)), (None, True), "⑭live_dup：找不到 check_player_dup.py 回 None＋說明")
+finally:
+    shutil.rmtree(uh.ROOT, ignore_errors=True)
+    uh.ROOT = _real_root
+
+# ── ⑮ 端到端：main() 的可疑同名要走現況，不是印日誌快照（專打接線，#48 的教訓）──
+_real_log, _real_console, _real_argv, _real_live = uh.LOG, uh.CONSOLE, sys.argv, uh.live_dup
+try:
+    tmp = tempfile.mkdtemp(prefix="uh_dup_e2e_")
+    uh.CONSOLE = os.path.join(tmp, "no_console.txt")
+    uh.LOG = os.path.join(tmp, "log.txt")
+    io.open(uh.LOG, "w", encoding="utf-8").write(
+        "==== run_update %s（並行 4）====\n---- fetch_x（1.0s，exit 0）----\n"
+        "[check_player_dup] 選手 ID 4087 個，未審定的可疑同名 10 個\n守門通過\n"
+        % time.strftime("%Y-%m-%d %H:%M:%S"))
+    uh.live_dup = lambda timeout=None: (0, "")          # 假現況：那一班之後已經審定完
+
+    def dup_lines(argv):
+        sys.argv = argv
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            uh.main()
+        return [l for l in buf.getvalue().splitlines() if l.startswith("可疑同名：")]
+
+    eq(dup_lines(["update_health.py", "--no-save"]),
+       ["可疑同名：0（現況重算；那一班日誌是 10，已經是舊帳）"], "⑮main() 印的是現況不是快照")
+    # 正控制：--no-live 就該退回快照那個舊數字，否則上面那條可能是恆真的
+    eq(dup_lines(["update_health.py", "--no-save", "--no-live"]),
+       ["可疑同名：10（那一班日誌的舊數字；--no-live 跳過重算）"], "⑮正控制：--no-live 退回快照 10")
+finally:
+    uh.LOG, uh.CONSOLE, sys.argv, uh.live_dup = _real_log, _real_console, _real_argv, _real_live
     shutil.rmtree(tmp, ignore_errors=True)
 
 print("update_health 回歸測試：通過 %d 條" % OK[0] + ("" if not NG else "，失敗 %d 條" % len(NG)))

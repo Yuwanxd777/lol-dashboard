@@ -11,19 +11,22 @@
         ‧ 最久的 8 步、非零離開碼的步驟、管線總時長（run_update 開始 → 「資料更新時間」那行）
   準確  ‧ data_YYYY.js（**全部 14 年**）列數不可比基準少（縮水＝來源掛了或過濾壞了）
         ‧ 基準是「已知良好的高水位」：縮水不會寫回基準，會一直報到 --accept 認可為止
-        ‧ soloq.js 選手數／有排名數、side_sel.js 局數、lint_text 錯誤級、check_player_dup 可疑數
+        ‧ soloq.js 選手數／有排名數、side_sel.js 局數、lint_text 錯誤級
+        ‧ **可疑同名走現況重算**（2026-09-07 #49），不是讀日誌快照——審定是人在班與班之間補的
         ‧ preflight 有沒有過、有沒有 push
 
 用法：python scripts/update_health.py           # 報告＋更新基準
       python scripts/update_health.py --no-save # 只報告
       python scripts/update_health.py --accept  # 認可縮水（資料真的變少時才用），把現值寫成新基準
       python scripts/update_health.py --from-publish   # publish.bat 用：日誌不新鮮＝異常
+      python scripts/update_health.py --no-live        # 跳過可疑同名的現況重算（省 ~3 秒）
 """
 import glob
 import io
 import json
 import os
 import re
+import subprocess
 import sys
 import time
 
@@ -72,6 +75,60 @@ def parse_log():
     if m:
         r["dup"] = int(m.group(1))
     return r
+
+
+# ── 日誌快照 vs 現況（2026-09-07 #49）──────────────────────────────────────────
+# 「守門／push／lint 錯誤級／可疑同名」是**那一班日誌寫下來的快照**，下面的資料量卻是**現況**，
+# 兩種時間基準用同一種語氣印出來 ⇒ 讀的人分不出哪個數字現在還算數。
+# 真的踩到（2026-09-07 18:1x）：10:00 那班報「可疑同名 10」，15:28 審定完早就是 0，
+# 健檢每輪照樣印 10，迴圈追了一輪才發現是舊帳。反過來更糟——那班之後資料變髒、
+# 快照仍印 0 就是**假綠**（跟 #47 讀到上一班日誌是同一種病）。
+# 可疑同名便宜（整份掃 ~3 秒）且**會被人在班與班之間改動**（審定檔 player_disambig.json），
+# 所以直接重算現況；lint 錯誤級留快照（掃 8 萬條字串太貴，來源也只有管線會動），但那行明講是快照。
+DUP_TIMEOUT = 180
+
+
+def parse_dup_quiet(text):
+    """check_player_dup.py --quiet 的輸出 → 未審定可疑同名數（認不得回 None）。"""
+    m = re.search(r"未審定的可疑同名 (\d+)", text or "")
+    return int(m.group(1)) if m else None
+
+
+def live_dup(timeout=DUP_TIMEOUT):
+    """現況重算未審定可疑同名。回 (數字或 None, 說明)。
+
+    永遠不丟例外：健檢是每輪都要能跑完的尺，不能被一個附帶指標弄死；算不出來就退回快照。
+    子程序的 stdout 強制 utf-8（Windows 預設 cp950 會把中文摘要打亂 ⇒ 認不得輸出）。
+    """
+    exe = os.path.join(ROOT, "scripts", "check_player_dup.py")
+    if not os.path.exists(exe):
+        return None, "找不到 check_player_dup.py"
+    env = dict(os.environ)
+    env["PYTHONIOENCODING"] = "utf-8"
+    try:
+        p = subprocess.Popen([sys.executable, exe, "--quiet"], cwd=ROOT, env=env,
+                             stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        out = p.communicate(timeout=timeout)[0]
+    except Exception as e:
+        try:
+            p.kill()
+        except Exception:
+            pass
+        return None, "重算失敗：%s" % (e.__class__.__name__,)
+    n = parse_dup_quiet((out or b"").decode("utf-8", "replace"))
+    if n is None:
+        return None, "重算的輸出認不得（exit %s）" % p.returncode
+    return n, ""
+
+
+def dup_line(snapshot, live, err):
+    """可疑同名那一行的字（純函式，好測）。live 是現況、snapshot 是日誌快照。"""
+    if live is None:
+        return "可疑同名：%s（那一班日誌的舊數字；%s）" % (
+            "？" if snapshot is None else snapshot, err or "現況算不出來")
+    if snapshot is None or snapshot == live:
+        return "可疑同名：%d（現況重算）" % live
+    return "可疑同名：%d（現況重算；那一班日誌是 %d，已經是舊帳）" % (live, snapshot)
 
 
 # ── 「這一班到底有沒有真的跑」（純函式；scripts/update_health_test.py 在測）──────────
@@ -292,15 +349,22 @@ def main():
             if nz:
                 bad.append("非零離開碼：" + "、".join("%s(%d)" % x for x in nz))
         # 失敗優先：日誌萬一同時有兩種字樣（例如手動補跑過），印 ✓ 會跟下面的結論自相矛盾
-        print("守門：%s／push：%s／lint 錯誤級：%s／可疑同名：%s" % (
+        print("那一班的日誌快照（不是現況）：守門：%s／push：%s／lint 錯誤級：%s" % (
             "✗ FAILED" if lg["preflight_fail"] else ("✓" if lg["preflight_ok"] else "？"),
-            "✓" if lg["pushed"] else "？", lg["lint_err"], lg["dup"]))
+            "✓" if lg["pushed"] else "？", lg["lint_err"]))
         if lg["lint_err"]:
             bad.append("lint_text 錯誤級 %d（應為 0）" % lg["lint_err"])
         if lg["preflight_fail"]:
             bad.append("preflight 失敗、沒有 push")
     else:
         print("（找不到 update_log.txt）")
+    # 可疑同名走現況重算（#49；--no-live 可跳過，例如管線正在跑、不想再讀一次 26MB 年度資料）
+    if "--no-live" in sys.argv:
+        print("可疑同名：%s（那一班日誌的舊數字；--no-live 跳過重算）"
+              % ("？" if (lg or {}).get("dup") is None else lg["dup"]))
+    else:
+        _live, _err = live_dup()
+        print(dup_line((lg or {}).get("dup"), _live, _err))
     pc = prev.get("counts", {})
     accept = "--accept" in sys.argv
     print("資料量（基準＝已知良好的高水位，%s）：" % (prev.get("at") or "尚無基準"))
