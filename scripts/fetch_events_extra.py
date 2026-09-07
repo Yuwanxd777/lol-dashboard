@@ -12,17 +12,86 @@
 賽事碼要用儀表板內部的碼（EWCQ中國／ENC…），前端 eventsTreeHTML 會把它併進賽事樹；
 EWCQ* 會再被合併卡吸收成 EWC 卡底下的資格賽分段。
 
-用法：python scripts\fetch_events_extra.py
+用法：python scripts\fetch_events_extra.py [--force]
+
+速度（2026-09-08 精進迴圈 #60）：每班 51.4s 裡 28s 是 14 次「請求後固定睡 2s」、12/14 個請求在抓
+2013 那六個早就定案的賽事（連續 10 天輸出逐位元相同）。所以：
+  - 歷史年份（< 今年）的賽事：上一次抓的**設定相同**（EVENTS 那筆的雜湊）、距今 ≤ REFRESH_DAYS 天、
+    舊檔裡還有 ⇒ 沿用舊檔那筆不重抓；抓過的時間與雜湊記在 csv_cache/events_extra_meta.json
+    （資料本身仍只有 events_extra.js 一份）。今年的賽事每班照抓（名單真的會變，09-08 就多了一位教練）。
+    `--force` 全部重抓。改了 EVENTS 的設定不用管快取，雜湊不同就自動重抓。
+  - 節流改成「兩次請求的最小間隔」（跟 fetch_fill 一樣）：請求前補足距上次請求的差額，
+    最後一次請求之後不再白睡。
 """
-import io, sys, os, re, json, time, html as _html, urllib.request, urllib.parse
+import io, sys, os, re, json, time, hashlib, datetime, html as _html, urllib.request, urllib.parse
 
 if (getattr(sys.stdout, "encoding", "") or "").lower().replace("-", "") != "utf8":
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 OUT = os.path.join(ROOT, "events_extra.js")
+META = os.path.join(ROOT, "csv_cache", "events_extra_meta.json")   # {"年|賽事碼": {"sig", "at"}}，只記歷史年份
+REFRESH_DAYS = 7      # 歷史年份的賽事多久重抓一次（wiki 對 2013 頁的修訂極少，7 天內的舊帳可接受）
+GAP = 2.0             # 對 fandom 的禮貌節流：兩次請求的最小間隔（秒）
+_last_req = 0.0
 API = "https://lol.fandom.com/api.php"
 UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/126 Safari/537.36"}
+
+
+def _throttle():
+    """請求前補足「距上次請求」不夠 GAP 的差額；解析花掉的時間也算進間隔，尾端不白睡"""
+    w = GAP - (time.time() - _last_req)
+    if w > 0:
+        time.sleep(w)
+
+
+def _mark():
+    global _last_req
+    _last_req = time.time()
+
+
+def _sig(cfg):
+    """EVENTS 那一筆設定的雜湊：頁名／賽段／kind 任何一個變了就不沿用舊資料"""
+    return hashlib.sha1(json.dumps(cfg, sort_keys=True, ensure_ascii=False).encode("utf-8")).hexdigest()[:12]
+
+
+def load_meta():
+    try:
+        m = json.loads(open(META, encoding="utf-8").read())
+        return m if isinstance(m, dict) else {}
+    except FileNotFoundError:
+        return {}
+    except Exception as e:
+        print(f"   ⚠ {os.path.basename(META)} 壞了（{type(e).__name__}），全部重抓"); return {}
+
+
+def save_meta(meta):
+    os.makedirs(os.path.dirname(META), exist_ok=True)
+    tmp = META + ".tmp"
+    open(tmp, "w", encoding="utf-8").write(json.dumps(meta, ensure_ascii=False, indent=1))
+    os.replace(tmp, META)
+
+
+def _age_days(at, now):
+    try:
+        return (now - datetime.datetime.strptime(at, "%Y-%m-%d %H:%M")).total_seconds() / 86400.0
+    except Exception:
+        return None
+
+
+def cached_reason(year, code, cfg, meta, old, now, force):
+    """歷史年份的賽事能不能沿用舊檔：回傳一段說明字串（能沿用）或 None（要抓）"""
+    if force or int(year) >= now.year:
+        return None
+    m = meta.get(f"{year}|{code}") or {}
+    if not old.get(str(year), {}).get(code):
+        return None
+    if m.get("sig") != _sig(cfg):
+        return None
+    age = _age_days(m.get("at", ""), now)
+    if age is None or age < 0 or age > REFRESH_DAYS:
+        return None
+    return f"{m['at'][:10]} 抓過（{age:.1f} 天前，設定未變）→ 沿用舊檔不重抓"
 
 # kind: "team"＝一般戰隊（取 team-template 全名）／"nation"＝國家隊（取 X (National Team)）
 # 鍵含「#」＝賽段名單補充（LPL#S3＝S3 開賽前的 wiki 陣容），前端賽事樹不會把它當獨立賽事卡
@@ -62,11 +131,14 @@ def parse_page(page):
     p = {"action": "parse", "page": page, "prop": "text", "format": "json"}
     url = API + "?" + urllib.parse.urlencode(p)
     for attempt in range(4):
+        _throttle()
         try:
             r = json.loads(urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=60).read())
         except Exception as e:
+            _mark()
             print(f"    連線失敗（{attempt+1}/4）：{str(e)[:80]}")
             time.sleep(6 * (attempt + 1)); continue
+        _mark()
         if "error" in r:
             raise RuntimeError(r["error"].get("info", "")[:200])
         return r["parse"]["text"]["*"]
@@ -239,11 +311,12 @@ def _cargo_opener():
         import http.cookiejar
         cj = http.cookiejar.CookieJar()
         _COP = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(cj))
+        _throttle()
         try:
             _COP.open(urllib.request.Request(CARGO_FORM, headers=CARGO_UA), timeout=60).read()
-            time.sleep(2)
         except Exception as e:
             print(f"   ⚠ Cargo 取 cookie 失敗（仍試著繼續）：{type(e).__name__}")
+        _mark()
     return _COP
 
 
@@ -259,10 +332,14 @@ def cargo_rosters(page):
          "where": 'TP.OverviewPage="%s"' % str(page).replace('"', '\\"'),
          "format": "json", "limit": "500"}
     url = CARGO_FORM + "?" + urllib.parse.urlencode(q)
+    op = _cargo_opener()
+    _throttle()
     try:
-        raw = _cargo_opener().open(urllib.request.Request(url, headers=CARGO_UA), timeout=90).read().decode("utf-8", "replace")
+        raw = op.open(urllib.request.Request(url, headers=CARGO_UA), timeout=90).read().decode("utf-8", "replace")
     except Exception as e:
+        _mark()
         print(f"   Cargo 名單失敗：{type(e).__name__}"); return {}
+    _mark()
     if raw.lstrip()[:1] not in "[{":
         return {}
     try:
@@ -291,7 +368,6 @@ def grab(page, kind, roster_page=None):
     if not rs and roster_page:      # 舊賽事的名單在 `/Team Rosters` 子頁
         try:
             rs = rosters_alt(parse_page(roster_page))
-            time.sleep(2)
         except Exception as e:
             print(f"   名單子頁失敗：{str(e)[:70]}")
     teams = [fix_case(t) for t in teams_of(html, kind)]
@@ -303,7 +379,6 @@ def grab(page, kind, roster_page=None):
             rs = {**cr, **rs}
             if add:
                 print(f"   Cargo 名單：+{len(add)} 隊（{page}）")
-            time.sleep(2)
     return (teams, rs, frm, to, bracket_of(html))
 
 
@@ -329,19 +404,29 @@ def main():
     # 只保留「EVENTS 裡還登記著的賽事碼」：從設定移除的（例：2013 GPL 已有完整比賽資料）
     # 若沿用舊檔就會一直留著，賽事樹會多長出賽段名不同步的重複區塊（2026-07-31）
     data = {str(y): {k: v for k, v in old.get(str(y), {}).items() if k in evs} for y, evs in EVENTS.items()}
+    force = "--force" in sys.argv[1:]
+    meta = load_meta()
+    now = datetime.datetime.now()
+    n_reuse = n_fetch = 0
     for year, evs in EVENTS.items():
         for code, cfg in evs.items():
             kind = cfg.get("kind", "team")
+            why = cached_reason(year, code, cfg, meta, old, now, force)
+            if why:
+                print(f"[{year}] {code}：{why}"); n_reuse += 1
+                continue
+            n_fetch += 1
             # ── 分賽段的賽事（splits）：一個賽段一個 wiki 頁，另可指定 po_page＝該賽段的季後賽
             #    （例：2013 GPL 只有夏季有季後賽，就是 2013 GPL Championship 那一場）
             if cfg.get("splits"):
                 print(f"[{year}] {code}（{len(cfg['splits'])} 個賽段）")
                 segs, allt, frm0, to0 = [], [], "", ""
+                complete = True         # 任一賽段／季後賽頁失敗就不記進 meta，下一班會再抓
                 for sp in cfg["splits"]:
                     try:
                         teams, _rs, frm, to, brk = grab(sp["page"], kind, sp.get("page","")+"/Team Rosters")
                     except Exception as e:
-                        print(f"   {sp['sp']} 失敗：{str(e)[:100]}"); continue
+                        print(f"   {sp['sp']} 失敗：{str(e)[:100]}"); complete = False; continue
                     # 對戰表涵蓋全部參賽隊＝整個賽事就是淘汰賽（2013 土耳其／大洋洲／CIS 都是）→
                     # 那就沒有「誰晉級」可言，全部打勾等於沒打勾 → 不標
                     po = list(brk) if 0 < len(brk) < len(teams) else []
@@ -351,9 +436,8 @@ def main():
                             po = po2 if (0 < len(po2) < len(teams)) else po
                             if to2 > to:
                                 to = to2
-                            time.sleep(2)
                         except Exception as e:
-                            print(f"   {sp['sp']} 季後賽失敗：{str(e)[:80]}")
+                            print(f"   {sp['sp']} 季後賽失敗：{str(e)[:80]}"); complete = False
                     segs.append({"sp": sp["sp"], "teams": teams, "from": frm, "to": to, "po": po,
                                  "rosters": _rs or {}, "page": sp["page"]})
                     allt += teams
@@ -362,7 +446,6 @@ def main():
                     if to > to0:
                         to0 = to
                     print(f"   {sp['sp']}：{len(teams)} 隊 {frm}~{to}" + (f"　季後賽 {len(po)} 隊" if po else ""))
-                    time.sleep(2)
                 if not segs:
                     print("   全部失敗，保留舊資料"); continue
                 seen, uniq = set(), []
@@ -380,13 +463,14 @@ def main():
                     for tm, pl in (cargo_rosters(rp) or {}).items():
                         if len(pl) > len(merged.get(tm, ())):
                             merged[tm] = pl
-                    time.sleep(2)
                 merged = align_keys(uniq, merged)
                 if merged:
                     print(f"   併賽段名單：{len(merged)} 隊")
                 data[str(year)][code] = {"teams": uniq, "rosters": merged, "splits": segs,
                                          "from": frm0, "to": to0, "page": cfg["splits"][0]["page"],
                                          "url": "https://lol.fandom.com/wiki/" + urllib.parse.quote(cfg["splits"][0]["page"].replace(" ", "_"))}
+                if complete and int(year) < now.year:
+                    meta[f"{year}|{code}"] = {"sig": _sig(cfg), "at": now.strftime("%Y-%m-%d %H:%M")}
                 continue
             print(f"[{year}] {code} ← {cfg['page']}")
             try:
@@ -403,9 +487,14 @@ def main():
                 print(f"    例：{k} → " + "、".join(f"{p['n']}({p['r'] or '?'})" for p in rosters[k][:6]))
             if teams:
                 print("   ", "、".join(teams[:8]) + ("…" if len(teams) > 8 else ""))
-            time.sleep(2)
+            if int(year) < now.year:
+                meta[f"{year}|{code}"] = {"sig": _sig(cfg), "at": now.strftime("%Y-%m-%d %H:%M")}
     open(OUT, "w", encoding="utf-8").write("window.EVENTS_EXTRA=" + json.dumps(data, ensure_ascii=False, separators=(",", ":")) + ";")
-    print("→ events_extra.js")
+    # 只留 EVENTS 還登記著的鍵（從設定移除的賽事，meta 也跟著清）
+    keep = {f"{y}|{c}" for y, evs in EVENTS.items() for c in evs}
+    meta = {k: v for k, v in meta.items() if k in keep}
+    save_meta(meta)
+    print(f"→ events_extra.js（沿用舊檔 {n_reuse} 個賽事／實際抓取 {n_fetch} 個，歷史年份每 {REFRESH_DAYS} 天重抓一次；--force 全部重抓）")
 
 
 if __name__ == "__main__":
