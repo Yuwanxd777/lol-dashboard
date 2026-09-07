@@ -28,7 +28,9 @@ import datetime, glob, io, json, os, re, sys
 
 if (getattr(sys.stdout, "encoding", "") or "").lower().replace("-", "") != "utf8":
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# CAREER_ROOT 只給測試用（build_career_test.py 拿小型合成資料驗「輸出是決定性的」）。
+# 管線與手動執行都不設這個變數 ⇒ 行為與過去完全相同。
+ROOT = os.environ.get("CAREER_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(ROOT, "career.js")
 
 teams = {}      # team -> pos -> player -> [n, last]
@@ -174,7 +176,12 @@ for dp in sorted(glob.glob(os.path.join(ROOT, "data", "data_*.js"))):
             if col is None:
                 col = ban1
             if col is not None and r[col]:
-                for b in set(str(r[col]).split("|")):
+                # 去重要保序：這個迴圈決定 chI（英雄字典）的插入順序，而字典順序決定
+                # 逐場列 g 裡每一個 base36 索引。用 set() 的話迭代順序跟著字串 hash 走
+                # （PYTHONHASHSEED 每次執行都不同）⇒ 同一份資料連跑兩次，career.js 會
+                # 整份 12.2MB 不一樣，每天 build 都讓 git 多背一份全新的檔。
+                # dict.fromkeys 保留原始 ban 名單的出現順序，語意與 set() 相同（都只去重）。
+                for b in dict.fromkeys(str(r[col]).split("|")):
                     if b:
                         bb = a["c"].setdefault(b, [0, 0, 0, ""])
                         bb[2] += 1
