@@ -90,6 +90,108 @@ def merge_same(per):
     return per, drop
 
 
+def personas(name, rows, prev):
+    """LP 的逐場彙總列 → 人格表 {選手頁: {n, teams, f, l}}（純函式：不連網、不讀寫檔、不印字）
+
+    rows 是 export() 回來的列（nm／lk／tm／n／f／l）；prev 是既有條目，
+    persons_add（人工補的人格）從那裡來。回傳 (per, notes)，notes 是要印給人看的說明行。
+    """
+    per = collections.defaultdict(lambda: {"n": 0, "teams": {}, "f": "9999", "l": ""})
+    for x in rows:
+        lk = norm_link(str(x.get("lk") or ""))
+        if not lk:
+            continue
+        e = per[lk]
+        c = int(x.get("n") or 0)
+        e["n"] += c
+        tm = str(x.get("tm") or "").strip()
+        if tm:
+            e["teams"][tm] = e["teams"].get(tm, 0) + c
+        f, l = str(x.get("f") or "")[:10], str(x.get("l") or "")[:10]
+        if f and f < e["f"]:
+            e["f"] = f
+        if l > e["l"]:
+            e["l"] = l
+    per, merged = merge_same(dict(per))
+    notes = []
+    if merged:
+        notes.append(f"    ↺ {name}：合併重導頁 " + "、".join(f"{b} → {a}" for b, a in merged.items()))
+    # persons_add＝人工補的人格：LP **有選手頁、但 ScoreboardPlayers 一場都沒有**的人。
+    # 早年賽事 LP 常常只有名單沒有逐場（2013 GPL 例行賽整季都沒有：e-Sports Dragons Pro、
+    # Wayi Spider、Yoe IRONMEN 全是 0 場），那些人只存在於 RosterChanges／TournamentRosters，
+    # 本腳本查 ScoreboardPlayers 永遠看不到 ⇒ 拆不出來。人工查到就寫進 persons_add，
+    # 這裡合併進來一起排序；本腳本只補、不覆寫 persons_add 本身。
+    # 欄位：link（必填，LP 選手頁）／teams（LP 隊名，可空）／games_lp／first／last／note。
+    for mp in prev.get("persons_add") or []:
+        lk = norm_link(str(mp.get("link") or ""))
+        if not lk or lk in per:
+            continue
+        per[lk] = {"n": int(mp.get("games_lp") or 0),
+                   "teams": {t: 0 for t in (mp.get("teams") or [])},
+                   "f": str(mp.get("first") or "9999")[:10],
+                   "l": str(mp.get("last") or "")[:10],
+                   "manual": mp}
+        notes.append(f"    ＋ {name}：人工補人格 {lk}（LP 有頁但無逐場）")
+    return per, notes
+
+
+def build_entry(name, rows, prev, oe_counts):
+    """一個名字的完整判定（純函式：不連網、不讀寫檔、不印字，好測）
+
+    name      OE 的顯示 ID；rows export() 的結果；prev 既有條目（persons_add／teams_add 來源）；
+    oe_counts 這個名字在我們 OE 資料裡的 {隊名: 場次}
+    回傳 (ent, status, links, notes)：
+      ent    要寫進 player_disambig.json 的條目；rows 是空的就回 None（查無＝不動舊條目，
+             連 persons_add 也不會併——LP 整個名字查不到多半是網路或名字寫法出問題，
+             這時候拿人工清單去覆寫既有條目太危險）
+      status "查無"／"同一人"／"拆成 N 人"（給統計與報表用）
+    """
+    if not rows:
+        return None, "查無", [], []
+    per, notes = personas(name, rows, prev)
+    if len(per) <= 1:
+        lk = next(iter(per)) if per else ""
+        ent = {k: v for k, v in prev.items() if k not in ("persons",)}
+        ent["reviewed"] = f"Leaguepedia 只有一位（{lk}）→ 同一人，誤報"
+        ent["link"] = lk
+        return ent, "同一人", [lk], notes
+    # teams_add＝人工補的隊名對照（OE 與 LP 隊名不同時用；本腳本不覆寫它）
+    add = prev.get("teams_add") or {}
+    oc = oe_counts or {}
+
+    def oe_games(lk, e):
+        tl = list(e["teams"]) + list(add.get(lk) or [])
+        return sum(c for t, c in oc.items() if team_match(t, tl))
+
+    # 主人格＝在「我們的 OE 資料」裡出賽最多的那位，不是 LP 場次最多的。
+    # 主人格的 key 沿用原名，若挑到一位 OE 根本沒出賽的人，career.p[原名]
+    # 就會不存在，前端查生涯直接變 0 場——比不拆還糟。
+    order = sorted(per.items(), key=lambda kv: (-oe_games(kv[0], kv[1]), -kv[1]["n"], kv[0]))
+    persons = []
+    for i, (lk, e) in enumerate(order):
+        p = {"key": name if i == 0 else lk, "link": lk,
+             "teams": sorted(e["teams"], key=lambda t: -e["teams"][t]),
+             "games_lp": e["n"], "games_oe": oe_games(lk, e),
+             "first": e["f"], "last": e["l"]}
+        if add.get(lk):
+            p["teams_oe_manual"] = list(add[lk])
+        if e.get("manual"):
+            p["manual"] = e["manual"].get("note") or "人工補（LP 有頁但無逐場）"
+        persons.append(p)
+    ent = {k: v for k, v in prev.items() if k != "reviewed"}
+    ent["persons"] = persons
+    ent["source"] = "leaguepedia"
+    # OE 有、但 LP 任何人格都沒列到的隊伍 → 會被歸主人格（＝維持現狀，不會更糟），
+    # 但若那支隊其實屬於次人格就仍是錯的，所以列出來讓人工確認
+    lpteams = [t for p in persons for t in list(p["teams"]) + list(p.get("teams_oe_manual") or [])]
+    unknown = [t for t in oc if not team_match(t, lpteams)]
+    if unknown:
+        ent["_未對應隊伍"] = {t: oc.get(t, 0) for t in unknown}
+    else:
+        ent.pop("_未對應隊伍", None)
+    return ent, f"拆成 {len(persons)} 人", [p["link"] for p in persons], notes
+
+
 def opener():
     """先造訪頁面拿 cookie——不帶 cookie 會 403"""
     global _OP
@@ -221,94 +323,19 @@ def main():
     nsplit = nsingle = nmiss = 0
     report = []
     for n in names:
-        rows = got.get(n) or []
-        if not rows:
-            nmiss += 1
-            report.append((n, "查無", []))
-            continue
-        # Link → 隊伍集合、場次
-        per = collections.defaultdict(lambda: {"n": 0, "teams": {}, "f": "9999", "l": ""})
-        for x in rows:
-            lk = norm_link(str(x.get("lk") or ""))
-            if not lk:
-                continue
-            e = per[lk]
-            c = int(x.get("n") or 0)
-            e["n"] += c
-            tm = str(x.get("tm") or "").strip()
-            if tm:
-                e["teams"][tm] = e["teams"].get(tm, 0) + c
-            f, l = str(x.get("f") or "")[:10], str(x.get("l") or "")[:10]
-            if f and f < e["f"]:
-                e["f"] = f
-            if l > e["l"]:
-                e["l"] = l
-        per, merged = merge_same(dict(per))
-        if merged:
-            print(f"    ↺ {n}：合併重導頁 " + "、".join(f"{b} → {a}" for b, a in merged.items()))
         prev = old.get(n) if isinstance(old.get(n), dict) else {}
-        # persons_add＝人工補的人格：LP **有選手頁、但 ScoreboardPlayers 一場都沒有**的人。
-        # 早年賽事 LP 常常只有名單沒有逐場（2013 GPL 例行賽整季都沒有：e-Sports Dragons Pro、
-        # Wayi Spider、Yoe IRONMEN 全是 0 場），那些人只存在於 RosterChanges／TournamentRosters，
-        # 本腳本查 ScoreboardPlayers 永遠看不到 ⇒ 拆不出來。人工查到就寫進 persons_add，
-        # 這裡合併進來一起排序；本腳本只補、不覆寫 persons_add 本身。
-        # 欄位：link（必填，LP 選手頁）／teams（LP 隊名，可空）／games_lp／first／last／note。
-        for mp in prev.get("persons_add") or []:
-            lk = norm_link(str(mp.get("link") or ""))
-            if not lk or lk in per:
-                continue
-            per[lk] = {"n": int(mp.get("games_lp") or 0),
-                       "teams": {t: 0 for t in (mp.get("teams") or [])},
-                       "f": str(mp.get("first") or "9999")[:10],
-                       "l": str(mp.get("last") or "")[:10],
-                       "manual": mp}
-            print(f"    ＋ {n}：人工補人格 {lk}（LP 有頁但無逐場）")
-        if len(per) <= 1:
+        ent, status, links, notes = build_entry(n, got.get(n) or [], prev, oet.get(n) or {})
+        for s in notes:
+            print(s)
+        if ent is None:
+            nmiss += 1
+        elif status == "同一人":
             nsingle += 1
-            lk = next(iter(per)) if per else ""
-            ent = {k: v for k, v in prev.items() if k not in ("persons",)}
-            ent["reviewed"] = f"Leaguepedia 只有一位（{lk}）→ 同一人，誤報"
-            ent["link"] = lk
             out[n] = ent
-            report.append((n, "同一人", [lk]))
-            continue
-        nsplit += 1
-        # teams_add＝人工補的隊名對照（OE 與 LP 隊名不同時用；本腳本不覆寫它）
-        add = prev.get("teams_add") or {}
-        oc = oet.get(n) or {}
-
-        def oe_games(lk, e):
-            tl = list(e["teams"]) + list(add.get(lk) or [])
-            return sum(c for t, c in oc.items() if team_match(t, tl))
-
-        # 主人格＝在「我們的 OE 資料」裡出賽最多的那位，不是 LP 場次最多的。
-        # 主人格的 key 沿用原名，若挑到一位 OE 根本沒出賽的人，career.p[原名]
-        # 就會不存在，前端查生涯直接變 0 場——比不拆還糟。
-        order = sorted(per.items(), key=lambda kv: (-oe_games(kv[0], kv[1]), -kv[1]["n"], kv[0]))
-        persons = []
-        for i, (lk, e) in enumerate(order):
-            p = {"key": n if i == 0 else lk, "link": lk,
-                 "teams": sorted(e["teams"], key=lambda t: -e["teams"][t]),
-                 "games_lp": e["n"], "games_oe": oe_games(lk, e),
-                 "first": e["f"], "last": e["l"]}
-            if add.get(lk):
-                p["teams_oe_manual"] = list(add[lk])
-            if e.get("manual"):
-                p["manual"] = e["manual"].get("note") or "人工補（LP 有頁但無逐場）"
-            persons.append(p)
-        ent = {k: v for k, v in prev.items() if k != "reviewed"}
-        ent["persons"] = persons
-        ent["source"] = "leaguepedia"
-        out[n] = ent
-        # OE 有、但 LP 任何人格都沒列到的隊伍 → 會被歸主人格（＝維持現狀，不會更糟），
-        # 但若那支隊其實屬於次人格就仍是錯的，所以列出來讓人工確認
-        lpteams = [t for p in persons for t in list(p["teams"]) + list(p.get("teams_oe_manual") or [])]
-        unknown = [t for t in (oet.get(n) or {}) if not team_match(t, lpteams)]
-        if unknown:
-            ent["_未對應隊伍"] = {t: (oet.get(n) or {}).get(t, 0) for t in unknown}
         else:
-            ent.pop("_未對應隊伍", None)
-        report.append((n, f"拆成 {len(persons)} 人", [p["link"] for p in persons]))
+            nsplit += 1
+            out[n] = ent
+        report.append((n, status, links))
 
     json.dump(out, open(OUT, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
     print(f"\n{'='*66}")
