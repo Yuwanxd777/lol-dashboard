@@ -32,6 +32,9 @@ EMPTY = ('{b1:["","","","",""],b2:["","","","",""],p1:["","","","",""],p2:["",""
          'pl1:["","","","",""],pl2:["","","","",""],plm1:["","","","",""],plm2:["","","","",""]}')
 
 SETUP = """(arg) => {
+  // 先把窗清成 null：等一下靠「它又被填回來」判斷**這一拍的重畫真的跑過了**，
+  // 而不是沿用上一局留下的舊值（2026-09-07 #54：固定 sleep 1.1 秒在機器忙的時候不保證）。
+  try{ window.__bpPoolWin = null; }catch(e){}
   const S = V.bpSim;
   const chs = arg.chs;
   const mk = (full) => { const g = """ + EMPTY + """;
@@ -67,6 +70,35 @@ READ = """() => {
            hasWith: !!(api && api.withPoolWin),
            chips: document.querySelectorAll(".bpPoolRow .bpChip").length };
 }"""
+
+# 便宜的探頭：只讀窗與盤面（不算池），給 settle() 輪詢用。
+# ⚠ 不可以「等到 tier 等於期望值」——那樣測試永遠不會紅。這裡等的是**新鮮**（SETUP 清成 null 之後
+#   又被重畫填回來）與**穩定**（連兩次一樣），算成什麼由下面的斷言去判。
+PEEK = """() => {
+  const w = window.__bpPoolWin;
+  const S = V.bpSim, slots = g => [...g.b1, ...g.b2, ...g.p1, ...g.p2];
+  const gs = S.g || [];
+  const board = gs.map(g => slots(g).filter(x => !!x).length);
+  let cg = -1;
+  for (let i = 0; i < gs.length; i++) { if (slots(gs[i]).some(x => !x)) { cg = i; break; } }
+  return { fresh: !!w, tier: w && w.tier, d: w && w.d, board: board, curGi: cg };
+}"""
+
+
+def settle(pg, tries=20, step=250):
+    """等這一拍的重畫算完並穩定；回傳最後一次 PEEK（含盤面填充狀態，紅了要印出來）。"""
+    prev, r = None, None
+    for _ in range(tries):
+        pg.wait_for_timeout(step)
+        r = pg.evaluate(PEEK)
+        if not r["fresh"]:
+            continue                      # 還沒重畫（SETUP 已經把它清成 null）
+        key = (r["tier"], r["d"], tuple(r["board"]), r["curGi"])
+        if prev == key:
+            return r                      # 連兩次一樣＝穩了
+        prev = key
+    return r
+
 
 try:
     from playwright.sync_api import sync_playwright
@@ -114,16 +146,28 @@ with sync_playwright() as pw:
        "__bpPoolWinPaint 掛鉤也拿掉了")
 
     print("\n② 兩條路：網頁不吃窗、疊圖吃窗")
-    seen = []
+    seen, peeks = [], []
     for gi in range(4):
         pg.evaluate(SETUP, {"t1": t1, "t2": t2, "chs": chs, "filled": gi})
-        pg.wait_for_timeout(1100)
+        pk = settle(pg)
+        peeks.append((gi, pk))
         r = pg.evaluate(READ)
         r["gi"] = gi
         seen.append(r)
         print("  第%d局：tier=%s 窗=%s 積分=%s天  網頁池=%d 疊圖池=%d  cut=%s"
               % (gi + 1, r["tier"], r["d"], r["sq"], r["page"], r["ovl"], r["cut"]))
 
+    # 盤面站住了嗎（2026-09-07 #54 加的正控制）：SETUP 填了 gi 局，量的時候還要是那樣。
+    #   少了這條，頁面若把盤面重置／去重，測試只會報一個對不上的 tier，
+    #   下一輪得從頭猜「是窗算錯，還是盤面根本沒站住」（#52 就卡在這裡兩輪）。
+    bad_b = [(gi, pk["board"]) for gi, pk in peeks
+             if pk["board"] != [20] * gi + [0] * (5 - gi)]
+    ok(not bad_b, "⭐ 每一局：SETUP 寫進去的盤面到量測當下還在",
+       ("盤面被改了：" + str(bad_b[:2])) if bad_b else str([pk["board"] for _, pk in peeks]))
+    ok(all(pk["fresh"] for _, pk in peeks), "每一局都等到這一拍重畫出來的窗（不是上一局的舊值）",
+       str([pk["fresh"] for _, pk in peeks]))
+    ok([pk["curGi"] for _, pk in peeks] == [0, 1, 2, 3], "curGi 跟著填好的局數走",
+       str([pk["curGi"] for _, pk in peeks]))
     ok(all(s["hasWith"] for s in seen), "__bpAPI 有匯出 withPoolWin（疊圖靠它）")
     ok([s["tier"] for s in seen] == [0, 1, 2, 3], "階梯仍跟著局號走",
        str([s["tier"] for s in seen]))
@@ -151,7 +195,7 @@ with sync_playwright() as pw:
 
     print("\n④ 窗只決定成員，不動場數／勝率")
     pg.evaluate(SETUP, {"t1": t1, "t2": t2, "chs": chs, "filled": 0})
-    pg.wait_for_timeout(1100)
+    settle(pg)
     stats = pg.evaluate("""() => {
       const api = window.__bpAPI, out = {};
       api.POSN.forEach(pos => {
@@ -174,7 +218,7 @@ with sync_playwright() as pw:
     ok(sqs[0] == pg.evaluate("() => +V.bpSqDays || 14"), "積分範圍＝🎯 的設定", str(sqs[0]))
     pg.evaluate("() => { V.bpSqDays = 30; }")
     pg.evaluate(SETUP, {"t1": t1, "t2": t2, "chs": chs, "filled": 0})
-    pg.wait_for_timeout(1100)
+    settle(pg)
     ok(pg.evaluate(READ)["sq"] == 30, "改 🎯 天數之後 __bpPoolWin.sq 跟著變")
 
     print("\n⑥ 沒有 JS 錯誤")
