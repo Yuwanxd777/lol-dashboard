@@ -7,12 +7,14 @@
 看什麼：
   速度  ‧ run_update 開始時間、有沒有退回循序、各階段並行是否炸掉（traceback）
         ‧ 最久的 8 步、非零離開碼的步驟、管線總時長（run_update 開始 → 「資料更新時間」那行）
-  準確  ‧ data_YYYY.js 列數不可比上次少（縮水＝來源掛了或過濾壞了）
+  準確  ‧ data_YYYY.js（**全部 14 年**）列數不可比基準少（縮水＝來源掛了或過濾壞了）
+        ‧ 基準是「已知良好的高水位」：縮水不會寫回基準，會一直報到 --accept 認可為止
         ‧ soloq.js 選手數／有排名數、side_sel.js 局數、lint_text 錯誤級、check_player_dup 可疑數
         ‧ preflight 有沒有過、有沒有 push
 
 用法：python scripts/update_health.py           # 報告＋更新基準
       python scripts/update_health.py --no-save # 只報告
+      python scripts/update_health.py --accept  # 認可縮水（資料真的變少時才用），把現值寫成新基準
 """
 import glob
 import io
@@ -71,7 +73,9 @@ def parse_log():
 
 def data_counts():
     out = {}
-    for f in sorted(glob.glob(os.path.join(ROOT, "data", "data_20*.js")))[-3:]:
+    # 2026-09-07：本來是 [-3:]（只看最近三年），2013~2023 共 11 年的縮水永遠測不到。
+    # 實測全部 14 年（194MB）解析只要 1.9 秒，沒有理由省。
+    for f in sorted(glob.glob(os.path.join(ROOT, "data", "data_20*.js"))):
         try:
             d = js_obj(f)
             out[os.path.basename(f)] = len(d["tabs"]["RAW_DATA"])
@@ -92,6 +96,52 @@ def data_counts():
         out["soloq_matches.files"] = len(glob.glob(os.path.join(ROOT, "soloq_matches", "*.js")))
     except Exception:
         out["soloq_matches.files"] = None
+    return out
+
+
+# ── 基準比對（純函式；scripts/update_health_test.py 在測，不讀檔不印字）────────────
+# 「硬性」項＝歷史比賽資料，只會增不會減。它變少一定是來源掛了或過濾壞了（DAILY.md 線 3），
+# 不是資料真的變少。其餘（soloq 選手數、逐場檔數）本來就會因為換人／清孤兒而合理減少。
+def is_hard(key):
+    return key.startswith("data_") or key == "side_sel.games"
+
+
+def diff_counts(prev, cur):
+    """比對本次與基準 → [(key, 現值, 基準值, 狀態)]。
+
+    狀態：ok／new（基準沒這項）／unreadable（讀不到）／soft_down（可以合理變少）／shrink（硬性縮水）。
+    """
+    rows = []
+    for k, v in cur.items():
+        pv = prev.get(k)
+        if v is None:
+            st = "unreadable"
+        elif not isinstance(pv, int):
+            st = "new"
+        elif v < pv:
+            st = "shrink" if is_hard(k) else "soft_down"
+        else:
+            st = "ok"
+        rows.append((k, v, pv if isinstance(pv, int) else None, st))
+    return rows
+
+
+def merge_baseline(prev, cur, accept=False):
+    """算出要寫回的基準。
+
+    2026-09-07 的洞：舊版無條件把本次數字存成基準，於是**縮水第二天就被吃掉**——
+    第一輪報一次「data_2024 縮水」，存檔後基準跟著變小，之後每一輪都看起來正常，
+    問題還在但再也不會被提醒。改成硬性項採「已知良好的高水位」：縮水不寫回較小值，
+    會一直報到有人用 `--accept` 認可（例如 OE 真的撤掉了幾場比賽）為止。
+    軟性項與讀不到的項一律沿用舊值／新值，不受影響。
+    """
+    out = dict(prev)
+    for k, v, pv, st in diff_counts(prev, cur):
+        if st == "unreadable":
+            continue                      # 讀不到就別把 None 蓋掉舊基準
+        if st == "shrink" and not accept:
+            continue                      # 保住高水位
+        out[k] = v
     return out
 
 
@@ -131,27 +181,33 @@ def main():
             bad.append("preflight 失敗、沒有 push")
     else:
         print("（找不到 update_log.txt）")
-    print("資料量：")
-    for k, v in dc.items():
-        pv = prev.get("counts", {}).get(k)
-        flag = ""
-        if v is None:
-            flag = "  ⚠ 讀不到"; bad.append("%s 讀不到" % k)
-        elif pv is not None and v < pv:
-            flag = "  ⚠ 比上次少（%d → %d）" % (pv, v)
-            if k.startswith("data_") or k == "side_sel.games":
-                bad.append("%s 縮水 %d → %d" % (k, pv, v))
-        elif pv is not None:
-            flag = "  （上次 %d）" % pv
+    pc = prev.get("counts", {})
+    accept = "--accept" in sys.argv
+    print("資料量（基準＝已知良好的高水位，%s）：" % (prev.get("at") or "尚無基準"))
+    for k, v, pv, st in diff_counts(pc, dc):
+        flag = {"ok": ("  （基準 %s）" % pv) if pv is not None else "",
+                "new": "  （新項目）",
+                "unreadable": "  ⚠ 讀不到",
+                "soft_down": "  比基準少（%s → %s）" % (pv, v),
+                "shrink": "  ⚠ 縮水（基準 %s → 現在 %s）" % (pv, v)}[st]
+        if st == "unreadable":
+            bad.append("%s 讀不到" % k)
+        elif st == "shrink":
+            bad.append("%s 縮水 %d → %d" % (k, pv, v))
         print("   %-22s %s%s" % (k, v, flag))
     print("")
     print("結論：" + ("✓ 沒有異常" if not bad else "⚠ " + "；".join(bad)))
+    if any("縮水" in b for b in bad):
+        print("（縮水的項目**不會**寫回基準，會一直報到你確認為止；"
+              "確認資料真的變少就跑 python scripts\\update_health.py --accept）")
     if "--no-save" not in sys.argv:
         os.makedirs(os.path.dirname(BASE), exist_ok=True)
-        json.dump({"at": time.strftime("%Y-%m-%d %H:%M"), "counts": dc,
+        json.dump({"at": time.strftime("%Y-%m-%d %H:%M"),
+                   "counts": merge_baseline(pc, dc, accept),
+                   "last": dc,
                    "log": {k: v for k, v in (lg or {}).items() if k != "steps"},
                    "bad": bad}, io.open(BASE, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
-        print("（基準已存 autopilot/UPDATE_BASELINE.json）")
+        print("（基準已存 autopilot/UPDATE_BASELINE.json%s）" % ("，--accept：縮水已認可" if accept else ""))
     return 1 if bad else 0
 
 
