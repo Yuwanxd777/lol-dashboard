@@ -27,8 +27,17 @@ import sys
 import time
 from concurrent.futures import ThreadPoolExecutor
 
+# line_buffering：stdout 被 update.bat 導進 update_console.txt（區塊緩衝）⇒ 班次跑到一半時
+# 那個檔幾乎是空的，從外面完全看不出「現在跑到哪一階段」（2026-09-07 #56 在 22:2x 撞到）。
+# 逐行 flush 之後，管線進行中就能 tail 得到進度。
 if (getattr(sys.stdout, "encoding", "") or "").lower().replace("-", "") != "utf8":
-    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace",
+                                  line_buffering=True)
+else:
+    try:
+        sys.stdout.reconfigure(line_buffering=True)
+    except (AttributeError, ValueError):
+        pass
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 PY = sys.executable
@@ -132,6 +141,18 @@ def main():
     log.write("\n==== run_update %s（並行 %d）====\n"
               % (time.strftime("%Y-%m-%d %H:%M:%S"), A.jobs))
     times = []
+    t_all = time.time()
+
+    def emit(s):
+        """同時印到 stdout 與寫進 update_log.txt。
+
+        2026-09-07 #56：階段牆鐘與收尾摘要以前**只** print 到 stdout ⇒ 只落在
+        update_console.txt，而那個檔每一班被 update.bat 重寫 ⇒ 隔天想回頭比
+        「③ 這一階段幾秒」根本沒得比（#55 量關鍵路徑時是趁當班還沒被覆寫才抄到的）。
+        update_log.txt 每班留一份完整的，時間資料要放在那裡才追得了趨勢。
+        """
+        print(s)
+        log.write(s + "\n")
 
     def run_one(step):
         name, cmd = step
@@ -172,17 +193,25 @@ def main():
             log.write("\n---- %s（%.1fs，exit %d）----\n" % (name, el, rc))
             log.write(out if out.endswith("\n") else out + "\n")
             print("   %-26s %6.1fs  exit %d" % (name, el, rc))
+        emit("   （【%s】這一階段 %.1fs）" % (stage, time.time() - t0))
         log.flush()
-        print("   （這一階段 %.1fs）" % (time.time() - t0))
 
-    print("\n═══ 最久的 10 步 ═══")
+    # 2026-09-07 #56：這裡原本是
+    #     print("合計 %.1f 分鐘（步驟時間相加 %.1f 分鐘——差額就是並行省下來的）"
+    #           % (sum(...)/60.0, sum(...)/60.0))
+    # **兩個參數是同一個算式** ⇒ 兩個數字永遠相等、「差額」永遠 0，
+    # 看起來像「並行一秒都沒省到」（22:00 那班印的是「合計 28.8（相加 28.8）」，
+    # 實際牆鐘 24.9 分、省了 3.9 分）。合計要用牆鐘＝總經過時間。
+    wall = time.time() - t_all
+    add = sum(t for t, _, _ in times)
+    emit("\n═══ 最久的 10 步 ═══")
     for el, name, rc in sorted(times, reverse=True)[:10]:
-        print("   %-26s %6.1fs%s" % (name, el, "" if rc == 0 else "   ⚠ exit %d" % rc))
-    print("合計 %.1f 分鐘（步驟時間相加 %.1f 分鐘——差額就是並行省下來的）"
-          % (sum(t for t, _, _ in times) / 60.0, sum(t for t, _, _ in times) / 60.0))
+        emit("   %-26s %6.1fs%s" % (name, el, "" if rc == 0 else "   ⚠ exit %d" % rc))
+    emit("合計 %.1f 分鐘（牆鐘 %.1fs）；步驟時間相加 %.1f 分鐘（%.1fs）"
+         "——差額 %.1fs 是並行省下來的" % (wall / 60.0, wall, add / 60.0, add, add - wall))
     bad = [(n, rc) for _, n, rc in times if rc != 0]
     if bad:
-        print("⚠ 非零離開碼：" + "、".join("%s(%d)" % x for x in bad))
+        emit("⚠ 非零離開碼：" + "、".join("%s(%d)" % x for x in bad))
     log.close()
     return 0
 
