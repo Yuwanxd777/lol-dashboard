@@ -209,6 +209,30 @@ def fill_missing_puuids(pg, cap=10):
         print(f"♻ 已補 {len(got)} 個 dpmPuuid → soloq_accounts.json")
     return len(got)
 
+def child_cmd(cmd, argv=None):
+    """子程序（fetch_soloq_year --only／--missing）的完整命令列：父程序帶 --no-rebuild 時子程序也要帶。
+
+    2026-09-07 #58：管線的 ⑤d 是 `fetch_soloq_update --changed --no-rebuild`，但它起的
+    `fetch_soloq_year --missing` 子程序沒帶 ⇒ 子程序尾端照樣跑 build_soloq_index＋build_soloq_builds，
+    而 run_update 的 ⑤f／⑤g 之後又做一遍。09-07 22:00 那班「⏱ 新選手補全年：137s」裡約 92s
+    （⑤f 19.6s＋⑤g 72.6s）就是這段白做的，真正抓 356 場只要 45s 上下。
+    """
+    argv = sys.argv if argv is None else argv
+    return list(cmd) + (["--no-rebuild"] if "--no-rebuild" in argv else [])
+
+def run_child(label, cmd, argv=None):
+    """起子程序並計時（印「⏱ label：Ns」）。
+
+    起之前先 flush：管線裡 stdout 是 pipe（block-buffered），子程序 -u 直接寫同一條 pipe，
+    父程序累積的輸出要等結束才落地 ⇒ update_log.txt 裡「補全年」整段出現在「--changed」之前，
+    看起來像先補全年再增量（09-07 22:00 那班就是這樣，實際順序相反）。
+    """
+    import subprocess
+    sys.stdout.flush()
+    _t = time.time()
+    subprocess.run(child_cmd(cmd, argv))
+    print(f"⏱ {label}：{time.time() - _t:.0f}s")
+
 def main():
     if not os.path.exists(IDXP):
         print("找不到 soloq_match_index.js，請先跑 fetch_soloq_year.py。"); return
@@ -353,13 +377,10 @@ def main():
     print(f"\n完成：{upd} 位有新戰績、共 +{added_tot} 場。"
           + (f" 另有 {len(missing)} 位無檔(新選手)→ 自動補抓整年。" if missing else "")
           + (f" ⏭ {len(missing_skip)} 位上次補全年 0 場、{EMPTY_DAYS} 天內不重抓（不起子程序）。" if missing_skip else ""))
-    import subprocess
     # 2026-09-06 線 3：這一步的 1926 秒有一大半在下面這四支子程序（補全年、重建索引、掃 30 萬場
     # 聚合出裝），逐段計時，update_log 才看得出哪一段該減。
-    def _timed(label, cmd):
-        _t = time.time()
-        subprocess.run(cmd)
-        print(f"⏱ {label}：{time.time() - _t:.0f}s")
+    # 2026-09-07 #58：抽成模組層 run_child／child_cmd（子程序要跟著帶 --no-rebuild、起之前先 flush）。
+    _timed = run_child
     if _MISSRC:  # 逐場檔 src 對帳（2026-09-07 #34）：只印不動，累積幾天再決定要不要自動處置
         print(f"⚠ {len(_MISSRC)} 筆來源對帳不符（帳號 riotId 與該 puuid 實際抓回的 rid 不同，可能是改名或錯配）：")
         for _k, _want, _got, _n, _tot in _MISSRC[:10]:
