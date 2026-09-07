@@ -8,8 +8,10 @@
 dpmPuuid：本腳本只維護帳號清單；新帳號的 dpmPuuid 由 resolve_obgg_dpmpuuid.py 之後補（才能進逐場）。
 安全門：OBGG 抓取失敗或 LPL/LCK 帳號數異常過少 → 不動 soloq_accounts.json（避免 OBGG 掛掉時誤刪整批）。
 用法：python scripts\\fetch_obgg_accounts.py
+      --jobs=N／--team-jobs=N 併發；--no-keepalive 回到「每請求重新握手」的舊行為（對照組）；
+      --out=PATH 把結果寫到別的檔（驗證用，不動 soloq_accounts.json 正本、也不寫 .bak）。
 """
-import io, sys, json, os, re, time, datetime, threading, urllib.parse, urllib.request
+import io, sys, json, os, re, time, datetime, threading, http.client, urllib.parse, urllib.request
 from concurrent.futures import ThreadPoolExecutor
 
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
@@ -67,20 +69,86 @@ def prune_old(acc, new, new_rids, zone_of, today=None, days=KEEP_DPM_DAYS):
     return removed, kept_dpm
 
 
-def get(url, retry=2, kind=None):
+# ── keep-alive（2026-09-07 線 3 迴圈 #38）─────────────────────────────────────
+# 這一步 159.4s 的大頭不是 obgg 慢，是**每一個請求都重新握手**：urllib 不重用連線，
+# 而 www.obgg.net 在台灣連過去 TCP+TLS 握手就 1.85 秒。實測（autopilot/_r38_probe2.py，
+# 同樣 9 個 zone 請求）：每次新連線 23.8s（2.4s/請求）vs 重用同一條連線 6.5s（0.53s/請求）＝ 4.5 倍。
+# 做法：每條執行緒握自己的 http.client.HTTPSConnection（thread-local），跨隊、跨賽區重用。
+# 伺服器端的併發連線數沒有變多（一樣是 執行緒數 條），只是不再握手風暴 ⇒ 對 obgg 更輕，不是更重。
+# keep-alive 連線會被伺服器關掉（idle 逾時），所以第一次失敗一律「丟掉連線、立刻重連再試一次」
+# （不睡 1.5 秒——那是給真的伺服器錯誤用的），之後才照舊退避。--no-keepalive 回到舊行為當對照組。
+KEEPALIVE = True
+_TL = threading.local()
+_CONNS = []                       # 收工時一起關（只是禮貌，執行緒死掉時 GC 也會關）
+_CONN_LOCK = threading.Lock()
+CONN_NEW = [0]                    # 握手次數（診斷用：理想是「執行緒數」而不是「請求數」）
+
+
+def _conn(host):
+    c = getattr(_TL, "conn", None)
+    if c is None:
+        c = http.client.HTTPSConnection(host, timeout=25)
+        _TL.conn = c
+        with _CONN_LOCK:
+            _CONNS.append(c); CONN_NEW[0] += 1
+    return c
+
+
+def _drop_conn():
+    c = getattr(_TL, "conn", None)
+    _TL.conn = None
+    _TL.used = False
+    if c is not None:
+        try:
+            c.close()
+        except Exception:
+            pass
+
+
+def close_conns():
+    with _CONN_LOCK:
+        for c in _CONNS:
+            try:
+                c.close()
+            except Exception:
+                pass
+        _CONNS.clear()
+
+
+def _fetch_once(url):
+    """回傳解析好的 JSON；非 200 或連線壞掉就丟例外（由 get() 的重試處理）。"""
     h = {"User-Agent": UA}  # OBGG API 為公開端點，只需 UA（不帶小程序 appid Referer，避免被誤判為密鑰）
+    u = urllib.parse.urlsplit(url)
+    if not KEEPALIVE or u.scheme != "https" or not u.netloc:
+        r = urllib.request.urlopen(urllib.request.Request(url, headers=h), timeout=25)
+        return json.loads(r.read().decode("utf-8-sig", "replace"))
+    c = _conn(u.netloc)
+    h["Connection"] = "keep-alive"
+    c.request("GET", u.path + (("?" + u.query) if u.query else ""), headers=h)
+    r = c.getresponse()
+    body = r.read()                       # 一定要讀完，不然這條連線不能重用
+    if r.status != 200:
+        _drop_conn()
+        raise OSError(f"HTTP {r.status}")
+    _TL.used = True                       # 這條連線收過一次完整回應 ⇒ 之後它壞掉多半是 idle 被關
+    return json.loads(body.decode("utf-8-sig", "replace"))
+
+
+def get(url, retry=2, kind=None):
     for i in range(retry + 1):
         try:
-            r = urllib.request.urlopen(urllib.request.Request(url, headers=h), timeout=25)
-            return json.loads(r.read().decode("utf-8-sig", "replace"))
+            return _fetch_once(url)
         except Exception as e:
+            stale = getattr(_TL, "used", False)   # 用過的連線壞掉＝idle 逾時，立刻重連就好
+            _drop_conn()
             if i == retry:
                 if kind:                      # 只算重試用盡的最終失敗（中途重試成功的不算）
                     with ERR_LOCK:
                         ERRS[kind] = ERRS.get(kind, 0) + 1
                         ERR_URLS.append(url)
                 return {"_err": str(e)[:100]}
-            time.sleep(1.5)
+            if not (i == 0 and stale):        # 第一次疑似 stale socket 就立刻重連，其餘照舊退避
+                time.sleep(1.5)
 
 
 def num_name(rid):
@@ -173,19 +241,41 @@ def _team_pull(z, t, now):
     if z in DPM_ZONES:
         return tm, True, {}
     gids = [p["game_id"] for p in roster]
-    if JOBS > 1 and len(gids) > 1:
-        with ThreadPoolExecutor(max_workers=min(JOBS, len(gids))) as ex:
-            results = list(ex.map(lambda g: _player_accounts(tm, g, now), gids))
+    # 2026-09-07（迴圈 #38）：以前這裡每一隊 `with ThreadPoolExecutor(...)` 開新執行緒，
+    # 執行緒一死 keep-alive 連線就跟著沒了 ⇒ 每隊都要重新握手。改用 pull() 建好的共用池
+    # （PLAYER_EX，長壽執行緒），map 仍照 gids 順序回傳 ⇒ 輸出與排序不變。
+    if PLAYER_EX is not None and len(gids) > 1:
+        results = list(PLAYER_EX.map(lambda g: _player_accounts(tm, g, now), gids))
     else:
         results = [_player_accounts(tm, g, now) for g in gids]
     return tm, True, {gid: good for gid, good in results if good}
 
 
+PLAYER_EX = None   # pull() 建的共用選手池（長壽執行緒 ⇒ keep-alive 連線跨隊重用）
+
+
 def pull():
     """→ (out, zone_err)：out[zone][team][gid] = 帳號清單；zone_err[zone] = 抓這一區時 get() 最終失敗的次數。"""
+    global PLAYER_EX
     now = time.time() * 1000
     out = {}
     zone_err = {}
+    # 兩個池整趟只建一次（以前是每賽區／每隊各建一個，執行緒短命 ⇒ 連線重用不到）。
+    # 併發連線上限跟以前一樣是 TEAM_JOBS 條隊 ＋ TEAM_JOBS×JOBS 條選手。
+    team_ex = ThreadPoolExecutor(max_workers=TEAM_JOBS, thread_name_prefix="team") if TEAM_JOBS > 1 else None
+    PLAYER_EX = ThreadPoolExecutor(max_workers=max(JOBS, TEAM_JOBS * JOBS),
+                                   thread_name_prefix="pg") if JOBS > 1 else None
+    try:
+        return _pull_zones(out, zone_err, now, team_ex)
+    finally:
+        for ex in (team_ex, PLAYER_EX):
+            if ex is not None:
+                ex.shutdown(wait=True)
+        PLAYER_EX = None
+        close_conns()
+
+
+def _pull_zones(out, zone_err, now, team_ex):
     for z in ZONES:
         t0 = time.time(); e0 = sum(ERRS.values())
         zd = get(BASE + "zone?name=" + urllib.parse.quote(z) + "&isClick=0", kind="zone")
@@ -196,9 +286,8 @@ def pull():
         out[z] = {}
         # 2026-09-07（迴圈 #24）：同一賽區的戰隊並行（TEAM_JOBS 條）。ex.map 保持 teams 的順序 ⇒ out[z] 的插入順序、
         # 最終帳號檔的排序都跟逐隊時一模一樣（--team-jobs=1 可對照）。
-        if TEAM_JOBS > 1 and len(teams) > 1:
-            with ThreadPoolExecutor(max_workers=min(TEAM_JOBS, len(teams))) as ex:
-                results = list(ex.map(lambda t: _team_pull(z, t, now), teams))
+        if team_ex is not None and len(teams) > 1:
+            results = list(team_ex.map(lambda t: _team_pull(z, t, now), teams))
         else:
             results = [_team_pull(z, t, now) for t in teams]
         for tm, ok, ps in results:          # out[z] 只在這裡（主執行緒）寫
@@ -216,7 +305,10 @@ def pull():
 
 
 def main():
+    t0 = time.time()
     obgg, zone_err = pull()
+    print(f"  抓取 {time.time() - t0:.1f}s（TCP/TLS 握手 {CONN_NEW[0]} 次"
+          + ("" if KEEPALIVE else "，--no-keepalive 對照組") + "）", flush=True)
     # 2026-09-07（迴圈 #24）：請求最終失敗以前完全看不到，先印再過安全門（LPL 只抓到 11 帳號時才看得出是 team 請求掛了 3 次）。
     n_all = sum(ERRS.values())
     if n_all:
@@ -288,12 +380,15 @@ def main():
         print(f"現役選手名冊：{len(ROSTER_PLAYERS)} 位 → csv_cache/obgg_roster.json")
     except Exception as e:
         print(f"（名冊寫出失敗：{e}）")
-    json.dump(acc, open(ACCOUNTS + ".bak", "w", encoding="utf-8"), ensure_ascii=False, indent=1)
-    json.dump(final, open(ACCOUNTS, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
+    if OUT == ACCOUNTS:                    # 只有寫回正本才留備份（--out= 是驗證用的旁路，不動正本）
+        json.dump(acc, open(ACCOUNTS + ".bak", "w", encoding="utf-8"), ensure_ascii=False, indent=1)
+    json.dump(final, open(OUT, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
     print(f"OBGG 帳號更新：{len(acc)} → {len(final)}（LPL/LCK 刪 {removed} 個近兩月未列、"
           f"dpm 近 {KEEP_DPM_DAYS} 天確認過暫留 {kept_dpm} 個；"
           f"無 dpmPuuid {sum(1 for e in final if not e.get('dpmPuuid'))} 個待 resolve_obgg_dpmpuuid.py 補）")
 
+
+OUT = ACCOUNTS          # --out=PATH：把結果寫到別的檔（驗證用，不動 soloq_accounts.json 正本）
 
 if __name__ == "__main__":
     for a in sys.argv[1:]:
@@ -301,4 +396,8 @@ if __name__ == "__main__":
             JOBS = max(1, int(a.split("=", 1)[1]))
         if a.startswith("--team-jobs="):
             TEAM_JOBS = max(1, int(a.split("=", 1)[1]))
+        if a == "--no-keepalive":          # 對照組：回到「每個請求都重新握手」的舊行為
+            KEEPALIVE = False
+        if a.startswith("--out="):
+            OUT = a.split("=", 1)[1]
     main()
