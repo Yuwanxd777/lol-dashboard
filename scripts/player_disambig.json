@@ -1472,5 +1472,149 @@
   "_未對應隊伍": {
    "Vega Squadron": 12
   }
+ },
+ "Tarzan": {
+  "persons": [
+   {
+    "key": "Tarzan",
+    "link": "Tarzan (Lee Seung-yong)",
+    "teams": [
+     "LNG Esports",
+     "Griffin (Korean Team)",
+     "Anyone's Legend",
+     "Weibo Gaming",
+     "AG.AL"
+    ],
+    "games_lp": 1073,
+    "games_oe": 973,
+    "first": "2017-03-12",
+    "last": "2026-09-04"
+   },
+   {
+    "key": "Tarzan (Cao Ngọc Thắng)",
+    "link": "Tarzan (Cao Ngọc Thắng)",
+    "teams": [
+     "An Phat Ultimate"
+    ],
+    "games_lp": 23,
+    "games_oe": 25,
+    "first": "2014-12-12",
+    "last": "2015-03-29",
+    "teams_oe_manual": [
+     "Ultimate"
+    ]
+   },
+   {
+    "key": "Tarzan (Fernando Mora)",
+    "link": "Tarzan (Fernando Mora)",
+    "teams": [
+     "Tesla E-Sports"
+    ],
+    "games_lp": 23,
+    "games_oe": 0,
+    "first": "2016-02-08",
+    "last": "2016-04-12"
+   }
+  ],
+  "source": "leaguepedia",
+  "teams_add": {
+   "Tarzan (Cao Ngọc Thắng)": [
+    "Ultimate"
+   ]
+  }
+ },
+ "BeeOne": {
+  "reviewed": "Leaguepedia 只有一位（BeeOne）→ 同一人，誤報",
+  "link": "BeeOne"
+ },
+ "Tear": {
+  "persons": [
+   {
+    "key": "Tear",
+    "link": "Tear (Nguyễn Chiến Thắng)",
+    "teams": [
+     "An Phat Ultimate",
+     "Ultimate",
+     "Super Guy Destroys"
+    ],
+    "games_lp": 45,
+    "games_oe": 33,
+    "first": "2014-12-12",
+    "last": "2019-12-13"
+   },
+   {
+    "key": "Tear (Jeong Seong-wook)",
+    "link": "Tear (Jeong Seong-wook)",
+    "teams": [
+     "Gyeonggi"
+    ],
+    "games_lp": 2,
+    "games_oe": 1,
+    "first": "2017-11-22",
+    "last": "2017-11-22"
+   },
+   {
+    "key": "Tear (Li Wu)",
+    "link": "Tear (Li Wu)",
+    "teams": [
+     "Royal Club"
+    ],
+    "games_lp": 1,
+    "games_oe": 0,
+    "first": "2019-08-17",
+    "last": "2019-08-17"
+   }
+  ],
+  "source": "leaguepedia",
+  "_未對應隊伍": {
+   "UTM Esports": 14
+  }
+ },
+ "ImbaMiBeo": {
+  "reviewed": "Leaguepedia 只有一位（ImbaMiBeo）→ 同一人，誤報",
+  "link": "ImbaMiBeo"
+ },
+ "Lucas": {
+  "persons": [
+   {
+    "key": "Lucas",
+    "link": "Lucas",
+    "teams": [
+     "Paputs Gaming",
+     "An Phat Ultimate"
+    ],
+    "games_lp": 7,
+    "games_oe": 3,
+    "first": "2015-03-25",
+    "last": "2025-06-17"
+   },
+   {
+    "key": "Lucas (Li Tan-Pan-Ao)",
+    "link": "Lucas (Li Tan-Pan-Ao)",
+    "teams": [
+     "Invictus Gaming",
+     "Invictus Gaming Young"
+    ],
+    "games_lp": 214,
+    "games_oe": 0,
+    "first": "2019-02-28",
+    "last": "2022-03-15"
+   },
+   {
+    "key": "Lucas (José Lucas)",
+    "link": "Lucas (José Lucas)",
+    "teams": [
+     "Way Gaming Esports"
+    ],
+    "games_lp": 1,
+    "games_oe": 0,
+    "first": "2026-02-12",
+    "last": "2026-02-12"
+   }
+  ],
+  "source": "leaguepedia",
+  "_未對應隊伍": {
+   "Ultimate": 2
+  }
  }
 }

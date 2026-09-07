@@ -7,6 +7,8 @@
 
 判準（分數越高越可能是不同人）：
   A 同一天同名出現在兩支不同隊伍   → 鐵證（+10）
+    ※ 但「同一天、同一批人被寫成兩個隊名」是 OE 對同一支隊的長短寫法
+      （2015 GPL：An Phat Ultimate／Ultimate 同一批五人），那不算 A，見 _alias_groups
   B 跨「大區」且出賽區間完全不重疊 → 轉會 or 不同人（每多跨一區 +2）
   C 生涯中間空窗 N 年              → 空窗越久越可疑（+N，上限 8）
   D 主要位置改變                   → +3
@@ -20,6 +22,10 @@
   python scripts/check_player_dup.py            # 只報未審定的可疑名單
   python scripts/check_player_dup.py --all      # 連已審定的一起列
   python scripts/check_player_dup.py --json out.json   # 完整明細另存
+  python scripts/check_player_dup.py --threshold 5     # 臨時降門檻。fetch_player_ids.py 要靠
+                                                       #  csv_cache/player_dup.json 才算得出 games_oe，
+                                                       #  算不出就退化成用 Leaguepedia 場次挑主人格，
+                                                       #  會挑到 OE 根本沒出賽的人（前端生涯變 0 場）
   python scripts/check_player_dup.py --quiet    # 只印摘要（給 update.bat 用）
 永遠 exit 0：這是提醒，不阻擋發布。
 """
@@ -46,6 +52,7 @@ GROUP = {
     "LTA": "LATAM", "LTA S": "LATAM", "LTAS": "LATAM", "CD": "LATAM",
 }
 THRESHOLD = 10          # 分數 >= 此值才報（低於此值多為單純轉會）
+ALIAS_MIN = 3           # 同一天兩個隊名的陣容重疊 >= 幾人，就當成同一支隊的兩種寫法
 
 
 def _grp(lg):
@@ -65,10 +72,34 @@ def load_disambig():
     return entries, silent
 
 
+def _alias_groups(d, teams, roster):
+    """把同一天出現的多個隊名，依「當天的出賽陣容」合併成群，回傳 [[隊名,...], ...]。
+
+    為什麼要這一步：OE 對同一支隊會有長短兩種寫法，同一天同一批人被記成兩隊，
+    看起來就像「同日出現在不同隊」的鐵證。2015-03-25 GPL 的
+    An Phat Ultimate／Ultimate 就是這樣，害 Tarzan／BeeOne／Tear／ImbaMiBeo／Lucas
+    五個人全被誤報（全庫掃過：同日不同隊的隊名配對，陣容交集只有 1 人或 5 人兩種，
+    沒有中間值，所以門檻 3 兩邊都留了很大餘裕）。
+
+    真的同日兩隊出賽（換隊、代打、跨賽區同名不同人）交集只會是那個人自己＝1。
+    """
+    groups = []
+    for t in sorted(teams):
+        rs = roster.get((d, t), set())
+        for g in groups:
+            if any(len(rs & roster.get((d, x), set())) >= ALIAS_MIN for x in g):
+                g.append(t)
+                break
+        else:
+            groups.append([t])
+    return groups
+
+
 def scan():
     """回傳 name -> {segs:[...], sameday:[...]}"""
     seg = collections.defaultdict(lambda: collections.defaultdict(lambda: [0, "9999", ""]))
     sameday = collections.defaultdict(set)
+    roster = collections.defaultdict(set)   # (日期, 隊名) -> 當天該隊出賽的所有選手名
     for dp in sorted(glob.glob(os.path.join(ROOT, "data", "data_*.js"))):
         ym = re.search(r"data_(\d{4})\.js$", dp)
         if not ym:
@@ -114,10 +145,15 @@ def scan():
                     e[2] = d
                 if d:
                     sameday[(name, d)].add(str(team))
+                    roster[(d, str(team))].add(name)
     conflicts = collections.defaultdict(list)
     for (name, d), tms in sameday.items():
-        if len(tms) > 1:
-            conflicts[name].append({"date": d, "teams": sorted(tms)})
+        if len(tms) <= 1:
+            continue
+        gs = _alias_groups(d, tms, roster)
+        if len(gs) > 1:      # 合併同隊別名後還是分屬兩支以上不同隊，才是鐵證
+            conflicts[name].append({"date": d, "teams": sorted(g[0] for g in gs),
+                                    "all": sorted(tms)})
     out = {}
     for name, ks in seg.items():
         segs = [{"y": k[0], "lg": k[1], "tm": k[2], "pos": k[3], "n": v[0], "f": v[1], "l": v[2]}
@@ -169,6 +205,11 @@ def main():
     argv = sys.argv[1:]
     quiet = "--quiet" in argv
     show_all = "--all" in argv
+    th = THRESHOLD
+    if "--threshold" in argv:
+        i = argv.index("--threshold")
+        if i + 1 < len(argv):
+            th = int(argv[i + 1])
     jout = None
     if "--json" in argv:
         i = argv.index("--json")
@@ -179,7 +220,7 @@ def main():
     rows = []
     for name, info in data.items():
         sc, why = score(name, info)
-        if sc < THRESHOLD:
+        if sc < th:
             continue
         if name in silent and not show_all:
             continue
@@ -192,7 +233,7 @@ def main():
         print(f"[check_player_dup] 選手 ID {total} 個，未審定的可疑同名 {len(rows)} 個"
               + ("（跑 python scripts/check_player_dup.py 看明細）" if rows else ""))
     else:
-        print(f"選手 ID 總數：{total}　已審定靜音：{len(silent)}　本次可疑：{len(rows)}（門檻 {THRESHOLD} 分）\n")
+        print(f"選手 ID 總數：{total}　已審定靜音：{len(silent)}　本次可疑：{len(rows)}（門檻 {th} 分）\n")
         for r in rows:
             tag = "［已審定］" if r["reviewed"] else ""
             print("=" * 72)
