@@ -586,6 +586,21 @@ def main():
             new_acc = [e for e in new_acc if id(e) not in _ids]
             for e, o in bad_owner:
                 diff_lines.append(f"  [歸屬] {e['team']}|{e['player']}: {e['riotId']} dpm 掛牌是「{o}」的帳號 → 剔除")
+            # 把「這隻帳號其實是誰的」寫成持久證據：帳號從這裡剔除之後，用它抓回來的幾百場
+            # 還留在逐場檔裡，而帳號檔已經查不到這個 riotId ⇒ clean_soloq_matches 的判定一命不中。
+            # 名單留給它當判定三用（2026-09-07 #36：NIP|Care 356 場全是 Beichuan 的就是這樣卡住的）。
+            # 只有 --apply（真的動帳號檔）才記名單：乾跑不可以留下會讓 clean 去刪比賽的副作用
+            if apply:
+                try:
+                    import soloq_disowned
+                    _nd = soloq_disowned.add([(e["riotId"], f"{e['team']}|{e['player']}", o, "dpm 掛牌")
+                                              for e, o in bad_owner])
+                    if _nd:
+                        print(f"  歸屬剔除已記入 soloq_disowned.json（新增 {_nd} 筆，供逐場對帳判定三）", flush=True)
+                except Exception as _e:
+                    print(f"（歸屬剔除紀錄寫入失敗，不影響帳號檔：{_e}）", flush=True)
+            else:
+                print(f"  （乾跑：{len(bad_owner)} 筆歸屬剔除不寫進 soloq_disowned.json）", flush=True)
         print(f"  歸屬複查：{len(ORPHANS)} 隻帳號 dpm 選手檔沒列 → 查到掛牌 {sum(1 for v in owner_of.values() if v)} 隻、其中別人的 {len(bad_owner)} 隻已剔除", flush=True)
 
     # ── 跨選手清理（2026-08-07 使用者定案）。上面的去重只在同一個 (選手,隊) 內做，
@@ -599,6 +614,7 @@ def main():
     #       **兩邊都清掉** 讓它下一輪重解——留著錯的會讓兩人的逐場互相混入。
     #       實例：KRX|Willer 김정현#Kjh1 與 KT|Bdd 파피몬#1111 共用一個 puuid，兩個名字 dpm 都已不回報。
     cross_lines = []
+    _disown = []          # (rid, 被剔除的 key, dpm 說的真主, 理由) → soloq_disowned.json
 
     def _dpm_has(e):
         return norm(e["riotId"]) in {norm(x["riotId"]) for x in dpm_by_pt.get((e["player"], e["team"]), [])}
@@ -631,8 +647,19 @@ def main():
         drop += rest
         cross_lines.append(f"  [跨] 同 riotId {es[0]['riotId']} 跨選手 → 留 {_pkey(ok[0])}（dpm 現行歸屬）、"
                            f"刪 {[_pkey(x) for x in rest]}")
+        _disown += [(x["riotId"], _pkey(x), _pkey(ok[0]), "跨選手：dpm 現行歸屬") for x in rest]
     if drop:
         new_acc = [e for e in new_acc if not any(e is d for d in drop)]
+    if _disown and apply:   # 同上：帳號被拿走了，逐場檔還在，留證據給 clean_soloq_matches 的判定三
+        try:
+            import soloq_disowned
+            _nd = soloq_disowned.add(_disown)
+            if _nd:
+                print(f"  跨選手剔除已記入 soloq_disowned.json（新增 {_nd} 筆，供逐場對帳判定三）", flush=True)
+        except Exception as _e:
+            print(f"（跨選手剔除紀錄寫入失敗，不影響帳號檔：{_e}）", flush=True)
+    elif _disown:
+        print(f"  （乾跑：{len(_disown)} 筆跨選手剔除不寫進 soloq_disowned.json）", flush=True)
 
     by_pu = {}
     for e in new_acc:

@@ -41,8 +41,26 @@
 
 刻意**不**要求「時間不重疊」：不重疊＝改名、重疊＝同一人的第二個帳號，兩者都指向 B，結論一樣。
 （實測 `Hizto#KR2` 與 Hizto 現名的場次時間是重疊的雙帳號，硬要求不重疊會漏掉最大的 578 場。）
-「rid 只出現在這一個檔」的（IG|Fury 639／BLG|Ben 460／NIP|Care 356／BLG|Daeny 3）**維持不判定**——
+「rid 只出現在這一個檔」的（IG|Fury 639／BLG|Ben 460／BLG|Daeny 3）**維持不判定**——
 那可能是選手自己的舊名，沒有第二個檔可以對照，正是保守規則要保護的情形。
+（原本也在這一串的 NIP|Care 356 場，2026-09-07 由下面的判定三解決。）
+
+## 判定三：歸屬複查剔除名單（2026-09-07 #36 追加，處理「帳號早就被拿走、逐場卻還在」）
+
+判定一二都是**看現在的帳號檔**推論。但最強的證據其實在抓取端就出現過又被丟掉：
+`fetch_dpm_soloq_accounts` 的歸屬複查會拿 puuid 去問 dpm「這帳號掛在誰名下」，掛牌是別的職業
+選手就把帳號從這位選手剔除——那一行只印進 `update_log.txt`，而日誌每次 run 會被覆寫。
+帳號檔從此查不到那個 riotId ⇒ 判定一命不中；若該檔另外還有自己的實證（WBG|Jwei 那種）
+連判定二也不處理 ⇒ 那些比賽永遠留著。
+
+現在剔除當下就寫進 `csv_cache/soloq_disowned.json`（見 `scripts/soloq_disowned.py`），對帳直接查證據：
+  ・rid 現在**誰的帳號檔都沒命中**（命中就回到判定一二的管轄）
+  ・而且名單裡有「這個 rid 曾從**這個檔的 key** 被剔除」→ 刪，理由記 dpm 說的真主。
+帳號檔哪天又把它登記回本人名下，名單就自動失效（第一個條件不成立），不會累積誤刪。
+
+2026-09-07 首次上線（名單用 `python scripts/soloq_disowned.py --from-log` 從當天日誌回填 3 筆）清掉：
+  NIP|Care 356/356 場（ice seven zero#0721＝Beichuan，整頁都是別人的）、
+  WBG|Jwei 147/1265 場（BJYBJY#0111＝lamb，其餘 1118 場是他自己的）。
 
 刪光的檔直接刪檔（留一個 0 場的檔會讓索引多一位「0 場選手」）。
 檔號安全：`fetch_soloq_year` 新檔號取 `max(現有 pN)+1`，刪掉的號碼不會被重用成別人。
@@ -59,7 +77,8 @@
     python scripts/clean_soloq_matches.py            # 乾跑，只印（預設）
     python scripts/clean_soloq_matches.py --apply    # 真的寫
     python scripts/clean_soloq_matches.py --apply --force   # 超過保險絲也照做
-    python scripts/clean_soloq_matches.py --no-oldname      # 只跑判定一（出事時退回舊行為）
+    python scripts/clean_soloq_matches.py --no-oldname      # 關掉判定二（出事時退回舊行為）
+    python scripts/clean_soloq_matches.py --no-disowned     # 關掉判定三（歸屬剔除名單）
 
 排在管線的 ⑤e 之後、⑤f `build_soloq_index` 之前（索引與出裝聚合都是掃逐場檔重建，清完才會生效）。
 """
@@ -79,6 +98,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, HERE)
 import soloq_src  # 逐場檔來源 meta：刪場次時同步扣掉 obs，否則 src 會跟 matches 失同步
+import soloq_disowned  # 歸屬複查剔除名單：判定三的證據來源
 OUTDIR = os.path.join(ROOT, "soloq_matches")
 ACCOUNTS = os.path.join(HERE, "soloq_accounts.json")
 LOGP = os.path.join(ROOT, "csv_cache", "soloq_clean_log.json")
@@ -197,6 +217,7 @@ def main():
     ap.add_argument("--apply", action="store_true", help="真的寫檔（預設只乾跑印出來）")
     ap.add_argument("--force", action="store_true", help="超過保險絲上限也照做")
     ap.add_argument("--no-oldname", action="store_true", help="關掉判定二（舊名歸屬），只跑判定一")
+    ap.add_argument("--no-disowned", action="store_true", help="關掉判定三（歸屬複查剔除名單）")
     ap.add_argument("--max-files", type=int, default=20, help="一輪最多動幾個檔（預設 20）")
     ap.add_argument("--max-games", type=int, default=3000, help="一輪最多刪幾場（預設 3000）")
     ap.add_argument("--min-accounts", type=int, default=300, help="帳號檔少於這麼多筆就不做（預設 300）")
@@ -208,6 +229,10 @@ def main():
         print("⛔ 帳號檔只有 %d 個有效 riotId（< %d）＝多半是被截斷或抓取失敗，這輪不清理"
               % (len(owner), A.min_accounts))
         return 0
+
+    DIS = {} if A.no_disowned else soloq_disowned.index(soloq_disowned.load())
+    if DIS:
+        print("歸屬剔除名單：%d 個 riotId（判定三的證據，來源 csv_cache/soloq_disowned.json）" % len(DIS))
 
     files, owncnt, ridmap, unreadable = scan_all(owner)
 
@@ -223,6 +248,13 @@ def main():
             if r and who and len(who) == 1 and key not in who:
                 drop.append((g, next(iter(who)), "現名"))
                 continue
+            # 判定三：這個 rid 曾被歸屬複查從**這位選手**手上剔除（dpm 掛牌是別人的）。
+            # 只在「現在誰的帳號檔都沒命中」時才用——帳號檔若又把它登記給誰，那是判定一二的管轄。
+            d3 = None if (A.no_disowned or not r or who) else soloq_disowned.disowned_from(DIS, r, key)
+            if d3:
+                drop.append((g, d3.get("owner") or "?",
+                             "剔除（%s %s）" % (d3.get("why") or "歸屬複查", d3.get("at") or "")))
+                continue
             # 判定二：rid 是別位選手的舊名／另一個帳號
             hit = None if (A.no_oldname or not r) else oldname_owner(
                 r, key, owner, mine, tags, owncnt, ridmap)
@@ -236,13 +268,16 @@ def main():
                           "drop": len(drop), "total": len(ms), "byrid": byrid,
                           # byrid 的鍵是「rid＝擁有者〔理由〕」給人看的；扣 src.obs 要純 rid，另外算一份
                           "droprid": collections.Counter(g.get("rid") for g, _, _ in drop if g.get("rid")),
-                          "rules": collections.Counter(("二" if why.startswith("舊名") else "一")
+                          "rules": collections.Counter(("二" if why.startswith("舊名")
+                                                        else "三" if why.startswith("剔除") else "一")
                                                        for _, _, why in drop)})
 
     ngames = sum(p["drop"] for p in plans)
     n2 = sum(p["rules"].get("二", 0) for p in plans)
-    print("掃 %d 個逐場檔（%d 個讀不動）：%d 個檔混進別人的比賽，共 %d 場（判定一 %d、判定二舊名 %d）"
-          % (len(files) + unreadable, unreadable, len(plans), ngames, ngames - n2, n2))
+    n3 = sum(p["rules"].get("三", 0) for p in plans)
+    print("掃 %d 個逐場檔（%d 個讀不動）：%d 個檔混進別人的比賽，共 %d 場"
+          "（判定一現名 %d、判定二舊名 %d、判定三剔除名單 %d）"
+          % (len(files) + unreadable, unreadable, len(plans), ngames, ngames - n2 - n3, n2, n3))
     for p in sorted(plans, key=lambda x: -x["drop"]):
         print("  %-22s %-9s 刪 %d／共 %d 場（自己剩 %d）%s ← %s"
               % (p["key"], p["fn"], p["drop"], p["total"], len(p["keep"]),
