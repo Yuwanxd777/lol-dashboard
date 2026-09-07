@@ -23,6 +23,7 @@ if (getattr(sys.stdout, "encoding", "") or "").lower().replace("-", "") != "utf8
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import soloq_acc_history as H  # noqa: E402
+import soloq_disowned as D  # noqa: E402  判定三的證據來源，沙盒要一起接管（見 _sandbox）
 import clean_soloq_matches as C  # noqa: E402
 
 FAIL = []
@@ -166,11 +167,17 @@ def _sandbox(accounts, repo, cache):
                                                               ensure_ascii=False)))
     accp = os.path.join(tmp, "acc.json")
     io.open(accp, "w", encoding="utf-8").write(json.dumps(accounts, ensure_ascii=False))
+    disp = os.path.join(tmp, "dis.json")     # 判定三的剔除名單：沙盒給一份空的
+    io.open(disp, "w", encoding="utf-8").write("[]")
     C.OUTDIR = out
     C.ACCOUNTS = accp
     C.LOGP = os.path.join(tmp, "log.json")
     H.ROOT = repo          # 歷史索引改看沙盒 repo
     H.CACHE = cache
+    # 沒有這一行的話，判定三會去讀**真實的** csv_cache/soloq_disowned.json：今天素材裡的 rid
+    # 剛好沒被剔除過所以是綠的，哪天名單長出同名的 rid 就會莫名翻紅（2026-09-07 #51：
+    # soloq_disowned_test 就是被對稱的那半——沒接管歷史——害得反例長期紅）。
+    D.PATH = disp
     return tmp, out
 
 
