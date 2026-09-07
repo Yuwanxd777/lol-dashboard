@@ -80,6 +80,16 @@ def parse_log():
 FRESH_MIN = 240
 
 
+def start_ts(start_at):
+    """日誌裡 run_update 的開始時間字串 → timestamp（壞格式／None 回 None）。"""
+    if not start_at:
+        return None
+    try:
+        return time.mktime(time.strptime(start_at, "%Y-%m-%d %H:%M:%S"))
+    except ValueError:
+        return None
+
+
 def log_age_min(start_at, log_mtime, now_ts):
     """日誌有多舊（分鐘）。優先用日誌裡 run_update 的開始時間，沒有才退回檔案 mtime。
 
@@ -87,12 +97,7 @@ def log_age_min(start_at, log_mtime, now_ts):
     mtime 因此永遠是「剛剛」；而且日誌裡的時間才是這一班真的開始跑的時間。
     回 None＝兩個都沒有（檔案不存在）。時鐘漂移造成的負值夾成 0。
     """
-    ts = None
-    if start_at:
-        try:
-            ts = time.mktime(time.strptime(start_at, "%Y-%m-%d %H:%M:%S"))
-        except ValueError:
-            ts = None
+    ts = start_ts(start_at)
     if ts is None:
         ts = log_mtime
     if ts is None:
@@ -124,6 +129,50 @@ def run_problems(lg, age_min, fresh_min):
     elif age_min > fresh_min:
         out.append("日誌是 %.1f 小時前的（>%d 分鐘）⇒ 這一班沒有寫新日誌" % (age_min / 60.0, fresh_min))
     return out
+
+
+# ── 排程班次點名（2026-09-07 #48）────────────────────────────────────────────────
+# 為什麼還要這一條：#47 的新鮮度只在 **publish.bat 真的跑起來** 時才判（--from-publish）。
+# publish.bat 整個沒被叫起來——排程工作被停用／改名、電腦當時在睡、捷徑路徑壞掉——
+# 就沒有任何人問「這一班有沒有跑」；而迴圈每輪手動跑刻意不判新鮮度（手動本來就落在兩班之間）。
+# 結果：`autopilot/HEALTH_ALERT.txt` 不存在，DAILY.md 的檢查點把它讀成「上一班沒事」，
+# 網站默默停在昨天的資料。這是 #47 那個洞往上一層的同一個形狀：**沒有壞消息 ≠ 有跑過**。
+# 做法：不用固定年齡，改問「上一個排定的班次（10:00／22:00）有沒有留下它自己的日誌」，
+# 所以手動在任何時刻跑都不會誤報。
+SHIFTS = (10, 22)          # publish.bat 的排程時刻（工作 LOL_Dashboard_Update）
+SHIFT_GRACE_MIN = 180      # 過了班次多久還沒日誌才算沒跑
+SHIFT_SLACK_MIN = 5        # 日誌可以比班次早這麼多（排程提早觸發／時鐘漂移）
+
+
+def last_shift_ts(now_ts, shifts=SHIFTS):
+    """now 之前最近一個排定班次的 timestamp（跨午夜會取到昨天 22:00）。"""
+    lt = time.localtime(now_ts)
+    day0 = time.mktime((lt.tm_year, lt.tm_mon, lt.tm_mday, 0, 0, 0, 0, 0, -1))
+    cand = [day0 + d * 86400 + h * 3600 for d in (0, -1) for h in shifts]
+    return max(c for c in cand if c <= now_ts)
+
+
+def shift_problems(start_at, now_ts, shifts=SHIFTS,
+                   grace_min=SHIFT_GRACE_MIN, slack_min=SHIFT_SLACK_MIN):
+    """上一個排定班次有沒有留下自己的日誌 → (bad 訊息 list, 給人看的一行說明)。
+
+    三種結果：①日誌的 run 開始時間 ≥ 班次時刻 ⇒ 跑過了 ②還在寬限期內 ⇒ 不判
+    （可能正在跑、或排程被 Windows 的「錯過就盡快補跑」延後）③過了寬限還是舊日誌 ⇒ 這一班沒跑。
+    """
+    b = last_shift_ts(now_ts, shifts)
+    bl = time.strftime("%m-%d %H:%M", time.localtime(b))
+    elapsed = (now_ts - b) / 60.0
+    ts = start_ts(start_at)
+    if ts is not None and ts >= b - slack_min * 60:
+        return [], "班次 %s：✓ 已跑（日誌 %s）" % (bl, start_at)
+    if elapsed < grace_min:
+        return [], "班次 %s：才過 %.0f 分鐘（寬限 %d 分），還不判" % (bl, elapsed, grace_min)
+    if ts is None:
+        return (["上一班 %s 沒跑：日誌裡根本沒有 run_update 時間戳" % bl],
+                "班次 %s：✗ 日誌沒有時間戳" % bl)
+    return (["上一班 %s 沒跑：日誌最後一次 run_update 是 %s（%.1f 小時前）⇒ publish.bat 這一班沒被叫起來"
+             % (bl, start_at, (now_ts - ts) / 3600.0)],
+            "班次 %s：✗ 沒有這一班的日誌（最後 %s）" % (bl, start_at))
 
 
 def data_counts():
@@ -219,6 +268,12 @@ def main():
         "年齡不明" if age is None else "%.1f 小時前" % (age / 60.0),
         "" if fresh_min else "，手動跑不判新鮮度"))
     bad += run_problems(lg, age, fresh_min)
+    # 排程班次點名（#48）：手動跑不判「年齡」，但一定要判「上一個 10:00／22:00 有沒有留下日誌」，
+    # 否則 publish.bat 整個沒被叫起來時，沒有任何檢查會出聲（--from-publish 的新鮮度也跟著沒跑）。
+    sp, snote = shift_problems((lg or {}).get("start_at"), time.time())
+    print(snote)
+    if fresh_min is None:                # publish 模式已有 FRESH_MIN 那條，不重複報同一件事
+        bad += sp
     if lg:
         print("run_update：%s" % ("、".join("%s（並行 %s）" % x for x in lg["runs"]) or "（日誌裡沒有 run_update）"))
         if lg["fallback_whole"]:

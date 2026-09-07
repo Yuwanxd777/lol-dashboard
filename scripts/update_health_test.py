@@ -9,6 +9,7 @@
 每一組都配「正控制」（把條件改掉，斷言真的會翻面），否則綠燈沒有意義。
 用法：python scripts\\update_health_test.py    （exit 0＝全過）
 """
+import contextlib
 import glob
 import io
 import os
@@ -145,6 +146,55 @@ eq("沒有 run_update" in why(EMPTY, 12 * 60, None), True, "⑩手動模式：�
 eq(uh.FRESH_MIN > 94 + 30, True, "⑩門檻要大於最久那次（94 分退回循序）加緩衝")
 eq(uh.FRESH_MIN < 12 * 60, True, "⑩門檻要小於兩班間隔 12 小時，否則舊日誌照樣過關")
 
+# ── ⑫ 排程班次點名：publish.bat 整個沒被叫起來，也要有人出聲（#48）──────────
+def T(s):
+    return time.mktime(time.strptime(s, "%Y-%m-%d %H:%M:%S"))
+
+
+def shift_at(now, boundary):
+    eq(uh.last_shift_ts(T(now)), T(boundary), "⑫%s 的上一班＝%s" % (now[11:16], boundary[5:16]))
+
+
+shift_at("2026-09-07 17:47:00", "2026-09-07 10:00:00")
+shift_at("2026-09-07 09:59:00", "2026-09-06 22:00:00")     # 跨午夜要取到昨天 22:00
+shift_at("2026-09-07 22:00:00", "2026-09-07 22:00:00")     # 剛好在班次時刻
+shift_at("2026-09-08 00:30:00", "2026-09-07 22:00:00")
+
+
+def swhy(start_at, now):
+    """同⑩：把訊息接成字串再比對，只數「幾條」抓不到「報錯了原因」。"""
+    return "／".join(uh.shift_problems(start_at, T(now))[0])
+
+
+def snote(start_at, now):
+    return uh.shift_problems(start_at, T(now))[1]
+
+
+eq(swhy("2026-09-07 10:00:05", "2026-09-07 17:47:00"), "", "⑫這一班有跑：不報")
+eq("✓ 已跑" in snote("2026-09-07 10:00:05", "2026-09-07 17:47:00"), True, "⑫說明行講得出已跑")
+# 這條就是 #48 要補的洞：排程沒被叫起來 ⇒ 沒有新日誌、沒有 HEALTH_ALERT.txt、
+# 手動健檢又不判年齡 ⇒ 從頭到尾沒有任何檢查出聲。
+eq("上一班 09-07 10:00 沒跑" in swhy("2026-09-06 22:00:01", "2026-09-07 17:47:00"), True,
+   "⑫排程沒跑（日誌還是上一班的）⇒ 異常，且指得出是哪一班")
+eq("publish.bat 這一班沒被叫起來" in swhy("2026-09-06 22:00:01", "2026-09-07 17:47:00"), True,
+   "⑫訊息要說出根因（不是只說日誌舊）")
+# 寬限：剛過班次時間、或排程被 Windows「錯過就盡快補跑」延後，都不可以誤報
+eq(swhy("2026-09-06 22:00:01", "2026-09-07 10:30:00"), "", "⑫班次後 30 分鐘（寬限內）：不報")
+eq(swhy("2026-09-06 22:00:01", "2026-09-07 12:59:00"), "", "⑫剛好在寬限內：不報")
+eq("沒跑" in swhy("2026-09-06 22:00:01", "2026-09-07 13:01:00"), True, "⑫剛好超過寬限：報")
+eq(swhy("2026-09-07 09:57:00", "2026-09-07 17:47:00"), "", "⑫日誌早 3 分鐘（排程抖動）仍算這一班")
+eq("沒有 run_update 時間戳" in swhy(None, "2026-09-07 17:47:00"), True, "⑫連時間戳都沒有＝沒跑")
+eq(swhy(None, "2026-09-07 10:30:00"), "", "⑫沒有時間戳但還在寬限內：不報")
+# 為什麼不能用 ⑩ 的固定年齡代替：迴圈每輪手動跑常落在兩班之間，
+# 同一份「今天 10:00 跑過」的日誌，固定年齡會誤報、班次點名不會（正反對照）。
+eq("沒有寫新日誌" in why(FULL, 11.9 * 60), True, "⑫對照：固定年齡對 11.9 小時前的日誌會報")
+eq(swhy("2026-09-07 10:00:05", "2026-09-07 21:55:00"), "", "⑫同一份日誌用班次點名不報（手動跑不誤報）")
+eq(uh.SHIFT_GRACE_MIN < 12 * 60, True, "⑫寬限要小於兩班間隔，否則永遠來不及在下一班前發現")
+eq(uh.SHIFT_GRACE_MIN > 94, True, "⑫寬限要大於最久那次（94 分退回循序）")
+eq(uh.start_ts("2026-09-07 10:00:05"), T("2026-09-07 10:00:05"), "⑫start_ts 正常解析")
+eq(uh.start_ts("壞掉"), None, "⑫start_ts 壞格式回 None")
+eq(uh.start_ts(None), None, "⑫start_ts 沒有值回 None")
+
 # ── ⑪ 自我污染：健檢結論被 type 折進日誌後，下次 parse 不可以讀出新的 run／步驟 ──
 _real_log, _real_console = uh.LOG, uh.CONSOLE
 try:
@@ -170,6 +220,44 @@ try:
     eq(len(uh.parse_log()["steps"]), len(before["steps"]) + 1, "⑪正控制：真的步驟行讀得到")
 finally:
     uh.LOG, uh.CONSOLE = _real_log, _real_console
+    shutil.rmtree(tmp, ignore_errors=True)
+
+# ── ⑬ 端到端：main() 真的把班次點名接進結論（純函式對了、接線斷了一樣沒人知道）──
+# 不寫死時鐘：拿「上一班再往前一小時」當日誌時間（⇒ 一定不是這一班寫的），
+# 然後斷言 main() 的結論**與 shift_problems 的判斷一致**——寬限期內就不該報，過了寬限就一定要報。
+_real_log, _real_console, _real_argv, _real_grace = uh.LOG, uh.CONSOLE, sys.argv, uh.SHIFT_GRACE_MIN
+try:
+    tmp = tempfile.mkdtemp(prefix="uh_e2e_")
+    uh.SHIFT_GRACE_MIN = 0        # 寬限歸零＝不管這一輪幾點跑，舊日誌一定要被判定成「沒跑」
+    uh.CONSOLE = os.path.join(tmp, "no_console.txt")
+    uh.LOG = os.path.join(tmp, "log.txt")
+    sys.argv = ["update_health.py", "--no-save"]
+
+    def main_out(when_ts):
+        s = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(when_ts))
+        io.open(uh.LOG, "w", encoding="utf-8").write(
+            "==== run_update %s（並行 4）====\n---- fetch_x（1.0s，exit 0）----\n"
+            "文本體檢：掃描 1 條字串 → 錯誤 0、提醒 0\n未審定的可疑同名 0\n守門通過\n" % s)
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            uh.main()
+        return s, buf.getvalue()
+
+    b = uh.last_shift_ts(time.time())
+    stale, out = main_out(b - 3600)                       # 上一班之前的舊日誌
+    want_bad = bool(uh.shift_problems(stale, time.time())[0])
+    eq(want_bad, True, "⑬前提：寬限 0 時舊日誌一定判沒跑（否則下一條是空測）")
+    concl = [l for l in out.splitlines() if l.startswith("結論：")][0]
+    eq(any(l.startswith("班次 ") for l in out.splitlines()), True, "⑬main() 有印出班次那一行")
+    eq("沒跑" in concl, want_bad, "⑬main() 的結論與班次點名一致（舊日誌）")
+    # 正控制：日誌換成這一班寫的，結論就不可以再說「沒跑」——否則上面那條是恆真的
+    fresh, out2 = main_out(b + 300)
+    concl2 = [l for l in out2.splitlines() if l.startswith("結論：")][0]
+    eq("沒跑" in concl2, False, "⑬正控制：這一班的日誌 ⇒ 結論不報沒跑")
+    eq("✓ 已跑" in out2, True, "⑬正控制：說明行說已跑")
+finally:
+    uh.LOG, uh.CONSOLE, sys.argv = _real_log, _real_console, _real_argv
+    uh.SHIFT_GRACE_MIN = _real_grace
     shutil.rmtree(tmp, ignore_errors=True)
 
 print("update_health 回歸測試：通過 %d 條" % OK[0] + ("" if not NG else "，失敗 %d 條" % len(NG)))
