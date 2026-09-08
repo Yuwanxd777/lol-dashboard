@@ -14,6 +14,13 @@ patch 已發布就不再變 → 解析結果永久快取，只補缺的。
   - 當年版本：每次執行都嘗試抓（版本剛發布就自動補進來）
   - 舊年版本：404 後永久跳過（不再重試）
   - 未來版本：估算發布日尚未到 → 直接跳過，不發 404 請求
+
+速度（2026-09-08 #64，run_update 帶 --skip-discover、沒有新版本的班次：31.2s → 約 8s）：
+  - 猜 URL：候選格式去重＋同年最近命中的格式排第一（get_html／_guess_fmts）
+  - DDragon 逐版道具快照永久快取 csv_cache/ddragon_item_snap.json（item_removals）
+  - 翻譯記憶化 csv_cache/patch_tr_cache.json，簽章＝本檔＋manual_tr.json（translate_line）
+  剩下的大頭是「當年下一版還沒發布」時 4 格式 × 2 語言 = 8 次 404（約 6s），刻意保留：
+  這是新版本上線那班能自動補進來的唯一途徑。
 """
 import urllib.request, re, json, os, io, html as H
 from datetime import datetime, date, timedelta
@@ -152,20 +159,66 @@ def get_html(major, minor, url_map=None):
             except Exception:
                 continue
 
-    # fallback：格式猜測（9.1 以前的舊版，或 tag 頁沒掃到的版本）
+    # fallback：格式猜測（9.1 以前的舊版，或 tag 頁沒掃到的版本；run_update 帶 --skip-discover ⇒ url_map 是空的，
+    # 當年還沒快取的版本全走這裡）
+    # #64（2026-09-08）：minor ≥ 10 時 {minor} 與 {m2} 是同一個字串，8 個格式只剩 4 個不同 URL，以前照樣發 8 次
+    # ——26.18 還沒發布時每班 16 次 404 ＝ 13.4s；另外「同年最近一版命中的格式」排第一（26.04 起是
+    # league-of-legends-patch-26-N-notes，原本排最後 ⇒ 每個新版上線那班要先吃 7 個 404 才抓到）。
     for lang in ("zh-tw", "en-us"):
-        m2 = f"{minor:02d}"
-        for fmt in (f"patch-{major}-{minor}-notes", f"patch-{major}-{m2}-notes",
-                    f"patch-{major}-s1-{minor}-notes", f"patch-{major}-s1-{m2}-notes",
-                    f"patch-{year}-s1-{minor}-notes", f"patch-{year}-s1-{m2}-notes",
-                    f"league-of-legends-patch-{major}-{minor}-notes",
-                    f"league-of-legends-patch-{major}-{m2}-notes"):
+        for fmt in _guess_fmts(major, minor, year):
             u = f"https://www.leagueoflegends.com/{lang}/news/game-updates/{fmt}/"
             try:
                 return fetch(u), u, lang
             except Exception:
                 continue
     return None, None, None
+
+
+def _fmt_raw(major, minor, year):
+    """8 個候選 slug（原始順序，不去重；_likely_idx 用同一份順序找「上次命中的是第幾個」）"""
+    m2 = f"{minor:02d}"
+    return [f"patch-{major}-{minor}-notes", f"patch-{major}-{m2}-notes",
+            f"patch-{major}-s1-{minor}-notes", f"patch-{major}-s1-{m2}-notes",
+            f"patch-{year}-s1-{minor}-notes", f"patch-{year}-s1-{m2}-notes",
+            f"league-of-legends-patch-{major}-{minor}-notes",
+            f"league-of-legends-patch-{major}-{m2}-notes"]
+
+
+_LIKELY_IDX = {}
+def _likely_idx(major, year):
+    """同一年 minor 最大的已快取版本，它的 _url 尾段對上 _fmt_raw 的第幾個格式；對不上／沒快取 ⇒ None"""
+    if year in _LIKELY_IDX:
+        return _LIKELY_IDX[year]
+    _LIKELY_IDX[year] = None
+    import glob
+    pre = f"patch_{year % 100}."
+    best = None
+    for f in glob.glob(os.path.join(CACHE, pre + "*.json")):
+        try:
+            mn = int(os.path.basename(f)[len(pre):-5])
+        except ValueError:
+            continue
+        if best is None or mn > best[0]:
+            best = (mn, f)
+    if best:
+        try:
+            u = json.load(open(best[1], encoding="utf-8")).get("_url", "")
+        except Exception:
+            u = ""
+        slug = str(u).rstrip("/").rsplit("/", 1)[-1]
+        raw = _fmt_raw(major, best[0], year)
+        if slug in raw:
+            _LIKELY_IDX[year] = raw.index(slug)
+    return _LIKELY_IDX[year]
+
+
+def _guess_fmts(major, minor, year):
+    """要嘗試的 slug 順序：上次命中的格式優先，其餘照原順序，去掉重複字串"""
+    raw = _fmt_raw(major, minor, year)
+    i = _likely_idx(major, year)
+    if i is not None and i < len(raw):
+        raw = [raw[i]] + raw[:i] + raw[i + 1:]
+    return list(dict.fromkeys(raw))
 
 
 def clean(s):
@@ -522,7 +575,64 @@ PREFIX_MAP = {
     "Minions": "小兵", "Monsters": "野怪", "Jungle": "野區",
 }
 
+# #64（2026-09-08）：翻譯記憶化。main() 收尾會把 167 版全部 1.3 萬行重過一次 translate_line（詞庫擴充後舊快取的
+# 英文殘留才會被修到），每行要跑 664 條預編譯正則 ⇒ 每班 10.3s 純 CPU，而輸入行 99% 跟上一班一模一樣。
+# 結果存 csv_cache/patch_tr_cache.json：{"sig": 本檔＋manual_tr.json 的 sha1, "map": {原行: 譯後}}。
+# 簽章綁「整支腳本的內容」——詞庫／PREFIX_MAP／_ALLOW_EN／收尾規則全在這個檔裡，任何一處改了整份作廢重翻
+# （全量重翻 10 秒，不值得做細粒度失效）；manual_tr.json 改了也作廢。快取壞／簽章不同 ⇒ 從空的開始，行為同改前。
+_TR_CACHE_PATH = os.path.join(CACHE, "patch_tr_cache.json")
+_TR_MEMO = None
+_TR_DIRTY = [False]
+
+def _tr_sig():
+    import hashlib
+    h = hashlib.sha1()
+    try:
+        h.update(open(os.path.abspath(__file__), "rb").read())
+    except Exception:
+        return None                         # 拿不到自己的原始碼就不做記憶化
+    try:
+        h.update(open(os.path.join(HERE, "scripts", "manual_tr.json"), "rb").read())
+    except Exception:
+        h.update(b"<no manual_tr>")
+    return h.hexdigest()
+
+def _tr_memo():
+    global _TR_MEMO
+    if _TR_MEMO is None:
+        sig = _tr_sig()
+        memo = None
+        if sig:
+            try:
+                d = json.load(open(_TR_CACHE_PATH, encoding="utf-8"))
+                if d.get("sig") == sig and isinstance(d.get("map"), dict):
+                    memo = d
+            except Exception:
+                pass
+        _TR_MEMO = memo or {"sig": sig, "map": {}}
+    return _TR_MEMO
+
+def _tr_save():
+    """main() 收尾呼叫；只有真的有新行才寫"""
+    m = _tr_memo()
+    if not _TR_DIRTY[0] or not m.get("sig"):
+        return
+    os.makedirs(CACHE, exist_ok=True)
+    json.dump(m, open(_TR_CACHE_PATH, "w", encoding="utf-8"), ensure_ascii=False)
+    _TR_DIRTY[0] = False
+
 def translate_line(l):
+    m = _tr_memo()
+    if not m.get("sig"):
+        return _translate_line_raw(l)
+    mp = m["map"]
+    r = mp.get(l)
+    if r is None:
+        r = mp[l] = _translate_line_raw(l)
+        _TR_DIRTY[0] = True
+    return r
+
+def _translate_line_raw(l):
     man = _manual_tr()
     key = l.strip()
     if key in man:
@@ -1498,8 +1608,21 @@ def item_removals():
         return _flat(bm0)
     cur_major = int(vers[0].split(".")[0])
 
+    # #64（2026-09-08）：DDragon 每個版本的 item.json 發布後永遠不變，但當季（maj == cur_major）以前每班都
+    # 把本季全部 minor 重抓一遍（15.24.1＋16.1.1～16.17.1 共 18 次 × 0.4s ≈ 7s／班，而且只會越來越多）。
+    # 逐版快照 {id: name} 存 csv_cache/ddragon_item_snap.json，只有沒看過的版本才打網路。
+    snap_path = os.path.join(CACHE, "ddragon_item_snap.json")
+    try:
+        snaps = json.load(open(snap_path, encoding="utf-8"))
+        if not isinstance(snaps, dict): snaps = {}
+    except Exception:
+        snaps = {}
+    snap_dirty = [False]
+
     def snap(v):
         """該版本可購買道具 {id: name}（過濾規則與 item_debuts 一致）"""
+        if isinstance(snaps.get(v), dict):
+            return snaps[v]
         d = json.loads(urllib.request.urlopen(
             f"https://ddragon.leagueoflegends.com/cdn/{v}/data/zh_TW/item.json", timeout=60).read())["data"]
         out = {}
@@ -1508,6 +1631,8 @@ def item_removals():
             if (x.get("maps") or {}).get("11") is False: continue
             if (x.get("gold") or {}).get("purchasable") is False: continue
             out[iid] = _iname(x)
+        snaps[v] = out
+        snap_dirty[0] = True
         return out
 
     by_major = bm0
@@ -1560,6 +1685,8 @@ def item_removals():
         by_major[str(maj)] = {"rm": rm, "ret": ret, "new": new, "names": sorted(names)}
         seen_prior |= names
     json.dump({"_last": vers[0], "by_major": by_major}, open(vf, "w", encoding="utf-8"), ensure_ascii=False)
+    if snap_dirty[0]:
+        json.dump(snaps, open(snap_path, "w", encoding="utf-8"), ensure_ascii=False)
     return _flat(by_major)
 
 
@@ -1707,6 +1834,7 @@ def main():
                     v[cat] = [translate_line(l) for l in ls]
             elif isinstance(v, list):
                 pd[k] = [translate_line(l) for l in v]
+    _tr_save()   # #64：翻譯記憶化快取，有新行才寫
     js = json.dumps(all_patches, ensure_ascii=False, separators=(",", ":"))
     with open(os.path.join(HERE, "patches.js"), "w", encoding="utf-8") as f:
         f.write("window.LOL_PATCHES=" + js + ";")
