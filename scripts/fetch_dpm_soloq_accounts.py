@@ -293,7 +293,11 @@ def _warm(pg):
 # 2026-09-08 #66：BATCH 6 → 12、固定 sleep(0.5) 改「兩批開始時間最小間隔」。實測（autopilot/_r66_probe1.txt）
 #   dpm 對 24 並發一批 0.7s 仍全 200、沒有 429；批 12 免睡 48 名 1.9s，舊寫法 7.9s。436 名預估 73 批×1.0s ≈ 72s → 37 批×0.5s ≈ 19s。
 #   限流／伺服器錯誤那一批照舊整批退回逐一查，另外把之後的批次大小減半（最低 3），不會一路撞牆。
-BATCH = 12
+# 2026-09-09 #73：BATCH 12 → 24、退路批次化。唯讀探針（autopilot/_r73_batch_probe.txt，真實 435 名切 4 組互不重疊、冷名單、
+#   交錯 12/24/12/24）：bs=12 每百名 5.5／4.8s、bs=24 每百名 3.0／3.8s，狀態全 200／404、沒有 429；
+#   「第一變體查無」的名字 435 名裡 8 名，逐名逐變體退路每名 0.7s 共 5.5s，改成其餘變體一次 Promise.all 只要 0.9s。
+#   09-08 22:00 那班這一步 45.1s，預估 → ~32s。
+BATCH = 24
 MIN_GAP = 0.5          # 兩批 evaluate 開始時間至少隔這麼久；批次本身 ≥ 這個數就不睡
 _BS = [BATCH]          # 目前批次大小（限流時減半）
 _last_batch_t = [0.0]
@@ -355,9 +359,58 @@ def fetch_pros_batch(pg, names):
         for n in names:
             out[n] = fetch_pro_seq(pg, n)
         return out
+    missed, st_by = [], {}
     for n, r in zip(names, res):
         plist = _OK((r or {}).get("j"))
-        out[n] = plist if plist else fetch_pro_seq(pg, n)    # 第一個變體查無 → 舊路徑試其餘變體
+        if plist:
+            out[n] = plist
+        else:
+            missed.append(n); st_by[n] = (r or {}).get("st")
+    if missed:
+        out.update(fetch_pros_rest(pg, missed, st_by))     # #73：第一個變體查無 → 其餘變體一次問完（以前逐名逐變體）
+    return out
+
+
+def fetch_pros_rest(pg, names, st_by=None):
+    """#73 退路批次化：第一變體查無的名字，其餘變體（_VARIANTS 順序）一次 Promise.all 問完；同一名字取**第一個**有結果的變體，
+    跟 fetch_pro_seq 的語意相同。第一變體的狀態不是 200／404（0＝fetch 例外之類）的，把第一變體也再問一次。
+    URL 依目前批次大小切塊；一塊限流／伺服器錯誤 → 減半＋睡 5、那一塊還沒定案的名字退回 fetch_pro_seq；evaluate 例外同樣退回但不減半。"""
+    out = {}
+    pairs = []
+    for n in names:
+        vs = _VARIANTS(n)
+        st = (st_by or {}).get(n)
+        pairs += [(n, v) for v in (vs[1:] if st in (200, 404) else vs)]
+    k = 0
+    while k < len(pairs):
+        chunk = pairs[k:k + max(1, _BS[0])]
+        k += len(chunk)
+        _pace()
+        try:
+            res = pg.evaluate(JS_MANY, ["/v1/pros/" + urllib.parse.quote(v, safe="") for _, v in chunk])
+        except Exception:
+            res = None
+        if not isinstance(res, list) or len(res) != len(chunk):
+            res = None
+        if res is not None and any(((r or {}).get("st") or 0) in (429, 403) or ((r or {}).get("st") or 0) >= 500 for r in res):
+            _BS[0] = max(3, _BS[0] // 2)
+            print("  ⚠ 退路這一批有限流／伺服器錯誤（%s）→ 睡 5 秒、退回逐一查；之後批次縮成 %d"
+                  % (sorted({(r or {}).get("st") for r in res}), _BS[0]), flush=True)
+            res = None
+        if res is None:
+            time.sleep(5)
+            for n in dict.fromkeys(n for n, _ in chunk):
+                if n not in out:
+                    out[n] = fetch_pro_seq(pg, n)
+            continue
+        for (n, _), r in zip(chunk, res):
+            if n in out:
+                continue
+            plist = _OK((r or {}).get("j"))
+            if plist:
+                out[n] = plist
+    for n in names:
+        out.setdefault(n, [])
     return out
 
 

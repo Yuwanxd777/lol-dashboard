@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
-"""fetch_dpm_soloq_accounts 的沙盒測試（2026-09-08 #66 提速那批）。
+"""fetch_dpm_soloq_accounts 的沙盒測試（2026-09-08 #66 提速那批；2026-09-09 #73 加 BATCH 24 與退路批次化 fetch_pros_rest）。
 
-只測「不上網、不寫檔」的三個工具：fetch_pros_batch（批次＋節奏＋限流減半）、_iter_batches（中途縮小）、
+只測「不上網、不寫檔」的三個工具：fetch_pros_batch（批次＋節奏＋限流減半＋退路批次化）、_iter_batches（中途縮小）、
 _owners_of（歸屬複查一次 Promise.all＋逐一補問）。pg 是假物件、time.sleep 被接管記錄，
 主流程 main() 不跑（它會讀 26MB 年度資料並寫 preview 檔）——所以這裡另外用**原始碼層**斷言主流程的結構：
 只 launch 一個瀏覽器、沒有第二個 sync_playwright、批次迴圈後沒有固定 sleep(0.5)；並拿 git HEAD 那版當正控制，
@@ -82,7 +82,7 @@ def reset():
 
 # ── 0. 常數本身 ────────────────────────────────────────────────────────────────
 print("0. 常數")
-check(M.BATCH == 12, f"BATCH 應為 12，實際 {M.BATCH}")
+check(M.BATCH == 24, f"BATCH 應為 24（#73），實際 {M.BATCH}")
 check(abs(M.MIN_GAP - 0.5) < 1e-9, f"MIN_GAP 應為 0.5，實際 {M.MIN_GAP}")
 check(M.OWNER_BATCH >= 24, f"OWNER_BATCH 應 ≥ 24，實際 {M.OWNER_BATCH}")
 
@@ -95,10 +95,10 @@ for ch in M._iter_batches(names):
     sizes.append(len(ch))
     if len(sizes) == 1:
         M._BS[0] = 4          # 模擬第一批之後被限流減半…再減
-check(sizes == [12, 4, 4, 4, 4, 2], f"中途縮小：期望 [12,4,4,4,4,2]，實際 {sizes}")
+check(sizes == [24, 4, 2], f"中途縮小：期望 [24,4,2]，實際 {sizes}")
 check(sum(sizes) == 30, "切塊總數要等於名字數")
 reset()
-check([len(c) for c in M._iter_batches(names)] == [12, 12, 6], "預設 12 一批")
+check([len(c) for c in M._iter_batches(names)] == [24, 6], "預設 24 一批")
 check(list(M._iter_batches([])) == [], "空清單不產生批次")
 
 # ── 2. fetch_pros_batch：正常批次一次 evaluate、命中的不再逐一 ───────────────
@@ -109,19 +109,117 @@ pg = FakePG(tbl)
 out, slept = with_sleep_recorder(lambda: M.fetch_pros_batch(pg, ["Faker", "Chovy", "Zeus"]))
 check(set(out) == {"Faker", "Chovy", "Zeus"} and all(out[n][0]["puuid"] == "pu-" + n for n in out), "三位各拿到自己的 plist")
 check([c[0] for c in pg.calls] == ["MANY"], f"命中時只有一次 MANY evaluate，實際 {[c[0] for c in pg.calls]}")
-check(M._BS[0] == 12, "沒限流 → 批次大小不變")
+check(M._BS[0] == 24, "沒限流 → 批次大小不變")
 
-# 第一個變體查無（小寫 ceo → dpm 顯示名 Ceo）→ 只有那一位走逐變體路徑
-print("2b. 第一個變體查無 → 只那位退回逐變體")
+# 第一個變體查無（小寫 ceo → dpm 顯示名 Ceo）→ #73：只那位的其餘變體再一次 MANY 問完（以前逐變體 ONE）
+print("2b. 第一個變體查無 → 只那位的其餘變體再一次 MANY")
 reset()
 tbl = {_url("Faker"): {"st": 200, "j": _players("Faker")},
        "/v1/pros/Ceo": {"st": 200, "j": _players("Ceo")}}
 pg = FakePG(tbl)
-out, _ = with_sleep_recorder(lambda: M.fetch_pros_batch(pg, ["Faker", "ceo"]))
+out, slept = with_sleep_recorder(lambda: M.fetch_pros_batch(pg, ["Faker", "ceo"]))
 check(out["Faker"][0]["puuid"] == "pu-Faker" and out["ceo"] and out["ceo"][0]["puuid"] == "pu-Ceo", "ceo 用第二個變體 Ceo 查到")
-ones = [c[1] for c in pg.calls if c[0] == "ONE"]
-check(ones and all("eo" in u for u in ones) and not any("Faker" in u for u in ones),
-      f"逐變體只問 ceo 的變體、不動 Faker，實際 {ones}")
+kinds = [c[0] for c in pg.calls]
+check(kinds == ["MANY", "MANY"], f"兩次 MANY、沒有 ONE，實際 {kinds}")
+check(pg.calls[1][1] == ["/v1/pros/Ceo", "/v1/pros/CEO"], f"第二次 MANY 只問 ceo 的其餘變體（Ceo、CEO）、不再問 ceo 也不動 Faker，實際 {pg.calls[1][1]}")
+check(5 not in slept and M._BS[0] == 24, "退路批次沒限流 → 不睡 5、不減半")
+
+print("2c. 退路批次：同一名字取第一個有結果的變體（跟 fetch_pro_seq 同義）、多名一次問完")
+reset()
+tbl = {"/v1/pros/Abc": {"st": 200, "j": _players("Abc")}, "/v1/pros/ABC": {"st": 200, "j": _players("ABC")},
+       "/v1/pros/XYZ": {"st": 200, "j": _players("XYZ")}}
+pg = FakePG(tbl)
+out, _ = with_sleep_recorder(lambda: M.fetch_pros_batch(pg, ["abc", "xyz", "nobody"]))
+check(out["abc"][0]["puuid"] == "pu-Abc", f"abc：Abc 與 ABC 都有 → 取順序在前的 Abc，實際 {out['abc']}")
+check(out["xyz"][0]["puuid"] == "pu-XYZ" and out["nobody"] == [], "xyz 用第三個變體查到；nobody 全查無 → []")
+check([c[0] for c in pg.calls] == ["MANY", "MANY"], f"三位查無 → 其餘變體 6 隻一次 MANY，實際 {[c[0] for c in pg.calls]}")
+check(pg.calls[1][1] == ["/v1/pros/Abc", "/v1/pros/ABC", "/v1/pros/Xyz", "/v1/pros/XYZ", "/v1/pros/Nobody", "/v1/pros/NOBODY"],
+      f"退路 URL 依名字、再依變體順序，實際 {pg.calls[1][1]}")
+_seq = {n: M.fetch_pro_seq(FakePG(tbl), n) for n in ["abc", "xyz", "nobody"]}
+check(all(json.dumps(out[n], sort_keys=True) == json.dumps(_seq[n], sort_keys=True) for n in _seq), "三位結果跟舊逐變體路徑逐位相同")
+
+print("2d. 第一變體狀態不是 200／404（fetch 例外 st=0）→ 退路把第一變體也再問一次")
+reset()
+tbl = {_url("Flaky"): {"st": 0, "j": None}}
+pg = FakePG(tbl)
+pg.table[_url("Flaky")] = {"st": 0, "j": None}
+out, _ = with_sleep_recorder(lambda: M.fetch_pros_batch(pg, ["Flaky"]))
+check(pg.calls[1][1][0] == _url("Flaky"), f"退路第一隻就是 Flaky 本身，實際 {pg.calls[1][1]}")
+reset()
+pg = FakePG({_url("Gone"): {"st": 404, "j": None}})
+with_sleep_recorder(lambda: M.fetch_pros_batch(pg, ["Gone"]))
+check(_url("Gone") not in pg.calls[1][1], f"404 的第一變體不再問，實際 {pg.calls[1][1]}")
+
+print("2e. 退路批次限流 → 減半＋睡 5、那一塊的名字退回逐變體 ONE；evaluate 例外 → 退回但不減半")
+reset()
+tbl = {"/v1/pros/Ceo": {"st": 429, "j": None}}
+tbl_one = {"/v1/pros/CEO": {"st": 200, "j": _players("CEO")}}
+pg = FakePG(tbl, one_table=tbl_one)
+out, slept = with_sleep_recorder(lambda: M.fetch_pros_batch(pg, ["ceo"]))
+check(5 in slept and M._BS[0] == 12, f"退路 429 → 睡 5、24 → 12，實際 slept={slept} _BS={M._BS[0]}")
+check(out["ceo"] and out["ceo"][0]["puuid"] == "pu-CEO", "退回逐變體後仍查到 CEO")
+check([c[0] for c in pg.calls][:2] == ["MANY", "MANY"] and "ONE" in [c[0] for c in pg.calls], f"MANY、MANY(退路)、再 ONE，實際 {[c[0] for c in pg.calls]}")
+reset()
+
+
+class FlakyPG(FakePG):
+    """第二次 MANY（退路）才炸。"""
+    def evaluate(self, js, arg=None):
+        if js == M.JS_MANY and sum(1 for c in self.calls if c[0] == "MANY") == 1:
+            self.calls.append(("MANY", arg)); raise RuntimeError("退路 evaluate 炸了")
+        return super().evaluate(js, arg)
+
+
+pg = FlakyPG({}, one_table={"/v1/pros/Ceo": {"st": 200, "j": _players("Ceo")}})
+out, slept = with_sleep_recorder(lambda: M.fetch_pros_batch(pg, ["ceo"]))
+check(out["ceo"] and out["ceo"][0]["puuid"] == "pu-Ceo" and 5 in slept and M._BS[0] == 24, "退路例外：逐變體補到、睡 5、不減半")
+
+print("2f. 退路 URL 依目前批次大小切塊")
+reset()
+M._BS[0] = 3
+pg = FakePG({})
+out, _ = with_sleep_recorder(lambda: M.fetch_pros_batch(pg, ["aaa", "bbb"]))
+manys = [c[1] for c in pg.calls if c[0] == "MANY"]
+check([len(u) for u in manys] == [2, 3, 1], f"2 名 × 2 變體＝4 隻 → 3＋1 兩塊，實際 {[len(u) for u in manys]}")
+check(out == {"aaa": [], "bbb": []}, "全查無 → 各 []")
+reset()
+
+print("2g. 正控制：HEAD 舊版在 2b 情境真的會走 ONE（斷言不是恆綠）")
+import importlib.util, tempfile as _tf
+try:
+    _old = subprocess.run(["git", "show", "HEAD:scripts/fetch_dpm_soloq_accounts.py"], cwd=ROOT,
+                          capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=30).stdout
+except Exception:
+    _old = ""
+if _old and "def fetch_pros_batch" in _old:
+    if "fetch_pros_rest" in _old:      # HEAD 已是新版 → 人工退化：把退路改回逐名 fetch_pro_seq
+        _old = _old.replace("out.update(fetch_pros_rest(pg, missed, st_by))", "out.update({n: fetch_pro_seq(pg, n) for n in missed})")
+    _old = _old.replace("sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding=\"utf-8\", errors=\"replace\")", "pass")
+    _tmp = os.path.join(_tf.mkdtemp(prefix="dpm_old_"), "fetch_dpm_old.py")
+    io.open(_tmp, "w", encoding="utf-8").write(_old)
+    _spec = importlib.util.spec_from_file_location("fetch_dpm_old", _tmp)
+    O = importlib.util.module_from_spec(_spec); _spec.loader.exec_module(O)
+    O._BS[0] = O.BATCH; O._last_batch_t[0] = 0.0
+    _rs = O.time.sleep; O.time.sleep = lambda s: None
+    try:
+        class OldPG(FakePG):
+            def evaluate(self, js, arg=None):
+                kind = ("MANY" if js == O.JS_MANY else "ONE" if js == O.JS_ONE else "?")
+                self.calls.append((kind, arg))
+                if kind == "MANY":
+                    return [dict(self.table.get(u, {"st": 404, "j": None})) for u in arg]
+                r = self.table.get(arg)
+                return (r or {}).get("j") if r and r.get("st") == 200 else None
+        opg = OldPG({_url("Faker"): {"st": 200, "j": _players("Faker")}, "/v1/pros/Ceo": {"st": 200, "j": _players("Ceo")}})
+        oout = O.fetch_pros_batch(opg, ["Faker", "ceo"])
+        okinds = [c[0] for c in opg.calls]
+        check(oout["ceo"] and oout["ceo"][0]["puuid"] == "pu-Ceo", "舊版結果相同（ceo → Ceo）")
+        check("ONE" in okinds and okinds.count("MANY") == 1, f"舊版真的走逐變體 ONE（新版是 MANY×2），實際 {okinds}")
+        check(len(opg.calls) > 2, f"舊版 evaluate 次數 {len(opg.calls)} > 新版 2")
+    finally:
+        O.time.sleep = _rs
+else:
+    check(False, "拿不到 HEAD 版本當 2g 正控制")
 
 # ── 3. 限流：整批退回逐一、睡 5 秒、之後批次減半（最低 3）────────────────────
 print("3. 限流減半")
@@ -131,7 +229,7 @@ tbl[_url("C")] = {"st": 429, "j": None}
 pg = FakePG(tbl)
 out, slept = with_sleep_recorder(lambda: M.fetch_pros_batch(pg, ["A", "B", "C"]))
 check(5 in slept, f"限流要睡 5 秒，實際睡了 {slept}")
-check(M._BS[0] == 6, f"12 → 6，實際 {M._BS[0]}")
+check(M._BS[0] == 12, f"24 → 12，實際 {M._BS[0]}")
 check(out["A"] and out["B"] and out["C"] == [], "退回逐一後 A、B 仍查到、C 查無")
 kinds = [c[0] for c in pg.calls]
 check(kinds[0] == "MANY" and kinds.count("ONE") >= 3, f"MANY 之後每位至少一次 ONE，實際 {kinds}")
@@ -142,11 +240,11 @@ reset()
 tbl503 = {_url("A"): {"st": 503, "j": None}}
 pg = FakePG(tbl503)
 out, slept = with_sleep_recorder(lambda: M.fetch_pros_batch(pg, ["A"]))
-check(M._BS[0] == 6 and 5 in slept, "5xx 同樣算限流：減半＋睡 5")
+check(M._BS[0] == 12 and 5 in slept, "5xx 同樣算限流：減半＋睡 5")
 reset()
 pg = FakePG({}, fail_many=True)
 out, slept = with_sleep_recorder(lambda: M.fetch_pros_batch(pg, ["A"]))
-check(out["A"] == [] and 5 in slept and M._BS[0] == 12, "evaluate 例外：退回逐一、睡 5，但**不**減半（不是限流）")
+check(out["A"] == [] and 5 in slept and M._BS[0] == 24, "evaluate 例外：退回逐一、睡 5，但**不**減半（不是限流）")
 
 # ── 4. 節奏：兩批開始時間至少隔 MIN_GAP；批次本身夠慢就不補睡 ─────────────────
 print("4. _pace")
