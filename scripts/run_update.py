@@ -62,7 +62,14 @@ PLAN = [
     # 主資料：後面一堆東西都讀它，自己一階段
     ("② 主資料", [S("fetch_data")]),
     # 這一批全部打不同來源、彼此不讀對方的產物 ⇒ 可以一起跑
+    # 2026-09-09 #72：**最長的兩步排最前面**。執行器是 ThreadPoolExecutor.map，照清單順序派工（4 個工人），
+    #   原本 fetch_obgg_accounts（22:00 那班 64.4s）排第 20 個、fetch_side_sel（55.0s）第 19 個，
+    #   要等前面 16 個小步驟騰出工人才起跑 ⇒ ③ 78.7s（＝64.4 ＋ 等了 14s）。長桿先起跑，
+    #   剩下 18 步（合計 63s）由另外 2 個工人分掉、遠在 64s 內做完 ⇒ ③ 預估 ≈ 64~66s。
+    #   其餘步驟保持原本相對順序（fetch_champ_icons 會讀 fetch_rune_icons 寫的 rune_icons.js，別對調）。
     ("③ 各來源抓取（互不相干）", [
+        S("fetch_obgg_accounts"),    # soloq 那串的第一步，先跑完才能進 ⑤；③ 的長桿，先起跑
+        S("fetch_side_sel"),         # ③ 第二長，先起跑
         S("build_career"),           # 讀 data/data_*.js（上一階段已寫完）
         S("fetch_patches"), S("fetch_patches_en"),
         S("fetch_skills"), S("fetch_items"),
@@ -71,8 +78,6 @@ PLAN = [
         S("fetch_masteries"), S("fetch_old_runes"), S("fetch_rune_icons"),
         S("fetch_champ_icons"), S("fetch_team_logos"), S("fetch_flags"),
         S("fetch_worlds_tier1"), S("fetch_events_extra"),
-        S("fetch_side_sel"),
-        S("fetch_obgg_accounts"),    # soloq 那串的第一步，先跑完才能進 ⑤
     ]),
     # 這三步各自依賴上面某一步的產物
     ("④ 後處理", [
@@ -88,7 +93,12 @@ PLAN = [
     # ⇒ 讓便宜的先跑、用「勝敗場數有沒有變」這個權威訊號決定貴的要抓誰。
     ("⑤ 積分：帳號（循序）", [S("fetch_dpm_soloq_accounts", "--apply")]),
     ("⑤b 解 puuid", [S("resolve_obgg_dpmpuuid")]),
-    ("⑤c 牌位（便宜，全掃）", [S("fetch_soloq_auto")]),
+    # 2026-09-09 #72：label_pending（BP 待標樣本入佇列，22:00 那班 26.0s、⑥ 的長桿）搬來跟牌位並行。
+    #   它讀 data/data_YYYY.js（② 寫完）＋ team_abbr_wiki.js（④ build_league_struct 與 ⑤ fetch_dpm_soloq_accounts
+    #   會改寫 ⇒ 不能再往前放）、只寫 scripts/bplive/variants/_autoq/；fetch_soloq_auto 讀寫 soloq.js／
+    #   soloq_accounts.json，兩邊檔案零重疊。牌位那步幾乎全在等 Riot 額度、CPU 是空的 ⇒ 26s 整段被吸掉。
+    #   順便解掉原本 ⑥ 裡「label_pending 讀 data_*.js 的同時 trim_data_cols --apply 在改寫它」的併行讀寫。
+    ("⑤c 牌位（便宜，全掃）＋BP 待標樣本（互不相干）", [S("fetch_soloq_auto"), SB("label_pending", "--apply")]),
     # --batch（2026-09-08 #68）：逐帳號改一次問一批（Promise.all），10:00 那班逐人 267s 預估 → 60~70s；
     # 沒命中的帳號自動退回逐一問，拿掉旗標＝回到舊行為。沙盒 scripts/fetch_soloq_update_batch_test.py。
     # 批次大小由 fetch_soloq_update.BATCH_NEW 決定（#68 8 → #71 24，實測 22:00 那班批次 88s 預估 → 25~30s）；要臨時改用 --batch-size N。
@@ -102,9 +112,9 @@ PLAN = [
     # 而 ⑤e 沒有新選手時會提早 return、連一次都不跑。改成獨立階段：**永遠恰好一次**。
     ("⑤f 積分索引（一次）", [S("build_soloq_index")]),
     ("⑤g 出裝聚合（一次）", [S("build_soloq_builds")]),
-    # 收尾：彼此不相干，但都要等前面資料齊
+    # 收尾：彼此不相干，但都要等前面資料齊（build_font_subset 掃根目錄全部 *.js ⇒ 要等 ⑤g 的四個輸出檔寫完；
+    # build_patch_dates 讀 ⑤g 快取的 patch_dates.json）。label_pending 2026-09-09 #72 搬去 ⑤c 並行，見上。
     ("⑥ 收尾（互不相干）", [
-        SB("label_pending", "--apply"),
         S("build_patch_dates"),
         S("build_img_manifest"),       # 隊徽／國旗清單（fetch_team_logos／fetch_flags 之後）
         S("trim_data_cols", "--apply"),
