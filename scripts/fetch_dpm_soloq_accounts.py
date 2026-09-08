@@ -229,8 +229,31 @@ def _warm(pg):
 # 舊寫法 436 位逐一 evaluate 一次 fetch（~0.6s）再 sleep 0.5s ＝ 472 秒，其中 218 秒純睡覺。
 # 新寫法：一次 evaluate 用 Promise.all 同時查一批的**第一個名字變體**；查無的才退回舊的逐變體路徑。
 # 每個結果帶 HTTP 狀態，一批裡出現限流／伺服器錯誤就整批退回舊路徑重查，不會把限流記成查無。
-BATCH = 6
+# 2026-09-08 #66：BATCH 6 → 12、固定 sleep(0.5) 改「兩批開始時間最小間隔」。實測（autopilot/_r66_probe1.txt）
+#   dpm 對 24 並發一批 0.7s 仍全 200、沒有 429；批 12 免睡 48 名 1.9s，舊寫法 7.9s。436 名預估 73 批×1.0s ≈ 72s → 37 批×0.5s ≈ 19s。
+#   限流／伺服器錯誤那一批照舊整批退回逐一查，另外把之後的批次大小減半（最低 3），不會一路撞牆。
+BATCH = 12
+MIN_GAP = 0.5          # 兩批 evaluate 開始時間至少隔這麼久；批次本身 ≥ 這個數就不睡
+_BS = [BATCH]          # 目前批次大小（限流時減半）
+_last_batch_t = [0.0]
 JS_ONE = "async(u)=>{const r=await fetch(u);return r.ok?await r.json():null;}"
+
+
+def _pace():
+    """把固定 sleep(0.5) 改成「兩批開始時間至少隔 MIN_GAP」：批次本身花 0.47s 時只補睡 0.03s。"""
+    dt = time.time() - _last_batch_t[0]
+    if dt < MIN_GAP:
+        time.sleep(MIN_GAP - dt)
+    _last_batch_t[0] = time.time()
+
+
+def _iter_batches(names):
+    """依「目前」批次大小切塊——中途被限流減半後，後面的塊跟著變小。"""
+    k = 0
+    while k < len(names):
+        chunk = names[k:k + max(1, _BS[0])]
+        k += len(chunk)
+        yield chunk
 JS_MANY = """async(us)=>Promise.all(us.map(async u=>{ try{ const r=await fetch(u);
   return {st:r.status, j: r.ok ? await r.json() : null}; }catch(e){ return {st:0, j:null}; } }))"""
 _VARIANTS = lambda pl: [v for v in dict.fromkeys([pl, pl[:1].upper() + pl[1:], pl.title(), pl.upper(), pl.lower()]) if v]
@@ -253,6 +276,7 @@ def fetch_pro_seq(pg, pl):
 def fetch_pros_batch(pg, names):
     """新路徑：同時查一批的第一個變體；回 {名字: plist}。限流／錯誤 → 整批退回舊路徑。"""
     urls = ["/v1/pros/" + urllib.parse.quote(_VARIANTS(n)[0], safe="") for n in names]
+    _pace()
     try:
         res = pg.evaluate(JS_MANY, urls)
     except Exception:
@@ -261,8 +285,9 @@ def fetch_pros_batch(pg, names):
     if not isinstance(res, list) or len(res) != len(names):
         res = None
     if res is not None and any((r or {}).get("st") in (429, 403) or (r or {}).get("st", 0) >= 500 for r in res):
-        print("  ⚠ 這一批有限流／伺服器錯誤（%s）→ 睡 5 秒、整批退回逐一查"
-              % sorted({(r or {}).get("st") for r in res}), flush=True)
+        _BS[0] = max(3, _BS[0] // 2)
+        print("  ⚠ 這一批有限流／伺服器錯誤（%s）→ 睡 5 秒、整批退回逐一查；之後批次縮成 %d"
+              % (sorted({(r or {}).get("st") for r in res}), _BS[0]), flush=True)
         res = None
     if res is None:
         time.sleep(5)
@@ -272,6 +297,46 @@ def fetch_pros_batch(pg, names):
     for n, r in zip(names, res):
         plist = _OK((r or {}).get("j"))
         out[n] = plist if plist else fetch_pro_seq(pg, n)    # 第一個變體查無 → 舊路徑試其餘變體
+    return out
+
+
+# 2026-09-08 #66：歸屬複查以前另開第二個瀏覽器（launch＋goto＋_warm 睡 4s）再 26 隻逐一問、每隻睡 0.25s ≈ 20 秒；
+#   現在沿用第一個 page、一次 Promise.all 問完（實測 24 隻 0.3s）。限流／錯誤／例外的那幾隻才睡 5 秒逐一重問。
+OWNER_BATCH = 24
+JS_OWNERS = """async(us)=>Promise.all(us.map(async u=>{ try{ const r=await fetch(u);
+  const j = r.ok ? await r.json() : null;
+  return {st:r.status, dn:(j && typeof j==='object' && j.displayName) ? j.displayName : null}; }catch(e){ return {st:0, dn:null}; } }))"""
+
+
+def _owners_of(pg, puuids):
+    """/v1/players/{puuid} → displayName（dpm 掛牌的職業選手名；404／沒掛牌 → None）。回 {puuid: name|None}。"""
+    puuids = list(dict.fromkeys(pu for pu in puuids if pu))
+    out = {}
+    for _k in range(0, len(puuids), OWNER_BATCH):
+        chunk = puuids[_k:_k + OWNER_BATCH]
+        _pace()
+        try:
+            res = pg.evaluate(JS_OWNERS, ["/v1/players/" + pu for pu in chunk])
+        except Exception:
+            res = None
+        if not isinstance(res, list) or len(res) != len(chunk):
+            continue                                  # 整批留給下面逐一
+        for pu, r in zip(chunk, res):
+            st = (r or {}).get("st", 0) or 0
+            if st in (429, 403) or st >= 500 or st == 0:
+                continue                              # 這隻留給下面逐一
+            out[pu] = (r or {}).get("dn") or None
+    retry = [pu for pu in puuids if pu not in out]
+    if retry:
+        print(f"  歸屬複查：{len(retry)} 隻批次沒問到（限流／錯誤）→ 睡 5 秒逐一重查", flush=True)
+        time.sleep(5)
+        for pu in retry:
+            try:
+                j = pg.evaluate(JS_ONE, "/v1/players/" + pu)
+            except Exception:
+                j = None
+            out[pu] = ((j or {}).get("displayName") if isinstance(j, dict) else None) or None
+            time.sleep(0.25)
     return out
 
 
@@ -388,11 +453,25 @@ def main():
 
     dpm_by_pt = {}      # (player, team) -> [dpm 帳號 entries]
     dpm_primary = set()  # dpm 為主的隊碼（本清單碼）
-    with sync_playwright() as p:
+    # 2026-09-08 #66：瀏覽器不在這個區塊結束時關——後面的歸屬複查沿用同一個 page（以前另開第二個、再睡 4 秒過 Cloudflare）。
+    p = sync_playwright().start()
+    b = None
+    _done = [False]
+
+    def _shutdown():
+        if _done[0]:
+            return
+        _done[0] = True
+        for _f in ((b.close if b is not None else None), p.stop):
+            try:
+                if _f: _f()
+            except Exception:
+                pass
+    try:
         b = _launch(p); pg = b.new_page(user_agent=UA)
         pg.goto("https://dpm.lol/", wait_until="domcontentloaded")
         if not _warm(pg):
-            print("✗ 過不了 Cloudflare，中止（不動檔）"); b.close(); return
+            print("✗ 過不了 Cloudflare，中止（不動檔）"); _shutdown(); return
 
         for lg in DPM_LEAGUES:
             try:
@@ -413,8 +492,8 @@ def main():
                     except ValueError: pass
             _names = [pl for pl, _ in roster][:_n]
             _t0 = time.time(); _new = {}
-            for _k in range(0, len(_names), BATCH):
-                _new.update(fetch_pros_batch(pg, _names[_k:_k + BATCH])); time.sleep(0.5)
+            for _chunk in _iter_batches(_names):
+                _new.update(fetch_pros_batch(pg, _chunk))
             _tb = time.time() - _t0
             _t0 = time.time(); _old = {n: fetch_pro_seq(pg, n) for n in _names}; _ts = time.time() - _t0
             _same = sum(1 for n in _names if json.dumps(_new.get(n), sort_keys=True) == json.dumps(_old.get(n), sort_keys=True))
@@ -422,16 +501,15 @@ def main():
                 if json.dumps(_new.get(n), sort_keys=True) != json.dumps(_old.get(n), sort_keys=True):
                     print(f"   ✗ {n}: 批次 {len(_new.get(n) or [])} 筆 vs 逐一 {len(_old.get(n) or [])} 筆")
             print(f"🔎 --ab：{_same}/{len(_names)} 位內容相同；批次 {_tb:.0f}s vs 逐一 {_ts:.0f}s")
-            b.close(); return
+            _shutdown(); return
 
         n_hit = n_miss = 0
         # 先整批查完（dpm /v1/pros 區分大小寫：比賽數據常是小寫(ceo/xyno)但 dpm 顯示名是 Ceo/Xyno
         # → 第一個變體查無時 fetch_pros_batch 會退回逐變體路徑）
         _names_all = [pl for pl, _ in roster]
         _plist_by = {}
-        for _k in range(0, len(_names_all), BATCH):
-            _plist_by.update(fetch_pros_batch(pg, _names_all[_k:_k + BATCH]))
-            time.sleep(0.5)
+        for _chunk in _iter_batches(_names_all):
+            _plist_by.update(fetch_pros_batch(pg, _chunk))
         for i, (pl, tm) in enumerate(roster, 1):
             plist = _plist_by.get(pl, [])
             teams_seen = {canon_team(a.get("team")) for a in plist}
@@ -460,7 +538,8 @@ def main():
                 n_miss += 1
             if i % 25 == 0:
                 print(f"  ...{i}/{len(roster)}（命中 {n_hit}）", flush=True)
-        b.close()
+    except BaseException:
+        _shutdown(); raise
     print(f"dpm /v1/pros：命中 {n_hit} 位、查無 {n_miss} 位", flush=True)
 
     # 重建：dpm 為主隊→整換 dpm；其餘→union（保留現有再補 dpm）
@@ -559,21 +638,7 @@ def main():
     if ORPHANS:
         owner_of = {}
         try:
-            with sync_playwright() as p2:
-                b2 = _launch(p2); pg2 = b2.new_page(user_agent=UA)
-                pg2.goto("https://dpm.lol/", wait_until="domcontentloaded")
-                if _warm(pg2):
-                    for e in ORPHANS:
-                        pu = e.get("dpmPuuid")
-                        if not pu or pu in owner_of:
-                            continue
-                        try:
-                            j = pg2.evaluate("async(u)=>{const r=await fetch(u);return r.ok?await r.json():null;}", "/v1/players/" + pu)
-                        except Exception:
-                            j = None
-                        owner_of[pu] = (j or {}).get("displayName") if isinstance(j, dict) else None
-                        time.sleep(0.25)
-                b2.close()
+            owner_of = _owners_of(pg, [e.get("dpmPuuid") for e in ORPHANS])   # #66：同一個瀏覽器、一次 Promise.all
         except Exception as _e:
             print(f"（歸屬複查略過：{_e}）", flush=True)
         bad_owner = []
@@ -602,6 +667,7 @@ def main():
             else:
                 print(f"  （乾跑：{len(bad_owner)} 筆歸屬剔除不寫進 soloq_disowned.json）", flush=True)
         print(f"  歸屬複查：{len(ORPHANS)} 隻帳號 dpm 選手檔沒列 → 查到掛牌 {sum(1 for v in owner_of.values() if v)} 隻、其中別人的 {len(bad_owner)} 隻已剔除", flush=True)
+    _shutdown()   # #66：網路的事到此結束，後面全是純計算與寫檔
 
     # ── 跨選手清理（2026-08-07 使用者定案）。上面的去重只在同一個 (選手,隊) 內做，
     #    抓錯人造成的「同一個帳號掛在兩位不同選手名下」它看不到。
