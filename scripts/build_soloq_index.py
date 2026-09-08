@@ -9,7 +9,7 @@
 每日排程也會透過 update.py 連帶更新（7 天滑動窗口要每天重算）。
 用法：  python scripts\build_soloq_index.py
 """
-import os, re, json, glob, time, sys
+import os, re, json, glob, time, sys, gc
 
 HERE = os.path.dirname(os.path.abspath(__file__)); ROOT = os.path.dirname(HERE)
 sys.path.insert(0, HERE)
@@ -41,9 +41,13 @@ def _pnum(b):
 
 def _dedup_files():
     """自癒：同一 key 出現多個 pN.js(通常是索引漂移時 --missing 誤重建)＝資料異常。
-    union 合併(依 t 去重、低號檔記錄優先)進最低號檔、刪其餘、印警告。每次重建索引前跑，杜絕儀表板漏場。"""
+    union 合併(依 t 去重、低號檔記錄優先)進最低號檔、刪其餘、印警告。每次重建索引前跑，杜絕儀表板漏場。
+    回傳 {fp: (key, data)}＝這一趟已解析、而且沒被改寫／刪掉的檔，build() 直接用、不再把 423 檔 260MB 讀第二次
+    （2026-09-09 精進迴圈 #75：兩趟各解析一次、關掉 GC 之後仍佔 ~5s（唯讀包裝實測 8.1s → 3.3s））。被合併改寫的 canonical 檔會從快取拿掉，
+    讓 build() 重讀磁碟上的新內容。"""
     from collections import defaultdict
     groups = defaultdict(list)  # key -> [(pnum, fp, data)]
+    parsed = {}                 # fp -> (key, data)：給 build() 的解析快取
     for fp in sorted(glob.glob(os.path.join(OUTDIR, "p*.js"))):
         b = os.path.basename(fp)
         if not re.match(r'p\d+\.js$', b):  # 只認選手逐場檔 pN.js；跳過殘留暫存索引等雜檔(曾把 soloq_match_index.js 掃進來報 group 錯)
@@ -54,6 +58,7 @@ def _dedup_files():
         except Exception:
             continue  # 壞檔留給主迴圈印「略過」
         groups[key].append((_pnum(b), fp, data))
+        parsed[fp] = (key, data)
     for key, lst in groups.items():
         if len(lst) < 2:
             continue
@@ -71,14 +76,28 @@ def _dedup_files():
         if _m: _out["src"] = _m
         with open(canon, "w", encoding="utf-8") as wf:
             wf.write(f"window.__sqLoad({json.dumps(key,ensure_ascii=False)},{json.dumps(_out,ensure_ascii=False)});\n")
+        parsed.pop(canon, None)  # 內容剛改寫 ⇒ 快取作廢，build() 重讀
         dropped = []
         for _, fp, _ in lst[1:]:
+            parsed.pop(fp, None)  # 刪失敗也照樣作廢：檔還在的話 build() 會重讀，跟以前一樣
             try: os.remove(fp); dropped.append(os.path.basename(fp))
             except Exception: pass
         print(f"  ⚠ 重複 key {key}：合併 {[os.path.basename(x[1]) for x in lst]} → {os.path.basename(canon)}（union {len(merged)} 場），已刪 {dropped}")
+    return parsed
 
 def build():
-    _dedup_files()  # 先自癒去重(同 key 多檔 union 合併)，主迴圈才不會靜默漏場
+    """重建索引。整段關掉循環 GC：資料全是 json.loads 出來的樹狀物件（dict／list／str），沒有參考循環，
+    refcount 就能回收；但 423 檔逐一解析會不斷觸發 gen2 全堆掃描（_dedup_files 把 423 檔都抓在手上時最痛），
+    22:00 那班 17.4s 裡有 ~9s 是在做這個（2026-09-09 精進迴圈 #75 唯讀包裝實測 16.9s → 8.1s，產出逐位元相同）。
+    用 try/finally 還原，程序內被別支腳本呼叫時不會把人家的 GC 一路關著。"""
+    was = gc.isenabled(); gc.disable()
+    try:
+        _build()
+    finally:
+        if was: gc.enable()
+
+def _build():
+    parsed = _dedup_files()  # 先自癒去重(同 key 多檔 union 合併)，主迴圈才不會靜默漏場；順便帶回解析快取
     players = {}; newest = 0
     recent = {}; rec_cut = (time.time() - RECENT_DAYS*86400) * 1000  # 每日戰況：只收近 RECENT_DAYS 天的逐場
     for fp in sorted(glob.glob(os.path.join(OUTDIR, "p*.js"))):
@@ -86,9 +105,12 @@ def build():
         if not re.match(r'p\d+\.js$', b):  # 只認選手逐場檔 pN.js；跳過殘留暫存索引等雜檔(曾把 soloq_match_index.js 掃進來報 group 錯)
             continue
         try:
-            txt = open(fp, encoding="utf-8").read()
-            m = re.match(r'window\.__sqLoad\((.*)\);\s*$', txt, re.S)
-            key, data = json.loads('[' + m.group(1) + ']')
+            if fp in parsed:
+                key, data = parsed.pop(fp)  # _dedup_files 剛解析過、檔案沒被改寫 ⇒ 直接用（pop 掉讓記憶體邊走邊還）
+            else:
+                txt = open(fp, encoding="utf-8").read()
+                m = re.match(r'window\.__sqLoad\((.*)\);\s*$', txt, re.S)
+                key, data = json.loads('[' + m.group(1) + ']')
         except Exception as e:
             print(f"  略過 {b}：{e}"); continue
         matches = data.get("matches", []); role = data.get("role")
