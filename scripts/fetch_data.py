@@ -689,6 +689,19 @@ def _stats_compat(a, b):
     return True                                # 缺統計值（隊伍列）從寬當同一局
 
 
+# 英雄名正規化鍵（2026-09-08 精進迴圈 #69）：去重用的「該局十隻英雄」集合跨源比對，
+# 兩源拼法卻不一定一樣——Leaguepedia 09-08 白天把 Bel'Veth 寫成 Belveth，OE 是 Bel'Veth，
+# 十隻英雄的集合對不上、隊名又是「Ninjas in Pyjamas.CN」對「Ninjas in Pyjamas」（位置鍵也對不上）
+# ⇒ LPL 08-15 LNG vs NIP G3 在 10:00 那班收了兩份；晚上 wiki 拼法改回 Bel'Veth 才自動消掉。
+# 只留小寫英數（撇號／空白／點／& 全去）＋三個改名別名；兩邊都經同一個鍵，對得起來就是同一局。
+_CHAMP_ALIAS = {"monkeyking": "wukong", "nunuwillump": "nunu", "renataglasc": "renata"}
+
+
+def _champ_key(s):
+    k = re.sub(r"[^a-z0-9]", "", str(s).lower())
+    return _CHAMP_ALIAS.get(k, k)
+
+
 def merge_wiki(year, table):
     """併入 csv_cache/wikifill_{年}.json（scripts/fetch_wiki_mh.py 由 Leaguepedia 文字版 Match History 產生）。
     用途＝**OE 根本沒收錄的老賽季**（如 LPL 2016 春季以前、2013 全年）。
@@ -732,7 +745,7 @@ def merge_wiki(year, table):
     iPLc = hdr.index("picklist")
 
     def _cset(rs):
-        s = {str(x) for r in rs for x in (r[iBC], r[iRC]) if x}
+        s = {_champ_key(x) for r in rs for x in (r[iBC], r[iRC]) if x}
         # PB 補的局**只有隊伍列、沒有逐選手英雄** → 這裡會是空集合，去重就退回位置式比對
         # （聯賽+日期+兩隊+局號），而 gol.gg 只抓到系列中一局時局號本來就不可靠
         # → 曾把「真正缺的那局」當成重複砍掉、留下重複的那局（2026-08-03 實例：
@@ -740,7 +753,7 @@ def merge_wiki(year, table):
         # 隊伍列本身有 picklist（十隻英雄），拿它補算集合就對得起來了。
         if len(s) < 8:
             for r in rs:
-                s |= {x.strip() for x in str(r[iPLc]).split("|") if x.strip()}
+                s |= {_champ_key(x) for x in str(r[iPLc]).split("|") if x.strip()}
         return frozenset(s)
 
     # 統計值防呆（2026-08-05 全庫掃描後加）：**同陣容再戰是真的會發生的**（重賽規則同
@@ -1585,10 +1598,10 @@ def merge_fill(year, table):
         return g
 
     def _cset(rs):
-        s = {str(x) for r in rs for x in (r[iBC], r[iRC]) if x}
+        s = {_champ_key(x) for r in rs for x in (r[iBC], r[iRC]) if x}
         if len(s) < 8:
             for r in rs:
-                s |= {x.strip() for x in str(r[iPLc]).split("|") if x.strip()}
+                s |= {_champ_key(x) for x in str(r[iPLc]).split("|") if x.strip()}
         return frozenset(s)
 
     _gstats = _mk_gstats(hdr)
