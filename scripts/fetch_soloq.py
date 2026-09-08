@@ -39,7 +39,24 @@ CLUSTER = {
 ALIAS = {"KR":"kr","NA":"na1","EUW":"euw1","EUNE":"eun1","BR":"br1","JP":"jp1",
          "LAN":"la1","LAS":"la2","OCE":"oc1","TR":"tr1","RU":"ru","VN":"vn2","TW":"tw2","SG":"sg2"}
 
-_req_times = collections.deque()   # 送出時間戳
+# ── 送出時間戳：**逐主機（區域）各一個桶**（2026-09-08 精進迴圈 #70）──
+# Riot 的應用額度（X-App-Rate-Limit 100:120）是**每個路由主機各自計數**的：唯讀探針對 kr 連打 5 次
+# 計數 1→5，接著 euw1／br1／na1 各自從 1 起算，回到 kr 才接 6（autopilot/_r70_region_probe.txt）。
+# 舊碼只有一個全域桶 ⇒ 1090 個帳號（kr 512／euw1 269／br1 159／na1 142）全擠同一條 100/120s 的隊，
+# 22:00 那班 ⑤c 394.6s、其中絕大多數是在等一個其實沒滿的額度。分桶之後只有最擠的 kr 會等；
+# 搭配 interleave_order() 把帳號依平台交錯，同一區的請求自然攤開、其它區的請求填進等待的空檔。
+# 429 的處理（Retry-After 重試）原封不動：萬一某兩個主機其實共用額度，也只是多等、不會壞。
+_BUCKETS = collections.defaultdict(collections.deque)   # host（kr／euw1／asia…）→ 送出時間戳
+
+
+def _host_of(url):
+    """`https://kr.api.riotgames.com/...` → `kr`（額度桶的鍵）。解析不到就全部丟同一桶（＝舊行為）。"""
+    try:
+        return (urllib.parse.urlsplit(url).hostname or "").split(".")[0] or "_"
+    except Exception:
+        return "_"
+
+
 # ── 速率上限：**照 Riot 每次回應的 X-App-Rate-Limit 標頭自動調整**（2026-09-05）──
 # 原本這裡寫死 dev 金鑰的 20/s + 100/2min。使用者其實早就換成長期金鑰
 # （riot_key.local.json 的 permanent:true），額度高得多，卻還是照 dev 的節奏在等——
@@ -72,10 +89,11 @@ def _set_limits(hdr):
         pass
 
 
-def _throttle():
-    """每一組 (次數, 視窗) 都要滿足；只留最長視窗內的時間戳。"""
+def _throttle(host="_"):
+    """每一組 (次數, 視窗) 都要滿足；只留最長視窗內的時間戳。只看 `host` 自己那個桶（見 _BUCKETS）。"""
     if not _LIMITS:
         return
+    _req_times = _BUCKETS[host]
     span = max(s for _, s in _LIMITS)
     now = time.time()
     while _req_times and now - _req_times[0] > span:
@@ -87,17 +105,18 @@ def _throttle():
         if len(recent) >= max(1, cnt - max(1, int(cnt * 0.02))):
             wait = sec - (now - recent[0]) + 0.1
             if wait > 3:
-                print("    ⏸ 速率窗口暫停 %.0fs（額度 %d 次/%gs，來源：%s）"
-                      % (wait, cnt, sec, _LIM_SRC), flush=True)
+                print("    ⏸ 速率窗口暫停 %.0fs（%s 額度 %d 次/%gs，來源：%s）"
+                      % (wait, host, cnt, sec, _LIM_SRC), flush=True)
             if wait > 0:
                 time.sleep(wait)
                 now = time.time()
 
 def riot_get(url, timeout=15):
+    host = _host_of(url)
     for attempt in range(4):
-        _throttle()
+        _throttle(host)
         req = urllib.request.Request(url, headers={"X-Riot-Token": KEY, "User-Agent": UA})
-        _req_times.append(time.time())
+        _BUCKETS[host].append(time.time())
         try:
             with urllib.request.urlopen(req, timeout=timeout) as r:
                 _set_limits(r.headers.get("X-App-Rate-Limit"))   # 每次都看，額度變了就跟著改
@@ -310,6 +329,31 @@ def get_soloq(platform, puuid):
 # （W+L 只增不減；remake 不計 W/L、dpm 端也濾 duration<600，兩邊口徑一致）。
 # 名單寫進 soloq_played.json 的 acc_static，由 fetch_soloq_update.py --changed 讀（鍵＝acc_key()）；
 # 缺／壞 → 空集合＝全查，跟 played 名單同精神：寧可慢不要漏。
+def _plat_of(a):
+    return ALIAS.get(str(a.get("platform", "")).upper(), str(a.get("platform", "")).lower())
+
+
+def interleave_order(accounts):
+    """帳號依平台交錯的處理順序（回傳原清單的索引排列，2026-09-08 #70）。
+
+    每個平台的第 k 個帳號放在 (k+0.5)/該平台帳號數 的位置，合併後依那個位置排序：
+    kr 512／euw1 269／br1 159／na1 142 ⇒ 大約每 2 個就換一區，同區的請求被平均攤開，
+    分桶節流（_BUCKETS）才真的省得到時間——連續 512 個 kr 排在一起，kr 的桶照樣一直等。
+    同一平台內保持原順序；所有索引恰好各出現一次（結果照原位置放回 out，soloq.js 的列序不變）。
+    """
+    groups = {}
+    for i, a in enumerate(accounts):
+        groups.setdefault(_plat_of(a), []).append(i)
+    keyed = []
+    for plat in sorted(groups):
+        idxs = groups[plat]
+        n = len(idxs)
+        for k, i in enumerate(idxs):
+            keyed.append(((k + 0.5) / n, i))
+    keyed.sort()
+    return [i for _, i in keyed]
+
+
 def acc_key(riot_id, platform):
     """逐帳號鍵：riotId 小寫 @ platform 小寫。soloq.js 的列與 soloq_accounts.json 的帳號兩邊都用這條算。"""
     return "%s@%s" % (str(riot_id or "").strip().lower(), str(platform or "").strip().lower())
@@ -563,9 +607,20 @@ def main():
                       f"{(sq or {}).get('wins')}W-{(sq or {}).get('losses')}L")
         print(f"   結果：{_ok} 相同／{_bad} 不同（抽 {_tested} 個）")
         return
-    out = []; retry = []; settled = 0
-    for i, a in enumerate(accounts, 1):
-        rec = fetch_one(a, f"{i}/{len(accounts)}")
+    out = [None] * len(accounts); retry = []; settled = 0
+    # 處理順序依平台交錯（見 interleave_order）；`--no-interleave`＝照清單順序（舊行為）。
+    # 結果照原位置放回 out ⇒ soloq.js 的列序、重抓的位置、後面的勝敗比對全部不受順序影響。
+    # 日誌的 [n/N] 印的是**原清單位置**，所以會跳著出現，不是漏掉。
+    if "--no-interleave" in sys.argv:
+        order = list(range(len(accounts)))
+    else:
+        order = interleave_order(accounts)
+        _pc = collections.Counter(_plat_of(a) for a in accounts)
+        print("處理順序依平台交錯（%s）；分桶節流逐主機各算額度，日誌的 [n/N] 是原清單位置"
+              % "／".join("%s %d" % kv for kv in _pc.most_common()))
+    for i in order:
+        a = accounts[i]
+        rec = fetch_one(a, f"{i + 1}/{len(accounts)}")
         # 暫時性失敗先跳過，記下位置，全部跑完最後重抓一輪（使用者判例 2026-07-16）。
         # ⚠ 2026-09-05：**「問到了、確定沒排名」不再排進重抓**——那種帳號（未定位／很久沒打）
         # 重抓一百次也是同一個答案，卻要照速率限制排隊。上一次 1092 個帳號有 277 個進重抓，
@@ -574,8 +629,8 @@ def main():
             if rec.pop("settled", False):
                 settled += 1
             else:
-                retry.append((len(out), a))
-        out.append(rec)
+                retry.append((i, a))
+        out[i] = rec
     if LADDER_HITS[0]:
         print(f"（聯盟名單命中 {LADDER_HITS[0]} 個帳號 → 省下同樣次數的逐帳號請求）")
     if settled:
