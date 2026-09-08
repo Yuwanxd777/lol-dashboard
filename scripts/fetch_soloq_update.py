@@ -162,9 +162,14 @@ JS_NEW = """async(args)=>{ const [PU,tok,newestT]=args; const out=[]; let ID=nul
 # 沒命中（批次整包炸掉／dpm 回 429、403、5xx）就退回原本的逐一 evaluate ⇒ RENAME／ACC_LG／_perpu 的
 # 逐帳號歸屬與寫檔順序一個字沒變。預設關（--batch 才開），管線由 run_update 的 ⑤d 帶旗標。
 # 改這段要跑 scripts/fetch_soloq_update_batch_test.py（沙盒：假 playwright、暫存目錄、子程序不起）。
+# 2026-09-09 線 3（精進迴圈 #71）：批次 8 → 24。22:00 那班「批次預抓 88s：314 個帳號／40 批」＝每批 2.2s，
+# 唯讀探針（autopilot/_r71_batch_probe2.txt，六組**不重疊的冷帳號**交錯跑 8／24／16）證明每批耗時跟批次大小
+# 幾乎無關（1.4～1.9s，由最慢那一支請求決定）⇒ 每帳號 bs=8 0.216s／bs=16 0.131s／bs=24 0.078s，
+# 三種大小全命中、0 退回、0 減半；314 個帳號換算 68s → 24s。帳號那支 fetch_dpm_soloq_accounts 早就 24 並發
+# （OWNER_BATCH）沒被 dpm 擋；真被限流時下面 prefetch_batches 會自動減半（24→12→6→3→2）。
 JS_BATCH = "async(items)=>{ const one=(" + JS_NEW + "); return Promise.all(items.map(it=>one(it).catch(e=>({err:String(e)})))); }"
 USE_BATCH = "--batch" in sys.argv
-BATCH_NEW = int(arg("--batch-size") or 8)
+BATCH_NEW = int(arg("--batch-size") or 24)
 
 def _res_ok(r):
     """批次結果可用嗎：dict、沒有 err、dpm 沒回限流／擋下（bad）——不可用的留給主迴圈逐一問"""

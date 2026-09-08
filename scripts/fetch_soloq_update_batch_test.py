@@ -8,7 +8,7 @@
    而且批次模式 JS_BATCH 3 次（3／3／1：d1 回 429 → 減半為 2）、JS_NEW 只剩退回逐一的 4 次；循序模式 JS_NEW 9 次、JS_BATCH 0 次。
 ④ 退路：整批 evaluate 炸掉 → 那一批全部退回逐一，輸出仍與循序相同。
 ⑤ 限流：逐一問到 bad → 睡 1.5s 再問；仍 bad → 丟掉半截結果、印「這輪不採用」、檔案不動（newestT 不往前跳）。
-⑥ 舊版（git HEAD）正控制：沒有 JS_BATCH／prefetch_batches；乾淨資料（沒有 bad／err）下舊版與新版循序輸出相同。
+⑥ 舊版（釘 commit 6f7b99d2＝#68 批次化前一版；#68 當時拿 HEAD，2f763359 進 HEAD 後這條就一直紅——#71 修）正控制：沒有 JS_BATCH／prefetch_batches；乾淨資料（沒有 bad／err）下舊版與新版循序輸出相同。
 用法：python scripts/fetch_soloq_update_batch_test.py
 """
 import os, sys, io, re, json, shutil, tempfile, subprocess, importlib.util, contextlib, time as _time
@@ -157,7 +157,7 @@ check("正控制：ACCOUNTS 指回真實檔 → leaks() 抓到", leaks(U0) == ["
 U0.ACCOUNTS = os.path.join(tmp0, "soloq_accounts.json")
 check("模組層有 JS_BATCH／prefetch_batches／USE_BATCH／BATCH_NEW", all(hasattr(U0, n) for n in ("JS_BATCH", "prefetch_batches", "USE_BATCH", "BATCH_NEW")))
 check("JS_BATCH 真的包住 JS_NEW（一字不差）", U0.JS_NEW in U0.JS_BATCH and "Promise.all" in U0.JS_BATCH and ".catch(" in U0.JS_BATCH)
-check("預設不開批次（管線沒帶 --batch 行為不變；重新載入看 import 時的值）", "--batch" not in sys.argv and load("fsu_default", NEW).USE_BATCH is False and load("fsu_default2", NEW).BATCH_NEW == 8)
+check("預設不開批次（管線沒帶 --batch 行為不變；重新載入看 import 時的值）", "--batch" not in sys.argv and load("fsu_default", NEW).USE_BATCH is False and load("fsu_default2", NEW).BATCH_NEW == 24)
 shutil.rmtree(tmp0, ignore_errors=True)
 
 print("[2] node 真的跑 JS_BATCH")
@@ -228,8 +228,8 @@ check("輸出與循序相同", outt == outs, [k for k in outs if outs[k] != outt
 check("日誌有「批次抓錯 … 這 3 個帳號改逐一問」、退回逐一 5", "這 3 個帳號改逐一問" in outt_txt and "退回逐一 5" in outt_txt, outt_txt)
 check("JS_NEW 3＋4＝7 次", pt.n_calls("n") == 7, pt.n_calls("n"))
 
-print("[5] 舊版（git HEAD）正控制")
-old_src = subprocess.run(["git", "show", "HEAD:scripts/fetch_soloq_update.py"], capture_output=True, text=True, encoding="utf-8", cwd=ROOT).stdout
+print("[5] 舊版（釘 6f7b99d2，#68 批次化前一版）正控制")
+old_src = subprocess.run(["git", "show", "6f7b99d2:scripts/fetch_soloq_update.py"], capture_output=True, text=True, encoding="utf-8", cwd=ROOT).stdout
 check("舊版沒有 JS_BATCH／prefetch_batches／bad 回報（不是早就有）", old_src and "JS_BATCH" not in old_src and "prefetch_batches" not in old_src and "bad=r.status" not in old_src)
 oldf = os.path.join(tempfile.gettempdir(), "fsu_old_head.py")
 open(oldf, "w", encoding="utf-8").write(old_src)
