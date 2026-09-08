@@ -128,10 +128,11 @@ def comp_roles():
 def arg(n,d=None): return sys.argv[sys.argv.index(n)+1] if n in sys.argv and sys.argv.index(n)+1<len(sys.argv) else d
 MAXP = int(arg("--max") or 0)
 
-JS_NEW = """async(args)=>{ const [PU,tok,newestT]=args; const out=[]; let ID=null;
+JS_NEW = """async(args)=>{ const [PU,tok,newestT]=args; const out=[]; let ID=null, bad=0;
   for(let pg=1; pg<=20; pg++){
     let r; try{ r=await fetch(`/v1/players/${PU}/match-history?size=15&page=${pg}&lane=${tok}`);}catch(e){break;}
-    if(!r.ok) break; const j=await r.json(); const ms=j.matches||[]; if(!ms.length) break; let stop=false;
+    if(!r.ok){ if(r.status===429||r.status===403||r.status>=500) bad=r.status; break; }   // 限流／擋下要回報（以前靜默截斷）
+    const j=await r.json(); const ms=j.matches||[]; if(!ms.length) break; let stop=false;
     if(pg===1&&ms[0]&&ms[0].participants&&ms[0].participants[0]){const q0=ms[0].participants[0]; ID={g:q0.gameName||null,t:q0.tagLine||null};} // 最近一場的當前 Riot ID：改名偵測
     for(const m of ms){ if((m.gameCreation||0) <= newestT){ stop=true; break; }   // 追到已存在的最新一場就停
       if(m.queueId!==420) continue; if((m.gameDuration||0)<600) continue; const p=(m.participants||[])[0]; if(!p) continue;
@@ -153,7 +154,53 @@ JS_NEW = """async(args)=>{ const [PU,tok,newestT]=args; const out=[]; let ID=nul
     }
     if(stop) break;
   }
-  return {id:ID, ms:out}; }"""
+  return {id:ID, ms:out, bad:bad}; }"""
+
+# 2026-09-08 線 3（精進迴圈 #68）：逐人 267s 的批次化。10:00 那班 133 位／238 個帳號逐一 pg.evaluate(JS_NEW)
+# 一次約 1.1s ＋ sleep 0.1 ⇒ 267s。這裡一次 evaluate 用 Promise.all 同時問 BATCH_NEW 個帳號（帳號那一支
+# fetch_dpm_soloq_accounts 早就這樣做、dpm 沒限流），結果按 (選手, puuid) 收進 PRE，主迴圈逐帳號 pop；
+# 沒命中（批次整包炸掉／dpm 回 429、403、5xx）就退回原本的逐一 evaluate ⇒ RENAME／ACC_LG／_perpu 的
+# 逐帳號歸屬與寫檔順序一個字沒變。預設關（--batch 才開），管線由 run_update 的 ⑤d 帶旗標。
+# 改這段要跑 scripts/fetch_soloq_update_batch_test.py（沙盒：假 playwright、暫存目錄、子程序不起）。
+JS_BATCH = "async(items)=>{ const one=(" + JS_NEW + "); return Promise.all(items.map(it=>one(it).catch(e=>({err:String(e)})))); }"
+USE_BATCH = "--batch" in sys.argv
+BATCH_NEW = int(arg("--batch-size") or 8)
+
+def _res_ok(r):
+    """批次結果可用嗎：dict、沒有 err、dpm 沒回限流／擋下（bad）——不可用的留給主迴圈逐一問"""
+    return isinstance(r, dict) and not r.get("err") and not r.get("bad")
+
+def prefetch_batches(pg, keys, idx, accs, static, bs=None):
+    """把所有待問的 (選手, 帳號) 攤平、每 bs 個一批問 dpm；回 (PRE, 統計)。
+    一批裡有人被限流就把批次減半（最小 2），那幾個帳號留給主迴圈逐一問（那邊會睡一下再試）。"""
+    bs = bs or BATCH_NEW
+    items = []
+    for key in keys:
+        meta = idx["players"][key]; tok = LANE2TOK.get(meta.get("role"), "middle")
+        try: _, data = load_player_file(meta["f"])
+        except Exception: continue   # 讀檔錯的留給主迴圈印
+        ex = data.get("matches", []); nt = ex[0]["t"] if ex else 0
+        todo, _ = split_static_accounts(accs.get(key, []), static)
+        for a in todo: items.append((key, a["dpmPuuid"], [a["dpmPuuid"], tok, nt]))
+    PRE = {}; st = {"items": len(items), "batches": 0, "hit": 0, "fallback": 0, "halved": 0, "sizes": []}
+    i = 0
+    while i < len(items):
+        chunk = items[i:i + bs]; i += len(chunk); st["batches"] += 1; st["sizes"].append(len(chunk))
+        try:
+            rs = pg.evaluate(JS_BATCH, [it[2] for it in chunk])
+            if not isinstance(rs, list) or len(rs) != len(chunk): raise ValueError("批次回傳形狀不對")
+        except Exception as e:
+            print(f"   批次抓錯 {e} → 這 {len(chunk)} 個帳號改逐一問"); st["fallback"] += len(chunk); continue
+        bad = 0
+        for (k, pu, _), r in zip(chunk, rs):
+            if _res_ok(r): PRE[(k, pu)] = r; st["hit"] += 1
+            else:
+                st["fallback"] += 1
+                if isinstance(r, dict) and r.get("bad"): bad = r["bad"]
+        if bad and bs > 2:
+            bs = max(2, bs // 2); st["halved"] += 1
+            print(f"   dpm 回 {bad} → 批次減半為 {bs}")
+    return PRE, st
 
 def read_js_obj(path, prefix):
     s = open(path, encoding="utf-8").read().strip()
@@ -286,6 +333,11 @@ def main():
         if fill_missing_puuids(pg):
             accs = _load_accs()  # 補完 puuid 立即生效：新帳號本輪就進增量/補全年
         _TPU = time.time() - _t1
+        PRE = {}; _BST = None; _TB = 0.0
+        if USE_BATCH:   # #68：先一批批問完，主迴圈只 pop 結果；沒命中的照舊逐一問
+            _tb = time.time()
+            PRE, _BST = prefetch_batches(pg, keys, idx, accs, ACC_STATIC)
+            _TB = time.time() - _tb
         for i, key in enumerate(keys, 1):
             _tp = time.time()
             meta = idx["players"][key]; role = meta.get("role")
@@ -301,8 +353,17 @@ def main():
             _NACC += len(_todo) + len(_skip); _NSKIP += len(_skip)
             _perpu = {}   # 這輪每個 dpmPuuid 抓回來的新場次 → 寫進逐場檔的 src（來源對帳用）
             for a in _todo:
+                _hit = (key, a["dpmPuuid"]) in PRE
                 try:
-                    res = pg.evaluate(JS_NEW, [a["dpmPuuid"], tok, newestT])
+                    res = PRE.pop((key, a["dpmPuuid"])) if _hit else pg.evaluate(JS_NEW, [a["dpmPuuid"], tok, newestT])
+                    if isinstance(res, dict) and res.get("bad"):
+                        # dpm 限流／擋下：睡一下再問一次；還是不行就**丟掉半截結果**（留著會讓 newestT 往前跳、
+                        # 中間那段永遠補不回來——以前是靜默截斷，2026-09-08 #68 改成回報＋丟棄，下輪從原 newestT 再抓）
+                        time.sleep(1.5)
+                        res = pg.evaluate(JS_NEW, [a["dpmPuuid"], tok, newestT])
+                        if isinstance(res, dict) and res.get("bad"):
+                            print(f"   {a.get('riotId')} dpm 回 {res['bad']}（重試仍失敗）→ 這輪不採用、下輪再補")
+                            res = dict(res, ms=[])
                     _ms = (res.get("ms") if isinstance(res, dict) else res) or []
                     if _ms: _perpu.setdefault(a["dpmPuuid"], []).extend(_ms)
                     if _ms:  # 記該帳號自己最後一場 soloq 時間
@@ -318,7 +379,7 @@ def main():
                     else:
                         newg.extend(res or [])
                 except Exception as e: print(f"   {a.get('riotId')} 抓錯 {e}")
-                time.sleep(0.1)
+                if not _hit: time.sleep(0.1)   # 批次命中的沒真的打 dpm，不用睡
             if newg:
                 seen=set(); merged=[]
                 for g in sorted(newg+existing, key=lambda x: x.get("t",0), reverse=True):
@@ -341,6 +402,9 @@ def main():
                 print(f"[{i}/{len(keys)}] {key}  +{len(newg)} 新（共 {len(merged)}）")
             _TPL.append((time.time() - _tp, key, len(_todo)))
         b.close()
+    if _BST:
+        print("⏱ 批次預抓 %.0fs：%d 個帳號／%d 批（批次大小 %d）、命中 %d、退回逐一 %d、減半 %d 次"
+              % (_TB, _BST["items"], _BST["batches"], BATCH_NEW, _BST["hit"], _BST["fallback"], _BST["halved"]))
     if _TPL:
         if _NSKIP:
             print("⏭ 跳過 %d 個牌位沒動的帳號（%d → %d 次 dpm 請求）" % (_NSKIP, _NACC, _NACC - _NSKIP))

@@ -89,7 +89,9 @@ PLAN = [
     ("⑤ 積分：帳號（循序）", [S("fetch_dpm_soloq_accounts", "--apply")]),
     ("⑤b 解 puuid", [S("resolve_obgg_dpmpuuid")]),
     ("⑤c 牌位（便宜，全掃）", [S("fetch_soloq_auto")]),
-    ("⑤d 逐場（貴，只抓有動的）", [S("fetch_soloq_update", "--changed", "--no-rebuild")]),
+    # --batch（2026-09-08 #68）：逐帳號改一次問 8 個（Promise.all），10:00 那班逐人 267s 預估 → 60~70s；
+    # 沒命中的帳號自動退回逐一問，拿掉旗標＝回到舊行為。沙盒 scripts/fetch_soloq_update_batch_test.py。
+    ("⑤d 逐場（貴，只抓有動的）", [S("fetch_soloq_update", "--changed", "--no-rebuild", "--batch")]),
     ("⑤e 補新人", [S("fetch_soloq_year", "--missing", "--no-rebuild")]),
     # 2026-09-07：帳號歸屬複查把帳號從 A 剔除後，A 的舊逐場檔沒人回收（索引是掃檔重建、檔自己帶 key）
     # ⇒ 積分頁上 A 顯示的是別人的比賽（實測 6 檔 777 場，4 位是整頁別人的）。
