@@ -33,6 +33,33 @@ ROSTER_OUT = os.path.join(ROOT, "csv_cache", "obgg_roster.json")   # csv_cache �
 # ⇒ 56 位 OBGG 沒收錄的選手（KT Pollu／DNS Quantum／GEN Loid／LNG Croco…）整個人從積分頁消失。
 # 改法：dpm 選手檔近 KEEP_DPM_DAYS 天確認過的（dpmSeen）暫留，其餘照舊刪；OBGG 有列的照舊重建。純幂等性修正，最終輸出不變。
 KEEP_DPM_DAYS = 3
+# 2026-09-08 線 3（迴圈 #67）：⑤ fetch_dpm_soloq_accounts 的歸屬複查把「dpm 掛牌是別人的」帳號剔除、記進
+# csv_cache/soloq_disowned.json；但 OBGG 仍把那隻掛在原選手名下 ⇒ 這裡隔天原封補回（沒有 dpmPuuid）→ ⑤b 反查到 puuid
+# → ⑤d 當「新選手」用它補全年 ⇒ 抓回幾百場別人的比賽 → 22:00 ⑤ 再剔除、⑤e2 再刪 → 每天循環
+# （09-07 22:05 剔除 TES|Tian plokijuhyg／WE|Erha 25hdp／OMG|haichao luck dog，09-08 10:00 補回並重抓 798 場）。
+# 改法：補帳號前查名單——同一位選手（隊|名）名下被記過的 riotId 不再從 OBGG 補回；只認 from == 隊|名（同名選手不牽連）。
+# dpm 若哪天又把帳號還給原主，⑤ 的 union 會用 dpm 選手檔補回（dpmSeen 今天）、prune_old 也會留住；名單不會永久封殺。
+DISOWNED = os.path.join(ROOT, "csv_cache", "soloq_disowned.json")
+
+
+def load_disowned(path=None):
+    """讀歸屬剔除名單 → normalize 過的 rid 索引；讀不到／壞掉回空 dict（輔助證據，壞了只是退回舊行為）。"""
+    try:
+        if HERE not in sys.path:
+            sys.path.insert(0, HERE)
+        import soloq_disowned
+        return soloq_disowned.index(soloq_disowned.load(path or DISOWNED))
+    except Exception as e:
+        print(f"（歸屬剔除名單讀不到，OBGG 帳號不過濾：{e}）", flush=True)
+        return {}
+
+
+def disowned_of(idx, team, player, rid):
+    """OBGG 還把 rid 掛在 team|player 名下、但歸屬複查已認定是別人的 → 回那筆紀錄（要略過）；否則 None。"""
+    if not idx:
+        return None
+    import soloq_disowned
+    return soloq_disowned.disowned_from(idx, rid, f"{team}|{player}")
 
 
 def dpm_recent(a, today=None, days=KEEP_DPM_DAYS):
@@ -341,6 +368,8 @@ def main():
         return team_zone.get(team)
 
     cur_by_rid = {norm(a["riotId"]): a for a in acc}
+    dis_idx = load_disowned()      # #67：歸屬複查剔除過的 (rid, 隊|名) 不從 OBGG 補回
+    dis_skipped = []
 
     def obgg_entries(pred):
         res = []
@@ -351,6 +380,11 @@ def main():
                 tc = canon(tm)
                 for gid, accs in ps.items():
                     for a in accs:
+                        d = disowned_of(dis_idx, tc, gid, a["riotId"])
+                        if d:
+                            dis_skipped.append(f"  [歸屬] {tc}|{gid}: {a['riotId']} 名單已記是「{d.get('owner') or '?'}」的帳號"
+                                               f"（{str(d.get('at') or '')[:16]}）→ 不從 OBGG 補回")
+                            continue
                         e = {"player": gid, "team": tc, "platform": a["platform"], "riotId": a["riotId"]}
                         old = cur_by_rid.get(norm(a["riotId"]))
                         if old:  # 沿用已解析的 dpmPuuid 與張冠李戴標記
@@ -383,8 +417,10 @@ def main():
     if OUT == ACCOUNTS:                    # 只有寫回正本才留備份（--out= 是驗證用的旁路，不動正本）
         json.dump(acc, open(ACCOUNTS + ".bak", "w", encoding="utf-8"), ensure_ascii=False, indent=1)
     json.dump(final, open(OUT, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
+    for ln in dis_skipped:
+        print(ln, flush=True)
     print(f"OBGG 帳號更新：{len(acc)} → {len(final)}（LPL/LCK 刪 {removed} 個近兩月未列、"
-          f"dpm 近 {KEEP_DPM_DAYS} 天確認過暫留 {kept_dpm} 個；"
+          f"dpm 近 {KEEP_DPM_DAYS} 天確認過暫留 {kept_dpm} 個；歸屬名單略過 {len(dis_skipped)} 隻；"
           f"無 dpmPuuid {sum(1 for e in final if not e.get('dpmPuuid'))} 個待 resolve_obgg_dpmpuuid.py 補）")
 
 

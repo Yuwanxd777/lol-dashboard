@@ -42,6 +42,67 @@ def norm(s):
     return re.sub(r"\s+", "", str(s or "")).lower()
 
 
+def load_disowned_idx(path=None):
+    """歸屬剔除名單（csv_cache/soloq_disowned.json）→ normalize 過的 rid 索引；讀不到回 {}（union 分支就不過濾）。"""
+    try:
+        import soloq_disowned
+        return soloq_disowned.index(soloq_disowned.load(path))
+    except Exception as _e:
+        print(f"（歸屬剔除名單讀不到，union 分支不過濾：{_e}）", flush=True)
+        return {}
+
+
+def disowned_hit(dis_idx, rid, tm, pl):
+    """union 分支：既有帳號 dpm 這次沒回報（沒 de），而名單記過「rid 曾從 tm|pl 剔除、其實是別人的」→ 回那筆紀錄。
+    2026-09-08 #67：以前這種帳號只有帶 dpmPuuid 才會進 ORPHANS 去複查；③ OBGG 補回來的沒有 puuid ⇒ 複查看不到 ⇒ 留著 ⇒
+    ⑤b 補到 puuid ⇒ ⑤d 用它抓幾百場別人的比賽 ⇒ 22:00 才剔除。名單有記就直接剔除，不必再等一班。
+    只認 from == 隊|名（同名選手不牽連）；dpm 這次有回報（de）就是現行歸屬，名單自動失效（呼叫端不會問到這裡）。"""
+    if not dis_idx:
+        return None
+    try:
+        import soloq_disowned
+        return soloq_disowned.disowned_from(dis_idx, rid, f"{tm}|{pl}")
+    except Exception:
+        return None
+
+
+def _union_one(e, dbr, dbp, tm, pl, dpm_ents, dis_idx, diff_lines, ORPHANS):
+    """union 分支逐隻既有帳號：回傳要保留的 dict（可能改了 riotId／puuid／dpmSeen），或 None＝剔除（名單已記是別人的）。
+    #67 從 main() 原封抽出來好測；改名／錯配／ORPHANS 三條路一個字沒動，只多了名單那條。
+    ⚠ 2026-08-17 全面檢視：帳號檔可能存著「名字對、puuid 卻是另一隻」的錯配（DNS Clozer 的 Maldives#0727 掛著
+       舊帳號 인천물주먹 的 puuid → 逐場一直抓到 2025-10 就停、--missing 補回 0 場）。以前這裡只在缺 puuid 時才補，
+       錯配永遠不會被修。改成 **dpm 今天回報的 name↔puuid 為準**：
+       ① 我方 puuid 在 dpm 名下但名字不同 → 帳號改過名，riotId 回寫成 dpm 現名（舊名若 dpm 也另有一隻，呼叫端會補進來）
+       ② 我方名字在 dpm 名下但 puuid 不同、且我方 puuid dpm 不認 → puuid 錯配，換成 dpm 的
+       ③ 名字／puuid dpm 都不認 → 名單記過是別人的就剔除；否則留著（OBGG 才有的小號），但記下來給後面查歸屬（/v1/players/{puuid} 的 displayName）"""
+    e = dict(e)
+    de = dbr.get(norm(e["riotId"]))
+    dp = dbp.get(e.get("dpmPuuid") or "")
+    if dp and norm(dp["riotId"]) != norm(e["riotId"]):
+        diff_lines.append(f"  [改名] {tm}|{pl}: {e['riotId']} → {dp['riotId']}（同 puuid，dpm 現名）")
+        e["riotId"] = dp["riotId"]; e["platform"] = dp.get("platform") or e.get("platform")
+        de = dp
+    elif de and de.get("dpmPuuid") and e.get("dpmPuuid") and de["dpmPuuid"] != e["dpmPuuid"] and not dp:
+        diff_lines.append(f"  [錯配] {tm}|{pl}: {e['riotId']} 的 puuid {e['dpmPuuid'][:10]}… ≠ dpm {de['dpmPuuid'][:10]}… → 換成 dpm 的")
+        e["dpmPuuid"] = de["dpmPuuid"]
+    if de:
+        e["dpmSeen"] = de.get("dpmSeen")   # dpm 今天仍回報這個名字 → 蓋新日期（沒有 de 就留舊日期，改名回寫的守門自然失效）
+        if de.get("dpmRank"):
+            e["dpmRank"] = de["dpmRank"]
+        if de.get("dpmPuuid") and not e.get("dpmPuuid"):
+            e["dpmPuuid"] = de["dpmPuuid"]
+        e.pop("dpmOwner", None)
+    else:
+        _dis = disowned_hit(dis_idx, e["riotId"], tm, pl)
+        if _dis:
+            diff_lines.append(f"  [歸屬] {tm}|{pl}: {e['riotId']} 名單已記是「{_dis.get('owner') or '?'}」的帳號"
+                              f"（{str(_dis.get('at') or '')[:16]}）→ 剔除（不等 puuid 複查）")
+            return None
+        if e.get("dpmPuuid") and dpm_ents:      # dpm 有這位選手的檔卻不含這隻帳號 → 之後查歸屬
+            ORPHANS.append(e)
+    return e
+
+
 def canon_team(t):
     return TEAM_ALIAS.get(t, t)
 
@@ -545,6 +606,8 @@ def main():
     # 重建：dpm 為主隊→整換 dpm；其餘→union（保留現有再補 dpm）
     new_acc = []
     replaced = added = kept = 0
+    relisted = 0                    # #67：union 分支裡「名單已記是別人的」直接剔除的既有帳號數
+    DIS_IDX = load_disowned_idx()   # #67：csv_cache/soloq_disowned.json（歸屬複查／跨選手剔除留下的證據）
     diff_lines = []
     ORPHANS = []   # union 分支裡「dpm 有這位選手的檔、卻不含這隻帳號」的既有帳號 → 用 /v1/players/{puuid} 查 dpm 認為它是誰的
     for (pl, tm) in roster:
@@ -574,31 +637,10 @@ def main():
             dbp = {e["dpmPuuid"]: e for e in dpm_ents if e.get("dpmPuuid")}
             use = []
             for e in existing:                     # union：保留舊帳號，但同帳號若 dpm 也有→補上新的 dpmRank/dpmPuuid(舊帳號常缺)
-                e = dict(e)
-                de = dbr.get(norm(e["riotId"]))
-                dp = dbp.get(e.get("dpmPuuid") or "")
-                # ⚠ 2026-08-17 全面檢視：帳號檔可能存著「名字對、puuid 卻是另一隻」的錯配（DNS Clozer 的 Maldives#0727 掛著
-                #    舊帳號 인천물주먹 的 puuid → 逐場一直抓到 2025-10 就停、--missing 補回 0 場）。以前這裡只在缺 puuid 時才補，
-                #    錯配永遠不會被修。改成 **dpm 今天回報的 name↔puuid 為準**：
-                #    ① 我方 puuid 在 dpm 名下但名字不同 → 帳號改過名，riotId 回寫成 dpm 現名（舊名若 dpm 也另有一隻，下面會補進來）
-                #    ② 我方名字在 dpm 名下但 puuid 不同、且我方 puuid dpm 不認 → puuid 錯配，換成 dpm 的
-                #    ③ 名字／puuid dpm 都不認 → 留著（OBGG 才有的小號），但記下來給後面查歸屬（/v1/players/{puuid} 的 displayName）
-                if dp and norm(dp["riotId"]) != norm(e["riotId"]):
-                    diff_lines.append(f"  [改名] {tm}|{pl}: {e['riotId']} → {dp['riotId']}（同 puuid，dpm 現名）")
-                    e["riotId"] = dp["riotId"]; e["platform"] = dp.get("platform") or e.get("platform")
-                    de = dp
-                elif de and de.get("dpmPuuid") and e.get("dpmPuuid") and de["dpmPuuid"] != e["dpmPuuid"] and not dp:
-                    diff_lines.append(f"  [錯配] {tm}|{pl}: {e['riotId']} 的 puuid {e['dpmPuuid'][:10]}… ≠ dpm {de['dpmPuuid'][:10]}… → 換成 dpm 的")
-                    e["dpmPuuid"] = de["dpmPuuid"]
-                if de:
-                    e["dpmSeen"] = de.get("dpmSeen")   # dpm 今天仍回報這個名字 → 蓋新日期（沒有 de 就留舊日期，改名回寫的守門自然失效）
-                    if de.get("dpmRank"):
-                        e["dpmRank"] = de["dpmRank"]
-                    if de.get("dpmPuuid") and not e.get("dpmPuuid"):
-                        e["dpmPuuid"] = de["dpmPuuid"]
-                    e.pop("dpmOwner", None)
-                elif e.get("dpmPuuid") and dpm_ents:      # dpm 有這位選手的檔卻不含這隻帳號 → 之後查歸屬
-                    ORPHANS.append(e)
+                e = _union_one(e, dbr, dbp, tm, pl, dpm_ents, DIS_IDX, diff_lines, ORPHANS)   # 改名／錯配／ORPHANS／#67 名單剔除
+                if e is None:
+                    relisted += 1
+                    continue
                 use.append(e)
             seen = {norm(e["riotId"]) for e in use}
             seen_pu = {e.get("dpmPuuid") for e in use if e.get("dpmPuuid")}
@@ -750,6 +792,8 @@ def main():
     print(f"\n=== 變更摘要 ===", flush=True)
     print(f"  換帳號（dpm 主）: {replaced} 位｜補帳號（union）: {added} 位｜不變: {kept} 位", flush=True)
     print(f"  帳號總數：{len(acc)} → {len(new_acc)}", flush=True)
+    if relisted:
+        print(f"  歸屬名單剔除（union 既有帳號、不等 puuid 複查）: {relisted} 隻", flush=True)
     for ln in diff_lines[:80]:
         print(ln, flush=True)
     if len(diff_lines) > 80:

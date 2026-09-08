@@ -239,6 +239,77 @@ check(os.path.basename(M.ACCOUNTS) == "soloq_accounts.json" and os.path.basename
 _pw_mods = [k for k in sys.modules if k.startswith("playwright")]
 check(not _pw_mods or True, "（資訊）playwright 有沒有被匯入不影響：本測試沒開瀏覽器")
 
+# ── 8. #67 union 分支：名單已記是別人的既有帳號直接剔除（不等 puuid 複查） ─────────────
+# 背景：③ OBGG 每天把 ⑤ 剔除過的帳號補回（沒 puuid）⇒ 以前這裡只有帶 puuid 的才進 ORPHANS 複查 ⇒ 看不到 ⇒
+# ⑤b 補 puuid ⇒ ⑤d 抓幾百場別人的比賽 ⇒ 22:00 才剔除。現在 _union_one 直接查 soloq_disowned 名單。
+print("8. #67 名單剔除（_union_one／disowned_hit／load_disowned_idx）")
+import tempfile
+_tmpd = tempfile.mkdtemp(prefix="dpm_disowned_")
+_dpath = os.path.join(_tmpd, "disowned.json")
+json.dump([{"rid": "plokijuhyg#yyc04", "from": "TES|Tian", "owner": "Bunny", "why": "dpm 掛牌", "at": "2026-09-07 22:05"},
+           {"rid": "Luck Dog #KR1", "from": "OMG|haichao", "owner": "Jinjiao", "why": "dpm 掛牌", "at": "2026-09-07 22:05"}],
+          open(_dpath, "w", encoding="utf-8"), ensure_ascii=False)
+IDX = M.load_disowned_idx(_dpath)
+check(len(IDX) == 2, "load_disowned_idx 讀到 2 筆")
+check(M.load_disowned_idx(os.path.join(_tmpd, "nope.json")) == {}, "名單不存在 → {}")
+open(os.path.join(_tmpd, "bad.json"), "w").write("{{{")
+check(M.load_disowned_idx(os.path.join(_tmpd, "bad.json")) == {}, "名單壞掉 → {}")
+check(M.disowned_hit(IDX, "plokijuhyg#yyc04", "TES", "Tian") is not None, "命中：同 rid 同 隊|名")
+check(M.disowned_hit(IDX, "PLOKIJUHYG #yyc04", "TES", "Tian") is not None, "命中：大小寫／空白 normalize")
+check(M.disowned_hit(IDX, "luck dog#KR1", "OMG", "haichao") is not None, "命中：名單那邊寫 Luck Dog #KR1 也對得上")
+check(M.disowned_hit(IDX, "plokijuhyg#yyc04", "TES", "Tian2") is None, "不命中：同 rid 不同選手（同名選手不牽連）")
+check(M.disowned_hit(IDX, "plokijuhyg#yyc04", "JDG", "Tian") is None, "不命中：同 rid 不同隊")
+check(M.disowned_hit({}, "plokijuhyg#yyc04", "TES", "Tian") is None, "空索引 → None")
+
+
+def run_one(e, dpm_ents, idx=IDX, tm="TES", pl="Tian"):
+    dbr = {M.norm(x["riotId"]): x for x in dpm_ents}
+    dbp = {x["dpmPuuid"]: x for x in dpm_ents if x.get("dpmPuuid")}
+    lines, orph = [], []
+    r = M._union_one(e, dbr, dbp, tm, pl, dpm_ents, idx, lines, orph)
+    return r, lines, orph
+
+
+D1 = {"riotId": "yiqunsb#KR1", "dpmPuuid": "pu-yiq", "dpmSeen": "2026-09-08", "dpmRank": {"tier": "CHALLENGER"}}
+r, lines, orph = run_one({"player": "Tian", "team": "TES", "riotId": "plokijuhyg#yyc04", "platform": "kr"}, [D1])
+check(r is None, "(a) 名單已記＋dpm 沒回報＋沒 puuid → 剔除")
+check(len(lines) == 1 and "[歸屬]" in lines[0] and "Bunny" in lines[0] and "不等 puuid" in lines[0], f"(a) 印一行 [歸屬]…Bunny：{lines}")
+check(orph == [], "(a) 不進 ORPHANS")
+r, lines, orph = run_one({"player": "Tian", "team": "TES", "riotId": "plokijuhyg#yyc04", "dpmPuuid": "pu-plo"}, [D1])
+check(r is None and orph == [], "(b) 有 puuid（⑤b 補過）也直接剔除、不進 ORPHANS（以前會等複查）")
+r, lines, orph = run_one({"player": "Tian", "team": "TES", "riotId": "smurf#KR1", "dpmPuuid": "pu-sm"}, [D1])
+check(r is not None and len(orph) == 1 and orph[0] is r and lines == [], "(c) 名單沒記＋有 puuid＋dpm 有檔 → 留著並進 ORPHANS（原行為）")
+r, lines, orph = run_one({"player": "Tian", "team": "TES", "riotId": "smurf#KR1"}, [D1])
+check(r is not None and orph == [] and lines == [], "(d) 名單沒記＋沒 puuid → 留著、不進 ORPHANS（原行為）")
+D2 = {"riotId": "plokijuhyg#yyc04", "dpmPuuid": "pu-plo", "dpmSeen": "2026-09-08", "dpmRank": {"tier": "MASTER"}}
+r, lines, orph = run_one({"player": "Tian", "team": "TES", "riotId": "plokijuhyg#yyc04"}, [D1, D2])
+check(r is not None and r.get("dpmSeen") == "2026-09-08" and r.get("dpmPuuid") == "pu-plo" and r.get("dpmRank", {}).get("tier") == "MASTER" and lines == [],
+      "(e) 名單有記但 dpm 這次回報同名 → dpm 現行歸屬優先：留著、補 dpmSeen／puuid／rank、不印 [歸屬]")
+D3 = {"riotId": "newname#KR1", "dpmPuuid": "pu-plo", "dpmSeen": "2026-09-08"}
+r, lines, orph = run_one({"player": "Tian", "team": "TES", "riotId": "plokijuhyg#yyc04", "dpmPuuid": "pu-plo"}, [D1, D3])
+check(r is not None and r["riotId"] == "newname#KR1" and any("[改名]" in l for l in lines) and not any("[歸屬]" in l for l in lines),
+      "(f) 名單有記但 dpm 用同 puuid 回報新名 → 走改名路、不剔除")
+D4 = {"riotId": "smurf#KR1", "dpmPuuid": "pu-right", "dpmSeen": "2026-09-08"}
+r, lines, orph = run_one({"player": "Tian", "team": "TES", "riotId": "smurf#KR1", "dpmPuuid": "pu-wrong"}, [D4])
+check(r is not None and r["dpmPuuid"] == "pu-right" and any("[錯配]" in l for l in lines), "(g) 錯配 → 換成 dpm 的（原行為）")
+r, lines, orph = run_one({"player": "Tian", "team": "JDG", "riotId": "plokijuhyg#yyc04"}, [D1], tm="JDG")
+check(r is not None and lines == [], "(h) 隊|名不同（JDG|Tian）→ 不牽連")
+r, lines, orph = run_one({"player": "haichao", "team": "OMG", "riotId": "luck dog#KR1", "dpmPuuid": "pu-ld"}, [], tm="OMG", pl="haichao")
+check(r is None, "(i) dpm 完全沒這位的檔（dpm_ents 空）也剔除（以前 ORPHANS 要 dpm_ents 非空 ⇒ 永遠留著）")
+r, lines, orph = run_one({"player": "Tian", "team": "TES", "riotId": "plokijuhyg#yyc04", "dpmPuuid": "pu-plo"}, [D1], idx={})
+check(r is not None and len(orph) == 1, "(j) 名單讀不到（{}）→ 退回原行為（進 ORPHANS）")
+_in = {"player": "Tian", "team": "TES", "riotId": "smurf#KR1", "dpmPuuid": "pu-wrong"}
+_cp = dict(_in); run_one(_in, [D4])
+check(_in == _cp, "(k) 呼叫端的 dict 不被就地改")
+_m8 = SRC[SRC.index("\ndef main():"):]
+check(_m8.count("_union_one(") == 1 and _m8.count("load_disowned_idx(") == 1, "main() 呼叫 _union_one／load_disowned_idx 各一次")
+check("relisted += 1" in _m8 and "歸屬名單剔除" in _m8, "main() 計數 relisted 並印在摘要")
+check("ORPHANS.append(e)" not in _m8, "main() 裡不再有第二份 ORPHANS 邏輯（只在 _union_one）")
+_fake8 = SRC.replace("_dis = disowned_hit(dis_idx, e[\"riotId\"], tm, pl)", "_dis = None")
+_l8, _o8 = [], []
+check(M._union_one({"riotId": "plokijuhyg#yyc04"}, {}, {}, "TES", "Tian", [D1], IDX, _l8, _o8) is None and "_dis = None" in _fake8 and "_dis = None" not in SRC,
+      "正控制：把 disowned_hit 拿掉的退化版原始碼真的不同於現版（斷言不是恆綠）")
+
 print()
 if FAILS:
     print(f"✗ {len(FAILS)} 條失敗／{N_OK} 條通過")
