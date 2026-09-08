@@ -8,7 +8,7 @@
 fetch_soloq_year.py / update.py 末端可連帶呼叫（跟 build_soloq_index 一樣每日更新）。
 用法：  python scripts\build_soloq_builds.py
 """
-import os, re, json, glob, urllib.request, datetime, bisect
+import os, re, json, glob, urllib.request, datetime, bisect, gc
 from functools import lru_cache
 from collections import defaultdict, Counter
 
@@ -182,6 +182,11 @@ def load_items():
     return leg, excl, boots, boot_base, gold, dmg
 
 def main():
+    # 2026-09-09 精進迴圈 #74：關掉循環 GC——單獨 json.loads 423 個逐場檔只要 ~5s，放進這支卻要 13.8s（cProfile raw_decode），
+    # 差額是 CPython 的分代 GC：主迴圈累積幾百萬個 tuple／list（chGames／vsL／recentCore…），每讀一個檔配置幾十萬個容器
+    # 就觸發一次 gen2 全堆掃描。這支的資料全是樹狀（JSON 物件、defaultdict、tuple），沒有參考循環，refcount 就能回收，
+    # 循環 GC 在這裡只有成本沒有收益。實測（autopilot/_r74_prof.py，唯讀、輸出導暫存）36.7s → 22.5s、四個輸出檔逐位元相同。
+    gc.disable()
     leg, EXCL, BOOTS, BOOT_BASE, GOLD, IDMG = load_items(); leg -= CORE_EXCLUDE  # 排除滾雪球裝(靈魂竊取者)不當核心裝/流派
     pstart = load_patch_bounds(); uni = sorted(pstart.keys(), key=patch_key)  # 版本→最早比賽日、版本序(供「前三版核心裝」coreP)
     sp = season_patches()                            # 近兩版＝官方公告當季最新兩版(職業賽跳過的版本也算，如 26.12)
