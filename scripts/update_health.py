@@ -209,13 +209,25 @@ def last_shift_ts(now_ts, shifts=SHIFTS):
     return max(c for c in cand if c <= now_ts)
 
 
-def shift_problems(start_at, now_ts, shifts=SHIFTS,
-                   grace_min=SHIFT_GRACE_MIN, slack_min=SHIFT_SLACK_MIN):
+def shift_problems(start_at, now_ts, shifts=None, grace_min=None, slack_min=None):
     """上一個排定班次有沒有留下自己的日誌 → (bad 訊息 list, 給人看的一行說明)。
 
     三種結果：①日誌的 run 開始時間 ≥ 班次時刻 ⇒ 跑過了 ②還在寬限期內 ⇒ 不判
     （可能正在跑、或排程被 Windows 的「錯過就盡快補跑」延後）③過了寬限還是舊日誌 ⇒ 這一班沒跑。
+
+    2026-09-09 #96：三個參數改成 None ＋ **呼叫時**才取模組常數。原本寫成
+    `grace_min=SHIFT_GRACE_MIN` 這種預設值，Python 在 import 當下就把值綁死 ⇒
+    測試 monkeypatch `uh.SHIFT_GRACE_MIN = 0`（⑬「寬限歸零」的前提）完全沒有作用。
+    後果是時間相依的假紅：班次後 180 分鐘內（22:00~01:00、10:00~13:00，**正好是迴圈在跑的時段**）
+    elapsed < 180 ⇒ 舊日誌被判「還不判」⇒ ⑬前提恆假，連帶 _r48_mutate／_r49_mutate
+    因為「原版就沒過」整批放棄突變 ⇒ 一次 4 紅。
     """
+    if shifts is None:
+        shifts = SHIFTS
+    if grace_min is None:
+        grace_min = SHIFT_GRACE_MIN
+    if slack_min is None:
+        slack_min = SHIFT_SLACK_MIN
     b = last_shift_ts(now_ts, shifts)
     bl = time.strftime("%m-%d %H:%M", time.localtime(b))
     elapsed = (now_ts - b) / 60.0

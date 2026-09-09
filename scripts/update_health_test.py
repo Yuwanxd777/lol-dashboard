@@ -249,6 +249,17 @@ try:
     stale, out = main_out(b - 3600)                       # 上一班之前的舊日誌
     want_bad = bool(uh.shift_problems(stale, time.time())[0])
     eq(want_bad, True, "⑬前提：寬限 0 時舊日誌一定判沒跑（否則下一條是空測）")
+    # ⑬b（2026-09-09 #96）：上面那條「寬限歸零」只有在**班次後 180 分鐘內**才分得出旗標有沒有生效
+    # ——其餘時段 elapsed 早就超過 180，即使 monkeypatch 沒作用也會回 bad ⇒ 白天綠、晚上紅。
+    # 這兩條不看時鐘：把寬限調到大到不可能過 ⇒ 一定「還不判」；調回 0 ⇒ 一定要報。
+    # 舊寫法 `grace_min=SHIFT_GRACE_MIN` 是 import 當下綁死的預設值，這裡會直接紅。
+    uh.SHIFT_GRACE_MIN = 10 ** 6
+    eq(uh.shift_problems(stale, time.time())[0], [],
+       "⑬b 寬限調到 10^6 分 ⇒ 不判（證明旗標是呼叫時才取，不是 import 綁死）")
+    eq("還不判" in uh.shift_problems(stale, time.time())[1], True, "⑬b 說明行說「還不判」")
+    uh.SHIFT_GRACE_MIN = 0
+    eq(bool(uh.shift_problems(stale, time.time())[0]), True,
+       "⑬b 正控制：寬限歸零又要報（證明上一條不是恆回空）")
     concl = [l for l in out.splitlines() if l.startswith("結論：")][0]
     eq(any(l.startswith("班次 ") for l in out.splitlines()), True, "⑬main() 有印出班次那一行")
     eq("沒跑" in concl, want_bad, "⑬main() 的結論與班次點名一致（舊日誌）")
