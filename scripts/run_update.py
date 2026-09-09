@@ -101,7 +101,7 @@ PLAN = [
     ("⑤c 牌位（便宜，全掃）＋BP 待標樣本（互不相干）", [S("fetch_soloq_auto"), SB("label_pending", "--apply")]),
     # --batch（2026-09-08 #68）：逐帳號改一次問一批（Promise.all），10:00 那班逐人 267s 預估 → 60~70s；
     # 沒命中的帳號自動退回逐一問，拿掉旗標＝回到舊行為。沙盒 scripts/fetch_soloq_update_batch_test.py。
-    # 批次大小由 fetch_soloq_update.BATCH_NEW 決定（#68 8 → #71 24，實測 22:00 那班批次 88s 預估 → 25~30s）；要臨時改用 --batch-size N。
+    # 批次大小由 fetch_soloq_update.BATCH_NEW 決定（#68 8 → #71 24 → #83 48，實測 10:00 那班批次 29s 預估 → 13~16s）；要臨時改用 --batch-size N。
     ("⑤d 逐場（貴，只抓有動的）", [S("fetch_soloq_update", "--changed", "--no-rebuild", "--batch")]),
     ("⑤e 補新人", [S("fetch_soloq_year", "--missing", "--no-rebuild")]),
     # 2026-09-07：帳號歸屬複查把帳號從 A 剔除後，A 的舊逐場檔沒人回收（索引是掃檔重建、檔自己帶 key）

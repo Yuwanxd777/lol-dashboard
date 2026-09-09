@@ -157,7 +157,7 @@ check("正控制：ACCOUNTS 指回真實檔 → leaks() 抓到", leaks(U0) == ["
 U0.ACCOUNTS = os.path.join(tmp0, "soloq_accounts.json")
 check("模組層有 JS_BATCH／prefetch_batches／USE_BATCH／BATCH_NEW", all(hasattr(U0, n) for n in ("JS_BATCH", "prefetch_batches", "USE_BATCH", "BATCH_NEW")))
 check("JS_BATCH 真的包住 JS_NEW（一字不差）", U0.JS_NEW in U0.JS_BATCH and "Promise.all" in U0.JS_BATCH and ".catch(" in U0.JS_BATCH)
-check("預設不開批次（管線沒帶 --batch 行為不變；重新載入看 import 時的值）", "--batch" not in sys.argv and load("fsu_default", NEW).USE_BATCH is False and load("fsu_default2", NEW).BATCH_NEW == 24)
+check("預設不開批次（管線沒帶 --batch 行為不變；重新載入看 import 時的值）", "--batch" not in sys.argv and load("fsu_default", NEW).USE_BATCH is False and load("fsu_default2", NEW).BATCH_NEW == 48)   # #68 8 → #71 24 → #83 48
 shutil.rmtree(tmp0, ignore_errors=True)
 
 print("[2] node 真的跑 JS_BATCH")

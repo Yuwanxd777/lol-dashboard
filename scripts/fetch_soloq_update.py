@@ -167,9 +167,16 @@ JS_NEW = """async(args)=>{ const [PU,tok,newestT]=args; const out=[]; let ID=nul
 # 幾乎無關（1.4～1.9s，由最慢那一支請求決定）⇒ 每帳號 bs=8 0.216s／bs=16 0.131s／bs=24 0.078s，
 # 三種大小全命中、0 退回、0 減半；314 個帳號換算 68s → 24s。帳號那支 fetch_dpm_soloq_accounts 早就 24 並發
 # （OWNER_BATCH）沒被 dpm 擋；真被限流時下面 prefetch_batches 會自動減半（24→12→6→3→2）。
+# 2026-09-09 線 3（精進迴圈 #83）：批次 24 → 48。10:00 那班「批次預抓 29s：325 個帳號／14 批」＝每批 2.07s。
+# 同一支唯讀探針（autopilot/_r83_batch_probe.txt，六組**不重疊的冷帳號**交錯跑 24／48／64／24／48／64，
+# 每組約 96 個帳號）量到每批耗時**不是**完全跟大小無關，而是慢慢長：24→1.87／1.67s、48→2.02／1.81s、
+# 64→2.40／2.62s（六組全命中、0 退回、0 減半）。所以要用「批數 × 每批秒」換算，不能用每帳號秒——
+# 325 個帳號：bs=24 是 14 批 × 1.77 ≈ 25s、**bs=48 是 7 批 × 1.92 ≈ 13s**、bs=64 只省到 6 批但每批 2.51 ⇒ ≈ 15s
+# （探針摘要那行印的「每帳號秒」讓 64 看起來最快，是因為每組只有 96 個帳號、第二批半空，別被那行騙）。
+# 取 48 不取 64：64 更慢，而且整批退回時要逐一補問的帳號多一倍（48 個 × 1.1s vs 24 個），爆炸半徑不必要地大。
 JS_BATCH = "async(items)=>{ const one=(" + JS_NEW + "); return Promise.all(items.map(it=>one(it).catch(e=>({err:String(e)})))); }"
 USE_BATCH = "--batch" in sys.argv
-BATCH_NEW = int(arg("--batch-size") or 24)
+BATCH_NEW = int(arg("--batch-size") or 48)
 
 def _res_ok(r):
     """批次結果可用嗎：dict、沒有 err、dpm 沒回限流／擋下（bad）——不可用的留給主迴圈逐一問"""
