@@ -169,26 +169,49 @@ def load_abbr():
     return st
 
 
+_AB_RAW_WARN = set()
+
+
+def norm_ab(ab, warn=False):
+    """隊碼正規化：對齊前端 abbrOf 的最後一步（大寫化＋去掉點）。
+    ⚠ 縮寫鏈最後一層 team_abbr_wiki.js 存的是 **Leaguepedia 原始 Short**，會大小寫混寫
+      （Invictus Gaming 的 Short 就是 "iG"）。前端 abbrOf 一律 toUpperCase 再去點，
+      Python 端以前只有「查無 → 壓縮全名前5字」那條退路 upper()，查得到的直接照抄
+      ⇒ 只要某隊在 STATIC_TABBR 缺席、只靠 LP 兜底，就會產生 "iG|Xun" 這種
+      前端永遠對不上的隊碼（同一個坑讓 scripts/bplive/label_pending.py 2026-09-09 10:00 那班
+      丟掉 41 張 IG 的 BP 樣本——它只讀 team_abbr_wiki.js、沒有 STATIC 那層擋著）。
+    2026-09-09 精進迴圈 #80 實測：2025＋2026 主資料出現過的隊名，整條鏈 0 筆會被這裡改動
+      ⇒ 純粹是「以後新隊只在 LP 表裡」的閂，不是修現況。
+    warn=True 只給「真的要生一個隊碼出來」的呼叫點（match_roster／假隊碼自癒），
+      真的改到會印一行（每個原值只印一次）；拿來當集合正規化（valid 那種掃全表 3400 筆、
+      其中 480 筆本來就大小寫混寫）時不要開，否則整份日誌被洗版。"""
+    s = (ab or "").upper().replace(".", "")
+    if warn and ab and s != ab and ab not in _AB_RAW_WARN:
+        _AB_RAW_WARN.add(ab)
+        print(f"  （隊碼正規化：縮寫表給的 {ab!r} → {s!r}）", flush=True)
+    return s
+
+
 def fix_legacy_team_codes(acc, abbr, fullnames=None):
     """自癒：把過去因對照表載入失敗而寫進去的「全名前5字」假隊碼改回真縮寫。
     截斷碼是可反推的（同一套算法），唯一對應時才改，避免誤判。
     fullnames＝主資料實際出現過的隊全名；**只用這些來反推**，否則 wiki 表裡的青訓隊會造成歧義
     （Top Esports / Top Esports Challenger 前 5 字都是 TOPES → 不唯一就永遠修不掉）。"""
-    valid = {str(v).upper() for v in abbr.values() if v}   # 真正在用的縮寫，一律不動（GEN/TL/KRX/DNS 等都在裡面；GENG/TLAW/DRX/DNF 不在，那些走 TEAM_ALIAS）
+    valid = {norm_ab(v) for v in abbr.values() if v}   # 真正在用的縮寫，一律不動（GEN/TL/KRX/DNS 等都在裡面；GENG/TLAW/DRX/DNF 不在，那些走 TEAM_ALIAS）
     src = {f.lower(): abbr.get(f.lower()) for f in (fullnames or [])} if fullnames else abbr
     trunc = {}
     for full, ab in src.items():
         if not ab:
             continue
         t = re.sub(r"[^A-Za-z0-9]", "", full)[:5].upper()
-        if len(t) == 5 and t not in valid and t != ab.upper():   # 只認「長度剛好 5 且不是任何已知縮寫」的截斷碼
+        if len(t) == 5 and t not in valid and t != norm_ab(ab):   # 只認「長度剛好 5 且不是任何已知縮寫」的截斷碼
             trunc.setdefault(t, set()).add(ab)
     fixed = {}
     for a in acc:
         tm = str(a.get("team") or "")
         cand = trunc.get(tm.upper()) if len(tm) == 5 and tm.upper() not in valid else None
         if len(cand or ()) == 1:
-            new = next(iter(cand))
+            new = norm_ab(next(iter(cand)), warn=True)
             if new != tm:
                 a["team"] = new
                 fixed[tm] = new
@@ -221,7 +244,7 @@ def match_roster(abbr):
                 if pcol is None or tcol is None or pcol >= len(r0) or not r0[pcol]:
                     continue
                 full = str(r0[tcol] if (tcol is not None and tcol < len(r0)) else "").strip()
-                ab = abbr.get(full.lower(), "") or re.sub(r"[^A-Za-z0-9]", "", full)[:5].upper()
+                ab = norm_ab(abbr.get(full.lower(), ""), warn=True) or re.sub(r"[^A-Za-z0-9]", "", full)[:5].upper()
                 club = 0 if re.search(r"national team|\(national\)|國家隊", full, re.I) else 1
                 k = str(r0[pcol]).strip()
                 cand = (club, d, ab)
@@ -475,7 +498,7 @@ def main():
     # 分組會把同一人拆成兩組互相看不到 → 帳號各存一份、逐場各抓一份、積分排行榜出現重複列
     # （實測 DRX Aiming 6 列但其實只有 3 個帳號）。只在目標是 load_abbr() 的真縮寫時才換，
     # 對照表寫錯也只會是 no-op。
-    _valid_ab = {str(v).upper() for v in ABBR.values() if v}
+    _valid_ab = {norm_ab(v) for v in ABBR.values() if v}
     _ren = {}
     for a in acc:
         t0 = str(a.get("team") or "")

@@ -23,7 +23,7 @@ if (getattr(sys.stdout, "encoding", "") or "").lower().replace("-", "") != "utf8
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, HERE)
-from fetch_dpm_soloq_accounts import load_abbr, norm, TEAM_ALIAS, BLOCK_PLAYERS  # noqa: E402
+from fetch_dpm_soloq_accounts import load_abbr, norm, norm_ab, TEAM_ALIAS, BLOCK_PLAYERS  # noqa: E402
 
 POS = {1: "TOP", 2: "JUNGLE", 3: "MIDDLE", 4: "BOTTOM", 5: "UTILITY"}
 ROLE_ALIAS = {"TOP": "TOP", "JUNGLE": "JUNGLE", "JG": "JUNGLE", "MID": "MIDDLE", "MIDDLE": "MIDDLE",
@@ -55,7 +55,7 @@ def roster(abbr):
             if not nm:
                 continue
             full = str(r[tcol] or "").strip()
-            ab = abbr.get(full.lower(), "") or re.sub(r"[^A-Za-z0-9]", "", full)[:5].upper()
+            ab = norm_ab(abbr.get(full.lower(), "")) or re.sub(r"[^A-Za-z0-9]", "", full)[:5].upper()
             e = out.setdefault(nm, {"player": nm, "n": 0, "pos": Counter(), "last": "", "teams": Counter(), "leagues": Counter(), "team": ab})
             e["n"] += 1; e["pos"][POS[pid]] += 1; e["teams"][ab] += 1; e["leagues"][str(r[li])] += 1
             d = str(r[di])[:10]
