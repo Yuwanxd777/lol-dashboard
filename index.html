@@ -12661,10 +12661,12 @@ function render(){
       const _pwTier0=curGi<0?0:Math.min(curGi,POOL_WIN.length-1);
       let _pwCut=null,_pwDays=0;          // ← selPool 實際看的：**網頁一律 null**（不設窗）
       let _pwCutOv=null,_pwDaysOv=0;      // ← 依局窗算出來的，只在 withPoolWin() 裡面生效
+      let _pwAncOv="";                    // ← 窗的錨點日期（疊圖頁尾要寫「7/28~8/28」的右邊那個）
       {
         // 錨點：匯入的真實比賽局用該局自己的日期（回頭看舊系列時窗才有意義），否則用今天
         const _gt=(S.tm||[])[curGi<0?0:curGi];
         const _anc=(_gt&&_gt.date)?String(_gt.date).slice(0,10):new Date().toISOString().slice(0,10);
+        _pwAncOv=_anc;
         const _shift=(d,k)=>{ const t=new Date(d+"T00:00:00Z"); t.setUTCDate(t.getUTCDate()-k); return t.toISOString().slice(0,10); };
         const _mg0=Math.max(1,F.minG||0);
         // 回傳 -1＝這一邊根本沒選隊（不參與保底判定，不然沒選隊時永遠被放寬到全年）
@@ -12694,7 +12696,8 @@ function render(){
       // gi＝curGi 也要送（2026-09-09）：疊圖頁尾要寫「第 N 局 · 僅顯示一個月」，
       // 局號一定要跟窗同一份來源，不然這一局選滿之後 curGi 跳下一局、窗跟著換，
       // 疊圖那邊若用 liveIdx() 當局號就會寫出「第 1 局 · 僅顯示三個月」。
-      try{ window.__bpPoolWin={on:curGi>=0,gi:curGi,tier:_pwTier0,d:_pwDaysOv,cut:_pwCutOv,sq:_pwSqDays}; }catch(e){}
+      try{ window.__bpPoolWin={on:curGi>=0,gi:curGi,tier:_pwTier0,d:_pwDaysOv,
+                               cut:_pwCutOv,anc:_pwAncOv,sq:_pwSqDays}; }catch(e){}
       if(V.bpSoloqPool){ const IDX=window.SOLOQ_MATCH_IDX; if(IDX&&IDX.players){ // 近期積分開啟→懶載兩隊每位選手逐場檔(載好 __sqLoad 會重繪)
         [[R1,S.t1],[R2,S.t2]].forEach(([R,team])=>{ if(!R||!team)return; Object.keys(R).forEach(pos=>{ const cell=R[pos]; if(!cell)return; cell.players.forEach(pl=>{ const key=sqKey(IDX.players,tAb(team),pl.p), meta=key&&IDX.players[key];
           if(meta&&!window.__SQCACHE[key]&&!document.querySelector('script[data-sqf="'+meta.f+'"]')){ const sc=document.createElement("script"); sc.src="soloq_matches/"+meta.f; sc.setAttribute("data-sqf",meta.f); sc.onerror=()=>{window.__SQCACHE[key]={matches:[]};}; document.body.appendChild(sc); } }); }); }); } }
