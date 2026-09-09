@@ -101,6 +101,7 @@
 """
 import argparse
 import collections
+import gc
 import io
 import json
 import os
@@ -179,7 +180,22 @@ def scan_all(owner):
     files[key]  = (fn, fp, data)
     owncnt[key] = 該檔「rid 正面歸屬給自己」的場數（＝這個檔是不是他本人的實證）
     ridmap[rid][key] = 該 rid 在該檔的場數
+
+    整段關掉循環 GC（2026-09-09 #76，同 build_soloq_index／build_soloq_builds）：423 個檔 260MB
+    全抓在 files 手上 ⇒ 每解析一個檔就觸發一次 gen2 全堆掃描，而逐場資料是純樹狀的
+    （dict/list/str，沒有參考循環），那趟掃描只有成本沒有回收。量到 11.2s → 2.9s。
+    try/finally 還原是因為 soloq_acc_history_test 那幾支是程序內 import 來呼叫的。
     """
+    was = gc.isenabled()
+    gc.disable()
+    try:
+        return _scan_all(owner)
+    finally:
+        if was:
+            gc.enable()
+
+
+def _scan_all(owner):
     files, unreadable = {}, 0
     owncnt = collections.Counter()
     ridmap = collections.defaultdict(collections.Counter)
