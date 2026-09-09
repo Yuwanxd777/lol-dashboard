@@ -88,6 +88,27 @@ def num(s, d=""):
 
 _last_req = 0.0   # 上一次真的打 gol.gg 的時刻（節流用）
 
+# ── 階段計時（2026-09-10 線 3 精進迴圈 #104）──
+# 為什麼要有：09-09 兩班逐班比對（shift_log_archive --diff）裡，**只有 fetch_fill 從 23.4s 變 51.0s
+# （+118%）**，其餘每一步都變快；而日誌除了「暖抓 4.0s」沒有任何分項 ⇒ 無從判斷是 gol.gg 慢、
+# Leaguepedia 慢、節流白睡、還是本機解析變重。#56 已經替 run_update 的「階段」加了牆鐘，
+# 這一層是那之下的分項。（動手前先量掉的假設：#77 的暖抓讓 gate() 一班跑兩次 ⇒ 兩次讀 12.8MB 的
+# data_2026.js；實測 gate 只要 0.11s，不是元兇，所以沒有為它加快取。）
+# **只加計時與一行摘要，不改任何抓取行為**：請求數、順序、節流間隔全部照舊。
+_PH = {}                                        # 階段名 → 累計秒數（dict 依插入順序）
+_NETK = ("gol.gg 下載", "gol.gg 節流")            # 屬於「網路」的階段，扣殘差時要排除
+
+
+def _ph(name, t0):
+    """把 (現在 - t0) 累加到 name 這個階段；回傳這一段的秒數。"""
+    d = time.time() - t0
+    _PH[name] = _PH.get(name, 0.0) + d
+    return d
+
+
+def _ph_sum(keys=None):
+    return sum(v for k, v in _PH.items() if keys is None or k in keys)
+
 
 def _throttle():
     """GAP 是「兩次請求的最小間隔」，不是「每次請求後固定睡」：
@@ -96,7 +117,9 @@ def _throttle():
     改成請求前看「距上次請求夠不夠 GAP」，中間解析的時間也算進間隔。"""
     w = GAP - (time.time() - _last_req)
     if w > 0:
+        t0 = time.time()
         time.sleep(w)
+        _ph("gol.gg 節流", t0)
 
 
 def get(url, cache_name, force=False):
@@ -109,9 +132,11 @@ def get(url, cache_name, force=False):
     for a in range(3):
         try:
             _throttle()
+            _t = time.time()
             req = urllib.request.Request(url, headers=UA)
             with urllib.request.urlopen(req, timeout=60) as f:
                 body = f.read().decode("utf-8", "replace")
+            _ph("gol.gg 下載", _t)
             _last_req = time.time()
             with open(p, "w", encoding="utf-8") as f:
                 f.write(body)
@@ -315,6 +340,7 @@ def parse_fullstats(html):
 # ────────────────────────── 抓取驅動 ──────────────────────────
 def collect(cfg, force=False):
     """→ [每局 dict]（meta / sides / bp / fullstats）"""
+    _t_local, _net0 = time.time(), _ph_sum(_NETK)   # 本機那格＝整段 collect 扣掉網路（#104）
     tour = urllib.parse.quote(cfg["tournament"])
     # matchlist 一律重抓（賽段進行中每天有新比賽）；個別局頁面走快取（已完成的比賽資料不會再變）
     ml = get(f"https://gol.gg/tournament/tournament-matchlist/{tour}/",
@@ -368,6 +394,9 @@ def collect(cfg, force=False):
         print(f"      [{mi+1}/{len(matches)}] {mt['date']} match {mt['gid']} → {len(ids)} 局", flush=True)
     if dirty:
         save_parsed(PC)
+    # 這一段的牆鐘扣掉期間的下載與節流 ⇒ 剩下的就是「開快取檔＋正則解析」（#104）
+    _local = (time.time() - _t_local) - (_ph_sum(_NETK) - _net0)
+    _PH["gol.gg 快取／解析"] = _PH.get("gol.gg 快取／解析", 0.0) + _local
     print(f"    解析快取：命中 {n_hit} 局／新解析 {n_parse} 局（{PARSED_NAME}）", flush=True)
     return games
 
@@ -496,7 +525,7 @@ def to_csv_rows(games, cfg):
 
 
 # ────────────────────────── 主流程 ──────────────────────────
-def gate(cfg):
+def _gate(cfg):
     """OE 追上了沒 → (還需要補嗎, OE 局數, prev, fill_path)。gol.gg 與 wiki 兩條補充共用同一道閘門。
 
     「自己補進去的局」一定要用 fill JSON 存的 gkeys 從 OE 局數扣掉：data_{年}.js 本身已含
@@ -519,6 +548,16 @@ def gate(cfg):
     return (not (n_oe and n_oe >= max(n_prev, 1))), n_oe, prev, fill_path
 
 
+def gate(cfg):
+    """_gate 的計時外殼（#104）。一班會被呼叫兩次（warm_wiki 一次、build 一次），
+    分項要看得到那是 0.1s 級的小錢，不是元兇。"""
+    t0 = time.time()
+    try:
+        return _gate(cfg)
+    finally:
+        _ph("閘門（讀 data_年.js）", t0)
+
+
 def build(cfg, force=False, dump=False):
     sn = cfg["split"].replace("Split ", "S")
     need, n_oe, prev, fill_path = gate(cfg)
@@ -536,6 +575,7 @@ def build(cfg, force=False, dump=False):
     games = collect(cfg, force=force)
     if not games:
         print("    沒抓到任何局"); return None
+    _t = time.time()
     hdr, rows = to_csv_rows(games, cfg)
     buf = io.StringIO()
     w = csv.writer(buf, lineterminator="\n")
@@ -544,6 +584,7 @@ def build(cfg, force=False, dump=False):
     sys.path.insert(0, HERE)
     import fetch_data
     table = fetch_data.process(buf.getvalue(), cfg["year"])   # 衍生欄位(po/Lane/banlist/decider_winner)全部沿用 OE 那套
+    _ph("組 CSV＋process", _t)
     if dump:
         print(f"    process() → {len(table)-1} 列，{len(table[0])} 欄")
         h = table[0]
@@ -553,6 +594,7 @@ def build(cfg, force=False, dump=False):
                   "vs", r[h.index("red_playername")], r[h.index("red_champion")])
         return table
 
+    _t = time.time()
     _h = table[0]
     _gk = sorted({gkey_of(_h, r) for r in table[1:]})
     prev[cfg["key"]] = {"header": table[0], "rows": table[1:], "games": [g["gid"] for g in games],
@@ -561,6 +603,7 @@ def build(cfg, force=False, dump=False):
                         "league": cfg["league"], "split": sn, "year": cfg["year"]}
     with open(fill_path, "w", encoding="utf-8") as f:
         json.dump(prev, f, ensure_ascii=False)
+    _ph("寫 fill JSON", _t)
     print(f"    → csv_cache/fill_{cfg['year']}.json（{len(games)} 局 / {len(table)-1} 列）")
     return table
 
@@ -593,6 +636,7 @@ def build_wiki(cfg):
     sys.path.insert(0, HERE)
     import fetch_wiki_mh
     print(f"  {cfg['key']}：Leaguepedia「{cfg['wiki']}」…")
+    _t = time.time()
     try:
         return fetch_wiki_mh.build({"tour": cfg["wiki"], "league": cfg["league"],
                                     "split": cfg["split"], "year": cfg["year"],
@@ -602,6 +646,8 @@ def build_wiki(cfg):
     except Exception as e:      # wiki 掛掉不能連帶讓 gol.gg 那份也沒寫成
         print(f"    ⚠ wiki 補充失敗（略過，gol.gg 版照用）：{type(e).__name__}: {e}")
         return None
+    finally:
+        _ph("Leaguepedia 抓頁", _t)
 
 
 def warm_wiki(cfg):
@@ -626,12 +672,38 @@ def warm_wiki(cfg):
         n = len(fetch_wiki_mh.fetch(cfg["wiki"], force=True) or "")
     except Exception as e:
         print(f"    ⚠ 暖抓失敗（不影響，build_wiki 會照舊重抓）：{type(e).__name__}: {str(e)[:80]}")
+        _ph("暖抓 wiki MH", t0)
         return
+    _ph("暖抓 wiki MH", t0)
     print(f"    暖抓 {n} bytes（{time.time() - t0:.1f}s）"
           f"{'' if n else '——空的，build_wiki 會照舊重抓'}", flush=True)
 
 
+def _phase_report(t_all):
+    """把 _PH 印成一行分項（#104）。
+
+    順序就是實際發生的順序（dict 依插入序）；**殘差一律歸「其他」**——分項加起來要對得上牆鐘，
+    不然下次比對又要重新猜。Leaguepedia 那一側的純睡眠由 fetch_wiki_mh.SLEPT 提供
+    （它散在 _throttle 與 opener 兩處，這裡只借來當註腳，不重複計進總和）。
+    """
+    if not _PH:
+        return
+    try:
+        sys.path.insert(0, HERE)
+        import fetch_wiki_mh
+        slept = float(getattr(fetch_wiki_mh, "SLEPT", 0.0) or 0.0)
+    except Exception:
+        slept = 0.0
+    parts = [f"{k} {v:.1f}s" for k, v in _PH.items() if v >= 0.05]
+    other = t_all - _ph_sum()
+    if other >= 0.05:
+        parts.append(f"其他 {other:.1f}s")
+    tail = f"；Leaguepedia 純睡眠 {slept:.1f}s（含在暖抓＋抓頁裡）" if slept >= 0.05 else ""
+    print(f"   ⏱ 分項：" + "｜".join(parts) + f"　全程 {t_all:.1f}s" + tail, flush=True)
+
+
 def main():
+    _t_all = time.time()
     ap = argparse.ArgumentParser()
     ap.add_argument("--force", action="store_true", help="重抓 HTML（賽段進行中要拿新比賽用這個）")
     ap.add_argument("--dump", action="store_true", help="只解析不寫檔")
@@ -673,6 +745,7 @@ def main():
     if failed:
         print("⚠ 有來源失敗：" + "、".join(failed))
     if not A.status:
+        _phase_report(time.time() - _t_all)
         print("完成。（fetch_data.py 寫檔時會併入：OE > gol.gg > wiki，同一局以先者為準）")
     return 1 if failed else 0
 

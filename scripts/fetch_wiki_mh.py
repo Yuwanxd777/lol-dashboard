@@ -40,6 +40,16 @@ UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.3
 GAP = 8.0            # 頁面請求間隔（一般頁面，不吃 Cargo 限流；仍禮貌節流）
 _OP = None
 _last_req = 0.0      # 本模組上一次真的打 Leaguepedia 的時刻
+SLEPT = 0.0          # 本行程在這一側「純睡眠」的累計秒數（節流＋取 cookie 那 2 秒）
+                     # 2026-09-10 #104：fetch_fill 的分項要能分辨「Leaguepedia 慢」與「我們在等節流」，
+                     # 這支的等待散在 _throttle 與 opener 兩處，只有模組自己數得準。
+
+
+def _sleep(w):
+    global SLEPT
+    if w > 0:
+        time.sleep(w)
+        SLEPT += w
 
 
 def _throttle():
@@ -47,9 +57,7 @@ def _throttle():
     2026-09-08 線 3：fetch_fill 每天那班 MH 頁→PB 頁各睡 8s，PB 頁之後根本沒有下一次請求，
     16s 裡有 8s 是白睡。改成請求前補足差額；中間解析的時間也算進間隔。
     opener() 取 cookie 那 2 秒維持原樣（表單頁不計入節流，行為跟以前一樣）。"""
-    w = GAP - (time.time() - _last_req)
-    if w > 0:
-        time.sleep(w)
+    _sleep(GAP - (time.time() - _last_req))
 
 
 def _mark():
@@ -65,7 +73,7 @@ def opener():
         _OP = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(cj))
         try:
             _OP.open(urllib.request.Request(BASE, headers=UA), timeout=60).read()
-            time.sleep(2)
+            _sleep(2)
         except Exception as e:
             print(f"  ⚠ 表單頁取 cookie 失敗（仍試著繼續）：{type(e).__name__}")
     return _OP
