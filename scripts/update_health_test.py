@@ -12,6 +12,7 @@
 import contextlib
 import glob
 import io
+import json
 import os
 import re
 import shutil
@@ -236,11 +237,21 @@ try:
     uh.LOG = os.path.join(tmp, "log.txt")
     sys.argv = ["update_health.py", "--no-save", "--no-live"]   # 這組測班次，不必真的去掃 26MB 算同名
 
+    # 假日誌的步驟要**跟基準一致**（2026-09-10 #103）：原本只寫一步 fetch_x，
+    # #101 的步驟哨兵上線並存進基準之後，這份日誌每次都被判「少了 43 步」⇒ 結論永遠帶著一大串噪音。
+    # 這一段測的是班次點名，不該被別條哨兵的訊息干擾（＝#99「種一份乾淨的假 repo」同一個道理）。
+    try:
+        _base_steps = (json.load(io.open(uh.BASE, encoding="utf-8")).get("steps") or [])
+    except Exception:
+        _base_steps = []
+    _steps = _base_steps or ["fetch_x"]
+
     def main_out(when_ts):
         s = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(when_ts))
         io.open(uh.LOG, "w", encoding="utf-8").write(
-            "==== run_update %s（並行 4）====\n---- fetch_x（1.0s，exit 0）----\n"
-            "文本體檢：掃描 1 條字串 → 錯誤 0、提醒 0\n未審定的可疑同名 0\n守門通過\n" % s)
+            "==== run_update %s（並行 4）====\n" % s
+            + "".join("---- %s（1.0s，exit 0）----\n" % n for n in _steps)
+            + "文本體檢：掃描 1 條字串 → 錯誤 0、提醒 0\n未審定的可疑同名 0\n守門通過\n")
         buf = io.StringIO()
         with contextlib.redirect_stdout(buf):
             uh.main()
@@ -263,12 +274,17 @@ try:
        "⑬b 正控制：寬限歸零又要報（證明上一條不是恆回空）")
     concl = [l for l in out.splitlines() if l.startswith("結論：")][0]
     eq(any(l.startswith("班次 ") for l in out.splitlines()), True, "⑬main() 有印出班次那一行")
-    eq("沒跑" in concl, want_bad, "⑬main() 的結論與班次點名一致（舊日誌）")
-    # 正控制：日誌換成這一班寫的，結論就不可以再說「沒跑」——否則上面那條是恆真的
+    # 關鍵字用班次訊息自己的開頭「上一班 」，不用「沒跑」（2026-09-10 #103）：
+    # #101 的步驟哨兵訊息尾巴就是「基準有、這一班**沒跑**到」⇒ 舊寫法在舊日誌那邊變成假綠
+    # （綠的原因是步驟不見了，不是班次點名），在正控制那邊直接紅。DAILY.md #101 的 ⚠ 已預告這個撞名。
+    eq("上一班 " in concl, want_bad, "⑬main() 的結論與班次點名一致（舊日誌）")
+    # 正控制：日誌換成這一班寫的、步驟也齊 ⇒ 結論不可以再點班次，而且整份要乾淨
     fresh, out2 = main_out(b + 300)
     concl2 = [l for l in out2.splitlines() if l.startswith("結論：")][0]
-    eq("沒跑" in concl2, False, "⑬正控制：這一班的日誌 ⇒ 結論不報沒跑")
+    eq("上一班 " in concl2, False, "⑬正控制：這一班的日誌 ⇒ 結論不點班次")
     eq("✓ 已跑" in out2, True, "⑬正控制：說明行說已跑")
+    eq("步驟不見了" in concl2, False, "⑬正控制：假日誌步驟已對齊基準 ⇒ 結論不該有步驟噪音")
+    eq(bool(_base_steps), True, "⑬前提：基準裡真的有 steps（否則上一條是空測）")
 finally:
     uh.LOG, uh.CONSOLE, sys.argv = _real_log, _real_console, _real_argv
     uh.SHIFT_GRACE_MIN = _real_grace
