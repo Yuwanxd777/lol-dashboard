@@ -105,6 +105,20 @@ def prune_old(acc, new, new_rids, zone_of, today=None, days=KEEP_DPM_DAYS):
 # keep-alive 連線會被伺服器關掉（idle 逾時），所以第一次失敗一律「丟掉連線、立刻重連再試一次」
 # （不睡 1.5 秒——那是給真的伺服器錯誤用的），之後才照舊退避。--no-keepalive 回到舊行為當對照組。
 KEEPALIVE = True
+
+# ── 分項計時（2026-09-10 線 3 迴圈 #107）──────────────────────────────────────
+# 這一步 44.1s，但日誌只有逐賽區小計（LCK 20.1s／LPL 10.9s／其餘七區合計 13.1s），
+# 拆不出「等 obgg 回應」「TCP/TLS 握手」「重試退避」「每請求後的禮貌睡 0.15」各佔多少
+# ⇒ 不知道該再併發、該少睡、還是該把賽區之間的序列化拆掉。這裡逐請求記，收尾印一行。
+# 全部只是計數，不改任何請求的數量、順序與間隔。
+STAT_LOCK = threading.Lock()
+REQ_N = {"zone": 0, "team": 0, "progamer": 0, "other": 0}      # 送出去的請求數（含重試那幾次）
+REQ_S = {"zone": 0.0, "team": 0.0, "progamer": 0.0, "other": 0.0}  # 等回應的秒數**相加**（跨執行緒，會大於牆鐘）
+RETRY_N = [0]           # 重試次數（第一次失敗之後的每一次嘗試）
+RETRY_SLEEP = [0.0]     # 重試退避睡掉的秒數
+POLITE_SLEEP = [0.0]    # 禮貌睡（每個 team／progamer 請求後的 0.15）
+HS_S = [0.0]            # TCP/TLS 握手秒數相加
+ZONE_TEAM_MAX = {}      # zone → (最慢一隊的秒數, 隊名)：判斷「這一區慢」是全區慢還是被一隊拖住
 _TL = threading.local()
 _CONNS = []                       # 收工時一起關（只是禮貌，執行緒死掉時 GC 也會關）
 _CONN_LOCK = threading.Lock()
@@ -115,9 +129,24 @@ def _conn(host):
     c = getattr(_TL, "conn", None)
     if c is None:
         c = http.client.HTTPSConnection(host, timeout=25)
-        _TL.conn = c
+        # #107：明著 connect() 只為了把握手秒數量出來（http.client 本來也會在第一個 request 時
+        # 自己 connect，時間原本混在那個請求裡）。連不上就丟掉、讓 get() 照舊重試。
+        t0 = time.time()
+        try:
+            c.connect()
+        except Exception:
+            try:
+                c.close()
+            except Exception:
+                pass
+            with STAT_LOCK:
+                HS_S[0] += time.time() - t0
+            raise
         with _CONN_LOCK:
             _CONNS.append(c); CONN_NEW[0] += 1
+        with STAT_LOCK:
+            HS_S[0] += time.time() - t0
+        _TL.conn = c
     return c
 
 
@@ -161,11 +190,31 @@ def _fetch_once(url):
     return json.loads(body.decode("utf-8-sig", "replace"))
 
 
+def polite(sec=0.15):
+    """每個 team／progamer 請求後的禮貌間隔（抽出來只為了記時數，秒數與位置都沒變）。"""
+    time.sleep(sec)
+    with STAT_LOCK:
+        POLITE_SLEEP[0] += sec
+
+
 def get(url, retry=2, kind=None):
+    k = kind or "other"
     for i in range(retry + 1):
+        t0 = time.time()
         try:
-            return _fetch_once(url)
+            r = _fetch_once(url)
+            with STAT_LOCK:
+                REQ_N[k] = REQ_N.get(k, 0) + 1
+                REQ_S[k] = REQ_S.get(k, 0.0) + (time.time() - t0)
+                if i:
+                    RETRY_N[0] += 1
+            return r
         except Exception as e:
+            with STAT_LOCK:
+                REQ_N[k] = REQ_N.get(k, 0) + 1
+                REQ_S[k] = REQ_S.get(k, 0.0) + (time.time() - t0)
+                if i:
+                    RETRY_N[0] += 1
             stale = getattr(_TL, "used", False)   # 用過的連線壞掉＝idle 逾時，立刻重連就好
             _drop_conn()
             if i == retry:
@@ -176,6 +225,8 @@ def get(url, retry=2, kind=None):
                 return {"_err": str(e)[:100]}
             if not (i == 0 and stale):        # 第一次疑似 stale socket 就立刻重連，其餘照舊退避
                 time.sleep(1.5)
+                with STAT_LOCK:
+                    RETRY_SLEEP[0] += 1.5
 
 
 def num_name(rid):
@@ -222,7 +273,7 @@ ERR_ABORT = 3
 def _player_accounts(tm, gid, now):
     """一位選手的可用帳號清單（原本寫在 pull() 迴圈裡，抽出來才能並行）。"""
     pg = get(BASE + f"progamer?team={urllib.parse.quote(tm)}&game_id={urllib.parse.quote(gid)}", kind="progamer")
-    time.sleep(0.15)
+    polite()
     d = pg.get("data") if isinstance(pg, dict) else None
     accs = (d or {}).get("accountList", []) if isinstance(d, dict) else []
     # 先濾掉一定不能用的：峡谷之巅(Riot API/dpm 都查不到)、純數字死號、今年完全沒打
@@ -252,13 +303,23 @@ def _player_accounts(tm, gid, now):
     return gid, good
 
 
+def _note_team(z, tm, t0):
+    """記下這一區最慢的一隊（#107 分項）：賽區小計高，是全區都慢還是被一隊拖住，看這個就知道。"""
+    d = time.time() - t0
+    with STAT_LOCK:
+        if d > ZONE_TEAM_MAX.get(z, (0.0, ""))[0]:
+            ZONE_TEAM_MAX[z] = (d, tm)
+
+
 def _team_pull(z, t, now):
     """一隊：team 請求（登記名冊）＋（非 dpm 主導賽區）逐人 progamer 並行。回 (tm, roster_ok, {gid: good})。
     **不碰 out**——寫入留給 pull() 的主執行緒，所以多隊可以並行（2026-09-07 迴圈 #24 從 pull() 的迴圈抽出來）。"""
     tm = t["team_name"]
-    rd = get(BASE + "team?name=" + urllib.parse.quote(tm), kind="team"); time.sleep(0.15)
+    tt0 = time.time()
+    rd = get(BASE + "team?name=" + urllib.parse.quote(tm), kind="team"); polite()
     roster = rd.get("data") if isinstance(rd, dict) else None
     if not roster:
+        _note_team(z, tm, tt0)
         return tm, False, {}
     # 現役選手名冊（pos 標成五路之一才算；主播/顧問/監督/教練不算）。pos 來自 team 端點，
     # **不需要 progamer**——所以 dpm 主導賽區也照樣登記得到。set.add 在 GIL 下是原子的，多隊並行安全。
@@ -273,6 +334,7 @@ def _team_pull(z, t, now):
     #   所以 pull() 會放一個空 dict 讓 team_zone 仍然對得到（保留「dpm 主導 → 保留舊帳號」那條路）。
     # ② 其餘賽區：同一隊的選手並行抓（JOBS 條執行緒，每條仍睡 0.15 秒）。
     if z in DPM_ZONES:
+        _note_team(z, tm, tt0)
         return tm, True, {}
     gids = [p["game_id"] for p in roster]
     # 2026-09-07（迴圈 #38）：以前這裡每一隊 `with ThreadPoolExecutor(...)` 開新執行緒，
@@ -282,6 +344,7 @@ def _team_pull(z, t, now):
         results = list(PLAYER_EX.map(lambda g: _player_accounts(tm, g, now), gids))
     else:
         results = [_player_accounts(tm, g, now) for g in gids]
+    _note_team(z, tm, tt0)
     return tm, True, {gid: good for gid, good in results if good}
 
 
@@ -338,11 +401,28 @@ def _pull_zones(out, zone_err, now, team_ex):
     return out, zone_err
 
 
+def print_breakdown(wall):
+    """#107 分項：牆鐘 44s 拆成「等回應／握手／重試退避／禮貌睡」，並點名各區最慢的一隊。
+    前四項都是**跨執行緒相加**（併發跑的會重疊），所以相加會大於牆鐘——這正是要看的東西：
+    相加遠大於牆鐘＝併發有在做事；相加接近牆鐘＝其實是序列的，還有併發空間。"""
+    kinds = [k for k in ("zone", "team", "progamer", "other") if REQ_N.get(k)]
+    resp = "／".join(f"{k} {REQ_S[k]:.1f}s({REQ_N[k]})" for k in kinds)
+    tot = sum(REQ_S.values()) + HS_S[0] + RETRY_SLEEP[0] + POLITE_SLEEP[0]
+    print(f"  分項（跨執行緒相加 {tot:.1f}s vs 牆鐘 {wall:.1f}s）：等回應 {resp}；"
+          f"握手 {HS_S[0]:.1f}s({CONN_NEW[0]})；重試 {RETRY_N[0]} 次(退避 {RETRY_SLEEP[0]:.1f}s)；"
+          f"禮貌睡 {POLITE_SLEEP[0]:.1f}s", flush=True)
+    slow = [f"{z}|{ZONE_TEAM_MAX[z][1]} {ZONE_TEAM_MAX[z][0]:.1f}s" for z in ZONES if z in ZONE_TEAM_MAX]
+    if slow:
+        print("  各區最慢一隊：" + "／".join(slow), flush=True)
+
+
 def main():
     t0 = time.time()
     obgg, zone_err = pull()
-    print(f"  抓取 {time.time() - t0:.1f}s（TCP/TLS 握手 {CONN_NEW[0]} 次"
+    wall = time.time() - t0
+    print(f"  抓取 {wall:.1f}s（TCP/TLS 握手 {CONN_NEW[0]} 次"
           + ("" if KEEPALIVE else "，--no-keepalive 對照組") + "）", flush=True)
+    print_breakdown(wall)
     # 2026-09-07（迴圈 #24）：請求最終失敗以前完全看不到，先印再過安全門（LPL 只抓到 11 帳號時才看得出是 team 請求掛了 3 次）。
     n_all = sum(ERRS.values())
     if n_all:
@@ -415,12 +495,17 @@ def main():
             best[k] = e
     final = list(best.values())
 
-    try:
-        os.makedirs(os.path.dirname(ROSTER_OUT), exist_ok=True)
-        json.dump(sorted(ROSTER_PLAYERS), open(ROSTER_OUT, "w", encoding="utf-8"), ensure_ascii=False)
-        print(f"現役選手名冊：{len(ROSTER_PLAYERS)} 位 → csv_cache/obgg_roster.json")
-    except Exception as e:
-        print(f"（名冊寫出失敗：{e}）")
+    # #107：`--out=` 是唯讀旁路，但名冊以前照樣覆寫正本 csv_cache/obgg_roster.json
+    #（docstring 第 12 行寫「不動正本」，實際上動了一個）⇒ 拿它當計時探針會留下副作用。現在一起關掉。
+    if OUT != ACCOUNTS:
+        print(f"現役選手名冊：{len(ROSTER_PLAYERS)} 位（--out= 旁路，不覆寫 csv_cache/obgg_roster.json）")
+    else:
+        try:
+            os.makedirs(os.path.dirname(ROSTER_OUT), exist_ok=True)
+            json.dump(sorted(ROSTER_PLAYERS), open(ROSTER_OUT, "w", encoding="utf-8"), ensure_ascii=False)
+            print(f"現役選手名冊：{len(ROSTER_PLAYERS)} 位 → csv_cache/obgg_roster.json")
+        except Exception as e:
+            print(f"（名冊寫出失敗：{e}）")
     if OUT == ACCOUNTS:                    # 只有寫回正本才留備份（--out= 是驗證用的旁路，不動正本）
         json.dump(acc, open(ACCOUNTS + ".bak", "w", encoding="utf-8"), ensure_ascii=False, indent=1)
     json.dump(final, open(OUT, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
