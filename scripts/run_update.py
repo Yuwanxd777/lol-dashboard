@@ -58,7 +58,17 @@ def SB(name, *args):
 # 每一階段的註解寫的是「為什麼這幾步可以同時跑」與「為什麼要等上一階段」。
 PLAN = [
     # 補件資料要先寫好，fetch_data 寫 data_{year}.js 時會把它併進去（update.bat 原註解）
-    ("① 補件", [S("fetch_promo"), S("fetch_fill")]),
+    # 2026-09-09 #96：fetch_promo 從 ① 搬到 ①b，**循序排在 fetch_fill 之後**（不再跟它並行）。
+    #   兩支都打 lol.fandom.com 的 Cargo，共用同一個匿名 IP 額度。9/9 22:00 那班 fetch_fill 抓了
+    #   LPL_2026_S3 167 局/1002 列（51s、大量 Cargo 查詢），fetch_promo 剛好滿 30 天觸發全量重抓，
+    #   **從第一個查詢就吃到 ratelimited**，燒掉 1682.8s（#95 已把退避封頂到 90s，但那只是止血）。
+    #   探針證據（#95）：22:30 用 limit=5 探針 0.36s 正常回 5 列；跑完 --force 之後 limit=5 與
+    #   limit=500 兩個都 ratelimited ⇒ 是**全域匿名額度的懲罰視窗**，不是某個查詢太貴。
+    #   代價幾乎為零：30 天裡有 29 天 fetch_promo 只花 0.1s 就被「30 天門檻／失敗戳記」擋掉，
+    #   真的要抓的那一天才會多花 ①b 這一段，而那一天拿到的是乾淨的額度。
+    ("① 補件", [S("fetch_fill")]),
+    # ①b 升降級賽：跟 ① 打同一個 Leaguepedia 匿名額度 ⇒ 不並行，等 fetch_fill 收工再跑
+    ("①b 補件：升降級賽", [S("fetch_promo")]),
     # 主資料：後面一堆東西都讀它，自己一階段
     ("② 主資料", [S("fetch_data")]),
     # 這一批全部打不同來源、彼此不讀對方的產物 ⇒ 可以一起跑
