@@ -28,7 +28,19 @@ RETRY_AFTER_H  = 20      # 上次嘗試失敗後這麼多小時內不再試（�
 # 可重試的 API 錯誤碼；其餘（查詢寫錯、資料表不存在…）重試幾次都一樣，立刻放棄別空等。
 RETRYABLE = ("ratelimited", "maxlag", "readonly", "internal_api_error", "busy")
 
+# 暫時性失敗（限流、連線斷）放棄時的離開碼：這份資料 30 天才更新一次，晚一兩天完全沒差。
+# 每次限流都 exit 1 ⇒ 健檢報「非零離開碼」⇒ publish.bat 留 autopilot/HEALTH_ALERT.txt ⇒
+# 「看到警示檔＝上一班的更新有問題」那個訊號（DAILY.md 線 3 檢查點）被稀釋成狼來了。
+# 規則：正本還在、而且沒老過硬上限 ⇒ 印警告但 exit 0（下一班再試）；
+#       正本不存在／老過硬上限／不可重試的 API 錯誤／人手動 --force ⇒ exit 1（那才真的該有人看）。
+# 一天最多重試一次（RETRY_AFTER_H=20）⇒ 連續失敗約 15 天之後就會開始叫，沈默是有上限的。
+STALE_HARD_DAYS = 45     # 正本超過這麼多天沒更新，暫時性失敗也要 exit 1（30 天週期＋15 天寬限）
+
 _SLEPT = 0.0             # 這次執行已經花在退避上的秒數（全域預算，所有查詢共用）
+
+
+class Transient(RuntimeError):
+    """暫時性失敗（限流／連線）。跟「查詢寫錯」這種永久性錯誤分開，離開碼規則不同。"""
 
 
 def _backoff(sec, why):
@@ -68,15 +80,17 @@ def cargo(params, retries=8):
                 if code not in RETRYABLE:
                     raise RuntimeError("cargo API 錯誤（不可重試的錯誤碼，直接放棄）：%s — %s" % (code, info))
                 if i == retries - 1 or not _backoff(20 * (i + 1), "API %s" % code):
-                    raise RuntimeError("cargo API 錯誤（退避預算 %ds 用完）：%s — %s" % (RETRY_BUDGET_S, code, info))
+                    raise Transient("cargo API 錯誤（退避預算 %ds 用完）：%s — %s" % (RETRY_BUDGET_S, code, info))
                 continue
             time.sleep(6)  # 全域節流
             return [x["title"] for x in r.get("cargoquery", [])]
         except RuntimeError:
             raise
         except Exception as e:
+            # 連線斷掉也是暫時性的：包成 Transient，讓收尾統一判離開碼（原本直接 raise ⇒
+            # 日誌吐一整段 traceback，健檢會多報一筆「Traceback」）。
             if i == retries - 1 or not _backoff(10, "連線失敗 %s" % type(e).__name__):
-                raise
+                raise Transient("連線失敗 %s：%s" % (type(e).__name__, e))
 
 def lg_of(page):
     for p, lg in PREFIX_LG:
@@ -151,11 +165,29 @@ def main():
         pass
     print(f"✅ {OUT_J.name} / {OUT_JS.name}")
 
+def give_up_code(exc, force):
+    """放棄時該用哪個離開碼。回傳 (碼, 要印的那一行說明)。"""
+    if not isinstance(exc, Transient):
+        return 1, "   ✗ 不是暫時性失敗（API 說這個查詢本身有問題）⇒ exit 1。"
+    if force:
+        return 1, "   ✗ 這次是人手動 --force 跑的 ⇒ exit 1（手動跑要吵）。"
+    if not OUT_J.exists():
+        return 1, "   ✗ 正本 %s 根本不存在 ⇒ exit 1。" % OUT_J.name
+    age_d = (time.time() - OUT_J.stat().st_mtime) / 86400.0
+    if age_d >= STALE_HARD_DAYS:
+        return 1, ("   ✗ 正本 %s 已經 %.1f 天沒更新，超過硬上限 %d 天 ⇒ exit 1（該有人看一眼）。"
+                   % (OUT_J.name, age_d, STALE_HARD_DAYS))
+    return 0, ("   正本 %s 還在（%.1f 天，硬上限 %d 天）⇒ 這次以 exit 0 收，下一班再試。"
+               % (OUT_J.name, age_d, STALE_HARD_DAYS))
+
+
 if __name__ == "__main__":
     try:
         main()
     except RuntimeError as e:
-        # 預期內的放棄（限流／API 錯誤）：印清楚的一行、離開碼非 0，不要吐 traceback。
+        # 預期內的放棄（限流／連線／API 錯誤）：印清楚的一行，不要吐 traceback。
         print("⚠ fetch_promo 放棄：%s" % e)
         print("   已留戳記 %s，%d 小時內不再重試（--force 可強制）。" % (TRY_ST.name, RETRY_AFTER_H))
-        sys.exit(1)
+        rc, why = give_up_code(e, "--force" in sys.argv)
+        print(why)
+        sys.exit(rc)
