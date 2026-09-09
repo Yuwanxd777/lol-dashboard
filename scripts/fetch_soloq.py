@@ -14,6 +14,7 @@ Riot API（免費 dev key，20 req/s、100 req/2min，會照速率限制自動 s
 金鑰只從環境變數 RIOT_API_KEY 讀，不寫進任何檔案。
 """
 import io, os, sys, json, time, re, urllib.parse, urllib.request, urllib.error, datetime, collections
+import http.client
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
@@ -111,23 +112,73 @@ def _throttle(host="_"):
                 time.sleep(wait)
                 now = time.time()
 
+# ── 逐主機 keep-alive 連線（2026-09-09 精進迴圈 #78）────────────────────────
+# 舊碼每一次 riot_get 都 urllib.request.urlopen ⇒ **每一次請求重開一條 TCP+TLS**。
+# 09-09 10:00 那班 ⑤c（fetch_soloq_auto）共 345 次逐帳號請求、整段 192.5s，
+# 而日誌裡印出來的節流暫停只有 74s（kr 65+9）⇒ 其餘 ~118s 攤下來每次 ~0.34s，大半是握手。
+# 實測（autopilot/_r78_riot_probe.py，同一個唯讀端點每個路由各 4 次）：
+#   kr 0.251→0.188s、euw1 1.135→0.733s、br1 0.440→0.331s、na1 0.497→0.356s（省 25~35%）
+# 依那一班的請求數加權 ≈ 省 52s；kr 那 185 次會被自己 100/120s 的節流吃回去 ⇒ 淨省約 40s。
+# **請求數與節流一個字都沒改**（_throttle／_BUCKETS 原封不動），只是同一個主機重用連線。
+_CONN_CLS = http.client.HTTPSConnection   # 傳輸出口：沙盒測試換掉這個名字就整條路徑都不連網
+_CONNS = {}                               # 主機名（kr.api.riotgames.com…）→ 連線
+
+
+def _conn_close(hostname):
+    c = _CONNS.pop(hostname, None)
+    if c is not None:
+        try: c.close()
+        except Exception: pass
+
+
+def close_conns():
+    """收工時把所有 keep-alive 連線關掉（不呼叫也不會壞，行程結束自然關）。"""
+    for h in list(_CONNS):
+        _conn_close(h)
+
+
+def _raw_get(url, timeout=15):
+    """GET 一次，回傳 (狀態碼, headers, body 位元組)。逐主機重用連線；
+    重用到一條被對方關掉的連線（keep-alive 的常態）就換新的重打一次，
+    **新連線也失敗才往上丟**（不會把真正連不上的情況拖成兩倍時間）。"""
+    sp = urllib.parse.urlsplit(url)
+    hostname = sp.hostname or ""
+    path = (sp.path or "/") + (("?" + sp.query) if sp.query else "")
+    hdrs = {"X-Riot-Token": KEY, "User-Agent": UA, "Accept": "*/*", "Connection": "keep-alive"}
+    while True:
+        c = _CONNS.get(hostname)
+        fresh = c is None
+        if fresh:
+            c = _CONNS[hostname] = _CONN_CLS(hostname, timeout=timeout)
+        try:
+            c.request("GET", path, headers=hdrs)
+            r = c.getresponse()
+            body = r.read()                      # 一定要讀完，不然這條連線不能重用
+            if getattr(r, "will_close", False):  # 對方說要關 → 下一次重開
+                _conn_close(hostname)
+            return r.status, r.headers, body
+        except Exception:
+            _conn_close(hostname)
+            if fresh:
+                raise
+            # 重用的連線壞掉：迴圈再走一次，這次 _CONNS 已空 ⇒ 一定是新連線
+
+
 def riot_get(url, timeout=15):
     host = _host_of(url)
     for attempt in range(4):
         _throttle(host)
-        req = urllib.request.Request(url, headers={"X-Riot-Token": KEY, "User-Agent": UA})
         _BUCKETS[host].append(time.time())
         try:
-            with urllib.request.urlopen(req, timeout=timeout) as r:
-                _set_limits(r.headers.get("X-App-Rate-Limit"))   # 每次都看，額度變了就跟著改
-                return r.getcode(), json.load(r)
-        except urllib.error.HTTPError as e:
-            _set_limits(e.headers.get("X-App-Rate-Limit") if e.headers else None)
-            if e.code == 429:                       # 被限速 → 等 Retry-After 再試
-                ra = int(e.headers.get("Retry-After", "5"))
+            code, hdrs, body = _raw_get(url, timeout)
+            _set_limits(hdrs.get("X-App-Rate-Limit"))   # 每次都看，額度變了就跟著改
+            if 200 <= code < 300:
+                return code, json.loads(body.decode("utf-8"))
+            if code == 429:                     # 被限速 → 等 Retry-After 再試
+                ra = int(hdrs.get("Retry-After", "5") or 5)
                 print(f"    429 限速，等 {ra}s…"); time.sleep(ra + 1); continue
-            if e.code == 404: return 404, None
-            return e.code, None
+            if code == 404: return 404, None
+            return code, None
         except Exception as ex:
             print(f"    連線錯誤：{ex}，重試…"); time.sleep(2); continue
     return 0, None

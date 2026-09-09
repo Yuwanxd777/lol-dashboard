@@ -44,9 +44,9 @@ class FakeResp:
 
 
 class FakeRiot:
-    """router(url) → (code, body)。calls 記每個請求的 URL（順序就是送出順序）。"""
+    """router(url) → (code, body)。calls 記每個請求的 URL（順序就是送出順序）、conns 記建立過幾條連線。"""
     def __init__(self, router):
-        self.router, self.calls = router, []
+        self.router, self.calls, self.conns = router, [], []
     def __call__(self, req, timeout=15):
         url = req.full_url
         self.calls.append(url)
@@ -56,19 +56,66 @@ class FakeRiot:
         return FakeResp(code, body)
 
 
+# 2026-09-09 #78：新版 riot_get 改走 keep-alive（http.client.HTTPSConnection，見 fetch_soloq._raw_get）
+# ⇒ **只換掉 urllib.request.urlopen 已經攔不到它了**（CLAUDE.md 2026-09-07 #52 的同一種漏接：
+# 模組後來多的出口沒被點名，沙盒會靜默去打真的 Riot）。所以 patched() 改成：
+#   有 _CONN_CLS 的模組（新版）→ 換掉 _CONN_CLS 並清空 _CONNS，同時把 urlopen 換成「一叫就爆」的漏接偵測器；
+#   沒有的（git HEAD 舊版，正控制）→ 照舊換 urlopen。
+class FakeHTTPResp:
+    def __init__(self, code, body, hdrs=None, will_close=False):
+        self.status = code
+        self.headers = hdrs if hdrs is not None else {}
+        self._b = json.dumps(body).encode("utf-8") if body is not None else b""
+        self.will_close = will_close
+    def read(self, *a):
+        return self._b
+
+
+def conn_cls_for(fake):
+    """產生假的 HTTPSConnection 類別：所有請求轉給 fake.router，建立過的連線記進 fake.conns。"""
+    class FakeConn(object):
+        def __init__(self, host, timeout=15):
+            self.host, self.timeout, self.closed, self._url = host, timeout, False, None
+            fake.conns.append(self)
+        def request(self, method, path, headers=None, body=None):
+            if self.closed:
+                raise OSError("沙盒：連線已關閉")
+            self._url = "https://%s%s" % (self.host, path)
+        def getresponse(self):
+            fake.calls.append(self._url)
+            code, body = fake.router(self._url)
+            return FakeHTTPResp(code, body)
+        def close(self):
+            self.closed = True
+    return FakeConn
+
+
+def _leak(*a, **k):
+    raise AssertionError("沙盒漏接：新版 riot_get 不該再走 urllib.request.urlopen")
+
+
 class SleepLog(list):
     def __call__(self, s):
         self.append(s)
 
 
 @contextlib.contextmanager
-def patched(fake, sleeps):
+def patched(fake, sleeps, mod=None):
     old_open, old_sleep = urllib.request.urlopen, time.sleep
-    urllib.request.urlopen, time.sleep = fake, sleeps
+    keep = mod is not None and hasattr(mod, "_CONN_CLS")
+    old_cls = getattr(mod, "_CONN_CLS", None) if keep else None
+    urllib.request.urlopen = _leak if keep else fake
+    time.sleep = sleeps
+    if keep:
+        mod._CONN_CLS = conn_cls_for(fake)
+        mod._CONNS.clear()
     try:
         yield
     finally:
         urllib.request.urlopen, time.sleep = old_open, old_sleep
+        if keep:
+            mod._CONN_CLS = old_cls
+            mod._CONNS.clear()
 
 
 def host_of(url):
@@ -101,7 +148,7 @@ def run_bucket_scenario(mod, label):
     if hasattr(mod, "_req_times"):
         mod._req_times.clear()
     fake, sleeps = FakeRiot(quiet_router), SleepLog()
-    with patched(fake, sleeps):
+    with patched(fake, sleeps, mod):
         with contextlib.redirect_stdout(io.StringIO()):
             for host in ("kr", "euw1", "br1", "asia"):
                 for _ in range(4):
@@ -124,13 +171,18 @@ check(sorted(NEW._BUCKETS) == ["asia", "br1", "euw1", "kr", "na1"], "桶按主�
 
 # ── 3. 正控制：HEAD 那版（全域一個桶）跑同一情境，第 5 個請求就得等 ──
 print("【3】正控制：git HEAD 舊版（全域桶）")
-old_src = subprocess.run(["git", "show", "HEAD:scripts/fetch_soloq.py"], cwd=ROOT,
+# 2026-09-09 #78：原本寫死 `HEAD:`——但分桶早就 commit 進 HEAD 了（9dd4aed8），
+# 這條正控制從那之後就一直是紅的（比對的是自己）。改成釘住「引入分桶那個 commit 的前一版」，
+# 這樣不管 HEAD 走多遠，控制組永遠是真正的舊碼。
+BUCKET_COMMIT = "9dd4aed8"      # 「節流改逐主機分桶＋帳號依平台交錯」
+old_src = subprocess.run(["git", "show", BUCKET_COMMIT + "~1:scripts/fetch_soloq.py"], cwd=ROOT,
                          capture_output=True).stdout
 TMP = tempfile.mkdtemp(prefix="soloq_bucket_")
 old_path = os.path.join(TMP, "fetch_soloq_old.py")
 open(old_path, "wb").write(old_src)
 OLD = load_mod(old_path, "fetch_soloq_old")
-check(not hasattr(OLD, "_BUCKETS") and hasattr(OLD, "_req_times"), "HEAD 版確實還是全域 _req_times（不是分桶）")
+check(len(old_src) > 1000, "拉得到 %s~1 的 fetch_soloq.py（%d 位元組）" % (BUCKET_COMMIT, len(old_src)))
+check(not hasattr(OLD, "_BUCKETS") and hasattr(OLD, "_req_times"), "分桶前那一版確實是全域 _req_times（不是分桶）")
 o_free, o_kr5, o_na, o_sleeps, o_calls = run_bucket_scenario(OLD, "舊版")
 check(o_free >= 1, "舊版 16 次裡就等了 %d 次（第 5 個請求起全域桶就滿）" % o_free)
 check(o_free > n_free, "舊版等的次數 > 新版（%d > %d）" % (o_free, n_free))
@@ -256,7 +308,7 @@ def sandbox_main(argv_extra):
     sys.argv = ["fetch_soloq.py"] + argv_extra
     buf = io.StringIO()
     try:
-        with patched(fake, sleeps), contextlib.redirect_stdout(buf):
+        with patched(fake, sleeps, m), contextlib.redirect_stdout(buf):
             m.main()
     finally:
         sys.argv = old_argv

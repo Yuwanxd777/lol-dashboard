@@ -36,7 +36,10 @@ def ok(name, cond, extra=""):
 
 
 def reset(limits=None):
-    FS._req_times.clear()
+    # 2026-09-09 #78：#70 把全域 _req_times 換成逐主機的 _BUCKETS 之後，這支就一直是紅的
+    # （AttributeError 一路炸到最上面 ⇒ 節流那條線等於沒有測試在守）。改用預設桶 "_"，
+    # 因為 _throttle() 不帶 host 時看的就是那個桶。
+    FS._BUCKETS.clear()
     FS._LIMITS = list(limits) if limits else [(20, 1.0), (100, 120.0)]
     FS._LIM_SRC = "測試"
 
@@ -64,7 +67,7 @@ def would_wait(limits, n_sent, gap=0.001):
     reset(limits)
     now = time.time()
     for i in range(n_sent):
-        FS._req_times.append(now - i * gap)
+        FS._BUCKETS["_"].append(now - i * gap)
     t0 = time.time()
     FS._throttle()
     return time.time() - t0
@@ -85,13 +88,13 @@ _orig = FS._throttle
 def _old_throttle():
     """改動前的版本（寫死 dev 值）。"""
     now = time.time()
-    while FS._req_times and now - FS._req_times[0] > 120:
-        FS._req_times.popleft()
-    if len(FS._req_times) >= 100:
-        wait = 120 - (now - FS._req_times[0]) + 0.1
+    while FS._BUCKETS["_"] and now - FS._BUCKETS["_"][0] > 120:
+        FS._BUCKETS["_"].popleft()
+    if len(FS._BUCKETS["_"]) >= 100:
+        wait = 120 - (now - FS._BUCKETS["_"][0]) + 0.1
         if wait > 0:
             time.sleep(min(wait, 1.0))      # 測試裡不真的睡滿
-    recent = [t for t in FS._req_times if time.time() - t < 1]
+    recent = [t for t in FS._BUCKETS["_"] if time.time() - t < 1]
     if len(recent) >= 18:
         time.sleep(1.0)
 
