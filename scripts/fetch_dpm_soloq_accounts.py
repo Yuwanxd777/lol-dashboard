@@ -297,8 +297,18 @@ def _launch(p):
 
 
 def _warm(pg):
-    for wait in (4, 14, 25, 20):
-        time.sleep(wait)
+    """先問一次再決定要不要等（2026-09-09 #81）。
+
+    舊寫法是 `for wait in (4,14,25,20): sleep(wait); 問一次` ⇒ **一定先付 4 秒**，
+    可是 dpm 的 Cloudflare 盤查多半 goto 之後第一問就通：唯讀探針
+    `autopilot/_r81_warm_probe.txt` 三趟冷開機（各自新瀏覽器）第一次回 200 的時間是
+    0.96／0.73／0.56 秒，都在第一問就過。所以第一問改成不睡就問（wait=0），
+    真的被盤查才照舊遞增等——等待序列後面完全沒動（4→14→25→20，總等待上限一樣 63 秒，
+    問的次數還多一次），過不了的那種情況行為不變。
+    """
+    for wait in (0, 4, 14, 25, 20):
+        if wait:
+            time.sleep(wait)
         try:
             st = pg.evaluate("async()=>{const r=await fetch('/v1/esport/soloq/top-teams');return r.status;}")
         except Exception:

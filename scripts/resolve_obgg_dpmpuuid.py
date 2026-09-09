@@ -29,8 +29,14 @@ def _launch(p):
 
 
 def _warm(pg):
-    for wait in (4, 14, 25):
-        time.sleep(wait)
+    """先問一次再決定要不要等（2026-09-09 #81，跟 fetch_dpm_soloq_accounts 同一個修法）。
+    dpm 的盤查多半 goto 後第一問就 200（探針 autopilot/_r81_warm_probe.txt：0.96／0.73／0.56s），
+    舊寫法一律先睡 4 秒。等待序列（4→14→25）沒動，只是最前面多一次不睡的問。
+    這支平常 todo 是空的（0.1s 就結束、根本不開瀏覽器），但只要有新帳號要反查就會付那 4 秒。
+    """
+    for wait in (0, 4, 14, 25):
+        if wait:
+            time.sleep(wait)
         try:
             st = pg.evaluate("async()=>{const r=await fetch('/v1/esport/soloq/top-teams');return r.status;}")
         except Exception:
