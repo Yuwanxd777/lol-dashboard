@@ -14,7 +14,7 @@ Riot API（免費 dev key，20 req/s、100 req/2min，會照速率限制自動 s
 金鑰只從環境變數 RIOT_API_KEY 讀，不寫進任何檔案。
 """
 import io, os, sys, json, time, re, urllib.parse, urllib.request, urllib.error, datetime, collections
-import http.client
+import http.client, threading
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
@@ -48,6 +48,9 @@ ALIAS = {"KR":"kr","NA":"na1","EUW":"euw1","EUNE":"eun1","BR":"br1","JP":"jp1",
 # 搭配 interleave_order() 把帳號依平台交錯，同一區的請求自然攤開、其它區的請求填進等待的空檔。
 # 429 的處理（Retry-After 重試）原封不動：萬一某兩個主機其實共用額度，也只是多等、不會壞。
 _BUCKETS = collections.defaultdict(collections.deque)   # host（kr／euw1／asia…）→ 送出時間戳
+_WAITED = [0.0]                                         # 純節流等待的累計秒數（#84，只給日誌看）
+_REQS = collections.Counter()                           # host → 這一班真的送出去的請求數（#84，只給日誌看）
+_WAITED_LK = threading.Lock()                           # prefetch_ladders 並行時同一個計數器會被四條執行緒碰
 
 
 def _host_of(url):
@@ -110,6 +113,10 @@ def _throttle(host="_"):
                       % (wait, host, cnt, sec, _LIM_SRC), flush=True)
             if wait > 0:
                 time.sleep(wait)
+                # 累計「純粹在等額度」的秒數（#84）：日誌以前只印 >3s 的那幾次暫停，
+                # 零星的小等待加起來多少沒人知道 ⇒ 收尾那行的「其中節流暫停 Ys」就是這個總和。
+                with _WAITED_LK:
+                    _WAITED[0] += wait
                 now = time.time()
 
 # ── 逐主機 keep-alive 連線（2026-09-09 精進迴圈 #78）────────────────────────
@@ -169,6 +176,8 @@ def riot_get(url, timeout=15):
     for attempt in range(4):
         _throttle(host)
         _BUCKETS[host].append(time.time())
+        _REQS[host] += 1        # 桶會 popleft 掉舊時間戳，要算整班請求數只能另外數（#84）
+                                # 同一個 host 永遠只有一條執行緒在送（見 prefetch_ladders）⇒ 不必鎖
         try:
             code, hdrs, body = _raw_get(url, timeout)
             _set_limits(hdrs.get("X-App-Rate-Limit"))   # 每次都看，額度變了就跟著改
@@ -319,35 +328,90 @@ def dpm_fallback(rec, dr):
 LADDER = {}          # (platform, puuid) -> entry
 LADDER_HITS = [0]
 LADDER_MIN = 10
+LADDER_TIERS = ("challenger", "grandmaster", "master")
 
 
-def prefetch_ladders(platforms):
+def _ladder_one(plat, out, lines):
+    """抓 `plat` 的三份名單填進 `out`（自己的 dict），訊息收進 `lines`。回傳帶 puuid 的 entry 數。
+
+    整段跟改成並行之前**逐字一樣**，只有 print 改成 lines.append（並行時直接 print 會交錯成亂碼）。
+    """
     n = 0
-    for plat in sorted(platforms):
-        for tier in ("challenger", "grandmaster", "master"):
-            # 名單很大（kr/master 上萬人，第一次實測 504）：給 60 秒，5xx 再試一次
-            url9 = f"https://{plat}.api.riotgames.com/lol/league/v4/{tier}leagues/by-queue/RANKED_SOLO_5x5"
-            code, data = riot_get(url9, timeout=60)
-            if code >= 500:
-                time.sleep(3)
-                code, data = riot_get(url9, timeout=90)
-            if code != 200 or not isinstance(data, dict):
-                print(f"    聯盟名單 {plat}/{tier}：HTTP {code}（這一階跳過，走逐帳號）")
+    for tier in LADDER_TIERS:
+        # 名單很大（kr/master 上萬人，第一次實測 504）：給 60 秒，5xx 再試一次
+        url9 = f"https://{plat}.api.riotgames.com/lol/league/v4/{tier}leagues/by-queue/RANKED_SOLO_5x5"
+        code, data = riot_get(url9, timeout=60)
+        if code >= 500:
+            time.sleep(3)
+            code, data = riot_get(url9, timeout=90)
+        if code != 200 or not isinstance(data, dict):
+            lines.append(f"    聯盟名單 {plat}/{tier}：HTTP {code}（這一階跳過，走逐帳號）")
+            continue
+        ents = data.get("entries") or []
+        got = 0
+        for e in ents:
+            pu = e.get("puuid")
+            if not pu:
                 continue
-            ents = data.get("entries") or []
-            got = 0
-            for e in ents:
-                pu = e.get("puuid")
-                if not pu:
-                    continue
-                e2 = dict(e)
-                e2["tier"] = data.get("tier") or tier.upper()
-                e2["queueType"] = "RANKED_SOLO_5x5"
-                LADDER[(plat, pu)] = e2
-                got += 1
-            n += got
-            print(f"    聯盟名單 {plat}/{tier}：{len(ents)} 人（帶 puuid {got}）")
-    print(f"聯盟名單預抓完成：{n} 個 Master 以上帳號可直接查表，不逐帳號呼叫")
+            e2 = dict(e)
+            e2["tier"] = data.get("tier") or tier.upper()
+            e2["queueType"] = "RANKED_SOLO_5x5"
+            out[(plat, pu)] = e2
+            got += 1
+        n += got
+        lines.append(f"    聯盟名單 {plat}/{tier}：{len(ents)} 人（帶 puuid {got}）")
+    return n
+
+
+# ── 每平台一條執行緒（2026-09-09 精進迴圈 #84）────────────────────────────────
+# 舊碼四個平台 x 3 個 tier **循序**打 12 次，而 master 名單一次上萬人（好幾 MB）⇒ 光下載就佔掉
+# ⑤c 一大塊，日誌卻只印「幾人」不印秒數。唯讀探針（autopilot/_r84_ladder_probe.py，交錯
+# seq/par/seq/par 兩輪、每輪 12 次真請求）：**循序 26.2／19.8s、並行 7.5／6.3s ⇒ 平均 23.0 → 6.9s，省 16s**，
+# 四輪的 (platform,puuid) 集合合計都是 42950、彼此只差 4 人（名單自己在流動，不是並行漏抓），429 = 0。
+# 並行安全的理由（#70 分桶那條的直接推論）：**平台 = 主機 = 額度桶**，每條執行緒只碰自己那個
+# _BUCKETS[host] 與 _CONNS[hostname]，彼此不共用；平台內仍循序 ⇒ 同一個桶永遠只有一條執行緒在動。
+# 共用狀態只有 _LIMITS（四條寫進去的是同一組額度）與 _WAITED（有鎖）。
+# 併發度刻意等於平台數（4）、不做成參數：再高也只是同一個主機自己排隊。
+# 退路：`--ladder-seq` 退回逐平台循序（萬一哪天 Riot 對併發連線變嚴，一行就能退）。
+def prefetch_ladders(platforms):
+    plats = sorted(platforms)
+    t0 = time.time()
+    par = len(plats) > 1 and "--ladder-seq" not in sys.argv
+    res = {}                       # plat -> (n, lines)；執行緒各寫各的 key，不必鎖
+    merged = {}
+    lk = threading.Lock()
+
+    def work(plat):
+        loc, lines = {}, []
+        try:
+            n = _ladder_one(plat, loc, lines)
+        except Exception as ex:    # 一個平台炸掉不連坐其它平台（它自己退回逐帳號就好）
+            n, loc = 0, {}
+            lines.append(f"    聯盟名單 {plat}：例外 {ex}（這一階跳過，走逐帳號）")
+        with lk:
+            merged.update(loc)
+        res[plat] = (n, lines)
+
+    if par:
+        ths = [threading.Thread(target=work, args=(p,), name="ladder-" + p) for p in plats]
+        for t in ths:
+            t.start()
+        for t in ths:
+            t.join()
+    else:
+        for p in plats:
+            work(p)
+    LADDER.update(merged)
+    n = 0
+    for p in plats:                # 依平台排序統一印，日誌跟循序版長得一模一樣
+        cnt, lines = res.get(p, (0, [f"    聯盟名單 {p}：沒有結果（這一階跳過，走逐帳號）"]))
+        n += cnt
+        for ln in lines:
+            print(ln)
+    print("聯盟名單預抓完成：%d 個 Master 以上帳號可直接查表，不逐帳號呼叫" % n)
+    print("⏱ 聯盟名單預抓 %.0fs（%d 個平台 x %d 份名單，%s）"
+          % (time.time() - t0, len(plats), len(LADDER_TIERS),
+             "每平台一條執行緒" if par else "循序"), flush=True)
     return n
 
 
@@ -669,6 +733,7 @@ def main():
         _pc = collections.Counter(_plat_of(a) for a in accounts)
         print("處理順序依平台交錯（%s）；分桶節流逐主機各算額度，日誌的 [n/N] 是原清單位置"
               % "／".join("%s %d" % kv for kv in _pc.most_common()))
+    _t_loop, _w_loop, _r_loop = time.time(), _WAITED[0], sum(_REQS.values())
     for i in order:
         a = accounts[i]
         rec = fetch_one(a, f"{i + 1}/{len(accounts)}")
@@ -682,6 +747,14 @@ def main():
             else:
                 retry.append((i, a))
         out[i] = rec
+    # 逐帳號主迴圈的組成（#84）：以前 ⑤c 只有「整段 192.5s」一個數字，要拆得靠人工從
+    # 節流暫停那幾行湊。這行把「牆鐘／真的送出去幾次請求／其中純粹在等額度多久」寫進 log
+    # （#56：時間資料要留在 update_log.txt，console 檔每一班會被覆寫）。
+    print("⏱ 逐帳號主迴圈 %.0fs：%d 個帳號、%d 次請求，其中節流暫停 %.0fs"
+          "（整班至此逐主機累計：%s）"
+          % (time.time() - _t_loop, len(order), sum(_REQS.values()) - _r_loop,
+             _WAITED[0] - _w_loop,
+             "／".join("%s %d" % (h, c) for h, c in _REQS.most_common()) or "無"), flush=True)
     if LADDER_HITS[0]:
         print(f"（聯盟名單命中 {LADDER_HITS[0]} 個帳號 → 省下同樣次數的逐帳號請求）")
     if settled:
