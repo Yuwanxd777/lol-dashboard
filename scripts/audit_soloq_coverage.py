@@ -7,6 +7,9 @@
   ③有帳號無逐場 ：soloq_match_index.js 沒這個人（沒 dpmPuuid 或 fetch_soloq_year 漏抓）→ 點不進去、無最近十場
   ④路線不符     ：逐場主路 ≠ 比賽數據位置（≥8 場）→ 很可能是張冠李戴的帳號
   ⑤帳號疑似停用 ：逐場最後一場 > N 天前、但選手最近仍在打職業（帳號改名／換號沒跟上）
+  ⑥帳號看來已棄用：管線查得到這些帳號、卻是「今年 0 場 ＋ 無牌位」——跟⑤同一種病（人已經換號了），
+                  只是從來沒抓到過場次、沒有「逐場最後一場」可比，落不進⑤的判定。
+                  （②③ 保留給「soloq.js 根本沒有這個人」＝管線沒去查，那是另一種病。）
 另列「帳號檔有、今年比賽卻沒出場」的人（教練／退役／二隊，前端本來就不列，只供參考）。
 
 用法：
@@ -111,6 +114,7 @@ def main():
         accs = acc_by.get(k, [])
         accs_team = [x for x in accs if team_eq(x.get("team"), e["team"])] or accs
         ranks = [x for x in rank_by.get(k, []) if x.get("found") and x.get("tier")]
+        queried = bool(rank_by.get(k))   # soloq.js 有這個人的 entry＝管線真的去查過（found=False 也算查過）
         idx = idx_by.get(k, [])
         idx_team = [v for tm, v in idx if team_eq(tm, e["team"])] or [v for tm, v in idx]
         recent = (today - datetime.date.fromisoformat(e["last"])).days <= a.days if e["last"] else False
@@ -120,11 +124,18 @@ def main():
         else:
             if not accs_team or not any(team_eq(x.get("team"), e["team"]) for x in accs):
                 issues.append(f"隊碼不符(帳號在 {sorted({x.get('team') for x in accs})})")
-            if not ranks:
-                issues.append("②有帳號無牌位")
-            if not idx_team:
-                issues.append("③有帳號無逐場")
+            # 2026-09-10 精進迴圈 #97（#91 的發現）：②與③同時成立、而且管線確實查過 ⇒ 併成一條⑥。
+            # 「查得到帳號、今年 0 場、也沒牌位」＝人已經換去我們不知道的帳號，要做的事跟⑤一模一樣（去找新號），
+            # 但拆成兩個技術性描述時，看報告的人不會意識到這幾位跟⑤那批是同一件事。
+            # queried=False（soloq.js 連 entry 都沒有）維持②③——那是「管線沒去查」，另一種病，別混進來。
+            if not ranks and not idx_team and queried:
+                issues.append("⑥帳號看來已棄用(查得到帳號、今年 0 場、無牌位)")
             else:
+                if not ranks:
+                    issues.append("②有帳號無牌位")
+                if not idx_team:
+                    issues.append("③有帳號無逐場")
+            if idx_team:
                 v = idx_team[0]
                 role = ROLE_ALIAS.get(str(v.get("role") or "").upper(), v.get("role"))
                 if role and v.get("n", 0) >= 8 and role != e["pos"]:
@@ -147,7 +158,7 @@ def main():
     cnt = Counter()
     for r in prob:
         for i in r["issues"]:
-            cnt[i[:1] if i[0] in "①②③④⑤" else "隊碼"] += 1
+            cnt[i[:1] if i[0] in "①②③④⑤⑥" else "隊碼"] += 1
     print("  分類：" + "、".join(f"{k} {v}" for k, v in sorted(cnt.items())))
     print()
     print("── 最近仍在打職業、有問題的（優先處理）──")
@@ -155,7 +166,7 @@ def main():
         if not r["recent"]:
             continue
         print(f"  {r['last']}  {r['team']:<5} {r['player']:<14} {r['pos']:<8} {r['n']:>3}場  {'/'.join(r['leagues'])}  → {'；'.join(r['issues'])}"
-              + (f"  [{'、'.join(str(x) for x in r['riotIds'])}]" if r['riotIds'] and any(i.startswith(('②','③','④','⑤')) for i in r['issues']) else ""))
+              + (f"  [{'、'.join(str(x) for x in r['riotIds'])}]" if r['riotIds'] and any(i.startswith(('②','③','④','⑤','⑥')) for i in r['issues']) else ""))
     print()
     print(f"── 最近 {a.days} 天沒出賽、有問題的（多半是二隊／已離隊／短期替補）──")
     for r in prob:
