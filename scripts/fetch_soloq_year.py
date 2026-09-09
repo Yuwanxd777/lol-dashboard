@@ -122,9 +122,38 @@ def comp_roles():
 
 
 # Phase1：查 5 條路 totalCount → 該帳號主導路線 token + 場數
-JS_ROLE = """async(PU)=>{ const TOKS=['top','jungle','middle','bottom','utility']; const out={};
+# 5 條路彼此不相干 ⇒ Promise.all 一次發出去（2026-09-09 #85）。舊的循序版留著當退路：
+# 探針 autopilot/_r85_dpm_probe.py 交錯量 3 個帳號 x 2 輪，循序平均 15.2s、並行 3.5s（每帳號 5.1s → 1.2s），
+# 5 個 totalCount 逐字相同、非 200 的欄位 0 個。dpm 真的擋併發時 role_counts() 會自己退回循序。
+JS_ROLE_SEQ = """async(PU)=>{ const TOKS=['top','jungle','middle','bottom','utility']; const out={};
   for(const t of TOKS){ try{ const r=await fetch(`/v1/players/${PU}/match-history?size=15&page=1&lane=${t}`);
     out[t]= r.ok ? ((await r.json()).totalCount||0) : -1; }catch(e){ out[t]=-1; } } return out; }"""
+
+JS_ROLE = """async(PU)=>{ const TOKS=['top','jungle','middle','bottom','utility']; const out={};
+  await Promise.all(TOKS.map(async t=>{ try{ const r=await fetch(`/v1/players/${PU}/match-history?size=15&page=1&lane=${t}`);
+    out[t]= r.ok ? ((await r.json()).totalCount||0) : -1; }catch(e){ out[t]=-1; } }));
+  return out; }"""
+
+
+def role_counts(pg, pu):
+    """該帳號 5 條路的 totalCount：先併發問，任何一條非 200（-1）或整個丟例外就退回循序重問一次。
+
+    -1 代表 dpm 沒回 200（限速／盤查），不是「這條路 0 場」——直接吃下去會讓主導路線判錯，
+    所以併發只當快路徑，出事就用舊的循序版重來（每帳號多 5 秒，但只在真的出事時付）。
+    兩版都拿不到就回 {}（呼叫端本來就把空字典當「這帳號問不到」處理）。
+    """
+    last = {}
+    for js in (JS_ROLE, JS_ROLE_SEQ):
+        try:
+            tc = pg.evaluate(js, pu)
+        except Exception:
+            continue
+        if not isinstance(tc, dict):
+            continue
+        last = tc
+        if tc and not any(v == -1 for v in tc.values()):
+            return tc
+    return last
 
 # Phase2：只抓 lane=token 的 2026 q420，回精簡逐場(技能前3、符文keystone)
 JS_YEAR = """async(args)=>{ const [PU, tok, CUT]=args; const out=[];
@@ -173,6 +202,30 @@ def write_acc_lastgame(new_map):
     return len(old)
 
 
+_SQ_PRE = "window.__sqLoad("
+
+def _key_of_file(path, head=4096):
+    """逐場檔開頭那個選手 key（隊|選手）：只讀檔頭、只解出第一個 JSON 值。
+
+    2026-09-09 #85：舊版為了拿開頭那個字串，`json.loads("[" + 整個檔 + "]")[0]` 把 423 個檔
+    共 250MB 的場次全部解成 Python 物件——⑤e「補新人」那一階段 4.0s 有 2.9s 花在這裡，
+    而且**每一班都付**（一位新選手都沒有時也照跑，因為它就是用來判斷「誰缺檔」的）。
+    改成讀前 4096 字＋`raw_decode` 只吃掉那個字串後是 0.01s，423 個 key 一字不差。
+    檔頭長得不對就退回整檔解析（保底：寧可慢也不要少認出選手，少認＝替既有選手重建出重複檔）。
+    """
+    import re as _re
+    with open(path, encoding="utf-8") as f:
+        head_s = f.read(head)
+    if head_s.startswith(_SQ_PRE):
+        try:
+            return json.JSONDecoder().raw_decode(head_s[len(_SQ_PRE):])[0]
+        except ValueError:
+            pass
+    t = open(path, encoding="utf-8").read()
+    m = _re.match(r"window\.__sqLoad\((.*)\);\s*$", t, _re.S)
+    return json.loads("[" + m.group(1) + "]")[0]
+
+
 def _keys_on_disk(outdir):
     """磁碟上實際已有逐場檔的選手 key（隊|選手）。--missing 以此為準(而非只看索引)，避免索引與磁碟漂移時替既有選手重建出重複檔。"""
     import re as _re
@@ -183,9 +236,7 @@ def _keys_on_disk(outdir):
         if not _re.match(r"p\d+\.js$", fn):
             continue
         try:
-            t = open(os.path.join(outdir, fn), encoding="utf-8").read()
-            m = _re.match(r"window\.__sqLoad\((.*)\);\s*$", t, _re.S)
-            have.add(json.loads("[" + m.group(1) + "]")[0])
+            have.add(_key_of_file(os.path.join(outdir, fn)))
         except Exception:
             continue
     return have
@@ -248,8 +299,10 @@ def main():
         b = _launch_real(p)
         pg = b.new_context(user_agent=UA, viewport={"width":1400,"height":900}, locale="en-US").new_page()
         pg.goto("https://dpm.lol/", wait_until="domcontentloaded", timeout=60000)
-        for _w in (3.5, 14, 25):  # Cloudflare 盤查自動重試（偶發互動式 Turnstile：多等幾輪通常自動放行）
-            time.sleep(_w)
+        # 先問再等（#85 探針：goto 完 0.33~0.49s 就放行，舊版無條件先睡 3.5s ⇒ 每支白等約 3 秒）；
+        # 沒放行才進盤查等待（偶發互動式 Turnstile：多等幾輪通常自動放行），3.5/14/25 的階梯一秒沒改。
+        for _w in (0, 3.5, 14, 25):
+            if _w: time.sleep(_w)
             try:
                 if pg.evaluate("async()=>{const r=await fetch('/v1/esport/soloq/top-teams');return r.status;}") == 200: break
             except Exception: pass
@@ -258,8 +311,7 @@ def main():
             # Phase1：每帳號主導路線；選手職業路線＝主帳(主導場數最多)的主導路線
             best_tok, best_cnt = "middle", -1
             for a in accs:
-                try: tc = pg.evaluate(JS_ROLE, a["dpmPuuid"])
-                except Exception: tc = {}
+                tc = role_counts(pg, a["dpmPuuid"])
                 if tc:
                     dom = max(tc, key=lambda t: tc[t]); a["_dom"]=dom; a["_domN"]=tc.get(dom,0)
                     if tc.get(dom,0) > best_cnt: best_cnt = tc.get(dom,0); best_tok = dom
@@ -275,8 +327,7 @@ def main():
                     print(f"   ⛔ 帳號標示錯誤：{a.get('riotId')}（主路 {a.get('_dom')}≠{comp}），以後不再抓")
                 use = [a for a in accs if a not in badn]
                 for a in BAD_BY_KEY.get(key, []):  # 複驗已標錯帳號：主路已符合資料庫 → 解除標記、恢復抓取
-                    try: tc2 = pg.evaluate(JS_ROLE, a["dpmPuuid"])
-                    except Exception: tc2 = {}
+                    tc2 = role_counts(pg, a["dpmPuuid"])
                     if tc2:
                         dom2 = max(tc2, key=lambda t2: tc2[t2])
                         if dom2 == comp and tc2.get(dom2, 0) >= 8:

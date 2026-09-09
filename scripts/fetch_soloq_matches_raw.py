@@ -64,8 +64,10 @@ def main():
         b = _launch_real(p)
         pg = b.new_context(user_agent=UA, viewport={"width":1400,"height":900}, locale="en-US").new_page()
         pg.goto("https://dpm.lol/", wait_until="domcontentloaded", timeout=60000)
-        for _w in (3.5, 14, 25):  # Cloudflare 盤查自動重試（偶發互動式 Turnstile：多等幾輪通常自動放行）
-            time.sleep(_w)
+        # 先問再等（#85 探針：goto 完 0.33~0.49s 就放行，舊版無條件先睡 3.5s ⇒ 每支白等約 3 秒）；
+        # 沒放行才進盤查等待（偶發互動式 Turnstile：多等幾輪通常自動放行），3.5/14/25 的階梯一秒沒改。
+        for _w in (0, 3.5, 14, 25):
+            if _w: time.sleep(_w)
             try:
                 if pg.evaluate("async()=>{const r=await fetch('/v1/esport/soloq/top-teams');return r.status;}") == 200: break
             except Exception: pass

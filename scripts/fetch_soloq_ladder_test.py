@@ -217,8 +217,12 @@ def main():
     chk(F._WAITED[0] > w_wall,
         "並行時「累計等待」要大於牆鐘（四條同時在等，%.2fs vs 牆鐘 %.2fs）" % (F._WAITED[0], w_wall))
 
-    print("── ⑧ 正控制：HEAD 那版跑同一套，該紅的地方要紅 ──")
-    old_src = subprocess.run(["git", "show", "HEAD:scripts/fetch_soloq.py"], cwd=ROOT,
+    # 2026-09-09 #85：這裡本來寫 HEAD，**#84 的改動一 commit 進去，HEAD 就變成新版**，
+    # 四條正控制當場全紅（報成「37 通過／4 失敗」，離開碼還是 0，看起來像測試壞了）。
+    # 正控制要的是「改動前那一版」，所以釘死在 #84 的父 commit；以後再改這支就往下再釘一次。
+    BEFORE = "45493fb5"   # b270990a^＝⑤c 名單並行化之前
+    print("── ⑧ 正控制：改動前那版（%s）跑同一套，該紅的地方要紅 ──" % BEFORE)
+    old_src = subprocess.run(["git", "show", "%s:scripts/fetch_soloq.py" % BEFORE], cwd=ROOT,
                              capture_output=True).stdout.decode("utf-8", "replace")
     old_path = os.path.join(td, "fetch_soloq_head.py")
     io.open(old_path, "w", encoding="utf-8", newline="").write(old_src)
