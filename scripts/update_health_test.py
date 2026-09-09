@@ -573,6 +573,53 @@ _victim = sorted(_hurt, key=lambda k: -_hurt[k])[0]
 _hurt[_victim] = _hurt[_victim] // 3
 eq(len(sp(_fs, _hurt)[1]), 1, "㉔正控制：把最大的檔砍成三分之一就會被抓到")
 
+# ── ㉕ 步驟清單哨兵（2026-09-10 #101）：#100 擋「產物變小／不見」，這一組擋「產出它的那一步不再跑」──
+# 舊版唯一的訊號是「步驟 43 個」這個**沒有基準可比的數字**，所以 PLAN 少一步時報告一路綠。
+def spn(prev, cur):
+    return uh.step_problems(prev, cur)
+
+_full = ["fetch_fill", "fetch_promo", "fetch_data", "fetch_side_sel", "build_soloq_builds"]
+_less = [n for n in _full if n != "fetch_side_sel"]
+_more = _full + ["fetch_newthing"]
+eq(spn(_full, _full)[1], [], "㉕全到齊沒有異常")
+eq("基準 5 個都在" in spn(_full, _full)[0], True, "㉕正常那行要講基準都在")
+eq(len(spn(_full, _less)[1]), 1, "㉕少一步＝一條異常")
+eq("fetch_side_sel" in spn(_full, _less)[1][0], True, "㉕異常訊息要指名是哪一步")
+eq("不見了" in spn(_full, _less)[1][0], True, "㉕措辭含「不見了」才會觸發 main 的高水位提示句")
+eq("少了 1 個" in spn(_full, _less)[0], True, "㉕摘要行要講少了幾個")
+eq(len(spn(_full, [_full[0]])[1]), 1, "㉕少四步仍是一條（訊息裡列出全部）")
+eq(spn(_full, [_full[0]])[1][0].count("、") >= 3, True, "㉕四個缺席的名字都要列出來")
+eq(spn(_full, _more)[1], [], "㉕新增步驟不算異常（PLAN 加東西是常態）")
+eq("新增 fetch_newthing" in spn(_full, _more)[0], True, "㉕新增要印出來給人看")
+eq(spn(_full, [])[1], [], "㉕這一班沒跑完任何步驟時不重複報（run_problems 已報過）")
+eq("上面已報" in spn(_full, [])[0], True, "㉕空清單那行講清楚為什麼不報")
+eq(spn([], _full)[1], [], "㉕沒有基準時不報")
+eq("首次建立基準" in spn([], _full)[0], True, "㉕首次那行講清楚")
+# step_names：去重（階段並行炸掉會退回循序把同一批再跑一次）＋保序＋能吃 None
+eq(uh.step_names({"steps": [("a", 1.0, 0), ("b", 2.0, 0), ("a", 3.0, 0)]}), ["a", "b"],
+   "㉕step_names 去重且保留首次出現順序")
+eq(uh.step_names(None), [], "㉕沒有日誌回空清單")
+eq(uh.step_names({}), [], "㉕日誌沒有 steps 回空清單")
+eq(uh.step_names({"steps": []}), [], "㉕steps 是空的回空清單")
+# merge_steps：高水位（跟 merge_baseline／merge_sizes 同一個洞）
+eq(uh.merge_steps(_full, _less), _full, "㉕缺席不寫回基準（下一輪繼續報）")
+eq(uh.merge_steps(_full, _less, accept=True), _less, "㉕正控制：accept 才認可縮小後的清單")
+eq(uh.merge_steps(_full, _more), _more, "㉕新增併進基準")
+eq(uh.merge_steps(_full, []), _full, "㉕這一班沒步驟時不可以把基準清空")
+eq(uh.merge_steps([], _full), _full, "㉕空基準吃下這一班")
+eq(uh.merge_steps(_full, _less)[3], "fetch_side_sel", "㉕高水位保留原順序")
+# 正控制：舊版存檔時特地把 steps 丟掉 ⇒ 連基準都沒有，缺席根本比不出來
+_oldsave = {k: v for k, v in {"runs": [], "steps": [("a", 1.0, 0)]}.items() if k != "steps"}
+eq("steps" in _oldsave, False, "㉕正控制：舊版基準裡根本沒有 steps 可比")
+# 真實日誌端到端：現況自己跟自己零異常，拿掉一步一定要被抓到
+_rl = uh.parse_log()
+if _rl:
+    _rn = uh.step_names(_rl)
+    eq(len(_rn) >= 20, True, "㉕真實日誌至少 20 個步驟（少於這個數＝parse 壞了）")
+    eq(spn(_rn, _rn)[1], [], "㉕真實日誌自己跟自己沒有異常")
+    eq(len(spn(_rn, _rn[1:])[1]), 1, "㉕正控制：真實日誌拿掉一步就會被抓到")
+    eq(len(set(_rn)), len(_rn), "㉕真實步驟名沒有重複（去重生效）")
+
 print("update_health 回歸測試：通過 %d 條" % OK[0] + ("" if not NG else "，失敗 %d 條" % len(NG)))
 for m in NG:
     print("   ✗ " + m)

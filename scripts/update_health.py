@@ -200,6 +200,71 @@ def run_problems(lg, age_min, fresh_min):
     return out
 
 
+# ── run_update 的步驟清單（2026-09-10 #101；純函式，scripts/update_health_test.py 在測）────
+# 為什麼要有這段：#100 補的是「產物不見了／變小了」，這一條補的是**上游**——產出它的那一步
+# 從此不再跑。`run_update.PLAN` 是一份靜態的 43 步清單，它被改壞（#96 才剛把 fetch_promo
+# 換過階段、#72 動過 ③ 的順序）、某支腳本 import 失敗被執行器略過、或 `--only` 驗收把正式日誌
+# 覆寫掉時，那一步就此從日誌上消失，而現有的每一條哨兵都看不到：
+#   ‧ 產物檔還在、bytes 也不變（#100 量的是體積，沒重寫就沒有變化）
+#   ‧ 列數等於基準（高水位，只擋得住變少）
+#   ‧ #98 的比賽日期只看 data_*.js、#99 的版本只看 patches／DDragon
+#     ⇒ soloq／career／side_sel／圖鑑那一整批的產出步驟消失，沒有任何人出聲
+#   ⇒ 報告一路印「✓ 沒有異常」，資料其實從那天起就凍住了（跟 #47 讀到上一班日誌、#49 印舊快照、
+#     #98 來源停更同一種病：**沒變化被讀成沒問題**）。
+# 諷刺的是健檢本來就 parse 出了步驟名，卻只拿來印「步驟 43 個」，從不跟基準比；
+# 存檔時還特地把 steps 丟掉（`{k: v for k, v in lg.items() if k != "steps"}`）。
+# 缺席採高水位：不寫回基準，一直報到 `--accept`（跟 counts／sizes／latest／versions 同一個處置）。
+
+
+def step_names(lg):
+    """日誌裡跑過的步驟名：去重、保留首次出現的順序。
+
+    去重是必要的——階段並行炸掉會退回循序把同一批步驟再跑一次（parse_log 的 stage_fallback），
+    那時同一個名字在日誌裡出現兩次，不去重的話基準會被「跑幾次」污染。
+    """
+    seen, out = set(), []
+    for n, _, _ in ((lg or {}).get("steps") or []):
+        if n not in seen:
+            seen.add(n)
+            out.append(n)
+    return out
+
+
+def step_problems(prev, cur):
+    """回 (要印的那一行, [異常…])。prev＝基準裡的步驟名（高水位聯集）、cur＝這一班跑過的。"""
+    if not cur:
+        # 「一個步驟都沒跑完」run_problems 已經報過了，這裡不重複；也不能拿空清單去比基準
+        return ("步驟清單：這一班沒有跑完任何步驟（上面已報）", [])
+    if not prev:
+        return ("步驟清單：%d 個步驟（首次建立基準）" % len(cur), [])
+    cs, ps = set(cur), set(prev)
+    miss = [n for n in prev if n not in cs]
+    new = [n for n in cur if n not in ps]
+    bad = []
+    if miss:
+        bad.append("步驟不見了：%s（基準有、這一班沒跑到；PLAN 被改動或那一步被略過）"
+                   % "、".join(miss))
+    line = "步驟清單：%d 個步驟%s%s" % (
+        len(cur),
+        ("，⚠ 少了 %d 個：%s" % (len(miss), "、".join(miss))) if miss
+        else ("，基準 %d 個都在" % len(ps)),
+        ("；新增 %s" % "、".join(new)) if new else "")
+    return (line, bad)
+
+
+def merge_steps(prev, cur, accept=False):
+    """步驟名也採高水位聯集：消失不寫回（不然第二輪就被吃掉，跟 merge_baseline 同一個洞）。
+
+    cur 是空的（沒日誌／一步都沒跑完）時原封不動回舊基準——**不可以把基準清空**，
+    否則「這一班整個沒跑」會順手把下一輪的比對對象也毀掉，變成永遠比不出缺席。
+    """
+    if not cur:
+        return list(prev)
+    if accept:
+        return list(cur)
+    return list(prev) + [n for n in cur if n not in set(prev)]
+
+
 # ── 排程班次點名（2026-09-07 #48）────────────────────────────────────────────────
 # 為什麼還要這一條：#47 的新鮮度只在 **publish.bat 真的跑起來** 時才判（--from-publish）。
 # publish.bat 整個沒被叫起來——排程工作被停用／改名、電腦當時在睡、捷徑路徑壞掉——
@@ -732,6 +797,10 @@ def main():
             nz = [(n, c) for n, _, c in st if c != 0]
             if nz:
                 bad.append("非零離開碼：" + "、".join("%s(%d)" % x for x in nz))
+        # 步驟清單（#101）：上面那行只印「幾個」，不跟基準比就看不出某一步從此不再跑
+        _stl, _stb = step_problems(prev.get("steps") or [], step_names(lg))
+        print(_stl)
+        bad += _stb
         # 失敗優先：日誌萬一同時有兩種字樣（例如手動補跑過），印 ✓ 會跟下面的結論自相矛盾
         print("那一班的日誌快照（不是現況）：守門：%s／push：%s／lint 錯誤級：%s" % (
             "✗ FAILED" if lg["preflight_fail"] else ("✓" if lg["preflight_ok"] else "？"),
@@ -783,8 +852,8 @@ def main():
     bad += vbad
     print("")
     print("結論：" + ("✓ 沒有異常" if not bad else "⚠ " + "；".join(bad)))
-    if any("縮水" in b for b in bad):
-        print("（縮水的項目**不會**寫回基準，會一直報到你確認為止；"
+    if any(("縮水" in b or "不見了" in b) for b in bad):
+        print("（縮水／不見了的項目**不會**寫回基準，會一直報到你確認為止；"
               "確認資料真的變少就跑 python scripts\\update_health.py --accept）")
     if "--no-save" not in sys.argv:
         os.makedirs(os.path.dirname(BASE), exist_ok=True)
@@ -792,6 +861,8 @@ def main():
                    "counts": merge_baseline(pc, dc, accept),
                    "latest": merge_latest(prev.get("latest") or {}, lt, accept),
                    "sizes": merge_sizes(prev.get("sizes") or {}, fs, accept),
+                   "steps": merge_steps(prev.get("steps") or [], step_names(lg), accept),
+                   "last_steps": step_names(lg),
                    "last_sizes": fs,
                    "last": dc,
                    "last_latest": lt,
