@@ -99,11 +99,48 @@ def live_pages(days):
 
 
 _LAST_HIT = [0.0]   # 上一次真的送出 api.php 請求的時刻（0＝還沒送過）
+_PRE = {}           # ov → html：這一輪不重抓的快取頁，開跑前用執行緒池先讀進來（見 prefetch_cached）
+READ_JOBS = 8       # 預讀的執行緒數（要退回循序：--read-jobs=1）
+
+cache_path = lambda ov: os.path.join(CACHE, re.sub(r"[^A-Za-z0-9]+", "_", ov).strip("_").lower() + ".html")
+
+
+def prefetch_cached(pages, forced):
+    """把「這一輪不重抓」的快取頁用執行緒池先讀進 `_PRE`（2026-09-09 線 3 #88）。
+
+    為什麼：這支 52.8s 裡最大的單項不是解析而是**讀檔**——45 個快取頁共 25MB，
+    循序讀要 ~20s（1.24MB/s）。第二趟讀同一批只要 0.1s ⇒ 不是磁碟頻寬也不是 utf-8 解碼，
+    是**第一次開檔**的成本（Windows Defender 即時掃描 + 冷頁快取），而那段時間 CPU 是閒的。
+    實測（`autopilot/_r88_read_par.py`，把 45 個檔複製到暫存目錄重現「第一次開檔」）：
+    循序 23.8s／併發 4 為 6.6s／併發 8 為 3.6s，讀到的字元數三者相同。
+
+    ⚠ 只預讀**不重抓**的頁：要重抓的頁得走 page_html 的 api.php 路徑（含 GAP 節流），
+    先讀舊快取沒有意義。條件與 page_html 的快取判定一字不差（存在且 > 5000 位元組），
+    不符合的留給 page_html 自己處理（它會去抓）。
+    """
+    todo = [ov for ov in pages if ov not in forced]
+    todo = [ov for ov in todo if os.path.exists(cache_path(ov)) and os.path.getsize(cache_path(ov)) > 5000]
+    if not todo:
+        return
+    t0 = time.time()
+    rd = lambda ov: (ov, open(cache_path(ov), encoding="utf-8").read())
+    if READ_JOBS > 1:
+        from concurrent.futures import ThreadPoolExecutor
+        with ThreadPoolExecutor(max_workers=min(READ_JOBS, len(todo))) as ex:
+            for ov, h in ex.map(rd, todo):
+                _PRE[ov] = h
+    else:
+        for ov in todo:
+            _PRE[ov] = rd(ov)[1]
+    mb = sum(len(h) for h in _PRE.values()) / 1048576.0
+    print("  快取頁預讀：%d 個、%.1f MB（%.1fs，%d 條執行緒）" % (len(todo), mb, time.time() - t0, min(READ_JOBS, len(todo))))
 
 
 def page_html(ov, force=False):
     os.makedirs(CACHE, exist_ok=True)
-    f = os.path.join(CACHE, re.sub(r"[^A-Za-z0-9]+", "_", ov).strip("_").lower() + ".html")
+    f = cache_path(ov)
+    if not force and ov in _PRE:
+        return _PRE.pop(ov)          # 預讀過的直接用（讀完就丟，不要整輪抓著 25MB）
     if os.path.exists(f) and os.path.getsize(f) > 5000 and not force:
         return open(f, encoding="utf-8").read()
     url = ("https://lol.fandom.com/api.php?action=parse&page=" + urllib.parse.quote(ov)
@@ -407,7 +444,10 @@ def main():
                     help="歷史回補：抓指定年份的 MVP/VOD → side_sel_YYYY.js（選邊欄位一律清空，"
                          "舊制頁的 Side Sel 是模板渲染、不是 2026 新制資料）")
     ap.add_argument("--dump", action="store_true", help="只印不寫檔")
+    ap.add_argument("--read-jobs", type=int, default=READ_JOBS,
+                    help="快取頁預讀的執行緒數（預設 %d；1＝退回循序）" % READ_JOBS)
     A = ap.parse_args()
+    globals()["READ_JOBS"] = max(1, A.read_jobs)
     if A.year and A.year < 2026:
         YEAR, HIST = A.year, True
 
@@ -419,6 +459,9 @@ def main():
     print(f"賽事頁 {len(pages)} 個"
           + ("（全部重抓）" if live is None else f"，其中進行中 {len(live & set(pages))} 個要重抓，其餘吃快取"))
     sched_prefetch(pages)      # 賽程一次查完，下面的 sched(ov) 就不再逐頁往返（#57）
+    # 這一輪會重抓的頁（下面 for 迴圈的 force 條件，抽出來給預讀用——兩邊必須同一個算式）
+    forced = set(pages) if (A.force or live is None) else set(live)
+    prefetch_cached(pages, forced)   # 不重抓的快取頁併發先讀（#88：循序 20s → 8 條 3~4s）
     allrec, hit = [], 0
     for ov in pages:
         h = page_html(ov, force=A.force or live is None or ov in live)
