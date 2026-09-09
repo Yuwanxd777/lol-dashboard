@@ -71,10 +71,21 @@ def opener():
     return _OP
 
 
+_FRESH = set()       # 本行程內已經真的重抓過的賽事名（見 fetch() 的 force 說明）
+
+
 def fetch(tour, force=False):
+    """force＝不吃磁碟快取、一定重抓（賽段進行中才拿得到這週的新比賽）。
+
+    **同一個行程裡第二次要同一份就不再重抓**（2026-09-09 #77）：fetch_fill 現在會在開工時
+    先暖抓 MH 頁（讓 gol.gg 那 8 秒跟 Leaguepedia 的 GAP 節流重疊），稍後 build_wiki 又會
+    帶 force=True 進來——若照抓就變成同一班打兩次同一頁（多一次請求、多一次 8s 節流，
+    比沒改還慢）。`_FRESH` 只活在這個行程，別的腳本／下一班一律照舊重抓。"""
     os.makedirs(HTML_DIR, exist_ok=True)
     fn = re.sub(r"[^A-Za-z0-9]+", "_", tour).strip("_").lower() + ".html"
     p = os.path.join(HTML_DIR, fn)
+    if force and tour in _FRESH:
+        force = False
     if os.path.exists(p) and os.path.getsize(p) > 5000 and not force:
         return open(p, encoding="utf-8").read()
     q = {"MHG[preload]": "Tournament", "MHG[tournament]": tour, "MHG[limit]": "999",
@@ -87,6 +98,7 @@ def fetch(tour, force=False):
             b = opener().open(urllib.request.Request(url, headers=UA), timeout=150).read().decode("utf-8", "replace")
             _mark()
             open(p, "w", encoding="utf-8").write(b)
+            _FRESH.add(tour)
             return b
         except Exception as e:
             _mark()

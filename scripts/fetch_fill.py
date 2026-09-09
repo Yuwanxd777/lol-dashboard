@@ -604,6 +604,33 @@ def build_wiki(cfg):
         return None
 
 
+def warm_wiki(cfg):
+    """開工就先把 Leaguepedia 的 MH 頁抓下來（2026-09-09 #77，純為了省牆鐘）。
+
+    2026-09-09 量到這一步 23.4s 的組成：gol.gg matchlist 下載 ~7.7s、Leaguepedia 13.0s
+    （**其中 10.0s 是純 time.sleep**：opener 取 cookie 後固定睡 2s ＋ MH→PB 之間 GAP=8s 的節流）、
+    本機解析／讀檔 2.7s。兩個來源是不同主機、節流各自獨立，**卻是一前一後跑的**
+    ⇒ gol.gg 那 8 秒完全沒被拿來抵 Leaguepedia 的節流等待。
+
+    改成先打 MH 頁再去做 gol.gg：等 build_wiki 要抓 Picks and Bans 時，距 MH 那一發已經
+    過了 8 秒以上，`_throttle()` 一秒都不用等。**請求數不變、間隔只會更長（更禮貌）**，
+    純粹是把等待跟別的工作疊起來。抓失敗就當沒發生（build_wiki 自己會照舊重抓）。
+    """
+    if not gate(cfg)[0]:
+        return          # OE 已追上 ⇒ build_wiki 只會去停用舊資料，不會抓頁面，別白打一發
+    sys.path.insert(0, HERE)
+    import fetch_wiki_mh
+    print(f"  {cfg['key']}：暖抓 Leaguepedia MH 頁（讓 gol.gg 那段跟節流重疊）…", flush=True)
+    t0 = time.time()
+    try:
+        n = len(fetch_wiki_mh.fetch(cfg["wiki"], force=True) or "")
+    except Exception as e:
+        print(f"    ⚠ 暖抓失敗（不影響，build_wiki 會照舊重抓）：{type(e).__name__}: {str(e)[:80]}")
+        return
+    print(f"    暖抓 {n} bytes（{time.time() - t0:.1f}s）"
+          f"{'' if n else '——空的，build_wiki 會照舊重抓'}", flush=True)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--force", action="store_true", help="重抓 HTML（賽段進行中要拿新比賽用這個）")
@@ -611,6 +638,7 @@ def main():
     ap.add_argument("--status", action="store_true", help="只看 OE / 補充 各幾局")
     ap.add_argument("--no-wiki", action="store_true", help="只抓 gol.gg，不抓 Leaguepedia")
     A = ap.parse_args()
+    failed = []
     for cfg in FILL:
         sn = cfg["split"].replace("Split ", "S")
         if A.status:
@@ -628,12 +656,26 @@ def main():
             print(f"  {cfg['key']:14s} OE={oe_games(cfg['year'], cfg['league'], sn, exclude=mine):3d} 局"
                   f"   gol.gg={n:3d} 局   wiki={wn:3d} 局")
             continue
-        build(cfg, force=A.force, dump=A.dump)
-        if not (A.dump or A.no_wiki):
+        wiki = not (A.dump or A.no_wiki) and bool(cfg.get("wiki"))
+        if wiki:
+            warm_wiki(cfg)
+        try:
+            build(cfg, force=A.force, dump=A.dump)
+        except Exception as e:
+            # gol.gg 掛掉不能連帶讓 wiki 那份也沒抓成（build_wiki 早就有對稱的 try——
+            # 2026-09-09 #77 補上這一半：當天 14:5x gol.gg 整個連不上［WinError 10060］，
+            # 舊版是 build() 直接往上炸 ⇒ main() 中斷 ⇒ Leaguepedia 那份**整班沒更新**，
+            # 而它是唯一不漏局的來源）。仍然記下來、最後 exit 1，警示訊號不吞掉。
+            print(f"  ⚠ gol.gg 補充失敗（略過，續抓 Leaguepedia）：{type(e).__name__}: {str(e)[:120]}")
+            failed.append(f"{cfg['key']} gol.gg：{type(e).__name__}")
+        if wiki:
             build_wiki(cfg)
+    if failed:
+        print("⚠ 有來源失敗：" + "、".join(failed))
     if not A.status:
         print("完成。（fetch_data.py 寫檔時會併入：OE > gol.gg > wiki，同一局以先者為準）")
+    return 1 if failed else 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
