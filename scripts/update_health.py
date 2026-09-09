@@ -19,6 +19,9 @@
           `fetch_patches --skip-discover`，新版本靠猜 URL slug 抓，官方換格式（26.04 換過一次）
           就會靜靜地抓不到，patches.js 停在舊版而列數一列不少。拿**獨立來源** DDragon
           （skills.js 的 v／assets.js 的 years，每班現抓 versions.json）對照版本改動最新版
+        ‧ **根目錄 50 幾個資料檔的 bytes**（2026-09-10 #100）——上面那 18 個指標之外的
+          career／wiki_patches／leaguepedia／soloq_builds／side_sel_20xx／skills／assets…
+          一個都沒被量過；順帶補上「基準有、這次連鍵都不見了」＝**檔案整個消失**
         ‧ soloq.js 選手數／有排名數、side_sel.js 局數、lint_text 錯誤級
         ‧ **可疑同名走現況重算**（2026-09-07 #49），不是讀日誌快照——審定是人在班與班之間補的
         ‧ preflight 有沒有過、有沒有 push
@@ -340,6 +343,12 @@ def diff_counts(prev, cur):
         else:
             st = "ok"
         rows.append((k, v, pv if isinstance(pv, int) else None, st))
+    # 基準有、這次連鍵都算不出來＝**檔案整個不見了**（2026-09-10 #100）。舊版只迭代 cur，
+    # data_2019.js 被刪掉時這裡靜靜少一行、結論照印「✓ 沒有異常」；preflight ① 也擋不住
+    # （它是先用「檔案存在」過濾候選才 node --check，檔案一消失就從清單裡消失）。
+    for k in sorted(prev):
+        if k not in cur and isinstance(prev[k], int):
+            rows.append((k, None, prev[k], "missing"))
     return rows
 
 
@@ -358,7 +367,107 @@ def merge_baseline(prev, cur, accept=False):
             continue                      # 讀不到就別把 None 蓋掉舊基準
         if st == "shrink" and not accept:
             continue                      # 保住高水位
+        if st == "missing":
+            if accept:
+                out.pop(k, None)          # 認可＝那個檔真的不該存在了
+            continue                      # 否則保住基準值，下一輪繼續報
         out[k] = v
+    return out
+
+
+# ── 資料檔體積哨兵（2026-09-10 #100；純函式，scripts/update_health_test.py 在測）────────
+# 為什麼要有這段：上面的「資料量」只有 18 個指標（14 年列數＋soloq 兩項＋side_sel＋逐場檔數），
+# 而 index.html 真正載入的**根目錄資料檔有 50 幾個**——career.js（12.8MB 選手生涯）、
+# wiki_patches.js（3.1MB）、leaguepedia.js（3.4MB）、soloq_builds.js、soloq_champ_games.js、
+# side_sel_2018~2025.js（歷年，跟當年那支是不同檔）、skills／assets／items／jungle／masteries…
+# **一個都沒被量**。它們寫壞（來源掛了寫出半個檔、過濾把整批丟掉）時：
+#   ‧ preflight ① 只跑 node --check——內容剩一半照樣是合法 JS，過
+#   ‧ 健檢的資料量看不到它們 ⇒ 報告照印「✓ 沒有異常」
+# 用 bytes 而不是「解析後的元素數」的三個理由（2026-09-10 實測 57 個根目錄 .js）：
+#   ① 零成本（getsize；要解析是 35MB／0.32 秒，而且每班都白讀一次）
+#   ② patches.js／jungle.js／masteries.js／skill_keys.js／patch_line_fix.js／patch_dir_fix.js／
+#      skill_alias.js 這 7 個是多 statement 或非 JSON 字面值，js_obj 根本解不開（JSONDecodeError），
+#      「頂層容器大小」會把它們整批漏掉
+#   ③ 頂層鍵數對包一層的檔沒有意義（career.js 只有 8 個頂層鍵、soloq.js 2 個）
+# 門檻怎麼定的（照 #98 的規矩：先量才定）：跑 45 天 734 個 commit 的 git ls-tree，統計每個檔
+# 「單次縮水最大幅度」——根目錄資料檔最大 26.25%（events_extra.js 26956→19881，格式重算）、
+# 其次 22.83%（side_sel.js）、21.74%（skill_keys.js）。30% ＝比史上最大的正常縮水再留 4 個百分點。
+# data/data_20*.js 刻意不放進來：它們已經有列數（更準），而且 2026-08 那次 88 欄白名單重寫讓
+# bytes 一次掉 56%，放進來只會逼人每次 --accept。
+SHRINK_TOL = 0.30       # 一般檔：縮到基準的 70% 以下才算異常
+SMALL_BYTES = 4096      # 這麼小的檔一筆資料就佔好幾個百分點（lck_groups.js 223B、data.js 164B）
+SMALL_TOL = 0.50
+# 不是資料檔，別放進來：第三方庫、線 2 autopilot 專管的 UI 程式碼、每班重寫的時間戳
+SIZE_SKIP = ("chart.umd.min.js", "bp_live_ui.js", "push_time.js")
+
+
+def file_sizes():
+    """根目錄每個資料檔的 bytes（讀不到＝None）。刻意在函式裡才用 ROOT 組路徑（#99）。"""
+    out = {}
+    for f in sorted(glob.glob(os.path.join(ROOT, "*.js"))):
+        b = os.path.basename(f)
+        if b in SIZE_SKIP:
+            continue
+        try:
+            out[b] = os.path.getsize(f)
+        except Exception:
+            out[b] = None
+    return out
+
+
+def size_tol(base):
+    """小檔用寬門檻：4KB 的檔少一筆資料就是好幾個百分點，用 30% 會每次改判例都吵。"""
+    return SMALL_TOL if base < SMALL_BYTES else SHRINK_TOL
+
+
+def size_problems(prev, cur, tol=None):
+    """回 (要印的那一行, [異常…])。prev＝基準裡的高水位 bytes；tol 給值就蓋掉分段門檻（測試用）。
+
+    三種異常：①**基準有、現在沒有**（檔案不見了）②讀不到 ③縮到基準的 (1-tol) 以下。
+    正常時只印一行摘要（50 幾個檔逐行印會把報告淹掉，人就不看了）。
+    """
+    bad, worst = [], None
+    for k in sorted(prev):
+        if isinstance(prev[k], int) and k not in cur:
+            bad.append("%s 不見了（基準 %d bytes）" % (k, prev[k]))
+    for k in sorted(cur):
+        v, pv = cur[k], prev.get(k)
+        if v is None:
+            bad.append("%s 讀不到" % k)
+            continue
+        if not isinstance(pv, int) or pv <= 0:
+            continue                       # 新項目：先收基準，不報
+        t = size_tol(pv) if tol is None else tol
+        drop = (pv - v) / float(pv)
+        if drop > t:
+            bad.append("%s 體積縮水 %.0f%%（基準 %d → 現在 %d bytes）" % (k, drop * 100, pv, v))
+        elif worst is None or drop > worst[1]:
+            worst = (k, drop)
+    if worst is None:
+        tail = ""
+    elif worst[1] > 0:
+        tail = "；離門檻最近：%s -%.1f%%" % (worst[0], worst[1] * 100)
+    else:
+        tail = "；沒有一個比基準小"      # 全部持平或變大（每班的常態，不要印「-0.0%」讓人以為在掉）
+    line = "資料檔體積：%d 個檔%s%s" % (
+        len(cur), "" if not bad else "，⚠ %d 項有問題" % len(bad), tail)
+    return (line, bad)
+
+
+def merge_sizes(prev, cur, accept=False):
+    """bytes 也採高水位：縮水與消失都不寫回基準（不然第二輪就被吃掉，跟 merge_baseline 同一個洞）。"""
+    out = dict(prev)
+    for k, v in cur.items():
+        if v is None:
+            continue                       # 讀不到就別把舊值蓋掉
+        pv = prev.get(k)
+        if isinstance(pv, int) and v < pv and not accept:
+            continue
+        out[k] = v
+    if accept:
+        for k in list(out):
+            if k not in cur:
+                del out[k]                 # 認可＝那個檔真的不該存在了
     return out
 
 
@@ -648,12 +757,20 @@ def main():
                 "new": "  （新項目）",
                 "unreadable": "  ⚠ 讀不到",
                 "soft_down": "  比基準少（%s → %s）" % (pv, v),
-                "shrink": "  ⚠ 縮水（基準 %s → 現在 %s）" % (pv, v)}[st]
+                "shrink": "  ⚠ 縮水（基準 %s → 現在 %s）" % (pv, v),
+                "missing": "  ⚠ 不見了（基準 %s）" % pv}[st]
         if st == "unreadable":
             bad.append("%s 讀不到" % k)
         elif st == "shrink":
             bad.append("%s 縮水 %d → %d" % (k, pv, v))
-        print("   %-22s %s%s" % (k, v, flag))
+        elif st == "missing":
+            bad.append("%s 不見了（基準 %d，檔案被刪或路徑改了）" % (k, pv))
+        print("   %-22s %s%s" % (k, "－" if v is None else v, flag))
+    # 資料檔體積（#100）：上面 18 個指標之外，根目錄那 50 幾個資料檔一個都沒被量過
+    fs = file_sizes()
+    sline, sbad = size_problems(prev.get("sizes") or {}, fs)
+    print("   " + sline)
+    bad += sbad
     # 最新一場比賽（#98）：列數擋「變少」，這行擋「不再變多」
     lline, lbad = latest_problems(prev.get("latest") or {}, lt, time.time())
     print("   " + lline)
@@ -674,6 +791,8 @@ def main():
         json.dump({"at": time.strftime("%Y-%m-%d %H:%M"),
                    "counts": merge_baseline(pc, dc, accept),
                    "latest": merge_latest(prev.get("latest") or {}, lt, accept),
+                   "sizes": merge_sizes(prev.get("sizes") or {}, fs, accept),
+                   "last_sizes": fs,
                    "last": dc,
                    "last_latest": lt,
                    "versions": merge_versions(prev.get("versions") or {}, gv, accept),

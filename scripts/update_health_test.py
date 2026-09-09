@@ -500,6 +500,79 @@ eq(uh.version_problems(gv, gv, None, time.time())[1], [], "⑲現況對自己的
 eq(uh.version_problems(gv, gv, None, time.time())[2], None, "⑲現況四個來源一致")
 
 
+# ── ⑳ 資料檔體積哨兵：分段門檻（2026-09-10 #100）─────────────────────
+eq(uh.size_tol(1000000), 0.30, "⑳大檔用 30%")
+eq(uh.size_tol(4096), 0.30, "⑳邊界 4096＝大檔")
+eq(uh.size_tol(4095), 0.50, "⑳小檔用 50%")
+eq(uh.size_tol(223), 0.50, "⑳lck_groups 那種 223B 也是小檔")
+
+# ── ㉑ size_problems：三種異常各一組，每組都配「正控制會翻面」──────────
+BIG = 1000000
+sp = uh.size_problems
+eq(sp({"a.js": BIG}, {"a.js": BIG})[1], [], "㉑沒變＝沒異常")
+eq(sp({"a.js": BIG}, {"a.js": int(BIG * 1.4)})[1], [], "㉑變大＝沒異常")
+# ① 縮水
+eq(len(sp({"a.js": BIG}, {"a.js": int(BIG * 0.65)})[1]), 1, "㉑大檔縮 35%＝異常")
+eq("a.js 體積縮水 35%" in sp({"a.js": BIG}, {"a.js": int(BIG * 0.65)})[1][0], True, "㉑異常訊息指名檔案與幅度")
+eq(sp({"a.js": BIG}, {"a.js": int(BIG * 0.75)})[1], [], "㉑正控制：縮 25% 在門檻內＝不報")
+eq(sp({"a.js": 1000}, {"a.js": 650})[1], [], "㉑正控制：同樣縮 35%，小檔不報（門檻 50%）")
+eq(len(sp({"a.js": 1000}, {"a.js": 350})[1]), 1, "㉑小檔縮 65%＝異常")
+eq(sp({"a.js": BIG}, {"a.js": int(BIG * 0.75)}, tol=0.1)[1] != [], True, "㉑tol 參數蓋得掉分段門檻")
+# ② 檔案不見了（基準有、這次沒有）
+eq(sp({"a.js": BIG, "b.js": 500}, {"a.js": BIG})[1], ["b.js 不見了（基準 500 bytes）"], "㉑檔案消失＝異常")
+eq(sp({"a.js": BIG}, {"a.js": BIG, "b.js": 500})[1], [], "㉑正控制：反過來（新檔）不報")
+eq(sp({"a.js": None}, {})[1], [], "㉑基準值不是數字就不算消失")
+# ③ 讀不到
+eq(sp({"a.js": BIG}, {"a.js": None})[1], ["a.js 讀不到"], "㉑讀不到＝異常")
+eq(sp({}, {"a.js": None})[1], ["a.js 讀不到"], "㉑沒基準也照報讀不到")
+# 新項目與怪基準不報
+eq(sp({}, {"a.js": 10})[1], [], "㉑新項目先收基準不報")
+eq(sp({"a.js": 0}, {"a.js": 10})[1], [], "㉑基準 0 不做除法")
+# 摘要行
+eq("資料檔體積：2 個檔" in sp({"a.js": BIG}, {"a.js": BIG, "b.js": 5})[0], True, "㉑摘要行有檔數")
+eq("離門檻最近：a.js -10.0%" in sp({"a.js": BIG}, {"a.js": int(BIG * 0.9)})[0], True, "㉑摘要行報最接近的餘裕")
+eq("沒有一個比基準小" in sp({"a.js": BIG}, {"a.js": BIG})[0], True, "㉑全部持平＝不印「-0.0%」")
+eq("沒有一個比基準小" in sp({"a.js": BIG}, {"a.js": BIG * 2})[0], True, "㉑全部變大也是同一句")
+eq("離門檻最近" in sp({}, {"a.js": BIG})[0], False, "㉑全新項目沒得比就不印那一段")
+eq("⚠ 1 項有問題" in sp({"a.js": BIG}, {"a.js": 1})[0], True, "㉑有異常時摘要行也看得出來")
+
+# ── ㉒ merge_sizes：高水位（跟 merge_baseline／merge_latest 同一個洞）────
+ms = uh.merge_sizes
+eq(ms({"a.js": 100}, {"a.js": 120}), {"a.js": 120}, "㉒變大寫回")
+eq(ms({"a.js": 100}, {"a.js": 50}), {"a.js": 100}, "㉒縮水不寫回（保住高水位）")
+eq(ms({"a.js": 100}, {"a.js": 50}, accept=True), {"a.js": 50}, "㉒正控制：accept 才寫回小值")
+eq(ms({"a.js": 100}, {"a.js": None}), {"a.js": 100}, "㉒讀不到不覆蓋")
+eq(ms({"a.js": 100, "b.js": 9}, {"a.js": 100}), {"a.js": 100, "b.js": 9}, "㉒消失的鍵留著（下一輪繼續報）")
+eq(ms({"a.js": 100, "b.js": 9}, {"a.js": 100}, accept=True), {"a.js": 100}, "㉒正控制：accept 才把消失的鍵刪掉")
+eq(ms({}, {"a.js": 7}), {"a.js": 7}, "㉒新檔寫進基準")
+# 第二輪還會報（高水位真的有守住）
+_b1 = ms({"a.js": BIG}, {"a.js": int(BIG * 0.5)})
+eq(len(sp(_b1, {"a.js": int(BIG * 0.5)})[1]), 1, "㉒縮水第二輪仍然報")
+
+# ── ㉓ 資料量：基準有、這次連鍵都不見了＝檔案整個消失 ───────────────────
+_prevm = {"data_2019.js": 21673, "data_2026.js": 16406}
+_curm = {"data_2026.js": 16406}
+eq(state_of(uh.diff_counts(_prevm, _curm), "data_2019.js"), "missing", "㉓消失＝missing 狀態")
+eq(uh.merge_baseline(_prevm, _curm)["data_2019.js"], 21673, "㉓消失不寫回基準（下一輪繼續報）")
+eq("data_2019.js" in uh.merge_baseline(_prevm, _curm, accept=True), False, "㉓正控制：accept 才把鍵刪掉")
+eq(state_of(uh.diff_counts({"data_2019.js": None}, _curm), "data_2019.js"), None,
+   "㉓上次就讀不到（基準是 None）不算消失")
+# 正控制：舊寫法（只迭代 cur）對同一份資料完全看不到這件事
+_old_rows = [(k, v, _prevm.get(k), "ok") for k, v in _curm.items()]
+eq(state_of(_old_rows, "data_2019.js"), None, "㉓正控制：舊寫法（只迭代 cur）看不到消失")
+
+# ── ㉔ 真實資料端到端：現況自己跟自己不可以有異常 ───────────────────────
+_fs = uh.file_sizes()
+eq(len(_fs) >= 40, True, "㉔根目錄至少 40 個資料檔")
+eq([k for k in uh.SIZE_SKIP if k in _fs], [], "㉔SIZE_SKIP 的三個檔真的沒被收進來")
+eq([k for k, v in _fs.items() if not isinstance(v, int) or v <= 0], [], "㉔每個檔都讀得到 bytes")
+eq([k for k in _fs if k.startswith("data_20")], [], "㉔年度檔不在體積哨兵裡（它們有列數）")
+eq(sp(_fs, _fs)[1], [], "㉔現況對自己的基準沒有異常")
+_hurt = dict(_fs)
+_victim = sorted(_hurt, key=lambda k: -_hurt[k])[0]
+_hurt[_victim] = _hurt[_victim] // 3
+eq(len(sp(_fs, _hurt)[1]), 1, "㉔正控制：把最大的檔砍成三分之一就會被抓到")
+
 print("update_health 回歸測試：通過 %d 條" % OK[0] + ("" if not NG else "，失敗 %d 條" % len(NG)))
 for m in NG:
     print("   ✗ " + m)
