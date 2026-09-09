@@ -201,9 +201,16 @@ def tier_score(t):
 
 JOBS = 3   # 同一隊的選手並行抓 progamer 的執行緒數（--jobs 可改；1＝舊行為）
 # 2026-09-07 線 3（迴圈 #24）：22:00 這一步 199s＝57 隊逐隊 team 請求＋每隊等最慢的 progamer（obgg.net 每請求 0.4～0.6s）。
-# 同一賽區的戰隊也並行（TEAM_JOBS 條，最多 TEAM_JOBS×JOBS＝6 條連線）估 −90s。_team_pull() 只回傳，out[z] 只在 pull() 主執行緒寫；
+# 同一賽區的戰隊也並行（TEAM_JOBS 條，最多 TEAM_JOBS×JOBS 條連線；#24 當時是 2×3＝6，#87 起是 4×3＝12）估 −90s。_team_pull() 只回傳，out[z] 只在 pull() 主執行緒寫；
 # ex.map 保持 teams 順序 ⇒ 帳號檔排序跟逐隊時一模一樣。--team-jobs=1 就是舊行為。03:00 真網路只讀煙霧：108.6s、各區帳號數同 22:00、失敗 0。
-TEAM_JOBS = 2
+TEAM_JOBS = 4
+# 2026-09-09 線 3（迴圈 #87）：TEAM_JOBS 2 → 4。這一步是 ③ 階段的長桿（10:00 那班 55.8s），
+#   時間幾乎全在等 obgg 回應（CPU 是空的）；賽區之間仍循序，所以每一區的隊只有 2 條工人在跑。
+#   同一台、同一時段的真站唯讀探針（走 --out= 旁路，不動 soloq_accounts.json 正本）：
+#     --team-jobs=2（原設定）48.4s（LPL 12.0／LCK 22.6）  vs  --team-jobs=4 16.4s（LPL 6.1／LCK 3.5）
+#   兩趟寫出的帳號檔**逐字相同**（1128 筆、排序一致，diff 空），OBGG 請求最終失敗兩趟都 0，
+#   TCP/TLS 握手 25 → 18 次（連線重用沒變差、不是握手風暴）。併發上限＝4 條隊 ＋ 4×JOBS(3)＝12 條選手。
+#   要退回舊行為：--team-jobs=2（管線那行在 run_update.py 的 ③，或直接改回這一行）。
 # get() 重試用盡的最終失敗以前完全沒印——失敗的隊／人就靜靜消失，LPL/LCK 的舊帳號隨之被當「近兩月未列」刪掉。
 # 現在逐類計數＋留 URL 印進摘要；OBGG 主導賽區失敗 ≥ ERR_ABORT 次就不動帳號檔（docstring 第 9 行的安全門本來就這麼寫）。
 ERRS = {"zone": 0, "team": 0, "progamer": 0}

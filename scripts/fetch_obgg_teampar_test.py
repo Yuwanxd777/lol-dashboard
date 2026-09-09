@@ -9,6 +9,9 @@ HERE = os.path.dirname(os.path.abspath(__file__)); ROOT = os.path.dirname(HERE)
 SRC = os.path.join(HERE, "fetch_obgg_accounts.py")
 spec = importlib.util.spec_from_file_location("foa", SRC)
 M = importlib.util.module_from_spec(spec); spec.loader.exec_module(M)   # 模組層會包 sys.stdout，這裡不再包
+# 模組的**預設** TEAM_JOBS 要在任何 run_pull() 之前抄下來——reset() 會就地改 M.TEAM_JOBS，
+# 後面再讀 M.TEAM_JOBS 讀到的是上一組測試設的值（2026-09-09 #87 第一版就這樣把 4 讀成 2，正控制假綠）。
+DEF_TJ = M.TEAM_JOBS
 
 OK = FAIL = 0
 def check(name, cond, info=""):
@@ -174,7 +177,8 @@ M.OUT = _sv_out
 
 # ───────────── [1] 常數與簽名 ─────────────
 print("[1] 常數與簽名")
-check("TEAM_JOBS 預設 2", M.TEAM_JOBS == 2, M.TEAM_JOBS)
+check("TEAM_JOBS 預設 4（#87 由 2 提上來；真站探針 48.4s → 16.4s、輸出逐字相同）", DEF_TJ == 4, DEF_TJ)
+check("上限的算式沒被寫死成 6（註解要跟著常數走）", "TEAM_JOBS×JOBS＝6" not in open(SRC, encoding="utf-8").read())
 check("JOBS 仍是 3", M.JOBS == 3, M.JOBS)
 check("ERR_ABORT == 3", M.ERR_ABORT == 3, M.ERR_ABORT)
 check("ERRS 三類", set(M.ERRS) == {"zone", "team", "progamer"}, M.ERRS)
@@ -209,6 +213,17 @@ check("LCP：CFO 6 帳號、PSG 名冊空 → 不在 out", list(out2["LCP"]) == 
 check("沒資料的賽區不在 out", set(out2) == {"LPL", "LCK", "LEC", "LCP"}, set(out2))
 check("名冊 12 隊 × 6 位 = 72（含 dpm 主導賽區；PSG 名冊空不算）", len(ros2) == 72, len(ros2))
 check("每區印「N 帳號（M 隊，…s）」", re.search(r"  LPL: 28 帳號（5 隊，[\d.]+s）", txt2) is not None, txt2)
+
+# 2026-09-09（#87）：預設值從 2 提到 4，等價性要用**預設值**再證一次
+# （只測 2/3 的話，預設改成任何數字這支都不會紅）。
+out4, ze4, ros4, txt4 = run_pull(DEF_TJ, 3)
+peak4 = dict(PEAK); calls4 = dict(CALLS)
+check("預設 TEAM_JOBS/JOBS=3 的 out 與逐隊相等", out4 == out1)
+check("預設值下每一區的戰隊插入順序也相等", all(list(out1[z]) == list(out4[z]) for z in out1) and list(out1) == list(out4),
+      {z: (list(out1[z]), list(out4[z])) for z in out1})
+check("預設值下名冊相等", ros4 == ros1, (len(ros1), len(ros4)))
+check("預設值下 zone_err 全 0", not any(ze4.values()), ze4)
+check("預設值下請求次數相等（沒有多問也沒有少問）", calls4 == calls1, (calls1, calls4))
 check("失敗 0 時不印「請求失敗」", "請求失敗" not in txt2)
 
 # ───────────── [3] 並行真的發生（正控制）＋ 負控制 ─────────────
@@ -217,7 +232,10 @@ check("正控制：TEAM_JOBS=2 → team 請求同時在飛 ≥2", peak2["team"] 
 check("正控制：TEAM_JOBS=2/JOBS=3 → progamer 同時在飛 ≥4（跨隊）", peak2["progamer"] >= 4, peak2)
 check("負控制：TEAM_JOBS=1 → team 同時在飛 ==1", peak1["team"] == 1, peak1)
 check("負控制：TEAM_JOBS=1/JOBS=1 → progamer 同時在飛 ==1", peak1["progamer"] == 1, peak1)
-check("上限：progamer 同時在飛 ≤ TEAM_JOBS×JOBS＝6", peak2["progamer"] <= 6, peak2)
+check("上限：TEAM_JOBS=2/JOBS=3 時 progamer 同時在飛 ≤ 2×3＝6", peak2["progamer"] <= 6, peak2)
+check("正控制：預設 TEAM_JOBS=%d → team 同時在飛 > TEAM_JOBS=2 那組（並行度真的提高了，不是只寫個常數）" % DEF_TJ,
+      peak4["team"] > peak2["team"], (peak1, peak2, peak4))
+check("上限：預設值下 progamer 同時在飛 ≤ TEAM_JOBS×JOBS", peak4["progamer"] <= DEF_TJ * 3, peak4)
 _, _, _, _ = run_pull(1, 3)
 check("舊行為（TEAM_JOBS=1/JOBS=3）：progamer 同時在飛 ≤3", PEAK["progamer"] <= 3 and PEAK["team"] == 1, dict(PEAK))
 
