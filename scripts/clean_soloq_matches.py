@@ -159,6 +159,12 @@ def load_owners():
     return owner, mine, tags
 
 
+_PREFIX = b"window.__sqLoad("
+_DEC = json.JSONDecoder()
+_RID_RE = re.compile(rb'"rid"\s*:\s*("(?:[^"\\]|\\.)*")')
+_SRC_RE = re.compile(rb'"src"\s*:\s*')
+
+
 def read_file(fp):
     txt = io.open(fp, encoding="utf-8", errors="replace").read()
     m = re.match(r"window\.__sqLoad\((.*)\);\s*$", txt, re.S)
@@ -175,15 +181,17 @@ def write_file(fp, key, data):
 
 
 def scan_all(owner):
-    """讀完所有逐場檔，回傳 (files, owncnt, ridmap, unreadable)。
+    """掃過所有逐場檔，回傳 (files, owncnt, ridmap, unreadable)。
 
-    files[key]  = (fn, fp, data)
+    files[fn]   = (key, fp, Counter(rid))   ← 2026-09-09 #86 起是 rid 次數，不是整棵比賽樹
     owncnt[key] = 該檔「rid 正面歸屬給自己」的場數（＝這個檔是不是他本人的實證）
     ridmap[rid][key] = 該 rid 在該檔的場數
 
-    整段關掉循環 GC（2026-09-09 #76，同 build_soloq_index／build_soloq_builds）：423 個檔 260MB
-    全抓在 files 手上 ⇒ 每解析一個檔就觸發一次 gen2 全堆掃描，而逐場資料是純樹狀的
-    （dict/list/str，沒有參考循環），那趟掃描只有成本沒有回收。量到 11.2s → 2.9s。
+    **不再把 252MB 的比賽資料抓在手上**：判定一二三四都只看 `(rid, key)`，掃描階段只要 rid 次數，
+    真的要動的檔才在 main() 整檔讀回來切 keep/drop（平常是 0 個）。見 `fast_rids`。
+
+    整段關掉循環 GC（2026-09-09 #76，同 build_soloq_index／build_soloq_builds）：保底路徑仍會
+    整檔解析，而逐場資料是純樹狀的（dict/list/str，沒有參考循環），gen2 掃描只有成本沒有回收。
     try/finally 還原是因為 soloq_acc_history_test 那幾支是程序內 import 來呼叫的。
     """
     was = gc.isenabled()
@@ -195,6 +203,61 @@ def scan_all(owner):
             gc.enable()
 
 
+def slow_rids(data):
+    """整檔解析出來的 data → Counter(rid)（保底路徑與快路徑的共同出口）。"""
+    cnt = collections.Counter()
+    for g in (data.get("matches") or []):
+        r = _norm(g.get("rid"))
+        if r:
+            cnt[r] += 1
+    return cnt
+
+
+def fast_rids(fp):
+    """只讀出 (key, Counter(rid))，**不解析整個檔**（2026-09-09 #86）。
+
+    四條判定都只看 `(rid, 檔的 key)`，掃描階段其實只需要「這個檔有哪些 rid、各幾場」；
+    以前為了這個把 423 個檔 252MB 全部 `json.loads`（實測 8.8s），真的要動的檔幾乎都是 0 個。
+    改成 bytes 上正則抓 `"rid":"…"`，key 沿用 #85 的檔頭 raw_decode。
+
+    **一定要把 `src` 切掉**：`src.acc[].rid` 也叫 rid（那是「這個檔用哪些帳號抓的」，不是比賽），
+    算進去會讓 ridmap 多出假場次 ⇒ 判定二的條件⑤（A 檔場數不多於 B 檔）判錯。
+    邊界＝從尾巴往回找最後一個 `"src"`，其後必須 raw_decode 成 dict 且剛好吃到結尾 `});`，
+    前面那段去掉逗號後必須以 `]`（matches 陣列結尾）收掉。**任何一項對不上就丟例外**，
+    呼叫端退回整檔解析——寧可慢，不要在邊界猜錯的檔上刪比賽。
+    """
+    raw = io.open(fp, "rb").read()
+    if not raw.startswith(_PREFIX):
+        raise ValueError("不是 __sqLoad 格式")
+    key, _ = _DEC.raw_decode(raw[len(_PREFIX):len(_PREFIX) + 4096].decode("utf-8", "replace"))
+    if not isinstance(key, str):
+        raise ValueError("檔頭第一個值不是字串 key")
+    m = None
+    for m in _SRC_RE.finditer(raw):
+        pass                                          # 取最後一個 "src"：符合 write_file 的鍵序
+    if m is not None:
+        tail = raw[m.end():].decode("utf-8", "replace")
+        obj, end = _DEC.raw_decode(tail)
+        if not isinstance(obj, dict) or tail[end:].strip() != "});":
+            raise ValueError("src 邊界對不上")
+        head = raw[:m.start()].rstrip()
+        if not head.endswith(b","):
+            raise ValueError("src 前面不是逗號")
+        head = head[:-1].rstrip()
+    else:
+        if not raw.rstrip().endswith(b"});"):
+            raise ValueError("結尾不是 });")
+        head = raw[:raw.rstrip().rfind(b"});")].rstrip()
+    if not head.endswith(b"]"):
+        raise ValueError("matches 陣列邊界對不上")
+    cnt = collections.Counter()
+    for g in _RID_RE.finditer(head):
+        r = _norm(json.loads(g.group(1)))
+        if r:
+            cnt[r] += 1
+    return key, cnt
+
+
 def _scan_all(owner):
     files, unreadable = {}, 0
     owncnt = collections.Counter()
@@ -204,20 +267,21 @@ def _scan_all(owner):
             continue
         fp = os.path.join(OUTDIR, fn)
         try:
-            key, data = read_file(fp)
-        except Exception as e:
-            unreadable += 1
-            print("  略過 %s：%s" % (fn, e))
-            continue
-        files[fn] = (key, fp, data)
-        for g in (data.get("matches") or []):
-            r = _norm(g.get("rid"))
-            if not r:
+            key, rids = fast_rids(fp)
+        except Exception:
+            try:
+                key, data = read_file(fp)             # 保底：格式跟預期不一樣就整檔解析
+            except Exception as e:
+                unreadable += 1
+                print("  略過 %s：%s" % (fn, e))
                 continue
-            ridmap[r][key] += 1
+            rids = slow_rids(data)
+        files[fn] = (key, fp, rids)
+        for r, n in rids.items():
+            ridmap[r][key] += n
             w = owner.get(r)
             if w and len(w) == 1 and key in w:
-                owncnt[key] += 1
+                owncnt[key] += n
     return files, owncnt, ridmap, unreadable
 
 
@@ -276,37 +340,54 @@ def main():
 
     files, owncnt, ridmap, unreadable = scan_all(owner)
 
+    def judge(r, key):
+        """四條判定的唯一入口：這個 rid 在這個檔要不要刪？要就回 (真主, 理由)，不然 None。
+        四條都只看 (rid, key)，所以可以在 rid 層判完，再決定哪些檔值得整檔讀回來（#86）。"""
+        who = owner.get(r)
+        # 判定一：rid 命中帳號檔、擁有者唯一、而且不是這位選手
+        if who and len(who) == 1 and key not in who:
+            return next(iter(who)), "現名"
+        # 判定三：這個 rid 曾被歸屬複查從**這位選手**手上剔除（dpm 掛牌是別人的）。
+        # 只在「現在誰的帳號檔都沒命中」時才用——帳號檔若又把它登記給誰，那是判定一二的管轄。
+        d3 = None if (A.no_disowned or who) else soloq_disowned.disowned_from(DIS, r, key)
+        if d3:
+            return (d3.get("owner") or "?",
+                    "剔除（%s %s）" % (d3.get("why") or "歸屬複查", d3.get("at") or ""))
+        # 判定二：rid 是別位選手的舊名／另一個帳號
+        hit = None if A.no_oldname else oldname_owner(r, key, owner, mine, tags, owncnt, ridmap)
+        if hit:
+            return hit[0], "舊名（%s）" % hit[1]
+        # 判定四：這個 rid 在**歷史帳號檔**裡只掛給過另外一位選手（帳號檔某天大搬風、
+        # 這位選手整個人從帳號檔消失＝孤兒逐場檔，判定一二三都碰不到）。
+        d4 = None if (A.no_history or who) else soloq_acc_history.history_owner(HIST, r, key)
+        if d4:
+            return d4[0], "歷史（%s）" % d4[1]
+        return None
+
     plans = []
     for fn in sorted(files, key=lambda x: int(re.sub(r"\D", "", x) or 0)):
-        key, fp, data = files[fn]
+        key, fp, rids = files[fn]
+        dirty = {}
+        for r in rids:
+            hit = judge(r, key)
+            if hit:
+                dirty[r] = hit
+        if not dirty:
+            continue                       # 這個檔乾淨 ⇒ 整檔內容連讀都不用讀
+        try:
+            key2, data = read_file(fp)     # 只有要動的檔才整檔讀回來切 keep/drop
+        except Exception as e:
+            print("  ⛔ %s 掃到髒 rid 卻讀不回來（%s），這輪不動它" % (fn, e))
+            continue
+        if key2 != key:
+            print("  ⛔ %s 的 key 在掃描後變了（%s → %s），這輪不動它" % (fn, key, key2))
+            continue
         ms = data.get("matches") or []
         keep, drop = [], []
         for g in ms:
-            r = _norm(g.get("rid"))
-            who = owner.get(r)
-            # 判定一：rid 命中帳號檔、擁有者唯一、而且不是這位選手
-            if r and who and len(who) == 1 and key not in who:
-                drop.append((g, next(iter(who)), "現名"))
-                continue
-            # 判定三：這個 rid 曾被歸屬複查從**這位選手**手上剔除（dpm 掛牌是別人的）。
-            # 只在「現在誰的帳號檔都沒命中」時才用——帳號檔若又把它登記給誰，那是判定一二的管轄。
-            d3 = None if (A.no_disowned or not r or who) else soloq_disowned.disowned_from(DIS, r, key)
-            if d3:
-                drop.append((g, d3.get("owner") or "?",
-                             "剔除（%s %s）" % (d3.get("why") or "歸屬複查", d3.get("at") or "")))
-                continue
-            # 判定二：rid 是別位選手的舊名／另一個帳號
-            hit = None if (A.no_oldname or not r) else oldname_owner(
-                r, key, owner, mine, tags, owncnt, ridmap)
+            hit = dirty.get(_norm(g.get("rid")))
             if hit:
-                drop.append((g, hit[0], "舊名（%s）" % hit[1]))
-                continue
-            # 判定四：這個 rid 在**歷史帳號檔**裡只掛給過另外一位選手（帳號檔某天大搬風、
-            # 這位選手整個人從帳號檔消失＝孤兒逐場檔，判定一二三都碰不到）。
-            d4 = None if (A.no_history or not r or who) else soloq_acc_history.history_owner(
-                HIST, r, key)
-            if d4:
-                drop.append((g, d4[0], "歷史（%s）" % d4[1]))
+                drop.append((g, hit[0], hit[1]))
             else:
                 keep.append(g)
         if drop:
