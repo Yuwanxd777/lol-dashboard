@@ -328,6 +328,71 @@ finally:
     uh.LOG, uh.CONSOLE, sys.argv, uh.live_dup = _real_log, _real_console, _real_argv, _real_live
     shutil.rmtree(tmp, ignore_errors=True)
 
+# ── ⑯ 最新一場比賽（#98）：列數擋「變少」，這一組擋「不再變多」──────────────
+HDR = ["league", "date", "patch"]
+eq(uh.max_date([HDR, ["LPL", "2026-09-08", "16.17"], ["LCK", "2026-09-01", "16.17"]]),
+   "2026-09-08", "⑯取最大的日期不是最後一列")
+eq(uh.max_date([HDR, ["LPL", "2026-09-08 12:00:00", "16.17"]]), "2026-09-08", "⑯帶時間也切得出日期")
+eq(uh.max_date([HDR, ["LPL", "", "16.17"], ["LCK", None, "16.17"]]), None, "⑯全是空值＝None")
+eq(uh.max_date([HDR, ["LPL", "不是日期", "16.17"]]), None, "⑯認不得的格式不當日期")
+eq(uh.max_date([["league", "patch"], ["LPL", "16.17"]]), None, "⑯沒有 date 欄就 None（不是丟例外）")
+# 欄位一律 hdr.index 查：把 date 換到別的位置，答案要一樣（正控制＝硬編偏移會在這裡翻面）
+eq(uh.max_date([["patch", "league", "date"], ["16.17", "LPL", "2026-09-08"]]),
+   "2026-09-08", "⑯正控制：date 換欄位照樣讀得到")
+
+eq(uh.newest({"data_2025.js": "2025-11-09", "data_2026.js": "2026-09-08"}),
+   ("data_2026.js", "2026-09-08"), "⑯newest 取全庫最新")
+eq(uh.newest({"data_2026.js": None}), (None, None), "⑯newest 全空＝(None, None)")
+NOW98 = time.mktime(time.strptime("2026-09-10 00:50:00", "%Y-%m-%d %H:%M:%S"))
+eq(uh.days_since("2026-09-08", NOW98), 2, "⑯days_since")
+
+
+def lp(prev, cur, now=NOW98, stale=uh.STALE_DAYS):
+    line, bad = uh.latest_problems(prev, cur, now, stale)
+    return (line, "／".join(bad))
+
+
+FRESH = {"data_2026.js": "2026-09-08"}
+eq(lp({"data_2026.js": "2026-09-08"}, FRESH)[1], "", "⑯沒往前不算異常（賽季空窗最長 69 天）")
+eq(lp({"data_2026.js": "2026-09-08"}, FRESH)[0],
+   "最新一場比賽：2026-09-08（data_2026.js，2 天前）；基準同一天（沒往前）", "⑯沒往前那一行照樣印出來")
+eq(lp({"data_2026.js": "2026-09-07"}, FRESH)[0].endswith("基準 2026-09-07（+1 天）"), True, "⑯往前一天")
+eq(lp({}, FRESH)[0].endswith("基準沒這項（新項目）"), True, "⑯第一次跑＝新項目")
+# ① 倒退＝硬性異常（比賽被刪或 date 欄解析壞了），而且要指名是哪一年
+eq(lp({"data_2026.js": "2026-09-08"}, {"data_2026.js": "2026-08-01"})[1],
+   "data_2026.js 最新比賽日期倒退（基準 2026-09-08 → 現在 2026-08-01）", "⑯倒退＝異常")
+# 別的年份倒退、最新那年沒事 ⇒ 照樣要抓到（不能只看 newest 那一個檔）
+eq(lp({"data_2025.js": "2025-11-09", "data_2026.js": "2026-09-08"},
+      {"data_2025.js": "2025-06-01", "data_2026.js": "2026-09-08"})[1],
+   "data_2025.js 最新比賽日期倒退（基準 2025-11-09 → 現在 2025-06-01）", "⑯舊年份倒退也抓（正控制）")
+# ② 超過 STALE_DAYS 才算停更：69 天（史上最長空窗）不報、76 天才報
+eq(lp({}, {"data_2026.js": "2026-07-03"})[1], "", "⑯69 天不報（2022-11-06→2023-01-14 那種空窗）")
+eq("來源可能停更" in lp({}, {"data_2026.js": "2026-06-26"})[1], True, "⑯76 天＝來源可能停更")
+eq("date 欄解析壞了" in lp({}, {"data_2026.js": "2026-09-30"})[1], True, "⑯未來日期＝解析壞了")
+eq(lp({}, {"data_2026.js": None})[1], "讀不到任何一場比賽的日期", "⑯讀不到日期＝異常")
+# 正控制：門檻真的在作用（同一份資料，門檻調到 1 天就必須翻面）
+eq("來源可能停更" in lp({}, FRESH, stale=1)[1], True, "⑯正控制：門檻 1 天時同一份資料會報")
+
+# merge_latest 也是高水位：倒退不寫回，否則第二輪就被吃掉（跟 merge_baseline 同一個洞）
+eq(uh.merge_latest({"data_2026.js": "2026-09-08"}, {"data_2026.js": "2026-08-01"}),
+   {"data_2026.js": "2026-09-08"}, "⑯倒退不寫回基準")
+eq(uh.merge_latest({"data_2026.js": "2026-09-08"}, {"data_2026.js": "2026-08-01"}, accept=True),
+   {"data_2026.js": "2026-08-01"}, "⑯--accept 才認可倒退")
+eq(uh.merge_latest({"data_2026.js": "2026-09-08"}, {"data_2026.js": "2026-09-09"}),
+   {"data_2026.js": "2026-09-09"}, "⑯往前照常更新")
+eq(uh.merge_latest({"data_2026.js": "2026-09-08"}, {"data_2026.js": None}),
+   {"data_2026.js": "2026-09-08"}, "⑯讀不到就別把舊值蓋掉")
+
+# ── ⑰ 真實資料端到端：data_counts 的出參要填滿每一年，而且日期都在合理範圍 ──
+lt = {}
+dc2 = uh.data_counts(lt)
+eq(sorted(lt), years, "⑰latest_out 涵蓋全部年份")
+eq(dc2, dc, "⑰帶出參不影響列數（跟 ⑦ 那次結果一樣）")
+eq(all(isinstance(lt[y], str) and len(lt[y]) == 10 for y in years), True, "⑰每年都讀得到日期")
+eq(all(lt[y][:4] in (y[5:9], str(int(y[5:9]) - 1)) for y in years), True,
+   "⑰日期年份＝檔名那年或前一年（跨年賽前賽）")
+eq(uh.latest_problems(lt, lt, time.time())[1], [], "⑰現況對現況沒有異常")
+
 print("update_health 回歸測試：通過 %d 條" % OK[0] + ("" if not NG else "，失敗 %d 條" % len(NG)))
 for m in NG:
     print("   ✗ " + m)

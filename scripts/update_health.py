@@ -11,6 +11,10 @@
         ‧ 最久的 8 步、非零離開碼的步驟、管線總時長（run_update 開始 → 「資料更新時間」那行）
   準確  ‧ data_YYYY.js（**全部 14 年**）列數不可比基準少（縮水＝來源掛了或過濾壞了）
         ‧ 基準是「已知良好的高水位」：縮水不會寫回基準，會一直報到 --accept 認可為止
+        ‧ **最新一場比賽是哪一天**（2026-09-10 #98）——列數只擋得住「變少」，擋不住「不再變多」：
+          來源停更（OE 的 Drive CSV 沒再更新／service account 失效）時列數會**剛好等於基準**，
+          舊版報告一路印「✓ 沒有異常」。現在多印一行「最新一場比賽 YYYY-MM-DD（N 天前）」，
+          並在**日期倒退**（＝比賽被刪或解析壞了，硬性）或**超過 STALE_DAYS**時列為異常
         ‧ soloq.js 選手數／有排名數、side_sel.js 局數、lint_text 錯誤級
         ‧ **可疑同名走現況重算**（2026-09-07 #49），不是讀日誌快照——審定是人在班與班之間補的
         ‧ preflight 有沒有過、有沒有 push
@@ -21,6 +25,7 @@
       python scripts/update_health.py --from-publish   # publish.bat 用：日誌不新鮮＝異常
       python scripts/update_health.py --no-live        # 跳過可疑同名的現況重算（省 ~3 秒）
 """
+import datetime
 import glob
 import io
 import json
@@ -244,16 +249,51 @@ def shift_problems(start_at, now_ts, shifts=None, grace_min=None, slack_min=None
             "班次 %s：✗ 沒有這一班的日誌（最後 %s）" % (bl, start_at))
 
 
-def data_counts():
+DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}")
+
+
+def max_date(raw):
+    """RAW_DATA（含表頭）→ 最新的一場比賽日期 'YYYY-MM-DD'；一筆都認不得就 None。
+
+    欄位一律 hdr.index('date') 查（年度資料是白名單制的 88 欄，硬編偏移會在改白名單那天壞掉）。
+    """
+    hdr = raw[0]
+    try:
+        di = hdr.index("date")
+    except ValueError:
+        return None
+    best = None
+    for r in raw[1:]:
+        v = r[di] if di < len(r) else None
+        if not v:
+            continue
+        s = str(v)[:10]
+        if DATE_RE.match(s) and (best is None or s > best):
+            best = s
+    return best
+
+
+def data_counts(latest_out=None):
+    """列數；`latest_out` 給一個 dict 就順便填「每個年度檔的最新比賽日期」。
+
+    刻意做成選填的出參而不是改回傳值：`scripts/update_health_test.py` 的端到端那段
+    直接 `uh.data_counts()` 拿 dict，改簽名會把既有測試打壞。日期在**同一次解析**裡算完，
+    不會為了新增一個指標再讀一遍 194MB。
+    """
     out = {}
     # 2026-09-07：本來是 [-3:]（只看最近三年），2013~2023 共 11 年的縮水永遠測不到。
     # 實測全部 14 年（194MB）解析只要 1.9 秒，沒有理由省。
     for f in sorted(glob.glob(os.path.join(ROOT, "data", "data_20*.js"))):
         try:
             d = js_obj(f)
-            out[os.path.basename(f)] = len(d["tabs"]["RAW_DATA"])
+            raw = d["tabs"]["RAW_DATA"]
+            out[os.path.basename(f)] = len(raw)
+            if latest_out is not None:
+                latest_out[os.path.basename(f)] = max_date(raw)
         except Exception:
             out[os.path.basename(f)] = None
+            if latest_out is not None:
+                latest_out[os.path.basename(f)] = None
     try:
         s = js_obj(os.path.join(ROOT, "soloq.js"))
         ps = s.get("players", [])
@@ -318,9 +358,79 @@ def merge_baseline(prev, cur, accept=False):
     return out
 
 
+# ── 最新一場比賽（2026-09-10 #98；純函式，scripts/update_health_test.py 在測）──────────
+# 為什麼門檻鬆到 75 天：**LOL 的空窗期本來就很長**，2026-09-10 實測全庫 3219 個比賽日，
+# 最長的無比賽間隔是 69 天（2022-11-06 → 2023-01-14），其次 55、44、35、31。
+# 而且空窗不只出現在冬季——2021-09-05 → 2021-10-05 中間 30 天（各賽區總決賽打完、世界賽還沒開打），
+# **今天（2026-09-08 最後一場）正好又落在那個窗口**。所以「N 天沒新比賽」做不成靈敏的警報，
+# 硬調嚴只會每年固定誤報好幾次、然後大家學會忽略它。
+# 這裡的分工：
+#   ‧ 日期**每一輪都印出來**（資訊性）——迴圈看得到「有沒有往前走」，這是舊版完全沒有的訊號
+#   ‧ 只有兩種情況算異常：①日期**倒退**（硬性，比賽被刪或 date 欄解析壞了，跟列數縮水同一種病）
+#     ②超過 STALE_DAYS＝比史上最長空窗還長 ⇒ 那時「來源停更」已經是唯一合理解釋
+STALE_DAYS = 75
+FUTURE_DAYS = 7      # 比今天還晚這麼多天＝日期解析壞了（時區差不可能有一週）
+
+
+def newest(latest):
+    """{檔名: 'YYYY-MM-DD'} → (檔名, 日期)，全庫最新的那一場；沒有可讀日期就 (None, None)。"""
+    ok = [(v, k) for k, v in latest.items() if v]
+    if not ok:
+        return (None, None)
+    v, k = max(ok)
+    return (k, v)
+
+
+def days_since(datestr, now_ts):
+    y, m, d = (int(x) for x in datestr.split("-")[:3])
+    return (datetime.date.fromtimestamp(now_ts) - datetime.date(y, m, d)).days
+
+
+def latest_problems(prev, cur, now_ts, stale_days=STALE_DAYS):
+    """回 (要印的那一行, [異常…])。prev＝基準裡的高水位日期，cur＝這次算出來的。"""
+    k, v = newest(cur)
+    if not v:
+        return ("最新一場比賽：讀不到（date 欄壞了？）", ["讀不到任何一場比賽的日期"])
+    bad = []
+    # ① 倒退：逐檔比，跟列數縮水同一種病（某一年被刪光也照樣抓得到，即使別的年份還在往前走）
+    for kk in sorted(cur):
+        pv, cv = prev.get(kk), cur.get(kk)
+        if cv and isinstance(pv, str) and cv < pv:
+            bad.append("%s 最新比賽日期倒退（基準 %s → 現在 %s）" % (kk, pv, cv))
+    n = days_since(v, now_ts)
+    if n > stale_days:
+        bad.append("最新一場比賽 %s 已經 %d 天前（>%d 天）——來源可能停更" % (v, n, stale_days))
+    elif n < -FUTURE_DAYS:
+        bad.append("最新一場比賽 %s 比今天還晚 %d 天——date 欄解析壞了？" % (v, -n))
+    pv = prev.get(k)
+    if not isinstance(pv, str):
+        move = "基準沒這項（新項目）"
+    elif pv == v:
+        move = "基準同一天（沒往前）"
+    elif v > pv:
+        move = "基準 %s（+%d 天）" % (pv, days_since(pv, now_ts) - n)
+    else:
+        move = "⚠ 基準 %s（倒退）" % pv
+    return ("最新一場比賽：%s（%s，%d 天前）；%s" % (v, k, n, move), bad)
+
+
+def merge_latest(prev, cur, accept=False):
+    """日期也採高水位：倒退不寫回基準（不然第二輪就被吃掉，跟 merge_baseline 同一個洞）。"""
+    out = dict(prev)
+    for k, v in cur.items():
+        if not v:
+            continue                      # 讀不到就別把舊值蓋掉
+        pv = prev.get(k)
+        if isinstance(pv, str) and v < pv and not accept:
+            continue
+        out[k] = v
+    return out
+
+
 def main():
     lg = parse_log()
-    dc = data_counts()
+    lt = {}
+    dc = data_counts(lt)
     prev = {}
     try:
         prev = json.load(io.open(BASE, encoding="utf-8"))
@@ -391,6 +501,10 @@ def main():
         elif st == "shrink":
             bad.append("%s 縮水 %d → %d" % (k, pv, v))
         print("   %-22s %s%s" % (k, v, flag))
+    # 最新一場比賽（#98）：列數擋「變少」，這行擋「不再變多」
+    lline, lbad = latest_problems(prev.get("latest") or {}, lt, time.time())
+    print("   " + lline)
+    bad += lbad
     print("")
     print("結論：" + ("✓ 沒有異常" if not bad else "⚠ " + "；".join(bad)))
     if any("縮水" in b for b in bad):
@@ -400,7 +514,9 @@ def main():
         os.makedirs(os.path.dirname(BASE), exist_ok=True)
         json.dump({"at": time.strftime("%Y-%m-%d %H:%M"),
                    "counts": merge_baseline(pc, dc, accept),
+                   "latest": merge_latest(prev.get("latest") or {}, lt, accept),
                    "last": dc,
+                   "last_latest": lt,
                    "log": {k: v for k, v in (lg or {}).items() if k != "steps"},
                    "bad": bad}, io.open(BASE, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
         print("（基準已存 autopilot/UPDATE_BASELINE.json%s）" % ("，--accept：縮水已認可" if accept else ""))
