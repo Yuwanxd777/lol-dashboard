@@ -52,6 +52,27 @@ _WAITED = [0.0]                                         # 純節流等待的累�
 _REQS = collections.Counter()                           # host → 這一班真的送出去的請求數（#84，只給日誌看）
 _WAITED_LK = threading.Lock()                           # prefetch_ladders 並行時同一個計數器會被四條執行緒碰
 
+# ── 網路／連線記帳（2026-09-10 精進迴圈 #105，只給日誌看，抓取行為一個位元沒改）──
+# ⑤c 的日誌到 #84 為止只拆得出「逐帳號主迴圈 150s、其中節流暫停 92s」，剩下的 58s 是什麼沒人知道。
+# 那 58s 的三種可能各自要用完全不同的方法治：
+#   ① 真的在等 Riot 回應      → 只能少送請求（或逐主機並行）
+#   ② #78 的 keep-alive 沒生效、每次都在重握手 → 修連線重用
+#   ③ 本機自己慢              → 改本機碼
+# 所以先把它們分開量。**這幾個計數器只被 print 讀，沒有任何判斷分支看它們。**
+_NET = [0.0]        # 待在 _raw_get 裡的秒數（＝送出去到 body 讀完，含重用連線壞掉後的重打）
+_ERRW = [0.0]       # 429 的 Retry-After 與連線錯誤的 sleep（跟額度節流是兩回事，分開記）
+_HS = [0]           # 新開連線（TCP+TLS 握手）次數
+_REUSE = [0]        # 沿用既有 keep-alive 連線的次數
+
+
+def _acct(net=0.0, errw=0.0, hs=0, reuse=0):
+    """記帳（prefetch_ladders 並行時四條執行緒會同時碰，跟 _WAITED 共用同一把鎖）。"""
+    with _WAITED_LK:
+        _NET[0] += net
+        _ERRW[0] += errw
+        _HS[0] += hs
+        _REUSE[0] += reuse
+
 
 def _host_of(url):
     """`https://kr.api.riotgames.com/...` → `kr`（額度桶的鍵）。解析不到就全部丟同一桶（＝舊行為）。"""
@@ -152,23 +173,28 @@ def _raw_get(url, timeout=15):
     hostname = sp.hostname or ""
     path = (sp.path or "/") + (("?" + sp.query) if sp.query else "")
     hdrs = {"X-Riot-Token": KEY, "User-Agent": UA, "Accept": "*/*", "Connection": "keep-alive"}
-    while True:
-        c = _CONNS.get(hostname)
-        fresh = c is None
-        if fresh:
-            c = _CONNS[hostname] = _CONN_CLS(hostname, timeout=timeout)
-        try:
-            c.request("GET", path, headers=hdrs)
-            r = c.getresponse()
-            body = r.read()                      # 一定要讀完，不然這條連線不能重用
-            if getattr(r, "will_close", False):  # 對方說要關 → 下一次重開
-                _conn_close(hostname)
-            return r.status, r.headers, body
-        except Exception:
-            _conn_close(hostname)
+    _t9 = time.time()
+    try:
+        while True:
+            c = _CONNS.get(hostname)
+            fresh = c is None
             if fresh:
-                raise
-            # 重用的連線壞掉：迴圈再走一次，這次 _CONNS 已空 ⇒ 一定是新連線
+                c = _CONNS[hostname] = _CONN_CLS(hostname, timeout=timeout)
+            _acct(hs=1 if fresh else 0, reuse=0 if fresh else 1)   # #105：keep-alive 到底有沒有生效
+            try:
+                c.request("GET", path, headers=hdrs)
+                r = c.getresponse()
+                body = r.read()                      # 一定要讀完，不然這條連線不能重用
+                if getattr(r, "will_close", False):  # 對方說要關 → 下一次重開
+                    _conn_close(hostname)
+                return r.status, r.headers, body
+            except Exception:
+                _conn_close(hostname)
+                if fresh:
+                    raise
+                # 重用的連線壞掉：迴圈再走一次，這次 _CONNS 已空 ⇒ 一定是新連線
+    finally:
+        _acct(net=time.time() - _t9)   # 例外往上丟的那次也要記（不然帳會少一塊）
 
 
 def riot_get(url, timeout=15):
@@ -185,11 +211,11 @@ def riot_get(url, timeout=15):
                 return code, json.loads(body.decode("utf-8"))
             if code == 429:                     # 被限速 → 等 Retry-After 再試
                 ra = int(hdrs.get("Retry-After", "5") or 5)
-                print(f"    429 限速，等 {ra}s…"); time.sleep(ra + 1); continue
+                print(f"    429 限速，等 {ra}s…"); time.sleep(ra + 1); _acct(errw=ra + 1); continue
             if code == 404: return 404, None
             return code, None
         except Exception as ex:
-            print(f"    連線錯誤：{ex}，重試…"); time.sleep(2); continue
+            print(f"    連線錯誤：{ex}，重試…"); time.sleep(2); _acct(errw=2); continue
     return 0, None
 
 ACC_LAST_CODE = [0]   # get_account 最近一次的 HTTP 狀態碼（404＝Riot 明確說沒這個 ID，不是暫時性失敗）
@@ -376,6 +402,7 @@ def _ladder_one(plat, out, lines):
 def prefetch_ladders(platforms):
     plats = sorted(platforms)
     t0 = time.time()
+    _n0, _h0, _u0 = _NET[0], _HS[0], _REUSE[0]      # #105：這一階自己的網路帳（並行 ⇒ 相加會大於牆鐘）
     par = len(plats) > 1 and "--ladder-seq" not in sys.argv
     res = {}                       # plat -> (n, lines)；執行緒各寫各的 key，不必鎖
     merged = {}
@@ -409,9 +436,10 @@ def prefetch_ladders(platforms):
         for ln in lines:
             print(ln)
     print("聯盟名單預抓完成：%d 個 Master 以上帳號可直接查表，不逐帳號呼叫" % n)
-    print("⏱ 聯盟名單預抓 %.0fs（%d 個平台 x %d 份名單，%s）"
+    print("⏱ 聯盟名單預抓 %.0fs（%d 個平台 x %d 份名單，%s；下載相加 %.0fs、握手 %d 次／重用 %d 次）"
           % (time.time() - t0, len(plats), len(LADDER_TIERS),
-             "每平台一條執行緒" if par else "循序"), flush=True)
+             "每平台一條執行緒" if par else "循序",
+             _NET[0] - _n0, _HS[0] - _h0, _REUSE[0] - _u0), flush=True)
     return n
 
 
@@ -734,6 +762,7 @@ def main():
         print("處理順序依平台交錯（%s）；分桶節流逐主機各算額度，日誌的 [n/N] 是原清單位置"
               % "／".join("%s %d" % kv for kv in _pc.most_common()))
     _t_loop, _w_loop, _r_loop = time.time(), _WAITED[0], sum(_REQS.values())
+    _n_loop, _e_loop, _h_loop, _u_loop = _NET[0], _ERRW[0], _HS[0], _REUSE[0]   # #105
     for i in order:
         a = accounts[i]
         rec = fetch_one(a, f"{i + 1}/{len(accounts)}")
@@ -750,10 +779,20 @@ def main():
     # 逐帳號主迴圈的組成（#84）：以前 ⑤c 只有「整段 192.5s」一個數字，要拆得靠人工從
     # 節流暫停那幾行湊。這行把「牆鐘／真的送出去幾次請求／其中純粹在等額度多久」寫進 log
     # （#56：時間資料要留在 update_log.txt，console 檔每一班會被覆寫）。
-    print("⏱ 逐帳號主迴圈 %.0fs：%d 個帳號、%d 次請求，其中節流暫停 %.0fs"
+    # #105：把「其餘時間」再拆成 Riot 往返／重試等待／本機。三者的處置完全不同
+    # （少送請求 vs 修連線重用 vs 改本機碼），以前全部混在「150 − 92 = 58s」裡看不出來。
+    # 「本機」＝牆鐘扣掉前三項的殘差，所以四項一定加得回牆鐘（跟 fetch_fill 的分項同一個規矩）。
+    _el = time.time() - _t_loop
+    _thr, _net, _err = _WAITED[0] - _w_loop, _NET[0] - _n_loop, _ERRW[0] - _e_loop
+    _hs, _ru = _HS[0] - _h_loop, _REUSE[0] - _u_loop
+    print("⏱ 逐帳號主迴圈 %.0fs：%d 個帳號、%d 次請求，"
+          "其中節流暫停 %.0fs｜Riot 往返 %.0fs｜重試等待 %.0fs｜本機 %.0fs"
+          "（連線：握手 %d 次／重用 %d 次%s）"
           "（整班至此逐主機累計：%s）"
-          % (time.time() - _t_loop, len(order), sum(_REQS.values()) - _r_loop,
-             _WAITED[0] - _w_loop,
+          % (_el, len(order), sum(_REQS.values()) - _r_loop,
+             _thr, _net, _err, max(0.0, _el - _thr - _net - _err),
+             _hs, _ru,
+             "，keep-alive 命中 %.0f%%" % (100.0 * _ru / (_hs + _ru)) if (_hs + _ru) else "",
              "／".join("%s %d" % (h, c) for h, c in _REQS.most_common()) or "無"), flush=True)
     if LADDER_HITS[0]:
         print(f"（聯盟名單命中 {LADDER_HITS[0]} 個帳號 → 省下同樣次數的逐帳號請求）")
