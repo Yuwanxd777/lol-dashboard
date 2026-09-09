@@ -20,7 +20,7 @@
   python scripts\\fetch_side_sel.py --page "LCP/2026 Season/Split 3"   # 只抓指定頁
   python scripts\\fetch_side_sel.py --dump          # 只印不寫檔
 """
-import argparse, html as _html, io, json, os, re, sys, time, unicodedata, urllib.parse, urllib.request
+import argparse, html as _html, io, json, os, re, sys, time, unicodedata, urllib.parse, urllib.request, threading
 
 if (getattr(sys.stdout, "encoding", "") or "").lower().replace("-", "") != "utf8":
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
@@ -29,6 +29,8 @@ ROOT = os.path.dirname(HERE)
 sys.path.insert(0, HERE)
 CACHE = os.path.join(ROOT, "csv_cache", "sidesel")
 YEAR = 2026
+RETRY_GAP = 12.0   # 抓取失敗後的退避基數（秒）：第 n 次重試睡 RETRY_GAP*n。
+                   # 抽成常數只為了讓沙盒測試調得動（#106），正式值一如既往是 12。
 GAP = 3.0   # 2026-09-07 線 3：原 6.0 ⇒ 22:00 重抓 11 頁純睡 66 秒。走 api.php?action=parse（一般頁面，不吃 Cargo 限流；fetch_wiki_pb 也才 3 秒）
 HIST = False   # --year <2026 的歷史回補模式：只收 MVP/VOD（選邊欄位清空），輸出 side_sel_YYYY.js
 
@@ -99,6 +101,9 @@ def live_pages(days):
 
 
 _LAST_HIT = [0.0]   # 上一次真的送出 api.php 請求的時刻（0＝還沒送過）
+_LOCK = threading.Lock()   # 保護 _LAST_HIT 與「等待→送請求」那一段：背景預抓執行緒與主執行緒共用同一把，
+                           # 所以不管誰要抓，api.php 的請求永遠是序列的、間隔仍然 >= GAP（#106）
+_FUT = {}           # ov -> Future：背景預抓中的「進行中」頁面（見 start_refetch）
 _PRE = {}           # ov → html：這一輪不重抓的快取頁，開跑前用執行緒池先讀進來（見 prefetch_cached）
 READ_JOBS = 8       # 預讀的執行緒數（要退回循序：--read-jobs=1）
 
@@ -151,15 +156,23 @@ def page_html(ov, force=False):
             # 舊寫法是抓完就 sleep(GAP)：①中間解析快取頁／查賽程的秒數不算數，明明已經隔了
             # 好幾秒還要再睡滿 3 秒；②最後一頁抓完也照睡，那 3 秒沒有任何人在等。
             # 22:00 那班 9 頁重抓＝27 秒純呆坐。改成睡在請求之前、只補不足的部分。
-            _w = GAP - (time.time() - _LAST_HIT[0])
-            if _LAST_HIT[0] and _w > 0:
-                time.sleep(_w)
-            else:
-                _w = 0.0
-            _t0 = time.time()
-            d = json.loads(MH.opener().open(urllib.request.Request(url, headers=MH.UA), timeout=120)
-                           .read().decode("utf-8", "replace"))
-            _LAST_HIT[0] = time.time()
+            # 2026-09-10 線 3 #106：整段（算等待→睡→送請求→記時刻）包進 _LOCK。
+            # 背景預抓執行緒與主執行緒共用同一把 ⇒ 請求數、順序、最小間隔全部照舊，
+            # 差別只在「等 GAP」那段時間主執行緒可以去做別的事（賽程批次預取／解析）。
+            with _LOCK:
+                _w = GAP - (time.time() - _LAST_HIT[0])
+                if _LAST_HIT[0] and _w > 0:
+                    time.sleep(_w)
+                else:
+                    _w = 0.0
+                _t0 = time.time()
+                try:
+                    d = json.loads(MH.opener().open(urllib.request.Request(url, headers=MH.UA), timeout=120)
+                                   .read().decode("utf-8", "replace"))
+                finally:
+                    # 失敗也算送過一次，重試不可以繞過間隔（原本寫在下面的 except，
+                    # 但那時鎖已經放掉了——別人會拿到還沒更新的時刻而提早送出）
+                    _LAST_HIT[0] = time.time()
             if "error" in d:
                 return ""
             h = d["parse"]["text"]
@@ -168,9 +181,39 @@ def page_html(ov, force=False):
                   + (f"＋前面等了 {_w:.1f}s" if _w else "＋不用等"))  # 每頁成本進日誌（2026-09-07 線 3）
             return h
         except Exception as e:
-            _LAST_HIT[0] = time.time()      # 失敗也算送過一次，重試不可以繞過間隔
-            print(f"    抓取失敗（{a+1}/3）：{type(e).__name__}"); time.sleep(12 * (a + 1))
+            # _LAST_HIT 已在上面的 finally 記過（#106），這裡不再重複
+            print(f"    抓取失敗（{a+1}/3）：{type(e).__name__}"); time.sleep(RETRY_GAP * (a + 1))
     return ""
+
+
+def start_refetch(pages, forced):
+    """把「這一輪要重抓」的進行中頁面丟給一條背景執行緒，開跑就開始抓（2026-09-10 線 3 #106）。
+
+    為什麼：09-09 22:00 那班這支 46.2s，拆開來是
+      賽程批次預取 10.3s ＋ 快取頁預讀 0.1s ＋ 9 頁下載相加 7.6s ＋ **節流純等 24.0s**（8 次 x 3.0s）＋ 其餘 4.2s。
+    最大的單項是那 24 秒，而且它**不是在等 Leaguepedia 回應**，是我們自己為了不打爆對方而呆坐——
+    主執行緒在那 24 秒裡什麼都沒做（每頁解析只要 0.05s，日誌上 8 次等待每次都睡滿 3.0s 就是證據）。
+
+    做法：只搬時間、不搬請求。重抓交給 `max_workers=1` 的執行緒（所以仍然一次一個請求，
+    且與主執行緒共用 `_LOCK`／`_LAST_HIT` ⇒ 間隔仍 >= GAP），主執行緒同時去做賽程批次預取
+    （10.3s，走 Special:CargoExport，是另一條通道）與快取頁預讀／解析。
+    **請求數、順序、間隔、重試次數一個位元都沒改**，改的只有「等待期間主執行緒在幹嘛」。
+
+    主迴圈用 `_FUT.pop(ov).result()` 取用；沒被預抓到的頁（快取缺失的非 forced 頁）
+    仍走 page_html 自己抓，兩邊搶同一把鎖，所以不會有人偷跑。
+    """
+    todo = [ov for ov in pages if ov in forced]
+    if not todo:
+        return
+    MH.opener()      # 先在主執行緒把共用 opener 與 cookie 建好——它的 lazy init（`if _OP is None`）
+                     # 不是執行緒安全的，兩條同時進去會各拿一次 cookie（多送一次表單頁請求）
+    from concurrent.futures import ThreadPoolExecutor
+    ex = ThreadPoolExecutor(max_workers=1, thread_name_prefix="sidesel-refetch")
+    for ov in todo:
+        _FUT[ov] = ex.submit(page_html, ov, True)
+    ex.shutdown(wait=False)      # 不等它，主執行緒繼續往下跑
+    print("  進行中頁面背景預抓：%d 個（1 條執行緒、間隔 %.1fs 照舊；等待與賽程批次預取／解析重疊）"
+          % (len(todo), GAP))
 
 
 def parse(ov, htm):
@@ -458,13 +501,15 @@ def main():
     live = set() if HIST else (None if (A.force or A.page) else live_pages(A.fresh_days))
     print(f"賽事頁 {len(pages)} 個"
           + ("（全部重抓）" if live is None else f"，其中進行中 {len(live & set(pages))} 個要重抓，其餘吃快取"))
-    sched_prefetch(pages)      # 賽程一次查完，下面的 sched(ov) 就不再逐頁往返（#57）
-    # 這一輪會重抓的頁（下面 for 迴圈的 force 條件，抽出來給預讀用——兩邊必須同一個算式）
+    # 這一輪會重抓的頁（下面 for 迴圈的 force 條件，抽出來給預讀／背景預抓用——三邊必須同一個算式）
     forced = set(pages) if (A.force or live is None) else set(live)
+    start_refetch(pages, forced)     # 重抓先起跑（#106：那 24s 節流等待改成跟下面兩步重疊）
+    sched_prefetch(pages)      # 賽程一次查完，下面的 sched(ov) 就不再逐頁往返（#57）
     prefetch_cached(pages, forced)   # 不重抓的快取頁併發先讀（#88：循序 20s → 8 條 3~4s）
     allrec, hit = [], 0
     for ov in pages:
-        h = page_html(ov, force=A.force or live is None or ov in live)
+        fu = _FUT.pop(ov, None)      # 背景預抓過的直接取結果（#106）；沒有的才自己抓
+        h = fu.result() if fu is not None else page_html(ov, force=A.force or live is None or ov in live)
         if not h:
             continue
         sers = parse(ov, h)
