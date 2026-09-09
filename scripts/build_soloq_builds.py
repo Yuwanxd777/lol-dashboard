@@ -23,6 +23,9 @@ SUP_START = 3865  # 世界地圖(起手支援裝)
 SUP_LEG = {3869, 3870, 3871, 3876, 3877}  # 完成的支援傳奇裝(輔助道具裝)：輔助的「起手裝」欄改顯示他完成哪件
 CORE_EXCLUDE = {3041}  # 靈魂竊取者(梅賈滾雪球裝)：不計入核心裝與出裝流派
 COREP_MINWIN = 10  # 版本趨勢用「前三版核心裝」：視窗場數少於此不判定(樣本不足)
+# 2026-09-09 精進迴圈 #79：下面兩張表原本寫在主迴圈裡（每場重建一次 dict／每個技能點呼叫一次 str()）
+LANE_AB = {"TOP": "T", "JUNGLE": "J", "MIDDLE": "M", "BOTTOM": "B", "UTILITY": "U"}  # 出場紀錄的路線縮寫
+SK_DIGIT = {1: "1", 2: "2", 3: "3", 4: "4"}  # 點法數字串(1=Q2=W3=E4=R)；非 1~4 的值(0/None/5)不入串
 
 def round_pcts(pairs):
     """互斥選項（起手裝：一場只買一件）的百分比取整——用最大餘數法，讓顯示整數加總＝四捨五入後總和。
@@ -43,11 +46,25 @@ def patch_key(pstr):  # 版本字串→可排序鍵，"26.10">"26.9"("26.9"其�
     except Exception:
         return (0, 0)
 
+_EPOCH_DAY0 = datetime.date(1970, 1, 1)
+
+@lru_cache(maxsize=None)   # 2026-09-09 #79：真正做日曆換算的只剩這裡，鍵是「第幾天」⇒ 幾百個不同值、幾乎全命中
+def _day_str(days):
+    return (_EPOCH_DAY0 + datetime.timedelta(days=days)).strftime("%Y-%m-%d")
+
 @lru_cache(maxsize=None)   # 2026-09-06：cProfile 抓到它被叫 1.49 億次、289 秒＝整支 75%；30 萬場每場重算 490 次
 def _date_of(t_ms):  # 積分逐場只有 epoch 毫秒時間戳→UTC 日期(YYYY-MM-DD)；版本視窗以「日」為界，時區級誤差不影響 10% 核心判定
+    # 2026-09-09 精進迴圈 #79：這層 cache 的鍵是毫秒時間戳 ⇒ 30 萬場幾乎每場都是新鍵、等於沒有 cache
+    # （cProfile：strftime 被叫 19.3 萬次／0.97s）。改成先整除成「第幾天」再查 _day_str，
+    # 日曆換算從 19.3 萬次降到幾百次。t_ms//86400000 與舊版 utcfromtimestamp(t_ms/1000) 取到的 UTC 日期同一天
+    # （毫秒是整數、除法是 floor，跟浮點秒數轉 UTC 的結果一致）。
+    # 範圍夾是刻意的：舊版在 Windows 上對 1970 之前／約 3001 之後的值會讓 utcfromtimestamp 丟 OSError ⇒ 回 None，
+    # 新版純整數運算算得出來（9999-12-31）⇒ 壞值反而會被算進版本視窗。夾在 1970~2100 之間，落在外面一律 None。
     if not t_ms: return None
     try:
-        return datetime.datetime.utcfromtimestamp(t_ms / 1000).strftime("%Y-%m-%d")
+        t = int(t_ms)
+        if t < 0 or t > 4102444800000: return None    # 4102444800000 = 2100-01-01T00:00:00Z
+        return _day_str(t // 86400000)
     except Exception:
         return None
 
@@ -252,30 +269,37 @@ def main():
         if not m: continue
         pkey, data = json.loads('[' + m.group(1) + ']')  # pkey＝「隊|選手」（出場紀錄顯示用）
         for g in data.get("matches", []):
-            c = CHAMP_FIX.get(g.get("c"), g.get("c"))
+            _get = g.get
+            c = CHAMP_FIX.get(_get("c"), _get("c"))
             if not c: continue
-            scanned += 1; games[c] += 1; win = 1 if g.get("w") else 0
-            _hl = g.get("pos") if g.get("pos") in ("TOP", "MIDDLE", "BOTTOM", "JUNGLE", "UTILITY") else "?"
-            _pkm = patch_of(g.get("t") or 0)
+            scanned += 1; games[c] += 1; win = 1 if _get("w") else 0
+            # 2026-09-09 精進迴圈 #79：這一場會用到的欄位先抽成區域變數，底下十幾處不再各自 g.get()。
+            # cProfile（10:00 那班同一份資料）：dict.get 被叫 2212 萬次／2.2s，30 萬場平均每場 73 次，
+            # 光 `g.get("t") or 0` 就有 8 處。全是純讀取、沒有副作用 ⇒ 提前求值不改變任何結果。
+            _gt = _get("t") or 0; _k = _get("k") or 0; _de = _get("de") or 0; _a = _get("a") or 0
+            _kp = _get("kp"); _gd = _get("gd15"); _xd = _get("xd15"); _fl2 = _get("fl2")
+            _cs = _get("cs") or 0; _dur = _get("d") or 0; _r = _get("r"); _pos0 = _get("pos")
+            _hl = _pos0 if _pos0 in ("TOP", "MIDDLE", "BOTTOM", "JUNGLE", "UTILITY") else "?"
+            _pkm = patch_of(_gt)
             _targets = [heroAgg[c][_hl]] + ([heroAggP[c][_pkm][_hl]] if _pkm else [])
             for _ha in _targets:
-                _ha[0] += 1; _ha[1] += win; _ha[2] += g.get("k") or 0; _ha[3] += g.get("de") or 0; _ha[4] += g.get("a") or 0
-                _ha[5] += g.get("cs") or 0; _ha[6] += g.get("d") or 0
-                if g.get("kp") is not None: _ha[7] += g["kp"]; _ha[8] += 1
-                if g.get("gd15") is not None: _ha[9] += 1; _ha[10] += g["gd15"]
-                if g.get("xd15") is not None: _ha[11] += 1; _ha[12] += g["xd15"]
-                if g.get("fl2") is not None: _ha[13] += 1; _ha[14] += 1 if g["fl2"] else 0
+                _ha[0] += 1; _ha[1] += win; _ha[2] += _k; _ha[3] += _de; _ha[4] += _a
+                _ha[5] += _cs; _ha[6] += _dur
+                if _kp is not None: _ha[7] += _kp; _ha[8] += 1
+                if _gd is not None: _ha[9] += 1; _ha[10] += _gd
+                if _xd is not None: _ha[11] += 1; _ha[12] += _xd
+                if _fl2 is not None: _ha[13] += 1; _ha[14] += 1 if _fl2 else 0
             lk = None if _hl == "?" else _hl  # 每路線聚合的路線鍵（未知路線不入 byLane，仍計整體）
-            _opp = CHAMP_FIX.get(g.get("o"), g.get("o"))
+            _o0 = _get("o"); _opp = CHAMP_FIX.get(_o0, _o0)
             if _opp:
                 _m = muCnt[c][_opp]; _m[0] += 1; _m[1] += win
-                if g.get("gd15") is not None: _m[2] += 1; _m[3] += g["gd15"]
-            _du = CHAMP_FIX.get(g.get("du"), g.get("du"))
+                if _gd is not None: _m[2] += 1; _m[3] += _gd
+            _du0 = _get("du"); _du = CHAMP_FIX.get(_du0, _du0)
             if _du:
                 _d0 = duCnt[c][_du]; _d0[0] += 1; _d0[1] += win
                 if lk: _d1 = duCntL[c][lk][_du]; _d1[0] += 1; _d1[1] += win
                 # 雙人組配對聚合（見 pairCnt 註解）：只收 下+輔 / 野+中 兩種組合
-                _dl = g.get("dul")
+                _dl = _get("dul")
                 _pk2 = None
                 if _hl == "BOTTOM" and _dl == "UTILITY": _pk2 = ("BOT", c, _du, True)
                 elif _hl == "UTILITY" and _dl == "BOTTOM": _pk2 = ("BOT", _du, c, False)
@@ -284,18 +308,18 @@ def main():
                 if _pk2:
                     _lt, _ca, _cb, _isMain = _pk2
                     _pkey2 = _ca + "|" + _cb
-                    _pgid = (g.get("t") or 0, _ca, _cb)
+                    _pgid = (_gt, _ca, _cb)
                     if _pgid not in pairSeen:
                         pairSeen.add(_pgid)
                         _pa = pairCnt[_lt][_pkey2]; _pa[0] += 1; _pa[1] += win
                     _ps = pairSide[_lt][_pkey2]; _off = 0 if _isMain else 6
-                    _ps[_off] += g.get("k") or 0; _ps[_off + 1] += g.get("de") or 0
-                    _ps[_off + 2] += g.get("a") or 0; _ps[_off + 3] += 1
-                    if g.get("gd15") is not None:
-                        _ps[_off + 4] += 1; _ps[_off + 5] += g["gd15"]
-            _rid = g.get("rid")
+                    _ps[_off] += _k; _ps[_off + 1] += _de
+                    _ps[_off + 2] += _a; _ps[_off + 3] += 1
+                    if _gd is not None:
+                        _ps[_off + 4] += 1; _ps[_off + 5] += _gd
+            _rid = _get("rid")
             if _rid:
-                _rh = ridHist[pkey][_rid]; _t0 = g.get("t") or 0
+                _rh = ridHist[pkey][_rid]; _t0 = _gt
                 _rh[0] += 1
                 if not _rh[1] or _t0 < _rh[1]: _rh[1] = _t0
                 if _t0 > _rh[2]: _rh[2] = _t0
@@ -306,41 +330,46 @@ def main():
             # ——存整個 rs 陣列沒必要，徽章只要知道系別。
             # 原本符文只存在逐選手的 soloq_matches/pN.js（點到該選手才載入），做英雄層級的表
             # 等於要一次載入上百個檔 → 直接在這裡多存兩個數字，檔案只大一點點。
-            _rs2 = next((x for x in (g.get("rs") or []) if x), None)
-            vsL.append((g.get("t") or 0, c, _opp or "", pkey))
-            chGames[c].append((g.get("t") or 0, pkey, {"TOP": "T", "JUNGLE": "J", "MIDDLE": "M", "BOTTOM": "B", "UTILITY": "U"}.get(_hl, ""),
-                               win, g.get("k") or 0, g.get("de") or 0, g.get("a") or 0,
-                               (round(g["kp"]) if g.get("kp") is not None else None), _opp or "",
-                               g.get("gd15"), g.get("xd15"), g.get("sc"), g.get("r"), _rs2,
-                               "".join(str(v) for v in (g.get("sk") or [])[:20] if v in (1, 2, 3, 4)),  # 第15欄=點法數字串(1=Q2=W3=E4=R)
+            _rsA = _get("rs") or []; _rpA = _get("rp") or []
+            _rsf = [x for x in _rsA if x]          # #79：原本 next(...) 與下面的 _rs3 各掃一次 rs，合併成一次
+            _rs2 = _rsf[0] if _rsf else None
+            vsL.append((_gt, c, _opp or "", pkey))
+            chGames[c].append((_gt, pkey, LANE_AB.get(_hl, ""),
+                               win, _k, _de, _a,
+                               (round(_kp) if _kp is not None else None), _opp or "",
+                               _gd, _xd, _get("sc"), _r, _rs2,
+                               "".join([SK_DIGIT[v] for v in (_get("sk") or [])[:20] if v in SK_DIGIT]),  # 第15欄=點法數字串(1=Q2=W3=E4=R)
                                _du or ""))  # 第16欄=搭檔英雄（積分配對詳情的逐場過濾用；依 dul 路線對應）
-            _su = [x for x in (g.get("su") or []) if x]
+            _su = [x for x in (_get("su") or []) if x]
             if len(_su) == 2:
                 _sp2 = tuple(sorted(_su)); suCnt[c][_sp2] += 1
                 if lk: suCntL[c][lk][_sp2] += 1
-            it0 = g.get("it") or []
+            it0 = _get("it") or []
             legs0 = [i for i in it0 if i in leg]
+            _legT = tuple(legs0)
             for iid in set(legs0):
                 core[c][iid] += 1
                 if lk: coreL[c][lk][iid] += 1
-            recentCore[c].append((g.get("t") or 0, tuple(legs0)))  # 近100場核心裝用
-            if lk: recentCoreL[c][lk].append((g.get("t") or 0, tuple(legs0)))
-            for iid in set(BOOT_BASE.get(i, i) for i in it0 if i in BOOTS):
+            recentCore[c].append((_gt, _legT))  # 近100場核心裝用
+            if lk: recentCoreL[c][lk].append((_gt, _legT))
+            _bootS = {BOOT_BASE.get(i, i) for i in it0 if i in BOOTS}   # #79：原本這個集合算兩次（下面 _cpset 又算一次）
+            for iid in _bootS:
                 bootCount[c][iid] += 1  # 鞋子(升級版合併到基礎鞋)
                 if lk: bootL[c][lk][iid] += 1
+            _st = _get("st") or []; _ib = _get("ib") or []   # 下面起手裝與出裝順序各用一次
             _cpset = set(legs0)  # coreP 用：這場的「常用道具」＝大裝＋鞋(併基礎鞋)＋起手裝(含多蘭之盔等；排除飾品/消耗品)
-            _cpset |= {BOOT_BASE.get(i, i) for i in it0 if i in BOOTS}
-            _cpset |= {i for i in (g.get("st") or []) if i and i not in EXCL}
-            corePGames[c].append((g.get("t") or 0, tuple(_cpset)))
-            _ks0 = g.get("r") or ((g.get("rp") or [None])[0])
-            if _ks0: ksPGames[c].append((g.get("t") or 0, int(_ks0)))
+            _cpset |= _bootS
+            _cpset |= {i for i in _st if i and i not in EXCL}
+            corePGames[c].append((_gt, tuple(_cpset)))
+            _ks0 = _r or (_rpA[0] if _rpA else None)
+            if _ks0: ksPGames[c].append((_gt, int(_ks0)))
             _runes = set()  # 全符文(關鍵符文＋主/副系＋碎片)：算「最常帶它的英雄」
-            if g.get("r"): _runes.add(g["r"])
-            for _arr in (g.get("rp"), g.get("rs"), g.get("rst")):
+            if _r: _runes.add(_r)
+            for _arr in (_rpA, _rsA, _get("rst")):
                 for _x in (_arr or []):
                     if _x: _runes.add(_x)
             for _rid in _runes: runeCount[_rid][c] += 1
-            _rp4 = [x for x in (g.get("rp") or []) if x][:4]; _rs3 = [x for x in (g.get("rs") or []) if x][:3]
+            _rp4 = [x for x in _rpA if x][:4]; _rs3 = _rsf[:3]
             if len(_rp4) >= 4 and len(_rs3) >= 2:  # 完整符文頁才計（主系4＋副系至少2）
                 _sig = (tuple(_rp4), tuple(_rs3))
                 runePage[c][_sig] += 1; runePageW[c][_sig] += win
@@ -348,7 +377,7 @@ def main():
                 if lk:
                     runePageL[c][lk][_sig] += 1; runePageWL[c][lk][_sig] += win
                     if _opp: ksOppL[c][lk][_rp4[0]][_opp] += 1
-            pos = g.get("pos") or "?"  # 起手裝依實際路線各自一組(上/中/下/野/輔)
+            pos = _pos0 or "?"  # 起手裝依實際路線各自一組(上/中/下/野/輔)
             if pos in ("TOP", "MIDDLE", "BOTTOM", "JUNGLE", "UTILITY"):
                 laneGames[c][pos] += 1
                 if pos == "UTILITY":  # 輔助：「起手裝」欄改記錄他完成哪件支援傳奇裝(輔助道具裝)
@@ -357,24 +386,24 @@ def main():
                     # 起手裝「只買一個」：用「開場 60 秒內買的」判定，每場只計一件。
                     # 為何不用 st 快照：st 會把「升級後」的也算進去（野怪寵物 1101→1102 evolve，st=[1101,1102] 兩隻都在 → 總和 >100%）；
                     # 開場一分鐘內買不起第二件起手裝，所以 ib 前 60 秒的購買才是真正的起手裝（使用者指出的更準做法）。
-                    first_min = [iid for (t, iid) in (g.get("ib") or []) if t < 60 and iid not in EXCL and iid in GOLD]
+                    first_min = [iid for (t, iid) in _ib if t < 60 and iid not in EXCL and iid in GOLD]
                     if not first_min:  # 舊資料無 ib 時間戳 → 退回 st 快照取總價最高一件
-                        first_min = [i for i in (g.get("st") or []) if i not in EXCL and i in GOLD]
+                        first_min = [i for i in _st if i not in EXCL and i in GOLD]
                     if first_min:
                         main_st = max(first_min, key=lambda i: (GOLD.get(i, 0), -i))  # 通常只有一件；萬一多件取總價最高（同價 id 較小）
                         startLane[c][pos][main_st] += 1
             need = 2 if pos == "UTILITY" else 3  # 輔助經濟少、常整場只完成兩件大裝 → 流派看前2件；其他路線前3件
             seq = []; seen = set()
-            for _t, iid in (g.get("ib") or []):
+            for _bt, iid in _ib:
                 if iid in leg and iid not in seen:
                     seen.add(iid); seq.append(iid)
                     if len(seq) >= need: break
             if len(seq) >= need:
                 k = tuple(seq); paths[c][k] += 1; pathW[c][k] += win
-                recentPath[c].append((g.get("t") or 0, k, win))  # 近100場流派用
+                recentPath[c].append((_gt, k, win))  # 近100場流派用
                 if lk:
                     pathsL[c][lk][k] += 1; pathWL[c][lk][k] += win
-                    recentPathL[c][lk].append((g.get("t") or 0, k, win))
+                    recentPathL[c][lk].append((_gt, k, win))
     # ── 出裝/符文聚合 helper（整體與 byLane 共用同一套邏輯與門檻，避免兩份漂移）──
     def _core_pack(cnt, nn):  # 核心裝(>=10%) + 剩餘適合裝備(>1% 非核心, 上限15)
         top = [{"id": i, "pct": round(k / nn * 100)} for i, k in cnt.most_common() if k / nn * 100 >= 10]
