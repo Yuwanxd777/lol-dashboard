@@ -13,6 +13,7 @@ import contextlib
 import glob
 import io
 import os
+import re
 import shutil
 import sys
 import tempfile
@@ -392,6 +393,112 @@ eq(all(isinstance(lt[y], str) and len(lt[y]) == 10 for y in years), True, "⑰�
 eq(all(lt[y][:4] in (y[5:9], str(int(y[5:9]) - 1)) for y in years), True,
    "⑰日期年份＝檔名那年或前一年（跨年賽前賽）")
 eq(uh.latest_problems(lt, lt, time.time())[1], [], "⑰現況對現況沒有異常")
+
+# ── ⑱ 遊戲版本（#99）：列數擋「變少」、日期擋「比賽不再變多」，這一組擋「版本不再往前」──
+# 病灶：run_update 跑 `fetch_patches --skip-discover`，新版本靠猜 URL slug 抓；官方換過格式
+# （26.04 起 league-of-legends-patch-26-N-notes），再換一次就靜靜抓不到 ⇒ patches.js 停在舊版，
+# 而列數一列不少、比賽日期照樣往前 ⇒ 舊版報告印「✓ 沒有異常」。
+eq(uh.ver_key("26.09") < uh.ver_key("26.10"), True, "⑱ver_key 數字比大小")
+eq(uh.ver_key("16.17.1") > uh.ver_key("16.17"), True, "⑱ver_key 位數不同也比得動")
+eq(uh.ver_key("亂碼"), (0,), "⑱ver_key 認不得＝(0,)（不是丟例外）")
+eq(uh.ver_key(None), (0,), "⑱ver_key None＝(0,)")
+
+eq(uh.dd_to_pk("16.17.1"), "26.17", "⑱DDragon 16.17.1＝版本改動 26.17")
+eq(uh.dd_to_pk("15.1.1"), "25.01", "⑱minor 補零：15.1.1＝25.01")
+eq(uh.dd_to_pk("14.24.1"), "24.24", "⑱2024 年（序號版 14）也對得上")
+eq(uh.dd_to_pk("26.3.1"), "26.03", "⑱萬一 DDragon 改年份版（major>20）就不再 +10")
+eq(uh.dd_to_pk("abc"), None, "⑱認不得的版號＝None")
+eq(uh.dd_to_pk("16"), None, "⑱只有 major 沒 minor＝None")
+
+_sb = tempfile.mkdtemp(prefix="uh99_")
+_pj = os.path.join(_sb, "p.js")
+io.open(_pj, "w", encoding="utf-8").write(
+    'window.LOL_PATCHES={"25.24":{"A":["x"]},"26.09":{"B":["y"]},"26.10":{"C":["z"]}};'
+    'window.ITEM_REMOVED={"某道具":"14.20"};')
+eq(uh.newest_pk(_pj), "26.10", "⑱newest_pk 取最新版本鍵")
+io.open(_pj, "w", encoding="utf-8").write('window.LOL_PATCHES={};')
+eq(uh.newest_pk(_pj), None, "⑱一個版本都沒有＝None")
+eq(uh.newest_pk(os.path.join(_sb, "沒這個檔.js")), None, "⑱檔案不存在＝None（不是丟例外）")
+shutil.rmtree(_sb, ignore_errors=True)
+
+NOW99 = time.mktime(time.strptime("2026-09-10 01:30:00", "%Y-%m-%d %H:%M:%S"))
+GOOD = {"patches": "26.17", "patches_en": "26.17", "ddragon": "16.17.1",
+        "assets": "16.17.1", "patch_date": "2026-08-25"}
+
+
+def vp(prev, cur, since=None, now=NOW99, grace=uh.VER_GRACE_H, stale=uh.PATCH_STALE_DAYS):
+    line, bad, out = uh.version_problems(prev, cur, since, now, grace, stale)
+    return (line, "／".join(bad), out)
+
+
+eq(vp(GOOD, GOOD)[1], "", "⑱四個來源一致＝沒有異常")
+eq(vp(GOOD, GOOD)[0].endswith("— 一致"), True, "⑱一致那一行照樣印出來")
+eq("26.17（2026-08-25 發布，16 天前）" in vp(GOOD, GOOD)[0], True, "⑱印出版本與發布日")
+eq(vp(GOOD, GOOD)[2], None, "⑱一致就把 since 清掉（不會卡住）")
+
+# ★ 這一輪要抓的病：DDragon 已經 16.18（＝26.18），版本改動還停在 26.17
+LAG = dict(GOOD, ddragon="16.18.1", assets="16.18.1")
+eq(vp(GOOD, LAG)[1], "", "⑱剛發生的不一致不當異常（改版當天兩邊上線有時差）")
+eq("⚠ 不一致" in vp(GOOD, LAG)[0], True, "⑱剛發生也要印在報告上")
+eq("滿 24 小時才算異常" in vp(GOOD, LAG)[0], True, "⑱講清楚還在寬限內")
+eq(vp(GOOD, LAG)[2], NOW99, "⑱第一次看到不一致＝記下時間")
+eq(vp(GOOD, LAG, since=NOW99 - 3600)[2], NOW99 - 3600, "⑱已經在計時就沿用舊時間")
+eq("版本不一致已 25.0 小時" in vp(GOOD, LAG, since=NOW99 - 25 * 3600)[1], True,
+   "⑱撐過 24 小時＝異常")
+eq("DDragon 16.18.1（＝26.18）≠ 版本改動 26.17" in vp(GOOD, LAG, since=NOW99 - 25 * 3600)[1], True,
+   "⑱異常訊息要指名是哪兩邊對不上")
+eq(vp(GOOD, LAG, grace=0)[1] != "", True, "⑱正控制：寬限 0 小時時同一份資料就翻紅")
+eq(vp(GOOD, GOOD, since=NOW99 - 99 * 3600)[1], "", "⑱恢復一致就不再報（舊 since 不會賴著）")
+
+# 英文版／圖鑑素材各自落後也算不一致（它們是不同支抓取，會單獨掛掉）
+eq("英文 26.16 ≠ 繁中 26.17" in vp(GOOD, dict(GOOD, patches_en="26.16"), since=NOW99 - 25 * 3600)[1],
+   True, "⑱英文版落後")
+eq("圖鑑素材 16.16.1 ≠ 技能 16.17.1" in vp(GOOD, dict(GOOD, assets="16.16.1"),
+                                       since=NOW99 - 25 * 3600)[1], True, "⑱圖鑑素材落後")
+
+# ① 倒退＝硬性異常，四個來源都要抓，而且要指名
+eq("patches.js 版本倒退（基準 26.17 → 現在 26.16）" in vp(GOOD, dict(GOOD, patches="26.16"))[1], True,
+   "⑱版本改動倒退")
+eq("skills.js（DDragon） 版本倒退（基準 16.17.1 → 現在 16.16.1）"
+   in vp(GOOD, dict(GOOD, ddragon="16.16.1", assets="16.16.1"))[1], True, "⑱DDragon 倒退")
+eq("patches_en.js 版本倒退" in vp(GOOD, dict(GOOD, patches_en="26.16"))[1], True, "⑱英文版倒退")
+eq("assets.js（DDragon） 版本倒退" in vp(GOOD, dict(GOOD, assets="16.16.1"))[1], True, "⑱圖鑑素材倒退")
+eq(vp({}, GOOD)[1], "", "⑱第一次跑（沒有基準）不算倒退")
+
+# ② 讀不到＝異常（檔案被清空／格式改掉，舊版會安靜地什麼都不說）
+eq("讀不到版本：patches.js" in vp(GOOD, dict(GOOD, patches=None))[1], True, "⑱讀不到 patches.js")
+eq("讀不到版本：skills.js、assets.js" in vp(GOOD, dict(GOOD, ddragon=None, assets=None))[1], True,
+   "⑱讀不到 DDragon 兩支")
+
+# ③ 停更：門檻 80 天＝比史上最長間隔（71 天，24.24→25.04）再寬一點
+eq(vp(GOOD, dict(GOOD, patch_date="2026-07-01"))[1], "", "⑱71 天不報（史上最長間隔）")
+eq("版本改動停在 26.17 已經 101 天" in vp(GOOD, dict(GOOD, patch_date="2026-06-01"))[1], True,
+   "⑱101 天＝可能停更")
+eq(vp(GOOD, GOOD, stale=1)[1] != "", True, "⑱正控制：門檻 1 天時同一份新鮮資料會翻紅")
+eq("發布日不明" in vp(GOOD, dict(GOOD, patch_date=None))[0], True, "⑱沒有發布日就明講不明")
+
+# merge_versions 也是高水位（跟 merge_baseline／merge_latest 同一個洞）
+eq(uh.merge_versions(GOOD, dict(GOOD, patches="26.16"))["patches"], "26.17", "⑱倒退不寫回基準")
+eq(uh.merge_versions(GOOD, dict(GOOD, patches="26.16"), accept=True)["patches"], "26.16",
+   "⑱--accept 才認可倒退")
+eq(uh.merge_versions(GOOD, dict(GOOD, patches="26.18"))["patches"], "26.18", "⑱往前照常更新")
+eq(uh.merge_versions(GOOD, dict(GOOD, ddragon=None))["ddragon"], "16.17.1", "⑱讀不到就別把舊值蓋掉")
+eq(uh.merge_versions(GOOD, dict(GOOD, patch_date="2026-08-11"))["patch_date"], "2026-08-11",
+   "⑱發布日跟著版本走、不做高水位（版本倒退已經有人擋）")
+
+# ── ⑲ 真實資料端到端：現況必須讀得到、而且自己跟自己不會有異常 ──
+gv = uh.game_versions()
+eq(sorted(gv), ["assets", "ddragon", "patch_date", "patches", "patches_en"], "⑲game_versions 五個鍵")
+eq(bool(gv["patches"]) and bool(gv["patches_en"]), True, "⑲兩份版本改動都讀得到")
+eq(bool(gv["ddragon"]) and bool(gv["assets"]), True, "⑲DDragon 兩個見證都讀得到")
+# 不寫死「現在是 26.17」（正本會往前走，寫死＝下個版本就永久紅）：改用獨立方法算一次最大鍵
+_txt = io.open(os.path.join(ROOT, "patches.js"), encoding="utf-8", errors="replace").read()
+_pk2 = max(set(re.findall(r'"(\d{2}\.\d{2})":', _txt)), key=uh.ver_key)
+eq(gv["patches"], _pk2, "⑲newest_pk 跟獨立算法算出同一個最新版")
+eq(uh.version_problems({}, gv, None, time.time())[1], [], "⑲現況沒有異常（第一次跑）")
+eq(uh.version_problems(gv, gv, None, time.time())[1], [], "⑲現況對自己的基準沒有異常")
+eq(uh.version_problems(gv, gv, None, time.time())[2], None, "⑲現況四個來源一致")
+
 
 print("update_health 回歸測試：通過 %d 條" % OK[0] + ("" if not NG else "，失敗 %d 條" % len(NG)))
 for m in NG:

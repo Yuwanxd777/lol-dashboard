@@ -29,6 +29,7 @@ import os
 import shutil
 import subprocess
 import sys
+import time
 
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -170,36 +171,85 @@ def scenario(block, label, expect_pass=True):
     return True
 
 
+def _seed_repo(box):
+    """給契約段一個**乾淨的假 repo**：健檢除了日誌以外沒有別的話要說。
+
+    2026-09-10 #99：原本這裡是 `u.data_counts = lambda: {}`（只為了不要讀 194MB），
+    #98 把簽名改成 `data_counts(latest_out=None)`、main 改成 `data_counts(lt)` 之後，
+    那個 0 參數 lambda 一叫就 TypeError ⇒ main 當場炸掉 ⇒ **離開碼照樣是 1**（契約的第一條
+    因此變成假綠），第二條「結論裡指名 preflight 失敗」則因為根本沒印出結論而紅。
+    改成種一份假 repo、只接管 ROOT／LOG／BASE：不再對被測模組的內部簽名有任何假設。
+    """
+    import datetime
+    import json
+    import time
+    today = datetime.date.fromtimestamp(time.time())
+    hdr = ["league", "split", "date", "game", "patch"]
+    body = [hdr] + [["LPL", "S3", str(today - datetime.timedelta(days=i)), str(i), "16.17"]
+                    for i in range(3)]
+    os.makedirs(os.path.join(box, "data"), exist_ok=True)
+    os.makedirs(os.path.join(box, "csv_cache"), exist_ok=True)
+    os.makedirs(os.path.join(box, "soloq_matches"), exist_ok=True)
+    io.open(os.path.join(box, "data", "data_2026.js"), "w", encoding="utf-8").write(
+        "window.LOL_DATA=" + json.dumps({"tabs": {"RAW_DATA": body}}) + ";")
+    io.open(os.path.join(box, "soloq.js"), "w", encoding="utf-8").write(
+        "window.SOLOQ=" + json.dumps({"players": [{"found": True}]}) + ";")
+    io.open(os.path.join(box, "side_sel.js"), "w", encoding="utf-8").write("window.SIDE=[1,2,3];")
+    io.open(os.path.join(box, "soloq_matches", "a.js"), "w", encoding="utf-8").write("x")
+    io.open(os.path.join(box, "patches.js"), "w", encoding="utf-8").write(
+        'window.LOL_PATCHES={"26.17":{"A":["x"]}};')
+    io.open(os.path.join(box, "patches_en.js"), "w", encoding="utf-8").write(
+        'window.LOL_PATCHES_EN={"26.17":{"A":["x"]}};')
+    io.open(os.path.join(box, "skills.js"), "w", encoding="utf-8").write(
+        "window.SKILLS=" + json.dumps({"v": "16.17.1", "d": {}}) + ";")
+    io.open(os.path.join(box, "assets.js"), "w", encoding="utf-8").write(
+        "window.ASSETS=" + json.dumps({"years": {"2026": "16.17.1"}}) + ";")
+    json.dump({"26.17": str(today - datetime.timedelta(days=16))},
+              io.open(os.path.join(box, "csv_cache", "patch_dates.json"), "w", encoding="utf-8"))
+
+
 def contract():
-    """跨檔契約：真的 update_health.py 讀到 PREFLIGHT FAILED 必須 return 1。"""
+    """跨檔契約：真的 update_health.py 讀到 PREFLIGHT FAILED 必須 return 1、乾淨日誌必須 return 0。"""
     print("── 契約：真的 update_health.py vs PREFLIGHT FAILED ──")
     os.makedirs(TMP, exist_ok=True)
+    box = os.path.join(TMP, "c_repo")
+    shutil.rmtree(box, ignore_errors=True)
+    os.makedirs(box)
+    _seed_repo(box)
+    # 時間戳要用「現在」：寫死日期會讓 #48 的班次點名報「沒有這一班的日誌」，
+    # 正控制那條（乾淨日誌 ⇒ 離開碼 0）就永遠成立不了
+    stamp = time.strftime("%Y-%m-%d %H:%M:%S")
     log = os.path.join(TMP, "c_log.txt")
     base = os.path.join(TMP, "c_base.json")
     io.open(log, "w", encoding="utf-8").write(
-        "==== run_update 2026-09-07 22:00:01（並行 4）====\n"
+        "==== run_update " + stamp + "（並行 4）====\n"
         "---- fetch_x（12.3s，exit 0）----\n"
         "PREFLIGHT FAILED - push skipped. see update_log.txt\n")
     code = ("import sys; sys.path.insert(0, r'%s');"
             "import update_health as u;"
-            "u.LOG = r'%s'; u.CONSOLE = r'%s'; u.BASE = r'%s';"
-            "u.data_counts = lambda: {};"
-            "sys.argv = ['x', '--no-save']; sys.exit(u.main())"
-            % (os.path.join(ROOT, "scripts"), log, log + ".none", base))
+            "u.ROOT = r'%s'; u.LOG = r'%s'; u.CONSOLE = r'%s'; u.BASE = r'%s';"
+            "sys.argv = ['x', '--no-save', '--no-live']; sys.exit(u.main())"
+            % (os.path.join(ROOT, "scripts"), box, log, log + ".none", base))
     p = subprocess.run([sys.executable, "-c", code], capture_output=True, cwd=ROOT)
     out = p.stdout.decode("utf-8", "replace")
     ok1 = p.returncode == 1
     ok2 = "preflight 失敗、沒有 push" in out
     ck(ok1, "離開碼 1，實際 %s" % p.returncode)
     ck(ok2, "結論裡指名「preflight 失敗、沒有 push」")
-    # 正控制：同一份日誌拿掉那一行就不該再報這一條
+    # 正控制：同一份日誌拿掉那一行就不該再報這一條，而且整份健檢要是綠的
+    # （假 repo 除了日誌以外沒別的毛病 ⇒ 離開碼 0；舊版這裡因為 main 直接炸掉，
+    #   兩邊都是 1，第一條等於沒有鑑別力）
     io.open(log, "w", encoding="utf-8").write(
-        "==== run_update 2026-09-07 22:00:01（並行 4）====\n"
+        "==== run_update " + stamp + "（並行 4）====\n"
         "---- fetch_x（12.3s，exit 0）----\n守門通過\n")
     p2 = subprocess.run([sys.executable, "-c", code], capture_output=True, cwd=ROOT)
     out2 = p2.stdout.decode("utf-8", "replace")
-    ck("preflight 失敗、沒有 push" not in out2, "正控制：日誌乾淨時不報這一條（測試不是死的）")
-    return ok1 and ok2 and ("preflight 失敗、沒有 push" not in out2)
+    ok3 = "preflight 失敗、沒有 push" not in out2
+    ok4 = p2.returncode == 0
+    ck(ok3, "正控制：日誌乾淨時不報這一條（測試不是死的）")
+    ck(ok4, "正控制：乾淨的假 repo ⇒ 離開碼 0，實際 %s" % p2.returncode)
+    shutil.rmtree(box, ignore_errors=True)
+    return ok1 and ok2 and ok3 and ok4
 
 
 def main():

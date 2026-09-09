@@ -15,6 +15,10 @@
           來源停更（OE 的 Drive CSV 沒再更新／service account 失效）時列數會**剛好等於基準**，
           舊版報告一路印「✓ 沒有異常」。現在多印一行「最新一場比賽 YYYY-MM-DD（N 天前）」，
           並在**日期倒退**（＝比賽被刪或解析壞了，硬性）或**超過 STALE_DAYS**時列為異常
+        ‧ **遊戲版本有沒有往前走**（2026-09-10 #99）——同一種病的另一個入口：run_update 跑
+          `fetch_patches --skip-discover`，新版本靠猜 URL slug 抓，官方換格式（26.04 換過一次）
+          就會靜靜地抓不到，patches.js 停在舊版而列數一列不少。拿**獨立來源** DDragon
+          （skills.js 的 v／assets.js 的 years，每班現抓 versions.json）對照版本改動最新版
         ‧ soloq.js 選手數／有排名數、side_sel.js 局數、lint_text 錯誤級
         ‧ **可疑同名走現況重算**（2026-09-07 #49），不是讀日誌快照——審定是人在班與班之間補的
         ‧ preflight 有沒有過、有沒有 push
@@ -427,6 +431,155 @@ def merge_latest(prev, cur, accept=False):
     return out
 
 
+# ── 遊戲版本（2026-09-10 #99）───────────────────────────────────────────────
+# 為什麼要有這段：patches.js 的版本改動來自官方 patch notes 頁，而 run_update 跑的是
+# `fetch_patches --skip-discover`（不開 Playwright 掃 tag 頁），新版本是靠**猜 URL slug** 抓的。
+# 官方換過一次格式（26.04 起變成 league-of-legends-patch-26-N-notes），再換一次就會靜靜地抓不到：
+# patches.js 停在舊版、每個資料檔一列不少、日期也沒倒退 ⇒ 報告一路印「✓ 沒有異常」。
+# 跟 #47（讀到上一班日誌）／#49（印舊快照）／#98（列數不再變多）是同一種病：**沒變化被讀成沒問題**。
+# csv_cache/patch_dates.json 幫不上忙——`official_patch_dates()` 是「patches.js 的版本鍵都在快取裡
+# 就直接 return」，它永遠看不到 patches.js 還不知道的版本（循環相依，不是獨立證人）。
+# 唯一**獨立**的證人是 DDragon：fetch_skills（skills.js 的 v）與 fetch_assets（assets.js 的 years）
+# 每一班都去 ddragon 的 versions.json 拿最新版號，跟 patch notes 頁是完全不同的來源。
+# 所以這裡比的是「DDragon 說現在打的是哪一版」對「版本改動最新收到哪一版」。
+PATCH_STALE_DAYS = 80   # 版本改動停在同一版超過這麼多天＝可能停更（史上最長間隔 71 天：24.24→25.04）
+VER_GRACE_H = 24        # 不一致要撐過這麼久才算異常（改版當天兩邊上線本來就有時差，跨兩班才可疑）
+
+PK_RE = re.compile(r'"(\d{2}\.\d{2})":\{')   # 與 build_soloq_builds.season_patches() 同一個慣用法
+
+
+def ver_key(v):
+    """版本字串 → 可比大小的數字元組；'26.9' < '26.10'、'16.17.1' > '16.17'。認不得就 (0,)。"""
+    try:
+        return tuple(int(x) for x in str(v).split(".") if x != "")
+    except Exception:
+        return (0,)
+
+
+def newest_pk(path):
+    """patches.js／patches_en.js 的最新版本鍵。只掃字串不 json.loads——那個檔是兩個 statement
+    （window.LOL_PATCHES=…;window.ITEM_REMOVED=…），整份解析反而會炸。"""
+    try:
+        t = io.open(path, encoding="utf-8", errors="replace").read()
+    except Exception:
+        return None
+    ks = set(PK_RE.findall(t))
+    return max(ks, key=ver_key) if ks else None
+
+
+def dd_to_pk(ver):
+    """DDragon 版號 → 版本改動鍵：'16.17.1' → '26.17'。
+    DDragon 一直用序號版（2026 年＝16.x），patch notes 從 2025 起改年份版（25.x／26.x）⇒ 差 10。
+    萬一哪天 DDragon 也改成年份版（major 直接是 25、26…），major > 20 就當它已經是年份版
+    ——DDragon 的 major 要漲到 21 是 2031 年，那時年份版早就是 31 了，兩邊不會撞。"""
+    p = str(ver).split(".")
+    if len(p) < 2:
+        return None
+    try:
+        maj, mi = int(p[0]), int(p[1])
+    except ValueError:
+        return None
+    return "%02d.%02d" % (maj if maj > 20 else maj + 10, mi)
+
+
+def game_versions():
+    """四個來源現在各自停在哪一版（讀不到就 None，不要讓例外把整份健檢打斷）。
+
+    路徑**在函式裡才組**、不做成模組層常數（#96 寬限旗標晚綁的同一個道理）：沙盒測試接管的是
+    `ROOT`，模組層常數會在 import 當下就把真實 repo 的路徑焊死，接管不到 ⇒ 測試看起來綠、
+    其實讀的是正本（而且會被 `_m98_freshness_test` 的「模組層沒有字串指著真實 repo」那條抓出來）。
+    """
+    P = lambda *a: os.path.join(ROOT, *a)
+    cur = {"patches": newest_pk(P("patches.js")), "patches_en": newest_pk(P("patches_en.js")),
+           "ddragon": None, "assets": None, "patch_date": None}
+    try:
+        cur["ddragon"] = (js_obj(P("skills.js")) or {}).get("v")
+    except Exception:
+        pass
+    try:
+        yrs = (js_obj(P("assets.js")) or {}).get("years") or {}
+        if yrs:
+            cur["assets"] = yrs.get(max(yrs))
+    except Exception:
+        pass
+    try:
+        if cur["patches"]:
+            cur["patch_date"] = json.load(
+                io.open(P("csv_cache", "patch_dates.json"), encoding="utf-8")).get(cur["patches"])
+    except Exception:
+        pass
+    return cur
+
+
+def version_problems(prev, cur, prev_since, now_ts,
+                     grace_h=VER_GRACE_H, stale_days=PATCH_STALE_DAYS):
+    """回 (要印的那一行, [異常…], 要存回基準的 since)。
+
+    prev＝基準裡的高水位版本；cur＝這次讀到的；prev_since＝上次看到不一致的時間戳（沒有＝None）。
+    三種異常：①版本**倒退**（硬性，跟列數縮水同一種病）②不一致**撐過 grace_h**
+    （改版當天 DDragon 與公告有時差，當場報會每兩週固定誤報一次）③版本改動停在同一版超過 stale_days。
+    """
+    bad = []
+    p, pe, dd, ast = cur.get("patches"), cur.get("patches_en"), cur.get("ddragon"), cur.get("assets")
+    miss = [n for n, v in (("patches.js", p), ("patches_en.js", pe),
+                           ("skills.js", dd), ("assets.js", ast)) if not v]
+    if miss:
+        bad.append("讀不到版本：" + "、".join(miss))
+    # ① 倒退：四個來源逐一比基準（高水位）
+    for k, label in (("patches", "patches.js"), ("patches_en", "patches_en.js"),
+                     ("ddragon", "skills.js（DDragon）"), ("assets", "assets.js（DDragon）")):
+        pv, cv = prev.get(k), cur.get(k)
+        if cv and isinstance(pv, str) and ver_key(cv) < ver_key(pv):
+            bad.append("%s 版本倒退（基準 %s → 現在 %s）" % (label, pv, cv))
+    # ② 不一致：DDragon 是獨立證人，它往前走了而版本改動沒有 ⇒ patch notes 沒抓到
+    ddpk = dd_to_pk(dd) if dd else None
+    mism = []
+    if p and ddpk and p != ddpk:
+        mism.append("DDragon %s（＝%s）≠ 版本改動 %s" % (dd, ddpk, p))
+    if p and pe and p != pe:
+        mism.append("英文 %s ≠ 繁中 %s" % (pe, p))
+    if dd and ast and dd != ast:
+        mism.append("圖鑑素材 %s ≠ 技能 %s" % (ast, dd))
+    since, hrs = prev_since, None
+    if mism:
+        if not isinstance(since, (int, float)):
+            since = now_ts
+        hrs = (now_ts - since) / 3600.0
+        if hrs >= grace_h:
+            bad.append("版本不一致已 %.1f 小時（>%d）：%s" % (hrs, grace_h, "；".join(mism)))
+    else:
+        since = None
+    # ③ 停更：發布日距今太久（門檻 80 天＝比史上最長間隔 71 天再寬一點）
+    n = None
+    if cur.get("patch_date"):
+        n = days_since(cur["patch_date"], now_ts)
+        if n > stale_days:
+            bad.append("版本改動停在 %s 已經 %d 天（>%d 天）——官方 URL 格式又變了？"
+                       % (p, n, stale_days))
+    dpart = "發布日不明" if n is None else "%s 發布，%d 天前" % (cur["patch_date"], n)
+    line = "遊戲版本：版本改動 %s（%s）／英文 %s／DDragon %s＝%s／圖鑑 %s" % (
+        p or "？", dpart, pe or "？", dd or "？", ddpk or "？", ast or "？")
+    if mism:
+        line += "  ⚠ 不一致（%s）：已 %.1f 小時%s" % (
+            "；".join(mism), hrs, "" if hrs >= grace_h else "（滿 %d 小時才算異常）" % grace_h)
+    else:
+        line += " — 一致"
+    return (line, bad, since)
+
+
+def merge_versions(prev, cur, accept=False):
+    """版本也採高水位：倒退不寫回基準（不然第二輪就被吃掉，跟 merge_baseline／merge_latest 同一個洞）。"""
+    out = dict(prev)
+    for k, v in cur.items():
+        if not v:
+            continue
+        pv = prev.get(k)
+        if k != "patch_date" and isinstance(pv, str) and ver_key(v) < ver_key(pv) and not accept:
+            continue
+        out[k] = v
+    return out
+
+
 def main():
     lg = parse_log()
     lt = {}
@@ -505,6 +658,12 @@ def main():
     lline, lbad = latest_problems(prev.get("latest") or {}, lt, time.time())
     print("   " + lline)
     bad += lbad
+    # 遊戲版本（#99）：比賽資料以外，patch notes／DDragon 也會靜靜地停在舊版
+    gv = game_versions()
+    vline, vbad, vsince = version_problems(prev.get("versions") or {}, gv,
+                                           prev.get("version_mismatch_since"), time.time())
+    print("   " + vline)
+    bad += vbad
     print("")
     print("結論：" + ("✓ 沒有異常" if not bad else "⚠ " + "；".join(bad)))
     if any("縮水" in b for b in bad):
@@ -517,6 +676,9 @@ def main():
                    "latest": merge_latest(prev.get("latest") or {}, lt, accept),
                    "last": dc,
                    "last_latest": lt,
+                   "versions": merge_versions(prev.get("versions") or {}, gv, accept),
+                   "version_mismatch_since": vsince,
+                   "last_versions": gv,
                    "log": {k: v for k, v in (lg or {}).items() if k != "steps"},
                    "bad": bad}, io.open(BASE, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
         print("（基準已存 autopilot/UPDATE_BASELINE.json%s）" % ("，--accept：縮水已認可" if accept else ""))
