@@ -128,6 +128,40 @@ ck("有一檔不 full → 不可宣稱 full", S.merge([a, b2])["full"], False)
 ck("沒有 src 回 None", S.merge([None, {"role": "MID"}]), None)
 ck("版本不符略過不硬合", S.merge([{"v": 999, "obs": {"pu1": {"A#TW": 3}}}]), None)
 
+print("⑧ classify／summarize：對帳不符自動分類（2026-09-09 #82）")
+_D = 86400000; _T0 = 1780000000000
+
+
+def gt(rid, day):
+    return {"rid": rid, "t": _T0 + day * _D}
+
+
+def mkc(want, obs_rids, ms):
+    return {"src": {"v": S.SRC_V, "acc": [{"pu": "pu1", "rid": want}], "obs": {"pu1": dict(obs_rids)}},
+            "matches": ms}
+
+
+_O, _N = "Alpha#TW", "Bravo#TW"
+# 正例：不符名那些場全部晚於登記名最後一場 ⇒ 改名（dpm 名字索引落後，資料不用動）
+ck("不符名全部較晚 → rename", S.classify(mkc(_O, {_N: 2}, [gt(_N, 20), gt(_N, 21), gt(_O, 10)]), "pu1", _O)[0], "rename")
+# 反例（同素材只把一場往前挪）：時間交錯 ⇒ 疑錯配，維持人工判定線
+ck("時間交錯 → suspect", S.classify(mkc(_O, {_N: 2}, [gt(_N, 5), gt(_N, 21), gt(_O, 10)]), "pu1", _O)[0], "suspect")
+ck("同一時刻不算晚於（保守）→ suspect",
+   S.classify(mkc(_O, {_N: 2}, [gt(_N, 10), gt(_N, 12), gt(_O, 10)]), "pu1", _O)[0], "suspect")
+ck("登記名一場都沒有 → suspect", S.classify(mkc(_O, {_N: 2}, [gt(_N, 20), gt(_N, 21)]), "pu1", _O)[0], "suspect")
+ck("沒有 matches 可比（全年重建只有 src）→ suspect",
+   S.classify({"src": mkc(_O, {_N: 2}, [])["src"]}, "pu1", _O)[0], "suspect")
+ck("大小寫空白不影響",
+   S.classify(mkc("alpha #tw", {"BRAVO#TW": 2}, [gt("Bravo#TW", 20), gt("Alpha#TW", 10)]), "pu1", "alpha #tw")[0],
+   "rename")
+_rows = [("K%d" % i, _O, _N, 3, 3, "rename", "n") for i in range(12)]
+_rows.insert(9, ("SUS", _O, _N, 5, 5, "suspect", "交錯"))
+_out = S.summarize(_rows, limit=10)
+ck("summarize 標題分別數兩類", "疑錯配 1 筆／改名 12 筆" in _out[0], True)
+ck("疑錯配排最前面（不會被改名擠出 limit）", "[疑錯配] SUS" in _out[1], True)
+ck("超過 limit 有交代", _out[-1].strip().startswith("…另外 3 筆"), True)
+ck("summarize 不改動傳進去的 list", [r[0] for r in _rows][:2], ["K0", "K1"])
+
 print("")
 if FAIL:
     print("✗ %d 條失敗：%s" % (len(FAIL), FAIL))

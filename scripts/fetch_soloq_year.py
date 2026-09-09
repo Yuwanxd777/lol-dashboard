@@ -319,8 +319,13 @@ def main():
                     f.write(f"window.__sqLoad({json.dumps(key,ensure_ascii=False)},"
                             f"{json.dumps({'role':role,'src':_src,'matches':merged},ensure_ascii=False)});\n")
                 idx[key] = {"f": fid+".js", "role": role, "n": len(merged)}
-                for _pu, _want, _got, _n, _tot in soloq_src.mismatches({"src": _src}):
-                    print(f"   ⚠ 來源對帳：帳號 {_want} 的 puuid 抓回來的是 {_got}×{_n}／{_tot} 場（riotId↔dpmPuuid 疑似錯配）")
+                # #82：帶 matches 進去才分得出「改名」還是「疑錯配」（classify 要比時間先後）；
+                # 全年重建的 merged 就是這位選手今年全部的場次，比增量那邊更好判。
+                _mmd = {"src": _src, "matches": merged}
+                for _pu, _want, _got, _n, _tot in soloq_src.mismatches(_mmd):
+                    _kind, _note = soloq_src.classify(_mmd, _pu, _want)
+                    print(f"   ⚠ 來源對帳［{soloq_src.KIND_LABEL.get(_kind, _kind)}］："
+                          f"帳號 {_want} 的 puuid 抓回來的是 {_got}×{_n}／{_tot} 場｜{_note}")
             print(f"[{i}/{len(keys)}] {key}  {role}  {len(merged)} 場（累計 {totG}）")
             EMPTY_RES[key] = len(merged)
         b.close()

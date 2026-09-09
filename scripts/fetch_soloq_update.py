@@ -400,7 +400,9 @@ def main():
                     # 下一輪 acc 就會是新名而不再報。不濾掉的話每次有人改名就假警報一次。
                     if soloq_src.same_name(RENAME.get((key, _want)), _got):
                         continue
-                    _MISSRC.append((key, _want, _got, _n, _tot))
+                    # #82：當場分類「改名／疑錯配」，不要每次都丟一句「可能是改名或錯配」讓人再追一輪
+                    _kind, _note = soloq_src.classify(data, _pu, _want)
+                    _MISSRC.append((key, _want, _got, _n, _tot, _kind, _note))
                 with open(os.path.join(OUTDIR, meta["f"]), "w", encoding="utf-8") as fp:
                     fp.write(f"window.__sqLoad({json.dumps(key,ensure_ascii=False)},{json.dumps(data,ensure_ascii=False)});\n")
                 meta["n"] = len(merged); added_tot += len(newg); upd += 1
@@ -451,9 +453,10 @@ def main():
     # 2026-09-07 #58：抽成模組層 run_child／child_cmd（子程序要跟著帶 --no-rebuild、起之前先 flush）。
     _timed = run_child
     if _MISSRC:  # 逐場檔 src 對帳（2026-09-07 #34）：只印不動，累積幾天再決定要不要自動處置
-        print(f"⚠ {len(_MISSRC)} 筆來源對帳不符（帳號 riotId 與該 puuid 實際抓回的 rid 不同，可能是改名或錯配）：")
-        for _k, _want, _got, _n, _tot in _MISSRC[:10]:
-            print(f"   {_k}  帳號 {_want} 的 puuid → 實際 {_got}×{_n}／{_tot} 場")
+        # #82：改成自動分類（soloq_src.classify）——「疑錯配」排前面才是要動手的，
+        # 「改名」是 dpm 名字索引落後、資料本身沒問題，等索引跟上警告會自己消失。
+        for _ln in soloq_src.summarize(_MISSRC):
+            print(_ln)
     if MISMATCH:  # 判例自動修復：以資料庫位置重建這些選手（單次上限 5 位；帳號真的缺主帳的會場數偏少→提醒補帳號）
         print(f"⚠ {len(MISMATCH)} 位「資料庫位置≠積分路線」→ 自動以資料庫位置重建：{MISMATCH[:5]}")
         _timed("重建錯路線選手", [sys.executable, "-u", os.path.join(HERE, "fetch_soloq_year.py"), "--only", ",".join(MISMATCH[:5])])
