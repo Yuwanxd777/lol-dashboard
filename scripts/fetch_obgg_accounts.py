@@ -9,9 +9,10 @@ dpmPuuid：本腳本只維護帳號清單；新帳號的 dpmPuuid 由 resolve_ob
 安全門：OBGG 抓取失敗或 LPL/LCK 帳號數異常過少 → 不動 soloq_accounts.json（避免 OBGG 掛掉時誤刪整批）。
 用法：python scripts\\fetch_obgg_accounts.py
       --jobs=N／--team-jobs=N 併發；--no-keepalive 回到「每請求重新握手」的舊行為（對照組）；
-      --out=PATH 把結果寫到別的檔（驗證用，不動 soloq_accounts.json 正本、也不寫 .bak）。
+      --out=PATH 把結果寫到別的檔（驗證用，不動 soloq_accounts.json 正本、也不寫 .bak、不寫 progamer 快取）；
+      --no-pg-cache 每班全問（不讀不寫 csv_cache/obgg_progamer_cache.json）；--pg-cycle=N 每人每 N 班重抓一次（預設 3）。
 """
-import io, sys, json, os, re, time, datetime, threading, http.client, urllib.parse, urllib.request
+import io, sys, json, os, re, time, datetime, threading, zlib, http.client, urllib.parse, urllib.request
 from concurrent.futures import ThreadPoolExecutor
 
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
@@ -269,12 +270,112 @@ ERR_URLS = []
 ERR_LOCK = threading.Lock()
 ERR_ABORT = 3
 
+# ── progamer 逐人結果快取（2026-09-14 線 3 迴圈 #111）────────────────────────────
+# 09-14 10:00 那班這一步 39.1s＝③ 階段的長桿（第二長 fetch_side_sel 25.6s），時間幾乎全在 300 個 progamer
+# 請求（跨執行緒相加 219.1s，12 條工人 ⇒ 吞吐地板約 22s）＋每請求後禮貌睡 0.15。而 progamer 的內容（某位選手
+# 的帳號清單）一班一班幾乎不變：帳號新增少見、60 天小號規則晚一天半判也無妨、dpm 那條線（⑤）每班照樣 union 新帳號。
+# 做法：逐人結果寫進 csv_cache/obgg_progamer_cache.json（跟名冊同目錄），PG_TTL 內沿用、過期才重抓；
+# 第一次寫入時依 crc32(隊|名) % PG_CYCLE 把時間戳往回推 0～(PG_CYCLE−1) 班 ⇒ 到期日錯開，每班只重抓約 1/PG_CYCLE。
+# 12 小時一班 ⇒ TTL 取 (PG_CYCLE − 0.5) × 12h，落在兩班中間，不會因 10:00:02 vs 22:00:02 幾秒的差擦邊。
+# zone／team 請求照舊每班發（名冊、隊伍變動即時；新選手沒有快取 ⇒ 當班就問，不佔輪次）。
+# progamer 請求最終失敗（_err）時，有舊快取就沿用（以前是靜靜消失、被當「近兩月未列」刪）、不更新時間戳，下一班再試。
+# 快取只在寫回正本（OUT == ACCOUNTS）且過了安全門之後才寫檔——OBGG 異常那班抓到的東西不會被留到下一班；
+# 另加第三道門：這班重抓的人裡「上一版有帳號、這次回來是空的」佔一半以上 ⇒ 當 OBGG 異常，不動帳號檔也不存快取
+# （沒有快取時全員回空會被第一道門擋；有快取後只有 1/3 的人被問，那道門就擋不到了）。
+# 路徑刻意**不做模組層常數**：跟著 ROSTER_OUT 的目錄走（pg_cache_path()），既有沙盒測試都接管了 ROSTER_OUT
+# ⇒ 快取自動落在暫存目錄，不會有「新出口沒接管、假資料寫進真快取」那種病（#52）。
+# --no-pg-cache 關掉（不讀不寫＝舊行為，每班全問）；--pg-cycle=N 改週期（1＝每班全問但仍寫快取）。
+PG_CACHE_ON = True
+PG_CYCLE = 3                       # 每人每 3 班（1.5 天）重抓一次 ⇒ 300 個 progamer 請求 → 約 100
+PG_SHIFT_H = 12.0                  # 班距（小時）
+PG_KEEP_DAYS = 30                  # 超過 30 天沒重抓的（＝早已不在名冊）寫檔時剪掉
+PG_VER = 1                         # _player_accounts 的過濾規則改了就 +1，整份快取作廢
+PG_EMPTIED_MIN = 5                 # 第三道門：重抓且上一版有帳號的人 ≥ 5 位、其中 ≥ 50% 回空 ⇒ 不動
+PG_CACHE = {}                      # "隊|game_id" → {"at": epoch 秒, "good": [...]}
+PG_LOCK = threading.Lock()
+PG_STAT = {"hit": 0, "miss": 0, "new": 0, "fallback": 0, "had": 0, "emptied": 0}
+PG_SEEN = set()                    # 這一班名冊上問過／沿用過的 key（算「下一班預計重抓」用）
+
+
+def pg_ttl_s():
+    return (PG_CYCLE - 0.5) * PG_SHIFT_H * 3600
+
+
+def pg_cache_path():
+    return os.path.join(os.path.dirname(ROSTER_OUT), "obgg_progamer_cache.json")
+
+
+def pg_slot(key):
+    return zlib.crc32(key.encode("utf-8")) % max(1, PG_CYCLE)
+
+
+def pg_fresh(ent, now_s):
+    """還沒到期 ⇒ True。時間戳在未來超過一班（時鐘倒退／壞檔）當過期重抓；一班內的負值容許（now 經過 ×1000／1000 會差一個 ulp）。"""
+    try:
+        return -PG_SHIFT_H * 3600 <= (now_s - float(ent["at"])) < pg_ttl_s()
+    except Exception:
+        return False
+
+
+def pg_load():
+    """讀快取進 PG_CACHE（版本不合／壞檔／關掉 ⇒ 空，＝冷跑）。每次 main() 都從零開始，不吃上一趟的殘留。"""
+    PG_CACHE.clear(); PG_SEEN.clear()
+    for k in PG_STAT:
+        PG_STAT[k] = 0
+    if not PG_CACHE_ON:
+        return 0
+    try:
+        d = json.load(open(pg_cache_path(), encoding="utf-8"))
+        if d.get("v") == PG_VER and isinstance(d.get("players"), dict):
+            PG_CACHE.update(d["players"])
+    except Exception:
+        pass
+    return len(PG_CACHE)
+
+
+def pg_save(now_s):
+    """寫檔（先寫 .tmp 再 os.replace，半個檔不會被下一班讀到）；回留下的筆數。"""
+    if not PG_CACHE_ON:
+        return None
+    keep = {k: v for k, v in PG_CACHE.items() if (now_s - float(v.get("at", 0))) <= PG_KEEP_DAYS * 86400}
+    p = pg_cache_path()
+    os.makedirs(os.path.dirname(p), exist_ok=True)
+    json.dump({"v": PG_VER, "saved": datetime.datetime.now().strftime("%Y-%m-%d %H:%M"), "players": keep},
+              open(p + ".tmp", "w", encoding="utf-8"), ensure_ascii=False)
+    os.replace(p + ".tmp", p)
+    return len(keep)
+
+
+def pg_due_next(now_s):
+    """這一班名冊上的人，下一班（+PG_SHIFT_H）會過期的有幾位。"""
+    return sum(1 for k in PG_SEEN if k in PG_CACHE and not pg_fresh(PG_CACHE[k], now_s + PG_SHIFT_H * 3600))
+
+
+def pg_summary(now_s):
+    s = PG_STAT
+    return (f"  progamer 快取（每人每 {PG_CYCLE} 班重抓）：沿用 {s['hit']}／重抓 {s['miss']}／新選手 {s['new']}"
+            f"／請求失敗沿用舊值 {s['fallback']}；下一班預計重抓 {pg_due_next(now_s)}")
+
 
 def _player_accounts(tm, gid, now):
     """一位選手的可用帳號清單（原本寫在 pull() 迴圈裡，抽出來才能並行）。"""
+    key = f"{tm}|{gid}"
+    now_s = now / 1000.0
+    ent = PG_CACHE.get(key) if PG_CACHE_ON else None
+    if PG_CACHE_ON:
+        with PG_LOCK:
+            PG_SEEN.add(key)
+    if ent is not None and pg_fresh(ent, now_s):          # 還沒到期 ⇒ 不問，沿用
+        with STAT_LOCK:
+            PG_STAT["hit"] += 1
+        return gid, list(ent.get("good") or [])
     pg = get(BASE + f"progamer?team={urllib.parse.quote(tm)}&game_id={urllib.parse.quote(gid)}", kind="progamer")
     polite()
     d = pg.get("data") if isinstance(pg, dict) else None
+    if not isinstance(d, dict) and ent is not None:        # 請求最終失敗／回應形狀不對 ⇒ 沿用舊快取，時間戳不動
+        with STAT_LOCK:
+            PG_STAT["fallback"] += 1
+        return gid, list(ent.get("good") or [])
     accs = (d or {}).get("accountList", []) if isinstance(d, dict) else []
     # 先濾掉一定不能用的：峡谷之巅(Riot API/dpm 都查不到)、純數字死號、今年完全沒打
     cand = []
@@ -300,6 +401,17 @@ def _player_accounts(tm, gid, now):
                 continue
         good.append({"platform": PLAT.get(a.get("regionName"), a.get("region")),
                      "riotId": a.get("summonerName")})
+    if PG_CACHE_ON and isinstance(d, dict):                 # 只快取「真的問到」的結果；失敗（沒舊快取）照舊回空、不存
+        # 新選手：時間戳往回推 slot 班 ⇒ 到期日錯開；重抓：戳成現在（下一次再過 PG_CYCLE 班）
+        at = now_s if ent is not None else now_s - pg_slot(key) * PG_SHIFT_H * 3600
+        with PG_LOCK:
+            PG_CACHE[key] = {"at": at, "good": good}
+        with STAT_LOCK:
+            PG_STAT["new" if ent is None else "miss"] += 1
+            if ent is not None and ent.get("good"):
+                PG_STAT["had"] += 1
+                if not good:
+                    PG_STAT["emptied"] += 1
     return gid, good
 
 
@@ -418,11 +530,15 @@ def print_breakdown(wall):
 
 def main():
     t0 = time.time()
+    n_cached = pg_load()                    # #111：讀 progamer 逐人快取（--no-pg-cache ⇒ 0＝每班全問）
     obgg, zone_err = pull()
     wall = time.time() - t0
+    now_s = time.time()
     print(f"  抓取 {wall:.1f}s（TCP/TLS 握手 {CONN_NEW[0]} 次"
           + ("" if KEEPALIVE else "，--no-keepalive 對照組") + "）", flush=True)
     print_breakdown(wall)
+    if PG_CACHE_ON:
+        print(pg_summary(now_s) + (f"（讀進 {n_cached} 筆）" if n_cached else "（冷跑：沒有快取，全問）"), flush=True)
     # 2026-09-07（迴圈 #24）：請求最終失敗以前完全看不到，先印再過安全門（LPL 只抓到 11 帳號時才看得出是 team 請求掛了 3 次）。
     n_all = sum(ERRS.values())
     if n_all:
@@ -438,6 +554,11 @@ def main():
     n_err = sum(zone_err.get(z, 0) for z in OBGG_ZONES)
     if n_err >= ERR_ABORT:
         print(f"✗ LPL/LCK 的請求失敗 {n_err} 次（≥{ERR_ABORT}），失敗的隊／人會被誤判成「未列」→ 不更新 soloq_accounts.json"); return
+    # 安全門 3（#111）：有快取後每班只問約 1/PG_CYCLE 的人，第一道門（帳號數 <20）擋不住「OBGG 對每個人都回空清單」
+    # ⇒ 改看這班重抓的人：上一版有帳號、這次回空的比例過半就當 OBGG 異常，不動帳號檔、也不存快取（舊值留到下一班再試）。
+    if PG_CACHE_ON and PG_STAT["had"] >= PG_EMPTIED_MIN and PG_STAT["emptied"] * 2 >= PG_STAT["had"]:
+        print(f"✗ 這班重抓的 {PG_STAT['had']} 位上一版有帳號的選手裡 {PG_STAT['emptied']} 位回來是空的（≥50%），"
+              f"OBGG 可能異常 → 不更新 soloq_accounts.json、不存 progamer 快取"); return
 
     acc = json.load(open(ACCOUNTS, encoding="utf-8"))
     cur_teams = set(a.get("team") for a in acc)
@@ -506,6 +627,11 @@ def main():
             print(f"現役選手名冊：{len(ROSTER_PLAYERS)} 位 → csv_cache/obgg_roster.json")
         except Exception as e:
             print(f"（名冊寫出失敗：{e}）")
+        if PG_CACHE_ON:                    # #111：過了安全門、寫回正本這一趟才存快取（--out= 旁路只讀不寫）
+            try:
+                print(f"  progamer 快取寫出 {pg_save(now_s)} 筆 → csv_cache/obgg_progamer_cache.json")
+            except Exception as e:
+                print(f"（progamer 快取寫出失敗：{e}）")
     if OUT == ACCOUNTS:                    # 只有寫回正本才留備份（--out= 是驗證用的旁路，不動正本）
         json.dump(acc, open(ACCOUNTS + ".bak", "w", encoding="utf-8"), ensure_ascii=False, indent=1)
     json.dump(final, open(OUT, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
@@ -528,4 +654,8 @@ if __name__ == "__main__":
             KEEPALIVE = False
         if a.startswith("--out="):
             OUT = a.split("=", 1)[1]
+        if a == "--no-pg-cache":           # #111：不讀不寫 progamer 快取＝每班全問（舊行為）
+            PG_CACHE_ON = False
+        if a.startswith("--pg-cycle="):
+            PG_CYCLE = max(1, int(a.split("=", 1)[1]))
     main()

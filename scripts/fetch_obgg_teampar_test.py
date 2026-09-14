@@ -120,6 +120,10 @@ ACC0 = [
 TMP = tempfile.mkdtemp(prefix="obgg_teampar_")
 M.ROSTER_OUT = os.path.join(TMP, "obgg_roster.json")
 M.DISOWNED = os.path.join(TMP, "soloq_disowned.json")   # #67 新增的證據來源（歸屬剔除名單）也要接管；不存在＝空名單
+# #111：progamer 逐人快取關掉——這支測的是並行與安全門，快取開著第二趟起 progamer 請求數／併發峰值都會變。
+# 快取路徑跟著 ROSTER_OUT 的目錄走（pg_cache_path()），就算忘了關也只會落在暫存目錄；專門的測試在 fetch_obgg_pgcache_test.py。
+assert hasattr(M, "PG_CACHE_ON"), "fetch_obgg_accounts 沒有 PG_CACHE_ON 旗標了：快取開關改名，這裡要跟著改"
+M.PG_CACHE_ON = False
 # ⚠ 2026-09-07（#52）：模組有兩個路徑常數——ACCOUNTS（讀、判斷要不要留 .bak）與 **OUT（真正寫出的目標，
 #   --out= 旁路後來加的）**。這支原本只接管 ACCOUNTS ⇒ main() 把假帳號寫進**真實的
 #   scripts/soloq_accounts.json**（12507 行變 162 行，本輪跑測試時真的發生了，靠 git checkout 還原）。

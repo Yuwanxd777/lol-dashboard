@@ -45,6 +45,8 @@ REAL_MT = {p: os.stat(p).st_mtime for p in REAL_FILES}
 M.ACCOUNTS = M.OUT = os.path.join(TMP, "acc.json")
 M.ROSTER_OUT = os.path.join(TMP, "roster.json")
 M.DISOWNED = os.path.join(TMP, "disowned.json")
+assert hasattr(M, "PG_CACHE_ON"), "fetch_obgg_accounts 沒有 PG_CACHE_ON 旗標了：快取開關改名，這裡要跟著改"
+M.PG_CACHE_ON = False   # #111：這支測歸屬名單，快取關掉（路徑跟著 ROSTER_OUT 走，忘了關也只落在暫存目錄）
 
 def leaks():
     """模組層還指著真實 repo 的檔案路徑常數（＝沒接管到的出入口）"""
