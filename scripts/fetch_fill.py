@@ -22,7 +22,7 @@ OE 一場都沒有（主資料最後停在 S2 PO 6/14）。本腳本從 gol.gg �
   python scripts\fetch_fill.py --dump     # 只印解析結果不寫檔（檢查用）
   python scripts\fetch_fill.py --status   # 只看 OE/補充 各收錄幾局
 """
-import argparse, csv, io, json, os, re, sys, time, urllib.parse, urllib.request
+import argparse, csv, io, json, os, re, sys, time, urllib.error, urllib.parse, urllib.request
 
 if (getattr(sys.stdout, "encoding", "") or "").lower().replace("-", "") != "utf8":
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")  # 防重複包裝：被 import 時再包一層會關掉呼叫端的 buffer
@@ -37,6 +37,33 @@ UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.3
                     "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
       "Accept-Language": "en-US,en;q=0.9"}
 GAP = 2.0     # 每次請求間隔（禮貌節流；gol.gg 無硬限流）
+
+# ── gol.gg 暫時性失敗的處置（2026-09-14 精進迴圈 #108）──
+# 09-14 10:00 那班 gol.gg 整站連不上（TCP 逾時 WinError 10060）：三次逾時各 ~21s ＋ 退避 5/10/15s
+# ＝ 93s 全在 ① 階段的關鍵路徑上白等（第三次失敗後還多睡 15s 才放棄）；Leaguepedia 備援抓到 167 局、
+# gol.gg 正本 fill JSON 也還在（build() 沒寫檔＝上次成功那份照併），卻仍 exit 1 ⇒ 每班留一份
+# HEALTH_ALERT.txt（跟 #102 的 fetch_promo 同一種「狼來了」）。分兩種失敗：
+#   暫時性（Transient）＝連線層（連不上／逾時）或伺服器 5xx；不可重試＝4xx／解析錯誤／其他例外。
+#   暫時性 ＋ Leaguepedia 那份抓成 ＋ gol.gg 正本 GOLGG_STALE_HARD_DAYS 內更新過 ⇒ 印警告、exit 0；
+#   正本不存在／沒有這賽段／老過硬上限／備援也失敗／沒有備援（--no-wiki）⇒ exit 1。
+#   一天兩班 ⇒ 最多 6 班不吵，沈默有上限（不是把警報關掉）。
+GOLGG_STALE_HARD_DAYS = 3   # gol.gg 正本（fill_{年}.json）超過這麼多天沒更新，暫時性失敗也要 exit 1
+CONN_TRIES = 2              # 連線層失敗（主機沒回應／逾時）只試兩次——主機整個不回應時第三次幾乎不會忽然好
+HTTP_TRIES = 3              # 伺服器有回但出錯（5xx）／其他例外照舊三次
+RETRY_BACKOFF = 5.0         # 第 n 次失敗後睡 RETRY_BACKOFF×n 秒；最後一次失敗不睡（直接放棄）
+_DOWN = False               # 這一班已判定 gol.gg 連不上 ⇒ 後續 get() 不再逐頁重試（省牆鐘）
+
+
+class Transient(RuntimeError):
+    """gol.gg 暫時性失敗（連不上／逾時／5xx）——main() 據此決定要不要 exit 1"""
+
+
+def _is_conn_err(e):
+    """連線層失敗？HTTPError 是伺服器有回應、不算；其餘 OSError 家族（URLError／socket.timeout／
+    ConnectionError／TimeoutError）都是「根本沒連上」。"""
+    if isinstance(e, urllib.error.HTTPError):
+        return False
+    return isinstance(e, OSError)
 
 # ── 要補的賽段（OE 收錄後自動停用，不必手動刪） ──
 # wiki＝Leaguepedia 的賽事名（給 build_wiki 用）。**兩邊都抓再合併**（2026-08-02 使用者定案）：
@@ -123,13 +150,17 @@ def _throttle():
 
 
 def get(url, cache_name, force=False):
-    global _last_req
+    global _last_req, _DOWN
     os.makedirs(HCACHE, exist_ok=True)
     p = os.path.join(HCACHE, cache_name)
     if os.path.exists(p) and not force:
         with open(p, encoding="utf-8") as f:
             return f.read()
-    for a in range(3):
+    if _DOWN:
+        raise Transient("gol.gg 這一班已判定連不上，不再重試：" + url)
+    last, tries = None, HTTP_TRIES
+    for a in range(HTTP_TRIES):
+        _t = None
         try:
             _throttle()
             _t = time.time()
@@ -143,8 +174,24 @@ def get(url, cache_name, force=False):
             return body
         except Exception as e:
             _last_req = time.time()      # 失敗也算打過一次
-            print(f"      {type(e).__name__}: {str(e)[:80]} → 重試 {a+1}", flush=True)
-            time.sleep(5 * (a + 1))
+            if _t is not None:
+                _ph("gol.gg 失敗等待", _t)   # 逾時／錯誤回應等掉的時間（#108 前全歸「其他」）
+            last = e
+            if _is_conn_err(e):
+                tries = CONN_TRIES       # 連線層：縮成兩次
+            if a + 1 >= tries:
+                print(f"      {type(e).__name__}: {str(e)[:80]} → 第 {a+1} 次失敗，放棄", flush=True)
+                break
+            back = RETRY_BACKOFF * (a + 1)
+            print(f"      {type(e).__name__}: {str(e)[:80]} → 第 {a+1} 次失敗，{back:.0f}s 後重試", flush=True)
+            _t0 = time.time()
+            time.sleep(back)
+            _ph("gol.gg 重試退避", _t0)
+    if _is_conn_err(last):
+        _DOWN = True                     # 之後的頁面不必再各自等兩次逾時
+        raise Transient(f"連不上 gol.gg（試了 {tries} 次）：{url}")
+    if isinstance(last, urllib.error.HTTPError) and last.code >= 500:
+        raise Transient(f"gol.gg 回 {last.code}：{url}")
     raise RuntimeError("下載失敗：" + url)
 
 
@@ -702,6 +749,34 @@ def _phase_report(t_all):
     print(f"   ⏱ 分項：" + "｜".join(parts) + f"　全程 {t_all:.1f}s" + tail, flush=True)
 
 
+def _transient_verdict(cfg, wiki_ok):
+    """gol.gg 暫時性失敗之後要不要 exit 1 → (rc, 說明)。（#108，照 fetch_promo #102 的規矩）
+
+    wiki_ok：Leaguepedia 那份這一班抓成了嗎（None＝根本沒抓，--no-wiki／--dump）。
+    正本＝csv_cache/fill_{年}.json（build() 每次成功都會重寫 ⇒ mtime 就是上次成功的時間）。
+    """
+    if not wiki_ok:
+        return 1, ("   ✗ Leaguepedia 那份也沒抓成（或沒抓）⇒ 這一班兩個來源都沒更新 ⇒ exit 1。"
+                   if wiki_ok is None else
+                   "   ✗ Leaguepedia 備援也沒抓成 ⇒ 這一班兩個來源都沒更新 ⇒ exit 1。")
+    fill_path = os.path.join(CACHE, f"fill_{cfg['year']}.json")
+    if not os.path.exists(fill_path):
+        return 1, f"   ✗ gol.gg 正本 fill_{cfg['year']}.json 不存在 ⇒ exit 1。"
+    try:
+        with open(fill_path, encoding="utf-8") as f:
+            has = cfg["key"] in json.load(f)
+    except Exception as e:
+        return 1, f"   ✗ gol.gg 正本讀不動（{type(e).__name__}）⇒ exit 1。"
+    if not has:
+        return 1, f"   ✗ gol.gg 正本裡沒有 {cfg['key']} 的資料（這賽段一局都還沒補到）⇒ exit 1。"
+    age_d = (time.time() - os.path.getmtime(fill_path)) / 86400
+    if age_d >= GOLGG_STALE_HARD_DAYS:
+        return 1, (f"   ✗ gol.gg 正本已經 {age_d:.1f} 天沒更新，超過硬上限 {GOLGG_STALE_HARD_DAYS} 天"
+                   f" ⇒ exit 1（該有人看一眼 gol.gg 是不是換了網址／擋了我們）。")
+    return 0, (f"   gol.gg 正本還在（{age_d:.1f} 天，硬上限 {GOLGG_STALE_HARD_DAYS} 天）、Leaguepedia 已補"
+               f" ⇒ 這次以 exit 0 收，下一班再試。")
+
+
 def main():
     _t_all = time.time()
     ap = argparse.ArgumentParser()
@@ -710,7 +785,7 @@ def main():
     ap.add_argument("--status", action="store_true", help="只看 OE / 補充 各幾局")
     ap.add_argument("--no-wiki", action="store_true", help="只抓 gol.gg，不抓 Leaguepedia")
     A = ap.parse_args()
-    failed = []
+    failed, quiet = [], []
     for cfg in FILL:
         sn = cfg["split"].replace("Split ", "S")
         if A.status:
@@ -731,8 +806,14 @@ def main():
         wiki = not (A.dump or A.no_wiki) and bool(cfg.get("wiki"))
         if wiki:
             warm_wiki(cfg)
+        transient = None
         try:
             build(cfg, force=A.force, dump=A.dump)
+        except Transient as e:
+            # 暫時性（連不上／逾時／5xx，#108）：build() 沒寫檔 ⇒ 上次成功的 fill JSON 還在、fetch_data 照併。
+            # 要不要 exit 1 等 Leaguepedia 那份抓完、看正本年齡再決定（_transient_verdict）。
+            print(f"  ⚠ gol.gg 暫時連不上（略過，續抓 Leaguepedia；上次成功的 fill JSON 照用）：{str(e)[:120]}")
+            transient = e
         except Exception as e:
             # gol.gg 掛掉不能連帶讓 wiki 那份也沒抓成（build_wiki 早就有對稱的 try——
             # 2026-09-09 #77 補上這一半：當天 14:5x gol.gg 整個連不上［WinError 10060］，
@@ -740,10 +821,20 @@ def main():
             # 而它是唯一不漏局的來源）。仍然記下來、最後 exit 1，警示訊號不吞掉。
             print(f"  ⚠ gol.gg 補充失敗（略過，續抓 Leaguepedia）：{type(e).__name__}: {str(e)[:120]}")
             failed.append(f"{cfg['key']} gol.gg：{type(e).__name__}")
+        wtab = None
         if wiki:
-            build_wiki(cfg)
+            wtab = build_wiki(cfg)
+        if transient is not None:
+            rc1, why = _transient_verdict(cfg, (wtab is not None) if wiki else None)
+            print(why)
+            if rc1:
+                failed.append(f"{cfg['key']} gol.gg：暫時性失敗但{('備援也沒抓成' if wiki else '沒有備援') if not wtab else '正本太舊／缺席'}")
+            else:
+                quiet.append(cfg["key"])
     if failed:
         print("⚠ 有來源失敗：" + "、".join(failed))
+    elif quiet:
+        print("⚠ gol.gg 暫時失敗、備援已補、正本還新 ⇒ 不算失敗（exit 0，下一班再試）：" + "、".join(quiet))
     if not A.status:
         _phase_report(time.time() - _t_all)
         print("完成。（fetch_data.py 寫檔時會併入：OE > gol.gg > wiki，同一局以先者為準）")
