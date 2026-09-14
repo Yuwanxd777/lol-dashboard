@@ -3241,7 +3241,7 @@ const LGC={
   // EWCQ 各分區沿用該賽區色
   EWCQ北美:"#c9a86a",EWCQ歐洲:"#38b6ff",EWCQ韓國:"#4f8ef7",EWCQ中國:"#e05c5c",
   EWCQ太平洋:"#2bb3a3",EWCQ巴西:"#7ac74f"};
-const LG_NAME={"ALL":"全部","LTA N":"LTA 北區","LTA S":"LTA 南區","WLDs":"WCS"};
+const LG_NAME={"ALL":"全部","LTA N":"LTA 北區","LTA S":"LTA 南區","WLDs":"WCS","DCup":"德瑪西亞杯"}; // DCup＝德瑪西亞杯全球邀請賽（2026-09-14 補充賽事，OE 沒有既有代碼）
 // 國家隊 →「該國所屬賽區」對照（2026 KeSPA 季中邀日本／越南國家隊參賽；ENC 之後整個賽事都是國家隊形式）
 // 用途：國家隊沒有母聯賽出賽紀錄，賽事樹的賽區色框要靠這張表才上得了色
 // 使用者定案（2026-07-28）：國家隊不分國家，統一用同一個顏色標記（＝沒有母賽區歸屬）
@@ -3441,7 +3441,7 @@ const LG_TAIL_PREF=["LCP","CBLOL","LTA","LTA N","LTA S","LLA","LLN","CLS",
 // 選「中韓」仍然只篩 LCK+LPL，不會把 GPL 一起撈進來。群組當年沒隊伍時這些照樣回尾段列出。
 const LG_GROUP_TAIL={ "中韓":["GPL"], "歐美":["LLA","CBLOL","TCL","LCL","LCO"] };
 const LG_GROUP={ "中韓":["LCK","LPL"], "歐美":["LEC","LCS"], // 使用者定義：中韓=LCK+LPL、歐美=LEC+LCS
-                 "國際賽":["FST","MSI","EWC","ENC","WLDs","RR","IEM","MSC",
+                 "國際賽":["FST","MSI","EWC","ENC","WLDs","亞運","DCup","RR","IEM","MSC",
                           "EWCQ歐洲","EWCQ韓國","EWCQ中國","EWCQ太平洋","EWCQ巴西","EWCQ北美"] };
 // ── 賽事分級對照（圖鑑「賽事」分頁用）；區域用現行代碼回溯（LEC=歐洲、LCS=北美、LCO=大洋洲）。grp: intl 國際賽/t1 賽區聯賽/cup 盃賽；tier: 1 主要/2 次級/3 三級（v1 分級為暫定，待人工修正）──
 const LEAGUE_META={

@@ -123,6 +123,13 @@ EVENTS = {
         # ENC 2026 電競國家盃已取消（使用者 2026-09-04 告知）→ 從清單移除；
         # 輸出層的 keep-filter（main() 開頭）會把舊檔裡的 ENC 一併清掉。若日後復辦再加回。
         "LPL#S3":   {"page": "LPL/2026 Season/Split 3",                        "kind": "team"},
+        # 使用者 2026-09-14 交辦建檔（都還沒開打，先讓圖鑑賽事看得到名單；開打後 OE 有場次時
+        # 前端會自動只拿 wiki 名單對齊、不再新增沒出賽的隊）：
+        #   世界賽用 OE 的代碼 WLDs（跟主資料同碼才會併成同一張卡）；亞運是國家隊（kind=nation）；
+        #   德瑪西亞杯全球邀請賽 OE 歷年沒收過、沒有既有代碼，用 DCup。
+        "WLDs":     {"page": "2026 Season World Championship",                "kind": "team"},
+        "亞運":     {"page": "2026 Asian Games",                                "kind": "nation"},
+        "DCup":     {"page": "2026 Demacia Cup Global Invitational",            "kind": "team"},
     },
 }
 
