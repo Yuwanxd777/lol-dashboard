@@ -335,12 +335,34 @@ MIN_GAP = 0.5          # 兩批 evaluate 開始時間至少隔這麼久；批次
 _BS = [BATCH]          # 目前批次大小（限流時減半）
 _last_batch_t = [0.0]
 JS_ONE = "async(u)=>{const r=await fetch(u);return r.ok?await r.json():null;}"
+# 2026-09-15 #115：①限流／伺服器錯誤那一批**只重查出事的那幾個名字**，200／404 的直接收（減半＋睡 5 照舊，那是對伺服器客氣）。
+#   09-14 22:00 那班第一批 24 個裡 1 個 500 ⇒ 舊寫法把 23 個 200 的好結果整批丟掉、睡 5 秒、24 名逐一逐變體重查，之後 413 名全用批 12，
+#   這一步 107.6s（10:00 班 22.0s）。②逐批計時分項印進日誌（以前只有每 25 人一行進度，85s 去了哪裡看不出來）。
+_STAT = {"batch_n": 0, "batch_s": 0.0, "batch_max": 0.0, "rest_n": 0, "rest_s": 0.0, "seq_n": 0, "seq_s": 0.0,
+         "limit_n": 0, "limit_sleep": 0.0, "pace_sleep": 0.0, "kept": 0, "retry": 0}
+_BAD = lambda st: ((st or 0) in (429, 403)) or ((st or 0) >= 500)     # 限流／伺服器錯誤（0＝fetch 例外不算，走退路再問一次）
+
+
+def _stat_reset():
+    for k in list(_STAT):
+        _STAT[k] = 0.0 if isinstance(_STAT[k], float) else 0
+
+
+def _stat_line(total_s=None):
+    s = _STAT
+    ln = ("dpm /v1/pros 分項：批次 %d 次 %.1fs（最慢 %.1fs）／退路 %d 次 %.1fs／逐一 %d 名 %.1fs／限流 %d 次（睡 %.0fs、直接收 %d 名、只重查 %d 名）／節奏補睡 %.1fs"
+          % (s["batch_n"], s["batch_s"], s["batch_max"], s["rest_n"], s["rest_s"], s["seq_n"], s["seq_s"],
+             s["limit_n"], s["limit_sleep"], s["kept"], s["retry"], s["pace_sleep"]))
+    if total_s is not None:
+        ln += "；總耗時 %.1fs" % total_s
+    return ln
 
 
 def _pace():
     """把固定 sleep(0.5) 改成「兩批開始時間至少隔 MIN_GAP」：批次本身花 0.47s 時只補睡 0.03s。"""
     dt = time.time() - _last_batch_t[0]
     if dt < MIN_GAP:
+        _STAT["pace_sleep"] += MIN_GAP - dt
         time.sleep(MIN_GAP - dt)
     _last_batch_t[0] = time.time()
 
@@ -360,40 +382,56 @@ _OK = lambda j: [a for a in ((j or {}).get("players") or []) if a.get("puuid") a
 
 def fetch_pro_seq(pg, pl):
     """舊路徑：逐個名字變體查，第一個有結果的就用。"""
-    for _v in _VARIANTS(pl):
-        try:
-            j = pg.evaluate(JS_ONE, "/v1/pros/" + urllib.parse.quote(_v, safe=""))
-        except Exception:
-            j = None
-        plist = _OK(j)
-        if plist:
-            return plist
-    return []
+    _t0 = time.time()
+    _STAT["seq_n"] += 1
+    try:
+        for _v in _VARIANTS(pl):
+            try:
+                j = pg.evaluate(JS_ONE, "/v1/pros/" + urllib.parse.quote(_v, safe=""))
+            except Exception:
+                j = None
+            plist = _OK(j)
+            if plist:
+                return plist
+        return []
+    finally:
+        _STAT["seq_s"] += time.time() - _t0
 
 
 def fetch_pros_batch(pg, names):
-    """新路徑：同時查一批的第一個變體；回 {名字: plist}。限流／錯誤 → 整批退回舊路徑。"""
+    """新路徑：同時查一批的第一個變體；回 {名字: plist}。
+    限流／伺服器錯誤（429／403／5xx）：批次減半＋睡 5 秒照舊，但**只重查出事的那幾個名字**，200／404 的直接收（#115；
+    以前整批丟掉逐一重查）。evaluate 例外／回傳形狀不對 → 整批退回逐一（照舊，不減半）。"""
     urls = ["/v1/pros/" + urllib.parse.quote(_VARIANTS(n)[0], safe="") for n in names]
     _pace()
+    _t0 = time.time()
     try:
         res = pg.evaluate(JS_MANY, urls)
     except Exception:
         res = None
+    _dt = time.time() - _t0
+    _STAT["batch_n"] += 1; _STAT["batch_s"] += _dt; _STAT["batch_max"] = max(_STAT["batch_max"], _dt)
     out = {}
     if not isinstance(res, list) or len(res) != len(names):
         res = None
-    if res is not None and any((r or {}).get("st") in (429, 403) or (r or {}).get("st", 0) >= 500 for r in res):
-        _BS[0] = max(3, _BS[0] // 2)
-        print("  ⚠ 這一批有限流／伺服器錯誤（%s）→ 睡 5 秒、整批退回逐一查；之後批次縮成 %d"
-              % (sorted({(r or {}).get("st") for r in res}), _BS[0]), flush=True)
-        res = None
     if res is None:
+        _STAT["limit_sleep"] += 5
         time.sleep(5)
         for n in names:
             out[n] = fetch_pro_seq(pg, n)
         return out
+    bad = {n for n, r in zip(names, res) if _BAD((r or {}).get("st"))}
+    if bad:
+        _BS[0] = max(3, _BS[0] // 2)
+        _STAT["limit_n"] += 1; _STAT["kept"] += len(names) - len(bad); _STAT["retry"] += len(bad); _STAT["limit_sleep"] += 5
+        print("  ⚠ 這一批 %d 個裡 %d 個限流／伺服器錯誤（%s）→ 其餘 %d 個直接收、睡 5 秒只重查那 %d 個；之後批次縮成 %d"
+              % (len(names), len(bad), sorted({(r or {}).get("st") for r in res}), len(names) - len(bad), len(bad), _BS[0]), flush=True)
+        time.sleep(5)
     missed, st_by = [], {}
     for n, r in zip(names, res):
+        if n in bad:
+            out[n] = fetch_pro_seq(pg, n)
+            continue
         plist = _OK((r or {}).get("j"))
         if plist:
             out[n] = plist
@@ -407,7 +445,8 @@ def fetch_pros_batch(pg, names):
 def fetch_pros_rest(pg, names, st_by=None):
     """#73 退路批次化：第一變體查無的名字，其餘變體（_VARIANTS 順序）一次 Promise.all 問完；同一名字取**第一個**有結果的變體，
     跟 fetch_pro_seq 的語意相同。第一變體的狀態不是 200／404（0＝fetch 例外之類）的，把第一變體也再問一次。
-    URL 依目前批次大小切塊；一塊限流／伺服器錯誤 → 減半＋睡 5、那一塊還沒定案的名字退回 fetch_pro_seq；evaluate 例外同樣退回但不減半。"""
+    URL 依目前批次大小切塊；一塊裡有限流／伺服器錯誤 → 減半＋睡 5，**只有出事的那幾個名字**退回 fetch_pro_seq、其餘照收（#115）；
+    evaluate 例外 → 那一塊還沒定案的名字全退回，但不減半。"""
     out = {}
     pairs = []
     for n in names:
@@ -419,25 +458,34 @@ def fetch_pros_rest(pg, names, st_by=None):
         chunk = pairs[k:k + max(1, _BS[0])]
         k += len(chunk)
         _pace()
+        _t0 = time.time()
         try:
             res = pg.evaluate(JS_MANY, ["/v1/pros/" + urllib.parse.quote(v, safe="") for _, v in chunk])
         except Exception:
             res = None
+        _STAT["rest_n"] += 1; _STAT["rest_s"] += time.time() - _t0
         if not isinstance(res, list) or len(res) != len(chunk):
             res = None
-        if res is not None and any(((r or {}).get("st") or 0) in (429, 403) or ((r or {}).get("st") or 0) >= 500 for r in res):
-            _BS[0] = max(3, _BS[0] // 2)
-            print("  ⚠ 退路這一批有限流／伺服器錯誤（%s）→ 睡 5 秒、退回逐一查；之後批次縮成 %d"
-                  % (sorted({(r or {}).get("st") for r in res}), _BS[0]), flush=True)
-            res = None
         if res is None:
+            _STAT["limit_sleep"] += 5
             time.sleep(5)
             for n in dict.fromkeys(n for n, _ in chunk):
                 if n not in out:
                     out[n] = fetch_pro_seq(pg, n)
             continue
+        badn = {n for (n, _), r in zip(chunk, res) if _BAD((r or {}).get("st"))}
+        if badn:
+            _BS[0] = max(3, _BS[0] // 2)
+            _alln = list(dict.fromkeys(n for n, _ in chunk))
+            _STAT["limit_n"] += 1; _STAT["kept"] += len(_alln) - len(badn); _STAT["retry"] += len(badn); _STAT["limit_sleep"] += 5
+            print("  ⚠ 退路這一塊 %d 名裡 %d 名限流／伺服器錯誤（%s）→ 其餘直接收、睡 5 秒只重查那 %d 名；之後批次縮成 %d"
+                  % (len(_alln), len(badn), sorted({(r or {}).get("st") for r in res}), len(badn), _BS[0]), flush=True)
+            time.sleep(5)
         for (n, _), r in zip(chunk, res):
             if n in out:
+                continue
+            if n in badn:
+                out[n] = fetch_pro_seq(pg, n)
                 continue
             plist = _OK((r or {}).get("j"))
             if plist:
@@ -655,8 +703,10 @@ def main():
         # → 第一個變體查無時 fetch_pros_batch 會退回逐變體路徑）
         _names_all = [pl for pl, _ in roster]
         _plist_by = {}
+        _stat_reset(); _tq0 = time.time()
         for _chunk in _iter_batches(_names_all):
             _plist_by.update(fetch_pros_batch(pg, _chunk))
+        print("  " + _stat_line(time.time() - _tq0), flush=True)     # #115：逐批分項（限流那一批只重查出事的名字）
         for i, (pl, tm) in enumerate(roster, 1):
             plist = _plist_by.get(pl, [])
             teams_seen = {canon_team(a.get("team")) for a in plist}

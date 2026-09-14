@@ -230,9 +230,12 @@ pg = FakePG(tbl)
 out, slept = with_sleep_recorder(lambda: M.fetch_pros_batch(pg, ["A", "B", "C"]))
 check(5 in slept, f"限流要睡 5 秒，實際睡了 {slept}")
 check(M._BS[0] == 12, f"24 → 12，實際 {M._BS[0]}")
-check(out["A"] and out["B"] and out["C"] == [], "退回逐一後 A、B 仍查到、C 查無")
+check(out["A"] and out["B"] and out["C"] == [], "A、B 直接收、C 查無")
 kinds = [c[0] for c in pg.calls]
-check(kinds[0] == "MANY" and kinds.count("ONE") >= 3, f"MANY 之後每位至少一次 ONE，實際 {kinds}")
+ones = [c[1] for c in pg.calls if c[0] == "ONE"]
+check(kinds[0] == "MANY" and kinds.count("ONE") >= 1, f"MANY 之後有 ONE，實際 {kinds}")
+check(all(u.startswith("/v1/pros/C") or u.startswith("/v1/pros/c") for u in ones) and _url("A") not in ones and _url("B") not in ones,
+      f"#115：只有 429 的 C 走逐一，200 的 A、B 不再問，實際 ONE={ones}")
 for _ in range(5):
     with_sleep_recorder(lambda: M.fetch_pros_batch(pg, ["A", "B", "C"]))
 check(M._BS[0] == 3, f"連續限流也不會低於 3，實際 {M._BS[0]}")
@@ -245,6 +248,96 @@ reset()
 pg = FakePG({}, fail_many=True)
 out, slept = with_sleep_recorder(lambda: M.fetch_pros_batch(pg, ["A"]))
 check(out["A"] == [] and 5 in slept and M._BS[0] == 24, "evaluate 例外：退回逐一、睡 5，但**不**減半（不是限流）")
+
+# ── 3b. #115：限流那一批只重查出事的名字、200／404 的直接收；逐批計時分項 ──────────
+print("3b. #115 只重查出事的名字＋分項計時（含釘 5e005d0a 的舊版正控制）")
+reset(); M._stat_reset()
+# 24 名：23 個 200、1 個 500（09-14 22:00 那班的情境）
+names24 = [f"P{i:02d}" for i in range(24)]
+tbl = {_url(n): {"st": 200, "j": _players(n)} for n in names24}
+tbl[_url("P07")] = {"st": 500, "j": None}
+tbl_one = {_url("P07"): {"st": 200, "j": _players("P07")}}     # 逐一重查時 500 那位已恢復
+pg = FakePG(tbl, one_table=tbl_one)
+out, slept = with_sleep_recorder(lambda: M.fetch_pros_batch(pg, names24))
+ones = [c[1] for c in pg.calls if c[0] == "ONE"]
+check(all(out[n] and out[n][0]["puuid"] == "pu-" + n for n in names24), "24 名全部拿到（含重查後的 P07）")
+check(ones == [_url("P07")], f"只有 500 的 P07 走 ONE（第一變體就命中），23 個 200 的一次都沒再問，實際 {ones}")
+check([c[0] for c in pg.calls] == ["MANY", "ONE"], f"呼叫序列 MANY→ONE，實際 {[c[0] for c in pg.calls]}")
+check(5 in slept and M._BS[0] == 12, f"減半＋睡 5 照舊，實際 slept={slept} _BS={M._BS[0]}")
+S = M._STAT
+check(S["batch_n"] == 1 and S["limit_n"] == 1 and S["kept"] == 23 and S["retry"] == 1 and S["seq_n"] == 1 and abs(S["limit_sleep"] - 5) < 1e-9,
+      f"分項計數：批次 1／限流 1／直接收 23／重查 1／逐一 1／限流睡 5，實際 {S}")
+check(S["rest_n"] == 0, f"沒有查無的名字 → 退路 0 次，實際 {S['rest_n']}")
+_ln = M._stat_line(12.3)
+check("直接收 23 名" in _ln and "只重查 1 名" in _ln and "總耗時 12.3s" in _ln and "牆鐘" not in _ln and not _ln.startswith("合計"),
+      f"分項那行有數字、且不撞 shift_log_archive／update_health 的關鍵字（牆鐘／合計）：{_ln}")
+# 混合：200＋404＋500 同一批 → 200 收、404 走退路 MANY（其餘變體）、500 走 ONE
+reset(); M._stat_reset()
+tbl = {_url("Good"): {"st": 200, "j": _players("Good")}, _url("gone"): {"st": 404, "j": None}, _url("Err"): {"st": 500, "j": None}}
+pg = FakePG(tbl)
+out, slept = with_sleep_recorder(lambda: M.fetch_pros_batch(pg, ["Good", "gone", "Err"]))
+kinds = [c[0] for c in pg.calls]
+manys = [c[1] for c in pg.calls if c[0] == "MANY"]
+ones = [c[1] for c in pg.calls if c[0] == "ONE"]
+check(out["Good"] and out["gone"] == [] and out["Err"] == [], f"Good 收、gone／Err 查無，實際 {out}")
+check(len(manys) == 2 and manys[1] == ["/v1/pros/Gone", "/v1/pros/GONE"], f"404 的 gone 照舊走退路 MANY（其餘變體），實際 {manys}")
+check(all(u.startswith("/v1/pros/E") or u.startswith("/v1/pros/e") for u in ones) and ones and _url("Good") not in ones,
+      f"500 的 Err 走 ONE、Good 不再問，實際 {ones}")
+check(M._STAT["kept"] == 2 and M._STAT["retry"] == 1 and M._STAT["rest_n"] == 1, f"分項：直接收 2（含 404）／重查 1／退路 1，實際 {M._STAT}")
+# 退路那一塊限流：只有出事的名字退回 ONE、同塊其餘照收
+reset(); M._stat_reset()
+tbl = {"/v1/pros/Ceo": {"st": 200, "j": _players("Ceo")}, "/v1/pros/Xyz": {"st": 429, "j": None}}
+pg = FakePG(tbl, one_table={"/v1/pros/XYZ": {"st": 200, "j": _players("XYZ")}})
+out, slept = with_sleep_recorder(lambda: M.fetch_pros_batch(pg, ["ceo", "xyz"]))
+ones = [c[1] for c in pg.calls if c[0] == "ONE"]
+check(out["ceo"] and out["ceo"][0]["puuid"] == "pu-Ceo", "退路同一塊：ceo 的 Ceo 200 直接收")
+check(out["xyz"] and out["xyz"][0]["puuid"] == "pu-XYZ", "退路同一塊：xyz 的 Xyz 429 → 逐一重查到 XYZ")
+check(ones and all("/v1/pros/Ceo" != u and "/v1/pros/CEO" != u for u in ones), f"ceo 沒被拖去逐一，實際 ONE={ones}")
+check(5 in slept and M._BS[0] == 12 and M._STAT["limit_n"] == 1 and M._STAT["kept"] == 1 and M._STAT["retry"] == 1,
+      f"退路限流：減半＋睡 5、直接收 1／重查 1，實際 _BS={M._BS[0]} {M._STAT}")
+# 主流程有印分項那一行
+_src115 = io.open(M.__file__, encoding="utf-8").read()
+_main115 = _src115[_src115.index("\ndef main():"):]
+check("_stat_line(" in _main115 and "_stat_reset()" in _main115, "main() 有 _stat_reset／印 _stat_line")
+# 正控制：釘 5e005d0a（#115 之前那版）——同一個 24 名情境，舊版把 23 個 200 的也逐一重查
+OLDREV_115 = "5e005d0a"
+try:
+    _o115 = subprocess.run(["git", "show", f"{OLDREV_115}:scripts/fetch_dpm_soloq_accounts.py"], cwd=ROOT,
+                           capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=30).stdout
+except Exception:
+    _o115 = ""
+if _o115 and "def fetch_pros_batch" in _o115:
+    check("_stat_line" not in _o115 and "_BAD" not in _o115 and "整批退回逐一查" in _o115, "釘到的舊版真的是 #115 之前（沒有 _stat_line／_BAD、還印「整批退回逐一查」）")
+    _o115 = _o115.replace("sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding=\"utf-8\", errors=\"replace\")", "pass")
+    _tmp115 = os.path.join(_tf.mkdtemp(prefix="dpm_old115_"), "fetch_dpm_old115.py")
+    io.open(_tmp115, "w", encoding="utf-8").write(_o115)
+    _spec115 = importlib.util.spec_from_file_location("fetch_dpm_old115", _tmp115)
+    O115 = importlib.util.module_from_spec(_spec115); _spec115.loader.exec_module(O115)
+    O115._BS[0] = O115.BATCH; O115._last_batch_t[0] = 0.0
+    _rs115 = O115.time.sleep; O115.time.sleep = lambda s: None
+    try:
+        class Old115PG(FakePG):
+            def evaluate(self, js, arg=None):
+                kind = ("MANY" if js == O115.JS_MANY else "ONE" if js == O115.JS_ONE else "?")
+                self.calls.append((kind, arg))
+                if kind == "MANY":
+                    return [dict(self.table.get(u, {"st": 404, "j": None})) for u in arg]
+                r = (self.one_table or {}).get(arg) or self.table.get(arg)
+                return (r or {}).get("j") if r and r.get("st") == 200 else None
+        tbl = {_url(n): {"st": 200, "j": _players(n)} for n in names24}
+        tbl[_url("P07")] = {"st": 500, "j": None}
+        opg = Old115PG(tbl, one_table={_url("P07"): {"st": 200, "j": _players("P07")}})
+        oout = O115.fetch_pros_batch(opg, names24)
+        oones = [c[1] for c in opg.calls if c[0] == "ONE"]
+        check(all(oout[n] for n in names24), "舊版結果相同（24 名都拿到）")
+        check(len(oones) >= 24 and _url("P00") in oones and _url("P23") in oones,
+              f"舊版真的把 23 個 200 的也逐一重查（ONE ≥ 24 次；新版 1 次），實際 {len(oones)} 次")
+        check(not hasattr(O115, "_STAT"), "舊版沒有 _STAT 分項")
+    finally:
+        O115.time.sleep = _rs115
+else:
+    check(False, f"拿不到 {OLDREV_115} 那版當 3b 正控制")
+reset(); M._stat_reset()
 
 # ── 4. 節奏：兩批開始時間至少隔 MIN_GAP；批次本身夠慢就不補睡 ─────────────────
 print("4. _pace")
