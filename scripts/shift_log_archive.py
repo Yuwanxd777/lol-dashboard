@@ -40,7 +40,9 @@ KEEP = 60          # 只留最近 N 班（一天兩班 ⇒ 一個月）
 RE_RUN = re.compile(r"^==== run_update (\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):\d{2}（(?:並行 (\d+)|(循序))）", re.M)
 RE_STEP = re.compile(r"^---- (.+?)（([\d.]+)s，exit (-?\d+)）----")
 RE_STAGE = re.compile(r"^\s*（【(.+?)】這一階段 ([\d.]+)s）")
-RE_WALL = re.compile(r"牆鐘 ([\d.]+)s")
+# 只認收尾那一行「合計 X 分鐘（牆鐘 Ys）」——#107 起 fetch_obgg_accounts 的分項也印「vs 牆鐘 38.9s」，
+# 而且排在收尾之前；舊寫法「第一個含『牆鐘』的行」把 09-14 10:00 那班的 388.6s 記成 38.9s（#108 修）。
+RE_WALL = re.compile(r"^合計 [\d.]+ 分鐘（牆鐘 ([\d.]+)s）")
 
 
 def parse(txt):
