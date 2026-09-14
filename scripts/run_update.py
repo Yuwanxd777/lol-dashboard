@@ -66,6 +66,9 @@ PLAN = [
     #   limit=500 兩個都 ratelimited ⇒ 是**全域匿名額度的懲罰視窗**，不是某個查詢太貴。
     #   代價幾乎為零：30 天裡有 29 天 fetch_promo 只花 0.1s 就被「30 天門檻／失敗戳記」擋掉，
     #   真的要抓的那一天才會多花 ①b 這一段，而那一天拿到的是乾淨的額度。
+    # 2026-09-14 #113：上面「乾淨的額度」不成立——api.php?action=cargoquery 對匿名存取連 limit=1 都擋，
+    #   跟 fetch_fill 用不用無關（50 分鐘沒人碰也一樣）。fetch_promo 已改走 Special:CargoExport（跟 fetch_side_sel／
+    #   fetch_wiki_stats 同一條通道，--force 實跑 44.6s 成功）。留在 ①b 循序的理由只剩「別跟 ③ 的 CargoExport 併發」。
     ("① 補件", [S("fetch_fill")]),
     # ①b 升降級賽：跟 ① 打同一個 Leaguepedia 匿名額度 ⇒ 不並行，等 fetch_fill 收工再跑
     ("①b 補件：升降級賽", [S("fetch_promo")]),

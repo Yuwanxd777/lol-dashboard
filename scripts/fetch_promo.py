@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-升降賽基準資料：Leaguepedia Cargo API → promo_games.json + promo_abbr.js
+升降賽基準資料：Leaguepedia Cargo（Special:CargoExport）→ promo_games.json + promo_abbr.js
 
 以 wiki 為準的升降賽判定：抓各一級聯賽的 Promotion 賽事逐場對戰（隊伍＋日期），
 fetch_data.py 用「隊伍配對＋日期」精準標記 split=升降賽。
@@ -8,7 +8,7 @@ fetch_data.py 用「隊伍配對＋日期」精準標記 split=升降賽。
 
 用法：python scripts/fetch_promo.py
 """
-import json, re, sys, time, urllib.request, urllib.parse
+import json, re, sys, time, urllib.request, urllib.parse, urllib.error
 from pathlib import Path
 
 ROOT   = Path(__file__).resolve().parent.parent
@@ -18,7 +18,20 @@ OUT_JS = ROOT / "promo_abbr.js"
 # 沒有它的話：失敗 ⇒ 不寫 OUT_J ⇒ OUT_J 的 mtime 永遠不動 ⇒ 下面 30 天那條永遠成立 ⇒ 每一班都重抓一次。
 TRY_ST = ROOT / "csv_cache/promo_last_try.txt"
 
-API = "https://lol.fandom.com/api.php"
+# 2026-09-14 精進迴圈 #113：改走 Special:CargoExport（一般頁面請求），不再用 api.php?action=cargoquery。
+#   後者對匿名存取的限流極兇：09-09 起每個 22:00 班第一個查詢就 ratelimited、退避 90s 用完放棄，
+#   資料 35 天沒更新；22:51 管線沒在跑、50 分鐘沒人碰 Leaguepedia 時 --force 仍第一發就被擋，
+#   同一秒 CargoExport 三種查詢各 0.5s 正常回（探針 autopilot/_m113_promo_force.txt 與本輪 LOG）。
+#   fetch_wiki_stats／fetch_side_sel／fetch_events_extra 早就因為同一個原因走這條通道，這裡是最後一支。
+#   刻意**不用 build_opener**、網路出口仍只有 urllib.request.urlopen 一個——兩支沙盒測試
+#   （autopilot/_m95_promo_backoff_test、_m102_promo_exitcode_test）接管的就是它（#52：新出口沒接管＝沙盒漏水）。
+#   cookie 只在真的吃到 403 時才去表單頁拿一次（fetch_events_extra 的經驗），快樂路徑一個查詢＝一次請求。
+FORM = "https://lol.fandom.com/wiki/Special:CargoExport"
+UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/126 Safari/537.36",
+      "Accept": "application/json,text/html;q=0.9,*/*;q=0.8", "Accept-Language": "en-US,en;q=0.9", "Referer": FORM}
+LIMIT = 500              # 一頁幾列（CargoExport 吃得下 2000，但 offset 翻頁邏輯照舊、沒必要改）
+GAP_S = 2.0              # 每個成功查詢之後的全域節流（api.php 版是 6s；CargoExport 是頁面請求，比照 fetch_side_sel 的 3s 略鬆）
+_COOKIE = [None]         # None＝還沒拿過；""＝拿過但拿不到（不再重拿）
 
 # 這份資料 30 天才更新一次，晚一天完全沒差，不值得讓排程班次空等。
 # 2026-09-09 22:00 那班就是：Leaguepedia 回限流 ⇒ 舊版退避 60/120/…/420 秒共睡 1682.8 秒才放棄，
@@ -68,22 +81,42 @@ PREFIX_LG = [
     ("LLA/", "LLA"), ("LLN/", "LLN"), ("CLS/", "CLS"), ("GPL/", "GPL"),
 ]
 
+def _fetch_cookie():
+    """第一次吃到 403 才來：造訪表單頁一次，把 Set-Cookie 收成 Cookie 標頭。拿不到就空字串、之後不再試。"""
+    try:
+        r = urllib.request.urlopen(urllib.request.Request(FORM, headers=UA), timeout=60)
+        got = r.headers.get_all("Set-Cookie") if hasattr(r, "headers") and r.headers else None
+        _COOKIE[0] = "; ".join(h.split(";", 1)[0] for h in (got or []))
+    except Exception as e:
+        print("   ⚠ 取 cookie 失敗（仍試著繼續）：%s" % type(e).__name__)
+        _COOKIE[0] = ""
+
+
+def _rows_of(r):
+    """CargoExport 回的是平的列清單；api.php 版是 {"cargoquery":[{"title":{…}}]}。兩種都收（萬一哪天要切回去）。"""
+    if isinstance(r, dict):
+        return [x.get("title", x) if isinstance(x, dict) else x for x in r.get("cargoquery", [])]
+    return list(r)
+
+
 def cargo(params, retries=8):
-    q = urllib.parse.urlencode({"action": "cargoquery", "format": "json", "limit": "500", **params})
-    req = urllib.request.Request(API + "?" + q, headers={"User-Agent": "Mozilla/5.0 lol-dashboard"})
+    q = urllib.parse.urlencode({"format": "json", "limit": str(LIMIT), **params})
     for i in range(retries):
+        hdr = dict(UA)
+        if _COOKIE[0]:
+            hdr["Cookie"] = _COOKIE[0]
+        req = urllib.request.Request(FORM + "?" + q, headers=hdr)
         try:
-            r = json.loads(urllib.request.urlopen(req, timeout=60).read())
-            if "error" in r:  # 限流等 API 錯誤：退避重試（匿名限額嚴格），但受 RETRY_BUDGET_S 封頂
-                code = str(r["error"].get("code", "") or "?")
-                info = r["error"].get("info", "cargo error")
-                if code not in RETRYABLE:
-                    raise RuntimeError("cargo API 錯誤（不可重試的錯誤碼，直接放棄）：%s — %s" % (code, info))
-                if i == retries - 1 or not _backoff(20 * (i + 1), "API %s" % code):
-                    raise Transient("cargo API 錯誤（退避預算 %ds 用完）：%s — %s" % (RETRY_BUDGET_S, code, info))
+            body = urllib.request.urlopen(req, timeout=60).read()
+        except urllib.error.HTTPError as e:
+            if e.code == 403 and _COOKIE[0] is None:
+                _fetch_cookie()          # 第一次 403：拿 cookie 再試一次（不算退避、不扣預算）
                 continue
-            time.sleep(6)  # 全域節流
-            return [x["title"] for x in r.get("cargoquery", [])]
+            if e.code in (403, 429) or e.code >= 500:
+                if i == retries - 1 or not _backoff(20 * (i + 1), "HTTP %d" % e.code):
+                    raise Transient("CargoExport HTTP %d（退避預算 %ds 用完）" % (e.code, RETRY_BUDGET_S))
+                continue
+            raise RuntimeError("CargoExport HTTP %d（查詢本身有問題，直接放棄）" % e.code)
         except RuntimeError:
             raise
         except Exception as e:
@@ -91,6 +124,26 @@ def cargo(params, retries=8):
             # 日誌吐一整段 traceback，健檢會多報一筆「Traceback」）。
             if i == retries - 1 or not _backoff(10, "連線失敗 %s" % type(e).__name__):
                 raise Transient("連線失敗 %s：%s" % (type(e).__name__, e))
+            continue
+        try:
+            r = json.loads(body)
+        except ValueError:
+            # 不是 JSON（限流頁／Cloudflare 擋頁／HTML 錯誤頁）：當暫時性，退避重試但受 RETRY_BUDGET_S 封頂
+            if i == retries - 1 or not _backoff(20 * (i + 1), "回應不是 JSON"):
+                raise Transient("CargoExport 回應不是 JSON（退避預算 %ds 用完）：%s"
+                                % (RETRY_BUDGET_S, body[:80].decode("utf-8", "replace").strip()))
+            continue
+        if isinstance(r, dict) and "error" in r:  # 限流等 API 錯誤：退避重試，但受 RETRY_BUDGET_S 封頂
+            code = str(r["error"].get("code", "") or "?")
+            info = r["error"].get("info", "cargo error")
+            if code not in RETRYABLE:
+                raise RuntimeError("cargo API 錯誤（不可重試的錯誤碼，直接放棄）：%s — %s" % (code, info))
+            if i == retries - 1 or not _backoff(20 * (i + 1), "API %s" % code):
+                raise Transient("cargo API 錯誤（退避預算 %ds 用完）：%s — %s" % (RETRY_BUDGET_S, code, info))
+            continue
+        time.sleep(GAP_S)  # 全域節流
+        return _rows_of(r)
+    raise Transient("CargoExport 重試 %d 次都沒拿到結果" % retries)
 
 def lg_of(page):
     for p, lg in PREFIX_LG:
@@ -119,7 +172,7 @@ def main():
         tours += rows
         if len(rows) < 500: break
         offset += 500
-    ours = [(t["OverviewPage"], lg_of(t["OverviewPage"]), t["Year"]) for t in tours]
+    ours = [(t["OverviewPage"], lg_of(t["OverviewPage"]), str(t.get("Year") or "")) for t in tours]   # CargoExport 的空值是 None，統一成 ""
     ours = [(p, lg, y) for p, lg, y in ours if lg]
     print(f"Promotion 賽事共 {len(tours)}，屬於一級聯賽的 {len(ours)}")
 
