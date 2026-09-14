@@ -1605,7 +1605,7 @@ const xKey=(obj,n)=>{
 //  濾掉競技場(6位id/map30)、核心攻防戰(Nexus Siege)建築、ARAM 特製版等別模式道具。
 //  EXTRA_INFO 建構與 yearSet 當年集合共用，避免別模式道具混入或蓋掉峽谷版價格（如競技場適性神盔 $6000）。
 // 非召喚峽谷的舊模式專屬道具（Dominion/扭曲叢林/URF）：5.x DDragon 常缺 maps 旗標 → 名稱黑名單（使用者回報驅動，同烏莉特法帽先例）
-const NON_SR_LEGACY=/黃金鍋鏟|Golden Spatula|魔劍正宗|Sword of the Divine/i; // 魔劍正宗＝TT 專屬(3004 maps 全 None 資料判不出，名單排除) // 只有黃金鍋鏟(URF)確定非峽谷；其他別亂列（使用者指正 2026-07-16）
+const NON_SR_LEGACY=/黃金鍋鏟|Golden Spatula|魔劍正宗|Sword of the Divine|殞落之祭|Rite of Ruin/i; // 殞落之祭(3430)＝2015 黑市拳擊手／競技場道具，CDragon bin 裡根本沒有；DDragon 16.1 誤標 maps.11=true、16.18 改回 ⇒ 被當成 2026 年中移除（使用者指正 2026-09-14） // 魔劍正宗＝TT 專屬(3004 maps 全 None 資料判不出，名單排除) // 只有黃金鍋鏟(URF)確定非峽谷；其他別亂列（使用者指正 2026-07-16）
 const srItemOK=(d,iid)=>{
   if(NON_SR_LEGACY.test(String(d&&d.name||"")))return false; // URF 愚人節道具
   {const m0=(d&&d.maps)||{}; if(m0["1"]===false&&m0["11"]!==true)return false;} // 5.x 舊召喚峽谷旗標：map1=false＝模式專屬(奧丁面紗/格雷提燈/探險短劍…)
@@ -13609,7 +13609,8 @@ function render(){
           dv.push(e.gs/e.gn-b2); }
         return _IX.muP={base, scale:_p95(dv)||400}; };
       // 積分：mu[我][敵]，基準逐英雄算（積分沒有分路線）
-      const sqMuIdx=()=>{ if(_IX.sqMu)return _IX.sqMu;
+      // ⚠ builds 還沒載到時算出來的是空表，不可以快取到永遠（載到後要重算；疊圖對戰列 2026-09-14 踩到）
+      const sqMuIdx=()=>{ if(_IX.sqMu&&(_IX.sqMu.ok||!window.SOLOQ_BUILDS))return _IX.sqMu;
         const M=(window.SOLOQ_BUILDS||{}).mu||{}, pair={};
         // 列格式（build_soloq_builds 的 muCnt）＝[場數, 勝場, 有金差的場數, 金差合計]。
         // n／s 是金差那一半（r[2]／r[3]）；wn／w 是勝負那一半（r[0]／r[1]），
@@ -13625,9 +13626,10 @@ function render(){
           if(vs.length>=3)base[a]=_medOf(vs); }
         const dv=[]; for(const a in pair){ const b2=base[a]; if(b2==null)continue;
           for(const b in pair[a]){ const e=pair[a][b]; if(e.n>=10)dv.push(e.s/e.n-b2); } }
-        return _IX.sqMu={pair, base, scale:_p95(dv)||1000}; };
+        return _IX.sqMu={pair, base, scale:_p95(dv)||1000, ok:!!window.SOLOQ_BUILDS}; };
       const _gdSc=(gd,n,full,scale)=>_clamp(50+gd/(scale||400)*45*_sat(n,full));  // p95 對應 95 分
-      const sqMuRec=(a,b)=>{ if(!V.bpSoloqPool)return null;      // 只在開「🎯 近期積分」時計入
+      // force＝疊圖對戰列用：一律比賽 70%＋積分 30%，不看 🎯 開關（使用者 2026-09-14）；選角評分那條路不傳 ⇒ 行為不變
+      const sqMuRec=(a,b,force)=>{ if(!V.bpSoloqPool&&!force)return null;      // 只在開「🎯 近期積分」時計入
         const X=sqMuIdx(), A=champId(a), B=champId(b);
         const e=X.pair[A]&&X.pair[A][B]; if(!e||e.n<10)return null;   // 金差要 10 場才算
         const bs=X.base[A]; if(bs==null)return null;                  // 該英雄對位組合太少、算不出基準
@@ -13635,7 +13637,7 @@ function render(){
       // 積分對位的**勝率**（使用者 2026-09-14：「勝率差也要計算積分場數的勝率」）。
       // 跟 sqMuRec 分開：勝率不需要金差基準（bs），組合太少算不出基準時勝率照樣能給；
       // 同樣要 ≥10 場、同樣只在開「🎯 近期積分」時計入。回 {n,w}＝a 對 b 的場數與 a 的勝場。
-      const sqMuWr=(a,b)=>{ if(!V.bpSoloqPool)return null;
+      const sqMuWr=(a,b,force)=>{ if(!V.bpSoloqPool&&!force)return null;
         const X=sqMuIdx(), A=champId(a), B=champId(b);
         const e=X.pair[A]&&X.pair[A][B]; if(!e||!(e.wn>=10))return null;
         return {n:e.wn, w:e.w}; };
@@ -15646,7 +15648,8 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
           // 記下「當年那個版本」的正確圖檔（檔名＝當年 id）：id 會跨版本重用，用現行 id 去舊版會 404（如 2017 盧登回音當年 id 3285）
           const descI={}, goldI={};
           const _iidOf={}; // 同名多 id：正宗原版 id 較小（3023 雙影斗篷 vs TT 複製 3290）
-          if(it)Object.entries(it.data).forEach(([iid,d])=>{if(itemOK(d,iid)){let nm=clItemName(d.name);
+          const badI=new Set(); // 這個版本判為非峽谷的 id：年末判非峽谷的不是「年中移除」，是本來就不該列（殞落之祭 2026-09-14）
+          if(it)Object.entries(it.data).forEach(([iid,d])=>{if(!itemOK(d,iid)){badI.add(iid);return;} {let nm=clItemName(d.name);
             if(!isHistYear()&&window.ITEM_NOSTORE&&ITEM_NOSTORE[nm])return; // 當前年份：排除 CDragon 已下架(遊戲已移除、DDragon 殭屍仍留)的道具，如闇夜收割者
             if(/無效道具|Deprecated/i.test(nm)){const ae=window.LOL_ASSETS&&LOL_ASSETS.item&&LOL_ASSETS.item[iid]; const alt=ae&&((ae.zh&&!/無效道具|Deprecated/i.test(ae.zh)&&ae.zh)||ae.en); if(alt)nm=clItemName(alt);} // 佔位譯名→正名
             items.add(nm); idName[iid]=nm;
@@ -15655,14 +15658,15 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
             if(d.gold&&d.gold.total!=null)goldI[nm]=d.gold.total;}});
           if(ru)ru.forEach(t=>{runes.add(t.name); if(t.icon)imgR[t.name]=`${CDN_}/img/${t.icon}`;
             t.slots.forEach(sl=>sl.runes.forEach(r2=>{runes.add(r2.name); if(r2.icon)imgR[r2.name]=`${CDN_}/img/${r2.icon}`;}));});
-          return {items,runes,summ,imgI,imgR,imgS,sumMeta,idName,descI,goldI};
+          return {items,runes,summ,imgI,imgR,imgS,sumMeta,idName,descI,goldI,badI};
         };
         try{
           const [end,start,mid]=await Promise.all([grab(vEnd),grab(vStart),grab(vMid)]);
           if(!end&&!start){window._DEXSETS[y]=null;return null;}
           const e=end||start, s=start||end;
           // 「年中移除」用 id 判定（跟 ITEM_REMOVED 一致）：同 id 只是改名（深淵權杖→深淵面具）不算移除；名字仍在別 id 也不算
-          const goneI=new Set([...Object.keys(s.idName||{})].filter(id=>!(e.idName&&e.idName[id])).map(id=>s.idName[id]).filter(n=>n&&!e.items.has(n)));
+          // 年末版本判為非峽谷的 id 不算「年中移除」（年初 DDragon 誤標 maps.11=true 的殭屍會落到這裡；殞落之祭 2026-09-14）
+          const goneI=new Set([...Object.keys(s.idName||{})].filter(id=>!(e.idName&&e.idName[id])&&!(e.badI&&e.badI.has(id))).map(id=>s.idName[id]).filter(n=>n&&!e.items.has(n)));
           const goneR=new Set([...s.runes].filter(n=>!e.runes.has(n)));
           const goneS=new Set([...(s.summ||[])].filter(n=>!e.summ.has(n))); // 年中移除的召技（如 9.23 移除淨魔？→ 年初有年末無即灰化）
           // DDragon 漏登但遊戲內實際仍在售的例外（使用者實測回報）
