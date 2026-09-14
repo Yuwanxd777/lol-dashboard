@@ -13641,16 +13641,19 @@ function render(){
         const X=sqMuIdx(), A=champId(a), B=champId(b);
         const e=X.pair[A]&&X.pair[A][B]; if(!e||!(e.wn>=10))return null;
         return {n:e.wn, w:e.w}; };
-      const muScore=(r,a,b,L)=>{
+      // force／mix（2026-09-14，疊圖總結的「評分差」用）：force＝積分不看 🎯 開關一律計入；
+      // mix＝積分佔比（疊圖傳 0.3＝比賽 70%＋積分 30%）。不傳 ⇒ 跟以前一模一樣（SC_SQ_MIX）。
+      const muScore=(r,a,b,L,force,mix)=>{
         let pro=null;
         if(r){ const X=muProIdx(), bs=(a&&L!=null)?X.base[L+"|"+champId(a)]:null;
           pro=(r.gn>=5&&bs!=null)?_gdSc(r.gs/r.gn-bs,r.gn,15,X.scale)
               :(r.gn>=5?_gdSc(r.gs/r.gn,r.gn,15,X.scale):_wrSc(r.n,r.w,20,10)); } // 沒有 GD 資料才退回勝率
-        const s=(a&&b)?sqMuRec(a,b):null;
+        const s=(a&&b)?sqMuRec(a,b,force):null;
         const sq=s?_gdSc(s.gd,s.n,30,s.scale):null;               // 積分樣本大，飽和門檻放寬到 30 場
         if(pro==null&&sq==null)return null;
         if(sq==null)return pro; if(pro==null)return sq;
-        return pro*(1-SC_SQ_MIX)+sq*SC_SQ_MIX; };
+        const w=(mix==null)?SC_SQ_MIX:mix;
+        return pro*(1-w)+sq*w; };
       const curOf=(R,L,st)=>{ const ps=R&&R[L]&&R[L].players; if(!ps||!ps.length)return null;
         return (st&&st[L]&&ps.find(x=>x.p===st[L]))||ps[0]; };
       // 權重（2026-08-07 使用者定案，取代 08-06 的「均衡型 15/35/25/10/10/5」）：
@@ -13882,7 +13885,7 @@ function render(){
           return v;
         }catch(e){ return null; }
       };
-      if(window.__bpLiveMount)window.__bpAPI={draftScore,selPool,sqRecent,R1,R2,POSN,used,S,laneAssign,F,curYear,passG,calcHeroes,predPools,muRec,sqMuRec,sqMuWr,withPoolWin};   // 公開版載不到 bp_live_ui.js → 不掛這個全域；calcHeroes＝最近一手平均評分的比賽 70% 那半、predPools＝預測專用固定口徑池（2026-09-02）
+      if(window.__bpLiveMount)window.__bpAPI={draftScore,selPool,sqRecent,R1,R2,POSN,used,S,laneAssign,F,curYear,passG,calcHeroes,predPools,muRec,sqMuRec,sqMuWr,muScore,withPoolWin};   // 公開版載不到 bp_live_ui.js → 不掛這個全域；calcHeroes＝最近一手平均評分的比賽 70% 那半、predPools＝預測專用固定口徑池（2026-09-02）
       const gameCard=gi=>{ // 職業賽 BP 畫面：上=雙方 BAN 橫排、下=左右兩排大 PICK
         const fp=S.fp[gi]||0, flip=S.side[gi]||0;
         // 每局隊伍：匯入局記在 S.tm[gi]（不跟著上方兩隊）、一般局＝上方兩隊
