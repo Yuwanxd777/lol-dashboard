@@ -9,7 +9,9 @@
   ② 網頁的池（`selPool`）**不吃窗**
   ③ 疊圖那條路（`__bpAPI.withPoolWin` 包起來的 `selPool`）**吃窗**，且第 1 局嚴格小於網頁
   ④ 第 1~4 局：疊圖池的隻數單調不減（窗一階一階放寬），第 4 局＝全年＝跟網頁一樣
-  ⑤ 場數／勝率不隨窗變（窗只決定成員）
+  ⑤ 場數／勝率**跟著窗變**（使用者 2026-09-14：「僅先顯示一個月，但英雄場數沒跟著數據範圍」；
+     2026-09-07 原本是窗只決定成員、數字仍是全季累計）：疊圖那條路的場數 ≤ 網頁的、
+     勝場 ≤ 網頁的，而且第 1 局至少有一隻**嚴格**比較少（除非保底放寬到全年）
   ⑥ 積分範圍照 🎯 近期積分自己的設定走，不跟著局號變
 
 跑法：python scripts/poolwin_test.py
@@ -193,7 +195,7 @@ with sync_playwright() as pw:
        "疊圖池隻數不會越後面越小", str(ovs))
     ok(all(ovs[i] <= pgs[i] for i in range(4)), "任何一局：疊圖池都不會比網頁池大", str(list(zip(ovs, pgs))))
 
-    print("\n④ 窗只決定成員，不動場數／勝率")
+    print("\n④ 場數／勝率跟著窗變（疊圖 ≤ 網頁；第 1 局要有真的變少的）")
     pg.evaluate(SETUP, {"t1": t1, "t2": t2, "chs": chs, "filled": 0})
     settle(pg)
     stats = pg.evaluate("""() => {
@@ -207,10 +209,37 @@ with sync_playwright() as pw:
         });
       });
       return out; }""")
-    bad = [k for k, v in stats.items() if v[0] != v[2] or v[1] != v[3]]
+    # v = [疊圖 n, 疊圖 w, 網頁 n, 網頁 w]
+    over = [k for k, v in stats.items() if v[0] > v[2] or v[1] > v[3]]
+    fewer = [k for k, v in stats.items() if v[0] < v[2]]
+    wr_over = [k for k, v in stats.items() if v[0] and v[1] > v[0]]
     ok(len(stats) > 0, "兩條路有共同的英雄可比", "%d 隻" % len(stats))
-    ok(not bad, "同一隻英雄的場數／勝率兩條路完全相同",
-       ("不同：" + ", ".join(bad[:4])) if bad else "")
+    ok(not over, "⭐ 疊圖的場數／勝場永遠不會比網頁多（窗只會砍不會加）",
+       ("超過：" + ", ".join(over[:4])) if over else "")
+    ok(not wr_over, "勝場不會大於場數（窗內重算沒有算錯）", ", ".join(wr_over[:4]))
+    d1 = pg.evaluate("() => (window.__bpPoolWin || {}).d || 0")
+    if d1:
+        ok(len(fewer) > 0, "⭐ 第 1 局有窗時，至少有一隻的場數真的變少（數字跟『僅先顯示一個月』對得上）",
+           "%d/%d 隻變少" % (len(fewer), len(stats)))
+    else:
+        ok(True, "第 1 局被保底放寬到全年（場數自然相同，跳過『變少』的檢查）")
+    # 第 4 局＝不設窗 ⇒ 兩條路的數字要一模一樣（改動的中性證明）
+    pg.evaluate(SETUP, {"t1": t1, "t2": t2, "chs": chs, "filled": 3})
+    settle(pg)
+    stats4 = pg.evaluate("""() => {
+      const api = window.__bpAPI, out = {};
+      api.POSN.forEach(pos => {
+        const page = api.selPool(api.R1, pos, api.S.pk1, api.S.t1);
+        const ovl = api.withPoolWin(() => api.selPool(api.R1, pos, api.S.pk1, api.S.t1));
+        Object.keys((ovl && ovl.m) || {}).forEach(ch => {
+          const a = ovl.m[ch], z = (page && page.m || {})[ch];
+          if (z) out[pos + "|" + ch] = [a.n, a.w, z.n, z.w];
+        });
+      });
+      return out; }""")
+    bad4 = [k for k, v in stats4.items() if v[0] != v[2] or v[1] != v[3]]
+    ok(len(stats4) > 0 and not bad4, "⭐ 第 4 局（不設窗）：兩條路的場數／勝率完全相同（中性證明）",
+       ("不同：" + ", ".join(bad4[:4])) if bad4 else "%d 隻" % len(stats4))
 
     print("\n⑤ 積分範圍照 🎯 自己的設定（不跟著局號變）")
     sqs = [s["sq"] for s in seen]
