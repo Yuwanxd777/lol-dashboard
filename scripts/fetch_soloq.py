@@ -334,6 +334,123 @@ def norank_fresh(day):
     return 0 <= (datetime.date.today() - d).days < NORANK_DAYS
 
 
+# ── 閒置帳號延後（2026-09-14 線 3，精進迴圈 #110）────────────────────────────────
+# 404 捷徑與無排名捷徑之後，⑤c 剩下的排隊主體是「有牌位、要直接問 entries/by-puuid」的帳號。
+# 09-14 10:00 實測：kr 直接問 185 次，而 Riot 的額度是每區 100 次／120 秒 ⇒ 第 101 次起整整白等
+# 一個視窗（節流暫停 95s，主迴圈 150s 幾乎全是它）。`autopilot/_m110_measure_idle.py` 用歸檔的
+# 三班日誌（09-09 10:00／22:00、09-14 10:00）逐帳號比 W+L：那 185 個裡 **166 個五天一場都沒打**
+# （euw1 76 個裡 71、br1 54 個裡 48 也一樣）——每班照問一遍，換來的只是「他還是沒打」。
+#
+# 做法：**不是不問，是輪著問**。
+#   ① 閒置＝上一版紀錄有牌位、`wlAt`（最後一次看到 W+L 變動的時間）距今 ≥ IDLE_DAYS 天。
+#   ② 每個平台每班「直接問 entries」的額度 DIRECT_BUDGET（Riot 100/120s 扣掉名單預抓 3 次與重抓餘裕）：
+#      先扣掉**非閒置**的（活躍／新帳號／無排名過期／上一版沒戳記），剩下的額度給閒置帳號，
+#      **越久沒問的越先**（`askedAt`）；額度外的延後到下一班、沿用上一版牌位（W+L 沒變 ⇒ 逐場那支照樣跳過）。
+#   ③ 硬上限 IDLE_MAX_H：閒置帳號距上次真的問過 ≥ 48h 就不准再延，當成非閒置扣額度。
+#      所以最壞情況是「閒置帳號重新開打，最多 48h 後看到」；活躍帳號每班照問，一分鐘都不延。
+#   ④ 聯盟名單命中永遠免費、永遠在延後之前 ⇒ Master 以上照樣每班即時。
+# 安全設計：只在有 puuid、上一版 found、wins/losses 都在、wlAt／askedAt 都能解析時才算閒置；
+# 任一項缺（例如這條剛上線、上一版還沒戳記）一律當非閒置照問——**第一班會全問並補戳記**，
+# 延後從第一次戳記起算 IDLE_DAYS 天後才開始發生。戳記格式 "YYYY-MM-DD HH:MM"（跟 fetched_at 同）。
+# 上一版沒有 wlAt 但 W+L 跟這次相同 ⇒ wlAt 用上一版的 fetched_at（W+L 只增不減，「兩版相同」＝那段時間沒打）。
+# `--full-id`／`--failed`／`--active`／`--no-idle-defer` 一律不延後。額度用 kr（最大的區）看：
+# 3（名單）＋ 90 ＋ 重抓幾次 ≤ 100 ⇒ 全落在第一個視窗，節流暫停應從 ~95s 掉到 ~0。
+IDLE_DAYS = 3
+IDLE_MAX_H = 48
+DIRECT_BUDGET = 90
+PREV_REC = {}          # puuid -> 上一版有牌位的紀錄
+PREV_AT = None         # 上一版 fetched_at 字串
+DEFER = set()          # (platform, puuid) 這班延後
+IDLE_SKIPS = [0]
+SKIP_IDLE = True
+NOW_STR = time.strftime("%Y-%m-%d %H:%M")
+
+
+def _parse_stamp(s):
+    try:
+        return datetime.datetime.strptime(str(s), "%Y-%m-%d %H:%M")
+    except Exception:
+        return None
+
+
+def load_prev_recs():
+    """從上一版 soloq.js 讀 ({puuid: 紀錄}, fetched_at)。只收有 puuid、found、wins/losses 都在的。"""
+    recs, at = {}, None
+    try:
+        h = open(OUT, encoding="utf-8", errors="replace").read()
+        d = json.loads(re.search(r"=\s*(\{.*\});?\s*$", h, re.S).group(1))
+        at = d.get("fetched_at")
+        for p in d.get("players", []):
+            if p.get("puuid") and p.get("found") and p.get("wins") is not None and p.get("losses") is not None:
+                recs[p["puuid"]] = p
+    except Exception:
+        pass
+    return recs, at
+
+
+def idle_state(prev, now=None):
+    """回傳 (閒置天數, 距上次問過的小時數)；資料不齊就回 None（＝當非閒置照問）。"""
+    if not prev:
+        return None
+    wl_at, asked = _parse_stamp(prev.get("wlAt")), _parse_stamp(prev.get("askedAt"))
+    if not wl_at or not asked:
+        return None
+    now = now or datetime.datetime.now()
+    return (now - wl_at).total_seconds() / 86400.0, (now - asked).total_seconds() / 3600.0
+
+
+def stamp_wl(rec, prev):
+    """這次真的拿到牌位 ⇒ 記 askedAt＝現在；W+L 跟上一版相同就沿用上一版的 wlAt（沒有就用上一版 fetched_at），變了就是現在。"""
+    rec["askedAt"] = NOW_STR
+    wl = (rec.get("wins") or 0) + (rec.get("losses") or 0)
+    if prev and prev.get("wins") is not None and (prev.get("wins") or 0) + (prev.get("losses") or 0) == wl:
+        rec["wlAt"] = prev.get("wlAt") or (PREV_AT if _parse_stamp(PREV_AT) else NOW_STR)
+    else:
+        rec["wlAt"] = NOW_STR
+
+
+def plan_deferrals(accounts):
+    """開跑前決定這班哪些閒置帳號延後（填 DEFER）。要在聯盟名單預抓之後叫（名單命中不佔額度）。"""
+    now = datetime.datetime.now()
+    per = {}
+    for i, a in enumerate(accounts):
+        plat = _plat_of(a)
+        if not plat:
+            continue
+        if SKIP_NOACC and noacc_fresh(PREV_NOACC.get((a["riotId"], plat), "")):
+            continue                                        # 404 捷徑：不發任何請求
+        d = per.setdefault(plat, {"fixed": 0, "cand": []})
+        pu = PREV_ID.get((a["riotId"], plat)) if FAST_ID else None
+        if not pu:
+            d["fixed"] += 1; continue                       # 要走 account-v1 再問 entries：非閒置
+        if (plat, pu) in LADDER:
+            continue                                        # 名單命中免費
+        if SKIP_NORANK and norank_fresh(PREV_NORANK.get(pu, "")):
+            continue                                        # 無排名捷徑：不發請求
+        st = idle_state(PREV_REC.get(pu), now)
+        if st is None or st[0] < IDLE_DAYS or st[1] >= IDLE_MAX_H:
+            d["fixed"] += 1; continue
+        d["cand"].append((st[1], i, pu))
+    parts = []
+    for plat in sorted(per):
+        d = per[plat]
+        cand = sorted(d["cand"], key=lambda t: (-t[0], t[1]))   # 越久沒問越先；同樣久照清單順序
+        room = max(0, DIRECT_BUDGET - d["fixed"])
+        ask, defer = cand[:room], cand[room:]
+        for _, _, pu in defer:
+            DEFER.add((plat, pu))
+        if cand:
+            parts.append("%s 直接問 %d → 這班 %d（其中閒置 %d）、延後 %d%s"
+                         % (plat, d["fixed"] + len(cand), d["fixed"] + len(ask), len(ask), len(defer),
+                            ("，延後裡最久 %.1fh 沒問" % defer[0][0]) if defer else ""))
+    if parts:
+        print("閒置延後（W+L ≥ %d 天沒動才算閒置；每平台每班直接問上限 %d；閒置最多 %dh 一定再問）：%s"
+              % (IDLE_DAYS, DIRECT_BUDGET, IDLE_MAX_H, "／".join(parts)))
+    else:
+        print("閒置延後：這班沒有閒置帳號可延（上一版還沒有 wlAt 戳記、或全都在 %d 天內動過）" % IDLE_DAYS)
+    return per
+
+
 def dpm_fallback(rec, dr):
     """Riot 查不到此 riotId ⇒ 用抓帳號時 dpm 附帶的牌位當備援（如 KT FenRir）。有牌位才回 True。"""
     if not (dr and dr.get("tier")):
@@ -586,7 +703,11 @@ def main():
     print(f"帳號清單 {len(accounts)} 筆，開始抓取…（依速率限制，約 {len(accounts)*2.5/60:.1f} 分鐘）")
 
     global PREV_ID, PREV_TP, RENAMES, PLATFIX, FAST_ID, PREV_NOACC, SKIP_NOACC, PREV_NORANK, SKIP_NORANK
+    global PREV_REC, PREV_AT, SKIP_IDLE
     PREV_ID, PREV_TP = load_prev_puuids(); RENAMES = {}; PLATFIX = {}   # PLATFIX：缺 platform 的帳號用 Riot 查到的伺服器，最後寫回清單
+    PREV_REC, PREV_AT = load_prev_recs()   # wlAt／askedAt 戳記的來源（不論延不延後都要沿用，見 stamp_wl）
+    SKIP_IDLE = not any(f in sys.argv for f in ("--full-id", "--failed", "--active", "--no-idle-defer"))
+    DEFER.clear(); IDLE_SKIPS[0] = 0
     SKIP_NOACC = not any(f in sys.argv for f in ("--full-id", "--failed", "--no-noacc-skip"))
     PREV_NOACC = load_prev_noacc() if SKIP_NOACC else {}
     NOACC_SKIPS[0] = 0
@@ -618,6 +739,9 @@ def main():
             if _p:
                 _pc[_p] = _pc.get(_p, 0) + 1
         prefetch_ladders({p for p, c in _pc.items() if c >= LADDER_MIN})
+    # 閒置延後的分配要在名單預抓之後（名單命中不佔額度）、逐帳號迴圈之前（見 plan_deferrals）
+    if SKIP_IDLE:
+        plan_deferrals(accounts)
     def fetch_one(a, tag_lbl):
         plat = ALIAS.get(str(a.get("platform","")).upper(), str(a.get("platform","")).lower())
         cluster = CLUSTER.get(plat, "asia")
@@ -707,10 +831,22 @@ def main():
                 rec["settled"] = True
                 print(f"    ⏭ 上一版 {_nr} 已確定沒有單雙排排名，{NORANK_DAYS} 天內不再問 Riot")
                 return rec
+            # ── 閒置延後：plan_deferrals 把這個帳號排到下一班 ⇒ 不問 Riot、沿用上一版牌位（見 IDLE_DAYS 那段）──
+            _pv = PREV_REC.get(puuid) if SKIP_IDLE and (plat, puuid) in DEFER else None
+            if _pv:
+                IDLE_SKIPS[0] += 1
+                _st = idle_state(_pv) or (0.0, 0.0)
+                rec.update(tier=_pv.get("tier"), division=_pv.get("division"), lp=_pv.get("lp"),
+                           wins=_pv.get("wins"), losses=_pv.get("losses"), found=True,
+                           wlAt=_pv.get("wlAt"), askedAt=_pv.get("askedAt"), deferred=NOW_STR)
+                print(f"    ⏭ 閒置 {_st[0]:.1f} 天（W+L 沒動）、上次問 {_st[1]:.1f}h 前 → 這班延後，沿用上一版 "
+                      f"{rec['tier']} {rec['division']} {rec['lp']}LP  {rec['wins']}W-{rec['losses']}L")
+                return rec
             sq, sure = get_soloq(plat, puuid)
         if sq:
             rec.update(tier=sq.get("tier"), division=sq.get("rank"), lp=sq.get("leaguePoints"),
                        wins=sq.get("wins"), losses=sq.get("losses"), found=True)
+            stamp_wl(rec, PREV_REC.get(puuid))   # wlAt／askedAt（閒置延後的依據；名單命中也記）
             print(f"    {sq.get('tier')} {sq.get('rank')} {sq.get('leaguePoints')}LP  {sq.get('wins')}W-{sq.get('losses')}L"
                   + ("　（聯盟名單）" if _lad is not None else ""))
         else:
@@ -802,6 +938,8 @@ def main():
         print(f"（{NOACC_SKIPS[0]} 個帳號上一版已確定 Riot ID 不存在、{NOACC_DAYS} 天內 → 沒問 account-v1，省下同樣次數的請求）")
     if NORANK_SKIPS[0]:
         print(f"（{NORANK_SKIPS[0]} 個帳號上一版已確定沒有單雙排排名、{NORANK_DAYS} 天內 → 沒問 entries/by-puuid，省下同樣次數的請求）")
+    if IDLE_SKIPS[0]:
+        print(f"（{IDLE_SKIPS[0]} 個閒置帳號這班延後、沿用上一版牌位（W+L ≥ {IDLE_DAYS} 天沒動、最多 {IDLE_MAX_H}h 一定再問）→ 省下同樣次數的請求）")
     if retry:
         print(f"\n🔁 {len(retry)} 個帳號本輪失敗 → 最後重抓一輪（補救暫時性失敗）…")
         time.sleep(3)
