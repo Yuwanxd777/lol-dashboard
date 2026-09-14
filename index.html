@@ -4802,8 +4802,9 @@ function teamRoster(team){
       const m=byPos[pid]; let a=m[p]; if(!a){a={p,n:0,n3:0,recent:"",champs:{},ban:{}}; m[p]=a;}
       a.n++; if(o.date>a.recent)a.recent=o.date;
       if(top3keys.has(_gk(r)))a.n3++;          // 最近三個系列賽的上場局數
-      let c=a.champs[ch]; if(!c){c={n:0,w:0,last:""}; a.champs[ch]=c;}
+      let c=a.champs[ch]; if(!c){c={n:0,w:0,last:"",gs:[]}; a.champs[ch]=c;}
       c.n++; if(won)c.w++; if(o.date>c.last)c.last=o.date;
+      c.gs.push([o.date,won?1:0]);   // 逐場（日期,勝）：疊圖依局時間窗要重算窗內的場數／勝率
       // 該英雄被「對手」禁的場次（自己隊 ban 的不算；舊資料檔沒有分邊欄位時退回合併名單）
       const obCol=side?C.blue_banlist:C.red_banlist;
       new Set(String(r[obCol!=null?obCol:C.banlist]).split("|").filter(x=>x)).forEach(b=>{a.ban[b]=(a.ban[b]||0)+1;});
@@ -4815,7 +4816,7 @@ function teamRoster(team){
     if(!players.length){out[POS[pid]]=null; continue;}
     // 每位選手的英雄池；排序＝先發判定順位：最近三系列局數 → 今年在隊出賽 → 最近出賽日
     const list=players.map(a=>{
-      const pool=Object.entries(a.champs).map(([ch,c])=>({ch,n:c.n,w:c.w,last:c.last,
+      const pool=Object.entries(a.champs).map(([ch,c])=>({ch,n:c.n,w:c.w,last:c.last,gs:c.gs,
         ob:a.ban[ch]||0,banRate:(a.ban[ch]||0)/a.n})).sort((x,y)=>y.n-x.n||y.w/y.n-x.w/x.n);
       const w=pool.reduce((s,c)=>s+c.w,0);
       return {p:a.p, total:a.n, n3:a.n3, winrate:a.n?w/a.n:0, recent:a.recent, pool};
@@ -12659,6 +12660,11 @@ function render(){
       //   一個月沒比賽的空窗很常見，硬切會把第一局的池整個清空（鈕面寫的是實際生效的那一階）。
       const POOL_WIN=[30,90,180,0], POOL_WIN_MIN=15;
       const _pwTier0=curGi<0?0:Math.min(curGi,POOL_WIN.length-1);
+      // 窗內的場數／勝率（使用者 2026-09-14：「僅先顯示一個月，但英雄場數沒跟著數據範圍」）。
+      // cut 為 null（網頁自己渲染）⇒ 原封不動回 n／w；有窗才用逐場清單 gs 重算。
+      // 沒有 gs 的舊資料（別處組出來的池）退回整段累計，不會炸。
+      const _winNW=(c,cut)=>{ if(!cut||!c.gs)return {n:c.n,w:c.w}; let n=0,w=0;
+        for(const g of c.gs)if(g[0]>=cut){n++;w+=g[1];} return {n,w}; };
       let _pwCut=null,_pwDays=0;          // ← selPool 實際看的：**網頁一律 null**（不設窗）
       let _pwCutOv=null,_pwDaysOv=0;      // ← 依局窗算出來的，只在 withPoolWin() 裡面生效
       let _pwAncOv="";                    // ← 窗的錨點日期（疊圖頁尾要寫「7/28~8/28」的右邊那個）
@@ -12673,7 +12679,7 @@ function render(){
         const _cntWin=(R,st,cut)=>{ if(!R)return -1; let k=0;
           POSN.forEach(pos=>{ const cell=R[pos]; if(!cell)return;
             const ps=cell.players, cur=(st[pos]&&ps.find(x=>x.p===st[pos]))||ps[0]; if(!cur)return;
-            cur.pool.forEach(c=>{ if(c.n>=_mg0&&(!cut||(c.last||"")>=cut))k++; }); });
+            cur.pool.forEach(c=>{ if(_winNW(c,cut).n>=_mg0)k++; }); });   // 跟 selPool 同一把尺
           return k; };
         if(curGi>=0&&(S.t1||S.t2)){
           for(let t=_pwTier0;t<POOL_WIN.length;t++){
@@ -12720,13 +12726,13 @@ function render(){
             [[C.blue_playername,C.blue_teamname,C.blue_champion,1],[C.red_playername,C.red_teamname,C.red_champion,0]]
               .forEach(([pk,tk,ck,isB])=>{ const p=r[pk],t=r[tk],c=r[ck]; if(!p||!c)return;
                 const e=_xPool[p]||(_xPool[p]={}); const q=e[t]||(e[t]={});
-                const x=q[c]||(q[c]={n:0,w:0,last:""}); x.n++; if((o.result===1)===!!isB)x.w++;
-                if(o.date>x.last)x.last=o.date; }); } }   // last＝依局時間窗要用的最近使用日
+                const x=q[c]||(q[c]={n:0,w:0,last:"",gs:[]}); const _w9=(o.result===1)===!!isB; x.n++; if(_w9)x.w++;
+                if(o.date>x.last)x.last=o.date; x.gs.push([o.date,_w9?1:0]); }); } }   // last／gs＝依局時間窗要用
         const byTeam=_xPool[player]; if(!byTeam)return null;
         const out={};
         for(const t in byTeam){ if(t===team)continue;      // 現隊的部分本來就在池裡了
-          for(const c in byTeam[t]){ const x=out[c]||(out[c]={n:0,w:0,last:""}); x.n+=byTeam[t][c].n; x.w+=byTeam[t][c].w;
-            if((byTeam[t][c].last||"")>x.last)x.last=byTeam[t][c].last; } }
+          for(const c in byTeam[t]){ const x=out[c]||(out[c]={n:0,w:0,last:"",gs:[]}); x.n+=byTeam[t][c].n; x.w+=byTeam[t][c].w;
+            if((byTeam[t][c].last||"")>x.last)x.last=byTeam[t][c].last; x.gs=x.gs.concat(byTeam[t][c].gs||[]); } }
         return Object.keys(out).length?out:null;
       };
       const selPool=(R,pos,st,team)=>{ // 該隊該路「目前選定選手」的池
@@ -12739,13 +12745,15 @@ function render(){
         // 比賽場數與積分場數各自對門檻——那是 chip 上顯示的數字，篩選要跟顯示的數字一致。
         // 被比賽場數篩掉、但積分有練到門檻的，會在下面以 SoloQ 英雄身分重新列入（合理：比賽沒打但排位在練）。
         const mg=Math.max(1,F.minG||0);   // 使用 0 次仍不列
-        // 依局時間窗（_pwCut）：只決定這隻列不列，場數／勝率照舊是整個篩選範圍的累計
-        cur.pool.forEach(c=>{if(c.n>=mg&&(!_pwCut||(c.last||"")>=_pwCut))m[c.ch]={n:c.n,ob:c.ob||0,w:c.w};});
+        // 依局時間窗（_pwCut）：**場數／勝率也跟著窗走**（使用者 2026-09-14），門檻對窗內的場數比。
+        // 2026-09-07 原本只決定成員、數字仍是全季累計；頁尾寫「僅先顯示一個月」之後數字跟字對不起來。
+        // 沒有窗時 _winNW 原封回 n／w ⇒ 網頁那條路逐格等於改之前。
+        cur.pool.forEach(c=>{ const k=_winNW(c,_pwCut); if(k.n>=mg)m[c.ch]={n:k.n,ob:c.ob||0,w:k.w}; });
         // 併入該選手在別隊的出賽（轉隊才會有）：已在池的直接加場數，沒有的以同樣門檻新增
         const xt=crossPool(cur.p,team);
-        if(xt){ for(const ch in xt){ const e=m[ch];
-          if(e){ e.n+=xt[ch].n; e.w+=xt[ch].w; }
-          else if(xt[ch].n>=mg&&(!_pwCut||(xt[ch].last||"")>=_pwCut)){ m[ch]={n:xt[ch].n,w:xt[ch].w,ob:0,xt:true}; } } }
+        if(xt){ for(const ch in xt){ const e=m[ch], k=_winNW(xt[ch],_pwCut);
+          if(e){ e.n+=k.n; e.w+=k.w; }
+          else if(k.n>=mg){ m[ch]={n:k.n,w:k.w,ob:0,xt:true}; } } }
         const sq=sqRecent(team,cur.p); // 併入該選手近期積分英雄(以英雄id比對，已在池的標記 sq，新增的標 sqOnly)
         if(sq){ for(const id in sq){ let ex=null; for(const ch in m){if(champId(ch)===id){ex=ch;break;}}
           // 積分英雄**不套**比賽的「最低場數」門檻（使用者定案 2026-09-01：
@@ -13603,10 +13611,14 @@ function render(){
       // 積分：mu[我][敵]，基準逐英雄算（積分沒有分路線）
       const sqMuIdx=()=>{ if(_IX.sqMu)return _IX.sqMu;
         const M=(window.SOLOQ_BUILDS||{}).mu||{}, pair={};
-        const add=(a,b,n,s)=>{ const m=pair[a]||(pair[a]={}), e=m[b]||(m[b]={n:0,s:0}); e.n+=n; e.s+=s; };
+        // 列格式（build_soloq_builds 的 muCnt）＝[場數, 勝場, 有金差的場數, 金差合計]。
+        // n／s 是金差那一半（r[2]／r[3]）；wn／w 是勝負那一半（r[0]／r[1]），
+        // 兩半的分母不同（沒抓到 @15 金差的場仍有勝負），要分開記。反向的勝場＝wn−w。
+        const add=(a,b,n,s,wn,w)=>{ const m=pair[a]||(pair[a]={}), e=m[b]||(m[b]={n:0,s:0,wn:0,w:0}); e.n+=n; e.s+=s; e.wn+=wn; e.w+=w; };
         for(const a in M)for(const b in M[a]){ const r=M[a][b];
-          if(!r||r.length<4||!r[2])continue;                     // 舊的兩欄格式＝沒有金差，當沒資料
-          add(a,b,r[2],r[3]); add(b,a,r[2],-r[3]); }             // 正向＋反推
+          if(!r||r.length<2)continue;
+          const wn=+r[0]||0, w=+r[1]||0, gn=(r.length>=4&&r[2])?+r[2]:0, gs=gn?+r[3]:0;
+          add(a,b,gn,gs,wn,w); add(b,a,gn,-gs,wn,wn-w); }        // 正向＋反推
         const base={};
         for(const a in pair){ const vs=[];
           for(const b in pair[a]){ const e=pair[a][b]; if(e.n>=10)vs.push(e.s/e.n); }
@@ -13620,6 +13632,13 @@ function render(){
         const e=X.pair[A]&&X.pair[A][B]; if(!e||e.n<10)return null;   // 金差要 10 場才算
         const bs=X.base[A]; if(bs==null)return null;                  // 該英雄對位組合太少、算不出基準
         return {gd:e.s/e.n-bs, raw:e.s/e.n, n:e.n, scale:X.scale}; };
+      // 積分對位的**勝率**（使用者 2026-09-14：「勝率差也要計算積分場數的勝率」）。
+      // 跟 sqMuRec 分開：勝率不需要金差基準（bs），組合太少算不出基準時勝率照樣能給；
+      // 同樣要 ≥10 場、同樣只在開「🎯 近期積分」時計入。回 {n,w}＝a 對 b 的場數與 a 的勝場。
+      const sqMuWr=(a,b)=>{ if(!V.bpSoloqPool)return null;
+        const X=sqMuIdx(), A=champId(a), B=champId(b);
+        const e=X.pair[A]&&X.pair[A][B]; if(!e||!(e.wn>=10))return null;
+        return {n:e.wn, w:e.w}; };
       const muScore=(r,a,b,L)=>{
         let pro=null;
         if(r){ const X=muProIdx(), bs=(a&&L!=null)?X.base[L+"|"+champId(a)]:null;
@@ -13861,7 +13880,7 @@ function render(){
           return v;
         }catch(e){ return null; }
       };
-      if(window.__bpLiveMount)window.__bpAPI={draftScore,selPool,sqRecent,R1,R2,POSN,used,S,laneAssign,F,curYear,passG,calcHeroes,predPools,muRec,sqMuRec,withPoolWin};   // 公開版載不到 bp_live_ui.js → 不掛這個全域；calcHeroes＝最近一手平均評分的比賽 70% 那半、predPools＝預測專用固定口徑池（2026-09-02）
+      if(window.__bpLiveMount)window.__bpAPI={draftScore,selPool,sqRecent,R1,R2,POSN,used,S,laneAssign,F,curYear,passG,calcHeroes,predPools,muRec,sqMuRec,sqMuWr,withPoolWin};   // 公開版載不到 bp_live_ui.js → 不掛這個全域；calcHeroes＝最近一手平均評分的比賽 70% 那半、predPools＝預測專用固定口徑池（2026-09-02）
       const gameCard=gi=>{ // 職業賽 BP 畫面：上=雙方 BAN 橫排、下=左右兩排大 PICK
         const fp=S.fp[gi]||0, flip=S.side[gi]||0;
         // 每局隊伍：匯入局記在 S.tm[gi]（不跟著上方兩隊）、一般局＝上方兩隊
