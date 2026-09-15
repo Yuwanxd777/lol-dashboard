@@ -3241,7 +3241,7 @@ const LGC={
   // EWCQ 各分區沿用該賽區色
   EWCQ北美:"#c9a86a",EWCQ歐洲:"#38b6ff",EWCQ韓國:"#4f8ef7",EWCQ中國:"#e05c5c",
   EWCQ太平洋:"#2bb3a3",EWCQ巴西:"#7ac74f"};
-const LG_NAME={"ALL":"全部","LTA N":"LTA 北區","LTA S":"LTA 南區","WLDs":"WCS","DCup":"德瑪西亞杯"}; // DCup＝德瑪西亞杯全球邀請賽（2026-09-14 補充賽事，OE 沒有既有代碼）
+const LG_NAME={"ALL":"全部","LTA N":"LTA 北區","LTA S":"LTA 南區","WLDs":"WCS","DCup":"德瑪西亞盃"}; // DCup＝德瑪西亞杯全球邀請賽（2026-09-14 補充賽事，OE 沒有既有代碼）
 // 國家隊 →「該國所屬賽區」對照（2026 KeSPA 季中邀日本／越南國家隊參賽；ENC 之後整個賽事都是國家隊形式）
 // 用途：國家隊沒有母聯賽出賽紀錄，賽事樹的賽區色框要靠這張表才上得了色
 // 使用者定案（2026-07-28）：國家隊不分國家，統一用同一個顏色標記（＝沒有母賽區歸屬）
@@ -3455,6 +3455,8 @@ const LEAGUE_META={
   IEM:{zh:"IEM",grp:"cup",full:"Intel Extreme Masters"},
   EWC:{zh:"電競世界盃",grp:"cup",full:"Esports World Cup"},
   ENC:{zh:"電競國家盃",grp:"cup",full:"Esports Nations Cup"}, // 2026 新賽事，國家隊形式（使用者定名）
+  "亞運":{zh:"亞運",grp:"cup",full:"Asian Games"},                       // 2026-09-15 補充賽事（國家隊）；沒登記會掉進三級聯賽（leagueMeta 預設）
+  DCup:{zh:"德瑪西亞盃",grp:"cup",region:"中國",full:"Demacia Cup Global Invitational"}, // 2026-09-15 補充賽事（使用者：放到國際賽與盃賽）
   LCK:{zh:"LCK",grp:"t1",tier:1,region:"韓國",full:"League of Legends Champions Korea"},
   LPL:{zh:"LPL",grp:"t1",tier:1,region:"中國",full:"League of Legends Pro League"},
   LEC:{zh:"LEC",grp:"t1",tier:1,region:"歐洲",full:"League of Legends EMEA Championship"},
@@ -14298,6 +14300,9 @@ function render(){
       // ── ⚔ 對決面板（2026-09-15，本機限定：要有 window.__bpPredictNext）────────────────
       // 輪到誰＝這一局第一個空格在 seqOf 裡的位置 k（不另存手數：人點角色池填格後 rerender 自然往前）。
       // 系統那一手＝ __bpPredictNext(gi,k).cands[0]（該隊最可能的出手，預測已含版本熱度）。
+      // ⚠ 面板放在 #bsWrap **外面**（前一個兄弟）：bsWrap 是橫向 flex 且不換行，塞進去會變成一「欄」把盤面擠到 0 寬
+      //   （2026-09-15 使用者回報「介面歪掉」）。每次重畫先清掉舊面板，關掉對決時也不會留殘骸。
+      { const _old=document.getElementById("bpDuelBox"); if(_old)_old.remove(); }
       if(V.bpDuel&&window.__bpPredictNext){
         const D=V.bpDuel, me=D.me==="2"?"2":"1";
         const gi=(D.gi>=0&&S.g[D.gi])?D.gi:-1;
@@ -14344,7 +14349,7 @@ function render(){
           gm[kd+sd][i]=c.raw; D.last={gi,k,ch:c.raw,zh:c.zh,pr:c.pr}; saveState(); rerender(); };
         bEnd.onclick=()=>{ V.bpDuel=null; saveState(); render(); };
         box.append(lab,sel,st,bStart,bNext,bEnd);
-        wrap.insertBefore(box,wrap.firstChild);
+        wrap.parentNode.insertBefore(box,wrap);   // 放在盤面容器外面（見上面的註解）
       }
       const applyDrop=(sl,d)=>{ // 共用放置邏輯（HTML5 拖放）
         const ch=d.ch; if(!ch)return;
