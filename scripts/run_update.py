@@ -90,7 +90,8 @@ PLAN = [
         S("fetch_wiki_objectives"), S("fetch_obj_stats"),
         S("fetch_masteries"), S("fetch_old_runes"), S("fetch_rune_icons"),
         S("fetch_champ_icons"), S("fetch_team_logos"), S("fetch_flags"),
-        S("fetch_worlds_tier1"), S("fetch_events_extra"),
+        S("fetch_worlds_tier1"),
+        # fetch_events_extra 2026-09-15 #124 搬去 ⑤c，見那裡的註解
     ]),
     # 這三步各自依賴上面某一步的產物
     ("④ 後處理", [
@@ -111,7 +112,16 @@ PLAN = [
     #   會改寫 ⇒ 不能再往前放）、只寫 scripts/bplive/variants/_autoq/；fetch_soloq_auto 讀寫 soloq.js／
     #   soloq_accounts.json，兩邊檔案零重疊。牌位那步幾乎全在等 Riot 額度、CPU 是空的 ⇒ 26s 整段被吸掉。
     #   順便解掉原本 ⑥ 裡「label_pending 讀 data_*.js 的同時 trim_data_cols --apply 在改寫它」的併行讀寫。
-    ("⑤c 牌位（便宜，全掃）＋BP 待標樣本（互不相干）", [S("fetch_soloq_auto"), SB("label_pending", "--apply")]),
+    # 2026-09-15 #124：fetch_events_extra 從 ③ 搬來這裡。它排 ③ 最後一個派工（#72 只把兩根長桿提前），
+    #   而 #121 之後它每班固定抓今年 5 個賽事 ≈ 23s ⇒ 要等前面 19 步騰出工人、17.8s 才起跑 ⇒ ③ 41.0s
+    #   （22:00 那班；派工模擬 40.9s 對得上）。拿掉之後 ③ 模擬 25.4s（長桿回到 fetch_obgg_accounts）；
+    #   歷史賽事到期那班（09-15 10:00 它 62.9s）③ 84.5s → 24.2s。放 ⑤c 不放 ③ 前排的理由：
+    #   ③ 前排會跟 fetch_side_sel 的 Cargo 與 fetch_worlds_tier1 同時打 lol.fandom.com（現行派工剛好錯開，#96 的規矩是別併發），
+    #   ⑤c 這兩步只打 Riot API／本機 CPU ⇒ 零 fandom 重疊，而且 162s 的牌位把它整段吸掉（⑤c 牆鐘不變）。
+    #   相依：只讀 data/data_*.js（② 寫完；label_pending 也是只讀）＋自己的 events_extra.js／meta；
+    #   管線裡沒有步驟讀 events_extra.js，只有 ⑥ build_font_subset 掃根目錄 *.js ⇒ 仍在它之前。
+    ("⑤c 牌位（便宜，全掃）＋BP 待標樣本＋賽事名單（互不相干）",
+     [S("fetch_soloq_auto"), SB("label_pending", "--apply"), S("fetch_events_extra")]),
     # --batch（2026-09-08 #68）：逐帳號改一次問一批（Promise.all），10:00 那班逐人 267s 預估 → 60~70s；
     # 沒命中的帳號自動退回逐一問，拿掉旗標＝回到舊行為。沙盒 scripts/fetch_soloq_update_batch_test.py。
     # 批次大小由 fetch_soloq_update.BATCH_NEW 決定（#68 8 → #71 24 → #83 48，實測 10:00 那班批次 29s 預估 → 13~16s）；要臨時改用 --batch-size N。
