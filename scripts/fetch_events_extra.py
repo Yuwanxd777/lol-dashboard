@@ -22,6 +22,13 @@ EWCQ* 會再被合併卡吸收成 EWC 卡底下的資格賽分段。
     `--force` 全部重抓。改了 EVENTS 的設定不用管快取，雜湊不同就自動重抓。
   - 節流改成「兩次請求的最小間隔」（跟 fetch_fill 一樣）：請求前補足距上次請求的差額，
     最後一次請求之後不再白睡。
+歷史賽事到期輪抓（2026-09-15 精進迴圈 #121）：六個 2013 賽事的 at 是同一班寫進 meta 的 ⇒ 每 REFRESH_DAYS 天
+  會有一班全部同時到期、一起重抓（09-15 10:00 那班「沿用 0／抓 11」，③ 階段 25s → 85s）。現在到期的按
+  上一次抓（或上一次試）最老的排前面，每班只放前 HIST_PER_SHIFT 個真抓，其餘沿用舊檔、下一班再抓
+  ⇒ 到期日自然錯開，之後每班最多 1 個。不佔額度、也不會被延後的：--force；舊檔裡沒有（沒東西可沿用）；
+  設定雜湊變了或 meta 沒成功記過（人改了設定／上一班抓失敗，照舊每班抓）。被選中的那個抓失敗只在 meta
+  記 `tried`（at 不動），下一班換別的到期賽事先抓、它輪過一圈再試，不會一直排第一把其他的餓死。
+  細節見 hist_plan()。
 """
 import io, sys, os, re, json, time, hashlib, datetime, html as _html, urllib.request, urllib.parse
 
@@ -32,6 +39,7 @@ ROOT = os.path.dirname(HERE)
 OUT = os.path.join(ROOT, "events_extra.js")
 META = os.path.join(ROOT, "csv_cache", "events_extra_meta.json")   # {"年|賽事碼": {"sig", "at"}}，只記歷史年份
 REFRESH_DAYS = 7      # 歷史年份的賽事多久重抓一次（wiki 對 2013 頁的修訂極少，7 天內的舊帳可接受）
+HIST_PER_SHIFT = 1    # 歷史年份「到期」的賽事每班最多真抓幾個，其餘沿用舊檔、下一班再抓（#121，見 hist_plan）
 GAP = 2.0             # 對 fandom 的禮貌節流：兩次請求的最小間隔（秒）
 _last_req = 0.0
 API = "https://lol.fandom.com/api.php"
@@ -92,6 +100,40 @@ def cached_reason(year, code, cfg, meta, old, now, force):
     if age is None or age < 0 or age > REFRESH_DAYS:
         return None
     return f"{m['at'][:10]} 抓過（{age:.1f} 天前，設定未變）→ 沿用舊檔不重抓"
+
+
+def hist_plan(meta, old, now, force):
+    """歷史年份「到期」的賽事，這一班哪幾個真抓（#121）。
+
+    只看「到期」的：舊檔裡有、meta 的 sig 跟設定一樣、但 at 老過 REFRESH_DAYS（cached_reason 回 None 的那些）。
+    舊檔裡沒有／sig 不同／meta 沒記過 ⇒ 不在這裡管，main() 照舊每班抓（不佔額度）。--force ⇒ 全不延後。
+    排序鍵取 at 與 tried（抓失敗那班寫的）較新者：抓失敗的那個不會一直排第一、把其他到期的餓死。
+    同一時刻到期的照 EVENTS 的設定順序。
+    回傳 (picked, deferred)：picked＝這班真抓的鍵（list，照順序）；deferred＝{鍵: 說明字串}（沿用舊檔）。
+    """
+    if force:
+        return [], {}
+    due = []
+    for year, evs in EVENTS.items():
+        if int(year) >= now.year:
+            continue
+        for i, (code, cfg) in enumerate(evs.items()):
+            key = f"{year}|{code}"
+            m = meta.get(key) or {}
+            if not old.get(str(year), {}).get(code) or m.get("sig") != _sig(cfg):
+                continue                    # 一定要抓（沒東西可沿用／設定變了／上一班沒成功記過）→ 不佔額度
+            if cached_reason(year, code, cfg, meta, old, now, force):
+                continue                    # 還新，沿用
+            last = max(str(m.get("at") or ""), str(m.get("tried") or ""))
+            due.append((last, int(year), i, key, code, str(m.get("at") or "")))
+    due.sort()
+    picked = [d[3] for d in due[:HIST_PER_SHIFT]]
+    first = "、".join(d[4] for d in due[:HIST_PER_SHIFT])
+    deferred = {}
+    for d in due[HIST_PER_SHIFT:]:
+        deferred[d[3]] = (f"{d[5][:10]} 抓過、已到期，但本班歷史賽事額度用完（{len(due)} 個到期，先抓最老的 {first}）"
+                          f"→ 沿用舊檔、下一班再抓")
+    return picked, deferred
 
 # kind: "team"＝一般戰隊（取 team-template 全名）／"nation"＝國家隊（取 X (National Team)）
 # 鍵含「#」＝賽段名單補充（LPL#S3＝S3 開賽前的 wiki 陣容），前端賽事樹不會把它當獨立賽事卡
@@ -414,7 +456,18 @@ def main():
     force = "--force" in sys.argv[1:]
     meta = load_meta()
     now = datetime.datetime.now()
-    n_reuse = n_fetch = 0
+    n_reuse = n_fetch = n_hist = 0
+    picked, deferred = hist_plan(meta, old, now, force)
+    n_due = len(picked) + len(deferred)
+    if deferred:
+        print(f"歷史賽事到期 {n_due} 個，本班只重抓最老的 {len(picked)} 個（"
+              + "、".join(k.split("|", 1)[1] for k in picked) + f"；每班最多 {HIST_PER_SHIFT} 個），"
+              f"其餘 {len(deferred)} 個沿用舊檔、下一班再抓")
+
+    def _tried(key):
+        """被選中的歷史賽事這班抓失敗：只記「試過」、at 不動 ⇒ 下一班輪到別的到期賽事先抓（見 hist_plan）"""
+        if key in picked and isinstance(meta.get(key), dict):
+            meta[key]["tried"] = now.strftime("%Y-%m-%d %H:%M")
     for year, evs in EVENTS.items():
         for code, cfg in evs.items():
             kind = cfg.get("kind", "team")
@@ -422,7 +475,13 @@ def main():
             if why:
                 print(f"[{year}] {code}：{why}"); n_reuse += 1
                 continue
+            key = f"{year}|{code}"
+            if key in deferred:                 # 到期了，但本班歷史賽事額度用完 → 沿用舊檔（#121）
+                print(f"[{year}] {code}：{deferred[key]}"); n_reuse += 1
+                continue
             n_fetch += 1
+            if key in picked:
+                n_hist += 1
             # ── 分賽段的賽事（splits）：一個賽段一個 wiki 頁，另可指定 po_page＝該賽段的季後賽
             #    （例：2013 GPL 只有夏季有季後賽，就是 2013 GPL Championship 那一場）
             if cfg.get("splits"):
@@ -454,7 +513,7 @@ def main():
                         to0 = to
                     print(f"   {sp['sp']}：{len(teams)} 隊 {frm}~{to}" + (f"　季後賽 {len(po)} 隊" if po else ""))
                 if not segs:
-                    print("   全部失敗，保留舊資料"); continue
+                    print("   全部失敗，保留舊資料"); _tried(key); continue
                 seen, uniq = set(), []
                 for t in allt:
                     if t not in seen:
@@ -477,13 +536,15 @@ def main():
                                          "from": frm0, "to": to0, "page": cfg["splits"][0]["page"],
                                          "url": "https://lol.fandom.com/wiki/" + urllib.parse.quote(cfg["splits"][0]["page"].replace(" ", "_"))}
                 if complete and int(year) < now.year:
-                    meta[f"{year}|{code}"] = {"sig": _sig(cfg), "at": now.strftime("%Y-%m-%d %H:%M")}
+                    meta[key] = {"sig": _sig(cfg), "at": now.strftime("%Y-%m-%d %H:%M")}
+                elif not complete:
+                    _tried(key)
                 continue
             print(f"[{year}] {code} ← {cfg['page']}")
             try:
                 teams, rosters, frm, to, brk = grab(cfg["page"], kind, cfg["page"]+"/Team Rosters")
             except Exception as e:
-                print("   失敗，保留舊資料：", str(e)[:120]); continue
+                print("   失敗，保留舊資料：", str(e)[:120]); _tried(key); continue
             rosters = align_keys(teams, rosters)
             data[str(year)][code] = {"teams": teams, "rosters": rosters, "from": frm, "to": to,
                                      "po": (brk if 0 < len(brk) < len(teams) else []), "page": cfg["page"],
@@ -495,13 +556,14 @@ def main():
             if teams:
                 print("   ", "、".join(teams[:8]) + ("…" if len(teams) > 8 else ""))
             if int(year) < now.year:
-                meta[f"{year}|{code}"] = {"sig": _sig(cfg), "at": now.strftime("%Y-%m-%d %H:%M")}
+                meta[key] = {"sig": _sig(cfg), "at": now.strftime("%Y-%m-%d %H:%M")}
     open(OUT, "w", encoding="utf-8").write("window.EVENTS_EXTRA=" + json.dumps(data, ensure_ascii=False, separators=(",", ":")) + ";")
     # 只留 EVENTS 還登記著的鍵（從設定移除的賽事，meta 也跟著清）
     keep = {f"{y}|{c}" for y, evs in EVENTS.items() for c in evs}
     meta = {k: v for k, v in meta.items() if k in keep}
     save_meta(meta)
-    print(f"→ events_extra.js（沿用舊檔 {n_reuse} 個賽事／實際抓取 {n_fetch} 個，歷史年份每 {REFRESH_DAYS} 天重抓一次；--force 全部重抓）")
+    print(f"→ events_extra.js（沿用舊檔 {n_reuse} 個賽事／實際抓取 {n_fetch} 個，歷史年份每 {REFRESH_DAYS} 天重抓一次、"
+          f"本班到期 {n_due} 個重抓 {n_hist} 個（每班最多 {HIST_PER_SHIFT} 個）；--force 全部重抓）")
 
 
 if __name__ == "__main__":
