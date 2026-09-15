@@ -8,7 +8,7 @@
 dpmPuuid：本腳本只維護帳號清單；新帳號的 dpmPuuid 由 resolve_obgg_dpmpuuid.py 之後補（才能進逐場）。
 安全門：OBGG 抓取失敗或 LPL/LCK 帳號數異常過少 → 不動 soloq_accounts.json（避免 OBGG 掛掉時誤刪整批）。
 用法：python scripts\\fetch_obgg_accounts.py
-      --jobs=N／--team-jobs=N 併發；--no-keepalive 回到「每請求重新握手」的舊行為（對照組）；
+      --jobs=N／--team-jobs=N 併發；--no-keepalive 回到「每請求重新握手」的舊行為（對照組）；--zone-seq 賽區之間逐區（對照組）；
       --out=PATH 把結果寫到別的檔（驗證用，不動 soloq_accounts.json 正本、也不寫 .bak、不寫 progamer 快取）；
       --no-pg-cache 每班全問（不讀不寫 csv_cache/obgg_progamer_cache.json）；--pg-cycle=N 每人每 N 班重抓一次（預設 3）。
 """
@@ -220,9 +220,12 @@ def get(url, retry=2, kind=None):
             _drop_conn()
             if i == retry:
                 if kind:                      # 只算重試用盡的最終失敗（中途重試成功的不算）
+                    z = getattr(_TL, "zone", None)
                     with ERR_LOCK:
                         ERRS[kind] = ERRS.get(kind, 0) + 1
                         ERR_URLS.append(url)
+                        if z:                 # #128：賽區並行後 zone_err 靠這個標記歸屬
+                            ZONE_ERRS[z] = ZONE_ERRS.get(z, 0) + 1
                 return {"_err": str(e)[:100]}
             if not (i == 0 and stale):        # 第一次疑似 stale socket 就立刻重連，其餘照舊退避
                 time.sleep(1.5)
@@ -269,6 +272,17 @@ ERRS = {"zone": 0, "team": 0, "progamer": 0}
 ERR_URLS = []
 ERR_LOCK = threading.Lock()
 ERR_ABORT = 3
+# ── 賽區之間也並行（2026-09-16 線 3 迴圈 #128）────────────────────────────────
+# 09-15 22:00 班這一步 25.4s，九區小計 5.3＋8.3＋1.3＋1.5＋4.2＋1.3＋1.5＋1.0＋0.7＝25.1s ≈ 牆鐘 ⇒ 賽區之間是**循序**的：
+# 跑 LCS／LEC／CBLOL 這種只有 team 請求的小區時，4 條隊工人＋12 條選手工人大多空著，閒置的 keep-alive 連線還被伺服器關掉
+# （重試 18 次全是「立刻重連」＝握手 35 次 24.8s）。#124 把 events_extra 搬走之後，這一步就是 ③ 階段的長桿。
+# 做法：9 個 zone 請求先並行發完，再把「所有賽區的所有隊」依賽區順序、隊序一次排進同一個 team_ex（FIFO），
+# 主執行緒照賽區順序逐區收結果、寫 out[z]、印小計 ⇒ out 的插入順序、帳號檔排序、名冊都跟逐區時一模一樣。
+# **併發上限沒變**（仍是 TEAM_JOBS 條隊＋TEAM_JOBS×JOBS 條選手），請求的數量與每請求後的禮貌睡也沒變，只是不再空等賽區邊界。
+# zone_err 以前是「抓這一區前後 ERRS 的差」，賽區並行後會互相混到 ⇒ 改成請求最終失敗時依執行緒上的賽區標記（_TL.zone）記進 ZONE_ERRS。
+# 小計的秒數改成「該區第一隊開跑到最後一隊收完」，各區會重疊（相加 > 抓取秒數，收尾印一行相加值）。--zone-seq 退回逐區（對照組）。
+ZONE_PAR = True
+ZONE_ERRS = {}          # zone → 這一班抓該區時 get() 最終失敗的次數（只在 pull() 期間累計）
 
 # ── progamer 逐人結果快取（2026-09-14 線 3 迴圈 #111）────────────────────────────
 # 09-14 10:00 那班這一步 39.1s＝③ 階段的長桿（第二長 fetch_side_sel 25.6s），時間幾乎全在 300 個 progamer
@@ -415,6 +429,27 @@ def _player_accounts(tm, gid, now):
     return gid, good
 
 
+def _player_in_zone(z, tm, gid, now):
+    """選手池的執行緒是跨隊、跨賽區共用的 ⇒ 每個工作開頭重標賽區（#128，zone_err 歸屬用）。"""
+    _TL.zone = z
+    return _player_accounts(tm, gid, now)
+
+
+def _zone_get(z):
+    _TL.zone = z
+    try:
+        return get(BASE + "zone?name=" + urllib.parse.quote(z) + "&isClick=0", kind="zone")
+    finally:
+        _TL.zone = None
+
+
+def _timed_team(z, t, now):
+    """_team_pull 加起訖時間（#128：賽區並行時，小計＝該區第一隊開跑到最後一隊收完）。"""
+    s = time.time()
+    r = _team_pull(z, t, now)
+    return r, s, time.time()
+
+
 def _note_team(z, tm, t0):
     """記下這一區最慢的一隊（#107 分項）：賽區小計高，是全區都慢還是被一隊拖住，看這個就知道。"""
     d = time.time() - t0
@@ -427,6 +462,7 @@ def _team_pull(z, t, now):
     """一隊：team 請求（登記名冊）＋（非 dpm 主導賽區）逐人 progamer 並行。回 (tm, roster_ok, {gid: good})。
     **不碰 out**——寫入留給 pull() 的主執行緒，所以多隊可以並行（2026-09-07 迴圈 #24 從 pull() 的迴圈抽出來）。"""
     tm = t["team_name"]
+    _TL.zone = z                          # #128：這條執行緒上的請求失敗記在 z
     tt0 = time.time()
     rd = get(BASE + "team?name=" + urllib.parse.quote(tm), kind="team"); polite()
     roster = rd.get("data") if isinstance(rd, dict) else None
@@ -453,7 +489,7 @@ def _team_pull(z, t, now):
     # 執行緒一死 keep-alive 連線就跟著沒了 ⇒ 每隊都要重新握手。改用 pull() 建好的共用池
     # （PLAYER_EX，長壽執行緒），map 仍照 gids 順序回傳 ⇒ 輸出與排序不變。
     if PLAYER_EX is not None and len(gids) > 1:
-        results = list(PLAYER_EX.map(lambda g: _player_accounts(tm, g, now), gids))
+        results = list(PLAYER_EX.map(lambda g: _player_in_zone(z, tm, g, now), gids))
     else:
         results = [_player_accounts(tm, g, now) for g in gids]
     _note_team(z, tm, tt0)
@@ -485,20 +521,39 @@ def pull():
 
 
 def _pull_zones(out, zone_err, now, team_ex):
+    ZONE_ERRS.clear()
+    par = ZONE_PAR and team_ex is not None
+    if par:
+        # #128：9 個 zone 請求先並行發完，再把所有賽區的所有隊依序排進 team_ex（FIFO）。
+        # 不可以在 team_ex 的工作裡再往 team_ex 送工作然後等（池子塞滿就互等死結）⇒ zone 這一趟 map 收完才 submit 隊。
+        zds = dict(zip(ZONES, team_ex.map(_zone_get, ZONES)))
+        futs = {}
+        for z in ZONES:
+            teams = zds[z].get("data") if isinstance(zds[z], dict) else None
+            if teams:
+                futs[z] = [team_ex.submit(_timed_team, z, t, now) for t in teams]
+    sub_sum = 0.0
     for z in ZONES:
-        t0 = time.time(); e0 = sum(ERRS.values())
-        zd = get(BASE + "zone?name=" + urllib.parse.quote(z) + "&isClick=0", kind="zone")
+        t0 = time.time()
+        zd = zds[z] if par else _zone_get(z)
         teams = zd.get("data") if isinstance(zd, dict) else None
         if not teams:
-            zone_err[z] = sum(ERRS.values()) - e0
+            zone_err[z] = ZONE_ERRS.get(z, 0)
             print(f"  {z}: 無資料（跳過）"); continue
         out[z] = {}
-        # 2026-09-07（迴圈 #24）：同一賽區的戰隊並行（TEAM_JOBS 條）。ex.map 保持 teams 的順序 ⇒ out[z] 的插入順序、
-        # 最終帳號檔的排序都跟逐隊時一模一樣（--team-jobs=1 可對照）。
-        if team_ex is not None and len(teams) > 1:
-            results = list(team_ex.map(lambda t: _team_pull(z, t, now), teams))
+        if par:                             # 照賽區順序逐區收；f.result() 依 teams 順序 ⇒ 插入順序不變
+            done = [f.result() for f in futs[z]]
+            results = [r for r, _, _ in done]
+            sec = max(d[2] for d in done) - min(d[1] for d in done)
         else:
-            results = [_team_pull(z, t, now) for t in teams]
+            # 2026-09-07（迴圈 #24）：同一賽區的戰隊並行（TEAM_JOBS 條）。ex.map 保持 teams 的順序 ⇒ out[z] 的插入順序、
+            # 最終帳號檔的排序都跟逐隊時一模一樣（--team-jobs=1 可對照）。
+            if team_ex is not None and len(teams) > 1:
+                results = list(team_ex.map(lambda t: _team_pull(z, t, now), teams))
+            else:
+                results = [_team_pull(z, t, now) for t in teams]
+            sec = time.time() - t0
+        sub_sum += sec
         for tm, ok, ps in results:          # out[z] 只在這裡（主執行緒）寫
             if not ok:
                 continue
@@ -507,9 +562,11 @@ def _pull_zones(out, zone_err, now, team_ex):
                 continue
             for gid, good in ps.items():
                 out[z].setdefault(tm, {})[gid] = good
-        zone_err[z] = sum(ERRS.values()) - e0
-        print(f"  {z}: {sum(len(v) for v in out[z].values())} 帳號（{len(teams)} 隊，{time.time() - t0:.1f}s"
+        zone_err[z] = ZONE_ERRS.get(z, 0)
+        print(f"  {z}: {sum(len(v) for v in out[z].values())} 帳號（{len(teams)} 隊，{sec:.1f}s"
               + (f"，請求失敗 {zone_err[z]}" if zone_err[z] else "") + "）", flush=True)
+    if par:
+        print(f"  賽區之間並行（--zone-seq 退回逐區）：各區小計相加 {sub_sum:.1f}s", flush=True)
     return out, zone_err
 
 
@@ -652,6 +709,8 @@ if __name__ == "__main__":
             TEAM_JOBS = max(1, int(a.split("=", 1)[1]))
         if a == "--no-keepalive":          # 對照組：回到「每個請求都重新握手」的舊行為
             KEEPALIVE = False
+        if a == "--zone-seq":              # #128 對照組：賽區之間逐區（隊與人仍並行）
+            ZONE_PAR = False
         if a.startswith("--out="):
             OUT = a.split("=", 1)[1]
         if a == "--no-pg-cache":           # #111：不讀不寫 progamer 快取＝每班全問（舊行為）
