@@ -369,16 +369,32 @@ def _cargo_opener():
     return _COP
 
 
-def cargo_rosters(page):
+def cargo_rosters(page, subpages=False, only=None):
     """用 Cargo 表 TournamentPlayers 取參賽名單 → {隊名:[{n,r}]}。
 
     為什麼要這層：HTML 版型有好幾代，`table.tournament-roster` 與 `/Team Rosters`
     子頁都解析不到時整個賽事就是 0 隊名單（實測 2013 TCL 17 隊、GPL 12 隊全空，
     前端戰隊小框只能顯示「無選手資料」）。Cargo 表不吃版型，穩定得多。
+
+    subpages=True（2026-09-16 精進迴圈 #132，grab() 用）：連 `{page}/…` 子頁的列一起查。
+    世界賽的總覽頁「2026 Season World Championship」本身沒有名單，TournamentPlayers 的列全掛在
+    `/Main Event`（71 列）與 `/Play-In`（8 列）底下 ⇒ 舊寫法只比總覽頁名、一列都拿不到，
+    events_extra.js 的 WLDs 一直是「11 隊 0 份名單」（使用者 09-14 建檔時要的就是先列名單）。
+    總覽頁本身的列跟舊行為逐筆相同；子頁的列只補「總覽頁沒有列」而且在 only（總覽頁的隊伍清單，
+    casefold 比）裡的隊，同一隊掛在好幾個子頁（Play-In 打上 Main Event）照選手名去重。
+    一個請求（OR），不多打；頁名裡的 `_` 在 LIKE 是單字元萬用字，wiki 頁名用空白、不影響。
+    真站 13 頁新舊比對（autopilot/_m132_realgrab.txt）：只有「會叫 Cargo 的頁」才有差，沒有 only 時
+    CBLOL／LLA 2013、LPL#S3、亞運會多出資格賽／全明星隊的鍵 ⇒ grab() 一律帶 only。
     """
+    pg = str(page).replace('"', '\\"')
+    where = 'TP.OverviewPage="%s"' % pg
+    fields = "TP.Team=tm,TP.Player=pl,TP.Role=rl"
+    if subpages:
+        where = '(%s OR TP.OverviewPage LIKE "%s/%%")' % (where, pg)
+        fields += ",TP.OverviewPage=ov"
     q = {"tables": "TournamentPlayers=TP",
-         "fields": "TP.Team=tm,TP.Player=pl,TP.Role=rl",
-         "where": 'TP.OverviewPage="%s"' % str(page).replace('"', '\\"'),
+         "fields": fields,
+         "where": where,
          "format": "json", "limit": "500"}
     url = CARGO_FORM + "?" + urllib.parse.urlencode(q)
     op = _cargo_opener()
@@ -396,12 +412,24 @@ def cargo_rosters(page):
     except Exception:
         return {}
     out = {}
+    if subpages:
+        own = {fix_case(str(r.get("tm") or "").strip()) for r in rows if str(r.get("ov") or "") == str(page)}
+        only_cf = None if only is None else {str(t).casefold() for t in only}
+        seen = set()
     for r in rows:
         tm = fix_case(str(r.get("tm") or "").strip())
         # 選手名帶消歧後綴（crueL (Ceyhun Ünlü)、Icarus (Turkish Player)）→ 顯示用去掉
         nm = re.sub(r"\s*\([^)]*\)\s*$", "", str(r.get("pl") or "")).strip()
         if not tm or not nm:
             continue
+        if subpages and str(r.get("ov") or "") != str(page):
+            # 子頁的列：總覽頁本身有這隊 ⇒ 不採用（總覽頁那份照舊）；不在 only（總覽頁的隊伍清單）⇒ 不採用
+            # （亞運資格賽被刷掉的隊、LPL 的 Team Demacia／Ionia 全明星隊，真站實測會多出 10／2 個沒人讀的鍵）
+            if tm == "TBD" or tm in own or (only_cf is not None and tm.casefold() not in only_cf):
+                continue
+            if (tm, nm) in seen:
+                continue
+            seen.add((tm, nm))
         role = ROLE_EN.get(str(r.get("rl") or "").strip().title(), "")
         out.setdefault(tm, []).append({"n": nm, "r": role})
     ORD = {"TOP": 1, "JNG": 2, "MID": 3, "BOT": 4, "SUP": 5, "COACH": 6}
@@ -420,9 +448,10 @@ def grab(page, kind, roster_page=None):
         except Exception as e:
             print(f"   名單子頁失敗：{str(e)[:70]}")
     teams = [fix_case(t) for t in teams_of(html, kind)]
-    # 兩種 HTML 解析都不足 → 用 Cargo 補（只補缺的隊，已解析到的不覆蓋）
+    # 兩種 HTML 解析都不足 → 用 Cargo 補（只補缺的隊，已解析到的不覆蓋）；
+    # 連 `{page}/…` 子頁一起查（世界賽的名單在 /Main Event、/Play-In，#132）
     if len(rs) < len(teams):
-        cr = cargo_rosters(page)
+        cr = cargo_rosters(page, subpages=True, only=teams)
         if cr:
             add = [t for t in cr if t not in rs]
             rs = {**cr, **rs}
