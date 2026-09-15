@@ -53,6 +53,20 @@ HTTP_TRIES = 3              # 伺服器有回但出錯（5xx）／其他例外�
 RETRY_BACKOFF = 5.0         # 第 n 次失敗後睡 RETRY_BACKOFF×n 秒；最後一次失敗不睡（直接放棄）
 _DOWN = False               # 這一班已判定 gol.gg 連不上 ⇒ 後續 get() 不再逐頁重試（省牆鐘）
 
+# ── 賽段打完了就別每班重抓（2026-09-16 精進迴圈 #129）──
+# LPL 2026 Split 3 的例行賽最後一局是 08-23（季後賽 OE 自己有），之後三週 fetch_fill 每班照樣
+# 暖抓 wiki MH＋gol.gg matchlist＋Leaguepedia 抓頁 ≈ 16s（① 階段、關鍵路徑），產出逐位元不變。
+# 閘門關不起來的原因：data_年.js 沒有來源欄，oe_games() 只能把「自己補過的 164 局」整批扣掉，
+# 而 OE 收錄的正是同樣那 164 局 ⇒ n_oe 永遠只剩季後賽＋wiki 獨有的局（58 < 164）。
+# **閘門刻意不修**：OE 其實收了 166/167 局，閘門一關 wiki 那份也跟著刪，會把 OE 沒有的
+# 08-07 WE vs TT 第 3 局從主資料拿掉（列數縮水）。改成「補充資料裡最新一局早於 QUIET_DAYS 天
+# ＝賽段沒有新比賽了」⇒ 每 RECHECK_H 小時才重抓一次，其餘班次沿用 fill／wikifill（fetch_data 照併）。
+QUIET_DAYS = 10     # 補充資料（gol.gg 與 wiki 兩份都要有）最新一局早於這麼多天 ⇒ 安靜賽段
+RECHECK_H = 42.0    # 安靜賽段多久真的重抓一次（兩班一天 ⇒ 每 4 班 1 次）。兩個上限夾著：
+                    #   < check_keys.FILL_STALE_H 48h（跳過的班次金鑰檢查不會報「補資料太舊」）
+                    #   < GOLGG_STALE_HARD_DAYS 3 天（重抓那班 gol.gg 暫時失敗時仍走 exit 0 那條，下一班再試）
+_now = time.time    # 沙盒接管時鐘用
+
 
 class Transient(RuntimeError):
     """gol.gg 暫時性失敗（連不上／逾時／5xx）——main() 據此決定要不要 exit 1"""
@@ -777,6 +791,53 @@ def _transient_verdict(cfg, wiki_ok):
                f" ⇒ 這次以 exit 0 收，下一班再試。")
 
 
+def _newest_date(block):
+    """fill／wikifill JSON 某個 key 的 {"header","rows"} → 最新一局的 YYYY-MM-DD（沒有就回 ""）。"""
+    try:
+        i = block["header"].index("date")
+    except (KeyError, ValueError, TypeError, AttributeError):
+        return ""
+    return max((str(r[i])[:10] for r in (block.get("rows") or []) if len(r) > i and r[i]), default="")
+
+
+def quiet_skip(cfg, wiki):
+    """安靜賽段這班要不要跳過重抓 → (跳過嗎, 要印的一行或 None)。（#129）
+
+    兩份補充資料（wiki=False 時只看 gol.gg 那份）**都要**有這個 key、有列、有日期，才可能跳過；
+    缺任何一份＝還沒補齊／OE 追上已刪除 ⇒ 照舊抓（閘門該做的事照做）。
+    「上次重抓」取兩份檔 mtime 的較舊者：build()／fetch_wiki_mh.build() 成功才會重寫，
+    所以哪一邊上次沒抓成，下一班就會到期重試。"""
+    paths = [os.path.join(CACHE, f"fill_{cfg['year']}.json")]
+    if wiki:
+        paths.append(os.path.join(CACHE, f"wikifill_{cfg['year']}.json"))
+    newest, last = "", None
+    for p in paths:
+        try:
+            with open(p, encoding="utf-8") as f:
+                blk = json.load(f).get(cfg["key"])
+            mt = os.path.getmtime(p)
+        except (OSError, ValueError, AttributeError):
+            return False, None
+        nd = _newest_date(blk) if isinstance(blk, dict) else ""
+        if not nd:
+            return False, None
+        newest = max(newest, nd)
+        last = mt if last is None else min(last, mt)
+    try:
+        quiet_d = (_now() - time.mktime(time.strptime(newest, "%Y-%m-%d"))) / 86400
+    except ValueError:
+        return False, None
+    if quiet_d < QUIET_DAYS:
+        return False, None
+    age_h = (_now() - last) / 3600
+    if age_h >= RECHECK_H:
+        return False, (f"  {cfg['key']}：補充資料最新一局 {newest}（{quiet_d:.0f} 天前，賽段沒有新比賽）、"
+                       f"上次重抓 {age_h:.0f} 小時前 ≥ {RECHECK_H:.0f} ⇒ 這班重抓一次")
+    return True, (f"  {cfg['key']}：補充資料最新一局 {newest}（{quiet_d:.0f} 天前，≥{QUIET_DAYS} 天沒有新比賽）、"
+                  f"上次重抓 {age_h:.0f} 小時前 ⇒ 沿用 fill／wikifill、這班不重抓"
+                  f"（每 {RECHECK_H:.0f} 小時重抓一次；--force 或 --no-quiet-skip 強制）")
+
+
 def main():
     _t_all = time.time()
     ap = argparse.ArgumentParser()
@@ -784,6 +845,7 @@ def main():
     ap.add_argument("--dump", action="store_true", help="只解析不寫檔")
     ap.add_argument("--status", action="store_true", help="只看 OE / 補充 各幾局")
     ap.add_argument("--no-wiki", action="store_true", help="只抓 gol.gg，不抓 Leaguepedia")
+    ap.add_argument("--no-quiet-skip", action="store_true", help="安靜賽段也照抓（#129 之前的行為）")
     A = ap.parse_args()
     failed, quiet = [], []
     for cfg in FILL:
@@ -804,6 +866,14 @@ def main():
                   f"   gol.gg={n:3d} 局   wiki={wn:3d} 局")
             continue
         wiki = not (A.dump or A.no_wiki) and bool(cfg.get("wiki"))
+        if not (A.force or A.dump or A.no_quiet_skip):
+            _t = time.time()
+            skip, why = quiet_skip(cfg, wiki)
+            _ph("安靜賽段判定", _t)
+            if why:
+                print(why, flush=True)
+            if skip:
+                continue
         if wiki:
             warm_wiki(cfg)
         transient = None
