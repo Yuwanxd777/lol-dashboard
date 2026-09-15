@@ -14320,6 +14320,7 @@ function render(){
         const seq=gi>=0?seqOf(gi):null;
         const k=seq?seq.findIndex(([kd,sd,i])=>!S.g[gi][kd+sd][i]):-1;
         const nameOfSide=sd=>sd==="1"?(S.t1||(LANG==="en"?"Team A":"隊A")):(S.t2||(LANG==="en"?"Team B":"隊B"));
+        const abOfSide=sd=>{ const n=sd==="1"?S.t1:S.t2; return n?((typeof tAb==="function"&&tAb(n))||n):nameOfSide(sd); };   // 鈕上用縮寫（使用者 2026-09-15）
         // 版型跟篩選列同一套（class="filters"：30px 鈕、15px 標籤、置中對齊）。2026-09-15 使用者回報
         // 「文字跟按鈕框沒對齊」：原本自己硬寫 26px／13px 與 .sel 下拉，跟篩選列不是同一套才會歪。
         const box=document.createElement("div"); box.id="bpDuelBox"; box.className="filters";
@@ -14329,7 +14330,7 @@ function render(){
         // 我方＝隊A／隊B：兩顆分段鈕（作用中＝金框，跟「⏵ 自動」同一套慣例），不用下拉
         const seg=document.createElement("span"); seg.style.cssText="display:inline-flex;gap:4px";
         // 兩顆獨立開關：亮（金框）＝那一邊由系統操作。兩顆都亮＝整局系統自己跑；都不亮＝兩邊都自己點。
-        [["1",nameOfSide("1")],["2",nameOfSide("2")]].forEach(([v,t])=>{ const b=mk("🤖 "+t,LANG==="en"?"Toggle: this side is drafted by the system (both on = the system plays the whole draft)":"按下＝這一邊交給系統出手；兩顆都按＝整局系統自己跑；都不按＝兩邊都自己點"); b.id="bpDuelMe"+v;
+        [["1",abOfSide("1")],["2",abOfSide("2")]].forEach(([v,t])=>{ const b=mk("🤖 "+t,LANG==="en"?"Toggle: this side is drafted by the system (both on = the system plays the whole draft)":"按下＝這一邊交給系統出手；兩顆都按＝整局系統自己跑；都不按＝兩邊都自己點"); b.id="bpDuelMe"+v;
           if(ai[v]){ b.style.borderColor="var(--gold)"; b.style.color="var(--gold)"; }
           b.onclick=()=>{ ai[v]=!ai[v]; saveState(); rerender(); }; seg.appendChild(b); });
         const st=document.createElement("span"); st.id="bpDuelSt"; st.style.cssText="flex:1;min-width:200px;font-size:15px";
@@ -14347,7 +14348,7 @@ function render(){
         else { const [kd,sd]=seq[k]; aiTurn=!!ai[sd];
           status=(LANG==="en"?("Turn "+(k+1)+": "):("第 "+(k+1)+" 手："))+nameOfSide(sd)+(kd==="b"?(LANG==="en"?" ban":" 禁用"):(LANG==="en"?" pick":" 選角"))
             +"（"+(aiTurn?(LANG==="en"?"system":"系統"):(LANG==="en"?"you":"你"))+"）"
-            +(aiTurn?(LANG==="en"?"　→ auto in <b id='bpDuelCd'>5</b>s (Next = now)":"　→ <b id='bpDuelCd'>5</b> 秒後自動出手（按「下一步」立刻）")
+            +(aiTurn?(LANG==="en"?"　→ auto in <b id='bpDuelCd'>5</b>s":"　→ <b id='bpDuelCd'>5</b> 秒後自動出手")
                     :(LANG==="en"?"　→ click a champion in the pool":"　→ 點角色池的英雄"));
           if(D.last&&D.last.gi===gi&&D.last.k===k-1) status+="　<span style='color:var(--tx2)'>"+(LANG==="en"?"system just took ":"系統剛出：")+(D.last.zh||D.last.ch)+(D.last.pr!=null?" ("+Math.round(D.last.pr*100)+"%)":"")+"</span>"; }
         st.innerHTML=status;
@@ -14355,8 +14356,13 @@ function render(){
         // ▶ 開始＝**新開一局模擬局**（使用者 2026-09-15：「按開始後要幫我開模擬局」），不清現有的局。
         //   全局(Fearless)模式滿 5 局不能再加（跟 + 鈕同一條規矩）→ 退回清掉第一個沒填完的局（都填滿就清最後一局）。
         bStart.onclick=()=>{ if(window._bsLiveOn){ st.textContent=LANG==="en"?"Stop live sync first":"直播同步中不能對決，先停止同步"; return; }
+          // 已有完全空的局就用最後一個空局、不多開（使用者 2026-09-15：多一局角色池會變窄「圖縮小一點點」）；
+          // 沒有空局才新開一局；全局模式滿 5 局／20 局上限則清第一個沒填完的局來打。
+          const isEmpty=g=>[...g.b1,...g.b2,...g.p1,...g.p2].every(x=>!x);
+          let use=-1; for(let i=S.n-1;i>=0;i--){ if(isEmpty(S.g[i])){use=i;break;} }
           const capped=((V.bpMode||"global")==="global"&&S.n>=5)||S.n>=20;
-          if(capped){ let cg=-1; for(let i=0;i<S.n;i++){ const g=S.g[i]; if([...g.b1,...g.b2,...g.p1,...g.p2].some(x=>!x)){cg=i;break;} }
+          if(use>=0){ D.gi=use; }
+          else if(capped){ let cg=-1; for(let i=0;i<S.n;i++){ const g=S.g[i]; if([...g.b1,...g.b2,...g.p1,...g.p2].some(x=>!x)){cg=i;break;} }
             if(cg<0)cg=S.n-1; S.g[cg]=EMPTY(); D.gi=cg; }
           else { S.g.push(EMPTY()); S.fp.push(S.n?S.fp[S.n-1]:1); S.side.push(0); S.meta.push({id:++S.uid,src:null}); S.tm.push(null); S.n++; D.gi=S.n-1; }
           D.last=null; V.bpAuto=true; saveState(); rerender(); };
@@ -14636,7 +14642,11 @@ function render(){
         });
       });
       const addCol=wrap.querySelector(".bsGAddCol");
-      if(addCol)addCol.onclick=()=>{ S.n=Math.min(20,S.n+1); saveState(); rerender();
+      // 最新那一局還是空的就不再多開（使用者 2026-09-15：「只要是需要開新模擬局的情況，最新的一局是空的就不要再新增」）
+      // → 只捲到它。對決的「開始」也是同一條規矩（見 bpDuelStart）。
+      if(addCol)addCol.onclick=()=>{ const _last=S.n?S.g[S.n-1]:null;
+        if(_last&&[..._last.b1,..._last.b2,..._last.p1,..._last.p2].every(x=>!x)){ const gsc0=wrap.querySelector("#bsGames"); if(gsc0)gsc0.scrollLeft=gsc0.scrollWidth; return; }
+        S.n=Math.min(20,S.n+1); saveState(); rerender();
         const gsc=wrap.querySelector("#bsGames"); if(gsc)gsc.scrollLeft=gsc.scrollWidth; }; // 新增局在最右（緊貼角色池），捲到最右顯示新局
     };
     bindFilters(rerender);
