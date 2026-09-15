@@ -200,6 +200,13 @@ with sync_playwright() as pw:
     pg.click("#bpDuelEnd"); pg.wait_for_timeout(500)
     ok(pg.query_selector("#bpDuelBox") is None and pg.evaluate("() => V.bpDuel") is None, "結束 → 面板收起、狀態清掉")
     ok(pg.evaluate("() => !window.__bpDuelT && !window.__bpDuelCd"), "結束 → 計時器清掉")
+    # 重整網頁＝對決自動關閉（使用者 2026-09-15）
+    pg.click("#bpDuelBtn"); pg.wait_for_timeout(400)
+    ok(pg.evaluate("() => !!V.bpDuel") and pg.query_selector("#bpDuelBox") is not None, "先把對決打開")
+    pg.reload(); pg.wait_for_function("() => typeof GAMES !== 'undefined' && GAMES.length > 0", timeout=90000)
+    pg.click('nav .tab[data-view="模擬BP"]', timeout=6000); pg.wait_for_timeout(800)
+    ok(pg.evaluate("() => V.bpDuel") is None and pg.query_selector("#bpDuelBox") is None, "⭐ 重整後對決自動關閉（沒有面板、狀態清掉）")
+    ok(pg.query_selector("#bpDuelBtn") is not None, "重整後 ⚔ 鈕還在（只是關著）")
     # 公開版＝根本載不到 bp_live_ui.js：擋掉那支檔重新載頁，模擬BP 分頁不可以有 ⚔ 鈕、也不可以有面板。
     pg.route("**/bp_live_ui.js*", lambda r: r.abort())
     pg.goto(pathlib.Path(os.path.join(ROOT, "index.html")).resolve().as_uri() + "?y=2026")

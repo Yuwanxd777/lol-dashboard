@@ -14897,6 +14897,9 @@ function render(){
       V.bpAuto=true;
       // ⚔ 對決（2026-09-15 使用者定案）：系統扮演對面那支戰隊跟你 BP。第一期**本機限定**——
       // 預測引擎在 bp_live_ui.js（不發布），公開版載不到就沒有這顆鈕、一個位元不變。
+      // 重整網頁＝對決自動關閉（使用者 2026-09-15）：V.bpDuel 跟著存檔，載頁後第一次進模擬BP 就清掉。
+      // 用 window 旗標（重整就歸零），同一次載頁內切分頁來回不會被清。
+      if(!window.__bpDuelBooted){ window.__bpDuelBooted=1; if(V.bpDuel){ V.bpDuel=null; saveState(); } }
       if(window.__bpPredictNext){
         const db=document.createElement("button"); db.id="bpDuelBtn"; db.className="pgbtn"; db.style.order="64";
         db.title=LANG==="en"?"Duel: the system drafts as the other team (its most likely move each turn); press Next to let it act"
