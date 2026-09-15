@@ -206,6 +206,10 @@ check("批次：JS_BATCH 3 次、大小 3／3／1（d1 回 429 → 減半為 2�
 check("批次：JS_NEW 只剩 4 次（d1 兩次、e1 兩次）", pb.n_calls("n") == 4 and sorted(c[1] for c in pb.calls if c[0] == "n") == ["pu-d1", "pu-d1", "pu-e1", "pu-e1"], [c for c in pb.calls if c[0] == "n"])
 check("批次：命中 5、退回逐一 2、減半 1 次（日誌行）", re.search(r"批次預抓 \d+s：7 個帳號／3 批（批次大小 3）、命中 5、退回逐一 2、減半 1 次", outb_txt), outb_txt)
 check("循序模式沒有批次日誌行", "批次預抓" not in outs_txt)
+# #130：main() 真的把 batch_breakdown 接在批次預抓那行後面（假 dpm 不帶 el ⇒ 只有每批秒數、沒有單帳號段）
+check("批次模式印「批次分項：3 批」且緊跟在批次預抓那行之後（#130）",
+      re.search(r"批次預抓 [^\n]*\n   批次分項：3 批每批 最快 [\d.]+s／中位 [\d.]+s／最慢 [\d.]+s、相加 [\d.]+s\n", outb_txt) and "單帳號" not in outb_txt, outb_txt[-600:])
+check("循序模式沒有批次分項行（#130）", "批次分項" not in outs_txt)
 check("路線 token 逐選手正確（A middle／B top／C jungle／D bottom／E utility）",
       {c[1]: c[2] for c in pb.calls if c[0] == "b1"} .items() >= {"pu-a1": "middle", "pu-b1": "top", "pu-c1": "jungle", "pu-e1": "utility"}.items()
       and [c[2] for c in pb.calls if c[0] == "n" and c[1] == "pu-d1"] == ["bottom", "bottom"], pb.calls)

@@ -174,9 +174,41 @@ JS_NEW = """async(args)=>{ const [PU,tok,newestT]=args; const out=[]; let ID=nul
 # 325 個帳號：bs=24 是 14 批 × 1.77 ≈ 25s、**bs=48 是 7 批 × 1.92 ≈ 13s**、bs=64 只省到 6 批但每批 2.51 ⇒ ≈ 15s
 # （探針摘要那行印的「每帳號秒」讓 64 看起來最快，是因為每組只有 96 個帳號、第二批半空，別被那行騙）。
 # 取 48 不取 64：64 更慢，而且整批退回時要逐一補問的帳號多一倍（48 個 × 1.1s vs 24 個），爆炸半徑不必要地大。
-JS_BATCH = "async(items)=>{ const one=(" + JS_NEW + "); return Promise.all(items.map(it=>one(it).catch(e=>({err:String(e)})))); }"
+# 2026-09-16 線 3（精進迴圈 #130）：每個帳號在瀏覽器端花幾毫秒一起帶回來（el），只量不改行為。
+# 09-15 22:00 那班「批次預抓 20s：232 個帳號／5 批」＝每批 4s（#83 探針是 2s），Promise.all 一批要等最慢那一個，
+# 但日誌看不出是「每個都慢」還是「幾個翻很多頁的拖住整批」——後者換成滑動視窗（永遠 48 路在飛）才有用。
+# 先量：印「批次分項」那行（每批秒數、單帳號延遲分布、照同一份延遲模擬滑動視窗要幾秒），下一輪看數字再決定。
+JS_BATCH = ("async(items)=>{ const one=(" + JS_NEW + "); return Promise.all(items.map(it=>{ const t0=Date.now(); "
+            "return one(it).then(r=>{ if(r&&typeof r==='object') r.el=Date.now()-t0; return r; })"
+            ".catch(e=>({err:String(e), el:Date.now()-t0})); })); }")
 USE_BATCH = "--batch" in sys.argv
 BATCH_NEW = int(arg("--batch-size") or 48)
+
+def pool_estimate(lat, width):
+    """同一串延遲（秒，照派工順序）改用滑動視窗（永遠 width 路在飛、先進先出）要多久——純函式，派工模擬。"""
+    import heapq
+    if not lat: return 0.0
+    free = [0.0] * max(1, min(width, len(lat)))   # 每條路下一次空出來的時間
+    end = 0.0
+    for s in lat:
+        t = heapq.heappop(free) + max(0.0, s)
+        heapq.heappush(free, t); end = max(end, t)
+    return end
+
+def batch_breakdown(st, width=None):
+    """prefetch_batches 的統計 → 「批次分項」那行；沒有批次就回 None。措辭避開「牆鐘」「合計」（shift_log_archive／update_health 會 parse）。"""
+    secs = sorted(st.get("secs") or [])
+    if not secs: return None
+    med = lambda xs: xs[len(xs) // 2]
+    s = "   批次分項：%d 批每批 最快 %.1fs／中位 %.1fs／最慢 %.1fs、相加 %.1fs" % (len(secs), secs[0], med(secs), secs[-1], sum(secs))
+    lat = st.get("lat") or []
+    if lat:
+        ls = sorted(x[0] for x in lat)
+        worst = max(lat, key=lambda x: x[0])
+        s += "；單帳號（瀏覽器端）%d 個 中位 %.1fs／P90 %.1fs／最慢 %.1fs（那個帳號新場次 %d）" % (
+            len(ls), med(ls), ls[min(len(ls) - 1, int(len(ls) * 0.9))], ls[-1], worst[1])
+        s += "；改滑動視窗 %d 路照同一份延遲模擬 %.1fs" % (width or BATCH_NEW, pool_estimate([x[0] for x in lat], width or BATCH_NEW))
+    return s
 
 def _res_ok(r):
     """批次結果可用嗎：dict、沒有 err、dpm 沒回限流／擋下（bad）——不可用的留給主迴圈逐一問"""
@@ -194,15 +226,21 @@ def prefetch_batches(pg, keys, idx, accs, static, bs=None):
         ex = data.get("matches", []); nt = ex[0]["t"] if ex else 0
         todo, _ = split_static_accounts(accs.get(key, []), static)
         for a in todo: items.append((key, a["dpmPuuid"], [a["dpmPuuid"], tok, nt]))
-    PRE = {}; st = {"items": len(items), "batches": 0, "hit": 0, "fallback": 0, "halved": 0, "sizes": []}
+    PRE = {}; st = {"items": len(items), "batches": 0, "hit": 0, "fallback": 0, "halved": 0, "sizes": [], "secs": [], "lat": []}
     i = 0
     while i < len(items):
         chunk = items[i:i + bs]; i += len(chunk); st["batches"] += 1; st["sizes"].append(len(chunk))
+        _t0 = time.time()
         try:
             rs = pg.evaluate(JS_BATCH, [it[2] for it in chunk])
             if not isinstance(rs, list) or len(rs) != len(chunk): raise ValueError("批次回傳形狀不對")
         except Exception as e:
             print(f"   批次抓錯 {e} → 這 {len(chunk)} 個帳號改逐一問"); st["fallback"] += len(chunk); continue
+        finally:
+            st["secs"].append(time.time() - _t0)
+        for r in rs:   # #130：瀏覽器端逐帳號延遲（秒）＋新場次數，只給「批次分項」那行用
+            if isinstance(r, dict) and isinstance(r.get("el"), (int, float)):
+                st["lat"].append((r["el"] / 1000.0, len(r.get("ms") or [])))
         bad = 0
         for (k, pu, _), r in zip(chunk, rs):
             if _res_ok(r): PRE[(k, pu)] = r; st["hit"] += 1
@@ -421,6 +459,8 @@ def main():
     if _BST:
         print("⏱ 批次預抓 %.0fs：%d 個帳號／%d 批（批次大小 %d）、命中 %d、退回逐一 %d、減半 %d 次"
               % (_TB, _BST["items"], _BST["batches"], BATCH_NEW, _BST["hit"], _BST["fallback"], _BST["halved"]))
+        _bd = batch_breakdown(_BST)
+        if _bd: print(_bd)
     if _TPL:
         if _NSKIP:
             print("⏭ 跳過 %d 個牌位沒動的帳號（%d → %d 次 dpm 請求）" % (_NSKIP, _NACC, _NACC - _NSKIP))
