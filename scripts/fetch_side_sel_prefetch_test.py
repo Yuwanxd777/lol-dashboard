@@ -38,19 +38,27 @@ def ck(cond, msg):
         print("  ✗ " + msg)
 
 
-def md5dir(d):
-    h = hashlib.md5()
+def snapdir(d):
+    """正本快取目錄的守衛快照：每個檔的（檔名, 大小, mtime_ns），只 stat 不讀內容。
+
+    2026-09-15 精進迴圈 #122：原本是 md5dir（逐檔讀進來算 md5）。這支寫的時候快取是 45 頁 25MB，
+    09-04 補了歷史年份後變 673 檔 359MB，前後兩次守衛就要讀 720MB——單跑（頁快取熱）0.5s，
+    在 `_m92_suite --all` 裡跟 site_audit 的 playwright 一起跑就四次（#108／#109／#112／#122）
+    卡到 150s 逾時，py-spy 堆疊停在這一行的 md5dir。改成 stat：page_html 覆寫快取檔一定改 mtime／大小，
+    守衛力道跟 `fetch_side_sel_cargo_test`／`_m106_sidesel_bg_test` 的「檔數＋mtime」一致；
+    ⑦ 加了正控制（沙盒裡改一個檔，快照一定要變）證明這個守衛會動。"""
+    out = []
     for n in sorted(os.listdir(d)):
         p = os.path.join(d, n)
         if os.path.isfile(p):
-            h.update(n.encode("utf-8"))
-            h.update(open(p, "rb").read())
-    return h.hexdigest()
+            st = os.stat(p)
+            out.append((n, st.st_size, st.st_mtime_ns))
+    return tuple(out)
 
 
 REAL_CACHE = M.CACHE
 REAL_OUT = os.path.join(ROOT, "side_sel.js")
-real_cache_md5 = md5dir(REAL_CACHE) if os.path.isdir(REAL_CACHE) else "(無)"
+real_cache_md5 = snapdir(REAL_CACHE) if os.path.isdir(REAL_CACHE) else "(無)"
 real_out_md5 = hashlib.md5(open(REAL_OUT, "rb").read()).hexdigest() if os.path.exists(REAL_OUT) else "(無)"
 
 box = tempfile.mkdtemp(prefix="sidesel_pf_")
@@ -205,10 +213,16 @@ ck(M._PRE == {}, "全部強制時不該預讀任何頁")
 print("=== ⑦ 沙盒紀律：正本一個位元沒動 ===")
 ck(M.CACHE.startswith(box), "模組的 CACHE 已經不指著沙盒了：%s" % M.CACHE)
 ck(os.path.dirname(M.cache_path(PAGES[0])) == M.CACHE, "cache_path 沒有跟著沙盒走")
-now_cache = md5dir(REAL_CACHE) if os.path.isdir(REAL_CACHE) else "(無)"
+now_cache = snapdir(REAL_CACHE) if os.path.isdir(REAL_CACHE) else "(無)"
 now_out = hashlib.md5(open(REAL_OUT, "rb").read()).hexdigest() if os.path.exists(REAL_OUT) else "(無)"
 ck(now_cache == real_cache_md5, "真實 csv_cache/sidesel 被動到了")
 ck(now_out == real_out_md5, "真實 side_sel.js 被動到了")
+ck(len(now_cache) > 0 if now_cache != "(無)" else True, "真實快取目錄快照是空的（守衛沒東西可守）")
+# 正控制：守衛快照對「改一個檔」要有反應（不然上面兩條永遠綠）——只動沙盒，不碰正本
+_pc0 = snapdir(M.CACHE)
+with io.open(M.cache_path(PAGES[0]), "a", encoding="utf-8", newline="") as _f:
+    _f.write("<!-- 守衛正控制 -->")
+ck(snapdir(M.CACHE) != _pc0, "正控制失敗：沙盒改了一個檔，snapdir 快照卻沒變")
 # 只有沙盒才有的證據（把來源清空不算隔離）：沙盒裡真的存在那幾個檔
 ck(all(os.path.exists(M.cache_path(ov)) for ov in PAGES), "沙盒素材不見了（那前面讀到的是哪裡的檔？）")
 
