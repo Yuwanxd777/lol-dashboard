@@ -238,6 +238,37 @@ def get_account_by_puuid(cluster, puuid):
     code, data = riot_get(f"https://{cluster}.api.riotgames.com/riot/account/v1/accounts/by-puuid/{puuid}")
     return data if code == 200 and data else None
 
+# ── 快取 puuid 錯配防呆（2026-09-16 精進迴圈 #125）──────────────────────────
+# 09-15 22:00 班：OBGG 名冊把 DK Career 的舊 ID `SUPKING#1015` 帶回清單 → account-v1 404 →
+# 鬆散反查 PREV_TP（該選手在該區的「任一」帳號）拿到兄弟帳號 인간 병기#0829 的 puuid →「♻ 反查成功」→
+# 改名回寫 ⇒ soloq_accounts.json 同一個 ID 兩筆、soloq.js 兩筆記錄同一個 puuid（同一份牌位算兩次）。
+# 同一種病早就在了：09-15 那版 soloq.js 有 58 組「不同 Riot ID 共用同一個 puuid」（136 筆，牌位逐格相同），
+# 至少 08-28 起就有。Riot 實查（autopilot/_m125_puuid_probe.txt）：每組只有一個 ID 是 200、其餘 404
+# （C9 Zven 的 S16 活著，oink／3450／C9C9 都不存在）——某次反查把兄弟的 puuid 記在死名底下，
+# 之後 puuid 捷徑（_cached，不驗名、不判改名）就一班一班沿用下去，永遠不會自己好。
+# 兩道門：①上一版同一個 puuid 掛在清單裡同區 ≥2 個 ID 上 ⇒ 這幾個 ID 都不走捷徑、老實問 account-v1
+# （活的那個 200 拿回自己的 puuid；死的 404 → 記 noAcc、7 天內不再問 ⇒ 下一班起共用自然消失、捷徑恢復）
+# ②反查（PREV_ID 或 PREV_TP）拿到的名字**已經是清單裡另一筆帳號** ⇒ 那個 puuid 是那筆的，不採用、不改名、當查無此 ID。
+def norm_rid(s):
+    return re.sub(r"\s+", "", str(s or "")).casefold()
+
+SHARED_PU = set()        # 上一版在清單裡同區 ≥2 個 ID 共用的 puuid（門①）
+LISTED_RID = set()       # (norm_rid, platform)：清單裡現有的帳號（門②）
+SHARED_SKIPS = [0]       # 門① 擋掉的捷徑數（只給日誌看）
+REVERSE_REJECT = []      # 門② 拒收的反查：(team, player, riotId, 反查到的 ID)
+
+def shared_puuids(prev_id, listed):
+    """prev_id＝{(riotId, platform): puuid}；listed＝{(norm_rid, platform)} ⇒ 清單裡同區 ≥2 個 ID 共用的 puuid。"""
+    own = collections.defaultdict(set)
+    for (rid, pf), pu in prev_id.items():
+        if pu and (norm_rid(rid), pf) in listed:
+            own[(pu, pf)].add(norm_rid(rid))
+    return {pu for (pu, _pf), rs in own.items() if len(rs) > 1}
+
+def reverse_taken(cur_id, own_rid, plat, listed):
+    """門②：反查到的 ID 跟這筆不同、而且已經是清單裡另一筆帳號 ⇒ True（不可採用）。"""
+    return norm_rid(cur_id) != norm_rid(own_rid) and (norm_rid(cur_id), plat) in listed
+
 def load_prev_puuids():
     # 上一次 soloq.js 的 puuid 快取：{(riotId,platform):puuid} ＋ {(team,player,platform):puuid}
     by_id, by_tp = {}, {}
@@ -647,6 +678,9 @@ def main():
     accounts = [a for a in accounts if a.get("riotId") and "#" in a.get("riotId","") and not a.get("bad")]  # bad＝張冠李戴帳號，牌位也不抓
     seen_a = set(); accounts = [a for a in accounts
         if (k := (a.get("team"), a.get("player"), a.get("platform"), a.get("riotId"))) not in seen_a and not seen_a.add(k)]  # 改名同步後可能出現重複帳號 → 去重
+    # 門②的「清單裡現有的帳號」用 --active／--failed 篩之前的整份（篩過的清單會漏掉兄弟帳號）
+    global LISTED_RID, SHARED_PU
+    LISTED_RID = {(norm_rid(a["riotId"]), _plat_of(a)) for a in accounts}
     PREV_ALL = []
     # ── --active：只更新「最近有打排位」的選手（2026-09-05，使用者要加速每日爬蟲）──
     # 牌位只有打過的人會變。逐場資料（soloq_recent.js）在 update.bat 裡**跑在這一支之前**，
@@ -726,9 +760,14 @@ def main():
     # 有存 puuid 就跳過 account-v1 那一次查詢（見 fetch_one 的註解）。
     # `--full-id`＝關掉捷徑、走完整路徑把改名補回來（每週全掃那一次用）。
     FAST_ID = "--full-id" not in sys.argv
+    SHARED_PU = shared_puuids(PREV_ID, LISTED_RID); SHARED_SKIPS[0] = 0; REVERSE_REJECT.clear()
+    if SHARED_PU:
+        _ns = sum(1 for (rid, pf), pu in PREV_ID.items() if pu in SHARED_PU and (norm_rid(rid), pf) in LISTED_RID)
+        print("puuid 錯配防呆：上一版 %d 個 puuid 同時掛在清單裡同區 %d 個 ID 上 → 這些 ID 不走 puuid 捷徑、老實驗名"
+              % (len(SHARED_PU), _ns))
     if FAST_ID:
-        _hit = sum(1 for a in accounts if PREV_ID.get((a["riotId"],
-                   ALIAS.get(str(a.get("platform","")).upper(), str(a.get("platform","")).lower()))))
+        _hit = sum(1 for a in accounts if (_pz := PREV_ID.get((a["riotId"],
+                   ALIAS.get(str(a.get("platform","")).upper(), str(a.get("platform","")).lower())))) and _pz not in SHARED_PU)
         print("puuid 捷徑：%d/%d 個帳號可跳過 account-v1 查詢（請求數約省 %.0f%%）"
               % (_hit, len(accounts), 100.0 * _hit / max(1, 2 * len(accounts))))
     # 聯盟名單預抓（見 prefetch_ladders）：帳號數 >= LADDER_MIN 的平台各 3 次呼叫。--no-ladder 關掉。
@@ -770,7 +809,10 @@ def main():
         acc = None
         if FAST_ID:
             _pu0 = PREV_ID.get((a["riotId"], plat))
-            if _pu0:
+            if _pu0 and _pu0 in SHARED_PU:  # 門①（見 shared_puuids）：錯配嫌疑，老實驗名
+                SHARED_SKIPS[0] += 1
+                print("    ⚠ 上一版這個 puuid 同時掛在清單裡同區好幾個 ID 上（錯配嫌疑）→ 不走捷徑、問 account-v1 驗名")
+            elif _pu0:
                 acc = {"puuid": _pu0, "gameName": game.strip(), "tagLine": tagl.strip(), "_cached": True}
         if acc is None:
             acc = get_account(cluster, game.strip(), tagl.strip())  # dpm 的 puuid 非 Riot puuid，用 account-v1 解析真 puuid
@@ -786,7 +828,12 @@ def main():
                 pu2 = PREV_TP.get((a.get("team"), a.get("player"), plat))
             if pu2:
                 acc = get_account_by_puuid(cluster, pu2); via_prev = True
-                if acc: print(f"    ♻ 以 puuid 反查成功：目前 ID = {acc.get('gameName')}#{acc.get('tagLine')}")
+                _cid = f"{(acc or {}).get('gameName','')}#{(acc or {}).get('tagLine','')}"
+                if acc and reverse_taken(_cid, a["riotId"], plat, LISTED_RID):  # 門②
+                    REVERSE_REJECT.append((a.get("team",""), a.get("player",""), a["riotId"], _cid))
+                    print(f"    ✗ puuid 反查到 {_cid}，但那已經是清單裡另一筆帳號 ⇒ 這個 puuid 是那筆的，不採用（不改名、當查無此 ID）")
+                    acc = None; via_prev = False
+                elif acc: print(f"    ♻ 以 puuid 反查成功：目前 ID = {_cid}")
         puuid = acc.get("puuid") if acc else None
         curId = (acc.get("gameName","")+"#"+acc.get("tagLine","")) if acc else None  # Riot 目前的 Riot ID(可能已改名)
         # ⚠ 走 puuid 捷徑時 curId 是我們自己填的舊名，不是 Riot 現在的名字 ⇒ 不可以拿去判改名
@@ -1029,8 +1076,12 @@ def main():
             json.dump(raw, open(ACCOUNTS, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
             print(f"♻ 補上 {n} 個帳號的 platform → soloq_accounts.json：")
             for (tm, pl, rid), pf in PLATFIX.items(): print(f"   {tm} {pl}: {rid} @{pf}")
+    if SHARED_SKIPS[0] or REVERSE_REJECT:
+        print(f"puuid 錯配防呆：捷徑擋下 {SHARED_SKIPS[0]} 個（改問 account-v1 驗名）／反查拒收 {len(REVERSE_REJECT)} 個（反查到的是清單裡另一筆帳號）")
+        for tm, pl, old, got in REVERSE_REJECT: print(f"   {tm} {pl}: {old}（反查到 {got}，不採用）")
     if RENAMES:  # 改名自動同步回帳號清單：下次起直接用新 ID 查
-        raw = json.load(open(ACCOUNTS, encoding="utf-8")); n = 0; skipped = []
+        raw = json.load(open(ACCOUNTS, encoding="utf-8")); n = 0; skipped = []; dup_skip = []; applied = []
+        _have = {(norm_rid(a.get("riotId","")), _plat_of(a)) for a in raw}
         for a in raw:
             k = (a.get("team",""), a.get("player",""), a.get("riotId",""))
             if k not in RENAMES: continue
@@ -1038,11 +1089,19 @@ def main():
             # 反查來的名字不可信（用的 puuid 未必是這筆帳號的），不准蓋掉 dpm 選手檔今天確認過的名字
             if via_prev and a.get("dpmSeen") == TODAY:
                 skipped.append((k[0], k[1], a.get("riotId",""), new)); continue
+            # 新名字已經是清單裡另一筆帳號 ⇒ 改下去就是重複（#125 DK Career 那種）；門②在抓取端擋過，這裡再擋一次
+            if reverse_taken(new, a.get("riotId",""), _plat_of(a), _have):
+                dup_skip.append((k[0], k[1], a.get("riotId",""), new)); continue
+            _have.add((norm_rid(new), _plat_of(a)))
+            applied.append((k[0], k[1], k[2], new))
             a["riotId"] = new; n += 1
+        if dup_skip:
+            print(f"⏭ 略過 {len(dup_skip)} 個改名（新名字已經是清單裡另一筆帳號，改了會重複）：")
+            for tm, pl, old, new in dup_skip: print(f"   {tm} {pl}: 保留 {old}（未改成 {new}）")
         if n:
             json.dump(raw, open(ACCOUNTS, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
             print(f"♻ 改名自動更新 {n} 個帳號 → soloq_accounts.json：")
-            for (tm, pl, old), (new, _v) in RENAMES.items(): print(f"   {tm} {pl}: {old} → {new}")
+            for tm, pl, old, new in applied: print(f"   {tm} {pl}: {old} → {new}")   # 只列真的改了的（略過的在上下兩段）
         if skipped:
             print(f"⏭ 略過 {len(skipped)} 個反查來的改名（dpm 選手檔今天確認過現有名字）：")
             for tm, pl, old, new in skipped: print(f"   {tm} {pl}: 保留 {old}（未採用反查到的 {new}）")
