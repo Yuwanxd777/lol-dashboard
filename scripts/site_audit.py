@@ -217,7 +217,6 @@ SCN = {
     # 模擬BP 刻意不點 #bsLive（直播同步：會去連 8178，線 2 的範圍）
     "模擬BP": [("匯入比賽", [("click", "#bsHist")], 1500, [("key", "Escape")]),
                ("近期積分", [("click", "#bpSoloqPool")], 1800, []),
-               ("自動", [("click", "#bpAutoBtn")], 1200, []),
                ("一般模式", [("seg", "bpModeSeg", "normal")], 1500, []),
                ("全域模式", [("seg", "bpModeSeg", "global")], 1000, []),
                ("清盤", [("click", "#bpResetBoard")], 1200, [])],

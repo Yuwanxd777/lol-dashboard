@@ -13013,6 +13013,9 @@ function render(){
                 ["p",L,3],["p",F,3],["p",F,4],["p",L,4]];
       };
       const nextSlot=()=>{ // 全系列第一個空格（第一局 B1 起依序，只算顯示中的局）
+        // ⚔ 對決中只看對決那一局：人的點擊與待填格發光都要落在對決局，不是前面沒填完的局（2026-09-15）
+        if(V.bpDuel&&V.bpDuel.gi>=0&&S.g[V.bpDuel.gi]){ const gi=V.bpDuel.gi;
+          for(const[k,s,i]of seqOf(gi))if(!S.g[gi][k+s][i])return{gi,k,s,i}; return null; }
         for(let gi=0;gi<S.n;gi++)for(const[k,s,i]of seqOf(gi))
           if(!S.g[gi][k+s][i])return{gi,k,s,i};
         return null;
@@ -14302,9 +14305,12 @@ function render(){
       // 系統那一手＝ __bpPredictNext(gi,k).cands[0]（該隊最可能的出手，預測已含版本熱度）。
       // ⚠ 面板放在 #bsWrap **外面**（前一個兄弟）：bsWrap 是橫向 flex 且不換行，塞進去會變成一「欄」把盤面擠到 0 寬
       //   （2026-09-15 使用者回報「介面歪掉」）。每次重畫先清掉舊面板，關掉對決時也不會留殘骸。
-      { const _old=document.getElementById("bpDuelBox"); if(_old)_old.remove(); }
+      { const _old=document.getElementById("bpDuelBox"); if(_old)_old.remove();
+        // 計時器跨 rerender 用 window 存：每次重畫先清，輪到系統再重排（2026-09-15：5 秒自動出手）
+        if(window.__bpDuelT){ clearTimeout(window.__bpDuelT); window.__bpDuelT=null; }
+        if(window.__bpDuelCd){ clearInterval(window.__bpDuelCd); window.__bpDuelCd=null; } }
       if(V.bpDuel&&window.__bpPredictNext){
-        const D=V.bpDuel, me=D.me==="2"?"2":"1";
+        const D=V.bpDuel, me=D.me==="2"?"2":(D.me==="0"?"0":"1");   // "0"＝雙方都系統
         const gi=(D.gi>=0&&S.g[D.gi])?D.gi:-1;
         const teamOK=!!(S.t1&&S.t2);
         const seq=gi>=0?seqOf(gi):null;
@@ -14318,7 +14324,7 @@ function render(){
         const lab=document.createElement("label"); lab.innerHTML="<b style='color:var(--gold)'>⚔ "+(LANG==="en"?"Duel":"對決")+"</b>";
         // 我方＝隊A／隊B：兩顆分段鈕（作用中＝金框，跟「⏵ 自動」同一套慣例），不用下拉
         const seg=document.createElement("span"); seg.style.cssText="display:inline-flex;gap:4px";
-        [["1",nameOfSide("1")],["2",nameOfSide("2")]].forEach(([v,t])=>{ const b=mk((LANG==="en"?"I play ":"我方 ")+t,LANG==="en"?"Which side you draft for":"你打哪一邊（另一邊由系統扮演）"); b.id="bpDuelMe"+v;
+        [["1",(LANG==="en"?"I play ":"我方 ")+nameOfSide("1")],["2",(LANG==="en"?"I play ":"我方 ")+nameOfSide("2")],["0",LANG==="en"?"Both by system":"雙方都系統"]].forEach(([v,t])=>{ const b=mk(t,LANG==="en"?"Which side you draft for (or let the system play both)":"你打哪一邊（另一邊由系統扮演）；「雙方都系統」＝整局自己跑"); b.id="bpDuelMe"+v;
           if(v===me){ b.style.borderColor="var(--gold)"; b.style.color="var(--gold)"; }
           b.onclick=()=>{ if(D.me===v)return; D.me=v; saveState(); rerender(); }; seg.appendChild(b); });
         const st=document.createElement("span"); st.id="bpDuelSt"; st.style.cssText="flex:1;min-width:200px;font-size:15px";
@@ -14336,21 +14342,40 @@ function render(){
         else { const [kd,sd]=seq[k]; aiTurn=sd!==me;
           status=(LANG==="en"?("Turn "+(k+1)+": "):("第 "+(k+1)+" 手："))+nameOfSide(sd)+(kd==="b"?(LANG==="en"?" ban":" 禁用"):(LANG==="en"?" pick":" 選角"))
             +"（"+(aiTurn?(LANG==="en"?"system":"系統"):(LANG==="en"?"you":"你"))+"）"
-            +(aiTurn?(LANG==="en"?"　→ press Next":"　→ 按「下一步」"):(LANG==="en"?"　→ click a champion in the pool":"　→ 點角色池的英雄"));
+            +(aiTurn?(LANG==="en"?"　→ auto in <b id='bpDuelCd'>5</b>s (Next = now)":"　→ <b id='bpDuelCd'>5</b> 秒後自動出手（按「下一步」立刻）")
+                    :(LANG==="en"?"　→ click a champion in the pool":"　→ 點角色池的英雄"));
           if(D.last&&D.last.gi===gi&&D.last.k===k-1) status+="　<span style='color:var(--tx2)'>"+(LANG==="en"?"system just took ":"系統剛出：")+(D.last.zh||D.last.ch)+(D.last.pr!=null?" ("+Math.round(D.last.pr*100)+"%)":"")+"</span>"; }
         st.innerHTML=status;
         bStart.disabled=!teamOK;
+        // ▶ 開始＝**新開一局模擬局**（使用者 2026-09-15：「按開始後要幫我開模擬局」），不清現有的局。
+        //   全局(Fearless)模式滿 5 局不能再加（跟 + 鈕同一條規矩）→ 退回清掉第一個沒填完的局（都填滿就清最後一局）。
         bStart.onclick=()=>{ if(window._bsLiveOn){ st.textContent=LANG==="en"?"Stop live sync first":"直播同步中不能對決，先停止同步"; return; }
-          let cg=-1; for(let i=0;i<S.n;i++){ const g=S.g[i]; if([...g.b1,...g.b2,...g.p1,...g.p2].some(x=>!x)){cg=i;break;} }
-          if(cg<0)cg=S.n-1;
-          S.g[cg]=EMPTY(); D.gi=cg; D.last=null; V.bpAuto=true; saveState(); rerender(); };
-        bNext.disabled=!aiTurn;
-        bNext.onclick=()=>{ if(window._bsLiveOn){ st.textContent=LANG==="en"?"Stop live sync first":"直播同步中不能對決，先停止同步"; return; }
+          const capped=((V.bpMode||"global")==="global"&&S.n>=5)||S.n>=20;
+          if(capped){ let cg=-1; for(let i=0;i<S.n;i++){ const g=S.g[i]; if([...g.b1,...g.b2,...g.p1,...g.p2].some(x=>!x)){cg=i;break;} }
+            if(cg<0)cg=S.n-1; S.g[cg]=EMPTY(); D.gi=cg; }
+          else { S.g.push(EMPTY()); S.fp.push(S.n?S.fp[S.n-1]:1); S.side.push(0); S.meta.push({id:++S.uid,src:null}); S.tm.push(null); S.n++; D.gi=S.n-1; }
+          D.last=null; V.bpAuto=true; saveState(); rerender(); };
+        // 系統出手（下一步立刻、或計時到）：出手前再驗一次「還是同一局、同一手」，重畫過程中被搶先就放棄
+        const aiMove=()=>{ if(window._bsLiveOn){ st.textContent=LANG==="en"?"Stop live sync first":"直播同步中不能對決，先停止同步"; return; }
+          if(!V.bpDuel||V.bpDuel.gi!==gi||!S.g[gi])return;
+          const k2=seqOf(gi).findIndex(([kd,sd,i])=>!S.g[gi][kd+sd][i]); if(k2!==k)return;
           const [kd,sd,i]=seq[k];
           const r=window.__bpPredictNext(gi,k); const c=r&&r.cands&&r.cands[0];
           if(!c||!c.raw){ st.textContent=(LANG==="en"?"No candidate for this turn":"系統這一手沒有候選")+(r&&r.error?("："+r.error):(LANG==="en"?" (pool too thin?)":"（角色池太薄？）")); return; }
           const gm=S.g[gi]; if([...gm.b1,...gm.b2,...gm.p1,...gm.p2].includes(c.raw)){ st.textContent=(LANG==="en"?"Predicted champion already on board: ":"預測的英雄已在盤面上：")+c.raw; return; }
           gm[kd+sd][i]=c.raw; D.last={gi,k,ch:c.raw,zh:c.zh,pr:c.pr}; saveState(); rerender(); };
+        bNext.disabled=!aiTurn;
+        bNext.onclick=()=>{ if(window.__bpDuelT){ clearTimeout(window.__bpDuelT); window.__bpDuelT=null; } aiMove(); };
+        // 輪到系統：5 秒後自動出手（window.__bpDuelDelayMs 可調，測試用）。切到別的分頁就不動作，回來重畫會重排。
+        if(aiTurn){
+          const delay=(typeof window.__bpDuelDelayMs==="number")?window.__bpDuelDelayMs:5000, due=Date.now()+delay;
+          window.__bpDuelT=setTimeout(()=>{ window.__bpDuelT=null;
+            if(typeof curView!=="undefined"&&curView!=="模擬BP")return;
+            if(!document.getElementById("bpDuelBox"))return;
+            aiMove(); },delay);
+          window.__bpDuelCd=setInterval(()=>{ const el=document.getElementById("bpDuelCd"); if(!el){ clearInterval(window.__bpDuelCd); window.__bpDuelCd=null; return; }
+            el.textContent=String(Math.max(0,Math.ceil((due-Date.now())/1000))); },250);
+        }
         bEnd.onclick=()=>{ V.bpDuel=null; saveState(); render(); };
         box.append(lab,seg,st,bStart,bNext,bEnd);
         wrap.parentNode.insertBefore(box,wrap);   // 放在盤面容器外面（見上面的註解）
@@ -14852,16 +14877,9 @@ function render(){
         sb.disabled=false; sb.textContent="📸";
       };
       fr.parentNode.insertBefore(sb,fr);
-      // 自動模式：左鍵點角色池英雄 → 依選角順序自動填入下一格（左鍵拖曳仍可放任意格）
-      // 單顆切換鈕（2026-08-05 使用者：跟近期積分同款）：鈕面「⏵ 自動」，黃邊＝開啟中
-      const _abTtl="自動模式（預設開啟）：左鍵點角色池英雄自動填入待填格（發光處），左鍵拖曳仍可自由放格｜點擊切換開關";
-      const ab=document.createElement("button");
-      ab.id="bpAutoBtn"; ab.className="pgbtn"; ab.style.order="63"; ab.title=_abTtl;
-      const _abPaint=()=>{ ab.textContent=LANG==="en"?"⏵ Auto":"⏵ 自動";
-        ab.style.borderColor=V.bpAuto?"var(--gold)":""; ab.style.color=V.bpAuto?"var(--gold)":""; };
-      _abPaint();
-      ab.onclick=()=>{ V.bpAuto=!V.bpAuto; saveState(); _abPaint(); rerender(); };
-      fr.parentNode.insertBefore(ab,sb);
+      // 自動模式**永遠開啟**（使用者 2026-09-15：「把模擬BP的自動按鈕刪掉，全部套用自動功能」）：
+      // 左鍵點角色池英雄 → 依選角順序填入待填格（發光處），左鍵拖曳仍可自由放格。開關鈕已拿掉。
+      V.bpAuto=true;
       // ⚔ 對決（2026-09-15 使用者定案）：系統扮演對面那支戰隊跟你 BP。第一期**本機限定**——
       // 預測引擎在 bp_live_ui.js（不發布），公開版載不到就沒有這顆鈕、一個位元不變。
       if(window.__bpPredictNext){
@@ -14871,7 +14889,7 @@ function render(){
         const _dbPaint=()=>{ db.textContent=LANG==="en"?"⚔ Duel":"⚔ 對決";
           db.style.borderColor=V.bpDuel?"var(--gold)":""; db.style.color=V.bpDuel?"var(--gold)":""; };
         _dbPaint();
-        db.onclick=()=>{ V.bpDuel=V.bpDuel?null:{me:"1",gi:-1}; if(V.bpDuel)V.bpAuto=true; saveState(); _dbPaint(); _abPaint(); rerender(); };
+        db.onclick=()=>{ V.bpDuel=V.bpDuel?null:{me:"1",gi:-1}; saveState(); _dbPaint(); rerender(); };
         fr.parentNode.insertBefore(db,sb);
       }
       // ↩ 返回上一步已移除：改用篩選列右側「全域返回鍵」(navBack，會還原 bpSim)
