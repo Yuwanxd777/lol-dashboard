@@ -36,7 +36,7 @@ BOARD = """() => { const g = V.bpSim.g[(V.bpDuel && V.bpDuel.gi >= 0) ? V.bpDuel
   return { b1: g.b1, b2: g.b2, p1: g.p1, p2: g.p2,
            filled: [...g.b1, ...g.b2, ...g.p1, ...g.p2].filter(x => !!x).length,
            st: (document.getElementById('bpDuelSt') || {}).textContent || '',
-           nextOff: !!(document.querySelector('#bpDuelBox button:nth-of-type(2)') || {}).disabled,
+           nextOff: !!(document.getElementById('bpDuelNext') || {}).disabled,
            gi: V.bpDuel ? V.bpDuel.gi : -9 }; }"""
 SEQ = """(gi) => { const S = V.bpSim; const F=(S.fp[gi]||0)===0?"1":"2", L=F==="1"?"2":"1";
   return [["b",F,0],["b",L,0],["b",F,1],["b",L,1],["b",F,2],["b",L,2],
@@ -80,8 +80,8 @@ with sync_playwright() as pw:
     pg.evaluate("() => { V.bpSim.t2 = ''; saveState(); render(); }")
     pg.wait_for_timeout(500)
     pg.click("#bpDuelBtn"); pg.wait_for_timeout(500)
-    r = pg.evaluate("""() => { const bs = document.querySelectorAll('#bpDuelBox button');
-      return { box: !!document.getElementById('bpDuelBox'), startOff: bs[0] ? bs[0].disabled : null,
+    r = pg.evaluate("""() => { const b0 = document.getElementById('bpDuelStart');
+      return { box: !!document.getElementById('bpDuelBox'), startOff: b0 ? b0.disabled : null,
                st: (document.getElementById('bpDuelSt')||{}).textContent || '' }; }""")
     ok(r["box"], "按 ⚔ → 面板出現")
     ok(r["startOff"] is True and "戰隊" in r["st"], "沒選好兩隊 →「開始」灰、狀態提示先選戰隊", r["st"][:40])
@@ -89,7 +89,7 @@ with sync_playwright() as pw:
     pg.wait_for_timeout(500)
 
     print("\n④⑤ 對決流程：系統照預測第 1 名出手、輪到我要我點、20 手後結算")
-    pg.click("#bpDuelBox button:nth-of-type(1)")   # ▶ 開始
+    pg.click("#bpDuelStart")   # ▶ 開始
     pg.wait_for_timeout(600)
     r = pg.evaluate(BOARD)
     ok(r["gi"] == 0 and r["filled"] == 0 and "第 1 手" in r["st"], "開始：清空第 1 局、狀態寫第 1 手", r["st"][:40])
@@ -108,7 +108,7 @@ with sync_playwright() as pw:
             before = pg.evaluate(BOARD)
             pg.wait_for_timeout(250)
             ok(pg.evaluate(BOARD)["filled"] == k, "第 %d 手：沒按下一步盤面不動" % (k + 1)) if k < 3 else None
-            pg.click("#bpDuelBox button:nth-of-type(2)")   # ⏭ 下一步
+            pg.click("#bpDuelNext")   # ⏭ 下一步
             pg.wait_for_timeout(500)
             after = pg.evaluate(BOARD)
             cell = after[kd + sd][i]
@@ -147,15 +147,15 @@ with sync_playwright() as pw:
     ok(sc >= 2, "結算裡有兩個評分數字", str(sc))
 
     print("\n⑥ 護欄")
-    pg.click("#bpDuelBox button:nth-of-type(1)"); pg.wait_for_timeout(500)   # 重新開始（第 1 手輪到先選方＝我）
-    pg.evaluate("() => { V.bpDuel.me = '2'; saveState(); render(); }")        # 換成我打隊B → 第 1 手輪到系統（rerender 不是全域，用 render）
-    pg.wait_for_timeout(400)
+    pg.click("#bpDuelStart"); pg.wait_for_timeout(500)   # 重新開始（第 1 手輪到先選方＝我）
+    pg.click("#bpDuelMe2"); pg.wait_for_timeout(500)      # 換成我打隊B（分段鈕）→ 第 1 手輪到系統
+    ok(pg.evaluate("() => V.bpDuel && V.bpDuel.me") == "2", "分段鈕切換我方 → 狀態記住")
     pg.evaluate("() => { window._bsLiveOn = true; }")
-    pg.click("#bpDuelBox button:nth-of-type(2)"); pg.wait_for_timeout(400)
+    pg.click("#bpDuelNext"); pg.wait_for_timeout(400)
     r = pg.evaluate(BOARD)
     ok(r["filled"] == 0 and "直播同步" in r["st"], "直播同步中按下一步 → 拒絕、盤面不動", r["st"][:40])
     pg.evaluate("() => { window._bsLiveOn = false; }")
-    pg.click("#bpDuelBox button:nth-of-type(3)"); pg.wait_for_timeout(500)   # ✕ 結束
+    pg.click("#bpDuelEnd"); pg.wait_for_timeout(500)   # ✕ 結束
     ok(pg.query_selector("#bpDuelBox") is None and pg.evaluate("() => V.bpDuel") is None, "結束 → 面板收起、狀態清掉")
     # 公開版＝根本載不到 bp_live_ui.js（不是執行中把函式刪掉——分頁 DOM 有快取，那樣驗不出來）：
     # 擋掉那支檔重新載頁，模擬BP 分頁不可以有 ⚔ 鈕、也不可以有面板。

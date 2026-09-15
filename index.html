@@ -14310,17 +14310,21 @@ function render(){
         const seq=gi>=0?seqOf(gi):null;
         const k=seq?seq.findIndex(([kd,sd,i])=>!S.g[gi][kd+sd][i]):-1;
         const nameOfSide=sd=>sd==="1"?(S.t1||(LANG==="en"?"Team A":"隊A")):(S.t2||(LANG==="en"?"Team B":"隊B"));
-        const box=document.createElement("div"); box.id="bpDuelBox";
-        box.style.cssText="margin:4px 0 8px;padding:7px 10px;border:1px solid var(--gold);border-radius:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:13px;background:rgba(245,185,66,.06)";
-        const mk=(t,ttl)=>{ const b=document.createElement("button"); b.className="pgbtn"; b.style.height="26px"; b.textContent=t; if(ttl)b.title=ttl; return b; };
-        const lab=document.createElement("span"); lab.innerHTML="<b style='color:var(--gold)'>⚔ "+(LANG==="en"?"Duel":"對決")+"</b>";
-        const sel=document.createElement("select"); sel.className="sel"; sel.style.height="26px";
-        [["1",(LANG==="en"?"I play ":"我方＝")+nameOfSide("1")],["2",(LANG==="en"?"I play ":"我方＝")+nameOfSide("2")]].forEach(([v,t])=>{ const o=document.createElement("option"); o.value=v; o.textContent=t; if(v===me)o.selected=true; sel.appendChild(o); });
-        sel.onchange=()=>{ D.me=sel.value; saveState(); rerender(); };
-        const st=document.createElement("span"); st.id="bpDuelSt"; st.style.cssText="flex:1;min-width:200px";
-        const bStart=mk(LANG==="en"?"▶ Start":"▶ 開始",LANG==="en"?"Clear the current game and start from ban 1":"清空目前這一局，從第 1 手開始（只清這一局，前幾局不動）");
-        const bNext=mk(LANG==="en"?"⏭ Next":"⏭ 下一步",LANG==="en"?"Let the system make its move":"輪到系統時按這裡，它才出手");
-        const bEnd=mk(LANG==="en"?"✕ End":"✕ 結束","");
+        // 版型跟篩選列同一套（class="filters"：30px 鈕、15px 標籤、置中對齊）。2026-09-15 使用者回報
+        // 「文字跟按鈕框沒對齊」：原本自己硬寫 26px／13px 與 .sel 下拉，跟篩選列不是同一套才會歪。
+        const box=document.createElement("div"); box.id="bpDuelBox"; box.className="filters";
+        box.style.cssText="margin:6px 0 8px;border-color:var(--gold);background:rgba(245,185,66,.06)";
+        const mk=(t,ttl)=>{ const b=document.createElement("button"); b.className="pgbtn"; b.textContent=t; if(ttl)b.title=ttl; return b; };
+        const lab=document.createElement("label"); lab.innerHTML="<b style='color:var(--gold)'>⚔ "+(LANG==="en"?"Duel":"對決")+"</b>";
+        // 我方＝隊A／隊B：兩顆分段鈕（作用中＝金框，跟「⏵ 自動」同一套慣例），不用下拉
+        const seg=document.createElement("span"); seg.style.cssText="display:inline-flex;gap:4px";
+        [["1",nameOfSide("1")],["2",nameOfSide("2")]].forEach(([v,t])=>{ const b=mk((LANG==="en"?"I play ":"我方 ")+t,LANG==="en"?"Which side you draft for":"你打哪一邊（另一邊由系統扮演）"); b.id="bpDuelMe"+v;
+          if(v===me){ b.style.borderColor="var(--gold)"; b.style.color="var(--gold)"; }
+          b.onclick=()=>{ if(D.me===v)return; D.me=v; saveState(); rerender(); }; seg.appendChild(b); });
+        const st=document.createElement("span"); st.id="bpDuelSt"; st.style.cssText="flex:1;min-width:200px;font-size:15px";
+        const bStart=mk(LANG==="en"?"▶ Start":"▶ 開始",LANG==="en"?"Clear the current game and start from ban 1":"清空目前這一局，從第 1 手開始（只清這一局，前幾局不動）"); bStart.id="bpDuelStart";
+        const bNext=mk(LANG==="en"?"⏭ Next":"⏭ 下一步",LANG==="en"?"Let the system make its move":"輪到系統時按這裡，它才出手"); bNext.id="bpDuelNext";
+        const bEnd=mk(LANG==="en"?"✕ End":"✕ 結束",""); bEnd.id="bpDuelEnd";
         let status=""; let aiTurn=false;
         if(!teamOK) status=LANG==="en"?"Pick both teams above first (the system drafts from the real team's pool and habits)":"先在上方選好兩支戰隊（系統照真實戰隊的角色池與習慣出手）";
         else if(gi<0) status=LANG==="en"?"Press Start: clears this game and begins at ban 1":"按「開始」：清空目前這一局，從第 1 手開始";
@@ -14348,7 +14352,7 @@ function render(){
           const gm=S.g[gi]; if([...gm.b1,...gm.b2,...gm.p1,...gm.p2].includes(c.raw)){ st.textContent=(LANG==="en"?"Predicted champion already on board: ":"預測的英雄已在盤面上：")+c.raw; return; }
           gm[kd+sd][i]=c.raw; D.last={gi,k,ch:c.raw,zh:c.zh,pr:c.pr}; saveState(); rerender(); };
         bEnd.onclick=()=>{ V.bpDuel=null; saveState(); render(); };
-        box.append(lab,sel,st,bStart,bNext,bEnd);
+        box.append(lab,seg,st,bStart,bNext,bEnd);
         wrap.parentNode.insertBefore(box,wrap);   // 放在盤面容器外面（見上面的註解）
       }
       const applyDrop=(sl,d)=>{ // 共用放置邏輯（HTML5 拖放）
