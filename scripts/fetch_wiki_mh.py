@@ -142,15 +142,26 @@ def ov_of(tour):
     return f"{m.group(1)}/{m.group(2)} Season/{m.group(3)}" if m else str(tour or "")
 
 
-def pb_page(tour, force=False):
+def pb_cache_path(tour):
+    """PB 頁的磁碟快取路徑（每次呼叫才用 PB_DIR 組，沙盒接管 PB_DIR 就跟著走）。"""
+    return os.path.join(PB_DIR, re.sub(r"[^A-Za-z0-9]+", "_", tour).strip("_").lower() + ".html")
+
+
+def pb_cache_mtime(tour):
+    """快取有效（存在且 >5000B，跟 pb_page 的判準同一條）→ mtime；沒有 → None。"""
+    p = pb_cache_path(tour)
+    return os.path.getmtime(p) if os.path.exists(p) and os.path.getsize(p) > 5000 else None
+
+
+def pb_page(tour, force=False, tries=3):
     os.makedirs(PB_DIR, exist_ok=True)
-    p = os.path.join(PB_DIR, re.sub(r"[^A-Za-z0-9]+", "_", tour).strip("_").lower() + ".html")
+    p = pb_cache_path(tour)
     if os.path.exists(p) and os.path.getsize(p) > 5000 and not force:
         return open(p, encoding="utf-8").read()
     url = ("https://lol.fandom.com/api.php?action=parse&page="
            + urllib.parse.quote(ov_of(tour) + "/Picks and Bans")
            + "&prop=text&format=json&formatversion=2")
-    for a in range(3):
+    for a in range(tries):
         try:
             _throttle()
             raw = opener().open(urllib.request.Request(url, headers=UA), timeout=120).read().decode("utf-8", "replace")
@@ -160,22 +171,28 @@ def pb_page(tour, force=False):
                 print(f"    ⚠ Picks and Bans 頁不存在（{ov_of(tour)}）：{d['error'].get('info','')[:60]}")
                 return ""
             h = d["parse"]["text"]
+            # 2026-09-16 #131：強制重抓回來的頁若沒有 pbh-cn 表（wiki 暫時壞掉／版型改了），
+            # 不要把原本能用的快取蓋掉——回空讓呼叫端沿用手上那份，下一班再試。
+            if "pbh-cn" not in h and os.path.exists(p) and "pbh-cn" in open(p, encoding="utf-8").read():
+                print(f"    ⚠ Picks and Bans 頁重抓回來沒有 pbh-cn 表（{ov_of(tour)}）→ 保留快取")
+                return ""
             open(p, "w", encoding="utf-8").write(h)
             return h
         except Exception as e:
             _mark()
-            print(f"    Picks and Bans 抓取失敗（{a+1}/3）：{type(e).__name__} {str(e)[:60]}")
-            time.sleep(15 * (a + 1))
+            print(f"    Picks and Bans 抓取失敗（{a+1}/{tries}）：{type(e).__name__} {str(e)[:60]}")
+            if a + 1 < tries:                  # 最後一次失敗之後不必再睡
+                time.sleep(15 * (a + 1))
     return ""
 
 
-def pb_orders(tour, force=False):
+def pb_orders(tour, force=False, tries=3):
     """→ {十隻英雄的 frozenset: {"p":(隊1五手, 隊2五手), "b":(隊1五禁, 隊2五禁)}}
 
     用整局十隻英雄當鍵：同一局的英雄組合是固定的，跟隊名寫法、局號怎麼標都無關
     （merge_wiki 判定同一局也是用這招）。抓不到頁面就回 {}，呼叫端自行退回。
     """
-    html = pb_page(tour, force=force)
+    html = pb_page(tour, force=force, tries=tries)
     if not html:
         return {}
     tbl = [t for t in re.findall(r"<table[^>]*>.*?</table>", html, re.S) if "pbh-cn" in t]

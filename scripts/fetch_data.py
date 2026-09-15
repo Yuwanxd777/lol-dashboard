@@ -11,7 +11,7 @@ LOL 儀表板資料抓取 v2 — 直接從 Oracle's Elixir 官方 S3 下載並�
 輸出：data_{年}.js（各年 RAW_DATA）＋ data.js（年份清單 manifest）
 """
 import collections, csv, io, json, os, re, sys, urllib.request
-from datetime import datetime
+from datetime import datetime, timezone
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # 專案根目錄（本腳本在 scripts\ 內）
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))  # 同目錄的 data_cols
@@ -1071,6 +1071,9 @@ def fix_teamrow_side_wiki(table, year):
     return table
 
 
+PB_REFRESH_GRACE_D = 3   # 對不上的局：PB 頁快取早於「那局日期＋N 天」才重抓（見 fix_draft_wiki）
+
+
 def fix_draft_wiki(table, year):
     """選序殘缺的局用 Leaguepedia「Picks and Bans」頁整組修回（2026-08-05 使用者回報）。
 
@@ -1084,7 +1087,14 @@ def fix_draft_wiki(table, year):
     對不上寧可不動），picklist／兩邊 banlist（保留空槽）／firstPick（T1＝先選方）
     整組重寫＋po 重算。ban 的英雄未必上過場 → 顯示名用全表出現過的正名反查。
     只動 2026 起：老年份 3 禁年代 ban<5 是常態，逐年展開要先各自查證。
-    PB 頁有磁碟快取，修不到的局每次更新重試也不會重抓網路。
+    PB 頁有磁碟快取，修不到的局每次更新重試也不會重抓網路——**除非快取比那局還舊**：
+    2026-09-16 #131 LCS 2026-08-16 G2 每班「對不到十隻」，實情是 Summer Season 的 PB 頁快取寫於 08-09
+    （24 局），現況頁 64 局、那局在上面、ban 5+4 對得起來。快取一存在就永遠不重抓 ⇒ 快取寫入之後才打的
+    殘缺局（進行中的賽段每一局都是）永遠修不到，「下次更新會再試」其實是讀同一份舊快取。
+    現在對不上時，若快取 mtime 早於「那局日期＋PB_REFRESH_GRACE_D 天」且不是這一趟才抓的 ⇒ 該頁強制重抓
+    一次（每頁每趟最多一次、只試一次不退避）；抓失敗／回來沒有表 ⇒ 沿用快取那份。重抓後 mtime＝現在，
+    所以那局打完未滿寬限期的班次每班仍會重抓一次（wiki 常晚一兩天才補 PB 頁），快取寫入時間一過
+    「那局＋寬限」就不再觸發 ⇒ 真的修不到的局，每頁最多多花「寬限期內的班次數」個請求（3 天 ≈ 6 班）。
     """
     if int(year) < 2026:
         return table
@@ -1142,14 +1152,32 @@ def fix_draft_wiki(table, year):
         for v in slots(r[iBan]):
             if v.strip():
                 disp.setdefault(nk(v), v)
-    pbs, n = {}, 0
+    pbs, n, refreshed = {}, 0, set()
     for (lg, sp, d, g, _t), rs, blue5, red5, _had in broken:
         ov = (W.get(str(year), {}).get(str(lg), {}) or {}).get(sp)
         if not ov:
             print(f"  ⚠ 選序修補：{lg} {sp or '(無賽段)'} 查無 wiki 頁名 → 跳過"); continue
         if ov not in pbs:
+            if MH.pb_cache_mtime(ov) is None:
+                refreshed.add(ov)                  # 沒有快取 ⇒ 這一趟本來就打網路抓現況，不必再強制重抓
             pbs[ov] = MH.pb_orders(ov)
         od = MH.pb_of(pbs[ov], blue5, red5)
+        if not od and ov not in refreshed:
+            m = MH.pb_cache_mtime(ov)
+            try:
+                gd = datetime.strptime(str(d)[:10], "%Y-%m-%d").replace(tzinfo=timezone.utc).timestamp()
+            except ValueError:
+                gd = None
+            if m is not None and gd is not None and m < gd + PB_REFRESH_GRACE_D * 86400:
+                refreshed.add(ov)
+                old = pbs[ov]
+                fresh = MH.pb_orders(ov, force=True, tries=1)
+                if len(fresh) >= len(old):
+                    pbs[ov] = fresh
+                print(f"  選序修補：{lg} {str(d)[:10]} G{g} 對不上、PB 頁快取寫於 "
+                      f"{datetime.fromtimestamp(m).strftime('%m-%d %H:%M')}（早於這局＋{PB_REFRESH_GRACE_D} 天）"
+                      f"→ 重抓一次：{len(old)} → {len(fresh)} 局" + ("" if pbs[ov] is fresh else "（沒抓成，沿用快取）"))
+                od = MH.pb_of(pbs[ov], blue5, red5)
         if not od:
             # 只有「原本有部分 BP」才值得警告；整局沒 BP 的多半是剛打完、wiki 也還沒收錄（下次更新會再試）
             if _had:
