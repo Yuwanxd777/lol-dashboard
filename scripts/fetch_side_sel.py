@@ -15,12 +15,21 @@
   只有逐局欄位（前面的系列欄位被 rowspan 併掉）。
   → 所以**欄位一律用表頭位置定位，不能寫死偏移**；逐局列的第 0 格＝表頭的 Blue 欄。
 
+**主路徑（2026-09-15 線 3 #118 起）＝ Special:CargoExport 的 `MatchScheduleGame ⋈ MatchSchedule`**：
+  上面那張表本來就是 Cargo 模板渲染的（資料在 Data: 頁），MatchScheduleGame 直接有 Selection／
+  PickSelection／FirstSelection／FirstPick／Vod／VodPB／VodGameStart／MVP，⋈ MatchSchedule 拿
+  DateTime_UTC／Team1／Team2／MVP（系列）。41 頁 6 個請求 <10s（HTML 路徑 26s），每班都是現況
+  （HTML 路徑「打完的頁永遠吃快取」⇒ wiki 事後修正進不來），不必三輪隊名配對。
+  影子比對 `autopilot/_m117_sidesel_shadow.py`：2675 局全配到、逐欄最差 99.89%、差異全部有解釋。
+  HTML 路徑（下面 page_html／parse／run_html）保留作①Cargo 單頁查不到時的備援 ②`--html` ③`--year` 歷史回補。
+
 用法：
-  python scripts\\fetch_side_sel.py                 # 自動找 2026 有比賽的賽事頁
+  python scripts\\fetch_side_sel.py                 # 自動找 2026 有比賽的賽事頁（Cargo）
   python scripts\\fetch_side_sel.py --page "LCP/2026 Season/Split 3"   # 只抓指定頁
+  python scripts\\fetch_side_sel.py --html          # 整支退回 HTML 路徑
   python scripts\\fetch_side_sel.py --dump          # 只印不寫檔
 """
-import argparse, html as _html, io, json, os, re, sys, time, unicodedata, urllib.parse, urllib.request, threading
+import argparse, html as _html, io, json, os, re, sys, time, unicodedata, urllib.error, urllib.parse, urllib.request, threading
 
 if (getattr(sys.stdout, "encoding", "") or "").lower().replace("-", "") != "utf8":
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
@@ -476,25 +485,13 @@ def sched(ov):
         return []
 
 
-def main():
-    global YEAR, HIST
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--page", action="append", default=[], help="只抓指定 OverviewPage（可重複）")
-    ap.add_argument("--force", action="store_true", help="重抓所有頁面（不吃快取）")
-    ap.add_argument("--fresh-days", type=int, default=14,
-                    help="最近幾天內有比賽的賽事＝進行中，每次都重抓頁面（預設 14）")
-    ap.add_argument("--year", type=int, default=0,
-                    help="歷史回補：抓指定年份的 MVP/VOD → side_sel_YYYY.js（選邊欄位一律清空，"
-                         "舊制頁的 Side Sel 是模板渲染、不是 2026 新制資料）")
-    ap.add_argument("--dump", action="store_true", help="只印不寫檔")
-    ap.add_argument("--read-jobs", type=int, default=READ_JOBS,
-                    help="快取頁預讀的執行緒數（預設 %d；1＝退回循序）" % READ_JOBS)
-    A = ap.parse_args()
-    globals()["READ_JOBS"] = max(1, A.read_jobs)
-    if A.year and A.year < 2026:
-        YEAR, HIST = A.year, True
+def run_html(pages, A):
+    """HTML 路徑：逐頁 `api.php?action=parse` → parse() 表格 → 跟 MatchSchedule 三輪隊名配對。
 
-    pages = A.page or ov_pages()
+    2026-08-03～2026-09-15 這是唯一的路徑；#118 起主路徑換成 Cargo（見 run_cargo），這條降成
+    ①Cargo 單頁查不到時的備援 ②`--html` 整支退回 ③`--year` 歷史回補（舊制頁的 Cargo 欄位沒驗過）。
+    邏輯一個位元沒動，只是從 main() 搬出來。回 (allrec, hit)。
+    """
     # 進行中的賽事一律重抓（快取只服務已經打完的賽事）——不這樣做的話，賽段中途新打的局
     # 永遠不會進 side_sel.js，因為那一頁第一次抓完就一直吃快取。
     # 歷史回補：賽季早就打完，全部吃快取（live=空集合＝一頁都不用強制重抓）。
@@ -628,6 +625,198 @@ def main():
                                "vod": g.get("vod") or "", "vodk": g.get("vodk") or ""})
                 n += 1
         print(f"  ✓ {ov}：{len(sers)} 場 / {n} 局")
+    return allrec, hit
+
+
+# ── Cargo 主路徑（2026-09-15 線 3 #118；#116 探針找到欄位、#117 影子比對 2675 局驗過）──────────
+# 為什麼換：HTML 路徑一班 26s——「進行中」6 頁單執行緒 × GAP 3.0s 節流是地板、45 頁快取 25MB 解析、
+# 三輪隊名配對；而且**打完的頁永遠不再重抓** ⇒ wiki 事後修正進不來（LCP Split 2 Playoffs 06-07 TSW vs DCG
+# G1 的 1st Sel／Pick Sel 在快取裡是舊值，#117 抓到的）。Cargo 的 MatchScheduleGame 本來就有
+# Selection／PickSelection／FirstSelection／FirstPick／Vod*／MVP，⋈ MatchSchedule 拿日期／兩隊／系列 MVP，
+# 41 頁 6 個請求 <10s，每班都是現況、不必配對（d/t1/t2 本來就取自 MatchSchedule）。
+# 欄位語意（#116 探針二對出、#117 逐欄 ≥99.89%）：ss＝'b' 若 Selection==Blue／'r' 若 ==Red／空＝沒打不收；
+# pc＝0 若 PickSelection 空、1 若 FirstPick==PickSelection（拿到選先的隊選了先選）、否則 2；
+# fs/ps＝FirstSelection/PickSelection（全名；前端只做 r.fs===r.ps，不必轉短名）；vod＝VodPB→VodGameStart→Vod；
+# mvp＝G.MVP（逐局 POG）；mvpm＝MS.MVP（系列 POM，只掛該系列第一個收到的局）。
+# 三條正規化：字串 html.unescape（VOD 網址的 & 存成 &amp;）；MVP 剝「(本名)」後綴；'N/A'／'None'／'TBD' 當空。
+# ⚠ 這幾個常數刻意放模組層、值在呼叫時才讀，沙盒（fetch_side_sel_cargo_test）要調得動。
+CARGO_LIMIT = 2000     # CargoExport 單次上限（fetch_wiki_stats.PAGE 同值）；回滿就當截斷、切半重問（不用 offset 翻頁，同 _sched_rows）
+CARGO_CHUNK = 8        # 一次問幾個賽事頁（跟 sched_prefetch 同值；41 頁 ⇒ 6 個請求）
+CARGO_GAP = 0.5        # 兩次 CargoExport 之間的最小間隔（sched_prefetch 連發 6 次從沒被擋；#117 隔 3s 也沒事）
+CARGO_MAX_FAIL = 6     # 連續失敗（HTTP 錯／非 JSON／例外）這麼多次就放棄 Cargo，剩下的頁全走 HTML 備援（別把站掛了時的切半變成 90 個請求）。
+                       # ⚠ 要 > 5：**一個壞頁**在切半路上最多造成 8→4→2→1→重試 5 次連續失敗（它一直在前半時），5 就會把整支誤判成站掛了
+                       #   ⇒ 其餘 40 頁全退 HTML（沙盒第一版用 4 就是這樣紅的）。6 次＝真的連壞頁都不是同一個在作怪。
+CARGO_BACKOFF = 5.0    # 403／429／5xx／非 JSON 之後睡多久再問下一個
+CARGO_TIMEOUT = 60
+CARGO_FIELDS = ("G.OverviewPage=ov,G.MatchId=mid,G.N_GameInMatch=ng,G._ID=gid,G.Blue=blue,G.Red=red,"
+                "G.Selection=sel,G.PickSelection=psel,G.FirstSelection=fsel,G.FirstPick=fp,"
+                "G.Vod=vod,G.VodPB=vodpb,G.VodGameStart=vodst,G.MVP=mvp,"
+                "MS.DateTime_UTC=dt,MS.Team1=t1,MS.Team2=t2,MS.MVP=mvpm")
+CSTAT = {"req": 0, "sec": 0.0, "fail": 0, "streak": 0, "trunc": 0}
+_CLAST = [0.0]         # 上一次送出 CargoExport 的時刻
+
+
+def _cs(v):
+    """Cargo 字串正規化：unescape、去空白、'N/A'／'None'／'TBD' 當空（parse() 對 MVP 本來就這樣）。"""
+    s = _html.unescape(v).strip() if isinstance(v, str) else ("" if v is None else str(v).strip())
+    return "" if s.lower() in ("n/a", "none", "tbd") else s
+
+
+def _nopar(v):
+    """MVP 欄剝掉消歧義後綴：'Doran (Choi Hyeon-joon)' → 'Doran'（wiki 頁面顯示的就是短的那個）。"""
+    return _cs(re.sub(r"\s*\([^)]*\)\s*$", "", _cs(v)))
+
+
+def _cargo_rows(ovs):
+    """一次查多個賽事頁的 MatchScheduleGame⋈MatchSchedule。回 None＝這次不可信（HTTP 錯／非 JSON／撞上限），
+    呼叫端切半重問；連續失敗達 CARGO_MAX_FAIL 之後不再送請求（直接回 None）。"""
+    if CSTAT["streak"] >= CARGO_MAX_FAIL:
+        return None
+    inlist = ",".join('"%s"' % str(o).replace('"', "") for o in ovs)
+    p = {"tables": "MatchScheduleGame=G,MatchSchedule=MS", "join_on": "G.MatchId=MS.MatchId",
+         "fields": CARGO_FIELDS, "where": "G.OverviewPage IN (%s)" % inlist,
+         "order_by": "G.OverviewPage,G._ID", "format": "json", "limit": str(CARGO_LIMIT)}
+    url = WS.FORM + "?" + urllib.parse.urlencode(p)
+    w = CARGO_GAP - (time.time() - _CLAST[0])
+    if _CLAST[0] and w > 0:
+        time.sleep(w)
+    t0, rows, why, back = time.time(), None, "", False
+    try:
+        raw = WS.opener().open(urllib.request.Request(url, headers=WS.UA), timeout=CARGO_TIMEOUT).read().decode("utf-8", "replace")
+        if raw.lstrip()[:1] in "[{":
+            rows = json.loads(raw)
+        else:
+            why, back = "回應不是 JSON：" + raw[:80].replace("\n", " "), True
+    except urllib.error.HTTPError as e:
+        why, back = "HTTP %s" % e.code, (e.code in (403, 429) or e.code >= 500)
+    except Exception as e:
+        why = type(e).__name__
+    finally:
+        _CLAST[0] = time.time(); CSTAT["req"] += 1; CSTAT["sec"] += time.time() - t0
+    if rows is None:
+        CSTAT["fail"] += 1; CSTAT["streak"] += 1
+        print("    ✗ Cargo 選邊查詢失敗（%d 頁，連續第 %d 次）：%s" % (len(ovs), CSTAT["streak"], why))
+        if back and CSTAT["streak"] < CARGO_MAX_FAIL and CARGO_BACKOFF > 0:
+            time.sleep(CARGO_BACKOFF)
+        return None
+    CSTAT["streak"] = 0
+    if len(rows) >= CARGO_LIMIT:
+        CSTAT["trunc"] += 1
+        return None
+    return rows
+
+
+def _cargo_fill(ovs, out):
+    """遞迴填 out[ov] = rows：查得動就填，失敗／撞上限就切一半再問；切到剩一頁再試一次，還是不行就
+    out[ov] = None（⇒ run_cargo 把那一頁交給 HTML 備援，寧可慢不要漏）。"""
+    rows = _cargo_rows(ovs)
+    if rows is None and len(ovs) == 1:
+        rows = _cargo_rows(ovs)
+    if rows is None:
+        if len(ovs) > 1:
+            m = len(ovs) // 2
+            _cargo_fill(ovs[:m], out)
+            _cargo_fill(ovs[m:], out)
+        else:
+            out[ovs[0]] = None
+        return
+    for o in ovs:
+        out.setdefault(o, [])
+    for r in rows:
+        out.setdefault(r.get("ov") or "", []).append(r)
+
+
+def cargo_records(ov, rows):
+    """Cargo 列 → side_sel 紀錄（同一頁照 G._ID 排＝頁面順序）。回 (紀錄, 系列數)。"""
+    def _gid(r):
+        try:
+            return int(r.get("gid") or 0)
+        except Exception:
+            return 0
+    rows = sorted(rows, key=_gid)
+    # mg/mm＝**這個賽事頁**有沒有發 POG/POM（評分率的分母要用可獲得數；HTML 路徑同一個定義）
+    hasG = any(_nopar(r.get("mvp")) for r in rows)
+    hasM = any(_nopar(r.get("mvpm")) for r in rows)
+    out, seen = [], set()
+    for r in rows:
+        sel, bl, rd = _cs(r.get("sel")), _cs(r.get("blue")), _cs(r.get("red"))
+        ss = "b" if (sel and sel == bl) else ("r" if (sel and sel == rd) else "")
+        if not ss:
+            continue          # 還沒打（TBD）或沒記選邊——HTML 路徑同樣不收（#117：Cargo 多的 85 列全是這種）
+        try:
+            gi = int(r.get("ng") or 0)
+        except Exception:
+            gi = 0
+        psel, fsel, fp = _cs(r.get("psel")), _cs(r.get("fsel")), _cs(r.get("fp"))
+        pc = 0 if not psel else (1 if fp == psel else 2)
+        vod, vk = "", ""
+        for k, v in (("vodpb", "pb"), ("vodst", "start"), ("vod", "vod")):
+            u = _cs(r.get(k))
+            if u:
+                vod, vk = u, v
+                break
+        mid = r.get("mid") or (str(r.get("dt") or "")[:10], r.get("t1"), r.get("t2"))
+        mvpm = _nopar(r.get("mvpm")) if mid not in seen else ""   # 系列 POM 只掛該系列第一個收到的局（HTML 路徑的 first 旗標）
+        seen.add(mid)
+        out.append({"d": str(r.get("dt") or "")[:10], "t1": _cs(r.get("t1")), "t2": _cs(r.get("t2")),
+                    "gi": gi, "ss": ss, "blue": bl, "red": rd, "pc": pc, "fs": fsel, "ps": psel, "ov": ov,
+                    "mvp": _nopar(r.get("mvp")), "mvpm": mvpm,
+                    "mg": 1 if hasG else 0, "mm": 1 if hasM else 0, "vod": vod, "vodk": vk})
+    return out, len(seen)
+
+
+def run_cargo(pages):
+    """Cargo 主路徑。回 (allrec, hit, 要走 HTML 備援的頁)。"""
+    t0, out = time.time(), {}
+    for i in range(0, len(pages), CARGO_CHUNK):
+        _cargo_fill(pages[i:i + CARGO_CHUNK], out)
+    allrec, hit, fb = [], 0, []
+    for ov in pages:
+        rows = out.get(ov)
+        if rows is None:
+            fb.append(ov)
+            continue
+        recs, ns = cargo_records(ov, rows)
+        if not recs:
+            continue          # 這一頁還沒有任何已打的局 ⇒ 不收；全量跑時下面的「舊檔沿用」會保住上一次的
+        hit += 1
+        allrec += recs
+        print(f"  ✓ {ov}：{ns} 場 / {len(recs)} 局")
+    print("  Cargo 選邊：%d 頁 %d 局、%d 個請求 %.1fs（失敗 %d、撞上限 %d、備援 %d 頁）"
+          % (hit, len(allrec), CSTAT["req"], time.time() - t0, CSTAT["fail"], CSTAT["trunc"], len(fb)))
+    return allrec, hit, fb
+
+
+def main():
+    global YEAR, HIST
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--page", action="append", default=[], help="只抓指定 OverviewPage（可重複）")
+    ap.add_argument("--force", action="store_true", help="重抓所有頁面（不吃快取；只影響 HTML 路徑）")
+    ap.add_argument("--fresh-days", type=int, default=14,
+                    help="最近幾天內有比賽的賽事＝進行中，每次都重抓頁面（預設 14；只影響 HTML 路徑）")
+    ap.add_argument("--year", type=int, default=0,
+                    help="歷史回補：抓指定年份的 MVP/VOD → side_sel_YYYY.js（選邊欄位一律清空，"
+                         "舊制頁的 Side Sel 是模板渲染、不是 2026 新制資料；一律走 HTML 路徑）")
+    ap.add_argument("--html", action="store_true",
+                    help="整支退回 HTML 路徑（api.php?action=parse 逐頁解析＋賽程配對）；預設走 Cargo（#118）")
+    ap.add_argument("--dump", action="store_true", help="只印不寫檔")
+    ap.add_argument("--read-jobs", type=int, default=READ_JOBS,
+                    help="快取頁預讀的執行緒數（預設 %d；1＝退回循序）" % READ_JOBS)
+    A = ap.parse_args()
+    globals()["READ_JOBS"] = max(1, A.read_jobs)
+    if A.year and A.year < 2026:
+        YEAR, HIST = A.year, True
+
+    pages = A.page or ov_pages()
+    if HIST or A.html:
+        allrec, hit = run_html(pages, A)
+    else:
+        allrec, hit, fb = run_cargo(pages)
+        if fb:
+            print("  ↪ Cargo 查不到 %d 頁 → 走 HTML 備援：%s" % (len(fb), "、".join(fb)))
+            r2, h2 = run_html(fb, A)
+            allrec += r2
+            hit += h2
     print(f"有選邊權欄位的賽事 {hit}／{len(pages)}，合計 {len(allrec)} 局")
     if A.dump:
         for r in allrec[:12]:
