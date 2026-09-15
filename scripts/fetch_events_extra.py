@@ -293,9 +293,36 @@ def rosters_alt(html):
     return out
 
 
+# 資訊框的起訖日（Infobox Tournament 的「Location & Dates」段；一天就打完的賽事只有一格 Date）
+_IB_DATE = re.compile(r'<td class="infobox-label">\s*(Start Date|End Date|Date)\s*</td>\s*<td[^>]*>(.*?)</td>', re.S)
+
+
+def infobox_dates(html):
+    """資訊框的 (Start Date, End Date)；只有 Date 一格就起訖同一天；沒有的欄回空字串"""
+    got = {}
+    for m in _IB_DATE.finditer(html):
+        d = re.search(r"\b(20\d\d-\d\d-\d\d)\b", re.sub(r"<[^>]+>", "", m.group(2)))
+        if d:
+            got.setdefault(m.group(1), d.group(1))
+    return (got.get("Start Date") or got.get("Date", ""), got.get("End Date") or got.get("Date", ""))
+
+
 def dates_of(html):
+    """賽事起訖日：先取資訊框的 Start Date／End Date，缺哪格才用「頁面上任何日期的最早／最晚」補那格。
+
+    只取任何日期（舊寫法）會撿到不屬於這個賽事期間的日期（2026-09-16 精進迴圈 #133）：
+    世界賽總覽頁的參賽隊表寫著各隊「2026-08-02 (Q)」取得資格的日期 ⇒ from＝08-02（實際 10-15 開打），
+    德瑪西亞杯 08-28（實際 10-03）、亞運 09-28（實際 09-29）。這三個還沒有比賽資料，
+    圖鑑賽事卡的「尚無比賽資料・起–訖」顯示的就是這兩個值。
+    真站 13 頁比對（autopilot/_m133_infobox_probe.txt）：資訊框跟 Cargo Tournaments 那一頁自己的
+    DateStart／Date 13/13 相同；舊寫法 5 頁不同（上面三個的 from、2013 CBLOL／LLA 的 to 各晚一天）。
+    只有一格的時候不會倒掛：資訊框那格自己也在頁面上、會被「任何日期」算進去，最壞是起訖同一天
+    （前端 to==from 就只顯示開始日）。
+    """
     ds = sorted(set(re.findall(r"\b(20\d\d-\d\d-\d\d)\b", html)))
-    return (ds[0], ds[-1]) if ds else ("", "")
+    frm, to = (ds[0], ds[-1]) if ds else ("", "")
+    ib_f, ib_t = infobox_dates(html)
+    return (ib_f or frm, ib_t or to)
 
 
 _TNAME = None
