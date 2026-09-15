@@ -14310,7 +14310,11 @@ function render(){
         if(window.__bpDuelT){ clearTimeout(window.__bpDuelT); window.__bpDuelT=null; }
         if(window.__bpDuelCd){ clearInterval(window.__bpDuelCd); window.__bpDuelCd=null; } }
       if(V.bpDuel&&window.__bpPredictNext){
-        const D=V.bpDuel, me=D.me==="2"?"2":(D.me==="0"?"0":"1");   // "0"＝雙方都系統
+        const D=V.bpDuel;
+        // 哪一邊交給系統：D.ai={"1":bool,"2":bool}（使用者 2026-09-15：兩顆鈕各是一邊的開關，兩顆都按＝整局系統）。
+        // 舊存檔的 D.me（"1"/"2"/"0"）換算一次。
+        if(!D.ai){ D.ai=D.me==="0"?{"1":true,"2":true}:(D.me==="2"?{"1":true,"2":false}:{"1":false,"2":true}); delete D.me; }
+        const ai=D.ai, humanSides=["1","2"].filter(s=>!ai[s]), mine=humanSides.length===1?humanSides[0]:"";
         const gi=(D.gi>=0&&S.g[D.gi])?D.gi:-1;
         const teamOK=!!(S.t1&&S.t2);
         const seq=gi>=0?seqOf(gi):null;
@@ -14324,9 +14328,10 @@ function render(){
         const lab=document.createElement("label"); lab.innerHTML="<b style='color:var(--gold)'>⚔ "+(LANG==="en"?"Duel":"對決")+"</b>";
         // 我方＝隊A／隊B：兩顆分段鈕（作用中＝金框，跟「⏵ 自動」同一套慣例），不用下拉
         const seg=document.createElement("span"); seg.style.cssText="display:inline-flex;gap:4px";
-        [["1",(LANG==="en"?"I play ":"我方 ")+nameOfSide("1")],["2",(LANG==="en"?"I play ":"我方 ")+nameOfSide("2")],["0",LANG==="en"?"Both by system":"雙方都系統"]].forEach(([v,t])=>{ const b=mk(t,LANG==="en"?"Which side you draft for (or let the system play both)":"你打哪一邊（另一邊由系統扮演）；「雙方都系統」＝整局自己跑"); b.id="bpDuelMe"+v;
-          if(v===me){ b.style.borderColor="var(--gold)"; b.style.color="var(--gold)"; }
-          b.onclick=()=>{ if(D.me===v)return; D.me=v; saveState(); rerender(); }; seg.appendChild(b); });
+        // 兩顆獨立開關：亮（金框）＝那一邊由系統操作。兩顆都亮＝整局系統自己跑；都不亮＝兩邊都自己點。
+        [["1",nameOfSide("1")],["2",nameOfSide("2")]].forEach(([v,t])=>{ const b=mk("🤖 "+t,LANG==="en"?"Toggle: this side is drafted by the system (both on = the system plays the whole draft)":"按下＝這一邊交給系統出手；兩顆都按＝整局系統自己跑；都不按＝兩邊都自己點"); b.id="bpDuelMe"+v;
+          if(ai[v]){ b.style.borderColor="var(--gold)"; b.style.color="var(--gold)"; }
+          b.onclick=()=>{ ai[v]=!ai[v]; saveState(); rerender(); }; seg.appendChild(b); });
         const st=document.createElement("span"); st.id="bpDuelSt"; st.style.cssText="flex:1;min-width:200px;font-size:15px";
         const bStart=mk(LANG==="en"?"▶ Start":"▶ 開始",LANG==="en"?"Clear the current game and start from ban 1":"清空目前這一局，從第 1 手開始（只清這一局，前幾局不動）"); bStart.id="bpDuelStart";
         const bNext=mk(LANG==="en"?"⏭ Next":"⏭ 下一步",LANG==="en"?"Let the system make its move":"輪到系統時按這裡，它才出手"); bNext.id="bpDuelNext";
@@ -14338,8 +14343,8 @@ function render(){
           const s1=sc&&sc["1"]&&sc["1"].sc!=null?sc["1"].sc:null, s2=sc&&sc["2"]&&sc["2"].sc!=null?sc["2"].sc:null;
           const w=(s1!=null&&s2!=null)?(s1===s2?"":(s1>s2?"1":"2")):"";
           status=(LANG==="en"?"Draft over　":"對決結束　")+nameOfSide("1")+" <b>"+(s1==null?"–":s1)+"</b>　vs　"+nameOfSide("2")+" <b>"+(s2==null?"–":s2)+"</b>"
-            +(w?("　→ "+(w===me?(LANG==="en"?"you win on rating":"你的評分較高"):(LANG==="en"?"the system wins on rating":"系統的評分較高"))):""); }
-        else { const [kd,sd]=seq[k]; aiTurn=sd!==me;
+            +((w&&mine)?("　→ "+(w===mine?(LANG==="en"?"you win on rating":"你的評分較高"):(LANG==="en"?"the system wins on rating":"系統的評分較高"))):""); }
+        else { const [kd,sd]=seq[k]; aiTurn=!!ai[sd];
           status=(LANG==="en"?("Turn "+(k+1)+": "):("第 "+(k+1)+" 手："))+nameOfSide(sd)+(kd==="b"?(LANG==="en"?" ban":" 禁用"):(LANG==="en"?" pick":" 選角"))
             +"（"+(aiTurn?(LANG==="en"?"system":"系統"):(LANG==="en"?"you":"你"))+"）"
             +(aiTurn?(LANG==="en"?"　→ auto in <b id='bpDuelCd'>5</b>s (Next = now)":"　→ <b id='bpDuelCd'>5</b> 秒後自動出手（按「下一步」立刻）")
@@ -14889,7 +14894,7 @@ function render(){
         const _dbPaint=()=>{ db.textContent=LANG==="en"?"⚔ Duel":"⚔ 對決";
           db.style.borderColor=V.bpDuel?"var(--gold)":""; db.style.color=V.bpDuel?"var(--gold)":""; };
         _dbPaint();
-        db.onclick=()=>{ V.bpDuel=V.bpDuel?null:{me:"1",gi:-1}; saveState(); _dbPaint(); rerender(); };
+        db.onclick=()=>{ V.bpDuel=V.bpDuel?null:{ai:{"1":false,"2":true},gi:-1}; saveState(); _dbPaint(); rerender(); };
         fr.parentNode.insertBefore(db,sb);
       }
       // ↩ 返回上一步已移除：改用篩選列右側「全域返回鍵」(navBack，會還原 bpSim)
