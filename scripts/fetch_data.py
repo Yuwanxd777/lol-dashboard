@@ -1444,8 +1444,12 @@ def merge_stats(year, table):
     （實測空值率 2013 100%／2014 55%／2015 40%／2016 7%）。
 
     與 merge_patch 相同鐵則：**只填空欄位**，已有值的一律不動。
-    配對鍵：開賽時間+系列賽第幾場+選手；兩邊 game 序號偶爾顛倒，退而用
-    開賽時間+選手+英雄（實測 2013-04 全月覆蓋 100%、歧義 0%）。"""
+    配對（2026-09-17 精進迴圈 #175 起，**不含開賽時分**，見 `stats_pick`）：
+    B 日+局號+選手+英雄 → C 日+選手+英雄 → C1 C 的前後一天；每一步都要 wiki 那邊唯一，歧義不填（寧缺勿錯）。
+    舊版鍵含「開賽時間到分鐘」，80fabac2（07-31 系列賽時間重算）把 MH 來源局改成合成時間後整批對不上
+    ⇒ 2013～2016 約 3.4 萬格 K/D/A 從 08-01 起靜靜變空、46 天沒人發現；所以現在不論有沒有補到都印一行，
+    「kills 空著卻一格都沒對上」印 ⚠。wikistats 檔是舊格式（沒有 `_v: 2`）⇒ 印 ⚠ 並略過，不再靜默。"""
+    import html as _html
     p = os.path.join(CACHE_DIR, f"wikistats_{year}.json")
     if not os.path.exists(p):
         return table
@@ -1457,30 +1461,36 @@ def merge_stats(year, table):
         return table
     if not S:
         return table
+    if S.get("_v") != 2:
+        print(f"  ⚠ wikistats_{year}.json 是舊格式（配對鍵含開賽時分，時間重算後對不上）→ 略過；"
+              f"先跑 python scripts/fetch_wiki_stats.py --years {year}")
+        return table
     hdr = table[0]
     ix = {n: i for i, n in enumerate(hdr)}
     iD, iG = ix.get("date"), ix.get("game")
     if iD is None or iG is None:
         return table
-    _n = lambda s: re.sub(r"[^a-z0-9]", "", str(s or "").lower())
+    _n = lambda s: re.sub(r"[^a-z0-9]", "", _html.unescape(str(s or "")).lower())
     filled = collections.Counter()
-    hit = miss = 0
+    how_n = collections.Counter()
+    need = need_hit = 0
     for r in table[1:]:
-        dt, gm = str(r[iD])[:16], str(r[iG] or "").strip()
+        day, gm = str(r[iD])[:10], str(r[iG] or "").strip()
         for pre in ("blue", "red"):
             ip, ic = ix.get(pre + "_playername"), ix.get(pre + "_champion")
-            if ip is None:
+            if ip is None or ic is None:
                 continue
             nm = _n(r[ip])
             if not nm:
                 continue
-            v = S.get("|".join((dt, gm, nm)))
-            if v is None and ic is not None:
-                v = S.get("|".join((dt, "*", nm, _n(r[ic]))))
+            ik = ix.get(pre + "_kills")
+            empty_k = ik is not None and str(r[ik] or "").strip() == ""
+            how, v = stats_pick(S, day, gm, nm, _n(r[ic]))
+            how_n[how] += 1
+            need += empty_k
             if v is None:
-                miss += 1
                 continue
-            hit += 1
+            need_hit += empty_k
             for col, val in v.items():
                 if not val:
                     continue
@@ -1491,11 +1501,45 @@ def merge_stats(year, table):
                 if str(r[j] or "").strip() == "":        # 只填空的
                     r[j] = val
                     filled[col] += 1
-    if filled:
-        tot = sum(filled.values())
-        print(f"  逐選手數據 {hit} 人次對上（{miss} 落空）／補 {tot} 欄："
-              + "、".join(f"{k} {v}" for k, v in filled.most_common()))
+    tot = sum(filled.values())
+    print(f"  逐選手數據（不含時分配對）：B {how_n['B']}／C {how_n['C']}／C1 {how_n['C1']}"
+          f"／歧義不填 {how_n['歧義']}／沒有 {how_n['沒有']}；kills 空著 {need} 人次、對上 {need_hit}"
+          f"／補 {tot} 欄" + ("：" + "、".join(f"{k} {v}" for k, v in filled.most_common()) if tot else ""))
+    if need and not need_hit:
+        print(f"  ⚠ kills 空著 {need} 人次卻一個都沒對上 wikistats_{year}.json——配對鍵可能又壞了")
     return table
+
+
+def stats_pick(S, day, gm, nm, ch):
+    """merge_stats 的配對：回 (方式, 數據 dict 或 None)，方式 ∈ B／C／C1／歧義／沒有。
+
+    S 的值：dict＝wiki 只有這一局；整數＝不只一局（歧義）。鍵格式見 fetch_wiki_stats.py 檔頭。
+    B 帶局號也帶英雄（舊主鍵不驗英雄，局號顛倒會配到同一天另一局）；B／C 任一步見到歧義就停，
+    不往 C1 找（同一天就分不清了，隔天更不可能分得清）。C1 查前後一天、兩天合起來恰好一局才算
+    （跨天的系列賽／UTC 與我們日期差一天）。"""
+    import datetime as _dt
+    b = S.get("|".join(("D", day, gm, nm, ch)))
+    if isinstance(b, dict):
+        return "B", b
+    c = S.get("|".join(("D", day, "*", nm, ch)))
+    if isinstance(c, dict):
+        return "C", c
+    if b is not None or c is not None:
+        return "歧義", None
+    try:
+        dd = _dt.date.fromisoformat(day)
+    except ValueError:
+        return "沒有", None
+    hit, n = None, 0
+    for off in (-1, 1):
+        x = S.get("|".join(("D", (dd + _dt.timedelta(days=off)).isoformat(), "*", nm, ch)))
+        if isinstance(x, dict):
+            hit, n = x, n + 1
+        elif x is not None:
+            n += int(x)
+    if n == 1:
+        return "C1", hit
+    return ("歧義" if n else "沒有"), None
 
 
 def fill_cup_split(year, table):

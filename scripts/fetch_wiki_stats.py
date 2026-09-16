@@ -16,11 +16,16 @@ Leaguepedia 的 Cargo 表 ScoreboardPlayers 有這些欄位，本腳本把它抓
 走 Special:CargoExport（一般頁面請求）而非 action=cargoquery——後者對匿名
 存取第一發就限流。同 fetch_wiki_mh.py 的繞法：先造訪頁面拿 cookie。
 
-配對鍵（實測 2013-04 全月，歧義 0%、覆蓋 100%）：
-    主鍵　開賽時間 + 系列賽第幾場 + 選手名
-    備援　開賽時間 + 選手名 + 英雄
-  需要備援是因為兩邊的 game 序號偶爾顛倒（我們記第 2 場、wiki 記第 1 場，
-  同一個時間戳成對出現）。
+配對鍵（2026-09-17 精進迴圈 #175 起，**不含開賽時分**，檔頭 `"_v": 2`）：
+    B　 D|日|系列賽第幾場|選手|英雄
+    C　 D|日|*|選手|英雄
+    C1　C 的前後一天（merge_stats 自己查兩天、合起來唯一才算）
+  值：這個鍵在 wiki 只有一局 ⇒ 那局的數據 dict；不只一局 ⇒ 局數（整數）＝歧義，merge_stats 不填。
+  舊版（v1）的鍵是「開賽時間到分鐘」＋局號＋選手，而 commit 80fabac2（07-31 系列賽時間重算）
+  把 MH 來源局的開賽時間改成合成時間（00:11:00 這種）⇒ 從 08-01 那次歷史重建起整批對不上，
+  2013 kills 5818 格 → 0、2013～2016 合計約 3.4 萬格靜靜變空（只填空欄位的合併不會報錯）。
+  舊主鍵不驗英雄，局號顛倒時會配到同一天另一局（實測 484 格不一致裡 474 格是這個）⇒ 新鍵一律帶英雄。
+  英雄名先 html.unescape（Cargo 把 Nunu & Willump 存成 `Nunu &amp; Willump`）。
 
 用法：
   python scripts/fetch_wiki_stats.py                 # 預設 2013~2016
@@ -28,7 +33,7 @@ Leaguepedia 的 Cargo 表 ScoreboardPlayers 有這些欄位，本腳本把它抓
   python scripts/fetch_wiki_stats.py --force         # 忽略快取重抓
 產出：csv_cache/wikistats_{年}.json，由 fetch_data.py 的 merge_stats() 併入。
 """
-import argparse, collections, io, json, os, re, sys, time
+import argparse, collections, html, io, json, os, re, sys, time
 import urllib.parse, urllib.request, http.cookiejar
 
 if (getattr(sys.stdout, "encoding", "") or "").lower().replace("-", "") != "utf8":
@@ -215,15 +220,26 @@ def year_rows(year, force=False):
     return all_rows
 
 
-def build(year, force=False):
-    print(f"\n[{year}] 抓 Leaguepedia 逐選手數據…", flush=True)
-    rows = year_rows(year, force)
-    print(f"  合計 {len(rows)} 列")
-    pmap = games_patch(year, force)
-    print(f"  版本對照：{len(pmap)} 場有版本號")
-    out = {}
+KEY_VERSION = 2
+
+
+def index_rows(rows, pmap):
+    """wiki 逐選手列 → {鍵: 數據 dict（唯一）或 局數（歧義）}，鍵格式見檔頭。
+
+    先以 (開賽時間到分鐘, GameId, 選手) 去重（CargoExport 分頁偶有重複列，重複不可以算成兩局）。
+    **沒有任何數據的列也要算進局數**：它仍是真的一局，漏算會讓另一局看起來唯一而配錯。"""
+    seen, grp = set(), collections.defaultdict(list)
     stat = collections.Counter()
     for x in rows:
+        dt = str(x.get("dt") or "")
+        nm = norm(html.unescape(str(x.get("nm") or "")))
+        if len(dt) < 10 or not nm:
+            continue
+        gid = str(x.get("gid") or "")
+        sig = (dt[:16], gid, nm)
+        if sig in seen:
+            continue
+        seen.add(sig)
         vals = {}
         for lpk, oek in COLMAP.items():
             v = x.get(lpk)
@@ -231,21 +247,29 @@ def build(year, force=False):
                 continue
             vals[oek] = str(v).strip()
             stat[oek] += 1
-        pt = pmap.get(str(x.get("gid") or ""))
+        pt = pmap.get(gid)
         if pt:
             vals["patch"] = pt          # 全域欄位（非 blue_/red_），merge_stats 另外處理
             stat["patch"] += 1
-        if not vals:
-            continue
-        dt = str(x.get("dt") or "")[:16]
-        nm = norm(x.get("nm"))
-        if not dt or not nm:
-            continue
-        out["|".join((dt, gnum(x.get("gid")), nm))] = vals          # 主鍵
-        out.setdefault("|".join((dt, "*", nm, norm(x.get("ch")))), vals)  # 備援鍵
+        day, ch = dt[:10], norm(html.unescape(str(x.get("ch") or "")))
+        grp["|".join(("D", day, gnum(gid), nm, ch))].append(vals)   # B
+        grp["|".join(("D", day, "*", nm, ch))].append(vals)         # C
+    out = {k: (v[0] if len(v) == 1 else len(v)) for k, v in grp.items()}
+    return out, stat
+
+
+def build(year, force=False):
+    print(f"\n[{year}] 抓 Leaguepedia 逐選手數據…", flush=True)
+    rows = year_rows(year, force)
+    print(f"  合計 {len(rows)} 列")
+    pmap = games_patch(year, force)
+    print(f"  版本對照：{len(pmap)} 場有版本號")
+    out, stat = index_rows(rows, pmap)
+    amb = sum(1 for v in out.values() if not isinstance(v, dict))
+    out["_v"] = KEY_VERSION
     p = os.path.join(CACHE, f"wikistats_{year}.json")
     json.dump(out, open(p, "w", encoding="utf-8"), ensure_ascii=False)
-    print(f"  → {os.path.basename(p)}：{len(out)} 個鍵")
+    print(f"  → {os.path.basename(p)}：{len(out) - 1} 個鍵（其中歧義 {amb}）")
     print("  可補欄位：" + "、".join(f"{k} {v}" for k, v in stat.most_common()))
     return out
 
