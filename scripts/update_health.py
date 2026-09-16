@@ -857,9 +857,27 @@ def our_days(path, since, tier1=None):
     return D.get("fetched_at"), out
 
 
+def lag_data_paths(now, window_d=None, root=None):
+    """視窗 [now−window_d, now] 碰到的每一年的年度檔路徑（不管存不存在，由 lag_problems 判）。
+
+    #164 之前 main 寫死 data/data_2026.js ⇒ 2027 賽季一開打，wiki 有 2027 的局、我們讀的 2026 檔
+    不會再長 ⇒ 每班誤報六聯賽落後（定時炸彈）。年初視窗跨年時兩年都要讀（12 月底的局在前一年的檔）。
+    root 晚綁（呼叫時才取 ROOT）：模組層常數會在 import 當下把真實 repo 焊死、沙盒接管不到（#96）。"""
+    window_d = window_d or LAG_WINDOW_D
+    root = ROOT if root is None else root
+    since = now - datetime.timedelta(days=window_d)
+    return [os.path.join(root, "data", "data_%d.js" % y) for y in range(since.year, now.year + 1)]
+
+
 def lag_problems(now, data_path, fetch=None, tier1=None,
                  grace_h=None, window_d=None, threshold=None):
     """回 (狀態, 訊息列表)；狀態 = "skip"（查不到）／"ok"／"bad"。
+
+    data_path 可以是一個路徑或一串路徑（main 給 lag_data_paths 的結果）。
+    **檔案不存在 ≠ 略過**：當成那一年我們一場都沒有。年初 data_2027.js 還沒長出來、wiki 已經有 2027 的局
+    ⇒ 那是真的落後（管線沒收到新賽季），要照報、而且要講明是哪個檔不存在；靜靜略過就是 #47 那種病。
+    **檔案在、但讀不懂**（寫到一半／JSON 壞掉）才略過——那已經有資料量那段的「讀不到」在報，
+    這一項再叫只是重複；更重要的是不可以讓例外把整份健檢炸掉（#163 查到的：沒有結論、不存基準）。
 
     參數全部可注入是為了測試能把每個門檻單獨當變數推——正控制才有意義
     （「寬限改 0 就翻紅」證明的是寬限真的在作用，不是這組資料本來就會過）。"""
@@ -872,7 +890,19 @@ def lag_problems(now, data_path, fetch=None, tier1=None,
     ok, wk, why = wiki_days(since, fetch=fetch, tier1=tier1)
     if not ok:
         return "skip", ["查不到 Leaguepedia（%s）⇒ 略過逐聯賽落後檢查" % why]
-    _, od = our_days(data_path, since, tier1=tier1)
+    paths = [data_path] if isinstance(data_path, str) else list(data_path)
+    od, missing = collections.defaultdict(set), []
+    for p in paths:
+        if not os.path.exists(p):
+            missing.append(os.path.basename(p))
+            continue
+        try:
+            _, one = our_days(p, since, tier1=tier1)
+        except Exception as e:
+            return "skip", ["讀不懂我們的年度檔 %s（%s: %s）⇒ 略過逐聯賽落後檢查"
+                            % (os.path.basename(p), type(e).__name__, str(e)[:80])]
+        for lg, ds in one.items():
+            od[lg] |= set(ds)
     msgs, bad = [], []
     for lg in tier1:
         # since 這一刀不能只靠查詢的 where：伺服器若回了視窗外的舊局，我們這側 our_days 有濾、
@@ -890,6 +920,8 @@ def lag_problems(now, data_path, fetch=None, tier1=None,
             bad.append("%s 落後 %d 個比賽日（%s）" % (lg, len(behind), "、".join(behind)))
             line += "  << 異常"
         msgs.append(line)
+    if bad and missing:                    # 只在真的報落後時才講（沒落後時講「檔不存在」只是噪音）
+        msgs.append("  （%s 不存在，當成那一年我們一場都沒有）" % "、".join(missing))
     return ("bad" if bad else "ok"), msgs + (["異常：" + "；".join(bad)] if bad else [])
 
 
@@ -1112,11 +1144,11 @@ def main():
     if "--no-lag" in sys.argv:
         print("   逐聯賽落後：（--no-lag 跳過）")
     else:
-        _lst, _lmsgs = lag_problems(datetime.datetime.utcnow(),
-                                    os.path.join(ROOT, "data", "data_2026.js"))
+        _lnow = datetime.datetime.utcnow()
+        _lst, _lmsgs = lag_problems(_lnow, lag_data_paths(_lnow))
         print("   逐聯賽落後（近 %d 天／寬限 %dh／門檻 %d 個比賽日）：%s" % (
             LAG_WINDOW_D, LAG_GRACE_H, LAG_THRESHOLD,
-            {"skip": "略過（查不到 Leaguepedia）", "ok": "✓ 六個一級聯賽都跟上", "bad": "⚠ 有落後"}[_lst]))
+            {"skip": "略過（原因見下一行）", "ok": "✓ 六個一級聯賽都跟上", "bad": "⚠ 有落後"}[_lst]))
         for _m in _lmsgs:
             print("   " + _m)
         if _lst == "bad":

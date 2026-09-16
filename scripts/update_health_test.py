@@ -44,6 +44,75 @@ def state_of(rows, key):
     return {k: st for k, _, _, st in rows}.get(key)
 
 
+# ── ⓪ 整份測試封網＋接管唯一的對外出口（2026-09-17 #164）──────────────────────
+# #144 把逐聯賽落後接進 main() 之後，⑫⑮ 那幾次 uh.main() 都沒帶 --no-lag、也沒人接管 wiki_rows
+# ⇒ 每跑一次這份測試就真的去打四次 Leaguepedia（每次含 sleep 2 秒）；_r48／_r49 每個突變都整份重跑
+# ⇒ 單跑從 ~110s 拖到 ~210s、超過 suite 的 150s 逾時（#163 整批跑才發現，py-spy 停在 wiki_rows）。
+# 兩層：①uh.wiki_rows 換成假出口（丟例外 ⇒ lag_problems 走 skip，main 照樣出結論）
+#       ②六個網路出口全封死當保險絲。**被擋下的呼叫會被 wiki_days 的 except 吞掉、測試照樣綠**
+#         ⇒ 光封網看不出漏接，所以每一次被擋都記進 NET_HITS，檔尾 assert 它是空的。
+class BlockedNetwork(RuntimeError):
+    pass
+
+
+NET_HITS = []
+
+
+def _blow(*a, **k):
+    NET_HITS.append(repr(a)[:80])
+    raise BlockedNetwork("測試沙箱禁止連外（有人漏接了一個網路出口）")
+
+
+def block_network():
+    """回傳 restore()。socket 層是保險絲：就算被測模組換用別的 http 函式庫也會在這裡炸。"""
+    import socket
+    import http.client
+    import urllib.request
+    saved = [(socket, "socket", socket.socket),
+             (socket, "create_connection", socket.create_connection),
+             (http.client, "HTTPSConnection", http.client.HTTPSConnection),
+             (http.client, "HTTPConnection", http.client.HTTPConnection),
+             (urllib.request, "urlopen", urllib.request.urlopen),
+             (urllib.request, "build_opener", urllib.request.build_opener)]
+    for mod, name, _ in saved:
+        setattr(mod, name, _blow)
+
+    def restore():
+        for mod, name, orig in saved:
+            setattr(mod, name, orig)
+    return restore
+
+
+WIKI_CALLS = []
+
+
+def _wiki_takeover(since, timeout=90):
+    WIKI_CALLS.append(since)
+    raise IOError("測試接管：不連 Leaguepedia")
+
+
+_restore_net_all = block_network()
+_real_wiki_rows = uh.wiki_rows
+uh.wiki_rows = _wiki_takeover
+# 正控制：封鎖器真的會擋、而且真的會記帳（否則檔尾「NET_HITS 是空的」可能只是記帳壞了）
+try:
+    import urllib.request as _ur0
+    _ur0.urlopen("https://lol.fandom.com/")
+    NG.append("⓪封鎖器沒作用：urlopen 居然通了")
+except BlockedNetwork:
+    eq(len(NET_HITS), 1, "⓪正控制：被擋下的呼叫有記進 NET_HITS")
+del NET_HITS[:]
+# 正控制：真出口 wiki_rows 在封網下一定會撞到封鎖器（證明「不接管就會被記帳」，不是它根本不連網）
+try:
+    _real_wiki_rows("2026-09-01", timeout=1)
+    NG.append("⓪真的 wiki_rows 在封網下居然回傳了")
+except BlockedNetwork:
+    eq(len(NET_HITS) >= 1, True, "⓪正控制：真出口 wiki_rows 會撞封鎖器、被記帳")
+except Exception as _e0:
+    NG.append("⓪真的 wiki_rows 撞到的不是封鎖器：%s" % _e0)
+del NET_HITS[:]
+
+
 # ── ① is_hard：哪些項目「只會增不會減」──────────────────────────────────
 for k in ("data_2013.js", "data_2026.js", "side_sel.games"):
     eq(uh.is_hard(k), True, "is_hard 硬性 %s" % k)
@@ -645,34 +714,8 @@ import datetime as dt          # noqa: E402
 def yes(cond, label):
     eq(bool(cond), True, label)
 
-# ══ 網路封鎖：三個出口一起堵，並證明堵得住 ═══════════════════════════════
-class BlockedNetwork(RuntimeError):
-    pass
-
-
-def _blow(*a, **k):
-    raise BlockedNetwork("測試沙箱禁止連外（有人漏接了一個網路出口）")
-
-
-def block_network():
-    """回傳 restore()。socket 層是保險絲：就算被測模組換用別的 http 函式庫也會在這裡炸。"""
-    import socket
-    import http.client
-    import urllib.request
-    saved = [(socket, "socket", socket.socket),
-             (socket, "create_connection", socket.create_connection),
-             (http.client, "HTTPSConnection", http.client.HTTPSConnection),
-             (http.client, "HTTPConnection", http.client.HTTPConnection),
-             (urllib.request, "urlopen", urllib.request.urlopen),
-             (urllib.request, "build_opener", urllib.request.build_opener)]
-    for mod, name, _ in saved:
-        setattr(mod, name, _blow)
-
-    def restore():
-        for mod, name, orig in saved:
-            setattr(mod, name, orig)
-    return restore
-
+# 網路封鎖（BlockedNetwork／_blow／block_network）定義在檔頭 ⓪，整份測試全程封網；
+# 這裡再包一層是 #140 原樣（巢狀呼叫無害：存下的「原版」本來就是已封死的那個）。
 
 # ══ 合成資料入口：長得像 data_2026.js，但只有測試要的那幾欄有意義 ═════════
 COLS = ["date", "league", "blue_teamname", "red_teamname", "game", "patch"]
@@ -846,6 +889,7 @@ def SUITE(M, tag):
 
 # 跑第 ㉖ 組（全程封網；先證明封鎖器真的會擋，否則「沒連到外面」可能只是根本沒呼叫）
 _restore = block_network()
+_hits_before26 = len(NET_HITS)     # 只清下面兩發故意撞的；前面 ⑫⑮ 真的漏接留著給檔尾抓
 try:
     try:
         import urllib.request as _ur
@@ -859,6 +903,9 @@ try:
         NG.append("㉖⓪封鎖器沒作用：socket 居然建得起來")
     except BlockedNetwork:
         OK[0] += 1
+    # 上面兩發是故意撞的，不算漏接（檔尾會 assert NET_HITS 是空的）。
+    # ⚠ 不可以 del NET_HITS[:] 整本清掉——那會把前面 ⑫⑮ 的真漏接一起抹掉（#164 突變 B 抓到的假綠）
+    del NET_HITS[_hits_before26:]
     for _n in dir(uh):
         _v = getattr(uh, _n, None)
         if isinstance(_v, str) and _v.endswith("data_2026.js") and os.path.isabs(_v):
@@ -871,6 +918,161 @@ finally:
             os.remove(_f)
         except OSError:
             pass
+
+# ══ ㉘ 逐聯賽落後：年度檔依時鐘選、讀不懂降級（2026-09-17 #164）══════════════════════
+# #163 查到兩個真缺陷：main 寫死 data/data_2026.js（2027 賽季一開打就每班誤報六聯賽落後）、
+# our_days 讀檔失敗直接把整份健檢炸掉（沒有結論、不存基準）。
+import types as _types      # noqa: E402
+
+_YR_DIRS = []
+
+
+def _year_root(spec):
+    """spec＝{年: [(date, league, game), …] 或 "BROKEN"} → 假 repo 根目錄（只有 data/）。"""
+    r = tempfile.mkdtemp(prefix="uh_yr_")
+    _YR_DIRS.append(r)
+    os.makedirs(os.path.join(r, "data"))
+    for y, rows in spec.items():
+        p = os.path.join(r, "data", "data_%d.js" % y)
+        if rows == "BROKEN":                       # 寫到一半的檔
+            io.open(p, "w", encoding="utf-8").write('window.LOL_DATA={"tabs":{"RAW_DATA":[["date"')
+            continue
+        src = make_data_js(rows)                   # 借 ㉖ 的產生器（按欄名擺）
+        io.open(p, "w", encoding="utf-8").write(io.open(src, encoding="utf-8").read())
+        os.remove(src)
+    return r
+
+
+def _bn(paths):
+    return [os.path.basename(p) for p in paths]
+
+
+def _clock_shim(fake_utc):
+    """換掉 uh.datetime 用的替身：只有 datetime.datetime.utcnow() 回假時鐘，其餘照真的。"""
+    class _DT(dt.datetime):
+        @classmethod
+        def utcnow(cls):
+            return fake_utc
+    shim = _types.ModuleType("datetime_shim")
+    for k in dir(dt):
+        if not k.startswith("__"):
+            setattr(shim, k, getattr(dt, k))
+    shim.datetime = _DT
+    return shim
+
+
+N27 = dt.datetime(2027, 1, 20, 8, 0)
+_real_root28, _real_dt28 = uh.ROOT, uh.datetime
+_real_log28, _real_console28, _real_base28, _real_live28, _real_argv28 = (
+    uh.LOG, uh.CONSOLE, uh.BASE, uh.live_dup, list(sys.argv))
+try:
+    R0 = _year_root({})
+    eq(_bn(uh.lag_data_paths(N27, root=R0)), ["data_2027.js"], "㉘1/20 視窗 14 天只碰 2027")
+    eq(_bn(uh.lag_data_paths(dt.datetime(2027, 1, 5, 8, 0), root=R0)), ["data_2026.js", "data_2027.js"],
+       "㉘1/5 視窗跨年 ⇒ 兩年都讀（12 月底的局在前一年的檔）")
+    eq(_bn(uh.lag_data_paths(NOW140, root=R0)), ["data_2026.js"], "㉘賽季中只讀當年")
+    uh.ROOT = R0
+    eq(os.path.dirname(os.path.dirname(uh.lag_data_paths(N27)[0])), R0,
+       "㉘root 晚綁：沙盒換 ROOT 之後路徑跟著換（不是 import 當下焊死）")
+    uh.ROOT = _real_root28
+
+    # A. 定時炸彈本身：2027-01-20，2027 的局都在 data_2027.js ⇒ 不可以報落後
+    w27 = wiki_stub([("LCK/2027 Season/Cup", "2027-01-15 08:00"), ("LCK/2027 Season/Cup", "2027-01-17 08:00"),
+                     ("LCK/2027 Season/Cup", "2027-01-18 08:00"), ("LPL/2027 Season/Split 1", "2027-01-17 10:00")])
+    RA = _year_root({2026: [("2026-11-02 08:00", "LCK", 1), ("2026-11-03 08:00", "LPL", 1)],
+                     2027: [("2027-01-15 08:00", "LCK", 1), ("2027-01-17 08:00", "LCK", 1),
+                            ("2027-01-18 08:00", "LCK", 1), ("2027-01-17 10:00", "LPL", 1)]})
+    stA, msA = uh.lag_problems(N27, uh.lag_data_paths(N27, root=RA), fetch=w27)
+    eq(stA, "ok", "㉘A 2027-01-20 依時鐘讀 data_2027.js ⇒ 跟上")
+    eq(any("不存在" in m for m in msA), False, "㉘A 檔都在 ⇒ 不印「不存在」")
+    eq(uh.lag_problems(N27, os.path.join(RA, "data", "data_2026.js"), fetch=w27)[0], "bad",
+       "㉘A 正控制：照 #164 之前寫死讀 data_2026.js ⇒ 同一份資料誤報落後")
+
+    # B. 真落後不可以被靜音：data_2027.js 還沒長出來、wiki 已有 3 個比賽日 ⇒ 照報，並講明哪個檔不存在
+    RB = _year_root({2026: [("2026-11-02 08:00", "LCK", 1)]})
+    stB, msB = uh.lag_problems(N27, uh.lag_data_paths(N27, root=RB), fetch=w27)
+    eq(stB, "bad", "㉘B 新賽季的檔不存在、wiki 有 3 個比賽日 ⇒ 照報落後（不是略過）")
+    eq(any("data_2027.js 不存在" in m for m in msB), True, "㉘B 訊息講明 data_2027.js 不存在")
+    eq(any(m.startswith("異常：") and "LCK 落後 3 個比賽日" in m for m in msB), True, "㉘B 異常行點名 LCK 3 天")
+    stB2, msB2 = uh.lag_problems(N27, uh.lag_data_paths(N27, root=RB),
+                                 fetch=wiki_stub([("PCS/2027 Season/Spring", "2027-01-17 08:00")]))
+    eq((stB2, msB2), ("ok", []), "㉘B 對照：wiki 也還沒開打 ⇒ ok、一行都不印（檔不存在不是噪音來源）")
+
+    # C. 跨年視窗：1/5，12 月底的局在 data_2026.js、data_2027.js 還沒有 ⇒ 靠前一年的檔跟上
+    N0105 = dt.datetime(2027, 1, 5, 8, 0)
+    wC = wiki_stub([("LPL/2026 Season/Split 3", "2026-12-28 10:00"), ("LPL/2026 Season/Split 3", "2026-12-29 10:00")])
+    RC = _year_root({2026: [("2026-12-28 10:00", "LPL", 1), ("2026-12-29 10:00", "LPL", 1)]})
+    stC, msC = uh.lag_problems(N0105, uh.lag_data_paths(N0105, root=RC), fetch=wC)
+    eq(stC, "ok", "㉘C 跨年視窗讀到前一年的檔 ⇒ 跟上")
+    eq(any("不存在" in m for m in msC), False, "㉘C 沒落後時 data_2027.js 不存在不印（噪音）")
+    eq(uh.lag_problems(N0105, [os.path.join(RC, "data", "data_2027.js")], fetch=wC)[0], "bad",
+       "㉘C 正控制：只讀當年（2027 不存在）⇒ 同一份資料報落後 2 天（證明前一年的檔真的有被讀）")
+
+    # D. 讀不懂的檔 ⇒ 略過並講原因，不可以丟例外
+    RD = _year_root({2027: "BROKEN"})
+    try:
+        stD, msD = uh.lag_problems(N27, uh.lag_data_paths(N27, root=RD), fetch=w27)
+    except Exception as e:
+        stD, msD = "RAISED", ["%s: %s" % (type(e).__name__, e)]
+    eq(stD, "skip", "㉘D 年度檔寫到一半 ⇒ skip（不是例外、也不是 bad）")
+    eq(any("讀不懂" in m and "data_2027.js" in m for m in msD), True, "㉘D 訊息點名是哪個檔讀不懂")
+    eq(uh.lag_problems(N27, uh.lag_data_paths(N27, root=RA), fetch=w27)[0], "ok",
+       "㉘D 對照：同一份 wiki、檔案完好 ⇒ ok（skip 不是恆真）")
+
+    # E. main() 端到端：假時鐘 2027-01-20＋假 repo（2026／2027 兩個檔）⇒ 逐聯賽落後那行要是 ✓
+    #    NET：wiki 出口換成 w27；其餘證據來源（LOG／CONSOLE／BASE／live_dup）一併接管、--no-save 不寫基準。
+    tmpE = tempfile.mkdtemp(prefix="uh_e28_")
+    _YR_DIRS.append(tmpE)
+    uh.LOG = os.path.join(tmpE, "log.txt")
+    uh.CONSOLE = os.path.join(tmpE, "console.txt")
+    uh.BASE = os.path.join(tmpE, "base.json")
+    uh.live_dup = lambda timeout=None: (0, "")
+    io.open(uh.LOG, "w", encoding="utf-8").write(
+        "==== run_update %s（並行 4）====\n---- fetch_x（1.0s，exit 0）----\n守門通過\n"
+        % time.strftime("%Y-%m-%d %H:%M:%S"))
+    sys.argv = ["update_health.py", "--no-save", "--no-live", "--no-soloqfresh"]
+
+    def _main28(root, wiki, clock):
+        uh.ROOT, uh.wiki_rows, uh.datetime = root, wiki, _clock_shim(clock)
+        buf = io.StringIO()
+        try:
+            with contextlib.redirect_stdout(buf):
+                rc = uh.main()
+        except Exception as e:
+            rc = "RAISED %s: %s" % (type(e).__name__, e)
+        finally:
+            uh.ROOT, uh.wiki_rows, uh.datetime = _real_root28, _wiki_takeover, _real_dt28
+        out = buf.getvalue()
+        lag = [l.strip() for l in out.splitlines() if l.strip().startswith("逐聯賽落後（近")]
+        return rc, out, (lag[0] if lag else None)
+
+    rcE, outE, lagE = _main28(RA, w27, N27)
+    eq(isinstance(rcE, int), True, "㉘E main() 在假時鐘 2027-01-20 跑完（沒有例外）")
+    eq((lagE or "").endswith("✓ 六個一級聯賽都跟上"), True, "㉘E main() 依時鐘讀 data_2027.js ⇒ 逐聯賽落後 ✓")
+    eq("LCK 落後" in outE, False, "㉘E 結論沒有 LCK 落後")
+    # 正控制：同一個 main、同一個假 repo，時鐘撥回 2026-09-16 ⇒ 讀 data_2026.js ⇒ wiki 那幾天全算落後
+    #（證明假時鐘真的有接進 main 的年份選擇，不是 main 恰好沒去讀）。2027 檔照樣放著：
+    # main 若無視時鐘去讀 2027，LCK 最後比賽日是 2027-01-18 ⇒ 不算落後 ⇒ 這條會紅。
+    RE2 = _year_root({2026: [("2026-09-01 08:00", "LCK", 1)],
+                      2027: [("2027-01-18 08:00", "LCK", 1)]})
+    rcE2, outE2, lagE2 = _main28(RE2, wiki_stub([("LCK/2026 Season/Split 3", "2026-09-13 08:00"),
+                                                ("LCK/2026 Season/Split 3", "2026-09-14 08:00"),
+                                                ("LCK/2026 Season/Split 3", "2026-09-15 08:00")]),
+                                 NOW140)
+    eq((lagE2 or "").endswith("⚠ 有落後"), True, "㉘E 正控制：時鐘換成 2026 ⇒ 讀 2026 檔 ⇒ 真的落後會叫")
+
+    # F. main() 在年度檔讀不懂時照樣出結論（#163：our_days 沒有 try ⇒ 整份健檢崩潰）
+    rcF, outF, lagF = _main28(RD, w27, N27)
+    eq(isinstance(rcF, int), True, "㉘F 年度檔壞掉 ⇒ main() 不崩潰（得到 %r）" % (rcF,))
+    eq("結論：" in outF, True, "㉘F 照樣印出結論")
+    eq((lagF or "").endswith("略過（原因見下一行）"), True, "㉘F 逐聯賽落後那行是略過")
+    eq("讀不懂我們的年度檔 data_2027.js" in outF, True, "㉘F 下一行講明是哪個檔讀不懂")
+finally:
+    uh.ROOT, uh.datetime, uh.wiki_rows = _real_root28, _real_dt28, _wiki_takeover
+    uh.LOG, uh.CONSOLE, uh.BASE, uh.live_dup = _real_log28, _real_console28, _real_base28, _real_live28
+    sys.argv = _real_argv28
+    for _d in _YR_DIRS:
+        shutil.rmtree(_d, ignore_errors=True)
 
 # ══ ㉗ 積分逐場新鮮度（#143；逐字抽自 autopilot/_m143_soloq_fresh_port.py）═══════════
 def SQF_SUITE(uh, eq):
@@ -995,6 +1197,13 @@ def SQF_SUITE(uh, eq):
         for d in _dirs:
             _sh.rmtree(d, ignore_errors=True)
 SQF_SUITE(uh, eq)
+
+# ── ⓪ 收尾：整份測試沒有任何一次撞到封鎖器（被 wiki_days 的 except 吞掉的也算），
+#    而且假出口真的有被 main() 走到（⑫⑮ 都沒帶 --no-lag）——否則上一條可能只是 main 根本沒接逐聯賽落後。
+eq(NET_HITS, [], "⓪整份測試沒有任何一次真的去連外（有人漏接了出口）")
+eq(len(WIKI_CALLS) >= 4, True, "⓪⑫⑮ 那四次 main() 都走到接管的 wiki 出口（得到 %d 次）" % len(WIKI_CALLS))
+uh.wiki_rows = _real_wiki_rows
+_restore_net_all()
 
 print("update_health 回歸測試：通過 %d 條" % OK[0] + ("" if not NG else "，失敗 %d 條" % len(NG)))
 for m in NG:

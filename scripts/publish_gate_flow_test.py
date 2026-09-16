@@ -195,7 +195,11 @@ def _seed_repo(box):
     io.open(os.path.join(box, "soloq.js"), "w", encoding="utf-8").write(
         "window.SOLOQ=" + json.dumps({"players": [{"found": True}]}) + ";")
     io.open(os.path.join(box, "side_sel.js"), "w", encoding="utf-8").write("window.SIDE=[1,2,3];")
-    io.open(os.path.join(box, "soloq_matches", "a.js"), "w", encoding="utf-8").write("x")
+    # #164：#144 起健檢會讀逐場檔的 "t"（積分逐場新鮮度：最新一局 <30h、>=20 個檔跟著動），
+    # 只寫 "x" ⇒ 判「一個 t 都沒有」⇒ 所有「乾淨＝沒有異常」的斷言恆紅。
+    for _i in range(25):
+        io.open(os.path.join(box, "soloq_matches", "p%02d.js" % _i), "w", encoding="utf-8").write(
+            'window.SQM=[{"t":%d}];' % int((time.time() - 3600) * 1000))
     io.open(os.path.join(box, "patches.js"), "w", encoding="utf-8").write(
         'window.LOL_PATCHES={"26.17":{"A":["x"]}};')
     io.open(os.path.join(box, "patches_en.js"), "w", encoding="utf-8").write(
@@ -228,6 +232,10 @@ def contract():
     code = ("import sys; sys.path.insert(0, r'%s');"
             "import update_health as u;"
             "u.ROOT = r'%s'; u.LOG = r'%s'; u.CONSOLE = r'%s'; u.BASE = r'%s';"
+            # #164：接管 wiki 出口（#144 起 main 會連 Leaguepedia）＋封網保險絲：撞到就在 stderr 留 NETHIT（ssl 要先載入，否則換掉 socket.socket 後 import ssl 會 TypeError、靜默走略過）
+            "u.wiki_rows = lambda since, timeout=90: [{'ov': 'PCS/sandbox', 'dt': since + ' 00:00'}];"
+            "import ssl, http.client, urllib.request, socket as _s; _s.socket = _s.create_connection = "
+            "lambda *a, **k: (sys.stderr.write('NETHIT '), (_ for _ in ()).throw(OSError('blocked')));"
             "sys.argv = ['x', '--no-save', '--no-live']; sys.exit(u.main())"
             % (os.path.join(ROOT, "scripts"), box, log, log + ".none", base))
     p = subprocess.run([sys.executable, "-c", code], capture_output=True, cwd=ROOT)
@@ -248,8 +256,11 @@ def contract():
     ok4 = p2.returncode == 0
     ck(ok3, "正控制：日誌乾淨時不報這一條（測試不是死的）")
     ck(ok4, "正控制：乾淨的假 repo ⇒ 離開碼 0，實際 %s" % p2.returncode)
+    # #164：兩次子程序都不可以撞到封網保險絲（被 except 吞掉的也算）
+    nethit = (b"NETHIT" in p.stderr) or (b"NETHIT" in p2.stderr)
+    ck(not nethit, "沙盒子程序沒有任何一次撞到封網保險絲（出口都接管了）")
     shutil.rmtree(box, ignore_errors=True)
-    return ok1 and ok2 and ok3 and ok4
+    return ok1 and ok2 and ok3 and ok4 and not nethit
 
 
 def main():
