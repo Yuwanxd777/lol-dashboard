@@ -995,9 +995,12 @@ def soloq_fresh(now_ms=None, mdir=None, files=None,
     if moved < thin_min:
         bad.append("積分逐場距最新一局 %d 小時內有新局的檔只有 %d 個（<%d）——總量還在、只剩零星檔在動"
                    % (thin_h, moved, thin_min))
-    line = ("積分逐場新鮮度：%s 最新一局 %s（%.1f 小時前）；%d 個檔裡跟著動 %d／24h %d／72h %d／>=30d %d%s"
-            % ("⚠" if bad else "✓", sqf_ts(mx), age_h, len(files), moved,
-               bk["<24h"], bk["<72h"], bk[">=30d"], up))
+    # 分桶是互斥區間、六桶全印（相加＝檔數）。#163 之前印「24h 171／72h 74／>=30d 50」：
+    # 讀起來像累計（72h 比 24h 還少？），而且漏掉 3~7 天／7~30 天兩桶，加起來對不上檔數。
+    line = ("積分逐場新鮮度：%s 最新一局 %s（%.1f 小時前）；%d 個檔裡跟著動 %d（距最新一局 %dh 內）"
+            "；各檔最後一局距現在：<24h %d／24~72h %d／3~7天 %d／7~30天 %d／≥30天 %d／沒有對局 %d%s"
+            % ("⚠" if bad else "✓", sqf_ts(mx), age_h, len(files), moved, thin_h,
+               bk["<24h"], bk["<72h"], bk["<7d"], bk["<30d"], bk[">=30d"], bk["沒有對局"], up))
     return ("bad" if bad else "ok"), line, bad
 
 
