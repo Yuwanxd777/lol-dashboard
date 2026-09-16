@@ -288,12 +288,27 @@ def load_prev_puuids():
 # 11:30 那輪 1091 個帳號裡有 132 個**每天**都走 account-v1、每天都 404（84 個「找不到帳號」＋
 # 48 個 DPM 牌位備援）。它們永遠拿不到 puuid，所以永遠進不了 puuid 捷徑 ⇒ 每輪固定白排 132 次
 # 速率限制隊（100 次/2 分鐘 ⇒ 約 160 秒）。Riot 的 404 是「這個 Riot ID 現在不存在」，隔天再問
-# 答案幾乎不會變；會變的只有兩種：改名回來／別人接手這個名字——所以 NOACC_DAYS 天重驗一次。
+# 答案幾乎不會變；會變的只有兩種：改名回來／別人接手這個名字——所以每隔幾班重驗一次。
 # 紀錄格式：soloq.js 的紀錄多一個 `noAcc`＝最後一次親自問到 404 的日期（YYYY-MM-DD）。
 # 跳過時沿用上一版的 noAcc（期限從最後一次真的問過起算，不是每天續命）。
 # 鍵是 (riotId, platform)：dpm 改了名或修了區，鍵就不同 ⇒ 自然重新問。
+# 期限**逐帳號錯開**（2026-09-16 #147，見下面 NOACC_SHIFTS）：固定 7 天會讓同一班戳的人
+# 同一班一起過期，131 個一次湧回來。
 # `--full-id`／`--failed`／`--no-noacc-skip` 一律不跳過（那三種本來就是要把「查不到」重問一遍）。
-NOACC_DAYS = 7
+# ── 到期錯開（2026-09-16 線 3，精進迴圈 #147）──────────────────────────────────
+# 舊版：期限固定 7 天、年齡只算到「日」⇒ 到期一律跨午夜 ⇒ 永遠落在 10:00 那班。而那批 404 帳號
+# 本來就是同一班被問到、同一天被戳記（09-16 10:05 的 soloq.js：208 筆 noAcc 只有兩個日期——
+# 09-13 131 筆／09-16 77 筆）⇒ 09-20 一次 +131、09-23 一次 +77，account-v1 每次約 1.2 秒
+# ⇒ +131 ≈ 157 秒壓在同一班；那一班又把它們重戳成同一天 ⇒ 自我維持（跟 #145 的 noRank 同一種病）。
+# 新版：年齡改用**班**算（一天兩班 10:00／22:00），期限＝NOACC_SHIFTS + 雜湊 % NOACC_SPREAD
+# ＝ 12~17 班（6.0~8.5 天）。雜湊鍵是 **riotId ＋ 區 ＋ 戳記日**：同一把鑰匙永遠算出同一個數
+# （決定性、無狀態、不必多存欄位、測試可重現），但每重問一次就換一個戳記日 ⇒ 重抽期限 ⇒ 羊群擴散。
+# `autopilot/_m146_noacc_sim.py` 用正本 208 筆模擬 90 天／180 班：每班尖峰 208 → 39（250s → 47s）、
+# p95 208 → 26、每班平均 13.9 → 14.2、平均重驗間隔 7.00 → 7.03 天（最長 7.0 → 8.5 天）
+# ⇒ **平均成本與平均時效性都不變，只削尖峰**。
+NOACC_SHIFTS = 12          # 期限下限（班）＝6.0 天
+NOACC_SPREAD = 6           # 錯開幅度（班）⇒ 12~17 班＝6.0~8.5 天
+NOACC_PM_HOUR = 16         # 幾點之後算「下午那班」（10:00 與 22:00 之間任何一點都行）
 PREV_NOACC = {}
 NOACC_SKIPS = [0]
 SKIP_NOACC = True
@@ -312,13 +327,27 @@ def load_prev_noacc():
     return out
 
 
-def noacc_fresh(day):
-    """noAcc 日期距今 < NOACC_DAYS 天 ⇒ 還新鮮，不必再問。格式壞掉一律當過期（重問最安全）。"""
+def noacc_limit(key, day):
+    """這把鑰匙（riotId, 區）＋ 這個戳記日該撐幾班。決定性（同樣輸入永遠同一個數），
+    但換一個戳記日就重抽 ⇒ 到期日會擴散開（見 NOACC_SHIFTS 那段註解）。"""
+    return NOACC_SHIFTS + (zlib.crc32(("%s|%s|%s" % (key[0], key[1], day)).encode("utf-8"))
+                           % NOACC_SPREAD)
+
+
+def noacc_age_shifts(d, now=None):
+    """戳記日距今幾「班」（一天兩班）。戳記是未來日期 ⇒ 負數，呼叫端當過期處理。"""
+    now = now or datetime.datetime.now()
+    return (now.date() - d).days * 2 + (1 if now.hour >= NOACC_PM_HOUR else 0)
+
+
+def noacc_fresh(day, key):
+    """noAcc 戳記還在這個帳號自己的期限內 ⇒ 不必再問。格式壞掉一律當過期（重問最安全）。
+    key **刻意沒有預設值**：漏改的呼叫端會當場 TypeError，不會靜靜套到錯的期限。"""
     try:
         d = datetime.date.fromisoformat(str(day))
     except Exception:
         return False
-    return 0 <= (datetime.date.today() - d).days < NOACC_DAYS
+    return 0 <= noacc_age_shifts(d) < noacc_limit(key, day)
 
 
 # ── 無排名帳號 N 天不再問（2026-09-07 線 3，精進迴圈 #50）──────────────────────
@@ -476,7 +505,8 @@ def plan_deferrals(accounts):
         plat = _plat_of(a)
         if not plat:
             continue
-        if SKIP_NOACC and noacc_fresh(PREV_NOACC.get((a["riotId"], plat), "")):
+        _nk = (a["riotId"], plat)
+        if SKIP_NOACC and noacc_fresh(PREV_NOACC.get(_nk, ""), _nk):
             continue                                        # 404 捷徑：不發任何請求
         d = per.setdefault(plat, {"fixed": 0, "cand": []})
         pu = PREV_ID.get((a["riotId"], plat)) if FAST_ID else None
@@ -774,10 +804,15 @@ def main():
     PREV_NOACC = load_prev_noacc() if SKIP_NOACC else {}
     NOACC_SKIPS[0] = 0
     if PREV_NOACC:
-        _fresh = sum(1 for a in accounts if noacc_fresh(PREV_NOACC.get((a["riotId"],
-                     ALIAS.get(str(a.get("platform","")).upper(), str(a.get("platform","")).lower())), "")))
-        print("404 捷徑：%d/%d 個帳號上一版已確定 Riot ID 不存在（%d 天內不再問 account-v1）"
-              % (_fresh, len(accounts), NOACC_DAYS))
+        _fresh = 0
+        for _a in accounts:
+            _k = (_a["riotId"], ALIAS.get(str(_a.get("platform","")).upper(),
+                                          str(_a.get("platform","")).lower()))
+            if noacc_fresh(PREV_NOACC.get(_k, ""), _k):
+                _fresh += 1
+        print("404 捷徑：%d/%d 個帳號上一版已確定 Riot ID 不存在（%.1f~%.1f 天內不再問 account-v1，"
+              "每個帳號用 ID+區+戳記日錯開到期）"
+              % (_fresh, len(accounts), NOACC_SHIFTS / 2.0, (NOACC_SHIFTS + NOACC_SPREAD - 1) / 2.0))
     SKIP_NORANK = not any(f in sys.argv for f in ("--full-id", "--failed", "--no-norank-skip"))
     PREV_NORANK = load_prev_norank() if SKIP_NORANK else {}
     NORANK_SKIPS[0] = 0
@@ -815,19 +850,23 @@ def main():
         cluster = CLUSTER.get(plat, "asia")
         game, tagl = a["riotId"].rsplit("#", 1)
         print(f"[{tag_lbl}] {a.get('player','?')} ({a.get('team','?')}) {a['riotId']} @{plat}")
-        # ── 404 捷徑：上一版已確定這個 Riot ID 不存在、還在 NOACC_DAYS 內 ⇒ 不問 Riot（見 load_prev_noacc）──
-        _na = PREV_NOACC.get((a["riotId"], plat)) if SKIP_NOACC else None
-        if _na and noacc_fresh(_na):
+        # ── 404 捷徑：上一版已確定這個 Riot ID 不存在、還在它自己的期限內 ⇒ 不問 Riot（見 load_prev_noacc）──
+        _nk = (a["riotId"], plat)
+        _na = PREV_NOACC.get(_nk) if SKIP_NOACC else None
+        if _na and noacc_fresh(_na, _nk):
             NOACC_SKIPS[0] += 1
             rec = {"player": a.get("player",""), "team": a.get("team",""), "platform": plat,
                    "riotId": a["riotId"], "puuid": None, "curId": None,
                    "tier": None, "division": None, "lp": None,
                    "wins": None, "losses": None, "found": False, "noAcc": _na}
             if dpm_fallback(rec, a.get("dpmRank")):
-                print(f"    ⏭ 上一版 {_na} 已確定 Riot ID 不存在，{NOACC_DAYS} 天內不再問 → DPM 牌位備援：{rec['tier']} {rec['division']} {rec['lp']}LP")
+                print(f"    ⏭ 上一版 {_na} 已確定 Riot ID 不存在，"
+                      f"{noacc_limit(_nk, _na) / 2.0:.1f} 天內不再問（這個帳號的錯開期限）"
+                      f" → DPM 牌位備援：{rec['tier']} {rec['division']} {rec['lp']}LP")
             else:
                 rec["settled"] = True
-                print(f"    ⏭ 上一版 {_na} 已確定 Riot ID 不存在（404），{NOACC_DAYS} 天內不再問 Riot")
+                print(f"    ⏭ 上一版 {_na} 已確定 Riot ID 不存在（404），"
+                      f"{noacc_limit(_nk, _na) / 2.0:.1f} 天內不再問 Riot（這個帳號的錯開期限）")
             return rec
         # ── 捷徑：上一版已經存過這個帳號的 Riot puuid 就直接用（2026-09-05）──────
         # puuid 是**永久不變**的（改名也不變），所以省掉 account-v1 那一次查詢完全安全。
@@ -881,7 +920,7 @@ def main():
             else:
                 print("    清單缺 platform，Riot 也查不到區域 → 跳過牌位查詢"); return rec
         if not puuid:
-            # account-v1 親自問到 404（不是快取、不是連線錯誤）⇒ 記下日期，NOACC_DAYS 天內不再問（見 load_prev_noacc）
+            # account-v1 親自問到 404（不是快取、不是連線錯誤）⇒ 記下日期，之後幾班內不再問（見 load_prev_noacc）
             _is404 = ACC_LAST_CODE[0] == 404 and not (acc or {}).get("_cached")
             if _is404:
                 rec["noAcc"] = TODAY
@@ -1012,7 +1051,9 @@ def main():
     if settled:
         print(f"（{settled} 個帳號確定沒有單雙排名次或 Riot ID 不存在（404） → 不排進重抓，省下同樣次數的請求）")
     if NOACC_SKIPS[0]:
-        print(f"（{NOACC_SKIPS[0]} 個帳號上一版已確定 Riot ID 不存在、{NOACC_DAYS} 天內 → 沒問 account-v1，省下同樣次數的請求）")
+        print(f"（{NOACC_SKIPS[0]} 個帳號上一版已確定 Riot ID 不存在、"
+              f"{NOACC_SHIFTS / 2.0:.1f}~{(NOACC_SHIFTS + NOACC_SPREAD - 1) / 2.0:.1f} 天內（逐帳號錯開）"
+              f" → 沒問 account-v1，省下同樣次數的請求）")
     if NORANK_SKIPS[0]:
         print(f"（{NORANK_SKIPS[0]} 個帳號上一版已確定沒有單雙排排名、"
               f"{NORANK_SHIFTS / 2.0:.1f}~{(NORANK_SHIFTS + NORANK_SPREAD - 1) / 2.0:.1f} 天內（逐帳號錯開）"
