@@ -191,11 +191,15 @@ def pb_orders(tour, force=False, tries=3):
 
     用整局十隻英雄當鍵：同一局的英雄組合是固定的，跟隊名寫法、局號怎麼標都無關
     （merge_wiki 判定同一局也是用這招）。抓不到頁面就回 {}，呼叫端自行退回。
+
+    隊名要 html.unescape（2026-09-17 #172）：PB 頁的 alt 是「Anyone&#39;s Legend」，以前這裡的區域變數叫 html、
+    把模組蓋掉了所以沒解 ⇒ PB 補局（to_csv 的 _add）寫出「Anyone&#39;s Legend」這支隊伍，
+    08-12～08-15、08-24～08-25 兩段上線的資料裡 AL 被拆成兩隊。pb_list 早就是 page＋unescape。
     """
-    html = pb_page(tour, force=force, tries=tries)
-    if not html:
+    page = pb_page(tour, force=force, tries=tries)      # 不可命名為 html：會把模組 html 蓋掉，unescape 就沒了
+    if not page:
         return {}
-    tbl = [t for t in re.findall(r"<table[^>]*>.*?</table>", html, re.S) if "pbh-cn" in t]
+    tbl = [t for t in re.findall(r"<table[^>]*>.*?</table>", page, re.S) if "pbh-cn" in t]
     if not tbl:
         print("    ⚠ Picks and Bans 頁沒有 pbh-cn 表格（版型可能改了）")
         return {}
@@ -213,7 +217,7 @@ def pb_orders(tour, force=False, tries=3):
         if len(key) < 10 or key in out:        # 十隻不齊或兩局英雄完全相同 → 不夠獨特，寧可不用
             out.pop(key, None)
             continue
-        team = lambda i: (re.search(r'alt="([^"]+?)logo std"', cs[i]) or [None, ""])[1].strip()
+        team = lambda i: html.unescape((re.search(r'alt="([^"]+?)logo std"', cs[i]) or [None, ""])[1]).strip()
         out[key] = {"p": (t1p, t2p),
                     "b": ([(ch(i) or [""])[0] for i in PB_T1B],
                           [(ch(i) or [""])[0] for i in PB_T2B]),
