@@ -1612,6 +1612,129 @@ def DC_SUITE(M, eq):
 
 DC_SUITE(uh, eq)
 
+# ── ㉚ 逐選手數據覆蓋哨兵（2026-09-17 #176）：列數／日期量「有幾列」，這一組擋「欄位被靜靜洗空」──
+# 病灶（#174）：80fabac2 把早年開賽時間改成合成時間 ⇒ merge_stats 的配對鍵含時分、整批落空 ⇒
+# data_2013 的 blue_kills 5818 列 → 0，列數一列不少、日期沒倒退 ⇒ 健檢 46 天都印「✓ 沒有異常」。
+_H30 = ["league", "date", "blue_kills", "red_kills", "blue_deaths"]
+_R30 = [_H30,
+        ["LCK", "2013-05-01", 3, 0, 1],        # 0 殺也算有值
+        ["LCK", "2013-05-01", "", None, 2],    # 空字串／None 不算；blue_deaths 不在量測欄
+        ["LCK", "2013-05-02", 5],              # 短列（red_kills 那格根本不存在）不炸
+        ["LCK", "2013-05-02", "7", "0", 4]]    # 字串數字也算
+eq(uh.stat_cells(_R30), 5, "㉚stat_cells：0 與字串數字算有值、空字串／None／短列不算")
+eq(uh.stat_cells([["league", "date"], ["LCK", "2013-05-01"]]), 0,
+   "㉚stat_cells：表頭沒有 kills 欄＝0（欄被白名單拿掉也要被高水位抓到，不是 None）")
+eq(uh.stat_cells([_H30]), 0, "㉚stat_cells：只有表頭＝0")
+eq(uh.stat_cells(_R30, cols=("blue_deaths",)), 3, "㉚stat_cells 正控制：換欄位數字會跟著動（不是寫死 kills）")
+
+_l, _b = uh.stats_problems({"data_2013.js": 11042, "data_2018.js": 47580},
+                           {"data_2013.js": 11042, "data_2018.js": 47580},
+                           {"data_2013.js": 8943, "data_2018.js": 23791})
+eq(_b, [], "㉚持平：沒有異常")
+eq(_l, "逐選手數據（kills 有值格數，高水位）：✓ 2 個年度檔都沒倒退；有值率未滿：2013 61.7%",
+   "㉚持平：只列沒滿的年份（2018 滿了不列）")
+_l, _b = uh.stats_problems({"data_2013.js": 11042}, {"data_2013.js": 11041}, {"data_2013.js": 8943})
+eq(_b, ["data_2013.js 逐選手 kills 有值格數倒退（基準 11042 → 現在 11041，少 1 格）"], "㉚少一格就報（門檻 0，見原始碼註解的歷史實測）")
+eq(_l.startswith("逐選手數據（kills 有值格數，高水位）：⚠ 1 個年度檔倒退"), True, "㉚倒退時那一行也是 ⚠")
+_l, _b = uh.stats_problems({"data_2013.js": 5818}, {"data_2013.js": 0}, {"data_2013.js": 8943})
+eq(len(_b) == 1 and "5818 → 現在 0" in _b[0], True, "㉚#174 原案：5818 → 0 一定報")
+eq(uh.stats_problems({"data_2013.js": 11042}, {"data_2013.js": 11043})[1], [], "㉚變多：不報")
+eq(uh.stats_problems({"data_2013.js": 11042}, {"data_2013.js": None})[1], [],
+   "㉚讀不到：這裡不報（data_counts 已報讀不到，不重複）")
+eq(uh.stats_problems({"data_2013.js": 11042}, {"data_2014.js": 16356})[1], [],
+   "㉚基準有、這次沒這個檔：這裡不報（資料量那段報不見了）")
+eq(uh.stats_problems({}, {"data_2027.js": 0})[1], [], "㉚新年度檔（基準沒有）：不報")
+eq(uh.stats_problems({}, {})[0], "逐選手數據：讀不到任何年度檔", "㉚一個都讀不到：講出來")
+eq(uh.stats_problems({}, {"data_2026.js": 33288}, {"data_2026.js": 16652})[0].endswith("2026 99.9%"), True,
+   "㉚99.96% 無條件捨去成 99.9%（四捨五入會印 100.0% 跟「沒滿才列」矛盾）")
+eq("有值率" in uh.stats_problems({}, {"data_2018.js": 47580}, {"data_2018.js": 23791})[0], False,
+   "㉚滿的年份不列有值率")
+eq("有值率" in uh.stats_problems({}, {"data_2018.js": 47580})[0], False, "㉚沒給列數就不算有值率（不炸）")
+
+eq(uh.merge_stat_cells({"data_2013.js": 11042}, {"data_2013.js": 0}), {"data_2013.js": 11042}, "㉚倒退不寫回基準")
+eq(uh.merge_stat_cells({"data_2013.js": 11042}, {"data_2013.js": 0}, accept=True), {"data_2013.js": 0},
+   "㉚--accept 才認可倒退")
+eq(uh.merge_stat_cells({"data_2013.js": 11042}, {"data_2013.js": 11050}), {"data_2013.js": 11050}, "㉚變多照常更新")
+eq(uh.merge_stat_cells({"data_2013.js": 11042}, {"data_2013.js": None}), {"data_2013.js": 11042},
+   "㉚讀不到別把舊值蓋掉")
+eq(uh.merge_stat_cells({"x": 1}, {"data_2027.js": 0}), {"x": 1, "data_2027.js": 0}, "㉚新項目寫進、舊項目保留")
+
+# ㉚ 真實資料：出參涵蓋每一年、不影響列數；格數不超過 2×資料列（兩側各一格）；自己比自己沒有異常。
+# 刻意**不**斷言某一年的格數（#93：測試不可以把正本當下的狀態當成不變的前提）。
+_sc30 = {}
+eq(uh.data_counts(None, _sc30), dc, "㉚真實：帶 stats_out 不影響列數（跟 ⑦ 那次一樣）")
+eq(sorted(_sc30), years, "㉚真實：stats_out 涵蓋全部年份")
+eq(all(isinstance(_sc30.get(y), int) and 0 <= _sc30[y] <= 2 * (dc[y] - 1) for y in years), True,
+   "㉚真實：每年都是整數、不超過 2×資料列")
+eq(uh.stats_problems(_sc30, _sc30, dc)[1], [], "㉚真實：現況對現況沒有異常")
+
+# ㉚ 端到端：main() 真的把哨兵接進結論與基準（純函式對了、接線斷了一樣沒人知道）。
+# 假 repo 用 seed_clean_repo 種齊，另加一份有 kills 欄的 data_2013.js；**只有沙盒才有的證據**＝基準裡 data_2013.js 的格數 6。
+_real30 = (uh.ROOT, uh.BASE, uh.LOG, uh.CONSOLE, sys.argv)
+_box30 = tempfile.mkdtemp(prefix="uh_stats_e2e_")
+_outs30 = []
+
+
+def _w2013(cells):
+    raw = [["league", "split", "date", "game", "patch", "blue_kills", "red_kills"]] + [
+        ["LCK", "S", "2013-05-0%d" % (i + 1), "1", "3.5", b, r] for i, (b, r) in enumerate(cells)]
+    io.open(os.path.join(_box30, "data", "data_2013.js"), "w", encoding="utf-8").write(
+        "window.LOL_DATA=" + json.dumps({"tabs": {"RAW_DATA": raw}}) + ";")
+
+
+def _main30(*flags):
+    sys.argv = ["update_health.py", "--no-live", "--no-lag"] + list(flags)
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf):
+        rc = uh.main()
+    out = buf.getvalue()
+    _outs30.append(out)
+    concl = [l for l in out.splitlines() if l.startswith("結論：")]
+    line = [l.strip() for l in out.splitlines() if l.strip().startswith("逐選手數據")]
+    return rc, (concl[0] if concl else ""), (line[0] if line else None), out
+
+
+def _base30():
+    return json.load(io.open(uh.BASE, encoding="utf-8"))
+
+
+try:
+    seed_clean_repo(_box30)
+    _w2013([(3, 1), (0, 2), (4, 5)])                      # 6 格
+    point_clean(_box30)
+    uh.LOG = os.path.join(_box30, "update_log.txt")
+    uh.CONSOLE = os.path.join(_box30, "update_console.txt")
+    io.open(uh.LOG, "w", encoding="utf-8").write(
+        "==== run_update %s（並行 4）====\n" % time.strftime("%Y-%m-%d %H:%M:%S")
+        + "".join("---- %s（1.0s，exit 0）----\n" % n for n in SEED_STEPS)
+        + "文本體檢：掃描 1 條字串 → 錯誤 0、提醒 0\n未審定的可疑同名 0\n守門通過\n")
+    rc, concl, line, out = _main30()
+    eq((rc, concl), (0, "結論：✓ 沒有異常"), "㉚e2e 前提：種齊的假 repo 第一次跑沒有異常%s" % ("" if rc == 0 else "\n" + out))
+    eq(_base30().get("stats"), {"data_2013.js": 6, "data_2026.js": 0},
+       "㉚e2e：main 把格數存進基準（沙盒證據 6；data_2026 沒有 kills 欄＝0）")
+    eq(line, "逐選手數據（kills 有值格數，高水位）：✓ 2 個年度檔都沒倒退；有值率未滿：2026 0.0%",
+       "㉚e2e：main 印出哨兵那一行")
+    _w2013([(3, 1), (0, ""), (4, 5)])                     # 同樣 3 列、洗掉一格
+    rc, concl, line, out = _main30("--no-save")
+    eq(rc, 1, "㉚e2e：洗掉一格 ⇒ main 離開碼 1")
+    eq("data_2013.js 逐選手 kills 有值格數倒退（基準 6 → 現在 5，少 1 格）" in concl, True,
+       "㉚e2e：結論點名倒退（得到 %r）" % concl)
+    eq("縮水" in concl, False, "㉚e2e 對照：列數沒變 ⇒ 異常只來自新哨兵（不是列數那段順便報的）")
+    eq("--accept" in out, True, "㉚e2e：倒退會印「--accept 才認可」的提示")
+    rc, concl, line, out = _main30()                      # 存檔模式再跑一次：高水位要保住
+    eq((rc, (_base30().get("stats") or {}).get("data_2013.js")), (1, 6), "㉚e2e：存檔模式倒退不寫回基準、下一輪繼續報")
+    rc, concl, line, out = _main30("--accept")
+    eq((_base30().get("stats") or {}).get("data_2013.js"), 5, "㉚e2e：--accept 才把 5 收進基準")
+    rc, concl, line, out = _main30("--no-save")
+    eq((rc, concl), (0, "結論：✓ 沒有異常"), "㉚e2e：認可之後不再報")
+    eq(all("data_2013.js" in o for o in _outs30) and len(_outs30) == 5, True,
+       "㉚e2e 沙盒證據：五次 main 都讀到假 repo 的 data_2013.js")
+finally:
+    uh.ROOT, uh.BASE, uh.LOG, uh.CONSOLE, sys.argv = _real30
+    shutil.rmtree(_box30, ignore_errors=True)
+eq((uh.ROOT, uh.BASE), (ROOT, _REAL_BASE_PATH), "㉚ ROOT／BASE 已還原成真 repo")
+eq(_stat_of(_REAL_BASE_PATH), _REAL_BASE_STAT, "㉚真的 UPDATE_BASELINE.json 沒被寫到（size＋mtime_ns 前後一致）")
+
 # ── ⓪ 收尾：整份測試沒有任何一次撞到封鎖器（被 wiki_days 的 except 吞掉的也算），
 #    而且假出口真的有被 main() 走到（⑫⑮ 都沒帶 --no-lag）——否則上一條可能只是 main 根本沒接逐聯賽落後。
 eq(NET_HITS, [], "⓪整份測試沒有任何一次真的去連外（有人漏接了出口）")

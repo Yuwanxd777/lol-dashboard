@@ -365,11 +365,12 @@ def max_date(raw):
     return best
 
 
-def data_counts(latest_out=None):
-    """列數；`latest_out` 給一個 dict 就順便填「每個年度檔的最新比賽日期」。
+def data_counts(latest_out=None, stats_out=None):
+    """列數；`latest_out` 給一個 dict 就順便填「每個年度檔的最新比賽日期」，
+    `stats_out` 給一個 dict 就順便填「每個年度檔的逐選手 kills 有值格數」（#176）。
 
     刻意做成選填的出參而不是改回傳值：`scripts/update_health_test.py` 的端到端那段
-    直接 `uh.data_counts()` 拿 dict，改簽名會把既有測試打壞。日期在**同一次解析**裡算完，
+    直接 `uh.data_counts()` 拿 dict，改簽名會把既有測試打壞。日期與格數都在**同一次解析**裡算完，
     不會為了新增一個指標再讀一遍 194MB。
     """
     out = {}
@@ -382,10 +383,14 @@ def data_counts(latest_out=None):
             out[os.path.basename(f)] = len(raw)
             if latest_out is not None:
                 latest_out[os.path.basename(f)] = max_date(raw)
+            if stats_out is not None:
+                stats_out[os.path.basename(f)] = stat_cells(raw)
         except Exception:
             out[os.path.basename(f)] = None
             if latest_out is not None:
                 latest_out[os.path.basename(f)] = None
+            if stats_out is not None:
+                stats_out[os.path.basename(f)] = None
     try:
         s = js_obj(os.path.join(ROOT, "soloq.js"))
         ps = s.get("players", [])
@@ -620,6 +625,74 @@ def merge_latest(prev, cur, accept=False):
             continue                      # 讀不到就別把舊值蓋掉
         pv = prev.get(k)
         if isinstance(pv, str) and v < pv and not accept:
+            continue
+        out[k] = v
+    return out
+
+
+# ── 逐選手數據覆蓋（2026-09-17 #176；純函式，scripts/update_health_test.py 在測）────────
+# 為什麼要有這段：#174 發現 data_2013～2016 的逐選手 K/D/A／金錢從 07-31 23:56（80fabac2）起被靜靜洗掉 46 天——
+# 上游把開賽時間改成合成時間，fetch_data.merge_stats 的配對鍵含時分 ⇒ 整批落空，而它「只填空欄位」⇒ 不報錯、只是沒填。
+# 列數一列不少、日期沒倒退、體積（年度檔本來就不在體積哨兵裡）⇒ 健檢一路印「✓ 沒有異常」。
+# 上面列數／日期量的都是「有幾列」，**量不到欄位被洗空**（#98／#142「沒變化被讀成沒問題」的另一個入口）。
+# 量什麼：每個年度檔 blue_kills＋red_kills 有值的格數。K/D/A 與金錢是同一次合併一起填的，kills 當代表。
+# 門檻怎麼定的（先量才定）：autopilot/_m176_kills_history_probe.py 掃 14 個年度檔的 git 歷史（1438 個 commit），
+# 有值格數下降一共 12 次：
+#   ‧ 列數沒跟著減的 8 次**全是配對鍵出事**（5ebcc752 −1、84de7f1f −140／−41／−49、80fabac2 −11499／−7960／−11538／−2580；
+#     84de7f1f 那筆 −41 列數還 +6）
+#   ‧ 其餘 4 次是去重（2026 −54／−5／−29 列、2015 327dccd0 −630 列），列數本身就會報縮水
+# ⇒ 沒有「列數不減、格數合理變少」的案例，所以跟列數同一個標準：**少一格就是異常**、高水位、`--accept` 才認可。
+STATS_COLS = ("blue_kills", "red_kills")
+
+
+def stat_cells(raw, cols=STATS_COLS):
+    """RAW_DATA（含表頭）→ cols 有值的格數（0 算有值；None／空字串不算）。
+
+    欄位一律 hdr.index 查（88 欄白名單制）。表頭沒有這些欄就回 0——欄被白名單拿掉也是一種洗掉，要被高水位抓到。
+    """
+    hdr = raw[0]
+    idx = [hdr.index(c) for c in cols if c in hdr]
+    n = 0
+    for r in raw[1:]:
+        for i in idx:
+            if i < len(r) and r[i] is not None and r[i] != "":
+                n += 1
+    return n
+
+
+def stats_problems(prev, cur, rows=None):
+    """回 (要印的那一行, [異常…])。prev＝基準高水位 {檔名: 格數}，cur＝這次算的，rows＝這次的列數（含表頭，算有值率用）。
+
+    讀不到（None）與檔案不見了不在這裡報——data_counts 那段已經報過，重複只會讓結論變長。
+    """
+    bad = []
+    for k in sorted(cur):
+        pv, cv = prev.get(k), cur.get(k)
+        if isinstance(cv, int) and isinstance(pv, int) and cv < pv:
+            bad.append("%s 逐選手 kills 有值格數倒退（基準 %d → 現在 %d，少 %d 格）" % (k, pv, cv, pv - cv))
+    ok = sorted(k for k in cur if isinstance(cur[k], int))
+    if not ok:
+        return ("逐選手數據：讀不到任何年度檔", bad)
+    # 有值率只列沒滿的年份（2018～2025 都是 100%，全列只是噪音）；早年本來就只有部分場次有逐選手數據
+    part = []
+    for k in ok:
+        n = (rows or {}).get(k)
+        if isinstance(n, int) and n > 1 and cur[k] < 2 * (n - 1):
+            # 無條件捨去：99.96% 四捨五入會印成「100.0%」，跟「沒滿才列」自相矛盾
+            part.append("%s %.1f%%" % (k[5:9], int(1000.0 * cur[k] / (2 * (n - 1))) / 10.0))
+    head = ("✓ %d 個年度檔都沒倒退" % len(ok)) if not bad else ("⚠ %d 個年度檔倒退" % len(bad))
+    return ("逐選手數據（kills 有值格數，高水位）：%s%s" % (head, ("；有值率未滿：" + "／".join(part)) if part else ""),
+            bad)
+
+
+def merge_stat_cells(prev, cur, accept=False):
+    """格數也採高水位：倒退不寫回基準（跟 merge_baseline／merge_latest 同一個洞）。"""
+    out = dict(prev)
+    for k, v in cur.items():
+        if not isinstance(v, int):
+            continue                      # 讀不到就別把舊值蓋掉
+        pv = prev.get(k)
+        if isinstance(pv, int) and v < pv and not accept:
             continue
         out[k] = v
     return out
@@ -1216,7 +1289,8 @@ def soloq_fresh(now_ms=None, mdir=None, files=None,
 def main():
     lg = parse_log()
     lt = {}
-    dc = data_counts(lt)
+    sc = {}
+    dc = data_counts(lt, sc)
     prev = {}
     try:
         prev = json.load(io.open(BASE, encoding="utf-8"))
@@ -1303,6 +1377,10 @@ def main():
     lline, lbad = latest_problems(prev.get("latest") or {}, lt, time.time())
     print("   " + lline)
     bad += lbad
+    # 逐選手數據覆蓋（#176）：列數／日期量的都是「有幾列」，欄位被靜靜洗空量不到（#174 早年 K/D/A 洗掉 46 天）
+    kline, kbad = stats_problems(prev.get("stats") or {}, sc, dc)
+    print("   " + kline)
+    bad += kbad
     # 積分逐場新鮮度（#143）：上面 soloq 那三個指標全是**數量**，抓壞了一個都不會動（#142）
     if "--no-soloqfresh" in sys.argv:
         print("   積分逐場新鮮度：（--no-soloqfresh 跳過）")
@@ -1363,14 +1441,16 @@ def main():
             bad += [_m[3:] for _m in _dmsgs if _m.startswith("異常：")]
     print("")
     print("結論：" + ("✓ 沒有異常" if not bad else "⚠ " + "；".join(bad)))
-    if any(("縮水" in b or "不見了" in b) for b in bad):
-        print("（縮水／不見了的項目**不會**寫回基準，會一直報到你確認為止；"
+    if any(("縮水" in b or "不見了" in b or "有值格數倒退" in b) for b in bad):
+        print("（縮水／不見了／有值格數倒退的項目**不會**寫回基準，會一直報到你確認為止；"
               "確認資料真的變少就跑 python scripts\\update_health.py --accept）")
     if "--no-save" not in sys.argv:
         os.makedirs(os.path.dirname(BASE), exist_ok=True)
         json.dump({"at": time.strftime("%Y-%m-%d %H:%M"),
                    "counts": merge_baseline(pc, dc, accept),
                    "latest": merge_latest(prev.get("latest") or {}, lt, accept),
+                   "stats": merge_stat_cells(prev.get("stats") or {}, sc, accept),
+                   "last_stats": sc,
                    "sizes": merge_sizes(prev.get("sizes") or {}, fs, accept),
                    "steps": merge_steps(prev.get("steps") or [], step_names(lg), accept),
                    "last_steps": step_names(lg),
