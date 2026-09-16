@@ -636,6 +636,350 @@ if _rl:
     eq(len(spn(_rn, _rn[1:])[1]), 1, "㉕正控制：真實日誌拿掉一步就會被抓到")
     eq(len(set(_rn)), len(_rn), "㉕真實步驟名沒有重複（去重生效）")
 
+# ── ㉖ 逐聯賽落後哨兵（2026-09-16 #140）：整組從 autopilot/_m139_lag_sentinel_test_draft.py 搬來 ──
+# 上面那些哨兵都是全站指標，單一聯賽整段沒收會被蓋過去。這組把 Leaguepedia 出口接管掉，
+# 六個網路出口全封死並附「封鎖器自己會擋」的正控制（#52：把來源清空不算隔離）。
+import datetime as dt          # noqa: E402
+
+
+def yes(cond, label):
+    eq(bool(cond), True, label)
+
+# ══ 網路封鎖：三個出口一起堵，並證明堵得住 ═══════════════════════════════
+class BlockedNetwork(RuntimeError):
+    pass
+
+
+def _blow(*a, **k):
+    raise BlockedNetwork("測試沙箱禁止連外（有人漏接了一個網路出口）")
+
+
+def block_network():
+    """回傳 restore()。socket 層是保險絲：就算被測模組換用別的 http 函式庫也會在這裡炸。"""
+    import socket
+    import http.client
+    import urllib.request
+    saved = [(socket, "socket", socket.socket),
+             (socket, "create_connection", socket.create_connection),
+             (http.client, "HTTPSConnection", http.client.HTTPSConnection),
+             (http.client, "HTTPConnection", http.client.HTTPConnection),
+             (urllib.request, "urlopen", urllib.request.urlopen),
+             (urllib.request, "build_opener", urllib.request.build_opener)]
+    for mod, name, _ in saved:
+        setattr(mod, name, _blow)
+
+    def restore():
+        for mod, name, orig in saved:
+            setattr(mod, name, orig)
+    return restore
+
+
+# ══ 合成資料入口：長得像 data_2026.js，但只有測試要的那幾欄有意義 ═════════
+COLS = ["date", "league", "blue_teamname", "red_teamname", "game", "patch"]
+
+
+_TMP = []
+
+
+def make_data_js(rows, fetched_at="2026-09-16 08:00"):
+    """rows = [(date_str, league, 第幾局), ...] → 寫出一個沙箱 data_2026.js，回傳路徑。
+
+    路徑登記在 _TMP，收尾一律刪掉——每跑一次留十幾個 .js 在 %TEMP% 是慢性汙染。"""
+    raw = [list(COLS)]
+    for i, (d, lg, g) in enumerate(rows):
+        # ⚠ 一定要**按欄名**擺，不可以按固定位置：⑨ 把 COLS 打亂就是要證明被測端用 hdr.index 查。
+        #   若這裡也照位置填，打亂後表頭與值同步錯位，被測端硬編偏移也會「剛好」過關（假綠）。
+        cell = {"date": d, "league": lg, "blue_teamname": "B%d" % i,
+                "red_teamname": "R%d" % i, "game": g, "patch": "26.18"}
+        raw.append([cell[c] for c in COLS])
+    obj = {"fetched_at": fetched_at, "tabs": {"RAW_DATA": raw}}
+    fd, path = tempfile.mkstemp(prefix="m139_data_", suffix=".js")
+    os.close(fd)
+    io.open(path, "w", encoding="utf-8").write(
+        "window.LOL_DATA=" + json.dumps(obj, ensure_ascii=False) + ";")
+    _TMP.append(path)
+    return path
+
+
+def wiki_stub(rows, filter_since=True):
+    """rows = [(OverviewPage, DateTime_UTC), ...] → 一個 fetch(since, timeout) 假出口。
+
+    filter_since=False 模擬「Cargo 沒照 where 過濾、回了視窗外的舊局」——
+    判定端不可以因此誤報（見 SUITE 第 ⑧ 組）。"""
+    def fetch(since, timeout=90):
+        return [{"ov": ov, "dt": t} for ov, t in rows if (not filter_since) or t[:10] >= since]
+    return fetch
+
+
+def fetch_boom(since, timeout=90):
+    raise IOError("HTTP Error 503: Service Unavailable")
+
+
+# ══ 測試本體：同一組斷言可以套在參考實作或 update_health 上 ═══════════════
+NOW140 = dt.datetime(2026, 9, 16, 8, 0)      # 固定「現在」，不吃系統時鐘
+
+
+def SUITE(M, tag):
+    """M 要提供 lag_problems / wiki_days / our_days / LAG_* 四個常數。"""
+    def LP(**kw):
+        return M.lag_problems(NOW140, kw.pop("data"), **kw)
+
+    # ── ① 正例：wiki 有的我們都有 ⇒ ok ────────────────────────────────
+    d_ok = make_data_js([("2026-09-14 10:00", "LPL", 1), ("2026-09-15 10:00", "LPL", 1),
+                         ("2026-09-15 10:00", "LCK", 1)])
+    w_ok = wiki_stub([("LPL/2026 Season/Split 3", "2026-09-14 10:00"),
+                      ("LPL/2026 Season/Split 3", "2026-09-15 10:00"),
+                      ("LCK/2026 Season/Split 3", "2026-09-15 10:00")])
+    st, msgs = LP(data=d_ok, fetch=w_ok)
+    eq(st, "ok", "%s ①正例：跟上 ⇒ ok" % tag)
+
+    # ── ② 反例：LPL 三天沒收 ⇒ bad，而且訊息要點名是誰、差哪幾天 ──────
+    w_lag = wiki_stub([("LPL/2026 Season/Split 3", "2026-09-13 10:00"),
+                       ("LPL/2026 Season/Split 3", "2026-09-14 10:00"),
+                       ("LPL/2026 Season/Split 3", "2026-09-15 10:00"),
+                       ("LCK/2026 Season/Split 3", "2026-09-15 10:00")])
+    d_lag = make_data_js([("2026-09-12 10:00", "LPL", 1), ("2026-09-15 10:00", "LCK", 1)])
+    st, msgs = LP(data=d_lag, fetch=w_lag)
+    eq(st, "bad", "%s ②反例：LPL 落後 3 天 ⇒ bad" % tag)
+    yes(any("LPL 落後 3 個比賽日" in m for m in msgs), "%s ②訊息點名 LPL 與天數" % tag)
+    yes(any("2026-09-13" in m and "2026-09-15" in m for m in msgs), "%s ②訊息列出缺的比賽日" % tag)
+    yes(not any("LCK" in m and "異常" in m for m in msgs), "%s ②跟上的 LCK 不被連坐" % tag)
+
+    # ── ③ 門檻真的在作用：落後 1 天不報；門檻改 1 同一份資料就翻紅 ─────
+    w_one = wiki_stub([("LPL/2026 Season/Split 3", "2026-09-15 10:00")])
+    d_one = make_data_js([("2026-09-14 10:00", "LPL", 1)])
+    eq(LP(data=d_one, fetch=w_one)[0], "ok", "%s ③落後 1 天＜門檻 ⇒ ok" % tag)
+    eq(LP(data=d_one, fetch=w_one, threshold=1)[0], "bad",
+       "%s ③正控制：門檻 1 時同一份資料翻紅" % tag)
+    # 邊界：我們「已經有」的那一天不可以被算進落後（比較要用 > 不是 >=，
+    # 寫成 >= 的話下面這組真實落後 1 天會被灌成 2 天而誤報）
+    w_edge = wiki_stub([("LPL/2026 Season/Split 3", "2026-09-14 10:00"),
+                        ("LPL/2026 Season/Split 3", "2026-09-15 10:00")])
+    d_edge = make_data_js([("2026-09-14 10:00", "LPL", 1)])
+    eq(LP(data=d_edge, fetch=w_edge)[0], "ok", "%s ③邊界：我們已有的那天不算落後" % tag)
+    eq(LP(data=d_edge, fetch=w_edge, threshold=1)[0], "bad",
+       "%s ③正控制：門檻 1 時這組（真的落後 1 天）會叫" % tag)
+
+    # ── ④ 寬限 6 小時：剛開賽的局不算「我們落後」（兩邊都釘 threshold=1，唯一變數是寬限）
+    #    NOW140=09-16 08:00 ⇒ 寬限線 02:00；兩局 04:00／06:00 都還在寬限內
+    w_fresh = wiki_stub([("LCK/2026 Season/Split 3", "2026-09-16 04:00"),
+                         ("LCK/2026 Season/Split 3", "2026-09-16 06:00")])
+    d_fresh = make_data_js([("2026-09-15 10:00", "LCK", 1)])
+    eq(LP(data=d_fresh, fetch=w_fresh, threshold=1)[0], "ok",
+       "%s ④寬限內剛開賽 ⇒ 不算落後" % tag)
+    eq(LP(data=d_fresh, fetch=w_fresh, threshold=1, grace_h=0)[0], "bad",
+       "%s ④正控制：只把寬限改成 0，同一份資料就翻紅" % tag)
+
+    # ── ⑤ 白名單：PCS 落後五天也不該叫（我們本來就沒收那個賽段）──────────
+    #    #137 wiki 探測：PCS/2026 Season/Summer Season 38 局是我們完全沒有的頁
+    w_pcs = wiki_stub([("PCS/2026 Season/Summer Season", "2026-09-%02d 10:00" % d)
+                       for d in (10, 11, 12, 13, 14)])
+    d_pcs = make_data_js([("2026-09-15 10:00", "LCK", 1)])
+    eq(LP(data=d_pcs, fetch=w_pcs)[0], "ok", "%s ⑤PCS 不在白名單 ⇒ 不叫" % tag)
+    eq(LP(data=d_pcs, fetch=w_pcs, tier1=("LCK", "PCS"))[0], "bad",
+       "%s ⑤正控制：把 PCS 加進白名單就會叫（證明資料真的餵進去了）" % tag)
+
+    # ── ⑥ 降級：wiki 掛了 ⇒ skip，不是 bad、也不可以炸掉整個健檢 ─────────
+    st, msgs = LP(data=d_lag, fetch=fetch_boom)
+    eq(st, "skip", "%s ⑥wiki 失敗 ⇒ skip（不算異常）" % tag)
+    yes(any("略過" in m for m in msgs), "%s ⑥訊息說明是略過" % tag)
+    eq(LP(data=d_lag, fetch=w_lag)[0], "bad",
+       "%s ⑥正控制：同一份資料在 fetch 正常時是 bad（skip 不是恆真）" % tag)
+    # 空回應（Cargo 偶爾回 []）也要當查不到，不能當成「wiki 沒比賽 ⇒ 我們沒落後」
+    eq(LP(data=d_lag, fetch=lambda s, timeout=90: [])[0], "skip",
+       "%s ⑥空回應 ⇒ skip 而不是 ok" % tag)
+
+    # ── ⑦ 兩邊都沒比賽（休賽期）⇒ 不叫，而且連一行都不要印 ──────────────
+    #    只斷言狀態擋不住「把跳過拿掉」那種改動（沒比賽的聯賽 behind 本來就 0、狀態不會變），
+    #    所以這裡順便釘訊息行數：六個聯賽只有 LCK 有比賽 ⇒ 只能有一行。
+    d_idle = make_data_js([("2026-09-15 10:00", "LCK", 1)])
+    st, msgs = LP(data=d_idle, fetch=wiki_stub([("LCK/2026 Season/Split 3", "2026-09-15 10:00")]))
+    eq(st, "ok", "%s ⑦其餘聯賽兩邊都沒比賽 ⇒ 不叫" % tag)
+    eq(len(msgs), 1, "%s ⑦休賽中的聯賽不佔訊息行（只剩 LCK 一行）" % tag)
+    yes("LCK" in msgs[0], "%s ⑦那一行是 LCK" % tag)
+
+    # ── ⑧ 視窗外的舊局不可以造成假警報 ────────────────────────────────
+    #    我們這側 our_days 依 since 過濾，wiki 側如果不過濾就會「odays 空、wdays 一堆」
+    #    ⇒ 整個停賽已久的聯賽天天被叫。這裡用「不照 where 過濾」的假出口逼出那個不對稱。
+    w_old = wiki_stub([("LEC/2026 Season/Split 2", "2026-08-01 10:00"),
+                       ("LEC/2026 Season/Split 2", "2026-08-02 10:00")], filter_since=False)
+    eq(LP(data=make_data_js([("2026-09-15 10:00", "LCK", 1)]), fetch=w_old)[0], "ok",
+       "%s ⑧伺服器回了視窗外的舊局也不誤報" % tag)
+    eq(LP(data=make_data_js([("2026-09-15 10:00", "LCK", 1)]), fetch=w_old, window_d=60)[0],
+       "bad", "%s ⑧正控制：視窗拉到 60 天（那兩天就進窗了）同一份資料會叫" % tag)
+
+    # ── ⑨ 欄位一律 hdr.index 查（把欄序打亂，答案要一樣）──────────────
+    #    欄序刻意讓偏移 0（game=整數 1）與偏移 1（patch="26.18"）兩個常見硬編都是錯的。
+    #    斷言挑「ok」那一側：讀錯欄 ⇒ 全部列被視窗濾掉或聯賽對不上
+    #    ⇒ odays 空 ⇒ wiki 那兩天全算落後 ⇒ 翻成 bad（測試就會紅）。
+    global COLS
+    _save = COLS
+    COLS = ["game", "patch", "date", "league", "blue_teamname", "red_teamname"]
+    try:
+        d_mix = make_data_js([("2026-09-14 10:00", "LPL", 1), ("2026-09-15 10:00", "LPL", 1),
+                              ("2026-09-15 10:00", "LCK", 1)])
+    finally:
+        COLS = _save
+    eq(LP(data=d_mix, fetch=w_ok)[0], "ok", "%s ⑨欄序打亂照樣讀得到（沒有硬編偏移）" % tag)
+
+    # ── ⑩ 常數要跟 #136／#137 定案一致（有人手滑改門檻就會紅）────────────
+    eq(tuple(M.LAG_TIER1), ("LCK", "LPL", "LEC", "LCS", "CBLOL", "LCP"), "%s ⑩白名單六隊" % tag)
+    eq(M.LAG_GRACE_H, 6, "%s ⑩寬限 6 小時" % tag)
+    eq(M.LAG_THRESHOLD, 2, "%s ⑩門檻 2 個比賽日" % tag)
+    eq(M.LAG_WINDOW_D, 14, "%s ⑩視窗 14 天" % tag)
+
+    # ── ⑪ 出口點名：不給 fetch 時，走的一定是模組層的 wiki_rows ──────────
+    called = []
+
+    def spy(since, timeout=90):
+        called.append(since)
+        return [{"ov": "LPL/2026 Season/Split 3", "dt": "2026-09-15 10:00"}]
+    _orig = M.wiki_rows
+    M.wiki_rows = spy
+    try:
+        st, _ = LP(data=make_data_js([("2026-09-12 10:00", "LPL", 1)]))
+        eq(len(called), 1, "%s ⑪預設出口＝模組層 wiki_rows（接管得到）" % tag)
+        eq(called[0], "2026-09-02", "%s ⑪since 是 now−14 天" % tag)
+    finally:
+        M.wiki_rows = _orig
+
+
+# 跑第 ㉖ 組（全程封網；先證明封鎖器真的會擋，否則「沒連到外面」可能只是根本沒呼叫）
+_restore = block_network()
+try:
+    try:
+        import urllib.request as _ur
+        _ur.urlopen("https://lol.fandom.com/")
+        NG.append("㉖⓪封鎖器沒作用：urlopen 居然通了")
+    except BlockedNetwork:
+        OK[0] += 1
+    try:
+        import socket as _sk
+        _sk.socket()
+        NG.append("㉖⓪封鎖器沒作用：socket 居然建得起來")
+    except BlockedNetwork:
+        OK[0] += 1
+    for _n in dir(uh):
+        _v = getattr(uh, _n, None)
+        if isinstance(_v, str) and _v.endswith("data_2026.js") and os.path.isabs(_v):
+            NG.append("㉖模組層常數 %s 指著真實 data_2026.js（沙箱漏接）" % _n)
+    SUITE(uh, "㉖")
+finally:
+    _restore()
+    for _f in _TMP:
+        try:
+            os.remove(_f)
+        except OSError:
+            pass
+
+# ══ ㉗ 積分逐場新鮮度（#143；逐字抽自 autopilot/_m143_soloq_fresh_port.py）═══════════
+def SQF_SUITE(uh, eq):
+    """合成逐場目錄，直接問 uh.soloq_fresh()。NOW143 是固定的「現在」⇒ 跑在哪一天結果都一樣。"""
+    import io as _io
+    import os as _os
+    import shutil as _sh
+    import tempfile as _tf
+    NOW143 = 1789000000000.0          # 固定的 epoch ms（2026-09-09 前後），素材全相對它算
+    H = 3600000.0
+    _dirs = []
+
+    def mk(specs, pad=0):
+        """specs＝[(檔名, [該檔的 t 們])]；pad>0 就在第一局塞這麼多位元組的填充，
+        把後面的局推到便宜路徑（開頭 8192 位元組）讀不到的地方——用來測「新到舊」假設壞掉。"""
+        d = _tf.mkdtemp(prefix="sqf_")
+        _dirs.append(d)
+        for name, ts in specs:
+            recs = []
+            for i, t in enumerate(ts):
+                recs.append('{"t":%d,"pad":"%s"}' % (int(t), ("x" * pad) if (pad and i == 0) else ""))
+            _io.open(_os.path.join(d, name), "w", encoding="utf-8").write(
+                "window.SQM=[" + ",".join(recs) + "];")
+        return d
+
+    def sf(d, **kw):
+        kw.setdefault("now_ms", NOW143)
+        return uh.soloq_fresh(mdir=d, **kw)
+
+    try:
+        eq((uh.SQF_HEAD_BYTES, uh.SQF_STALE_H, uh.SQF_THIN_MIN, uh.SQF_THIN_H),
+           (8192, 30, 20, 24), "㉗門檻常數＝探針實測那組（8192／30h／20 檔／24h 窗口）")
+        # 新鮮：30 個檔，最後一局都在 1 小時前
+        fresh = mk([("p%d.js" % i, [NOW143 - 1 * H, NOW143 - 50 * H]) for i in range(30)])
+        st, line, bad = sf(fresh)
+        eq((st, bad), ("ok", []), "㉗新鮮：30 個檔都在 1 小時前 ⇒ ok")
+        eq("✓" in line and "跟著動 30" in line, True, "㉗新鮮那一行印 ✓ 與「跟著動」的檔數")
+        # 停更：全部檔最後一局都在 40 小時前（>30h）
+        stale = mk([("p%d.js" % i, [NOW143 - 40 * H]) for i in range(30)])
+        st, line, bad = sf(stale)
+        eq(st, "bad", "㉗停更：全庫最新一局 40 小時前 ⇒ bad")
+        eq(any("沒往前" in b for b in bad), True, "㉗停更的異常訊息講「沒往前」")
+        eq("⚠" in line, True, "㉗停更那一行印 ⚠")
+        # 稀疏：最新一局很新，但只有 5 個檔在動
+        thin = mk([("p%d.js" % i, [NOW143 - 1 * H]) for i in range(5)]
+                  + [("q%d.js" % i, [NOW143 - 240 * H]) for i in range(25)])
+        st, line, bad = sf(thin)
+        eq(st, "bad", "㉗稀疏：只有 5 個檔跟著最新一局在動 ⇒ bad（最新一局再新也不算過）")
+        eq(any("只有 5 個" in b for b in bad), True, "㉗稀疏的異常訊息點出 5 個檔")
+        eq(any("沒往前" in b for b in bad), False, "㉗稀疏不該同時報「沒往前」")
+        # 漏一整班（26 小時沒抓到新局）：STALE_H=30 刻意容許 ⇒ 不可以有任何異常。
+        # 舊寫法把稀疏的窗口釘在「現在」，這一格 24h 內一個檔都沒有 ⇒ 當場誤報，
+        # 30 小時的寬限形同不存在（真正把關的是 24 小時）。這一條就是那個缺陷的哨兵。
+        miss = mk([("p%d.js" % i, [NOW143 - 26 * H]) for i in range(30)])
+        st, line, bad = sf(miss)
+        eq((st, bad), ("ok", []), "㉗漏一整班（26h）＝還在寬限內，稀疏不可以跟著誤報")
+        # 空目錄：異常，不是「資料很新」
+        st, line, bad = sf(mk([]))
+        eq(st, "bad", "㉗空目錄＝異常（不是資料很新）")
+        eq(any("一個 .js 都沒有" in b for b in bad), True, "㉗空目錄的訊息講「一個 .js 都沒有」")
+        # 檔案在、但一個 t 都沒有（格式變了）
+        not_j = mk([("p1.js", []), ("p2.js", [])])
+        st, line, bad = sf(not_j)
+        eq(st, "bad", "㉗一個 t 都沒有＝異常")
+        eq(any("格式變了" in b for b in bad), True, "㉗沒有 t 的訊息講「格式變了」")
+        # 「新到舊」假設壞掉：第一局最舊、新局被推到 8192 位元組之後
+        # 便宜路徑會算出 40 小時前 ⇒ 必須自動整檔重掃 ⇒ 結論 ok（不誤報）
+        scr = mk([("p%d.js" % i, [NOW143 - 40 * H, NOW143 - 1 * H]) for i in range(30)], pad=12000)
+        st, line, bad = sf(scr)
+        eq((st, bad), ("ok", []), "㉗排序假設壞掉：便宜路徑判落後 ⇒ 自動整檔重掃 ⇒ 仍是 ok")
+        eq("整檔重掃" in line, True, "㉗升級整檔重掃要寫在那一行上（不然沒人知道它慢了）")
+        eq(max(uh.sqf_scan(sorted(_os.path.join(scr, f) for f in _os.listdir(scr)),
+                           True).values()) < NOW143 - 30 * H, True,
+           "㉗對照：便宜路徑真的只讀開頭（掃到的最大 t 還是那個舊的）")
+        # 正例會動的對照：同樣走升級路徑，但整檔掃之後**真的**還是舊的 ⇒ 仍要 bad
+        scr2 = mk([("p%d.js" % i, [NOW143 - 40 * H, NOW143 - 900 * H]) for i in range(30)], pad=12000)
+        st, line, bad = sf(scr2)
+        eq(st, "bad", "㉗對照：升級整檔掃之後還是舊的 ⇒ 照樣 bad（升級不是無條件放過）")
+        # 門檻邊界：剛好等於門檻算落後（寫成 > 的話真落後那一刻會漏掉一整班）
+        eq(sf(mk([("p%d.js" % i, [NOW143 - 30 * H]) for i in range(30)]))[0], "bad",
+           "㉗邊界：age 剛好 30h＝落後（>= 不是 >）")
+        eq(sf(mk([("p%d.js" % i, [NOW143 - 29.5 * H]) for i in range(30)]))[0], "ok",
+           "㉗邊界：29.5h 還不算落後")
+        eq(sf(mk([("p%d.js" % i, [NOW143 - 1 * H]) for i in range(20)]))[0], "ok",
+           "㉗邊界：跟著動的檔剛好 20 個＝過")
+        eq(sf(mk([("p%d.js" % i, [NOW143 - 1 * H]) for i in range(19)]))[0], "bad",
+           "㉗邊界：跟著動的檔 19 個＝不過")
+        # 窗口是「距最新一局」多久，所以素材要相對 mx（這裡 mx＝1 小時前）算，不是相對現在
+        eq(sf(mk([("p0.js", [NOW143 - 1 * H])]
+                 + [("q%d.js" % i, [NOW143 - (1 + 24.1) * H]) for i in range(29)]))[0], "bad",
+           "㉗窗口邊界：距最新一局 24.1 小時的檔不算在動（29 個也救不了）")
+        eq(sf(mk([("p0.js", [NOW143 - 1 * H])]
+                 + [("q%d.js" % i, [NOW143 - (1 + 23.9) * H]) for i in range(29)]))[0], "ok",
+           "㉗窗口邊界：距最新一局 23.9 小時的檔算在動")
+        # 分桶邊界
+        bk = uh.sqf_buckets([NOW143 - 23.9 * H, NOW143 - 24.1 * H, NOW143 - 71.9 * H,
+                             NOW143 - 72.1 * H, NOW143 - 167.9 * H, NOW143 - 168.1 * H,
+                             NOW143 - 719.9 * H, NOW143 - 720.1 * H, 0], NOW143)
+        eq((bk["<24h"], bk["<72h"], bk["<7d"], bk["<30d"], bk[">=30d"], bk["沒有對局"]),
+           (1, 2, 2, 2, 1, 1), "㉗分桶邊界 24／72／168／720 小時各自落在對的桶")
+        # 讀不到的檔算 0 而不是炸掉
+        eq(uh.sqf_scan([_os.path.join(mk([]), "不存在.js")], True), {"不存在.js": 0},
+           "㉗讀不到的檔算 0（不要讓整份健檢被一個壞檔打斷）")
+        eq(uh.sqf_ts(0), "-", "㉗沒有 t 印「-」")
+    finally:
+        for d in _dirs:
+            _sh.rmtree(d, ignore_errors=True)
+SQF_SUITE(uh, eq)
+
 print("update_health 回歸測試：通過 %d 條" % OK[0] + ("" if not NG else "，失敗 %d 條" % len(NG)))
 for m in NG:
     print("   ✗ " + m)

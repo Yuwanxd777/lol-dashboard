@@ -23,15 +23,31 @@
           career／wiki_patches／leaguepedia／soloq_builds／side_sel_20xx／skills／assets…
           一個都沒被量過；順帶補上「基準有、這次連鍵都不見了」＝**檔案整個消失**
         ‧ soloq.js 選手數／有排名數、side_sel.js 局數、lint_text 錯誤級
+        ‧ **積分逐場有沒有往前走**（2026-09-16 #143）——上面那三個 soloq 指標全是數量的高水位，
+          dpm.lol／Riot 那頭壞掉時（API 改版、帳號錯配、逐場抓到 0 筆又不報錯）一個都不會動：
+          檔案還是 425 個、選手還是 1096 位，只是每個檔的最後一局永遠停在壞掉那天。
+          拿逐場檔自己的 "t"（Riot 帶進來的開打時間＝獨立證人）看全庫最新一局幾小時前
+          （>SQF_STALE_H）與「距那一局 24 小時內也有新局」的檔數（<SQF_THIN_MIN；窗口釘在最新一局
+          而不是現在，否則漏一整班就誤報）；只讀每檔開頭 8192 位元組
+          （0.02s），判定落後時自動整檔重掃再下結論
         ‧ **可疑同名走現況重算**（2026-09-07 #49），不是讀日誌快照——審定是人在班與班之間補的
         ‧ preflight 有沒有過、有沒有 push
+
+        ‧ **逐聯賽有沒有落後**（2026-09-16 #140）——上面全是全站指標，單一聯賽整段沒收
+          （LPL 停三天）會被別的聯賽蓋過去：列數照樣天天變多、「最新一場」照樣是今天，
+          18 個指標一個都不會叫。拿 Leaguepedia Cargo 當真相，比對六個一級聯賽
+          「wiki 有、我們沒有」的比賽日；這是整份健檢**唯一**會連外的一項（~3 秒），
+          wiki 掛掉只降級成「略過」，不影響其餘結論
 
 用法：python scripts/update_health.py           # 報告＋更新基準
       python scripts/update_health.py --no-save # 只報告
       python scripts/update_health.py --accept  # 認可縮水（資料真的變少時才用），把現值寫成新基準
       python scripts/update_health.py --from-publish   # publish.bat 用：日誌不新鮮＝異常
       python scripts/update_health.py --no-live        # 跳過可疑同名的現況重算（省 ~3 秒）
+      python scripts/update_health.py --no-soloqfresh  # 跳過積分逐場新鮮度（便宜路徑 0.02s，平常不必跳）
+      python scripts/update_health.py --no-lag         # 跳過逐聯賽落後（唯一連外的那項，省 ~3 秒）
 """
+import collections
 import datetime
 import glob
 import io
@@ -754,6 +770,237 @@ def merge_versions(prev, cur, accept=False):
     return out
 
 
+# ══ 逐聯賽落後哨兵（#136～#140）═══════════════════════════════════════════
+# 為什麼要有這條：上面那些列數／體積／最新一場全是**全站**指標，單一聯賽整段沒收會被別的聯賽蓋過去
+# ——LPL 停收三天，data_2026.js 的列數照樣天天變多、「最新一場比賽」也照樣是今天，18 個指標一個都不會叫。
+# 真相來源＝Leaguepedia Cargo（ScoreboardGames），比對「wiki 有、我們沒有」的**比賽日**（不是局數：
+# 局數對不上的原因太多——BO 還沒打完、重賽、頁面分割——比賽日才是「整天沒收」的可靠訊號）。
+#   ‧ 白名單 LAG_TIER1：只問我們本來就在收的六個一級聯賽。不能用「wiki 有的我們都要有」當真相，
+#     wiki 還有一堆我們沒收的頁（#137 探測：PCS/2026 Season/Summer Season 38 局），六個 prefix 已逐一證過對得上。
+#   ‧ 寬限 LAG_GRACE_H：開賽後 6 小時內的局不算我們落後（#137：3h 拿 126 班歷史重放誤報 2 次，
+#     6h 誤報 0 而且偵測力沒掉）。
+#   ‧ 門檻 LAG_THRESHOLD：落後 >= 2 個比賽日才算異常（#136：127 班歷史誤報 0）。
+#   ‧ wiki 掛掉／回空陣列 ⇒ 'skip'。既不可以炸掉整份健檢，也不可以當成「沒落後」——
+#     空陣列當 ok 的話，Cargo 一改欄名這條哨兵就永遠安靜。
+# 這是 update_health.py **唯一**的對外連線（其餘都讀本機檔），出口只有 wiki_rows 一支，
+# 測試就是接管它（update_health_test.py 第 ㉖ 組：網路六個出口全封死 + 13 種突變）。
+LAG_TIER1 = ("LCK", "LPL", "LEC", "LCS", "CBLOL", "LCP")
+LAG_GRACE_H = 6
+LAG_WINDOW_D = 14
+LAG_THRESHOLD = 2
+LAG_FORM = "https://lol.fandom.com/wiki/Special:CargoExport"
+
+
+def wiki_rows(since, timeout=90):
+    """打 Leaguepedia Cargo，回 [{"ov":…, "dt":…}, …]。**唯一的對外出口**（測試接管這一支）。
+
+    urllib 相關的 import 放在函式裡：健檢平常跑得很勤，模組層少載三個套件；
+    測試把 urllib/socket 換掉時，函式內 import 拿到的仍是同一個（已被接管的）模組物件。"""
+    import http.cookiejar
+    import urllib.parse
+    import urllib.request
+    ua = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                        "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+          "Accept": "text/html,application/xhtml+xml,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.9", "Referer": LAG_FORM}
+    cj = http.cookiejar.CookieJar()
+    op = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(cj))
+    try:                       # 先拿一次 cookie：直接打 CargoExport 偶爾被擋掉（#137）
+        op.open(urllib.request.Request(LAG_FORM, headers=ua), timeout=30).read()
+    except Exception:
+        pass
+    time.sleep(2)
+    p = {"tables": "ScoreboardGames=SG",
+         "fields": "SG.OverviewPage=ov,SG.DateTime_UTC=dt",
+         "where": 'SG.DateTime_UTC >= "%s"' % since,
+         "order_by": "SG.DateTime_UTC", "format": "json", "limit": "2000"}
+    raw = op.open(urllib.request.Request(LAG_FORM + "?" + urllib.parse.urlencode(p),
+                                         headers=ua), timeout=timeout).read()
+    return json.loads(raw.decode("utf-8", "replace"))
+
+
+def wiki_days(since, fetch=None, tier1=None):
+    """回 (ok, {league: [開賽時間字串]}, why)。任何例外或空回應 → ok=False（呼叫端降級成略過）。"""
+    tier1 = tier1 or LAG_TIER1
+    try:
+        rows = (fetch or wiki_rows)(since)
+        if not isinstance(rows, list) or not rows:
+            return False, {}, "回應不是非空陣列"
+        out = collections.defaultdict(list)
+        for r in rows:
+            pref = (r.get("ov") or "").split("/")[0]
+            if pref in tier1:
+                out[pref].append(str(r.get("dt") or ""))
+        return True, out, ""
+    except Exception as e:
+        return False, {}, "%s: %s" % (type(e).__name__, e)
+
+
+def our_days(path, since, tier1=None):
+    """回 (fetched_at, {league: {比賽日字串}})——我們手上那幾天。
+
+    只收「比賽日」不收局數：#137 的試跑版還帶著一組 (時間,藍,紅,局號) 去重，但判定從頭到尾
+    只看「有哪些比賽日」⇒ 每日局數沒人讀 ⇒ 那是測不到的死分支（#139 突變測試：拿掉去重全套照樣全過）。
+    欄位一律 hdr.index 查（年度資料是白名單制 88 欄，欄序會變，硬編偏移遲早讀到別欄）。"""
+    tier1 = tier1 or LAG_TIER1
+    txt = io.open(path, encoding="utf-8").read()
+    D = json.loads(txt.split("=", 1)[1].strip().rstrip(";"))
+    R = D["tabs"]["RAW_DATA"]
+    ix = {n: i for i, n in enumerate(R[0])}
+    out = collections.defaultdict(set)
+    for r in R[1:]:
+        d = str(r[ix["date"]] or "")
+        if d[:10] < since:
+            continue
+        if r[ix["league"]] in tier1:
+            out[r[ix["league"]]].add(d[:10])
+    return D.get("fetched_at"), out
+
+
+def lag_problems(now, data_path, fetch=None, tier1=None,
+                 grace_h=None, window_d=None, threshold=None):
+    """回 (狀態, 訊息列表)；狀態 = "skip"（查不到）／"ok"／"bad"。
+
+    參數全部可注入是為了測試能把每個門檻單獨當變數推——正控制才有意義
+    （「寬限改 0 就翻紅」證明的是寬限真的在作用，不是這組資料本來就會過）。"""
+    tier1 = tier1 or LAG_TIER1
+    grace_h = LAG_GRACE_H if grace_h is None else grace_h
+    window_d = window_d or LAG_WINDOW_D
+    threshold = LAG_THRESHOLD if threshold is None else threshold
+    since = (now - datetime.timedelta(days=window_d)).strftime("%Y-%m-%d")
+    cut = (now - datetime.timedelta(hours=grace_h)).strftime("%Y-%m-%d %H:%M")
+    ok, wk, why = wiki_days(since, fetch=fetch, tier1=tier1)
+    if not ok:
+        return "skip", ["查不到 Leaguepedia（%s）⇒ 略過逐聯賽落後檢查" % why]
+    _, od = our_days(data_path, since, tier1=tier1)
+    msgs, bad = [], []
+    for lg in tier1:
+        # since 這一刀不能只靠查詢的 where：伺服器若回了視窗外的舊局，我們這側 our_days 有濾、
+        # wiki 側沒濾 ⇒ odays 空、wdays 一堆 ⇒ 停賽已久的聯賽天天被誤報（#139 沙箱第 ⑧ 組）。
+        wdays = {t[:10] for t in wk.get(lg, []) if since <= t[:10] and t[:16] <= cut}
+        odays = set(od.get(lg, {}))
+        if not wdays and not odays:
+            continue                       # 休賽中：連一行都不要佔（報告要短才有人看）
+        # 用 > 不是 >=：我們「已經有」的那一天不可以再算進落後，否則真落後 1 天會被灌成 2 天
+        behind = sorted(d for d in wdays if not odays or d > max(odays))
+        line = "  %-6s 我們最後比賽日 %s｜wiki 之後還有 %d 個比賽日%s" % (
+            lg, (max(odays) if odays else "(無)"), len(behind),
+            ("：" + "、".join(behind)) if behind else "")
+        if len(behind) >= threshold:
+            bad.append("%s 落後 %d 個比賽日（%s）" % (lg, len(behind), "、".join(behind)))
+            line += "  << 異常"
+        msgs.append(line)
+    return ("bad" if bad else "ok"), msgs + (["異常：" + "；".join(bad)] if bad else [])
+
+
+
+# ══ 積分逐場「新鮮度」（#143；探針原型 autopilot/_m142_soloq_fresh_probe.py）═══════════
+# 為什麼要有這一項：上面積分那三個指標（soloq.players／soloq.found／soloq_matches.files）
+# 全是**數量**的高水位。dpm.lol／Riot 那頭一旦壞掉（API 改版、帳號檔錯配、逐場抓到 0 筆又不報錯），
+# 這三個數字**一個都不會動**——檔案還是 425 個、選手還是 1096 位、有牌位還是 811 位，
+# 只是每一個檔裡的最後一局永遠停在壞掉那一天 ⇒ 健檢一路印「✓ 沒有異常」。
+# 跟 #47（讀到上一班日誌）／#49（印舊快照）／#98（列數不再變多）／#99（版本不再往前）
+# 同一種病（**沒變化被讀成沒問題**）換到積分這個入口，而 ⑤c＋⑤d 每班 198 秒是整條管線最貴也最脆的一段。
+# 真相來源＝逐場檔自己的 "t"（epoch ms，Riot 的對局資料帶進來的開打時間，不是我們算的）＝獨立證人。
+SQF_HEAD_BYTES = 8192    # 便宜路徑每個檔只讀開頭這麼多（一局約 900 位元組，夠拿到第一局）
+SQF_STALE_H = 30         # 全庫最新一局這麼久沒往前＝落後（30h＝連續兩班都沒抓到任何新局）
+SQF_THIN_MIN = 20        # 「有在動」的檔少於這麼多＝總量還在、只剩零星幾個檔在動
+SQF_THIN_H = 24          # 「有在動」的窗口——距**最新一局**這麼多小時內有新局就算在動
+# ⚠ 稀疏那一項的窗口要釘在「最新一局」而不是「現在」（#143 寫邊界斷言時抓到的真缺陷）：
+#   釘在現在的話，漏一整班（26 小時沒抓）時 24 小時內一個檔都沒有 ⇒ 稀疏當場誤報，
+#   而 SQF_STALE_H=30（刻意容許「兩班之間 12h ＋ 一整班沒跑 12h ＋ 深夜空窗」）就變成一句空話：
+#   真正把關的其實是 24 小時。釘在最新一局＝問「這條線上一次動的時候，有多少個帳號跟著動」，
+#   兩種壞法才各自獨立：全部停了看 SQF_STALE_H，只剩零星在動看這裡。
+SQF_T_RE = re.compile(r'"t":\s*(\d{10,16})')
+
+
+def sqf_ts(ms):
+    return "-" if not ms else datetime.datetime.fromtimestamp(ms / 1000.0).strftime("%Y-%m-%d %H:%M")
+
+
+def sqf_scan(files, head_only, head_bytes=None):
+    """回 {檔名: 該檔最大的 t}；head_only=True 只讀開頭 head_bytes 個字元（讀不到的檔算 0，不要炸）。"""
+    hb = SQF_HEAD_BYTES if head_bytes is None else head_bytes
+    out = {}
+    for f in files:
+        try:
+            with io.open(f, encoding="utf-8", errors="replace") as fh:
+                s = fh.read(hb) if head_only else fh.read()
+        except Exception:
+            out[os.path.basename(f)] = 0
+            continue
+        v = SQF_T_RE.findall(s)
+        out[os.path.basename(f)] = max(int(x) for x in v) if v else 0
+    return out
+
+
+def sqf_buckets(vals, now_ms):
+    """每個檔「最後一局距現在多久」的分佈（順序就是印出來的順序）。"""
+    b = {"<24h": 0, "<72h": 0, "<7d": 0, "<30d": 0, ">=30d": 0, "沒有對局": 0}
+    for m in vals:
+        if not m:
+            b["沒有對局"] += 1
+            continue
+        h = (now_ms - m) / 3600000.0
+        if h < 24:
+            b["<24h"] += 1
+        elif h < 72:
+            b["<72h"] += 1
+        elif h < 168:
+            b["<7d"] += 1
+        elif h < 720:
+            b["<30d"] += 1
+        else:
+            b[">=30d"] += 1
+    return b
+
+
+def soloq_fresh(now_ms=None, mdir=None, files=None,
+                stale_h=None, thin_min=None, thin_h=None, head_bytes=None):
+    """回 (state, 要印的那一行, [異常…])；state＝"ok"／"bad"。
+
+    **便宜路徑與它的保險**（#142）：實測 425 個逐場檔都是新到舊排序（第一局就是最大的 t），
+    所以只讀每個檔開頭 SQF_HEAD_BYTES 就夠（0.02s，整檔掃是冷 3.9s／熱 0.6s）。
+    但「新到舊」是對產出端的**假設**——所以便宜路徑一旦判定落後，**先整檔重掃再下結論**：
+    假設哪天壞掉只會讓這一項變慢，不會誤報。（要逐檔比對兩條路徑就跑那支探針的 --full。）
+
+    「一個 .js 都沒有」算**異常**而不是「資料很新」：這一項存在的理由就是「沒變化被讀成沒問題」。
+    """
+    now_ms = time.time() * 1000 if now_ms is None else now_ms
+    mdir = os.path.join(ROOT, "soloq_matches") if mdir is None else mdir
+    stale_h = SQF_STALE_H if stale_h is None else stale_h
+    thin_min = SQF_THIN_MIN if thin_min is None else thin_min
+    thin_h = SQF_THIN_H if thin_h is None else thin_h
+    files = sorted(glob.glob(os.path.join(mdir, "*.js"))) if files is None else files
+    if not files:
+        return ("bad", "積分逐場新鮮度：⚠ %s 一個 .js 都沒有（不是「資料很新」）" % mdir,
+                ["積分逐場目錄一個 .js 都沒有（%s；不是資料很新）" % mdir])
+    head = sqf_scan(files, True, head_bytes)
+    mx = max(head.values())
+    up = ""
+    if mx and (now_ms - mx) / 3600000.0 >= stale_h:
+        head = sqf_scan(files, False, head_bytes)
+        mx = max(head.values())
+        up = "（便宜路徑判定落後 ⇒ 已整檔重掃）"
+    if not mx:
+        return ("bad", "積分逐場新鮮度：⚠ %d 個檔一個 t 都沒有（格式變了？）" % len(files),
+                ["積分逐場 %d 個檔一個 t 都沒有（逐場檔格式變了？）" % len(files)])
+    age_h = (now_ms - mx) / 3600000.0
+    bk = sqf_buckets(head.values(), now_ms)
+    moved = sum(1 for m in head.values() if m and (mx - m) / 3600000.0 < thin_h)
+    bad = []
+    if age_h >= stale_h:
+        bad.append("積分逐場最新一局已經 %.1f 小時沒往前（>%dh）——dpm.lol／Riot 那頭可能壞了，"
+                   "檔數與選手數不會動" % (age_h, stale_h))
+    if moved < thin_min:
+        bad.append("積分逐場距最新一局 %d 小時內有新局的檔只有 %d 個（<%d）——總量還在、只剩零星檔在動"
+                   % (thin_h, moved, thin_min))
+    line = ("積分逐場新鮮度：%s 最新一局 %s（%.1f 小時前）；%d 個檔裡跟著動 %d／24h %d／72h %d／>=30d %d%s"
+            % ("⚠" if bad else "✓", sqf_ts(mx), age_h, len(files), moved,
+               bk["<24h"], bk["<72h"], bk[">=30d"], up))
+    return ("bad" if bad else "ok"), line, bad
+
+
 def main():
     lg = parse_log()
     lt = {}
@@ -844,12 +1091,33 @@ def main():
     lline, lbad = latest_problems(prev.get("latest") or {}, lt, time.time())
     print("   " + lline)
     bad += lbad
+    # 積分逐場新鮮度（#143）：上面 soloq 那三個指標全是**數量**，抓壞了一個都不會動（#142）
+    if "--no-soloqfresh" in sys.argv:
+        print("   積分逐場新鮮度：（--no-soloqfresh 跳過）")
+    else:
+        _sqst, _sqline, _sqbad = soloq_fresh()
+        print("   " + _sqline)
+        bad += _sqbad
     # 遊戲版本（#99）：比賽資料以外，patch notes／DDragon 也會靜靜地停在舊版
     gv = game_versions()
     vline, vbad, vsince = version_problems(prev.get("versions") or {}, gv,
                                            prev.get("version_mismatch_since"), time.time())
     print("   " + vline)
     bad += vbad
+    # 逐聯賽落後（#140）：上面全是全站指標，單一聯賽整段沒收會被別的聯賽蓋過去。
+    # 這是整份健檢唯一會連外的一項（~3 秒）；wiki 掛掉只降級成「略過」，不影響其餘結論。
+    if "--no-lag" in sys.argv:
+        print("   逐聯賽落後：（--no-lag 跳過）")
+    else:
+        _lst, _lmsgs = lag_problems(datetime.datetime.utcnow(),
+                                    os.path.join(ROOT, "data", "data_2026.js"))
+        print("   逐聯賽落後（近 %d 天／寬限 %dh／門檻 %d 個比賽日）：%s" % (
+            LAG_WINDOW_D, LAG_GRACE_H, LAG_THRESHOLD,
+            {"skip": "略過（查不到 Leaguepedia）", "ok": "✓ 六個一級聯賽都跟上", "bad": "⚠ 有落後"}[_lst]))
+        for _m in _lmsgs:
+            print("   " + _m)
+        if _lst == "bad":
+            bad += [_m[3:] for _m in _lmsgs if _m.startswith("異常：")]
     print("")
     print("結論：" + ("✓ 沒有異常" if not bad else "⚠ " + "；".join(bad)))
     if any(("縮水" in b or "不見了" in b) for b in bad):
