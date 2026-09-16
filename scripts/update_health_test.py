@@ -295,15 +295,92 @@ finally:
     uh.LOG, uh.CONSOLE = _real_log, _real_console
     shutil.rmtree(tmp, ignore_errors=True)
 
+# ── ⑫⑮ 共用：一份種齊的乾淨假 repo（2026-09-17 #165）─────────────────────────────
+# ⑫⑮ 以前讓 main() 讀**真的** repo（14 個年度檔 194MB＋真基準）：逐段量（autopilot/_m165_uht_sections.py）
+# 這兩段佔整份 13.9 秒裡的 8.9 秒，而 _r48／_r49 每個突變都整份重跑 ⇒ _r48 117 秒、離 suite 的 150 秒只剩 22%。
+# 這兩段測的是「接線」（班次點名／可疑同名有沒有進結論），真實資料端到端另有 ⑦⑧⑰⑲㉔ 負責。
+# 照 #99「種一份乾淨的假 repo、只接管 ROOT／LOG／BASE」：不對 main 的內部簽名做任何假設；
+# 基準也不手寫 JSON，由 main() 自己在沙盒存一次（格式跟著 main 走）。
+# 只有沙盒才有的證據：data_2026.js 計數 4（表頭＋3 局）、步驟 3 步（真 repo 一萬多列、43 步）⇒ 斷言輸出裡是這兩個數，
+# 證明 main 讀的是沙盒；真基準的 size＋mtime_ns 前後比對，證明沒被寫到。
+SEED_STEPS = ["fetch_data", "fetch_soloq_auto", "zz_uht_probe_step_9942"]
+_REAL_BASE_PATH = uh.BASE
+
+
+def _stat_of(p):
+    try:
+        st = os.stat(p)
+        return (st.st_size, st.st_mtime_ns)
+    except OSError:
+        return None
+
+
+def _days_ago(n):
+    return time.strftime("%Y-%m-%d", time.localtime(time.time() - n * 86400))
+
+
+def seed_clean_repo(box):
+    """健檢的每一個證據來源都種齊（照 autopilot/_m101_steps_test.seed_repo）；缺一個結論就恆紅。"""
+    def w(rel, text):
+        p = os.path.join(box, *rel.split("/"))
+        os.makedirs(os.path.dirname(p), exist_ok=True)
+        io.open(p, "w", encoding="utf-8").write(text)
+    body = [["league", "split", "date", "game", "patch"]] + [
+        ["LPL", "S3", _days_ago(i), str(i), "16.17"] for i in range(3)]
+    w("data/data_2026.js", "window.LOL_DATA=" + json.dumps({"tabs": {"RAW_DATA": body}}) + ";")
+    w("soloq.js", "window.SOLOQ=" + json.dumps({"players": [{"found": True}]}) + ";")
+    w("side_sel.js", "window.SIDE=[1,2,3];")
+    for i in range(25):      # 積分逐場新鮮度：最新一局 <30h、>=20 個檔跟著動
+        w("soloq_matches/p%02d.js" % i, 'window.SQM=[{"t":%d}];' % int((time.time() - 3600) * 1000))
+    w("patches.js", 'window.LOL_PATCHES={"26.17":{"某英雄":["x"]}};')
+    w("patches_en.js", 'window.LOL_PATCHES_EN={"26.17":{"Champ":["x"]}};')
+    w("skills.js", "window.SKILLS=" + json.dumps({"v": "16.17.1", "d": {}}) + ";")
+    w("assets.js", "window.ASSETS=" + json.dumps({"years": {"2026": "16.17.1"}}) + ";")
+    w("csv_cache/patch_dates.json", json.dumps({"26.17": _days_ago(16)}))
+    os.makedirs(os.path.join(box, "autopilot"), exist_ok=True)
+
+
+def point_clean(box):
+    uh.ROOT = box
+    uh.BASE = os.path.join(box, "autopilot", "UPDATE_BASELINE.json")
+
+
+_REAL_BASE_STAT = _stat_of(_REAL_BASE_PATH)
+UHT_BOX = tempfile.mkdtemp(prefix="uh_clean_repo_")
+seed_clean_repo(UHT_BOX)
+_real_seed = (uh.ROOT, uh.BASE, uh.LOG, uh.CONSOLE, sys.argv)
+try:
+    point_clean(UHT_BOX)
+    uh.LOG = os.path.join(UHT_BOX, "update_log.txt")
+    uh.CONSOLE = os.path.join(UHT_BOX, "update_console.txt")
+    io.open(uh.LOG, "w", encoding="utf-8").write(
+        "==== run_update %s（並行 4）====\n" % time.strftime("%Y-%m-%d %H:%M:%S")
+        + "".join("---- %s（1.0s，exit 0）----\n" % n for n in SEED_STEPS)
+        + "文本體檢：掃描 1 條字串 → 錯誤 0、提醒 0\n未審定的可疑同名 0\n守門通過\n")
+    sys.argv = ["update_health.py", "--no-live"]          # 存檔模式：讓 main 自己在沙盒建基準
+    _sbuf = io.StringIO()
+    with contextlib.redirect_stdout(_sbuf):
+        _seed_rc = uh.main()
+    _seed_out = _sbuf.getvalue()
+finally:
+    uh.ROOT, uh.BASE, uh.LOG, uh.CONSOLE, sys.argv = _real_seed
+eq(_seed_rc, 0, "⑫⑮前提：假 repo 種齊 ⇒ main 第一次跑就沒有異常（否則後面的「乾淨」斷言是空測）%s"
+   % ("" if _seed_rc == 0 else "\n" + _seed_out))
+eq(os.path.exists(os.path.join(UHT_BOX, "autopilot", "UPDATE_BASELINE.json")), True,
+   "⑫⑮前提：基準存進了沙盒")
+eq(uh.BASE, _REAL_BASE_PATH, "⑫⑮前提：種完之後 BASE 已還原")
+
 # ── ⑬ 端到端：main() 真的把班次點名接進結論（純函式對了、接線斷了一樣沒人知道）──
 # 不寫死時鐘：拿「上一班再往前一小時」當日誌時間（⇒ 一定不是這一班寫的），
 # 然後斷言 main() 的結論**與 shift_problems 的判斷一致**——寬限期內就不該報，過了寬限就一定要報。
 _real_log, _real_console, _real_argv, _real_grace = uh.LOG, uh.CONSOLE, sys.argv, uh.SHIFT_GRACE_MIN
+_real_root12, _real_base12 = uh.ROOT, uh.BASE
 try:
     tmp = tempfile.mkdtemp(prefix="uh_e2e_")
     uh.SHIFT_GRACE_MIN = 0        # 寬限歸零＝不管這一輪幾點跑，舊日誌一定要被判定成「沒跑」
     uh.CONSOLE = os.path.join(tmp, "no_console.txt")
     uh.LOG = os.path.join(tmp, "log.txt")
+    point_clean(UHT_BOX)          # #165：讀種齊的假 repo（基準也是沙盒那份），不再讀 194MB 真資料
     sys.argv = ["update_health.py", "--no-save", "--no-live"]   # 這組測班次，不必真的去掃 26MB 算同名
 
     # 假日誌的步驟要**跟基準一致**（2026-09-10 #103）：原本只寫一步 fetch_x，
@@ -354,8 +431,14 @@ try:
     eq("✓ 已跑" in out2, True, "⑬正控制：說明行說已跑")
     eq("步驟不見了" in concl2, False, "⑬正控制：假日誌步驟已對齊基準 ⇒ 結論不該有步驟噪音")
     eq(bool(_base_steps), True, "⑬前提：基準裡真的有 steps（否則上一條是空測）")
+    # #165：假 repo 種齊 ⇒ 這一班的日誌那次整份要乾淨（以前讀真 repo 只能斷言「不點班次」）
+    eq(concl2, "結論：✓ 沒有異常", "⑬正控制：乾淨假 repo＋這一班的日誌 ⇒ 結論整份乾淨")
+    eq(bool(re.search(r"data_2026\.js\s+4\s", out2)) and "data_2013.js" not in out2, True,
+       "⑬沙盒證據：main 讀的是假 repo（data_2026.js 計數 4、沒有 2013 檔）")
+    eq("基準 %d 個都在" % len(SEED_STEPS) in out2, True, "⑬沙盒證據：步驟基準是沙盒那 3 步（真基準是 43 步）")
 finally:
     uh.LOG, uh.CONSOLE, sys.argv = _real_log, _real_console, _real_argv
+    uh.ROOT, uh.BASE = _real_root12, _real_base12
     uh.SHIFT_GRACE_MIN = _real_grace
     shutil.rmtree(tmp, ignore_errors=True)
 
@@ -388,10 +471,13 @@ finally:
 
 # ── ⑮ 端到端：main() 的可疑同名要走現況，不是印日誌快照（專打接線，#48 的教訓）──
 _real_log, _real_console, _real_argv, _real_live = uh.LOG, uh.CONSOLE, sys.argv, uh.live_dup
+_real_root15, _real_base15 = uh.ROOT, uh.BASE
+_dup_outs = []
 try:
     tmp = tempfile.mkdtemp(prefix="uh_dup_e2e_")
     uh.CONSOLE = os.path.join(tmp, "no_console.txt")
     uh.LOG = os.path.join(tmp, "log.txt")
+    point_clean(UHT_BOX)          # #165：同 ⑫，讀種齊的假 repo
     io.open(uh.LOG, "w", encoding="utf-8").write(
         "==== run_update %s（並行 4）====\n---- fetch_x（1.0s，exit 0）----\n"
         "[check_player_dup] 選手 ID 4087 個，未審定的可疑同名 10 個\n守門通過\n"
@@ -403,6 +489,7 @@ try:
         buf = io.StringIO()
         with contextlib.redirect_stdout(buf):
             uh.main()
+        _dup_outs.append(buf.getvalue())
         return [l for l in buf.getvalue().splitlines() if l.startswith("可疑同名：")]
 
     eq(dup_lines(["update_health.py", "--no-save"]),
@@ -410,9 +497,20 @@ try:
     # 正控制：--no-live 就該退回快照那個舊數字，否則上面那條可能是恆真的
     eq(dup_lines(["update_health.py", "--no-save", "--no-live"]),
        ["可疑同名：10（那一班日誌的舊數字；--no-live 跳過重算）"], "⑮正控制：--no-live 退回快照 10")
+    eq([bool(re.search(r"data_2026\.js\s+4\s", o)) and "data_2013.js" not in o for o in _dup_outs],
+       [True, True], "⑮沙盒證據：兩次 main 都讀假 repo（data_2026.js 計數 4、沒有 2013 檔）")
 finally:
     uh.LOG, uh.CONSOLE, sys.argv, uh.live_dup = _real_log, _real_console, _real_argv, _real_live
+    uh.ROOT, uh.BASE = _real_root15, _real_base15
     shutil.rmtree(tmp, ignore_errors=True)
+
+# ── ⑫⑮ 收尾：真基準一個位元沒動、路徑常數都還原、沙盒刪掉 ─────────────────────────
+eq(_stat_of(_REAL_BASE_PATH), _REAL_BASE_STAT, "⑫⑮真的 UPDATE_BASELINE.json 沒被寫到（size＋mtime_ns 前後一致）")
+eq((uh.ROOT, uh.BASE), (ROOT, _REAL_BASE_PATH), "⑫⑮ ROOT／BASE 已還原成真 repo")
+# 沒還原就強制拉回來：後面 ⑰⑲㉔ 讀真資料，指著已刪的沙盒會直接 KeyError 崩掉、
+# 上面那條 NG 連印都印不出來（#165 突變實測）。
+uh.ROOT, uh.BASE = ROOT, _REAL_BASE_PATH
+shutil.rmtree(UHT_BOX, ignore_errors=True)
 
 # ── ⑯ 最新一場比賽（#98）：列數擋「變少」，這一組擋「不再變多」──────────────
 HDR = ["league", "date", "patch"]
