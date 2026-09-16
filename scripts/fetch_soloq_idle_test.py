@@ -17,7 +17,11 @@ Riot 每區 100 次／120 秒，第 101 次起整整白等一個視窗。`autopi
   ⑦ `--no-idle-defer`／`--full-id` 關掉延後
   ⑧ 負控制：額度設成無限大 ⇒ ① 一定要紅（證明這支測得到差別）
   ⑨ 正控制（釘 OLDREV）：改動之前那版對同一份沙盒全問、沒有戳記、沒有延後那一行
-  ⑩ 隔離：真實 soloq.js／soloq_played.json／soloq_accounts.json 的 md5 與 mtime 前後不變；沙盒 puuid 用
+  ⑩ IDLE_DAYS 門檻的兩個邊界（2026-09-16 #149 補）：`wlAt` 差 5 分鐘**沒到**門檻 ⇒ 判非閒置、每班照問；
+     差 5 分鐘**過了**門檻 ⇒ 判閒置、額度 0 時被延後。另開一份沙盒（加帳號到 SPEC 會把 ① 的分配行數字全改掉），
+     門檻天數與硬上限都從模組讀（不重抄常數），並用「把門檻挪 ∓0.01 天（14 分）」兩個突變當對照：
+     挪早 ⇒ EdgeNew 改判閒置被延後、挪晚 ⇒ EdgeOld 改判非閒置照問，兩條斷言各自會紅
+  ⑪ 隔離：真實 soloq.js／soloq_played.json／soloq_accounts.json 的 md5 與 mtime 前後不變；沙盒 puuid 用
      真 repo 不可能有的 ZZPROBE9942_*（只有沙盒才有的證據）
 """
 import datetime
@@ -98,9 +102,9 @@ with io.open(os.path.join(TD, "scripts", "soloq_accounts.json"), "w", encoding="
     json.dump(accounts, f, ensure_ascii=False)
 
 
-def prev_players():
+def prev_players(spec=None):
     out = []
-    for n, (pu, (t, dv, lp, w, l), wl_at, asked, _riot) in SPEC.items():
+    for n, (pu, (t, dv, lp, w, l), wl_at, asked, _riot) in (spec or SPEC).items():
         r = {"player": n, "team": "T1", "platform": "kr", "riotId": "%s#KR1" % n, "puuid": pu,
              "curId": "%s#KR1" % n, "tier": t, "division": dv, "lp": lp, "wins": w, "losses": l, "found": True}
         if wl_at:
@@ -111,9 +115,9 @@ def prev_players():
     return out
 
 
-def write_prev():
-    with io.open(os.path.join(TD, "soloq.js"), "w", encoding="utf-8") as f:
-        f.write("window.SOLOQ_DATA=" + json.dumps({"fetched_at": PREV_AT, "players": prev_players()},
+def write_prev(td=None, spec=None):
+    with io.open(os.path.join(td or TD, "soloq.js"), "w", encoding="utf-8") as f:
+        f.write("window.SOLOQ_DATA=" + json.dumps({"fetched_at": PREV_AT, "players": prev_players(spec)},
                                                   ensure_ascii=False) + ";\n")
 
 
@@ -168,19 +172,21 @@ PU = {n: v[0] for n, v in SPEC.items()}
 RANK = {v[0]: (v[1][0], v[1][1], v[1][2] + 1, v[4][0], v[4][1]) for v in SPEC.values()}   # LP +1：證明真的問到 Riot
 
 
-def run(tag, budget=6, extra=None, moddir=HERE, fresh_prev=True):
+def run(tag, budget=6, extra=None, moddir=HERE, fresh_prev=True, td=None, spec=None, pu=None, rank=None):
+    # td／spec／pu／rank 是 ⑩ 的邊界沙盒用的（另一組帳號、另一個 tmp）；上面那些呼叫維持原本的預設值
+    td, pu, rank = td or TD, pu or PU, rank or RANK
     if fresh_prev:
-        write_prev()
-    hp = os.path.join(TD, "harness_%s.py" % tag)
+        write_prev(td, spec)
+    hp = os.path.join(td, "harness_%s.py" % tag)
     io.open(hp, "w", encoding="utf-8").write(HARNESS % {
-        "moddir": moddir, "td": TD, "tag": tag, "extra": extra or [], "pu": PU, "rank": RANK,
+        "moddir": moddir, "td": td, "tag": tag, "extra": extra or [], "pu": pu, "rank": rank,
         "ladpu": P + "lad", "ladentry": LADDER_ENTRY, "budget": budget, "realroot": ROOT})
     r = subprocess.run([sys.executable, hp], capture_output=True, text=True, encoding="utf-8", timeout=180)
     out = (r.stdout or "") + (r.stderr or "")
-    up = os.path.join(TD, "urls_%s.txt" % tag)
+    up = os.path.join(td, "urls_%s.txt" % tag)
     urls = [u for u in io.open(up, encoding="utf-8").read().splitlines() if u] if os.path.exists(up) else []
-    js = io.open(os.path.join(TD, "soloq.js"), encoding="utf-8").read()
-    ap = os.path.join(TD, "attrs_%s.json" % tag)
+    js = io.open(os.path.join(td, "soloq.js"), encoding="utf-8").read()
+    ap = os.path.join(td, "attrs_%s.json" % tag)
     attrs = json.loads(io.open(ap, encoding="utf-8").read()) if os.path.exists(ap) else {}
     return out, urls, js, attrs
 
@@ -296,7 +302,75 @@ PL9 = players(js9)
 ok("舊版：輸出沒有 wlAt／askedAt／deferred 戳記",
    all(k not in PL9["Idle2"] for k in ("wlAt", "askedAt", "deferred")), PL9["Idle2"])
 
-print("\n⑩ 常數的理由與隔離")
+print("\n⑩ IDLE_DAYS 門檻的兩個邊界（#149 補：原本 SPEC 的 wlAt 只有 1／5／10 天，離門檻很遠 ⇒ 懸崖沒人守）")
+# 為什麼另開一份沙盒：上面那組的人數寫死在 ① 的分配行斷言裡（「直接問 10 → 這班 6…」），
+# 往 SPEC 加帳號會把那些數字全部改掉。邊界只要兩個帳號＋額度 1，獨立一份最乾淨。
+# 門檻天數／硬上限一律從模組讀（attrs 是主跑那班抓回來的），日後調參數這段不會誤報。
+M = datetime.timedelta(minutes=1)
+IDLE_D = float(attrs.get("idle_days") or 0)
+MAX_H = float(attrs.get("idle_max_h") or 0)
+ok("拿得到模組的 IDLE_DAYS／IDLE_MAX_H（邊界樣本照它算，不重抄常數）", IDLE_D >= 1 and MAX_H >= 24, attrs)
+E_NOW = datetime.datetime.now()          # 用「現在」算，不用檔頭的 NOW：前面九節跑掉的時間會吃掉 5 分鐘的餘裕
+E_TH = datetime.timedelta(days=IDLE_D)
+# EdgeNew 差 5 分鐘沒到門檻（必須判非閒置）、EdgeOld 差 5 分鐘過了門檻（必須判閒置）。
+# askedAt 刻意錯開：EdgeNew 1 小時前問過、EdgeOld 0.8×IDLE_MAX_H 前問過（還沒到硬上限，不會被強制問）
+# ⇒ 突變把 EdgeNew 也判成閒置時，額度 1 會先給「比較久沒問」的 EdgeOld，EdgeNew 就換成被延後（斷言才會翻）。
+EDGE = {
+    "EdgeNew": (P + "en", ("DIAMOND", "II", 60, 70, 70), st(E_NOW - E_TH + 5 * M), st(E_NOW - 1 * H), (70, 70)),
+    "EdgeOld": (P + "eo", ("DIAMOND", "II", 80, 71, 70), st(E_NOW - E_TH - 5 * M), st(E_NOW - 0.8 * MAX_H * H), (71, 70)),
+}
+TD2 = tempfile.mkdtemp(prefix="sqedge_")
+os.makedirs(os.path.join(TD2, "scripts"), exist_ok=True)
+with io.open(os.path.join(TD2, "scripts", "soloq_accounts.json"), "w", encoding="utf-8") as f:
+    json.dump([{"team": "T1", "player": n, "platform": "KR", "riotId": "%s#KR1" % n} for n in EDGE],
+              f, ensure_ascii=False)
+EPU = {n: v[0] for n, v in EDGE.items()}
+ERANK = {v[0]: (v[1][0], v[1][1], v[1][2] + 1, v[4][0], v[4][1]) for v in EDGE.values()}
+
+
+def easked(urls, name):
+    return any("/entries/by-puuid/" + EPU[name] in u for u in urls)
+
+
+def run_edge(tag, moddir=HERE):
+    return run(tag, budget=1, moddir=moddir, td=TD2, spec=EDGE, pu=EPU, rank=ERANK)
+
+
+oute, urlse, jse, attrse = run_edge("edge")
+ok("邊界沙盒跑完（沒有 Traceback）、出口都在自己的 tmp",
+   "Traceback" not in oute and attrse.get("out", "").startswith(TD2) and attrse.get("acc", "").startswith(TD2),
+   (oute[-600:], attrse))
+PLE = players(jse)
+ok("差 5 分鐘沒到門檻（EdgeNew）⇒ 判非閒置、照問、LP 更新成 Riot 的值、沒有 deferred",
+   easked(urlse, "EdgeNew") and PLE["EdgeNew"].get("lp") == 61 and "deferred" not in PLE["EdgeNew"], PLE.get("EdgeNew"))
+ok("差 5 分鐘過了門檻（EdgeOld）⇒ 判閒置、額度 0 ⇒ 延後、沿用上一版 LP、標 deferred",
+   (not easked(urlse, "EdgeOld")) and PLE["EdgeOld"].get("lp") == 80 and near_now(PLE["EdgeOld"].get("deferred")),
+   PLE.get("EdgeOld"))
+ok("分配行：kr 直接問 2 → 這班 1（其中閒置 0）、延後 1",
+   "kr 直接問 2 → 這班 1（其中閒置 0）、延後 1" in oute, [l for l in oute.splitlines() if "閒置延後" in l])
+
+# 突變對照：把門檻挪 ∓0.01 天（14.4 分）——比 5 分鐘的邊界大、比其他樣本（1 天／5 天）小 ⇒ 只會翻邊界那兩條
+NEEDLE = "if st is None or st[0] < IDLE_DAYS or st[1] >= IDLE_MAX_H:"
+SRC = io.open(os.path.join(HERE, "fetch_soloq.py"), encoding="utf-8").read()
+ok("找得到門檻那一行、而且全檔只有一處（突變才有鑑別力）", SRC.count(NEEDLE) == 1, SRC.count(NEEDLE))
+for _i, (_lab, _expr, _who, _why) in enumerate([
+        ("門檻挪早 0.01 天", "IDLE_DAYS - 0.01", "EdgeNew", "本來照問的 EdgeNew 改判閒置、換它被延後"),
+        ("門檻挪晚 0.01 天", "IDLE_DAYS + 0.01", "EdgeOld", "本來被延後的 EdgeOld 改判非閒置、照問")]):
+    _md = os.path.join(TD2, "mut%d" % _i)
+    os.makedirs(_md, exist_ok=True)
+    _mut = SRC.replace(NEEDLE, NEEDLE.replace("IDLE_DAYS", _expr, 1), 1)
+    ok("%s：突變真的套進去了" % _lab, _mut != SRC and _expr in _mut)
+    io.open(os.path.join(_md, "fetch_soloq.py"), "w", encoding="utf-8").write(_mut)
+    _o, _u, _j, _ = run_edge("mut%d" % _i, moddir=_md)
+    _p = players(_j)
+    if _who == "EdgeNew":
+        ok("%s ⇒ %s（證明 EdgeNew 那條有鑑別力）" % (_lab, _why),
+           (not easked(_u, "EdgeNew")) and "deferred" in _p["EdgeNew"] and easked(_u, "EdgeOld"), (_p["EdgeNew"], _u))
+    else:
+        ok("%s ⇒ %s（證明 EdgeOld 那條有鑑別力）" % (_lab, _why),
+           easked(_u, "EdgeOld") and "deferred" not in _p["EdgeOld"] and "這班延後" not in _o, (_p["EdgeOld"], _u))
+
+print("\n⑪ 常數的理由與隔離")
 ok("3（名單預抓）＋ DIRECT_BUDGET ≤ 100（Riot 每區 100/120s，重抓還有餘裕）",
    attrs.get("budget") is not None and 3 + int(attrs["budget"]) <= 100 and int(attrs["budget"]) >= 80, attrs)
 ok("IDLE_DAYS ≥ 1、IDLE_MAX_H 在 24～72 之間", 1 <= int(attrs.get("idle_days") or 0) and 24 <= int(attrs.get("idle_max_h") or 0) <= 72, attrs)
