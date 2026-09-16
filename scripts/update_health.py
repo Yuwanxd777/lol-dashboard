@@ -955,9 +955,15 @@ def lag_problems(now, data_path, fetch=None, tier1=None,
 #   ‧ 不跟逐聯賽落後重複叫：「我們最後比賽日之後」那幾天若多到逐聯賽落後自己會叫（用它的寬限算、
 #     >= LAG_THRESHOLD），就留給它；只落後 1 天卻已超過 48 小時的，歸這裡。
 #   ‧ wiki 查不到／回空／撞上限、年度檔讀不懂 ⇒ skip（跟逐聯賽落後同一個降級）；年度檔不存在＝那一年 0 局。
+#   ‧ 視窗 DAYCOUNT_WINDOW_D＝30 天，**不跟逐聯賽落後共用 14 天**（#169）：CBLOL 08-15 缺了 16.5 天，
+#     14 天視窗在 08-30 12:17 起就滑出去、之後四班照印 ✓（資料其實缺到 09-01）。重放 08-16 起 65 版：
+#     21／30／45／60／90 天叫聲完全相同（已知兩批以外 0、缺著卻沒叫只剩 48h 寬限內那兩班），
+#     請求 90 天 731 列／3.0 秒＝跟 14 天一樣快（autopilot/_m169_window_probe.txt）。取 30＝最長真實案例的近兩倍。
+#     代價：一局真的永遠補不回來時，會連叫約 30 天（每天兩班）才滑出去。
 # 這次**局數有人讀**，所以兩側的去重都不是死分支（#139 那條教訓的反面，測試 ㉙ 有突變專打去重）。
 DAYCOUNT_GRACE_H = 48
 DAYCOUNT_SLACK_H = 3
+DAYCOUNT_WINDOW_D = 30
 
 
 def wiki_game_counts(rows, since, cut, tier1=None):
@@ -1014,19 +1020,22 @@ def _shift_day(d, n):
 
 
 def daycount_problems(now, data_path, fetch=None, tier1=None, grace_h=None, slack_h=None,
-                      window_d=None, lag_grace_h=None, lag_threshold=None):
+                      window_d=None, lag_grace_h=None, lag_threshold=None, lag_window_d=None):
     """回 (狀態, 訊息列表)；狀態 = "skip"／"ok"／"bad"。now 是 UTC（跟 lag_problems 同一個時鐘）。
 
-    data_path 可以是一個路徑或一串（main 給 lag_data_paths 的結果）。參數全部可注入：
+    data_path 可以是一個路徑或一串（main 給 lag_data_paths(now, DAYCOUNT_WINDOW_D) 的結果——
+    視窗 30 天，年初要讀到前一年的檔，不可以拿逐聯賽落後那串 14 天的）。參數全部可注入：
     測試把每個門檻單獨推一格當正控制（寬限改 0 就翻紅＝寬限真的在作用）。"""
     tier1 = tier1 or LAG_TIER1
     grace_h = DAYCOUNT_GRACE_H if grace_h is None else grace_h
     slack_h = DAYCOUNT_SLACK_H if slack_h is None else slack_h
-    window_d = window_d or LAG_WINDOW_D
+    window_d = window_d or DAYCOUNT_WINDOW_D
     lag_grace_h = LAG_GRACE_H if lag_grace_h is None else lag_grace_h
     lag_threshold = LAG_THRESHOLD if lag_threshold is None else lag_threshold
+    lag_window_d = lag_window_d or LAG_WINDOW_D
     fmt = "%Y-%m-%d %H:%M"
     since = (now - datetime.timedelta(days=window_d)).strftime("%Y-%m-%d")
+    lsince = (now - datetime.timedelta(days=lag_window_d)).strftime("%Y-%m-%d")
     cut = (now - datetime.timedelta(hours=grace_h)).strftime(fmt)
     ocut = (now - datetime.timedelta(hours=grace_h - slack_h)).strftime(fmt)
     lcut = (now - datetime.timedelta(hours=lag_grace_h)).strftime(fmt)
@@ -1060,8 +1069,12 @@ def daycount_problems(now, data_path, fetch=None, tier1=None, grace_h=None, slac
     msgs, bad = [], []
     for lg in tier1:
         last = max(od[lg]) if od.get(lg) else ""
-        after = [d for d in wl.get(lg, {}) if d > last]
-        owned = set(after) if len(after) >= lag_threshold else set()
+        # 「逐聯賽落後會不會叫」要照它自己的 14 天視窗重算一次（#169 視窗拉開成 30 天之後才分得出來）：
+        # 我們最後比賽日 20 天前、wiki 在 18 天前和 3 天前各有一天 ⇒ 用 30 天數是 2 天（≥門檻、全部讓出去），
+        # 逐聯賽落後卻只看得到 3 天前那 1 天（不叫）⇒ 兩條都啞。它真的會叫時，才把我們最後比賽日之後整段讓給它。
+        llast = max((d for d in od.get(lg, ()) if d >= lsince), default="")
+        lbehind = [d for d in wl.get(lg, {}) if d >= lsince and d > llast]
+        owned = {d for d in wl.get(lg, {}) if d > last} if len(lbehind) >= lag_threshold else set()
         W, O = wc.get(lg, collections.Counter()), oc.get(lg, collections.Counter())
         for d in sorted(W):
             if d in owned or W[d] <= O[d]:
@@ -1299,17 +1312,22 @@ def main():
     else:
         _lnow = datetime.datetime.utcnow()
         _lpaths = lag_data_paths(_lnow)
+        _dpaths = lag_data_paths(_lnow, window_d=DAYCOUNT_WINDOW_D)
+        # 兩項視窗不同（14／30 天，#169），請求一律用較早的那個 since 拉；兩項各自在本機濾自己的視窗
+        # （lag_problems 與 wiki_game_counts 都有濾 since，#139 ①）。
+        _wsince = (_lnow - datetime.timedelta(days=max(LAG_WINDOW_D, DAYCOUNT_WINDOW_D))).strftime("%Y-%m-%d")
         _wiki_memo = {}
 
         def _wiki_once(since):
             # 逐聯賽落後與同一天少局（#168）共用同一個請求；失敗也記住，不重打第二次。
             # 裡面叫的是模組層 wiki_rows（呼叫時才查名字）⇒ 測試接管 uh.wiki_rows 照樣接得到。
-            if since not in _wiki_memo:
+            since = min(since, _wsince)
+            if "rows" not in _wiki_memo:
                 try:
-                    _wiki_memo[since] = (True, wiki_rows(since))
+                    _wiki_memo["rows"] = (True, wiki_rows(since))
                 except Exception as e:
-                    _wiki_memo[since] = (False, e)
-            _ok, _v = _wiki_memo[since]
+                    _wiki_memo["rows"] = (False, e)
+            _ok, _v = _wiki_memo["rows"]
             if not _ok:
                 raise _v
             return _v
@@ -1323,9 +1341,9 @@ def main():
         if _lst == "bad":
             bad += [_m[3:] for _m in _lmsgs if _m.startswith("異常：")]
         # 同一天少局（#168）：上面只比「有哪些比賽日」，某一天少幾局看不到
-        _dst, _dmsgs = daycount_problems(_lnow, _lpaths, fetch=_wiki_once)
+        _dst, _dmsgs = daycount_problems(_lnow, _dpaths, fetch=_wiki_once)
         print("   同一天少局（近 %d 天／開賽滿 %dh／wiki 比我們多才算）：%s" % (
-            LAG_WINDOW_D, DAYCOUNT_GRACE_H,
+            DAYCOUNT_WINDOW_D, DAYCOUNT_GRACE_H,
             {"skip": "略過（原因見下一行）", "ok": "✓ 逐日局數都對得上", "bad": "⚠ 有少局"}[_dst]))
         for _m in _dmsgs:
             print("   " + _m)

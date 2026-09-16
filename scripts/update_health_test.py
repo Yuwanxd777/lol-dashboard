@@ -1412,10 +1412,11 @@ def DC_SUITE(M, eq):
         W9 = wk([(LCS, "2026-09-10 23:50:00", "A", "B", "1")])
         r9 = mk([("2026-09-11 00:05:00", "LCS", "A", "B", 1)])
         eq(DC(r9, W9), ("ok", []), "㉙⑨ 開賽時間跨午夜掉到隔天 ⇒ 相鄰天合併後對得上、不報")
-        # ⑩ 視窗：伺服器回了 since 之前的局（09-01）⇒ 不算；六聯賽以外（PCS）⇒ 不算
-        W10 = wk([(LCS, "2026-09-01 20:00:00", "A", "B", "1"), ("PCS/2026 Season/Summer", "2026-09-10 10:00:00", "X", "Y", "1")],
+        # ⑩ 視窗：伺服器回了 since 之前的局（08-15，視窗 30 天 ⇒ since 08-17）⇒ 不算；六聯賽以外（PCS）⇒ 不算
+        W10 = wk([(LCS, "2026-08-15 20:00:00", "A", "B", "1"), ("PCS/2026 Season/Summer", "2026-09-10 10:00:00", "X", "Y", "1")],
                  filter_since=False)
         eq(DC(mk([]), W10), ("ok", []), "㉙⑩ 視窗外的舊局、非一級聯賽都不算（不誤報）")
+        eq(DC(mk([]), W10, window_d=40)[0], "bad", "㉙⑩ 正控制：視窗拉到 40 天 ⇒ 同一局報（證明擋掉它的是 since）")
         # ⑪ 留給逐聯賽落後叫：我們最後 LPL 09-05、wiki 之後還有 3 天 ⇒ 這裡不叫（逐聯賽落後會叫）
         LPL = "LPL/2026 Season/Split 3"
         W11 = wk([(LPL, "2026-09-05 09:00:00", "A", "B", "1"), (LPL, "2026-09-08 09:00:00", "A", "B", "1"),
@@ -1430,6 +1431,31 @@ def DC_SUITE(M, eq):
         eq(st12, "bad", "㉙⑫ 只落後 1 天但已 >48h ⇒ 這裡叫")
         eq(any("LPL 2026-09-10 少 1 局" in m for m in ms12), True, "㉙⑫ 指名 LPL 09-10")
         eq(M.lag_problems(NOW, dp(r11), fetch=W12)[0], "ok", "㉙⑫ 前提：同一份資料逐聯賽落後不會叫（兩條不是都啞）")
+        # ⑯ 視窗 30 天（#169）：CBLOL 08-15 缺了 16.5 天，14 天視窗會在它還缺著時滑出去、之後照印 ✓
+        eq(M.DAYCOUNT_WINDOW_D, 30, "㉙⑯ 同一天少局的視窗 30 天（不借逐聯賽落後的 14 天）")
+        W16 = wk([(LCS, "2026-08-28 20:00:00", "A", "B", "1"), (LCS, "2026-08-28 20:50:00", "A", "B", "2"),
+                  (LCS, "2026-09-13 20:00:00", "C", "D", "1")])
+        r16 = mk([("2026-08-28 20:00:30", "LCS", "A", "B", 1), ("2026-09-13 20:00:30", "LCS", "C", "D", 1)])
+        st16, ms16 = DC(r16, W16)
+        eq((st16, any("LCS 2026-08-28 少 1 局" in m for m in ms16)), ("bad", True),
+           "㉙⑯ 19 天前少一局 ⇒ 預設視窗照報（得到 %r）" % (ms16,))
+        eq(DC(r16, W16, window_d=14), ("ok", []), "㉙⑯ 正控制：同一份資料視窗 14 天 ⇒ 滑出去、不報")
+        # ⑰ 兩個視窗不同時「留給逐聯賽落後」要照它自己的 14 天算：我們最後 LCS 08-27（20 天前），
+        #    wiki 08-29 兩局（18 天前）＋09-13 一局 ⇒ 30 天內落後 2 天，但逐聯賽落後只看得到 09-13 那 1 天（不叫）
+        W17 = wk([(LCS, "2026-08-27 20:00:00", "A", "B", "1"), (LCS, "2026-08-29 20:00:00", "C", "D", "1"),
+                  (LCS, "2026-08-29 20:50:00", "C", "D", "2"), (LCS, "2026-09-13 20:00:00", "E", "F", "1")])
+        r17 = mk([("2026-08-27 20:00:30", "LCS", "A", "B", 1)])
+        eq(M.lag_problems(NOW, dp(r17), fetch=W17)[0], "ok", "㉙⑰ 前提：逐聯賽落後（14 天）只看到 1 天、不叫")
+        st17, ms17 = DC(r17, W17)
+        eq((st17, any("LCS 2026-08-29 少 2 局" in m for m in ms17), any("LCS 2026-09-13 少 1 局" in m for m in ms17)),
+           ("bad", True, True), "㉙⑰ 兩條不可以都啞：逐聯賽落後不叫 ⇒ 這裡把 08-29／09-13 都叫出來（得到 %r）" % (ms17,))
+        # ⑱ 停擺：逐聯賽落後會叫（14 天內落後 3 天）⇒ 我們最後比賽日之後**整段**讓給它，連 14 天以前的 08-29 也不重複叫
+        W18 = wk([(LPL, "2026-08-27 09:00:00", "A", "B", "1"), (LPL, "2026-08-29 09:00:00", "C", "D", "1"),
+                  (LPL, "2026-09-05 09:00:00", "E", "F", "1"), (LPL, "2026-09-08 09:00:00", "G", "H", "1"),
+                  (LPL, "2026-09-10 09:00:00", "I", "J", "1")])
+        r18 = mk([("2026-08-27 09:00:30", "LPL", "A", "B", 1)])
+        eq(M.lag_problems(NOW, dp(r18), fetch=W18)[0], "bad", "㉙⑱ 前提：逐聯賽落後會叫")
+        eq(DC(r18, W18), ("ok", []), "㉙⑱ 停擺整段讓給逐聯賽落後：14 天以前的 08-29 也不重複叫")
         # ⑬ 降級：wiki 查不到／回空／撞上限、年度檔讀不懂 ⇒ skip；檔不存在 ⇒ 當 0 局照報
         def boom(since, timeout=90):
             raise IOError("HTTP Error 503")
@@ -1453,11 +1479,12 @@ def DC_SUITE(M, eq):
 
         # ⑭ main() 端到端：假 repo＋假時鐘＋假出口（記次數）
         real = (M.ROOT, M.wiki_rows, M.datetime, M.LOG, M.CONSOLE, M.BASE, M.live_dup, list(_sys.argv))
+        CLOCK = [NOW]
 
         class _T(_dt.datetime):
             @classmethod
             def utcnow(cls):
-                return NOW
+                return CLOCK[0]
         shim = _ty.ModuleType("datetime_shim_dc")
         for k in dir(_dt):
             if not k.startswith("__"):
@@ -1496,11 +1523,12 @@ def DC_SUITE(M, eq):
 
         rc, out, line, concl, calls = run_main(r1, W1)
         eq(isinstance(rc, int), True, "㉙⑭ main() 跑完沒有例外（得到 %r）" % (rc,))
-        eq(line, "同一天少局（近 14 天／開賽滿 48h／wiki 比我們多才算）：⚠ 有少局", "㉙⑭ main 印出同一天少局那行（⚠）")
+        eq(line, "同一天少局（近 30 天／開賽滿 48h／wiki 比我們多才算）：⚠ 有少局", "㉙⑭ main 印出同一天少局那行（⚠）")
         eq("LCS 2026-09-12 少 3 局" in concl, True, "㉙⑭ 少局收進結論（得到 %r）" % concl)
         # ⚠ 不斷言「離開碼 1」：這個假 repo 只有 data/，其他項一律「讀不到」⇒ 離開碼恆為 1、沒有鑑別力
         #   （#168 突變 N1「少局沒收進結論」時那條照樣綠＝假綠）。收進結論由上一條的結論字串證明。
         eq(len(calls), 1, "㉙⑭ 逐聯賽落後與同一天少局共用一個 wiki 請求（得到 %d 次）" % len(calls))
+        eq(calls[:1], ["2026-08-17"], "㉙⑭ 共用的那個請求用兩個視窗裡較早的 since（30 天前；14 天會讓少局那項缺資料）")
         rc, out, line, concl, calls = run_main(r2, W1)
         eq((line or "").endswith("✓ 逐日局數都對得上"), True, "㉙⑭ 對照：局數都在 ⇒ ✓")
         eq("少 " in concl, False, "㉙⑭ 對照：結論沒有少局")
@@ -1511,6 +1539,34 @@ def DC_SUITE(M, eq):
         eq((isinstance(rc, int), (line or "").endswith("略過（原因見下一行）"), len(calls)), (True, True, 1),
            "㉙⑭ wiki 掛掉 ⇒ main 照樣出結論、兩項都略過、失敗也只打一次（得到 rc=%r line=%r calls=%d）"
            % (rc, line, len(calls)))
+        # ⑲ 跨年（#169）：2027-01-20 時逐聯賽落後的 14 天只碰 2027，同一天少局的 30 天要連 2026 的檔一起讀
+        #    ——拿錯那串，12-28 那局在 data_2026.js 裡、卻會被讀成「我們 0 局」天天誤報到 1 月底。
+        ry = _tf.mkdtemp(prefix="uh_dc_year_")
+        dirs.append(ry)
+        _os.makedirs(_os.path.join(ry, "data"))
+        for yr, games in ((2026, [("2026-12-28 10:00:30", "LCK", "A", "B", 1)]),
+                          (2027, [("2027-01-15 10:00:30", "LCK", "C", "D", 1)])):
+            raw = [list(cols)]
+            for d, lg, b, rd, g in games:
+                for pid in (1, 2, 3, 4, 5, 100):
+                    cell = {"date": d, "league": lg, "blue_teamname": b, "red_teamname": rd,
+                            "game": g, "participantid": pid, "patch": "26.18"}
+                    raw.append([cell[c] for c in cols])
+            _io.open(_os.path.join(ry, "data", "data_%d.js" % yr), "w", encoding="utf-8").write(
+                "window.LOL_DATA=" + _json.dumps({"fetched_at": "x", "tabs": {"RAW_DATA": raw}}) + ";")
+        LCK = "LCK/2027 Season/Cup"
+        W19 = wk([(LCK, "2026-12-28 10:00:00", "A", "B", "1"), (LCK, "2027-01-15 10:00:00", "C", "D", "1")])
+        CLOCK[0] = _dt.datetime(2027, 1, 20, 8, 0)
+        try:
+            rc, out, line, concl, calls = run_main(ry, W19)
+        finally:
+            CLOCK[0] = NOW
+        eq((line or "").endswith("✓ 逐日局數都對得上"), True,
+           "㉙⑲ 跨年：少局那項讀到 data_2026.js 的 12-28 ⇒ ✓（得到 %r；%r）" % (line, concl))
+        eq(calls[:1], ["2026-12-21"], "㉙⑲ 跨年時請求的 since 也是 30 天前（得到 %r）" % (calls,))
+        eq(M.daycount_problems(_dt.datetime(2027, 1, 20, 8, 0), [_os.path.join(ry, "data", "data_2027.js")],
+                               fetch=W19)[0], "bad",
+           "㉙⑲ 正控制：同一份資料只給 data_2027.js ⇒ 12-28 那局被讀成我們 0 局（證明上一條靠的是讀對檔）")
     finally:
         for d in dirs:
             _sh.rmtree(d, ignore_errors=True)
