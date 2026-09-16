@@ -5,13 +5,19 @@
 其中 200 次問完得到「確定沒有單雙排排名」。`autopilot/_r50_norank_churn.py` 用 git 裡 15 個 soloq.js
 快照量過：無排名→有排名 14 班只有 2 次，一直無排名平均每班 174 個。
 
-要證明的六件事（每一件都配一個「會動的對照」）：
+2026-09-16 線 3（精進迴圈 #145）加了 ⑦：期限改成 puuid+戳記日的雜湊（4~9 班＝2.0~4.5 天），
+因為固定 3 天會讓同一班戳記的人同一班一起到期——正本 183 筆 noRank 全是同一天，每 3 天 ⑤c 一次 +183 次請求。
+
+要證明的七件事（每一件都配一個「會動的對照」）：
   ① 上一版 noRank 還新鮮 ⇒ **完全不發 entries/by-puuid**，且沿用舊日期（期限不續命）
   ② 上一版 noRank 過期 ⇒ 照樣問
   ③ **聯盟名單命中蓋過捷徑**（無排名躍升到 Master 以上仍然當天看到）——這是這一刀的安全閥
   ④ 親自問到「確定沒排名」才寫 noRank=今天；「這次沒問成」不寫、且照舊重抓
   ⑤ `--no-norank-skip` 關掉捷徑
   ⑥ 負控制：把 SKIP_NORANK 硬設成 False，① 一定要紅（證明這支測得到差別）
+  ⑦ **逐帳號錯開**：40 個同一天戳記的帳號不可以同一班一起到期（有人到期、也有人還沒到期），
+     兩端各有對照（今天戳的 0 個到期／10 天前戳的 40 個全到期），另加「漏傳 puuid 會 TypeError」。
+     舊版（`autopilot/_m145_bak/fetch_soloq.py`）跑同一支會紅在這兩條——鑑別力有驗過。
 """
 import io
 import json
@@ -68,6 +74,8 @@ def write_prev():
         f.write("window.SOLOQ_DATA=" + json.dumps(PREV, ensure_ascii=False) + ";\n")
 
 
+DEFAULT_PU = {"Stale": "ps", "Old": "po", "Risen": "pr", "Fresh": "pn", "Flaky": "px"}
+
 HARNESS = '''
 import io, json, os, sys, time
 sys.argv = ["fetch_soloq.py", "--no-ladder"] + %(extra)r
@@ -82,7 +90,7 @@ FS.OUT = os.path.join(TD_, "soloq.js")
 FS.ACCOUNTS = os.path.join(TD_, "scripts", "soloq_accounts.json")
 FS.load_prev_puuids = lambda: ({}, {})
 time.sleep = lambda s: None
-PU = {"Stale": "ps", "Old": "po", "Risen": "pr", "Fresh": "pn", "Flaky": "px"}
+PU = %(pu)r
 URLS = []
 def fake_riot_get(url, timeout=15):
     URLS.append(url)
@@ -118,11 +126,12 @@ else:
 '''
 
 
-def run(tag, negctl=False, extra=None):
+def run(tag, negctl=False, extra=None, pu=None):
     write_prev()
     hp = os.path.join(TD, "harness_%s.py" % tag)
     io.open(hp, "w", encoding="utf-8").write(
-        HARNESS % {"here": HERE, "td": TD, "negctl": negctl, "tag": tag, "extra": extra or []})
+        HARNESS % {"here": HERE, "td": TD, "negctl": negctl, "tag": tag, "extra": extra or [],
+                   "pu": pu or DEFAULT_PU})
     r = subprocess.run([sys.executable, hp], capture_output=True, text=True, encoding="utf-8", timeout=120)
     urls = []
     up = os.path.join(TD, "urls_%s.txt" % tag)
@@ -186,5 +195,81 @@ ent6 = [u for u in urls6 if "/entries/by-puuid/" in u]
 ok("負控制下 Stale 有被問（證明 ① 測得到差別）", any("/by-puuid/ps" in u for u in ent6), str(ent6))
 ok("負控制下沒有「⏭ …已確定沒有單雙排排名」", "已確定沒有單雙排排名" not in out6, out6[-400:])
 
+
+# ── ⑦ 逐帳號錯開（2026-09-16 線 3，精進迴圈 #145）────────────────────────────────
+# 舊版期限固定 3 天、年齡只算到「日」⇒ 同一班戳記的人同一班一起到期（正本那 183 個無排名帳號
+# 就是這樣，soloq.js 裡 183 筆 noRank 全是同一天）⇒ 每 3 天 ⑤c 一次 +183 次請求。
+# 新版用 puuid+戳記日的雜湊把期限打散成 4~9 班。這一段**只驗行為、不重抄公式**
+# （不硬寫 NORANK_SHIFTS／NORANK_SPREAD，日後調參數不會誤報）。
+
+
+def run7(tag, prev_players, accounts, pu):
+    """自己種帳號檔與上一版 soloq.js 再跑一次 main()（① ~ ⑥ 已經跑完，可以蓋掉）。"""
+    io.open(os.path.join(TD, "scripts", "soloq_accounts.json"), "w", encoding="utf-8").write(
+        json.dumps(accounts, ensure_ascii=False))
+    io.open(os.path.join(TD, "soloq.js"), "w", encoding="utf-8").write(
+        "window.SOLOQ_DATA=" + json.dumps({"fetched_at": "x", "players": prev_players},
+                                          ensure_ascii=False) + ";")
+    hp = os.path.join(TD, "harness_%s.py" % tag)
+    io.open(hp, "w", encoding="utf-8").write(
+        HARNESS % {"here": HERE, "td": TD, "negctl": False, "tag": tag, "extra": [], "pu": pu})
+    r = subprocess.run([sys.executable, hp], capture_output=True, text=True,
+                       encoding="utf-8", errors="replace", timeout=180)
+    urls = []
+    up = os.path.join(TD, "urls_%s.txt" % tag)
+    if os.path.exists(up):
+        urls = [u for u in io.open(up, encoding="utf-8").read().splitlines() if u]
+    return (r.stdout or "") + (r.stderr or ""), urls
+
+
+N7 = 40
+PU7 = {"S%02d" % i: "zzprobe9942_%02d" % i for i in range(N7)}     # 只有沙盒才有的 puuid
+ACC7 = [{"team": "T7", "player": "S%02d" % i, "platform": "KR", "riotId": "S%02d#KR1" % i}
+        for i in range(N7)]
+
+
+def prev7(day):
+    return [{"player": "S%02d" % i, "team": "T7", "platform": "kr", "riotId": "S%02d#KR1" % i,
+             "puuid": PU7["S%02d" % i], "found": False, "noRank": day} for i in range(N7)]
+
+
+def asked7(urls):
+    ent = [u for u in urls if "/entries/by-puuid/" in u]
+    return {i for i in range(N7) if any(PU7["S%02d" % i] in u for u in ent)}
+
+
+print("\n⑦ 逐帳號錯開：同一天戳記的一批帳號不可以同一班一起到期（#145）")
+D_MID = (TODAY - datetime.timedelta(days=2)).isoformat()
+out7, urls7 = run7("stagger", prev7(D_MID), ACC7, PU7)
+A7 = asked7(urls7)
+ok("40 個同一天戳記的帳號：有人到期（不是全部沿用）", len(A7) > 0, "asked=%d" % len(A7))
+ok("40 個同一天戳記的帳號：也有人還沒到期（＝真的錯開）", len(A7) < N7, "asked=%d" % len(A7))
+ok("沒有 traceback", "Traceback" not in out7, out7[-400:])
+
+out7b, urls7b = run7("stagger_today", prev7(TODAY.isoformat()), ACC7, PU7)
+ok("今天才戳的 40 個一個都不問（下限對照）", len(asked7(urls7b)) == 0, str(sorted(asked7(urls7b))))
+
+D_OLD7 = (TODAY - datetime.timedelta(days=10)).isoformat()
+out7c, urls7c = run7("stagger_old", prev7(D_OLD7), ACC7, PU7)
+ok("10 天前戳的 40 個全部重問（上限對照：沒有人能無限期不問）",
+   len(asked7(urls7c)) == N7, str(sorted(set(range(N7)) - asked7(urls7c))))
+
+_SIG_PROBE = "\n".join([
+    "import os, sys",
+    "os.environ['RIOT_API_KEY'] = 'TEST'",
+    "sys.path.insert(0, %r)" % HERE,
+    "import fetch_soloq as F",
+    "try:",
+    "    F.norank_fresh(%r)" % TODAY.isoformat(),
+    "    print('SIG_ACCEPTED_ONE_ARG')",
+    "except TypeError:",
+    "    print('SIG_RAISED')",
+])
+_sp = os.path.join(TD, "sig_probe.py")
+io.open(_sp, "w", encoding="utf-8").write(_SIG_PROBE)
+_sig = subprocess.run([sys.executable, _sp],
+    capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=120)
+ok("norank_fresh 少傳 puuid 會當場 TypeError（漏改的呼叫端不會靜靜吃錯期限）",
+   "SIG_RAISED" in (_sig.stdout or ""), (_sig.stdout or "") + (_sig.stderr or ""))
 print("\n結果：%d 過／%d 敗" % (PASS, FAIL))
 sys.exit(1 if FAIL else 0)

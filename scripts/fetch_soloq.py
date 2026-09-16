@@ -14,6 +14,7 @@ Riot API（免費 dev key，20 req/s、100 req/2min，會照速率限制自動 s
 金鑰只從環境變數 RIOT_API_KEY 讀，不寫進任何檔案。
 """
 import io, os, sys, json, time, re, urllib.parse, urllib.request, urllib.error, datetime, collections
+import zlib
 import http.client, threading
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -335,8 +336,22 @@ def noacc_fresh(day):
 #   ② 只有 get_soloq 回「確定」（問到了、答案就是沒排名）才記日期；「這次沒問成」不記。
 #   ③ 鍵是 **puuid**（永久不變，改名不影響；帳號被別人接手 ⇒ puuid 不同 ⇒ 自然重問）。
 # 跳過時沿用上一版的 noRank（期限從最後一次真的問過起算，不是每天續命）。
+#   ④ 期限**逐帳號錯開**（2026-09-16 #145，見下面 NORANK_SHIFTS）：固定 3 天會讓同一班戳的人
+#      同一班一起過期，183 個一次湧回來。
 # `--full-id`／`--failed`／`--no-norank-skip` 一律不跳過。
-NORANK_DAYS = 3
+# ── 到期錯開（2026-09-16 線 3，精進迴圈 #145）──────────────────────────────────
+# 舊版：期限固定 3 天、年齡只算到「日」⇒ 到期一律跨午夜 ⇒ 永遠落在 10:00 那班。而那 183 個
+# 無排名帳號本來就是同一班被問到、同一天被戳記（09-16 10:05 的 soloq.js：183 筆全是 2026-09-16）
+# ⇒ 每 3 天一次 +183 的尖峰（⑤c 162.4 → 272.0s，#144 第四節），尖峰又把它們重戳成同一天 ⇒ 自我維持。
+# 新版：年齡改用**班**算（一天兩班 10:00／22:00），期限＝NORANK_SHIFTS + 雜湊 % NORANK_SPREAD
+# ＝ 4~9 班（2.0~4.5 天）。雜湊鍵是 **puuid ＋ 戳記日**：同一組永遠算出同一個數（決定性、無狀態、
+# 不必多存欄位、測試可重現），但每重問一次就換一個戳記日 ⇒ 重抽期限 ⇒ 羊群擴散、不會週期性重合。
+# `autopilot/_m145_norank_sim.py` 用正本 183 個 puuid 模擬 90 天：尖峰 183 → 51、p95 183 → 39、
+# 每班平均 29.6 → 30.1、平均重問間隔 3.00 → 3.00 天（最長 3.0 → 4.5 天）
+# ⇒ **平均成本與平均時效性都不變，只削尖峰**。安全閥不變：聯盟名單命中永遠蓋過捷徑。
+NORANK_SHIFTS = 4          # 期限下限（班）＝2.0 天
+NORANK_SPREAD = 6          # 錯開幅度（班）⇒ 4~9 班＝2.0~4.5 天
+NORANK_PM_HOUR = 16        # 幾點之後算「下午那班」（10:00 與 22:00 之間任何一點都行）
 PREV_NORANK = {}
 NORANK_SKIPS = [0]
 SKIP_NORANK = True
@@ -356,13 +371,26 @@ def load_prev_norank():
     return out
 
 
-def norank_fresh(day):
-    """noRank 日期距今 < NORANK_DAYS 天 ⇒ 還新鮮，不必再問。格式壞掉一律當過期（重問最安全）。"""
+def norank_limit(puuid, day):
+    """這個 puuid ＋ 這個戳記日該撐幾班。決定性（同樣輸入永遠同一個數），
+    但換一個戳記日就重抽 ⇒ 到期日會擴散開（見 NORANK_SHIFTS 那段註解）。"""
+    return NORANK_SHIFTS + (zlib.crc32(("%s|%s" % (puuid, day)).encode("utf-8")) % NORANK_SPREAD)
+
+
+def norank_age_shifts(d, now=None):
+    """戳記日距今幾「班」（一天兩班）。戳記是未來日期 ⇒ 負數，呼叫端當過期處理。"""
+    now = now or datetime.datetime.now()
+    return (now.date() - d).days * 2 + (1 if now.hour >= NORANK_PM_HOUR else 0)
+
+
+def norank_fresh(day, puuid):
+    """noRank 戳記還在這個 puuid 自己的期限內 ⇒ 不必再問。格式壞掉一律當過期（重問最安全）。
+    puuid **刻意沒有預設值**：漏改的呼叫端會當場 TypeError，不會靜靜套到錯的期限。"""
     try:
         d = datetime.date.fromisoformat(str(day))
     except Exception:
         return False
-    return 0 <= (datetime.date.today() - d).days < NORANK_DAYS
+    return 0 <= norank_age_shifts(d) < norank_limit(puuid, day)
 
 
 # ── 閒置帳號延後（2026-09-14 線 3，精進迴圈 #110）────────────────────────────────
@@ -456,7 +484,7 @@ def plan_deferrals(accounts):
             d["fixed"] += 1; continue                       # 要走 account-v1 再問 entries：非閒置
         if (plat, pu) in LADDER:
             continue                                        # 名單命中免費
-        if SKIP_NORANK and norank_fresh(PREV_NORANK.get(pu, "")):
+        if SKIP_NORANK and norank_fresh(PREV_NORANK.get(pu, ""), pu):
             continue                                        # 無排名捷徑：不發請求
         st = idle_state(PREV_REC.get(pu), now)
         if st is None or st[0] < IDLE_DAYS or st[1] >= IDLE_MAX_H:
@@ -754,9 +782,10 @@ def main():
     PREV_NORANK = load_prev_norank() if SKIP_NORANK else {}
     NORANK_SKIPS[0] = 0
     if PREV_NORANK:
-        _nrf = sum(1 for v in PREV_NORANK.values() if norank_fresh(v))
-        print("無排名捷徑：%d 個帳號上一版已確定沒有單雙排排名（%d 天內不再問 entries/by-puuid；"
-              "聯盟名單命中仍會蓋過）" % (_nrf, NORANK_DAYS))
+        _nrf = sum(1 for _k, _v in PREV_NORANK.items() if norank_fresh(_v, _k))
+        print("無排名捷徑：%d 個帳號上一版已確定沒有單雙排排名（%.1f~%.1f 天內不再問 entries/by-puuid，"
+              "每個帳號用 puuid+戳記日錯開到期；聯盟名單命中仍會蓋過）"
+              % (_nrf, NORANK_SHIFTS / 2.0, (NORANK_SHIFTS + NORANK_SPREAD - 1) / 2.0))
     # 有存 puuid 就跳過 account-v1 那一次查詢（見 fetch_one 的註解）。
     # `--full-id`＝關掉捷徑、走完整路徑把改名補回來（每週全掃那一次用）。
     FAST_ID = "--full-id" not in sys.argv
@@ -869,14 +898,15 @@ def main():
             sq, sure = _lad, True
             LADDER_HITS[0] += 1
         else:
-            # ── 無排名捷徑：上一版已確定這個 puuid 沒有單雙排、還在 NORANK_DAYS 內 ⇒ 不問 Riot ──
+            # ── 無排名捷徑：上一版已確定這個 puuid 沒有單雙排、還在它自己的期限內 ⇒ 不問 Riot ──
             # 順序很重要：**聯盟名單查完才輪到它**，所以躍升到 Master 以上照樣當天看到（見 load_prev_norank）。
             _nr = PREV_NORANK.get(puuid) if SKIP_NORANK else None
-            if _nr and norank_fresh(_nr):
+            if _nr and norank_fresh(_nr, puuid):
                 NORANK_SKIPS[0] += 1
                 rec["noRank"] = _nr          # 沿用舊日期：期限從最後一次真的問過起算
                 rec["settled"] = True
-                print(f"    ⏭ 上一版 {_nr} 已確定沒有單雙排排名，{NORANK_DAYS} 天內不再問 Riot")
+                print(f"    ⏭ 上一版 {_nr} 已確定沒有單雙排排名，"
+                      f"{norank_limit(puuid, _nr) / 2.0:.1f} 天內不再問 Riot（這個帳號的錯開期限）")
                 return rec
             # ── 閒置延後：plan_deferrals 把這個帳號排到下一班 ⇒ 不問 Riot、沿用上一版牌位（見 IDLE_DAYS 那段）──
             _pv = PREV_REC.get(puuid) if SKIP_IDLE and (plat, puuid) in DEFER else None
@@ -984,7 +1014,9 @@ def main():
     if NOACC_SKIPS[0]:
         print(f"（{NOACC_SKIPS[0]} 個帳號上一版已確定 Riot ID 不存在、{NOACC_DAYS} 天內 → 沒問 account-v1，省下同樣次數的請求）")
     if NORANK_SKIPS[0]:
-        print(f"（{NORANK_SKIPS[0]} 個帳號上一版已確定沒有單雙排排名、{NORANK_DAYS} 天內 → 沒問 entries/by-puuid，省下同樣次數的請求）")
+        print(f"（{NORANK_SKIPS[0]} 個帳號上一版已確定沒有單雙排排名、"
+              f"{NORANK_SHIFTS / 2.0:.1f}~{(NORANK_SHIFTS + NORANK_SPREAD - 1) / 2.0:.1f} 天內（逐帳號錯開）"
+              f" → 沒問 entries/by-puuid，省下同樣次數的請求）")
     if IDLE_SKIPS[0]:
         print(f"（{IDLE_SKIPS[0]} 個閒置帳號這班延後、沿用上一版牌位（W+L ≥ {IDLE_DAYS} 天沒動、最多 {IDLE_MAX_H}h 一定再問）→ 省下同樣次數的請求）")
     if retry:
