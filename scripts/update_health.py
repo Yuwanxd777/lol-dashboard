@@ -952,6 +952,8 @@ def lag_problems(now, data_path, fetch=None, tier1=None,
 #   ‧ **wiki 比我們多才算**：我們多＝人工釘住的補局（fetch_fill 的 PBFIX，LCK 08-01）或 wiki 重複登錄
 #     （LCP 08-13 兩局各兩筆 ⇒ wiki 側先用 (開賽分鐘, 隊1, 隊2, 局號) 去重）。
 #   ‧ 相鄰 ±1 天合併後 wiki 仍比我們多才算：開賽時間跨午夜、補檔用佔位時間掛到前一天，都不該叫。
+#     合併時相鄰天兩側都用我們那一刀（ocut）數（#170）：wiki 相鄰天若用 48h，slack 多收的局會被當成「我們多」
+#     去抵當天的少局 ⇒ 真缺被抵掉。08-16 起每小時重放 772 點：補回 6 點真缺沒叫、已知以外 0（autopilot/_m170_slack_probe.txt）。
 #   ‧ 不跟逐聯賽落後重複叫：「我們最後比賽日之後」那幾天若多到逐聯賽落後自己會叫（用它的寬限算、
 #     >= LAG_THRESHOLD），就留給它；只落後 1 天卻已超過 48 小時的，歸這裡。
 #   ‧ wiki 查不到／回空／撞上限、年度檔讀不懂 ⇒ skip（跟逐聯賽落後同一個降級）；年度檔不存在＝那一年 0 局。
@@ -1050,6 +1052,7 @@ def daycount_problems(now, data_path, fetch=None, tier1=None, grace_h=None, slac
     try:
         wc, first = wiki_game_counts(rows, since, cut, tier1)
         wl, _ = wiki_game_counts(rows, since, lcut, tier1)       # 逐聯賽落後那一刀：判「留給它叫」
+        wo, _ = wiki_game_counts(rows, since, ocut, tier1)       # 我們那一刀：±1 天合併時相鄰天兩側同一刀
     except Exception as e:
         return "skip", ["Leaguepedia 回應的形狀不對（%s: %s）⇒ 略過同一天少局檢查" % (type(e).__name__, e)]
     paths = [data_path] if isinstance(data_path, str) else list(data_path)
@@ -1079,8 +1082,12 @@ def daycount_problems(now, data_path, fetch=None, tier1=None, grace_h=None, slac
         for d in sorted(W):
             if d in owned or W[d] <= O[d]:
                 continue
-            near = (_shift_day(d, -1), d, _shift_day(d, 1))
-            if sum(W[x] for x in near) <= sum(O[x] for x in near):
+            # 相鄰天「我們比 wiki 多」的局才抵得掉當天的少局，而相鄰天兩側要用同一刀（我們那一刀 ocut）數（#170）。
+            # #168 的寫法 wiki 相鄰天用 48h、我們用 45h ⇒ slack 收進來的局被當成多的、抵掉真的少局
+            # （CBLOL 08-15 少 2 局：隔天 3 局剛滿 45h ⇒ 08-18 22:00～08-19 01:00 啞了 4 小時；LCS 09-12 在 09-16 03:00 同一個病）。
+            # 當天的少局仍照寬限算（W[d]，開賽未滿 48h 的不算少）。
+            WO = wo.get(lg, collections.Counter())
+            if W[d] - O[d] <= sum(O[x] - WO[x] for x in (_shift_day(d, -1), _shift_day(d, 1))):
                 continue
             hrs = (now - datetime.datetime.strptime(first[(lg, d)], fmt)).total_seconds() / 3600.0
             s = "%s %s 少 %d 局（wiki %d、我們 %d；最早一局開賽 %d 小時前）" % (
