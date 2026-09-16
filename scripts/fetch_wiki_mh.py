@@ -195,6 +195,12 @@ def pb_orders(tour, force=False, tries=3):
     隊名要 html.unescape（2026-09-17 #172）：PB 頁的 alt 是「Anyone&#39;s Legend」，以前這裡的區域變數叫 html、
     把模組蓋掉了所以沒解 ⇒ PB 補局（to_csv 的 _add）寫出「Anyone&#39;s Legend」這支隊伍，
     08-12～08-15、08-24～08-25 兩段上線的資料裡 AL 被拆成兩隊。pb_list 早就是 page＋unescape。
+
+    英雄名（data-champion）也要 unescape（2026-09-17 #173）：其他英雄都是小寫英數（kaisa／jarvaniv），
+    只有 Nunu 寫成「nunu&amp;willump」⇒ pbn 變 nunuampwillump、MH 側（Nunu &amp; Willump 解碼後）是 nunuwillump
+    ⇒ 有 Nunu 的局 pb_of 對不到（選序退回路線序＝假的、2026 起先選方用猜的），PB 補局還把 MH 已有的那局
+    當成「MH 沒有」再補一次（幽靈重複局，選禁欄寫著 nunu&amp;willump）。2026 至今沒人選／禁過 Nunu，
+    所以現況 0 局；歷史快取頁 lpl_2017～2020／lms_2018／lcs_2019／opl_2017 共 24 處。
     """
     page = pb_page(tour, force=force, tries=tries)      # 不可命名為 html：會把模組 html 蓋掉，unescape 就沒了
     if not page:
@@ -208,7 +214,7 @@ def pb_orders(tour, force=False, tries=3):
         cs = re.findall(r"<t[dh][^>]*>(.*?)</t[dh]>", tr, re.S)
         if len(cs) < 23 or "pbh-cn" not in tr:
             continue
-        ch = lambda i: re.findall(r'data-champion="([^"]+)"', cs[i])
+        ch = lambda i: [html.unescape(c) for c in re.findall(r'data-champion="([^"]+)"', cs[i])]
         t1p = ch(12) + ch(14) + ch(21)
         t2p = ch(13) + ch(15) + ch(20) + ch(22)
         if len(t1p) != 5 or len(t2p) != 5:
@@ -244,7 +250,7 @@ def pb_list(tour, force=False):
         cs = re.findall(r"<t[dh][^>]*>(.*?)</t[dh]>", tr, re.S)
         if len(cs) < 23 or "pbh-cn" not in tr:
             continue
-        ch = lambda i: re.findall(r'data-champion="([^"]+)"', cs[i])
+        ch = lambda i: [html.unescape(c) for c in re.findall(r'data-champion="([^"]+)"', cs[i])]   # 同 pb_orders（nunu&amp;willump）
         team = lambda i: html.unescape((re.search(r'alt="([^"]+?)logo std"', cs[i]) or [None, ""])[1]).strip()
         t1p, t2p = ch(12) + ch(14) + ch(21), ch(13) + ch(15) + ch(20) + ch(22)
         if len(t1p) != 5 or len(t2p) != 5:
