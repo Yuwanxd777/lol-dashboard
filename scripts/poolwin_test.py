@@ -8,7 +8,8 @@
   ① 📅 按鈕不在了
   ② 網頁的池（`selPool`）**不吃窗**
   ③ 疊圖那條路（`__bpAPI.withPoolWin` 包起來的 `selPool`）**吃窗**，且第 1 局嚴格小於網頁
-  ④ 第 1~4 局：疊圖池的隻數單調不減（窗一階一階放寬），第 4 局＝全年＝跟網頁一樣
+  ④ 第 1~4 局：疊圖池的隻數單調不減（窗一階一階放寬），第 3 局起＝全年＝跟網頁一樣
+     （2026-09-16 起窗是**賽段**不是天數：第1局本賽段／第2局最近兩賽段／第3局起全年，共 3 階）
   ⑤ 場數／勝率**跟著窗變**（使用者 2026-09-14：「僅先顯示一個月，但英雄場數沒跟著數據範圍」；
      2026-09-07 原本是窗只決定成員、數字仍是全季累計）：疊圖那條路的場數 ≤ 網頁的、
      勝場 ≤ 網頁的，而且第 1 局至少有一隻**嚴格**比較少（除非保底放寬到全年）
@@ -67,7 +68,7 @@ READ = """() => {
     });
     return n;
   };
-  return { on: !!w.on, d: w.d, tier: w.tier, sq: w.sq, cut: w.cut || "",
+  return { on: !!w.on, d: w.d, lab: w.lab || "", tier: w.tier, sq: w.sq, cut: w.cut || "",
            page: count(false), ovl: count(true),
            hasWith: !!(api && api.withPoolWin),
            chips: document.querySelectorAll(".bpPoolRow .bpChip").length };
@@ -171,9 +172,13 @@ with sync_playwright() as pw:
     ok([pk["curGi"] for _, pk in peeks] == [0, 1, 2, 3], "curGi 跟著填好的局數走",
        str([pk["curGi"] for _, pk in peeks]))
     ok(all(s["hasWith"] for s in seen), "__bpAPI 有匯出 withPoolWin（疊圖靠它）")
-    ok([s["tier"] for s in seen] == [0, 1, 2, 3], "階梯仍跟著局號走",
+    # 3 階：第1局 tier0、第2局 tier1、第3局起都是 tier2（Math.min(curGi, POOL_WIN.length-1)）
+    ok([s["tier"] for s in seen] == [0, 1, 2, 2], "階梯仍跟著局號走（3 階，第 3 局起封頂）",
        str([s["tier"] for s in seen]))
-    ok(seen[3]["d"] == 0 and seen[3]["cut"] == "", "第 4 局＝全年（不設窗）")
+    ok(seen[2]["d"] == 0 and seen[2]["cut"] == "", "⭐ 第 3 局起＝全年（不設窗）")
+    ok(seen[3]["d"] == 0 and seen[3]["cut"] == "", "第 4 局也是全年")
+    ok([s["lab"] for s in seen[:2]] == ["本賽段", "最近兩賽段"] or seen[0]["lab"] == "不限時間",
+       "⭐ 標籤是賽段用語（或保底放寬到不限時間）", str([s["lab"] for s in seen]))
 
     # 網頁那條路：同一個盤面下，窗完全不該影響它 ⇒ 第 1 局的網頁池必須等於第 4 局的「無窗」口徑。
     # ⚠ 不能直接比第 1 局與第 4 局的網頁池——全局模式下前三局選過的英雄會被吃掉（Fearless），
@@ -181,11 +186,11 @@ with sync_playwright() as pw:
     g1 = seen[0]
     if g1["d"]:
         ok(g1["ovl"] < g1["page"], "⭐ 第 1 局：疊圖池比網頁池小（窗只作用在疊圖）",
-           "%d < %d（窗 %s 天）" % (g1["ovl"], g1["page"], g1["d"]))
+           "%d < %d（窗＝%s，起日 %s）" % (g1["ovl"], g1["page"], g1["lab"], g1["cut"]))
     else:
         notes.append("第 1 局就被保底放寬到全年（該隊窗內樣本太少），這一局比不出差異")
         ok(True, "第 1 局被保底放寬到全年（跳過差異比較）")
-    ok(seen[3]["ovl"] == seen[3]["page"], "第 4 局：兩條路一樣（全年＝不設窗）",
+    ok(seen[3]["ovl"] == seen[3]["page"], "第 3 局起：兩條路一樣（全年＝不設窗）",
        "%d vs %d" % (seen[3]["ovl"], seen[3]["page"]))
 
     print("\n③ 疊圖池：第 1~4 局單調不減（窗一階一階放寬）")

@@ -12660,7 +12660,26 @@ function render(){
       //   一個月內只打 2 場的英雄如果顯示「2 場 50%」，那比沒有數字還糟。
       // ⚠ 保底：窗內任一隊的池少於 POOL_WIN_MIN 隻就自動放寬一階。休賽期、世界賽前這種
       //   一個月沒比賽的空窗很常見，硬切會把第一局的池整個清空（鈕面寫的是實際生效的那一階）。
-      const POOL_WIN=[30,90,180,0], POOL_WIN_MIN=15;
+      // 依局角色池的窗：**賽段**（使用者 2026-09-16，取代原本的 30/90/180 天）。
+      // 第1局＝本賽段、第2局＝最近兩賽段、第3局起＝全年。POOL_WIN 現在放的是「往回幾個賽段」
+      // （0＝不設窗）；實際的切點日期由 _spCut() 換算。
+      const POOL_WIN=[1,2,0], POOL_WIN_MIN=15;
+      const POOL_WIN_LAB=["本賽段","最近兩賽段","不限時間"];
+      // 這兩支隊伍今年的賽段起日：{基本賽段:最早日期}，PO 併回母賽段（"S3 PO"→"S3"，同賽事樹那套）。
+      // 用「有這兩隊出賽的局」自然就鎖定它們的聯賽，不必另外判賽區。
+      const _spStart=(()=>{ const out={};
+        try{ for(const o of (typeof GAMES!=="undefined"?GAMES:[])){
+          const r=o.raw, a=r[C.blue_teamname], b=r[C.red_teamname];
+          if(!(a===S.t1||b===S.t1||a===S.t2||b===S.t2))continue;
+          const sp=String(o.split||"").replace(/ PO$/,"").replace(/季後$/,"").trim(); if(!sp)continue;
+          const d=String(o.date||"").slice(0,10); if(!d)continue;
+          if(!out[sp]||d<out[sp])out[sp]=d; } }catch(e){}
+        return out; })();
+      // 往回第 k 個賽段的起日（k=1＝本賽段、2＝最近兩賽段）。算不出來回 null＝不設窗。
+      const _spCut=(anc,k)=>{ const ks=Object.keys(_spStart).sort((x,y)=>_spStart[x]<_spStart[y]?-1:1);
+        const past=ks.filter(sp=>_spStart[sp]<=anc);
+        if(!past.length)return null;
+        const i=past.length-k; return i<0?null:_spStart[past[i]]; };
       const _pwTier0=curGi<0?0:Math.min(curGi,POOL_WIN.length-1);
       // 窗內的場數／勝率（使用者 2026-09-14：「僅先顯示一個月，但英雄場數沒跟著數據範圍」）。
       // cut 為 null（網頁自己渲染）⇒ 原封不動回 n／w；有窗才用逐場清單 gs 重算。
@@ -12669,6 +12688,7 @@ function render(){
         for(const g of c.gs)if(g[0]>=cut){n++;w+=g[1];} return {n,w}; };
       let _pwCut=null,_pwDays=0;          // ← selPool 實際看的：**網頁一律 null**（不設窗）
       let _pwCutOv=null,_pwDaysOv=0;      // ← 依局窗算出來的，只在 withPoolWin() 裡面生效
+      let _pwLabOv="不限時間";             // ← 窗的中文說法（疊圖頁尾直接用，不再從天數翻譯）
       let _pwAncOv="";                    // ← 窗的錨點日期（疊圖頁尾要寫「7/28~8/28」的右邊那個）
       {
         // 錨點：匯入的真實比賽局用該局自己的日期（回頭看舊系列時窗才有意義），否則用今天
@@ -12685,10 +12705,13 @@ function render(){
           return k; };
         if(curGi>=0&&(S.t1||S.t2)){
           for(let t=_pwTier0;t<POOL_WIN.length;t++){
-            const d=POOL_WIN[t];
-            if(!d){ _pwCutOv=null; _pwDaysOv=0; break; }                   // 全年＝不設窗
-            const cut=_shift(_anc,d), a=_cntWin(R1,S.pk1,cut), b=_cntWin(R2,S.pk2,cut);
-            if((a<0||a>=POOL_WIN_MIN)&&(b<0||b>=POOL_WIN_MIN)){ _pwCutOv=cut; _pwDaysOv=d; break; }
+            const k=POOL_WIN[t];
+            if(!k){ _pwCutOv=null; _pwDaysOv=0; _pwLabOv=POOL_WIN_LAB[t]||"不限時間"; break; }  // 全年＝不設窗
+            const cut=_spCut(_anc,k);
+            if(!cut){ _pwCutOv=null; _pwDaysOv=0; _pwLabOv="不限時間"; break; }  // 賽段算不出來 → 不設窗（安全方向）
+            const a=_cntWin(R1,S.pk1,cut), b=_cntWin(R2,S.pk2,cut);
+            if((a<0||a>=POOL_WIN_MIN)&&(b<0||b>=POOL_WIN_MIN)){
+              _pwCutOv=cut; _pwDaysOv=k; _pwLabOv=POOL_WIN_LAB[t]||"本賽段"; break; }
           }
         }
       }
@@ -12704,7 +12727,7 @@ function render(){
       // gi＝curGi 也要送（2026-09-09）：疊圖頁尾要寫「第 N 局 · 僅顯示一個月」，
       // 局號一定要跟窗同一份來源，不然這一局選滿之後 curGi 跳下一局、窗跟著換，
       // 疊圖那邊若用 liveIdx() 當局號就會寫出「第 1 局 · 僅顯示三個月」。
-      try{ window.__bpPoolWin={on:curGi>=0,gi:curGi,tier:_pwTier0,d:_pwDaysOv,
+      try{ window.__bpPoolWin={on:curGi>=0,gi:curGi,tier:_pwTier0,d:_pwDaysOv,lab:_pwLabOv,
                                cut:_pwCutOv,anc:_pwAncOv,sq:_pwSqDays}; }catch(e){}
       if(V.bpSoloqPool){ const IDX=window.SOLOQ_MATCH_IDX; if(IDX&&IDX.players){ // 近期積分開啟→懶載兩隊每位選手逐場檔(載好 __sqLoad 會重繪)
         [[R1,S.t1],[R2,S.t2]].forEach(([R,team])=>{ if(!R||!team)return; Object.keys(R).forEach(pos=>{ const cell=R[pos]; if(!cell)return; cell.players.forEach(pl=>{ const key=sqKey(IDX.players,tAb(team),pl.p), meta=key&&IDX.players[key];
