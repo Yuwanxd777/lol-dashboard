@@ -1296,6 +1296,229 @@ def SQF_SUITE(uh, eq):
             _sh.rmtree(d, ignore_errors=True)
 SQF_SUITE(uh, eq)
 
+# ══ ㉙ 同一天少局（2026-09-17 #168；突變驗收 autopilot/_m168_ctrl.py 會把 DC_SUITE 整段抽出去打改壞的模組）══
+# 逐聯賽落後只比「有哪些比賽日」，某一天少幾局看不到（#167 回放：CBLOL 08-15 缺兩局 16.5 天、LEC／LCS 09-12 缺四局 3.5 天）。
+# 這次局數有人讀 ⇒ 兩側的去重、±1 天合併、48h 寬限、我們側多收 3h、留給逐聯賽落後叫的那幾天，每一條都配「拿掉就翻面」的對照。
+
+
+def DC_SUITE(M, eq):
+    import contextlib as _cl
+    import datetime as _dt
+    import io as _io
+    import json as _json
+    import os as _os
+    import shutil as _sh
+    import sys as _sys
+    import tempfile as _tf
+    import types as _ty
+
+    NOW = _dt.datetime(2026, 9, 16, 8, 0)          # UTC；since 09-02、48h 那一刀 09-14 08:00、落後寬限 09-16 02:00
+    dirs = []
+    # 欄序刻意打亂、值按欄名擺（#139：按位置填會讓硬編偏移「剛好」過關）
+    cols = ["patch", "game", "red_teamname", "participantid", "league", "date", "blue_teamname"]
+
+    def mk(games, broken=False):
+        """games＝[(date, league, 藍, 紅, 局號)] → 假 repo 根目錄；年度檔一局 6 列（跟真的一樣）。"""
+        r = _tf.mkdtemp(prefix="uh_dc_")
+        dirs.append(r)
+        _os.makedirs(_os.path.join(r, "data"))
+        p = _os.path.join(r, "data", "data_2026.js")
+        if broken:
+            _io.open(p, "w", encoding="utf-8").write('window.LOL_DATA={"tabs":{"RAW_DATA":[["date"')
+            return r
+        raw = [list(cols)]
+        for d, lg, b, rd, g in games:
+            for pid in (1, 2, 3, 4, 5, 100):
+                cell = {"date": d, "league": lg, "blue_teamname": b, "red_teamname": rd,
+                        "game": g, "participantid": pid, "patch": "26.18"}
+                raw.append([cell[c] for c in cols])
+        _io.open(p, "w", encoding="utf-8").write(
+            "window.LOL_DATA=" + _json.dumps({"fetched_at": "2026-09-16 07:00", "tabs": {"RAW_DATA": raw}},
+                                             ensure_ascii=False) + ";")
+        return r
+
+    def dp(r):
+        return [_os.path.join(r, "data", "data_2026.js")]
+
+    def wk(rows, filter_since=True):
+        """rows＝[(OverviewPage, 開賽, 隊1, 隊2, 局號)]；局號給 None ⇒ 模擬舊出口只有 ov／dt。"""
+        def fetch(since, timeout=90):
+            out = []
+            for ov, t, a, b, g in rows:
+                if filter_since and t[:10] < since:
+                    continue
+                out.append({"ov": ov, "dt": t} if g is None else {"ov": ov, "dt": t, "t1": a, "t2": b, "g": g})
+            return out
+        return fetch
+
+    def DC(r, fetch, **kw):
+        try:
+            return M.daycount_problems(NOW, dp(r) if isinstance(r, str) else r, fetch=fetch, **kw)
+        except Exception as e:
+            return "RAISED", ["%s: %s" % (type(e).__name__, e)]
+
+    LCS = "LCS/2026 Season/Championship"
+    try:
+        # ① 基本正例：09-12 SR vs C9 三局我們一局都沒有（09-13 有）⇒ 報、指名、異常行
+        W1 = wk([(LCS, "2026-09-12 20:00:00", "SR", "C9", "1"), (LCS, "2026-09-12 20:50:00", "SR", "C9", "2"),
+                 (LCS, "2026-09-12 21:40:00", "SR", "C9", "3"), (LCS, "2026-09-13 20:00:00", "TL", "FLY", "1")])
+        r1 = mk([("2026-09-13 20:01:10", "LCS", "TL", "FLY", 1)])
+        st, ms = DC(r1, W1)
+        eq(st, "bad", "㉙① 某一天少三局 ⇒ bad")
+        eq(any("LCS 2026-09-12 少 3 局（wiki 3、我們 0；最早一局開賽 84 小時前）" in m for m in ms), True,
+           "㉙① 訊息指名聯賽／日期／少幾局／wiki 與我們各幾局／最早一局幾小時前（得到 %r）" % (ms,))
+        eq(sum(1 for m in ms if m.startswith("異常：")), 1, "㉙① 恰好一行「異常：」（main 靠它收進結論）")
+        eq(sum(1 for m in ms if m.endswith("<< 異常")), 1, "㉙① 只指名少局的那一天（相鄰 09-13 局數對得上，不可以被合併牽連）")
+        # ② 對照：三局都在 ⇒ ok、一行都不印
+        r2 = mk([("2026-09-12 20:01:00", "LCS", "SR", "C9", 1), ("2026-09-12 20:51:00", "LCS", "SR", "C9", 2),
+                 ("2026-09-12 21:41:00", "LCS", "SR", "C9", 3), ("2026-09-13 20:01:10", "LCS", "TL", "FLY", 1)])
+        eq(DC(r2, W1), ("ok", []), "㉙② 對照：局數都對得上 ⇒ ok、不佔版面")
+        # ③ 我們側去重：一局 6 列。wiki 5 局、我們 3 局（18 列）⇒ 仍要報（不去重會變成 18 > 5 而靜音）
+        W3 = wk([(LCS, "2026-09-10 20:0%d:00" % i, "A", "B", str(i + 1)) for i in range(5)])
+        r3 = mk([("2026-09-10 20:0%d:30" % i, "LCS", "A", "B", i + 1) for i in range(3)])
+        eq(DC(r3, W3)[0], "bad", "㉙③ 我們側以局去重（一局 6 列）：wiki 5／我們 3 ⇒ 報")
+        # ④ 我們比 wiki 多不報（PBFIX 人工補局）
+        r4 = mk([("2026-09-10 20:0%d:30" % i, "LCS", "A", "B", i + 1) for i in range(5)] +
+                [("2026-09-10 00:21:00", "LCS", "GEN", "DK", 1)])
+        eq(DC(r4, W3), ("ok", []), "㉙④ 我們比 wiki 多（人工釘住的補局）⇒ 不報")
+        # ⑤ wiki 側去重：同一局登錄兩次（LCP 08-13）⇒ 不報；同一分鐘但隊伍不同＝兩局 ⇒ 要報
+        LCP = "LCP/2026 Season/Split 3"
+        W5 = wk([(LCP, "2026-09-10 09:19:00", "DCG", "GAM", "1"), (LCP, "2026-09-10 09:19:00", "DCG", "GAM", "1"),
+                 (LCP, "2026-09-10 10:26:00", "DCG", "GAM", "2"), (LCP, "2026-09-10 10:26:00", "DCG", "GAM", "2")])
+        r5 = mk([("2026-09-10 09:20:00", "LCP", "DCG", "GAM", 1), ("2026-09-10 10:27:00", "LCP", "DCG", "GAM", 2)])
+        eq(DC(r5, W5), ("ok", []), "㉙⑤ wiki 把同一局登錄兩次 ⇒ 去重後對得上、不報")
+        W5b = wk([(LCP, "2026-09-10 09:00:00", "DCG", "GAM", "1"), (LCP, "2026-09-10 09:00:00", "CFO", "TSW", "1")])
+        r5b = mk([("2026-09-10 09:01:00", "LCP", "DCG", "GAM", 1)])
+        eq(DC(r5b, W5b)[0], "bad", "㉙⑤ 同一分鐘兩個不同系列＝兩局（去重鍵要含隊伍）⇒ 少一局要報")
+        # ⑥ 舊出口只有 ov／dt（缺 t1／t2／g）⇒ 不丟例外，退成用開賽分鐘去重
+        W6 = wk([(LCS, "2026-09-10 20:00:00", None, None, None), (LCS, "2026-09-10 20:00:00", None, None, None),
+                 (LCS, "2026-09-10 21:00:00", None, None, None)])
+        eq(DC(r3, W6)[0] in ("ok", "bad"), True, "㉙⑥ 缺欄的回應不丟例外")
+        eq(DC(mk([("2026-09-10 20:00:30", "LCS", "A", "B", 1)]), W6)[1][:1],
+           ["  LCS 2026-09-10 少 1 局（wiki 2、我們 1；最早一局開賽 132 小時前）  << 異常"],
+           "㉙⑥ 缺欄時用開賽分鐘去重：同一分鐘兩筆算一局")
+        # ⑦ 48h 寬限：開賽 46 小時前少一局 ⇒ 還不報；寬限改 0 ⇒ 報（證明寬限真的在作用）
+        W7 = wk([(LCS, "2026-09-14 10:00:00", "A", "B", "1"), (LCS, "2026-09-14 11:00:00", "A", "B", "2"),
+                 (LCS, "2026-09-15 10:00:00", "C", "D", "1")])
+        r7 = mk([("2026-09-14 10:00:30", "LCS", "A", "B", 1), ("2026-09-15 10:00:30", "LCS", "C", "D", 1)])
+        eq(DC(r7, W7), ("ok", []), "㉙⑦ 開賽未滿 48 小時的少局不報（OE 當天延遲是常態）")
+        eq(DC(r7, W7, grace_h=0)[0], "bad", "㉙⑦ 正控制：寬限改 0 ⇒ 同一份資料報")
+        # ⑧ 我們側多收 3 小時：同一局 wiki 07:58（剛好在那一刀前）、我們 08:03（刀後）⇒ 不報；多收改 0 ⇒ 誤報
+        W8 = wk([(LCS, "2026-09-14 07:58:00", "A", "B", "1")])
+        r8 = mk([("2026-09-14 08:03:00", "LCS", "A", "B", 1)])
+        eq(DC(r8, W8), ("ok", []), "㉙⑧ 兩邊開賽時間跨在 48h 那一刀上 ⇒ 我們側多收 3h 吸掉、不誤報")
+        eq(DC(r8, W8, slack_h=0)[0], "bad", "㉙⑧ 正控制：多收改 0 ⇒ 同一份資料誤報（證明 slack 在作用）")
+        # ⑨ ±1 天合併：wiki 09-10 23:50、我們 09-11 00:05（跨午夜）⇒ 不報
+        W9 = wk([(LCS, "2026-09-10 23:50:00", "A", "B", "1")])
+        r9 = mk([("2026-09-11 00:05:00", "LCS", "A", "B", 1)])
+        eq(DC(r9, W9), ("ok", []), "㉙⑨ 開賽時間跨午夜掉到隔天 ⇒ 相鄰天合併後對得上、不報")
+        # ⑩ 視窗：伺服器回了 since 之前的局（09-01）⇒ 不算；六聯賽以外（PCS）⇒ 不算
+        W10 = wk([(LCS, "2026-09-01 20:00:00", "A", "B", "1"), ("PCS/2026 Season/Summer", "2026-09-10 10:00:00", "X", "Y", "1")],
+                 filter_since=False)
+        eq(DC(mk([]), W10), ("ok", []), "㉙⑩ 視窗外的舊局、非一級聯賽都不算（不誤報）")
+        # ⑪ 留給逐聯賽落後叫：我們最後 LPL 09-05、wiki 之後還有 3 天 ⇒ 這裡不叫（逐聯賽落後會叫）
+        LPL = "LPL/2026 Season/Split 3"
+        W11 = wk([(LPL, "2026-09-05 09:00:00", "A", "B", "1"), (LPL, "2026-09-08 09:00:00", "A", "B", "1"),
+                  (LPL, "2026-09-09 09:00:00", "C", "D", "1"), (LPL, "2026-09-10 09:00:00", "E", "F", "1")])
+        r11 = mk([("2026-09-05 09:00:30", "LPL", "A", "B", 1)])
+        eq(DC(r11, W11), ("ok", []), "㉙⑪ 落後 3 個比賽日的那幾天留給逐聯賽落後、這裡不重複叫")
+        eq(M.lag_problems(NOW, dp(r11), fetch=W11)[0], "bad", "㉙⑪ 前提：同一份資料逐聯賽落後確實會叫")
+        # ⑫ 只落後 1 個比賽日、但已經超過 48h（逐聯賽落後門檻 2 不會叫）⇒ 歸這裡叫
+        W12 = wk([(LPL, "2026-09-05 09:00:00", "A", "B", "1"), (LPL, "2026-09-10 09:00:00", "E", "F", "1"),
+                  (LPL, "2026-09-16 03:00:00", "G", "H", "1")])     # 5 小時前那局在落後寬限 6h 內，不算落後
+        st12, ms12 = DC(r11, W12)
+        eq(st12, "bad", "㉙⑫ 只落後 1 天但已 >48h ⇒ 這裡叫")
+        eq(any("LPL 2026-09-10 少 1 局" in m for m in ms12), True, "㉙⑫ 指名 LPL 09-10")
+        eq(M.lag_problems(NOW, dp(r11), fetch=W12)[0], "ok", "㉙⑫ 前提：同一份資料逐聯賽落後不會叫（兩條不是都啞）")
+        # ⑬ 降級：wiki 查不到／回空／撞上限、年度檔讀不懂 ⇒ skip；檔不存在 ⇒ 當 0 局照報
+        def boom(since, timeout=90):
+            raise IOError("HTTP Error 503")
+        s, m = DC(r1, boom)
+        eq((s, any("查不到 Leaguepedia" in x for x in m)), ("skip", True), "㉙⑬ wiki 丟例外 ⇒ skip 並講原因")
+        eq(DC(r1, lambda since, timeout=90: [])[0], "skip", "㉙⑬ wiki 回空陣列 ⇒ skip（不可當成沒少局）")
+        full = [{"ov": "PCS/2026 Season/Summer", "dt": "2026-09-10 10:00:00"}] * M.LAG_LIMIT
+        s, m = DC(r1, lambda since, timeout=90: full)
+        eq((s, any("撞到上限" in x for x in m)), ("skip", True), "㉙⑬ 回滿 LAG_LIMIT 列 ⇒ skip（最新的局可能被截掉）")
+        eq(DC(r1, lambda since, timeout=90: full[1:])[0], "ok", "㉙⑬ 對照：少一列就不算撞上限")
+        eq(M.wiki_days("2026-09-02", fetch=lambda since: full)[0], False,
+           "㉙⑬ 逐聯賽落後的 wiki_days 也把撞上限當查不到（不然被截掉的最新局會被讀成落後）")
+        eq(M.wiki_days("2026-09-02", fetch=lambda since: full[1:])[0], True, "㉙⑬ 對照：wiki_days 少一列照常")
+        s, m = DC(mk([], broken=True), W1)
+        eq((s, any("讀不懂我們的年度檔 data_2026.js" in x for x in m)), ("skip", True),
+           "㉙⑬ 年度檔寫到一半 ⇒ skip、點名檔案（不丟例外）")
+        ghost = _os.path.join(mk([]), "data", "data_2099.js")
+        eq(DC([ghost], W3)[0], "bad", "㉙⑬ 年度檔不存在＝我們 0 局 ⇒ 照報（不是略過；W3 只有一個比賽日，不會整段留給逐聯賽落後）")
+        eq(DC([ghost], W1), ("ok", []), "㉙⑬ 年度檔不存在、wiki 有 2 個比賽日 ⇒ 整段留給逐聯賽落後叫（這裡不重複）")
+        eq(DC([dp(r2)[0], ghost], W1), ("ok", []), "㉙⑬ 一串路徑：讀得到的那個有局 ⇒ 合併後對得上")
+
+        # ⑭ main() 端到端：假 repo＋假時鐘＋假出口（記次數）
+        real = (M.ROOT, M.wiki_rows, M.datetime, M.LOG, M.CONSOLE, M.BASE, M.live_dup, list(_sys.argv))
+
+        class _T(_dt.datetime):
+            @classmethod
+            def utcnow(cls):
+                return NOW
+        shim = _ty.ModuleType("datetime_shim_dc")
+        for k in dir(_dt):
+            if not k.startswith("__"):
+                setattr(shim, k, getattr(_dt, k))
+        shim.datetime = _T
+        tmp = _tf.mkdtemp(prefix="uh_dc_main_")
+        dirs.append(tmp)
+        _io.open(_os.path.join(tmp, "log.txt"), "w", encoding="utf-8").write(
+            "==== run_update %s（並行 4）====\n---- fetch_x（1.0s，exit 0）----\n守門通過\n"
+            % _dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+
+        def run_main(root, fetch, extra=()):
+            calls = []
+
+            def spy(since, timeout=90):
+                calls.append(since)
+                return fetch(since)
+            M.ROOT, M.wiki_rows, M.datetime = root, spy, shim
+            M.LOG, M.CONSOLE, M.BASE = (_os.path.join(tmp, "log.txt"), _os.path.join(tmp, "console.txt"),
+                                        _os.path.join(tmp, "base.json"))
+            M.live_dup = lambda timeout=None: (0, "")
+            _sys.argv = ["update_health.py", "--no-save", "--no-live", "--no-soloqfresh"] + list(extra)
+            buf = _io.StringIO()
+            try:
+                with _cl.redirect_stdout(buf):
+                    rc = M.main()
+            except Exception as e:
+                rc = "RAISED %s: %s" % (type(e).__name__, e)
+            finally:
+                (M.ROOT, M.wiki_rows, M.datetime, M.LOG, M.CONSOLE, M.BASE, M.live_dup) = real[:7]
+                _sys.argv = list(real[7])
+            out = buf.getvalue()
+            line = [l.strip() for l in out.splitlines() if l.strip().startswith("同一天少局")]
+            concl = [l for l in out.splitlines() if l.startswith("結論：")]
+            return rc, out, (line[0] if line else None), (concl[0] if concl else ""), calls
+
+        rc, out, line, concl, calls = run_main(r1, W1)
+        eq(isinstance(rc, int), True, "㉙⑭ main() 跑完沒有例外（得到 %r）" % (rc,))
+        eq(line, "同一天少局（近 14 天／開賽滿 48h／wiki 比我們多才算）：⚠ 有少局", "㉙⑭ main 印出同一天少局那行（⚠）")
+        eq("LCS 2026-09-12 少 3 局" in concl, True, "㉙⑭ 少局收進結論（得到 %r）" % concl)
+        # ⚠ 不斷言「離開碼 1」：這個假 repo 只有 data/，其他項一律「讀不到」⇒ 離開碼恆為 1、沒有鑑別力
+        #   （#168 突變 N1「少局沒收進結論」時那條照樣綠＝假綠）。收進結論由上一條的結論字串證明。
+        eq(len(calls), 1, "㉙⑭ 逐聯賽落後與同一天少局共用一個 wiki 請求（得到 %d 次）" % len(calls))
+        rc, out, line, concl, calls = run_main(r2, W1)
+        eq((line or "").endswith("✓ 逐日局數都對得上"), True, "㉙⑭ 對照：局數都在 ⇒ ✓")
+        eq("少 " in concl, False, "㉙⑭ 對照：結論沒有少局")
+        rc, out, line, concl, calls = run_main(r1, W1, ["--no-lag"])
+        eq(line, "同一天少局：（--no-lag 跳過）", "㉙⑭ --no-lag 一起跳過同一天少局")
+        eq((len(calls), "少 " in concl), (0, False), "㉙⑭ --no-lag ⇒ 一個請求都不發、結論沒有少局")
+        rc, out, line, concl, calls = run_main(r1, boom)
+        eq((isinstance(rc, int), (line or "").endswith("略過（原因見下一行）"), len(calls)), (True, True, 1),
+           "㉙⑭ wiki 掛掉 ⇒ main 照樣出結論、兩項都略過、失敗也只打一次（得到 rc=%r line=%r calls=%d）"
+           % (rc, line, len(calls)))
+    finally:
+        for d in dirs:
+            _sh.rmtree(d, ignore_errors=True)
+# ══ ㉙ 結束（_m168_ctrl.py 抽取到這一行為止）══
+
+
+DC_SUITE(uh, eq)
+
 # ── ⓪ 收尾：整份測試沒有任何一次撞到封鎖器（被 wiki_days 的 except 吞掉的也算），
 #    而且假出口真的有被 main() 走到（⑫⑮ 都沒帶 --no-lag）——否則上一條可能只是 main 根本沒接逐聯賽落後。
 eq(NET_HITS, [], "⓪整份測試沒有任何一次真的去連外（有人漏接了出口）")

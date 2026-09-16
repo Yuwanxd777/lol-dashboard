@@ -38,6 +38,10 @@
           18 個指標一個都不會叫。拿 Leaguepedia Cargo 當真相，比對六個一級聯賽
           「wiki 有、我們沒有」的比賽日；這是整份健檢**唯一**會連外的一項（~3 秒），
           wiki 掛掉只降級成「略過」，不影響其餘結論
+        ‧ **同一天有沒有少局**（2026-09-17 #168）——逐聯賽落後只比「有哪些比賽日」、門檻 2 天，
+          某一天少幾局或只落後 1 天它都印 ✓（#167 回放：CBLOL 08-15 缺兩局 16.5 天、
+          LEC／LCS 09-12 缺四局 3.5 天，當時全是 ✓）。跟逐聯賽落後共用同一個 wiki 請求，
+          只比開賽滿 48 小時的局、wiki 比我們多才算；只報不補
 
 用法：python scripts/update_health.py           # 報告＋更新基準
       python scripts/update_health.py --no-save # 只報告
@@ -45,7 +49,7 @@
       python scripts/update_health.py --from-publish   # publish.bat 用：日誌不新鮮＝異常
       python scripts/update_health.py --no-live        # 跳過可疑同名的現況重算（省 ~3 秒）
       python scripts/update_health.py --no-soloqfresh  # 跳過積分逐場新鮮度（便宜路徑 0.02s，平常不必跳）
-      python scripts/update_health.py --no-lag         # 跳過逐聯賽落後（唯一連外的那項，省 ~3 秒）
+      python scripts/update_health.py --no-lag         # 跳過逐聯賽落後＋同一天少局（唯一連外的兩項、共用一個請求，省 ~3 秒）
 """
 import collections
 import datetime
@@ -789,10 +793,17 @@ LAG_GRACE_H = 6
 LAG_WINDOW_D = 14
 LAG_THRESHOLD = 2
 LAG_FORM = "https://lol.fandom.com/wiki/Special:CargoExport"
+# 查詢只拉六個一級聯賽（#137 定案的寫法；#140 搬過來時漏了 LIKE ⇒ 二級聯賽一起回來）。
+# order_by 是開賽時間**由舊到新** ⇒ 真撞到上限時被截掉的是**最新**的局 ⇒ 會被讀成「我們落後」。
+# 所以回滿 LAG_LIMIT 列一律當「結果不完整」走略過，不拿來判定（#168）。
+LAG_LIMIT = 2000
 
 
 def wiki_rows(since, timeout=90):
-    """打 Leaguepedia Cargo，回 [{"ov":…, "dt":…}, …]。**唯一的對外出口**（測試接管這一支）。
+    """打 Leaguepedia Cargo，回 [{"ov":…, "dt":…, "t1":…, "t2":…, "g":…}, …]。**唯一的對外出口**（測試接管這一支）。
+
+    t1／t2／g（隊1／隊2／局號）是 #168 同一天少局拿來去重的（wiki 偶爾把同一局登錄兩次，LCP 08-13）；
+    逐聯賽落後只讀 ov／dt。同一個請求，不多打。
 
     urllib 相關的 import 放在函式裡：健檢平常跑得很勤，模組層少載三個套件；
     測試把 urllib/socket 換掉時，函式內 import 拿到的仍是同一個（已被接管的）模組物件。"""
@@ -810,10 +821,11 @@ def wiki_rows(since, timeout=90):
     except Exception:
         pass
     time.sleep(2)
+    like = " OR ".join('SG.OverviewPage LIKE "%s/%%"' % lg for lg in LAG_TIER1)
     p = {"tables": "ScoreboardGames=SG",
-         "fields": "SG.OverviewPage=ov,SG.DateTime_UTC=dt",
-         "where": 'SG.DateTime_UTC >= "%s"' % since,
-         "order_by": "SG.DateTime_UTC", "format": "json", "limit": "2000"}
+         "fields": "SG.OverviewPage=ov,SG.DateTime_UTC=dt,SG.Team1=t1,SG.Team2=t2,SG.N_GameInMatch=g",
+         "where": 'SG.DateTime_UTC >= "%s" AND (%s)' % (since, like),
+         "order_by": "SG.DateTime_UTC", "format": "json", "limit": str(LAG_LIMIT)}
     raw = op.open(urllib.request.Request(LAG_FORM + "?" + urllib.parse.urlencode(p),
                                          headers=ua), timeout=timeout).read()
     return json.loads(raw.decode("utf-8", "replace"))
@@ -826,6 +838,8 @@ def wiki_days(since, fetch=None, tier1=None):
         rows = (fetch or wiki_rows)(since)
         if not isinstance(rows, list) or not rows:
             return False, {}, "回應不是非空陣列"
+        if len(rows) >= LAG_LIMIT:
+            return False, {}, "回了 %d 列＝撞到上限，最新的局可能被截掉" % len(rows)
         out = collections.defaultdict(list)
         for r in rows:
             pref = (r.get("ov") or "").split("/")[0]
@@ -922,6 +936,144 @@ def lag_problems(now, data_path, fetch=None, tier1=None,
         msgs.append(line)
     if bad and missing:                    # 只在真的報落後時才講（沒落後時講「檔不存在」只是噪音）
         msgs.append("  （%s 不存在，當成那一年我們一場都沒有）" % "、".join(missing))
+    return ("bad" if bad else "ok"), msgs + (["異常：" + "；".join(bad)] if bad else [])
+
+
+# ══ 同一天少局哨兵（#167 探針 autopilot/_m167_gamecount_probe.py／#168 落地）══════════════
+# 逐聯賽落後只比「有哪些比賽日」、門檻 2 天 ⇒ 某一天少幾局、或只落後 1 天，它一律印 ✓。
+# #167 回放 git 歷史找到兩批真的缺局，當時健檢全是 ✓：
+#   ‧ CBLOL 08-15 LØS vs VKS 兩局缺 16.5 天（08-18 → 09-01 12:13 才進來）
+#   ‧ LEC 09-12 第 5 局＋LCS 09-12 SR vs C9 三局缺 3.5 天（09-13 22:08 → 09-16 10:08，連五班）
+# 兩批都是 OE 晚上架、管線照規矩跟 OE ⇒ 這條**只報不補**（要不要改從 Leaguepedia 補是使用者的決定）。
+#   ‧ DAYCOUNT_GRACE_H＝48：只比開賽滿 48 小時的局。08-16～09-16 超過 36h 才進來的只有 09-12 那批
+#     （76～79h），次慢 43～44h（autopilot/_m167_oe_lag_hist.txt）⇒ 過去一個月剛好只叫那兩件。
+#   ‧ 我們這側多收 DAYCOUNT_SLACK_H 小時：同一局兩邊開賽時間差幾分鐘、剛好跨在 48h 那一刀上時，
+#     wiki 算進來、我們沒算 ⇒ 誤報一班。多收的代價只是「剛過 48h 的真缺局」晚一班才叫。
+#   ‧ **wiki 比我們多才算**：我們多＝人工釘住的補局（fetch_fill 的 PBFIX，LCK 08-01）或 wiki 重複登錄
+#     （LCP 08-13 兩局各兩筆 ⇒ wiki 側先用 (開賽分鐘, 隊1, 隊2, 局號) 去重）。
+#   ‧ 相鄰 ±1 天合併後 wiki 仍比我們多才算：開賽時間跨午夜、補檔用佔位時間掛到前一天，都不該叫。
+#   ‧ 不跟逐聯賽落後重複叫：「我們最後比賽日之後」那幾天若多到逐聯賽落後自己會叫（用它的寬限算、
+#     >= LAG_THRESHOLD），就留給它；只落後 1 天卻已超過 48 小時的，歸這裡。
+#   ‧ wiki 查不到／回空／撞上限、年度檔讀不懂 ⇒ skip（跟逐聯賽落後同一個降級）；年度檔不存在＝那一年 0 局。
+# 這次**局數有人讀**，所以兩側的去重都不是死分支（#139 那條教訓的反面，測試 ㉙ 有突變專打去重）。
+DAYCOUNT_GRACE_H = 48
+DAYCOUNT_SLACK_H = 3
+
+
+def wiki_game_counts(rows, since, cut, tier1=None):
+    """回 ({聯賽: Counter(日→局數)}, {(聯賽, 日): 當天最早開賽 "YYYY-MM-DD HH:MM"})。
+
+    只收 since <= 開賽日、開賽分鐘 <= cut 的局；以 (聯賽, 開賽分鐘, 隊1, 隊2, 局號) 去重。
+    舊的假出口（和 #168 之前的 wiki_rows）只有 ov／dt ⇒ 缺欄時等於用開賽分鐘去重，不可以丟例外。"""
+    tier1 = tier1 or LAG_TIER1
+    cnt, first, seen = collections.defaultdict(collections.Counter), {}, set()
+    for r in rows:
+        lg = (r.get("ov") or "").split("/")[0]
+        t = str(r.get("dt") or "")
+        if lg not in tier1 or t[:10] < since or t[:16] > cut:
+            continue
+        k = (lg, t[:16], r.get("t1"), r.get("t2"), str(r.get("g")))
+        if k in seen:
+            continue
+        seen.add(k)
+        cnt[lg][t[:10]] += 1
+        if t[:16] < first.get((lg, t[:10]), "9999"):
+            first[(lg, t[:10])] = t[:16]
+    return cnt, first
+
+
+def our_game_counts(path, since, cut, tier1=None):
+    """回 ({聯賽: Counter(日→局數)}, {聯賽: {視窗內所有比賽日}})。
+
+    局數只收開賽分鐘 <= cut；比賽日集合不看 cut（給「我們最後比賽日」用，跟 our_days 同一個定義）。
+    年度檔一局 6 列（5 名選手＋隊伍列）⇒ 以 (date, 藍隊, 紅隊, 局號) 去重。欄位一律 hdr.index 查。"""
+    tier1 = tier1 or LAG_TIER1
+    txt = io.open(path, encoding="utf-8").read()
+    D = json.loads(txt.split("=", 1)[1].strip().rstrip(";"))
+    R = D["tabs"]["RAW_DATA"]
+    ix = {n: i for i, n in enumerate(R[0])}
+    cnt, days, seen = collections.defaultdict(collections.Counter), collections.defaultdict(set), set()
+    for r in R[1:]:
+        lg = r[ix["league"]]
+        d = str(r[ix["date"]] or "")
+        if lg not in tier1 or d[:10] < since:
+            continue
+        days[lg].add(d[:10])
+        if d[:16] > cut:
+            continue
+        k = (lg, d, r[ix["blue_teamname"]], r[ix["red_teamname"]], str(r[ix["game"]]))
+        if k in seen:
+            continue
+        seen.add(k)
+        cnt[lg][d[:10]] += 1
+    return cnt, days
+
+
+def _shift_day(d, n):
+    return (datetime.datetime.strptime(d, "%Y-%m-%d") + datetime.timedelta(days=n)).strftime("%Y-%m-%d")
+
+
+def daycount_problems(now, data_path, fetch=None, tier1=None, grace_h=None, slack_h=None,
+                      window_d=None, lag_grace_h=None, lag_threshold=None):
+    """回 (狀態, 訊息列表)；狀態 = "skip"／"ok"／"bad"。now 是 UTC（跟 lag_problems 同一個時鐘）。
+
+    data_path 可以是一個路徑或一串（main 給 lag_data_paths 的結果）。參數全部可注入：
+    測試把每個門檻單獨推一格當正控制（寬限改 0 就翻紅＝寬限真的在作用）。"""
+    tier1 = tier1 or LAG_TIER1
+    grace_h = DAYCOUNT_GRACE_H if grace_h is None else grace_h
+    slack_h = DAYCOUNT_SLACK_H if slack_h is None else slack_h
+    window_d = window_d or LAG_WINDOW_D
+    lag_grace_h = LAG_GRACE_H if lag_grace_h is None else lag_grace_h
+    lag_threshold = LAG_THRESHOLD if lag_threshold is None else lag_threshold
+    fmt = "%Y-%m-%d %H:%M"
+    since = (now - datetime.timedelta(days=window_d)).strftime("%Y-%m-%d")
+    cut = (now - datetime.timedelta(hours=grace_h)).strftime(fmt)
+    ocut = (now - datetime.timedelta(hours=grace_h - slack_h)).strftime(fmt)
+    lcut = (now - datetime.timedelta(hours=lag_grace_h)).strftime(fmt)
+    try:
+        rows = (fetch or wiki_rows)(since)
+    except Exception as e:
+        return "skip", ["查不到 Leaguepedia（%s: %s）⇒ 略過同一天少局檢查" % (type(e).__name__, e)]
+    if not isinstance(rows, list) or not rows:
+        return "skip", ["查不到 Leaguepedia（回應不是非空陣列）⇒ 略過同一天少局檢查"]
+    if len(rows) >= LAG_LIMIT:
+        return "skip", ["Leaguepedia 回了 %d 列＝撞到上限、結果不完整 ⇒ 略過同一天少局檢查" % len(rows)]
+    try:
+        wc, first = wiki_game_counts(rows, since, cut, tier1)
+        wl, _ = wiki_game_counts(rows, since, lcut, tier1)       # 逐聯賽落後那一刀：判「留給它叫」
+    except Exception as e:
+        return "skip", ["Leaguepedia 回應的形狀不對（%s: %s）⇒ 略過同一天少局檢查" % (type(e).__name__, e)]
+    paths = [data_path] if isinstance(data_path, str) else list(data_path)
+    oc, od = collections.defaultdict(collections.Counter), collections.defaultdict(set)
+    for p in paths:
+        if not os.path.exists(p):
+            continue                       # 不存在＝那一年我們一場都沒有（同逐聯賽落後）
+        try:
+            c, ds = our_game_counts(p, since, ocut, tier1)
+        except Exception as e:
+            return "skip", ["讀不懂我們的年度檔 %s（%s: %s）⇒ 略過同一天少局檢查"
+                            % (os.path.basename(p), type(e).__name__, str(e)[:80])]
+        for lg, cc in c.items():
+            oc[lg].update(cc)
+        for lg, dd in ds.items():
+            od[lg] |= dd
+    msgs, bad = [], []
+    for lg in tier1:
+        last = max(od[lg]) if od.get(lg) else ""
+        after = [d for d in wl.get(lg, {}) if d > last]
+        owned = set(after) if len(after) >= lag_threshold else set()
+        W, O = wc.get(lg, collections.Counter()), oc.get(lg, collections.Counter())
+        for d in sorted(W):
+            if d in owned or W[d] <= O[d]:
+                continue
+            near = (_shift_day(d, -1), d, _shift_day(d, 1))
+            if sum(W[x] for x in near) <= sum(O[x] for x in near):
+                continue
+            hrs = (now - datetime.datetime.strptime(first[(lg, d)], fmt)).total_seconds() / 3600.0
+            s = "%s %s 少 %d 局（wiki %d、我們 %d；最早一局開賽 %d 小時前）" % (
+                lg, d, W[d] - O[d], W[d], O[d], int(hrs))
+            bad.append(s)
+            msgs.append("  %s  << 異常" % s)
     return ("bad" if bad else "ok"), msgs + (["異常：" + "；".join(bad)] if bad else [])
 
 
@@ -1143,9 +1295,26 @@ def main():
     # 這是整份健檢唯一會連外的一項（~3 秒）；wiki 掛掉只降級成「略過」，不影響其餘結論。
     if "--no-lag" in sys.argv:
         print("   逐聯賽落後：（--no-lag 跳過）")
+        print("   同一天少局：（--no-lag 跳過）")
     else:
         _lnow = datetime.datetime.utcnow()
-        _lst, _lmsgs = lag_problems(_lnow, lag_data_paths(_lnow))
+        _lpaths = lag_data_paths(_lnow)
+        _wiki_memo = {}
+
+        def _wiki_once(since):
+            # 逐聯賽落後與同一天少局（#168）共用同一個請求；失敗也記住，不重打第二次。
+            # 裡面叫的是模組層 wiki_rows（呼叫時才查名字）⇒ 測試接管 uh.wiki_rows 照樣接得到。
+            if since not in _wiki_memo:
+                try:
+                    _wiki_memo[since] = (True, wiki_rows(since))
+                except Exception as e:
+                    _wiki_memo[since] = (False, e)
+            _ok, _v = _wiki_memo[since]
+            if not _ok:
+                raise _v
+            return _v
+
+        _lst, _lmsgs = lag_problems(_lnow, _lpaths, fetch=_wiki_once)
         print("   逐聯賽落後（近 %d 天／寬限 %dh／門檻 %d 個比賽日）：%s" % (
             LAG_WINDOW_D, LAG_GRACE_H, LAG_THRESHOLD,
             {"skip": "略過（原因見下一行）", "ok": "✓ 六個一級聯賽都跟上", "bad": "⚠ 有落後"}[_lst]))
@@ -1153,6 +1322,15 @@ def main():
             print("   " + _m)
         if _lst == "bad":
             bad += [_m[3:] for _m in _lmsgs if _m.startswith("異常：")]
+        # 同一天少局（#168）：上面只比「有哪些比賽日」，某一天少幾局看不到
+        _dst, _dmsgs = daycount_problems(_lnow, _lpaths, fetch=_wiki_once)
+        print("   同一天少局（近 %d 天／開賽滿 %dh／wiki 比我們多才算）：%s" % (
+            LAG_WINDOW_D, DAYCOUNT_GRACE_H,
+            {"skip": "略過（原因見下一行）", "ok": "✓ 逐日局數都對得上", "bad": "⚠ 有少局"}[_dst]))
+        for _m in _dmsgs:
+            print("   " + _m)
+        if _dst == "bad":
+            bad += [_m[3:] for _m in _dmsgs if _m.startswith("異常：")]
     print("")
     print("結論：" + ("✓ 沒有異常" if not bad else "⚠ " + "；".join(bad)))
     if any(("縮水" in b or "不見了" in b) for b in bad):
