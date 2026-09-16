@@ -947,8 +947,13 @@ def lag_problems(now, data_path, fetch=None, tier1=None,
 # 兩批都是 OE 晚上架、管線照規矩跟 OE ⇒ 這條**只報不補**（要不要改從 Leaguepedia 補是使用者的決定）。
 #   ‧ DAYCOUNT_GRACE_H＝48：只比開賽滿 48 小時的局。08-16～09-16 超過 36h 才進來的只有 09-12 那批
 #     （76～79h），次慢 43～44h（autopilot/_m167_oe_lag_hist.txt）⇒ 過去一個月剛好只叫那兩件。
-#   ‧ 我們這側多收 DAYCOUNT_SLACK_H 小時：同一局兩邊開賽時間差幾分鐘、剛好跨在 48h 那一刀上時，
-#     wiki 算進來、我們沒算 ⇒ 誤報一班。多收的代價只是「剛過 48h 的真缺局」晚一班才叫。
+#   ‧ 我們這側多收 DAYCOUNT_SLACK_H 小時：同一局兩邊開賽時間不一樣、剛好跨在 48h 那一刀上時，
+#     wiki 算進來、我們沒算 ⇒ 誤報一班。**5 小時是給補檔局的假時鐘**（#171 量的，autopilot/_m171_fill_time_probe.txt）：
+#     OE 的局跟 wiki 差 ≤0.05h，但 gol.gg 補檔的開賽時間是 fetch_fill 的假時鐘（min(9+3×系列序+局序, 23):局序×7:00），
+#     08-01 起 106 版實測最多晚 3.75h（LPL 08-14 JDG vs AL G3 17:14 vs wiki 13:29 ⇒ 08-16 22:00 那班誤報）、
+#     套到 wiki 全部比賽日的理論最大 LPL +3.87h／LCK +4.03h。逐小時重放 772 點：slack 3 有那一點誤報，4／5／6 都 0、
+#     真缺叫聲逐點相同（autopilot/_m171_replay_s*.txt）⇒ 取 5（理論最大值再留 1 小時）。
+#     多收的代價：當天少局要等「那一局之後 slack 小時內沒有別局」才叫，實際上就是當天最後一局滿 48h 那班，幾乎沒差。
 #   ‧ **wiki 比我們多才算**：我們多＝人工釘住的補局（fetch_fill 的 PBFIX，LCK 08-01）或 wiki 重複登錄
 #     （LCP 08-13 兩局各兩筆 ⇒ wiki 側先用 (開賽分鐘, 隊1, 隊2, 局號) 去重）。
 #   ‧ 相鄰 ±1 天合併後 wiki 仍比我們多才算：開賽時間跨午夜、補檔用佔位時間掛到前一天，都不該叫。
@@ -964,7 +969,7 @@ def lag_problems(now, data_path, fetch=None, tier1=None,
 #     代價：一局真的永遠補不回來時，會連叫約 30 天（每天兩班）才滑出去。
 # 這次**局數有人讀**，所以兩側的去重都不是死分支（#139 那條教訓的反面，測試 ㉙ 有突變專打去重）。
 DAYCOUNT_GRACE_H = 48
-DAYCOUNT_SLACK_H = 3
+DAYCOUNT_SLACK_H = 5
 DAYCOUNT_WINDOW_D = 30
 
 
