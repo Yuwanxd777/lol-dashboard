@@ -1907,6 +1907,165 @@ def XL_SUITE(M, eq):
 
 XL_SUITE(uh, eq)
 
+# ── ㉜ 世界賽截止點切錯（2026-09-21 #181；突變驗收 autopilot/_m181_mutate.py）──────────────────
+# 真案（#180）：split_spill 把 LEC／LCS／CBLOL 09-19～20 的 120 列當世界賽後搬進 spill_2027.json，
+# 日誌印了兩班「世界賽後 N 列 → 移入 2027 年」沒人讀、落後哨兵隔一班才叫症狀、#179 誤判成 OE 延遲。
+# 隊名／聯賽用 Zz 開頭或真實名稱都行；日期全寫死（這組不牽涉「現在」）。
+_H32 = ["league", "split", "date", "game", "blue_teamname", "red_teamname"]
+
+
+def _t32(rows):
+    return [_H32] + [[lg, "", d, "1", "A", "B"] for lg, d in rows]
+
+
+eq(uh.league_last(_t32([("LEC", "2026-09-10"), ("LEC", "2026-09-18"), ("LEC", "2026-09-12"),
+                        ("KeSPA", "2025-12-14"), ("LCS", ""), ("LCS", None)])),
+   {"LEC": "2026-09-18", "KeSPA": "2025-12-14"},
+   "㉜league_last：取最大值、空日期不算、沒有日期的聯賽不出現")
+eq(uh.league_last([["league", "date"], ["LEC"], ["LEC", "2026-09-18"]]), {"LEC": "2026-09-18"},
+   "㉜league_last：短列不炸")
+eq(uh.league_last([["league", "patch"], ["LEC", "16.18"]]), {}, "㉜league_last：沒有 date 欄＝空（不炸）")
+eq(uh.spill_leagues(_t32([("LEC", "2026-09-20"), ("LEC", "2026-09-19"), ("LEC", "2026-11-20"), ("LCS", "壞日期")])),
+   {"LEC": [3, "2026-09-19", "2026-11-20"], "LCS": [1, None, None]},
+   "㉜spill_leagues：列數＋第一局／最後一局（第一局取最小，不是第一列）；日期認不得只算列數")
+
+_LAST32 = {"data_2026.js": {"LEC": "2026-09-18", "LCS": "2026-09-18", "CBLOL": "2026-09-13",
+                            "KeSPA": "2025-12-14", "DCup": "2026-10-20"},
+           "data_2014.js": {"LCS": "2014-09-12", "LEC": "2014-09-11"}}
+_S32 = lambda rows: {"spill_2027.json": _t32(rows)}
+_l, _b = uh.spill_problems({}, _LAST32)
+eq((_l, _b), ("世界賽後切到隔年：沒有 spill 檔（fetch_data 還沒跑過？）", []), "㉜沒有 spill 檔：講出來、不報")
+_l, _b = uh.spill_problems({"spill_2027.json": [_H32]}, _LAST32)
+eq(_b, [], "㉜只有表頭：不報")
+eq(_l.endswith("：✓ spill_2027.json 0 列"), True, "㉜只有表頭：那一行寫 0 列（得到 %r）" % _l)
+# 真案的形狀（#180，數字照 csv_cache/spill_2027.json 09-21 10:00 那份）
+_real_shape = [("LEC", "2026-09-19")] * 18 + [("LEC", "2026-09-20")] * 18 + [("LCS", "2026-09-19")] * 24 \
+    + [("LCS", "2026-09-20")] * 18 + [("CBLOL", "2026-09-19")] * 18 + [("CBLOL", "2026-09-20")] * 24
+_l, _b = uh.spill_problems(_S32(_real_shape), _LAST32)
+eq(_b, ["CBLOL 被世界賽截止點切去隔年：data_2026.js 最後一局 2026-09-13、spill_2027.json 從 2026-09-19 起 42 列（只隔 6 天，<30）",
+        "LCS 被世界賽截止點切去隔年：data_2026.js 最後一局 2026-09-18、spill_2027.json 從 2026-09-19 起 42 列（只隔 1 天，<30）",
+        "LEC 被世界賽截止點切去隔年：data_2026.js 最後一局 2026-09-18、spill_2027.json 從 2026-09-19 起 36 列（只隔 1 天，<30）"],
+   "㉜真案形狀：三個聯賽逐一點名（跟 09-21 10:00 那班實際的 spill 同數字）")
+eq("⚠ 3 個一級聯賽被切走（先跑 autopilot/_m180_process_probe2.py" in _l, True, "㉜真案形狀：那一行是 ⚠ 並指路")
+eq("spill_2027.json 120 列（CBLOL 42／LCS 42／LEC 36；2026-09-19～2026-09-20）" in _l, True,
+   "㉜真案形狀：那一行列出組成（列數多的在前、同數照名字）與日期範圍（得到 %r）" % _l)
+# 邊界：門檻 30 天（< 才報）
+_l, _b = uh.spill_problems(_S32([("LEC", "2026-10-17")]), _LAST32)
+eq(len(_b), 1, "㉜隔 29 天：報")
+_l, _b = uh.spill_problems(_S32([("LEC", "2026-10-18")]), _LAST32)
+eq(_b, [], "㉜隔 30 天：不報（門檻是 <30）")
+eq(uh.spill_problems(_S32([("LEC", "2026-10-18")]), _LAST32, gap_d=31)[1] != [], True,
+   "㉜正控制：gap_d 參數有作用（31 ⇒ 隔 30 天也報）")
+# 歷史上正常的形狀：2014 LCS 賽季 09-12 → 升降賽 11-14（63 天）
+_l, _b = uh.spill_problems({"spill_2015.json": _t32([("LCS", "2014-11-14"), ("LEC", "2014-11-21")])}, _LAST32)
+eq(_b, [], "㉜2014 升降賽（隔 63／71 天）：不報")
+eq(uh.spill_problems({"spill_2015.json": _t32([("LCS", "2014-11-14")])}, _LAST32, gap_d=100)[1] != [], True,
+   "㉜正控制：同一份放寬到 100 天就會報（上一條的綠不是因為根本沒比）")
+# 只看一級聯賽：世界賽進行中其他賽事會暫時被切（#180 已知），KeSPA 也不是一級聯賽
+_l, _b = uh.spill_problems(_S32([("DCup", "2026-10-21"), ("KeSPA", "2026-12-06")]), _LAST32)
+eq(_b, [], "㉜非一級聯賽隔 1 天（德瑪西亞杯被世界賽比賽日切開）：不報")
+eq("DCup 1" in _l and "KeSPA 1" in _l, True, "㉜非一級聯賽仍列在那一行（只是不報）")
+eq(uh.spill_problems(_S32([("DCup", "2026-10-21")]), _LAST32, tier1=("DCup",))[1] != [], True,
+   "㉜正控制：tier1 參數有作用（把 DCup 算進去就報）")
+# 對照的是 data_{隔年-1}.js，不是 data_{隔年}.js
+eq(uh.spill_problems(_S32([("LEC", "2026-09-19")]), {"data_2027.js": {"LEC": "2026-09-18"}})[1], [],
+   "㉜spill_2027 只對 data_2026（data_2027 有近的日期也不算）")
+eq(uh.spill_problems(_S32([("LEC", "2026-09-19")]), {})[1], [], "㉜當年檔讀不到：不判（資料量那段已報）")
+eq(uh.spill_problems(_S32([("LCP", "2026-09-19")]), _LAST32)[1], [], "㉜一級聯賽但當年一局都沒有：不判")
+# 那一行只講最新的 spill 檔；讀不懂的 spill 講「讀不到」、不報
+_l, _b = uh.spill_problems({"spill_2026.json": _t32([("KeSPA", "2025-12-06")]), "spill_2027.json": [_H32]}, _LAST32)
+eq(_l.endswith("spill_2027.json 0 列"), True, "㉜那一行講最新的 spill 檔（得到 %r）" % _l)
+_l, _b = uh.spill_problems({"spill_2027.json": None}, _LAST32)
+eq((_b, _l.endswith("spill_2027.json 讀不到")), ([], True), "㉜spill 讀不懂：講讀不到、不報")
+eq(uh.spill_problems({"spill_2015.json": _t32([("LCS", "2014-09-13")]), "spill_2027.json": [_H32]}, _LAST32)[1] != [],
+   True, "㉜舊年份的 spill 切錯也報（不是只看最新那個）")
+
+# ㉜ spill_tables：只收 spill_*.json、壞檔給 None、路徑呼叫時才用 ROOT（沙盒接管得到）
+_box32 = tempfile.mkdtemp(prefix="uh_spill_tables_")
+try:
+    os.makedirs(os.path.join(_box32, "csv_cache"))
+    for _n, _txt in (("spill_2027.json", json.dumps([_H32])), ("spill_2026.json", "{壞掉"),
+                     ("spill_2025.json", json.dumps({"x": 1})), ("fill_2026.json", json.dumps([_H32]))):
+        io.open(os.path.join(_box32, "csv_cache", _n), "w", encoding="utf-8").write(_txt)
+    _tb = uh.spill_tables(_box32)
+    eq(_tb, {"spill_2025.json": None, "spill_2026.json": None, "spill_2027.json": [_H32]},
+       "㉜spill_tables：只收 spill_*.json、JSON 壞掉或不是表都給 None")
+    _r32 = uh.ROOT
+    try:
+        uh.ROOT = _box32
+        eq(sorted(uh.spill_tables()), ["spill_2025.json", "spill_2026.json", "spill_2027.json"],
+           "㉜spill_tables：不給 root 時呼叫當下才讀 uh.ROOT（沙盒接管得到）")
+    finally:
+        uh.ROOT = _r32
+finally:
+    shutil.rmtree(_box32, ignore_errors=True)
+
+# ㉜ 真實資料：歷史年份的 spill（2014～去年的世界賽後）一個都不報——這是門檻 30 天的真實反例。
+# 刻意不斷言最新那個 spill 檔（#93：正本當下的狀態會變；09-21 10:00 那份就是真案，22:00 班之後會被覆寫）。
+_ll32 = {}
+eq(uh.data_counts(None, None, _ll32), dc, "㉜真實：帶 league_out 不影響列數")
+eq(sorted(_ll32), years, "㉜真實：league_out 涵蓋全部年份")
+_sp32 = uh.spill_tables()
+_hist32 = {k: v for k, v in _sp32.items() if k != max(_sp32)} if _sp32 else {}
+eq(len(_hist32) >= 10, True, "㉜真實前提：本機有 ≥10 個歷史 spill 檔（得到 %d 個）" % len(_hist32))
+eq(uh.spill_problems(_hist32, _ll32)[1], [], "㉜真實：歷史 spill 一個都不報")
+eq(uh.spill_problems(_hist32, _ll32, gap_d=100)[1] != [], True,
+   "㉜真實正控制：同一份放寬到 100 天就會報（2014 LCS 63 天那組）——上一條不是空測")
+
+# ㉜ 端到端：main() 真的把哨兵接進結論（純函式對了、接線斷了一樣沒人知道）。
+# 假 repo 用 seed_clean_repo 種齊，另種 data_2025.js（日期寫死、不是最新年份 ⇒ 不影響「最新一場比賽」）與 spill_2026.json。
+# 只有沙盒才有的證據：那一行講的是 spill_2026.json（真 repo 最新的是 spill_2027 以後）。
+_real32 = (uh.ROOT, uh.BASE, uh.LOG, uh.CONSOLE, sys.argv)
+_ebox32 = tempfile.mkdtemp(prefix="uh_spill_e2e_")
+
+
+def _main32():
+    sys.argv = ["update_health.py", "--no-live", "--no-lag", "--no-save"]
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf):
+        rc = uh.main()
+    out = buf.getvalue()
+    concl = [l for l in out.splitlines() if l.startswith("結論：")]
+    line = [l.strip() for l in out.splitlines() if l.strip().startswith("世界賽後切到隔年")]
+    return rc, (concl[0] if concl else ""), (line[0] if line else None), out
+
+
+def _wspill32(rows):
+    io.open(os.path.join(_ebox32, "csv_cache", "spill_2026.json"), "w", encoding="utf-8").write(
+        json.dumps(_t32(rows)))
+
+
+try:
+    seed_clean_repo(_ebox32)
+    io.open(os.path.join(_ebox32, "data", "data_2025.js"), "w", encoding="utf-8").write(
+        "window.LOL_DATA=" + json.dumps({"tabs": {"RAW_DATA": _t32([("LEC", "2025-09-10"), ("LEC", "2025-09-18")])}}) + ";")
+    point_clean(_ebox32)
+    uh.LOG = os.path.join(_ebox32, "update_log.txt")
+    uh.CONSOLE = os.path.join(_ebox32, "update_console.txt")
+    io.open(uh.LOG, "w", encoding="utf-8").write(
+        "==== run_update %s（並行 4）====\n" % time.strftime("%Y-%m-%d %H:%M:%S")
+        + "".join("---- %s（1.0s，exit 0）----\n" % n for n in SEED_STEPS)
+        + "文本體檢：掃描 1 條字串 → 錯誤 0、提醒 0\n未審定的可疑同名 0\n守門通過\n")
+    rc, concl, line, out = _main32()
+    eq((rc, concl, line), (0, "結論：✓ 沒有異常", "世界賽後切到隔年：沒有 spill 檔（fetch_data 還沒跑過？）"),
+       "㉜e2e 前提：假 repo 沒有 spill 檔 ⇒ 乾淨、那一行講沒有 spill 檔%s" % ("" if rc == 0 else "\n" + out))
+    _wspill32([("LEC", "2025-09-19"), ("LEC", "2025-09-19"), ("KeSPA", "2025-12-06")])
+    rc, concl, line, out = _main32()
+    eq(rc, 1, "㉜e2e：一級聯賽隔 1 天被切走 ⇒ main 離開碼 1")
+    eq("LEC 被世界賽截止點切去隔年：data_2025.js 最後一局 2025-09-18、spill_2026.json 從 2025-09-19 起 2 列（只隔 1 天，<30）"
+       in concl, True, "㉜e2e：結論點名（得到 %r）" % concl)
+    eq("縮水" in concl or "落後" in concl, False, "㉜e2e 對照：異常只來自新哨兵")
+    eq(line is not None and "spill_2026.json 3 列（LEC 2／KeSPA 1" in line, True,
+       "㉜e2e 沙盒證據：那一行講的是沙盒的 spill_2026.json（得到 %r）" % line)
+    _wspill32([("LEC", "2025-11-20"), ("KeSPA", "2025-12-06")])
+    rc, concl, line, out = _main32()
+    eq((rc, concl), (0, "結論：✓ 沒有異常"), "㉜e2e：隔 63 天（正常的世界賽後）⇒ 不報%s" % ("" if rc == 0 else "\n" + out))
+finally:
+    uh.ROOT, uh.BASE, uh.LOG, uh.CONSOLE, sys.argv = _real32
+    shutil.rmtree(_ebox32, ignore_errors=True)
+eq((uh.ROOT, uh.BASE), (ROOT, _REAL_BASE_PATH), "㉜ ROOT／BASE 已還原成真 repo")
+eq(_stat_of(_REAL_BASE_PATH), _REAL_BASE_STAT, "㉜真的 UPDATE_BASELINE.json 沒被寫到（size＋mtime_ns 前後一致）")
+
 # ── ⓪ 收尾：整份測試沒有任何一次撞到封鎖器（被 wiki_days 的 except 吞掉的也算），
 #    而且假出口真的有被 main() 走到（⑫⑮ 都沒帶 --no-lag）——否則上一條可能只是 main 根本沒接逐聯賽落後。
 eq(NET_HITS, [], "⓪整份測試沒有任何一次真的去連外（有人漏接了出口）")

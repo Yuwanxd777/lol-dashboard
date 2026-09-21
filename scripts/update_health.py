@@ -42,6 +42,9 @@
           某一天少幾局或只落後 1 天它都印 ✓（#167 回放：CBLOL 08-15 缺兩局 16.5 天、
           LEC／LCS 09-12 缺四局 3.5 天，當時全是 ✓）。跟逐聯賽落後共用同一個 wiki 請求，
           只比開賽滿 48 小時的局、wiki 比我們多才算；只報不補
+        ‧ **一級聯賽的局有沒有被當成「世界賽後」切去隔年**（2026-09-21 #181）——fetch_data.split_spill
+          的截止點算錯時（#180：OE 把區域資格賽標成 WLDs），當年的聯賽局會整段進 csv_cache/spill_{隔年}.json，
+          上面只會看到「落後」這個症狀。直接看 spill 檔：一級聯賽被切走、而且跟當年最後一局只隔 <30 天就報（本機、不連外）
 
 用法：python scripts/update_health.py           # 報告＋更新基準
       python scripts/update_health.py --no-save # 只報告
@@ -365,9 +368,10 @@ def max_date(raw):
     return best
 
 
-def data_counts(latest_out=None, stats_out=None):
+def data_counts(latest_out=None, stats_out=None, league_out=None):
     """列數；`latest_out` 給一個 dict 就順便填「每個年度檔的最新比賽日期」，
-    `stats_out` 給一個 dict 就順便填「每個年度檔的逐選手 kills 有值格數」（#176）。
+    `stats_out` 給一個 dict 就順便填「每個年度檔的逐選手 kills 有值格數」（#176），
+    `league_out` 給一個 dict 就順便填「每個年度檔各聯賽最後一局的日期」（#181；讀不到的檔不填）。
 
     刻意做成選填的出參而不是改回傳值：`scripts/update_health_test.py` 的端到端那段
     直接 `uh.data_counts()` 拿 dict，改簽名會把既有測試打壞。日期與格數都在**同一次解析**裡算完，
@@ -385,6 +389,8 @@ def data_counts(latest_out=None, stats_out=None):
                 latest_out[os.path.basename(f)] = max_date(raw)
             if stats_out is not None:
                 stats_out[os.path.basename(f)] = stat_cells(raw)
+            if league_out is not None:
+                league_out[os.path.basename(f)] = league_last(raw)
         except Exception:
             out[os.path.basename(f)] = None
             if latest_out is not None:
@@ -696,6 +702,116 @@ def merge_stat_cells(prev, cur, accept=False):
             continue
         out[k] = v
     return out
+
+
+# ── 世界賽截止點切錯（2026-09-21 #181；純函式，scripts/update_health_test.py 在測）──────────
+# 病灶（#180）：fetch_data.split_spill 把「最後一場 WLDs 之後」的局當世界賽後、搬去 csv_cache/spill_{隔年}.json，
+# OE 把 LPL 區域資格賽也標成 WLDs ⇒ 截止點落在 09-19 ⇒ LEC／LCS／CBLOL 09-19～20 的 20 局被搬走。
+# 日誌兩班都印了「世界賽後 N 列 → 移入 2027 年」（世界賽還沒開打），沒有任何檢查在讀；逐聯賽落後隔一班才叫，
+# 而且叫的是症狀（「落後 2 個比賽日」）⇒ #179 誤判成 OE 延遲。這一段直接看產物：spill 檔本身。
+# 證據（不是長相，#178）：一級聯賽的賽季在世界賽前就打完，被切去隔年的列若是一級聯賽、而且跟同聯賽在當年檔的
+# 最後一局只隔幾天 ⇒ 截止點切在賽季中間。先量才定（autopilot/_m181_spill_gap_probe.txt）：2014～2025 所有 spill 檔
+# 同聯賽的間隔最小 63 天（LCS 2014 賽季 09-12 → 升降賽 11-14；非一級聯賽最小 67 天），這次的病是 1／1／6 天 ⇒ 門檻 30 天。
+# 只看一級聯賽：世界賽進行中，其他賽事排在「目前最後一個世界賽比賽日」之後的局本來就會暫時被切走（#180 已知、沒改），
+# 全部聯賽都看會在世界賽那五週天天叫。不存基準：每班從 spill 檔現況判（spill 檔每班覆寫）。
+SPILL_GAP_D = 30
+
+
+def league_last(raw):
+    """RAW_DATA（含表頭）→ {聯賽: 最後一局的日期}。
+    年度檔開頭併進來的「去年世界賽後」那幾列一定比當年的局早，取最大值不受影響（刻意不另外濾年份：
+    那只會在「這個聯賽當年一局都沒有」時有差，而那時兩種寫法的間隔都是一年上下、結論相同＝死分支）。"""
+    hdr = raw[0]
+    try:
+        il, idt = hdr.index("league"), hdr.index("date")
+    except ValueError:
+        return {}
+    out = {}
+    for r in raw[1:]:
+        if max(il, idt) >= len(r):
+            continue
+        d = str(r[idt] or "")[:10]
+        lg = r[il]
+        if lg and DATE_RE.match(d) and (lg not in out or d > out[lg]):
+            out[lg] = d
+    return out
+
+
+def spill_tables(root=None):
+    """csv_cache/spill_*.json → {檔名: 表（含表頭），讀不懂就 None}。路徑呼叫時才用 ROOT 組（沙盒接管得到，#96）。"""
+    root = ROOT if root is None else root
+    out = {}
+    for p in sorted(glob.glob(os.path.join(root, "csv_cache", "spill_*.json"))):
+        try:
+            t = json.load(io.open(p, encoding="utf-8"))
+            out[os.path.basename(p)] = t if isinstance(t, list) and t and isinstance(t[0], list) else None
+        except Exception:
+            out[os.path.basename(p)] = None
+    return out
+
+
+def spill_leagues(table):
+    """spill 表 → {聯賽: [列數, 第一局日期, 最後一局日期]}（日期認不得的列只算列數）。"""
+    hdr = table[0]
+    try:
+        il, idt = hdr.index("league"), hdr.index("date")
+    except ValueError:
+        return {}
+    out = {}
+    for r in table[1:]:
+        if max(il, idt) >= len(r):
+            continue
+        d = str(r[idt] or "")[:10]
+        v = out.setdefault(r[il], [0, None, None])
+        v[0] += 1
+        if DATE_RE.match(d):
+            v[1] = d if v[1] is None or d < v[1] else v[1]
+            v[2] = d if v[2] is None or d > v[2] else v[2]
+    return out
+
+
+def spill_problems(spills, lasts, gap_d=None, tier1=None):
+    """回 (要印的那一行, [異常…])。spills＝spill_tables()；lasts＝{年度檔名: league_last(...)}（data_counts 的出參）。
+
+    spill_{Y+1}.json 對 data_{Y}.js。當年檔讀不到、或那個聯賽當年一局都沒有 ⇒ 不判（讀不到資料量那段已經報）。
+    那一行只講最新的 spill 檔（歷史年份的 spill 是 08 月建檔時留下的，不會變）。"""
+    gap_d = SPILL_GAP_D if gap_d is None else gap_d
+    tier1 = LAG_TIER1 if tier1 is None else tier1
+    bad = []
+    if not spills:
+        return ("世界賽後切到隔年：沒有 spill 檔（fetch_data 還沒跑過？）", bad)
+    for fn in sorted(spills):
+        t = spills[fn]
+        if not t or len(t) <= 1:
+            continue
+        m = re.match(r"spill_(\d{4})\.json$", fn)
+        if not m:
+            continue
+        dfn = "data_%d.js" % (int(m.group(1)) - 1)
+        last = (lasts or {}).get(dfn) or {}
+        for lg, (n, first, _) in sorted(spill_leagues(t).items()):
+            k = last.get(lg)
+            if lg not in tier1 or not k or not first:
+                continue
+            gap = (datetime.date(*map(int, first.split("-"))) - datetime.date(*map(int, k.split("-")))).days
+            if gap < gap_d:
+                bad.append("%s 被世界賽截止點切去隔年：%s 最後一局 %s、%s 從 %s 起 %d 列（只隔 %d 天，<%d）"
+                           % (lg, dfn, k, fn, first, n, gap, gap_d))
+    newest = max(spills)
+    t = spills[newest]
+    if t is None:
+        desc = "讀不到"
+    elif len(t) <= 1:
+        desc = "0 列"
+    else:
+        sl = spill_leagues(t)
+        ds = [v[1] for v in sl.values() if v[1]] + [v[2] for v in sl.values() if v[2]]
+        desc = "%d 列（%s%s）" % (
+            len(t) - 1, "／".join("%s %d" % (lg, v[0]) for lg, v in sorted(sl.items(), key=lambda x: (-x[1][0], x[0]))),
+            ("；%s～%s" % (min(ds), max(ds))) if ds else "")
+    head = "✓" if not bad else "⚠ %d 個一級聯賽被切走（先跑 autopilot/_m180_process_probe2.py 看切在哪）" % len(bad)
+    return ("世界賽後切到隔年（一級聯賽跟當年最後一局只隔 <%d 天＝截止點切錯）：%s %s %s" % (gap_d, head, newest, desc),
+            bad)
 
 
 # ── 遊戲版本（2026-09-10 #99）───────────────────────────────────────────────
@@ -1387,7 +1503,8 @@ def main():
     lg = parse_log()
     lt = {}
     sc = {}
-    dc = data_counts(lt, sc)
+    ll = {}
+    dc = data_counts(lt, sc, ll)
     prev = {}
     try:
         prev = json.load(io.open(BASE, encoding="utf-8"))
@@ -1478,6 +1595,10 @@ def main():
     kline, kbad = stats_problems(prev.get("stats") or {}, sc, dc)
     print("   " + kline)
     bad += kbad
+    # 世界賽截止點切錯（#181）：一級聯賽的局被 split_spill 搬去隔年，列數／日期只會看起來像「落後」（#180）
+    xline, xbad = spill_problems(spill_tables(), ll)
+    print("   " + xline)
+    bad += xbad
     # 積分逐場新鮮度（#143）：上面 soloq 那三個指標全是**數量**，抓壞了一個都不會動（#142）
     if "--no-soloqfresh" in sys.argv:
         print("   積分逐場新鮮度：（--no-soloqfresh 跳過）")
