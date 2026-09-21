@@ -484,6 +484,18 @@ def grab(page, kind, roster_page=None):
             rs = {**cr, **rs}
             if add:
                 print(f"   Cargo 名單：+{len(add)} 隊（{page}）")
+    # 國家隊：teams_of 是**全頁**掃 title="X (National Team)" ⇒ 導覽列／參考資料／別的賽事連結
+    # 也會被算成參賽隊（2026-09-21 使用者回報：亞運正賽沒有 USA，卻列了九隊）。
+    # 有名單表（Participants 的 tournament-roster，才是權威）時就以它為準；
+    # 一隊名單都解析不到才維持原樣（那種頁本來就只能靠全頁掃）。
+    if kind == "nation" and rs:
+        have = {str(k).lower() for k in rs}
+        keep = [t for t in teams if str(t).lower() in have]
+        if keep:
+            drop = [t for t in teams if t not in keep]
+            if drop:
+                print(f"   國家隊：名單表沒有的 {len(drop)} 隊不算參賽（{'、'.join(drop)}）")
+            teams = keep
     return (teams, rs, frm, to, bracket_of(html))
 
 

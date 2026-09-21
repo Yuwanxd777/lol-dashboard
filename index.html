@@ -3957,9 +3957,13 @@ const eventsTreeHTML=()=>{
           // ——跟單一賽段那條路的 FST 正賽標題同一個規矩（2026-09-21）。其餘聯賽維持原本的「其他」排最後。
           if(_rest.length){ const _intl=(m.grp==="intl"||m.grp==="cup");
             // 國際賽／盃賽的正賽列要列**全部**參賽隊，不是只列「沒出現在賽段裡的那幾隊」：
-            // 亞運的韓／越／美同時是熱身賽與正賽的隊伍，扣掉之後正賽會寫成 6 隊（2026-09-21）
-            const _r2=_row(_intl?(LANG==="en"?"Main Event":"正賽"):(LANG==="en"?"Other":"其他"),
-                           _intl?base:_rest,advQ);
+            // 亞運的韓／越同時是熱身賽與正賽的隊伍，扣掉之後正賽會寫成 6 隊（2026-09-21）。
+            // ⚠ 但也不能直接拿 base：熱身賽打過、正賽沒報名的隊（美國）會被算進正賽。
+            //   有 wiki 參賽名單（events_extra 的 teams）時以它為準，沒有才退回 base。
+            const _exT=(x._extra&&(x._extra.teams||[]).length)?new Set(x._extra.teams):null;
+            const _mainT=_intl?(_exT?base.filter(t2=>_exT.has(t2)):base):_rest;
+            const _r2=_mainT.length?_row(_intl?(LANG==="en"?"Main Event":"正賽"):(LANG==="en"?"Other":"其他"),
+                                         _mainT,advQ):"";
             _mc=_intl?_r2+_mc:_mc+_r2; }
           mainChips=_mc+extSeg;
         }else{

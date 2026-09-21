@@ -137,7 +137,7 @@ def match_players():
 
 def load_abbr():
     """從 index.html 抽 STATIC_TABBR（隊全名→縮寫）＋ ABBR_OVERRIDE，供 Python 端算隊縮寫（localStorage 的 USER_TABBR 抓不到）。"""
-    st = {}
+    st, html = {}, ""
     # 用 regex 抽 "全名":"縮寫" 配對，**不要 json.loads**——STATIC_TABBR 內含 JS 註解(// …)，
     # json 會整塊解析失敗而靜默退回「壓縮全名前5字」，產生 TOPES/THUND/ANYON 這種假隊碼，
     # 使得那些帳號在前端永遠查不到（2026-07-29 修；每天的 update_log 其實都印了這行警告）。
@@ -164,6 +164,23 @@ def load_abbr():
                     st.setdefault(k.strip().lower(), v)
         except Exception as e:
             print(f"（{fn} 縮寫表載入失敗：{e}）", flush=True)
+    # 國家隊（亞運／ENC／KeSPA 邀的國家隊）：前端另有一張 NAT_ABBR（IOC 三碼），
+    # STATIC_TABBR 裡沒有 ⇒ Python 端原本只能退回「壓縮全名前 5 字」，把
+    # South Korea (National Team) 算成 SOUTH、United States (National Team) 算成 UNITE，
+    # 跟前端的 KOR／USA 對不上。只有「整年沒打俱樂部」的選手才會被 match_roster 指到國家隊，
+    # 一指到就是前端查不到的孤兒列（2026-09-21 亞運補進主資料後才會踩到）。
+    # 同樣從 index.html 抽 ⇒ 單一真相，不在 Python 另抄一份國名表。
+    mn = re.search(r"const NAT_ABBR=\{(.*?)\};", html, re.S) if html else None
+    if mn:
+        body = mn.group(1)
+        got = re.findall(r'"([^"]+)"\s*:\s*"([A-Z]{2,4})"', body)          # 多字國名一定有引號
+        got += re.findall(r'(?:^|[,{\s])([A-Za-z\u00c0-\u024f]+)\s*:\s*"([A-Z]{2,4})"', body)
+        n0 = len(st)
+        for k, v in got:
+            k = k.strip()
+            if k and v:
+                st.setdefault(("%s (national team)" % k).lower(), v)
+        print(f"  國家隊縮寫（NAT_ABBR）：+{len(st) - n0} 筆", flush=True)
     st.update({k.lower(): v for k, v in ABBR_OVERRIDE.items()})
     print(f"  隊縮寫對照表：{len(st)} 筆", flush=True)
     return st
