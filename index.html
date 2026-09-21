@@ -1467,7 +1467,7 @@ function soloqBuildHTML(cid){ if(typeof isHistYear==="function"&&isHistYear())re
   const heroLanes=(B.hero&&B.hero[cid])||null;
   // 召喚師技能欄（框內第 2 欄首段）：每組直列一行（兩圖＋%）；有閃現一律排第二格（穩定排序，其他組合順序不變）
   const spCol=spArr=>(spArr||[]).map(p=>{const ss=[...(p.s||[])].sort((a,b)=>(a==="閃現")-(b==="閃現"));
-    return `<div style="display:flex;align-items:center;gap:3px;margin-bottom:6px">${ss.map(nm=>{const u=(typeof EXTRA_IMG!=="undefined")&&EXTRA_IMG&&EXTRA_IMG[nm];return u?`<img loading="lazy" src="${u}" title="${esc(nm)}" style="width:26px;height:26px;border-radius:5px;border:1px solid #33405c">`:esc(nm);}).join("")}<span class="num" style="font-size:12.5px;margin-left:5px">${p.pct}%</span></div>`;}).join("")||'<span class="meta">—</span>';
+    return `<div style="display:flex;align-items:center;gap:3px;margin-bottom:6px">${ss.map(nm=>{const u=(typeof EXTRA_IMG!=="undefined")&&EXTRA_IMG&&EXTRA_IMG[nm];return u?`<img loading="lazy" src="${u}" title="${esc(nm)}" style="width:26px;height:26px;border-radius:5px;border:1px solid #33405c">`:esc(summName(nm));}).join("")}<span class="num" style="font-size:12.5px;margin-left:5px">${p.pct}%</span></div>`;}).join("")||'<span class="meta">—</span>';
   // 常配英雄（積分）：dpm 逐場的 duoChampionName＝該局跟他配的那一路，配對關係是
   //   上→打野、打野→中、中→打野、下→輔助、輔助→下（使用者 2026-08-03 指定的就是這組）。
   // 只列前五、附場數與勝率；點頭像跳該英雄詳情（沿用符文盒「常對到」那套 .dexChGo）。
@@ -1520,6 +1520,11 @@ function soloqBuildHTML(cid){ if(typeof isHistYear==="function"&&isHistYear())re
   return `<div class="card"><h2>🛠️ ${en?"Core items & builds":"核心裝備與出裝流派"} <span class="sub">${en?`${isNow?"ranked this year":sqY+" ranked"} · ${d.n} games${laneKeys.length>=2?" · by lane":""}`:`積分（${isNow?"今年":sqY+" 年"}）· ${d.n} 場${laneKeys.length>=2?"｜依路線分開統計":""}`}</span></h2>${body}</div>`; }
 const SUMM_KEY={1:"SummonerBoost",3:"SummonerExhaust",4:"SummonerFlash",6:"SummonerHaste",7:"SummonerHeal",11:"SummonerSmite",12:"SummonerTeleport",13:"SummonerMana",14:"SummonerDot",21:"SummonerBarrier",32:"SummonerSnowball",39:"SummonerSnowballRaid",30:"SummonerPoroRecall",31:"SummonerPoroThrow",54:"Summoner_UltBookPlaceholder",55:"Summoner_UltBookSmitePlaceholder"};
 const SUMM_ZH={4:"閃現",7:"治癒",14:"點燃",11:"惩戒",12:"傳送",3:"虛弱",6:"幽靈疾步",21:"屏障",1:"淨化",13:"清晰",32:"雪球"};
+const SUMM_EN_OF={"閃現":"Flash","治癒":"Heal","點燃":"Ignite","惩戒":"Smite","懲戒":"Smite",
+  "傳送":"Teleport","強化傳送":"Unleashed Teleport","虛弱":"Exhaust","幽靈疾步":"Ghost","鬼步":"Ghost",
+  "屏障":"Barrier","淨化":"Cleanse","清晰":"Clarity","雪球":"Snowball","守備":"Garrison"};
+// 召喚師技能的顯示名：英文模式用英文（沒有圖可用時會直接把名字印出來）
+const summName=n=>((LANG==="en"&&SUMM_EN_OF[n])||n);
 const summImg=(id,s)=>{const k=SUMM_KEY[id]; return k?`<img loading="lazy" title="${esc(SUMM_ZH[id]||k)}" src="https://ddragon.leagueoflegends.com/cdn/${DDV}/img/spell/${k}.png" style="width:${s||20}px;height:${s||20}px;border-radius:4px;vertical-align:middle" onerror="this.style.visibility='hidden'">`:"";};
 // 符文：runesReforged.json 建 {perkId:{icon,name,tree}}；載入前先用占位、載好後重繪本頁
 let RUNE_MAP=null, RUNE_LOADING=false;
@@ -5883,7 +5888,9 @@ const SK_SLOT={"被動":0,"隱藏被動":0,"Q":1,"W":2,"E":3,"R":4};
 const normTxt=s=>uniStat(s)
   .replace(/幼蟎/g,"幼蟲")
   .replace(/\[([^\][]*\|[^\][]*)\]/g,(m,inner)=>"["+inner.split("|").map(seg=>{
-    seg=seg.trim().replace(/\bMelee\b/gi,"近戰").replace(/\bRanged\b/gi,"遠程")
+    seg=seg.trim();
+    // 英文模式維持原字（不然會做出「Healing: [近戰 100%｜｜遠程 50%] Base Attack Damage」）
+    if(LANG!=="en")seg=seg.replace(/\bMelee\b/gi,"近戰").replace(/\bRanged\b/gi,"遠程")
       .replace(/\bSiege\b/gi,"攻城").replace(/\bSuper\b/gi,"超級").replace(/\bCaster\b/gi,"法師");
     const mm=seg.match(/^([\d.]+%?)\s*(近戰|遠程|攻城|超級|法師)$/);
     return mm?`${mm[2]} ${mm[1]}`:seg;
@@ -6439,6 +6446,7 @@ function ensurePatchItemsCategorized(){ if(_patchItemCatDone)return;
     const keep=[],moved=[]; ex["機制"].forEach(l=>{ const i=l.indexOf("｜"); const nm=i>0?l.slice(0,i).replace(/^\[[^\]]*\]\s*/,"").trim():""; (nm&&isItem(nm)?moved:keep).push(l); });
     if(moved.length){ ex["道具"]=(ex["道具"]||[]).concat(moved); ex["機制"]=keep; } }); };
   _mvItem(PATCH_NOTES); _mvItem(window.WIKI_EXTRA);
+  _mvItem(window.LOL_PATCHES_EN); _mvItem(window.WIKI_EXTRA_EN);   // 英文那兩份也要歸類，否則英文畫面的道具行會留在「機制」
   const MECH_RE=/防禦塔|強化堡壘|銅牆鐵壁|水晶兵營|主堡/; // 反向：誤分「道具」的建築/機制條目 → 搬回「機制」（如 2024 防禦塔護甲和銅牆鐵壁）
   let _movedAny=false;
   const scan=src=>{ if(!src)return; Object.values(src).forEach(pd=>{ const ex=pd&&pd._extra?pd._extra:pd; if(!ex)return;
@@ -9164,7 +9172,7 @@ function renderChgYear(box){
       const pd=(LANG==="en"&&window.LOL_PATCHES_EN&&window.LOL_PATCHES_EN[pk])||PATCH_NOTES[pk]; if(!pd)return; // 英文模式優先官方英文原文
       // 官方公告分錯區：機制區裡以英雄名開頭的行 → 併回該英雄卡
       const routed={};
-      MECH_LEFT[pk]=((pd._extra&&pd._extra.機制)||[]).filter(l=>{
+      MECH_LEFT[pk]=(((LANG==="en"?extraSrc(pk):(pd._extra||{}))||{}).機制||[]).filter(l=>{
         const i=l.indexOf("｜");
         const nm=i>0?l.slice(0,i).replace(/^\[[^\]]*\]\s*/,"").trim():"";
         const id=nm&&N2I[nm];
@@ -9342,8 +9350,9 @@ function renderChgYear(box){
         if(selP&&pk!==selP)return;
         const pd=PATCH_NOTES[pk];
         // 官方公告的 _extra 優先；缺或空（2014–2022）→ 用 wiki 版本頁的 WIKI_EXTRA 補道具/符文/機制
+        // 英文模式整條鏈換成英文來源（extraSrc：官方英文 _extra → wiki 英文原文 → 中文）
         const oe=pd&&pd._extra;
-        const ex=(oe&&Object.keys(oe).length)?oe:(window.WIKI_EXTRA&&WIKI_EXTRA[pk]); if(!ex)return;
+        const ex=(LANG==="en")?extraSrc(pk):((oe&&Object.keys(oe).length)?oe:(window.WIKI_EXTRA&&WIKI_EXTRA[pk])); if(!ex)return;
         const purl=(pd&&pd._url)||wikiUrl[pk]||"";
         const mechLines=[], laneML={};
         // 機制也一起跑 resolveType：抓官方公告分錯區、實為道具/符文/召喚師技能的行
@@ -9499,7 +9508,8 @@ function renderChgYear(box){
         // 只有一件有改動 → 標題就用那件（如只有升級鞋改動就寫槍銅護脛）；行內前綴剝掉避免重複
         const single=owners.length===1?owners[0]:null;
         const raw=single||e.name, zh=itemZh(raw); // 顯示/圖/詳情用中文名，行前綴仍用原字剝除
-        const title=single?zh:itemZh(dispName(e.name));
+        // 英文模式標題用原字（資料本來就是英文名）；data-name／圖示仍用中文名查表（xImg／詳情頁靠它）
+        const title=(LANG==="en")?String(single||dispName(e.name)).trim():(single?zh:itemZh(dispName(e.name)));
         const arr=single?e.arr.map(p=>({...p,lines:p.lines.map(l=>l.startsWith(single+"｜")?l.slice(single.length+1):l)})):e.arr;
         const CAT_ICO2={"道具":"🛡️","新增道具":"🛡️","移除道具":"🛡️","符文":"🔮","符文碎片":"🔻","召喚師技能":"✨","機制":"⚙️","挑戰重擊":"⚔️","冰寒重擊":"⚔️","懲戒重擊":"⚔️"};
         const im=xImg(zh)||xImg(raw)||(CAT_ICO2[title]?`<span class="cc" style="font-size:22px;line-height:1;margin-right:4px">${CAT_ICO2[title]}</span>`:""); // 統稱卡（無實體名的彙總行）給類別 emoji
@@ -9524,7 +9534,7 @@ function renderChgYear(box){
       grid.innerHTML=`<div class="chgLanes">${LANE5.map(pos=>`
         <div class="laneCol"><div class="laneHd">${posImg(pos)} <span class="meta">${byLane[pos].length}</span></div>${
           (byLane[pos].map(cardHTML).join("")+(pos==="JNG"?objCards:"")+(laneMech[pos].length?catCardHTML("機制",laneMech[pos]):""))||'<div class="meta" style="text-align:center;padding:10px">—</div>'}</div>`).join("")}
-        <div class="laneCol"><div class="laneHd">🧩 其他 <span class="meta">${extraCnt}</span></div>${extraCards||'<div class="meta" style="text-align:center;padding:10px">—</div>'}</div></div>`;
+        <div class="laneCol"><div class="laneHd">🧩 ${LANG==="en"?"Other":"其他"} <span class="meta">${extraCnt}</span></div>${extraCards||'<div class="meta" style="text-align:center;padding:10px">—</div>'}</div></div>`;
       bindChgTips(grid); // 右鍵英雄/道具/符文頭貼 → 顯示目前版本資訊
       // 點英雄名/圖 → 跳到該英雄的圖鑑詳情（取代原本 hover 的 ? 問號提示）
       grid.querySelectorAll(".chgHeroGo").forEach(el=>el.onclick=()=>{
