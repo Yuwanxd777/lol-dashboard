@@ -2066,6 +2066,154 @@ finally:
 eq((uh.ROOT, uh.BASE), (ROOT, _REAL_BASE_PATH), "㉜ ROOT／BASE 已還原成真 repo")
 eq(_stat_of(_REAL_BASE_PATH), _REAL_BASE_STAT, "㉜真的 UPDATE_BASELINE.json 沒被寫到（size＋mtime_ns 前後一致）")
 
+# ── ㉝ 滾動視窗檔跟近 7 天的高水位比（2026-09-21 #186）─────────────────────────────
+# 真實形狀取自 autopilot/_m186_size_hw_probe.txt：soloq_recent.js 全期高水位 175560（08-06），
+# 09-18 → 09-21 從 128076 滑到 118296（-32.6% 對全期、單次最大 3.4%）——沒有任何東西壞掉。
+_N33 = time.mktime(time.strptime("2026-09-21 10:05", "%Y-%m-%d %H:%M"))
+
+
+def _ts33(days_ago, now=None):
+    return time.strftime("%Y-%m-%d %H:%M", time.localtime((_N33 if now is None else now) - days_ago * 86400))
+
+
+R33 = "soloq_recent.js"
+rb = uh.rolling_bases
+msh = uh.merge_size_hist
+
+
+def _g33(m):
+    """取歷史但不炸（突變把 ROLLING_SIZE 清空時要看到 ✗、不是 KeyError 讓整份測試崩掉——崩潰≠紅，#184）。"""
+    return (m or {}).get(R33) or []
+
+
+_hw33 = {R33: 175560, "career.js": 12800000}
+_h33 = {R33: [[_ts33(6.5), 128076], [_ts33(4), 124955], [_ts33(2), 122885], [_ts33(0.5), 120848]]}
+_cur33 = {R33: 118296, "career.js": 12800000}
+eq(uh.ROLLING_SIZE, ("soloq_recent.js",), "㉝常數：只有 soloq_recent.js 是滾動視窗（#186 掃 892 個 commit 定的）")
+eq(uh.ROLLING_DAYS, 7, "㉝常數：視窗 7 天")
+# ① 沒有歷史 ⇒ 跟改之前一模一樣（全期高水位）
+eq(rb(_hw33, {}, _N33), (_hw33, {}), "㉝沒有歷史＝沿用全期高水位、used 空")
+eq(rb(_hw33, None, _N33)[0], _hw33, "㉝hist 給 None 也不炸")
+# ② 有歷史 ⇒ 基準＝視窗內最大值；非滾動檔原封不動
+_e33, _u33 = rb(_hw33, _h33, _N33)
+eq(_e33[R33], 128076, "㉝基準＝近 7 天最大值")
+eq(_e33["career.js"], 12800000, "㉝非滾動檔沿用全期高水位")
+eq(_u33, {R33: (128076, 175560)}, "㉝used 回（近 7 天高水位, 全期高水位）")
+eq(rb(_hw33, _h33, _N33, rolling=())[0], _hw33, "㉝正控制：rolling 清空就退回全期高水位")
+# ③ 真實形狀：季節性下滑 ⇒ 新版不報；同一份數字跟全期高水位比會報（＝這一輪要修的誤報）
+eq(sp(_e33, _cur33)[1], [], "㉝真實形狀：跟近 7 天比（-7.6%）不報")
+eq(len(sp(_hw33, _cur33)[1]), 1, "㉝正控制：同一份數字跟全期高水位比（-32.6%）會報＝舊版的誤報")
+# ④ 真的壞掉（一班之內砍半）照樣抓得到
+eq(len(sp(_e33, {R33: 60000, "career.js": 12800000})[1]), 1, "㉝真壞：砍半照報")
+eq("soloq_recent.js 體積縮水 53%（基準 128076 → 現在 60000 bytes）" in sp(_e33, {R33: 60000, "career.js": 12800000})[1][0], True,
+   "㉝真壞：訊息點名、基準是近 7 天高水位")
+# ⑤ 視窗：超過 7 天的不算
+_h33b = {R33: [[_ts33(8), 200000], [_ts33(3), 120000]]}
+eq(rb(_hw33, _h33b, _N33)[0][R33], 120000, "㉝8 天前的 200000 不進視窗")
+eq(rb(_hw33, _h33b, _N33, days=10)[0][R33], 200000, "㉝正控制：視窗放到 10 天就進來")
+# ⑥ 全過期 ⇒ 用最後一筆（不回退全期高水位、也不靜音）
+eq(rb(_hw33, {R33: [[_ts33(20), 150000], [_ts33(9), 130000]]}, _N33)[0][R33], 130000, "㉝全過期：用最後一筆")
+# ⑦ 壞紀錄略過不炸
+_h33d = {R33: [["昨天", 999999], [_ts33(1), "x"], [_ts33(1)], None, [_ts33(1), 121000]]}
+eq(rb(_hw33, _h33d, _N33)[0][R33], 121000, "㉝壞紀錄略過、剩下的照用")
+eq(rb(_hw33, {R33: [["昨天", 999999]]}, _N33), (_hw33, {}), "㉝全是壞紀錄＝當沒有歷史")
+# ── merge_size_hist ──
+_m33 = msh(_h33, _cur33, _e33, _N33)
+eq((_g33(_m33) or [None])[-1], [_ts33(0), 118296], "㉝正常值寫進歷史（帶這一輪的時間）")
+eq(len(_g33(_m33)), 5, "㉝原本 4 筆都在視窗內＋新的 1 筆")
+eq(list(_m33), [R33], "㉝只記滾動檔（career.js 不進 size_hist）")
+_n2 = _N33 + 1800
+_m33b = msh(_m33, _cur33, rb(_hw33, _m33, _n2)[0], _n2)
+eq((len(_g33(_m33b)), (_g33(_m33b) or [None])[-1]), (5, [_ts33(0, _n2), 118296]), "㉝同一個值只刷新時間、不多一筆")
+# 被判縮水的值不寫進歷史 ⇒ 第二輪照報（跟 merge_sizes 同一個洞）
+_bad33 = {R33: 50000, "career.js": 12800000}
+_m33c = msh(_h33, _bad33, _e33, _N33)
+eq(_g33(_m33c), _h33[R33], "㉝縮水的值不寫進歷史")
+eq(len(sp(rb(_hw33, _m33c, _N33 + 43200)[0], _bad33)[1]), 1, "㉝縮水第二輪（12h 後）仍然報")
+# 正控制：accept 才寫、而且歷史換成只剩它 ⇒ 下一輪不報
+_m33d = msh(_h33, _bad33, _e33, _N33, accept=True)
+eq(_g33(_m33d), [[_ts33(0), 50000]], "㉝accept：歷史換成只剩認可的值")
+eq(sp(rb(_hw33, _m33d, _N33 + 43200)[0], _bad33)[1], [], "㉝accept 之後下一輪不報")
+eq(msh(_h33, _cur33, _e33, _N33, accept=True), _m33, "㉝accept 對沒縮水的值沒有額外作用")
+# 壞掉一直不修：過 10 天歷史全過期，仍留最後一筆好值 ⇒ 照報（不會因視窗過期而自己靜音）
+_later33 = _N33 + 10 * 86400
+_m33e = msh(_m33c, _bad33, rb(_hw33, _m33c, _later33)[0], _later33)
+eq(_g33(_m33e), _h33[R33][-1:], "㉝全過期只留最後一筆好值")
+eq(len(sp(rb(_hw33, _m33e, _later33)[0], _bad33)[1]), 1, "㉝壞了 10 天仍然報")
+eq([b for t, b in _g33(msh({R33: [[_ts33(9), 130000], [_ts33(1), 121000]]}, _cur33, _e33, _N33))],
+   [121000, 118296], "㉝超過 7 天的紀錄修剪掉")
+eq(_g33(msh(_h33, {}, _e33, _N33)), _h33[R33], "㉝這一輪沒有這個檔：歷史原封不動")
+eq(msh({}, {}, {}, _N33), {}, "㉝都沒有就是空的")
+eq(msh({}, _cur33, {}, _N33), {R33: [[_ts33(0), 118296]]}, "㉝第一筆（剛上線）")
+
+# ㉝ 端到端：main() 真的拿近 7 天高水位來判、印出放寬的那一行、把歷史寫進基準（沙盒的）。
+# 只有沙盒才有的證據：soloq_recent.js 118296 bytes＋基準 175560／128076（真 repo 不是這些數）。
+_real33 = (uh.ROOT, uh.BASE, uh.LOG, uh.CONSOLE, sys.argv)
+_ebox33 = tempfile.mkdtemp(prefix="uh_roll_e2e_")
+
+
+def _main33(*flags):
+    sys.argv = ["update_health.py", "--no-live", "--no-lag"] + list(flags)
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf):
+        rc = uh.main()
+    out = buf.getvalue()
+    concl = [l for l in out.splitlines() if l.startswith("結論：")]
+    roll = [l.strip() for l in out.splitlines() if l.strip().startswith("└ soloq_recent.js 是滾動視窗")]
+    return rc, (concl[0] if concl else ""), (roll[0] if roll else None), out
+
+
+def _w33(nbytes, hist):
+    io.open(os.path.join(_ebox33, R33), "wb").write(b"//" + b"x" * (nbytes - 2))
+    b = {"at": "2026-09-21 10:05", "sizes": {R33: 175560}}
+    if hist is not None:
+        b["size_hist"] = {R33: hist}
+    json.dump(b, io.open(uh.BASE, "w", encoding="utf-8"))
+
+
+try:
+    seed_clean_repo(_ebox33)
+    point_clean(_ebox33)
+    uh.LOG = os.path.join(_ebox33, "update_log.txt")
+    uh.CONSOLE = os.path.join(_ebox33, "update_console.txt")
+    io.open(uh.LOG, "w", encoding="utf-8").write(
+        "==== run_update %s（並行 4）====\n" % time.strftime("%Y-%m-%d %H:%M:%S")
+        + "".join("---- %s（1.0s，exit 0）----\n" % n for n in SEED_STEPS)
+        + "文本體檢：掃描 1 條字串 → 錯誤 0、提醒 0\n未審定的可疑同名 0\n守門通過\n")
+    _now33 = time.time()
+    _hist33 = [[_ts33(3, _now33), 128076], [_ts33(1, _now33), 121000]]
+    # A 對照：基準沒有 size_hist（＝改之前、或剛上線的第一班）⇒ 跟全期高水位比、報縮水
+    _w33(118296, None)
+    rc, concl, roll, out = _main33("--no-save")
+    eq((rc, roll), (1, None), "㉝e2e A：沒有歷史 ⇒ 跟全期高水位比、沒有放寬那一行")
+    eq("soloq_recent.js 體積縮水 33%（基準 175560 → 現在 118296 bytes）" in concl, True,
+       "㉝e2e A：結論點名（得到 %r）" % concl)
+    # B：有近 7 天歷史 ⇒ 不報，而且放寬要印出來
+    _w33(118296, _hist33)
+    rc, concl, roll, out = _main33("--no-save")
+    eq((rc, concl), (0, "結論：✓ 沒有異常"), "㉝e2e B：跟近 7 天比不報%s" % ("" if rc == 0 else "\n" + out))
+    eq(roll is not None and "跟近 7 天的高水位 128076 bytes 比、現在 118296；全期高水位 175560 只留作紀錄" in roll, True,
+       "㉝e2e B：放寬那一行印出來（沙盒數字；得到 %r）" % roll)
+    # C：存檔 ⇒ 沙盒基準多一筆 118296、全期高水位照留 175560
+    rc, concl, roll, out = _main33()
+    _sb = json.load(io.open(uh.BASE, encoding="utf-8"))
+    eq([b for t, b in _sb.get("size_hist", {}).get(R33, [])], [128076, 121000, 118296], "㉝e2e C：歷史寫進（沙盒）基準")
+    eq(_sb.get("sizes", {}).get(R33), 175560, "㉝e2e C：全期高水位照留")
+    # D：砍半 ⇒ 報，基準是近 7 天高水位；存檔後歷史沒有吃進壞值
+    io.open(os.path.join(_ebox33, R33), "wb").write(b"//" + b"x" * (50000 - 2))
+    rc, concl, roll, out = _main33()
+    eq(rc, 1, "㉝e2e D：砍半 ⇒ 離開碼 1")
+    eq("soloq_recent.js 體積縮水 61%（基準 128076 → 現在 50000 bytes）" in concl, True, "㉝e2e D：結論點名（得到 %r）" % concl)
+    _sb = json.load(io.open(uh.BASE, encoding="utf-8"))
+    eq((_g33(_sb.get("size_hist")) or [[None, None]])[-1][1], 118296, "㉝e2e D：壞值沒寫進歷史（下一班照報）")
+    rc, concl, roll, out = _main33("--no-save")
+    eq(rc, 1, "㉝e2e D：第二輪照報")
+finally:
+    uh.ROOT, uh.BASE, uh.LOG, uh.CONSOLE, sys.argv = _real33
+    shutil.rmtree(_ebox33, ignore_errors=True)
+eq((uh.ROOT, uh.BASE), (ROOT, _REAL_BASE_PATH), "㉝ ROOT／BASE 已還原成真 repo")
+eq(_stat_of(_REAL_BASE_PATH), _REAL_BASE_STAT, "㉝真的 UPDATE_BASELINE.json 沒被寫到（size＋mtime_ns 前後一致）")
+
 # ── ⓪ 收尾：整份測試沒有任何一次撞到封鎖器（被 wiki_days 的 except 吞掉的也算），
 #    而且假出口真的有被 main() 走到（⑫⑮ 都沒帶 --no-lag）——否則上一條可能只是 main 根本沒接逐聯賽落後。
 eq(NET_HITS, [], "⓪整份測試沒有任何一次真的去連外（有人漏接了出口）")

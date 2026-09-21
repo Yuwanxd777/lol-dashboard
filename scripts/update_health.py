@@ -567,6 +567,85 @@ def merge_sizes(prev, cur, accept=False):
     return out
 
 
+# ── 滾動視窗型的檔：跟「近 7 天的高水位」比，不跟全期高水位比（2026-09-21 #186；純函式，update_health_test.py ㉝ 在測）──
+# 為什麼：上面的基準是**全期**最大值。對「內容本來就只有最近幾天」的檔，體積跟著淡旺季漲落——
+# soloq_recent.js（職業選手最近 9 天的積分對局）8 月旺季 175560 bytes，9 月季後賽打完、沒進世界賽的隊伍
+# 陸續放假，一路滑到 118296（-32.6%），**單次最大縮水只有 3.4%、沒有任何東西壞掉**
+# （autopilot/_m186_size_hw_probe.py 掃 06-01 起 892 個 commit，留底 _m186_size_hw_probe.txt）。
+# 基準 09-10 才建，所以 09-21 只 -14.2%；但照 09-09 → 09-21 每天約 1.6KB 的斜率，10 月初就會跨過 30% 誤報，
+# 而且每年淡季都會再叫一次、逼人 --accept ⇒ 大家學會忽略它（#98 講的那種病）。
+# 同一份掃描裡其他 55 個根目錄檔相對全期高水位最多掉 26.7%（events_extra.js，就是單次那次格式重算）⇒ 只有這一個需要。
+# 改法：這些檔另記一份「近 ROLLING_DAYS 天的體積歷史」（基準的 size_hist），比的對象改成歷史裡的最大值——
+#   ‧ 真的壞掉（來源掛了寫出半個檔）是一班之內掉一大截，近 7 天高水位照樣抓得到
+#   ‧ 季節性下滑一週只有幾個百分點（09-14 → 09-21 是 -8%），碰不到 30%
+# 高水位的兩個保護照留：①被判異常的那個值**不寫進歷史**（不然 7 天後視窗裡只剩壞值、自己變正常）；
+# ②歷史全部過期也留最後一筆（不然 7 天後沒得比 ⇒ 靜音）⇒ 會一直報到 --accept 為止。
+# 全期高水位（sizes）照樣更新、留作紀錄，只是這些檔不拿它來判；歷史還是空的（剛上線）就沿用它，跟改之前一模一樣。
+ROLLING_SIZE = ("soloq_recent.js",)
+ROLLING_DAYS = 7
+
+
+def _hist_ts(s):
+    """'YYYY-MM-DD HH:MM' → epoch 秒；格式不對回 None（壞一筆歷史不可以讓整個健檢炸掉）。"""
+    try:
+        return time.mktime(time.strptime(s, "%Y-%m-%d %H:%M"))
+    except Exception:
+        return None
+
+
+def _hist_clean(h):
+    return [[t, b] for t, b in (x for x in (h or []) if isinstance(x, (list, tuple)) and len(x) == 2)
+            if isinstance(b, int) and b > 0 and _hist_ts(t) is not None]
+
+
+def rolling_bases(sizes, hist, now_ts, days=ROLLING_DAYS, rolling=ROLLING_SIZE):
+    """回 (給 size_problems 用的基準 dict, {檔名: (近 N 天高水位, 全期高水位)})。
+
+    sizes＝全期高水位；hist＝{檔名: [["YYYY-MM-DD HH:MM", bytes], …]}（舊到新）。
+    歷史裡沒有能用的紀錄（剛上線／新檔）就不動那個檔——沿用全期高水位。
+    """
+    eff = dict(sizes)
+    used = {}
+    for k in rolling:
+        h = _hist_clean((hist or {}).get(k))
+        if not h:
+            continue
+        win = [b for t, b in h if now_ts - _hist_ts(t) <= days * 86400]
+        base = max(win) if win else h[-1][1]     # 全過期：拿最後一筆（merge_size_hist 會留它）
+        used[k] = (base, sizes.get(k))
+        eff[k] = base
+    return eff, used
+
+
+def merge_size_hist(hist, cur, eff, now_ts, accept=False, days=ROLLING_DAYS, rolling=ROLLING_SIZE):
+    """滾動視窗檔的體積歷史。eff＝這一輪拿來判的基準（rolling_bases 的第一個回傳值）。
+
+    被判縮水的值不寫進去（accept 才寫、而且把歷史換成只剩它）；同一個值只刷新時間
+    （每輪手動健檢也會存基準，不要一輪一筆）；超過 days 天的丟掉，但至少留最後一筆。
+    """
+    out = {}
+    stamp = time.strftime("%Y-%m-%d %H:%M", time.localtime(now_ts))
+    for k in rolling:
+        h = _hist_clean((hist or {}).get(k))
+        v = cur.get(k)
+        if isinstance(v, int) and v > 0:
+            pv = eff.get(k)
+            shrunk = isinstance(pv, int) and pv > 0 and (pv - v) / float(pv) > size_tol(pv)
+            if shrunk:
+                if accept:
+                    h = [[stamp, v]]
+            elif h and h[-1][1] == v:
+                h[-1][0] = stamp
+            else:
+                h.append([stamp, v])
+        keep = [x for x in h if now_ts - _hist_ts(x[0]) <= days * 86400]
+        if not keep and h:
+            keep = h[-1:]
+        if keep:
+            out[k] = keep
+    return out
+
+
 # ── 最新一場比賽（2026-09-10 #98；純函式，scripts/update_health_test.py 在測）──────────
 # 為什麼門檻鬆到 75 天：**LOL 的空窗期本來就很長**，2026-09-10 實測全庫 3219 個比賽日，
 # 最長的無比賽間隔是 69 天（2022-11-06 → 2023-01-14），其次 55、44、35、31。
@@ -1584,8 +1663,14 @@ def main():
         print("   %-22s %s%s" % (k, "－" if v is None else v, flag))
     # 資料檔體積（#100）：上面 18 個指標之外，根目錄那 50 幾個資料檔一個都沒被量過
     fs = file_sizes()
-    sline, sbad = size_problems(prev.get("sizes") or {}, fs)
+    # 滾動視窗檔（#186）跟近 7 天的高水位比；放寬了就要印出來（#178：沒聲音的放過＝假綠）
+    _snow = time.time()
+    szb, szroll = rolling_bases(prev.get("sizes") or {}, prev.get("size_hist") or {}, _snow)
+    sline, sbad = size_problems(szb, fs)
     print("   " + sline)
+    for _k, (_b, _hw) in sorted(szroll.items()):
+        print("   └ %s 是滾動視窗（內容只有最近幾天、體積跟著淡旺季走）⇒ 跟近 %d 天的高水位 %d bytes 比、現在 %s；"
+              "全期高水位 %s 只留作紀錄" % (_k, ROLLING_DAYS, _b, fs.get(_k), _hw))
     bad += sbad
     # 最新一場比賽（#98）：列數擋「變少」，這行擋「不再變多」
     lline, lbad = latest_problems(prev.get("latest") or {}, lt, time.time())
@@ -1670,6 +1755,7 @@ def main():
                    "stats": merge_stat_cells(prev.get("stats") or {}, sc, accept),
                    "last_stats": sc,
                    "sizes": merge_sizes(prev.get("sizes") or {}, fs, accept),
+                   "size_hist": merge_size_hist(prev.get("size_hist") or {}, fs, szb, _snow, accept),
                    "steps": merge_steps(prev.get("steps") or [], step_names(lg), accept),
                    "last_steps": step_names(lg),
                    "last_sizes": fs,
