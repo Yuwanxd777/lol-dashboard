@@ -262,6 +262,12 @@ def main():
     corePGames = defaultdict(list)  # 英雄 -> [(t, (該場常用道具tuple))]：算 coreP(版本趨勢用；含大裝＋鞋＋起手裝，如多蘭之盔)
     ksPGames = defaultdict(list)    # 英雄 -> [(t, keystone id)]：算 ksP（版本趨勢/Tier 邊框用「前三版關鍵符文」；2026-08-18 使用者：刀鋒之雹 26.16 被削、卡蜜兒趨勢沒標）
     chGames = defaultdict(list)     # 英雄 -> 逐場（積分版英雄詳情「出場紀錄」用；輸出時每英雄取最近 100 場）
+    # 符文頁去重表（2026-09-21 使用者：英雄頁「符文」欄滑過去要看完整符文頁，跟積分逐場同款）。
+    # 逐場檔 soloq_matches/pN.js 才有 rp/rs/rst，但英雄層級的表不可能一次載上百個檔
+    # ⇒ 在這裡多存一個「符文頁編號」。**整頁十個數字直接寫進每一列會讓檔案多 ~700KB**
+    # （17000 列 × 8 個數字），而實際用到的組合只有幾千種 ⇒ 存成共用表＋每列一個索引。
+    runePages = {}                  # (rp4, rs3, rst3) 攤平的 tuple -> 編號
+    runePageList = []               # 編號 -> 那個 tuple
     scanned = 0
     for fp in glob.glob(os.path.join(OUTDIR, "*.js")):
         txt = open(fp, encoding="utf-8").read()
@@ -333,13 +339,25 @@ def main():
             _rsA = _get("rs") or []; _rpA = _get("rp") or []
             _rsf = [x for x in _rsA if x]          # #79：原本 next(...) 與下面的 _rs3 各掃一次 rs，合併成一次
             _rs2 = _rsf[0] if _rsf else None
+            # 符文頁編號（第 17 欄）：主系 4＋副系 3（第一個是系）＋碎片 3，湊不齊就補 None。
+            # 只要有主系就登錄——碎片舊資料可能沒有，不該因此整頁不給看。
+            _rpg = None
+            if _rpA:
+                _key = (tuple(_rpA[:4]) + (None,) * max(0, 4 - len(_rpA[:4]))
+                        + tuple(_rsA[:3]) + (None,) * max(0, 3 - len(_rsA[:3]))
+                        + tuple((_get("rst") or [])[:3]))
+                _rpg = runePages.get(_key)
+                if _rpg is None:
+                    _rpg = runePages[_key] = len(runePageList)
+                    runePageList.append(_key)
             vsL.append((_gt, c, _opp or "", pkey))
             chGames[c].append((_gt, pkey, LANE_AB.get(_hl, ""),
                                win, _k, _de, _a,
                                (round(_kp) if _kp is not None else None), _opp or "",
                                _gd, _xd, _get("sc"), _r, _rs2,
                                "".join([SK_DIGIT[v] for v in (_get("sk") or [])[:20] if v in SK_DIGIT]),  # 第15欄=點法數字串(1=Q2=W3=E4=R)
-                               _du or ""))  # 第16欄=搭檔英雄（積分配對詳情的逐場過濾用；依 dul 路線對應）
+                               _du or "",   # 第16欄=搭檔英雄（積分配對詳情的逐場過濾用；依 dul 路線對應）
+                               _rpg))       # 第17欄=符文頁編號（查 window.SOLOQ_RUNEPAGES；沒有就 null）
             _su = [x for x in (_get("su") or []) if x]
             if len(_su) == 2:
                 _sp2 = tuple(sorted(_su)); suCnt[c][_sp2] += 1
@@ -578,10 +596,22 @@ def main():
     print(f"完成：{len(champs)} 英雄 / {len(items)} 道具 / {len(runes)} 符文（掃 {scanned} 場）→ {OUT}（{os.path.getsize(OUT)/1024:.0f} KB）")
     # 積分版英雄詳情「出場紀錄」：每英雄最近 100 場（延遲載入檔，開積分英雄詳情才載）
     cg = {c: [list(r) for r in sorted(chGames[c], key=lambda x: -x[0])[:100]] for c in chGames if games[c] >= MIN_GAMES}
+    # 符文頁表只留「真的被留下來的那 100 場」用到的（全庫幾萬種、輸出只用得到幾千種）→ 重新編號
+    _keep, _remap = [], {}
+    for _rows in cg.values():
+        for _r in _rows:
+            _i = _r[16]
+            if _i is None: continue
+            _n = _remap.get(_i)
+            if _n is None:
+                _n = _remap[_i] = len(_keep); _keep.append(list(runePageList[_i]))
+            _r[16] = _n
     OUT2 = os.path.join(ROOT, "soloq_champ_games.js")
     with open(OUT2, "w", encoding="utf-8") as f:
+        # 符文頁共用表寫在前面：index.html 讀到 SOLOQ_CHGAMES 時就要查得到
+        f.write("window.SOLOQ_RUNEPAGES=" + json.dumps(_keep, ensure_ascii=False) + ";\n")
         f.write("window.SOLOQ_CHGAMES=" + json.dumps(cg, ensure_ascii=False) + ";\n")
-    print(f"出場紀錄：{len(cg)} 英雄 × 最近100場 → {OUT2}（{os.path.getsize(OUT2)/1024:.0f} KB）")
+    print(f"出場紀錄：{len(cg)} 英雄 × 最近100場、符文頁 {len(_keep)} 種 → {OUT2}（{os.path.getsize(OUT2)/1024:.0f} KB）")
     # 帳號改名史：dpm 沒有「歷史 ID」端點，但逐場都帶著該局當下的 Riot ID(rid) → 逐場掃出來就是改名史。
     # 只留真的改過名的選手（同一 key 出現 2 個以上 ID），每個 ID 記場數與最早/最晚出現時間。
     # 掛在這支腳本是因為它本來就要讀完整個 soloq_matches（203MB），不值得為此再掃一次。

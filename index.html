@@ -1540,6 +1540,20 @@ const runeKS=(g,s)=>{ // 積分逐場符文欄：主符文 keystone＋右下角�
   return `<span style="position:relative;display:inline-block;line-height:0">${main}<img loading="lazy" title="${esc(tr.name)}" src="https://ddragon.leagueoflegends.com/cdn/img/${tr.icon}" style="position:absolute;right:-3px;bottom:-2px;width:${bs}px;height:${bs}px;border-radius:50%;background:#0d1117;border:1px solid #33405c;padding:1px;box-sizing:content-box" onerror="this.remove()"></span>`;
 };
 const statShardImg=(id,s)=>{const ic=STAT_SHARD[id]; return ic?`<img loading="lazy" src="https://ddragon.leagueoflegends.com/cdn/img/perk-images/${ic}" style="width:${s||16}px;height:${s||16}px;vertical-align:middle" onerror="this.style.visibility='hidden'">`:"";};
+// 完整符文頁 hover（積分逐場與英雄頁出場紀錄共用；使用者 2026-09-21：英雄頁符文欄滑過去也要看得到）。
+// 吃 g.rp（主系 4 顆）／g.rs（副系，第一個是「系」本身）／g.rst（碎片 3 顆）；只有關鍵符文的舊資料退成單圖。
+const runePageTip=g=>{ if(!g)return ""; const en2=LANG==="en";
+  const hasRp=!!(g.rp&&g.rp.length); if(!hasRp&&g.r==null)return "";
+  const line=(ids,sz)=>(ids||[]).filter(x=>x!=null).map(x=>runeImg(x,sz)).join(" ");
+  const shard=(g.rst||[]).filter(x=>x!=null).map(x=>statShardImg(x,16)).join(" ");
+  if(!hasRp)return `<div class="tipTitle">${en2?"Keystone":"關鍵符文"}</div><div>${runeImg(g.r,30)}</div>`;
+  const row=(lb,inner)=>`<div style="display:flex;align-items:center;gap:6px;margin:8px 0"><b class="meta" style="width:44px">${lb}</b>${inner}</div>`;
+  return `<div class="tipTitle">${en2?"Runes":"符文頁"}</div>`+row(en2?"Primary":"主系",line(g.rp,26))
+    +row(en2?"Secondary":"副系",line(g.rs,24))+(shard?row(en2?"Shards":"碎片",shard):""); };
+// 出場紀錄的符文頁：整頁十個數字去重存在 SOLOQ_RUNEPAGES（build_soloq_builds.py），逐場只存編號
+const runePageOf=i=>{ const T=window.SOLOQ_RUNEPAGES, a=(i==null||!T)?null:T[i]; if(!a)return null;
+  const f=(x,y)=>a.slice(x,y).filter(v=>v!=null);
+  return {rp:f(0,4),rs:f(4,7),rst:f(7,10)}; };
 // 技能加點：skillLevelUps=[2,1,3,1,...]（1=Q 2=W 3=E 4=R）→ 主副技能順序(依基本技能練滿先後)
 const SKL=["","Q","W","E","R"], SKC={Q:"#4aa3ff",W:"#38c172",E:"#f5b942",R:"#ff5d6c"};
 function skillMainOrder(sk){ if(!sk||!sk.length)return []; const seen=[],cnt={1:0,2:0,3:0,4:0};
@@ -7319,7 +7333,7 @@ function sqHeroDetail(cid){
     // r[12]＝關鍵符文、r[13]＝副系第一顆符文（2026-07-31 起 build_soloq_builds.py 多存的兩欄）。
     // rs 包成陣列是為了直接餵 runeKS（它吃 g.rs 陣列、取第一個有值的反查副系）；
     // 舊檔沒有這兩欄時是 undefined／空陣列，runeKS 會只畫主符文、不會壞。
-    let list=(CG[cid]||[]).map(r=>({t:r[0],pkey:r[1]||"",pos:POS1[r[2]]||"",won:!!r[3],k:r[4],de:r[5],a:r[6],kp:r[7],och:r[8]||"",gd15:r[9],xd15:r[10],sc:r[11],r:r[12],rs:r[13]==null?[]:[r[13]],sk:r[14]||""}));
+    let list=(CG[cid]||[]).map(r=>({t:r[0],pkey:r[1]||"",pos:POS1[r[2]]||"",won:!!r[3],k:r[4],de:r[5],a:r[6],kp:r[7],och:r[8]||"",gd15:r[9],xd15:r[10],sc:r[11],r:r[12],rs:r[13]==null?[]:[r[13]],sk:r[14]||"",...(runePageOf(r[16])||{})}));
     if(V.hdLane)list=list.filter(g=>g.pos===V.hdLane);
     if(V.hdOpp)list=list.filter(g=>g.och===V.hdOpp);
     // 選手篩選（2026-07-31 使用者要求）：pkey＝「隊伍|選手」，只比對選手名，跟職業版同一個 V.hdPlayer
@@ -7352,7 +7366,7 @@ function sqHeroDetail(cid){
       if(cache){
         const PNS2={TOP:"TOP",JUNGLE:"JNG",MIDDLE:"MID",BOTTOM:"BOT",UTILITY:"SUP"};
         list=(cache.matches||[]).filter(g=>g.c===cid).map(g=>({t:g.t,pkey:key,pos:PNS2[g.pos]||"",won:!!g.w,
-          k:g.k,de:g.de,a:g.a,kp:g.kp,och:g.o||"",gd15:g.gd15,xd15:g.xd15,sc:g.sc,r:g.r,rs:g.rs||[],sk:(g.sk||[]).filter(v=>v>=1&&v<=4).slice(0,20).join("")}));
+          k:g.k,de:g.de,a:g.a,kp:g.kp,och:g.o||"",gd15:g.gd15,xd15:g.xd15,sc:g.sc,r:g.r,rs:g.rs||[],rp:g.rp||[],rst:g.rst||[],sk:(g.sk||[]).filter(v=>v>=1&&v<=4).slice(0,20).join("")}));
         if(V.hdLane)list=list.filter(g=>g.pos===V.hdLane);
         if(V.hdOpp)list=list.filter(g=>g.och===V.hdOpp);
       } else list=list.filter(g=>String(g.pkey).split("|")[1]===V.hdPlayer);
@@ -7387,7 +7401,7 @@ function sqHeroDetail(cid){
         <td>${g.won?`<span style="color:#ff6b6b">${en?"W":"勝"}</span>`:`<span style="color:#6ea8ff">${en?"L":"敗"}</span>`}</td>
         <td>${g.k}/${g.de}/${g.a}</td>
         ${cell(g.gd15)}${cell(g.xd15)}
-        <td>${runeKS(g,26)}</td>
+        <td class="sqRuneR" data-rk="${g.r==null?"":g.r}" data-rune="${[(g.rp||[]).join(","),(g.rs||[]).join(","),(g.rst||[]).join(",")].join(";")}">${runeKS(g,26)}</td>
         <td class="sqSkillR" data-sks="${g.sk||""}" style="white-space:nowrap">${g.sk?[...String(g.sk)].slice(0,5).map(s=>`<b style="color:${SKC[SKL[+s]]||"#cdd6e6"}">${SKL[+s]}</b>`).join('<span style="color:#5a6784">·</span>'):'<span class="meta">—</span>'}</td>
         <td class="mvOpp" data-och="${esc(g.och)}" data-t="${g.t||""}"><span class="heroname">${g.och?cImg(g.och):""}${g.och?(cAb(g.och)||esc(chName(champId(g.och))||g.och)):"—"}</span></td>
         <td>${g.sc==null?"—":`<b style="color:${scCol(g.sc)}" title="${g.sc}">${Math.round(g.sc)}</b>`}</td></tr>`).join("")
@@ -7439,6 +7453,15 @@ function sqHeroDetail(cid){
     td.addEventListener("mouseleave",tipHide);
   });
   // 點法 hover：全場逐級點法（與積分逐場詳情同款：主副標示＋每 6 等換行 6/6/8）
+  // 符文 hover：完整符文頁（與積分逐場詳情同款；2026-09-21 使用者要求）
+  document.querySelectorAll(".recTbl td.sqRuneR[data-rune]").forEach(el=>{
+    const p=String(el.dataset.rune||"").split(";").map(x=>x?x.split(",").map(Number).filter(v=>v>0):[]);
+    const html=runePageTip({r:el.dataset.rk?+el.dataset.rk:null,rp:p[0]||[],rs:p[1]||[],rst:p[2]||[]});
+    if(!html)return;
+    el.style.cursor="default";
+    el.onmouseenter=()=>tipShow(html,el.getBoundingClientRect(),"up");
+    el.onmouseleave=tipHide;
+  });
   document.querySelectorAll(".recTbl td.sqSkillR[data-sks]").forEach(el=>{
     const seq=[...(el.dataset.sks||"")].map(Number).filter(v=>v>=1&&v<=4);
     if(!seq.length)return;
@@ -7597,7 +7620,7 @@ function sqPairDetail(key){
   }else{
     const POS1={T:"TOP",J:"JNG",M:"MID",B:"BOT",U:"SUP"};
     const pick=(cid,wantPos,mate)=>(CG[cid]||[]).filter(r=>POS1[r[2]]===wantPos&&(r[15]||"")===mate)
-      .map(r=>({t:r[0],pkey:r[1]||"",pos:POS1[r[2]]||"",ch:cid,won:!!r[3],k:r[4],de:r[5],a:r[6],kp:r[7],och:r[8]||"",gd15:r[9],xd15:r[10],sc:r[11],r:r[12],rs:r[13]==null?[]:[r[13]],sk:r[14]||""}));
+      .map(r=>({t:r[0],pkey:r[1]||"",pos:POS1[r[2]]||"",ch:cid,won:!!r[3],k:r[4],de:r[5],a:r[6],kp:r[7],och:r[8]||"",gd15:r[9],xd15:r[10],sc:r[11],r:r[12],rs:r[13]==null?[]:[r[13]],sk:r[14]||"",...(runePageOf(r[16])||{})}));
     let list=[...pick(cA,mainL,cB),...pick(cB,subL,cA)];
     // 選手篩選（與單人詳情同一個 V.hdPlayer）
     plOpts=(()=>{ const c=new Map(),tm={};
@@ -7630,7 +7653,7 @@ function sqPairDetail(key){
         <td>${g.won?`<span style="color:#ff6b6b">${en?"W":"勝"}</span>`:`<span style="color:#6ea8ff">${en?"L":"敗"}</span>`}</td>
         <td>${g.k}/${g.de}/${g.a}</td>
         ${cell(g.gd15)}${cell(g.xd15)}
-        <td>${runeKS(g,26)}</td>
+        <td class="sqRuneR" data-rk="${g.r==null?"":g.r}" data-rune="${[(g.rp||[]).join(","),(g.rs||[]).join(","),(g.rst||[]).join(",")].join(";")}">${runeKS(g,26)}</td>
         <td class="sqSkillR" data-sks="${g.sk||""}" style="white-space:nowrap">${g.sk?[...String(g.sk)].slice(0,5).map(s=>`<b style="color:${SKC[SKL[+s]]||"#cdd6e6"}">${SKL[+s]}</b>`).join('<span style="color:#5a6784">·</span>'):'<span class="meta">—</span>'}</td>
         <td class="mvOpp" data-och="${esc(g.och)}" data-ch="${esc(g.ch)}" data-t="${g.t||""}"><span class="heroname">${g.och?cImg(g.och):""}${g.och?(cAb(g.och)||esc(chName(champId(g.och))||g.och)):"—"}</span></td>
         <td>${g.sc==null?"—":`<b style="color:${scCol(g.sc)}" title="${g.sc}">${Math.round(g.sc)}</b>`}</td></tr>`).join("")
@@ -7675,6 +7698,15 @@ function sqPairDetail(key){
     td.addEventListener("mouseleave",tipHide);
   });
   // 點法 hover：全場逐級點法（與單人詳情同款）
+  // 符文 hover：完整符文頁（與積分逐場詳情同款；2026-09-21 使用者要求）
+  document.querySelectorAll(".recTbl td.sqRuneR[data-rune]").forEach(el=>{
+    const p=String(el.dataset.rune||"").split(";").map(x=>x?x.split(",").map(Number).filter(v=>v>0):[]);
+    const html=runePageTip({r:el.dataset.rk?+el.dataset.rk:null,rp:p[0]||[],rs:p[1]||[],rst:p[2]||[]});
+    if(!html)return;
+    el.style.cursor="default";
+    el.onmouseenter=()=>tipShow(html,el.getBoundingClientRect(),"up");
+    el.onmouseleave=tipHide;
+  });
   document.querySelectorAll(".recTbl td.sqSkillR[data-sks]").forEach(el=>{
     const seq=[...(el.dataset.sks||"")].map(Number).filter(x=>x>=1&&x<=4);
     if(!seq.length)return;
@@ -15256,11 +15288,7 @@ function render(){
         const rows=groups.map(gr=>`<span style="display:inline-flex;flex-direction:column;align-items:center;margin:2px 5px"><span style="display:flex;gap:3px;background:rgba(255,255,255,.07);border-radius:6px;padding:3px 4px">${gr.ids.map(id=>itemImg(id,26)).join("")}</span><span class="meta" style="font-size:10px;margin-top:2px">${mmss(gr.t)}</span></span>`).join(""); // 同一時間段購買的裝備背後上淡白底、圈成一組
         return `<div class="tipTitle">${en?"Build order":"出裝順序"} <span class="meta">${g.ib.length} ${en?"buys":"件"}</span></div><div style="display:flex;flex-wrap:wrap;align-items:flex-start;max-width:460px">${rows}</div>`; };
       const skill3HTML=sk=>(sk&&sk.length)?sk.slice(0,5).map(s=>`<b style="color:${SKC[SKL[s]]||"#cdd6e6"}">${SKL[s]}</b>`).join('<span style="color:#5a6784">·</span>'):'<span class="meta">—</span>'; // 前 5 點
-      const runePageHTML=g=>{ if(!(g.rp&&g.rp.length)&&g.r==null)return ""; const en=LANG==="en"; // 完整符文頁(新資料才有 rp/rs/rst)
-        const line=(ids,sz)=>(ids||[]).filter(x=>x!=null).map(x=>runeImg(x,sz)).join(" ");
-        const shard=(g.rst||[]).filter(x=>x!=null).map(x=>statShardImg(x,16)).join(" ");
-        if(!(g.rp&&g.rp.length))return `<div class="tipTitle">${en?"Keystone":"關鍵符文"}</div><div>${runeImg(g.r,30)}</div>`;
-        return `<div class="tipTitle">${en?"Runes":"符文頁"}</div><div style="display:flex;align-items:center;gap:6px;margin:8px 0"><b class="meta" style="width:44px">${en?"Primary":"主系"}</b>${line(g.rp,26)}</div><div style="display:flex;align-items:center;gap:6px;margin:8px 0"><b class="meta" style="width:44px">${en?"Secondary":"副系"}</b>${line(g.rs,24)}</div>${shard?`<div style="display:flex;align-items:center;gap:6px;margin:8px 0"><b class="meta" style="width:44px">${en?"Shards":"碎片"}</b>${shard}</div>`:""}`; };
+      const runePageHTML=runePageTip; // 與英雄頁出場紀錄共用同一支（見 runePageTip），兩邊不會漂移
       const hc=(k,lb)=>k?`<div data-gsort="${k}" class="sqSortH">${lb}${gArrow(k)}</div>`:`<div>${lb}</div>`;
       const sqHead=`<div class="sqHead sqCols">${hc("date",en?"Date":"日期")}${hc("dur",en?"Time":"時長")}${hc("champ",en?"Champ":"英雄")}${hc("opp",en?"Vs":"對位英雄")}${hc(null,en?"Vs player":"對位人員")}${hc("kda","K/D/A")}${hc("kp",en?"KP%":"參與率")}${hc("fl2",en?"Lv2":"搶二")}${hc("gd15",en?"GD@15":"金差@15")}${hc("xd15",en?"XPD@15":"經差@15")}${hc(null,en?"Summs":"召喚師")}${hc("rune",en?"Rune":"符文")}${hc(null,en?"Skills":"技能")}${hc(null,en?"Items":"出裝")}${hc("score",en?"Score":"評分")}</div>`;
       // 對位人員：查同場（gameCreation 相同）的收錄選手；索引還沒載完顯示 …、查無＝路人
