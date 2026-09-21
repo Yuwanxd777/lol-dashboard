@@ -14,6 +14,9 @@
 發現歸屬到「分頁／劇本」（例：`英雄／詳情`、`圖鑑／道具詳情`、`歷史2025／圖鑑`）。
 漏中文（cjk）同一種語言只記一次、歸屬給第一個看到它的劇本（第一趟 314 筆裡 22 段文字重複掛在後面的劇本上）；
 每個劇本的 COLLECT 最多收 40 段中文（圖鑑那幾頁遠不止 40，報告要寫「至少 40」）。
+#183 起英文那輪頂到上限後**繼續數**（只數不收，收進資料庫的 40 段不變），實際段數記在 run 紀錄的
+`cjk_cap`（{畫面: {n, partial}}），終端輸出與 --report 都會印；partial＝節點或 8 秒上限到了沒數完（「至少 n」）。
+改 COLLECT 之後跑 `python autopilot/_m183_cjk_cap_test.py`（真頁面：新舊版收進的 40 段逐字相同＋數得出實數）。
 劇本用的是真的 DOM 點擊／事件（不是直接改 V 再 render），元素找不到就記成「略過」印出來（頁面改版時才看得到）。
 
 **互動層的正控制**（掃描器自己會不會壞）：英文那一輪的最後，在 #fHelp 上掛一個探針監聽器
@@ -118,10 +121,15 @@ def report(db):
             L.append("- %s／%s：%s　（%d 輪）" % (v["tab"], v["lang"], v["text"][:80], v["count"]))
         if len(items) > 12:
             L.append("- …另 %d 筆見 autopilot/SITE_FINDINGS.md" % (len(items) - 12))
+        if kind == "cjk" and last.get("cjk_cap"):
+            L.append("- 每個畫面只記 40 段；頂到上限的畫面實際段數（最近一輪）：" + "／".join(cap_lines(last["cjk_cap"])))
     return "\n".join(L) + tail
 
 
-COLLECT = r"""() => {
+# full＝true（只有英文那輪）：40 段收滿之後**繼續往下數**（只數不收）、最後補一筆 cjk_total 回報這個畫面實際有幾段，
+# 報告才寫得出「至少 40 → 實際 N」（#183：圖鑑六個畫面頂到 40 上限，真實數量沒人知道）。
+# 收進資料庫的 40 段與舊版逐字相同（同一個 4000 節點上限、同一個先後順序）⇒ 指紋不變、不會多出一批假的新增／消失。
+COLLECT = r"""(full) => {
   const out = [];
   const vis = el => { const cs = getComputedStyle(el); if (cs.display === 'none' || cs.visibility === 'hidden') return false;
                       const r = el.getBoundingClientRect(); return r.width > 2 && r.height > 2; };
@@ -135,9 +143,12 @@ COLLECT = r"""() => {
   const cjk = /[一-鿿㐀-䶿]/;
   const seen = new Set();
   const walker = document.createTreeWalker(document.querySelector('#main') || document.body, NodeFilter.SHOW_TEXT);
-  let n; let cnt = 0;
-  while ((n = walker.nextNode()) && cnt < 4000) {
+  let n; let cnt = 0; let capped = false;
+  const NODE_MAX = full ? 200000 : 4000, t0 = performance.now();
+  while ((n = walker.nextNode()) && cnt < NODE_MAX) {
     cnt++;
+    if (!capped && (cnt > 4000 || seen.size >= 40)) { capped = true; if (!full) break; }
+    if (capped && performance.now() - t0 > 8000) break;
     const t = (n.textContent || '').trim();
     if (!t || !cjk.test(t)) continue;
     const el = n.parentElement; if (!el || !vis(el)) continue;
@@ -146,10 +157,14 @@ COLLECT = r"""() => {
     if (el.closest('script,style,noscript,[lang="zh"],.zhOnly,.acctLink,a.acctLink,.jgPlayer')) continue;
     const key = t.slice(0, 40);
     if (seen.has(key)) continue; seen.add(key);
+    if (capped) continue;   // 上限之後只數不收
     const tag = el.tagName.toLowerCase() + (el.className && typeof el.className === 'string' ? '.' + el.className.split(' ')[0] : '');
     out.push({kind: 'cjk', text: key + '  <' + tag + '>'});
-    if (seen.size >= 40) break;
   }
+  // 真的有漏記（實際段數 > 收進去的）才回報；只是節點超過 4000 但後面沒有新中文的畫面不算頂到上限。
+  // n 還沒走完（節點或時間上限）＝ partial：實際數量「至少」這麼多
+  const kept = out.filter(o => o.kind === 'cjk').length;
+  if (full && capped && seen.size > kept) out.push({kind: 'cjk_total', n: seen.size, kept: kept, nodes: cnt, partial: !!n});
   // ④ 分頁空白
   const m = document.querySelector('#main');
   const len = m ? (m.textContent || '').replace(/\s+/g, '').length : 0;
@@ -295,6 +310,7 @@ def scan(opts):
     langs_done = 0
     scn_done = {}       # lang -> 跑到的劇本數
     scn_skip = []       # "lang／分頁／劇本：哪一步找不到"
+    cjk_cap = {}        # 英文模式頂到 40 上限的畫面 -> {"n": 實際段數, "partial": 沒數完}
     pc_ok = None
     try:
         with sync_playwright() as pw:
@@ -326,7 +342,11 @@ def scan(opts):
                 seen_cjk = set()   # 這種語言已收過的漏中文：同一段中文在後面的劇本再出現不重複記（歸屬給第一個看到它的劇本）
 
                 def collect(label):
-                    for it in pg.evaluate(COLLECT):
+                    for it in pg.evaluate(COLLECT, lang == "en"):
+                        if it["kind"] == "cjk_total":   # 不是發現：這個畫面頂到 40 上限，實際段數記在這一輪的 run 紀錄
+                            if sink is found:
+                                cjk_cap[label] = {"n": it["n"], "partial": it["partial"]}
+                            continue
                         if it["kind"] == "cjk":
                             if lang != "en" or it["text"] in seen_cjk:
                                 continue
@@ -422,7 +442,13 @@ def scan(opts):
         print("   正控制（互動層）：" + "／".join("%s %s" % (n, "✓" if ok else "✗") for n, ok in checks))
         if not pc_ok:
             print("   ⇒ 掃描器有問題（互動層），下面的結果不可信")
-    return found, tabs_seen, langs_done, scn_done, scn_skip, pc_ok
+    return found, tabs_seen, langs_done, scn_done, scn_skip, pc_ok, cjk_cap
+
+
+def cap_lines(cap):
+    """頂到 40 上限的畫面：實際段數由多到少（報告與終端輸出共用）。"""
+    return ["%s %s%d 段" % (lb, "至少 " if v.get("partial") else "", v["n"])
+            for lb, v in sorted(cap.items(), key=lambda kv: -kv[1]["n"])]
 
 
 def main():
@@ -434,7 +460,7 @@ def main():
     if "--tabs" in sys.argv:
         opts["tabs"] = sys.argv[sys.argv.index("--tabs") + 1].split(",")
     t0 = time.time()
-    found, tabs, langs_done, scn_done, scn_skip, pc_ok = scan(opts)
+    found, tabs, langs_done, scn_done, scn_skip, pc_ok, cjk_cap = scan(opts)
     now = time.strftime("%Y-%m-%d %H:%M")
     fps = set()
     new, still = [], []
@@ -458,7 +484,8 @@ def main():
     scn_total = sum(scn_done.values())
     db["runs"].append({"at": now, "tabs": len(tabs), "langs": langs_done, "found": len(found), "new": len(new),
                        "gone": len(gone), "secs": round(time.time() - t0),
-                       "scn": scn_total, "scn_by_lang": scn_done, "scn_skip": scn_skip[:60], "pc": pc_ok})
+                       "scn": scn_total, "scn_by_lang": scn_done, "scn_skip": scn_skip[:60], "pc": pc_ok,
+                       "cjk_cap": cjk_cap})
     db["runs"] = db["runs"][-200:]
     if not opts.get("pc_dry"):
         save(db)
@@ -470,6 +497,8 @@ def main():
         print("   + %s／%s／%s：%s" % (v["tab"], v["lang"], v["kind"], v["text"][:90]))
     if len(new) > 15:
         print("   …另 %d 筆新增" % (len(new) - 15))
+    if cjk_cap:
+        print("  英文模式漏中文頂到 40 上限的畫面 %d 個，實際段數：%s" % (len(cjk_cap), "／".join(cap_lines(cjk_cap))))
     if scn_skip:
         print("  略過的劇本 %d 個（元素找不到）：" % len(scn_skip))
         for s in scn_skip[:20]:
