@@ -63,6 +63,23 @@ rem python has closed the file by now, so folding the verdict into the daily log
 type update_health_log.txt >> update_log.txt
 rem ---- end of health check block ----
 
+rem per-shift log archive (line 3, 2026-09-21). update.bat overwrites update_log.txt on its
+rem very first line, so every shift's log only lives until the next shift starts. On 09-17
+rem 22:00 a shift never published; by the time anyone looked (09-21) the log, the console file
+rem and the health log had each been overwritten five times and HEALTH_ALERT.txt had been
+rem auto-deleted by a later clean shift - the cause is gone for good. Archiving used to be a
+rem thing the improvement loop did by hand, so a loop that stops running means no evidence at
+rem all. Doing it here means every shift keeps its own copy no matter who is watching.
+rem Runs LAST on purpose: the git lines and the health verdict are already in update_log.txt
+rem by now, so the archived copy is the whole shift. Archiving halfway through gives you
+rem update_log_20260909_2200.txt, which stops at the run_update summary and can never tell
+rem you whether that shift published.
+rem Advisory only - exit code ignored, it can never block or delay a publish. Its stdout goes
+rem to its OWN file: never redirect into update_log.txt (this script READS that file, and
+rem cmd's lock on it is exactly what broke the 2026-09-06 run; see CLAUDE.md rule 13).
+python scripts\shift_log_archive.py --from-publish > shift_archive_log.txt 2>&1
+rem ---- end of shift archive block ----
+
 rem exit code: 0 = pushed, 1 = preflight blocked the push (the health check ran either way)
 if "%PUBRC%"=="0" (
   echo publish done. see update_log.txt for details.

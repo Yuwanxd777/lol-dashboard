@@ -18,7 +18,11 @@
   守門 0 ／健檢 1 → git 三行都跑、留警示檔、離開碼**仍是 0**（健檢只告知不擋發布）
   守門 1 ／健檢 1 → **git 一行都不跑**、**健檢照樣跑**、留警示檔、離開碼 1
   守門 1 ／健檢 0 → git 不跑、健檢照樣跑、舊警示檔被清掉、離開碼 1
-再加四個突變對照（防恆綠），其中「set PUBRC=1 改回 exit /b 1」就是修好之前的原樣。
+2026-09-21 #179 起同一段還多了「每班自己留底」（publish.bat 最末段叫 shift_log_archive.py），
+所以四種組合也一起驗：留底每一班都跑到、輸出在自己的檔、帶 --from-publish、
+而且排在最後（抄到的那份含得到健檢結論與 PREFLIGHT FAILED）。
+
+再加七個突變對照（防恆綠），其中「set PUBRC=1 改回 exit /b 1」就是修好之前的原樣。
 最後一節是跨檔契約：真的 update_health.py 讀到 PREFLIGHT FAILED 必須 return 1
 （.bat 只負責把它叫起來，判斷是誰壞了要看得出來）。
 
@@ -65,6 +69,22 @@ FAKE_GIT = (
     "import sys\n"
     "print('FAKEGIT ' + ' '.join(sys.argv[1:]))\n"
 )
+# 2026-09-21 #179：publish.bat 最末段多了「每班自己留底」。假的歸檔器只做兩件事——
+# 把當下的 update_log.txt 原封不動抄一份出來、印一行證明自己跑過——這樣就測得出
+# ①它每一班都跑（**尤其是守門擋下、沒發布的那一班**，那正是最需要證據的一班）
+# ②它排在整支的最後（抄到的那一份要含得到健檢結論）。
+ARCHIVE_STUB = (
+    "# -*- coding: utf-8 -*-\n"
+    "import io, os, sys\n"
+    "sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')\n"
+    "root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))\n"
+    "txt = io.open(os.path.join(root, 'update_log.txt'), encoding='utf-8',\n"
+    "              errors='replace').read()\n"
+    "d = os.path.join(root, 'autopilot', 'shift_logs')\n"
+    "os.makedirs(d, exist_ok=True)\n"
+    "io.open(os.path.join(d, 'archived.txt'), 'w', encoding='utf-8').write(txt)\n"
+    "print('FAKEARCHIVE ' + ' '.join(sys.argv[1:]))\n"
+)
 OLD_LOG = "==== previous run ====\r\n舊的日誌內容不可以被蓋掉\r\n"
 
 FAILS = []
@@ -89,6 +109,8 @@ def build(block):
             encoding="utf-8", newline="\n").write(PRE_STUB)
     io.open(os.path.join(TMP, "scripts", "update_health.py"), "w",
             encoding="utf-8", newline="\n").write(HEALTH_STUB)
+    io.open(os.path.join(TMP, "scripts", "shift_log_archive.py"), "w",
+            encoding="utf-8", newline="\n").write(ARCHIVE_STUB)
     io.open(os.path.join(TMP, "fakegit.py"), "w",
             encoding="utf-8", newline="\n").write(FAKE_GIT)
     io.open(os.path.join(TMP, "update_log.txt"), "w",
@@ -126,6 +148,12 @@ def scenario(block, label, expect_pass=True):
     ck(read("autopilot/HEALTH_ALERT.txt") is None, "沒有警示檔")
     ck("結論：假健檢的結論字串" in lg, "健檢結論折進 update_log.txt")
     ck("舊的日誌內容不可以被蓋掉" in lg, "原有日誌內容還在")
+    ar = read("shift_archive_log.txt") or ""
+    ck("FAKEARCHIVE" in ar, "留底有跑（有自己的 log，沒有導回 update_log.txt）")
+    ck("--from-publish" in ar, "留底帶 --from-publish（台帳分得出是班次還是手動）")
+    ck("FAKEARCHIVE" not in lg, "留底的輸出沒有混進 update_log.txt")
+    ck("結論：假健檢的結論字串" in (read("autopilot/shift_logs/archived.txt") or ""),
+       "留底排在最後：歸檔的那一份含得到健檢結論")
 
     print("[%s] 守門 0 ／健檢 1（資料有異常但守門過了）" % label)
     build(block)
@@ -148,6 +176,10 @@ def scenario(block, label, expect_pass=True):
     ck(al is not None, "**留下 autopilot/HEALTH_ALERT.txt**（迴圈靠它知道上一班有問題）")
     ck(al == hl, "警示檔內容與健檢輸出一致")
     ck("結論：假健檢的結論字串" in lg, "健檢結論一樣折進 update_log.txt")
+    ck("FAKEARCHIVE" in (read("shift_archive_log.txt") or ""),
+       "**留底照樣跑**（沒發布的這一班最需要留證據：09-17 22:00 就是這樣查不到的）")
+    ck("PREFLIGHT FAILED" in (read("autopilot/shift_logs/archived.txt") or ""),
+       "歸檔的那一份寫著 PREFLIGHT FAILED（事後查得出這一班為什麼沒發布）")
 
     print("[%s] 守門 1 ／健檢 0（守門失敗但健檢說乾淨）" % label)
     build(block)
@@ -281,6 +313,16 @@ def main():
          'if "%PUBRC%"=="0" (\r\n  %GIT% add', 'if "%PUBRC%"=="9" (\r\n  %GIT% add'),
         ("拿掉 set PUBRC=0（旗標沒有初始化）",
          "set PUBRC=0\r\n", ""),
+        ("#179：拿掉留底那一行（班次又會只活到下一班）",
+         "python scripts\\shift_log_archive.py --from-publish > shift_archive_log.txt 2>&1\r\n", ""),
+        ("#179：留底只在守門通過時才跑（最需要證據的那一班反而沒有）",
+         "python scripts\\shift_log_archive.py --from-publish > shift_archive_log.txt 2>&1\r\n",
+         'if "%PUBRC%"=="0" (\r\n'
+         "  python scripts\\shift_log_archive.py --from-publish > shift_archive_log.txt 2>&1\r\n"
+         ")\r\n"),
+        ("#179：留底的輸出導回 update_log.txt（鐵則 13；歸檔到的那份也會少掉健檢結論）",
+         "python scripts\\shift_log_archive.py --from-publish > shift_archive_log.txt 2>&1\r\n",
+         "python scripts\\shift_log_archive.py --from-publish >> update_log.txt 2>&1\r\n"),
     ]
     mut_ok = True
     for name, old, new in muts:
