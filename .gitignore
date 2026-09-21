@@ -68,6 +68,8 @@
 !fonts/*.css
 !scripts/*.py
 !scripts/soloq_accounts.json
+# 人工釘住的積分帳號（選手換號、dpm／OBGG 還沒更新時自己補；apply_manual_accounts.py 吃它）
+!scripts/soloq_accounts_manual.json
 !scripts/tr_fix.json
 !scripts/tr_names_extra.json
 !scripts/item_name_fix.json

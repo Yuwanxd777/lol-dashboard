@@ -1217,6 +1217,8 @@ const METRIC_EN={
   "分均承傷":"DTPM","分均視分":"VSPM","BP%":"Presence","禁用率":"Ban%",
   "死亡":"Deaths","分均死亡":"Deaths/min","死亡比":"Death%","被首殺率":"FB victim%",
   "時間":"Time","日期":"Date","聯賽":"League","賽事":"League","使用選手":"Player","勝敗":"Result",
+  // 2026-09-21 迴圈掃到的漏譯：英雄詳情對局表（版本／符文／點法）與近況戰績表（對手／比分）
+  "版本":"Patch","符文":"Runes","點法":"Skill order","對手":"Opponent","比分":"Score",
   "K/D/A":"K/D/A","DPM":"DPM","前期領先":"Early lead","先後選":"Pick order",
   "對位英雄":"Opponent","對位選手":"Opp. player","被禁":"Ban%","上次":"Last","縮寫":"Abbr",
   "賽區":"Region","戰隊全名":"Team name","最後出賽":"Last game",
@@ -3314,7 +3316,16 @@ const NAT_ABBR={China:"CHN","South Korea":"KOR",Korea:"KOR",Japan:"JPN",Vietnam:
 const natAbbrOf=t=>{const m=/^(.+?)\s*\((?:national team|國家隊)\)/i.exec(String(t||"")); if(!m)return "";
   const n=m[1].trim(); return NAT_ABBR[n]||n.replace(/[^A-Za-z]/g,"").slice(0,3).toUpperCase();};
 const lgName=l=>{ if(l&&typeof l==="string"&&/^(LPL|LCK)#/.test(l))return l.slice(0,3)+lplGrpName(l.slice(4)); if(LANG==="en"){ const en={"ALL":"All","中韓":"CN+KR","歐美":"EU+NA","國際賽":"Internationals","LTA N":"LTA North","LTA S":"LTA South","WLDs":"Worlds","FST":"First Stand Tournament",
-    "EWCQ北美":"EWCQ NA","EWCQ歐洲":"EWCQ EU","EWCQ韓國":"EWCQ KR","EWCQ中國":"EWCQ CN","EWCQ太平洋":"EWCQ APAC","EWCQ巴西":"EWCQ BR"}; if(en[l])return en[l]; } return LG_NAME[l]||l; };
+    "EWCQ北美":"EWCQ NA","EWCQ歐洲":"EWCQ EU","EWCQ韓國":"EWCQ KR","EWCQ中國":"EWCQ CN","EWCQ太平洋":"EWCQ APAC","EWCQ巴西":"EWCQ BR",
+    // 世界賽各區資格賽（WQS*）與 2026 新增的兩個賽事碼：碼本身帶中文，英文畫面不能直接印
+    "WQS中國":"Worlds Q CN","WQS韓國":"Worlds Q KR","WQS歐洲":"Worlds Q EU","WQS北美":"Worlds Q NA",
+    "WQS太平洋":"Worlds Q APAC","WQS巴西":"Worlds Q BR","WQS越南":"Worlds Q VN",
+    "亞運":"Asian Games","DCup":"Demacia Cup"}; if(en[l])return en[l]; } return LG_NAME[l]||l; };
+// 賽區名（中文 → 英文）：賽事卡的賽區籤、資格賽段標題都要用
+const REGION_EN={"韓國":"Korea","中國":"China","歐洲":"EMEA","北美":"North America","太平洋":"Pacific",
+  "巴西":"Brazil","拉丁美洲":"Latin America","越南":"Vietnam","日本":"Japan","大洋洲":"Oceania",
+  "土耳其":"Türkiye","獨立國協":"CIS","東南亞":"SEA","台港澳":"Taiwan/HK/Macao","國際":"International"};
+const regionName=r=>(LANG==="en"&&REGION_EN[r])||r;
 const d1s=v=>(+v).toFixed(1).replace(/\.0$/,""); // 一位小數；小數為 0 就不顯示小數點（3.0→3、2.5→2.5）
 // 賽段 → Leaguepedia 頁的連結（wiki_links.js 由 scripts/fetch_wiki_links.py 產：拿 Cargo
 // ScoreboardGames 每一局帶的 OverviewPage 做多數決，查不到的退回抓取管線登記的頁名）。
@@ -3331,7 +3342,12 @@ const spLink=(lg,sp,txt,anyIfMiss)=>{ const h=wikiHref(lg,sp,anyIfMiss);
 const lgTagOn=()=>F.league==="ALL"||!!LG_GROUP[F.league]||F.league==="EWCQ"; // 全部或群組篩選＝混合聯賽 → 名稱旁要標賽區
 const stripRgnParen=s=>String(s).replace(/（[^（）]*）\s*$/,""); // 名稱旁已有賽區色塊(lgChip)時，去掉碰撞縮寫尾端重複的（聯賽碼）；選手名不以（）結尾＝無操作
 // 賽段顯示名：資料值用 " PO" 標季後賽，畫面一律寫成「◯◯季後賽」（2026-07-31 使用者指定）
-const spDisp=sp=>{const t=String(sp||""); return / PO$/.test(t)?t.replace(/ PO$/,"")+(LANG==="en"?" Playoffs":"季後賽"):t;};
+const SPLIT_EN={"熱身賽":"Warm-up","正賽":"Main Event","入圍賽":"Play-In","升降賽":"Promotion",
+  "春季":"Spring","夏季":"Summer","冬季":"Winter","台港澳錦標賽":"Taiwan Regional Finals",
+  "北區":"North","南區":"South","東區":"East","西區":"West","其他":"Other"};
+const spDisp=sp=>{const t=String(sp||""); const po=/ PO$/.test(t), base=po?t.replace(/ PO$/,""):t;
+  const b2=(LANG==="en"&&SPLIT_EN[base])||base;
+  return po?b2+(LANG==="en"?" Playoffs":"季後賽"):b2;};
 const lgChip=l=>{if(!l)return `<span class="meta">—</span>`;const c=LGC[l]||"#8a93a6";
   return `<span class="lg" style="background:${c}22;color:${c}">${lgName(l)}</span>`;};
 // 隊徽（img/teams/{縮寫}.webp＝scripts/fetch_team_logos.py 從 dpm 抓；GEN 的源檔叫 GENG，抓取端已對應）。
@@ -3526,7 +3542,7 @@ const LEAGUE_META={
   IEM:{zh:"IEM",grp:"cup",full:"Intel Extreme Masters"},
   EWC:{zh:"電競世界盃",grp:"cup",full:"Esports World Cup"},
   ENC:{zh:"電競國家盃",grp:"cup",full:"Esports Nations Cup"}, // 2026 新賽事，國家隊形式（使用者定名）
-  "亞運":{zh:"亞運",grp:"cup",full:"Asian Games"},                       // 2026-09-15 補充賽事（國家隊）；沒登記會掉進三級聯賽（leagueMeta 預設）
+  "亞運":{zh:"亞運",en:"Asian Games",grp:"cup",full:"Asian Games"},                       // 2026-09-15 補充賽事（國家隊）；沒登記會掉進三級聯賽（leagueMeta 預設）
   DCup:{zh:"德瑪西亞盃",grp:"cup",region:"中國",full:"Demacia Cup Global Invitational"}, // 2026-09-15 補充賽事（使用者：放到國際賽與盃賽）
   LCK:{zh:"LCK",grp:"t1",tier:1,region:"韓國",full:"League of Legends Champions Korea"},
   LPL:{zh:"LPL",grp:"t1",tier:1,region:"中國",full:"League of Legends Pro League"},
@@ -3850,7 +3866,7 @@ const eventsTreeHTML=()=>{
       mainChips=`<span class="evtPromoDiv evtGrpDiv evtGrpNL"><i>${spLink("EWC","",LANG==="en"?"Main Event":"正賽",true)}</i></span>`
         +chips([...(x._ewcMain||new Set())].filter(t2=>!poSet.has(t2))); // 正賽段不上綠框
       // 各區資格賽是獨立的聯賽碼（EWCQ歐洲…）→ 標籤連到該區資格賽自己的 wiki 頁
-      Object.entries(x._ewcQ).forEach(([rg,set])=>{ mainChips+=segE(spLink("EWCQ"+rg,"",(LANG==="en"?"Qualifier · ":"資格賽·")+esc(rg)),[...set].filter(t2=>!poSet.has(t2)),false,_advAb); });
+      Object.entries(x._ewcQ).forEach(([rg,set])=>{ mainChips+=segE(spLink("EWCQ"+rg,"",(LANG==="en"?"Qualifier · ":"資格賽·")+esc(regionName(rg))),[...set].filter(t2=>!poSet.has(t2)),false,_advAb); });
     }else if((x.lg==="WLDs"||x.lg==="MSI")&&(x.wDates||x._wq)){ // 世界賽/MSI 卡：正賽｜──入圍賽｜──各區資格賽
       // 正賽開始日：世界賽＝首個單日 ≥12 隊（2022 人工定）；MSI＝第一個「空檔日」之後（各年賽程入圍→正賽間都休一天）
       const days=Object.keys(x.wDates||{}).sort();
@@ -3887,7 +3903,7 @@ const eventsTreeHTML=()=>{
         const _wAb=new Set([..._wAll].map(t2=>tAb(t2)));
         const segQ=(lb,arr)=>arr.length?`<span class="evtPromoDiv evtGrpDiv"><i>${lb}</i></span>`+chips(arr,_wAb):"";
         // 各區世界賽資格賽也是獨立聯賽碼（WQS中國…）→ 標籤連到該區資格賽的 wiki 頁
-        Object.entries(x._wq).forEach(([rg,set])=>{ inner+=segQ(spLink("WQS"+rg,"",(LANG==="en"?"Qualifier · ":"資格賽·")+esc(rg)),[...set]); });
+        Object.entries(x._wq).forEach(([rg,set])=>{ inner+=segQ(spLink("WQS"+rg,"",(LANG==="en"?"Qualifier · ":"資格賽·")+esc(regionName(rg))),[...set]); });
       }
       mainChips=inner;
     }else{
@@ -4059,7 +4075,7 @@ const eventsTreeHTML=()=>{
       ${/* 賽段欄是空的賽事（世界賽／MSI／初陣／EWC／KeSPA…）沒有可點的賽段標題 → 讓卡片
             名稱本身連到 wiki（使用者要求 2026-08-01：每個都要連得到）。有賽段的卡片照樣
             由賽段標題負責，這裡的 wikiHref(lg,"") 查不到就原樣輸出，不會生出死連結。*/""}
-      <div class="evtHd">${lgChip(x.lg)}<b>${spLink(x.lg,"",esc(m.zh))}</b>${m.region?`<span class="evtRegion">${esc(m.region)}</span>`:""}<span class="evtCount">${_mainN}${LANG==="en"?" teams":" 隊"}${_poN?(LANG==="en"?`+${_poN} promo`:`＋升降 ${_poN} 隊`):""}</span>${relegTag}${
+      <div class="evtHd">${lgChip(x.lg)}<b>${spLink(x.lg,"",esc(LANG==="en"?(m.en||m.full||m.zh):m.zh))}</b>${m.region?`<span class="evtRegion">${esc(regionName(m.region))}</span>`:""}<span class="evtCount">${_mainN}${LANG==="en"?" teams":" 隊"}${_poN?(LANG==="en"?`+${_poN} promo`:`＋升降 ${_poN} 隊`):""}</span>${relegTag}${
         x.n===0?`<span class="evtNoData" title="${LANG==="en"?"Only the participant list is available (from Leaguepedia); no game data yet.":"這個賽事目前只有參賽名單（取自 Leaguepedia），資料庫還沒有比賽場次"}">${LANG==="en"?"schedule only":"尚無比賽資料"}${(x._extra&&x._extra.from)?`・${_mdOf(x._extra.from)}${x._extra.to&&x._extra.to!==x._extra.from?"–"+_mdOf(x._extra.to):""}`:""}</span>`:""}</div>
       ${m.full?`<div class="evtFull">${esc(m.full)}</div>`:""}
       ${/* 英文全名之後畫一條虛線，把「這是什麼賽事」與「底下各賽段」分開（使用者定案
@@ -4154,9 +4170,9 @@ const eventsTreeHTML=()=>{
     ${/* 國際賽與盃賽合併成一區（使用者定案 2026-08-01）：原本拆「三大國際賽」與「盃賽／資格賽／
           其他」兩塊，同性質的東西分兩處反而難找。順序仍是世界賽／季中賽／初陣在前，盃賽在後。*/""}
     ${section(LANG==="en"?"Internationals & Cups":"國際賽與盃賽","🌍",cat.intl.concat(cat.cup))}
-    ${section("一級聯賽（主要賽區）","🥇",cat.t1)}
-    ${section("次級聯賽","🥈",cat.t2,"本年度資料庫無次級聯賽")}
-    ${section("三級聯賽","🥉",cat.t3)}
+    ${section(LANG==="en"?"Tier 1 (major regions)":"一級聯賽（主要賽區）","🥇",cat.t1)}
+    ${section(LANG==="en"?"Tier 2":"次級聯賽","🥈",cat.t2,LANG==="en"?"No tier-2 leagues in the database for this year.":"本年度資料庫無次級聯賽")}
+    ${section(LANG==="en"?"Tier 3":"三級聯賽","🥉",cat.t3)}
   </div>`;
 };
 // 圖鑑「刷野速度」：把 GS 的刷野刷野速度資料畫出來；技能升級序(如QEQ)用 DDragon 技能圖示顯示
@@ -5897,6 +5913,10 @@ const normTxt=s=>uniStat(s)
   .replace(/ - /g,LANG==="en"?" - ":"－")
   .replace(/\s{2,}/g," ").trim();
 const renderChgLines=(lines,cardName)=>{
+  // 英文模式：下面整段「中文化」的改寫（半形標點轉全形、機翻語序修補、英文專有名詞轉中文…）
+  // 一律不套——那是給繁中畫面用的，套在英文原文上只會做出「Cooldown 跳動 in the background」
+  // 「Base Shield 力量」這種中英夾雜（2026-09-21 迴圈第 1 項）。
+  const _EN=(LANG==="en");
   // 只寫了改完後屬性、沒寫改動前的行 → 補上 DDragon 實際比對出來的變動
   //（item_stat_fix.js，2026-07-31 使用者要求「去翻 DD 看以前的數值多少」）
   // ⚠ 索引要同時收「完整行」與「切掉道具名前綴後的 body」：道具詳情頁是用 l.slice(i+1)
@@ -5919,9 +5939,10 @@ const renderChgLines=(lines,cardName)=>{
   // ⚠ 一定要排在標點正規化之前：查表的 key 是 wiki 原文（含半形逗號），正規化過就對不上了
   // 半形標點正規化：wiki 原文的逗號／冒號常是半形，混在中文裡很難看（2026-07-31 使用者回報）
   // 千分位逗號（11,500）不是標點，要留著：先藏起來再換（2026-08-17 25.15/25.16 巴龍生命 11,500 曾顯示成「11，500」）
-  lines=lines.map(l=>String(l).replace(/(\d),(?=\d{3}(?!\d))/g,"$1\uE000").replace(/,\s*/g,"，").replace(/\uE000/g,",").replace(/\s*:\s*(?![0-9])/g,"：").replace(/，\s*$/,""));
+  if(!_EN)lines=lines.map(l=>String(l).replace(/(\d),(?=\d{3}(?!\d))/g,"$1\uE000").replace(/,\s*/g,"，").replace(/\uE000/g,",").replace(/\s*:\s*(?![0-9])/g,"：").replace(/，\s*$/,""));
   // 機翻語序修補：wiki 原文是英文句構，直譯後中文不通（2026-07-31 使用者點名「已移除：從遊戲。」）
-  lines=lines.map(l=>String(l)
+  if(_EN)lines=lines.map(l=>String(l).replace(/\s+/g," ").trim());   // 英文模式只壓空白
+  else lines=lines.map(l=>String(l)
     .replace(/(已)?移除[：:]\s*從遊戲\s*[。.]?/g,"已從遊戲中移除。")          // Removed: from game
     .replace(/移除從遊戲\s*[。.]?/g,"已從遊戲中移除。")
     // Vilemaw（蜘蛛之神）是扭曲叢林的野怪，召喚峽谷沒有這隻 → 整串改寫成「大型野怪」
@@ -6018,8 +6039,14 @@ const renderChgLines=(lines,cardName)=>{
         const zh=(v.hit&&v.hit.zh)||(v.e&&v.e.zh); put(k,zh);
         // 「Enchantment: Cinderhulk」也登記裸名「Cinderhulk」（wiki 內文常只寫簡稱）
         if(/^Enchantment:\s*/i.test(k))put(k.replace(/^Enchantment:\s*/i,""),zh); }
-      // 舊天賦（masteries.js）的英文名 → 中文（15.09 艾希備註裡的 Frenzy 這類）
-      for(const[en,e]of Object.entries(window.LOL_MASTERIES||{}))put(en,e&&e.zh);
+      // 舊天賦（masteries.js）的英文名 → 中文。**只收多字專有名**（Thunderlord's Decree 這種）：
+      // 2017 年以前的天賦有一大票名字就是一般英文單字——Resistance／Precision／Block／Insight／
+      // Scout／Teleport／Juggernaut／Assassin／Sorcery……整批收進來之後，改動行裡的
+      // 「Magic Resistance: 30 ⇒ 32」會被翻成「Magic 反抗」、「Trait: Precision」變「Trait：精準」
+      // （而且現行符文系官方叫「精密」不叫「精準」）。全庫上限 83 處，繁中模式也會中。
+      // 代價是 Frenzy 這種單字天賦名不再自動轉中文——那是刻意的，寧可留英文也不要亂翻一般詞。
+      //（2026-09-21 迴圈第 1-b 項）
+      for(const[en,e]of Object.entries(window.LOL_MASTERIES||{}))if(/[\s']/.test(en))put(en,e&&e.zh);
       // 人工道具別名也收：內文提到「Nomad's Eye」「Eye of Ascension」時才轉得掉
       for(const[en,zh]of Object.entries(ITEM_ALIAS||{}))put(en,zh);
       // 全英雄技能英文名（跨英雄引用時用：葛雷夫的行提到 Twitch 的 Rat-Ta-Tat-Tat）。
@@ -6036,7 +6063,9 @@ const renderChgLines=(lines,cardName)=>{
       catch(e){ window._EN2ZHRE=null; }
     } else window._EN2ZH=null;
   }
-  if(window._EN2ZHRE)lines=lines.map(l=>String(l).replace(window._EN2ZHRE,x=>window._EN2ZH[x]||x));
+  // ⚠ 英文模式整張表都不套：它是「英文名→官方中文」，在英文畫面上等於把好好的英文改成中文
+  //（迴圈第 1-b 項：圖鑑英文版的改動歷史出現「Magic 反抗」這種中英夾雜）
+  if(window._EN2ZHRE&&LANG!=="en")lines=lines.map(l=>String(l).replace(window._EN2ZHRE,x=>window._EN2ZH[x]||x));
   // 卡片標題已經寫了道具名，行前綴再寫一次就變成「黑魔禁書黑魔禁書」（2026-07-31 使用者回報）
   if(cardName){ const _st=x=>String(x).replace(/\s*[（(][^（）()]*[）)]\s*/g,"").trim();
     const _cn=_st(cardName);
@@ -6340,7 +6369,9 @@ function champHistory(id){
   // 「Damage：80/120/… (+70% AP) ⇒ …(+80% AP)」＝ wiki「魔攻 係數：70% ⇒ 80%」）。
   // 數值也對不上、但兩邊「還沒配對的行」數量相同時照順序配——兩份公告的排列順序一致。
   // 都對不到就維持原樣，不亂猜。（使用者回報 2026-08-01）
-  {const _pre=s=>{const i=String(s).indexOf("｜"); return i>0?String(s).slice(0,i+1):"";};
+  // ⚠ 英文模式不借：wiki 那份是**中文**，借過來會變成「冥血大刀（Q）｜Damage: 65 ⇒ 75」這種
+  //   中英夾雜（2026-09-21 迴圈第 1 項最大宗的來源之一）。寧可沒有技能名前綴。
+  if(!en){const _pre=s=>{const i=String(s).indexOf("｜"); return i>0?String(s).slice(0,i+1):"";};
    const _nums=s=>(String(s).replace(/^[^｜]*｜/,"").match(/\d+(?:\.\d+)?/g)||[]).join(",");
    const wByPk={};
    for(const[wv,cs]of Object.entries(window.WIKI_PATCHES||{})){ const pk=wikiVerPk(wv); if(!pk)continue;

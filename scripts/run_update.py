@@ -106,6 +106,11 @@ PLAN = [
     # **而且沒人打過也要花滿 10 分鐘**；牌位是普通 HTTP、回應本來就帶 wins/losses
     # ⇒ 讓便宜的先跑、用「勝敗場數有沒有變」這個權威訊號決定貴的要抓誰。
     ("⑤ 積分：帳號（循序）", [S("fetch_dpm_soloq_accounts", "--apply")]),
+    # ⑤a 人工釘住的帳號：**一定要排在帳號那兩步之後**（③ 的 fetch_obgg_accounts 與 ⑤ 的
+    #    fetch_dpm_soloq_accounts 都會整份重寫 soloq_accounts.json，先加會被洗掉），
+    #    而且要排在 ⑤b 之前——這樣新號當班就能補到 dpmPuuid、⑤c 的牌位也抓得到。
+    #    選手換號之後 dpm／OBGG 常常好幾週不更新，這是使用者自己補的那條路（#補查 2026-09-21）。
+    ("⑤a 人工帳號（循序）", [S("apply_manual_accounts")]),
     ("⑤b 解 puuid", [S("resolve_obgg_dpmpuuid")]),
     # 2026-09-09 #72：label_pending（BP 待標樣本入佇列，22:00 那班 26.0s、⑥ 的長桿）搬來跟牌位並行。
     #   它讀 data/data_YYYY.js（② 寫完）＋ team_abbr_wiki.js（④ build_league_struct 與 ⑤ fetch_dpm_soloq_accounts
