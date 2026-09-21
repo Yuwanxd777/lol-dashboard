@@ -172,6 +172,20 @@ def bad_name(b):
     """bad 值 → 日誌用的字樣（-1 不是 HTTP 狀態，別印成「dpm 回 -1」）"""
     return "逾時／連線錯（單頁 %ds）" % (FETCH_TMO_MS // 1000) if b == BAD_NET else "回 %s" % b
 
+# 2026-09-22 線 3（精進迴圈 #199）：主迴圈熔斷。#198 讓單頁最多等 15s，但 dpm 整站掛住時每個帳號仍是 15＋1.5＋15＝31.5s，
+# 兩百多個帳號逐一問完要一個多小時，全在關鍵路徑上（run_update 沒有逐步逾時）。照 #108 fetch_fill 的 _DOWN：
+# **連續** DOWN_AFTER 個帳號「睡 1.5s 重問仍 bad」⇒ 標 dpm 掛了，這一班剩下的帳號不再打 dpm（批次已命中的照收）。
+# 只數真的打出去的請求：批次命中的結果是稍早抓的，說明不了 dpm 現在的狀態 ⇒ 不加也不歸零；中間有一個帳號問成功就歸零。
+# 熔斷後「有帳號沒問到」的選手**整位不採用**（連同批次命中的那幾個帳號）：逐場檔的 newestT 是整位共用的，只收一半帳號會讓
+# newestT 往前跳、沒問到的那個帳號中間那段永遠補不回來；整位不動 ⇒ 下一班從原 newestT 再抓、不丟資料。
+# 歷來 12 班日誌「重試仍失敗」0 次 ⇒ 穩態這段一個字都不印。改這段要跑 scripts/fetch_soloq_update_breaker_test.py。
+DOWN_AFTER = int(arg("--down-after") or 3)
+
+def breaker_step(nfail, ok, after=None):
+    """主迴圈熔斷的計數（純函式）：這個帳號真的打出去的請求成功 ⇒ 歸零，失敗 ⇒ ＋1。回 (新的連續失敗數, 到門檻了沒)"""
+    nfail = 0 if ok else nfail + 1
+    return nfail, nfail >= (after or DOWN_AFTER)
+
 # 2026-09-08 線 3（精進迴圈 #68）：逐人 267s 的批次化。10:00 那班 133 位／238 個帳號逐一 pg.evaluate(JS_NEW)
 # 一次約 1.1s ＋ sleep 0.1 ⇒ 267s。這裡一次 evaluate 用 Promise.all 同時問 BATCH_NEW 個帳號（帳號那一支
 # fetch_dpm_soloq_accounts 早就這樣做、dpm 沒限流），結果按 (選手, puuid) 收進 PRE，主迴圈逐帳號 pop；
@@ -389,6 +403,7 @@ def main():
     # 2026-09-06 線 3：這一步昨晚 1926 秒（130 位＝每位 15 秒，說明寫的是 1.4 秒）。
     # 錢花在哪沒有紀錄 ⇒ 印各階段耗時，下一次 10:00 的 update_log 就看得出來。
     _T0 = time.time(); _TCF = _TPU = 0.0; _TPL = []; _NACC = _NSKIP = 0
+    _DOWN = False; _NFAIL = _NDOWN = _PDOWN = 0   # #199 主迴圈熔斷：掛了沒／連續失敗帳號數／熔斷後沒問的帳號數／整位不採用的選手數
     with sync_playwright() as p:
         b = _launch_real(p)
         pg = b.new_context(user_agent=UA, viewport={"width":1400,"height":900}, locale="en-US").new_page()
@@ -424,18 +439,25 @@ def main():
             _todo, _skip = split_static_accounts(accs.get(key, []), ACC_STATIC)
             _NACC += len(_todo) + len(_skip); _NSKIP += len(_skip)
             _perpu = {}   # 這輪每個 dpmPuuid 抓回來的新場次 → 寫進逐場檔的 src（來源對帳用）
+            _pl_down = 0   # #199：熔斷後這位選手有幾個帳號沒問到
             for a in _todo:
                 _hit = (key, a["dpmPuuid"]) in PRE
+                if _DOWN and not _hit:   # #199：dpm 掛了 ⇒ 不再打；批次已命中的不花請求、照常走下面
+                    _pl_down += 1; _NDOWN += 1; continue
+                _live = None if _hit else False   # #199：真的打出去的請求最後成不成（None＝沒打；False 起跳 ⇒ evaluate 丟例外也算失敗）
                 try:
                     res = PRE.pop((key, a["dpmPuuid"])) if _hit else pg.evaluate(JS_NEW, [a["dpmPuuid"], tok, newestT])
                     if isinstance(res, dict) and res.get("bad"):
                         # dpm 限流／擋下：睡一下再問一次；還是不行就**丟掉半截結果**（留著會讓 newestT 往前跳、
                         # 中間那段永遠補不回來——以前是靜默截斷，2026-09-08 #68 改成回報＋丟棄，下輪從原 newestT 再抓）
                         time.sleep(1.5)
+                        _live = False
                         res = pg.evaluate(JS_NEW, [a["dpmPuuid"], tok, newestT])
                         if isinstance(res, dict) and res.get("bad"):
                             print(f"   {a.get('riotId')} dpm {bad_name(res['bad'])}（重試仍失敗）→ 這輪不採用、下輪再補")
                             res = dict(res, ms=[])
+                        else: _live = True
+                    elif not _hit: _live = True
                     _ms = (res.get("ms") if isinstance(res, dict) else res) or []
                     if _ms: _perpu.setdefault(a["dpmPuuid"], []).extend(_ms)
                     if _ms:  # 記該帳號自己最後一場 soloq 時間
@@ -451,7 +473,16 @@ def main():
                     else:
                         newg.extend(res or [])
                 except Exception as e: print(f"   {a.get('riotId')} 抓錯 {e}")
+                if _live is not None:   # #199：只數真的打出去的請求
+                    _NFAIL, _trip = breaker_step(_NFAIL, _live)
+                    if _trip and not _DOWN:
+                        _DOWN = True
+                        print(f"⚡ dpm 熔斷：連續 {_NFAIL} 個帳號問不到（重試仍失敗／抓錯）⇒ 這一班剩下的帳號不再問 dpm（批次已命中的照收）")
                 if not _hit: time.sleep(0.1)   # 批次命中的沒真的打 dpm，不用睡
+            if _pl_down:   # #199：熔斷後有帳號沒問到 ⇒ 整位不採用（newestT 整位共用，只收一半帳號會留下永遠補不回來的洞）
+                _PDOWN += 1
+                if newg: print(f"[{i}/{len(keys)}] {key}  熔斷後 {_pl_down} 個帳號沒問到 ⇒ 已到手的 +{len(newg)} 場這一班不採用、下一班從原 newestT 再抓")
+                newg = []
             if newg:
                 seen=set(); merged=[]
                 for g in sorted(newg+existing, key=lambda x: x.get("t",0), reverse=True):
@@ -482,6 +513,8 @@ def main():
               + ("、逾時／連線錯 %d 個" % _BST["net"] if _BST.get("net") else ""))   # #198：穩態（0 個）那行一字不變
         _bd = batch_breakdown(_BST)
         if _bd: print(_bd)
+    if _DOWN:   # #199：只在熔斷時印（穩態日誌一字不變）
+        print("⚡ dpm 熔斷小結：%d 個帳號這一班沒問、%d 位選手整位不採用；下一班從原 newestT 再抓、不丟資料" % (_NDOWN, _PDOWN))
     if _TPL:
         if _NSKIP:
             print("⏭ 跳過 %d 個牌位沒動的帳號（%d → %d 次 dpm 請求）" % (_NSKIP, _NACC, _NACC - _NSKIP))
@@ -527,6 +560,9 @@ def main():
         # 「改名」是 dpm 名字索引落後、資料本身沒問題，等索引跟上警告會自己消失。
         for _ln in soloq_src.summarize(_MISSRC):
             print(_ln)
+    if _DOWN and (MISMATCH or missing):   # #199：下面兩支子程序也是打 dpm 的（重建錯路線是整檔重寫）⇒ dpm 掛著就留給下一班
+        print("⚡ dpm 熔斷 ⇒ 這一班不起「重建錯路線選手」（%d 位）／「新選手補全年」（%d 位），下一班再做" % (len(MISMATCH), len(missing)))
+        MISMATCH = []; missing = []
     if MISMATCH:  # 判例自動修復：以資料庫位置重建這些選手（單次上限 5 位；帳號真的缺主帳的會場數偏少→提醒補帳號）
         print(f"⚠ {len(MISMATCH)} 位「資料庫位置≠積分路線」→ 自動以資料庫位置重建：{MISMATCH[:5]}")
         _timed("重建錯路線選手", [sys.executable, "-u", os.path.join(HERE, "fetch_soloq_year.py"), "--only", ",".join(MISMATCH[:5])])
