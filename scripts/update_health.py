@@ -109,6 +109,8 @@ def parse_log():
     m = re.search(r"未審定的可疑同名 (\d+)", t)
     if m:
         r["dup"] = int(m.group(1))
+    # 軟性項變少時要附的「日誌自己的解釋行」（#197）；函式定義在下面，呼叫時才查名字
+    r["soft"] = soft_explain(t)
     return r
 
 
@@ -468,6 +470,89 @@ def merge_baseline(prev, cur, accept=False):
                 out.pop(k, None)          # 認可＝那個檔真的不該存在了
             continue                      # 否則保住基準值，下一輪繼續報
         out[k] = v
+    return out
+
+
+# ── 軟性項變少：附上那一班日誌自己的解釋行（2026-09-22 #197；純函式，update_health_test ㉞ 在測）────
+# 為什麼要有這段：軟性項（soloq.players／found／逐場檔數）變少不算異常、基準也當場跟著變小 ⇒
+# 「比基準少（1136 → 1097）」**只印一次**（publish.bat 帶起來的那一次），而且只有數字、沒有理由。
+# 09-21 22:00 班就是這樣：帳號少 39 筆，#195 用 git show 兩個 commit 逐筆比、花一整輪才追出來——
+# 而答案就寫在同一份日誌裡（「比賽數據出場過濾：462 → 432 位」「帳號總數：1135 → 1096」
+# 「人工帳號：…帳號總數 1097」「刪檔 p449.js（WBG|Medusa）：刪 87 場、剩 0 場」）。
+# 這段把那幾行抄到數字底下，並拿**日誌收尾的數字**跟現值對帳：
+#   對得上 ⇒ 這次變少是那一班管線自己做的，理由就是上面那幾行
+#   對不上／找不到解釋行 ⇒ 變少發生在那一班之外（手動跑過？檔案被動過？），要人工追
+# **只告知、不進結論**（軟性項「可以合理變少」的定義沒變；要不要升級成異常是另一個決定）。
+# ⚠ 規則全部錨在行首：健檢的輸出會被 publish.bat `type` 折進 update_log.txt 尾端，下一次 parse 會讀到
+#   自己印的字（⑪ 自我污染）——印出去的行一律以「└」開頭，所以不會被自己的規則撿回來。
+SOFT_RULES = {
+    "soloq.players": [
+        (r"^比賽數據出場過濾：(\d+) → (\d+) 位（丟棄 (\d+) 位沒出場", "比賽數據出場過濾：%s → %s 位（丟棄 %s 位沒出場）"),
+        (r"^[ \t]*帳號總數：(\d+) → (\d+)[ \t]*$", "帳號總數：%s → %s"),
+        (r"^人工帳號：新增 (\d+)、補欄位 (\d+)；帳號總數 (\d+)", "人工帳號：新增 %s、補欄位 %s；帳號總數 %s"),
+    ],
+    "soloq.found": [
+        (r"^完成：(\d+)/(\d+) 有排名", "牌位那一步收在「完成：%s/%s 有排名」"),
+    ],
+    "soloq_matches.files": [
+        (r"^掃 (\d+) 個逐場檔（", "逐場對帳掃了 %s 個逐場檔"),
+        (r"^[ \t]*刪檔 (p\d+\.js)（(.+?)）：刪 (\d+) 場、剩 (\d+) 場", "刪檔 %s（%s）：刪 %s 場、剩 %s 場"),
+    ],
+}
+# 日誌收尾時「這一項應該是多少」：(規則, 第幾個括號)，取**最後一次**出現的（同一班 fetch_dpm 也會印一次索引重建）
+SOFT_EXPECT = {
+    "soloq.players": (r"^完成：(\d+)/(\d+) 有排名", 2),
+    "soloq.found": (r"^完成：(\d+)/(\d+) 有排名", 1),
+    "soloq_matches.files": (r"^索引重建：(\d+) 位", 1),
+}
+SOFT_MAX_LINES = 6      # 刪檔一次幾十個（09-06 帳號檔大搬風那種）時別把報告洗掉；超過的只印「…等 N 行」
+
+
+def soft_explain(text):
+    """日誌全文 → {軟性項: {"lines": [解釋行…], "expect": 日誌收尾時的數字或 None}}。
+
+    lines 依日誌出現順序、去重（階段並行炸掉退回循序時同一步會印兩次）。永遠不丟例外。
+    """
+    out = {}
+    text = text or ""
+    for key, rules in SOFT_RULES.items():
+        hits = []
+        for pat, fmt in rules:
+            for m in re.finditer(pat, text, re.M):
+                hits.append((m.start(), fmt % m.groups()))
+        lines = []
+        for _, s in sorted(hits):
+            if s not in lines:
+                lines.append(s)
+        exp = None
+        pat, gi = SOFT_EXPECT[key]
+        for m in re.finditer(pat, text, re.M):
+            exp = int(m.group(gi))
+        out[key] = {"lines": lines, "expect": exp}
+    return out
+
+
+def soft_explain_note(key, cur, info):
+    """→ 要印在「比基準少」那一列底下的幾行（不含縮排；每行都以「└」開頭）。info＝soft_explain()[key] 或 None。"""
+    info = info or {}
+    lines = list(info.get("lines") or [])
+    exp = info.get("expect")
+    if key not in SOFT_RULES:
+        return []
+    out = []
+    if lines:
+        more = len(lines) - SOFT_MAX_LINES
+        shown = lines[:SOFT_MAX_LINES] + (["…等 %d 行" % more] if more > 0 else [])
+        out.append("└ 那一班日誌自己的解釋：" + "｜".join(shown))
+    if exp is None:
+        out.append("└ 日誌裡沒有收尾數字可以對帳%s ⇒ 要人工追（這次變少可能不是那一班管線造成的）"
+                   % ("（上面那幾行只供參考）" if lines else "、也找不到解釋行"))
+    elif exp == cur:
+        out.append("└ 日誌收在 %d＝現值 ⇒ 這次變少是那一班管線自己做的%s"
+                   % (exp, "，理由見上一行" if lines else "（但日誌沒講理由，要知道是誰就得翻那一步的輸出）"))
+    else:
+        out.append("└ 日誌收在 %d、現值 %s，對不上 ⇒ 變少不全是那一班管線造成的（班次之後手動跑過？檔案被動過？），要人工追"
+                   % (exp, cur))
     return out
 
 
@@ -1661,6 +1746,10 @@ def main():
         elif st == "missing":
             bad.append("%s 不見了（基準 %d，檔案被刪或路徑改了）" % (k, pv))
         print("   %-22s %s%s" % (k, "－" if v is None else v, flag))
+        if st == "soft_down":
+            # 軟性項變少只印這一次（基準當場跟著變小）⇒ 理由要在這一次就附上（#197；只告知、不進結論）
+            for _ln in soft_explain_note(k, v, ((lg or {}).get("soft") or {}).get(k)):
+                print("      " + _ln)
     # 資料檔體積（#100）：上面 18 個指標之外，根目錄那 50 幾個資料檔一個都沒被量過
     fs = file_sizes()
     # 滾動視窗檔（#186）跟近 7 天的高水位比；放寬了就要印出來（#178：沒聲音的放過＝假綠）

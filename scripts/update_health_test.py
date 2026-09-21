@@ -283,10 +283,15 @@ try:
                "   fetch_soloq_matches            639.5s  ⚠ exit 3\n"
                "那一班的日誌快照（不是現況）：守門：✓／push：✓／lint 錯誤級：0\n"
                "可疑同名：0（現況重算；那一班日誌是 10，已經是舊帳）\n"
+               # #197：軟性項變少時附的解釋行也會被折進來——不可以被 soft_explain 的規則撿回去。
+               # 數字刻意用真日誌不可能有的 99421／99420：跟真日誌同一組數字的話，撿回來也會被去重吃掉、看不出來
+               "   soloq.players          99420  比基準少（99421 → 99420）\n"
+               "      └ 那一班日誌自己的解釋：比賽數據出場過濾：99462 → 99432 位（丟棄 30 位沒出場）｜帳號總數：99421 → 99420\n"
+               "      └ 日誌收在 99420＝現值 ⇒ 這次變少是那一班管線自己做的，理由見上一行\n"
                "結論：⚠ 日誌是 7.5 小時前的（>240 分鐘）⇒ 這一班沒有寫新日誌\n")
     io.open(uh.LOG, "a", encoding="utf-8").write(verdict * 3)
     after = uh.parse_log()
-    for k in ("runs", "steps", "start_at", "preflight_fail", "lint_err", "dup", "tracebacks"):
+    for k in ("runs", "steps", "start_at", "preflight_fail", "lint_err", "dup", "tracebacks", "soft"):
         eq(after[k], before[k], "⑪折進日誌三次後 %s 不變" % k)
     # 正控制：真的多一個步驟行就一定要被讀到，否則這組測試是死的
     io.open(uh.LOG, "a", encoding="utf-8").write("---- 假步驟（12.3s，exit 7）----\n")
@@ -2213,6 +2218,161 @@ finally:
     shutil.rmtree(_ebox33, ignore_errors=True)
 eq((uh.ROOT, uh.BASE), (ROOT, _REAL_BASE_PATH), "㉝ ROOT／BASE 已還原成真 repo")
 eq(_stat_of(_REAL_BASE_PATH), _REAL_BASE_STAT, "㉝真的 UPDATE_BASELINE.json 沒被寫到（size＋mtime_ns 前後一致）")
+
+# ── ㉞ 軟性項變少：附上那一班日誌自己的解釋行（2026-09-22 #197；突變驗收 autopilot/_m197_mutate.py）──
+# 09-21 22:00 班「soloq.players 比基準少（1136 → 1097）」只有數字沒有理由，#195 花一整輪用 git show 逐筆比才追出來，
+# 而答案就在同一份日誌裡。真實形狀＝那一班日誌的原文（含周圍雜訊行）；只有沙盒才有的證據＝9942 這組數字。
+_L34 = (
+    "---- fetch_dpm_soloq_accounts（42.1s，exit 0）----\n"
+    "名單：462 位選手（1135 個現有帳號）\n"
+    "比賽數據出場過濾：462 → 432 位（丟棄 30 位沒出場：['IG|Helper', 'IG|Fury', 'BLG|Daeny']）\n"
+    "  逐場檔改鍵：p466.js DFM|Aria → SHG|Aria\n"
+    "索引重建：450 位（302 位近 7 天有出賽）→ C:\\x\\soloq_match_index.js\n"
+    "=== 變更摘要 ===\n"
+    "  換帳號（dpm 主）: 0 位｜補帳號（union）: 2 位｜不變: 268 位\n"
+    "  帳號總數：1135 → 1096\n"
+    "---- apply_manual_accounts（0.0s，exit 0）----\n"
+    "人工帳號：新增 1、補欄位 0；帳號總數 1097\n"
+    "帳號清單 1097 筆，開始抓取…（依速率限制，約 45.7 分鐘）\n"
+    "完成：766/1097 有排名 → 已寫入 C:\\x\\soloq.js\n"
+    "---- clean_soloq_matches（1.5s，exit 0）----\n"
+    "帳號檔：有效 riotId 1097 個、涵蓋 432 位選手\n"
+    "掃 450 個逐場檔（0 個讀不動）：2 個檔混進別人的比賽，共 838 場\n"
+    "  WBG|Medusa             p449.js   刪 87／共 87 場（自己剩 0）  ⚠ 刪光＝刪檔 ← 我锤石你德玛#2887＝LGD|Crisp〔現名〕×87\n"
+    "  刪檔 p449.js（WBG|Medusa）：刪 87 場、剩 0 場\n"
+    "  刪檔 p465.js（TW|BeanJ）：刪 751 場、剩 0 場\n"
+    "---- build_soloq_index（3.4s，exit 0）----\n"
+    "索引重建：448 位（310 位近 7 天有出賽）→ C:\\x\\soloq_match_index.js\n"
+    "完成：173 英雄 / 98 道具 / 73 符文（掃 318781 場）→ C:\\x\\soloq_builds.js（2260 KB）\n")
+_se34 = uh.soft_explain(_L34)
+eq(sorted(_se34), ["soloq.found", "soloq.players", "soloq_matches.files"], "㉞三個軟性項都有一格")
+eq(_se34.get("soloq.players", {}).get("lines"),
+   ["比賽數據出場過濾：462 → 432 位（丟棄 30 位沒出場）", "帳號總數：1135 → 1096", "人工帳號：新增 1、補欄位 0；帳號總數 1097"],
+   "㉞真實形狀：帳號數的三行解釋（依日誌順序；丟棄名單那一長串不抄）")
+eq(_se34.get("soloq.players", {}).get("expect"), 1097, "㉞帳號數的收尾數字＝「完成：F/N 有排名」的 N")
+eq(_se34.get("soloq.found", {}).get("lines"), ["牌位那一步收在「完成：766/1097 有排名」"],
+   "㉞有牌位數的解釋行（「完成：173 英雄 / 98 道具」那行不可以被撿進來）")
+eq(_se34.get("soloq.found", {}).get("expect"), 766, "㉞有牌位數的收尾數字＝F")
+eq(_se34.get("soloq_matches.files", {}).get("lines"),
+   ["逐場對帳掃了 450 個逐場檔", "刪檔 p449.js（WBG|Medusa）：刪 87 場、剩 0 場", "刪檔 p465.js（TW|BeanJ）：刪 751 場、剩 0 場"],
+   "㉞逐場檔數的解釋行（「⚠ 刪光＝刪檔」那行是明細、不重複抄）")
+eq(_se34.get("soloq_matches.files", {}).get("expect"), 448, "㉞逐場檔數的收尾數字取**最後一次**索引重建（450 是 fetch_dpm 中途那次）")
+eq(uh.soft_explain(_L34.replace("索引重建：448 位", "索引重建：9942 位")).get("soloq_matches.files", {}).get("expect"), 9942,
+   "㉞正控制：最後一次索引重建的數字一變、收尾數字跟著變")
+# 去重與多次出現：退回循序時同一步印兩次 ⇒ 同字串只留一份；數字不同就兩份都留、收尾取最後
+_dup34 = uh.soft_explain("  帳號總數：5 → 3\n  帳號總數：5 → 3\n完成：2/3 有排名\n  帳號總數：3 → 2\n完成：1/2 有排名\n")
+eq(_dup34.get("soloq.players", {}).get("lines"), ["帳號總數：5 → 3", "帳號總數：3 → 2"], "㉞同一行印兩次只留一份、不同的照留")
+eq((_dup34.get("soloq.players", {}).get("expect"), _dup34.get("soloq.found", {}).get("expect")), (2, 1), "㉞收尾數字取最後一次")
+# 順序跟著日誌走、不是跟著規則表走（真實形狀那份剛好兩者同序、測不出來 ⇒ 這條是給 _m197_mutate 的 M4「不照日誌順序」用的）
+eq(uh.soft_explain("人工帳號：新增 1、補欄位 0；帳號總數 4\n  帳號總數：4 → 3\n").get("soloq.players", {}).get("lines"),
+   ["人工帳號：新增 1、補欄位 0；帳號總數 4", "帳號總數：4 → 3"], "㉞解釋行依日誌出現順序排（不是規則表的順序）")
+# 自我污染（⑪ 同一種病）：健檢自己印的行被 type 折進日誌之後，不可以被自己的規則撿回來
+_self34 = ("   soloq.players          1097  比基準少（1136 → 1097）\n"
+           "      └ 那一班日誌自己的解釋：比賽數據出場過濾：462 → 432 位（丟棄 30 位沒出場）｜帳號總數：1135 → 1096"
+           "｜人工帳號：新增 1、補欄位 0；帳號總數 1097\n"
+           "      └ 日誌收在 1097＝現值 ⇒ 這次變少是那一班管線自己做的，理由見上一行\n"
+           "      └ 那一班日誌自己的解釋：牌位那一步收在「完成：766/1097 有排名」\n"
+           "      └ 那一班日誌自己的解釋：逐場對帳掃了 450 個逐場檔｜刪檔 p449.js（WBG|Medusa）：刪 87 場、剩 0 場\n")
+eq(uh.soft_explain(_self34), {k: {"lines": [], "expect": None} for k in uh.SOFT_RULES}, "㉞健檢自己印的行一條都不會被撿回來")
+eq(uh.soft_explain(_L34 + _self34 * 3), _se34, "㉞折進日誌三次後解釋行與收尾數字都不變")
+eq(uh.soft_explain(_L34 + "  帳號總數：7 → 3\n").get("soloq.players", {}).get("lines", [])[-1:], ["帳號總數：7 → 3"],
+   "㉞正控制：真的多一行帳號總數就一定讀得到")
+eq(uh.soft_explain(""), {k: {"lines": [], "expect": None} for k in uh.SOFT_RULES}, "㉞空日誌：每項都是空的")
+eq(uh.soft_explain(None), uh.soft_explain(""), "㉞None 不炸")
+
+# soft_explain_note：五種形狀＋不認得的項＋行數上限
+sen = uh.soft_explain_note
+_n34 = sen("soloq.players", 1097, _se34.get("soloq.players"))
+eq(len(_n34), 2, "㉞對得上：兩行（解釋＋對帳）")
+eq(("帳號總數：1135 → 1096" in (_n34 or [""])[0], "日誌收在 1097＝現值" in (_n34 or ["", ""])[-1]), (True, True),
+   "㉞對得上：第一行抄解釋、第二行講收尾數字＝現值")
+_n34b = sen("soloq.players", 1090, _se34.get("soloq.players"))
+eq(("日誌收在 1097、現值 1090，對不上" in (_n34b or [""])[-1], "＝現值" in (_n34b or [""])[-1]), (True, False),
+   "㉞對不上：點名兩個數字、不可以講「＝現值」")
+_n34c = sen("soloq.players", 5, {"lines": [], "expect": None})
+eq((len(_n34c), "找不到解釋行" in (_n34c or [""])[0], "要人工追" in (_n34c or [""])[0]), (1, True, True), "㉞日誌沒講：一行、叫人去追")
+eq(sen("soloq.players", 5, None), _n34c, "㉞info＝None（舊格式的 lg、或 parse_log 沒給）跟「日誌沒講」同一句")
+_n34d = sen("soloq.players", 5, {"lines": ["帳號總數：9 → 5"], "expect": None})
+eq((len(_n34d), "只供參考" in (_n34d or ["", ""])[-1]), (2, True), "㉞有解釋行但沒有收尾數字：照抄、但講明只供參考")
+_n34e = sen("soloq.found", 5, {"lines": [], "expect": 5})
+eq((len(_n34e), "日誌沒講理由" in (_n34e or [""])[0]), (1, True), "㉞收尾數字對得上但沒有解釋行：講明日誌沒講理由")
+eq(sen("data_2026.js", 5, {"lines": ["x"], "expect": 5}), [], "㉞不認得的項（硬性項走縮水那條路）⇒ 什麼都不印")
+_many34 = {"lines": ["掃"] + ["刪檔 p%d.js" % i for i in range(10)], "expect": 3}
+_n34f = sen("soloq_matches.files", 3, _many34)
+eq(((_n34f or [""])[0].count("｜"), "…等 %d 行" % (11 - uh.SOFT_MAX_LINES) in (_n34f or [""])[0]), (uh.SOFT_MAX_LINES, True),
+   "㉞解釋行超過上限：只印前 %d 行＋「…等 N 行」" % uh.SOFT_MAX_LINES)
+eq(all(l.startswith("└") for l in _n34 + _n34b + _n34c + _n34d + _n34e + _n34f), True,
+   "㉞每一行都以「└」開頭（自我污染的保險就靠這個）")
+
+# ㉞ 端到端：main() 真的在「比基準少」底下附上解釋行、只告知不進結論、基準存得進 JSON。
+# 只有沙盒才有的證據：基準 9942 → 現值 1（假 repo 的 soloq.js 只有 1 位），日誌寫「帳號總數：9942 → 1」。
+_real34 = (uh.ROOT, uh.BASE, uh.LOG, uh.CONSOLE, sys.argv)
+_ebox34 = tempfile.mkdtemp(prefix="uh_soft_e2e_")
+_HEAD34 = ("==== run_update %s（並行 4）====\n" % time.strftime("%Y-%m-%d %H:%M:%S")
+           + "".join("---- %s（1.0s，exit 0）----\n" % n for n in SEED_STEPS)
+           + "文本體檢：掃描 1 條字串 → 錯誤 0、提醒 0\n未審定的可疑同名 0\n守門通過\n")
+_EXP34 = "比賽數據出場過濾：9950 → 9 位（丟棄 9941 位沒出場：['ZZ|zz_probe_9942']）\n  帳號總數：9942 → 1\n完成：1/1 有排名 → x\n"
+
+
+def _main34(log_body, counts, *flags):
+    io.open(uh.LOG, "w", encoding="utf-8").write(_HEAD34 + log_body)
+    json.dump({"at": "2026-09-21 22:07", "counts": counts}, io.open(uh.BASE, "w", encoding="utf-8"))
+    sys.argv = ["update_health.py", "--no-live", "--no-lag"] + list(flags)
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf):
+        rc = uh.main()
+    out = buf.getvalue()
+    ls = out.splitlines()
+    concl = [l for l in ls if l.startswith("結論：")]
+    under = []                       # 「soloq.players」那一列底下緊接著的 └ 行
+    for i, l in enumerate(ls):
+        if l.strip().startswith("soloq.players"):
+            for nx in ls[i + 1:]:
+                if not nx.strip().startswith("└"):
+                    break
+                under.append(nx.strip())
+    return rc, (concl[0] if concl else ""), under, out
+
+
+try:
+    seed_clean_repo(_ebox34)
+    point_clean(_ebox34)
+    uh.LOG = os.path.join(_ebox34, "update_log.txt")
+    uh.CONSOLE = os.path.join(_ebox34, "update_console.txt")
+    # A：變少＋日誌有解釋＋收尾數字對得上
+    rc, concl, under, outA = _main34(_EXP34, {"soloq.players": 9942}, "--no-save")
+    eq("比基準少（9942 → 1）" in outA, True, "㉞e2e A 前提：假 repo 真的讓 soloq.players 變少（否則後面是空測）")
+    eq((rc, concl), (0, "結論：✓ 沒有異常"), "㉞e2e A：只告知、不進結論%s" % ("" if rc == 0 else "\n" + outA))
+    eq(len(under), 2, "㉞e2e A：那一列底下緊接兩行 └（得到 %r）" % under)
+    eq(("帳號總數：9942 → 1" in (under or [""])[0], "丟棄 9941 位沒出場）" in (under or [""])[0],
+        "zz_probe_9942" in (under or [""])[0]), (True, True, False), "㉞e2e A：解釋行是沙盒日誌的數字、丟棄名單不抄")
+    eq("日誌收在 1＝現值" in (under or [""])[-1], True, "㉞e2e A：對帳那行（得到 %r）" % (under or [""])[-1])
+    # B 對照：同一個基準、日誌沒有解釋行 ⇒ 叫人去追
+    rc, concl, under, out = _main34("", {"soloq.players": 9942}, "--no-save")
+    eq((rc, len(under), "找不到解釋行" in (under or [""])[0]), (0, 1, True), "㉞e2e B：日誌沒講 ⇒ 一行「找不到解釋行」（得到 %r）" % under)
+    # C：日誌收尾數字跟現值對不上（＝那一班之後有人動過）
+    rc, concl, under, out = _main34(_EXP34.replace("完成：1/1", "完成：1/7"), {"soloq.players": 9942}, "--no-save")
+    eq("日誌收在 7、現值 1，對不上" in (under or [""])[-1], True, "㉞e2e C：對不上要點名兩個數字（得到 %r）" % under)
+    # D 對照：沒有變少 ⇒ 日誌有那幾行也不印（穩態每一班都有「帳號總數：A → B」，不可以每輪洗版）
+    rc, concl, under, out = _main34(_EXP34, {"soloq.players": 1}, "--no-save")
+    eq((under, "那一班日誌自己的解釋" in out), ([], False), "㉞e2e D：沒變少就不附解釋行")
+    # E：自我污染端到端——把 A 的整份輸出折進日誌三次，附的那兩行跟 A 一字不差
+    rc, concl, underE, out = _main34(_EXP34 + outA * 3, {"soloq.players": 9942}, "--no-save")
+    rcA, _, underA, _ = _main34(_EXP34, {"soloq.players": 9942}, "--no-save")
+    eq(underE, underA, "㉞e2e E：健檢輸出折進日誌三次，解釋行不長大")
+    # F 對照：硬性項縮水照報、底下不附解釋行（那條路是 --accept，不是看日誌）
+    rc, concl, under, out = _main34(_EXP34, {"data_2026.js": 9942, "soloq.players": 1}, "--no-save")
+    eq((rc, "data_2026.js 縮水 9942 → 4" in concl, "那一班日誌自己的解釋" in out), (1, True, False), "㉞e2e F：硬性縮水照報、不附解釋行")
+    # G：存檔模式 ⇒ 基準寫得進 JSON（lg 多了一格 dict），而且裡面是沙盒的數字
+    rc, concl, under, out = _main34(_EXP34, {"soloq.players": 9942})
+    _sb34 = json.load(io.open(uh.BASE, encoding="utf-8"))
+    eq(_sb34.get("log", {}).get("soft", {}).get("soloq.players", {}).get("expect"), 1, "㉞e2e G：解釋資料跟著日誌快照存進（沙盒）基準")
+    eq(_sb34.get("counts", {}).get("soloq.players"), 1, "㉞e2e G：軟性項照舊當場收進基準（定義沒變）")
+finally:
+    uh.ROOT, uh.BASE, uh.LOG, uh.CONSOLE, sys.argv = _real34
+    shutil.rmtree(_ebox34, ignore_errors=True)
+eq((uh.ROOT, uh.BASE), (ROOT, _REAL_BASE_PATH), "㉞ ROOT／BASE 已還原成真 repo")
+eq(_stat_of(_REAL_BASE_PATH), _REAL_BASE_STAT, "㉞真的 UPDATE_BASELINE.json 沒被寫到（size＋mtime_ns 前後一致）")
 
 # ── ⓪ 收尾：整份測試沒有任何一次撞到封鎖器（被 wiki_days 的 except 吞掉的也算），
 #    而且假出口真的有被 main() 走到（⑫⑮ 都沒帶 --no-lag）——否則上一條可能只是 main 根本沒接逐聯賽落後。
