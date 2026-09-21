@@ -603,6 +603,11 @@ def process(text, year=DEFAULT_YEAR):
 # （autopilot/_m180_spill_probe.txt；2022～2025 也都有被標成 WLDs 的資格賽，只是真世界賽蓋過去了）。
 # 已知、沒改：世界賽進行中，其他賽事排在「目前最後一個世界賽比賽日」之後的局會暫時被切走，
 # 下一個世界賽比賽日一到就回來（每班從 OE 重算，spill 檔每班覆寫）——這是舊寫法就有的行為。
+# 量過、不改（2026-09-21 精進迴圈 #182，autopilot/_m182_worlds_overlap_probe.txt）：2018～2025 世界賽
+# 視窗裡 process() 留下的其他賽事只有 VCS 2023 的 55 局（最長消失 6.1 天）；VCS 2025 起不在 TIER1_YEARS，
+# 現在留得下的只剩一級聯賽（世界賽那五週都不打）＋國際賽（MSI／EWC 在夏天；KeSPA 歷年在決賽後、2026 那屆 7～8 月）；亞運走 wiki 補檔
+# （merge_fill 在切之後，切不到），德瑪西亞杯不在白名單 ⇒ 實際影響 0。
+# TIER1_YEARS／INTL_LEAGUES 哪天又收進會跟世界賽重疊的賽事，再回來改。
 def team_home_leagues(hdr, rows):
     """隊名 → 主場聯賽（該隊在非國際賽列裡最常出現的聯賽）。只打國際賽的隊查不到。"""
     iL = hdr.index("league"); iB = hdr.index("blue_teamname"); iR = hdr.index("red_teamname")
