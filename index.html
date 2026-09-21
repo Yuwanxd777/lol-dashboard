@@ -1307,7 +1307,7 @@ fetch(`https://ddragon.leagueoflegends.com/cdn/${DDV}/data/en_US/champion.json`)
 }).catch(()=>{});
 // ── 延遲載入（性能 2026-07-17）：wiki 三檔＋英文公告＋刷野（~5.2MB）改為動態掛載——
 // 首屏後 1.2 秒閒置預載 wiki；進 圖鑑/英雄 會再 ensureWiki（冪等）；刷野速度分頁才載 jungle.js；英文模式才載 patches_en.js。
-const _LAZYSRC={wiki:["wiki_patches.js","wiki_extra.js","wiki_objectives.js"],en:["patches_en.js","wiki_patches_en.js","wiki_objectives_en.js"],jungle:["jungle.js"],sqg:["soloq_champ_games.js"],builds:["soloq_builds.js"],recent:["soloq_recent.js"],sqch:["soloq_champs.js"]};
+const _LAZYSRC={wiki:["wiki_patches.js","wiki_extra.js","wiki_objectives.js"],en:["patches_en.js","wiki_patches_en.js","wiki_objectives_en.js","wiki_extra_en.js"],jungle:["jungle.js"],sqg:["soloq_champ_games.js"],builds:["soloq_builds.js"],recent:["soloq_recent.js"],sqch:["soloq_champs.js"]};
 const _lazyP={};
 function lazyLoad(g){
   return Promise.all((_LAZYSRC[g]||[]).map(src=>_lazyP[src]||(_lazyP[src]=new Promise(res=>{
@@ -5171,7 +5171,7 @@ function latestPatchChg(){
   // 裝備／符文焦點：最新版本被增/削/調的道具與符文（名稱｜改動行→依名稱歸整、判方向）
   if(typeof ensurePatchItemsCategorized==="function")ensurePatchItemsCategorized(); // 把誤分「機制」的道具改動搬回「道具」(如 26.11)
   res.itemLines={}; res.runeLines={}; res.itemDir={}; res.runeDir={}; res.mechLines={}; res.mechDir={};
-  notesPks.forEach(pk=>{const ex=(PN[pk]&&PN[pk]._extra)||((window.WIKI_EXTRA||{})[pk]); if(!ex)return;
+  notesPks.forEach(pk=>{const ex=extraSrc(pk); if(!ex)return;
     [["道具",res.itemLines],["符文",res.runeLines],["機制",res.mechLines]].forEach(([cat,lmap])=>{
       (ex[cat]||[]).forEach(l=>{
         // 圖鑑版本分頁不列的（純表現／聊天訊息／通用章節／造型列表），版本焦點也不列
@@ -6324,6 +6324,13 @@ const _chgTxt=l=>{const i=String(l).indexOf("｜"); return i>=0?String(l).slice(
 // 發布的 wiki_patches.js 是翻譯後的成品，英文畫面拿它只能顯示中文——那是迴圈第 1 項剩下的 240 筆。
 // 還沒載好（lazy）就先退回中文那份，載完 lazyLoad 會重繪。
 const wikiSrc=()=>((LANG==="en"&&window.WIKI_PATCHES_EN)||window.WIKI_PATCHES||{});
+// 道具／符文／機制的「某一版有哪些改動」：英文模式先找英文來源。
+// 官方英文的 _extra 與 wiki 英文原文**分類鍵都是中文的**（道具／符文／機制）、只有內容是英文，
+// 所以呼叫端照原本的鍵取用就好（2026-09-21 迴圈第 1 項：道具／符文的歷年改動在英文版是中文）。
+const extraSrc=pk=>{ const _PN=(typeof PATCH_NOTES!=="undefined")?PATCH_NOTES:{};
+  if(LANG==="en"){ const a=((window.LOL_PATCHES_EN||{})[pk]||{})._extra; if(a)return a;
+    const b=(window.WIKI_EXTRA_EN||{})[pk]; if(b)return b; }
+  return (_PN[pk]&&_PN[pk]._extra)||((window.WIKI_EXTRA||{})[pk]); };
 const zhOnly=(pk,ls)=>{
   if(LANG==="en"){ const en=ls.filter(l=>!/[一-鿿]/.test(_chgTxt(l))); return en.length?en:ls.filter(l=>/[一-鿿]/.test(l)); }
   const zh=ls.filter(l=>/[一-鿿]/.test(_chgTxt(l)));
@@ -6461,10 +6468,11 @@ function itemHistory(name){
     }));
     if(ls.length)arr.push({patch:pk,lines:ls,url});
   };
-  for(const[pk,pd]of Object.entries(PATCH_NOTES))if(pd._extra)scan(pk,pd._extra,pd._url||"");
+  // 英文模式改掃英文來源（分類鍵一樣是中文的道具／符文／召喚師技能，只有內容是英文）
+  for(const[pk,pd]of Object.entries((LANG==="en"&&window.LOL_PATCHES_EN)||PATCH_NOTES))if(pd._extra)scan(pk,pd._extra,pd._url||"");
   const seen=new Set(arr.map(e=>e.patch));
   const SYN=/^(重返遊戲|已從遊戲中移除|全新道具登場|重做登場)/; // 合成注入行（非官方原文）
-  for(const[pk,cats0]of Object.entries(window.WIKI_EXTRA||{})){
+  for(const[pk,cats0]of Object.entries((LANG==="en"&&window.WIKI_EXTRA_EN)||window.WIKI_EXTRA||{})){
     const cats=parseFloat(pk)>=22.17?Object.fromEntries(Object.entries(cats0).map(([c,ls])=>[c,zhOnly(pk,ls)])):cats0;
     if(!seen.has(pk)){scan(pk,cats,(PATCH_NOTES[pk]&&PATCH_NOTES[pk]._url)||wikiUrlOfPk(pk));continue;}
     // 官方該版條目若只剩合成注入行（如「重返遊戲」）→ wiki 的實際改動行補進來
@@ -9117,7 +9125,7 @@ function renderChgYear(box){
       return _sv.length===0||v<=_hi||(typeof isHistYear==="function"&&!isHistYear());
     }).sort();
     // 官方繁中公告只回溯到 2019；更早年份（與零星漏抓版本）用 LoL Wiki 英雄改動史補（英文原文）
-    const WIKI=window.WIKI_PATCHES||{}, wikiByPk={}, wikiUrl={}, wikiFull={};
+    const WIKI=wikiSrc(), wikiByPk={}, wikiUrl={}, wikiFull={};   // 英文模式用 wiki 英文原文
     Object.keys(WIKI).forEach(wv=>{
       const m=wv.match(/^(\d{1,2})\.(\d{1,2})$/); if(!m)return;
       const maj=+m[1], yr=maj>=25?2000+maj:2010+maj; // 4→2014 … 14→2024；25+→2025+（賽季制編號）
@@ -9294,6 +9302,10 @@ function renderChgYear(box){
       LANE5.forEach(p=>byLane[p].sort(byVer));
       // 第六欄：道具/符文/召喚師技能各自成卡；機制維持類別卡
       const CAT_ICON={機制:"⚙️"}, CAT_RANK={道具:0,符文:1,符文系:1,召喚師技能:2};
+      // 分類標題的英文（迴圈：英文版「⚙️ 機制」「X 版」沒翻）
+      const CAT_EN={"機制":"Mechanics","道具":"Items","新增道具":"New items","移除道具":"Removed items",
+        "符文":"Runes","符文系":"Rune trees","符文碎片":"Stat shards","召喚師技能":"Summoner spells"};
+      const catLb=c=>((LANG==="en"&&CAT_EN[c])||c);
       const byItem=new Map(), byCat={機制:[]};
       // 機制行的路線歸屬：明顯屬於某路的關鍵字 → 該路欄的機制卡；其餘留在其他欄
       const laneMech={TOP:[],JNG:[],MID:[],BOT:[],SUP:[]};
@@ -9496,7 +9508,7 @@ function renderChgYear(box){
         <div class="chgBody">${patchBlocks(arr,title)}</div></div>`;
       };
       const catCardHTML=(name,arr)=>`<div class="card">
-        <div class="chgHead"><span style="font-size:19px;font-weight:bold">${CAT_ICON[name]||""} ${name}</span><span class="cnt">${arr.length} 版</span></div>
+        <div class="chgHead"><span style="font-size:19px;font-weight:bold">${CAT_ICON[name]||""} ${esc(catLb(name))}</span><span class="cnt">${arr.length}${LANG==="en"?" patches":" 版"}</span></div>
         <div class="chgBody">${patchBlocks(arr)}</div></div>`;
       const objCardHTML=e=>`<div class="card">
         <div class="chgHead"><span class="heroname"><span class="cc"><img loading="lazy" src="${OBJ_BASE+e.icon}" alt="" onerror="this.remove()"></span>${esc(e.name)}</span><span class="cnt">${e.arr.length} ${T("次改動")}</span></div>
@@ -10210,7 +10222,7 @@ function render(){
         ensurePatchItemsCategorized(); // 把誤分到「機制」的道具改動搬回「道具」(如 26.11)
         if(!window._ITEMID2NM||!Object.keys(window._ITEMID2NM).length){window._ITEMID2NM={};const _E2=(typeof EXTRA_IMG!=="undefined")?EXTRA_IMG:{};for(const nm2 in _E2){const mm=String(_E2[nm2]).match(/\/item\/(\d+)/);if(mm)_ITEMID2NM[mm[1]]=nm2;}}
         const itemChgByPk={}, runeChgByPk={}; // {版本:{道具名:[改動行]}}／{版本:{符文名:[改動行]}}
-        notesPks.forEach(pk=>{const ex=(PN[pk]&&PN[pk]._extra)||((window.WIKI_EXTRA||{})[pk]); if(!ex)return;
+        notesPks.forEach(pk=>{const ex=extraSrc(pk); if(!ex)return;
           const _split=(arr,mp)=>(arr||[]).forEach(l=>{const i=l.indexOf("｜"); if(i<0)return; const nm3=l.slice(0,i).replace(/^\[[^\]]*\]\s*/,"").trim(); (mp[nm3]=mp[nm3]||[]).push(l.slice(i+1));});
           if(ex["道具"])_split(ex["道具"],itemChgByPk[pk]={});
           if(ex["符文"])_split(ex["符文"],runeChgByPk[pk]={});});
@@ -16157,7 +16169,8 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
           } };
           // 英文模式優先序：官方英文 → wiki 英文 → 官方中文（補漏）；中文模式：官方中文 → wiki
           if(LANG==="en"){ addOfficial(pdEn); addWiki(); addOfficial(pdZh); } else { addOfficial(pdZh); addWiki(); }
-          const ex=(pd&&pd._extra&&Object.keys(pd._extra).length?pd._extra:(window.WIKI_EXTRA||{})[pk])||{};
+          // 道具／符文／機制：英文模式走 extraSrc（官方英文 _extra → wiki 英文原文 → 中文）
+          const ex=((LANG==="en")?extraSrc(pk):(pd&&pd._extra&&Object.keys(pd._extra).length?pd._extra:(window.WIKI_EXTRA||{})[pk]))||{};
           const url=(pd&&pd._url)||wikiUrlOfPk(pk);
           // 呈現同「歷年改動」：一段一段往下列。順序＝英雄→道具→符文→召喚師技能→機制；
           // 各群內依方向排序：增強→削弱→調整；道具/符文逐項列（圖示＋名稱），不整包框起來

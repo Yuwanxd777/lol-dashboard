@@ -15,7 +15,7 @@ import json, re, sys, time, urllib.request
 from pathlib import Path
 from playwright.sync_api import sync_playwright
 from fetch_patches import translate, translate_line
-from fetch_wiki import zh_line, JUNK_RE
+from fetch_wiki import zh_line, JUNK_RE, RE_CHG, RE_NEW, RE_REM
 
 ROOT    = Path(__file__).resolve().parent.parent
 OUT_DIR = ROOT / "csv_cache/wikiv"
@@ -193,6 +193,29 @@ def fetch_all():
             br.close()
     return got
 
+# ── 英文版輸出（2026-09-21 迴圈第 1 項）──────────────────────────────────
+# 這支是「邊抽取邊翻譯」的：抽出來的 wiki 原文在同一個迴圈裡就被 zh_line／translate_line
+# 與一整排中文化 re.sub 改掉了 ⇒ 發布的 wiki_extra.js 沒有英文原文，英文畫面的道具／符文
+# 歷年改動只能顯示中文。改成同一份抽取結果跑兩次：EN=False 出中文正本、EN=True 出英文原文。
+# 英文那趟**只做結構改寫**（"X increased to A from B" → "X: B ⇒ A"），不碰字義、不查對照表。
+EN = False
+
+
+def en_line(body):
+    """zh_line 的英文版：同樣的結構改寫，但不翻譯。"""
+    body = (body or "").strip()
+    m = RE_CHG.match(body)
+    if m:
+        return f"{m.group(1)}: {m.group(3)} ⇒ {m.group(2)}"
+    m = RE_NEW.match(body)
+    if m:
+        return "New: " + m.group(1)
+    m = RE_REM.match(body)
+    if m:
+        return "Removed: " + m.group(1)
+    return body
+
+
 def build(got):
     imap = item_name_map()
     # 內文道具名替換用（合成公式行「A + B +50g = 750g」的元件名）
@@ -222,7 +245,7 @@ def build(got):
                 build._imapN = { _n(k): v for k, v in imap.items() }
                 build._normEn = _n
             imapN, normEn = build._imapN, build._normEn
-            zh_one = lambda p: imap.get(p) or imapN.get(normEn(p)) or translate(p)
+            zh_one = (lambda p: p) if EN else (lambda p: imap.get(p) or imapN.get(normEn(p)) or translate(p))
             for ent, lines in ents.items():
                 if ent and HDR_ENT.match(ent.strip()):
                     continue
@@ -233,11 +256,11 @@ def build(got):
                 sfx = ""
                 if ec != ent:
                     if re.search(r"(added|new|reintroduced|returned)$", ent, re.I):
-                        sfx = "（新增）"
+                        sfx = " (new)" if EN else "（新增）"
                     elif re.search(r"(rework(?:ed)?|remade|updated)$", ent, re.I):
-                        sfx = "（重做）"
+                        sfx = " (rework)" if EN else "（重做）"
                     else:
-                        sfx = "（移除）"
+                        sfx = " (removed)" if EN else "（移除）"
                 # 複合名「A / B / C」（wiki 常見雙空格）→ 各自查官方名再以「／」連回
                 if ec and "/" in ec:
                     zh_ent = "／".join(zh_one(p.strip()) for p in re.split(r"\s*/\s*", ec) if p.strip()) + sfx
@@ -249,26 +272,27 @@ def build(got):
                     # 圖示 alt 的敘述性前綴：「An icon for the item X」→「X」；金錢圖示（數字不在文字流）整段拿掉
                     l = re.sub(r"An icon for the item\s*", "", l, flags=re.I)
                     l = re.sub(r"An icon representing \w+\s*", "", l, flags=re.I)
-                    if irx:
+                    if irx and not EN:
                         l = irx.sub(lambda m: imap[m.group(1)], l)
-                    t = zh_line(l)
+                    t = en_line(l) if EN else zh_line(l)
                     # 英文 Old/New Effect: 前綴 → 中文，避免「Old Effect:：」雙冒號；一併修 % ( 與 數字 % 的半形空格
-                    t = re.sub(r"\bOld Effect\s*[:：]", "舊效果：", t, flags=re.I)
-                    t = re.sub(r"\bNew Effect\s*[:：]", "新效果：", t, flags=re.I)
-                    t = re.sub(r"([：:])\s*\1", r"\1", t)          # 連續冒號 ：： → ：
-                    t = re.sub(r"%\s+([（(])", r"%\1", t).replace("% （", "%（")  # 「% (」→「%（」
-                    t = re.sub(r"(\d)\s+%", r"\1%", t)             # 「125 %」→「125%」
-                    t = re.sub(r"([一-鿿])\s*,\s*(?=[一-鿿])", r"\1，", t)  # 中文之間的半形逗號 → 全形（友方英雄, 移動中 → 友方英雄，移動中）
-                    t = re.sub(r"Cooldown:\s*None\.?", "冷卻時間：無。", t, flags=re.I)  # 「Cooldown: None.」殘留
-                    t = t.replace("掃描透鏡", "清除者透視鏡")  # 內文舊自譯 → 官方名（Sweeping Lens）
-                    # 子項標頭句式（EXTRACT subPath 帶出的 wiki 寫法）＋高頻未翻詞/句
-                    t = re.sub(r"\b(?:An? )?Active named (.+?)\.?\s*：", r"主動（\1）：", t, flags=re.I)
-                    t = re.sub(r"\b(?:An? )?Passive named (.+?)\.?\s*：", r"被動（\1）：", t, flags=re.I)
-                    t = re.sub(r"\bBase damage\b", "基礎傷害", t, flags=re.I)
-                    t = re.sub(r"\bAP ratio\b", "AP 係數", t, flags=re.I)
-                    t = re.sub(r"\bAD ratio\b", "AD 係數", t, flags=re.I)
-                    t = t.replace("Damage is now dealt instantaneously instead of as a projectile.", "傷害改為立即生效（不再是飛行彈道）。")
-                    t = t.replace("Cooldown is shared with other Hextech items.", "冷卻時間與其他海克斯科技道具共用。")
+                    if not EN:   # 英文模式不做中文化（這一段整段是「英文詞句 → 中文」）
+                        t = re.sub(r"\bOld Effect\s*[:：]", "舊效果：", t, flags=re.I)
+                        t = re.sub(r"\bNew Effect\s*[:：]", "新效果：", t, flags=re.I)
+                        t = re.sub(r"([：:])\s*\1", r"\1", t)          # 連續冒號 ：： → ：
+                        t = re.sub(r"%\s+([（(])", r"%\1", t).replace("% （", "%（")  # 「% (」→「%（」
+                        t = re.sub(r"(\d)\s+%", r"\1%", t)             # 「125 %」→「125%」
+                        t = re.sub(r"([一-鿿])\s*,\s*(?=[一-鿿])", r"\1，", t)  # 中文之間的半形逗號 → 全形（友方英雄, 移動中 → 友方英雄，移動中）
+                        t = re.sub(r"Cooldown:\s*None\.?", "冷卻時間：無。", t, flags=re.I)  # 「Cooldown: None.」殘留
+                        t = t.replace("掃描透鏡", "清除者透視鏡")  # 內文舊自譯 → 官方名（Sweeping Lens）
+                        # 子項標頭句式（EXTRACT subPath 帶出的 wiki 寫法）＋高頻未翻詞/句
+                        t = re.sub(r"\b(?:An? )?Active named (.+?)\.?\s*：", r"主動（\1）：", t, flags=re.I)
+                        t = re.sub(r"\b(?:An? )?Passive named (.+?)\.?\s*：", r"被動（\1）：", t, flags=re.I)
+                        t = re.sub(r"\bBase damage\b", "基礎傷害", t, flags=re.I)
+                        t = re.sub(r"\bAP ratio\b", "AP 係數", t, flags=re.I)
+                        t = re.sub(r"\bAD ratio\b", "AD 係數", t, flags=re.I)
+                        t = t.replace("Damage is now dealt instantaneously instead of as a projectile.", "傷害改為立即生效（不再是飛行彈道）。")
+                        t = t.replace("Cooldown is shared with other Hextech items.", "冷卻時間與其他海克斯科技道具共用。")
                     if not re.search(r"[0-9A-Za-z一-鿿]", t):
                         continue
                     # 合成配方行的道具名都在圖示裡（已剝除）→ 只剩 + + = 的殘渣，丟棄
@@ -283,15 +307,32 @@ def build(got):
                     t = re.sub(r"\s*[+＋=＝]\s*。?$", "", t).strip()
                     if not re.search(r"[0-9A-Za-z一-鿿]", t):
                         continue
-                    cats.setdefault(cat, []).append(translate_line(f"{zh_ent}｜{t}") if zh_ent else translate_line(t))
+                    _line = (f"{zh_ent}｜{t}" if zh_ent else t)
+                    cats.setdefault(cat, []).append(_line if EN else translate_line(_line))
         if cats:
             out[pk] = cats
-    js = "window.WIKI_EXTRA=" + json.dumps(out, ensure_ascii=False, separators=(",", ":")) + ";"
-    # 輸出前全域舊自譯正名（涵蓋 ent 複合名/irx 漏抓等所有路徑）：舊自譯 → DDragon 官方名
-    for old, new in (("掃描透鏡", "清除者透視鏡"), ("餘燼巨人", "巴米灰燼")):
-        js = js.replace(old, new)
-    OUT_JS.write_text(js, encoding="utf-8")
-    print(f"\n✅ wiki_extra.js：{len(out)} 個版本")
+    var = "WIKI_EXTRA_EN" if EN else "WIKI_EXTRA"
+    js = "window." + var + "=" + json.dumps(out, ensure_ascii=False, separators=(",", ":")) + ";"
+    if not EN:
+        # 輸出前全域舊自譯正名（涵蓋 ent 複合名/irx 漏抓等所有路徑）：舊自譯 → DDragon 官方名
+        for old, new in (("掃描透鏡", "清除者透視鏡"), ("餘燼巨人", "巴米灰燼")):
+            js = js.replace(old, new)
+    dst = (ROOT / "wiki_extra_en.js") if EN else OUT_JS
+    dst.write_text(js, encoding="utf-8")
+    print(f"\n✅ {dst.name}：{len(out)} 個版本")
+
+
+def build_both(got):
+    """同一份抽取結果出兩份：中文正本＋英文原文（英文模式的道具／符文歷年改動要用）。"""
+    global EN
+    EN = False
+    build(got)
+    EN = True
+    try:
+        build(got)
+    finally:
+        EN = False
+
 
 if __name__ == "__main__":
-    build(fetch_all())
+    build_both(fetch_all())
