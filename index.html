@@ -1594,21 +1594,39 @@ const bootEnchOf=n=>{ if(!/附魔|Enchantment/i.test(String(n)))return null;
 const ITEM_ALIAS={"Crest Ancient Golem":"遠古石魔紋章","Crest of the Ancient Golem":"遠古石魔紋章",
   "剔除鐮刀":"汰除品","熾天使之擁":"熾天使的擁抱","魔宗":"終極魔劍","魔切":"魔劍正宗","餘燼巨人":"巴米灰燼","Challenging 重擊":"挑戰重擊","Chilling 重擊":"冰寒重擊","死亡之火觸擊":"冥火之觸","好戰之心":"好戰者鎧甲","傳奇守衛":"傳奇護衛",
 "護盾 Bash":"護盾猛擊","時間 Warp Tonic":"時間彎曲補劑","Greater Seals":"高階符印",
-"Timeworn Ancient Coin":"陳舊的遠古錢幣","Timeworn Frostfang":"陳舊的霜牙",
-"Timeworn Frost Queen's Claim":"陳舊的冰霜女王旨意","Timeworn Nomad's Medallion":"陳舊的流浪者勳章",
-"Timeworn Relic 護盾":"陳舊的聖物之盾","Timeworn Spellthief's Edge":"陳舊的竊法之刃",
-"Timeworn Talisman Ascension":"陳舊的昇華護符","Timeworn Targon's Brace":"陳舊的塔貢護臂",
+"Timeworn Ancient Coin":"陳舊的賢者古幣","Timeworn Frostfang":"陳舊的霜牙",
+"Timeworn Frost Queen's Claim":"陳舊的霜后宣言","Timeworn Nomad's Medallion":"陳舊的流浪者徽章",
+"Timeworn Relic 護盾":"陳舊的聖物之盾","Timeworn Spellthief's Edge":"陳舊的盜竊之刃",
+"Timeworn Talisman Ascension":"陳舊的昇華護符","Timeworn Targon's Brace":"陳舊的巨石盾甲",
 "Timeworn Face Mountain":"陳舊的山岳之面",
 "Greater Glyphs":"高階符文","Greater Quintessences":"高階精華","Greater Seals":"高階符印",
 "Trinkets":"飾品","Garrison":"守備","Unleashed Teleport":"強化傳送",
-"Oblivion Orb":"遺忘法球","Spellbinder":"法術束縛者","Lifeline":"生命線",
-"Runic Echoes":"符文迴響","Quill Coat":"羽刺外衣","Bloodletter's Veil":"放血者的面紗",
-"Shurelya's Reverie":"舒瑞亞的戰歌","Luden's Echo":"魯登的回聲","Cinderhulk":"附魔：餘燼",
-"Witch's Hat":"女巫之帽","Wriggle's Lantern":"蘭頓之兆","Wriggle":"蘭頓之兆",
+"Oblivion Orb":"遺忘寶珠","Spellbinder":"煉魔渾儀","Lifeline":"生命之索",
+"Runic Echoes":"符文迴響","Quill Coat":"翮羽輕甲","Bloodletter's Veil":"放血者的面紗",
+"Shurelya's Reverie":"蘇瑞亞的狂想曲","Luden's Echo":"盧登回音","Cinderhulk":"附魔：餘燼",
+"Witch's Hat":"女巫之帽","Wriggle's Lantern":"瑞格之燈","Wriggle":"蘭頓之兆",
 "Nomad's Eye":"浪人之眼","Eye of Ascension":"昇華之眼","Celestial Eye":"天神之眼",
 "Eye of Frost":"寒霜之眼","Eye of the Aspect":"星靈之眼","Blackfire Torch":"黑焰火炬",
-"Ultimate Hat":"終極之帽","Ultimate Hunter":"終極獵手","大絕 Hat":"終極之帽","大絕 Hunter":"終極獵手",
-"Circlet of the Iron Solari":"鋼鐵日炎頭冠","Locket of the Iron Solari":"鋼鐵日炎懸章"};
+"Ultimate Hat":"終極之帽","Ultimate Hunter":"終焉獵人","大絕 Hat":"終極之帽","大絕 Hunter":"終極獵手",
+"Circlet of the Iron Solari":"日輪的神環","Locket of the Iron Solari":"日輪的加冕",
+// 2026-09-21：上面 15 筆原本是**自己翻的**，跟 assets.js 的台服官方名對不上（Locket of the Iron Solari 寫成「鋼鐵日炎懸章」，官方是「日輪的加冕」）。
+// 已全部改成官方名；下面這批是「舊自譯名 → 官方名」，讓歷史文本裡已經寫死的自譯名也能正名。
+"陳舊的遠古錢幣":"陳舊的賢者古幣",
+"陳舊的冰霜女王旨意":"陳舊的霜后宣言",
+"陳舊的流浪者勳章":"陳舊的流浪者徽章",
+"陳舊的竊法之刃":"陳舊的盜竊之刃",
+"陳舊的塔貢護臂":"陳舊的巨石盾甲",
+"遺忘法球":"遺忘寶珠",
+"法術束縛者":"煉魔渾儀",
+"生命線":"生命之索",
+"羽刺外衣":"翮羽輕甲",
+"舒瑞亞的戰歌":"蘇瑞亞的狂想曲",
+"魯登的回聲":"盧登回音",
+"蘭頓之兆":"瑞格之燈",
+"終極獵手":"終焉獵人",
+"鋼鐵日炎頭冠":"日輪的神環",
+"鋼鐵日炎懸章":"日輪的加冕"
+};
 // 舊制天賦重製為現行符文（使用者判定）：詳情頁補生涯徽章（舊天賦年段＋重製回歸年）
 window.MASTERY_REWORKED={"冥火之觸":"2026"};
 // 名稱容錯查 key：原字 → 去空格 → 鏈/鍊 異體字互換（官方公告與 DDragon 用字不一致）
@@ -9501,6 +9519,9 @@ function renderChgYear(box){
         if(a&&b&&a.size&&a.size===b.size&&[...a].every(x=>b.has(x)))return ps[0];
         return nm;
       };
+      // 英文名：assets 的 en 欄（中文名也查得到，資產索引同時收中英歷代名）
+      const itemEn=n=>{ const a=(typeof assetOf==="function")&&assetOf(n);
+        const e2=a&&((a.hit&&a.hit.en)||(a.e&&a.e.en)); return e2||n; };
       const itemZh=n=>(typeof assetZh==="function")?assetZh(n):n; // 英文/歷代名 → 官方中文名（Cinderhulk → 附魔：餘燼；舊譯如幽靈疾步靠 masteries alias → 鬼步）。注意：normTerm 是敘述用語，不可套在實體名稱上（會把天賦「穿甲」變成查不到的「物穿」）
       const itemCardHTML=e=>{
         // 各行都帶「道具名｜」前綴 → 統計實際有改動的是哪幾件
@@ -9509,7 +9530,8 @@ function renderChgYear(box){
         const single=owners.length===1?owners[0]:null;
         const raw=single||e.name, zh=itemZh(raw); // 顯示/圖/詳情用中文名，行前綴仍用原字剝除
         // 英文模式標題用原字（資料本來就是英文名）；data-name／圖示仍用中文名查表（xImg／詳情頁靠它）
-        const title=(LANG==="en")?String(single||dispName(e.name)).trim():(single?zh:itemZh(dispName(e.name)));
+        // 英文模式標題走 assets 的英文名（原字可能是中文，如「日輪的加冕」）；data-name／圖示仍用中文名
+        const title=(LANG==="en")?itemEn(String(single||dispName(e.name)).trim()):(single?zh:itemZh(dispName(e.name)));
         const arr=single?e.arr.map(p=>({...p,lines:p.lines.map(l=>l.startsWith(single+"｜")?l.slice(single.length+1):l)})):e.arr;
         const CAT_ICO2={"道具":"🛡️","新增道具":"🛡️","移除道具":"🛡️","符文":"🔮","符文碎片":"🔻","召喚師技能":"✨","機制":"⚙️","挑戰重擊":"⚔️","冰寒重擊":"⚔️","懲戒重擊":"⚔️"};
         const im=xImg(zh)||xImg(raw)||(CAT_ICO2[title]?`<span class="cc" style="font-size:22px;line-height:1;margin-right:4px">${CAT_ICO2[title]}</span>`:""); // 統稱卡（無實體名的彙總行）給類別 emoji
