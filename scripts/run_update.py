@@ -42,6 +42,34 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 PY = sys.executable
 
+# ── 逐步逾時（2026-09-22 精進迴圈 #202）──
+# 以前 run_one 是不帶 timeout 的 subprocess.run：任何一步卡死（Playwright 頁面掛住、socket 沒設逾時…）
+# ⇒ 整班卡死 ⇒ publish.bat 走不到守門／push／健檢（連 HEALTH_ALERT.txt 都不會留），而排程工作是
+# MultipleInstances=IgnoreNew＋ExecutionTimeLimit=PT72H ⇒ **後面最多 6 班整個被跳過**，沒有任何人出聲。
+# 門檻先量才定：shift_logs 11 班裡單步最久 1682.8s（09-09 22:00 fetch_promo 限流退避，#95 已封頂），
+# 其次 272.0s（fetch_soloq_auto）⇒ 取 1800s：歷來每一步都跑得完，而一班就算連掛好幾步也遠短於 12 小時的班距。
+STEP_TMO_S = 1800   # 單一步驟最多跑幾秒（--step-timeout 可調；0＝不設上限＝舊行為）
+TMO_RC = 124        # 逾時被收掉的步驟記這個離開碼（沿用 GNU timeout 的慣例）⇒ 健檢的「非零離開碼」會指名
+KILL_WAIT_S = 20    # 收掉之後最多再等幾秒把已經印出來的輸出讀回來
+
+
+def kill_tree(p):
+    """把步驟連同它起的孫程序一起收掉。
+
+    只 p.kill() 不夠：Playwright 的 node／chromium 是孫程序，會繼承 stdout／stderr 管線，
+    它們還活著的話 communicate() 永遠等不到 EOF（Windows 上 subprocess.run(timeout=…) 就是卡在這）。
+    taskkill /T 靠父子 PID 走訪，所以要在父程序還活著時先下，p.kill() 只是保險。"""
+    if os.name == "nt":
+        try:
+            subprocess.run(["taskkill", "/F", "/T", "/PID", str(p.pid)], capture_output=True,
+                           stdin=subprocess.DEVNULL, timeout=30)
+        except Exception:
+            pass
+    try:
+        p.kill()
+    except Exception:
+        pass
+
 
 def S(name, *args):
     """一個步驟：腳本名（不含 .py）＋參數。"""
@@ -163,6 +191,9 @@ def main():
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--only", default="", help="逗號分隔的步驟名，只跑這幾步（驗收用）")
     ap.add_argument("--log", default=os.path.join(ROOT, "update_log.txt"))
+    ap.add_argument("--step-timeout", type=float, default=STEP_TMO_S,
+                    help="單一步驟最多跑幾秒，超過就連孫程序一起收掉、記 exit %d（預設 %d；0＝不設上限）"
+                         % (TMO_RC, STEP_TMO_S))
     A = ap.parse_args()
     only = {x.strip() for x in A.only.split(",") if x.strip()}
 
@@ -200,9 +231,22 @@ def main():
         name, cmd = step
         t0 = time.time()
         try:
-            r = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True,
-                               encoding="utf-8", errors="replace", stdin=subprocess.DEVNULL)
-            out, rc = (r.stdout or "") + (r.stderr or ""), r.returncode
+            p = subprocess.Popen(cmd, cwd=ROOT, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+                                 encoding="utf-8", errors="replace", stdin=subprocess.DEVNULL)
+            try:
+                so, se = p.communicate(timeout=A.step_timeout if A.step_timeout > 0 else None)
+                out, rc = (so or "") + (se or ""), p.returncode
+            except subprocess.TimeoutExpired:
+                kill_tree(p)
+                try:
+                    so, se = p.communicate(timeout=KILL_WAIT_S)
+                except subprocess.TimeoutExpired:
+                    so, se = "", "（收掉之後管線仍沒關 ⇒ 已印出來的輸出讀不回來）\n"
+                out = (so or "") + (se or "")
+                out += ("" if not out or out.endswith("\n") else "\n") + (
+                    "⏱ 逐步逾時：%s 跑超過 %.0f 秒 ⇒ 連孫程序一起收掉、記 exit %d；上面是收掉之前已經印出來的輸出"
+                    "（這一步沒做完，它的產物維持上一班的樣子）\n" % (name, A.step_timeout, TMO_RC))
+                rc = TMO_RC
         except Exception as e:
             out, rc = "執行失敗：%s: %s" % (type(e).__name__, e), -1
         return name, time.time() - t0, rc, out
