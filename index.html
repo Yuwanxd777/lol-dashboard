@@ -3408,17 +3408,34 @@ function initData(){
     if(r[0]&&r[1]) TABBR[normT(r[0])]=r[1];
     if(r[4]&&r[3]) CABBR[r[4]]=r[3];
   });
-  // 世界賽資格賽誤標截止日（該日前的 WLDs＝賽區資格賽）＋隊伍→母聯賽速查（判資格賽屬於哪個賽區）
-  const _WQS_CUT={2022:"2022-09-10",2023:"2023-09-15",2024:"2024-09-20",2025:"2025-10-01"};
+  // 隊伍→母聯賽速查（判資格賽屬於哪個賽區）
   const _INTL_RE=/^(WLDs|MSI|FST|EWC|ENC|RR|IEM|MSC|KeSPA|EWCQ|WQS)/;
   const _homeCnt={};
-  if(Object.keys(_WQS_CUT).some(y=>String(RAW[1]&&RAW[1][C.date]||"").startsWith(y))||true){
+  {   // 每一隊的母聯賽（出賽最多的非國際賽聯賽）——資格賽要靠它判屬於哪個賽區
     for(let i=1;i<RAW.length;i++){const r=RAW[i]; if(+r[C.participantid]!==100)continue;
       const lg=String(r[C.league]||""); if(_INTL_RE.test(lg))continue;
       for(const tn of [r[C.blue_teamname],r[C.red_teamname]]){ if(!tn)continue;
         const e=_homeCnt[tn]=_homeCnt[tn]||{}; e[lg]=(e[lg]||0)+1; }}
   }
   const _homeLgOf=tn=>{const e=_homeCnt[tn]; if(!e)return null; let b=null,bn=0; for(const l in e)if(e[l]>bn){bn=e[l];b=l;} return b;};
+  // ── 哪些 WLDs 其實是「賽區世界賽資格賽」（使用者 2026-09-21 教的判法）──────────────
+  // 世界賽正賽**整個賽事鎖同一個版本**（Riot 會公告），各賽區的資格賽打的是該賽區季後賽的版本。
+  // 而資格賽一定是**同賽區內**打的、正賽一定有跨賽區對戰 ⇒
+  //   ① 先掃出這一年「有跨賽區對戰」的那幾個版本＝正賽的版本
+  //   ② 其餘版本的 WLDs 場次就是資格賽 → 改標 WQS{賽區}
+  // 為什麼不繼續用寫死的截止日：原本是 {2022:"09-10",2023:"09-15",2024:"09-20",2025:"10-01"}，
+  // 每年要手動補一筆，2026 就漏了——使用者看到「世界賽」裡是 LPL 的四隊預選賽（26.17）。
+  // 賽季進行中（正賽還沒開打）時跨區集合是空的 ⇒ 全部判成資格賽，正賽一開打自動歸位。
+  // ⚠ 已經有賽段名的不動（2013／2016 的「入圍賽」是正賽的一部分，版本本來就跟正賽不同）。
+  // 實測與舊截止日逐年一致：2022 LCK14+LPL14、2023 LPL13+LCK11、2024 LPL13+LCK13、2025 LPL12；
+  // 2026 多抓到 LPL 12 局（舊寫法 0 局）。2013~2021 一局都不會誤判。
+  const _WLD_MAIN={};
+  for(let i=1;i<RAW.length;i++){const r=RAW[i];
+    if(+r[C.participantid]!==100||String(r[C.league])!=="WLDs"||String(r[C.split]||""))continue;
+    const pa=String(r[C.patch]||""); if(!pa)continue;
+    const ha=_homeLgOf(r[C.blue_teamname]), hb=_homeLgOf(r[C.red_teamname]);
+    if(ha&&hb&&ha!==hb)(_WLD_MAIN[String(r[C.date]).slice(0,4)]=_WLD_MAIN[String(r[C.date]).slice(0,4)]||new Set()).add(pa);
+  }
   // 2022 LCL 賽季因俄烏戰爭於 2/24 取消（只打到 2/20 的 16 場）→ 全數剔除（使用者判例；LCL 賽區之後併入 LEC/EMEA 體系）
   RAW=RAW.filter((r,i)=>i===0||!(String(r[C.league])==="LCL"&&String(r[C.date]).slice(0,4)==="2022"));
   // 2022 賽季的 KeSPA 盃（2021-12-10~12 打）非一軍出賽（使用者判例：二軍/新訓名單）→ 全數剔除
@@ -3440,9 +3457,13 @@ function initData(){
     {const _SP={"Opening":"春季","Opening PO":"春季 PO","Closing":"夏季","Closing PO":"夏季 PO"}; if(_SP[r[C.split]])r[C.split]=_SP[r[C.split]];}
     // 2025 LTA 北/南區的無標籤場次（9月底-10月中）＝各區升降保衛戰 → 標成升降賽（金框/升降籤/分段才吃得到）
     if((r[C.league]==="LTA N"||r[C.league]==="LTA S")&&!r[C.split]&&String(r[C.date]).slice(0,4)==="2025"&&String(r[C.date]).slice(5,7)>="09")r[C.split]="升降賽";
-    // 世界賽卡誤含各賽區資格賽（2022-2025 都有；沒去世界賽的隊被列入）：截止日前的 WLDs → WQS{賽區}（歸盃賽區）
-    if(String(r[C.league])==="WLDs"){const _y=String(r[C.date]).slice(0,4), _cut=_WQS_CUT[_y];
-      if(_cut&&String(r[C.date]).slice(0,10)<_cut){const _h=_homeLgOf(r[C.blue_teamname]); const _rg=_h&&LEAGUE_META[_h]&&LEAGUE_META[_h].region||"";
+    // 世界賽卡誤含各賽區資格賽（2022 起每年都有；沒去世界賽的隊被列進世界賽）→ WQS{賽區}（歸盃賽區）。
+    // 判法見上面 _WLD_MAIN：不是正賽版本的就是資格賽。
+    if(String(r[C.league])==="WLDs"&&!String(r[C.split]||"")){
+      const _pa=String(r[C.patch]||""), _mn=_WLD_MAIN[String(r[C.date]).slice(0,4)];
+      if(_pa&&!(_mn&&_mn.has(_pa))){
+        const _h=_homeLgOf(r[C.blue_teamname])||_homeLgOf(r[C.red_teamname]);
+        const _rg=_h&&LEAGUE_META[_h]&&LEAGUE_META[_h].region||"";
         r[C.league]="WQS"+_rg;}}
     // OE 偶發把選手名寫成「隊縮寫␣ID」(如 AG.AL 的「AGAL Tarzan」)：與該列自隊縮寫相符的前綴剝掉——否則同人分裂、積分頁誤列缺帳號
     if(C.blue_playername!=null&&C.blue_teamname!=null)for(const off of [0,RB]){
@@ -3723,6 +3744,10 @@ const eventsTreeHTML=()=>{
   {const wqks=Object.keys(byLg).filter(k=>k.startsWith("WQS")).sort();
    if(byLg["WLDs"]&&wqks.length){
      const M=byLg["WLDs"]; M._wq={};
+     // 「打進世界賽」的名單要在合併資格賽**之前**先留一份（2026-09-21 使用者：世界賽的參賽資格
+     // wiki 都有寫）。合併之後 M.teams 會含資格賽落敗的隊（JDG／WE），別的卡片的綠勾
+     // （＝打進當年世界賽）就會把他們也標成晉級。
+     M._wMain=new Set(M.teams);
      wqks.forEach(k=>{const e=byLg[k];
        e.teams.forEach(t2=>M.teams.add(t2)); e.releg.forEach(t2=>M.releg.add(t2));
        (e.reg2||new Set()).forEach(t2=>M.reg2.add(t2)); M.n+=e.n;
@@ -3822,9 +3847,9 @@ const eventsTreeHTML=()=>{
         +chips([...(x._ewcMain||new Set())].filter(t2=>!poSet.has(t2))); // 正賽段不上綠框
       // 各區資格賽是獨立的聯賽碼（EWCQ歐洲…）→ 標籤連到該區資格賽自己的 wiki 頁
       Object.entries(x._ewcQ).forEach(([rg,set])=>{ mainChips+=segE(spLink("EWCQ"+rg,"",(LANG==="en"?"Qualifier · ":"資格賽·")+esc(rg)),[...set].filter(t2=>!poSet.has(t2)),false,_advAb); });
-    }else if((x.lg==="WLDs"||x.lg==="MSI")&&x.wDates){ // 世界賽/MSI 卡：正賽｜──入圍賽
+    }else if((x.lg==="WLDs"||x.lg==="MSI")&&(x.wDates||x._wq)){ // 世界賽/MSI 卡：正賽｜──入圍賽｜──各區資格賽
       // 正賽開始日：世界賽＝首個單日 ≥12 隊（2022 人工定）；MSI＝第一個「空檔日」之後（各年賽程入圍→正賽間都休一天）
-      const days=Object.keys(x.wDates).sort();
+      const days=Object.keys(x.wDates||{}).sort();
       let mainStart;
       if(x.lg==="MSI"){
         for(let i2=0;i2<days.length-1;i2++){ const gap=(new Date(days[i2+1])-new Date(days[i2]))/864e5;
@@ -3833,6 +3858,10 @@ const eventsTreeHTML=()=>{
         mainStart=({2022:"2022-10-07"})[+curYear]||days.find(d=>x.wDates[d].size>=12);
       }
       const _wAll=new Set(); days.forEach(d=>x.wDates[d].forEach(t2=>_wAll.add(t2))); // 世界賽本體（正賽+入圍）的隊
+      // 正賽還沒開打、只有各區資格賽的局（2026-09-21：LPL 預選賽 9/17-19，世界賽 10/15 才開打）
+      // ⇒ 本體的隊伍改用 wiki 參賽名單（events_extra），否則整張卡會掉到最底下那條泛用分支，
+      //    把資格賽的四隊當成「外賽區晉級季後賽」列在正賽旁邊。
+      if(!_wAll.size)((x._extra||{}).teams||[]).forEach(t2=>_wAll.add(t2));
       // 資料已標入圍賽（2013 國際外卡賽）就直接照它分，不必猜日期
       const _hasPI=x._piT&&x._piT.size&&x._mnT&&x._mnT.size;
       const seg=(lb,arr,adv)=>arr.length?`<span class="evtPromoDiv evtGrpDiv"><i>${lb}</i></span>`+chips(arr,adv):"";
@@ -3859,7 +3888,7 @@ const eventsTreeHTML=()=>{
       mainChips=inner;
     }else{
       // WQS{區} 資格賽卡：晉級世界賽的隊上綠框（與世界賽卡（WLDs）交集）
-      const advQ=(String(x.lg||"").startsWith("WQS")&&byLg["WLDs"])?new Set([...byLg["WLDs"].teams].map(t2=>tAb(t2))):null;
+      const advQ=(String(x.lg||"").startsWith("WQS")&&byLg["WLDs"])?new Set([...(byLg["WLDs"]._wMain||byLg["WLDs"].teams)].map(t2=>tAb(t2))):null;
       const gcfg=(EVT_GUEST[+curYear]||{})[x.lg];
       // 外賽區晉級季後賽（如 2024 PCS：LJL/LCO 前二只打 PO）：例行賽有成員時，「只打季後賽」的隊自成一段
       const regN=x.regN||new Set();
@@ -3916,7 +3945,7 @@ const eventsTreeHTML=()=>{
         // 賽區聯賽的「晉級」＝打進當年世界賽（含入圍賽）。2013 那些錦標賽本來就是在選世界賽代表，
         // 拿季後賽對戰表當晉級名單會標到一大票（使用者回報：2013 GPL 只有 GAB 進世界賽）。
         // 代表隊是在**最後一個賽段**決定的 → 只有最後那段標，前面的賽段仍用各自的季後賽名單。
-        const _wSet=byLg["WLDs"]?new Set([...byLg["WLDs"].teams].map(t2=>tAb(t2))):null;
+        const _wSet=byLg["WLDs"]?new Set([...(byLg["WLDs"]._wMain||byLg["WLDs"].teams)].map(t2=>tAb(t2))):null;
         const _wAdv=arr=>{ if(!_wSet||!_wSet.size)return null;
           const s2=new Set(arr.map(t2=>tAb(t2)).filter(a=>_wSet.has(a))); return s2.size?s2:null; };
         // 「晉級」對不同賽段是不同意思（使用者定案 2026-07-31）：
