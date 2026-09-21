@@ -84,7 +84,13 @@ src_u = open(os.path.join(HERE, "fetch_soloq_update.py"), encoding="utf-8").read
 src_s = open(os.path.join(HERE, "fetch_soloq.py"), encoding="utf-8").read()
 check("update：ACC_STATIC 只在 --changed 的 else 分支（scope=full）填入", "ACC_STATIC = acc_static_from(d)" in src_u
       and src_u.index("ACC_STATIC = set()") < src_u.index('if "--changed" in sys.argv:') < src_u.index("ACC_STATIC = acc_static_from(d)"))
-check("update：逐人迴圈真的走 split_static_accounts → for a in _todo", "split_static_accounts(accs.get(key, []), ACC_STATIC)" in src_u and "for a in _todo:" in src_u)
+# #200：逐人迴圈改走 plan_accounts（＝split_static_accounts ＋ 欠著舊場次的帳號不跳過）。守本意：迴圈仍然吃 ACC_STATIC、
+# plan_accounts 裡面真的叫 split_static_accounts、而且 pend 空（穩態）時兩者結果一模一樣（行為，不只是字串）。
+check("update：逐人迴圈真的走 plan_accounts(…ACC_STATIC…) → for a in _todo，plan_accounts 裡面叫 split_static_accounts",
+      "plan_accounts(accs.get(key, []), ACC_STATIC, _pend)" in src_u and "for a in _todo:" in src_u
+      and "todo, skip = split_static_accounts(acc_list, static)" in src_u[src_u.index("def plan_accounts("):src_u.index("def with_pend(")])
+check("update：沒有 pend（穩態）⇒ plan_accounts 跟 split_static_accounts 結果一模一樣",
+      all(U.plan_accounts(accs, st_, {}) == U.split_static_accounts(accs, st_) for st_ in (set(), {"faker#kr1@kr", "y#2@na1"}, {"nobody@kr"}, {"faker#kr1@kr", "x#1@euw1", "y#2@na1"})))
 check("update：印「⏭ 跳過 N 個牌位沒動的帳號」", "⏭ 跳過 %d 個牌位沒動的帳號" in src_u)
 check("soloq：寫進 soloq_played.json 的是 acc_static", '"acc_static": acc_static' in src_s)
 check("soloq：--active／--failed 不寫靜止名單", 'acc_static = [] if any(f in sys.argv for f in ("--active", "--failed"))' in src_s)

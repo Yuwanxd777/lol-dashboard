@@ -160,8 +160,18 @@ def run(src_path, batch=False, bs=4, tmp=None, load_argv=(), **page_kw):
 def ts(out, f):
     m = re.match(r'window\.__sqLoad\((.*)\);\s*$', out[f], re.S); return [g["t"] for g in json.loads("[" + m.group(1) + "]")[1]["matches"]]
 def norm(txt):
-    """照牆鐘排序的「最久的 N 位」那行不比（#198：沙盒裡每位 0.00x 秒，列到誰、順序都看牆鐘）；秒數抹平"""
-    return [l for l in re.sub(r"\d+(\.\d+)?s", "Ns", txt).splitlines() if not l.lstrip().startswith("最久的")]
+    """照牆鐘排序的「最久的 N 位」那行不比（#198：沙盒裡每位 0.00x 秒，列到誰、順序都看牆鐘）；秒數抹平。
+    #200 刻意多印的「↺」行（個別帳號沒問到時記 pend）剝掉再比——那是 pend 測試的事，這裡守的是「熔斷沒動到別的」"""
+    return [l for l in re.sub(r"\d+(\.\d+)?s", "Ns", txt).splitlines() if not l.lstrip().startswith(("最久的", "↺"))]
+def no_pend(out):
+    """#200 刻意多寫的 data["pend"] 剝掉再跟舊版逐檔比（其餘位元組要一樣：同一套 json.dumps 重新序列化）"""
+    res = {}
+    for f, txt in out.items():
+        m = re.match(r'window\.__sqLoad\((.*)\);\s*$', txt, re.S); key, data = json.loads("[" + m.group(1) + "]")
+        if "pend" not in data: res[f] = txt; continue
+        data.pop("pend")
+        res[f] = f"window.__sqLoad({json.dumps(key, ensure_ascii=False)},{json.dumps(data, ensure_ascii=False)});\n"
+    return res
 labels = lambda U: [c[0] for c in U.CHILD]
 ORIG = {f"p{i}.js": [g["t"] for g in ms] for i, (_, _, ms) in enumerate(PLAYERS, 1)}
 ALL_BAD = {pu: -1 for pu in ALL_PU}
@@ -223,7 +233,8 @@ check("小結：1 個帳號沒問、1 位選手整位不採用", "⚡ dpm 熔斷
 U2, p2, txt5b, out5b, _ = run(NEW, batch=True, bs=4, tmp=tmp5)   # 下一班：同一個沙盒、dpm 好了
 check("下一班：H 兩個帳號都補回來，**包含 4500**（只收 h1 的話 newestT=5000、4500 永遠漏掉）", ts(out5b, "p8.js") == [5000, 4500, 4000], ts(out5b, "p8.js"))
 check("下一班：C 補回 500、沒有 ⚡、子程序照起", ts(out5b, "p3.js") == [500] and "⚡" not in txt5b and labels(U2) == ["重建錯路線選手", "新選手補全年"], (ts(out5b, "p3.js"), labels(U2)))
-print("  ⓘ 已知的洞（#68 起就有、不是這輪造成的、下一輪做）：A 在熔斷前收了 a2 的 1300 ⇒ newestT 跳到 1300 ⇒ 下一班 a1 只補得回 1500、1200 漏掉；實測 A＝%s" % ts(out5b, "p1.js"))
+check("#200 補上的洞：A 在熔斷前收了 a2 的 1300（newestT 跳到 1300），下一班 a1 從當時的起點補 ⇒ **1200 也回來**（#199 當時實測 [1500, 1300, 1000]）",
+      ts(out5b, "p1.js") == [1500, 1300, 1200, 1000], ts(out5b, "p1.js"))
 
 # ───────── ⑥ evaluate 丟例外 ─────────
 print("[6] evaluate 丟例外也算失敗")
@@ -250,8 +261,10 @@ if old_src:
           all(po.n_calls("n", pu) == 2 for pu in ALL_PU) and Uo.time.sleeps.count(1.5) == 11 and "⚡" not in txt_o, (po.live(), Uo.time.sleeps))
     check("舊版全掛時仍起兩支打 dpm 的子程序", labels(Uo) == ["重建錯路線選手", "新選手補全年"], labels(Uo))
     Uo3, po3, txt_o3, out_o3, _ = run(oldf, always_bad=SCAT)
-    check("不連續失敗：新舊版輸出逐檔相同、日誌逐行相同（沒熔斷＝行為一字不變）", out_o3 == out3 and norm(txt_o3) == norm(txt3),
-          [k for k in out3 if out3[k] != out_o3.get(k)] + [x for x in norm(txt_o3) if x not in norm(txt3)] + [x for x in norm(txt3) if x not in norm(txt_o3)])
+    check("不連續失敗：新舊版輸出逐檔相同、日誌逐行相同（沒熔斷＝行為一字不變；#200 的 pend 鍵與 ↺ 行剝掉再比）", out_o3 == no_pend(out3) and norm(txt_o3) == norm(txt3),
+          [k for k in out3 if no_pend(out3)[k] != out_o3.get(k)] + [x for x in norm(txt_o3) if x not in norm(txt3)] + [x for x in norm(txt3) if x not in norm(txt_o3)])
+    check("剝掉的東西真的存在、而且只在有帳號沒問到又往前跳的那兩位（A、E）——不是整批都多了鍵", sorted(f for f in out3 if no_pend(out3)[f] != out3[f]) == ["p1.js", "p5.js"] and txt3.count("↺") == 1,
+          (sorted(f for f in out3 if no_pend(out3)[f] != out3[f]), txt3.count("↺")))
     for b in (False, True):
         Uoc, poc, txt_oc, out_oc, _ = run(oldf, batch=b)
         Unc, pnc, txt_nc, out_nc, _ = run(NEW, batch=b)

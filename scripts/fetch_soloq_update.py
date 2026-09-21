@@ -186,6 +186,45 @@ def breaker_step(nfail, ok, after=None):
     nfail = 0 if ok else nfail + 1
     return nfail, nfail >= (after or DOWN_AFTER)
 
+# 2026-09-22 線 3（精進迴圈 #200）：補 #68 留下的洞。個別帳號「重試仍失敗／抓錯」照 #68 是「這輪不採用、下輪再補」，
+# 但逐場檔的 newestT 是整位共用的：同一位選手別的帳號當班帶進新場次 ⇒ newestT 往前跳 ⇒ 下一班問那個失敗的帳號時只問得到
+# 比新 newestT 更新的，夾在中間那幾場永遠補不回來（breaker 測試 ⑤ 尾端實測：A 的 1200 漏掉）。不能套「整位不採用」：
+# 某個帳號**永久**回 5xx 時那位選手會永遠不更新。做法：newestT 要往前跳的那一刻，把沒問到的帳號與它該從哪裡補起記在
+# 逐場檔自己的 meta——data["pend"]={dpmPuuid: 那時的 newestT}；之後問那個帳號一律從 min(newestT, pend) 問起、問成功才清；
+# 批次預抓用同一個起點；有 pend 的帳號不被「牌位沒動」跳過（它欠的是舊場次，牌位不會再動）。
+# pend 放在 matches 前面：clean_soloq_matches.fast_rids 靠「src 是最後一個鍵、前一段以 ] 收掉」切邊界，放後面它會整檔退回慢路徑。
+# 沒有 pend 的選手（穩態）檔案與日誌一字不變。改這段要跑 scripts/fetch_soloq_update_pend_test.py。
+def pend_of(data):
+    """逐場檔 meta 的 pend → {dpmPuuid: 補問起點}；形狀不對的一律當沒有（＝照舊從 newestT 問）"""
+    p = data.get("pend") if isinstance(data, dict) else None
+    if not isinstance(p, dict): return {}
+    return {k: v for k, v in p.items() if isinstance(k, str) and isinstance(v, (int, float)) and not isinstance(v, bool)}
+
+def since_of(newestT, pend, pu):
+    """這個帳號該從哪個時間點問起：欠著的（pend）取較舊的那個，其餘就是 newestT"""
+    return min(newestT, pend[pu]) if pu in pend else newestT
+
+def plan_accounts(acc_list, static, pend):
+    """split_static_accounts ＋ 欠著舊場次的帳號不跳過；順序照帳號檔。pend 空（穩態）⇒ 跟 split_static_accounts 一模一樣"""
+    todo, skip = split_static_accounts(acc_list, static)
+    if pend and skip:
+        force = {id(a) for a in skip if a.get("dpmPuuid") in pend}
+        if force:
+            keep = {id(a) for a in todo} | force
+            todo = [a for a in acc_list if id(a) in keep]; skip = [a for a in skip if id(a) not in force]
+    return todo, skip
+
+def with_pend(data, pend):
+    """把 pend 寫回逐場檔的 dict（放在 matches 前面）；沒有 pend、檔裡原本也沒有 ⇒ 原物件原樣回去（穩態一字不變）"""
+    if not pend and "pend" not in data: return data
+    out = {}
+    for k, v in data.items():
+        if k == "pend": continue
+        if k == "matches" and pend: out["pend"] = dict(pend)
+        out[k] = v
+    if pend and "pend" not in out: out["pend"] = dict(pend)
+    return out
+
 # 2026-09-08 線 3（精進迴圈 #68）：逐人 267s 的批次化。10:00 那班 133 位／238 個帳號逐一 pg.evaluate(JS_NEW)
 # 一次約 1.1s ＋ sleep 0.1 ⇒ 267s。這裡一次 evaluate 用 Promise.all 同時問 BATCH_NEW 個帳號（帳號那一支
 # fetch_dpm_soloq_accounts 早就這樣做、dpm 沒限流），結果按 (選手, puuid) 收進 PRE，主迴圈逐帳號 pop；
@@ -254,8 +293,9 @@ def prefetch_batches(pg, keys, idx, accs, static, bs=None):
         try: _, data = load_player_file(meta["f"])
         except Exception: continue   # 讀檔錯的留給主迴圈印
         ex = data.get("matches", []); nt = ex[0]["t"] if ex else 0
-        todo, _ = split_static_accounts(accs.get(key, []), static)
-        for a in todo: items.append((key, a["dpmPuuid"], [a["dpmPuuid"], tok, nt]))
+        _pend = pend_of(data)   # #200：欠著舊場次的帳號從它自己的起點問（跟主迴圈同一套，PRE 命中的結果才對得上）
+        todo, _ = plan_accounts(accs.get(key, []), static, _pend)
+        for a in todo: items.append((key, a["dpmPuuid"], [a["dpmPuuid"], tok, since_of(nt, _pend, a["dpmPuuid"])]))
     PRE = {}; st = {"items": len(items), "batches": 0, "hit": 0, "fallback": 0, "halved": 0, "sizes": [], "secs": [], "lat": []}
     i = 0
     while i < len(items):
@@ -404,6 +444,7 @@ def main():
     # 錢花在哪沒有紀錄 ⇒ 印各階段耗時，下一次 10:00 的 update_log 就看得出來。
     _T0 = time.time(); _TCF = _TPU = 0.0; _TPL = []; _NACC = _NSKIP = 0
     _DOWN = False; _NFAIL = _NDOWN = _PDOWN = 0   # #199 主迴圈熔斷：掛了沒／連續失敗帳號數／熔斷後沒問的帳號數／整位不採用的選手數
+    _NPBACK = _NPOLD = _NPNEW = 0   # #200 pend：這一班補問成功的帳號數／其中原本會漏掉的舊場次數／新記下的帳號數
     with sync_playwright() as p:
         b = _launch_real(p)
         pg = b.new_context(user_agent=UA, viewport={"width":1400,"height":900}, locale="en-US").new_page()
@@ -436,7 +477,8 @@ def main():
             except Exception as e: print(f"[{i}/{len(keys)}] {key} 讀檔錯 {e}"); continue
             existing = data.get("matches", []); newestT = existing[0]["t"] if existing else 0
             newg = []
-            _todo, _skip = split_static_accounts(accs.get(key, []), ACC_STATIC)
+            _pend = pend_of(data); _pok = []; _pfail = []; _pback = []   # #200：欠著舊場次的帳號／這輪問成功的／這輪沒問到的（dpmPuuid）／補問成功的明細
+            _todo, _skip = plan_accounts(accs.get(key, []), ACC_STATIC, _pend)
             _NACC += len(_todo) + len(_skip); _NSKIP += len(_skip)
             _perpu = {}   # 這輪每個 dpmPuuid 抓回來的新場次 → 寫進逐場檔的 src（來源對帳用）
             _pl_down = 0   # #199：熔斷後這位選手有幾個帳號沒問到
@@ -445,20 +487,23 @@ def main():
                 if _DOWN and not _hit:   # #199：dpm 掛了 ⇒ 不再打；批次已命中的不花請求、照常走下面
                     _pl_down += 1; _NDOWN += 1; continue
                 _live = None if _hit else False   # #199：真的打出去的請求最後成不成（None＝沒打；False 起跳 ⇒ evaluate 丟例外也算失敗）
+                _since = since_of(newestT, _pend, a["dpmPuuid"]); _bad = False   # #200：欠著的帳號從它自己的起點問
                 try:
-                    res = PRE.pop((key, a["dpmPuuid"])) if _hit else pg.evaluate(JS_NEW, [a["dpmPuuid"], tok, newestT])
+                    res = PRE.pop((key, a["dpmPuuid"])) if _hit else pg.evaluate(JS_NEW, [a["dpmPuuid"], tok, _since])
                     if isinstance(res, dict) and res.get("bad"):
                         # dpm 限流／擋下：睡一下再問一次；還是不行就**丟掉半截結果**（留著會讓 newestT 往前跳、
                         # 中間那段永遠補不回來——以前是靜默截斷，2026-09-08 #68 改成回報＋丟棄，下輪從原 newestT 再抓）
                         time.sleep(1.5)
                         _live = False
-                        res = pg.evaluate(JS_NEW, [a["dpmPuuid"], tok, newestT])
+                        res = pg.evaluate(JS_NEW, [a["dpmPuuid"], tok, _since])
                         if isinstance(res, dict) and res.get("bad"):
                             print(f"   {a.get('riotId')} dpm {bad_name(res['bad'])}（重試仍失敗）→ 這輪不採用、下輪再補")
-                            res = dict(res, ms=[])
+                            res = dict(res, ms=[]); _bad = True
                         else: _live = True
                     elif not _hit: _live = True
                     _ms = (res.get("ms") if isinstance(res, dict) else res) or []
+                    if a["dpmPuuid"] in _pend and not _bad:   # #200：欠著的帳號問成功了——先記著，等確定這位選手沒有被熔斷整位丟掉才算數
+                        _pback.append((a.get("riotId"), len(_ms), sum(1 for g in _ms if (g.get("t") or 0) <= newestT)))
                     if _ms: _perpu.setdefault(a["dpmPuuid"], []).extend(_ms)
                     if _ms:  # 記該帳號自己最後一場 soloq 時間
                         _lg = max((g.get("t") or 0) for g in _ms)
@@ -472,7 +517,8 @@ def main():
                                 RENAME[(key, a["riotId"])] = cur
                     else:
                         newg.extend(res or [])
-                except Exception as e: print(f"   {a.get('riotId')} 抓錯 {e}")
+                except Exception as e: print(f"   {a.get('riotId')} 抓錯 {e}"); _bad = True
+                (_pfail if _bad else _pok).append(a["dpmPuuid"])
                 if _live is not None:   # #199：只數真的打出去的請求
                     _NFAIL, _trip = breaker_step(_NFAIL, _live)
                     if _trip and not _DOWN:
@@ -483,7 +529,23 @@ def main():
                 _PDOWN += 1
                 if newg: print(f"[{i}/{len(keys)}] {key}  熔斷後 {_pl_down} 個帳號沒問到 ⇒ 已到手的 +{len(newg)} 場這一班不採用、下一班從原 newestT 再抓")
                 newg = []
+            _pn = _pend   # #200：這位選手收工時的 pend（熔斷整位不採用 ⇒ 連 pend 都不動：補問到手的也一起丟了）
+            if not _pl_down and (_pend or _pfail):
+                _pn = {k: v for k, v in _pend.items() if k not in _pok}   # 問成功 ⇒ 清
+                for _rid, _n, _old in _pback:   # 只在真的有欠、真的補到時印（穩態一字不變）
+                    _NPBACK += 1; _NPOLD += _old
+                    print(f"   ↺ {_rid} 之前沒問到、這次從當時的起點問成功：{_n} 場（其中 {_old} 場比檔內最新一場舊＝原本會漏掉的）")
+                if newg and max((g.get("t") or 0) for g in newg) > newestT:   # newestT 要往前跳了 ⇒ 沒問到的帳號記下該從哪裡補
+                    for _pu in _pfail:
+                        if _pu not in _pn: _NPNEW += 1
+                        _pn[_pu] = since_of(newestT, _pend, _pu)
+            if not newg and _pn != _pend:   # #200：只有 pend 變了（補問成功但沒有新場次）⇒ 只重寫 meta
+                data = with_pend(data, _pn)
+                with open(os.path.join(OUTDIR, meta["f"]), "w", encoding="utf-8") as fp:
+                    fp.write(f"window.__sqLoad({json.dumps(key,ensure_ascii=False)},{json.dumps(data,ensure_ascii=False)});\n")
             if newg:
+                _ex_t = {g["t"] for g in existing} if _pend else ()   # #200：從舊起點補問回來的可能跟檔內重複，「+N 新」不重複計（穩態＝空）
+                _nnew = len(newg) - sum(1 for g in newg if g["t"] in _ex_t)
                 seen=set(); merged=[]
                 for g in sorted(newg+existing, key=lambda x: x.get("t",0), reverse=True):
                     if g["t"] in seen: continue
@@ -501,10 +563,13 @@ def main():
                     # #82：當場分類「改名／疑錯配」，不要每次都丟一句「可能是改名或錯配」讓人再追一輪
                     _kind, _note = soloq_src.classify(data, _pu, _want)
                     _MISSRC.append((key, _want, _got, _n, _tot, _kind, _note))
+                data = with_pend(data, _pn)   # #200：沒有 pend 的選手＝原物件原樣
                 with open(os.path.join(OUTDIR, meta["f"]), "w", encoding="utf-8") as fp:
                     fp.write(f"window.__sqLoad({json.dumps(key,ensure_ascii=False)},{json.dumps(data,ensure_ascii=False)});\n")
-                meta["n"] = len(merged); added_tot += len(newg); upd += 1
-                print(f"[{i}/{len(keys)}] {key}  +{len(newg)} 新（共 {len(merged)}）")
+                meta["n"] = len(merged); added_tot += _nnew
+                if _nnew:
+                    upd += 1
+                    print(f"[{i}/{len(keys)}] {key}  +{_nnew} 新（共 {len(merged)}）")
             _TPL.append((time.time() - _tp, key, len(_todo)))
         b.close()
     if _BST:
@@ -515,6 +580,8 @@ def main():
         if _bd: print(_bd)
     if _DOWN:   # #199：只在熔斷時印（穩態日誌一字不變）
         print("⚡ dpm 熔斷小結：%d 個帳號這一班沒問、%d 位選手整位不採用；下一班從原 newestT 再抓、不丟資料" % (_NDOWN, _PDOWN))
+    if _NPBACK or _NPNEW:   # #200：只在真的有欠／有補時印（穩態日誌一字不變）
+        print("↺ 沒問到的帳號（逐場檔 pend）：這一班補問成功 %d 個、撿回原本會漏掉的舊場次 %d 場；新記下 %d 個，下一班從當時的起點補" % (_NPBACK, _NPOLD, _NPNEW))
     if _TPL:
         if _NSKIP:
             print("⏭ 跳過 %d 個牌位沒動的帳號（%d → %d 次 dpm 請求）" % (_NSKIP, _NACC, _NACC - _NSKIP))
