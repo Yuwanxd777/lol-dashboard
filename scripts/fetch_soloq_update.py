@@ -127,12 +127,24 @@ def comp_roles():
 
 def arg(n,d=None): return sys.argv[sys.argv.index(n)+1] if n in sys.argv and sys.argv.index(n)+1<len(sys.argv) else d
 MAXP = int(arg("--max") or 0)
+# 2026-09-22 線 3（精進迴圈 #198）：單頁請求逾時。09-21 22:00 那班「批次預抓 80s：8 批每批 最快 1.3s／中位 2.8s／最慢 58.4s」
+# ——一個帳號的 fetch 掛了 58.4s 才等到 dpm 回 500（新場次 0），Promise.all 一批要等最慢那一個 ⇒ ⑤d 33s → 87s，全在關鍵路徑上；
+# 主迴圈逐一重問那個帳號 2 秒就好了（暫時性）。歷來 5 班有分項的日誌：單帳號（翻完所有頁）中位 1.1～1.6s／P90 1.3～2.8s／
+# 正常最慢 4.5s ⇒ 單頁 15s 還沒回就放棄、回 bad=-1（＝逾時／連線錯），照 #68 的 bad 路徑走：批次裡退回逐一、逐一睡 1.5s 再問、
+# 仍失敗就丟掉半截結果。順帶補上 #68 漏掉的那一半：fetch 丟例外以前是靜默 break、半截結果照收（bad=0）⇒ 第 2 頁以後斷線時
+# newestT 往前跳、中間那段永遠補不回來；現在一律回報。改這段要跑 scripts/fetch_soloq_update_fetchtmo_test.py。
+FETCH_TMO_MS = int(arg("--fetch-timeout-ms") or 15000)
+BAD_NET = -1   # JS_NEW 的 bad：>0＝dpm 回的 HTTP 狀態（429／403／5xx），-1＝逾時／連線錯
 
 JS_NEW = """async(args)=>{ const [PU,tok,newestT]=args; const out=[]; let ID=null, bad=0;
   for(let pg=1; pg<=20; pg++){
-    let r; try{ r=await fetch(`/v1/players/${PU}/match-history?size=15&page=${pg}&lane=${tok}`);}catch(e){break;}
-    if(!r.ok){ if(r.status===429||r.status===403||r.status>=500) bad=r.status; break; }   // 限流／擋下要回報（以前靜默截斷）
-    const j=await r.json(); const ms=j.matches||[]; if(!ms.length) break; let stop=false;
+    let r, j; const ac=new AbortController(), tm=setTimeout(()=>ac.abort(), __TMO__);   // #198：單頁逾時（含讀 body）
+    try{
+      try{ r=await fetch(`/v1/players/${PU}/match-history?size=15&page=${pg}&lane=${tok}`, {signal:ac.signal});}catch(e){ bad=-1; break; }   // 逾時／連線錯也要回報（以前靜默截斷）
+      if(!r.ok){ if(r.status===429||r.status===403||r.status>=500) bad=r.status; break; }   // 限流／擋下要回報（以前靜默截斷）
+      j=await r.json();
+    } finally{ clearTimeout(tm); }
+    const ms=j.matches||[]; if(!ms.length) break; let stop=false;
     if(pg===1&&ms[0]&&ms[0].participants&&ms[0].participants[0]){const q0=ms[0].participants[0]; ID={g:q0.gameName||null,t:q0.tagLine||null};} // 最近一場的當前 Riot ID：改名偵測
     for(const m of ms){ if((m.gameCreation||0) <= newestT){ stop=true; break; }   // 追到已存在的最新一場就停
       if(m.queueId!==420) continue; if((m.gameDuration||0)<600) continue; const p=(m.participants||[])[0]; if(!p) continue;
@@ -154,7 +166,11 @@ JS_NEW = """async(args)=>{ const [PU,tok,newestT]=args; const out=[]; let ID=nul
     }
     if(stop) break;
   }
-  return {id:ID, ms:out, bad:bad}; }"""
+  return {id:ID, ms:out, bad:bad}; }""".replace("__TMO__", str(FETCH_TMO_MS))
+
+def bad_name(b):
+    """bad 值 → 日誌用的字樣（-1 不是 HTTP 狀態，別印成「dpm 回 -1」）"""
+    return "逾時／連線錯（單頁 %ds）" % (FETCH_TMO_MS // 1000) if b == BAD_NET else "回 %s" % b
 
 # 2026-09-08 線 3（精進迴圈 #68）：逐人 267s 的批次化。10:00 那班 133 位／238 個帳號逐一 pg.evaluate(JS_NEW)
 # 一次約 1.1s ＋ sleep 0.1 ⇒ 267s。這裡一次 evaluate 用 Promise.all 同時問 BATCH_NEW 個帳號（帳號那一支
@@ -241,12 +257,16 @@ def prefetch_batches(pg, keys, idx, accs, static, bs=None):
         for r in rs:   # #130：瀏覽器端逐帳號延遲（秒）＋新場次數，只給「批次分項」那行用
             if isinstance(r, dict) and isinstance(r.get("el"), (int, float)):
                 st["lat"].append((r["el"] / 1000.0, len(r.get("ms") or [])))
-        bad = 0
+        bad = 0; net = 0
         for (k, pu, _), r in zip(chunk, rs):
             if _res_ok(r): PRE[(k, pu)] = r; st["hit"] += 1
             else:
                 st["fallback"] += 1
-                if isinstance(r, dict) and r.get("bad"): bad = r["bad"]
+                if isinstance(r, dict) and r.get("bad") == BAD_NET: net += 1
+                elif isinstance(r, dict) and r.get("bad"): bad = r["bad"]
+        if net:   # #198：逾時／連線錯不是限流 ⇒ 不減半（減半是黏的，後面每一批都變慢），只留給主迴圈逐一重問
+            st["net"] = st.get("net", 0) + net
+            print(f"   dpm {bad_name(BAD_NET)} {net} 個 → 留給主迴圈逐一重問（不減半）")
         if bad and bs > 2:
             bs = max(2, bs // 2); st["halved"] += 1
             print(f"   dpm 回 {bad} → 批次減半為 {bs}")
@@ -414,7 +434,7 @@ def main():
                         time.sleep(1.5)
                         res = pg.evaluate(JS_NEW, [a["dpmPuuid"], tok, newestT])
                         if isinstance(res, dict) and res.get("bad"):
-                            print(f"   {a.get('riotId')} dpm 回 {res['bad']}（重試仍失敗）→ 這輪不採用、下輪再補")
+                            print(f"   {a.get('riotId')} dpm {bad_name(res['bad'])}（重試仍失敗）→ 這輪不採用、下輪再補")
                             res = dict(res, ms=[])
                     _ms = (res.get("ms") if isinstance(res, dict) else res) or []
                     if _ms: _perpu.setdefault(a["dpmPuuid"], []).extend(_ms)
@@ -458,7 +478,8 @@ def main():
         b.close()
     if _BST:
         print("⏱ 批次預抓 %.0fs：%d 個帳號／%d 批（批次大小 %d）、命中 %d、退回逐一 %d、減半 %d 次"
-              % (_TB, _BST["items"], _BST["batches"], BATCH_NEW, _BST["hit"], _BST["fallback"], _BST["halved"]))
+              % (_TB, _BST["items"], _BST["batches"], BATCH_NEW, _BST["hit"], _BST["fallback"], _BST["halved"])
+              + ("、逾時／連線錯 %d 個" % _BST["net"] if _BST.get("net") else ""))   # #198：穩態（0 個）那行一字不變
         _bd = batch_breakdown(_BST)
         if _bd: print(_bd)
     if _TPL:

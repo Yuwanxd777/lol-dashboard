@@ -44,7 +44,8 @@ U = load("fsu_bt_new", NEW)
 print("[1] 模組形狀")
 check("有 pool_estimate／batch_breakdown", callable(getattr(U, "pool_estimate", None)) and callable(getattr(U, "batch_breakdown", None)))
 check("JS_BATCH 仍包住 JS_NEW、Promise.all、.catch(，而且多了 el", U.JS_NEW in U.JS_BATCH and "Promise.all" in U.JS_BATCH and ".catch(" in U.JS_BATCH and "el:" in U.JS_BATCH and "r.el=" in U.JS_BATCH)
-check("main 在批次預抓那行之後印 batch_breakdown", re.search(r"批次預抓[^\n]*\n[^\n]*\n\s*_bd = batch_breakdown\(_BST\)\n\s*if _bd: print\(_bd\)", open(NEW, encoding="utf-8").read()) is not None)
+# #198 在那個 print 後面接了一行「、逾時／連線錯 N 個」的尾巴 ⇒ 中間是 1～2 行（原本寫死 1 行，#198 一加就紅）
+check("main 在批次預抓那行之後印 batch_breakdown", re.search(r"批次預抓[^\n]*\n(?:[^\n]*\n){1,2}\s*_bd = batch_breakdown\(_BST\)\n\s*if _bd: print\(_bd\)", open(NEW, encoding="utf-8").read()) is not None)
 
 print("[2] pool_estimate 派工模擬")
 pe = U.pool_estimate
@@ -150,7 +151,16 @@ try:
     O = load("fsu_bt_old", oldp)
     check("舊版 JS_BATCH 沒有 el（不是早就有）", "el:" not in O.JS_BATCH and "r.el=" not in O.JS_BATCH)
     check("舊版沒有 pool_estimate／batch_breakdown", not hasattr(O, "pool_estimate") and not hasattr(O, "batch_breakdown"))
-    check("JS_NEW 跟舊版一字不差（逐帳號路徑沒被動到）", O.JS_NEW == U.JS_NEW)
+    # #198（2026-09-22）刻意動了 JS_NEW 的**取頁那一小段**（單頁逾時 AbortController，另有 fetch_soloq_update_fetchtmo_test 管）
+    # ⇒「整支一字不差」不再成立；這裡守的是 #130 的本意——**逐場解析段**（從拿到 matches 之後到結尾，JS_NEW 的九成）沒被動到，
+    # 加上開頭（參數／迴圈 20 頁）與請求的 URL 三處各自一字不差。
+    _ANCH = "const ms=j.matches||[]; if(!ms.length) break;"
+    _URL = "`/v1/players/${PU}/match-history?size=15&page=${pg}&lane=${tok}`"
+    _HEAD = lambda s: s[:s.index("let r")]
+    check("JS_NEW 的逐場解析段／開頭／請求 URL 跟舊版一字不差（#198 只動了取頁那一小段）",
+          _ANCH in O.JS_NEW and _ANCH in U.JS_NEW and O.JS_NEW.split(_ANCH, 1)[1] == U.JS_NEW.split(_ANCH, 1)[1]
+          and len(U.JS_NEW.split(_ANCH, 1)[1]) > 0.7 * len(O.JS_NEW)   # 實測 0.83；錨點若漂到尾巴，「相同」就只是在比空字串
+          and _HEAD(O.JS_NEW) == _HEAD(U.JS_NEW) and _URL in O.JS_NEW and _URL in U.JS_NEW)
     keys, idx, accs = fake_setup(O)
     with contextlib.redirect_stdout(io.StringIO()):
         _, sto = O.prefetch_batches(FakePG(), keys, idx, accs, set(), bs=4)
