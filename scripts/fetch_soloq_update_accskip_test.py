@@ -139,8 +139,45 @@ try:
         t_, s_ = U.split_static_accounts(accs.get(k, []), set(st)); tot += len(t_) + len(s_); sk += len(s_)
     print(f"   逐人 W+L 有變 {len(played_keys)} 位（22:00 日誌印 103）＋上一版沒有 {len(want) - len(played_keys)} 位 → 帳號 {tot} 個，其中牌位沒動可跳 {sk} 個（施工單估 100/315）")
     check("有動的選手裡確實有可跳的帳號（0 < 跳 < 全部）", 0 < sk < tot, (sk, tot))
-    no_ask = [k for k in played_keys if accs.get(k) and not U.split_static_accounts(accs[k], set(st))[0]]
+    # 2026-09-21 #188：帳號被移出帳號檔時，逐人總和也會變——那不是「打過」。SHG|Vsta：083c0749 有
+    # hell4adise#KR11（548 場）＋주 화#1003（94 場），現行只剩前者 ⇒ 總和 642 → 548 ⇒ 被當成「有變」，
+    # 而留下的那個帳號 W+L 一場沒動、全跳過是對的（沒有「變的那一場」要抓）⇒ 這條從 #23 綠到帳號檔變動那天才假紅。
+    # 判準（不共用 acc_static_keys 的程式碼）：兩版都在的帳號 W+L 全沒動、沒有新帳號、只是少了帳號 ⇒ 帳號組成改變。
+    def acc_wl(rows):
+        d = {}
+        for p in rows:
+            if p.get("wins") is None and p.get("losses") is None: continue
+            ak = (str(p.get("curId") or p.get("riotId") or "").strip().lower(), str(p.get("platform") or "").strip().lower())
+            d.setdefault(f'{p.get("team")}|{p.get("player")}', {})[ak] = (p.get("wins") or 0) + (p.get("losses") or 0)
+        return d
+    def regroup_only(P_, N_, keys):
+        pa, na = acc_wl(P_), acc_wl(N_)
+        out = []
+        for k in keys:
+            a, b = pa.get(k, {}), na.get(k, {})
+            if set(b) - set(a) or set(a) == set(b): continue      # 有新帳號／組成沒變 ⇒ 總和變了就是真的打過
+            if all(a[x] == b[x] for x in b): out.append(k)       # 只少了帳號、留下來的都沒動
+        return out
+    regroup = regroup_only(P, N, played_keys)
+    real_played = [k for k in played_keys if k not in regroup]
+    print(f"   其中 {len(regroup)} 位只是帳號組成改變（帳號被移出、留下的 W+L 沒動，不算打過）：{regroup[:5]}")
+    no_ask = [k for k in real_played if accs.get(k) and not U.split_static_accounts(accs[k], set(st))[0]]
     check("W+L 有變的每一位至少留一個帳號要問 dpm（變的那一場才有人去抓）", not no_ask, no_ask[:5])
+    # 對照（合成兩位、兩個帳號都有 dpmPuuid）：T|Gone 只是少了帳號 ⇒ 歸組成改變；T|Play 同樣少了帳號但留下的那個 +1 場 ⇒ 仍算打過，
+    # 而且把它唯一會動的帳號從 accs 拿掉時，上面那條判準必須抓到它（證明它會紅，不是永遠空集合）
+    def _r(t, pl, rid, w, l): return {"team": t, "player": pl, "riotId": rid, "curId": rid, "platform": "kr", "wins": w, "losses": l, "found": True}
+    Ps = [_r("T", "Gone", "g1#kr", 10, 10), _r("T", "Gone", "g2#kr", 5, 5),
+          _r("T", "Play", "p1#kr", 10, 10), _r("T", "Play", "p2#kr", 5, 5), _r("T", "Play", "p3#kr", 7, 7)]
+    Ns = [_r("T", "Gone", "g1#kr", 10, 10), _r("T", "Play", "p1#kr", 11, 10), _r("T", "Play", "p3#kr", 7, 7)]
+    rg = regroup_only(Ps, Ns, ["T|Gone", "T|Play"])
+    check("對照：只少帳號、留下的沒動 ⇒ 帳號組成改變；留下的有動 ⇒ 仍算打過", rg == ["T|Gone"], rg)
+    sts = S.acc_static_keys(Ps, Ns)
+    # p3 兩版都 7/7 ⇒ 靜止；帳號檔若只剩 p3 可問（p1 漏掉了）⇒ 打過的那一場沒人抓 ⇒ 判準必須紅
+    fake_accs = {"T|Play": [{"team": "T", "player": "Play", "riotId": "p3#kr", "platform": "kr", "dpmPuuid": "x"}]}
+    miss = [k for k in ["T|Play"] if fake_accs.get(k) and not U.split_static_accounts(fake_accs[k], set(sts))[0]]
+    miss_ok = [k for k in ["T|Play"] if not U.split_static_accounts(
+        [{"team": "T", "player": "Play", "riotId": "p1#kr", "platform": "kr", "dpmPuuid": "x"}], set(sts))[0]]
+    check("正控制：打過的人只剩靜止帳號可問 ⇒ 判準抓得到；有會動的帳號 ⇒ 不抓", miss == ["T|Play"] and miss_ok == [], (miss, miss_ok, sts))
     # 正控制：把一個靜止帳號的 wins +1 → 只有它消失
     k0 = st[0]; rid0, plat0 = k0.rsplit("@", 1)
     N2 = [dict(p, wins=(p.get("wins") or 0) + 1) if (str(p.get("riotId") or "").strip().lower() == rid0 or str(p.get("curId") or "").strip().lower() == rid0) and str(p.get("platform") or "").lower() == plat0 else p for p in N]
