@@ -59,11 +59,18 @@ def roster(abbr):
                 continue
             full = str(r[tcol] or "").strip()
             ab = norm_ab(abbr.get(full.lower(), "")) or re.sub(r"[^A-Za-z0-9]", "", full)[:5].upper()
-            e = out.setdefault(nm, {"player": nm, "n": 0, "pos": Counter(), "last": "", "teams": Counter(), "leagues": Counter(), "team": ab})
+            e = out.setdefault(nm, {"player": nm, "n": 0, "pos": Counter(), "last": "", "teams": Counter(), "leagues": Counter(), "team": ab, "_best": (-1, "")})
             e["n"] += 1; e["pos"][POS[pid]] += 1; e["teams"][ab] += 1; e["leagues"][str(r[li])] += 1
             d = str(r[di])[:10]
             if d > e["last"]:
-                e["last"] = d; e["team"] = ab
+                e["last"] = d                      # 「還在不在打」看真正的最後一場（國家隊也算）
+            # 但「他應該掛在哪一隊」要跟 fetch_dpm_soloq_accounts.match_roster 同一把尺：
+            # **俱樂部優先，國家隊只在整年沒打任何俱樂部時才算**。不一致的話，亞運／ENC 這種
+            # 賽期一到，全隊人都會被報成「隊碼不符(帳號在 ['T1'])」——而帳號掛在俱樂部才是對的
+            # （2026-09-21 加進亞運熱身賽後一次冒出 15 筆假警報）。
+            club = 0 if re.search(r"national team|\(national\)|國家隊", full, re.I) else 1
+            if (club, d) > e["_best"]:
+                e["_best"] = (club, d); e["team"] = ab
     for e in out.values():
         e["pos"] = e["pos"].most_common(1)[0][0]
         e["leagues"] = sorted(e["leagues"], key=lambda k: -e["leagues"][k])
