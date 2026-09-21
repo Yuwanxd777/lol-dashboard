@@ -499,6 +499,65 @@ def grab(page, kind, roster_page=None):
     return (teams, rs, frm, to, bracket_of(html))
 
 
+RNID = os.path.join(ROOT, "csv_cache", "wiki_realname_id.json")   # 本名 → 選手 ID 的長期快取
+
+
+def realname_ids(names):
+    """本名 → 選手 ID。亞運這種**以本名報名**的賽事，名單上寫的是 W CHOI／GB KIM，
+    而 Leaguepedia 把那些頁做成重新導向（W CHOI → Zeus、GB KIM → Canyon、Y CHEN → 1Jiang）。
+    不解的話，積分頁／陣容比對永遠對不到人——使用者 2026-09-21 回報「篩選亞運只出現 VIE」。
+
+    ⚠ 只問「還不知道的」：查過的存 csv_cache/wiki_realname_id.json（本名不會變），
+      所以每天那一班幾乎是零請求。一次最多 50 個標題（MediaWiki 上限）。
+    ⚠ 查不到／沒有重新導向的（本身就是 ID，如沙烏地那幾位）記成自己，下次也不用再問。
+    """
+    m = {}
+    try:
+        with open(RNID, encoding="utf-8") as f:
+            m = json.load(f)
+    except Exception:
+        m = {}
+    todo = [n for n in dict.fromkeys(names) if n and n not in m]
+    for i in range(0, len(todo), 50):
+        batch = todo[i:i + 50]
+        q = {"action": "query", "redirects": "1", "titles": "|".join(batch), "format": "json"}
+        try:
+            _throttle()
+            r = json.loads(urllib.request.urlopen(
+                urllib.request.Request(API + "?" + urllib.parse.urlencode(q), headers=UA), timeout=60).read())
+            _mark()
+        except Exception as e:
+            print(f"   本名解 ID 失敗（略過 {len(batch)} 位）：{str(e)[:70]}")
+            continue
+        red = {x.get("from"): x.get("to") for x in (r.get("query", {}).get("redirects") or [])}
+        norm = {x.get("from"): x.get("to") for x in (r.get("query", {}).get("normalized") or [])}
+        for n in batch:
+            t = norm.get(n, n)
+            m[n] = red.get(t, t)          # 沒有重新導向＝本身就是 ID
+    try:
+        os.makedirs(os.path.dirname(RNID), exist_ok=True)
+        with open(RNID, "w", encoding="utf-8") as f:
+            json.dump(m, f, ensure_ascii=False, indent=0, sort_keys=True)
+    except Exception as e:
+        print(f"   本名對照表寫檔失敗（不影響這一班）：{str(e)[:70]}")
+    return m
+
+
+def resolve_roster_ids(rosters):
+    """把名單裡的本名換成選手 ID，原本的本名留在 rn（賽事樹顯示的是 n）。"""
+    names = [p.get("n") for pl in rosters.values() for p in pl if p.get("n")]
+    if not names:
+        return rosters, 0
+    m = realname_ids(names)
+    hit = 0
+    for pl in rosters.values():
+        for p in pl:
+            got = m.get(p.get("n"))
+            if got and got != p["n"]:
+                p["rn"] = p["n"]; p["n"] = got; hit += 1
+    return rosters, hit
+
+
 def align_keys(teams, rosters):
     """名單的隊名對齊 teams 的寫法：HTML 與 Cargo 的大小寫常不同（paiN Gaming／
     PaiN Gaming），前端是用隊名精確查 rosters，對不上就顯示「無選手資料」。"""
@@ -614,6 +673,10 @@ def main():
             except Exception as e:
                 print("   失敗，保留舊資料：", str(e)[:120]); _tried(key); continue
             rosters = align_keys(teams, rosters)
+            if kind == "nation" and rosters:
+                rosters, _hit = resolve_roster_ids(rosters)
+                if _hit:
+                    print(f"   本名 → 選手 ID：{_hit} 位（亞運這種以本名報名的賽事）")
             data[str(year)][code] = {"teams": teams, "rosters": rosters, "from": frm, "to": to,
                                      "po": (brk if 0 < len(brk) < len(teams) else []), "page": cfg["page"],
                                      "url": "https://lol.fandom.com/wiki/" + urllib.parse.quote(cfg["page"].replace(" ", "_"))}

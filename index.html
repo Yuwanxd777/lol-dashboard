@@ -3219,6 +3219,18 @@ function natlPlayerLeagues(){
         (m[String(nm)]=m[String(nm)]||new Set()).add(lg); });
     }
   }
+  // 還沒開打的國家隊賽事（亞運正賽 9/29 才打）主數據一局都沒有 ⇒ 改讀 events_extra 的
+  // wiki 參賽名單。那份名單上原本是**本名**（W CHOI／GB KIM，亞運以本名報名），
+  // fetch_events_extra 已經照 Leaguepedia 的重新導向解成選手 ID（Zeus／Canyon）。
+  // 不吃這一層的話，積分篩亞運只會出現「隊名就是國家隊」的那幾個人
+  //（2026-09-21 使用者回報：只出現 VIE）。教練不列（積分表本來就只列有出賽的選手）。
+  try{ const EX=(window.EVENTS_EXTRA||{})[String(curYear)]||{};
+    Object.keys(EX).forEach(lg=>{ if(lg.indexOf("#")>=0)return;
+      const rs=(EX[lg]||{}).rosters; if(!rs)return;
+      Object.keys(rs).forEach(tm=>{ if(!NATL_TEAM_RE.test(String(tm)))return;
+        (rs[tm]||[]).forEach(p=>{ const nm=p&&p.n; if(!nm||p.r==="COACH")return;
+          (m[nm]=m[nm]||new Set()).add(lg); }); }); });
+  }catch(e){}
   _NATL_PL=m; _NATL_PL_Y=curYear; return m;
 }
 // 主數據所有出賽選手(藍+紅雙方 via RB)：[{team(abbr),player,role,n}]，供積分表列出「缺積分帳號」的選手；依 curYear 記憶
