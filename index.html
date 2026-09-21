@@ -15633,8 +15633,10 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
         {k:"選手",lb:LANG==="en"?"Team / Player":"戰隊 選手",sv:r=>(teamFix(r.team)||"")+" "+(r.player||""),cell:r=>{const has=matchedPlayers.has(pKey(r)); const fk=favKey(r),fav=FAV.has(fk);
           // 篩到國家隊賽事（亞運…）時隊伍欄顯示國家隊，滑上去看他的俱樂部（2026-09-21 使用者）
           const _ntm=V.rankRegion?natlTeamOf(r.player||"",V.rankRegion):"";
-          const _tmAb=_ntm?(tAb(_ntm)||_ntm):teamFix(r.team||"");
-          const _tmTi=_ntm?` title="${esc(_ntm)}${r.team?`｜${LANG==="en"?"club":"俱樂部"} ${esc(teamFix(r.team))}`:""}"`:"";
+          const _club=teamFix(r.team||""), _nAb=_ntm?(tAb(_ntm)||_ntm):"";
+          // 兩個都標（使用者 2026-09-21）：只寫國家隊看不出他是哪一隊的人，只寫俱樂部又認不出國家隊。
+          const _tmAb=(_nAb&&_club&&_nAb!==_club)?(_nAb+"·"+_club):(_nAb||_club);
+          const _tmTi=_ntm?` title="${esc(_ntm)}${_club?`｜${LANG==="en"?"club":"俱樂部"} ${esc(_club)}`:""}"`:"";
           return `<span class="favStar${fav?" on":""}" data-fav="${esc(fk)}" title="${LANG==="en"?(fav?"unfavorite":"favorite (pin to top)"):(fav?"取消收藏":"收藏(置頂)")}">${fav?"★":"☆"}</span><span class="meta"${_tmTi}>${esc(_tmAb)}</span> <span class="${has?"rankName":""}"${has?` data-detail="${esc(r.riotId)}" title="${LANG==="en"?"view merged games":"看逐場戰績(合併帳號)"}"`:""}><b>${esc(r.player||"")}</b></span>`;}},
         {k:"_role",lb:LANG==="en"?"Role":"路線",sv:r=>{const O={TOP:0,JUNGLE:1,MIDDLE:2,BOTTOM:3,UTILITY:4}; return r._role in O?O[r._role]:9;},cell:r=>{const PK={TOP:"TOP",JUNGLE:"JNG",MIDDLE:"MID",BOTTOM:"BOT",UTILITY:"SUP"}[r._role]; return PK?`<img src="${(typeof POS_B64!=="undefined"&&POS_B64[PK])||POS_IMG[PK]}" title="${esc(r._role)}" style="width:24px;height:24px;vertical-align:middle" onerror="this.replaceWith(document.createTextNode('${r._role}'))">`:`<span class="meta">—</span>`;}},
         {k:"_score",lb:LANG==="en"?"Tier":"排位",sv:r=>r._score,cell:r=>r._missing?`<span class="meta" style="color:#d0a24e">${LANG==="en"?"no ranked account":"缺積分帳號"}</span>`:(r._score>=0?`<span style="color:${TIER_COL[r.tier]||""};font-weight:600">${esc(tierLabel(r))}</span>`:`<span class="meta">${LANG==="en"?"not found":"未定位"}</span>`)},
@@ -15710,9 +15712,14 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
       const idxRole={}; if(IDX&&IDX.players)Object.keys(IDX.players).forEach(ik=>{const i=ik.indexOf("|"); if(i<0)return; const nk=teamFix(ik.slice(0,i))+"|"+ik.slice(i+1); if(!(nk in idxRole))idxRole[nk]=IDX.players[ik].role;});
       const aggOf=rk=>{ const p=rk&&REC.players[rk]; if(!p||!p.d)return null; const gs=[]; days.forEach(dd=>{const arr=p.d[dd]; if(arr)arr.forEach(g=>gs.push(g));}); if(!gs.length)return null; let w=0; gs.forEach(g=>{if(g[1])w++;}); return {gs,n:gs.length,w,l:gs.length-w}; };
       const q=(V.rankQ||"").trim().toLowerCase(), roster={};
+      // 篩到國家隊賽事時，這位選手要掛在哪一個區塊（沒有就照舊用俱樂部）
+      const dlyNatAb=(player,ab)=>{ if(!V.rankRegion)return ab;
+        const t=natlTeamOf(player||"",V.rankRegion); return t?(tAb(t)||t):ab; };
       const pass=(ab,player,role,teamRaw)=>{ if(!rankShow(player))return false;   // 今年沒出場過就不列（與排行榜同一判準；否則 BeanJ/Glory 這種已離開職業的人會從 soloq_recent 漏進來）
         if(V.rankRole&&role!==V.rankRole)return false;
-        if(V.rankRegion){ const s=rgOf({team:teamRaw}); if(!(s&&s.has(V.rankRegion)))return false;
+        // ⚠ 要帶 player：國家隊賽事（亞運）是**依選手本人**歸屬的，只看隊伍的話
+        //   Faker（帳號掛 T1）整批會被濾掉 ⇒ 篩亞運時只剩沒有俱樂部的那幾位（2026-09-21 使用者回報）
+        if(V.rankRegion){ const s=rgOf({team:teamRaw,player}); if(!(s&&s.has(V.rankRegion)))return false;
           if((V.rankRegion==="LPL"||V.rankRegion==="LCK")&&V.rankLplGrp&&lplSplitGroupOf(ab,curYear,lplSel,grpLg)!==V.rankLplGrp)return false; }
         if(q&&!((ab+" "+player).toLowerCase().includes(q)||String(teamRaw||"").toLowerCase().includes(q)))return false; return true; };
       // ① 排行榜名冊 SD.players（一人一列＝取牌位最高帳號）
@@ -15720,11 +15727,13 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
       // 最後那層是 2026-08-06 補的：只有牌位帳號、還沒有逐場檔的人前兩層都查不到，會顯示「–」
       SD.players.forEach(p=>{ if(!p.player)return; const ab=teamFix(p.team||""), nk=ab+"|"+p.player, rk=recByNorm[nk]||null, role=(rk&&REC.players[rk].r)||idxRole[nk]||playedRole(p.player)||null;
         if(!pass(ab,p.player,role,p.team))return; const sc=soloqScore(p);
-        if(!(nk in roster)||sc>roster[nk]._sc) roster[nk]={ab,player:p.player,riotId:p.riotId,role,reckey:rk,_sc:sc,
+        // 篩國家隊賽事時改用國家隊當區塊（韓國隊的六個人分散在 T1/HLE/GEN，不併起來就看不到整隊）
+        const _nb=dlyNatAb(p.player,ab);
+        if(!(nk in roster)||sc>roster[nk]._sc) roster[nk]={ab:_nb,club:ab,player:p.player,riotId:p.riotId,role,reckey:rk,_sc:sc,
           tier:p.tier,division:p.division,lp:p.lp,found:p.found}; });   // 帶上牌位/LP：每日戰況每列要顯示積分
       // ② 有打積分(soloq_recent 有逐場)但不在名冊的（換隊／找不到牌位帳號）也一律列出
       Object.keys(recByNorm).forEach(nk=>{ if(nk in roster)return; const rk=recByNorm[nk], i=nk.indexOf("|"), ab=nk.slice(0,i), player=nk.slice(i+1), teamRaw=rk.slice(0,rk.indexOf("|")), role=REC.players[rk].r||playedRole(player)||null;
-        if(!pass(ab,player,role,teamRaw))return; roster[nk]={ab,player,riotId:"",role,reckey:rk,_sc:-1}; });
+        if(!pass(ab,player,role,teamRaw))return; roster[nk]={ab:dlyNatAb(player,ab),club:ab,player,riotId:"",role,reckey:rk,_sc:-1}; });
       const teams={}; Object.values(roster).forEach(pl=>{(teams[pl.ab]=teams[pl.ab]||[]).push(pl);});
       const tLgIdx=ab=>{ const s=TLG[ab]; if(!s)return 99; let best=99; s.forEach(l=>{const i=LEAGUE_PREF.indexOf(l); if(i>=0&&i<best)best=i;}); return best; };
       const primaryLg=ab=>{ const s=[...(TLG[ab]||[])]; if(!s.length)return null; let bl=null,bi=99; s.forEach(l=>{const i=LEAGUE_PREF.indexOf(l); if(i>=0&&i<bi){bi=i;bl=l;}}); return bl||s[0]; }; // 隊標籤取主賽區(LCK 而非 KeSPA 盃等次要賽事)
