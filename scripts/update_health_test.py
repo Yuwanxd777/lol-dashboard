@@ -1735,6 +1735,178 @@ finally:
 eq((uh.ROOT, uh.BASE), (ROOT, _REAL_BASE_PATH), "㉚ ROOT／BASE 已還原成真 repo")
 eq(_stat_of(_REAL_BASE_PATH), _REAL_BASE_STAT, "㉚真的 UPDATE_BASELINE.json 沒被寫到（size＋mtime_ns 前後一致）")
 
+# ══ ㉛ 聯賽標籤交叉比對（2026-09-21 #178；突變驗收 autopilot/_m178_mutate.py 會把 XL_SUITE 整段抽出去打改壞的模組）══
+# 真案：OE 把 `LPL/2026 Season/Regional Finals` 09-17～09-19 的 12 局標成 league=WLDs、split 空
+# ⇒ 逐聯賽落後看不到 LPL 那三天 ⇒ 09-20 22:00 那班報「LPL 落後 3 個比賽日」，實際一局不差（#177 逐日隊名對過）。
+# 放過的條件是**隊名對得上**，不是「聯賽名長得像資格賽」——同一份對照裡 LEC／LCS／CBLOL 09-19 是真的沒收
+# （隊名一支都對不上），那種必須照報。每一條都配反面：拿掉交叉比對要誤報、隊名對不上要照報、
+# 只對上一支不算、自己的標籤不算數、整天不在這個標籤底下才算（少一局那種不可以被吞）。
+
+
+def XL_SUITE(M, eq):
+    import datetime as _dt
+    import io as _io
+    import json as _json
+    import os as _os
+    import shutil as _sh
+    import tempfile as _tf
+
+    NOW = _dt.datetime(2026, 9, 16, 8, 0)   # UTC：落後視窗 09-02 起／寬限刀 09-16 02:00；少局 48h 刀 09-14 08:00
+    cols = ["game", "blue_teamname", "league", "date", "red_teamname", "split", "patch"]   # 欄序刻意打亂
+    dirs = []
+
+    def mk(games):
+        """games＝[(date, league, 藍, 紅, 局號)] → [假 repo 的 data/data_2026.js 路徑]（一局 6 列，跟真的一樣）。"""
+        r = _tf.mkdtemp(prefix="uh_xl_")
+        dirs.append(r)
+        _os.makedirs(_os.path.join(r, "data"))
+        p = _os.path.join(r, "data", "data_2026.js")
+        raw = [list(cols)]
+        for d, lg, b, rd, g in games:
+            for _pid in range(6):
+                cell = {"date": d, "league": lg, "blue_teamname": b, "red_teamname": rd,
+                        "game": g, "split": "", "patch": "26.18"}
+                raw.append([cell[c] for c in cols])      # 按欄名擺：硬編偏移不可以「剛好」過關
+        _io.open(p, "w", encoding="utf-8").write(
+            "window.LOL_DATA=" + _json.dumps({"fetched_at": "2026-09-16 07:00",
+                                              "tabs": {"RAW_DATA": raw}}, ensure_ascii=False) + ";")
+        return [p]
+
+    def wk(rows):
+        """rows＝[(OverviewPage, 開賽, 隊1, 隊2, 局號)] → fetch(since, timeout) 假出口。"""
+        def fetch(since, timeout=90):
+            return [{"ov": ov, "dt": t, "t1": a, "t2": b, "g": g}
+                    for ov, t, a, b, g in rows if t[:10] >= since]
+        return fetch
+
+    def LP(paths, fetch, **kw):
+        try:
+            return M.lag_problems(NOW, paths, fetch=fetch, **kw)
+        except Exception as e:
+            return "RAISED", ["%s: %s" % (type(e).__name__, e)]
+
+    def DC(paths, fetch, **kw):
+        try:
+            return M.daycount_problems(NOW, paths, fetch=fetch, **kw)
+        except Exception as e:
+            return "RAISED", ["%s: %s" % (type(e).__name__, e)]
+
+    try:
+        # ── ① 真案重放：wiki 的 LPL 資格賽三天，我們有、但掛 WLDs（隊名寫法也不一樣）⇒ 不算落後 ──
+        W = [("LPL/2026 Season/Split 3", "2026-09-12 10:00", "JDG", "WE", "1"),
+             ("LPL/2026 Season/Regional Finals", "2026-09-13 08:00", "Invictus Gaming", "Top Esports", "1"),
+             ("LPL/2026 Season/Regional Finals", "2026-09-14 08:00", "Invictus Gaming", "Top Esports", "1"),
+             ("LPL/2026 Season/Regional Finals", "2026-09-15 08:00", "Invictus Gaming", "Top Esports", "1")]
+        base = [("2026-09-12 10:00", "LPL", "JDG", "WE", 1)]
+        hid = [("2026-09-13 08:00", "WLDs", "invictus gaming", "TOP-ESPORTS", 1),
+               ("2026-09-14 08:00", "WLDs", "invictus gaming", "TOP-ESPORTS", 1),
+               ("2026-09-15 08:00", "WLDs", "invictus gaming", "TOP-ESPORTS", 1)]
+        D_OK = mk(base + hid)
+        st, ms = LP(D_OK, wk(W))
+        eq(st, "ok", "㉛① 真案重放：三天掛 WLDs、隊名對得上 ⇒ 不算落後（得到 %r）" % (ms,))
+        eq(sum(1 for m in ms if "掛 WLDs" in m and "不算落後" in m), 1,
+           "㉛① 要印出來是怎麼放過的（靜靜吞掉就是 #47 那種病）")
+        eq(all(d in "".join(ms) for d in ("2026-09-13", "2026-09-14", "2026-09-15")), True,
+           "㉛① 那一行點名是哪幾天")
+
+        # ── ② 反例：那三天我們全庫都沒有那兩支隊（LEC／LCS／CBLOL 09-19 的真情況）⇒ 照報 ──
+        st2, ms2 = LP(mk(base), wk(W))
+        eq(st2, "bad", "㉛② 真的沒收 ⇒ 照報落後（放過的條件是隊名，不是聯賽名長得像資格賽）")
+        eq(any("LPL 落後 3 個比賽日" in m for m in ms2), True, "㉛② 三天都算落後")
+
+        # ── ③ 反例：那三天我們有別的比賽（隊名對不上）⇒ 照報 ──
+        other = [("2026-09-13 08:00", "WLDs", "G2 Esports", "Fnatic", 1),
+                 ("2026-09-14 08:00", "WLDs", "G2 Esports", "Fnatic", 1),
+                 ("2026-09-15 08:00", "WLDs", "G2 Esports", "Fnatic", 1)]
+        eq(LP(mk(base + other), wk(W))[0], "bad", "㉛③ 同一天有局但隊名對不上 ⇒ 照報")
+
+        # ── ④ 只對上一支不算（門檻 2）：一支隊名剛好同名就放過太鬆 ──
+        half = [("2026-09-13 08:00", "WLDs", "invictus gaming", "Bilibili Gaming", 1),
+                ("2026-09-14 08:00", "WLDs", "invictus gaming", "Bilibili Gaming", 1),
+                ("2026-09-15 08:00", "WLDs", "invictus gaming", "Bilibili Gaming", 1)]
+        eq(LP(mk(base + half), wk(W))[0], "bad", "㉛④ 只對上一支隊名 ⇒ 不放過（CROSS_MIN_TEAMS=2）")
+
+        # ── ⑤ cross_label／norm_team 單元 ──
+        eq(M.cross_label({"a", "b"}, {"WLDs": {"a", "b"}}), ("WLDs", 2), "㉛⑤ 兩支都對上 ⇒ 回 (標籤, 命中數)")
+        eq(M.cross_label({"a", "b"}, {"WLDs": {"a", "z"}}), None, "㉛⑤ 只對上一支 ⇒ None")
+        eq(M.cross_label({"a", "b"}, {"LPL": {"a", "b"}}, skip_label="LPL"), None,
+           "㉛⑤ 自己的標籤不算數（不排除的話「當天少一局」會被自己吞掉）")
+        eq(M.cross_label({"a", "b"}, None), None, "㉛⑤ 那天我們一局都沒有 ⇒ None，不可以炸")
+        eq((M.cross_label({"a", "b"}, {"": {"a", "b"}}) or ("?",))[0], "(無標籤)",
+           "㉛⑤ 空標籤也要印得出名字")   # or ("?",)：比對被改壞回 None 時要紅在這裡，不是丟 TypeError
+        eq(M.cross_label({"a", "b"}, {"X": {"a"}, "Y": {"a", "b"}}, min_hit=1), ("Y", 2),
+           "㉛⑤ 對上最多隊名的標籤優先")
+        eq(M.norm_team("Top Esports"), M.norm_team("TOP-ESPORTS"), "㉛⑤ 隊名正規化：大小寫與標點不算差別")
+        eq((M.norm_team(None), M.norm_team("")), ("", ""), "㉛⑤ 空隊名 ⇒ 空字串（不可以炸）")
+
+        # ── ⑥ 同一天少局那條不可以接手誤報：09-13／09-14 過了 48h、掛 WLDs ⇒ ok，而且要印出來 ──
+        dst, dms = DC(D_OK, wk(W))
+        eq(dst, "ok", "㉛⑥ 少局那條也不算少局（得到 %r）" % (dms,))
+        eq(sum(1 for m in dms if "不算少局" in m), 2, "㉛⑥ 兩天各印一行（09-15 還在 48h 寬限內，不算）")
+
+        # ── ⑦ 少局那條的正控制：只缺一天（逐聯賽落後的門檻 2 吃不到）⇒ 掛錯標籤放過、隊名不同照報 ──
+        one = [("2026-09-12 10:00", "LPL", "JDG", "WE", 1), ("2026-09-14 06:00", "LPL", "JDG", "WE", 1)]
+        W1 = [("LPL/2026 Season/Split 3", "2026-09-12 10:00", "JDG", "WE", "1"),
+              ("LPL/2026 Season/Regional Finals", "2026-09-13 08:00", "Invictus Gaming", "Top Esports", "1"),
+              ("LPL/2026 Season/Split 3", "2026-09-14 06:00", "JDG", "WE", "1")]
+        g_hid = [("2026-09-13 08:00", "WLDs", "invictus gaming", "TOP-ESPORTS", 1)]
+        g_oth = [("2026-09-13 08:00", "WLDs", "G2 Esports", "Fnatic", 1)]
+        eq(LP(mk(one + g_hid), wk(W1))[0], "ok", "㉛⑦ 前提：只缺一天 ⇒ 逐聯賽落後本來就不叫")
+        eq(DC(mk(one + g_hid), wk(W1))[0], "ok", "㉛⑦ 掛 WLDs、隊名對得上 ⇒ 少局那條不叫")
+        st7, ms7 = DC(mk(one + g_oth), wk(W1))
+        eq(st7, "bad", "㉛⑦ 正控制：同一天有局但隊名對不上 ⇒ 少局照報（證明放過的是隊名不是「那天有東西」）")
+        eq(any("LPL 2026-09-13 少 1 局" in m for m in ms7), True, "㉛⑦ 正控制點名是哪天少幾局")
+
+        # ── ⑧ 整天不在這個標籤底下才算：當天我們本來就有這個聯賽的局、只是少一局 ⇒ 不可以被吞 ──
+        part = [("2026-09-12 10:00", "LPL", "JDG", "WE", 1),
+                ("2026-09-13 08:00", "LPL", "Invictus Gaming", "Top Esports", 1),
+                ("2026-09-13 09:00", "LDL", "Invictus Gaming", "Top Esports", 1),   # 同名二隊，交叉比對會對上
+                ("2026-09-14 06:00", "LPL", "JDG", "WE", 1)]
+        W8 = [("LPL/2026 Season/Split 3", "2026-09-12 10:00", "JDG", "WE", "1"),
+              ("LPL/2026 Season/Split 3", "2026-09-13 08:00", "Invictus Gaming", "Top Esports", "1"),
+              ("LPL/2026 Season/Split 3", "2026-09-13 08:30", "Invictus Gaming", "Top Esports", "2"),
+              ("LPL/2026 Season/Split 3", "2026-09-14 06:00", "JDG", "WE", "1")]
+        st8, ms8 = DC(mk(part), wk(W8))
+        eq(st8, "bad", "㉛⑧ 當天我們有這個聯賽的局、只是少一局 ⇒ 照報（交叉比對只處理「整天掛在別的標籤」）")
+        eq(any("LPL 2026-09-13 少 1 局" in m for m in ms8), True, "㉛⑧ 點名少一局")
+
+        # ── ⑨ 出參不改變回傳，而且**不限一級聯賽**（濾掉 WLDs 等於把答案丟掉）──
+        p9 = D_OK[0]
+        t9 = {}
+        eq(M.our_days(p9, "2026-09-02"), M.our_days(p9, "2026-09-02", teams_out=t9),
+           "㉛⑨ our_days 帶出參不影響回傳")
+        eq(sorted(t9.get("2026-09-13", {})), ["WLDs"], "㉛⑨ our_days 的出參收得到 WLDs（不限 tier1）")
+        eq(M.norm_team("Top Esports") in t9.get("2026-09-13", {}).get("WLDs", set()), True,
+           "㉛⑨ 出參裡的隊名已正規化")   # 用 get：出參被改壞時要紅在這一條，不是丟 KeyError 把整組打斷
+        c9 = {}
+        eq(M.our_game_counts(p9, "2026-09-02", "2026-09-14 08:00"),
+           M.our_game_counts(p9, "2026-09-02", "2026-09-14 08:00", teams_out=c9),
+           "㉛⑨ our_game_counts 帶出參不影響回傳")
+        eq(sorted(c9.get("2026-09-13", {})), ["WLDs"], "㉛⑨ our_game_counts 的出參也不限 tier1")
+        w9 = {}
+        eq(M.wiki_days("2026-09-02", fetch=wk(W)), M.wiki_days("2026-09-02", fetch=wk(W), teams_out=w9),
+           "㉛⑨ wiki_days 帶出參不影響回傳")
+        eq(M.norm_team("Invictus Gaming") in w9.get("LPL", {}).get("2026-09-13", set()), True,
+           "㉛⑨ wiki 側出參也是正規化過的隊名")
+
+        # ── ⑩ 自己不可以吞自己：我們那局在刀之後（少局那格算 0），但全庫當天有的正是它**自己**的標籤 ──
+        #     （隊名出參不看那一刀 ⇒ 不排除自己就對得上自己 ⇒ ㉙ 的正控制「寬限改 0 要翻紅」會整組啞掉）
+        late = [("2026-09-12 10:00", "LPL", "JDG", "WE", 1),
+                ("2026-09-14 20:00", "LPL", "Invictus Gaming", "Top Esports", 1)]   # 晚於我們那一刀 09-14 13:00
+        W10 = [("LPL/2026 Season/Split 3", "2026-09-12 10:00", "JDG", "WE", "1"),
+               ("LPL/2026 Season/Split 3", "2026-09-14 07:00", "Invictus Gaming", "Top Esports", "1")]
+        st10, ms10 = DC(mk(late), wk(W10))
+        eq(st10, "bad", "㉛⑩ 當天這個聯賽算 0 局、而當天全庫有的是它自己的標籤 ⇒ 照報少局")
+        eq(any("LPL 2026-09-14 少 1 局" in m for m in ms10), True, "㉛⑩ 點名少一局")
+    finally:
+        for _d in dirs:
+            _sh.rmtree(_d, ignore_errors=True)
+
+
+# ══ ㉛ 結束（_m178_mutate.py 抽取到這一行為止）══
+
+XL_SUITE(uh, eq)
+
 # ── ⓪ 收尾：整份測試沒有任何一次撞到封鎖器（被 wiki_days 的 except 吞掉的也算），
 #    而且假出口真的有被 main() 走到（⑫⑮ 都沒帶 --no-lag）——否則上一條可能只是 main 根本沒接逐聯賽落後。
 eq(NET_HITS, [], "⓪整份測試沒有任何一次真的去連外（有人漏接了出口）")

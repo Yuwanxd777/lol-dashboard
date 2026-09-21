@@ -871,6 +871,58 @@ LAG_FORM = "https://lol.fandom.com/wiki/Special:CargoExport"
 # 所以回滿 LAG_LIMIT 列一律當「結果不完整」走略過，不拿來判定（#168）。
 LAG_LIMIT = 2000
 
+# ══ 聯賽標籤交叉比對（#178）═══════════════════════════════════════════════
+# 為什麼要有：**OE 把「區域資格賽」標成 WLDs**。`LPL/2026 Season/Regional Finals` 09-17／18／19 各 4 局，
+# 在我們的 data_2026.js 裡 league=`WLDs`、split 空 ⇒ 逐聯賽落後看不到 LPL 那三天 ⇒ 09-20 22:00 那班
+# 報「LPL 落後 3 個比賽日」，但資料其實一局不差（#177 探針 autopilot/_m177_lag_probe.py 逐日隊名對過）。
+# 2025-09-25～27、2024-08-31～09-02／09-12～14 也都掛 WLDs ⇒ 不是新壞掉，是哨兵（#136～#140）第一次碰到。
+# 做法：某一天被判「缺」時，先拿 wiki 那天那個聯賽的隊名，去我們**全庫**（不限一級聯賽）同一天對一次，
+#   對得上就當「有收，只是標籤不同」，而且**印出來**（「那天的局掛在 WLDs」）——靜靜吞掉就是 #47 那種病。
+# **不可以整批放過標籤怪的日子**：#177 同一份對照裡 LEC／LCS／CBLOL 09-19 是真的還沒收（隊名一支都對不上），
+#   那種必須照報。所以放過的條件是「隊名對得上」，不是「聯賽名長得像資格賽」。
+# 門檻 CROSS_MIN_TEAMS=2：兩支隊名都對上才算同一場比賽。1 支太鬆——同一天別的聯賽剛好有同名戰隊
+#   （同一組織在各區的隊伍常同名）就會把真的缺局吞掉。
+CROSS_MIN_TEAMS = 2
+
+
+def norm_team(s):
+    """隊名正規化：只留英數小寫（`Top Esports`／`TOP ESPORTS`／`Top-Esports` 視為同一支）。"""
+    return re.sub(r"[^0-9a-z]", "", str(s or "").lower())
+
+
+def wiki_day_teams(rows, tier1=None):
+    """{聯賽: {比賽日: {正規化隊名}}}——交叉比對用；`wiki_days` 與 `daycount_problems` 共用這一支。"""
+    tier1 = tier1 or LAG_TIER1
+    out = {}
+    for r in rows or ():
+        lg = (r.get("ov") or "").split("/")[0]
+        if lg not in tier1:
+            continue
+        s = out.setdefault(lg, {}).setdefault(str(r.get("dt") or "")[:10], set())
+        s.update(t for t in (norm_team(r.get("t1")), norm_team(r.get("t2"))) if t)
+    return out
+
+
+def cross_label(wteams, day_labels, min_hit=None, skip_label=None):
+    """那天的局是不是其實有收、只是掛在**別的**聯賽標籤底下？
+
+    wteams＝wiki 那天那個聯賽的隊名（已正規化）；day_labels＝我們那天的 {聯賽標籤: {隊名}}（全庫）。
+    回 (標籤, 對上幾支) 或 None；對上最多隊名的那個標籤優先。
+
+    `skip_label`＝正在檢查的那個聯賽自己，**一定要排除**（#178 寫完第一版被 update_health_test
+    第 ㉙ 組七條打紅才發現）：同一天我們本來就有那個聯賽的局、只是少了其中一局時，
+    隊名當然對得上自己 ⇒ 「少局」會被自己吞掉，連正控制（寬限改 0 應翻紅）都跟著啞。
+    這條檢查要找的是「標籤掛錯」，跟自己比對沒有任何意義。"""
+    min_hit = CROSS_MIN_TEAMS if min_hit is None else min_hit
+    best = None
+    for lab, ts in (day_labels or {}).items():
+        if skip_label is not None and lab == skip_label:
+            continue
+        n = len(set(wteams) & set(ts))
+        if n >= min_hit and (best is None or n > best[1]):
+            best = (lab or "(無標籤)", n)
+    return best
+
 
 def wiki_rows(since, timeout=90):
     """打 Leaguepedia Cargo，回 [{"ov":…, "dt":…, "t1":…, "t2":…, "g":…}, …]。**唯一的對外出口**（測試接管這一支）。
@@ -904,8 +956,11 @@ def wiki_rows(since, timeout=90):
     return json.loads(raw.decode("utf-8", "replace"))
 
 
-def wiki_days(since, fetch=None, tier1=None):
-    """回 (ok, {league: [開賽時間字串]}, why)。任何例外或空回應 → ok=False（呼叫端降級成略過）。"""
+def wiki_days(since, fetch=None, tier1=None, teams_out=None):
+    """回 (ok, {league: [開賽時間字串]}, why)。任何例外或空回應 → ok=False（呼叫端降級成略過）。
+
+    `teams_out` 給一個 dict 就順便填 `{聯賽: {比賽日: {正規化隊名}}}`（#178 的聯賽標籤交叉比對要用）；
+    回傳的形狀刻意不動，才不會把既有呼叫端與測試一起改掉。"""
     tier1 = tier1 or LAG_TIER1
     try:
         rows = (fetch or wiki_rows)(since)
@@ -913,6 +968,8 @@ def wiki_days(since, fetch=None, tier1=None):
             return False, {}, "回應不是非空陣列"
         if len(rows) >= LAG_LIMIT:
             return False, {}, "回了 %d 列＝撞到上限，最新的局可能被截掉" % len(rows)
+        if teams_out is not None:
+            teams_out.update(wiki_day_teams(rows, tier1))
         out = collections.defaultdict(list)
         for r in rows:
             pref = (r.get("ov") or "").split("/")[0]
@@ -923,8 +980,11 @@ def wiki_days(since, fetch=None, tier1=None):
         return False, {}, "%s: %s" % (type(e).__name__, e)
 
 
-def our_days(path, since, tier1=None):
+def our_days(path, since, tier1=None, teams_out=None):
     """回 (fetched_at, {league: {比賽日字串}})——我們手上那幾天。
+
+    `teams_out` 給一個 dict 就順便填 `{比賽日: {聯賽標籤: {正規化隊名}}}`，而且**不限 tier1**——
+    交叉比對要找的就是「掛在別的標籤底下」的那些局（LPL 資格賽掛 WLDs），濾掉非一級聯賽等於把答案丟掉。
 
     只收「比賽日」不收局數：#137 的試跑版還帶著一組 (時間,藍,紅,局號) 去重，但判定從頭到尾
     只看「有哪些比賽日」⇒ 每日局數沒人讀 ⇒ 那是測不到的死分支（#139 突變測試：拿掉去重全套照樣全過）。
@@ -939,6 +999,10 @@ def our_days(path, since, tier1=None):
         d = str(r[ix["date"]] or "")
         if d[:10] < since:
             continue
+        if teams_out is not None:
+            s = teams_out.setdefault(d[:10], {}).setdefault(str(r[ix["league"]] or ""), set())
+            s.update(t for t in (norm_team(r[ix["blue_teamname"]]),
+                                 norm_team(r[ix["red_teamname"]])) if t)
         if r[ix["league"]] in tier1:
             out[r[ix["league"]]].add(d[:10])
     return D.get("fetched_at"), out
@@ -974,17 +1038,18 @@ def lag_problems(now, data_path, fetch=None, tier1=None,
     threshold = LAG_THRESHOLD if threshold is None else threshold
     since = (now - datetime.timedelta(days=window_d)).strftime("%Y-%m-%d")
     cut = (now - datetime.timedelta(hours=grace_h)).strftime("%Y-%m-%d %H:%M")
-    ok, wk, why = wiki_days(since, fetch=fetch, tier1=tier1)
+    wt = {}
+    ok, wk, why = wiki_days(since, fetch=fetch, tier1=tier1, teams_out=wt)
     if not ok:
         return "skip", ["查不到 Leaguepedia（%s）⇒ 略過逐聯賽落後檢查" % why]
     paths = [data_path] if isinstance(data_path, str) else list(data_path)
-    od, missing = collections.defaultdict(set), []
+    od, missing, ot = collections.defaultdict(set), [], {}
     for p in paths:
         if not os.path.exists(p):
             missing.append(os.path.basename(p))
             continue
         try:
-            _, one = our_days(p, since, tier1=tier1)
+            _, one = our_days(p, since, tier1=tier1, teams_out=ot)
         except Exception as e:
             return "skip", ["讀不懂我們的年度檔 %s（%s: %s）⇒ 略過逐聯賽落後檢查"
                             % (os.path.basename(p), type(e).__name__, str(e)[:80])]
@@ -999,14 +1064,26 @@ def lag_problems(now, data_path, fetch=None, tier1=None,
         if not wdays and not odays:
             continue                       # 休賽中：連一行都不要佔（報告要短才有人看）
         # 用 > 不是 >=：我們「已經有」的那一天不可以再算進落後，否則真落後 1 天會被灌成 2 天
-        behind = sorted(d for d in wdays if not odays or d > max(odays))
+        gap = sorted(d for d in wdays if not odays or d > max(odays))
+        # #178：被判缺的那幾天先逐日做聯賽標籤交叉比對——隊名對得上＝其實有收（掛在別的標籤），
+        # 不算落後但要印出來；對不上的才是真的缺。
+        behind, moved = [], []
+        for d in gap:
+            hit = cross_label(wt.get(lg, {}).get(d, set()), ot.get(d), skip_label=lg)
+            (moved if hit else behind).append((d, hit))
+        behind = [d for d, _ in behind]
         line = "  %-6s 我們最後比賽日 %s｜wiki 之後還有 %d 個比賽日%s" % (
-            lg, (max(odays) if odays else "(無)"), len(behind),
-            ("：" + "、".join(behind)) if behind else "")
+            lg, (max(odays) if odays else "(無)"), len(gap),
+            ("：" + "、".join(gap)) if gap else "")
         if len(behind) >= threshold:
             bad.append("%s 落後 %d 個比賽日（%s）" % (lg, len(behind), "、".join(behind)))
             line += "  << 異常"
         msgs.append(line)
+        if moved:
+            msgs.append("         └ %s 其實有收、在我們這裡掛 %s（隊名對上 %d 支）⇒ 不算落後" % (
+                "、".join(d for d, _ in moved),
+                "、".join(sorted({h[0] for _, h in moved})),
+                min(h[1] for _, h in moved)))
     if bad and missing:                    # 只在真的報落後時才講（沒落後時講「檔不存在」只是噪音）
         msgs.append("  （%s 不存在，當成那一年我們一場都沒有）" % "、".join(missing))
     return ("bad" if bad else "ok"), msgs + (["異常：" + "；".join(bad)] if bad else [])
@@ -1068,7 +1145,7 @@ def wiki_game_counts(rows, since, cut, tier1=None):
     return cnt, first
 
 
-def our_game_counts(path, since, cut, tier1=None):
+def our_game_counts(path, since, cut, tier1=None, teams_out=None):
     """回 ({聯賽: Counter(日→局數)}, {聯賽: {視窗內所有比賽日}})。
 
     局數只收開賽分鐘 <= cut；比賽日集合不看 cut（給「我們最後比賽日」用，跟 our_days 同一個定義）。
@@ -1082,7 +1159,13 @@ def our_game_counts(path, since, cut, tier1=None):
     for r in R[1:]:
         lg = r[ix["league"]]
         d = str(r[ix["date"]] or "")
-        if lg not in tier1 or d[:10] < since:
+        if d[:10] < since:
+            continue
+        if teams_out is not None:   # #178 交叉比對用：**不限 tier1**（要找的就是掛在別的標籤那些局）
+            s = teams_out.setdefault(d[:10], {}).setdefault(str(lg or ""), set())
+            s.update(t for t in (norm_team(r[ix["blue_teamname"]]),
+                                 norm_team(r[ix["red_teamname"]])) if t)
+        if lg not in tier1:
             continue
         days[lg].add(d[:10])
         if d[:16] > cut:
@@ -1131,15 +1214,17 @@ def daycount_problems(now, data_path, fetch=None, tier1=None, grace_h=None, slac
         wc, first = wiki_game_counts(rows, since, cut, tier1)
         wl, _ = wiki_game_counts(rows, since, lcut, tier1)       # 逐聯賽落後那一刀：判「留給它叫」
         wo, _ = wiki_game_counts(rows, since, ocut, tier1)       # 我們那一刀：±1 天合併時相鄰天兩側同一刀
+        wt = wiki_day_teams(rows, tier1)                         # #178 交叉比對：wiki 逐日隊名
     except Exception as e:
         return "skip", ["Leaguepedia 回應的形狀不對（%s: %s）⇒ 略過同一天少局檢查" % (type(e).__name__, e)]
     paths = [data_path] if isinstance(data_path, str) else list(data_path)
     oc, od = collections.defaultdict(collections.Counter), collections.defaultdict(set)
+    ot = {}
     for p in paths:
         if not os.path.exists(p):
             continue                       # 不存在＝那一年我們一場都沒有（同逐聯賽落後）
         try:
-            c, ds = our_game_counts(p, since, ocut, tier1)
+            c, ds = our_game_counts(p, since, ocut, tier1, teams_out=ot)
         except Exception as e:
             return "skip", ["讀不懂我們的年度檔 %s（%s: %s）⇒ 略過同一天少局檢查"
                             % (os.path.basename(p), type(e).__name__, str(e)[:80])]
@@ -1154,11 +1239,23 @@ def daycount_problems(now, data_path, fetch=None, tier1=None, grace_h=None, slac
         # 我們最後比賽日 20 天前、wiki 在 18 天前和 3 天前各有一天 ⇒ 用 30 天數是 2 天（≥門檻、全部讓出去），
         # 逐聯賽落後卻只看得到 3 天前那 1 天（不叫）⇒ 兩條都啞。它真的會叫時，才把我們最後比賽日之後整段讓給它。
         llast = max((d for d in od.get(lg, ()) if d >= lsince), default="")
-        lbehind = [d for d in wl.get(lg, {}) if d >= lsince and d > llast]
+        # #178：讓出去的條件要跟逐聯賽落後**現在**的算法一致——它已經把「隊名對得上＝掛在別的標籤」
+        # 那幾天扣掉了，這裡不扣的話會把整段讓給一個不會叫的哨兵 ⇒ 兩條都啞（#169 那種病）。
+        lbehind = [d for d in wl.get(lg, {}) if d >= lsince and d > llast
+                   and not (oc.get(lg, {}).get(d, 0) == 0
+                            and cross_label(wt.get(lg, {}).get(d, set()), ot.get(d), skip_label=lg))]
         owned = {d for d in wl.get(lg, {}) if d > last} if len(lbehind) >= lag_threshold else set()
         W, O = wc.get(lg, collections.Counter()), oc.get(lg, collections.Counter())
         for d in sorted(W):
             if d in owned or W[d] <= O[d]:
+                continue
+            # #178：同一天的局整批掛在別的聯賽標籤（OE 把區域資格賽標成 WLDs）⇒ 我們這一格是 0，
+            # 逐聯賽落後放過之後這裡會接著誤報「少 4 局」。隊名對得上就不算少局，但照樣印一行。
+            xhit = (cross_label(wt.get(lg, {}).get(d, set()), ot.get(d), skip_label=lg)
+                    if O[d] == 0 else None)
+            if xhit:
+                msgs.append("  %-6s %s wiki %d 局、我們 %d 局，但那天的局在我們這裡掛 %s"
+                            "（隊名對上 %d 支）⇒ 不算少局" % (lg, d, W[d], O[d], xhit[0], xhit[1]))
                 continue
             # 相鄰天「我們比 wiki 多」的局才抵得掉當天的少局，而相鄰天兩側要用同一刀（我們那一刀 ocut）數（#170）。
             # #168 的寫法 wiki 相鄰天用 48h、我們用 45h ⇒ slack 收進來的局被當成多的、抵掉真的少局
