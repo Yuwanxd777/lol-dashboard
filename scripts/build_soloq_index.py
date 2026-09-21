@@ -98,6 +98,10 @@ def build():
 
 def _build():
     parsed = _dedup_files()  # 先自癒去重(同 key 多檔 union 合併)，主迴圈才不會靜默漏場；順便帶回解析快取
+    # 2026-09-22 精進迴圈 #196：帳號檔已經丟掉的人（教練／沒出場的人、換隊碼後的舊檔）不進「每日戰況」。
+    # **索引本身照舊全列**——它是「磁碟上有哪些逐場檔」的目錄，fetch_soloq_update／--missing 靠它對檔名，少列會讓管線行為改變。
+    import soloq_orphans
+    SKIP = soloq_orphans.skip_keys(OUTDIR)
     players = {}; newest = 0
     recent = {}; rec_cut = (time.time() - RECENT_DAYS*86400) * 1000  # 每日戰況：只收近 RECENT_DAYS 天的逐場
     for fp in sorted(glob.glob(os.path.join(OUTDIR, "p*.js"))):
@@ -137,7 +141,7 @@ def _build():
             day = time.strftime("%Y-%m-%d", time.gmtime(t/1000 + TZ_H*3600))
             lp = g.get("lp"); lp = lp if isinstance(lp, (int, float)) else 0
             byday.setdefault(day, []).append([g.get("c"), 1 if g.get("w") else 0, lp])
-        if byday:
+        if byday and key not in SKIP:
             recent[key] = {"r": role, "d": byday}
     year = time.gmtime(newest/1000).tm_year if newest else time.gmtime().tm_year
     payload = {"fetched_at": time.strftime("%Y-%m-%d %H:%M"), "year": year, "players": players}

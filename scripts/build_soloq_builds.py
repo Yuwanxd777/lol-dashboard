@@ -269,11 +269,20 @@ def main():
     runePages = {}                  # (rp4, rs3, rst3) 攤平的 tuple -> 編號
     runePageList = []               # 編號 -> 那個 tuple
     scanned = 0
+    # 2026-09-22 精進迴圈 #196：帳號檔已經丟掉的人（教練／沒出場的人、換隊碼後的舊檔）不進聚合——
+    # 這支是掃資料夾、不跟帳號檔對帳，09-21 手動補查留下的 18 位非選手佔了英雄頁「出場紀錄」202 列，
+    # 4 個換隊碼的舊檔讓 1464 場各算兩次。判準與保險見 soloq_orphans.py（不刪檔；沙盒沒有帳號檔＝照舊全收）。
+    import sys
+    if HERE not in sys.path: sys.path.insert(0, HERE)
+    import soloq_orphans
+    SKIP = soloq_orphans.skip_keys(OUTDIR); skipN = Counter()
     for fp in glob.glob(os.path.join(OUTDIR, "*.js")):
         txt = open(fp, encoding="utf-8").read()
         m = re.match(r'window\.__sqLoad\((.*)\);\s*$', txt, re.S)
         if not m: continue
         pkey, data = json.loads('[' + m.group(1) + ']')  # pkey＝「隊|選手」（出場紀錄顯示用）
+        if pkey in SKIP:
+            skipN[SKIP[pkey]] += len(data.get("matches", [])); continue
         for g in data.get("matches", []):
             _get = g.get
             c = CHAMP_FIX.get(_get("c"), _get("c"))
@@ -594,6 +603,8 @@ def main():
     with open(OUT, "w", encoding="utf-8") as f:
         f.write("window.SOLOQ_BUILDS=" + json.dumps(payload, ensure_ascii=False) + ";\n")
     print(f"完成：{len(champs)} 英雄 / {len(items)} 道具 / {len(runes)} 符文（掃 {scanned} 場）→ {OUT}（{os.path.getsize(OUT)/1024:.0f} KB）")
+    if skipN:
+        print(f"  └ 孤兒逐場檔沒進聚合：名字不在帳號檔 {skipN['absent']} 場、整檔重複 {skipN['dup']} 場")
     # 積分版英雄詳情「出場紀錄」：每英雄最近 100 場（延遲載入檔，開積分英雄詳情才載）
     cg = {c: [list(r) for r in sorted(chGames[c], key=lambda x: -x[0])[:100]] for c in chGames if games[c] >= MIN_GAMES}
     # 符文頁表只留「真的被留下來的那 100 場」用到的（全庫幾萬種、輸出只用得到幾千種）→ 重新編號
