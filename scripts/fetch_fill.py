@@ -95,6 +95,17 @@ FILL = [
     #   OE 哪天又停更再把這筆打開即可（連同 csv_cache 的 LCK_2026_S3 一起清掉再重抓）。
     # {"key": "LCK_2026_S3", "tournament": "LCK 2026 Rounds 3-4", "wiki": "LCK 2026 Rounds 3-4",
     #  "league": "LCK", "split": "S3", "year": 2026, "playoffs": 0},
+    # ── 亞運（國家隊，使用者 2026-09-21 交辦）──────────────────────────────
+    # golgg:False＝**只有 Leaguepedia 有**：gol.gg 沒有國家隊友誼賽、OE 也不會收
+    #   ⇒ 不打 gol.gg、也不過 OE 閘門（閘門會把自己補的局數當成「OE 已追上」而把補充刪掉，
+    #      見 #129 的註解；wiki_only 的賽事沒有 gol.gg 那一份可以互相扣抵）。
+    #   萬一 OE 哪天真的收了，fetch_data 的 merge_wiki 以「日期＋十個英雄」去重，不會變兩份。
+    # not_before＝賽事開打前不必每班去問（省 ① 階段的關鍵路徑）。
+    {"key": "AG2026_PRE", "wiki": "KOREA Pre Evaluation for 2026 Asian Games",
+     "league": "亞運", "split": "熱身賽", "year": 2026, "playoffs": 0, "golgg": False},
+    {"key": "AG2026", "wiki": "2026 Asian Games",
+     "league": "亞運", "split": "", "year": 2026, "playoffs": 0, "golgg": False,
+     "not_before": "2026-09-28"},   # 賽期 09-29 ~ 10-02（events_extra.js）
 ]
 # ⚠ csv_cache/wikifill_2026.json 裡另有一筆**人工釘住**的 key「PBFIX_2026_LCK_S3」：
 #   8/1 GEN vs DK 官方 0-2 共兩局，但 **OE 與 gol.gg 收到的是同一局**（十隻英雄完全一致、
@@ -682,7 +693,8 @@ def build_wiki(cfg):
     """
     if not cfg.get("wiki"):
         return None
-    need, n_oe, _, _ = gate(cfg)
+    # 只有 Leaguepedia 有的賽事：沒有 gol.gg 那一份可以從 OE 局數扣抵 ⇒ 過閘門等於自己刪自己
+    need = True if not cfg.get("golgg", True) else gate(cfg)[0]
     wp = os.path.join(CACHE, f"wikifill_{cfg['year']}.json")
     if not need:
         # OE 追上時要跟 gol.gg 版一起停用，否則會留下一批沒有逐選手數據的 wiki 列
@@ -807,7 +819,7 @@ def quiet_skip(cfg, wiki):
     缺任何一份＝還沒補齊／OE 追上已刪除 ⇒ 照舊抓（閘門該做的事照做）。
     「上次重抓」取兩份檔 mtime 的較舊者：build()／fetch_wiki_mh.build() 成功才會重寫，
     所以哪一邊上次沒抓成，下一班就會到期重試。"""
-    paths = [os.path.join(CACHE, f"fill_{cfg['year']}.json")]
+    paths = [] if not cfg.get("golgg", True) else [os.path.join(CACHE, f"fill_{cfg['year']}.json")]
     if wiki:
         paths.append(os.path.join(CACHE, f"wikifill_{cfg['year']}.json"))
     newest, last = "", None
@@ -862,10 +874,17 @@ def main():
             if os.path.exists(wp):
                 with open(wp, encoding="utf-8") as f:
                     wn = json.load(f).get(cfg["key"], {}).get("games") or 0
-            print(f"  {cfg['key']:14s} OE={oe_games(cfg['year'], cfg['league'], sn, exclude=mine):3d} 局"
-                  f"   gol.gg={n:3d} 局   wiki={wn:3d} 局")
+            if not cfg.get("golgg", True):
+                print(f"  {cfg['key']:14s} （只有 Leaguepedia）           wiki={wn:3d} 局")
+            else:
+                print(f"  {cfg['key']:14s} OE={oe_games(cfg['year'], cfg['league'], sn, exclude=mine):3d} 局"
+                      f"   gol.gg={n:3d} 局   wiki={wn:3d} 局")
             continue
         wiki = not (A.dump or A.no_wiki) and bool(cfg.get("wiki"))
+        nb = cfg.get("not_before")
+        if nb and time.strftime("%Y-%m-%d", time.localtime(_now())) < nb and not A.force:
+            print(f"  {cfg['key']}：{nb} 才開打 ⇒ 這班不抓（--force 可強制）", flush=True)
+            continue
         if not (A.force or A.dump or A.no_quiet_skip):
             _t = time.time()
             skip, why = quiet_skip(cfg, wiki)
@@ -874,11 +893,14 @@ def main():
                 print(why, flush=True)
             if skip:
                 continue
-        if wiki:
-            warm_wiki(cfg)
+        if wiki and cfg.get("golgg", True):
+            warm_wiki(cfg)   # wiki_only 沒有 gol.gg 可以重疊，暖抓只會多打一發
         transient = None
         try:
-            build(cfg, force=A.force, dump=A.dump)
+            if not cfg.get("golgg", True):
+                print(f"  {cfg['key']}：只有 Leaguepedia 有這個賽事 ⇒ 不打 gol.gg", flush=True)
+            else:
+                build(cfg, force=A.force, dump=A.dump)
         except Transient as e:
             # 暫時性（連不上／逾時／5xx，#108）：build() 沒寫檔 ⇒ 上次成功的 fill JSON 還在、fetch_data 照併。
             # 要不要 exit 1 等 Leaguepedia 那份抓完、看正本年齡再決定（_transient_verdict）。

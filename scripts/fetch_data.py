@@ -61,7 +61,9 @@ TIER1_YEARS = {
 }
 # 國際賽/盃賽不分級。IWCT＝2013-2015 的國際外卡賽（外卡賽區爭世界賽／MSI 名額），
 # 不在 TIER1_YEARS 裡 → 不列進來的話整個賽事會被 league_ok 丟掉（wiki 抓到 17 局卻 0 列）
-INTL_LEAGUES = {"WLDS", "MSI", "EWC", "FST", "ENC", "KESPA", "IEM", "IWCT"}
+# 國際賽／盃賽（不分年份一律收）。「亞運」是國家隊賽事，OE 不收、只有 Leaguepedia 有
+# （fetch_fill 的 wiki_only 那兩筆）；沒列在這裡的話 process() 會把整批列丟掉（2026-09-21）。
+INTL_LEAGUES = {"WLDS", "MSI", "EWC", "FST", "ENC", "KESPA", "IEM", "IWCT", "亞運"}
 
 def league_ok(lg, year):
     if lg.upper() in INTL_LEAGUES:
