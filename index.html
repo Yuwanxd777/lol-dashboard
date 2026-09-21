@@ -1307,7 +1307,7 @@ fetch(`https://ddragon.leagueoflegends.com/cdn/${DDV}/data/en_US/champion.json`)
 }).catch(()=>{});
 // ── 延遲載入（性能 2026-07-17）：wiki 三檔＋英文公告＋刷野（~5.2MB）改為動態掛載——
 // 首屏後 1.2 秒閒置預載 wiki；進 圖鑑/英雄 會再 ensureWiki（冪等）；刷野速度分頁才載 jungle.js；英文模式才載 patches_en.js。
-const _LAZYSRC={wiki:["wiki_patches.js","wiki_extra.js","wiki_objectives.js"],en:["patches_en.js"],jungle:["jungle.js"],sqg:["soloq_champ_games.js"],builds:["soloq_builds.js"],recent:["soloq_recent.js"],sqch:["soloq_champs.js"]};
+const _LAZYSRC={wiki:["wiki_patches.js","wiki_extra.js","wiki_objectives.js"],en:["patches_en.js","wiki_patches_en.js","wiki_objectives_en.js"],jungle:["jungle.js"],sqg:["soloq_champ_games.js"],builds:["soloq_builds.js"],recent:["soloq_recent.js"],sqch:["soloq_champs.js"]};
 const _lazyP={};
 function lazyLoad(g){
   return Promise.all((_LAZYSRC[g]||[]).map(src=>_lazyP[src]||(_lazyP[src]=new Promise(res=>{
@@ -5834,7 +5834,12 @@ const OBJ_WIKI={"外塔（一塔）":"Turret","內塔（二塔）":"Turret","高
   "元素龍（小龍總覽）":"Dragon","遠古龍":"Dragon", // 正確頁名＝Dragon（Dragon pit）；Elder Dragon 頁沒有 Patch History 區，歷年改動都寫在 Dragon 頁（2026-07-17 探測）
   "紅 Buff":"Red_Brambleback","藍 Buff":"Blue_Sentinel","河蟹":"Rift_Scuttler",
   "雙石像":"Ancient_Krug","啾吉":"Gromp","六鳥":"Crimson_Raptor","三狼":"Murk_Wolf"};
-const objHistOf=n=>{const k=OBJ_WIKI[n]; return (k&&window.WIKI_OBJECTIVES&&window.WIKI_OBJECTIVES[k])||null;};
+// 英文模式優先用 wiki 英文原文（wiki_objectives_en.js）：發布的 wiki_objectives.js 是翻譯後的成品
+// 物件名：英文模式取 OBJ_EN 的英文名（詳情頁標題與歷年改動卡都用它）
+const objName=n=>((LANG==="en"&&(window.OBJ_EN||{})[n]&&window.OBJ_EN[n].n)||n);
+const objHistOf=n=>{const k=OBJ_WIKI[n]; if(!k)return null;
+  return (LANG==="en"&&window.WIKI_OBJECTIVES_EN&&window.WIKI_OBJECTIVES_EN[k])
+      ||(window.WIKI_OBJECTIVES&&window.WIKI_OBJECTIVES[k])||null;};
 // 機制條目 → 物件（機制詳細資料寫在圖鑑物件：版本焦點齒輪點擊跳這、物件詳情合併官方機制行）
 const OBJ_MECH_RE=[["Turret",/防禦塔|砲塔|強化堡壘|銅牆鐵壁/],["Inhibitor",/水晶兵營|兵營/],["Nexus",/主堡/],
   ["Baron_Nashor",/巴龍/],["Rift_Herald",/預示者|先鋒/],["Voidgrubs",/虛空幼蟲|巢蟲/],["Atakhan",/亞塔坎|阿塔坎/],
@@ -5922,7 +5927,8 @@ const renderChgLines=(lines,cardName)=>{
   // ⚠ 索引要同時收「完整行」與「切掉道具名前綴後的 body」：道具詳情頁是用 l.slice(i+1)
   //   把前綴拿掉才送進來的，只用完整行當 key 一輩子對不上（2026-07-31 使用者回報沒生效）
   //   另外空白／全形＋／冒號在載入時會被 norm 改寫 → key 一律先壓掉這些差異
-  {const _SF=window.ITEM_STAT_FIX||{};
+  // item_stat_fix 也是中文補正表（值是中文行）⇒ 英文模式不套
+  if(!_EN){const _SF=window.ITEM_STAT_FIX||{};
    const _nk=x=>String(x).replace(/[\s＋+]/g,"").replace(/:/g,"：");
    if(!window._SFI){ const m={}, dup=new Set();
      for(const[k,v]of Object.entries(_SF)){ const i=k.indexOf("｜"), j=v.indexOf("｜");
@@ -6314,6 +6320,10 @@ const _chgTxt=l=>{const i=String(l).indexOf("｜"); return i>=0?String(l).slice(
 // 中文模式一律「有中文就只留中文」：舊寫法用 22.17 當門檻，2013-2021 的 wiki 資料
 // 同一則常常中英各一行，英文那行是重複的原文 → 版面一半是英文（2026-07-31 使用者回報）。
 // 整段都沒有中文（真的沒人翻）才退回英文原文，不會把資料弄不見。
+// wiki 歷年改動的來源：英文模式優先用**英文原文**（wiki_patches_en.js，fetch_wiki 的原始快取攤出來的）。
+// 發布的 wiki_patches.js 是翻譯後的成品，英文畫面拿它只能顯示中文——那是迴圈第 1 項剩下的 240 筆。
+// 還沒載好（lazy）就先退回中文那份，載完 lazyLoad 會重繪。
+const wikiSrc=()=>((LANG==="en"&&window.WIKI_PATCHES_EN)||window.WIKI_PATCHES||{});
 const zhOnly=(pk,ls)=>{
   if(LANG==="en"){ const en=ls.filter(l=>!/[一-鿿]/.test(_chgTxt(l))); return en.length?en:ls.filter(l=>/[一-鿿]/.test(l)); }
   const zh=ls.filter(l=>/[一-鿿]/.test(_chgTxt(l)));
@@ -6324,7 +6334,7 @@ const addKey=(id,l)=>{
   // 已有按鍵標註 → 不再查表，但分隔符兩側的空白還是要壓平：
   // DDragon 的李星寫「虎嘯龍吟 ／ 震驚百里」有空格、Ambessa 寫「暗襲／裂斬」沒有，
   // 不壓平的話同一顆技能會因為差一個空格被拆成兩個區塊（2026-07-31 使用者回報）
-  if(/（[QWER被]|\([QWER]\)/.test(sk)){ const s2=sk.replace(/\s*[／\/｜]\s*/g,"／"); return s2===sk?l:s2+l.slice(i); }
+  if(/（[QWER被]|\((?:[QWER]|Passive)\)/.test(sk)){ const s2=sk.replace(/\s*[／\/｜]\s*/g,"／"); return s2===sk?l:s2+l.slice(i); }
   // 純英文技能名先換成中文（中文模式才換；英文模式維持原文）
   const _lc=_skKey(sk);
   if(LANG!=="en"&&!/[一-鿿]/.test(sk)){ const zh=(SKZH[id]||{})[_lc]; if(zh)sk=zh; }
@@ -6343,6 +6353,9 @@ const addKey=(id,l)=>{
     if(ent===undefined){ const Z=SKZH[id], ks=Object.keys(Z).filter(x=>x.length>=4).sort((a,b)=>b.length-a.length);
       ent=C[id]=ks.length?{re:new RegExp("(?<![A-Za-z'])("+ks.map(x=>x.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")).join("|")+")(?![A-Za-z])","gi"),m:Z}:null; }
     if(ent)bd=bd.replace(ent.re,x=>ent.m[x.toLowerCase()]||x); }
+  // 技能代號的括號：英文模式用半形括號＋Passive（迴圈第 1 項最後剩下的那一小塊，
+  // 技能名已經是英文了，只有「（被動）」這三個字還是中文）
+  if(k&&LANG==="en")return `${sk} (${k==="被動"?"Passive":k})｜${bd}`;
   return k?`${sk}（${k}）｜${bd}`:(sk!==l.slice(0,i).trim()||bd!==l.slice(i+1)?`${sk}｜${bd}`:l);
 };
 // 英雄跨年度改動史（官方優先，wiki 補缺版）
@@ -6354,7 +6367,7 @@ function champHistory(id){
   const addOfficial=store=>{ if(!store)return;
     for(const[pk,pd]of Object.entries(store)){ if(!pd||typeof pd!=="object")continue;
       const ls=pd[id]; if(ls&&ls.length)put(pk,ls.map(l=>addKey(id,l)),pd._url||""); } };
-  const addWiki=()=>{ for(const[wv,cs]of Object.entries(window.WIKI_PATCHES||{})){
+  const addWiki=()=>{ for(const[wv,cs]of Object.entries(wikiSrc())){
     const pk=wikiVerPk(wv); if(!pk||byPk[pk])continue;
     // 這裡是英雄詳情頁的歷年改動＝**完整列出**，不套 TRIVIAL（聊天訊息／笑聲只有版本分頁不列）
     const ls=zhOnly(pk,(cs[id]||[]).filter(l=>!COSM.test(l)&&!JUNK.test(String(l).trim()))).map(l=>addKey(id,l));
@@ -15827,14 +15840,16 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
       if(dd.type==="obj"){
         // 物件（塔/龍/巴龍/野區…）歷年改動子頁：頂部物件卡＋完整改版史（wiki_objectives.js）
         const H={}; Object.entries(objHistOf(dd.name)||{}).forEach(([pk,ls])=>H[pk]=(ls||[]).slice());
-        Object.entries((typeof mechLinesForObj==="function"?mechLinesForObj(dd.name):{})||{}).forEach(([pk,ls])=>{ // 官方公告的機制行也併入（機制詳細資料寫在圖鑑物件）
+        // ⚠ 英文模式不併官方公告的機制行：那一份只有中文（官方英文公告的分類鍵與實體名都不一樣，
+        //   OBJ_MECH_RE 的正則也是照中文名寫的），併進來整頁就變中英夾雜。wiki 英文原文才是主體。
+        Object.entries((LANG!=="en"&&typeof mechLinesForObj==="function"?mechLinesForObj(dd.name):{})||{}).forEach(([pk,ls])=>{ // 官方公告的機制行也併入（機制詳細資料寫在圖鑑物件）
           H[pk]=H[pk]||[]; ls.forEach(l=>{ if(!H[pk].includes(l))H[pk].push(l); }); });
         const pks=Object.keys(H).filter(pk=>(H[pk]||[]).some(l=>!COSM.test(l))).sort(objPkSortDesc);
         hp.innerHTML=`<div class="card"><div style="display:flex;gap:14px;align-items:flex-start;border-left:3px solid var(--acc);padding-left:12px;padding-right:46px">
             ${(()=>{const bg={"外塔（一塔）":"1","內塔（二塔）":"2","高地塔（三塔）":"3","主堡雙塔":"4"}[dd.name];
               const im=dd.img?`<img src="${esc(dd.img)}" alt="${esc(dd.name)}" style="width:56px;height:56px;object-fit:contain;filter:drop-shadow(0 1px 2px rgba(0,0,0,.5))" onerror="this.style.display='none'">`:`<span style="font-size:44px;line-height:1">🏰</span>`;
               return bg?`<span style="position:relative;display:inline-block;line-height:0;flex:0 0 auto">${im}<span class="objTierBadge" style="font-size:13px;padding:0 5px">${bg}</span></span>`:`<span style="flex:0 0 auto">${im}</span>`;})()}
-            <div style="min-width:0"><div style="font-size:22px;font-weight:bold">${esc(dd.name)}</div>
+            <div style="min-width:0"><div style="font-size:22px;font-weight:bold">${esc(objName(dd.name))}</div>
             ${dd.m?`<div class="objMeta" style="margin-top:6px;color:var(--gold)">${hiNum(esc(dd.m))}</div>`:""}
             ${dd.d?`<div class="note" style="margin-top:8px;line-height:1.7;color:var(--tx)">${hiNum(esc(dd.d))}</div>`:""}</div></div></div>
           ${(()=>{const st=(window.OBJ_STATS||{})[dd.name]; if(!st)return "";
@@ -15844,7 +15859,7 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
             const note=["外塔（一塔）","內塔（二塔）","高地塔（三塔）","主堡雙塔"].includes(dd.name)?`<div class="meta" style="margin-top:8px">${en2?"Baseline turret stats (deeper turrets gain extra defenses/damage by game script; official values prevail).":"此為塔的基準數值（越深層的塔由遊戲機制疊加額外防禦／攻擊；實際以官方為準）。"}</div>`
               :(dd.name==="元素龍（小龍總覽）"?`<div class="meta" style="margin-top:8px">${en2?"Representative values (Infernal); all elemental drakes share the same body stats.":"以火龍為代表值；六種元素龍體質相同、僅獎勵不同。"}</div>`:"");
             return `<div class="card"><h2>📊 ${en2?"Stats":"屬性"} <span class="sub">${en2?"current patch · CommunityDragon official data":"現行版本 · CommunityDragon 官方資料"}</span></h2><div class="skillsBody">${rows}${note}</div></div>`;})()}
-          <div class="card"><h2>📜 ${esc(dd.name)} ${T("歷年改動")} <span class="sub">${pks.length} ${LANG==="en"?"patches":"個版本"}${OBJ_WIKI[dd.name]&&["Turret","Inhibitor"].includes(OBJ_WIKI[dd.name])?(LANG==="en"?"｜shared across tower tiers":"｜各層塔／兵營共用同一份紀錄"):""}</span></h2>
+          <div class="card"><h2>📜 ${esc(objName(dd.name))} ${T("歷年改動")} <span class="sub">${pks.length} ${LANG==="en"?"patches":"個版本"}${OBJ_WIKI[dd.name]&&["Turret","Inhibitor"].includes(OBJ_WIKI[dd.name])?(LANG==="en"?"｜shared across tower tiers":"｜各層塔／兵營共用同一份紀錄"):""}</span></h2>
           <div class="chgBody">${pks.map(pk=>`<div class="chgPatch"><span class="pTag ${dirCls(changeDir(H[pk]))}">${esc(pk)}</span>${renderChgLines(H[pk])}</div>`).join("")||`<span class="meta">${T("資料庫中沒有這個項目的改動紀錄。")}</span>`}</div></div>`;
       }
       else if(dd.type==="champ"){
@@ -16045,7 +16060,7 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
               {n:"三狼",m:"0:55 首生，2:00 重生",img:CBASE+"sru_murkwolf/hud/greatermurkwolf_circle.png",d:"大狼基礎生命 1600、物防 42、魔防 42（隨遊戲時間成長）。一大兩小的狼群，提供野區與河道附近的視野與刷野節奏。0:55 首生，清完後 2:00 重生（26.01 由 1:30 首生／2:15 重生調整）。",p26:{m:"1:30 首生，2:15 重生",d:"大狼基礎生命 1600、物防 42、魔防 42（隨遊戲時間成長）。一大兩小的狼群，提供野區與河道附近的視野與刷野節奏。1:30 首生，清完後 2:15 重生。"}},
             ]},
           ];
-          const OBJ_EN={
+          const OBJ_EN=window.OBJ_EN={   // 也掛上 window：objName（物件詳情標題）在這個閉包外面
             "外塔（一塔）":{n:"Outer turret (T1)",m:"Outermost each lane; plating for the first 14 min",d:"The outermost turret each lane. For the first 14 min it has 5 plates; each plate destroyed gives the destroyer 120 gold plus shared gold to nearby allies; at 14:00 all remaining plating falls off. Destroying the turret body: 50 gold to each teammate (global). The very first turret destroyed grants an extra 300-gold first-tower bonus. Taking an outer turret opens up the inner turret and river vision/pressure — a key early economy and tempo marker."},
             "內塔（二塔）":{n:"Inner turret (T2)",m:"Second line, after the outer turret",d:"Attackable only after that lane's outer turret falls. Destroying it splits gold to the team plus a bonus to the destroyer, and opens up wave pressure and river vision on that lane."},
             "高地塔（三塔）":{n:"Inhibitor turret (T3)",m:"Base entrance, guards the inhibitor",d:"The turret at your base entrance guarding the inhibitor. Only after it falls can the inhibitor and Nexus turrets be attacked — meaning the enemy can push into the base. A key siege threshold."},
@@ -16132,7 +16147,7 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
             const ls=src[k].map(l=>addKey(k,l)).filter(l=>!COSM.test(l)&&!TRIVIAL_OR_GEN(l,k));
             if(ls.length)byC[k]=ls;
           }); };
-          const addWiki=()=>{ for(const[wv,cs]of Object.entries(window.WIKI_PATCHES||{})){
+          const addWiki=()=>{ for(const[wv,cs]of Object.entries(wikiSrc())){
             if(wikiVerPk(wv)!==pk)continue;
             Object.entries(cs).forEach(([id,ls])=>{
               if(byC[id])return;

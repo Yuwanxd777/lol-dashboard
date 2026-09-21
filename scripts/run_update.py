@@ -95,6 +95,7 @@ PLAN = [
     ]),
     # 這三步各自依賴上面某一步的產物
     ("④ 後處理", [
+        S("build_wiki_patches_en"),  # wiki 英文原文（英文模式的歷年改動）：只讀 csv_cache/wiki*，不連外
         S("clean_patch_text"),       # 要 patches + patches_en 都寫完
         S("fetch_item_nostore"),     # 要 items
         S("build_league_struct"),    # 讀 Leaguepedia 快取

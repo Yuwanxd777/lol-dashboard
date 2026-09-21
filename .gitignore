@@ -5,6 +5,9 @@
 !data.js
 !patches.js
 !wiki_patches.js
+# wiki 歷年改動的英文原文（英文模式才載；build_wiki_patches_en.py 產）
+!wiki_patches_en.js
+!wiki_objectives_en.js
 !wiki_extra.js
 !wiki_objectives.js
 !masteries.js
