@@ -371,6 +371,36 @@ def parse(hml):
 SPL = lambda s: [x.strip() for x in str(s or "").split(",") if x.strip()]
 
 
+# ──────────────── 上游日期打錯的局 ────────────────
+# 表在 scripts/wiki_date_fix.py（fetch_wiki_stats 也吃同一份；為什麼獨立成一支見那支的檔頭）。
+from wiki_date_fix import WIKI_DATE_FIX
+
+
+def fix_dates(games, tour):
+    """套 WIKI_DATE_FIX。games 必須已是時間正序；→ (新的 games, 改了幾局)。
+
+    只把被改的那局搬到新日期該在的位置（同一時刻的排在既有的之後），其他局的先後一局都不動
+    ⇒ 同一天其他系列的編號與合成時間都跟沒修一樣，重建時只有被修的那局會變。
+    不就地改呼叫端的 list／dict（fetch_fill 會拿同一份 games 做別的事）。"""
+    fx = [f for f in WIKI_DATE_FIX if f["tour"] == tour]
+    if not fx:
+        return games, 0
+    nk = lambda s: re.sub(r"[^0-9a-z]", "", str(s or "").lower())
+    games, n = list(games), 0
+    for f in fx:
+        want = frozenset(nk(t) for t in f["teams"])
+        hit = [i for i, g in enumerate(games) if str(g.get("Date") or "")[:16] == f["was"]
+               and frozenset((nk(g.get("Blue")), nk(g.get("Red")))) == want]
+        if len(hit) != 1:
+            continue                      # 對不到（上游已修好）或不只一局（不夠確定）⇒ 不動
+        g = dict(games.pop(hit[0]))
+        g["Date"] = f["fix"] + str(g.get("Date") or "")[16:19]      # 保留原本的「:秒」
+        pos = next((i for i, x in enumerate(games) if str(x.get("Date") or "")[:19] > g["Date"][:19]), len(games))
+        games.insert(pos, g)
+        n += 1
+    return games, n
+
+
 _PNAME = None
 
 
@@ -477,6 +507,10 @@ def to_csv(games, cfg):
         _dN = (games[-1].get("Date") or "")[:10]
         if _d0 and _dN and _d0 > _dN:
             games = list(reversed(games))
+    # 上游日期打錯的局（要在時間正序之後、系列編號之前：搬到正確日期那天才編得到對的系列與合成時間）
+    games, _nfix = fix_dates(games, cfg.get("tour"))
+    if _nfix:
+        print(f"    日期修正：{_nfix} 局（上游打錯，見 scripts/wiki_date_fix.py）")
 
     # ── PB 補局（2026-08-03 使用者回報）──────────────────────────────────────
     # Picks and Bans 頁是「哪些局打過」最完整的來源：實測 LCK 2026 Rounds 3-4 →

@@ -217,7 +217,42 @@ def year_rows(year, force=False):
         print(f"    {yy}-{m:02d}：{len(rows)} 列")
         all_rows += rows
         time.sleep(GAP)
-    return all_rows
+    return fix_dates(all_rows, {f"{yy}-{m:02d}" for yy, m in months})
+
+
+def fix_dates(rows, span):
+    """套 scripts/wiki_date_fix.py 的 WIKI_DATE_FIX（上游日期打錯的局，跟 fetch_wiki_mh 共用同一份）。
+
+    span＝這一年抓的月份集合（'YYYY-MM'）。GameId 對上、而且原始時間真的是 was 才改成 fix；
+    正確日期落在 span、原始月份不在 ⇒ 去原始月份的快取把那局撈進來（2014 那局寫成 2013-01，
+    不撈的話它在 2013、2014 兩年都配不到）；正確日期不在 span ⇒ 那局不屬於這一年，拿掉。
+    原始月份沒有快取就不撈（不為了一局去打 Cargo），印一行讓人知道。"""
+    if HERE not in sys.path:
+        sys.path.insert(0, HERE)
+    from wiki_date_fix import WIKI_DATE_FIX
+    fx = {f["gid"]: f for f in WIKI_DATE_FIX}
+    if not fx:
+        return rows
+    out = list(rows)
+    for gid, f in fx.items():
+        if f["fix"][:7] in span and f["was"][:7] not in span:
+            cp = os.path.join(RAW, f["was"][:7] + ".json")
+            if os.path.exists(cp):
+                out += [x for x in json.load(open(cp, encoding="utf-8")) if str(x.get("gid") or "") == gid]
+            else:
+                print(f"    ⚠ 日期修正 {gid}：原始月份 {f['was'][:7]} 沒有快取，這一局補不到逐選手數據")
+    res, n = [], 0
+    for x in out:
+        f = fx.get(str(x.get("gid") or ""))
+        if f and str(x.get("dt") or "")[:16] == f["was"]:
+            if f["fix"][:7] not in span:
+                continue
+            x = dict(x, dt=f["fix"] + str(x.get("dt") or "")[16:])
+            n += 1
+        res.append(x)
+    if n:
+        print(f"    日期修正：{n} 列（上游打錯，見 scripts/wiki_date_fix.py）")
+    return res
 
 
 KEY_VERSION = 2
