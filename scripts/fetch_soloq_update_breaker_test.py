@@ -3,14 +3,16 @@
 
 病灶：#198 讓單頁最多等 15s，但 dpm 整站掛住時每個帳號仍是 15＋1.5＋15＝31.5s × 兩百多個帳號，全在關鍵路徑上。
 改動：**連續** DOWN_AFTER（預設 3）個帳號「真的打出去、重試仍失敗／evaluate 丟例外」⇒ 這一班剩下的帳號不再問 dpm；
-熔斷後有帳號沒問到的選手整位不採用（newestT 整位共用）；打 dpm 的兩支子程序也不起。穩態日誌一字不變。
+熔斷後沒問到的帳號走 #200 的 pend（2026-09-22 #201 起；#199 原本是「整位不採用」）：批次已到手的帳號當班就收，
+newestT 因此往前跳的那一刻把沒問到的帳號記進 data["pend"]；打 dpm 的兩支子程序也不起。穩態日誌一字不變。
 
 ① 模組層／純函式：DOWN_AFTER 預設 3、--down-after 吃得到、breaker_step 的歸零與門檻。
 ② dpm 全掛（循序）：只問前 3 個帳號（各 2 次）就停、其餘 8 個帳號 0 次請求、檔案全部原樣、兩行 ⚡、子程序不起。
 ③ 不連續不熔斷：失敗 4 個但中間都隔著成功 ⇒ 全部問完、沒有 ⚡、輸出與日誌跟舊版逐行相同。
 ④ 重試成功會歸零（2 敗＋重試成功＋2 敗 ⇒ 不熔斷；再多 1 敗 ⇒ 熔斷在第 3 個，同一位選手的下一個帳號也不問）。
-⑤ 批次模式：批次命中**不歸零也不加**（夾在失敗中間照樣熔斷）；全命中的選手照收；「一個命中＋一個沒問到」的選手整位不採用；
-   下一班（dpm 好了）兩個帳號的場次都補得回來——包含比另一個帳號最新場還舊的那一場（只收一半就會永遠漏掉的那一場）。
+⑤ 批次模式：批次命中**不歸零也不加**（夾在失敗中間照樣熔斷）；全命中的選手照收；「一個命中＋一個沒問到」的選手
+   當班就收命中的那一半、沒問到的帳號記 pend（#201；釘 c87b736b 的舊版＝整位不採用、晚一班）；
+   下一班（dpm 好了）從 pend 的起點補——包含比另一個帳號最新場還舊的那一場（不記 pend 就會永遠漏掉的那一場）；第三班逐位元不變。
 ⑥ evaluate 丟例外也算失敗（3 個連續 ⇒ 熔斷）。
 ⑦ --down-after 5 ⇒ 問 5 個才停。
 ⑧ 正控制（釘 OLDREV＝改動前那個 commit）：舊版對同一個全掛的假 dpm 把 11 個帳號全部問兩次、沒有 ⚡；乾淨資料新舊版輸出與日誌逐行相同。
@@ -23,6 +25,7 @@ if (getattr(sys.stdout, "encoding", "") or "").lower().replace("-", "") != "utf8
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
 HERE = os.path.dirname(os.path.abspath(__file__)); ROOT = os.path.dirname(HERE)
 OLDREV = "978c51f0"   # #199 改動之前的 HEAD（別寫 HEAD：commit 之後 HEAD 就是新版，見 DAILY #93）
+OLDREV201 = "c87b736b"   # #201 改動之前的 HEAD（#200：熔斷後有帳號沒問到的選手「整位不採用」）
 NEW = os.path.join(HERE, "fetch_soloq_update.py")
 OK = FAIL = 0
 def check(name, cond, info=""):
@@ -89,11 +92,12 @@ class FakePage:
     once_bad：{pu: bad}＝逐一問的第一次 bad、重試就好；raise_on：{pu}＝逐一問直接丟例外。"""
     def __init__(self, U, always_bad=None, batch_bad=None, once_bad=None, raise_on=None):
         self.U = U; self.always_bad = always_bad or {}; self.batch_bad = batch_bad or {}
-        self.once_bad = dict(once_bad or {}); self.raise_on = set(raise_on or ()); self.calls = []
+        self.once_bad = dict(once_bad or {}); self.raise_on = set(raise_on or ()); self.calls = []; self.since = []
     def goto(self, *a, **k): pass
     def on(self, *a, **k): pass
+    def asked(self, pu): return [nt for p, nt in self.since if p == pu]   # #201：送給 dpm 的起點（批次＋逐一）
     def _one(self, args, batch):
-        pu, tok, nt = args; self.calls.append(("b1" if batch else "n", pu))
+        pu, tok, nt = args; self.calls.append(("b1" if batch else "n", pu)); self.since.append((pu, nt))
         name, ms = DPM[pu]; new = [g for g in ms if g["t"] > nt]
         if not batch and pu in self.raise_on: raise RuntimeError("Target closed（假的 evaluate 例外）")
         if pu in self.always_bad: return {"id": {"g": name, "t": "KR1"}, "ms": new, "bad": self.always_bad[pu]}
@@ -159,6 +163,9 @@ def run(src_path, batch=False, bs=4, tmp=None, load_argv=(), **page_kw):
 
 def ts(out, f):
     m = re.match(r'window\.__sqLoad\((.*)\);\s*$', out[f], re.S); return [g["t"] for g in json.loads("[" + m.group(1) + "]")[1]["matches"]]
+def pend(out, f):
+    """逐場檔 meta 的 pend（沒有＝{}）；#201：熔斷後沒問到的帳號記在這裡"""
+    m = re.match(r'window\.__sqLoad\((.*)\);\s*$', out[f], re.S); return json.loads("[" + m.group(1) + "]")[1].get("pend") or {}
 def norm(txt):
     """照牆鐘排序的「最久的 N 位」那行不比（#198：沙盒裡每位 0.00x 秒，列到誰、順序都看牆鐘）；秒數抹平。
     #200 刻意多印的「↺」行（個別帳號沒問到時記 pend）剝掉再比——那是 pend 測試的事，這裡守的是「熔斷沒動到別的」"""
@@ -174,6 +181,8 @@ def no_pend(out):
     return res
 labels = lambda U: [c[0] for c in U.CHILD]
 ORIG = {f"p{i}.js": [g["t"] for g in ms] for i, (_, _, ms) in enumerate(PLAYERS, 1)}
+ORIG_TXT = {f"p{i}.js": f"window.__sqLoad({json.dumps(key, ensure_ascii=False)},{json.dumps({'matches': ms}, ensure_ascii=False)});\n"
+            for i, (key, _, ms) in enumerate(PLAYERS, 1)}   # make_sandbox 種下去的原文（#201：沒被越過的檔要逐位元原樣）
 ALL_BAD = {pu: -1 for pu in ALL_PU}
 
 # ───────── ① 模組層／純函式 ─────────
@@ -195,7 +204,9 @@ check("其餘 8 個帳號 0 次請求", all(p.n_calls("n", pu) == 0 for pu in AL
 check("只睡了 3 次 1.5s（不是 11 次）", U.time.sleeps.count(1.5) == 3, U.time.sleeps)
 check("8 個逐場檔全部原樣（半截結果沒被採用）", {f: ts(out, f) for f in out} == ORIG, {f: ts(out, f) for f in out})
 check("日誌：⚡ 熔斷那行指名「連續 3 個帳號」", "⚡ dpm 熔斷：連續 3 個帳號問不到" in txt and txt.count("⚡ dpm 熔斷：連續") == 1, txt)
-check("日誌：小結「8 個帳號這一班沒問、6 位選手整位不採用」＋「不丟資料」", "⚡ dpm 熔斷小結：8 個帳號這一班沒問、6 位選手整位不採用；下一班從原 newestT 再抓、不丟資料" in txt, txt)
+check("日誌：小結「8 個帳號這一班沒問（6 位選手）」＋「不丟資料」", "⚡ dpm 熔斷小結：8 個帳號這一班沒問（6 位選手）；" in txt and "其餘下一班從原 newestT 再抓、不丟資料" in txt, txt)
+check("#201 全掛＝沒有任何帳號帶進新場 ⇒ 沒有檔多出 pend 鍵、8 個檔逐位元原樣、沒有 ↺（沒被越過就不記）", out == ORIG_TXT and '"pend"' not in "".join(out.values()) and "↺" not in txt,
+      [f for f in out if out[f] != ORIG_TXT.get(f)])
 check("打 dpm 的兩支子程序都不起、日誌指名（重建錯路線 1 位／新選手 1 位）", labels(U) == [] and "這一班不起「重建錯路線選手」（1 位）／「新選手補全年」（1 位）" in txt, (labels(U), txt[-500:]))
 check("完成行照印（0 位有新戰績、共 +0 場）", "完成：0 位有新戰績、共 +0 場。" in txt, txt[-400:])
 
@@ -217,24 +228,34 @@ check("b1 真的是第一次 bad、重試才好（問了 2 次）", p.n_calls("n
 U, p, txt4b, out4b, _ = run(NEW, always_bad={"pu-a1": -1, "pu-a2": 503, "pu-c1": -1, "pu-d1": 429, "pu-e1": 500}, once_bad={"pu-b1": -1})
 check("再多 1 敗（c1、d1、e1 連續）⇒ 熔斷在 e1；HTTP 狀態的 bad（429／500）一樣算", "⚡ dpm 熔斷：連續 3 個帳號問不到" in txt4b and p.n_calls("n", "pu-e1") == 2, txt4b)
 check("同一位選手的下一個帳號（e2）也不問、之後 f1 g1 h1 h2 都不問", all(p.n_calls("n", pu) == 0 for pu in ["pu-e2", "pu-f1", "pu-g1", "pu-h1", "pu-h2"]), p.live())
-check("小結：5 個帳號沒問、4 位選手整位不採用（E、F、G、H）", "⚡ dpm 熔斷小結：5 個帳號這一班沒問、4 位選手整位不採用" in txt4b, txt4b)
+check("小結：5 個帳號沒問（4 位選手＝E、F、G、H）；循序模式沒有已到手的 ⇒ 沒有檔多出 pend", "⚡ dpm 熔斷小結：5 個帳號這一班沒問（4 位選手）" in txt4b and '"pend"' not in "".join(out4b.values()), txt4b)
 
 # ───────── ⑤ 批次模式 ─────────
-print("[5] 批次模式：命中不歸零／全命中照收／一半沒問到 ⇒ 整位不採用／下一班補得回來")
+print("[5] 批次模式：命中不歸零／全命中照收／一半沒問到 ⇒ 命中的當班收、沒問到的記 pend（#201）／下一班補得回來")
 U, p, txt5, out5, tmp5 = run(NEW, batch=True, bs=4, always_bad={"pu-a1": -1, "pu-b1": -1, "pu-c1": -1}, batch_bad={"pu-h2": -1})
 check("a1 失敗 → a2 批次命中（不歸零）→ b1、c1 失敗 ⇒ 熔斷", "⚡ dpm 熔斷：連續 3 個帳號問不到" in txt5 and p.live() == ["pu-a1", "pu-a1", "pu-b1", "pu-b1", "pu-c1", "pu-c1"], (p.live(), txt5))
 check("熔斷前：A 照 #68 收 a2 命中的 1300", ts(out5, "p1.js") == [1300, 1000], ts(out5, "p1.js"))
 check("熔斷後：全命中的選手照收（D 3000、E 4000＋3900、F 800、G 6000）", ts(out5, "p4.js") == [3000, 100] and ts(out5, "p5.js") == [4000, 3900, 50] and ts(out5, "p6.js") == [800, 700] and ts(out5, "p7.js") == [6000, 10],
       {f: ts(out5, f) for f in out5})
 check("熔斷後：h2 沒問（逐一 0 次）", p.n_calls("n", "pu-h2") == 0)
-check("H 整位不採用：h1 命中的 5000 沒進檔（檔案原樣 [4000]）", ts(out5, "p8.js") == [4000], ts(out5, "p8.js"))
-check("日誌指名 H：「熔斷後 1 個帳號沒問到 ⇒ 已到手的 +1 場這一班不採用」", re.search(r"\[8/8\] T8\|H  熔斷後 1 個帳號沒問到 ⇒ 已到手的 \+1 場這一班不採用", txt5), txt5)
-check("小結：1 個帳號沒問、1 位選手整位不採用", "⚡ dpm 熔斷小結：1 個帳號這一班沒問、1 位選手整位不採用" in txt5, txt5)
+check("#201 H 當班就收 h1 命中的 5000（#199／#200 是整位不採用、檔案原樣 [4000]）", ts(out5, "p8.js") == [5000, 4000], ts(out5, "p8.js"))
+check("#201 H 的逐場檔記下 pend＝{pu-h2: 4000}（h2 沒問到、newestT 要從 4000 跳到 5000 的那一刻）", pend(out5, "p8.js") == {"pu-h2": 4000}, pend(out5, "p8.js"))
+check("日誌：H 照常印「+1 新（共 2）」、不再有「這一班不採用」", re.search(r"\[8/8\] T8\|H  \+1 新（共 2）", txt5) and "這一班不採用" not in txt5, txt5)
+check("小結：1 個帳號沒問（1 位選手）＋↺ 小結「新記下 2 個」（a1 重試仍失敗、h2 熔斷後沒問）", "⚡ dpm 熔斷小結：1 個帳號這一班沒問（1 位選手）" in txt5 and "這一班補問成功 0 個、撿回原本會漏掉的舊場次 0 場；新記下 2 個" in txt5,
+      [l for l in txt5.splitlines() if "⚡" in l or "↺" in l])
+check("沒被越過的不記：B、C 的帳號也沒問到、但沒有別的帳號帶新場 ⇒ 檔案逐位元原樣；只有 A、H 兩個檔有 pend", out5["p2.js"] == ORIG_TXT["p2.js"] and out5["p3.js"] == ORIG_TXT["p3.js"]
+      and sorted(f for f in out5 if pend(out5, f)) == ["p1.js", "p8.js"], sorted(f for f in out5 if pend(out5, f)))
 U2, p2, txt5b, out5b, _ = run(NEW, batch=True, bs=4, tmp=tmp5)   # 下一班：同一個沙盒、dpm 好了
-check("下一班：H 兩個帳號都補回來，**包含 4500**（只收 h1 的話 newestT=5000、4500 永遠漏掉）", ts(out5b, "p8.js") == [5000, 4500, 4000], ts(out5b, "p8.js"))
+check("下一班：h2 從 pend 的起點 4000 問（不是 newestT 5000）", p2.asked("pu-h2") == [4000] and p2.asked("pu-h1") == [5000], (p2.asked("pu-h2"), p2.asked("pu-h1")))
+check("下一班：H 兩個帳號都補回來，**包含 4500**（不記 pend 的話 h2 從 5000 問、4500 永遠漏掉）", ts(out5b, "p8.js") == [5000, 4500, 4000], ts(out5b, "p8.js"))
+check("下一班：H 的 pend 清掉、↺ 行指名 H2「1 場（其中 1 場比檔內最新一場舊」", pend(out5b, "p8.js") == {} and '"pend"' not in out5b["p8.js"]
+      and re.search(r"↺ H2#KR1 之前沒問到、這次從當時的起點問成功：1 場（其中 1 場比檔內最新一場舊", txt5b), [l for l in txt5b.splitlines() if "↺" in l])
 check("下一班：C 補回 500、沒有 ⚡、子程序照起", ts(out5b, "p3.js") == [500] and "⚡" not in txt5b and labels(U2) == ["重建錯路線選手", "新選手補全年"], (ts(out5b, "p3.js"), labels(U2)))
 check("#200 補上的洞：A 在熔斷前收了 a2 的 1300（newestT 跳到 1300），下一班 a1 從當時的起點補 ⇒ **1200 也回來**（#199 當時實測 [1500, 1300, 1000]）",
       ts(out5b, "p1.js") == [1500, 1300, 1200, 1000], ts(out5b, "p1.js"))
+U3, p3, txt5c, out5c, _ = run(NEW, batch=True, bs=4, tmp=tmp5)   # 第三班：穩態
+check("第三班（穩態）：8 個檔逐位元不變、沒有任何檔還留著 pend、日誌沒有 ⚡／↺", out5c == out5b and '"pend"' not in "".join(out5c.values()) and "⚡" not in txt5c and "↺" not in txt5c,
+      [f for f in out5c if out5c[f] != out5b.get(f)])
 
 # ───────── ⑥ evaluate 丟例外 ─────────
 print("[6] evaluate 丟例外也算失敗")
@@ -272,6 +293,25 @@ if old_src:
               [k for k in out_oc if out_oc[k] != out_nc.get(k)] + [x for x in norm(txt_oc) if x not in norm(txt_nc)] + [x for x in norm(txt_nc) if x not in norm(txt_oc)])
     Uo5, po5, txt_o5, out_o5, tmp_o5 = run(oldf, batch=True, bs=4, always_bad={"pu-a1": -1, "pu-b1": -1, "pu-c1": -1}, batch_bad={"pu-h2": -1})
     check("舊版同一個批次情境：h2 照問（沒有熔斷可言）⇒ H 當班就 [5000, 4500, 4000]", po5.n_calls("n", "pu-h2") == 1 and ts(out_o5, "p8.js") == [5000, 4500, 4000], ts(out_o5, "p8.js"))
+
+# ───────── ⑧b 正控制：#201 之前（整位不採用）─────────
+print("[8b] 正控制：釘 %s（#200：熔斷後有帳號沒問到的選手整位不採用）" % OLDREV201)
+old201 = subprocess.run(["git", "-C", ROOT, "show", f"{OLDREV201}:scripts/fetch_soloq_update.py"], capture_output=True, text=True, encoding="utf-8").stdout
+check("#200 那版拿得到、而且真的是「整位不採用」那一版（有那句日誌、熔斷那行沒有 _pfail.append）", bool(old201) and "這一班不採用" in old201 and "_NDOWN += 1; continue" in old201)
+if old201:
+    oldf201 = os.path.join(tempfile.gettempdir(), "fsu_brk_old201.py")
+    open(oldf201, "w", encoding="utf-8").write(old201)
+    Uq, pq, txt_q, out_q, tmp_q = run(oldf201, batch=True, bs=4, always_bad={"pu-a1": -1, "pu-b1": -1, "pu-c1": -1}, batch_bad={"pu-h2": -1})
+    check("#200 那版同一個情境：H 當班檔案原樣 [4000]、沒有 pend、日誌說「這一班不採用」（＝新版的 [5000, 4000] 是 #201 帶來的）",
+          ts(out_q, "p8.js") == [4000] and pend(out_q, "p8.js") == {} and "已到手的 +1 場這一班不採用" in txt_q, (ts(out_q, "p8.js"), txt_q[-400:]))
+    check("除了 H，其餘 7 個檔新舊版當班逐位元相同（#201 只動到「熔斷後有帳號沒問到」的那一位）", all(out_q[f] == out5[f] for f in out5 if f != "p8.js"), [f for f in out5 if f != "p8.js" and out_q[f] != out5[f]])
+    Uq2, pq2, txt_q2, out_q2, _ = run(oldf201, batch=True, bs=4, tmp=tmp_q)
+    check("下一班殊途同歸：新舊版 8 位選手的場次清單完全相同（新版只是早一班收到 5000、沒有多收也沒有少收）", {f: ts(out_q2, f) for f in out_q2} == {f: ts(out5b, f) for f in out5b},
+          {f: (ts(out_q2, f), ts(out5b, f)) for f in out5b if ts(out_q2, f) != ts(out5b, f)})
+    Uqc, pqc, txt_qc, out_qc, _ = run(oldf201, batch=True, bs=4)
+    Unc2, pnc2, txt_nc2, out_nc2, _ = run(NEW, batch=True, bs=4)
+    check("乾淨資料（批次）：#200 那版與新版輸出逐檔相同、日誌逐行相同（穩態一字不變）", out_qc == out_nc2 and norm(txt_qc) == norm(txt_nc2),
+          [k for k in out_qc if out_qc[k] != out_nc2.get(k)] + [x for x in norm(txt_qc) if x not in norm(txt_nc2)] + [x for x in norm(txt_nc2) if x not in norm(txt_qc)])
 
 # ───────── ⑨ 真實檔 ─────────
 print("[9] 真實檔沒被動")

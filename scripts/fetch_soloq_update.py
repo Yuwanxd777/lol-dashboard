@@ -176,8 +176,8 @@ def bad_name(b):
 # 兩百多個帳號逐一問完要一個多小時，全在關鍵路徑上（run_update 沒有逐步逾時）。照 #108 fetch_fill 的 _DOWN：
 # **連續** DOWN_AFTER 個帳號「睡 1.5s 重問仍 bad」⇒ 標 dpm 掛了，這一班剩下的帳號不再打 dpm（批次已命中的照收）。
 # 只數真的打出去的請求：批次命中的結果是稍早抓的，說明不了 dpm 現在的狀態 ⇒ 不加也不歸零；中間有一個帳號問成功就歸零。
-# 熔斷後「有帳號沒問到」的選手**整位不採用**（連同批次命中的那幾個帳號）：逐場檔的 newestT 是整位共用的，只收一半帳號會讓
-# newestT 往前跳、沒問到的那個帳號中間那段永遠補不回來；整位不動 ⇒ 下一班從原 newestT 再抓、不丟資料。
+# 熔斷後沒問到的帳號走 #200 的 pend（2026-09-22 #201 起；#199 原本是「整位不採用」）：批次已命中的帳號當班就收，newestT 因此
+# 往前跳的那一刻把沒問到的帳號記進 data["pend"]、下一班從當時的起點補；newestT 沒動的不記（下一班照原 newestT 問）⇒ 不丟資料。
 # 歷來 12 班日誌「重試仍失敗」0 次 ⇒ 穩態這段一個字都不印。改這段要跑 scripts/fetch_soloq_update_breaker_test.py。
 DOWN_AFTER = int(arg("--down-after") or 3)
 
@@ -443,7 +443,7 @@ def main():
     # 2026-09-06 線 3：這一步昨晚 1926 秒（130 位＝每位 15 秒，說明寫的是 1.4 秒）。
     # 錢花在哪沒有紀錄 ⇒ 印各階段耗時，下一次 10:00 的 update_log 就看得出來。
     _T0 = time.time(); _TCF = _TPU = 0.0; _TPL = []; _NACC = _NSKIP = 0
-    _DOWN = False; _NFAIL = _NDOWN = _PDOWN = 0   # #199 主迴圈熔斷：掛了沒／連續失敗帳號數／熔斷後沒問的帳號數／整位不採用的選手數
+    _DOWN = False; _NFAIL = _NDOWN = _PDOWN = 0   # #199 主迴圈熔斷：掛了沒／連續失敗帳號數／熔斷後沒問的帳號數／有帳號沒問到的選手數
     _NPBACK = _NPOLD = _NPNEW = 0   # #200 pend：這一班補問成功的帳號數／其中原本會漏掉的舊場次數／新記下的帳號數
     with sync_playwright() as p:
         b = _launch_real(p)
@@ -485,7 +485,7 @@ def main():
             for a in _todo:
                 _hit = (key, a["dpmPuuid"]) in PRE
                 if _DOWN and not _hit:   # #199：dpm 掛了 ⇒ 不再打；批次已命中的不花請求、照常走下面
-                    _pl_down += 1; _NDOWN += 1; continue
+                    _pl_down += 1; _NDOWN += 1; _pfail.append(a["dpmPuuid"]); continue   # #201：沒問到＝跟「重試仍失敗」同一條 pend 路
                 _live = None if _hit else False   # #199：真的打出去的請求最後成不成（None＝沒打；False 起跳 ⇒ evaluate 丟例外也算失敗）
                 _since = since_of(newestT, _pend, a["dpmPuuid"]); _bad = False   # #200：欠著的帳號從它自己的起點問
                 try:
@@ -502,7 +502,7 @@ def main():
                         else: _live = True
                     elif not _hit: _live = True
                     _ms = (res.get("ms") if isinstance(res, dict) else res) or []
-                    if a["dpmPuuid"] in _pend and not _bad:   # #200：欠著的帳號問成功了——先記著，等確定這位選手沒有被熔斷整位丟掉才算數
+                    if a["dpmPuuid"] in _pend and not _bad:   # #200：欠著的帳號問成功了——先記著，這位選手的帳號都走完再印
                         _pback.append((a.get("riotId"), len(_ms), sum(1 for g in _ms if (g.get("t") or 0) <= newestT)))
                     if _ms: _perpu.setdefault(a["dpmPuuid"], []).extend(_ms)
                     if _ms:  # 記該帳號自己最後一場 soloq 時間
@@ -525,12 +525,9 @@ def main():
                         _DOWN = True
                         print(f"⚡ dpm 熔斷：連續 {_NFAIL} 個帳號問不到（重試仍失敗／抓錯）⇒ 這一班剩下的帳號不再問 dpm（批次已命中的照收）")
                 if not _hit: time.sleep(0.1)   # 批次命中的沒真的打 dpm，不用睡
-            if _pl_down:   # #199：熔斷後有帳號沒問到 ⇒ 整位不採用（newestT 整位共用，只收一半帳號會留下永遠補不回來的洞）
-                _PDOWN += 1
-                if newg: print(f"[{i}/{len(keys)}] {key}  熔斷後 {_pl_down} 個帳號沒問到 ⇒ 已到手的 +{len(newg)} 場這一班不採用、下一班從原 newestT 再抓")
-                newg = []
-            _pn = _pend   # #200：這位選手收工時的 pend（熔斷整位不採用 ⇒ 連 pend 都不動：補問到手的也一起丟了）
-            if not _pl_down and (_pend or _pfail):
+            if _pl_down: _PDOWN += 1   # #201：熔斷後有帳號沒問到的選手——已到手的照收，沒問到的帳號跟 _pfail 一起走下面的 pend
+            _pn = _pend   # #200：這位選手收工時的 pend
+            if _pend or _pfail:
                 _pn = {k: v for k, v in _pend.items() if k not in _pok}   # 問成功 ⇒ 清
                 for _rid, _n, _old in _pback:   # 只在真的有欠、真的補到時印（穩態一字不變）
                     _NPBACK += 1; _NPOLD += _old
@@ -579,7 +576,7 @@ def main():
         _bd = batch_breakdown(_BST)
         if _bd: print(_bd)
     if _DOWN:   # #199：只在熔斷時印（穩態日誌一字不變）
-        print("⚡ dpm 熔斷小結：%d 個帳號這一班沒問、%d 位選手整位不採用；下一班從原 newestT 再抓、不丟資料" % (_NDOWN, _PDOWN))
+        print("⚡ dpm 熔斷小結：%d 個帳號這一班沒問（%d 位選手）；批次已到手的照收、被新場次越過的記進逐場檔 pend，其餘下一班從原 newestT 再抓、不丟資料" % (_NDOWN, _PDOWN))
     if _NPBACK or _NPNEW:   # #200：只在真的有欠／有補時印（穩態日誌一字不變）
         print("↺ 沒問到的帳號（逐場檔 pend）：這一班補問成功 %d 個、撿回原本會漏掉的舊場次 %d 場；新記下 %d 個，下一班從當時的起點補" % (_NPBACK, _NPOLD, _NPNEW))
     if _TPL:

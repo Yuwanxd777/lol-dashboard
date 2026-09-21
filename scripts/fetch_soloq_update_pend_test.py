@@ -12,7 +12,8 @@
 ④ 連續兩班沒問到：pend 留最舊的起點，不被後來的 newestT 蓋掉。
 ⑤ newestT 沒往前跳 ⇒ 不記 pend、檔案一個位元不動、跟舊版逐檔逐行相同。
 ⑥ 「牌位沒動」的帳號有 pend ⇒ 照問（--changed 真的走 main；沒有 pend 的靜止帳號照樣跳過＝對照）。
-⑦ 熔斷整位不採用 ⇒ pend 不動（補問到手的也一起丟了，清掉就真的漏了）；下一班補得回來。
+⑦ 熔斷（#201 起）：批次到手的當班就收、欠著的問成功就清；熔斷後沒問到的帳號記 pend、下一班從當時的起點補（4200 補得回來）。
+   （#199／#200 是「整位不採用、pend 不動」；那一版的對照在 breaker 測試 ⑧b，釘 c87b736b。）
 ⑧ 補問回來的場次跟檔內重複 ⇒「+N 新」不重複計。
 ⑨ 檔裡的 pend 形狀壞掉 ⇒ 當沒有、下次寫檔順手清掉。
 ⑩ clean_soloq_matches.fast_rids（真的那支）讀帶 pend 的檔仍走快路徑、結果跟慢路徑相同；對照：pend 放在 src 後面它就丟例外。
@@ -250,19 +251,24 @@ check("A＝[1500, 1300, 1200, 1000]、pend 清掉；「⏭ 跳過 1 個牌位沒
 U, p, t6b, o6b, _ = run(NEW, batch=True, bs=4, files=SEED6, changed=PLAYED)
 check("批次模式同一套：a1 進批次（起點 1000）、e1 不進", p.asked("pu-a1", "b") == [1000] and p.asked("pu-e1") == [] and ts(o6b, "p1.js") == [1500, 1300, 1200, 1000], p.since)
 
-# ───────── ⑦ 熔斷整位不採用 ⇒ pend 不動 ─────────
-print("[7] 熔斷整位不採用 ⇒ pend 不動（清掉就真的漏了）")
+# ───────── ⑦ 熔斷後沒問到的帳號也走 pend（#201；#199／#200 是「整位不採用、pend 不動」）─────────
+print("[7] 熔斷：批次到手的當班就收（欠著的清掉）、熔斷後沒問到的帳號記 pend、下一班從當時的起點補")
 DPM7 = copy.deepcopy(DPM0); DPM7["pu-h2"] = ("H2", [game(4500, "H2#KR1"), game(3800, "H2#KR1")])   # 3800 比 H 檔內最新的 4000 舊、比 pend 3500 新
+DPM7["pu-h1"] = ("H1", [game(5000, "H1#KR1"), game(4200, "H1#KR1")])   # 4200 夾在 4000 與 h2 的 4500 中間＝h1 沒記 pend 就永遠漏掉的那一場
 SEED7 = {"p8.js": {"pend": {"pu-h2": 3500}, "matches": [game(4000)]}}
 U, p, t71, o71, tmp7 = run(NEW, batch=True, bs=4, files=SEED7, dpm=DPM7, always_bad={"pu-e1": -1, "pu-f1": -1, "pu-g1": -1}, batch_bad={"pu-h1": -1})
-check("情境成立：e1、f1、g1 連續失敗 ⇒ 熔斷；h2 批次命中（起點 3500）、h1 沒問到 ⇒ H 整位不採用", "⚡ dpm 熔斷：連續 3 個帳號問不到" in t71 and p.asked("pu-h2", "b") == [3500] and p.asked("pu-h1", "n") == []
-      and re.search(r"T8\|H  熔斷後 1 個帳號沒問到 ⇒ 已到手的 \+2 場這一班不採用", t71), t71)
-check("H 的檔逐位元原樣（pend 還是 {pu-h2: 3500}、matches 還是 [4000]）", data_of(o71, "p8.js") == SEED7["p8.js"], data_of(o71, "p8.js"))
-check("H 沒有被算成「補問成功」（到手的整位丟了 ⇒ 日誌不可以說補到了）；小結的「新記下 1 個」是 e1（E 收了 e2 批次命中的 3900）",
-      "↺ H2#KR1" not in t71 and "這一班補問成功 0 個、撿回原本會漏掉的舊場次 0 場；新記下 1 個" in t71 and data_of(o71, "p5.js").get("pend") == {"pu-e1": 50},
+check("情境成立：e1、f1、g1 連續失敗 ⇒ 熔斷；h2 批次命中（起點 3500）、h1 熔斷後沒問到；不再有「這一班不採用」", "⚡ dpm 熔斷：連續 3 個帳號問不到" in t71 and p.asked("pu-h2", "b") == [3500] and p.asked("pu-h1", "n") == []
+      and "這一班不採用" not in t71 and "⚡ dpm 熔斷小結：1 個帳號這一班沒問（1 位選手）" in t71, t71)
+check("H 當班就收 h2 到手的兩場：[4500, 4000, 3800]（3800 當班就回來）；pend 換手＝h2 清掉、h1 記下 {pu-h1: 4000}", ts(o71, "p8.js") == [4500, 4000, 3800] and data_of(o71, "p8.js").get("pend") == {"pu-h1": 4000},
+      (ts(o71, "p8.js"), data_of(o71, "p8.js").get("pend")))
+check("日誌：↺ 指名 H2「2 場（其中 1 場比檔內最新一場舊」；小結「補問成功 1 個、撿回 1 場；新記下 2 個」（e1＝重試仍失敗、h1＝熔斷後沒問）",
+      re.search(r"↺ H2#KR1 之前沒問到、這次從當時的起點問成功：2 場（其中 1 場比檔內最新一場舊", t71) and "這一班補問成功 1 個、撿回原本會漏掉的舊場次 1 場；新記下 2 個" in t71 and data_of(o71, "p5.js").get("pend") == {"pu-e1": 50},
       ([l for l in t71.splitlines() if "↺" in l], data_of(o71, "p5.js").get("pend")))
+_k71 = list(data_of(o71, "p8.js").keys())   # #200 的教訓：前一條的產物不見了要記成這一條的紅，不可以 ValueError 把後面整份測試帶走
+check("pend 仍放在 matches 前面（熔斷那條路寫出來的檔也一樣）", "pend" in _k71 and "matches" in _k71 and _k71.index("pend") < _k71.index("matches"), _k71)
 U, p, t72, o72, _ = run(NEW, batch=True, bs=4, tmp=tmp7, dpm=DPM7)
-check("下一班（dpm 好了）：H＝[5000, 4500, 4000, 3800]——**3800 補得回來**、pend 清掉", ts(o72, "p8.js") == [5000, 4500, 4000, 3800] and "pend" not in data_of(o72, "p8.js"), ts(o72, "p8.js"))
+check("下一班（dpm 好了）：h1 從 pend 的起點 4000 問（不是 newestT 4500）⇒ H＝[5000, 4500, 4200, 4000, 3800]——**4200 補得回來**、pend 清掉",
+      p.asked("pu-h1", "b") == [4000] and ts(o72, "p8.js") == [5000, 4500, 4200, 4000, 3800] and "pend" not in data_of(o72, "p8.js"), (p.asked("pu-h1", "b"), ts(o72, "p8.js")))
 
 # ───────── ⑧ 「+N 新」不重複計 ─────────
 print("[8] 補問回來的場次跟檔內重複 ⇒「+N 新」不重複計")
