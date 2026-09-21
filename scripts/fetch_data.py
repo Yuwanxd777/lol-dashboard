@@ -593,13 +593,56 @@ def process(text, year=DEFAULT_YEAR):
 
 
 # ── 世界賽(WLDs)後的比賽（KeSPA盃等）歸入隔年：世界賽後大多換人 ──
+# 截止點只認「真的世界賽」。OE 會把各賽區的區域資格賽也標成 WLDs（2022 起年年都有；2026 是
+# LPL Regional Finals 09-17～19），舊寫法拿全部 WLDs 列的最晚日期當截止 ⇒ 真世界賽開打前，
+# 截止點落在資格賽最後一天，之後的比賽全被當成「世界賽後」搬去隔年（2026-09-21 精進迴圈 #180：
+# LEC／LCS／CBLOL 09-19～20 的 20 局進了 spill_2027.json，健檢報三個聯賽落後 2 個比賽日）。
+# 區域資格賽的兩隊一定同一個主場聯賽，世界賽一定有跨賽區的對戰 ⇒ 有「藍紅兩隊主場聯賽不同」的
+# WLDs 局才算世界賽開打了，截止點照舊＝WLDs 列的最晚日期（資格賽都在世界賽之前，不影響 max）；
+# 一場跨賽區的都沒有＝還沒開打、不切。2014～2025 的 OE 原檔新舊寫法 keep／spill 逐列相同
+# （autopilot/_m180_spill_probe.txt；2022～2025 也都有被標成 WLDs 的資格賽，只是真世界賽蓋過去了）。
+# 已知、沒改：世界賽進行中，其他賽事排在「目前最後一個世界賽比賽日」之後的局會暫時被切走，
+# 下一個世界賽比賽日一到就回來（每班從 OE 重算，spill 檔每班覆寫）——這是舊寫法就有的行為。
+def team_home_leagues(hdr, rows):
+    """隊名 → 主場聯賽（該隊在非國際賽列裡最常出現的聯賽）。只打國際賽的隊查不到。"""
+    iL = hdr.index("league"); iB = hdr.index("blue_teamname"); iR = hdr.index("red_teamname")
+    c = {}
+    for r in rows:
+        lg = r[iL]
+        if str(lg).upper() in INTL_LEAGUES:
+            continue
+        for t in (r[iB], r[iR]):
+            if t:
+                cc = c.setdefault(t, {})
+                cc[lg] = cc.get(lg, 0) + 1
+    return {t: max(cc, key=cc.get) for t, cc in c.items()}
+
+
+def worlds_cutoff(hdr, rows):
+    """回 (截止點或 None, WLDs 列數, 跨賽區 WLDs 列數)。
+
+    跨賽區＝藍紅兩隊的主場聯賽不同；查不到主場的隊（世界賽入圍賽的小賽區隊）對上查得到的也算，
+    兩隊都查不到不算（None == None；區域資格賽的隊整季都在自己的聯賽，一定查得到）。"""
+    iL = hdr.index("league"); iD = hdr.index("date")
+    iB = hdr.index("blue_teamname"); iR = hdr.index("red_teamname")
+    wr = [r for r in rows if r[iL] == "WLDs"]
+    if not wr:
+        return None, 0, 0
+    home = team_home_leagues(hdr, rows)
+    intl = [str(r[iD]) for r in wr if home.get(r[iB]) != home.get(r[iR])]
+    if not intl:
+        return None, len(wr), 0
+    return max(str(r[iD]) for r in wr), len(wr), len(intl)
+
+
 def split_spill(table):
     hdr = table[0]; rows = table[1:]
-    iL = hdr.index("league"); iD = hdr.index("date")
-    wd = [str(r[iD]) for r in rows if r[iL] == "WLDs"]
-    if not wd:
+    iD = hdr.index("date")
+    cutoff, n_w, n_intl = worlds_cutoff(hdr, rows)
+    if cutoff is None:
+        if n_w:
+            print(f"  WLDs {n_w} 列全是同賽區對戰（區域資格賽）⇒ 世界賽還沒開打，不切世界賽後")
         return table, [hdr]
-    cutoff = max(wd)
     keep  = [r for r in rows if str(r[iD]) <= cutoff]
     spill = [r for r in rows if str(r[iD]) >  cutoff]
     return [hdr] + keep, [hdr] + spill
