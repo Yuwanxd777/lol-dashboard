@@ -12464,13 +12464,15 @@ function render(){
         // 首欄＝「└ 第N局」（日期/賽事/版本都在系列標題列；2026-08-04 版型實驗）。
         // 有 VOD（wiki 逐局連結）就把「第N局」做成超連結（使用者 2026-09-04）。
         // 2026-09-05 起沒有 PB 時退回 Start（LCS 只放 Start，否則整年空白）——
-        // 兩種**用不同顏色與提示**分清楚：金色＝PB（直接跳到 BP），灰金＝Start（開局，看不到 BP）。
+        // 2026-09-23 使用者定案：**顏色統一用黃色代表「這局有 VOD」**，不再用顏色分種類。
+        // 原本 Start 那種塗 --tx2，跟一般說明文字同色 ⇒ 看起來不像連結、也看不出有 VOD。
+        // PB（跳到 BP）與 Start（只到開局）的差別留在滑過去的提示文字（_vTi）。
         const _vr=ssRec(m)||{}, _vd=_vr.vod||"", _vk=_vr.vodk||"";
         const _gl=LANG==="en"?`Game ${gno}`:`第${gno}局`;
         const _vTi=_vk==="start"
           ? (LANG==="en"?"VOD starts at game start (this league has no Picks & Bans timestamp)":"VOD 從開局開始（這個聯賽沒有 BP 時間軸）")
           : (LANG==="en"?"watch this game's Picks & Bans VOD":"看這局的 BP 過程 VOD（PB 時間軸）");
-        const _vCol=_vk==="start"?"var(--tx2)":"var(--gold)";
+        const _vCol="var(--gold)";   // 有 VOD 一律黃色（見上面的註解）
         const _glk=_vd?`<a href="${esc(_vd)}" target="_blank" rel="noopener" title="${_vTi}" style="color:${_vCol};text-decoration:underline dotted">${_gl}</a>`:_gl;
         const head=`<td class="subg">└ ${_glk}</td>`;
         if(_dm){ // 選角順序檢視＝平面表格：日期/版本/賽事各自成欄、局數不掛「└」；隊名固定藍左紅右
