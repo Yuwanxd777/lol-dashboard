@@ -62,6 +62,10 @@ _DOWN = False               # 這一班已判定 gol.gg 連不上 ⇒ 後續 get
 # 08-07 WE vs TT 第 3 局從主資料拿掉（列數縮水）。改成「補充資料裡最新一局早於 QUIET_DAYS 天
 # ＝賽段沒有新比賽了」⇒ 每 RECHECK_H 小時才重抓一次，其餘班次沿用 fill／wikifill（fetch_data 照併）。
 QUIET_DAYS = 10     # 補充資料（gol.gg 與 wiki 兩份都要有）最新一局早於這麼多天 ⇒ 安靜賽段
+# 「上次重抓」以前取檔案 mtime（2026-09-22 精進迴圈 #211 改）：fill_年.json／wikifill_年.json 是**所有 key 共用**的檔，
+# 另一個 key 每班重寫同一個檔（09-28 起 AG2026 每班寫 wikifill_2026.json）會讓安靜 key 看起來永遠「剛抓過」，
+# 42 小時複查一直被推後（AG2026_PRE 要等 AG2026 也安靜才輪得到）。現在 build()／fetch_wiki_mh.build() 把抓取時間
+# 記在 block 自己的 fetched_at，quiet_skip 先看它、舊格式沒記的才退回該檔 mtime（行為跟 #129 一樣）。
 RECHECK_H = 42.0    # 安靜賽段多久真的重抓一次（兩班一天 ⇒ 每 4 班 1 次）。兩個上限夾著：
                     #   < check_keys.FILL_STALE_H 48h（跳過的班次金鑰檢查不會報「補資料太舊」）
                     #   < GOLGG_STALE_HARD_DAYS 3 天（重抓那班 gol.gg 暫時失敗時仍走 exit 0 那條，下一班再試）
@@ -672,7 +676,8 @@ def build(cfg, force=False, dump=False):
     prev[cfg["key"]] = {"header": table[0], "rows": table[1:], "games": [g["gid"] for g in games],
                         "gkeys": _gk,
                         "src": "gol.gg", "tournament": cfg["tournament"],
-                        "league": cfg["league"], "split": sn, "year": cfg["year"]}
+                        "league": cfg["league"], "split": sn, "year": cfg["year"],
+                        "fetched_at": _now()}      # 這個 key 上次抓成的時間（#211，quiet_skip 用）
     with open(fill_path, "w", encoding="utf-8") as f:
         json.dump(prev, f, ensure_ascii=False)
     _ph("寫 fill JSON", _t)
@@ -812,13 +817,23 @@ def _newest_date(block):
     return max((str(r[i])[:10] for r in (block.get("rows") or []) if len(r) > i and r[i]), default="")
 
 
+def _last_fetch(blk, path_mtime):
+    """這個 key 上次真的抓成的時間（epoch）：block 自記的 fetched_at 優先（#211），
+    舊格式沒記、或記的不是正數就退回該檔 mtime（#129 的行為）。"""
+    v = blk.get("fetched_at") if isinstance(blk, dict) else None
+    if isinstance(v, (int, float)) and not isinstance(v, bool) and v > 0:
+        return float(v)
+    return path_mtime
+
+
 def quiet_skip(cfg, wiki):
     """安靜賽段這班要不要跳過重抓 → (跳過嗎, 要印的一行或 None)。（#129）
 
     兩份補充資料（wiki=False 時只看 gol.gg 那份）**都要**有這個 key、有列、有日期，才可能跳過；
     缺任何一份＝還沒補齊／OE 追上已刪除 ⇒ 照舊抓（閘門該做的事照做）。
-    「上次重抓」取兩份檔 mtime 的較舊者：build()／fetch_wiki_mh.build() 成功才會重寫，
-    所以哪一邊上次沒抓成，下一班就會到期重試。"""
+    「上次重抓」取兩份 block 各自 fetched_at 的較舊者（#211；舊格式沒記 fetched_at 的退回該檔 mtime）：
+    build()／fetch_wiki_mh.build() 成功才會蓋章，所以哪一邊上次沒抓成，下一班就會到期重試；
+    別的 key 重寫同一個共用檔不會讓這個 key 看起來「剛抓過」。"""
     paths = [] if not cfg.get("golgg", True) else [os.path.join(CACHE, f"fill_{cfg['year']}.json")]
     if wiki:
         paths.append(os.path.join(CACHE, f"wikifill_{cfg['year']}.json"))
@@ -834,7 +849,8 @@ def quiet_skip(cfg, wiki):
         if not nd:
             return False, None
         newest = max(newest, nd)
-        last = mt if last is None else min(last, mt)
+        lf = _last_fetch(blk, mt)
+        last = lf if last is None else min(last, lf)
     try:
         quiet_d = (_now() - time.mktime(time.strptime(newest, "%Y-%m-%d"))) / 86400
     except ValueError:

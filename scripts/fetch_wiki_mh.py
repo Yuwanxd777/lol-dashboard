@@ -697,7 +697,8 @@ def build(cfg, force=False):
             D = {}
     D[cfg["key"]] = {"header": table[0], "rows": table[1:], "games": len(games),
                      "src": "leaguepedia MatchHistoryGame(textonly)", "tour": cfg["tour"],
-                     "league": cfg["league"], "split": cfg["split"]}
+                     "league": cfg["league"], "split": cfg["split"],
+                     "fetched_at": time.time()}     # 這個 key 上次抓成的時間（fetch_fill #211，quiet_skip 用）
     json.dump(D, open(p, "w", encoding="utf-8"), ensure_ascii=False)
     print(f"    → {p}（{cfg['key']}：{len(games)} 局 / {len(table)-1} 列）")
     return table

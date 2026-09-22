@@ -7,6 +7,9 @@
   ③ 假時鐘走 8 班（每班 12h、重抓時把檔 mtime 蓋成當下）⇒ 重抓 2 次（每 4 班 1 次）；突變 RECHECK_H=1e9 ⇒ 只剩 0 次（鑑別力）
   ④ 上限契約：RECHECK_H < check_keys.FILL_STALE_H、< GOLGG_STALE_HARD_DAYS×24；重抓那班 gol.gg 暫時失敗仍 exit 0
   ⑤ 正控制釘 OLDREV（本輪改動前）：舊版對同一份安靜沙盒照樣三步全叫
+  ⑥（2026-09-22 #211）「上次重抓」看 block 自記的 fetched_at、不看共用檔 mtime：別的 key 重寫共用檔不會讓安靜 key 看起來「剛抓過」
+     （共用檔每班被重寫的 8 班仍複查 2 次；舊版 0 次）；沒記／記垃圾退回 mtime；build()／fetch_wiki_mh.build() 真的會蓋章
+     （網路與 fetch_data.process 換假的、寫檔走真程式）；正控制釘 OLDREV2 證明舊版不蓋章、也看不出 50h 沒抓
 隔離：CACHE／HCACHE 指暫存目錄並當場點名；warm_wiki／build／build_wiki 換記錄器；urlopen 與 fetch_wiki_mh.opener 一叫就炸；
 跑完 assert 真實 csv_cache/fill_2026.json、wikifill_2026.json 的 size＋mtime_ns 沒動。
 用法：python scripts/fetch_fill_quiet_test.py
@@ -284,6 +287,195 @@ rc, out, calls = run(fo)
 ck(calls == ["warm", "build", "wiki"], f"舊版對同一份安靜沙盒三步全叫（實際 {calls}）")
 n_old = timeline(fo)
 ck(n_old == 8, f"舊版 8 班重抓 8 次（實際 {n_old}）")
+
+print("\n【10】block 自記 fetched_at 優先於共用檔 mtime（2026-09-22 精進迴圈 #211）")
+OLDREV2 = "c20c617a"   # #211 改動前的 HEAD（#93：釘 commit，不寫 HEAD）
+
+
+_NA = object()
+
+
+def stamp(nm, h, raw=_NA):
+    """把沙盒 {nm}_{YEAR}.json 裡 KEY 的 block 蓋上 fetched_at＝CLOCK − h 小時（raw 給定就照放，含 None），檔案 mtime 不動
+    （模擬「這個 key 上次真的抓成是 h 小時前，但檔案後來被別的 key 重寫過」）。"""
+    p = os.path.join(cdir, f"{nm}_{YEAR}.json")
+    st = os.stat(p)
+    d = json.load(open(p, encoding="utf-8"))
+    d[KEY]["fetched_at"] = raw if raw is not _NA else CLOCK[0] - h * 3600
+    with open(p, "w", encoding="utf-8") as f:
+        json.dump(d, f, ensure_ascii=False)
+    os.utime(p, (st.st_atime, st.st_mtime))
+
+
+ck(hasattr(ff, "_last_fetch"), "新版有 _last_fetch")
+seed(newest_days_ago=30, fill_age_h=1, wiki_age_h=1)
+stamp("fill", 50); stamp("wikifill", 50)
+rc, out, calls = run(ff)
+ck(calls == ["warm", "build", "wiki"], f"共用檔 1h 前被別的 key 重寫、自己的 block 記 50h ⇒ 到期重抓（實際 {calls}）")
+ck("50 小時前" in out and "這班重抓一次" in out, "日誌印的是 block 的 50 小時、不是檔案的 1 小時")
+seed(newest_days_ago=30, fill_age_h=50, wiki_age_h=50)
+stamp("fill", 12); stamp("wikifill", 12)
+rc, out, calls = run(ff)
+ck(calls == [] and "12 小時前" in out, f"反向：檔案 mtime 50h、block 12h ⇒ block 贏 ⇒ 跳過（實際 {calls}）")
+seed(newest_days_ago=30, fill_age_h=1, wiki_age_h=1)
+stamp("wikifill", 50)
+rc, out, calls = run(ff)
+ck(calls == ["warm", "build", "wiki"], f"只有 wiki 那份記了 50h、fill 沒記（mtime 1h）⇒ 取較舊者 ⇒ 重抓（實際 {calls}）")
+seed(newest_days_ago=30, fill_age_h=12, wiki_age_h=12)
+rc, out, calls = run(ff)
+ck(calls == [] and "12 小時前" in out, "舊格式（兩份都沒有 fetched_at）⇒ 退回檔案 mtime 12h ⇒ 跳過（#129 行為不變）")
+for raw in ("abc", 0, -5, True, None):
+    seed(newest_days_ago=30, fill_age_h=12, wiki_age_h=12)
+    stamp("fill", 0, raw=raw); stamp("wikifill", 0, raw=raw)
+    rc, out, calls = run(ff)
+    ck(rc == 0 and calls == [] and "12 小時前" in out, f"fetched_at={raw!r} ⇒ 當沒記、退回 mtime 12h、不炸、跳過（實際 rc {rc}／{calls}）")
+CFG_W = {"key": KEY, "wiki": "ZZ Probe 9942", "league": "ZZ", "split": "", "year": YEAR, "playoffs": 0, "golgg": False}
+ff.FILL = [dict(CFG_W)]
+seed(newest_days_ago=30, fill=False, wiki_age_h=1)
+stamp("wikifill", 43)
+rc, out, calls = run(ff)
+ck(calls == ["wiki"], f"wiki_only（AG2026_PRE 那型）：共用 wikifill 1h 前被別的 key 重寫、自己的 block 43h ⇒ 到期重抓（實際 {calls}）")
+seed(newest_days_ago=30, fill=False, wiki_age_h=1)
+stamp("wikifill", 41)
+rc, out, calls = run(ff)
+ck(calls == [], f"wiki_only：block 41h ⇒ 未到期 ⇒ 跳過（實際 {calls}）")
+ff.FILL = [dict(CFG)]
+
+
+def timeline_shared(m, shifts=8):
+    """#211 要修的情境：每班都有別的 key 重寫共用檔（mtime＝當下）；只有真的重抓那班才蓋 block 的 fetched_at。"""
+    CLOCK[0] = T0
+    seed(newest_days_ago=30, fill_age_h=0, wiki_age_h=0)
+    stamp("fill", 0); stamp("wikifill", 0)
+    n = 0
+    for i in range(1, shifts + 1):
+        CLOCK[0] = T0 + i * 12 * 3600 + (37 if i % 2 else -41)
+        for nm in ("fill", "wikifill"):        # 別的 key 這班重寫了共用檔
+            p = os.path.join(cdir, f"{nm}_{YEAR}.json")
+            os.utime(p, (CLOCK[0], CLOCK[0]))
+        rc, out, calls = run(m)
+        if "build" in calls:
+            n += 1
+            stamp("fill", 0); stamp("wikifill", 0)
+    CLOCK[0] = T0
+    return n
+
+
+n_sh = timeline_shared(ff)
+ck(n_sh == 2, f"共用檔每班被別的 key 重寫：新版 8 班仍重抓 2 次（每 4 班 1 次；實際 {n_sh}）")
+
+print("\n【11】build()／fetch_wiki_mh.build() 真的把 fetched_at 寫進 block（網路與 process 換成假的、寫檔走真程式）")
+import types
+FAKE_ROW = ["ZZ", "S9", day(30) + " 11:00:00", "1", "100", "A", "B"]
+fake_fd = types.SimpleNamespace(process=lambda csv_text, year: [HDR, FAKE_ROW])
+_saved_fd = sys.modules.get("fetch_data")
+sys.modules["fetch_data"] = fake_fd
+fill_p = os.path.join(cdir, f"fill_{YEAR}.json")
+wp = os.path.join(cdir, f"wikifill_{YEAR}.json")
+
+
+def bind_write(m):
+    m.CACHE = os.path.join(SB, "csv_cache")
+    m.HCACHE = os.path.join(m.CACHE, "golgg")
+    m.urllib.request.urlopen = boom
+    if hasattr(m, "_now"):
+        m._now = lambda: CLOCK[0]
+    m.gate = lambda cfg: (True, 0, {}, fill_p)
+    m.collect = lambda cfg, force=False: [{"gid": 7}]
+    m.to_csv_rows = lambda games, cfg: (HDR, [FAKE_ROW])
+    m._PH.clear()
+
+
+def bind_wiki_write(m):
+    m.CACHE = os.path.join(SB, "csv_cache")
+    m.HTML_DIR = os.path.join(m.CACHE, "wikitxt")
+    m.PB_DIR = os.path.join(m.CACHE, "wikipb")
+    m.opener = boom
+    m.urllib.request.urlopen = boom
+    m.fetch = lambda tour, force=False: "<html>probe</html>"
+    m.parse = lambda hml: (HDR, [{"g": 1}, {"g": 2}])
+    m.to_csv = lambda games, cfg: (HDR, [FAKE_ROW])
+    leaks = [k for k in ("CACHE", "HTML_DIR", "PB_DIR") if os.path.abspath(getattr(m, k)).startswith(os.path.join(ROOT, "csv_cache"))]
+    return leaks
+
+
+WCFG = {"tour": CFG["wiki"], "league": "ZZ", "split": "S9", "year": YEAR, "playoffs": 0, "key": KEY}
+
+
+def run_writes(mf, mw):
+    for p in (fill_p, wp):
+        if os.path.exists(p):
+            os.remove(p)
+    buf = io.StringIO()
+    sys.stdout = buf
+    try:
+        t = mf.build(dict(CFG))
+        t_real = time.time()
+        tw = mw.build(dict(WCFG), force=True)
+    finally:
+        sys.stdout = _STDOUT
+    blk = json.load(open(fill_p, encoding="utf-8")).get(KEY, {}) if os.path.exists(fill_p) else {}
+    wb = json.load(open(wp, encoding="utf-8")).get(KEY, {}) if os.path.exists(wp) else {}
+    return t, tw, blk, wb, t_real
+
+
+ffw = load("fetch_fill_m211w", os.path.join(HERE, "fetch_fill.py"))
+bind_write(ffw)
+fww = load("fetch_wiki_mh_m211w", os.path.join(HERE, "fetch_wiki_mh.py"))
+leaks_w = bind_wiki_write(fww)
+ck(not leaks_w, f"fetch_wiki_mh 模組層路徑改指沙盒（漏：{leaks_w}）")
+t, tw, blk, wb, t_real = run_writes(ffw, fww)
+ck(t is not None and blk.get("fetched_at") == CLOCK[0], f"fetch_fill.build() 寫進沙盒 fill JSON 的 block 帶 fetched_at＝假時鐘（實際 {blk.get('fetched_at')}）")
+ck(blk.get("src") == "gol.gg" and blk.get("rows") == [FAKE_ROW] and blk.get("gkeys") and blk.get("games") == [7], "fill block 其餘欄位照舊（src／rows／gkeys／games）")
+ck(tw is not None and isinstance(wb.get("fetched_at"), float) and abs(wb["fetched_at"] - t_real) < 60,
+   f"fetch_wiki_mh.build() 寫進沙盒 wikifill JSON 的 block 帶 fetched_at＝真時鐘（實際 {wb.get('fetched_at')}）")
+ck(wb.get("games") == 2 and str(wb.get("src", "")).startswith("leaguepedia") and wb.get("rows") == [FAKE_ROW], "wiki block 其餘欄位照舊（games／src／rows）")
+ck(ffw._last_fetch(blk, 0.0) == CLOCK[0] and ffw._last_fetch({"fetched_at": "x"}, 5.0) == 5.0 and ffw._last_fetch(None, 7.0) == 7.0,
+   "_last_fetch：蓋過章的 block 回 fetched_at；垃圾／None 回 mtime")
+# 蓋章後的 block 拿給 quiet_skip：剛抓完 ⇒ 0 小時 ⇒ 跳過；把時鐘撥 43h（檔案 mtime 也蓋成當下）⇒ 到期
+d = json.load(open(fill_p, encoding="utf-8")); d[KEY]["rows"] = [[c for c in FAKE_ROW]]; json.dump(d, open(fill_p, "w", encoding="utf-8"), ensure_ascii=False)
+os.utime(fill_p, (CLOCK[0], CLOCK[0])); os.utime(wp, (CLOCK[0], CLOCK[0]))
+wb_all = json.load(open(wp, encoding="utf-8")); wb_all[KEY]["fetched_at"] = CLOCK[0]; json.dump(wb_all, open(wp, "w", encoding="utf-8"), ensure_ascii=False)
+os.utime(wp, (CLOCK[0], CLOCK[0]))
+rc, out, calls = run(ff)
+ck(calls == [] and "0 小時前" in out, f"真程式蓋的章拿給 quiet_skip：剛抓完 ⇒ 跳過（實際 {calls}）")
+CLOCK[0] = T0 + 43 * 3600
+os.utime(fill_p, (CLOCK[0], CLOCK[0])); os.utime(wp, (CLOCK[0], CLOCK[0]))
+rc, out, calls = run(ff)
+ck(calls == ["warm", "build", "wiki"] and "43 小時前" in out, f"時鐘撥 43h、檔案又被重寫成當下 ⇒ 仍照 block 到期重抓（實際 {calls}）")
+CLOCK[0] = T0
+
+print(f"\n【12】正控制（{OLDREV2}，#211 改動前）")
+old2 = subprocess.run(["git", "-C", ROOT, "show", f"{OLDREV2}:scripts/fetch_fill.py"], capture_output=True).stdout
+old2w = subprocess.run(["git", "-C", ROOT, "show", f"{OLDREV2}:scripts/fetch_wiki_mh.py"], capture_output=True).stdout
+ck(len(old2) > 1000 and b"quiet_skip" in old2 and b"fetched_at" not in old2, "OLDREV2 的 fetch_fill 拉得出來：有 quiet_skip、沒有 fetched_at")
+ck(len(old2w) > 1000 and b"fetched_at" not in old2w, "OLDREV2 的 fetch_wiki_mh 拉得出來：沒有 fetched_at")
+od2 = tempfile.mkdtemp(prefix="m211_old_")
+op2 = os.path.join(od2, "fetch_fill_m211old.py")
+open(op2, "wb").write(old2)
+op2w = os.path.join(od2, "fetch_wiki_mh_m211old.py")
+open(op2w, "wb").write(old2w)
+fo2 = load("fetch_fill_m211old", op2)
+leaks2 = bind(fo2)
+ck(not leaks2, f"舊版模組層路徑也改指沙盒（漏：{leaks2}）")
+seed(newest_days_ago=30, fill_age_h=1, wiki_age_h=1)
+stamp("fill", 50); stamp("wikifill", 50)
+rc, out, calls = run(fo2)
+ck(calls == [], f"舊版只看共用檔 mtime 1h ⇒ 明明 50h 沒抓也跳過（實際 {calls}）")
+n_old_sh = timeline_shared(fo2)
+ck(n_old_sh == 0, f"舊版在「共用檔每班被別的 key 重寫」的 8 班裡 0 次複查（實際 {n_old_sh}）＝#211 要修的洞")
+fo2w = load("fetch_fill_m211oldw", op2)
+bind_write(fo2w)
+fo2ww = load("fetch_wiki_mh_m211oldw", op2w)
+bind_wiki_write(fo2ww)
+t, tw, blk, wb, t_real = run_writes(fo2w, fo2ww)
+ck(t is not None and "fetched_at" not in blk and blk.get("src") == "gol.gg", "舊版 fetch_fill.build() 寫的 block 沒有 fetched_at（其餘照寫）")
+ck(tw is not None and "fetched_at" not in wb and wb.get("games") == 2, "舊版 fetch_wiki_mh.build() 寫的 block 沒有 fetched_at（其餘照寫）")
+if _saved_fd is None:
+    sys.modules.pop("fetch_data", None)
+else:
+    sys.modules["fetch_data"] = _saved_fd
+shutil.rmtree(od2, ignore_errors=True)
 
 print("\n【9】真實檔案沒動")
 ck(stat_real() == REAL0, "真實 csv_cache/fill_2026.json、wikifill_2026.json size＋mtime_ns 沒動")
