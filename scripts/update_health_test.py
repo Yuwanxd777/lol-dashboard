@@ -361,7 +361,7 @@ try:
     io.open(uh.LOG, "w", encoding="utf-8").write(
         "==== run_update %s（並行 4）====\n" % time.strftime("%Y-%m-%d %H:%M:%S")
         + "".join("---- %s（1.0s，exit 0）----\n" % n for n in SEED_STEPS)
-        + "文本體檢：掃描 1 條字串 → 錯誤 0、提醒 0\n未審定的可疑同名 0\n守門通過\n")
+        + "文本體檢：掃描 1 條字串 → 錯誤 0、提醒 0\n未審定的可疑同名 0\n守門通過\n   1111111..2222222  main -> main\n")
     sys.argv = ["update_health.py", "--no-live"]          # 存檔模式：讓 main 自己在沙盒建基準
     _sbuf = io.StringIO()
     with contextlib.redirect_stdout(_sbuf):
@@ -402,7 +402,7 @@ try:
         io.open(uh.LOG, "w", encoding="utf-8").write(
             "==== run_update %s（並行 4）====\n" % s
             + "".join("---- %s（1.0s，exit 0）----\n" % n for n in _steps)
-            + "文本體檢：掃描 1 條字串 → 錯誤 0、提醒 0\n未審定的可疑同名 0\n守門通過\n")
+            + "文本體檢：掃描 1 條字串 → 錯誤 0、提醒 0\n未審定的可疑同名 0\n守門通過\n   1111111..2222222  main -> main\n")
         buf = io.StringIO()
         with contextlib.redirect_stdout(buf):
             uh.main()
@@ -485,7 +485,7 @@ try:
     point_clean(UHT_BOX)          # #165：同 ⑫，讀種齊的假 repo
     io.open(uh.LOG, "w", encoding="utf-8").write(
         "==== run_update %s（並行 4）====\n---- fetch_x（1.0s，exit 0）----\n"
-        "[check_player_dup] 選手 ID 4087 個，未審定的可疑同名 10 個\n守門通過\n"
+        "[check_player_dup] 選手 ID 4087 個，未審定的可疑同名 10 個\n守門通過\n   1111111..2222222  main -> main\n"
         % time.strftime("%Y-%m-%d %H:%M:%S"))
     uh.live_dup = lambda timeout=None: (0, "")          # 假現況：那一班之後已經審定完
 
@@ -1131,7 +1131,7 @@ try:
     uh.BASE = os.path.join(tmpE, "base.json")
     uh.live_dup = lambda timeout=None: (0, "")
     io.open(uh.LOG, "w", encoding="utf-8").write(
-        "==== run_update %s（並行 4）====\n---- fetch_x（1.0s，exit 0）----\n守門通過\n"
+        "==== run_update %s（並行 4）====\n---- fetch_x（1.0s，exit 0）----\n守門通過\n   1111111..2222222  main -> main\n"
         % time.strftime("%Y-%m-%d %H:%M:%S"))
     sys.argv = ["update_health.py", "--no-save", "--no-live", "--no-soloqfresh"]
 
@@ -1535,7 +1535,7 @@ def DC_SUITE(M, eq):
         tmp = _tf.mkdtemp(prefix="uh_dc_main_")
         dirs.append(tmp)
         _io.open(_os.path.join(tmp, "log.txt"), "w", encoding="utf-8").write(
-            "==== run_update %s（並行 4）====\n---- fetch_x（1.0s，exit 0）----\n守門通過\n"
+            "==== run_update %s（並行 4）====\n---- fetch_x（1.0s，exit 0）----\n守門通過\n   1111111..2222222  main -> main\n"
             % _dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 
         def run_main(root, fetch, extra=()):
@@ -1712,7 +1712,7 @@ try:
     io.open(uh.LOG, "w", encoding="utf-8").write(
         "==== run_update %s（並行 4）====\n" % time.strftime("%Y-%m-%d %H:%M:%S")
         + "".join("---- %s（1.0s，exit 0）----\n" % n for n in SEED_STEPS)
-        + "文本體檢：掃描 1 條字串 → 錯誤 0、提醒 0\n未審定的可疑同名 0\n守門通過\n")
+        + "文本體檢：掃描 1 條字串 → 錯誤 0、提醒 0\n未審定的可疑同名 0\n守門通過\n   1111111..2222222  main -> main\n")
     rc, concl, line, out = _main30()
     eq((rc, concl), (0, "結論：✓ 沒有異常"), "㉚e2e 前提：種齊的假 repo 第一次跑沒有異常%s" % ("" if rc == 0 else "\n" + out))
     eq(_base30().get("stats"), {"data_2013.js": 6, "data_2026.js": 0},
@@ -2050,7 +2050,7 @@ try:
     io.open(uh.LOG, "w", encoding="utf-8").write(
         "==== run_update %s（並行 4）====\n" % time.strftime("%Y-%m-%d %H:%M:%S")
         + "".join("---- %s（1.0s，exit 0）----\n" % n for n in SEED_STEPS)
-        + "文本體檢：掃描 1 條字串 → 錯誤 0、提醒 0\n未審定的可疑同名 0\n守門通過\n")
+        + "文本體檢：掃描 1 條字串 → 錯誤 0、提醒 0\n未審定的可疑同名 0\n守門通過\n   1111111..2222222  main -> main\n")
     rc, concl, line, out = _main32()
     eq((rc, concl, line), (0, "結論：✓ 沒有異常", "世界賽後切到隔年：沒有 spill 檔（fetch_data 還沒跑過？）"),
        "㉜e2e 前提：假 repo 沒有 spill 檔 ⇒ 乾淨、那一行講沒有 spill 檔%s" % ("" if rc == 0 else "\n" + out))
@@ -2184,7 +2184,7 @@ try:
     io.open(uh.LOG, "w", encoding="utf-8").write(
         "==== run_update %s（並行 4）====\n" % time.strftime("%Y-%m-%d %H:%M:%S")
         + "".join("---- %s（1.0s，exit 0）----\n" % n for n in SEED_STEPS)
-        + "文本體檢：掃描 1 條字串 → 錯誤 0、提醒 0\n未審定的可疑同名 0\n守門通過\n")
+        + "文本體檢：掃描 1 條字串 → 錯誤 0、提醒 0\n未審定的可疑同名 0\n守門通過\n   1111111..2222222  main -> main\n")
     _now33 = time.time()
     _hist33 = [[_ts33(3, _now33), 128076], [_ts33(1, _now33), 121000]]
     # A 對照：基準沒有 size_hist（＝改之前、或剛上線的第一班）⇒ 跟全期高水位比、報縮水
@@ -2310,7 +2310,7 @@ _real34 = (uh.ROOT, uh.BASE, uh.LOG, uh.CONSOLE, sys.argv)
 _ebox34 = tempfile.mkdtemp(prefix="uh_soft_e2e_")
 _HEAD34 = ("==== run_update %s（並行 4）====\n" % time.strftime("%Y-%m-%d %H:%M:%S")
            + "".join("---- %s（1.0s，exit 0）----\n" % n for n in SEED_STEPS)
-           + "文本體檢：掃描 1 條字串 → 錯誤 0、提醒 0\n未審定的可疑同名 0\n守門通過\n")
+           + "文本體檢：掃描 1 條字串 → 錯誤 0、提醒 0\n未審定的可疑同名 0\n守門通過\n   1111111..2222222  main -> main\n")
 _EXP34 = "比賽數據出場過濾：9950 → 9 位（丟棄 9941 位沒出場：['ZZ|zz_probe_9942']）\n  帳號總數：9942 → 1\n完成：1/1 有排名 → x\n"
 
 

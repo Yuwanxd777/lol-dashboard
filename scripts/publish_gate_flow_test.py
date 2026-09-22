@@ -66,8 +66,11 @@ HEALTH_STUB = (
 # 讓「守門通過」那兩個情境紅了 3 條假紅，差點被當成 publish.bat 有問題。
 FAKE_GIT = (
     "# -*- coding: utf-8 -*-\n"
-    "import sys\n"
+    "import os, sys\n"
     "print('FAKEGIT ' + ' '.join(sys.argv[1:]))\n"
+    # #208：publish.bat 要在 git 之前 set 四個「不等人」環境變數；假 git 把看到的印出來給下面斷言
+    "print('FAKEGIT-ENV ' + '|'.join(k + '=' + os.environ.get(k, '<unset>') for k in "
+    "('GIT_TERMINAL_PROMPT', 'GCM_INTERACTIVE', 'GIT_HTTP_LOW_SPEED_LIMIT', 'GIT_HTTP_LOW_SPEED_TIME')))\n"
 )
 # 2026-09-21 #179：publish.bat 最末段多了「每班自己留底」。假的歸檔器只做兩件事——
 # 把當下的 update_log.txt 原封不動抄一份出來、印一行證明自己跑過——這樣就測得出
@@ -123,6 +126,8 @@ def build(block):
 def run(pre_rc, health_rc):
     env = dict(os.environ, FAKE_PRE_RC=str(pre_rc), FAKE_RC=str(health_rc))
     env.pop("PUBRC", None)
+    for k in ('GIT_TERMINAL_PROMPT', 'GCM_INTERACTIVE', 'GIT_HTTP_LOW_SPEED_LIMIT', 'GIT_HTTP_LOW_SPEED_TIME'):
+        env.pop(k, None)             # #208：四個防呆變數只能來自 publish.bat 自己 set 的
     p = subprocess.run(["cmd", "/c", os.path.join(TMP, "t.bat")],
                        capture_output=True, env=env)
     return p.returncode
@@ -144,6 +149,8 @@ def scenario(block, label, expect_pass=True):
     ck(code == 0, "離開碼 0，實際 %s" % code)
     ck("FAKEGIT add" in lg and "FAKEGIT commit" in lg and "FAKEGIT push" in lg,
        "git add／commit／push 三行都跑到")
+    ck("FAKEGIT-ENV GIT_TERMINAL_PROMPT=0|GCM_INTERACTIVE=never|GIT_HTTP_LOW_SPEED_LIMIT=1000|GIT_HTTP_LOW_SPEED_TIME=60" in lg,
+       "git 看得到四個不等人的環境變數（#208：認證視窗不彈、終端不問、停滯 60 秒就斷）")
     ck(read("update_health_log.txt") is not None, "健檢有跑（有自己的 log）")
     ck(read("autopilot/HEALTH_ALERT.txt") is None, "沒有警示檔")
     ck("結論：假健檢的結論字串" in lg, "健檢結論折進 update_log.txt")
@@ -281,18 +288,37 @@ def contract():
     #   兩邊都是 1，第一條等於沒有鑑別力）
     io.open(log, "w", encoding="utf-8").write(
         "==== run_update " + stamp + "（並行 4）====\n"
-        "---- fetch_x（12.3s，exit 0）----\n守門通過\n")
+        "---- fetch_x（12.3s，exit 0）----\n守門通過\n   1111111..2222222  main -> main\n")
     p2 = subprocess.run([sys.executable, "-c", code], capture_output=True, cwd=ROOT)
     out2 = p2.stdout.decode("utf-8", "replace")
     ok3 = "preflight 失敗、沒有 push" not in out2
     ok4 = p2.returncode == 0
     ck(ok3, "正控制：日誌乾淨時不報這一條（測試不是死的）")
     ck(ok4, "正控制：乾淨的假 repo ⇒ 離開碼 0，實際 %s" % p2.returncode)
-    # #164：兩次子程序都不可以撞到封網保險絲（被 except 吞掉的也算）
-    nethit = (b"NETHIT" in p.stderr) or (b"NETHIT" in p2.stderr)
+    # #208：守門通過、但 push 被拒／被切斷 ⇒ 必須列異常（不然 publish.bat 的「git 不等人」只是把
+    # 「卡死」換成「靜靜沒推」）。字樣取 GIT_HTTP_LOW_SPEED 真的斷線時 curl 印的那句（#208 探針實測）。
+    io.open(log, "w", encoding="utf-8").write(
+        "==== run_update " + stamp + "（並行 4）====\n"
+        "---- fetch_x（12.3s，exit 0）----\n守門通過\n"
+        "error: RPC failed; curl 28 Operation too slow. Less than 1000 bytes/sec transferred "
+        "the last 60 seconds\nfatal: the remote end hung up unexpectedly\n")
+    p3 = subprocess.run([sys.executable, "-c", code], capture_output=True, cwd=ROOT)
+    out3 = p3.stdout.decode("utf-8", "replace")
+    ok5 = p3.returncode == 1 and "沒有 push 成功" in out3
+    ck(ok5, "#208：守門通過但 push 失敗 ⇒ 離開碼 1、結論指名「沒有 push 成功」（實際 rc %s）" % p3.returncode)
+    # 守門通過、日誌裡連一行 push 都沒有（git 根本沒跑到）⇒ 同樣列異常（靜靜沒推也要出聲）
+    io.open(log, "w", encoding="utf-8").write(
+        "==== run_update " + stamp + "（並行 4）====\n"
+        "---- fetch_x（12.3s，exit 0）----\n守門通過\n")
+    p4 = subprocess.run([sys.executable, "-c", code], capture_output=True, cwd=ROOT)
+    out4 = p4.stdout.decode("utf-8", "replace")
+    ok6 = p4.returncode == 1 and "沒有 push 成功" in out4
+    ck(ok6, "#208：守門通過但日誌沒有 push 行 ⇒ 離開碼 1（實際 rc %s）" % p4.returncode)
+    # #164：子程序都不可以撞到封網保險絲（被 except 吞掉的也算）
+    nethit = any(b"NETHIT" in x.stderr for x in (p, p2, p3, p4))
     ck(not nethit, "沙盒子程序沒有任何一次撞到封網保險絲（出口都接管了）")
     shutil.rmtree(box, ignore_errors=True)
-    return ok1 and ok2 and ok3 and ok4 and not nethit
+    return ok1 and ok2 and ok3 and ok4 and ok5 and ok6 and not nethit
 
 
 def main():
@@ -313,6 +339,8 @@ def main():
          'if "%PUBRC%"=="0" (\r\n  %GIT% add', 'if "%PUBRC%"=="9" (\r\n  %GIT% add'),
         ("拿掉 set PUBRC=0（旗標沒有初始化）",
          "set PUBRC=0\r\n", ""),
+        ("#208：拿掉 set GIT_TERMINAL_PROMPT=0（token 一壞 git 又會等人按認證視窗）",
+         "set GIT_TERMINAL_PROMPT=0\r\n", ""),
         ("#179：拿掉留底那一行（班次又會只活到下一班）",
          "python scripts\\shift_log_archive.py --from-publish > shift_archive_log.txt 2>&1\r\n", ""),
         ("#179：留底只在守門通過時才跑（最需要證據的那一班反而沒有）",

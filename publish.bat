@@ -21,6 +21,18 @@ rem nothing pushed) is the only one that leaves no autopilot\HEALTH_ALERT.txt be
 rem improvement loop reads "no alert file" as "the last shift was fine". Set GIT and PUBRC
 rem BEFORE the if-block: a variable set inside a parenthesised block still expands to its
 rem old value inside that same block (cmd expands the whole block when it parses it).
+rem git must never wait for a human (2026-09-22 #208). The scheduled shift runs in a hidden
+rem session: if the stored token is ever revoked, git/GCM would pop a credential prompt that
+rem nobody can answer and the push would hang forever - no health check, no HEALTH_ALERT.txt,
+rem and the task scheduler (IgnoreNew + PT72H) skips up to six shifts. Disable every prompt so
+rem a broken credential fails fast with an error line in update_log.txt (the health check reads
+rem it and flags a push that did not land). Low-speed abort: a connection stalled below
+rem 1000 B/s for 60 s is cut instead of waited on. These are env vars, not -c flags, so the
+rem three git lines below stay exactly as publish_gate_flow_test.py expects.
+set GIT_TERMINAL_PROMPT=0
+set GCM_INTERACTIVE=never
+set GIT_HTTP_LOW_SPEED_LIMIT=1000
+set GIT_HTTP_LOW_SPEED_TIME=60
 set GIT="C:\Program Files\Git\cmd\git.exe"
 set PUBRC=0
 python scripts\preflight_check.py >> update_log.txt 2>&1

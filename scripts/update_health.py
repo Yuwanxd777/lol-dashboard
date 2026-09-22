@@ -94,8 +94,16 @@ def parse_log():
          "tracebacks": t.count("Traceback (most recent call last)"),
          "steps": [(n, float(s), int(c)) for n, s, c in re.findall(r"---- (\S+)（([\d.]+)s，exit (-?\d+)）----", t)],
          "preflight_ok": "守門通過" in t, "preflight_fail": "PREFLIGHT FAILED" in t,
-         "pushed": bool(re.search(r"\n\s*[0-9a-f]{7,}\.\.[0-9a-f]{7,}\s+\S+ -> \S+", t)) or "-> main" in t,
+         "pushed": bool(re.search(r"\n\s*[0-9a-f]{7,}\.\.[0-9a-f]{7,}\s+\S+ -> \S+", t)) or "-> main" in t
+                   or "Everything up-to-date" in t,
          "lint_err": None, "dup": None, "done_at": None, "start_at": None}
+    # #208：守門通過之後那一段有沒有 git push 失敗的字樣。只看守門之後——抓取步驟自己也可能印 fatal。
+    # 字樣涵蓋 publish.bat 四個「不等人」設定各自的失敗訊息（終端不問／GCM 不彈／低速斷線）與被拒。
+    _seg = t[t.rfind("守門通過"):] if "守門通過" in t else ""
+    r["push_fail"] = bool(re.search(
+        r"(?m)^\s*!\s*\[rejected\]|error: failed to push|fatal: unable to access|Authentication failed"
+        r"|terminal prompts disabled|Cannot prompt because|Operation too slow|could not read Username"
+        r"|remote end hung up|fatal: could not read", _seg))
     m = re.search(r"資料更新時間：.*?→ (\d{4}-\d{2}-\d{2} \d{2}:\d{2})", t)
     if m:
         r["done_at"] = m.group(1)
@@ -1715,11 +1723,16 @@ def main():
         # 失敗優先：日誌萬一同時有兩種字樣（例如手動補跑過），印 ✓ 會跟下面的結論自相矛盾
         print("那一班的日誌快照（不是現況）：守門：%s／push：%s／lint 錯誤級：%s" % (
             "✗ FAILED" if lg["preflight_fail"] else ("✓" if lg["preflight_ok"] else "？"),
-            "✓" if lg["pushed"] else "？", lg["lint_err"]))
+            "✗ 失敗" if lg.get("push_fail") else ("✓" if lg["pushed"] else "？"), lg["lint_err"]))
         if lg["lint_err"]:
             bad.append("lint_text 錯誤級 %d（應為 0）" % lg["lint_err"])
         if lg["preflight_fail"]:
             bad.append("preflight 失敗、沒有 push")
+        elif lg["preflight_ok"] and (lg.get("push_fail") or not lg["pushed"]):
+            # #208：publish.bat 讓 git 不等人之後，認證壞掉／連線停滯會「快速失敗」而不是卡死——
+            # 但那只是把「卡死」換成「靜靜沒推」，除非健檢把它列成異常。守門通過卻沒有 push 成功的
+            # 那一班，線上還是上一班的資料。
+            bad.append("守門通過卻沒有 push 成功（git push 失敗／被切斷／沒跑到 ⇒ 線上還是上一班的資料）")
     else:
         print("（找不到 update_log.txt）")
     # 可疑同名走現況重算（#49；--no-live 可跳過，例如管線正在跑、不想再讀一次 26MB 年度資料）

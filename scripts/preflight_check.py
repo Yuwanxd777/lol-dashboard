@@ -4,11 +4,58 @@
 ② headless 開機：載入 index.html?y=2026，收集 pageerror；要求 nav 與主內容渲染、英雄分頁能開。
 用法：python scripts\preflight_check.py   （exit 0=通過）
 """
-import io, sys, os, re, subprocess
+import io, sys, os, re, subprocess, threading, time
 
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
 HERE = os.path.dirname(os.path.abspath(__file__)); ROOT = os.path.dirname(HERE)
 fails = []
+
+# ── ⓪ 總上限（2026-09-22 精進迴圈 #208）──
+# publish.bat 裡 run_update 有逐步 1800 秒（#202）、auto_fix 有 WaitForExit(600000)，但守門自己沒有上限：
+# `pg.evaluate` 沒有 timeout 參數可下（#203 探針實測：頁面載完後主執行緒 for(;;){} ⇒ goto／wait_for_timeout
+# 都回來、evaluate 到 45 秒還在等，早超過 goto 的 30 秒導覽逾時）。守門卡死 ⇒ 走不到 push、也走不到健檢
+# ⇒ 不留 HEALTH_ALERT.txt，排程 IgnoreNew＋PT72H ⇒ 後面最多 6 班被跳過。
+# 門檻先量才定：真實守門牆鐘 13.4s（#203，跟 site_audit 併跑），取十倍以上＝180 秒。
+# 到點：印一行「✗ 守門逾時」⇒ 收掉自己的子孫（Playwright driver node ＋ headless_shell）⇒ os._exit(1)。
+# exit 1＝守門沒過＝不 push（沒驗完的資料不上線，跟既有語意一致）；publish.bat 照樣跑健檢、留警示檔。
+# 不能只 sys.exit：主執行緒卡在 evaluate 裡，計時器執行緒的例外進不去；os._exit 才收得掉。
+# 子孫要用 taskkill /T 收：只 os._exit 自己會留下孤兒 headless_shell（每卡一班多一組）。
+# 計時器是 daemon：正常 13 秒跑完時它不會把程序多留 180 秒。
+# 測試：python scripts/preflight_tmo_test.py（沙盒複本＋卡死頁面；正控制釘 1a5cd582 舊版到點還活著）。
+PREFLIGHT_TMO_S = float(os.environ.get("PREFLIGHT_TMO_S", "180"))   # 環境變數只給測試縮短用
+_T0 = time.time()
+
+
+def _children(pid):
+    """直接子程序的 PID（不含自己、不含這次去問的 powershell）。psutil 這台沒裝，走 CIM。"""
+    try:
+        pr = subprocess.Popen(
+            ["powershell", "-NoProfile", "-Command",
+             "Get-CimInstance Win32_Process -Filter 'ParentProcessId=%d' | Select-Object -ExpandProperty ProcessId" % pid],
+            stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True)
+        out = pr.communicate(timeout=40)[0]
+        return [int(x) for x in out.split() if x.strip().isdigit() and int(x) != pr.pid]
+    except Exception:
+        return []
+
+
+def _watchdog():
+    print("✗ 守門逾時：跑了 %.0f 秒還沒驗完（上限 %.0f 秒）⇒ 收掉 headless 子孫、視為未通過、不推送"
+          % (time.time() - _T0, PREFLIGHT_TMO_S), flush=True)
+    kids = _children(os.getpid())
+    for k in kids:
+        try:
+            subprocess.run(["taskkill", "/F", "/T", "/PID", str(k)], capture_output=True, timeout=40)
+        except Exception:
+            pass
+    print("  已收掉 %d 個子程序樹：%s" % (len(kids), kids), flush=True)
+    sys.stdout.flush()
+    os._exit(1)
+
+
+_WD = threading.Timer(PREFLIGHT_TMO_S, _watchdog)
+_WD.daemon = True
+_WD.start()
 
 # ── ① 資料檔語法 ──
 html = open(os.path.join(ROOT, "index.html"), encoding="utf-8", errors="replace").read()
@@ -107,6 +154,7 @@ try:
 except Exception as e:
     fails.append(f"headless 檢查無法執行：{str(e)[:100]}")
 
+_WD.cancel()
 if fails:
     print("✗ 守門未通過：")
     for f in fails: print("  -", f)
