@@ -1007,11 +1007,15 @@
     background:#10182a;border:1px solid #3a4a6b;border-radius:9px;padding:7px 11px;
     box-shadow:0 4px 14px #000b;white-space:nowrap}
   .sumTipHd{font-weight:700;font-size:14.5px;text-align:center;margin-bottom:5px;color:var(--tx)}
-  .sumTipG{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:0 16px}
-  .sumTipC{display:flex;flex-direction:column;gap:1px;font-size:13px;color:var(--tx2);
-    font-variant-numeric:tabular-nums}
-  .sumTipC b{font-size:13.5px;color:var(--tx);margin-bottom:2px}
-  .sumTipC.sumTipR{border-left:1px solid #2a3345;padding-left:16px;margin-left:-8px;text-align:right}
+  /* 三欄：左邊數據｜中間標籤｜右邊數據（使用者 2026-09-23「標籤中間寫就好」）。
+     數據往中間靠（左欄靠右、右欄靠左）⇒ 同一列三格連成一條，好比對。 */
+  .sumTipG{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;
+    gap:2px 10px;font-size:13px;font-variant-numeric:tabular-nums}
+  .sumTipL{text-align:right;color:var(--tx)}
+  .sumTipR{text-align:left;color:var(--tx)}
+  .sumTipM{text-align:center;color:var(--tx2);font-size:12px}
+  /* 選手名置中在自己那一欄：靠邊的話名字在最外側、數字擠在中間，兩者連不起來 */
+  .sumTipNm{font-weight:700;font-size:13.5px;padding-bottom:2px;text-align:center}
   .sumTipBox .sumPhi{color:var(--gold);font-weight:700}   /* 兩邊比較好的那個數字 */
   .sumPool .sumProw>*:first-child{justify-content:flex-start}   /* 左端路線圖 */
   .sumPool .sumProw>*:last-child{justify-content:flex-end}      /* 右端路線圖：跟左端鏡像 */
@@ -11907,6 +11911,7 @@ function render(){
       const POOL_MIN=1;
       const pool=a=>{ const o={}; Object.entries((a&&a.champs)||{}).forEach(([ch,c2])=>{ if(c2.n>=POOL_MIN)o[ch]=c2; }); return o; };
       // 場數不印在圖上（使用者 2026-09-23）：滑上去的小框才顯示，而且**左右對照兩位選手**。
+      // 版面＝三欄：左邊數據｜中間標籤｜右邊數據（使用者 2026-09-23：標籤中間寫就好，左右是數據）。
       // ⚠ 不用原生 title：屬性確實掛上去了（查過 DOM），但使用者連兩次回報滑上去沒東西 ⇒ 自己畫。
       // ⚠ 不要每顆 chip 都塞一個隱藏的浮層 DOM（5 路 × 三十幾隻 ＝ 上千個節點）：
       //   chip 只帶一個索引 data-ti，內容事先建好放在 TIPS 陣列，滑到哪顆就填哪顆（見 rerender 的委派）。
@@ -11914,23 +11919,27 @@ function render(){
       const wr=c2=>Math.round(c2.w/c2.n*100)+"%";
       const kda=c2=>d1s((c2.k+c2.as)/Math.max(1,c2.d));
       const lane=c2=>c2.g10N?Math.round(c2.winL/c2.g10N*100)+"%":null;   // 沒有 @10 資料的賽區＝null
-      // 四個指標左右並排，比較好的那邊上金色；沒有資料就「–」。
-      const tipCol=(ab,p,c2,other,rt)=>{
-        const g=(v,o2)=>(v!=null&&o2!=null&&v>o2)?' class="sumPhi"':'';
-        const L2=c2?lane(c2):null, LO=other?lane(other):null;
-        const cells=c2?[
-          [`${c2.n}${en2?"g":" 場"}`, g(c2.n,other&&other.n)],
-          [`${en2?"WR":"勝率"} ${wr(c2)}`, g(c2.w/c2.n,other&&other.w/other.n)],
-          [`KDA ${kda(c2)}`, g((c2.k+c2.as)/Math.max(1,c2.d),other&&(other.k+other.as)/Math.max(1,other.d))],
-          [`${en2?"Lane":"贏線"} ${L2==null?"–":L2}`, g(L2==null?null:parseFloat(L2),LO==null?null:parseFloat(LO))],
-        ]:[[en2?"did not play it":"沒用過",""]];
-        return `<div class="sumTipC${rt?" sumTipR":""}"><b>${p?esc(ab+" "+p.p):"–"}</b>`
-          +cells.map(([t,cl])=>`<span${cl}>${t}</span>`).join("")+`</div>`;
-      };
       const chip=(ch,pa,ca,pb,cb)=>{
+        // 一列＝左值｜標籤｜右值；比較好的那邊上金色（值相同或缺一邊就都不上）
+        const row=(lbl,lv,rv,ln,rn)=>{
+          const hi=(a,b)=>(a!=null&&b!=null&&a>b)?" sumPhi":"";
+          return `<span class="sumTipL${hi(ln,rn)}">${lv==null?"–":lv}</span>`
+            +`<span class="sumTipM">${lbl}</span>`
+            +(R?`<span class="sumTipR${hi(rn,ln)}">${rv==null?"–":rv}</span>`:"");
+        };
+        const nA=ca?ca.n:null, nB=cb?cb.n:null;
+        const wA=ca?ca.w/ca.n:null, wB=cb?cb.w/cb.n:null;
+        const kA=ca?(ca.k+ca.as)/Math.max(1,ca.d):null, kB=cb?(cb.k+cb.as)/Math.max(1,cb.d):null;
+        const lA=ca?lane(ca):null, lB=cb?lane(cb):null;
         const i=TIPS.length;
         TIPS.push(`<div class="sumTipHd">${esc(chName(champId(ch)))}</div><div class="sumTipG">`
-          +tipCol(abL,pa,ca,cb,0)+(R?tipCol(abR,pb,cb,ca,1):"")+`</div>`);
+          +`<span class="sumTipL sumTipNm">${pa?esc(abL+" "+pa.p):"–"}</span><span class="sumTipM"></span>`
+          +(R?`<span class="sumTipR sumTipNm">${pb?esc(abR+" "+pb.p):"–"}</span>`:"")
+          +row(en2?"Games":"場數",nA,nB,nA,nB)
+          +row(en2?"WR":"勝率",ca?wr(ca):null,cb?wr(cb):null,wA,wB)
+          +row("KDA",ca?kda(ca):null,cb?kda(cb):null,kA,kB)
+          +row(en2?"Lane":"贏線",lA,lB,lA==null?null:parseFloat(lA),lB==null?null:parseFloat(lB))
+          +`</div>`);
         return `<span class="rcChip sumTip" data-ti="${i}">${cImg(ch)}</span>`;
       };
       const rows=POS_ORD.map((pos,i)=>{
