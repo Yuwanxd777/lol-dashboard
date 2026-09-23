@@ -113,7 +113,7 @@ def report(db):
         by.setdefault(v["kind"], []).append(v)
     L = ["網站稽核彙報（未解 %d 筆）：" % len(open_)]
     names = {"pageerror": "JS 例外", "console": "console.error", "img": "破圖",
-             "cjk": "英文模式漏中文", "empty": "分頁空白", "404": "資源 404"}
+             "cjk": "英文模式漏中文", "empty": "分頁空白", "404": "資源 404", "5xx": "資源 5xx（看網址是不是外部來源）"}
     for kind, items in sorted(by.items(), key=lambda kv: -len(kv[1])):
         L.append("")
         L.append("**%s（%d）**" % (names.get(kind, kind), len(items)))
@@ -289,6 +289,7 @@ PC_ARM = r"""() => {
   h.addEventListener('click', () => {
     const m = document.getElementById('main');
     const im = document.createElement('img'); im.src = '/zz_probe_9942.png'; im.style.cssText = 'width:24px;height:24px;display:inline-block'; m.appendChild(im);
+    const i5 = document.createElement('img'); i5.src = '/zz_probe_5xx_9942.png'; i5.style.cssText = 'width:24px;height:24px;display:inline-block'; m.appendChild(i5);
     const sp = document.createElement('span'); sp.textContent = '探針漏翻九九四二'; m.appendChild(sp);
     console.error('ZZ_PROBE_9942 console');
     throw new Error('ZZ_PROBE_9942 pageerror');
@@ -296,7 +297,7 @@ PC_ARM = r"""() => {
   r.addEventListener('click', () => { document.getElementById('main').innerHTML = ''; });
   return true;
 }"""
-PC_MARK = ("ZZ_PROBE_9942", "zz_probe_9942", "九九四二", "#main 只有 0 個字")
+PC_MARK = ("ZZ_PROBE_9942", "zz_probe_9942", "zz_probe_5xx_9942", "九九四二", "#main 只有 0 個字")
 
 
 def scan(opts):
@@ -320,7 +321,7 @@ def scan(opts):
                 ctx = br.new_context(viewport={"width": 1920, "height": 1080})
                 pg = ctx.new_page()
                 cur = {"tab": "(boot)"}
-                errs, cons, nets = [], [], []
+                errs, cons, nets, nets5 = [], [], [], []
                 pg.on("pageerror", lambda e: errs.append((cur["tab"], str(e)[:160])))
                 # 暫時性的網路錯誤不是網站的錯（2026-09-06 第 8 輪誤報 net::ERR_ADDRESS_IN_USE：掃描器自己的
                 # 本機埠衝突；8178 直播服務沒開時的 ERR_CONNECTION_REFUSED 也是預期的）
@@ -328,6 +329,9 @@ def scan(opts):
                 pg.on("console", lambda m: cons.append((cur["tab"], m.text[:160]))
                       if m.type == "error" and not any(k in m.text for k in _TRANSIENT) else None)
                 pg.on("response", lambda r: nets.append((cur["tab"], r.url[-90:])) if r.status == 404 and "127.0.0.1" in r.url else None)
+                # 5xx 一律記網址（2026-09-23 #227：console 那條「status of 503」沒有網址，看不出是 CDN 暫時故障還是自己的檔）
+                pg.on("response", lambda r: nets5.append((cur["tab"], "%d %s" % (r.status, r.url[:140]))) if r.status >= 500 else None)
+                pg.route("**/zz_probe_5xx_9942.png", lambda rt: rt.fulfill(status=503, body="probe"))   # 5xx 正控制
                 pg.add_init_script("localStorage.setItem('lang',%r)" % lang)
                 pg.goto("http://127.0.0.1:%d/index.html?y=2026" % PORT, wait_until="load", timeout=120000)
                 pg.wait_for_function("() => typeof GAMES !== 'undefined' && GAMES.length > 0", timeout=90000)
@@ -422,6 +426,8 @@ def scan(opts):
                     (pcs if tb.startswith(PC_PREFIX) else found).append((lang, tb, "console", e))
                 for tb, u in nets:
                     (pcs if tb.startswith(PC_PREFIX) else found).append((lang, tb, "404", u))
+                for tb, u in nets5:
+                    (pcs if tb.startswith(PC_PREFIX) else found).append((lang, tb, "5xx", u))
                 langs_done += 1
                 ctx.close()
             br.close()
@@ -434,6 +440,7 @@ def scan(opts):
         checks = [("例外", has("pageerror", "說明浮層", "ZZ_PROBE_9942")),
                   ("console", has("console", "說明浮層", "ZZ_PROBE_9942")),
                   ("404", has("404", "說明浮層", "zz_probe_9942")),
+                  ("5xx", has("5xx", "說明浮層", "zz_probe_5xx_9942")),
                   ("破圖", has("img", "說明浮層", "zz_probe_9942")),
                   ("漏中文", has("cjk", "說明浮層", "九九四二")),
                   ("空白", has("empty", "回復預設", "#main 只有")),
