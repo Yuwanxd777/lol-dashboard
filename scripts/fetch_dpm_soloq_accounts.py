@@ -327,7 +327,7 @@ def _warm(pg):
         if wait:
             time.sleep(wait)
         try:
-            st = pg.evaluate("async()=>{const r=await fetch('/v1/esport/soloq/top-teams');return r.status;}")
+            st = pg.evaluate("async()=>{const r=await fetch('/v1/esport/soloq/top-teams',%s);return r.status;}" % _FT)
         except Exception:
             st = 0
         if st == 200:
@@ -351,7 +351,13 @@ BATCH = 24
 MIN_GAP = 0.5          # 兩批 evaluate 開始時間至少隔這麼久；批次本身 ≥ 這個數就不睡
 _BS = [BATCH]          # 目前批次大小（限流時減半）
 _last_batch_t = [0.0]
-JS_ONE = "async(u)=>{const r=await fetch(u);return r.ok?await r.json():null;}"
+# 2026-09-23 #220：頁內 fetch 一律帶逾時。09-22 22:00 那班歸屬複查的 Promise.all 有一個 fetch 永遠沒回來
+#   （pg.evaluate 沒有逾時參數，Playwright 的 default_timeout 管不到 evaluate）⇒ 這一步卡滿 run_update 的 1800 秒
+#   被收掉（exit 124）、帳號檔維持上一班、整班牆鐘 40 分鐘。逾時後批次版回 st:0（本來就走「留給逐一重問」），
+#   逐一版丟例外（呼叫端本來就 except → None）。20 秒是正常單次（<1s）的 20 倍以上。
+FETCH_TIMEOUT_MS = 20000
+_FT = "{signal:AbortSignal.timeout(%d)}" % FETCH_TIMEOUT_MS
+JS_ONE = "async(u)=>{const r=await fetch(u,%s);return r.ok?await r.json():null;}" % _FT
 # 2026-09-15 #115：①限流／伺服器錯誤那一批**只重查出事的那幾個名字**，200／404 的直接收（減半＋睡 5 照舊，那是對伺服器客氣）。
 #   09-14 22:00 那班第一批 24 個裡 1 個 500 ⇒ 舊寫法把 23 個 200 的好結果整批丟掉、睡 5 秒、24 名逐一逐變體重查，之後 413 名全用批 12，
 #   這一步 107.6s（10:00 班 22.0s）。②逐批計時分項印進日誌（以前只有每 25 人一行進度，85s 去了哪裡看不出來）。
@@ -391,8 +397,8 @@ def _iter_batches(names):
         chunk = names[k:k + max(1, _BS[0])]
         k += len(chunk)
         yield chunk
-JS_MANY = """async(us)=>Promise.all(us.map(async u=>{ try{ const r=await fetch(u);
-  return {st:r.status, j: r.ok ? await r.json() : null}; }catch(e){ return {st:0, j:null}; } }))"""
+JS_MANY = """async(us)=>Promise.all(us.map(async u=>{ try{ const r=await fetch(u,%s);
+  return {st:r.status, j: r.ok ? await r.json() : null}; }catch(e){ return {st:0, j:null}; } }))""" % _FT
 _VARIANTS = lambda pl: [v for v in dict.fromkeys([pl, pl[:1].upper() + pl[1:], pl.title(), pl.upper(), pl.lower()]) if v]
 _OK = lambda j: [a for a in ((j or {}).get("players") or []) if a.get("puuid") and a.get("gameName") and a.get("tagLine")]
 
@@ -515,9 +521,10 @@ def fetch_pros_rest(pg, names, st_by=None):
 # 2026-09-08 #66：歸屬複查以前另開第二個瀏覽器（launch＋goto＋_warm 睡 4s）再 26 隻逐一問、每隻睡 0.25s ≈ 20 秒；
 #   現在沿用第一個 page、一次 Promise.all 問完（實測 24 隻 0.3s）。限流／錯誤／例外的那幾隻才睡 5 秒逐一重問。
 OWNER_BATCH = 24
-JS_OWNERS = """async(us)=>Promise.all(us.map(async u=>{ try{ const r=await fetch(u);
+OWNER_RETRY_BUDGET = 120   # #220：逐一重問的總秒數上限
+JS_OWNERS = """async(us)=>Promise.all(us.map(async u=>{ try{ const r=await fetch(u,%s);
   const j = r.ok ? await r.json() : null;
-  return {st:r.status, dn:(j && typeof j==='object' && j.displayName) ? j.displayName : null}; }catch(e){ return {st:0, dn:null}; } }))"""
+  return {st:r.status, dn:(j && typeof j==='object' && j.displayName) ? j.displayName : null}; }catch(e){ return {st:0, dn:null}; } }))""" % _FT
 
 
 def _owners_of(pg, puuids):
@@ -542,7 +549,11 @@ def _owners_of(pg, puuids):
     if retry:
         print(f"  歸屬複查：{len(retry)} 隻批次沒問到（限流／錯誤）→ 睡 5 秒逐一重查", flush=True)
         time.sleep(5)
-        for pu in retry:
+        _t0 = time.time()
+        for _i, pu in enumerate(retry):
+            if time.time() - _t0 > OWNER_RETRY_BUDGET:   # #220：沒問到的當「沒掛牌」＝留著（跟例外同一個處置）
+                print(f"  歸屬複查：逐一重問超過 {OWNER_RETRY_BUDGET} 秒，其餘 {len(retry) - _i} 隻這班不問（帳號留著）", flush=True)
+                break
             try:
                 j = pg.evaluate(JS_ONE, "/v1/players/" + pu)
             except Exception:
@@ -687,7 +698,7 @@ def main():
 
         for lg in DPM_LEAGUES:
             try:
-                tt = pg.evaluate("async(u)=>{const r=await fetch(u);return r.ok?await r.json():null;}",
+                tt = pg.evaluate(JS_ONE,
                                  f"/v1/esport/soloq/top-teams?league={lg}")
             except Exception:
                 tt = None
