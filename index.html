@@ -11940,7 +11940,9 @@ function render(){
           +row("KDA",ca?kda(ca):null,cb?kda(cb):null,kA,kB)
           +row(en2?"Lane":"贏線",lA,lB,lA==null?null:parseFloat(lA),lB==null?null:parseFloat(lB))
           +`</div>`);
-        return `<span class="rcChip sumTip" data-ti="${i}">${cImg(ch)}</span>`;
+        // data-n＝這隻的總場數（兩邊相加）：一列排不下時從最少的開始砍（見 rerender 的淘汰）。
+        const _n=(ca?ca.n:0)+(cb?cb.n:0);
+        return `<span class="rcChip sumTip" data-ti="${i}" data-n="${_n}">${cImg(ch)}</span>`;
       };
       const rows=POS_ORD.map((pos,i)=>{
         const pa=L&&L.D?L.D.starters[pos]:null, pb=R&&R.D?R.D.starters[pos]:null;
@@ -12027,15 +12029,20 @@ function render(){
           w=Math.max(w,rg.getBoundingClientRect().width/ZF);
         });
         if(w>0)g.style.setProperty("--sumNmW",(Math.ceil(w)+13)+"px");   // ＋左右內距 12＋1 保險
-        // 每一路只顯示一列：排不下的直接移除（跟 BP 傾向同一套做法與同一個坑——
-        // 第一顆的 top 要每次重讀，從兩行縮回一行時整列會往下移幾 px）。
+        // 每一路只顯示一列。排不下時**從場數最少的開始砍**（使用者 2026-09-23）——
+        // 不能像 BP 傾向那樣從尾巴砍：中間那區是照選次差排序的，尾巴正好是右邊選手的本命，
+        // 一超過就先砍掉最該看的那幾隻，對比變得不對等。
+        // ⚠ 單位：offsetWidth／clientWidth 都是版面 px，兩者同一把尺（別混 getBoundingClientRect）。
         g.querySelectorAll(".sumPz").forEach(list=>{
           const chips=[...list.querySelectorAll(".rcChip")]; if(chips.length<2)return;
-          const half=Math.max(8,chips[0].getBoundingClientRect().height/2);
-          for(let i=chips.length-1;i>0;i--){
-            if(chips[i].getBoundingClientRect().top-chips[0].getBoundingClientRect().top>half)chips[i].remove();
-            else break;
-          }
+          const GAP=6, w=chips[0].offsetWidth;            // 橫向間距＝.sumPool .rcChip 的 margin-right
+          const fit=Math.max(1,Math.floor((list.clientWidth+GAP)/(w+GAP)));
+          if(chips.length<=fit)return;
+          // 場數少的先淘汰；一樣少時砍排序較後面的（中間區＝比較偏右邊選手那端的低場數）
+          chips.map((c2,ix)=>({c2,n:+c2.dataset.n||0,ix}))
+            .sort((p,q)=>p.n-q.n||q.ix-p.ix)
+            .slice(0,chips.length-fit)
+            .forEach(o=>o.c2.remove());
         });
       });
       // 角色池對比的提示：一個共用浮層＋事件委派（見 cdPool 的註解）。
