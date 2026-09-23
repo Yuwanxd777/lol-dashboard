@@ -87,10 +87,16 @@ PC = """() => {
   b.style.cssText = 'width:60px;overflow:visible;white-space:nowrap';
   b.textContent = 'PVIS overflowing text that must be detected';
   m.appendChild(a); m.appendChild(b);
+  window.__pcEls = [a, b];   // 留參照：預熱中的 render 可能把探針搬進快取 DOM，脫離文件後 getElementById 找不到
 }"""
+
+# 用參照移除（不論探針還在不在文件裡），不靠 id
+PC_RM = "() => { (window.__pcEls || []).forEach(e => e.remove()); window.__pcEls = null; }"
+
 
 TABS = ["總覽", "英雄", "選手", "戰隊", "摘要", "比賽BP", "模擬BP", "英雄Tier", "積分", "圖鑑"]
 code = 1
+bad_ctrl = []   # 正控制失敗或探針外洩的寬度 ⇒ 離開碼 3（掃描器不可信，不是「0 筆」）
 try:
     from playwright.sync_api import sync_playwright
     with sync_playwright() as pw:
@@ -106,16 +112,27 @@ try:
             pg.wait_for_timeout(300)
             tab1 = pg.evaluate("() => ((document.querySelector('nav .tab')||{}).textContent||'').trim()")
             print("\n═════ %dx%d（首個分頁籤=%r）═════" % (W, H, tab1))
-            pg.evaluate(PC)
-            pc = pg.evaluate(SCAN)
-            g1 = any("PCLIP" in x["txt"] for x in pc)
-            g2 = any("PVIS" in x["txt"] for x in pc)
-            print("   正控制：裁切版 %s／可見溢出版 %s" % ("✓" if g1 else "✗", "✓" if g2 else "✗"))
+            for attempt in (1, 2):   # 2026-09-24 #252：偶發一次 1920 正控制 ✗、探針外洩到「選手」頁 ⇒ 重試一次
+                pg.evaluate(PC)
+                pc = pg.evaluate(SCAN)
+                g1 = any("PCLIP" in x["txt"] for x in pc)
+                g2 = any("PVIS" in x["txt"] for x in pc)
+                pg.evaluate(PC_RM)
+                print("   正控制%s：裁切版 %s／可見溢出版 %s" % ("" if attempt == 1 else "（重試）",
+                                                     "✓" if g1 else "✗", "✓" if g2 else "✗"))
+                if g1 and g2:
+                    break
+                pg.wait_for_timeout(1500)
             if not (g1 and g2):
                 print("   ⇒ 掃描器有問題，下面的結果不可信")
-            pg.evaluate("() => ['__pc1','__pc2'].forEach(i => { const e = document.getElementById(i); if (e) e.remove(); })")
+                bad_ctrl.append("%dx%d 正控制失敗" % (W, H))
             def scan(label):
                 rs = pg.evaluate(SCAN)
+                leak = [x for x in rs if x["txt"].startswith(("PCLIP ", "PVIS "))]
+                if leak:
+                    print("\n   ⚠【%s】正控制探針外洩 %d 筆（不算發現）" % (label, len(leak)))
+                    bad_ctrl.append("%dx%d %s 探針外洩" % (W, H, label))
+                    rs = [x for x in rs if x not in leak]
                 if rs:
                     print("\n【%s】%d 筆" % (label, len(rs)))
                     for x in rs[:8]:
@@ -161,7 +178,11 @@ try:
             pg.close()
         br.close()
         print("\n合計 %d 筆" % total)
-        code = 0
+        if bad_ctrl:
+            print("⚠ 掃描器不可信：" + "；".join(bad_ctrl) + "（離開碼 3，重跑一次）")
+            code = 3
+        else:
+            code = 0
 finally:
     srv.kill()
 sys.exit(code)
