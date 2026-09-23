@@ -204,7 +204,7 @@ SCN_SORT = ("排序", [("click", "#main th[data-rs], #main th[data-k], #main th[
 SCN = {
     "總覽": [("點選手→英雄角色池", [("click", "#main .plink")], 2200, []),
              ("全域返回", [("click", "#globalBack")], 1500, [])],
-    "近況": [("輸入戰隊", [("combo", "vRecent")], 2200, [])],
+    "摘要": [("輸入戰隊", [("combo", "vRecent")], 2200, [])],
     "英雄": [("散點圖", [("seg", "heroVizSeg", "scatter")], 1500, []),
              ("表格", [("seg", "heroVizSeg", "table")], 1200, []),
              ("詳情", [("click", "#main table tbody tr td:nth-child(2)")], 2500, []),

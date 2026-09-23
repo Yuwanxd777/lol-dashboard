@@ -89,7 +89,7 @@ PC = """() => {
   m.appendChild(a); m.appendChild(b);
 }"""
 
-TABS = ["總覽", "英雄", "選手", "戰隊", "近況", "比賽BP", "模擬BP", "英雄Tier", "積分", "圖鑑"]
+TABS = ["總覽", "英雄", "選手", "戰隊", "摘要", "比賽BP", "模擬BP", "英雄Tier", "積分", "圖鑑"]
 code = 1
 try:
     from playwright.sync_api import sync_playwright
