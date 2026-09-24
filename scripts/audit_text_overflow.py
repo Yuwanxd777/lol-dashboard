@@ -90,6 +90,20 @@ PC = """() => {
   window.__pcEls = [a, b];   // 留參照：預熱中的 render 可能把探針搬進快取 DOM，脫離文件後 getElementById 找不到
 }"""
 
+# 等 #main 的子節點連續 quiet 毫秒沒換（任何來源的延遲 render 都算：預熱收尾、lazyLoad 資料到了…），最多 cap 毫秒。
+# 回傳實際等了幾毫秒；-1＝等到上限還在換。
+QUIET = """([quiet, cap]) => new Promise(res => {
+  const m = document.getElementById('main'), t0 = performance.now();
+  let last = t0;
+  const mo = new MutationObserver(() => { last = performance.now(); });
+  mo.observe(m, { childList: true });
+  const tick = () => { const now = performance.now();
+    if (now - last >= quiet) { mo.disconnect(); res(Math.round(now - t0)); }
+    else if (now - t0 >= cap) { mo.disconnect(); res(-1); }
+    else setTimeout(tick, 50); };
+  setTimeout(tick, 50);
+})"""
+
 # 用參照移除（不論探針還在不在文件裡），不靠 id
 PC_RM = "() => { (window.__pcEls || []).forEach(e => e.remove()); window.__pcEls = null; }"
 
@@ -109,10 +123,20 @@ try:
             pg.wait_for_function("() => typeof GAMES !== 'undefined' && GAMES.length > 0", timeout=60000)
             pg.wait_for_timeout(2000)
             pg.evaluate("() => scheduleWarmup(1e9)")     # 見檔頭：不停預熱會掃出 0 筆假綠
+            # 2026-09-24 #278：scheduleWarmup 只換序號，預熱要等「下一個 idle callback」的 step 才 finish()，
+            # finish 會 render() 換掉 #main 的內容。冷啟動 step 慢，固定等 300ms 不夠 ⇒ 探針剛插就被沖掉
+            # （#259–#277 en 1920 首掃正控制 ✗ 7 次）。改成等 _warming 真的落下再多等一拍。
+            try:
+                pg.wait_for_function("() => !window._warming", timeout=15000)
+            except Exception:
+                print("   ⚠ 預熱 15 秒內沒收尾（_warming 還是 true）")
             pg.wait_for_timeout(300)
             tab1 = pg.evaluate("() => ((document.querySelector('nav .tab')||{}).textContent||'').trim()")
             print("\n═════ %dx%d（首個分頁籤=%r）═════" % (W, H, tab1))
             for attempt in (1, 2):   # 2026-09-24 #252：偶發一次 1920 正控制 ✗、探針外洩到「選手」頁 ⇒ 重試一次
+                qw = pg.evaluate(QUIET, [600, 8000])
+                if qw < 0 or qw > 1500:
+                    print("   （插探針前等 #main 靜止：%s）" % ("8 秒內沒靜止" if qw < 0 else "%dms" % qw))
                 pg.evaluate(PC)
                 pc = pg.evaluate(SCAN)
                 g1 = any("PCLIP" in x["txt"] for x in pc)
