@@ -313,6 +313,22 @@ def _launch(p):
     raise RuntimeError("找不到可用瀏覽器")
 
 
+def _goto_dpm(pg, tries=3):
+    """開 dpm 首頁：逾時 60 秒、失敗重試（2026-09-26 精進迴圈 #390）。
+
+    09-26 10:00 班這一步用 playwright 預設 30 秒，`Page.goto: Timeout 30000ms exceeded`
+    整支崩掉（exit 1，那一班的新人帳號探索沒跑）。其他 dpm 腳本早就是 60 秒；
+    這裡再加重試，最後一次仍失敗才照舊丟例外（保留非零離開碼＝健檢警示）。
+    """
+    for i in range(tries):
+        try:
+            return pg.goto("https://dpm.lol/", wait_until="domcontentloaded", timeout=60000)
+        except Exception as e:
+            if i == tries - 1:
+                raise
+            print(f"  dpm 首頁載入失敗（第 {i + 1} 次：{str(e).splitlines()[0][:80]}），5 秒後重試…", flush=True)
+            time.sleep(5)
+
 def _warm(pg):
     """先問一次再決定要不要等（2026-09-09 #81）。
 
@@ -692,7 +708,7 @@ def main():
                 pass
     try:
         b = _launch(p); pg = b.new_page(user_agent=UA)
-        pg.goto("https://dpm.lol/", wait_until="domcontentloaded")
+        _goto_dpm(pg)
         if not _warm(pg):
             print("✗ 過不了 Cloudflare，中止（不動檔）"); _shutdown(); return
 
