@@ -459,6 +459,46 @@ def _patch(v, year=0):
     return f"{maj}.{mnr:02d}"
 
 
+# ── 本名 → 職業 ID（2026-09-29 使用者回報：亞運正賽的選手 ID 是本名）─────────
+#  亞運／東亞運這種**以本名報名**的賽事，Roster 欄寫的是 `N AL`／`K K`／
+#  `A A (Abdolaziz Almubarak)`，Leaguepedia 把那些頁做成重新導向（→ Nawaf／Atup／OniiKhan）。
+#  不解的話整批局的選手名都不是職業 ID，積分頁與陣容比對全部對不到人。
+#  ⚠ 只對「長得像本名」的字串動手（見 _looks_realname）：一般職業 ID 若剛好也是重新導向
+#    （選手改名），照解會把整個聯賽的舊名默默換掉——那不是這次要處理的事，風險不對等。
+#  ⚠ 解出來的是**頁面標題**，同名選手會帶消歧義括號（`Nero (Ahmed Shahid)`），要去掉。
+def _looks_realname(n):
+    """`N AL`／`K K`／`S TRAN`／`A A (…)` 這種：去掉括號後每一段都是單一大寫字母或全大寫字，且至少兩段。"""
+    base = re.sub(r"\s*\([^)]*\)\s*$", "", str(n or "")).strip()
+    parts = base.split()
+    if len(parts) < 2:
+        return False
+    return all(p.isupper() and p.isalpha() for p in parts)
+
+
+def realname_map(games):
+    """把所有局的 Roster 名字一次解完；回 {原字串: 職業ID}（只含真的有變的）。"""
+    names = []
+    for g in games:
+        for k in ("Blue Roster", "Red Roster"):
+            names += [z.strip() for z in str(g.get(k) or "").split(",") if z.strip()]
+    cand = [n for n in dict.fromkeys(names) if _looks_realname(n)]
+    if not cand:
+        return {}
+    try:
+        import fetch_events_extra as _ee      # 跟名單那條線共用同一份快取，查過的不再問
+        m = _ee.realname_ids(cand)
+    except Exception as e:
+        print(f"    本名轉 ID 略過（{type(e).__name__} {str(e)[:50]}）——選手名維持原樣")
+        return {}
+    out = {}
+    for n in cand:
+        v = re.sub(r"\s*\([^)]*\)\s*$", "", str(m.get(n) or "")).strip()
+        if v and v != n:
+            out[n] = v
+    if out:
+        print(f"    本名轉職業 ID：{len(out)}／{len(cand)} 位（例：{list(out.items())[0][0]} → {list(out.items())[0][1]}）")
+    return out
+
 def to_csv(games, cfg):
     import fetch_fill as _ff
     hdr = _ff.oe_header()
@@ -468,6 +508,7 @@ def to_csv(games, cfg):
     align = lambda s, m: m.get(nk(s), s)
     POS5 = ["top", "jng", "mid", "bot", "sup"]
     # 真實選角順序。歷史賽事的 PB 頁不會再變 → 走快取；進行中的賽段由 fetch_fill 傳 pb_force=True
+    RNM = realname_map(games)          # 本名 → 職業 ID（見上面的註解）；沒有本名就是空的
     PB = pb_orders(cfg["tour"], force=cfg.get("pb_force", False))
     pb_hit = pb_miss = pb_bad = 0
     # 先選方規則（使用者定案 2026-08-02）：**2026 起是新制**，先選／後選與藍／紅方脫鉤，
@@ -602,7 +643,8 @@ def to_csv(games, cfg):
             pb_bad += 1; od = None        # 舊制藍方必先選 → 判成紅方先選＝對齊錯了，寧可不用
         if PB:
             pb_hit += bool(od); pb_miss += not od
-        roster = {"blue": SPL(g.get("Blue Roster")), "red": SPL(g.get("Red Roster"))}
+        _rn = lambda a: [RNM.get(z, z) for z in a]
+        roster = {"blue": _rn(SPL(g.get("Blue Roster"))), "red": _rn(SPL(g.get("Red Roster")))}
         num = lambda k: re.sub(r"[^0-9.]", "", str(g.get(k, "") or ""))
         obj = {"blue": {"g": num("BG"), "k": num("BK"), "t": num("BT"), "d": num("BD"),
                         "b": num("BB"), "h": num("BRH"), "v": num("BVG")},
