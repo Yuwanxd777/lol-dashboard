@@ -1786,5 +1786,49 @@
    }
   ],
   "source": "leaguepedia"
+ },
+ "Beyond": {
+  "persons": [
+   {
+    "key": "Beyond",
+    "link": "Beyond (Kim Kyu-seok)",
+    "teams": [
+     "MVP",
+     "Team Dynamics"
+    ],
+    "games_lp": 327,
+    "games_oe": 0,
+    "first": "2016-01-18",
+    "last": "2020-08-23"
+   },
+   {
+    "key": "Beyond (Trương Vĩnh Thanh)",
+    "link": "Beyond (Trương Vĩnh Thanh)",
+    "teams": [
+     "269 Gaming",
+     "Fortius"
+    ],
+    "games_lp": 41,
+    "games_oe": 0,
+    "first": "2014-12-20",
+    "last": "2017-04-13"
+   },
+   {
+    "key": "Beyond (Ahmed Alsuwaidi)",
+    "link": "Beyond (Ahmed Alsuwaidi)",
+    "teams": [
+     "United Arab Emirates (National Team)"
+    ],
+    "games_lp": 4,
+    "games_oe": 0,
+    "first": "2026-06-19",
+    "last": "2026-06-19"
+   }
+  ],
+  "source": "leaguepedia"
+ },
+ "QaspieL": {
+  "reviewed": "Leaguepedia 只有一位（QaspieL）→ 同一人，誤報",
+  "link": "QaspieL"
  }
 }
