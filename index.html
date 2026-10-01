@@ -8135,7 +8135,14 @@ function filterOpts(){
   // 混在春季/夏季旁邊會讓人以為 2013 有個叫 TESL 的賽季 → 改列在「賽事」的 GPL 子清單
   //（使用者定案 2026-08-01）。錦標賽類本來就被 _isT 合成一個「錦標賽」選項。
   const _lgSub=new Set(Object.values(subSplitMap()).flat());   // 掃出來的，不寫死名字
-  bases.filter(b=>!_isT(b)&&!_lgSub.has(b)).forEach(b=>{
+  // 熱身賽也不列進賽季清單（使用者 2026-10-01：「亞運熱身賽也要歸類在 S3」）：
+  // 亞運 9/19-20 那 7 局賽段欄寫「熱身賽」，照通則會在清單末端長出一個「熱身賽例行賽」，
+  // 跟 S1/S2/S3 並排 ⇒ 看起來像 2026 年多了一個賽季。它依時間本來就屬 S3
+  //（seasonOf 已經這樣判、選「S3」那 7 局都在），所以只要不自成選項；要單看熱身賽
+  // 就選賽事＝亞運（那邊 19 局全含），跟單一錦標賽的聯賽同一個規矩。
+  // ⚠ 不改資料把賽段欄清空：賽事頁的亞運卡靠它分「熱身賽／正賽」兩列（見 4159 的註解）。
+  const _isWarm=b=>String(b)==="熱身賽";
+  bases.filter(b=>!_isT(b)&&!_isWarm(b)&&!_lgSub.has(b)).forEach(b=>{
     const hasReg=SPLITS.includes(b), hasPO=SPLITS.includes(b+" PO");
     const avGrp=/^S[123]$/.test(b)?splSeason.has(b):(splLabel.has(b)||splLabel.has(b+" PO"));
     // 整賽段(G:)的顯示條件＝「這個賽季在目前篩選下有比賽」，**不可要求全年同時有例行+季後標籤**：
