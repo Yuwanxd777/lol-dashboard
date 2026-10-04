@@ -67,19 +67,29 @@ TIER1_YEARS = {
 # OE 歷年沒收過、gol.gg 到 10-04 也還沒建這個賽事，只有 Leaguepedia 有 ⇒ 同樣走 wiki 補檔，
 # 也同樣得列在這裡，否則 process() 把整批列丟掉（跟亞運同一個坑）。
 INTL_LEAGUES = {"WLDS", "MSI", "EWC", "FST", "ENC", "KESPA", "IEM", "IWCT", "亞運", "DCUP"}
-# 國際賽／盃賽的**年份窗**：INTL_LEAGUES 裡的賽事預設不分年份一律收，列在這裡的只收這個範圍。
-# DCUP 限 2026 起（使用者 2026-10-04 定案「只要今年這屆」）：OE 其實 2016~2025 都有德瑪西亞杯
-#   （7932 列、約 1300 局），以前一直被 league_ok 擋著沒人發現。10-04 把 DCUP 加進白名單是為了
-#   讓今年這屆（10-03 開打）的 wiki 補檔過得去，**不是要把九屆歷史一起放進來**。
-#   少了這個窗，下一次誰跑 --force 或缺哪年補哪年，那九屆就會默默灌進 2016~2025 的資料檔，
-#   等於把使用者的決定反轉掉（而且不會有任何訊息）。要開就把起年往前調，然後重跑那幾年。
-#   註：2026 檔裡 1 月那 3 局是 2025 那屆的尾巴，日期是 2026 ⇒ 照樣通過，這是使用者選的那個選項。
-INTL_YEARS = {"DCUP": (2026, 2099)}
+# 國際賽／盃賽的**起始日**：INTL_LEAGUES 裡的賽事預設不分年份一律收，列在這裡的只收這天起的局。
+# DCUP 只收 2026-10-03 起（使用者 2026-10-04 兩段定案：先「只要今年這屆」，再「1 月那三局刪了」）。
+#   擋掉兩批東西：
+#   ①2016~2025 那九屆：OE 其實一直都有德瑪西亞杯（7932 列、約 1300 局），以前被 league_ok 擋著
+#     沒人發現。10-04 把 DCUP 加進白名單是為了讓今年這屆（10-03 開打）的 wiki 補檔過得去，
+#     **不是要把九屆歷史一起放進來**。少了這道關，下一次誰跑 --force 或缺哪年補哪年，那九屆
+#     就會默默灌進 2016~2025 的資料檔，而且不會有任何訊息。
+#   ②2025 那屆的尾巴：OE 2026 那份帶著 01-01~01-03 共 3 局（patch 25.24）。**年份窗擋不掉**
+#     ——它們的年份就是 2026，所以這裡用起始日而不是年份（原本寫成 (2026, 2099) 的年份窗，
+#     10-04 當天就被這三局打破）。
+#   往後的屆數（2027…）都在這天之後，照收。要開歷史屆數就把這天往前調，然後重跑那幾年。
+INTL_FROM = {"DCUP": "2026-10-03"}
+
+
+def intl_from_ok(lg, date):
+    """起始日關卡：早於 INTL_FROM 那天的局不收；沒列在 INTL_FROM 的賽事一律通過。"""
+    d0 = INTL_FROM.get(str(lg or "").upper())
+    return not d0 or str(date or "")[:10] >= d0
+
 
 def league_ok(lg, year):
     if lg.upper() in INTL_LEAGUES:
-        rng = INTL_YEARS.get(lg.upper())          # 沒列＝不分年份一律收
-        return not rng or rng[0] <= year <= rng[1]
+        return True
     rng = TIER1_YEARS.get(lg)
     if not rng:
         return False
@@ -241,6 +251,7 @@ def process(text, year=DEFAULT_YEAR):
     iLeague=gi("league"); iSide=gi("side"); iGameid=gi("gameid"); iGame=gi("game")
     iPos=gi("position"); iChamp=gi("champion"); iPlayer=gi("playername")
     iBan1=gi("ban1"); iPick1=gi("pick1"); iSplit=gi("split"); iPlayoffs=gi("playoffs")
+    iDate=gi("date")                      # 盃賽起始日關卡要用（見 INTL_FROM）
     iFBK=gi("firstbloodkill"); iFBA=gi("firstbloodassist"); iFB=gi("firstblood"); iPid=gi("participantid")
 
     # 官方 CSV 沒有 firstPick 時：藍方視為先選（標準 draft 藍方 B1）
@@ -263,6 +274,8 @@ def process(text, year=DEFAULT_YEAR):
         if lg in RENAME:
             lg = RENAME[lg]; r[iLeague] = lg
         if not league_ok(lg, year): continue  # 只收該年度的一級聯賽與國際賽
+        # 盃賽起始日：同一個聯賽碼底下的舊屆數不收（德瑪西亞杯只要 2026-10-03 這屆，見 INTL_FROM）
+        if iDate >= 0 and not intl_from_ok(lg, r[iDate]): continue
         if iPlayer >= 0:                      # 選手 ID 大小寫統一（見 PLAYER_ALIAS）
             _pn = (r[iPlayer] or "").strip()
             if _pn and _pn.casefold() in PLAYER_ALIAS: r[iPlayer] = PLAYER_ALIAS[_pn.casefold()]
