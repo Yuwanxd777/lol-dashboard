@@ -67,10 +67,19 @@ TIER1_YEARS = {
 # OE 歷年沒收過、gol.gg 到 10-04 也還沒建這個賽事，只有 Leaguepedia 有 ⇒ 同樣走 wiki 補檔，
 # 也同樣得列在這裡，否則 process() 把整批列丟掉（跟亞運同一個坑）。
 INTL_LEAGUES = {"WLDS", "MSI", "EWC", "FST", "ENC", "KESPA", "IEM", "IWCT", "亞運", "DCUP"}
+# 國際賽／盃賽的**年份窗**：INTL_LEAGUES 裡的賽事預設不分年份一律收，列在這裡的只收這個範圍。
+# DCUP 限 2026 起（使用者 2026-10-04 定案「只要今年這屆」）：OE 其實 2016~2025 都有德瑪西亞杯
+#   （7932 列、約 1300 局），以前一直被 league_ok 擋著沒人發現。10-04 把 DCUP 加進白名單是為了
+#   讓今年這屆（10-03 開打）的 wiki 補檔過得去，**不是要把九屆歷史一起放進來**。
+#   少了這個窗，下一次誰跑 --force 或缺哪年補哪年，那九屆就會默默灌進 2016~2025 的資料檔，
+#   等於把使用者的決定反轉掉（而且不會有任何訊息）。要開就把起年往前調，然後重跑那幾年。
+#   註：2026 檔裡 1 月那 3 局是 2025 那屆的尾巴，日期是 2026 ⇒ 照樣通過，這是使用者選的那個選項。
+INTL_YEARS = {"DCUP": (2026, 2099)}
 
 def league_ok(lg, year):
     if lg.upper() in INTL_LEAGUES:
-        return True
+        rng = INTL_YEARS.get(lg.upper())          # 沒列＝不分年份一律收
+        return not rng or rng[0] <= year <= rng[1]
     rng = TIER1_YEARS.get(lg)
     if not rng:
         return False
