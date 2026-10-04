@@ -110,6 +110,15 @@ FILL = [
     {"key": "AG2026", "wiki": "2026 Asian Games",
      "league": "亞運", "split": "", "year": 2026, "playoffs": 0, "golgg": False,
      "not_before": "2026-09-28"},   # 賽期 09-29 ~ 10-02（events_extra.js）
+    # ── 德瑪西亞杯全球邀請賽（使用者 2026-10-04：已經開始了但沒有比賽資料）─────────
+    # 09-14 只在 fetch_events_extra 登記了參賽名單（圖鑑賽事卡用），抓比賽資料這條線漏了。
+    # golgg:False＝實查 gol.gg 賽事清單（ajax.trlist.php，S16 共 152 個）還沒建這個賽事
+    #   ⇒ 猜名字只會每班下載一份空頁面。它哪天收了再把 "tournament" 填上、golgg 改 True
+    #   （名字從 ajax.trlist.php 的清單抄，不要猜），逐選手 KDA／金錢／傷害才會有。
+    # split 留空＝盃賽的通則（跟 MSI／KeSPA／亞運正賽一樣），前端依時間歸到 S3。
+    {"key": "DCUP2026", "wiki": "2026 Demacia Cup Global Invitational",
+     "league": "DCup", "split": "", "year": 2026, "playoffs": 0, "golgg": False,
+     "not_before": "2026-10-03"},   # 賽期 10-03 ~ 10-17（events_extra.js）
 ]
 # ⚠ csv_cache/wikifill_2026.json 裡另有一筆**人工釘住**的 key「PBFIX_2026_LCK_S3」：
 #   8/1 GEN vs DK 官方 0-2 共兩局，但 **OE 與 gol.gg 收到的是同一局**（十隻英雄完全一致、

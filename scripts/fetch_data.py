@@ -63,7 +63,10 @@ TIER1_YEARS = {
 # 不在 TIER1_YEARS 裡 → 不列進來的話整個賽事會被 league_ok 丟掉（wiki 抓到 17 局卻 0 列）
 # 國際賽／盃賽（不分年份一律收）。「亞運」是國家隊賽事，OE 不收、只有 Leaguepedia 有
 # （fetch_fill 的 wiki_only 那兩筆）；沒列在這裡的話 process() 會把整批列丟掉（2026-09-21）。
-INTL_LEAGUES = {"WLDS", "MSI", "EWC", "FST", "ENC", "KESPA", "IEM", "IWCT", "亞運"}
+# 「DCup」＝德瑪西亞杯全球邀請賽（2026-10-04 使用者回報「已經開始了但沒有比賽資料」）：
+# OE 歷年沒收過、gol.gg 到 10-04 也還沒建這個賽事，只有 Leaguepedia 有 ⇒ 同樣走 wiki 補檔，
+# 也同樣得列在這裡，否則 process() 把整批列丟掉（跟亞運同一個坑）。
+INTL_LEAGUES = {"WLDS", "MSI", "EWC", "FST", "ENC", "KESPA", "IEM", "IWCT", "亞運", "DCUP"}
 
 def league_ok(lg, year):
     if lg.upper() in INTL_LEAGUES:
@@ -290,6 +293,13 @@ def process(text, year=DEFAULT_YEAR):
     for r in filtered:
         lg = (r[iLeague] or "").strip().upper()
         orig = (r[iSplit] or "").strip()
+        # OE 把德瑪西亞杯的賽段欄填成「Season」——那不是賽季、是填充值（實查 csv_cache：
+        # 2014~2025 原檔的 DCup split 全部是空的，只有 2026 這份寫 Season）。留著的話賽季
+        # 清單會長出一個「Season例行賽」跟 S1/S2/S3 並排，跟亞運熱身賽同一個坑（2026-10-01 才修）。
+        # 清空 ⇒ 走盃賽通則依時間歸季；同一個年度並存的兩屆（2025 那屆的尾巴在 1 月、2026 這屆
+        # 在 10 月）就跟 2026 的兩屆 KeSPA 杯一樣，不靠賽段欄分。
+        if lg == "DCUP" and orig == "Season":
+            orig = ""
         try: is_po = int(r[iPlayoffs] or 0) == 1
         except ValueError: is_po = False
         # OE 有些賽事整段沒標 playoffs（LCK 2026 Cup 全部 playoffs=0）→ 用人工「季後賽起始日」補。
@@ -606,7 +616,8 @@ def process(text, year=DEFAULT_YEAR):
 # 量過、不改（2026-09-21 精進迴圈 #182，autopilot/_m182_worlds_overlap_probe.txt）：2018～2025 世界賽
 # 視窗裡 process() 留下的其他賽事只有 VCS 2023 的 55 局（最長消失 6.1 天）；VCS 2025 起不在 TIER1_YEARS，
 # 現在留得下的只剩一級聯賽（世界賽那五週都不打）＋國際賽（MSI／EWC 在夏天；KeSPA 歷年在決賽後、2026 那屆 7～8 月）；亞運走 wiki 補檔
-# （merge_fill 在切之後，切不到），德瑪西亞杯不在白名單 ⇒ 實際影響 0。
+# （merge_fill 在切之後，切不到）⇒ 實際影響 0。德瑪西亞杯 2026-10-04 起也進了 INTL_LEAGUES，
+# 賽期 10-03~10-17 跟世界賽 10-15 起重疊，但它同樣只有 wiki 那一份、同樣在切之後併入 ⇒ 也切不到。
 # TIER1_YEARS／INTL_LEAGUES 哪天又收進會跟世界賽重疊的賽事，再回來改。
 def team_home_leagues(hdr, rows):
     """隊名 → 主場聯賽（該隊在非國際賽列裡最常出現的聯賽）。只打國際賽的隊查不到。"""

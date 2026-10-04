@@ -499,6 +499,33 @@ def realname_map(games):
         print(f"    本名轉職業 ID：{len(out)}／{len(cand)} 位（例：{list(out.items())[0][0]} → {list(out.items())[0][1]}）")
     return out
 
+# ── PB 補局的隊名：短名 → 全名（2026-10-04 德瑪西亞杯）────────────────────────
+#  PB 頁的隊名取自 logo 的 alt="…logo std"，那是 Leaguepedia 的**短名**（FearX／Lgd），
+#  MH 與 OE 用全名（BNK FEARX／LGD Gaming）。照抄短名的話主資料會同時出現兩種寫法
+#  ⇒ 戰隊清單多出幽靈隊、該隊戰績被切兩半（10-03 德瑪西亞杯實際踩到）。
+#  只在**同一個賽事的 MH 隊名**裡解：同賽事同來源，拼法一定跟 OE／wiki 一致。
+def _pb_team(nm, pool):
+    """PB 短名解回該賽事 MH 用的全名；解不出來或對到兩支以上回 None（呼叫端就不補那局）。
+
+    三層，由嚴到鬆，每一層都要求「只對到一支」才算：
+      ①整串相等（去空白與符號、不分大小寫）：JD Gaming／jdgaming → JD Gaming
+      ②逐字相等：GAM → GAM Esports（LGD Gaming／JD Gaming 的字是 lgd／jd＋gaming，不是 gam）
+        —— 少了這層，GAM 會因為 Gaming 也含 gam 而三支全中、放棄（2026-10-04 寫測試時發現）
+      ③子字串：JDG → JD Gaming（跨字的短名只有這層接得到）
+    一路對不到唯一一支就回 None：寧可少補一局，也不要把短名塞給不相干的隊。
+    """
+    key = lambda t: re.sub(r"[^a-z0-9]", "", str(t or "").lower())
+    s = key(nm)
+    if not s:
+        return None
+    words = lambda t: [key(w) for w in re.split(r"[^0-9A-Za-z]+", str(t or "")) if key(w)]
+    for hit in ([t for t in pool if key(t) == s],
+                [t for t in pool if s in words(t)],
+                [t for t in pool if s in key(t)]):
+        if len(hit) == 1:
+            return hit[0]
+    return None
+
 def to_csv(games, cfg):
     import fetch_fill as _ff
     hdr = _ff.oe_header()
@@ -573,7 +600,11 @@ def to_csv(games, cfg):
         _dates = [next((g.get("Date", "")[:19] for g in games
                         if frozenset(pbn(c) for c in (SPL(g.get("Picks")) + SPL(g.get("Picks2")))) == k), "")
                   for k, _ in _pbchrono]
-        _add, _seq = [], 0
+        # 隊名要能解回該賽事 MH 的全名（見 _pb_team）；MH 一局都沒有時 _pool 是空的
+        # ⇒ 全部解不出來、整批不補，並印一行說明（不要默默生出短名隊伍）。
+        _pool = sorted(({str(g.get("Blue") or "").strip() for g in games}
+                        | {str(g.get("Red") or "").strip() for g in games}) - {""})
+        _add, _seq, _skip, _nowin = [], 0, 0, 0
         for i, (k, m) in enumerate(_pbchrono):
             if k in _mhkeys:
                 _seq = 0
@@ -581,16 +612,31 @@ def to_csv(games, cfg):
             base_dt = next((d for d in _dates[i::-1] if d), "") or next((d for d in _dates[i:] if d), "")
             if not base_dt:
                 continue                          # 整頁都對不到 → 無從推日期，寧可不補
+            # 勝方空白＝那局還沒打完（或 PB 頁還沒填）。**不可以補**：Winner 空字串一路往下
+            # 會被算成紅方勝，等於憑空判出一個勝負，而且畫面上看不出來是假的
+            #（2026-10-04 德瑪西亞杯 FearX vs Lgd 實際踩到）。
+            if not str(m.get("win") or "").strip():
+                _nowin += 1
+                continue
+            _t1, _t2 = _pb_team(m["t1"], _pool), _pb_team(m["t2"], _pool)
+            _wn = _pb_team(m["win"], _pool)
+            if not (_t1 and _t2 and _wn):
+                _skip += 1
+                continue                      # 隊名解不回全名 ⇒ 不補（見 _pb_team）
             _seq += 1
             hh = min(23, int(base_dt[11:13] or 0) + _seq)
             _add.append({"Date": f"{base_dt[:10]} {hh:02d}:{base_dt[14:16] or '00'}:00",
-                         "Blue": m["t1"], "Red": m["t2"], "Winner": m["win"], "P": m["patch"],
+                         "Blue": _t1, "Red": _t2, "Winner": _wn, "P": m["patch"],
                          "Picks": ",".join(m["p"][0]), "Picks2": ",".join(m["p"][1]),
                          "Bans": ",".join(m["b"][0]), "Bans2": ",".join(m["b"][1]),
                          "Blue Roster": "", "Red Roster": "", "Len": "", "_pbonly": True})
         if _add:
             games = sorted(games + _add, key=lambda g: g.get("Date", "")[:19])
             print(f"    PB 補局：MH 沒有但 PB 有的 {len(_add)} 局（只補隊伍列，不含選手資料）")
+        if _nowin:
+            print(f"    PB 補局略過 {_nowin} 局：PB 頁勝方還空著（那局還沒打完）")
+        if _skip:
+            print(f"    PB 補局略過 {_skip} 局：隊名（logo 短名）在本賽事 MH 的 {len(_pool)} 支隊裡解不回全名")
     ser = {}
     for g in games:
         dt = g.get("Date", "")[:19]
