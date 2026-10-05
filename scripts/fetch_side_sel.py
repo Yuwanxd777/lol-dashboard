@@ -59,7 +59,14 @@ TIER1 = re.compile(r"^(LCK|LPL|LEC|LCS|LCP|CBLOL)/")
 # 歷史回補（2026-09-04）：2019 前的一級聯賽頁名不同（NA LCS／EU LCS／LMS／
 # Champions＝韓國 OGN 時代、PCS＝LCP 前身、CBLoL 大小寫不同）——只在 HIST 模式放寬。
 TIER1H = re.compile(r"^(LCK|LPL|LEC|LCS|LCP|CBLOL|NA LCS|EU LCS|LMS|Champions|PCS|CBLoL)/", re.I)
-INTL = re.compile(r"(First Stand|KeSPA Cup|Mid-Season Invitational|World Championship|Esports World Cup)", re.I)
+# 2026 新增的兩個賽事（使用者 2026-10-05 回報「德盃的選邊」）：兩邊的規則都不符 ⇒ 賽事頁被篩掉、
+#   選邊權永遠抓不到。實查兩頁都有 1st Sel／Side Sel／Pick Sel：德盃 9 場 14 局、亞運 5 場 9 局。
+#   亞運一起補——同一個漏法同一行規則，而且它的主資料 9/19 起就在站上（26 局）。
+#   寫在 INTL 不寫死年份：頁名格式（「2026 Demacia Cup Global Invitational」／「2026 Asian Games」）
+#   歷年一致，明年不必改。舊屆數不會跑進來——ov_pages 只看前一年 10 月起有比賽的頁，
+#   而且選邊欄位是 2026 新制才有的。
+INTL = re.compile(r"(First Stand|KeSPA Cup|Mid-Season Invitational|World Championship"
+                  r"|Esports World Cup|Demacia Cup|Asian Games)", re.I)
 want_ov = lambda ov: bool((TIER1H if HIST else TIER1).match(ov or "") or INTL.search(ov or ""))
 
 
