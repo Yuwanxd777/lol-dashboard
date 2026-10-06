@@ -270,7 +270,9 @@ SCN = {
              ("物件詳情返回", [("click", ".subBack")], 1200, []),
              ("賽事", [("dex", "賽事")], 2500, []),
              ("刷野速度", [("dex", "刷野速度")], 2500, []),
-             ("刷野排序", [("click", "#jgSortBtn")], 1500, []),
+             # 刷野速度是非同步繪製（lazyLoad jungle＋DDragon championFull），排序鈕晚出現；
+             # 前一次繪製沒畫完時那一下分區點擊會被吃掉 ⇒ 等不到就補點一次分區再等（#926／#927 兩次略過）
+             ("刷野排序", [("waitsel", "#jgSortBtn", 10000, "刷野速度"), ("click", "#jgSortBtn")], 1500, []),
              ("搜尋", [("type", "#dexQ", "a")], 1500, [("type", "#dexQ", "")])],
 }
 # 歷史年份：切到 HIST_YEAR（整份年度資料重載、篩選全清、回總覽），再看兩個分頁
@@ -370,6 +372,14 @@ def scan(opts):
                         return click_tab(st[1])
                     if kind == "waitfn":
                         pg.wait_for_function(st[1], timeout=60000); return True
+                    if kind == "waitsel":   # ("waitsel", 選擇器, 逾時ms, 等不到時補點的圖鑑分區或 None)
+                        for attempt in range(2):
+                            try:
+                                pg.wait_for_selector(st[1], state="attached", timeout=st[2]); return True
+                            except Exception:
+                                if attempt or not st[3] or not pg.evaluate(ACT["dex"], st[3]):
+                                    return False
+                        return False
                     arg = st[1] if len(st) == 2 else list(st[1:])
                     return bool(pg.evaluate(ACT[kind], arg))
 
