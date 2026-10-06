@@ -327,7 +327,15 @@ def main():
         ent, status, links, notes = build_entry(n, got.get(n) or [], prev, oet.get(n) or {})
         for s in notes:
             print(s)
-        if ent is None:
+        if ent is not None and status != "同一人" and n not in oet:
+            # player_dup.json 沒有這個名字（太舊，或這名字已寫進本表、check_player_dup 不再報）
+            # ⇒ OE 場次全是 0、主人格退回用 LP 場次挑，會挑到 OE 出賽少的人（2026-10-06 Crimson
+            # 挑成 OE 4 場的 Bilal、10 場的 Mert 被降成次人格）。不寫，叫人先重產明細。
+            print(f"    ⚠ {n}：csv_cache/player_dup.json 沒有它的 OE 場次，挑不出主人格，這次不寫入。"
+                  f"若它已在本表，先把條目刪掉，再跑 check_player_dup.py --json csv_cache/player_dup.json")
+            nmiss += 1
+            status = "未寫入（缺 OE 場次）"
+        elif ent is None:
             nmiss += 1
         elif status == "同一人":
             nsingle += 1

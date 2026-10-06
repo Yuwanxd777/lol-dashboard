@@ -1830,5 +1830,41 @@
  "QaspieL": {
   "reviewed": "Leaguepedia 只有一位（QaspieL）→ 同一人，誤報",
   "link": "QaspieL"
+ },
+ "Zelt": {
+  "reviewed": "Leaguepedia 只有一位（Zelt）→ 同一人，誤報",
+  "link": "Zelt"
+ },
+ "Crimson": {
+  "persons": [
+   {
+    "key": "Crimson",
+    "link": "Crimson (Mert Koçak)",
+    "teams": [
+     "Galatasaray Esports",
+     "Big Plays Incorporated"
+    ],
+    "games_lp": 19,
+    "games_oe": 10,
+    "first": "2015-01-24",
+    "last": "2017-07-18"
+   },
+   {
+    "key": "Crimson (Bilal Shoura)",
+    "link": "Crimson (Bilal Shoura)",
+    "teams": [
+     "CCG Esports",
+     "Maryville University",
+     "Radiance",
+     "Team Ambition",
+     "Team Fish Taco"
+    ],
+    "games_lp": 164,
+    "games_oe": 4,
+    "first": "2022-01-10",
+    "last": "2026-10-05"
+   }
+  ],
+  "source": "leaguepedia"
  }
 }
