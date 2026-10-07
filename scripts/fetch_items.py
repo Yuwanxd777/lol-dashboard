@@ -11,7 +11,7 @@ DDragon 的道具描述缺數字（如 電流旋風劍「蒼穹」的 %），
     python fetch_items.py            # 版本沒變就跳過
     python fetch_items.py --force
 """
-import json, re, sys, urllib.request
+import json, re, socket, sys, urllib.error, urllib.request
 from pathlib import Path
 from fetch_skills import SpellCtx, eval_calc, render_val, Miss, hget, HOLE_RE  # 重用技能管線的計算式求值器與破句偵測
 
@@ -31,6 +31,14 @@ FORCE = "--force" in sys.argv
 def get(url, timeout=180):
     req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
     return urllib.request.urlopen(req, timeout=timeout).read()
+
+def _is_transient(e):
+    """5xx／429／逾時／連線失敗＝來源暫時掛了（2026-10-07 CDragon 整片 522，這支 Traceback exit 1）。
+    這種時候保留上一班的 items.js 與快取、正常結束；items.js 的版本戳會停在舊版，
+    update_health 的「遊戲版本」會拿它跟圖鑑素材比，撐過寬限就照樣報不一致——不會被靜默吞掉。"""
+    if isinstance(e, urllib.error.HTTPError):
+        return e.code >= 500 or e.code == 429
+    return isinstance(e, (urllib.error.URLError, TimeoutError, socket.timeout, ConnectionError))
 
 def fmt(v):
     f = round(float(v), 2)
@@ -145,12 +153,21 @@ def main():
     CACHE_DIR.mkdir(parents=True, exist_ok=True)
     need_dl = not (BIN_F.exists() and ST_F.exists()
                    and MARK_F.exists() and MARK_F.read_text().strip() == ddv)
-    if need_dl:
-        print("下載 items bin…");   BIN_F.write_bytes(get(URL_BIN))
-        print("下載 zh_tw 字串表…"); ST_F.write_bytes(get(URL_ST))
+    try:
+        if need_dl:  # 兩份都下載成功才寫進快取：不留「新 bin 配舊字串表」的半套
+            print("下載 items bin…");   b = get(URL_BIN)
+            print("下載 zh_tw 字串表…"); s = get(URL_ST)
+            json.loads(b); json.loads(s)
+            BIN_F.write_bytes(b); ST_F.write_bytes(s)
+        dd = json.loads(get(f"{DD_API}/cdn/{ddv}/data/zh_TW/item.json", 60))["data"]
+    except Exception as e:
+        if not (_is_transient(e) and OUT_JS.exists()):
+            raise
+        old = MARK_F.read_text().strip() if MARK_F.exists() else "？"
+        print(f"⚠ 來源暫時抓不到（{e}），items.js 維持上一班的 {old}（DDragon 已是 {ddv}），下一班再試")
+        return
     binj = json.loads(BIN_F.read_text(encoding="utf-8"))
     st   = json.loads(ST_F.read_text(encoding="utf-8")).get("entries", {})
-    dd   = json.loads(get(f"{DD_API}/cdn/{ddv}/data/zh_TW/item.json", 60))["data"]
 
     out, filled_n = {}, 0
     for iid in sorted(dd, key=lambda x: int(x)):

@@ -1057,6 +1057,14 @@ def game_versions():
             cur["assets"] = yrs.get(max(yrs))
     except Exception:
         pass
+    # items.js（道具正確數值）：版本戳 "16.19.1-09241000"。2026-10-07 起 fetch_items 遇到 CDragon
+    # 暫時掛掉會沿用上一班、正常結束 ⇒ 它落後只能靠這裡跟圖鑑素材比出來（不列入「讀不到」：舊基準沒有這個鍵）
+    try:
+        m = re.search(r'ITEM_DESC_VER="([\d.]+)-', io.open(P("items.js"), encoding="utf-8").read())
+        if m:
+            cur["items"] = m.group(1)
+    except Exception:
+        pass
     try:
         if cur["patches"]:
             cur["patch_date"] = json.load(
@@ -1082,7 +1090,8 @@ def version_problems(prev, cur, prev_since, now_ts,
         bad.append("讀不到版本：" + "、".join(miss))
     # ① 倒退：四個來源逐一比基準（高水位）
     for k, label in (("patches", "patches.js"), ("patches_en", "patches_en.js"),
-                     ("ddragon", "skills.js（DDragon）"), ("assets", "assets.js（DDragon）")):
+                     ("ddragon", "skills.js（DDragon）"), ("assets", "assets.js（DDragon）"),
+                     ("items", "items.js（CDragon）")):
         pv, cv = prev.get(k), cur.get(k)
         if cv and isinstance(pv, str) and ver_key(cv) < ver_key(pv):
             bad.append("%s 版本倒退（基準 %s → 現在 %s）" % (label, pv, cv))
@@ -1095,6 +1104,9 @@ def version_problems(prev, cur, prev_since, now_ts,
         mism.append("英文 %s ≠ 繁中 %s" % (pe, p))
     if dd and ast and dd != ast:
         mism.append("圖鑑素材 %s ≠ 技能 %s" % (ast, dd))
+    it = cur.get("items")
+    if it and ast and it != ast:
+        mism.append("道具數值 %s ≠ 圖鑑素材 %s" % (it, ast))
     since, hrs = prev_since, None
     if mism:
         if not isinstance(since, (int, float)):
@@ -1114,6 +1126,8 @@ def version_problems(prev, cur, prev_since, now_ts,
     dpart = "發布日不明" if n is None else "%s 發布，%d 天前" % (cur["patch_date"], n)
     line = "遊戲版本：版本改動 %s（%s）／英文 %s／DDragon %s＝%s／圖鑑 %s" % (
         p or "？", dpart, pe or "？", dd or "？", ddpk or "？", ast or "？")
+    if it:
+        line += "／道具 %s" % it
     if mism:
         line += "  ⚠ 不一致（%s）：已 %.1f 小時%s" % (
             "；".join(mism), hrs, "" if hrs >= grace_h else "（滿 %d 小時才算異常）" % grace_h)

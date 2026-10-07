@@ -653,6 +653,16 @@ eq("patches_en.js 版本倒退" in vp(GOOD, dict(GOOD, patches_en="26.16"))[1], 
 eq("assets.js（DDragon） 版本倒退" in vp(GOOD, dict(GOOD, assets="16.16.1"))[1], True, "⑱圖鑑素材倒退")
 eq(vp({}, GOOD)[1], "", "⑱第一次跑（沒有基準）不算倒退")
 
+# items.js（2026-10-07 #943）：fetch_items 遇 CDragon 暫時掛掉會沿用上一班 ⇒ 落後只能靠這裡看出來
+eq(vp(GOOD, dict(GOOD, items="16.17.1"))[1], "", "⑱道具數值跟圖鑑素材同版＝沒異常")
+eq("／道具 16.17.1" in vp(GOOD, dict(GOOD, items="16.17.1"))[0], True, "⑱道具版本印在那一行")
+eq("道具數值 16.16.1 ≠ 圖鑑素材 16.17.1" in vp(GOOD, dict(GOOD, items="16.16.1"),
+                                          since=NOW99 - 25 * 3600)[1], True, "⑱道具數值落後撐過寬限＝異常")
+eq(vp(GOOD, dict(GOOD, items="16.16.1"))[1], "", "⑱道具數值剛落後在寬限內")
+eq("items.js（CDragon） 版本倒退" in vp(dict(GOOD, items="16.17.1"), dict(GOOD, items="16.16.1"))[1], True,
+   "⑱道具數值倒退")
+eq(vp(dict(GOOD, items="16.17.1"), GOOD)[1], "", "⑱舊基準有 items、現在讀不到不算異常（不列入讀不到）")
+
 # ② 讀不到＝異常（檔案被清空／格式改掉，舊版會安靜地什麼都不說）
 eq("讀不到版本：patches.js" in vp(GOOD, dict(GOOD, patches=None))[1], True, "⑱讀不到 patches.js")
 eq("讀不到版本：skills.js、assets.js" in vp(GOOD, dict(GOOD, ddragon=None, assets=None))[1], True,
@@ -676,7 +686,8 @@ eq(uh.merge_versions(GOOD, dict(GOOD, patch_date="2026-08-11"))["patch_date"], "
 
 # ── ⑲ 真實資料端到端：現況必須讀得到、而且自己跟自己不會有異常 ──
 gv = uh.game_versions()
-eq(sorted(gv), ["assets", "ddragon", "patch_date", "patches", "patches_en"], "⑲game_versions 五個鍵")
+eq(sorted(gv), ["assets", "ddragon", "items", "patch_date", "patches", "patches_en"], "⑲game_versions 六個鍵（含 items.js）")
+eq(bool(re.match(r"\d+\.\d+\.\d+$", gv["items"] or "")), True, "⑲items.js 版本戳讀得到")
 eq(bool(gv["patches"]) and bool(gv["patches_en"]), True, "⑲兩份版本改動都讀得到")
 eq(bool(gv["ddragon"]) and bool(gv["assets"]), True, "⑲DDragon 兩個見證都讀得到")
 # 不寫死「現在是 26.17」（正本會往前走，寫死＝下個版本就永久紅）：改用獨立方法算一次最大鍵
