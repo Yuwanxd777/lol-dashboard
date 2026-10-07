@@ -423,10 +423,18 @@ def scan(opts):
                 if lang == "en" and not opts.get("no_scn"):
                     click_tab("總覽")
                     pg.wait_for_timeout(1400)
+                    # 跑完 98 個劇本（含切到歷史年份）後網路還在忙：探針圖的 404 實測 3.2 秒才回來（#946），
+                    # 只等固定 1.2 秒 ⇒ 404 歸屬到下一個劇本、圖也還沒 complete ⇒ 404 ✗／破圖 ✗（#945 連兩次）。
+                    # 所以掛探針前先等網路靜下來，點完再等探針圖真的載完才收（--pc-dry 沒有探針圖 ⇒ 立刻過）。
+                    try:
+                        pg.wait_for_load_state("networkidle", timeout=15000)
+                    except Exception:
+                        pass
                     sink = pcs
                     armed = True if opts.get("pc_dry") else bool(pg.evaluate(PC_ARM))
                     if armed:
-                        run_scn(PC_PREFIX.rstrip("／"), ("說明浮層", [("click", "#fHelp")], 1200, []))
+                        run_scn(PC_PREFIX.rstrip("／"), ("說明浮層", [("click", "#fHelp"),
+                                ("waitfn", "() => [...document.querySelectorAll('img[src*=zz_probe]')].every(i => i.complete)")], 1200, []))
                         run_scn(PC_PREFIX.rstrip("／"), ("回復預設", [("click", "#fReset")], 800, []))
                     sink = found
                     cur["tab"] = "(pc-done)"
