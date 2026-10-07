@@ -1000,6 +1000,37 @@ def SUITE(M, tag):
     finally:
         M.wiki_rows = _orig
 
+    # ── ⑫ 跨 UTC 午夜的系列賽不可以灌成兩個比賽日（#952 真實形狀：CBLOL 2026-10-06／07）──
+    #    NOW=10-07 06:54 UTC ⇒ 寬限線 00:54，00:34 那局剛好進來。我們只到 10-05（OE 慢一天的常態）。
+    N952 = dt.datetime(2026, 10, 7, 6, 54)
+    CB = "CBLOL/2026 Season/Split 3"
+    w_mid = wiki_stub([(CB, "2026-10-05 21:03:00"), (CB, "2026-10-05 23:22:00"),
+                       (CB, "2026-10-06 21:04:00"), (CB, "2026-10-06 21:53:00"),
+                       (CB, "2026-10-06 22:44:00"), (CB, "2026-10-06 23:47:00"),
+                       (CB, "2026-10-07 00:34:00")])
+    d_mid = make_data_js([("2026-10-05 21:03:00", "CBLOL", 1), ("2026-10-05 23:22:00", "CBLOL", 2)])
+    st, msgs = M.lag_problems(N952, d_mid, fetch=w_mid)
+    eq(st, "ok", "%s ⑫跨午夜的第五局併回 10-06 ⇒ 只落後 1 個比賽日、不叫" % tag)
+    yes(any("2026-10-07" in m and "延續" in m for m in msgs), "%s ⑫訊息講明 10-07 是延續（不是靜靜吞掉）" % tag)
+    eq(M.lag_problems(N952, d_mid, fetch=w_mid, threshold=1)[0], "bad",
+       "%s ⑫正控制：門檻 1 時同一份資料會叫（那 1 天的落後還在）" % tag)
+    _g = M.LAG_SERIES_GAP_H
+    M.LAG_SERIES_GAP_H = 0
+    try:
+        eq(M.lag_problems(N952, d_mid, fetch=w_mid)[0], "bad",
+           "%s ⑫正控制：併段間隔改 0（＝舊行為）同一份資料翻紅" % tag)
+    finally:
+        M.LAG_SERIES_GAP_H = _g
+    # 真的連兩天（LCK 09-14、09-15 各一天，隔 20 多小時）不可以被併掉
+    w_two = wiki_stub([("LCK/2026 Season/Split 3", "2026-09-14 08:00"),
+                       ("LCK/2026 Season/Split 3", "2026-09-14 10:30"),
+                       ("LCK/2026 Season/Split 3", "2026-09-15 08:00")])
+    eq(LP(data=make_data_js([("2026-09-13 08:00", "LCK", 1)]), fetch=w_two)[0], "bad",
+       "%s ⑫連兩個真正的比賽日照樣叫（間隔 21.5h 不併）" % tag)
+    eq(M.series_roots(["2026-10-06 23:47", "2026-10-07 00:34", "2026-10-08 00:34"]),
+       {"2026-10-06": "2026-10-06", "2026-10-07": "2026-10-06", "2026-10-08": "2026-10-08"},
+       "%s ⑫series_roots：只併 ≤3h 的延續" % tag)
+
 
 # 跑第 ㉖ 組（全程封網；先證明封鎖器真的會擋，否則「沒連到外面」可能只是根本沒呼叫）
 _restore = block_network()

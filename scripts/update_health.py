@@ -1172,6 +1172,33 @@ LAG_FORM = "https://lol.fandom.com/wiki/Special:CargoExport"
 # order_by 是開賽時間**由舊到新** ⇒ 真撞到上限時被截掉的是**最新**的局 ⇒ 會被讀成「我們落後」。
 # 所以回滿 LAG_LIMIT 列一律當「結果不完整」走略過，不拿來判定（#168）。
 LAG_LIMIT = 2000
+# 跨午夜的系列賽（#952）：比賽日是 UTC 日曆日 ⇒ 美洲賽區晚場 BO5 會跨過 UTC 午夜，一場系列賽變成「兩個比賽日」。
+# 2026-10-07 14:53 實例：CBLOL 10-06 21:04～23:47 四局＋10-07 00:34 第五局 ⇒ OE 平常慢的那一天被灌成
+# 「落後 2 個比賽日」而報異常（14:29 那輪 00:34 還在 6h 寬限內所以沒叫，24 分鐘後就叫了）。
+# 判定改數「賽程段」：某天的第一局距前一個日曆日的最後一局 ≤ LAG_SERIES_GAP_H 小時 ⇒ 併進前一天那一段。
+# 3 小時：同一系列賽局間 <1.5h；兩個真正不同的比賽日（LCK／LPL 連兩天）中間隔 15 小時以上。
+LAG_SERIES_GAP_H = 3
+
+
+def series_roots(times, gap_h=None):
+    """[開賽時間字串] → {比賽日: 它所屬賽程段的第一天}（跨午夜的延續日指回前一天）。
+
+    讀不懂的時間字串直接略過（那一天就自己當一段，等於舊行為）。"""
+    gap = datetime.timedelta(hours=LAG_SERIES_GAP_H if gap_h is None else gap_h)
+    first, last = {}, {}
+    for t in times:
+        try:
+            x = datetime.datetime.strptime(str(t)[:16], "%Y-%m-%d %H:%M")
+        except ValueError:
+            continue
+        d = x.strftime("%Y-%m-%d")
+        first[d] = min(first.get(d, x), x)
+        last[d] = max(last.get(d, x), x)
+    root = {}
+    for d in sorted(first):
+        prev = (first[d] - datetime.timedelta(days=1)).strftime("%Y-%m-%d")
+        root[d] = root[prev] if prev in last and first[d] - last[prev] <= gap else d
+    return root
 
 # ══ 聯賽標籤交叉比對（#178）═══════════════════════════════════════════════
 # 為什麼要有：**OE 把「區域資格賽」標成 WLDs**。`LPL/2026 Season/Regional Finals` 09-17／18／19 各 4 局，
@@ -1374,13 +1401,20 @@ def lag_problems(now, data_path, fetch=None, tier1=None,
             hit = cross_label(wt.get(lg, {}).get(d, set()), ot.get(d), skip_label=lg)
             (moved if hit else behind).append((d, hit))
         behind = [d for d, _ in behind]
+        # #952：跨 UTC 午夜的延續日併回前一天那一段再數（訊息照列每一個日曆日，數的是賽程段）
+        root = series_roots(wk.get(lg, []))
+        sessions = sorted({root.get(d, d) for d in behind})
+        tails = [d for d in behind if root.get(d, d) != d]
         line = "  %-6s 我們最後比賽日 %s｜wiki 之後還有 %d 個比賽日%s" % (
             lg, (max(odays) if odays else "(無)"), len(gap),
             ("：" + "、".join(gap)) if gap else "")
-        if len(behind) >= threshold:
-            bad.append("%s 落後 %d 個比賽日（%s）" % (lg, len(behind), "、".join(behind)))
+        if len(sessions) >= threshold:
+            bad.append("%s 落後 %d 個比賽日（%s）" % (lg, len(sessions), "、".join(behind)))
             line += "  << 異常"
         msgs.append(line)
+        if tails:
+            msgs.append("         └ %s 是前一天那一系列賽跨過 UTC 午夜的延續（相隔 ≤ %dh）⇒ 併成同一個比賽日，算 %d 個"
+                        % ("、".join(tails), LAG_SERIES_GAP_H, len(sessions)))
         if moved:
             msgs.append("         └ %s 其實有收、在我們這裡掛 %s（隊名對上 %d 支）⇒ 不算落後" % (
                 "、".join(d for d, _ in moved),
