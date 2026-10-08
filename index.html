@@ -5211,13 +5211,18 @@ function bo3Splits(){
   const grp={};
   for(const o of GAMES){const bt=o.raw[C.blue_teamname],rt=o.raw[C.red_teamname]; if(!bt||!rt)continue;
     const k=o.league+"|"+(o.split||"")+"|"+[bt,rt].sort().join("|"); (grp[k]=grp[k]||[]).push({d:String(o.date).slice(0,10),g:+o.game,ls:o.league+"|"+(o.split||"")});}
-  const tot={},ge2={};
-  const flush=s=>{ if(!s)return; tot[s.ls]=(tot[s.ls]||0)+1; if(s.n>=2)ge2[s.ls]=(ge2[s.ls]||0)+1; };
+  const tot={},ge2={},dTot={},dGe2={};
+  const flush=s=>{ if(!s)return; tot[s.ls]=(tot[s.ls]||0)+1; if(s.n>=2)ge2[s.ls]=(ge2[s.ls]||0)+1;
+    const dk=s.ls+"|"+s.d; dTot[dk]=(dTot[dk]||0)+1; if(s.n>=2)dGe2[dk]=(dGe2[dk]||0)+1; };
   for(const k in grp){const arr=grp[k].sort((a,b)=>a.d<b.d?-1:a.d>b.d?1:a.g-b.g);
     let cur=null,pgN=0,pd=null;
-    for(const m of arr){if(!cur||m.g<=pgN||(pd!==null&&dn(m.d)-pd>2)){flush(cur);cur={ls:m.ls,n:0};}cur.n++;pgN=m.g;pd=dn(m.d);}
+    for(const m of arr){if(!cur||m.g<=pgN||(pd!==null&&dn(m.d)-pd>2)){flush(cur);cur={ls:m.ls,d:m.d,n:0};}cur.n++;pgN=m.g;pd=dn(m.d);}
     flush(cur);}
   const set=new Set(); for(const k in tot)if(tot[k]>=3&&(ge2[k]||0)/tot[k]>=0.6)set.add(k);
+  // BO1 日：同聯賽＋賽段同一天開打 ≥2 個系列、全部只有 1 局＝那天整輪是 BO1（2026-10-08 使用者回報：
+  // 德盃 10/3 瑞士輪第一輪本來就只打一局，卻因整個賽段多數 BO3 被標「缺第 2 局」）
+  const bo1=new Set(); for(const k in dTot)if(dTot[k]>=2&&!dGe2[k])bo1.add(k);
+  set.bo1Days=bo1;
   _bo3Cache=set;_bo3Key=key; return set;
 }
 // 「最新版本」英雄改動方向：回 {ver:版本字串, byId:{id->1增強/-1削弱/0調整}, lines:{id->改動行}}
@@ -12328,7 +12333,8 @@ function render(){
       else if(scStr==="1-1"&&!nums.includes(3)&&maxG<=2&&!bo2Leagues().has(s.league))total=3; // BO3：1-1 缺第3局；但若該聯賽是 BO2（1-1 為正常和局）則不視為缺局
       // 只有第 1 局的 1-0：該聯賽＋賽段多數系列打 ≥2 局（BO3 以上）→ 第 2 局還沒匯入＝缺第 2 局
       //（第 3 局有沒有無法確定，只標確定缺的那局；2026-08-17 使用者回報 LPL S3 登峰 TES 1-0 EDG）
-      else if(scStr==="1-0"&&maxG===1&&bo3Splits().has(s.league+"|"+(s.split||"")))total=2;
+      else if(scStr==="1-0"&&maxG===1&&bo3Splits().has(s.league+"|"+(s.split||""))
+        &&!bo3Splits().bo1Days.has(s.league+"|"+(s.split||"")+"|"+String(s.date).slice(0,10)))total=2; // 那天整輪 BO1 的不算缺
       const have=new Set(nums), miss=[];
       for(let n=1;n<=total;n++)if(!have.has(n))miss.push(n);
       return miss.length?{total,miss}:null;
