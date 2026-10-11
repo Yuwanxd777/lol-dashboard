@@ -12483,7 +12483,9 @@ function render(){
     const topP=(S,key,min,m)=>Object.keys(S.pl).filter(p=>S.pl[p].n>=min&&NAMES.has(p)&&WT.has(S.pl[p].team)).sort((a,b)=>valP(S,b,key)-valP(S,a,key)).slice(0,m||5);
     const pct=x=>Math.round(x*100)+"%";
     const rowC=(c,v,n)=>`<div class="pdRow">${cImg(c)}<span>${cNm(c)}</span><span class="pdV">${v}${n!=null?` <span class="pdN">(${n})</span>`:""}</span></div>`;
-    const rowP=(p,tm,v,n)=>`<div class="pdRow">${teamLogoHTML(tAb(tm),18,true)}<span>${esc(p)}</span><span class="pdV">${v}${n!=null?` <span class="pdN">(${n})</span>`:""}</span></div>`;
+    // 沒有隊徽（舊隊名／現在沒隊伍）就放一個通用盾牌佔位，排版不跳（使用者 2026-10-11）
+    const tLogo=(tm,sz)=>teamLogoHTML(tAb(tm),sz,true)||`<svg class="pdNoLogo" width="${sz}" height="${sz}" viewBox="0 0 24 24" style="flex:0 0 auto;vertical-align:middle"><title>${esc(tm||"–")}</title><path d="M12 2 4 5v6c0 5 3.4 9.4 8 11 4.6-1.6 8-6 8-11V5z" fill="var(--tx2)" opacity=".5"/></svg>`;
+    const rowP=(p,tm,v,n)=>`<div class="pdRow">${tLogo(tm,18)}<span>${esc(p)}</span><span class="pdV">${v}${n!=null?` <span class="pdN">(${n})</span>`:""}</span></div>`;
     const rowT=(lb,v)=>`<div class="pdRow"><span>${lb}</span><span class="pdV">${v}</span></div>`;
     const none=t=>`<div class="pdNone">${t||"–"}</div>`;
     const notYet=none(en2?`Starts ${+WFROM.slice(5,7)}/${+WFROM.slice(8,10)}`:`${+WFROM.slice(5,7)}/${+WFROM.slice(8,10)} 開打後更新`);
@@ -12492,7 +12494,7 @@ function render(){
     const H_SIM=en2?`Simulated (${SIM.SIMS.toLocaleString()} runs)`:`模擬（${SIM.SIMS.toLocaleString()} 次）`;
     const histRows=f=>HY.length?HY.map(y=>f(y,H[y])).join(""):none();
     const pickC=cs=>cs.map((c,i)=>`<span class="pdPick"><span class="pdRk">#${i+1}</span>${cImg(c)}${cNm(c)}</span>`).join("");
-    const pickP=(ps,S)=>ps.map((p,i)=>`<span class="pdPick"><span class="pdRk">#${i+1}</span>${teamLogoHTML(tAb(S.pl[p].team),20,true)}${esc(p)}</span>`).join("");
+    const pickP=(ps,S)=>ps.map((p,i)=>`<span class="pdPick"><span class="pdRk">#${i+1}</span>${tLogo(S.pl[p].team,20)}${esc(p)}</span>`).join("");
     const pickTx=t=>`<span class="pdPick">${t}</span>`;
     const srcTx=live?(en2?"from this Worlds":"依本屆"):(en2?"from recent games, weighted by how far each team is expected to go":"依近期，按各隊預估能打幾場加權");
     const card=(tag,q,pts,ans,why,cols,wide)=>`<div class="card"${wide?' style="grid-column:1/-1"':""}><div class="pdHd"><span class="pdTag">${tag}</span><span class="pdQ">${q}</span><span class="pdPts">${pts}</span></div>`
