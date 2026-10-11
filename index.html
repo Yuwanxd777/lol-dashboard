@@ -978,24 +978,24 @@
   .sumEmpty{color:var(--tx2)}
   /* ── 預測分頁（官方水晶球，2026-10-11）：版面用既有 .grid，這裡只定義卡片內容 ── */
   .pdHd{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin-bottom:8px}
-  .pdTag{font-size:12.5px;padding:1px 8px;border-radius:999px;background:rgba(255,255,255,.08);color:var(--tx2);white-space:nowrap}
-  .pdQ{font-weight:700;font-size:15.5px;flex:1 1 260px;min-width:0}
-  .pdPts{font-size:12.5px;color:var(--tx2);white-space:nowrap}
+  .pdTag{font-size:15px;padding:1px 8px;border-radius:999px;background:rgba(255,255,255,.08);color:var(--tx2);white-space:nowrap}
+  .pdQ{font-weight:700;font-size:19px;flex:1 1 260px;min-width:0}
+  .pdPts{font-size:15px;color:var(--tx2);white-space:nowrap}
   .pdAns{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:7px 10px;border-radius:9px;
     background:rgba(255,200,80,.08);border:1px solid rgba(255,200,80,.28);margin-bottom:8px}
-  .pdAns .pdAnsLb{font-size:12.5px;color:#ffc850;white-space:nowrap}
-  .pdPick{display:inline-flex;align-items:center;gap:4px;font-weight:700;white-space:nowrap}
-  .pdPick .pdRk{font-size:12px;color:var(--tx2);font-weight:400}
-  .pdPick .cc img{width:24px;height:24px}
-  .pdWhy{font-size:12.5px;color:var(--tx2);flex-basis:100%}
+  .pdAns .pdAnsLb{font-size:15px;color:#ffc850;white-space:nowrap}
+  .pdPick{display:inline-flex;align-items:center;gap:5px;font-weight:700;font-size:17px;white-space:nowrap}
+  .pdPick .pdRk{font-size:14.5px;color:var(--tx2);font-weight:400}
+  .pdPick .cc img{width:29px;height:29px}
+  .pdWhy{font-size:15px;color:var(--tx2);flex-basis:100%}
   .pdCols{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
   .pdCol{min-width:0;padding:6px 8px;border-radius:8px;background:rgba(255,255,255,.035)}
-  .pdCol h4{margin:0 0 4px;font-size:12.5px;color:var(--tx2);font-weight:400;white-space:nowrap}
-  .pdRow{display:flex;align-items:center;gap:5px;font-size:13.5px;line-height:1.75;white-space:nowrap}
-  .pdRow .cc img{width:20px;height:20px}
+  .pdCol h4{margin:0 0 4px;font-size:15px;color:var(--tx2);font-weight:400;white-space:nowrap}
+  .pdRow{display:flex;align-items:center;gap:6px;font-size:16px;line-height:1.75;white-space:nowrap}
+  .pdRow .cc img{width:24px;height:24px}
   .pdRow .pdV{margin-left:auto;font-variant-numeric:tabular-nums;color:var(--tx)}
-  .pdRow .pdN{font-size:12px;color:var(--tx2)}
-  .pdNone{font-size:13px;color:var(--tx2)}
+  .pdRow .pdN{font-size:14.5px;color:var(--tx2)}
+  .pdNone{font-size:15.5px;color:var(--tx2)}
   @container mainc (max-width:900px){ .pdCols{grid-template-columns:1fr} }
   /* 角色池對比：五路一列一列，左＝只有左邊會／中＝兩邊都會／右＝只有右邊會 */
   /* 六欄：路線｜左選手｜只有左邊會｜兩邊都會｜只有右邊會｜右選手。
@@ -12485,7 +12485,7 @@ function render(){
     const rowC=(c,v,n)=>`<div class="pdRow">${cImg(c)}<span>${cNm(c)}</span><span class="pdV">${v}${n!=null?` <span class="pdN">(${n})</span>`:""}</span></div>`;
     // 沒有隊徽（舊隊名／現在沒隊伍）就放一個通用盾牌佔位，排版不跳（使用者 2026-10-11）
     const tLogo=(tm,sz)=>teamLogoHTML(tAb(tm),sz,true)||`<svg class="pdNoLogo" width="${sz}" height="${sz}" viewBox="0 0 24 24" style="flex:0 0 auto;vertical-align:middle"><title>${esc(tm||"–")}</title><path d="M12 2 4 5v6c0 5 3.4 9.4 8 11 4.6-1.6 8-6 8-11V5z" fill="var(--tx2)" opacity=".5"/></svg>`;
-    const rowP=(p,tm,v,n)=>`<div class="pdRow">${tLogo(tm,18)}<span>${esc(p)}</span><span class="pdV">${v}${n!=null?` <span class="pdN">(${n})</span>`:""}</span></div>`;
+    const rowP=(p,tm,v,n)=>`<div class="pdRow">${tLogo(tm,22)}<span>${esc(p)}</span><span class="pdV">${v}${n!=null?` <span class="pdN">(${n})</span>`:""}</span></div>`;
     const rowT=(lb,v)=>`<div class="pdRow"><span>${lb}</span><span class="pdV">${v}</span></div>`;
     const none=t=>`<div class="pdNone">${t||"–"}</div>`;
     const notYet=none(en2?`Starts ${+WFROM.slice(5,7)}/${+WFROM.slice(8,10)}`:`${+WFROM.slice(5,7)}/${+WFROM.slice(8,10)} 開打後更新`);
@@ -12494,7 +12494,7 @@ function render(){
     const H_SIM=en2?`Simulated (${SIM.SIMS.toLocaleString()} runs)`:`模擬（${SIM.SIMS.toLocaleString()} 次）`;
     const histRows=f=>HY.length?HY.map(y=>f(y,H[y])).join(""):none();
     const pickC=cs=>cs.map((c,i)=>`<span class="pdPick"><span class="pdRk">#${i+1}</span>${cImg(c)}${cNm(c)}</span>`).join("");
-    const pickP=(ps,S)=>ps.map((p,i)=>`<span class="pdPick"><span class="pdRk">#${i+1}</span>${tLogo(S.pl[p].team,20)}${esc(p)}</span>`).join("");
+    const pickP=(ps,S)=>ps.map((p,i)=>`<span class="pdPick"><span class="pdRk">#${i+1}</span>${tLogo(S.pl[p].team,24)}${esc(p)}</span>`).join("");
     const pickTx=t=>`<span class="pdPick">${t}</span>`;
     const srcTx=live?(en2?"from this Worlds":"依本屆"):(en2?"from recent games, weighted by how far each team is expected to go":"依近期，按各隊預估能打幾場加權");
     const card=(tag,q,pts,ans,why,cols,wide)=>`<div class="card"${wide?' style="grid-column:1/-1"':""}><div class="pdHd"><span class="pdTag">${tag}</span><span class="pdQ">${q}</span><span class="pdPts">${pts}</span></div>`
@@ -12507,7 +12507,7 @@ function render(){
     { const ts=EVT.slice().sort((a,b)=>SIM.T[b].epl-SIM.T[a].epl);
       const elo=t=>Math.round(1500+strength(t)*400/Math.LN10);
       const regs=[...new Set(EVT.map(t=>teamReg[t]).filter(x=>x))].sort((a,b)=>MODEL.R[b]-MODEL.R[a]);
-      const row=t=>`<div class="pdRow">${teamLogoHTML(tAb(t),18,true)}<span>${esc(tAb(t))}</span><span class="pdN">${teamReg[t]||""}</span>`
+      const row=t=>`<div class="pdRow">${teamLogoHTML(tAb(t),22,true)}<span>${esc(tAb(t))}</span><span class="pdN">${teamReg[t]||""}</span>`
         +`<span class="pdV">${elo(t)}・${en2?"KO":"八強"} ${pct(SIM.T[t].pko)}・${en2?"title":"冠軍"} ${pct(SIM.T[t].pch)}・≈${d1s(SIM.T[t].eg.toFixed(1))}${en2?" g":" 場"}</span></div>`;
       const third=Math.ceil(ts.length/3);
       cards.push(card(en2?"Model":"模型",en2?"Team strength and how far each team goes":"戰隊強度與預估能走多遠",
@@ -12611,7 +12611,7 @@ function render(){
     { const lcs=EVT.filter(t=>teamReg[t]==="LCS");
       cards.push(card(TG.e,en2?"Will an LCS team make the knockout stage?":"會有 LCS 戰隊闖進淘汰賽嗎？",P1(50),pickTx(SIM.lcsKO>=0.5?YES:NO),
         en2?`at least one LCS team in the top 8 in ${pct(SIM.lcsKO)} of simulations`:`模擬裡至少一支 LCS 戰隊進八強的機率 ${pct(SIM.lcsKO)}`,
-        col(H_SIM,lcs.map(t=>`<div class="pdRow">${teamLogoHTML(tAb(t),18,true)}<span>${esc(tAb(t))}</span><span class="pdV">${pct(SIM.T[t].pko)}</span></div>`).join(""))
+        col(H_SIM,lcs.map(t=>`<div class="pdRow">${teamLogoHTML(tAb(t),22,true)}<span>${esc(tAb(t))}</span><span class="pdV">${pct(SIM.T[t].pko)}</span></div>`).join(""))
         +col(H_PAST,histRows((y,h)=>rowT(y,h.koLCS.length?h.koLCS.map(t=>esc(tAb(t))).join("/"):"–")))+col(H_LIVE,notYet))); }
     // ⑰ HLE vs T1（模擬名次＋今年交手）
     { const A1="Hanwha Life Esports", B1="T1", ser=[]; let cur=null;
@@ -12622,7 +12622,7 @@ function render(){
           const w=o.result===1?bt(o):rt(o); if(w===A1)cur.a++; else cur.b++; cur.g=g; });
       const sa=ser.filter(s=>s.a>s.b).length, sb=ser.filter(s=>s.b>s.a).length, last=ser.slice(-6);
       const ha=(SIM.h2h.a||0)/SIM.SIMS, hb=(SIM.h2h.b||0)/SIM.SIMS, pick=ha>=hb?A1:B1;
-      cards.push(card(TG.t,en2?"Who will place higher: HLE or T1?":"哪支戰隊會排名更高：HLE 還是 T1？",P1(50),pickTx(`${teamLogoHTML(tAb(pick),20,true)}${esc(tAb(pick))}`),
+      cards.push(card(TG.t,en2?"Who will place higher: HLE or T1?":"哪支戰隊會排名更高：HLE 還是 T1？",P1(50),pickTx(`${teamLogoHTML(tAb(pick),24,true)}${esc(tAb(pick))}`),
         en2?`simulations: HLE higher ${pct(ha)}, T1 higher ${pct(hb)}, same stage ${pct(1-ha-hb)}; this year HLE ${sa}-${sb} T1 in series`
            :`模擬：HLE 較高 ${pct(ha)}、T1 較高 ${pct(hb)}、同名次 ${pct(1-ha-hb)}；今年系列賽 HLE ${sa}-${sb} T1`,
         col(H_REC,last.slice().reverse().map(s=>rowT(`${+s.d.slice(5,7)}/${+s.d.slice(8,10)}`,`HLE ${s.a}-${s.b} T1`)).join(""))
@@ -12632,12 +12632,12 @@ function render(){
       const score=t=>(SIM.T[t]?SIM.T[t].ew:0)*fastN(t);
       const ts=EVT.filter(t=>R.wins[t]).sort((a,b)=>score(b)-score(a));
       const mm=v=>`${Math.floor(v)}:${String(Math.round((v%1)*60)).padStart(2,"0")}`;
-      const liveRows=S=>Object.keys(S.winT).sort((a,b)=>S.winT[a]-S.winT[b]).slice(0,5).map(t=>`<div class="pdRow">${teamLogoHTML(tAb(t),18,true)}<span>${esc(tAb(t))}</span><span class="pdV">${mm(S.winT[t])}</span></div>`).join("");
+      const liveRows=S=>Object.keys(S.winT).sort((a,b)=>S.winT[a]-S.winT[b]).slice(0,5).map(t=>`<div class="pdRow">${teamLogoHTML(tAb(t),22,true)}<span>${esc(tAb(t))}</span><span class="pdV">${mm(S.winT[t])}</span></div>`).join("");
       const pickT=live?Object.keys(L.winT).sort((a,b)=>L.winT[a]-L.winT[b]).slice(0,3):ts.slice(0,3);
       cards.push(card(TG.t,en2?"Which team will win the fastest game?":"哪支戰隊會以最短時間贏得對戰勝利？",P3,
-        pickT.map((t,i)=>`<span class="pdPick"><span class="pdRk">#${i+1}</span>${teamLogoHTML(tAb(t),20,true)}${esc(tAb(t))}</span>`).join(""),
+        pickT.map((t,i)=>`<span class="pdPick"><span class="pdRk">#${i+1}</span>${teamLogoHTML(tAb(t),24,true)}${esc(tAb(t))}</span>`).join(""),
         live?srcTx:(en2?`expected Worlds wins × share of recent wins under ${FAST} min`:`預估世界賽勝場 × 近期 ${FAST} 分鐘內收下的比例`),
-        col(H_REC,ts.slice(0,5).map(t=>`<div class="pdRow">${teamLogoHTML(tAb(t),18,true)}<span>${esc(tAb(t))}</span><span class="pdV">${pct(fastN(t))}・${en2?"min":"最快"} ${mm(R.winT[t])}</span></div>`).join(""))
+        col(H_REC,ts.slice(0,5).map(t=>`<div class="pdRow">${teamLogoHTML(tAb(t),22,true)}<span>${esc(tAb(t))}</span><span class="pdV">${pct(fastN(t))}・${en2?"min":"最快"} ${mm(R.winT[t])}</span></div>`).join(""))
         +col(H_PAST,histRows((y,h)=>h.shortest[0]?rowT(y,`${esc(tAb(h.shortest[0][1]))} ${mm(h.shortest[0][0])}`):""))+col(H_LIVE,L.n?liveRows(L):notYet))); }
     wrap.innerHTML=`<div class="grid">${cards.join("")}</div>`;
     }
