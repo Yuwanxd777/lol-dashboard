@@ -1,0 +1,125 @@
+# -*- coding: utf-8 -*-
+"""「預測」分頁（水晶球）的歷屆世界賽參考數據 → predict_hist.js（window.PRED_HIST）。
+
+只讀 data/data_YYYY.js 的 WLDs 場次，逐年算出水晶球題目會用到的排行與數字。
+歷屆資料不會再變，所以不掛進每日管線；要多加一屆（或改題目定義）時手動重跑：
+  python scripts/build_predict_hist.py            # 預設 2023 2024 2025
+  python scripts/build_predict_hist.py 2022 2023 2024 2025
+
+口徑跟 index.html 的「預測」分頁即時計算一致（改一邊要改另一邊）：
+  出場率＝選用或禁用的局數 ÷ 總局數；勝率／場均死亡＝該英雄 ≥5 場；
+  選手 KDA／場均傷害／參與率＝≥6 場；參與率＝(擊殺＋助攻) ÷ 戰隊擊殺。
+  淘汰賽＝最後 7 個比賽日出場的戰隊（八強→決賽）；地區＝該隊當年出賽最多的國內賽事。
+"""
+import io, json, os, sys
+from collections import Counter, defaultdict
+
+if (getattr(sys.stdout, "encoding", "") or "").lower().replace("-", "") != "utf8":
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+OUT = os.path.join(ROOT, "predict_hist.js")
+INTL = {"WLDs", "MSI", "EWC", "FST", "KeSPA", "DCup", "AG", "ASI", "Rift Rivals"}
+REGION = {"LTA N": "LCS", "LCS": "LCS", "NA LCS": "LCS", "LTA S": "CBLOL", "CBLOL": "CBLOL",
+          "LTA": "LTA", "LCP": "LCP", "PCS": "PCS", "VCS": "VCS", "LJL": "LJL", "LLA": "LLA",
+          "LCK": "LCK", "LPL": "LPL", "LEC": "LEC", "EU LCS": "LEC", "TCL": "TCL", "LCO": "LCO"}
+# 決賽 MVP（資料庫沒有這個欄位，只放確定的屆數；不確定的不寫）
+FINALS_MVP = {2024: ["Faker", "MID"], 2025: ["Gumayusi", "BOT"]}
+
+
+def load(y):
+    t = open(os.path.join(ROOT, "data", f"data_{y}.js"), encoding="utf-8").read()
+    J = json.loads(t.split("=", 1)[1].strip().rstrip(";"))
+    R = J["tabs"]["RAW_DATA"]
+    return R[0], R[1:]
+
+
+def build(y):
+    h, R = load(y)
+    ix = {c: i for i, c in enumerate(h)}
+    num = lambda r, c: float(r[ix[c]]) if r[ix[c]] not in ("", None) else 0.0
+    G = {}
+    team_lg = defaultdict(Counter)
+    for r in R:
+        lg = r[ix["league"]]
+        if str(r[ix["participantid"]]) not in ("1", "2", "3", "4", "5"):
+            continue
+        if lg not in INTL:
+            team_lg[r[ix["blue_teamname"]]][lg] += 1
+            team_lg[r[ix["red_teamname"]]][lg] += 1
+        if lg != "WLDs":
+            continue
+        k = (str(r[ix["date"]])[:10], r[ix["blue_teamname"]], r[ix["red_teamname"]], str(r[ix["game"]]))
+        g = G.setdefault(k, {"res": r[ix["result"]], "len": r[ix["blue_gamelength"]], "pl": [],
+                             "bans": set(x for x in (str(r[ix["blue_banlist"]] or "") + "|" + str(r[ix["red_banlist"]] or "")).split("|") if x)})
+        for s in ("blue", "red"):
+            g["pl"].append(dict(name=r[ix[f"{s}_playername"]], team=r[ix[f"{s}_teamname"]], champ=r[ix[f"{s}_champion"]],
+                                k=num(r, f"{s}_kills"), d=num(r, f"{s}_deaths"), a=num(r, f"{s}_assists"),
+                                tk=num(r, f"{s}_teamkills"), dmg=num(r, f"{s}_damagetochampions"),
+                                win=(r[ix["result"]] == 1) == (s == "blue")))
+    n = len(G)
+    pres, pk, w, dth = Counter(), Counter(), Counter(), Counter()
+    P = defaultdict(lambda: dict(k=0, d=0, a=0, tk=0, dmg=0, n=0, team=""))
+    lens, big = [], []
+    for g in G.values():
+        champs = {p["champ"] for p in g["pl"] if p["champ"]}
+        for c in champs | g["bans"]:
+            pres[c] += 1
+        if g["len"] not in ("", None):
+            lens.append(float(g["len"]) / 60)
+        for p in g["pl"]:
+            if not p["champ"]:
+                continue
+            pk[p["champ"]] += 1; w[p["champ"]] += p["win"]; dth[p["champ"]] += p["d"]
+            q = P[p["name"]]; q["team"] = p["team"]; q["n"] += 1
+            for c in ("k", "d", "a", "tk", "dmg"):
+                q[c] += p[c]
+            big.append([int(p["k"]), p["name"], p["champ"]])
+    top = lambda keys, f, m=5: sorted(keys, key=f)[:m]
+    c5 = [c for c in pk if pk[c] >= 5]
+    p6 = {nm: q for nm, q in P.items() if q["n"] >= 6}
+    kda = lambda q: (q["k"] + q["a"]) / max(1, q["d"])
+    kp = lambda q: (q["k"] + q["a"]) / max(1, q["tk"])
+    days = sorted({k[0] for k in G})
+    ko_days = set(days[-7:])
+    ko = sorted({t for k in G if k[0] in ko_days for t in (k[1], k[2])})
+    reg = {t: REGION.get(team_lg[t].most_common(1)[0][0], team_lg[t].most_common(1)[0][0]) if team_lg[t] else "?" for t in ko}
+    shortest = sorted(([float(g["len"]) / 60, (k[1] if g["res"] == 1 else k[2])] for k, g in G.items() if g["len"] not in ("", None)))[:3]
+    big.sort(reverse=True)
+    out = {
+        "games": n,
+        "presence": [[c, round(pres[c] / n, 3)] for c, _ in pres.most_common(5)],
+        "winrate": [[c, w[c], pk[c]] for c in top(c5, lambda c: (-w[c] / pk[c], -pk[c]))],
+        "deaths": [[c, round(dth[c] / pk[c], 2), pk[c]] for c in top(c5, lambda c: -dth[c] / pk[c])],
+        "kda": [[nm, p6[nm]["team"], round(kda(p6[nm]), 2), p6[nm]["n"]] for nm in top(p6, lambda nm: -kda(p6[nm]))],
+        "dmg": [[nm, p6[nm]["team"], round(p6[nm]["dmg"] / p6[nm]["n"]), p6[nm]["n"]] for nm in top(p6, lambda nm: -p6[nm]["dmg"] / p6[nm]["n"])],
+        "kp": [[nm, p6[nm]["team"], round(kp(p6[nm]), 3), p6[nm]["n"]] for nm in top(p6, lambda nm: -kp(p6[nm]))],
+        "uniq": len(pk),
+        "len32": [sum(l < 32 for l in lens), sum(l >= 32 for l in lens)],
+        "long45": sum(l >= 45 for l in lens),
+        "maxLen": round(max(lens), 1) if lens else None,
+        "maxKills": big[:3],
+        "teemo": pk.get("Teemo", 0),
+        "kills": {nm: [int(P[nm]["k"]), P[nm]["n"]] for nm in ("Faker", "Peyz", "Gumayusi") if nm in P},
+        "ko": [[t, reg[t]] for t in ko],
+        "koRegions": len(set(reg.values())),
+        "koLCS": [t for t in ko if reg[t] == "LCS"],
+        "shortest": [[round(l, 1), t] for l, t in shortest],
+        "mvp": FINALS_MVP.get(y),
+    }
+    return out
+
+
+def main():
+    years = [int(a) for a in sys.argv[1:]] or [2023, 2024, 2025]
+    H = {}
+    for y in years:
+        H[str(y)] = build(y)
+        d = H[str(y)]
+        print(f"{y}：{d['games']} 局、不同英雄 {d['uniq']}、淘汰賽 {d['koRegions']} 個地區 {d['ko']}")
+    with open(OUT, "w", encoding="utf-8", newline="\n") as f:
+        f.write("window.PRED_HIST=" + json.dumps(H, ensure_ascii=False, separators=(",", ":")) + ";\n")
+    print("→", OUT, os.path.getsize(OUT), "bytes")
+
+
+if __name__ == "__main__":
+    main()

@@ -23,6 +23,8 @@
 !lck_groups.js
 !patch_dir_fix.js
 !events_extra.js
+# 預測分頁（水晶球）的歷屆世界賽參考，scripts/build_predict_hist.py 產
+!predict_hist.js
 !wiki_links.js
 !chart.umd.min.js
 # leaguepedia.js 不發布：index.html 完全沒有引用它（只有 scripts/*.py 拿它當輸入），
