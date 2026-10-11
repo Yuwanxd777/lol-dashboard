@@ -11,7 +11,7 @@
   選手 KDA／場均傷害／參與率＝≥6 場；參與率＝(擊殺＋助攻) ÷ 戰隊擊殺。
   淘汰賽＝最後 7 個比賽日出場的戰隊（八強→決賽）；地區＝該隊當年出賽最多的國內賽事。
 """
-import io, json, os, sys
+import csv, io, json, os, sys
 from collections import Counter, defaultdict
 
 if (getattr(sys.stdout, "encoding", "") or "").lower().replace("-", "") != "utf8":
@@ -34,16 +34,42 @@ def load(y):
     return R[0], R[1:]
 
 
+# 夏季（7～9 月）主要賽區：拿來算「區域聯賽 → 世界賽」的 15 殺發生率折扣（世界賽對手強、碾壓局少）
+REG15_LG = {"LCK", "LPL", "LEC", "LCS", "LTA N", "LTA S", "LTA", "CBLOL", "LCP", "PCS", "VCS", "LJL"}
+
+
+def cs_stats(y):
+    """單場最高總補兵（total cs）——年度資料檔沒收補兵，只能讀 csv_cache/{y}.csv（OE 原檔）。"""
+    f = os.path.join(ROOT, "csv_cache", f"{y}.csv")
+    if not os.path.exists(f):
+        return None, None
+    csv.field_size_limit(10 ** 9)
+    G = defaultdict(float)
+    with open(f, encoding="utf-8", errors="replace") as fh:
+        for r in csv.DictReader(fh):
+            if r.get("league") != "WLDs" or r.get("position") == "team":
+                continue
+            try:
+                G[r["gameid"]] = max(G[r["gameid"]], float(r.get("total cs") or 0))
+            except ValueError:
+                pass
+    return sum(v >= 450 for v in G.values()), int(max(G.values())) if G else None
+
+
 def build(y):
     h, R = load(y)
     ix = {c: i for i, c in enumerate(h)}
     num = lambda r, c: float(r[ix[c]]) if r[ix[c]] not in ("", None) else 0.0
     G = {}
     team_lg = defaultdict(Counter)
+    regK = defaultdict(float)                     # 夏季主要賽區：每局單人最高擊殺
     for r in R:
         lg = r[ix["league"]]
         if str(r[ix["participantid"]]) not in ("1", "2", "3", "4", "5"):
             continue
+        if lg in REG15_LG and "07" <= str(r[ix["date"]])[5:7] <= "09":
+            k = (str(r[ix["date"]])[:10], r[ix["blue_teamname"]], r[ix["red_teamname"]], str(r[ix["game"]]))
+            regK[k] = max(regK[k], num(r, "blue_kills"), num(r, "red_kills"))
         if lg not in INTL:
             team_lg[r[ix["blue_teamname"]]][lg] += 1
             team_lg[r[ix["red_teamname"]]][lg] += 1
@@ -115,7 +141,9 @@ def build(y):
         "koLCS": [t for t in ko if reg[t] == "LCS"],
         "shortest": [[round(l, 1), t] for l, t in shortest],
         "mvp": FINALS_MVP.get(y),
+        "reg15": [len(regK), sum(v >= 15 for v in regK.values())],
     }
+    out["cs450"], out["maxCS"] = cs_stats(y)
     return out
 
 
@@ -125,7 +153,7 @@ def main():
     for y in years:
         H[str(y)] = build(y)
         d = H[str(y)]
-        print(f"{y}：{d['games']} 局、不同英雄 {d['uniq']}、淘汰賽 {d['koRegions']} 個地區 {d['ko']}")
+        print(f"{y}：{d['games']} 局、不同英雄 {d['uniq']}、淘汰賽 {d['koRegions']} 個地區 {d['ko']}、≥450 補兵 {d['cs450']} 局（最高 {d['maxCS']}）、15 殺 {d['k15']}｜區域 {d['reg15']}")
     with open(OUT, "w", encoding="utf-8", newline="\n") as f:
         f.write("window.PRED_HIST=" + json.dumps(H, ensure_ascii=False, separators=(",", ":")) + ";\n")
     print("→", OUT, os.path.getsize(OUT), "bytes")
