@@ -1784,6 +1784,9 @@ const xKey=(obj,n)=>{
   if(ITEM_ALIAS[n])cands.push(ITEM_ALIAS[n]); // 舊譯名 → 現行名
   for(const[a,c]of Object.entries(ITEM_ALIAS))if(c===n)cands.push(a); // 現行名 → 舊譯名
   for(const k of cands)if(obj[k]!=null)return k;
+  // 兩件道具合寫的標題（世界地圖與符文指針）→ 用第一件（同 assetOf 的拆法）
+  const parts=n.split(/\s*(?:與|和| and | & )\s*/);
+  if(parts.length>1&&parts[0]&&parts[0]!==n){ const k0=xKey(obj,parts[0]); if(k0!=null&&(typeof assetOf!=="function"||!assetOf(parts[0])||assetOf(parts[0]).kind==="item"))return k0; }
   return null;
 };
 // 「召喚峽谷可購買道具」統一過濾（道具/符文/物件圖鑑只列峽谷資料）：
@@ -1948,6 +1951,10 @@ const assetOf=n=>{ if(!ASSET_IDX||n==null)return null;
   if(ITEM_ALIAS[s])cands.push(ITEM_ALIAS[s]);
   for(const[a,c]of Object.entries(ITEM_ALIAS))if(c===s)cands.push(a);
   for(const k of cands)if(ASSET_IDX.byName[k])return ASSET_IDX.byName[k];
+  // 官方把兩件一起改的道具寫成一個標題（「世界地圖與符文指針」＝輔助起始道具與它的升級）：
+  //   整串查不到就拆開、用第一件的資料（圖示／分類），版本焦點不再只剩一串文字（使用者 2026-10-11）
+  const parts=s.split(/\s*(?:與|和| and | & )\s*/);
+  if(parts.length>1&&parts[0]&&parts[0]!==s){ const a0=assetOf(parts[0]); if(a0&&a0.kind==="item")return Object.assign({},a0,{hit:null,_combo:parts}); }
   return null; };
 const CDN_="https://ddragon.leagueoflegends.com/cdn";
 // 符文圖：舊格式路徑（ASSETS/Perks、.dds＝已移除舊符文的舊內部代號）無法推導 → 查 rune_icons.js 正解表（見 runeImgOf，此處以 id 查）
@@ -1989,7 +1996,7 @@ const MONSTER_ZH={"Ancient Golem":"遠古石魔","Big Golem":"大石魔","Golem"
   "Giant Wolf":"巨狼","Lesser Wolf":"小狼","Wraith":"幽魂","Lesser Wraith":"小幽魂",
   "Wight":"陰屍","Lizard Elder":"蜥蜴長老","Young Lizard":"小蜥蜴",
   "Custom Games":"自訂遊戲","Friends List":"好友列表"};
-const assetZh=n=>{ const a=assetOf(n); if(a)return (a.hit&&a.hit.zh)||a.e.zh; const mm=masteryOf(n); const k=String(n).trim(); return (mm&&mm.zh)||ITEM_ALIAS[k]||MONSTER_ZH[k]||MONSTER_ZH[k.replace(/（移除）$/,"")]||n; };
+const assetZh=n=>{ const a=assetOf(n); if(a&&a._combo)return a._combo.map(x=>assetZh(x)).join(LANG==="en"?" & ":"與"); if(a)return (a.hit&&a.hit.zh)||a.e.zh; const mm=masteryOf(n); const k=String(n).trim(); return (mm&&mm.zh)||ITEM_ALIAS[k]||MONSTER_ZH[k]||MONSTER_ZH[k.replace(/（移除）$/,"")]||n; };
 // 服役年份文字（不連續年段以「、」隔開）：「2018–2023」或「2014–2019、2024–2026」
 const assetSpanText=n=>{ const a=assetOf(n);
   const M=(typeof assetMergedOf==="function")?assetMergedOf(n):null; // 同名跨 id 合併（寒冰霸拳＝2014–2020、2022–2026）
