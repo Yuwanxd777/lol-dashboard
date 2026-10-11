@@ -1000,6 +1000,7 @@
   .pdExt{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;font-size:15px;padding:5px 10px;margin:-2px 0 8px;border-left:3px solid #8ab4ff;background:rgba(138,180,255,.07);border-radius:0 8px 8px 0}
   .pdExt .pdExtSrc{color:#8ab4ff;white-space:nowrap}.pdExt .pdExtSrc a{color:inherit;text-decoration:none}
   .pdExt .pdExtWhy{color:var(--tx2);flex-basis:100%}
+  .pdExt .pdExtWhy a{color:#8ab4ff;text-decoration:none;white-space:nowrap}.pdExt a:hover{text-decoration:underline}
   @container mainc (max-width:1500px){ .pdCols4{grid-template-columns:repeat(2,minmax(0,1fr))} }
   @container mainc (max-width:900px){ .pdCols,.pdCols4{grid-template-columns:1fr} }
   /* 角色池對比：五路一列一列，左＝只有左邊會／中＝兩邊都會／右＝只有右邊會 */
@@ -12591,8 +12592,11 @@ function render(){
     const srcTx=live?(en2?"from this Worlds":"依本屆"):(en2?"from recent games, weighted by how far each team is expected to go":"依近期，按各隊預估能打幾場加權");
     // 外部預測（predict_ext.js，使用者 2026-10-11：把實況主／分析師的預測跟原因列進來對照）
     const EXT=(window.PRED_EXT||[]).filter(e=>e&&e.answers);
-    const extRows=qid=>EXT.filter(e=>e.answers[qid]).map(e=>{ const a=e.answers[qid];
-      return `<div class="pdExt"><span class="pdExtSrc">🎙 <a href="${esc(e.url||"#")}" target="_blank" rel="noopener">${esc(e.src)}</a></span><b>${esc((a.pick||[]).join("／"))}</b>${a.why?`<span class="pdExtWhy">${esc(a.why)}${a.t?`（${esc(a.t)}）`:""}</span>`:""}</div>`; }).join("");
+    // 連結帶時間點（使用者 2026-10-11：點進去 YT 要直接跳到他講這題的地方）：a.t＝"mm:ss" 或 "h:mm:ss" → &t=秒數
+    const extUrl=(u,t)=>{ if(!u)return "#"; const p=String(t||"").split(":").map(Number); if(!t||p.some(isNaN))return u;
+      const sec=p.reduce((s,x)=>s*60+x,0); return u.replace(/([?&])t=[^&]*(&|$)/,"$1").replace(/[?&]$/,"")+(u.includes("?")?"&":"?")+"t="+sec+"s"; };
+    const extRows=qid=>EXT.filter(e=>e.answers[qid]).map(e=>{ const a=e.answers[qid], href=esc(extUrl(e.url,a.t));
+      return `<div class="pdExt"><span class="pdExtSrc">🎙 <a href="${href}" target="_blank" rel="noopener">${esc(e.src)}</a></span><b>${esc((a.pick||[]).join("／"))}</b>${a.why?`<span class="pdExtWhy">${esc(a.why)}${a.t?`（<a href="${href}" target="_blank" rel="noopener">▶ ${esc(a.t)}</a>）`:""}</span>`:""}</div>`; }).join("");
     const QORD=["model","presence","winrate","deaths","kda","dmg","kp","peyzguma","faker700","teemo","uniq","len32","k15","cs450","mvp","koreg","lcs","hlet1","fast"];
     const card=(tag,q,pts,ans,why,cols,wide,qid)=>(qid=qid||QORD[cards.length],0)||`<div class="card"${wide?' style="grid-column:1/-1"':""}><div class="pdHd"><span class="pdTag">${tag}</span><span class="pdQ">${q}</span><span class="pdPts">${pts}</span></div>`
       +(ans!=null?`<div class="pdAns"><span class="pdAnsLb">${en2?"Suggest":"建議"}</span>${ans}${why?`<span class="pdWhy">${why}</span>`:""}</div>`:"")+(qid?extRows(qid):"")
