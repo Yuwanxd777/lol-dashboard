@@ -994,8 +994,7 @@
   .pdTile{display:flex;flex-direction:column;align-items:center;gap:5px;min-width:76px;padding:8px 8px 6px;border-radius:10px;background:rgba(0,0,0,.22);border:1px solid rgba(255,255,255,.07)}
   .pdTile .pdTImg{position:relative;display:inline-flex;line-height:0}
   .pdTile .pdTImg .cc img,.pdTile .pdTImg>img,.pdTile .pdTImg>svg{width:52px;height:52px;border-radius:10px;object-fit:contain}
-  .pdTile .pdTImg .pdRk{position:absolute;top:-7px;left:-7px;display:inline-flex;align-items:center;justify-content:center;width:21px;height:21px;border-radius:50%;font-size:12.5px;font-weight:800;color:#1a1a1a;background:#8a93a6;box-shadow:0 0 0 2px rgba(15,18,25,.9);line-height:1}
-  .pdTile .pdRk1{background:#ffc850}.pdTile .pdRk2{background:#c9d1dc}.pdTile .pdRk3{background:#d39a6a}
+  .pdTile .pdTImg .pdRk{position:absolute;top:-10px;left:-10px;font-size:22px;line-height:1;filter:drop-shadow(0 1px 2px rgba(0,0,0,.7))}
   .pdTile:first-child{border-color:rgba(255,200,80,.55);background:rgba(255,200,80,.10)}
   .pdTile .pdTNm{font-size:15.5px;font-weight:700;white-space:nowrap}
   .pdAns>.pdPick{font-size:22px}
@@ -12636,7 +12635,7 @@ function render(){
     const H_REC=en2?`Recent (${R.n} games)`:`近期（${R.n} 局）`, H_PAST=en2?`Past Worlds (${HY.length})`:`歷屆世界賽（${HY.length} 屆）`, H_LIVE=en2?`This Worlds (${L.n})`:`本屆（${L.n} 局）`;
     const histRows=f=>HY.length?HY.map(y=>f(y,H[y])).join(""):none();
     // 建議答案＝名次牌（大頭像＋名次徽章＋名字），觀眾一眼看到答案
-    const tile=(i,img,name)=>`<span class="pdTile"><span class="pdTImg">${img}<span class="pdRk pdRk${i+1}">${i+1}</span></span><span class="pdTNm">${name}</span></span>`;
+    const tile=(i,img,name)=>`<span class="pdTile"><span class="pdTImg">${img}<span class="pdRk pdRk${i+1}" title="#${i+1}">${["🥇","🥈","🥉"][i]||i+1}</span></span><span class="pdTNm">${name}</span></span>`;
     const pickC=cs=>`<span class="pdTiles">${cs.map((c,i)=>tile(i,cImg(c),cNm(c))).join("")}</span>`;
     const pickP=(ps,S)=>`<span class="pdTiles">${ps.map((p,i)=>tile(i,tLogo(S.pl[p].team,46),esc(p))).join("")}</span>`;
     const pickTx=t=>`<span class="pdPick">${t}</span>`;
