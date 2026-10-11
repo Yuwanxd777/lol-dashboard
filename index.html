@@ -1003,11 +1003,11 @@
   .pdWhy{font-size:16.5px;color:var(--tx);opacity:.82;flex-basis:100%;line-height:1.5}
   .pdCols{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
   .pdCols.pdPre{grid-template-columns:minmax(0,1.3fr) minmax(0,1.3fr) minmax(0,.7fr)}
-  .pdCol{min-width:0;padding:2px 14px 4px;border-left:1px solid rgba(255,255,255,.07)}
-  .pdCols>.pdCol:first-child{border-left:0;padding-left:0}
+  /* 分區用淡底色、不用框線（使用者：框太多眼花、拿掉後又難讀 → 底色分區＋隔列底色） */
+  .pdCol{min-width:0;padding:10px 12px 8px;border-radius:10px;background:rgba(255,255,255,.035)}
   .pdCol h4{margin:0 0 6px;padding-bottom:6px;font-size:15.5px;color:var(--tx2);font-weight:600;white-space:nowrap;border-bottom:1px solid rgba(255,255,255,.08)}
-  .pdRow{display:flex;align-items:center;gap:6px;font-size:16.5px;line-height:1.85;white-space:nowrap;border-bottom:1px dashed rgba(255,255,255,.045)}
-  .pdRow:last-child{border-bottom:0}
+  .pdRow{display:flex;align-items:center;gap:6px;font-size:16.5px;line-height:1.85;white-space:nowrap;padding:0 6px;margin:0 -6px;border-radius:6px}
+  .pdCol>.pdRow:nth-of-type(even),.pdCol>.pdMRow:nth-of-type(odd){background:rgba(255,255,255,.035)}
   .pdRow .cc img{width:24px;height:24px}
   .pdRow .pdV{margin-left:auto;font-variant-numeric:tabular-nums;color:var(--tx);font-weight:600}
   .pdRow .pdN{font-size:14.5px;color:var(--tx2);font-weight:400}
@@ -1021,15 +1021,15 @@
   .pdQC .pdL{min-width:0}
   .pdQC .pdAns{margin-bottom:8px}
   .pdCols4{grid-template-columns:repeat(4,minmax(0,1fr))}
-  .pdMRow{display:grid;grid-template-columns:22px minmax(54px,1fr) 58px 52px 52px 52px 70px;align-items:center;gap:6px;font-size:16.5px;line-height:1.8;white-space:nowrap;border-bottom:1px dashed rgba(255,255,255,.045);font-variant-numeric:tabular-nums}
+  .pdMRow{display:grid;grid-template-columns:22px 52px minmax(62px,1fr) 52px 52px 52px 70px;align-items:center;gap:6px;font-size:16.5px;line-height:1.8;white-space:nowrap;font-variant-numeric:tabular-nums;padding:0 6px;margin:0 -6px;border-radius:6px}
   .pdMRow>span:nth-child(n+4){text-align:right}
   .pdMRow .pdMT{font-weight:700}
-  .pdMHd{font-size:14.5px;color:var(--tx2);border-bottom:1px solid rgba(255,255,255,.08);line-height:1.6}
+  .pdMHd{font-size:14.5px;color:var(--tx2);border-bottom:1px solid rgba(255,255,255,.08);line-height:1.6;border-radius:0;background:none!important}
   .pdSub{font-size:14.5px;color:var(--tx2);margin:6px 0 1px;opacity:.85}.pdCol h4+.pdSub{margin-top:0}
-  .pdExt{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:15.5px;padding:5px 10px;margin:-2px 0 8px;border-left:3px solid #8ab4ff;border-radius:0}
+  .pdExt{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:15.5px;padding:5px 10px;margin:-2px 0 8px;border-left:3px solid #8ab4ff;border-radius:0 8px 8px 0;background:rgba(138,180,255,.06)}
   .pdExt .pdExtSrc{color:#8ab4ff;white-space:nowrap;display:inline-flex;align-items:center}
   .pdExt>b{display:inline-flex;align-items:center;gap:4px;flex-wrap:wrap}
-  .pdDet{font-size:14.5px;color:var(--tx2);margin:-6px 0 4px 30px;padding-bottom:4px;line-height:1.45;white-space:normal;border-bottom:1px dashed rgba(255,255,255,.045)}
+  .pdDet{font-size:14.5px;color:var(--tx2);margin:-6px 0 4px 30px;padding-bottom:4px;line-height:1.45;white-space:normal}
   .pdRow:has(+.pdDet){border-bottom:0}
   .pdRowD{white-space:normal;line-height:1.35;padding:5px 0}
   .pdRowD .pdNm{white-space:nowrap;flex:0 0 auto}
