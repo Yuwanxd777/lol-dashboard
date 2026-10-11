@@ -12730,7 +12730,7 @@ function render(){
       const ex=(q,t,lq)=>lq.k+(q.n?q.k/q.n:0)*Math.max(0,EG(t)-lq.n);
       const ea=ex(a,"T1",la), eb=ex(b,"Hanwha Life Esports",lb), pick=ea>=eb?"Peyz":"Gumayusi";
       const pg=q=>q.n?d1s((q.k/q.n).toFixed(1)):"–";
-      cards.push(card(TG.p,en2?"Peyz vs Gumayusi: who gets more kills?":"Peyz vs Gumayusi：誰的擊殺數會比較多？",P1(100),pickTx(esc(pick)),
+      cards.push(card(TG.p,en2?"Peyz vs Gumayusi: who gets more kills?":"Peyz vs Gumayusi：誰的擊殺數會比較多？",P1(100),pickTx(`${tLogo(pick==="Peyz"?"T1":"Hanwha Life Esports",24)}${esc(pick)}`),
         en2?`kills per game × expected games: Peyz ≈${Math.round(ea)} vs Gumayusi ≈${Math.round(eb)}`:`場均擊殺 × 預估場數：Peyz 約 ${Math.round(ea)} 殺 vs Gumayusi 約 ${Math.round(eb)} 殺`,
         col(H_REC,rowT(`Peyz ${en2?"per game":"場均"}`,pg(a))+rowT(`Gumayusi ${en2?"per game":"場均"}`,pg(b))+rowT(`T1 ${en2?"exp. games":"預估場數"}`,d1s(EG("T1").toFixed(1)))+rowT(`HLE ${en2?"exp. games":"預估場數"}`,d1s(EG("Hanwha Life Esports").toFixed(1))))
         +col(H_PAST,histRows((y,h)=>rowT(y,`${(h.kills.Peyz||[0])[0]} : ${(h.kills.Gumayusi||[0])[0]}`)))
