@@ -3,8 +3,8 @@
 
 只讀 data/data_YYYY.js 的 WLDs 場次，逐年算出水晶球題目會用到的排行與數字。
 歷屆資料不會再變，所以不掛進每日管線；要多加一屆（或改題目定義）時手動重跑：
-  python scripts/build_predict_hist.py            # 預設 2023 2024 2025
-  python scripts/build_predict_hist.py 2022 2023 2024 2025
+  python scripts/build_predict_hist.py            # 預設 2019～2025（使用者：前三屆不夠清楚就往前推）
+  python scripts/build_predict_hist.py 2016 2017 2018 2019 2020 2021 2022 2023 2024 2025
 
 口徑跟 index.html 的「預測」分頁即時計算一致（改一邊要改另一邊）：
   出場率＝選用或禁用的局數 ÷ 總局數；勝率／場均死亡＝該英雄 ≥5 場；
@@ -23,7 +23,8 @@ REGION = {"LTA N": "LCS", "LCS": "LCS", "NA LCS": "LCS", "LTA S": "CBLOL", "CBLO
           "LTA": "LTA", "LCP": "LCP", "PCS": "PCS", "VCS": "VCS", "LJL": "LJL", "LLA": "LLA",
           "LCK": "LCK", "LPL": "LPL", "LEC": "LEC", "EU LCS": "LEC", "TCL": "TCL", "LCO": "LCO"}
 # 決賽 MVP（資料庫沒有這個欄位，只放確定的屆數；不確定的不寫）
-FINALS_MVP = {2024: ["Faker", "MID"], 2025: ["Gumayusi", "BOT"]}
+FINALS_MVP = {2019: ["Tian", "JNG"], 2020: ["Canyon", "JNG"], 2021: ["Scout", "MID"], 2022: ["Deft", "BOT"],
+              2024: ["Faker", "MID"], 2025: ["Gumayusi", "BOT"]}  # 2023 不確定，先不放
 
 
 def load(y):
@@ -59,13 +60,15 @@ def build(y):
     n = len(G)
     pres, pk, w, dth = Counter(), Counter(), Counter(), Counter()
     P = defaultdict(lambda: dict(k=0, d=0, a=0, tk=0, dmg=0, n=0, team=""))
-    lens, big = [], []
+    lens, big, k15 = [], [], 0
     for g in G.values():
         champs = {p["champ"] for p in g["pl"] if p["champ"]}
         for c in champs | g["bans"]:
             pres[c] += 1
         if g["len"] not in ("", None):
             lens.append(float(g["len"]) / 60)
+        if any(p["k"] >= 15 for p in g["pl"]):
+            k15 += 1
         for p in g["pl"]:
             if not p["champ"]:
                 continue
@@ -79,9 +82,15 @@ def build(y):
     p6 = {nm: q for nm, q in P.items() if q["n"] >= 6}
     kda = lambda q: (q["k"] + q["a"]) / max(1, q["d"])
     kp = lambda q: (q["k"] + q["a"]) / max(1, q["tk"])
-    days = sorted({k[0] for k in G})
-    ko_days = set(days[-7:])
-    ko = sorted({t for k in G if k[0] in ko_days for t in (k[1], k[2])})
+    # 淘汰賽＝最後 7 個 BO5 系列（八強 4＋四強 2＋決賽 1）。舊版用「最後 7 個比賽日」，
+    # 2019（12 隊）／2022（6 隊）賽程天數不同就抓錯；BO5＝系列裡有一方拿到 3 勝。
+    ser = defaultdict(lambda: [Counter(), ""])
+    for (d, b_, r_, gn), g in G.items():
+        k = tuple(sorted((b_, r_)))
+        ser[k + (d[:7],)][0][b_ if g["res"] == 1 else r_] += 1
+        ser[k + (d[:7],)][1] = max(ser[k + (d[:7],)][1], d)
+    bo5 = sorted((v[1], k[:2]) for k, v in ser.items() if max(v[0].values()) >= 3)
+    ko = sorted({t for _, pair in bo5[-7:] for t in pair})
     reg = {t: REGION.get(team_lg[t].most_common(1)[0][0], team_lg[t].most_common(1)[0][0]) if team_lg[t] else "?" for t in ko}
     shortest = sorted(([float(g["len"]) / 60, (k[1] if g["res"] == 1 else k[2])] for k, g in G.items() if g["len"] not in ("", None)))[:3]
     big.sort(reverse=True)
@@ -99,6 +108,7 @@ def build(y):
         "maxLen": round(max(lens), 1) if lens else None,
         "maxKills": big[:3],
         "teemo": pk.get("Teemo", 0),
+        "k15": k15,
         "kills": {nm: [int(P[nm]["k"]), P[nm]["n"]] for nm in ("Faker", "Peyz", "Gumayusi") if nm in P},
         "ko": [[t, reg[t]] for t in ko],
         "koRegions": len(set(reg.values())),
@@ -110,7 +120,7 @@ def build(y):
 
 
 def main():
-    years = [int(a) for a in sys.argv[1:]] or [2023, 2024, 2025]
+    years = [int(a) for a in sys.argv[1:]] or list(range(2019, 2026))
     H = {}
     for y in years:
         H[str(y)] = build(y)
