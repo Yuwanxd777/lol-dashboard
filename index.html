@@ -996,6 +996,10 @@
   .pdRow .pdV{margin-left:auto;font-variant-numeric:tabular-nums;color:var(--tx)}
   .pdRow .pdN{font-size:14.5px;color:var(--tx2)}
   .pdNone{font-size:15.5px;color:var(--tx2)}
+  .pdList{display:flex;flex-direction:column;gap:14px}
+  .pdQC{display:grid;grid-template-columns:minmax(0,0.95fr) minmax(0,2.05fr);gap:16px;align-items:start}
+  .pdQC .pdL{min-width:0}
+  .pdQC .pdAns{margin-bottom:8px}
   .pdCols4{grid-template-columns:repeat(4,minmax(0,1fr))}
   .pdSub{font-size:13.5px;color:var(--tx2);margin:6px 0 1px;opacity:.85}.pdCol h4+.pdSub{margin-top:0}
   .pdExt{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:15px;padding:5px 10px;margin:-2px 0 8px;border-left:3px solid #8ab4ff;background:rgba(138,180,255,.07);border-radius:0 8px 8px 0}
@@ -1005,6 +1009,7 @@
   .pdExt .pdExtWhy{color:var(--tx2);flex-basis:100%}
   .pdExt .pdExtWhy a{color:#8ab4ff;text-decoration:none;white-space:nowrap}.pdExt a:hover{text-decoration:underline}
   @container mainc (max-width:1500px){ .pdCols4{grid-template-columns:repeat(2,minmax(0,1fr))} }
+  @container mainc (max-width:1300px){ .pdQC{grid-template-columns:1fr;gap:10px} }
   @container mainc (max-width:900px){ .pdCols,.pdCols4{grid-template-columns:1fr} }
   /* 角色池對比：五路一列一列，左＝只有左邊會／中＝兩邊都會／右＝只有右邊會 */
   /* 六欄：路線｜左選手｜只有左邊會｜兩邊都會｜只有右邊會｜右選手。
@@ -12630,9 +12635,10 @@ function render(){
     const extRows=qid=>EXT.filter(e=>e.answers[qid]).map(e=>{ const a=e.answers[qid], href=esc(extUrl(e.url,a.t));
       return `<div class="pdExt"><span class="pdExtSrc">🎙 <a href="${href}" target="_blank" rel="noopener">${esc(e.src)}</a></span><b>${extPick(qid,a)}</b>${a.why?`<span class="pdExtWhy">${esc(a.why)}${a.t?`（<a href="${href}" target="_blank" rel="noopener">▶ ${esc(a.t)}</a>）`:""}</span>`:""}</div>`; }).join("");
     const QORD=["model","presence","winrate","deaths","kda","dmg","kp","peyzguma","faker700","teemo","uniq","len32","k15","cs450","mvp","koreg","lcs","hlet1","fast"];
-    const card=(tag,q,pts,ans,why,cols,wide,qid)=>(qid=qid||QORD[cards.length],0)||`<div class="card"${wide?' style="grid-column:1/-1"':""}><div class="pdHd"><span class="pdTag">${tag}</span><span class="pdQ">${q}</span><span class="pdPts">${pts}</span></div>`
-      +(ans!=null?`<div class="pdAns"><span class="pdAnsLb">${en2?"Suggest":"建議"}</span>${ans}${why?`<span class="pdWhy">${why}</span>`:""}</div>`:"")+(qid?extRows(qid):"")
-      +`<div class="pdCols${(cols.match(/class="pdCol"/g)||[]).length>3?" pdCols4":""}">${cols}</div></div>`;
+    // 版面（使用者 2026-10-11：一個問題一列）：每題一張整列卡片，左＝題目／建議／外部預測，右＝近期｜歷屆｜本屆三欄
+    const card=(tag,q,pts,ans,why,cols,wide,qid)=>(qid=qid||QORD[cards.length],0)||`<div class="card pdQC"><div class="pdL"><div class="pdHd"><span class="pdTag">${tag}</span><span class="pdQ">${q}</span><span class="pdPts">${pts}</span></div>`
+      +(ans!=null?`<div class="pdAns"><span class="pdAnsLb">${en2?"Suggest":"建議"}</span>${ans}${why?`<span class="pdWhy">${why}</span>`:""}</div>`:(why?`<div class="pdWhy" style="margin-bottom:8px">${why}</div>`:""))+(qid?extRows(qid):"")
+      +`</div><div class="pdCols">${cols}</div></div>`;
     const P3="#1 50・#2 20・#3 10", P1=n=>`${n}${en2?" pts":" 分"}`;
     const TG={c:en2?"Champion":"英雄",p:en2?"Player":"玩家",e:en2?"Event":"活動",t:en2?"Team":"戰隊"};
     const YES=en2?"Yes":"會", NO=en2?"No":"不會";
@@ -12645,7 +12651,7 @@ function render(){
         +`<span class="pdV">${elo(t)}・${en2?"KO":"八強"} ${pct(SIM.T[t].pko)}・${en2?"title":"冠軍"} ${pct(SIM.T[t].pch)}・≈${d1s(SIM.T[t].eg.toFixed(1))}${en2?" g":" 場"}</span></div>`;
       const third=Math.ceil(ts.length/3);
       cards.push(card(en2?"Model":"模型",en2?"Team strength and how far each team goes":"戰隊強度與預估能走多遠",
-        `${en2?`region strength (${curYear-2}-${curYear} cross-region games, ${MODEL.nH})`:`賽區強度（${curYear-2}～${curYear} 國際賽跨賽區 ${MODEL.nH} 局）`}：${regs.map(g=>`${g} ${Math.round(MODEL.R[g]*400/Math.LN10)>=0?"+":""}${Math.round(MODEL.R[g]*400/Math.LN10)}`).join("・")}`,null,"",
+        "",null,`<b>${en2?`Region strength (${curYear-2}-${curYear} cross-region games, ${MODEL.nH})`:`賽區強度（${curYear-2}～${curYear} 國際賽跨賽區 ${MODEL.nH} 局）`}</b><br>${regs.map(g=>`${g} ${Math.round(MODEL.R[g]*400/Math.LN10)>=0?"+":""}${Math.round(MODEL.R[g]*400/Math.LN10)}`).join("・")}<br>${en2?"Teams sorted by strength; KO / title odds and expected games come from the Worlds simulation.":"戰隊依強度排序；八強／冠軍機率與預估場數來自世界賽模擬。"}`,
         col(en2?"Strength・KO・title・games":"強度・八強・冠軍・預估場數",ts.slice(0,third).map(row).join(""))
         +col("&nbsp;",ts.slice(third,third*2).map(row).join(""))+col("&nbsp;",ts.slice(third*2).map(row).join("")),true)); }
     // ① 出場率
@@ -12673,8 +12679,22 @@ function render(){
         for(const x of cs){ const n=pois(x.lam); if(n<5)continue; const p=Math.min(0.97,Math.max(0.03,x.ph+x.sd*gauss())); let w=0; for(let i=0;i<n;i++)if(rnd()<p)w++;
           const wr=w/n; if(wr>bw||(wr===bw&&n>bn)){bw=wr; bn=n; best=x.c;} }
         if(best)top[best]=(top[best]||0)+1; }
-      const rk=Object.keys(top).sort((a,b)=>top[b]-top[a]);
-      return {top,rk,WSIMS,cs:Object.fromEntries(cs.map(x=>[x.c,x]))}; })();
+      // 熱門度先驗（使用者 2026-10-11：勝率王都是最近很少選、但不是沒人選的英雄）：
+      //   歷屆勝率前三在「賽前 90 天選用排名」的分布（predict_hist wrPre）→ 每 20 名一區的命中率；
+      //   2019～2025 實測第 41～60 名命中 6.4%（7 個第一裡占 4 個），其他區 0.4～2.9%。今年同樣算賽前 90 天的排名。
+      const PRE_LG=new Set(["LCK","LPL","LEC","LCS","LTA N","LTA S","LTA","CBLOL","LCP","PCS","VCS","LJL","MSI","EWC","FST"]);
+      const _d=new Date(WFROM); _d.setDate(_d.getDate()-90); const preLo=_d.toISOString().slice(0,10);
+      const preN={}; LANES.forEach(o=>{ if(!PRE_LG.has(o.league)||o.date<preLo||o.date>=WFROM)return;
+        [o.raw[C.blue_champion],o.raw[C.blue_champion+RB]].forEach(c=>{ if(c)preN[c]=(preN[c]||0)+1; }); });
+      const preRank={}; Object.keys(preN).sort((a,b)=>preN[b]-preN[a]).forEach((c,i)=>preRank[c]=i+1);
+      const bkt=r=>r<=100?Math.ceil(r/20):6, bHit={}, bSize={};
+      HY.forEach(y=>{ const w=H[y].wrPre; if(!w)return; for(let k=1;k<=6;k++)bSize[k]=(bSize[k]||0)+(k<6?Math.min(20,Math.max(0,w.n-(k-1)*20)):Math.max(0,w.n-100));
+        w.ranks.forEach(r=>{ bHit[bkt(r)]=(bHit[bkt(r)]||0)+1; }); });
+      const bRate=k=>((bHit[k]||0)+0.3)/((bSize[k]||0)+10);
+      const prior=c=>bRate(bkt(preRank[c]||999));
+      const score=c=>((top[c]||0)+3)/WSIMS*prior(c);
+      const rk=cs.map(x=>x.c).sort((a,b)=>score(b)-score(a));
+      return {top,rk,WSIMS,cs:Object.fromEntries(cs.map(x=>[x.c,x])),preRank,prior,bRate,score}; })();
     { const f=(S,m)=>topC(S,c=>wrC(S,c),m).map(c=>rowC(c,pct(wrC(S,c)),`${S.ch[c].w}-${S.ch[c].n-S.ch[c].w}`)).join("");
       const pick=live?topC(L,c=>wrC(L,c),5,3):WRS.rk.slice(0,3);
       // 使用者 2026-10-11：平常不太選、只在陣容合適或很會玩時才拿（BO5 後段局才出現）的英雄容易高勝率。
@@ -12682,10 +12702,11 @@ function render(){
       //   「後段局占比」跟勝率沒有穩定關係（斜率 +0.09／-0.06）⇒ 不另外加分；它們上榜主要是場數剛好 5～8 場、運氣成分大，
       //   模擬已經吃到這點。這裡把「第 3 局以後」占比列出來給人判斷。
       const ltTx=c=>R.ch[c]?`${en2?"G3+":"後段"} ${R.ch[c].lt||0}/${R.ch[c].n}`:"";
-      const simRows=WRS?sub(en2?"chance to finish #1":"拿第一的機率")+WRS.rk.slice(0,6).map(c=>rowCD(c,pct(WRS.top[c]/WRS.WSIMS),`${en2?"recent":"近期"} ${R.ch[c].w}-${R.ch[c].n-R.ch[c].w}・${en2?"exp.":"預估"} ${d1s(WRS.cs[c].lam.toFixed(1))} ${en2?"g":"場"}・${ltTx(c)}${sqTx(c)}`)).join(""):"";
+      const simRows=WRS?sub(en2?"simulated #1 odds × popularity prior":"模擬拿第一 × 熱門度先驗")+WRS.rk.slice(0,6).map(c=>rowCD(c,pct(WRS.top[c]/WRS.WSIMS),
+        `${en2?"pre-Worlds rank":"賽前熱門第"} ${WRS.preRank[c]||"–"}${en2?"":" 名"}（${en2?"bucket hit":"該區命中"} ${(WRS.prior(c)*100).toFixed(1)}%）・${en2?"recent":"近期"} ${R.ch[c].w}-${R.ch[c].n-R.ch[c].w}・${en2?"exp.":"預估"} ${d1s(WRS.cs[c].lam.toFixed(1))} ${en2?"g":"場"}・${ltTx(c)}${sqTx(c)}`)).join(""):"";
       cards.push(card(TG.c,en2?"Highest win rate (min. 5 games)?":"勝率最高的英雄？（最少 5 場）",P3,pickC(pick),
-        live?srcTx:(en2?`simulated ${WRS.WSIMS} times: games drawn from recent pick rate × solo-queue trend, win rate shrunk toward 50% (±1.5% per buff/nerf patch); % = how often it ends up #1 among 5+ game champions`
-                      :`模擬 ${WRS.WSIMS} 次：場數照近期選用率 × 積分趨勢抽、勝率往 50% 收斂（每次增強／削弱 ±1.5%）；百分比＝在 ≥5 場的英雄裡拿第一的機率`),
+        live?srcTx:(en2?`past winners were rarely-but-not-never picked before Worlds (pre-Worlds pick rank 41-60 hit 6.4%, other ranks 0.4-2.9%); ranked by simulated #1 odds (games from pick rate × solo-queue trend, win rate shrunk toward 50%, ±1.5% per buff/nerf) × that prior`
+                      :`歷屆勝率王多是賽前很少選、但不是沒人選的英雄（賽前 90 天熱門第 41～60 名命中 6.4%，其他區 0.4～2.9%）；排序＝模擬拿第一的機率（場數照選用率 × 積分趨勢、勝率往 50% 收斂、增強削弱 ±1.5%）× 這個先驗`),
         col(live?H_REC:(en2?`Recent → simulated (${WRS.WSIMS.toLocaleString()} runs)`:`近期 → 模擬（${WRS.WSIMS.toLocaleString()} 次）`),live?f(R,10):simRows)
         +col(H_PAST,histRows((y,h)=>h.winrate[0]?rowC(h.winrate[0][0],`${y}・${h.winrate[0][1]}-${h.winrate[0][2]-h.winrate[0][1]}`):""))+col(H_LIVE,L.n?f(L,5):notYet),false,"winrate")); }
     // ③ 場均死亡
@@ -12835,7 +12856,7 @@ function render(){
           +sub(en2?"most likely matchups":"最常出現的對戰")+Object.keys(SIM.fastPair).sort((a,b)=>SIM.fastPair[b]-SIM.fastPair[a]).slice(0,4).map(k=>{ const [w,l]=k.split("|");
             return `<div class="pdRow">${teamLogoHTML(tAb(w),22,true)}<span>${esc(tAb(w))}</span><span class="pdN">${en2?"vs":"勝"}</span>${teamLogoHTML(tAb(l),22,true)}<span>${esc(tAb(l))}</span><span class="pdV">${pct(SIM.fastPair[k]/stN)}</span></div>`; }).join(""))
         +col(H_PAST,histRows((y,h)=>h.shortest[0]?rowT(y,`${esc(tAb(h.shortest[0][1]))} ${mm(h.shortest[0][0])}`):""))+col(H_LIVE,L.n?liveRows(L):notYet))); }
-    wrap.innerHTML=`<div class="grid">${cards.join("")}</div>`;
+    wrap.innerHTML=`<div class="pdList">${cards.join("")}</div>`;
     }
     const hb=document.getElementById("fHelp"); if(hb)hb.onclick=e=>{e.stopPropagation(); toggleHelpPop(hb);};
     document.getElementById("pdShot").onclick=()=>shotEl(document.getElementById("pdWrap"),en2?"Predictions":"預測");

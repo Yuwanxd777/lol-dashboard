@@ -11,7 +11,7 @@
   選手 KDA／場均傷害／參與率＝≥6 場；參與率＝(擊殺＋助攻) ÷ 戰隊擊殺。
   淘汰賽＝最後 7 個比賽日出場的戰隊（八強→決賽）；地區＝該隊當年出賽最多的國內賽事。
 """
-import csv, io, json, os, sys
+import csv, datetime, io, json, os, sys
 from collections import Counter, defaultdict
 
 if (getattr(sys.stdout, "encoding", "") or "").lower().replace("-", "") != "utf8":
@@ -26,6 +26,9 @@ REGION = {"LTA N": "LCS", "LCS": "LCS", "NA LCS": "LCS", "LTA S": "CBLOL", "CBLO
 H2H_REG = {"LCK": "LCK", "LPL": "LPL", "LEC": "LEC", "EU LCS": "LEC", "LCS": "LCS", "NA LCS": "LCS", "LTA N": "LCS",
            "CBLOL": "CBLOL", "LTA S": "CBLOL", "LCP": "LCP", "PCS": "LCP", "VCS": "LCP", "LJL": "LCP", "LCO": "LCP"}
 H2H_LG = {"WLDs", "MSI", "EWC", "FST", "DCup"}
+# 勝率題的熱門度先驗（使用者 2026-10-11：勝率王都是最近很少選、但不是沒人選的英雄）：
+#   賽前 90 天主要賽區＋國際賽的選用次數排名；記下該屆勝率前三（≥5 場）各自排第幾
+PRE_LG = {"LCK", "LPL", "LEC", "LCS", "LTA N", "LTA S", "LTA", "CBLOL", "LCP", "PCS", "VCS", "LJL", "MSI", "EWC", "FST"}
 # 決賽 MVP（資料庫沒有這個欄位，只放確定的屆數；不確定的不寫）
 FINALS_MVP = {2019: ["Tian", "JNG"], 2020: ["Canyon", "JNG"], 2021: ["Scout", "MID"], 2022: ["Deft", "BOT"],
               2024: ["Faker", "MID"], 2025: ["Gumayusi", "BOT"]}  # 2023 不確定，先不放
@@ -67,11 +70,16 @@ def build(y):
     G = {}
     team_lg = defaultdict(Counter)
     regK = defaultdict(float)                     # 夏季主要賽區：每局單人最高擊殺
+    w0 = min((str(r[ix["date"]])[:10] for r in R if r[ix["league"]] == "WLDs"), default=f"{y}-10-01")
+    pre_lo = (datetime.date.fromisoformat(w0) - datetime.timedelta(days=90)).isoformat()
+    pre = Counter()                               # 賽前 90 天選用次數
     h2hG = {}                                     # 國際賽每局 (藍, 紅, 藍勝?)
     for r in R:
         lg = r[ix["league"]]
         if str(r[ix["participantid"]]) not in ("1", "2", "3", "4", "5"):
             continue
+        if lg in PRE_LG and pre_lo <= str(r[ix["date"]])[:10] < w0:
+            pre[r[ix["blue_champion"]]] += 1; pre[r[ix["red_champion"]]] += 1
         if lg in H2H_LG:
             h2hG[(lg, str(r[ix["date"]])[:10], r[ix["blue_teamname"]], r[ix["red_teamname"]], str(r[ix["game"]]))] = r[ix["result"]] == 1
         if lg in REG15_LG and "07" <= str(r[ix["date"]])[5:7] <= "09":
@@ -151,6 +159,8 @@ def build(y):
         "reg15": [len(regK), sum(v >= 15 for v in regK.values())],
         "h2h": {},
     }
+    prank = {c: i + 1 for i, (c, _) in enumerate(pre.most_common())}
+    out["wrPre"] = {"n": len(prank), "ranks": [prank.get(c[0], len(prank) + 1) for c in out["winrate"][:3]]}
     # 跨賽區交手（國際賽、不同賽區的兩隊）：{"LCK|LPL": [LCK 勝, LPL 勝]}，鍵照字母序
     hreg = {t: H2H_REG.get(c.most_common(1)[0][0]) for t, c in team_lg.items() if c}
     for (lg, d, b, rr, gn), bw in h2hG.items():
