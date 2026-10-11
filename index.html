@@ -12619,8 +12619,16 @@ function render(){
     // 連結帶時間點（使用者 2026-10-11：點進去 YT 要直接跳到他講這題的地方）：a.t＝"mm:ss" 或 "h:mm:ss" → &t=秒數
     const extUrl=(u,t)=>{ if(!u)return "#"; const p=String(t||"").split(":").map(Number); if(!t||p.some(isNaN))return u;
       const sec=p.reduce((s,x)=>s*60+x,0); return u.replace(/([?&])t=[^&]*(&|$)/,"$1").replace(/[?&]$/,"")+(u.includes("?")?"&":"?")+"t="+sec+"s"; };
+    // 外部預測的答案：英雄題放英雄頭像、選手題在選手名前放隊徽、戰隊題放隊徽（使用者 2026-10-11：要跟英雄頭像等高）
+    const teamOfP=p=>(R.pl[p]&&R.pl[p].team)||((Object.entries(EV.rosters||{}).find(([t,arr])=>(arr||[]).some(x=>x.n===p))||[])[0])||"";
+    const extPick=(qid,a)=>{ const ids=a.ids||[];
+      if(!ids.length)return esc((a.pick||[]).join("／"));
+      if(["presence","winrate","deaths"].includes(qid))return ids.map(id=>`<span class="pdPick">${cImg(id)}${cNm(id)}</span>`).join("／");
+      if(["kda","dmg","kp","peyzguma"].includes(qid))return ids.map(p=>`<span class="pdPick">${tLogo(teamOfP(p),29)}${esc(p)}</span>`).join("／");
+      if(["hlet1","fast"].includes(qid))return ids.map(ab=>`<span class="pdPick">${teamLogoHTML(ab,29,true)||tLogo("",29)}${esc(ab)}</span>`).join("／");
+      return esc((a.pick||[]).join("／")); };
     const extRows=qid=>EXT.filter(e=>e.answers[qid]).map(e=>{ const a=e.answers[qid], href=esc(extUrl(e.url,a.t));
-      return `<div class="pdExt"><span class="pdExtSrc">🎙 <a href="${href}" target="_blank" rel="noopener">${esc(e.src)}</a></span><b>${["presence","winrate","deaths"].includes(qid)&&(a.ids||[]).length?a.ids.map(id=>`<span class="pdPick">${cImg(id)}${cNm(id)}</span>`).join("／"):esc((a.pick||[]).join("／"))}</b>${a.why?`<span class="pdExtWhy">${esc(a.why)}${a.t?`（<a href="${href}" target="_blank" rel="noopener">▶ ${esc(a.t)}</a>）`:""}</span>`:""}</div>`; }).join("");
+      return `<div class="pdExt"><span class="pdExtSrc">🎙 <a href="${href}" target="_blank" rel="noopener">${esc(e.src)}</a></span><b>${extPick(qid,a)}</b>${a.why?`<span class="pdExtWhy">${esc(a.why)}${a.t?`（<a href="${href}" target="_blank" rel="noopener">▶ ${esc(a.t)}</a>）`:""}</span>`:""}</div>`; }).join("");
     const QORD=["model","presence","winrate","deaths","kda","dmg","kp","peyzguma","faker700","teemo","uniq","len32","k15","cs450","mvp","koreg","lcs","hlet1","fast"];
     const card=(tag,q,pts,ans,why,cols,wide,qid)=>(qid=qid||QORD[cards.length],0)||`<div class="card"${wide?' style="grid-column:1/-1"':""}><div class="pdHd"><span class="pdTag">${tag}</span><span class="pdQ">${q}</span><span class="pdPts">${pts}</span></div>`
       +(ans!=null?`<div class="pdAns"><span class="pdAnsLb">${en2?"Suggest":"建議"}</span>${ans}${why?`<span class="pdWhy">${why}</span>`:""}</div>`:"")+(qid?extRows(qid):"")
