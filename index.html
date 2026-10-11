@@ -12352,7 +12352,7 @@ function render(){
     //     近期數字一律經過它加權／修正；歷屆往前推到 2019（不夠清楚就再往前，build_predict_hist.py 帶年份）。
     const en2=LANG==="en";
     const EV=(window.EVENTS_EXTRA&&EVENTS_EXTRA[String(curYear)]&&EVENTS_EXTRA[String(curYear)].WLDs)||null;
-    const H=window.PRED_HIST||{}, HY=Object.keys(H).sort();
+    const H=window.PRED_HIST||{}, HY=Object.keys(H).sort().reverse();   // 歷屆由近到遠
     main.innerHTML=`<div class="filters"><span class="meta">${en2?`${curYear} Worlds Crystal Ball・suggested answers`:`${curYear} 世界賽水晶球・建議答案`}</span>`
       +`<span style="flex:1"></span><button id="pdShot" class="sqbtn" style="order:1" title="${en2?"Export this page as a 1080p PNG":"輸出整頁 1080p 截圖"}">📸</button>`
       +`${TAB_HELP[curView]?`<button id="fHelp" class="sqbtn helpBtn" style="order:2" title="${T("本頁說明")}">ℹ️</button>`:""}</div><div id="pdWrap"></div>`;
@@ -12594,7 +12594,7 @@ function render(){
         +col(H_LIVE,L.n?rowT(en2?"45+ min games":"45 分以上",l45(L)):notYet))); }
     // ⑭ 決賽 MVP 路線（只放確定的屆數；同票取最近的）
     { const LN={TOP:en2?"Top":"上路",JNG:en2?"Jungle":"打野",MID:en2?"Mid":"中路",BOT:en2?"Bot":"下路",SUP:en2?"Support":"輔助"};
-      const cnt={}, lastY={}; HY.forEach(y=>{const m=H[y].mvp; if(m){cnt[m[1]]=(cnt[m[1]]||0)+1; lastY[m[1]]=y;}});
+      const cnt={}, lastY={}; HY.forEach(y=>{const m=H[y].mvp; if(m){cnt[m[1]]=(cnt[m[1]]||0)+1; if(!(lastY[m[1]]>y))lastY[m[1]]=y;}});
       const best=Object.keys(cnt).sort((a,b)=>cnt[b]-cnt[a]||(lastY[b]>lastY[a]?1:-1))[0]||"BOT";
       cards.push(card(TG.e,en2?"Which role will the Finals MVP play?":"決賽 MVP 得主會擔任哪條路線？",P1(50),pickTx(LN[best]),
         Object.keys(cnt).map(r=>`${LN[r]} ${cnt[r]}`).join("・"),
