@@ -979,37 +979,39 @@
   /* ── 預測分頁（官方水晶球，2026-10-11）：版面用既有 .grid，這裡只定義卡片內容 ── */
   /* 2026-10-11 細修：題號＋分類色條、名次徽章、欄標底線、列分隔；開賽前「本屆」欄縮窄 */
   .pdHd{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px}
-  .pdNo{font-size:14px;font-weight:700;color:var(--tx2);padding:1px 7px;border:1px solid rgba(255,255,255,.14);border-radius:6px;font-variant-numeric:tabular-nums;white-space:nowrap}
-  .pdTag{font-size:14px;padding:2px 9px;border-radius:999px;background:rgba(255,255,255,.08);color:var(--tx2);white-space:nowrap}
-  .pdQ{font-weight:700;font-size:19px;flex:1 1 240px;min-width:0;line-height:1.35}
-  .pdPts{font-size:14px;color:var(--tx2);white-space:nowrap;padding:2px 9px;border-radius:999px;background:rgba(255,255,255,.05)}
+  .pdNo{font-size:14.5px;font-weight:800;color:var(--tx2);padding:0 2px;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .pdTag{font-size:14.5px;padding:2px 9px;border-radius:999px;background:rgba(255,255,255,.08);color:var(--tx2);white-space:nowrap}
+  .pdQ{font-weight:700;font-size:21px;flex:1 1 240px;min-width:0;line-height:1.35}
+  .pdPts{font-size:14.5px;color:var(--tx2);white-space:nowrap}
   .pdAns{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 12px;border-radius:10px;
     background:linear-gradient(135deg,rgba(255,200,80,.12),rgba(255,200,80,.04));border:1px solid rgba(255,200,80,.32);margin-bottom:8px}
-  .pdAns .pdAnsLb{font-size:14px;font-weight:700;color:#1a1a1a;background:#ffc850;padding:1px 8px;border-radius:6px;white-space:nowrap;align-self:flex-start}
+  .pdAns .pdAnsLb{font-size:15px;font-weight:700;color:#1a1a1a;background:#ffc850;padding:1px 8px;border-radius:6px;white-space:nowrap;align-self:flex-start}
   .pdPick{display:inline-flex;align-items:center;gap:6px;font-weight:700;font-size:18px;white-space:nowrap}
   .pdPick .pdRk{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;border-radius:50%;font-size:12.5px;font-weight:800;color:#1a1a1a;background:#8a93a6}
   .pdPick .pdRk1{background:#ffc850}.pdPick .pdRk2{background:#c9d1dc}.pdPick .pdRk3{background:#d39a6a}
   .pdPick .cc img{width:29px;height:29px}
   .pdTiles{display:flex;gap:12px;flex-wrap:wrap;flex-basis:100%}
-  .pdTile{display:flex;flex-direction:column;align-items:center;gap:5px;min-width:76px;padding:8px 8px 6px;border-radius:10px;background:rgba(0,0,0,.22);border:1px solid rgba(255,255,255,.07)}
+  .pdTile{display:flex;flex-direction:column;align-items:center;gap:5px;min-width:76px;padding:10px 8px 6px;border-radius:10px;border:1px solid rgba(255,255,255,.08)}
   .pdTile .pdTImg{position:relative;display:inline-flex;line-height:0}
   .pdTile .pdTImg .cc img,.pdTile .pdTImg>img,.pdTile .pdTImg>svg{width:52px;height:52px;border-radius:10px;object-fit:contain}
-  .pdTile .pdTImg .pdRk{position:absolute;top:-10px;left:-10px;font-size:22px;line-height:1;filter:drop-shadow(0 1px 2px rgba(0,0,0,.7))}
-  .pdTile:first-child{border-color:rgba(255,200,80,.55);background:rgba(255,200,80,.10)}
-  .pdTile .pdTNm{font-size:15.5px;font-weight:700;white-space:nowrap}
+  .pdTile{position:relative}
+  .pdTile>.pdRk{position:absolute;top:-14px;left:-12px;font-size:30px;line-height:1;filter:drop-shadow(0 1px 2px rgba(0,0,0,.75));z-index:1}
+  .pdTile:first-child{border-color:rgba(255,200,80,.6)}
+  .pdTile .pdTNm{font-size:17px;font-weight:700;white-space:nowrap}
   .pdAns>.pdPick{font-size:22px}
   .pdAns>.pdPick img,.pdAns>.pdPick svg{width:30px;height:30px}
-  .pdWhy{font-size:15px;color:var(--tx);opacity:.82;flex-basis:100%;line-height:1.5}
+  .pdWhy{font-size:16.5px;color:var(--tx);opacity:.82;flex-basis:100%;line-height:1.5}
   .pdCols{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
   .pdCols.pdPre{grid-template-columns:minmax(0,1.3fr) minmax(0,1.3fr) minmax(0,.7fr)}
-  .pdCol{min-width:0;padding:10px 12px;border-radius:10px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.05)}
-  .pdCol h4{margin:0 0 6px;padding-bottom:6px;font-size:14px;color:var(--tx2);font-weight:600;white-space:nowrap;border-bottom:1px solid rgba(255,255,255,.08)}
-  .pdRow{display:flex;align-items:center;gap:6px;font-size:16px;line-height:1.85;white-space:nowrap;border-bottom:1px dashed rgba(255,255,255,.045)}
+  .pdCol{min-width:0;padding:2px 14px 4px;border-left:1px solid rgba(255,255,255,.07)}
+  .pdCols>.pdCol:first-child{border-left:0;padding-left:0}
+  .pdCol h4{margin:0 0 6px;padding-bottom:6px;font-size:15.5px;color:var(--tx2);font-weight:600;white-space:nowrap;border-bottom:1px solid rgba(255,255,255,.08)}
+  .pdRow{display:flex;align-items:center;gap:6px;font-size:16.5px;line-height:1.85;white-space:nowrap;border-bottom:1px dashed rgba(255,255,255,.045)}
   .pdRow:last-child{border-bottom:0}
   .pdRow .cc img{width:24px;height:24px}
   .pdRow .pdV{margin-left:auto;font-variant-numeric:tabular-nums;color:var(--tx);font-weight:600}
-  .pdRow .pdN{font-size:14px;color:var(--tx2);font-weight:400}
-  .pdNone{font-size:15px;color:var(--tx2);opacity:.8}
+  .pdRow .pdN{font-size:14.5px;color:var(--tx2);font-weight:400}
+  .pdNone{font-size:15.5px;color:var(--tx2);opacity:.8}
   .pdQC{border-left:4px solid rgba(255,255,255,.12)}
   .pdK-c{border-left-color:#ffb454}.pdK-p{border-left-color:#7ab8ff}.pdK-e{border-left-color:#b48cff}.pdK-t{border-left-color:#5fd39a}.pdK-m{border-left-color:#ffc850}
   .pdK-c .pdTag{color:#ffb454;background:rgba(255,180,84,.12)}.pdK-p .pdTag{color:#7ab8ff;background:rgba(122,184,255,.12)}
@@ -1019,12 +1021,20 @@
   .pdQC .pdL{min-width:0}
   .pdQC .pdAns{margin-bottom:8px}
   .pdCols4{grid-template-columns:repeat(4,minmax(0,1fr))}
-  .pdSub{font-size:13.5px;color:var(--tx2);margin:6px 0 1px;opacity:.85}.pdCol h4+.pdSub{margin-top:0}
-  .pdExt{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:15px;padding:5px 10px;margin:-2px 0 8px;border-left:3px solid #8ab4ff;background:rgba(138,180,255,.07);border-radius:0 8px 8px 0}
+  .pdMRow{display:grid;grid-template-columns:22px minmax(54px,1fr) 58px 52px 52px 52px 70px;align-items:center;gap:6px;font-size:16.5px;line-height:1.8;white-space:nowrap;border-bottom:1px dashed rgba(255,255,255,.045);font-variant-numeric:tabular-nums}
+  .pdMRow>span:nth-child(n+4){text-align:right}
+  .pdMRow .pdMT{font-weight:700}
+  .pdMHd{font-size:14.5px;color:var(--tx2);border-bottom:1px solid rgba(255,255,255,.08);line-height:1.6}
+  .pdSub{font-size:14.5px;color:var(--tx2);margin:6px 0 1px;opacity:.85}.pdCol h4+.pdSub{margin-top:0}
+  .pdExt{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:15.5px;padding:5px 10px;margin:-2px 0 8px;border-left:3px solid #8ab4ff;border-radius:0}
   .pdExt .pdExtSrc{color:#8ab4ff;white-space:nowrap;display:inline-flex;align-items:center}
   .pdExt>b{display:inline-flex;align-items:center;gap:4px;flex-wrap:wrap}
-  .pdDet{font-size:13.5px;color:var(--tx2);margin:-6px 0 4px 30px;padding-bottom:4px;line-height:1.45;white-space:normal;border-bottom:1px dashed rgba(255,255,255,.045)}
-  .pdRow:has(+.pdDet){border-bottom:0}.pdExt .pdExtSrc a{color:inherit;text-decoration:none}
+  .pdDet{font-size:14.5px;color:var(--tx2);margin:-6px 0 4px 30px;padding-bottom:4px;line-height:1.45;white-space:normal;border-bottom:1px dashed rgba(255,255,255,.045)}
+  .pdRow:has(+.pdDet){border-bottom:0}
+  .pdRowD{white-space:normal;line-height:1.35;padding:5px 0}
+  .pdRowD .pdNm{white-space:nowrap;flex:0 0 auto}
+  .pdRowD .pdD{flex:1 1 auto;min-width:0;font-size:14.5px;color:var(--tx2);padding-left:4px}
+  .pdRowD .pdV{flex:0 0 auto;white-space:nowrap}.pdExt .pdExtSrc a{color:inherit;text-decoration:none}
   .pdExt .pdExtWhy{color:var(--tx2);flex-basis:100%}
   .pdExt .pdExtWhy a{color:#8ab4ff;text-decoration:none;white-space:nowrap}.pdExt a:hover{text-decoration:underline}
   @container mainc (max-width:1500px){ .pdCols4{grid-template-columns:repeat(2,minmax(0,1fr))} }
@@ -12623,7 +12633,8 @@ function render(){
     const valP=(S,p,key)=>{ const q=S.pl[p]; return S===L?MET[key](q):predP(q,key); };
     const topP=(S,key,min,m)=>Object.keys(S.pl).filter(p=>S.pl[p].n>=min&&NAMES.has(p)&&WT.has(S.pl[p].team)).sort((a,b)=>valP(S,b,key)-valP(S,a,key)).slice(0,m||5);
     const pct=x=>Math.round(x*100)+"%";
-    const rowCD=(c,v,det)=>`<div class="pdRow">${cImg(c)}<span>${cNm(c)}</span><span class="pdV">${v}</span></div>${det?`<div class="pdDet">${det}</div>`:""}`;
+    // 英雄｜說明｜數值同一列（使用者 2026-10-11：說明不要寫在英雄底下）；說明太長時只在說明格內換行
+    const rowCD=(c,v,det)=>`<div class="pdRow pdRowD">${cImg(c)}<span class="pdNm">${cNm(c)}</span><span class="pdD">${det||""}</span><span class="pdV">${v}</span></div>`;
     const rowC=(c,v,n)=>`<div class="pdRow">${cImg(c)}<span>${cNm(c)}</span><span class="pdV">${v}${n!=null?` <span class="pdN">(${n})</span>`:""}</span></div>`;
     // 沒有隊徽（舊隊名／現在沒隊伍）就放一個通用盾牌佔位，排版不跳（使用者 2026-10-11）
     const tLogo=(tm,sz)=>teamLogoHTML(tAb(tm),sz,true)||`<svg class="pdNoLogo" width="${sz}" height="${sz}" viewBox="0 0 24 24" style="flex:0 0 auto;vertical-align:middle"><title>${esc(tm||"–")}</title><path d="M12 2 4 5v6c0 5 3.4 9.4 8 11 4.6-1.6 8-6 8-11V5z" fill="var(--tx2)" opacity=".5"/></svg>`;
@@ -12635,7 +12646,7 @@ function render(){
     const H_REC=en2?`Recent (${R.n} games)`:`近期（${R.n} 局）`, H_PAST=en2?`Past Worlds (${HY.length})`:`歷屆世界賽（${HY.length} 屆）`, H_LIVE=en2?`This Worlds (${L.n})`:`本屆（${L.n} 局）`;
     const histRows=f=>HY.length?HY.map(y=>f(y,H[y])).join(""):none();
     // 建議答案＝名次牌（大頭像＋名次徽章＋名字），觀眾一眼看到答案
-    const tile=(i,img,name)=>`<span class="pdTile"><span class="pdTImg">${img}<span class="pdRk pdRk${i+1}" title="#${i+1}">${["🥇","🥈","🥉"][i]||i+1}</span></span><span class="pdTNm">${name}</span></span>`;
+    const tile=(i,img,name)=>`<span class="pdTile"><span class="pdRk pdRk${i+1}" title="#${i+1}">${["🥇","🥈","🥉"][i]||i+1}</span><span class="pdTImg">${img}</span><span class="pdTNm">${name}</span></span>`;
     const pickC=cs=>`<span class="pdTiles">${cs.map((c,i)=>tile(i,cImg(c),cNm(c))).join("")}</span>`;
     const pickP=(ps,S)=>`<span class="pdTiles">${ps.map((p,i)=>tile(i,tLogo(S.pl[p].team,46),esc(p))).join("")}</span>`;
     const pickTx=t=>`<span class="pdPick">${t}</span>`;
@@ -12692,13 +12703,14 @@ function render(){
     { const ts=EVT.slice().sort((a,b)=>strength(b)-strength(a));   // 依強度排序（使用者 2026-10-11）
       const elo=t=>Math.round(1500+strength(t)*400/Math.LN10);
       const regs=[...new Set(EVT.map(t=>teamReg[t]).filter(x=>x))].sort((a,b)=>MODEL.R[b]-MODEL.R[a]);
-      const row=t=>`<div class="pdRow">${teamLogoHTML(tAb(t),22,true)}<span>${esc(tAb(t))}</span><span class="pdN">${teamReg[t]||""}</span>`
-        +`<span class="pdV">${elo(t)}・${en2?"KO":"八強"} ${pct(SIM.T[t].pko)}・${en2?"title":"冠軍"} ${pct(SIM.T[t].pch)}・≈${d1s(SIM.T[t].eg.toFixed(1))}${en2?" g":" 局"}</span></div>`;
+      // 每個數字一欄、靠右對齊（使用者 2026-10-11：字數長短不一很不直觀）
+      const hdr=`<div class="pdMRow pdMHd"><span></span><span>${en2?"Team":"隊伍"}</span><span>${en2?"Region":"賽區"}</span><span>${en2?"Rating":"強度"}</span><span>${en2?"Top 8":"八強"}</span><span>${en2?"Title":"冠軍"}</span><span>${en2?"Games":"預估局數"}</span></div>`;
+      const row=t=>`<div class="pdMRow">${teamLogoHTML(tAb(t),22,true)||tLogo(t,22)}<span class="pdMT">${esc(tAb(t))}</span><span class="pdN">${teamReg[t]||""}</span>`
+        +`<span>${elo(t)}</span><span>${pct(SIM.T[t].pko)}</span><span>${pct(SIM.T[t].pch)}</span><span>${d1s(SIM.T[t].eg.toFixed(1))}</span></div>`;
       const third=Math.ceil(ts.length/3);
       cards.push(card(en2?"Model":"模型",en2?"Team strength and how far each team goes":"戰隊強度與預估能走多遠",
         "",null,`<b>${en2?`Region strength (${curYear-2}-${curYear} cross-region games, ${MODEL.nH})`:`賽區強度（${curYear-2}～${curYear} 國際賽跨賽區 ${MODEL.nH} 局）`}</b><br>${regs.map(g=>`${g} ${Math.round(MODEL.R[g]*400/Math.LN10)>=0?"+":""}${Math.round(MODEL.R[g]*400/Math.LN10)}`).join("・")}<br>${en2?"Teams sorted by strength; KO / title odds and expected games come from the Worlds simulation.":"戰隊依強度排序；八強／冠軍機率與預估局數來自世界賽模擬。"}`,
-        col(en2?"Strength・KO・title・games":"強度・八強・冠軍・預估局數",ts.slice(0,third).map(row).join(""))
-        +col("&nbsp;",ts.slice(third,third*2).map(row).join(""))+col("&nbsp;",ts.slice(third*2).map(row).join("")),true)); }
+        `<div class="pdCol pdMCol">${hdr}${ts.slice(0,third).map(row).join("")}</div><div class="pdCol pdMCol">${hdr}${ts.slice(third,third*2).map(row).join("")}</div><div class="pdCol pdMCol">${hdr}${ts.slice(third*2).map(row).join("")}</div>`,true)); }
     // ① 出場率
     // 使用者 2026-10-11：每張卡一律三欄＝近期（積分／模擬併進來）｜歷屆世界賽｜本屆
     const sqTx=c=>SQ&&SQV.length?`・${trTx(c)}`:"";
