@@ -997,8 +997,11 @@
   .pdRow .pdN{font-size:14.5px;color:var(--tx2)}
   .pdNone{font-size:15.5px;color:var(--tx2)}
   .pdCols4{grid-template-columns:repeat(4,minmax(0,1fr))}
-  .pdExt{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;font-size:15px;padding:5px 10px;margin:-2px 0 8px;border-left:3px solid #8ab4ff;background:rgba(138,180,255,.07);border-radius:0 8px 8px 0}
-  .pdExt .pdExtSrc{color:#8ab4ff;white-space:nowrap}.pdExt .pdExtSrc a{color:inherit;text-decoration:none}
+  .pdSub{font-size:13.5px;color:var(--tx2);margin:6px 0 1px;opacity:.85}.pdCol h4+.pdSub{margin-top:0}
+  .pdExt{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:15px;padding:5px 10px;margin:-2px 0 8px;border-left:3px solid #8ab4ff;background:rgba(138,180,255,.07);border-radius:0 8px 8px 0}
+  .pdExt .pdExtSrc{color:#8ab4ff;white-space:nowrap;display:inline-flex;align-items:center}
+  .pdExt>b{display:inline-flex;align-items:center;gap:4px;flex-wrap:wrap}
+  .pdDet{font-size:13.5px;color:var(--tx2);margin:-4px 0 3px 30px;line-height:1.45;white-space:normal}.pdExt .pdExtSrc a{color:inherit;text-decoration:none}
   .pdExt .pdExtWhy{color:var(--tx2);flex-basis:100%}
   .pdExt .pdExtWhy a{color:#8ab4ff;text-decoration:none;white-space:nowrap}.pdExt a:hover{text-decoration:underline}
   @container mainc (max-width:1500px){ .pdCols4{grid-template-columns:repeat(2,minmax(0,1fr))} }
@@ -12596,6 +12599,7 @@ function render(){
     const valP=(S,p,key)=>{ const q=S.pl[p]; return S===L?MET[key](q):predP(q,key); };
     const topP=(S,key,min,m)=>Object.keys(S.pl).filter(p=>S.pl[p].n>=min&&NAMES.has(p)&&WT.has(S.pl[p].team)).sort((a,b)=>valP(S,b,key)-valP(S,a,key)).slice(0,m||5);
     const pct=x=>Math.round(x*100)+"%";
+    const rowCD=(c,v,det)=>`<div class="pdRow">${cImg(c)}<span>${cNm(c)}</span><span class="pdV">${v}</span></div>${det?`<div class="pdDet">${det}</div>`:""}`;
     const rowC=(c,v,n)=>`<div class="pdRow">${cImg(c)}<span>${cNm(c)}</span><span class="pdV">${v}${n!=null?` <span class="pdN">(${n})</span>`:""}</span></div>`;
     // 沒有隊徽（舊隊名／現在沒隊伍）就放一個通用盾牌佔位，排版不跳（使用者 2026-10-11）
     const tLogo=(tm,sz)=>teamLogoHTML(tAb(tm),sz,true)||`<svg class="pdNoLogo" width="${sz}" height="${sz}" viewBox="0 0 24 24" style="flex:0 0 auto;vertical-align:middle"><title>${esc(tm||"–")}</title><path d="M12 2 4 5v6c0 5 3.4 9.4 8 11 4.6-1.6 8-6 8-11V5z" fill="var(--tx2)" opacity=".5"/></svg>`;
@@ -12605,7 +12609,6 @@ function render(){
     const notYet=none(en2?`Starts ${+WFROM.slice(5,7)}/${+WFROM.slice(8,10)}`:`${+WFROM.slice(5,7)}/${+WFROM.slice(8,10)} 開打後更新`);
     const col=(h,body)=>`<div class="pdCol"><h4>${h}</h4>${body||none()}</div>`;
     const H_REC=en2?`Recent, strength-weighted (${R.n})`:`近期・強度加權（${R.n} 局）`, H_PAST=en2?`Past Worlds (${HY.length})`:`歷屆世界賽（${HY.length} 屆）`, H_LIVE=en2?`This Worlds (${L.n})`:`本屆（${L.n} 局）`;
-    const H_SIM=en2?`Simulated (${SIM.SIMS.toLocaleString()} runs)`:`模擬（${SIM.SIMS.toLocaleString()} 次）`;
     const histRows=f=>HY.length?HY.map(y=>f(y,H[y])).join(""):none();
     const pickC=cs=>cs.map((c,i)=>`<span class="pdPick"><span class="pdRk">#${i+1}</span>${cImg(c)}${cNm(c)}</span>`).join("");
     const pickP=(ps,S)=>ps.map((p,i)=>`<span class="pdPick"><span class="pdRk">#${i+1}</span>${tLogo(S.pl[p].team,24)}${esc(p)}</span>`).join("");
@@ -12627,7 +12630,7 @@ function render(){
     const YES=en2?"Yes":"會", NO=en2?"No":"不會";
     const cards=[];
     // ⓪ 戰隊強度與預估走多遠（所有題目的地基，整列一張）
-    { const ts=EVT.slice().sort((a,b)=>SIM.T[b].epl-SIM.T[a].epl);
+    { const ts=EVT.slice().sort((a,b)=>strength(b)-strength(a));   // 依強度排序（使用者 2026-10-11）
       const elo=t=>Math.round(1500+strength(t)*400/Math.LN10);
       const regs=[...new Set(EVT.map(t=>teamReg[t]).filter(x=>x))].sort((a,b)=>MODEL.R[b]-MODEL.R[a]);
       const row=t=>`<div class="pdRow">${teamLogoHTML(tAb(t),22,true)}<span>${esc(tAb(t))}</span><span class="pdN">${teamReg[t]||""}</span>`
@@ -12638,13 +12641,14 @@ function render(){
         col(en2?"Strength・KO・title・games":"強度・八強・冠軍・預估場數",ts.slice(0,third).map(row).join(""))
         +col("&nbsp;",ts.slice(third,third*2).map(row).join(""))+col("&nbsp;",ts.slice(third*2).map(row).join("")),true)); }
     // ① 出場率
-    const H_SQ=en2?`Solo queue ${SQV.join(" / ")||"–"}`:`積分 ${SQV.join("／")||"–"}`;
-    const sqCol=cs=>col(H_SQ,SQ&&SQV.length?cs.map(c=>{ const id=champId(c)||c, x=SQA.new[id]||[0,0,0];
-      return `<div class="pdRow">${cImg(c)}<span>${cNm(c)}</span><span class="pdV">${trTx(c)} <span class="pdN">(${x[0]})</span></span></div>`; }).join(""):none());
-    { const f=S=>topPres(S).map(c=>rowC(c,pct(presAdj(S,c)),S===L?null:`${en2?"raw":"原"} ${pct(presC(S,c))}`)).join("");
+    // 使用者 2026-10-11：每張卡一律三欄＝近期（積分／模擬併進來）｜歷屆世界賽｜本屆
+    const sqTx=c=>SQ&&SQV.length?`・${trTx(c)}`:"";
+    const sub=t=>`<div class="pdSub">${t}</div>`;
+    const H_RS=en2?`Recent → simulated (${SIM.SIMS.toLocaleString()} runs)`:`近期 → 模擬（${SIM.SIMS.toLocaleString()} 次）`;
+    { const f=S=>topPres(S).map(c=>S===L?rowC(c,pct(presAdj(S,c))):rowCD(c,pct(presAdj(S,c)),`${en2?"raw":"原"} ${pct(presC(S,c))}${sqTx(c)}`)).join("");
       cards.push(card(TG.c,en2?"Highest presence (picked or banned)?":"出現率（被選或被禁用）最高的英雄？",P3,pickC(topPres(A,3)),
         srcTx+(live||!SQV.length?"":(en2?`; × square root of the solo-queue usage trend on ${SQV.join("/")} (no pro games yet)`:`；再乘 ${SQV.join("／")} 積分使用率趨勢的開根號（這兩版還沒有職業比賽）`)),
-        col(H_REC,f(R))+(live?"":sqCol(topPres(R)))+col(H_PAST,histRows((y,h)=>h.presence[0]?rowC(h.presence[0][0],`${y}・${pct(h.presence[0][1])}`):""))+col(H_LIVE,L.n?f(L):notYet),false,"presence")); }
+        col(H_REC,f(R))+col(H_PAST,histRows((y,h)=>h.presence[0]?rowC(h.presence[0][0],`${y}・${pct(h.presence[0][1])}`):""))+col(H_LIVE,L.n?f(L):notYet),false,"presence")); }
     // ② 勝率（使用者 2026-10-11：只要 5 場就能上榜，出場率越高越會被拉回 50%，出場率不是重點）
     //   ⇒ 模擬 WSIMS 次：每隻英雄本屆場數 ~ Poisson（近期選用率 × 積分趨勢 × 本屆局數），
     //     真實勝率 ~ 常態（近期勝率往 50% 收斂 20 場，增強／削弱每版 ±1.5%），勝場 ~ 二項；≥5 場裡勝率最高者（同勝率取場數多）。
@@ -12670,18 +12674,18 @@ function render(){
       //   「後段局占比」跟勝率沒有穩定關係（斜率 +0.09／-0.06）⇒ 不另外加分；它們上榜主要是場數剛好 5～8 場、運氣成分大，
       //   模擬已經吃到這點。這裡把「第 3 局以後」占比列出來給人判斷。
       const ltTx=c=>R.ch[c]?`${en2?"G3+":"後段"} ${R.ch[c].lt||0}/${R.ch[c].n}`:"";
-      const simRows=WRS?WRS.rk.slice(0,6).map(c=>rowC(c,pct(WRS.top[c]/WRS.WSIMS),`${en2?"exp.":"預估"} ${d1s(WRS.cs[c].lam.toFixed(1))} ${en2?"g":"場"}・${pct(WRS.cs[c].ph)}・${ltTx(c)}`)).join(""):"";
+      const simRows=WRS?sub(en2?"chance to finish #1":"拿第一的機率")+WRS.rk.slice(0,6).map(c=>rowCD(c,pct(WRS.top[c]/WRS.WSIMS),`${en2?"recent":"近期"} ${R.ch[c].w}-${R.ch[c].n-R.ch[c].w}・${en2?"exp.":"預估"} ${d1s(WRS.cs[c].lam.toFixed(1))} ${en2?"g":"場"}・${ltTx(c)}${sqTx(c)}`)).join(""):"";
       cards.push(card(TG.c,en2?"Highest win rate (min. 5 games)?":"勝率最高的英雄？（最少 5 場）",P3,pickC(pick),
         live?srcTx:(en2?`simulated ${WRS.WSIMS} times: games drawn from recent pick rate × solo-queue trend, win rate shrunk toward 50% (±1.5% per buff/nerf patch); % = how often it ends up #1 among 5+ game champions`
                       :`模擬 ${WRS.WSIMS} 次：場數照近期選用率 × 積分趨勢抽、勝率往 50% 收斂（每次增強／削弱 ±1.5%）；百分比＝在 ≥5 場的英雄裡拿第一的機率`),
-        (live?col(H_LIVE,f(L,5)):col(en2?`Simulated #1 odds`:`模擬拿第一的機率`,simRows)+col(en2?`Recent (${R.n} games)`:`近期（${R.n} 局）`,topC(R,c=>wrC(R,c),1,5).map(c=>rowC(c,pct(wrC(R,c)),`${R.ch[c].w}-${R.ch[c].n-R.ch[c].w}`)).join("")))
-        +sqCol(pick)+col(H_PAST,histRows((y,h)=>h.winrate[0]?rowC(h.winrate[0][0],`${y}・${h.winrate[0][1]}-${h.winrate[0][2]-h.winrate[0][1]}`):"")),false,"winrate")); }
+        col(live?H_REC:(en2?`Recent → simulated (${WRS.WSIMS.toLocaleString()} runs)`:`近期 → 模擬（${WRS.WSIMS.toLocaleString()} 次）`),live?f(R,10):simRows)
+        +col(H_PAST,histRows((y,h)=>h.winrate[0]?rowC(h.winrate[0][0],`${y}・${h.winrate[0][1]}-${h.winrate[0][2]-h.winrate[0][1]}`):""))+col(H_LIVE,L.n?f(L,5):notYet),false,"winrate")); }
     // ③ 場均死亡
     { const RZ={1:en2?"Top":"上",2:en2?"Jg":"野",3:en2?"Mid":"中",4:en2?"Bot":"下",5:en2?"Sup":"輔"};
       const mixTx=(S,c)=>Object.entries(roleMix(S,c)).sort((a,b)=>b[1]-a[1]).filter(x=>x[1]>=0.1).map(([k,v])=>`${RZ[k]||k}${Math.round(v*100)}%`).join("");
-      const mn=5, f=(S,m)=>topC(S,c=>dthC(S,c),m).map(c=>rowC(c,d1s(dthC(S,c).toFixed(2)),S===L?S.ch[c].n:`${mixTx(S,c)}・${S.ch[c].n}`)).join("");
+      const mn=5, f=(S,m)=>topC(S,c=>dthC(S,c),m).map(c=>S===L?rowC(c,d1s(dthC(S,c).toFixed(2)),S.ch[c].n):rowCD(c,d1s(dthC(S,c).toFixed(2)),`${mixTx(S,c)}・${S.ch[c].n} ${en2?"g":"場"}${sqTx(c)}`)).join("");
       cards.push(card(TG.c,en2?"Most deaths per game (min. 5 games)?":"每場平均死亡數最高的英雄？（最少 5 場）",P3,pickC(topC(A,c=>dthC(A,c),mn,3)),live?srcTx:(en2?`deaths depend on the role a champion is played in: each role's deaths (shrunk to the role average) × the role mix in the last two pro patches (${PATN.join(", ")}); only champions expected to reach 5 Worlds games`:`死亡數主要看英雄被放在哪一路：各路線場均死亡（往該路平均收斂）× 最近兩個職業版本（${PATN.join("／")}）的路線占比；只算世界賽預估能打滿 5 場的英雄`),
-        col(H_REC,f(R,10))+(live?"":sqCol(topC(R,c=>dthC(R,c),5,5)))+col(H_PAST,histRows((y,h)=>h.deaths[0]?rowC(h.deaths[0][0],`${y}・${h.deaths[0][1]}`):""))+col(H_LIVE,L.n?f(L,5):notYet),false,"deaths")); }
+        col(H_REC,f(R,10))+col(H_PAST,histRows((y,h)=>h.deaths[0]?rowC(h.deaths[0][0],`${y}・${h.deaths[0][1]}`):""))+col(H_LIVE,L.n?f(L,5):notYet),false,"deaths")); }
     // ④⑤⑥ 選手：KDA／場均傷害／參與率（近期值經強度修正）
     [[en2?"Highest average KDA?":"最高平均 KDA 的選手？","kda",v=>d1s(v.toFixed(1)),v=>d1s(v)],
      [en2?"Most damage per game?":"最高每場平均傷害的選手？","dmg",v=>Math.round(v).toLocaleString(),v=>(+v).toLocaleString()],
@@ -12775,7 +12779,7 @@ function render(){
       const best=Object.keys(cnt).sort((a,b)=>cnt[b]-cnt[a]||(lastY[b]>lastY[a]?1:-1))[0]||"BOT";
       cards.push(card(TG.e,en2?"Which role will the Finals MVP play?":"決賽 MVP 得主會擔任哪條路線？",P1(50),pickTx(LN[best]),
         Object.keys(cnt).map(r=>`${LN[r]} ${cnt[r]}`).join("・"),
-        col(H_SIM,none())+col(H_PAST,histRows((y,h)=>h.mvp?rowT(y,`${esc(h.mvp[0])}・${LN[h.mvp[1]]||h.mvp[1]}`):""))+col(H_LIVE,notYet))); }
+        col(H_REC,none())+col(H_PAST,histRows((y,h)=>h.mvp?rowT(y,`${esc(h.mvp[0])}・${LN[h.mvp[1]]||h.mvp[1]}`):""))+col(H_LIVE,notYet))); }
     // ⑮ 淘汰賽地區數（模擬）
     //   答案＝模擬與歷屆各占一半（2026-10-11）：模擬吃今年國際賽，但 LCS 今年對 LCK／LPL 只有 3-24，
     //   靠贏 LEC／LCP 撐起來的賽區分容易高估西方隊伍，歷屆基準率拿來拉回來。
@@ -12784,13 +12788,13 @@ function render(){
       const ks=[...new Set([...Object.keys(SIM.koReg),...HY.map(y=>String(H[y].koRegions))])].sort((a,b)=>sc(b)-sc(a)), mode=ks[0];
       cards.push(card(TG.e,en2?"How many regions in the knockout stage? (8 teams)":"淘汰賽會有幾個不同參賽地區？（8 支隊伍）",P1(50),pickTx(mode!=null?mode:"–"),
         en2?`simulation and past Worlds averaged: ${ks.slice().sort().map(k=>`${k} ${pct(sc(k))}`).join(", ")}`:`模擬與歷屆各半：${ks.slice().sort().map(k=>`${k} 個 ${pct(sc(k))}`).join("、")}`,
-        col(H_SIM,ks.slice().sort().map(k=>rowT(k,pct((SIM.koReg[k]||0)/SIM.SIMS))).join(""))
+        col(H_RS,ks.slice().sort().map(k=>rowT(k,pct((SIM.koReg[k]||0)/SIM.SIMS))).join(""))
         +col(H_PAST,histRows((y,h)=>rowT(y,`${h.koRegions}・${[...new Set(h.ko.map(x=>x[1]))].join("/")}`)))+col(H_LIVE,notYet))); }
     // ⑯ LCS 進淘汰賽（模擬）
     { const lcs=EVT.filter(t=>teamReg[t]==="LCS"), hr=HY.length?HY.filter(y=>H[y].koLCS.length).length/HY.length:SIM.lcsKO, pb=(SIM.lcsKO+hr)/2;
       cards.push(card(TG.e,en2?"Will an LCS team make the knockout stage?":"會有 LCS 戰隊闖進淘汰賽嗎？",P1(50),pickTx(pb>=0.5?YES:NO),
         en2?`simulation ${pct(SIM.lcsKO)} and past Worlds ${pct(hr)} averaged ⇒ ${pct(pb)}`:`模擬 ${pct(SIM.lcsKO)}、歷屆 ${pct(hr)} 各半 ⇒ ${pct(pb)}`,
-        col(H_SIM,lcs.map(t=>`<div class="pdRow">${teamLogoHTML(tAb(t),22,true)}<span>${esc(tAb(t))}</span><span class="pdV">${pct(SIM.T[t].pko)}</span></div>`).join(""))
+        col(H_RS,lcs.map(t=>`<div class="pdRow">${teamLogoHTML(tAb(t),22,true)}<span>${esc(tAb(t))}</span><span class="pdV">${pct(SIM.T[t].pko)}</span></div>`).join(""))
         +col(H_PAST,histRows((y,h)=>rowT(y,h.koLCS.length?h.koLCS.map(t=>esc(tAb(t))).join("/"):"–")))+col(H_LIVE,notYet))); }
     // ⑰ HLE vs T1（模擬名次＋今年交手）
     { const A1="Hanwha Life Esports", B1="T1", ser=[]; let cur=null;
@@ -12804,8 +12808,10 @@ function render(){
       cards.push(card(TG.t,en2?"Who will place higher: HLE or T1?":"哪支戰隊會排名更高：HLE 還是 T1？",P1(50),pickTx(`${teamLogoHTML(tAb(pick),24,true)}${esc(tAb(pick))}`),
         en2?`simulations: HLE higher ${pct(ha)}, T1 higher ${pct(hb)}, same stage ${pct(1-ha-hb)}; this year HLE ${sa}-${sb} T1 in series`
            :`模擬：HLE 較高 ${pct(ha)}、T1 較高 ${pct(hb)}、同名次 ${pct(1-ha-hb)}；今年系列賽 HLE ${sa}-${sb} T1`,
-        col(H_REC,last.slice().reverse().map(s=>rowT(`${+s.d.slice(5,7)}/${+s.d.slice(8,10)}`,`HLE ${s.a}-${s.b} T1`)).join(""))
-        +col(H_SIM,[A1,B1].map(t=>rowT(esc(tAb(t)),`${en2?"KO":"八強"} ${pct(SIM.T[t].pko)}・${en2?"final":"決賽"} ${pct(SIM.T[t].pfin)}`)).join(""))+col(H_LIVE,notYet))); }
+        col(H_RS,sub(en2?"this year's series":"今年交手")+last.slice().reverse().map(s=>rowT(`${+s.d.slice(5,7)}/${+s.d.slice(8,10)}`,`HLE ${s.a}-${s.b} T1`)).join("")
+          +sub(en2?"simulated":"模擬")+[A1,B1].map(t=>rowT(esc(tAb(t)),`${en2?"KO":"八強"} ${pct(SIM.T[t].pko)}・${en2?"final":"決賽"} ${pct(SIM.T[t].pfin)}`)).join(""))
+        +col(H_PAST,histRows((y,h)=>{ const on=re=>(h.ko||[]).some(x=>re.test(x[0]));
+            return rowT(y,`HLE ${on(/^Hanwha/)?(en2?"top 8":"八強"):"–"}・T1 ${on(/^(SK Telecom )?T1$/)?(en2?"top 8":"八強"):"–"}`); }))+col(H_LIVE,notYet))); }
     // ⑱ 最短時間勝場（使用者 2026-10-11：通常發生在入圍賽，入圍賽賽程已出）：直接看模擬
     //   每局時長＝強度差＋勝方自己的節奏（見 DUR）；入圍賽照官方雙敗賽程打 ⇒ 強弱懸殊、BO5 場數多的入圍賽自然常出最快紀錄。
     { const mm=v=>`${Math.floor(v)}:${String(Math.round((v%1)*60)).padStart(2,"0")}`;
@@ -12817,8 +12823,8 @@ function render(){
         pickT.map((t,i)=>`<span class="pdPick"><span class="pdRk">#${i+1}</span>${teamLogoHTML(tAb(t),24,true)}${esc(tAb(t))}</span>`).join(""),
         live?srcTx:(en2?`simulated: game length from the strength gap and the winner's own pace; play-in on the official double-elimination bracket${SIM.pooled?", Swiss round 1 drawn Pool 1 vs 4 / 2 vs 3":""}. The fastest game happened in play-in ${stTx("po")}${SIM.pooled?`, Swiss R1 ${stTx("r1")}`:""}, later Swiss ${stTx("sw")}, knockouts ${stTx("ko")}`
                       :`模擬：每局時長看強度差＋勝方自己的節奏；入圍賽照官方雙敗賽程${SIM.pooled?"、瑞士輪第一輪照官方種子（1 級打 4 級、2 級打 3 級）":""}。最快那局落在入圍賽 ${stTx("po")}${SIM.pooled?`、瑞士輪第一輪 ${stTx("r1")}`:""}、瑞士輪其他輪 ${stTx("sw")}、淘汰賽 ${stTx("ko")}`),
-        col(H_SIM,ts.slice(0,6).map(t=>`<div class="pdRow">${teamLogoHTML(tAb(t),22,true)}<span>${esc(tAb(t))}</span><span class="pdV">${pct(SIM.T[t].pfast)}${R.winT[t]?`・${en2?"recent min":"近期最快"} ${mm(R.winT[t])}`:""}</span></div>`).join(""))
-        +col(en2?"Most likely fastest matchups":"最快那局最常出現的對戰",Object.keys(SIM.fastPair).sort((a,b)=>SIM.fastPair[b]-SIM.fastPair[a]).slice(0,6).map(k=>{ const [w,l]=k.split("|");
+        col(H_RS,sub(en2?"chance to own the fastest win":"拿下最快勝場的機率")+ts.slice(0,5).map(t=>`<div class="pdRow">${teamLogoHTML(tAb(t),22,true)}<span>${esc(tAb(t))}</span><span class="pdV">${pct(SIM.T[t].pfast)}${R.winT[t]?`・${en2?"recent min":"近期最快"} ${mm(R.winT[t])}`:""}</span></div>`).join("")
+          +sub(en2?"most likely matchups":"最常出現的對戰")+Object.keys(SIM.fastPair).sort((a,b)=>SIM.fastPair[b]-SIM.fastPair[a]).slice(0,4).map(k=>{ const [w,l]=k.split("|");
             return `<div class="pdRow">${teamLogoHTML(tAb(w),22,true)}<span>${esc(tAb(w))}</span><span class="pdN">${en2?"vs":"勝"}</span>${teamLogoHTML(tAb(l),22,true)}<span>${esc(tAb(l))}</span><span class="pdV">${pct(SIM.fastPair[k]/stN)}</span></div>`; }).join(""))
         +col(H_PAST,histRows((y,h)=>h.shortest[0]?rowT(y,`${esc(tAb(h.shortest[0][1]))} ${mm(h.shortest[0][0])}`):""))+col(H_LIVE,L.n?liveRows(L):notYet))); }
     wrap.innerHTML=`<div class="grid">${cards.join("")}</div>`;
