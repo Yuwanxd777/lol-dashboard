@@ -169,6 +169,8 @@ PLAN = [
     # 而 ⑤e 沒有新選手時會提早 return、連一次都不跑。改成獨立階段：**永遠恰好一次**。
     ("⑤f 積分索引（一次）", [S("build_soloq_index")]),
     ("⑤g 出裝聚合（一次）", [S("build_soloq_builds")]),
+    # 2026-10-11：「預測」分頁的積分版本趨勢（世界賽版本沒有職業比賽 ⇒ 看選手積分的使用率變化），讀 ⑤e2 清完的逐場
+    ("⑤h 預測用積分版本趨勢", [S("build_predict_sq")]),
     # 收尾：彼此不相干，但都要等前面資料齊（build_font_subset 掃根目錄全部 *.js ⇒ 要等 ⑤g 的四個輸出檔寫完；
     # build_patch_dates 讀 ⑤g 快取的 patch_dates.json）。label_pending 2026-09-09 #72 搬去 ⑤c 並行，見上。
     ("⑥ 收尾（互不相干）", [

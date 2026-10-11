@@ -25,6 +25,9 @@
 !events_extra.js
 # 預測分頁（水晶球）的歷屆世界賽參考，scripts/build_predict_hist.py 產
 !predict_hist.js
+# 預測分頁：積分版本趨勢（scripts/build_predict_sq.py，管線 ⑤h）與外部預測（實況主／分析師影片整理）
+!predict_sq.js
+!predict_ext.js
 !wiki_links.js
 !chart.umd.min.js
 # leaguepedia.js 不發布：index.html 完全沒有引用它（只有 scripts/*.py 拿它當輸入），

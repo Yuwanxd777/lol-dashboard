@@ -22,6 +22,10 @@ INTL = {"WLDs", "MSI", "EWC", "FST", "KeSPA", "DCup", "AG", "ASI", "Rift Rivals"
 REGION = {"LTA N": "LCS", "LCS": "LCS", "NA LCS": "LCS", "LTA S": "CBLOL", "CBLOL": "CBLOL",
           "LTA": "LTA", "LCP": "LCP", "PCS": "PCS", "VCS": "VCS", "LJL": "LJL", "LLA": "LLA",
           "LCK": "LCK", "LPL": "LPL", "LEC": "LEC", "EU LCS": "LEC", "TCL": "TCL", "LCO": "LCO"}
+# 賽區強度用（2026-10-11 使用者：以近三年賽區對戰成績判定）：舊賽區併到今年的名字
+H2H_REG = {"LCK": "LCK", "LPL": "LPL", "LEC": "LEC", "EU LCS": "LEC", "LCS": "LCS", "NA LCS": "LCS", "LTA N": "LCS",
+           "CBLOL": "CBLOL", "LTA S": "CBLOL", "LCP": "LCP", "PCS": "LCP", "VCS": "LCP", "LJL": "LCP", "LCO": "LCP"}
+H2H_LG = {"WLDs", "MSI", "EWC", "FST", "DCup"}
 # 決賽 MVP（資料庫沒有這個欄位，只放確定的屆數；不確定的不寫）
 FINALS_MVP = {2019: ["Tian", "JNG"], 2020: ["Canyon", "JNG"], 2021: ["Scout", "MID"], 2022: ["Deft", "BOT"],
               2024: ["Faker", "MID"], 2025: ["Gumayusi", "BOT"]}  # 2023 不確定，先不放
@@ -63,10 +67,13 @@ def build(y):
     G = {}
     team_lg = defaultdict(Counter)
     regK = defaultdict(float)                     # 夏季主要賽區：每局單人最高擊殺
+    h2hG = {}                                     # 國際賽每局 (藍, 紅, 藍勝?)
     for r in R:
         lg = r[ix["league"]]
         if str(r[ix["participantid"]]) not in ("1", "2", "3", "4", "5"):
             continue
+        if lg in H2H_LG:
+            h2hG[(lg, str(r[ix["date"]])[:10], r[ix["blue_teamname"]], r[ix["red_teamname"]], str(r[ix["game"]]))] = r[ix["result"]] == 1
         if lg in REG15_LG and "07" <= str(r[ix["date"]])[5:7] <= "09":
             k = (str(r[ix["date"]])[:10], r[ix["blue_teamname"]], r[ix["red_teamname"]], str(r[ix["game"]]))
             regK[k] = max(regK[k], num(r, "blue_kills"), num(r, "red_kills"))
@@ -142,7 +149,16 @@ def build(y):
         "shortest": [[round(l, 1), t] for l, t in shortest],
         "mvp": FINALS_MVP.get(y),
         "reg15": [len(regK), sum(v >= 15 for v in regK.values())],
+        "h2h": {},
     }
+    # 跨賽區交手（國際賽、不同賽區的兩隊）：{"LCK|LPL": [LCK 勝, LPL 勝]}，鍵照字母序
+    hreg = {t: H2H_REG.get(c.most_common(1)[0][0]) for t, c in team_lg.items() if c}
+    for (lg, d, b, rr, gn), bw in h2hG.items():
+        A, B = hreg.get(b), hreg.get(rr)
+        if not A or not B or A == B:
+            continue
+        k = "|".join(sorted((A, B))); x = out["h2h"].setdefault(k, [0, 0])
+        x[0 if (A < B) == bw else 1] += 1
     out["cs450"], out["maxCS"] = cs_stats(y)
     return out
 
