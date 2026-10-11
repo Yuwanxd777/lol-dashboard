@@ -12853,7 +12853,7 @@ function render(){
         live?srcTx:(en2?`simulated: game length from the strength gap and the winner's own pace; play-in on the official double-elimination bracket${SIM.pooled?", Swiss round 1 drawn Pool 1 vs 4 / 2 vs 3":""}. The fastest game happened in play-in ${stTx("po")}${SIM.pooled?`, Swiss R1 ${stTx("r1")}`:""}, later Swiss ${stTx("sw")}, knockouts ${stTx("ko")}`
                       :`模擬：每局時長看強度差＋勝方自己的節奏；入圍賽照官方雙敗賽程${SIM.pooled?"、瑞士輪第一輪照官方種子（1 級打 4 級、2 級打 3 級）":""}。最快那局落在入圍賽 ${stTx("po")}${SIM.pooled?`、瑞士輪第一輪 ${stTx("r1")}`:""}、瑞士輪其他輪 ${stTx("sw")}、淘汰賽 ${stTx("ko")}`),
         col(H_RS,sub(en2?"chance to own the fastest win":"拿下最快勝場的機率")+ts.slice(0,5).map(t=>`<div class="pdRow">${teamLogoHTML(tAb(t),22,true)}<span>${esc(tAb(t))}</span><span class="pdV">${pct(SIM.T[t].pfast)}${R.winT[t]?`・${en2?"recent min":"近期最快"} ${mm(R.winT[t])}`:""}</span></div>`).join("")
-          +sub(en2?"most likely matchups":"最常出現的對戰")+Object.keys(SIM.fastPair).sort((a,b)=>SIM.fastPair[b]-SIM.fastPair[a]).slice(0,4).map(k=>{ const [w,l]=k.split("|");
+          +sub(en2?"most likely fastest-win matchups":"最有可能出現最快勝場的對戰")+Object.keys(SIM.fastPair).sort((a,b)=>SIM.fastPair[b]-SIM.fastPair[a]).slice(0,4).map(k=>{ const [w,l]=k.split("|");
             return `<div class="pdRow">${teamLogoHTML(tAb(w),22,true)}<span>${esc(tAb(w))}</span><span class="pdN">${en2?"vs":"勝"}</span>${teamLogoHTML(tAb(l),22,true)}<span>${esc(tAb(l))}</span><span class="pdV">${pct(SIM.fastPair[k]/stN)}</span></div>`; }).join(""))
         +col(H_PAST,histRows((y,h)=>h.shortest[0]?rowT(y,`${esc(tAb(h.shortest[0][1]))} ${mm(h.shortest[0][0])}`):""))+col(H_LIVE,L.n?liveRows(L):notYet))); }
     wrap.innerHTML=`<div class="pdList">${cards.join("")}</div>`;
