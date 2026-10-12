@@ -12802,7 +12802,7 @@ function render(){
       cards.push(card(TG.p,en2?"Peyz vs Gumayusi: who gets more kills?":"Peyz vs Gumayusi：誰的擊殺數會比較多？",P1(100),pickTx(`${tLogo(pick==="Peyz"?"T1":"Hanwha Life Esports",24)}${esc(pick)}`),
         en2?`kills per game × expected games: Peyz ≈${Math.round(ea)} vs Gumayusi ≈${Math.round(eb)}`:`局均擊殺 × 預估局數：Peyz 約 ${Math.round(ea)} 殺 vs Gumayusi 約 ${Math.round(eb)} 殺`,
         col(H_REC,rowT(`Peyz ${en2?"per game":"局均"}`,pg(a))+rowT(`Gumayusi ${en2?"per game":"局均"}`,pg(b))+rowT(`T1 ${en2?"exp. games":"預估局數"}`,d1s(EG("T1").toFixed(1)))+rowT(`HLE ${en2?"exp. games":"預估局數"}`,d1s(EG("Hanwha Life Esports").toFixed(1))))
-        +col(H_PAST,histRows((y,h)=>rowT(y,`${(h.kills.Peyz||[0])[0]} : ${(h.kills.Gumayusi||[0])[0]}`)))
+        +col(H_PAST,histRows((y,h)=>h.kills.Peyz||h.kills.Gumayusi?rowT(y,`${h.kills.Peyz?h.kills.Peyz[0]:"–"} : ${h.kills.Gumayusi?h.kills.Gumayusi[0]:"–"}`):""))
         +col(H_LIVE,L.n?rowT("Peyz",la.k)+rowT("Gumayusi",lb.k):notYet))); }
     // ⑧ Faker 生涯 700 殺（題目給的開賽前生涯：616 殺）
     { const BASE=616, GOAL=700, lq=L.pl.Faker||{k:0,n:0}, need=GOAL-BASE-lq.k;
