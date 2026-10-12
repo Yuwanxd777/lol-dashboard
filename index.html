@@ -15703,7 +15703,7 @@ function render(){
                            document.addEventListener("keydown",function esc(e2){ if(e2.key==="Escape"){kill(); document.removeEventListener("keydown",esc);} }); },0);
         };
       });
-      wrap.querySelectorAll(".fpTag").forEach(tg=>tg.onclick=()=>{const gi=+tg.dataset.g; const _gt=(S.tm||[])[gi]; if(_gt&&!_gt.frozen)return; /* 凍結局可切先後選 */ S.fp[gi]=S.fp[gi]?0:1; saveState(); rerender();});
+      wrap.querySelectorAll(".fpTag").forEach(tg=>tg.onclick=()=>{const gi=+tg.dataset.g; const _gt=(S.tm||[])[gi]; if(_gt&&!_gt.frozen)return; /* 凍結局可切先後選 */ S.fp[gi]=S.fp[gi]?0:1; if(window._bsSetFirst)window._bsSetFirst(gi,S.fp[gi]); /* 直播局：手動值通知同步端、不再被推斷蓋回（2026-10-12） */ saveState(); rerender();});
       wrap.querySelectorAll(".bpPosBtn").forEach(bt=>bt.onclick=()=>{ // 點路線圖換人（輪替循環）
         const pos=bt.dataset.pos, st=bt.dataset.side==="1"?S.pk1:S.pk2, R=bt.dataset.side==="1"?R1:R2;
         const ps=R&&R[pos]?R[pos].players:[];
