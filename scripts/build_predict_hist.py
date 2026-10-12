@@ -30,8 +30,8 @@ H2H_LG = {"WLDs", "MSI", "EWC", "FST", "DCup"}
 #   賽前 90 天主要賽區＋國際賽的選用次數排名；記下該屆勝率前三（≥5 場）各自排第幾
 PRE_LG = {"LCK", "LPL", "LEC", "LCS", "LTA N", "LTA S", "LTA", "CBLOL", "LCP", "PCS", "VCS", "LJL", "MSI", "EWC", "FST"}
 # 決賽 MVP（資料庫沒有這個欄位，只放確定的屆數；不確定的不寫）
-FINALS_MVP = {2019: ["Tian", "JNG"], 2020: ["Canyon", "JNG"], 2021: ["Scout", "MID"], 2022: ["Deft", "BOT"],
-              2024: ["Faker", "MID"], 2025: ["Gumayusi", "BOT"]}  # 2023 不確定，先不放
+FINALS_MVP = {2019: ["Tian", "JNG"], 2020: ["Canyon", "JNG"], 2021: ["Scout", "MID"], 2022: ["Kingen", "TOP"], 2023: ["Zeus", "TOP"],
+              2024: ["Faker", "MID"], 2025: ["Gumayusi", "BOT"]}  # 2026-10-12 查證修正：2022 是 Kingen 不是 Deft、補 2023 Zeus
 
 
 def load(y):

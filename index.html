@@ -12688,7 +12688,6 @@ function render(){
       len32:a=>/32 分鐘內|Under/.test(a)?(en2?"A few more Worlds games end before 32 minutes.":"歷屆世界賽 32 分鐘內結束的局數稍微多一點。"):(en2?"Games have been running longer.":"最近的比賽越打越長。"),
       k15:a=>isYes(a)?(en2?"Kill counts are up this year.":"今年擊殺數變多，有機會出現。"):(en2?"Worlds opponents are strong - 15-kill games are rare.":"世界賽對手強，單場 15 殺很少見。"),
       cs450:a=>isYes(a)?(en2?"Almost every Worlds has a long game with 450+ CS.":"幾乎每年都有長局打出 450 以上補兵。"):(en2?"Long games have become rare.":"長局變少了。"),
-      mvp:en2?"Recent Finals MVPs mostly went to bot laners.":"近年決賽 MVP 多半是下路。",
       koreg:a=>en2?"LCK and LPL take most spots; the rest is a coin flip between the West.":"LCK、LPL 佔大多數，剩下名額看西方賽區能擠進幾隊。",
       lcs:a=>isYes(a)?(en2?"North America has a real shot at sneaking one team in - close call.":"北美有機會擠進一隊，但很接近五五波。"):(en2?"North American teams struggle against LCK / LPL.":"北美隊伍打 LCK、LPL 很吃力。"),
       hlet1:a=>{ const t=/T1/.test(a)?"T1":"HLE"; return en2?`Very close - ${t} finishes higher slightly more often in the simulation.`:`兩隊實力很接近，模擬裡 ${t} 名次稍微高一點。`; },
@@ -12877,7 +12876,10 @@ function render(){
       const cnt={}, lastY={}; HY.forEach(y=>{const m=H[y].mvp; if(m){cnt[m[1]]=(cnt[m[1]]||0)+1; if(!(lastY[m[1]]>y))lastY[m[1]]=y;}});
       const best=Object.keys(cnt).sort((a,b)=>cnt[b]-cnt[a]||(lastY[b]>lastY[a]?1:-1))[0]||"BOT";
       cards.push(card(TG.e,en2?"Which role will the Finals MVP play?":"決賽 MVP 得主會擔任哪條路線？",P1(50),pickTx(LN[best]),
-        Object.keys(cnt).map(r=>`${LN[r]} ${cnt[r]}`).join("・"),
+        (()=>{ const tie=Object.keys(cnt).filter(r=>cnt[r]===cnt[best]);   // 說明照實際票數寫（2026-10-12：原本寫死「多半是下路」）
+          return tie.length>1?(en2?`No role stands out (${tie.map(r=>LN[r]).join(", ")} ${cnt[best]} each) - going with the most recent, ${LN[best]}.`
+                                  :`歷屆沒有哪條路特別多（${tie.map(r=>LN[r]).join("、")}各 ${cnt[best]} 次），選最近拿過的${LN[best]}。`)
+                             :(en2?`${LN[best]} has won Finals MVP the most (${cnt[best]} times).`:`歷屆決賽 MVP 最常是${LN[best]}（${cnt[best]} 次）。`); })(),
         col(H_REC,none())+col(H_PAST,histRows((y,h)=>h.mvp?rowT(y,`${esc(h.mvp[0])}・${LN[h.mvp[1]]||h.mvp[1]}`):""))+col(H_LIVE,notYet))); }
     // ⑮ 淘汰賽地區數（模擬）
     //   答案＝模擬與歷屆各占一半（2026-10-11）：模擬吃今年國際賽，但 LCS 今年對 LCK／LPL 只有 3-24，
