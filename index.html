@@ -12849,7 +12849,7 @@ function render(){
       cards.push(card(TG.e,en2?"More games under 32 minutes, or 32+?":"32 分鐘內或超過 32 分鐘結束的對戰會比較多？",P1(50),
         pickTx(under?(en2?"Under 32 min":"32 分鐘內"):(en2?"32 min or longer":"超過 32 分鐘")),
         en2?`past Worlds total ${hU} : ${hO}`:`歷屆合計 ${hU} : ${hO}`,
-        col(H_REC,rowT(en2?"Under 32":"32 分內",ra)+rowT(en2?"32+":"32 分以上",rb))+col(H_PAST,histRows((y,h)=>rowT(y,`${h.len32[0]} : ${h.len32[1]}`)))
+        col(H_REC,rowT(en2?"Under 32":"32 分內",ra)+rowT(en2?"32+":"32 分以上",rb))+col(H_PAST,histRows((y,h)=>rowT(y,h.avgLen?(sec=>`${Math.floor(sec/60)}:${String(sec%60).padStart(2,"0")}`)(Math.round(h.avgLen*60)):"–")))
         +col(H_LIVE,L.n?rowT(en2?"Under 32":"32 分內",la)+rowT(en2?"32+":"32 分以上",lb):notYet))); }
     // ⑫ 單場 15 殺：近期每局發生率 × 「世界賽 ÷ 同年夏季區域聯賽」的歷屆比值（2026-10-11 改）
     //   只看歷屆（875 局 3 次）會漏掉今年擊殺變多；只看近期又高估——2023～2025 區域聯賽 1.4～2.0%、同年世界賽 0 次。

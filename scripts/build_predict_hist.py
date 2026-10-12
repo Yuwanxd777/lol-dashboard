@@ -152,6 +152,7 @@ def build(y):
         "kp": [[nm, p6[nm]["team"], round(kp(p6[nm]), 3), p6[nm]["n"]] for nm in top(p6, lambda nm: -kp(p6[nm]))],
         "uniq": len(pk),
         "len32": [sum(l < 32 for l in lens), sum(l >= 32 for l in lens)],
+        "avgLen": round(sum(lens) / len(lens), 2) if lens else None,
         "long45": sum(l >= 45 for l in lens),
         "maxLen": round(max(lens), 1) if lens else None,
         "maxKills": big[:3],
