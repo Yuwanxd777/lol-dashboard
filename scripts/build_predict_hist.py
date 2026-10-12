@@ -45,7 +45,7 @@ def load(y):
 REG15_LG = {"LCK", "LPL", "LEC", "LCS", "LTA N", "LTA S", "LTA", "CBLOL", "LCP", "PCS", "VCS", "LJL"}
 
 
-def cs_stats(y):
+def cs_stats(y, w0):
     """單場最高總補兵（total cs）——年度資料檔沒收補兵，只能讀 csv_cache/{y}.csv（OE 原檔）。"""
     f = os.path.join(ROOT, "csv_cache", f"{y}.csv")
     if not os.path.exists(f):
@@ -54,7 +54,7 @@ def cs_stats(y):
     G = defaultdict(float)
     with open(f, encoding="utf-8", errors="replace") as fh:
         for r in csv.DictReader(fh):
-            if r.get("league") != "WLDs" or r.get("position") == "team":
+            if r.get("league") != "WLDs" or r.get("position") == "team" or str(r.get("date"))[:10] < w0:   # 正賽開打前的 WLDs＝資格賽（CSV 版本號寫法跟資料檔不同，改用日期）
                 continue
             try:
                 G[r["gameid"]] = max(G[r["gameid"]], float(r.get("total cs") or 0))
@@ -70,7 +70,18 @@ def build(y):
     G = {}
     team_lg = defaultdict(Counter)
     regK = defaultdict(float)                     # 夏季主要賽區：每局單人最高擊殺
-    w0 = min((str(r[ix["date"]])[:10] for r in R if r[ix["league"]] == "WLDs"), default=f"{y}-10-01")
+    # 上游把各賽區的世界賽資格賽也標成 WLDs（2022 起每年都有，例如 LPL 9 月的資格賽）——
+    #   跟 index.html 的 _WLD_MAIN 同一套判法：正賽整屆鎖同一版本且一定有跨賽區對戰，
+    #   有跨區對戰的版本＝正賽版本，其餘版本的 WLDs 場次就是資格賽，一律排除。
+    home = defaultdict(Counter)
+    for r in R:
+        if str(r[ix["participantid"]]) == "1" and r[ix["league"]] not in INTL:
+            home[r[ix["blue_teamname"]]][r[ix["league"]]] += 1; home[r[ix["red_teamname"]]][r[ix["league"]]] += 1
+    hl = lambda t: home[t].most_common(1)[0][0] if home[t] else None
+    mains = {str(r[ix["patch"]]) for r in R if r[ix["league"]] == "WLDs" and str(r[ix["participantid"]]) == "1"
+             and hl(r[ix["blue_teamname"]]) and hl(r[ix["red_teamname"]]) and hl(r[ix["blue_teamname"]]) != hl(r[ix["red_teamname"]])}
+    isW = lambda r: r[ix["league"]] == "WLDs" and str(r[ix["patch"]]) in mains
+    w0 = min((str(r[ix["date"]])[:10] for r in R if isW(r)), default=f"{y}-10-01")
     pre_lo = (datetime.date.fromisoformat(w0) - datetime.timedelta(days=90)).isoformat()
     pre = Counter()                               # 賽前 90 天選用次數
     h2hG = {}                                     # 國際賽每局 (藍, 紅, 藍勝?)
@@ -88,7 +99,7 @@ def build(y):
         if lg not in INTL:
             team_lg[r[ix["blue_teamname"]]][lg] += 1
             team_lg[r[ix["red_teamname"]]][lg] += 1
-        if lg != "WLDs":
+        if not isW(r):
             continue
         k = (str(r[ix["date"]])[:10], r[ix["blue_teamname"]], r[ix["red_teamname"]], str(r[ix["game"]]))
         g = G.setdefault(k, {"res": r[ix["result"]], "len": r[ix["blue_gamelength"]], "pl": [],
@@ -178,7 +189,7 @@ def build(y):
             continue
         k = "|".join(sorted((A, B))); x = out["h2h"].setdefault(k, [0, 0])
         x[0 if (A < B) == bw else 1] += 1
-    out["cs450"], out["maxCS"] = cs_stats(y)
+    out["cs450"], out["maxCS"] = cs_stats(y, w0)
     return out
 
 
