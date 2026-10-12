@@ -12909,8 +12909,9 @@ function render(){
            :`模擬：HLE 較高 ${pct(ha)}、T1 較高 ${pct(hb)}、同名次 ${pct(1-ha-hb)}；今年系列賽 HLE ${sa}-${sb} T1`,
         col(H_RS,sub(en2?`all series this year (HLE ${sa}-${sb} T1)`:`今年全部交手（HLE ${sa} 勝 ${sb} 敗）`)+last.slice().reverse().map(s=>rowT(`${+s.d.slice(5,7)}/${+s.d.slice(8,10)} <span class="pdN">${esc(lgName(s.lg))}</span>`,`<span style="color:${s.a>s.b?"#ff8a3d":"#ff4d6a"}">${s.a>s.b?"HLE":"T1"}</span> ${Math.max(s.a,s.b)}-${Math.min(s.a,s.b)}`)).join("")
           +sub(en2?"simulated":"模擬")+[A1,B1].map(t=>rowT(esc(tAb(t)),`${en2?"KO":"八強"} ${pct(SIM.T[t].pko)}・${en2?"final":"決賽"} ${pct(SIM.T[t].pfin)}`)).join(""))
-        +col(H_PAST,histRows((y,h)=>{ const on=re=>(h.ko||[]).some(x=>re.test(x[0]));
-            return rowT(y,`HLE ${on(/^Hanwha/)?(en2?"top 8":"八強"):"–"}・T1 ${on(/^(SK Telecom )?T1$/)?(en2?"top 8":"八強"):"–"}`); }))+col(H_LIVE,notYet))); }
+        +col(H_PAST,histRows((y,h)=>{ const fn=re=>{ const k=Object.keys(h.fin||{}).find(t=>re.test(t)); return k?h.fin[k]:0; };
+            const st=r=>({1:en2?"🏆 champion":"🏆 冠軍",2:en2?"final":"亞軍",4:en2?"top 4":"四強",8:en2?"top 8":"八強"})[r]||"–";
+            return rowT(y,`HLE ${st(fn(/^Hanwha/))}・T1 ${st(fn(/^(SK Telecom )?T1$/))}`); }))+col(H_LIVE,notYet))); }
     // ⑱ 最短時間勝場（使用者 2026-10-11：通常發生在入圍賽，入圍賽賽程已出）：直接看模擬
     //   每局時長＝強度差＋勝方自己的節奏（見 DUR）；入圍賽照官方雙敗賽程打 ⇒ 強弱懸殊、BO5 局數多的入圍賽自然常出最快紀錄。
     { const mm=v=>`${Math.floor(v)}:${String(Math.round((v%1)*60)).padStart(2,"0")}`;

@@ -131,6 +131,13 @@ def build(y):
         ser[k + (d[:7],)][0][b_ if g["res"] == 1 else r_] += 1
         ser[k + (d[:7],)][1] = max(ser[k + (d[:7],)][1], d)
     bo5 = sorted((v[1], k[:2]) for k, v in ser.items() if max(v[0].values()) >= 3)
+    swin = {k[:2]: v[0].most_common(1)[0][0] for k, v in ser.items() if max(v[0].values()) >= 3}
+    fin = {}                                      # 淘汰賽最終名次：1 冠軍／2 亞軍／4 四強／8 八強
+    for i, (_, pair) in enumerate(bo5[-7:]):
+        lose = pair[0] if swin[pair] == pair[1] else pair[1]
+        fin[lose] = 2 if i == 6 else (4 if i >= 4 else 8)
+        if i == 6:
+            fin[swin[pair]] = 1
     ko = sorted({t for _, pair in bo5[-7:] for t in pair})
     reg = {t: REGION.get(team_lg[t].most_common(1)[0][0], team_lg[t].most_common(1)[0][0]) if team_lg[t] else "?" for t in ko}
     shortest = sorted(([float(g["len"]) / 60, (k[1] if g["res"] == 1 else k[2])] for k, g in G.items() if g["len"] not in ("", None)))[:3]
@@ -152,6 +159,7 @@ def build(y):
         "k15": k15,
         "kills": {nm: [int(P[nm]["k"]), P[nm]["n"]] for nm in ("Faker", "Peyz", "Gumayusi") if nm in P},
         "ko": [[t, reg[t]] for t in ko],
+        "fin": fin,
         "koRegions": len(set(reg.values())),
         "koLCS": [t for t in ko if reg[t] == "LCS"],
         "shortest": [[round(l, 1), t] for l, t in shortest],
