@@ -242,6 +242,40 @@ def calc_po(champ, picks, is_blue, first, ):
     return PO_MAP.get(po, 0)
 
 
+EWC_MAPQ = {"LEC": "EWCQ歐洲", "LCK": "EWCQ韓國", "LPL": "EWCQ中國",
+            "LCP": "EWCQ太平洋", "CBLOL": "EWCQ巴西", "LCS": "EWCQ北美"}
+
+
+def label_ewc(rows, iL, iG, iT, iD):
+    """2026+ EWC：同區對戰＝區域資格賽（EWCQ○○），跨區對戰＝正賽（維持 EWC）。原地改 rows 的聯賽欄。
+
+    隊伍的賽區＝它在國內一級聯賽（LCK/LPL/LEC/LCS/CBLOL/LCP）出賽的那個聯賽；查不到的隊不算。
+    **正賽開打日之後一律是正賽**：開打日＝最早一局「兩隊賽區都認得而且不同」的日期。
+    2026-10-16 實查舊版（只看同區／跨區）錯了 12 局：07-17~19 正賽淘汰賽的 T1 vs HLE、Gen.G vs DK、
+    Gen.G vs T1（同區碰頭）被標成 EWCQ韓國；OE 在正賽把 TSW 寫成「Team Secret」（國內聯賽叫
+    Team Secret Whales ⇒ 查不到賽區，只剩對手的）⇒ 對 Sentinels、KC 的 4 局被標成 EWCQ北美／歐洲。
+    各區資格賽最晚 06-14 打完，正賽 07-15 開打，中間不重疊。守門：fetch_data_ewc_split_test.py
+    """
+    dom = {}   # 隊伍 → 所屬國內一級聯賽
+    for r in rows:
+        if r[iL] in EWC_MAPQ:
+            dom[r[iT]] = r[iL]
+    by_game, gdate = {}, {}
+    for r in rows:
+        if r[iL] == "EWC":
+            by_game.setdefault(r[iG], set()).add(dom.get(r[iT]))
+            gdate[r[iG]] = str(r[iD] or "")[:10]
+    main0 = min((gdate[g] for g, regs in by_game.items()
+                 if None not in regs and len(regs) >= 2 and gdate.get(g)), default="9999")
+    glabel = {}
+    for g, regs in by_game.items():
+        regs = {x for x in regs if x}
+        glabel[g] = EWC_MAPQ[next(iter(regs))] if len(regs) == 1 and gdate.get(g, "") < main0 else "EWC"
+    for r in rows:
+        if r[iL] == "EWC":
+            r[iL] = glabel.get(r[iG], "EWC")
+
+
 def process(text, year=DEFAULT_YEAR):
     rows = list(csv.reader(io.StringIO(text)))
     hdr = rows[0]
@@ -289,26 +323,9 @@ def process(text, year=DEFAULT_YEAR):
         filtered.append(r)
     del rows
 
-    # 2026+ EWC：同區對戰＝區域資格賽（EWCQ○○），跨區對戰＝正賽（維持 EWC）
+    # 2026+ EWC：同區對戰＝區域資格賽（EWCQ○○），跨區對戰＝正賽（維持 EWC）；見 label_ewc
     if year >= 2026:
-        gi_g, gi_t = gi("gameid"), gi("teamname")
-        dom = {}   # 隊伍 → 所屬國內一級聯賽
-        for r in filtered:
-            if r[iLeague] in ("LCK", "LPL", "LEC", "LCS", "CBLOL", "LCP"):
-                dom[r[gi_t]] = r[iLeague]
-        MAPQ = {"LEC": "EWCQ歐洲", "LCK": "EWCQ韓國", "LPL": "EWCQ中國",
-                "LCP": "EWCQ太平洋", "CBLOL": "EWCQ巴西", "LCS": "EWCQ北美"}
-        by_game = {}
-        for r in filtered:
-            if r[iLeague] == "EWC":
-                by_game.setdefault(r[gi_g], set()).add(dom.get(r[gi_t]))
-        glabel = {}
-        for g, regs in by_game.items():
-            regs = {x for x in regs if x}
-            glabel[g] = MAPQ[next(iter(regs))] if len(regs) == 1 else "EWC"
-        for r in filtered:
-            if r[iLeague] == "EWC":
-                r[iLeague] = glabel.get(r[gi_g], "EWC")
+        label_ewc(filtered, iLeague, gi("gameid"), gi("teamname"), gi("date"))
 
     # split 正規化 + 季後賽 PO 後綴（S1/S2/S3 制度 2025 才開始；之前用季名）
     _gi_date = gi("date")
