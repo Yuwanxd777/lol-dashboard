@@ -596,9 +596,14 @@ def to_csv(games, cfg):
     #（2026-08-03 實際踩過：只想補 1 局，結果 2018 VCS 多出 260 局幽靈比賽）
     if PB and not cfg.get("pb_nofill"):
         _mhkeys = {frozenset(pbn(c) for c in (SPL(g.get("Picks")) + SPL(g.get("Picks2")))) for g in games}
+        # 差一隻也算同一局（2026-10-16 德盃 WE vs BRO 第 4 局：PB 頁把 Nautilus 打成 Rell、MH 是對的，
+        # 十隻只差一隻 ⇒ 舊版判成 MH 沒有的局 ⇒ BO5 多出一局只有隊伍列的幽靈第 5 局）。
+        # 兩場真的不同的比賽十隻裡有九隻一樣，實務上不會發生。
+        def _same(k, m):
+            return k == m or (len(k) == len(m) == 10 and len(k ^ m) <= 2)
         _pbchrono = list(PB.items())[::-1]        # PB 頁是新→舊 → 反轉成時間正序
         _dates = [next((g.get("Date", "")[:19] for g in games
-                        if frozenset(pbn(c) for c in (SPL(g.get("Picks")) + SPL(g.get("Picks2")))) == k), "")
+                        if _same(frozenset(pbn(c) for c in (SPL(g.get("Picks")) + SPL(g.get("Picks2")))), k)), "")
                   for k, _ in _pbchrono]
         # 隊名要能解回該賽事 MH 的全名（見 _pb_team）；MH 一局都沒有時 _pool 是空的
         # ⇒ 全部解不出來、整批不補，並印一行說明（不要默默生出短名隊伍）。
@@ -606,7 +611,7 @@ def to_csv(games, cfg):
                         | {str(g.get("Red") or "").strip() for g in games}) - {""})
         _add, _seq, _skip, _nowin = [], 0, 0, 0
         for i, (k, m) in enumerate(_pbchrono):
-            if k in _mhkeys:
+            if k in _mhkeys or any(_same(k, m2) for m2 in _mhkeys):
                 _seq = 0
                 continue
             base_dt = next((d for d in _dates[i::-1] if d), "") or next((d for d in _dates[i:] if d), "")

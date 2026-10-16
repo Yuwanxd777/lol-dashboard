@@ -34,6 +34,67 @@ FINALS_MVP = {2019: ["Tian", "JNG"], 2020: ["Canyon", "JNG"], 2021: ["Scout", "M
               2024: ["Faker", "MID"], 2025: ["Gumayusi", "BOT"]}  # 2026-10-12 查證修正：2022 是 Kingen 不是 Deft、補 2023 Zeus
 
 
+# 各場 MVP（使用者 2026-10-16：只看 7 筆 FMVP 不準，要連各場 MVP 一起看、兩者都列出）。
+#   世界賽每屆只發一種：2021／2022 是逐局 MVP（POG），其餘是系列 MVP（POM，wiki 賽程表每場旁邊那個）。
+#   系列 MVP 讀 csv_cache/worlds_mvp.json（fetch_worlds_mvp.py 從 Cargo 抓，比頁面表格齊：2019 88 對 79）；
+#   逐局 MVP 讀 side_sel_*.js（fetch_side_sel 從賽事頁表格抓，比 Cargo 齊：2021 64 對 19）。
+#   路線用主資料該屆世界賽的出場紀錄對（名字去掉本名括號、不分大小寫）。
+MVP_JSON = os.path.join(ROOT, "csv_cache", "worlds_mvp.json")
+POS5 = ["TOP", "JNG", "MID", "BOT", "SUP"]
+_nm = lambda s: str(s or "").split(" (")[0].strip().casefold()
+
+
+def _side_sel_worlds():
+    """side_sel_*.js 裡所有世界賽正賽的逐局 MVP → {年: [(日期, 名字)]}（各年檔有重疊，以鍵去重）"""
+    import glob, re
+    rec = {}
+    for fn in sorted(glob.glob(os.path.join(ROOT, "side_sel_20*.js"))) + [os.path.join(ROOT, "side_sel.js")]:
+        if not os.path.exists(fn):
+            continue
+        s = open(fn, encoding="utf-8").read()
+        i = s.index("=[")
+        for r in json.loads(s[s.index("[", i):s.rindex("]") + 1]):
+            ov = str(r.get("ov") or "")
+            if re.match(r"\d{4} Season World Championship/Main Event$", ov) and r.get("mvp"):
+                rec[(ov, r.get("d"), r.get("t1"), r.get("t2"), r.get("gi"))] = r["mvp"]
+    out = defaultdict(list)
+    for (ov, d, *_), m in rec.items():
+        out[int(ov[:4])].append((str(d)[:10], m))
+    return out
+
+
+_SSW = None
+
+
+def mvp_awards(y, roles):
+    """該屆正賽的各場 MVP → {"kind","n","roles","ko","koN","unk"}；roles＝{名字: Counter(路線)}"""
+    global _SSW
+    Y = json.load(open(MVP_JSON, encoding="utf-8")).get(str(y), {}) if os.path.exists(MVP_JSON) else {}
+    S, GM = Y.get("series", []), Y.get("games", [])
+    ko0 = min((r["dt"][:10] for r in S if r.get("tab") == "Quarterfinals"), default="9999")
+    ok = lambda m: m and m.upper() != "MISSING" and len(m) <= 30   # 2021 頁表格那份 MVP 欄抓到整段比賽摘要
+    main = lambda r: "Main Event" in str(r.get("ov"))
+    # 來源順序：Cargo 系列 MVP → 頁表格逐局 MVP（side_sel）→ Cargo 逐局 MVP；同一屆只取一種，不混
+    aw, kind = [(r["dt"][:10], r["mvp"]) for r in S if main(r) and ok(r.get("mvp"))], "series"
+    if not aw:
+        if _SSW is None:
+            _SSW = _side_sel_worlds()
+        aw, kind = [(d, m) for d, m in _SSW.get(y, []) if ok(m)], "game"
+    if not aw:
+        aw, kind = [(r["dt"][:10], r["mvp"]) for r in GM if main(r) and ok(r.get("mvp"))], "game"
+    allc, koc, unk = Counter(), Counter(), []
+    for d, m in aw:
+        c = roles.get(_nm(m))
+        if not c:
+            unk.append(m); continue
+        p = c.most_common(1)[0][0]
+        allc[p] += 1
+        if d >= ko0:
+            koc[p] += 1
+    return {"kind": kind, "n": sum(allc.values()), "roles": dict(allc), "koN": sum(koc.values()), "ko": dict(koc),
+            "unk": unk}
+
+
 def load(y):
     t = open(os.path.join(ROOT, "data", f"data_{y}.js"), encoding="utf-8").read()
     J = json.loads(t.split("=", 1)[1].strip().rstrip(";"))
@@ -85,6 +146,7 @@ def build(y):
     pre_lo = (datetime.date.fromisoformat(w0) - datetime.timedelta(days=90)).isoformat()
     pre = Counter()                               # 賽前 90 天選用次數
     h2hG = {}                                     # 國際賽每局 (藍, 紅, 藍勝?)
+    roles = defaultdict(Counter)                  # 世界賽正賽出場：選手（正規化名）→ 路線次數（各場 MVP 對路線用）
     for r in R:
         lg = r[ix["league"]]
         if str(r[ix["participantid"]]) not in ("1", "2", "3", "4", "5"):
@@ -105,6 +167,7 @@ def build(y):
         g = G.setdefault(k, {"res": r[ix["result"]], "len": r[ix["blue_gamelength"]], "pl": [],
                              "bans": set(x for x in (str(r[ix["blue_banlist"]] or "") + "|" + str(r[ix["red_banlist"]] or "")).split("|") if x)})
         for s in ("blue", "red"):
+            roles[_nm(r[ix[f"{s}_playername"]])][POS5[int(r[ix["participantid"]]) - 1]] += 1
             g["pl"].append(dict(name=r[ix[f"{s}_playername"]], team=r[ix[f"{s}_teamname"]], champ=r[ix[f"{s}_champion"]],
                                 k=num(r, f"{s}_kills"), d=num(r, f"{s}_deaths"), a=num(r, f"{s}_assists"),
                                 tk=num(r, f"{s}_teamkills"), dmg=num(r, f"{s}_damagetochampions"),
@@ -176,6 +239,7 @@ def build(y):
         "koLCS": [t for t in ko if reg[t] == "LCS"],
         "shortest": [[round(l, 1), t] for l, t in shortest],
         "mvp": FINALS_MVP.get(y),
+        "mvpAll": mvp_awards(y, roles),
         "reg15": [len(regK), sum(v >= 15 for v in regK.values())],
         "h2h": {},
     }

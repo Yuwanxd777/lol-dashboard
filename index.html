@@ -12871,16 +12871,29 @@ function render(){
         en2?`${k} of ${n} past Worlds games had a 450+ CS player ⇒ ≈${pct(pp)} over ≈${Math.round(totG)} games`:`歷屆 ${n} 局有 ${k} 局出現 450 以上補兵 ⇒ 本屆約 ${Math.round(totG)} 局至少一次約 ${pct(pp)}`,
         col(H_REC,rowT(en2?"45+ min games":"45 分以上長局",l45(R)))+col(H_PAST,histRows((y,h)=>rowT(y,`${h.cs450!=null?h.cs450:"–"} ${en2?"g":"局"}・${en2?"max":"最高"} ${h.maxCS!=null?h.maxCS:"–"}`)))
         +col(H_LIVE,L.n?rowT(en2?"45+ min games":"45 分以上長局",l45(L)):notYet))); }
-    // ⑭ 決賽 MVP 路線（只放確定的屆數；同票取最近的）
-    { const LN={TOP:en2?"Top":"上路",JNG:en2?"Jungle":"打野",MID:en2?"Mid":"中路",BOT:en2?"Bot":"下路",SUP:en2?"Support":"輔助"};
+    // ⑭ 決賽 MVP 路線：歷屆 FMVP（只放確定的屆數）＋歷屆淘汰賽各場 MVP 的路線分布，兩者各半；同分取最近拿過 FMVP 的
+    //   （使用者 2026-10-16：只看 7 筆 FMVP 不準，要連 wiki 上各場 MVP 一起看、兩者都列出。
+    //    各場 MVP＝wiki 賽程表每場旁邊那個：多數屆是系列 MVP，2021／2022 是逐局 MVP；見 build_predict_hist.mvp_awards）
+    { const LN={TOP:en2?"Top":"上路",JNG:en2?"Jungle":"打野",MID:en2?"Mid":"中路",BOT:en2?"Bot":"下路",SUP:en2?"Support":"輔助"}, RO=["TOP","JNG","MID","BOT","SUP"];
       const cnt={}, lastY={}; HY.forEach(y=>{const m=H[y].mvp; if(m){cnt[m[1]]=(cnt[m[1]]||0)+1; if(!(lastY[m[1]]>y))lastY[m[1]]=y;}});
-      const best=Object.keys(cnt).sort((a,b)=>cnt[b]-cnt[a]||(lastY[b]>lastY[a]?1:-1))[0]||"BOT";
+      const koC={}, allC={}; HY.forEach(y=>{const a=H[y].mvpAll; if(!a)return;
+        Object.entries(a.ko||{}).forEach(([r,n])=>koC[r]=(koC[r]||0)+n); Object.entries(a.roles||{}).forEach(([r,n])=>allC[r]=(allC[r]||0)+n);});
+      const sum=o=>Object.values(o).reduce((s,n)=>s+n,0), fmN=sum(cnt), koN=sum(koC), allN=sum(allC);
+      const sc=r=>((fmN?(cnt[r]||0)/fmN:0)+(koN?(koC[r]||0)/koN:0))/((fmN?1:0)+(koN?1:0)||1);
+      const best=RO.slice().sort((a,b)=>sc(b)-sc(a)||((lastY[b]||0)>(lastY[a]||0)?1:-1))[0]||"BOT";
+      const dist=(o,n)=>RO.filter(r=>o[r]).sort((a,b)=>o[b]-o[a]).map(r=>`${LN[r]} ${o[r]}`).join(en2?", ":"、")||"–";
       cards.push(card(TG.e,en2?"Which role will the Finals MVP play?":"決賽 MVP 得主會擔任哪條路線？",P1(50),pickTx(LN[best]),
-        (()=>{ const tie=Object.keys(cnt).filter(r=>cnt[r]===cnt[best]);   // 說明照實際票數寫（2026-10-12：原本寫死「多半是下路」）
-          return tie.length>1?(en2?`No role stands out (${tie.map(r=>LN[r]).join(", ")} ${cnt[best]} each) - going with the most recent, ${LN[best]}.`
-                                  :`歷屆沒有哪條路特別多（${tie.map(r=>LN[r]).join("、")}各 ${cnt[best]} 次），選最近拿過的${LN[best]}。`)
-                             :(en2?`${LN[best]} has won Finals MVP the most (${cnt[best]} times).`:`歷屆決賽 MVP 最常是${LN[best]}（${cnt[best]} 次）。`); })(),
-        col(H_REC,none())+col(H_PAST,histRows((y,h)=>h.mvp?rowT(y,`${esc(h.mvp[0])}・${LN[h.mvp[1]]||h.mvp[1]}`):""))+col(H_LIVE,notYet))); }
+        (()=>{ const tie=RO.filter(r=>r!==best&&Math.abs(sc(r)-sc(best))<1e-9).map(r=>LN[r]);   // 同分要講明是靠「最近拿過」決定的
+          return en2?`Finals MVP ${fmN} times: ${dist(cnt)}; knockout match MVPs ${koN}: ${dist(koC)}. Weighted half-half ⇒ ${LN[best]} ${pct(sc(best))}`
+                      +(tie.length?` (tied with ${tie.join(", ")}; ${LN[best]} won Finals MVP more recently).`:".")
+                     :`歷屆決賽 MVP ${fmN} 次：${dist(cnt)}；淘汰賽各場 MVP ${koN} 次：${dist(koC)}。兩者各半 ⇒ ${LN[best]} ${pct(sc(best))}`
+                      +(tie.length?`（跟${tie.join("、")}同分，${LN[best]}比較近期拿過決賽 MVP）。`:"。"); })(),
+        col(H_REC,none())
+        +col(H_PAST,sub(en2?"Finals MVP":"決賽 MVP")+histRows((y,h)=>h.mvp?rowT(y,`${esc(h.mvp[0])}・${LN[h.mvp[1]]||h.mvp[1]}`):"")
+          +sub(en2?`knockout match MVPs (${koN})`:`淘汰賽各場 MVP（${koN} 次）`)+RO.map(r=>rowT(LN[r],`${koC[r]||0}・${koN?pct((koC[r]||0)/koN):"–"}`)).join("")
+          +sub(en2?`whole main event (${allN})`:`整個正賽各場 MVP（${allN} 次）`)+RO.map(r=>rowT(LN[r],`${allC[r]||0}・${allN?pct((allC[r]||0)/allN):"–"}`)).join("")
+          +sub(en2?"knockout match MVPs by year":"淘汰賽各場 MVP（逐屆）")+histRows((y,h)=>{const a=h.mvpAll; return rowT(y,a&&a.koN?dist(a.ko):"–");}))
+        +col(H_LIVE,notYet))); }
     // ⑮ 淘汰賽地區數（模擬）
     //   答案＝模擬與歷屆各占一半（2026-10-11）：模擬吃今年國際賽，但 LCS 今年對 LCK／LPL 只有 3-24，
     //   靠贏 LEC／LCP 撐起來的賽區分容易高估西方隊伍，歷屆基準率拿來拉回來。
