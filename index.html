@@ -8148,15 +8148,22 @@ function champLanes(champ){ const PN5={1:"TOP",2:"JNG",3:"MID",4:"BOT",5:"SUP"},
 // 只有一個的（TCL 只有錦標賽）選聯賽本身就等於全部，多一層反而囉嗦。
 // 用 GAMES 而非 optGames：子清單與寬度不該隨其他篩選伸縮。依最早開打日排序。
 let _SUBSP=null,_SUBSP_Y=null;
+// 子清單用的賽段名：世界賽／MSI 沒標賽段的局＝正賽（有標入圍賽的年份才會因此長出「入圍賽／正賽」兩項；
+// 2017–2025 只有正賽一種 ⇒ 不滿兩項、不出子清單）
+const _subSpOf=o=>String(o.split||"").replace(/ PO$/,"")||((o.league==="WLDs"||o.league==="MSI")?"正賽":"");
 function subSplitMap(){
   if(_SUBSP&&_SUBSP_Y===curYear)return _SUBSP;
   const first={},m={};
   (typeof GAMES!=="undefined"?GAMES:[]).forEach(o=>{
-    const s=String(o.split||"").replace(/ PO$/,"");
+    const s=_subSpOf(o);
     if(!s||/^(春|夏|冬|秋)季$|^S[123]$|^升降賽$/.test(s))return;
     const f=first[o.league]=first[o.league]||{}, d=String(o.date).slice(0,10);
     if(!f[s]||d<f[s])f[s]=d;
   });
+  // 世界賽正賽還沒開打（只有入圍賽的局）：照 wiki 的正賽日期先把「正賽」列出來（使用者 2026-10-17
+  // 「篩選要分出入圍賽跟正賽」）。沒有任何局時選它會是空的，開打後自動有資料。
+  {const st=((((window.EVENTS_EXTRA||{})[String(curYear)]||{}).WLDs||{}).stages||[]).find(x=>x&&x.name==="Main Event");
+   const f=first.WLDs; if(st&&st.from&&f&&f["入圍賽"]&&!f["正賽"])f["正賽"]=st.from;}
   Object.keys(first).forEach(lg=>{ const ks=Object.keys(first[lg]);
     if(ks.length>1)m[lg]=ks.sort((a,b)=>first[lg][a]<first[lg][b]?-1:1); });
   _SUBSP=m; _SUBSP_Y=curYear; return m;
@@ -8181,7 +8188,7 @@ function lgPass(o){ // 賽事(聯賽)篩選判定：全部/群組/EWCQ 前綴/LP
     const i=F.league.indexOf("#");
     if(i>0){
       if(o.league!==F.league.slice(0,i))return false;
-      return String(o.split||"").replace(/ PO$/,"")===F.league.slice(i+1);
+      return _subSpOf(o)===F.league.slice(i+1);
     }
   }
   if(F.league==="EWCQ")return String(o.league).startsWith("EWCQ");
@@ -8293,7 +8300,7 @@ function filterOpts(){
     const subs=subSplitsOf(lg);
     if(!subs.length)return "";
     // textContent 帶聯賽前綴（收起時按鈕上要看得出是哪個聯賽），data-s 是子清單裡的短名
-    return subs.map(s=>`<option value="${esc(lg)}#${esc(s)}" data-s="${esc(s)}" ${F.league===lg+"#"+s?"selected":""}>${esc(lg)} ${esc(s)}</option>`).join("");
+    return subs.map(s=>`<option value="${esc(lg)}#${esc(s)}" data-s="${esc(spDisp(s))}" ${F.league===lg+"#"+s?"selected":""}>${esc(lgName(lg))} ${esc(spDisp(s))}</option>`).join("");
   };
   const lo=items.map(([l])=>`<option value="${l}" ${F.league===l?"selected":""}>${lgName(l)}</option>`
     +(l==="LPL"||l==="LCK"?_grpOpts(l):_subOpts(l)));
@@ -8331,7 +8338,7 @@ function filterFixedW(){
   const ewcqLgs=LEAGUES.filter(l=>String(l).startsWith("EWCQ"));
   // 子項（「IEM S7 卡托維茲」這種）的文字也要納入量測：選了子站之後按鈕上顯示的是它，
   // 只按主清單算寬度會塞不下而折行（2026-08-01 使用者回報）
-  const subTx=Object.entries(subSplitMap()).flatMap(([l,ss])=>ss.map(s=>l+" "+s));
+  const subTx=Object.entries(subSplitMap()).flatMap(([l,ss])=>ss.map(s=>lgName(l)+" "+spDisp(s)));
   const lgFull=["ALL","中韓","LCK","LPL",...lplAllGroups(curYear).map(g=>"LPL#"+g),"LCP","歐美","LEC","LCS","CBLOL","國際賽","FST","MSI","WLDs",...ewcqLgs,"EWC","ENC","KeSPA"].map(lgName).concat(subTx);
   const pkL=[T("全部"),...PATCHES];
   return {split:w(spL),league:w(lgFull),patch:w(pkL)};
