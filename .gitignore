@@ -27,6 +27,8 @@
 !predict_hist.js
 # 預測分頁：積分版本趨勢（scripts/build_predict_sq.py，管線 ⑤h）與外部預測（實況主／分析師影片整理）
 !predict_sq.js
+# 預測分頁本屆補兵／MVP（scripts/build_predict_live.py）
+!predict_live.js
 !predict_ext.js
 !wiki_links.js
 !chart.umd.min.js

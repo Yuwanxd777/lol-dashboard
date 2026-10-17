@@ -171,6 +171,8 @@ PLAN = [
     ("⑤g 出裝聚合（一次）", [S("build_soloq_builds")]),
     # 2026-10-11：「預測」分頁的積分版本趨勢（世界賽版本沒有職業比賽 ⇒ 看選手積分的使用率變化），讀 ⑤e2 清完的逐場
     ("⑤h 預測用積分版本趨勢", [S("build_predict_sq")]),
+    # 2026-10-17：預測分頁「本屆」欄的補兵（Q13）與各場 MVP 路線（Q14）——主資料沒收這兩樣，從 Leaguepedia Cargo 拿（兩個請求）
+    ("⑤h2 預測本屆補兵／MVP", [S("build_predict_live")]),
     # 收尾：彼此不相干，但都要等前面資料齊（build_font_subset 掃根目錄全部 *.js ⇒ 要等 ⑤g 的四個輸出檔寫完；
     # build_patch_dates 讀 ⑤g 快取的 patch_dates.json）。label_pending 2026-09-09 #72 搬去 ⑤c 並行，見上。
     ("⑥ 收尾（互不相干）", [

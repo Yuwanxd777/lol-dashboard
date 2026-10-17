@@ -1024,6 +1024,7 @@
   .pdMRow{display:grid;grid-template-columns:22px 46px minmax(56px,1fr) 46px 44px 44px 64px;align-items:center;gap:5px;font-size:16.5px;line-height:1.8;white-space:nowrap;font-variant-numeric:tabular-nums;padding:0 6px;margin:0 -6px;border-radius:6px}
   .pdMRow>span:nth-child(n+4){text-align:right}
   .pdMRow .pdMT{font-weight:700}
+  .pdOut{text-decoration:line-through;text-decoration-thickness:2px;opacity:.6} /* 預測：已淘汰的隊 */
   .pdMHd{font-size:14.5px;color:var(--tx2);border-bottom:1px solid rgba(255,255,255,.08);line-height:1.6;border-radius:0;background:none!important}
   .pdSub{font-size:14.5px;color:var(--tx2);margin:6px 0 1px;opacity:.85}.pdCol h4+.pdSub{margin-top:0}
   .pdExt{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:15.5px;padding:5px 10px;margin:-2px 0 8px;border-left:3px solid #8ab4ff;border-radius:0 8px 8px 0;background:rgba(138,180,255,.06)}
@@ -1313,7 +1314,7 @@ window.WIKI_PATCHES=window.WIKI_PATCHES||{}; window.WIKI_EXTRA=window.WIKI_EXTRA
 <script src="side_sel.js" onerror="window.SIDE_SEL=null"></script><!-- 2026 新制選邊權/先選權(scripts/fetch_side_sel.py，取自 wiki 各賽事「VODs & Match Links」表) -->
 <script src="wiki_links.js" onerror="window.WIKI_LINKS=null"></script><!-- 年/聯賽/賽段 → Leaguepedia 頁名(scripts/fetch_wiki_links.py)：賽事樹的賽段標題可點去 wiki -->
 <script src="events_extra.js" onerror="window.EVENTS_EXTRA=null"></script><!-- OE 沒收錄但確實存在的賽事名單(scripts/fetch_events_extra.py：EWC 中國區資格賽、ENC 電競國家盃) -->
-<script src="predict_hist.js" onerror="window.PRED_HIST=null"></script><!-- 預測分頁的歷屆世界賽參考（scripts/build_predict_hist.py，4KB） -->
+<script src="predict_hist.js" onerror="window.PRED_HIST=null"></script><script src="predict_live.js" onerror="window.PRED_LIVE=null"></script><!-- 預測分頁本屆補兵／各場 MVP／系列結果（scripts/build_predict_live.py） --><!-- 預測分頁的歷屆世界賽參考（scripts/build_predict_hist.py，4KB） -->
 
 <script src="promo_abbr.js" onerror="window.PROMO_ABBR={}"></script>
 <script src="champ_release.js" onerror="window.CHAMP_RELEASE=null"></script>
@@ -12441,6 +12442,15 @@ function render(){
     const nmT=t=>{ if(_TN.has(t))return t; const t2=String(t).replace(/\s*\(.*?\)\s*$/,""); return _TN.has(t2)?t2:t; };
     const EVT=EV.teams.map(nmT), EVPO=(EV.po||[]).map(nmT);
     const WT=new Set(EVT), WFROM=EV.from||(curYear+"-10-01"), REC_FROM=curYear+"-07-15";
+    // 本屆即時（predict_live.js，Leaguepedia Cargo）：補兵、各場 MVP、打完的系列
+    const PL=(window.PRED_LIVE&&+PRED_LIVE.year===+curYear)?PRED_LIVE:null;
+    // 已淘汰（使用者 2026-10-17：模型卡淘汰的隊加刪除線）：入圍賽輸兩個系列（雙敗）、瑞士輪輸三場、淘汰賽輸一場
+    const OUTAB=new Set(); if(PL){ const ls={};
+      (PL.series||[]).forEach(x=>{ const k=x.stage==="Play-In"?"pi":(/final/i.test(x.tab)?"ko":"sw"), ab=tAb(nmT(x.l));
+        if(k==="ko"){ OUTAB.add(ab); return; } const c=(ls[k]=ls[k]||{}); c[ab]=(c[ab]||0)+1;
+        if(c[ab]>=(k==="pi"?2:3))OUTAB.add(ab); }); }
+    const isOut=t=>OUTAB.has(tAb(t));
+    const outAb=t=>isOut(t)?`<s class="pdOut" title="${en2?"eliminated":"已淘汰"}">${esc(tAb(t))}</s>`:esc(tAb(t));
     const MIN_LIVE=20;                                   // 本屆打滿幾局才改看本屆
     // 近期＝7/15 起有世界賽隊伍參與的比賽（2026-10-11 試過改成「S3 季後賽＋亞運＋德盃」，使用者看過後要求改回）
     const gRec=GAMES.filter(o=>o.date>=REC_FROM&&o.date<WFROM&&(WT.has(bt(o))||WT.has(rt(o))));
@@ -12732,7 +12742,7 @@ function render(){
       const regs=[...new Set(EVT.map(t=>teamReg[t]).filter(x=>x))].sort((a,b)=>MODEL.R[b]-MODEL.R[a]);
       // 每個數字一欄、靠右對齊（使用者 2026-10-11：字數長短不一很不直觀）
       const hdr=`<div class="pdMRow pdMHd"><span></span><span>${en2?"Team":"隊伍"}</span><span>${en2?"Region":"賽區"}</span><span>${en2?"Rating":"強度"}</span><span>${en2?"Top 8":"八強"}</span><span>${en2?"Title":"冠軍"}</span><span>${en2?"Games":"預估局數"}</span></div>`;
-      const row=t=>`<div class="pdMRow">${teamLogoHTML(tAb(t),22,true)||tLogo(t,22)}<span class="pdMT">${esc(tAb(t))}</span><span class="pdN">${teamReg[t]||""}</span>`
+      const row=t=>`<div class="pdMRow">${teamLogoHTML(tAb(t),22,true)||tLogo(t,22)}<span class="pdMT">${outAb(t)}</span><span class="pdN">${teamReg[t]||""}</span>`
         +`<span>${elo(t)}</span><span>${pct(SIM.T[t].pko)}</span><span>${pct(SIM.T[t].pch)}</span><span>${d1s(SIM.T[t].eg.toFixed(1))}</span></div>`;
       const third=Math.ceil(ts.length/3);
       cards.push(card(en2?"Model":"模型",en2?"Team strength and how far each team goes":"戰隊強度與預估能走多遠",
@@ -12825,9 +12835,9 @@ function render(){
       const pg=q=>q.n?d1s((q.k/q.n).toFixed(1)):"–";
       cards.push(card(TG.p,en2?"Peyz vs Gumayusi: who gets more kills?":"Peyz vs Gumayusi：誰的擊殺數會比較多？",P1(100),pickTx(`${tLogo(pick==="Peyz"?"T1":"Hanwha Life Esports",24)}${esc(pick)}`),
         en2?`kills per game × expected games: Peyz ≈${Math.round(ea)} vs Gumayusi ≈${Math.round(eb)}`:`局均擊殺 × 預估局數：Peyz 約 ${Math.round(ea)} 殺 vs Gumayusi 約 ${Math.round(eb)} 殺`,
-        col(H_REC,rowT(`Peyz ${en2?"per game":"局均"}`,pg(a))+rowT(`Gumayusi ${en2?"per game":"局均"}`,pg(b))+rowT(`T1 ${en2?"exp. games":"預估局數"}`,d1s(EG("T1").toFixed(1)))+rowT(`HLE ${en2?"exp. games":"預估局數"}`,d1s(EG("Hanwha Life Esports").toFixed(1))))
+        col(H_REC,rowP(`Peyz ${en2?"per game":"局均"}`,"T1",pg(a))+rowP(`Gumayusi ${en2?"per game":"局均"}`,"Hanwha Life Esports",pg(b))+rowP(`T1 ${en2?"exp. games":"預估局數"}`,"T1",d1s(EG("T1").toFixed(1)))+rowP(`HLE ${en2?"exp. games":"預估局數"}`,"Hanwha Life Esports",d1s(EG("Hanwha Life Esports").toFixed(1))))
         +col(H_PAST,histRows((y,h)=>h.kills.Peyz||h.kills.Gumayusi?rowT(y,`${h.kills.Peyz?h.kills.Peyz[0]:"–"} : ${h.kills.Gumayusi?h.kills.Gumayusi[0]:"–"}`):""))
-        +col(H_LIVE,L.n?rowT("Peyz",la.k)+rowT("Gumayusi",lb.k):notYet))); }
+        +col(H_LIVE,L.n?rowP("Peyz","T1",la.k)+rowP("Gumayusi","Hanwha Life Esports",lb.k):notYet))); }
     // ⑧ Faker 生涯 700 殺（題目給的開賽前生涯：616 殺）
     { const BASE=616, GOAL=700, lq=L.pl.Faker||{k:0,n:0}, need=GOAL-BASE-lq.k;
       const q=R.pl.Faker||{k:0,n:0}, perG=q.n?q.k/q.n:0, eg=Math.max(0,EG("T1")-lq.n), exp=perG*eg;
@@ -12894,7 +12904,10 @@ function render(){
         pickTx(pp>=0.5?YES:NO),
         en2?`${k} of ${n} past Worlds games had a 450+ CS player ⇒ ≈${pct(pp)} over ≈${Math.round(totG)} games`:`歷屆 ${n} 局有 ${k} 局出現 450 以上補兵 ⇒ 本屆約 ${Math.round(totG)} 局至少一次約 ${pct(pp)}`,
         col(H_REC,rowT(en2?"45+ min games":"45 分以上長局",l45(R)))+col(H_PAST,histRows((y,h)=>rowT(y,`${h.cs450!=null?h.cs450:"–"} ${en2?"g":"局"}・${en2?"max":"最高"} ${h.maxCS!=null?h.maxCS:"–"}`)))
-        +col(H_LIVE,L.n?rowT(en2?"45+ min games":"45 分以上長局",l45(L)):notYet))); }
+        // 本屆欄（使用者 2026-10-17）：直接寫有沒有人打到 450，下面列本屆單場補兵最高的五局
+        +col(H_LIVE,PL&&PL.cs&&PL.cs.length?(()=>{ const hit=PL.cs.filter(x=>x.cs>=450);
+          return rowT(en2?"450+ CS":"450 以上",hit.length?`<b style="color:#ff4d4d">${en2?`Yes (${hit.length} g)`:`有（${hit.length} 局）`}</b>`:(en2?`Not yet (${PL.games} g)`:`還沒有（${PL.games} 局）`))
+            +sub(en2?"highest CS this Worlds":"本屆單場最高補兵")+PL.cs.slice(0,5).map(x=>rowP(x.nm,nmT(x.tm),x.cs)).join(""); })():notYet))); }
     // ⑭ 決賽 MVP 路線：歷屆 FMVP（只放確定的屆數）＋歷屆淘汰賽各場 MVP 的路線分布，兩者各半；同分取最近拿過 FMVP 的
     //   （使用者 2026-10-16：只看 7 筆 FMVP 不準，要連 wiki 上各場 MVP 一起看、兩者都列出。
     //    各場 MVP＝wiki 賽程表每場旁邊那個：多數屆是系列 MVP，2021／2022 是逐局 MVP；見 build_predict_hist.mvp_awards）
@@ -12917,7 +12930,10 @@ function render(){
           +sub(en2?`knockout match MVPs (${koN})`:`淘汰賽各場 MVP（${koN} 次）`)+RO.map(r=>rowT(LN[r],`${koC[r]||0}・${koN?pct((koC[r]||0)/koN):"–"}`)).join("")
           +sub(en2?`whole main event (${allN})`:`整個正賽各場 MVP（${allN} 次）`)+RO.map(r=>rowT(LN[r],`${allC[r]||0}・${allN?pct((allC[r]||0)/allN):"–"}`)).join("")
           +sub(en2?"knockout match MVPs by year":"淘汰賽各場 MVP（逐屆）")+histRows((y,h)=>{const a=h.mvpAll; return rowT(y,a&&a.koN?dist(a.ko):"–");}))
-        +col(H_LIVE,notYet))); }
+        // 本屆欄（使用者 2026-10-17「要開始列出 MVP 路線數」）：各場 MVP 的路線計數＋逐場名單（入圍賽沒發 MVP 的系列不算）
+        +col(H_LIVE,PL&&PL.mvp&&PL.mvp.length?(()=>{ const lc={}; PL.mvp.forEach(m=>{ if(m.rl)lc[m.rl]=(lc[m.rl]||0)+1; });
+          return sub(en2?`match MVPs (${PL.mvp.length})`:`各場 MVP（${PL.mvp.length} 次）`)+RO.map(r=>rowT(LN[r],`${lc[r]||0}・${pct((lc[r]||0)/PL.mvp.length)}`)).join("")
+            +sub(en2?"by match":"逐場")+PL.mvp.map(m=>rowP(m.mvp,nmT(m.tm),`${LN[m.rl]||"?"}・${+m.d.slice(5,7)}/${+m.d.slice(8,10)}${m.stage==="Play-In"?(en2?" PI":" 入圍"):""}`)).join(""); })():notYet))); }
     // ⑮ 淘汰賽地區數（模擬）
     //   答案＝模擬與歷屆各占一半（2026-10-11）：模擬吃今年國際賽，但 LCS 今年對 LCK／LPL 只有 3-24，
     //   靠贏 LEC／LCP 撐起來的賽區分容易高估西方隊伍，歷屆基準率拿來拉回來。
@@ -12932,8 +12948,10 @@ function render(){
     { const lcs=EVT.filter(t=>teamReg[t]==="LCS"), hr=HY.length?HY.filter(y=>H[y].koLCS.length).length/HY.length:SIM.lcsKO, pb=(SIM.lcsKO+hr)/2;
       cards.push(card(TG.e,en2?"Will an LCS team make the knockout stage?":"會有 LCS 戰隊闖進淘汰賽嗎？",P1(50),pickTx(pb>=0.5?YES:NO),
         en2?`simulation ${pct(SIM.lcsKO)} and past Worlds ${pct(hr)} averaged ⇒ ${pct(pb)}`:`模擬 ${pct(SIM.lcsKO)}、歷屆 ${pct(hr)} 各半 ⇒ ${pct(pb)}`,
-        col(H_RS,lcs.map(t=>`<div class="pdRow">${teamLogoHTML(tAb(t),22,true)}<span>${esc(tAb(t))}</span><span class="pdV">${pct(SIM.T[t].pko)}</span></div>`).join(""))
-        +col(H_PAST,histRows((y,h)=>rowT(y,h.koLCS.length?h.koLCS.map(t=>esc(tAb(t))).join("/"):"–")))+col(H_LIVE,notYet))); }
+        col(H_RS,lcs.map(t=>`<div class="pdRow">${tLogo(t,22)}<span>${outAb(t)}</span><span class="pdV">${isOut(t)?(en2?"out":"淘汰"):pct(SIM.T[t].pko)}</span></div>`).join(""))
+        +col(H_PAST,histRows((y,h)=>rowT(y,h.koLCS.length?h.koLCS.map(t=>esc(tAb(t))).join("/"):"–")))
+        // 本屆欄（使用者 2026-10-17：要寫三支 LCS 戰隊、C9 已淘汰）
+        +col(H_LIVE,PL&&(PL.series||[]).length?lcs.map(t=>`<div class="pdRow">${tLogo(t,22)}<span>${outAb(t)}</span><span class="pdV">${isOut(t)?(en2?"eliminated":"已淘汰"):(en2?"alive":"晉級中")}</span></div>`).join(""):notYet))); }
     // ⑰ HLE vs T1（模擬名次＋今年交手）
     { const A1="Hanwha Life Esports", B1="T1", ser=[]; let cur=null;
       GAMES.filter(o=>(bt(o)===A1&&rt(o)===B1)||(bt(o)===B1&&rt(o)===A1))
