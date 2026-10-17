@@ -13496,7 +13496,7 @@ function render(){
         ${(fpN&&mode!=="fp"&&+curYear>=2026)?(_fpTk.length&&(fpT.n1+fpT.n2)
           ?`<span>🥇 ${LANG==="en"?"First-pick win%":"先選勝率"} ${_rt(fpT.w1,fpT.n1,_CGLD)}</span><span>🥈 ${LANG==="en"?"Second-pick win%":"後選勝率"} ${_rt(fpT.w2,fpT.n2,_CMUT)}</span>`
           :`<span>🥇 ${LANG==="en"?"First-pick win%":"先選勝率"} ${_pair(fpW,fpN,_CGLD,_CMUT)}</span>`):""}
-        ${iniN?`<span>🎯 ${LANG==="en"?"Initiative":"主動權"} <b>${iniN}</b><span class="meta">${LANG==="en"?" (":"（"}</span>${[[LANG==="en"?"1st pick":"先選",ini.f,_CGLD],[LANG==="en"?"2nd pick":"後選",ini.s,"var(--tx)"],[LANG==="en"?"Blue":"選藍",ini.b,_CBLU],[LANG==="en"?"Red":"選紅",ini.r,_CRED]].map(([l,v,c])=>`<span class="meta">${l}</span> <b style="color:${c}">${v}</b>`).join(`<span class="meta">・</span>`)}<span class="meta">${LANG==="en"?")":"）"}</span></span>`:""}
+        ${iniN?`<span>🎯 ${LANG==="en"?"Initiative (":"主動權（"}${[[LANG==="en"?"1st pick":"先選",ini.f,_CGLD],[LANG==="en"?"2nd pick":"後選",ini.s,"var(--tx)"],[LANG==="en"?"Blue":"選藍",ini.b,_CBLU],[LANG==="en"?"Red":"選紅",ini.r,_CRED]].map(([l,v,c])=>`${l} <b style="color:${c}">${v}</b>`).join("・")}${LANG==="en"?")":"）"}</span>`:""}
       </div>`:"";
       const missRowHTML=n=>`<tr class="subrow missrow"><td class="subg">${LANG==="en"?`└ Game ${n}`:`└ 第${n}局`}</td><td colspan="${COLF.length-1}" style="color:#e0574d;font-weight:bold">🚫 ${T("資料缺失（此局尚未匯入）")}</td></tr>`;
       const seriesHTML=s=>{
