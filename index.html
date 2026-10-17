@@ -7094,18 +7094,19 @@ function _calcMatches0(team){
     // 害 2013~2025 的比賽BP 全部標成紅方先選（2026-07-31 使用者回報）。沒值時同樣預設藍方。
     const _fpRaw=String(r[C.blue_firstPick]==null?"":r[C.blue_firstPick]).trim();
     let first=(+String(o.date).slice(0,4)<2026||_fpRaw==="")?"blue":(+_fpRaw===1?"blue":"red");
+    let _fpOk=false;   // 先後選是 wiki 官方紀錄（統計條的先選勝率只算這種；主資料 blue_firstPick 不可信，KeSPA 杯 56 局全是預設 1）
     // 2026：wiki「VODs & Match Links」的 Pick Sel 顏色是先選/後選的**官方紀錄**，有就以它為準——
     // 主資料的 blue_firstPick 有一堆是管線預設填藍方的（2026-08-03 使用者抓包：LGD 七次全後選、
     // 我們卻標先選）。握選序權的隊＝選邊權(s)的對面；pc=1 它先選、pc=2 它後選。
     {const _sr=(+String(o.date).slice(0,4)>=2026)?ssIdx().get(_ssKey(o.date,bt,rt,num(r[C.game])||0)):null;
      if(_sr&&_sr.s&&(_sr.pc===1||_sr.pc===2)){ const pkSide=_sr.s==="b"?"red":"blue";
-       first=_sr.pc===1?pkSide:(pkSide==="red"?"blue":"red"); }}
+       first=_sr.pc===1?pkSide:(pkSide==="red"?"blue":"red"); _fpOk=true; }}
     // pk＝各邊「選角序」的五隻（picklist 前5藍後5紅，各半段本身就是該邊的出手順）：
     // 選角順序檢視（wiki PB 版型）要靠它重建整條 draft 時間軸，缺的局給空陣列（畫問號）
     const _pkA=String(r[C.picklist]).split("|");
     const _pk=_pkA.length>=12?_pkA.slice(1,11):_pkA.filter(x=>x.trim());
     out.push({date:o.date.slice(5),_d:o.date,_dt:o.dt||o.date,_g:num(r[C.game])||0,league:o.league,split:o.split,patch:o.patch,
-      win:o.result===1?tAb(bt):tAb(rt), first, blueWin:o.result===1,
+      win:o.result===1?tAb(bt):tAb(rt), first, fpOk:!!_fpOk, blueWin:o.result===1,
       gl:num(r[C.blue_gamelength]),
       _btf:bt,_rtf:rt,   // 隊伍全名：選邊權資料(side_sel.js)是用 Leaguepedia 全名建索引，縮寫對不起來
       blue:{team:tAb(bt),bans:_sided?_bB:bans.slice(0,half),lane:bl,po:bpo,p:_lnP(r[C.blue_Lane]),pk:_pk.length>=10?_pk.slice(0,5):[]},
@@ -13287,8 +13288,17 @@ function render(){
       document.getElementById("cnt").textContent=`${msV.length}${LANG==="en"?" games":" 場"}`;
       // 統計條：藍紅方勝率、場均時長（gol.gg 風格）；strip 於系列分組後才組（要帶上「範圍內缺幾場」）
       const n=msV.length, bw=msV.filter(m=>m.blueWin).length;
-      const _hasFP=m=>m.first==="blue"||m.first==="red"; // 先選/後選勝率：該場先選方是否獲勝
+      // 先選/後選勝率（使用者 2026-10-17 抓包怪怪的）：①只算 wiki 有先後選官方紀錄的局（m.fpOk）
+      // ②有指定戰隊時改算**該隊**自己先選／後選的勝率——原本算的是「先選那方贏的比例」，
+      //   在 T1 的 183 局裡混了對手先選的局，顯示 53%，T1 自己先選其實 64%（58／91）
+      const _hasFP=m=>m.fpOk&&(m.first==="blue"||m.first==="red");
       const fpN=msV.filter(_hasFP).length, fpW=msV.filter(m=>_hasFP(m)&&((m.first==="blue")===m.blueWin)).length;
+      const _fpTk=String(V.bpColF["bt"]||"").trim().toLowerCase().split(/\s+/).filter(Boolean);
+      const _fpTm=m=>{ if(!_fpTk.length)return ""; const bl=String(m.blue.team).toLowerCase(), rl=String(m.red.team).toLowerCase();
+        const ib=_fpTk.every(t=>bl.includes(t)), ir=_fpTk.every(t=>rl.includes(t)); return ib&&!ir?"blue":(ir&&!ib?"red":""); };
+      const fpT={n1:0,w1:0,n2:0,w2:0}; if(_fpTk.length)msV.forEach(m=>{ const sd=_fpTm(m); if(!sd||!_hasFP(m))return;
+        const won=(sd==="blue")===m.blueWin; if(m.first===sd){fpT.n1++; if(won)fpT.w1++;} else {fpT.n2++; if(won)fpT.w2++;} });
+      const _rt=(w,t,c)=>t?`<b style="color:${c}">${Math.round(w/t*100)}%</b><span class="meta">${LANG==="en"?` (${w}/${t})`:`（${w}／${t}）`}</span>`:`<b class="meta">–</b>`;
       const lw=mode==="br"?bw:msV.filter(m=>sides(m).LisBlue===m.blueWin).length; // 左方勝場(依模式)
       const LR=mode==="fp"?{li:"🥇",ln:LANG==="en"?"First-pick win%":"先選勝率",ri:"🥈",rn:LANG==="en"?"Second-pick win%":"後選勝率"}
              :mode==="team"?{li:"🟦",ln:LANG==="en"?"This-team win%":"該隊勝率",ri:"🟥",rn:LANG==="en"?"Opponent win%":"對手勝率"}
@@ -13476,7 +13486,9 @@ function render(){
         <span>⏱️ ${T("場均時長")} <b>${mmss(avg)}</b></span>
         <span>${_wrIco} ${_wrLbl} ${_pair(lw,n,_cL1,_cR1)}</span>
         ${ssN?`<span>🟦 ${LANG==="en"?"Chose-blue%":"選藍率"} ${_pair(ssB,ssN,_CBLU,_CRED)}</span>`:""}
-        ${(fpN&&mode!=="fp"&&+curYear>=2026)?`<span>🥇 ${LANG==="en"?"First-pick win%":"先選勝率"} ${_pair(fpW,fpN,_CGLD,_CMUT)}</span>`:""}
+        ${(fpN&&mode!=="fp"&&+curYear>=2026)?(_fpTk.length&&(fpT.n1+fpT.n2)
+          ?`<span>🥇 ${LANG==="en"?"First-pick win%":"先選勝率"} ${_rt(fpT.w1,fpT.n1,_CGLD)}</span><span>🥈 ${LANG==="en"?"Second-pick win%":"後選勝率"} ${_rt(fpT.w2,fpT.n2,_CMUT)}</span>`
+          :`<span>🥇 ${LANG==="en"?"First-pick win%":"先選勝率"} ${_pair(fpW,fpN,_CGLD,_CMUT)}</span>`):""}
         ${spN?`<span>🎯 ${LANG==="en"?"Took pick-order%":"選選序率"} ${_pair(spY,spN,_CGLD,_CMUT)}</span>`:""}
       </div>`:"";
       const missRowHTML=n=>`<tr class="subrow missrow"><td class="subg">${LANG==="en"?`└ Game ${n}`:`└ 第${n}局`}</td><td colspan="${COLF.length-1}" style="color:#e0574d;font-weight:bold">🚫 ${T("資料缺失（此局尚未匯入）")}</td></tr>`;
