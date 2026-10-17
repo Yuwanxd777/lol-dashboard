@@ -3680,6 +3680,11 @@ function initData(){
     const ha=_homeLgOf(r[C.blue_teamname]), hb=_homeLgOf(r[C.red_teamname]);
     if(ha&&hb&&ha!==hb)(_WLD_MAIN[String(r[C.date]).slice(0,4)]=_WLD_MAIN[String(r[C.date]).slice(0,4)]||new Set()).add(pa);
   }
+  // 各年世界賽入圍賽的起訖日（wiki /Play-In，events_extra.js 的 stages；只有抓過 stages 的年份才有）
+  const _WLD_PI={};
+  Object.entries(window.EVENTS_EXTRA||{}).forEach(([y,ev])=>{
+    const s=((ev&&ev.WLDs&&ev.WLDs.stages)||[]).find(x=>x&&x.name==="Play-In");
+    if(s&&s.from&&s.to)_WLD_PI[y]={from:s.from,to:s.to}; });
   // 2022 LCL 賽季因俄烏戰爭於 2/24 取消（只打到 2/20 的 16 場）→ 全數剔除（使用者判例；LCL 賽區之後併入 LEC/EMEA 體系）
   RAW=RAW.filter((r,i)=>i===0||!(String(r[C.league])==="LCL"&&String(r[C.date]).slice(0,4)==="2022"));
   // 2022 賽季的 KeSPA 盃（2021-12-10~12 打）非一軍出賽（使用者判例：二軍/新訓名單）→ 全數剔除
@@ -3701,6 +3706,11 @@ function initData(){
     {const _SP={"Opening":"春季","Opening PO":"春季 PO","Closing":"夏季","Closing PO":"夏季 PO"}; if(_SP[r[C.split]])r[C.split]=_SP[r[C.split]];}
     // 2025 LTA 北/南區的無標籤場次（9月底-10月中）＝各區升降保衛戰 → 標成升降賽（金框/升降籤/分段才吃得到）
     if((r[C.league]==="LTA N"||r[C.league]==="LTA S")&&!r[C.split]&&String(r[C.date]).slice(0,4)==="2025"&&String(r[C.date]).slice(5,7)>="09")r[C.split]="升降賽";
+    // 世界賽入圍賽（使用者 2026-10-17：比賽BP 要標入圍賽）：wiki /Play-In 的起訖日內（events_extra 的 stages）
+    // 的 WLDs 局 → split 標「入圍賽」，跟 2013／2016 的入圍賽同一個標籤（篩選歸夏季、賽事卡分段都吃得到）
+    if(String(r[C.league])==="WLDs"&&!String(r[C.split]||"")){
+      const _pi=_WLD_PI[String(r[C.date]).slice(0,4)], _d0=String(r[C.date]).slice(0,10);
+      if(_pi&&_d0>=_pi.from&&_d0<=_pi.to)r[C.split]="入圍賽";}
     // 世界賽卡誤含各賽區資格賽（2022 起每年都有；沒去世界賽的隊被列進世界賽）→ WQS{賽區}（歸盃賽區）。
     // 判法見上面 _WLD_MAIN：不是正賽版本的就是資格賽。
     if(String(r[C.league])==="WLDs"&&!String(r[C.split]||"")){
@@ -4107,6 +4117,13 @@ const eventsTreeHTML=()=>{
       //    把資格賽的四隊當成「外賽區晉級季後賽」列在正賽旁邊。
       if(!_wAll.size)((x._extra||{}).teams||[]).forEach(t2=>_wAll.add(t2));
       // 資料已標入圍賽（2013 國際外卡賽）就直接照它分，不必猜日期
+      // wiki 的入圍賽／正賽名單（events_extra stages，使用者 2026-10-17「賽事要列出參賽隊伍」）：
+      // 正賽還沒開打時資料裡只有入圍賽的隊 ⇒ 正賽段用 wiki 名單補齊；同縮寫的不重複加
+      const _stg=(x._extra&&x._extra.stages)||[];
+      const _stAdd=(set,nm)=>{ const st=_stg.find(s=>s&&s.name===nm); if(!st||!(st.teams||[]).length)return set;
+        const o=new Set(set||[]), have=new Set([...o].map(t2=>tAb(t2)));
+        st.teams.forEach(t2=>{ if(t2&&!have.has(tAb(t2))){ o.add(t2); have.add(tAb(t2)); _wAll.add(t2); } }); return o; };
+      if(_stg.length){ x._piT=_stAdd(x._piT,"Play-In"); x._mnT=_stAdd(x._mnT,"Main Event"); }
       const _hasPI=x._piT&&x._piT.size&&x._mnT&&x._mnT.size;
       const seg=(lb,arr,adv)=>arr.length?`<span class="evtPromoDiv evtGrpDiv"><i>${lb}</i></span>`+chips(arr,adv):"";
       // 正賽段也要有標題（使用者回報 2026-08-01「世界大賽沒改到」）：原本正賽的隊伍籤直接

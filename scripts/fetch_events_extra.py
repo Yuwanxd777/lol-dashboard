@@ -169,7 +169,8 @@ EVENTS = {
         # 前端會自動只拿 wiki 名單對齊、不再新增沒出賽的隊）：
         #   世界賽用 OE 的代碼 WLDs（跟主資料同碼才會併成同一張卡）；亞運是國家隊（kind=nation）；
         #   德瑪西亞杯全球邀請賽 OE 歷年沒收過、沒有既有代碼，用 DCup。
-        "WLDs":     {"page": "2026 Season World Championship",                "kind": "team"},
+        #   stages：另抓 /Play-In、/Main Event 的日期與隊伍（2026-10-17 使用者：比賽BP 與賽事卡要標入圍賽、列出全部參賽隊）
+        "WLDs":     {"page": "2026 Season World Championship",                "kind": "team", "stages": True},
         "亞運":     {"page": "2026 Asian Games",                                "kind": "nation"},
         "DCup":     {"page": "2026 Demacia Cup Global Invitational",            "kind": "team"},
     },
@@ -394,6 +395,53 @@ def _cargo_opener():
             print(f"   ⚠ Cargo 取 cookie 失敗（仍試著繼續）：{type(e).__name__}")
         _mark()
     return _COP
+
+
+def cargo_stages(page):
+    """世界賽的賽程階段（入圍賽／正賽）→ [{name, from, to, teams}]（使用者 2026-10-17）。
+
+    為什麼要：入圍賽先打（2026 是 10/15–18 四隊），正賽 10/23 才開打。主數據只有入圍賽的局，
+    前端原本只靠「每天出賽隊數」猜入圍賽 ⇒ 正賽還沒打時猜不出來：比賽BP 不標入圍賽、
+    賽事卡只列出四支入圍隊、其餘 15 支正賽隊看不到。
+    來源：Cargo `Tournaments`（子頁 `{page}/Play-In`、`{page}/Main Event` 的起訖日）＋
+    `TournamentPlayers`（各子頁的隊）。只收這兩種子頁；任一個查失敗就回 []（前端退回舊猜法）。
+    """
+    pg = str(page).replace('"', '\\"')
+    op = _cargo_opener()
+
+    def q(params):
+        _throttle()
+        try:
+            raw = op.open(urllib.request.Request(CARGO_FORM + "?" + urllib.parse.urlencode(params), headers=CARGO_UA),
+                          timeout=90).read().decode("utf-8", "replace")
+        except Exception as e:
+            _mark()
+            print(f"   Cargo 賽程階段失敗：{type(e).__name__}"); return None
+        _mark()
+        if raw.lstrip()[:1] not in "[{":
+            return None
+        try:
+            return json.loads(raw)
+        except Exception:
+            return None
+    tr = q({"tables": "Tournaments=T", "fields": "T.OverviewPage=o,T.DateStart=ds,T.Date=de",
+            "where": 'T.OverviewPage LIKE "%s/%%"' % pg, "format": "json", "limit": "50"})
+    pr = q({"tables": "TournamentPlayers=TP", "fields": "TP.OverviewPage=o,TP.Team=tm",
+            "where": 'TP.OverviewPage LIKE "%s/%%"' % pg, "group_by": "TP.OverviewPage,TP.Team",
+            "format": "json", "limit": "500"})
+    if tr is None or pr is None:
+        return []
+    out = []
+    for name, sub in (("Play-In", "/Play-In"), ("Main Event", "/Main Event")):
+        ov = str(page) + sub
+        t = next((r for r in tr if str(r.get("o") or "") == ov), None)
+        if not t:
+            continue
+        teams = sorted({fix_case(str(r.get("tm") or "").strip()) for r in pr
+                        if str(r.get("o") or "") == ov} - {"", "TBD"})
+        out.append({"name": name, "from": str(t.get("ds") or "")[:10], "to": str(t.get("de") or "")[:10],
+                    "teams": teams})
+    return out
 
 
 def cargo_rosters(page, subpages=False, only=None):
@@ -680,6 +728,13 @@ def main():
             data[str(year)][code] = {"teams": teams, "rosters": rosters, "from": frm, "to": to,
                                      "po": (brk if 0 < len(brk) < len(teams) else []), "page": cfg["page"],
                                      "url": "https://lol.fandom.com/wiki/" + urllib.parse.quote(cfg["page"].replace(" ", "_"))}
+            if cfg.get("stages"):               # 世界賽：入圍賽／正賽各自的日期與隊伍（見 cargo_stages）
+                stg = cargo_stages(cfg["page"])
+                if not stg and isinstance(old.get(str(year), {}).get(code), dict):
+                    stg = old[str(year)][code].get("stages") or []      # 這班查失敗 ⇒ 沿用舊的
+                if stg:
+                    data[str(year)][code]["stages"] = stg
+                    print("   賽程階段：" + "　".join(f"{s['name']} {s['from']}~{s['to']} {len(s['teams'])} 隊" for s in stg))
             print(f"   {len(teams)} 隊　{len(rosters)} 份名單　{frm} ~ {to}" + (f"　季後賽 {len(brk)} 隊" if 0 < len(brk) < len(teams) else ("　（純淘汰賽，不標晉級）" if brk else "")))
             if rosters:
                 k = list(rosters)[0]
