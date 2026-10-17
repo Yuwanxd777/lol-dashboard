@@ -6968,7 +6968,9 @@ function ssIdx(){
     // mg/mm＝該賽事頁有沒有發 POG/POM（評分率的分母＝可獲得數）。vod＝這一局的 PB 連結。
     const p = (r.fs && r.ps) ? (r.fs === r.ps ? 1 : 0) : null;
     // vodk＝這條連結是哪一種：pb＝BP 時間軸（最好）、start＝開局（LCS 只放這種）、vod＝整片
-    return {s:r.ss, p, pc:r.pc||0, mvp:r.mvp||"", mvpm:r.mvpm||"", mg:r.mg?1:0, mm:r.mm?1:0,
+    // f＝拿到第一選擇權(主動權)的隊在哪一邊（b/r，對不到隊名＝""）：比賽BP 統計條「主動權」指定戰隊時只數該隊握的局
+    const f = r.fs ? (_ssNorm(r.fs) === _ssNorm(r.blue) ? "b" : (_ssNorm(r.fs) === _ssNorm(r.red) ? "r" : "")) : "";
+    return {s:r.ss, p, pc:r.pc||0, f, mvp:r.mvp||"", mvpm:r.mvpm||"", mg:r.mg?1:0, mm:r.mm?1:0,
             vod:r.vod||"", vodk:r.vodk||""};
   };
   // 效能（2026-09-04 比賽BP 卡頓排查）：±1 天的備援**在建索引時就展開成鍵**，查詢端從
@@ -13308,7 +13310,14 @@ function render(){
       // 不是全部場次）——2026 新制才有，2025 以前與 wiki 沒收錄的賽事不計入。
       const _ssV=msV.map(m=>ssOf(m)).filter(Boolean);
       const ssN=_ssV.length, ssB=_ssV.filter(x=>x==="b").length;
-      // 選選序率已移除（使用者 2026-10-17）
+      // 選選序率已移除；原位置改「主動權」（使用者 2026-10-17）：握第一選擇權的隊選了什麼，四種各幾次——
+      // 拿選邊權（p=0）→ 選藍／選紅（s）；拿選序權（p=1）→ 先選／後選（pc，0＝wiki 沒記不計）。
+      // 指定戰隊時只數**該隊**握主動權的局（f＝握權方在哪一邊）。
+      const ini={b:0,r:0,f:0,s:0}; msV.forEach(m=>{ const x=ssRec(m); if(!x||x.p==null)return;
+        if(_fpTk.length){ const sd=_fpTm(m); if(!sd||!x.f||x.f!==sd[0])return; }
+        if(x.p===0){ if(x.s==="b")ini.b++; else if(x.s==="r")ini.r++; }
+        else if(x.pc===1)ini.f++; else if(x.pc===2)ini.s++; });
+      const iniN=ini.b+ini.r+ini.f+ini.s;
       const gls=msV.map(m=>m.gl).filter(x=>x);
       const avg=gls.length?gls.reduce((s,x)=>s+x,0)/gls.length:0;
       // 整隊範圍(隊名＋禁用＋五路)的底色：藍方淺藍、紅方淺紅，勝方(.bpw)同色加深（2026-07-31 使用者指定）。
@@ -13487,6 +13496,7 @@ function render(){
         ${(fpN&&mode!=="fp"&&+curYear>=2026)?(_fpTk.length&&(fpT.n1+fpT.n2)
           ?`<span>🥇 ${LANG==="en"?"First-pick win%":"先選勝率"} ${_rt(fpT.w1,fpT.n1,_CGLD)}</span><span>🥈 ${LANG==="en"?"Second-pick win%":"後選勝率"} ${_rt(fpT.w2,fpT.n2,_CMUT)}</span>`
           :`<span>🥇 ${LANG==="en"?"First-pick win%":"先選勝率"} ${_pair(fpW,fpN,_CGLD,_CMUT)}</span>`):""}
+        ${iniN?`<span>🎯 ${LANG==="en"?"Initiative":"主動權"} <b>${iniN}</b><span class="meta">${LANG==="en"?" (":"（"}</span>${[[LANG==="en"?"1st pick":"先選",ini.f,_CGLD],[LANG==="en"?"2nd pick":"後選",ini.s,"var(--tx)"],[LANG==="en"?"Blue":"選藍",ini.b,_CBLU],[LANG==="en"?"Red":"選紅",ini.r,_CRED]].map(([l,v,c])=>`<span class="meta">${l}</span> <b style="color:${c}">${v}</b>`).join(`<span class="meta">・</span>`)}<span class="meta">${LANG==="en"?")":"）"}</span></span>`:""}
       </div>`:"";
       const missRowHTML=n=>`<tr class="subrow missrow"><td class="subg">${LANG==="en"?`└ Game ${n}`:`└ 第${n}局`}</td><td colspan="${COLF.length-1}" style="color:#e0574d;font-weight:bold">🚫 ${T("資料缺失（此局尚未匯入）")}</td></tr>`;
       const seriesHTML=s=>{
