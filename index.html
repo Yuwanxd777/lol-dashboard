@@ -13475,7 +13475,7 @@ function render(){
       // 先選/後選這種不是邊的用金/灰，免得看起來像在講藍紅方。
       const _pair=(a,tot,ca,cb)=>{const p=Math.round(a/tot*100);
         return `<b style="color:${ca}">${p}%</b><span class="meta">／</span><b style="color:${cb}">${100-p}%</b>`
-          +`<span class="meta">${LANG==="en"?` (${a}/${tot})`:`（${a}／${tot}）`}</span>`;};
+          +`<span class="meta">${LANG==="en"?` (${a}/${tot-a})`:`（${a}／${tot-a}）`}</span>`;};   // 括號＝兩者各自的次數（使用者 2026-10-17），不是 分子／總數
       // 藍紅模式的左右就是藍紅方 → 標題簡化成「勝率」；該隊/先選模式維持原本的左側名稱
       const _wrLbl=mode==="br"?(LANG==="en"?"win%":"勝率"):LR.ln;
       // 藍紅模式的「勝率」是藍紅合在一起看的一項 → 用紫色圖示（藍＋紅）取代 🔵🔴 兩顆
