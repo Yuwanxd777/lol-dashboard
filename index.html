@@ -13308,9 +13308,7 @@ function render(){
       // 不是全部場次）——2026 新制才有，2025 以前與 wiki 沒收錄的賽事不計入。
       const _ssV=msV.map(m=>ssOf(m)).filter(Boolean);
       const ssN=_ssV.length, ssB=_ssV.filter(x=>x==="b").length;
-      // 選選序率＝拿到第一選擇權的隊伍**選了先選權**（而不是選邊權）的比例
-      const _ssP=msV.map(m=>(ssRec(m)||{}).p).filter(x=>x===0||x===1);
-      const spN=_ssP.length, spY=_ssP.filter(x=>x===1).length;
+      // 選選序率已移除（使用者 2026-10-17）
       const gls=msV.map(m=>m.gl).filter(x=>x);
       const avg=gls.length?gls.reduce((s,x)=>s+x,0)/gls.length:0;
       // 整隊範圍(隊名＋禁用＋五路)的底色：藍方淺藍、紅方淺紅，勝方(.bpw)同色加深（2026-07-31 使用者指定）。
@@ -13489,7 +13487,6 @@ function render(){
         ${(fpN&&mode!=="fp"&&+curYear>=2026)?(_fpTk.length&&(fpT.n1+fpT.n2)
           ?`<span>🥇 ${LANG==="en"?"First-pick win%":"先選勝率"} ${_rt(fpT.w1,fpT.n1,_CGLD)}</span><span>🥈 ${LANG==="en"?"Second-pick win%":"後選勝率"} ${_rt(fpT.w2,fpT.n2,_CMUT)}</span>`
           :`<span>🥇 ${LANG==="en"?"First-pick win%":"先選勝率"} ${_pair(fpW,fpN,_CGLD,_CMUT)}</span>`):""}
-        ${spN?`<span>🎯 ${LANG==="en"?"Took pick-order%":"選選序率"} ${_pair(spY,spN,_CGLD,_CMUT)}</span>`:""}
       </div>`:"";
       const missRowHTML=n=>`<tr class="subrow missrow"><td class="subg">${LANG==="en"?`└ Game ${n}`:`└ 第${n}局`}</td><td colspan="${COLF.length-1}" style="color:#e0574d;font-weight:bold">🚫 ${T("資料缺失（此局尚未匯入）")}</td></tr>`;
       const seriesHTML=s=>{
