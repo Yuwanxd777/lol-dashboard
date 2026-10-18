@@ -3484,6 +3484,8 @@ function natlPlayerLeagues(){
 //   教練不算）或真的在該賽事上場過，才算參加。名單沒有的賽事（MSI／FST／EWC）就靠上場紀錄。
 const CUP_LGS=["FST","MSI","WLDs","EWC","ENC","亞運","DCup"];
 // 世界賽瑞士輪種子籤（Leaguepedia Main Event 頁；第 1～4 級，"PI"＝入圍賽出線隊）：預測模擬的首輪配對＋積分每日戰況篩 WCS 時的隊序
+// 世界賽 wiki 名單漏的人手動補：[隊縮寫, 選手]（使用者 2026-10-18：TES 要列 ZUIAN、IG 要列 Assum）；積分篩 WCS 與預測的選手題共用
+const WLD_ROSTER_ADD={2026:[["TES","ZUIAN"],["IG","Assum"]]};
 const WLD_POOLS={2026:[["GEN","AL","TL","G2"],["TSW","LOS","HLE","BLG"],["LYON","MKOI","T1","TES"],["CFO","DK","IG","PI"]]};
 let _CUPP=null,_CUPP_Y=null;
 function cupPlayers(){
@@ -3500,8 +3502,8 @@ function cupPlayers(){
       if(_eds[lg]){ const d=String(r[C.date]).slice(0,10), ed=_eds[lg].find(x=>d>=x.from&&d<=x.to); if(ed)lg=lg+"#"+ed.ed; }
       put(lg,r[C.blue_teamname],r[C.blue_playername]); put(lg,r[C.blue_teamname+RB],r[C.blue_playername+RB]); } }
   try{ const EX=(window.EVENTS_EXTRA||{})[String(curYear)]||{};
-    // wiki 名單漏的人手動補（使用者 2026-10-18：WCS 的 TES 要列 ZUIAN）
-    ({2026:[["TES","ZUIAN"]]}[curYear]||[]).forEach(([tm,nm])=>put("WLDs",tm,nm));
+    // wiki 名單漏的人手動補（WLD_ROSTER_ADD）
+    (WLD_ROSTER_ADD[curYear]||[]).forEach(([tm,nm])=>put("WLDs",tm,nm));
     ["WLDs"].forEach(lg=>{ const rs=(EX[lg]||{}).rosters; if(!rs)return;
       Object.keys(rs).forEach(tm=>(rs[tm]||[]).forEach(p=>{ if(p&&p.n&&p.r!=="COACH")put(lg,tm,p.n); })); });
   }catch(e){}
@@ -12676,7 +12678,7 @@ function render(){
     // 近期＝7/15 起有世界賽隊伍參與的比賽（2026-10-11 試過改成「S3 季後賽＋亞運＋德盃」，使用者看過後要求改回）
     const gRec=GAMES.filter(o=>o.date>=REC_FROM&&o.date<WFROM&&(WT.has(bt(o))||WT.has(rt(o))));
     const gLive=GAMES.filter(o=>o.league==="WLDs"&&o.date>=WFROM);
-    const NAMES=new Set(Object.values(EV.rosters||{}).flatMap(a=>a.filter(p=>p.r!=="COACH").map(p=>p.n)));
+    const NAMES=new Set([...Object.values(EV.rosters||{}).flatMap(a=>a.filter(p=>p.r!=="COACH").map(p=>p.n)),...(WLD_ROSTER_ADD[curYear]||[]).map(x=>x[1])]);
     // ── 戰隊強度＋世界賽模擬（使用者 2026-10-11：預測要參考聯賽強度、以及該隊能不能走到最後）──
     //   ① 強度＝今年所有比賽的 Bradley-Terry（每局一筆、半衰期 HALF 天）＋「隊伍向所屬賽區平均收斂」的先驗；
     //     賽區平均本身也是參數，靠國際賽（MSI／FST／EWC／德盃…）把不同賽區接起來 ⇒ 這就是「聯賽強度」。
