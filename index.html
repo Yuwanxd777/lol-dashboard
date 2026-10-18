@@ -886,26 +886,28 @@
   .sqCols{grid-template-columns:92px 58px 66px 56px 112px 138px 58px 44px 74px 74px 50px 46px 100px 244px 80px;justify-content:start;justify-items:center;text-align:center} /* 日期|時長|英雄|對位|對位人員|KDA|KP|搶二|金差@15|經差@15|召喚師|符文|技能|出裝|評分（2026-08-04 搶二移到金差左） */
   .sqHead{display:grid;align-items:center;gap:20px;padding:2px 16px 7px;border-left:5px solid transparent;font-size:13px;color:var(--tx2)}
   /* ── 積分「每日戰況」各隊卡片 ── 欄位對齊靠 grid；勝負只用細框＋敗方微降透明度（避免整片彩色圈很吵） */
-  .dlyGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(440px,1fr));gap:14px;align-items:start}
+  .dlyGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(480px,1fr));gap:14px;align-items:start}
   .dlyCard{background:linear-gradient(180deg,rgba(255,255,255,.045),rgba(255,255,255,.018));border:1px solid #26304a;
     border-radius:12px;overflow:hidden;box-shadow:0 2px 10px rgba(0,0,0,.28)}
   .dlyHd{display:flex;align-items:baseline;gap:8px;padding:9px 13px;background:rgba(255,255,255,.05);
     border-bottom:1px solid rgba(255,255,255,.07);border-left:3px solid var(--dlyc,#8fa0bd)}
   .dlyHd b{font-size:15px;letter-spacing:.3px}
+  .dlyHd>img,.dlyHd>.tLogo,.dlyHd>svg{align-self:center;transform:translateY(-1.2px)} /* 隊徽置中、文字仍字底對齊（2026-10-18 使用者：隊徽跟縮寫不水平） */
   .dlyHd .lg{font-size:11.5px;opacity:.62}
   .dlyRow{padding:7px 13px 8px;border-top:1px solid rgba(255,255,255,.045);transition:background .12s}
   .dlyRow:first-of-type{border-top:0}
   .dlyRow:hover{background:rgba(255,255,255,.035)}
   .dlyRow.idle .dlyPos,.dlyRow.idle .plink,.dlyRow.idle .dlyPosIc{opacity:.62} /* 沒打積分只淡化路線與名字，積分分數維持原色（使用者指定） */
-  .dlyLine{display:grid;grid-template-columns:20px minmax(0,1fr) auto 132px 52px;gap:9px;align-items:center}
-  .dlyStat{font-size:11.5px;white-space:nowrap;text-align:right;font-variant-numeric:tabular-nums} /* 範圍內場均評分・KDA */
+  .dlyLine{display:grid;grid-template-columns:20px minmax(0,1fr) auto 64px 84px 80px;gap:8px;align-items:center} /* 路線｜選手｜牌位｜KDA｜評分｜勝敗（使用者 2026-10-18 定順序） */
+  .dlyStat{font-size:14px;white-space:nowrap;text-align:right;font-variant-numeric:tabular-nums} /* 範圍內 KDA／場均評分；字級同選手 ID */
+  .dlyStat .meta{font-size:12px;margin-right:3px}
   .dlyPos{font-size:10.5px;opacity:.55;text-align:center;letter-spacing:0}
   .dlyPosIc{width:19px;height:19px;object-fit:contain;display:block;margin:0 auto;opacity:.9}
   .dlyNm{font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:clip}
   .dlyNm.rankName{cursor:pointer} .dlyNm.rankName:hover{color:var(--acc);text-decoration:underline}
-  .dlyTier{font-size:11px;white-space:nowrap;text-align:right;letter-spacing:.2px}
+  .dlyTier{font-size:14px;white-space:nowrap;text-align:right;letter-spacing:.2px} /* 字級同選手 ID（使用者 2026-10-18） */
   .dlyTier i{font-style:normal;margin-left:3px}
-  .dlyRec{font-size:13px;font-weight:700;text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+  .dlyRec{font-size:14px;font-weight:700;text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
   .dlyRec .w{color:#5ea2ff} .dlyRec .l{color:#ec6b73} .dlyRec .s{opacity:.4;margin:0 1px}
   /* 2026-10-18 使用者：英雄圖放大到一列約 10 隻 ⇒ 固定 10 欄網格，圖寬跟著卡片走（正方形、不變形） */
   .dlyChips{display:grid;grid-template-columns:repeat(auto-fill,minmax(max(32px,calc((100% - 27px) / 10)),1fr));gap:3px;margin:6px 0 1px 29px} /* 最多 10 欄、每格至少 34px：卡片窄就換行，不硬擠 */ /* 英雄圖間隔 7px（2026-08-06 使用者指定；扣掉兩邊各 1.5px 勝負描邊，描邊之間淨 4px） */
@@ -16932,11 +16934,12 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
         const lg=primaryLg(ab), col=lg?(LGC[lg]||"var(--tx2)"):"var(--tx2)"; const grp=(lg==="LPL"&&!CUP_LGS.includes(V.rankRegion))?lplSplitGroupOf(ab,curYear,lplSel):null; /* 篩國際賽不寫 LPL 分組（使用者 2026-10-18：都是季後賽打上來的） */ let gw=0,gn=0;
         const body=pls.map(pl=>{ const ag=aggOf(pl.reckey), clk=!!pl.riotId;
           const nm=`<span class="dlyNm${clk?" rankName":""}"${clk?` data-detail="${esc(pl.riotId)}" title="${en?"view games":"看逐場"}"`:""}>${esc(pl.player)}</span>`;
-          if(!ag) return `<div class="dlyRow idle"><div class="dlyLine">${roleTag(pl.role)}${nm}${rankTag(pl)}<span></span><span></span></div></div>`; // 沒打積分＝留白，不特別標註
+          if(!ag) return `<div class="dlyRow idle"><div class="dlyLine">${roleTag(pl.role)}${nm}${rankTag(pl)}<span></span><span></span><span></span></div></div>`; // 沒打積分＝留白，不特別標註
           gw+=ag.w; gn+=ag.n;
-          const rec=`<span class="dlyRec"><span class="w">${ag.w}</span><span class="s">-</span><span class="l">${ag.l}</span></span>`;
+          const rec=`<span class="dlyRec"><span class="meta" style="font-weight:400;font-size:12px;margin-right:3px">${en?"W-L":"勝敗"}</span><span class="w">${ag.w}</span><span class="s">-</span><span class="l">${ag.l}</span></span>`;
           const chips=ag.gs.map(g=>chip(g[0],g[1])).join("");   // 全部列出、不截成「+N」（使用者 2026-10-18）
-          const stat=`<span class="dlyStat">${ag.sc!=null?`<b style="color:${scoreCol7(ag.sc)}">${ag.sc}</b><span class="meta"> ${en?"score":"評分"}</span>`:""}${ag.kda!=null?`<span class="meta"> ・ KDA </span>${ag.kda}`:""}</span>`;
+          const stat=`<span class="dlyStat">${ag.kda!=null?`<span class="meta">KDA</span>${ag.kda}`:""}</span>`
+            +`<span class="dlyStat">${ag.sc!=null?`<span class="meta">${en?"Score":"評分"}</span><b style="color:${scoreCol7(ag.sc)}">${ag.sc}</b>`:""}</span>`;
           return `<div class="dlyRow"><div class="dlyLine">${roleTag(pl.role)}${nm}${rankTag(pl)}${stat}${rec}</div><div class="dlyChips">${chips}</div></div>`;
         }).join("");
         const sub=gn?`<span class="dlyRec" style="font-size:12.5px"><span class="w">${gw}</span><span class="s">-</span><span class="l">${gn-gw}</span> <span class="meta" style="font-weight:400">${gn}${en?"g":"場"}</span></span>`:"";
