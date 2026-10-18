@@ -8206,7 +8206,9 @@ function champLanes(champ){ const PN5={1:"TOP",2:"JNG",3:"MID",4:"BOT",5:"SUP"},
 let _SUBSP=null,_SUBSP_Y=null;
 // 子清單用的賽段名：世界賽／MSI 沒標賽段的局＝正賽（有標入圍賽的年份才會因此長出「入圍賽／正賽」兩項；
 // 2017–2025 只有正賽一種 ⇒ 不滿兩項、不出子清單）
-const _subSpOf=o=>String(o.split||"").replace(/ PO$/,"")||((o.league==="WLDs"||o.league==="MSI")?"正賽":"");
+// 同年多屆的盃賽（2026 兩屆 KeSPA）沒有賽段欄 ⇒ 子選項用「屆」（季前／季中；使用者 2026-10-18：篩選也要能分）
+const _edSubOf=o=>{ const eds=cupEditions()[o.league]; if(!eds)return ""; const d=String(o.date).slice(0,10), e=eds.find(x=>d>=x.from&&d<=x.to); return e?e.ed:""; };
+const _subSpOf=o=>String(o.split||"").replace(/ PO$/,"")||_edSubOf(o)||((o.league==="WLDs"||o.league==="MSI")?"正賽":"");
 function subSplitMap(){
   if(_SUBSP&&_SUBSP_Y===curYear)return _SUBSP;
   const first={},m={};
