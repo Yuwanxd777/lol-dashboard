@@ -916,7 +916,7 @@
      驗收要用 scratchpad 的 dly_px_ab.py 那種量圈厚度的方式。 */
   .dlyChip{display:block;width:100%;line-height:0;border-radius:6px} /* 撐滿格子（inline-block 會縮成圖的大小） */
   .dlyChip img{display:block;width:100%;height:auto;aspect-ratio:1/1;object-fit:cover;border-radius:5px}
-  .dlyChip.ls img{filter:grayscale(1) brightness(.55);opacity:.85} /* 2026-10-18 使用者：勝負改「輸的變灰暗、贏的原圖」（黃框太醜；比過下方色條／右上圓點） */
+  .dlyChip.ls img{filter:grayscale(.85) brightness(.75)} /* 灰度同比賽BP 禁用格（使用者 2026-10-18：原本太灰） */ /* 2026-10-18 使用者：勝負改「輸的變灰暗、贏的原圖」（黃框太醜；比過下方色條／右上圓點） */
   .dlyMore{align-self:center;font-size:11px;opacity:.5;margin-left:2px}
   .sqSortH{cursor:pointer;user-select:none} .sqSortH:hover{color:var(--acc)}
   .sqGame{display:grid;align-items:center;gap:20px;padding:9px 16px;border-radius:9px;border-left:5px solid #3a4666;background:#141b2b;margin-bottom:6px}
