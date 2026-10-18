@@ -909,7 +909,7 @@
   .dlyTier{font-size:13px;white-space:nowrap;text-align:right;letter-spacing:.2px} /* 13px：此字型的數字／中文字形比英文名高，14px 看起來比選手 ID 大（使用者 2026-10-18；像素量測對齊） */
   .dlyTier i{font-style:normal;margin-left:3px}
   .dlyRec{font-size:13px;font-weight:700;text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
-  .dlyRec .w{color:#5ea2ff} .dlyRec .l{color:#ec6b73} .dlyRec .s{opacity:.4;margin:0 1px}
+  .dlyRec .w,.dlyRec .l{color:var(--tx)} .dlyRec .s{opacity:.4;margin:0 1px} /* 勝敗白字（使用者 2026-10-18） */
   /* 2026-10-18 使用者：英雄圖放大到一列約 10 隻 ⇒ 固定 10 欄網格，圖寬跟著卡片走（正方形、不變形） */
   .dlyChips{display:grid;grid-template-columns:repeat(auto-fill,minmax(max(32px,calc((100% - 27px) / 10)),1fr));gap:3px;margin:6px 0 1px 29px} /* 最多 10 欄、每格至少 34px：卡片窄就換行，不硬擠 */ /* 英雄圖間隔 7px（2026-08-06 使用者指定；扣掉兩邊各 1.5px 勝負描邊，描邊之間淨 4px） */
   /* 勝負描邊圈畫在**圖本身**上，不要畫在外層 span（2026-09-05 使用者回報「英雄圖下方有點被
@@ -16936,8 +16936,8 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
       // 積分（牌位＋LP）：大師以上直接看 LP，其餘顯示段位；抓不到帳號顯示 —
       const rankTag=(pl,lpd)=>{ if(!pl.tier||pl.found===false)return `<span class="dlyTier" style="opacity:.32">—</span>`;
         const t=tierLabel({tier:pl.tier,division:pl.division});
-        // 牌位後括號＝範圍內 LP 增減（使用者 2026-10-18：菁英2314(+88)）；台灣配色：加分紅、扣分綠
-        return `<span class="dlyTier" style="color:${TIER_COL[pl.tier]||"var(--tx2)"}">${esc(t)}${pl.lp!=null?`<i class="num">${pl.lp}</i>`:""}${lpd!=null?`<i class="num" style="margin-left:1px;color:${lpd>0?"#ff4d4d":lpd<0?"#37c871":"var(--tx2)"}">(${lpd>0?"+":""}${lpd})</i>`:""}</span>`; };
+        // 牌位後括號＝範圍內 LP 增減（使用者 2026-10-18：菁英2314(+88)）；白字（使用者同日改）
+        return `<span class="dlyTier" style="color:${TIER_COL[pl.tier]||"var(--tx2)"}">${esc(t)}${pl.lp!=null?`<i class="num">${pl.lp}</i>`:""}${lpd!=null?`<i class="num" style="margin-left:1px;color:var(--tx)">(${lpd>0?"+":""}${lpd})</i>`:""}</span>`; };
       const teamCard=ab=>{
         const pls=teams[ab].slice().sort((x,y)=>((ROLE_ORD[x.role]==null?9:ROLE_ORD[x.role])-(ROLE_ORD[y.role]==null?9:ROLE_ORD[y.role]))||String(x.player).localeCompare(String(y.player)));
         const lg=primaryLg(ab), col=lg?(LGC[lg]||"var(--tx2)"):"var(--tx2)"; const grp=(lg==="LPL"&&!CUP_LGS.includes(V.rankRegion))?lplSplitGroupOf(ab,curYear,lplSel):null; /* 篩國際賽不寫 LPL 分組（使用者 2026-10-18：都是季後賽打上來的） */ let gw=0,gn=0;
