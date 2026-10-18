@@ -106,7 +106,7 @@
      樣式對齊全域 .bpCx（同位置/字級/無底色，hover 變紅走全域規則），別自成一格 */
   .bpFRow .fsel.hasV:hover,.bpFRow input.bpColF.on:hover{cursor:pointer;background-image:linear-gradient(#e0574d,#e0574d);background-repeat:no-repeat;background-size:calc(100% - 12px) 2px;background-position:center} /* 有值滑過→中央紅線＝可刪，左鍵清除（2026-08-05 使用者定案，取代 ✕） */
   .fsel.on{border-color:var(--acc)}
-  #fselPop{position:fixed;z-index:9999;display:grid;grid-auto-flow:column;gap:2px 10px;padding:7px 8px;
+  #fselPop,#shotPop{position:fixed;z-index:9999;display:grid;grid-auto-flow:column;gap:2px 10px;padding:7px 8px;
     background:#141a28;border:1px solid var(--acc);border-radius:11px;box-shadow:0 10px 34px rgba(0,0,0,.55);font-size:17px}
   #fselPop .fselHasSub{position:relative;display:flex;align-items:center;gap:6px}
   .fselAr2{margin-left:auto;color:var(--tx2);font-size:11px}
@@ -114,7 +114,7 @@
   .fselSub .fselIt{white-space:nowrap}
   .fselHasSub:hover>.fselSub{display:block}
   .fselIt{padding:5px 11px;border-radius:7px;cursor:pointer;white-space:nowrap;line-height:1.25}
-  #fselPop .fselIt:hover{background:#1e2942;color:var(--acc)}
+  #fselPop .fselIt:hover,#shotPop .fselIt:hover{background:#1e2942;color:var(--acc)}
   #fselPop .fselIt.on{background:linear-gradient(135deg,var(--acc),var(--acc2));color:#fff;font-weight:bold}
   /* 比賽BP 第二篩選列開出的清單：仿「瀏覽器原生建議清單」的長相（方角、深灰、單欄、
      無膠囊高亮），跟該列其他欄的 datalist 視覺一致（2026-08-04 使用者要求同款） */
@@ -9002,7 +9002,9 @@ async function shotEl(src,name,prep,opt){   // opt.scale：指定輸出倍率（
     _rootZ=document.documentElement.style.zoom; document.documentElement.style.zoom="";
     const SC=SO?(1080/(clone.offsetWidth||w)):((opt&&opt.scale)||Math.min(3,1920/Math.max(1,clone.scrollWidth)));
     // 社群模式要先量「拆張單位」（卡片）在複本裡的上下緣，畫完再照這些邊界切成 1080×1350 的多張
-    const cr=clone.getBoundingClientRect(), blocks=SO?[...clone.querySelectorAll(SO.block)].map(e=>{ const r=e.getBoundingClientRect(); return [r.top-cr.top, r.bottom-cr.top]; }).filter(b=>b[1]>b[0]):[];
+    const cr=clone.getBoundingClientRect(), blocks=SO?[...clone.querySelectorAll(SO.block)].map(e=>{ const r=e.getBoundingClientRect();
+        const cuts=[...e.querySelectorAll("*")].map(c=>c.getBoundingClientRect()).filter(c=>c.width>=r.width*0.6&&c.height>0).map(c=>c.bottom-cr.top);
+        return [r.top-cr.top, r.bottom-cr.top, [...new Set(cuts.map(v=>Math.round(v)))].sort((a,b)=>a-b)]; }).filter(b=>b[1]>b[0]):[];
     const cv=await html2canvas(clone,{backgroundColor:"#0b0e14",useCORS:true,
       scale:SC,
       width:clone.scrollWidth,height:clone.scrollHeight,
@@ -9016,13 +9018,24 @@ async function shotEl(src,name,prep,opt){   // opt.scale：指定輸出倍率（
       //   以卡片為單位切，不把一張卡切半；單張卡比一頁還高就自己一張、高度照實際（不硬塞）。每張都帶頁首（標題＋日期範圍）與頁碼。
       const PW=1080, k=PW/cv.width, PH=Math.round(1350/k), GAP=Math.round(14*SC), PADB=Math.round(16*SC);   // PH／GAP 等＝來源 px；輸出時乘 k 剛好 1080 寬
       const hdrH=Math.round(blocks[0][0]*SC);                       // 頁首＝第一張卡片之前的那段（標題、範圍、說明）
-      const bl=blocks.map(([t,b])=>[Math.round(t*SC),Math.round(b*SC)]);
-      const pages=[]; let cur=[], used=hdrH;
-      bl.forEach(b=>{ const h=b[1]-b[0]; if(cur.length&&used+GAP+h>PH-PADB){ pages.push(cur); cur=[]; used=hdrH; } cur.push(b); used+=(cur.length>1?GAP:0)+h; });
+      const bl=blocks.map(([t,b,cuts])=>[Math.round(t*SC),Math.round(b*SC),cuts.map(v=>Math.round(v*SC))]);
+      // 使用者 2026-10-18「截圖的長寬比要一樣，無論內容」：每張固定 1080×1350。比一頁還高的卡片在卡內「整列邊界」切開接到下一頁，
+      //   找不到邊界才硬切；內容少的頁補背景
+      const BUD=PH-hdrH-PADB, pages=[]; let cur=[], used=0;
+      const push=seg=>{ const h=seg[1]-seg[0]; if(cur.length&&used+GAP+h>BUD){ pages.push(cur); cur=[]; used=0; } cur.push(seg); used+=(cur.length>1?GAP:0)+h; };
+      bl.forEach(([t,b,cuts])=>{
+        if(b-t<=BUD){ push([t,b]); return; }
+        // 超高的卡：目前這頁還剩 ≥35% 就接著放（不留大片空白），切點挑剩餘空間內最後一個整列邊界
+        let y=t;
+        if(cur.length){ const room=BUD-used-GAP, ok=cuts.filter(c=>c>y+40&&c<=y+room);
+          if(room>=BUD*0.35&&ok.length){ const c=ok[ok.length-1]; cur.push([y,c]); pages.push(cur); y=c; } else pages.push(cur);
+          cur=[]; used=0; }
+        while(b-y>BUD){ const lim=y+BUD, ok=cuts.filter(c=>c>y+BUD*0.4&&c<=lim); const c=ok.length?ok[ok.length-1]:lim;
+          pages.push([[y,c]]); y=c; }
+        if(b-y>4)push([y,b]); });
       if(cur.length)pages.push(cur);
       for(let i=0;i<pages.length;i++){
-        const need=hdrH+pages[i].reduce((s2,b,j)=>s2+(j?GAP:0)+(b[1]-b[0]),0)+PADB;
-        const pc=document.createElement("canvas"); pc.width=PW; pc.height=Math.round(Math.max(PH,need)*k);
+        const pc=document.createElement("canvas"); pc.width=PW; pc.height=1350;   // 固定 4:5
         const g=pc.getContext("2d"); g.fillStyle="#0b0e14"; g.fillRect(0,0,pc.width,pc.height); g.imageSmoothingQuality="high";
         g.drawImage(cv,0,0,cv.width,hdrH,0,0,PW,hdrH*k);
         let y=hdrH; pages[i].forEach((b,j)=>{ if(j)y+=GAP; g.drawImage(cv,0,b[0],cv.width,b[1]-b[0],0,y*k,PW,(b[1]-b[0])*k); y+=b[1]-b[0]; });
@@ -9035,6 +9048,20 @@ async function shotEl(src,name,prep,opt){   // opt.scale：指定輸出倍率（
   if(_rootZ!=null)document.documentElement.style.zoom=_rootZ;
   if(clone)clone.remove();
   if(btn)btn.disabled=false;
+}
+// 📸 點下去的小選單（使用者 2026-10-18）：完整大圖（單張長圖）／詳細小圖（社群用 1080×1350 多張）。
+//   長相沿用賽事下拉的浮層（CSS 與 #fselPop 共用），點外面或選完就關
+function shotMenu(btn,full,social){
+  document.getElementById("shotPop")?.remove();   // 自己的 id：#fselPop 會被賽事下拉的「點外面就關」順手關掉
+  const en=LANG==="en", pop=document.createElement("div"); pop.id="shotPop"; pop.style.gridAutoFlow="row";
+  pop.innerHTML=`<div class="fselIt" data-k="full">🖼️ ${en?"Full image (one long PNG)":"完整大圖（單張長圖）"}</div><div class="fselIt" data-k="social">📱 ${en?"Detailed pages (1080×1350, may be several)":"詳細小圖（1080×1350，可能多張）"}</div>`;
+  document.body.appendChild(pop);
+  const r=(typeof vRect==="function")?vRect(btn):btn.getBoundingClientRect();
+  pop.style.top=Math.round(r.bottom+6)+"px"; pop.style.left=Math.round(Math.max(8,r.right-pop.offsetWidth))+"px";
+  const close=()=>{ pop.remove(); document.removeEventListener("mousedown",out,true); };
+  const out=e=>{ if(!pop.contains(e.target)&&e.target!==btn)close(); };
+  setTimeout(()=>document.addEventListener("mousedown",out,true),0);
+  pop.querySelectorAll(".fselIt").forEach(it=>it.onclick=()=>{ close(); (it.dataset.k==="full"?full:social)(); });
 }
 // 使用者 ID：截圖檔名前綴（ID_原名）
 window.uidPrefix=()=>"";  // ID 前綴功能已移除（使用者要求 2026-07-16）
@@ -13145,10 +13172,11 @@ function render(){
     { const C2=window._PDC=window._PDC||{}; if(Object.keys(C2).length>6)window._PDC={}; window._PDC[window._PDK]=wrap.innerHTML; }
     }
     const hb=document.getElementById("fHelp"); if(hb)hb.onclick=e=>{e.stopPropagation(); toggleHelpPop(hb);};
-    document.getElementById("pdShot").onclick=()=>shotEl(document.getElementById("pdWrap"),en2?"Predictions":"預測",
-      cl=>{ cl.setAttribute("data-shot","1"); const st=document.createElement("style");   // 540 寬放不下左右四欄 ⇒ 截圖複本改上下排
-        st.textContent="[data-shot] .pdQC{grid-template-columns:1fr!important}[data-shot] .pdCols{grid-template-columns:1fr!important}"; cl.prepend(st); },
-      {social:{w:540,block:".card"}});   // 社群模式（使用者 2026-10-18）
+    document.getElementById("pdShot").onclick=()=>{ const go=mode=>shotEl(document.getElementById("pdWrap"),en2?"Predictions":"預測",
+      mode==="social"?(cl=>{ cl.setAttribute("data-shot","1"); const st=document.createElement("style");   // 540 寬放不下左右四欄 ⇒ 截圖複本改上下排
+        st.textContent="[data-shot] .pdQC{grid-template-columns:1fr!important}[data-shot] .pdCols{grid-template-columns:1fr!important}"; cl.prepend(st); }):null,
+      mode==="social"?{social:{w:540,block:".card"}}:undefined);
+      shotMenu(document.getElementById("pdShot"),()=>go("full"),()=>go("social")); };   // 社群模式（使用者 2026-10-18）
     // 模型「含本屆戰況」開關：先讓按鈕亮、內容淡掉（下一格畫面才開始算），不會看起來像當掉；算過的模式走上面的快取
     segBind("pdLiveSeg",v=>{ const on=v==="1"; if(on===!!V.pdLive)return; V.pdLive=on; saveState();
       document.querySelectorAll("#pdLiveSeg button").forEach(b=>b.classList.toggle("on",b.dataset.v===v));
@@ -17058,7 +17086,7 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
     segBind("rankDaySeg",v=>{ if(+v===(V.rankDayRange||1))return; V.rankDayRange=+v; saveState(); render(); });
     segBind("rankDayView",v=>{ if(v===(V.rankDayView==="stat"?"stat":"detail"))return; V.rankDayView=v; saveState(); render(); });   // 每日戰況 詳細／統計（使用者 2026-10-18）               // 每日戰況天數範圍
     main.querySelectorAll("[data-role]").forEach(b=>b.onclick=()=>{V.rankRole=b.dataset.role; saveState(); render();}); // 路線篩選
-    {const sb=document.getElementById("rankShot"); if(sb)sb.onclick=()=>shotEl(document.getElementById("dlyWrap"),LANG==="en"?"Daily games":"每日戰況",
+    {const sb=document.getElementById("rankShot"); if(sb)sb.onclick=()=>{ const go=mode=>shotEl(document.getElementById("dlyWrap"),LANG==="en"?"Recent games":"近期戰況",
       // 截圖複本（使用者 2026-10-18：看不到英雄圖、解析度太低）：html2canvas 算不出「寬 100%＋aspect-ratio」的圖 ⇒ 英雄圖固定 36px；
       //   它也不支援 CSS filter ⇒ 輸的場改用半透明區分；輸出 2 倍解析度（原本縮成 1920 寬，每隻英雄只剩幾 px）
       cl=>{ cl.setAttribute("data-shot","1"); cl.style.border="none"; cl.style.borderRadius="0"; const st=document.createElement("style");
@@ -17067,7 +17095,8 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
         st.textContent='[data-shot] .dlyChips{grid-template-columns:repeat(auto-fill,36px)!important;gap:4px!important}'
           +'[data-shot] .dlyChip{width:36px!important}[data-shot] .dlyChip img{width:36px!important;height:36px!important;aspect-ratio:auto!important;filter:none!important}'
           +'[data-shot] .dlyChip.ls img{opacity:.38}';
-        cl.prepend(st); cl.querySelectorAll(".dlyChip img").forEach(im=>{ im.width=36; im.height=36; }); },{social:{w:540,block:".dlyCard"}});}   // 每日戰況 📸（使用者 2026-10-18）
+        cl.prepend(st); cl.querySelectorAll(".dlyChip img").forEach(im=>{ im.width=36; im.height=36; }); },mode==="social"?{social:{w:540,block:".dlyCard"}}:{scale:2});
+      shotMenu(sb,()=>go("full"),()=>go("social")); };}   // 每日戰況 📸（使用者 2026-10-18）
     main.querySelectorAll("[data-region]").forEach(b=>b.onclick=()=>{ const v=b.dataset.region;   // 複選：點一下加入／再點取消；「全部」清空（使用者 2026-10-18）
       if(!v)V.rankRegion=""; else { const cur=String(V.rankRegion||"").split(",").filter(Boolean); const i=cur.indexOf(v); if(i>=0)cur.splice(i,1); else cur.push(v); V.rankRegion=cur.join(","); }
       V.rankLplGrp=""; saveState(); render();}); // 賽區篩選(離開 LPL 清組別)
