@@ -16688,7 +16688,7 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
       ${dailyMode?`<button id="rankShot" class="sqbtn" style="order:1" title="${LANG==="en"?"Export daily games as a 1080p PNG":"輸出每日戰況 1080p 截圖"}">📸</button>`:""}
       ${TAB_HELP["積分"]?`<button id="fHelp" class="sqbtn helpBtn" title="${T("本頁說明")}">ℹ️</button>`:""}</div>
       ${dailyMode
-        ? `<div class="card" id="dlyWrap"><h2>📅 ${LANG==="en"?"Daily games by team":"各隊每日戰況"} <span class="sub">${LANG==="en"?"per-player solo queue, grouped by team — win blue / loss red":"各隊選手單雙排逐日戰況（勝藍・敗紅）"}</span> ${segHTML("rankDaySeg",[[1,LANG==="en"?"Yesterday":"昨天"],[3,LANG==="en"?"3 days":"近3天"],[7,LANG==="en"?"7 days":"近7天"]],dayRange,"sm","margin-left:8px")}</h2><div id="dailyBox"></div></div>`
+        ? `<div class="card" id="dlyWrap"><h2>📅 ${LANG==="en"?"Daily games by team":"各隊每日戰況"} <span class="sub">${LANG==="en"?"per-player solo queue, grouped by team":"各隊選手單雙排逐日戰況"}</span> ${segHTML("rankDaySeg",[[1,LANG==="en"?"Yesterday":"昨天"],[3,LANG==="en"?"3 days":"近3天"],[7,LANG==="en"?"7 days":"近7天"]],dayRange,"sm","margin-left:8px")}</h2><div id="dailyBox"></div></div>`
         : `<div class="card"><h2>🏆 ${T("積分")} <span class="sub">${LANG==="en"?"solo queue ranked, highest first | click a column to sort":"單雙排積分，高到低｜點欄位名排序"}</span> <span class="sub">·&nbsp;${LANG==="en"?"per-game / score / champ-pool data from":"逐場・評分・角色池資料來源"} <a href="https://dpm.lol" target="_blank" rel="noopener" style="color:var(--acc)">dpm.lol</a></span></h2><div id="rankTbl"></div></div>`}`;
     {const dl=document.getElementById("rankQdl");   // 建議清單：戰隊(依選手數多→少、說明=全名 → 打全名也會浮出)＋選手(依場數多→少)
      if(dl&&SD&&Array.isArray(SD.players)&&SD.players.length){
