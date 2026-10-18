@@ -17,7 +17,8 @@ import soloq_src  # 逐場檔來源 meta（哪個 dpmPuuid 抓回哪些 rid）�
 OUTDIR = os.path.join(ROOT, "soloq_matches")
 IDX = os.path.join(ROOT, "soloq_match_index.js")
 RECENT = os.path.join(ROOT, "soloq_recent.js")   # 每日戰況(各隊每人近幾天逐場)：積分頁「每日戰況」視圖用
-TZ_H = 9           # 分日時區：KST(UTC+9)＝選手所在伺服器的自然日；「昨天」以此界定
+TZ_H = 8           # 分日時區：台灣(UTC+8)。2026-10-18 使用者：「昨天」＝**每天 10:00 更新往前 24 小時**，不是日曆日
+DAY_START_H = 10   # 一「天」從台灣 10:00 起算（排程 10:00 更新）⇒ 桶鍵＝(時間−10 小時) 的台灣日期
 RECENT_DAYS = 8    # 每日戰況保留最近 8 天(今天＋近 7 天)
 
 def aggregates(matches):
@@ -132,13 +133,13 @@ def _build():
         lt = max((g.get("t") or 0) for g in matches) if matches else None  # 最近一場時間戳(ms)：積分表「最近積分」欄
         players[key] = {"f": b, "role": role, "n": len(matches),
                         "last10": l10, "wr7": wr7, "sc7": sc7, "n7": n7, "kda7": kda7, "w7": w7, "lt": lt}
-        # 每日戰況：以 KST 分日，每場記 [英雄, 勝(1)/敗(0), LP 變化]；最新在前
+        # 每日戰況：以「台灣 10:00 到隔天 10:00」分日，每場記 [英雄, 勝(1)/敗(0), LP 變化]；最新在前
         byday = {}
         for g in matches:
             t = g.get("t")
             if not t or t < rec_cut:
                 continue
-            day = time.strftime("%Y-%m-%d", time.gmtime(t/1000 + TZ_H*3600))
+            day = time.strftime("%Y-%m-%d", time.gmtime(t/1000 + (TZ_H - DAY_START_H)*3600))   # 10/17 10:00～10/18 09:59 ⇒ "2026-10-17"
             lp = g.get("lp"); lp = lp if isinstance(lp, (int, float)) else 0
             byday.setdefault(day, []).append([g.get("c"), 1 if g.get("w") else 0, lp])
         if byday and key not in SKIP:
@@ -150,8 +151,8 @@ def _build():
     wk = sum(1 for v in players.values() if v["n7"])
     print(f"索引重建：{len(players)} 位（{wk} 位近 7 天有出賽）→ {IDX}")
     # 每日戰況小檔(積分頁「每日戰況」視圖懶載用)
-    gen_day = time.strftime("%Y-%m-%d", time.gmtime(time.time() + TZ_H*3600))
-    rec_payload = {"generated": time.strftime("%Y-%m-%d %H:%M"), "genDay": gen_day, "tzHours": TZ_H, "players": recent}
+    gen_day = time.strftime("%Y-%m-%d", time.gmtime(time.time() + (TZ_H - DAY_START_H)*3600))   # 目前這一桶；前端「昨天」＝前一桶
+    rec_payload = {"generated": time.strftime("%Y-%m-%d %H:%M"), "genDay": gen_day, "tzHours": TZ_H, "dayStartH": DAY_START_H, "players": recent}
     with open(RECENT, "w", encoding="utf-8") as f:
         f.write("window.SOLOQ_RECENT=" + json.dumps(rec_payload, ensure_ascii=False, separators=(",", ":")) + ";\n")
     print(f"每日戰況：{len(recent)} 位近 {RECENT_DAYS} 天有出賽 → {RECENT}")

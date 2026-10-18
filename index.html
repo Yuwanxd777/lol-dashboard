@@ -16868,9 +16868,10 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
       const IDX=window.SOLOQ_MATCH_IDX;
       const ROLE_ORD={TOP:0,JUNGLE:1,MIDDLE:2,BOTTOM:3,UTILITY:4}, POSLB={TOP:["上","Top"],JUNGLE:["野","JG"],MIDDLE:["中","Mid"],BOTTOM:["下","Bot"],UTILITY:["輔","Sup"]};
       const addDay=(ds,dl)=>{const a=ds.split("-").map(Number),dt=new Date(Date.UTC(a[0],a[1]-1,a[2])); dt.setUTCDate(dt.getUTCDate()+dl); return dt.getUTCFullYear()+"-"+String(dt.getUTCMonth()+1).padStart(2,"0")+"-"+String(dt.getUTCDate()).padStart(2,"0");};
-      const genDay=REC.genDay||new Date(Date.now()+9*3600e3).toISOString().slice(0,10);
+      // 一「天」＝台灣 10:00 到隔天 10:00（使用者 2026-10-18：排程 10:00 更新，「昨天」是 10:00 往前 24 小時）；分桶在 build_soloq_index.py
+      const genDay=REC.genDay||new Date(Date.now()+(8-10)*3600e3).toISOString().slice(0,10);
       const rng=V.rankDayRange||1, days=[]; for(let i=1;i<=rng;i++)days.push(addDay(genDay,-i)); // 昨天..昨天-(rng-1)
-      const md=ds=>{const a=ds.split("-"); return (+a[1])+"/"+(+a[2]);}, headLb=rng===1?md(days[0]):md(days[days.length-1])+"–"+md(days[0]);
+      const md=ds=>{const a=ds.split("-"); return (+a[1])+"/"+(+a[2]);}, _ds=REC.dayStartH!=null?String(REC.dayStartH).padStart(2,"0")+":00":"", headLb=_ds?`${md(days[days.length-1])} ${_ds}～${md(addDay(days[0],1))} ${_ds}`:(rng===1?md(days[0]):md(days[days.length-1])+"–"+md(days[0]));
       // REC(有打積分者)：以 teamFix 正規化鍵對應「實際 REC key」——REC/SD 隊縮寫可能不一致(GENG↔GEN、TLAW↔TL、AGAL↔AL)，雙邊都 teamFix 後才比對得上
       const recByNorm={}; Object.keys(REC.players).forEach(rk=>{const i=rk.indexOf("|"); if(i<0)return; const nk=teamFix(rk.slice(0,i))+"|"+rk.slice(i+1); if(!(nk in recByNorm))recByNorm[nk]=rk;});
       const idxRole={}; if(IDX&&IDX.players)Object.keys(IDX.players).forEach(ik=>{const i=ik.indexOf("|"); if(i<0)return; const nk=teamFix(ik.slice(0,i))+"|"+ik.slice(i+1); if(!(nk in idxRole))idxRole[nk]=IDX.players[ik].role;});
