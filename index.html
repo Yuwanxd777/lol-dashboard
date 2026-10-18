@@ -8213,7 +8213,7 @@ let _SUBSP=null,_SUBSP_Y=null;
 // 2017–2025 只有正賽一種 ⇒ 不滿兩項、不出子清單）
 // 同年多屆的盃賽（2026 兩屆 KeSPA）沒有賽段欄 ⇒ 子選項用「屆」（季前／季中；使用者 2026-10-18：篩選也要能分）
 const _edSubOf=o=>{ const eds=cupEditions()[o.league]; if(!eds)return ""; const d=String(o.date).slice(0,10), e=eds.find(x=>d>=x.from&&d<=x.to); return e?e.ed:""; };
-const _subSpOf=o=>String(o.split||"").replace(/ PO$/,"")||_edSubOf(o)||((o.league==="WLDs"||o.league==="MSI")?"正賽":"");
+const _subSpOf=o=>String(o.split||"").replace(/ PO$/,"")||_edSubOf(o)||((o.league==="WLDs"||o.league==="MSI"||o.league==="EWC")?"正賽":"");
 function subSplitMap(){
   if(_SUBSP&&_SUBSP_Y===curYear)return _SUBSP;
   const first={},m={};
@@ -8229,6 +8229,8 @@ function subSplitMap(){
    const f=first.WLDs; if(st&&st.from&&f&&f["入圍賽"]&&!f["正賽"])f["正賽"]=st.from;}
   Object.keys(first).forEach(lg=>{ const ks=Object.keys(first[lg]);
     if(ks.length>1)m[lg]=ks.sort((a,b)=>first[lg][a]<first[lg][b]?-1:1); });
+  // EWC 的子清單本來只有各區資格賽（EWCQ*，見 fancySelect 的 kidOf）⇒ 補「EWC 正賽」（使用者 2026-10-18）
+  if(first.EWC&&first.EWC["正賽"]&&!m.EWC&&(typeof GAMES!=="undefined")&&GAMES.some(o=>/^EWCQ/.test(o.league)))m.EWC=["正賽"];
   _SUBSP=m; _SUBSP_Y=curYear; return m;
 }
 const subSplitsOf=lg=>subSplitMap()[lg]||[];
