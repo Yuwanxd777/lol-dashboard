@@ -3578,6 +3578,8 @@ const spDisp=sp=>{const t=String(sp||""); const po=/ PO$/.test(t), base=po?t.rep
   const b2=(LANG==="en"&&SPLIT_EN[base])||base;
   return po?b2+(LANG==="en"?" Playoffs":"季後賽"):b2;};
 // 賽事籤底色覆寫（一般＝字色 22 透明度當底）：黑紅／藏青這種「底色才是主調」的活動色
+// 半形數字→全形（使用者 2026-10-18：比賽BP「第１局」局數用全形比較直觀）
+const fwNum=n=>String(n).replace(/[0-9]/g,d=>String.fromCharCode(d.charCodeAt(0)+0xFEE0));
 const LG_CHIP={MSI:{bg:"#2e0b12"},DCup:{bg:"#1d3466"}};   // 不加框（使用者 2026-10-18：有框跟其他籤不一致）
 const lgChip=l=>{if(!l)return `<span class="meta">—</span>`;const c=LGC[l]||"#8a93a6", o=LG_CHIP[l];
   return `<span class="lg" style="background:${o?o.bg:c+"22"};color:${c}">${lgName(l)}</span>`;};
@@ -13427,7 +13429,7 @@ function render(){
         // 原本 Start 那種塗 --tx2，跟一般說明文字同色 ⇒ 看起來不像連結、也看不出有 VOD。
         // PB（跳到 BP）與 Start（只到開局）的差別留在滑過去的提示文字（_vTi）。
         const _vr=ssRec(m)||{}, _vd=_vr.vod||"", _vk=_vr.vodk||"";
-        const _gl=LANG==="en"?`Game ${gno}`:`第${gno}局`;
+        const _gl=LANG==="en"?`Game ${gno}`:`第${fwNum(gno)}局`;
         const _vTi=_vk==="start"
           ? (LANG==="en"?"VOD starts at game start (this league has no Picks & Bans timestamp)":"VOD 從開局開始（這個聯賽沒有 BP 時間軸）")
           : (LANG==="en"?"watch this game's Picks & Bans VOD":"看這局的 BP 過程 VOD（PB 時間軸）");
@@ -13438,7 +13440,7 @@ function render(){
           // 2026-08-05 使用者定案：藍方/紅方/選擇欄**不上底色**（bpB/bpR 不用），
           // 改成**隊名文字上藍/紅色**；列與列交錯白底（.bpDraft 的 nth-child 規則）
           const flatHead=`<td class="meta">${m.date}</td><td class="meta">${esc(String(m.patch||""))}</td><td>${lgChip(m.league)}</td>`
-            +`<td class="subg" style="padding-left:8px">${_vd?`<a href="${esc(_vd)}" target="_blank" rel="noopener" title="${_vTi}" style="color:${_vCol};text-decoration:underline dotted">${LANG==="en"?`Game ${m._g}`:`第${m._g}局`}</a>`:(LANG==="en"?`Game ${m._g}`:`第${m._g}局`)}</td>`;
+            +`<td class="subg" style="padding-left:8px">${_vd?`<a href="${esc(_vd)}" target="_blank" rel="noopener" title="${_vTi}" style="color:${_vCol};text-decoration:underline dotted">${LANG==="en"?`Game ${m._g}`:`第${fwNum(m._g)}局`}</a>`:(LANG==="en"?`Game ${m._g}`:`第${fwNum(m._g)}局`)}</td>`;
           const tCell=(s,isBlue)=>`<td style="color:${isBlue?_CBLU:_CRED};font-weight:600">${s.team}</td>`;
           const selCellD=(m2,isBlue)=>{ if(!_hasSel)return ""; const t=ssLbl(m2,isBlue), f=t&&ssFirst(m2,isBlue);
             return `<td style="font-size:12px;white-space:nowrap${f?";color:var(--gold);font-weight:700":""}" ${f?`title="${LANG==="en"?"had the first choice":"這隊拿到第一選擇權"}"`:""}>${t||`<span class="meta">–</span>`}</td>`;};
@@ -13505,7 +13507,7 @@ function render(){
         ${ssN?`<span>🟦 ${LANG==="en"?"Chose-blue%":"選藍率"} ${_pair(ssB,ssN,_CBLU,_CRED)}</span>`:""}
         ${fpN?`<span>🥇 ${LANG==="en"?"Took 1st pick%":"選先選率"} ${_pair(fpY,fpN,_CGLD,_CMUT)}</span>`:""}
       </div>`:"";
-      const missRowHTML=n=>`<tr class="subrow missrow"><td class="subg">${LANG==="en"?`└ Game ${n}`:`└ 第${n}局`}</td><td colspan="${COLF.length-1}" style="color:#e0574d;font-weight:bold">🚫 ${T("資料缺失（此局尚未匯入）")}</td></tr>`;
+      const missRowHTML=n=>`<tr class="subrow missrow"><td class="subg">${LANG==="en"?`└ Game ${n}`:`└ 第${fwNum(n)}局`}</td><td colspan="${COLF.length-1}" style="color:#e0574d;font-weight:bold">🚫 ${T("資料缺失（此局尚未匯入）")}</td></tr>`;
       const seriesHTML=s=>{
         // 左右隊序＝**系列第一局的藍方在左**（2026-08-04 使用者指定）；第一局缺就用現存最早那局
         let [A,B]=s.teams;
