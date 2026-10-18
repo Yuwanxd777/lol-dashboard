@@ -16893,7 +16893,6 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
         ||(_cup?0:(lplSplitGroupOf(a,curYear,lplSel)||"").localeCompare(lplSplitGroupOf(b,curYear,lplSel)||""))||_str(b)-_str(a)||a.localeCompare(b));
       const tGames=ab=>teams[ab].reduce((s,pl)=>{const a=aggOf(pl.reckey); return s+(a?a.n:0);},0);
       const activeCnt=teamNames.filter(ab=>tGames(ab)>0).length; // 僅表頭統計；所有有積分帳號的選手/隊都列出(不論範圍內有無出賽)
-      const MAXCHIP=rng===1?20:32;   // 英雄改獨立一列＝整列可用，可多顯示幾隻
       const P5IC={TOP:"TOP",JUNGLE:"JNG",MIDDLE:"MID",BOTTOM:"BOT",UTILITY:"SUP"};  // 逐場路線碼 → 路線圖鍵
       const roleTag=rl=>{ const k=P5IC[rl], x=POSLB[rl];
         const src=k&&((typeof POS_B64!=="undefined"&&POS_B64[k])||(typeof POS_IMG!=="undefined"&&POS_IMG[k]));
@@ -16912,7 +16911,7 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
           if(!ag) return `<div class="dlyRow idle"><div class="dlyLine">${roleTag(pl.role)}${nm}${rankTag(pl)}<span></span></div></div>`; // 沒打積分＝留白，不特別標註
           gw+=ag.w; gn+=ag.n;
           const rec=`<span class="dlyRec"><span class="w">${ag.w}</span><span class="s">-</span><span class="l">${ag.l}</span></span>`;
-          const chips=ag.gs.slice(0,MAXCHIP).map(g=>chip(g[0],g[1])).join("")+(ag.n>MAXCHIP?`<span class="dlyMore">+${ag.n-MAXCHIP}</span>`:"");
+          const chips=ag.gs.map(g=>chip(g[0],g[1])).join("");   // 全部列出、不截成「+N」（使用者 2026-10-18）
           return `<div class="dlyRow"><div class="dlyLine">${roleTag(pl.role)}${nm}${rankTag(pl)}${rec}</div><div class="dlyChips">${chips}</div></div>`;
         }).join("");
         const sub=gn?`<span class="dlyRec" style="font-size:12.5px"><span class="w">${gw}</span><span class="s">-</span><span class="l">${gn-gw}</span> <span class="meta" style="font-weight:400">${gn}${en?"g":"場"}</span></span>`:"";
