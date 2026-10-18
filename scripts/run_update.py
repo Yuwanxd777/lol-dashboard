@@ -140,6 +140,8 @@ PLAN = [
     #    而且要排在 ⑤b 之前——這樣新號當班就能補到 dpmPuuid、⑤c 的牌位也抓得到。
     #    選手換號之後 dpm／OBGG 常常好幾週不更新，這是使用者自己補的那條路（#補查 2026-09-21）。
     ("⑤a 人工帳號（循序）", [S("apply_manual_accounts")]),
+    # ⑤a2 TTP（trackingthepros.com 選手頁）補帳號：只查稽核有問題的選手、頁面快取 3 天；同 ⑤a 只加不刪（使用者 2026-10-18）
+    ("⑤a2 TTP 帳號（循序）", [S("fetch_ttp_accounts")]),
     ("⑤b 解 puuid", [S("resolve_obgg_dpmpuuid")]),
     # 2026-09-09 #72：label_pending（BP 待標樣本入佇列，22:00 那班 26.0s、⑥ 的長桿）搬來跟牌位並行。
     #   它讀 data/data_YYYY.js（② 寫完）＋ team_abbr_wiki.js（④ build_league_struct 與 ⑤ fetch_dpm_soloq_accounts
