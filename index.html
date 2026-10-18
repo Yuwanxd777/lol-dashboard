@@ -9084,8 +9084,13 @@ async function shotPages(name,groups,o){
       host.remove();
       const pc=document.createElement("canvas"); pc.width=1080; pc.height=1350;
       const g=pc.getContext("2d"); g.fillStyle="#0b0e14"; g.fillRect(0,0,1080,1350); g.imageSmoothingQuality="high";
-      const k=Math.min(1080/cv.width,1350/cv.height), dw=cv.width*k, dh=cv.height*k;
-      g.drawImage(cv,(1080-dw)/2,0,dw,dh);
+      // 固定頁首（使用者 2026-10-18「標題與日期無論如何都不要縮小，每一張一樣大」）：直接畫在畫布頂端，內容縮進下面剩下的空間
+      let top=0;
+      if(o.title){ const t=o.title(), ff=getComputedStyle(document.body).fontFamily; top=84;
+        g.textBaseline="alphabetic"; g.textAlign="left"; g.fillStyle="#e8ecf4"; g.font=`700 38px ${ff}`; g.fillText(t[0],32,56);
+        const tw=g.measureText(t[0]).width; g.fillStyle="#8b98ad"; g.font=`500 26px ${ff}`; g.fillText(t[1]||"",32+tw+22,56); }
+      const k=Math.min(1080/cv.width,(1350-top)/cv.height), dw=cv.width*k, dh=cv.height*k;
+      g.drawImage(cv,(1080-dw)/2,top,dw,dh);
       if(groups.length>1){ g.fillStyle="rgba(232,236,244,.45)"; g.font="600 15px sans-serif"; g.textAlign="right"; g.textBaseline="top"; g.fillText(`${i+1}/${groups.length}`,1066,12); }   // 頁碼右上、小字（使用者 2026-10-18）
       await new Promise(ok=>pc.toBlob(bl=>{ const a=document.createElement("a"); a.href=URL.createObjectURL(bl);
         a.download=`${uidPrefix()}${name}_${stamp}${groups.length>1?"_"+(i+1):""}.png`; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),5000); ok(); },"image/png"));
@@ -17152,20 +17157,17 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
       // 中等／小圖：每張頁首＝標題＋日期範圍（不帶切換鈕與操作提示），卡片照賽區分組或一隊一張
       const wrap=document.getElementById("dlyWrap"), cards=[...wrap.querySelectorAll(".dlyCard")];
       // 頁首一行（使用者 2026-10-18）：「各隊近七天戰況　日期範圍」，近七天照範圍選項變
-      const hdr=(host)=>{ const rg=V.rankDayRange||1, en=LANG==="en";
+      const ttl=()=>{ const rg=V.rankDayRange||1, en=LANG==="en";
         const lb=en?({1:"Yesterday",3:"Last 3 days",7:"Last 7 days",14:"Last 14 days"}[rg]||`Last ${rg} days`)+" by team"
                    :`各隊${({1:"昨天",3:"近三天",7:"近七天",14:"近十四天"}[rg]||`近${rg}天`)}戰況`;
-        const dt=(wrap.querySelector("#dailyBox > .meta b")||{}).textContent||"";
-        const h=document.createElement("div"); h.style.cssText="display:flex;align-items:baseline;gap:14px;margin:0 0 12px;white-space:nowrap";
-        h.innerHTML=`<b style="font-size:21px;color:var(--tx)">${esc(lb)}</b><span style="font-size:15px;color:var(--tx2)">${esc(dt)}</span>`;
-        host.appendChild(h); };
+        return [lb,(wrap.querySelector("#dailyBox > .meta b")||{}).textContent||""]; };
       const ST='[data-shot] .dlyChips{grid-template-columns:repeat(auto-fill,36px)!important;gap:4px!important}[data-shot] .dlyChip{width:36px!important}'
         +'[data-shot] .dlyChip img{width:36px!important;height:36px!important;aspect-ratio:auto!important;filter:none!important}[data-shot] .dlyChip.ls img{opacity:.38}';
       const nm=LANG==="en"?"Recent games":"近期戰況";   // 檔名
       const byLg=()=>{ const m=new Map(); cards.forEach(c=>{ const k=c.dataset.lg||"-"; (m.get(k)||m.set(k,[]).get(k)).push(c); }); return [...m.values()]; };
       shotMenu(sb,null,null,[[`🖼️ ${LANG==="en"?"Full image (one long PNG)":"完整大圖（單張長圖）"}`,()=>go("full")],
-        [`🗂️ ${LANG==="en"?"Medium: one region per image":"中等（一個賽區一張）"}`,()=>shotPages(nm,byLg(),{colW:480,header:hdr,style:ST,maxCols:4})],
-        [`📱 ${LANG==="en"?"Small: one team per image":"小圖（一隊一張）"}`,()=>shotPages(nm,cards.map(c=>[c]),{colW:480,header:hdr,style:ST,maxCols:1})]]); };}   // 每日戰況 📸（使用者 2026-10-18）
+        [`🗂️ ${LANG==="en"?"Medium: one region per image":"中等（一個賽區一張）"}`,()=>shotPages(nm,byLg(),{colW:480,title:ttl,headH:0,style:ST,maxCols:4})],
+        [`📱 ${LANG==="en"?"Small: one team per image":"小圖（一隊一張）"}`,()=>shotPages(nm,cards.map(c=>[c]),{colW:480,title:ttl,headH:0,style:ST,maxCols:1})]]); };}   // 每日戰況 📸（使用者 2026-10-18）
     main.querySelectorAll("[data-region]").forEach(b=>b.onclick=()=>{ const v=b.dataset.region;   // 複選：點一下加入／再點取消；「全部」清空（使用者 2026-10-18）
       if(!v)V.rankRegion=""; else { const cur=String(V.rankRegion||"").split(",").filter(Boolean); const i=cur.indexOf(v); if(i>=0)cur.splice(i,1); else cur.push(v); V.rankRegion=cur.join(","); }
       V.rankLplGrp=""; saveState(); render();}); // 賽區篩選(離開 LPL 清組別)
