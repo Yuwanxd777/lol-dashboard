@@ -17177,7 +17177,8 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
         cl.querySelectorAll(".meta").forEach(e=>{ if(/點選手名看完整逐場|click a name/.test(e.innerHTML))e.innerHTML=e.innerHTML.replace(/\s*·\s*(點選手名看完整逐場|click a name for the full game log)/,""); });
         st.textContent='[data-shot] .dlyChips{grid-template-columns:repeat(auto-fill,36px)!important;gap:4px!important}'
           +'[data-shot] .dlyChip{width:36px!important}[data-shot] .dlyChip img{width:36px!important;height:36px!important;aspect-ratio:auto!important;filter:none!important}'
-          +'[data-shot] .dlyChip.ls img{opacity:.38}';
+          +'[data-shot] .dlyChip.ls img{opacity:.38}'
+        +'[data-shot] .dlyAgg .dlyCnt{line-height:9px!important}';   // html2canvas 把框內數字畫低約 1.7px（使用者 2026-10-18 放大看沒置中）；9px 量起來上 4／下 5 px＝置中
         cl.prepend(st); cl.querySelectorAll(".dlyChip img").forEach(im=>{ im.width=36; im.height=36; }); },mode==="social"?{social:{w:540,block:".dlyCard"}}:{scale:2});
       // 中等／小圖：每張頁首＝標題＋日期範圍（不帶切換鈕與操作提示），卡片照賽區分組或一隊一張
       const wrap=document.getElementById("dlyWrap"), cards=[...wrap.querySelectorAll(".dlyCard")];
@@ -17187,7 +17188,8 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
                    :`${({1:"昨天",3:"近三天",7:"近七天",14:"近十四天"}[rg]||`近${rg}天`)}積分戰況`;   // 使用者 2026-10-18 改名：近期積分戰況
         return [lb,(wrap.querySelector("#dailyBox > .meta b")||{}).textContent||""]; };
       const ST='[data-shot] .dlyChips{grid-template-columns:repeat(auto-fill,36px)!important;gap:4px!important}[data-shot] .dlyChip{width:36px!important}'
-        +'[data-shot] .dlyChip img{width:36px!important;height:36px!important;aspect-ratio:auto!important;filter:none!important}[data-shot] .dlyChip.ls img{opacity:.38}';
+        +'[data-shot] .dlyChip img{width:36px!important;height:36px!important;aspect-ratio:auto!important;filter:none!important}[data-shot] .dlyChip.ls img{opacity:.38}'
+        +'[data-shot] .dlyAgg .dlyCnt{line-height:9px!important}';   // 同上：截圖裡的使用次數框數字置中
       const nm=LANG==="en"?"Recent ranked games":"近期積分戰況";   // 檔名
       const byLg=()=>{ const m=new Map(); cards.forEach(c=>{ const k=c.dataset.lg||"-"; (m.get(k)||m.set(k,[]).get(k)).push(c); }); return [...m.values()]; };
       shotMenu(sb,null,null,[[`🖼️ ${LANG==="en"?"Full image (one long image)":"完整大圖（單張長圖）"}`,()=>go("full")],
