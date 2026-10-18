@@ -3464,6 +3464,30 @@ function natlPlayerLeagues(){
   }catch(e){}
   _NATL_PL=m; _NATL_TM=tm2; _NATL_PL_Y=curYear; return m;
 }
+// 盃賽（國際賽）的**選手級**參賽名單：{賽事碼:{k:Set("隊縮寫|小寫名"), n:Map(小寫名→幾隊)}}
+// 使用者 2026-10-18：KeSPA 這類盃賽戰隊會派二隊選手上場，他們的積分帳號掛在一隊名下 ⇒ 舊版積分篩 WCS
+//   是「隊伍有參賽就整隊都列」，二隊選手也跟著出現。改成：本人在 wiki 參賽名單上（events_extra rosters，
+//   教練不算）或真的在該賽事上場過，才算參加。名單沒有的賽事（MSI／FST／EWC）就靠上場紀錄。
+const CUP_LGS=["FST","MSI","WLDs","EWC","ENC","亞運","DCup"];
+let _CUPP=null,_CUPP_Y=null;
+function cupPlayers(){
+  if(_CUPP&&_CUPP_Y===curYear)return _CUPP;
+  const m={}; CUP_LGS.forEach(l=>m[l]={k:new Set(),n:new Map(),_t:new Set()});
+  const put=(lg,tm,nm)=>{ const e=m[lg]; if(!e||!nm)return; const lo=String(nm).trim().toLowerCase(), ab=teamFix(tAb(String(tm||"").replace(/\s*\(.*?\)\s*$/,"")));
+    const k=ab+"|"+lo; if(e.k.has(k))return; e.k.add(k); e.n.set(lo,(e.n.get(lo)||0)+1); };
+  if(typeof RAW!=="undefined"&&RAW&&RAW.length&&C&&C.blue_playername!=null&&C.participantid!=null){
+    for(let i=1;i<RAW.length;i++){ const r=RAW[i]; const lg=r[C.league]; if(!m[lg])continue;
+      const pid=+r[C.participantid]; if(!(pid>=1&&pid<=5))continue;
+      put(lg,r[C.blue_teamname],r[C.blue_playername]); put(lg,r[C.blue_teamname+RB],r[C.blue_playername+RB]); } }
+  try{ const EX=(window.EVENTS_EXTRA||{})[String(curYear)]||{};
+    CUP_LGS.forEach(lg=>{ const rs=(EX[lg]||{}).rosters; if(!rs)return;
+      Object.keys(rs).forEach(tm=>(rs[tm]||[]).forEach(p=>{ if(p&&p.n&&p.r!=="COACH")put(lg,tm,p.n); })); });
+  }catch(e){}
+  _CUPP=m; _CUPP_Y=curYear; return m;
+}
+// 該選手（積分表的一列：team＝帳號檔隊縮寫）有沒有參加某盃賽：同隊同名命中；或全賽事只有一個同名的人（轉隊後隊碼對不上）
+const inCup=(lg,team,player)=>{ const e=cupPlayers()[lg]; if(!e)return false; const lo=String(player||"").trim().toLowerCase();
+  return e.k.has(teamFix(team||"")+"|"+lo)||e.n.get(lo)===1; };
 // 主數據所有出賽選手(藍+紅雙方 via RB)：[{team(abbr),player,role,n}]，供積分表列出「缺積分帳號」的選手；依 curYear 記憶
 let _COMP_PL=null,_COMP_PL_Y=null;
 function competitivePlayers(){
@@ -16567,7 +16591,9 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
     const WCS_AB=_wEv&&_wEv.teams?new Set(_wEv.teams.map(t=>teamFix(tAb(String(t).replace(/\s*\(.*?\)\s*$/,""))))):null;
     const rgOf=r=>{ const tf=teamFix(r.team), s=TLG[tf], n=NPL[String(r.player||"")];
       let o=(s||n)?new Set(s||[]):null; if(n)n.forEach(l=>o.add(l));
-      if(WCS_AB){ if(o)o.delete("WLDs"); if(WCS_AB.has(tf))(o=o||new Set()).add("WLDs"); }
+      // 盃賽一律看選手本人（cupPlayers）：先把「隊伍打過」帶進來的盃賽拿掉，再依本人名單／上場加回
+      if(o)CUP_LGS.forEach(l=>o.delete(l));
+      CUP_LGS.forEach(l=>{ if(inCup(l,r.team,r.player)||(n&&n.has(l)))(o=o||new Set()).add(l); });
       return o; };
     const CUP_ORDER=["FST","MSI","WLDs","EWC","ENC","亞運"]; // 盃賽：只列這幾個且照此序(WLDs 顯示為 WCS)
     const LEAGUE_PREF=["LCK","LPL","LCP","LEC","LTA","LTA N","LTA S","LCS","CBLOL","VCS","PCS","LMS"];
