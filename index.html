@@ -9112,7 +9112,7 @@ async function shotPages(name,groups,o){
       const k=Math.min((CW-2*M2)/cv.width,(CH-top-M2)/cv.height), dw=cv.width*k, dh=cv.height*k;
       g.drawImage(cv,(CW-dw)/2,top,dw,dh);   // 寬度永遠是 CW−2×32（左右空隙一致）；只有怎樣都放不下的才退成照高度縮
       // 右上角＝網站頭像（使用者 2026-10-18；img/logo.jpg，走 data URI 才離線可用、不污染畫布），頁碼在它左邊
-      const LS=52, LX=CW-32-LS, LY=16;
+      const LS=36, LX=CW-32-LS, LY=24;   // 使用者 2026-10-18：頭像縮成原本 52px 的 70%，中心維持跟標題同高（y≈42）
       if(_logoImg){ g.save(); g.beginPath(); g.arc(LX+LS/2,LY+LS/2,LS/2,0,Math.PI*2); g.clip(); g.drawImage(_logoImg,LX,LY,LS,LS); g.restore();
         g.strokeStyle="rgba(255,255,255,.18)"; g.lineWidth=1.5; g.beginPath(); g.arc(LX+LS/2,LY+LS/2,LS/2,0,Math.PI*2); g.stroke(); }
       if(groups.length>1){ g.fillStyle="rgba(232,236,244,.45)"; g.font="600 15px sans-serif"; g.textAlign="right"; g.textBaseline="middle"; g.fillText(`${i+1}/${groups.length}`,(_logoImg?LX-12:CW-14),LY+LS/2); }
