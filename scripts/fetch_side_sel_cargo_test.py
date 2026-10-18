@@ -167,6 +167,9 @@ def probe_rows():
           vodst="https://youtu.be/s2", mvp="N/A", dt="2026-09-01 08:00:00", t1="T1", t2="Gen.G", mvpm="Faker (Lee Sang-hyeok)"),
         # M1 G3：還沒打（Selection 空）⇒ 不收
         r(mid="M1", ng=3, gid=12, blue="T1", red="Gen.G", sel="", dt="2026-09-01 08:00:00", t1="T1", t2="Gen.G"),
+        # M4：打完了但頁面沒記選邊、有 VOD ⇒ 照收、ss 空（使用者 2026-10-18：LCS 升降級／亞運的連結整局不見）
+        r(mid="M4", ng=1, gid=40, blue="Maryville University", red="Zeu5 Esports", sel=None,
+          vodst="https://youtu.be/m4", dt="2026-09-04 08:00:00", t1="Maryville University", t2="Zeu5 Esports"),
         # M3：TBD 列 ⇒ 不收
         r(mid="M3", ng=1, gid=30, blue="TBD", red="TBD", sel=None, dt="2026-09-03 08:00:00", t1="TBD", t2="TBD"),
     ]
@@ -302,8 +305,10 @@ def main():
         chk("2a 有寫出沙盒 side_sel.js", recs is not None)
         d = by_ov(recs)
         A = d.get(PROBE, [])
-        chk("2b 探針頁 A 收到 3 局（G3 沒 Selection、M3 TBD 不收）", len(A) == 3, [(r["d"], r["gi"]) for r in A])
-        chk("2c 同頁照 _ID 排（M1 G1、M1 G2 在 M2 前面）", [r["gi"] for r in A] == [1, 2, 1] and A[0]["t1"] == "T1" and A[2]["t1"] == "KT Rolster")
+        chk("2b 探針頁 A 收到 4 局（G3 沒 Selection 也沒連結、M3 TBD 不收；M4 沒選邊但有 VOD 照收）", len(A) == 4, [(r["d"], r["gi"]) for r in A])
+        chk("2c 同頁照 _ID 排（M1 G1、M1 G2 在 M2 前面）", [r["gi"] for r in A] == [1, 2, 1, 1] and A[0]["t1"] == "T1" and A[2]["t1"] == "KT Rolster")
+        m4 = next((r for r in A if r["t1"] == "Maryville University"), {})
+        chk("2t 沒選邊但有 VOD：ss 空、vod 收到、pc 0", (m4.get("ss"), m4.get("vod"), m4.get("vodk"), m4.get("pc")) == ("", "https://youtu.be/m4", "start", 0), m4)
         g1 = next((r for r in A if r["t1"] == "T1" and r["gi"] == 1), {})
         g2 = next((r for r in A if r["t1"] == "T1" and r["gi"] == 2), {})
         m2 = next((r for r in A if r["t1"] == "KT Rolster"), {})
@@ -383,7 +388,7 @@ def main():
         M.CSTAT.update({"req": 0, "fail": 0, "streak": 0, "trunc": 0})
         out5b = run_main(M)
         recs5b = load_out(M)
-        chk("5e 回應不是 JSON 也當失敗：PB 走備援、其他頁照收", ("走 HTML 備援：" + PB) in out5b and len(by_ov(recs5b).get(PROBE, [])) == 3 and "回應不是 JSON" in out5b)
+        chk("5e 回應不是 JSON 也當失敗：PB 走備援、其他頁照收", ("走 HTML 備援：" + PB) in out5b and len(by_ov(recs5b).get(PROBE, [])) == 4 and "回應不是 JSON" in out5b)
         box.nonjson = set()
 
         # ── 6. --html／--year 不打 MatchScheduleGame；--dump 不寫檔 ──
@@ -405,7 +410,7 @@ def main():
         chk("6d --dump：有查 Cargo、有印局、但沙盒 side_sel.js 沒被改寫", box.g_reqs() and h0 == h1 and "合計" in out6d)
         seed(box, M); box.reqs = []
         out6e = run_main(M, ["--page", PROBE])
-        chk("6e --page：只問那一頁（1 個請求、IN 清單就它）", box.g_reqs() == [[PROBE]] and len(by_ov(load_out(M)).get(PROBE, [])) == 3, box.g_reqs())
+        chk("6e --page：只問那一頁（1 個請求、IN 清單就它）", box.g_reqs() == [[PROBE]] and len(by_ov(load_out(M)).get(PROBE, [])) == 4, box.g_reqs())
 
         # ── 7. 正控制：舊版（釘 commit，不是 HEAD） ──
         print("\n── 7. 正控制：舊版 %s ──" % OLDREV)

@@ -753,8 +753,11 @@ def cargo_records(ov, rows):
     for r in rows:
         sel, bl, rd = _cs(r.get("sel")), _cs(r.get("blue")), _cs(r.get("red"))
         ss = "b" if (sel and sel == bl) else ("r" if (sel and sel == rd) else "")
-        if not ss:
-            continue          # 還沒打（TBD）或沒記選邊——HTML 路徑同樣不收（#117：Cargo 多的 85 列全是這種）
+        # 沒記選邊：還沒打（TBD）的不收（#117：Cargo 多的 85 列全是這種）；**打完但頁面沒選邊欄**的局
+        # 若有 VOD／逐局 MVP 照收、ss 留空（使用者 2026-10-18「wiki 有超連結但比賽BP 沒有」：LCS 升降級 23 局、
+        # 亞運 10 局整局被丟，連結跟著不見）。前端所有選邊統計都先檢查 s，空的不計入；HIST 路徑本來就這樣收。
+        if not ss and (not bl or not rd or bl.upper() == "TBD" or rd.upper() == "TBD"):
+            continue
         try:
             gi = int(r.get("ng") or 0)
         except Exception:
@@ -767,6 +770,8 @@ def cargo_records(ov, rows):
             if u:
                 vod, vk = u, v
                 break
+        if not ss and not vod and not _nopar(r.get("mvp")) and not _nopar(r.get("mvpm")):
+            continue          # 沒選邊、也沒連結／MVP＝這一列對前端沒有任何用處
         mid = r.get("mid") or (str(r.get("dt") or "")[:10], r.get("t1"), r.get("t2"))
         mvpm = _nopar(r.get("mvpm")) if mid not in seen else ""   # 系列 POM 只掛該系列第一個收到的局（HTML 路徑的 first 旗標）
         seen.add(mid)

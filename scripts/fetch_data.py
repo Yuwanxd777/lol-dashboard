@@ -1121,7 +1121,8 @@ def fix_teamrow_side_wiki(table, year):
             ab_full[k] = top[0][0]
     idx = {}
     for r in recs:
-        if r.get("blue") and r.get("red"):
+        # 只用有選邊的紀錄（2026-10-18 起 side_sel 也收沒選邊但有 VOD 的局，這裡維持原本的範圍不擴大）
+        if r.get("blue") and r.get("red") and r.get("ss"):
             key = (str(r.get("d"))[:10], "|".join(sorted([norm(r.get("t1")), norm(r.get("t2"))])), str(r.get("gi") or ""))
             idx[key] = r
     hdr = table[0]
