@@ -180,6 +180,7 @@ PLAN = [
     ("⑥ 收尾（互不相干）", [
         S("build_patch_dates"),
         S("build_img_manifest"),       # 隊徽／國旗清單（fetch_team_logos／fetch_flags 之後）
+        S("build_img_b64"),            # 本機圖 → data URI（📸 截圖在 file://／離線也畫得出英雄圖、隊徽；使用者 2026-10-18）
         S("trim_data_cols", "--apply"),
         S("build_font_subset"),
         S("lint_text", "--quiet"),

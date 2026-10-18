@@ -8948,14 +8948,28 @@ applyFont(localStorage.getItem('dash_font')||'huninn');
 // html2canvas 內部 iframe 會用「無 CORS」原樣載入畫上 canvas，第一次截圖就 Tainted、重試因快取
 // 成功（時好時壞——2026-08-05 陣容橫式先踩到，近況整頁截圖同病）。把 clone 內所有 https 圖
 // 改 eager＋anonymous 並等載完，html2canvas 的 CORS 取圖就穩定命中。
+// 本機圖的 data URI 包（img_b64.js，scripts/build_img_b64.py 產）：按 📸 才載入一次。
+//   使用者 2026-10-18「截圖要任何情況打開都是那畫面，甚至可能不連網」：file:// 下本機圖一畫上 canvas 就污染、
+//   CDN 又要連網 ⇒ 截圖前把所有本機圖換成 data URI（<script> 在 file:// 與離線都載得到）。
+let _imgB64P=null;
+const _loadImgB64=()=>_imgB64P||(_imgB64P=new Promise(r=>{ if(window.IMG_B64)return r();
+  const sc=document.createElement("script"); sc.src="img_b64.js"; sc.onload=()=>r(); sc.onerror=()=>r(); document.head.appendChild(sc); }));
 async function _shotWarm(clone){
+  await _loadImgB64();
+  const B=window.IMG_B64||{};
+  clone.querySelectorAll("img").forEach(im=>{ const s=(im.getAttribute("src")||"").replace(/^\.\//,"").split("?")[0];
+    if(B[s]){ im.src=B[s]; im.removeAttribute("loading"); return; }
+    // 隊徽沒檔 → 國旗（teamLogoHTML 的 data-flag 退路）
+    const fl=(im.getAttribute("data-flag")||"").replace(/^\.\//,""); if(fl&&B[fl])im.src=B[fl]; });
   // file:// 環境：本機圖（路線圖 img/*.png、隊徽…）畫上 canvas 一律污染 → 路線圖換內嵌
   // base64（POS_B64、依 alt 對照），其餘本機圖隱藏。發布站是同源 https，這段不動作。
   if(location.protocol==="file:")clone.querySelectorAll("img").forEach(im=>{
     const s=im.getAttribute("src")||"";
     if(/^https?:|^data:/i.test(s))return;
     const k=im.getAttribute("alt")||"", b64=(typeof POS_B64!=="undefined"&&POS_B64)?POS_B64[k]:null;
-    if(b64)im.src=b64; else im.style.visibility="hidden";
+    // 英雄頭像（有 data-cid）改走 DDragon CDN（允許跨來源、畫得上 canvas）：使用者 2026-10-18 用 file:// 開，近期戰況截圖英雄圖整片不見
+    const cid=im.getAttribute("data-cid");
+    if(b64)im.src=b64; else if(cid&&typeof DDV!=="undefined")im.src=`https://ddragon.leagueoflegends.com/cdn/${DDV}/img/champion/${cid}.png`; else im.style.visibility="hidden";
   });
   clone.querySelectorAll("img").forEach(im=>{ im.loading="eager";
     if(/^https?:/i.test(im.src))im.setAttribute("crossorigin","anonymous"); });
@@ -8971,7 +8985,7 @@ async function shotEl(src,name,prep,opt){   // opt.scale：指定輸出倍率（
   try{
     if(!window.html2canvas)await new Promise((ok,no)=>{
       const sc=document.createElement("script");
-      sc.src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js";
+      sc.src="html2canvas.min.js";
       sc.onload=ok; sc.onerror=no; document.head.appendChild(sc);
     });
     const w=Math.ceil(src.getBoundingClientRect().width);
@@ -11338,7 +11352,7 @@ function render(){
       try{
         if(!window.html2canvas)await new Promise((ok,no)=>{
           const s=document.createElement("script");
-          s.src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js";
+          s.src="html2canvas.min.js";
           s.onload=ok; s.onerror=no; document.head.appendChild(s);
         });
         const src=document.getElementById("tierRows");
@@ -12471,7 +12485,7 @@ function render(){
       const sb=document.getElementById("rcShot"); sb.disabled=true; let clone=null;
       try{
         if(!window.html2canvas)await new Promise((ok,no)=>{const s2=document.createElement("script");
-          s2.src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"; s2.onload=ok; s2.onerror=no; document.head.appendChild(s2);});
+          s2.src="html2canvas.min.js"; s2.onload=ok; s2.onerror=no; document.head.appendChild(s2);});
         const src=document.getElementById("rcWrap");
         clone=src.cloneNode(true);
         clone.querySelectorAll(".card").forEach(cd=>{cd.style.backgroundImage="none"; cd.style.backgroundColor="#141a26";}); // html2canvas 對 linear-gradient 會渲染出黑塊
@@ -16163,7 +16177,7 @@ function render(){
         try{
           if(!window.html2canvas)await new Promise((ok,no)=>{
             const s=document.createElement("script");
-            s.src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js";
+            s.src="html2canvas.min.js";
             s.onload=ok; s.onerror=no; document.head.appendChild(s);
           });
           const card0=src.querySelector(".bsGCard").getBoundingClientRect();
@@ -16713,7 +16727,7 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
       ${dailyMode?`<button id="rankShot" class="sqbtn" style="order:1" title="${LANG==="en"?"Export daily games as a 1080p PNG":"輸出每日戰況 1080p 截圖"}">📸</button>`:""}
       ${TAB_HELP["積分"]?`<button id="fHelp" class="sqbtn helpBtn" title="${T("本頁說明")}">ℹ️</button>`:""}</div>
       ${dailyMode
-        ? `<div class="card" id="dlyWrap"><h2>📅 ${LANG==="en"?"Recent games by team":"各隊近期戰況"} <span class="sub">${LANG==="en"?"per-player solo queue, grouped by team":"各隊選手單雙排逐日戰況"}</span> ${segHTML("rankDaySeg",[[1,LANG==="en"?"Yesterday":"昨天"],[3,LANG==="en"?"3 days":"近3天"],[7,LANG==="en"?"7 days":"近7天"]],dayRange,"sm","margin-left:8px")}${segHTML("rankDayView",[["detail",LANG==="en"?"Detail":"詳細",LANG==="en"?"every game in order":"逐場列出"],["stat",LANG==="en"?"Summary":"統計",LANG==="en"?"champions grouped with counts":"同英雄合併、標使用次數"]],V.rankDayView==="stat"?"stat":"detail","sm","margin-left:8px")}</h2><div id="dailyBox"></div></div>`
+        ? `<div class="card" id="dlyWrap"><h2>📅 ${LANG==="en"?"Recent games by team":"各隊近期戰況"} <span class="sub">${LANG==="en"?"per-player solo queue, grouped by team":"各隊選手單雙排逐日戰況"}</span> ${segHTML("rankDaySeg",[[1,LANG==="en"?"Yesterday":"昨天"],[3,LANG==="en"?"3 days":"近3天"],[7,LANG==="en"?"7 days":"近7天"],[14,LANG==="en"?"14 days":"近14天"]],dayRange,"sm","margin-left:8px")}${segHTML("rankDayView",[["detail",LANG==="en"?"Detail":"詳細",LANG==="en"?"every game in order":"逐場列出"],["stat",LANG==="en"?"Summary":"統計",LANG==="en"?"champions grouped with counts":"同英雄合併、標使用次數"]],V.rankDayView==="stat"?"stat":"detail","sm","margin-left:8px")}</h2><div id="dailyBox"></div></div>`
         : `<div class="card"><h2>🏆 ${T("積分")} <span class="sub">${LANG==="en"?"solo queue ranked, highest first | click a column to sort":"單雙排積分，高到低｜點欄位名排序"}</span> <span class="sub">·&nbsp;${LANG==="en"?"per-game / score / champ-pool data from":"逐場・評分・角色池資料來源"} <a href="https://dpm.lol" target="_blank" rel="noopener" style="color:var(--acc)">dpm.lol</a></span></h2><div id="rankTbl"></div></div>`}`;
     {const dl=document.getElementById("rankQdl");   // 建議清單：戰隊(依選手數多→少、說明=全名 → 打全名也會浮出)＋選手(依場數多→少)
      if(dl&&SD&&Array.isArray(SD.players)&&SD.players.length){
@@ -16899,9 +16913,9 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
       // REC(有打積分者)：以 teamFix 正規化鍵對應「實際 REC key」——REC/SD 隊縮寫可能不一致(GENG↔GEN、TLAW↔TL、AGAL↔AL)，雙邊都 teamFix 後才比對得上
       const recByNorm={}; Object.keys(REC.players).forEach(rk=>{const i=rk.indexOf("|"); if(i<0)return; const nk=teamFix(rk.slice(0,i))+"|"+rk.slice(i+1); if(!(nk in recByNorm))recByNorm[nk]=rk;});
       const idxRole={}; if(IDX&&IDX.players)Object.keys(IDX.players).forEach(ik=>{const i=ik.indexOf("|"); if(i<0)return; const nk=teamFix(ik.slice(0,i))+"|"+ik.slice(i+1); if(!(nk in idxRole))idxRole[nk]=IDX.players[ik].role;});
-      const aggOf=rk=>{ const p=rk&&REC.players[rk]; if(!p||!p.d)return null; const gs=[], byDay=[]; days.forEach(dd=>{const arr=p.d[dd]; if(arr){arr.forEach(g=>gs.push(g)); byDay.push(arr);}}); if(!gs.length)return null; let w=0,sS=0,sN=0,K=0,D=0,A=0,kN=0,LPd=0,LPn=0; const rids=new Set(); gs.forEach(g=>{if(g[1])w++; if(g[2]&&Math.abs(g[2])<=60){LPd+=g[2];LPn++;} if(g[3]!=null){sS+=g[3];sN++;} if(g.length>4){K+=g[4]||0;D+=g[5]||0;A+=g[6]||0;kN++;} if(g[14])rids.add(String(g[14]).replace(/\s+/g,"").toLowerCase());});
+      const aggOf=rk=>{ const p=rk&&REC.players[rk]; if(!p||!p.d)return null; const gs=[], byDay=[]; days.forEach(dd=>{const arr=p.d[dd]; if(arr){arr.forEach(g=>gs.push(g)); byDay.push(arr);}}); if(!gs.length)return null; let w=0,sS=0,sN=0,K=0,D=0,A=0,kN=0,LPd=0,LPn=0; const rids=new Set(); gs.forEach(g=>{if(g[1])w++; if(g[2]!=null&&Math.abs(g[2])<=60){LPd+=g[2];LPn++;} if(g[3]!=null){sS+=g[3];sN++;} if(g.length>4){K+=g[4]||0;D+=g[5]||0;A+=g[6]||0;kN++;} if(g[14])rids.add(String(g[14]).replace(/\s+/g,"").toLowerCase());});
         // 範圍內場均評分／KDA（使用者 2026-10-18；KDA＝(總K+總A)/總D，同排行榜一週 KDA）
-        // LP 增減：逐場「LP 變化」加總；dpm 沒給增減時那一場存的是當下總分（如輸了 +1158）⇒ 超過 ±60 的不計
+        // LP 增減：逐場增減加總（build_soloq_index 已把「總分」換算成增減；仍不明的＝null 不計）；範圍內全不明＝null ⇒ 顯示 (–)
         return {gs,byDay,rids,lpd:LPn?LPd:null,n:gs.length,w,l:gs.length-w,sc:sN?Math.round(sS/sN*10)/10:null,kda:kN?Math.round((K+A)/Math.max(1,D)*10)/10:null}; };
       const q=(V.rankQ||"").trim().toLowerCase(), roster={}, accByNk={};   // accByNk＝每位選手的所有帳號（牌位改看範圍內實際用的那幾隻）
       // 篩到國家隊賽事時，這位選手要掛在哪一個區塊（沒有就照舊用俱樂部）
@@ -16953,7 +16967,7 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
       const rankTag=(pl,lpd)=>{ if(!pl.tier||pl.found===false)return `<span class="dlyTier" style="opacity:.32">—</span>`;
         const t=tierLabel({tier:pl.tier,division:pl.division});
         // 牌位後括號＝範圍內 LP 增減（使用者 2026-10-18：菁英2314(+88)）；顏色同牌位（使用者同日改）
-        return `<span class="dlyTier" style="color:${TIER_COL[pl.tier]||"var(--tx2)"}">${esc(t)}${pl.lp!=null?`<i class="num">${pl.lp}</i>`:""}${lpd!=null?`<i class="num lpd">(${lpd>0?"+":""}${lpd})</i>`:""}</span>`; };
+        return `<span class="dlyTier" style="color:${TIER_COL[pl.tier]||"var(--tx2)"}">${esc(t)}${pl.lp!=null?`<i class="num">${pl.lp}</i>`:""}${lpd!==undefined?`<i class="num lpd">(${lpd==null?"–":(lpd>0?"+":"")+lpd})</i>`:""}</span>`; };
       const teamCard=ab=>{
         const pls=teams[ab].slice().sort((x,y)=>((ROLE_ORD[x.role]==null?9:ROLE_ORD[x.role])-(ROLE_ORD[y.role]==null?9:ROLE_ORD[y.role]))||String(x.player).localeCompare(String(y.player)));
         const lg=primaryLg(ab), col=lg?(LGC[lg]||"var(--tx2)"):"var(--tx2)"; const grp=(lg==="LPL"&&!_RS.some(l=>CUP_LGS.includes(l)))?lplSplitGroupOf(ab,curYear,lplSel):null; /* 篩國際賽不寫 LPL 分組（使用者 2026-10-18：都是季後賽打上來的） */ let gw=0,gn=0;

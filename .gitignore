@@ -29,6 +29,10 @@
 !predict_sq.js
 # 預測分頁本屆補兵／MVP（scripts/build_predict_live.py）
 !predict_live.js
+# 截圖用的本機圖 data URI（scripts/build_img_b64.py；按 📸 才載入）
+!img_b64.js
+# 截圖套件本機一份（離線也能截；原本從 jsdelivr 載）
+!html2canvas.min.js
 !predict_ext.js
 !wiki_links.js
 !chart.umd.min.js

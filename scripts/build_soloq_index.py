@@ -19,7 +19,7 @@ IDX = os.path.join(ROOT, "soloq_match_index.js")
 RECENT = os.path.join(ROOT, "soloq_recent.js")   # 每日戰況(各隊每人近幾天逐場)：積分頁「每日戰況」視圖用
 TZ_H = 8           # 分日時區：台灣(UTC+8)。2026-10-18 使用者：「昨天」＝**每天 10:00 更新往前 24 小時**，不是日曆日
 DAY_START_H = 10   # 一「天」從台灣 10:00 起算（排程 10:00 更新）⇒ 桶鍵＝(時間−10 小時) 的台灣日期
-RECENT_DAYS = 8    # 每日戰況保留最近 8 天(今天＋近 7 天)
+RECENT_DAYS = 15   # 近期戰況最多「近 14 天」（使用者 2026-10-18 新增；原 8）＋今天這一桶
 
 def _anchor_ms():
     """最近一次「台灣 10:00」的時間戳（ms）：排程 10:00 更新，一週／每日的範圍都以它為終點（使用者 2026-10-18「也要遵守 10 點原則」）"""
@@ -141,12 +141,28 @@ def _build():
                         "last10": l10, "wr7": wr7, "sc7": sc7, "n7": n7, "kda7": kda7, "w7": w7, "lt": lt}
         # 每日戰況：以「台灣 10:00 到隔天 10:00」分日，每場記 [英雄, 勝(1)/敗(0), LP 變化]；最新在前
         byday = {}
+        # 每場 LP 增減（使用者 2026-10-18「為啥有些是 (0)、有些空白」）：dpm 的 lp 有時是這場的增減、有時退回成「打完後的總分」
+        #   （fetch_soloq_*：lp=p.lp ?? p.leaguePoints）⇒ 每個帳號照時間先後重算：|lp|≤60 當增減；更大的當總分，
+        #   跟同帳號上一場的總分相減（差距 >60＝升降段重算，記 None）。上一場總分未知時也記 None，不亂猜。
+        dl_of = {}
+        last_abs = {}
+        for g in sorted(matches, key=lambda x: x.get("t") or 0):
+            rid0 = (g.get("rid") or "").replace(" ", "").lower(); lp0 = g.get("lp"); prev = last_abs.get(rid0)
+            if not isinstance(lp0, (int, float)):
+                dl = None; last_abs[rid0] = None
+            elif abs(lp0) <= 60:
+                ok = (g.get("w") and lp0 > 0) or (not g.get("w") and lp0 < 0)   # 正負跟勝敗不一致＝其實是低分段的小總分，不當增減
+                dl = lp0 if ok else None; last_abs[rid0] = ((prev + lp0) if prev is not None else None) if ok else None
+            else:
+                d0 = (lp0 - prev) if prev is not None else None   # 快照會落後一兩場 ⇒ 只收「±40 內、正負跟勝敗一致」的換算值
+                dl = d0 if (d0 is not None and abs(d0) <= 40 and ((g.get("w") and d0 > 0) or (not g.get("w") and d0 < 0))) else None; last_abs[rid0] = lp0
+            dl_of[id(g)] = dl
         for g in matches:
             t = g.get("t")
             if not t or t < rec_cut:
                 continue
             day = time.strftime("%Y-%m-%d", time.gmtime(t/1000 + (TZ_H - DAY_START_H)*3600))   # 10/17 10:00～10/18 09:59 ⇒ "2026-10-17"
-            lp = g.get("lp"); lp = lp if isinstance(lp, (int, float)) else 0
+            lp = dl_of.get(id(g))   # 這場的 LP 增減（換算後；不明＝None）
             # [英雄, 勝敗, LP 變化, 評分, K, D, A]：後四個給每日戰況算範圍內場均評分／KDA（使用者 2026-10-18）
             byday.setdefault(day, []).append([g.get("c"), 1 if g.get("w") else 0, lp, g.get("sc"), g.get("k", 0), g.get("de", 0), g.get("a", 0),
                 int(t / 1000), g.get("d"), g.get("o"),
