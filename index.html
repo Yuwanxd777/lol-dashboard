@@ -16939,8 +16939,8 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
           if(!ag) return `<div class="dlyRow idle"><div class="dlyLine">${roleTag(pl.role)}${nm}<span class="dlyStats">${rankTag(pl)}</span></div></div>`; // 沒打積分＝留白，不特別標註
           gw+=ag.w; gn+=ag.n;
           const rec=`<span class="dlyRec"><span class="meta" style="font-weight:400;font-size:12px;margin-right:3px">${en?"W-L":"勝敗"}</span><span class="w">${ag.w}</span><span class="s">-</span><span class="l">${ag.l}</span></span>`;
-          // 全部列出、不截成「+N」；近 3／7 天時換日（10:00 分界）插一格「｜」（使用者 2026-10-18）
-          const chips=rng>1?ag.byDay.map(arr=>arr.map(g=>chip(g[0],g[1])).join("")).join(`<span class="dlySep" title="${en?"day change (10:00)":"換日（10:00）"}">｜</span>`):ag.gs.map(g=>chip(g[0],g[1])).join("");
+          // 全部列出、不截成「+N」（使用者 2026-10-18；換日分隔試過後撤回）
+          const chips=ag.gs.map(g=>chip(g[0],g[1])).join("");
           const stat=(ag.kda!=null?`<span class="dlyStat"><span class="meta">KDA</span>${ag.kda}</span>`:"")
             +(ag.sc!=null?`<span class="dlyStat"><span class="meta">${en?"Score":"評分"}</span><b style="color:${scoreCol7(ag.sc)}">${ag.sc}</b></span>`:"");
           return `<div class="dlyRow"><div class="dlyLine">${roleTag(pl.role)}${nm}<span class="dlyStats">${rankTag(pl)}${stat}${rec}</span></div><div class="dlyChips">${chips}</div></div>`;
