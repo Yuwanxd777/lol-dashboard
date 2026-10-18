@@ -319,6 +319,9 @@
     text-align:center;font-size:12.5px;color:var(--gold);font-weight:800;padding:0 2px;
     background:#10182a;border:1px solid #3a4a6b;border-radius:5px;box-shadow:0 0 3px #000;
     pointer-events:none;z-index:2;box-sizing:border-box}
+  /* 英雄圖放大（hover／同英雄聯動 glow）時順位框被 z-index:3 的圖蓋掉（使用者 2026-10-18）⇒ 跟著浮到圖上面，
+     並跟著放大後的右上角外移（50px×5%÷2＝1.25px） */
+  .cc:has(>img.glow)>.po,#main[data-view="比賽BP"] .cc:hover>.po{z-index:4;transform:translate(1.25px,-1.25px)}
   .bans .cc img{width:50px;height:50px;filter:grayscale(.85) brightness(.75);border-radius:9px} /* 與 PICK 同尺寸（使用者定案 2026-07-29）；灰階保留＝一眼分辨 BAN */
   .bans .cc img.nobanImg{filter:none}   /* 空 BAN 圖本來就是紅圈禁止符號，不要再灰掉 */
   .bans .cc{margin-right:12px} .bans .cc:last-child{margin-right:0} /* 禁用頭像間距 12px（2026-08-05 使用者：BAN/PICK 間隔各 +5；2026-07-31 定案的 7px 基礎上加） */
