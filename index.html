@@ -16958,7 +16958,7 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
           const rec=`<span class="dlyRec"><span class="meta" style="font-weight:400;font-size:12px;margin-right:3px">${en?"W-L":"勝敗"}</span><span class="w">${ag.w}</span><span class="s">-</span><span class="l">${ag.l}</span></span>`;
           // 全部列出、不截成「+N」（使用者 2026-10-18；換日分隔試過後撤回）
           // 統計模式（使用者 2026-10-18）：同英雄合併成一格，右下角＝使用次數、下方＝勝-敗；依次數多→少（同次數勝場多的在前）
-          const chips=V.rankDayView==="stat"?(()=>{ const M=new Map(); ag.gs.forEach(g=>{ const e=M.get(g[0])||{c:g[0],n:0,w:0,k:0,d:0,a:0,ss:0,sn:0}; e.n++; if(g[1])e.w++; e.k+=g[4]||0; e.d+=g[5]||0; e.a+=g[6]||0; if(g[3]!=null){e.ss+=g[3];e.sn++;} M.set(g[0],e); });
+          const chips=V.rankDayView==="stat"?(()=>{ const M=new Map(); ag.gs.forEach(g=>{ const e=M.get(g[0])||{c:g[0],n:0,w:0,k:0,d:0,a:0,ss:0,sn:0,gs:0,gn:0}; e.n++; if(g[10]!=null){e.gs+=g[10];e.gn++;} if(g[1])e.w++; e.k+=g[4]||0; e.d+=g[5]||0; e.a+=g[6]||0; if(g[3]!=null){e.ss+=g[3];e.sn++;} M.set(g[0],e); });
               return [...M.values()].sort((x,y)=>y.n-x.n||y.w-x.w).map(e=>`<span class="dlyChip dlyAgg" data-ga="${_DA.push(e)-1}"><span class="dlyAggImg"><img loading="lazy" data-cid="${champId(e.c)}" data-fbmode="hide" onerror="champImgFb(this)" src="${chIcoUrl(yearVer(),champId(e.c))}" alt=""><i class="dlyCnt">${e.n}</i></span><span class="dlyWL">${e.w}-${e.n-e.w}</span></span>`).join(""); })()
             :ag.gs.map(g=>chip(g[0],g[1],g)).join("");
           const stat=(ag.kda!=null?`<span class="dlyStat"><span class="meta">KDA</span>${ag.kda}</span>`:"")
@@ -16981,7 +16981,7 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
           +(o?row(en?"Lane opp.":"對位",`${champIco(o,18)}${esc(chName(champId(o)))}`):"")
           +(opT?row(en?"Opponent":"對手",`${teamLogoHTML(teamFix(opT[0]),16,true)}<b>${esc(opT[1]||"")}</b>`):"")
           +row("KDA",`<b>${k||0} / ${d||0} / ${a||0}</b> <span class="meta">(${kda.toFixed(1)})</span>`)
-          +(gd15!=null?row(en?"Gold diff @15":"金差@15",`<b style="color:${gd15>0?"#ff4d4d":gd15<0?"#37c871":"var(--tx)"}">${gd15>0?"+":""}${gd15}</b>`):"")
+          +row(en?"Gold diff @15":"金差@15",gd15!=null?`<b style="color:${gd15>0?"#ff4d4d":gd15<0?"#37c871":"var(--tx)"}">${gd15>0?"+":""}${gd15}</b>`:`<span class="meta">—</span>`)   /* 常駐（使用者 2026-10-18）；來源沒記＝— */
           +(su&&su.length?row(en?"Spells":"召喚師技能",(su||[]).map(x=>summImg(x,18)).join("")):"")
           +(rk?row(en?"Runes":"符文",runeKS({r:rk,rs:[rs]},20)):"")
           +(sc!=null?row(en?"Score":"評分",`<b style="color:${scoreCol7(sc)}">${Math.round(sc*10)/10}</b>`):"")
@@ -16990,6 +16990,7 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
         return `<div class="tipTitle" style="display:flex;align-items:center;gap:8px">${champIco(e.c,28)}<b>${esc(chName(champId(e.c)))}</b></div>`
           +row(en?"Games":"場數",`<b>${e.n}</b>`)+row(en?"W-L":"勝敗",`<b>${e.w}-${e.n-e.w}</b> <span class="meta">(${Math.round(e.w/e.n*100)}%)</span>`)
           +row("KDA",`<b>${(e.k/e.n).toFixed(1)} / ${(e.d/e.n).toFixed(1)} / ${(e.a/e.n).toFixed(1)}</b> <span class="meta">(${((e.k+e.a)/Math.max(1,e.d)).toFixed(1)})</span>`)
+          +row(en?"Avg gold diff @15":"平均金差@15",e.gn?(v=>`<b style="color:${v>0?"#ff4d4d":v<0?"#37c871":"var(--tx)"}">${v>0?"+":""}${v}</b>`)(Math.round(e.gs/e.gn)):`<span class="meta">—</span>`)
           +(e.sn?row(en?"Avg score":"平均評分",`<b style="color:${scoreCol7(e.ss/e.sn)}">${Math.round(e.ss/e.sn*10)/10}</b>`):""); };
       box.onmouseover=e=>{ const el=e.target.closest&&e.target.closest(".dlyChip[data-gi],.dlyChip[data-ga]"); if(!el||el===box._tipEl)return; box._tipEl=el;
         tipShow(el.dataset.ga!=null?aggTip(_DA[+el.dataset.ga]):dlyTip(_DG[+el.dataset.gi]),el.getBoundingClientRect()); };
