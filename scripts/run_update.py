@@ -180,6 +180,7 @@ PLAN = [
     ("⑥ 收尾（互不相干）", [
         S("build_patch_dates"),
         S("build_img_manifest"),       # 隊徽／國旗清單（fetch_team_logos／fetch_flags 之後）
+        S("build_lp_hist"),            # 每天 10:00 API 牌位快照 → 近期戰況「牌位(+N)」準確增減（讀工作區 soloq.js＋git 歷史；使用者 2026-10-18）
         S("build_img_b64"),            # 本機圖 → data URI（📸 截圖在 file://／離線也畫得出英雄圖、隊徽；使用者 2026-10-18）
         S("trim_data_cols", "--apply"),
         S("build_font_subset"),

@@ -16898,7 +16898,10 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
     // ── 每日戰況：各隊一區塊，每位選手範圍內(昨天/近3/近7天)逐場英雄＋勝負(勝藍敗紅)。資料＝soloq_recent.js(懶載，build_soloq_index.py 產) ──
     const paintDaily=()=>{
       const box=document.getElementById("dailyBox"); if(!box)return;
-      if(typeof RUNE_MAP!=="undefined"&&!RUNE_MAP)loadRunes();   // 英雄圖小框的符文圖要用（滑過才產生，不必重畫）
+      if(typeof RUNE_MAP!=="undefined"&&!RUNE_MAP)loadRunes();
+      // 每天 10:00 的 API 牌位快照（soloq_lp_hist.js，scripts/build_lp_hist.py）：牌位(+N) 用它算準確增減（使用者 2026-10-18）
+      if(!window.SOLOQ_LP_HIST&&!window._lphLoading){ window._lphLoading=1; const sc=document.createElement("script"); sc.src="soloq_lp_hist.js";
+        sc.onload=()=>{ if(curView==="積分"&&V.rankView==="daily")render(); }; sc.onerror=()=>{ window.SOLOQ_LP_HIST={dates:[],acc:{}}; }; document.head.appendChild(sc); }   // 英雄圖小框的符文圖要用（滑過才產生，不必重畫）
       const REC=window.SOLOQ_RECENT, en=LANG==="en";
       if(!REC){ lazyLoad("recent").then(()=>{ if(curView==="積分"&&V.rankView==="daily")render(); });
         box.innerHTML=`<div class="note">${en?"loading daily games…":"載入每日戰況中…"}</div>`; return; }
@@ -16974,10 +16977,13 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
         const body=pls.map(pl=>{ const ag=aggOf(pl.reckey), clk=!!pl.riotId;
           const nm=`<span class="dlyNm${clk?" rankName":""}"${clk?` data-detail="${esc(pl.riotId)}" title="${en?"view games":"看逐場"}"`:""}>${esc(pl.player)}</span>`;
           if(!ag) return `<div class="dlyRow idle"><div class="dlyLine">${roleTag(pl.role)}${nm}<span class="dlyStats">${rankTag(pl)}</span></div></div>`; // 沒打積分＝留白，不特別標註
-          gw+=ag.w; gn+=ag.n;
+          gw+=ag.w; gn+=ag.n; let _lpApi=null;
           // 牌位＝範圍內實際用過的帳號：一隻就列那隻、兩隻以上列最高的（使用者 2026-10-18）；對不到帳號照舊（全部帳號中最高）
           { const nk2=pl.club+"|"+pl.player, cand=(accByNk[nk2]||[]).filter(x=>ag.rids.has(String(x.riotId||"").replace(/\s+/g,"").toLowerCase()));
-            if(cand.length){ const best=cand.reduce((m,x)=>x._sc>m._sc?x:m); pl={...pl,tier:best.tier,division:best.division,lp:best.lp,found:best.found}; } }
+            if(cand.length){ const best=cand.reduce((m,x)=>x._sc>m._sc?x:m); pl={...pl,tier:best.tier,division:best.division,lp:best.lp,found:best.found}; }
+            // 範圍增減＝結束那天 10:00 的 API 分數 − 開始那天 10:00 的分數（範圍內玩過的帳號加總）；缺快照（新帳號）才退回逐場推算
+            const H=window.SOLOQ_LP_HIST; if(H&&cand.length){ const iE=H.dates.indexOf(genDay), iS=H.dates.indexOf(addDay(genDay,-rng));
+              if(iE>=0&&iS>=0){ let t=0,ok=0; cand.forEach(x=>{ const a=H.acc[String(x.riotId||"").replace(/\s+/g,"").toLowerCase()]; if(a&&a[iE]!=null&&a[iS]!=null){ t+=a[iE]-a[iS]; ok++; } }); if(ok)_lpApi=t; } } }
           const rec=`<span class="dlyRec"><span class="meta" style="font-weight:400;font-size:12px;margin-right:3px">${en?"W-L":"勝敗"}</span><span class="w">${ag.w}</span><span class="s">-</span><span class="l">${ag.l}</span></span>`;
           // 全部列出、不截成「+N」（使用者 2026-10-18；換日分隔試過後撤回）
           // 統計模式（使用者 2026-10-18）：同英雄合併成一格，右下角＝使用次數、下方＝勝-敗；依次數多→少（同次數勝場多的在前）
@@ -16986,7 +16992,7 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
             :ag.gs.map(g=>chip(g[0],g[1],g)).join("");
           const stat=(ag.kda!=null?`<span class="dlyStat"><span class="meta">KDA</span>${ag.kda}</span>`:"")
             +(ag.sc!=null?`<span class="dlyStat"><span class="meta">${en?"Score":"評分"}</span><b style="color:${scoreCol7(ag.sc)}">${ag.sc}</b></span>`:"");
-          return `<div class="dlyRow"><div class="dlyLine">${roleTag(pl.role)}${nm}<span class="dlyStats">${rankTag(pl,ag.lpd)}${stat}${rec}</span></div><div class="dlyChips">${chips}</div></div>`;
+          return `<div class="dlyRow"><div class="dlyLine">${roleTag(pl.role)}${nm}<span class="dlyStats">${rankTag(pl,_lpApi!=null?_lpApi:ag.lpd)}${stat}${rec}</span></div><div class="dlyChips">${chips}</div></div>`;
         }).join("");
         const sub=gn?`<span class="dlyRec" style="font-size:12.5px"><span class="w">${gw}</span><span class="s">-</span><span class="l">${gn-gw}</span> <span class="meta" style="font-weight:400">${gn}${en?"g":"場"}</span></span>`:"";
         return `<div class="dlyCard"><div class="dlyHd" style="--dlyc:${col}">${teamLogoHTML(ab,22,true)}<b style="color:${col}">${esc(ab)}</b>${lg?`<span class="lg">${esc(lgName(lg))}${grp?` · <span style="color:${lplGrpColor(grp,curYear,lplSel)};font-weight:600">${esc(lplGrpName(grp))}</span>`:""}</span>`:""}<span style="flex:1"></span>${sub}</div>${body}</div>`;

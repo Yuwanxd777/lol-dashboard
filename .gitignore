@@ -31,6 +31,8 @@
 !predict_live.js
 # 截圖用的本機圖 data URI（scripts/build_img_b64.py；按 📸 才載入）
 !img_b64.js
+# 每天 10:00 牌位快照（scripts/build_lp_hist.py；近期戰況 LP 增減）
+!soloq_lp_hist.js
 # 截圖套件本機一份（離線也能截；原本從 jsdelivr 載）
 !html2canvas.min.js
 !predict_ext.js
