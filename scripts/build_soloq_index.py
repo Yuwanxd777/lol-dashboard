@@ -21,11 +21,16 @@ TZ_H = 8           # 分日時區：台灣(UTC+8)。2026-10-18 使用者：「�
 DAY_START_H = 10   # 一「天」從台灣 10:00 起算（排程 10:00 更新）⇒ 桶鍵＝(時間−10 小時) 的台灣日期
 RECENT_DAYS = 8    # 每日戰況保留最近 8 天(今天＋近 7 天)
 
+def _anchor_ms():
+    """最近一次「台灣 10:00」的時間戳（ms）：排程 10:00 更新，一週／每日的範圍都以它為終點（使用者 2026-10-18「也要遵守 10 點原則」）"""
+    sh = time.time() + (TZ_H - DAY_START_H) * 3600
+    return (sh - sh % 86400 - (TZ_H - DAY_START_H) * 3600) * 1000
+
 def aggregates(matches):
     # matches 已是最新在前
     last10 = [g.get("c") for g in matches[:10] if g.get("c")]
-    cut = (time.time() - 7*86400) * 1000
-    wk = [g for g in matches if (g.get("t") or 0) >= cut]
+    end = _anchor_ms(); cut = end - 7*86400*1000   # 一週＝最近一次 10:00 往前 7×24 小時（不是「現在」往前）
+    wk = [g for g in matches if cut <= (g.get("t") or 0) < end]
     wr7 = sc7 = n7 = kda7 = w7 = None
     if wk:
         n7 = len(wk); wins = sum(1 for g in wk if g.get("w"))
