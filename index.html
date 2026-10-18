@@ -3515,7 +3515,7 @@ const LGC={
   // EWCQ 各分區沿用該賽區色
   EWCQ北美:"#c9a86a",EWCQ歐洲:"#38b6ff",EWCQ韓國:"#4f8ef7",EWCQ中國:"#e05c5c",
   EWCQ太平洋:"#2bb3a3",EWCQ巴西:"#7ac74f"};
-const LG_NAME={"ALL":"全部","LTA N":"LTA 北區","LTA S":"LTA 南區","WLDs":"WCS","DCup":"德瑪西亞盃"}; // DCup＝德瑪西亞杯全球邀請賽（2026-09-14 補充賽事，OE 沒有既有代碼）
+const LG_NAME={"ALL":"全部","LTA N":"LTA 北區","LTA S":"LTA 南區","WLDs":"WCS"}; // DCup（縮寫 DCGI／DCup 在 lgName 裡依年份給）＝德瑪西亞杯全球邀請賽（2026-09-14 補充賽事，OE 沒有既有代碼）
 // 國家隊 →「該國所屬賽區」對照（2026 KeSPA 季中邀日本／越南國家隊參賽；ENC 之後整個賽事都是國家隊形式）
 // 用途：國家隊沒有母聯賽出賽紀錄，賽事樹的賽區色框要靠這張表才上得了色
 // 使用者定案（2026-07-28）：國家隊不分國家，統一用同一個顏色標記（＝沒有母賽區歸屬）
@@ -3537,12 +3537,15 @@ const NAT_ABBR={China:"CHN","South Korea":"KOR",Korea:"KOR",Japan:"JPN",Vietnam:
   Algeria:"ALG",Tunisia:"TUN",Morocco:"MAR",Egypt:"EGY","South Africa":"RSA"};
 const natAbbrOf=t=>{const m=/^(.+?)\s*\((?:national team|國家隊)\)/i.exec(String(t||"")); if(!m)return "";
   const n=m[1].trim(); return NAT_ABBR[n]||n.replace(/[^A-Za-z]/g,"").slice(0,3).toUpperCase();};
-const lgName=l=>{ if(l&&typeof l==="string"&&/^(LPL|LCK)#/.test(l))return l.slice(0,3)+lplGrpName(l.slice(4)); if(LANG==="en"){ const en={"ALL":"All","中韓":"CN+KR","歐美":"EU+NA","國際賽":"Internationals","LTA N":"LTA North","LTA S":"LTA South","WLDs":"Worlds","FST":"First Stand Tournament",
+const lgName=l=>{ if(l&&typeof l==="string"&&/^(LPL|LCK)#/.test(l))return l.slice(0,3)+lplGrpName(l.slice(4)); 
+  // 德盃縮寫（使用者 2026-10-18）：2026 起＝DCGI（Demacia Cup Global Invitational），之前的年份保持 DCup；中英文同一個縮寫
+  if(l==="DCup")return +curYear>=2026?"DCGI":"DCup";
+  if(LANG==="en"){ const en={"ALL":"All","中韓":"CN+KR","歐美":"EU+NA","國際賽":"Internationals","LTA N":"LTA North","LTA S":"LTA South","WLDs":"Worlds","FST":"First Stand Tournament",
     "EWCQ北美":"EWCQ NA","EWCQ歐洲":"EWCQ EU","EWCQ韓國":"EWCQ KR","EWCQ中國":"EWCQ CN","EWCQ太平洋":"EWCQ APAC","EWCQ巴西":"EWCQ BR",
     // 世界賽各區資格賽（WQS*）與 2026 新增的兩個賽事碼：碼本身帶中文，英文畫面不能直接印
     "WQS中國":"Worlds Q CN","WQS韓國":"Worlds Q KR","WQS歐洲":"Worlds Q EU","WQS北美":"Worlds Q NA",
     "WQS太平洋":"Worlds Q APAC","WQS巴西":"Worlds Q BR","WQS越南":"Worlds Q VN",
-    "亞運":"Asian Games","DCup":"Demacia Cup"}; if(en[l])return en[l]; } return LG_NAME[l]||l; };
+    "亞運":"Asian Games"}; if(en[l])return en[l]; } return LG_NAME[l]||l; };
 // 賽區名（中文 → 英文）：賽事卡的賽區籤、資格賽段標題都要用
 const REGION_EN={"韓國":"Korea","中國":"China","歐洲":"EMEA","北美":"North America","太平洋":"Pacific",
   "巴西":"Brazil","拉丁美洲":"Latin America","越南":"Vietnam","日本":"Japan","大洋洲":"Oceania",
@@ -13011,7 +13014,8 @@ function render(){
       // 只有第 1 局的 1-0：該聯賽＋賽段多數系列打 ≥2 局（BO3 以上）→ 第 2 局還沒匯入＝缺第 2 局
       //（第 3 局有沒有無法確定，只標確定缺的那局；2026-08-17 使用者回報 LPL S3 登峰 TES 1-0 EDG）
       else if(scStr==="1-0"&&maxG===1&&bo3Splits().has(s.league+"|"+(s.split||""))
-        &&!bo3Splits().bo1Days.has(s.league+"|"+(s.split||"")+"|"+String(s.date).slice(0,10)))total=2; // 那天整輪 BO1 的不算缺
+        &&!bo3Splits().bo1Days.has(s.league+"|"+(s.split||"")+"|"+String((s.games[0]||{})._d||"").slice(0,10)))total=2; // 那天整輪 BO1 的不算缺
+      //（2026-10-18 使用者再回報：s.date 只有「MM-DD」，原本拿它比 bo1Days 的完整日期永遠對不上＝10/8 的修正沒生效 ⇒ 改用系列首局的 _d）
       const have=new Set(nums), miss=[];
       for(let n=1;n<=total;n++)if(!have.has(n))miss.push(n);
       return miss.length?{total,miss}:null;
