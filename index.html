@@ -869,7 +869,7 @@
   .tGrip:hover{color:#fff;background:#232c44}
   .tGrip:active{cursor:grabbing}
   /* 聯賽色籤 */
-  .lg{display:inline-block;padding:1px 9px;border-radius:999px;font-size:12px;font-weight:bold}
+  .lg{display:inline-block;padding:1px 9px;border-radius:999px;font-size:12px;font-weight:bold;background:#141b2b;border:1px solid #33405c} /* 2026-10-18 使用者：全站賽區籤統一成積分賽區鈕的外框，只有文字是賽區色 */
   /* 可點選手名 → 英雄池 */
   .plink{cursor:pointer}
   .plink:hover{color:var(--acc)} /* 滑上才變藍，不加底線 */
@@ -3541,7 +3541,7 @@ const LGC={
   "LTA S":"#f0a35b",LLA:"#f0a35b",LLN:"#c47a33",CLS:"#f7bc85",            // 美洲南
   LCP:"#2bb3a3",PCS:"#2bb3a3",LMS:"#2bb3a3",GPL:"#2bb3a3",                // 太平洋主線
   LCO:"#8ae8d8",LJL:"#3ddbc4",VCS:"#16786e",                              // 太平洋同期併存（亮→暗四階）
-  // MSI 黑紅（使用者 2026-10-18：比照 FST 橘＝活動主色調）、DCup 德瑪西亞藏青＋銀白＋金（底色見 LG_CHIP）
+  // MSI 黑紅（使用者 2026-10-18：比照 FST 橘＝活動主色調）、DCup 德瑪西亞藏青＋銀白＋金（全站賽區籤只用文字色）
   MSI:"#e8283f",EWC:"#b083f0",FST:"#f08b5b",WLDs:"#ffd700",ENC:"#ff8ad4",DCup:"#e6ebf3",
   KeSPA:"#9fb4ff",IEM:"#b0c4de",
   // EWCQ 各分區沿用該賽區色
@@ -3605,12 +3605,10 @@ const SPLIT_EN={"熱身賽":"Warm-up","正賽":"Main Event","入圍賽":"Play-In
 const spDisp=sp=>{const t=String(sp||""); const po=/ PO$/.test(t), base=po?t.replace(/ PO$/,""):t;
   const b2=(LANG==="en"&&SPLIT_EN[base])||base;
   return po?b2+(LANG==="en"?" Playoffs":"季後賽"):b2;};
-// 賽事籤底色覆寫（一般＝字色 22 透明度當底）：黑紅／藏青這種「底色才是主調」的活動色
 // 半形數字→全形（使用者 2026-10-18：比賽BP「第１局」局數用全形比較直觀）
 const fwNum=n=>String(n).replace(/[0-9]/g,d=>String.fromCharCode(d.charCodeAt(0)+0xFEE0));
-const LG_CHIP={MSI:{bg:"#2e0b12"},DCup:{bg:"#1d3466"}};   // 不加框（使用者 2026-10-18：有框跟其他籤不一致）
-const lgChip=l=>{if(!l)return `<span class="meta">—</span>`;const c=LGC[l]||"#8a93a6", o=LG_CHIP[l];
-  return `<span class="lg" style="background:${o?o.bg:c+"22"};color:${c}">${lgName(l)}</span>`;};
+const lgChip=l=>{if(!l)return `<span class="meta">—</span>`;const c=LGC[l]||"#8a93a6";
+  return `<span class="lg" style="color:${c}">${lgName(l)}</span>`;};
 // 隊徽（img/teams/{縮寫}.webp＝scripts/fetch_team_logos.py 從 dpm 抓；GEN 的源檔叫 GENG，抓取端已對應）。
 // 2026 用到的 64 個縮寫中 61 個有檔，缺 JPN／SEN／VIE（國家隊，dpm 沒有）→ onerror 自動退回文字縮寫。
 const teamLogoHTML=(ab,size,noText)=>{ ab=teamFix(String(ab||"")); if(!ab)return "";
@@ -3658,9 +3656,9 @@ const grpChip=(ab,lg)=>{ if(!ab||(lg!=="LPL"&&lg!=="LCK"))return "";     // 只�
   // 該賽段有分組、但這隊不在任何一組裡＝沒打進那個賽段 → 標「淘汰」（2026-08-16 使用者指定；
   // 實例：LPL 2026 S3 只有登峰 8 隊＋涅槃 4 隊，OMG／UP 不在分組內）。用中性灰，不搶組別色。
   if(!g){ if(!lplGroupNamesOfSplit(curYear,sp,lg).length)return "";
-    return `<span class="lg" style="background:#8a93a622;color:#8a93a6">${LANG==="en"?"Out":"淘汰"}</span>`; }
+    return `<span class="lg" style="color:#8a93a6">${LANG==="en"?"Out":"淘汰"}</span>`; }
   const c=lplGrpColor(g,curYear,sp,lg);
-  return `<span class="lg" style="background:${c}22;color:${c}">${esc(lplGrpName(g))}</span>`; };
+  return `<span class="lg" style="color:${c}">${esc(lplGrpName(g))}</span>`; };
 // 分組扣分（2026-08-16 使用者指定）：**有列出組別時**，每往下一組把最終評分扣 10 分（-10／-20…）。
 // 名次用 lplGroupNamesOfSplit 的順序（它已按組別強度排：登峰>堅毅>涅槃、傳奇>崛起、巴龍>遠古）；
 // 沒進分組（顯示「淘汰」的）＝排在最後一組之後，再低一級。
