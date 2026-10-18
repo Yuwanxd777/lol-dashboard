@@ -16623,9 +16623,10 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
       
       <span style="flex:1"></span>
       ${(location.protocol==="file:"||/^(localhost|127\.)/.test(location.hostname))?`<button id="sqApiBtn" class="sqbtn helpBtn" title="${LANG==="en"?"Paste a fresh Riot API key: update ranks now + auto-reuse at the 10:00 daily update":"開 Riot 開發者頁拿金鑰→貼上立即更新牌位；金鑰存本機供每天 10:00 排程自動更新"}">🔑 ${LANG==="en"?"Add API key":"添加API"}</button>`:""}
+      ${dailyMode?`<button id="rankShot" class="sqbtn" style="order:1" title="${LANG==="en"?"Export daily games as a 1080p PNG":"輸出每日戰況 1080p 截圖"}">📸</button>`:""}
       ${TAB_HELP["積分"]?`<button id="fHelp" class="sqbtn helpBtn" title="${T("本頁說明")}">ℹ️</button>`:""}</div>
       ${dailyMode
-        ? `<div class="card"><h2>📅 ${LANG==="en"?"Daily games by team":"各隊每日戰況"} <span class="sub">${LANG==="en"?"per-player solo queue, grouped by team — win blue / loss red":"各隊選手單雙排逐日戰況（勝藍・敗紅）"}</span> ${segHTML("rankDaySeg",[[1,LANG==="en"?"Yesterday":"昨天"],[3,LANG==="en"?"3 days":"近3天"],[7,LANG==="en"?"7 days":"近7天"]],dayRange,"sm","margin-left:8px")}</h2><div id="dailyBox"></div></div>`
+        ? `<div class="card" id="dlyWrap"><h2>📅 ${LANG==="en"?"Daily games by team":"各隊每日戰況"} <span class="sub">${LANG==="en"?"per-player solo queue, grouped by team — win blue / loss red":"各隊選手單雙排逐日戰況（勝藍・敗紅）"}</span> ${segHTML("rankDaySeg",[[1,LANG==="en"?"Yesterday":"昨天"],[3,LANG==="en"?"3 days":"近3天"],[7,LANG==="en"?"7 days":"近7天"]],dayRange,"sm","margin-left:8px")}</h2><div id="dailyBox"></div></div>`
         : `<div class="card"><h2>🏆 ${T("積分")} <span class="sub">${LANG==="en"?"solo queue ranked, highest first | click a column to sort":"單雙排積分，高到低｜點欄位名排序"}</span> <span class="sub">·&nbsp;${LANG==="en"?"per-game / score / champ-pool data from":"逐場・評分・角色池資料來源"} <a href="https://dpm.lol" target="_blank" rel="noopener" style="color:var(--acc)">dpm.lol</a></span></h2><div id="rankTbl"></div></div>`}`;
     {const dl=document.getElementById("rankQdl");   // 建議清單：戰隊(依選手數多→少、說明=全名 → 打全名也會浮出)＋選手(依場數多→少)
      if(dl&&SD&&Array.isArray(SD.players)&&SD.players.length){
@@ -16872,6 +16873,7 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
     segBind("rankViewSeg",v=>{ if(v===(V.rankView==="daily"?"daily":"ladder"))return; V.rankView=v; saveState(); render(); }); // 排行榜／每日戰況
     segBind("rankDaySeg",v=>{ if(+v===(V.rankDayRange||1))return; V.rankDayRange=+v; saveState(); render(); });               // 每日戰況天數範圍
     main.querySelectorAll("[data-role]").forEach(b=>b.onclick=()=>{V.rankRole=b.dataset.role; saveState(); render();}); // 路線篩選
+    {const sb=document.getElementById("rankShot"); if(sb)sb.onclick=()=>shotEl(document.getElementById("dlyWrap"),LANG==="en"?"Daily games":"每日戰況");}   // 每日戰況 📸（使用者 2026-10-18）
     main.querySelectorAll("[data-region]").forEach(b=>b.onclick=()=>{V.rankRegion=b.dataset.region; if(b.dataset.region!=="LPL"&&b.dataset.region!=="LCK")V.rankLplGrp=""; else V.rankLplGrp=""; saveState(); render();}); // 賽區篩選(離開 LPL 清組別)
     segBind("rankLplGrpSeg",v=>{ if(v===(V.rankLplGrp||""))return; V.rankLplGrp=v; saveState(); render(); }); // LPL 組別（賽段固定最新；S1/S2/S3 鈕已移除——使用者定案 2026-07-29）
     {const h=document.getElementById("fHelp"); if(h)h.onclick=e=>{e.stopPropagation();toggleHelpPop(h);};}
