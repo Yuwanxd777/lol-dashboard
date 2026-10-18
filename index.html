@@ -902,6 +902,10 @@
   .dlyStats{display:flex;justify-content:flex-end;align-items:baseline;gap:14px;white-space:nowrap} /* 牌位 KDA 評分 勝敗：等間距、靠右（使用者 2026-10-18） */
   .dlyStat{font-size:13px;white-space:nowrap;text-align:right;font-variant-numeric:tabular-nums} /* 範圍內 KDA／場均評分；字級同選手 ID */
   .dlyStat .meta{font-size:12px;margin-right:3px}
+  /* 數字組統一（使用者 2026-10-18「有沒有可以更順眼」）：數字一律 13px 半粗、標籤 12px 灰；LP 增減是補充資訊＝12px 稍淡 */
+  .dlyStats .dlyTier,.dlyStats .dlyStat,.dlyStats .dlyStat b,.dlyStats .dlyRec .w,.dlyStats .dlyRec .l,.dlyStats .dlyRec .s{font-weight:600}
+  .dlyStats .dlyTier .lpd{font-size:12px;opacity:.75;margin-left:2px;font-weight:500}
+  .dlyStats .meta{font-weight:400}
   .dlyPos{font-size:10.5px;opacity:.55;text-align:center;letter-spacing:0}
   .dlyPosIc{width:19px;height:19px;object-fit:contain;display:block;margin:0 auto;opacity:.9}
   .dlyNm{font-weight:700;font-size:15.5px;white-space:nowrap;overflow:hidden;text-overflow:clip}
@@ -16937,7 +16941,7 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
       const rankTag=(pl,lpd)=>{ if(!pl.tier||pl.found===false)return `<span class="dlyTier" style="opacity:.32">—</span>`;
         const t=tierLabel({tier:pl.tier,division:pl.division});
         // 牌位後括號＝範圍內 LP 增減（使用者 2026-10-18：菁英2314(+88)）；顏色同牌位（使用者同日改）
-        return `<span class="dlyTier" style="color:${TIER_COL[pl.tier]||"var(--tx2)"}">${esc(t)}${pl.lp!=null?`<i class="num">${pl.lp}</i>`:""}${lpd!=null?`<i class="num" style="margin-left:1px">(${lpd>0?"+":""}${lpd})</i>`:""}</span>`; };
+        return `<span class="dlyTier" style="color:${TIER_COL[pl.tier]||"var(--tx2)"}">${esc(t)}${pl.lp!=null?`<i class="num">${pl.lp}</i>`:""}${lpd!=null?`<i class="num lpd">(${lpd>0?"+":""}${lpd})</i>`:""}</span>`; };
       const teamCard=ab=>{
         const pls=teams[ab].slice().sort((x,y)=>((ROLE_ORD[x.role]==null?9:ROLE_ORD[x.role])-(ROLE_ORD[y.role]==null?9:ROLE_ORD[y.role]))||String(x.player).localeCompare(String(y.player)));
         const lg=primaryLg(ab), col=lg?(LGC[lg]||"var(--tx2)"):"var(--tx2)"; const grp=(lg==="LPL"&&!CUP_LGS.includes(V.rankRegion))?lplSplitGroupOf(ab,curYear,lplSel):null; /* 篩國際賽不寫 LPL 分組（使用者 2026-10-18：都是季後賽打上來的） */ let gw=0,gn=0;
