@@ -3482,8 +3482,10 @@ function cupPlayers(){
   const put=(lg,tm,nm)=>{ if(!lg||!nm)return; const e=m[lg]=m[lg]||{k:new Set(),n:new Map()}; const lo=String(nm).trim().toLowerCase(), ab=teamFix(tAb(String(tm||"").replace(/\s*\(.*?\)\s*$/,"")));
     const k=ab+"|"+lo; if(e.k.has(k))return; e.k.add(k); e.n.set(lo,(e.n.get(lo)||0)+1); };
   if(typeof RAW!=="undefined"&&RAW&&RAW.length&&C&&C.blue_playername!=null&&C.participantid!=null){
-    for(let i=1;i<RAW.length;i++){ const r=RAW[i]; const lg=r[C.league]; if(!lg)continue;
+    const _eds=cupEditions();   // 同年多屆的盃賽（2026 兩屆 KeSPA）分屆：鍵＝「KeSPA#季前」（使用者 2026-10-18：今年有兩種）
+    for(let i=1;i<RAW.length;i++){ const r=RAW[i]; let lg=r[C.league]; if(!lg)continue;
       const pid=+r[C.participantid]; if(!(pid>=1&&pid<=5))continue;
+      if(_eds[lg]){ const d=String(r[C.date]).slice(0,10), ed=_eds[lg].find(x=>d>=x.from&&d<=x.to); if(ed)lg=lg+"#"+ed.ed; }
       put(lg,r[C.blue_teamname],r[C.blue_playername]); put(lg,r[C.blue_teamname+RB],r[C.blue_playername+RB]); } }
   try{ const EX=(window.EVENTS_EXTRA||{})[String(curYear)]||{};
     ["WLDs"].forEach(lg=>{ const rs=(EX[lg]||{}).rosters; if(!rs)return;
@@ -3798,14 +3800,14 @@ function initData(){
 }
 // 賽事下拉尾段（不屬於任何 LG_GROUP 的聯賽）的偏好順序：一級賽區 → 其他賽區 → 盃賽／表演賽。
 // 只是排序偏好，不是白名單——沒列到的聯賽照樣會列出（依資料本身的順序接在後面）。
-const LG_TAIL_PREF=["LCP","CBLOL","LTA","LTA N","LTA S","LLA","LLN","CLS",
+const LG_TAIL_PREF=["CBLOL","LCP","LTA","LTA N","LTA S","LLA","LLN","CLS",
                     "PCS","LJL","VCS","LCO","LMS","GPL","TCL","LCL","KeSPA","IEM","MSC","RR"];
 // 賽事清單裡緊接在某個群組後面顯示的聯賽（使用者定案 2026-08-01：GPL 接在 LPL 後，
 // CBLOL／TCL／LCL 依序接在 LCS 後）。**只影響清單排序**，不進 LG_GROUP——那份是篩選語意，
 // 選「中韓」仍然只篩 LCK+LPL，不會把 GPL 一起撈進來。群組當年沒隊伍時這些照樣回尾段列出。
-const LG_GROUP_TAIL={ "中韓":["GPL"], "歐美":["LLA","CBLOL","TCL","LCL","LCO"] };
+const LG_GROUP_TAIL={ "中韓":["GPL"], "歐美":["CBLOL","LCP","LLA","TCL","LCL","LCO"], "國際賽":["KeSPA"] }; // 2026-10-18 使用者排序：歐美後接 CBLOL→LCP；國際賽最後接 KeSPA（只排序、不進篩選語意）
 const LG_GROUP={ "中韓":["LCK","LPL"], "歐美":["LEC","LCS"], // 使用者定義：中韓=LCK+LPL、歐美=LEC+LCS
-                 "國際賽":["FST","MSI","EWC","ENC","WLDs","亞運","DCup","RR","IEM","MSC",
+                 "國際賽":["FST","MSI","EWC","ENC","亞運","DCup","WLDs","RR","IEM","MSC",
                           "EWCQ歐洲","EWCQ韓國","EWCQ中國","EWCQ太平洋","EWCQ巴西","EWCQ北美"] };
 // ── 賽事分級對照（圖鑑「賽事」分頁用）；區域用現行代碼回溯（LEC=歐洲、LCS=北美、LCO=大洋洲）。grp: intl 國際賽/t1 賽區聯賽/cup 盃賽；tier: 1 主要/2 次級/3 三級（v1 分級為暫定，待人工修正）──
 const LEAGUE_META={
@@ -8329,8 +8331,9 @@ function filterOpts(){
     const ms=(LG_GROUP[g]||[]).filter(has);
     if(!ms.length)return;
     if(!(g==="國際賽"&&F.split))items.push([g,true]);  // 有選賽段時不列「國際賽」群組（沿用原規則）
-    ms.forEach(l=>items.push([l,true]));
+    ms.filter(l=>!/^EWCQ/.test(l)).forEach(l=>items.push([l,true]));
     (LG_GROUP_TAIL[g]||[]).filter(has).forEach(l=>{items.push([l,true]);_pin.add(l);});
+    ms.filter(l=>/^EWCQ/.test(l)).forEach(l=>items.push([l,true]));   // EWCQ 各區排在群組附掛（KeSPA）之後
   });
   // 尾段：先照 LG_TAIL_PREF 的偏好順序（一級賽區在前、盃賽在後），沒列到的再照資料本身的順序，
   // 所以新賽事不用改程式也會自己出現
@@ -16657,22 +16660,28 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
     const rgOf=r=>{ const n=NPL[String(r.player||"")]; const o=new Set();
       _LGS.forEach(l=>{ if(inCup(l,r.team,r.player))o.add(l); }); if(n)n.forEach(l=>o.add(l));
       return o.size?o:null; };
-    const CUP_ORDER=["FST","MSI","WLDs","EWC","ENC","亞運"]; // 盃賽：只列這幾個且照此序(WLDs 顯示為 WCS)
-    const LEAGUE_PREF=["LCK","LPL","LCP","LEC","LTA","LTA N","LTA S","LCS","CBLOL","VCS","PCS","LMS"];
+    // 順序（使用者 2026-10-18）：聯賽 LCK LPL LEC LCS CBLOL LCP；國際賽 FST MSI EWC 亞運 DCGI WCS；KeSPA 依屆（季前／季中）；EWCQ 不列
+    const CUP_ORDER=["FST","MSI","EWC","ENC","亞運","DCup","WLDs"];
+    const LEAGUE_PREF=["LCK","LPL","LEC","LCS","CBLOL","LCP","LTA","LTA N","LTA S","VCS","PCS","LMS"];
     const isLeagueCode=l=>(LEAGUE_META[l]&&LEAGUE_META[l].grp==="t1")||LEAGUE_PREF.includes(l); // 只留真正的賽區聯賽(排除 EWCQ資格賽/KeSPA 等)
     const playerLgs=new Set(); SD.players.forEach(p=>{const s=rgOf(p); if(s)s.forEach(l=>playerLgs.add(l));});
     const leagueBtns=[...playerLgs].filter(isLeagueCode).sort((a,b)=>{const ia=LEAGUE_PREF.indexOf(a),ib=LEAGUE_PREF.indexOf(b); return (ia<0?99:ia)-(ib<0?99:ib)||String(a).localeCompare(String(b));});
     const cupBtns=CUP_ORDER.filter(l=>playerLgs.has(l)); // 盃賽只列有選手參賽的那幾個
     // 其他賽事（KeSPA／德盃／EWCQ 各區／世界賽各區資格賽…）：使用者 2026-10-18 要所有賽事都能篩；依上場人數多→少
     const _lgN={}; SD.players.forEach(p=>{const s=rgOf(p); if(s)s.forEach(l=>_lgN[l]=(_lgN[l]||0)+1);});
-    const otherBtns=[...playerLgs].filter(l=>!isLeagueCode(l)&&!CUP_ORDER.includes(l)).sort((a,b)=>(_lgN[b]||0)-(_lgN[a]||0)||String(a).localeCompare(String(b)));
+    const _edOf=cupEditions(), _edBase=l=>String(l).split("#")[0];
+    const otherBtns=[...playerLgs].filter(l=>!isLeagueCode(l)&&!CUP_ORDER.includes(l)&&!/^EWCQ/.test(l)&&!(_edOf[l]))   // 有分屆的盃賽只列分屆鈕
+      .sort((a,b)=>{ const ea=_edOf[_edBase(a)], eb=_edOf[_edBase(b)];
+        if(_edBase(a)===_edBase(b)&&ea)return ea.findIndex(x=>a.endsWith("#"+x.ed))-ea.findIndex(x=>b.endsWith("#"+x.ed));
+        return (_lgN[b]||0)-(_lgN[a]||0)||String(a).localeCompare(String(b)); });
+    const rgName=l=>{ const [b,e]=String(l).split("#"); return e&&_edOf[b]?lgName(b)+" "+evtEdLabel(e):lgName(l); };
     const dailyMode=V.rankView==="daily"; const dayRange=V.rankDayRange||1; // 每日戰況視圖＋範圍(1=昨天/3/7天)
     const grpLg=(V.rankRegion==="LCK")?"LCK":"LPL"; const lplSel=lplSelSplit(curYear,"",grpLg); // LPL 組別一律用「最新賽段」（使用者定案 2026-07-29：S3 沒有堅毅組，只顯示當前賽事的組別；忽略舊的 V.rankLplSplit 殘留偏好）
     main.innerHTML=`<div class="filters" style="gap:9px 22px">
       <span class="cwrap"><input id="rankQ" class="combo" list="rankQdl" autocomplete="off" placeholder="${LANG==="en"?"Search player / team":"搜尋 選手／戰隊"}" style="width:190px"><button class="cx" tabindex="-1" data-x="rankQ" title="一鍵清除">✕</button></span><datalist id="rankQdl"></datalist>
       ${segHTML("rankViewSeg",[["ladder","🏆 "+(LANG==="en"?"Ladder":"排行榜"),LANG==="en"?"Ranked ladder":"看排行榜"],["daily","📅 "+(LANG==="en"?"Daily":"每日戰況"),LANG==="en"?"Daily games by team":"看各隊每日戰況"]],dailyMode?"daily":"ladder","sm")}
       <span style="display:inline-flex;gap:7px;align-items:center;flex-wrap:wrap"><span class="meta" style="margin-right:1px">${LANG==="en"?"Role":"路線"}</span>${ROLEF.map(([v,z,e])=>`<button class="sqLaneBtn${(V.rankRole||"")===v?" on":""}" data-role="${v}">${LANG==="en"?e:z}</button>`).join("")}</span>
-      <span style="display:inline-flex;gap:7px;align-items:center;flex-wrap:wrap"><span class="meta" style="margin-right:1px">${LANG==="en"?"Region":"賽區"}</span><button class="sqLaneBtn${!V.rankRegion?" on":""}" data-region="">${LANG==="en"?"All":"全部"}</button>${leagueBtns.map(rg=>`<button class="sqLaneBtn${V.rankRegion===rg?" on":""}" data-region="${esc(rg)}"${V.rankRegion===rg?"":` style="color:${LGC[rg]||"var(--tx2)"}"`}>${esc(lgName(rg))}</button>${(rg===V.rankRegion&&(rg==="LPL"||rg==="LCK")&&lplGroupNamesOfSplit(curYear,lplSel,grpLg).length)?segHTML("rankLplGrpSeg",[["",LANG==="en"?"All":"全部"],...lplGroupNamesOfSplit(curYear,lplSel,grpLg).map(g=>[g,`<span style="color:${lplGrpColor(g,curYear,lplSel)}">${esc(lplGrpName(g))}</span>`])],V.rankLplGrp||"","sm"):""}`).join("")}${leagueBtns.length&&cupBtns.length?`<span class="meta" style="opacity:.45;padding:0 2px;margin:0 -2px">｜</span>`:""}${cupBtns.map(rg=>`<button class="sqLaneBtn${V.rankRegion===rg?" on":""}" data-region="${esc(rg)}"${V.rankRegion===rg?"":` style="color:${LGC[rg]||"var(--tx2)"}"`}>${esc(lgName(rg))}</button>`).join("")}${otherBtns.length?`<span class="meta" style="opacity:.45;padding:0 2px;margin:0 -2px">｜</span>`:""}${otherBtns.map(rg=>`<button class="sqLaneBtn${V.rankRegion===rg?" on":""}" data-region="${esc(rg)}"${V.rankRegion===rg?"":` style="color:${LGC[rg]||"var(--tx2)"}"`}>${esc(lgName(rg))}</button>`).join("")}</span>
+      <span style="display:inline-flex;gap:7px;align-items:center;flex-wrap:wrap"><span class="meta" style="margin-right:1px">${LANG==="en"?"Region":"賽區"}</span><button class="sqLaneBtn${!V.rankRegion?" on":""}" data-region="">${LANG==="en"?"All":"全部"}</button>${leagueBtns.map(rg=>`<button class="sqLaneBtn${V.rankRegion===rg?" on":""}" data-region="${esc(rg)}"${V.rankRegion===rg?"":` style="color:${LGC[rg]||"var(--tx2)"}"`}>${esc(lgName(rg))}</button>${(rg===V.rankRegion&&(rg==="LPL"||rg==="LCK")&&lplGroupNamesOfSplit(curYear,lplSel,grpLg).length)?segHTML("rankLplGrpSeg",[["",LANG==="en"?"All":"全部"],...lplGroupNamesOfSplit(curYear,lplSel,grpLg).map(g=>[g,`<span style="color:${lplGrpColor(g,curYear,lplSel)}">${esc(lplGrpName(g))}</span>`])],V.rankLplGrp||"","sm"):""}`).join("")}${leagueBtns.length&&cupBtns.length?`<span class="meta" style="opacity:.45;padding:0 2px;margin:0 -2px">｜</span>`:""}${cupBtns.map(rg=>`<button class="sqLaneBtn${V.rankRegion===rg?" on":""}" data-region="${esc(rg)}"${V.rankRegion===rg?"":` style="color:${LGC[rg]||"var(--tx2)"}"`}>${esc(lgName(rg))}</button>`).join("")}${otherBtns.length?`<span class="meta" style="opacity:.45;padding:0 2px;margin:0 -2px">｜</span>`:""}${otherBtns.map(rg=>`<button class="sqLaneBtn${V.rankRegion===rg?" on":""}" data-region="${esc(rg)}"${V.rankRegion===rg?"":` style="color:${LGC[_edBase(rg)]||"var(--tx2)"}"`}>${esc(rgName(rg))}</button>`).join("")}</span>
       
       <span style="flex:1"></span>
       ${(location.protocol==="file:"||/^(localhost|127\.)/.test(location.hostname))?`<button id="sqApiBtn" class="sqbtn helpBtn" title="${LANG==="en"?"Paste a fresh Riot API key: update ranks now + auto-reuse at the 10:00 daily update":"開 Riot 開發者頁拿金鑰→貼上立即更新牌位；金鑰存本機供每天 10:00 排程自動更新"}">🔑 ${LANG==="en"?"Add API key":"添加API"}</button>`:""}
