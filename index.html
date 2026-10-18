@@ -906,7 +906,8 @@
   .dlyTier i{font-style:normal;margin-left:3px}
   .dlyRec{font-size:13px;font-weight:700;text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
   .dlyRec .w{color:#5ea2ff} .dlyRec .l{color:#ec6b73} .dlyRec .s{opacity:.4;margin:0 1px}
-  .dlyChips{display:flex;flex-wrap:wrap;gap:7px;margin:6px 0 1px 29px} /* 英雄圖間隔 7px（2026-08-06 使用者指定；扣掉兩邊各 1.5px 勝負描邊，描邊之間淨 4px） */
+  /* 2026-10-18 使用者：英雄圖放大到一列約 10 隻 ⇒ 固定 10 欄網格，圖寬跟著卡片走（正方形、不變形） */
+  .dlyChips{display:grid;grid-template-columns:repeat(10,minmax(0,1fr));gap:6px;margin:6px 0 1px 29px} /* 英雄圖間隔 7px（2026-08-06 使用者指定；扣掉兩邊各 1.5px 勝負描邊，描邊之間淨 4px） */
   /* 勝負描邊圈畫在**圖本身**上，不要畫在外層 span（2026-09-05 使用者回報「英雄圖下方有點被
      下一列切到」）。原因：champIco() 產的 <img> 在外層 span 裡會比 span 的盒子低 1px，
      box-shadow 是繞著 span 畫的 ⇒ 圖把下緣的圈蓋掉，實測像素 上1.5／下0.5／左1.5／右1.5，
@@ -914,7 +915,8 @@
      ⚠ 這條只有**像素**驗得出來：getBoundingClientRect 與 offsetTop 都會說「對齊」（我被騙過兩次），
      驗收要用 scratchpad 的 dly_px_ab.py 那種量圈厚度的方式。 */
   .dlyChip{display:inline-block;line-height:0;border-radius:6px}
-  .dlyChip img{display:block;box-shadow:0 0 0 1.5px var(--c)}
+  .dlyChip img{display:block;width:100%;height:auto;aspect-ratio:1/1;object-fit:cover}
+  .dlyChip.w img{box-shadow:0 0 0 2px var(--gold)} /* 2026-10-18 使用者：贏的黃框、輸的不加框 */
   .dlyMore{align-self:center;font-size:11px;opacity:.5;margin-left:2px}
   .sqSortH{cursor:pointer;user-select:none} .sqSortH:hover{color:var(--acc)}
   .sqGame{display:grid;align-items:center;gap:20px;padding:9px 16px;border-radius:9px;border-left:5px solid #3a4666;background:#141b2b;margin-bottom:6px}
@@ -3469,6 +3471,8 @@ function natlPlayerLeagues(){
 //   是「隊伍有參賽就整隊都列」，二隊選手也跟著出現。改成：本人在 wiki 參賽名單上（events_extra rosters，
 //   教練不算）或真的在該賽事上場過，才算參加。名單沒有的賽事（MSI／FST／EWC）就靠上場紀錄。
 const CUP_LGS=["FST","MSI","WLDs","EWC","ENC","亞運","DCup"];
+// 世界賽瑞士輪種子籤（Leaguepedia Main Event 頁；第 1～4 級，"PI"＝入圍賽出線隊）：預測模擬的首輪配對＋積分每日戰況篩 WCS 時的隊序
+const WLD_POOLS={2026:[["GEN","AL","TL","G2"],["TSW","LOS","HLE","BLG"],["LYON","MKOI","T1","TES"],["CFO","DK","IG","PI"]]};
 let _CUPP=null,_CUPP_Y=null;
 function cupPlayers(){
   if(_CUPP&&_CUPP_Y===curYear)return _CUPP;
@@ -12587,7 +12591,7 @@ function render(){
       const koReg={}, lcsKO={n:0}, h2h={}, fastSt={}, fastPair={};
       // 瑞士輪第一輪：官方種子籤（Leaguepedia Main Event 頁）＝第 1 級對第 4 級、第 2 級對第 3 級，同賽區不相遇；
       //   "PI"＝入圍賽出線隊。使用者 2026-10-11：最快勝場基本上只發生在入圍賽或第一輪 Tier1 打 Tier4。沒有籤表的年份照舊全隨機。
-      const WPOOL={2026:[["GEN","AL","TL","G2"],["TSW","LOS","HLE","BLG"],["LYON","MKOI","T1","TES"],["CFO","DK","IG","PI"]]}[curYear]||null;
+      const WPOOL=WLD_POOLS[curYear]||null;
       const abT=ab=>EVT.find(t=>tAb(t)===ab);
       const pairPools=(A,B)=>{ for(let k=0;k<60;k++){ const b=shuffle([...B]); if(A.every((a,i)=>teamReg[a]!==teamReg[b[i]]))return A.map((a,i)=>[a,b[i]]); }
         return A.map((a,i)=>[a,B[i]]); };
@@ -16864,7 +16868,16 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
       const teams={}; Object.values(roster).forEach(pl=>{(teams[pl.ab]=teams[pl.ab]||[]).push(pl);});
       const tLgIdx=ab=>{ const s=TLG[ab]; if(!s)return 99; let best=99; s.forEach(l=>{const i=LEAGUE_PREF.indexOf(l); if(i>=0&&i<best)best=i;}); return best; };
       const primaryLg=ab=>{ const s=[...(TLG[ab]||[])]; if(!s.length)return null; let bl=null,bi=99; s.forEach(l=>{const i=LEAGUE_PREF.indexOf(l); if(i>=0&&i<bi){bi=i;bl=l;}}); return bl||s[0]; }; // 隊標籤取主賽區(LCK 而非 KeSPA 盃等次要賽事)
-      const teamNames=Object.keys(teams).sort((a,b)=>tLgIdx(a)-tLgIdx(b)||(lplSplitGroupOf(a,curYear,lplSel)||"").localeCompare(lplSplitGroupOf(b,curYear,lplSel)||"")||a.localeCompare(b)); // 同賽區內 LPL 依選定賽段分組聚攏
+      // 隊序（使用者 2026-10-18）：先賽區、再強度。篩 WCS 用世界賽種子級（LCK＝GEN HLE T1 DK）；
+      //   其他篩選用今年整體局勝率當強度。篩國際賽時不再依 LPL 分組聚攏（分組是聯賽內的事）。
+      const _seed=ab=>{ const P=V.rankRegion==="WLDs"&&WLD_POOLS[curYear]; if(!P)return 9; const i=P.findIndex(pl=>pl.includes(ab)); return i<0?9:i; };
+      const _twr=window._DLY_TWR&&window._DLY_TWR.y===curYear&&window._DLY_TWR.n===GAMES.length?window._DLY_TWR.m:(()=>{ const m={};
+        GAMES.forEach(o=>[[o.raw[C.blue_teamname],o.result===1],[o.raw[C.red_teamname],o.result!==1]].forEach(([t,w])=>{ const k=teamFix(tAb(t||"")); if(!k)return; const x=m[k]=m[k]||[0,0]; x[1]++; if(w)x[0]++; }));
+        window._DLY_TWR={y:curYear,n:GAMES.length,m}; return m; })();
+      const _str=ab=>{ const x=_twr[ab]; return x&&x[1]?x[0]/x[1]:0; };
+      const _cup=CUP_LGS.includes(V.rankRegion);
+      const teamNames=Object.keys(teams).sort((a,b)=>tLgIdx(a)-tLgIdx(b)||_seed(a)-_seed(b)
+        ||(_cup?0:(lplSplitGroupOf(a,curYear,lplSel)||"").localeCompare(lplSplitGroupOf(b,curYear,lplSel)||""))||_str(b)-_str(a)||a.localeCompare(b));
       const tGames=ab=>teams[ab].reduce((s,pl)=>{const a=aggOf(pl.reckey); return s+(a?a.n:0);},0);
       const activeCnt=teamNames.filter(ab=>tGames(ab)>0).length; // 僅表頭統計；所有有積分帳號的選手/隊都列出(不論範圍內有無出賽)
       const MAXCHIP=rng===1?20:32;   // 英雄改獨立一列＝整列可用，可多顯示幾隻
@@ -16873,7 +16886,7 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
         const src=k&&((typeof POS_B64!=="undefined"&&POS_B64[k])||(typeof POS_IMG!=="undefined"&&POS_IMG[k]));
         return src?`<img class="dlyPosIc" src="${src}" alt="${k}" title="${x?(en?x[1]:x[0]):k}" onerror="this.replaceWith(document.createTextNode('${x?x[0]:"–"}'))">`
                   :`<span class="dlyPos">${x?(en?x[1]:x[0]):"–"}</span>`; };
-      const chip=(c,w)=>`<span class="dlyChip${w?"":" ls"}" style="--c:${w?"#4a8fe0":"#c9515c"}" title="${esc(chName(champId(c)))}">${champIco(c,24)}</span>`;
+      const chip=(c,w)=>`<span class="dlyChip${w?" w":" ls"}" title="${esc(chName(champId(c)))}${en?(w?" · win":" · loss"):(w?"・勝":"・敗")}">${champIco(c,48)}</span>`;
       // 積分（牌位＋LP）：大師以上直接看 LP，其餘顯示段位；抓不到帳號顯示 —
       const rankTag=pl=>{ if(!pl.tier||pl.found===false)return `<span class="dlyTier" style="opacity:.32">—</span>`;
         const t=tierLabel({tier:pl.tier,division:pl.division});
