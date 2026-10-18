@@ -12910,11 +12910,19 @@ function render(){
         while(n<need){ let r=rnd()*SW, j=0; while(j<SL.length-1&&(r-=SL[j].w)>0)j++; SL[j].gs.forEach(cs=>cs.forEach(c=>U.add(c))); n+=SL[j].gs.length; }
         out.push(U.size); }
       out.sort((x,y)=>x-y); const q=f=>out.length?out[Math.min(out.length-1,Math.floor(out.length*f))]:null, est=q(0.5);
+      // 官方選項（使用者 2026-10-18：建議要是其中一個選項、近期欄列每個選項的模擬機率）
+      //   選項出處：esports.gg／wards.lol 的 2026 水晶球整理（0-99、100-104、105-109、110-114、115-119、120+）
+      const UOPT=[[0,99],[100,104],[105,109],[110,114],[115,119],[120,1e9]];
+      const uLbl=([a,b])=>b>=1e9?(en2?`${a}+`:`${a} 以上`):(en2?`${a}-${b}`:`${a}～${b}`);
+      const uP=UOPT.map(o=>out.length?out.filter(v=>Math.max(v,lv)>=o[0]&&Math.max(v,lv)<=o[1]).length/out.length:0);
+      const uBest=uP.indexOf(Math.max(...uP));
       cards.push(card(TG.e,en2?"How many different champions will be picked?":"總共會有多少位不同的英雄被選用？",P1(50),
-        pickTx(est!=null?(en2?`about ${Math.max(est,lv)}`:`約 ${Math.max(est,lv)} 隻`):"–"),
-        est==null?"":en2?`recent series resampled to ≈${Math.round(totG)} games (keeps the Fearless effect): usually ${q(0.1)}-${q(0.9)}`
-                         :`近期系列賽重抽到本屆約 ${Math.round(totG)} 局（保留 Fearless 效果）：多半落在 ${q(0.1)}～${q(0.9)} 隻`,
-        col(H_REC,rowT(en2?"Different champs":"不同英雄",Object.keys(R.ch).length))+col(H_PAST,histRows((y,h)=>rowT(y,`${h.uniq}・${h.games} ${en2?"g":"局"}`)))+col(H_LIVE,L.n?rowT(en2?"So far":"目前",lv):notYet))); }
+        pickTx(out.length?uLbl(UOPT[uBest]):"–"),
+        est==null?"":en2?`recent series resampled to ≈${Math.round(totG)} games ×${out.length} (keeps the Fearless effect): ${uLbl(UOPT[uBest])} ${pct(uP[uBest])}, median ${Math.max(est,lv)}`
+                         :`近期系列賽重抽到本屆約 ${Math.round(totG)} 局、模擬 ${out.length} 次（保留 Fearless 效果）：${uLbl(UOPT[uBest])} 機率 ${pct(uP[uBest])}，中位數 ${Math.max(est,lv)} 隻`,
+        col(H_REC,rowT(en2?"Different champs":"不同英雄",Object.keys(R.ch).length)
+          +sub(en2?`option odds (${out.length} sims)`:`各選項機率（模擬 ${out.length} 次）`)
+          +UOPT.map((o,i)=>rowT(uLbl(o),pct(uP[i])+(i===uBest?" 🏆":""))).join(""))+col(H_PAST,histRows((y,h)=>rowT(y,`${h.uniq}・${h.games} ${en2?"g":"局"}`)))+col(H_LIVE,L.n?rowT(en2?"So far":"目前",lv):notYet))); }
     // ⑪ 32 分鐘（世界賽隊伍互打才像世界賽的節奏）
     { const cnt=S=>[S.lens.filter(l=>l<32).length,S.lens.filter(l=>l>=32).length];
       const hU=HY.reduce((s,y)=>s+H[y].len32[0],0), hO=HY.reduce((s,y)=>s+H[y].len32[1],0);
