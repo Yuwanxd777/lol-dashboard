@@ -3500,6 +3500,8 @@ function cupPlayers(){
       if(_eds[lg]){ const d=String(r[C.date]).slice(0,10), ed=_eds[lg].find(x=>d>=x.from&&d<=x.to); if(ed)lg=lg+"#"+ed.ed; }
       put(lg,r[C.blue_teamname],r[C.blue_playername]); put(lg,r[C.blue_teamname+RB],r[C.blue_playername+RB]); } }
   try{ const EX=(window.EVENTS_EXTRA||{})[String(curYear)]||{};
+    // wiki 名單漏的人手動補（使用者 2026-10-18：WCS 的 TES 要列 ZUIAN）
+    ({2026:[["TES","ZUIAN"]]}[curYear]||[]).forEach(([tm,nm])=>put("WLDs",tm,nm));
     ["WLDs"].forEach(lg=>{ const rs=(EX[lg]||{}).rosters; if(!rs)return;
       Object.keys(rs).forEach(tm=>(rs[tm]||[]).forEach(p=>{ if(p&&p.n&&p.r!=="COACH")put(lg,tm,p.n); })); });
   }catch(e){}
@@ -16757,8 +16759,10 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
     const leagueBtns=[...playerLgs].filter(isLeagueCode).sort((a,b)=>{const ia=LEAGUE_PREF.indexOf(a),ib=LEAGUE_PREF.indexOf(b); return (ia<0?99:ia)-(ib<0?99:ib)||String(a).localeCompare(String(b));});
     const cupBtns=CUP_ORDER.filter(l=>playerLgs.has(l)); // 盃賽只列有選手參賽的那幾個
     // 複選時聯賽要看**隊伍**屬於該聯賽（使用者 2026-10-18「WCS＋LCK＝WCS 裡的 LCK 戰隊」：C9 Loki 今年打過 LCK 也不算）；單選照舊看本人有沒有在該聯賽出賽
-    const rgPass=r=>{ const s=rgOf(r); if(!s)return false; const tl=TLG[teamFix(r.team||"")];
-      return _RS.every(l=>s.has(l)&&(_RS.length<2||!isLeagueCode(l)||!!(tl&&tl.has(l)))); };
+    // 使用者 2026-10-18「篩選認的是戰隊，不是選手」：聯賽（LCK／LPL…）一律看**戰隊**屬於該聯賽（篩 LPL 不會跑出前 LPL 選手所在的 BFX、
+    //   篩 LCK 不會跑出 C9 Loki）；盃賽／國際賽仍看選手本人（WCS＝wiki 名單＋上場，二隊選手不列）
+    const rgPass=r=>{ const s=rgOf(r), tl=TLG[teamFix(r.team||"")];
+      return _RS.every(l=>isLeagueCode(l)?!!(tl&&tl.has(l)):!!(s&&s.has(l))); };
     // 其他賽事（KeSPA／德盃／EWCQ 各區／世界賽各區資格賽…）：使用者 2026-10-18 要所有賽事都能篩；依上場人數多→少
     const _lgN={}; SD.players.forEach(p=>{const s=rgOf(p); if(s)s.forEach(l=>_lgN[l]=(_lgN[l]||0)+1);});
     const _edOf=cupEditions(), _edBase=l=>String(l).split("#")[0];
@@ -17011,7 +17015,7 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
       const _str=ab=>{ const x=_twr[ab]; return x&&x[1]?x[0]/x[1]:0; };
       const _cup=_RS.some(l=>CUP_LGS.includes(l));
       const teamNames=Object.keys(teams).sort((a,b)=>tLgIdx(a)-tLgIdx(b)||_seed(a)-_seed(b)
-        ||(_cup?0:(lplSplitGroupOf(a,curYear,lplSel)||"").localeCompare(lplSplitGroupOf(b,curYear,lplSel)||""))||_str(b)-_str(a)||a.localeCompare(b));
+        ||_str(b)-_str(a)||a.localeCompare(b));   // 賽區→WCS 種子→強度（使用者 2026-10-18：LPL 不要依分組聚攏）
       const tGames=ab=>teams[ab].reduce((s,pl)=>{const a=aggOf(pl.reckey); return s+(a?a.n:0);},0);
       const activeCnt=teamNames.filter(ab=>tGames(ab)>0).length; // 僅表頭統計；所有有積分帳號的選手/隊都列出(不論範圍內有無出賽)
       const P5IC={TOP:"TOP",JUNGLE:"JNG",MIDDLE:"MID",BOTTOM:"BOT",UTILITY:"SUP"};  // 逐場路線碼 → 路線圖鍵
