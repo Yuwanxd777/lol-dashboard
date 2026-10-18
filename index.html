@@ -16853,7 +16853,7 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
         return `<span class="dlyTier" style="color:${TIER_COL[pl.tier]||"var(--tx2)"}">${esc(t)}${pl.lp!=null?`<i class="num">${pl.lp}</i>`:""}</span>`; };
       const teamCard=ab=>{
         const pls=teams[ab].slice().sort((x,y)=>((ROLE_ORD[x.role]==null?9:ROLE_ORD[x.role])-(ROLE_ORD[y.role]==null?9:ROLE_ORD[y.role]))||String(x.player).localeCompare(String(y.player)));
-        const lg=primaryLg(ab), col=lg?(LGC[lg]||"var(--tx2)"):"var(--tx2)"; const grp=lg==="LPL"?lplSplitGroupOf(ab,curYear,lplSel):null; let gw=0,gn=0;
+        const lg=primaryLg(ab), col=lg?(LGC[lg]||"var(--tx2)"):"var(--tx2)"; const grp=(lg==="LPL"&&!CUP_LGS.includes(V.rankRegion))?lplSplitGroupOf(ab,curYear,lplSel):null; /* 篩國際賽不寫 LPL 分組（使用者 2026-10-18：都是季後賽打上來的） */ let gw=0,gn=0;
         const body=pls.map(pl=>{ const ag=aggOf(pl.reckey), clk=!!pl.riotId;
           const nm=`<span class="dlyNm${clk?" rankName":""}"${clk?` data-detail="${esc(pl.riotId)}" title="${en?"view games":"看逐場"}"`:""}>${esc(pl.player)}</span>`;
           if(!ag) return `<div class="dlyRow idle"><div class="dlyLine">${roleTag(pl.role)}${nm}${rankTag(pl)}<span></span></div></div>`; // 沒打積分＝留白，不特別標註
