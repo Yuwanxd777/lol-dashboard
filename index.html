@@ -922,6 +922,7 @@
   .dlyChip img{display:block;width:100%;height:auto;aspect-ratio:1/1;object-fit:cover;border-radius:5px}
   .dlyChip.ls img{filter:grayscale(.85) brightness(.75)} /* 灰度同比賽BP 禁用格（使用者 2026-10-18：原本太灰） */ /* 2026-10-18 使用者：勝負改「輸的變灰暗、贏的原圖」（黃框太醜；比過下方色條／右上圓點） */
   .dlyMore{align-self:center;font-size:11px;opacity:.5;margin-left:2px}
+  .dlySep{display:flex;align-items:center;justify-content:center;font-size:20px;color:var(--tx2);opacity:.55;line-height:1} /* 換日分隔：占一格英雄圖 */
   .sqSortH{cursor:pointer;user-select:none} .sqSortH:hover{color:var(--acc)}
   .sqGame{display:grid;align-items:center;gap:20px;padding:9px 16px;border-radius:9px;border-left:5px solid #3a4666;background:#141b2b;margin-bottom:6px}
   .sqGame.win{border-left-color:#3d8bff;background:linear-gradient(90deg,rgba(61,139,255,.12),rgba(61,139,255,.02))}
@@ -16879,9 +16880,9 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
       // REC(有打積分者)：以 teamFix 正規化鍵對應「實際 REC key」——REC/SD 隊縮寫可能不一致(GENG↔GEN、TLAW↔TL、AGAL↔AL)，雙邊都 teamFix 後才比對得上
       const recByNorm={}; Object.keys(REC.players).forEach(rk=>{const i=rk.indexOf("|"); if(i<0)return; const nk=teamFix(rk.slice(0,i))+"|"+rk.slice(i+1); if(!(nk in recByNorm))recByNorm[nk]=rk;});
       const idxRole={}; if(IDX&&IDX.players)Object.keys(IDX.players).forEach(ik=>{const i=ik.indexOf("|"); if(i<0)return; const nk=teamFix(ik.slice(0,i))+"|"+ik.slice(i+1); if(!(nk in idxRole))idxRole[nk]=IDX.players[ik].role;});
-      const aggOf=rk=>{ const p=rk&&REC.players[rk]; if(!p||!p.d)return null; const gs=[]; days.forEach(dd=>{const arr=p.d[dd]; if(arr)arr.forEach(g=>gs.push(g));}); if(!gs.length)return null; let w=0,sS=0,sN=0,K=0,D=0,A=0,kN=0; gs.forEach(g=>{if(g[1])w++; if(g[3]!=null){sS+=g[3];sN++;} if(g.length>4){K+=g[4]||0;D+=g[5]||0;A+=g[6]||0;kN++;}});
+      const aggOf=rk=>{ const p=rk&&REC.players[rk]; if(!p||!p.d)return null; const gs=[], byDay=[]; days.forEach(dd=>{const arr=p.d[dd]; if(arr){arr.forEach(g=>gs.push(g)); byDay.push(arr);}}); if(!gs.length)return null; let w=0,sS=0,sN=0,K=0,D=0,A=0,kN=0; gs.forEach(g=>{if(g[1])w++; if(g[3]!=null){sS+=g[3];sN++;} if(g.length>4){K+=g[4]||0;D+=g[5]||0;A+=g[6]||0;kN++;}});
         // 範圍內場均評分／KDA（使用者 2026-10-18；KDA＝(總K+總A)/總D，同排行榜一週 KDA）
-        return {gs,n:gs.length,w,l:gs.length-w,sc:sN?Math.round(sS/sN*10)/10:null,kda:kN?Math.round((K+A)/Math.max(1,D)*10)/10:null}; };
+        return {gs,byDay,n:gs.length,w,l:gs.length-w,sc:sN?Math.round(sS/sN*10)/10:null,kda:kN?Math.round((K+A)/Math.max(1,D)*10)/10:null}; };
       const q=(V.rankQ||"").trim().toLowerCase(), roster={};
       // 篩到國家隊賽事時，這位選手要掛在哪一個區塊（沒有就照舊用俱樂部）
       const dlyNatAb=(player,ab)=>{ if(!V.rankRegion)return ab;
@@ -16938,7 +16939,8 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
           if(!ag) return `<div class="dlyRow idle"><div class="dlyLine">${roleTag(pl.role)}${nm}<span class="dlyStats">${rankTag(pl)}</span></div></div>`; // 沒打積分＝留白，不特別標註
           gw+=ag.w; gn+=ag.n;
           const rec=`<span class="dlyRec"><span class="meta" style="font-weight:400;font-size:12px;margin-right:3px">${en?"W-L":"勝敗"}</span><span class="w">${ag.w}</span><span class="s">-</span><span class="l">${ag.l}</span></span>`;
-          const chips=ag.gs.map(g=>chip(g[0],g[1])).join("");   // 全部列出、不截成「+N」（使用者 2026-10-18）
+          // 全部列出、不截成「+N」；近 3／7 天時換日（10:00 分界）插一格「｜」（使用者 2026-10-18）
+          const chips=rng>1?ag.byDay.map(arr=>arr.map(g=>chip(g[0],g[1])).join("")).join(`<span class="dlySep" title="${en?"day change (10:00)":"換日（10:00）"}">｜</span>`):ag.gs.map(g=>chip(g[0],g[1])).join("");
           const stat=(ag.kda!=null?`<span class="dlyStat"><span class="meta">KDA</span>${ag.kda}</span>`:"")
             +(ag.sc!=null?`<span class="dlyStat"><span class="meta">${en?"Score":"評分"}</span><b style="color:${scoreCol7(ag.sc)}">${ag.sc}</b></span>`:"");
           return `<div class="dlyRow"><div class="dlyLine">${roleTag(pl.role)}${nm}<span class="dlyStats">${rankTag(pl)}${stat}${rec}</span></div><div class="dlyChips">${chips}</div></div>`;
