@@ -6983,7 +6983,8 @@ function ssIdx(){
     const f = r.fs ? (_ssNorm(r.fs) === _ssNorm(r.blue) ? "b" : (_ssNorm(r.fs) === _ssNorm(r.red) ? "r" : "")) : "";
     // o＝握選序權(Pick Sel)的隊在哪一邊：比賽BP「選先選率」用（直接看 ps，不用「選邊方的對面」推——wiki 有 11 局兩欄記成同一隊）
     const o = r.ps ? (_ssNorm(r.ps) === _ssNorm(r.blue) ? "b" : (_ssNorm(r.ps) === _ssNorm(r.red) ? "r" : "")) : "";
-    return {s:r.ss, p, pc:r.pc||0, f, o, mvp:r.mvp||"", mvpm:r.mvpm||"", mg:r.mg?1:0, mm:r.mm?1:0,
+    // bo＝系列賽制（Cargo MS.BestOf；0/沒有＝不知道）：比賽BP 判缺局用
+    return {s:r.ss, p, pc:r.pc||0, f, o, bo:+r.bo||0, mvp:r.mvp||"", mvpm:r.mvpm||"", mg:r.mg?1:0, mm:r.mm?1:0,
             vod:r.vod||"", vodk:r.vodk||""};
   };
   // 效能（2026-09-04 比賽BP 卡頓排查）：±1 天的備援**在建索引時就展開成鍵**，查詢端從
@@ -13009,6 +13010,7 @@ function render(){
     //  ① 局序有缺口（如資料庫只有第2、3局→缺第1局；有到第5局就往前檢查1~4）
     //  ② 決勝局未收錄：比分 2-2 但沒有第5局→BO5 缺第5局；比分 1-1 且只打到第2局→BO3 缺第3局
     // 回傳 {total: 應有局數, miss: [缺哪幾局]}；補齊後自動恢復正常。
+    const _boOf=s=>s.games.reduce((a,g)=>Math.max(a,(ssRec(g)||{}).bo||0),0);   // 系列賽制（任一局的 wiki 紀錄有寫就算）
     const autoMiss=s=>{
       const nums=s.games.map(g=>g._g).filter(n=>n>=1).sort((a,b)=>a-b);
       if(!nums.length)return null;
@@ -13021,8 +13023,10 @@ function render(){
       else if(scStr==="1-1"&&!nums.includes(3)&&maxG<=2&&!bo2Leagues().has(s.league))total=3; // BO3：1-1 缺第3局；但若該聯賽是 BO2（1-1 為正常和局）則不視為缺局
       // 只有第 1 局的 1-0：該聯賽＋賽段多數系列打 ≥2 局（BO3 以上）→ 第 2 局還沒匯入＝缺第 2 局
       //（第 3 局有沒有無法確定，只標確定缺的那局；2026-08-17 使用者回報 LPL S3 登峰 TES 1-0 EDG）
-      else if(scStr==="1-0"&&maxG===1&&bo3Splits().has(s.league+"|"+(s.split||""))
-        &&!bo3Splits().bo1Days.has(s.league+"|"+(s.split||"")+"|"+String((s.games[0]||{})._d||"").slice(0,10)))total=2; // 那天整輪 BO1 的不算缺
+      // 知道賽制（wiki MS.BestOf）就直接用：BO1 的 1-0 是打完了、BO3 以上的 1-0 一定缺（2026-10-18 使用者回報
+      // LCS Lock-In「Last Chance」TL 1-0 DIG 是 BO1 卻被標缺）；不知道才退回賽段多數＋BO1 日推論
+      else if(scStr==="1-0"&&maxG===1&&(_boOf(s)?_boOf(s)>1:(bo3Splits().has(s.league+"|"+(s.split||""))
+        &&!bo3Splits().bo1Days.has(s.league+"|"+(s.split||"")+"|"+String((s.games[0]||{})._d||"").slice(0,10)))))total=2; // 那天整輪 BO1 的不算缺
       //（2026-10-18 使用者再回報：s.date 只有「MM-DD」，原本拿它比 bo1Days 的完整日期永遠對不上＝10/8 的修正沒生效 ⇒ 改用系列首局的 _d）
       const have=new Set(nums), miss=[];
       for(let n=1;n<=total;n++)if(!have.has(n))miss.push(n);

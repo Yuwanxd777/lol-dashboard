@@ -161,7 +161,7 @@ def probe_rows():
         # M1 G1：Selection==Blue ⇒ 'b'；FirstPick==PickSelection ⇒ pc 1；VodPB 有 &amp; ⇒ 還原；MVP 剝本名；mvpm 掛第一局
         r(mid="M1", ng=1, gid=10, blue="T1", red="Gen.G", sel="T1", psel="T1", fsel="Gen.G", fp="T1",
           vodpb="https://youtu.be/x?v=1&amp;t=2", vodst="https://youtu.be/s1", vod="https://youtu.be/f1",
-          mvp="Doran (Choi Hyeon-joon)", dt="2026-09-01 08:00:00", t1="T1", t2="Gen.G", mvpm="Faker (Lee Sang-hyeok)"),
+          mvp="Doran (Choi Hyeon-joon)", dt="2026-09-01 08:00:00", t1="T1", t2="Gen.G", mvpm="Faker (Lee Sang-hyeok)", bo="3"),
         # M1 G2：Selection==Red ⇒ 'r'；FirstPick!=PickSelection ⇒ pc 2；沒 PB 退 Start ⇒ 'start'；mvp 'N/A'；同系列 mvpm 不再掛
         r(mid="M1", ng=2, gid=11, blue="Gen.G", red="T1", sel="T1", psel="Gen.G", fsel="Gen.G", fp="T1",
           vodst="https://youtu.be/s2", mvp="N/A", dt="2026-09-01 08:00:00", t1="T1", t2="Gen.G", mvpm="Faker (Lee Sang-hyeok)"),
@@ -313,6 +313,7 @@ def main():
         g2 = next((r for r in A if r["t1"] == "T1" and r["gi"] == 2), {})
         m2 = next((r for r in A if r["t1"] == "KT Rolster"), {})
         chk("2d ss：Selection==Blue ⇒ 'b'、==Red ⇒ 'r'", g1.get("ss") == "b" and g2.get("ss") == "r" and m2.get("ss") == "r")
+        chk("2u bo：MS.BestOf 3 ⇒ 3、沒給 ⇒ 0（不知道）", (g1.get("bo"), m4.get("bo")) == (3, 0), (g1.get("bo"), m4.get("bo")))
         chk("2e pc：FirstPick==PickSelection ⇒ 1、不等 ⇒ 2、PickSelection 空 ⇒ 0", (g1.get("pc"), g2.get("pc"), m2.get("pc")) == (1, 2, 0))
         chk("2f fs/ps：全名原樣、'N/A' ⇒ ''", (g1.get("fs"), g1.get("ps"), g2.get("ps"), m2.get("fs"), m2.get("ps")) == ("Gen.G", "T1", "Gen.G", "", ""))
         chk("2g vod 優先序：PB > Start > Vod，且 &amp; 還原", (g1.get("vod"), g1.get("vodk")) == ("https://youtu.be/x?v=1&t=2", "pb")
@@ -322,7 +323,7 @@ def main():
         chk("2j mg/mm：A 頁 1/1、B 頁 0/0", all(r["mg"] == 1 and r["mm"] == 1 for r in A) and all(r["mg"] == 0 and r["mm"] == 0 for r in d.get(PB, [])))
         chk("2k d/t1/t2/blue/red 取自 MS／G", (g1.get("d"), g1.get("t1"), g1.get("t2"), g1.get("blue"), g1.get("red")) == ("2026-09-01", "T1", "Gen.G", "T1", "Gen.G"))
         chk("2l B 頁：Selection 不等於藍紅任一方的列不收", len(d.get(PB, [])) == 1 and d[PB][0]["gi"] == 1)
-        chk("2m 每一筆紀錄的鍵集合跟 HTML 路徑一樣", all(set(r) == {"d", "t1", "t2", "gi", "ss", "blue", "red", "pc", "fs", "ps", "ov", "mvp", "mvpm", "mg", "mm", "vod", "vodk"} for r in recs))
+        chk("2m 每一筆紀錄的鍵集合跟 HTML 路徑一樣", all(set(r) - {"bo"} == {"d", "t1", "t2", "gi", "ss", "blue", "red", "pc", "fs", "ps", "ov", "mvp", "mvpm", "mg", "mm", "vod", "vodk"} for r in recs))   # bo 選填：沿用舊檔的紀錄沒有
         gq = box.g_reqs()
         chk("2n 10 頁只發 2 個 MatchScheduleGame 請求（8＋2），沒有切半", len(gq) == 2 and len(gq[0]) == 8 and len(gq[1]) == 2, [len(x) for x in gq])
         chk("2o 沒有任何 api.php 頁面請求、沒有賽程批次查詢（Cargo 路徑不需要）", not any(k in ("page", "ms") for k, _ in box.reqs), [k for k, _ in box.reqs])

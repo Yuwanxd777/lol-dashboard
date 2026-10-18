@@ -634,7 +634,7 @@ def run_html(pages, A):
                                "fs": g["first_sel"], "ps": g["pick_sel"], "ov": ov,
                                "mvp": g.get("mvp") or "", "mvpm": mvpm,
                                "mg": 1 if hasG else 0, "mm": 1 if hasM else 0,
-                               "vod": g.get("vod") or "", "vodk": g.get("vodk") or ""})
+                               "vod": g.get("vod") or "", "vodk": g.get("vodk") or "", "bo": 0})   # HTML 頁沒有賽制欄＝不知道
                 n += 1
         print(f"  ✓ {ov}：{len(sers)} 場 / {n} 局")
     return allrec, hit
@@ -663,9 +663,18 @@ CARGO_TIMEOUT = 60
 CARGO_FIELDS = ("G.OverviewPage=ov,G.MatchId=mid,G.N_GameInMatch=ng,G._ID=gid,G.Blue=blue,G.Red=red,"
                 "G.Selection=sel,G.PickSelection=psel,G.FirstSelection=fsel,G.FirstPick=fp,"
                 "G.Vod=vod,G.VodPB=vodpb,G.VodGameStart=vodst,G.MVP=mvp,"
-                "MS.DateTime_UTC=dt,MS.Team1=t1,MS.Team2=t2,MS.MVP=mvpm")
+                "MS.DateTime_UTC=dt,MS.Team1=t1,MS.Team2=t2,MS.MVP=mvpm,MS.BestOf=bo")
 CSTAT = {"req": 0, "sec": 0.0, "fail": 0, "streak": 0, "trunc": 0}
 _CLAST = [0.0]         # 上一次送出 CargoExport 的時刻
+
+
+def _bo(v):
+    """MS.BestOf → 1/2/3/5…；空／怪值＝0（不知道）"""
+    try:
+        n = int(float(v))
+    except (TypeError, ValueError):
+        return 0
+    return n if 1 <= n <= 7 else 0
 
 
 def _cs(v):
@@ -778,7 +787,10 @@ def cargo_records(ov, rows):
         out.append({"d": str(r.get("dt") or "")[:10], "t1": _cs(r.get("t1")), "t2": _cs(r.get("t2")),
                     "gi": gi, "ss": ss, "blue": bl, "red": rd, "pc": pc, "fs": fsel, "ps": psel, "ov": ov,
                     "mvp": _nopar(r.get("mvp")), "mvpm": mvpm,
-                    "mg": 1 if hasG else 0, "mm": 1 if hasM else 0, "vod": vod, "vodk": vk})
+                    "mg": 1 if hasG else 0, "mm": 1 if hasM else 0, "vod": vod, "vodk": vk,
+                    # bo＝系列賽制（BO 幾；0＝不知道）：比賽BP 判「缺第 2 局」要靠它（使用者 2026-10-18：
+                    # LCS Lock-In「Last Chance」TL 1-0 DIG 是 BO1，被賽段多數 BO3 推成缺局）
+                    "bo": _bo(r.get("bo"))})
     return out, len(seen)
 
 
