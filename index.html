@@ -886,7 +886,7 @@
   .sqCols{grid-template-columns:92px 58px 66px 56px 112px 138px 58px 44px 74px 74px 50px 46px 100px 244px 80px;justify-content:start;justify-items:center;text-align:center} /* 日期|時長|英雄|對位|對位人員|KDA|KP|搶二|金差@15|經差@15|召喚師|符文|技能|出裝|評分（2026-08-04 搶二移到金差左） */
   .sqHead{display:grid;align-items:center;gap:20px;padding:2px 16px 7px;border-left:5px solid transparent;font-size:13px;color:var(--tx2)}
   /* ── 積分「每日戰況」各隊卡片 ── 欄位對齊靠 grid；勝負只用細框＋敗方微降透明度（避免整片彩色圈很吵） */
-  .dlyGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(352px,1fr));gap:14px;align-items:start}
+  .dlyGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(440px,1fr));gap:14px;align-items:start}
   .dlyCard{background:linear-gradient(180deg,rgba(255,255,255,.045),rgba(255,255,255,.018));border:1px solid #26304a;
     border-radius:12px;overflow:hidden;box-shadow:0 2px 10px rgba(0,0,0,.28)}
   .dlyHd{display:flex;align-items:center;gap:8px;padding:9px 13px;background:rgba(255,255,255,.05);
@@ -907,15 +907,15 @@
   .dlyRec{font-size:13px;font-weight:700;text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
   .dlyRec .w{color:#5ea2ff} .dlyRec .l{color:#ec6b73} .dlyRec .s{opacity:.4;margin:0 1px}
   /* 2026-10-18 使用者：英雄圖放大到一列約 10 隻 ⇒ 固定 10 欄網格，圖寬跟著卡片走（正方形、不變形） */
-  .dlyChips{display:grid;grid-template-columns:repeat(10,minmax(0,1fr));gap:6px;margin:6px 0 1px 29px} /* 英雄圖間隔 7px（2026-08-06 使用者指定；扣掉兩邊各 1.5px 勝負描邊，描邊之間淨 4px） */
+  .dlyChips{display:grid;grid-template-columns:repeat(auto-fill,minmax(max(32px,calc((100% - 54px) / 10)),1fr));gap:6px;margin:6px 0 1px 29px} /* 最多 10 欄、每格至少 34px：卡片窄就換行，不硬擠 */ /* 英雄圖間隔 7px（2026-08-06 使用者指定；扣掉兩邊各 1.5px 勝負描邊，描邊之間淨 4px） */
   /* 勝負描邊圈畫在**圖本身**上，不要畫在外層 span（2026-09-05 使用者回報「英雄圖下方有點被
      下一列切到」）。原因：champIco() 產的 <img> 在外層 span 裡會比 span 的盒子低 1px，
      box-shadow 是繞著 span 畫的 ⇒ 圖把下緣的圈蓋掉，實測像素 上1.5／下0.5／左1.5／右1.5，
      看起來就是「下面被切掉」。畫在 img 上就永遠貼合，四邊都是 1.5。
      ⚠ 這條只有**像素**驗得出來：getBoundingClientRect 與 offsetTop 都會說「對齊」（我被騙過兩次），
      驗收要用 scratchpad 的 dly_px_ab.py 那種量圈厚度的方式。 */
-  .dlyChip{display:inline-block;line-height:0;border-radius:6px}
-  .dlyChip img{display:block;width:100%;height:auto;aspect-ratio:1/1;object-fit:cover}
+  .dlyChip{display:block;width:100%;line-height:0;border-radius:6px} /* 撐滿格子（inline-block 會縮成圖的大小） */
+  .dlyChip img{display:block;width:100%;height:auto;aspect-ratio:1/1;object-fit:cover;border-radius:5px}
   .dlyChip.w img{box-shadow:0 0 0 2px var(--gold)} /* 2026-10-18 使用者：贏的黃框、輸的不加框 */
   .dlyMore{align-self:center;font-size:11px;opacity:.5;margin-left:2px}
   .sqSortH{cursor:pointer;user-select:none} .sqSortH:hover{color:var(--acc)}
@@ -12481,6 +12481,11 @@ function render(){
     const wrap=document.getElementById("pdWrap");
     if(!window._pdLz){ window._pdLz=1; lazyLoad("pred").then(()=>{ if(curView==="預測")render(); }); }
     if(!EV||!EV.teams){ wrap.innerHTML=`<div class="card"><span class="sumEmpty">${en2?"No Worlds roster for this year yet.":"今年的世界賽名單還沒進資料庫。"}</span></div>`; }
+    // 整頁結果快取（使用者 2026-10-18：純模擬／含本屆戰況切換會卡）：一次要跑 4000 次世界賽模擬＋各題統計 ≈0.4 秒，
+    //   同一份資料兩種模式各算一次就記住，來回切換直接換 HTML。鍵＝模式＋語言＋年份＋各份資料的版本（任一份更新就重算）。
+    else if((()=>{ const k=[V.pdLive?1:0,LANG,curYear,GAMES.length,HY.length,(window.PRED_LIVE||{}).at||"",(window.PRED_EXT||[]).length,
+        JSON.stringify(window.PRED_EXT||[]).length,window.PRED_SQ?Object.keys(window.PRED_SQ).length:0,EV.teams.length].join("|");
+      window._PDK=k; const c=window._PDC&&window._PDC[k]; if(c){ wrap.innerHTML=c; return true; } return false; })()){}
     else{
     const bt=o=>o.raw[C.blue_teamname], rt=o=>o.raw[C.red_teamname];
     // 名單隊名跟比賽資料對不上時去掉括號後綴（Leaguepedia 寫「LYON (2024 American Team)」、資料是「LYON」——
@@ -13067,10 +13072,15 @@ function render(){
             return `<div class="pdRow">${teamLogoHTML(tAb(w),22,true)}<span>${esc(tAb(w))}</span><span class="pdN">${en2?"vs":"勝"}</span>${teamLogoHTML(tAb(l),22,true)}<span>${esc(tAb(l))}</span><span class="pdV">${pct(SIM.fastPair[k]/stN)}</span></div>`; }).join(""))
         +col(H_PAST,histRows((y,h)=>h.shortest[0]?rowT(y,`${esc(tAb(h.shortest[0][1]))} ${mm(h.shortest[0][0])}`):""))+col(H_LIVE,L.n?liveRows(L):notYet))); }
     wrap.innerHTML=`<div class="pdList">${cards.join("")}</div>`;
+    { const C2=window._PDC=window._PDC||{}; if(Object.keys(C2).length>6)window._PDC={}; window._PDC[window._PDK]=wrap.innerHTML; }
     }
     const hb=document.getElementById("fHelp"); if(hb)hb.onclick=e=>{e.stopPropagation(); toggleHelpPop(hb);};
     document.getElementById("pdShot").onclick=()=>shotEl(document.getElementById("pdWrap"),en2?"Predictions":"預測");
-    segBind("pdLiveSeg",v=>{ const on=v==="1"; if(on===!!V.pdLive)return; V.pdLive=on; saveState(); render(); });   // 模型「含本屆戰況」開關
+    // 模型「含本屆戰況」開關：先讓按鈕亮、內容淡掉（下一格畫面才開始算），不會看起來像當掉；算過的模式走上面的快取
+    segBind("pdLiveSeg",v=>{ const on=v==="1"; if(on===!!V.pdLive)return; V.pdLive=on; saveState();
+      document.querySelectorAll("#pdLiveSeg button").forEach(b=>b.classList.toggle("on",b.dataset.v===v));
+      const w=document.getElementById("pdWrap"); if(w&&!(window._PDC&&window._PDC[String(window._PDK||"").replace(/^\d/,on?"1":"0")]))w.style.opacity=".45";
+      requestAnimationFrame(()=>setTimeout(()=>{ if(curView==="預測")render(); },0)); });
   }
   else if(curView==="比賽BP"){
     // 自動偵測「資料缺局」：系列已在下方分組時合併跨午夜的同一場（相鄰日、局序遞增）。此處判斷：
@@ -16886,7 +16896,7 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
         const src=k&&((typeof POS_B64!=="undefined"&&POS_B64[k])||(typeof POS_IMG!=="undefined"&&POS_IMG[k]));
         return src?`<img class="dlyPosIc" src="${src}" alt="${k}" title="${x?(en?x[1]:x[0]):k}" onerror="this.replaceWith(document.createTextNode('${x?x[0]:"–"}'))">`
                   :`<span class="dlyPos">${x?(en?x[1]:x[0]):"–"}</span>`; };
-      const chip=(c,w)=>`<span class="dlyChip${w?" w":" ls"}" title="${esc(chName(champId(c)))}${en?(w?" · win":" · loss"):(w?"・勝":"・敗")}">${champIco(c,48)}</span>`;
+      const chip=(c,w)=>`<span class="dlyChip${w?" w":" ls"}" title="${esc(chName(champId(c)))}${en?(w?" · win":" · loss"):(w?"・勝":"・敗")}"><img loading="lazy" data-cid="${champId(c)}" data-fbmode="hide" onerror="champImgFb(this)" src="${chIcoUrl(yearVer(),champId(c))}" alt=""></span>`;   /* 不用 champIco：它的行內 width 會蓋掉格子寬（2026-10-18 圖疊在一起） */
       // 積分（牌位＋LP）：大師以上直接看 LP，其餘顯示段位；抓不到帳號顯示 —
       const rankTag=pl=>{ if(!pl.tier||pl.found===false)return `<span class="dlyTier" style="opacity:.32">—</span>`;
         const t=tierLabel({tier:pl.tier,division:pl.division});
