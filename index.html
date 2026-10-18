@@ -16936,8 +16936,8 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
       // 積分（牌位＋LP）：大師以上直接看 LP，其餘顯示段位；抓不到帳號顯示 —
       const rankTag=(pl,lpd)=>{ if(!pl.tier||pl.found===false)return `<span class="dlyTier" style="opacity:.32">—</span>`;
         const t=tierLabel({tier:pl.tier,division:pl.division});
-        // 牌位後括號＝範圍內 LP 增減（使用者 2026-10-18：菁英2314(+88)）；白字（使用者同日改）
-        return `<span class="dlyTier" style="color:${TIER_COL[pl.tier]||"var(--tx2)"}">${esc(t)}${pl.lp!=null?`<i class="num">${pl.lp}</i>`:""}${lpd!=null?`<i class="num" style="margin-left:1px;color:var(--tx)">(${lpd>0?"+":""}${lpd})</i>`:""}</span>`; };
+        // 牌位後括號＝範圍內 LP 增減（使用者 2026-10-18：菁英2314(+88)）；顏色同牌位（使用者同日改）
+        return `<span class="dlyTier" style="color:${TIER_COL[pl.tier]||"var(--tx2)"}">${esc(t)}${pl.lp!=null?`<i class="num">${pl.lp}</i>`:""}${lpd!=null?`<i class="num" style="margin-left:1px">(${lpd>0?"+":""}${lpd})</i>`:""}</span>`; };
       const teamCard=ab=>{
         const pls=teams[ab].slice().sort((x,y)=>((ROLE_ORD[x.role]==null?9:ROLE_ORD[x.role])-(ROLE_ORD[y.role]==null?9:ROLE_ORD[y.role]))||String(x.player).localeCompare(String(y.player)));
         const lg=primaryLg(ab), col=lg?(LGC[lg]||"var(--tx2)"):"var(--tx2)"; const grp=(lg==="LPL"&&!CUP_LGS.includes(V.rankRegion))?lplSplitGroupOf(ab,curYear,lplSel):null; /* 篩國際賽不寫 LPL 分組（使用者 2026-10-18：都是季後賽打上來的） */ let gw=0,gn=0;
