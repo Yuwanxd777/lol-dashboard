@@ -16868,6 +16868,7 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
     // ── 每日戰況：各隊一區塊，每位選手範圍內(昨天/近3/近7天)逐場英雄＋勝負(勝藍敗紅)。資料＝soloq_recent.js(懶載，build_soloq_index.py 產) ──
     const paintDaily=()=>{
       const box=document.getElementById("dailyBox"); if(!box)return;
+      if(typeof RUNE_MAP!=="undefined"&&!RUNE_MAP)loadRunes();   // 英雄圖小框的符文圖要用（滑過才產生，不必重畫）
       const REC=window.SOLOQ_RECENT, en=LANG==="en";
       if(!REC){ lazyLoad("recent").then(()=>{ if(curView==="積分"&&V.rankView==="daily")render(); });
         box.innerHTML=`<div class="note">${en?"loading daily games…":"載入每日戰況中…"}</div>`; return; }
@@ -16956,17 +16957,21 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
       box.innerHTML=`<div class="meta" style="margin:-2px 0 12px;line-height:1.65">${en?"Showing ":"顯示 "}<b style="color:var(--tx)">${headLb}</b> · ${teamNames.length}${en?" teams":" 隊"} · ${en?"grey champion = loss":"英雄圖變灰＝輸"} · ${en?"click a name for the full game log":"點選手名看完整逐場"}</div>
         ${teamNames.length?`<div class="dlyGrid">${teamNames.map(teamCard).join("")}</div>`:`<div class="note">${en?"No ranked players match the current filters.":"目前篩選沒有符合的積分選手。"}</div>`}`;
       // 英雄圖滑過＝該場小框（使用者 2026-10-18）：英雄／勝敗／K/D/A／評分／LP／時長／對位／開打時間（台灣時間）
-      const dlyTip=g=>{ const [c,w,lp,sc,k,d,a,t,dur,o]=g; const kda=((k||0)+(a||0))/Math.max(1,d||0);
-        const row=(lb,v)=>`<div style="display:flex;justify-content:space-between;align-items:center;gap:18px;height:24px"><span class="meta">${lb}</span><span style="display:inline-flex;align-items:center">${v}</span></div>`;   // 每列固定 24px（使用者 2026-10-18：間隔一致）
+      // 英雄圖滑過＝該場小框。順序（使用者 2026-10-18 定）：對位｜對手（職業選手才列）｜KDA｜金差@15｜召喚師技能｜符文｜評分｜開打
+      const dlyTip=g=>{ const [c,w,lp,sc,k,d,a,t,dur,o,gd15,su,rk,rs,op]=g; const kda=((k||0)+(a||0))/Math.max(1,d||0);
+        const row=(lb,v)=>`<div style="display:flex;justify-content:space-between;align-items:center;gap:18px;height:24px"><span class="meta">${lb}</span><span style="display:inline-flex;align-items:center;gap:4px">${v}</span></div>`;   // 每列固定 24px（間隔一致）
         const tw=t?new Date((t+8*3600)*1000):null, ts=tw?`${tw.getUTCMonth()+1}/${tw.getUTCDate()} ${String(tw.getUTCHours()).padStart(2,"0")}:${String(tw.getUTCMinutes()).padStart(2,"0")}`:"";
+        const opT=op?String(op).split("|"):null;
         return `<div class="tipTitle" style="display:flex;align-items:center;gap:8px">${champIco(c,28)}<b>${esc(chName(champId(c)))}</b>`
           +`<b style="color:${w?"#5ea2ff":"#ec6b73"}">${w?(en?"Win":"勝"):(en?"Loss":"敗")}</b></div>`
-          +row("K / D / A",`<b>${k||0} / ${d||0} / ${a||0}</b> <span class="meta">(${kda.toFixed(1)})</span>`)
+          +(o?row(en?"Lane opp.":"對位",`${champIco(o,18)}${esc(chName(champId(o)))}`):"")
+          +(opT?row(en?"Opponent":"對手",`${teamLogoHTML(teamFix(opT[0]),16,true)}<b>${esc(opT[1]||"")}</b>`):"")
+          +row("KDA",`<b>${k||0} / ${d||0} / ${a||0}</b> <span class="meta">(${kda.toFixed(1)})</span>`)
+          +(gd15!=null?row(en?"Gold diff @15":"金差@15",`<b style="color:${gd15>0?"#ff4d4d":gd15<0?"#37c871":"var(--tx)"}">${gd15>0?"+":""}${gd15}</b>`):"")
+          +(su&&su.length?row(en?"Spells":"召喚師技能",(su||[]).map(x=>summImg(x,18)).join("")):"")
+          +(rk?row(en?"Runes":"符文",runeKS({r:rk,rs:[rs]},20)):"")
           +(sc!=null?row(en?"Score":"評分",`<b style="color:${scoreCol7(sc)}">${Math.round(sc*10)/10}</b>`):"")
-          
-          +(dur?row(en?"Length":"時長",`${Math.floor(dur/60)}:${String(dur%60).padStart(2,"0")}`):"")
-          +(o?row(en?"Lane opp.":"對位",`<span style="display:inline-flex;align-items:center;gap:5px">${champIco(o,18)}${esc(chName(champId(o)))}</span>`):"")
-          +(ts?row(en?"Played (TW)":"開打（台灣）",ts):""); };
+          +(ts?row(en?"Played (TW)":"開打",ts):""); };
       box.onmouseover=e=>{ const el=e.target.closest&&e.target.closest(".dlyChip[data-gi]"); if(!el||el===box._tipEl)return; box._tipEl=el; tipShow(dlyTip(_DG[+el.dataset.gi]),el.getBoundingClientRect()); };
       box.onmouseout=e=>{ const el=box._tipEl; if(el&&!(e.relatedTarget&&el.contains(e.relatedTarget))){ box._tipEl=null; tipHide(); } };
       box.querySelectorAll(".rankName[data-detail]").forEach(sp=>sp.onclick=()=>{V.rankDetail=sp.dataset.detail;V.rankDetLane="";V.rankShow=100;V.rankGSort=null;V.rankGChamp="";V.rankGOpp="";V.rankGVs="";saveState();render();});

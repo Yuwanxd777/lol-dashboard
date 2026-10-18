@@ -110,6 +110,7 @@ def _build():
     SKIP = soloq_orphans.skip_keys(OUTDIR)
     players = {}; newest = 0
     recent = {}; rec_cut = (time.time() - RECENT_DAYS*86400) * 1000  # 每日戰況：只收近 RECENT_DAYS 天的逐場
+    by_t = {}   # 開打時間(秒) → [(選手鍵, 英雄)]：同一場 gameCreation 完全相同 ⇒ 對位英雄是哪位收錄選手
     for fp in sorted(glob.glob(os.path.join(OUTDIR, "p*.js"))):
         b = os.path.basename(fp)
         if not re.match(r'p\d+\.js$', b):  # 只認選手逐場檔 pN.js；跳過殘留暫存索引等雜檔(曾把 soloq_match_index.js 掃進來報 group 錯)
@@ -148,9 +149,18 @@ def _build():
             lp = g.get("lp"); lp = lp if isinstance(lp, (int, float)) else 0
             # [英雄, 勝敗, LP 變化, 評分, K, D, A]：後四個給每日戰況算範圍內場均評分／KDA（使用者 2026-10-18）
             byday.setdefault(day, []).append([g.get("c"), 1 if g.get("w") else 0, lp, g.get("sc"), g.get("k", 0), g.get("de", 0), g.get("a", 0),
-                int(t / 1000), g.get("d"), g.get("o")])   # ＋開打時間(秒)、時長(秒)、對位英雄：英雄圖滑過的該場小框用（使用者 2026-10-18）
+                int(t / 1000), g.get("d"), g.get("o"),
+                g.get("gd15"), g.get("su"), g.get("r"), next((x for x in (g.get("rs") or []) if x is not None), None)])
+            # ↑ 小框改版（使用者 2026-10-18）：＋金差@15、召喚師技能、主符文、副系第一個符文；對手職業選手在迴圈後補（第 15 欄）
+            by_t.setdefault(int(t / 1000), []).append((key, g.get("c")))   # ＋開打時間(秒)、時長(秒)、對位英雄：英雄圖滑過的該場小框用（使用者 2026-10-18）
         if byday and key not in SKIP:
             recent[key] = {"r": role, "d": byday}
+    # 對手職業選手：同一場、英雄＝我方這場的對位英雄的另一位收錄選手（「隊|名」；不是收錄選手＝""）
+    for key, v in recent.items():
+        for arr in v["d"].values():
+            for e in arr:
+                cand = [k2 for k2, c2 in by_t.get(e[7], []) if k2 != key and e[9] and c2 == e[9]]
+                e.append(cand[0] if cand else "")
     year = time.gmtime(newest/1000).tm_year if newest else time.gmtime().tm_year
     payload = {"fetched_at": time.strftime("%Y-%m-%d %H:%M"), "year": year, "players": players}
     with open(IDX, "w", encoding="utf-8") as f:
