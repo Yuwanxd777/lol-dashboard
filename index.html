@@ -924,7 +924,10 @@
      驗收要用 scratchpad 的 dly_px_ab.py 那種量圈厚度的方式。 */
   .dlyChip{display:block;width:100%;line-height:0;border-radius:6px} /* 撐滿格子（inline-block 會縮成圖的大小） */
   .dlyChip img{display:block;width:100%;height:auto;aspect-ratio:1/1;object-fit:cover;border-radius:5px}
-  .dlyChip.ls img{filter:grayscale(.85) brightness(.75)} /* 灰度同比賽BP 禁用格（使用者 2026-10-18：原本太灰） */ /* 2026-10-18 使用者：勝負改「輸的變灰暗、贏的原圖」（黃框太醜；比過下方色條／右上圓點） */
+  .dlyChip.ls img{filter:grayscale(.85) brightness(.75)}
+  .dlyAggImg{position:relative;display:block;line-height:0}
+  .dlyAgg .dlyCnt{position:absolute;right:-3px;bottom:-3px;min-width:14px;height:14px;line-height:12px;padding:0 3px;box-sizing:border-box;border-radius:5px;background:#10182a;border:1px solid #3a4a6b;color:#fff;font-weight:700;font-size:10px;font-style:normal;text-align:center} /* 使用次數（比照比賽BP 選角順位小框） */
+  .dlyAgg .dlyWL{display:block;text-align:center;font-size:11px;line-height:13px;margin-top:3px;color:var(--tx2);font-variant-numeric:tabular-nums} /* 灰度同比賽BP 禁用格（使用者 2026-10-18：原本太灰） */ /* 2026-10-18 使用者：勝負改「輸的變灰暗、贏的原圖」（黃框太醜；比過下方色條／右上圓點） */
   .dlyMore{align-self:center;font-size:11px;opacity:.5;margin-left:2px}
   .dlySep{display:flex;align-items:center;justify-content:center;font-size:20px;color:var(--tx2);opacity:.55;line-height:1} /* 換日分隔：占一格英雄圖 */
   .sqSortH{cursor:pointer;user-select:none} .sqSortH:hover{color:var(--acc)}
@@ -16701,7 +16704,7 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
       ${dailyMode?`<button id="rankShot" class="sqbtn" style="order:1" title="${LANG==="en"?"Export daily games as a 1080p PNG":"輸出每日戰況 1080p 截圖"}">📸</button>`:""}
       ${TAB_HELP["積分"]?`<button id="fHelp" class="sqbtn helpBtn" title="${T("本頁說明")}">ℹ️</button>`:""}</div>
       ${dailyMode
-        ? `<div class="card" id="dlyWrap"><h2>📅 ${LANG==="en"?"Daily games by team":"各隊每日戰況"} <span class="sub">${LANG==="en"?"per-player solo queue, grouped by team":"各隊選手單雙排逐日戰況"}</span> ${segHTML("rankDaySeg",[[1,LANG==="en"?"Yesterday":"昨天"],[3,LANG==="en"?"3 days":"近3天"],[7,LANG==="en"?"7 days":"近7天"]],dayRange,"sm","margin-left:8px")}</h2><div id="dailyBox"></div></div>`
+        ? `<div class="card" id="dlyWrap"><h2>📅 ${LANG==="en"?"Daily games by team":"各隊每日戰況"} <span class="sub">${LANG==="en"?"per-player solo queue, grouped by team":"各隊選手單雙排逐日戰況"}</span> ${segHTML("rankDaySeg",[[1,LANG==="en"?"Yesterday":"昨天"],[3,LANG==="en"?"3 days":"近3天"],[7,LANG==="en"?"7 days":"近7天"]],dayRange,"sm","margin-left:8px")}${segHTML("rankDayView",[["detail",LANG==="en"?"Detail":"詳細",LANG==="en"?"every game in order":"逐場列出"],["stat",LANG==="en"?"Summary":"統計",LANG==="en"?"champions grouped with counts":"同英雄合併、標使用次數"]],V.rankDayView==="stat"?"stat":"detail","sm","margin-left:8px")}</h2><div id="dailyBox"></div></div>`
         : `<div class="card"><h2>🏆 ${T("積分")} <span class="sub">${LANG==="en"?"solo queue ranked, highest first | click a column to sort":"單雙排積分，高到低｜點欄位名排序"}</span> <span class="sub">·&nbsp;${LANG==="en"?"per-game / score / champ-pool data from":"逐場・評分・角色池資料來源"} <a href="https://dpm.lol" target="_blank" rel="noopener" style="color:var(--acc)">dpm.lol</a></span></h2><div id="rankTbl"></div></div>`}`;
     {const dl=document.getElementById("rankQdl");   // 建議清單：戰隊(依選手數多→少、說明=全名 → 打全名也會浮出)＋選手(依場數多→少)
      if(dl&&SD&&Array.isArray(SD.players)&&SD.players.length){
@@ -16935,7 +16938,7 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
         const src=k&&((typeof POS_B64!=="undefined"&&POS_B64[k])||(typeof POS_IMG!=="undefined"&&POS_IMG[k]));
         return src?`<img class="dlyPosIc" src="${src}" alt="${k}" title="${x?(en?x[1]:x[0]):k}" onerror="this.replaceWith(document.createTextNode('${x?x[0]:"–"}'))">`
                   :`<span class="dlyPos">${x?(en?x[1]:x[0]):"–"}</span>`; };
-      const _DG=[];   // 這次畫出來的每一場（英雄圖滑過的小框照 data-gi 取）
+      const _DG=[], _DA=[];   // 這次畫出來的每一場／統計模式每一格（英雄圖滑過的小框照 data-gi／data-ga 取）
       const chip=(c,w,g)=>`<span class="dlyChip${w?" w":" ls"}"${g?` data-gi="${_DG.push(g)-1}"`:""}><img loading="lazy" data-cid="${champId(c)}" data-fbmode="hide" onerror="champImgFb(this)" src="${chIcoUrl(yearVer(),champId(c))}" alt=""></span>`;   /* 不用 champIco：它的行內 width 會蓋掉格子寬（2026-10-18 圖疊在一起） */
       // 積分（牌位＋LP）：大師以上直接看 LP，其餘顯示段位；抓不到帳號顯示 —
       const rankTag=(pl,lpd)=>{ if(!pl.tier||pl.found===false)return `<span class="dlyTier" style="opacity:.32">—</span>`;
@@ -16954,7 +16957,10 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
             if(cand.length){ const best=cand.reduce((m,x)=>x._sc>m._sc?x:m); pl={...pl,tier:best.tier,division:best.division,lp:best.lp,found:best.found}; } }
           const rec=`<span class="dlyRec"><span class="meta" style="font-weight:400;font-size:12px;margin-right:3px">${en?"W-L":"勝敗"}</span><span class="w">${ag.w}</span><span class="s">-</span><span class="l">${ag.l}</span></span>`;
           // 全部列出、不截成「+N」（使用者 2026-10-18；換日分隔試過後撤回）
-          const chips=ag.gs.map(g=>chip(g[0],g[1],g)).join("");
+          // 統計模式（使用者 2026-10-18）：同英雄合併成一格，右下角＝使用次數、下方＝勝-敗；依次數多→少（同次數勝場多的在前）
+          const chips=V.rankDayView==="stat"?(()=>{ const M=new Map(); ag.gs.forEach(g=>{ const e=M.get(g[0])||{c:g[0],n:0,w:0,k:0,d:0,a:0,ss:0,sn:0}; e.n++; if(g[1])e.w++; e.k+=g[4]||0; e.d+=g[5]||0; e.a+=g[6]||0; if(g[3]!=null){e.ss+=g[3];e.sn++;} M.set(g[0],e); });
+              return [...M.values()].sort((x,y)=>y.n-x.n||y.w-x.w).map(e=>`<span class="dlyChip dlyAgg" data-ga="${_DA.push(e)-1}"><span class="dlyAggImg"><img loading="lazy" data-cid="${champId(e.c)}" data-fbmode="hide" onerror="champImgFb(this)" src="${chIcoUrl(yearVer(),champId(e.c))}" alt=""><i class="dlyCnt">${e.n}</i></span><span class="dlyWL">${e.w}-${e.n-e.w}</span></span>`).join(""); })()
+            :ag.gs.map(g=>chip(g[0],g[1],g)).join("");
           const stat=(ag.kda!=null?`<span class="dlyStat"><span class="meta">KDA</span>${ag.kda}</span>`:"")
             +(ag.sc!=null?`<span class="dlyStat"><span class="meta">${en?"Score":"評分"}</span><b style="color:${scoreCol7(ag.sc)}">${ag.sc}</b></span>`:"");
           return `<div class="dlyRow"><div class="dlyLine">${roleTag(pl.role)}${nm}<span class="dlyStats">${rankTag(pl,ag.lpd)}${stat}${rec}</span></div><div class="dlyChips">${chips}</div></div>`;
@@ -16980,13 +16986,20 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
           +(rk?row(en?"Runes":"符文",runeKS({r:rk,rs:[rs]},20)):"")
           +(sc!=null?row(en?"Score":"評分",`<b style="color:${scoreCol7(sc)}">${Math.round(sc*10)/10}</b>`):"")
           +(ts?row(en?"Played (TW)":"開打",ts):""); };
-      box.onmouseover=e=>{ const el=e.target.closest&&e.target.closest(".dlyChip[data-gi]"); if(!el||el===box._tipEl)return; box._tipEl=el; tipShow(dlyTip(_DG[+el.dataset.gi]),el.getBoundingClientRect()); };
+      const aggTip=e=>{ const row=(lb,v)=>`<div style="display:flex;justify-content:space-between;align-items:center;gap:18px;height:24px"><span class="meta">${lb}</span><span>${v}</span></div>`;
+        return `<div class="tipTitle" style="display:flex;align-items:center;gap:8px">${champIco(e.c,28)}<b>${esc(chName(champId(e.c)))}</b></div>`
+          +row(en?"Games":"場數",`<b>${e.n}</b>`)+row(en?"W-L":"勝敗",`<b>${e.w}-${e.n-e.w}</b> <span class="meta">(${Math.round(e.w/e.n*100)}%)</span>`)
+          +row("KDA",`<b>${(e.k/e.n).toFixed(1)} / ${(e.d/e.n).toFixed(1)} / ${(e.a/e.n).toFixed(1)}</b> <span class="meta">(${((e.k+e.a)/Math.max(1,e.d)).toFixed(1)})</span>`)
+          +(e.sn?row(en?"Avg score":"平均評分",`<b style="color:${scoreCol7(e.ss/e.sn)}">${Math.round(e.ss/e.sn*10)/10}</b>`):""); };
+      box.onmouseover=e=>{ const el=e.target.closest&&e.target.closest(".dlyChip[data-gi],.dlyChip[data-ga]"); if(!el||el===box._tipEl)return; box._tipEl=el;
+        tipShow(el.dataset.ga!=null?aggTip(_DA[+el.dataset.ga]):dlyTip(_DG[+el.dataset.gi]),el.getBoundingClientRect()); };
       box.onmouseout=e=>{ const el=box._tipEl; if(el&&!(e.relatedTarget&&el.contains(e.relatedTarget))){ box._tipEl=null; tipHide(); } };
       box.querySelectorAll(".rankName[data-detail]").forEach(sp=>sp.onclick=()=>{V.rankDetail=sp.dataset.detail;V.rankDetLane="";V.rankShow=100;V.rankGSort=null;V.rankGChamp="";V.rankGOpp="";V.rankGVs="";saveState();render();});
     };
     const rq=document.getElementById("rankQ"); if(rq){ rq.value=V.rankQ||""; rq.oninput=(()=>{const d=deb(()=>{saveState(); if(V.rankView==="daily")paintDaily();else paint();},150);return()=>{V.rankQ=rq.value;d();};})(); }
     segBind("rankViewSeg",v=>{ if(v===(V.rankView==="daily"?"daily":"ladder"))return; V.rankView=v; saveState(); render(); }); // 排行榜／每日戰況
-    segBind("rankDaySeg",v=>{ if(+v===(V.rankDayRange||1))return; V.rankDayRange=+v; saveState(); render(); });               // 每日戰況天數範圍
+    segBind("rankDaySeg",v=>{ if(+v===(V.rankDayRange||1))return; V.rankDayRange=+v; saveState(); render(); });
+    segBind("rankDayView",v=>{ if(v===(V.rankDayView==="stat"?"stat":"detail"))return; V.rankDayView=v; saveState(); render(); });   // 每日戰況 詳細／統計（使用者 2026-10-18）               // 每日戰況天數範圍
     main.querySelectorAll("[data-role]").forEach(b=>b.onclick=()=>{V.rankRole=b.dataset.role; saveState(); render();}); // 路線篩選
     {const sb=document.getElementById("rankShot"); if(sb)sb.onclick=()=>shotEl(document.getElementById("dlyWrap"),LANG==="en"?"Daily games":"每日戰況");}   // 每日戰況 📸（使用者 2026-10-18）
     main.querySelectorAll("[data-region]").forEach(b=>b.onclick=()=>{V.rankRegion=b.dataset.region; if(b.dataset.region!=="LPL"&&b.dataset.region!=="LCK")V.rankLplGrp=""; else V.rankLplGrp=""; saveState(); render();}); // 賽區篩選(離開 LPL 清組別)
