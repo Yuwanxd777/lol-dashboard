@@ -3577,10 +3577,10 @@ const SPLIT_EN={"熱身賽":"Warm-up","正賽":"Main Event","入圍賽":"Play-In
 const spDisp=sp=>{const t=String(sp||""); const po=/ PO$/.test(t), base=po?t.replace(/ PO$/,""):t;
   const b2=(LANG==="en"&&SPLIT_EN[base])||base;
   return po?b2+(LANG==="en"?" Playoffs":"季後賽"):b2;};
-// 賽事籤底色覆寫（一般＝字色 22 透明度當底）：黑紅／藏青這種「底色才是主調」的活動色。框用 inset 陰影＝不佔寬度
-const LG_CHIP={MSI:{bg:"#0c0c0e",bd:"#b3122b"},DCup:{bg:"#1d3466",bd:"#c9a86a"}};
+// 賽事籤底色覆寫（一般＝字色 22 透明度當底）：黑紅／藏青這種「底色才是主調」的活動色
+const LG_CHIP={MSI:{bg:"#2e0b12"},DCup:{bg:"#1d3466"}};   // 不加框（使用者 2026-10-18：有框跟其他籤不一致）
 const lgChip=l=>{if(!l)return `<span class="meta">—</span>`;const c=LGC[l]||"#8a93a6", o=LG_CHIP[l];
-  return `<span class="lg" style="background:${o?o.bg:c+"22"};color:${c}${o?`;box-shadow:inset 0 0 0 1px ${o.bd}`:""}">${lgName(l)}</span>`;};
+  return `<span class="lg" style="background:${o?o.bg:c+"22"};color:${c}">${lgName(l)}</span>`;};
 // 隊徽（img/teams/{縮寫}.webp＝scripts/fetch_team_logos.py 從 dpm 抓；GEN 的源檔叫 GENG，抓取端已對應）。
 // 2026 用到的 64 個縮寫中 61 個有檔，缺 JPN／SEN／VIE（國家隊，dpm 沒有）→ onerror 自動退回文字縮寫。
 const teamLogoHTML=(ab,size,noText)=>{ ab=teamFix(String(ab||"")); if(!ab)return "";
