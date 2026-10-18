@@ -17,7 +17,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(ROOT, "img_b64.js")
 MIME = {".webp": "image/webp", ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".svg": "image/svg+xml"}
 DIRS = ["img/champ", "img/teams", "img/flags", "img/rune", "img"]
-SKIP = {"img/logo.jpg"}   # 站台 logo 很大、截圖用不到
+SKIP = set()   # img/logo.jpg（網站頭像，5.7KB）截圖右上角要用（2026-10-18）
 
 
 def collect():
