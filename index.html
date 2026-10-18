@@ -16883,11 +16883,11 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
       // REC(有打積分者)：以 teamFix 正規化鍵對應「實際 REC key」——REC/SD 隊縮寫可能不一致(GENG↔GEN、TLAW↔TL、AGAL↔AL)，雙邊都 teamFix 後才比對得上
       const recByNorm={}; Object.keys(REC.players).forEach(rk=>{const i=rk.indexOf("|"); if(i<0)return; const nk=teamFix(rk.slice(0,i))+"|"+rk.slice(i+1); if(!(nk in recByNorm))recByNorm[nk]=rk;});
       const idxRole={}; if(IDX&&IDX.players)Object.keys(IDX.players).forEach(ik=>{const i=ik.indexOf("|"); if(i<0)return; const nk=teamFix(ik.slice(0,i))+"|"+ik.slice(i+1); if(!(nk in idxRole))idxRole[nk]=IDX.players[ik].role;});
-      const aggOf=rk=>{ const p=rk&&REC.players[rk]; if(!p||!p.d)return null; const gs=[], byDay=[]; days.forEach(dd=>{const arr=p.d[dd]; if(arr){arr.forEach(g=>gs.push(g)); byDay.push(arr);}}); if(!gs.length)return null; let w=0,sS=0,sN=0,K=0,D=0,A=0,kN=0,LPd=0,LPn=0; gs.forEach(g=>{if(g[1])w++; if(g[2]&&Math.abs(g[2])<=60){LPd+=g[2];LPn++;} if(g[3]!=null){sS+=g[3];sN++;} if(g.length>4){K+=g[4]||0;D+=g[5]||0;A+=g[6]||0;kN++;}});
+      const aggOf=rk=>{ const p=rk&&REC.players[rk]; if(!p||!p.d)return null; const gs=[], byDay=[]; days.forEach(dd=>{const arr=p.d[dd]; if(arr){arr.forEach(g=>gs.push(g)); byDay.push(arr);}}); if(!gs.length)return null; let w=0,sS=0,sN=0,K=0,D=0,A=0,kN=0,LPd=0,LPn=0; const rids=new Set(); gs.forEach(g=>{if(g[1])w++; if(g[2]&&Math.abs(g[2])<=60){LPd+=g[2];LPn++;} if(g[3]!=null){sS+=g[3];sN++;} if(g.length>4){K+=g[4]||0;D+=g[5]||0;A+=g[6]||0;kN++;} if(g[14])rids.add(String(g[14]).replace(/\s+/g,"").toLowerCase());});
         // 範圍內場均評分／KDA（使用者 2026-10-18；KDA＝(總K+總A)/總D，同排行榜一週 KDA）
         // LP 增減：逐場「LP 變化」加總；dpm 沒給增減時那一場存的是當下總分（如輸了 +1158）⇒ 超過 ±60 的不計
-        return {gs,byDay,lpd:LPn?LPd:null,n:gs.length,w,l:gs.length-w,sc:sN?Math.round(sS/sN*10)/10:null,kda:kN?Math.round((K+A)/Math.max(1,D)*10)/10:null}; };
-      const q=(V.rankQ||"").trim().toLowerCase(), roster={};
+        return {gs,byDay,rids,lpd:LPn?LPd:null,n:gs.length,w,l:gs.length-w,sc:sN?Math.round(sS/sN*10)/10:null,kda:kN?Math.round((K+A)/Math.max(1,D)*10)/10:null}; };
+      const q=(V.rankQ||"").trim().toLowerCase(), roster={}, accByNk={};   // accByNk＝每位選手的所有帳號（牌位改看範圍內實際用的那幾隻）
       // 篩到國家隊賽事時，這位選手要掛在哪一個區塊（沒有就照舊用俱樂部）
       const dlyNatAb=(player,ab)=>{ if(!V.rankRegion)return ab;
         const t=natlTeamOf(player||"",V.rankRegion); return t?(tAb(t)||t):ab; };
@@ -16905,6 +16905,7 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
         if(!pass(ab,p.player,role,p.team))return; const sc=soloqScore(p);
         // 篩國家隊賽事時改用國家隊當區塊（韓國隊的六個人分散在 T1/HLE/GEN，不併起來就看不到整隊）
         const _nb=dlyNatAb(p.player,ab);
+        (accByNk[nk]=accByNk[nk]||[]).push({riotId:p.riotId,_sc:sc,tier:p.tier,division:p.division,lp:p.lp,found:p.found});
         if(!(nk in roster)||sc>roster[nk]._sc) roster[nk]={ab:_nb,club:ab,player:p.player,riotId:p.riotId,role,reckey:rk,_sc:sc,
           tier:p.tier,division:p.division,lp:p.lp,found:p.found}; });   // 帶上牌位/LP：每日戰況每列要顯示積分
       // ② 有打積分(soloq_recent 有逐場)但不在名冊的（換隊／找不到牌位帳號）也一律列出
@@ -16944,6 +16945,9 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
           const nm=`<span class="dlyNm${clk?" rankName":""}"${clk?` data-detail="${esc(pl.riotId)}" title="${en?"view games":"看逐場"}"`:""}>${esc(pl.player)}</span>`;
           if(!ag) return `<div class="dlyRow idle"><div class="dlyLine">${roleTag(pl.role)}${nm}<span class="dlyStats">${rankTag(pl)}</span></div></div>`; // 沒打積分＝留白，不特別標註
           gw+=ag.w; gn+=ag.n;
+          // 牌位＝範圍內實際用過的帳號：一隻就列那隻、兩隻以上列最高的（使用者 2026-10-18）；對不到帳號照舊（全部帳號中最高）
+          { const nk2=pl.club+"|"+pl.player, cand=(accByNk[nk2]||[]).filter(x=>ag.rids.has(String(x.riotId||"").replace(/\s+/g,"").toLowerCase()));
+            if(cand.length){ const best=cand.reduce((m,x)=>x._sc>m._sc?x:m); pl={...pl,tier:best.tier,division:best.division,lp:best.lp,found:best.found}; } }
           const rec=`<span class="dlyRec"><span class="meta" style="font-weight:400;font-size:12px;margin-right:3px">${en?"W-L":"勝敗"}</span><span class="w">${ag.w}</span><span class="s">-</span><span class="l">${ag.l}</span></span>`;
           // 全部列出、不截成「+N」（使用者 2026-10-18；換日分隔試過後撤回）
           const chips=ag.gs.map(g=>chip(g[0],g[1],g)).join("");
@@ -16958,7 +16962,7 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
         ${teamNames.length?`<div class="dlyGrid">${teamNames.map(teamCard).join("")}</div>`:`<div class="note">${en?"No ranked players match the current filters.":"目前篩選沒有符合的積分選手。"}</div>`}`;
       // 英雄圖滑過＝該場小框（使用者 2026-10-18）：英雄／勝敗／K/D/A／評分／LP／時長／對位／開打時間（台灣時間）
       // 英雄圖滑過＝該場小框。順序（使用者 2026-10-18 定）：對位｜對手（職業選手才列）｜KDA｜金差@15｜召喚師技能｜符文｜評分｜開打
-      const dlyTip=g=>{ const [c,w,lp,sc,k,d,a,t,dur,o,gd15,su,rk,rs,op]=g; const kda=((k||0)+(a||0))/Math.max(1,d||0);
+      const dlyTip=g=>{ const [c,w,lp,sc,k,d,a,t,dur,o,gd15,su,rk,rs,rid,op]=g; const kda=((k||0)+(a||0))/Math.max(1,d||0);
         const row=(lb,v)=>`<div style="display:flex;justify-content:space-between;align-items:center;gap:18px;height:24px"><span class="meta">${lb}</span><span style="display:inline-flex;align-items:center;gap:4px">${v}</span></div>`;   // 每列固定 24px（間隔一致）
         const tw=t?new Date((t+8*3600)*1000):null, ts=tw?`${tw.getUTCMonth()+1}/${tw.getUTCDate()} ${String(tw.getUTCHours()).padStart(2,"0")}:${String(tw.getUTCMinutes()).padStart(2,"0")}`:"";
         const opT=op?String(op).split("|"):null;

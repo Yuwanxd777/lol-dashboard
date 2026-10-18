@@ -150,7 +150,8 @@ def _build():
             # [英雄, 勝敗, LP 變化, 評分, K, D, A]：後四個給每日戰況算範圍內場均評分／KDA（使用者 2026-10-18）
             byday.setdefault(day, []).append([g.get("c"), 1 if g.get("w") else 0, lp, g.get("sc"), g.get("k", 0), g.get("de", 0), g.get("a", 0),
                 int(t / 1000), g.get("d"), g.get("o"),
-                g.get("gd15"), g.get("su"), g.get("r"), next((x for x in (g.get("rs") or []) if x is not None), None)])
+                g.get("gd15"), g.get("su"), g.get("r"), next((x for x in (g.get("rs") or []) if x is not None), None),
+                g.get("rid") or ""])   # 第 15 欄＝哪個帳號打的：每日戰況牌位改列「範圍內實際用的帳號」（使用者 2026-10-18）；對手職業選手在迴圈後補成第 16 欄
             # ↑ 小框改版（使用者 2026-10-18）：＋金差@15、召喚師技能、主符文、副系第一個符文；對手職業選手在迴圈後補（第 15 欄）
             by_t.setdefault(int(t / 1000), []).append((key, g.get("c")))   # ＋開打時間(秒)、時長(秒)、對位英雄：英雄圖滑過的該場小框用（使用者 2026-10-18）
         if byday and key not in SKIP:
