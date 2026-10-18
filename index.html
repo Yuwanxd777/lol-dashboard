@@ -3601,7 +3601,7 @@ const spLink=(lg,sp,txt,anyIfMiss)=>{ const h=wikiHref(lg,sp,anyIfMiss);
 const lgTagOn=()=>F.league==="ALL"||!!LG_GROUP[F.league]||F.league==="EWCQ"; // 全部或群組篩選＝混合聯賽 → 名稱旁要標賽區
 const stripRgnParen=s=>String(s).replace(/（[^（）]*）\s*$/,""); // 名稱旁已有賽區色塊(lgChip)時，去掉碰撞縮寫尾端重複的（聯賽碼）；選手名不以（）結尾＝無操作
 // 賽段顯示名：資料值用 " PO" 標季後賽，畫面一律寫成「◯◯季後賽」（2026-07-31 使用者指定）
-const SPLIT_EN={"熱身賽":"Warm-up","正賽":"Main Event","入圍賽":"Play-In","升降賽":"Promotion",
+const SPLIT_EN={"熱身賽":"Warm-up","正賽":"Main Event","入圍賽":"Play-In","升降賽":"Promotion","世界賽資格賽":"Worlds Qualifier",
   "春季":"Spring","夏季":"Summer","冬季":"Winter","台港澳錦標賽":"Taiwan Regional Finals",
   "北區":"North","南區":"South","東區":"East","西區":"West","其他":"Other"};
 const spDisp=sp=>{const t=String(sp||""); const po=/ PO$/.test(t), base=po?t.replace(/ PO$/,""):t;
@@ -3757,8 +3757,10 @@ function initData(){
       const _pa=String(r[C.patch]||""), _mn=_WLD_MAIN[String(r[C.date]).slice(0,4)];
       if(_pa&&!(_mn&&_mn.has(_pa))){
         const _h=_homeLgOf(r[C.blue_teamname])||_homeLgOf(r[C.red_teamname]);
-        const _rg=_h&&LEAGUE_META[_h]&&LEAGUE_META[_h].region||"";
-        r[C.league]="WQS"+_rg;}}
+        // 2026-10-18 使用者：不要獨立的「WQS中國」，改成**該聯賽＋賽段「世界賽資格賽」**（像世界賽「入圍賽」那樣），
+        //   總體來說它算 LPL；所有年份同樣處理。找不到所屬聯賽才退回舊的 WQS{賽區}
+        if(_h){ r[C.league]=_h; r[C.split]="世界賽資格賽"; }
+        else{ const _rg=_h&&LEAGUE_META[_h]&&LEAGUE_META[_h].region||""; r[C.league]="WQS"+_rg; }}}
     // OE 偶發把選手名寫成「隊縮寫␣ID」(如 AG.AL 的「AGAL Tarzan」)：與該列自隊縮寫相符的前綴剝掉——否則同人分裂、積分頁誤列缺帳號
     if(C.blue_playername!=null&&C.blue_teamname!=null)for(const off of [0,RB]){
       const pn=r[C.blue_playername+off]; if(!pn)continue;
@@ -3775,6 +3777,7 @@ function initData(){
     const m2=/^S(\d+)$/.exec(b2); if(m2)return (+m2[1])*10+po;
     if(b2==="冬季")return 100+po; if(b2==="春季")return 110+po; if(b2==="夏季")return 120+po;
     if(b2==="TESL")return 125+po;       /* 與 GPL 夏季同期，使用者指定排在夏季之後 */
+    if(b2==="世界賽資格賽")return 128+po; /* 各聯賽的世界賽資格賽：季後賽之後、世界賽入圍賽之前 */
     if(b2==="入圍賽")return 130+po;      /* 世界賽入圍賽一定在夏季之後打 */
     if(/錦標賽$/.test(b2))return 140+po; /* 賽區錦標賽（選世界賽代表）再更後面 */
     return 600+po; }; // 春→夏→其他→升降賽最後
@@ -4231,6 +4234,12 @@ const eventsTreeHTML=()=>{
           if(gcols){ const _n2=uq(base.filter(t2=>!_gns.length||_gns.includes(lplSplitGroupOf(teamFix(tAb(t2)),curYear,sp,_glg))));
             _mc+=`<div class="lgSplitBlk"><span class="lgSplitHd">${spLink(x.lg,sp,esc(spDisp(sp)))}<span class="lgSplitN">${_n2} ${LANG==="en"?"teams":"隊"}</span></span><span class="lgSplitGrps">${gcols}</span></div>`; }
         });
+        // 世界賽資格賽（2026-10-18 使用者：WQS中國 改成 LPL＋賽段「世界賽資格賽」，像世界賽的入圍賽）：
+        //   卡內多一列，打進世界賽的隊上綠勾（與世界賽卡隊伍交集，同舊 WQS 卡的規則）
+        { const _qT=(x._spTeams||{})["世界賽資格賽"], _qArr=_qT?base.filter(t2=>_qT.has(t2)):[];
+          if(_qArr.length){ _qArr.forEach(t2=>_used.add(t2));
+            const _qAdv=byLg["WLDs"]?new Set([...(byLg["WLDs"]._wMain||byLg["WLDs"].teams)].map(t2=>tAb(t2)).filter(ab=>_qArr.some(t2=>tAb(t2)===ab))):null;
+            _mc+=`<div class="lgSplitBlk"><span class="lgSplitHd">${spLink(x.lg,"世界賽資格賽",esc(spDisp("世界賽資格賽")))}<span class="lgSplitN">${uq(_qArr)} ${LANG==="en"?"teams":"隊"}</span></span><span class="lgSplitGrps"><div class="lgGrpCol"><span class="lgGrpChips">${chips(_qArr,_qAdv&&_qAdv.size?_qAdv:advQ,x.tinfo,"世界賽資格賽")}</span></div></span></div>`; } }
         const _rest=base.filter(t2=>!_used.has(t2));
         if(_rest.length)_mc+=`<div class="lgSplitBlk"><span class="lgSplitHd">${LANG==="en"?"Other":"其他"}<span class="lgSplitN">${uq(_rest)} ${LANG==="en"?"teams":"隊"}</span></span><span class="lgSplitGrps"><div class="lgGrpCol"><span class="lgGrpChips">${chips(_rest,advQ)}</span></div></span></div>`;
         mainChips=_mc+extSeg; // 直接顯示分組排版（二段式已依使用者 2026-07-29 撤回，二段式只留在篩選列下拉）
@@ -4726,7 +4735,7 @@ function splitMatch(o,sv){
     return b===t||b.endsWith(t);
   }
   // 世界賽入圍賽歸夏季（使用者定案 2026-07-31：入圍賽屬於世界賽、世界賽屬於夏季）
-  if(sv==="夏季"&&String(o.split||"")==="入圍賽")return true;
+  if(sv==="夏季"&&/^(入圍賽|世界賽資格賽)$/.test(String(o.split||"")))return true;   // 世界賽資格賽同理（2026-10-18）
   return o.split===sv; // 例行賽／季後賽／升降賽：用原始標籤
 }
 // 職業資料的有效版本（2026-07-18，版本選單全站統一配套）：選到積分先行版本（26.14/26.12 職業賽沒打到）時，
@@ -8218,7 +8227,7 @@ function lgPass(o){ // 賽事(聯賽)篩選判定：全部/群組/EWCQ 前綴/LP
   if(!F.league||F.league==="ALL")return true;
   if(/^(LPL|LCK)#/.test(F.league)){ // 賽區分組(值 LPL#Ascend / LCK#Legend)：該場常規賽兩隊都在該組(季後賽/升降不分組)
     const _lg=F.league.slice(0,3);
-    if(o.league!==_lg)return false; const sp=o.split; if(!sp||/PO$|季後|升降/.test(String(sp)))return false;
+    if(o.league!==_lg)return false; const sp=o.split; if(!sp||/PO$|季後|升降|資格賽/.test(String(sp)))return false;
     const grp=F.league.slice(4);
     // 該賽段沒有分組資料（如 LCK S1/S2；S3 分組已定但比賽未開打）→ 退回最新賽段的分組當「隊伍集合」，
     // 否則選了組別會整片空白（使用者回報 2026-07-29）
@@ -8275,7 +8284,7 @@ function filterOpts(){
   // 錦標賽／入圍賽：不加「例行賽／季後賽」後綴（它們本來就是單一階段），而且同名的多個
   // 錦標賽（台港澳／東南亞）在賽季清單合成一個「錦標賽」，地區留到「賽事」那邊再篩
   //（使用者定案 2026-07-31）
-  const _isT=b=>/錦標賽$|^入圍賽$/.test(String(b));
+  const _isT=b=>/錦標賽$|^入圍賽$|^世界賽資格賽$/.test(String(b));
   // 錦標賽也不列進賽季清單（使用者定案 2026-08-01）：它不是「賽季」而是各聯賽底下的
   // 獨立賽事。有多個錦標賽的聯賽（GPL 的台港澳／東南亞、LLA 的南北區）改由賽事下拉
   // 右邊的子選單挑；只有單一錦標賽的（TCL／CBLOL／LCO／LCL）選該聯賽就等於全部。
