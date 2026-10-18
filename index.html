@@ -2391,7 +2391,7 @@ const TAB_HELP_EN={
 "圖鑑":"<b>This page</b>: the game database; tabs at the top switch sections: Patches / Champions / Items / Runes / Summoner spells / Objectives / Events / Jungle clears (from 2024).\n<b>How-to</b>: most sections are searchable; click a name for details and change history.\n<b>Reading</b>: change colors red = buff, green = nerf, yellow = adjust.\n<b>Note</b>: new / reworked / returning entries get no buff or nerf tag (nothing to compare against).",
 "模擬BP":"<b>This page</b>: build your own bans and picks, with champion pools, role detection and a draft score.\n<b>Layout</b>: simulated games on the left, champion pools in the middle, 🚫 banned so far on the far right (newest game next to the pools).\n<b>How-to</b>: pick <b>Team A / B</b> above to load both pools (range follows the filter bar). Click a pool champion to fill the next slot, or drag / left-click to pick it up and drop it in a slot, right-click to cancel; click a filled slot to remove it, click <b>First / Last pick</b> to swap order, <b>⇄</b> in the pool swaps a substitute; ＋ adds a game.\nEach game’s title: ⧉ copy to the right, ⇄ swap sides, drag to reorder, delete.\nButtons: 📥 import a match, 🎯 recent solo queue (right-click to set the range: one week to six months), 🌐 Fearless / Normal (Fearless removes picked champions from the pool, up to five games, from 2025; Normal allows up to 20 games), 🗑 clear (undo with ←), 📸 screenshot.\n<b>Reading</b>: hover a simulated champion for detailed stats (bans show the opponent’s usage); the same champion glows in every game. Gold glow = only one player on the field plays it, cyan border = several teammates play it, ban icon = opponent comfort pick they haven’t picked.\n<b>Role detection</b>: solid = from the team’s pools, faded = filled from the whole database (click to confirm); no data at all lists all five roles; a role already taken in that game gets a red border; right-click the role icon to assign another role.\n<b>Draft score</b> (under the team name, 0–100, 50 = historical median): hover for the breakdown.\n・Patch strength 20%: strength over the last three patches (with 🎯 on: pro 60% + solo queue 40%)\n・Player comfort 20%: the player’s games and win rate on it, compared with their usual level\n・Team 15%: team win rate on it (vs. the team’s usual) + last-10-games win rate\n・Lane matchup 20%: historical gold diff of the two champions in the lane\n・Bans 10%: round 1 hits meta picks or opponent favorites, round 2 hits opponent signature picks\n・Synergy 5%: top-jungle / jungle-mid / bot-support\n・Flex 5%: number of champions that can go to two or more roles\n・Composition 5%: physical / magic balance, damage vs. frontline, engage count\nItems without enough data count as 50; the reference is all events of the year, not the filters; imported games are scored with that game’s own patch and form.\n<b>Accuracy</b>: walk-forward test on 1911 games, the higher score won 57% (a coin flip is 50%); the ceiling for draft alone is about 58.5% — results mostly come down to execution. Matchup, flex and bans have almost no predictive power and stay because they describe the draft itself.\n<b>Note</b>: imported games can swap champions but not pick order; the pools switch to the players who actually played that series.",
 "英雄Tier":"<b>This page</b>: rank champions into tiers (S / A / B…).\n<b>How-to</b>: drag or left-click a champion in the pool on the right → drop it into a tier row on the left (drag between rows, drag back or click to return, right-click to cancel); the pool is searchable, and a team filter sits above.\nTier rows: rename, click the color swatch to recolor, ✕ removes the tier (champions return to the pool), ＋ adds a tier, ⠿ drags to reorder.\nButtons: 🎯 Solo queue / 📊 Pro / ✏️ Custom (each saved separately), Roles｜Mixed (in Mixed, click a role icon to toggle that role), 🗑 clear, 📸 screenshot.\n<b>Reading</b>: data modes tier automatically from the current filters and rebuild when the filters change (champions you added by hand stay); solo queue tiers run S–D, pro data adds a pocket-pick tier. Hover a champion for stats; border red = buff, green = nerf, yellow = adjust. In Roles mode, while dragging a gold dashed slot = droppable, red border = it can’t play that role.\n<b>Note</b>: scores are not rounded up (89.9 stays in A).",
-"積分":"<b>This page</b>: pro players’ solo queue, two views: <b>🏆 Ladder</b> / <b>📅 Recent solo queue</b>.\n<b>Filters</b>: search a player or team; role; <b>Region</b> is multi-select with intersection (e.g. WCS + LCK = only the LCK teams at Worlds). Leagues are judged by <b>team</b>; cups / international events by whether the <b>player</b> actually played (WCS also uses the wiki roster). Picking only LPL or LCK adds a group sub-filter (playoffs have no groups). National-team events (Asian Games) show the national team; hover for the club.\n<b>🏆 Ladder</b>: sorted by weekly Rating by default; click a column header to re-sort; ★ favorites stay on top. Tiers go Challenger > Grandmaster > Master > Diamond…, Master and above by LP. Players with no games in 7 days are hidden (except favorites); players without a found account go to the bottom. The week rolls over at 10:00 Taiwan time.\nClick a <b>player</b> for their game log (all accounts merged, pro role only): filter by champion / opponent champion / opponent player; hover skills for level order and items for build order.\n<b>📅 Recent solo queue</b>: one card per team; range <b>Yesterday / 3 days / 7 days / 14 days</b> (a day = 10:00 to 10:00 Taiwan time). Each player shows tier (LP change), KDA, Rating, W-L and champion icons (grey = loss); hover an icon for matchup, opponent, KDA, GD@15, summoner spells, runes, Rating and start time. <b>Detail｜Stats</b>: Stats merges each champion with games and W-L. Teams are ordered by region → Worlds seed → win rate.\n📸 full image (one long PNG) / medium (one region per image) / small (one team per image); medium and small are always 1080×1350.\n<b>Note</b>: each player shows only their highest-ranked account; players with no pro games this year are not listed. LP change = difference of the daily 10:00 Riot API snapshots; with several accounts in range, the highest one is shown.\nAccount sources: OBGG, dpm, trackingthepros; CN Rift Summit (峽谷之巔) accounts and accounts idle for two months are filtered out."
+"積分":"<b>This page</b>: pro players’ solo queue, two views: <b>🏆 Ladder</b> / <b>📅 Recent solo queue</b>.\n<b>Filters</b>: search a player or team; role; <b>Region</b> is multi-select with intersection (e.g. WCS + LCK = only the LCK teams at Worlds). Leagues are judged by <b>team</b>; cups / international events by whether the <b>player</b> actually played (WCS also uses the wiki roster). Picking only LPL or LCK adds a group sub-filter (playoffs have no groups). National-team events (Asian Games) show the national team; hover for the club.\n<b>🏆 Ladder</b>: sorted by weekly Rating by default; click a column header to re-sort; ★ favorites stay on top. Tiers go Challenger > Grandmaster > Master > Diamond…, Master and above by LP. Players with no games in 7 days are hidden (except favorites); players without a found account go to the bottom. The week rolls over at 10:00 Taiwan time.\nClick a <b>player</b> for their game log (all accounts merged, pro role only): filter by champion / opponent champion / opponent player; hover skills for level order and items for build order.\n<b>📅 Recent solo queue</b>: one card per team; range <b>Yesterday / 3 days / 7 days / 14 days</b> (a day = 10:00 to 10:00 Taiwan time). Each player shows tier (LP change), KDA, Rating, W-L and champion icons (grey = loss); hover an icon for matchup, opponent, KDA, GD@15, summoner spells, runes, Rating and start time. <b>Detail｜Stats</b>: Stats merges each champion with games and W-L. Teams are ordered by region → Worlds seed → win rate.\n📸 full image (one long image) / medium (one region per image) / small (one team per image); medium and small are always 1080×1350.\n<b>Note</b>: each player shows only their highest-ranked account; players with no pro games this year are not listed. LP change = difference of the daily 10:00 Riot API snapshots; with several accounts in range, the highest one is shown.\nAccount sources: OBGG, dpm, trackingthepros; CN Rift Summit (峽谷之巔) accounts and accounts idle for two months are filtered out."
 };
 // ── 浮層定位鐵則（2026-08-06 全站等比縮放之後）────────────────────────────────
 // getBoundingClientRect／clientX／innerWidth 都是**視覺 px**，而 style.top/left/width
@@ -8947,7 +8947,7 @@ const applyFont=k=>{const f=FONT_SETS[k]||FONT_SETS.huninn;
   window._fitEpoch=(window._fitEpoch||0)+1;   // 字寬變了：fitAutoTable 的記憶化作廢
   if(window.refitLayout){ requestAnimationFrame(()=>refitLayout()); setTimeout(()=>{window._fitEpoch=(window._fitEpoch||0)+1; try{refitLayout();}catch(e){}},450); }};
 applyFont(localStorage.getItem('dash_font')||'huninn');
-// 通用截圖：把指定元素離屏複製一份 → html2canvas 輸出 1920px 寬 PNG（prep 可對複本再加工）
+// 通用截圖：把指定元素離屏複製一份 → html2canvas 輸出 1920px 寬 JPG（prep 可對複本再加工）
 // 截圖前的圖片暖身（所有 📸 流程共用）：畫面外的懶載圖（loading=lazy）原頁還沒載過 →
 // html2canvas 內部 iframe 會用「無 CORS」原樣載入畫上 canvas，第一次截圖就 Tainted、重試因快取
 // 成功（時好時壞——2026-08-05 陣容橫式先踩到，近況整頁截圖同病）。把 clone 內所有 https 圖
@@ -9015,7 +9015,7 @@ async function shotEl(src,name,prep,opt){   // opt.scale：指定輸出倍率（
       windowWidth:Math.max(document.documentElement.scrollWidth,clone.scrollWidth)});
     const d=new Date(), pad=x=>String(x).padStart(2,"0"), stamp=`${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}`;
     const save=(c,suffix)=>new Promise(ok=>c.toBlob(bl=>{ const a=document.createElement("a"); a.href=URL.createObjectURL(bl);
-      a.download=`${uidPrefix()}${name}_${stamp}${suffix||""}.png`; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),5000); ok(); },"image/png"));
+      a.download=`${uidPrefix()}${name}_${stamp}${suffix||""}.jpg`; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),5000); ok(); },"image/jpeg",0.95));
     if(!SO||!blocks.length){ await save(cv); }
     else{
       // 使用者 2026-10-18：截圖一律社群用——1080 寬、4:5（1350 高）直式；一張放不下就自動拆成多張、按一次全部下載。
@@ -9097,10 +9097,13 @@ async function shotPages(name,groups,o){
       grid.innerHTML=""; best.p.cols.forEach(x=>{ const col=document.createElement("div"); col.style.cssText=`width:${best.w}px;display:flex;flex-direction:column;gap:${GAP}px`;
         x.ix.forEach(i=>col.appendChild(clones[i])); grid.appendChild(col); });
       host.style.width=(best.c*best.w+(best.c-1)*GAP)+"px";
-      const cv=await html2canvas(host,{backgroundColor:"#0b0e14",useCORS:true,scale:2,width:host.offsetWidth,height:host.scrollHeight,windowWidth:Math.max(document.documentElement.scrollWidth,host.scrollWidth)});
+      // 輸出 2 倍解析度（使用者 2026-10-18「原圖解析度放大一倍」：直式 2160×2700、橫式 3840×2160）。下面的版面一律用 1 倍座標，畫布 g.scale(OS)；
+      //   來源要畫得夠細：最終每 CSS px 會變成 kc×OS 個像素 ⇒ html2canvas 的 scale 至少要這麼大，否則是把小圖硬拉大
+      const OS=2, kc=Math.min(AW/Math.max(1,host.offsetWidth),AH/Math.max(1,host.scrollHeight));
+      const cv=await html2canvas(host,{backgroundColor:"#0b0e14",useCORS:true,scale:Math.max(2,Math.min(6,Math.ceil(kc*OS*100)/100)),width:host.offsetWidth,height:host.scrollHeight,windowWidth:Math.max(document.documentElement.scrollWidth,host.scrollWidth)});
       host.remove();
-      const pc=document.createElement("canvas"); pc.width=CW; pc.height=CH;
-      const g=pc.getContext("2d"); g.fillStyle="#0b0e14"; g.fillRect(0,0,CW,CH); g.imageSmoothingQuality="high";
+      const pc=document.createElement("canvas"); pc.width=CW*OS; pc.height=CH*OS;
+      const g=pc.getContext("2d"); g.scale(OS,OS); g.fillStyle="#0b0e14"; g.fillRect(0,0,CW,CH); g.imageSmoothingQuality="high";
       // 固定頁首（使用者 2026-10-18「標題與日期無論如何都不要縮小，每一張一樣大」）：直接畫在畫布頂端，內容縮進下面剩下的空間
       let top=0; const M2=32;
       if(o.title){ const t=o.title(), ff=getComputedStyle(document.body).fontFamily; top=84;
@@ -9114,7 +9117,7 @@ async function shotPages(name,groups,o){
         g.strokeStyle="rgba(255,255,255,.18)"; g.lineWidth=1.5; g.beginPath(); g.arc(LX+LS/2,LY+LS/2,LS/2,0,Math.PI*2); g.stroke(); }
       if(groups.length>1){ g.fillStyle="rgba(232,236,244,.45)"; g.font="600 15px sans-serif"; g.textAlign="right"; g.textBaseline="middle"; g.fillText(`${i+1}/${groups.length}`,(_logoImg?LX-12:CW-14),LY+LS/2); }
       await new Promise(ok=>pc.toBlob(bl=>{ const a=document.createElement("a"); a.href=URL.createObjectURL(bl);
-        a.download=`${uidPrefix()}${name}_${stamp}${groups.length>1?"_"+(i+1):""}.png`; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),5000); ok(); },"image/png"));
+        a.download=`${uidPrefix()}${name}_${stamp}${groups.length>1?"_"+(i+1):""}.jpg`; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),5000); ok(); },"image/jpeg",0.95));
       if(i<groups.length-1)await new Promise(r=>setTimeout(r,350));
     }
   }catch(e){alert("截圖失敗："+e.message);}
@@ -9127,7 +9130,7 @@ async function shotPages(name,groups,o){
 function shotMenu(btn,full,social,items){
   document.getElementById("shotPop")?.remove();   // 自己的 id：#fselPop 會被賽事下拉的「點外面就關」順手關掉
   const en=LANG==="en", pop=document.createElement("div"); pop.id="shotPop"; pop.style.gridAutoFlow="row";
-  const IT=items||[[`🖼️ ${en?"Full image (one long PNG)":"完整大圖（單張長圖）"}`,full],[`📱 ${en?"Detailed pages (1080×1350, may be several)":"詳細小圖（1080×1350，可能多張）"}`,social]];
+  const IT=items||[[`🖼️ ${en?"Full image (one long image)":"完整大圖（單張長圖）"}`,full],[`📱 ${en?"Detailed pages (1080×1350, may be several)":"詳細小圖（1080×1350，可能多張）"}`,social]];
   pop.innerHTML=IT.map(([t],i)=>`<div class="fselIt" data-k="${i}">${t}</div>`).join("");
   document.body.appendChild(pop);
   const r=(typeof vRect==="function")?vRect(btn):btn.getBoundingClientRect();
@@ -11463,7 +11466,7 @@ function render(){
             lanes:isLanes ? empL() : ((o&&o.lanes)?JSON.parse(JSON.stringify(o.lanes)):empL())};});
         V.tierB={tiers}; V.tierLaneOff={};
         saveState();render();};
-      const tsb=mk("tierShot","📸","截圖 Tier 表（輸出 1080p 畫質 PNG）");
+      const tsb=mk("tierShot","📸","截圖 Tier 表（輸出 1080p 畫質 JPG）");
       {const hb=document.getElementById("fHelp"); if(hb&&tsb)tsb.parentNode.insertBefore(hb,tsb);} // 本頁說明統一擺到截圖(拍照)左邊
       // ↩ 返回上一步已移除：改用篩選列右側「全域返回鍵」(navBack，會還原 tierB)
     }
@@ -11530,9 +11533,9 @@ function render(){
           const a=document.createElement("a");
           a.href=URL.createObjectURL(bl);
           const d=new Date(), pad=x=>String(x).padStart(2,"0");
-          a.download=`${uidPrefix()}${V.tierTeam?tAb(V.tierTeam)+"_":""}Tier_${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}.png`; // 有戰隊篩選＝ID_戰隊縮寫_Tier_日期
+          a.download=`${uidPrefix()}${V.tierTeam?tAb(V.tierTeam)+"_":""}Tier_${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}.jpg`; // 有戰隊篩選＝ID_戰隊縮寫_Tier_日期
           a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),5000);
-        },"image/png");
+        },"image/jpeg",0.95);
       }catch(e){alert("截圖失敗："+e.message);}
       if(clone)clone.remove();
       sb.disabled=false;
@@ -11978,7 +11981,7 @@ function render(){
       const anchor=document.getElementById("fHelp")||document.getElementById("fReset");
       if(anchor&&!document.getElementById("rosterShot")){
         const b2=document.createElement("button"); b2.id="rosterShot"; b2.className="sqbtn";
-        b2.textContent="📸"; b2.title=LANG==="en"?"Screenshot the roster (1080p PNG)":"截圖陣容表（輸出 1080p 畫質 PNG）";
+        b2.textContent="📸"; b2.title=LANG==="en"?"Screenshot the roster (1080p JPG)":"截圖陣容表（輸出 1080p 畫質 JPG）";
         anchor.parentNode.insertBefore(b2,anchor);
         b2.onclick=()=>shotEl(document.getElementById("rosterBox"),
           `${V.rosterTeam?tAb(V.rosterTeam)+"_":""}Roster`,
@@ -12137,7 +12140,7 @@ function render(){
     const en2=LANG==="en";
     main.innerHTML=filterBar(`<label>${T("戰隊A")}</label>${comboHTML("vRecent",T("輸入戰隊"),180)}`
       +`<label>${T("戰隊B")}</label>${comboHTML("vRecent2",T("輸入戰隊"),180)}`
-      +`<button id="rcShot" class="sqbtn" style="order:1" title="${en2?"Export this page as a 1080p PNG":"輸出整頁 1080p 截圖"}">📸</button>`)
+      +`<button id="rcShot" class="sqbtn" style="order:1" title="${en2?"Export this page as a 1080p JPG":"輸出整頁 1080p 截圖"}">📸</button>`)
       +`<div id="rcWrap"></div>`;
     const SERIES_N=5, POSN5={1:"TOP",2:"JNG",3:"MID",4:"BOT",5:"SUP"};
     const dnum=v=>{const p2=String(v).slice(0,10).split("-"); return p2.length===3?Date.UTC(+p2[0],+p2[1]-1,+p2[2])/864e5:0;};
@@ -12623,8 +12626,8 @@ function render(){
         cv.toBlob(bl=>{const a=document.createElement("a"); a.href=URL.createObjectURL(bl);
           const d2=new Date(),pad=x=>String(x).padStart(2,"0");
           const nm=[V.recentTeam,V.recentTeam2].filter(t=>t).map(t=>tAb(t)).join("_vs_");
-          a.download=`${uidPrefix()}${nm}_${en2?"Summary":"摘要"}_${d2.getFullYear()}${pad(d2.getMonth()+1)}${pad(d2.getDate())}.png`;
-          a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),5000);},"image/png");
+          a.download=`${uidPrefix()}${nm}_${en2?"Summary":"摘要"}_${d2.getFullYear()}${pad(d2.getMonth()+1)}${pad(d2.getDate())}.jpg`;
+          a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),5000);},"image/jpeg",0.95);
       }catch(e){alert((en2?"Screenshot failed: ":"截圖失敗：")+e.message);}
       if(clone)clone.remove();
       sb.disabled=false;
@@ -12647,7 +12650,7 @@ function render(){
       // 模型開關（使用者 2026-10-18）：要不要把本屆已經打完的系列帶進模擬推斷
       +segHTML("pdLiveSeg",[["0","🔮 "+(en2?"Pure sim":"純模擬"),en2?"Simulate the whole event from scratch":"整屆從頭模擬（不看本屆已打完的結果）"],
                             ["1","📡 "+(en2?"With live results":"含本屆戰況"),en2?"Lock in finished series, simulate only what is left":"已打完的系列用真實勝負，只模擬還沒打的"]],V.pdLive?"1":"0")
-      +`<span style="flex:1"></span><button id="pdShot" class="sqbtn" style="order:1" title="${en2?"Export this page as a 1080p PNG":"輸出整頁 1080p 截圖"}">📸</button>`
+      +`<span style="flex:1"></span><button id="pdShot" class="sqbtn" style="order:1" title="${en2?"Export this page as a 1080p JPG":"輸出整頁 1080p 截圖"}">📸</button>`
       +`${TAB_HELP[curView]?`<button id="fHelp" class="sqbtn helpBtn" style="order:2" title="${T("本頁說明")}">ℹ️</button>`:""}</div><div id="pdWrap"></div>`;
     const wrap=document.getElementById("pdWrap");
     if(!window._pdLz){ window._pdLz=1; lazyLoad("pred").then(()=>{ if(curView==="預測")render(); }); }
@@ -13251,7 +13254,7 @@ function render(){
         st.textContent="[data-shot] .pdQC{grid-template-columns:1fr!important}[data-shot] .pdCols{grid-template-columns:1fr!important}"; cl.prepend(st); }):null,
       mode==="social"?{social:{w:540,block:".card"}}:undefined);
       const cards=[...document.querySelectorAll("#pdWrap .card")];
-      shotMenu(document.getElementById("pdShot"),null,null,[[`🖼️ ${en2?"Full image (one long PNG)":"完整大圖（單張長圖）"}`,()=>go("full")],
+      shotMenu(document.getElementById("pdShot"),null,null,[[`🖼️ ${en2?"Full image (one long image)":"完整大圖（單張長圖）"}`,()=>go("full")],
         ...[false,true].map(land=>[`${land?"💻":"📱"} ${en2?(land?"Landscape":"Portrait")+" small: one question per image":(land?"橫式":"直式")+"小圖（一題一張）"}`,()=>shotPages(en2?"Predictions":"預測",cards.map(c=>[c]),{colW:900,minW:760,maxW:3600,headH:0,maxCols:1,land,
           title:()=>[en2?`${curYear} Worlds Crystal Ball`:`${curYear} 世界賽水晶球`,en2?"suggested answers":"建議答案"],
           style:"[data-shot] .pdQC{grid-template-columns:1fr!important}"+(land?"":"[data-shot] .pdCols:has(.pdMCol){grid-template-columns:1fr!important}")})])]); };   // 社群模式（使用者 2026-10-18）
@@ -16296,7 +16299,7 @@ function render(){
       // 📸 截圖：擷取全部模擬局，輸出固定 1080p（1920px 寬）畫質
       const sb=document.createElement("button");
       sb.id="bpShot"; sb.className="sqbtn"; sb.style.order="65"; sb.textContent="📸";
-      sb.title="擷取每一局的 BP 資料（輸出 1080p 畫質 PNG）";
+      sb.title="擷取每一局的 BP 資料（輸出 1080p 畫質 JPG）";
       sb.onclick=async()=>{
         const src=wrap.querySelector("#bsGames > div");
         if(!src)return;
@@ -16336,9 +16339,9 @@ function render(){
             a.href=URL.createObjectURL(bl);
             const d=new Date(), pad=x=>String(x).padStart(2,"0");
             const tt=(S2.t1||S2.t2)?`${tAb(S2.t1)||T("戰隊A")}-${tAb(S2.t2)||T("戰隊B")}_`:""; // ID_戰隊A-戰隊B_BP_日期
-            a.download=`${uidPrefix()}${tt}BP_${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}.png`;
+            a.download=`${uidPrefix()}${tt}BP_${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}.jpg`;
             a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),5000);
-          },"image/png");
+          },"image/jpeg",0.95);
         }catch(e){alert("截圖失敗："+e.message);}
         if(clone)clone.remove();
         sb.disabled=false; sb.textContent="📸";
@@ -16859,7 +16862,7 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
       
       <span style="flex:1"></span>
       ${(location.protocol==="file:"||/^(localhost|127\.)/.test(location.hostname))?`<button id="sqApiBtn" class="sqbtn helpBtn" title="${LANG==="en"?"Paste a fresh Riot API key: update ranks now + auto-reuse at the 10:00 daily update":"開 Riot 開發者頁拿金鑰→貼上立即更新牌位；金鑰存本機供每天 10:00 排程自動更新"}">🔑 ${LANG==="en"?"Add API key":"添加API"}</button>`:""}
-      ${dailyMode?`<button id="rankShot" class="sqbtn" style="order:1" title="${LANG==="en"?"Export daily games as a 1080p PNG":"輸出每日戰況 1080p 截圖"}">📸</button>`:""}
+      ${dailyMode?`<button id="rankShot" class="sqbtn" style="order:1" title="${LANG==="en"?"Export daily games as a 1080p JPG":"輸出每日戰況 1080p 截圖"}">📸</button>`:""}
       ${TAB_HELP["積分"]?`<button id="fHelp" class="sqbtn helpBtn" title="${T("本頁說明")}">ℹ️</button>`:""}</div>
       ${dailyMode
         ? `<div class="card" id="dlyWrap"><h2>📅 ${LANG==="en"?"Recent ranked games":"近期積分戰況"} <span class="sub">${LANG==="en"?"per-player solo queue, grouped by team":"各隊選手單雙排逐日戰況"}</span> ${segHTML("rankDaySeg",[[1,LANG==="en"?"Yesterday":"昨天"],[3,LANG==="en"?"3 days":"近3天"],[7,LANG==="en"?"7 days":"近7天"],[14,LANG==="en"?"14 days":"近14天"]],dayRange,"sm","margin-left:8px")}${segHTML("rankDayView",[["detail",LANG==="en"?"Detail":"詳細",LANG==="en"?"every game in order":"逐場列出"],["stat",LANG==="en"?"Summary":"統計",LANG==="en"?"champions grouped with counts":"同英雄合併、標使用次數"]],V.rankDayView==="stat"?"stat":"detail","sm","margin-left:8px")}</h2><div id="dailyBox"></div></div>`
@@ -17187,7 +17190,7 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
         +'[data-shot] .dlyChip img{width:36px!important;height:36px!important;aspect-ratio:auto!important;filter:none!important}[data-shot] .dlyChip.ls img{opacity:.38}';
       const nm=LANG==="en"?"Recent ranked games":"近期積分戰況";   // 檔名
       const byLg=()=>{ const m=new Map(); cards.forEach(c=>{ const k=c.dataset.lg||"-"; (m.get(k)||m.set(k,[]).get(k)).push(c); }); return [...m.values()]; };
-      shotMenu(sb,null,null,[[`🖼️ ${LANG==="en"?"Full image (one long PNG)":"完整大圖（單張長圖）"}`,()=>go("full")],
+      shotMenu(sb,null,null,[[`🖼️ ${LANG==="en"?"Full image (one long image)":"完整大圖（單張長圖）"}`,()=>go("full")],
         // 中圖／小圖各分直式 1080×1350、橫式 1920×1080（使用者 2026-10-18）
         ...[false,true].map(land=>[`${land?"🖥️":"🗂️"} ${LANG==="en"?(land?"Landscape":"Portrait")+" medium: one region per image":(land?"橫式":"直式")+"中圖（一個賽區一張）"}`,()=>shotPages(nm,byLg(),{colW:480,minW:420,title:ttl,headH:0,style:ST,maxCols:land?6:4,land})]),
         ...[false,true].map(land=>[`${land?"💻":"📱"} ${LANG==="en"?(land?"Landscape":"Portrait")+" small: one team per image":(land?"橫式":"直式")+"小圖（一隊一張）"}`,()=>shotPages(nm,cards.map(c=>[c]),{colW:480,minW:420,title:ttl,headH:0,style:ST,maxCols:1,land})])]); };}   // 每日戰況 📸（使用者 2026-10-18）
