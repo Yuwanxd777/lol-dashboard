@@ -12469,6 +12469,9 @@ function render(){
     const EV=(window.EVENTS_EXTRA&&EVENTS_EXTRA[String(curYear)]&&EVENTS_EXTRA[String(curYear)].WLDs)||null;
     const H=window.PRED_HIST||{}, HY=Object.keys(H).sort().reverse();   // 歷屆由近到遠
     main.innerHTML=`<div class="filters"><span class="meta">${en2?`${curYear} Worlds Crystal Ball・suggested answers`:`${curYear} 世界賽水晶球・建議答案`}</span>`
+      // 模型開關（使用者 2026-10-18）：要不要把本屆已經打完的系列帶進模擬推斷
+      +segHTML("pdLiveSeg",[["0","🔮 "+(en2?"Pure sim":"純模擬"),en2?"Simulate the whole event from scratch":"整屆從頭模擬（不看本屆已打完的結果）"],
+                            ["1","📡 "+(en2?"With live results":"含本屆戰況"),en2?"Lock in finished series, simulate only what is left":"已打完的系列用真實勝負，只模擬還沒打的"]],V.pdLive?"1":"0")
       +`<span style="flex:1"></span><button id="pdShot" class="sqbtn" style="order:1" title="${en2?"Export this page as a 1080p PNG":"輸出整頁 1080p 截圖"}">📸</button>`
       +`${TAB_HELP[curView]?`<button id="fHelp" class="sqbtn helpBtn" style="order:2" title="${T("本頁說明")}">ℹ️</button>`:""}</div><div id="pdWrap"></div>`;
     const wrap=document.getElementById("pdWrap");
@@ -12553,12 +12556,29 @@ function render(){
       const B=sxx?sxy/sxx:0, A=my-B*mx, RES={}, ALL=[];
       for(let i=0;i<n;i++){ const e=ys[i]-(A+B*xs[i]); ALL.push(e); (RES[ws[i]]=RES[ws[i]]||[]).push(e); }
       return {A,B,RES,ALL,n}; })();
+    // 本屆實際結果（V.pdLive 開時用）：PL.series（Leaguepedia 打完的系列）→ 依「階段|兩隊」排成時間序，
+    //   局數從主資料本屆的局（gLive）照系列切出來；對不到局數就當最短比分。
+    const LIVE=!!(V.pdLive&&PL&&(PL.series||[]).length);
+    const ACT={}, ACT_SW=[], ACT_KO=[]; let ACT_N=0;
+    if(LIVE){ const abT2=ab=>EVT.find(t=>tAb(t)===ab), stgOf=x=>x.stage==="Play-In"?"po":(/final/i.test(x.tab||"")?"ko":"sw");
+      const GS={}; gLive.slice().sort((a,b)=>(a.dt||a.date)<(b.dt||b.date)?-1:1).forEach(o=>{ const k=[tAb(bt(o)),tAb(rt(o))].sort().join("|"), arr=GS[k]=GS[k]||[];
+        const g=num(o.raw[C.game])||1; if(g===1||!arr.length)arr.push([]); arr[arr.length-1].push(o.result===1?tAb(bt(o)):tAb(rt(o))); });
+      const used={};
+      (PL.series||[]).slice().sort((a,b)=>a.d<b.d?-1:1).forEach(x=>{ const wa=tAb(nmT(x.w)), la=tAb(nmT(x.l)), w=abT2(wa), l=abT2(la); if(!w||!l)return;
+        const pk=[wa,la].sort().join("|"), i=used[pk]=(used[pk]||0), ser=(GS[pk]||[])[i]; used[pk]=i+1;
+        const r={w,l,gw:ser?ser.filter(z=>z===wa).length:null,gl:ser?ser.filter(z=>z===la).length:null,tab:x.tab||""}, st=stgOf(x);
+        (ACT[st+"|"+[w,l].sort().join("|")]=ACT[st+"|"+[w,l].sort().join("|")]||[]).push(r); ACT_N++;
+        if(st==="sw")ACT_SW.push(r); if(st==="ko")ACT_KO.push(r); }); }
     const SIM=(()=>{
       const SIMS=4000; const rnd=mkRng(20261015);
       const pG=(a,b)=>1/(1+Math.exp(strength(b)-strength(a)));
       const T={}; EVT.forEach(t=>T[t]={g:0,w:0,ko:0,champ:0,final:0,place:0,fast:0});
       let fMin=Infinity, fT=null, fL=null, fSt="";
+      let ACTI={};
       const play=(a,b,bo,st)=>{ const need=(bo+1)/2; let x=0,y=0; const p=pG(a,b);
+        if(LIVE){ const k=(st==="r1"?"sw":st)+"|"+[a,b].sort().join("|"), q=ACT[k], i=ACTI[k]||0;
+          if(q&&i<q.length){ ACTI[k]=i+1; const r=q[i], gw=r.gw||need, gl=r.gl!=null?r.gl:0;
+            T[r.w].w+=gw; T[r.l].w+=gl; T[a].g+=gw+gl; T[b].g+=gw+gl; return [r.w,r.l]; } }
         while(x<need&&y<need){ const aw=rnd()<p, w=aw?a:b, l=aw?b:a; if(aw)x++; else y++; T[w].w++; T[a].g++; T[b].g++;
           if(DUR.ALL.length){ const own=DUR.RES[w]||[], rs=(own.length&&rnd()<own.length/(own.length+20))?own:DUR.ALL, e=rs[Math.floor(rnd()*rs.length)];
             const d=Math.exp(DUR.A+DUR.B*(strength(w)-strength(l))+e); if(d<fMin){fMin=d; fT=w; fL=l; fSt=st;} } }
@@ -12573,7 +12593,7 @@ function render(){
         return A.map((a,i)=>[a,B[i]]); };
       const shuffle=a=>{for(let i=a.length-1;i>0;i--){const j=Math.floor(rnd()*(i+1)); [a[i],a[j]]=[a[j],a[i]];} return a;};
       for(let s=0;s<SIMS;s++){
-        const place={}; fMin=Infinity; fT=null; fL=null; fSt="";
+        const place={}; fMin=Infinity; fT=null; fL=null; fSt=""; ACTI={};
         let pin;
         if(PO.length===4){
           // 入圍賽（2026 官方賽程）：雙敗、全部 BO5，取 1。首輪照名單順序配對（FURIA–MVK、C9–KC），
@@ -12589,7 +12609,12 @@ function render(){
         const sw=[...direct,...pin]; const rec={}; sw.forEach(t=>rec[t]=[0,0]);
         let alive=[...sw]; const ko=[]; let guard=0;
         const POOLS=WPOOL&&WPOOL.map(pl=>pl.map(ab=>ab==="PI"?pin[0]:abT(ab)));
-        if(POOLS&&POOLS.every(pl=>pl.length===4&&pl.every(t=>t&&rec[t]))){
+        // 含本屆戰況：瑞士輪已打完的系列直接記進戰績（實際籤表），之後才照戰績分組往下模擬
+        if(LIVE&&ACT_SW.length){ ACT_SW.forEach(r=>{ if(!rec[r.w]||!rec[r.l])return; rec[r.w][0]++; rec[r.l][1]++;
+            const gw=r.gw||1, gl=r.gl!=null?r.gl:0; T[r.w].w+=gw; T[r.l].w+=gl; T[r.w].g+=gw+gl; T[r.l].g+=gw+gl; });
+          alive=sw.filter(t=>rec[t][0]<3&&rec[t][1]<3);
+          sw.forEach(t=>{ if(rec[t][0]===3&&!ko.includes(t))ko.push(t); if(rec[t][1]===3&&place[t]==null)place[t]=2+rec[t][0]/10; }); }
+        else if(POOLS&&POOLS.every(pl=>pl.length===4&&pl.every(t=>t&&rec[t]))){
           [...pairPools(POOLS[0],POOLS[3]),...pairPools(POOLS[1],POOLS[2])].forEach(([a,b])=>{ const [w,l]=play(a,b,1,"r1"); rec[w][0]++; rec[l][1]++; });
         }
         while(alive.length>1&&guard++<8){
@@ -12602,6 +12627,7 @@ function render(){
         }
         // 八強單淘 BO5
         let br=shuffle(ko.slice(0,8));
+        if(LIVE){ const qf=ACT_KO.filter(r=>/quarter/i.test(r.tab)); if(qf.length===4&&qf.every(r=>br.includes(r.w)&&br.includes(r.l)))br=qf.flatMap(r=>[r.w,r.l]); }
         br.forEach(t=>T[t].ko++);
         const regs=new Set(br.map(t=>teamReg[t]||"?")); koReg[regs.size]=(koReg[regs.size]||0)+1;
         if(br.some(t=>teamReg[t]==="LCS"))lcsKO.n++;
@@ -12785,7 +12811,7 @@ function render(){
       const row=t=>`<div class="pdMRow">${teamLogoHTML(tAb(t),22,true)||tLogo(t,22)}<span class="pdMT">${outAb(t)}</span><span class="pdN">${teamReg[t]||""}</span>`
         +`<span>${elo(t)}</span><span>${pct(SIM.T[t].pko)}</span><span>${pct(SIM.T[t].pch)}</span><span>${d1s(SIM.T[t].eg.toFixed(1))}</span></div>`;
       const third=Math.ceil(ts.length/3);
-      cards.push(card(en2?"Model":"模型",en2?"Team strength and how far each team goes":"戰隊強度與預估能走多遠",
+      cards.push(card(en2?"Model":"模型",(en2?"Team strength and how far each team goes":"戰隊強度與預估能走多遠")+(LIVE?(en2?` (with ${ACT_N} finished series)`:`（含本屆已完成 ${ACT_N} 個系列）`):""),
         "",null,`<b>${en2?`Region strength (${curYear-2}-${curYear} cross-region games, ${MODEL.nH})`:`賽區強度（${curYear-2}～${curYear} 國際賽跨賽區 ${MODEL.nH} 局）`}</b><br>${regs.map(g=>`${g} ${Math.round(MODEL.R[g]*400/Math.LN10)>=0?"+":""}${Math.round(MODEL.R[g]*400/Math.LN10)}`).join("・")}<br>${en2?"Teams sorted by strength; KO / title odds and expected games come from the Worlds simulation.":"戰隊依強度排序；八強／冠軍機率與預估局數來自世界賽模擬。"}`,
         `<div class="pdCol pdMCol">${hdr}${ts.slice(0,third).map(row).join("")}</div><div class="pdCol pdMCol">${hdr}${ts.slice(third,third*2).map(row).join("")}</div><div class="pdCol pdMCol">${hdr}${ts.slice(third*2).map(row).join("")}</div>`,true)); }
     // ① 出場率
@@ -13040,6 +13066,7 @@ function render(){
     }
     const hb=document.getElementById("fHelp"); if(hb)hb.onclick=e=>{e.stopPropagation(); toggleHelpPop(hb);};
     document.getElementById("pdShot").onclick=()=>shotEl(document.getElementById("pdWrap"),en2?"Predictions":"預測");
+    segBind("pdLiveSeg",v=>{ const on=v==="1"; if(on===!!V.pdLive)return; V.pdLive=on; saveState(); render(); });   // 模型「含本屆戰況」開關
   }
   else if(curView==="比賽BP"){
     // 自動偵測「資料缺局」：系列已在下方分組時合併跨午夜的同一場（相鄰日、局序遞增）。此處判斷：
