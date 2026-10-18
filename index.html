@@ -16926,7 +16926,8 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
         const src=k&&((typeof POS_B64!=="undefined"&&POS_B64[k])||(typeof POS_IMG!=="undefined"&&POS_IMG[k]));
         return src?`<img class="dlyPosIc" src="${src}" alt="${k}" title="${x?(en?x[1]:x[0]):k}" onerror="this.replaceWith(document.createTextNode('${x?x[0]:"–"}'))">`
                   :`<span class="dlyPos">${x?(en?x[1]:x[0]):"–"}</span>`; };
-      const chip=(c,w)=>`<span class="dlyChip${w?" w":" ls"}" title="${esc(chName(champId(c)))}${en?(w?" · win":" · loss"):(w?"・勝":"・敗")}"><img loading="lazy" data-cid="${champId(c)}" data-fbmode="hide" onerror="champImgFb(this)" src="${chIcoUrl(yearVer(),champId(c))}" alt=""></span>`;   /* 不用 champIco：它的行內 width 會蓋掉格子寬（2026-10-18 圖疊在一起） */
+      const _DG=[];   // 這次畫出來的每一場（英雄圖滑過的小框照 data-gi 取）
+      const chip=(c,w,g)=>`<span class="dlyChip${w?" w":" ls"}"${g?` data-gi="${_DG.push(g)-1}"`:""}><img loading="lazy" data-cid="${champId(c)}" data-fbmode="hide" onerror="champImgFb(this)" src="${chIcoUrl(yearVer(),champId(c))}" alt=""></span>`;   /* 不用 champIco：它的行內 width 會蓋掉格子寬（2026-10-18 圖疊在一起） */
       // 積分（牌位＋LP）：大師以上直接看 LP，其餘顯示段位；抓不到帳號顯示 —
       const rankTag=pl=>{ if(!pl.tier||pl.found===false)return `<span class="dlyTier" style="opacity:.32">—</span>`;
         const t=tierLabel({tier:pl.tier,division:pl.division});
@@ -16940,7 +16941,7 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
           gw+=ag.w; gn+=ag.n;
           const rec=`<span class="dlyRec"><span class="meta" style="font-weight:400;font-size:12px;margin-right:3px">${en?"W-L":"勝敗"}</span><span class="w">${ag.w}</span><span class="s">-</span><span class="l">${ag.l}</span></span>`;
           // 全部列出、不截成「+N」（使用者 2026-10-18；換日分隔試過後撤回）
-          const chips=ag.gs.map(g=>chip(g[0],g[1])).join("");
+          const chips=ag.gs.map(g=>chip(g[0],g[1],g)).join("");
           const stat=(ag.kda!=null?`<span class="dlyStat"><span class="meta">KDA</span>${ag.kda}</span>`:"")
             +(ag.sc!=null?`<span class="dlyStat"><span class="meta">${en?"Score":"評分"}</span><b style="color:${scoreCol7(ag.sc)}">${ag.sc}</b></span>`:"");
           return `<div class="dlyRow"><div class="dlyLine">${roleTag(pl.role)}${nm}<span class="dlyStats">${rankTag(pl)}${stat}${rec}</span></div><div class="dlyChips">${chips}</div></div>`;
@@ -16950,6 +16951,20 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
       };
       box.innerHTML=`<div class="meta" style="margin:-2px 0 12px;line-height:1.65">${en?"Showing ":"顯示 "}<b style="color:var(--tx)">${headLb}</b> · ${teamNames.length}${en?" teams":" 隊"} · ${en?"grey champion = loss":"英雄圖變灰＝輸"} · ${en?"click a name for the full game log":"點選手名看完整逐場"}</div>
         ${teamNames.length?`<div class="dlyGrid">${teamNames.map(teamCard).join("")}</div>`:`<div class="note">${en?"No ranked players match the current filters.":"目前篩選沒有符合的積分選手。"}</div>`}`;
+      // 英雄圖滑過＝該場小框（使用者 2026-10-18）：英雄／勝敗／K/D/A／評分／LP／時長／對位／開打時間（台灣時間）
+      const dlyTip=g=>{ const [c,w,lp,sc,k,d,a,t,dur,o]=g; const kda=((k||0)+(a||0))/Math.max(1,d||0);
+        const row=(lb,v)=>`<div style="display:flex;justify-content:space-between;gap:18px;padding:2px 0"><span class="meta">${lb}</span><span>${v}</span></div>`;
+        const tw=t?new Date((t+8*3600)*1000):null, ts=tw?`${tw.getUTCMonth()+1}/${tw.getUTCDate()} ${String(tw.getUTCHours()).padStart(2,"0")}:${String(tw.getUTCMinutes()).padStart(2,"0")}`:"";
+        return `<div class="tipTitle" style="display:flex;align-items:center;gap:8px">${champIco(c,28)}<b>${esc(chName(champId(c)))}</b>`
+          +`<b style="color:${w?"#5ea2ff":"#ec6b73"}">${w?(en?"Win":"勝"):(en?"Loss":"敗")}</b></div>`
+          +row("K / D / A",`<b>${k||0} / ${d||0} / ${a||0}</b> <span class="meta">(${kda.toFixed(1)})</span>`)
+          +(sc!=null?row(en?"Score":"評分",`<b style="color:${scoreCol7(sc)}">${Math.round(sc*10)/10}</b>`):"")
+          +(lp&&Math.abs(lp)<=100?row("LP",`<b style="color:${lp>0?"#5ea2ff":"#ec6b73"}">${lp>0?"+":""}${lp}</b>`):"")
+          +(dur?row(en?"Length":"時長",`${Math.floor(dur/60)}:${String(dur%60).padStart(2,"0")}`):"")
+          +(o?row(en?"Lane opp.":"對位",`<span style="display:inline-flex;align-items:center;gap:5px">${champIco(o,20)}${esc(chName(champId(o)))}</span>`):"")
+          +(ts?row(en?"Played (TW)":"開打（台灣）",ts):""); };
+      box.onmouseover=e=>{ const el=e.target.closest&&e.target.closest(".dlyChip[data-gi]"); if(!el||el===box._tipEl)return; box._tipEl=el; tipShow(dlyTip(_DG[+el.dataset.gi]),el.getBoundingClientRect()); };
+      box.onmouseout=e=>{ const el=box._tipEl; if(el&&!(e.relatedTarget&&el.contains(e.relatedTarget))){ box._tipEl=null; tipHide(); } };
       box.querySelectorAll(".rankName[data-detail]").forEach(sp=>sp.onclick=()=>{V.rankDetail=sp.dataset.detail;V.rankDetLane="";V.rankShow=100;V.rankGSort=null;V.rankGChamp="";V.rankGOpp="";V.rankGVs="";saveState();render();});
     };
     const rq=document.getElementById("rankQ"); if(rq){ rq.value=V.rankQ||""; rq.oninput=(()=>{const d=deb(()=>{saveState(); if(V.rankView==="daily")paintDaily();else paint();},150);return()=>{V.rankQ=rq.value;d();};})(); }
