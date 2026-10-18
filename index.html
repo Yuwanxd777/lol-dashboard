@@ -12922,7 +12922,7 @@ function render(){
                          :`近期系列賽重抽到本屆約 ${Math.round(totG)} 局、模擬 ${out.length} 次（保留 Fearless 效果）：${uLbl(UOPT[uBest])} 機率 ${pct(uP[uBest])}，中位數 ${Math.max(est,lv)} 隻`,
         col(H_REC,rowT(en2?"Different champs":"不同英雄",Object.keys(R.ch).length)
           +sub(en2?`option odds (${out.length} sims)`:`各選項機率（模擬 ${out.length} 次）`)
-          +UOPT.map((o,i)=>rowT(uLbl(o),pct(uP[i])+(i===uBest?" 🏆":""))).join(""))+col(H_PAST,histRows((y,h)=>rowT(y,`${h.uniq}・${h.games} ${en2?"g":"局"}`)))+col(H_LIVE,L.n?rowT(en2?"So far":"目前",lv):notYet))); }
+          +UOPT.map((o,i)=>rowT(uLbl(o)+(i===uBest?" 🏆":""),pct(uP[i]))).join(""))+col(H_PAST,histRows((y,h)=>rowT(y,`${h.uniq}・${h.games} ${en2?"g":"局"}`)))+col(H_LIVE,L.n?rowT(en2?"So far":"目前",lv):notYet))); }
     // ⑪ 32 分鐘（世界賽隊伍互打才像世界賽的節奏）
     { const cnt=S=>[S.lens.filter(l=>l<32).length,S.lens.filter(l=>l>=32).length];
       const hU=HY.reduce((s,y)=>s+H[y].len32[0],0), hO=HY.reduce((s,y)=>s+H[y].len32[1],0);
@@ -12931,8 +12931,8 @@ function render(){
         pickTx(under?(en2?"Under 32 min":"32 分鐘內"):(en2?"32 min or longer":"超過 32 分鐘")),
         en2?`past Worlds total ${hU} : ${hO}`:`歷屆合計 ${hU} : ${hO}`,
         col(H_REC,rowT(en2?"Under 32":"32 分內",ra)+rowT(en2?"32+":"32 分以上",rb))+col(H_PAST,histRows((y,h)=>rowT(y,h.avgLen?(sec=>`${Math.floor(sec/60)}:${String(sec%60).padStart(2,"0")}`)(Math.round(h.avgLen*60)):"–")))
-        // 本屆兩列誰多就在數字後掛 🏆＝目前領先（使用者 2026-10-18）；平手不掛
-        +col(H_LIVE,L.n?rowT(en2?"Under 32":"32 分內",la+(la>lb?" 🏆":""))+rowT(en2?"32+":"32 分以上",lb+(lb>la?" 🏆":"")):notYet))); }
+        // 本屆兩列誰多就在項目名稱後掛 🏆＝目前領先（使用者 2026-10-18：掛項目後、不掛數字後）（使用者 2026-10-18）；平手不掛
+        +col(H_LIVE,L.n?rowT((en2?"Under 32":"32 分內")+(la>lb?" 🏆":""),la)+rowT((en2?"32+":"32 分以上")+(lb>la?" 🏆":""),lb):notYet))); }
     // ⑫ 單場 15 殺：近期每局發生率 × 「世界賽 ÷ 同年夏季區域聯賽」的歷屆比值（2026-10-11 改）
     //   只看歷屆（875 局 3 次）會漏掉今年擊殺變多；只看近期又高估——2023～2025 區域聯賽 1.4～2.0%、同年世界賽 0 次。
     { const lmax=L.big[0], done=lmax&&lmax[0]>=15;
