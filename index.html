@@ -907,7 +907,7 @@
   .dlyRec{font-size:13px;font-weight:700;text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
   .dlyRec .w{color:#5ea2ff} .dlyRec .l{color:#ec6b73} .dlyRec .s{opacity:.4;margin:0 1px}
   /* 2026-10-18 使用者：英雄圖放大到一列約 10 隻 ⇒ 固定 10 欄網格，圖寬跟著卡片走（正方形、不變形） */
-  .dlyChips{display:grid;grid-template-columns:repeat(auto-fill,minmax(max(32px,calc((100% - 54px) / 10)),1fr));gap:6px;margin:6px 0 1px 29px} /* 最多 10 欄、每格至少 34px：卡片窄就換行，不硬擠 */ /* 英雄圖間隔 7px（2026-08-06 使用者指定；扣掉兩邊各 1.5px 勝負描邊，描邊之間淨 4px） */
+  .dlyChips{display:grid;grid-template-columns:repeat(auto-fill,minmax(max(32px,calc((100% - 27px) / 10)),1fr));gap:3px;margin:6px 0 1px 29px} /* 最多 10 欄、每格至少 34px：卡片窄就換行，不硬擠 */ /* 英雄圖間隔 7px（2026-08-06 使用者指定；扣掉兩邊各 1.5px 勝負描邊，描邊之間淨 4px） */
   /* 勝負描邊圈畫在**圖本身**上，不要畫在外層 span（2026-09-05 使用者回報「英雄圖下方有點被
      下一列切到」）。原因：champIco() 產的 <img> 在外層 span 裡會比 span 的盒子低 1px，
      box-shadow 是繞著 span 畫的 ⇒ 圖把下緣的圈蓋掉，實測像素 上1.5／下0.5／左1.5／右1.5，
