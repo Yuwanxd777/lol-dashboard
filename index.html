@@ -9076,7 +9076,9 @@ async function shotPages(name,groups,o){
       document.body.appendChild(host); hosts.push(host);
       // 排法（使用者 2026-10-18「左右空隙每一張都要一致」「中／小圖不用守一列十隻英雄」）：內容一律佔滿寬度、左右固定留 M；
       //   在複本裡實際試 欄數×卡片寬，量真實高度，取「佔滿寬度後高度放得下」裡縮放倍率最大（字最大）的
-      const M=32, TOP=o.title?84:0, AW=1080-2*M, AH=1350-TOP-M;
+      // 直式 1080×1350／橫式 1920×1080（o.land；使用者 2026-10-18 中圖、小圖各分直式橫式）
+      const CW=o.land?1920:1080, CH=o.land?1080:1350;
+      const M=32, TOP=o.title?84:0, AW=CW-2*M, AH=CH-TOP-M;
       // 瀑布流（使用者 2026-10-18「三隊一長兩短：長的在左、短的疊在右，空隙少圖更大」）：由高到矮放進目前最矮的欄；欄內維持原順序
       const meas=w=>{ grid.innerHTML=""; const col=document.createElement("div"); col.style.cssText=`width:${w}px;display:flex;flex-direction:column;gap:${GAP}px`;
         clones.forEach(c=>col.appendChild(c)); grid.appendChild(col); host.style.width=w+"px";
@@ -9095,20 +9097,20 @@ async function shotPages(name,groups,o){
       host.style.width=(best.c*best.w+(best.c-1)*GAP)+"px";
       const cv=await html2canvas(host,{backgroundColor:"#0b0e14",useCORS:true,scale:2,width:host.offsetWidth,height:host.scrollHeight,windowWidth:Math.max(document.documentElement.scrollWidth,host.scrollWidth)});
       host.remove();
-      const pc=document.createElement("canvas"); pc.width=1080; pc.height=1350;
-      const g=pc.getContext("2d"); g.fillStyle="#0b0e14"; g.fillRect(0,0,1080,1350); g.imageSmoothingQuality="high";
+      const pc=document.createElement("canvas"); pc.width=CW; pc.height=CH;
+      const g=pc.getContext("2d"); g.fillStyle="#0b0e14"; g.fillRect(0,0,CW,CH); g.imageSmoothingQuality="high";
       // 固定頁首（使用者 2026-10-18「標題與日期無論如何都不要縮小，每一張一樣大」）：直接畫在畫布頂端，內容縮進下面剩下的空間
       let top=0; const M2=32;
       if(o.title){ const t=o.title(), ff=getComputedStyle(document.body).fontFamily; top=84;
         g.textBaseline="alphabetic"; g.textAlign="left"; g.fillStyle="#e8ecf4"; g.font=`700 38px ${ff}`; g.fillText(t[0],32,56);
         const tw=g.measureText(t[0]).width; g.fillStyle="#8b98ad"; g.font=`500 26px ${ff}`; g.fillText(t[1]||"",32+tw+22,56); }
-      const k=Math.min((1080-2*M2)/cv.width,(1350-top-M2)/cv.height), dw=cv.width*k, dh=cv.height*k;
-      g.drawImage(cv,(1080-dw)/2,top,dw,dh);   // 寬度永遠是 1080−2×32（左右空隙一致）；只有怎樣都放不下的才退成照高度縮
+      const k=Math.min((CW-2*M2)/cv.width,(CH-top-M2)/cv.height), dw=cv.width*k, dh=cv.height*k;
+      g.drawImage(cv,(CW-dw)/2,top,dw,dh);   // 寬度永遠是 CW−2×32（左右空隙一致）；只有怎樣都放不下的才退成照高度縮
       // 右上角＝網站頭像（使用者 2026-10-18；img/logo.jpg，走 data URI 才離線可用、不污染畫布），頁碼在它左邊
-      const LS=52, LX=1080-32-LS, LY=16;
+      const LS=52, LX=CW-32-LS, LY=16;
       if(_logoImg){ g.save(); g.beginPath(); g.arc(LX+LS/2,LY+LS/2,LS/2,0,Math.PI*2); g.clip(); g.drawImage(_logoImg,LX,LY,LS,LS); g.restore();
         g.strokeStyle="rgba(255,255,255,.18)"; g.lineWidth=1.5; g.beginPath(); g.arc(LX+LS/2,LY+LS/2,LS/2,0,Math.PI*2); g.stroke(); }
-      if(groups.length>1){ g.fillStyle="rgba(232,236,244,.45)"; g.font="600 15px sans-serif"; g.textAlign="right"; g.textBaseline="middle"; g.fillText(`${i+1}/${groups.length}`,(_logoImg?LX-12:1066),LY+LS/2); }
+      if(groups.length>1){ g.fillStyle="rgba(232,236,244,.45)"; g.font="600 15px sans-serif"; g.textAlign="right"; g.textBaseline="middle"; g.fillText(`${i+1}/${groups.length}`,(_logoImg?LX-12:CW-14),LY+LS/2); }
       await new Promise(ok=>pc.toBlob(bl=>{ const a=document.createElement("a"); a.href=URL.createObjectURL(bl);
         a.download=`${uidPrefix()}${name}_${stamp}${groups.length>1?"_"+(i+1):""}.png`; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),5000); ok(); },"image/png"));
       if(i<groups.length-1)await new Promise(r=>setTimeout(r,350));
@@ -13248,9 +13250,9 @@ function render(){
       mode==="social"?{social:{w:540,block:".card"}}:undefined);
       const cards=[...document.querySelectorAll("#pdWrap .card")];
       shotMenu(document.getElementById("pdShot"),null,null,[[`🖼️ ${en2?"Full image (one long PNG)":"完整大圖（單張長圖）"}`,()=>go("full")],
-        [`📱 ${en2?"Small: one question per image":"小圖（一題一張）"}`,()=>shotPages(en2?"Predictions":"預測",cards.map(c=>[c]),{colW:900,minW:760,maxW:3600,headH:0,maxCols:1,
+        ...[false,true].map(land=>[`${land?"💻":"📱"} ${en2?(land?"Landscape":"Portrait")+" small: one question per image":(land?"橫式":"直式")+"小圖（一題一張）"}`,()=>shotPages(en2?"Predictions":"預測",cards.map(c=>[c]),{colW:900,minW:760,maxW:3600,headH:0,maxCols:1,land,
           title:()=>[en2?`${curYear} Worlds Crystal Ball`:`${curYear} 世界賽水晶球`,en2?"suggested answers":"建議答案"],
-          style:"[data-shot] .pdQC{grid-template-columns:1fr!important}[data-shot] .pdCols:has(.pdMCol){grid-template-columns:1fr!important}"})]]); };   // 社群模式（使用者 2026-10-18）
+          style:"[data-shot] .pdQC{grid-template-columns:1fr!important}"+(land?"":"[data-shot] .pdCols:has(.pdMCol){grid-template-columns:1fr!important}")})])]); };   // 社群模式（使用者 2026-10-18）
     // 模型「含本屆戰況」開關：先讓按鈕亮、內容淡掉（下一格畫面才開始算），不會看起來像當掉；算過的模式走上面的快取
     segBind("pdLiveSeg",v=>{ const on=v==="1"; if(on===!!V.pdLive)return; V.pdLive=on; saveState();
       document.querySelectorAll("#pdLiveSeg button").forEach(b=>b.classList.toggle("on",b.dataset.v===v));
@@ -17184,8 +17186,9 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
       const nm=LANG==="en"?"Recent ranked games":"近期積分戰況";   // 檔名
       const byLg=()=>{ const m=new Map(); cards.forEach(c=>{ const k=c.dataset.lg||"-"; (m.get(k)||m.set(k,[]).get(k)).push(c); }); return [...m.values()]; };
       shotMenu(sb,null,null,[[`🖼️ ${LANG==="en"?"Full image (one long PNG)":"完整大圖（單張長圖）"}`,()=>go("full")],
-        [`🗂️ ${LANG==="en"?"Medium: one region per image":"中等（一個賽區一張）"}`,()=>shotPages(nm,byLg(),{colW:480,minW:420,title:ttl,headH:0,style:ST,maxCols:4})],
-        [`📱 ${LANG==="en"?"Small: one team per image":"小圖（一隊一張）"}`,()=>shotPages(nm,cards.map(c=>[c]),{colW:480,minW:420,title:ttl,headH:0,style:ST,maxCols:1})]]); };}   // 每日戰況 📸（使用者 2026-10-18）
+        // 中圖／小圖各分直式 1080×1350、橫式 1920×1080（使用者 2026-10-18）
+        ...[false,true].map(land=>[`${land?"🖥️":"🗂️"} ${LANG==="en"?(land?"Landscape":"Portrait")+" medium: one region per image":(land?"橫式":"直式")+"中圖（一個賽區一張）"}`,()=>shotPages(nm,byLg(),{colW:480,minW:420,title:ttl,headH:0,style:ST,maxCols:land?6:4,land})]),
+        ...[false,true].map(land=>[`${land?"💻":"📱"} ${LANG==="en"?(land?"Landscape":"Portrait")+" small: one team per image":(land?"橫式":"直式")+"小圖（一隊一張）"}`,()=>shotPages(nm,cards.map(c=>[c]),{colW:480,minW:420,title:ttl,headH:0,style:ST,maxCols:1,land})])]); };}   // 每日戰況 📸（使用者 2026-10-18）
     main.querySelectorAll("[data-region]").forEach(b=>b.onclick=()=>{ const v=b.dataset.region;   // 複選：點一下加入／再點取消；「全部」清空（使用者 2026-10-18）
       if(!v)V.rankRegion=""; else { const cur=String(V.rankRegion||"").split(",").filter(Boolean); const i=cur.indexOf(v); if(i>=0)cur.splice(i,1); else cur.push(v); V.rankRegion=cur.join(","); }
       V.rankLplGrp=""; saveState(); render();}); // 賽區篩選(離開 LPL 清組別)
