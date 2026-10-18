@@ -17139,8 +17139,10 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
         ${teamNames.length?`<div class="dlyGrid">${teamNames.map(teamCard).join("")}</div>`:`<div class="note">${en?"No ranked players match the current filters.":"目前篩選沒有符合的積分選手。"}</div>`}`;
       // 英雄圖滑過＝該場小框（使用者 2026-10-18）：英雄／勝敗／K/D/A／評分／LP／時長／對位／開打時間（台灣時間）
       // 英雄圖滑過＝該場小框。順序（使用者 2026-10-18 定）：對位｜對手（職業選手才列）｜KDA｜金差@15｜召喚師技能｜符文｜評分｜開打
+      const TIP_H_SUMM=28, TIP_H_RUNE=28, TIP_RUNE_NUDGE="display:inline-flex;transform:translateY(-1px)";   // 圖示列列高＋符文往上 1px（副系徽章往下突出 2px，整組看起來偏低）
       const dlyTip=g=>{ const [c,w,lp,sc,k,d,a,t,dur,o,gd15,su,rk,rs,rid,op]=g; const kda=((k||0)+(a||0))/Math.max(1,d||0);
-        const row=(lb,v)=>`<div style="display:flex;justify-content:space-between;align-items:center;gap:18px;height:24px"><span class="meta">${lb}</span><span style="display:inline-flex;align-items:center;gap:4px">${v}</span></div>`;   // 每列固定 24px（間隔一致）
+        // 列高：文字列 24px；圖示列照圖示比字高多少就加多少，讓「看得到的」上下空隙每列一樣（使用者 2026-10-19 重看間距：像素量測文字列空隙 ≈12px，圖示列被擠到 5～8px）
+        const row=(lb,v,h)=>`<div style="display:flex;justify-content:space-between;align-items:center;gap:18px;height:${h||24}px"><span class="meta">${lb}</span><span style="display:inline-flex;align-items:center;gap:4px">${v}</span></div>`;
         const tw=t?new Date((t+8*3600)*1000):null, ts=tw?`${tw.getUTCMonth()+1}/${tw.getUTCDate()} ${String(tw.getUTCHours()).padStart(2,"0")}:${String(tw.getUTCMinutes()).padStart(2,"0")}`:"";
         const opT=op?String(op).split("|"):null;
         return `<div class="tipTitle" style="display:flex;align-items:center;gap:8px">${champIco(c,28)}<b>${esc(chName(champId(c)))}</b>`
@@ -17149,16 +17151,16 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
           +(opT?row(en?"Opponent":"對手",`${teamLogoHTML(teamFix(opT[0]),16,true)}<b>${esc(opT[1]||"")}</b>`):"")
           +row("KDA",`<b>${k||0} / ${d||0} / ${a||0}</b> <span class="meta">(${kda.toFixed(1)})</span>`)
           +row(en?"Gold diff @15":"金差@15",gd15!=null?`<b style="color:${gd15>0?"#ff4d4d":gd15<0?"#37c871":"var(--tx)"}">${gd15>0?"+":""}${gd15}</b>`:`<span class="meta">—</span>`)   /* 常駐（使用者 2026-10-18）；來源沒記＝— */
-          +(su&&su.length?row(en?"Spells":"召喚師技能",(su||[]).map(x=>summImg(x,18)).join("")):"")
-          +(rk?row(en?"Runes":"符文",runeKS({r:rk,rs:[rs]},20)):"")
+          +(su&&su.length?row(en?"Spells":"召喚師技能",(su||[]).map(x=>summImg(x,18)).join(""),TIP_H_SUMM):"")
+          +(rk?row(en?"Runes":"符文",`<span style="${TIP_RUNE_NUDGE}">${runeKS({r:rk,rs:[rs]},18)}</span>`,TIP_H_RUNE):"")
           +(sc!=null?row(en?"Score":"評分",`<b style="color:${scoreCol7(sc)}">${Math.round(sc*10)/10}</b>`):"")
           +(ts?row(en?"Played (TW)":"開打",ts):""); };
-      const aggTip=e=>{ const row=(lb,v)=>`<div style="display:flex;justify-content:space-between;align-items:center;gap:18px;height:24px"><span class="meta">${lb}</span><span>${v}</span></div>`;
+      const aggTip=e=>{ const row=(lb,v,h)=>`<div style="display:flex;justify-content:space-between;align-items:center;gap:18px;height:${h||24}px"><span class="meta">${lb}</span><span>${v}</span></div>`;
         return `<div class="tipTitle" style="display:flex;align-items:center;gap:8px">${champIco(e.c,28)}<b>${esc(chName(champId(e.c)))}</b></div>`
           +row(en?"Games":"場數",`<b>${e.n}</b>`)+row(en?"W-L":"勝敗",`<b>${e.w}-${e.n-e.w}</b> <span class="meta">(${Math.round(e.w/e.n*100)}%)</span>`)
           +row("KDA",`<b>${(e.k/e.n).toFixed(1)} / ${(e.d/e.n).toFixed(1)} / ${(e.a/e.n).toFixed(1)}</b> <span class="meta">(${((e.k+e.a)/Math.max(1,e.d)).toFixed(1)})</span>`)
           +row(en?"Avg gold diff @15":"平均金差@15",e.gn?(v=>`<b style="color:${v>0?"#ff4d4d":v<0?"#37c871":"var(--tx)"}">${v>0?"+":""}${v}</b>`)(Math.round(e.gs/e.gn)):`<span class="meta">—</span>`)
-          +(e.ru&&e.ru.size?row(en?"Runes":"符文",`<span style="display:inline-flex;align-items:center;gap:10px">${[...e.ru].sort((x,y)=>y[1]-x[1]).slice(0,3).map(([k2])=>{ const [r1,r2]=k2.split("|"); return runeKS({r:r1,rs:[r2]},20); }).join("")}</span>`):"")   /* 用最多的前三組，多→少、不標次數（使用者 2026-10-19） */
+          +(e.ru&&e.ru.size?row(en?"Runes":"符文",`<span style="display:inline-flex;align-items:center;gap:10px;transform:translateY(-2px)">${[...e.ru].sort((x,y)=>y[1]-x[1]).slice(0,3).map(([k2])=>{ const [r1,r2]=k2.split("|"); return runeKS({r:r1,rs:[r2]},18); }).join("")}</span>`,TIP_H_RUNE):"")   /* 用最多的前三組，多→少、不標次數（使用者 2026-10-19） */
           +(e.sn?row(en?"Avg score":"平均評分",`<b style="color:${scoreCol7(e.ss/e.sn)}">${Math.round(e.ss/e.sn*10)/10}</b>`):""); };
       box.onmouseover=e=>{ const el=e.target.closest&&e.target.closest(".dlyChip[data-gi],.dlyChip[data-ga]"); if(!el||el===box._tipEl)return; box._tipEl=el;
         tipShow(el.dataset.ga!=null?aggTip(_DA[+el.dataset.ga]):dlyTip(_DG[+el.dataset.gi]),el.getBoundingClientRect()); };
