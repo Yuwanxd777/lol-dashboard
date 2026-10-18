@@ -141,7 +141,8 @@ def _build():
                 continue
             day = time.strftime("%Y-%m-%d", time.gmtime(t/1000 + (TZ_H - DAY_START_H)*3600))   # 10/17 10:00～10/18 09:59 ⇒ "2026-10-17"
             lp = g.get("lp"); lp = lp if isinstance(lp, (int, float)) else 0
-            byday.setdefault(day, []).append([g.get("c"), 1 if g.get("w") else 0, lp])
+            # [英雄, 勝敗, LP 變化, 評分, K, D, A]：後四個給每日戰況算範圍內場均評分／KDA（使用者 2026-10-18）
+            byday.setdefault(day, []).append([g.get("c"), 1 if g.get("w") else 0, lp, g.get("sc"), g.get("k", 0), g.get("de", 0), g.get("a", 0)])
         if byday and key not in SKIP:
             recent[key] = {"r": role, "d": byday}
     year = time.gmtime(newest/1000).tm_year if newest else time.gmtime().tm_year
