@@ -3487,6 +3487,8 @@ const CUP_LGS=["FST","MSI","WLDs","EWC","ENC","亞運","DCup"];
 // 世界賽 wiki 名單漏的人手動補：[隊縮寫, 選手]（使用者 2026-10-18：TES 要列 ZUIAN、IG 要列 Assum）；積分篩 WCS 與預測的選手題共用
 const WLD_ROSTER_ADD={2026:[["TES","ZUIAN"],["IG","Assum"]]};
 const WLD_POOLS={2026:[["GEN","AL","TL","G2"],["TSW","LOS","HLE","BLG"],["LYON","MKOI","T1","TES"],["CFO","DK","IG","PI"]]};
+// 瑞士輪第一輪實際籤表（2026-10-19 抽籤；"PI"＝入圍賽出線隊，實際是 KC）。有這份就不再隨機配對第一輪
+const WLD_R1={2026:[["GEN","IG"],["TL","CFO"],["AL","PI"],["G2","DK"],["HLE","TES"],["LOS","T1"],["TSW","LYON"],["BLG","MKOI"]]};
 let _CUPP=null,_CUPP_Y=null;
 function cupPlayers(){
   if(_CUPP&&_CUPP_Y===curYear)return _CUPP;
@@ -12770,7 +12772,7 @@ function render(){
       const koReg={}, lcsKO={n:0}, h2h={}, fastSt={}, fastPair={};
       // 瑞士輪第一輪：官方種子籤（Leaguepedia Main Event 頁）＝第 1 級對第 4 級、第 2 級對第 3 級，同賽區不相遇；
       //   "PI"＝入圍賽出線隊。使用者 2026-10-11：最快勝場基本上只發生在入圍賽或第一輪 Tier1 打 Tier4。沒有籤表的年份照舊全隨機。
-      const WPOOL=WLD_POOLS[curYear]||null;
+      const WPOOL=WLD_POOLS[curYear]||null, WR1=WLD_R1[curYear]||null;   // 抽籤出來後第一輪照實際籤表（使用者 2026-10-19）
       const abT=ab=>EVT.find(t=>tAb(t)===ab);
       const pairPools=(A,B)=>{ for(let k=0;k<60;k++){ const b=shuffle([...B]); if(A.every((a,i)=>teamReg[a]!==teamReg[b[i]]))return A.map((a,i)=>[a,b[i]]); }
         return A.map((a,i)=>[a,B[i]]); };
@@ -12792,11 +12794,16 @@ function render(){
         const sw=[...direct,...pin]; const rec={}; sw.forEach(t=>rec[t]=[0,0]);
         let alive=[...sw]; const ko=[]; let guard=0;
         const POOLS=WPOOL&&WPOOL.map(pl=>pl.map(ab=>ab==="PI"?pin[0]:abT(ab)));
+        const R1=WR1&&WR1.map(pr=>pr.map(ab=>ab==="PI"?pin[0]:abT(ab)));
+        const R1OK=!!(R1&&R1.every(pr=>pr.every(t=>t&&rec[t])));
         // 含本屆戰況：瑞士輪已打完的系列直接記進戰績（實際籤表），之後才照戰績分組往下模擬
         if(LIVE&&ACT_SW.length){ ACT_SW.forEach(r=>{ if(!rec[r.w]||!rec[r.l])return; rec[r.w][0]++; rec[r.l][1]++;
             const gw=r.gw||1, gl=r.gl!=null?r.gl:0; T[r.w].w+=gw; T[r.l].w+=gl; T[r.w].g+=gw+gl; T[r.l].g+=gw+gl; });
           alive=sw.filter(t=>rec[t][0]<3&&rec[t][1]<3);
-          sw.forEach(t=>{ if(rec[t][0]===3&&!ko.includes(t))ko.push(t); if(rec[t][1]===3&&place[t]==null)place[t]=2+rec[t][0]/10; }); }
+          sw.forEach(t=>{ if(rec[t][0]===3&&!ko.includes(t))ko.push(t); if(rec[t][1]===3&&place[t]==null)place[t]=2+rec[t][0]/10; });
+          // 第一輪只打了一部分：剩下的照籤表打（不然 0-0 的隊會被重新隨機配對）
+          if(R1OK)R1.forEach(([a,b])=>{ if(rec[a].join()!=="0,0"||rec[b].join()!=="0,0")return; const [w,l]=play(a,b,1,"r1"); rec[w][0]++; rec[l][1]++; }); }
+        else if(R1OK){ R1.forEach(([a,b])=>{ const [w,l]=play(a,b,1,"r1"); rec[w][0]++; rec[l][1]++; }); }
         else if(POOLS&&POOLS.every(pl=>pl.length===4&&pl.every(t=>t&&rec[t]))){
           [...pairPools(POOLS[0],POOLS[3]),...pairPools(POOLS[1],POOLS[2])].forEach(([a,b])=>{ const [w,l]=play(a,b,1,"r1"); rec[w][0]++; rec[l][1]++; });
         }
@@ -12992,7 +12999,9 @@ function render(){
       // 每個數字一欄、靠右對齊（使用者 2026-10-11：字數長短不一很不直觀）
       const hdr=`<div class="pdMRow pdMHd"><span></span><span>${en2?"Team":"隊伍"}</span><span>${en2?"Region":"賽區"}</span><span>${en2?"Rating":"強度"}</span><span>${en2?"Top 8":"八強"}</span><span>${en2?"Title":"冠軍"}</span><span>${en2?"Games":"預估局數"}</span></div>`;
       const row=t=>`<div class="pdMRow">${teamLogoHTML(tAb(t),22,true)||tLogo(t,22)}<span class="pdMT">${outAb(t)}</span><span class="pdN">${teamReg[t]||""}</span>`
-        +`<span>${elo(t)}</span><span>${pct(SIM.T[t].pko)}</span><span>${pct(SIM.T[t].pch)}</span><span>${d1s(SIM.T[t].eg.toFixed(1))}</span></div>`;
+        +(isOut(t)?`<span>${elo(t)}</span><span>${pct(0)}</span><span>${pct(0)}</span><span>${gLive.filter(o=>bt(o)===t||rt(o)===t).length}</span></div>`
+          :`<span>${elo(t)}</span><span>${pct(SIM.T[t].pko)}</span><span>${pct(SIM.T[t].pch)}</span><span>${d1s(SIM.T[t].eg.toFixed(1))}</span></div>`);
+      // 已淘汰的隊（兩種模式都一樣，使用者 2026-10-19）：局數＝本屆實際打了幾局、八強／冠軍＝0，不再顯示模擬值
       const third=Math.ceil(ts.length/3);
       cards.push(card(en2?"Model":"模型",(en2?"Team strength and how far each team goes":"戰隊強度與預估能走多遠")+(LIVE?(en2?` (with ${ACT_N} finished series)`:`（含本屆已完成 ${ACT_N} 個系列）`):""),
         "",null,`<b>${en2?`Region strength (${curYear-2}-${curYear} cross-region games, ${MODEL.nH})`:`賽區強度（${curYear-2}～${curYear} 國際賽跨賽區 ${MODEL.nH} 局）`}</b><br>${regs.map(g=>`${g} ${Math.round(MODEL.R[g]*400/Math.LN10)>=0?"+":""}${Math.round(MODEL.R[g]*400/Math.LN10)}`).join("・")}<br>${en2?"Teams sorted by strength; KO / title odds and expected games come from the Worlds simulation.":"戰隊依強度排序；八強／冠軍機率與預估局數來自世界賽模擬。"}`,
