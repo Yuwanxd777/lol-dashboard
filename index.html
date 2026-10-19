@@ -12986,7 +12986,7 @@ function render(){
     const TG={c:en2?"Champion":"英雄",p:en2?"Player":"玩家",e:en2?"Event":"活動",t:en2?"Team":"戰隊"};
     const cards=[];
     // ⓪ 戰隊強度與預估走多遠（所有題目的地基，整列一張）
-    { const ts=EVT.slice().sort((a,b)=>strength(b)-strength(a));   // 依強度排序（使用者 2026-10-11）
+    { const ts=EVT.slice().sort((a,b)=>(LIVE?isOut(a)-isOut(b):0)||strength(b)-strength(a));   // 依強度排序（使用者 2026-10-11）；含本屆戰況時已淘汰的置底（2026-10-19）
       const elo=t=>Math.round(1500+strength(t)*400/Math.LN10);
       const regs=[...new Set(EVT.map(t=>teamReg[t]).filter(x=>x))].sort((a,b)=>MODEL.R[b]-MODEL.R[a]);
       // 每個數字一欄、靠右對齊（使用者 2026-10-11：字數長短不一很不直觀）
