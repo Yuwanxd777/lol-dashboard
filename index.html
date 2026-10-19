@@ -2594,6 +2594,7 @@ const tipPlace=(r0,pref)=>{ if(!tipEl)return;
   const _z=_vz(), r={left:r0.left/_z,top:r0.top/_z,right:r0.right/_z,bottom:r0.bottom/_z,width:r0.width/_z,height:r0.height/_z};
   const innerWidth=vW(), innerHeight=vH();
   tipEl.style.maxHeight=""; tipEl.style.overflowY="";           // 每次重算（上一次可能夾過高度）
+  tipEl.style.left="0px"; tipEl.style.top="0px";               // 先移到左上角再量寬：留在上一次的位置（靠右邊）量，寬度會被視窗右緣擠窄、字被折行變形（使用者 2026-10-19）
   let w=tipEl.offsetWidth,h=tipEl.offsetHeight, L=r.left, T;
   if(pref==="up"){                                              // 欄位說明框：一律顯示在欄名「上方」，不擋表格
     const space=r.top-16;
