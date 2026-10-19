@@ -18163,7 +18163,8 @@ let _warmSeq=0, _warmTries=0, _lastAct=0;
 // 使用者最後一次輸入的時間：預熱只在「完全靜止 ≥2 秒」時開工。之前一被中止就 3 秒後再試、滑鼠離開內容區也觸發，
 // 使用者操作中背景一直在畫別的分頁（每頁 100~300ms 佔住主執行緒）＋每次動滑鼠就中止還原，
 // 反而讓切分頁／滑鼠都變頓（2026-08-17 使用者回報「切換分頁延遲變高」）。
-["pointermove","pointerdown","keydown","wheel","touchstart"].forEach(ev=>document.addEventListener(ev,()=>{_lastAct=performance.now();},{capture:true,passive:true}));
+// 拖曳中瀏覽器不發 pointermove ⇒ 拖曳事件也要算「在動」（2026-10-19 使用者回報 Tier 拖不過去：按住超過 2 秒預熱就開跑，把畫面換掉，放下時落在空白處）
+["pointermove","pointerdown","keydown","wheel","touchstart","dragstart","dragover"].forEach(ev=>document.addEventListener(ev,()=>{_lastAct=performance.now();},{capture:true,passive:true}));
 function scheduleWarmup(delay,retry){
   if(retry){ if(_warmTries>=6)return; _warmTries++; } else _warmTries=0;   // 被中止就退避重試（最多 6 次），開站／換年份重新計數
   const seq=++_warmSeq; window._warmAbort=true;               // 重新排程＝舊的作廢
@@ -18189,7 +18190,9 @@ function _warmViews(seq){
   if(!todo.length)return;
   // 滑鼠正停在內容上（hover 效果／提示卡開著）→ 現在蓋複製品會讓 hover 消失（2026-08-17 使用者回報停在版本焦點圖示上
   // 幾秒後畫面變）：先不做，等滑鼠離開內容區或靜止一陣子再試
-  if(main.matches(":hover")){ scheduleWarmup(3000,true); return; }
+  // 拖曳中（bpDragging＝dragstart～dragend）、或停在靠拖曳操作的分頁（英雄Tier／模擬BP）也不動工：預熱期間真 main 是隱藏的，
+  //   這時按下去會按到 body、拖曳起不來或放下落空（2026-10-19 使用者回報 Tier 拖了沒反應）
+  if(main.matches(":hover")||document.body.classList.contains("bpDragging")||cur==="英雄Tier"||cur==="模擬BP"){ scheduleWarmup(3000,true); return; }
   // 覆蓋層＝目前畫面的靜態複製。**必須是同樣的 <main id="main">**：全站樣式大量寫 #main／main／@container mainc，
   // 複製品若換成 div 就套不到（2026-08-17 使用者回報：預熱那幾秒圖片變超大、整頁變形）。
   // 內層 id **要留著**：不少樣式是靠內層 id 選的（#ovChg… 的 .ovEntIco 29px），拿掉會讓複製品裡的符文圖用原尺寸 256px
@@ -18207,6 +18210,7 @@ function _warmViews(seq){
   const finish=()=>{ if(done)return; done=true;
     document.removeEventListener("pointermove",abort,true); document.removeEventListener("pointerdown",abort,true);
     document.removeEventListener("keydown",abort,true); document.removeEventListener("wheel",abort,true); document.removeEventListener("touchstart",abort,true);
+    document.removeEventListener("dragstart",abort,true);
     window.removeEventListener("resize",abort);
     // 從 VIEW_CACHE 還原目前分頁（幾 ms）。⚠ 一定要在 _warming 還是 true 時做：render 會把換頁捲頂／saveState 跳過
     try{ if(curView!==cur){curView=cur; render();} }catch(e){}
@@ -18225,6 +18229,7 @@ function _warmViews(seq){
   main.style.visibility="hidden"; main.style.height=H+"px"; main.style.overflow="hidden";
   document.addEventListener("pointermove",abort,true); document.addEventListener("pointerdown",abort,true);
   document.addEventListener("keydown",abort,true); document.addEventListener("wheel",abort,true); document.addEventListener("touchstart",abort,true);
+  document.addEventListener("dragstart",abort,true);
   window.addEventListener("resize",abort);
   const step=()=>{
     if(done)return;
