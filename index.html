@@ -2594,7 +2594,10 @@ const tipPlace=(r0,pref)=>{ if(!tipEl)return;
   const _z=_vz(), r={left:r0.left/_z,top:r0.top/_z,right:r0.right/_z,bottom:r0.bottom/_z,width:r0.width/_z,height:r0.height/_z};
   const innerWidth=vW(), innerHeight=vH();
   tipEl.style.maxHeight=""; tipEl.style.overflowY="";           // 每次重算（上一次可能夾過高度）
-  tipEl.style.left="0px"; tipEl.style.top="0px";               // 先移到左上角再量寬：留在上一次的位置（靠右邊）量，寬度會被視窗右緣擠窄、字被折行變形（使用者 2026-10-19）
+  tipEl.style.left="0px"; tipEl.style.top="0px"; tipEl.style.width="";   // 先移到左上角、解除上次定的寬再量
+  // 寬度釘成「量到的寬＋2px」（使用者 2026-10-19 回報小框字折行變形）：整頁有 CSS zoom（0.75 等）時，瀏覽器算的內容寬
+  //   會比實際畫出來的字窄零點幾 px ⇒ 剛好塞滿的那列（KDA「0.0 / 5.0 / 3.0 (0.6)」）被折成兩行、疊在固定列高裡。超過 max-width 的照樣由 max-width 夾住。
+  tipEl.style.width=(Math.ceil(tipEl.getBoundingClientRect().width/_vz())+2)+"px";
   let w=tipEl.offsetWidth,h=tipEl.offsetHeight, L=r.left, T;
   if(pref==="up"){                                              // 欄位說明框：一律顯示在欄名「上方」，不擋表格
     const space=r.top-16;
@@ -17169,10 +17172,10 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
         return `<div class="tipTitle" style="display:flex;align-items:center;gap:8px">${champIco(e.c,28)}<b>${esc(chName(champId(e.c)))}</b></div>`
           +row(en?"Games":"場數",`<b>${e.n}</b>`)+row(en?"W-L":"勝敗",`<b>${e.w}-${e.n-e.w}</b> <span class="meta">(${Math.round(e.w/e.n*100)}%)</span>`)
           +row("KDA",`<b>${(e.k/e.n).toFixed(1)} / ${(e.d/e.n).toFixed(1)} / ${(e.a/e.n).toFixed(1)}</b> <span class="meta">(${((e.k+e.a)/Math.max(1,e.d)).toFixed(1)})</span>`)
-          +row(en?"Avg gold diff @15":"平均金差@15",e.gn?(v=>`<b style="color:${v>0?"#ff4d4d":v<0?"#37c871":"var(--tx)"}">${v>0?"+":""}${v}</b>`)(Math.round(e.gs/e.gn)):`<span class="meta">—</span>`)
+          +row(e.gn===1?(en?"Gold diff @15":"金差@15"):(en?"Avg gold diff @15":"平均金差@15"),e.gn?(v=>`<b style="color:${v>0?"#ff4d4d":v<0?"#37c871":"var(--tx)"}">${v>0?"+":""}${v}</b>`)(Math.round(e.gs/e.gn)):`<span class="meta">—</span>`)
           +(e.ru&&e.ru.size?row(en?"Runes":"符文",`<span style="display:inline-flex;align-items:center;gap:10px;transform:translateY(-2px)">${[...e.ru].sort((x,y)=>y[1]-x[1]).slice(0,3).map(([k2])=>{ const [r1,r2]=k2.split("|"); return runeKS({r:r1,rs:[r2]},18); }).join("")}</span>`,TIP_H_RUNE):"")   /* 用最多的前三組，多→少、不標次數（使用者 2026-10-19） */
           +(e.op&&e.op.size?row(en?"Lane opp.":"對位",`<span style="display:inline-flex;align-items:center;gap:4px;transform:translateY(2px)">${[...e.op].sort((x,y)=>y[1]-x[1]).slice(0,3).map(([c2])=>champIco(c2,18)).join("")}</span>`,TIP_H_SUMM):"")   /* 對位最常遇到的前三隻，多→少、不標次數（使用者 2026-10-19）；間距 4px（使用者：不用太大）、下移 2px 跟標籤字的中線齊（實測圖示中心比字高約 2px） */
-          +(e.sn?row(en?"Avg score":"平均評分",`<b style="color:${scoreCol7(e.ss/e.sn)}">${Math.round(e.ss/e.sn*10)/10}</b>`):""); };
+          +(e.sn?row(e.sn===1?(en?"Score":"評分"):(en?"Avg score":"平均評分"),`<b style="color:${scoreCol7(e.ss/e.sn)}">${Math.round(e.ss/e.sn*10)/10}</b>`):""); };
       box.onmouseover=e=>{ const el=e.target.closest&&e.target.closest(".dlyChip[data-gi],.dlyChip[data-ga]"); if(!el||el===box._tipEl)return; box._tipEl=el;
         tipShow(el.dataset.ga!=null?aggTip(_DA[+el.dataset.ga]):dlyTip(_DG[+el.dataset.gi]),el.getBoundingClientRect()); };
       box.onmouseout=e=>{ const el=box._tipEl; if(el&&!(e.relatedTarget&&el.contains(e.relatedTarget))){ box._tipEl=null; tipHide(); } };
