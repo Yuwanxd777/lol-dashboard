@@ -10967,7 +10967,7 @@ function render(){
         const da=sqData(a.id,a.lane)||{}, db=sqData(b.id,b.lane)||{};
         const sAvg=da.rt!=null&&db.rt!=null?((da.rt*(da._n||0)+db.rt*(db._n||0))/Math.max(1,(da._n||0)+(db._n||0))):null;
         const CG=window.SOLOQ_CHGAMES;
-        if(!CG){ lazyLoad("sqg"); sq={rt:sAvg, g:LANG==="en"?"Loading…":"載入中…"}; }
+        if(!CG){ lazyLoad("sqg"); sq={_loading:1, g:LANG==="en"?"Loading…":"載入中…"}; }
         else{ const PO={T:"TOP",J:"JNG",M:"MID",B:"BOT",U:"SUP"}, pks=F.patch?[F.patch]:sqPks, G=new Map();
           const pn=V.tierProSq?proNames():null;
           const T=[0,0,0], gd=[0,0];
@@ -10977,7 +10977,9 @@ function render(){
           const n=G.size, w=[...G.values()].filter(Boolean).length, g15=gd[0]?gd[1]/gd[0]:null;
           sq={rt:sAvg, g:wlS(n,w), wr:n?pct(w/n):null, kda:n?kdaOf(...T).toFixed(1):null, gd:g15==null?null:(g15>0?"+":"")+Math.round(g15),
               _v:{rt:sAvg,wr:n?w/n:null,kda:n?kdaOf(...T):null,gd:g15}, _P:joinP(sqPool(a.lane).P,sqPool(b.lane).P)}; } }
-      return tipHead(`${esc(zn(a.id))} ＋ ${esc(zn(b.id))}`,[a.lane,b.lane])+statGrid([pro&&{h:LANG==="en"?"Pro":"比賽",d:pro}, sq&&{h:LANG==="en"?"Ranked":"積分",d:sq}])
+      // 這個組合 0 場＝那一欄整欄不顯示（使用者 2026-10-20：0 場卻有評分是錯的；評分是兩隻各自評分的加權，沒一起打過就不該出現）
+      const has=d=>d&&(d._loading||(d._v&&d._v.wr!=null));
+      return tipHead(`${esc(zn(a.id))} ＋ ${esc(zn(b.id))}`,[a.lane,b.lane])+statGrid([has(pro)&&{h:LANG==="en"?"Pro":"比賽",d:pro}, has(sq)&&{h:LANG==="en"?"Ranked":"積分",d:sq}])
         +chgBox(a.id,1)+chgBox(b.id,1); };   // 兩隻各自的改版（前面加名字區分；細節同樣按 Shift 展開）
     const nameW=n=>Math.max(2.2,[...String(n)].reduce((w,ch)=>w+(/[\u2E80-\uFFFD]/.test(ch)?1.1:0.65),0)+0.6)+"em";
     // \u5713\u76E4\u8272\u76E4\uFF1A\u8272\u76F8\u74B0\uFF0B\u98FD\u548C\u5EA6\u7531\u4E2D\u5FC3\u5411\u5916\uFF0C\u9EDE\u4E00\u4E0B\u9078\u8272\uFF1B\u4E0B\u6392\u9644\u7070\u968E
