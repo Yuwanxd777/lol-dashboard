@@ -10860,6 +10860,9 @@ function render(){
     // 只被禁沒選過的底分：它的 BP% 在這一路排第幾名，就拿同名次的評分（中位數太保守：WCS 夜曲禁 95% 仍進不了 S）
     const banBase=(L,bp)=>{ const k="B|"+(L||"")+"|"+bp; if(_banC[k]!=null)return _banC[k]; const rows=calcHeroes(L,"",TT).filter(x=>x.場數>=1&&typeof x.評分==="number");
       if(!rows.length)return _banC[k]=50; const rts=rows.map(x=>x.評分).sort((a,b)=>b-a), better=rows.filter(x=>(x["BP%"]||0)>bp).length; return _banC[k]=rts[Math.min(rts.length-1,better)]; };
+    // 顯示用軟封頂（使用者 2026-10-21：太多評分 100）：80 以下照原值，以上漸近 100（80＋20×(1−e^−(x−80)/30)）；排名與門檻仍用原值
+    //   （試過 85／15：100 是沒了，但 95~99 擠了十幾隻，高分之間分不開）
+    const softCap=x=>x==null?null:(x<=80?x:80+20*(1-Math.exp(-(x-80)/30)));
     const tierPro=(r,L)=>{ if(!r)return null; const base=typeof r.評分==="number"?r.評分:(r._ban?banBase(L,r["BP%"]||0):0); return base+banScore(L,r.禁用率||0)*BANW; };
     const banRow=(id,L)=>{ const tg=banGames(); if(!tg)return null; const br=(cnt[id].b||0)/tg;
       return {_full:id,_ban:1,場數:0,"BP%":br,禁用率:br,評分:null}; };   // 只被禁：底分＝BP% 同名次的評分（banBase），再加禁用分
@@ -10926,7 +10929,7 @@ function render(){
       for(const id2 in acc)gd[id2]=acc[id2][1]/acc[id2][0];
       const num=f=>rows.map(f).filter(x=>typeof x==="number"&&isFinite(x));
       const rowsG=rows;   // 評分的比較池＝板子同一份（選戰隊＝該隊；評分＝max(評分, 禁用分)）
-      return TPC[k]={rows,gd,P:{rt:rowsG.map(r=>tierPro(r,L)).filter(x=>typeof x==="number"&&isFinite(x)),wr:num(r=>r.勝率),kda:num(r=>r.KDA),bp:num(r=>r["BP%"]),gd:Object.values(gd)}}; };
+      return TPC[k]={rows,gd,P:{rt:rowsG.map(r=>softCap(tierPro(r,L))).filter(x=>typeof x==="number"&&isFinite(x)),wr:num(r=>r.勝率),kda:num(r=>r.KDA),bp:num(r=>r["BP%"]),gd:Object.values(gd)}}; };
     const sqPool=L=>{ const k="S|"+(L||"ALL"); if(TPC[k])return TPC[k]; const rows=sqQ(L||null);
       const num=f=>rows.map(f).filter(x=>typeof x==="number"&&isFinite(x));
       return TPC[k]={P:{rt:num(r=>r.評分),wr:num(r=>r.勝率),kda:num(r=>r.KDA),gd:num(r=>r["金差@15"])}}; };
@@ -10982,9 +10985,9 @@ function render(){
           const br=!rw&&banOnly(id)?banRow(id,lane||banLaneOf(id)):null;   // 只被禁沒選過：評分＝BP% 名次的代理值（同分階）
           if(br)bp=Math.round(br["BP%"]*100)+"%";
           const tp=rw?tierPro(rw,lane):(br?tierPro(br,lane||banLaneOf(id)):null);
-          pro={rt:tp==null?null:Math.min(100,tp), g:wlS(n,w)+(lane&&!singleLane?`<span class="tgS">${LANG==="en"?"all":"全"} ${c.p}</span>`:""),
+          pro={rt:softCap(tp), g:wlS(n,w)+(lane&&!singleLane?`<span class="tgS">${LANG==="en"?"all":"全"} ${c.p}</span>`:""),
                wr:rw?pct(rw.勝率):null, kda:rw?(rw.KDA||0).toFixed(1):null, gd:gd15==null?null:(gd15>0?"+":"")+Math.round(gd15), bp,
-               _v:rw?{rt:tp,wr:rw.勝率,kda:rw.KDA,gd:gd15,bp:TT?null:rw["BP%"]}:{gd:gd15,rt:tp,bp:br?br["BP%"]:null}, _P:PP.P};   // 戰隊篩選時 BP% 另有「跟一般比」的紅綠，不再用比較池
+               _v:rw?{rt:softCap(tp),wr:rw.勝率,kda:rw.KDA,gd:gd15,bp:TT?null:rw["BP%"]}:{gd:gd15,rt:softCap(tp),bp:br?br["BP%"]:null}, _P:PP.P};   // 戰隊篩選時 BP% 另有「跟一般比」的紅綠，不再用比較池
         }
       }
       const sq=wantSq?sqData(id,lane):null;
@@ -11012,8 +11015,8 @@ function render(){
         const tg=GAMES.filter(o=>inG(o)&&(!TT||o.raw[C.blue_teamname]===TT||o.raw[C.red_teamname]===TT)).length;
         const bn=((cnt[a.id]||{}).b||0)+((cnt[b.id]||{}).b||0);   // 被禁＝兩隻相加；BP%＝(出場＋被禁)÷局數
         const prt=ra&&rb?(ra[0]*ra[1]+rb[0]*rb[1])/Math.max(1,ra[1]+rb[1]):null, pkd=n?kdaOf(ka[0]+kb[0],ka[1]+kb[1],ka[2]+kb[2]):null;
-        pro={_v:{rt:prt==null?null:Math.min(100,prt),wr:n?w/n:null,kda:pkd,gd:pgd,bp:tg?(n+bn)/tg:null}, _P:joinP(proPool(a.lane).P,proPool(b.lane).P), rt:prt, g:wlS(n,w), wr:n?pct(w/n):null, kda:n?kdaOf(ka[0]+kb[0],ka[1]+kb[1],ka[2]+kb[2]).toFixed(1):null,
-             gd:pgd==null?null:(pgd>0?"+":"")+Math.round(pgd), bp:tg?Math.round((n+bn)/tg*100)+"%":null}; if(pro.rt!=null)pro.rt=Math.min(100,pro.rt); }
+        pro={_v:{rt:softCap(prt),wr:n?w/n:null,kda:pkd,gd:pgd,bp:tg?(n+bn)/tg:null}, _P:joinP(proPool(a.lane).P,proPool(b.lane).P), rt:prt, g:wlS(n,w), wr:n?pct(w/n):null, kda:n?kdaOf(ka[0]+kb[0],ka[1]+kb[1],ka[2]+kb[2]).toFixed(1):null,
+             gd:pgd==null?null:(pgd>0?"+":"")+Math.round(pgd), bp:tg?Math.round((n+bn)/tg*100)+"%":null}; if(pro.rt!=null)pro.rt=softCap(pro.rt); }
       let sq=null;
       // 積分：逐場積分（SOLOQ_CHGAMES，第 15 欄＝隊友英雄）裡 A 在這一路且隊友是 B（或反過來）；版本／只算出賽選手同目前篩選；同場只算一次
       //   ⚠ 逐場檔只留每隻英雄最近 100 場；評分＝兩隻各自那一路的積分評分平均
