@@ -10877,7 +10877,8 @@ function render(){
         const off=sd?RB:0, v=parseFloat(o.raw[C.blue_golddiffat15+off]); if(!isFinite(v))continue; const id2=champId(o.raw[C.blue_champion+off]); const a2=acc[id2]=acc[id2]||[0,0]; a2[0]++; a2[1]+=v; } }
       for(const id2 in acc)gd[id2]=acc[id2][1]/acc[id2][0];
       const num=f=>rows.map(f).filter(x=>typeof x==="number"&&isFinite(x));
-      return TPC[k]={rows,gd,P:{rt:num(r=>r.評分),wr:num(r=>r.勝率),kda:num(r=>r.KDA),bp:num(r=>r["BP%"]),gd:Object.values(gd)}}; };
+      const rowsG=TT?(L?calcHeroes(L,""):calcHeroes("","")).filter(r=>r.場數>=1):rows;   // 評分的比較池＝不分戰隊（評分本身也是）
+      return TPC[k]={rows,gd,P:{rt:rowsG.map(r=>r.評分).filter(x=>typeof x==="number"&&isFinite(x)),wr:num(r=>r.勝率),kda:num(r=>r.KDA),bp:num(r=>r["BP%"]),gd:Object.values(gd)}}; };
     const sqPool=L=>{ const k="S|"+(L||"ALL"); if(TPC[k])return TPC[k]; const rows=sqQ(L||null);
       const num=f=>rows.map(f).filter(x=>typeof x==="number"&&isFinite(x));
       return TPC[k]={P:{rt:num(r=>r.評分),wr:num(r=>r.勝率),kda:num(r=>r.KDA),gd:num(r=>r["金差@15"])}}; };
@@ -10916,7 +10917,9 @@ function render(){
       const singleLane=Object.values(laneC[id]||{}).filter(n=>n>0).length<=1;
       let pro=null;
       if(wantPro){
-        const rw=(lane?calcHeroes(lane,"",TT):calcHeroes("","",TT)).find(r=>champId(r._full)===id); // 該路(或全部路線)數據，跟隨戰隊篩選
+        const rwT=(lane?calcHeroes(lane,"",TT):calcHeroes("","",TT)).find(r=>champId(r._full)===id); // 該路(或全部路線)數據，跟隨戰隊篩選
+        // 評分一律用「分階用的那份」（不分戰隊）：選了戰隊時，這隊沒選過的英雄原本整欄沒評分（使用者 2026-10-20：很多比賽評分消失）
+        const rwG=TT?(lane?calcHeroes(lane,""):calcHeroes("","")).find(r=>champId(r._full)===id):rwT, rw=rwT||rwG;
         if(rw||seen.has(id)){
           let bp=null;
           if(rw){ const p0=Math.round((rw["BP%"]||0)*100);
@@ -10928,9 +10931,9 @@ function render(){
           const n=rw?rw.場數:(lane?lp:c.p), w=rw?Math.round((rw.勝率||0)*n):0;
           // 金差@15（使用者 2026-10-20：比賽也有這欄）：範圍內該路每場 golddiffat15 平均（跟隨戰隊篩選；proPool 一次算完整路）
           const PP=proPool(lane), gd15=PP.gd[id]!=null?PP.gd[id]:null;
-          pro={rt:rw&&typeof rw.評分==="number"?rw.評分:null, g:wlS(n,w)+(lane&&!singleLane?`<span class="tgS">${LANG==="en"?"all":"全"} ${c.p}</span>`:""),
+          pro={rt:rwG&&typeof rwG.評分==="number"?rwG.評分:(rw&&typeof rw.評分==="number"?rw.評分:null), g:wlS(n,w)+(lane&&!singleLane?`<span class="tgS">${LANG==="en"?"all":"全"} ${c.p}</span>`:""),
                wr:rw?pct(rw.勝率):null, kda:rw?(rw.KDA||0).toFixed(1):null, gd:gd15==null?null:(gd15>0?"+":"")+Math.round(gd15), bp,
-               _v:rw?{rt:rw.評分,wr:rw.勝率,kda:rw.KDA,gd:gd15,bp:TT?null:rw["BP%"]}:{gd:gd15}, _P:PP.P};   // 戰隊篩選時 BP% 另有「跟一般比」的紅綠，不再用比較池
+               _v:rw?{rt:rwG?rwG.評分:rw.評分,wr:rw.勝率,kda:rw.KDA,gd:gd15,bp:TT?null:rw["BP%"]}:{gd:gd15}, _P:PP.P};   // 戰隊篩選時 BP% 另有「跟一般比」的紅綠，不再用比較池
         }
       }
       const sq=wantSq?sqData(id,lane):null;
@@ -10952,7 +10955,7 @@ function render(){
         const sum=k=>both.reduce((t,g)=>[t[0]+g[k][0],t[1]+g[k][1],t[2]+g[k][2]],[0,0,0]);
         const gds=both.flatMap(g=>[g.a[3],g.b[3]]).filter(v=>isFinite(v)), pgd=gds.length?gds.reduce((x,y)=>x+y,0)/gds.length:null;   // 金差@15＝兩隻各自的平均
         const ka=sum("a"), kb=sum("b");
-        const rOf=e=>{ const rw=calcHeroes(e.lane,"",TT).find(x=>champId(x._full)===e.id); return rw&&typeof rw.評分==="number"?[rw.評分,rw.場數||0]:null; };
+        const rOf=e=>{ const rw=calcHeroes(e.lane,"").find(x=>champId(x._full)===e.id); return rw&&typeof rw.評分==="number"?[rw.評分,rw.場數||0]:null; };   // 評分＝分階用的那份（不分戰隊）
         const ra=rOf(a), rb=rOf(b);   // 比賽評分同樣用場數加權
         const tg=GAMES.filter(o=>inG(o)&&(!TT||o.raw[C.blue_teamname]===TT||o.raw[C.red_teamname]===TT)).length;
         const bn=((cnt[a.id]||{}).b||0)+((cnt[b.id]||{}).b||0);   // 被禁＝兩隻相加；BP%＝(出場＋被禁)÷局數
