@@ -10891,9 +10891,12 @@ function render(){
         const both=Object.values(G).filter(g=>g.a&&g.b), n=both.length, w=both.filter(g=>g.w).length;
         const sum=k=>both.reduce((t,g)=>[t[0]+g[k][0],t[1]+g[k][1],t[2]+g[k][2]],[0,0,0]);
         const ka=sum("a"), kb=sum("b");
+        // 評分＝兩隻在目前篩選下各自那一路的比賽評分平均（使用者 2026-10-20）
+        const rOf=(e)=>{ const rw=calcHeroes(e.lane,"",TT).find(x=>champId(x._full)===e.id); return rw&&typeof rw.評分==="number"?rw.評分:null; };
+        const ra=rOf(a), rb=rOf(b), rAvg=ra!=null&&rb!=null?(ra+rb)/2:null;
         pro=`<div class="tipRow"><b>${LANG==="en"?"Pro data":"比賽數據"}</b>${n
-          ?`<div>${LANG==="en"?"Together":"一起出場"} <span class="num">${n}</span> ${LANG==="en"?"games":"場"}（${w}-${n-w}）｜${LANG==="en"?"Win%":"勝率"} <span class="num">${Math.round(w/n*100)}%</span></div><div>KDA <span class="num">${(kdaOf(...ka)+kdaOf(...kb)).toFixed(1)}</span></div>`
-          :`<div style="color:#7a8aaa">${LANG==="en"?"Never on the same team in this range":"所選範圍內沒有同隊一起出場"}</div>`}</div>`; }
+          ?`<div>${LANG==="en"?"Together":"一起出場"} <span class="num">${n}</span> ${LANG==="en"?"games":"場"}（${w}-${n-w}）｜${LANG==="en"?"Win%":"勝率"} <span class="num">${Math.round(w/n*100)}%</span></div><div>KDA <span class="num">${(kdaOf(...ka)+kdaOf(...kb)).toFixed(1)}</span>｜${LANG==="en"?"Rating (avg)":"評分（兩隻平均）"} <span class="num">${rAvg==null?"–":rAvg.toFixed(1)}</span></div>`
+          :`<div style="color:#7a8aaa">${LANG==="en"?"Never on the same team in this range":"所選範圍內沒有同隊一起出場"}</div><div>${LANG==="en"?"Rating (avg)":"評分（兩隻平均）"} <span class="num">${rAvg==null?"–":rAvg.toFixed(1)}</span></div>`}</div>`; }
       let sq="";
       if(wantSq&&!isHistYear()&&window.SOLOQ_BUILDS){ const st=new Set([a.lane,b.lane]), pos=st.has("JNG")&&st.has("MID")?"中野組":st.has("BOT")&&st.has("SUP")?"下路組":"";
         let r=pos?calcHeroesSoloq(pos).find(x=>x._pair&&((x._pair[0]===a.id&&x._pair[1]===b.id)||(x._pair[0]===b.id&&x._pair[1]===a.id))):null;
@@ -10903,7 +10906,10 @@ function render(){
           const cc=(SOLOQ_BUILDS.champs||{})[tp.id]||{}, du=(cc.byLane?((cc.byLane.TOP||{}).duo):cc.duo)||[], e=du.find(x=>x[0]===jg.id);   // 只走一路的英雄沒有 byLane，duo 就是那一路的
           if(e&&e[1]>=5){ r={場數:e[1],"勝-敗":`${e[2]}-${e[1]-e[2]}`,勝率:e[2]/e[1]}; upOnly=true; } }
         const gd=r&&r["金差@15"];
-        sq=`<div class="tipRow"><b>${LANG==="en"?"Ranked data (season)":"積分數據（全季）"}</b>${r
+        const sOf=e=>{ const k="P|"+e.lane; if(!SQTC[k]){ const m={}; calcHeroesSoloq(e.lane,sqPks).forEach(x=>{m[x._full]=x;}); SQTC[k]=m; } const x=SQTC[k][e.id]; return x&&x.評分!=null?x.評分:null; };
+        const sa=sOf(a), sb=sOf(b), sAvg=sa!=null&&sb!=null?(sa+sb)/2:null;
+        const sRate=`<div>${LANG==="en"?"Rating (avg of both, current filter)":"評分（兩隻平均，依目前篩選）"} <span class="num">${sAvg==null?"–":Math.round(sAvg)}</span></div>`;
+        sq=`<div class="tipRow"><b>${LANG==="en"?"Ranked data":"積分數據"}</b>${sRate}${r?`<div style="color:#7a8aaa">${LANG==="en"?"Together (season — duo data has no per-patch split yet)":"一起出場（全季，組合資料還沒有分版本）"}</div>`:""}${r
           ?`<div>${LANG==="en"?"Games":"場數"} <span class="num">${r.場數}</span>（${esc(r["勝-敗"]||"")}）｜${LANG==="en"?"Win%":"勝率"} <span class="num">${Math.round((r.勝率||0)*100)}%</span></div>${upOnly?"":`<div>KDA <span class="num">${(r.KDA||0).toFixed(1)}</span>｜${LANG==="en"?"GD@15":"金差@15"} <span class="num">${gd==null?"–":(gd>0?"+":"")+Math.round(gd)}</span></div>`}`
           :`<div style="color:#7a8aaa">${pos?(LANG==="en"?"Fewer than 15 games together":"一起玩不到 15 場"):(LANG==="en"?"Not among this top laner’s 5 most common junglers":"不在這隻上路最常配的 5 個打野裡")}</div>`}</div>`; }
       return `<div class="tipTitle" style="display:flex;align-items:center;justify-content:space-between;gap:10px"><span>${esc(zn(a.id))} ＋ ${esc(zn(b.id))}</span><span style="display:flex;gap:2px">${ico(a.lane)}${ico(b.lane)}</span></div>${pro}${sq}`; };
