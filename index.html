@@ -10829,14 +10829,15 @@ function render(){
     const SQTC={}; // 積分數據 hover 快取（每次 render 重建；key=路線）
     const sqTipRow=(id,lane)=>{ if(isHistYear()||!window.SOLOQ_BUILDS||typeof calcHeroesSoloq!=="function")return "";
       const get=k2=>{ if(!SQTC[k2]){const m={}; calcHeroesSoloq(k2==="ALL"?null:k2,sqPks).forEach(r2=>{m[r2._full]=r2;}); SQTC[k2]=m;} return SQTC[k2]; };
-      let r=get(lane||"ALL")[id], lb=lane?(LANE_ZH[lane]||lane):"";
+      let r=get(lane||"ALL")[id];
       // 上板門檻＝全路線合計場數，但單路有自己的樣本門檻（全季15/單版本5）——該路查不到就退回全路線彙總，
       // 否則會出現「在板上卻顯示無積分樣本」的矛盾（例：合計32場上板，主路打野單路只有12場）
-      if(!r&&lane){ r=get("ALL")[id]; if(r)lb=LANG==="en"?"All lanes":"全路線"; }
-      const ttl=`${LANG==="en"?"Ranked":"積分"}${lb?" "+lb:""}${LANG==="en"?" data":"數據"}`;
+      let fb=false; if(!r&&lane){ r=get("ALL")[id]; if(r)fb=true; }
+      // 標題固定「積分數據」（使用者 2026-10-20：不用寫路線，路線看小框右上角圖示）；該路樣本不足退回全路線時加一行小註
+      const ttl=LANG==="en"?"Ranked data":"積分數據";
       if(!r)return `<div class="tipRow"><b>${ttl}</b><div style="color:#7a8aaa">${LANG==="en"?"No ranked sample":"無積分樣本（場數未達門檻）"}</div></div>`;
       const gd=r["金差@15"];
-      return `<div class="tipRow"><b>${ttl}</b><div>${LANG==="en"?"Games":"場數"} <span class="num">${r.場數}</span>（${esc(r["勝-敗"]||"")}）｜${LANG==="en"?"Win%":"勝率"} <span class="num">${Math.round((r.勝率||0)*100)}%</span></div><div>KDA <span class="num">${(r.KDA||0).toFixed(1)}</span>｜${LANG==="en"?"GD@15":"金差@15"} <span class="num">${gd==null?"–":(gd>0?"+":"")+Math.round(gd)}</span>｜${LANG==="en"?"Rating":"評分"} <span class="num">${r.評分==null?"–":Math.round(r.評分)}</span></div></div>`;};
+      return `<div class="tipRow"><b>${ttl}</b>${fb?`<div style="color:#7a8aaa">${LANG==="en"?"Too few games in this role — all roles":"這一路樣本不足，以下為全路線"}</div>`:""}<div>${LANG==="en"?"Games":"場數"} <span class="num">${r.場數}</span>（${esc(r["勝-敗"]||"")}）｜${LANG==="en"?"Win%":"勝率"} <span class="num">${Math.round((r.勝率||0)*100)}%</span></div><div>KDA <span class="num">${(r.KDA||0).toFixed(1)}</span>｜${LANG==="en"?"GD@15":"金差@15"} <span class="num">${gd==null?"–":(gd>0?"+":"")+Math.round(gd)}</span>｜${LANG==="en"?"Rating":"評分"} <span class="num">${r.評分==null?"–":Math.round(r.評分)}</span></div></div>`;};
     const tipOf=(id,lane)=>{const c=cnt[id]||{p:0,b:0};
       // hover 內容跟三向模式走（2026-07-18 使用者定案）：積分數據模式＝只列積分、比賽數據模式＝只列比賽、自訂＝兩種都列
       const _src=V.tierSrc||"custom", wantPro=_src!=="soloq", wantSq=_src!=="match";
@@ -10846,11 +10847,10 @@ function render(){
       const cntLine=LANG==="en"
         ?`Games <span class="num">${c.p}</span>｜Banned <span class="num">${c.b}</span>｜Total <span class="num">${c.p+c.b}</span>`
         :`出場 <span class="num">${c.p}</span> 場｜被禁 <span class="num">${c.b}</span> 次｜合計 <span class="num">${c.p+c.b}</span>`;
-      const head=lane
-        ?(singleLane
-          ?`<div class="tipRow"><b>${LANE_ZH[lane]||lane}</b><div>${cntLine}</div>${_noShow}</div>`
-          :`<div class="tipRow"><b>${LANE_ZH[lane]||lane}</b><div>${LANG==="en"?`Lane games <span class="num">${lp}</span>`:`該路出場 <span class="num">${lp}</span> 場`}</div></div><div class="tipRow"><b>${LANG==="en"?"All lanes":"全部路線"}</b><div>${cntLine}</div>${_noShow}</div>`)
-        :`<div class="tipRow"><b>${LANG==="en"?"Current filter":"目前篩選"}</b><div>${cntLine}</div>${_noShow}</div>`;
+      // 比賽數據一個框（使用者 2026-10-20：「打野」跟「打野數據」兩框合併、標題寫比賽數據，路線改放右上角圖示）
+      const cntLines=(lane&&!singleLane)
+        ?`<div>${LANG==="en"?`Role games <span class="num">${lp}</span>｜All roles <span class="num">${c.p}</span>｜Banned <span class="num">${c.b}</span>`:`該路出場 <span class="num">${lp}</span> 場｜全部路線 <span class="num">${c.p}</span> 場｜被禁 <span class="num">${c.b}</span> 次`}</div>`
+        :`<div>${cntLine}</div>`;
       let stat="";
       if(wantPro){
         const srcRows=lane?calcHeroes(lane,"",TT):calcHeroes("","",TT); // 該路(或全部路線)數據，跟隨戰隊篩選
@@ -10866,9 +10866,10 @@ function render(){
                               :`<span class="meta">（選 <span class="num">${rw.場數}</span>｜對手禁 <span class="num">${rw._banN||0}</span>）</span>`;
           }else bpNum=`<span class="num">${pct}%</span>`;
         }
-        stat=rw?`<div class="tipRow"><b>${lane?(LANE_ZH[lane]||lane)+(LANG==="en"?" data":" 數據"):(LANG==="en"?"Data (lane avg)":"數據(各路平均)")}</b><div>${TT?(LANG==="en"?"Team BP%":"戰隊BP%"):"BP%"} ${bpNum}${bpBrk}｜${LANG==="en"?"Win%":"勝率"} <span class="num">${Math.round((rw.勝率||0)*100)}%</span></div><div>KDA <span class="num">${(rw.KDA||0).toFixed(1)}</span>｜${LANG==="en"?"Rating":"評分"} <span class="num">${rw.評分}</span></div></div>`:"";
+        stat=`<div class="tipRow"><b>${LANG==="en"?"Pro data":"比賽數據"}${lane?"":(LANG==="en"?" (role avg)":"（各路平均）")}</b>${cntLines}${rw?`<div>${TT?(LANG==="en"?"Team BP%":"戰隊BP%"):"BP%"} ${bpNum}${bpBrk}｜${LANG==="en"?"Win%":"勝率"} <span class="num">${Math.round((rw.勝率||0)*100)}%</span></div><div>KDA <span class="num">${(rw.KDA||0).toFixed(1)}</span>｜${LANG==="en"?"Rating":"評分"} <span class="num">${rw.評分}</span></div>`:""}${_noShow}</div>`;
       }
-      return `<div class="tipTitle">${esc(zn(id))}</div>${wantPro?head:""}${stat}${wantSq?sqTipRow(id,lane):""}${
+      const lic=lane?`<img src="${(typeof POS_B64!=="undefined"&&POS_B64[lane])||POS_IMG[lane]}" alt="" style="width:22px;height:22px;flex:none;filter:drop-shadow(0 0 2px #000)">`:"";   // 路線＝右上角圖示
+      return `<div class="tipTitle" style="display:flex;align-items:center;justify-content:space-between;gap:10px"><span>${esc(zn(id))}</span>${lic}</div>${stat}${wantSq?sqTipRow(id,lane):""}${
         CHG[id]===undefined?"":`<div class="tipRow"><b>${esc(CHGV)} <span style="color:${CHG[id]>0?"#ff4d4d":CHG[id]<0?"#37c871":"#ffd60a"}">${CHG[id]>0?(LANG==="en"?"Buff":"增強"):CHG[id]<0?(LANG==="en"?"Nerf":"削弱"):(LANG==="en"?"Adjust":"調整")}</span></b><div>${
           (CHGL[id]||[]).map(l=>{const dd=changeDir([l]);
             return `<span style="color:${dd>0?"#ff6b6b":dd<0?"#5fbf7f":"#c8d0e0"}">${esc(l)}</span>`;}).join("<br>")}</div></div>`}`;};
