@@ -10884,7 +10884,7 @@ function render(){
     if(!window._tipShiftBound){ window._tipShiftBound=1;
       const tg=on=>{ const t=document.getElementById("hoverTip"); if(t)t.classList.toggle("shiftOn",on); };
       addEventListener("keydown",e=>{ if(e.key==="Shift")tg(true); }); addEventListener("keyup",e=>{ if(e.key==="Shift")tg(false); }); addEventListener("blur",()=>tg(false)); }
-    const chgBox=(id,nm)=>CHG[id]===undefined?"":`<div class="tipRow"><b>${nm?esc(zn(id))+" ":""}${esc(CHGV)} <span style="color:${CHG[id]>0?"#ff4d4d":CHG[id]<0?"#37c871":"#ffd60a"}">${CHG[id]>0?(LANG==="en"?"Buff":"增強"):CHG[id]<0?(LANG==="en"?"Nerf":"削弱"):(LANG==="en"?"Adjust":"調整")}</span></b><span class="tChgHint">${LANG==="en"?"Hold Shift for details":"按住 Shift 看改動"}</span><div class="tChgDet">${
+    const chgBox=(id,nm)=>CHG[id]===undefined?"":`<div class="tipRow"><b>${nm?esc(zn(id))+" ":""}${esc(CHGV)} <span style="color:${CHG[id]>0?"#ff4d4d":CHG[id]<0?"#37c871":"#ffd60a"}">${CHG[id]>0?(LANG==="en"?"Buff":"增強"):CHG[id]<0?(LANG==="en"?"Nerf":"削弱"):(LANG==="en"?"Adjust":"調整")}</span></b><span class="tChgHint">Shift</span><div class="tChgDet">${
           (CHGL[id]||[]).map(l=>{const dd=changeDir([l]);
             return `<span style="color:${dd>0?"#ff6b6b":dd<0?"#5fbf7f":"#c8d0e0"}">${esc(l)}</span>`;}).join("<br>")}</div></div>`;
     // 積分：該路資料（沒過上板門檻也照樣有，評分在門檻 1 的全體裡算——使用者 2026-10-20：有場次就要有數據、評分不要 –）
