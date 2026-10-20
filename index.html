@@ -10872,7 +10872,7 @@ function render(){
     // cols：[{h:欄名, d:{rt,g,wr,kda,gd,bp,ban}}]（值可以是字串 html；null／undefined＝該欄沒有）
     const statGrid=cols=>{ cols=cols.filter(Boolean); if(!cols.length)return "";
       const R=[["rt",LANG==="en"?"Rating":"評分"],["g",LANG==="en"?"Games":"場數"],["wr",LANG==="en"?"Win%":"勝率"],["kda","KDA"],
-               ["gd",LANG==="en"?"GD@15":"金差@15"],["bp","BP%"],["ban",LANG==="en"?"Banned":"被禁"]];
+               ["gd",LANG==="en"?"GD@15":"金差@15"],["bp","BP%"]];   // 被禁列拿掉（使用者 2026-10-20），BP% 已含被禁
       let h=`<div class="tGrid" style="grid-template-columns:auto${" minmax(70px,auto)".repeat(cols.length)}"><span></span>${cols.map(c=>`<span class="h">${c.h}</span>`).join("")}`;
       R.forEach(([k,lb])=>{ if(!cols.some(c=>c.d[k]!=null))return;
         if(k==="rt"){ h+=`<span class="l">${lb}</span>${cols.map(c=>{const v=c.d.rt; return `<span class="v" style="font-size:22px;font-weight:bold;line-height:1.1;color:${rtCol(v)}">${v==null?"–":Math.round(v)}</span>`;}).join("")}<span class="sep"></span>`; return; }
@@ -10903,8 +10903,13 @@ function render(){
               bp=`<span class="num"${col?` style="color:${col}"`:""}>${p0}%</span>`; }
             else bp=p0+"%"; }
           const n=rw?rw.場數:(lane?lp:c.p), w=rw?Math.round((rw.勝率||0)*n):0;
+          // 金差@15（使用者 2026-10-20：比賽也有這欄）：範圍內該路每場 golddiffat15 平均（跟隨戰隊篩選）
+          let gN=0,gS=0; const pi=lane?LANE5v.indexOf(lane)+1:0;
+          for(const o of LANES){ if((pi&&o.pid!==pi)||!inG(o))continue; for(const sd of [0,1]){ if(TT&&o.raw[sd?C.red_teamname:C.blue_teamname]!==TT)continue;
+            const off=sd?RB:0; if(champId(o.raw[C.blue_champion+off])!==id)continue; const v=parseFloat(o.raw[C.blue_golddiffat15+off]); if(isFinite(v)){gN++;gS+=v;} } }
+          const gd15=gN?gS/gN:null;
           pro={rt:rw&&typeof rw.評分==="number"?rw.評分:null, g:wlS(n,w)+(lane&&!singleLane?`<span class="tgS">${LANG==="en"?"all":"全"} ${c.p}</span>`:""),
-               wr:rw?pct(rw.勝率):null, kda:rw?(rw.KDA||0).toFixed(1):null, bp, ban:c.b};
+               wr:rw?pct(rw.勝率):null, kda:rw?(rw.KDA||0).toFixed(1):null, gd:gd15==null?null:(gd15>0?"+":"")+Math.round(gd15), bp};
         }
       }
       const sq=wantSq?sqData(id,lane):null;
@@ -10921,16 +10926,17 @@ function render(){
           for(const sd of [0,1]){ if(TT&&o.raw[sd?C.red_teamname:C.blue_teamname]!==TT)continue;
             const off=sd?RB:0, ch=champId(o.raw[C.blue_champion+off]), want=o.pid===pa?a.id:b.id; if(ch!==want)continue;
             const g=G[gkey(o)+"|"+sd]=G[gkey(o)+"|"+sd]||{w:sd?(o.result?0:1):(o.result?1:0)};
-            g[o.pid===pa?"a":"b"]=[+o.raw[C.blue_kills+off]||0,+o.raw[C.blue_deaths+off]||0,+o.raw[C.blue_assists+off]||0]; } }
+            g[o.pid===pa?"a":"b"]=[+o.raw[C.blue_kills+off]||0,+o.raw[C.blue_deaths+off]||0,+o.raw[C.blue_assists+off]||0,parseFloat(o.raw[C.blue_golddiffat15+off])]; } }
         const both=Object.values(G).filter(g=>g.a&&g.b), n=both.length, w=both.filter(g=>g.w).length;
         const sum=k=>both.reduce((t,g)=>[t[0]+g[k][0],t[1]+g[k][1],t[2]+g[k][2]],[0,0,0]);
+        const gds=both.flatMap(g=>[g.a[3],g.b[3]]).filter(v=>isFinite(v)), pgd=gds.length?gds.reduce((x,y)=>x+y,0)/gds.length:null;   // 金差@15＝兩隻各自的平均
         const ka=sum("a"), kb=sum("b");
         const rOf=e=>{ const rw=calcHeroes(e.lane,"",TT).find(x=>champId(x._full)===e.id); return rw&&typeof rw.評分==="number"?rw.評分:null; };
         const ra=rOf(a), rb=rOf(b);
         const tg=GAMES.filter(o=>inG(o)&&(!TT||o.raw[C.blue_teamname]===TT||o.raw[C.red_teamname]===TT)).length;
         const bn=((cnt[a.id]||{}).b||0)+((cnt[b.id]||{}).b||0);   // 被禁＝兩隻相加；BP%＝(出場＋被禁)÷局數
         pro={rt:ra!=null&&rb!=null?(ra+rb)/2:null, g:wlS(n,w), wr:n?pct(w/n):null, kda:n?kdaOf(ka[0]+kb[0],ka[1]+kb[1],ka[2]+kb[2]).toFixed(1):null,
-             bp:tg?Math.round((n+bn)/tg*100)+"%":null, ban:bn}; }
+             gd:pgd==null?null:(pgd>0?"+":"")+Math.round(pgd), bp:tg?Math.round((n+bn)/tg*100)+"%":null}; }
       let sq=null;
       // 積分：逐場積分（SOLOQ_CHGAMES，第 15 欄＝隊友英雄）裡 A 在這一路且隊友是 B（或反過來）；版本／只算出賽選手同目前篩選；同場只算一次
       //   ⚠ 逐場檔只留每隻英雄最近 100 場；評分＝兩隻各自那一路的積分評分平均
