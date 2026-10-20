@@ -11251,11 +11251,15 @@ function render(){
         c.onmouseenter=()=>{
           const lc=c.closest(".tLane"); // 五路模式：以該路(欄/池段)顯示該路數據；混合模式用該圖的取用路線
           const lane=V.tierMode==="lanes"?(lc?lc.dataset.lane:(c.dataset.plane||null)):(c.dataset.plane||null);
-          tipShow(tipOf(c.dataset.b||c.dataset.id,lane),c.getBoundingClientRect());
+          const _tid=c.dataset.b||c.dataset.id; let _h=tipOf(_tid,lane); tipShow(_h,c.getBoundingClientRect());
+          // 剛 F5 時比賽／積分資料可能還在載（使用者 2026-10-20：第一瞬間小框缺數據）⇒ 停在圖上時每 0.3 秒重算，內容變了就換上，最多 8 秒
+          clearInterval(c._tipT); let _k=0; c._tipT=setInterval(()=>{ if(!c.isConnected||!c.matches(":hover")||++_k>26){clearInterval(c._tipT);return;}
+            const h2=tipOf(_tid,lane); if(h2!==_h){ _h=h2; tipShow(h2,c.getBoundingClientRect()); } },300);
           document.querySelectorAll(`#tierWrap .tChip[data-b="${CSS.escape(c.dataset.b||c.dataset.id)}"]>img`).forEach(im=>im.classList.add("tglow"));}; // 同英雄(含各路線/池與表)一起亮
-        c.onmouseleave=()=>{tipHide();document.querySelectorAll("#tierWrap .tChip>img.tglow").forEach(im=>im.classList.remove("tglow"));};
+        c.onmouseleave=()=>{clearInterval(c._tipT);tipHide();document.querySelectorAll("#tierWrap .tChip>img.tglow").forEach(im=>im.classList.remove("tglow"));};
         c.onclick=()=>{ if(_carry){carryEnd();return;} const im=c.querySelector("img"); carryStart(c.dataset.id, im?im.src:"", {plane:c.dataset.plane||""}); }; // 點英雄＝拎起(池子)；Tier 列內的 chip 會被下面覆蓋成放回池/放入
       });
+      { const hc=document.querySelector("#tierWrap .tChip:hover"); if(hc&&hc.onmouseenter&&!_carry&&!window._tDragId)hc.onmouseenter(); }   // 重繪後滑鼠底下那張的小框立刻換成新資料（不用等滑鼠移動）
       // 拎著英雄時放入某階/某路（點列或點路線格；append 到該處，順序可再拖曳微調）
       // 連結前的原位（使用者 2026-10-20：點連結的圖解散後要「各自回到原本的位置」，含原本在哪一階）
       //   TB.lo[成員鍵]＝{t 階序, n 階名, at 該格位置, at3 三路欄內位置, L 原路線} 或 {pool:1}（從池子拖來連結的）；只記第一次（連結前），解散時照著放回
