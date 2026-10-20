@@ -10961,7 +10961,7 @@ function render(){
         const rwT=(lane?calcHeroes(lane,"",TT):calcHeroes("","",TT)).find(r=>champId(r._full)===id); // 該路(或全部路線)數據，跟隨戰隊篩選
         // 評分＝分階用的那份；選了戰隊時板子也用該隊數據分階（使用者 2026-10-20）⇒ 一律該隊
         const rwG=rwT, rw=rwT;
-        if(rw||seen.has(id)){
+        if(rw||banOnly(id)||(!lane&&seen.has(id))){   // 這一路沒有比賽資料（例：因積分被放進上路的庫奇）＝不顯示比賽欄；只被禁的照樣顯示
           let bp=null;
           if(rw){ const p0=Math.round((rw["BP%"]||0)*100);
             if(TT){ // 戰隊BP%：與一般BP%比 → 高紅低綠
