@@ -222,6 +222,9 @@ def main():
     heroAgg = defaultdict(lambda: defaultdict(lambda: [0] * 15))
     # 每版本彙總（積分模式的版本篩選；積分改版當天就上新版，界線用官方公告發布日，抓不到才退職業賽首戰日）
     heroAggP = defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: [0] * 15)))  # 英雄 -> 版本 -> 路線 -> 同上15欄
+    # 英雄Tier「只計算有出賽選手的積分」（2026-10-20 使用者）：選手 -> 版本(沒落在當季版本＝"_") -> 英雄 -> 路線 -> 同上15欄
+    #   前端只加總「篩選範圍內有出賽的選手」→ 跟 hero/heroP 同格式餵 calcHeroesSoloq。輸出 soloq_pagg.js（延遲載入）
+    heroAggPl = defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: [0] * 15))))
     _pdAll = official_patch_dates(sp) if sp else {}
     _bounds = sorted([((_pdAll.get(p) or pstart.get(p)), p) for p in sp if (_pdAll.get(p) or pstart.get(p))])
     _bd = [d for d, _ in _bounds]; _bp = [p for _, p in _bounds]
@@ -296,7 +299,7 @@ def main():
             _cs = _get("cs") or 0; _dur = _get("d") or 0; _r = _get("r"); _pos0 = _get("pos")
             _hl = _pos0 if _pos0 in ("TOP", "MIDDLE", "BOTTOM", "JUNGLE", "UTILITY") else "?"
             _pkm = patch_of(_gt)
-            _targets = [heroAgg[c][_hl]] + ([heroAggP[c][_pkm][_hl]] if _pkm else [])
+            _targets = [heroAgg[c][_hl]] + ([heroAggP[c][_pkm][_hl]] if _pkm else []) + ([heroAggPl[pkey][_pkm or "_"][c][_hl]] if _hl != "?" else [])
             for _ha in _targets:
                 _ha[0] += 1; _ha[1] += win; _ha[2] += _k; _ha[3] += _de; _ha[4] += _a
                 _ha[5] += _cs; _ha[6] += _dur
@@ -605,6 +608,12 @@ def main():
     print(f"完成：{len(champs)} 英雄 / {len(items)} 道具 / {len(runes)} 符文（掃 {scanned} 場）→ {OUT}（{os.path.getsize(OUT)/1024:.0f} KB）")
     if skipN:
         print(f"  └ 孤兒逐場檔沒進聚合：名字不在帳號檔 {skipN['absent']} 場、整檔重複 {skipN['dup']} 場")
+    # 每位選手的積分彙總（英雄Tier「只計算有出賽選手的積分」用；延遲載入）。路線鍵沿用 TOP/JUNGLE/MIDDLE/BOTTOM/UTILITY
+    OUT_PA = os.path.join(ROOT, "soloq_pagg.js")
+    pagg = {pk_: {pv: {c2: {ln: arr for ln, arr in lanes.items()} for c2, lanes in cs_.items()} for pv, cs_ in pvs.items()} for pk_, pvs in heroAggPl.items()}
+    with open(OUT_PA, "w", encoding="utf-8") as f:
+        f.write("window.SOLOQ_PAGG=" + json.dumps(pagg, ensure_ascii=False, separators=(",", ":")) + ";\n")
+    print(f"選手積分彙總：{len(pagg)} 位 → {OUT_PA}（{os.path.getsize(OUT_PA)/1024:.0f} KB）")
     # 積分版英雄詳情「出場紀錄」：每英雄最近 100 場（延遲載入檔，開積分英雄詳情才載）
     cg = {c: [list(r) for r in sorted(chGames[c], key=lambda x: -x[0])[:100]] for c in chGames if games[c] >= MIN_GAMES}
     # 符文頁表只留「真的被留下來的那 100 場」用到的（全庫幾萬種、輸出只用得到幾千種）→ 重新編號
