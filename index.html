@@ -10883,7 +10883,7 @@ function render(){
     if(!window._tipShiftBound){ window._tipShiftBound=1;
       const tg=on=>{ const t=document.getElementById("hoverTip"); if(t)t.classList.toggle("shiftOn",on); };
       addEventListener("keydown",e=>{ if(e.key==="Shift")tg(true); }); addEventListener("keyup",e=>{ if(e.key==="Shift")tg(false); }); addEventListener("blur",()=>tg(false)); }
-    const chgBox=id=>CHG[id]===undefined?"":`<div class="tipRow"><b>${esc(CHGV)} <span style="color:${CHG[id]>0?"#ff4d4d":CHG[id]<0?"#37c871":"#ffd60a"}">${CHG[id]>0?(LANG==="en"?"Buff":"增強"):CHG[id]<0?(LANG==="en"?"Nerf":"削弱"):(LANG==="en"?"Adjust":"調整")}</span></b><div class="tChgDet">${
+    const chgBox=(id,nm)=>CHG[id]===undefined?"":`<div class="tipRow"><b>${nm?esc(zn(id))+" ":""}${esc(CHGV)} <span style="color:${CHG[id]>0?"#ff4d4d":CHG[id]<0?"#37c871":"#ffd60a"}">${CHG[id]>0?(LANG==="en"?"Buff":"增強"):CHG[id]<0?(LANG==="en"?"Nerf":"削弱"):(LANG==="en"?"Adjust":"調整")}</span></b><div class="tChgDet">${
           (CHGL[id]||[]).map(l=>{const dd=changeDir([l]);
             return `<span style="color:${dd>0?"#ff6b6b":dd<0?"#5fbf7f":"#c8d0e0"}">${esc(l)}</span>`;}).join("<br>")}</div></div>`;
     // 積分：該路資料（沒過上板門檻也照樣有，評分在門檻 1 的全體裡算——使用者 2026-10-20：有場次就要有數據、評分不要 –）
@@ -10957,7 +10957,8 @@ function render(){
             T[0]+=+r[4]||0; T[1]+=+r[5]||0; T[2]+=+r[6]||0; if(r[9]!=null){gd[0]++; gd[1]+=+r[9]||0;} }));
           const n=G.size, w=[...G.values()].filter(Boolean).length, g15=gd[0]?gd[1]/gd[0]:null;
           sq={rt:sAvg, g:wlS(n,w), wr:n?pct(w/n):null, kda:n?kdaOf(...T).toFixed(1):null, gd:g15==null?null:(g15>0?"+":"")+Math.round(g15)}; } }
-      return tipHead(`${esc(zn(a.id))} ＋ ${esc(zn(b.id))}`,[a.lane,b.lane])+statGrid([pro&&{h:LANG==="en"?"Pro":"比賽",d:pro}, sq&&{h:LANG==="en"?"Ranked":"積分",d:sq}]); };
+      return tipHead(`${esc(zn(a.id))} ＋ ${esc(zn(b.id))}`,[a.lane,b.lane])+statGrid([pro&&{h:LANG==="en"?"Pro":"比賽",d:pro}, sq&&{h:LANG==="en"?"Ranked":"積分",d:sq}])
+        +chgBox(a.id,1)+chgBox(b.id,1); };   // 兩隻各自的改版（前面加名字區分；細節同樣按 Shift 展開）
     const nameW=n=>Math.max(2.2,[...String(n)].reduce((w,ch)=>w+(/[\u2E80-\uFFFD]/.test(ch)?1.1:0.65),0)+0.6)+"em";
     // \u5713\u76E4\u8272\u76E4\uFF1A\u8272\u76F8\u74B0\uFF0B\u98FD\u548C\u5EA6\u7531\u4E2D\u5FC3\u5411\u5916\uFF0C\u9EDE\u4E00\u4E0B\u9078\u8272\uFF1B\u4E0B\u6392\u9644\u7070\u968E
     if(document.getElementById("clrPop"))document.getElementById("clrPop").remove();
