@@ -7656,14 +7656,14 @@ const HSPCOLS=[["英雄",fmt.raw,"14em"],["路線",(v,r)=>r._laneIcons||"–","1
   ["金差@15",v=>!_fin(v)?"–":(v>0?"+":"")+Math.round(v)],["評分",fmt.score]];
 // 英雄分頁積分版資料：SOLOQ_BUILDS.hero（build_soloq_builds.py 全季彙總；英雄→路線→[n,w,k,d,a,cs,dur,kp和,kp樣本,gd樣本,gd和,xd樣本,xd和,fl2樣本,fl2先到]）
 // 版本篩選（F.patch）時改用 SOLOQ_BUILDS.heroP（英雄→版本→路線→同 15 欄）；積分比職業賽早上新版（26.14），清單由 filterOpts 併入
-function calcHeroesSoloq(pos,pks,hov){   // hov＝英雄Tier「只計算有出賽選手」已加總好的 英雄->路線->15欄（版本已過濾）
+function calcHeroesSoloq(pos,pks,hov,minOv){   // minOv＝改寫樣本門檻（英雄Tier 小框：有場次就顯示，門檻只管上不上板）   // hov＝英雄Tier「只計算有出賽選手」已加總好的 英雄->路線->15欄（版本已過濾）
   const B=window.SOLOQ_BUILDS||{};
   const pk=(typeof F!=="undefined"&&F.patch)||"";
   // pks＝版本清單（英雄Tier：篩了賽事／時間 ⇒ 用那些比賽的版本，2026-10-20 使用者：篩 WCS 只有 26.20、積分數據卻是整季）
   const pl=(!pk&&Array.isArray(pks)&&pks.length&&B.heroP)?pks:null;
   const usingP=!!((pk||pl)&&B.heroP);
   const H=hov||(usingP?B.heroP:B.hero); if(!H)return[];
-  const minN=hov?5:usingP?(pl&&pl.length>1?Math.min(15,5*pl.length):5):15; // 單版本樣本小 → 門檻降到 5 場（多版本依版數放大，最多回到全季 15）
+  const minN=minOv!=null?minOv:hov?5:usingP?(pl&&pl.length>1?Math.min(15,5*pl.length):5):15; // 單版本樣本小 → 門檻降到 5 場（多版本依版數放大，最多回到全季 15）
   const mergeP=x=>{ if(!x)return null; const o={}; pl.forEach(p2=>{ const y=x[p2]; if(!y)return; for(const ln in y){ const a=o[ln]=o[ln]||new Array(y[ln].length).fill(0); y[ln].forEach((v,i)=>a[i]+=(+v||0)); } }); return Object.keys(o).length?o:null; };
   const L2={TOP:"TOP",JNG:"JUNGLE",MID:"MIDDLE",BOT:"BOTTOM",SUP:"UTILITY"}[pos]||null;
   const PNS={TOP:"TOP",JUNGLE:"JNG",MIDDLE:"MID",BOTTOM:"BOT",UTILITY:"SUP"};
@@ -10760,7 +10760,7 @@ function render(){
         const pv=PA[pk2]; for(const v in pv){ if(pks&&!pks.includes(v))continue;
           for(const c in pv[v]){ const id=champId(c)||c; for(const ln in pv[v][c]){ const a=((out[id]=out[id]||{})[ln]=out[id][ln]||new Array(15).fill(0)); pv[v][c][ln].forEach((x,i)=>a[i]+=(+x||0)); } } } }
       return out; })();
-    const sqQ=pos=>calcHeroesSoloq(pos,sqPks,sqHov);   // 英雄Tier 內所有積分查詢都走這支
+    const sqQ=(pos,minOv)=>calcHeroesSoloq(pos,sqPks,sqHov,minOv);   // 英雄Tier 內所有積分查詢都走這支
     const seen=new Set();
     const cnt={}; // id -> {p:出場, b:被禁}（所選範圍）
     const laneC={}; // id -> {pid:出場次數}
@@ -10847,6 +10847,8 @@ function render(){
     const sqTipRow=(id,lane)=>{ if(isHistYear()||!window.SOLOQ_BUILDS||typeof calcHeroesSoloq!=="function")return "";
       const get=k2=>{ if(!SQTC[k2]){const m={}; sqQ(k2==="ALL"?null:k2).forEach(r2=>{m[r2._full]=r2;}); SQTC[k2]=m;} return SQTC[k2]; };
       let r=get(lane||"ALL")[id];
+      // 沒過上板門檻但有場次（例：池子「比賽尚未登場（積分有出場）」那段）＝照樣顯示數據，只是沒有評分（評分只在過門檻的英雄之間比）
+      if(!r){ const k3="A|"+(lane||"ALL"); if(!SQTC[k3]){ const m={}; sqQ(lane||null,1).forEach(r2=>{m[r2._full]=r2;}); SQTC[k3]=m; } const r0=SQTC[k3][id]; if(r0)r=Object.assign({},r0,{評分:null}); }
       // 有就有、沒有就沒有（使用者 2026-10-20）：該路沒有積分樣本就不顯示積分框，不退回全路線、不寫說明
       // 標題固定「積分數據」（使用者 2026-10-20：不用寫路線，路線看小框右上角圖示）；該路樣本不足退回全路線時加一行小註
       const ttl=LANG==="en"?"Ranked data":"積分數據";
@@ -10911,7 +10913,9 @@ function render(){
         // 項目比照單隻（使用者 2026-10-20）：出場（勝敗）／出場率｜勝率／KDA｜評分；KDA＝兩隻合計 (K+A)/D，跟單隻同一個尺度
         const tg=GAMES.filter(o=>inG(o)&&(!TT||o.raw[C.blue_teamname]===TT||o.raw[C.red_teamname]===TT)).length;
         const kd=n?kdaOf(ka[0]+kb[0],ka[1]+kb[1],ka[2]+kb[2]):null;
-        pro=`<div class="tipRow"><b>${LANG==="en"?"Pro data":"比賽數據"}</b><div>${LANG==="en"?"Games":"出場"} <span class="num">${n}</span> ${LANG==="en"?"":"場"}（${w}-${n-w}）</div><div>${LANG==="en"?"Pick%":"出場率"} <span class="num">${tg?Math.round(n/tg*100):0}%</span>｜${LANG==="en"?"Win%":"勝率"} <span class="num">${n?Math.round(w/n*100)+"%":"–"}</span></div><div>KDA <span class="num">${kd==null?"–":kd.toFixed(1)}</span>｜${LANG==="en"?"Rating":"評分"} <span class="num">${rAvg==null?"–":rAvg.toFixed(1)}</span></div></div>`; }
+        // 被禁＝兩隻各自被禁次數相加（使用者 2026-10-20）；合計＝出場＋被禁；BP%＝合計／範圍內局數（同單隻算法）
+        const bn=((cnt[a.id]||{}).b||0)+((cnt[b.id]||{}).b||0), tot2=n+bn;
+        pro=`<div class="tipRow"><b>${LANG==="en"?"Pro data":"比賽數據"}</b><div>${LANG==="en"?"Games":"出場"} <span class="num">${n}</span> ${LANG==="en"?"":"場"}（${w}-${n-w}）｜${LANG==="en"?"Banned":"被禁"} <span class="num">${bn}</span>${LANG==="en"?"":" 次"}｜${LANG==="en"?"Total":"合計"} <span class="num">${tot2}</span></div><div>BP% <span class="num">${tg?Math.round(tot2/tg*100):0}%</span>｜${LANG==="en"?"Win%":"勝率"} <span class="num">${n?Math.round(w/n*100)+"%":"–"}</span></div><div>KDA <span class="num">${kd==null?"–":kd.toFixed(1)}</span>｜${LANG==="en"?"Rating":"評分"} <span class="num">${rAvg==null?"–":rAvg.toFixed(1)}</span></div></div>`; }
       let sq="";
       // 積分組合（使用者 2026-10-20：不用隊友數據、不用重跑管線，只要確認是這個組合的出賽）：
       //   逐場積分（SOLOQ_CHGAMES，每場第 15 欄＝隊友英雄）裡，「A 在這一路、隊友是 B」或反過來的場次；版本＝目前篩選（F.patch／sqPks），同一場兩邊都有紀錄只算一次
