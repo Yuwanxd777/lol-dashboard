@@ -730,7 +730,7 @@
   /* PICK 同選角順位合併框：兩格虛線框直接合併成一個框，寫「Pick N M」；框內兩格不再各自加框 */
   .bpPickBox{position:relative;display:flex;flex-direction:column;gap:7px;align-items:center;border:2px dashed #33405c;border-radius:12px;padding:0;width:min(100px,calc(var(--bpvh,14.4px)*13.43 - 71px))} /* 不變大框：外框寬度＝單一 PICK 格寬(border-box)，只把兩格的虛線連成一個外框；框內兩英雄圖間隔 7px */
   .bpPickBox.bpBoxOn{border-style:solid} /* 放入英雄後 虛線→實線(與一般格一致) */
-  .bpPickBoxLbl{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:13px;color:var(--tx2);font-weight:bold;letter-spacing:.3px;white-space:nowrap;pointer-events:none} /* 正中央寫 Pick N M */
+  .bpPickBoxLbl{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:13px;color:var(--tx2);font-weight:bold;letter-spacing:.3px;white-space:nowrap;pointer-events:none} /* 正中央寫 PICK N M（大寫，與單格 PICK N 一致；2026-10-20 全站檢視 #9） */
   .bpPickBox .bpSlot.bpPickS{margin:0}
   .bpSlot.bpPickS.bpInBox{border:none;background:none;width:100%} /* 框內格：虛線外框已合併提供，內格不加框、空格也不加淺白底；寬度撐滿外框(扣掉外框 border 後與單一 PICK 格內容同寬) */
   .bpSlot.bpPickS .cc{display:flex;height:96%;aspect-ratio:1/1;width:auto}
@@ -898,8 +898,9 @@
   .dlyRow:first-of-type{border-top:0}
   .dlyRow:hover{background:rgba(255,255,255,.035)}
   .dlyRow.idle .dlyPos,.dlyRow.idle .plink,.dlyRow.idle .dlyPosIc{opacity:.62} /* 沒打積分只淡化路線與名字，積分分數維持原色（使用者指定） */
-  .dlyLine{display:grid;grid-template-columns:20px minmax(0,1fr) auto;gap:8px;align-items:center} /* 路線｜選手｜數字組 */
+  .dlyLine{display:grid;grid-template-columns:20px minmax(max-content,1fr) auto;gap:8px;align-items:center} /* 路線｜選手｜數字組；名字欄 max-content 起跳＝名字一定完整（2026-10-20 全站檢視 #4：英文 DARKWINGS 被切 11px） */
   .dlyStats{display:flex;justify-content:flex-end;align-items:baseline;gap:14px;white-space:nowrap} /* 牌位 KDA 評分 勝敗：等間距、靠右（使用者 2026-10-18） */
+  html[data-lang=en] .dlyStats{gap:11px} /* 英文標籤（Score／Challenger）比中文長，名字改成完整顯示後最長的幾行會被擠出卡片 4～6px（2026-10-20） */
   .dlyStat{font-size:13px;white-space:nowrap;text-align:right;font-variant-numeric:tabular-nums} /* 範圍內 KDA／場均評分；字級同選手 ID */
   .dlyStat .meta{font-size:12px;margin-right:3px}
   /* 數字組統一（使用者 2026-10-18「有沒有可以更順眼」）：數字一律 13px 半粗、標籤 12px 灰；LP 增減是補充資訊＝12px 稍淡 */
@@ -2653,9 +2654,9 @@ function fillTableWidth(root,prop,soft){
   // soft＝refitLayout 那條「保險」呼叫（視窗/縮放/字體/分頁還原後）：同容器寬、同縮放、同字型世代、同欄列數
   // → 上次算的欄寬還有效，直接跳過（一次要三趟強制重排，英雄大表 40~70ms；從 VIEW_CACHE 還原時會連跑兩次＝
   // 切分頁最大的延遲來源，2026-08-17 使用者回報「切換分頁延遲變高」）。建表／排序那些明確呼叫不帶 soft，照算。
-  const _fk=wrap.clientWidth+"|"+(window._zoomF||1)+"|"+ths.length+"|"+(window._fitEpoch||0)+"|"+tbl.rows.length+"|"+(prop?1:0);
+  const _fk=wrap.clientWidth+"|"+(window._zoomF||1)+"|"+ths.length+"|"+(window._fitEpoch||0)+"|"+tbl.rows.length+"|"+(prop?1:0)+"|"+(wrap.classList.contains("pt2")?2:wrap.classList.contains("pt1")?1:0);   // 內距檔位也要進簽章：fitTblWraps 掛 pt1 算完、refitLayout 拿掉 pt1 後若 soft 跳過，欄寬會停在窄內距的版本（英文戰隊表頭被 … 裁字，2026-10-20）
   if(soft&&tbl._fillKey===_fk)return;
-  tbl._fillKey=_fk;
+  tbl._fillKey=window._warming?_fk+"|warm":_fk;   // 預熱（main 藏起來畫）量到的欄名／資料寬跟真實顯示不同 ⇒ 不記，還原時 refitLayout 的 soft 呼叫才會真的重量（2026-10-20 英文戰隊表頭被 … 裁字）
   if(tbl.style.zoom)tbl.style.zoom="";  // 觸控縮合的 zoom 先清掉再量（rect 是視覺值，zoom 會污染欄寬）
   tbl.style.tableLayout="auto"; tbl.style.width="max-content"; // 還原成內容寬再量(保留各欄原設寬)
   ths.forEach(th=>{if(!("ow" in th.dataset))th.dataset.ow=th.style.width||""; th.style.width=th.dataset.ow;});
@@ -2700,7 +2701,16 @@ function fillTableWidth(root,prop,soft){
         //   欄名塞不下就讓它自己折行（見 .tblEven 的 .thL 覆寫）——.thL 本來 nowrap 只認 <br>，
         //   而且左右各留 13px 給排序三角形，那 26px 正是多數欄名「看起來很寬」的來源。
         const s=(budget-idx.reduce((a,i)=>a+dataW[i],0))/idx.length;
-        if(s>0){ wSol={}; idx.forEach(i=>{ wSol[i]=dataW[i]+s; }); tbl.classList.add("tblEven"); }
+        if(s>0){ tbl.classList.add("tblEven");
+          // 欄名比「資料寬＋s」還寬的欄（英文 Herald%／Drakes／1st Baron%，2026-10-20 全站檢視 #3）會被 … 裁字（鐵則不可裁字）
+          // ⇒ 只有那幾欄放寬到剛好放得下欄名，其餘欄重新均分剩下的寬度（中文欄名都比資料窄，不受影響）
+          const zf=window._zoomF||1, need=ths.map(th=>{ const l=th.querySelector(".thL"); if(!l)return 0; const cs=getComputedStyle(th);
+            return l.getBoundingClientRect().width/zf+(parseFloat(cs.paddingLeft)||0)+(parseFloat(cs.paddingRight)||0)+1; });
+          const fixW={}; let s2=s;
+          for(let it=0;it<4;it++){ const free=idx.filter(i=>fixW[i]==null); if(!free.length)break;
+            s2=(budget-idx.reduce((a,i)=>a+(fixW[i]!=null?fixW[i]:dataW[i]),0))/free.length;
+            const add=free.filter(i=>dataW[i]+s2<need[i]); if(!add.length)break; add.forEach(i=>{ fixW[i]=need[i]; }); }
+          wSol={}; idx.forEach(i=>{ wSol[i]=fixW[i]!=null?fixW[i]:dataW[i]+s2; }); }
       }
     }
   }
@@ -3822,7 +3832,7 @@ function initData(){
   // 本機版要顯示「整條管線跑完的時間」＝ manifest 的 updated（stamp_updated.py 在 update.bat
   // 最後一步寫的）。D.fetched_at 是**該年 CSV 抓下來的當下**，永遠停在排程啟動的 10:00，
   // 而版本改動／生涯聚合／積分逐場那些後續步驟還要跑很久（2026-07-31 使用者回報還是寫 10:00）
-  document.getElementById("meta").textContent=`資料時間 ${(_pub&&window.PUSH_TIME)?window.PUSH_TIME:((M&&M.updated)||D.fetched_at)}`;
+  document.getElementById("meta").textContent=`${LANG==="en"?"Updated":"資料時間"} ${(_pub&&window.PUSH_TIME)?window.PUSH_TIME:((M&&M.updated)||D.fetched_at)}`;
   const ys=document.getElementById("yearSel");
   // 年份清單一律「近→遠」（2026-07-31 使用者指定）：manifest 存的是舊→新，這裡排序後再列，
   // 常用的今年永遠在最上面。不動 M.years 本身，其他地方（版本/生涯範圍）仍拿得到原順序。
@@ -4552,29 +4562,30 @@ async function jungleHTML(box){
     .slice().sort(sorter);
   const SMITE_IC=`https://ddragon.leagueoflegends.com/cdn/${ver}/img/spell/SummonerSmite.png`;
   const smiteHTML=s=>{const n=Math.max(1,parseInt(s,10)||1);
-    return `<span class="jgSmiteWrap" title="重擊 ${n} 次">`+Array.from({length:n},()=>`<img class="jgSmite" src="${SMITE_IC}" alt="重擊" onerror="this.replaceWith(document.createTextNode('重擊'))">`).join("")+`</span>`;};
+    const sm=LANG==="en"?"Smite":"重擊";   // 英文版提示也要英文（2026-10-20 全站檢視 #5）
+    return `<span class="jgSmiteWrap" title="${LANG==="en"?`Smite ×${n}`:`重擊 ${n} 次`}">`+Array.from({length:n},()=>`<img class="jgSmite" src="${SMITE_IC}" alt="${sm}" onerror="this.replaceWith(document.createTextNode('${sm}'))">`).join("")+`</span>`;};
   // 備註縮寫 → 符文／碎片／道具圖示（依作者 Appendix 對照表）
   const SBASE="https://ddragon.leagueoflegends.com/cdn/img/perk-images/", IBASE=`https://ddragon.leagueoflegends.com/cdn/${ver}/img/item/`;
   const NMAP={
-    "AD":{i:SBASE+"StatMods/StatModsAdaptiveForceIcon.png",n:"適應之力"},
-    "AP":{i:SBASE+"StatMods/StatModsAdaptiveForceIcon.png",n:"適應之力"},
-    "AS":{i:SBASE+"StatMods/StatModsAttackSpeedIcon.png",n:"攻擊速度"},
-    "AH":{i:SBASE+"StatMods/StatModsCDRScalingIcon.png",n:"技能加速"},
-    "MS":{i:SBASE+"StatMods/StatModsMovementSpeedIcon.png",n:"移動速度"},
-    "T&SR":{i:SBASE+"StatMods/StatModsTenacityIcon.png",n:"韌性與緩速抵抗"},
-    "TSR":{i:SBASE+"StatMods/StatModsTenacityIcon.png",n:"韌性與緩速抵抗"},
-    "HPF":{i:SBASE+"StatMods/StatModsHealthPlusIcon.png",n:"生命值（+65）"},
-    "HPS":{i:SBASE+"StatMods/StatModsHealthScalingIcon.png",n:"生命值（成長 10～180）"},
-    "Fleet":{i:SBASE+"Styles/Precision/FleetFootwork/FleetFootwork.png",n:"疾風快步"},
-    "Alac":{i:SBASE+"Styles/Precision/LegendAlacrity/LegendAlacrity.png",n:"傳說：迅捷"},
-    "Haste":{i:SBASE+"Styles/Precision/LegendHaste/LegendHaste.png",n:"傳說：急速"},
-    "Nimbus":{i:SBASE+"Styles/Sorcery/NimbusCloak/6361.png",n:"星雲斗篷"},
-    "ABSF":{i:SBASE+"Styles/Sorcery/AbsoluteFocus/AbsoluteFocus.png",n:"絕對專注"},
-    "Biscuit":{i:SBASE+"Styles/Inspiration/BiscuitDelivery/BiscuitDelivery.png",n:"餅乾快遞"},
-    "Cosmic":{i:SBASE+"Styles/Inspiration/CosmicInsight/CosmicInsight.png",n:"宇宙洞察"},
-    "DS":{i:IBASE+"2010.png",n:"黑暗封印"},
-    "LS":{i:IBASE+"1036.png",n:"長劍"},
-    "AT":{i:IBASE+"1052.png",n:"增幅魔導書"}
+    "AD":{i:SBASE+"StatMods/StatModsAdaptiveForceIcon.png",n:"適應之力",e:"Adaptive Force"},
+    "AP":{i:SBASE+"StatMods/StatModsAdaptiveForceIcon.png",n:"適應之力",e:"Adaptive Force"},
+    "AS":{i:SBASE+"StatMods/StatModsAttackSpeedIcon.png",n:"攻擊速度",e:"Attack Speed"},
+    "AH":{i:SBASE+"StatMods/StatModsCDRScalingIcon.png",n:"技能加速",e:"Ability Haste"},
+    "MS":{i:SBASE+"StatMods/StatModsMovementSpeedIcon.png",n:"移動速度",e:"Movement Speed"},
+    "T&SR":{i:SBASE+"StatMods/StatModsTenacityIcon.png",n:"韌性與緩速抵抗",e:"Tenacity & Slow Resist"},
+    "TSR":{i:SBASE+"StatMods/StatModsTenacityIcon.png",n:"韌性與緩速抵抗",e:"Tenacity & Slow Resist"},
+    "HPF":{i:SBASE+"StatMods/StatModsHealthPlusIcon.png",n:"生命值（+65）",e:"Health (+65)"},
+    "HPS":{i:SBASE+"StatMods/StatModsHealthScalingIcon.png",n:"生命值（成長 10～180）",e:"Health (scaling 10-180)"},
+    "Fleet":{i:SBASE+"Styles/Precision/FleetFootwork/FleetFootwork.png",n:"疾風快步",e:"Fleet Footwork"},
+    "Alac":{i:SBASE+"Styles/Precision/LegendAlacrity/LegendAlacrity.png",n:"傳說：迅捷",e:"Legend: Alacrity"},
+    "Haste":{i:SBASE+"Styles/Precision/LegendHaste/LegendHaste.png",n:"傳說：急速",e:"Legend: Haste"},
+    "Nimbus":{i:SBASE+"Styles/Sorcery/NimbusCloak/6361.png",n:"星雲斗篷",e:"Nimbus Cloak"},
+    "ABSF":{i:SBASE+"Styles/Sorcery/AbsoluteFocus/AbsoluteFocus.png",n:"絕對專注",e:"Absolute Focus"},
+    "Biscuit":{i:SBASE+"Styles/Inspiration/BiscuitDelivery/BiscuitDelivery.png",n:"餅乾快遞",e:"Biscuit Delivery"},
+    "Cosmic":{i:SBASE+"Styles/Inspiration/CosmicInsight/CosmicInsight.png",n:"宇宙洞察",e:"Cosmic Insight"},
+    "DS":{i:IBASE+"2010.png",n:"黑暗封印",e:"Dark Seal"},
+    "LS":{i:IBASE+"1036.png",n:"長劍",e:"Long Sword"},
+    "AT":{i:IBASE+"1052.png",n:"增幅魔導書",e:"Amplifying Tome"}
   };
   const NTOK=Object.keys(NMAP).sort((a,b)=>b.length-a.length);
   const noteRe=new RegExp("(?<![A-Za-z&])("+NTOK.map(t=>t.replace(/[&]/g,"\\$&")).join("|")+")(?![A-Za-z])","g");
@@ -4582,7 +4593,9 @@ async function jungleHTML(box){
   const sepClean=s=>String(s||"").replace(/\s*[,.]\s*/g,"・").replace(/・+/g,"・").replace(/^・+|・+$/g,""); // 逗號/句號分隔 → ・
   const shardify=s=>{ s=sepClean(s); let out="",last=0,m; noteRe.lastIndex=0;
     while((m=noteRe.exec(s))){ out+=esc(s.slice(last,m.index)); const it=NMAP[m[1]];
-      out+=`<img class="jgNoteIco" src="${it.i}" alt="${esc(m[1])}" title="${esc(it.n)}（${esc(m[1])}）" onerror="this.replaceWith(document.createTextNode(this.alt))">`;
+      // 符文／碎片走本機 WebP（_runeLocal：本機有才換，道具圖原樣）；本機壞掉再退回 CDN（2026-10-20 全站檢視 #3）；提示依語言（#4）
+      const lu=_runeLocal(it.i), tn=LANG==="en"?`${it.e||it.n} (${m[1]})`:`${it.n}（${m[1]}）`;
+      out+=`<img class="jgNoteIco" src="${lu}" alt="${esc(m[1])}" title="${esc(tn)}" onerror="${lu!==it.i?`if(!this.dataset.cdn){this.dataset.cdn=1;this.src='${it.i}';return;}`:""}this.replaceWith(document.createTextNode(this.alt))">`;
       last=m.index+m[0].length; }
     out+=esc(s.slice(last)); return out; };
   // 備註渲染：先把原作者設的超連結那幾段包成 <a>，其餘照常換縮寫圖示
@@ -6024,6 +6037,9 @@ function changeDir(lines){
   // 「引導時間」也要收：判向看的是**轉換前**的原文，normTerm 把它改寫成「施法時間」
   // 是顯示層的事（2026-08-01）
   const INV=/冷卻(?!(時間)?(減免|縮減))|消耗|魔耗|施放時間|施法時間|引導時間|飛行時間|價格|費用|成本/;
+  // 英文原文（英文版的機制／道具條目直接吃英文）：2026-10-20 傳送冷卻 420⇒390 秒在英文版被判成削弱。
+  // 只比對**項目名稱**（⇒ 前、最後一個｜之後、冒號之前）：數值後面的括號說明常出現 travel time／channel duration（艾希 22.04、卡桑帝 25.05）
+  const INV_EN=/[Cc]ooldown(?!\s*[Rr]eduction)|\b[Cc]osts?\b|[Cc]ast [Tt]ime|[Cc]hannel(?:ing)? (?:[Tt]ime|[Dd]uration)|[Tt]ravel [Tt]ime|\b[Pp]rice\b/, COST_EN=/\b[Mm]ana\b|\b[Ee]nergy\b/, STAT_EN=/[Bb]ase|[Gg]rowth|[Mm]ax|[Rr]egen|per 5|[Rr]atio|[Bb]onus|[Ss]caling/;
   const COST=/魔力|能量/;                    // 技能資源（「魔力：65 ⇒ 75」= 消耗提高 = 削弱）
   const STAT=/基礎|成長|最大|回復|每5秒|係數|加成|比例/; // 屬性面板/傷害加成類的魔力（越高越好）不反向——雷茲的「魔力係數」是傷害係數
   let buff=0,nerf=0,onlyRecipe=true;
@@ -6089,9 +6105,10 @@ function changeDir(lines){
     // 「魔力／能量」反向（越高越差）只適用**技能資源消耗**。道具屬性的魔力越高越好，
     // 反向會把「魔力：300 ⇒ 0」判成增強（2026-07-31 使用者：女妖面紗 13.10）。
     // 分辨法：技能消耗不會是 0、也不會到 250 以上 → 出現 0 或 ≥250 就當道具屬性。
-    const _mpStat=COST.test(t)&&!INV.test(t)&&(()=>{const ns=(t.match(/\d+(?:\.\d+)?/g)||[]).map(Number);
+    const _lab=t.slice(0,i).split("｜").pop().split(/：|:/)[0], _inv=INV.test(t)||INV_EN.test(_lab), _cost=COST.test(t)||COST_EN.test(_lab), _stat=STAT.test(t)||STAT_EN.test(_lab);
+    const _mpStat=_cost&&!_inv&&(()=>{const ns=(t.match(/\d+(?:\.\d+)?/g)||[]).map(Number);
       return ns.some(v=>v===0)||(ns.length&&Math.max(...ns)>=250);})();
-    if(INV.test(t)||(COST.test(t)&&!STAT.test(t)&&!_mpStat))d=-d;
+    if(_inv||(_cost&&!_stat&&!_mpStat))d=-d;
     if(d>0)buff++;else if(d<0)nerf++;
   }
   if(onlyRecipe)return null; // 只有合成公式/路徑變動 → 不列入版本焦點、不上色（判例 2026-07-16：公式照列但不算調整）
@@ -7518,12 +7535,15 @@ const fmt={
   int:v=>!_fin(v)?"–":Math.round(v),
   sign:v=>!_fin(v)?"–":(v>0?"+":"")+Math.round(v),
   d1:v=>!_fin(v)?"–":d1s(v),
+  f1:v=>!_fin(v)?"–":(+v).toFixed(1),   // 固定一位小數（同一欄要對齊時用：戰隊表 時間 31.0／31.2，2026-10-20 全站檢視 #8）
   sign1:v=>!_fin(v)?"–":(v>0?"+":"")+d1s(v),
   signPct:v=>!_fin(v)?"–":(v>0?"+":"")+Math.round(v*100)+"%", // 差值型百分比（首殺差、藍紅勝率差）
   raw:v=>v==null||v!==v?"–":v,
   leadPct:(v,r)=>!_fin(v)?"–":`${Math.round(v*100)}%<span class="meta"> (${r._leadW||0}-${(r._leadN||0)-(r._leadW||0)})</span>`,
   score:v=>!_fin(v)?"–":scoreCell(v)
 };
+fmt.f1.pf=fmt.f1;   // 雷達標籤／CSV 等純文字輸出也照固定一位小數
+
 // 合併欄（一欄塞主值＋括號次值）的格式化函式是 HTML，雷達 tooltip 與 AI 問答的 CSV 不能用它。
 // 用 .pf 掛一份「純文字版」上去，那兩處優先讀 .pf；沒掛的話它們會退回原始值，印出 0.5416 這種東西。
 const withPlain=(f,pf)=>(f.pf=pf,f);
@@ -7582,7 +7602,7 @@ const PCOLS=[["選手",fmt.raw,"15em"],["場數",fmt.int],["勝率",fmt.pct],["�
 // 戰隊欄：合併欄的**主值＝括號前那一項**（排序、名次上色都看它），括號內是次要值（灰字）。
 // 選邊率／選選序率是 2026 新制才有的資料（side_sel.js），其他年份整欄都是「–」→ 跟比賽BP 的
 // 「選擇」欄一樣只在 2026 起出現，2025 以前保持跟以前一樣。
-const TCOLS_ALL=[["戰隊",fmt.raw,"10em"],["場數",fmt.int],["時間",fmt.d1],
+const TCOLS_ALL=[["戰隊",fmt.raw,"10em"],["場數",fmt.int],["時間",fmt.f1],
   ["勝率(大場勝率)",withPlain((v,r)=>!_fin(v)?"–":_cP(v)+_sub(_cP(r.大場勝率)),_cP)],
   // 藍紅勝率差＝藍方勝率−紅方勝率：全站唯一不走「越高越紅」的差值欄——藍/紅是「哪一邊」
   // 不是好壞：≥+10% 亮藍、≤−10% 亮紅，中間不上色，也不吃名次紅藍上色（見 NO_RANK_COLS）
@@ -7599,11 +7619,11 @@ const TCOLS_ALL=[["戰隊",fmt.raw,"10em"],["場數",fmt.int],["時間",fmt.d1],
   ["角色池",fmt.int],
   ["首塔(首中塔)",withPlain((v,r)=>!_fin(v)?"–":_cP(v)+_sub(_cP(r.首中塔)),_cP)],
   ["2+巢蟲",fmt.pct],["首龍",fmt.pct],["預示者",fmt.pct],
-  ["小龍",fmt.d1],["首巴龍",fmt.pct],["金錢差@10",fmt.sign],
+  ["小龍",fmt.f1],["首巴龍",fmt.pct],["金錢差@10",fmt.sign],
   ["中期金差(領先勝率)",withPlain((v,r)=>!_fin(v)?"–":_cSg(v)+_sub(_cP(r.領先勝率)),_cSg)],
   ["分均金錢",fmt.int],["分均輸出",fmt.int],
   ["分均KD(擊殺/死亡)",withPlain((v,r)=>!_fin(v)?"–":_cN2(v)+_sub(`${_cN2(r.分均擊殺)}/${_cN2(r.分均死亡)}`),_cN2)],
-  ["視野分數",fmt.d1],["攻擊值",fmt.score],["防禦值",fmt.score],["評分",fmt.score]];
+  ["視野分數",fmt.f1],["攻擊值",fmt.score],["防禦值",fmt.score],["評分",fmt.score]];
 const _T_SEL2026=new Set(["主動權","被動選邊","被動選序"]);
 const tcols=()=>TCOLS_ALL.filter(c=>+curYear>=2026||!_T_SEL2026.has(c[0]));
 const HCOLS=[["英雄",fmt.raw,"11.5em"],["路線",(v,r)=>r._laneIcons||"–","11em"],["BP%",fmt.pct],["禁用率",fmt.pct],["場數",fmt.int],
@@ -9239,6 +9259,9 @@ document.getElementById('fontSel').onchange=e=>{applyFont(e.target.value); if(ty
   if(LANG==='en'){ // 頁首靜態標籤翻英（分頁/篩選由 JS 產生已走 T()）
     const set=(id,tx)=>{const el=document.getElementById(id); if(el)el.textContent=tx;};
     set('lblFont','Font'); set('lblLang','Language'); set('lblYear','Year'); set('lblZoom','Zoom');
+    // 英文分頁名較長，頁首會擠成兩行（2026-10-20 全站檢視 #2）⇒ 英文版把四個小標籤藏起來、改成選單的滑鼠提示；字體名也翻英文
+    [['lblFont','fontSel','Font'],['lblZoom','zoomSel','Zoom'],['lblLang','langSel','Language'],['lblYear','yearSel','Year']].forEach(([l,s2,tx])=>{ const le=document.getElementById(l), se=document.getElementById(s2); if(le)le.style.display='none'; if(se)se.title=tx; });
+    { const FN={huninn:'Huninn',jhenghei:'Microsoft JhengHei',gensen:'GenSen Rounded TW'}; const fs=document.getElementById('fontSel'); if(fs)[...fs.options].forEach(o=>{ if(FN[o.value])o.textContent=FN[o.value]; }); }
     const st=document.getElementById('siteTitleTx'); if(st&&/LOL數據表$/.test(st.textContent)) st.textContent='LOL Stats';
     
   }
@@ -10205,6 +10228,14 @@ function ovStreaks(){ return _ovMemo("streak",()=>{
     cold:rows.filter(r=>r.streak<=-2).sort((x,y)=>x.streak-y.streak||y.n-x.n).slice(0,5)};
 });}
 // ③ 近況帶：最後比賽日往前 7 天的賽況＋目前進行中的賽段（歷史年份＝該範圍最後一天往前算，一樣有意義）
+// 空白頁快選（2026-10-20 全站檢視 #10：「摘要」「陣容」沒選隊時整頁只有一行字）：目前篩選範圍內**最近有出賽**的隊伍，
+// 依最後一場時間新→舊、同時間比場數；按鈕沿用積分頁篩選列的 sqLaneBtn 藥丸樣式。點了由呼叫端決定怎麼帶入。
+function recentTeamPicks(n){ const M=new Map();
+  for(const o of GAMES){ if(!passG(o))continue;
+    for(const k of ["blue_teamname","red_teamname"]){ const t=o.raw[C[k]]; if(!t)continue;
+      const e=M.get(t)||{t,last:"",n:0}; e.n++; if(o.dt>e.last)e.last=o.dt; M.set(t,e); } }
+  return [...M.values()].sort((a,b)=>b.last.localeCompare(a.last)||b.n-a.n).slice(0,n||16).map(e=>e.t); }
+const teamPickHTML=(ts,hint)=>ts.length?`<div style="margin-top:12px;display:flex;flex-wrap:wrap;gap:7px;align-items:center"><span class="meta" style="margin-right:2px">${hint}</span>${ts.map(t=>`<button class="sqLaneBtn tmQuick" data-team="${esc(t)}" style="display:inline-flex;align-items:center;gap:6px">${teamLogoHTML(teamFix(tAb(t)||t),18,true)}${esc(teamFix(tAb(t)||t))}</button>`).join("")}</div>`:"";
 function ovRecent(){ return _ovMemo("recent",()=>{
   const out={_empty:true,lgs:[],segs:[]};
   if(!GAMES.length)return out;
@@ -10662,7 +10693,7 @@ function render(){
     main.innerHTML=filterBar(`<label>${LANG==="en"?"Team":"戰隊"}</label>${comboHTML("tierTm",T("輸入戰隊"),180)}`)+` <!-- placeholder 與 近況/戰隊/陣容 同字 → fitComboW 算出同寬（2026-08-05 使用者：同名篩選框與文字全站一致） -->`+`
       <div id="tierWrap" style="display:grid;grid-template-columns:3fr 1fr;gap:var(--gap);align-items:start;user-select:none">
         <div id="tierRows" style="display:flex;flex-direction:column;gap:10px;min-width:0"></div>
-        <div class="card" id="tierPool" style="margin:0;position:relative;min-width:0"><div class="tphdr" style="margin-bottom:6px;padding-right:240px"><h2 style="display:flex;align-items:center;gap:8px;margin:0">🦸 ${T("角色池")}</h2><div id="tierPks" style="font-size:13.5px;color:#7a8aaa;margin-top:3px;line-height:1.5;white-space:nowrap"></div><div class="tpctl" style="position:absolute;top:10px;right:12px;display:flex;gap:6px;align-items:center"><span class="cwrap"><input id="tierQ" placeholder="${LANG==='en'?'Search':'搜尋'}" value="${esc(V.tierQ||"")}" style="width:190px;padding-right:26px"><button class="cx" tabindex="-1" data-x="tierQ" title="一鍵清除">✕</button></span></div></div>
+        <div class="card" id="tierPool" style="margin:0;position:relative;min-width:0"><div class="tphdr" style="margin-bottom:6px;padding-right:240px"><h2 style="display:flex;align-items:center;gap:8px;margin:0">🦸 ${T("角色池")}</h2><div id="tierPks" style="font-size:13.5px;color:#7a8aaa;margin-top:3px;line-height:1.5"></div><div class="tpctl" style="position:absolute;top:10px;right:12px;display:flex;gap:6px;align-items:center"><span class="cwrap"><input id="tierQ" placeholder="${LANG==='en'?'Search':'搜尋'}" value="${esc(V.tierQ||"")}" style="width:190px;padding-right:26px"><button class="cx" tabindex="-1" data-x="tierQ" title="一鍵清除">✕</button></span></div></div>
           <div id="tierPoolBox"></div></div>
       </div>`;
     // 英雄池範圍＝全站標準篩選（賽季/聯賽/版本/時間，與其他分頁同一套 passG）
@@ -11898,7 +11929,9 @@ function render(){
     const rerender=()=>{
       const box=document.getElementById("rosterBox");
       // 戰隊可空、但至少要選一條路線（2026-08-05 使用者指定：只篩路線＝跨全部戰隊列該路選手；兩者皆空資料量太大不呈現）
-      if(!V.rosterTeam&&!V.rosterLane){box.innerHTML=`<div class="card"><span class="meta">${LANG==="en"?"Pick a team above (or at least a lane) to see champion pools.":"請先在上方選擇戰隊（或至少選一條路線），即可看到選手的角色池。"}</span></div>`;return;}
+      if(!V.rosterTeam&&!V.rosterLane){box.innerHTML=`<div class="card"><span class="meta">${LANG==="en"?"Pick a team above (or at least a lane) to see champion pools.":"請先在上方選擇戰隊（或至少選一條路線），即可看到選手的角色池。"}</span>${teamPickHTML(recentTeamPicks(16),LANG==="en"?"Recently played:":"最近有出賽：")}</div>`;
+        box.querySelectorAll(".tmQuick").forEach(b=>b.onclick=()=>{ V.teamSel=b.dataset.team; V.rosterTeam=b.dataset.team; V.rosterPick={}; saveState(); render(); });
+        return;}
       if(careerMode&&!ensureCareer()){box.innerHTML=`<div class="card"><span class="meta">${LANG==="en"?"loading career data…":"載入生涯資料中…（2014~現在，約 5 MB，只載一次）"}</span></div>`;return;}
       if(careerMode&&window.CAREER&&window.CAREER._err){box.innerHTML=`<div class="card"><span class="meta">${LANG==="en"?"career.js not found — run scripts/build_career.py":"找不到 career.js —— 請先跑 <b>python scripts/build_career.py</b> 產生生涯資料"}</span></div>`;return;}
       const crossTeam=!V.rosterTeam; // 戰隊空＋路線有＝跨全部戰隊列該路選手
@@ -12613,7 +12646,9 @@ function render(){
     const rerender=()=>{
       const box=document.getElementById("rcWrap");
       const picked=[V.recentTeam,V.recentTeam2].filter(t=>t);
-      if(!picked.length){box.className=""; box.innerHTML=`<div class="card"><span class="meta">${en2?"Pick one or two teams above to compare their recent form (last 5 series).":"請先在上方選擇戰隊（可選兩隊左右對比），即可看到最近 5 個系列賽的摘要。"}</span></div>`;return;}
+      if(!picked.length){box.className=""; box.innerHTML=`<div class="card"><span class="meta">${en2?"Pick one or two teams above to compare their recent form (last 5 series).":"請先在上方選擇戰隊（可選兩隊左右對比），即可看到最近 5 個系列賽的摘要。"}</span>${teamPickHTML(recentTeamPicks(16),en2?"Recently played:":"最近有出賽：")}</div>`;
+        box.querySelectorAll(".tmQuick").forEach(b=>b.onclick=()=>{ V.teamSel=b.dataset.team; V.recentTeam=b.dataset.team; saveState(); render(); });
+        return;}
       const two=picked.length>1;
       box.className=two?"grid":"";     // 兩隊才開兩欄；一隊就照原本整列寬
       const cols=picked.map(t=>({tm:t,D:calc(t)}));
@@ -14581,7 +14616,7 @@ function render(){
         // PICK 同一「選角順位」(連續同隊選)併成一個框、可裝兩個英雄：先選＝P1｜P2P3｜P4P5、後選＝P1P2｜P3｜P4｜P5
         // PICK 同「選角順位」(連續同隊選)的兩格→虛線框「直接合併」成一個框、標「Pick N M」；框內兩格不再各自加框
         const pbox=(idxs,mt,ty)=>{const key="p"+side, vals=idxs.map(i=>S.g[gi][key][i]), empty=vals.every(v=>!v), on=vals.every(v=>v); // on(實線)＝兩格都放滿才成立；沒放滿兩個之前維持虛線
-          return `<div class="bpPickBox${on?" bpBoxOn":""}" style="margin-top:${mt}px${ty?`;transform:translateY(${ty}px)`:""}">${idxs.map(i=>slot(gi,side,"p",i,true)).join("")}${empty?`<span class="bpPickBoxLbl">Pick ${idxs.map(i=>i+1).join(" ")}</span>`:""}</div>`;};
+          return `<div class="bpPickBox${on?" bpBoxOn":""}" style="margin-top:${mt}px${ty?`;transform:translateY(${ty}px)`:""}">${idxs.map(i=>slot(gi,side,"p",i,true)).join("")}${empty?`<span class="bpPickBoxLbl">PICK ${idxs.map(i=>i+1).join(" ")}</span>`:""}</div>`;};
         // 階段交界 margin 用 40；先後選高低差沿用 pt（單獨 PICK 用該格 pt、合併框用該組首格 pt）
         const items = first ? [
           w(b(0),0,bt[0]), w(b(1),5,bt[1]), w(b(2),5,bt[2]),
@@ -17759,7 +17794,7 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
                 <!-- 標籤欄寬要看語言：中文「進攻／彈性／防禦」兩個字 56px 剛好，英文 Offense/Defense 會吐出 3~5px（2026-09-05 稽核量到） -->
                 <span style="font-weight:bold;color:var(--gold);white-space:nowrap">${row.row}</span>
                 ${row.items.map(s=>`<div style="display:flex;align-items:center;gap:10px;min-width:0;${dim(s.n)?"opacity:.22":""}">
-                  <img src="${SB}${s.ic}" style="width:38px;height:38px;flex:0 0 auto" onerror="this.style.visibility='hidden'">
+                  <img src="${_runeLocal(SB+s.ic)}" style="width:38px;height:38px;flex:0 0 auto" onerror="if(!this.dataset.cdn){this.dataset.cdn=1;this.src='${SB}${s.ic}';}else this.style.visibility='hidden'">
                   <div style="min-width:0"><div style="font-size:15.5px;white-space:nowrap">${esc(s.n)}</div><div class="meta" style="font-size:12.5px">${hiNum(esc(s.d))}</div></div>
                 </div>`).join("")}
               </div>`).join("")}</div>`;
