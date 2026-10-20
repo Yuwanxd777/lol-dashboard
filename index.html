@@ -497,6 +497,14 @@
   #hoverTip .tipRow b{color:var(--acc);font-size:13px}
   #hoverTip .tipRow .meta{color:#7a8aaa;font-size:11.5px;margin-left:6px}
   #hoverTip .tipRow>div{margin-top:4px;color:#c8d0e0}
+  /* 英雄Tier 小框（使用者 2026-10-20 重新排版）：比賽／積分兩欄對照，評分放大置頂、越高越紅 */
+  #hoverTip .tGrid{display:grid;gap:5px 18px;align-items:baseline;margin:2px 0 4px;padding:8px 10px;background:#151c2e;border-radius:8px}
+  #hoverTip .tGrid .h{color:var(--acc);font-size:12.5px;font-weight:bold;text-align:right}
+  #hoverTip .tGrid .l{color:#8a98b8;font-size:13px;white-space:nowrap}
+  #hoverTip .tGrid .v{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+  #hoverTip .tGrid .rt .v{font-size:22px;font-weight:bold;line-height:1.1}
+  #hoverTip .tGrid .sep{grid-column:1/-1;border-top:1px solid #26314a;margin:1px 0}
+  #hoverTip .tGrid .tgS{color:#7a8aaa;font-size:11.5px;margin-left:4px}
   #hoverTip .tipRow .skP{margin-top:5px}
   #hoverTip .tipRow .skP.skMaj{margin-top:11px}
   #hoverTip .num{color:#f5b942;font-weight:600}
@@ -2374,7 +2382,7 @@ const TAB_HELP={
 "比賽BP":"<b>這頁</b>：所有比賽的 BP 紀錄，依系列賽分組，最新在上。\n<b>操作</b>：在欄名下方的篩選框逐欄篩選（隊名格輸入戰隊＝只看該隊；局數、時長、選擇、禁用、五路都能篩），🗑 清空欄位篩選。右上三種模式：<b>🟣 一般</b>（藍左紅右）｜<b>🟪 混合</b>（篩選的戰隊固定在左）｜<b>選序</b>（依出手順 B1~B3 → P1~P4 → B4~B5 → P5~P7 排的時間軸）。底部載入更多，每批 200 場。\n<b>統計條</b>＝場數、場均時長、勝率、<b>主動權</b>（先選／後選／選藍／選紅次數）、<b>選藍率</b>、<b>選先選率</b>（握選序權時選先選的比例）；指定戰隊時只算該隊握權的局。\n<b>看法</b>：白底那隊＝勝方；英雄右上金色數字＝選角順位；<b>選擇</b>欄寫這局誰選邊、誰選序，金色粗體＝拿到第一選擇權的隊。局數是金色連結＝有影片，有 BP 時間點的直接跳到 BP。\n<b>注意</b>：系列缺局會標 ⚠ 缺第 N 局並插一列紅字（BO1 不算缺、BO2 的 1-1 不算缺）。2026 起先選與藍紅方脫鉤，2025 以前藍方固定先選；選擇欄與相關統計只有 2026 起才有。",
 "圖鑑":"<b>這頁</b>：遊戲資料庫，上方分區籤切換：版本／英雄／道具／符文／召喚師技能／物件／賽事／刷野速度（2024 起）。\n<b>操作</b>：多數分區可搜尋；點名稱進詳情與歷年改動。\n<b>看法</b>：改動顏色紅＝增強、綠＝削弱、黃＝調整。\n<b>注意</b>：新登場／重製／重返遊戲不標增強削弱（沒有對照物）。",
 "模擬BP":"<b>這頁</b>：自己排 BAN／PICK，看角色池、路線判定與選角評分。\n<b>版面</b>：模擬局在左、角色池在中、🚫 禁用過在最右（最新局緊貼角色池）。\n<b>操作</b>：上方選<b>戰隊A／B</b>帶出雙方角色池（範圍照上方篩選列）。點池中英雄自動填下一格，也可拖曳或左鍵拎起放進格子、右鍵取消；點已填格移除、點<b>先選／後選</b>切順位、角色池的 <b>⇄</b> 換輪替選手；＋ 開新局。\n每局標題：⧉ 複製到右邊、⇄ 互換紅藍方、拖曳調整順序、刪除。\n按鈕：📥 匯入比賽、🎯 近期積分（右鍵改範圍：一週～半年）、🌐 全局／一般（全局＝Fearless，選過的英雄從池消失、最多五局，2025 起才有；一般最多 20 局）、🗑 清空（可用 ← 復原）、📸 截圖。\n<b>看法</b>：滑模擬局英雄看詳細數據（BAN 顯示對手的使用數據），同英雄在各局一起發光。金光＝全場只有他會用、青框＝同隊多人會用、禁用圖示＝對手慣用但沒選過。\n<b>路線判定</b>：實心＝隊上選手池、半透明＝全庫補的（點一下確認）；完全沒資料就列五路；被同局佔走的路加紅框；路線圖右鍵可手動指定其他路。\n<b>選角評分</b>（隊名下方，0～100，50＝歷史中位）：滑上看拆解。\n・版本強弱 20%：最近三版的強度（開 🎯 時職業賽 60%＋積分 40%）\n・選手熟練 20%：該選手這隻英雄的場數與勝率，跟他平常比\n・戰隊 15%：該隊用這隻的勝率（跟該隊平常比）＋近 10 場勝率\n・對線對位 20%：同路雙方英雄的歷史金錢差\n・禁用 10%：第一輪禁到版本強勢或對手常選、第二輪禁到對手本命\n・隊友組合 5%：上野／野中／下輔\n・可錯位 5%：能走兩條路以上的英雄數\n・陣容合理性 5%：物魔傷害比例、傷害與前排搭配、開戰手數\n樣本不足的單項算 50；參照母體固定為當年全賽事，不跟篩選；匯入的局用該局當時的版本與戰績來評。\n<b>準確度</b>：1911 局走前回測，分數高的那邊贏 57%（擲銅板 50%）；純看 BP 的天花板約 58.5%，勝負大半由執行面決定。對位、可錯位、禁用三項幾乎沒有預測力，保留是因為它們描述選角本身。\n<b>注意</b>：匯入的局只能換英雄、不能改順位；角色池會自動換成該系列實際上場的選手。",
-"英雄Tier":"<b>這頁</b>：把英雄分級（S／A／B…）。\n<b>操作</b>：從右邊角色池拖曳或左鍵拎起 → 放到左邊 Tier 列（列間可互拖、拖回池或點一下移回、右鍵取消）；拖到另一張圖正中央＝兩張連在一起（限 上野／中野／下輔 兩隻，所以五路模式不能組合，組合中的圖也不能換路線；之後整組一起拖，點一下＝解除、各自回原位）；右鍵英雄＝拎起一張複本黏在滑鼠上，點哪一路就放哪一路（可放到別階、別路，同一隻同一路也能有好幾份，方便各自組合；原本那張不動，複本移回池就消失）；角色池可搜尋，上方可篩戰隊。\n階列：改名、點色塊換色、✕ 刪階（英雄回池）、＋ 加階、⠿ 拖曳排序。\n按鈕：🎯 積分數據／📊 比賽數據／⚖️ 混合數據（比賽 70%＋積分 30%；三種各自保存、互不覆蓋）、👥 只計算有出賽選手的積分（積分／混合數據只算篩選範圍內有出賽的選手自己的積分）、五路｜三路｜混合（三路＝上／中野／下輔，英雄跟五路共用、方便把打野和中路連在一起，上路拖到別欄英雄正中央也能連，組內固定 上中下在前、野輔在後，滑到組合上＝看兩隻合併的數據（比賽＝同隊一起出場；積分＝逐場紀錄裡隊友正好是對方的場次，各英雄最近 100 場內；評分＝兩隻平均）；三路的角色池分 上路／中野／下輔，每隻英雄標出目前篩選下出場最多的那一路；右鍵英雄左上的路線圖示＝依 上→野→中→下→輔 換路線；混合模式點路線圖示開關該路）、🗑 回到預設（依目前篩選重新產生，手動補加、複本、連結都清掉）、📸 截圖。\n<b>看法</b>：數據模式依目前篩選自動分階，篩選一變就重算（手動補加的英雄會保留）；積分數據分 S～D，版本跟著篩選範圍內比賽的版本走（例：篩 WCS＝只用 26.20 的積分），每一路各自評分，一隻英雄在某路占它 10% 以上的場次就會進那一路；比賽數據另有奇招階。滑英雄看數據；邊框紅＝增強、綠＝削弱、黃＝調整。五路模式拖曳時金色虛線＝可放、紅框＝打不了這路。\n<b>注意</b>：評分不無條件進位（89.9 仍在 A）。",
+"英雄Tier":"<b>這頁</b>：把英雄分級（S／A／B…）。\n<b>操作</b>：從右邊角色池拖曳或左鍵拎起 → 放到左邊 Tier 列（列間可互拖、拖回池或點一下移回、右鍵取消）；拖到另一張圖正中央＝兩張連在一起（限 上野／中野／下輔 兩隻，所以五路模式不能組合，組合中的圖也不能換路線；之後整組一起拖，點一下＝解除、各自回原位）；右鍵英雄＝拎起一張複本黏在滑鼠上，點哪一路就放哪一路（可放到別階、別路，同一隻同一路也能有好幾份，方便各自組合；原本那張不動，複本移回池就消失）；角色池可搜尋，上方可篩戰隊。\n階列：改名、點色塊換色、✕ 刪階（英雄回池）、＋ 加階、⠿ 拖曳排序。\n按鈕：🎯 積分數據／📊 比賽數據／⚖️ 混合數據（比賽 70%＋積分 30%；三種各自保存、互不覆蓋）、👥 出賽選手（積分／混合數據只算篩選範圍內有出賽的選手自己的積分；世界賽八強前＝本屆登錄名單都算）、五路｜三路｜混合（三路＝上／中野／下輔，英雄跟五路共用、方便把打野和中路連在一起，上路拖到別欄英雄正中央也能連，組內固定 上中下在前、野輔在後，滑到組合上＝看兩隻合併的數據（比賽＝同隊一起出場；積分＝逐場紀錄裡隊友正好是對方的場次，各英雄最近 100 場內；評分＝兩隻平均）；三路的角色池分 上路／中野／下輔，每隻英雄標出目前篩選下出場最多的那一路；右鍵英雄左上的路線圖示＝依 上→野→中→下→輔 換路線；混合模式點路線圖示開關該路）、🗑 回到預設（依目前篩選重新產生，手動補加、複本、連結都清掉）、📸 截圖。\n<b>看法</b>：數據模式依目前篩選自動分階，篩選一變就重算（手動補加的英雄會保留）；積分數據分 S～D，版本跟著篩選範圍內比賽的版本走（例：篩 WCS＝只用 26.20 的積分），每一路各自評分，一隻英雄在某路占它 10% 以上的場次就會進那一路；比賽數據另有奇招階。滑英雄看數據；邊框紅＝增強、綠＝削弱、黃＝調整。五路模式拖曳時金色虛線＝可放、紅框＝打不了這路。\n<b>注意</b>：評分不無條件進位（89.9 仍在 A）。",
 "積分":"<b>這頁</b>：職業選手的單雙排積分，兩種檢視：<b>🏆 排行榜</b>／<b>📅 近期積分戰況</b>。\n<b>篩選</b>：搜尋選手或戰隊；路線；<b>賽區</b>可複選、取交集（例：WCS＋LCK＝只看世界賽的 LCK 隊）。聯賽依<b>戰隊</b>判定；盃賽／國際賽依<b>選手本人</b>有沒有上場（WCS 另加 wiki 名單）。LPL／LCK 單選時多出分組子篩選（季後賽不分組）。國家隊賽事（亞運）隊伍欄顯示國家隊，滑上看俱樂部。\n<b>🏆 排行榜</b>：預設依一週評分排序，點欄位名改排；★ 收藏置頂。牌位依 菁英＞宗師＞大師＞鑽石…，大師以上看 LP。最近 7 天沒打的不列（收藏除外）；找不到帳號的排最底。一週以台灣 10:00 換日。\n點<b>選手名</b>看逐場戰績（合併所有帳號、只收職業路線）：可篩英雄／對位英雄／對位人員，滑技能看加點、滑裝備看出裝。\n<b>📅 近期積分戰況</b>：各隊一張卡，範圍選 <b>昨天／近3天／近7天／近14天</b>（每天＝台灣 10:00 到隔天 10:00）。每位選手列牌位（LP 增減）、KDA、評分、勝敗與英雄圖（灰＝輸）；滑英雄圖看該場對位、對手、KDA、金差@15、召喚師技能、符文、評分、開打時間。<b>詳細｜統計</b>：統計把同一隻英雄合併，標使用次數與勝敗。隊伍依賽區 → 世界賽種子 → 勝率排。\n📸 完整大圖（單張長圖）／中等（一個賽區一張）／小圖（一隊一張），中、小圖固定 1080×1350。\n<b>注意</b>：每位選手只列牌位最高的帳號；整年沒上場過的不列。LP 增減＝每天 10:00 的 Riot API 快照相減；範圍內玩多隻帳號時列最高的那隻。\n帳號來源：OBGG、dpm、trackingthepros；峽谷之巔與近兩月沒打的帳號自動濾掉。"
 };
 // 圖鑑各分區的說明（原本頁面內文的小字 note 移來這，改由「本頁說明」按鈕依目前分區顯示）
@@ -2399,7 +2407,7 @@ const TAB_HELP_EN={
 "比賽BP":"<b>This page</b>: BP records of every match, grouped by series, newest first.\n<b>How-to</b>: filter column by column in the boxes under the headers (type a team in the team cell to see only that team; game number, duration, choice, bans and the five roles all filter), 🗑 clears the column filters. Three modes at top right: <b>🟣 Normal</b> (blue left, red right)｜<b>🟪 Mixed</b> (the filtered team stays on the left)｜<b>Draft order</b> (timeline in pick order B1~B3 → P1~P4 → B4~B5 → P5~P7). Load more at the bottom, 200 games per batch.\n<b>Stat strip</b> = games, avg game time, win rate, <b>Initiative</b> (first pick / last pick / blue / red counts), <b>Blue pick rate</b>, <b>First pick rate</b> (share of first pick when holding the order choice); with a team filtered, only games where that team held the choice count.\n<b>Reading</b>: white background = winner; the gold number at a champion’s top right = pick order; the <b>Choice</b> column shows who chose side and who chose order, gold bold = the team with first selection. A gold game number links to the VOD, jumping straight to the draft when a timestamp exists.\n<b>Note</b>: missing games are flagged ⚠ missing game N with a red row (BO1 and a 1-1 BO2 are not missing). From 2026 first pick is separate from side; through 2025 blue always picked first. The Choice column and related stats exist from 2026.",
 "圖鑑":"<b>This page</b>: the game database; tabs at the top switch sections: Patches / Champions / Items / Runes / Summoner spells / Objectives / Events / Jungle clears (from 2024).\n<b>How-to</b>: most sections are searchable; click a name for details and change history.\n<b>Reading</b>: change colors red = buff, green = nerf, yellow = adjust.\n<b>Note</b>: new / reworked / returning entries get no buff or nerf tag (nothing to compare against).",
 "模擬BP":"<b>This page</b>: build your own bans and picks, with champion pools, role detection and a draft score.\n<b>Layout</b>: simulated games on the left, champion pools in the middle, 🚫 banned so far on the far right (newest game next to the pools).\n<b>How-to</b>: pick <b>Team A / B</b> above to load both pools (range follows the filter bar). Click a pool champion to fill the next slot, or drag / left-click to pick it up and drop it in a slot, right-click to cancel; click a filled slot to remove it, click <b>First / Last pick</b> to swap order, <b>⇄</b> in the pool swaps a substitute; ＋ adds a game.\nEach game’s title: ⧉ copy to the right, ⇄ swap sides, drag to reorder, delete.\nButtons: 📥 import a match, 🎯 recent solo queue (right-click to set the range: one week to six months), 🌐 Fearless / Normal (Fearless removes picked champions from the pool, up to five games, from 2025; Normal allows up to 20 games), 🗑 clear (undo with ←), 📸 screenshot.\n<b>Reading</b>: hover a simulated champion for detailed stats (bans show the opponent’s usage); the same champion glows in every game. Gold glow = only one player on the field plays it, cyan border = several teammates play it, ban icon = opponent comfort pick they haven’t picked.\n<b>Role detection</b>: solid = from the team’s pools, faded = filled from the whole database (click to confirm); no data at all lists all five roles; a role already taken in that game gets a red border; right-click the role icon to assign another role.\n<b>Draft score</b> (under the team name, 0–100, 50 = historical median): hover for the breakdown.\n・Patch strength 20%: strength over the last three patches (with 🎯 on: pro 60% + solo queue 40%)\n・Player comfort 20%: the player’s games and win rate on it, compared with their usual level\n・Team 15%: team win rate on it (vs. the team’s usual) + last-10-games win rate\n・Lane matchup 20%: historical gold diff of the two champions in the lane\n・Bans 10%: round 1 hits meta picks or opponent favorites, round 2 hits opponent signature picks\n・Synergy 5%: top-jungle / jungle-mid / bot-support\n・Flex 5%: number of champions that can go to two or more roles\n・Composition 5%: physical / magic balance, damage vs. frontline, engage count\nItems without enough data count as 50; the reference is all events of the year, not the filters; imported games are scored with that game’s own patch and form.\n<b>Accuracy</b>: walk-forward test on 1911 games, the higher score won 57% (a coin flip is 50%); the ceiling for draft alone is about 58.5% — results mostly come down to execution. Matchup, flex and bans have almost no predictive power and stay because they describe the draft itself.\n<b>Note</b>: imported games can swap champions but not pick order; the pools switch to the players who actually played that series.",
-"英雄Tier":"<b>This page</b>: rank champions into tiers (S / A / B…).\n<b>How-to</b>: drag or left-click a champion in the pool on the right → drop it into a tier row on the left (drag between rows, drag back or click to return, right-click to cancel); drop onto the middle of another champion to link the two (Top+Jungle, Jungle+Mid or Bot+Support only, so not in Roles mode, and a paired champion can’t switch roles; they then move together; click to unlink and send each back to its own spot); right-click a champion to pick up a copy on your cursor and click any role to place it (place it in any tier or role, even several copies in the same role for different pairings; the original stays, and a copy returned to the pool disappears); the pool is searchable, and a team filter sits above.\nTier rows: rename, click the color swatch to recolor, ✕ removes the tier (champions return to the pool), ＋ adds a tier, ⠿ drags to reorder.\nButtons: 🎯 Solo queue / 📊 Pro / ⚖️ Blend (pro 70% + ranked 30%; each saved separately), 👥 Pro players only (ranked / blend use only the ranked games of players who played in the filtered matches), Roles｜3 Cols｜Mixed (3 Cols = Top / Jungle+Mid / Bot+Support with the same champions as Roles, handy for linking a jungler with a mid; a top laner dropped onto the middle of a champion in another column links too, and groups always order laners first, then jungle/support; hover a pair to see their combined stats (pro = games together on one team; ranked = games where the teammate was the other one, within each champion’s last 100 games; rating = average of both); in 3 Cols the pool is split into Top / Jungle+Mid / Bot+Support and each champion shows its most-played role under the current filters; right-click the role icon on a champion to cycle Top → Jungle → Mid → Bot → Support; in Mixed, click a role icon to toggle that role), 🗑 reset to default (rebuild from the current filters, dropping hand-placed champions, copies and links), 📸 screenshot.\n<b>Reading</b>: data modes tier automatically from the current filters and rebuild when the filters change (champions you added by hand stay); solo queue tiers run S–D, use the patches of the matches in your filter (e.g. Worlds = 26.20 ranked only), and score each role separately, so a champion enters every role that is at least 10% of its games; pro data adds a pocket-pick tier. Hover a champion for stats; border red = buff, green = nerf, yellow = adjust. In Roles mode, while dragging a gold dashed slot = droppable, red border = it can’t play that role.\n<b>Note</b>: scores are not rounded up (89.9 stays in A).",
+"英雄Tier":"<b>This page</b>: rank champions into tiers (S / A / B…).\n<b>How-to</b>: drag or left-click a champion in the pool on the right → drop it into a tier row on the left (drag between rows, drag back or click to return, right-click to cancel); drop onto the middle of another champion to link the two (Top+Jungle, Jungle+Mid or Bot+Support only, so not in Roles mode, and a paired champion can’t switch roles; they then move together; click to unlink and send each back to its own spot); right-click a champion to pick up a copy on your cursor and click any role to place it (place it in any tier or role, even several copies in the same role for different pairings; the original stays, and a copy returned to the pool disappears); the pool is searchable, and a team filter sits above.\nTier rows: rename, click the color swatch to recolor, ✕ removes the tier (champions return to the pool), ＋ adds a tier, ⠿ drags to reorder.\nButtons: 🎯 Solo queue / 📊 Pro / ⚖️ Blend (pro 70% + ranked 30%; each saved separately), 👥 Pro players (ranked / blend use only the ranked games of players who played in the filtered matches; at Worlds before the quarterfinals, every registered player counts), Roles｜3 Cols｜Mixed (3 Cols = Top / Jungle+Mid / Bot+Support with the same champions as Roles, handy for linking a jungler with a mid; a top laner dropped onto the middle of a champion in another column links too, and groups always order laners first, then jungle/support; hover a pair to see their combined stats (pro = games together on one team; ranked = games where the teammate was the other one, within each champion’s last 100 games; rating = average of both); in 3 Cols the pool is split into Top / Jungle+Mid / Bot+Support and each champion shows its most-played role under the current filters; right-click the role icon on a champion to cycle Top → Jungle → Mid → Bot → Support; in Mixed, click a role icon to toggle that role), 🗑 reset to default (rebuild from the current filters, dropping hand-placed champions, copies and links), 📸 screenshot.\n<b>Reading</b>: data modes tier automatically from the current filters and rebuild when the filters change (champions you added by hand stay); solo queue tiers run S–D, use the patches of the matches in your filter (e.g. Worlds = 26.20 ranked only), and score each role separately, so a champion enters every role that is at least 10% of its games; pro data adds a pocket-pick tier. Hover a champion for stats; border red = buff, green = nerf, yellow = adjust. In Roles mode, while dragging a gold dashed slot = droppable, red border = it can’t play that role.\n<b>Note</b>: scores are not rounded up (89.9 stays in A).",
 "積分":"<b>This page</b>: pro players’ solo queue, two views: <b>🏆 Ladder</b> / <b>📅 Recent solo queue</b>.\n<b>Filters</b>: search a player or team; role; <b>Region</b> is multi-select with intersection (e.g. WCS + LCK = only the LCK teams at Worlds). Leagues are judged by <b>team</b>; cups / international events by whether the <b>player</b> actually played (WCS also uses the wiki roster). Picking only LPL or LCK adds a group sub-filter (playoffs have no groups). National-team events (Asian Games) show the national team; hover for the club.\n<b>🏆 Ladder</b>: sorted by weekly Rating by default; click a column header to re-sort; ★ favorites stay on top. Tiers go Challenger > Grandmaster > Master > Diamond…, Master and above by LP. Players with no games in 7 days are hidden (except favorites); players without a found account go to the bottom. The week rolls over at 10:00 Taiwan time.\nClick a <b>player</b> for their game log (all accounts merged, pro role only): filter by champion / opponent champion / opponent player; hover skills for level order and items for build order.\n<b>📅 Recent solo queue</b>: one card per team; range <b>Yesterday / 3 days / 7 days / 14 days</b> (a day = 10:00 to 10:00 Taiwan time). Each player shows tier (LP change), KDA, Rating, W-L and champion icons (grey = loss); hover an icon for matchup, opponent, KDA, GD@15, summoner spells, runes, Rating and start time. <b>Detail｜Stats</b>: Stats merges each champion with games and W-L. Teams are ordered by region → Worlds seed → win rate.\n📸 full image (one long image) / medium (one region per image) / small (one team per image); medium and small are always 1080×1350.\n<b>Note</b>: each player shows only their highest-ranked account; players with no pro games this year are not listed. LP change = difference of the daily 10:00 Riot API snapshots; with several accounts in range, the highest one is shown.\nAccount sources: OBGG, dpm, trackingthepros; CN Rift Summit (峽谷之巔) accounts and accounts idle for two months are filtered out."
 };
 // ── 浮層定位鐵則（2026-08-06 全站等比縮放之後）────────────────────────────────
@@ -10752,9 +10760,19 @@ function render(){
       return vs.every(p2=>have.has(p2))?vs:null; })();
     // 「只計算有出賽選手的積分」（使用者 2026-10-20）：積分／混合數據只加總「篩選範圍內有出賽的選手」自己的積分（soloq_pagg.js，延遲載入）
     //   版本同 sqPks／F.patch；沒有版本範圍＝該選手全部場次。null＝沒開或資料還沒到（沒到時先載、載完重產）
+    // 出賽選手名單（小寫）：篩選範圍內有上場的選手。世界賽例外（使用者 2026-10-20）：八強開打前（瑞士輪／入圍賽階段），
+    //   範圍內有世界賽的話＝本屆世界賽登錄名單全部都算（EVENTS_EXTRA.WLDs.rosters＋WLD_ROSTER_ADD，不含教練）；八強開打（PRED_LIVE 出現 *final 系列）後回到只算上場的人
+    let _proNames=null;
+    const proNames=()=>{ if(_proNames)return _proNames; const names=new Set(); let hasW=false;
+      for(const o of LANES){ if(!inG(o))continue; if(o.league==="WLDs")hasW=true; for(const sd of [0,1]){ const pn=o.raw[sd?C.red_playername:C.blue_playername]; if(pn)names.add(String(pn).toLowerCase()); } }
+      const PL=window.PRED_LIVE&&+PRED_LIVE.year===+curYear?PRED_LIVE:null, ko=!!(PL&&(PL.series||[]).some(x=>x.stage!=="Play-In"&&/final/i.test(x.tab||"")));
+      const EV=window.EVENTS_EXTRA&&EVENTS_EXTRA[String(curYear)]&&EVENTS_EXTRA[String(curYear)].WLDs;
+      if(hasW&&!ko&&EV&&EV.rosters){ Object.values(EV.rosters).forEach(rs=>(rs||[]).forEach(p2=>{ if(p2&&p2.n&&p2.r!=="COACH")names.add(String(p2.n).toLowerCase()); }));
+        ((typeof WLD_ROSTER_ADD!=="undefined"&&WLD_ROSTER_ADD[curYear])||[]).forEach(([,n2])=>names.add(String(n2).toLowerCase())); }
+      return _proNames=names; };
     const sqHov=(()=>{ if(!V.tierProSq||isHistYear()||!(V.tierSrc==="soloq"||V.tierSrc==="mix"))return null;
       const PA=window.SOLOQ_PAGG; if(!PA){ lazyLoad("pagg").then(()=>{ if(curView==="英雄Tier"){ V.tierGenKey=""; render(); } }); return null; }
-      const names=new Set(); for(const o of LANES){ if(!inG(o))continue; for(const sd of [0,1]){ const pn=o.raw[sd?C.red_playername:C.blue_playername]; if(pn)names.add(String(pn).toLowerCase()); } }
+      const names=proNames();
       const pks=F.patch?[F.patch]:sqPks, out={};
       for(const pk2 in PA){ if(!names.has(String(pk2).split("|").slice(1).join("|").toLowerCase()))continue;
         const pv=PA[pk2]; for(const v in pv){ if(pks&&!pks.includes(v))continue;
@@ -10844,62 +10862,61 @@ function render(){
       return `<span class="tChip" draggable="true" data-id="${esc(iid)}" data-b="${esc(id)}"${plane?` data-plane="${plane}"`:""} style="cursor:grab;position:relative;display:inline-block"><img data-cid="${esc(id)}" data-fbmode="hide" onerror="champImgFb(this)" src="${chIcoUrl(yearVer(),id)}" style="width:${s}px;height:${s}px;border-radius:6px;border:${bc};display:block${small?";filter:grayscale(.7) brightness(.85)":""}">${lb}</span>`;};
     const LANE_ZH=LANG==="en"?{TOP:"Top",JNG:"Jungle",MID:"Mid",BOT:"Bot",SUP:"Support"}:{TOP:"上路",JNG:"打野",MID:"中路",BOT:"下路",SUP:"輔助"};
     const SQTC={}; // 積分數據 hover 快取（每次 render 重建；key=路線）
-    const sqTipRow=(id,lane)=>{ if(isHistYear()||!window.SOLOQ_BUILDS||typeof calcHeroesSoloq!=="function")return "";
-      const get=k2=>{ if(!SQTC[k2]){const m={}; sqQ(k2==="ALL"?null:k2).forEach(r2=>{m[r2._full]=r2;}); SQTC[k2]=m;} return SQTC[k2]; };
-      let r=get(lane||"ALL")[id];
-      // 沒過上板門檻但有場次（例：池子「比賽尚未登場（積分有出場）」那段）＝照樣顯示數據；評分＝門檻 1 的全體裡算（使用者 2026-10-20：不要顯示 –）。
-      //   評分含 Wilson 勝率與場數百分位 ⇒ 場次少自然偏低，不會因為兩三場全勝就衝高
-      if(!r){ const k3="A|"+(lane||"ALL"); if(!SQTC[k3]){ const m={}; sqQ(lane||null,1).forEach(r2=>{m[r2._full]=r2;}); SQTC[k3]=m; } r=SQTC[k3][id]||null; }
-      // 有就有、沒有就沒有（使用者 2026-10-20）：該路沒有積分樣本就不顯示積分框，不退回全路線、不寫說明
-      // 標題固定「積分數據」（使用者 2026-10-20：不用寫路線，路線看小框右上角圖示）；該路樣本不足退回全路線時加一行小註
-      const ttl=LANG==="en"?"Ranked data":"積分數據";
-      if(!r)return "";
-      const gd=r["金差@15"];
-      return `<div class="tipRow"><b>${ttl}</b><div>${LANG==="en"?"Games":"場數"} <span class="num">${r.場數}</span>（${esc(r["勝-敗"]||"")}）｜${LANG==="en"?"Win%":"勝率"} <span class="num">${Math.round((r.勝率||0)*100)}%</span></div><div>KDA <span class="num">${(r.KDA||0).toFixed(1)}</span>｜${LANG==="en"?"GD@15":"金差@15"} <span class="num">${gd==null?"–":(gd>0?"+":"")+Math.round(gd)}</span>｜${LANG==="en"?"Rating":"評分"} <span class="num">${r.評分==null?"–":Math.round(r.評分)}</span></div></div>`;};
-    const tipOf=(id,lane)=>{const c=cnt[id]||{p:0,b:0};
-      // hover 內容跟三向模式走（2026-07-18 使用者定案）：積分數據模式＝只列積分、比賽數據模式＝只列比賽、自訂＝兩種都列
-      const _src=V.tierSrc||"custom", wantPro=_src!=="soloq", wantSq=_src!=="match";
-      const lp=lane?((laneC[id]||{})[LANE5v.indexOf(lane)+1]||0):null; // 該路出場數
-
-      const singleLane=Object.values(laneC[id]||{}).filter(n=>n>0).length<=1; // 只在一路出場 → 全部路線＝該路，不另開「全部路線」框
-      const cntLine=LANG==="en"
-        ?`Games <span class="num">${c.p}</span>｜Banned <span class="num">${c.b}</span>｜Total <span class="num">${c.p+c.b}</span>`
-        :`出場 <span class="num">${c.p}</span> 場｜被禁 <span class="num">${c.b}</span> 次｜合計 <span class="num">${c.p+c.b}</span>`;
-      // 比賽數據一個框（使用者 2026-10-20：「打野」跟「打野數據」兩框合併、標題寫比賽數據，路線改放右上角圖示）
-      const cntLines=(lane&&!singleLane)
-        ?`<div>${LANG==="en"?`Role games <span class="num">${lp}</span>｜All roles <span class="num">${c.p}</span>｜Banned <span class="num">${c.b}</span>`:`該路出場 <span class="num">${lp}</span> 場｜全部路線 <span class="num">${c.p}</span> 場｜被禁 <span class="num">${c.b}</span> 次`}</div>`
-        :`<div>${cntLine}</div>`;
-      let stat="";
-      if(wantPro){
-        const srcRows=lane?calcHeroes(lane,"",TT):calcHeroes("","",TT); // 該路(或全部路線)數據，跟隨戰隊篩選
-        const rw=srcRows.find(r=>champId(r._full)===id);
-        let bpNum="", bpBrk="";
-        if(rw){
-          const pct=Math.round((rw["BP%"]||0)*100);
-          if(TT){ // 戰隊BP%：與一般BP%(不分戰隊)比→高亮紅、低亮綠(台灣配色)；並列出「選/對手禁」次數
-            const gRows=lane?calcHeroes(lane,""):calcHeroes("",""); const gRw=gRows.find(r=>champId(r._full)===id);
-            const d=(rw["BP%"]||0)-(gRw?(gRw["BP%"]||0):0), col=Math.abs(d)<1e-9?"":(d>0?"#ff6b6b":"#5fbf7f");
-            bpNum=`<span class="num"${col?` style="color:${col}"`:""}>${pct}%</span>`;
-            bpBrk=LANG==="en"?`<span class="meta"> (pick <span class="num">${rw.場數}</span>｜opp ban <span class="num">${rw._banN||0}</span>)</span>`
-                              :`<span class="meta">（選 <span class="num">${rw.場數}</span>｜對手禁 <span class="num">${rw._banN||0}</span>）</span>`;
-          }else bpNum=`<span class="num">${pct}%</span>`;
-        }
-        stat=`<div class="tipRow"><b>${LANG==="en"?"Pro data":"比賽數據"}${lane?"":(LANG==="en"?" (role avg)":"（各路平均）")}</b>${cntLines}${rw?`<div>${TT?(LANG==="en"?"Team BP%":"戰隊BP%"):"BP%"} ${bpNum}${bpBrk}｜${LANG==="en"?"Win%":"勝率"} <span class="num">${Math.round((rw.勝率||0)*100)}%</span></div><div>KDA <span class="num">${(rw.KDA||0).toFixed(1)}</span>｜${LANG==="en"?"Rating":"評分"} <span class="num">${rw.評分}</span></div>`:""}</div>`;
-        if(!seen.has(id)&&!rw)stat="";   // 有就有、沒有就沒有：範圍內沒出場也沒被禁＝不顯示比賽框
-      }
-      const lic=lane?`<img src="${(typeof POS_B64!=="undefined"&&POS_B64[lane])||POS_IMG[lane]}" alt="" style="width:22px;height:22px;flex:none;filter:drop-shadow(0 0 2px #000)">`:"";   // 路線＝右上角圖示
-      return `<div class="tipTitle" style="display:flex;align-items:center;justify-content:space-between;gap:10px"><span>${esc(zn(id))}</span>${lic}</div>${stat}${wantSq?sqTipRow(id,lane):""}${
-        CHG[id]===undefined?"":`<div class="tipRow"><b>${esc(CHGV)} <span style="color:${CHG[id]>0?"#ff4d4d":CHG[id]<0?"#37c871":"#ffd60a"}">${CHG[id]>0?(LANG==="en"?"Buff":"增強"):CHG[id]<0?(LANG==="en"?"Nerf":"削弱"):(LANG==="en"?"Adjust":"調整")}</span></b><div>${
+    // ── 小框排版（使用者 2026-10-20：重新排得更直觀）：標題＝名字＋右上路線圖示；下面一張「比賽｜積分」兩欄對照表，
+    //    評分放第一列放大、依分數上色（越高越紅、越低越綠）；只有一種資料就只有一欄；沒有的項目整列不出現 ──
+    const rtCol=v=>v==null?"#7a8aaa":v>=80?"#ff6b6b":v>=60?"#ffb054":v>=40?"#e8d27a":"#5fbf7f";
+    const icoL=L=>L?`<img src="${(typeof POS_B64!=="undefined"&&POS_B64[L])||POS_IMG[L]}" alt="" style="width:22px;height:22px;flex:none;filter:drop-shadow(0 0 2px #000)">`:"";
+    const tipHead=(name,lanes)=>`<div class="tipTitle" style="display:flex;align-items:center;justify-content:space-between;gap:10px"><span>${name}</span><span style="display:flex;gap:2px">${lanes.map(icoL).join("")}</span></div>`;
+    const pct=v=>v==null?null:Math.round(v*100)+"%";
+    const wlS=(n,w)=>`<span class="num">${n}</span><span class="tgS">${w}-${n-w}</span>`;
+    // cols：[{h:欄名, d:{rt,g,wr,kda,gd,bp,ban}}]（值可以是字串 html；null／undefined＝該欄沒有）
+    const statGrid=cols=>{ cols=cols.filter(Boolean); if(!cols.length)return "";
+      const R=[["rt",LANG==="en"?"Rating":"評分"],["g",LANG==="en"?"Games":"場數"],["wr",LANG==="en"?"Win%":"勝率"],["kda","KDA"],
+               ["gd",LANG==="en"?"GD@15":"金差@15"],["bp","BP%"],["ban",LANG==="en"?"Banned":"被禁"]];
+      let h=`<div class="tGrid" style="grid-template-columns:auto${" minmax(70px,auto)".repeat(cols.length)}"><span></span>${cols.map(c=>`<span class="h">${c.h}</span>`).join("")}`;
+      R.forEach(([k,lb])=>{ if(!cols.some(c=>c.d[k]!=null))return;
+        if(k==="rt"){ h+=`<span class="l">${lb}</span>${cols.map(c=>{const v=c.d.rt; return `<span class="v" style="font-size:22px;font-weight:bold;line-height:1.1;color:${rtCol(v)}">${v==null?"–":Math.round(v)}</span>`;}).join("")}<span class="sep"></span>`; return; }
+        h+=`<span class="l">${lb}</span>${cols.map(c=>`<span class="v">${c.d[k]==null?`<span style="color:#56607a">–</span>`:(typeof c.d[k]==="string"&&c.d[k].includes("<")?c.d[k]:`<span class="num">${c.d[k]}</span>`)}</span>`).join("")}`; });
+      return h+"</div>"; };
+    const chgBox=id=>CHG[id]===undefined?"":`<div class="tipRow"><b>${esc(CHGV)} <span style="color:${CHG[id]>0?"#ff4d4d":CHG[id]<0?"#37c871":"#ffd60a"}">${CHG[id]>0?(LANG==="en"?"Buff":"增強"):CHG[id]<0?(LANG==="en"?"Nerf":"削弱"):(LANG==="en"?"Adjust":"調整")}</span></b><div>${
           (CHGL[id]||[]).map(l=>{const dd=changeDir([l]);
-            return `<span style="color:${dd>0?"#ff6b6b":dd<0?"#5fbf7f":"#c8d0e0"}">${esc(l)}</span>`;}).join("<br>")}</div></div>`}`;};
+            return `<span style="color:${dd>0?"#ff6b6b":dd<0?"#5fbf7f":"#c8d0e0"}">${esc(l)}</span>`;}).join("<br>")}</div></div>`;
+    // 積分：該路資料（沒過上板門檻也照樣有，評分在門檻 1 的全體裡算——使用者 2026-10-20：有場次就要有數據、評分不要 –）
+    const sqData=(id,lane)=>{ if(isHistYear()||!window.SOLOQ_BUILDS||typeof calcHeroesSoloq!=="function")return null;
+      const get=(k2,mo)=>{ const key=(mo?"A|":"")+k2; if(!SQTC[key]){const m={}; sqQ(k2==="ALL"?null:k2,mo).forEach(r2=>{m[r2._full]=r2;}); SQTC[key]=m;} return SQTC[key]; };
+      const r=get(lane||"ALL")[id]||get(lane||"ALL",1)[id]; if(!r)return null;
+      const wl=String(r["勝-敗"]||"").split("-"), gd=r["金差@15"];
+      return {rt:r.評分, g:wlS(r.場數,+wl[0]||0), wr:pct(r.勝率), kda:(r.KDA||0).toFixed(1), gd:gd==null?null:(gd>0?"+":"")+Math.round(gd)}; };
+    const tipOf=(id,lane)=>{const c=cnt[id]||{p:0,b:0};
+      const _src=V.tierSrc||"mix", wantPro=_src!=="soloq", wantSq=_src!=="match";   // 積分模式＝只列積分、比賽模式＝只列比賽、混合＝兩欄
+      const lp=lane?((laneC[id]||{})[LANE5v.indexOf(lane)+1]||0):null; // 該路出場數
+      const singleLane=Object.values(laneC[id]||{}).filter(n=>n>0).length<=1;
+      let pro=null;
+      if(wantPro){
+        const rw=(lane?calcHeroes(lane,"",TT):calcHeroes("","",TT)).find(r=>champId(r._full)===id); // 該路(或全部路線)數據，跟隨戰隊篩選
+        if(rw||seen.has(id)){
+          let bp=null;
+          if(rw){ const p0=Math.round((rw["BP%"]||0)*100);
+            if(TT){ // 戰隊BP%：與一般BP%比 → 高紅低綠
+              const gRw=(lane?calcHeroes(lane,""):calcHeroes("","")).find(r=>champId(r._full)===id);
+              const d=(rw["BP%"]||0)-(gRw?(gRw["BP%"]||0):0), col=Math.abs(d)<1e-9?"":(d>0?"#ff6b6b":"#5fbf7f");
+              bp=`<span class="num"${col?` style="color:${col}"`:""}>${p0}%</span>`; }
+            else bp=p0+"%"; }
+          const n=rw?rw.場數:(lane?lp:c.p), w=rw?Math.round((rw.勝率||0)*n):0;
+          pro={rt:rw&&typeof rw.評分==="number"?rw.評分:null, g:wlS(n,w)+(lane&&!singleLane?`<span class="tgS">${LANG==="en"?"all":"全"} ${c.p}</span>`:""),
+               wr:rw?pct(rw.勝率):null, kda:rw?(rw.KDA||0).toFixed(1):null, bp, ban:c.b};
+        }
+      }
+      const sq=wantSq?sqData(id,lane):null;
+      return tipHead(esc(zn(id)),lane?[lane]:[])+statGrid([pro&&{h:LANG==="en"?"Pro":"比賽",d:pro}, sq&&{h:LANG==="en"?"Ranked":"積分",d:sq}])+chgBox(id);};
     // 組合小框（使用者 2026-10-20：滑到組合上＝兩隻合併計算）：
     //   比賽＝目前篩選範圍內「同一隊、兩隻同時在各自那一路」的局數／勝敗／KDA（兩隻各自 KDA 相加，同積分雙人組算法）；
     //   積分＝雙人組資料（只有 中野、下輔 兩種，全季、15 場以上；見 calcHeroesSoloq 的 中野組／下路組）
     const pairTip=(a,b)=>{ const _src=V.tierSrc||"mix", wantPro=_src!=="soloq", wantSq=_src!=="match";
-      const ico=L=>L?`<img src="${(typeof POS_B64!=="undefined"&&POS_B64[L])||POS_IMG[L]}" alt="" style="width:22px;height:22px;flex:none;filter:drop-shadow(0 0 2px #000)">`:"";
       const kdaOf=(k,d,a2)=>(k+a2)/Math.max(1,d);
-      let pro="";
+      let pro=null;
       if(wantPro){ const pa=LANE5v.indexOf(a.lane)+1, pb=LANE5v.indexOf(b.lane)+1, G={};
+        // 比賽：篩選範圍內同隊、兩隻同時在各自那一路的局
         if(pa>0&&pb>0)for(const o of LANES){ if((o.pid!==pa&&o.pid!==pb)||!inG(o))continue;
           for(const sd of [0,1]){ if(TT&&o.raw[sd?C.red_teamname:C.blue_teamname]!==TT)continue;
             const off=sd?RB:0, ch=champId(o.raw[C.blue_champion+off]), want=o.pid===pa?a.id:b.id; if(ch!==want)continue;
@@ -10908,37 +10925,28 @@ function render(){
         const both=Object.values(G).filter(g=>g.a&&g.b), n=both.length, w=both.filter(g=>g.w).length;
         const sum=k=>both.reduce((t,g)=>[t[0]+g[k][0],t[1]+g[k][1],t[2]+g[k][2]],[0,0,0]);
         const ka=sum("a"), kb=sum("b");
-        // 評分＝兩隻在目前篩選下各自那一路的比賽評分平均（使用者 2026-10-20）
-        const rOf=(e)=>{ const rw=calcHeroes(e.lane,"",TT).find(x=>champId(x._full)===e.id); return rw&&typeof rw.評分==="number"?rw.評分:null; };
-        const ra=rOf(a), rb=rOf(b), rAvg=ra!=null&&rb!=null?(ra+rb)/2:null;
-        // 項目比照單隻（使用者 2026-10-20）：出場（勝敗）／出場率｜勝率／KDA｜評分；KDA＝兩隻合計 (K+A)/D，跟單隻同一個尺度
+        const rOf=e=>{ const rw=calcHeroes(e.lane,"",TT).find(x=>champId(x._full)===e.id); return rw&&typeof rw.評分==="number"?rw.評分:null; };
+        const ra=rOf(a), rb=rOf(b);
         const tg=GAMES.filter(o=>inG(o)&&(!TT||o.raw[C.blue_teamname]===TT||o.raw[C.red_teamname]===TT)).length;
-        const kd=n?kdaOf(ka[0]+kb[0],ka[1]+kb[1],ka[2]+kb[2]):null;
-        // 被禁＝兩隻各自被禁次數相加（使用者 2026-10-20）；合計＝出場＋被禁；BP%＝合計／範圍內局數（同單隻算法）
-        const bn=((cnt[a.id]||{}).b||0)+((cnt[b.id]||{}).b||0), tot2=n+bn;
-        pro=`<div class="tipRow"><b>${LANG==="en"?"Pro data":"比賽數據"}</b><div>${LANG==="en"?"Games":"出場"} <span class="num">${n}</span> ${LANG==="en"?"":"場"}（${w}-${n-w}）｜${LANG==="en"?"Banned":"被禁"} <span class="num">${bn}</span>${LANG==="en"?"":" 次"}｜${LANG==="en"?"Total":"合計"} <span class="num">${tot2}</span></div><div>BP% <span class="num">${tg?Math.round(tot2/tg*100):0}%</span>｜${LANG==="en"?"Win%":"勝率"} <span class="num">${n?Math.round(w/n*100)+"%":"–"}</span></div><div>KDA <span class="num">${kd==null?"–":kd.toFixed(1)}</span>｜${LANG==="en"?"Rating":"評分"} <span class="num">${rAvg==null?"–":rAvg.toFixed(1)}</span></div></div>`; }
-      let sq="";
-      // 積分組合（使用者 2026-10-20：不用隊友數據、不用重跑管線，只要確認是這個組合的出賽）：
-      //   逐場積分（SOLOQ_CHGAMES，每場第 15 欄＝隊友英雄）裡，「A 在這一路、隊友是 B」或反過來的場次；版本＝目前篩選（F.patch／sqPks），同一場兩邊都有紀錄只算一次
-      //   ⚠ 逐場檔只留每隻英雄最近 100 場 ⇒ 場數是這 100 場內的組合；評分＝兩隻在目前篩選下各自那一路的積分評分平均
+        const bn=((cnt[a.id]||{}).b||0)+((cnt[b.id]||{}).b||0);   // 被禁＝兩隻相加；BP%＝(出場＋被禁)÷局數
+        pro={rt:ra!=null&&rb!=null?(ra+rb)/2:null, g:wlS(n,w), wr:n?pct(w/n):null, kda:n?kdaOf(ka[0]+kb[0],ka[1]+kb[1],ka[2]+kb[2]).toFixed(1):null,
+             bp:tg?Math.round((n+bn)/tg*100)+"%":null, ban:bn}; }
+      let sq=null;
+      // 積分：逐場積分（SOLOQ_CHGAMES，第 15 欄＝隊友英雄）裡 A 在這一路且隊友是 B（或反過來）；版本／只算出賽選手同目前篩選；同場只算一次
+      //   ⚠ 逐場檔只留每隻英雄最近 100 場；評分＝兩隻各自那一路的積分評分平均
       if(wantSq&&!isHistYear()&&window.SOLOQ_BUILDS){
-        const sOf=e=>{ const k="P|"+e.lane, k1="A|"+e.lane; if(!SQTC[k]){ const m={}; sqQ(e.lane).forEach(x=>{m[x._full]=x;}); SQTC[k]=m; }
-          let x=SQTC[k][e.id]; if(!x){ if(!SQTC[k1]){ const m={}; sqQ(e.lane,1).forEach(y=>{m[y._full]=y;}); SQTC[k1]=m; } x=SQTC[k1][e.id]; }   // 沒過門檻＝門檻 1 的全體裡算（同單隻）
-          return x&&x.評分!=null?x.評分:null; };
-        const sa=sOf(a), sb=sOf(b), sAvg=sa!=null&&sb!=null?(sa+sb)/2:null;
-        const CG=window.SOLOQ_CHGAMES; let line;
-        if(!CG){ lazyLoad("sqg"); line=`<div style="color:#7a8aaa">${LANG==="en"?"Loading…":"載入中…"}</div>`; }
+        const sa=(sqData(a.id,a.lane)||{}).rt, sb=(sqData(b.id,b.lane)||{}).rt, sAvg=sa!=null&&sb!=null?(sa+sb)/2:null;
+        const CG=window.SOLOQ_CHGAMES;
+        if(!CG){ lazyLoad("sqg"); sq={rt:sAvg, g:LANG==="en"?"Loading…":"載入中…"}; }
         else{ const PO={T:"TOP",J:"JNG",M:"MID",B:"BOT",U:"SUP"}, pks=F.patch?[F.patch]:sqPks, G=new Map();
-          const pn=V.tierProSq?new Set(LANES.filter(inG).flatMap(o=>[o.raw[C.blue_playername],o.raw[C.red_playername]]).filter(Boolean).map(x=>String(x).toLowerCase())):null;
-          const T=[0,0,0], gd=[0,0];   // 兩隻各自那一份紀錄的 K/D/A 合計、金差@15（有記錄的都算）
+          const pn=V.tierProSq?proNames():null;
+          const T=[0,0,0], gd=[0,0];
           [[a,b],[b,a]].forEach(([x,y])=>(CG[x.id]||[]).forEach(r=>{ if(PO[r[2]]!==x.lane||r[15]!==y.id)return; if(pks&&!pks.includes(patchOfTs(r[0])))return;
             if(pn&&!pn.has(String(r[1]||"").split("|").slice(1).join("|").toLowerCase()))return; G.set(r[0],!!r[3]);
             T[0]+=+r[4]||0; T[1]+=+r[5]||0; T[2]+=+r[6]||0; if(r[9]!=null){gd[0]++; gd[1]+=+r[9]||0;} }));
           const n=G.size, w=[...G.values()].filter(Boolean).length, g15=gd[0]?gd[1]/gd[0]:null;
-          // 項目比照單隻：場數（勝敗）｜勝率／KDA｜金差@15｜評分
-          line=`<div>${LANG==="en"?"Games":"場數"} <span class="num">${n}</span>（${w}-${n-w}）｜${LANG==="en"?"Win%":"勝率"} <span class="num">${n?Math.round(w/n*100)+"%":"–"}</span></div><div>KDA <span class="num">${n?kdaOf(...T).toFixed(1):"–"}</span>｜${LANG==="en"?"GD@15":"金差@15"} <span class="num">${g15==null?"–":(g15>0?"+":"")+Math.round(g15)}</span>｜${LANG==="en"?"Rating":"評分"} <span class="num">${sAvg==null?"–":Math.round(sAvg)}</span></div>`; }
-        sq=`<div class="tipRow"><b>${LANG==="en"?"Ranked data":"積分數據"}</b>${line}</div>`; }
-      return `<div class="tipTitle" style="display:flex;align-items:center;justify-content:space-between;gap:10px"><span>${esc(zn(a.id))} ＋ ${esc(zn(b.id))}</span><span style="display:flex;gap:2px">${ico(a.lane)}${ico(b.lane)}</span></div>${pro}${sq}`; };
+          sq={rt:sAvg, g:wlS(n,w), wr:n?pct(w/n):null, kda:n?kdaOf(...T).toFixed(1):null, gd:g15==null?null:(g15>0?"+":"")+Math.round(g15)}; } }
+      return tipHead(`${esc(zn(a.id))} ＋ ${esc(zn(b.id))}`,[a.lane,b.lane])+statGrid([pro&&{h:LANG==="en"?"Pro":"比賽",d:pro}, sq&&{h:LANG==="en"?"Ranked":"積分",d:sq}]); };
     const nameW=n=>Math.max(2.2,[...String(n)].reduce((w,ch)=>w+(/[\u2E80-\uFFFD]/.test(ch)?1.1:0.65),0)+0.6)+"em";
     // \u5713\u76E4\u8272\u76E4\uFF1A\u8272\u76F8\u74B0\uFF0B\u98FD\u548C\u5EA6\u7531\u4E2D\u5FC3\u5411\u5916\uFF0C\u9EDE\u4E00\u4E0B\u9078\u8272\uFF1B\u4E0B\u6392\u9644\u7070\u968E
     if(document.getElementById("clrPop"))document.getElementById("clrPop").remove();
@@ -11816,8 +11824,8 @@ function render(){
       fr.parentNode.insertBefore(seg,fr);
       if((V.tierSrc==="soloq"||V.tierSrc==="mix")&&!isHistYear()){   // 只計算有出賽選手的積分（使用者 2026-10-20）
         const pb2=document.createElement("button"); pb2.id="tierProSq"; pb2.type="button";
-        pb2.className="pgbtn"+(V.tierProSq?" on":""); pb2.textContent=LANG==="en"?"👥 Pro players only":"👥 只計算有出賽選手的積分";
-        pb2.title=LANG==="en"?"Ranked stats only from players who played in the filtered matches":"積分只算目前篩選範圍內有出賽的選手自己的積分，不算全部選手";
+        pb2.className="pgbtn"+(V.tierProSq?" on":""); pb2.textContent=LANG==="en"?"👥 Pro players":"👥 出賽選手";
+        pb2.title=LANG==="en"?"Ranked stats only from players who played in the filtered matches (Worlds before the quarterfinals: every registered player)":"只計算有出賽選手的積分：積分只算目前篩選範圍內有出賽的選手自己的積分（世界賽八強前＝本屆登錄名單全部都算）";
         if(V.tierProSq)pb2.style.cssText="background:var(--acc);color:#10141f;border-color:var(--acc)";
         pb2.onclick=()=>{ V.tierProSq=!V.tierProSq; V.tierGenKey=""; saveState(); render(); };
         fr.parentNode.insertBefore(pb2,fr); }
