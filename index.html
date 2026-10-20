@@ -17237,7 +17237,7 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
         ${teamNames.length?`<div class="dlyGrid">${teamNames.map(teamCard).join("")}</div>`:`<div class="note">${en?"No ranked players match the current filters.":"目前篩選沒有符合的積分選手。"}</div>`}`;
       // 英雄圖滑過＝該場小框（使用者 2026-10-18）：英雄／勝敗／K/D/A／評分／LP／時長／對位／開打時間（台灣時間）
       // 英雄圖滑過＝該場小框。順序（使用者 2026-10-18 定）：對位｜對手（職業選手才列）｜KDA｜金差@15｜召喚師技能｜符文｜評分｜開打
-      const TIP_H_SUMM=28, TIP_H_RUNE=28, TIP_H_AGG=34, TIP_AGG_ICO=24,   /* 統計小框：符文／對位兩列放最下、列高 34、圖 24（使用者 2026-10-20） */ TIP_RUNE_NUDGE="display:inline-flex;margin-right:3px";   // 圖示列列高（2026-10-20 像素量測：主圖中心對齊標籤字中心，不再上推；右縮 3px 抵副系徽章右凸，右緣跟其他列切齊）
+      const TIP_H_SUMM=28, TIP_H_RUNE=28, TIP_H_AGG=40, TIP_AGG_ICO=30,   /* 統計小框：符文／對位兩列放最下、列高 40、圖 30（使用者 2026-10-20） */ TIP_RUNE_NUDGE="display:inline-flex;margin-right:3px";   // 圖示列列高（2026-10-20 像素量測：主圖中心對齊標籤字中心，不再上推；右縮 3px 抵副系徽章右凸，右緣跟其他列切齊）
       const dlyTip=g=>{ const [c,w,lp,sc,k,d,a,t,dur,o,gd15,su,rk,rs,rid,op]=g; const kda=((k||0)+(a||0))/Math.max(1,d||0);
         // 列高：文字列 24px；圖示列照圖示比字高多少就加多少，讓「看得到的」上下空隙每列一樣（使用者 2026-10-19 重看間距：像素量測文字列空隙 ≈12px，圖示列被擠到 5～8px）
         const row=(lb,v,h)=>`<div style="display:flex;justify-content:space-between;align-items:center;gap:18px;height:${h||24}px"><span class="meta">${lb}</span><span style="display:inline-flex;align-items:center;gap:4px">${v}</span></div>`;
