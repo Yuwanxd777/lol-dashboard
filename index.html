@@ -6948,7 +6948,8 @@ function drawTrend(ch,pos,sq){
        const target=labels.includes(cp)?cp:labels.find(dp=>parseFloat(dp)>v); if(!target)return; // 該版無數據→併到下一個有數據的版本
        coreIds.forEach(iid=>{ const nm=_ITEMID2NM[String(iid)]; if(!nm)return;
          const hist=itemHistory(nm).find(e=>e.patch===cp); if(!hist||!hist.lines.length)return; // 這道具在 cp 版有官方改動才標
-         chgMap[target].push({src:cp,item:nm,lines:hist.lines.map(l=>`🛠️ ${nm}｜${l}`)}); }); }); }
+         const ls2=hist.lines.filter(l=>chgFitsChamp(key,l)); if(!ls2.length)return;   // 只改遠程／近戰的那部分不算到另一種英雄
+         chgMap[target].push({src:cp,item:nm,lines:ls2.map(l=>`🛠️ ${nm}｜${l}`)}); }); }); }
    // #4b：關鍵符文同理（2026-08-18 使用者：卡蜜兒輔助帶刀鋒之雹、26.16 被削卻沒標）。判定＝該版前三版內帶它 ≥10%（builder 的 ksP），
    //      符文名走 RUNE_ICONS.byId[id].zh → itemHistory 掃「符文」類。只看關鍵符文，小符文全英雄共用、標了等於沒標。
    if(cd&&cd.ksP&&window.RUNE_ICONS&&RUNE_ICONS.byId){
@@ -6957,7 +6958,8 @@ function drawTrend(ch,pos,sq){
        const target=labels.includes(cp)?cp:labels.find(dp=>parseFloat(dp)>v); if(!target)return;
        ks.forEach(rid=>{ const r=RUNE_ICONS.byId[String(rid)], nm=r&&r.zh; if(!nm)return;
          const hist=itemHistory(nm).find(e=>e.patch===cp); if(!hist||!hist.lines.length)return;
-         chgMap[target].push({src:cp,item:nm,lines:hist.lines.map(l=>`🔮 ${nm}｜${l}`)}); }); }); } }
+         const ls2=hist.lines.filter(l=>chgFitsChamp(key,l)); if(!ls2.length)return;
+         chgMap[target].push({src:cp,item:nm,lines:ls2.map(l=>`🔮 ${nm}｜${l}`)}); }); }); } }
   const linesOf=p=>chgMap[p].flatMap(e=>e.lines);
   const markedOf=p=>chgMap[p].length>0;
   const dirOf=p=>{const l=linesOf(p); return l.length?changeDir(l):null;}; // 1增強/-1削弱/0調整
@@ -7666,6 +7668,13 @@ const HSPCOLS=[["英雄",fmt.raw,"14em"],["路線",(v,r)=>r._laneIcons||"–","1
   ["金差@15",v=>!_fin(v)?"–":(v>0?"+":"")+Math.round(v)],["評分",fmt.score]];
 // 英雄分頁積分版資料：SOLOQ_BUILDS.hero（build_soloq_builds.py 全季彙總；英雄→路線→[n,w,k,d,a,cs,dur,kp和,kp樣本,gd樣本,gd和,xd樣本,xd和,fl2樣本,fl2先到]）
 // 版本篩選（F.patch）時改用 SOLOQ_BUILDS.heroP（英雄→版本→路線→同 15 欄）；積分比職業賽早上新版（26.14），清單由 filterOpts 併入
+// 英雄近戰／遠程（DDragon 16.20.1 的 attackrange：≥300＝遠程；Lillia 雖 325 但官方是近戰；Gnar／Kayle／Jayce／Nidalee／Elise 會換型態＝兩種都算；
+//   特例：近戰但有技能算遠程攻擊（Gangplank Q 會吃攻擊特效、算遠程）＝也當兩種都算；Viego 附身會沿用自己的裝備＝照近戰算（使用者 2026-10-20 更正），不放進任一張表——使用者 2026-10-20：極少數特例）。
+//   用途：裝備／符文改動標籤只寫「遠程…」或「近戰…」時，只算到對應的英雄（使用者 2026-10-20：海克斯板甲只砍遠程，近戰的卡蜜兒不該標削弱）。新英雄不在表內＝不過濾
+const CHAMP_RANGED=new Set(["Ahri", "Akshan", "Anivia", "Annie", "Aphelios", "Ashe", "AurelionSol", "Aurora", "Azir", "Bard", "Brand", "Caitlyn", "Cassiopeia", "Corki", "Draven", "Ezreal", "Fiddlesticks", "Graves", "Heimerdinger", "Hwei", "Ivern", "Janna", "Jhin", "Jinx", "Kaisa", "Kalista", "Karma", "Karthus", "Kennen", "Kindred", "KogMaw", "Leblanc", "Lissandra", "Lucian", "Lulu", "Lux", "Malzahar", "Mel", "Milio", "MissFortune", "Morgana", "Nami", "Neeko", "Orianna", "Quinn", "Rakan", "Renata", "Ryze", "Samira", "Senna", "Seraphine", "Sivir", "Smolder", "Sona", "Soraka", "Swain", "Syndra", "Taliyah", "Teemo", "Thresh", "Tristana", "TwistedFate", "Twitch", "Urgot", "Varus", "Vayne", "Veigar", "Velkoz", "Vex", "Viktor", "Vladimir", "Xayah", "Xerath", "Yunara", "Yuumi", "Zeri", "Ziggs", "Zilean", "Zoe", "Zyra"]), CHAMP_MELEE=new Set(["Viego", "Aatrox", "Akali", "Alistar", "Ambessa", "Amumu", "Belveth", "Blitzcrank", "Braum", "Briar", "Camille", "Chogath", "Darius", "Diana", "DrMundo", "Ekko", "Evelynn", "Fiora", "Fizz", "Galio", "Garen", "Gragas", "Gwen", "Hecarim", "Illaoi", "Irelia", "JarvanIV", "Jax", "KSante", "Kassadin", "Katarina", "Kayn", "Khazix", "Kled", "LeeSin", "Leona", "Locke", "Malphite", "Maokai", "MasterYi", "MonkeyKing", "Mordekaiser", "Naafiri", "Nasus", "Nautilus", "Nilah", "Nocturne", "Nunu", "Olaf", "Ornn", "Pantheon", "Poppy", "Pyke", "Qiyana", "Rammus", "RekSai", "Rell", "Renekton", "Rengar", "Riven", "Rumble", "Sejuani", "Sett", "Shaco", "Shen", "Shyvana", "Singed", "Sion", "Skarner", "Sylas", "TahmKench", "Talon", "Taric", "Trundle", "Tryndamere", "Udyr", "Vi", "Volibear", "Warwick", "XinZhao", "Yasuo", "Yone", "Yorick", "Zaahen", "Zac", "Zed", "Lillia"]);
+function chgFitsChamp(id,detail){ const lab=String(detail||"").split(/：|:/)[0], r=/遠程/.test(lab), m=/近戰/.test(lab);
+  if(r===m||/士兵|小兵/.test(lab))return true;   // 「近戰士兵／遠程士兵」講的是小兵不是英雄
+  if(r)return !CHAMP_MELEE.has(id); return !CHAMP_RANGED.has(id); }
 function calcHeroesSoloq(pos,pks,hov,minOv){   // minOv＝改寫樣本門檻（英雄Tier 小框：有場次就顯示，門檻只管上不上板）   // hov＝英雄Tier「只計算有出賽選手」已加總好的 英雄->路線->15欄（版本已過濾）
   const B=window.SOLOQ_BUILDS||{};
   const pk=(typeof F!=="undefined"&&F.patch)||"";
@@ -10815,6 +10824,31 @@ function render(){
       for(const id in lanesOf){ seen.add(id); laneC[id]=lanesOf[id]; cnt[id]={p:Object.values(lanesOf[id]).reduce((a,b)=>a+b,0),b:0}; }
     }
     const tot=id=>{const c=cnt[id]||{p:0,b:0};return c.p+c.b;};
+    // 只被禁、沒選過的英雄也要進 Tier（使用者 2026-10-20）：
+    //   路線＝今年全部比賽裡它最常走的路（不看篩選），沒有就用積分主路；
+    //   評分＝代理值：它的 BP%（被禁÷局數）在那一路排第幾，就給同名次的評分（BP% 本來就是評分裡最重的一項）
+    let _banLane=null;
+    const banLaneOf=id=>{ if(!_banLane){ _banLane={}; const m={}; for(const o of LANES)for(const sd of [0,1]){ const c2=champId(o.raw[C.blue_champion+(sd?RB:0)]); if(!c2)continue; const x=m[c2]=m[c2]||{}; x[o.pid]=(x[o.pid]||0)+1; }
+        for(const c2 in m){ const e=Object.entries(m[c2]).sort((a,b)=>b[1]-a[1])[0]; if(e)_banLane[c2]=LANE5v[+e[0]-1]; } }
+      if(_banLane[id])return _banLane[id];
+      const h=window.SOLOQ_BUILDS&&SOLOQ_BUILDS.hero&&SOLOQ_BUILDS.hero[id], P2L={TOP:"TOP",JUNGLE:"JNG",MIDDLE:"MID",BOTTOM:"BOT",UTILITY:"SUP"};
+      if(h){ let best=null,bn=0; for(const ln in h){ const n2=(h[ln]&&h[ln][0])||0; if(P2L[ln]&&n2>bn){bn=n2;best=P2L[ln];} } return best; }
+      return null; };
+    const banOnly=id=>{ const c2=cnt[id]; return !!(c2&&c2.p===0&&c2.b>0); };
+    const banGames=()=>GAMES.filter(o=>inG(o)&&(!TT||o.raw[C.blue_teamname]===TT||o.raw[C.red_teamname]===TT)).length;
+    // 禁用分（使用者 2026-10-20：要重視 BAN——WCS 夜曲幾乎場場被禁＝各隊都覺得太強不敢放，選的場少、勝率普通，但它其實非常強）：
+    //   這一路（含只被禁的英雄）依禁用率排名的百分位 ×（禁用率達 20% 才給滿，不到照比例打折）；
+    //   Tier 用的比賽評分＝max(原本評分, 禁用分)；分階、小框、組合都用這個
+    const BANFULL=(V.banFull!=null?V.banFull:20)/100, _banC={};   // 禁用率達這個比例才給滿額禁用分（⚙ 可調）
+    const banPool=L=>{ const k=(L||"ALL"); if(_banC[k])return _banC[k]; const tg=banGames();
+      const rates=calcHeroes(L,"",TT).filter(r=>r.場數>=1).map(r=>r.禁用率||0);
+      Object.keys(cnt).forEach(id=>{ if(banOnly(id)&&banLaneOf(id)===L&&tg)rates.push((cnt[id].b||0)/tg); });
+      return _banC[k]={rates,tg}; };
+    const banScore=(L,rate)=>{ const P=banPool(L); if(!P.rates.length||!rate)return 0; const better=P.rates.filter(x=>x>rate).length;
+      return 100*(1-better/P.rates.length)*Math.min(1,rate/BANFULL); };
+    const tierPro=(r,L)=>{ if(!r)return null; const base=typeof r.評分==="number"?r.評分:0; return Math.max(base,banScore(L,r.禁用率||0)); };
+    const banRow=(id,L)=>{ const tg=banGames(); if(!tg)return null; const br=(cnt[id].b||0)/tg;
+      return {_full:id,_ban:1,場數:0,"BP%":br,禁用率:br,評分:banScore(L,br)}; };   // 只被禁：評分＝禁用分
     const D2=(window.CHAMP_SKILLS||{}).d||{};
     const zn=id=>chName(id);
     // 最新版本的增強/削弱方向：id -> 1增強 / -1削弱 / 0調整（沒改動的不標）
@@ -10846,10 +10880,10 @@ function render(){
         const _RB=(window.RUNE_ICONS&&RUNE_ICONS.byId)||{};
         seen.forEach(id=>{const cd=SOLOQ_BUILDS.champs[id]; if(!cd||!D2[id])return;
           notesPks.forEach(pk=>{const coreIds=cd.coreP&&cd.coreP[pk], mp=itemChgByPk[pk];
-            if(coreIds&&mp)coreIds.forEach(iid=>{const nm4=_ITEMID2NM[String(iid)]; const ls=nm4&&mp[nm4]; if(ls&&ls.length)(CHGL[id]=CHGL[id]||[]).push(...ls.map(l=>`🛠️ ${nm4}｜${l}`));});
+            if(coreIds&&mp)coreIds.forEach(iid=>{const nm4=_ITEMID2NM[String(iid)]; const ls=nm4&&(mp[nm4]||[]).filter(l=>chgFitsChamp(id,l)); if(ls&&ls.length)(CHGL[id]=CHGL[id]||[]).push(...ls.map(l=>`🛠️ ${nm4}｜${l}`));});   // 只改遠程／近戰的不算到另一種
             // #4b：關鍵符文（ksP＝該版前三版內帶它 ≥10%）被增/削 → 同樣併進 CHGL（2026-08-18）
             const ks=cd.ksP&&cd.ksP[pk], rp=runeChgByPk[pk];
-            if(ks&&rp)ks.forEach(rid=>{const r=_RB[String(rid)], nm5=r&&r.zh; const ls=nm5&&rp[nm5]; if(ls&&ls.length)(CHGL[id]=CHGL[id]||[]).push(...ls.map(l=>`🔮 ${nm5}｜${l}`));});});});
+            if(ks&&rp)ks.forEach(rid=>{const r=_RB[String(rid)], nm5=r&&r.zh; const ls=nm5&&(rp[nm5]||[]).filter(l=>chgFitsChamp(id,l)); if(ls&&ls.length)(CHGL[id]=CHGL[id]||[]).push(...ls.map(l=>`🔮 ${nm5}｜${l}`));});});});
       }
       Object.keys(CHGL).forEach(id=>{const d=changeDir(CHGL[id]); if(d!=null)CHG[id]=d;}); // 只有錯誤修正(null)的英雄不上邊框色
     }
@@ -10877,8 +10911,8 @@ function render(){
         const off=sd?RB:0, v=parseFloat(o.raw[C.blue_golddiffat15+off]); if(!isFinite(v))continue; const id2=champId(o.raw[C.blue_champion+off]); const a2=acc[id2]=acc[id2]||[0,0]; a2[0]++; a2[1]+=v; } }
       for(const id2 in acc)gd[id2]=acc[id2][1]/acc[id2][0];
       const num=f=>rows.map(f).filter(x=>typeof x==="number"&&isFinite(x));
-      const rowsG=rows;   // 評分的比較池＝板子同一份（選戰隊＝該隊）
-      return TPC[k]={rows,gd,P:{rt:rowsG.map(r=>r.評分).filter(x=>typeof x==="number"&&isFinite(x)),wr:num(r=>r.勝率),kda:num(r=>r.KDA),bp:num(r=>r["BP%"]),gd:Object.values(gd)}}; };
+      const rowsG=rows;   // 評分的比較池＝板子同一份（選戰隊＝該隊；評分＝max(評分, 禁用分)）
+      return TPC[k]={rows,gd,P:{rt:rowsG.map(r=>tierPro(r,L)).filter(x=>typeof x==="number"&&isFinite(x)),wr:num(r=>r.勝率),kda:num(r=>r.KDA),bp:num(r=>r["BP%"]),gd:Object.values(gd)}}; };
     const sqPool=L=>{ const k="S|"+(L||"ALL"); if(TPC[k])return TPC[k]; const rows=sqQ(L||null);
       const num=f=>rows.map(f).filter(x=>typeof x==="number"&&isFinite(x));
       return TPC[k]={P:{rt:num(r=>r.評分),wr:num(r=>r.勝率),kda:num(r=>r.KDA),gd:num(r=>r["金差@15"])}}; };
@@ -10931,9 +10965,12 @@ function render(){
           const n=rw?rw.場數:(lane?lp:c.p), w=rw?Math.round((rw.勝率||0)*n):0;
           // 金差@15（使用者 2026-10-20：比賽也有這欄）：範圍內該路每場 golddiffat15 平均（跟隨戰隊篩選；proPool 一次算完整路）
           const PP=proPool(lane), gd15=PP.gd[id]!=null?PP.gd[id]:null;
-          pro={rt:rwG&&typeof rwG.評分==="number"?rwG.評分:(rw&&typeof rw.評分==="number"?rw.評分:null), g:wlS(n,w)+(lane&&!singleLane?`<span class="tgS">${LANG==="en"?"all":"全"} ${c.p}</span>`:""),
+          const br=!rw&&banOnly(id)?banRow(id,lane||banLaneOf(id)):null;   // 只被禁沒選過：評分＝BP% 名次的代理值（同分階）
+          if(br)bp=Math.round(br["BP%"]*100)+"%";
+          const tp=rw?tierPro(rw,lane):(br?br.評分:null);
+          pro={rt:tp, g:wlS(n,w)+(lane&&!singleLane?`<span class="tgS">${LANG==="en"?"all":"全"} ${c.p}</span>`:""),
                wr:rw?pct(rw.勝率):null, kda:rw?(rw.KDA||0).toFixed(1):null, gd:gd15==null?null:(gd15>0?"+":"")+Math.round(gd15), bp,
-               _v:rw?{rt:rwG?rwG.評分:rw.評分,wr:rw.勝率,kda:rw.KDA,gd:gd15,bp:TT?null:rw["BP%"]}:{gd:gd15}, _P:PP.P};   // 戰隊篩選時 BP% 另有「跟一般比」的紅綠，不再用比較池
+               _v:rw?{rt:tp,wr:rw.勝率,kda:rw.KDA,gd:gd15,bp:TT?null:rw["BP%"]}:{gd:gd15,rt:tp,bp:br?br["BP%"]:null}, _P:PP.P};   // 戰隊篩選時 BP% 另有「跟一般比」的紅綠，不再用比較池
         }
       }
       const sq=wantSq?sqData(id,lane):null;
@@ -10955,7 +10992,8 @@ function render(){
         const sum=k=>both.reduce((t,g)=>[t[0]+g[k][0],t[1]+g[k][1],t[2]+g[k][2]],[0,0,0]);
         const gds=both.flatMap(g=>[g.a[3],g.b[3]]).filter(v=>isFinite(v)), pgd=gds.length?gds.reduce((x,y)=>x+y,0)/gds.length:null;   // 金差@15＝兩隻各自的平均
         const ka=sum("a"), kb=sum("b");
-        const rOf=e=>{ const rw=calcHeroes(e.lane,"",TT).find(x=>champId(x._full)===e.id); return rw&&typeof rw.評分==="number"?[rw.評分,rw.場數||0]:null; };   // 評分＝分階用的那份（選戰隊＝該隊）
+        const rOf=e=>{ const rw=calcHeroes(e.lane,"",TT).find(x=>champId(x._full)===e.id); if(rw)return [tierPro(rw,e.lane),rw.場數||0];
+          if(banOnly(e.id)){ const b2=banRow(e.id,e.lane); return b2?[b2.評分,0]:null; } return null; };   // 評分＝分階用的那份（max(評分, 禁用分)）
         const ra=rOf(a), rb=rOf(b);   // 比賽評分同樣用場數加權
         const tg=GAMES.filter(o=>inG(o)&&(!TT||o.raw[C.blue_teamname]===TT||o.raw[C.red_teamname]===TT)).length;
         const bn=((cnt[a.id]||{}).b||0)+((cnt[b.id]||{}).b||0);   // 被禁＝兩隻相加；BP%＝(出場＋被禁)÷局數
@@ -11130,7 +11168,7 @@ function render(){
           if(laneOff(LANE5v[p-1]))continue;            // 該路關閉→不列入池
           if(placedL[LANE5v[p-1]].has(id))continue; // 該路已放（兩模式都是）→ 只藏該路段
           gArr[p-1].push(id);}
-        if(!any&&!placedNone.has(id))gArr[5].push(id);});
+        if(!any&&!placedNone.has(id)&&!LANE5v.some(L=>placedL[L].has(id)))gArr[5].push(id);});   // 只被禁的英雄放上 Tier 後就不留在禁用段
       sqOnly.forEach(e=>{ if(!(isLanesP?placedL[e.lane].has(e.id):(placedL[e.lane].has(e.id)||placedNone.has(e.id))))gArr[6].push(e); });
       idle.forEach(id=>{if(!placedNone.has(id))gArr[7].push(id);});
       ids.forEach(id=>((TB.xl||{})[id]||[]).forEach(L=>{ const p=LANE5v.indexOf(L); if(p<0||(laneC[id]&&laneC[id][p+1]))return;   // 右鍵複製出來的路線
@@ -11718,6 +11756,23 @@ function render(){
       //   前 S%／接著 A%／接著 B%／其餘 C（比例可在 ⚙ 參數調，V.tierPct）；一路有 3 隻以上就至少 1 隻 S。
       //   原本是固定分數門檻（90／80／60）⇒ 全季 C 一大坨、小範圍 S 一堆、混合的兩種分數尺度不同 → 改成比例後各範圍形狀一致
       const tierPctOf=()=>{ const P=Object.assign({S:8,A:17,B:30},V.tierPct||{}); return [P.S/100,(P.S+P.A)/100,(P.S+P.A+P.B)/100]; };
+      // 分數門檻（排名比例只管「最多幾隻」，門檻管「至少要多強」，兩個取比較嚴的那一階）：
+      //   比賽（評分＝max(評分, 禁用分)）S≥85 A≥72 B≥55；積分 S≥80 A≥70 B≥55（積分評分分布較低）。⚙ 可調（V.tierFloor／V.sqFloor）
+      const floorOf=(sq,v)=>{ const F2=Object.assign(sq?{S:80,A:70,B:55}:{S:85,A:72,B:55},(sq?V.sqFloor:V.tierFloor)||{}); return v>=F2.S?0:v>=F2.A?1:v>=F2.B?2:3; };
+      // 每一路的數量規則（使用者 2026-10-20，以五路為準；三路／混合排列共用同一份）：
+      //   S 0~3 隻而且要過 S 門檻（真的沒有特別強的就沒有 S）；A 3~7 隻（過 A 門檻的最多 7 隻，不足 3 隻照名次補到 3）；
+      //   B＝過 B 門檻、但不超過剩下的一半（B 不比 C 多）；其餘 C。數量可在 ⚙ 調（V.tierCnt）
+      // scs＝這一路非奇招依排名的「門檻用分數」陣列（高→低）；回傳每個名次的階
+      const countBins=(scs,sq)=>{ const K=Object.assign({Smax:3,Amin:3,Amax:7},V.tierCnt||{});
+        const F2=Object.assign(sq?{S:80,A:70,B:55}:{S:85,A:72,B:55},(sq?V.sqFloor:V.tierFloor)||{}), n=scs.length, out=[]; let i=0;
+        let k=0; while(i<n&&k<K.Smax&&scs[i]>=F2.S){out.push(0);i++;k++;}
+        k=0; while(i<n&&k<K.Amax&&(scs[i]>=F2.A||k<K.Amin)){out.push(1);i++;k++;}
+        const half=Math.floor((n-i)/2); k=0; while(i<n&&k<half&&scs[i]>=F2.B){out.push(2);i++;k++;}
+        while(i<n){out.push(3);i++;} return out; };
+      // 奇招（使用者 2026-10-20）：比賽很少人選（BP% 低且場數少，或範圍內根本沒選過）、但積分有在玩（該路積分 3 場以上）；只被禁沒選過的不算
+      const sqHasL=(id,L)=>{ const k="A|"+L; if(!SQTC[k]){ const m={}; sqQ(L,1).forEach(r=>{m[r._full]=r;}); SQTC[k]=m; } const r=SQTC[k][id]; return !!(r&&r.場數>=3); };
+      const proRare=(id,L)=>{ const qzBP=(V.qzBP!=null?V.qzBP:0.10), qzG=(V.qzG!=null?V.qzG:3); if(banOnly(id))return false;
+        const r=calcHeroes(L,"",TT).find(x=>champId(x._full)===id); return !r||((r["BP%"]||0)<qzBP&&(r.場數||0)<=qzG); };
       const rankBins=n=>{ const [cS,cA,cB]=tierPctOf(); let nS=Math.round(n*cS); if(n>=3&&nS<1)nS=1;
         const nA=Math.max(nS,Math.round(n*cA)), nB=Math.max(nA,Math.round(n*cB)); return r=>r<nS?0:r<nA?1:r<nB?2:3; };
       const genMatchTiers=(base,adj)=>{   // adj(id,路,比賽評分)＝混合數據用的分數調整 // 比賽數據 S~C＋奇招；回傳 tiers；失敗回 null（並設 window._tierPending 區分「資料未載好」與「範圍真的沒資料」）
@@ -11728,6 +11783,8 @@ function render(){
         // total 變 0 → 被誤判成「這個範圍沒有英雄資料」，板子就被洗掉。
         // 開啟當下看起來正常、一秒後自動重產才失效，就是這個時序（2026-07-31 使用者回報 2013/2014）
         if(!D2||!Object.keys(D2).length){window._tierPending=true;return null;}
+        // 奇招要看「積分有沒有在玩」⇒ 當年要等積分資料（延遲載入）到了再分階，否則全部被判成積分沒有 → 奇招 0 隻（2026-10-20 實測）
+        if(!isHistYear()&&(!window.SOLOQ_BUILDS||!SOLOQ_BUILDS.hero)&&!_buildsReady){window._tierPending=true; ensureBuilds(); return null;}
         const minG=Math.max(1,F.minG||0);
         const qzBP=(V.qzBP!=null?V.qzBP:0.10), qzG=(V.qzG!=null?V.qzG:3); // 奇招條件（可由「⚙ 參數」面板調）
         const TH=[["S"],["A"],["B"],["C"],[TN5]]; // 依排名比例分階（rankBins）；末階＝奇招
@@ -11737,6 +11794,7 @@ function render(){
         // 讓各階比例與資料完整的年份一致（2026-07-31 使用者回報 2013／2014 Tier 壞掉）
         const SCOL=["禁用率","BP%","勝率","贏線率","後選率","參與率","KDA","中期金差","分均金錢","分均輸出","分均承傷","分均視分"];
         const _rows={}; LANE5v.forEach(L=>{_rows[L]=calcHeroes(L,"",TT).filter(r=>r.場數>=minG);});   // 選了戰隊＝這一隊自己的數據分階（使用者 2026-10-20）
+        Object.keys(cnt).forEach(id=>{ if(!banOnly(id)||!D2[id])return; const L=banLaneOf(id); if(!L)return; const r=banRow(id,L); if(r&&r.評分!=null)_rows[L].push(r); });   // 只被禁沒選過也進板
         const _all=LANE5v.flatMap(L=>_rows[L]);
         // （早年只有少數維度的年份原本另走分位數門檻；現在全部改排名比例，自然涵蓋）
         const oldByName={}; ((base&&base.tiers)||[]).forEach(t=>{if(!(t.n in oldByName))oldByName[t.n]=t;}); // 只沿用列色
@@ -11746,16 +11804,18 @@ function render(){
         const _diag={raw:0,pass:0,noId:0};   // 診斷用：原始筆數／過門檻／查不到英雄 id
         LANE5v.forEach(L=>{ // 各路依「該路評分」分階
           _diag.raw+=_rows[L].length;
-          const isQ=r=>(r["BP%"]||0)<qzBP&&(r.場數||0)<=qzG;   // 奇招：BP% 低而且場數少
-          const elig=_rows[L].filter(r=>!isQ(r)).sort((a,b)=>(b.評分||0)-(a.評分||0));
+          const hasSq=!isHistYear()&&!!(window.SOLOQ_BUILDS&&SOLOQ_BUILDS.hero);   // 歷史年份沒有積分 ⇒ 只看比賽很少人選
+          const isQ=r=>!r._ban&&(r["BP%"]||0)<qzBP&&(r.場數||0)<=qzG&&(!hasSq||sqHasL(champId(r._full),L));   // 奇招＝比賽很少人選、但積分有在玩；只被禁沒選過的不算
+          const elig=_rows[L].filter(r=>!isQ(r)).sort((a,b)=>tierPro(b,L)-tierPro(a,L));   // 比賽評分＝max(評分, 禁用分)
           // 混合數據：比賽分數先換成這一路的排名百分位（100＝第一），adj 再跟積分百分位加權
           const pM=new Map(elig.map((r,i)=>[r,elig.length>1?100*(1-i/(elig.length-1)):100]));
-          const scOf=r=>adj?adj(champId(r._full),L,pM.get(r)):(r.評分||0);
-          const ord=elig.slice().sort((a,b)=>scOf(b)-scOf(a)), bin=rankBins(ord.length), rk=new Map(ord.map((r,i)=>[r,i]));
+          const scOf=r=>adj?adj(champId(r._full),L,pM.get(r)):tierPro(r,L);
+          const ord=elig.slice().sort((a,b)=>scOf(b)-scOf(a)), rk=new Map(ord.map((r,i)=>[r,i]));
+          const cb=countBins(ord.map(r=>tierPro(r,L)),false);   // 門檻一律看比賽評分（混合的加權分是百分位、尺度不同，不拿來比門檻）
           ord.concat(_rows[L].filter(isQ)).forEach(r=>{
             _diag.pass++;
             const id=champId(r._full); if(!id||!D2[id]){_diag.noId++;return;}
-            const bi=isQ(r)?TH.length-1:bin(rk.get(r)); // 奇招條件優先；其餘依該路排名比例
+            const bi=isQ(r)?TH.length-1:cb[rk.get(r)]; // 奇招優先；其餘照每路數量規則
             tiers[bi].lanes[L].push(id); tiers[bi].ids.push({id,lane:L}); // 五路與混合兩種結構都填：⇄切模式都要有資料（2026-07-18 使用者定案）
             total++;
           });
@@ -11814,8 +11874,8 @@ function render(){
         let total=0;
         const qzS=(V.sqQz!=null?V.sqQz:1)/100, laneTot={}; LANE5v.forEach(L=>{ laneTot[L]=sqQ(L,1).reduce((a,r)=>a+(r.場數||0),0); });
         const arr=rowsL.filter(r=>r.評分!=null&&r.場數>=minG&&D2[r._full]&&(!totN[r._full]||r.場數>=totN[r._full]*0.1))
-          .map(r=>({id:r._full,lane:r._lane,sc:r.評分,q:laneTot[r._lane]?r.場數/laneTot[r._lane]<qzS:false}));
-        const binS={}; LANE5v.forEach(L=>{ const e=arr.filter(r=>r.lane===L&&!r.q).sort((a,b)=>b.sc-a.sc), bn=rankBins(e.length); e.forEach((r,i)=>{ binS[r.lane+"|"+r.id]=bn(i); }); });
+          .map(r=>({id:r._full,lane:r._lane,sc:r.評分,q:proRare(r._full,r._lane)}));   // 奇招＝比賽很少人選（積分這邊本來就有）
+        const binS={}; LANE5v.forEach(L=>{ const e=arr.filter(r=>r.lane===L&&!r.q).sort((a,b)=>b.sc-a.sc), cb=countBins(e.map(r=>r.sc),true); e.forEach((r,i)=>{ binS[r.lane+"|"+r.id]=cb[i]; }); });
         arr.sort((a,b)=>b.sc-a.sc).forEach(r=>{ const bi=r.q?TH.length-1:binS[r.lane+"|"+r.id];
             tiers[bi].lanes[r.lane].push(r.id); tiers[bi].ids.push({id:r.id,lane:r.lane}); total++; }); // 兩種結構都填：⇄切模式都要有資料
         if(!total){window._tierGenMsg=LANG==="en"?"No qualifying ranked champions":"沒有符合場數門檻的積分英雄，板子維持上次內容";return null;}
@@ -11892,18 +11952,23 @@ function render(){
       pb.classList.remove("sqbtn"); pb.classList.add("pgbtn");
       pb.onclick=()=>{
         let pop=document.getElementById("tierParamPop"); if(pop){pop.remove();return;}
-        const T=Object.assign({S:8,A:17,B:30},V.tierPct||{}), K=V.scoreK||{lo:0.18,hi:0.2};
-        const SQZ=(V.sqQz!=null?V.sqQz:1), MW=(V.mixW!=null?V.mixW:70);
+        const T=Object.assign({Smax:3,Amin:3,Amax:7},V.tierCnt||{}), K=V.scoreK||{lo:0.18,hi:0.2};
+        const SQZ=(V.sqQz!=null?V.sqQz:1), MW=(V.mixW!=null?V.mixW:70), BF=(V.banFull!=null?V.banFull:20);
+        const TF=Object.assign({S:85,A:72,B:55},V.tierFloor||{}), SF=Object.assign({S:80,A:70,B:55},V.sqFloor||{});
         const B0=(V.scoreBase0!=null?V.scoreBase0:20), EXP=(V.scoreExp!=null?V.scoreExp:1);
         const QB=(V.qzBP!=null?V.qzBP:0.10)*100, QG=(V.qzG!=null?V.qzG:3);
         pop=document.createElement("div"); pop.id="tierParamPop";
         pop.style.cssText="position:fixed;z-index:500;background:#10141f;border:1px solid #33405c;border-radius:10px;padding:12px 14px;box-shadow:0 6px 20px rgba(0,0,0,.5);display:flex;flex-direction:column;gap:10px;font-size:14px;color:var(--tx)";
         const inp=(id,v,step)=>`<input id="${id}" type="number" step="${step}" value="${v}" style="width:60px;background:#1a2230;border:1px solid #33405c;border-radius:6px;color:var(--tx);padding:3px 6px;font-size:14px">`;
-        pop.innerHTML=`<div style="font-weight:bold">Tier 比例（每一路非奇招的英雄依排名切）</div>
-          <div style="display:flex;gap:6px;align-items:center">S ${inp("pcS",T.S,1)}% A ${inp("pcA",T.A,1)}% B ${inp("pcB",T.B,1)}% <span class="meta">其餘＝C；三種模式共用</span></div>
-          <div style="font-weight:bold">奇招條件</div>
-          <div style="display:flex;gap:6px;align-items:center">比賽：BP% ＜ ${inp("qzBP",QB,1)}% 且 出場 ≤ ${inp("qzG",QG,1)} 場</div>
-          <div style="display:flex;gap:6px;align-items:center">積分：該路選用率 ＜ ${inp("sqQz",SQZ,0.1)}%</div>
+        pop.innerHTML=`<div style="font-weight:bold">每一路數量（五路為準）</div>
+          <div style="display:flex;gap:6px;align-items:center">S 最多 ${inp("cSmax",T.Smax,1)} 隻　A ${inp("cAmin",T.Amin,1)}～${inp("cAmax",T.Amax,1)} 隻 <span class="meta">B 不比 C 多</span></div>
+          <div style="font-weight:bold">分數門檻</div>
+          <div style="display:flex;gap:6px;align-items:center">比賽 S≥${inp("tfS",TF.S,1)} A≥${inp("tfA",TF.A,1)} B≥${inp("tfB",TF.B,1)}</div>
+          <div style="display:flex;gap:6px;align-items:center">積分 S≥${inp("sfS",SF.S,1)} A≥${inp("sfA",SF.A,1)} B≥${inp("sfB",SF.B,1)}</div>
+          <div style="font-weight:bold">禁用分</div>
+          <div style="display:flex;gap:6px;align-items:center">禁用率 ≥ ${inp("banFull",BF,1)}% 給滿額 <span class="meta">比賽評分＝max(評分, 禁用分)</span></div>
+          <div style="font-weight:bold">奇招條件（比賽很少人選、但積分有在玩）</div>
+          <div style="display:flex;gap:6px;align-items:center">比賽 BP% ＜ ${inp("qzBP",QB,1)}% 且 出場 ≤ ${inp("qzG",QG,1)} 場（含沒選過）</div>
           <div style="font-weight:bold">混合數據權重</div>
           <div style="display:flex;gap:6px;align-items:center">比賽 ${inp("mixW",MW,5)}%（積分＝其餘）</div>
           <div style="font-weight:bold">分數公式　基礎 ＋ 90×加權值^S曲線指數，再 ＋(100−分)×k</div>
@@ -11916,7 +11981,8 @@ function render(){
         pop.querySelector("#tpClose").onclick=()=>pop.remove();
         pop.querySelector("#tpApply").onclick=()=>{
           const g=id=>parseFloat(pop.querySelector("#"+id).value);
-          V.tierPct={S:g("pcS"),A:g("pcA"),B:g("pcB")}; V.sqQz=g("sqQz"); V.mixW=g("mixW");
+          V.tierCnt={Smax:g("cSmax"),Amin:g("cAmin"),Amax:g("cAmax")}; V.mixW=g("mixW"); V.banFull=g("banFull");
+          V.tierFloor={S:g("tfS"),A:g("tfA"),B:g("tfB")}; V.sqFloor={S:g("sfS"),A:g("sfA"),B:g("sfB")};
           V.qzBP=g("qzBP")/100; V.qzG=g("qzG");
           V.scoreK={lo:g("kLo"),hi:g("kHi")};
           V.scoreBase0=g("base0"); V.scoreExp=g("sexp");
