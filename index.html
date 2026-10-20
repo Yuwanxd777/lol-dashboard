@@ -10847,8 +10847,9 @@ function render(){
     const sqTipRow=(id,lane)=>{ if(isHistYear()||!window.SOLOQ_BUILDS||typeof calcHeroesSoloq!=="function")return "";
       const get=k2=>{ if(!SQTC[k2]){const m={}; sqQ(k2==="ALL"?null:k2).forEach(r2=>{m[r2._full]=r2;}); SQTC[k2]=m;} return SQTC[k2]; };
       let r=get(lane||"ALL")[id];
-      // 沒過上板門檻但有場次（例：池子「比賽尚未登場（積分有出場）」那段）＝照樣顯示數據，只是沒有評分（評分只在過門檻的英雄之間比）
-      if(!r){ const k3="A|"+(lane||"ALL"); if(!SQTC[k3]){ const m={}; sqQ(lane||null,1).forEach(r2=>{m[r2._full]=r2;}); SQTC[k3]=m; } const r0=SQTC[k3][id]; if(r0)r=Object.assign({},r0,{評分:null}); }
+      // 沒過上板門檻但有場次（例：池子「比賽尚未登場（積分有出場）」那段）＝照樣顯示數據；評分＝門檻 1 的全體裡算（使用者 2026-10-20：不要顯示 –）。
+      //   評分含 Wilson 勝率與場數百分位 ⇒ 場次少自然偏低，不會因為兩三場全勝就衝高
+      if(!r){ const k3="A|"+(lane||"ALL"); if(!SQTC[k3]){ const m={}; sqQ(lane||null,1).forEach(r2=>{m[r2._full]=r2;}); SQTC[k3]=m; } r=SQTC[k3][id]||null; }
       // 有就有、沒有就沒有（使用者 2026-10-20）：該路沒有積分樣本就不顯示積分框，不退回全路線、不寫說明
       // 標題固定「積分數據」（使用者 2026-10-20：不用寫路線，路線看小框右上角圖示）；該路樣本不足退回全路線時加一行小註
       const ttl=LANG==="en"?"Ranked data":"積分數據";
@@ -10921,7 +10922,9 @@ function render(){
       //   逐場積分（SOLOQ_CHGAMES，每場第 15 欄＝隊友英雄）裡，「A 在這一路、隊友是 B」或反過來的場次；版本＝目前篩選（F.patch／sqPks），同一場兩邊都有紀錄只算一次
       //   ⚠ 逐場檔只留每隻英雄最近 100 場 ⇒ 場數是這 100 場內的組合；評分＝兩隻在目前篩選下各自那一路的積分評分平均
       if(wantSq&&!isHistYear()&&window.SOLOQ_BUILDS){
-        const sOf=e=>{ const k="P|"+e.lane; if(!SQTC[k]){ const m={}; sqQ(e.lane).forEach(x=>{m[x._full]=x;}); SQTC[k]=m; } const x=SQTC[k][e.id]; return x&&x.評分!=null?x.評分:null; };
+        const sOf=e=>{ const k="P|"+e.lane, k1="A|"+e.lane; if(!SQTC[k]){ const m={}; sqQ(e.lane).forEach(x=>{m[x._full]=x;}); SQTC[k]=m; }
+          let x=SQTC[k][e.id]; if(!x){ if(!SQTC[k1]){ const m={}; sqQ(e.lane,1).forEach(y=>{m[y._full]=y;}); SQTC[k1]=m; } x=SQTC[k1][e.id]; }   // 沒過門檻＝門檻 1 的全體裡算（同單隻）
+          return x&&x.評分!=null?x.評分:null; };
         const sa=sOf(a), sb=sOf(b), sAvg=sa!=null&&sb!=null?(sa+sb)/2:null;
         const CG=window.SOLOQ_CHGAMES; let line;
         if(!CG){ lazyLoad("sqg"); line=`<div style="color:#7a8aaa">${LANG==="en"?"Loading…":"載入中…"}</div>`; }
