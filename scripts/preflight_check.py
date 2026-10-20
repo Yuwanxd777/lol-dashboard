@@ -57,6 +57,14 @@ _WD = threading.Timer(PREFLIGHT_TMO_S, _watchdog)
 _WD.daemon = True
 _WD.start()
 
+# ── ⓪ 本機 file:// 快速讀取檔（2026-10-21）：年度資料改過就重做 data_local/（只做來源比較新的；失敗不擋發布）──
+try:
+    import subprocess as _sp
+    _r = _sp.run([sys.executable, os.path.join(ROOT, "scripts", "build_local_data.py")], capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=300)
+    print("⓪ " + ((_r.stdout or "").strip().splitlines() or ["本機快速讀取檔：（無輸出）"])[-1])
+except Exception as _e:
+    print("⓪ 本機快速讀取檔略過：%s" % str(_e)[:80])
+
 # ── ① 資料檔語法 ──
 html = open(os.path.join(ROOT, "index.html"), encoding="utf-8", errors="replace").read()
 # 掃「index.html 裡出現、且檔案真的存在」的每一個 .js 名稱。
