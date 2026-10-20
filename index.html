@@ -10704,15 +10704,19 @@ function render(){
     const bid=id=>String(id).split("#")[0];
     // 組合只能是 上野／中野／下輔（使用者 2026-10-20）
     const PAIR_OK=(a,b)=>{ const k=[a||"",b||""].sort().join("|"); return k==="JNG|TOP"||k==="JNG|MID"||k==="BOT|SUP"; };
-    const COL3=[["TOP",["TOP"]],["JM",["JNG","MID"]],["BS",["BOT","SUP"]]];
+    // 使用者 2026-10-20：上路欄改「上野」欄（多一個打野路線）⇒ 打野在 上野、中野 兩欄都能放：
+    //   預設歸中野，t.o3.TOP 有列「JNG|id」的才歸上野（natCol）；池子分段照 PCOL（打野在中野段）
+    const COL3=[["TOP",["TOP","JNG"]],["JM",["JNG","MID"]],["BS",["BOT","SUP"]]];
     const col3L=cid=>(COL3.find(c=>c[0]===cid)||[0,[]])[1];
+    const PCOL={TOP:"TOP",JNG:"JM",MID:"JM",BOT:"BS",SUP:"BS"};
+    const natCol=(t,L,id)=>L==="JNG"&&((t.o3&&t.o3.TOP)||[]).includes("JNG|"+id)?"TOP":PCOL[L];
     const lk3=(L,id)=>"3|"+L+"|"+id;
     // 客座（使用者 2026-10-20：三路的上路也要能跟別欄合併）：連結群組可以跨欄，非本欄路線的組員記在 t.o3[欄]（"路|id"）＝顯示在那一欄；
     //   只有「還在群組裡」才算客座，解除連結／群組解散就自動回到自己那一欄（normLinks 會清掉殘留字串）
     // TB.pin：右鍵路線圖示換到別欄的路時，圖釘在原欄原位（使用者 2026-10-20：換到別欄的路圖會跳走，看起來像被刪掉、也沒辦法連續點）
     const guestCol=(t,L,id)=>{ if((TB.lk||{})[lk3(L,id)]==null&&!(TB.pin||{})[lk3(L,id)])return null; const k=L+"|"+id;
       const c=COL3.find(([c0,ls0])=>!ls0.includes(L)&&((t.o3&&t.o3[c0])||[]).includes(k)); return c?c[0]:null; };
-    const items3=(t,cid)=>{ const all=[]; col3L(cid).forEach(L=>((t.lanes&&t.lanes[L])||[]).forEach(id=>{ if(!guestCol(t,L,id))all.push({id,lane:L}); }));
+    const items3=(t,cid)=>{ const all=[]; col3L(cid).forEach(L=>((t.lanes&&t.lanes[L])||[]).forEach(id=>{ if(natCol(t,L,id)===cid&&!guestCol(t,L,id))all.push({id,lane:L}); }));
       ((t.o3&&t.o3[cid])||[]).forEach(k=>{ const [L,id]=k.split("|"); if(!col3L(cid).includes(L)&&((t.lanes&&t.lanes[L])||[]).includes(id)&&guestCol(t,L,id)===cid)all.push({id,lane:L}); });
       const o=(t.o3&&t.o3[cid])||[], ix=e=>{ const i=o.indexOf(e.lane+"|"+e.id); return i<0?1e9:i; };
       return all.map((e,k)=>[e,k]).sort((a,b)=>ix(a[0])-ix(b[0])||a[1]-b[1]).map(x=>x[0]); };
@@ -10999,7 +11003,7 @@ function render(){
       for(const id in TB.xl)if(!(TB.xl[id]||[]).length)delete TB.xl[id];
       if(TB.lo)for(const k in TB.lo)if(lk[k]==null)delete TB.lo[k];
       if(TB.pin)for(const k in TB.pin){ const [,L,id]=k.split("|"); if(!TB.tiers.some(t=>(t.lanes[L]||[]).includes(id)))delete TB.pin[k]; }
-      TB.tiers.forEach(t=>{ if(!t.o3)return; COL3.forEach(([cid,ls])=>{ if(t.o3[cid])t.o3[cid]=t.o3[cid].filter(k=>{ const [L,id]=k.split("|"); return ls.includes(L)||guestCol(t,L,id)===cid; }); }); });
+      TB.tiers.forEach(t=>{ if(!t.o3)return; COL3.forEach(([cid,ls])=>{ if(t.o3[cid])t.o3[cid]=t.o3[cid].filter(k=>{ const [L,id]=k.split("|"); if(!((t.lanes[L]||[]).includes(id)))return false; return ls.includes(L)||guestCol(t,L,id)===cid; }); }); });
     };
     // 群組標示：連續同群組的 chip 包成一組（組內間距＝一般間距 7px）。使用者 2026-10-20：金框跟英雄圖金邊撞色 → 改淡金底板 → 一階組多了一塊塊黃很難看 → 定案「上方金色圓角括號」（CSS .tGrp::before），各格列距同步加大
     const grpHTML=(items,keyOf,html)=>{ let out="",i=0; const lk=TB.lk||{};
@@ -11060,11 +11064,11 @@ function render(){
       // 三路（使用者 2026-10-20：池子拖進來的預設路線錯了）：池改成 上路｜中野｜下輔 三段，每隻英雄在每段只出現一次，
       //   標示路＝該段內「目前篩選下出場最多、而且還沒放上 Tier 的那一路」（data-plane 帶這一路，拖曳／點選放下都照它）
       if(V.tierMode==="lane3"){ const g3=[new Map(),new Map(),new Map()];
-        for(let p=0;p<5;p++)gArr[p].forEach(id=>{ const L=LANE5v[p], ci=COL3.findIndex(c=>c[1].includes(L)), n=(laneC[id]||{})[p+1]||0;
+        for(let p=0;p<5;p++)gArr[p].forEach(id=>{ const L=LANE5v[p], ci=COL3.findIndex(c=>c[0]===PCOL[L]), n=(laneC[id]||{})[p+1]||0;
           const cur=g3[ci].get(id); if(!cur||n>cur.n)g3[ci].set(id,{id,lane:L,n}); });
         for(let p=0;p<5;p++)gArr[p]=p<3?[...g3[p].values()]:[];
         const pl=ci=>{ if(!TT)return ""; const a=COL3[ci][1].map(L=>lanePlayer(LANE5v.indexOf(L)+1)).filter(Boolean); return a.length?(LANG==="en"?` (${a.join(" / ")})`:`（${a.join("／")}）`):""; };
-        const nm3=LANG==="en"?["Top","Jungle · Mid","Bot · Support"]:["上路","中野","下輔"];
+        const nm3=LANG==="en"?["Top · Jungle","Jungle · Mid","Bot · Support"]:["上野","中野","下輔"];
         for(let ci=0;ci<3;ci++)GLBL[ci]=nm3[ci]+pl(ci); }
       // 動態尺寸：以 50px 為目標湊列數均分填滿欄寬；若池底超出螢幕就每列多塞一顆縮小重排
       const box=document.getElementById("tierPoolBox");
@@ -11077,7 +11081,7 @@ function render(){
           const off=gi<5&&laneOff(LANE5v[gi]); // 關閉的路線：只留「（關閉中）」說明、不列英雄
           if(!arr.length&&!off)return "";
           const sep=first?"":"margin-top:4px;padding-top:4px;border-top:1px dashed #2a3550;";first=false;
-          return `<div style="${sep}"><div style="font-size:15px;color:#7a8aaa;margin-bottom:2px">${GLBL[gi]}${off?"（關閉中）":""}</div>
+          return `<div style="${sep}"${V.tierMode==="lane3"&&gi<3?` data-col3="${COL3[gi][0]}"`:""}><div style="font-size:15px;color:#7a8aaa;margin-bottom:2px">${GLBL[gi]}${off?"（關閉中）":""}</div>
             ${off?"":`<div style="display:flex;flex-wrap:wrap;gap:5px;align-content:flex-start">${arr.map(x=>typeof x==="object"?chip(x.id,false,null,gi?x.lane:null,x.lane):chip(x,gi===7,null,null,LANE5v[gi]||"")).join("")}</div>`}</div>`;
         }).join("");
       };
@@ -11275,12 +11279,14 @@ function render(){
         const ic=c.querySelector(".tlic");
         if(ic)ic.oncontextmenu=ev=>{ ev.preventDefault(); ev.stopPropagation(); tipHide(); if(_carry){ carryEnd(); return; }
           if(c.closest("#tierRows .tGrp"))return;   // 組合中的圖不能換路線（使用者 2026-10-20）：要換先點一下解散
-          const id=c.dataset.id, L=c.dataset.plane||ic.dataset.lane, i0=LANE5v.indexOf(L), cell=c.closest("[data-t]");
+          const id=c.dataset.id, L=c.dataset.plane||ic.dataset.lane, cell=c.closest("[data-t]");
+          // 三路（使用者 2026-10-20）：只在這一區的路線之間換；混合／池子非三路＝上→野→中→下→輔
+          const c3e=c.closest(".tCol3")||c.closest("[data-col3]"), cyc=V.tierMode==="lane3"&&c3e?col3L(c3e.dataset.col||c3e.dataset.col3):LANE5v, i0=cyc.indexOf(L);
           const icoSrc=L2=>(typeof POS_B64!=="undefined"&&POS_B64[L2])||POS_IMG[L2];
-          if(!c.closest("#tierRows")||!cell){ const L2=LANE5v[(i0+1)%5]; c.dataset.plane=L2; ic.dataset.lane=L2; const im=ic.querySelector("img"); if(im)im.src=icoSrc(L2); return; }
+          if(!c.closest("#tierRows")||!cell){ const L2=cyc[(i0+1)%cyc.length]; c.dataset.plane=L2; ic.dataset.lane=L2; const im=ic.querySelector("img"); if(im)im.src=icoSrc(L2); return; }
           const isMix=V.tierMode==="mix", t=TB.tiers[+cell.dataset.t];
           const used=L2=>isMix?TB.tiers.some(t2=>t2.ids.some(e=>e.id===id&&e.lane===L2)):TB.tiers.some(t2=>(t2.lanes[L2]||[]).includes(id));
-          let L2=null; for(let k=1;k<5;k++){ const x=LANE5v[(i0+k)%5]; if(!used(x)){ L2=x; break; } }
+          let L2=null; for(let k=1;k<cyc.length;k++){ const x=cyc[(i0+k)%cyc.length]; if(!used(x)){ L2=x; break; } }
           if(!L2)return;
           const kOf=isMix?(LL=>lkM({id,lane:LL})):V.tierMode==="lane3"?(LL=>lk3(LL,id)):(LL=>lkL(LL,id));
           const ren=o=>{ if(o&&o[kOf(L)]!=null){ o[kOf(L2)]=o[kOf(L)]; delete o[kOf(L)]; } };
@@ -11327,7 +11333,7 @@ function render(){
       const recO=(k,fromL)=>{ const lo=TB.lo=TB.lo||{}; if(lo[k])return; const [m,L0,id]=k.split("|"), L=fromL||L0; let o={pool:1};
         TB.tiers.some((t,ti)=>{ if(m==="M"){ const i=t.ids.findIndex(e=>e.id===id&&(e.lane||"")===L); if(i>=0){ o={t:ti,n:t.n,at:i}; return true; } return false; }
           const i=(t.lanes[L]||[]).indexOf(id); if(i<0)return false; o={t:ti,n:t.n,at:i,L};
-          if(m==="3"){ const c=(COL3.find(c2=>c2[1].includes(L))||[])[0]; o.at3=items3(t,c).findIndex(e=>e.id===id&&e.lane===L); }
+          if(m==="3"){ const c=COL3.map(c2=>c2[0]).find(c2=>items3(t,c2).some(e=>e.id===id&&e.lane===L))||PCOL[L]; o.c3=c; o.at3=items3(t,c).findIndex(e=>e.id===id&&e.lane===L); }
           return true; });
         lo[k]=o; };
       const restO=k=>{ const lo=TB.lo||{}, o=lo[k]; delete lo[k]; if(!o)return; const [m,L0,id]=k.split("|");
@@ -11338,7 +11344,7 @@ function render(){
         TB.tiers.forEach(t=>{ if(t.o3)for(const c in t.o3)t.o3[c]=t.o3[c].filter(x=>x!==L0+"|"+id); });
         if(ti<0){ dropXL(id,L0); return; }
         const t=TB.tiers[ti]; t.lanes[L].splice(Math.min(o.at,t.lanes[L].length),0,id);
-        if(m==="3"&&o.at3>=0){ const c=(COL3.find(c2=>c2[1].includes(L))||[])[0]; const a=items3(t,c).filter(e=>!(e.id===id&&e.lane===L));
+        if(m==="3"&&o.at3>=0){ const c=o.c3&&col3L(o.c3).includes(L)?o.c3:PCOL[L]; const a=items3(t,c).filter(e=>!(e.id===id&&e.lane===L));
           a.splice(Math.min(o.at3,a.length),0,{id,lane:L}); (t.o3=t.o3||{})[c]=a.map(e=>e.lane+"|"+e.id); } };
       const addXL=(iid,L)=>{ const id=bid(iid); if(laneAllowed(id,L))return; const a=(TB.xl=TB.xl||{})[id]=TB.xl[id]||[]; if(!a.includes(L))a.push(L); };   // 複本放進沒打過的路線＝登記手動路線
       const dropXL=(iid,L)=>{ const id=bid(iid), a=(TB.xl||{})[id]; if(!a||!a.includes(L))return; if(TB.tiers.some(t=>(t.lanes[L]||[]).some(x=>bid(x)===id)||t.ids.some(e=>bid(e.id)===id&&e.lane===L)))return; a.splice(a.indexOf(L),1); };   // 複本移回池＝那一路的複本消失
@@ -11352,13 +11358,15 @@ function render(){
           let L=_carry.plane&&ls.includes(_carry.plane)?_carry.plane:null;
           // 複本（使用者 2026-10-20：A 階複製到 B 階，A 階那張被刪掉；組合需要同一隻同一路出現好幾份）⇒ 一律新開一份 newInst()，原本那張不動
           //   路線＝來源那一路（在這一欄的話），否則這一欄打過的路，再不然這一欄第一路（自動登記手動路線）
+          const home=(iid,LL)=>{ const k=LL+"|"+iid; TB.tiers.forEach(t2=>{ if(t2.o3)for(const c0 in t2.o3)t2.o3[c0]=t2.o3[c0].filter(x=>x!==k); });
+            const cid=cell.dataset.col; if(PCOL[LL]!==cid)(t.o3=t.o3||{})[cid]=items3(t,cid).map(e=>e.lane+"|"+e.id).filter(x=>x!==k).concat(k); };   // 放在非預設欄（上野欄的打野）＝記進該欄 o3
           if(cp){ const sl=_carry.srcL||""; L=ls.includes(sl)?sl:(ls.find(x=>laneAllowed(id,x))||ls[0]);
-            const nid=newInst(id); addXL(id,L); t.lanes[L].push(nid);
+            const nid=newInst(id); addXL(id,L); t.lanes[L].push(nid); home(nid,L);
             carryEnd(); saveState(); rerender(); return; }
           if(!L)L=ls.find(x=>laneAllowed(id,x));
           if(!L||!laneAllowed(id,L)){carryEnd();return;}
           TB.tiers.forEach(t2=>{const k=t2.lanes[L].indexOf(id); if(k>=0)t2.lanes[L].splice(k,1);});
-          t.lanes[L].push(id);
+          t.lanes[L].push(id); home(id,L);
           carryEnd(); saveState(); rerender(); return;
         }
         if(V.tierMode==="lanes"){
