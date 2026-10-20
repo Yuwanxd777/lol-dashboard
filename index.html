@@ -10701,7 +10701,8 @@ function render(){
     const lk3=(L,id)=>"3|"+L+"|"+id;
     // 客座（使用者 2026-10-20：三路的上路也要能跟別欄合併）：連結群組可以跨欄，非本欄路線的組員記在 t.o3[欄]（"路|id"）＝顯示在那一欄；
     //   只有「還在群組裡」才算客座，解除連結／群組解散就自動回到自己那一欄（normLinks 會清掉殘留字串）
-    const guestCol=(t,L,id)=>{ if((TB.lk||{})[lk3(L,id)]==null)return null; const k=L+"|"+id;
+    // TB.pin：右鍵路線圖示換到別欄的路時，圖釘在原欄原位（使用者 2026-10-20：換到別欄的路圖會跳走，看起來像被刪掉、也沒辦法連續點）
+    const guestCol=(t,L,id)=>{ if((TB.lk||{})[lk3(L,id)]==null&&!(TB.pin||{})[lk3(L,id)])return null; const k=L+"|"+id;
       const c=COL3.find(([c0,ls0])=>!ls0.includes(L)&&((t.o3&&t.o3[c0])||[]).includes(k)); return c?c[0]:null; };
     const items3=(t,cid)=>{ const all=[]; col3L(cid).forEach(L=>((t.lanes&&t.lanes[L])||[]).forEach(id=>{ if(!guestCol(t,L,id))all.push({id,lane:L}); }));
       ((t.o3&&t.o3[cid])||[]).forEach(k=>{ const [L,id]=k.split("|"); if(!col3L(cid).includes(L)&&((t.lanes&&t.lanes[L])||[]).includes(id)&&guestCol(t,L,id)===cid)all.push({id,lane:L}); });
@@ -10931,6 +10932,7 @@ function render(){
         c.set(out); });
       for(const id in TB.xl)if(!(TB.xl[id]||[]).length)delete TB.xl[id];
       if(TB.lo)for(const k in TB.lo)if(lk[k]==null)delete TB.lo[k];
+      if(TB.pin)for(const k in TB.pin){ const [,L,id]=k.split("|"); if(!TB.tiers.some(t=>(t.lanes[L]||[]).includes(id)))delete TB.pin[k]; }
       TB.tiers.forEach(t=>{ if(!t.o3)return; COL3.forEach(([cid,ls])=>{ if(t.o3[cid])t.o3[cid]=t.o3[cid].filter(k=>{ const [L,id]=k.split("|"); return ls.includes(L)||guestCol(t,L,id)===cid; }); }); });
     };
     // 群組底板：連續同群組的 chip 包成一組（組內間距＝一般間距 7px；淡金底板 padding 4px＋margin -4px 不影響版面。使用者 2026-10-20 從六種樣式選 B 底板：金框會跟英雄圖本身的金邊撞色）
@@ -11203,8 +11205,11 @@ function render(){
           const kOf=isMix?(LL=>lkM({id,lane:LL})):V.tierMode==="lane3"?(LL=>lk3(LL,id)):(LL=>lkL(LL,id));
           const ren=o=>{ if(o&&o[kOf(L)]!=null){ o[kOf(L2)]=o[kOf(L)]; delete o[kOf(L)]; } };
           if(isMix){ const e=t.ids.find(e=>e.id===id&&(e.lane||"")===L); if(!e)return; e.lane=L2; }
-          else{ const a=t.lanes[L], i=a.indexOf(id); if(i<0)return; a.splice(i,1); t.lanes[L2].push(id);
-            if(t.o3)for(const c0 in t.o3)t.o3[c0]=t.o3[c0].map(x=>x===L+"|"+id?L2+"|"+id:x); }
+          else{ const c3=c.closest(".tCol3"), cid=c3&&c3.dataset.col, ord=cid?items3(t,cid).map(e=>e.lane+"|"+e.id):null;
+            const a=t.lanes[L], i=a.indexOf(id); if(i<0)return; a.splice(i,1); t.lanes[L2].push(id);
+            if(t.o3)for(const c0 in t.o3)t.o3[c0]=t.o3[c0].filter(x=>x!==L2+"|"+id).map(x=>x===L+"|"+id?L2+"|"+id:x);
+            if(cid){ (t.o3=t.o3||{})[cid]=ord.map(x=>x===L+"|"+id?L2+"|"+id:x);   // 同一個位置
+              const pin=TB.pin=TB.pin||{}; delete pin[lk3(L,id)]; if(!col3L(cid).includes(L2))pin[lk3(L2,id)]=cid; } }
           ren(TB.lk); ren(TB.lo); if(TB.lo&&TB.lo[kOf(L2)]&&TB.lo[kOf(L2)].L)TB.lo[kOf(L2)].L=L2;
           addXL(id,L2); dropXL(id,L);
           saveState(); rerender(); };
@@ -11277,7 +11282,7 @@ function render(){
         c.onclick=ev=>{ev.stopPropagation();tipHide();
           if(_carry){ tierCarryDrop(ev, c.closest(".tierRow"), c.closest(".tLane")); return; }
           const lc=c.closest(".tLane"), c3=c.closest(".tCol3"), L0=lc?lc.dataset.lane:c3?(c.dataset.plane||""):null;
-          const back=()=>{ if(L0!=null){ takeLaneOne(c.dataset.id,L0); dropXL(c.dataset.id,L0); } // 五路／三路：移回該路（右鍵複本＝整張收掉）
+          const back=()=>{ if(L0!=null){ takeLaneOne(c.dataset.id,L0); dropXL(c.dataset.id,L0); if(TB.pin)delete TB.pin[lk3(L0,c.dataset.id)]; } // 五路／三路：移回該路（右鍵複本＝整張收掉）
             else takeMixOne(c.dataset.id,c.dataset.plane||""); // 混合：只移回該取用路線那一份
             saveState();rerender(); };
           // 已連結的圖點一下＝整組解散、各自回到自己的位置（使用者 2026-10-20：不是移回池）；要移回池先解散再點
@@ -11341,6 +11346,7 @@ function render(){
             { let k=before?arr.indexOf(before):-1; while(k>=0&&k<arr.length&&inMem(arr[k]))k++; before=k>=0&&k<arr.length?arr[k]:null; }
             if(link){ const tg=lk[lk3(link.lane,link.id)]; [...mem,...(tg!=null?arr.filter(e=>lk[lk3(e.lane,e.id)]===tg):[link])].forEach(e=>recO(lk3(e.lane,e.id))); }
             mem.forEach(e=>{ takeLaneOne(e.id,e.lane); delete lk[lk3(e.lane,e.id)]; });
+            if(TB.pin)mem.forEach(e=>delete TB.pin[lk3(e.lane,e.id)]);
             { const ks=new Set(mem.map(e=>e.lane+"|"+e.id)); TB.tiers.forEach(t2=>{ if(t2.o3)for(const c0 in t2.o3)t2.o3[c0]=t2.o3[c0].filter(k=>!ks.has(k)); }); }   // 舊位置（含客座）一律清掉
             const arr2=arr.filter(e=>!inMem(e)), at=before?arr2.findIndex(e=>same(e,before)):-1;
             arr2.splice(at>=0?at:arr2.length,0,...mem);
