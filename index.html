@@ -10910,8 +10910,11 @@ function render(){
       const home={}; for(const g in where)home[g]=+Object.entries(where[g]).sort((a,b)=>b[1]-a[1])[0][0];
       conts.forEach((c,ci)=>c.get().forEach(x=>{ const k=c.key(x); if(lk[k]!=null&&home[lk[k]]!==ci)delete lk[k]; }));   // 被拆到別格的那張＝脫離群組
       const cnt={}; for(const k in lk)cnt[lk[k]]=(cnt[lk[k]]||0)+1; for(const k in lk)if(cnt[lk[k]]<2)delete lk[k];   // 只剩一張＝解散
+      // 組內固定排序（使用者 2026-10-20）：上野／中野／下輔 ⇒ 線上路在前、打野與輔助在後（上 中 下 野 輔）；五路同格同路不受影響
+      const GRK={TOP:0,MID:1,BOT:2,JNG:3,SUP:4};
       conts.forEach(c=>{ const a=c.get(), out=[], done=new Set();   // 同群組排在一起（以第一張的位置為準）
-        a.forEach(x=>{ const g=lk[c.key(x)]; if(g==null){out.push(x);return;} if(done.has(g))return; done.add(g); a.forEach(y=>{ if(lk[c.key(y)]===g)out.push(y); }); });
+        a.forEach(x=>{ const g=lk[c.key(x)]; if(g==null){out.push(x);return;} if(done.has(g))return; done.add(g);
+          out.push(...a.filter(y=>lk[c.key(y)]===g).map((y,n)=>[y,n]).sort((p,q)=>((GRK[p[0].lane]??5)-(GRK[q[0].lane]??5))||p[1]-q[1]).map(v=>v[0])); });
         c.set(out); });
       for(const id in TB.xl)if(!(TB.xl[id]||[]).length)delete TB.xl[id];
     };
