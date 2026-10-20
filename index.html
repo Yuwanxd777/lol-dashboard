@@ -11075,9 +11075,11 @@ function render(){
       const sqOnly=[];
       if(V.tierSrc==="mix"&&window.SOLOQ_BUILDS&&SOLOQ_BUILDS.hero&&!isHistYear()){
         const SBm=SOLOQ_BUILDS, useP=(F.patch||sqPks)&&SBm.heroP, plm=F.patch?[F.patch]:sqPks, P2L={TOP:"TOP",JUNGLE:"JNG",MIDDLE:"MID",BOTTOM:"BOT",UTILITY:"SUP"};
-        const sqLane=id=>{ const h=(useP?SBm.heroP:SBm.hero)[id]; if(!h)return null; const ls={};
-          if(useP)plm.forEach(p2=>{ const y=h[p2]; if(y)for(const ln in y)ls[ln]=(ls[ln]||0)+((y[ln]&&y[ln][0])||0); });
-          else for(const ln in h)ls[ln]=(h[ln]&&h[ln][0])||0;
+        const sqLane=id=>{ const ls={};
+          if(V.tierProSq){ const h=(sqHov||{})[id]; if(!h)return null; for(const ln in h)ls[ln]=(h[ln]&&h[ln][0])||0; }   // 出賽選手開著＝池子分段也只看出賽選手（否則分進「積分有出場」、小框卻是空的）
+          else{ const h=(useP?SBm.heroP:SBm.hero)[id]; if(!h)return null;
+            if(useP)plm.forEach(p2=>{ const y=h[p2]; if(y)for(const ln in y)ls[ln]=(ls[ln]||0)+((y[ln]&&y[ln][0])||0); });
+            else for(const ln in h)ls[ln]=(h[ln]&&h[ln][0])||0; }
           let best=null,bn=0; for(const ln in ls)if(P2L[ln]&&ls[ln]>bn){bn=ls[ln];best=P2L[ln];} return best; };
         for(let i=idle.length-1;i>=0;i--){ const L=sqLane(idle[i]); if(L){ sqOnly.unshift({id:idle[i],lane:L}); idle.splice(i,1); } } }
       GLBL.splice(6,0,LANG==="en"?"Not in pro play (ranked only)":"比賽尚未登場（積分有出場）"); gArr.splice(6,0,[]);
@@ -11822,14 +11824,15 @@ function render(){
       // 點目前所在的數據段＝依目前篩選重新產生 → 一律呼叫 switchSrc（不擋同段）
       const seg=segEl("tierSrcSeg",_srcOpts,V.tierSrc||"mix",v=>switchSrc(v));
       fr.parentNode.insertBefore(seg,fr);
+      fr.parentNode.insertBefore(tm,fr); // 順序：分段鈕 → ⇄五路/混合 → ⚙參數（2026-07-18 使用者指定）
+      // 👥 出賽選手放在 ⚙ 參數左邊（使用者 2026-10-20）
       if((V.tierSrc==="soloq"||V.tierSrc==="mix")&&!isHistYear()){   // 只計算有出賽選手的積分（使用者 2026-10-20）
         const pb2=document.createElement("button"); pb2.id="tierProSq"; pb2.type="button";
-        pb2.className="pgbtn"+(V.tierProSq?" on":""); pb2.textContent=LANG==="en"?"👥 Pro players":"👥 出賽選手";
+        pb2.className="pgbtn"; pb2.textContent=LANG==="en"?"👥 Pro players":"👥 出賽選手";
         pb2.title=LANG==="en"?"Ranked stats only from players who played in the filtered matches (Worlds before the quarterfinals: every registered player)":"只計算有出賽選手的積分：積分只算目前篩選範圍內有出賽的選手自己的積分（世界賽八強前＝本屆登錄名單全部都算）";
-        if(V.tierProSq)pb2.style.cssText="background:var(--acc);color:#10141f;border-color:var(--acc)";
+        if(V.tierProSq){ pb2.style.borderColor="var(--gold)"; pb2.style.color="var(--gold)"; }   // 外觀比照模擬BP「🎯 近期積分」：pgbtn、開啟＝黃邊黃字
         pb2.onclick=()=>{ V.tierProSq=!V.tierProSq; V.tierGenKey=""; saveState(); render(); };
         fr.parentNode.insertBefore(pb2,fr); }
-      fr.parentNode.insertBefore(tm,fr); // 順序：分段鈕 → ⇄五路/混合 → ⚙參數（2026-07-18 使用者指定）
       if(TIER_SRC_BTN[V.tierSrc]&&V.tierGenFail){ // 自動重產失敗的行內警示（不彈窗）
         const warn=document.createElement("span"); warn.id="tierGenWarn";
         warn.textContent="⚠️ "+V.tierGenFail; warn.title=V.tierGenFail;
