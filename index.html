@@ -11831,13 +11831,13 @@ function render(){
       const floorOf=(sq,v)=>{ const F2=Object.assign(sq?{S:80,A:70,B:55}:{S:85,A:72,B:55},(sq?V.sqFloor:V.tierFloor)||{}); return v>=F2.S?0:v>=F2.A?1:v>=F2.B?2:3; };
       // 每一路的數量規則（使用者 2026-10-20，以五路為準；三路／混合排列共用同一份）：
       //   S 0~3 隻而且要過 S 門檻（真的沒有特別強的就沒有 S）；A 3~7 隻（過 A 門檻的最多 7 隻，不足 3 隻照名次補到 3）；
-      //   B＝過 B 門檻、但不超過剩下的一半（B 不比 C 多）；其餘 C。數量可在 ⚙ 調（V.tierCnt）
+      //   B＝剩下的一半（B 不比 C 多；使用者 2026-10-21：B 太少 C 太多 ⇒ 拿掉 B 門檻，純照數量）；其餘 C。數量可在 ⚙ 調（V.tierCnt）
       // scs＝這一路非奇招依排名的「門檻用分數」陣列（高→低）；回傳每個名次的階
       const countBins=(scs,sq)=>{ const K=Object.assign({Smax:3,Amin:3,Amax:7},V.tierCnt||{});
         const F2=Object.assign(sq?{S:80,A:70,B:55}:{S:85,A:72,B:55},(sq?V.sqFloor:V.tierFloor)||{}), n=scs.length, out=[]; let i=0;
         let k=0; while(i<n&&k<K.Smax&&scs[i]>=F2.S){out.push(0);i++;k++;}
         k=0; while(i<n&&k<K.Amax&&(scs[i]>=F2.A||k<K.Amin)){out.push(1);i++;k++;}
-        const half=Math.floor((n-i)/2); k=0; while(i<n&&k<half&&scs[i]>=F2.B){out.push(2);i++;k++;}
+        const half=Math.floor((n-i)/2); k=0; while(i<n&&k<half){out.push(2);i++;k++;}
         while(i<n){out.push(3);i++;} return out; };
       // 奇招（使用者 2026-10-20）：比賽很少人選（BP% 低且場數少，或範圍內根本沒選過）、但積分有在玩（該路積分 3 場以上）；只被禁沒選過的不算
       const sqHasL=(id,L)=>{ const k="A|"+L; if(!SQTC[k]){ const m={}; sqQ(L,1).forEach(r=>{m[r._full]=r;}); SQTC[k]=m; } const r=SQTC[k][id]; return !!(r&&r.場數>=3); };
@@ -12056,8 +12056,8 @@ function render(){
         pop.innerHTML=`<div style="font-weight:bold">每一路數量（五路為準）</div>
           <div style="display:flex;gap:6px;align-items:center">S 最多 ${inp("cSmax",T.Smax,1)} 隻　A ${inp("cAmin",T.Amin,1)}～${inp("cAmax",T.Amax,1)} 隻 <span class="meta">B 不比 C 多</span></div>
           <div style="font-weight:bold">分數門檻</div>
-          <div style="display:flex;gap:6px;align-items:center">比賽 S≥${inp("tfS",TF.S,1)} A≥${inp("tfA",TF.A,1)} B≥${inp("tfB",TF.B,1)}</div>
-          <div style="display:flex;gap:6px;align-items:center">積分 S≥${inp("sfS",SF.S,1)} A≥${inp("sfA",SF.A,1)} B≥${inp("sfB",SF.B,1)}</div>
+          <div style="display:flex;gap:6px;align-items:center">比賽 S≥${inp("tfS",TF.S,1)} A≥${inp("tfA",TF.A,1)}</div>
+          <div style="display:flex;gap:6px;align-items:center">積分 S≥${inp("sfS",SF.S,1)} A≥${inp("sfA",SF.A,1)}</div>
           <div style="font-weight:bold">BP% 項目</div>
           <div style="display:flex;gap:6px;align-items:center">BP% ≥ ${inp("bpFull",BF,1)}% ＝該項滿分 <span class="meta">原本看同路排名；BP% 已含 BAN</span></div>
           <div style="font-weight:bold">奇招條件（比賽和積分都很少人玩）</div>
@@ -12076,7 +12076,7 @@ function render(){
         pop.querySelector("#tpApply").onclick=()=>{
           const g=id=>parseFloat(pop.querySelector("#"+id).value);
           V.tierCnt={Smax:g("cSmax"),Amin:g("cAmin"),Amax:g("cAmax")}; V.mixW=g("mixW"); V.bpFull=g("bpFull"); V.sqQz=g("sqQz");
-          V.tierFloor={S:g("tfS"),A:g("tfA"),B:g("tfB")}; V.sqFloor={S:g("sfS"),A:g("sfA"),B:g("sfB")};
+          V.tierFloor={S:g("tfS"),A:g("tfA")}; V.sqFloor={S:g("sfS"),A:g("sfA")};
           V.qzBP=g("qzBP")/100; V.qzG=g("qzG");
           V.scoreK={lo:g("kLo"),hi:g("kHi")};
           V.scoreBase0=g("base0"); V.scoreExp=g("sexp");
