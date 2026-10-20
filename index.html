@@ -11031,13 +11031,24 @@ function render(){
       const GLBL=[...laneNm.map((nm,i)=>{const pl=TT?lanePlayer(i+1):""; return pl?(LANG==="en"?`${nm} (${pl})`:`${nm}（${pl}）`):nm;}),
         LANG==="en"?"Banned (banned, never picked)":"禁用（禁用過，但沒選過）", V.tierSrc==="soloq"?(LANG==="en"?"No ranked games in this range":"這段期間沒有積分場次"):(LANG==="en"?"Not yet released":"尚未登場")];
       const gArr=[[],[],[],[],[],[],[]];
+      // 混合數據（使用者 2026-10-20）：比賽沒登場的再分兩段——積分有出場的先列（一般亮度、帶積分主路線）、積分也沒有才放最後的「尚未登場」
+      const sqOnly=[];
+      if(V.tierSrc==="mix"&&window.SOLOQ_BUILDS&&SOLOQ_BUILDS.hero&&!isHistYear()){
+        const SBm=SOLOQ_BUILDS, useP=(F.patch||sqPks)&&SBm.heroP, plm=F.patch?[F.patch]:sqPks, P2L={TOP:"TOP",JUNGLE:"JNG",MIDDLE:"MID",BOTTOM:"BOT",UTILITY:"SUP"};
+        const sqLane=id=>{ const h=(useP?SBm.heroP:SBm.hero)[id]; if(!h)return null; const ls={};
+          if(useP)plm.forEach(p2=>{ const y=h[p2]; if(y)for(const ln in y)ls[ln]=(ls[ln]||0)+((y[ln]&&y[ln][0])||0); });
+          else for(const ln in h)ls[ln]=(h[ln]&&h[ln][0])||0;
+          let best=null,bn=0; for(const ln in ls)if(P2L[ln]&&ls[ln]>bn){bn=ls[ln];best=P2L[ln];} return best; };
+        for(let i=idle.length-1;i>=0;i--){ const L=sqLane(idle[i]); if(L){ sqOnly.unshift({id:idle[i],lane:L}); idle.splice(i,1); } } }
+      GLBL.splice(6,0,LANG==="en"?"Not in pro play (ranked only)":"比賽尚未登場（積分有出場）"); gArr.splice(6,0,[]);
       act.forEach(id=>{const m=laneC[id];let any=false;
         if(m)for(const p of[1,2,3,4,5])if(m[p]){any=true;
           if(laneOff(LANE5v[p-1]))continue;            // 該路關閉→不列入池
           if(placedL[LANE5v[p-1]].has(id))continue; // 該路已放（兩模式都是）→ 只藏該路段
           gArr[p-1].push(id);}
         if(!any&&!placedNone.has(id))gArr[5].push(id);});
-      idle.forEach(id=>{if(!placedNone.has(id))gArr[6].push(id);});
+      sqOnly.forEach(e=>{ if(!(isLanesP?placedL[e.lane].has(e.id):(placedL[e.lane].has(e.id)||placedNone.has(e.id))))gArr[6].push(e); });
+      idle.forEach(id=>{if(!placedNone.has(id))gArr[7].push(id);});
       ids.forEach(id=>((TB.xl||{})[id]||[]).forEach(L=>{ const p=LANE5v.indexOf(L); if(p<0||(laneC[id]&&laneC[id][p+1]))return;   // 右鍵複製出來的路線
         if(laneOff(L)||placedL[L].has(id))return; gArr[p].push(id); }));
       // 三路（使用者 2026-10-20：池子拖進來的預設路線錯了）：池改成 上路｜中野｜下輔 三段，每隻英雄在每段只出現一次，
@@ -11061,7 +11072,7 @@ function render(){
           if(!arr.length&&!off)return "";
           const sep=first?"":"margin-top:4px;padding-top:4px;border-top:1px dashed #2a3550;";first=false;
           return `<div style="${sep}"><div style="font-size:15px;color:#7a8aaa;margin-bottom:2px">${GLBL[gi]}${off?"（關閉中）":""}</div>
-            ${off?"":`<div style="display:flex;flex-wrap:wrap;gap:5px;align-content:flex-start">${arr.map(x=>typeof x==="object"?chip(x.id,false,null,gi?x.lane:null,x.lane):chip(x,gi===6,null,null,LANE5v[gi]||"")).join("")}</div>`}</div>`;
+            ${off?"":`<div style="display:flex;flex-wrap:wrap;gap:5px;align-content:flex-start">${arr.map(x=>typeof x==="object"?chip(x.id,false,null,gi?x.lane:null,x.lane):chip(x,gi===7,null,null,LANE5v[gi]||"")).join("")}</div>`}</div>`;
         }).join("");
       };
       document.getElementById("tierPool").style.minHeight=""; // 清掉上一輪的撐高，量測基準才一致
