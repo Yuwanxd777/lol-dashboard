@@ -11165,9 +11165,9 @@ function render(){
           ${(isLanes||is3)
             ?`<div class="tLaneIcons" style="position:absolute;top:50%;transform:translateY(-50%);left:0;right:0;height:36px">${(is3?COL3:LANE5v.map(L=>[L,[L]])).map(([k,ls])=>`<div class="tLaneIco" data-lane="${k}" style="position:absolute;top:0;transform:translateX(-50%);display:flex;gap:6px">${ls.map(laneImg).join("")}</div>`).join("")}</div>`
             :`<div class="tLaneIcons" style="flex:1;display:flex;gap:16px;align-items:center;justify-content:center">${LANE5v.map(L=>`<span class="tLaneTog" data-lane="${L}" title="點擊開關此路線（關閉→池與 Tier 內該路英雄隱藏）" style="cursor:pointer;line-height:0;opacity:${laneOff(L)?"0.3":"1"};filter:${laneOff(L)?"grayscale(1)":"none"}">${laneImg(L)}</span>`).join("")}</div>`}
-        </div>` // 兩模式都保留這條列（五路對齊欄位、混合五路圖示並排）→ 版型一致、切換不位移
+        </div>` // 兩模式都保留這條列（五路對齊欄位、混合五路圖示並排）。階列 min-height 96／上 24 下 20（使用者 2026-10-20：列高再高、上方留給組合括號）→ 版型一致、切換不位移
         +TB.tiers.map((t,i)=>`
-        <div class="card tierRow" data-t="${i}" style="margin:0;position:relative;flex:0 0 auto;display:flex;gap:0;align-items:flex-start;min-height:80px;padding:15px 30px">
+        <div class="card tierRow" data-t="${i}" style="margin:0;position:relative;flex:0 0 auto;display:flex;gap:0;align-items:flex-start;min-height:96px;padding:24px 30px 20px">
           <textarea class="tName" data-t="${i}" rows="1" title="點擊改名（Shift+Enter 換行、Enter 完成）" spellcheck="false"
             style="flex:0 0 auto;align-self:center;width:${colW}px;margin-right:30px;background:transparent;border:none;font-size:30px;font-weight:bold;color:${esc(t.c)};text-align:left;resize:none;overflow:hidden;line-height:1.15;padding:0">${esc(t.n)}</textarea>
           ${midHTML(t,i)}
