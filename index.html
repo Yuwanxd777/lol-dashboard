@@ -10781,7 +10781,7 @@ function render(){
       if(hasW&&!ko&&EV&&EV.rosters){ Object.entries(EV.rosters).forEach(([tn,rs])=>{ if(TT&&String(tn).replace(/\s*\(.*?\)\s*$/,"")!==TT)return; (rs||[]).forEach(p2=>{ if(p2&&p2.n&&p2.r!=="COACH")names.add(String(p2.n).toLowerCase()); }); });
         ((typeof WLD_ROSTER_ADD!=="undefined"&&WLD_ROSTER_ADD[curYear])||[]).forEach(([ab2,n2])=>{ if(!TT||teamFix(tAb(TT)||TT)===ab2)names.add(String(n2).toLowerCase()); }); }
       return _proNames=names; };
-    const sqHov=(()=>{ if(!(V.tierProSq||V.tierTeam)||isHistYear()||!(V.tierSrc==="soloq"||V.tierSrc==="mix"))return null;   // 選了戰隊＝自動只算該隊選手
+    const sqHov=(()=>{ if(isHistYear()||!(V.tierTeam||(V.tierProSq&&(V.tierSrc==="soloq"||V.tierSrc==="mix"))))return null;   // 選了戰隊＝自動只算該隊選手（比賽模式也要：奇招判定、該隊沒比賽時改用積分分階）
       const PA=window.SOLOQ_PAGG; if(!PA){ lazyLoad("pagg").then(()=>{ if(curView==="英雄Tier"){ V.tierGenKey=""; render(); } }); return null; }
       const names=proNames();
       const pks=F.patch?[F.patch]:sqPks, out={};
@@ -11180,7 +11180,7 @@ function render(){
           const cur=g3[ci].get(id); if(!cur||n>cur.n)g3[ci].set(id,{id,lane:L,n}); });
         for(let p=0;p<5;p++)gArr[p]=p<3?[...g3[p].values()]:[];
         const pl=ci=>{ if(!TT)return ""; const a=COL3[ci][1].map(L=>lanePlayer(LANE5v.indexOf(L)+1)).filter(Boolean); return a.length?(LANG==="en"?` (${a.join(" / ")})`:`（${a.join("／")}）`):""; };
-        const nm3=LANG==="en"?["Top · Jungle","Jungle · Mid","Bot · Support"]:["上野","中野","下輔"];
+        const nm3=LANG==="en"?["Top","Jungle · Mid","Bot · Support"]:["上路","中野","下輔"];   // 池子第一段只有上路（打野預設放中野段），名字寫上路（使用者 2026-10-20）
         for(let ci=0;ci<3;ci++)GLBL[ci]=nm3[ci]+pl(ci); }
       // 動態尺寸：以 50px 為目標湊列數均分填滿欄寬；若池底超出螢幕就每列多塞一顆縮小重排
       const box=document.getElementById("tierPoolBox");
@@ -11426,7 +11426,11 @@ function render(){
           const mk=()=>gm.length===2?pairTip(...gm.map(x=>({id:x.dataset.b||x.dataset.id,lane:x.dataset.plane||""}))):tipOf(_tid,lane);
           const rc0=()=>(gm.length===2?gw:c).getBoundingClientRect();
           let _h=mk(); tipShow(_h,rc0());
-          gm.forEach(x=>{const im=x.querySelector("img"); if(im)im.classList.add("tglow");});   // 組合＝兩隻一起放大（點擊／右鍵還是只作用在滑鼠下那一張）
+          // 一起放大（使用者 2026-10-20）：滑到組合＝這兩隻在表上／池子裡的每一張（含複本）都放大；滑到單張＝這隻的每一張都放大；
+          //   上面任何一張若在組合裡，整個組合一起放大。點擊／右鍵還是只作用在滑鼠下那一張
+          { const ids=new Set((gm.length===2?gm:[c]).map(x=>x.dataset.b||x.dataset.id)), hit=new Set();
+            document.querySelectorAll("#tierWrap .tChip").forEach(x=>{ if(!ids.has(x.dataset.b||x.dataset.id))return; hit.add(x); const g2=x.closest(".tGrp"); if(g2)g2.querySelectorAll(".tChip").forEach(y=>hit.add(y)); });
+            hit.forEach(x=>{const im=x.querySelector("img"); if(im)im.classList.add("tglow");}); }
           // 剛 F5 時比賽／積分資料可能還在載（使用者 2026-10-20：第一瞬間小框缺數據）⇒ 停在圖上時每 0.3 秒重算，內容變了就換上，最多 8 秒
           clearInterval(c._tipT); let _k=0; c._tipT=setInterval(()=>{ if(!c.isConnected||!(gm.length===2?gw:c).matches(":hover")||++_k>26){clearInterval(c._tipT);return;}
             const h2=mk(); if(h2!==_h){ _h=h2; tipShow(h2,rc0()); } },300);
@@ -11795,6 +11799,13 @@ function render(){
         const SCOL=["禁用率","BP%","勝率","贏線率","後選率","參與率","KDA","中期金差","分均金錢","分均輸出","分均承傷","分均視分"];
         const _rows={}; LANE5v.forEach(L=>{_rows[L]=calcHeroes(L,"",TT).filter(r=>r.場數>=minG);});   // 選了戰隊＝這一隊自己的數據分階（使用者 2026-10-20）
         Object.keys(cnt).forEach(id=>{ if(!banOnly(id)||!D2[id])return; const L=banLaneOf(id); if(!L)return; const r=banRow(id,L); if(r&&r.評分!=null)_rows[L].push(r); });   // 只被禁沒選過也進板
+        // 選了戰隊但範圍內這隊沒有任何比賽 ⇒ 沒有比賽資料可分階，全部都會變奇招（使用者 2026-10-20：表上幾乎沒英雄）→ 改用該隊選手的積分分階
+        if(TT&&!LANE5v.some(L=>_rows[L].some(r=>!r._ban))&&!isHistYear()&&window.SOLOQ_BUILDS&&SOLOQ_BUILDS.hero)return genSoloqTiers(base);
+        // 比賽沒人選、但積分有在玩（該路過積分樣本門檻、而且占這隻英雄 10% 以上場次）＝奇招也進板（使用者 2026-10-20：WCS 犽宿下路積分有人玩卻哪裡都沒有）
+        if(!isHistYear()&&window.SOLOQ_BUILDS&&SOLOQ_BUILDS.hero){ const totS={}; sqQ(null,1).forEach(r=>{totS[r._full]=r.場數;});
+          LANE5v.forEach(L=>{ const have=new Set(_rows[L].map(r=>champId(r._full)));
+            sqQ(L).forEach(r=>{ const id=r._full; if(have.has(id)||!D2[id]||banOnly(id))return; if(totS[id]&&r.場數<totS[id]*0.1)return;
+              _rows[L].push({_full:id,_sqOnly:1,場數:0,"BP%":0,評分:null}); }); }); }
         const _all=LANE5v.flatMap(L=>_rows[L]);
         // （早年只有少數維度的年份原本另走分位數門檻；現在全部改排名比例，自然涵蓋）
         const oldByName={}; ((base&&base.tiers)||[]).forEach(t=>{if(!(t.n in oldByName))oldByName[t.n]=t;}); // 只沿用列色
@@ -11872,9 +11883,10 @@ function render(){
         const tiers=TH.map(([n],ti2)=>({n,c:c5s[ti2], ids:[], lanes:empL()}));
         const minG=(F.patch||sqPks||sqHov)?(F.minG||0):Math.max(30,F.minG||0); // 全季沿用30場門檻；有版本範圍時樣本小→只靠 calcHeroesSoloq 內建門檻
         let total=0;
+        const noPro=!!TT&&LANE5v.every(L=>!calcHeroes(L,"",TT).length);
         const qzS=(V.sqQz!=null?V.sqQz:1)/100, laneTot={}; LANE5v.forEach(L=>{ laneTot[L]=sqQ(L,1).reduce((a,r)=>a+(r.場數||0),0); });
         const arr=rowsL.filter(r=>r.評分!=null&&r.場數>=minG&&D2[r._full]&&(!totN[r._full]||r.場數>=totN[r._full]*0.1))
-          .map(r=>({id:r._full,lane:r._lane,sc:r.評分,q:proRare(r._full,r._lane)}));   // 奇招＝比賽很少人選（積分這邊本來就有）
+          .map(r=>({id:r._full,lane:r._lane,sc:r.評分,q:noPro?false:proRare(r._full,r._lane)}));   // 奇招＝比賽很少人選（積分這邊本來就有）；選的戰隊範圍內沒比賽＝不判奇招
         const binS={}; LANE5v.forEach(L=>{ const e=arr.filter(r=>r.lane===L&&!r.q).sort((a,b)=>b.sc-a.sc), cb=countBins(e.map(r=>r.sc),true); e.forEach((r,i)=>{ binS[r.lane+"|"+r.id]=cb[i]; }); });
         arr.sort((a,b)=>b.sc-a.sc).forEach(r=>{ const bi=r.q?TH.length-1:binS[r.lane+"|"+r.id];
             tiers[bi].lanes[r.lane].push(r.id); tiers[bi].ids.push({id:r.id,lane:r.lane}); total++; }); // 兩種結構都填：⇄切模式都要有資料
