@@ -236,7 +236,7 @@ SCN = {
                ("全域模式", [("seg", "bpModeSeg", "global")], 1000, []),
                ("清盤", [("click", "#bpResetBoard")], 1200, [])],
     "英雄Tier": [("比賽數據", [("click", "#tierData")], 2000, []),
-                 ("自訂", [("click", "#tierCustom")], 1500, []),
+                 ("混合數據", [("click", "#tierDataMix")], 2000, []),
                  ("加階", [("click", "#tAdd")], 1000, []),
                  ("積分數據", [("click", "#tierDataSoloq")], 2000, []),
                  ("混合模式", [("seg", "tierModeSeg", "mix")], 1500, []),
