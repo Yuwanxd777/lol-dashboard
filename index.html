@@ -11497,6 +11497,37 @@ function render(){
         const at=arr.findIndex(x=>{ const w=scB(L,x); return w==null||w<v; }); arr.splice(at<0?arr.length:at,0,id); };
       const o3BySc=(t,cid,id,L)=>{ const v=scB(L,id); if(v==null)return; const a=items3(t,cid).map(e=>[e.lane,e.id]).filter(([L2,i2])=>!(L2===L&&i2===id));
         const at=a.findIndex(([L2,i2])=>{ const w=scB(L2,i2); return w==null||w<v; }); a.splice(at<0?a.length:at,0,[L,id]); (t.o3=t.o3||{})[cid]=a.map(([L2,i2])=>L2+"|"+i2); };
+      // 組合起來的瞬間照組合分數搬到該進的階與位置（使用者 2026-10-21）：
+      //   組合分數＝兩隻板子分數的場數加權（比賽＝比賽場數、積分＝積分場數、混合＝兩者相加；同組合小框的評分算法）
+      //   該進哪一階＝由上往下第一個「這兩路最低分 ≤ 組合分數」的階（奇招階不算）；那兩路在該階是空的就看分數門檻
+      const grpSc=mem=>{ const src=V.tierSrc||"mix"; let s=0,ws=0,s0=0,n0=0;
+        mem.forEach(e=>{ const v=scB(e.lane,e.id); if(v==null)return; const id=bid(e.id);
+          const pg=src==="soloq"?0:(((calcHeroes(e.lane,"",TT)||[]).find(x=>champId(x._full)===id)||{}).場數||0);
+          const sg=src==="match"?0:((sqData(id,e.lane)||{})._n||0), w=pg+sg; s+=v*w; ws+=w; s0+=v; n0++; });
+        return ws?s/ws:(n0?s0/n0:null); };
+      const itScOf=(list,keyOf)=>{ const lk=TB.lk||{}, gs={}; list.forEach(e=>{ const g=lk[keyOf(e)]; if(g!=null)(gs[g]=gs[g]||[]).push(e); });
+        const gv={}; for(const g in gs)gv[g]=grpSc(gs[g]); return e=>{ const g=lk[keyOf(e)]; return g!=null?gv[g]:scB(e.lane,e.id); }; };
+      const pickTier=(ps,lanes,exclK)=>{ const src=V.tierSrc||"mix", FL=Object.assign(src==="soloq"?{S:80,A:70,B:55}:{S:85,A:72,B:55},(src==="soloq"?V.sqFloor:V.tierFloor)||{});
+        let last=null;
+        for(let i=0;i<TB.tiers.length;i++){ const t=TB.tiers[i]; if(t.n===TN5)continue;
+          const vs=[]; lanes.forEach(L=>{ (V.tierMode==="mix"?t.ids.filter(e=>e.lane===L).map(e=>e.id):(t.lanes[L]||[])).forEach(id=>{ if(exclK.has(L+"|"+id))return; const v=scB(L,id); if(v!=null)vs.push(v); }); });
+          if(!vs.length){ if(FL[t.n]!=null&&ps>=FL[t.n])return i; continue; }
+          last=i; if(ps>=Math.min(...vs))return i; }
+        return last; };
+      const placeGrp=g=>{ const lk=TB.lk||{};
+        if(V.tierMode==="mix"){ let st=null; TB.tiers.some(t=>t.ids.some(e=>lk[lkM(e)]===g)&&(st=t));
+          if(!st)return; const mem=st.ids.filter(e=>lk[lkM(e)]===g), ps=grpSc(mem); if(ps==null)return;
+          const ti=pickTier(ps,mem.map(e=>e.lane),new Set(mem.map(e=>e.lane+"|"+e.id))); if(ti==null)return; const T=TB.tiers[ti];
+          st.ids=st.ids.filter(e=>lk[lkM(e)]!==g); const sc=itScOf(T.ids,lkM);
+          const at=T.ids.findIndex(e=>{ const w=sc(e); return w==null||w<ps; }); T.ids.splice(at<0?T.ids.length:at,0,...mem); return; }
+        let st=null, cid=null; TB.tiers.some(t=>COL3.some(([c])=>items3(t,c).some(e=>lk[lk3(e.lane,e.id)]===g)&&(st=t,cid=c)));
+        if(!st)return; const mem=items3(st,cid).filter(e=>lk[lk3(e.lane,e.id)]===g), ps=grpSc(mem); if(ps==null)return;
+        const ks=new Set(mem.map(e=>e.lane+"|"+e.id)), ti=pickTier(ps,mem.map(e=>e.lane),ks); if(ti==null)return; const T=TB.tiers[ti];
+        mem.forEach(e=>{ const k=st.lanes[e.lane].indexOf(e.id); if(k>=0)st.lanes[e.lane].splice(k,1); });
+        if(st.o3)for(const c0 in st.o3)st.o3[c0]=st.o3[c0].filter(k=>!ks.has(k));
+        const a=items3(T,cid).filter(e=>!ks.has(e.lane+"|"+e.id)), sc=itScOf(a,e=>lk3(e.lane,e.id));
+        const at=a.findIndex(e=>{ const w=sc(e); return w==null||w<ps; }); a.splice(at<0?a.length:at,0,...mem);
+        mem.forEach(e=>T.lanes[e.lane].push(e.id)); (T.o3=T.o3||{})[cid]=a.map(e=>e.lane+"|"+e.id); };
       const newInst=b=>{ const has=x=>TB.tiers.some(t=>LANE5v.some(L=>(t.lanes[L]||[]).includes(x))||t.ids.some(e=>e.id===x)); let n=2; while(has(b+"#"+n))n++; return b+"#"+n; };
       const tierCarryDrop=(ev,row,cell)=>{
         if(!_carry||!row)return; const id=_carry.ch, cp=!!_carry.copy;
@@ -11613,6 +11644,7 @@ function render(){
             (t.o3=t.o3||{})[cid]=arr2.map(e=>e.lane+"|"+e.id);
             const g=link?(lk[lk3(link.lane,link.id)]!=null?lk[lk3(link.lane,link.id)]:newGid()):(mem.length>1?(g0!=null?g0:newGid()):null);
             if(g!=null){ if(link)lk[lk3(link.lane,link.id)]=g; mem.forEach(e=>lk[lk3(e.lane,e.id)]=g); }
+            if(link&&g!=null)placeGrp(g);   // 剛組合＝照組合分數搬到該進的階與位置
             saveState(); rerender(); return;
           }
           if(V.tierMode==="lanes"){ // 五路：丟進哪一格就進該階該路
@@ -11684,6 +11716,7 @@ function render(){
           arr.splice(at,0,...ins);
           const g=link?(lk[lkM(link)]!=null?lk[lkM(link)]:newGid()):(ins.length>1?(g0!=null?g0:newGid()):null);
           if(g!=null){ if(link)lk[lkM(link)]=g; ins.forEach(e=>lk[lkM(e)]=g); }
+          if(link&&g!=null)placeGrp(g);   // 剛組合＝照組合分數搬到該進的階與位置
           saveState(); rerender();
         };
       });
