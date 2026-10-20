@@ -505,6 +505,7 @@
   #hoverTip .tGrid .rt .v{font-size:22px;font-weight:bold;line-height:1.1}
   #hoverTip .tGrid .sep{grid-column:1/-1;border-top:1px solid #26314a;margin:1px 0}
   #hoverTip .tGrid .tgS{color:#7a8aaa;font-size:11.5px;margin-left:4px}
+  #hoverTip .tChgDet{display:none} #hoverTip.shiftOn .tChgDet{display:block}   /* 英雄Tier 改版細節：按住 Shift 才展開 */
   #hoverTip .tipRow .skP{margin-top:5px}
   #hoverTip .tipRow .skP.skMaj{margin-top:11px}
   #hoverTip .num{color:#f5b942;font-weight:600}
@@ -10878,7 +10879,11 @@ function render(){
         if(k==="rt"){ h+=`<span class="l">${lb}</span>${cols.map(c=>{const v=c.d.rt; return `<span class="v" style="font-size:22px;font-weight:bold;line-height:1.1;color:${rtCol(v)}">${v==null?"–":Math.round(v)}</span>`;}).join("")}<span class="sep"></span>`; return; }
         h+=`<span class="l">${lb}</span>${cols.map(c=>`<span class="v">${c.d[k]==null?`<span style="color:#56607a">–</span>`:(typeof c.d[k]==="string"&&c.d[k].includes("<")?c.d[k]:`<span class="num">${c.d[k]}</span>`)}</span>`).join("")}`; });
       return h+"</div>"; };
-    const chgBox=id=>CHG[id]===undefined?"":`<div class="tipRow"><b>${esc(CHGV)} <span style="color:${CHG[id]>0?"#ff4d4d":CHG[id]<0?"#37c871":"#ffd60a"}">${CHG[id]>0?(LANG==="en"?"Buff":"增強"):CHG[id]<0?(LANG==="en"?"Nerf":"削弱"):(LANG==="en"?"Adjust":"調整")}</span></b><div>${
+    // 改版只寫「版本＋增強／削弱／調整」一行，按住 Shift 才展開改了什麼（使用者 2026-10-20：細節把小框撐得很寬）
+    if(!window._tipShiftBound){ window._tipShiftBound=1;
+      const tg=on=>{ const t=document.getElementById("hoverTip"); if(t)t.classList.toggle("shiftOn",on); };
+      addEventListener("keydown",e=>{ if(e.key==="Shift")tg(true); }); addEventListener("keyup",e=>{ if(e.key==="Shift")tg(false); }); addEventListener("blur",()=>tg(false)); }
+    const chgBox=id=>CHG[id]===undefined?"":`<div class="tipRow"><b>${esc(CHGV)} <span style="color:${CHG[id]>0?"#ff4d4d":CHG[id]<0?"#37c871":"#ffd60a"}">${CHG[id]>0?(LANG==="en"?"Buff":"增強"):CHG[id]<0?(LANG==="en"?"Nerf":"削弱"):(LANG==="en"?"Adjust":"調整")}</span></b><div class="tChgDet">${
           (CHGL[id]||[]).map(l=>{const dd=changeDir([l]);
             return `<span style="color:${dd>0?"#ff6b6b":dd<0?"#5fbf7f":"#c8d0e0"}">${esc(l)}</span>`;}).join("<br>")}</div></div>`;
     // 積分：該路資料（沒過上板門檻也照樣有，評分在門檻 1 的全體裡算——使用者 2026-10-20：有場次就要有數據、評分不要 –）
