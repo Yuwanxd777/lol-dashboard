@@ -1271,6 +1271,13 @@
   .hscDot:hover::after{content:attr(data-tip);position:absolute;left:50%;bottom:122%;transform:translateX(-50%) scale(.67);transform-origin:bottom center;
     background:#0b0f1a;border:1px solid var(--line);color:var(--tx);padding:5px 8px;border-radius:6px;font-size:12px;white-space:nowrap;z-index:31;box-shadow:0 4px 14px rgba(0,0,0,.6)}
   .hscHint{margin-top:8px;font-size:12.5px;text-align:center}
+/* 英雄Tier 拖曳提示（使用者 2026-10-20：拖到另一張圖上沒有「可以連結」的感覺）：
+   停在圖中央 50%＝連結預覽（金色底光＋🔗）；停在左右 25%＝插入線 */
+#tierRows .tChip.lkHot>img{box-shadow:0 0 0 3px rgba(245,185,66,.95),0 0 14px 4px rgba(245,185,66,.75);transform:scale(1.08);transition:transform .08s}
+#tierRows .tChip.lkHot::after{content:"🔗";position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-size:22px;line-height:1;padding:4px;border-radius:50%;background:rgba(16,20,31,.82);box-shadow:0 0 0 2px rgba(245,185,66,.95);pointer-events:none;z-index:7}
+#tierRows .tChip.insL::before,#tierRows .tChip.insR::before{content:"";position:absolute;top:-3px;bottom:-3px;width:4px;border-radius:2px;background:rgba(245,185,66,.95);box-shadow:0 0 6px rgba(245,185,66,.8);pointer-events:none;z-index:7}
+#tierRows .tChip.insL::before{left:-6px}
+#tierRows .tChip.insR::before{right:-6px}
 </style>
 </head>
 <body>
@@ -10786,6 +10793,7 @@ function render(){
     let CS=50; // 池內頭貼動態尺寸（欄寬固定，尺寸算到剛好填滿一列）
     const PIDPOS=["TOP","JNG","MID","BOT","SUP"];
     // chip(id, small, sz, iconLane, plane)：iconLane＝要顯示的「單一」路線圖示(混合 Tier 用取用路線)；plane＝拖曳來源路線(data-plane)
+    window.tierHotClr=window.tierHotClr||(()=>document.querySelectorAll("#tierRows .lkHot,#tierRows .insL,#tierRows .insR").forEach(x=>x.classList.remove("lkHot","insL","insR")));
     const chip=(id,small,sz,iconLane,plane)=>{const s=sz||(small?CS*0.8:CS);
       const lb=iconLane?`<span class="tlic" style="position:absolute;left:-2px;top:-2px;pointer-events:none;z-index:6"><img src="${(typeof POS_B64!=="undefined"&&POS_B64[iconLane])||POS_IMG[iconLane]}" style="width:30px;height:30px;display:block;filter:drop-shadow(0 0 2px #000)"></span>`:"";
       const d=CHG[id];
@@ -10922,6 +10930,7 @@ function render(){
           out.push(...a.filter(y=>lk[c.key(y)]===g).map((y,n)=>[y,n]).sort((p,q)=>((GRK[p[0].lane]??5)-(GRK[q[0].lane]??5))||p[1]-q[1]).map(v=>v[0])); });
         c.set(out); });
       for(const id in TB.xl)if(!(TB.xl[id]||[]).length)delete TB.xl[id];
+      if(TB.lo)for(const k in TB.lo)if(lk[k]==null)delete TB.lo[k];
       TB.tiers.forEach(t=>{ if(!t.o3)return; COL3.forEach(([cid,ls])=>{ if(t.o3[cid])t.o3[cid]=t.o3[cid].filter(k=>{ const [L,id]=k.split("|"); return ls.includes(L)||guestCol(t,L,id)===cid; }); }); });
     };
     // 群組底板：連續同群組的 chip 包成一組（組內間距＝一般間距 7px；淡金底板 padding 4px＋margin -4px 不影響版面。使用者 2026-10-20 從六種樣式選 B 底板：金框會跟英雄圖本身的金邊撞色）
@@ -11152,8 +11161,16 @@ function render(){
         g.ondragend=()=>{dragTier=null;
           document.querySelectorAll(".tierRow").forEach(x=>{x.style.opacity="";x.style.boxShadow="";});};
       });
+      { const rows=document.getElementById("tierRows");
+        if(rows&&!rows._hotBound){ rows._hotBound=1; rows.addEventListener("dragover",ev=>{ if(!window._tDragId){tierHotClr();return;}
+            const c=ev.target instanceof Element?ev.target.closest(".tChip"):null;
+            const self=c&&c.dataset.id===window._tDragId&&(c.dataset.plane||"")===(window._tSrcLane||"")&&window._tFromTier;
+            if(!c||self||c.classList.contains("tDragSrc")||(c.closest(".tGrp")&&c.closest(".tGrp").contains(document.querySelector(".tChip.tDragSrc")))){tierHotClr();return;}
+            const rc=c.getBoundingClientRect(), z=ev.clientX<rc.left+rc.width*0.25?"insL":ev.clientX>rc.right-rc.width*0.25?"insR":"lkHot";
+            if(c.classList.contains(z))return; tierHotClr(); c.classList.add(z); });
+          rows.addEventListener("drop",tierHotClr); rows.addEventListener("dragleave",ev=>{ if(!rows.contains(ev.relatedTarget))tierHotClr(); }); } }
       document.querySelectorAll(".tChip").forEach(c=>{
-        c.ondragstart=ev=>{tipHide();ev.dataTransfer.setData("text/plain",c.dataset.id);
+        c.ondragstart=ev=>{tipHide(); c.classList.add("tDragSrc");ev.dataTransfer.setData("text/plain",c.dataset.id);
           window._tDragId=c.dataset.id; // 五路拖曳時判定允許路線用
           window._tFromTier=!!c.closest("#tierRows"); // 從 Tier 表拖起→池子 dragover 才亮「可移回」提示
           // 來源路線：五路 Tier chip 在 .tLane 欄；混合 Tier chip 與所有池 chip 帶 data-plane
@@ -11167,7 +11184,7 @@ function render(){
           if(_carry){ carryEnd(); return; }
           const im=c.querySelector("img"); carryStart(c.dataset.id, im?im.src:"", {plane:"", copy:true});
           if(_carry&&_carry.el){ _carry.el.style.left=vPt(ev.clientX)+"px"; _carry.el.style.top=vPt(ev.clientY)+"px"; } };
-        c.ondragend=()=>{window._tDragId=null;window._tFromTier=false;
+        c.ondragend=()=>{window._tDragId=null;window._tFromTier=false; tierHotClr(); c.classList.remove("tDragSrc");
           document.querySelectorAll(".tLane,.tCol3,.tierRow").forEach(x=>x.style.outline="");
           const _tp=document.getElementById("tierPool"); if(_tp)_tp.style.outline="";};
         c.onmouseenter=()=>{
@@ -11179,6 +11196,24 @@ function render(){
         c.onclick=()=>{ if(_carry){carryEnd();return;} const im=c.querySelector("img"); carryStart(c.dataset.id, im?im.src:"", {plane:c.dataset.plane||""}); }; // 點英雄＝拎起(池子)；Tier 列內的 chip 會被下面覆蓋成放回池/放入
       });
       // 拎著英雄時放入某階/某路（點列或點路線格；append 到該處，順序可再拖曳微調）
+      // 連結前的原位（使用者 2026-10-20：點連結的圖解散後要「各自回到原本的位置」，含原本在哪一階）
+      //   TB.lo[成員鍵]＝{t 階序, n 階名, at 該格位置, at3 三路欄內位置, L 原路線} 或 {pool:1}（從池子拖來連結的）；只記第一次（連結前），解散時照著放回
+      const recO=(k,fromL)=>{ const lo=TB.lo=TB.lo||{}; if(lo[k])return; const [m,L0,id]=k.split("|"), L=fromL||L0; let o={pool:1};
+        TB.tiers.some((t,ti)=>{ if(m==="M"){ const i=t.ids.findIndex(e=>e.id===id&&(e.lane||"")===L); if(i>=0){ o={t:ti,n:t.n,at:i}; return true; } return false; }
+          const i=(t.lanes[L]||[]).indexOf(id); if(i<0)return false; o={t:ti,n:t.n,at:i,L};
+          if(m==="3"){ const c=(COL3.find(c2=>c2[1].includes(L))||[])[0]; o.at3=items3(t,c).findIndex(e=>e.id===id&&e.lane===L); }
+          return true; });
+        lo[k]=o; };
+      const restO=k=>{ const lo=TB.lo||{}, o=lo[k]; delete lo[k]; if(!o)return; const [m,L0,id]=k.split("|");
+        const ti=o.pool?-1:(TB.tiers[o.t]&&TB.tiers[o.t].n===o.n?o.t:TB.tiers.findIndex(t=>t.n===o.n));
+        if(!o.pool&&ti<0)return;   // 原本那一階被刪了 ⇒ 留在原地
+        if(m==="M"){ takeMixOne(id,L0); if(ti>=0){ const a=TB.tiers[ti].ids; a.splice(Math.min(o.at,a.length),0,{id,lane:L0}); } return; }
+        const L=o.L||L0; takeLaneOne(id,L0); if(L!==L0)takeLaneOne(id,L);
+        TB.tiers.forEach(t=>{ if(t.o3)for(const c in t.o3)t.o3[c]=t.o3[c].filter(x=>x!==L0+"|"+id); });
+        if(ti<0){ dropXL(id,L0); return; }
+        const t=TB.tiers[ti]; t.lanes[L].splice(Math.min(o.at,t.lanes[L].length),0,id);
+        if(m==="3"&&o.at3>=0){ const c=(COL3.find(c2=>c2[1].includes(L))||[])[0]; const a=items3(t,c).filter(e=>!(e.id===id&&e.lane===L));
+          a.splice(Math.min(o.at3,a.length),0,{id,lane:L}); (t.o3=t.o3||{})[c]=a.map(e=>e.lane+"|"+e.id); } };
       const addXL=(id,L)=>{ if(laneAllowed(id,L))return; const a=(TB.xl=TB.xl||{})[id]=TB.xl[id]||[]; if(!a.includes(L))a.push(L); };   // 複本放進沒打過的路線＝登記手動路線
       const dropXL=(id,L)=>{ const a=(TB.xl||{})[id]; if(!a||!a.includes(L))return; if(TB.tiers.some(t=>(t.lanes[L]||[]).includes(id)))return; a.splice(a.indexOf(L),1); };   // 複本移回池＝那一路的複本消失
       const tierCarryDrop=(ev,row,cell)=>{
@@ -11219,7 +11254,8 @@ function render(){
             saveState();rerender(); };
           // 已連結的圖點一下＝整組解散、各自回到自己的位置（使用者 2026-10-20：不是移回池）；要移回池先解散再點
           if(c.closest("#tierRows")&&c.closest(".tGrp")){ const k=lc?lkL(L0,c.dataset.id):c3?lk3(L0,c.dataset.id):lkM({id:c.dataset.id,lane:c.dataset.plane||""});
-            const g=(TB.lk||{})[k]; if(g!=null){ for(const k2 in TB.lk)if(TB.lk[k2]===g)delete TB.lk[k2]; saveState(); rerender(); } return; }
+            const g=(TB.lk||{})[k]; if(g!=null){ const ks=Object.keys(TB.lk).filter(k2=>TB.lk[k2]===g); ks.forEach(k2=>delete TB.lk[k2]);
+              ks.map(k2=>[k2,((TB.lo||{})[k2]||{}).at3??((TB.lo||{})[k2]||{}).at??0]).sort((a,b)=>a[1]-b[1]).forEach(([k2])=>restO(k2)); saveState(); rerender(); } return; }
           back();};
       });
       document.querySelectorAll(".tierRow").forEach(r=>{
@@ -11275,6 +11311,7 @@ function render(){
                 if(ev.clientY>=rc.top-6&&ev.clientY<=rc.bottom+6&&ev.clientX<rc.left+rc.width/2){const e=arr.find(x=>x.id===c.dataset.id&&x.lane===(c.dataset.plane||""));if(e){before=e;break;}}} }
             if(tE&&!link&&mem.some(e=>!ls.includes(e.lane))&&!(mem.length>1&&mem.some(e=>ls.includes(e.lane))))return;   // 別欄英雄只能以連結的方式放進來
             { let k=before?arr.indexOf(before):-1; while(k>=0&&k<arr.length&&inMem(arr[k]))k++; before=k>=0&&k<arr.length?arr[k]:null; }
+            if(link){ const tg=lk[lk3(link.lane,link.id)]; [...mem,...(tg!=null?arr.filter(e=>lk[lk3(e.lane,e.id)]===tg):[link])].forEach(e=>recO(lk3(e.lane,e.id))); }
             mem.forEach(e=>{ takeLaneOne(e.id,e.lane); delete lk[lk3(e.lane,e.id)]; });
             { const ks=new Set(mem.map(e=>e.lane+"|"+e.id)); TB.tiers.forEach(t2=>{ if(t2.o3)for(const c0 in t2.o3)t2.o3[c0]=t2.o3[c0].filter(k=>!ks.has(k)); }); }   // 舊位置（含客座）一律清掉
             const arr2=arr.filter(e=>!inMem(e)), at=before?arr2.findIndex(e=>same(e,before)):-1;
@@ -11313,6 +11350,8 @@ function render(){
                 if(ev.clientY>=rc.top-6&&ev.clientY<=rc.bottom+6&&ev.clientX<rc.left+rc.width/2&&arr2.includes(c.dataset.id)){before=c.dataset.id;break;}}
             }
             { let k=before!=null?arr2.indexOf(before):-1; while(k>=0&&k<arr2.length&&mem.includes(arr2[k]))k++; before=k>=0&&k<arr2.length?arr2[k]:null; }
+            if(link!=null){ const tg=lk[lkL(L,link)]; mem.forEach(x=>{ const lo=TB.lo=TB.lo||{}; if(srcL&&srcL!==L&&lo[lkL(srcL,x)]){ lo[lkL(L,x)]=lo[lkL(srcL,x)]; delete lo[lkL(srcL,x)]; } else recO(lkL(L,x),srcL||L); });
+              (tg!=null?arr2.filter(x=>lk[lkL(L,x)]===tg):[link]).forEach(x=>recO(lkL(L,x))); }
             mem.forEach(x=>{ if(srcL&&srcL!==L)takeLaneOne(x,srcL); takeLaneOne(x,L); if(srcL)delete lk[lkL(srcL,x)]; }); // 目標路線一律去重：同一路線最多一份（不同階也不重複）
             const at=before!=null&&arr2.indexOf(before)>=0?arr2.indexOf(before):arr2.length;
             arr2.splice(at,0,...mem);
@@ -11342,6 +11381,7 @@ function render(){
               if(ev.clientY>=rc.top&&ev.clientY<=rc.bottom&&ev.clientX<rc.left+rc.width/2){const e=arr.find(x=>x.id===c.dataset.id&&x.lane===(c.dataset.plane||""));if(e){before=e;break;}}}
           }
           { let k=before?arr.indexOf(before):-1; while(k>=0&&k<arr.length&&inMem(arr[k]))k++; before=k>=0&&k<arr.length?arr[k]:null; }
+          if(link){ const tg=lk[lkM(link)]; [...mem,...(tg!=null?arr.filter(e=>lk[lkM(e)]===tg):[link])].forEach(e=>recO(lkM(e))); }
           mem.forEach(e=>{ takeMixOne(e.id,e.lane); delete lk[lkM(e)]; });
           const ins=mem.map(e=>({id:e.id,lane:e.lane||""}));
           const at=before&&arr.indexOf(before)>=0?arr.indexOf(before):arr.length;
