@@ -8274,6 +8274,8 @@ const PLAT_DISP={kr:"KR",euw1:"EUW",eun1:"EUNE",na1:"NA",br1:"BR",jp1:"JP",la1:"
 const platDisp=p=>PLAT_DISP[p]||String(p||"").toUpperCase();
 const OGG_REGION={kr:"kr",euw1:"euw",eun1:"eune",na1:"na",br1:"br",jp1:"jp",la1:"lan",la2:"las",oc1:"oce",tr1:"tr",ru:"ru",vn2:"vn",tw2:"tw",sg2:"sg",ph2:"ph",th2:"th"};
 const oggUrl=(plat,rid)=>{const reg=OGG_REGION[plat]||plat||"kr"; const s=String(rid||"").split("#"); return `https://www.op.gg/summoners/${reg}/${encodeURIComponent(s[0]||"")}-${encodeURIComponent(s[1]||"")}`;}; // 帳號→op.gg
+// 小數一位、尾數 .0 不寫（使用者 2026-10-21：小框 KDA 15.0 → 15）
+const fx1=v=>{ const t=(+v||0).toFixed(1); return t.endsWith(".0")?t.slice(0,-2):t; };
 const dpmUrl=(plat,rid)=>{const s=String(rid||"").split("#"); return `https://dpm.lol/${encodeURIComponent(s[0]||"")}-${encodeURIComponent(s[1]||"")}`;}; // 帳號→DPM(逐場/評分/英雄池資料來源，以尊重標註)
 const soloqScore=p=>{ if(!p||!p.found||!p.tier)return -1; const t=TIER_ORD[p.tier]||0;
   return t*100000 + (t>=8?(p.lp||0):((DIV_V[p.division]||0)*1000+(p.lp||0))); }; // 大師以上無分段，直接吃 LP
@@ -10993,7 +10995,7 @@ function render(){
       const r=get(lane||"ALL")[id]||get(lane||"ALL",1)[id]; if(!r)return null;
       const wl=String(r["勝-敗"]||"").split("-"), gd=r["金差@15"];
       const rt=r.評分==null?null:Math.min(100,r.評分+flexB(id));   // 錯位加分（同 tierPro）
-      return {rt, _n:r.場數||0, g:wlS(r.場數,+wl[0]||0), wr:pct(r.勝率), kda:(r.KDA||0).toFixed(1), gd:gd==null?null:(gd>0?"+":"")+Math.round(gd),
+      return {rt, _n:r.場數||0, g:wlS(r.場數,+wl[0]||0), wr:pct(r.勝率), kda:fx1(r.KDA), gd:gd==null?null:(gd>0?"+":"")+Math.round(gd),
               _v:{rt,wr:r.勝率,kda:r.KDA,gd}, _P:sqPool(lane).P}; };
     const tipOf=(id,lane)=>{const c=cnt[id]||{p:0,b:0};
       const _src=V.tierSrc||"mix", wantPro=_src!=="soloq", wantSq=_src!=="match";   // 積分模式＝只列積分、比賽模式＝只列比賽、混合＝兩欄
@@ -11019,7 +11021,7 @@ function render(){
           if(br)bp=Math.round(br["BP%"]*100)+"%";
           const tp=rw?tierPro(rw,lane):(br?tierPro(br,lane||banLaneOf(id)):null);
           pro={rt:softCap(tp), g:wlS(n,w)+(lane&&!singleLane?`<span class="tgS">${LANG==="en"?"all":"全"} ${c.p}</span>`:""),
-               wr:rw?pct(rw.勝率):null, kda:rw?(rw.KDA||0).toFixed(1):null, gd:gd15==null?null:(gd15>0?"+":"")+Math.round(gd15), bp,
+               wr:rw?pct(rw.勝率):null, kda:rw?fx1(rw.KDA):null, gd:gd15==null?null:(gd15>0?"+":"")+Math.round(gd15), bp,
                _v:rw?{rt:softCap(tp),wr:rw.勝率,kda:rw.KDA,gd:gd15,bp:TT?null:rw["BP%"]}:{gd:gd15,rt:softCap(tp),bp:br?br["BP%"]:null}, _P:PP.P};   // 戰隊篩選時 BP% 另有「跟一般比」的紅綠，不再用比較池
         }
       }
@@ -11048,7 +11050,7 @@ function render(){
         const tg=GAMES.filter(o=>inG(o)&&(!TT||o.raw[C.blue_teamname]===TT||o.raw[C.red_teamname]===TT)).length;
         const bn=((cnt[a.id]||{}).b||0)+((cnt[b.id]||{}).b||0);   // 被禁＝兩隻相加；BP%＝(出場＋被禁)÷局數
         const prt=ra&&rb?(ra[0]*ra[1]+rb[0]*rb[1])/Math.max(1,ra[1]+rb[1]):null, pkd=n?kdaOf(ka[0]+kb[0],ka[1]+kb[1],ka[2]+kb[2]):null;
-        pro={_v:{rt:softCap(prt),wr:n?w/n:null,kda:pkd,gd:pgd,bp:tg?(n+bn)/tg:null}, _P:joinP(proPool(a.lane).P,proPool(b.lane).P), rt:prt, g:wlS(n,w), wr:n?pct(w/n):null, kda:n?kdaOf(ka[0]+kb[0],ka[1]+kb[1],ka[2]+kb[2]).toFixed(1):null,
+        pro={_v:{rt:softCap(prt),wr:n?w/n:null,kda:pkd,gd:pgd,bp:tg?(n+bn)/tg:null}, _P:joinP(proPool(a.lane).P,proPool(b.lane).P), rt:prt, g:wlS(n,w), wr:n?pct(w/n):null, kda:n?fx1(kdaOf(ka[0]+kb[0],ka[1]+kb[1],ka[2]+kb[2])):null,
              gd:pgd==null?null:(pgd>0?"+":"")+Math.round(pgd), bp:tg?Math.round((n+bn)/tg*100)+"%":null}; if(pro.rt!=null)pro.rt=softCap(pro.rt); }
       let sq=null;
       // 積分：逐場積分（SOLOQ_CHGAMES，第 15 欄＝隊友英雄）裡 A 在這一路且隊友是 B（或反過來）；版本／只算出賽選手同目前篩選；同場只算一次
@@ -11066,7 +11068,7 @@ function render(){
             if(pn&&!pn.has(String(r[1]||"").split("|").slice(1).join("|").toLowerCase()))return; G.set(r[0],!!r[3]);
             T[0]+=+r[4]||0; T[1]+=+r[5]||0; T[2]+=+r[6]||0; if(r[9]!=null){gd[0]++; gd[1]+=+r[9]||0;} }));
           const n=G.size, w=[...G.values()].filter(Boolean).length, g15=gd[0]?gd[1]/gd[0]:null;
-          sq={rt:sAvg, g:wlS(n,w), wr:n?pct(w/n):null, kda:n?kdaOf(...T).toFixed(1):null, gd:g15==null?null:(g15>0?"+":"")+Math.round(g15),
+          sq={rt:sAvg, g:wlS(n,w), wr:n?pct(w/n):null, kda:n?fx1(kdaOf(...T)):null, gd:g15==null?null:(g15>0?"+":"")+Math.round(g15),
               _v:{rt:sAvg,wr:n?w/n:null,kda:n?kdaOf(...T):null,gd:g15}, _P:joinP(sqPool(a.lane).P,sqPool(b.lane).P)}; } }
       // 這個組合 0 場＝那一欄整欄不顯示（使用者 2026-10-20：0 場卻有評分是錯的；評分是兩隻各自評分的加權，沒一起打過就不該出現）
       //   比賽例外（使用者 2026-10-20）：比賽還有 BAN（BP%），兩隻有評分或有被禁就保留整欄
@@ -16609,8 +16611,8 @@ function render(){
             const fpTag=useSide?(en?(sideInfo.isFirst?" (FP)":" (SP)"):(sideInfo.isFirst?"(先選)":"(後選)")):"";
             const bpLbl=(effTeam?(en?"Team BP%":"戰隊BP%"):"BP%")+fpTag;
             return en
-              ?`<div class="tipRow"><div>Games <span class="num">${row.場數}</span>｜Win% <span class="num">${Math.round((row.勝率||0)*100)}%</span> (${esc(row["勝-敗"]||"")})</div><div>${bpLbl} ${bpNum}${bpBrk}</div><div>KDA <span class="num">${(row.KDA||0).toFixed(1)}</span>｜Rating <span class="num">${row.評分}</span></div></div>`
-              :`<div class="tipRow"><div>出場 <span class="num">${row.場數}</span> 場｜勝率 <span class="num">${Math.round((row.勝率||0)*100)}%</span> (${esc(row["勝-敗"]||"")})</div><div>${bpLbl} ${bpNum}${bpBrk}</div><div>KDA <span class="num">${(row.KDA||0).toFixed(1)}</span>｜評分 <span class="num">${row.評分}</span></div></div>`;
+              ?`<div class="tipRow"><div>Games <span class="num">${row.場數}</span>｜Win% <span class="num">${Math.round((row.勝率||0)*100)}%</span> (${esc(row["勝-敗"]||"")})</div><div>${bpLbl} ${bpNum}${bpBrk}</div><div>KDA <span class="num">${fx1(row.KDA)}</span>｜Rating <span class="num">${row.評分}</span></div></div>`
+              :`<div class="tipRow"><div>出場 <span class="num">${row.場數}</span> 場｜勝率 <span class="num">${Math.round((row.勝率||0)*100)}%</span> (${esc(row["勝-敗"]||"")})</div><div>${bpLbl} ${bpNum}${bpBrk}</div><div>KDA <span class="num">${fx1(row.KDA)}</span>｜評分 <span class="num">${row.評分}</span></div></div>`;
           };
           // 有選該隊＝看該隊；沒選、或該隊沒用過這隻＝退回目前數據範圍（全部隊伍）。BAN 的「該隊」＝對手（禁用是為了防對手選）
           const srcTeam=team||"";
@@ -17849,13 +17851,13 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
         return tipHd(c,res,sc,sub)
           +(o?tipRow(en?"Lane opp.":"對位",`${champIco(o,20)}${esc(chName(champId(o)))}`):"")
           +(opT?tipRow(en?"Opponent":"對手",`${teamLogoHTML(teamFix(opT[0]),18,true)}<b>${esc(opT[1]||"")}</b>`):"")
-          +tipRow("KDA",`<b>${k||0} / ${d||0} / ${a||0}</b> <span class="meta">(${kda.toFixed(1)})</span>`)
+          +tipRow("KDA",`<b>${k||0} / ${d||0} / ${a||0}</b> <span class="meta">(${fx1(kda)})</span>`)
           +tipRow(en?"Gold diff @15":"金差@15",gdV(gd15))
           +(cfg?tipRow(en?"Build":"配置",cfg):""); };
       const aggTip=e=>{ const wr=Math.round(e.w/e.n*100);
         const sub=`${e.n}${en?" games":" 場"} · <b style="color:var(--tx)">${e.w}-${e.n-e.w}</b> (${wr}%)`;
         return tipHd(e.c,"",e.sn?e.ss/e.sn:null,sub)
-          +tipRow("KDA",`<b>${(e.k/e.n).toFixed(1)} / ${(e.d/e.n).toFixed(1)} / ${(e.a/e.n).toFixed(1)}</b> <span class="meta">(${((e.k+e.a)/Math.max(1,e.d)).toFixed(1)})</span>`)
+          +tipRow("KDA",`<b>${fx1(e.k/e.n)} / ${fx1(e.d/e.n)} / ${fx1(e.a/e.n)}</b> <span class="meta">(${fx1((e.k+e.a)/Math.max(1,e.d))})</span>`)
           +tipRow(e.gn===1?(en?"Gold diff @15":"金差@15"):(en?"Avg gold diff @15":"平均金差@15"),e.gn?gdV(Math.round(e.gs/e.gn)):`<span class="meta">—</span>`)
           +(e.op&&e.op.size?tipRow(en?"Lane opp.":"對位",`<span style="display:inline-flex;align-items:center;gap:4px">${[...e.op].sort((x,y)=>y[1]-x[1]).slice(0,3).map(([c2])=>champIco(c2,TIP_AGG_ICO)).join("")}</span>`):"")
           +(e.ru&&e.ru.size?tipRow(en?"Runes":"符文",`<span style="display:inline-flex;align-items:center;gap:7px;margin-right:3px">${[...e.ru].sort((x,y)=>y[1]-x[1]).slice(0,3).map(([k2])=>{ const [r1,r2]=k2.split("|"); return runeKS({r:r1,rs:[r2]},TIP_AGG_ICO); }).join("")}</span>`):"")   /* 用最多的前三組（使用者 2026-10-19） */ };
