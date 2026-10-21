@@ -1120,6 +1120,13 @@ def main():
             k = (p.get("team"), p.get("player"))
             if k not in seen_now and k not in unknown:
                 unknown.append(k)
+        # 有「帳號存在但沒單雙排牌位」（noRank：還沒定位／這季沒打滿）的人也放進 unknown：那個帳號打了也不會改 W/L，
+        # 只看其他有牌位的帳號會誤判成沒打（使用者 2026-10-21：TES 369 美服集訓新號 godrjs#gktpd 打了沒抓到——韓服牌位沒動
+        # ⇒ 整個人被當成沒打、逐場跳過）。逐場那支仍用 acc_static 跳過牌位沒動的帳號，多問的只有這些 noRank 帳號
+        for p in out:
+            k = (p.get("team"), p.get("player"))
+            if p.get("noRank") and k not in unknown and k not in played:
+                unknown.append(k)
         # 逐帳號靜止名單只在真正全掃時才可信：--active／--failed 的 out 混著上一版沒重掃的列，比出來全是「沒動」
         acc_static = [] if any(f in sys.argv for f in ("--active", "--failed")) else acc_static_keys(prev_players, out)
         io.open(os.path.join(HERE, "soloq_played.json"), "w", encoding="utf-8").write(
