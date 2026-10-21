@@ -11105,14 +11105,13 @@ function render(){
         const sum=k=>both.reduce((t,g)=>[t[0]+g[k][0],t[1]+g[k][1],t[2]+g[k][2]],[0,0,0]);
         const gds=both.flatMap(g=>[g.a[3],g.b[3]]).filter(v=>isFinite(v)), pgd=gds.length?gds.reduce((x,y)=>x+y,0)/gds.length:null;   // 金差@15＝兩隻各自的平均
         const ka=sum("a"), kb=sum("b");
-        const rOf=e=>{ const rw=cHL(e.lane).find(x=>champId(x._full)===e.id); if(rw)return [tierPro(rw,e.lane),rw.場數||0];
-          if(banOnly(e.id)){ const b2=banRow(e.id,e.lane); return b2?[tierPro(b2,e.lane),0]:null; } return null; };   // 評分＝分階用的那份（max(評分, 禁用分)）
+        const rOf=e=>{ const rw=cHL(e.lane).find(x=>champId(x._full)===e.id); if(rw)return [tierPro(rw,e.lane),rw.場數||0,rw["BP%"]||0];
+          if(banOnly(e.id)){ const b2=banRow(e.id,e.lane); return b2?[tierPro(b2,e.lane),0,b2["BP%"]||0]:null; } return null; };   // 評分＝分階用的那份（max(評分, 禁用分)）
         const ra=rOf(a), rb=rOf(b);   // 比賽評分同樣用場數加權
-        const tg=GAMES.filter(o=>inG(o)&&(!TT||o.raw[C.blue_teamname]===TT||o.raw[C.red_teamname]===TT)).length;
-        const bn=((cnt[a.id]||{}).b||0)+((cnt[b.id]||{}).b||0);   // 被禁＝兩隻相加；BP%＝(出場＋被禁)÷局數
+        const pbp=ra&&rb?(ra[2]+rb[2])/2:null;   // BP%＝兩隻各自 BP% 的平均（使用者 2026-10-22：7%＋8% 合併後變 4% 不對；原本是「一起出場＋被禁」÷局數）
         const prt=ra&&rb?(ra[0]*ra[1]+rb[0]*rb[1])/Math.max(1,ra[1]+rb[1]):null, pkd=n?kdaOf(ka[0]+kb[0],ka[1]+kb[1],ka[2]+kb[2]):null;
-        pro={_v:{rt:softCap(prt),wr:n?w/n:null,kda:pkd,gd:pgd,bp:tg?(n+bn)/tg:null}, _P:joinP(proPool(a.lane).P,proPool(b.lane).P), rt:prt, g:wlS(n,w), wr:n?pct(w/n):null, kda:n?fx1(kdaOf(ka[0]+kb[0],ka[1]+kb[1],ka[2]+kb[2])):null,
-             gd:pgd==null?null:(pgd>0?"+":"")+Math.round(pgd), bp:tg?Math.round((n+bn)/tg*100)+"%":null}; if(pro.rt!=null)pro.rt=softCap(pro.rt); }
+        pro={_v:{rt:softCap(prt),wr:n?w/n:null,kda:pkd,gd:pgd,bp:pbp}, _P:joinP(proPool(a.lane).P,proPool(b.lane).P), rt:prt, g:wlS(n,w), wr:n?pct(w/n):null, kda:n?fx1(kdaOf(ka[0]+kb[0],ka[1]+kb[1],ka[2]+kb[2])):null,
+             gd:pgd==null?null:(pgd>0?"+":"")+Math.round(pgd), bp:pbp==null?null:Math.round(pbp*100)+"%"}; if(pro.rt!=null)pro.rt=softCap(pro.rt); }
       let sq=null;
       // 積分：逐場積分（SOLOQ_CHGAMES，第 15 欄＝隊友英雄）裡 A 在這一路且隊友是 B（或反過來）；版本／只算出賽選手同目前篩選；同場只算一次
       //   ⚠ 逐場檔只留每隻英雄最近 100 場；評分＝兩隻各自那一路的積分評分平均
