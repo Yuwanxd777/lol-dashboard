@@ -17787,10 +17787,12 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
       const _DG=[], _DA=[];   // 這次畫出來的每一場／統計模式每一格（英雄圖滑過的小框照 data-gi／data-ga 取）
       const chip=(c,w,g)=>`<span class="dlyChip${w?" w":" ls"}"${g?` data-gi="${_DG.push(g)-1}"`:""}><img loading="lazy" data-cid="${champId(c)}" data-fbmode="hide" onerror="champImgFb(this)" src="${chIcoUrl(yearVer(),champId(c))}" alt=""></span>`;   /* 不用 champIco：它的行內 width 會蓋掉格子寬（2026-10-18 圖疊在一起） */
       // 積分（牌位＋LP）：大師以上直接看 LP，其餘顯示段位；抓不到帳號顯示 —
-      const rankTag=(pl,lpd)=>{ if(!pl.tier||pl.found===false)return `<span class="dlyTier" style="opacity:.32">—</span>`;
+      const rankTag=(pl,lpd)=>{ if(!pl.tier||pl.found===false)return pl.riotId?`<a class="dlyTier" href="${esc(dpmUrl("",pl.riotId))}" target="_blank" rel="noopener" title="${en?"Open on DPM":"在 DPM 開啟"}：${esc(pl.riotId)}" style="opacity:.32;color:inherit;text-decoration:none;cursor:pointer">—</a>`:`<span class="dlyTier" style="opacity:.32">—</span>`;
         const t=tierLabel({tier:pl.tier,division:pl.division});
         // 牌位後括號＝範圍內 LP 增減（使用者 2026-10-18：菁英2314(+88)）；顏色同牌位（使用者同日改）
-        return `<span class="dlyTier" style="color:${TIER_COL[pl.tier]||"var(--tx2)"}">${esc(t)}${pl.lp!=null?`<i class="num">${pl.lp}</i>`:""}${lpd!==undefined?`<i class="num lpd">(${lpd==null?"–":(lpd>0?"+":"")+lpd})</i>`:""}</span>`; };
+        const inner=`${esc(t)}${pl.lp!=null?`<i class="num">${pl.lp}</i>`:""}${lpd!==undefined?`<i class="num lpd">(${lpd==null?"–":(lpd>0?"+":"")+lpd})</i>`:""}`;
+        return pl.riotId?`<a class="dlyTier" href="${esc(dpmUrl("",pl.riotId))}" target="_blank" rel="noopener" title="${en?"Open on DPM":"在 DPM 開啟"}：${esc(pl.riotId)}" style="color:${TIER_COL[pl.tier]||"var(--tx2)"};text-decoration:none;cursor:pointer">${inner}</a>`   // 點牌位＝開該帳號 DPM（使用者 2026-10-21）
+          :`<span class="dlyTier" style="color:${TIER_COL[pl.tier]||"var(--tx2)"}">${inner}</span>`; };
       const teamCard=ab=>{
         const pls=teams[ab].slice().sort((x,y)=>((ROLE_ORD[x.role]==null?9:ROLE_ORD[x.role])-(ROLE_ORD[y.role]==null?9:ROLE_ORD[y.role]))||String(x.player).localeCompare(String(y.player)));
         const lg=primaryLg(ab), col=lg?(LGC[lg]||"var(--tx2)"):"var(--tx2)"; const grp=(lg==="LPL"&&!_RS.some(l=>CUP_LGS.includes(l)))?lplSplitGroupOf(ab,curYear,lplSel):null; /* 篩國際賽不寫 LPL 分組（使用者 2026-10-18：都是季後賽打上來的） */ let gw=0,gn=0;
@@ -17800,7 +17802,7 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
           gw+=ag.w; gn+=ag.n; let _lpApi=null;
           // 牌位＝範圍內實際用過的帳號：一隻就列那隻、兩隻以上列最高的（使用者 2026-10-18）；對不到帳號照舊（全部帳號中最高）
           { const nk2=pl.club+"|"+pl.player, cand=(accByNk[nk2]||[]).filter(x=>ag.rids.has(String(x.riotId||"").replace(/\s+/g,"").toLowerCase()));
-            if(cand.length){ const best=cand.reduce((m,x)=>x._sc>m._sc?x:m); pl={...pl,tier:best.tier,division:best.division,lp:best.lp,found:best.found}; }
+            if(cand.length){ const best=cand.reduce((m,x)=>x._sc>m._sc?x:m); pl={...pl,riotId:best.riotId||pl.riotId,tier:best.tier,division:best.division,lp:best.lp,found:best.found}; }
             // 範圍增減＝結束那天 10:00 的 API 分數 − 開始那天 10:00 的分數（範圍內玩過的帳號加總）；缺快照（新帳號）才退回逐場推算
             const H=window.SOLOQ_LP_HIST; if(H&&cand.length){ const iE=H.dates.indexOf(genDay), iS=H.dates.indexOf(addDay(genDay,-rng));
               if(iE>=0&&iS>=0){ let t=0,ok=0; cand.forEach(x=>{ const a=H.acc[String(x.riotId||"").replace(/\s+/g,"").toLowerCase()]; if(a&&a[iE]!=null&&a[iS]!=null){ t+=a[iE]-a[iS]; ok++; } }); if(ok)_lpApi=t; } } }
@@ -17828,7 +17830,10 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
       const SRVNM={kr:["韓服","KR"],na1:["美服","NA"],euw1:["歐服","EUW"],eun1:["東北歐服","EUNE"],br1:["巴西服","BR"],jp1:["日服","JP"],tw2:["台服","TW"],vn2:["越服","VN"],oc1:["大洋洲服","OCE"],la1:["北拉服","LAN"],la2:["南拉服","LAS"],tr1:["土服","TR"],ru:["俄服","RU"],sg2:["新加坡服","SG"],me1:["中東服","ME"]};
       const _srvAll={}; SD.players.forEach(p=>{ [p.riotId,p.curId].forEach(r=>{ if(r)_srvAll[_nrid(r)]=String(p.platform||"").toLowerCase(); }); });
       const srvNm=rid=>{ const v=_srvAll[_nrid(rid)]; return v?((SRVNM[v]||[v.toUpperCase(),v.toUpperCase()])[en?1:0]):""; };
-      const tipRow=(lb,v)=>`<div style="display:flex;justify-content:space-between;align-items:center;gap:18px;height:${TIP_ROW}px"><span class="meta">${lb}</span><span style="display:inline-flex;align-items:center;gap:4px">${v}</span></div>`;
+      // 標籤跟數據要水平（使用者 2026-10-21）：文字列＝底線對齊、兩邊行高都等於列高（框置中時字級不同底線就不同，2560 寬實測差 1～1.5px）；有圖示的列才置中
+      const tipRow=(lb,v)=>/<img/.test(v)
+        ?`<div style="display:flex;justify-content:space-between;align-items:center;gap:18px;height:${TIP_ROW}px"><span class="meta">${lb}</span><span style="display:inline-flex;align-items:center;gap:4px">${v}</span></div>`
+        :`<div style="display:flex;justify-content:space-between;align-items:baseline;gap:18px;height:${TIP_ROW}px;line-height:${TIP_ROW}px"><span class="meta">${lb}</span><span>${v}</span></div>`;
       const tipHd=(c,mid,sc,sub)=>`<div class="tipTitle" style="display:flex;align-items:center;gap:8px">${champIco(c,30)}<b>${esc(chName(champId(c)))}</b>${mid}`
         +(sc!=null?`<span style="margin-left:auto;padding-left:14px;text-align:right;line-height:1"><b class="num" style="font-size:22px;color:${scoreCol7(sc)}">${Math.round(sc*10)/10}</b></span>`:"")+`</div>`
         +(sub?`<div class="meta" style="font-size:12px;margin:-2px 0 4px;text-align:right">${sub}</div>`:"");
@@ -17852,8 +17857,8 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
         return tipHd(e.c,"",e.sn?e.ss/e.sn:null,sub)
           +tipRow("KDA",`<b>${(e.k/e.n).toFixed(1)} / ${(e.d/e.n).toFixed(1)} / ${(e.a/e.n).toFixed(1)}</b> <span class="meta">(${((e.k+e.a)/Math.max(1,e.d)).toFixed(1)})</span>`)
           +tipRow(e.gn===1?(en?"Gold diff @15":"金差@15"):(en?"Avg gold diff @15":"平均金差@15"),e.gn?gdV(Math.round(e.gs/e.gn)):`<span class="meta">—</span>`)
-          +(e.ru&&e.ru.size?tipRow(en?"Runes":"符文",`<span style="display:inline-flex;align-items:center;gap:7px;margin-right:3px">${[...e.ru].sort((x,y)=>y[1]-x[1]).slice(0,3).map(([k2])=>{ const [r1,r2]=k2.split("|"); return runeKS({r:r1,rs:[r2]},TIP_AGG_ICO); }).join("")}</span>`):"")   /* 用最多的前三組（使用者 2026-10-19） */
-          +(e.op&&e.op.size?tipRow(en?"Lane opp.":"對位",`<span style="display:inline-flex;align-items:center;gap:4px">${[...e.op].sort((x,y)=>y[1]-x[1]).slice(0,3).map(([c2])=>champIco(c2,TIP_AGG_ICO)).join("")}</span>`):""); };
+          +(e.op&&e.op.size?tipRow(en?"Lane opp.":"對位",`<span style="display:inline-flex;align-items:center;gap:4px">${[...e.op].sort((x,y)=>y[1]-x[1]).slice(0,3).map(([c2])=>champIco(c2,TIP_AGG_ICO)).join("")}</span>`):"")
+          +(e.ru&&e.ru.size?tipRow(en?"Runes":"符文",`<span style="display:inline-flex;align-items:center;gap:7px;margin-right:3px">${[...e.ru].sort((x,y)=>y[1]-x[1]).slice(0,3).map(([k2])=>{ const [r1,r2]=k2.split("|"); return runeKS({r:r1,rs:[r2]},TIP_AGG_ICO); }).join("")}</span>`):"")   /* 用最多的前三組（使用者 2026-10-19） */ };
       box.onmouseover=e=>{ const el=e.target.closest&&e.target.closest(".dlyChip[data-gi],.dlyChip[data-ga]"); if(!el||el===box._tipEl)return; box._tipEl=el;
         tipShow(el.dataset.ga!=null?aggTip(_DA[+el.dataset.ga]):dlyTip(_DG[+el.dataset.gi]),el.getBoundingClientRect()); };
       box.onmouseout=e=>{ const el=box._tipEl; if(el&&!(e.relatedTarget&&el.contains(e.relatedTarget))){ box._tipEl=null; tipHide(); } };
