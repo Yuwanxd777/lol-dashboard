@@ -31,10 +31,11 @@ def main():
     with sync_playwright() as p:
         b = p.chromium.launch()
         pg = b.new_page()
-        pg.goto(RAW, wait_until="domcontentloaded", timeout=60000)
+        resp = pg.goto(RAW, wait_until="domcontentloaded", timeout=60000)
+        status = resp.status if resp else 0
         lua = pg.inner_text("body")
         b.close()
-    print("raw module chars:", len(lua))
+    print("raw module chars:", len(lua), "HTTP", status)
 
     # 解析：每個區塊 ["Name"] = { ... ["date"] = "YYYY-MM-DD" ... }
     rel = {}
@@ -60,6 +61,18 @@ def main():
         if cid:
             rel[cid] = date
 
+    # 守門（2026-10-21 主對話迴圈 #1747）：wiki 維護時回 502＋一段 207 字的公告，解析出 0 隻，
+    # 舊版照樣把 {} 寫進 champ_release.js 並被推上線。來源異常或覆蓋率掉太多 ⇒ 保留舊檔不寫。
+    old = {}
+    try:
+        with open(OUT, encoding="utf-8") as f:
+            old = json.loads(f.read().strip()[len("window.CHAMP_RELEASE="):].rstrip(";\n "))
+    except Exception:
+        pass
+    if status != 200 or len(rel) < 0.9 * len(ids) or len(rel) < 0.9 * len(old):
+        print(f"⚠ 來源異常（HTTP {status}、解析 {len(rel)}/{len(ids)}、舊檔 {len(old)} 筆）⇒ 保留舊的 champ_release.js 不覆寫")
+        print("  頁首：", lua[:160].replace("\n", " "))
+        return
     payload = json.dumps(rel, ensure_ascii=False, sort_keys=True)
     with open(OUT, "w", encoding="utf-8") as f:
         f.write("window.CHAMP_RELEASE=" + payload + ";\n")
