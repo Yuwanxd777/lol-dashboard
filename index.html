@@ -8276,7 +8276,9 @@ const OGG_REGION={kr:"kr",euw1:"euw",eun1:"eune",na1:"na",br1:"br",jp1:"jp",la1:
 const oggUrl=(plat,rid)=>{const reg=OGG_REGION[plat]||plat||"kr"; const s=String(rid||"").split("#"); return `https://www.op.gg/summoners/${reg}/${encodeURIComponent(s[0]||"")}-${encodeURIComponent(s[1]||"")}`;}; // 帳號→op.gg
 // 小數一位、尾數 .0 不寫（使用者 2026-10-21：小框 KDA 15.0 → 15）
 const fx1=v=>{ const t=(+v||0).toFixed(1); return t.endsWith(".0")?t.slice(0,-2):t; };
-const dpmUrl=(plat,rid)=>{const s=String(rid||"").split("#"); return `https://dpm.lol/${encodeURIComponent(s[0]||"")}-${encodeURIComponent(s[1]||"")}`;}; // 帳號→DPM(逐場/評分/英雄池資料來源，以尊重標註)
+// 積分的 DPM 連結一律帶「單雙排＋路線」並直接到逐場（使用者 2026-10-21：?queue=solo&lane=top#matchHistory；lane 值＝dpm 的 top／jungle／middle／bottom／utility）
+const DPM_LANE={TOP:"top",JUNGLE:"jungle",JNG:"jungle",MIDDLE:"middle",MID:"middle",BOTTOM:"bottom",BOT:"bottom",UTILITY:"utility",SUP:"utility"};
+const dpmUrl=(plat,rid,role)=>{const s=String(rid||"").split("#"), ln=DPM_LANE[String(role||"").toUpperCase()]; return `https://dpm.lol/${encodeURIComponent(s[0]||"")}-${encodeURIComponent(s[1]||"")}?queue=solo${ln?"&lane="+ln:""}#matchHistory`;}; // 帳號→DPM(逐場/評分/英雄池資料來源，以尊重標註)
 const soloqScore=p=>{ if(!p||!p.found||!p.tier)return -1; const t=TIER_ORD[p.tier]||0;
   return t*100000 + (t>=8?(p.lp||0):((DIV_V[p.division]||0)*1000+(p.lp||0))); }; // 大師以上無分段，直接吃 LP
 const tierLabel=p=>{ if(!p||!p.tier)return "—"; const nm=(LANG==="en"?TIER_EN:TIER_ZH)[p.tier]||p.tier;
@@ -17403,7 +17405,7 @@ function render(){
       if(!acctsShow.length)acctsShow=accts;
       const acctChips=acctsShow.map(ac=>{
         const tl=ac.found&&ac.tier?`<span style="color:${TIER_COL[ac.tier]||""};font-weight:600">${esc(tierLabel(ac))}${ac.lp!=null?" "+ac.lp:""}</span>`:`<span class="meta">${en?"unranked":"未定位"}</span>`;
-        return `<span class="acctChip"><span class="meta">${esc(platDisp(ac.platform))}</span> <a href="${dpmUrl(ac.platform,ac.riotId)}" target="_blank" rel="noopener" class="acctLink">${esc(ac.riotId)}</a> ${tl}</span>`;
+        return `<span class="acctChip"><span class="meta">${esc(platDisp(ac.platform))}</span> <a href="${dpmUrl(ac.platform,ac.riotId,role)}" target="_blank" rel="noopener" class="acctLink">${esc(ac.riotId)}</a> ${tl}</span>`;
       }).join("");
 const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按「顯示更多」展開
       main.innerHTML=`<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px">
@@ -17421,7 +17423,7 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
           ${(V.rankGChamp||V.rankGOpp||V.rankGVs)?`<button id="gClrF" class="sqLaneBtn">${en?"clear":"清除"}</button>`:""}
 </div>
         ${distinctLanes>1?`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">${LKEYS.map(([k,zh,eng])=>{const n=k?(laneCounts[k]||0):allG.length; if(k&&!n)return ""; return `<button class="sqLaneBtn${lf===k?" on":""}" data-lane="${k}">${en?eng:zh} <span class="meta">${n}</span></button>`;}).join("")}</div>`:""}
-        <div class="card"><h2 style="font-size:16.5px">📋 ${en?"Solo/Duo games":"單雙積分逐場"} <span class="meta" style="font-size:12px">${en?`showing ${show} / ${games.length}`:`顯示 ${show} / ${games.length} 場`}</span> <span class="sub" style="font-size:12px">${en?"newest first · main role only · hover items for build order":"最新在上 · 只收職業路線 · 滑裝備看出裝順序"}</span> <span class="sub" style="font-size:12px">·&nbsp;${en?"data from":"資料來源"} <a href="${dpmUrl(pl.platform,pl.riotId)}" target="_blank" rel="noopener" style="color:var(--acc)">dpm.lol</a></span></h2>
+        <div class="card"><h2 style="font-size:16.5px">📋 ${en?"Solo/Duo games":"單雙積分逐場"} <span class="meta" style="font-size:12px">${en?`showing ${show} / ${games.length}`:`顯示 ${show} / ${games.length} 場`}</span> <span class="sub" style="font-size:12px">${en?"newest first · main role only · hover items for build order":"最新在上 · 只收職業路線 · 滑裝備看出裝順序"}</span> <span class="sub" style="font-size:12px">·&nbsp;${en?"data from":"資料來源"} <a href="${dpmUrl(pl.platform,pl.riotId,role)}" target="_blank" rel="noopener" style="color:var(--acc)">dpm.lol</a></span></h2>
         ${games.length?sqHead+games.slice(0,show).map(card).join(""):`<div class="note">${en?"No solo/duo games collected for this player yet.":"這位選手還沒有蒐集到單雙積分逐場資料。"}</div>`}
         ${show<games.length?`<div style="display:flex;gap:10px;justify-content:center;margin-top:12px"><button id="sqMore" class="sqMoreBtn">${en?"Show more (+100)":"顯示更多（＋100）"}</button><button id="sqAll" class="sqMoreBtn">${en?`Show all (${games.length})`:`全部展開（${games.length}）`}</button></div>`:""}</div>`;
       bindBack();
@@ -17666,7 +17668,7 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
         {k:"last10",lb:LANG==="en"?"Last 10 champs":"最近十場",sort:false,cell:r=>{const l=r._last10||[]; if(!l.length)return `<span class="meta">—</span>`;
           return `<span class="soloChamps" data-rid="${esc(r.riotId)}" style="display:inline-flex;gap:2px;flex-wrap:nowrap">${l.map(c=>champIco(c,24)).join("")}</span>`;}},
         {k:"platform",lb:LANG==="en"?"Server":"伺服器",sv:r=>r.platform||"",cell:r=>`<span class="meta">${esc(platDisp(r.platform))}</span>`},
-        {k:"帳號",lb:LANG==="en"?"Account":"帳號",sort:false,cell:r=>r.riotId?`<a href="${dpmUrl(r.platform,r.riotId)}" target="_blank" rel="noopener" class="acctLink" style="display:inline-block;max-width:100%;white-space:normal;word-break:break-word;font-size:12px;line-height:1.35">${esc(r.riotId)}</a>`:""},
+        {k:"帳號",lb:LANG==="en"?"Account":"帳號",sort:false,cell:r=>r.riotId?`<a href="${dpmUrl(r.platform,r.riotId,r._role)}" target="_blank" rel="noopener" class="acctLink" style="display:inline-block;max-width:100%;white-space:normal;word-break:break-word;font-size:12px;line-height:1.35">${esc(r.riotId)}</a>`:""},
         {k:"_lt",lb:LANG==="en"?"Last game":"最近積分",sv:r=>r._lt,cell:r=>{if(!r._lt)return `<span class="meta">—</span>`; const d=new Date(r._lt);
           const hot=Date.now()-r._lt<24*3600*1000; // 近一天才亮黃，其餘白字（使用者指定）
           return `<span style="color:${hot?"#ffd60a":"var(--tx)"}">${d.getMonth()+1}/${d.getDate()}</span>`;}}
@@ -17790,7 +17792,7 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
       const chip=(c,w,g)=>`<span class="dlyChip${w?" w":" ls"}"${g?` data-gi="${_DG.push(g)-1}"`:""}><img loading="lazy" data-cid="${champId(c)}" data-fbmode="hide" onerror="champImgFb(this)" src="${chIcoUrl(yearVer(),champId(c))}" alt=""></span>`;   /* 不用 champIco：它的行內 width 會蓋掉格子寬（2026-10-18 圖疊在一起） */
       // 積分（牌位＋LP）：大師以上直接看 LP，其餘顯示段位；抓不到帳號顯示 —
       // 點牌位開 DPM：帶單雙排＋該選手路線、直接到逐場（使用者 2026-10-21：?queue=solo&lane=top#matchHistory；路線值＝dpm 的 top／jungle／middle／bottom／utility）
-      const dpmQ=pl=>dpmUrl("",pl.riotId)+"?queue=solo"+(pl.role&&ROLE_ORD[pl.role]!=null?"&lane="+String(pl.role).toLowerCase():"")+"#matchHistory";
+      const dpmQ=pl=>dpmUrl("",pl.riotId,pl.role);
       const rankTag=(pl,lpd)=>{ if(!pl.tier||pl.found===false)return pl.riotId?`<a class="dlyTier" href="${esc(dpmQ(pl))}" target="_blank" rel="noopener" title="${en?"Open on DPM":"在 DPM 開啟"}：${esc(pl.riotId)}" style="opacity:.32;color:inherit;text-decoration:none;cursor:pointer">—</a>`:`<span class="dlyTier" style="opacity:.32">—</span>`;
         const t=tierLabel({tier:pl.tier,division:pl.division});
         // 牌位後括號＝範圍內 LP 增減（使用者 2026-10-18：菁英2314(+88)）；顏色同牌位（使用者同日改）
