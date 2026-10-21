@@ -11005,6 +11005,34 @@ function render(){
       const rt=r.評分==null?null:Math.min(100,r.評分+flexB(id));   // 錯位加分（同 tierPro）
       return {rt, _n:r.場數||0, g:wlS(r.場數,+wl[0]||0), wr:pct(r.勝率), kda:fx1(r.KDA), gd:gd==null?null:(gd>0?"+":"")+Math.round(gd),
               _v:{rt,wr:r.勝率,kda:r.KDA,gd}, _P:sqPool(lane).P}; };
+    // 選了戰隊、這一路該隊有兩人以上上過場（使用者 2026-10-21）：小框按選手分開列（比賽／積分各自一欄）；板子分階仍用全隊合計
+    const _plHov={}, _plGd={};
+    const sqHovOf=nm=>{ const k=String(nm).toLowerCase(); if(_plHov[k]!==undefined)return _plHov[k]; const PA=window.SOLOQ_PAGG; if(!PA||isHistYear())return _plHov[k]=null;
+      const pks=F.patch?[F.patch]:sqPks, out={};
+      for(const pk2 in PA){ if(String(pk2).split("|").slice(1).join("|").toLowerCase()!==k)continue;
+        const pv=PA[pk2]; for(const v in pv){ if(pks&&!pks.includes(v))continue;
+          for(const c in pv[v]){ const cid=champId(c)||c; for(const ln in pv[v][c]){ const a=((out[cid]=out[cid]||{})[ln]=out[cid][ln]||new Array(15).fill(0)); pv[v][c][ln].forEach((x,i)=>a[i]+=(+x||0)); } } } }
+      return _plHov[k]=out; };
+    const sqDataPl=(id,lane,nm)=>{ const h=sqHovOf(nm); if(!h||!h[id]||typeof calcHeroesSoloq!=="function")return null;
+      const key="PL|"+nm+"|"+lane; if(!SQTC[key]){ const m={}; calcHeroesSoloq(lane,sqPks,h,1).forEach(r2=>{m[r2._full]=r2;}); SQTC[key]=m; }
+      const r=SQTC[key][id]; if(!r||!r.場數)return null;
+      const wl=String(r["勝-敗"]||"").split("-"), gd=r["金差@15"], rt=r.評分==null?null:Math.min(100,r.評分+flexB(id));
+      return {rt, g:wlS(r.場數,+wl[0]||0), wr:pct(r.勝率), kda:fx1(r.KDA), gd:gd==null?null:(gd>0?"+":"")+Math.round(gd), _v:{rt,wr:r.勝率,kda:r.KDA,gd}, _P:sqPool(lane).P}; };
+    const proDataPl=(id,lane,nm)=>{ const rw=calcHeroes(lane,nm,TT).find(r=>champId(r._full)===id); if(!rw||!rw.場數)return null;
+      const pi=LANE5v.indexOf(lane)+1, gk=nm+"|"+lane;
+      if(!_plGd[gk]){ const acc={}; for(const o of LANES){ if(o.pid!==pi||!inG(o))continue; for(const sd of [0,1]){ if(o.raw[sd?C.red_teamname:C.blue_teamname]!==TT||o.raw[sd?C.red_playername:C.blue_playername]!==nm)continue;
+          const off=sd?RB:0, v=parseFloat(o.raw[C.blue_golddiffat15+off]); if(!isFinite(v))continue; const a2=acc[champId(o.raw[C.blue_champion+off])]=acc[champId(o.raw[C.blue_champion+off])]||[0,0]; a2[0]++; a2[1]+=v; } }
+        _plGd[gk]=acc; }
+      const g2=_plGd[gk][id], gd15=g2?g2[1]/g2[0]:null, n=rw.場數, w=Math.round((rw.勝率||0)*n), tp=softCap(tierPro(rw,lane));
+      return {rt:tp, g:wlS(n,w), wr:pct(rw.勝率), kda:fx1(rw.KDA), gd:gd15==null?null:(gd15>0?"+":"")+Math.round(gd15), bp:Math.round((rw["BP%"]||0)*100)+"%",
+              _v:{rt:tp,wr:rw.勝率,kda:rw.KDA,gd:gd15}, _P:proPool(lane).P}; };
+    const plCols=(id,lane,wantPro,wantSq)=>{ if(!TT||!lane)return null; const m=teamPl[LANE5v.indexOf(lane)+1]; if(!m||Object.keys(m).length<2)return null;
+      const both=wantPro&&wantSq, hd=(nm,s)=>esc(nm)+(both?`<br><span style="font-size:11px;color:#7a8aaa;font-weight:normal">${s}</span>`:"");
+      const cols=[]; Object.entries(m).sort((a,b)=>b[1]-a[1]).forEach(([nm])=>{
+        const p=wantPro?proDataPl(id,lane,nm):null, s=wantSq?sqDataPl(id,lane,nm):null; if(!p&&!s)return;
+        if(wantPro)cols.push({h:hd(nm,LANG==="en"?"Pro":"比賽"),d:p||{}});
+        if(wantSq)cols.push({h:hd(nm,LANG==="en"?"Ranked":"積分"),d:s||{}}); });
+      return cols.length?cols:null; };
     const tipOf=(id,lane)=>{const c=cnt[id]||{p:0,b:0};
       const _src=V.tierSrc||"mix", wantPro=_src!=="soloq", wantSq=_src!=="match";   // 積分模式＝只列積分、比賽模式＝只列比賽、混合＝兩欄
       const lp=lane?((laneC[id]||{})[LANE5v.indexOf(lane)+1]||0):null; // 該路出場數
@@ -11034,7 +11062,8 @@ function render(){
         }
       }
       const sq=(wantSq||(!pro&&_src==="match"))?sqData(id,lane):null;   // 比賽數據模式但這一路比賽沒資料（因積分有在玩才上板）⇒ 改顯示積分欄，不要空框（2026-10-21 體檢：WCS 上路柯奇、潘森…小框是空的）
-      return tipHead(esc(zn(id)),lane?[lane]:[],flexLanes(id).filter(L2=>L2!==lane))+statGrid([pro&&{h:LANG==="en"?"Pro":"比賽",d:pro}, sq&&{h:LANG==="en"?"Ranked":"積分",d:sq}])+chgBox(id);};
+      const byPl=plCols(id,lane,wantPro,wantSq||(!pro&&_src==="match"));
+      return tipHead(esc(zn(id)),lane?[lane]:[],flexLanes(id).filter(L2=>L2!==lane))+statGrid(byPl||[pro&&{h:LANG==="en"?"Pro":"比賽",d:pro}, sq&&{h:LANG==="en"?"Ranked":"積分",d:sq}])+chgBox(id);};
     // 組合小框（使用者 2026-10-20：滑到組合上＝兩隻合併計算）：
     //   比賽＝目前篩選範圍內「同一隊、兩隻同時在各自那一路」的局數／勝敗／KDA（兩隻各自 KDA 相加，同積分雙人組算法）；
     //   積分＝雙人組資料（只有 中野、下輔 兩種，全季、15 場以上；見 calcHeroesSoloq 的 中野組／下路組）
