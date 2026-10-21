@@ -11008,7 +11008,7 @@ function render(){
     // cols：[{h:欄名, d:{rt,g,wr,kda,gd,bp,ban}}]（值可以是字串 html；null／undefined＝該欄沒有）
     const statGrid=cols=>{ cols=cols.filter(Boolean); if(!cols.length)return "";
       const R=[["rt",LANG==="en"?"Rating":"評分"],["g",LANG==="en"?"Games":"場數"],["wr",LANG==="en"?"Win%":"勝率"],["kda","KDA"],
-               ["gd",LANG==="en"?"GD@15":"金差@15"],["bp","BP%"]];   // 被禁列拿掉（使用者 2026-10-20），BP% 已含被禁
+               ["gd",LANG==="en"?"GD@15":"金差@15"],["bp","BP%"],["bpp","BP%+"]];   // 被禁列拿掉（使用者 2026-10-20），BP% 已含被禁
       const grp=cols.some(c=>c.g!=null), gs=(c,i)=>grp&&i>0&&cols[i-1].g!==c.g;   // gs＝組的第一欄（組間加寬）
       const pad=(c,i)=>gs(c,i)?"padding-left:16px;":"";
       let h=`<div class="tGrid" style="grid-template-columns:auto${" minmax(64px,auto)".repeat(cols.length)}">`;
@@ -11094,11 +11094,12 @@ function render(){
     const pairTip=(a,b)=>{ const _src=V.tierSrc||"mix", wantPro=_src!=="soloq", wantSq=_src!=="match";
       const kdaOf=(k,d,a2)=>(k+a2)/Math.max(1,d);
       let pro=null;
-      if(wantPro){ const pa=LANE5v.indexOf(a.lane)+1, pb=LANE5v.indexOf(b.lane)+1, G={};
+      if(wantPro){ const pa=LANE5v.indexOf(a.lane)+1, pb=LANE5v.indexOf(b.lane)+1, G={}, pkOK=new Set();
         // 比賽：篩選範圍內同隊、兩隻同時在各自那一路的局
         if(pa>0&&pb>0)for(const o of LANES){ if((o.pid!==pa&&o.pid!==pb)||!inG(o))continue;
           for(const sd of [0,1]){ if(TT&&o.raw[sd?C.red_teamname:C.blue_teamname]!==TT)continue; if(!lpOk(o,sd))continue;
             const off=sd?RB:0, ch=champId(o.raw[C.blue_champion+off]), want=o.pid===pa?a.id:b.id; if(ch!==want)continue;
+            pkOK.add(gkey(o)+"|"+sd+"|"+ch);
             const g=G[gkey(o)+"|"+sd]=G[gkey(o)+"|"+sd]||{w:o.result===(sd?2:1)};   // result：1＝藍方勝、2＝紅方勝（不是 0／1）
             g[o.pid===pa?"a":"b"]=[+o.raw[C.blue_kills+off]||0,+o.raw[C.blue_deaths+off]||0,+o.raw[C.blue_assists+off]||0,parseFloat(o.raw[C.blue_golddiffat15+off])]; } }
         const both=Object.values(G).filter(g=>g.a&&g.b), n=both.length, w=both.filter(g=>g.w).length;
@@ -11108,10 +11109,22 @@ function render(){
         const rOf=e=>{ const rw=cHL(e.lane).find(x=>champId(x._full)===e.id); if(rw)return [tierPro(rw,e.lane),rw.場數||0,rw["BP%"]||0];
           if(banOnly(e.id)){ const b2=banRow(e.id,e.lane); return b2?[tierPro(b2,e.lane),0,b2["BP%"]||0]:null; } return null; };   // 評分＝分階用的那份（max(評分, 禁用分)）
         const ra=rOf(a), rb=rOf(b);   // 比賽評分同樣用場數加權
-        const pbp=ra&&rb?(ra[2]+rb[2])/2:null;   // BP%＝兩隻各自 BP% 的平均（使用者 2026-10-22：7%＋8% 合併後變 4% 不對；原本是「一起出場＋被禁」÷局數）
+        // BP%+（使用者 2026-10-22）：照 BP 順序，A 被禁或被選之後、B 被禁或被「同一隊」選 ⇒ 記一次；反過來 B 先 A 後再記一次；兩次相加 ÷ 局數
+        //   順序：先選方禁 1 2 3／後選方禁 1 2 3 交錯 → 選 先1 後1 後2 先2 先3 後3 → 禁 後4 先4 後5 先5 → 選 後4 先4 先5 後5
+        //   picklist＝藍 5 紅 5（各自照選的順序）、blue_firstPick＝0 代表紅方先選；選用要在組合的那一路（pkOK）
+        const BT=[[0,2,4,13,15],[1,3,5,12,14]], PT=[[6,9,10,17,18],[7,8,11,16,19]], spl=v=>String(v||"").slice(1,-1).split("|");
+        let tg=0, hit=0;
+        for(const o of GAMES){ if(!inG(o)||(TT&&o.raw[C.blue_teamname]!==TT&&o.raw[C.red_teamname]!==TT))continue; tg++;
+          const pk=spl(o.raw[C.picklist]); if(pk.length!==10)continue;
+          const Fs=String(o.raw[C.blue_firstPick])==="0"?1:0, gk=gkey(o), ev={};
+          [0,1].forEach(sd=>{ const r=sd===Fs?0:1;
+            spl(o.raw[sd?C.red_banlist:C.blue_banlist]).forEach((c,k)=>{ const id=c&&champId(c); if(id&&k<5)(ev[id]=ev[id]||[]).push({t:BT[r][k],sd,ban:1}); });
+            pk.slice(sd*5,sd*5+5).forEach((c,k)=>{ const id=c&&champId(c); if(id&&pkOK.has(gk+"|"+sd+"|"+id))(ev[id]=ev[id]||[]).push({t:PT[r][k],sd}); }); });
+          [[a.id,b.id],[b.id,a.id]].forEach(([x,y])=>{ if((ev[x]||[]).some(ex=>(ev[y]||[]).some(ey=>ey.t>ex.t&&(ey.ban||ey.sd===ex.sd))))hit++; }); }
+        const pbp=tg?hit/tg:null;
         const prt=ra&&rb?(ra[0]*ra[1]+rb[0]*rb[1])/Math.max(1,ra[1]+rb[1]):null, pkd=n?kdaOf(ka[0]+kb[0],ka[1]+kb[1],ka[2]+kb[2]):null;
-        pro={_v:{rt:softCap(prt),wr:n?w/n:null,kda:pkd,gd:pgd,bp:pbp}, _P:joinP(proPool(a.lane).P,proPool(b.lane).P), rt:prt, g:wlS(n,w), wr:n?pct(w/n):null, kda:n?fx1(kdaOf(ka[0]+kb[0],ka[1]+kb[1],ka[2]+kb[2])):null,
-             gd:pgd==null?null:(pgd>0?"+":"")+Math.round(pgd), bp:pbp==null?null:Math.round(pbp*100)+"%"}; if(pro.rt!=null)pro.rt=softCap(pro.rt); }
+        pro={_v:{rt:softCap(prt),wr:n?w/n:null,kda:pkd,gd:pgd,bpp:pbp}, _P:joinP(proPool(a.lane).P,proPool(b.lane).P), rt:prt, g:wlS(n,w), wr:n?pct(w/n):null, kda:n?fx1(kdaOf(ka[0]+kb[0],ka[1]+kb[1],ka[2]+kb[2])):null,
+             gd:pgd==null?null:(pgd>0?"+":"")+Math.round(pgd), bpp:pbp==null?null:Math.round(pbp*100)+"%"}; if(pro.rt!=null)pro.rt=softCap(pro.rt); }
       let sq=null;
       // 積分：逐場積分（SOLOQ_CHGAMES，第 15 欄＝隊友英雄）裡 A 在這一路且隊友是 B（或反過來）；版本／只算出賽選手同目前篩選；同場只算一次
       //   ⚠ 逐場檔只留每隻英雄最近 100 場；評分＝兩隻各自那一路的積分評分平均
@@ -11133,7 +11146,7 @@ function render(){
       // 這個組合 0 場＝那一欄整欄不顯示（使用者 2026-10-20：0 場卻有評分是錯的；評分是兩隻各自評分的加權，沒一起打過就不該出現）
       //   比賽例外（使用者 2026-10-20）：比賽還有 BAN（BP%），兩隻有評分或有被禁就保留整欄
       const has=d=>d&&(d._loading||(d._v&&d._v.wr!=null));
-      const hasPro=d=>d&&d._v&&(d._v.wr!=null||d._v.rt!=null||(d._v.bp||0)>0);
+      const hasPro=d=>d&&d._v&&(d._v.wr!=null||d._v.rt!=null||(d._v.bpp||0)>0);
       return tipHead(`${esc(zn(a.id))} ＋ ${esc(zn(b.id))}`,[a.lane,b.lane])+statGrid([hasPro(pro)&&{h:LANG==="en"?"Pro":"比賽",d:pro}, has(sq)&&{h:LANG==="en"?"Ranked":"積分",d:sq}])
         +chgBox(a.id,1)+chgBox(b.id,1); };   // 兩隻各自的改版（前面加名字區分；細節同樣按 Shift 展開）
     const nameW=n=>Math.max(2.2,[...String(n)].reduce((w,ch)=>w+(/[\u2E80-\uFFFD]/.test(ch)?1.1:0.65),0)+0.6)+"em";
