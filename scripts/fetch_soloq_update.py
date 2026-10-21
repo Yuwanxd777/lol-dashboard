@@ -96,6 +96,30 @@ def write_acc_lastgame(new_map):
     old.update(new_map)
     open(ACC_LG_PATH, "w", encoding="utf-8").write("window.SOLOQ_ACC_LG=" + json.dumps(old, ensure_ascii=False) + ";\n")
     return len(old)
+# ── 每帳號自己的起點（使用者 2026-10-21）────────────────────────────────────────
+# 逐場檔的 newestT 是整位共用的：某帳號當班沒被問到（沒牌位偵測不到、閒置延後、牌位沒動被跳過…）、
+# 同一位選手別的帳號又帶進更新的場次 ⇒ newestT 跳過去 ⇒ 那個帳號夾在中間的場次永遠補不回來
+#（TES 369 美服新號 godrjs#gktpd 就是這樣漏的）。現在每個帳號從 min(newestT, 它自己最後一場) 問起；
+# 自己最後一場查不到（新帳號／改名）就往回看 ACC_FALLBACK_DAYS 天。重複的場次在合併時照 t 去重。
+ACC_FALLBACK_DAYS = 30
+_ACC_LG_OLD = None
+def acc_lg_old():
+    global _ACC_LG_OLD
+    if _ACC_LG_OLD is None:
+        _ACC_LG_OLD = {}
+        try:
+            m = re.search(r"=\s*(\{.*\})\s*;?\s*$", open(ACC_LG_PATH, encoding="utf-8").read(), re.S)
+            if m: _ACC_LG_OLD = json.loads(m.group(1))
+        except Exception:
+            pass
+    return _ACC_LG_OLD
+def acc_since(newestT, pend, a, now_ms=None):
+    s = since_of(newestT, pend, a["dpmPuuid"])
+    if not s:
+        return s
+    lg = acc_lg_old().get(_accnorm(a.get("riotId")))
+    cur = lg if lg else max(0, int((now_ms or time.time() * 1000) - ACC_FALLBACK_DAYS * 86400000))
+    return min(s, cur)
 UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
       "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36")
 LANE2TOK = {"TOP":"top","JUNGLE":"jungle","MIDDLE":"middle","BOTTOM":"bottom","UTILITY":"utility"}
@@ -295,7 +319,7 @@ def prefetch_batches(pg, keys, idx, accs, static, bs=None):
         ex = data.get("matches", []); nt = ex[0]["t"] if ex else 0
         _pend = pend_of(data)   # #200：欠著舊場次的帳號從它自己的起點問（跟主迴圈同一套，PRE 命中的結果才對得上）
         todo, _ = plan_accounts(accs.get(key, []), static, _pend)
-        for a in todo: items.append((key, a["dpmPuuid"], [a["dpmPuuid"], tok, since_of(nt, _pend, a["dpmPuuid"])]))
+        for a in todo: items.append((key, a["dpmPuuid"], [a["dpmPuuid"], tok, acc_since(nt, _pend, a)]))
     PRE = {}; st = {"items": len(items), "batches": 0, "hit": 0, "fallback": 0, "halved": 0, "sizes": [], "secs": [], "lat": []}
     i = 0
     while i < len(items):
@@ -487,7 +511,7 @@ def main():
                 if _DOWN and not _hit:   # #199：dpm 掛了 ⇒ 不再打；批次已命中的不花請求、照常走下面
                     _pl_down += 1; _NDOWN += 1; _pfail.append(a["dpmPuuid"]); continue   # #201：沒問到＝跟「重試仍失敗」同一條 pend 路
                 _live = None if _hit else False   # #199：真的打出去的請求最後成不成（None＝沒打；False 起跳 ⇒ evaluate 丟例外也算失敗）
-                _since = since_of(newestT, _pend, a["dpmPuuid"]); _bad = False   # #200：欠著的帳號從它自己的起點問
+                _since = acc_since(newestT, _pend, a); _bad = False   # #200：欠著的帳號從它自己的起點問
                 try:
                     res = PRE.pop((key, a["dpmPuuid"])) if _hit else pg.evaluate(JS_NEW, [a["dpmPuuid"], tok, _since])
                     if isinstance(res, dict) and res.get("bad"):
@@ -541,7 +565,7 @@ def main():
                 with open(os.path.join(OUTDIR, meta["f"]), "w", encoding="utf-8") as fp:
                     fp.write(f"window.__sqLoad({json.dumps(key,ensure_ascii=False)},{json.dumps(data,ensure_ascii=False)});\n")
             if newg:
-                _ex_t = {g["t"] for g in existing} if _pend else ()   # #200：從舊起點補問回來的可能跟檔內重複，「+N 新」不重複計（穩態＝空）
+                _ex_t = {g["t"] for g in existing}   # #200／每帳號起點：從舊起點補問回來的可能跟檔內重複，「+N 新」不重複計
                 _nnew = len(newg) - sum(1 for g in newg if g["t"] in _ex_t)
                 seen=set(); merged=[]
                 for g in sorted(newg+existing, key=lambda x: x.get("t",0), reverse=True):
