@@ -11019,7 +11019,7 @@ function render(){
       R.forEach(([k,lb])=>{ if(!cols.some(c=>c.d[k]!=null))return;
         const colOf=c=>pctCol(((c.d._P||{})[k]),(c.d._v||{})[k]);
         if(k==="rt"){ h+=`<span class="l">${lb}</span>${cols.map((c,i)=>{const v=c.d.rt; return `<span class="v" style="${pad(c,i)}font-size:22px;font-weight:bold;line-height:1.1;color:${v==null?"#56607a":colOf(c)}">${v==null?"–":Math.round(v)}</span>`;}).join("")}<span class="sep"></span>`; return; }
-        h+=`<span class="l">${lb}</span>${cols.map((c,i)=>`<span class="v" style="${pad(c,i)}">${c.d[k]==null?`<span style="color:#56607a">–</span>`:(typeof c.d[k]==="string"&&c.d[k].includes("<")?c.d[k]:`<span style="color:${colOf(c)}">${c.d[k]}</span>`)}</span>`).join("")}`; });
+        h+=`<span class="l">${lb}</span>${cols.map((c,i)=>`<span class="v" style="${pad(c,i)}">${c.d[k]==null?(k==="bp"||k==="bpp"?"":`<span style="color:#56607a">–</span>`):(typeof c.d[k]==="string"&&c.d[k].includes("<")?c.d[k]:`<span style="color:${colOf(c)}">${c.d[k]}</span>`)}</span>`).join("")}`; });
       return h+"</div>"; };
     // 改版只寫「版本＋增強／削弱／調整」一行，按住 Shift 才展開改了什麼（使用者 2026-10-20：細節把小框撐得很寬）
     if(!window._tipShiftBound){ window._tipShiftBound=1;
@@ -11055,8 +11055,9 @@ function render(){
       const both=wantPro&&wantSq;
       const cols=[]; let np=0; Object.entries(m).sort((a,b)=>b[1]-a[1]).forEach(([nm])=>{   // 最多列 3 人（場數多的優先；使用者 2026-10-22）
         if(np>=3)return; const p=wantPro?proDataPl(id,lane,nm):null, s=wantSq?sqDataPl(id,lane,nm):null; if(!p&&!s)return; np++;
-        if(wantPro)cols.push(both?{g:esc(nm),h:LANG==="en"?"Pro":"比賽",d:p||{}}:{h:esc(nm),d:p||{}});
-        if(wantSq)cols.push(both?{g:esc(nm),h:LANG==="en"?"Ranked":"積分",d:s||{}}:{h:esc(nm),d:s||{}}); });
+        // 沒上場的那一邊（比賽或積分 0 場）整欄不列（使用者 2026-10-22：一整欄「–」沒意義）
+        if(wantPro&&p)cols.push(both?{g:esc(nm),h:LANG==="en"?"Pro":"比賽",d:p}:{h:esc(nm),d:p});
+        if(wantSq&&s)cols.push(both?{g:esc(nm),h:LANG==="en"?"Ranked":"積分",d:s}:{h:esc(nm),d:s}); });
       return cols.length?cols:null; };
     const tipOf=(id,lane)=>{const c=cnt[id]||{p:0,b:0};
       const _src=V.tierSrc||"mix", wantPro=_src!=="soloq", wantSq=_src!=="match";   // 積分模式＝只列積分、比賽模式＝只列比賽、混合＝兩欄
