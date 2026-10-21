@@ -17822,29 +17822,38 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
       // 英雄圖滑過＝該場小框（使用者 2026-10-18）：英雄／勝敗／K/D/A／評分／LP／時長／對位／開打時間（台灣時間）
       // 英雄圖滑過＝該場小框。順序（使用者 2026-10-18 定）：對位｜對手（職業選手才列）｜KDA｜金差@15｜召喚師技能｜符文｜評分｜開打
       const TIP_ROW=32, TIP_H_SUMM=TIP_ROW, TIP_H_RUNE=TIP_ROW, TIP_H_AGG=TIP_ROW, TIP_AGG_ICO=26,   /* 列高一致化（使用者 2026-10-21：前幾列看起來特別擠）：文字列與圖示列一律 32px；統計小框圖 30→26 才放得進 */ TIP_RUNE_NUDGE="display:inline-flex;margin-right:3px";   // 圖示列列高（2026-10-20 像素量測：主圖中心對齊標籤字中心，不再上推；右縮 3px 抵副系徽章右凸，右緣跟其他列切齊）
+      // 小框重排（使用者 2026-10-21：重新檢視怎麼呈現更好）：
+      //   標題列＝英雄＋勝敗＋LP 增減，評分放大放右上（最重要的數字一眼看到）；下一行小字＝開打時間・時長・伺服器；
+      //   其餘每列 32px：對位／對手／KDA／金差@15／配置（召喚師技能＋符文併一列）。統計小框同一個骨架
+      const SRVNM={kr:["韓服","KR"],na1:["美服","NA"],euw1:["歐服","EUW"],eun1:["東北歐服","EUNE"],br1:["巴西服","BR"],jp1:["日服","JP"],tw2:["台服","TW"],vn2:["越服","VN"],oc1:["大洋洲服","OCE"],la1:["北拉服","LAN"],la2:["南拉服","LAS"],tr1:["土服","TR"],ru:["俄服","RU"],sg2:["新加坡服","SG"],me1:["中東服","ME"]};
+      const _srvAll={}; SD.players.forEach(p=>{ [p.riotId,p.curId].forEach(r=>{ if(r)_srvAll[_nrid(r)]=String(p.platform||"").toLowerCase(); }); });
+      const srvNm=rid=>{ const v=_srvAll[_nrid(rid)]; return v?((SRVNM[v]||[v.toUpperCase(),v.toUpperCase()])[en?1:0]):""; };
+      const tipRow=(lb,v)=>`<div style="display:flex;justify-content:space-between;align-items:center;gap:18px;height:${TIP_ROW}px"><span class="meta">${lb}</span><span style="display:inline-flex;align-items:center;gap:4px">${v}</span></div>`;
+      const tipHd=(c,mid,sc,sub)=>`<div class="tipTitle" style="display:flex;align-items:center;gap:8px">${champIco(c,30)}<b>${esc(chName(champId(c)))}</b>${mid}`
+        +(sc!=null?`<span style="margin-left:auto;padding-left:14px;text-align:right;line-height:1"><b class="num" style="font-size:22px;color:${scoreCol7(sc)}">${Math.round(sc*10)/10}</b></span>`:"")+`</div>`
+        +(sub?`<div class="meta" style="font-size:12px;margin:-2px 0 4px;text-align:right">${sub}</div>`:"");
+      const gdV=v=>v!=null?`<b style="color:${v>0?"#ff4d4d":v<0?"#37c871":"var(--tx)"}">${v>0?"+":""}${v}</b>`:`<span class="meta">—</span>`;
+      const mmss=sec=>sec?`${Math.floor(sec/60)}:${String(sec%60).padStart(2,"0")}`:"";
       const dlyTip=g=>{ const [c,w,lp,sc,k,d,a,t,dur,o,gd15,su,rk,rs,rid,op]=g; const kda=((k||0)+(a||0))/Math.max(1,d||0);
-        // 列高：文字列 24px；圖示列照圖示比字高多少就加多少，讓「看得到的」上下空隙每列一樣（使用者 2026-10-19 重看間距：像素量測文字列空隙 ≈12px，圖示列被擠到 5～8px）
-        const row=(lb,v,h)=>`<div style="display:flex;justify-content:space-between;align-items:center;gap:18px;height:${h||TIP_ROW}px"><span class="meta">${lb}</span><span style="display:inline-flex;align-items:center;gap:4px">${v}</span></div>`;
         const tw=t?new Date((t+8*3600)*1000):null, ts=tw?`${tw.getUTCMonth()+1}/${tw.getUTCDate()} ${String(tw.getUTCHours()).padStart(2,"0")}:${String(tw.getUTCMinutes()).padStart(2,"0")}`:"";
         const opT=op?String(op).split("|"):null;
-        return `<div class="tipTitle" style="display:flex;align-items:center;gap:8px">${champIco(c,28)}<b>${esc(chName(champId(c)))}</b>`
-          +`<b style="color:${w?"#5ea2ff":"#ec6b73"}">${w?(en?"Win":"勝"):(en?"Loss":"敗")}</b></div>`
-          +(o?row(en?"Lane opp.":"對位",`${champIco(o,18)}${esc(chName(champId(o)))}`):"")
-          +(opT?row(en?"Opponent":"對手",`${teamLogoHTML(teamFix(opT[0]),16,true)}<b>${esc(opT[1]||"")}</b>`):"")
-          +row("KDA",`<b>${k||0} / ${d||0} / ${a||0}</b> <span class="meta">(${kda.toFixed(1)})</span>`)
-          +row(en?"Gold diff @15":"金差@15",gd15!=null?`<b style="color:${gd15>0?"#ff4d4d":gd15<0?"#37c871":"var(--tx)"}">${gd15>0?"+":""}${gd15}</b>`:`<span class="meta">—</span>`)   /* 常駐（使用者 2026-10-18）；來源沒記＝— */
-          +(su&&su.length?row(en?"Spells":"召喚師技能",(su||[]).map(x=>summImg(x,18)).join(""),TIP_H_SUMM):"")
-          +(rk?row(en?"Runes":"符文",`<span style="${TIP_RUNE_NUDGE}">${runeKS({r:rk,rs:[rs]},18)}</span>`,TIP_H_RUNE):"")
-          +(sc!=null?row(en?"Score":"評分",`<b style="color:${scoreCol7(sc)}">${Math.round(sc*10)/10}</b>`):"")
-          +(ts?row(en?"Played (TW)":"開打",ts):""); };
-      const aggTip=e=>{ const row=(lb,v,h)=>`<div style="display:flex;justify-content:space-between;align-items:center;gap:18px;height:${h||TIP_ROW}px"><span class="meta">${lb}</span><span>${v}</span></div>`;
-        return `<div class="tipTitle" style="display:flex;align-items:center;gap:8px">${champIco(e.c,28)}<b>${esc(chName(champId(e.c)))}</b></div>`
-          +row(en?"Games":"場數",`<b>${e.n}</b>`)+row(en?"W-L":"勝敗",`<b>${e.w}-${e.n-e.w}</b> <span class="meta">(${Math.round(e.w/e.n*100)}%)</span>`)
-          +row("KDA",`<b>${(e.k/e.n).toFixed(1)} / ${(e.d/e.n).toFixed(1)} / ${(e.a/e.n).toFixed(1)}</b> <span class="meta">(${((e.k+e.a)/Math.max(1,e.d)).toFixed(1)})</span>`)
-          +row(e.gn===1?(en?"Gold diff @15":"金差@15"):(en?"Avg gold diff @15":"平均金差@15"),e.gn?(v=>`<b style="color:${v>0?"#ff4d4d":v<0?"#37c871":"var(--tx)"}">${v>0?"+":""}${v}</b>`)(Math.round(e.gs/e.gn)):`<span class="meta">—</span>`)
-          +(e.sn?row(e.sn===1?(en?"Score":"評分"):(en?"Avg score":"平均評分"),`<b style="color:${scoreCol7(e.ss/e.sn)}">${Math.round(e.ss/e.sn*10)/10}</b>`):"")
-          +(e.ru&&e.ru.size?row(en?"Runes":"符文",`<span style="display:inline-flex;align-items:center;gap:7px;margin-right:3px">${[...e.ru].sort((x,y)=>y[1]-x[1]).slice(0,3).map(([k2])=>{ const [r1,r2]=k2.split("|"); return runeKS({r:r1,rs:[r2]},TIP_AGG_ICO); }).join("")}</span>`,TIP_H_AGG):"")   /* 用最多的前三組，多→少、不標次數（使用者 2026-10-19）；間距 7px＝副系徽章右凸 3px 後肉眼空隙 4px，跟對位一樣（使用者 2026-10-20） */
-          +(e.op&&e.op.size?row(en?"Lane opp.":"對位",`<span style="display:inline-flex;align-items:center;gap:4px;transform:translateY(3px)">${[...e.op].sort((x,y)=>y[1]-x[1]).slice(0,3).map(([c2])=>champIco(c2,TIP_AGG_ICO)).join("")}</span>`,TIP_H_AGG):""); }; /* 對位最常遇到的前三隻，多→少、不標次數（使用者 2026-10-19）；間距 4px（使用者：不用太大）、下移 2px 跟標籤字的中線齊（實測圖示中心比字高約 2px） */
+        const res=`<b style="color:${w?"#5ea2ff":"#ec6b73"}">${w?(en?"Win":"勝"):(en?"Loss":"敗")}</b>`
+          +(lp!=null&&Math.abs(lp)<=60?`<span class="num" style="font-size:12.5px;font-weight:700;color:${lp>0?"#ff6b6b":lp<0?"#5fbf7f":"var(--tx2)"}">${lp>0?"+":""}${lp} LP</span>`:"");
+        const sub=[ts,mmss(dur),srvNm(rid)].filter(Boolean).join(" · ");
+        const cfg=(su&&su.length?(su||[]).map(x=>summImg(x,20)).join(""):"")+(rk?`<span style="${TIP_RUNE_NUDGE};margin-left:6px">${runeKS({r:rk,rs:[rs]},20)}</span>`:"");
+        return tipHd(c,res,sc,sub)
+          +(o?tipRow(en?"Lane opp.":"對位",`${champIco(o,20)}${esc(chName(champId(o)))}`):"")
+          +(opT?tipRow(en?"Opponent":"對手",`${teamLogoHTML(teamFix(opT[0]),18,true)}<b>${esc(opT[1]||"")}</b>`):"")
+          +tipRow("KDA",`<b>${k||0} / ${d||0} / ${a||0}</b> <span class="meta">(${kda.toFixed(1)})</span>`)
+          +tipRow(en?"Gold diff @15":"金差@15",gdV(gd15))
+          +(cfg?tipRow(en?"Build":"配置",cfg):""); };
+      const aggTip=e=>{ const wr=Math.round(e.w/e.n*100);
+        const sub=`${e.n}${en?" games":" 場"} · <b style="color:var(--tx)">${e.w}-${e.n-e.w}</b> (${wr}%)`;
+        return tipHd(e.c,"",e.sn?e.ss/e.sn:null,sub)
+          +tipRow("KDA",`<b>${(e.k/e.n).toFixed(1)} / ${(e.d/e.n).toFixed(1)} / ${(e.a/e.n).toFixed(1)}</b> <span class="meta">(${((e.k+e.a)/Math.max(1,e.d)).toFixed(1)})</span>`)
+          +tipRow(e.gn===1?(en?"Gold diff @15":"金差@15"):(en?"Avg gold diff @15":"平均金差@15"),e.gn?gdV(Math.round(e.gs/e.gn)):`<span class="meta">—</span>`)
+          +(e.ru&&e.ru.size?tipRow(en?"Runes":"符文",`<span style="display:inline-flex;align-items:center;gap:7px;margin-right:3px">${[...e.ru].sort((x,y)=>y[1]-x[1]).slice(0,3).map(([k2])=>{ const [r1,r2]=k2.split("|"); return runeKS({r:r1,rs:[r2]},TIP_AGG_ICO); }).join("")}</span>`):"")   /* 用最多的前三組（使用者 2026-10-19） */
+          +(e.op&&e.op.size?tipRow(en?"Lane opp.":"對位",`<span style="display:inline-flex;align-items:center;gap:4px">${[...e.op].sort((x,y)=>y[1]-x[1]).slice(0,3).map(([c2])=>champIco(c2,TIP_AGG_ICO)).join("")}</span>`):""); };
       box.onmouseover=e=>{ const el=e.target.closest&&e.target.closest(".dlyChip[data-gi],.dlyChip[data-ga]"); if(!el||el===box._tipEl)return; box._tipEl=el;
         tipShow(el.dataset.ga!=null?aggTip(_DA[+el.dataset.ga]):dlyTip(_DG[+el.dataset.gi]),el.getBoundingClientRect()); };
       box.onmouseout=e=>{ const el=box._tipEl; if(el&&!(e.relatedTarget&&el.contains(e.relatedTarget))){ box._tipEl=null; tipHide(); } };
