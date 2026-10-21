@@ -4826,7 +4826,7 @@ function proPatch(){ const p=F.patch||""; if(p===_ppIn)return _ppOut;
   else _ppOut=PATCHES.filter(x=>x<=p).sort().pop()||PATCHES.slice().sort().pop()||"";
   return _ppOut; }
 // 英雄Tier 數據模式的資料範圍指紋：任一項變了＝該重新產生（含 fetched_at：每日資料更新後也要重產）
-function tierGenKeyStr(src){return src+"|de1|"+[F.split,F.league,F.patch,F.d1,F.d2,F.minG,curYear,(typeof D!=="undefined"&&D&&D.fetched_at)||"",(typeof V!=="undefined"&&V.tierTeam)||""].join("|");}   // 英雄Tier 戰隊篩選一變也重產（使用者 2026-10-20）
+function tierGenKeyStr(src){return src+"|de1|"+[F.split,F.league,F.patch,F.d1,F.d2,F.minG,curYear,(typeof D!=="undefined"&&D&&D.fetched_at)||"",(typeof V!=="undefined"&&V.tierTeam)||"",(typeof V!=="undefined"&&V.tierLanePl&&JSON.stringify(V.tierLanePl))||"",(typeof V!=="undefined"&&V.tierMode==="lane3")?"l3":""].join("|");}   // 英雄Tier 戰隊篩選一變也重產（使用者 2026-10-20）
 // ── 選角評分的「參照母體」（2026-08-07 使用者定案）──────────────────────────────
 // 評分的統計來源**不跟著上方篩選走**，固定用「最近三個版本 × 全球所有聯賽」：樣本大很多，
 // 也更貼近當前版本的真實強度。篩選只決定「你在看什麼」，不決定分數拿什麼當參照。
@@ -10347,7 +10347,7 @@ function addSubBack(onBack){ const card=document.querySelector("#main .card"); i
 function globalFilterReset(){
   Object.assign(F,{split:"",league:"ALL",patch:"",d1:"",d2:"",minG:0});
   Object.assign(V,{pos:"",player:"",heroTeam:"",heroSel:"",heroQ:"",tpSel:"",teamSel:"",vsTeam:"",bpTeam:"",bpHero:"",bpHeroMode:"both",bpPlayer:"",bpWin:"",bpFirst:"",search:"",r1:"",r2:"",r3:"",t1:"",t2:"",t3:"",dexQ:"",dexTag:"",dexCTag:"",rankQ:"",rankRole:"",rankRegion:"",rankSort:null,tierQ:"",recentTeam:"",recentTeam2:""}); // heroQ＝英雄分頁的英雄篩選框；recentTeam2＝摘要頁的戰隊B（A 跟著 teamSel 走）（2026-09-06 使用者回報 ↺ 沒清到它）
-  if(curView==="英雄Tier")V.tierTeam="";
+  if(curView==="英雄Tier"){V.tierTeam=""; V.tierLanePl={};}
   if(curView==="陣容")V.rosterTeam="";
   if(curView==="比賽BP"){V.bpColF={};V.bpSideMode="br";} // 比賽BP：預設(↺)清空所有欄位篩選＋回藍紅模式
   if(curView==="模擬BP"&&V.bpSim){V.bpSim.t1="";V.bpSim.t2="";} // 模擬BP：只清戰隊A/B、模擬局保留
@@ -10802,6 +10802,8 @@ function render(){
       if(hasW&&!ko&&EV&&EV.rosters){ Object.entries(EV.rosters).forEach(([tn,rs])=>{ if(TT&&String(tn).replace(/\s*\(.*?\)\s*$/,"")!==TT)return; (rs||[]).forEach(p2=>{ if(p2&&p2.n&&p2.r!=="COACH")names.add(String(p2.n).toLowerCase()); }); });
         ((typeof WLD_ROSTER_ADD!=="undefined"&&WLD_ROSTER_ADD[curYear])||[]).forEach(([ab2,n2])=>{ if(!TT||teamFix(tAb(TT)||TT)===ab2)names.add(String(n2).toLowerCase()); }); }
       return _proNames=names; };
+    const _anyLP=Object.values(V.tierLanePl||{}).some(Boolean);
+    if(_anyLP&&!window.SOLOQ_PAGG&&!isHistYear())lazyLoad("pagg").then(()=>{ if(curView==="英雄Tier"){ V.tierGenKey=""; render(); } });   // 選了路線選手：要他自己的積分
     const sqHov=(()=>{ if(isHistYear()||!(V.tierTeam||(V.tierProSq&&(V.tierSrc==="soloq"||V.tierSrc==="mix"))))return null;   // 選了戰隊＝自動只算該隊選手（比賽模式也要：奇招判定、該隊沒比賽時改用積分分階）
       const PA=window.SOLOQ_PAGG; if(!PA){ lazyLoad("pagg").then(()=>{ if(curView==="英雄Tier"){ V.tierGenKey=""; render(); } }); return null; }
       const names=proNames();
@@ -10810,16 +10812,35 @@ function render(){
         const pv=PA[pk2]; for(const v in pv){ if(pks&&!pks.includes(v))continue;
           for(const c in pv[v]){ const id=champId(c)||c; for(const ln in pv[v][c]){ const a=((out[id]=out[id]||{})[ln]=out[id][ln]||new Array(15).fill(0)); pv[v][c][ln].forEach((x,i)=>a[i]+=(+x||0)); } } } }
       return out; })();
-    const sqQ=(pos,minOv)=>calcHeroesSoloq(pos,sqPks,sqHov,minOv);   // 英雄Tier 內所有積分查詢都走這支
+    // 選了選手的那一路＝只用他自己的積分（soloq_pagg；還沒載到時 sqHov 那邊已觸發延遲載入）
+    const _plHov={};
+    const sqHovOf=nm=>{ const k=String(nm).toLowerCase(); if(_plHov[k]!==undefined)return _plHov[k]; const PA=window.SOLOQ_PAGG; if(!PA||isHistYear())return _plHov[k]=null;
+      const pks=F.patch?[F.patch]:sqPks, out={};
+      for(const pk2 in PA){ if(String(pk2).split("|").slice(1).join("|").toLowerCase()!==k)continue;
+        const pv=PA[pk2]; for(const v in pv){ if(pks&&!pks.includes(v))continue;
+          for(const c in pv[v]){ const cid=champId(c)||c; for(const ln in pv[v][c]){ const a=((out[cid]=out[cid]||{})[ln]=out[cid][ln]||new Array(15).fill(0)); pv[v][c][ln].forEach((x,i)=>a[i]+=(+x||0)); } } } }
+      return _plHov[k]=out; };
+    const sqQ=(pos,minOv)=>{ const nm=pos&&(V.tierLanePl||{})[pos]; return calcHeroesSoloq(pos,sqPks,nm?(sqHovOf(nm)||{}):sqHov,minOv); };   // 英雄Tier 內所有積分查詢都走這支
     const seen=new Set();
     const cnt={}; // id -> {p:出場, b:被禁}（所選範圍）
     const laneC={}; // id -> {pid:出場次數}
     const bump=(id,k)=>{const c=cnt[id]=cnt[id]||{p:0,b:0};c[k]++;};
     const TT=V.tierTeam||""; // 戰隊篩選：只統計該隊自己的選用與自己的 BAN
     const teamPl={}; // 篩選戰隊時：各路(pid) → {選手ID:場數}，用來在英雄池路線標題括號標出該隊該路選手
+    // 各路選手篩選（使用者 2026-10-21：路線圖右側下拉，選了某人＝那一路只算他出場的局；積分＝只算他自己的積分）
+    //   V.tierLanePl＝{路:選手名}；lanePlAll＝各路範圍內的選手名單（{pid:{名:{n,t}}}，下拉清單用，不受選手篩選影響）
+    const lanePlAll={}, laneCAll={};   // laneCAll＝不套選手篩選的路線出場（錯位用）
+    for(const o of LANES){if(!inG(o))continue; for(const s of[0,1]){ if(TT&&o.raw[s?C.red_teamname:C.blue_teamname]!==TT)continue;
+      const cA=champId(o.raw[C.blue_champion+(s?RB:0)]); if(cA){ const x=laneCAll[cA]=laneCAll[cA]||{}; x[o.pid]=(x[o.pid]||0)+1; }
+      const pl=o.raw[s?C.red_playername:C.blue_playername]; if(!pl)continue; const m=lanePlAll[o.pid]=lanePlAll[o.pid]||{}, e=m[pl]=m[pl]||{n:0,t:{}}; e.n++; const tn=o.raw[s?C.red_teamname:C.blue_teamname]; e.t[tn]=(e.t[tn]||0)+1; } }
+    V.tierLanePl=V.tierLanePl||{}; LANE5v.forEach((L,i)=>{ const nm=V.tierLanePl[L]; if(nm&&!(lanePlAll[i+1]||{})[nm])delete V.tierLanePl[L]; });   // 換篩選後那人不在這一路了＝自動回到全部
+    const LP=L=>(V.tierLanePl||{})[L]||"", LPp={}; LANE5v.forEach((L,i)=>{ if(LP(L))LPp[i+1]=LP(L); });
+    const lpOk=(o,sd)=>{ const nm=LPp[o.pid]; return !nm||o.raw[sd?C.red_playername:C.blue_playername]===nm; };
+    const cHL=L=>calcHeroes(L,LP(L),TT);   // 英雄Tier 每一路的比賽數據（戰隊＋該路選手篩選）
     for(const o of LANES){if(!inG(o))continue;
       for(const s of[0,1]){
         if(TT&&o.raw[s?C.red_teamname:C.blue_teamname]!==TT)continue;
+        if(!lpOk(o,s))continue;
         const ch=o.raw[C.blue_champion+(s?RB:0)];if(ch){const id=champId(ch);seen.add(id);bump(id,"p");
         const m=laneC[id]=laneC[id]||{};m[o.pid]=(m[o.pid]||0)+1;}
         if(TT){const pl=o.raw[s?C.red_playername:C.blue_playername]; if(pl){(teamPl[o.pid]=teamPl[o.pid]||{})[pl]=(teamPl[o.pid][pl]||0)+1;}}}}
@@ -10837,10 +10858,12 @@ function render(){
       const P2I={TOP:1,JUNGLE:2,MIDDLE:3,BOTTOM:4,UTILITY:5};
       const lanesOf={};
       const SB1=SOLOQ_BUILDS, H1=sqHov||((F.patch||sqPks)&&SB1.heroP?SB1.heroP:SB1.hero), pl1=sqHov?null:(F.patch?[F.patch]:sqPks);
+      const P2L0={TOP:"TOP",JUNGLE:"JNG",MIDDLE:"MID",BOTTOM:"BOT",UTILITY:"SUP"};
       for(const c in H1){ let ls; if(pl1&&H1===SB1.heroP){ ls={}; pl1.forEach(p2=>{ const y=H1[c][p2]; if(y)for(const ln in y)ls[ln]=(ls[ln]||0)+((y[ln]&&y[ln][0])||0); }); }
         else{ ls={}; for(const ln in H1[c])ls[ln]=(H1[c][ln]&&H1[c][ln][0])||0; }
         const id=champId(c); if(!id)continue; const sum=Object.keys(ls).filter(ln=>P2I[ln]).reduce((a2,ln)=>a2+ls[ln],0);
-        for(const ln in ls)if(P2I[ln]&&ls[ln]>0&&ls[ln]>=sum*0.1)(lanesOf[id]=lanesOf[id]||{})[P2I[ln]]=ls[ln]; }   // 跟產生板子同門檻：占 10% 以上的路才算它的路（偶爾去別路玩幾場不算）
+        for(const ln in ls)if(P2I[ln]&&!LP(P2L0[ln])&&ls[ln]>0&&ls[ln]>=sum*0.1)(lanesOf[id]=lanesOf[id]||{})[P2I[ln]]=ls[ln]; }
+      LANE5v.forEach((L,i)=>{ if(!LP(L))return; const h=sqHovOf(LP(L))||{}, ln=Object.keys(P2L0).find(k=>P2L0[k]===L); for(const id in h){ const n=(h[id][ln]&&h[id][ln][0])||0; if(n>0)(lanesOf[id]=lanesOf[id]||{})[i+1]=n; } });   // 選了選手的路＝他自己積分玩過的   // 跟產生板子同門檻：占 10% 以上的路才算它的路（偶爾去別路玩幾場不算）
       seen.clear(); for(const k in cnt)delete cnt[k]; for(const k in laneC)delete laneC[k];
       for(const id in lanesOf){ seen.add(id); laneC[id]=lanesOf[id]; cnt[id]={p:Object.values(lanesOf[id]).reduce((a,b)=>a+b,0),b:0}; }
     }
@@ -10864,15 +10887,15 @@ function render(){
     // BP% 滿分線（評分公式的 BP% 項改看實際數值，80% 以上＝滿分；⚙ 可調）
     const BANFULL=(V.bpFull!=null?V.bpFull:80)/100, _banC={};   // 權重 30%：20% 時 WCS 夜曲（禁 95%）仍輸給同時被禁又表現好的，排不進 S
     const banPool=L=>{ const k=(L||"ALL"); if(_banC[k])return _banC[k]; const tg=banGames();
-      const rates=calcHeroes(L,"",TT).filter(r=>r.場數>=1).map(r=>r.禁用率||0);
+      const rates=cHL(L).filter(r=>r.場數>=1).map(r=>r.禁用率||0);
       Object.keys(cnt).forEach(id=>{ if(banOnly(id)&&banLaneOf(id)===L&&tg)rates.push((cnt[id].b||0)/tg); });
       return _banC[k]={rates,tg}; };
     const banScore=(L,rate)=>rate?Math.min(100,rate/BANFULL*100):0;   // rate＝BP%（選＋禁）
-    const laneMedian=L=>{ const k="M|"+(L||""); if(_banC[k]!=null)return _banC[k]; const a=calcHeroes(L,"",TT).map(r=>r.評分).filter(x=>typeof x==="number").sort((x,y)=>x-y);
+    const laneMedian=L=>{ const k="M|"+(L||""); if(_banC[k]!=null)return _banC[k]; const a=cHL(L).map(r=>r.評分).filter(x=>typeof x==="number").sort((x,y)=>x-y);
       return _banC[k]=a.length?a[Math.floor(a.length/2)]:50; };
     // 不封頂（排名用；封頂 100 會讓幾隻高分＋高禁的同分、排序失真）；小框顯示時才封頂
     // 只被禁沒選過的底分：它的 BP% 在這一路排第幾名，就拿同名次的評分（中位數太保守：WCS 夜曲禁 95% 仍進不了 S）
-    const banBase=(L,bp)=>{ const k="B|"+(L||"")+"|"+bp; if(_banC[k]!=null)return _banC[k]; const rows=calcHeroes(L,"",TT).filter(x=>x.場數>=1&&typeof x.評分==="number");
+    const banBase=(L,bp)=>{ const k="B|"+(L||"")+"|"+bp; if(_banC[k]!=null)return _banC[k]; const rows=cHL(L).filter(x=>x.場數>=1&&typeof x.評分==="number");
       if(!rows.length)return _banC[k]=50; const rts=rows.map(x=>x.評分).sort((a,b)=>b-a), better=rows.filter(x=>(x["BP%"]||0)>bp).length; return _banC[k]=rts[Math.min(rts.length-1,better)]; };
     // 顯示用軟封頂（使用者 2026-10-21：太多評分 100）：80 以下照原值，以上漸近 100（80＋20×(1−e^−(x−80)/30)）；排名與門檻仍用原值
     //   （試過 85／15：100 是沒了，但 95~99 擠了十幾隻，高分之間分不開）
@@ -10881,7 +10904,7 @@ function render(){
     //   從「同路排名百分位」換成「實際 BP% ÷ 80%（封頂 1）」（排名制會讓整路都冷門時第一名照樣滿分＝膨脹）。
     //   只在英雄Tier 用（英雄頁／模擬BP 的評分不動）。做法：照 scoreHeroRows 的算式把 BP% 那一項的差額補回去：
     //   Δ＝90×(1−k)×(W_BP／W總)×(絕對值−百分位)，k＝scoreKFor(場數)
-    const bpPct=L=>{ const k2="P%|"+(L||""); if(_banC[k2])return _banC[k2]; const rows=calcHeroes(L,"",TT), T=rows.length, m=new Map();
+    const bpPct=L=>{ const k2="P%|"+(L||""); if(_banC[k2])return _banC[k2]; const rows=cHL(L), T=rows.length, m=new Map();
       const vs=rows.map(x=>x["BP%"]||0); rows.forEach(x=>{ const v=x["BP%"]||0, better=vs.filter(y=>y>v).length; m.set(x,T<=1?0.5:(T-1-better)/(T-1)); }); return _banC[k2]=m; };
     // 錯位（使用者 2026-10-21：能走兩路以上、甚至三四路的英雄要給相對應的評分增加）：
     //   能走的路＝比賽：那一路出場過就算（使用者：比賽有出現過的路線都是好訊號）；積分：那一路占它場數 10% 以上。
@@ -10895,7 +10918,7 @@ function render(){
           const sum=Object.keys(ls).filter(ln=>P2L[ln]).reduce((a2,ln)=>a2+ls[ln],0), cid=champId(c); if(!cid)continue;
           _sqLanes[cid]=Object.keys(ls).filter(ln=>P2L[ln]&&ls[ln]>0&&ls[ln]>=sum*0.1).map(ln=>P2L[ln]); } } }
       return _sqLanes[id]||[]; };
-    const proLanesOf=id=>{ if(V.tierSrc==="soloq")return []; const m=laneC[id]||{};
+    const proLanesOf=id=>{ if(V.tierSrc==="soloq")return []; const m=laneCAll[id]||{};
       return Object.keys(m).filter(pid=>m[pid]>=1).map(pid=>LANE5v[+pid-1]).filter(Boolean); };
     const flexLanes=id=>{ const src=V.tierSrc||"mix", a=src==="soloq"?sqLanesOf(id):proLanesOf(id), b=src==="mix"?sqLanesOf(id):[];
       return LANE5v.filter(L=>a.includes(L)||b.includes(L)); };
@@ -10966,8 +10989,8 @@ function render(){
     const pctCol=(pool,v)=>{ if(v==null||!pool||pool.length<5)return "#e6ebf3"; const better=pool.filter(x=>x>v).length/pool.length; return TIPCOL[Math.min(4,Math.floor(better*5))]; };
     const TPC={};   // 比較池快取（每次重繪重建）
     const proPool=L=>{ const k="P|"+(L||"ALL"); if(TPC[k])return TPC[k];
-      const rows=(L?calcHeroes(L,"",TT):calcHeroes("","",TT)).filter(r=>r.場數>=1), gd={}, pi=L?LANE5v.indexOf(L)+1:0, acc={};
-      for(const o of LANES){ if((pi&&o.pid!==pi)||!inG(o))continue; for(const sd of [0,1]){ if(TT&&o.raw[sd?C.red_teamname:C.blue_teamname]!==TT)continue;
+      const rows=(L?cHL(L):calcHeroes("","",TT)).filter(r=>r.場數>=1), gd={}, pi=L?LANE5v.indexOf(L)+1:0, acc={};
+      for(const o of LANES){ if((pi&&o.pid!==pi)||!inG(o))continue; for(const sd of [0,1]){ if(TT&&o.raw[sd?C.red_teamname:C.blue_teamname]!==TT)continue; if(!lpOk(o,sd))continue;
         const off=sd?RB:0, v=parseFloat(o.raw[C.blue_golddiffat15+off]); if(!isFinite(v))continue; const id2=champId(o.raw[C.blue_champion+off]); const a2=acc[id2]=acc[id2]||[0,0]; a2[0]++; a2[1]+=v; } }
       for(const id2 in acc)gd[id2]=acc[id2][1]/acc[id2][0];
       const num=f=>rows.map(f).filter(x=>typeof x==="number"&&isFinite(x));
@@ -11013,13 +11036,7 @@ function render(){
       return {rt, _n:r.場數||0, g:wlS(r.場數,+wl[0]||0), wr:pct(r.勝率), kda:fx1(r.KDA), gd:gd==null?null:(gd>0?"+":"")+Math.round(gd),
               _v:{rt,wr:r.勝率,kda:r.KDA,gd}, _P:sqPool(lane).P}; };
     // 選了戰隊、這一路該隊有兩人以上上過場（使用者 2026-10-21）：小框按選手分開列（比賽／積分各自一欄）；板子分階仍用全隊合計
-    const _plHov={}, _plGd={};
-    const sqHovOf=nm=>{ const k=String(nm).toLowerCase(); if(_plHov[k]!==undefined)return _plHov[k]; const PA=window.SOLOQ_PAGG; if(!PA||isHistYear())return _plHov[k]=null;
-      const pks=F.patch?[F.patch]:sqPks, out={};
-      for(const pk2 in PA){ if(String(pk2).split("|").slice(1).join("|").toLowerCase()!==k)continue;
-        const pv=PA[pk2]; for(const v in pv){ if(pks&&!pks.includes(v))continue;
-          for(const c in pv[v]){ const cid=champId(c)||c; for(const ln in pv[v][c]){ const a=((out[cid]=out[cid]||{})[ln]=out[cid][ln]||new Array(15).fill(0)); pv[v][c][ln].forEach((x,i)=>a[i]+=(+x||0)); } } } }
-      return _plHov[k]=out; };
+    const _plGd={};
     const sqDataPl=(id,lane,nm)=>{ const h=sqHovOf(nm); if(!h||!h[id]||typeof calcHeroesSoloq!=="function")return null;
       const key="PL|"+nm+"|"+lane; if(!SQTC[key]){ const m={}; calcHeroesSoloq(lane,sqPks,h,1).forEach(r2=>{m[r2._full]=r2;}); SQTC[key]=m; }
       const r=SQTC[key][id]; if(!r||!r.場數)return null;
@@ -11046,7 +11063,7 @@ function render(){
       const singleLane=Object.values(laneC[id]||{}).filter(n=>n>0).length<=1;
       let pro=null;
       if(wantPro){
-        const rwT=(lane?calcHeroes(lane,"",TT):calcHeroes("","",TT)).find(r=>champId(r._full)===id); // 該路(或全部路線)數據，跟隨戰隊篩選
+        const rwT=(lane?cHL(lane):calcHeroes("","",TT)).find(r=>champId(r._full)===id); // 該路(或全部路線)數據，跟隨戰隊篩選
         // 評分＝分階用的那份；選了戰隊時板子也用該隊數據分階（使用者 2026-10-20）⇒ 一律該隊
         const rwG=rwT, rw=rwT;
         if(rw||banOnly(id)||(!lane&&seen.has(id))){   // 這一路沒有比賽資料（例：因積分被放進上路的庫奇）＝不顯示比賽欄；只被禁的照樣顯示
@@ -11080,7 +11097,7 @@ function render(){
       if(wantPro){ const pa=LANE5v.indexOf(a.lane)+1, pb=LANE5v.indexOf(b.lane)+1, G={};
         // 比賽：篩選範圍內同隊、兩隻同時在各自那一路的局
         if(pa>0&&pb>0)for(const o of LANES){ if((o.pid!==pa&&o.pid!==pb)||!inG(o))continue;
-          for(const sd of [0,1]){ if(TT&&o.raw[sd?C.red_teamname:C.blue_teamname]!==TT)continue;
+          for(const sd of [0,1]){ if(TT&&o.raw[sd?C.red_teamname:C.blue_teamname]!==TT)continue; if(!lpOk(o,sd))continue;
             const off=sd?RB:0, ch=champId(o.raw[C.blue_champion+off]), want=o.pid===pa?a.id:b.id; if(ch!==want)continue;
             const g=G[gkey(o)+"|"+sd]=G[gkey(o)+"|"+sd]||{w:o.result===(sd?2:1)};   // result：1＝藍方勝、2＝紅方勝（不是 0／1）
             g[o.pid===pa?"a":"b"]=[+o.raw[C.blue_kills+off]||0,+o.raw[C.blue_deaths+off]||0,+o.raw[C.blue_assists+off]||0,parseFloat(o.raw[C.blue_golddiffat15+off])]; } }
@@ -11088,7 +11105,7 @@ function render(){
         const sum=k=>both.reduce((t,g)=>[t[0]+g[k][0],t[1]+g[k][1],t[2]+g[k][2]],[0,0,0]);
         const gds=both.flatMap(g=>[g.a[3],g.b[3]]).filter(v=>isFinite(v)), pgd=gds.length?gds.reduce((x,y)=>x+y,0)/gds.length:null;   // 金差@15＝兩隻各自的平均
         const ka=sum("a"), kb=sum("b");
-        const rOf=e=>{ const rw=calcHeroes(e.lane,"",TT).find(x=>champId(x._full)===e.id); if(rw)return [tierPro(rw,e.lane),rw.場數||0];
+        const rOf=e=>{ const rw=cHL(e.lane).find(x=>champId(x._full)===e.id); if(rw)return [tierPro(rw,e.lane),rw.場數||0];
           if(banOnly(e.id)){ const b2=banRow(e.id,e.lane); return b2?[tierPro(b2,e.lane),0]:null; } return null; };   // 評分＝分階用的那份（max(評分, 禁用分)）
         const ra=rOf(a), rb=rOf(b);   // 比賽評分同樣用場數加權
         const tg=GAMES.filter(o=>inG(o)&&(!TT||o.raw[C.blue_teamname]===TT||o.raw[C.red_teamname]===TT)).length;
@@ -11215,6 +11232,10 @@ function render(){
         let j=i, h=""; while(j<items.length&&lk[keyOf(items[j])]===g){h+=html(items[j]);j++;}
         out+=`<span class="tGrp" data-g="${g}" style="display:inline-flex;gap:7px;position:relative">${h}</span>`; i=j; }
       return out; };
+    const bindLPs=()=>{
+      LANE5v.forEach((L,i)=>{ if(!document.getElementById("tLP_"+L))return; const m=lanePlAll[i+1]||{};
+        const opts=Object.entries(m).map(([nm,e])=>{ const tm=Object.entries(e.t).sort((a,b)=>b[1]-a[1])[0]; return {v:nm,d:tm?tAbShow(tm[0]):"",n:e.n}; });
+        bindCombo("tLP_"+L,opts,LP(L),hit=>{ V.tierLanePl=V.tierLanePl||{}; if(hit)V.tierLanePl[L]=hit; else delete V.tierLanePl[L]; saveState(); render(); },false,110); }); };
     const rerender=()=>{
       // 補齊資料＋遷移：混合 t.ids 由「字串」→「{id,lane}」（lane＝取用路線，''＝禁用/尚未登場的無路線）
       TB.tiers.forEach(t=>{
@@ -11350,11 +11371,13 @@ function render(){
             <div class="tLane" data-t="${i}" data-lane="${L}" style="display:flex;flex-wrap:wrap;gap:24px 7px;align-content:flex-start;justify-content:flex-start;align-items:flex-start;width:${LANE_MAXW}px;box-sizing:content-box;min-height:${LANE_CH}px;padding:0 ${li===4?0:20}px 0 ${li===0?0:20}px${li?";border-left:1px solid rgba(255,255,255,.35)":""}">${grpHTML(t.lanes[L],id=>lkL(L,id),id=>chip(id,false,LANE_CH,false))}</div>`).join("")}</div>`
         :`<div class="tMid" style="flex:1;display:flex;flex-wrap:wrap;gap:24px 7px;align-content:flex-start;align-self:center;min-height:70px">${grpHTML(t.ids.filter(e=>!laneOff(e.lane)),lkM,e=>chip(e.id,false,70,e.lane,e.lane))}</div>`; // 混合：顯示取用路線圖示、data-plane；關閉路線的英雄隱藏
       const laneImg=L=>`<img src="${(POS_SRC[L])||POS_IMG[L]}" style="width:36px;height:36px;vertical-align:middle">`;
+      const lpBox=L=>`<span class="tLP" style="position:absolute;left:100%;top:50%;transform:translateY(-50%);margin-left:8px">${comboHTML("tLP_"+L,LANG==="en"?"All players":"全部選手",110)}</span>`;
+      const laneImgP=L=>`<span style="position:relative;display:inline-block;line-height:0">${laneImg(L)}${lpBox(L)}</span>`;
       document.getElementById("tierRows").innerHTML=
         `<div class="tModeBar" style="display:flex;gap:6px;align-items:center;padding:0;position:relative;min-height:36px">
           ${(isLanes||is3)
-            ?`<div class="tLaneIcons" style="position:absolute;top:50%;transform:translateY(-50%);left:0;right:0;height:36px">${(is3?COL3:LANE5v.map(L=>[L,[L]])).map(([k,ls])=>`<div class="tLaneIco" data-lane="${k}" style="position:absolute;top:0;transform:translateX(-50%);display:flex;gap:6px">${ls.map(laneImg).join("")}</div>`).join("")}</div>`
-            :`<div class="tLaneIcons" style="flex:1;display:flex;gap:16px;align-items:center;justify-content:center">${LANE5v.map(L=>`<span class="tLaneTog" data-lane="${L}" title="點擊開關此路線（關閉→池與 Tier 內該路英雄隱藏）" style="cursor:pointer;line-height:0;opacity:${laneOff(L)?"0.3":"1"};filter:${laneOff(L)?"grayscale(1)":"none"}">${laneImg(L)}</span>`).join("")}</div>`}
+            ?`<div class="tLaneIcons" style="position:absolute;top:50%;transform:translateY(-50%);left:0;right:0;height:36px">${(is3?COL3:LANE5v.map(L=>[L,[L]])).map(([k,ls])=>`<div class="tLaneIco" data-lane="${k}" style="position:absolute;top:0;transform:translateX(-50%);display:flex;gap:6px">${is3?ls.map(L=>`<span style="display:inline-flex;align-items:center;gap:8px">${laneImg(L)}${PCOL[L]===k?comboHTML("tLP_"+L,LANG==="en"?"All players":"全部選手",110):""}</span>`).join(`<span style="width:10px"></span>`):ls.map(laneImgP).join("")}</div>`).join("")}</div>`
+            :`<div class="tLaneIcons" style="flex:1;display:flex;gap:16px;align-items:center;justify-content:center">${LANE5v.map(L=>`<span class="tLaneTog" data-lane="${L}" title="點擊開關此路線（關閉→池與 Tier 內該路英雄隱藏）" style="cursor:pointer;line-height:0;opacity:${laneOff(L)?"0.3":"1"};filter:${laneOff(L)?"grayscale(1)":"none"}">${laneImg(L)}</span>${comboHTML("tLP_"+L,LANG==="en"?"All players":"全部選手",110)}`).join("")}</div>`}
         </div>` // 兩模式都保留這條列（五路對齊欄位、混合五路圖示並排）。階列 min-height 96／上 24 下 20（使用者 2026-10-20：列高再高、上方留給組合括號）→ 版型一致、切換不位移
         +TB.tiers.map((t,i)=>`
         <div class="card tierRow" data-t="${i}" style="margin:0;position:relative;flex:0 0 auto;display:flex;gap:0;align-items:flex-start;min-height:96px;padding:24px 30px 20px">
@@ -11367,6 +11390,7 @@ function render(){
         </div>`).join("")
         +(TB.tiers.length<10?`<button id="tAdd" style="align-self:flex-start;font-size:20px;padding:4px 14px" title="${LANG==="en"?"Add a tier (max 10)":"新增一階（最多 10 階）"}">${LANG==="en"?"＋ Add tier":"＋ 加階"}</button>`:"");
 
+      bindLPs();   // 各路選手下拉（tierRows 每次重建都要重綁）
       if(isLanes||is3){ // 路線圖示各自對齊「第一列」對應路線（三路＝對應欄）的中心（白線每階同位置）
         const bar=document.querySelector(".tModeBar");
         if(bar){const b=bar.getBoundingClientRect();
@@ -11572,7 +11596,7 @@ function render(){
       //   該進哪一階＝由上往下第一個「這兩路最低分 ≤ 組合分數」的階（奇招階不算）；那兩路在該階是空的就看分數門檻
       const grpSc=mem=>{ const src=V.tierSrc||"mix"; let s=0,ws=0,s0=0,n0=0;
         mem.forEach(e=>{ const v=scB(e.lane,e.id); if(v==null)return; const id=bid(e.id);
-          const pg=src==="soloq"?0:(((calcHeroes(e.lane,"",TT)||[]).find(x=>champId(x._full)===id)||{}).場數||0);
+          const pg=src==="soloq"?0:(((cHL(e.lane)||[]).find(x=>champId(x._full)===id)||{}).場數||0);
           const sg=src==="match"?0:((sqData(id,e.lane)||{})._n||0), w=pg+sg; s+=v*w; ws+=w; s0+=v; n0++; });
         return ws?s/ws:(n0?s0/n0:null); };
       const itScOf=(list,keyOf)=>{ const lk=TB.lk||{}, gs={}; list.forEach(e=>{ const g=lk[keyOf(e)]; if(g!=null)(gs[g]=gs[g]||[]).push(e); });
@@ -11920,7 +11944,7 @@ function render(){
         if(SQTC[kt]==null)SQTC[kt]=Object.values(SQTC[k]).reduce((a,r)=>a+(r.場數||0),0);
         const r=SQTC[k][id]; return !r||r.場數<3||(SQTC[kt]>0&&r.場數/SQTC[kt]<(V.sqQz!=null?V.sqQz:1)/100); };
       const proRare=(id,L)=>{ const qzBP=(V.qzBP!=null?V.qzBP:0.10), qzG=(V.qzG!=null?V.qzG:3); if(banOnly(id))return false;
-        const r=calcHeroes(L,"",TT).find(x=>champId(x._full)===id); return !r||((r["BP%"]||0)<qzBP&&(r.場數||0)<=qzG); };
+        const r=cHL(L).find(x=>champId(x._full)===id); return !r||((r["BP%"]||0)<qzBP&&(r.場數||0)<=qzG); };
       const rankBins=n=>{ const [cS,cA,cB]=tierPctOf(); let nS=Math.round(n*cS); if(n>=3&&nS<1)nS=1;
         const nA=Math.max(nS,Math.round(n*cA)), nB=Math.max(nA,Math.round(n*cB)); return r=>r<nS?0:r<nA?1:r<nB?2:3; };
       let _genSc={};   // 這次產生的「路|英雄 → 分數」（格內依評分排序、點選放入時插到對的位置）
@@ -11943,14 +11967,14 @@ function render(){
         //（Tier 表變成 S 27／A 5，其他年份是 S 12／A 28）。維度不足就改用分位數門檻，
         // 讓各階比例與資料完整的年份一致（2026-07-31 使用者回報 2013／2014 Tier 壞掉）
         const SCOL=["禁用率","BP%","勝率","贏線率","後選率","參與率","KDA","中期金差","分均金錢","分均輸出","分均承傷","分均視分"];
-        const _rows={}; LANE5v.forEach(L=>{_rows[L]=calcHeroes(L,"",TT).filter(r=>r.場數>=minG);});   // 選了戰隊＝這一隊自己的數據分階（使用者 2026-10-20）
-        Object.keys(cnt).forEach(id=>{ if(!banOnly(id)||!D2[id])return; const L=banLaneOf(id); if(!L)return; const r=banRow(id,L); if(r)_rows[L].push(r); });   // 只被禁沒選過也進板（評分＝該路中位數＋禁用分，tierPro 算）
+        const _rows={}; LANE5v.forEach(L=>{_rows[L]=cHL(L).filter(r=>r.場數>=minG);});   // 選了戰隊＝這一隊自己的數據分階（使用者 2026-10-20）
+        Object.keys(cnt).forEach(id=>{ if(!banOnly(id)||!D2[id])return; const L=banLaneOf(id); if(!L||LP(L))return; const r=banRow(id,L); if(r)_rows[L].push(r); });   // 只被禁沒選過也進板（評分＝該路中位數＋禁用分，tierPro 算）
         // 選了戰隊但範圍內這隊沒有任何比賽 ⇒ 沒有比賽資料可分階，全部都會變奇招（使用者 2026-10-20：表上幾乎沒英雄）→ 改用該隊選手的積分分階
         if(TT&&!LANE5v.some(L=>_rows[L].some(r=>!r._ban))&&!isHistYear()&&window.SOLOQ_BUILDS&&SOLOQ_BUILDS.hero)return genSoloqTiers(base);
         // 比賽沒人選、但積分有在玩（該路過積分樣本門檻、而且占這隻英雄 10% 以上場次）＝奇招也進板（使用者 2026-10-20：WCS 犽宿下路積分有人玩卻哪裡都沒有）
         if(!isHistYear()&&window.SOLOQ_BUILDS&&SOLOQ_BUILDS.hero){ const totS={}; sqQ(null,1).forEach(r=>{totS[r._full]=r.場數;});
           LANE5v.forEach(L=>{ const have=new Set(_rows[L].map(r=>champId(r._full)));
-            sqQ(L).forEach(r=>{ const id=r._full; if(have.has(id)||!D2[id]||banOnly(id))return; if(totS[id]&&r.場數<totS[id]*0.1)return;
+            sqQ(L).forEach(r=>{ const id=r._full; if(have.has(id)||!D2[id]||banOnly(id))return; if(!LP(L)&&totS[id]&&r.場數<totS[id]*0.1)return;
               _rows[L].push({_full:id,_sqOnly:1,場數:0,"BP%":0,評分:null}); }); }); }
         const _all=LANE5v.flatMap(L=>_rows[L]);
         // （早年只有少數維度的年份原本另走分位數門檻；現在全部改排名比例，自然涵蓋）
@@ -11996,7 +12020,10 @@ function render(){
           return null;}
         return finishGen(dropDE(tiers),base);
       };
-      const dropDE=tiers=>tiers.filter(t=>!((t.n==="D"||t.n==="E")&&!t.ids.length&&LANE5v.every(L=>!t.lanes[L].length)));   // 沒有任何一路分到 D／E ⇒ 那一列不出現
+      // D／E 這一列要不要出現（使用者 2026-10-21）：五路（混合同）要 ≥3 路有英雄、三路要 ≥2 區；不夠就整列併回上一階（E→D→C），不留零星一兩路的 D
+      const dropDE=tiers=>{ const byN=n=>tiers.find(t=>t.n===n), enough=t=>V.tierMode==="lane3"?COL3.filter(([,ls])=>ls.some(L=>t.lanes[L].length)).length>=2:LANE5v.filter(L=>t.lanes[L].length).length>=3;
+        ["E","D"].forEach(n=>{ const t=byN(n); if(!t||enough(t))return; const up=byN(n==="E"?"D":"C"); LANE5v.forEach(L=>{ up.lanes[L].push(...t.lanes[L]); }); up.ids.push(...t.ids); t.ids=[]; LANE5v.forEach(L=>{t.lanes[L]=[];}); });
+        return tiers.filter(t=>!((t.n==="D"||t.n==="E")&&!t.ids.length&&LANE5v.every(L=>!t.lanes[L].length))); };
       // 手動補加保留（2026-07-18 使用者定案：數據板允許後面補加，自動重產不清掉）：
       // genL/genM＝本次自動產生的 (英雄|路線) 集合，存在板物件上；重產時把舊板「非自動產生」的項目照原階名補回（新資料已含者不重複）
       const finishGen=(tiers,base)=>{
@@ -12026,7 +12053,7 @@ function render(){
         if(!SB||!SB.hero){window._tierGenMsg=LANG==="en"?"No ranked data yet":"目前沒有積分數據";return null;}
         // 逐路計分（使用者 2026-10-20：Corki 26.20 積分最多走上路卻沒出現在上路）：每一路各算一次評分（同路互比），
         //   一隻英雄只要那一路樣本夠、而且占它這段期間總場數 10% 以上就進那一路；版本＝sqPks（篩選範圍的版本）或 F.patch
-        if((V.tierProSq||TT)&&!window.SOLOQ_PAGG){window._tierPending=true; return null;}   // 選手彙總還在載（sqHov 已觸發載入，載完重產）
+        if((V.tierProSq||TT||_anyLP)&&!window.SOLOQ_PAGG){window._tierPending=true; return null;}   // 選手彙總還在載（sqHov 已觸發載入，載完重產）
         _genSc={};
         const totN={}; sqQ(null).forEach(r=>{totN[r._full]=r.場數;});
         const rowsL=LANE5v.flatMap(L=>sqQ(L).map(r=>Object.assign({},r,{_lane:L})));
@@ -12039,9 +12066,9 @@ function render(){
         const tiers=TH.map(([n],ti2)=>Object.assign({n,c:c5s[ti2], ids:[], lanes:empL()},ti2===TH.length-1?{qz:1}:{}));
         const minG=(F.patch||sqPks||sqHov)?(F.minG||0):Math.max(30,F.minG||0); // 全季沿用30場門檻；有版本範圍時樣本小→只靠 calcHeroesSoloq 內建門檻
         let total=0;
-        const noPro=!!TT&&LANE5v.every(L=>!calcHeroes(L,"",TT).length);
+        const noPro=!!TT&&LANE5v.every(L=>!cHL(L).length);
         const qzS=(V.sqQz!=null?V.sqQz:1)/100, laneTot={}; LANE5v.forEach(L=>{ laneTot[L]=sqQ(L,1).reduce((a,r)=>a+(r.場數||0),0); });
-        const arr=rowsL.filter(r=>r.評分!=null&&r.場數>=minG&&D2[r._full]&&(!totN[r._full]||r.場數>=totN[r._full]*0.1))
+        const arr=rowsL.filter(r=>r.評分!=null&&r.場數>=minG&&D2[r._full]&&(LP(r._lane)||!totN[r._full]||r.場數>=totN[r._full]*0.1))
           .map(r=>({id:r._full,lane:r._lane,n:r.場數||0,sc:Math.min(100,r.評分+flexB(r._full)),q:noPro?false:(proRare(r._full,r._lane)&&sqRare(r._full,r._lane))}));   // 奇招＝比賽很少人選（積分這邊本來就有）；選的戰隊範圍內沒比賽＝不判奇招
         const binS={}; LANE5v.forEach(L=>{ const e=arr.filter(r=>r.lane===L&&!r.q).sort((a,b)=>b.sc-a.sc), cb=countBins(e.map(r=>r.sc),true,e.map(r=>r.n>=15)); e.forEach((r,i)=>{ binS[r.lane+"|"+r.id]=cb[i]; }); });
         arr.sort((a,b)=>b.sc-a.sc).forEach(r=>{ const bi=r.q?TH.length-1:binS[r.lane+"|"+r.id];
@@ -12056,12 +12083,12 @@ function render(){
         const SB=window.SOLOQ_BUILDS;
         if((!SB||!SB.hero)&&!_buildsReady&&!isHistYear()){window._tierPending=true; ensureBuilds(); return null;}   // 積分還沒載到＝待產（否則開頁第一次會產成純比賽數據）
         if(!SB||!SB.hero||isHistYear())return genMatchTiers(base);
-        if((V.tierProSq||TT)&&!window.SOLOQ_PAGG){window._tierPending=true; return null;}
+        if((V.tierProSq||TT||_anyLP)&&!window.SOLOQ_PAGG){window._tierPending=true; return null;}
         const totN={}; sqQ(null).forEach(r=>{totN[r._full]=r.場數;});
         // 兩邊都換成「該路排名百分位」再加權（使用者 2026-10-20：原本比賽原始分＋積分拉伸分尺度不同，單版本時 S 會變 0）
         const qzS=(V.sqQz!=null?V.sqQz:1)/100, Q={};
         LANE5v.forEach(L=>{ const tot=sqQ(L,1).reduce((a,r)=>a+(r.場數||0),0);
-          const e=sqQ(L).filter(r=>r.評分!=null&&(!totN[r._full]||r.場數>=totN[r._full]*0.1)&&(!tot||r.場數/tot>=qzS)).sort((a,b)=>(b.評分+flexB(b._full))-(a.評分+flexB(a._full)));   // 錯位加分
+          const e=sqQ(L).filter(r=>r.評分!=null&&(LP(L)||!totN[r._full]||r.場數>=totN[r._full]*0.1)&&(!tot||r.場數/tot>=qzS)).sort((a,b)=>(b.評分+flexB(b._full))-(a.評分+flexB(a._full)));   // 錯位加分
           e.forEach((r,i)=>{ Q[r._full+"|"+L]=e.length>1?100*(1-i/(e.length-1)):100; }); });
         const wP=(V.mixW!=null?V.mixW:70)/100;
         return genMatchTiers(base,(id,L,pm)=>{ const q=Q[id+"|"+L]; return q!=null?wP*pm+(1-wP)*q:pm; });
