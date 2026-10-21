@@ -46,6 +46,21 @@ def roster(abbr):
     bp, rp, pi = C["blue_playername"], C["red_playername"], C["participantid"]
     bt, rt, di, li = C["blue_teamname"], C["red_teamname"], C["date"], C["league"]
     out = {}
+    # OE 把各賽區的世界賽資格賽也標成 WLDs（2026＝LPL 09-17～19）：兩隊主場聯賽相同的 WLDs 局算回該聯賽
+    # （同前端：世界賽中國區資格賽算 LPL 底下；使用者 2026-10-21：Erha 沒來世界賽卻被列成 WLDs）。判法同 fetch_data.worlds_cutoff
+    home = {}
+    for r in raw[1:]:
+        if str(r[li]).upper() in ("WLDS", "MSI"):
+            continue
+        for t in (r[bt], r[rt]):
+            if t:
+                cc = home.setdefault(t, Counter()); cc[r[li]] += 1
+    home = {t: cc.most_common(1)[0][0] for t, cc in home.items()}
+    def lg_of(r):
+        lg = str(r[li])
+        if lg == "WLDs" and home.get(r[bt]) and home.get(r[bt]) == home.get(r[rt]):
+            return home[r[bt]]
+        return lg
     for r in raw[1:]:
         try:
             pid = int(r[pi])
@@ -60,7 +75,7 @@ def roster(abbr):
             full = str(r[tcol] or "").strip()
             ab = norm_ab(abbr.get(full.lower(), "")) or re.sub(r"[^A-Za-z0-9]", "", full)[:5].upper()
             e = out.setdefault(nm, {"player": nm, "n": 0, "pos": Counter(), "last": "", "teams": Counter(), "leagues": Counter(), "team": ab, "_best": (-1, "")})
-            e["n"] += 1; e["pos"][POS[pid]] += 1; e["teams"][ab] += 1; e["leagues"][str(r[li])] += 1
+            e["n"] += 1; e["pos"][POS[pid]] += 1; e["teams"][ab] += 1; e["leagues"][lg_of(r)] += 1
             d = str(r[di])[:10]
             if d > e["last"]:
                 e["last"] = d                      # 「還在不在打」看真正的最後一場（國家隊也算）
