@@ -12197,6 +12197,8 @@ function render(){
       // 只留圖示 → 維持 sqbtn（36×36 正方形），與同列的 📸／←／↺／ℹ️ 外觀一致
       // 🗑＝回到「目前篩選下的預設」（使用者 2026-10-20）：數據模式＝不帶 base 重產（不保留手動補加／複本／連結）；自訂的預設＝空板
       rb.onclick=()=>{
+        // 🗑 也清掉路線圖右側的選手下拉（使用者 2026-10-22）；LP／LPp 是 render 時算好的 ⇒ 先清再 render，用新的按鈕重跑一次
+        if(Object.values(V.tierLanePl||{}).some(Boolean)){ V.tierLanePl={}; saveState(); render(); setTimeout(()=>{const b=document.getElementById("tierReset"); b&&b.click();},0); return; }
         const src=V.tierSrc||"custom";
         if(src!=="custom"){
           const t=gen(src)(null); if(!t){alert(window._tierGenMsg||"產生失敗"); window._tierGenMsg=""; return;}
