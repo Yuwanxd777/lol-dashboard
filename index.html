@@ -11970,7 +11970,9 @@ function render(){
         const _rows={}; LANE5v.forEach(L=>{_rows[L]=cHL(L).filter(r=>r.場數>=minG);});   // 選了戰隊＝這一隊自己的數據分階（使用者 2026-10-20）
         Object.keys(cnt).forEach(id=>{ if(!banOnly(id)||!D2[id])return; const L=banLaneOf(id); if(!L||LP(L))return; const r=banRow(id,L); if(r)_rows[L].push(r); });   // 只被禁沒選過也進板（評分＝該路中位數＋禁用分，tierPro 算）
         // 選了戰隊但範圍內這隊沒有任何比賽 ⇒ 沒有比賽資料可分階，全部都會變奇招（使用者 2026-10-20：表上幾乎沒英雄）→ 改用該隊選手的積分分階
-        if(TT&&!LANE5v.some(L=>_rows[L].some(r=>!r._ban))&&!isHistYear()&&window.SOLOQ_BUILDS&&SOLOQ_BUILDS.hero)return genSoloqTiers(base);
+        // 比賽數據（使用者 2026-10-22：WCS 選 T1 沒出賽卻有東西）⇒ 不改用積分，直接給空板＋行內說明；混合數據才退回該隊積分
+        const noTG=TT&&!LANE5v.some(L=>_rows[L].some(r=>!r._ban));
+        if(noTG&&adj&&!isHistYear()&&window.SOLOQ_BUILDS&&SOLOQ_BUILDS.hero){ const t=genSoloqTiers(base); if(t||window._tierPending)return t; window._tierGenMsg=""; }   // 積分也排不出來 ⇒ 同樣給空板
         // 比賽沒人選、但積分有在玩（該路過積分樣本門檻、而且占這隻英雄 10% 以上場次）＝奇招也進板（使用者 2026-10-20：WCS 犽宿下路積分有人玩卻哪裡都沒有）
         if(!isHistYear()&&window.SOLOQ_BUILDS&&SOLOQ_BUILDS.hero){ const totS={}; sqQ(null,1).forEach(r=>{totS[r._full]=r.場數;});
           LANE5v.forEach(L=>{ const have=new Set(_rows[L].map(r=>champId(r._full)));
@@ -11981,6 +11983,7 @@ function render(){
         const oldByName={}; ((base&&base.tiers)||[]).forEach(t=>{if(!(t.n in oldByName))oldByName[t.n]=t;}); // 只沿用列色
         const empL=()=>({TOP:[],JNG:[],MID:[],BOT:[],SUP:[]});
         const tiers=TH.map(([n],ti2)=>{const o=oldByName[n]; return Object.assign({n, c:(o&&o.c)||"", ids:[], lanes:empL()},ti2===TH.length-1?{qz:1}:{});});
+        if(noTG){ window._tierGenNote=LANG==="en"?TT+" has no games in this range":TT+" 在目前範圍沒有比賽"; return finishGen(dropDE(tiers),base); }
         let total=0;
         const _diag={raw:0,pass:0,noId:0};   // 診斷用：原始筆數／過門檻／查不到英雄 id
         LANE5v.forEach(L=>{ // 各路依「該路評分」分階
@@ -12094,7 +12097,7 @@ function render(){
         return genMatchTiers(base,(id,L,pm)=>{ const q=Q[id+"|"+L]; return q!=null?wP*pm+(1-wP)*q:pm; });
       };
       // 模式切換：作用中板子＝V.tierB，其餘收在 V.tierBS；數據模式再點一次＝依目前篩選重新產生
-      const gen=src=>{window._tierPending=false; return src==="soloq"?genSoloqTiers:src==="mix"?genMixTiers:genMatchTiers;};
+      const gen=src=>{window._tierPending=false; window._tierGenNote=""; return src==="soloq"?genSoloqTiers:src==="mix"?genMixTiers:genMatchTiers;};
       const switchSrc=src=>{
         const cur=V.tierSrc||"custom"; V.tierBS=V.tierBS||{};
         const auto=!!window._tierAutoRegen; window._tierAutoRegen=false;
@@ -12103,17 +12106,17 @@ function render(){
         const fail=()=>{
           if(window._tierPending){window._tierPending=false; V.tierSrc=src; V.tierBS[cur]=V.tierB;
             V.tierB=V.tierBS[src]||{tiers:defTiers()}; delete V.tierBS[src]; V.tierGenKey=""; V.tierGenFail=""; V.tierLaneOff={}; saveState(); render(); return;}
-          V.tierGenFail=window._tierGenMsg||"產生失敗"; window._tierGenMsg=""; if(!auto)alert(V.tierGenFail); saveState(); render();};
+          V.tierGenFail=window._tierGenMsg||"產生失敗"; window._tierGenMsg=""; V.tierGenNote=""; if(!auto)alert(V.tierGenFail); saveState(); render();};
         if(src==="custom"){
           if(cur==="custom")return;
           V.tierBS[cur]=V.tierB; V.tierB=V.tierBS.custom||{tiers:defTiers()}; delete V.tierBS.custom;
         }else if(src===cur){ // 同數據模式再點＝立即重新產生（base＝目前板：沿用列色＋保留手動補加）
           const t=gen(src)(V.tierB); if(!t){fail();return;}
-          UNDO.track("tierB",V.tierB); V.tierB=t; V.tierGenKey=tierGenKeyStr(src); V.tierGenFail="";
+          UNDO.track("tierB",V.tierB); V.tierB=t; V.tierGenKey=tierGenKeyStr(src); V.tierGenFail=""; V.tierGenNote=window._tierGenNote||"";
         }else{ // 進入數據模式＝依目前篩選現產（base＝該來源舊板：沿用列色＋保留手動補加）
           const base=V.tierBS[src]||null;
           const t=gen(src)(base); if(!t){fail();return;}
-          V.tierBS[cur]=V.tierB; V.tierB=t; delete V.tierBS[src]; V.tierGenKey=tierGenKeyStr(src); V.tierGenFail="";
+          V.tierBS[cur]=V.tierB; V.tierB=t; delete V.tierBS[src]; V.tierGenKey=tierGenKeyStr(src); V.tierGenFail=""; V.tierGenNote=window._tierGenNote||"";
         }
         V.tierSrc=src; V.tierLaneOff={}; saveState(); render();
       };
@@ -12135,9 +12138,9 @@ function render(){
         if(V.tierProSq){ pb2.style.borderColor="var(--gold)"; pb2.style.color="var(--gold)"; }   // 外觀比照模擬BP「🎯 近期積分」：pgbtn、開啟＝黃邊黃字
         pb2.onclick=()=>{ V.tierProSq=!V.tierProSq; V.tierGenKey=""; saveState(); render(); };
         fr.parentNode.insertBefore(pb2,fr); }
-      if(TIER_SRC_BTN[V.tierSrc]&&V.tierGenFail){ // 自動重產失敗的行內警示（不彈窗）
-        const warn=document.createElement("span"); warn.id="tierGenWarn";
-        warn.textContent="⚠️ "+V.tierGenFail; warn.title=V.tierGenFail;
+      if(TIER_SRC_BTN[V.tierSrc]&&(V.tierGenFail||V.tierGenNote)){ // 自動重產失敗的行內警示（不彈窗）；tierGenNote＝產生成功但要說明（如選的戰隊範圍內沒比賽）
+        const warn=document.createElement("span"), wm=V.tierGenFail||V.tierGenNote; warn.id="tierGenWarn";
+        warn.textContent="⚠️ "+wm; warn.title=wm;
         warn.style.cssText="color:#ffb054;font-size:13.5px;align-self:center";
         fr.parentNode.insertBefore(warn,fr);
       }
@@ -12197,7 +12200,7 @@ function render(){
         const src=V.tierSrc||"custom";
         if(src!=="custom"){
           const t=gen(src)(null); if(!t){alert(window._tierGenMsg||"產生失敗"); window._tierGenMsg=""; return;}
-          UNDO.track("tierB",V.tierB); V.tierB=t; V.tierGenKey=tierGenKeyStr(src); V.tierGenFail="";
+          UNDO.track("tierB",V.tierB); V.tierB=t; V.tierGenKey=tierGenKeyStr(src); V.tierGenFail=""; V.tierGenNote=window._tierGenNote||"";
         }else{
           UNDO.track("tierB",V.tierB);
           V.tierB={tiers:defTiers().map(t=>({...t,lanes:{TOP:[],JNG:[],MID:[],BOT:[],SUP:[]}}))};
