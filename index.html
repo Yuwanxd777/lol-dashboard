@@ -455,6 +455,7 @@
   .chgLi.buff{color:#ff8a8a} .chgLi.nerf{color:#7fce9c} .chgLi.adj{color:var(--tx)}
   .chgSk{font-size:16px;color:var(--acc);font-weight:bold;margin:5px 0 1px;padding-left:3px;line-height:1.4}
   /* 版本改動 hover 提示卡 */
+  #hoverTip:has(.tGrid.wide){max-width:min(780px,96vw)}   /* 三位選手×比賽／積分＝6 欄，460 會溢出 */
   #hoverTip{position:fixed;z-index:300;display:none;max-width:460px;max-height:72vh;overflow-y:auto;background:#10141f;border:1px solid var(--acc);
     border-radius:10px;padding:12px 15px;font-size:13px;line-height:1.6;box-shadow:0 8px 32px rgba(0,0,0,.75)}
   #hoverTip .tipRow>div,#hoverTip .tipEffect>div{white-space:pre-line} /* 只有內文保留換行，模板縮排不會變空白行 */
@@ -11011,7 +11012,7 @@ function render(){
                ["gd",LANG==="en"?"GD@15":"金差@15"],["bp","BP%"],["bpp","BP%+"]];   // 被禁列拿掉（使用者 2026-10-20），BP% 已含被禁
       const grp=cols.some(c=>c.g!=null), gs=(c,i)=>grp&&i>0&&cols[i-1].g!==c.g;   // gs＝組的第一欄（組間加寬）
       const pad=(c,i)=>gs(c,i)?"padding-left:16px;":"";
-      let h=`<div class="tGrid" style="grid-template-columns:auto${" minmax(64px,auto)".repeat(cols.length)}">`;
+      let h=`<div class="tGrid${cols.length>4?" wide":""}" style="grid-template-columns:auto${" minmax(64px,auto)".repeat(cols.length)}">`;
       if(grp){ h+=`<span></span>`; for(let i=0;i<cols.length;){ let j=i; while(j<cols.length&&cols[j].g===cols[i].g)j++;
           h+=`<span class="tgG" style="grid-column:span ${j-i};${i?"margin-left:16px;":""}">${cols[i].g}</span>`; i=j; } }
       h+=`<span></span>${cols.map((c,i)=>`<span class="h${grp?" hs":""}" style="${pad(c,i)}">${c.h}</span>`).join("")}`;
@@ -11052,8 +11053,8 @@ function render(){
               _v:{rt:tp,wr:rw.勝率,kda:rw.KDA,gd:gd15}, _P:proPool(lane).P}; };
     const plCols=(id,lane,wantPro,wantSq)=>{ if(!TT||!lane)return null; const m=teamPl[LANE5v.indexOf(lane)+1]; if(!m||Object.keys(m).length<2)return null;
       const both=wantPro&&wantSq;
-      const cols=[]; Object.entries(m).sort((a,b)=>b[1]-a[1]).forEach(([nm])=>{
-        const p=wantPro?proDataPl(id,lane,nm):null, s=wantSq?sqDataPl(id,lane,nm):null; if(!p&&!s)return;
+      const cols=[]; let np=0; Object.entries(m).sort((a,b)=>b[1]-a[1]).forEach(([nm])=>{   // 最多列 3 人（場數多的優先；使用者 2026-10-22）
+        if(np>=3)return; const p=wantPro?proDataPl(id,lane,nm):null, s=wantSq?sqDataPl(id,lane,nm):null; if(!p&&!s)return; np++;
         if(wantPro)cols.push(both?{g:esc(nm),h:LANG==="en"?"Pro":"比賽",d:p||{}}:{h:esc(nm),d:p||{}});
         if(wantSq)cols.push(both?{g:esc(nm),h:LANG==="en"?"Ranked":"積分",d:s||{}}:{h:esc(nm),d:s||{}}); });
       return cols.length?cols:null; };
