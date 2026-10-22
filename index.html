@@ -1773,8 +1773,12 @@ function loadRunes(cb){ if(RUNE_MAP){cb&&cb();return;} if(RUNE_LOADING)return; R
 const runeImg=(id,s)=>{ if(!id)return ""; const r=RUNE_MAP&&RUNE_MAP[id];
   if(r)return `<img loading="lazy" title="${esc(r.name)}" src="https://ddragon.leagueoflegends.com/cdn/img/${r.icon}" style="width:${s||22}px;height:${s||22}px;vertical-align:middle" onerror="this.style.visibility='hidden'">`;
   return `<span style="display:inline-block;width:${s||22}px;height:${s||22}px;border-radius:50%;background:#1a2338;vertical-align:middle"></span>`; };
+// 主符文圖案視覺大小差很多（外圍有暗光暈，用外框量不準）⇒ 以亮度加權量 [包住 85% 亮度的直徑,重心x,重心y]，縮放到同一直徑 0.63＋重心拉回中央（最多 6%）（使用者 2026-10-22：小框符文看起來大小不一）
+const KS_BOX={8021:[0.613,0.481,0.475],8008:[0.505,0.500,0.472],8112:[0.627,0.509,0.503],9923:[0.626,0.507,0.515],8128:[0.602,0.486,0.384],8229:[0.647,0.489,0.511],8351:[0.603,0.507,0.475],8465:[0.633,0.497,0.379],8437:[0.642,0.453,0.402],8005:[0.583,0.515,0.508],8439:[0.582,0.511,0.455],8360:[0.587,0.516,0.399],8010:[0.630,0.442,0.481],8214:[0.701,0.498,0.476],8369:[0.733,0.441,0.530],8992:[0.688,0.499,0.491],8230:[0.783,0.551,0.461]};
 const runeKS=(g,s)=>{ // 積分逐場符文欄：主符文 keystone＋右下角「副系」小徽章（rs 第一個有值符文的所屬系）
-  const main=runeImg(g&&g.r,s||32);
+  const _b=g&&KS_BOX[g.r], _s=s||32;
+  const _k=_b?Math.min(1.25,Math.max(.85,.63/_b[0])):1, _sh=v=>(Math.min(.06,Math.max(-.06,.5-v))*_s*_k).toFixed(1);
+  const main=_b?runeImg(g.r,_s).replace('vertical-align:middle"',`vertical-align:middle;transform:translate(${_sh(_b[1])}px,${_sh(_b[2])}px) scale(${_k.toFixed(3)})"`):runeImg(g&&g.r,_s);
   const rs=((g&&g.rs)||[]).find(x=>x!=null);
   const rt=rs&&RUNE_MAP&&RUNE_MAP[rs], tr=rt&&RUNE_MAP[rt.tree];
   if(!tr)return main;
