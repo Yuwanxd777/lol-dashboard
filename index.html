@@ -18039,7 +18039,10 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
         +'[data-shot] .dlyChip img{width:36px!important;height:36px!important;aspect-ratio:auto!important;filter:none!important}[data-shot] .dlyChip.ls img{opacity:.38}'
         +'[data-shot] .dlyAgg .dlyCnt{line-height:9px!important}';   // 同上：截圖裡的使用次數框數字置中
       const nm=LANG==="en"?"Recent ranked games":"近期積分戰況";   // 檔名
-      const byLg=()=>{ const m=new Map(); cards.forEach(c=>{ const k=c.dataset.lg||"-"; (m.get(k)||m.set(k,[]).get(k)).push(c); }); return [...m.values()]; };
+      const byLg=()=>{ const m=new Map(); cards.forEach(c=>{ const k=c.dataset.lg||"-"; (m.get(k)||m.set(k,[]).get(k)).push(c); });
+        // 只有一、兩隊的賽區互相併成一張（使用者 2026-10-22）：照原賽區順序，併到滿 4 隊為止；三隊以上的賽區照舊一張
+        const out=[]; let sm=null; [...m.values()].forEach(g=>{ if(g.length>2){ out.push(g); return; }
+          if(sm&&sm.length+g.length<=4)sm.push(...g); else { sm=[...g]; out.push(sm); } }); return out; };
       shotMenu(sb,null,null,[[`🖼️ ${LANG==="en"?"Full image (one long image)":"完整大圖（單張長圖）"}`,()=>go("full")],
         // 中圖／小圖各分直式 1080×1350、橫式 1920×1080（使用者 2026-10-18）
         ...[false,true].map(land=>[`${land?"🖥️":"🗂️"} ${LANG==="en"?(land?"Landscape":"Portrait")+" medium: one region per image":(land?"橫式":"直式")+"中圖（一個賽區一張）"}`,()=>shotPages(nm,byLg(),{colW:480,minW:420,title:ttl,headH:0,style:ST,maxCols:land?6:4,land})]),
