@@ -17618,7 +17618,7 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
     // 使用者 2026-10-18「篩選認的是戰隊，不是選手」：聯賽（LCK／LPL…）一律看**戰隊**屬於該聯賽（篩 LPL 不會跑出前 LPL 選手所在的 BFX、
     //   篩 LCK 不會跑出 C9 Loki）；盃賽／國際賽仍看選手本人（WCS＝wiki 名單＋上場，二隊選手不列）
     const rgPass=r=>{ const s=rgOf(r), tl=TLG[teamFix(r.team||"")];
-      return _RS.every(l=>isLeagueCode(l)?!!(tl&&tl.has(l)):!!(s&&s.has(l))); };
+      return _RS.every(l=>!!(s&&s.has(l))&&(!isLeagueCode(l)||!!(tl&&tl.has(l)))); };   // 聯賽也要選手本人上場過（使用者 2026-10-22：T1 Haetae 只打 KeSPA、沒打 LCK，不該出現在 LCK）
     // 其他賽事（KeSPA／德盃／EWCQ 各區／世界賽各區資格賽…）：使用者 2026-10-18 要所有賽事都能篩；依上場人數多→少
     const _lgN={}; SD.players.forEach(p=>{const s=rgOf(p); if(s)s.forEach(l=>_lgN[l]=(_lgN[l]||0)+1);});
     const _edOf=cupEditions(), _edBase=l=>String(l).split("#")[0];
