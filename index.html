@@ -11134,7 +11134,9 @@ function render(){
           [[a.id,b.id],[b.id,a.id]].forEach(([x,y])=>{ if((ev[x]||[]).some(ex=>(ev[y]||[]).some(ey=>ey.t>ex.t&&(ey.ban||ey.sd===ex.sd))))hit++; }); }
         const pbp=tg?hit/tg:null;
         const prt=ra&&rb?(ra[0]*ra[1]+rb[0]*rb[1])/Math.max(1,ra[1]+rb[1]):null, pkd=n?kdaOf(ka[0]+kb[0],ka[1]+kb[1],ka[2]+kb[2]):null;
-        pro={_v:{rt:softCap(prt),wr:n?w/n:null,kda:pkd,gd:pgd,bpp:pbp}, _P:joinP(proPool(a.lane).P,proPool(b.lane).P), rt:prt, g:wlS(n,w), wr:n?pct(w/n):null, kda:n?fx1(kdaOf(ka[0]+kb[0],ka[1]+kb[1],ka[2]+kb[2])):null,
+        // BP%+ 上色（使用者 2026-10-23：同樣 10%，BP%+ 一定比 BP% 重要）：跟兩路單隻 BP% 的分布比，但 BP%+ 先乘 BPP_W 再比（10% 的 BP%+ ≈ 20% 的 BP%）
+        const BPP_W=2, _PP=joinP(proPool(a.lane).P,proPool(b.lane).P); _PP.bpp=(_PP.bp||[]).map(x=>x/BPP_W);
+        pro={_v:{rt:softCap(prt),wr:n?w/n:null,kda:pkd,gd:pgd,bpp:pbp}, _P:_PP, rt:prt, g:wlS(n,w), wr:n?pct(w/n):null, kda:n?fx1(kdaOf(ka[0]+kb[0],ka[1]+kb[1],ka[2]+kb[2])):null,
              gd:pgd==null?null:(pgd>0?"+":"")+Math.round(pgd), bpp:pbp==null?null:Math.round(pbp*100)+"%"}; if(pro.rt!=null)pro.rt=softCap(pro.rt); }
       let sq=null;
       // 積分：逐場積分（SOLOQ_CHGAMES，第 15 欄＝隊友英雄）裡 A 在這一路且隊友是 B（或反過來）；版本／只算出賽選手同目前篩選；同場只算一次
