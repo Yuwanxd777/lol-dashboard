@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 """積分牌位更新本機服務（給儀表板「🔑 添加API」按鈕用）
 - 只綁 127.0.0.1:8177，外部連不進來；金鑰只放環境變數傳給 fetch_soloq.py，不寫檔、不記錄。
-- 端點：GET /ping、GET /status、POST /update {"key":"RGAPI-…"}（金鑰格式不對直接 400，不會打 Riot）。
+- 端點：GET /ping、GET /status、POST /update {"key":"RGAPI-…"}（金鑰格式不對直接 400，不會打 Riot）、
+  POST /refresh（積分頁「🔄 更新積分」：用已存的金鑰，照每日管線 ⑤c～⑤g 的積分步驟循序跑一遍）。
 - 啟動：雙擊「積分牌位更新服務.bat」，關閉視窗即停止。
 """
 import io, sys, json, os, re, threading, subprocess, time
@@ -34,6 +35,50 @@ def run_update(key):
             ST["log"] += f"\n⚠ 偵測到 {denied} 次 401/403：金鑰大概過期或貼錯，請到開發者頁 REGENERATE 後重貼。"
     except Exception as e:
         ST["log"] += f"\n執行失敗：{e}"; ST["ok"] = False
+    ST["log"] += f"\n（耗時 {time.time()-t0:.0f} 秒）"
+    ST["busy"] = False; ST["done"] = True
+
+
+# 「🔄 更新積分」（使用者 2026-10-22）：跟 run_update.py 的 ⑤c～⑤g 同參數、同順序（改那邊要一起改）
+REFRESH_STEPS = [
+    ("牌位", ["fetch_soloq_auto.py"]),
+    ("逐場（只抓有動的）", ["fetch_soloq_update.py", "--changed", "--no-rebuild", "--batch"]),
+    ("補新人", ["fetch_soloq_year.py", "--missing", "--no-rebuild"]),
+    ("逐場對帳", ["clean_soloq_matches.py", "--apply"]),
+    ("積分索引", ["build_soloq_index.py"]),
+    ("出裝聚合", ["build_soloq_builds.py"]),
+]
+
+
+def pipeline_busy():
+    """排程管線（10:00／22:00）在跑就不要同時跑同一批腳本：它每一階段都會寫 update_log.txt／update_console.txt。"""
+    for f in ("update_log.txt", "update_console.txt"):
+        fp = os.path.join(ROOT, f)
+        if os.path.exists(fp) and time.time() - os.path.getmtime(fp) < 15 * 60:
+            return True
+    return False
+
+
+def run_refresh():
+    ST.update(busy=True, done=False, ok=None, log="")
+    t0 = time.time(); ok = True
+    for i, (name, cmd) in enumerate(REFRESH_STEPS, 1):
+        ST["log"] = (ST["log"] + f"【{i}/{len(REFRESH_STEPS)} {name}】\n")[-6000:]
+        try:
+            p = subprocess.Popen([sys.executable, "-u", os.path.join(HERE, cmd[0])] + cmd[1:], cwd=ROOT,
+                                 stdout=subprocess.PIPE, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL,
+                                 text=True, encoding="utf-8", errors="replace")
+            for line in p.stdout:
+                ST["log"] = (ST["log"] + line)[-6000:]
+                print(line, end="")
+            rc = p.wait()
+        except Exception as e:
+            ST["log"] += f"執行失敗：{e}\n"; rc = -1
+        if rc != 0:
+            ok = False; ST["log"] += f"⚠ {name} exit {rc}\n"
+        if i == 1 and re.search(r"跳過", ST["log"]):  # 金鑰沒有／過期：牌位沒更新，後面照跑（逐場不靠金鑰）
+            ST["log"] += "⚠ 金鑰沒有或已過期，牌位沒更新——按「添加API」換新的\n"
+    ST["ok"] = ok
     ST["log"] += f"\n（耗時 {time.time()-t0:.0f} 秒）"
     ST["busy"] = False; ST["done"] = True
 
@@ -74,6 +119,13 @@ class H(BaseHTTPRequestHandler):
                 return self._json(200, {"ok": True, "permanent": perm})
             except Exception as e:
                 return self._json(200, {"ok": False, "err": str(e)})
+        if self.path == "/refresh":
+            if ST["busy"]:
+                return self._json(409, {"err": "已有更新在執行中"})
+            if pipeline_busy():
+                return self._json(409, {"err": "排程更新剛跑過或正在跑（15 分鐘內寫過 update_log），稍後再按"})
+            threading.Thread(target=run_refresh, daemon=True).start()
+            return self._json(200, {"started": True})
         if self.path != "/update":
             return self._json(404, {"err": "not found"})
         if ST["busy"]:

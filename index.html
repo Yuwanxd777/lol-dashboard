@@ -640,7 +640,7 @@
   /* 基礎按鈕（🗑 📸 ℹ️ ↺ ←）一律同字級：原本是逐個 id 白名單，新加的鈕沒列到就變 16px，
      同一顆 🗑 在比賽BP 與模擬BP 大小不一樣（2026-07-31 使用者回報）→ 改成整個 .barBtns 通用 */
   .filters .barBtns .sqbtn,.sqbtn.helpBtn{font-size:17px;line-height:1}
-  #sqApiBtn.helpBtn{width:auto;padding:0 12px;font-size:14px}   /* 積分頁「🔑 添加API」仍是帶字的鈕，沿用舊尺寸 */
+  #sqApiBtn.helpBtn,#sqRefBtn.helpBtn{width:auto;padding:0 12px;font-size:14px}   /* 積分頁「🔑 添加API」仍是帶字的鈕，沿用舊尺寸 */
   .helpPop{position:fixed;z-index:200;max-height:70vh;overflow:auto;padding:14px 16px;box-shadow:0 12px 34px rgba(0,0,0,.6)}
   .helpPop .helpPopHd{font-weight:bold;font-size:16px;color:#7fd7ff;margin-bottom:8px}
   .helpPop .helpPopBody{font-size:15.5px;line-height:1.85;color:var(--tx)}
@@ -10403,7 +10403,8 @@ function ensureBackBtn(){
   put("fReset",()=>{const b=document.createElement("button");b.id="fReset";b.className="sqbtn";b.textContent="↺";b.title=(LANG==="en"?"Reset to default":"所有篩選一鍵回復預設");return b;},el=>el.onclick=globalFilterReset); // 預設
   const gb=put("globalBack",()=>{const b=document.createElement("button");b.id="globalBack";b.className="sqbtn";b.textContent="←";b.title=(LANG==="en"?"Back":"返回上一頁");return b;},el=>el.onclick=navBack); // 返回(最右)
   gb.style.display=""; // 恆顯示（2026-08-05 使用者指定：重整後沒歷史也要在，按了沒反應即可——navBack 空堆疊本來就直接 return）
-  const xa=bar.querySelector("#sqApiBtn"); if(xa&&xa.parentNode!==box)box.insertBefore(xa,box.firstChild); // 頁面專屬鈕(積分「添加API」)收進同一容器＝與本頁說明固定 11px 間距
+  const xa=bar.querySelector("#sqApiBtn"); if(xa&&xa.parentNode!==box)box.insertBefore(xa,box.firstChild);
+  const xr=bar.querySelector("#sqRefBtn"); if(xr&&xr.parentNode!==box)box.insertBefore(xr,box.firstChild);   // 🔄 更新積分 排在 🔑 左邊 // 頁面專屬鈕(積分「添加API」)收進同一容器＝與本頁說明固定 11px 間距
 }
 // 簡體中文：整頁文字用繁→簡單字對照(T2S)轉換(以繁體資料渲染後再轉，見 [[dashboard]] 語言段)。冪等，可重複跑。
 function applyT2S(root){
@@ -17637,7 +17638,7 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
       <span style="display:inline-flex;gap:7px;align-items:center;flex-wrap:wrap"><span class="meta" style="margin-right:1px">${LANG==="en"?"Region":"賽區"}</span><button class="sqLaneBtn${!V.rankRegion?" on":""}" data-region="">${LANG==="en"?"All":"全部"}</button>${leagueBtns.map(rg=>`<button class="sqLaneBtn${rgHas(rg)?" on":""}" data-region="${esc(rg)}"${rgHas(rg)?"":` style="color:${LGC[rg]||"var(--tx2)"}"`}>${esc(lgName(rg))}</button>${(rg===_R1&&(rg==="LPL"||rg==="LCK")&&lplGroupNamesOfSplit(curYear,lplSel,grpLg).length)?segHTML("rankLplGrpSeg",[["",LANG==="en"?"All":"全部"],...lplGroupNamesOfSplit(curYear,lplSel,grpLg).map(g=>[g,`<span style="color:${lplGrpColor(g,curYear,lplSel)}">${esc(lplGrpName(g))}</span>`])],V.rankLplGrp||"","sm"):""}`).join("")}${leagueBtns.length&&cupBtns.length?`<span class="meta" style="opacity:.45;padding:0 2px;margin:0 -2px">｜</span>`:""}${cupBtns.map(rg=>`<button class="sqLaneBtn${rgHas(rg)?" on":""}" data-region="${esc(rg)}"${rgHas(rg)?"":` style="color:${LGC[rg]||"var(--tx2)"}"`}>${esc(lgName(rg))}</button>`).join("")}${otherBtns.length?`<span class="meta" style="opacity:.45;padding:0 2px;margin:0 -2px">｜</span>`:""}${otherBtns.map(rg=>`<button class="sqLaneBtn${rgHas(rg)?" on":""}" data-region="${esc(rg)}"${rgHas(rg)?"":` style="color:${LGC[_edBase(rg)]||"var(--tx2)"}"`}>${esc(rgName(rg))}</button>`).join("")}</span>
       
       <span style="flex:1"></span>
-      ${(location.protocol==="file:"||/^(localhost|127\.)/.test(location.hostname))?`<button id="sqApiBtn" class="sqbtn helpBtn" title="${LANG==="en"?"Paste a fresh Riot API key: update ranks now + auto-reuse at the 10:00 daily update":"開 Riot 開發者頁拿金鑰→貼上立即更新牌位；金鑰存本機供每天 10:00 排程自動更新"}">🔑 ${LANG==="en"?"Add API key":"添加API"}</button>`:""}
+      ${(location.protocol==="file:"||/^(localhost|127\.)/.test(location.hostname))?`<button id="sqApiBtn" class="sqbtn helpBtn" title="${LANG==="en"?"Paste a fresh Riot API key: update ranks now + auto-reuse at the 10:00 daily update":"開 Riot 開發者頁拿金鑰→貼上立即更新牌位；金鑰存本機供每天 10:00 排程自動更新"}">🔑 ${LANG==="en"?"Add API key":"添加API"}</button><button id="sqRefBtn" class="sqbtn helpBtn" title="${LANG==="en"?"Run the ranked update now (local helper, saved key)":"用已存的金鑰立刻跑一次積分更新（牌位→逐場→索引；本機服務代跑）"}">🔄 ${LANG==="en"?"Update ranked":"更新積分"}</button>`:""}
       ${dailyMode?`<button id="rankShot" class="sqbtn" style="order:1" title="${LANG==="en"?"Export daily games as a 1080p JPG":"輸出每日戰況 1080p 截圖"}">📸</button>`:""}
       ${TAB_HELP["積分"]?`<button id="fHelp" class="sqbtn helpBtn" title="${T("本頁說明")}">ℹ️</button>`:""}</div>
       ${dailyMode
@@ -17704,6 +17705,33 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
       if(pc)pc.addEventListener("change",()=>{jf(API+"/flag",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({permanent:pc.checked})}).catch(()=>{});});
       inp.focus();
       jf(API+"/ping").then(p2=>{ if(p2.busy){ say(en2?"an update is already running - attaching…":"已有更新在跑，接上進度…"); poll(); } }).catch(()=>{});
+     };}
+    // 🔄 更新積分（使用者 2026-10-22）：本機服務 scripts/soloq_key_server.py 的 /refresh，跑每日管線 ⑤c～⑤g 的積分步驟
+    {const rb2=document.getElementById("sqRefBtn");
+     if(rb2)rb2.onclick=()=>{
+      const en2=LANG==="en", API="http://127.0.0.1:8177";
+      let ov=document.getElementById("sqApiOv"); if(ov)ov.remove();
+      ov=document.createElement("div"); ov.id="sqApiOv";
+      ov.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:900;display:flex;align-items:center;justify-content:center";
+      ov.innerHTML=`<div class="card" style="width:min(640px,92vw);margin:0"><h2>🔄 ${en2?"Update ranked":"更新積分"}</h2>
+        <div id="sqRefSt" class="meta" style="line-height:1.6;white-space:pre-wrap;max-height:50vh;overflow-y:auto"></div></div>`;
+      ov.addEventListener("click",e=>{if(e.target===ov)ov.remove();});
+      document.body.appendChild(ov);
+      const st=ov.querySelector("#sqRefSt"), say=h=>{if(st)st.innerHTML=h;};
+      const jf=(u,o)=>{const c=new AbortController(); setTimeout(()=>c.abort(),3000); return fetch(u,Object.assign({signal:c.signal},o||{})).then(r=>r.json());};
+      const tail=(s2,n)=>esc(String(s2||"").split("\n").slice(-n).join("\n"));
+      const poll=()=>{ if(!document.getElementById("sqApiOv"))return;   // 關窗只是不看進度，服務端照跑
+        jf(API+"/status").then(s2=>{
+          if(s2.busy){ say((en2?"Updating…":"更新中…")+"\n"+tail(s2.log,10)); setTimeout(poll,2000); return; }
+          if(s2.done){ say((s2.ok?(en2?"Done - reloading…":"更新完成，重新整理…"):(en2?"Finished with errors:":"有步驟失敗："))+"\n"+tail(s2.log,10));
+            if(s2.ok)setTimeout(()=>location.reload(),1200); }
+        }).catch(()=>setTimeout(poll,2500)); };
+      say(en2?"Connecting to the local helper…":"連線本機服務中…");
+      jf(API+"/ping").then(p2=>{
+        if(p2.busy){ poll(); return; }
+        jf(API+"/refresh",{method:"POST"}).then(r2=>{ if(r2.started)poll(); else say("❌ "+esc(r2.err||"?")); })
+          .catch(()=>say(en2?"❌ The local helper rejected the request":"❌ 本機服務拒絕了請求"));
+      }).catch(()=>say(en2?"❌ Local helper is not running - double-click <b>積分牌位更新服務.bat</b> first.":"❌ 本機服務沒開：先雙擊儀表板資料夾的 <b>積分牌位更新服務.bat</b>（視窗開著），再按一次。"));
      };}
     // ★收藏(存 localStorage：純本機、GitHub Pages 靜態站也 OK)。鍵＝正規化隊碼|選手名；收藏者置頂且不受「近7天沒打」過濾
     const FAVK="lolRankFav";
