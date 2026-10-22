@@ -17593,6 +17593,7 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
       }
     }
     else {
+    const _RR=String(V.rankRole||"").split(",").filter(Boolean), rrOk=r=>!_RR.length||_RR.includes(r);   // 路線複選（使用者 2026-10-22）：V.rankRole＝逗號分隔
     const ROLEF=[["","全部","All"],["TOP","上路","Top"],["JUNGLE","打野","JG"],["MIDDLE","中路","Mid"],["BOTTOM","下路","Bot"],["UTILITY","輔助","Sup"]];
     // 賽區篩選＝該選手戰隊的參賽賽區(聯賽+盃賽)，非伺服器位置。盃賽只列 FST/MSI/WCS/EWC/ENC 且照此序；聯賽依偏好序
     const TLG=teamLeagueMap(), NPL=natlPlayerLeagues();
@@ -17634,7 +17635,7 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
     main.innerHTML=`<div class="filters" style="gap:9px 22px">
       <span class="cwrap"><input id="rankQ" class="combo" list="rankQdl" autocomplete="off" placeholder="${LANG==="en"?"Search player / team":"搜尋 選手／戰隊"}" style="width:190px"><button class="cx" tabindex="-1" data-x="rankQ" title="一鍵清除">✕</button></span><datalist id="rankQdl"></datalist>
       ${segHTML("rankViewSeg",[["ladder","🏆 "+(LANG==="en"?"Ladder":"排行榜"),LANG==="en"?"Ranked ladder":"看排行榜"],["daily","📅 "+(LANG==="en"?"Daily":"每日戰況"),LANG==="en"?"Daily games by team":"看近期積分戰況"]],dailyMode?"daily":"ladder","sm")}
-      <span style="display:inline-flex;gap:7px;align-items:center;flex-wrap:wrap"><span class="meta" style="margin-right:1px">${LANG==="en"?"Role":"路線"}</span>${ROLEF.map(([v,z,e])=>`<button class="sqLaneBtn${(V.rankRole||"")===v?" on":""}" data-role="${v}">${LANG==="en"?e:z}</button>`).join("")}</span>
+      <span style="display:inline-flex;gap:7px;align-items:center;flex-wrap:wrap"><span class="meta" style="margin-right:1px">${LANG==="en"?"Role":"路線"}</span>${ROLEF.map(([v,z,e])=>`<button class="sqLaneBtn${(v?_RR.includes(v):!_RR.length)?" on":""}" data-role="${v}">${LANG==="en"?e:z}</button>`).join("")}</span>
       <span style="display:inline-flex;gap:7px;align-items:center;flex-wrap:wrap"><span class="meta" style="margin-right:1px">${LANG==="en"?"Region":"賽區"}</span><button class="sqLaneBtn${!V.rankRegion?" on":""}" data-region="">${LANG==="en"?"All":"全部"}</button>${leagueBtns.map(rg=>`<button class="sqLaneBtn${rgHas(rg)?" on":""}" data-region="${esc(rg)}"${rgHas(rg)?"":` style="color:${LGC[rg]||"var(--tx2)"}"`}>${esc(lgName(rg))}</button>${(rg===_R1&&(rg==="LPL"||rg==="LCK")&&lplGroupNamesOfSplit(curYear,lplSel,grpLg).length)?segHTML("rankLplGrpSeg",[["",LANG==="en"?"All":"全部"],...lplGroupNamesOfSplit(curYear,lplSel,grpLg).map(g=>[g,`<span style="color:${lplGrpColor(g,curYear,lplSel)}">${esc(lplGrpName(g))}</span>`])],V.rankLplGrp||"","sm"):""}`).join("")}${leagueBtns.length&&cupBtns.length?`<span class="meta" style="opacity:.45;padding:0 2px;margin:0 -2px">｜</span>`:""}${cupBtns.map(rg=>`<button class="sqLaneBtn${rgHas(rg)?" on":""}" data-region="${esc(rg)}"${rgHas(rg)?"":` style="color:${LGC[rg]||"var(--tx2)"}"`}>${esc(lgName(rg))}</button>`).join("")}${otherBtns.length?`<span class="meta" style="opacity:.45;padding:0 2px;margin:0 -2px">｜</span>`:""}${otherBtns.map(rg=>`<button class="sqLaneBtn${rgHas(rg)?" on":""}" data-region="${esc(rg)}"${rgHas(rg)?"":` style="color:${LGC[_edBase(rg)]||"var(--tx2)"}"`}>${esc(rgName(rg))}</button>`).join("")}</span>
       
       <span style="flex:1"></span>
@@ -17809,7 +17810,7 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
       const disp=[...sorted.filter(r=>FAV.has(favKey(r))),...sorted.filter(r=>!FAV.has(favKey(r)))]; // ★收藏置頂(組內維持原本排序)
       const q=(V.rankQ||"").trim().toLowerCase();
       let active=disp.filter(r=>FAV.has(favKey(r))||r._missing||r._n7>0||(r.found&&r._n7==null)); // 收藏者一律顯示；其餘：最近7天沒打暫不列；缺帳號一律列(灰置底)；有段位但還沒逐場資料的新帳號(_n7==null)也列出
-      if(V.rankRole)active=active.filter(r=>r._role===V.rankRole); // 路線篩選
+      if(_RR.length)active=active.filter(r=>rrOk(r._role)); // 路線篩選
       if(_RS.length)active=active.filter(r=>rgPass(r)); // 賽區(參賽聯賽/盃賽)篩選
       if((_R1==="LPL"||_R1==="LCK")&&V.rankLplGrp)active=active.filter(r=>lplSplitGroupOf(teamFix(r.team||""),curYear,lplSel,grpLg)===V.rankLplGrp); // LPL 分組篩選(選定賽段；季後賽不分)
       let show=active;
@@ -17895,7 +17896,7 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
       const _alive=V.rankDayAlive==="alive"?wldAliveAbs():null;   // 還存活：淘汰的隊整隊不列（使用者 2026-10-20）
       const pass=(ab,player,role,teamRaw)=>{ if(!rankShow(player))return false;
         if(_alive&&!_alive.has(ab))return false;   // 今年沒出場過就不列（與排行榜同一判準；否則 BeanJ/Glory 這種已離開職業的人會從 soloq_recent 漏進來）
-        if(V.rankRole&&role!==V.rankRole)return false;
+        if(!rrOk(role))return false;
         // ⚠ 要帶 player：國家隊賽事（亞運）是**依選手本人**歸屬的，只看隊伍的話
         //   Faker（帳號掛 T1）整批會被濾掉 ⇒ 篩亞運時只剩沒有俱樂部的那幾位（2026-09-21 使用者回報）
         if(_RS.length){ if(!rgPass({team:teamRaw,player}))return false;
@@ -18026,7 +18027,9 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
     segBind("rankDayAlive",v=>{ if(v===(V.rankDayAlive==="alive"?"alive":"all"))return; V.rankDayAlive=v; saveState(); render(); });   // 全部／還存活
     segBind("rankDayLocal",v=>{ if(v===(V.rankDayLocal==="local"?"local":"all"))return; V.rankDayLocal=v; saveState(); render(); });   // 全部／當地
     segBind("rankDayView",v=>{ if(v===(V.rankDayView==="stat"?"stat":"detail"))return; V.rankDayView=v; saveState(); render(); });   // 每日戰況 詳細／統計（使用者 2026-10-18）               // 每日戰況天數範圍
-    main.querySelectorAll("[data-role]").forEach(b=>b.onclick=()=>{V.rankRole=b.dataset.role; saveState(); render();}); // 路線篩選
+    main.querySelectorAll("[data-role]").forEach(b=>b.onclick=()=>{ const v=b.dataset.role;
+      if(!v)V.rankRole=""; else { const cur=String(V.rankRole||"").split(",").filter(Boolean), i=cur.indexOf(v); if(i>=0)cur.splice(i,1); else cur.push(v); V.rankRole=cur.length>=5?"":cur.join(","); }
+      saveState(); render();}); // 路線篩選
     {const sb=document.getElementById("rankShot"); if(sb)sb.onclick=()=>{ const go=mode=>shotEl(document.getElementById("dlyWrap"),LANG==="en"?"Recent ranked games":"近期積分戰況",
       // 截圖複本（使用者 2026-10-18：看不到英雄圖、解析度太低）：html2canvas 算不出「寬 100%＋aspect-ratio」的圖 ⇒ 英雄圖固定 36px；
       //   它也不支援 CSS filter ⇒ 輸的場改用半透明區分；輸出 2 倍解析度（原本縮成 1920 寬，每隻英雄只剩幾 px）
