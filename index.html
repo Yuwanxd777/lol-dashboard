@@ -11102,10 +11102,10 @@ function render(){
     // 組合小框（使用者 2026-10-20：滑到組合上＝兩隻合併計算）：
     //   比賽＝目前篩選範圍內「同一隊、兩隻同時在各自那一路」的局數／勝敗／KDA（兩隻各自 KDA 相加，同積分雙人組算法）；
     //   積分＝雙人組資料（只有 中野、下輔 兩種，全季、15 場以上；見 calcHeroesSoloq 的 中野組／下路組）
-    const pairTip=(a,b)=>{ const _src=V.tierSrc||"mix", wantPro=_src!=="soloq", wantSq=_src!=="match";
-      const kdaOf=(k,d,a2)=>(k+a2)/Math.max(1,d);
+    // 組合的比賽欄（小框與連結後定階共用）
+    const pairPro=(a,b)=>{ const kdaOf=(k,d,a2)=>(k+a2)/Math.max(1,d);
       let pro=null;
-      if(wantPro){ const pa=LANE5v.indexOf(a.lane)+1, pb=LANE5v.indexOf(b.lane)+1, G={}, pkOK=new Set();
+      { const pa=LANE5v.indexOf(a.lane)+1, pb=LANE5v.indexOf(b.lane)+1, G={}, pkOK=new Set();
         // 比賽：篩選範圍內同隊、兩隻同時在各自那一路的局
         if(pa>0&&pb>0)for(const o of LANES){ if((o.pid!==pa&&o.pid!==pb)||!inG(o))continue;
           for(const sd of [0,1]){ if(TT&&o.raw[sd?C.red_teamname:C.blue_teamname]!==TT)continue; if(!lpOk(o,sd))continue;
@@ -11136,8 +11136,19 @@ function render(){
         const prt=ra&&rb?(ra[0]*ra[1]+rb[0]*rb[1])/Math.max(1,ra[1]+rb[1]):null, pkd=n?kdaOf(ka[0]+kb[0],ka[1]+kb[1],ka[2]+kb[2]):null;
         // BP%+ 上色（使用者 2026-10-23：同樣 10%，BP%+ 一定比 BP% 重要）：跟兩路單隻 BP% 的分布比，但 BP%+ 先乘 BPP_W 再比（10% 的 BP%+ ≈ 20% 的 BP%）
         const BPP_W=2, _PP=joinP(proPool(a.lane).P,proPool(b.lane).P); _PP.bpp=(_PP.bp||[]).map(x=>x/BPP_W);
-        pro={_v:{rt:softCap(prt),wr:n?w/n:null,kda:pkd,gd:pgd,bpp:pbp}, _P:_PP, rt:prt, g:wlS(n,w), wr:n?pct(w/n):null, kda:n?fx1(kdaOf(ka[0]+kb[0],ka[1]+kb[1],ka[2]+kb[2])):null,
+        // 評分（使用者 2026-10-23：犽凝＋茂凱 18勝9敗、KDA 4、金差 +126 卻只有 48 ⇒ 不合理）：原本只是兩隻單隻評分的加權平均，
+        //   沒看兩隻一起打的實際表現。改成 單隻平均 與 組合表現（勝率×2、KDA、金差@15 在這兩路的百分位）依場數混合：
+        //   表現權重＝場數/(場數+10)（27 場≈73% 看實際表現）；BP%+ 不進評分
+        const _pr=(pool,v)=>v==null||!pool||pool.length<5?null:pool.filter(x=>x<v).length/pool.length;
+        const _pf=[[_pr(_PP.wr,n?w/n:null),2],[_pr(_PP.kda,pkd),1],[_pr(_PP.gd,pgd),1]].filter(x=>x[0]!=null);
+        const perf=n&&_pf.length?100*_pf.reduce((t,x)=>t+x[0]*x[1],0)/_pf.reduce((t,x)=>t+x[1],0):null, _wt=n/(n+10);
+        const prtB=perf==null?prt:(prt==null?perf:(1-_wt)*prt+_wt*perf);
+        pro={_v:{rt:softCap(prtB),wr:n?w/n:null,kda:pkd,gd:pgd,bpp:pbp}, _P:_PP, rt:prtB, _rt0:prt, _rtB:prtB, _perf:perf, g:wlS(n,w), wr:n?pct(w/n):null, kda:n?fx1(kdaOf(ka[0]+kb[0],ka[1]+kb[1],ka[2]+kb[2])):null,
              gd:pgd==null?null:(pgd>0?"+":"")+Math.round(pgd), bpp:pbp==null?null:Math.round(pbp*100)+"%"}; if(pro.rt!=null)pro.rt=softCap(pro.rt); }
+      return pro; };
+    const pairTip=(a,b)=>{ const _src=V.tierSrc||"mix", wantPro=_src!=="soloq", wantSq=_src!=="match";
+      const kdaOf=(k,d,a2)=>(k+a2)/Math.max(1,d);
+      const pro=wantPro?pairPro(a,b):null;
       let sq=null;
       // 積分：逐場積分（SOLOQ_CHGAMES，第 15 欄＝隊友英雄）裡 A 在這一路且隊友是 B（或反過來）；版本／只算出賽選手同目前篩選；同場只算一次
       //   ⚠ 逐場檔只留每隻英雄最近 100 場；評分＝兩隻各自那一路的積分評分平均
@@ -11633,7 +11644,11 @@ function render(){
         mem.forEach(e=>{ const v=scB(e.lane,e.id); if(v==null)return; const id=bid(e.id);
           const pg=src==="soloq"?0:(((cHL(e.lane)||[]).find(x=>champId(x._full)===id)||{}).場數||0);
           const sg=src==="match"?0:((sqData(id,e.lane)||{})._n||0), w=pg+sg; s+=v*w; ws+=w; s0+=v; n0++; });
-        return ws?s/ws:(n0?s0/n0:null); };
+        let r=ws?s/ws:(n0?s0/n0:null);
+        if(r!=null&&src!=="soloq"&&mem.length===2&&PAIR_OK(mem[0].lane,mem[1].lane)){   // 組合表現調整（同小框評分：單隻平均→混合組合表現的差值；混合數據取 70%）
+          const pp=pairPro({id:bid(mem[0].id),lane:mem[0].lane},{id:bid(mem[1].id),lane:mem[1].lane});
+          if(pp&&pp._rt0!=null&&pp._rtB!=null)r+=(src==="mix"?0.7:1)*(pp._rtB-pp._rt0); }
+        return r; };
       const itScOf=(list,keyOf)=>{ const lk=TB.lk||{}, gs={}; list.forEach(e=>{ const g=lk[keyOf(e)]; if(g!=null)(gs[g]=gs[g]||[]).push(e); });
         const gv={}; for(const g in gs)gv[g]=grpSc(gs[g]); return e=>{ const g=lk[keyOf(e)]; return g!=null?gv[g]:scB(e.lane,e.id); }; };
       const pickTier=(ps,lanes,exclK)=>{ const src=V.tierSrc||"mix", FL=Object.assign(src==="soloq"?{S:80,A:70,B:55}:{S:85,A:72,B:55},(src==="soloq"?V.sqFloor:V.tierFloor)||{});
