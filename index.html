@@ -17937,16 +17937,18 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
         const inner=`${esc(t)}${pl.lp!=null?`<i class="num">${pl.lp}</i>`:""}${lpd!==undefined?`<i class="num lpd">(${lpd==null?"–":(lpd>0?"+":"")+lpd})</i>`:""}`;
         return pl.riotId?`<a class="dlyTier" href="${esc(dpmQ(pl))}" target="_blank" rel="noopener" title="${en?"Open on DPM":"在 DPM 開啟"}：${esc(pl.riotId)}" style="color:${TIER_COL[pl.tier]||"var(--tx2)"};text-decoration:none;cursor:pointer">${inner}</a>`   // 點牌位＝開該帳號 DPM（使用者 2026-10-21）
           :`<span class="dlyTier" style="color:${TIER_COL[pl.tier]||"var(--tx2)"}">${inner}</span>`; };
+      const _noRank=`<span class="dlyTier" style="opacity:.32">—</span>`;
       const teamCard=ab=>{
         const pls=teams[ab].slice().sort((x,y)=>((ROLE_ORD[x.role]==null?9:ROLE_ORD[x.role])-(ROLE_ORD[y.role]==null?9:ROLE_ORD[y.role]))||String(x.player).localeCompare(String(y.player)));
         const lg=primaryLg(ab), col=lg?(LGC[lg]||"var(--tx2)"):"var(--tx2)"; const grp=(lg==="LPL"&&!_RS.some(l=>CUP_LGS.includes(l)))?lplSplitGroupOf(ab,curYear,lplSel):null; /* 篩國際賽不寫 LPL 分組（使用者 2026-10-18：都是季後賽打上來的） */ let gw=0,gn=0;
         const body=pls.map(pl=>{ const ag=aggOf(pl.reckey), clk=!!pl.riotId;
           const nm=`<span class="dlyNm${clk?" rankName":""}"${clk?` data-detail="${esc(pl.riotId)}" title="${en?"view games":"看逐場"}"`:""}>${esc(pl.player)}</span>`;
-          if(!ag) return `<div class="dlyRow idle"><div class="dlyLine">${roleTag(pl.role)}${nm}<span class="dlyStats">${rankTag(pl)}</span></div></div>`; // 沒打積分＝留白，不特別標註
+          if(!ag) return `<div class="dlyRow idle"><div class="dlyLine">${roleTag(pl.role)}${nm}<span class="dlyStats">${_host?_noRank:rankTag(pl)}</span></div></div>`;   // 當地模式：範圍內沒在當地打＝牌位寫 —（使用者 2026-10-22：主帳號的牌位不是當地的） // 沒打積分＝留白，不特別標註
           gw+=ag.w; gn+=ag.n; let _lpApi=null;
           // 牌位＝範圍內實際用過的帳號：一隻就列那隻、兩隻以上列最高的（使用者 2026-10-18）；對不到帳號照舊（全部帳號中最高）
           { const nk2=pl.club+"|"+pl.player, cand=(accByNk[nk2]||[]).filter(x=>ag.rids.has(String(x.riotId||"").replace(/\s+/g,"").toLowerCase()));
             if(cand.length){ const best=cand.reduce((m,x)=>x._sc>m._sc?x:m); pl={...pl,riotId:best.riotId||pl.riotId,tier:best.tier,division:best.division,lp:best.lp,found:best.found}; }
+            else if(_host)pl={...pl,tier:null};   // 當地模式對不到當地帳號：不拿別伺服器的主帳號牌位充數 ⇒ —
             // 範圍增減＝結束那天 10:00 的 API 分數 − 開始那天 10:00 的分數（範圍內玩過的帳號加總）；缺快照（新帳號）才退回逐場推算
             const H=window.SOLOQ_LP_HIST; if(H&&cand.length&&!slide){ const iE=H.dates.indexOf(genDay), iS=H.dates.indexOf(addDay(genDay,-rng));
               if(iE>=0&&iS>=0){ let t=0,ok=0; cand.forEach(x=>{ const a=H.acc[String(x.riotId||"").replace(/\s+/g,"").toLowerCase()]; if(a&&a[iE]!=null&&a[iS]!=null){ t+=a[iE]-a[iS]; ok++; } }); if(ok)_lpApi=t; } } }
