@@ -11145,7 +11145,9 @@ function render(){
         const _pf=[[_pr(_big(r=>r.勝率),n?w/n:null),2],[_pr(_big(r=>r.KDA),pkd),1],[_pr(_PP.gd,pgd),1]].filter(x=>x[0]!=null);
         const perf=n&&_pf.length?100*_pf.reduce((t,x)=>t+x[0]*x[1],0)/_pf.reduce((t,x)=>t+x[1],0):null, _wt=n/(n+10);
         const _bq=pbp==null?null:_pr(_PP.bp,pbp*BPP_W), _badj=_bq==null?0:(_bq-0.5)*10;
-        const prtB=prt==null?perf:prt+(perf==null?0:(perf-50)*0.8*_wt)+_badj;
+        const _raw=prt==null?perf:prt+(perf==null?0:(perf-50)*0.8*_wt)+_badj;
+        // 100 分只能有一個（使用者 2026-10-23）：100＝全場最強那一隻；組合加減分後 90 以上平滑壓縮，最高 99
+        const prtB=_raw==null||_raw<=90?_raw:90+9.4*(1-Math.exp(-(_raw-90)/10));
         pro={_v:{rt:softCap(prtB),wr:n?w/n:null,kda:pkd,gd:pgd,bpp:pbp}, _P:_PP, rt:prtB, _rt0:prt, _rtB:prtB, _perf:perf, g:wlS(n,w), wr:n?pct(w/n):null, kda:n?fx1(kdaOf(ka[0]+kb[0],ka[1]+kb[1],ka[2]+kb[2])):null,
              gd:pgd==null?null:(pgd>0?"+":"")+Math.round(pgd), bpp:pbp==null?null:Math.round(pbp*100)+"%"}; if(pro.rt!=null)pro.rt=softCap(pro.rt); }
       return pro; };
