@@ -17726,12 +17726,17 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
           if(s2.done){ say((s2.ok?(en2?"Done - reloading…":"更新完成，重新整理…"):(en2?"Finished with errors:":"有步驟失敗："))+"\n"+tail(s2.log,10));
             if(s2.ok)setTimeout(()=>location.reload(),1200); }
         }).catch(()=>setTimeout(poll,2500)); };
-      say(en2?"Connecting to the local helper…":"連線本機服務中…");
-      jf(API+"/ping").then(p2=>{
-        if(p2.busy){ poll(); return; }
+      const go=p2=>{ if(p2.busy){ poll(); return; }
         jf(API+"/refresh",{method:"POST"}).then(r2=>{ if(r2.started)poll(); else say("❌ "+esc(r2.err||"?")); })
-          .catch(()=>say(en2?"❌ The local helper rejected the request":"❌ 本機服務拒絕了請求"));
-      }).catch(()=>say(en2?"❌ Local helper is not running - double-click <b>積分牌位更新服務.bat</b> first.":"❌ 本機服務沒開：先雙擊儀表板資料夾的 <b>積分牌位更新服務.bat</b>（視窗開著），再按一次。"));
+          .catch(()=>say(en2?"❌ The local helper rejected the request":"❌ 本機服務拒絕了請求")); };
+      // 服務沒開 ⇒ 用 lolsoloq:// 協定在背景把它帶起來（register_soloq_protocol.bat 註冊一次；沒註冊的話等 20 秒後給手動指示）
+      const launch=()=>{ say(en2?"Starting the local helper…":"啟動本機服務中…"); try{ location.href="lolsoloq://start"; }catch(e){}
+        const t0=Date.now(); const wait=()=>{ if(!document.getElementById("sqApiOv"))return;
+          jf(API+"/ping").then(go).catch(()=>{ if(Date.now()-t0<20000)setTimeout(wait,700);
+            else say(en2?"❌ Could not start the local helper. Run <b>register_soloq_protocol.bat</b> once (or double-click <b>積分牌位更新服務.bat</b>), then press again.":"❌ 本機服務沒有啟動。第一次要先雙擊儀表板資料夾的 <b>register_soloq_protocol.bat</b> 註冊一次（或直接雙擊 <b>積分牌位更新服務.bat</b>），再按一次。"); }); };
+        setTimeout(wait,1000); };
+      say(en2?"Connecting to the local helper…":"連線本機服務中…");
+      jf(API+"/ping").then(go).catch(launch);
      };}
     // ★收藏(存 localStorage：純本機、GitHub Pages 靜態站也 OK)。鍵＝正規化隊碼|選手名；收藏者置頂且不受「近7天沒打」過濾
     const FAVK="lolRankFav";
