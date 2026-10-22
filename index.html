@@ -11136,13 +11136,16 @@ function render(){
         const prt=ra&&rb?(ra[0]*ra[1]+rb[0]*rb[1])/Math.max(1,ra[1]+rb[1]):null, pkd=n?kdaOf(ka[0]+kb[0],ka[1]+kb[1],ka[2]+kb[2]):null;
         // BP%+ 上色（使用者 2026-10-23：同樣 10%，BP%+ 一定比 BP% 重要）：跟兩路單隻 BP% 的分布比，但 BP%+ 先乘 BPP_W 再比（10% 的 BP%+ ≈ 20% 的 BP%）
         const BPP_W=2, _PP=joinP(proPool(a.lane).P,proPool(b.lane).P); _PP.bpp=(_PP.bp||[]).map(x=>x/BPP_W);
-        // 評分（使用者 2026-10-23：犽凝＋茂凱 18勝9敗、KDA 4、金差 +126 卻只有 48 ⇒ 不合理）：原本只是兩隻單隻評分的加權平均，
-        //   沒看兩隻一起打的實際表現。改成 單隻平均 與 組合表現（勝率×2、KDA、金差@15 在這兩路的百分位）依場數混合：
-        //   表現權重＝場數/(場數+10)（27 場≈73% 看實際表現）；BP%+ 不進評分
+        // 評分（使用者 2026-10-23：犽凝＋茂凱 18勝9敗、KDA 4、金差 +126 卻只有 48 不合理；夜曲＋奧莉安娜掉到 B 也不合理）：
+        //   基礎＝兩隻單隻評分的場數加權平均；組合實際表現當「加減分」：表現普通不動、好加差減（不是把分數拉向百分位，否則強勢組合表現普通會被拉低）
+        //   表現＝勝率×2、KDA、金差@15 在這兩路的百分位（勝率／KDA 只跟 8 場以上的英雄比，免得 2 場 100% 的小樣本把基準墊高）
+        //   加減分＝(表現−50)×0.8×場數/(場數+10)；BP%+ 另外加減（×2 後在單隻 BP% 的百分位，(p−0.5)×10）
         const _pr=(pool,v)=>v==null||!pool||pool.length<5?null:pool.filter(x=>x<v).length/pool.length;
-        const _pf=[[_pr(_PP.wr,n?w/n:null),2],[_pr(_PP.kda,pkd),1],[_pr(_PP.gd,pgd),1]].filter(x=>x[0]!=null);
+        const _big=f=>[a.lane,b.lane].flatMap(L=>(cHL(L)||[]).filter(r=>(r.場數||0)>=8).map(f)).filter(x=>typeof x==="number"&&isFinite(x));
+        const _pf=[[_pr(_big(r=>r.勝率),n?w/n:null),2],[_pr(_big(r=>r.KDA),pkd),1],[_pr(_PP.gd,pgd),1]].filter(x=>x[0]!=null);
         const perf=n&&_pf.length?100*_pf.reduce((t,x)=>t+x[0]*x[1],0)/_pf.reduce((t,x)=>t+x[1],0):null, _wt=n/(n+10);
-        const prtB=perf==null?prt:(prt==null?perf:(1-_wt)*prt+_wt*perf);
+        const _bq=pbp==null?null:_pr(_PP.bp,pbp*BPP_W), _badj=_bq==null?0:(_bq-0.5)*10;
+        const prtB=prt==null?perf:prt+(perf==null?0:(perf-50)*0.8*_wt)+_badj;
         pro={_v:{rt:softCap(prtB),wr:n?w/n:null,kda:pkd,gd:pgd,bpp:pbp}, _P:_PP, rt:prtB, _rt0:prt, _rtB:prtB, _perf:perf, g:wlS(n,w), wr:n?pct(w/n):null, kda:n?fx1(kdaOf(ka[0]+kb[0],ka[1]+kb[1],ka[2]+kb[2])):null,
              gd:pgd==null?null:(pgd>0?"+":"")+Math.round(pgd), bpp:pbp==null?null:Math.round(pbp*100)+"%"}; if(pro.rt!=null)pro.rt=softCap(pro.rt); }
       return pro; };
