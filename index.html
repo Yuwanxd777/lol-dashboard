@@ -11261,12 +11261,22 @@ function render(){
       LANE5v.forEach((L,i)=>{ if(!document.getElementById("tLP_"+L))return; const m=lanePlAll[i+1]||{};
         const opts=Object.entries(m).map(([nm,e])=>{ const tm=Object.entries(e.t).sort((a,b)=>b[1]-a[1])[0]; return {v:nm,d:tm?tAbShow(tm[0]):"",n:e.n}; });
         bindCombo("tLP_"+L,opts,LP(L),hit=>{ V.tierLanePl=V.tierLanePl||{}; if(hit)V.tierLanePl[L]=hit; else delete V.tierLanePl[L]; saveState(); render(); },false,110); }); };
+    const regroupLinks=()=>{ const lk=TB.lk||{}, G={}, out=[];
+      for(const k in lk)(G[lk[k]]=G[lk[k]]||[]).push(k);
+      const tierOf=k=>{ const [m,L,id]=k.split("|"); return TB.tiers.findIndex(t=>m==="M"?t.ids.some(e=>e.id===id&&(e.lane||"")===L):(t.lanes[L]||[]).includes(id)); };
+      for(const g in G){ const ks=G[g].filter(k=>tierOf(k)>=0); if(ks.length<2)continue;
+        const ti=tierOf(ks[0]), T=TB.tiers[ti];
+        ks.slice(1).forEach(k=>{ const [m,L,id]=k.split("|"), i=tierOf(k); if(i===ti)return; const S=TB.tiers[i];
+          if(m==="M"){ const e=S.ids.find(x=>x.id===id&&(x.lane||"")===L); S.ids=S.ids.filter(x=>x!==e); T.ids.push(e); }
+          else{ S.lanes[L]=S.lanes[L].filter(x=>x!==id); T.lanes[L].push(id); if(S.o3)for(const c in S.o3)S.o3[c]=S.o3[c].filter(x=>x!==L+"|"+id); } });
+        const m0=ks[0][0]; if((m0==="3"&&V.tierMode==="lane3")||(m0==="M"&&V.tierMode==="mix"))out.push(+g); } return out; };
     const rerender=()=>{
       // 補齊資料＋遷移：混合 t.ids 由「字串」→「{id,lane}」（lane＝取用路線，''＝禁用/尚未登場的無路線）
       TB.tiers.forEach(t=>{
         t.ids=(t.ids||[]).map(e=>typeof e==="string"?{id:e,lane:""}:e);
         t.lanes=t.lanes||{};LANE5v.forEach(L=>t.lanes[L]=t.lanes[L]||[]);
       });
+      let _rgPend=[]; if(TB._regroup){ delete TB._regroup; _rgPend=regroupLinks(); }   // 先併同一階（normLinks 才不會把跨階的組拆掉），placeGrp 定義後再擺位置
       normLinks();
       autoName(); autoColor();
       // 兩模式都「依路線」消失：五路＝t.lanes 各路；混合＝t.ids 依取用路線 e.lane 分組；無路線者進 placedNone
@@ -11647,6 +11657,7 @@ function render(){
         const a=items3(T,cid).filter(e=>!ks.has(e.lane+"|"+e.id)), sc=itScOf(a,e=>lk3(e.lane,e.id));
         const at=a.findIndex(e=>{ const w=sc(e); return w==null||w<ps; }); a.splice(at<0?a.length:at,0,...mem);
         mem.forEach(e=>T.lanes[e.lane].push(e.id)); (T.o3=T.o3||{})[cid]=a.map(e=>e.lane+"|"+e.id); };
+      if(_rgPend.length){ _rgPend.forEach(g=>placeGrp(g)); saveState(); setTimeout(rerender,0); }
       const newInst=b=>{ const has=x=>TB.tiers.some(t=>LANE5v.some(L=>(t.lanes[L]||[]).includes(x))||t.ids.some(e=>e.id===x)); let n=2; while(has(b+"#"+n))n++; return b+"#"+n; };
       const tierCarryDrop=(ev,row,cell)=>{
         if(!_carry||!row)return; const id=_carry.ch, cp=!!_carry.copy;
@@ -11745,7 +11756,7 @@ function render(){
             if(tE){ const rc=tgt.getBoundingClientRect(), bi=arr.indexOf(tE);
               const zone=ev.clientX<rc.left+rc.width*0.25?0:(ev.clientX>rc.right-rc.width*0.25?1:2); // 中央50%＝連結、左右25%＝插前/後
               const tg=lk[lk3(tE.lane,tE.id)], run=tg!=null?arr.filter(e=>lk[lk3(e.lane,e.id)]===tg):[tE];
-              const zn=zone===2&&(run.length+mem.length>2||!PAIR_OK(mem[0].lane,tE.lane))?(ev.clientX<rc.left+rc.width/2?0:1):zone;   // 組合＝上野／中野／下輔（使用者 2026-10-20）：不符就當插入
+              const zn=zone===2&&(run.length+mem.length>2||!PAIR_OK(mem[0].lane,tE.lane)||mem.some(e=>run.some(r=>bid(r.id)===bid(e.id))))?(ev.clientX<rc.left+rc.width/2?0:1):zone;   // 組合＝上野／中野／下輔（使用者 2026-10-20）：不符就當插入；同一隻英雄（含複本）不能組合（使用者 2026-10-23）
               if(zn===2){ link=tE; before=arr[arr.indexOf(run[run.length-1])+1]; }
               else before=zn===0?tE:arr[bi+1]; }
             else if(mem.some(e=>!ls.includes(e.lane))&&!(mem.length>1&&mem.some(e=>ls.includes(e.lane))))return;
@@ -11820,7 +11831,7 @@ function render(){
             const rc=tgt.getBoundingClientRect(), bi=arr.indexOf(tE);
             const zone=ev.clientX<rc.left+rc.width*0.25?0:(ev.clientX>rc.right-rc.width*0.25?1:2); // 中央50%＝連結（2026-10-20，原本是對換）、左右25%＝插前/後
             const tg=lk[lkM(tE)], run=tg!=null?arr.filter(e=>lk[lkM(e)]===tg):[tE];
-            const zn=zone===2&&(run.length+mem.length>2||!PAIR_OK(mem[0].lane,tE.lane))?(ev.clientX<rc.left+rc.width/2?0:1):zone;   // 組合＝上野／中野／下輔
+            const zn=zone===2&&(run.length+mem.length>2||!PAIR_OK(mem[0].lane,tE.lane)||mem.some(e=>run.some(r=>bid(r.id)===bid(e.id))))?(ev.clientX<rc.left+rc.width/2?0:1):zone;   // 組合＝上野／中野／下輔；同一隻英雄不能組合
             if(zn===2){ link=tE; before=arr[arr.indexOf(run[run.length-1])+1]; }
             else before=zn===0?tE:arr[bi+1];
           }else{
@@ -12071,7 +12082,10 @@ function render(){
           t.ids=t.ids.map((e,i)=>[e,i]).sort((a,b)=>v(b[0].lane||"",b[0].id)-v(a[0].lane||"",a[0].id)||a[1]-b[1]).map(x=>x[0]);
           t.o3={}; COL3.forEach(([cid])=>{ const it=[]; col3L(cid).forEach(L=>t.lanes[L].forEach(id=>{ if(PCOL[L]===cid)it.push([L,id]); }));
             t.o3[cid]=it.sort((a,b)=>v(b[0],b[1])-v(a[0],a[1])).map(([L,id])=>L+"|"+id); }); });
-        return {tiers,genL,genM,sc:Object.assign({},sc)};
+        const out={tiers,genL,genM,sc:Object.assign({},sc)};
+        // 連結／原位／釘選／手動路線跟著 base 帶過去（🗑 不帶 base ⇒ 照舊清掉）；同組可能被分到不同階 ⇒ 標 _regroup，render 時併回同一階再照組合分數擺
+        if(base){ ["lk","lo","pin","xl"].forEach(k=>{ if(base[k]&&Object.keys(base[k]).length)out[k]=JSON.parse(JSON.stringify(base[k])); }); if(out.lk)out._regroup=1; }
+        return out;
       };
       // 積分數據 S~D（評分＝calcHeroesSoloq 同款百分位混合：Wilson勝率×4＋場數×2＋KDA×2＋金差@15×2，
       // 線性拉伸到 0~100 後分箱；主路線取 SOLOQ_BUILDS.hero 積分出場最多的路）
