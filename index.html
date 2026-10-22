@@ -17635,6 +17635,8 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
     const dailyMode=V.rankView==="daily"; const dayRange=V.rankDayRange||1; // 每日戰況視圖＋範圍(1=昨天/3/7天)
     // 賽區複選（使用者 2026-10-18：點 WCS＋LCK＝只看 WCS 裡的 LCK 戰隊）：V.rankRegion＝逗號分隔，條件取交集；分組只在單選 LPL／LCK 時有
     const _RS=String(V.rankRegion||"").split(",").filter(Boolean), _R1=_RS.length===1?_RS[0]:"", rgHas=l=>_RS.includes(l), _cupSel=_RS.find(l=>CUP_LGS.includes(l))||"";
+    // 範圍／詳細統計／還存活／當地：每日戰況與排行榜標題列共用、置右（使用者 2026-10-22）；排行榜沒有詳細／統計
+    const _dayCtl=withView=>`${segHTML("rankDaySeg",[[1,LANG==="en"?"Yesterday":"昨天"],[3,LANG==="en"?"3 days":"近3天"],[7,LANG==="en"?"7 days":"近7天"],[14,LANG==="en"?"14 days":"近14天"]],dayRange,"sm","margin-left:8px")}${withView?`${segHTML("rankDayView",[["detail",LANG==="en"?"Detail":"詳細",LANG==="en"?"every game in order":"逐場列出"],["stat",LANG==="en"?"Summary":"統計",LANG==="en"?"champions grouped with counts":"同英雄合併、標使用次數"]],V.rankDayView==="stat"?"stat":"detail","sm","margin-left:8px")}`:""}${wldAliveAbs()?segHTML("rankDayAlive",[["all",LANG==="en"?"All":"全部",LANG==="en"?"every team":"所有隊伍"],["alive",LANG==="en"?"Still in":"還存活",LANG==="en"?"only teams not yet eliminated at Worlds":"只列世界賽還沒被淘汰的隊伍"]],V.rankDayAlive==="alive"?"alive":"all","sm","margin-left:8px"):""}${WLD_HOST[curYear]?segHTML("rankDayLocal",[["all",LANG==="en"?"All":"全部",LANG==="en"?"games on every server":"所有伺服器的對局"],["local",LANG==="en"?"Local":"當地",(rgHas("WLDs")?(LANG==="en"?"only games on the host server ("+WLD_HOST[curYear].en+")":"只留比賽舉辦地（"+WLD_HOST[curYear].zh+"）伺服器的對局"):(LANG==="en"?"only games on each team's home server (LCK = KR)":"只留各隊所屬賽區伺服器的對局（LCK/LPL＝韓服、LCP＝台日韓越澳、LEC＝歐洲中東、LCS/CBLOL＝美洲）"))]],V.rankDayLocal==="local"?"local":"all","sm","margin-left:8px"):""}`;
     const grpLg=(_R1==="LCK")?"LCK":"LPL"; const lplSel=lplSelSplit(curYear,"",grpLg); // LPL 組別一律用「最新賽段」（使用者定案 2026-07-29：S3 沒有堅毅組，只顯示當前賽事的組別；忽略舊的 V.rankLplSplit 殘留偏好）
     main.innerHTML=`<div class="filters" style="gap:9px 22px">
       <span class="cwrap"><input id="rankQ" class="combo" list="rankQdl" autocomplete="off" placeholder="${LANG==="en"?"Search player / team":"搜尋 選手／戰隊"}" style="width:190px"><button class="cx" tabindex="-1" data-x="rankQ" title="一鍵清除">✕</button></span><datalist id="rankQdl"></datalist>
@@ -17647,8 +17649,8 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
       ${dailyMode?`<button id="rankShot" class="sqbtn" style="order:1" title="${LANG==="en"?"Export daily games as a 1080p JPG":"輸出每日戰況 1080p 截圖"}">📸</button>`:""}
       ${TAB_HELP["積分"]?`<button id="fHelp" class="sqbtn helpBtn" title="${T("本頁說明")}">ℹ️</button>`:""}</div>
       ${dailyMode
-        ? `<div class="card" id="dlyWrap"><h2>📅 ${LANG==="en"?"Recent ranked games":"近期積分戰況"} <span class="sub" id="dlyHdSub"></span> ${segHTML("rankDaySeg",[[1,LANG==="en"?"Yesterday":"昨天"],[3,LANG==="en"?"3 days":"近3天"],[7,LANG==="en"?"7 days":"近7天"],[14,LANG==="en"?"14 days":"近14天"]],dayRange,"sm","margin-left:8px")}${segHTML("rankDayView",[["detail",LANG==="en"?"Detail":"詳細",LANG==="en"?"every game in order":"逐場列出"],["stat",LANG==="en"?"Summary":"統計",LANG==="en"?"champions grouped with counts":"同英雄合併、標使用次數"]],V.rankDayView==="stat"?"stat":"detail","sm","margin-left:8px")}${wldAliveAbs()?segHTML("rankDayAlive",[["all",LANG==="en"?"All":"全部",LANG==="en"?"every team":"所有隊伍"],["alive",LANG==="en"?"Still in":"還存活",LANG==="en"?"only teams not yet eliminated at Worlds":"只列世界賽還沒被淘汰的隊伍"]],V.rankDayAlive==="alive"?"alive":"all","sm","margin-left:8px"):""}${WLD_HOST[curYear]?segHTML("rankDayLocal",[["all",LANG==="en"?"All":"全部",LANG==="en"?"games on every server":"所有伺服器的對局"],["local",LANG==="en"?"Local":"當地",(rgHas("WLDs")?(LANG==="en"?"only games on the host server ("+WLD_HOST[curYear].en+")":"只留比賽舉辦地（"+WLD_HOST[curYear].zh+"）伺服器的對局"):(LANG==="en"?"only games on each team's home server (LCK = KR)":"只留各隊所屬賽區伺服器的對局（LCK/LPL＝韓服、LCP＝台日韓越澳、LEC＝歐洲中東、LCS/CBLOL＝美洲）"))]],V.rankDayLocal==="local"?"local":"all","sm","margin-left:8px"):""}</h2><div id="dailyBox"></div></div>`
-        : `<div class="card"><h2>🏆 ${T("積分")} <span class="sub">${LANG==="en"?"solo queue ranked, highest first | click a column to sort":"單雙排積分，高到低｜點欄位名排序"}</span> <span class="sub">·&nbsp;${LANG==="en"?"per-game / score / champ-pool data from":"逐場・評分・角色池資料來源"} <a href="https://dpm.lol" target="_blank" rel="noopener" style="color:var(--acc)">dpm.lol</a></span></h2><div id="rankTbl"></div></div>`}`;
+        ? `<div class="card" id="dlyWrap"><h2>📅 ${LANG==="en"?"Recent ranked games":"近期積分戰況"} <span class="sub" id="dlyHdSub"></span> <span style="flex:1"></span>${_dayCtl(true)}</h2><div id="dailyBox"></div></div>`
+        : `<div class="card"><h2>🏆 ${T("積分")} <span class="sub">${LANG==="en"?"solo queue ranked, highest first | click a column to sort":"單雙排積分，高到低｜點欄位名排序"}</span> <span class="sub">·&nbsp;${LANG==="en"?"per-game / score / champ-pool data from":"逐場・評分・角色池資料來源"} <a href="https://dpm.lol" target="_blank" rel="noopener" style="color:var(--acc)">dpm.lol</a></span><span style="flex:1"></span>${_dayCtl(false)}</h2><div id="rankTbl"></div></div>`}`;
     {const dl=document.getElementById("rankQdl");   // 建議清單：戰隊(依選手數多→少、說明=全名 → 打全名也會浮出)＋選手(依場數多→少)
      if(dl&&SD&&Array.isArray(SD.players)&&SD.players.length){
        const FB=window._RANKQ_FULL||(window._RANKQ_FULL=(()=>{const m={}; try{ [...new Set(GAMES.flatMap(o=>[o.raw[C.blue_teamname],o.raw[C.red_teamname]]))].forEach(t=>{const ab=tAb(t); if(ab)(m[ab]=m[ab]||[]).push(t);}); }catch(e){} return m;})());
@@ -17749,17 +17751,60 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
     const readFav=()=>{try{return new Set(JSON.parse(localStorage.getItem(FAVK)||"[]"));}catch(_e){return new Set();}};
     const toggleFav=k=>{const s=readFav(); s.has(k)?s.delete(k):s.add(k); try{localStorage.setItem(FAVK,JSON.stringify([...s]));}catch(_e){}};
     const scoreCol7=s=>s==null?"":`hsl(${Math.round(120*(1-Math.max(0,Math.min(100,s))/100))},72%,58%)`; // 評分 0→100 綠→紅（排行榜一週評分＋每日戰況場均評分共用）
+    // 積分範圍（昨天／近N天、手動更新後的滑動窗）＋當地伺服器判定：每日戰況與排行榜共用（使用者 2026-10-22：排行榜也要有這些篩選）
+    const sqCtx=REC=>{
+      const addDay=(ds,dl)=>{const a=ds.split("-").map(Number),dt=new Date(Date.UTC(a[0],a[1]-1,a[2])); dt.setUTCDate(dt.getUTCDate()+dl); return dt.getUTCFullYear()+"-"+String(dt.getUTCMonth()+1).padStart(2,"0")+"-"+String(dt.getUTCDate()).padStart(2,"0");};
+      // 一「天」＝台灣 10:00 到隔天 10:00（使用者 2026-10-18：排程 10:00 更新，「昨天」是 10:00 往前 24 小時）；分桶在 build_soloq_index.py
+      const genDay=REC.genDay||new Date(Date.now()+(8-10)*3600e3).toISOString().slice(0,10);
+      const rng=V.rankDayRange||1, days=[]; for(let i=1;i<=rng;i++)days.push(addDay(genDay,-i)); // 昨天..昨天-(rng-1)
+      const md=ds=>{const a=ds.split("-"); return (+a[1])+"/"+(+a[2]);}, _ds=REC.dayStartH!=null?String(REC.dayStartH).padStart(2,"0")+":00":"", headLb=_ds?`${md(days[days.length-1])} ${_ds}～${md(addDay(days[0],1))} ${_ds}`:(rng===1?md(days[0]):md(days[days.length-1])+"–"+md(days[0]));
+      // 手動更新後（使用者 2026-10-22：19:35 按 🔄 更新積分，範圍還停在 10/22 10:00）：產生時間離今天 10:00 超過 2 小時 ⇒
+      //   範圍＝產生時間往前 N×24 小時（滑動窗，含今天 10:00 之後的場次）；10:00 那班照舊用整桶（結果跟以前一樣）
+      const _tz=REC.tzHours!=null?REC.tzHours:8, _gm=String(REC.generated||"").match(/(\d+)-(\d+)-(\d+) (\d+):(\d+)/),
+            _gt=_gm?Date.UTC(+_gm[1],_gm[2]-1,+_gm[3],+_gm[4]-_tz,+_gm[5])/1000:null,
+            _gb=(a=>Date.UTC(a[0],a[1]-1,a[2],(REC.dayStartH||0)-_tz)/1000)(genDay.split("-").map(Number)),
+            slide=_gt!=null&&REC.dayStartH!=null&&_gt-_gb>2*3600, _w0=slide?_gt-rng*86400:0;
+      if(slide)days.unshift(genDay);
+      const inWin=g=>!slide||(g[7]>=_w0&&g[7]<=_gt+600);
+      const _fmtT=t=>{ const d=new Date((t+_tz*3600)*1000); return (d.getUTCMonth()+1)+"/"+d.getUTCDate()+" "+String(d.getUTCHours()).padStart(2,"0")+":"+String(d.getUTCMinutes()).padStart(2,"0"); };
+      const headLb2=slide?_fmtT(_w0)+"～"+_fmtT(_gt):headLb;
+      const recByNorm={}; Object.keys(REC.players).forEach(rk=>{const i=rk.indexOf("|"); if(i<0)return; const nk=teamFix(rk.slice(0,i))+"|"+rk.slice(i+1); if(!(nk in recByNorm))recByNorm[nk]=rk;});
+      const primaryLg=ab=>{ const s=[...(TLG[ab]||[])]; if(!s.length)return null; let bl=null,bi=99; s.forEach(l=>{const i=LEAGUE_PREF.indexOf(l); if(i>=0&&i<bi){bi=i;bl=l;}}); return bl||s[0]; };
+      // 當地（使用者 2026-10-22：篩 LCK 選當地應該是韓服，不是世界賽的美服）：篩到世界賽＝舉辦地伺服器；
+      //   其他＝各隊所屬賽區的伺服器（看選手的俱樂部，不看國家隊區塊）；對照表沒有的賽區（LCP 等多國聯賽）取該隊帳號最多的伺服器
+      const _loc=V.rankDayLocal==="local", _wHost=rgHas("WLDs")&&WLD_HOST[curYear]?WLD_HOST[curYear].srv:null, _nrid=x=>String(x||"").replace(/\s+/g,"").toLowerCase();
+      const _srvOf={}; if(_loc)SD.players.forEach(p=>{ [p.riotId,p.curId].forEach(r=>{ if(r)_srvOf[_nrid(r)]=String(p.platform||"").toLowerCase(); }); });
+      const _EMEA=["euw1","eun1","me1","tr1","ru"], _AMER=["na1","br1","la1","la2"];   /* LEC＝歐洲中東北非各服、LCS/CBLOL＝美洲各服（使用者 2026-10-22） */
+      const LG_SRV={LCK:"kr","LCK CL":"kr",LCKC:"kr",LPL:"kr",LDL:"kr",LEC:_EMEA,LFL:_EMEA,LCS:_AMER,"LTA N":_AMER,CBLOL:_AMER,"LTA S":_AMER,LTA:_AMER,VCS:"vn2",PCS:"tw2",LMS:"tw2",LJL:"jp1",LCO:"oc1",LCP:["tw2","jp1","kr","vn2","oc1"]}, _tmSrv={};   /* LCP＝台日韓越＋大洋洲服都算（使用者 2026-10-22） */
+      const hostOf=club=>{ if(!_loc)return null; if(_wHost)return _wHost; if(club in _tmSrv)return _tmSrv[club];
+        let h=LG_SRV[primaryLg(club)]||null;
+        if(!h){ const cnt={}; SD.players.forEach(p=>{ if(teamFix(p.team||"")===club&&p.platform){ const v=String(p.platform).toLowerCase(); cnt[v]=(cnt[v]||0)+1; } }); Object.keys(cnt).forEach(v=>{ if(!h||cnt[v]>cnt[h])h=v; }); }
+        return _tmSrv[club]=h; };
+      const gOk=(g,hs)=>{ if(!hs)return true; const v=_srvOf[_nrid(g[14])]; return Array.isArray(hs)?hs.includes(v):v===hs; };   // 當地：對不到帳號的場次也不算
+      const aggOf=(rk,hs)=>{ const p=rk&&REC.players[rk]; if(!p||!p.d)return null; const gs=[], byDay=[]; days.forEach(dd=>{const arr=(p.d[dd]||[]).filter(g=>gOk(g,hs)&&inWin(g)); if(arr.length){arr.forEach(g=>gs.push(g)); byDay.push(arr);}}); if(!gs.length)return null; let w=0,sS=0,sN=0,K=0,D=0,A=0,kN=0,LPd=0,LPn=0; const rids=new Set(); gs.forEach(g=>{if(g[1])w++; if(g[2]!=null&&Math.abs(g[2])<=60){LPd+=g[2];LPn++;} if(g[3]!=null){sS+=g[3];sN++;} if(g.length>4){K+=g[4]||0;D+=g[5]||0;A+=g[6]||0;kN++;} if(g[14])rids.add(String(g[14]).replace(/\s+/g,"").toLowerCase());});
+        // 範圍內場均評分／KDA（使用者 2026-10-18；KDA＝(總K+總A)/總D，同排行榜一週 KDA）
+        // LP 增減：逐場增減加總（build_soloq_index 已把「總分」換算成增減；仍不明的＝null 不計）；範圍內全不明＝null ⇒ 顯示 (–)
+        return {gs,byDay,rids,lpd:LPn?LPd:null,n:gs.length,w,l:gs.length-w,sc:sN?Math.round(sS/sN*10)/10:null,kda:kN?Math.round((K+A)/Math.max(1,D)*10)/10:null}; };
+      return {addDay,genDay,rng,days,slide,headLb2,inWin,recByNorm,_loc,_nrid,hostOf,gOk,aggOf};
+    };
     const paint=()=>{
       const box=document.getElementById("rankTbl"); if(!box)return;
       const FAV=readFav();
       if(!SD||!Array.isArray(SD.players)||!SD.players.length){ box.innerHTML=`<div class="note">${LANG==="en"?"No ranked data yet. Run scripts/fetch_soloq.py (needs a Riot API key) to generate soloq.js.":"尚未有積分資料。請執行 scripts/fetch_soloq.py（需 Riot API 金鑰）產生 soloq.js。"}</div>`; return; }
       const IDX=window.SOLOQ_MATCH_IDX;
+      // 範圍內評分／KDA／場數改由逐場檔(soloq_recent)依「昨天／近N天＋當地」重算；逐場檔還沒載到就先用索引的一週值、載完重畫
+      const REC=window.SOLOQ_RECENT; if(!REC)lazyLoad("recent").then(()=>{ if(curView==="積分"&&V.rankView!=="daily")paint(); });
+      const _X=REC?sqCtx(REC):null;
       const rows=SD.players.map(p=>{const g=(p.wins||0)+(p.losses||0); const _ik=IDX&&IDX.players&&sqKey(IDX.players,p.team||"",p.player||""); const ix=(_ik&&IDX.players[_ik])||{}; // SD 與 IDX 同源鍵一致，走 sqKey 只是防未來標籤漂移
         return {...p,_score:soloqScore(p),_wr:(p.found&&g)?p.wins/g:null,
           _last10:ix.last10||[],_wr7:(ix.wr7!=null?ix.wr7:null),_sc7:(ix.sc7!=null?ix.sc7:null),_kda7:(ix.kda7!=null?ix.kda7:null),_n7:(ix.n7!=null?ix.n7:null),
           // 路線：逐場索引沒有的（有牌位帳號但還沒有逐場檔）退回今年比賽出場的主要路線，
           // 不然這一欄會顯示「—」（2026-08-06 與每日戰況同一個缺口，實測排行榜 4 列）
           _w7:(ix.w7!=null?ix.w7:(ix.wr7!=null&&ix.n7!=null?Math.round(ix.n7*ix.wr7/100):null)),_lt:(ix.lt!=null?ix.lt:null),_role:(ix.role||playedRole(p.player)||null)};});
+      if(_X)rows.forEach(r=>{ const tm=teamFix(r.team||""), ag=_X.aggOf(_X.recByNorm[tm+"|"+r.player],_X.hostOf(tm));
+        r._n7=ag?ag.n:0; r._w7=ag?ag.w:0; r._wr7=ag?Math.round(ag.w/ag.n*100):null; r._sc7=ag?ag.sc:null; r._kda7=ag?ag.kda:null; });
+      // 當地：同一位選手多隻帳號時，優先留當地伺服器的帳號（牌位才是當地的）
+      const _locAcc=r=>{ if(!_X||!_X._loc)return 0; const h=_X.hostOf(teamFix(r.team||"")), v=String(r.platform||"").toLowerCase(); return !h||(Array.isArray(h)?h.includes(v):v===h)?1:0; };
       // 把「比賽出賽過但沒抓到積分帳號」的選手也列出(灰、置底)：主數據選手 − 已有 soloq 帳號的
       const _nn=s=>String(s||"").trim().toLowerCase();
       const covered=new Set(SD.players.map(p=>_nn(p.player)));
@@ -17774,13 +17819,14 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
          if(!rankShow(r.player)) continue;   // 黑名單／整年從沒出場→不列（判準與每日戰況共用，見 rankShow）
          const k=teamFix(r.team||"")+"|"+(r.player||"");                  // 用正規化縮寫分組→改名隊(DNF→DNS、GENG→GEN…)的多帳號合併成一列
          if(!(k in _g)){_g[k]=r; _o.push(k);}
-         else if((r._score||-9)>(_g[k]._score||-9)) _g[k]=r;              // 每選手只留牌位最高(_score 最大)的那隻帳號
+         else if(_locAcc(r)>_locAcc(_g[k])||(_locAcc(r)===_locAcc(_g[k])&&(r._score||-9)>(_g[k]._score||-9))) _g[k]=r;              // 每選手只留牌位最高(_score 最大)的那隻帳號（當地模式先比是不是當地帳號）
        }
        rows.length=0; for(const k of _o) rows.push(_g[k]);}
       // 哪些選手(戰隊+名字)有逐場資料→名字可點(逐場改每人一檔懶載，index 記誰有檔)
       const pKey=r=>((r.team||"")+"|"+(r.player||"")); const matchedPlayers=new Set();
       {const IX=window.SOLOQ_MATCH_IDX; if(IX&&IX.players) Object.keys(IX.players).forEach(k=>matchedPlayers.add(k));}
       const RS=V.rankSort||{k:"_sc7",d:-1}; // 預設以一週評分降冪
+      const _rngLb=()=>{ const n=V.rankDayRange||1; return LANG==="en"?(n===1?"1d":n===7?"Wk":n+"d"):(n===1?"昨天":n===7?"一週":"近"+n+"天"); };
       const arrow=k=>{const on=RS.k===k,up=on&&RS.d>0; return `<span class="sortArr${on?" on":""}${on?(up?" asc":" desc"):""}">${up?"▲":"▼"}</span>`;}; // 同英雄表：.sortArr 絕對定位貼欄名右側、欄名自然置中
       const cols=[
         {k:"選手",lb:LANG==="en"?"Team / Player":"戰隊 選手",sv:r=>(teamFix(r.team)||"")+" "+(r.player||""),cell:r=>{const has=matchedPlayers.has(pKey(r)); const fk=favKey(r),fav=FAV.has(fk);
@@ -17796,8 +17842,8 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
         {k:"LP",lb:LANG==="en"?"LP":"分數",sv:r=>r.found?(r.lp||0):null,cell:r=>r._score>=0&&r.lp!=null?`<span class="num">${r.lp}</span>`:"—"},
         {k:"_games",lb:LANG==="en"?"Games (W-L)":"場數(勝-敗)",sv:r=>r.found?((r.wins||0)+(r.losses||0)):null,cell:r=>r._score>=0?`<span class="num">${(r.wins||0)+(r.losses||0)}</span> <span class="meta">(${r.wins}-${r.losses})</span>`:"—"},
         {k:"_wr",lb:LANG==="en"?"Win%":"勝率",sv:r=>r._wr,cell:r=>r._wr!=null?Math.round(r._wr*100)+"%":"—"},
-        {k:"_sc7",lb:LANG==="en"?"Wk score":"一週評分",sv:r=>(r._n7!=null||r._sc7!=null)?(r._n7||0)*1000+(r._sc7||0):null,cell:r=>r._sc7!=null?`<b style="color:${scoreCol7(r._sc7)}">${r._sc7}</b>${(r._w7!=null&&r._n7!=null)?` <span class="meta">(${r._w7}${LANG==="en"?"W":"勝"}${r._n7-r._w7}${LANG==="en"?"L":"敗"})</span>`:""}`:`<span class="meta">—</span>`},
-        {k:"_kda7",lb:LANG==="en"?"Wk KDA":"一週KDA",sv:r=>r._kda7,cell:r=>r._kda7!=null?`<span class="num">${r._kda7}</span>`:`<span class="meta">—</span>`},
+        {k:"_sc7",lb:_rngLb()+(LANG==="en"?" score":"評分"),sv:r=>(r._n7!=null||r._sc7!=null)?(r._n7||0)*1000+(r._sc7||0):null,cell:r=>r._sc7!=null?`<b style="color:${scoreCol7(r._sc7)}">${r._sc7}</b>${(r._w7!=null&&r._n7!=null)?` <span class="meta">(${r._w7}${LANG==="en"?"W":"勝"}${r._n7-r._w7}${LANG==="en"?"L":"敗"})</span>`:""}`:`<span class="meta">—</span>`},
+        {k:"_kda7",lb:_rngLb()+(LANG==="en"?" KDA":"KDA"),sv:r=>r._kda7,cell:r=>r._kda7!=null?`<span class="num">${r._kda7}</span>`:`<span class="meta">—</span>`},
         {k:"last10",lb:LANG==="en"?"Last 10 champs":"最近十場",sort:false,cell:r=>{const l=r._last10||[]; if(!l.length)return `<span class="meta">—</span>`;
           return `<span class="soloChamps" data-rid="${esc(r.riotId)}" style="display:inline-flex;gap:2px;flex-wrap:nowrap">${l.map(c=>champIco(c,24)).join("")}</span>`;}},
         {k:"platform",lb:LANG==="en"?"Server":"伺服器",sv:r=>r.platform||"",cell:r=>`<span class="meta">${esc(platDisp(r.platform))}</span>`},
@@ -17815,6 +17861,8 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
       const q=(V.rankQ||"").trim().toLowerCase();
       let active=disp.filter(r=>FAV.has(favKey(r))||r._missing||r._n7>0||(r.found&&r._n7==null)); // 收藏者一律顯示；其餘：最近7天沒打暫不列；缺帳號一律列(灰置底)；有段位但還沒逐場資料的新帳號(_n7==null)也列出
       if(_RR.length)active=active.filter(r=>rrOk(r._role)); // 路線篩選
+      { const _al=V.rankDayAlive==="alive"?wldAliveAbs():null; if(_al)active=active.filter(r=>_al.has(teamFix(r.team||""))); }   // 還存活
+      if(_X&&_X._loc)active=active.filter(r=>FAV.has(favKey(r))||r._n7>0);   // 當地：範圍內沒在當地打的不列
       if(_RS.length)active=active.filter(r=>rgPass(r)); // 賽區(參賽聯賽/盃賽)篩選
       if((_R1==="LPL"||_R1==="LCK")&&V.rankLplGrp)active=active.filter(r=>lplSplitGroupOf(teamFix(r.team||""),curYear,lplSel,grpLg)===V.rankLplGrp); // LPL 分組篩選(選定賽段；季後賽不分)
       let show=active;
@@ -17860,39 +17908,11 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
       if(!SD||!Array.isArray(SD.players)||!SD.players.length){ box.innerHTML=`<div class="note">${en?"No ranked data yet.":"尚未有積分資料。"}</div>`; return; }
       const IDX=window.SOLOQ_MATCH_IDX;
       const ROLE_ORD={TOP:0,JUNGLE:1,MIDDLE:2,BOTTOM:3,UTILITY:4}, POSLB={TOP:["上","Top"],JUNGLE:["野","JG"],MIDDLE:["中","Mid"],BOTTOM:["下","Bot"],UTILITY:["輔","Sup"]};
-      const addDay=(ds,dl)=>{const a=ds.split("-").map(Number),dt=new Date(Date.UTC(a[0],a[1]-1,a[2])); dt.setUTCDate(dt.getUTCDate()+dl); return dt.getUTCFullYear()+"-"+String(dt.getUTCMonth()+1).padStart(2,"0")+"-"+String(dt.getUTCDate()).padStart(2,"0");};
-      // 一「天」＝台灣 10:00 到隔天 10:00（使用者 2026-10-18：排程 10:00 更新，「昨天」是 10:00 往前 24 小時）；分桶在 build_soloq_index.py
-      const genDay=REC.genDay||new Date(Date.now()+(8-10)*3600e3).toISOString().slice(0,10);
-      const rng=V.rankDayRange||1, days=[]; for(let i=1;i<=rng;i++)days.push(addDay(genDay,-i)); // 昨天..昨天-(rng-1)
-      const md=ds=>{const a=ds.split("-"); return (+a[1])+"/"+(+a[2]);}, _ds=REC.dayStartH!=null?String(REC.dayStartH).padStart(2,"0")+":00":"", headLb=_ds?`${md(days[days.length-1])} ${_ds}～${md(addDay(days[0],1))} ${_ds}`:(rng===1?md(days[0]):md(days[days.length-1])+"–"+md(days[0]));
-      // 手動更新後（使用者 2026-10-22：19:35 按 🔄 更新積分，範圍還停在 10/22 10:00）：產生時間離今天 10:00 超過 2 小時 ⇒
-      //   範圍＝產生時間往前 N×24 小時（滑動窗，含今天 10:00 之後的場次）；10:00 那班照舊用整桶（結果跟以前一樣）
-      const _tz=REC.tzHours!=null?REC.tzHours:8, _gm=String(REC.generated||"").match(/(\d+)-(\d+)-(\d+) (\d+):(\d+)/),
-            _gt=_gm?Date.UTC(+_gm[1],_gm[2]-1,+_gm[3],+_gm[4]-_tz,+_gm[5])/1000:null,
-            _gb=(a=>Date.UTC(a[0],a[1]-1,a[2],(REC.dayStartH||0)-_tz)/1000)(genDay.split("-").map(Number)),
-            slide=_gt!=null&&REC.dayStartH!=null&&_gt-_gb>2*3600, _w0=slide?_gt-rng*86400:0;
-      if(slide)days.unshift(genDay);
-      const inWin=g=>!slide||(g[7]>=_w0&&g[7]<=_gt+600);
-      const _fmtT=t=>{ const d=new Date((t+_tz*3600)*1000); return (d.getUTCMonth()+1)+"/"+d.getUTCDate()+" "+String(d.getUTCHours()).padStart(2,"0")+":"+String(d.getUTCMinutes()).padStart(2,"0"); };
-      const headLb2=slide?_fmtT(_w0)+"～"+_fmtT(_gt):headLb;
+      const _X=sqCtx(REC), {addDay,genDay,rng,days,slide,headLb2,inWin}=_X;
       // REC(有打積分者)：以 teamFix 正規化鍵對應「實際 REC key」——REC/SD 隊縮寫可能不一致(GENG↔GEN、TLAW↔TL、AGAL↔AL)，雙邊都 teamFix 後才比對得上
       const recByNorm={}; Object.keys(REC.players).forEach(rk=>{const i=rk.indexOf("|"); if(i<0)return; const nk=teamFix(rk.slice(0,i))+"|"+rk.slice(i+1); if(!(nk in recByNorm))recByNorm[nk]=rk;});
       const idxRole={}; if(IDX&&IDX.players)Object.keys(IDX.players).forEach(ik=>{const i=ik.indexOf("|"); if(i<0)return; const nk=teamFix(ik.slice(0,i))+"|"+ik.slice(i+1); if(!(nk in idxRole))idxRole[nk]=IDX.players[ik].role;});
-      // 當地（使用者 2026-10-22：篩 LCK 選當地應該是韓服，不是世界賽的美服）：篩到世界賽＝舉辦地伺服器；
-      //   其他＝各隊所屬賽區的伺服器（看選手的俱樂部，不看國家隊區塊）；對照表沒有的賽區（LCP 等多國聯賽）取該隊帳號最多的伺服器
-      const _loc=V.rankDayLocal==="local", _wHost=rgHas("WLDs")&&WLD_HOST[curYear]?WLD_HOST[curYear].srv:null, _nrid=x=>String(x||"").replace(/\s+/g,"").toLowerCase();
-      const _srvOf={}; if(_loc)SD.players.forEach(p=>{ [p.riotId,p.curId].forEach(r=>{ if(r)_srvOf[_nrid(r)]=String(p.platform||"").toLowerCase(); }); });
-      const _EMEA=["euw1","eun1","me1","tr1","ru"], _AMER=["na1","br1","la1","la2"];   /* LEC＝歐洲中東北非各服、LCS/CBLOL＝美洲各服（使用者 2026-10-22） */
-      const LG_SRV={LCK:"kr","LCK CL":"kr",LCKC:"kr",LPL:"kr",LDL:"kr",LEC:_EMEA,LFL:_EMEA,LCS:_AMER,"LTA N":_AMER,CBLOL:_AMER,"LTA S":_AMER,LTA:_AMER,VCS:"vn2",PCS:"tw2",LMS:"tw2",LJL:"jp1",LCO:"oc1",LCP:["tw2","jp1","kr","vn2","oc1"]}, _tmSrv={};   /* LCP＝台日韓越＋大洋洲服都算（使用者 2026-10-22） */
-      const hostOf=club=>{ if(!_loc)return null; if(_wHost)return _wHost; if(club in _tmSrv)return _tmSrv[club];
-        let h=LG_SRV[primaryLg(club)]||null;
-        if(!h){ const cnt={}; SD.players.forEach(p=>{ if(teamFix(p.team||"")===club&&p.platform){ const v=String(p.platform).toLowerCase(); cnt[v]=(cnt[v]||0)+1; } }); Object.keys(cnt).forEach(v=>{ if(!h||cnt[v]>cnt[h])h=v; }); }
-        return _tmSrv[club]=h; };
-      const gOk=(g,hs)=>{ if(!hs)return true; const v=_srvOf[_nrid(g[14])]; return Array.isArray(hs)?hs.includes(v):v===hs; };   // 當地：對不到帳號的場次也不算
-      const aggOf=(rk,hs)=>{ const p=rk&&REC.players[rk]; if(!p||!p.d)return null; const gs=[], byDay=[]; days.forEach(dd=>{const arr=(p.d[dd]||[]).filter(g=>gOk(g,hs)&&inWin(g)); if(arr.length){arr.forEach(g=>gs.push(g)); byDay.push(arr);}}); if(!gs.length)return null; let w=0,sS=0,sN=0,K=0,D=0,A=0,kN=0,LPd=0,LPn=0; const rids=new Set(); gs.forEach(g=>{if(g[1])w++; if(g[2]!=null&&Math.abs(g[2])<=60){LPd+=g[2];LPn++;} if(g[3]!=null){sS+=g[3];sN++;} if(g.length>4){K+=g[4]||0;D+=g[5]||0;A+=g[6]||0;kN++;} if(g[14])rids.add(String(g[14]).replace(/\s+/g,"").toLowerCase());});
-        // 範圍內場均評分／KDA（使用者 2026-10-18；KDA＝(總K+總A)/總D，同排行榜一週 KDA）
-        // LP 增減：逐場增減加總（build_soloq_index 已把「總分」換算成增減；仍不明的＝null 不計）；範圍內全不明＝null ⇒ 顯示 (–)
-        return {gs,byDay,rids,lpd:LPn?LPd:null,n:gs.length,w,l:gs.length-w,sc:sN?Math.round(sS/sN*10)/10:null,kda:kN?Math.round((K+A)/Math.max(1,D)*10)/10:null}; };
+      const {_loc,_nrid,hostOf,gOk,aggOf}=_X;
       const q=(V.rankQ||"").trim().toLowerCase(), roster={}, accByNk={};   // accByNk＝每位選手的所有帳號（牌位改看範圍內實際用的那幾隻）
       // 篩到國家隊賽事時，這位選手要掛在哪一個區塊（沒有就照舊用俱樂部）
       const dlyNatAb=(player,ab)=>{ if(!_cupSel)return ab;
@@ -18018,7 +18038,7 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
         const sub=`${e.n}${en?" games":" 場"} · <b style="color:var(--tx)">${e.w}-${e.n-e.w}</b> (${wr}%)`;
         return tipHd(e.c,"",e.sn?e.ss/e.sn:null,sub)
           +tipRow("KDA",`<b>${fx1(e.k/e.n)} / ${fx1(e.d/e.n)} / ${fx1(e.a/e.n)}</b> <span class="meta">(${fx1((e.k+e.a)/Math.max(1,e.d))})</span>`)
-          +tipRow(e.gn===1?(en?"Gold diff @15":"金差@15"):(en?"Avg gold diff @15":"平均金差@15"),e.gn?gdV(Math.round(e.gs/e.gn)):`<span class="meta">—</span>`)
+          +tipRow(en?"Gold diff @15":"金差@15",e.gn?gdV(Math.round(e.gs/e.gn)):`<span class="meta">—</span>`)
           +(e.op&&e.op.size?tipRow(en?"Lane opp.":"對位",tipSlots([...e.op].sort((x,y)=>y[1]-x[1]).slice(0,3).map(([c2])=>champIco(c2,TIP_AGG_ICO)))):"")
           +(e.ru&&e.ru.size?tipRow(en?"Runes":"符文",tipSlots([...e.ru].sort((x,y)=>y[1]-x[1]).slice(0,3).map(([k2])=>{ const [r1,r2]=k2.split("|"); return runeKS({r:r1,rs:[r2]},TIP_AGG_ICO); }))):""); };   /* 最常見的前三，多→少、不標次數（使用者 2026-10-19）；兩列三格對齊成同一組欄位、間隔一樣（使用者 2026-10-21） */
       box.onmouseover=e=>{ const el=e.target.closest&&e.target.closest(".dlyChip[data-gi],.dlyChip[data-ga]"); if(!el||el===box._tipEl)return; box._tipEl=el;
