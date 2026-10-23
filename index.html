@@ -1291,8 +1291,8 @@
 #tierRows .tChip.insL::before,#tierRows .tChip.insR::before{content:"";position:absolute;top:-3px;bottom:-3px;width:4px;border-radius:2px;background:rgba(245,185,66,.95);box-shadow:0 0 6px rgba(245,185,66,.8);pointer-events:none;z-index:7}
 #tierRows .tChip.insL::before{left:-6px}
 #tierRows .tChip.insR::before{right:-6px}
-#tierRows .tScB{position:absolute;right:-3px;bottom:-3px;z-index:5;padding:0 4px;border-radius:7px;background:rgba(10,14,22,.88);font:700 12px/16px var(--num-font,inherit);pointer-events:none;font-variant-numeric:tabular-nums}
-#tierRows .tScB.g{right:auto;left:50%;transform:translateX(-50%);z-index:7}   /* 組合分數：跟單隻同樣式、疊在圖上，位置在整組下緣中間（使用者 2026-10-23） */
+#tierRows .tScB{position:absolute;right:0;bottom:0;z-index:5;padding:6px 4px 1px 10px;border-radius:0 0 6px 0;background:radial-gradient(ellipse at 100% 100%,rgba(0,0,0,.72) 0%,rgba(0,0,0,.45) 45%,rgba(0,0,0,0) 75%);font:800 13px/14px var(--num-font,inherit);letter-spacing:-.2px;text-shadow:0 0 2px #000,0 1px 2px #000,1px 0 1px #000,-1px 0 1px #000;pointer-events:none;font-variant-numeric:tabular-nums}
+#tierRows .tScB.g{right:auto;bottom:auto;left:50%;top:-16px;transform:translateX(-50%);z-index:7;padding:0 6px;border-radius:8px;background:#141b28;border:1.5px solid rgba(245,185,66,.95);font-size:12px;line-height:15px;text-shadow:none}   /* 組合：金色括號正中間的小牌子（使用者 2026-10-23） */
 #tierRows .tGrp::before{content:"";position:absolute;left:10px;right:10px;top:-8px;height:6px;border:2.5px solid rgba(245,185,66,.95);border-bottom:none;border-radius:8px 8px 0 0;pointer-events:none}
 </style>
 </head>
@@ -11010,7 +11010,7 @@ function render(){
     // chip(id, small, sz, iconLane, plane)：iconLane＝要顯示的「單一」路線圖示(混合 Tier 用取用路線)；plane＝拖曳來源路線(data-plane)
     window.tierHotClr=window.tierHotClr||(()=>document.querySelectorAll("#tierRows .lkHot,#tierRows .insL,#tierRows .insR").forEach(x=>x.classList.remove("lkHot","insL","insR")));
     // 分數標（使用者 2026-10-23：英雄圖右下寫判斷 Tier 的最終分數；組合寫在整組下方中間）
-    const scColT=v=>v>=85?"#ff6b6b":v>=72?"#ffa58a":v>=55?"#e6ebf3":"#9bd4a8";   // 越高越紅：S／A／B／以下
+    const scColT=v=>v>=85?"#ff6b6b":"#fff";   // 一律白字，只有 S 線（85）以上用紅強調；階級本身由所在的列表示（使用者 2026-10-23 改版）
     const scTag=(v,grp)=>v==null?"":`<span class="tScB${grp?" g":""}" style="color:${scColT(v)}">${Math.round(v)}</span>`;
     let _inGrp=false;
     const chip=(iid,small,sz,iconLane,plane,scL)=>{const s=sz||(small?CS*0.8:CS); const id=bid(iid);
