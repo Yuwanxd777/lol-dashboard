@@ -240,7 +240,6 @@
   /* Tier 角色池窄（<420 版面 px）：搜尋框改放標題下一行，不然「角色池」會被擠成一字一行（使用者 2026-10-23） */
   #tierPool.tpNarrow .tphdr{padding-right:0!important}
   #tierPool.tpNarrow .tpctl{position:static!important;margin-top:6px;justify-content:flex-start}
-  #tierPool.tpNarrow #tierPks{white-space:normal!important}
   .tLaneIco.tLPn .cx{display:none!important}
   .tLaneIco.tLPn input{padding-right:8px!important;padding-left:8px!important}
   @media(pointer:coarse){
@@ -10786,7 +10785,7 @@ function render(){
     main.innerHTML=filterBar(`<label>${LANG==="en"?"Team":"戰隊"}</label>${comboHTML("tierTm",T("輸入戰隊"),180)}`)+` <!-- placeholder 與 近況/戰隊/陣容 同字 → fitComboW 算出同寬（2026-08-05 使用者：同名篩選框與文字全站一致） -->`+`
       <div id="tierWrap" style="display:grid;grid-template-columns:3fr 1fr;gap:var(--gap);align-items:start;user-select:none">
         <div id="tierRows" style="display:flex;flex-direction:column;gap:10px;min-width:0"></div>
-        <div class="card" id="tierPool" style="margin:0;position:relative;min-width:0"><div class="tphdr" style="margin-bottom:6px;padding-right:240px"><h2 style="display:flex;align-items:center;gap:8px;margin:0">🦸 ${T("角色池")}</h2><div id="tierPks" style="font-size:13.5px;color:#7a8aaa;margin-top:3px;line-height:1.5"></div><div class="tpctl" style="position:absolute;top:10px;right:12px;display:flex;gap:6px;align-items:center"><span class="cwrap"><input id="tierQ" placeholder="${LANG==='en'?'Search':'搜尋'}" value="${esc(V.tierQ||"")}" style="width:190px;padding-right:26px"><button class="cx" tabindex="-1" data-x="tierQ" title="一鍵清除">✕</button></span></div></div>
+        <div class="card" id="tierPool" style="margin:0;position:relative;min-width:0"><div class="tphdr" style="margin-bottom:6px"><div style="display:flex;align-items:center;gap:8px 12px;flex-wrap:wrap"><h2 style="display:flex;align-items:center;gap:8px;margin:0">🦸 ${T("角色池")}</h2><div class="tpctl" style="margin-left:auto;display:flex;gap:6px;align-items:center"><span class="cwrap"><input id="tierQ" placeholder="${LANG==='en'?'Search':'搜尋'}" value="${esc(V.tierQ||"")}" style="width:190px;padding-right:26px"><button class="cx" tabindex="-1" data-x="tierQ" title="一鍵清除">✕</button></span></div></div><div id="tierPks" style="font-size:13.5px;color:#7a8aaa;margin-top:6px;line-height:1.5;white-space:nowrap"></div></div>
           <div id="tierPoolBox"></div></div>
       </div>`;
     // 英雄池範圍＝全站標準篩選（賽季/聯賽/版本/時間，與其他分頁同一套 passG）
@@ -11401,9 +11400,12 @@ function render(){
       // 動態尺寸：以 50px 為目標湊列數均分填滿欄寬；若池底超出螢幕就每列多塞一顆縮小重排
       // 角色池寬（使用者 2026-10-23：角色池區可以縮小；縮放 200% 時 3fr/1fr 會讓 Tier 列塞不下、下輔欄被池子蓋住）：
       //   版面寬 18%、夾 280~440 版面 px；太窄時標題下方再放搜尋框（.tpNarrow）
-      { const _tw=document.getElementById("tierWrap"), _W=_tw?_tw.clientWidth:2500, _pw=Math.round(Math.max(280,Math.min(440,_W*0.18)));
+      { const _tw=document.getElementById("tierWrap"), _W=_tw?_tw.clientWidth:2500, _px=window._tierPoolX, _pw=Math.round(Math.max(280,Math.min(440,_W*0.18)))+(_px&&_px.sig===_W+"|"+V.tierMode?_px.v:0);   // 五路排不滿的餘寬給角色池（使用者 2026-10-23）
         if(_tw)_tw.style.gridTemplateColumns=`minmax(0,1fr) ${_pw}px`;
-        const _tp=document.getElementById("tierPool"); if(_tp)_tp.classList.toggle("tpNarrow",_pw<420); }
+        const _tp=document.getElementById("tierPool"); if(_tp)_tp.classList.toggle("tpNarrow",_pw<420);
+        // 版本序列一行（使用者 2026-10-23）：放不下就縮字（13.5→最小 11px），不換行不裁字
+        const _pk=document.getElementById("tierPks"); if(_pk){ let f=13.5; _pk.style.fontSize=f+"px"; _pk.style.whiteSpace="nowrap"; while(_pk.scrollWidth>_pk.clientWidth+0.5&&f>11){ f-=0.5; _pk.style.fontSize=f+"px"; }
+          if(_pk.scrollWidth>_pk.clientWidth+0.5){ _pk.style.fontSize="13.5px"; _pk.style.whiteSpace="normal"; } } }   // 縮到 11px 還放不下（200% 三路）才換行
       const box=document.getElementById("tierPoolBox");
       const bw=((box.getBoundingClientRect().width/(window._zoomF||1))||300)-0.5, tg=5; // 精確寬-0.5px 安全值，避免整數進位造成提早換行；rect 除以縮放倍率轉版面px
       let perRow=Math.max(1,Math.round((bw+tg)/(50+tg)));
@@ -11509,7 +11511,10 @@ function render(){
           if(!(window._tierNpr&&window._tierNpr.sig===_fitSig)){
             const v=Math.max(is3?3:5,over>0?nNow-Math.ceil(over/unit)*step:nNow+Math.floor(-over/unit)*step);
             window._tierNpr={sig:_fitSig,v}; if(v!==nNow){ rerender(); return; } }
-          else if(over>1&&nNow>(is3?3:5)){ window._tierNpr={sig:_fitSig,v:Math.max(is3?3:5,nNow-Math.ceil(over/unit)*step)}; rerender(); return; } } }
+          else if(over>1&&nNow>(is3?3:5)){ window._tierNpr={sig:_fitSig,v:Math.max(is3?3:5,nNow-Math.ceil(over/unit)*step)}; rerender(); return; }
+          // 五路只能五路一起加一張，排不滿的餘寬 ⇒ 角色池吃掉（使用者 2026-10-23 選的做法）；簽章＝整區寬＋模式，只算一次
+          if(isLanes&&over<-4){ const tw=document.getElementById("tierWrap"), ps=tw.clientWidth+"|"+V.tierMode;
+            if(!(window._tierPoolX&&window._tierPoolX.sig===ps)){ window._tierPoolX={sig:ps,v:Math.floor(-over)-12}; rerender(); return; } } } }
       bindLPs();   // 各路選手下拉（tierRows 每次重建都要重綁）
       if(isLanes||is3){ // 路線圖示各自對齊「第一列」對應路線（三路＝對應欄）的中心（白線每階同位置）
         const bar=document.querySelector(".tModeBar");
