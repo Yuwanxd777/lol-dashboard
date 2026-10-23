@@ -12244,10 +12244,10 @@ function render(){
         }else if(src===cur){ // 同數據模式再點＝立即重新產生（base＝目前板：沿用列色＋保留手動補加）
           const t=gen(src)(V.tierB); if(!t){fail();return;}
           UNDO.track("tierB",V.tierB); V.tierB=t; V.tierGenKey=tierGenKeyStr(src); V.tierGenFail=""; V.tierGenNote=window._tierGenNote||"";
-        }else{ // 進入數據模式＝依目前篩選現產（base＝該來源舊板：沿用列色＋保留手動補加）
-          const base=V.tierBS[src]||null;
-          const t=gen(src)(base); if(!t){fail();return;}
-          V.tierBS[cur]=V.tierB; V.tierB=t; delete V.tierBS[src]; V.tierGenKey=tierGenKeyStr(src); V.tierGenFail=""; V.tierGenNote=window._tierGenNote||"";
+        }else{ // 進入數據模式＝先換到該來源的舊板、清掉產生簽章，在新畫面裡由 render 的 gate 依目前篩選重產（base＝該來源舊板：沿用列色＋保留手動補加）
+          //   不在這裡直接產：這個 handler 是舊模式那一輪 render 綁的，閉包裡的積分範圍（sqHov 出賽選手、sqPks…）是舊模式的
+          //   ⇒ 比賽→積分且開著出賽選手時會用到全部玩家的積分，要按 🗑 才對（使用者 2026-10-23：有些英雄留在角色池，要按重製）
+          V.tierBS[cur]=V.tierB; V.tierB=V.tierBS[src]||{tiers:defTiers()}; delete V.tierBS[src]; V.tierGenKey=""; V.tierGenFail="";
         }
         V.tierSrc=src; V.tierLaneOff={}; saveState(); render();
       };
