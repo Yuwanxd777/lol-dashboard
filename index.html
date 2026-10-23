@@ -10955,7 +10955,7 @@ function render(){
     //   分數＝60＋15×z（z＝s' 在「五路合併、10 場以上」的標準分數；五路一起比，整路冷門時該路第一不會自動滿分）＋錯位加分；
     //   85 以上緩慢壓縮、最高 99（100 不出現）。門檻 S85／A72／B55 ≈ 前 5%／前 20%／前 60%
     //   （試過固定刻度 20＋80×s'：沒有英雄每項都第一，s' 很少過 0.75 ⇒ 世界賽最高 69、S 一隻都沒有）
-    const TIER_K=10, tierCmp=x=>x<=85?x:85+14.4*(1-Math.exp(-(x-85)/20));   // 85 起緩壓：100→93、115→96、130→98.5（90/10 太急，前段全擠 97~99）
+    const TIER_K=10, tierCmp=x=>x<30?30*Math.exp((x-30)/30):x<=85?x:85+14.4*(1-Math.exp(-(x-85)/20));   // 30 以下也緩壓、永遠到不了 0（使用者 2026-10-23：太多 0 分）：0→11、−30→4   // 85 起緩壓：100→93、115→96、130→98.5（90/10 太急，前段全擠 97~99）
     const tierS=(r,L)=>{ const pc=bpPct(L).get(r), ab=Math.min(1,(r["BP%"]||0)/BANFULL); return r._raw+(pc==null?0:(r._wbp||0)*(ab-pc)); };
     const tierMed=L=>{ const k="RM|"+(L||""); if(_banC[k]!=null)return _banC[k]; const a=cHL(L).filter(x=>x._raw!=null&&(x.場數||0)>=1).map(x=>tierS(x,L)).sort((x,y)=>x-y);
       return _banC[k]=a.length?a[Math.floor(a.length/2)]:0.45; };
@@ -10964,7 +10964,8 @@ function render(){
       let a=pick(10); if(a.length<20)a=pick(3);   // 比較母體＝10 場以上（小樣本收斂後全疊在中位數，會把標準差壓小、熱門英雄 z 爆表）
       const m=a.length?a.reduce((t,x)=>t+x,0)/a.length:0.45, sd=a.length>1?Math.sqrt(a.reduce((t,x)=>t+(x-m)*(x-m),0)/(a.length-1)):0.1;
       return _banC.Z=[m,Math.max(0.02,sd)]; };
-    const tierPro=(r,L)=>{ if(!r)return null; if(typeof r.評分!=="number")return r._ban?banBase(L,r["BP%"]||0):0;
+    const tierPro=(r,L)=>{ if(!r)return null; if(r._sqOnly)return r._sqT!=null?r._sqT:0;   // 只有積分在玩（混合數據才會進板）＝用積分分數
+      if(typeof r.評分!=="number")return r._ban?banBase(L,r["BP%"]||0):0;
       const fx=flexB(champId(r._full));
       if(r._raw!=null){ const z=tierZ(); return Math.max(0,tierCmp(60+15*(tierS2(r,L)-z[0])/z[1]+fx)); }
       const W=(typeof LANE_W!=="undefined"&&(LANE_W[L]||LANE_W.MID))||null; if(!W||W["BP%"]==null)return Math.min(100,r.評分+fx);
@@ -11131,8 +11132,8 @@ function render(){
                _v:rw?{rt:softCap(tp),wr:rw.勝率,kda:rw.KDA,gd:gd15,bp:TT?null:rw["BP%"]}:{gd:gd15,rt:softCap(tp),bp:br?br["BP%"]:null}, _P:PP.P};   // 戰隊篩選時 BP% 另有「跟一般比」的紅綠，不再用比較池
         }
       }
-      const sq=(wantSq||(!pro&&_src==="match"))?sqData(id,lane):null;   // 比賽數據模式但這一路比賽沒資料（因積分有在玩才上板）⇒ 改顯示積分欄，不要空框（2026-10-21 體檢：WCS 上路柯奇、潘森…小框是空的）
-      const byPl=plCols(id,lane,wantPro,wantSq||(!pro&&_src==="match"));
+      const sq=wantSq?sqData(id,lane):null;   // 比賽數據模式只顯示比賽資料（使用者 2026-10-23；原本這一路沒比賽資料時會改顯示積分）
+      const byPl=plCols(id,lane,wantPro,wantSq);
       return tipHead(esc(zn(id)),lane?[lane]:[],flexLanes(id).filter(L2=>L2!==lane))+statGrid(byPl||[pro&&{h:LANG==="en"?"Pro":"比賽",d:pro}, sq&&{h:LANG==="en"?"Ranked":"積分",d:sq}])+chgBox(id);};
     // 組合小框（使用者 2026-10-20：滑到組合上＝兩隻合併計算）：
     //   比賽＝目前篩選範圍內「同一隊、兩隻同時在各自那一路」的局數／勝敗／KDA（兩隻各自 KDA 相加，同積分雙人組算法）；
@@ -12100,10 +12101,11 @@ function render(){
         const noTG=TT&&!LANE5v.some(L=>_rows[L].some(r=>!r._ban));
         if(noTG&&adj&&!isHistYear()&&window.SOLOQ_BUILDS&&SOLOQ_BUILDS.hero){ const t=genSoloqTiers(base); if(t||window._tierPending)return t; window._tierGenMsg=""; }   // 積分也排不出來 ⇒ 同樣給空板
         // 比賽沒人選、但積分有在玩（該路過積分樣本門檻、而且占這隻英雄 10% 以上場次）＝奇招也進板（使用者 2026-10-20：WCS 犽宿下路積分有人玩卻哪裡都沒有）
-        if(!isHistYear()&&window.SOLOQ_BUILDS&&SOLOQ_BUILDS.hero){ const totS={}; sqQ(null,1).forEach(r=>{totS[r._full]=r.場數;});
+        //   ⇒ 只在混合數據做（使用者 2026-10-23：比賽數據模式就只看比賽，這些英雄拿不到比賽評分會變 0 分、小框還跑出積分）
+        if(adj&&!isHistYear()&&window.SOLOQ_BUILDS&&SOLOQ_BUILDS.hero){ const totS={}; sqQ(null,1).forEach(r=>{totS[r._full]=r.場數;});
           LANE5v.forEach(L=>{ const have=new Set(_rows[L].map(r=>champId(r._full)));
             sqQ(L).forEach(r=>{ const id=r._full; if(have.has(id)||!D2[id]||banOnly(id))return; if(!LP(L)&&totS[id]&&r.場數<totS[id]*0.1)return;
-              _rows[L].push({_full:id,_sqOnly:1,場數:0,"BP%":0,評分:null}); }); }); }
+              _rows[L].push({_full:id,_sqOnly:1,_sqT:sqT(r),場數:0,"BP%":0,評分:null}); }); }); }   // _sqT＝積分分數（沒有比賽分數，混合時就用它，不給 0）
         const _all=LANE5v.flatMap(L=>_rows[L]);
         // （早年只有少數維度的年份原本另走分位數門檻；現在全部改排名比例，自然涵蓋）
         const oldByName={}; ((base&&base.tiers)||[]).forEach(t=>{if(!(t.n in oldByName))oldByName[t.n]=t;}); // 只沿用列色
@@ -12118,7 +12120,7 @@ function render(){
           const isQ=r=>!r._ban&&(r["BP%"]||0)<qzBP&&(r.場數||0)<=qzG&&sqRare(champId(r._full),L);   // 奇招＝比賽和積分都很少人玩；只被禁沒選過的不算
           const elig=_rows[L].filter(r=>!isQ(r)).sort((a,b)=>tierPro(b,L)-tierPro(a,L));   // 比賽評分＝max(評分, 禁用分)
           // 混合數據：比賽分數先換成這一路的排名百分位（100＝第一），adj 再跟積分百分位加權
-          const pM=new Map(elig.map((r,i)=>[r,elig.length>1?100*(1-i/(elig.length-1)):100]));
+          const pM=new Map(elig.map(r=>[r,tierPro(r,L)]));   // 同刻度的比賽分數（原本是名次百分位，第一名一律 100＝膨脹；使用者 2026-10-23）
           const scOf=r=>adj?adj(champId(r._full),L,pM.get(r)):tierPro(r,L);
           const ord=elig.slice().sort((a,b)=>scOf(b)-scOf(a)), rk=new Map(ord.map((r,i)=>[r,i]));
           const sqN=id=>{ const d=adj?sqData(id,L):null; return d?d._n:0; };   // 混合：積分場數也算樣本
@@ -12128,7 +12130,7 @@ function render(){
             const id=champId(r._full); if(!id||!D2[id]){_diag.noId++;return;}
             const bi=isQ(r)?TH.length-1:cb[rk.get(r)]; // 奇招優先；其餘照每路數量規則
             tiers[bi].lanes[L].push(id); tiers[bi].ids.push({id,lane:L}); // 五路與混合兩種結構都填：⇄切模式都要有資料（2026-07-18 使用者定案）
-            _genSc[L+"|"+id]=isQ(r)?(r._sqOnly?0:tierPro(r,L)):scOf(r);
+            _genSc[L+"|"+id]=r._sqOnly?(r._sqT!=null?r._sqT:0):isQ(r)?tierPro(r,L):scOf(r);
             total++;
           });
         });
