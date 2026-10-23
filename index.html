@@ -11504,8 +11504,12 @@ function render(){
 
       if(isLanes||is3){ const r0=_rowsEl.querySelector(".tierRow"), g0=r0&&r0.querySelector(".tLaneGrid");
         if(g0){ const need=g0.offsetLeft+g0.offsetWidth+40+30, over=need-r0.clientWidth;   // 40＝右側 ✕／⠿／色塊，30＝右內距
-          const nNow=is3?N3T+2*N3M:5*NPR;
-          if(over>1&&nNow>(is3?3:5)){ window._tierNpr={sig:_fitSig,v:Math.max(is3?3:5,nNow-Math.ceil(over/(LANE_CH+7)))}; rerender(); return; } } }
+          // 雙向：塞不下就少放、有空就多放（使用者 2026-10-23：角色池變窄後 Tier 區變寬，圖卻還停在原本的邊界）；同一簽章只量一次
+          const nNow=is3?N3T+2*N3M:5*NPR, unit=is3?LANE_CH+7:5*(LANE_CH+7), step=is3?1:5;
+          if(!(window._tierNpr&&window._tierNpr.sig===_fitSig)){
+            const v=Math.max(is3?3:5,over>0?nNow-Math.ceil(over/unit)*step:nNow+Math.floor(-over/unit)*step);
+            window._tierNpr={sig:_fitSig,v}; if(v!==nNow){ rerender(); return; } }
+          else if(over>1&&nNow>(is3?3:5)){ window._tierNpr={sig:_fitSig,v:Math.max(is3?3:5,nNow-Math.ceil(over/unit)*step)}; rerender(); return; } } }
       bindLPs();   // 各路選手下拉（tierRows 每次重建都要重綁）
       if(isLanes||is3){ // 路線圖示各自對齊「第一列」對應路線（三路＝對應欄）的中心（白線每階同位置）
         const bar=document.querySelector(".tModeBar");
