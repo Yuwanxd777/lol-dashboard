@@ -16996,7 +16996,10 @@ function render(){
         saveState(); rerender();
       });
       wrap.querySelectorAll(".bsGSwap").forEach(b=>b.onclick=()=>{ // 兩隊互換紅藍方（內容跟著隊伍走、先選/後選標籤留在原位）
-        const gi=+b.dataset.g; S.side[gi]=S.side[gi]?0:1; S.fp[gi]=S.fp[gi]?0:1; // fp 隨 side 一起翻＝先後選綁「位置(左/右)」不綁隊伍：換邊時標籤不移位，選角順序仍跟著藍/紅方
+        const gi=+b.dataset.g;
+        // 直播同步中的那一局：同步每拍都會把它拉回「畫面左＝隊A」，改成對調偵測到的兩隊並記住（bp_live_ui 讀 S.liveTmSwap；使用者 2026-10-24）
+        if(window.__bpLiveMount&&S.meta[gi]&&S.meta[gi].live&&!(S.tm||[])[gi]&&S.t1&&S.t2){ const k=[S.t1,S.t2].sort().join("|"); S.liveTmSwap=S.liveTmSwap===k?"":k; const t=S.t1; S.t1=S.t2; S.t2=t; saveState(); rerender(); return; }
+        S.side[gi]=S.side[gi]?0:1; S.fp[gi]=S.fp[gi]?0:1; // fp 隨 side 一起翻＝先後選綁「位置(左/右)」不綁隊伍：換邊時標籤不移位，選角順序仍跟著藍/紅方
         saveState(); rerender();
       });
       wrap.querySelectorAll(".bsGCopy").forEach(b=>b.onclick=()=>{ // 複製本局插到右邊（編號動態＝來源現行號-序）
