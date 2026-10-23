@@ -11142,7 +11142,12 @@ function render(){
     //   比賽＝目前篩選範圍內「同一隊、兩隻同時在各自那一路」的局數／勝敗／KDA（兩隻各自 KDA 相加，同積分雙人組算法）；
     //   積分＝雙人組資料（只有 中野、下輔 兩種，全季、15 場以上；見 calcHeroesSoloq 的 中野組／下路組）
     // 組合的比賽欄（小框與連結後定階共用）
-    const pairPro=(a,b)=>{ const kdaOf=(k,d,a2)=>(k+a2)/Math.max(1,d);
+    // 快取（使用者 2026-10-23：組合的瞬間會卡）：每次重畫每一組的分數標／定階都要掃兩遍比賽 ⇒ 篩選沒變就沿用（鍵＝篩選簽章＋兩隻＋路線）
+    const pairPro=(a,b)=>{ const sig=tierGenKeyStr("pp")+"|"+(V.tierLanePl?JSON.stringify(V.tierLanePl):"")+"|"+(TT||"");
+      if(!window._ppC||window._ppC.sig!==sig)window._ppC={sig,m:new Map()};
+      const k=a.id+"|"+a.lane+"|"+b.id+"|"+b.lane; if(window._ppC.m.has(k))return window._ppC.m.get(k);
+      const v=_pairPro(a,b); window._ppC.m.set(k,v); return v; };
+    const _pairPro=(a,b)=>{ const kdaOf=(k,d,a2)=>(k+a2)/Math.max(1,d);
       let pro=null;
       { const pa=LANE5v.indexOf(a.lane)+1, pb=LANE5v.indexOf(b.lane)+1, G={}, pkOK=new Set();
         // 比賽：篩選範圍內同隊、兩隻同時在各自那一路的局
