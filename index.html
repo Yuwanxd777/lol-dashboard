@@ -12113,7 +12113,7 @@ function render(){
         if(adj&&!isHistYear()&&window.SOLOQ_BUILDS&&SOLOQ_BUILDS.hero){ const totS={}; sqQ(null,1).forEach(r=>{totS[r._full]=r.場數;});
           LANE5v.forEach(L=>{ const have=new Set(_rows[L].map(r=>champId(r._full)));
             sqQ(L).forEach(r=>{ const id=r._full; if(have.has(id)||!D2[id]||banOnly(id))return; if(!LP(L)&&totS[id]&&r.場數<totS[id]*0.1)return;
-              _rows[L].push({_full:id,_sqOnly:1,_sqT:sqT(r),場數:0,"BP%":0,評分:null}); }); }); }   // _sqT＝積分分數（沒有比賽分數，混合時就用它，不給 0）
+              _rows[L].push({_full:id,_sqOnly:1,_sqT:sqT(r)*0.5,場數:0,"BP%":0,評分:null}); }); }); }   // _sqT＝積分分數×50%（使用者 2026-10-23：混合數據比賽沒有、只有積分＝積分算 50%；比賽有積分沒有＝比賽 100%）
         const _all=LANE5v.flatMap(L=>_rows[L]);
         // （早年只有少數維度的年份原本另走分位數門檻；現在全部改排名比例，自然涵蓋）
         const oldByName={}; ((base&&base.tiers)||[]).forEach(t=>{if(!(t.n in oldByName))oldByName[t.n]=t;}); // 只沿用列色
@@ -12129,7 +12129,7 @@ function render(){
           const elig=_rows[L].filter(r=>!isQ(r)).sort((a,b)=>tierPro(b,L)-tierPro(a,L));   // 比賽評分＝max(評分, 禁用分)
           // 混合數據：比賽分數先換成這一路的排名百分位（100＝第一），adj 再跟積分百分位加權
           const pM=new Map(elig.map(r=>[r,tierPro(r,L)]));   // 同刻度的比賽分數（原本是名次百分位，第一名一律 100＝膨脹；使用者 2026-10-23）
-          const scOf=r=>adj?adj(champId(r._full),L,pM.get(r)):tierPro(r,L);
+          const scOf=r=>adj&&!r._sqOnly?adj(champId(r._full),L,pM.get(r)):tierPro(r,L);   // 只有積分的：tierPro＝積分×50%，不再跟積分加權
           const ord=elig.slice().sort((a,b)=>scOf(b)-scOf(a)), rk=new Map(ord.map((r,i)=>[r,i]));
           const sqN=id=>{ const d=adj?sqData(id,L):null; return d?d._n:0; };   // 混合：積分場數也算樣本
           const cb=countBins(ord.map(r=>tierPro(r,L)),false,ord.map(r=>(r.場數||0)>=3||(adj&&sqN(champId(r._full))>=15)));   // 門檻一律看比賽評分（混合的加權分是百分位、尺度不同，不拿來比門檻）
