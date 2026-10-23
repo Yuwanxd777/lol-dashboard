@@ -1291,6 +1291,8 @@
 #tierRows .tChip.insL::before,#tierRows .tChip.insR::before{content:"";position:absolute;top:-3px;bottom:-3px;width:4px;border-radius:2px;background:rgba(245,185,66,.95);box-shadow:0 0 6px rgba(245,185,66,.8);pointer-events:none;z-index:7}
 #tierRows .tChip.insL::before{left:-6px}
 #tierRows .tChip.insR::before{right:-6px}
+#tierRows .tScB{position:absolute;right:-3px;bottom:-3px;z-index:5;padding:0 4px;border-radius:7px;background:rgba(10,14,22,.88);font:700 12px/16px var(--num-font,inherit);pointer-events:none;font-variant-numeric:tabular-nums}
+#tierRows .tScB.g{right:auto;left:50%;bottom:-20px;transform:translateX(-50%);font-size:13px;line-height:17px;padding:0 6px;border:1px solid rgba(245,185,66,.7)}
 #tierRows .tGrp::before{content:"";position:absolute;left:10px;right:10px;top:-8px;height:6px;border:2.5px solid rgba(245,185,66,.95);border-bottom:none;border-radius:8px 8px 0 0;pointer-events:none}
 </style>
 </head>
@@ -11007,11 +11009,15 @@ function render(){
     const PIDPOS=["TOP","JNG","MID","BOT","SUP"];
     // chip(id, small, sz, iconLane, plane)：iconLane＝要顯示的「單一」路線圖示(混合 Tier 用取用路線)；plane＝拖曳來源路線(data-plane)
     window.tierHotClr=window.tierHotClr||(()=>document.querySelectorAll("#tierRows .lkHot,#tierRows .insL,#tierRows .insR").forEach(x=>x.classList.remove("lkHot","insL","insR")));
-    const chip=(iid,small,sz,iconLane,plane)=>{const s=sz||(small?CS*0.8:CS); const id=bid(iid);
+    // 分數標（使用者 2026-10-23：英雄圖右下寫判斷 Tier 的最終分數；組合寫在整組下方中間）
+    const scColT=v=>v>=85?"#ff6b6b":v>=72?"#ffa58a":v>=55?"#e6ebf3":"#9bd4a8";   // 越高越紅：S／A／B／以下
+    const scTag=(v,grp)=>v==null?"":`<span class="tScB${grp?" g":""}" style="color:${scColT(v)}">${Math.round(v)}</span>`;
+    let _inGrp=false;
+    const chip=(iid,small,sz,iconLane,plane,scL)=>{const s=sz||(small?CS*0.8:CS); const id=bid(iid);
       const lb=iconLane?`<span class="tlic" data-lane="${iconLane}" title="${LANG==="en"?"Right-click: switch role":"右鍵：換路線"}" style="position:absolute;left:-2px;top:-2px;z-index:6;cursor:context-menu"><img src="${(POS_SRC[iconLane])||POS_IMG[iconLane]}" style="width:${sz?30:Math.round(s*0.45)}px;height:${sz?30:Math.round(s*0.45)}px;display:block;filter:drop-shadow(0 0 2px #000)"></span>`:""; // 池子的小圖（無 sz）圖示等比縮小
       const d=CHG[id];
       const bc=d===undefined?"1px solid #33405c":`2px solid ${d>0?"#ff4d4d":d<0?"#37c871":"#ffd60a"}`; // 最新版本改動→邊框 紅增強/綠削弱/黃調整
-      return `<span class="tChip" draggable="true" data-id="${esc(iid)}" data-b="${esc(id)}"${plane?` data-plane="${plane}"`:""} style="cursor:grab;position:relative;display:inline-block"><img data-cid="${esc(id)}" data-fbmode="hide" onerror="champImgFb(this)" src="${chIcoUrl(yearVer(),id)}" style="width:${s}px;height:${s}px;border-radius:6px;border:${bc};display:block${small?";filter:grayscale(.7) brightness(.85)":""}">${lb}</span>`;};
+      return `<span class="tChip" draggable="true" data-id="${esc(iid)}" data-b="${esc(id)}"${plane?` data-plane="${plane}"`:""} style="cursor:grab;position:relative;display:inline-block"><img data-cid="${esc(id)}" data-fbmode="hide" onerror="champImgFb(this)" src="${chIcoUrl(yearVer(),id)}" style="width:${s}px;height:${s}px;border-radius:6px;border:${bc};display:block${small?";filter:grayscale(.7) brightness(.85)":""}">${lb}${scL&&!_inGrp?scTag((TB.sc||{})[scL+"|"+id]):""}</span>`;};
     const LANE_ZH=LANG==="en"?{TOP:"Top",JNG:"Jungle",MID:"Mid",BOT:"Bot",SUP:"Support"}:{TOP:"上路",JNG:"打野",MID:"中路",BOT:"下路",SUP:"輔助"};
     const SQTC={}; // 積分數據 hover 快取（每次 render 重建；key=路線）
     // ── 小框排版（使用者 2026-10-20：重新排得更直觀）：標題＝名字＋右上路線圖示；下面一張「比賽｜積分」兩欄對照表，
@@ -11291,10 +11297,21 @@ function render(){
       TB.tiers.forEach(t=>{ if(!t.o3)return; COL3.forEach(([cid,ls])=>{ if(t.o3[cid])t.o3[cid]=t.o3[cid].filter(k=>{ const [L,id]=k.split("|"); if(!((t.lanes[L]||[]).includes(id)))return false; return ls.includes(L)||guestCol(t,L,id)===cid; }); }); });
     };
     // 群組標示：連續同群組的 chip 包成一組（組內間距＝一般間距 7px）。使用者 2026-10-20：金框跟英雄圖金邊撞色 → 改淡金底板 → 一階組多了一塊塊黃很難看 → 定案「上方金色圓角括號」（CSS .tGrp::before），各格列距同步加大（16→24px，使用者 2026-10-20 再放大）
-    const grpHTML=(items,keyOf,html)=>{ let out="",i=0; const lk=TB.lk||{};
+    // 組合分數（定階與分數標共用）：成員分數依場數加權平均，兩隻組合再加「組合實際表現」的差值（同小框評分；混合數據取 70%）
+    const grpScore=mem=>{ const src=V.tierSrc||"mix"; let s=0,ws=0,s0=0,n0=0;
+      mem.forEach(e=>{ const id=bid(e.id), v=(TB.sc||{})[e.lane+"|"+id]; if(v==null)return;
+        const pg=src==="soloq"?0:(((cHL(e.lane)||[]).find(x=>champId(x._full)===id)||{}).場數||0);
+        const sg=src==="match"?0:((sqData(id,e.lane)||{})._n||0), w=pg+sg; s+=v*w; ws+=w; s0+=v; n0++; });
+      let r=ws?s/ws:(n0?s0/n0:null);
+      if(r!=null&&src!=="soloq"&&mem.length===2&&PAIR_OK(mem[0].lane,mem[1].lane)){
+        const pp=pairPro({id:bid(mem[0].id),lane:mem[0].lane},{id:bid(mem[1].id),lane:mem[1].lane});
+        if(pp&&pp._rt0!=null&&pp._rtB!=null)r+=(src==="mix"?0.7:1)*(pp._rtB-pp._rt0); }
+      return r==null?null:tierCmp(r); };
+    const grpHTML=(items,keyOf,html,memOf)=>{ let out="",i=0; const lk=TB.lk||{};
       while(i<items.length){ const g=lk[keyOf(items[i])]; if(g==null){out+=html(items[i]);i++;continue;}
-        let j=i, h=""; while(j<items.length&&lk[keyOf(items[j])]===g){h+=html(items[j]);j++;}
-        out+=`<span class="tGrp" data-g="${g}" style="display:inline-flex;gap:7px;position:relative">${h}</span>`; i=j; }
+        let j=i, h=""; _inGrp=true; while(j<items.length&&lk[keyOf(items[j])]===g){h+=html(items[j]);j++;} _inGrp=false;
+        const gv=memOf?grpScore(items.slice(i,j).map(memOf)):null;
+        out+=`<span class="tGrp" data-g="${g}" style="display:inline-flex;gap:7px;position:relative">${h}${scTag(gv,1)}</span>`; i=j; }
       return out; };
     const bindLPs=()=>{
       LANE5v.forEach((L,i)=>{ if(!document.getElementById("tLP_"+L))return; const m=lanePlAll[i+1]||{};
@@ -11439,11 +11456,11 @@ function render(){
       // 五路：每路固定 4 個寬、靠左、對白線 20px；整組緊貼名稱右側，多餘空間落在輔助與控制項之間
       const midHTML=(t,i)=>is3
         ?`<div class="tLaneGrid" style="flex:0 0 auto;display:flex;align-items:stretch">${COL3.map(([cid],ci)=>`
-            <div class="tCol3" data-t="${i}" data-col="${cid}" style="display:flex;flex-wrap:wrap;gap:24px 7px;align-content:flex-start;justify-content:flex-start;align-items:flex-start;width:${W3(cid)}px;box-sizing:content-box;min-height:${LANE_CH}px;padding:0 ${ci===2?0:20}px 0 ${ci===0?0:20}px${ci?";border-left:1px solid rgba(255,255,255,.35)":""}">${grpHTML(items3(t,cid),e=>lk3(e.lane,e.id),e=>chip(e.id,false,LANE_CH,e.lane,e.lane))}</div>`).join("")}</div>`
+            <div class="tCol3" data-t="${i}" data-col="${cid}" style="display:flex;flex-wrap:wrap;gap:24px 7px;align-content:flex-start;justify-content:flex-start;align-items:flex-start;width:${W3(cid)}px;box-sizing:content-box;min-height:${LANE_CH}px;padding:0 ${ci===2?0:20}px 0 ${ci===0?0:20}px${ci?";border-left:1px solid rgba(255,255,255,.35)":""}">${grpHTML(items3(t,cid),e=>lk3(e.lane,e.id),e=>chip(e.id,false,LANE_CH,e.lane,e.lane,e.lane),e=>e)}</div>`).join("")}</div>`
         :isLanes
         ?`<div class="tLaneGrid" style="flex:0 0 auto;display:flex;align-items:stretch">${LANE5v.map((L,li)=>`
-            <div class="tLane" data-t="${i}" data-lane="${L}" style="display:flex;flex-wrap:wrap;gap:24px 7px;align-content:flex-start;justify-content:flex-start;align-items:flex-start;width:${LANE_MAXW}px;box-sizing:content-box;min-height:${LANE_CH}px;padding:0 ${li===4?0:20}px 0 ${li===0?0:20}px${li?";border-left:1px solid rgba(255,255,255,.35)":""}">${grpHTML(t.lanes[L],id=>lkL(L,id),id=>chip(id,false,LANE_CH,false))}</div>`).join("")}</div>`
-        :`<div class="tMid" style="flex:1;display:flex;flex-wrap:wrap;gap:24px 7px;align-content:flex-start;align-self:center;min-height:70px">${grpHTML(t.ids.filter(e=>!laneOff(e.lane)),lkM,e=>chip(e.id,false,70,e.lane,e.lane))}</div>`; // 混合：顯示取用路線圖示、data-plane；關閉路線的英雄隱藏
+            <div class="tLane" data-t="${i}" data-lane="${L}" style="display:flex;flex-wrap:wrap;gap:24px 7px;align-content:flex-start;justify-content:flex-start;align-items:flex-start;width:${LANE_MAXW}px;box-sizing:content-box;min-height:${LANE_CH}px;padding:0 ${li===4?0:20}px 0 ${li===0?0:20}px${li?";border-left:1px solid rgba(255,255,255,.35)":""}">${grpHTML(t.lanes[L],id=>lkL(L,id),id=>chip(id,false,LANE_CH,false,undefined,L),id=>({id,lane:L}))}</div>`).join("")}</div>`
+        :`<div class="tMid" style="flex:1;display:flex;flex-wrap:wrap;gap:24px 7px;align-content:flex-start;align-self:center;min-height:70px">${grpHTML(t.ids.filter(e=>!laneOff(e.lane)),lkM,e=>chip(e.id,false,70,e.lane,e.lane,e.lane),e=>e)}</div>`; // 混合：顯示取用路線圖示、data-plane；關閉路線的英雄隱藏
       const laneImg=L=>`<img src="${(POS_SRC[L])||POS_IMG[L]}" style="width:36px;height:36px;vertical-align:middle">`;
       const lpBox=L=>`<span class="tLP" style="position:absolute;left:100%;top:50%;transform:translateY(-50%);margin-left:8px">${comboHTML("tLP_"+L,LANG==="en"?"All players":"全部選手",110)}</span>`;
       const laneImgP=L=>`<span style="position:relative;display:inline-block;line-height:0">${laneImg(L)}${lpBox(L)}</span>`;
@@ -11668,15 +11685,7 @@ function render(){
       // 組合起來的瞬間照組合分數搬到該進的階與位置（使用者 2026-10-21）：
       //   組合分數＝兩隻板子分數的場數加權（比賽＝比賽場數、積分＝積分場數、混合＝兩者相加；同組合小框的評分算法）
       //   該進哪一階＝由上往下第一個「這兩路最低分 ≤ 組合分數」的階（奇招階不算）；那兩路在該階是空的就看分數門檻
-      const grpSc=mem=>{ const src=V.tierSrc||"mix"; let s=0,ws=0,s0=0,n0=0;
-        mem.forEach(e=>{ const v=scB(e.lane,e.id); if(v==null)return; const id=bid(e.id);
-          const pg=src==="soloq"?0:(((cHL(e.lane)||[]).find(x=>champId(x._full)===id)||{}).場數||0);
-          const sg=src==="match"?0:((sqData(id,e.lane)||{})._n||0), w=pg+sg; s+=v*w; ws+=w; s0+=v; n0++; });
-        let r=ws?s/ws:(n0?s0/n0:null);
-        if(r!=null&&src!=="soloq"&&mem.length===2&&PAIR_OK(mem[0].lane,mem[1].lane)){   // 組合表現調整（同小框評分：單隻平均→混合組合表現的差值；混合數據取 70%）
-          const pp=pairPro({id:bid(mem[0].id),lane:mem[0].lane},{id:bid(mem[1].id),lane:mem[1].lane});
-          if(pp&&pp._rt0!=null&&pp._rtB!=null)r+=(src==="mix"?0.7:1)*(pp._rtB-pp._rt0); }
-        return r; };
+      const grpSc=grpScore;
       const itScOf=(list,keyOf)=>{ const lk=TB.lk||{}, gs={}; list.forEach(e=>{ const g=lk[keyOf(e)]; if(g!=null)(gs[g]=gs[g]||[]).push(e); });
         const gv={}; for(const g in gs)gv[g]=grpSc(gs[g]); return e=>{ const g=lk[keyOf(e)]; return g!=null?gv[g]:scB(e.lane,e.id); }; };
       const pickTier=(ps,lanes,exclK)=>{ const src=V.tierSrc||"mix", FL=Object.assign({S:85,A:72,B:55},(src==="soloq"?V.sqFloor:V.tierFloor)||{});
