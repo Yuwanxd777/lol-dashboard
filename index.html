@@ -3322,7 +3322,10 @@ if(window.PROMO_ABBR)Object.entries(PROMO_ABBR).forEach(([n,s])=>{PROMO_TABBR[no
 // 這種原樣縮寫），混在同一張表裡看起來很雜。積分那條路的比對本來就經 sqKey 轉小寫，不受影響。
 // 縮寫一律去掉小數點（使用者定案 2026-08-01：GG.EU→GGEU）。做在**輸出端**而不是逐筆改表：
 // 兜底來源 team_abbr_wiki.js 光二隊／學院隊就有幾百個 ANW.B／100.A 這種寫法，新資料還會再進來。
-const abbrOf=t=>{const k=normT(t);return (USER_TABBR[k]||TABBR[k]||STATIC_TABBR[k]||PROMO_TABBR[k]||WIKI_TABBR[k]||(window.LP_TABBR||{})[k]||"").toUpperCase().replace(/\./g,"");}; // 最後兜底＝Leaguepedia 全名→Short（team_abbr_wiki.js，歷史次級隊）
+// 結果快取（2026-10-23 效能體檢：預測頁首次 820ms，abbrOf＋normT 佔 350ms＝同一批隊名被換算幾十萬次）；
+//   縮寫表一變就清：TABBR 重建（initData）、USER_TABBR 手動改（兩處）都呼叫 abbrReset()
+let _ABC=new Map(); const abbrReset=()=>{ _ABC=new Map(); };
+const abbrOf=t=>{ let v=_ABC.get(t); if(v!==undefined)return v; const k=normT(t); v=(USER_TABBR[k]||TABBR[k]||STATIC_TABBR[k]||PROMO_TABBR[k]||WIKI_TABBR[k]||(window.LP_TABBR||{})[k]||"").toUpperCase().replace(/\./g,""); _ABC.set(t,v); return v; }; // 最後兜底＝Leaguepedia 全名→Short（team_abbr_wiki.js，歷史次級隊）
 const TEAM_ALIAS={GENG:"GEN",TLAW:"TL",AGAL:"AL",DNF:"DNS",KRX:"DRX"}; const teamFix=t=>TEAM_ALIAS[t]||t; // 全域縮寫統一(GENG→GEN；TLAW=Team Liquid 積分標籤→TL；AGAL=Anyone's Legend 更名(AG.AL)→AL；DNF→DNS＝DN Freecs 比賽改名 DNS；KRX→DRX＝積分帳號別名，主資料用 DRX)
 // 積分鍵解析（鐵則：拿「比賽資料的隊名/選手名」去查積分資料，一律經 sqKey，不可直接組字串）
 // SOLOQ_MATCH_IDX.players / SOLOQ_RECENT.players / __SQCACHE 的鍵＝積分帳號檔的「隊縮寫|選手名」，與比賽資料端有兩種落差：
@@ -3662,8 +3665,9 @@ const NAT_ABBR={China:"CHN","South Korea":"KOR",Korea:"KOR",Japan:"JPN",Vietnam:
   "United Kingdom":"GBR",Ukraine:"UKR",Russia:"RUS","Türkiye":"TUR",Turkey:"TUR",
   "Saudi Arabia":"KSA","United Arab Emirates":"UAE",Qatar:"QAT",Kuwait:"KUW",Israel:"ISR",
   Algeria:"ALG",Tunisia:"TUN",Morocco:"MAR",Egypt:"EGY","South Africa":"RSA"};
-const natAbbrOf=t=>{const m=/^(.+?)\s*\((?:national team|國家隊)\)/i.exec(String(t||"")); if(!m)return "";
-  const n=m[1].trim(); return NAT_ABBR[n]||n.replace(/[^A-Za-z]/g,"").slice(0,3).toUpperCase();};
+const _NAC=new Map();   // 純函數（NAT_ABBR 是常數）⇒ 直接快取（預測頁首次 90ms）
+const natAbbrOf=t=>{ let v=_NAC.get(t); if(v!==undefined)return v; const m=/^(.+?)\s*\((?:national team|國家隊)\)/i.exec(String(t||""));
+  v=m?(NAT_ABBR[m[1].trim()]||m[1].trim().replace(/[^A-Za-z]/g,"").slice(0,3).toUpperCase()):""; _NAC.set(t,v); return v; };
 const lgName=l=>{ if(l&&typeof l==="string"&&/^(LPL|LCK)#/.test(l))return l.slice(0,3)+lplGrpName(l.slice(4)); 
   // 德盃縮寫（使用者 2026-10-18）：2026 起＝DCGI（Demacia Cup Global Invitational），之前的年份保持 DCup；中英文同一個縮寫
   if(l==="DCup")return +curYear>=2026?"DCGI":"DCup";
@@ -3780,7 +3784,7 @@ function initData(){
   RAW=D.tabs.RAW_DATA; HDR=RAW[0];
   C={}; HDR.forEach((h,i)=>C[h]=i);
   RB=(C.red_champion!=null&&C.blue_champion!=null)?C.red_champion-C.blue_champion:45; // 動態藍→紅位移
-  TABBR={}; CABBR={};
+  TABBR={}; CABBR={}; abbrReset();
   (D.tabs.Data||[]).slice(2).forEach(r=>{
     if(r[0]&&r[1]) TABBR[normT(r[0])]=r[1];
     if(r[4]&&r[3]) CABBR[r[4]]=r[3];
@@ -3970,7 +3974,7 @@ function editEvtAbbr(sp){
   let done=false;
   const fin=ok=>{ if(done)return; done=true;
     if(ok){ const v=inp.value.trim();
-      names.forEach(nm=>{const k=normT(nm); if(v)USER_TABBR[k]=v; else delete USER_TABBR[k];});
+      names.forEach(nm=>{const k=normT(nm); if(v)USER_TABBR[k]=v; else delete USER_TABBR[k];}); abbrReset();
       try{localStorage.setItem("user_tabbr",JSON.stringify(USER_TABBR));}catch(e){}
       try{window._EVT_CACHE={};}catch(e){}
       // 縮寫是「算好之後存進快取」的（比賽BP 的 _MCACHE 存的是 tAb 後的字串）→ 不清快取就看不到改動
@@ -4906,8 +4910,14 @@ function percentileInc(arr,p){ const s=[...arr].sort((a,b)=>a-b); if(!s.length)r
 function threshold(games){ return Math.min(10,Math.max(4,percentileInc(games,0.9))); }
 function penalty(g,thr){ if(g>=thr)return 1; if(g<=0)return .5; return PEN[Math.min(g,9)-1]; }
 function pctRank(fb){
+  // 名次＝1＋（比它好的個數）。原本每個值都 filter 整串＝O(n²)（2026-10-23 效能體檢：選手頁首次切入 94ms）
+  //   → 排序一次＋二分搜尋，結果逐值相同（asc：比它小的個數；否則：比它大的個數；NaN／非數字照原本的比較規則＝都不算）
   return (list,asc)=>{ const T=list.length; if(T<=1)return list.map(()=>fb);
-    return list.map(v=>{ const rank=1+list.filter(x=>asc?x<v:x>v).length; return (T-rank)/(T-1); }); };
+    const s=list.filter(x=>typeof x==="number"&&!isNaN(x)).sort((x,y)=>x-y), n=s.length;
+    const lt=v=>{ let lo=0,hi=n; while(lo<hi){const m=(lo+hi)>>1; if(s[m]<v)lo=m+1; else hi=m;} return lo; };   // 小於 v 的個數
+    const le=v=>{ let lo=0,hi=n; while(lo<hi){const m=(lo+hi)>>1; if(s[m]<=v)lo=m+1; else hi=m;} return lo; };  // 小於等於 v 的個數
+    const slow=v=>1+list.filter(x=>asc?x<v:x>v).length;
+    return list.map(v=>{ const rank=(typeof v==="number"&&!isNaN(v)&&n===T)?1+(asc?lt(v):n-le(v)):slow(v); return (T-rank)/(T-1); }); };
 }
 const rankP=pctRank(1), rankT=pctRank(0.5);
 function wilson(p,n){ if(!n)return 0; const z=1.96;
@@ -4957,7 +4967,6 @@ function calcPlayers(pos,splitTeam){
         const a=get(key);
         a.champs.add(B(C.blue_champion));
         a.posCnt[o.pid]=(a.posCnt[o.pid]||0)+1;
-        a.posLabel=PNAME[+Object.entries(a.posCnt).sort((x,y)=>y[1]-x[1])[0][0]];
       }
       const a=get(key);
       a.team=B(C.blue_teamname);
@@ -4970,7 +4979,7 @@ function calcPlayers(pos,splitTeam){
       a.lgCnt=a.lgCnt||{}; a.lgCnt[o.league]=(a.lgCnt[o.league]||0)+1; // 所屬聯賽＝出賽最多的「聯賽」(mainLg)
       // 逐欄位記「有沒有值」：2013 的 wiki 資料有 gamelength 卻沒有其餘統計，
       // 用總和是否為 0 判斷會分不出「沒資料」與「真的是 0」（2026-07-31）
-      const _pa=(k,v)=>{ if(String(v==null?"":v).trim()===""){return;} a[k]=(a[k]||0)+(num(v)||0); a[k+"N"]=(a[k+"N"]||0)+1; };
+      const _pa=(k,v)=>{ if(v==null||v===""||(typeof v==="string"&&v.trim()===""))return; a[k]=(a[k]||0)+(num(v)||0); a[k+"N"]=(a[k+"N"]||0)+1; };   // 先擋常見的空值，少配置字串（效能）
       _pa("dpm",B(C.blue_dpm)); _pa("ds",B(C.blue_damageshare));
       _pa("dt",B(C.blue_damagetakenperminute)); _pa("vs",B(C.blue_vspm));
       _pa("k",B(C.blue_kills)); _pa("d",B(C.blue_deaths)); _pa("a2",B(C.blue_assists));
@@ -5010,7 +5019,7 @@ function calcPlayers(pos,splitTeam){
     const kda10=a.kdaN?((a.k10+a.a10)/Math.max(1,a.d10))-((a.ok10+a.oa10)/Math.max(1,a.od10)):null;
     const gd10=a.g10N?a.gd10/a.g10N:null, gd25=a.g25N?a.gd25/a.g25N:null;
     rows.push({
-      選手:tAb(a.team)+" "+a.name, _pn:a.name, _pogOpp:a.pogOpp||0, _pomOpp:a.pomOpp||0, _team:tAb(a.team), _lg:mainLg(a.lgCnt,tAb(a.team)), 位置:a.posLabel||"", 場數:a.n, 勝率:a.w/a.n,
+      選手:tAb(a.team)+" "+a.name, _pn:a.name, _pogOpp:a.pogOpp||0, _pomOpp:a.pomOpp||0, _team:tAb(a.team), _lg:mainLg(a.lgCnt,tAb(a.team)), 位置:a.posLabel||(Object.keys(a.posCnt).length?PNAME[+Object.entries(a.posCnt).sort((x,y)=>y[1]-x[1])[0][0]]:""),   /* 主位置最後算一次（2026-10-23 效能：原本每一列都排序一次） */ 場數:a.n, 勝率:a.w/a.n,
       // 這幾項全都要「有資料才給值」：2013 這種只有 BP／勝負的年份，分子分母都是 0，
       // 算出來是 0% 會被誤讀成「真的是 0%」（2026-07-31 使用者三度回報）
       參與率:((a.kN||a.a2N)&&a.tkN)?(a.k+a.a2)/Math.max(1,a.tk):null, "贏線率(金差@10)":a.g10N?a.winL/a.g10N:null,
@@ -10402,8 +10411,9 @@ function orderBaseBtns(){
   // 的 order 全是行內設的，全站沒有 CSS class 對 .filters 子元素設 order（2026-09-04 全檔掃過），
   // getComputedStyle 只當保險後路並快取在元素上（每叫一次都逼整頁 style recalc，是原本的熱點）。
   // ②已經搬進 barRight 的不再動、順序沒變不 appendChild（DOM 一動下一輪就得重排）。
-  const ord=el=>{ const s=el.style?el.style.order:""; if(s!=="")return parseInt(s)||0;
-    if(el._ordv===undefined)el._ordv=parseInt(getComputedStyle(el).order)||0; return el._ordv; };
+  //   2026-10-23 再查：樣式表仍沒有任何 order 規則（全是 segHTML 的行內 order）⇒ 沒行內值就是 0，不再 getComputedStyle
+  //   （它在新繪製的頁面上會逼整頁 style recalc：預測頁首次切入 118ms）。之後若用 CSS class 設 order，這裡要改回去
+  const ord=el=>{ const s=el.style?el.style.order:""; return s!==""?(parseInt(s)||0):0; };
   const _mv9=[...f.children].filter(k=>k!==br&&ord(k)>=1);
   if(_mv9.length)_mv9.sort((a,c)=>ord(a)-ord(c)).forEach(k=>br.appendChild(k));
   bb.style.marginLeft="";   // 進了 barRight 就不必自己靠右（否則會在群內把基礎鈕拉開）
@@ -11434,13 +11444,17 @@ function render(){
       const lim=innerHeight-14; // 扣掉 main padding-bottom：填滿到底但不留幾px假捲動
       const poolBtm=()=>document.getElementById("tierPool").getBoundingClientRect().bottom;
       let guard=0;
-      // 空間夠就放大（每列少塞一顆），碰到上限或頭貼過大就退回
-      while(perRow>4&&guard++<15){
-        perRow--;buildPool();
-        if(poolBtm()>lim||CS>66){perRow++;buildPool();break;}
-      }
-      guard=0;
-      while(poolBtm()>lim&&CS>26&&guard++<15){perRow++;buildPool();}
+      // 每列幾張：原本「試排→量→再排」最多十幾次（2026-10-23 效能體檢：buildPool 100ms，而且每次拖曳／連結重畫都跑）
+      //   ⇒ 用第一次排的結果量出「固定高度」與單張外框跟圖寬的差，再用算式預估每種張數的池底，挑好直接排一次；
+      //   規則同原本：能放大就放大（每列少一張、圖 ≤66px、底不超過視窗），放不下就每列多塞（圖 >26px）。最後仍超出才退回逐次試排
+      { const vis=gArr.map((arr,gi)=>(gi<5&&laneOff(LANE5v[gi]))?0:arr.length).filter(n=>n>0), c0=box.querySelector(".tChip"), p0=perRow, cs0=CS;
+        if(c0&&vis.length){ const chipX=c0.getBoundingClientRect().height/(window._zoomF||1)-cs0, top=document.getElementById("tierPool").getBoundingClientRect().top/(window._zoomF||1);
+          const csOf=p=>Math.floor(((bw-tg*(p-1))/p)*10)/10, rowsH=p=>vis.reduce((t,n)=>{ const r=Math.ceil(n/p); return t+r*(csOf(p)+chipX)+(r-1)*tg; },0);
+          const fixed=poolBtm()/(window._zoomF||1)-top-rowsH(p0), btm=p=>(top+fixed+rowsH(p))*(window._zoomF||1);
+          let p=p0; while(p>4&&btm(p-1)<=lim&&csOf(p-1)<=66)p--;
+          while(btm(p)>lim&&csOf(p)>26&&p<p0+15)p++;
+          if(p!==p0){ perRow=p; buildPool(); } } }
+      while(poolBtm()>lim&&CS>26&&guard++<15){perRow++;buildPool();}   // 保險：預估有誤差時照舊逐次補
       // 剩餘垂直空間：池框延伸到底
       const pc=document.getElementById("tierPool");
       pc.style.minHeight=Math.max(0,lim-pc.getBoundingClientRect().top)+"px";
@@ -18947,7 +18961,7 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
         const v=inp.value.trim();
         inp.dataset.t.split("|").forEach(name=>{ // 合併列：同時套用到所有隊名
           const k=normT(name);
-          if(v)USER_TABBR[k]=v; else delete USER_TABBR[k];
+          if(v)USER_TABBR[k]=v; else delete USER_TABBR[k]; abbrReset();
         });
         localStorage.setItem("user_tabbr",JSON.stringify(USER_TABBR));
         try{window._EVT_CACHE={};}catch(e){}
