@@ -237,6 +237,12 @@
         !important 才蓋得過（stylesheet 的 !important 優先權高於 inline 宣告）。
         字級門檻看的是「計算值」，#main 的 transform:scale 縮小不影響判定。
      2) 浮動橫捲軌道/把手加大到手指尺寸（桌機維持 15/9px 與垂直捲軸一致的規格）。 */
+  /* Tier 角色池窄（<420 版面 px）：搜尋框改放標題下一行，不然「角色池」會被擠成一字一行（使用者 2026-10-23） */
+  #tierPool.tpNarrow .tphdr{padding-right:0!important}
+  #tierPool.tpNarrow .tpctl{position:static!important;margin-top:6px;justify-content:flex-start}
+  #tierPool.tpNarrow #tierPks{white-space:normal!important}
+  .tLaneIco.tLPn .cx{display:none!important}
+  .tLaneIco.tLPn input{padding-right:8px!important;padding-left:8px!important}
   @media(pointer:coarse){
     select,input,textarea{font-size:16px!important}
     /* Tier 池標題：桌機為右上絕對定位的搜尋框保留 240px，平板窄卡會把「角色池」擠成
@@ -11393,6 +11399,11 @@ function render(){
         const nm3=LANG==="en"?["Top","Jungle · Mid","Bot · Support"]:["上路","中野","下輔"];   // 池子第一段只有上路（打野預設放中野段），名字寫上路（使用者 2026-10-20）
         for(let ci=0;ci<3;ci++)GLBL[ci]=nm3[ci]+pl(ci); }
       // 動態尺寸：以 50px 為目標湊列數均分填滿欄寬；若池底超出螢幕就每列多塞一顆縮小重排
+      // 角色池寬（使用者 2026-10-23：角色池區可以縮小；縮放 200% 時 3fr/1fr 會讓 Tier 列塞不下、下輔欄被池子蓋住）：
+      //   版面寬 18%、夾 280~440 版面 px；太窄時標題下方再放搜尋框（.tpNarrow）
+      { const _tw=document.getElementById("tierWrap"), _W=_tw?_tw.clientWidth:2500, _pw=Math.round(Math.max(280,Math.min(440,_W*0.18)));
+        if(_tw)_tw.style.gridTemplateColumns=`minmax(0,1fr) ${_pw}px`;
+        const _tp=document.getElementById("tierPool"); if(_tp)_tp.classList.toggle("tpNarrow",_pw<420); }
       const box=document.getElementById("tierPoolBox");
       const bw=((box.getBoundingClientRect().width/(window._zoomF||1))||300)-0.5, tg=5; // 精確寬-0.5px 安全值，避免整數進位造成提早換行；rect 除以縮放倍率轉版面px
       let perRow=Math.max(1,Math.round((bw+tg)/(50+tg)));
@@ -11452,8 +11463,16 @@ function render(){
       // 五路英雄圖大小：依「最長 Tier 名字數」——3 字內 70px，第 4 字起 70→66，第 5 字(含以上)66px
       const _maxNL=Math.max(1,...TB.tiers.map(t=>Math.max(0,...String(t.n||"").split("\n").map(l=>[...l].length))));
       let LANE_CH=_maxNL<=3?70:_maxNL>=5?66:70-(_maxNL-3)*2;
-      const LANE_MAXW=4*LANE_CH+3*7; // 單路一列最多 4 個，第 5 個換列
-      const W3=cid=>cid==="TOP"?LANE_MAXW:8*LANE_CH+7*7;   // 三路：上路 4 個寬、中野／下輔各 8 個寬（總寬同五路）
+      // 塞不下就提早換列（使用者 2026-10-23：網站縮放 200% 比例爛掉）：圖不縮（路線圖示、分數是固定大小，縮圖會被蓋滿），
+      //   改成每路一列少放幾張：NPR＝五路每路／三路上路一列幾張（中野、下輔 2×NPR）。上一輪量到的超出量換算成 NPR，
+      //   同一個 JS 工作內重畫一次（不會多畫一幀）；簽章＝寬度＋模式＋名字長度，變了就重量
+      const _fitSig=(document.getElementById("tierRows")||{}).clientWidth+"|"+V.tierMode+"|"+_maxNL;
+      //   NC＝一列總共放幾張（預設 20：五路 4×5、三路 4+8+8），依比例分給各欄
+      const NC=(window._tierNpr&&window._tierNpr.sig===_fitSig)?window._tierNpr.v:20;
+      const _nw=n=>n*LANE_CH+(n-1)*7;
+      const NPR=Math.max(1,Math.floor(NC/5)), N3T=Math.max(1,Math.round(NC/5)), N3M=Math.max(1,Math.floor((NC-N3T)/2));
+      const LANE_MAXW=_nw(NPR); // 五路：單路一列最多 NPR 個（預設 4），多的換列
+      const W3=cid=>cid==="TOP"?_nw(N3T):_nw(N3M);   // 三路：上路 N3T 個寬、中野／下輔各 N3M 個寬
       // 五路：每路固定 4 個寬、靠左、對白線 20px；整組緊貼名稱右側，多餘空間落在輔助與控制項之間
       const midHTML=(t,i)=>is3
         ?`<div class="tLaneGrid" style="flex:0 0 auto;display:flex;align-items:stretch">${COL3.map(([cid],ci)=>`
@@ -11465,7 +11484,8 @@ function render(){
       const laneImg=L=>`<img src="${(POS_SRC[L])||POS_IMG[L]}" style="width:36px;height:36px;vertical-align:middle">`;
       const lpBox=L=>`<span class="tLP" style="position:absolute;left:100%;top:50%;transform:translateY(-50%);margin-left:8px">${comboHTML("tLP_"+L,LANG==="en"?"All players":"全部選手",110)}</span>`;
       const laneImgP=L=>`<span style="position:relative;display:inline-block;line-height:0">${laneImg(L)}${lpBox(L)}</span>`;
-      document.getElementById("tierRows").innerHTML=
+      const _rowsEl=document.getElementById("tierRows");
+      _rowsEl.innerHTML=
         `<div class="tModeBar" style="display:flex;gap:6px;align-items:center;padding:0;position:relative;min-height:36px">
           ${(isLanes||is3)
             ?`<div class="tLaneIcons" style="position:absolute;top:50%;transform:translateY(-50%);left:0;right:0;height:36px">${(is3?COL3:LANE5v.map(L=>[L,[L]])).map(([k,ls])=>`<div class="tLaneIco" data-lane="${k}" style="position:absolute;top:0;transform:translateX(-50%);display:flex;gap:6px">${is3?ls.map(L=>`<span style="display:inline-flex;align-items:center;gap:8px">${laneImg(L)}${PCOL[L]===k?comboHTML("tLP_"+L,LANG==="en"?"All players":"全部選手",110):""}</span>`).join(`<span style="width:10px"></span>`):ls.map(laneImgP).join("")}</div>`).join("")}</div>`
@@ -11482,6 +11502,10 @@ function render(){
         </div>`).join("")
         +(TB.tiers.length<10?`<button id="tAdd" style="align-self:flex-start;font-size:20px;padding:4px 14px" title="${LANG==="en"?"Add a tier (max 10)":"新增一階（最多 10 階）"}">${LANG==="en"?"＋ Add tier":"＋ 加階"}</button>`:"");
 
+      if(isLanes||is3){ const r0=_rowsEl.querySelector(".tierRow"), g0=r0&&r0.querySelector(".tLaneGrid");
+        if(g0){ const need=g0.offsetLeft+g0.offsetWidth+40+30, over=need-r0.clientWidth;   // 40＝右側 ✕／⠿／色塊，30＝右內距
+          const nNow=is3?N3T+2*N3M:5*NPR;
+          if(over>1&&nNow>(is3?3:5)){ window._tierNpr={sig:_fitSig,v:Math.max(is3?3:5,nNow-Math.ceil(over/(LANE_CH+7)))}; rerender(); return; } } }
       bindLPs();   // 各路選手下拉（tierRows 每次重建都要重綁）
       if(isLanes||is3){ // 路線圖示各自對齊「第一列」對應路線（三路＝對應欄）的中心（白線每階同位置）
         const bar=document.querySelector(".tModeBar");
@@ -11491,6 +11515,10 @@ function render(){
             const ico=bar.querySelector(`.tLaneIco[data-lane="${L}"]`);
             if(cell&&ico){const rc=cell.getBoundingClientRect();
               ico.style.left=Math.round(((rc.left+rc.right)/2-b.left)/_vz())+"px";} // 兩個都是視覺 px，寫進 style 前要換版面 px
+            // 欄變窄（縮放放大、提早換列）時路線圖示＋選手下拉會跟隔壁疊在一起 ⇒ 下拉框縮到塞得進這一欄（最窄 48px，提示字改「全部」）
+            if(cell&&ico){ const ins=[...ico.querySelectorAll("input")], lp=ico.querySelector(".tLP"), ex=lp?(ico.offsetWidth/2+8+lp.offsetWidth)-(cell.offsetWidth/2+16):ico.offsetWidth-(cell.offsetWidth-6);   // 五路：下拉掛在圖示右邊（.tLP 絕對定位），看右半邊塞不塞得下
+              if(ins.length&&ex>0){ ico.classList.add("tLPn"); ins.forEach(x=>{ x.placeholder=LANG==="en"?"All":"全部"; });   // 窄了提示字縮短、拿掉 ✕ 讓出字的空間，不裁字
+                const w=Math.max(48,Math.floor(ins[0].offsetWidth-ex/ins.length)); ins.forEach(x=>{x.style.width=w+"px";}); } }
           });
         }
       }
