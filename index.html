@@ -11031,7 +11031,7 @@ function render(){
     window.tierHotClr=window.tierHotClr||(()=>document.querySelectorAll("#tierRows .lkHot,#tierRows .insL,#tierRows .insR").forEach(x=>x.classList.remove("lkHot","insL","insR")));
     // 分數標（使用者 2026-10-23：英雄圖右下寫判斷 Tier 的最終分數；組合寫在整組下方中間）
     const scColT=v=>v>=85?"#ff6b6b":"#fff";   // 一律白字，只有 S 線（85）以上用紅強調；階級本身由所在的列表示（使用者 2026-10-23 改版）
-    const scTag=(v,grp)=>v==null?"":`<span class="tScB${grp?" g":""}" style="color:${scColT(v)}">${Math.round(v)}</span>`;
+    const scTag=(v,grp)=>v==null?"":`<span class="tScB${grp?" g":""}" style="color:${grp?scColT(v):"#fff"}">${Math.round(v)}</span>`;   // 右下單隻分數一律白字（使用者 2026-10-23）
     let _inGrp=false;
     const chip=(iid,small,sz,iconLane,plane,scL)=>{const s=sz||(small?CS*0.8:CS); const id=bid(iid);
       const lb=iconLane?`<span class="tlic" data-lane="${iconLane}" title="${LANG==="en"?"Right-click: switch role":"右鍵：換路線"}" style="position:absolute;left:-2px;top:-2px;z-index:6;cursor:context-menu"><img src="${(POS_SRC[iconLane])||POS_IMG[iconLane]}" style="width:${sz?30:Math.round(s*0.45)}px;height:${sz?30:Math.round(s*0.45)}px;display:block;filter:drop-shadow(0 0 2px #000)"></span>`:""; // 池子的小圖（無 sz）圖示等比縮小
