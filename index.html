@@ -10750,7 +10750,10 @@ function render(){
       // gk 變了、或上次失敗且本瀏覽階段還沒對這組 gk 重試過（毒化快取自癒），就自動重產；GAMES 沒載好前不動（避免空掃毒化）
       if((V.tierGenKey!==gk||(V.tierGenFail&&window._tierAttemptKey!==gk))&&typeof GAMES!=="undefined"&&GAMES.length){
         V.tierGenKey=gk; window._tierAttemptKey=gk;
-        setTimeout(()=>{window._tierAutoRegen=true; const b=document.getElementById(TIER_SRC_BTN[V.tierSrc]); b&&b.click();},0);
+        // queueMicrotask 而不是 setTimeout：這一輪 render 跑完、瀏覽器畫出來之前就重產（使用者 2026-10-23：切篩選／切模式會閃一下之前的組合）
+        //   ⚠ 只有這組篩選的第一次用微任務：資料還在載（_tierPending）時重產會失敗又要求重產，全用微任務會卡死事件迴圈（資料永遠載不進來）⇒ 重試照舊 setTimeout
+        const _mt=window._tierMicroKey!==gk; window._tierMicroKey=gk;
+        (_mt?queueMicrotask:f=>setTimeout(f,0))(()=>{window._tierAutoRegen=true; const b=document.getElementById(TIER_SRC_BTN[V.tierSrc]); b&&b.click();});
       }
     }
     const TB=V.tierB;
