@@ -8447,7 +8447,7 @@ function filterOpts(){
     if(hasReg&&(splLabel.has(b)||F.split===b))so.push(`<option value="${b}" ${F.split===b?"selected":""}>${b}${_reg}</option>`);
     if(hasPO&&(splLabel.has(b+" PO")||F.split===b+" PO"))so.push(`<option value="${b} PO" ${F.split===b+" PO"?"selected":""}>${b}${_po}</option>`);
   });
-  if(SPLITS.includes("升降賽")&&(splLabel.has("升降賽")||F.split==="升降賽"))so.push(`<option value="升降賽" ${F.split==="升降賽"?"selected":""}>${LANG==="en"?(+curYear===2022?"Promotion":"End-of-season promotion"):( +curYear===2022?"升降賽":"季末升降賽")}</option>`); // 2022=VCS季中+LLA季末混合→中性字
+  if(SPLITS.includes("升降賽")&&(splLabel.has("升降賽")||F.split==="升降賽"))so.push(`<option value="升降賽" ${F.split==="升降賽"?"selected":""}>${LANG==="en"?"Promotion":( +curYear===2022?"升降賽":"季末升降賽")}</option>`); // 2022=VCS季中+LLA季末混合→中性字
   // 賽事：固定順序，只列在其他篩選下仍有比賽的
   const has=l=>LEAGUES.includes(l)&&lgAvail.has(l);
   const grpHas=g=>(LG_GROUP[g]||[]).some(has);
@@ -8522,7 +8522,12 @@ function filterFixedW(){
   // 量測用的標籤要跟實際顯示同語言：英文的「S3 Regular」比中文「S3例行賽」寬窄不同，
   // 只量中文的話英文模式會塞不下（同 2026-08-04 超框回報的一環）
   const _reg=LANG==="en"?" Regular":"例行賽", _po=LANG==="en"?" Playoffs":"季後賽";
-  const spL=[T("全部"),T("錦標賽"),T("入圍賽"),...bases.flatMap(b=>[b,b+_reg,b+_po]),...(SPLITS.includes("升降賽")?[T("升降賽")]:[])];
+  // 只量「清單真的會出現」的選項（使用者 2026-10-24：賽季框過大）：規則同 filterOpts——錦標賽／入圍賽／世界賽資格賽／熱身賽／
+  //   賽事子清單的賽段不列；有例行標籤才有「例行賽」、有 PO 才有「季後賽」。原本把每個賽段都配上兩種後綴，
+  //   量到不存在的「世界賽資格賽例行賽」⇒ 框寬 199px，實際最長只有「季末升降賽」
+  const _lgSub=new Set(Object.values(subSplitMap()).flat());
+  const spL=[T("全部"),...bases.filter(b=>!/錦標賽$|^入圍賽$|^世界賽資格賽$/.test(String(b))&&String(b)!=="熱身賽"&&!_lgSub.has(b)).flatMap(b=>[b,...(SPLITS.includes(b)?[b+_reg]:[]),...(SPLITS.includes(b+" PO")?[b+_po]:[])]),
+    ...(SPLITS.includes("升降賽")?[LANG==="en"?"Promotion":(+curYear===2022?"升降賽":"季末升降賽")]:[])];
   const ewcqLgs=LEAGUES.filter(l=>String(l).startsWith("EWCQ"));
   // 子項（「IEM S7 卡托維茲」這種）的文字也要納入量測：選了子站之後按鈕上顯示的是它，
   // 只按主清單算寬度會塞不下而折行（2026-08-01 使用者回報）
