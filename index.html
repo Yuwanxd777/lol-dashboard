@@ -1297,7 +1297,7 @@
 #tierRows .tChip.insL::before{left:-6px}
 #tierRows .tChip.insR::before{right:-6px}
 #tierRows .tScB{position:absolute;right:0;bottom:0;z-index:5;padding:6px 4px 1px 10px;border-radius:0 0 6px 0;background:radial-gradient(ellipse at 100% 100%,rgba(0,0,0,.72) 0%,rgba(0,0,0,.45) 45%,rgba(0,0,0,0) 75%);font:800 13px/14px var(--num-font,inherit);letter-spacing:-.2px;text-shadow:0 0 2px #000,0 1px 2px #000,1px 0 1px #000,-1px 0 1px #000;pointer-events:none;font-variant-numeric:tabular-nums}
-#tierRows .tScB.g{right:auto;bottom:auto;left:50%;top:-19px;transform:translateX(-50%);z-index:7;padding:0;background:none;border-radius:0;font-size:16px;line-height:17px}   /* 組合：16px 粗體描邊字坐在金色括號線正中間（線在那段切開）；顏色同單隻（使用者 2026-10-23 從五種截圖選定） */
+#tierRows .tScB.g{right:auto;bottom:auto;left:50%;top:-19px;transform:translateX(-50%);z-index:7;padding:0;background:none;border-radius:0;font-size:16px;line-height:17px}   /* 組合：16px 粗體描邊字坐在金色括號線正中間（線在那段切開）；白字同單隻（使用者 2026-10-23 從五種截圖選定） */
 #tierRows .tGrp.hasSc::before{-webkit-mask-image:linear-gradient(90deg,#000 calc(50% - 17px),transparent calc(50% - 17px),transparent calc(50% + 17px),#000 calc(50% + 17px));mask-image:linear-gradient(90deg,#000 calc(50% - 17px),transparent calc(50% - 17px),transparent calc(50% + 17px),#000 calc(50% + 17px))}
 #tierRows .tGrp::before{content:"";position:absolute;left:10px;right:10px;top:-8px;height:6px;border:2.5px solid rgba(245,185,66,.95);border-bottom:none;border-radius:8px 8px 0 0;pointer-events:none}
 </style>
@@ -11030,8 +11030,7 @@ function render(){
     // chip(id, small, sz, iconLane, plane)：iconLane＝要顯示的「單一」路線圖示(混合 Tier 用取用路線)；plane＝拖曳來源路線(data-plane)
     window.tierHotClr=window.tierHotClr||(()=>document.querySelectorAll("#tierRows .lkHot,#tierRows .insL,#tierRows .insR").forEach(x=>x.classList.remove("lkHot","insL","insR")));
     // 分數標（使用者 2026-10-23：英雄圖右下寫判斷 Tier 的最終分數；組合寫在整組下方中間）
-    const scColT=v=>v>=85?"#ff6b6b":"#fff";   // 一律白字，只有 S 線（85）以上用紅強調；階級本身由所在的列表示（使用者 2026-10-23 改版）
-    const scTag=(v,grp)=>v==null?"":`<span class="tScB${grp?" g":""}" style="color:${grp?scColT(v):"#fff"}">${Math.round(v)}</span>`;   // 右下單隻分數一律白字（使用者 2026-10-23）
+    const scTag=(v,grp)=>v==null?"":`<span class="tScB${grp?" g":""}" style="color:#fff">${Math.round(v)}</span>`;   // 單隻、組合分數一律白字（使用者 2026-10-23）
     let _inGrp=false;
     const chip=(iid,small,sz,iconLane,plane,scL)=>{const s=sz||(small?CS*0.8:CS); const id=bid(iid);
       const lb=iconLane?`<span class="tlic" data-lane="${iconLane}" title="${LANG==="en"?"Right-click: switch role":"右鍵：換路線"}" style="position:absolute;left:-2px;top:-2px;z-index:6;cursor:context-menu"><img src="${(POS_SRC[iconLane])||POS_IMG[iconLane]}" style="width:${sz?30:Math.round(s*0.45)}px;height:${sz?30:Math.round(s*0.45)}px;display:block;filter:drop-shadow(0 0 2px #000)"></span>`:""; // 池子的小圖（無 sz）圖示等比縮小
