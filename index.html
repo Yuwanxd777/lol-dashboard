@@ -16869,8 +16869,8 @@ function render(){
           // 有選該隊＝看該隊；沒選、或該隊沒用過這隻＝退回目前數據範圍（全部隊伍）。BAN 的「該隊」＝對手（禁用是為了防對手選）
           const srcTeam=team||"";
           const findRow=t=>calcHeroes("","",t).find(x=>champId(x._full)===champId(v));
+          // 有選隊就只看該隊：該隊沒用過＝顯示沒用過＋該隊被對手禁幾次，不退回全部隊伍（使用者 2026-10-24：G2 選克黎思妲卻顯示全部隊伍的數據）
           let row=findRow(srcTeam), effTeam=srcTeam, fellBack=false;
-          if(srcTeam&&!row){ effTeam=""; row=findRow(""); fellBack=true; } // 有選隊但該隊沒用過這隻 → 退回目前數據範圍
           if(hasFP&&effTeam&&row){ // 本局該隊在先選/後選側 → 戰隊BP% 換成該隊同先後選側的歷史數據
             const fp=(S.fp||[])[+sl.dataset.g]||0, isFirst=((effTeam===_tA)?0:1)===fp;
             sideInfo=Object.assign({isFirst}, sideBP(effTeam,row._full,isFirst)); }
@@ -16878,7 +16878,9 @@ function render(){
             ?(effTeam?`${isBan?"Opponent ":""}${esc(tAb(effTeam))} usage`:(fellBack?`current data range (not ${esc(tAb(srcTeam))})`:`current data range`))
             :(effTeam?`${isBan?"對手 ":""}${esc(tAb(effTeam))} 使用數據`:(fellBack?`目前數據範圍（非 ${esc(tAb(srcTeam))}）`:`目前數據範圍`));
           let dataHtml=`<div class="tipTitle">${esc(nm)} <span class="meta">｜${label}</span></div>`;
-          dataHtml+=row?statRow(row):`<div class="tipRow"><span class="meta">${LANG==="en"?"Not used in current data range":"目前數據範圍內沒有使用過"}</span></div>`;
+          if(row)dataHtml+=statRow(row);
+          else{ const g0=effTeam&&findRow(""), sb=g0?[true,false].map(f=>sideBP(effTeam,g0._full,f)).reduce((x,y)=>({oppBans:x.oppBans+y.oppBans,games:x.games+y.games})):null;   // 先後選兩邊合計＝該隊全部出賽
+            dataHtml+=`<div class="tipRow"><span class="meta">${LANG==="en"?"Not used in current data range":"目前數據範圍內沒有使用過"}</span>${sb&&sb.oppBans?`<div>${LANG==="en"?"Opp ban":"對手禁"} <span class="num">${sb.oppBans}</span>${LANG==="en"?" / ":"／"}<span class="num">${sb.games}</span>${LANG==="en"?"g":" 場"}</div>`:""}</div>`; }
           // 積分限定英雄（勾了「近期積分」、比賽 0 場）：補「積分 N 場」——取該路目前選定選手的近期積分數據
           // ⚠ 層級2 推路固定看**先發**（sqStartLanes 的 players[0]，使用者 2026-08-06 定案），這裡卻查「目前選定選手」：
           //   按 ⇄ 換人後兩者對不上 → 推出來的路那一欄退到全庫數字、甚至留白，跟推路依據對不上（記憶裡的已知落差）。
