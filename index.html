@@ -13605,13 +13605,14 @@ function render(){
       +`${TAB_HELP[curView]?`<button id="fHelp" class="sqbtn helpBtn" style="order:2" title="${T("本頁說明")}">ℹ️</button>`:""}</div><div id="pdWrap"></div>`;
     const wrap=document.getElementById("pdWrap");
     // 模型卡欄寬（使用者 2026-10-25「賽區或隊名 ID 比較長的，間格也要一致」）：先用 max-content 讓每格是自己的自然寬，
-    //   量出 6 欄（隊伍～八強，三塊卡片＋表頭一起）各自最寬的內容 ⇒ 欄寬＝最寬＋G，G＝把一列剛好填滿的間距（至少 14px）。
-    //   每一欄「最寬內容後面的空隙」都是 G＋5 ⇒ 一致；三塊卡片用同一組寬度 ⇒ 欄位上下對齊。offsetWidth 與 clientWidth 同一套單位，不受縮放影響。
+    //   量出 6 欄（隊伍～八強，三塊卡片＋表頭一起）各自最寬的內容，再照下面的規則定欄寬；三塊卡片用同一組寬度 ⇒ 欄位上下對齊。offsetWidth 與 clientWidth 同一套單位，不受縮放影響。
     const pdFitCols=()=>{ const rows=[...wrap.querySelectorAll(".pdMRow")]; if(!rows.length)return; wrap.style.removeProperty("--pdcols");
       const mx=[0,0,0,0,0,0]; rows.forEach(r=>[...r.children].slice(1,7).forEach((c,i)=>{ mx[i]=Math.max(mx[i],c.offsetWidth+1); }));
       const av=Math.min(...[...wrap.querySelectorAll(".pdMCol")].map(c=>c.clientWidth))-24-30;   // 卡片內距左右 24（列的 padding 被負 margin 抵掉）、6 個 5px 的 gap
-      const G=Math.max(14,Math.floor((av-22-mx.reduce((a,b)=>a+b,0))/5));
-      wrap.style.setProperty("--pdcols","22px "+mx.map((w,i)=>(i<5?w+G:w)+"px").join(" ")); };
+      // 2026-10-25 第二版（使用者：各欄不等寬「間隔變差了」）：前五欄**同一個寬度 P**（表頭間距相等），P＝填滿一列，
+      //   但至少是「全部欄裡最寬的內容＋14」⇒ 最長的賽區／隊名 ID 也不會貼到下一欄；最後一欄只給它自己的最寬（左右留白對稱）。
+      const P=Math.max(Math.max(...mx.slice(0,5))+14,Math.floor((av-22-mx[5])/5));
+      wrap.style.setProperty("--pdcols","22px "+mx.map((w,i)=>(i<5?P:w)+"px").join(" ")); };
     if(!window._pdLz){ window._pdLz=1; lazyLoad("pred").then(()=>{ if(curView==="預測")render(); }); }
     if(!EV||!EV.teams){ wrap.innerHTML=`<div class="card"><span class="sumEmpty">${en2?"No Worlds roster for this year yet.":"今年的世界賽名單還沒進資料庫。"}</span></div>`; }
     // 整頁結果快取（使用者 2026-10-18：純模擬／含本屆戰況切換會卡）：一次要跑 4000 次世界賽模擬＋各題統計 ≈0.4 秒，
