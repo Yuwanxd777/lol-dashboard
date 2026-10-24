@@ -1057,8 +1057,9 @@
   .pdQC .pdL{min-width:0}
   .pdQC .pdAns{margin-bottom:8px}
   .pdCols4{grid-template-columns:repeat(4,minmax(0,1fr))}
-  /* 模型卡（使用者 2026-10-25）：每欄置左、欄寬一致（表頭間距相同）；整列置中、最後一欄收窄 ⇒ 左右留白對稱 */
-  .pdMRow{display:grid;grid-template-columns:22px repeat(5,76px) 60px;justify-content:center;align-items:center;gap:5px;font-size:16.5px;line-height:1.8;white-space:nowrap;font-variant-numeric:tabular-nums;padding:0 6px;margin:0 -6px;border-radius:6px}
+  /* 模型卡（使用者 2026-10-25）：每欄置左；欄寬＝該欄最寬內容＋同一個間距（pdFitCols 渲染後量好寫進 --pdcols，
+     長的賽區／隊名 ID 後面的空隙也跟別欄一樣）；整列置中 ⇒ 左右留白對稱。沒量到前退回 max-content */
+  .pdMRow{display:grid;grid-template-columns:var(--pdcols,22px repeat(6,max-content));justify-content:center;align-items:center;gap:5px;font-size:16.5px;line-height:1.8;white-space:nowrap;font-variant-numeric:tabular-nums;padding:0 6px;margin:0 -6px;border-radius:6px}
   .pdMRow>span{text-align:left}   /* 每欄全部置左（使用者 2026-10-25） */
   .pdMRow .pdMT{font-weight:700}
   .pdMRow>.pdPc{display:flex;gap:4px;align-items:baseline}   /* 置左：升降緊跟在機率後面 */.pdMRow>.pdPc>i{font-style:normal;text-align:left}
@@ -13603,13 +13604,21 @@ function render(){
       +`<span style="flex:1"></span><button id="pdShot" class="sqbtn" style="order:1" title="${en2?"Export this page as a 1080p JPG":"輸出整頁 1080p 截圖"}">📸</button>`
       +`${TAB_HELP[curView]?`<button id="fHelp" class="sqbtn helpBtn" style="order:2" title="${T("本頁說明")}">ℹ️</button>`:""}</div><div id="pdWrap"></div>`;
     const wrap=document.getElementById("pdWrap");
+    // 模型卡欄寬（使用者 2026-10-25「賽區或隊名 ID 比較長的，間格也要一致」）：先用 max-content 讓每格是自己的自然寬，
+    //   量出 6 欄（隊伍～八強，三塊卡片＋表頭一起）各自最寬的內容 ⇒ 欄寬＝最寬＋G，G＝把一列剛好填滿的間距（至少 14px）。
+    //   每一欄「最寬內容後面的空隙」都是 G＋5 ⇒ 一致；三塊卡片用同一組寬度 ⇒ 欄位上下對齊。offsetWidth 與 clientWidth 同一套單位，不受縮放影響。
+    const pdFitCols=()=>{ const rows=[...wrap.querySelectorAll(".pdMRow")]; if(!rows.length)return; wrap.style.removeProperty("--pdcols");
+      const mx=[0,0,0,0,0,0]; rows.forEach(r=>[...r.children].slice(1,7).forEach((c,i)=>{ mx[i]=Math.max(mx[i],c.offsetWidth+1); }));
+      const av=Math.min(...[...wrap.querySelectorAll(".pdMCol")].map(c=>c.clientWidth))-24-30;   // 卡片內距左右 24（列的 padding 被負 margin 抵掉）、6 個 5px 的 gap
+      const G=Math.max(14,Math.floor((av-22-mx.reduce((a,b)=>a+b,0))/5));
+      wrap.style.setProperty("--pdcols","22px "+mx.map((w,i)=>(i<5?w+G:w)+"px").join(" ")); };
     if(!window._pdLz){ window._pdLz=1; lazyLoad("pred").then(()=>{ if(curView==="預測")render(); }); }
     if(!EV||!EV.teams){ wrap.innerHTML=`<div class="card"><span class="sumEmpty">${en2?"No Worlds roster for this year yet.":"今年的世界賽名單還沒進資料庫。"}</span></div>`; }
     // 整頁結果快取（使用者 2026-10-18：純模擬／含本屆戰況切換會卡）：一次要跑 4000 次世界賽模擬＋各題統計 ≈0.4 秒，
     //   同一份資料兩種模式各算一次就記住，來回切換直接換 HTML。鍵＝模式＋語言＋年份＋各份資料的版本（任一份更新就重算）。
     else if((()=>{ const k=[V.pdLive?1:0,LANG,curYear,GAMES.length,HY.length,(window.PRED_LIVE||{}).at||"",(window.PRED_EXT||[]).length,
         JSON.stringify(window.PRED_EXT||[]).length,window.PRED_SQ?Object.keys(window.PRED_SQ).length:0,EV.teams.length].join("|");
-      window._PDK=k; const c=window._PDC&&window._PDC[k]; if(c){ wrap.innerHTML=c; return true; } return false; })()){}
+      window._PDK=k; const c=window._PDC&&window._PDC[k]; if(c){ wrap.innerHTML=c; pdFitCols(); return true; } return false; })()){}
     else{
     const bt=o=>o.raw[C.blue_teamname], rt=o=>o.raw[C.red_teamname];
     // 名單隊名跟比賽資料對不上時去掉括號後綴（Leaguepedia 寫「LYON (2024 American Team)」、資料是「LYON」——
@@ -13986,7 +13995,7 @@ function render(){
         const d=a[0]-b[0];
         return d?`<i class="pdDl ${d>0?"up":"dn"}">${d>0?"▲":"▼"}${Math.abs(d)}</i>`:""; };
       // 機率格＝「機率（靠右）＋升降（靠左）」兩個固定寬的小欄 ⇒ 每列的 % 對齊、升降也對齊（使用者 2026-10-25：擠在一起很醜）
-      const pc=(v,d)=>`<span class="pdPc"><span>${v}</span>${d||"<i></i>"}</span>`;   // 強度也走同一格式（空的升降欄）⇒ 強度／冠軍／四強／八強四欄間距一致（使用者 2026-10-25）
+      const pc=(v,d)=>`<span class="pdPc"><span>${v}</span>${d||""}</span>`;   // 沒有升降就不放空標記（flex 的 gap 會讓欄寬多 4px）   // 強度也走同一格式（空的升降欄）⇒ 強度／冠軍／四強／八強四欄間距一致（使用者 2026-10-25）
       const regs=[...new Set(EVT.map(t=>teamReg[t]).filter(x=>x))].sort((a,b)=>MODEL.R[b]-MODEL.R[a]);
       // 每個數字一欄、靠右對齊（使用者 2026-10-11：字數長短不一很不直觀）
       const hdr=`<div class="pdMRow pdMHd"><span></span><span>${en2?"Team":"隊伍"}</span><span>${en2?"Region":"賽區"}</span>${pc(en2?"Rating":"強度","")}${pc(en2?"Title":"冠軍","")}${pc(en2?"Top 4":"四強","")}${pc(en2?"Top 8":"八強","")}</div>`;
@@ -14247,7 +14256,7 @@ function render(){
             return `<div class="pdRow">${teamLogoHTML(tAb(w),22,true)}<span>${esc(tAb(w))}</span><span class="pdN">${en2?"vs":"勝"}</span>${teamLogoHTML(tAb(l),22,true)}<span>${esc(tAb(l))}</span><span class="pdV">${pct(SIM.fastPair[k]/stN)}</span></div>`; }).join(""))
         +col(H_PAST,histRows((y,h)=>h.shortest[0]?rowT(y,`${esc(tAb(h.shortest[0][1]))} ${mm(h.shortest[0][0])}`):""))+col(H_LIVE,L.n?liveRows(L):notYet))); }
     wrap.innerHTML=`<div class="pdList">${cards.join("")}</div>`;
-    { const C2=window._PDC=window._PDC||{}; if(Object.keys(C2).length>6)window._PDC={}; window._PDC[window._PDK]=wrap.innerHTML; }
+    { const C2=window._PDC=window._PDC||{}; if(Object.keys(C2).length>6)window._PDC={}; window._PDC[window._PDK]=wrap.innerHTML; pdFitCols(); }
     }
     const hb=document.getElementById("fHelp"); if(hb)hb.onclick=e=>{e.stopPropagation(); toggleHelpPop(hb);};
     document.getElementById("pdShot").onclick=()=>{ const go=mode=>shotEl(document.getElementById("pdWrap"),en2?"Predictions":"預測",
