@@ -1057,10 +1057,11 @@
   .pdQC .pdL{min-width:0}
   .pdQC .pdAns{margin-bottom:8px}
   .pdCols4{grid-template-columns:repeat(4,minmax(0,1fr))}
-  .pdMRow{display:grid;grid-template-columns:22px 76px 61px 76px 76px 76px 76px;align-items:center;gap:5px;font-size:16.5px;line-height:1.8;white-space:nowrap;font-variant-numeric:tabular-nums;padding:0 6px;margin:0 -6px;border-radius:6px}
-  .pdMRow>span:nth-child(n+4){text-align:right}
+  /* 模型卡（使用者 2026-10-25）：每欄置左、欄寬一致（表頭間距相同）；整列置中、最後一欄收窄 ⇒ 左右留白對稱 */
+  .pdMRow{display:grid;grid-template-columns:22px repeat(5,76px) 60px;justify-content:center;align-items:center;gap:5px;font-size:16.5px;line-height:1.8;white-space:nowrap;font-variant-numeric:tabular-nums;padding:0 6px;margin:0 -6px;border-radius:6px}
+  .pdMRow>span{text-align:left}   /* 每欄全部置左（使用者 2026-10-25） */
   .pdMRow .pdMT{font-weight:700}
-  .pdMRow>.pdPc{display:grid;grid-template-columns:44px 28px;column-gap:4px;align-items:baseline;text-align:right}.pdMRow>.pdPc>i{font-style:normal;text-align:left}
+  .pdMRow>.pdPc{display:flex;gap:4px;align-items:baseline}   /* 置左：升降緊跟在機率後面 */.pdMRow>.pdPc>i{font-style:normal;text-align:left}
   .pdMRow .pdDl{font-style:normal;font-size:12.5px}.pdMRow .pdDl.up{color:#ff5a5a}.pdMRow .pdDl.dn{color:#37c871}   /* 每日升降：越高越紅、越低越綠 */
   .pdOut{text-decoration:line-through;text-decoration-thickness:2px;opacity:.6} /* 預測：已淘汰的隊 */
   .pdMHd{font-size:14.5px;color:var(--tx2);border-bottom:1px solid rgba(255,255,255,.08);line-height:1.6;border-radius:0;background:none!important}
