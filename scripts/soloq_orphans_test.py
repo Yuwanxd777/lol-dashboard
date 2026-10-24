@@ -130,9 +130,9 @@ def main():
         check("檔數少於 MIN_FILES 不套比例保險（3 檔裡 1 個 absent＝33% 照濾）", r == {"S2|Q2": "absent"}, r)
 
         print("⑤ 接進 build_soloq_index：每日戰況不收、索引目錄照舊全列")
-        BSI.OUTDIR = od; BSI.IDX = os.path.join(sb, "soloq_match_index.js"); BSI.RECENT = os.path.join(sb, "soloq_recent.js")
-        leaks = [k for k in ("OUTDIR", "IDX", "RECENT") if os.path.normcase(getattr(BSI, k)).startswith(realn)]
-        check("build_soloq_index 的三個出入口都在沙盒", not leaks, leaks)
+        BSI.OUTDIR = od; BSI.IDX = os.path.join(sb, "soloq_match_index.js"); BSI.RECENT = os.path.join(sb, "soloq_recent.js"); BSI.POOL = os.path.join(sb, "soloq_pool.js")
+        leaks = [k for k in ("OUTDIR", "IDX", "RECENT", "POOL") if os.path.normcase(getattr(BSI, k)).startswith(realn)]
+        check("build_soloq_index 的四個出入口都在沙盒", not leaks, leaks)
         if leaks:
             print("漏接 ⇒ 當場中止（寫檔之前）"); return 1
         os.remove(os.path.join(od, "p13.js"))                          # 壞檔會讓主迴圈印「略過」，這裡不測那條

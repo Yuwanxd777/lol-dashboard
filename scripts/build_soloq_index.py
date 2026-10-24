@@ -16,6 +16,7 @@ sys.path.insert(0, HERE)
 import soloq_src  # 逐場檔來源 meta（哪個 dpmPuuid 抓回哪些 rid）；併檔時要一起合併
 OUTDIR = os.path.join(ROOT, "soloq_matches")
 IDX = os.path.join(ROOT, "soloq_match_index.js")
+POOL = os.path.join(ROOT, "soloq_pool.js")       # 本路角色池（只算比賽路線的場）：積分排行榜滑「最近十場」用
 RECENT = os.path.join(ROOT, "soloq_recent.js")   # 每日戰況(各隊每人近幾天逐場)：積分頁「每日戰況」視圖用
 TZ_H = 8           # 分日時區：台灣(UTC+8)。2026-10-18 使用者：「昨天」＝**每天 10:00 更新往前 24 小時**，不是日曆日
 DAY_START_H = 10   # 一「天」從台灣 10:00 起算（排程 10:00 更新）⇒ 桶鍵＝(時間−10 小時) 的台灣日期
@@ -108,7 +109,7 @@ def _build():
     # **索引本身照舊全列**——它是「磁碟上有哪些逐場檔」的目錄，fetch_soloq_update／--missing 靠它對檔名，少列會讓管線行為改變。
     import soloq_orphans
     SKIP = soloq_orphans.skip_keys(OUTDIR)
-    players = {}; newest = 0
+    players = {}; newest = 0; pool = {}
     recent = {}; rec_cut = (time.time() - RECENT_DAYS*86400) * 1000  # 每日戰況：只收近 RECENT_DAYS 天的逐場
     by_t = {}   # 開打時間(秒) → [(選手鍵, 英雄)]：同一場 gameCreation 完全相同 ⇒ 對位英雄是哪位收錄選手
     for fp in sorted(glob.glob(os.path.join(OUTDIR, "p*.js"))):
@@ -137,8 +138,22 @@ def _build():
         if matches: newest = max(newest, matches[0].get("t", 0))
         l10, wr7, sc7, n7, kda7, w7 = aggregates(matches)
         lt = max((g.get("t") or 0) for g in matches) if matches else None  # 最近一場時間戳(ms)：積分表「最近積分」欄
-        players[key] = {"f": b, "role": role, "n": len(matches),
+        # 今年本路場數／勝場＋本路角色池（使用者 2026-10-24：積分只算選手比賽路線的場，其餘路線一律濾掉）。
+        # 逐場檔本來就只抓 lane=比賽路線（fetch_soloq_*），這裡再用 pos 守一次：pos 有值又≠檔的路線就不算。
+        # 排行榜「場數(勝-敗)／勝率」以前用 Riot 牌位的勝敗（帳號層級、含所有路線），改吃這兩欄。
+        inr = [g for g in matches if not role or not g.get("pos") or g.get("pos") == role]
+        g_w = sum(1 for g in inr if g.get("w"))
+        players[key] = {"f": b, "role": role, "n": len(matches), "g": len(inr), "w": g_w,
                         "last10": l10, "wr7": wr7, "sc7": sc7, "n7": n7, "kda7": kda7, "w7": w7, "lt": lt}
+        cp = {}
+        for g in inr:
+            c = g.get("c")
+            if not c: continue
+            e = cp.setdefault(c, [c, 0, 0, 0, 0, 0])
+            e[1] += 1; e[2] += 1 if g.get("w") else 0
+            e[3] += g.get("k") or 0; e[4] += g.get("de") or 0; e[5] += g.get("a") or 0
+        if cp:   # [英雄, 場數, 勝場, 總K, 總D, 總A]，場數多→少取前 12（積分頁滑「最近十場」的角色池浮層）
+            pool[key] = sorted(cp.values(), key=lambda e: (-e[1], -e[2]))[:12]
         # 每日戰況：以「台灣 10:00 到隔天 10:00」分日，每場記 [英雄, 勝(1)/敗(0), LP 變化]；最新在前
         byday = {}
         # 每場 LP 增減（使用者 2026-10-18「為啥有些是 (0)、有些空白」）：dpm 的 lp 有時是這場的增減、有時退回成「打完後的總分」
@@ -190,6 +205,10 @@ def _build():
     with open(RECENT, "w", encoding="utf-8") as f:
         f.write("window.SOLOQ_RECENT=" + json.dumps(rec_payload, ensure_ascii=False, separators=(",", ":")) + ";\n")
     print(f"每日戰況：{len(recent)} 位近 {RECENT_DAYS} 天有出賽 → {RECENT}")
+    # 本路角色池（積分頁滑「最近十場」的浮層；懶載）。取代 soloq_champs.js（dpm best-champs：帳號層級含所有路線、7 月後沒再更新）
+    with open(POOL, "w", encoding="utf-8") as f:
+        f.write("window.SOLOQ_POOL=" + json.dumps({"generated": time.strftime("%Y-%m-%d %H:%M"), "players": pool}, ensure_ascii=False, separators=(",", ":")) + ";\n")
+    print(f"本路角色池：{len(pool)} 位 → {POOL}")
 
 if __name__ == "__main__":
     build()
