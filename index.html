@@ -3698,7 +3698,7 @@ const spLink=(lg,sp,txt,anyIfMiss)=>{ const h=wikiHref(lg,sp,anyIfMiss);
 const lgTagOn=()=>F.league==="ALL"||!!LG_GROUP[F.league]||F.league==="EWCQ"; // 全部或群組篩選＝混合聯賽 → 名稱旁要標賽區
 const stripRgnParen=s=>String(s).replace(/（[^（）]*）\s*$/,""); // 名稱旁已有賽區色塊(lgChip)時，去掉碰撞縮寫尾端重複的（聯賽碼）；選手名不以（）結尾＝無操作
 // 賽段顯示名：資料值用 " PO" 標季後賽，畫面一律寫成「◯◯季後賽」（2026-07-31 使用者指定）
-const SPLIT_EN={"熱身賽":"Warm-up","正賽":"Main Event","入圍賽":"Play-In","升降賽":"Promotion","世界賽資格賽":"Worlds Qualifier",
+const SPLIT_EN={"熱身賽":"Warm-up","正賽":"Main Event","入圍賽":"Play-In","瑞士輪":"Swiss Stage","淘汰賽":"Knockouts","升降賽":"Promotion","世界賽資格賽":"Worlds Qualifier",
   "春季":"Spring","夏季":"Summer","冬季":"Winter","台港澳錦標賽":"Taiwan Regional Finals",
   "北區":"North","南區":"South","東區":"East","西區":"West","其他":"Other"};
 const spDisp=sp=>{const t=String(sp||""); const po=/ PO$/.test(t), base=po?t.replace(/ PO$/,""):t;
@@ -3822,6 +3822,29 @@ function initData(){
   Object.entries(window.EVENTS_EXTRA||{}).forEach(([y,ev])=>{
     const s=((ev&&ev.WLDs&&ev.WLDs.stages)||[]).find(x=>x&&x.name==="Play-In");
     if(s&&s.from&&s.to)_WLD_PI[y]={from:s.from,to:s.to}; });
+  // 世界賽正賽分「瑞士輪／淘汰賽」（使用者 2026-10-25）：照戰績判，不寫死日期——
+  // 逐系列（同一天同一對＝一個系列）累計系列勝場，**兩隊開打前都已經 3 勝**的系列＝淘汰賽（瑞士輪 3 勝就晉級、不會再打瑞士輪），
+  // 某天出現淘汰賽之後的局一律淘汰賽。只做有入圍賽日期的年份（入圍賽已先排除，否則入圍賽的勝場會被算進瑞士輪）。
+  // 鍵＝日期|game|藍|紅（選手列與隊伍列共用，下面迴圈逐列套）。
+  const _WLD_STG={};
+  { const byY={};
+    for(let i=1;i<RAW.length;i++){const r=RAW[i];
+      if(+r[C.participantid]!==100||String(r[C.league])!=="WLDs"||String(r[C.split]||""))continue;
+      const y=String(r[C.date]).slice(0,4), d=String(r[C.date]).slice(0,10), pi=_WLD_PI[y], mn=_WLD_MAIN[y];
+      if(!pi||d<=pi.to||!mn||!mn.has(String(r[C.patch]||"")))continue;
+      (byY[y]=byY[y]||[]).push(r); }
+    Object.values(byY).forEach(rows=>{
+      rows.sort((a,b)=>String(a[C.date])<String(b[C.date])?-1:String(a[C.date])>String(b[C.date])?1:0);
+      const ser=[], idx={};
+      rows.forEach(r=>{ const b=r[C.blue_teamname], rd=r[C.red_teamname], k=String(r[C.date]).slice(0,10)+"|"+[b,rd].sort().join("|");
+        let s=idx[k]; if(!s){ s=idx[k]={d:String(r[C.date]).slice(0,10),a:b,b:rd,w:{},rows:[]}; ser.push(s); }
+        const wn=+r[C.result]===1?b:rd; s.w[wn]=(s.w[wn]||0)+1; s.rows.push(r); });
+      const W={}; let koDay="";
+      ser.forEach(s=>{
+        const ko=(koDay&&s.d>=koDay)||((W[s.a]||0)>=3&&(W[s.b]||0)>=3);
+        if(ko&&!koDay)koDay=s.d;
+        s.rows.forEach(r=>{ _WLD_STG[String(r[C.date])+"|"+r[C.game]+"|"+r[C.blue_teamname]+"|"+r[C.red_teamname]]=ko?"淘汰賽":"瑞士輪"; });
+        const wa=s.w[s.a]||0, wb=s.w[s.b]||0; if(wa!==wb){ const t=wa>wb?s.a:s.b; W[t]=(W[t]||0)+1; } }); }); }
   // 2022 LCL 賽季因俄烏戰爭於 2/24 取消（只打到 2/20 的 16 場）→ 全數剔除（使用者判例；LCL 賽區之後併入 LEC/EMEA 體系）
   RAW=RAW.filter((r,i)=>i===0||!(String(r[C.league])==="LCL"&&String(r[C.date]).slice(0,4)==="2022"));
   // 2022 賽季的 KeSPA 盃（2021-12-10~12 打）非一軍出賽（使用者判例：二軍/新訓名單）→ 全數剔除
@@ -3858,6 +3881,9 @@ function initData(){
         //   總體來說它算 LPL；所有年份同樣處理。找不到所屬聯賽才退回舊的 WQS{賽區}
         if(_h){ r[C.league]=_h; r[C.split]="世界賽資格賽"; }
         else{ const _rg=_h&&LEAGUE_META[_h]&&LEAGUE_META[_h].region||""; r[C.league]="WQS"+_rg; }}}
+    // 世界賽正賽 → 瑞士輪／淘汰賽（判法見上面 _WLD_STG）
+    if(String(r[C.league])==="WLDs"&&!String(r[C.split]||"")){
+      const _st=_WLD_STG[String(r[C.date])+"|"+r[C.game]+"|"+r[C.blue_teamname]+"|"+r[C.red_teamname]]; if(_st)r[C.split]=_st;}
     // OE 偶發把選手名寫成「隊縮寫␣ID」(如 AG.AL 的「AGAL Tarzan」)：與該列自隊縮寫相符的前綴剝掉——否則同人分裂、積分頁誤列缺帳號
     if(C.blue_playername!=null&&C.blue_teamname!=null)for(const off of [0,RB]){
       const pn=r[C.blue_playername+off]; if(!pn)continue;
@@ -3876,6 +3902,7 @@ function initData(){
     if(b2==="TESL")return 125+po;       /* 與 GPL 夏季同期，使用者指定排在夏季之後 */
     if(b2==="世界賽資格賽")return 128+po; /* 各聯賽的世界賽資格賽：季後賽之後、世界賽入圍賽之前 */
     if(b2==="入圍賽")return 130+po;      /* 世界賽入圍賽一定在夏季之後打 */
+    if(b2==="瑞士輪")return 131+po; if(b2==="淘汰賽")return 132+po;   /* 世界賽正賽兩段（2026-10-25） */
     if(/錦標賽$/.test(b2))return 140+po; /* 賽區錦標賽（選世界賽代表）再更後面 */
     return 600+po; }; // 春→夏→其他→升降賽最後
   SPLITS=[...new Set(RAW.slice(1).map(r=>r[C.split]))].filter(s=>s).sort((a2,b2)=>_splitOrd(a2)-_splitOrd(b2)||String(a2).localeCompare(String(b2)));
@@ -8335,6 +8362,8 @@ let _SUBSP=null,_SUBSP_Y=null;
 // 2017–2025 只有正賽一種 ⇒ 不滿兩項、不出子清單）
 // 同年多屆的盃賽（2026 兩屆 KeSPA）沒有賽段欄 ⇒ 子選項用「屆」（季前／季中；使用者 2026-10-18：篩選也要能分）
 const _edSubOf=o=>{ const eds=cupEditions()[o.league]; if(!eds)return ""; const d=String(o.date).slice(0,10), e=eds.find(x=>d>=x.from&&d<=x.to); return e?e.ed:""; };
+// 這一年世界賽正賽有沒有拆成瑞士輪／淘汰賽（有入圍賽日期的年份才拆，見 loadData 的 _WLD_STG）
+const _WLD_STG_ON=()=>!!(((((window.EVENTS_EXTRA||{})[String(curYear)]||{}).WLDs||{}).stages||[]).find(x=>x&&x.name==="Play-In"));
 const _subSpOf=o=>String(o.split||"").replace(/ PO$/,"")||_edSubOf(o)||((o.league==="WLDs"||o.league==="MSI"||o.league==="EWC")?"正賽":"");
 function subSplitMap(){
   if(_SUBSP&&_SUBSP_Y===curYear)return _SUBSP;
@@ -8348,7 +8377,7 @@ function subSplitMap(){
   // 世界賽正賽還沒開打（只有入圍賽的局）：照 wiki 的正賽日期先把「正賽」列出來（使用者 2026-10-17
   // 「篩選要分出入圍賽跟正賽」）。沒有任何局時選它會是空的，開打後自動有資料。
   {const st=((((window.EVENTS_EXTRA||{})[String(curYear)]||{}).WLDs||{}).stages||[]).find(x=>x&&x.name==="Main Event");
-   const f=first.WLDs; if(st&&st.from&&f&&f["入圍賽"]&&!f["正賽"])f["正賽"]=st.from;}
+   const f=first.WLDs; if(st&&st.from&&f&&f["入圍賽"]&&!f["正賽"]&&!f["瑞士輪"])f[_WLD_STG_ON()?"瑞士輪":"正賽"]=st.from;}   // 2026-10-25 正賽改分瑞士輪／淘汰賽
   Object.keys(first).forEach(lg=>{ const ks=Object.keys(first[lg]);
     if(ks.length>1)m[lg]=ks.sort((a,b)=>first[lg][a]<first[lg][b]?-1:1); });
   // EWC 的子清單本來只有各區資格賽（EWCQ*，見 fancySelect 的 kidOf）⇒ 補「EWC 正賽」（使用者 2026-10-18）
@@ -8375,7 +8404,10 @@ function lgPass(o){ // 賽事(聯賽)篩選判定：全部/群組/EWCQ 前綴/LP
     const i=F.league.indexOf("#");
     if(i>0){
       if(o.league!==F.league.slice(0,i))return false;
-      return _subSpOf(o)===F.league.slice(i+1);
+      const _sub=F.league.slice(i+1);
+      // 舊存檔的「世界賽 正賽」（2026-10-25 起拆成瑞士輪／淘汰賽）＝兩段合計
+      if(_sub==="正賽"&&o.league==="WLDs"&&/^(瑞士輪|淘汰賽)$/.test(String(o.split||"")))return true;
+      return _subSpOf(o)===_sub;
     }
   }
   if(F.league==="EWCQ")return String(o.league).startsWith("EWCQ");
