@@ -1057,7 +1057,7 @@
   .pdQC .pdL{min-width:0}
   .pdQC .pdAns{margin-bottom:8px}
   .pdCols4{grid-template-columns:repeat(4,minmax(0,1fr))}
-  .pdMRow{display:grid;grid-template-columns:22px 46px minmax(48px,1fr) 46px 84px 84px 84px;align-items:center;gap:5px;font-size:16.5px;line-height:1.8;white-space:nowrap;font-variant-numeric:tabular-nums;padding:0 6px;margin:0 -6px;border-radius:6px}
+  .pdMRow{display:grid;grid-template-columns:22px 46px minmax(48px,1fr) 84px 84px 84px 84px;align-items:center;gap:5px;font-size:16.5px;line-height:1.8;white-space:nowrap;font-variant-numeric:tabular-nums;padding:0 6px;margin:0 -6px;border-radius:6px}
   .pdMRow>span:nth-child(n+4){text-align:right}
   .pdMRow .pdMT{font-weight:700}
   .pdMRow>.pdPc{display:grid;grid-template-columns:44px 36px;column-gap:4px;align-items:baseline;text-align:right}.pdMRow>.pdPc>i{font-style:normal;text-align:left}
@@ -13979,13 +13979,13 @@ function render(){
       const dlt=(t,k,cur)=>{ if(!SIM_PREV||!SIM_PREV.T[t])return ""; const d=Math.round(((cur!=null?cur:SIM.T[t][k])-SIM_PREV.T[t][k])*100);
         return d?`<i class="pdDl ${d>0?"up":"dn"}">${d>0?"▲":"▼"}${Math.abs(d)}</i>`:""; };
       // 機率格＝「機率（靠右）＋升降（靠左）」兩個固定寬的小欄 ⇒ 每列的 % 對齊、升降也對齊（使用者 2026-10-25：擠在一起很醜）
-      const pc=(v,d)=>`<span class="pdPc"><span>${v}</span>${d||"<i></i>"}</span>`;
+      const pc=(v,d)=>`<span class="pdPc"><span>${v}</span>${d||"<i></i>"}</span>`;   // 強度也走同一格式（空的升降欄）⇒ 強度／冠軍／四強／八強四欄間距一致（使用者 2026-10-25）
       const regs=[...new Set(EVT.map(t=>teamReg[t]).filter(x=>x))].sort((a,b)=>MODEL.R[b]-MODEL.R[a]);
       // 每個數字一欄、靠右對齊（使用者 2026-10-11：字數長短不一很不直觀）
-      const hdr=`<div class="pdMRow pdMHd"><span></span><span>${en2?"Team":"隊伍"}</span><span>${en2?"Region":"賽區"}</span><span>${en2?"Rating":"強度"}</span>${pc(en2?"Title":"冠軍","")}${pc(en2?"Top 4":"四強","")}${pc(en2?"Top 8":"八強","")}</div>`;
+      const hdr=`<div class="pdMRow pdMHd"><span></span><span>${en2?"Team":"隊伍"}</span><span>${en2?"Region":"賽區"}</span>${pc(en2?"Rating":"強度","")}${pc(en2?"Title":"冠軍","")}${pc(en2?"Top 4":"四強","")}${pc(en2?"Top 8":"八強","")}</div>`;
       const row=t=>`<div class="pdMRow">${teamLogoHTML(tAb(t),22,true)||tLogo(t,22)}<span class="pdMT">${outAb(t)}</span><span class="pdN">${teamReg[t]||""}</span>`
-        +(isOut(t)?`<span>${elo(t)}</span>${pc(pct(0),dlt(t,"pch",0))}${pc(pct(0),dlt(t,"psf",0))}${pc(pct(0),dlt(t,"pko",0))}</div>`
-          :`<span>${elo(t)}</span>${pc(pct(SIM.T[t].pch),dlt(t,"pch"))}${pc(pct(SIM.T[t].psf),dlt(t,"psf"))}${pc(pct(SIM.T[t].pko),dlt(t,"pko"))}</div>`);
+        +(isOut(t)?`${pc(elo(t),"")}${pc(pct(0),dlt(t,"pch",0))}${pc(pct(0),dlt(t,"psf",0))}${pc(pct(0),dlt(t,"pko",0))}</div>`
+          :`${pc(elo(t),"")}${pc(pct(SIM.T[t].pch),dlt(t,"pch"))}${pc(pct(SIM.T[t].psf),dlt(t,"psf"))}${pc(pct(SIM.T[t].pko),dlt(t,"pko"))}</div>`);
       // 已淘汰的隊（兩種模式都一樣，使用者 2026-10-19）：局數＝本屆實際打了幾局、八強／冠軍＝0，不再顯示模擬值
       const third=Math.ceil(ts.length/3);
       cards.push(card(en2?"Model":"模型",(en2?"Team strength and how far each team goes":"戰隊強度與預估能走多遠")+(LIVE?(en2?` (with ${ACT_N} finished series)`:`（含本屆已完成 ${ACT_N} 個系列）`):""),
