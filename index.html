@@ -15114,11 +15114,17 @@ function render(){
       const POOL_WIN_LAB=["本賽段","最近兩賽段","不限時間"];
       // 這兩支隊伍今年的賽段起日：{基本賽段:最早日期}，PO 併回母賽段（"S3 PO"→"S3"，同賽事樹那套）。
       // 用「有這兩隊出賽的局」自然就鎖定它們的聯賽，不必另外判賽區。
+      // ⚠ 國際賽與插在中間的短階段不算賽段（2026-10-26）：10/25 世界賽正賽標成「瑞士輪」、
+      //   入圍賽／LPL 世界賽資格賽也有標籤後，本賽段＝瑞士輪（每隊才 9~10 隻）、最近兩賽段＝入圍賽或資格賽
+      //   ⇒ 兩階保底都不到 15 隻，世界賽第 1 局直接跳到不限時間。窗本身是日期，這些局照樣算在窗內。
+      const _SP_SKIP=new Set(["入圍賽","瑞士輪","淘汰賽","世界賽資格賽","升降賽"]);
+      const _SP_SKIP_LG=new Set(["WLDs","MSI","FST","EWC","DCup","KeSPA","亞運","AG"]);
       const _spStart=(()=>{ const out={};
         try{ for(const o of (typeof GAMES!=="undefined"?GAMES:[])){
           const r=o.raw, a=r[C.blue_teamname], b=r[C.red_teamname];
           if(!(a===S.t1||b===S.t1||a===S.t2||b===S.t2))continue;
-          const sp=String(o.split||"").replace(/ PO$/,"").replace(/季後$/,"").trim(); if(!sp)continue;
+          if(_SP_SKIP_LG.has(o.league)||/^EWCQ/.test(String(o.league||"")))continue;
+          const sp=String(o.split||"").replace(/ PO$/,"").replace(/季後$/,"").trim(); if(!sp||_SP_SKIP.has(sp))continue;
           const d=String(o.date||"").slice(0,10); if(!d)continue;
           if(!out[sp]||d<out[sp])out[sp]=d; } }catch(e){}
         return out; })();
