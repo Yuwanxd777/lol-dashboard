@@ -15079,6 +15079,10 @@ function render(){
       // 2026-09-05 拉出來給下面的「依局角色池時間窗」用。
       let curGi=-1;
       { for(let gi=0;gi<S.n;gi++){ const g=S.g[gi]; if([...g.b1,...g.b2,...g.p1,...g.p2].some(x=>!x)){curGi=gi;break;} }
+        // 直播同步中＝**直播局就是現在這一局**（2026-10-25 使用者回報：BO1 最後一手懸浮被當成鎖定、十手一滿就跳到「第 2 局」，
+        //   疊圖角色池變成最近兩賽段，看起來像換局）。選滿了也還是它，等偵測端真的開新局（插入新的直播局）才往下走；
+        //   前面的局漏認一格也不會把局號拉回去。
+        { const _lv=(S.meta||[]).findIndex(m=>m&&m.live); if(_lv>=0&&_lv<S.n)curGi=_lv; }
         if(curGi>=0)[...S.g[curGi].b1,...S.g[curGi].b2,...S.g[curGi].p1,...S.g[curGi].p2].forEach(c=>{if(c&&c!==NOBAN)used.add(c);}); }
       // 角色池：左=隊A獨有、中=兩隊該路共用、右=隊B獨有；五路一列一列；純頭像
       const R1=S.t1?teamRoster(S.t1):null, R2=S.t2?teamRoster(S.t2):null;
