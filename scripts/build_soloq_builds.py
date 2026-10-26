@@ -369,7 +369,8 @@ def main():
                                _gd, _xd, _get("sc"), _r, _rs2,
                                "".join([SK_DIGIT[v] for v in (_get("sk") or [])[:20] if v in SK_DIGIT]),  # 第15欄=點法數字串(1=Q2=W3=E4=R)
                                _du or "",   # 第16欄=搭檔英雄（積分配對詳情的逐場過濾用；依 dul 路線對應）
-                               _rpg))       # 第17欄=符文頁編號（查 window.SOLOQ_RUNEPAGES；沒有就 null）
+                               _rpg,        # 第17欄=符文頁編號（查 window.SOLOQ_RUNEPAGES；沒有就 null）
+                               [i for i in (_get("it") or []) if i]))   # 第18欄=本場最終裝備（使用者 2026-10-27：積分逐場要列裝備）
             _su = [x for x in (_get("su") or []) if x]
             if len(_su) == 2:
                 _sp2 = tuple(sorted(_su)); suCnt[c][_sp2] += 1
