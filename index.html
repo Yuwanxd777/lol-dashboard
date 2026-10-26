@@ -14006,7 +14006,16 @@ function render(){
       const regs=[...new Set(EVT.map(t=>teamReg[t]).filter(x=>x))].sort((a,b)=>MODEL.R[b]-MODEL.R[a]);
       // 每個數字一欄、靠右對齊（使用者 2026-10-11：字數長短不一很不直觀）
       const hdr=`<div class="pdMRow pdMHd"><span></span><span>${en2?"Team":"隊伍"}</span><span>${en2?"Region":"賽區"}</span>${pc(en2?"Rating":"強度","")}${pc(en2?"Title":"冠軍","")}${pc(en2?"Top 4":"四強","")}${pc(en2?"Top 8":"八強","")}</div>`;
-      const row=t=>`<div class="pdMRow">${teamLogoHTML(tAb(t),22,true)||tLogo(t,22)}<span class="pdMT">${outAb(t)}</span><span class="pdN">${teamReg[t]||""}</span>`
+      // 賽區＋種子序（使用者 2026-10-26：寫成 LCK#1）：同賽區內照瑞士輪種子級（WLD_POOLS 第 1～4 級）排，入圍賽隊排最後；
+      //   wiki 沒有種子欄位，但官方分級就是「各賽區 #1 進 1 級、#2 進 2 級…」⇒ 同賽區的級數順序＝種子順序。
+      //   該賽區有隊伍查不到級數、或兩隊同級（分不出先後）＝那個賽區只寫賽區名，不亂編號。
+      const regSeed=(()=>{ const P=WLD_POOLS[curYear], out={}; if(!P)return out;
+        const lv=t=>{ const ab=teamFix(tAb(t)||t), i=P.findIndex(pl=>pl.includes(ab)); return i>=0?i:(EVPO.includes(t)?P.length:null); };
+        const by={}; EVT.forEach(t=>{ const rg=teamReg[t]; if(rg)(by[rg]=by[rg]||[]).push([t,lv(t)]); });
+        Object.entries(by).forEach(([rg,ts])=>{ if(ts.some(x=>x[1]==null))return; const ls=ts.map(x=>x[1]); if(new Set(ls).size!==ls.length)return;
+          ts.sort((x,y)=>x[1]-y[1]).forEach(([t],i)=>{ out[t]=rg+"#"+(i+1); }); });
+        return out; })();
+      const row=t=>`<div class="pdMRow">${teamLogoHTML(tAb(t),22,true)||tLogo(t,22)}<span class="pdMT">${outAb(t)}</span><span class="pdN">${regSeed[t]||teamReg[t]||""}</span>`
         +(isOut(t)?`${pc(elo(t),"")}${pc(pct(0),dlt(t,"pch"))}${pc(pct(0),dlt(t,"psf"))}${pc(pct(0),dlt(t,"pko"))}</div>`
           :`${pc(elo(t),"")}${pc(pct(SIM.T[t].pch),dlt(t,"pch"))}${pc(pct(SIM.T[t].psf),dlt(t,"psf"))}${pc(pct(SIM.T[t].pko),dlt(t,"pko"))}</div>`);
       // 已淘汰的隊（兩種模式都一樣，使用者 2026-10-19）：局數＝本屆實際打了幾局、八強／冠軍＝0，不再顯示模擬值
