@@ -8,7 +8,8 @@
   ScoreboardPlayers（逐局逐人：CS、路線）＋ MatchSchedule（系列 MVP；N/A＝沒發）。
 輸出：
   {"year", "at", "games": 局數,
-   "cs":  [每局補兵最高的那位 {d, g, nm, tm, ch, cs, rl}]（由高到低），
+   "cs":  [逐局逐人的補兵 {d, g, nm, tm, ch, cs, rl}]（由高到低；450 以上全留，其餘只留前 CS_KEEP 筆），
+   使用者 2026-10-26：原本每局只留最高那位，同一局 Smash 507、Peyz 也過 450 卻只算到一個人 ⇒ 改逐人。
    "mvp": [{d, stage, tab, t1, t2, mvp, tm, rl}]（有發 MVP 的系列；rl 從同屆 ScoreboardPlayers 對名字），
    "series": [{d, stage, tab, w, l}]（打完的系列，前端算誰淘汰；使用者同日：模型卡淘汰的隊要加刪除線）}
 查失敗就不覆寫舊檔（前端照舊顯示上一次的數字）。
@@ -24,6 +25,7 @@ OUT = os.path.join(ROOT, "predict_live.js")
 sys.path.insert(0, HERE)
 import fetch_events_extra as F   # noqa: E402  共用 Cargo 的 cookie 與節流
 
+CS_KEEP = 30   # 450 以下只留前幾筆（前端只列前五，留點餘裕；檔案不要變大）
 ROLE = {"top": "TOP", "jungle": "JNG", "mid": "MID", "bot": "BOT", "adc": "BOT", "support": "SUP"}
 
 
@@ -52,7 +54,7 @@ def stage_of(ov):
 
 def build(sp, ms, year):
     """sp＝ScoreboardPlayers 列、ms＝MatchSchedule 列 → PRED_LIVE 內容（純函式，測試直接餵）"""
-    best, roles = {}, {}
+    rows, gids, roles = [], set(), {}
     for r in sp:
         try:
             cs = int(float(r.get("cs") or 0))
@@ -66,10 +68,9 @@ def build(sp, ms, year):
         g = str(r.get("gid") or "")
         if not g:
             continue
-        cur = best.get(g)
-        if cur is None or cs > cur["cs"]:
-            best[g] = {"d": str(r.get("dt") or "")[:10], "g": g, "nm": nm, "tm": r.get("tm") or "",
-                       "ch": r.get("ch") or "", "cs": cs, "rl": rl}
+        gids.add(g)
+        rows.append({"d": str(r.get("dt") or "")[:10], "g": g, "nm": nm, "tm": r.get("tm") or "",
+                     "ch": r.get("ch") or "", "cs": cs, "rl": rl})
     mvp = []
     for r in sorted(ms, key=lambda x: str(x.get("dt") or "")):
         m = str(r.get("mvp") or "").strip()
@@ -89,8 +90,10 @@ def build(sp, ms, year):
             continue
         ser.append({"d": str(r.get("dt") or "")[:10], "stage": stage_of(r.get("ov")), "tab": r.get("tab") or "",
                     "w": r["t1"] if w == "1" else r["t2"], "l": r["t2"] if w == "1" else r["t1"]})
-    return {"year": year, "at": datetime.datetime.now().strftime("%Y-%m-%d %H:%M"), "games": len(best),
-            "cs": sorted(best.values(), key=lambda x: -x["cs"]), "mvp": mvp, "series": ser}
+    rows.sort(key=lambda x: -x["cs"])
+    cs = [x for i, x in enumerate(rows) if x["cs"] >= 450 or i < CS_KEEP]
+    return {"year": year, "at": datetime.datetime.now().strftime("%Y-%m-%d %H:%M"), "games": len(gids),
+            "cs": cs, "mvp": mvp, "series": ser}
 
 
 def main():
@@ -112,7 +115,7 @@ def main():
     top = d["cs"][0] if d["cs"] else None
     print(f"→ predict_live.js：{year} 世界賽 {d['games']} 局"
           + (f"，最高補兵 {top['nm']}（{top['tm']}）{top['cs']}" if top else "")
-          + f"，450+ {sum(1 for x in d['cs'] if x['cs'] >= 450)} 局；MVP {len(d['mvp'])} 個："
+          + f"，450+ {sum(1 for x in d['cs'] if x['cs'] >= 450)} 人次；MVP {len(d['mvp'])} 個："
           + "、".join(f"{m['mvp']}({m['rl'] or '?'})" for m in d["mvp"]))
     return 0
 
