@@ -1064,6 +1064,7 @@
   .pdMRow .pdMT{font-weight:700}
   .pdMRow>.pdPc{display:flex;gap:4px;align-items:baseline}   /* 置左：升降緊跟在機率後面 */.pdMRow>.pdPc>i{font-style:normal;text-align:left}
   .pdMRow .pdDl{font-style:normal;font-size:12.5px}.pdMRow .pdDl.up{color:#ff5a5a}.pdMRow .pdDl.dn{color:#37c871}   /* 每日升降：越高越紅、越低越綠 */
+  .pdQual{color:#ff4d4d;font-weight:900;font-size:1.2em;line-height:1}   /* 預測：已晉級八強的紅色打勾 */
   .pdOut{text-decoration:line-through;text-decoration-thickness:2px;opacity:.6} /* 預測：已淘汰的隊 */
   .pdMHd{font-size:14.5px;color:var(--tx2);border-bottom:1px solid rgba(255,255,255,.08);line-height:1.6;border-radius:0;background:none!important}
   .pdSub{font-size:15.5px;color:var(--tx2);margin:6px 0 1px;opacity:.85}.pdCol h4+.pdSub{margin-top:0}
@@ -13617,8 +13618,12 @@ function render(){
       const av=Math.min(...[...wrap.querySelectorAll(".pdMCol")].map(c=>c.clientWidth))-24-30;   // 卡片內距左右 24（列的 padding 被負 margin 抵掉）、6 個 5px 的 gap
       // 2026-10-25 第二版（使用者：各欄不等寬「間隔變差了」）：前五欄**同一個寬度 P**（表頭間距相等），P＝填滿一列，
       //   但至少是「全部欄裡最寬的內容＋14」⇒ 最長的賽區／隊名 ID 也不會貼到下一欄；最後一欄只給它自己的最寬（左右留白對稱）。
-      const P=Math.max(Math.max(...mx.slice(0,5))+14,Math.floor((av-22-mx[5])/5));
-      wrap.style.setProperty("--pdcols","22px "+mx.map((w,i)=>(i<5?P:w)+"px").join(" ")); };
+      const P=Math.floor((av-22-mx[5])/5);
+      //   2026-10-26（使用者：超框了）：賽區改寫成「CBLOL#1」後最寬內容＋14 超過平均寬 ⇒ 原本的 max() 把五欄撐出卡片。
+      //   放不下等寬時：前五欄各用自己的寬，剩下的空間平分（還不夠就是各自最寬，不會再多撐）。
+      const cols=Math.max(...mx.slice(0,5))+14<=P?mx.map((w,i)=>i<5?P:w)
+        :(()=>{ const left=Math.max(0,av-22-mx.reduce((t,w)=>t+w,0)), add=Math.floor(left/5); return mx.map((w,i)=>i<5?w+add:w); })();
+      wrap.style.setProperty("--pdcols","22px "+cols.map(w=>w+"px").join(" ")); };
     if(!window._pdLz){ window._pdLz=1; lazyLoad("pred").then(()=>{ if(curView==="預測")render(); }); }
     if(!EV||!EV.teams){ wrap.innerHTML=`<div class="card"><span class="sumEmpty">${en2?"No Worlds roster for this year yet.":"今年的世界賽名單還沒進資料庫。"}</span></div>`; }
     // 整頁結果快取（使用者 2026-10-18：純模擬／含本屆戰況切換會卡）：一次要跑 4000 次世界賽模擬＋各題統計 ≈0.4 秒，
@@ -13642,6 +13647,11 @@ function render(){
         if(k==="ko"){ OUTAB.add(ab); return; } const c=(ls[k]=ls[k]||{}); c[ab]=(c[ab]||0)+1;
         if(c[ab]>=(k==="pi"?2:3))OUTAB.add(ab); }); }
     const isOut=t=>OUTAB.has(tAb(t));
+    // 已晉級八強（使用者 2026-10-26：不要寫 100%，直接給紅色打勾）：瑞士輪贏 3 個系列，或已經出現在淘汰賽系列裡
+    const QUALAB=new Set(); if(PL){ const ws={};
+      (PL.series||[]).forEach(x=>{ if(x.stage==="Play-In")return; const w=tAb(nmT(x.w)), l=tAb(nmT(x.l));
+        if(/final/i.test(x.tab||"")){ QUALAB.add(w); QUALAB.add(l); return; } ws[w]=(ws[w]||0)+1; if(ws[w]>=3)QUALAB.add(w); }); }
+    const isQual=t=>QUALAB.has(tAb(t));
     const outAb=t=>isOut(t)?`<s class="pdOut" title="${en2?"eliminated":"已淘汰"}">${esc(tAb(t))}</s>`:esc(tAb(t));
     const MIN_LIVE=20;                                   // 本屆打滿幾局才改看本屆
     // 近期＝7/15 起有世界賽隊伍參與的比賽（2026-10-11 試過改成「S3 季後賽＋亞運＋德盃」，使用者看過後要求改回）
@@ -14017,7 +14027,7 @@ function render(){
         return out; })();
       const row=t=>`<div class="pdMRow">${teamLogoHTML(tAb(t),22,true)||tLogo(t,22)}<span class="pdMT">${outAb(t)}</span><span class="pdN">${regSeed[t]||teamReg[t]||""}</span>`
         +(isOut(t)?`${pc(elo(t),"")}${pc(pct(0),dlt(t,"pch"))}${pc(pct(0),dlt(t,"psf"))}${pc(pct(0),dlt(t,"pko"))}</div>`
-          :`${pc(elo(t),"")}${pc(pct(SIM.T[t].pch),dlt(t,"pch"))}${pc(pct(SIM.T[t].psf),dlt(t,"psf"))}${pc(pct(SIM.T[t].pko),dlt(t,"pko"))}</div>`);
+          :`${pc(elo(t),"")}${pc(pct(SIM.T[t].pch),dlt(t,"pch"))}${pc(pct(SIM.T[t].psf),dlt(t,"psf"))}${isQual(t)?pc(`<b class="pdQual" title="${en2?"qualified for Top 8":"已晉級八強"}">✔</b>`,""):pc(pct(SIM.T[t].pko),dlt(t,"pko"))}</div>`);
       // 已淘汰的隊（兩種模式都一樣，使用者 2026-10-19）：局數＝本屆實際打了幾局、八強／冠軍＝0，不再顯示模擬值
       const third=Math.ceil(ts.length/3);
       cards.push(card(en2?"Model":"模型",(en2?"Team strength and how far each team goes":"戰隊強度與預估能走多遠")+(LIVE?(en2?` (with ${ACT_N} finished series)`:`（含本屆已完成 ${ACT_N} 個系列）`):""),
