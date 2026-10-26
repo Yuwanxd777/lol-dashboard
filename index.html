@@ -1041,13 +1041,13 @@
   .pdCols.pdPre{grid-template-columns:minmax(0,1.3fr) minmax(0,1.3fr) minmax(0,.7fr)}
   /* 分區用淡底色、不用框線（使用者：框太多眼花、拿掉後又難讀 → 底色分區＋隔列底色） */
   .pdCol{min-width:0;padding:10px 12px 8px;border-radius:10px;background:rgba(255,255,255,.035)}
-  .pdCol h4{margin:0 0 6px;padding-bottom:6px;font-size:15.5px;color:var(--tx2);font-weight:600;white-space:nowrap;border-bottom:1px solid rgba(255,255,255,.08)}
-  .pdRow{display:flex;align-items:center;gap:6px;font-size:16.5px;line-height:1.85;white-space:nowrap;padding:0 6px;margin:0 -6px;border-radius:6px}
+  .pdCol h4{margin:0 0 6px;padding-bottom:6px;font-size:17.5px;color:var(--tx2);font-weight:600;white-space:nowrap;border-bottom:1px solid rgba(255,255,255,.08)}
+  .pdRow{display:flex;align-items:center;gap:8px;font-size:19px;line-height:1.95;white-space:nowrap;padding:0 6px;margin:0 -6px;border-radius:6px}
   .pdCol>.pdRow:nth-of-type(even),.pdCol>.pdMRow:nth-of-type(odd){background:rgba(255,255,255,.035)}
-  .pdRow .cc img{width:24px;height:24px}
+  .pdRow .cc img{width:33px;height:33px}   /* 數據區字與英雄圖放大（使用者 2026-10-26） */
   .pdRow .pdV{margin-left:auto;font-variant-numeric:tabular-nums;color:var(--tx);font-weight:600}
-  .pdRow .pdN{font-size:14.5px;color:var(--tx2);font-weight:400}
-  .pdNone{font-size:15.5px;color:var(--tx2);opacity:.8}
+  .pdRow .pdN{font-size:16px;color:var(--tx2);font-weight:400}
+  .pdNone{font-size:16.5px;color:var(--tx2);opacity:.8}
   .pdQC{border-left:4px solid rgba(255,255,255,.12)}
   .pdK-c{border-left-color:#ffb454}.pdK-p{border-left-color:#7ab8ff}.pdK-e{border-left-color:#b48cff}.pdK-t{border-left-color:#5fd39a}.pdK-m{border-left-color:#ffc850}
   .pdK-c .pdTag{color:#ffb454;background:rgba(255,180,84,.12)}.pdK-p .pdTag{color:#7ab8ff;background:rgba(122,184,255,.12)}
@@ -1066,15 +1066,15 @@
   .pdMRow .pdDl{font-style:normal;font-size:12.5px}.pdMRow .pdDl.up{color:#ff5a5a}.pdMRow .pdDl.dn{color:#37c871}   /* 每日升降：越高越紅、越低越綠 */
   .pdOut{text-decoration:line-through;text-decoration-thickness:2px;opacity:.6} /* 預測：已淘汰的隊 */
   .pdMHd{font-size:14.5px;color:var(--tx2);border-bottom:1px solid rgba(255,255,255,.08);line-height:1.6;border-radius:0;background:none!important}
-  .pdSub{font-size:14.5px;color:var(--tx2);margin:6px 0 1px;opacity:.85}.pdCol h4+.pdSub{margin-top:0}
+  .pdSub{font-size:15.5px;color:var(--tx2);margin:6px 0 1px;opacity:.85}.pdCol h4+.pdSub{margin-top:0}
   .pdExt{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:15.5px;padding:5px 10px;margin:-2px 0 8px;border-left:3px solid #8ab4ff;border-radius:0 8px 8px 0;background:rgba(138,180,255,.06)}
   .pdExt .pdExtSrc{color:#8ab4ff;white-space:nowrap;display:inline-flex;align-items:center}
   .pdExt>b{display:inline-flex;align-items:center;gap:4px;flex-wrap:wrap}
-  .pdDet{font-size:14.5px;color:var(--tx2);margin:-6px 0 4px 30px;padding-bottom:4px;line-height:1.45;white-space:normal}
+  .pdDet{font-size:15.5px;color:var(--tx2);margin:-6px 0 4px 30px;padding-bottom:4px;line-height:1.45;white-space:normal}
   .pdRow:has(+.pdDet){border-bottom:0}
   .pdRowD{white-space:normal;line-height:1.35;padding:5px 0}
   .pdRowD .pdNm{white-space:nowrap;flex:0 0 auto}
-  .pdRowD .pdD{flex:1 1 auto;min-width:0;font-size:14.5px;color:var(--tx2);padding-left:4px}
+  .pdRowD .pdD{flex:1 1 auto;min-width:0;font-size:15.5px;color:var(--tx2);padding-left:4px}
   .pdRowD .pdV{flex:0 0 auto;white-space:nowrap}.pdExt .pdExtSrc a{color:inherit;text-decoration:none}
   .pdExt .pdExtWhy{color:var(--tx2);flex-basis:100%}
   .pdExt .pdExtWhy a{color:#8ab4ff;text-decoration:none;white-space:nowrap}.pdExt a:hover{text-decoration:underline}
