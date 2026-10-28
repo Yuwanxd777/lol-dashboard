@@ -32,6 +32,8 @@
           （0.02s），判定落後時自動整檔重掃再下結論
         ‧ **可疑同名走現況重算**（2026-09-07 #49），不是讀日誌快照——審定是人在班與班之間補的
         ‧ preflight 有沒有過、有沒有 push
+        ‧ **OBGG 帳號連續幾班沒更新**（2026-10-28 #2179）——外站掛掉時 fetch_obgg_accounts exit 0、
+          帳號檔沿用舊版，上面全不動；≥2 班只提醒、≥14 班（一週）才列異常（讀當班日誌＋autopilot/shift_logs/）
 
         ‧ **逐聯賽有沒有落後**（2026-09-16 #140）——上面全是全站指標，單一聯賽整段沒收
           （LPL 停三天）會被別的聯賽蓋過去：列數照樣天天變多、「最新一場」照樣是今天，
@@ -1719,6 +1721,91 @@ def soloq_fresh(now_ms=None, mdir=None, files=None,
     return ("bad" if bad else "ok"), line, bad
 
 
+# ── OBGG 帳號連續幾班沒更新（2026-10-28 主對話迴圈 #2179）───────────────────────
+# #2178 才發現：www.obgg.net 從 10-27 10:00 起 TCP 直接逾時，fetch_obgg_accounts 連續 4 班
+# 「zone 9 全失敗 → 不更新 soloq_accounts.json」，但那支 exit 0、帳號檔沿用舊版（沒被寫壞）、
+# 列數高水位一個都沒動 ⇒ 健檢連 4 班印「✓ 沒有異常」，前幾輪 LOG 只記了「最久 199.8s」沒追。
+# 這是外站掛掉、我們修不了，所以 ≥OBGG_WARN_SHIFTS 班只印提醒（不進結論、不留 HEALTH_ALERT，
+# 否則外站停擺幾天就天天亮警示檔）；連到 ≥OBGG_BAD_SHIFTS 班（一週，LPL/LCK 帳號真的會過時）才列異常。
+# 證據：當班 update_log.txt ＋ shift_log_archive 留底的 autopilot/shift_logs/update_log_YYYYMMDD_HHMM.txt
+# （publish.bat 先跑健檢再歸檔 ⇒ 當班要讀 update_log.txt 本身；同一班兩邊都有時以當班為準）。
+OBGG_WARN_SHIFTS = 2
+OBGG_BAD_SHIFTS = 14
+SHIFT_LOG_DIR = os.path.join(ROOT, "autopilot", "shift_logs")
+
+
+def obgg_state(text):
+    """一班日誌裡 fetch_obgg_accounts 的結果：'ok'（有寫出帳號檔）／'fail'（拒絕更新）／None（這班沒跑這步）。"""
+    if not text:
+        return None
+    i = text.find("---- fetch_obgg_accounts（")
+    if i < 0:
+        return None
+    j = text.find("\n---- ", i + 1)
+    blk = text[i:] if j < 0 else text[i:j]
+    if "不更新 soloq_accounts.json" in blk:
+        return "fail"
+    if "OBGG 帳號更新：" in blk:
+        return "ok"
+    return None
+
+
+def shift_key_of(start_at):
+    """run_update 開始時間 → 班次鍵 YYYYMMDD_HHMM（跟歸檔檔名同一套；中午前算 10:00 班，之後算 22:00 班）。"""
+    ts = start_ts(start_at)
+    if ts is None:
+        return None
+    lt = time.localtime(ts)
+    return time.strftime("%Y%m%d", lt) + ("_1000" if lt.tm_hour < 16 else "_2200")
+
+
+def obgg_streak(states):
+    """states：[(班次鍵, 'ok'|'fail'|None)]，任意順序。從最新一班往回數連續 'fail' 幾班
+    （None＝那班沒跑這步，跳過不算也不中斷）。回 (連續班數, 最早那班的鍵)。"""
+    n, since = 0, None
+    for k, st in sorted(states, key=lambda x: x[0], reverse=True):
+        if st is None:
+            continue
+        if st != "fail":
+            break
+        n, since = n + 1, k
+    return n, since
+
+
+def obgg_shift_states(cur_text=None, cur_start=None, log_dir=None):
+    d = SHIFT_LOG_DIR if log_dir is None else log_dir
+    got = {}
+    for f in glob.glob(os.path.join(d, "update_log_*_*.txt")):
+        m = re.search(r"update_log_(\d{8}_\d{4})\.txt$", f)
+        if m:
+            try:
+                got[m.group(1)] = obgg_state(io.open(f, encoding="utf-8", errors="replace").read())
+            except Exception:
+                pass
+    k = shift_key_of(cur_start)
+    if k and cur_text is not None:
+        got[k] = obgg_state(cur_text)
+    return sorted(got.items())
+
+
+def obgg_problems(states, warn=None, bad_n=None):
+    """回 (印出的那一行, 進結論的異常清單)。"""
+    warn = OBGG_WARN_SHIFTS if warn is None else warn
+    bad_n = OBGG_BAD_SHIFTS if bad_n is None else bad_n
+    known = [x for x in states if x[1] is not None]
+    if not known:
+        return "OBGG 帳號：（找不到任何一班有跑 fetch_obgg_accounts 的日誌）", []
+    n, since = obgg_streak(states)
+    if n == 0:
+        return "OBGG 帳號：✓ 最近一班有更新 soloq_accounts.json", []
+    msg = "OBGG 帳號：連續 %d 班「不更新 soloq_accounts.json」（從 %s 那班起；帳號檔沿用舊版、沒被寫壞）" % (n, since)
+    if n >= bad_n:
+        return "⚠ " + msg + " ⇒ 已滿 %d 班，LPL/LCK 帳號會過時，要人工看（換來源／確認 OBGG 是否改址）" % bad_n,             ["OBGG 連續 %d 班沒更新帳號（從 %s）" % (n, since)]
+    if n >= warn:
+        return "⚠ 提醒：" + msg + "；外站連不上我們修不了，只告知、不進結論（滿 %d 班才列異常）" % bad_n, []
+    return msg + "（單班失敗先觀察）", []
+
+
 def main():
     lg = parse_log()
     lt = {}
@@ -1841,6 +1928,15 @@ def main():
         _sqst, _sqline, _sqbad = soloq_fresh()
         print("   " + _sqline)
         bad += _sqbad
+    # OBGG 帳號連續失敗（#2179）：外站掛掉時 fetch_obgg_accounts exit 0、帳號檔沿用舊版，上面一個指標都不動
+    _cur_txt = None
+    try:
+        _cur_txt = io.open(LOG, encoding="utf-8", errors="replace").read()
+    except Exception:
+        pass
+    oline, obad = obgg_problems(obgg_shift_states(_cur_txt, (lg or {}).get("start_at")))
+    print("   " + oline)
+    bad += obad
     # 遊戲版本（#99）：比賽資料以外，patch notes／DDragon 也會靜靜地停在舊版
     gv = game_versions()
     vline, vbad, vsince = version_problems(prev.get("versions") or {}, gv,
