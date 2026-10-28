@@ -125,6 +125,27 @@ _CONNS = []                       # 收工時一起關（只是禮貌，執行�
 _CONN_LOCK = threading.Lock()
 CONN_NEW = [0]                    # 握手次數（診斷用：理想是「執行緒數」而不是「請求數」）
 
+# ── 連線斷路器（2026-10-28 主對話迴圈 #2178）──────────────────────────────────
+# 10-27 10:00 起連續 4 班 www.obgg.net（101.34.60.85:443）TCP 直接逾時（curl 也連不上，google 正常）：
+# 9 個 zone 請求各 3 次 × 25s 逾時＋退避，4 條工人分三波 ⇒ 這一步每班空等 199.7s，而且是 ③ 階段的長桿。
+# 結果本來就是 9 區全失敗 → 第一道安全門「LPL 只抓到 0 帳號 → 不更新」，等再久也一樣。
+# 做法：這一趟**還沒有任何一次成功**、又累計 BREAK_AFTER 次「連不上」（握手失敗／逾時／被拒）⇒ 斷路，
+# 之後每個 get() 直接記成最終失敗（ERRS／ZONE_ERRS 照記）⇒ 後面三道安全門的判斷跟原本逐一逾時完全一樣，只是不再等。
+# 只要成功過一次就永遠不跳（OBGG 慢、偶發逾時是另一回事，照舊重試）；HTTP 非 200、壞 JSON 不算「連不上」。
+# 預期：連不上的班 ~200s → ~25s（第一波 4 條工人各一次 25s 逾時）；連得上的班行為與請求數完全不變。
+BREAK_AFTER = 4
+BRK = {"ok": 0, "cf": 0, "down": False, "skipped": 0}
+BRK_LOCK = threading.Lock()
+
+
+class ConnectFail(OSError):
+    """連不上 OBGG（TCP/TLS 握手失敗、逾時、被拒）——斷路器只數這一種。"""
+
+
+def brk_reset():
+    with BRK_LOCK:
+        BRK.update(ok=0, cf=0, down=False, skipped=0)
+
 
 def _conn(host):
     c = getattr(_TL, "conn", None)
@@ -135,14 +156,14 @@ def _conn(host):
         t0 = time.time()
         try:
             c.connect()
-        except Exception:
+        except Exception as e:
             try:
                 c.close()
             except Exception:
                 pass
             with STAT_LOCK:
                 HS_S[0] += time.time() - t0
-            raise
+            raise ConnectFail(f"connect: {type(e).__name__}: {e}") from e
         with _CONN_LOCK:
             _CONNS.append(c); CONN_NEW[0] += 1
         with STAT_LOCK:
@@ -177,7 +198,12 @@ def _fetch_once(url):
     h = {"User-Agent": UA}  # OBGG API 為公開端點，只需 UA（不帶小程序 appid Referer，避免被誤判為密鑰）
     u = urllib.parse.urlsplit(url)
     if not KEEPALIVE or u.scheme != "https" or not u.netloc:
-        r = urllib.request.urlopen(urllib.request.Request(url, headers=h), timeout=25)
+        try:
+            r = urllib.request.urlopen(urllib.request.Request(url, headers=h), timeout=25)
+        except urllib.error.URLError as e:     # urlopen 把握手失敗包成 URLError(reason=逾時／被拒／DNS)
+            if isinstance(e.reason, (TimeoutError, ConnectionError, OSError)) and not isinstance(e, urllib.error.HTTPError):
+                raise ConnectFail(f"urlopen: {e.reason}") from e
+            raise
         return json.loads(r.read().decode("utf-8-sig", "replace"))
     c = _conn(u.netloc)
     h["Connection"] = "keep-alive"
@@ -198,9 +224,24 @@ def polite(sec=0.15):
         POLITE_SLEEP[0] += sec
 
 
+def _final_fail(url, kind, msg):
+    if kind:                      # 只算重試用盡的最終失敗（中途重試成功的不算）
+        z = getattr(_TL, "zone", None)
+        with ERR_LOCK:
+            ERRS[kind] = ERRS.get(kind, 0) + 1
+            ERR_URLS.append(url)
+            if z:                 # #128：賽區並行後 zone_err 靠這個標記歸屬
+                ZONE_ERRS[z] = ZONE_ERRS.get(z, 0) + 1
+    return {"_err": str(msg)[:100]}
+
+
 def get(url, retry=2, kind=None):
     k = kind or "other"
     for i in range(retry + 1):
+        if BRK["down"]:                   # #2178 斷路：連不上就不再等逾時，直接記最終失敗
+            with BRK_LOCK:
+                BRK["skipped"] += 1
+            return _final_fail(url, kind, "OBGG 連不上（斷路）")
         t0 = time.time()
         try:
             r = _fetch_once(url)
@@ -209,6 +250,8 @@ def get(url, retry=2, kind=None):
                 REQ_S[k] = REQ_S.get(k, 0.0) + (time.time() - t0)
                 if i:
                     RETRY_N[0] += 1
+            with BRK_LOCK:
+                BRK["ok"] += 1
             return r
         except Exception as e:
             with STAT_LOCK:
@@ -216,17 +259,15 @@ def get(url, retry=2, kind=None):
                 REQ_S[k] = REQ_S.get(k, 0.0) + (time.time() - t0)
                 if i:
                     RETRY_N[0] += 1
+            if isinstance(e, ConnectFail):
+                with BRK_LOCK:
+                    BRK["cf"] += 1
+                    if not BRK["ok"] and BRK["cf"] >= BREAK_AFTER:
+                        BRK["down"] = True
             stale = getattr(_TL, "used", False)   # 用過的連線壞掉＝idle 逾時，立刻重連就好
             _drop_conn()
-            if i == retry:
-                if kind:                      # 只算重試用盡的最終失敗（中途重試成功的不算）
-                    z = getattr(_TL, "zone", None)
-                    with ERR_LOCK:
-                        ERRS[kind] = ERRS.get(kind, 0) + 1
-                        ERR_URLS.append(url)
-                        if z:                 # #128：賽區並行後 zone_err 靠這個標記歸屬
-                            ZONE_ERRS[z] = ZONE_ERRS.get(z, 0) + 1
-                return {"_err": str(e)[:100]}
+            if i == retry or BRK["down"]:
+                return _final_fail(url, kind, e)
             if not (i == 0 and stale):        # 第一次疑似 stale socket 就立刻重連，其餘照舊退避
                 time.sleep(1.5)
                 with STAT_LOCK:
@@ -502,6 +543,7 @@ PLAYER_EX = None   # pull() 建的共用選手池（長壽執行緒 ⇒ keep-ali
 def pull():
     """→ (out, zone_err)：out[zone][team][gid] = 帳號清單；zone_err[zone] = 抓這一區時 get() 最終失敗的次數。"""
     global PLAYER_EX
+    brk_reset()
     now = time.time() * 1000
     out = {}
     zone_err = {}
@@ -594,6 +636,9 @@ def main():
     print(f"  抓取 {wall:.1f}s（TCP/TLS 握手 {CONN_NEW[0]} 次"
           + ("" if KEEPALIVE else "，--no-keepalive 對照組") + "）", flush=True)
     print_breakdown(wall)
+    if BRK["down"]:
+        print(f"⚠ OBGG 連不上：沒有任何一次成功、連線失敗 {BRK['cf']} 次 ⇒ 斷路，其餘 {BRK['skipped']} 個請求直接記失敗"
+              f"（不再逐一等 25 秒逾時）", flush=True)
     if PG_CACHE_ON:
         print(pg_summary(now_s) + (f"（讀進 {n_cached} 筆）" if n_cached else "（冷跑：沒有快取，全問）"), flush=True)
     # 2026-09-07（迴圈 #24）：請求最終失敗以前完全看不到，先印再過安全門（LPL 只抓到 11 帳號時才看得出是 team 請求掛了 3 次）。
