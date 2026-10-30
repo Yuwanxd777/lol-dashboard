@@ -13746,11 +13746,15 @@ function render(){
     // 本屆即時（predict_live.js，Leaguepedia Cargo）：補兵、各場 MVP、打完的系列
     const PL=(window.PRED_LIVE&&+PRED_LIVE.year===+curYear)?PRED_LIVE:null;
     // 已淘汰（使用者 2026-10-17：模型卡淘汰的隊加刪除線）：入圍賽輸兩個系列（雙敗）、瑞士輪輸三場、淘汰賽輸一場
+    // OUTB＝淘汰梯次：入圍賽 100+輪、瑞士輪 200+輪、淘汰賽 300+（八強／四強／決賽）
+    const OUTB={}, outB=x=>x.stage==="Play-In"?100+(parseInt(String(x.tab).replace(/\D/g,""))||0)
+      :/final/i.test(x.tab||"")?300+(/quarter/i.test(x.tab)?1:/semi/i.test(x.tab)?2:3):200+(parseInt(String(x.tab).replace(/\D/g,""))||0);
     const OUTAB=new Set(); if(PL){ const ls={};
       (PL.series||[]).forEach(x=>{ const k=x.stage==="Play-In"?"pi":(/final/i.test(x.tab)?"ko":"sw"), ab=tAb(nmT(x.l));
-        if(k==="ko"){ OUTAB.add(ab); return; } const c=(ls[k]=ls[k]||{}); c[ab]=(c[ab]||0)+1;
-        if(c[ab]>=(k==="pi"?2:3))OUTAB.add(ab); }); }
+        if(k==="ko"){ OUTAB.add(ab); OUTB[ab]=outB(x); return; } const c=(ls[k]=ls[k]||{}); c[ab]=(c[ab]||0)+1;
+        if(c[ab]>=(k==="pi"?2:3)){ OUTAB.add(ab); OUTB[ab]=outB(x); } }); }
     const isOut=t=>OUTAB.has(tAb(t));
+    // 淘汰隊的排序（使用者 2026-10-30）：越晚淘汰越前面；同一梯次（同階段同一輪）淘汰的照強度
     // 已晉級八強（使用者 2026-10-26：不要寫 100%，直接給紅色打勾）：瑞士輪贏 3 個系列，或已經出現在淘汰賽系列裡
     const QUALAB=new Set(); if(PL){ const ws={};
       (PL.series||[]).forEach(x=>{ if(x.stage==="Play-In")return; const w=tAb(nmT(x.w)), l=tAb(nmT(x.l));
@@ -14120,7 +14124,7 @@ function render(){
     //   同分再比另一個機率、再比強度；含本屆戰況時已淘汰的置底（2026-10-19）。舊版依強度排（2026-10-11）。
     const KO_ON=EVT.filter(t=>SIM.T[t]&&SIM.T[t].pko>=0.9995).length>=8||!!(LIVE&&PL&&(PL.series||[]).some(x=>x.stage!=="Play-In"&&/final/i.test(x.tab||"")));
     { const pk=t=>SIM.T[t]?SIM.T[t].pko:0, pc0=t=>SIM.T[t]?SIM.T[t].pch:0;
-      const ts=EVT.slice().sort((a,b)=>(LIVE?isOut(a)-isOut(b):0)||(KO_ON?(pc0(b)-pc0(a))||(pk(b)-pk(a)):(pk(b)-pk(a))||(pc0(b)-pc0(a)))||strength(b)-strength(a));
+      const ts=EVT.slice().sort((a,b)=>(LIVE?isOut(a)-isOut(b):0)||(LIVE&&isOut(a)&&isOut(b)?((OUTB[tAb(b)]||0)-(OUTB[tAb(a)]||0))||strength(b)-strength(a):0)||(KO_ON?(pc0(b)-pc0(a))||(pk(b)-pk(a)):(pk(b)-pk(a))||(pc0(b)-pc0(a)))||strength(b)-strength(a));
       const elo=t=>Math.round(1500+strength(t)*400/Math.LN10);
       // 比上一個比賽日的**名次**升降（使用者 2026-10-25：「▲5 應該寫名次的上下，不是機率 % 數」）：
       //   每一欄各自依顯示的機率（四捨五入到 %）排名次，同 % 並列同名次（＝1＋比他高的隊數）；▲紅＝名次往前、▼綠＝往後。
