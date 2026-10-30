@@ -1093,6 +1093,7 @@
   .pdQual{color:#ff4d4d;font-weight:900;font-size:1.2em;line-height:1}   /* 預測：已晉級八強的紅色打勾 */
   .pdOut{color:#37c871;font-weight:900;font-size:1.2em;line-height:1}    /* 預測：八強前已淘汰的綠色叉（使用者 2026-10-27） */
   .pdOut{text-decoration:line-through;text-decoration-thickness:2px;opacity:.6} /* 預測：已淘汰的隊 */
+  .pdOutSt{margin-left:4px;color:var(--tx2);font-weight:400;font-size:14px}   /* ✕ 後面的淘汰階段（使用者 2026-10-30） */
   b.pdOut{text-decoration:none}   /* 八強前淘汰的綠色 ✕ 不要刪除線（使用者 2026-10-29） */
   s.pdOut{font-size:inherit;font-weight:inherit}   /* 淘汰隊名跟 ✕ 共用 .pdOut，不吃 ✕ 的 1.2em／900 ⇒ 字級跟其他隊名一樣（使用者 2026-10-29） */
   .pdMHd{font-size:14.5px;color:var(--tx2);border-bottom:1px solid rgba(255,255,255,.08);line-height:1.6;border-radius:0;background:none!important}
@@ -13755,6 +13756,13 @@ function render(){
         if(c[ab]>=(k==="pi"?2:3)){ OUTAB.add(ab); OUTB[ab]=outB(x); } }); }
     const isOut=t=>OUTAB.has(tAb(t));
     // 淘汰隊的排序（使用者 2026-10-30）：越晚淘汰越前面；同一梯次（同階段同一輪）淘汰的照強度
+    // ✕ 後面補是哪個階段淘汰的（使用者 2026-10-30）：入圍賽／瑞士輪第幾輪
+    //   六欄同寬（pdFitCols）⇒ 標籤要短：瑞士R4／入圍R3（英文 SW R4／PI R3），完整寫法放滑鼠提示
+    const outStTx=t=>{ const v=OUTB[tAb(t)]; if(!v)return ""; const r=v%100, en=LANG==="en";
+      if(v>=300){ const k=["",en?"QF":"八強",en?"SF":"四強",en?"F":"決賽"][r]; return `<span class="pdOutSt">${k}</span>`; }
+      const sw=v>=200, sh=(sw?(en?"SW":"瑞士"):(en?"PI":"入圍"))+(en?" ":"")+"R"+r,
+        full=sw?(en?`Swiss stage round ${r}`:`瑞士輪第 ${r} 輪淘汰`):(en?`Play-In round ${r}`:`入圍賽第 ${r} 輪淘汰`);
+      return `<span class="pdOutSt" title="${full}">${sh}</span>`; };
     // 已晉級八強（使用者 2026-10-26：不要寫 100%，直接給紅色打勾）：瑞士輪贏 3 個系列，或已經出現在淘汰賽系列裡
     const QUALAB=new Set(); if(PL){ const ws={};
       (PL.series||[]).forEach(x=>{ if(x.stage==="Play-In")return; const w=tAb(nmT(x.w)), l=tAb(nmT(x.l));
@@ -14150,7 +14158,7 @@ function render(){
           ts.sort((x,y)=>x[1]-y[1]).forEach(([t],i)=>{ out[t]=rg+"#"+(i+1); }); });
         return out; })();
       const row=t=>`<div class="pdMRow">${teamLogoHTML(tAb(t),22,true)||tLogo(t,22)}<span class="pdMT">${outAb(t)}</span><span class="pdN">${regSeed[t]||teamReg[t]||""}</span>`
-        +(isOut(t)?`${pc(elo(t),"")}${pc(pct(0),dlt(t,"pch"))}${pc(pct(0),dlt(t,"psf"))}${isQual(t)?pc(`<b class="pdQual" title="${en2?"qualified for Top 8":"已晉級八強"}">✔</b>`,""):pc(`<b class="pdOut" title="${en2?"eliminated before Top 8":"八強前已淘汰"}">✕</b>`,"")}</div>`
+        +(isOut(t)?`${pc(elo(t),"")}${pc(pct(0),dlt(t,"pch"))}${pc(pct(0),dlt(t,"psf"))}${isQual(t)?pc(`<b class="pdQual" title="${en2?"qualified for Top 8":"已晉級八強"}">✔</b>`,""):pc(`<b class="pdOut" title="${en2?"eliminated before Top 8":"八強前已淘汰"}">✕</b>${outStTx(t)}`,"")}</div>`
           :`${pc(elo(t),"")}${pc(pct(SIM.T[t].pch),dlt(t,"pch"))}${pc(pct(SIM.T[t].psf),dlt(t,"psf"))}${isQual(t)?pc(`<b class="pdQual" title="${en2?"qualified for Top 8":"已晉級八強"}">✔</b>`,""):pc(pct(SIM.T[t].pko),dlt(t,"pko"))}</div>`);
       // 已淘汰的隊（兩種模式都一樣，使用者 2026-10-19）：局數＝本屆實際打了幾局、八強／冠軍＝0，不再顯示模擬值
       const third=8;   // 每欄 8 隊（使用者 2026-10-29：八隊換欄比較直觀 ⇒ 第一欄＝目前排序的前八）；舊版三等分
