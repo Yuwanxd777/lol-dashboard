@@ -14137,8 +14137,10 @@ function render(){
       // 比上一個比賽日的**名次**升降（使用者 2026-10-25：「▲5 應該寫名次的上下，不是機率 % 數」）：
       //   每一欄各自依顯示的機率（四捨五入到 %）排名次，同 % 並列同名次（＝1＋比他高的隊數）；▲紅＝名次往前、▼綠＝往後。
       //   現在：已淘汰的隊算 0%（同畫面）；前一天：SIM_PREV（見 mkWorld）。
+      // 模型卡的 % 無條件進位（使用者 2026-10-30：還沒淘汰卻寫 0% 很怪）⇒ 只要有機會就至少 1%；-1e-9 防 0.07*100=7.000…01 被進成 8
+      const pctN=x=>Math.ceil(x*100-1e-9), pctU=x=>Math.max(1,pctN(x))+"%";   // 還沒淘汰＝真實機率 >0，模擬 4000 次一次都沒中也寫 1%（升降名次照原值算）
       const _rk={}, rankOf=(k,prev,t)=>{ const key=k+(prev?"p":"c"); if(!_rk[key]){ const v={}; EVT.forEach(x=>{ const S2=prev?SIM_PREV:SIM;
-          v[x]=Math.round(((!prev&&isOut(x))?0:(S2.T[x]?S2.T[x][k]:0))*100); }); const r={}; EVT.forEach(x=>{ r[x]=[1+EVT.filter(y=>v[y]>v[x]).length,v[x]]; }); _rk[key]=r; }
+          v[x]=pctN((!prev&&isOut(x))?0:(S2.T[x]?S2.T[x][k]:0)); }); const r={}; EVT.forEach(x=>{ r[x]=[1+EVT.filter(y=>v[y]>v[x]).length,v[x]]; }); _rk[key]=r; }
         return _rk[key][t]; };
       const dlt=(t,k)=>{ if(!SIM_PREV||!SIM_PREV.T[t])return ""; const a=rankOf(k,true,t), b=rankOf(k,false,t); if(!a[1]&&!b[1])return "";   // 兩天都 0%＝並列墊底，名次變動只是別隊掉下來造成的假象，不標
         const d=a[0]-b[0];
@@ -14159,7 +14161,7 @@ function render(){
         return out; })();
       const row=t=>`<div class="pdMRow">${teamLogoHTML(tAb(t),22,true)||tLogo(t,22)}<span class="pdMT">${outAb(t)}</span><span class="pdN">${regSeed[t]||teamReg[t]||""}</span>`
         +(isOut(t)?`${pc(elo(t),"")}${pc(pct(0),dlt(t,"pch"))}${pc(pct(0),dlt(t,"psf"))}${isQual(t)?pc(`<b class="pdQual" title="${en2?"qualified for Top 8":"已晉級八強"}">✔</b>`,""):pc(`<b class="pdOut" title="${en2?"eliminated before Top 8":"八強前已淘汰"}">✕</b>${outStTx(t)}`,"")}</div>`
-          :`${pc(elo(t),"")}${pc(pct(SIM.T[t].pch),dlt(t,"pch"))}${pc(pct(SIM.T[t].psf),dlt(t,"psf"))}${isQual(t)?pc(`<b class="pdQual" title="${en2?"qualified for Top 8":"已晉級八強"}">✔</b>`,""):pc(pct(SIM.T[t].pko),dlt(t,"pko"))}</div>`);
+          :`${pc(elo(t),"")}${pc(pctU(SIM.T[t].pch),dlt(t,"pch"))}${pc(pctU(SIM.T[t].psf),dlt(t,"psf"))}${isQual(t)?pc(`<b class="pdQual" title="${en2?"qualified for Top 8":"已晉級八強"}">✔</b>`,""):pc(pctU(SIM.T[t].pko),dlt(t,"pko"))}</div>`);
       // 已淘汰的隊（兩種模式都一樣，使用者 2026-10-19）：局數＝本屆實際打了幾局、八強／冠軍＝0，不再顯示模擬值
       const third=8;   // 每欄 8 隊（使用者 2026-10-29：八隊換欄比較直觀 ⇒ 第一欄＝目前排序的前八）；舊版三等分
       // 八強推演（使用者 2026-10-29）：模擬裡八強的抽籤（3-0 抽 3-2、剩的 3-2 對 3-1、剩兩隊 3-1 互打）。
