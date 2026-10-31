@@ -29,6 +29,7 @@
 !predict_sq.js
 # 預測分頁本屆補兵／MVP（scripts/build_predict_live.py）
 !predict_live.js
+!swiss_hist.js
 # 截圖用的本機圖 data URI（scripts/build_img_b64.py；按 📸 才載入）
 !img_b64.js
 # 每天 10:00 牌位快照（scripts/build_lp_hist.py；近期戰況 LP 增減）
