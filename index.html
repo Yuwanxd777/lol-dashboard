@@ -13812,7 +13812,7 @@ function render(){
     const mkWorld=CUT=>{
     const before=v=>!CUT||String(v)<CUT;
     const GAMES=CUT?_GALL.filter(o=>before(o.dt||o.date)):_GALL, gLive=CUT?_gLiveAll.filter(o=>before(o.dt||o.date)):_gLiveAll;
-    const PL=(CUT&&_PL0)?Object.assign({},_PL0,{series:(_PL0.series||[]).filter(x=>_serDt.has(x)?before(_serDt.get(x)):x.d<CUT.slice(0,10))}):_PL0;
+    const PL=(CUT&&_PL0)?Object.assign({},_PL0,{next:[],series:(_PL0.series||[]).filter(x=>_serDt.has(x)?before(_serDt.get(x)):x.d<CUT.slice(0,10))}):_PL0;   // 前一天的版本不用今天公布的籤表
     const H2H_LG=new Set(["WLDs","MSI","EWC","FST","DCup"]);
     const REGH=(()=>{ const P={}, add=(a,b,wa,wb)=>{ if(!a||!b||a===b)return; const k=[a,b].sort().join("|"), x=P[k]=P[k]||[0,0];
         if(a<b){x[0]+=wa;x[1]+=wb;}else{x[0]+=wb;x[1]+=wa;} };
@@ -13923,9 +13923,12 @@ function render(){
         else if(POOLS&&POOLS.every(pl=>pl.length===4&&pl.every(t=>t&&rec[t]))){
           [...pairPools(POOLS[0],POOLS[3]),...pairPools(POOLS[1],POOLS[2])].forEach(([a,b])=>{ const [w,l]=play(a,b,1,"r1"); rs(w,l); });
         }
+        // 下一輪已公布的籤（PL.next，使用者 2026-10-31）：只用在接著打的那一輪、兩隊同戰績組時直接配，剩下的才抽
+        const NX=LIVE&&PL?(PL.next||[]).filter(x=>x.stage!=="Play-In"&&!/final/i.test(x.tab||"")).map(x=>[abT(tAb(nmT(x.t1))),abT(tAb(nmT(x.t2)))]).filter(([a,b])=>a&&b&&rec[a]&&rec[b]):[];
         while(alive.length>1&&guard++<8){
           const by={}; alive.forEach(t=>{const k=rec[t].join("-"); (by[k]=by[k]||[]).push(t);});
-          for(const k in by){ const arr=pairUp(by[k]); if(arr.length%2)arr.pop();
+          for(const k in by){ const g=by[k], fx=guard===1?NX.filter(([a,b])=>g.includes(a)&&g.includes(b)):[], fs=new Set(fx.flat());
+            const arr=[...fx.flat(),...pairUp(g.filter(t=>!fs.has(t)))]; if(arr.length%2)arr.pop();
             for(let i=0;i<arr.length;i+=2){ const a=arr[i],b=arr[i+1], bo=(rec[a][0]===2||rec[a][1]===2)?3:1;
               const [w,l]=play(a,b,bo,"sw"); rs(w,l); } }
           alive=sw.filter(t=>rec[t][0]<3&&rec[t][1]<3);

@@ -90,10 +90,18 @@ def build(sp, ms, year):
             continue
         ser.append({"d": str(r.get("dt") or "")[:10], "stage": stage_of(r.get("ov")), "tab": r.get("tab") or "",
                     "w": r["t1"] if w == "1" else r["t2"], "l": r["t2"] if w == "1" else r["t1"]})
+    # 已公布、還沒打的系列（使用者 2026-10-31：瑞士輪下一輪籤表出來後模擬要照實際對戰，不再自己抽）
+    nxt = []
+    for r in sorted(ms, key=lambda x: str(x.get("dt") or "")):
+        t1, t2 = str(r.get("t1") or ""), str(r.get("t2") or "")
+        if str(r.get("w") or "") in ("1", "2") or not t1 or not t2 or "TBD" in (t1.upper(), t2.upper()):
+            continue
+        nxt.append({"d": str(r.get("dt") or "")[:10], "stage": stage_of(r.get("ov")), "tab": r.get("tab") or "",
+                    "t1": t1, "t2": t2})
     rows.sort(key=lambda x: -x["cs"])
     cs = [x for i, x in enumerate(rows) if x["cs"] >= 450 or i < CS_KEEP]
     return {"year": year, "at": datetime.datetime.now().strftime("%Y-%m-%d %H:%M"), "games": len(gids),
-            "cs": cs, "mvp": mvp, "series": ser}
+            "cs": cs, "mvp": mvp, "series": ser, "next": nxt}
 
 
 def main():
@@ -105,7 +113,7 @@ def main():
                     "where": f"SP.OverviewPage LIKE '{pg}%'", "limit": "5000", "format": "json"})
         ms = cargo({"tables": "MatchSchedule=M",
                     "fields": "M.OverviewPage=ov,M.Team1=t1,M.Team2=t2,M.MVP=mvp,M.DateTime_UTC=dt,M.Tab=tab,M.Winner=w",
-                    "where": f"M.OverviewPage LIKE '{pg}%' AND M.Winner IS NOT NULL", "limit": "500", "format": "json"})
+                    "where": f"M.OverviewPage LIKE '{pg}%'", "limit": "500", "format": "json"})   # 不濾 Winner：還沒打的要拿來當籤表
     except Exception as e:
         print(f"Cargo 失敗，保留舊檔：{type(e).__name__} {str(e)[:100]}")
         return 0
