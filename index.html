@@ -3753,7 +3753,10 @@ const lgChip=l=>{if(!l)return `<span class="meta">—</span>`;const c=LGC[l]||"#
   return `<span class="lg" style="color:${c}">${lgName(l)}</span>`;};
 // 隊徽（img/teams/{縮寫}.webp＝scripts/fetch_team_logos.py 從 dpm 抓；GEN 的源檔叫 GENG，抓取端已對應）。
 // 2026 用到的 64 個縮寫中 61 個有檔，缺 JPN／SEN／VIE（國家隊，dpm 沒有）→ onerror 自動退回文字縮寫。
-const teamLogoHTML=(ab,size,noText)=>{ ab=teamFix(String(ab||"")); if(!ab)return "";
+const teamLogoHTML=(ab,size,noText,nm)=>{ ab=teamFix(String(ab||"")); if(!ab)return "";
+  // nm＝完整隊名（使用者 2026-11-01：「2023 的 MAD 是歐洲 MAD Lions 不是台港澳 MAD Team」「相似問題都處理」）：
+  //   同縮寫不同隊時 IMG_HAVE.alias[隊名]＝它自己的檔（{縮寫}~{隊名}.webp），"-"＝沒有隊徽（只顯示縮寫，不借別隊的）。
+  //   檔與對照表都由 scripts/fetch_team_logos_wiki.py 產。有隊名的呼叫點一律要帶 nm。
   // 三層退路（鏈式 onerror）：隊徽 → 國旗 → 文字縮寫。
   // 國家隊（ENC 電競國家盃那種）沒有隊徽，改用國旗（使用者定案 2026-08-16）；檔名用 IOC 三碼，
   // 與 NAT_ABBR 一致，由 scripts/fetch_flags.py 抓。
@@ -3768,6 +3771,8 @@ const teamLogoHTML=(ab,size,noText)=>{ ab=teamFix(String(ab||"")); if(!ab)return
   // 清單缺席（本機沒跑過管線）才退回原本的 onerror 三層鏈。
   const H=window.IMG_HAVE;
   if(H&&H.teams&&H.flags){
+    const al=nm&&H.alias?H.alias[nm]:null; if(al==="-")return noText?"":esc(ab);
+    if(al)return `<img src="img/teams/${encodeURIComponent(al)}.webp" alt="${esc(ab)}" title="${esc(ab)}" style="${st}" onerror="${fin}">`;
     const src=H.teams[ab]?`img/teams/${encodeURIComponent(ab)}.webp`:(H.flags[ab]?`img/flags/${encodeURIComponent(ab)}.png`:"");
     if(!src)return noText?"":esc(ab);
     return `<img src="${src}" alt="${esc(ab)}" title="${esc(ab)}" style="${st}" onerror="${fin}">`;
@@ -9098,7 +9103,7 @@ function tableHTML(cols,rows,nameImg,limit){ // limit：只渲染排序後前 N 
          const _gp=grpTagOn()?grpChip(_ab,r._lg):"";
          // 戰隊列：縮寫前面加小隊徽（使用者 2026-08-16：小圖＋縮寫＋賽區）。選手列不加——
          // 選手名本來就是「隊縮寫 選手名」，再放隊徽會讓名稱欄變很長、擠掉其他欄的空間。
-         const _lo=(r._full!==undefined&&_ab)?teamLogoHTML(_ab,18,true):"";
+         const _lo=(r._full!==undefined&&_ab)?teamLogoHTML(_ab,18,true,r._full):"";
          v=`<span class="heroname" style="display:inline-flex;align-items:center;gap:3px">${_lo}${_on?stripRgnParen(v):v}${_on?lgChip(r._lg):""}${_gp}</span>`;} // 有色塊就去掉重複的（聯賽碼）
       }
       return `<td class="${cellCls(c,r[c],r)}"${nmAttr}>${v}</td>`;
@@ -10473,7 +10478,7 @@ function recentTeamPicks(n){ const M=new Map();
     for(const k of ["blue_teamname","red_teamname"]){ const t=o.raw[C[k]]; if(!t)continue;
       const e=M.get(t)||{t,last:"",n:0}; e.n++; if(o.dt>e.last)e.last=o.dt; M.set(t,e); } }
   return [...M.values()].sort((a,b)=>b.last.localeCompare(a.last)||b.n-a.n).slice(0,n||16).map(e=>e.t); }
-const teamPickHTML=(ts,hint)=>ts.length?`<div style="margin-top:12px;display:flex;flex-wrap:wrap;gap:7px;align-items:center"><span class="meta" style="margin-right:2px">${hint}</span>${ts.map(t=>`<button class="sqLaneBtn tmQuick" data-team="${esc(t)}" style="display:inline-flex;align-items:center;gap:6px">${teamLogoHTML(teamFix(tAb(t)||t),18,true)}${esc(teamFix(tAb(t)||t))}</button>`).join("")}</div>`:"";
+const teamPickHTML=(ts,hint)=>ts.length?`<div style="margin-top:12px;display:flex;flex-wrap:wrap;gap:7px;align-items:center"><span class="meta" style="margin-right:2px">${hint}</span>${ts.map(t=>`<button class="sqLaneBtn tmQuick" data-team="${esc(t)}" style="display:inline-flex;align-items:center;gap:6px">${teamLogoHTML(teamFix(tAb(t)||t),18,true,t)}${esc(teamFix(tAb(t)||t))}</button>`).join("")}</div>`:"";
 function ovRecent(){ return _ovMemo("recent",()=>{
   const out={_empty:true,lgs:[],segs:[]};
   if(!GAMES.length)return out;
@@ -13319,12 +13324,12 @@ function render(){
     const chipIco=(ch,cnt,ttl)=>`<span class="rcChip" title="${esc(ttl)}">${cImg(ch)}<b>${cnt}</b></span>`;
     // ── 四張卡，每張都是「吃一隊、吐一張卡」⇒ 交錯插入就自動左右對齊 ──────────
     const cdHead=(tm,D2)=>{
-      if(!D2)return `<div class="card rcHead"><div class="rcHeadL">${teamLogoHTML(tAb(tm),40)}<span class="rcAb">${esc(tAb(tm))}</span></div>
+      if(!D2)return `<div class="card rcHead"><div class="rcHeadL">${teamLogoHTML(tAb(tm),40,undefined,tm)}<span class="rcAb">${esc(tAb(tm))}</span></div>
         <span class="sumEmpty">${en2?"No games under the current filters.":"目前篩選下沒有比賽。"}</span></div>`;
       const stTx=D2.streak>1?`<span class="rcStk" style="color:#ff4d4d">🔥 ${D2.streak}${en2?"W streak":" 連勝"}</span>`
                 :D2.streak<-1?`<span class="rcStk" style="color:#37c871">❄️ ${-D2.streak}${en2?"L streak":" 連敗"}</span>`:"";
       return `<div class="card rcHead"><div class="rcHeadL">
-          ${teamLogoHTML(tAb(tm),40)}
+          ${teamLogoHTML(tAb(tm),40,undefined,tm)}
           <span class="rcAb">${esc(tAb(tm))}</span>
           <span class="rcFull">${esc(tm)}</span>${lgChip(D2.recent[D2.recent.length-1].league)}</div>
         <div class="rcHeadR">${stTx}
@@ -13438,9 +13443,9 @@ function render(){
       //  而且八項數據左右互補 ⇒ 右邊那欄永遠能從左邊算出來，等於同一件事印兩次。
       return `<div class="card full"><h2>⚔️ ${en2?"Head to head":"交手紀錄"} `
         +`<span class="sub">${sub}</span>`
-        +`<span class="h2hScore">${teamLogoHTML(abL,26,true)}<b>${esc(abL)}</b>`
+        +`<span class="h2hScore">${teamLogoHTML(abL,26,true,L.tm)}<b>${esc(abL)}</b>`
         +`<span class="h2hNum">${sw}</span><span class="meta">-</span><span class="h2hNum">${sl}</span>`
-        +`<b>${esc(abR)}</b>${teamLogoHTML(abR,26,true)}`
+        +`<b>${esc(abR)}</b>${teamLogoHTML(abR,26,true,R.tm)}`
         +`<span class="meta">${en2?"games":"小局"} ${gw}-${gl}</span></span></h2>`
         +`<div class="h2hWrap">`
         +`<table class="ov h2hTbl"><thead><tr><th>${mLabel("日期")}</th><th>${mLabel("賽事")}</th>`
@@ -13459,7 +13464,7 @@ function render(){
           [...D2.recent].reverse().map(s2=>{const w2=s2.w>s2.l, tie=s2.w===s2.l;
             return `<tr><td>${md(s2.from)}${s2.to!==s2.from?`–${md(s2.to)}`:""}</td>
             <td>${lgChip(s2.league)}${s2.split?` <span class="meta">${esc(spDisp(s2.split))}</span>`:""}</td>
-            <td><span style="display:inline-flex;align-items:center;gap:6px" title="${esc(s2.opp)}">${teamLogoHTML(tAb(s2.opp),22,true)}<b>${esc(tAb(s2.opp))}</b></span></td>
+            <td><span style="display:inline-flex;align-items:center;gap:6px" title="${esc(s2.opp)}">${teamLogoHTML(tAb(s2.opp),22,true,s2.opp)}<b>${esc(tAb(s2.opp))}</b></span></td>
             <td class="num" style="color:${tie?"var(--tx2)":w2?"#ff4d4d":"#37c871"};font-weight:700">${s2.w} - ${s2.l}</td></tr>`;}).join("")}</tbody></table></div>`;
     };
     const cdStart=(tm,D2)=>{
@@ -14111,7 +14116,7 @@ function render(){
     const rowCD=(c,v,det)=>`<div class="pdRow pdRowD">${cImg(c)}<span class="pdNm">${cNm(c)}</span><span class="pdD">${det||""}</span><span class="pdV">${v}</span></div>`;
     const rowC=(c,v,n)=>`<div class="pdRow">${cImg(c)}<span>${cNm(c)}</span><span class="pdV">${v}${n!=null?` <span class="pdN">(${n})</span>`:""}</span></div>`;
     // 沒有隊徽（舊隊名／現在沒隊伍）就放一個通用盾牌佔位，排版不跳（使用者 2026-10-11）
-    const tLogo=(tm,sz)=>teamLogoHTML(tAb(tm),sz,true)||`<svg class="pdNoLogo" width="${sz}" height="${sz}" viewBox="0 0 24 24" style="flex:0 0 auto;vertical-align:middle"><title>${esc(tm||"–")}</title><path d="M12 2 4 5v6c0 5 3.4 9.4 8 11 4.6-1.6 8-6 8-11V5z" fill="var(--tx2)" opacity=".5"/></svg>`;
+    const tLogo=(tm,sz)=>teamLogoHTML(tAb(tm),sz,true,tm)||`<svg class="pdNoLogo" width="${sz}" height="${sz}" viewBox="0 0 24 24" style="flex:0 0 auto;vertical-align:middle"><title>${esc(tm||"–")}</title><path d="M12 2 4 5v6c0 5 3.4 9.4 8 11 4.6-1.6 8-6 8-11V5z" fill="var(--tx2)" opacity=".5"/></svg>`;
     const rowP=(p,tm,v,n)=>`<div class="pdRow">${tLogo(tm,22)}<span>${esc(p)}</span><span class="pdV">${v}${n!=null?` <span class="pdN">(${n})</span>`:""}</span></div>`;
     const rowT=(lb,v)=>`<div class="pdRow"><span>${lb}</span><span class="pdV">${v}</span></div>`;
     const none=t=>`<div class="pdNone">${t||"–"}</div>`;
@@ -14213,7 +14218,7 @@ function render(){
         Object.entries(by).forEach(([rg,ts])=>{ if(ts.some(x=>x[1]==null))return; const ls=ts.map(x=>x[1]); if(new Set(ls).size!==ls.length)return;
           ts.sort((x,y)=>x[1]-y[1]).forEach(([t],i)=>{ out[t]=rg+"#"+(i+1); }); });
         return out; })();
-      const row=t=>`<div class="pdMRow">${teamLogoHTML(tAb(t),22,true)||tLogo(t,22)}<span class="pdMT">${outAb(t)}</span><span class="pdN">${regSeed[t]||teamReg[t]||""}</span>`
+      const row=t=>`<div class="pdMRow">${teamLogoHTML(tAb(t),22,true,t)||tLogo(t,22)}<span class="pdMT">${outAb(t)}</span><span class="pdN">${regSeed[t]||teamReg[t]||""}</span>`
         +(isOut(t)?`${pc(elo(t),"")}${pc(pct(0),dlt(t,"pch"))}${pc(pct(0),dlt(t,"psf"))}${isQual(t)?pc(`<b class="pdQual" title="${en2?"qualified for Top 8":"已晉級八強"}">✔</b>${qualStTx(t)}`,""):pc(`<b class="pdOut" title="${en2?"eliminated before Top 8":"八強前已淘汰"}">✕</b>${outStTx(t)}`,"")}</div>`
           :`${pc(elo(t),"")}${pc(pctU(SIM.T[t].pch),dlt(t,"pch"))}${pc(pctU(SIM.T[t].psf),dlt(t,"psf"))}${isQual(t)?pc(`<b class="pdQual" title="${en2?"qualified for Top 8":"已晉級八強"}">✔</b>${qualStTx(t)}`,""):pc(pctU(SIM.T[t].pko),dlt(t,"pko"))}</div>`);
       // 已淘汰的隊（兩種模式都一樣，使用者 2026-10-19）：局數＝本屆實際打了幾局、八強／冠軍＝0，不再顯示模擬值
@@ -14221,7 +14226,7 @@ function render(){
       // 八強推演（使用者 2026-10-29）：模擬裡八強的抽籤（3-0 抽 3-2、剩的 3-2 對 3-1、剩兩隊 3-1 互打）。
       //   使用者：「要把某隊與其他可能性都列出來」⇒ 每支可能進八強的隊一列（依八強機率排），後面列出所有可能的對手：
       //   抽到機率＝該隊進八強的情況下抽到這隊的比例、勝率＝抽到這組時該隊贏的比例；戰績＝該隊進八強時的瑞士輪戰績分布。
-      const QFH=(()=>{ const QP=SIM.qfPair||{}, N=SIM.SIMS, lg=t=>teamLogoHTML(tAb(t),22,true)||tLogo(t,22);
+      const QFH=(()=>{ const QP=SIM.qfPair||{}, N=SIM.SIMS, lg=t=>teamLogoHTML(tAb(t),22,true,t)||tLogo(t,22);
         const p1=x=>x>0&&x<0.005?"<1%":pct(x);
         // 勝率：抽到 50 次以上用模擬結果（含已打完的真實比分）；太少（例 CFO 只抽到 1 次＝100%）改用強度直接算 BO5
         const bo5=(x,y)=>{ const q=1/(1+Math.exp(strength(y)-strength(x))); return q**3*(1+3*(1-q)+6*(1-q)**2); };
@@ -14283,7 +14288,7 @@ function render(){
         const f2=v=>(v>=0.005?"+":v<=-0.005?"−":"")+Math.abs(v).toFixed(2), cl=v=>v>=0.005?"up":v<=-0.005?"dn":"";
         // 顯示的籤運＝內部值取負（使用者 2026-11-01：「好的是正、壞的是負數」「差的是綠色、好的是紅色」）：
         //   內部 d／tot 照舊＝籤比隨機抽硬多少（總結的門檻都照內部值），畫面一律 f2(-d)、cl(-d)、bar(-tot)，排序鍵 data-v 也是取負後的
-        const lg=t=>teamLogoHTML(tAb(t),22,true)||tLogo(t,22), W=en2?"W":"勝", Lz=en2?"L":"負";
+        const lg=t=>teamLogoHTML(tAb(t),22,true,t)||tLogo(t,22), W=en2?"W":"勝", Lz=en2?"L":"負";
         // 每格＝小卡：上排對手＋勝負、下排「能抽的對手由強到弱」圓點（亮的＝抽到的）＋籤運；底色深淺＝籤運（硬＝紅、好＝綠，台灣配色）
         //   UI 重做（使用者 2026-10-31「籤運那塊的 UI 重新設計 現在好醜」）
         // 小卡底色＝勝負（使用者 2026-11-01：「框框紅色應該等於獲勝、綠色等於輸，籤運分數維持」）；待打＝不上色
@@ -14585,8 +14590,8 @@ function render(){
           const w=o.result===1?bt(o):rt(o); if(w===A1)cur.a++; else cur.b++; cur.g=g; });
       const sa=ser.filter(s=>s.a>s.b).length, sb=ser.filter(s=>s.b>s.a).length, last=ser;   // 今年全部交手（使用者 2026-10-11）
       const ha=(SIM.h2h.a||0)/SIM.SIMS, hb=(SIM.h2h.b||0)/SIM.SIMS, pick=ha>=hb?A1:B1;
-      { const oa=isOut(A1), ob=isOut(B1), w=oa&&!ob?B1:(ob&&!oa?A1:null); nowT("hlet1",w?`${teamLogoHTML(tAb(w),20,true)}${esc(tAb(w))}`:TBD,w?"":(en2?"both alive":"兩隊都還在"),!w); }
-      cards.push(card(TG.t,en2?"Who will place higher: HLE or T1?":"哪支戰隊會排名更高：HLE 還是 T1？",P1(50),pickTx(`${teamLogoHTML(tAb(pick),24,true)}${esc(tAb(pick))}`),
+      { const oa=isOut(A1), ob=isOut(B1), w=oa&&!ob?B1:(ob&&!oa?A1:null); nowT("hlet1",w?`${teamLogoHTML(tAb(w),20,true,w)}${esc(tAb(w))}`:TBD,w?"":(en2?"both alive":"兩隊都還在"),!w); }
+      cards.push(card(TG.t,en2?"Who will place higher: HLE or T1?":"哪支戰隊會排名更高：HLE 還是 T1？",P1(50),pickTx(`${teamLogoHTML(tAb(pick),24,true,pick)}${esc(tAb(pick))}`),
         en2?`simulations: HLE higher ${pct(ha)}, T1 higher ${pct(hb)}, same stage ${pct(1-ha-hb)}; this year HLE ${sa}-${sb} T1 in series`
            :`模擬：HLE 較高 ${pct(ha)}、T1 較高 ${pct(hb)}、同名次 ${pct(1-ha-hb)}；今年系列賽 HLE ${sa}-${sb} T1`,
         col(H_RS,sub(en2?`all series this year (HLE ${sa}-${sb} T1)`:`今年全部交手（HLE ${sa} 勝 ${sb} 敗）`)+last.slice().reverse().map(s=>rowT(`${+s.d.slice(5,7)}/${+s.d.slice(8,10)} <span class="pdN">${esc(lgName(s.lg))}</span>`,`<span style="color:${s.a>s.b?"#ff8a3d":"#ff4d6a"}">${s.a>s.b?"HLE":"T1"}</span> ${Math.max(s.a,s.b)}-${Math.min(s.a,s.b)}`)).join("")
@@ -14598,17 +14603,17 @@ function render(){
     //   每局時長＝強度差＋勝方自己的節奏（見 DUR）；入圍賽照官方雙敗賽程打 ⇒ 強弱懸殊、BO5 局數多的入圍賽自然常出最快紀錄。
     { const mm=v=>`${Math.floor(v)}:${String(Math.round((v%1)*60)).padStart(2,"0")}`;
       const ts=EVT.filter(t=>SIM.T[t].fast).sort((a,b)=>SIM.T[b].fast-SIM.T[a].fast);
-      const liveRows=S=>Object.keys(S.winT).sort((a,b)=>S.winT[a]-S.winT[b]).slice(0,5).map(t=>`<div class="pdRow">${teamLogoHTML(tAb(t),22,true)}<span>${esc(tAb(t))}</span><span class="pdV">${mm(S.winT[t])}</span></div>`).join("");
+      const liveRows=S=>Object.keys(S.winT).sort((a,b)=>S.winT[a]-S.winT[b]).slice(0,5).map(t=>`<div class="pdRow">${teamLogoHTML(tAb(t),22,true,t)}<span>${esc(tAb(t))}</span><span class="pdV">${mm(S.winT[t])}</span></div>`).join("");
       const pickT=live?Object.keys(L.winT).sort((a,b)=>L.winT[a]-L.winT[b]).slice(0,3):ts.slice(0,3);
-      nowR("fast",Object.keys(L.winT).sort((a,b)=>L.winT[a]-L.winT[b]).slice(0,3).map(t=>({img:teamLogoHTML(tAb(t),20,true)||tLogo(t,20),nm:esc(tAb(t)),v:mm(L.winT[t])})));
+      nowR("fast",Object.keys(L.winT).sort((a,b)=>L.winT[a]-L.winT[b]).slice(0,3).map(t=>({img:teamLogoHTML(tAb(t),20,true,t)||tLogo(t,20),nm:esc(tAb(t)),v:mm(L.winT[t])})));
       const stN=SIM.SIMS, stTx=k=>pct((SIM.fastSt[k]||0)/stN);
       cards.push(card(TG.t,en2?"Which team will win the fastest game?":"哪支戰隊會以最短時間贏得對戰勝利？",P3,
-        `<span class="pdTiles">${pickT.map((t,i)=>tile(i,teamLogoHTML(tAb(t),46,true)||tLogo(t,46),esc(tAb(t)))).join("")}</span>`,
+        `<span class="pdTiles">${pickT.map((t,i)=>tile(i,teamLogoHTML(tAb(t),46,true,t)||tLogo(t,46),esc(tAb(t)))).join("")}</span>`,
         live?srcTx:(en2?`simulated: game length from the strength gap and the winner's own pace; play-in on the official double-elimination bracket${SIM.pooled?", Swiss round 1 drawn Pool 1 vs 4 / 2 vs 3":""}. The fastest game happened in play-in ${stTx("po")}${SIM.pooled?`, Swiss R1 ${stTx("r1")}`:""}, later Swiss ${stTx("sw")}, knockouts ${stTx("ko")}`
                       :`模擬：每局時長看強度差＋勝方自己的節奏；入圍賽照官方雙敗賽程${SIM.pooled?"、瑞士輪第一輪照官方種子（1 級打 4 級、2 級打 3 級）":""}。最快那局落在入圍賽 ${stTx("po")}${SIM.pooled?`、瑞士輪第一輪 ${stTx("r1")}`:""}、瑞士輪其他輪 ${stTx("sw")}、淘汰賽 ${stTx("ko")}`),
-        col(H_RS,sub(en2?"chance to own the fastest win":"拿下最快勝場的機率")+ts.slice(0,5).map(t=>`<div class="pdRow">${teamLogoHTML(tAb(t),22,true)}<span>${esc(tAb(t))}</span><span class="pdV">${pct(SIM.T[t].pfast)}${R.winT[t]?`・${en2?"recent min":"近期最快"} ${mm(R.winT[t])}`:""}</span></div>`).join("")
+        col(H_RS,sub(en2?"chance to own the fastest win":"拿下最快勝場的機率")+ts.slice(0,5).map(t=>`<div class="pdRow">${teamLogoHTML(tAb(t),22,true,t)}<span>${esc(tAb(t))}</span><span class="pdV">${pct(SIM.T[t].pfast)}${R.winT[t]?`・${en2?"recent min":"近期最快"} ${mm(R.winT[t])}`:""}</span></div>`).join("")
           +sub(en2?"most likely fastest-win matchups":"最有可能出現最快勝場的對戰")+Object.keys(SIM.fastPair).sort((a,b)=>SIM.fastPair[b]-SIM.fastPair[a]).slice(0,4).map(k=>{ const [w,l]=k.split("|");
-            return `<div class="pdRow">${teamLogoHTML(tAb(w),22,true)}<span>${esc(tAb(w))}</span><span class="pdN">${en2?"vs":"勝"}</span>${teamLogoHTML(tAb(l),22,true)}<span>${esc(tAb(l))}</span><span class="pdV">${pct(SIM.fastPair[k]/stN)}</span></div>`; }).join(""))
+            return `<div class="pdRow">${teamLogoHTML(tAb(w),22,true,w)}<span>${esc(tAb(w))}</span><span class="pdN">${en2?"vs":"勝"}</span>${teamLogoHTML(tAb(l),22,true,l)}<span>${esc(tAb(l))}</span><span class="pdV">${pct(SIM.fastPair[k]/stN)}</span></div>`; }).join(""))
         +col(H_PAST,histRows((y,h)=>h.shortest[0]?rowT(y,`${esc(tAb(h.shortest[0][1]))} ${mm(h.shortest[0][0])}`):""))+col(H_LIVE,L.n?liveRows(L):notYet))); }
     wrap.innerHTML=`<div class="pdList">${cards.join("")}</div>`;
     { const C2=window._PDC=window._PDC||{}; if(Object.keys(C2).length>6)window._PDC={}; window._PDC[window._PDK]=wrap.innerHTML; pdFitCols(); }

@@ -20,6 +20,10 @@ def main():
     teams = sorted(os.path.splitext(f)[0] for f in os.listdir(os.path.join(ROOT, "img", "teams")) if f.lower().endswith(".webp"))
     flags = sorted(os.path.splitext(f)[0] for f in os.listdir(os.path.join(ROOT, "img", "flags")) if f.lower().endswith(".png"))
     payload = {"teams": {t: 1 for t in teams}, "flags": {f: 1 for f in flags}}
+    # 撞名的隊（同縮寫不同隊，fetch_team_logos_wiki.py 產）：隊名 → 自己的隊徽檔名，"-"＝沒有隊徽（不要借用同縮寫別隊的）
+    al = os.path.join(ROOT, "csv_cache", "team_logo_alias.json")
+    if os.path.exists(al):
+        payload["alias"] = {n: k for n, k in json.load(io.open(al, encoding="utf-8")).items() if k == "-" or k in payload["teams"]}
     io.open(OUT, "w", encoding="utf-8").write("window.IMG_HAVE=" + json.dumps(payload, ensure_ascii=False, separators=(",", ":")) + ";\n")
     print("img_manifest.js：隊徽 %d 個、國旗 %d 個" % (len(teams), len(flags)))
     return 0
