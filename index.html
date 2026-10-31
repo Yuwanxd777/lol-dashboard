@@ -14408,11 +14408,21 @@ function render(){
     //   答案＝模擬與歷屆各占一半（2026-10-11）：模擬吃今年國際賽，但 LCS 今年對 LCK／LPL 只有 3-24，
     //   靠贏 LEC／LCP 撐起來的賽區分容易高估西方隊伍，歷屆基準率拿來拉回來。
     { const hs=k=>HY.length?HY.filter(y=>H[y].koRegions==k).length/HY.length:0;
-      { const q=EVT.filter(isQual), rg=new Set(q.map(t=>teamReg[t]).filter(x=>x)); nowT("koreg",q.length>=8?String(rg.size):TBD,q.length?(en2?`${q.length} in: ${[...rg].join("/")}`:`已晉級 ${q.length} 隊：${[...rg].join("／")}`):"",q.length<8); }
+      // 提早定案（使用者 2026-10-31「Q15 確定是 4 了」）：還沒滿 8 隊，但剩下的名額不管怎麼打地區數都一樣 ⇒ 直接定。
+      //   剩下的隊剛好被已公布的籤（PL.next）兩兩配完、場數＝剩餘名額 ⇒ 每場勝者晉級，窮舉 2^n 種結果；否則看模擬是不是只出現一種地區數。
+      const q=EVT.filter(isQual), rg=new Set(q.map(t=>teamReg[t]).filter(x=>x));
+      const koDec=(()=>{ if(q.length>=8)return rg.size; if(!LIVE)return null; const alv=EVT.filter(t=>!isOut(t)&&!isQual(t)), slots=8-q.length;
+        const nx=((PL&&PL.next)||[]).filter(x=>x.stage!=="Play-In"&&!/final/i.test(x.tab||"")).map(x=>[x.t1,x.t2].map(n=>EVT.find(t=>tAb(t)===tAb(nmT(n)))));
+        if(nx.length===slots&&alv.length===2*slots&&alv.every(t=>nx.filter(pr=>pr.includes(t)).length===1)){ const ns=new Set();
+          for(let m=0;m<(1<<slots);m++){ const r=new Set(rg); nx.forEach((pr,i)=>{ const g=teamReg[pr[(m>>i)&1]]; if(g)r.add(g); }); ns.add(r.size); }
+          return ns.size===1?[...ns][0]:null; }
+        const ks=Object.keys(SIM.koReg).filter(k=>SIM.koReg[k]>0); return ks.length===1&&SIM.koReg[ks[0]]===SIM.SIMS?+ks[0]:null; })();
+      nowT("koreg",koDec!=null?String(koDec):TBD,q.length?(en2?`${q.length} in: ${[...rg].join("/")}`:`已晉級 ${q.length} 隊：${[...rg].join("／")}`):"",koDec==null);
       const sc=k=>(SIM.koReg[k]||0)/SIM.SIMS/2+hs(k)/2;
-      const ks=[...new Set([...Object.keys(SIM.koReg),...HY.map(y=>String(H[y].koRegions))])].sort((a,b)=>sc(b)-sc(a)), mode=ks[0];
+      const ks=[...new Set([...Object.keys(SIM.koReg),...HY.map(y=>String(H[y].koRegions))])].sort((a,b)=>sc(b)-sc(a)), mode=koDec!=null?String(koDec):ks[0];   // 定案了就不再跟歷屆平均
       cards.push(card(TG.e,en2?"How many regions in the knockout stage? (8 teams)":"淘汰賽會有幾個不同參賽地區？（8 支隊伍）",P1(50),pickTx(mode!=null?mode:"–"),
-        en2?`simulation and past Worlds averaged: ${ks.slice().sort().map(k=>`${k} ${pct(sc(k))}`).join(", ")}`:`模擬與歷屆各半：${ks.slice().sort().map(k=>`${k} 個 ${pct(sc(k))}`).join("、")}`,
+        koDec!=null&&q.length<8?(en2?`Decided: ${koDec} regions whatever happens in the remaining matches`:`已確定 ${koDec} 個：剩下的比賽不管誰贏，地區數都一樣`)
+          :en2?`simulation and past Worlds averaged: ${ks.slice().sort().map(k=>`${k} ${pct(sc(k))}`).join(", ")}`:`模擬與歷屆各半：${ks.slice().sort().map(k=>`${k} 個 ${pct(sc(k))}`).join("、")}`,
         col(H_RS,ks.slice().sort().map(k=>rowT(k,pct((SIM.koReg[k]||0)/SIM.SIMS))).join(""))
         +col(H_PAST,histRows((y,h)=>rowT(y,`${h.koRegions}・${[...new Set(h.ko.map(x=>x[1]))].join("/")}`)))+col(H_LIVE,notYet))); }
     // ⑯ LCS 進淘汰賽（模擬）
