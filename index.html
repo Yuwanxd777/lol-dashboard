@@ -1094,7 +1094,8 @@
   .pdDRW{overflow-x:auto}
   .pdDRh4{display:flex;align-items:center;gap:10px}.pdDRys{margin-left:auto;display:inline-flex;gap:6px}.pdDRys .sqLaneBtn{font-size:14px;padding:3px 12px}
   /* 切年份不跳動（使用者 2026-11-01）：各年疊在同一格、沒選的只隱形（高度取最高那年），欄寬再統一成各年最寬 */
-  .pdDRY>.pdSub{margin:6px 0 10px}
+  .pdDRcard{display:block}.pdDRcard>.pdHd{margin-bottom:8px}
+  .pdDRY>.pdSub{margin:0 0 6px}
   .pdDRsk{cursor:pointer;user-select:none}.pdDRsk:hover{color:var(--tx)}.pdDRsk>.sortArr{position:static;transform:none;margin-left:4px}   /* 三角形緊跟欄名（隱形時也佔位，欄寬不變） */
   .pdDRstk{display:grid}.pdDRstk>.pdDRY{grid-area:1/1;min-width:0}.pdDRY.off{visibility:hidden}
   .pdDRG{display:grid;font-size:16px;font-variant-numeric:tabular-nums;row-gap:0}
@@ -14345,10 +14346,10 @@ function render(){
         if(!ys.length)return "";
         const tb=ys.map(y=>y==curYear?drwTbl(DRW_LIVE,y):drwTbl(SH[y],y)).join("");
         const bt=ys.length>1?`<span class="pdDRys">${ys.map(y=>`<button class="sqLaneBtn" data-y="${y}" onclick="pdDRSw(this.dataset.y)">${y}</button>`).join("")}</span>`:"";
-        return `<div class="pdCol pdQF pdDRbox" style="grid-column:1/-1"><h4 class="pdDRh4"><span>${en2?"Swiss stage draw luck":"瑞士輪籤運"}</span>${bt}</h4><div class="pdDRstk">${tb}</div></div>`; })();
+        return `<div class="card pdQC pdK-m pdDRcard pdDRbox"><div class="pdHd pdDRh4"><span class="pdTag">${en2?"Draw luck":"籤運"}</span><span class="pdQ">${en2?"Swiss stage draw luck":"瑞士輪籤運"}</span>${bt}</div><div class="pdDRstk">${tb}</div></div>`; })();
       cards.push(card(en2?"Model":"模型",(en2?"Team strength and how far each team goes":"戰隊強度與預估能走多遠")+(LIVE?(en2?` (with ${ACT_N} finished series)`:`（含本屆已完成 ${ACT_N} 個系列）`):""),
         "",null,`<b>${en2?`Region strength (${curYear-2}-${curYear} cross-region games, ${MODEL.nH})`:`賽區強度（${curYear-2}～${curYear} 國際賽跨賽區 ${MODEL.nH} 局）`}</b><br>${regs.map(g=>`${g} ${Math.round(MODEL.R[g]*400/Math.LN10)>=0?"+":""}${Math.round(MODEL.R[g]*400/Math.LN10)}`).join("・")}<br>${en2?(KO_ON?"Sorted by title odds":"Sorted by top-8 odds")+"; title / top-4 / top-8 odds come from the Worlds simulation.":(KO_ON?"依冠軍機率排序":"依八強機率排序")+"；冠軍／四強／八強機率來自世界賽模擬。"}${SIM_PREV?(en2?"<br>▲▼ = rank change since the previous match day.":"<br>▲▼＝名次跟前一個比賽日比的升降。"):""}`,
-        `<div class="pdCol pdMCol">${hdr}${ts.slice(0,third).map(row).join("")}</div><div class="pdCol pdMCol">${hdr}${ts.slice(third,third*2).map(row).join("")}</div><div class="pdCol pdMCol">${hdr}${ts.slice(third*2).map(row).join("")}</div>${QFH}${DRW}`,true)); }
+        `<div class="pdCol pdMCol">${hdr}${ts.slice(0,third).map(row).join("")}</div><div class="pdCol pdMCol">${hdr}${ts.slice(third,third*2).map(row).join("")}</div><div class="pdCol pdMCol">${hdr}${ts.slice(third*2).map(row).join("")}</div>${QFH}`,true)+DRW); }   // 籤運獨立一張卡、接在模型卡下面（使用者 2026-11-01）；併進同一格 ⇒ 後面各題的 Q 編號不變
     // ① 出場率
     // 使用者 2026-10-11：每張卡一律三欄＝近期（積分／模擬併進來）｜歷屆世界賽｜本屆
     const sqTx=c=>SQ&&SQV.length?`・${trTx(c)}`:"";
