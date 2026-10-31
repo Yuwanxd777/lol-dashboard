@@ -4,7 +4,7 @@
 使用者 2026-11-01：籤運表右上角可以切換年份，從 2023（第一屆瑞士輪）開始。
 本屆（今年）照舊在前端即時算（index.html 的 DRW）；往年的賽程不會再變 ⇒ 這支離線算一次存檔。
 算法跟前端 DRW 一字不差（改一邊要改另一邊）：
-  每一場籤運＝「當輪規則下所有合法抽法的平均期望勝率」−「對實際對手的期望勝率」，正＝籤比隨機抽硬。
+  每一場籤運＝「中等隊伍打當輪能抽到的對手（等權）的平均勝率」−「打實際對手的勝率」，正＝籤比隨機抽硬（只看對手，2026-11-01 改）。
   合法抽法：第 1 輪照分級（分級數 4 ⇒ 1 級對 4 級、2 級對 3 級；2025 只有 3 級 ⇒ 1 級對 3 級、2 級組內互打，
   兩種都是「級數相加＝級數−1」），同賽區不相遇；第 2 輪起同戰績組內、不重複對手（2023 允許重複對戰，2024 起才禁止）。
   強度＝前端 mkWorld 的模型（賽區 Bradley-Terry＋戰隊半衰期 120 天、往賽區收斂 LAM 1.5），只用瑞士輪開打前的局；
@@ -170,6 +170,7 @@ def build_year(year, src, H):
         h = HH.get((on(a), on(b))) if treg.get(on(a)) and treg.get(on(a)) == treg.get(on(b)) else None
         return (h[0] + 2 * pm(a, b)) / (h[1] + 2) if h and h[1] else pm(a, b)
     pS = lambda p, bo: p * p * (3 - 2 * p) if bo == 3 else p
+    # 只看對手（使用者 2026-11-01）：對手有效強度 seff＝S(u) − logit(pG(u,o))，拿「中等隊伍（16 隊平均強度 MU）打他的勝率」比
     byR = {}
     for x in sorted(sw, key=lambda x: str(x["dt"])):
         w = x["t1"] if str(x["w"]) == "1" else x["t2"]; l = x["t2"] if w == x["t1"] else x["t1"]
@@ -178,6 +179,8 @@ def build_year(year, src, H):
     assert sorted(sum(pools, [])) == teams, (year, "分級名單跟賽程對不上", set(teams) ^ set(sum(pools, [])))
     pool = {t: i for i, pl in enumerate(pools) for t in pl}
     PS = len(pools) - 1
+    MU = sum(S(t) for t in teams) / len(teams)
+    qR = lambda u, o, bo: pS(1 / (1 + math.exp(S(u) - math.log(pG(u, o) / (1 - pG(u, o))) - MU)), bo)
     okR1 = lambda a, b: rreg[a] != rreg[b] and pool[a] + pool[b] == PS
     rec = {t: [0, 0] for t in teams}; met = set(); T = {t: {"tot": 0.0, "rs": {}} for t in teams}
     mk = lambda a, b: frozenset((a, b))
@@ -190,7 +193,7 @@ def build_year(year, src, H):
         # 2023 規則允許瑞士輪重複對戰（DK 打了 KT 兩次），2024 起才禁止（使用者 2026-11-01）
         ok = okR1 if r == 1 else (lambda a, b: year < 2024 or mk(a, b) not in met)
         boOf = lambda t: 3 if r > 1 and 2 in rec[t] else 1
-        ex, po = {}, {}
+        po = {}
         for k, mem in groups.items():
             L = [] if len(mem) % 2 else legal(mem, ok)
             if not L:
@@ -198,17 +201,15 @@ def build_year(year, src, H):
             for m in L:
                 for a, b in m:
                     po.setdefault(a, set()).add(b); po.setdefault(b, set()).add(a)
-                    bo = boOf(a)
-                    ex[a] = ex.get(a, 0) + pS(pG(a, b), bo) / len(L); ex[b] = ex.get(b, 0) + pS(pG(b, a), bo) / len(L)
         for a, b, bo_act in ps:
             if boOf(a) != bo_act:
                 warn.append(f"R{r} {a}-{b} 賽制 BO{bo_act} 跟戰績推的 BO{boOf(a)} 不同")
             if not ok(a, b):
                 warn.append(f"R{r} {a}-{b} 實際對戰不在合法抽法裡")
             for u, v, isW in ((a, b, True), (b, a, False)):
-                bo = boOf(u); pv = pS(pG(u, v), bo); os_ = po.get(u, set())
-                d = ex[u] - pv if u in ex else None
-                rk = 1 + sum(1 for o in os_ if pS(pG(u, o), bo) < pv - 1e-9) if os_ else None
+                bo = boOf(u); qv = qR(u, v, bo); os_ = po.get(u, set())
+                d = sum(qR(u, o, bo) for o in os_) / len(os_) - qv if os_ else None   # 能抽到的對手等權平均 − 實際對手
+                rk = 1 + sum(1 for o in os_ if qR(u, o, bo) < qv - 1e-9) if os_ else None
                 T[u]["rs"][str(r)] = {"o": v, "bo": bo, "d": None if d is None else round(d, 4), "res": isW, "rk": rk, "m": len(os_)}
                 if d is not None:
                     T[u]["tot"] += d
