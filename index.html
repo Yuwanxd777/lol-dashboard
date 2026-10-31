@@ -1093,7 +1093,8 @@
   /* 瑞士輪籤運（使用者 2026-10-31；同日重做版面）：一列一隊，每輪一張小卡，底色＝籤運 */
   .pdDRW{overflow-x:auto}
   .pdDRh4{display:flex;align-items:center;gap:10px}.pdDRys{margin-left:auto;display:inline-flex;gap:6px}.pdDRys .sqLaneBtn{font-size:14px;padding:3px 12px}
-  .pdDRY[hidden]{display:none}
+  /* 切年份不跳動（使用者 2026-11-01）：各年疊在同一格、沒選的只隱形（高度取最高那年），欄寬再統一成各年最寬 */
+  .pdDRstk{display:grid}.pdDRstk>.pdDRY{grid-area:1/1;min-width:0}.pdDRY.off{visibility:hidden}
   .pdDRG{display:grid;font-size:16px;font-variant-numeric:tabular-nums;row-gap:0}
   .pdDRr{display:contents}
   .pdDRr>span{display:flex;align-items:center;padding:7px 6px;border-bottom:1px solid rgba(255,255,255,.06)}
@@ -13748,7 +13749,12 @@ function render(){
     // 籤運表年份（使用者 2026-11-01）：每年一塊表，全部畫好、只顯示選中的那年；記在 window._pdDRY，換頁／重繪後照舊
     window.pdDRSw=y=>{ const bx=document.querySelector(".pdDRbox"); if(!bx)return; const ys=[...bx.querySelectorAll(".pdDRY")].map(e=>e.dataset.y);
       if(!ys.includes(String(y)))y=ys[0]; window._pdDRY=String(y);
-      bx.querySelectorAll(".pdDRY").forEach(e=>e.hidden=e.dataset.y!==String(y)); bx.querySelectorAll(".pdDRys .sqLaneBtn").forEach(b=>b.classList.toggle("on",b.dataset.y===String(y))); };
+      // 欄寬統一：每年的表頭格寬＝該欄寬（max-content），取各年最大後寫回每一張表（欄數不同就不動）；總結欄照舊吃剩下的寬
+      const gs=[...bx.querySelectorAll(".pdDRG")], ws=gs.map(g=>[...g.querySelectorAll(".pdDRh>span")].map(c=>c.offsetWidth));
+      if(gs.length>1&&!bx.dataset.al&&ws.every(w=>w.length===ws[0].length&&w[0]>0)){
+        const mx=ws[0].map((_,i)=>Math.max(...ws.map(w=>w[i]))); mx.pop();
+        gs.forEach(g=>g.style.gridTemplateColumns=mx.map(w=>w+"px").join(" ")+" minmax(260px,1fr)"); bx.dataset.al=1; }
+      bx.querySelectorAll(".pdDRY").forEach(e=>e.classList.toggle("off",e.dataset.y!==String(y))); bx.querySelectorAll(".pdDRys .sqLaneBtn").forEach(b=>b.classList.toggle("on",b.dataset.y===String(y))); };
     const pdFitCols=()=>{ pdDRSw(window._pdDRY); const rows=[...wrap.querySelectorAll(".pdMRow")]; if(!rows.length)return; wrap.style.removeProperty("--pdcols");
       const mx=[0,0,0,0,0,0]; rows.forEach(r=>[...r.children].slice(1,7).forEach((c,i)=>{ mx[i]=Math.max(mx[i],c.offsetWidth+1); }));
       const av=Math.min(...[...wrap.querySelectorAll(".pdMCol")].map(c=>c.clientWidth))-24-30;   // 卡片內距左右 24（列的 padding 被負 margin 抵掉）、6 個 5px 的 gap
@@ -14308,7 +14314,7 @@ function render(){
         if(!ys.length)return "";
         const tb=ys.map(y=>y==curYear?drwTbl(DRW_LIVE,y):drwTbl(SH[y],y)).join("");
         const bt=ys.length>1?`<span class="pdDRys">${ys.map(y=>`<button class="sqLaneBtn" data-y="${y}" onclick="pdDRSw(this.dataset.y)">${y}</button>`).join("")}</span>`:"";
-        return `<div class="pdCol pdQF pdDRbox" style="grid-column:1/-1"><h4 class="pdDRh4"><span>${en2?"Swiss stage draw luck":"瑞士輪籤運"}</span>${bt}</h4>${tb}</div>`; })();
+        return `<div class="pdCol pdQF pdDRbox" style="grid-column:1/-1"><h4 class="pdDRh4"><span>${en2?"Swiss stage draw luck":"瑞士輪籤運"}</span>${bt}</h4><div class="pdDRstk">${tb}</div></div>`; })();
       cards.push(card(en2?"Model":"模型",(en2?"Team strength and how far each team goes":"戰隊強度與預估能走多遠")+(LIVE?(en2?` (with ${ACT_N} finished series)`:`（含本屆已完成 ${ACT_N} 個系列）`):""),
         "",null,`<b>${en2?`Region strength (${curYear-2}-${curYear} cross-region games, ${MODEL.nH})`:`賽區強度（${curYear-2}～${curYear} 國際賽跨賽區 ${MODEL.nH} 局）`}</b><br>${regs.map(g=>`${g} ${Math.round(MODEL.R[g]*400/Math.LN10)>=0?"+":""}${Math.round(MODEL.R[g]*400/Math.LN10)}`).join("・")}<br>${en2?(KO_ON?"Sorted by title odds":"Sorted by top-8 odds")+"; title / top-4 / top-8 odds come from the Worlds simulation.":(KO_ON?"依冠軍機率排序":"依八強機率排序")+"；冠軍／四強／八強機率來自世界賽模擬。"}${SIM_PREV?(en2?"<br>▲▼ = rank change since the previous match day.":"<br>▲▼＝名次跟前一個比賽日比的升降。"):""}`,
         `<div class="pdCol pdMCol">${hdr}${ts.slice(0,third).map(row).join("")}</div><div class="pdCol pdMCol">${hdr}${ts.slice(third,third*2).map(row).join("")}</div><div class="pdCol pdMCol">${hdr}${ts.slice(third*2).map(row).join("")}</div>${QFH}${DRW}`,true)); }
