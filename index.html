@@ -14308,7 +14308,7 @@ function render(){
         const rr=(t,r)=>{ const x=R[t].rs[r]; if(!x)return `<span class="pdDRc pdDRe"></span>`;
           const res=x.res==null?`<em class="pd">${en2?"next":"待打"}</em>`:`<em class="${x.res?"w":"l"}">${x.res?W:Lz}</em>`;
           const tip=x.rk?(en2?`#${x.rk} strongest of the ${x.m} teams it could draw · draw luck ${x.d!=null?f2(-x.d):"–"}`:`能抽到的 ${x.m} 隊裡第 ${x.rk} 強・籤運 ${x.d!=null?f2(-x.d):"–"}`):"";
-          return `<span class="pdDRc" style="${tint(x.res)}" title="${tip}"><span class="pdDRo">${lg(x.o)}<b>${esc(tAb(x.o))}</b>${res}${x.bo>1?`<small>BO${x.bo}</small>`:""}</span>`
+          return `<span class="pdDRc" style="${tint(x.res)}" title="${tip}"><span class="pdDRo">${res}${lg(x.o)}<b>${esc(tAb(x.o))}</b>${x.bo>1?`<small>BO${x.bo}</small>`:""}</span>`
             +`<span class="pdDRm">${x.rk?dots(x.rk,x.m):""}<i class="${cl(-x.d)}">${x.d!=null?f2(-x.d):""}</i></span></span>`; };
         // 每隊一句總結：籤運等級＋最硬／最好的那一輪＋籤與結果的反差
         const sumTx=t=>{ const v=R[t].tot, rs=RN.map(r=>[r,R[t].rs[r]]).filter(([,x])=>x&&x.d!=null);
