@@ -149,8 +149,10 @@ def legal(mem, ok):
 
 def build_year(year, src, H):
     ms = src["ms"]; pools, rreg = pools_of(src["wt"], year)
-    sw = [x for x in ms if str(x.get("tab") or "").startswith("Round ") and str(x.get("w")) in ("1", "2")]
-    cut = min(str(x["dt"])[:10] for x in sw)
+    # 八強也算（使用者 2026-11-01）：輪號 6
+    isQ = lambda x: "quarter" in str(x.get("tab") or "").lower()
+    sw = [x for x in ms if (str(x.get("tab") or "").startswith("Round ") or isQ(x)) and str(x.get("w")) in ("1", "2")]
+    cut = min(str(x["dt"])[:10] for x in sw if not isQ(x))
     on = lambda t: OE_NAME.get((year, t), t)
     games = load_games(year)
     st, treg = model(year, games, cut, H)
@@ -169,12 +171,12 @@ def build_year(year, src, H):
     def pG(a, b):
         h = HH.get((on(a), on(b))) if treg.get(on(a)) and treg.get(on(a)) == treg.get(on(b)) else None
         return (h[0] + 2 * pm(a, b)) / (h[1] + 2) if h and h[1] else pm(a, b)
-    pS = lambda p, bo: p * p * (3 - 2 * p) if bo == 3 else p
+    pS = lambda p, bo: p * p * (3 - 2 * p) if bo == 3 else p ** 3 * (1 + 3 * (1 - p) + 6 * (1 - p) ** 2) if bo == 5 else p
     # 只看對手（使用者 2026-11-01）：對手有效強度 seff＝S(u) − logit(pG(u,o))，拿「中等隊伍（16 隊平均強度 MU）打他的勝率」比
     byR = {}
     for x in sorted(sw, key=lambda x: str(x["dt"])):
         w = x["t1"] if str(x["w"]) == "1" else x["t2"]; l = x["t2"] if w == x["t1"] else x["t1"]
-        byR.setdefault(int(re.sub(r"\D", "", x["tab"])), []).append((w, l, int(x["bo"] or 1)))
+        byR.setdefault(6 if isQ(x) else int(re.sub(r"\D", "", x["tab"])), []).append((w, l, int(x["bo"] or 1)))
     teams = sorted({t for ps in byR.values() for p in ps for t in p[:2]})
     assert sorted(sum(pools, [])) == teams, (year, "分級名單跟賽程對不上", set(teams) ^ set(sum(pools, [])))
     pool = {t: i for i, pl in enumerate(pools) for t in pl}
@@ -189,10 +191,13 @@ def build_year(year, src, H):
         ps = byR[r]; groups = {}
         for a, b, _ in ps:
             for t in (a, b):
-                groups.setdefault("r1" if r == 1 else tuple(rec[t]), []).append(t)
+                groups.setdefault("r1" if r == 1 else "qf" if r == 6 else tuple(rec[t]), []).append(t)
         # 2023 規則允許瑞士輪重複對戰（DK 打了 KT 兩次），2024 起才禁止（使用者 2026-11-01）
-        ok = okR1 if r == 1 else (lambda a, b: year < 2024 or mk(a, b) not in met)
-        boOf = lambda t: 3 if r > 1 and 2 in rec[t] else 1
+        # 八強籤：3-0 抽 3-2、剩下的 3-2 打 3-1、3-1 互打（敗場數配對 0-2／1-2／1-1）；
+        #   2023～2025 八強實際都有瑞士輪重賽（NRG–WBG、TES–T1、G2–TES）⇒ 往年不排除重賽（2026 起不再碰，前端那邊）
+        okQF = lambda a, b: tuple(sorted((rec[a][1], rec[b][1]))) in ((0, 2), (1, 2), (1, 1))
+        ok = okR1 if r == 1 else okQF if r == 6 else (lambda a, b: year < 2024 or mk(a, b) not in met)
+        boOf = lambda t: 5 if r == 6 else 3 if r > 1 and 2 in rec[t] else 1
         po = {}
         for k, mem in groups.items():
             L = [] if len(mem) % 2 else legal(mem, ok)
@@ -215,7 +220,7 @@ def build_year(year, src, H):
                     T[u]["tot"] += d
         for a, b, _ in ps:
             rec[a][0] += 1; rec[b][1] += 1; met.add(mk(a, b))
-    out = [{"n": t, "rg": rreg[t], "q": 1 if rec[t][0] >= 3 else -1 if rec[t][1] >= 3 else 0,
+    out = [{"n": t, "rg": rreg[t], "q": 1 if rec[t][0] >= 3 else -1 if rec[t][1] >= 3 else 0,   # 3 勝＝晉級（八強輸了仍是 1）
             "tot": round(T[t]["tot"], 4), "rs": T[t]["rs"]} for t in teams]
     elo = {t: round(1500 + S(t) * 400 / math.log(10)) for t in teams}
     return {"from": cut, "T": out}, warn, elo
