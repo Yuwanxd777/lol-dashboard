@@ -13927,9 +13927,12 @@ function render(){
       const used={};
       (PL.series||[]).slice().sort((a,b)=>a.d<b.d?-1:1).forEach(x=>{ const wa=tAb(nmT(x.w)), la=tAb(nmT(x.l)), w=abT2(wa), l=abT2(la); if(!w||!l)return;
         const pk=[wa,la].sort().join("|"), i=used[pk]=(used[pk]||0), ser=(GS[pk]||[])[i]; used[pk]=i+1;
-        const r={w,l,gw:ser?ser.filter(z=>z===wa).length:null,gl:ser?ser.filter(z=>z===la).length:null,tab:x.tab||""}, st=stgOf(x);
+        const r={w,l,gw:ser?ser.filter(z=>z===wa).length:null,gl:ser?ser.filter(z=>z===la).length:null,tab:x.tab||"",d:x.d||""}, st=stgOf(x);
         (ACT[st+"|"+[w,l].sort().join("|")]=ACT[st+"|"+[w,l].sort().join("|")]||[]).push(r); ACT_N++;
         if(st==="sw")ACT_SW.push(r); if(st==="ko")ACT_KO.push(r); }); }
+    const QF_ACT=LIVE?[...ACT_KO.filter(r=>/quarter/i.test(r.tab)).map(r=>[r.d,r.w,r.l]),
+      ...((PL&&PL.next)||[]).filter(x=>/quarter/i.test(x.tab||"")).map(x=>[x.d||"",...[x.t1,x.t2].map(n=>EVT.find(t=>tAb(t)===tAb(nmT(n))))])]
+      .sort((a,b)=>a[0]<b[0]?-1:a[0]>b[0]?1:0):[];
     const SIM=noSim?null:(()=>{
       const SIMS=4000; const rnd=mkRng(20261015);
       const pG=(a,b)=>1/(1+Math.exp(strength(b)-strength(a)));
@@ -14010,7 +14013,10 @@ function render(){
                 const bad=0; if(bad<bb){bb=bad; best=[];} if(bad===bb)best.push(ps); } }
             const ps=best[Math.floor(rnd()*best.length)], o=shuffle([ps[2],ps[3]]);
             br=[...ps[0],...o[0],...ps[1],...o[1]]; } }
-        if(LIVE){ const qf=ACT_KO.filter(r=>/quarter/i.test(r.tab)); if(qf.length===4&&qf.every(r=>br.includes(r.w)&&br.includes(r.l)))br=qf.flatMap(r=>[r.w,r.l]); }
+        // 實際八強籤（使用者 2026-11-01「八強推演已經有抽籤結果了」）：打完的（ACT_KO）＋已公布還沒打的（PL.next）依日期排＝QF1～QF4；
+        //   Leaguepedia 對陣表 R1M1～M4＝QF3／QF4／QF1／QF2 ⇒ 四強是 QF1 勝 vs QF2 勝、QF3 勝 vs QF4 勝，br 照日期排剛好兩兩相鄰
+        //   籤四場都知道就直接照籤（不管這次模擬的瑞士輪有沒有剛好跑出同一批八強：模擬沒逐場鎖死真實配對，約一成會跑出別的戰績）
+        if(LIVE){ const qf=QF_ACT.filter(([,a,b])=>a&&b); if(qf.length===4)br=qf.flatMap(([,a,b])=>[a,b]); }
         br.forEach(t=>{ const k=rec[t]?rec[t].join("-"):""; (qfRec[t]=qfRec[t]||{})[k]=(qfRec[t][k]||0)+1; });
         for(let i=0;i+1<br.length;i+=2){ const pk=[br[i],br[i+1]].sort().join("|"); (qfPair[pk]=qfPair[pk]||{n:0,w:{}}).n++; }
         br.forEach(t=>T[t].ko++);
@@ -14023,7 +14029,7 @@ function render(){
         if(fT){ T[fT].fast++; fastSt[fSt]=(fastSt[fSt]||0)+1; const pk=fT+"|"+fL; fastPair[pk]=(fastPair[pk]||0)+1; }
       }
       for(const t in T){ const x=T[t]; x.eg=x.g/SIMS; x.ew=x.w/SIMS; x.pko=x.ko/SIMS; x.psf=x.sf/SIMS; x.pch=x.champ/SIMS; x.pfin=x.final/SIMS; x.epl=x.place/SIMS; x.wr=x.g?x.w/x.g:0; x.pfast=x.fast/SIMS; }
-      return {T,SIMS,koReg,lcsKO:lcsKO.n/SIMS,h2h,fastSt,fastPair,qfPair,qfRec,pooled:!!WPOOL};
+      return {T,SIMS,koReg,lcsKO:lcsKO.n/SIMS,h2h,fastSt,fastPair,qfPair,qfRec,pooled:!!WPOOL,qfAct:QF_ACT};
     })();
     return {MODEL,strength,DUR,LIVE,ACT_N,SIM}; };
     const {MODEL,strength,DUR,LIVE,ACT_N,SIM}=mkWorld(null);
@@ -14251,16 +14257,20 @@ function render(){
         const bo5=(x,y)=>{ const q=1/(1+Math.exp(strength(y)-strength(x))); return q**3*(1+3*(1-q)+6*(1-q)**2); };
         const opp={}; for(const k in QP){ const v=QP[k], [a,b]=k.split("|");
           const big=v.n>=50; (opp[a]=opp[a]||[]).push({t:b,n:v.n,w:big?(v.w[a]||0)/v.n:bo5(a,b)}); (opp[b]=opp[b]||[]).push({t:a,n:v.n,w:big?(v.w[b]||0)/v.n:bo5(b,a)}); }
+        const QF_ACT=SIM.qfAct||[], QFD=QF_ACT.length===4&&QF_ACT.every(([,a,b])=>a&&b), qfI=t=>QF_ACT.findIndex(([,a,b])=>a===t||b===t), qfD=t=>{ const d=(QF_ACT[qfI(t)]||[])[0]||""; return d?`${+d.slice(5,7)}/${+d.slice(8,10)}`:""; };
         const tq=EVT.filter(t=>isQual(t)&&SIM.T[t]&&opp[t])   // 使用者 2026-10-29：只推演已確定晉級八強的隊；對手也只列已晉級的隊，還沒有就顯示 –
-          .sort((x,y)=>(SIM.T[y].ko-SIM.T[x].ko)||(strength(y)-strength(x)));
+          .sort((x,y)=>QFD?qfI(x)-qfI(y)||(QF_ACT[qfI(x)][1]===x?-1:1):(SIM.T[y].ko-SIM.T[x].ko)||(strength(y)-strength(x)));
         if(!tq.length)return "";
-        const recTx=t=>{ const r=(SIM.qfRec||{})[t]||{}, ko=SIM.T[t].ko, ks=["3-0","3-1","3-2"].filter(k=>r[k]);
+        // 籤已抽出＝瑞士輪已打完 ⇒ 戰績直接寫實際的（PL.series 的瑞士輪系列）
+        const RWL={}; if(QFD)((PL&&PL.series)||[]).forEach(x=>{ if(x.stage==="Play-In"||/final/i.test(x.tab||""))return; const w=tAb(nmT(x.w)), l=tAb(nmT(x.l));
+          (RWL[w]=RWL[w]||[0,0])[0]++; (RWL[l]=RWL[l]||[0,0])[1]++; });
+        const recTx=t=>{ if(QFD&&RWL[tAb(t)])return RWL[tAb(t)].join("-"); const r=(SIM.qfRec||{})[t]||{}, ko=SIM.T[t].ko, ks=["3-0","3-1","3-2"].filter(k=>r[k]);
           return ks.length===1&&r[ks[0]]===ko?ks[0]:ks.map(k=>`${k} ${p1(r[k]/ko)}`).join("・"); };
         const row=t=>{ const ko=SIM.T[t].ko, q=isQual(t)?`<b class="pdQual" title="${en2?"qualified for Top 8":"已晉級八強"}">✔</b>`:`${en2?"Top 8":"八強"} ${p1(ko/N)}`;
-          const os=opp[t].filter(o=>isQual(o.t)).sort((x,y)=>y.n-x.n).map(o=>`<span class="pdQFO">${lg(o.t)}<b>${esc(tAb(o.t))}</b><span>${p1(o.n/ko)}・${p1(o.w)}</span></span>`).join("");
+          const os=opp[t].filter(o=>isQual(o.t)).sort((x,y)=>y.n-x.n).map(o=>`<span class="pdQFO">${lg(o.t)}<b>${esc(tAb(o.t))}</b><span>${QFD?`${qfD(t)}・${en2?"win":"勝率"} ${p1(o.w)}`:`${p1(o.n/ko)}・${p1(o.w)}`}</span></span>`).join("");
           return `<div class="pdQFR"><span class="pdQFT">${lg(t)}<b>${esc(tAb(t))}</b></span><span class="pdN">${q}</span><span class="pdN">${recTx(t)}</span><span class="pdQFL">${os||"–"}</span></div>`; };
         return `<div class="pdCol pdQF" style="grid-column:1/-1"><h4>${en2?"Quarterfinal projection":"八強推演"}</h4>`
-          +`<div class="pdSub">${en2?"Draw: each 3-0 team draws a 3-2 team; the last 3-2 team faces a 3-1 team; the other two 3-1 teams play each other; teams that met in the Swiss stage can meet again. Each team lists its possible opponents already through: chance of drawing them (if the team makes the top 8)・the team’s win %. Record = the team’s Swiss record when it makes the top 8.":"抽籤：3-0 各抽一隊 3-2、剩下的 3-2 對 3-1、剩兩隊 3-1 互打；瑞士輪交手過的也可能再抽到。每隊列出已晉級的可能對手：抽到機率（該隊進八強時）・該隊勝率；戰績＝該隊進八強時的瑞士輪戰績。"}</div>`
+          +`<div class="pdSub">${QFD?(en2?"The quarterfinal draw is out: each team’s actual opponent, match date and the team’s win %; the top half is QF1 & QF2, the bottom half QF3 & QF4. Record = Swiss record.":"八強籤已抽出：每隊的實際對手、比賽日期、該隊勝率；QF1、QF2 同半區，QF3、QF4 同半區。戰績＝瑞士輪戰績。"):en2?"Draw: each 3-0 team draws a 3-2 team; the last 3-2 team faces a 3-1 team; the other two 3-1 teams play each other; teams that met in the Swiss stage can meet again. Each team lists its possible opponents already through: chance of drawing them (if the team makes the top 8)・the team’s win %. Record = the team’s Swiss record when it makes the top 8.":"抽籤：3-0 各抽一隊 3-2、剩下的 3-2 對 3-1、剩兩隊 3-1 互打；瑞士輪交手過的也可能再抽到。每隊列出已晉級的可能對手：抽到機率（該隊進八強時）・該隊勝率；戰績＝該隊進八強時的瑞士輪戰績。"}</div>`
           +`<div class="pdQFG">${tq.map(row).join("")}</div></div>`; })();
       // 瑞士輪籤運（使用者 2026-10-31）：每一場＝「當輪規則下所有合法抽法的平均期望勝率」−「對實際對手的期望勝率」，換算成勝場；
       //   正＝籤比隨機抽硬（吃虧）、負＝好籤。合法抽法：第 1 輪照分級（1 級對 4 級、2 級對 3 級）且同賽區不相遇；
