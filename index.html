@@ -14615,7 +14615,9 @@ function render(){
         koDec!=null&&q.length<8?(en2?`Decided: ${koDec} regions whatever happens in the remaining matches`:`已確定 ${koDec} 個：剩下的比賽不管誰贏，地區數都一樣`)
           :en2?`simulation and past Worlds averaged: ${ks.slice().sort().map(k=>`${k} ${pct(sc(k))}`).join(", ")}`:`模擬與歷屆各半：${ks.slice().sort().map(k=>`${k} 個 ${pct(sc(k))}`).join("、")}`,
         col(H_RS,ks.slice().sort().map(k=>rowT(k,pct((SIM.koReg[k]||0)/SIM.SIMS))).join(""))
-        +col(H_PAST,histRows((y,h)=>rowT(y,`${h.koRegions}・${[...new Set(h.ko.map(x=>x[1]))].join("/")}`)))+col(H_LIVE,notYet))); }
+        +col(H_PAST,histRows((y,h)=>rowT(y,`${h.koRegions}・${[...new Set(h.ko.map(x=>x[1]))].join("/")}`)))
+        +col(H_LIVE,PL&&(PL.series||[]).length?sub(en2?`${q.length} qualified・${rg.size} regions`:`已晉級 ${q.length} 隊・${rg.size} 個地區`)
+          +q.slice().sort((a,b)=>String(teamReg[a]).localeCompare(String(teamReg[b]))).map(t=>`<div class="pdRow">${tLogo(t,22)}<span>${outAb(t)}</span><span class="pdV">${esc(teamReg[t]||"–")}</span></div>`).join(""):notYet))); }
     // ⑯ LCS 進淘汰賽（模擬）
     { const lcs0=EVT.filter(t=>teamReg[t]==="LCS"), lq=lcs0.filter(isQual), la2=lcs0.filter(t=>!isOut(t));
       nowT("lcs",lq.length?(en2?"Yes (done)":"會（已晉級）"):la2.length?TBD:(en2?"No":"不會（全數淘汰）"),(lq.length?lq:la2).map(t=>esc(tAb(t))).join("／")+(!lq.length&&la2.length?(en2?" alive":" 晉級中"):""),!lq.length&&!!la2.length);
@@ -14645,7 +14647,11 @@ function render(){
           +sub(en2?"simulated":"模擬")+[A1,B1].map(t=>rowT(esc(tAb(t)),`${en2?"KO":"八強"} ${pct(SIM.T[t].pko)}・${en2?"final":"決賽"} ${pct(SIM.T[t].pfin)}`)).join(""))
         +col(H_PAST,histRows((y,h)=>{ const fn=re=>{ const k=Object.keys(h.fin||{}).find(t=>re.test(t)); return k?h.fin[k]:0; };
             const st=r=>({1:en2?"🏆 champion":"🏆 冠軍",2:en2?"final":"亞軍",4:en2?"top 4":"四強",8:en2?"top 8":"八強"})[r]||"–";
-            return rowT(y,`HLE ${st(fn(/^Hanwha/))}・T1 ${st(fn(/^(SK Telecom )?T1$/))}`); }))+col(H_LIVE,notYet))); }
+            return rowT(y,`HLE ${st(fn(/^Hanwha/))}・T1 ${st(fn(/^(SK Telecom )?T1$/))}`); }))
+        +col(H_LIVE,PL&&(PL.series||[]).length?[A1,B1].map(t=>{ const v=OUTB[tAb(t)]||0, r=v%100;
+            const tx=isOut(t)?(v>=300?(en2?["","QF","SF","Final"][r]+" loss":["","八強","四強","決賽"][r]+"淘汰"):v>=200?(en2?`out in Swiss R${r}`:`瑞士輪第 ${r} 輪淘汰`):(en2?`out in Play-In R${r}`:`入圍賽第 ${r} 輪淘汰`))
+              :isQual(t)?(en2?"in the knockouts":"淘汰賽晉級中"):(en2?"alive":"瑞士輪晉級中");
+            return `<div class="pdRow">${teamLogoHTML(tAb(t),22,true,t)||tLogo(t,22)}<span>${outAb(t)}</span><span class="pdV">${tx}</span></div>`; }).join(""):notYet))); }
     // ⑱ 最短時間勝場（使用者 2026-10-11：通常發生在入圍賽，入圍賽賽程已出）：直接看模擬
     //   每局時長＝強度差＋勝方自己的節奏（見 DUR）；入圍賽照官方雙敗賽程打 ⇒ 強弱懸殊、BO5 局數多的入圍賽自然常出最快紀錄。
     { const mm=v=>`${Math.floor(v)}:${String(Math.round((v%1)*60)).padStart(2,"0")}`;
