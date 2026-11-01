@@ -1109,11 +1109,13 @@
   .pdDRe{background:none}
   .pdDRr>span>.pdDRc{flex:1}   /* 同一輪的卡一樣寬 */
   /* 籤運小框滑上去的浮層：能抽到的對手由強到弱，抽到的那列亮起來 */
-  #hoverTip .pdDRt{display:grid;grid-template-columns:auto auto auto 1fr;gap:4px 8px;align-items:center;margin-top:6px}
+  #hoverTip .pdDRt{display:grid;grid-template-columns:auto auto auto 1fr auto;gap:4px 8px;align-items:center;margin-top:6px}
   #hoverTip .pdDRt>span{padding:3px 0;white-space:nowrap;font-size:14px}
   #hoverTip .pdDRt .k{color:#7a8aaa;text-align:right;font-variant-numeric:tabular-nums}
   #hoverTip .pdDRt .g{color:#8a98b8;font-size:12.5px}
   #hoverTip .pdDRt .on{color:var(--gold);font-weight:700}
+  #hoverTip .pdDRt .v{text-align:right;padding-left:14px;font-variant-numeric:tabular-nums;font-weight:600}
+  #hoverTip .pdDRt .v.up{color:#ff6b6b} #hoverTip .pdDRt .v.dn{color:#37c871}
   #hoverTip .pdDRt .hit{grid-column:1/-1;margin:0 -6px;height:0}
   #hoverTip .pdDRth{font-size:13.5px;color:#c8d0e0}
   .pdDRo{display:flex;align-items:center;gap:5px;white-space:nowrap}
@@ -14302,8 +14304,10 @@ function render(){
           ps.forEach(x=>[[x.a,x.b,true],[x.b,x.a,false]].forEach(([u,v,isW])=>{ const bo=boOf(u), os=[...(po[u]||[])], qv=qR(u,v,bo);
             const d=os.length?os.reduce((s2,o)=>s2+qR(u,o,bo),0)/os.length-qv:null, rk=os.length?1+os.filter(o=>qR(u,o,bo)<qv-1e-9).length:null;
             // ol＝能抽到的對手由強到弱（滑上去看排名，使用者 2026-11-01）
-            const ol=os.map(o=>[o,qR(u,o,bo)]).sort((p1,p2)=>p1[1]-p2[1]).map(z=>z[0]);
-            R[u].rs[r]={o:v,bo,d,res:x.done?isW:null,rk,m:os.length,ol}; if(d!=null)R[u].tot+=d; }));
+            //   olv＝假如抽到那隊的籤運（內部值＝平均 − 那隊，跟 d 同向）
+            const oq=os.map(o=>[o,qR(u,o,bo)]).sort((p1,p2)=>p1[1]-p2[1]), avg=d!=null?d+qv:0;
+            const ol=oq.map(z=>z[0]), olv=oq.map(z=>Math.round((avg-z[1])*1e4)/1e4);
+            R[u].rs[r]={o:v,bo,d,res:x.done?isW:null,rk,m:os.length,ol,olv}; if(d!=null)R[u].tot+=d; }));
           ps.forEach(x=>{ if(!x.done)return; rec[x.a][0]++; rec[x.b][1]++; met.add(mk(x.a,x.b)); }); });
         return {T:teams.map(t=>({n:t,rg:teamReg[t]||"",sd:(WLD_SEEDS[curYear]||{})[tAb(t)]||null,q:isQual(t)?1:isOut(t)?-1:0,tot:R[t].tot,rs:R[t].rs}))}; })();
       if(!window.PD_DRT){ window.PD_DRT={};
@@ -14329,7 +14333,8 @@ function render(){
           const head=x.rk?(en2?`#${x.rk} strongest of the ${x.m} teams it could draw · draw luck ${x.d!=null?f2(-x.d):"–"}`:`能抽到的 ${x.m} 隊裡第 ${x.rk} 強・籤運 ${x.d!=null?f2(-x.d):"–"}`):"";
           const tk=yr+"|"+t+"|"+r;
           if(head)PD_DRT[tk]=`<div class="pdDRth">${head}</div>`+((x.ol||[]).length?`<div class="pdDRt">${x.ol.map((o,i)=>{ const c=o===x.o?" on":"";
-            return `<span class="k${c}">${i+1}</span><span class="g${c}">${R[o]&&R[o].rg||""}</span><span>${lg(o)}</span><span class="${c.trim()}">${esc(tAb(o))}${c?(en2?"  ◀ drawn":"  ◀ 抽到"):""}</span>`; }).join("")}</div>`:"");
+            return `<span class="k${c}">${i+1}</span><span class="g${c}">${R[o]&&R[o].rg||""}</span><span>${lg(o)}</span><span class="${c.trim()}">${esc(tAb(o))}${c?(en2?"  ◀ drawn":"  ◀ 抽到"):""}</span>`
+              +`<span class="v ${x.olv?cl(-x.olv[i]):""}">${x.olv?f2(-x.olv[i]):""}</span>`; }).join("")}</div>`:"");
           return `<span class="pdDRc" style="${tint(x.res)}"${head?` data-drt="${esc(tk)}"`:""}><span class="pdDRo">${res}${lg(x.o)}<b>${esc(tAb(x.o))}</b>${x.bo>1?`<small>BO${x.bo}</small>`:""}</span>`
             +`<span class="pdDRm">${x.rk?dots(x.rk,x.m):""}<i class="${cl(-x.d)}">${x.d!=null?f2(-x.d):""}</i></span></span>`; };
         // 每隊一句總結：籤運等級＋最硬／最好的那一輪＋籤與結果的反差

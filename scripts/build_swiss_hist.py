@@ -245,7 +245,9 @@ def build_year(year, src, H):
                 d = sum(qR(u, o, bo) for o in os_) / len(os_) - qv if os_ else None   # 能抽到的對手等權平均 − 實際對手
                 rk = 1 + sum(1 for o in os_ if qR(u, o, bo) < qv - 1e-9) if os_ else None
                 ol = sorted(os_, key=lambda o: qR(u, o, bo))   # 能抽到的對手由強到弱（滑上去看排名）
-                T[u]["rs"][str(r)] = {"o": v, "bo": bo, "d": None if d is None else round(d, 4), "res": isW, "rk": rk, "m": len(os_), "ol": ol}
+                avg = d + qv if d is not None else 0
+                olv = [round(avg - qR(u, o, bo), 4) for o in ol]   # 假如抽到那隊的籤運（內部值，跟 d 同向）
+                T[u]["rs"][str(r)] = {"o": v, "bo": bo, "d": None if d is None else round(d, 4), "res": isW, "rk": rk, "m": len(os_), "ol": ol, "olv": olv}
                 if d is not None:
                     T[u]["tot"] += d
         for a, b, _ in ps:
