@@ -14293,7 +14293,9 @@ function render(){
           }
           ps.forEach(x=>[[x.a,x.b,true],[x.b,x.a,false]].forEach(([u,v,isW])=>{ const bo=boOf(u), os=[...(po[u]||[])], qv=qR(u,v,bo);
             const d=os.length?os.reduce((s2,o)=>s2+qR(u,o,bo),0)/os.length-qv:null, rk=os.length?1+os.filter(o=>qR(u,o,bo)<qv-1e-9).length:null;
-            R[u].rs[r]={o:v,bo,d,res:x.done?isW:null,rk,m:os.length}; if(d!=null)R[u].tot+=d; }));
+            // ol＝能抽到的對手由強到弱（滑上去看排名，使用者 2026-11-01）
+            const ol=os.map(o=>[o,qR(u,o,bo)]).sort((p1,p2)=>p1[1]-p2[1]).map(z=>z[0]);
+            R[u].rs[r]={o:v,bo,d,res:x.done?isW:null,rk,m:os.length,ol}; if(d!=null)R[u].tot+=d; }));
           ps.forEach(x=>{ if(!x.done)return; rec[x.a][0]++; rec[x.b][1]++; met.add(mk(x.a,x.b)); }); });
         return {T:teams.map(t=>({n:t,rg:teamReg[t]||"",sd:(WLD_SEEDS[curYear]||{})[tAb(t)]||null,q:isQual(t)?1:isOut(t)?-1:0,tot:R[t].tot,rs:R[t].rs}))}; })();
       const drwTbl=(D,yr)=>{ const T=D.T, R={}, teams=T.map(x=>x.n); T.forEach(x=>R[x.n]=x);
@@ -14310,7 +14312,9 @@ function render(){
         const dots=(rk,m)=>`<span class="pdDRd">${Array.from({length:m},(_,i)=>`<i${i===rk-1?' class="on"':""}></i>`).join("")}</span>`;
         const rr=(t,r)=>{ const x=R[t].rs[r]; if(!x)return `<span class="pdDRc pdDRe"></span>`;
           const res=x.res==null?`<em class="pd">${en2?"next":"待打"}</em>`:`<em class="${x.res?"w":"l"}">${x.res?W:Lz}</em>`;
-          const tip=x.rk?(en2?`#${x.rk} strongest of the ${x.m} teams it could draw · draw luck ${x.d!=null?f2(-x.d):"–"}`:`能抽到的 ${x.m} 隊裡第 ${x.rk} 強・籤運 ${x.d!=null?f2(-x.d):"–"}`):"";
+          // 滑上去＝能抽到的對手由強到弱，◀ 標實際抽到的（使用者 2026-11-01「小框滑上去要看到能抽到的排名」）
+          const olTx=(x.ol||[]).map((o,i)=>`${i+1}. ${tAb(o)}${R[o]&&R[o].rg?" "+R[o].rg:""}${o===x.o?(en2?"  ◀ drawn":"  ◀ 抽到"):""}`).join("&#10;");
+          const tip=x.rk?(en2?`#${x.rk} strongest of the ${x.m} teams it could draw · draw luck ${x.d!=null?f2(-x.d):"–"}`:`能抽到的 ${x.m} 隊裡第 ${x.rk} 強・籤運 ${x.d!=null?f2(-x.d):"–"}`)+(olTx?"&#10;&#10;"+(en2?"Possible opponents, strongest first:":"能抽到的對手（由強到弱）：")+"&#10;"+esc(olTx).replace(/&amp;#10;/g,"&#10;"):""):"";
           return `<span class="pdDRc" style="${tint(x.res)}" title="${tip}"><span class="pdDRo">${res}${lg(x.o)}<b>${esc(tAb(x.o))}</b>${x.bo>1?`<small>BO${x.bo}</small>`:""}</span>`
             +`<span class="pdDRm">${x.rk?dots(x.rk,x.m):""}<i class="${cl(-x.d)}">${x.d!=null?f2(-x.d):""}</i></span></span>`; };
         // 每隊一句總結：籤運等級＋最硬／最好的那一輪＋籤與結果的反差
