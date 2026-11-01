@@ -13817,10 +13817,10 @@ function render(){
     // OUTB＝淘汰梯次：入圍賽 100+輪、瑞士輪 200+輪、淘汰賽 300+（八強／四強／決賽）
     const OUTB={}, outB=x=>x.stage==="Play-In"?100+(parseInt(String(x.tab).replace(/\D/g,""))||0)
       :/final/i.test(x.tab||"")?300+(/quarter/i.test(x.tab)?1:/semi/i.test(x.tab)?2:3):200+(parseInt(String(x.tab).replace(/\D/g,""))||0);
-    const OUTAB=new Set(); if(PL){ const ls={};
+    const OUTAB=new Set(), OUTD={}; if(PL){ const ls={};
       (PL.series||[]).forEach(x=>{ const k=x.stage==="Play-In"?"pi":(/final/i.test(x.tab)?"ko":"sw"), ab=tAb(nmT(x.l));
-        if(k==="ko"){ OUTAB.add(ab); OUTB[ab]=outB(x); return; } const c=(ls[k]=ls[k]||{}); c[ab]=(c[ab]||0)+1;
-        if(c[ab]>=(k==="pi"?2:3)){ OUTAB.add(ab); OUTB[ab]=outB(x); } }); }
+        if(k==="ko"){ OUTAB.add(ab); OUTB[ab]=outB(x); OUTD[ab]=x.d||""; return; } const c=(ls[k]=ls[k]||{}); c[ab]=(c[ab]||0)+1;
+        if(c[ab]>=(k==="pi"?2:3)){ OUTAB.add(ab); OUTB[ab]=outB(x); OUTD[ab]=x.d||""; } }); }
     const isOut=t=>OUTAB.has(tAb(t));
     // 淘汰隊的排序（使用者 2026-10-30）：越晚淘汰越前面；同一梯次（同階段同一輪）淘汰的照強度
     // ✕ 後面補是哪個階段淘汰的（使用者 2026-10-30）：入圍賽／瑞士輪第幾輪
@@ -14225,11 +14225,15 @@ function render(){
       //   現在：已淘汰的隊算 0%（同畫面）；前一天：SIM_PREV（見 mkWorld）。
       // 模型卡的 % 無條件進位（使用者 2026-10-30：還沒淘汰卻寫 0% 很怪）⇒ 只要有機會就至少 1%；-1e-9 防 0.07*100=7.000…01 被進成 8
       const pctN=x=>Math.ceil(x*100-1e-9), pctU=x=>Math.max(1,pctN(x))+"%";   // 還沒淘汰＝真實機率 >0，模擬 4000 次一次都沒中也寫 1%（升降名次照原值算）
+      // 前一天就已經淘汰的隊（淘汰日早於最後一個比賽日）前一天也算 0%（使用者 2026-11-01：「AL 都淘汰好幾天還會出現 0%▲3」——
+      //   SIM_PREV 的模擬沒逐場鎖死真實瑞士輪，淘汰的隊在前一天的模擬裡還有一點機率，名次就被算成「升」）
+      const outPrev=x=>isOut(x)&&!!_DAYCUT&&!!OUTD[tAb(x)]&&OUTD[tAb(x)]<_DAYCUT.slice(0,10);
       const _rk={}, rankOf=(k,prev,t)=>{ const key=k+(prev?"p":"c"); if(!_rk[key]){ const v={}; EVT.forEach(x=>{ const S2=prev?SIM_PREV:SIM;
-          v[x]=pctN((!prev&&isOut(x))?0:(S2.T[x]?S2.T[x][k]:0)); }); const r={}; EVT.forEach(x=>{ r[x]=[1+EVT.filter(y=>v[y]>v[x]).length,v[x]]; }); _rk[key]=r; }
+          v[x]=pctN((prev?outPrev(x):isOut(x))?0:(S2.T[x]?S2.T[x][k]:0)); }); const r={}; EVT.forEach(x=>{ r[x]=[1+EVT.filter(y=>v[y]>v[x]).length,v[x]]; }); _rk[key]=r; }
         return _rk[key][t]; };
       const dlt=(t,k)=>{ if(!SIM_PREV||!SIM_PREV.T[t])return ""; const a=rankOf(k,true,t), b=rankOf(k,false,t); if(!a[1]&&!b[1])return "";   // 兩天都 0%＝並列墊底，名次變動只是別隊掉下來造成的假象，不標
-        const d=a[0]-b[0];
+        // 淘汰的隊不會「升」：0% 並列同名次，從 1% 掉到 0% 名次數字反而變小（LOS 被淘汰當天出現 ▲2）
+        const d=a[0]-b[0]; if(d>0&&isOut(t))return "";
         return d?`<i class="pdDl ${d>0?"up":"dn"}">${d>0?"▲":"▼"}${Math.abs(d)}</i>`:""; };
       // 機率格＝「機率（靠右）＋升降（靠左）」兩個固定寬的小欄 ⇒ 每列的 % 對齊、升降也對齊（使用者 2026-10-25：擠在一起很醜）
       const pc=(v,d)=>`<span class="pdPc"><span>${v}</span>${d||""}</span>`;   // 沒有升降就不放空標記（flex 的 gap 會讓欄寬多 4px）   // 強度也走同一格式（空的升降欄）⇒ 強度／冠軍／四強／八強四欄間距一致（使用者 2026-10-25）
