@@ -45,14 +45,43 @@ def fetch(year):
     ms = B.cargo({"tables": "MatchSchedule=M",
                   "fields": "M.OverviewPage=ov,M.Team1=t1,M.Team2=t2,M.DateTime_UTC=dt,M.Tab=tab,M.Winner=w,M.BestOf=bo",
                   "where": f"M.OverviewPage='{year} Season World Championship/Main Event'", "limit": "500", "format": "json"})
-    p = {"action": "parse", "page": f"{year} Season World Championship/Main Event", "prop": "wikitext", "format": "json"}
+    return {"ms": ms, "wt": wikitext(f"{year} Season World Championship/Main Event"),
+            "wtpi": wikitext(f"{year} Season World Championship/Play-In")}
+
+
+def wikitext(page):
+    import fetch_events_extra as F
+    p = {"action": "parse", "page": page, "prop": "wikitext", "format": "json"}
     F._throttle()
     try:
         r = json.loads(urllib.request.urlopen(urllib.request.Request(F.API + "?" + urllib.parse.urlencode(p), headers=F.UA),
                                               timeout=60).read())
     finally:
         F._mark()
-    return {"ms": ms, "wt": r["parse"]["wikitext"]["*"]}
+    return r["parse"]["wikitext"]["*"]
+
+
+def seeds_of(src):
+    """賽區種子：Main Event 頁 TeamRoster 的 seed=「Korea #1」；入圍賽上來的隊（seed=Play-In）改看 Play-In 頁；
+    WQS 晉級（2023 BDS）記 "WQS"。回傳 {全名: 1~4 或 "WQS"}"""
+    def raw(wt):
+        out = {}
+        for blk in re.split(r"(?=\{\{TeamRoster\|)", wt)[1:]:
+            tm = re.match(r"\{\{TeamRoster\|team=([^\n|]+)", blk)
+            sd = re.search(r"\|seed=([^\n]*)", blk[:600])
+            out[tm.group(1).strip()] = sd.group(1) if sd else ""
+        return out
+    me, pi = raw(src["wt"]), raw(src.get("wtpi", ""))
+    PI_ALIAS = {"PSGT": "PSG Talon", "KCORP": "Karmine Corp"}   # Play-In 頁的 team= 有時寫全名
+    res = {}
+    for code, v in me.items():
+        if code not in CODE:
+            continue
+        if not re.search(r"#\s*\d", v):
+            v = pi.get(code) or pi.get(PI_ALIAS.get(code, ""), "") or v
+        n = re.search(r"#\s*(\d)", v)
+        res[CODE[code]] = int(n.group(1)) if n else ("WQS" if "WQS" in v else None)
+    return res
 
 
 def pools_of(wt, year):
@@ -220,7 +249,8 @@ def build_year(year, src, H):
                     T[u]["tot"] += d
         for a, b, _ in ps:
             rec[a][0] += 1; rec[b][1] += 1; met.add(mk(a, b))
-    out = [{"n": t, "rg": rreg[t], "q": 1 if rec[t][0] >= 3 else -1 if rec[t][1] >= 3 else 0,   # 3 勝＝晉級（八強輸了仍是 1）
+    sd = seeds_of(src)
+    out = [{"n": t, "rg": rreg[t], "sd": sd.get(t), "q": 1 if rec[t][0] >= 3 else -1 if rec[t][1] >= 3 else 0,   # 3 勝＝晉級（八強輸了仍是 1）
             "tot": round(T[t]["tot"], 4), "rs": T[t]["rs"]} for t in teams]
     elo = {t: round(1500 + S(t) * 400 / math.log(10)) for t in teams}
     return {"from": cut, "T": out}, warn, elo
@@ -235,6 +265,9 @@ def main():
     for y in yrs:
         if str(y) not in cache or "--refetch" in sys.argv:
             cache[str(y)] = fetch(y)
+            json.dump(cache, open(SRC, "w", encoding="utf-8"), ensure_ascii=False)
+        elif "wtpi" not in cache[str(y)]:   # 舊快取沒有 Play-In 頁（種子要用）
+            cache[str(y)]["wtpi"] = wikitext(f"{y} Season World Championship/Play-In")
             json.dump(cache, open(SRC, "w", encoding="utf-8"), ensure_ascii=False)
         res[str(y)], warn, elo = build_year(y, cache[str(y)], H)
         top = sorted(res[str(y)]["T"], key=lambda x: -x["tot"])
