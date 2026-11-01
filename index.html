@@ -14193,8 +14193,14 @@ function render(){
     window._PD_NOW={now:NOW,ord:QORD};   // 📸 目前答案在另一個作用範圍（pdShot 綁定處）讀
     // 版面（使用者 2026-10-11：一個問題一列）：每題一張整列卡片，左＝題目／建議／外部預測，右＝近期｜歷屆｜本屆三欄
     const tgK=tag=>({[TG.c]:"c",[TG.p]:"p",[TG.e]:"e",[TG.t]:"t"})[tag]||"m";
-    const card=(tag,q,pts,ans,why,cols,wide,qid)=>(qid=qid||QORD[cards.length],why=live?why:(typeof WHY[qid]==="function"?WHY[qid](ans):(WHY[qid]||why)),0)||`<div class="card pdQC pdK-${tgK(tag)}"><div class="pdL"><div class="pdHd">${cards.length?`<span class="pdNo">Q${cards.length}</span>`:""}<span class="pdTag">${tag}</span><span class="pdQ">${q}</span>${pts?`<span class="pdPts">${pts}</span>`:""}</div>`
-      +(ans!=null?`<div class="pdAns"><span class="pdAnsLb">${en2?"Suggest":"建議"}</span>${ans}${why?`<span class="pdWhy">${why}</span>`:""}</div>`:(why?`<div class="pdWhy" style="margin-bottom:8px">${why}</div>`:""))+(qid?extRows(qid):"")
+    // 答案已提早鎖定（使用者 2026-11-01：「例如 Q17 HLE 已經淘汰 那麼 T1 就確定比 HLE 高」）⇒ 建議換成正確答案、標「確定」。
+    //   只認 LOCK 裡的題：這些題的 nowT open=false 就代表後面的比賽改不了答案（len32 這種 open=false 只是目前領先，不算）
+    const LOCK=new Set(["peyzguma","faker700","teemo","uniq","k15","cs450","koreg","lcs","hlet1"]);
+    let locked=false;
+    const card=(tag,q,pts,ans,why,cols,wide,qid)=>(qid=qid||QORD[cards.length],why=live?why:(typeof WHY[qid]==="function"?WHY[qid](ans):(WHY[qid]||why)),
+      locked=!!(LOCK.has(qid)&&NOW[qid]&&!NOW[qid].open&&NOW[qid].t),
+      locked&&(ans=pickTx(NOW[qid].t),why=(en2?"Locked in: the remaining matches can't change this answer":"已確定：剩下的比賽改變不了答案")+(NOW[qid].n?(en2?` (${NOW[qid].n})`:`（${NOW[qid].n}）`):"")),0)||`<div class="card pdQC pdK-${tgK(tag)}"><div class="pdL"><div class="pdHd">${cards.length?`<span class="pdNo">Q${cards.length}</span>`:""}<span class="pdTag">${tag}</span><span class="pdQ">${q}</span>${pts?`<span class="pdPts">${pts}</span>`:""}</div>`
+      +(ans!=null?`<div class="pdAns"><span class="pdAnsLb">${locked?(en2?"✔ Locked":"✔ 確定"):(en2?"Suggest":"建議")}</span>${ans}${why?`<span class="pdWhy">${why}</span>`:""}</div>`:(why?`<div class="pdWhy" style="margin-bottom:8px">${why}</div>`:""))+(qid?extRows(qid):"")
       +`</div><div class="pdCols${!live&&cards.length?" pdPre":""}">${cols}</div></div>`;
     const P3="#1 50・#2 20・#3 10", P1=n=>`${n}${en2?" pts":" 分"}`;
     const TG={c:en2?"Champion":"英雄",p:en2?"Player":"玩家",e:en2?"Event":"活動",t:en2?"Team":"戰隊"};
@@ -14466,7 +14472,8 @@ function render(){
       const ex=(q,t,lq)=>lq.k+(q.n?q.k/q.n:0)*Math.max(0,EG(t)-lq.n);
       const ea=ex(a,"T1",la), eb=ex(b,"Hanwha Life Esports",lb), pick=ea>=eb?"Peyz":"Gumayusi";
       const pg=q=>q.n?d1s((q.k/q.n).toFixed(1)):"–";
-      nowT("peyzguma",la.k===lb.k?(en2?"Tied":"平手"):`${tLogo(la.k>lb.k?"T1":"Hanwha Life Esports",20)}${la.k>lb.k?"Peyz":"Gumayusi"}`,`${la.k} : ${lb.k}`);
+      const oP=isOut("T1"), oG=isOut("Hanwha Life Esports"), pgLock=oP&&oG||oG&&la.k>lb.k||oP&&lb.k>la.k;
+      nowT("peyzguma",la.k===lb.k?(en2?"Tied":"平手"):`${tLogo(la.k>lb.k?"T1":"Hanwha Life Esports",20)}${la.k>lb.k?"Peyz":"Gumayusi"}`,`${la.k} : ${lb.k}`,!pgLock);
       cards.push(card(TG.p,en2?"Peyz vs Gumayusi: who gets more kills?":"Peyz vs Gumayusi：誰的擊殺數會比較多？",P1(100),pickTx(`${tLogo(pick==="Peyz"?"T1":"Hanwha Life Esports",24)}${esc(pick)}`),
         en2?`kills per game × expected games: Peyz ≈${Math.round(ea)} vs Gumayusi ≈${Math.round(eb)}`:`局均擊殺 × 預估局數：Peyz 約 ${Math.round(ea)} 殺 vs Gumayusi 約 ${Math.round(eb)} 殺`,
         col(H_REC,rowP(`Peyz ${en2?"per game":"局均"}`,"T1",pg(a))+rowP(`Gumayusi ${en2?"per game":"局均"}`,"Hanwha Life Esports",pg(b))+rowP(`T1 ${en2?"exp. games":"預估局數"}`,"T1",d1s(EG("T1").toFixed(1)))+rowP(`HLE ${en2?"exp. games":"預估局數"}`,"Hanwha Life Esports",d1s(EG("Hanwha Life Esports").toFixed(1))))
@@ -14476,7 +14483,8 @@ function render(){
     { const BASE=616, GOAL=700, lq=L.pl.Faker||{k:0,n:0}, need=GOAL-BASE-lq.k;
       const q=R.pl.Faker||{k:0,n:0}, perG=q.n?q.k/q.n:0, eg=Math.max(0,EG("T1")-lq.n), exp=perG*eg;
       const gNeed=perG?Math.ceil(Math.max(0,need)/perG):Infinity;
-      nowT("faker700",need<=0?(en2?"Yes (done)":"能（已達成）"):(en2?"Not yet":"還沒"),`${BASE+lq.k} / ${GOAL}`,need>0);
+      const t1Out=isOut("T1");
+      nowT("faker700",need<=0?(en2?"Yes (done)":"能（已達成）"):t1Out?(en2?"No (T1 out)":"不能（T1 已淘汰）"):(en2?"Not yet":"還沒"),`${BASE+lq.k} / ${GOAL}`,need>0&&!t1Out);
       cards.push(card(TG.e,en2?"Will Faker reach 700 career Worlds kills? (616 before this Worlds)":"Faker 能達成世界大賽生涯 700 殺嗎？（開賽前 616 殺）",P1(100),
         pickTx(need<=0?(en2?"Yes (done)":"能（已達成）"):exp>=need?(en2?"Yes":"能"):(en2?"No":"不能")),
         en2?`needs ${Math.max(0,need)} more ≈ ${isFinite(gNeed)?gNeed:"–"} games at ${d1s(perG.toFixed(2))} per game; T1 is expected to play ≈${d1s(eg.toFixed(1))} more (≈${Math.round(exp)} kills)`
@@ -14628,7 +14636,8 @@ function render(){
           const w=o.result===1?bt(o):rt(o); if(w===A1)cur.a++; else cur.b++; cur.g=g; });
       const sa=ser.filter(s=>s.a>s.b).length, sb=ser.filter(s=>s.b>s.a).length, last=ser;   // 今年全部交手（使用者 2026-10-11）
       const ha=(SIM.h2h.a||0)/SIM.SIMS, hb=(SIM.h2h.b||0)/SIM.SIMS, pick=ha>=hb?A1:B1;
-      { const oa=isOut(A1), ob=isOut(B1), w=oa&&!ob?B1:(ob&&!oa?A1:null); nowT("hlet1",w?`${teamLogoHTML(tAb(w),20,true,w)}${esc(tAb(w))}`:TBD,w?"":(en2?"both alive":"兩隊都還在"),!w); }
+      // 兩隊都淘汰時比淘汰梯次（OUTB 越大越晚出局＝名次越高）；同梯次＝同名次
+      { const oa=isOut(A1), ob=isOut(B1), xa=OUTB[tAb(A1)]||0, xb=OUTB[tAb(B1)]||0, w=oa&&!ob?B1:(ob&&!oa?A1:oa&&ob&&xa!==xb?(xa>xb?A1:B1):null); nowT("hlet1",w?`${teamLogoHTML(tAb(w),20,true,w)}${esc(tAb(w))}`:TBD,w?"":(en2?"both alive":"兩隊都還在"),!w); }
       cards.push(card(TG.t,en2?"Who will place higher: HLE or T1?":"哪支戰隊會排名更高：HLE 還是 T1？",P1(50),pickTx(`${teamLogoHTML(tAb(pick),24,true,pick)}${esc(tAb(pick))}`),
         en2?`simulations: HLE higher ${pct(ha)}, T1 higher ${pct(hb)}, same stage ${pct(1-ha-hb)}; this year HLE ${sa}-${sb} T1 in series`
            :`模擬：HLE 較高 ${pct(ha)}、T1 較高 ${pct(hb)}、同名次 ${pct(1-ha-hb)}；今年系列賽 HLE ${sa}-${sb} T1`,
