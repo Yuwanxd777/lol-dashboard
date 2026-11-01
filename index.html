@@ -14313,7 +14313,7 @@ function render(){
         const rr=(t,r)=>{ const x=R[t].rs[r]; if(!x)return `<span class="pdDRc pdDRe"></span>`;
           const res=x.res==null?`<em class="pd">${en2?"next":"待打"}</em>`:`<em class="${x.res?"w":"l"}">${x.res?W:Lz}</em>`;
           // 滑上去＝能抽到的對手由強到弱，◀ 標實際抽到的（使用者 2026-11-01「小框滑上去要看到能抽到的排名」）
-          const olTx=(x.ol||[]).map((o,i)=>`${i+1}. ${tAb(o)}${R[o]&&R[o].rg?" "+R[o].rg:""}${o===x.o?(en2?"  ◀ drawn":"  ◀ 抽到"):""}`).join("&#10;");
+          const olTx=(x.ol||[]).map((o,i)=>`${i+1}. ${R[o]&&R[o].rg?R[o].rg+" ":""}${tAb(o)}${o===x.o?(en2?"  ◀ drawn":"  ◀ 抽到"):""}`).join("&#10;");
           const tip=x.rk?(en2?`#${x.rk} strongest of the ${x.m} teams it could draw · draw luck ${x.d!=null?f2(-x.d):"–"}`:`能抽到的 ${x.m} 隊裡第 ${x.rk} 強・籤運 ${x.d!=null?f2(-x.d):"–"}`)+(olTx?"&#10;&#10;"+(en2?"Possible opponents, strongest first:":"能抽到的對手（由強到弱）：")+"&#10;"+esc(olTx).replace(/&amp;#10;/g,"&#10;"):""):"";
           return `<span class="pdDRc" style="${tint(x.res)}" title="${tip}"><span class="pdDRo">${res}${lg(x.o)}<b>${esc(tAb(x.o))}</b>${x.bo>1?`<small>BO${x.bo}</small>`:""}</span>`
             +`<span class="pdDRm">${x.rk?dots(x.rk,x.m):""}<i class="${cl(-x.d)}">${x.d!=null?f2(-x.d):""}</i></span></span>`; };
