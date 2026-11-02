@@ -112,7 +112,7 @@ check("第二批問兩次（pu-4 問兩次）", pg.asked.count("pu-4") == 2, pg.
 print("[⑦] 接線")
 s = io.open(os.path.join(HERE, "run_update.py"), encoding="utf-8").read()
 m = re.search(r'S\("fetch_soloq_update"[^)]*\)', s)
-check("run_update ⑤d 帶 --rl-waits", m and '"--rl-waits", "60,120,180,240"' in m.group(0), m and m.group(0))
+check("run_update ⑤d 帶 --rl-waits", m and '"--rl-waits", "60,120,180,240,300"' in m.group(0), m and m.group(0))
 src = io.open(SRC, encoding="utf-8").read()
 check("批次預抓那行會印等待（否則事後查不到）", "限流等待" in src)
 
