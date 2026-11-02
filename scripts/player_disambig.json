@@ -1866,5 +1866,242 @@
    }
   ],
   "source": "leaguepedia"
+ },
+ "BAO": {
+  "persons": [
+   {
+    "key": "BAO",
+    "link": "BAO (Jeong Hyeon-woo)",
+    "teams": [
+     "DRX",
+     "DRX Challengers",
+     "Fenerbahçe Esports",
+     "Gentle Mates",
+     "Istanbul Wildcats",
+     "Papara SuperMassive",
+     "Ulsan",
+     "Kiwoom DRX",
+     "Fluxo W7M"
+    ],
+    "first": "2019-12-24",
+    "last": "2026-08-29"
+   },
+   {
+    "key": "Bao (Zhang Jia-Zhi)",
+    "link": "Bao (Zhang Jia-Zhi)",
+    "teams": [
+     "Royal Club"
+    ],
+    "teams_oe_manual": [
+     "Royal Club"
+    ],
+    "first": "2014-03-23",
+    "last": "2014-04-26"
+   }
+  ],
+  "source": "人工：Leaguepedia Royal Club 隊史頁（PandaB renames to Bao）＋ Bao 消歧頁；BAO (Jeong) 的 Fluxo W7M 見該隊頁",
+  "teams_add": {
+   "Bao (Zhang Jia-Zhi)": [
+    "Royal Club"
+   ]
+  }
+ },
+ "Kaze": {
+  "persons": [
+   {
+    "key": "Kaze",
+    "link": "Kaze (Lucas Fe)",
+    "teams": [
+     "Isurus",
+     "RED Canids",
+     "LOUD",
+     "RED Academy",
+     "Gwenchana",
+     "PRIMATE",
+     "WAP Esports",
+     "Los Manitos",
+     "Farenvehn",
+     "INFINITY"
+    ],
+    "games_lp": 297,
+    "games_oe": 250,
+    "first": "2022-07-21",
+    "last": "2026-10-03"
+   },
+   {
+    "key": "Kaze (Quentin Gourbeix)",
+    "link": "Kaze (Quentin Gourbeix)",
+    "teams": [
+     "Millenium",
+     "Team MCES",
+     "ASUS ROG Army",
+     "Royal Bandits",
+     "Dark Passage"
+    ],
+    "games_lp": 138,
+    "games_oe": 8,
+    "first": "2015-10-08",
+    "last": "2020-03-04"
+   }
+  ],
+  "source": "leaguepedia"
+ },
+ "Zest": {
+  "persons": [
+   {
+    "key": "Zest",
+    "link": "Zest (Kim Dong-min)",
+    "teams": [
+     "LØS",
+     "Gen.G Challengers",
+     "Gen.G Global Academy",
+     "Dark Passage",
+     "Bushido Wildcats",
+     "GameWard",
+     "MIBR.LOS",
+     "Gen.G"
+    ],
+    "games_lp": 373,
+    "games_oe": 130,
+    "first": "2021-12-10",
+    "last": "2026-10-31"
+   },
+   {
+    "key": "Zest (Hsieh Ming-Hsuan)",
+    "link": "Zest (Hsieh Ming-Hsuan)",
+    "teams": [
+     "Team Afro",
+     "SuperEsports",
+     "Wayi Spider"
+    ],
+    "games_lp": 105,
+    "games_oe": 168,
+    "first": "2016-01-16",
+    "last": "2019-04-03",
+    "teams_oe_manual": [
+     "XGamers"
+    ]
+   },
+   {
+    "key": "Zest (Park Jong-il)",
+    "link": "Zest (Park Jong-il)",
+    "teams": [
+     "Prime Clan"
+    ],
+    "games_lp": 3,
+    "games_oe": 0,
+    "first": "2014-11-21",
+    "last": "2014-11-22"
+   }
+  ],
+  "source": "leaguepedia",
+  "teams_add": {
+   "Zest (Hsieh Ming-Hsuan)": [
+    "XGamers"
+   ]
+  },
+  "_note": "謝明軒 OE 168 場多於金東珉 130 場，但主人格刻意留金東珉：他是現役（LØS 2026 世界賽），未列隊伍預設歸主人格；OE 兩人都有場次，career.p 不會消失"
+ },
+ "Feng": {
+  "persons": [
+   {
+    "key": "Feng",
+    "link": "Feng (Chen Chun-Feng)",
+    "teams": [
+     "Deep Cross Gaming",
+     "Beyond Gaming",
+     "Beyond Gaming Academy"
+    ],
+    "games_lp": 345,
+    "games_oe": 218,
+    "first": "2022-09-13",
+    "last": "2026-08-13"
+   },
+   {
+    "key": "Feng (Wang Xiao-Feng)",
+    "link": "Feng (Wang Xiao-Feng)",
+    "teams": [
+     "Team Impulse",
+     "Cloud9 Academy",
+     "Echo Fox"
+    ],
+    "games_lp": 41,
+    "games_oe": 27,
+    "first": "2016-01-17",
+    "last": "2018-09-01"
+   },
+   {
+    "key": "Feng (Jose Ricalday)",
+    "link": "Feng (Jose Ricalday)",
+    "teams": [
+     "Pirate Dream",
+     "Zeu5 Bogota",
+     "PÊEK Gaming",
+     "Icon Esports (Mexican Team)",
+     "Estral Esports",
+     "Arctic Gaming Mexico",
+     "Janus Esports",
+     "DSC3V"
+    ],
+    "games_lp": 235,
+    "games_oe": 1,
+    "first": "2019-06-05",
+    "last": "2026-03-31",
+    "teams_oe_manual": [
+     "Furious Gaming"
+    ]
+   },
+   {
+    "key": "Feng (Chen Guo-Feng)",
+    "link": "Feng (Chen Guo-Feng)",
+    "teams": [
+     "Young Miracles",
+     "LGD Gaming Young Team"
+    ],
+    "games_lp": 95,
+    "games_oe": 0,
+    "first": "2022-02-11",
+    "last": "2023-03-18"
+   },
+   {
+    "key": "Feng (Wen Ming-Feng)",
+    "link": "Feng (Wen Ming-Feng)",
+    "teams": [
+     "Snake WuDu"
+    ],
+    "games_lp": 37,
+    "games_oe": 0,
+    "first": "2019-02-27",
+    "last": "2019-04-05"
+   },
+   {
+    "key": "Feng (Gan Qi-Feng)",
+    "link": "Feng (Gan Qi-Feng)",
+    "teams": [
+     "2144 Gaming"
+    ],
+    "games_lp": 11,
+    "games_oe": 0,
+    "first": "2016-05-25",
+    "last": "2016-07-18"
+   },
+   {
+    "key": "Feng (Ni Rui-Feng)",
+    "link": "Feng (Ni Rui-Feng)",
+    "teams": [
+     "Vici Gaming"
+    ],
+    "games_lp": 6,
+    "games_oe": 0,
+    "first": "2016-06-29",
+    "last": "2016-07-01"
+   }
+  ],
+  "source": "leaguepedia",
+  "teams_add": {
+   "Feng (Jose Ricalday)": [
+    "Furious Gaming"
+   ]
+  }
  }
 }

@@ -38,7 +38,10 @@ DIS = os.path.join(ROOT, "scripts", "player_disambig.json")
 POS = {1: "TOP", 2: "JNG", 3: "MID", 4: "BOT", 5: "SUP"}
 
 # 國際賽／盃賽不代表賽區歸屬，納入會讓同一人看起來「跨區」
-INTL = {"WLDs", "MSI", "EWC", "KeSPA", "IEM", "Rift", "ASCI", "WCG", "IWCI", "IWCQ", "AS", "Demacia", "IC"}
+# 2026-11-02 #2453 補 FST／DCup／AC／ENC／亞運：這幾個碼後來才進資料，原本會自成一個「大區」，
+# 一邊讓同一人多出跨區分（QaspieL、Cube…），一邊因為區間重疊遮掉真的跨區訊號（JoJo 2013 LPL／2019 CBLOL）
+INTL = {"WLDs", "MSI", "EWC", "KeSPA", "IEM", "Rift", "ASCI", "WCG", "IWCI", "IWCQ", "AS", "Demacia", "IC",
+        "FST", "DCup", "AC", "ENC", "亞運"}
 # 大區歸群：同群內換隊是正常轉會，不算可疑
 GROUP = {
     "LCK": "KR", "LCKCL": "KR",
@@ -50,6 +53,8 @@ GROUP = {
     "LJL": "APAC", "LCO": "APAC", "OPL": "APAC",
     "CBLOL": "LATAM", "LLA": "LATAM", "LLN": "LATAM", "CLS": "LATAM",
     "LTA": "LATAM", "LTA S": "LATAM", "LTAS": "LATAM", "CD": "LATAM",
+    # EWC 各區資格賽算該區（#2453；前端 LGC 也是沿用該賽區色）
+    "EWCQ歐洲": "EU", "EWCQ韓國": "KR", "EWCQ中國": "CN", "EWCQ太平洋": "APAC", "EWCQ巴西": "LATAM", "EWCQ北美": "NA",
 }
 THRESHOLD = 10          # 分數 >= 此值才報（低於此值多為單純轉會）
 ALIAS_MIN = 3           # 同一天兩個隊名的陣容重疊 >= 幾人，就當成同一支隊的兩種寫法
@@ -201,6 +206,13 @@ def score(name, info):
     return sc, why
 
 
+def unknown_leagues(data):
+    """scan() 的結果裡既不在 GROUP 也不在 INTL 的賽事碼 → [(碼, 片段數)]，多的在前。"""
+    c = collections.Counter(s["lg"] for info in data.values() for s in info["segs"]
+                            if s["lg"] not in GROUP and s["lg"] not in INTL)
+    return c.most_common()
+
+
 def main():
     argv = sys.argv[1:]
     quiet = "--quiet" in argv
@@ -227,6 +239,12 @@ def main():
         rows.append({"name": name, "score": sc, "why": why,
                      "reviewed": name in silent, "segs": info["segs"], "sameday": info["sameday"]})
     rows.sort(key=lambda r: -r["score"])
+
+    # 新賽事碼沒登記就會自成一個「大區」，而且完全不報錯（2026-11-02 #2453：AC／DCup／FST／亞運／EWCQ* 都中過）
+    unk = unknown_leagues(data)
+    if unk:
+        print("[check_player_dup] ⚠ 賽事碼沒登記（既不在 GROUP 也不在 INTL，會被當成獨立大區）："
+              + "、".join(f"{k}({n})" for k, n in unk))
 
     total = len(data)
     if quiet:

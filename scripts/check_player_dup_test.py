@@ -19,7 +19,7 @@ import io, os, sys
 if (getattr(sys.stdout, "encoding", "") or "").lower().replace("-", "") != "utf8":
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from check_player_dup import _alias_groups, ALIAS_MIN   # noqa: E402
+from check_player_dup import _alias_groups, ALIAS_MIN, INTL, GROUP, score, unknown_leagues   # noqa: E402
 
 D = "2015-03-25"
 FAILED = []
@@ -76,6 +76,32 @@ check("t_edge_查不到陣容（roster 沒這天）",
       [["A"], ["B"]])
 
 print(f"\nALIAS_MIN = {ALIAS_MIN}")
+# ── #2453：國際賽碼不算大區、新碼要出聲 ───────────────────────────────
+def _seg(lg, y, pos="BOT", n=20):
+    return {"y": str(y), "lg": lg, "pos": pos, "n": n, "f": f"{y}-03-01", "l": f"{y}-04-01", "tm": "T"}
+
+def _sc(segs):
+    return score("x", {"segs": segs, "sameday": []})[0]
+
+_home = [_seg("LCS", 2020), _seg("LCS", 2022)]
+for _lg in ("AC", "DCup", "FST", "ENC", "亞運"):
+    check(f"t_intl_{_lg}_不多出跨區分", _sc(_home + [_seg(_lg, 2023)]), _sc(_home))
+check("t_intl_正控制_沒登記的碼會多 2 分", _sc(_home + [_seg("ZZ_PROBE", 2023)]), _sc(_home) + 2)
+check("t_intl_正控制_真跨區照報", _sc(_home + [_seg("LCK", 2023)]), _sc(_home) + 2)
+# JoJo 型：真跨區被 AC 自成一區的重疊遮掉
+_jojo = [_seg("LPL", 2013), _seg("CBLOL", 2019), _seg("CBLOL", 2026), _seg("AC", 2026)]
+_INTL_NOAC = set(INTL)
+INTL.discard("AC")
+_masked = _sc(_jojo)
+INTL.add("AC")
+check("t_intl_JoJo型_AC 拿掉才會多出跨區分", (_sc(_jojo) - _masked) > 0, True)
+check("t_intl_INTL 還原", INTL == _INTL_NOAC, True)
+check("t_ewcq_歸該區", [GROUP[k] for k in ("EWCQ歐洲", "EWCQ韓國", "EWCQ中國", "EWCQ太平洋", "EWCQ巴西", "EWCQ北美")],
+      ["EU", "KR", "CN", "APAC", "LATAM", "NA"])
+check("t_unk_回報新碼", unknown_leagues({"a": {"segs": [_seg("LCS", 2020), _seg("ZZ_PROBE", 2023), _seg("ZZ_PROBE", 2024), _seg("AC", 2026)]}}),
+      [("ZZ_PROBE", 2)])
+check("t_unk_都登記過回空", unknown_leagues({"a": {"segs": [_seg("LCS", 2020), _seg("WLDs", 2023)]}}), [])
+
 if FAILED:
     print(f"✗ {len(FAILED)} 條失敗：" + "、".join(FAILED))
     sys.exit(1)

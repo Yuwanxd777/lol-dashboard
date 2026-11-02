@@ -115,6 +115,7 @@ PLAYER_ALIAS = {
     "miso": "MiSo",                 # Jin Air Falcons 2013-2014
     "noname": "NONAME",             # LMQ 2013-2014
     "puszu": "puszu",               # Fnatic 2013
+    "tiphat": "Tiphat",             # GAM Esports 2026 DCup（OE 寫小寫；積分帳號與 Leaguepedia 都是 Tiphat，#2453）
     "san": "san",                   # Oh My God 2013-2015
     "watch": "Watch",               # NaJin 2013-2015
     "weiwei": "Weiwei",             # LNG/BLG 2019-2026
