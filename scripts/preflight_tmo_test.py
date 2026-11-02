@@ -165,7 +165,8 @@ def main():
     ck(rcn == 0 and "✓ 守門通過" in outn, "現版乾淨頁面 exit 0、印「✓ 守門通過」（實際 rc %s）" % rcn)
     ck(rco == 0, "舊版乾淨頁面 exit 0（實際 rc %s）" % rco)
     ck(not aln and dtn < TMO, "現版 %.1f 秒自己結束（< 上限 %d：daemon 計時器沒把程序多留住）" % (dtn, TMO))
-    ln, lo = outn.strip().splitlines(), outo.strip().splitlines()
+    # ⓪（本機快速讀取檔）是 3e619415（10-21）才加的步驟，舊版 1a5cd582 本來就沒有，跟總上限無關 ⇒ 不比這一行
+    ln, lo = [[x for x in o.strip().splitlines() if not x.startswith("⓪")] for o in (outn, outo)]
     ck(ln == lo, "stdout 逐行相同（%d 行）" % len(ln) if ln == lo else
        "stdout 不同：新 %s ／舊 %s" % (ln, lo))
 

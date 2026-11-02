@@ -159,13 +159,13 @@ def main():
     if os.path.exists(cp) and os.path.exists(dj):
         real_rows = json.load(open(cp, encoding="utf-8"))
         real_prev = json.load(open(dj, encoding="utf-8")).get("Demon") or {}
-        dup_path = os.path.join(ROOT, "csv_cache", "player_dup.json")
+        # OE 場次取自條目自己記的 games_oe，不讀 csv_cache/player_dup.json：那份是 check_player_dup 的當下明細，
+        # 已拆分的名字不會再出現（10-06 重產後只剩 Zelt／Crimson）⇒ oc 變空、主人格退回用 LP 場次挑，這條就假紅
         oc = collections.Counter()
-        if os.path.exists(dup_path):
-            for r in json.load(open(dup_path, encoding="utf-8"))["rows"]:
-                if r["name"] == "Demon":
-                    for s in r["segs"]:
-                        oc[s["tm"]] += s["n"]
+        for p in real_prev.get("persons") or []:
+            if p.get("teams"):
+                oc[p["teams"][0]] += p.get("games_oe") or 0
+        chk("前提：條目裡有 OE 場次（不是空測）", sum(oc.values()) > 0, str(dict(oc)))
         entR, stR, linksR, _ = F.build_entry("Demon", real_rows, real_prev, oc)
         chk("真實 Demon 拆成 4 人", stR == "拆成 4 人", stR)
         chk("主人格是 2013 GPL 那位（人工補的）",

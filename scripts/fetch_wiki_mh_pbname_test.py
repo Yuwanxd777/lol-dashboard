@@ -130,17 +130,24 @@ try:
 
     def run_csv(mod, PB):
         chrono = list(PB.items())[::-1]
-        # MH 那一局挑時間序最早、而且兩隊都不是探針隊的 ⇒ 探針隊的列只可能來自 PB 補局
-        k, m = next(((k, m) for k, m in chrono if PROBE not in html.unescape(m["t1"] + m["t2"])), chrono[0])
-        g = {"Date": "2026-08-01 10:00:00", "Blue": html.unescape(m["t1"]), "Red": html.unescape(m["t2"]),
-             "Winner": html.unescape(m["win"]), "P": m["patch"], "Picks": ",".join(m["p"][0]),
-             "Picks2": ",".join(m["p"][1]), "Bans": ",".join(m["b"][0]), "Bans2": ",".join(m["b"][1]),
-             "Blue Roster": "a,b,c,d,e", "Red Roster": "f,g,h,i,j", "Len": "30:00"}
+        # 74d0ab1c（10-04）起 PB 補局的隊名要在同賽事 MH 的隊名裡解得回來，解不回來就不補 ⇒ 只給一局 MH
+        # 會讓其餘隊伍全被略過（舊寫法在這裡 18 列 vs 舊版 344 列）。MH 改成「剛好涵蓋每一支隊」的最少局：
+        # 非探針隊的局先挑，探針隊只放進它必要的 1 局 ⇒ 探針隊的其餘列只可能來自 PB 補局。
+        t_of = lambda m: {html.unescape(m["t1"]), html.unescape(m["t2"])}
+        picked, covered = [], set()
+        for k, m in sorted(chrono, key=lambda km: PROBE in t_of(km[1])):
+            if not t_of(m) <= covered:
+                picked.append(m)
+                covered |= t_of(m)
+        gs = [{"Date": "2026-08-%02d 10:00:00" % (i + 1), "Blue": html.unescape(m["t1"]), "Red": html.unescape(m["t2"]),
+               "Winner": html.unescape(m["win"]), "P": m["patch"], "Picks": ",".join(m["p"][0]),
+               "Picks2": ",".join(m["p"][1]), "Bans": ",".join(m["b"][0]), "Bans2": ",".join(m["b"][1]),
+               "Blue Roster": "a,b,c,d,e", "Red Roster": "f,g,h,i,j", "Len": "30:00"} for i, m in enumerate(picked)]
         cfg = {"tour": "sandbox", "league": "LPL", "split": "Split 3", "year": 2026, "key": "SANDBOX", "playoffs": 0}
         buf = io.StringIO()
         _o, sys.stdout = sys.stdout, buf
         try:
-            hdr, rows = mod.to_csv([g], cfg)
+            hdr, rows = mod.to_csv(gs, cfg)
         finally:
             sys.stdout = _o
         it, ir = hdr.index("teamname"), hdr.index("result")
@@ -160,14 +167,18 @@ try:
           (len(new_rows), new_out[:120]))
     tn_new = {t for t, _ in new_rows}
     tn_old = {t for t, _ in old_rows}
-    check("5b 新版 teamname 有「Zzsandbox's Probe」", PROBE in tn_new)
+    # MH 那一局本身就寫 6 列探針隊 ⇒ 要多於 6 列才證明 PB 補局也寫出解碼後的隊名
+    n_probe = sum(1 for t, _ in new_rows if t == PROBE)
+    check("5b 新版 PB 補局也寫出「Zzsandbox's Probe」（多於 MH 那局的 6 列）", n_probe > 6, n_probe)
     check("5c 新版 teamname 沒有任何 HTML 實體", not any("&#" in t or "&amp;" in t for t in tn_new),
           sorted(t for t in tn_new if "&" in t))
     check("5d 正控制：舊版 teamname 有「Zzsandbox&#39;s Probe」（拆隊那個病）", PROBE_RAW in tn_old)
     check("5e 新舊列數相同", len(new_rows) == len(old_rows), (len(new_rows), len(old_rows)))
     wins = lambda rows, name: sum(1 for t, r in rows if t == name and r == "1")
-    check("5f 探針隊的勝場新舊一樣多（勝負判定沒被改到）", wins(new_rows, PROBE) == wins(old_rows, PROBE_RAW)
-          and wins(new_rows, PROBE) > 0, (wins(new_rows, PROBE), wins(old_rows, PROBE_RAW)))
+    # 舊版的探針隊會被拆成兩個名字（MH 那局寫解碼後的、PB 補局寫實體），要加起來才是同一支隊的勝場
+    old_wins = wins(old_rows, PROBE) + wins(old_rows, PROBE_RAW)
+    check("5f 探針隊的勝場新舊一樣多（勝負判定沒被改到）", wins(new_rows, PROBE) == old_wins
+          and wins(new_rows, PROBE) > 0, (wins(new_rows, PROBE), old_wins))
     nk = lambda s: __import__("re").sub(r"[^0-9a-z]", "", str(s or "").lower())
     check("5g 解碼後 nk 對得上 OE 寫法（Anyone's Legend → anyoneslegend）；舊寫法對不上",
           nk(html.unescape("Anyone&#39;s Legend")) == nk("Anyone's Legend") != nk("Anyone&#39;s Legend"))
