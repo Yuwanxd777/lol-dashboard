@@ -382,8 +382,48 @@ def _load_accs():
         if a.get("dpmPuuid"): accs.setdefault(f'{a.get("team","")}|{a.get("player","")}', []).append(a)
     return accs
 
+_RE_MH = re.compile(r"/v1/players/([A-Za-z0-9_-]{20,})/match-history")
+
+def _norm_riot_id(s):
+    return re.sub(r"\s+", "", s or "").lower()
+
+def _scan_identity(box, want):
+    """掃目前收到的 match-history 回應，只認「該局 Riot ID 就是要反查的這個帳號」的 puuid。
+
+    回傳 (puuid 或 None, 看到的別人名字 set, 有沒有被限流)。box 會被清空（看過的不再看）。
+    """
+    pu, wrong, limited = None, set(), False
+    items = list(box); del box[:]
+    for r in items:
+        if r.status in (403, 429):
+            limited = True
+            continue
+        m = _RE_MH.search(r.url)
+        if r.status != 200 or not m:
+            continue
+        try:
+            ms = (r.json() or {}).get("matches") or []   # 前一頁的回應 body 可能已拿不到
+            p0 = (ms[0].get("participants") or [{}])[0]
+            got = f'{p0.get("gameName") or ""}#{p0.get("tagLine") or ""}'
+        except Exception:
+            continue
+        if _norm_riot_id(got) == want:
+            pu = m.group(1)
+        elif got != "#":
+            wrong.add(got)
+    return pu, wrong, limited
+
 def fill_missing_puuids(pg, cap=10):
-    """手動加的帳號只需 riotId：用 dpm 選手頁反查 dpmPuuid 自動補齊（不靠搜尋端點，同一 warmed session 不觸發盤查）"""
+    """手動加的帳號只需 riotId：用 dpm 選手頁反查 dpmPuuid 自動補齊（不靠搜尋端點，同一 warmed session 不觸發盤查）
+
+    2026-11-02 #2449：舊版聽 request、拿到第一個 /v1/players/<puuid> 就收，而且用 time.sleep 等——
+    sync Playwright 只在 API 呼叫期間派送事件，睡覺時什麼都收不到 ⇒ 等滿 8 秒報「反查不到」，
+    這頁的請求要到**下一個帳號的 goto** 才派送，被算到下一個帳號頭上。
+    實害（git 快照）：11-02 Cosmoat 拿到 Cosgoat 的 puuid、Cosgoat 反查不到；JunJia 的 나의본색#KR1（dpm 查無此人）
+    排第一個，10-17～10-25 陸續掛上首頁請求帶到的 Juhan／Aress／FenRir／Fisher／About／Burdol。
+    現在：pg.wait_for_timeout 等（會派送事件）＋只收 match-history 回應裡名字對得上的 puuid。
+    寧可這班沒補到（下一班再來），也不把別人的帳號掛上去。
+    """
     import urllib.parse as _up
     raw = json.load(open(ACCOUNTS, encoding="utf-8"))
     todo = [a for a in raw if not a.get("bad") and not a.get("dpmPuuid")
@@ -392,24 +432,42 @@ def fill_missing_puuids(pg, cap=10):
         return 0
     print(f"♻ {len(todo)} 個帳號缺 dpmPuuid（手動新增）→ dpm 選手頁反查…")
     got = {}
-    hit = {"u": None}
-    pg.on("request", lambda r: hit.__setitem__("u", r.url) if re.search(r"/v1/players/[A-Za-z0-9_-]{20,}", r.url) else None)
-    for a in todo:
-        g, tl = a["riotId"].rsplit("#", 1)
-        hit["u"] = None
-        try:
-            pg.goto(f"https://dpm.lol/{_up.quote(g)}-{_up.quote(tl)}", wait_until="domcontentloaded", timeout=30000)
-            for _ in range(16):
-                if hit["u"]: break
-                time.sleep(0.5)
-        except Exception:
-            pass
-        m = re.search(r"/v1/players/([A-Za-z0-9_-]{20,})", hit["u"] or "")
-        if m:
-            got[(a.get("riotId"), a.get("platform"))] = m.group(1)
-            print(f"   ♻ {a.get('team')} {a.get('player')} {a['riotId']} → puuid OK")
-        else:
-            print(f"   ？ {a.get('team')} {a.get('player')} {a['riotId']} 反查不到（ID 打錯或 dpm 沒收錄）")
+    box = []
+    def _on_resp(r):
+        if _RE_MH.search(r.url) or (r.status in (403, 429) and "/v1/players/" in r.url):
+            box.append(r)
+    pg.on("response", _on_resp)
+    try:
+        for a in todo:
+            g, tl = a["riotId"].rsplit("#", 1)
+            want = _norm_riot_id(a["riotId"])
+            pu, wrong, limited, gone = None, set(), False, False
+            del box[:]
+            try:
+                pg.goto(f"https://dpm.lol/{_up.quote(g)}-{_up.quote(tl)}", wait_until="domcontentloaded", timeout=30000)
+                for _ in range(16):
+                    pu, w, lim = _scan_identity(box, want)
+                    wrong |= w; limited = limited or lim
+                    if pu: break
+                    if "Player Not Found" in (pg.title() or ""):
+                        gone = True; break
+                    pg.wait_for_timeout(500)
+            except Exception:
+                pass
+            who = f"{a.get('team')} {a.get('player')} {a['riotId']}"
+            if pu:
+                got[(a.get("riotId"), a.get("platform"))] = pu
+                print(f"   ♻ {who} → puuid OK")
+            elif gone:
+                print(f"   ？ {who} 反查不到（dpm 查無此人：ID 打錯、已改名或沒收錄）")
+            elif wrong:
+                print(f"   ？ {who} 反查不到（回應是 {'、'.join(sorted(wrong))} 的比賽，對不上，不採用）")
+            elif limited:
+                print(f"   ？ {who} 反查不到（dpm 限流，下一班再試）")
+            else:
+                print(f"   ？ {who} 反查不到（頁面沒回比賽：可能沒場次或頁面太慢）")
+    finally:
+        pg.remove_listener("response", _on_resp)
     if got:
         for a in raw:
             k = (a.get("riotId"), a.get("platform"))
