@@ -306,8 +306,10 @@ def process(text, year=DEFAULT_YEAR):
         if not lg: continue
         # 聯賽更名統一：NA LCS→LCS、EU LCS→LEC、OGN(韓國前身)→LCK
         # 「KeSPA Cup」＝OE 2026 七月那屆的寫法（2025-12 那屆寫 KeSPA）；不正名的話 league_ok 比對不到 KESPA → 整屆被丟掉
+        # 「DCGI」＝OE 2026 起德瑪西亞杯的寫法（Demacia Cup Global Invitational；2025 那屆 1 月的尾巴仍寫 DCup）。
+        #   沒正名的話 OE 那份帶逐選手數據的 71 局被 league_ok 丟掉、只剩 wiki 文字版（使用者 2026-11-02）
         RENAME = {"NA LCS": "LCS", "EU LCS": "LEC", "OGN": "LCK", "OPL": "LCO",
-                  "KeSPA Cup": "KeSPA"}
+                  "KeSPA Cup": "KeSPA", "DCGI": "DCup"}
         if lg in RENAME:
             lg = RENAME[lg]; r[iLeague] = lg
         if not league_ok(lg, year): continue  # 只收該年度的一級聯賽與國際賽
