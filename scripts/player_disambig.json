@@ -1062,8 +1062,28 @@
   }
  },
  "Save": {
-  "reviewed": "Leaguepedia 只有一位（Save）→ 同一人，誤報",
-  "link": "Save"
+  "persons": [
+   {
+    "key": "Save",
+    "link": "Save",
+    "teams": [
+     "NaJin Shield",
+     "NaJin White Shield",
+     "Invictus Gaming"
+    ],
+    "games_oe": 94
+   },
+   {
+    "key": "Save (Im Jin-hyeok)",
+    "link": "Save (Im Jin-hyeok)",
+    "teams": [
+     "Redemption eSports Porto Alegre",
+     "Redemption POA"
+    ],
+    "games_oe": 19
+   }
+  ],
+  "source": "人工 #2454：Save (Im Jin-hyeok) 選手頁隊史 Redemption POA 2019-12～2020-05（下路，LP 另記 ID Patrick）；Save（Baek Young-jin）是上路，隊史到 2017 iG，沒有 Redemption。舊條目寫「只有一位」是因為 ScoreboardPlayers 查不到早年場次"
  },
  "Jun": {
   "persons": [
@@ -1611,7 +1631,7 @@
   }
  },
  "BeeOne": {
-  "reviewed": "Leaguepedia 只有一位（BeeOne）→ 同一人，誤報",
+  "reviewed": "人工 #2454 核對隊史：Ultimate、Vikings Gaming 都在 Vũ Tuấn Phi 的選手頁 → 同一人",
   "link": "BeeOne"
  },
  "Tear": {
@@ -1658,7 +1678,7 @@
   }
  },
  "ImbaMiBeo": {
-  "reviewed": "Leaguepedia 只有一位（ImbaMiBeo）→ 同一人，誤報",
+  "reviewed": "人工 #2454：LP 沒有選手頁；OE 只有 2015 GPL 一支隊（An Phat Ultimate／Ultimate）9 局，沒有不同人的跡象",
   "link": "ImbaMiBeo"
  },
  "Lucas": {
@@ -1950,7 +1970,7 @@
   "source": "leaguepedia"
  },
  "QaspieL": {
-  "reviewed": "Leaguepedia 只有一位（QaspieL）→ 同一人，誤報",
+  "reviewed": "人工 #2454 核對隊史：KL Hunters、Impunity、SEM9、馬來西亞國家隊都在 Eric Sia 的選手頁 → 同一人",
   "link": "QaspieL"
  },
  "Zelt": {
