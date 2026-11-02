@@ -51,7 +51,7 @@ def main():
     chk("有 persons_add ⇒ 拆成 2 人", st == "拆成 2 人", st)
     chk("有印出「人工補人格」說明行", any("人工補人格" in s for s in notes), "；".join(notes) or "無")
     # 正控制：拿掉 persons_add，同一份 rows 必須變回「同一人」
-    ent0, st0, _, notes0 = F.build_entry("Demon", rows, {}, oe)
+    ent0, st0, _, notes0 = F.build_entry("Demon", rows, {}, {"Team WE": 12})
     chk("正控制：沒有 persons_add ⇒ 同一人（誤報）", st0 == "同一人", st0)
     chk("正控制：沒有 persons_add 就不印說明行", notes0 == [], str(notes0))
 
@@ -145,12 +145,18 @@ def main():
     chk("拆分時 persons_add／teams_add／人工註記全部保留",
         entK.get("persons_add") and entK.get("teams_add") and entK.get("note") == "人工註記")
     chk("拆分時標記來源 leaguepedia", entK.get("source") == "leaguepedia", str(entK.get("source")))
-    entS, stS, _, _ = F.build_entry("Demon", rows, {"persons": [{"key": "舊的"}], "note": "人工註記"}, oe)
+    entS, stS, _, _ = F.build_entry("Demon", rows, {"persons": [{"key": "舊的"}], "note": "人工註記"}, {"Team WE": 12})
     chk("同一人時 persons 要移除", stS == "同一人" and "persons" not in entS, stS)
     chk("同一人時寫入 reviewed 與 link",
         "Leaguepedia 只有一位" in entS.get("reviewed", "") and entS.get("link") == "Demon (Wu Yue-Wei)",
         entS.get("reviewed", ""))
     chk("同一人時人工註記保留", entS.get("note") == "人工註記", str(entS.get("note")))
+    # #2453：LP 只查到一位、OE 卻有 LP 沒列的隊 ⇒ 不可以下「同一人」（BAO／LIMIT／Coma 型）
+    entU, stU, _, notesU = F.build_entry("Demon", rows, {"reviewed": "舊"}, {"Team WE": 12, "ZZ_Probe": 16})
+    chk("OE 有 LP 沒列的隊 ⇒ 不寫入", entU is None and "未寫入" in stU and "ZZ_Probe(16)" in stU, stU)
+    chk("OE 有 LP 沒列的隊 ⇒ 有警告指路", any("消歧頁" in x for x in notesU), str(notesU))
+    entE, stE, _, _ = F.build_entry("Demon", rows, {}, {})
+    chk("沒有 OE 明細時維持舊行為（同一人）", stE == "同一人" and entE is not None, stE)
 
     # ⑧ 真實素材端到端：用快取的 Demon 查詢結果 ＋ 真的 player_disambig.json
     print("⑧ 真實素材（csv_cache/lpedia_players/Demon.json ＋ player_disambig.json）")

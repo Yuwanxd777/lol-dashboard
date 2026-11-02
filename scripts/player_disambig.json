@@ -1015,8 +1015,51 @@
   "source": "leaguepedia"
  },
  "Hoon": {
-  "reviewed": "Leaguepedia 只有一位（Hoon (Lee Jang-hoon)）→ 同一人，誤報",
-  "link": "Hoon (Lee Jang-hoon)"
+  "persons": [
+   {
+    "key": "Hoon",
+    "link": "Hoon (Lee Jang-hoon)",
+    "teams": [
+     "5 Ronin",
+     "Beşiktaş Esports",
+     "Dignitas",
+     "Dignitas Academy",
+     "Dignitas Challengers",
+     "Gyeonggi",
+     "Hanwha Life Esports"
+    ],
+    "games_oe": 52
+   },
+   {
+    "key": "HooN (Kim Nam-hoon)",
+    "link": "HooN (Kim Nam-hoon)",
+    "teams": [
+     "NaJin Shield",
+     "NaJin White Shield",
+     "ahq e-Sports Club Korea",
+     "Jin Air Green Wings Stealths"
+    ],
+    "games_oe": 34
+   },
+   {
+    "key": "Hoon (Kwon Noh-hoon)",
+    "link": "Hoon (Kwon Noh-hoon)",
+    "teams": [
+     "Afreeca Freecs",
+     "DN SOOPers"
+    ],
+    "games_oe": 6,
+    "teams_oe_manual": [
+     "DN SOOPers"
+    ]
+   }
+  ],
+  "source": "人工 #2453：Leaguepedia 消歧頁＋隊史頁；舊條目寫「只有一位」是因為 ScoreboardPlayers 查不到早年場次",
+  "teams_add": {
+   "Hoon (Kwon Noh-hoon)": [
+    "DN SOOPers"
+   ]
+  }
  },
  "Save": {
   "reviewed": "Leaguepedia 只有一位（Save）→ 同一人，誤報",
@@ -1097,12 +1140,56 @@
   "source": "leaguepedia"
  },
  "Coma": {
-  "reviewed": "Leaguepedia 只有一位（Coma (Hong Hee-bum)）→ 同一人，誤報",
-  "link": "Coma (Hong Hee-bum)"
+  "persons": [
+   {
+    "key": "Coma",
+    "link": "Coma (Hong Hee-bum)",
+    "teams": [
+     "Galakticos",
+     "Galatasaray Esports",
+     "Kaos Latin Gamers",
+     "ShowTime"
+    ],
+    "games_oe": 37
+   },
+   {
+    "key": "ComA (Fang Hong-Ri)",
+    "link": "ComA (Fang Hong-Ri)",
+    "teams": [
+     "Oh My God"
+    ],
+    "games_oe": 16
+   }
+  ],
+  "source": "人工 #2453：Leaguepedia 消歧頁＋隊史頁；舊條目寫「只有一位」是因為 ScoreboardPlayers 查不到早年場次"
  },
  "LIMIT": {
-  "reviewed": "Leaguepedia 只有一位（LIMIT (Dino Tot)）→ 同一人，誤報",
-  "link": "LIMIT (Dino Tot)"
+  "persons": [
+   {
+    "key": "LIMIT",
+    "link": "LIMIT (Dino Tot)",
+    "teams": [
+     "Berlin International Gaming",
+     "Excel Esports",
+     "FC Schalke 04 Esports",
+     "QLASH Forge",
+     "SK Gaming",
+     "SK Gaming Prime",
+     "Team BDS"
+    ],
+    "games_oe": 155
+   },
+   {
+    "key": "Limit (Ju Min-gyu)",
+    "link": "Limit (Ju Min-gyu)",
+    "teams": [
+     "NaJin Black Sword",
+     "KT Rolster Bullets"
+    ],
+    "games_oe": 10
+   }
+  ],
+  "source": "人工 #2453：Leaguepedia 消歧頁＋隊史頁；舊條目寫「只有一位」是因為 ScoreboardPlayers 查不到早年場次"
  },
  "Vin": {
   "persons": [
@@ -1711,12 +1798,47 @@
   }
  },
  "frosty": {
-  "reviewed": "Leaguepedia 只有一位（frosty (José Eduardo)）→ 同一人，誤報",
-  "link": "frosty (José Eduardo)"
+  "persons": [
+   {
+    "key": "frosty",
+    "link": "frosty (José Eduardo)",
+    "teams": [
+     "RED Canids"
+    ],
+    "games_oe": 194
+   },
+   {
+    "key": "Frosty (Arthur Rossoni)",
+    "link": "Frosty (Arthur Rossoni)",
+    "teams": [
+     "RMA e-Sports"
+    ],
+    "games_oe": 5
+   }
+  ],
+  "source": "人工 #2453：Leaguepedia 消歧頁＋隊史頁；舊條目寫「只有一位」是因為 ScoreboardPlayers 查不到早年場次"
  },
  "Chopper": {
-  "reviewed": "Leaguepedia 只有一位（Chopper (Dương Hoàng Sơn)）→ 同一人，誤報",
-  "link": "Chopper (Dương Hoàng Sơn)"
+  "persons": [
+   {
+    "key": "Chopper",
+    "link": "Chopper",
+    "teams": [
+     "yoe IRONMEN",
+     "Yoe IRONMEN"
+    ],
+    "games_oe": 25
+   },
+   {
+    "key": "Chopper (Dương Hoàng Sơn)",
+    "link": "Chopper (Dương Hoàng Sơn)",
+    "teams": [
+     "Original Gaming"
+    ],
+    "games_oe": 6
+   }
+  ],
+  "source": "人工 #2453：Leaguepedia 消歧頁＋隊史頁；舊條目寫「只有一位」是因為 ScoreboardPlayers 查不到早年場次"
  },
  "Demon": {
   "persons_add": [
@@ -2000,7 +2122,7 @@
     "XGamers"
    ]
   },
-  "_note": "謝明軒 OE 168 場多於金東珉 130 場，但主人格刻意留金東珉：他是現役（LØS 2026 世界賽），未列隊伍預設歸主人格；OE 兩人都有場次，career.p 不會消失"
+  "_note": "Hsieh Ming-Hsuan OE 168 場多於 Kim Dong-min 130 場，但主人格刻意留 Kim Dong-min：他是現役（LØS 2026 世界賽），未列隊伍預設歸主人格；OE 兩人都有場次，career.p 不會消失"
  },
  "Feng": {
   "persons": [

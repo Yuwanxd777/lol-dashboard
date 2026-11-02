@@ -151,6 +151,14 @@ def build_entry(name, rows, prev, oe_counts):
     per, notes = personas(name, rows, prev)
     if len(per) <= 1:
         lk = next(iter(per)) if per else ""
+        # LP 只查到一位 ≠ 只有一位：ScoreboardPlayers 早年常常沒有逐場（2026-11-02 #2453：BAO／LIMIT／Coma／
+        # Hoon／Chopper／frosty 全被這樣判成同一人，其實 2013~14 那段是別人）。OE 有 LP 沒列到的隊 ⇒ 不下結論。
+        tl = list((per.get(lk) or {}).get("teams") or ())
+        miss = [t for t in (oe_counts or {}) if not team_match(t, tl)]
+        if miss:
+            why = "、".join(f"{t}({oe_counts[t]})" for t in miss)
+            return None, f"未寫入（OE 的隊 LP 沒列：{why}）", [lk], notes + [
+                f"    ⚠ {name}：LP 只查到 {lk}，但 OE 還有 {why}。先查消歧頁與隊史頁，手動寫進本表"]
         ent = {k: v for k, v in prev.items() if k not in ("persons",)}
         ent["reviewed"] = f"Leaguepedia 只有一位（{lk}）→ 同一人，誤報"
         ent["link"] = lk
