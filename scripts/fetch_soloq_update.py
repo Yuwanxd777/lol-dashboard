@@ -307,6 +307,15 @@ def _res_ok(r):
     """批次結果可用嗎：dict、沒有 err、dpm 沒回限流／擋下（bad）——不可用的留給主迴圈逐一問"""
     return isinstance(r, dict) and not r.get("err") and not r.get("bad")
 
+# 2026-11-02 線 3（精進迴圈 #2437）：整批 429 先等再問，不要 14 秒就把整班放棄。
+# 11-01 22:00／11-02 10:00 連兩班（前一次 10-30 22:00）：176 批每批 0.1s 全回 429 ⇒ 減半 5 次 ⇒ 主迴圈睡 1.5s 連 3 個帳號仍 429 ⇒
+# 熔斷、432 個帳號整班沒問 ⇒ 全庫最新一局停在 11-01 09:34、積分頁「昨天」只剩缺帳號的 37 列。
+# 但 dpm 的限流是暫時的：同一天 10:21（18 分鐘後）同樣的請求就回 200，回應沒有 Retry-After 可看。
+# 這三班的「歸屬複查：批次沒問到（限流／錯誤）」都先中（⑤ 比 ⑤d 早約 2.5 分鐘）⇒ 窗口比 2.5 分鐘長，等待要拉到分鐘級。
+# 只有「整批全部 429」才等（真的被擋，不是個別帳號失敗）；已命中的不重問；等完還是 429 才走原本的減半→逐一→熔斷。
+# 預設關（空＝舊行為），管線由 run_update 的 ⑤d 帶 --rl-waits。改這段要跑 scripts/fetch_soloq_update_rlwait_test.py。
+RL_WAITS = [int(x) for x in (arg("--rl-waits") or "").split(",") if x.strip()]
+
 def prefetch_batches(pg, keys, idx, accs, static, bs=None):
     """把所有待問的 (選手, 帳號) 攤平、每 bs 個一批問 dpm；回 (PRE, 統計)。
     一批裡有人被限流就把批次減半（最小 2），那幾個帳號留給主迴圈逐一問（那邊會睡一下再試）。"""
@@ -322,6 +331,7 @@ def prefetch_batches(pg, keys, idx, accs, static, bs=None):
         for a in todo: items.append((key, a["dpmPuuid"], [a["dpmPuuid"], tok, acc_since(nt, _pend, a)]))
     PRE = {}; st = {"items": len(items), "batches": 0, "hit": 0, "fallback": 0, "halved": 0, "sizes": [], "secs": [], "lat": []}
     i = 0
+    _rlw = list(RL_WAITS)
     while i < len(items):
         chunk = items[i:i + bs]; i += len(chunk); st["batches"] += 1; st["sizes"].append(len(chunk))
         _t0 = time.time()
@@ -332,6 +342,11 @@ def prefetch_batches(pg, keys, idx, accs, static, bs=None):
             print(f"   批次抓錯 {e} → 這 {len(chunk)} 個帳號改逐一問"); st["fallback"] += len(chunk); continue
         finally:
             st["secs"].append(time.time() - _t0)
+        if _rlw and all(isinstance(r, dict) and r.get("bad") == 429 for r in rs):   # #2437：整批 429 ⇒ 這批不算數，等一下原樣再問
+            _w = _rlw.pop(0); i -= len(chunk); st["batches"] -= 1; st["sizes"].pop(); st["secs"].pop()
+            st["rlwait"] = st.get("rlwait", 0) + _w; st["rlwaits"] = st.get("rlwaits", 0) + 1
+            print(f"   ⏳ dpm 整批 429（第 {i + 1} 個帳號起，共 {len(items)} 個）→ 等 {_w}s 再問（還可再等 {len(_rlw)} 次）", flush=True)
+            time.sleep(_w); continue
         for r in rs:   # #130：瀏覽器端逐帳號延遲（秒）＋新場次數，只給「批次分項」那行用
             if isinstance(r, dict) and isinstance(r.get("el"), (int, float)):
                 st["lat"].append((r["el"] / 1000.0, len(r.get("ms") or [])))
@@ -596,7 +611,8 @@ def main():
     if _BST:
         print("⏱ 批次預抓 %.0fs：%d 個帳號／%d 批（批次大小 %d）、命中 %d、退回逐一 %d、減半 %d 次"
               % (_TB, _BST["items"], _BST["batches"], BATCH_NEW, _BST["hit"], _BST["fallback"], _BST["halved"])
-              + ("、逾時／連線錯 %d 個" % _BST["net"] if _BST.get("net") else ""))   # #198：穩態（0 個）那行一字不變
+              + ("、逾時／連線錯 %d 個" % _BST["net"] if _BST.get("net") else "")   # #198：穩態（0 個）那行一字不變
+              + ("、限流等待 %d 次共 %ds" % (_BST["rlwaits"], _BST["rlwait"]) if _BST.get("rlwaits") else ""))   # #2437：同上
         _bd = batch_breakdown(_BST)
         if _bd: print(_bd)
     if _DOWN:   # #199：只在熔斷時印（穩態日誌一字不變）

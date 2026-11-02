@@ -44,8 +44,8 @@ U = load("fsu_bt_new", NEW)
 print("[1] 模組形狀")
 check("有 pool_estimate／batch_breakdown", callable(getattr(U, "pool_estimate", None)) and callable(getattr(U, "batch_breakdown", None)))
 check("JS_BATCH 仍包住 JS_NEW、Promise.all、.catch(，而且多了 el", U.JS_NEW in U.JS_BATCH and "Promise.all" in U.JS_BATCH and ".catch(" in U.JS_BATCH and "el:" in U.JS_BATCH and "r.el=" in U.JS_BATCH)
-# #198 在那個 print 後面接了一行「、逾時／連線錯 N 個」的尾巴 ⇒ 中間是 1～2 行（原本寫死 1 行，#198 一加就紅）
-check("main 在批次預抓那行之後印 batch_breakdown", re.search(r"批次預抓[^\n]*\n(?:[^\n]*\n){1,2}\s*_bd = batch_breakdown\(_BST\)\n\s*if _bd: print\(_bd\)", open(NEW, encoding="utf-8").read()) is not None)
+# #198 在那個 print 後面接了一行「、逾時／連線錯 N 個」的尾巴 ⇒ 中間是 1～3 行（原本寫死 1 行，#198 一加就紅；#2437 再接一行「限流等待」）
+check("main 在批次預抓那行之後印 batch_breakdown", re.search(r"批次預抓[^\n]*\n(?:[^\n]*\n){1,3}\s*_bd = batch_breakdown\(_BST\)\n\s*if _bd: print\(_bd\)", open(NEW, encoding="utf-8").read()) is not None)
 
 print("[2] pool_estimate 派工模擬")
 pe = U.pool_estimate
