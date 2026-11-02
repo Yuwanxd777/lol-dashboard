@@ -54,7 +54,7 @@
       python scripts/update_health.py --from-publish   # publish.bat 用：日誌不新鮮＝異常
       python scripts/update_health.py --no-live        # 跳過可疑同名的現況重算（省 ~3 秒）
       python scripts/update_health.py --no-soloqfresh  # 跳過積分逐場新鮮度（便宜路徑 0.02s，平常不必跳）
-      python scripts/update_health.py --no-lag         # 跳過逐聯賽落後＋同一天少局（唯一連外的兩項、共用一個請求，省 ~3 秒）
+      python scripts/update_health.py --no-lag         # 跳過逐聯賽落後＋同一天少局＋國際賽（唯一連外的幾項、共用一個請求，省 ~3 秒）
 """
 import collections
 import datetime
@@ -1170,7 +1170,37 @@ LAG_GRACE_H = 6
 LAG_WINDOW_D = 14
 LAG_THRESHOLD = 2
 LAG_FORM = "https://lol.fandom.com/wiki/Special:CargoExport"
-# 查詢只拉六個一級聯賽（#137 定案的寫法；#140 搬過來時漏了 LIKE ⇒ 二級聯賽一起回來）。
+# ── 國際賽（#2445）：上面六個 prefix 碰不到世界賽／MSI／First Stand／EWC。世界賽期間一級聯賽全部休賽，
+# 逐聯賽落後與同一天少局等於**整段沒有在看任何比賽**（只剩 75 天的 STALE_DAYS）。
+# wiki 的頁名跟我們的聯賽標籤不同形（2026 Season World Championship/Main Event ↔ WLDs），所以 wiki_rows 回傳前
+# 把 ov 改寫成「標籤/原頁名」，判定直接重用 lag_problems／daycount_problems(tier1=INTL_LEAGUES)，同一個請求。
+# EWC 只認主賽頁：`Esports World Cup 2026/Online Qualifiers/*` 在我們這裡是 EWCQ區域，標籤不同。
+# 門檻量過（autopilot/_m2445_replay.txt）：2026 四個國際賽期間 52 版 data_2026.js 回放，落後 0 次；
+# 少局 11 次全是 EWC 07-15～19 真的缺局（07-18 起缺到 07-26 以後，當時沒有任何人叫）；WLDs／MSI／FST 0 次。
+INTL_LEAGUES = ("WLDs", "MSI", "FST", "EWC")
+INTL_PAGE_RE = (("WLDs", re.compile(r"^\d{4} Season World Championship(/|$)")),
+                ("MSI", re.compile(r"^\d{4} Mid-Season Invitational(/|$)")),
+                ("FST", re.compile(r"^\d{4} First Stand(/|$)")),
+                ("EWC", re.compile(r"^Esports World Cup \d{4}$")))
+INTL_LIKE = ("% Season World Championship%", "% Mid-Season Invitational%", "% First Stand%", "Esports World Cup %")
+
+
+def intl_relabel(rows):
+    """把國際賽列的 ov 改寫成「我們的標籤/原頁名」；其餘列（含 EWC 線上資格賽）原樣，由 tier1 白名單濾掉。"""
+    if not isinstance(rows, list):
+        return rows
+    out = []
+    for r in rows:
+        ov = (r.get("ov") or "") if isinstance(r, dict) else ""
+        for lab, rx in INTL_PAGE_RE:
+            if rx.match(ov):
+                r = dict(r, ov=lab + "/" + ov)
+                break
+        out.append(r)
+    return out
+
+
+# 查詢只拉六個一級聯賽＋國際賽（#137 定案的寫法；#140 搬過來時漏了 LIKE ⇒ 二級聯賽一起回來）。
 # order_by 是開賽時間**由舊到新** ⇒ 真撞到上限時被截掉的是**最新**的局 ⇒ 會被讀成「我們落後」。
 # 所以回滿 LAG_LIMIT 列一律當「結果不完整」走略過，不拿來判定（#168）。
 LAG_LIMIT = 2000
@@ -1277,14 +1307,15 @@ def wiki_rows(since, timeout=90):
     except Exception:
         pass
     time.sleep(2)
-    like = " OR ".join('SG.OverviewPage LIKE "%s/%%"' % lg for lg in LAG_TIER1)
+    like = " OR ".join(['SG.OverviewPage LIKE "%s/%%"' % lg for lg in LAG_TIER1]
+                       + ['SG.OverviewPage LIKE "%s"' % pat for pat in INTL_LIKE])
     p = {"tables": "ScoreboardGames=SG",
          "fields": "SG.OverviewPage=ov,SG.DateTime_UTC=dt,SG.Team1=t1,SG.Team2=t2,SG.N_GameInMatch=g",
          "where": 'SG.DateTime_UTC >= "%s" AND (%s)' % (since, like),
          "order_by": "SG.DateTime_UTC", "format": "json", "limit": str(LAG_LIMIT)}
     raw = op.open(urllib.request.Request(LAG_FORM + "?" + urllib.parse.urlencode(p),
                                          headers=ua), timeout=timeout).read()
-    return json.loads(raw.decode("utf-8", "replace"))
+    return intl_relabel(json.loads(raw.decode("utf-8", "replace")))
 
 
 def wiki_days(since, fetch=None, tier1=None, teams_out=None):
@@ -1999,6 +2030,7 @@ def main():
     if "--no-lag" in sys.argv:
         print("   逐聯賽落後：（--no-lag 跳過）")
         print("   同一天少局：（--no-lag 跳過）")
+        print("   國際賽：（--no-lag 跳過）")
     else:
         _lnow = datetime.datetime.utcnow()
         _lpaths = lag_data_paths(_lnow)
@@ -2039,6 +2071,17 @@ def main():
             print("   " + _m)
         if _dst == "bad":
             bad += [_m[3:] for _m in _dmsgs if _m.startswith("異常：")]
+        # 國際賽（#2445）：同兩條判定、同一個請求，只是聯賽白名單換成 INTL_LEAGUES
+        _ist, _imsgs = lag_problems(_lnow, _lpaths, fetch=_wiki_once, tier1=INTL_LEAGUES)
+        _ict, _icmsgs = daycount_problems(_lnow, _dpaths, fetch=_wiki_once, tier1=INTL_LEAGUES)
+        _ibad = [_m[3:] for _m in _imsgs + _icmsgs if _m.startswith("異常：")]
+        print("   國際賽（%s；落後＋同一天少局，視窗與門檻同上）：%s" % (
+            "／".join(INTL_LEAGUES),
+            "⚠ 有落後或少局" if _ibad else
+            ("略過（原因見下一行）" if "skip" in (_ist, _ict) else "✓ 比賽日與局數都對得上")))
+        for _m in _imsgs + _icmsgs:
+            print("   " + _m)
+        bad += ["國際賽 " + _m for _m in _ibad]
     print("")
     print("結論：" + ("✓ 沒有異常" if not bad else "⚠ " + "；".join(bad)))
     if any(("縮水" in b or "不見了" in b or "有值格數倒退" in b) for b in bad):
