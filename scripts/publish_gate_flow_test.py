@@ -270,13 +270,13 @@ def contract():
         "PREFLIGHT FAILED - push skipped. see update_log.txt\n")
     code = ("import sys; sys.path.insert(0, r'%s');"
             "import update_health as u;"
-            "u.ROOT = r'%s'; u.LOG = r'%s'; u.CONSOLE = r'%s'; u.BASE = r'%s';"
+            "u.ROOT = r'%s'; u.LOG = r'%s'; u.CONSOLE = r'%s'; u.BASE = r'%s'; u.SHIFT_LOG_DIR = r'%s';"  # #2450：不接管就讀到真實班次（dpm 熔斷），正控制永遠紅
             # #164：接管 wiki 出口（#144 起 main 會連 Leaguepedia）＋封網保險絲：撞到就在 stderr 留 NETHIT（ssl 要先載入，否則換掉 socket.socket 後 import ssl 會 TypeError、靜默走略過）
             "u.wiki_rows = lambda since, timeout=90: [{'ov': 'PCS/sandbox', 'dt': since + ' 00:00'}];"
             "import ssl, http.client, urllib.request, socket as _s; _s.socket = _s.create_connection = "
             "lambda *a, **k: (sys.stderr.write('NETHIT '), (_ for _ in ()).throw(OSError('blocked')));"
             "sys.argv = ['x', '--no-save', '--no-live']; sys.exit(u.main())"
-            % (os.path.join(ROOT, "scripts"), box, log, log + ".none", base))
+            % (os.path.join(ROOT, "scripts"), box, log, log + ".none", base, os.path.join(TMP, "c_shift")))
     p = subprocess.run([sys.executable, "-c", code], capture_output=True, cwd=ROOT)
     out = p.stdout.decode("utf-8", "replace")
     ok1 = p.returncode == 1

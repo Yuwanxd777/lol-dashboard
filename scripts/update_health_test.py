@@ -94,6 +94,10 @@ def _wiki_takeover(since, timeout=90):
 _restore_net_all = block_network()
 _real_wiki_rows = uh.wiki_rows
 uh.wiki_rows = _wiki_takeover
+# #2450：班次留底是 #2438／#81b5afa1 起的證據來源，模組層常數在 import 時就綁死真實 repo，只換 uh.ROOT 接管不到
+# ⇒ 真實環境連 2 班 dpm 熔斷時，「種齊的假 repo 應該乾淨」那 8 條全紅（被測程式沒壞）。整支共用一個空沙盒目錄。
+_SHIFT_BOX = tempfile.mkdtemp(prefix="uh_shiftbox_")
+uh.SHIFT_LOG_DIR = _SHIFT_BOX
 # 正控制：封鎖器真的會擋、而且真的會記帳（否則檔尾「NET_HITS 是空的」可能只是記帳壞了）
 try:
     import urllib.request as _ur0
@@ -2421,6 +2425,18 @@ eq(_stat_of(_REAL_BASE_PATH), _REAL_BASE_STAT, "㉞真的 UPDATE_BASELINE.json �
 eq(NET_HITS, [], "⓪整份測試沒有任何一次真的去連外（有人漏接了出口）")
 eq(len(WIKI_CALLS) >= 4, True, "⓪⑫⑮ 那四次 main() 都走到接管的 wiki 出口（得到 %d 次）" % len(WIKI_CALLS))
 uh.wiki_rows = _real_wiki_rows
+# ── ㉟ 班次留底目錄真的被接管（2026-11-02 #2450）──
+eq(os.path.abspath(uh.SHIFT_LOG_DIR).lower().startswith(os.path.abspath(ROOT).lower()), False,
+   "㉟SHIFT_LOG_DIR 沒有指著真實 repo")
+_fail35 = ("---- fetch_soloq_update（86.5s，exit 0）----\n"
+           "⏱ 批次預抓 14s：435 個帳號\n⚡ dpm 熔斷小結：432 個帳號這一班沒問（223 位選手）\n")
+eq(uh.obgg_shift_states(state_of=uh.dpm_fuse_state), [], "㉟沙盒一開始是空的（真實留底有 60 班，漏接這裡就不是空的）")
+for _k35 in ("20991231_1000", "20991231_2200"):
+    io.open(os.path.join(_SHIFT_BOX, "update_log_%s.txt" % _k35), "w", encoding="utf-8").write(_fail35)
+_line35, _bad35 = uh.dpm_fuse_problems(uh.obgg_shift_states(state_of=uh.dpm_fuse_state))
+eq(any("20991231_1000" in str(x) for x in _bad35), True, "㉟正例：只有沙盒才有的 2 班熔斷，預設路徑讀得到")
+shutil.rmtree(_SHIFT_BOX, ignore_errors=True)
+
 _restore_net_all()
 
 print("update_health 回歸測試：通過 %d 條" % OK[0] + ("" if not NG else "，失敗 %d 條" % len(NG)))
