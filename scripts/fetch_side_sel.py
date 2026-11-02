@@ -51,7 +51,8 @@ KEYS = ["Blue", "Red", "1st Sel", "Side Sel", "Pick Sel"]
 
 
 # 只抓**一級聯賽＋國際賽**（＝主數據真的收的那些）。二級／區域聯賽（LCK CL、VCS、
-# Rift Legends、Circuito Desafiante、IDL Kings、NACL、Americas Cup…）的局根本不在主數據裡，
+# Rift Legends、Circuito Desafiante、IDL Kings、NACL…）的局根本不在主數據裡，
+# （Americas Cup 2026-11-02 起改收：LCS／CBLOL 一級隊伍的跨區賽，見下面 INTL）
 # 抓回來永遠配不到任何一局，只是讓每次更新多花時間（2026-08-03 使用者：只要一級聯賽）。
 # 寫成規則不寫死年份：`LCK/2026 Season/...` 這種頁名格式歷年一致，明年不必改。
 # ⚠ 分隔線一定要是 `/`：`LCK CL/...`（二級）就是靠這個排除的。
@@ -66,7 +67,7 @@ TIER1H = re.compile(r"^(LCK|LPL|LEC|LCS|LCP|CBLOL|NA LCS|EU LCS|LMS|Champions|PC
 #   歷年一致，明年不必改。舊屆數不會跑進來——ov_pages 只看前一年 10 月起有比賽的頁，
 #   而且選邊欄位是 2026 新制才有的。
 INTL = re.compile(r"(First Stand|KeSPA Cup|Mid-Season Invitational|World Championship"
-                  r"|Esports World Cup|Demacia Cup|Asian Games)", re.I)
+                  r"|Esports World Cup|Demacia Cup|Asian Games|Americas Cup)", re.I)
 want_ov = lambda ov: bool((TIER1H if HIST else TIER1).match(ov or "") or INTL.search(ov or ""))
 
 

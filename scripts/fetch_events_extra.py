@@ -173,6 +173,8 @@ EVENTS = {
         "WLDs":     {"page": "2026 Season World Championship",                "kind": "team", "stages": True},
         "亞運":     {"page": "2026 Asian Games",                                "kind": "nation"},
         "DCup":     {"page": "2026 Demacia Cup Global Invitational",            "kind": "team"},
+        # Americas Cup（OE 代碼 AC，使用者 2026-11-02：一級隊伍的小型國際賽）
+        "AC":       {"page": "2026 Americas Cup",                               "kind": "team"},
     },
 }
 

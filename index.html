@@ -3471,7 +3471,7 @@ if(window.TEAM_COLLIDE&&TEAM_COLLIDE.names&&!TEAM_COLLIDE.names["ag.al"])TEAM_CO
 if(window.TEAM_COLLIDE&&TEAM_COLLIDE.names)TEAM_COLLIDE.names["rich gang"]="LCO";
 const tAb=t=>{const na=natAbbrOf(t); return na||teamFix(abbrOf(t)||t);}; // 國家隊優先用國碼（ENC 全是國家隊）
 // 盃賽（非常規聯賽）：世界賽/季中賽/電競世界盃(含資格賽)/國家盃/開幕賽/KeSPA 杯/IEM
-const CUP_LG=/^(WLDs|MSI|EWCQ|EWC|ENC|FST|KeSPA|IEM|DCup|亞運)/i; // 2026-09-15 使用者：德瑪西亞盃／亞運放到國際賽與盃賽
+const CUP_LG=/^(WLDs|MSI|EWCQ|EWC|ENC|FST|KeSPA|IEM|DCup|亞運|AC$)/i;   // AC＝Americas Cup（2026-11-02 使用者：一級隊伍的小型國際賽） // 2026-09-15 使用者：德瑪西亞盃／亞運放到國際賽與盃賽
 // 戰隊/選手的「所屬賽區」＝出賽最多的**聯賽**；完全沒打過聯賽（只有世界賽等盃賽）才退回盃賽。
 // 2013 NaJin Black Sword（LCK 6＋WLDs 8）、SK Telecom T1（LCK 4＋WLDs 18）這種
 // 只因盃賽場次多就被標成 WCS，賽區標示等於沒意義（2026-07-31 使用者回報）。
@@ -3604,7 +3604,7 @@ function natlPlayerLeagues(){
 // 使用者 2026-10-18：KeSPA 這類盃賽戰隊會派二隊選手上場，他們的積分帳號掛在一隊名下 ⇒ 舊版積分篩 WCS
 //   是「隊伍有參賽就整隊都列」，二隊選手也跟著出現。改成：本人在 wiki 參賽名單上（events_extra rosters，
 //   教練不算）或真的在該賽事上場過，才算參加。名單沒有的賽事（MSI／FST／EWC）就靠上場紀錄。
-const CUP_LGS=["FST","MSI","WLDs","EWC","ENC","亞運","DCup"];
+const CUP_LGS=["AC","FST","MSI","WLDs","EWC","ENC","亞運","DCup"];
 // 世界賽瑞士輪種子籤（Leaguepedia Main Event 頁；第 1～4 級，"PI"＝入圍賽出線隊）：預測模擬的首輪配對＋積分每日戰況篩 WCS 時的隊序
 // 世界賽 wiki 名單漏的人手動補：[隊縮寫, 選手]（使用者 2026-10-18：TES 要列 ZUIAN、IG 要列 Assum）；積分篩 WCS 與預測的選手題共用
 const WLD_ROSTER_ADD={2026:[["TES","ZUIAN"],["IG","Assum"]]};
@@ -3698,7 +3698,7 @@ const LGC={
   LCP:"#2bb3a3",PCS:"#2bb3a3",LMS:"#2bb3a3",GPL:"#2bb3a3",                // 太平洋主線
   LCO:"#8ae8d8",LJL:"#3ddbc4",VCS:"#16786e",                              // 太平洋同期併存（亮→暗四階）
   // MSI 黑紅（使用者 2026-10-18：比照 FST 橘＝活動主色調）、DCup 德瑪西亞藏青＋銀白＋金（全站賽區籤只用文字色）
-  MSI:"#e8283f",EWC:"#b083f0",FST:"#f08b5b",WLDs:"#ffd700",ENC:"#ff8ad4",DCup:"#e6ebf3",
+  MSI:"#e8283f",EWC:"#b083f0",FST:"#f08b5b",WLDs:"#ffd700",ENC:"#ff8ad4",DCup:"#e6ebf3",AC:"#7cc7ff",
   KeSPA:"#9fb4ff",IEM:"#b0c4de",
   // EWCQ 各分區沿用該賽區色
   EWCQ北美:"#c9a86a",EWCQ歐洲:"#38b6ff",EWCQ韓國:"#4f8ef7",EWCQ中國:"#e05c5c",
@@ -3853,7 +3853,7 @@ function initData(){
     if(r[4]&&r[3]) CABBR[r[4]]=r[3];
   });
   // 隊伍→母聯賽速查（判資格賽屬於哪個賽區）
-  const _INTL_RE=/^(WLDs|MSI|FST|EWC|ENC|RR|IEM|MSC|KeSPA|EWCQ|WQS)/;
+  const _INTL_RE=/^(WLDs|MSI|FST|EWC|ENC|RR|IEM|MSC|KeSPA|EWCQ|WQS|AC$)/;
   const _homeCnt={};
   {   // 每一隊的母聯賽（出賽最多的非國際賽聯賽）——資格賽要靠它判屬於哪個賽區
     for(let i=1;i<RAW.length;i++){const r=RAW[i]; if(+r[C.participantid]!==100)continue;
@@ -3992,7 +3992,7 @@ const LG_TAIL_PREF=["CBLOL","LCP","LTA","LTA N","LTA S","LLA","LLN","CLS",
 // 選「中韓」仍然只篩 LCK+LPL，不會把 GPL 一起撈進來。群組當年沒隊伍時這些照樣回尾段列出。
 const LG_GROUP_TAIL={ "中韓":["GPL"], "歐美":["CBLOL","LCP","LLA","TCL","LCL","LCO"], "國際賽":["KeSPA"] }; // 2026-10-18 使用者排序：歐美後接 CBLOL→LCP；國際賽最後接 KeSPA（只排序、不進篩選語意）
 const LG_GROUP={ "中韓":["LCK","LPL"], "歐美":["LEC","LCS"], // 使用者定義：中韓=LCK+LPL、歐美=LEC+LCS
-                 "國際賽":["FST","MSI","EWC","ENC","亞運","DCup","WLDs","RR","IEM","MSC",
+                 "國際賽":["AC","FST","MSI","EWC","ENC","亞運","DCup","WLDs","RR","IEM","MSC",
                           "EWCQ歐洲","EWCQ韓國","EWCQ中國","EWCQ太平洋","EWCQ巴西","EWCQ北美"] };
 // ── 賽事分級對照（圖鑑「賽事」分頁用）；區域用現行代碼回溯（LEC=歐洲、LCS=北美、LCO=大洋洲）。grp: intl 國際賽/t1 賽區聯賽/cup 盃賽；tier: 1 主要/2 次級/3 三級（v1 分級為暫定，待人工修正）──
 const LEAGUE_META={
@@ -4007,7 +4007,8 @@ const LEAGUE_META={
   EWC:{zh:"電競世界盃",grp:"cup",full:"Esports World Cup"},
   ENC:{zh:"電競國家盃",grp:"cup",full:"Esports Nations Cup"}, // 2026 新賽事，國家隊形式（使用者定名）
   "亞運":{zh:"亞運",en:"Asian Games",grp:"cup",full:"Asian Games"},                       // 2026-09-15 補充賽事（國家隊）；沒登記會掉進三級聯賽（leagueMeta 預設）
-  DCup:{zh:"德瑪西亞盃",grp:"cup",region:"中國",full:"Demacia Cup Global Invitational"}, // 2026-09-15 補充賽事（使用者：放到國際賽與盃賽）
+  DCup:{zh:"德瑪西亞盃",grp:"cup",region:"中國",full:"Demacia Cup Global Invitational"},
+  AC:{zh:"美洲盃",en:"Americas Cup",grp:"cup",full:"Americas Cup"},   // 2026-11-02：LCS／CBLOL 一級隊伍的跨區賽（OE 代碼 AC） // 2026-09-15 補充賽事（使用者：放到國際賽與盃賽）
   LCK:{zh:"LCK",grp:"t1",tier:1,region:"韓國",full:"League of Legends Champions Korea"},
   LPL:{zh:"LPL",grp:"t1",tier:1,region:"中國",full:"League of Legends Pro League"},
   LEC:{zh:"LEC",grp:"t1",tier:1,region:"歐洲",full:"League of Legends EMEA Championship"},
@@ -13852,7 +13853,7 @@ function render(){
     //     晉級／淘汰戰 BO3，其餘 BO1）→ 八強單淘 BO5。每局勝率＝σ(強度差)。
     //   ③ 產出：每隊預估局數／勝場、進八強與奪冠機率、名次分布；每次模擬的八強地區數、有沒有 LCS。
     //   模擬用固定種子的亂數 ⇒ 同一份資料每次打開結果一樣（直播時不會重整一次就換答案）。
-    const INTL_LG=new Set(["MSI","FST","EWC","WLDs","DCup","KeSPA","亞運","AG"]);
+    const INTL_LG=new Set(["MSI","FST","EWC","WLDs","DCup","KeSPA","亞運","AG","AC"]);
     const REG_OF_LG={LCK:"LCK",LPL:"LPL",LEC:"LEC",LCS:"LCS","LTA N":"LCS",LCP:"LCP",CBLOL:"CBLOL","LTA S":"CBLOL"};
     const teamReg={}; { const cnt={};
       GAMES.forEach(o=>{ const rg=REG_OF_LG[o.league]; if(!rg)return; [bt(o),rt(o)].forEach(t=>{const c=cnt[t]=cnt[t]||{}; c[rg]=(c[rg]||0)+1;}); });
@@ -13880,7 +13881,7 @@ function render(){
     const before=v=>!CUT||String(v)<CUT;
     const GAMES=CUT?_GALL.filter(o=>before(o.dt||o.date)):_GALL, gLive=CUT?_gLiveAll.filter(o=>before(o.dt||o.date)):_gLiveAll;
     const PL=(CUT&&_PL0)?Object.assign({},_PL0,{next:[],series:(_PL0.series||[]).filter(x=>_serDt.has(x)?before(_serDt.get(x)):x.d<CUT.slice(0,10))}):_PL0;   // 前一天的版本不用今天公布的籤表
-    const H2H_LG=new Set(["WLDs","MSI","EWC","FST","DCup"]);
+    const H2H_LG=new Set(["WLDs","MSI","EWC","FST","DCup","AC"]);
     const REGH=(()=>{ const P={}, add=(a,b,wa,wb)=>{ if(!a||!b||a===b)return; const k=[a,b].sort().join("|"), x=P[k]=P[k]||[0,0];
         if(a<b){x[0]+=wa;x[1]+=wb;}else{x[0]+=wb;x[1]+=wa;} };
       [curYear-2,curYear-1].forEach(y=>{ const h=(H[String(y)]||{}).h2h||{}; for(const k in h){const [a,b]=k.split("|"); add(a,b,h[k][0],h[k][1]);} });
@@ -15567,7 +15568,7 @@ function render(){
       //   入圍賽／LPL 世界賽資格賽也有標籤後，本賽段＝瑞士輪（每隊才 9~10 隻）、最近兩賽段＝入圍賽或資格賽
       //   ⇒ 兩階保底都不到 15 隻，世界賽第 1 局直接跳到不限時間。窗本身是日期，這些局照樣算在窗內。
       const _SP_SKIP=new Set(["入圍賽","瑞士輪","淘汰賽","世界賽資格賽","升降賽"]);
-      const _SP_SKIP_LG=new Set(["WLDs","MSI","FST","EWC","DCup","KeSPA","亞運","AG"]);
+      const _SP_SKIP_LG=new Set(["WLDs","MSI","FST","EWC","DCup","KeSPA","亞運","AG","AC"]);
       const _spStart=(()=>{ const out={};
         try{ for(const o of (typeof GAMES!=="undefined"?GAMES:[])){
           const r=o.raw, a=r[C.blue_teamname], b=r[C.red_teamname];
@@ -18308,7 +18309,7 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
       _LGS.forEach(l=>{ if(inCup(l,r.team,r.player))o.add(l); }); if(n)n.forEach(l=>o.add(l));
       return o.size?o:null; };
     // 順序（使用者 2026-10-18）：聯賽 LCK LPL LEC LCS CBLOL LCP；國際賽 FST MSI EWC 亞運 DCGI WCS；KeSPA 依屆（季前／季中）；EWCQ 不列
-    const CUP_ORDER=["FST","MSI","EWC","ENC","亞運","DCup","WLDs"];
+    const CUP_ORDER=["AC","FST","MSI","EWC","ENC","亞運","DCup","WLDs"];
     const LEAGUE_PREF=["LCK","LPL","LEC","LCS","CBLOL","LCP","LTA","LTA N","LTA S","VCS","PCS","LMS"];
     const isLeagueCode=l=>(LEAGUE_META[l]&&LEAGUE_META[l].grp==="t1")||LEAGUE_PREF.includes(l); // 只留真正的賽區聯賽(排除 EWCQ資格賽/KeSPA 等)
     const playerLgs=new Set(); SD.players.forEach(p=>{const s=rgOf(p); if(s)s.forEach(l=>playerLgs.add(l));});
@@ -19472,7 +19473,7 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
               <td><input class="abbr" data-t="${esc(m.names.join("|"))}" value="${esc(m.ab)}" placeholder="${LANG==='en'?'Abbr':'填縮寫'}" maxlength="8"></td>
               <td>${m.names.join(" / ")}</td>
               <td class="meta">${m.date||"—"}</td></tr>`;
-        const INTL_SET=new Set(["FST","MSI","EWC","ENC","WLDs","RR","IEM","MSC","KeSPA"]);
+        const INTL_SET=new Set(["FST","MSI","EWC","ENC","WLDs","RR","IEM","MSC","KeSPA","AC"]);
         // 隊伍的母聯賽＝該隊當年在「非國際賽」中出賽最多的聯賽（找不到＝其他）
         const homeOf=m=>{
           if(m.names.some(nm=>/\(national team\)/i.test(nm)))return "國家隊"; // (National Team) 一律歸國家隊

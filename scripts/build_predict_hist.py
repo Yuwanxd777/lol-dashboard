@@ -25,7 +25,7 @@ REGION = {"LTA N": "LCS", "LCS": "LCS", "NA LCS": "LCS", "LTA S": "CBLOL", "CBLO
 # 賽區強度用（2026-10-11 使用者：以近三年賽區對戰成績判定）：舊賽區併到今年的名字
 H2H_REG = {"LCK": "LCK", "LPL": "LPL", "LEC": "LEC", "EU LCS": "LEC", "LCS": "LCS", "NA LCS": "LCS", "LTA N": "LCS",
            "CBLOL": "CBLOL", "LTA S": "CBLOL", "LCP": "LCP", "PCS": "LCP", "VCS": "LCP", "LJL": "LCP", "LCO": "LCP"}
-H2H_LG = {"WLDs", "MSI", "EWC", "FST", "DCup"}
+H2H_LG = {"WLDs", "MSI", "EWC", "FST", "DCup", "AC"}
 # 勝率題的熱門度先驗（使用者 2026-10-11：勝率王都是最近很少選、但不是沒人選的英雄）：
 #   賽前 90 天主要賽區＋國際賽的選用次數排名；記下該屆勝率前三（≥5 場）各自排第幾
 PRE_LG = {"LCK", "LPL", "LEC", "LCS", "LTA N", "LTA S", "LTA", "CBLOL", "LCP", "PCS", "VCS", "LJL", "MSI", "EWC", "FST"}

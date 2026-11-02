@@ -26,7 +26,7 @@ sys.path.insert(0, HERE)
 # 跟 build_predict_hist.py 同一套（前端賽區強度吃的 h2h 就是它產的）
 H2H_REG = {"LCK": "LCK", "LPL": "LPL", "LEC": "LEC", "EU LCS": "LEC", "LCS": "LCS", "NA LCS": "LCS", "LTA N": "LCS",
            "CBLOL": "CBLOL", "LTA S": "CBLOL", "LCP": "LCP", "PCS": "LCP", "VCS": "LCP", "LJL": "LCP", "LCO": "LCP"}
-H2H_LG = {"WLDs", "MSI", "EWC", "FST", "DCup"}
+H2H_LG = {"WLDs", "MSI", "EWC", "FST", "DCup", "AC"}
 # Main Event 頁 TeamRoster 的 team= 代碼 → MatchSchedule 全名
 CODE = {"GEN": "Gen.G", "JDG": "JD Gaming", "G2": "G2 Esports", "NRG": "NRG", "T1": "T1", "BLG": "Bilibili Gaming",
         "FNC": "Fnatic", "C9": "Cloud9", "KT": "KT Rolster", "LNG": "LNG Esports", "MADL LEC": "MAD Lions",
