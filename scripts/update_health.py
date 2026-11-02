@@ -1772,19 +1772,20 @@ def obgg_streak(states):
     return n, since
 
 
-def obgg_shift_states(cur_text=None, cur_start=None, log_dir=None):
+def obgg_shift_states(cur_text=None, cur_start=None, log_dir=None, state_of=None):
     d = SHIFT_LOG_DIR if log_dir is None else log_dir
+    state_of = obgg_state if state_of is None else state_of
     got = {}
     for f in glob.glob(os.path.join(d, "update_log_*_*.txt")):
         m = re.search(r"update_log_(\d{8}_\d{4})\.txt$", f)
         if m:
             try:
-                got[m.group(1)] = obgg_state(io.open(f, encoding="utf-8", errors="replace").read())
+                got[m.group(1)] = state_of(io.open(f, encoding="utf-8", errors="replace").read())
             except Exception:
                 pass
     k = shift_key_of(cur_start)
     if k and cur_text is not None:
-        got[k] = obgg_state(cur_text)
+        got[k] = state_of(cur_text)
     return sorted(got.items())
 
 
@@ -1804,6 +1805,52 @@ def obgg_problems(states, warn=None, bad_n=None):
     if n >= warn:
         return "⚠ 提醒：" + msg + "；外站連不上我們修不了，只告知、不進結論（滿 %d 班才列異常）" % bad_n, []
     return msg + "（單班失敗先觀察）", []
+
+
+# ── dpm 逐場連續幾班熔斷（2026-11-02 主對話迴圈 #2438）──────────────────────────
+# #2437：11-01 22:00／11-02 10:00 連兩班 ⑤d「⚡ dpm 熔斷」、432 個帳號整班沒問，全庫最新一局停在 24.6 小時前；
+# 那支 exit 0、列數高水位不動，SQF_STALE_H=30 要第三班才叫 ⇒ 兩班都印「✓ 沒有異常」，
+# 而積分頁預設「昨天」範圍已經沒有任何可點的選手（使用者看得到的壞）。
+# 門檻量過：2026-10-04～11-02 共 60 班留底，熔斷 3 班、連兩班只有這一次 ⇒ 2 班列異常不會變狼來了。
+# 跟 OBGG 不同（那邊 14 班才異常）：帳號檔舊一週還能用，逐場停一天使用者就看到空表。
+# 單班只印不列：下一班會從原 newestT 補，不丟資料。
+DPM_FUSE_BAD_SHIFTS = 2
+
+
+def dpm_fuse_block(text):
+    """一班日誌裡 fetch_soloq_update 那一段；沒跑這步回 None。"""
+    if not text:
+        return None
+    i = text.find("---- fetch_soloq_update（")
+    if i < 0:
+        return None
+    j = text.find("\n---- ", i + 1)
+    return text[i:] if j < 0 else text[i:j]
+
+
+def dpm_fuse_state(text):
+    """'fail'（熔斷）／'ok'（有跑批次預抓、沒熔斷）／None（這班沒跑這步，或沒走到預抓）。"""
+    blk = dpm_fuse_block(text)
+    if blk is None:
+        return None
+    if "⚡ dpm 熔斷小結" in blk:
+        return "fail"
+    return "ok" if "批次預抓" in blk else None
+
+
+def dpm_fuse_problems(states, cur_text=None, bad_n=None):
+    """回 (印出的那一行, 進結論的異常清單)。cur_text 只用來附「這班限流等了多久」。"""
+    bad_n = DPM_FUSE_BAD_SHIFTS if bad_n is None else bad_n
+    if not [x for x in states if x[1] is not None]:
+        return "dpm 逐場：（找不到任何一班有跑批次預抓的日誌）", []
+    n, since = obgg_streak(states)
+    if n == 0:
+        m = re.search(r"限流等待 (\d+) 次共 (\d+)s", dpm_fuse_block(cur_text) or "")
+        return "dpm 逐場：✓ 最近一班沒有熔斷" + ("（有被限流，等待 %s 次共 %ss 後問到）" % m.groups() if m else ""), []
+    msg = "dpm 逐場：連續 %d 班熔斷（從 %s 那班起；那幾班多數帳號沒問到新局）" % (n, since)
+    if n >= bad_n:
+        return "⚠ " + msg + " ⇒ 積分頁會開始缺人；已手動補抓的話，下一班沒熔斷就自動解除",             ["dpm 連續 %d 班熔斷（從 %s）" % (n, since)]
+    return msg + "（單班先觀察，下一班會從原 newestT 補）", []
 
 
 def main():
@@ -1937,6 +1984,10 @@ def main():
     oline, obad = obgg_problems(obgg_shift_states(_cur_txt, (lg or {}).get("start_at")))
     print("   " + oline)
     bad += obad
+    # dpm 逐場連續熔斷（#2438）：exit 0、列數不動，SQF_STALE_H 又要第三班才叫
+    dline, dbad = dpm_fuse_problems(obgg_shift_states(_cur_txt, (lg or {}).get("start_at"), state_of=dpm_fuse_state), _cur_txt)
+    print("   " + dline)
+    bad += dbad
     # 遊戲版本（#99）：比賽資料以外，patch notes／DDragon 也會靜靜地停在舊版
     gv = game_versions()
     vline, vbad, vsince = version_problems(prev.get("versions") or {}, gv,
