@@ -156,10 +156,11 @@ def role_counts(pg, pu):
     return last
 
 # Phase2：只抓 lane=token 的 2026 q420，回精簡逐場(技能前3、符文keystone)
-JS_YEAR = """async(args)=>{ const [PU, tok, CUT]=args; const out=[];
+# 回 {g:逐場, bad:0｜HTTP 狀態碼｜-1(連線失敗)}。bad 非 0＝中途停手，g 可能只有前幾頁、甚至是空的（見 TRANSIENT_HTTP）
+JS_YEAR = """async(args)=>{ const [PU, tok, CUT]=args; const out=[]; let bad=0;
   for(let pg=1; pg<=400; pg++){
-    let r; try{ r=await fetch(`/v1/players/${PU}/match-history?size=15&page=${pg}&lane=${tok}`);}catch(e){break;}
-    if(!r.ok) break; const j=await r.json(); const ms=j.matches||[]; if(!ms.length) break; let stop=false;
+    let r; try{ r=await fetch(`/v1/players/${PU}/match-history?size=15&page=${pg}&lane=${tok}`);}catch(e){bad=-1;break;}
+    if(!r.ok){bad=r.status;break;} const j=await r.json(); const ms=j.matches||[]; if(!ms.length) break; let stop=false;
     for(const m of ms){ if((m.gameCreation||0) < CUT){ stop=true; break; }
       if(m.queueId!==420) continue; if((m.gameDuration||0)<600) continue; const p=(m.participants||[])[0]; if(!p) continue;
       const buy=(p.itemActions||[]).filter(a=>a.action==='purchase').map(a=>[Math.round((a.timestamp||0)/1000),a.id]);
@@ -180,7 +181,29 @@ JS_YEAR = """async(args)=>{ const [PU, tok, CUT]=args; const out=[];
     }
     if(stop) break;
   }
-  return out; }"""
+  return {g:out,bad}; }"""
+
+# 2026-11-02 #2441：舊版非 200 只 break、照樣回「到目前為止的場次」⇒ 限流時第 1 頁就失敗＝空陣列＝被記成「確認 0 場、3 天不重抓」；
+# 中途才失敗＝只有前幾頁的場次被當全年寫檔（--only 還會蓋掉原本完整的檔），之後 ⑤d 只補新局、缺的永遠補不回來。
+# 只有這些算「這次沒問完」；其餘 4xx（如 404）維持舊行為當 0 場，否則問不到的帳號會每班重抓、把 EMPTY_DAYS 的省時作廢。
+TRANSIENT_HTTP = {403, 408, 425, 429}
+
+
+def is_transient(bad):
+    """JS_YEAR 的 bad：-1＝連線失敗、403＝Cloudflare 盤查、429＝限流、5xx＝對方掛了 ⇒ 下一班再問就可能好。"""
+    return bad == -1 or bad in TRANSIENT_HTTP or (isinstance(bad, int) and bad >= 500)
+
+
+def year_fetch(pg, pu, tok, cut):
+    """抓一個帳號的全年逐場，回 (場次, 暫時性失敗的原因或 None)。evaluate 丟例外（頁面掛了）也算暫時性。"""
+    try:
+        res = pg.evaluate(JS_YEAR, [pu, tok, cut])
+    except Exception as e:
+        return [], "抓錯 %s" % e
+    if not isinstance(res, dict):
+        return [], "回傳格式不對 %r" % type(res).__name__
+    bad = res.get("bad") or 0
+    return res.get("g") or [], ("HTTP %s" % bad if is_transient(bad) else None)
 
 # 每帳號最後一場 soloq 時間(ms)：積分頁挑「最近7天有打 soloq 的帳號」用（獨立小檔，合併既有不覆蓋未更新者）
 ACC_LG = {}
@@ -286,6 +309,7 @@ def main():
         if a.get("bad") and a.get("dpmPuuid") and a.get("riotId"):
             BAD_BY_KEY.setdefault(f'{a.get("team","")}|{a.get("player","")}', []).append(a)
     UNBAD = []
+    DEFER = []  # 本輪被限流／盤查沒問完的選手：不寫檔、不記 0 場，下一班再補
     EMPTY_RES = {}  # --missing：本輪每位抓到的場數（0 場 → save_year_empty 記日期）
     os.makedirs(OUTDIR, exist_ok=True)
     part = (MISSING or ONLY) and not STAGING
@@ -349,15 +373,23 @@ def main():
             merged = []
             _src = soloq_src.new_src()   # 來源 meta：哪個 dpmPuuid 抓回哪些 rid（見 scripts/soloq_src.py）
             soloq_src.set_accounts(_src, use)
+            _short = []
             for a in use:
-                try: arr = pg.evaluate(JS_YEAR, [a["dpmPuuid"], best_tok, CUT])
-                except Exception as e: print(f"   {a['riotId']} 抓錯 {e}"); arr = []
+                arr, _why = year_fetch(pg, a["dpmPuuid"], best_tok, CUT)
+                if _why:
+                    print(f"   {a['riotId']} 沒問完（{_why}），這次拿到 {len(arr)} 場")
+                    _short.append(a["riotId"])
                 merged.extend(arr)
                 soloq_src.note(_src, a["dpmPuuid"], arr)
                 if arr:  # 記該帳號自己最後一場 soloq 的時間
                     _lg = max((g.get("t") or 0) for g in arr)
                     if _lg: ACC_LG[_accnorm(a.get("riotId"))] = _lg
                 time.sleep(0.1)
+            # 部分模式才延後：全量重建（part=False）沒有舊檔可留，略過等於把這位選手從結果裡拿掉，維持寫出＋上面那行警告
+            if _short and part:
+                DEFER.append(key)
+                print(f"[{i}/{len(keys)}] {key}  ⏳ {len(_short)}/{len(use)} 個帳號沒問完 → 不寫檔、不記 0 場，下一班再補")
+                continue
             merged.sort(key=lambda g: g.get("t",0), reverse=True)
             if merged:
                 if part and key in idx:
@@ -380,6 +412,8 @@ def main():
             print(f"[{i}/{len(keys)}] {key}  {role}  {len(merged)} 場（累計 {totG}）")
             EMPTY_RES[key] = len(merged)
         b.close()
+    if DEFER:
+        print(f"⏳ {len(DEFER)} 位被限流／盤查沒問完，下一班再補：{DEFER}")
     if MISSING and not STAGING and EMPTY_RES:
         _em = save_year_empty(EMPTY_RES)
         _z = [k for k, n in EMPTY_RES.items() if n == 0]
