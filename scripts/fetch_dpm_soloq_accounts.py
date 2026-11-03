@@ -103,6 +103,26 @@ def _union_one(e, dbr, dbp, tm, pl, dpm_ents, dis_idx, diff_lines, ORPHANS):
     return e
 
 
+def _keep_pinned(existing, dpm_ents, tm, pl, dis_idx, diff_lines, ORPHANS):
+    """dpm 為主的隊整批換成 dpm 帳號時，留下 TTP／人工補的帳號（dpm 名下沒有的那些）。
+    2026-11-03 #2520：SR Zeyzal 的 Cosgoat／Cosmoat 每班先被 [換] 洗掉、再被 ⑤a2 當成新增併回，⑤b 反查到的 dpmPuuid 也跟著丟，
+    每班重查（11-02 22:00、11-03 22:00 碰上限流就查不到，這班逐場沒問到它）。而且 TTP 只補稽核有問題的選手，
+    他一恢復正常就不會再併回，帳號會真的消失。
+    dpm 也回報的（同名或同 puuid）不留，以 dpm 那筆為準；其餘走 _union_one，改名／錯配／歸屬名單／ORPHANS 照舊判。"""
+    dbr = {norm(e["riotId"]): e for e in dpm_ents}
+    dbp = {e["dpmPuuid"]: e for e in dpm_ents if e.get("dpmPuuid")}
+    out = []
+    for e in existing:
+        if not (e.get("ttp") or e.get("manual")):
+            continue
+        if norm(e["riotId"]) in dbr or (e.get("dpmPuuid") or "") in dbp:
+            continue
+        k = _union_one(e, dbr, dbp, tm, pl, dpm_ents, dis_idx, diff_lines, ORPHANS)
+        if k is not None:
+            out.append(k)
+    return out
+
+
 def canon_team(t):
     return TEAM_ALIAS.get(t, t)
 
@@ -795,7 +815,7 @@ def main():
         dpm_ents = dpm_by_pt.get((pl, tm), [])
         old_rids = {norm(e["riotId"]) for e in existing}
         if tm in dpm_primary and dpm_ents:
-            use = dpm_ents
+            use = dpm_ents + _keep_pinned(existing, dpm_ents, tm, pl, DIS_IDX, diff_lines, ORPHANS)
             # dpm 偶爾回 platform=null（2026-08-18 LOS Feisty「LOS Feisty#LOS」）：空 platform 會讓 fetch_soloq.py
             # 組出 https://.api.riotgames.com → idna 錯誤重試白跑；dpm 為主隊伍每天整批覆寫，所以要在這裡沿用既有值
             _oldp = {}

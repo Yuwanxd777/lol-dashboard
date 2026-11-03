@@ -501,6 +501,45 @@ _l8, _o8 = [], []
 check(M._union_one({"riotId": "plokijuhyg#yyc04"}, {}, {}, "TES", "Tian", [D1], IDX, _l8, _o8) is None and "_dis = None" in _fake8 and "_dis = None" not in SRC,
       "正控制：把 disowned_hit 拿掉的退化版原始碼真的不同於現版（斷言不是恆綠）")
 
+# ---- 9. #2520 dpm 主隊整批換帳號時留下 TTP／人工帳號 ----
+print("9. #2520 _keep_pinned")
+_D = [{"player": "Zeyzal", "team": "SR", "riotId": "Cosboat#NA1", "dpmPuuid": "pu-boat", "dpmSeen": "2026-11-03"}]
+_T = {"player": "Zeyzal", "team": "SR", "platform": "na1", "riotId": "Cosmoat#COSMO", "ttp": True, "note": "TTP Diamond II", "dpmPuuid": "pu-moat"}
+
+
+def kp(existing, ents=_D, idx=None):
+    lines, orph = [], []
+    return M._keep_pinned(existing, ents, "SR", "Zeyzal", idx or {}, lines, orph), lines, orph
+
+
+r, lines, orph = kp([_T])
+check(len(r) == 1 and r[0]["dpmPuuid"] == "pu-moat" and r[0]["ttp"] is True and r[0]["note"] == "TTP Diamond II", "(a) TTP 帳號留下，puuid／ttp／note 都在")
+check(len(orph) == 1, "(b) 有 puuid、dpm 名下沒有 ⇒ 進 ORPHANS，之後照常查歸屬（掛牌別人會被剔除）")
+r, _, orph = kp([dict(_T, dpmPuuid="")])
+check(len(r) == 1 and orph == [], "(c) 還沒反查到 puuid 也留下，不進 ORPHANS")
+r, _, _ = kp([{"player": "Zeyzal", "team": "SR", "riotId": "castle#osrs", "dpmPuuid": "pu-old"}])
+check(r == [], "(d) 外部名冊來的舊帳號不留（dpm 主隊整換的定案不變）")
+r, _, _ = kp([dict(_T, manual=True, ttp=False, riotId="m#1", dpmPuuid="")])
+check(len(r) == 1, "(e) 人工帳號一樣留")
+r, _, _ = kp([dict(_T, riotId="COSBOAT #na1", dpmPuuid="")])
+check(r == [], "(f) dpm 也回報同名 ⇒ 不留，以 dpm 那筆為準（否則重複）")
+r, _, _ = kp([dict(_T, riotId="舊名#1", dpmPuuid="pu-boat")])
+check(r == [], "(g) dpm 回報同 puuid（改過名）⇒ 不留，舊名不殘留")
+_old = {"zz probe#9942": {"owner": "Other", "at": "2026-11-03"}}
+_idxhit = []
+_orig = M.disowned_hit
+M.disowned_hit = lambda idx, rid, tm, pl: {"owner": "Other", "at": "2026-11-03"}
+r, lines, _ = kp([dict(_T, dpmPuuid="")], idx=_old)
+M.disowned_hit = _orig
+check(r == [] and any("[歸屬]" in l for l in lines), "(h) 名單記過是別人的 ⇒ 剔除（走 _union_one，不是無條件留）")
+_in = dict(_T); _cp = dict(_in); kp([_in])
+check(_in == _cp, "(i) 呼叫端的 dict 不被就地改")
+_m9 = SRC[SRC.index("\ndef main():"):]
+check(_m9.count("use = dpm_ents + _keep_pinned(existing, dpm_ents, tm, pl, DIS_IDX, diff_lines, ORPHANS)") == 1, "(j) main() 的 dpm 主隊分支有接上")
+check("use = dpm_ents\n" not in _m9.replace("\r\n", "\n"), "(k) main() 沒有留下舊的整換寫法")
+_old_src = subprocess.run(["git", "show", "9a43512b:scripts/fetch_dpm_soloq_accounts.py"], cwd=ROOT, capture_output=True, encoding="utf-8").stdout
+check("_keep_pinned" not in _old_src and "use = dpm_ents\n" in _old_src.replace("\r\n", "\n"), "(l) 正控制：釘 9a43512b 的舊版確實是整換、沒有這個函式")
+
 print()
 if FAILS:
     print(f"✗ {len(FAILS)} 條失敗／{N_OK} 條通過")
