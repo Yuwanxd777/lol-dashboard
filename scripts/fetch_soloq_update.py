@@ -345,8 +345,12 @@ def prefetch_batches(pg, keys, idx, accs, static, bs=None):
         if _rlw and all(isinstance(r, dict) and r.get("bad") == 429 for r in rs):   # #2437：整批 429 ⇒ 這批不算數，等一下原樣再問
             _w = _rlw.pop(0); i -= len(chunk); st["batches"] -= 1; st["sizes"].pop(); st["secs"].pop()
             st["rlwait"] = st.get("rlwait", 0) + _w; st["rlwaits"] = st.get("rlwaits", 0) + 1
-            print(f"   ⏳ dpm 整批 429（第 {i + 1} 個帳號起，共 {len(items)} 個）→ 等 {_w}s 再問（還可再等 {len(_rlw)} 次）", flush=True)
+            st.setdefault("rl_first", time.strftime("%H:%M:%S"))   # #2521：限流窗口的起訖只能靠牆鐘量，日誌沒有逐行時間戳
+            print(f"   ⏳ dpm 整批 429（第 {i + 1} 個帳號起，共 {len(items)} 個）→ 等 {_w}s 再問（還可再等 {len(_rlw)} 次）[{time.strftime('%H:%M:%S')}]", flush=True)
             time.sleep(_w); continue
+        if st.get("rl_first") and "rl_clear" not in st and not all(isinstance(r, dict) and r.get("bad") == 429 for r in rs):
+            st["rl_clear"] = time.strftime("%H:%M:%S")
+            print(f"   ✓ dpm 限流解除：{st['rl_clear']} 這批不再整批 429（第一次整批 429 在 {st['rl_first']}）", flush=True)
         for r in rs:   # #130：瀏覽器端逐帳號延遲（秒）＋新場次數，只給「批次分項」那行用
             if isinstance(r, dict) and isinstance(r.get("el"), (int, float)):
                 st["lat"].append((r["el"] / 1000.0, len(r.get("ms") or [])))

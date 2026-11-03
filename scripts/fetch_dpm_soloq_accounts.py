@@ -368,7 +368,7 @@ def _warm(pg):
             st = 0
         if st == 200:
             return True
-        print(f"  Cloudflare 盤查中（{st}），續等…", flush=True)
+        print(f"  Cloudflare 盤查中（{st}），續等…[{time.strftime('%H:%M:%S')}]", flush=True)
     return False
 
 
@@ -583,7 +583,7 @@ def _owners_of(pg, puuids):
             out[pu] = (r or {}).get("dn") or None
     retry = [pu for pu in puuids if pu not in out]
     if retry:
-        print(f"  歸屬複查：{len(retry)} 隻批次沒問到（限流／錯誤）→ 睡 5 秒逐一重查", flush=True)
+        print(f"  歸屬複查：{len(retry)} 隻批次沒問到（限流／錯誤）→ 睡 5 秒逐一重查 [{time.strftime('%H:%M:%S')}]", flush=True)
         time.sleep(5)
         _t0 = time.time()
         for _i, pu in enumerate(retry):

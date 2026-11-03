@@ -59,7 +59,7 @@ def _warm(pg):
             st = 0
         if st == 200:
             return True
-        print(f"  Cloudflare 盤查中（{st}），續等…", flush=True)
+        print(f"  Cloudflare 盤查中（{st}），續等…[{time.strftime('%H:%M:%S')}]", flush=True)
     return False
 
 

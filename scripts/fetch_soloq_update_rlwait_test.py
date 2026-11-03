@@ -8,6 +8,7 @@
 ⑤ 只有「整批全 429」才等：一批裡部分 429／503／逾時都不等；已命中的帳號不會被重問。
 ⑥ 中途才限流：前面的批次已命中，後面整批 429 ⇒ 只重問沒命中的，每個帳號恰好命中一次。
 ⑦ run_update 的 ⑤d 真的帶旗標；參數解析對得上。
+⑧ 限流起訖的牆鐘：⏳ 帶時間、解除只印一次，等完還是 429 不可以印解除（#2521）。
 用法：python scripts/fetch_soloq_update_rlwait_test.py
 """
 import os, sys, io, re, importlib.util, contextlib
@@ -108,6 +109,26 @@ check("等一次", slept == [60], slept)
 check("每個帳號恰好命中一次", sorted(pg.good) == sorted(f"pu-{i}" for i in range(9)), pg.good)
 check("第一批沒被重問（pu-0 只問一次）", pg.asked.count("pu-0") == 1, pg.asked)
 check("第二批問兩次（pu-4 問兩次）", pg.asked.count("pu-4") == 2, pg.asked)
+
+print("[⑧] 限流起訖的牆鐘（#2521）")
+_ts = r"\[\d\d:\d\d:\d\d\]"
+U, PRE, st, pg, slept, out = run(W, lambda c, pu: 429 if c <= 2 else 0)
+_lines = [l for l in out.splitlines() if "⏳" in l]
+check("每一行 ⏳ 都帶時間", len(_lines) == 2 and all(re.search(_ts + "$", l) for l in _lines), _lines)
+check("解除恰好印一行、帶第一次 429 的時間", out.count("限流解除") == 1 and re.search(r"限流解除：\d\d:\d\d:\d\d .*第一次整批 429 在 \d\d:\d\d:\d\d", out), out)
+check("統計記下起訖", re.fullmatch(r"\d\d:\d\d:\d\d", st.get("rl_first", "")) and re.fullmatch(r"\d\d:\d\d:\d\d", st.get("rl_clear", "")), st)
+U, PRE, st, pg, slept, out = run(W, lambda c, pu: 429)
+check("等完還是 429 ⇒ 不可以印解除", "限流解除" not in out and "rl_clear" not in st and st.get("rl_first"), out)
+U, PRE, st, pg, slept, out = run(W, lambda c, pu: 0)
+check("沒被限流 ⇒ 不印解除、不記時間", "限流解除" not in out and "rl_first" not in st, out)
+U, PRE, st, pg, slept, out = run([], lambda c, pu: 429 if c <= 2 else 0)
+check("沒帶旗標（不等待）⇒ 不印解除", "限流解除" not in out and "rl_first" not in st, out)
+_d = io.open(os.path.join(HERE, "fetch_dpm_soloq_accounts.py"), encoding="utf-8").read()
+_r = io.open(os.path.join(HERE, "resolve_obgg_dpmpuuid.py"), encoding="utf-8").read()
+check("⑤ 的盤查與歸屬複查行有時間", "續等…[{time.strftime" in _d and "逐一重查 [{time.strftime" in _d)
+check("⑤b 的盤查行有時間", "續等…[{time.strftime" in _r)
+check("fetch_dpm 有 import time", re.search(r"^import .*\btime\b", _d, re.M))
+check("resolve 有 import time", re.search(r"^import .*\btime\b", _r, re.M))
 
 print("[⑦] 接線")
 s = io.open(os.path.join(HERE, "run_update.py"), encoding="utf-8").read()
