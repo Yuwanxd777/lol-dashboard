@@ -176,6 +176,30 @@ def legal(mem, ok):
     return out
 
 
+# 籤運「最終成績」版（使用者 2026-11-03：觀眾只會看對手最後打到哪裡）：每隊一個成績等級 lv，前端照 lv 排名次
+#   瑞士輪淘汰＝勝場×0.1（0／0.1／0.2）；八強輸＝1、四強輸＝2、亞軍＝3、冠軍＝4；
+#   還在打的＝目前那一關＋0.5（八強待打 1.5、四強待打 2.5、決賽待打 3.5；前端今年用得到）。規則跟 index.html 的 finLv 一字不差
+KO_LV = {"Quarterfinals": 1, "Semifinals": 2, "Finals": 3}
+
+
+def fin_level(byR, ms, teams):
+    sw = {t: 0 for t in teams}; sl = {t: 0 for t in teams}
+    for r, ps in byR.items():
+        if r <= 5:
+            for w, l, _ in ps:
+                sw[w] += 1; sl[l] += 1
+    lv = {t: (1.5 if sw[t] >= 3 else sw[t] * 0.1 if sl[t] >= 3 else sw[t] * 0.1 + 0.05) for t in teams}
+    ko = [x for x in ms if str(x.get("tab") or "") in KO_LV and str(x.get("w")) in ("1", "2")]
+    for x in sorted(ko, key=lambda x: KO_LV[x["tab"]]):
+        w = x["t1"] if str(x["w"]) == "1" else x["t2"]; l = x["t2"] if w == x["t1"] else x["t1"]
+        k = KO_LV[x["tab"]]
+        if w in lv:
+            lv[w] = 4 if k == 3 else k + 1.5
+        if l in lv:
+            lv[l] = k
+    return {t: round(v, 2) for t, v in lv.items()}
+
+
 def build_year(year, src, H):
     ms = src["ms"]; pools, rreg = pools_of(src["wt"], year)
     # 八強也算（使用者 2026-11-01）：輪號 6
@@ -253,8 +277,9 @@ def build_year(year, src, H):
         for a, b, _ in ps:
             rec[a][0] += 1; rec[b][1] += 1; met.add(mk(a, b))
     sd = seeds_of(src)
+    lv = fin_level(byR, ms, teams)
     out = [{"n": t, "rg": rreg[t], "sd": sd.get(t), "q": 1 if rec[t][0] >= 3 else -1 if rec[t][1] >= 3 else 0,   # 3 勝＝晉級（八強輸了仍是 1）
-            "tot": round(T[t]["tot"], 4), "rs": T[t]["rs"]} for t in teams]
+            "tot": round(T[t]["tot"], 4), "rs": T[t]["rs"], "lv": lv[t]} for t in teams]
     elo = {t: round(1500 + S(t) * 400 / math.log(10)) for t in teams}
     return {"from": cut, "T": out}, warn, elo
 

@@ -1094,7 +1094,7 @@
   .pdQFM .pdQFS{text-align:center;padding-right:16px}.pdQFM .pdQFLose{opacity:.5}
   /* 瑞士輪籤運（使用者 2026-10-31；同日重做版面）：一列一隊，每輪一張小卡，底色＝籤運 */
   .pdDRW{overflow-x:auto}
-  .pdDRh4{display:flex;align-items:center;gap:10px}.pdDRys{margin-left:auto;display:inline-flex;gap:6px}.pdDRys .sqLaneBtn{font-size:14px;padding:3px 12px}
+  .pdDRh4{display:flex;align-items:center;gap:10px}.pdDRys{margin-left:auto;display:inline-flex;gap:6px}.pdDRys .sqLaneBtn{font-size:14px;padding:3px 12px}.pdDRms+.pdDRys{margin-left:14px}
   /* 切年份不跳動（使用者 2026-11-01）：各年疊在同一格、沒選的只隱形（高度取最高那年），欄寬再統一成各年最寬 */
   .pdDRcard{display:block}.pdDRcard>.pdHd{margin-bottom:8px}
   .pdDRY>.pdSub{margin:0 0 6px}
@@ -13782,6 +13782,7 @@ function render(){
     // 模型卡欄寬（使用者 2026-10-25「賽區或隊名 ID 比較長的，間格也要一致」）：先用 max-content 讓每格是自己的自然寬，
     //   量出 6 欄（隊伍～八強，三塊卡片＋表頭一起）各自最寬的內容，再照下面的規則定欄寬；三塊卡片用同一組寬度 ⇒ 欄位上下對齊。offsetWidth 與 clientWidth 同一套單位，不受縮放影響。
     // 籤運表年份（使用者 2026-11-01）：每年一塊表，全部畫好、只顯示選中的那年；記在 window._pdDRY，換頁／重繪後照舊
+    window.pdDRMd=m=>{ window._pdDRM=m; pdDRSw(window._pdDRY); };   // 籤運版本：pre＝開打前戰力（預設）、fin＝最終成績（觀眾版，使用者 2026-11-03）
     window.pdDRSw=y=>{ const bx=document.querySelector(".pdDRbox"); if(!bx)return; const ys=[...bx.querySelectorAll(".pdDRY")].map(e=>e.dataset.y);
       if(!ys.includes(String(y)))y=ys[0]; window._pdDRY=String(y);
       // 欄寬統一：每年的表頭格寬＝該欄寬（max-content），取各年最大後寫回每一張表（欄數不同就不動）；總結欄照舊吃剩下的寬
@@ -13789,7 +13790,8 @@ function render(){
       if(gs.length>1&&!bx.dataset.al&&ws.every(w=>w.length===ws[0].length&&w[0]>0)){
         const mx=ws[0].map((_,i)=>Math.max(...ws.map(w=>w[i]))+1); mx.pop();   // +1：offsetWidth 捨去小數，原寬寫回會少不到 1px ⇒ 欄名被擠成兩行
         gs.forEach(g=>g.style.gridTemplateColumns=mx.map(w=>w+"px").join(" ")+" minmax(260px,1fr)"); bx.dataset.al=1; }
-      bx.querySelectorAll(".pdDRY").forEach(e=>e.classList.toggle("off",e.dataset.y!==String(y))); bx.querySelectorAll(".pdDRys .sqLaneBtn").forEach(b=>b.classList.toggle("on",b.dataset.y===String(y))); };
+      const md=window._pdDRM||"pre"; bx.querySelectorAll(".pdDRms .sqLaneBtn").forEach(b=>b.classList.toggle("on",b.dataset.m===md));
+      bx.querySelectorAll(".pdDRY").forEach(e=>e.classList.toggle("off",e.dataset.y!==String(y)||e.dataset.m!==md)); bx.querySelectorAll(".pdDRys .sqLaneBtn[data-y]").forEach(b=>b.classList.toggle("on",b.dataset.y===String(y))); };
     // 籤運表排序（使用者 2026-11-01：「隊伍跟籤運要可以排序，隊伍排序就是看成績」）：
     //   隊伍＝勝場多→敗場少（3-0、3-1、3-2、2-1…），同戰績看籤運；籤運＝分數；抽到中韓＝次數（同日追加）。再點同一欄反向。預設籤運由好到差（顯示值大到小）。
     window.pdDRSort=k=>{ const cur=window._pdDRS||{k:"luck",up:false}; window._pdDRS=k?{k,up:cur.k===k?!cur.up:false}:cur; const S=window._pdDRS;
@@ -14303,6 +14305,27 @@ function render(){
       //   同賽區改看今年開打前兩隊交手單局（加 2 局模型勝率平滑，免得 3-0 變 100%）。已抽未打的那輪（PL.next）也算。
       // 往年（使用者 2026-11-01：右上角切換年份，從 2023 第一屆瑞士輪開始）：swiss_hist.js（scripts/build_swiss_hist.py 離線算，算法跟這裡一字不差）
       //   本屆照舊即時算 ⇒ 兩邊整理成同一個形狀 {T:[{n 隊名, rg 賽區, q 晉級 1／淘汰 −1, tot, rs:{輪:{o,bo,d,res,rk,m}}}]}，繪製共用 drwTbl
+      // 籤運「最終成績」版（使用者 2026-11-03：「觀眾就只會這樣判斷」「做一版給他們看」）：對手強弱改看他最後打到哪。
+      //   成績等級 lv（規則跟 scripts/build_swiss_hist.py 的 fin_level 一字不差）：瑞士輪淘汰＝勝場×0.1；八強輸 1、四強輸 2、亞軍 3、冠軍 4；
+      //   還在打的＝那一關＋0.5（八強待打 1.5…）⇒ 名次＝依 lv 排、同等級取平均名次（八強待打的 8 隊都算第 4.5 名）。
+      //   每輪籤運＝能抽到的對手平均名次 − 實際對手名次（內部值跟原版同向：正＝籤硬），單位＝名。
+      const finLv=(teams,ss)=>{ const sw={},sl={},lv={}; teams.forEach(t=>{sw[t]=0;sl[t]=0;});
+        ss.forEach(x=>{ if(!x.k&&x.r>=1&&x.r<=5&&x.w in sw&&x.l in sw){sw[x.w]++;sl[x.l]++;} });
+        teams.forEach(t=>lv[t]=sw[t]>=3?1.5:sl[t]>=3?sw[t]*0.1:sw[t]*0.1+0.05);
+        ss.filter(x=>x.k).sort((a,b)=>a.k-b.k).forEach(x=>{ if(x.w in lv)lv[x.w]=x.k===3?4:x.k+1.5; if(x.l in lv)lv[x.l]=x.k; });
+        teams.forEach(t=>lv[t]=Math.round(lv[t]*100)/100); return lv; };
+      const finPl=lv=>{ const ts=Object.keys(lv).sort((a,b)=>lv[b]-lv[a]), fp={}; let i=0;
+        while(i<ts.length){ let j=i; while(j<ts.length&&lv[ts[j]]===lv[ts[i]])j++; for(let k=i;k<j;k++)fp[ts[k]]=(i+1+j)/2; i=j; } return fp; };
+      const finPend=v=>Math.round(v*100)%10===5;
+      const finTx=v=>v==null?"":v>=4?(en2?"Champion":"冠軍"):v>=3.5?(en2?"in final":"決賽中"):v>=3?(en2?"Runner-up":"亞軍"):v>=2.5?(en2?"in semis":"四強中"):v>=2?(en2?"Top 4":"四強")
+        :v>=1.5?(en2?"in QF":"八強中"):v>=1?(en2?"Top 8":"八強"):finPend(v)?(en2?"in Swiss":"瑞士輪中"):(en2?`Swiss ${Math.round(v*10)}-3`:`瑞士輪 ${Math.round(v*10)}-3`);
+      const finDraw=D=>{ const lv={}; D.T.forEach(x=>{ if(x.lv!=null)lv[x.n]=x.lv; }); const fp=finPl(lv);
+        return {lv,fp,T:D.T.map(x=>{ let tot=0; const rs={};
+          Object.entries(x.rs).forEach(([r,y])=>{ const ol=(y.ol||[]).filter(o=>fp[o]!=null).sort((a,b)=>fp[a]-fp[b]);
+            if(!ol.length||fp[y.o]==null){ rs[r]={...y,d:null,rk:null,m:0,ol:[],olv:[]}; return; }
+            const avg=ol.reduce((s2,o)=>s2+fp[o],0)/ol.length, d=avg-fp[y.o];
+            rs[r]={...y,d,rk:1+ol.filter(o=>fp[o]<fp[y.o]).length,m:ol.length,ol,olv:ol.map(o=>avg-fp[o])}; tot+=d; });
+          return {...x,tot,rs}; })}; };
       const DRW_LIVE=(()=>{ if(!LIVE||!PL)return null;
         // 八強也算（使用者 2026-11-01「籤運把八強也算進去」）：輪號 6；半決賽／決賽是固定籤表，不算
         const isSw=x=>x.stage!=="Play-In"&&(!/final/i.test(x.tab||"")||/quarter/i.test(x.tab||"")), rn=x=>/quarter/i.test(x.tab||"")?6:(parseInt(String(x.tab).replace(/\D/g,""))||0);
@@ -14350,16 +14373,17 @@ function render(){
             const ol=oq.map(z=>z[0]), olv=oq.map(z=>Math.round((avg-z[1])*1e4)/1e4);
             R[u].rs[r]={o:v,bo,d,res:x.done?isW:null,rk,m:os.length,ol,olv}; if(d!=null)R[u].tot+=d; }));
           ps.forEach(x=>{ if(!x.done)return; rec[x.a][0]++; rec[x.b][1]++; met.add(mk(x.a,x.b)); }); });
-        return {T:teams.map(t=>({n:t,rg:teamReg[t]||"",sd:(WLD_SEEDS[curYear]||{})[tAb(t)]||null,q:isQual(t)?1:isOut(t)?-1:0,tot:R[t].tot,rs:R[t].rs}))}; })();
+        const LVK={Quarterfinals:1,Semifinals:2,Finals:3}, LV=finLv(teams,(PL.series||[]).filter(x=>x.stage!=="Play-In").map(x=>({r:LVK[x.tab]?0:rn(x),k:LVK[x.tab]||0,w:TT(x.w),l:TT(x.l)})));
+        return {T:teams.map(t=>({n:t,rg:teamReg[t]||"",sd:(WLD_SEEDS[curYear]||{})[tAb(t)]||null,q:isQual(t)?1:isOut(t)?-1:0,tot:R[t].tot,rs:R[t].rs,lv:LV[t]}))}; })();
       if(!window.PD_DRT){ window.PD_DRT={};
         document.addEventListener("mouseover",e=>{ const el=e.target.closest&&e.target.closest(".pdDRc[data-drt]"); if(!el||tipCur===el)return;
           const h=PD_DRT[el.dataset.drt]; if(!h)return; tipShow(h,el.getBoundingClientRect()); tipCur=el; tipEl.style.pointerEvents="none"; });
         document.addEventListener("mouseout",e=>{ const el=e.target.closest&&e.target.closest(".pdDRc[data-drt]"); if(!el)return;
           if(e.relatedTarget&&el.contains(e.relatedTarget))return; if(tipCur===el)tipHide(); }); }
-      const drwTbl=(D,yr)=>{ const T=D.T, R={}, teams=T.map(x=>x.n); T.forEach(x=>R[x.n]=x);
+      const drwTbl=(D0,yr,fin)=>{ const D=fin?finDraw(D0):D0, T=D.T, R={}, teams=T.map(x=>x.n); T.forEach(x=>R[x.n]=x);
         const RN=[...new Set([1,2,3,4,5,6,...T.flatMap(x=>Object.keys(x.rs).map(Number))])].sort((a,b)=>a-b), SW=RN.filter(r=>r<=5);
         const rnm=r=>r===6?(en2?"QF":"八強"):`R${r}`;
-        const f2=v=>(v>=0.005?"+":v<=-0.005?"−":"")+Math.abs(v).toFixed(2), cl=v=>v>=0.005?"up":v<=-0.005?"dn":"";
+        const E=fin?0.05:0.005, f2=v=>(v>=E?"+":v<=-E?"−":"")+Math.abs(v).toFixed(fin?1:2), cl=v=>v>=E?"up":v<=-E?"dn":"";   // 最終成績版單位＝名，一位小數
         // 顯示的籤運＝內部值取負（使用者 2026-11-01：「好的是正、壞的是負數」「差的是綠色、好的是紅色」）：
         //   內部 d／tot 照舊＝籤比隨機抽硬多少（總結的門檻都照內部值），畫面一律 f2(-d)、cl(-d)、bar(-tot)，排序鍵 data-v 也是取負後的
         const lg=t=>teamLogoHTML(tAb(t),22,true,t)||tLogo(t,22), W=en2?"W":"勝", Lz=en2?"L":"負";
@@ -14371,21 +14395,23 @@ function render(){
         const rr=(t,r)=>{ const x=R[t].rs[r]; if(!x)return `<span class="pdDRc pdDRe"></span>`;
           const res=x.res==null?`<em class="pd">${en2?"next":"待打"}</em>`:`<em class="${x.res?"w":"l"}">${x.res?W:Lz}</em>`;
           // 滑上去＝實體浮層（#hoverTip）：能抽到的對手由強到弱、先賽區再戰隊，抽到的那隊亮金色（使用者 2026-11-01）
-          const head=x.rk?(en2?`#${x.rk} strongest of the ${x.m} teams it could draw · draw luck ${x.d!=null?f2(-x.d):"–"}`:`能抽到的 ${x.m} 隊裡第 ${x.rk} 強・籤運 ${x.d!=null?f2(-x.d):"–"}`):"";
-          const tk=yr+"|"+t+"|"+r;
+          const dU=x.d!=null?f2(-x.d)+(fin?(en2?" places":" 名"):""):"–";
+          const head=x.rk?(fin?(en2?`#${x.rk} best final result of the ${x.m} teams it could draw · draw luck ${dU}`:`能抽到的 ${x.m} 隊裡最終成績第 ${x.rk} 好・籤運 ${dU}`)
+            :(en2?`#${x.rk} strongest of the ${x.m} teams it could draw · draw luck ${dU}`:`能抽到的 ${x.m} 隊裡第 ${x.rk} 強・籤運 ${dU}`)):"";
+          const tk=yr+"|"+(fin?"f|":"")+t+"|"+r;
           if(head)PD_DRT[tk]=`<div class="pdDRth">${head}</div>`+((x.ol||[]).length?`<div class="pdDRt">${x.ol.map((o,i)=>{ const c=o===x.o?" on":"";
-            return `<span class="k${c}">${i+1}</span><span class="g${c}">${R[o]&&R[o].rg||""}</span><span>${lg(o)}</span><span class="${c.trim()}">${esc(tAb(o))}${c?(en2?"  ◀ drawn":"  ◀ 抽到"):""}</span>`
+            return `<span class="k${c}">${i+1}</span><span class="g${c}">${R[o]&&R[o].rg||""}</span><span>${lg(o)}</span><span class="${c.trim()}">${esc(tAb(o))}${fin?` <small class="meta">${finTx(D.lv[o])}</small>`:""}${c?(en2?"  ◀ drawn":"  ◀ 抽到"):""}</span>`
               +`<span class="v ${x.olv?cl(-x.olv[i]):""}">${x.olv?f2(-x.olv[i]):""}</span>`; }).join("")}</div>`:"");
           return `<span class="pdDRc" style="${tint(x.res)}"${head?` data-drt="${esc(tk)}"`:""}><span class="pdDRo">${res}${lg(x.o)}<b>${esc(tAb(x.o))}</b>${x.bo>1?`<small>BO${x.bo}</small>`:""}</span>`
             +`<span class="pdDRm">${x.rk?dots(x.rk,x.m):""}<i class="${cl(-x.d)}">${x.d!=null?f2(-x.d):""}</i></span></span>`; };
         // 每隊一句總結：籤運等級＋最硬／最好的那一輪＋籤與結果的反差
-        const sumTx=t=>{ const v=R[t].tot, rs=RN.map(r=>[r,R[t].rs[r]]).filter(([,x])=>x&&x.d!=null);
+        const sumTx=t=>{ const K=fin?20:1, v=R[t].tot/K, rs=RN.map(r=>[r,R[t].rs[r]]).filter(([,x])=>x&&x.d!=null);
           const lv=v>=0.3?(en2?"Very tough draws":"籤很硬"):v>=0.1?(en2?"Tougher than average":"籤偏硬"):v>-0.1?(en2?"About average":"籤運普通"):v>-0.3?(en2?"Kind draws":"籤偏好"):(en2?"Very kind draws":"籤很好");
           const hi=rs.slice().sort((a,b)=>b[1].d-a[1].d)[0], lo=rs.slice().sort((a,b)=>a[1].d-b[1].d)[0], a=[lv];
           const rd=([r,x])=>`${rnm(r)} ${tAb(x.o)}${x.bo===3?" BO3":""}`;
-          if(hi&&hi[1].d>=0.15)a.push(en2?`toughest: ${rd(hi)}`:`最硬是 ${rd(hi)}`);
-          if(lo&&lo[1].d<=-0.15)a.push(en2?`kindest: ${rd(lo)}`:`最好是 ${rd(lo)}`);
-          const ch=rs.filter(([,x])=>x.m>=2), top=ch.filter(([,x])=>x.rk===1).length, bot=ch.filter(([,x])=>x.rk===x.m).length;
+          if(hi&&hi[1].d/K>=0.15)a.push(en2?`toughest: ${rd(hi)}`:`最硬是 ${rd(hi)}`);
+          if(lo&&lo[1].d/K<=-0.15)a.push(en2?`kindest: ${rd(lo)}`:`最好是 ${rd(lo)}`);
+          const ch=rs.filter(([,x])=>x.m>=2), top=ch.filter(([,x])=>x.rk===1&&!(fin&&x.d<=0)).length, bot=ch.filter(([,x])=>x.rk===x.m&&!(fin&&x.d>=0)).length;   // 最終成績版名次常同分（八強待打全是 4.5）：同分一群不算最強／最弱
           if(ch.length>=2&&top===ch.length)a.push(en2?`drew the strongest possible opponent every round (${top}/${ch.length})`:`每輪都抽到能抽的最強（${top}/${ch.length}）`);
           else if(top>=2)a.push(en2?`drew the strongest possible opponent ${top} of ${ch.length} times`:`${ch.length} 次裡 ${top} 次抽到能抽的最強`);
           if(ch.length>=2&&bot===ch.length)a.push(en2?`drew the weakest possible opponent every round (${bot}/${ch.length})`:`每輪都抽到能抽的最弱（${bot}/${ch.length}）`);
@@ -14407,14 +14433,19 @@ function render(){
           +`<span class="pdDRv"><b class="${cl(-R[t].tot)}">${f2(-R[t].tot)}</b>${bar(-R[t].tot)}</span><span class="pdDRn">${topTx(t)}</span><span class="pdDRs">${sumTx(t)}</span></div>`;
         const note=yr==2023?(en2?" In 2023 rematches were allowed in the Swiss stage (banned from 2024).":"2023 年瑞士輪還允許重複對戰（2024 起禁止）。")
           :yr==2025?(en2?" 2025 had three pools: round 1 drew pool 1 against pool 3, and pool 2 teams against each other.":"2025 只分三級：第 1 輪 1 級對 3 級、2 級組內互打。"):"";
-        return `<div class="pdDRY" data-y="${yr}">`
-          +`<div class="pdSub">${en2?"Opponent strength only: how much weaker the opponent is than the average of those it could draw, in wins for an average team; + = kinder, − = tougher. Dots = the teams it could draw that round, strongest first; the lit one is who it got.":"只看對手強度：對手比當輪能抽到的平均弱多少，換算成一支中等隊伍的勝場；＋＝好籤、−＝籤硬。圓點＝當輪能抽到的對手由強到弱，亮的是抽到的。"}${note}</div>`
+        const finSub=en2?"Final results (how viewers judge it): how much worse the opponent finished at Worlds than the average of those it could draw, in places; + = drew a team that finished lower (kinder), − = drew a team that went far (tougher). Dots = the teams it could draw, best final result first; the lit one is who it got."
+            +(fin&&Object.values(D.lv||{}).some(finPend)?" Teams still playing get the average place of the stage they are in.":"")
+          :"看對手最後打到哪（觀眾版）：對手的世界賽最終名次比當輪能抽到的平均差幾名；＋＝抽到最後打得比較差的（好籤）、−＝抽到最後打很遠的（籤硬）。圓點＝能抽到的對手照最終成績由好到差，亮的是抽到的。"
+            +(fin&&Object.values(D.lv||{}).some(finPend)?"還在打的隊伍名次暫定：先算那一關名次的平均。":"");
+        return `<div class="pdDRY" data-y="${yr}" data-m="${fin?"fin":"pre"}">`
+          +`<div class="pdSub">${fin?finSub:en2?"Opponent strength only: how much weaker the opponent is than the average of those it could draw, in wins for an average team; + = kinder, − = tougher. Dots = the teams it could draw that round, strongest first; the lit one is who it got.":"只看對手強度：對手比當輪能抽到的平均弱多少，換算成一支中等隊伍的勝場；＋＝好籤、−＝籤硬。圓點＝當輪能抽到的對手由強到弱，亮的是抽到的。"}${note}</div>`
           +`<div class="pdDRW"><div class="pdDRG" style="grid-template-columns:max-content max-content repeat(${RN.length},max-content) max-content max-content minmax(260px,1fr)">${hd}${ord.map(row).join("")}</div></div></div>`; };
       const DRW=(()=>{ const SH=window.SWISS_HIST||{}, ys=[...(DRW_LIVE?[String(curYear)]:[]),...Object.keys(SH).filter(y=>+y<curYear&&+y>=2023).sort().reverse()];
         if(!ys.length)return "";
-        const tb=ys.map(y=>y==curYear?drwTbl(DRW_LIVE,y):drwTbl(SH[y],y)).join("");
+        const tb=ys.flatMap(y=>[false,true].map(f=>y==curYear?drwTbl(DRW_LIVE,y,f):drwTbl(SH[y],y,f))).join("");
+        const bm=`<span class="pdDRys pdDRms">${[["pre",en2?"Pre-event strength":"開打前戰力"],["fin",en2?"Final results":"最終成績"]].map(([m,l])=>`<button class="sqLaneBtn" data-m="${m}" onclick="pdDRMd(this.dataset.m)">${l}</button>`).join("")}</span>`;
         const bt=ys.length>1?`<span class="pdDRys">${ys.map(y=>`<button class="sqLaneBtn" data-y="${y}" onclick="pdDRSw(this.dataset.y)">${y}</button>`).join("")}</span>`:"";
-        return `<div class="card pdQC pdK-m pdDRcard pdDRbox"><div class="pdHd pdDRh4"><span class="pdTag">${en2?"Draw luck":"籤運"}</span><span class="pdQ">${en2?"Swiss stage draw luck":"瑞士輪籤運"}</span>${bt}</div><div class="pdDRstk">${tb}</div></div>`; })();
+        return `<div class="card pdQC pdK-m pdDRcard pdDRbox"><div class="pdHd pdDRh4"><span class="pdTag">${en2?"Draw luck":"籤運"}</span><span class="pdQ">${en2?"Swiss stage draw luck":"瑞士輪籤運"}</span>${bm}${bt}</div><div class="pdDRstk">${tb}</div></div>`; })();
       cards.push(card(en2?"Model":"模型",(en2?"Team strength and how far each team goes":"戰隊強度與預估能走多遠")+(LIVE?(en2?` (with ${ACT_N} finished series)`:`（含本屆已完成 ${ACT_N} 個系列）`):""),
         "",null,`<b>${en2?`Region strength (${curYear-2}-${curYear} cross-region games, ${MODEL.nH})`:`賽區強度（${curYear-2}～${curYear} 國際賽跨賽區 ${MODEL.nH} 局）`}</b><br>${regs.map(g=>`${g} ${Math.round(MODEL.R[g]*400/Math.LN10)>=0?"+":""}${Math.round(MODEL.R[g]*400/Math.LN10)}`).join("・")}<br>${en2?(KO_ON?"Sorted by title odds":"Sorted by top-8 odds")+"; title / top-4 / top-8 odds come from the Worlds simulation.":(KO_ON?"依冠軍機率排序":"依八強機率排序")+"；冠軍／四強／八強機率來自世界賽模擬。"}${SIM_PREV?(en2?"<br>▲▼ = rank change since the previous match day.":"<br>▲▼＝名次跟前一個比賽日比的升降。"):""}`,
         `<div class="pdCol pdMCol">${hdr}${ts.slice(0,third).map(row).join("")}</div><div class="pdCol pdMCol">${hdr}${ts.slice(third,third*2).map(row).join("")}</div><div class="pdCol pdMCol">${hdr}${ts.slice(third*2).map(row).join("")}</div>${QFH}`,true)+DRW); }   // 籤運獨立一張卡、接在模型卡下面（使用者 2026-11-01）；併進同一格 ⇒ 後面各題的 Q 編號不變
