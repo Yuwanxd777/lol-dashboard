@@ -42,6 +42,15 @@ SCAN = """() => {
     }
     return best;
   };
+  // 在橫向捲軸容器裡、容器本身沒超出視窗 ⇒ 使用者捲得到，不算超出（#2513：陣容橫式的角色池）
+  const reachable = el => {
+    for (let e = el.parentElement; e && e !== document.body; e = e.parentElement) {
+      const ox = getComputedStyle(e).overflowX;
+      if ((ox === 'auto' || ox === 'scroll') && e.scrollWidth > e.clientWidth + 1)
+        return e.getBoundingClientRect().right <= document.documentElement.clientWidth + 1;
+    }
+    return false;
+  };
   document.querySelectorAll('#main *, header *, nav *').forEach(el => {
     const own = [...el.childNodes].some(n => n.nodeType === 3 && n.textContent.trim());
     if (!own) return;
@@ -65,7 +74,7 @@ SCAN = """() => {
     else if (contentLeft - tr.left > 1.5) { kind = '字往左溢'; over = contentLeft - tr.left; }
     else if (el.scrollWidth > el.clientWidth + 1 && cs.overflowX !== 'visible') {
       kind = '被裁'; over = el.scrollWidth - el.clientWidth;
-    } else if (tr.right > document.documentElement.clientWidth + 1) {
+    } else if (tr.right > document.documentElement.clientWidth + 1 && !reachable(el)) {
       kind = '超出視窗'; over = tr.right - document.documentElement.clientWidth;
     }
     if (!kind || over < 2) return;
@@ -113,7 +122,27 @@ CMP_SET = """(want) => { const h = document.querySelector('#main h2.cmpH'); if (
     if (!b || !ar || !b.classList.contains('cmpBody')) return false;
     if ((b.style.display !== 'none') !== want) ar.click();
     return (b.style.display !== 'none') === want; }"""
-TABS = ["總覽", "英雄", "選手", "戰隊", "摘要", "比賽BP", "模擬BP", "英雄Tier", "積分", "圖鑑"]
+TABS = ["總覽", "英雄", "選手", "戰隊", "摘要", "陣容", "比賽BP", "模擬BP", "英雄Tier", "積分", "圖鑑", "預測"]
+# 這幾頁不選隊只有空殼（#2513）。動作與 site_audit 的 ACT["combo"]／ACT["seg"] 同一套；
+# 切不動算掃描器有問題（離開碼 3），不能當 0 筆。
+COMBO_SET = """(id) => { const inp = document.getElementById(id), dl = document.getElementById(id + 'dl');
+    if (!inp || !dl) return false; const o = dl.querySelector('option'); if (!o) return false;
+    inp.value = o.value; inp.dispatchEvent(new Event('input', {bubbles: true}));
+    inp.dispatchEvent(new Event('change', {bubbles: true})); return true; }"""
+SEG_SET = """([id, v]) => { const el = document.getElementById(id); if (!el) return false;
+    const b = [...el.querySelectorAll('button')].find(b => b.dataset.v === v); if (!b) return false;
+    b.click(); return true; }"""
+SUBSTATES = {
+    "摘要": [("選隊", COMBO_SET, "vRecent", 2200)],
+    "陣容": [("選隊", COMBO_SET, "vRoster", 2500),
+             ("積分模式", SEG_SET, ["rosterModeSeg", "soloq"], 2500),
+             ("生涯模式", SEG_SET, ["rosterModeSeg", "career"], 2500),
+             ("橫排生涯", SEG_SET, ["rosterLaySeg", "h"], 1500),
+             ("橫排積分", SEG_SET, ["rosterModeSeg", "soloq"], 2500),
+             ("橫排比賽", SEG_SET, ["rosterModeSeg", "pro"], 1500),
+             ("直排比賽", SEG_SET, ["rosterLaySeg", "v"], 1000)],
+}
+NAV_TABS = "() => [...document.querySelectorAll('nav .tab')].map(e => e.dataset.view || e.textContent.trim())"
 code = 1
 bad_ctrl = []   # 正控制失敗或探針外洩的寬度 ⇒ 離開碼 3（掃描器不可信，不是「0 筆」）
 try:
@@ -138,6 +167,13 @@ try:
             pg.wait_for_timeout(300)
             tab1 = pg.evaluate("() => ((document.querySelector('nav .tab')||{}).textContent||'').trim()")
             print("\n═════ %dx%d（首個分頁籤=%r）═════" % (W, H, tab1))
+            # 清單是寫死的：導覽列多一頁（預測）或改名（近況→摘要）時以前會靜靜少掃（#2513）
+            nav_tabs = pg.evaluate(NAV_TABS)
+            print("   導覽列 %d 頁，掃描清單 %d 頁" % (len(nav_tabs), len(TABS)))
+            unscanned = [t for t in nav_tabs if t not in TABS]
+            if unscanned:
+                print("   ⚠ 導覽列有、掃描清單沒有：" + "、".join(unscanned))
+                bad_ctrl.append("%dx%d 分頁沒進掃描清單：%s" % (W, H, "、".join(unscanned)))
             for attempt in (1, 2):   # 2026-09-24 #252：偶發一次 1920 正控制 ✗、探針外洩到「選手」頁 ⇒ 重試一次
                 qw = pg.evaluate(QUIET, [600, 8000])
                 if qw < 0 or qw > 1500:
@@ -173,6 +209,8 @@ try:
                 ok = pg.evaluate("""(t) => { const el = [...document.querySelectorAll('nav .tab')]
                     .find(e => e.dataset.view === t); if (!el) return false; el.click(); return true; }""", tb)
                 if not ok:
+                    print("\n   ⚠【%s】導覽列找不到這一頁" % tb)
+                    bad_ctrl.append("%dx%d %s 導覽列找不到" % (W, H, tb))
                     continue
                 pg.wait_for_timeout(2200)
                 total += scan(tb)
@@ -192,6 +230,13 @@ try:
                     else:
                         print("\n   ⚠【%s】對比卡展不開" % tb)
                         bad_ctrl.append("%dx%d %s 對比卡展不開" % (W, H, tb))
+                for name, js, arg, wait in SUBSTATES.get(tb, []):
+                    if pg.evaluate(js, arg):
+                        pg.wait_for_timeout(wait)
+                        total += scan(tb + "／" + name)
+                    else:
+                        print("\n   ⚠【%s／%s】切不過去" % (tb, name))
+                        bad_ctrl.append("%dx%d %s／%s 切不過去" % (W, H, tb, name))
                 # 子頁面：詳情頁、每日戰況、圖鑑各分區（英文最容易爆的地方）
                 if tb == "英雄":
                     if pg.evaluate("() => { const a = document.querySelector('#main table tbody tr td:nth-child(2)');"
