@@ -94,7 +94,8 @@ def thumbs(files):
             back[x["to"]] = back.get(x["from"], x["from"])
         for pg in (q.get("pages") or {}).values():
             ii = (pg.get("imageinfo") or [None])[0]
-            if not ii:
+            # 轉址到通用佔位圖（File:Logo square.png＝金色大 L）的＝其實沒有隊徽（2026-11-04 GSG／PCE／Imperium／Noble Truth 誤掛）
+            if not ii or pg["title"] in ("File:Logo square.png", "File:Logo std.png"):
                 continue
             src = pg["title"]
             while src in back:
@@ -223,6 +224,7 @@ def main():
     json.dump(alias, open(ALIAS, "w", encoding="utf-8"), ensure_ascii=False, indent=0, sort_keys=True)
     json.dump(own, open(OWN, "w", encoding="utf-8"), ensure_ascii=False, indent=0, sort_keys=True)
     print(f"隊徽（Leaguepedia）：新增 {ok}／{len(want)}；撞名另存 {ok2}／{len(sub)}（找不到的 {len(sub) - ok2} 隊不放隊徽）")
+    subprocess.run([sys.executable, os.path.join(HERE, "fit_team_logos.py")])      # 裁透明邊＋補正方形（視覺大小一致）
     subprocess.run([sys.executable, os.path.join(HERE, "build_img_manifest.py")])
     return 0
 

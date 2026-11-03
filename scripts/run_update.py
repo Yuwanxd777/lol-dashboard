@@ -126,6 +126,7 @@ PLAN = [
         S("build_wiki_patches_en"),  # wiki 英文原文（英文模式的歷年改動）：只讀 csv_cache/wiki*，不連外
         S("clean_patch_text"),       # 要 patches + patches_en 都寫完
         S("fetch_item_nostore"),     # 要 items
+        S("fit_team_logos"),         # 要 fetch_team_logos：裁透明邊＋補正方形（純本機，已正規化的跳過）
         S("build_league_struct"),    # 讀 Leaguepedia 快取
     ]),
     # ── soloq 這一串**嚴格循序**，而且順序在 2026-09-05 依使用者的判斷倒過來了 ──
