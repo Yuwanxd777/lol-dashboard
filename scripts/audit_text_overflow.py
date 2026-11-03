@@ -108,6 +108,11 @@ QUIET = """([quiet, cap]) => new Promise(res => {
 PC_RM = "() => { (window.__pcEls || []).forEach(e => e.remove()); window.__pcEls = null; }"
 
 
+CMP_SET = """(want) => { const h = document.querySelector('#main h2.cmpH'); if (!h) return false;
+    const b = h.nextElementSibling, ar = h.querySelector('.lbArr');
+    if (!b || !ar || !b.classList.contains('cmpBody')) return false;
+    if ((b.style.display !== 'none') !== want) ar.click();
+    return (b.style.display !== 'none') === want; }"""
 TABS = ["總覽", "英雄", "選手", "戰隊", "摘要", "比賽BP", "模擬BP", "英雄Tier", "積分", "圖鑑"]
 code = 1
 bad_ctrl = []   # 正控制失敗或探針外洩的寬度 ⇒ 離開碼 3（掃描器不可信，不是「0 筆」）
@@ -177,6 +182,16 @@ try:
                     total += scan(tb + "／說明浮層")
                     pg.evaluate("() => { const b = document.getElementById('fHelp'); if (b) b.click(); }")
                     pg.wait_for_timeout(300)
+                # 對比卡預設收合，SCAN 跳過 display:none ⇒ 展開才掃得到（#2512）；切不動要算掃描器有問題，不能當 0 筆
+                if tb in ("選手", "戰隊"):
+                    if pg.evaluate(CMP_SET, True):
+                        pg.wait_for_timeout(1000)
+                        total += scan(tb + "／對比卡展開")
+                        pg.evaluate(CMP_SET, False)
+                        pg.wait_for_timeout(300)
+                    else:
+                        print("\n   ⚠【%s】對比卡展不開" % tb)
+                        bad_ctrl.append("%dx%d %s 對比卡展不開" % (W, H, tb))
                 # 子頁面：詳情頁、每日戰況、圖鑑各分區（英文最容易爆的地方）
                 if tb == "英雄":
                     if pg.evaluate("() => { const a = document.querySelector('#main table tbody tr td:nth-child(2)');"

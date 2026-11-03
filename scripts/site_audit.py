@@ -187,6 +187,12 @@ ACT = {
         inp.dispatchEvent(new Event('change', {bubbles: true})); return true; }""",
     "type": """([s, t]) => { const el = document.querySelector(s); if (!el) return false; el.focus(); el.value = t;
         el.dispatchEvent(new Event('input', {bubbles: true})); el.dispatchEvent(new Event('change', {bubbles: true})); return true; }""",
+    # 選手／戰隊對比卡（82f6bdcb 起預設收合）：點真的箭頭切到指定狀態，回傳有沒有真的切到；切不動＝記「略過」，不會假裝掃過
+    "cmp": """(want) => { const h = document.querySelector('#main h2.cmpH'); if (!h) return false;
+        const b = h.nextElementSibling, ar = h.querySelector('.lbArr');
+        if (!b || !ar || !b.classList.contains('cmpBody')) return false;
+        if ((b.style.display !== 'none') !== want) ar.click();
+        return (b.style.display !== 'none') === want; }""",
     "select": """([s, v]) => { const el = document.querySelector(s); if (!el) return false;
         if (![...el.options].some(o => o.value === v)) return false;
         el.value = v; el.dispatchEvent(new Event('change', {bubbles: true})); return true; }""",
@@ -212,10 +218,15 @@ SCN = {
              ("詳情切比賽", [("seg", "heroModeSeg", "pro")], 1500, []),
              ("詳情返回", [("click", ".subBack")], 1500, []), SCN_SORT],
     "選手": [("顯示更多", [("click", "#plMore")], 1500, []),
+             # 對比卡預設收合：COLLECT 跳過 display:none，不先展開就掃不到裡面（#2512 探針實測）；收合放回去，_cmpOpen 跨分頁共用
+             ("展開對比卡", [("cmp", True)], 1200, []),
              ("雷達加軸", [("click", "#axAdd")], 1200, []),
+             ("收合對比卡", [("cmp", False)], 500, []),
              ("點選手→角色池", [("click", "#main table tbody tr td:nth-child(2)")], 2500, []),
              ("全域返回", [("click", "#globalBack")], 1500, []), SCN_SORT],
-    "戰隊": [("對戰戰隊", [("combo", "vVs")], 2200, []),
+    "戰隊": [("展開對比卡", [("cmp", True)], 1200, []),
+             ("收合對比卡", [("cmp", False)], 500, []),
+             ("對戰戰隊", [("combo", "vVs")], 2200, []),
              ("點戰隊列", [("click", "#main table tbody tr td.plink")], 2200, []),
              ("全域返回", [("click", "#globalBack")], 1500, []), SCN_SORT],
     "陣容": [("輸入戰隊", [("combo", "vRoster")], 2500, []),
