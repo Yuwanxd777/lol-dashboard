@@ -13374,7 +13374,7 @@ function render(){
         const bt=o.raw[C.blue_teamname], rt=o.raw[C.red_teamname];
         if(!((bt===t1&&rt===t2)||(bt===t2&&rt===t1)))continue;
         arr.push(o); }
-      if(!arr.length)return [];
+      if(!arr.length)return {ser:[],games:[]};   // 沒交手過（2026-11-03：LYON vs T1 回傳 [] ⇒ cdH2H 讀 .ser.length 炸掉、B 隊整半邊沒畫）
       arr.sort((p,q)=>String(p.dt||p.date).localeCompare(String(q.dt||q.date))||(num(p.game)||0)-(num(q.game)||0));
       // 系列切分沿用 calc 的規則：局序重置或隔 >2 天＝另一場
       const ser=[]; let cur=null,pgN=0,pd=null;
