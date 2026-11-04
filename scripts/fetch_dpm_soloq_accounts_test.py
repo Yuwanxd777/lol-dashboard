@@ -540,6 +540,26 @@ check("use = dpm_ents\n" not in _m9.replace("\r\n", "\n"), "(k) main() 沒有留
 _old_src = subprocess.run(["git", "show", "9a43512b:scripts/fetch_dpm_soloq_accounts.py"], cwd=ROOT, capture_output=True, encoding="utf-8").stdout
 check("_keep_pinned" not in _old_src and "use = dpm_ents\n" in _old_src.replace("\r\n", "\n"), "(l) 正控制：釘 9a43512b 的舊版確實是整換、沒有這個函式")
 
+# ── #2565：/v1/pros 問完先停一下才問歸屬（實驗，判定方式見主檔 OWNER_COOLDOWN 的註解）──
+print("#2565 歸屬複查前的停頓")
+_, _slept2565 = with_sleep_recorder(M._owner_cooldown)
+check(M.OWNER_COOLDOWN == 60 and _slept2565 == [60], f"(a) _owner_cooldown 睡滿 OWNER_COOLDOWN，實際 {_slept2565}")
+
+
+def cooldown_bad(src):
+    """主流程裡，停頓要在 ORPHANS 分支內、在 _owners_of 之前，而且不能在 try 裡被吞掉。"""
+    m = src[src.index("\ndef main():"):].replace("\r\n", "\n")
+    i_if, i_cd, i_ow = m.find("    if ORPHANS:\n"), m.find("_owner_cooldown()"), m.find("_owners_of(pg,")
+    if min(i_if, i_cd, i_ow) < 0:
+        return "少了分支、停頓或查詢"
+    return "" if i_if < i_cd < i_ow and "try:" not in m[i_if:i_cd] else "順序不對"
+
+
+check(cooldown_bad(SRC) == "", f"(b) 現版的停頓位置：{cooldown_bad(SRC)}")
+check(cooldown_bad(SRC.replace("        _owner_cooldown()\n", "").replace("        _owner_cooldown()\r\n", "")) != "", "(c) 正控制：拿掉停頓要紅")
+_old2565 = subprocess.run(["git", "show", "9cf658c2:scripts/fetch_dpm_soloq_accounts.py"], cwd=ROOT, capture_output=True, encoding="utf-8").stdout
+check("\ndef main():" in _old2565 and cooldown_bad(_old2565) != "", "(d) 正控制：釘 9cf658c2 的舊版沒有停頓")
+
 print()
 if FAILS:
     print(f"✗ {len(FAILS)} 條失敗／{N_OK} 條通過")

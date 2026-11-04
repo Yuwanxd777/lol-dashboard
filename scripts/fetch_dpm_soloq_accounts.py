@@ -558,9 +558,20 @@ def fetch_pros_rest(pg, names, st_by=None):
 #   現在沿用第一個 page、一次 Promise.all 問完（實測 24 隻 0.3s）。限流／錯誤／例外的那幾隻才睡 5 秒逐一重問。
 OWNER_BATCH = 24
 OWNER_RETRY_BUDGET = 120   # #220：逐一重問的總秒數上限
-JS_OWNERS = """async(us)=>Promise.all(us.map(async u=>{ try{ const r=await fetch(u,%s);
+# 2026-11-04 #2565（實驗）：/v1/pros 問完後先停一下再問歸屬。60 班留底裡，第一個 429 有 6 次全落在歸屬複查
+#   （/v1/pros 那約 20 秒 0 次，歸屬複查不到 1 秒），之後整個 dpm 被擋約 10~13 分鐘，⑤d 要等到 600 秒。
+#   原因還沒證實：可能是累積請求量，也可能是 /v1/players 這波併發。看 autopilot/_m2565_hist2.py 的「沒問到」欄：
+#   接下來 6 班都是 0 才留（10-30 22:00 起 10 班有 6 班中）；再中 2 班就拿掉，它每班固定多花這 60 秒。
+OWNER_COOLDOWN = 60
+JS_OWNERS ="""async(us)=>Promise.all(us.map(async u=>{ try{ const r=await fetch(u,%s);
   const j = r.ok ? await r.json() : null;
   return {st:r.status, dn:(j && typeof j==='object' && j.displayName) ? j.displayName : null}; }catch(e){ return {st:0, dn:null}; } }))""" % _FT
+
+
+def _owner_cooldown():
+    """問歸屬之前先停 OWNER_COOLDOWN 秒，並印牆鐘時間，方便跟之後的 429 對時間。"""
+    print(f"  歸屬複查：先停 {OWNER_COOLDOWN} 秒再問 [{time.strftime('%H:%M:%S')}]", flush=True)
+    time.sleep(OWNER_COOLDOWN)
 
 
 def _owners_of(pg, puuids):
@@ -879,8 +890,9 @@ def main():
     #    （OBGG／舊搜尋配錯），直接剔除；displayName 空（一般玩家帳號）或就是本人 → 留著。
     if ORPHANS:
         owner_of = {}
+        _owner_cooldown()
         try:
-            owner_of = _owners_of(pg, [e.get("dpmPuuid") for e in ORPHANS])   # #66：同一個瀏覽器、一次 Promise.all
+            owner_of = _owners_of(pg,[e.get("dpmPuuid") for e in ORPHANS])   # #66：同一個瀏覽器、一次 Promise.all
         except Exception as _e:
             print(f"（歸屬複查略過：{_e}）", flush=True)
         bad_owner = []
