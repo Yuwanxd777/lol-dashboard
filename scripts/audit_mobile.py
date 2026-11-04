@@ -14,6 +14,7 @@ site_audit 只開 1920×1080、audit_text_overflow 只開 1920／1366，視窗�
   （#2573 第一版的正控制抓到這點），要逐元素看 getBoundingClientRect。
 
 正控制：塞一個超寬元素與一格被裁字的 td，兩個量測都要變大，否則印「掃描器有問題」。
+⚠ 視窗寬 ≥ 760 時全站有 zoom＝視窗寬÷2560，超寬探針要比 2560 寬才超得出去（#2575：原本 2000px 在 768 寬只剩 600px，正控制紅）。
 離開碼：0＝沒有發現；1＝有發現；2＝掃描器壞了（分頁 ≤ 5、語言不足、正控制沒過），不是「沒問題」。
 只讀：不動 index.html 與資料檔，也不寫 SITE_FINDINGS。發現的處理跟線 1 一樣：彙報，使用者同意才改。
 """
@@ -119,7 +120,7 @@ def sweep(br, lang, found):
         for e in errs[n0:]:
             found.append("%s：%s" % (where, e))
     base = pg.evaluate(MEASURE)
-    pg.evaluate("""() => { const d = document.createElement('div'); d.id = 'zzProbe9942'; d.style.cssText = 'width:2000px;height:5px'; document.body.appendChild(d);
+    pg.evaluate("""() => { const d = document.createElement('div'); d.id = 'zzProbe9942'; d.style.cssText = 'width:6000px;height:5px'; document.body.appendChild(d);
         const t = document.createElement('table'); t.id = 'zzProbeT'; t.style.cssText = 'width:30px;table-layout:fixed';
         t.innerHTML = '<tr><td>' + 'x'.repeat(80) + '</td></tr>'; document.getElementById('main').appendChild(t); }""")
     probe = pg.evaluate(MEASURE)
