@@ -1376,6 +1376,12 @@ def _champ_blocks(seg, spans=None):
             for li in re.findall(r'<li[^>]*>(.*?)</li>', am.group(2), re.S):
                 t = clean(li)
                 if t:
+                    # ⚠ Riot 偶爾把一條改動拆成兩個 <li>（26.22 札亨 Q：<li>冷卻時間：10 / 9…</li><li style="list-style:none;">⇒ 8 / 7.5…</li>）。
+                    #   不併回去會多一行沒有項目名的「⇒ 8 / 7.5…」，前一行也變成看不出有改動。只併「同一個技能標題、前一行還沒有 ⇒」。
+                    prev = f"{title}｜" if title else ""
+                    if t.startswith("⇒") and lines and lines[-1].startswith(prev) and "⇒" not in lines[-1]:
+                        lines[-1] += " " + t
+                        continue
                     lines.append(f"{title}｜{t}" if title else t)
                     if raw_title:
                         had_h4 = True
