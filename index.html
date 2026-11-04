@@ -35,7 +35,8 @@
      4) 網站縮放(applyZoom)改完樣式會補發一次 window resize 事件＝縮放後全站重排的總開關。
      5) 瀏覽器100%＋網站100% 不得出現左右捲軸：表格小幅超寬(≤12%)先走 pt1/pt2 縮左右內距塞回去（不是裁字），
         塞不下才 hscroll＋視窗底浮動代理捲軸(#hsb 自動接手畫面外的橫捲軸)。 */
-  html,body{overflow-x:hidden} /* 全站禁止左右滑動（見鐵則1：內容必須自己收進橫捲容器） */
+  html,body{overflow-x:clip} /* 全站禁止左右滑動（見鐵則1：內容必須自己收進橫捲容器）。
+     用 clip 不用 hidden（使用者 2026-11-04「修正」）：hidden 會讓 body 變成捲動容器 ⇒ 頁首／欄頭／預測目錄的 sticky 全部失效 */
   html{scrollbar-gutter:stable} /* 永遠保留垂直捲軸的槽位：有無捲軸時內容不會左右位移(切分頁不跳動) */
   /* 圓體字的垂直度量對齊微軟正黑體（ascent/descent 覆寫），粉圓字形偏小再放大 5%——否則整站文字會偏低偏扁 */
   /* 內文字型的 @font-face 在 fonts/huninn.css（由 scripts/build_font_subset.py 產生）：
