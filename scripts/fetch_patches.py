@@ -1696,6 +1696,70 @@ def item_removals():
     return _flat(by_major)
 
 
+# 最新幾版每班重抓官方頁（2026-11-04 精進迴圈 #2550）：官方會在同一篇公告上補期中更新
+# （26.21 的 October 22 Updates：Varus 被動與 Q），而快取一寫下就不再更新，這段熱修永遠進不來。
+# 取 2 版：新版上線那一班，上一版在這之前的最後修訂還收得到。每班多 2 次請求（繁中、英文各一支）。
+REFRESH_LATEST = 2
+
+
+def latest_cached(prefix="patch_", n=None):
+    """快取裡版本最新的 n 個版本鍵（prefix＝patch_／patch_en_；patch_tr_cache 這類非版本檔不算）"""
+    n = REFRESH_LATEST if n is None else n
+    if n <= 0:
+        return set()
+    rx = re.compile("^" + re.escape(prefix) + r"(\d\d\.\d\d)\.json$")
+    keys = [m.group(1) for m in (rx.match(f) for f in os.listdir(CACHE)) if m]
+    return set(sorted(keys, key=lambda k: tuple(int(x) for x in k.split(".")))[-n:])
+
+
+def _patch_content(d):
+    return {k: v for k, v in d.items() if k not in ("_url", "_lang")}
+
+
+def _patch_shrunk(old, new):
+    """新解析比快取少的英雄／區塊（行數變少也算）→ [(名稱, 舊行數, 新行數)]"""
+    def counts(d):
+        c = {k: len(v) for k, v in d.items() if not k.startswith("_") and isinstance(v, list)}
+        c.update({"_extra/" + k: len(v or []) for k, v in (d.get("_extra") or {}).items()})
+        return c
+    a, b = counts(old), counts(new)
+    return [(k, a[k], b.get(k, 0)) for k in sorted(a) if b.get(k, 0) < a[k]]
+
+
+def refresh_cached(pk, cached, cf, html_lang):
+    """重抓一版已快取的官方頁。有新內容才換快取；抓不到、解析空、內容變少都沿用快取（頁面壞掉不可以洗掉資料）。
+    內容變少會印 ⚠：官方真的撤回改動時要人工處理。回傳這一版該用的內容。"""
+    url = cached.get("_url")
+    if not url:
+        return cached
+    try:
+        html_text = fetch(url)
+        new = json.loads(json.dumps(parse(html_text), ensure_ascii=False))
+    except Exception as e:
+        print(f"  {pk}: 重抓官方頁失敗，沿用快取（{e}）")
+        return cached
+    if not any(not k.startswith("_") for k in new):
+        print(f"  ⚠ {pk}: 重抓官方頁解析 0 隻，沿用快取")
+        return cached
+    if _patch_content(new) == _patch_content(cached):
+        return cached
+    shrunk = _patch_shrunk(cached, new)
+    if shrunk:
+        print(f"  ⚠ {pk}: 官方頁重新解析比快取少，沿用快取：{shrunk[:5]}")
+        return cached
+    new["_url"] = url
+    if "_lang" in cached:
+        new["_lang"] = cached["_lang"]
+    json.dump(new, open(cf, "w", encoding="utf-8"), ensure_ascii=False)
+    # reparse_patches 拿這份頁面比對快取；留舊頁面的話，它的 --apply 會把這次更新改回去
+    hdir = os.path.join(CACHE, "patch_html", html_lang)
+    os.makedirs(hdir, exist_ok=True)
+    with open(os.path.join(hdir, pk + ".html"), "w", encoding="utf-8") as f:
+        f.write(html_text)
+    print(f"  {pk}: 官方頁有更新 → 快取已換（{html_lang}）")
+    return new
+
+
 def main():
     import sys
     force        = "--force"          in sys.argv
@@ -1727,6 +1791,7 @@ def main():
             pass
 
     all_patches = {}
+    refresh = latest_cached("patch_") if not force else set()
     for pk in sorted(all_targets):
         cf = os.path.join(CACHE, f"patch_{pk}.json")
         # 把 pk 還原成 (year, minor)
@@ -1739,7 +1804,8 @@ def main():
             # （繁中公告比英文晚上線，如 26.14），之後每次重跑都重試繁中，抓到就覆蓋快取。
             was_en = cached.get("_lang") == "en-us" or "/en-us/" in str(cached.get("_url", ""))
             if not (was_en and year == NOW_YEAR):
-                all_patches[pk] = cached
+                # 這裡的 was_en 只會是去年版本（今年的走下面重試繁中）：它的英雄行是翻過的，不能拿英文原文蓋
+                all_patches[pk] = refresh_cached(pk, cached, cf, "zh") if pk in refresh and not was_en else cached
                 continue
             all_patches[pk] = cached   # 先保留舊(英文)內容當保底，繁中重試成功才覆蓋
             print(f"  {pk}: 快取為英文公告 → 重試繁中…")

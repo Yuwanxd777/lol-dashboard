@@ -53,10 +53,13 @@ def main():
         except Exception: pass
 
     all_en, got = {}, 0
+    refresh = fp.latest_cached("patch_en_") if not force else set()
     for pk in sorted(targets):
         cf = os.path.join(fp.CACHE, f"patch_en_{pk}.json")
         if os.path.exists(cf) and not force:
-            all_en[pk] = json.load(open(cf, encoding="utf-8")); continue
+            cached = json.load(open(cf, encoding="utf-8"))
+            all_en[pk] = fp.refresh_cached(pk, cached, cf, "en") if pk in refresh else cached
+            continue
         parts = pk.split("."); yy, mm = int(parts[0]), int(parts[1])
         year = yy + (2010 if yy <= 14 else 2000)
         if fp.patch_est_date(year, mm) > TODAY and not force:

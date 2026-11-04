@@ -79,7 +79,9 @@ def main():
             except Exception as e:
                 print(f"{pk}: 抓不到 {url}：{e}")
                 continue
-            io.open(hp, "w", encoding="utf-8").write(html)
+            # 英文暫代的版本（_lang=en-us）不留底：之後快取換成繁中，還會拿這份英文頁比繁中（#2549、#2550 都踩到）
+            if en or old.get("_lang") != "en-us":
+                io.open(hp, "w", encoding="utf-8").write(html)
             time.sleep(0.2)
         new = fp.parse(html)
         if not new or not [k for k in new if not k.startswith("_")]:
