@@ -10,6 +10,7 @@ import io, sys, os, re, json, urllib.request
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
 HERE = os.path.dirname(os.path.abspath(__file__)); ROOT = os.path.dirname(HERE)
 UA = {"User-Agent": "Mozilla/5.0"}
+MIN_KEEP = 0.5   # 下架名單只增不太減；掉到一半以下＝來源壞了
 
 
 def g(u):
@@ -20,6 +21,15 @@ def clname(n):  # 對齊 index.html clItemName：去括號尾綴、收全形冒�
     n = re.sub(r"：\s+", "：", str(n or ""))
     n = re.sub(r"[（(][^（）()]*[)）]", "", n)
     return n.strip()
+
+
+def read_prev(path):
+    try:
+        with open(path, encoding="utf-8") as f:
+            s = f.read()
+        return json.loads(s[s.index("=") + 1:].strip().rstrip(";"))
+    except (OSError, ValueError):
+        return {}
 
 
 def main():
@@ -36,10 +46,19 @@ def main():
             if nm:
                 nostore[nm] = 1
     out = os.path.join(ROOT, "item_nostore.js")
-    open(out, "w", encoding="utf-8").write("window.ITEM_NOSTORE=" + json.dumps(nostore, ensure_ascii=False) + ";\n")
+    # CDragon 改欄位名或回殘缺時，舊版會寫成空表，已移除的道具全部回到當前年份圖鑑（2026-11-05 #2613）
+    old = read_prev(out)
+    if not nostore or len(nostore) < MIN_KEEP * len(old):
+        print(f"⚠ 只解析出 {len(nostore)} 個已下架道具（上一版 {len(old)} 個）⇒ 保留舊的 item_nostore.js 不覆寫")
+        return 1
+    tmp = out + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        f.write("window.ITEM_NOSTORE=" + json.dumps(nostore, ensure_ascii=False) + ";\n")
+    os.replace(tmp, out)
     print(f"寫出 item_nostore.js：{len(nostore)} 個已下架道具（CDragon inStore=False，id<200000）")
     print("範例:", list(nostore)[:25])
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

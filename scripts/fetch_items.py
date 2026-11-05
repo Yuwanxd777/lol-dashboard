@@ -7,11 +7,15 @@ DDragon 的道具描述缺數字（如 電流旋風劍「蒼穹」的 %），
 繁中模板在 zh_tw 字串表（item_{id}_tooltip，含 @token@）。
 本腳本填值後輸出 items.js，index.html 以其覆蓋 DDragon 描述。
 
+快取用兩把鍵（2026-11-05 #2613，同 fetch_skills）：DDragon 版本＋CDragon build。
+只看 DDragon 時，它換版後建的那份會卡到下次改版：16.22 上線兩天狂霸血甲還是 12%（bin 與 DDragon 都是 10%），
+16.21 破堡者 50（應 40）、破曉之核 10（應 15），16.20 實驗型海克斯板甲遠程 35%（應 25%）。
+
 用法：
-    python fetch_items.py            # 版本沒變就跳過
+    python fetch_items.py            # DDragon 與 CDragon 版本都沒變就跳過
     python fetch_items.py --force
 """
-import json, re, socket, sys, urllib.error, urllib.request
+import json, os, re, socket, sys, urllib.error, urllib.request
 from pathlib import Path
 from fetch_skills import SpellCtx, eval_calc, render_val, Miss, hget, HOLE_RE  # 重用技能管線的計算式求值器與破句偵測
 
@@ -20,11 +24,14 @@ CACHE_DIR = ROOT / "csv_cache"
 BIN_F  = CACHE_DIR / "items_bin.json"
 ST_F   = CACHE_DIR / "items_st_zhtw.json"
 MARK_F = CACHE_DIR / "items_cache_ver.txt"
+CDVER_F = CACHE_DIR / "items_cache_cdver.txt"
 OUT_JS = ROOT / "items.js"
 
 DD_API = "https://ddragon.leagueoflegends.com"
 URL_BIN = "https://raw.communitydragon.org/latest/game/items.cdtb.bin.json"
 URL_ST  = "https://raw.communitydragon.org/latest/game/zh_tw/data/menu/en_us/lol.stringtable.json"
+URL_CDVER = "https://raw.communitydragon.org/latest/content-metadata.json"
+MIN_KEEP = 0.9   # 件數掉到舊檔這個比例以下＝來源或解析壞了，不寫檔
 
 FORCE = "--force" in sys.argv
 
@@ -145,31 +152,61 @@ def fill(tpl, lut, calcs, ictx=None):
     t = BRACE.sub("", t)
     return t, miss
 
+def _mark(p):
+    return p.read_text().strip() if p.exists() else ""
+
+def _write(p, data):
+    """先寫 tmp 再換名：中途被砍不留半個檔"""
+    tmp = p.with_name(p.name + ".tmp")
+    tmp.write_bytes(data)
+    os.replace(tmp, p)
+
+def read_prev():
+    """上一版 items.js → (ITEM_DESC, ITEM_XTRA)；沒有或解不開回 ({}, {})，不擋這次建置"""
+    try:
+        js = OUT_JS.read_text(encoding="utf-8")
+        a = js.index("=") + 1
+        b = js.index(";window.ITEM_XTRA=")
+        c = js.index(";window.ITEM_DESC_VER=")
+        return json.loads(js[a:b]), json.loads(js[b + len(";window.ITEM_XTRA="):c])
+    except (OSError, ValueError):
+        return {}, {}
+
+def digit_runs(html):
+    return len(re.findall(r"\d+", re.sub(r"<[^>]+>", "", html)))
+
 def main():
     ddv = json.loads(get(f"{DD_API}/api/versions.json", 30))[0]
-    if not FORCE and MARK_F.exists() and MARK_F.read_text().strip() == ddv and OUT_JS.exists():
-        print(f"items.js 已是 {ddv}，跳過")
-        return
+    cdver = ""
+    try:
+        cdver = str(json.loads(get(URL_CDVER, 30)).get("version", ""))
+    except Exception as e:
+        print(f"（CDragon 版本查詢失敗，這班只看 DDragon 版本：{e}）")
+    same_dd = _mark(MARK_F) == ddv
+    same_cd = not cdver or _mark(CDVER_F) == cdver
+    if not FORCE and same_dd and same_cd and OUT_JS.exists():
+        print(f"items.js 已是 {ddv}（CDragon {cdver or '版本未知'}），跳過")
+        return 0
     CACHE_DIR.mkdir(parents=True, exist_ok=True)
-    need_dl = not (BIN_F.exists() and ST_F.exists()
-                   and MARK_F.exists() and MARK_F.read_text().strip() == ddv)
+    need_dl = not (BIN_F.exists() and ST_F.exists() and same_dd and same_cd)
     try:
         if need_dl:  # 兩份都下載成功才寫進快取：不留「新 bin 配舊字串表」的半套
             print("下載 items bin…");   b = get(URL_BIN)
             print("下載 zh_tw 字串表…"); s = get(URL_ST)
             json.loads(b); json.loads(s)
-            BIN_F.write_bytes(b); ST_F.write_bytes(s)
+            _write(BIN_F, b); _write(ST_F, s)
         dd = json.loads(get(f"{DD_API}/cdn/{ddv}/data/zh_TW/item.json", 60))["data"]
     except Exception as e:
         if not (_is_transient(e) and OUT_JS.exists()):
             raise
-        old = MARK_F.read_text().strip() if MARK_F.exists() else "？"
+        old = _mark(MARK_F) or "？"
         print(f"⚠ 來源暫時抓不到（{e}），items.js 維持上一班的 {old}（DDragon 已是 {ddv}），下一班再試")
-        return
+        return 0
     binj = json.loads(BIN_F.read_text(encoding="utf-8"))
     st   = json.loads(ST_F.read_text(encoding="utf-8")).get("entries", {})
+    prev, prev_xtra = read_prev()
 
-    out, filled_n = {}, 0
+    out, filled_n, kept = {}, 0, []
     for iid in sorted(dd, key=lambda x: int(x)):
         if int(iid) >= 200000:
             continue  # 特殊模式變體（競技場 22xxxx 等）不作為正文來源
@@ -202,7 +239,13 @@ def main():
             continue
         sm = re.search(r"<stats>[\s\S]*?</stats>", dd[iid].get("description", ""))
         stats = sm.group(0) + "<br><br>" if sm else ""
-        out[name] = f"<mainText>{stats}{body}</mainText>"
+        text = f"<mainText>{stats}{body}</mainText>"
+        # 這版的 token 查不到值，句子會少數字又不一定被 HOLE_RE 抓到（16.21 最終 bin 的傲慢「增加物理攻擊」）。
+        # 上一版數字比較多就留上一版，下一次 CDragon 更新會再試。
+        if miss and name in prev and digit_runs(prev[name]) > digit_runs(text):
+            text = prev[name]
+            kept.append(name)
+        out[name] = text
         filled_n += 1
 
     # 轉化裝：遊戲內存在、但 DDragon item.json 已不列（水滴疊滿升級系）
@@ -223,14 +266,31 @@ def main():
         body, _m = fill(tpl, lut, build_calcs(entry, lut), item_ctx(entry))
         xtra[name] = {"d": f"<mainText>{body}</mainText>", "base": base,
                       "img": f"https://ddragon.leagueoflegends.com/cdn/{ddv}/img/item/{iid}.png"}
+    if not out or len(out) < MIN_KEEP * len(prev):
+        print(f"⚠ 只解析出 {len(out)} 件道具（上一版 {len(prev)} 件）⇒ 保留舊的 items.js 不覆寫，下一班重抓")
+        return 1
+    if kept:
+        print(f"⚠ {len(kept)} 件道具這版有值查不到，沿用上一版文字：{'、'.join(kept[:12])}")
+    # 只有 CDragon build 變、內容沒變：不換版本戳（換了前端快取會白白失效，也多一個資料 commit）
+    if same_dd and out == prev and xtra == prev_xtra:
+        if cdver:
+            _write(CDVER_F, cdver.encode())
+        print(f"items.js 內容沒變（CDragon {cdver}），不重寫")
+        return 0
+    changed = [k for k in out if k in prev and out[k] != prev[k]]
     from datetime import datetime
     ver = f"{ddv}-{datetime.now().strftime('%m%d%H%M')}"
     js = ("window.ITEM_DESC=" + json.dumps(out, ensure_ascii=False, separators=(",", ":"))
           + ";window.ITEM_XTRA=" + json.dumps(xtra, ensure_ascii=False, separators=(",", ":"))
           + f';window.ITEM_DESC_VER="{ver}";')  # 版本戳：讓前端 localStorage 快取隨 items.js 重建而失效
-    OUT_JS.write_text(js, encoding="utf-8")
-    MARK_F.write_text(ddv)
-    print(f"✅ items.js：{filled_n} 件道具（DDragon {ddv}）")
+    _write(OUT_JS, js.encode("utf-8"))
+    _write(MARK_F, ddv.encode())
+    if cdver:
+        _write(CDVER_F, cdver.encode())
+    print(f"✅ items.js：{filled_n} 件道具（DDragon {ddv}，CDragon {cdver or '版本未知'}）")
+    if same_dd and changed:
+        print(f"   同一版內 CDragon 更新，{len(changed)} 件內容變了：{'、'.join(changed[:12])}")
+    return 0
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

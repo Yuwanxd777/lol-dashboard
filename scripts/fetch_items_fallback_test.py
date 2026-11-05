@@ -32,6 +32,7 @@ fi.CACHE_DIR = SB / "csv_cache"
 fi.BIN_F = fi.CACHE_DIR / "items_bin.json"
 fi.ST_F = fi.CACHE_DIR / "items_st_zhtw.json"
 fi.MARK_F = fi.CACHE_DIR / "items_cache_ver.txt"
+fi.CDVER_F = fi.CACHE_DIR / "items_cache_cdver.txt"
 fi.OUT_JS = SB / "items.js"
 fi.ROOT = SB
 for k in ("CACHE_DIR", "BIN_F", "ST_F", "MARK_F", "OUT_JS"):
