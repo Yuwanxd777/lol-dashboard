@@ -185,6 +185,9 @@ def fill(tpl, lut, calcs, ictx=None):
     t = TOK.sub(rep, EXT.sub("", tpl))
     t = ICON.sub("", t)
     t = BRACE.sub("", t)
+    # 值自帶屬性標籤，模板又接一次單位：石像鬼磐核「+5% 額外魔抗魔法防禦」（畫面上會變「魔防魔法防禦」）。
+    # 道具不走 fetch_skills.finish，要自己清（#2620）
+    t = re.sub(r"(護甲)(?:物防|物理防禦)|(魔抗)(?:魔防|魔法防禦)", lambda m: m.group(1) or m.group(2), t)
     return t, miss
 
 HEAD_SEG = re.compile(r"\s*(?:\{\{[^}]*\}\}\s*)*<(\w+)>[^<]*</\1>\s*(?:\{\{[^}]*\}\}\s*)*")
