@@ -63,6 +63,27 @@ def main():
     check("值自帶魔抗標籤又接單位：去掉單位（#2620）", lambda: F.fill("+5% 額外魔抗魔法防禦", {}, {})[0] == "+5% 額外魔抗")
     check("物理致命接模板 %：百分比移到數字後面（公理弧刃 #2621）", lambda: F.fill("返還10（每 1 物理致命 +0.25）%冷卻", {}, {})[0] == "返還10%（每 1 物理致命 +0.25%）冷卻")
     check("物理致命沒接 %：不動（闇影戰戟 #2621）", lambda: F.fill("造成50（每 1 物理致命 +1.5）真實傷害", {}, {})[0] == "造成50（每 1 物理致命 +1.5）真實傷害")
+    # #2636：即時統計、沒數字的模板、圖示夾在 + 與數字之間
+    WARMOG = "<passive>好戰之心</passive> <br>每秒回復生命。<br><br><passive>好戰活力</passive><br>獲得相當於@HPAmp*100@%道具生命(<healing>@f2@</healing>)的額外生命。"
+    check("括號裡的即時統計：拿括號，句子留著（好戰者鎧甲）", lambda: F.drop_live_stats(WARMOG).endswith("<passive>好戰活力</passive><br>獲得相當於@HPAmp*100@%道具生命的額外生命。"))
+    check("全形括號也認得", lambda: F.drop_live_stats("A（@f1@）B") == "AB")
+    check("整句統計：連只剩標題的上一行一起拿掉", lambda: F.drop_live_stats("<passive>甲</passive><br>乙<br><br><passive>統計</passive><br>造成傷害：@f3@") == "<passive>甲</passive><br>乙")
+    check("整句統計的標題拿掉，下一段照留", lambda: F.drop_live_stats("<passive>統計</passive><br>累積@f1@<br><br><passive>丙</passive><br>丁") == "<br><passive>丙</passive><br>丁")
+    check("整句統計上一行是內文：內文留著（對照）", lambda: F.drop_live_stats("<passive>甲</passive><br>內文<br>累積@f1@") == "<passive>甲</passive><br>內文")
+    check("帶小數編號的統計也算（@f3.1@）", lambda: F.drop_live_stats("內文<br>士兵：@f3.1@") == "內文")
+    check("帶小數編號的括號也算", lambda: F.drop_live_stats("擊殺士兵(<b>@f3.1@</b>)來完成") == "擊殺士兵來完成")
+    check("括號裡不只統計：不當括號拿，整句剔除", lambda: F.drop_live_stats("內文<br>魔法攻擊(目前@f2@)") == "內文")
+    check("沒有統計：原樣（對照）", lambda: F.drop_live_stats(WARMOG.replace("(<healing>@f2@</healing>)", "")) == WARMOG.replace("(<healing>@f2@</healing>)", ""))
+    HORN_T = "<mainText><stats><attention>150</attention> 生命</stats><br><br>隨著時間回復生命。</mainText>"
+    HORN_D = "<mainText><stats><attention>150</attention> 生命</stats><br><br>每5秒回復<healing>20生命</healing>。</mainText>"
+    check("模板沒數字、DDragon 有：換 DDragon（保衛者號角）", lambda: F.prefer_dd_digits(HORN_T, "隨著時間回復生命。", HORN_D, {}) == HORN_D)
+    check("模板有數字：不換（對照）", lambda: F.prefer_dd_digits(HORN_T, "回復5生命。", HORN_D, {}) == HORN_T)
+    check("DDragon 只有屬性列有數字：不換", lambda: F.prefer_dd_digits(HORN_T, "隨著時間回復生命。", "<mainText><stats><attention>150</attention> 生命</stats><br><br>回復生命。</mainText>", {}) == HORN_T)
+    check("DDragon 沒內文：不換", lambda: F.prefer_dd_digits(HORN_T, "隨著時間回復生命。", "<mainText><stats><attention>150</attention> 生命</stats><br><br></mainText>", {}) == HORN_T)
+    check("圖示夾在 + 與數字之間：黏回去（雲陶狂箭）", lambda: F.fill("永久獲得+%i:scaleCrit% 0.4%暴擊率", {}, {})[0] == "永久獲得+0.4%暴擊率")
+    check("算式的 +：前面是空白不動（對照）", lambda: F.fill("10 秒 + 9 金錢", {}, {})[0] == "10 秒 + 9 金錢")
+    check("算式的 +：前面是括號不動（對照）", lambda: F.fill("（15% AP）+ 3%最大生命", {}, {})[0] == "（15% AP）+ 3%最大生命")
+    check("算式的 +：前面是數字不動（對照）", lambda: F.fill("500+ 10%", {}, {})[0] == "500+ 10%")
     # #2622：冷卻佔位與「沒有時限」的佔位秒數
     check("冷卻佔位填成秒數（破堡者）", lambda: F.fill("<passive>聚能炸藥</passive> {{Item_Cooldown}}<br>X", {"cooldown": 20.0}, {}) == ("<passive>聚能炸藥（20秒）</passive><br>X", 0))
     check("冷卻佔位有空白也認得（守護天使）", lambda: F.fill("A{{ Item_Cooldown }}", {"cooldown": 300.0}, {}) == ("A（300秒）", 0))

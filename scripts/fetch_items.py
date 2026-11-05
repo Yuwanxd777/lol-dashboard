@@ -297,6 +297,7 @@ def fill(tpl, lut, calcs, ictx=None):
     # 破堡者標頭會只剩一行「（20秒）」（#2622）
     t = HEAD_CD.sub(lambda m: f"（{m.group(3) or ''}{m.group(4)}）{m.group(1)}</{m.group(2)}>", t)
     t = ICON.sub("", t)
+    t = re.sub(r"(?<![\s\d)）])\+ (?=\d)", "+", t)  # 圖示夾在中間：雲陶狂箭「永久獲得+%i:scaleCrit% 0.4%」（#2636）
     t = BRACE.sub("", t)
     # 值自帶屬性標籤，模板又接一次單位：石像鬼磐核「+5% 額外魔抗魔法防禦」（畫面上會變「魔防魔法防禦」）。
     # 道具不走 fetch_skills.finish，要自己清（#2620）
@@ -305,6 +306,22 @@ def fill(tpl, lut, calcs, ictx=None):
     return t, miss
 
 HEAD_SEG = re.compile(r"\s*(?:\{\{[^}]*\}\}\s*)*<(\w+)>[^<]*</\1>\s*(?:\{\{[^}]*\}\}\s*)*")
+
+LIVE_TOK = re.compile(r"@f\d+(?:\.\d+)?@")
+LIVE_PAREN = re.compile(r"\s*[(（](?:<(\w+)>)?@f\d+(?:\.\d+)?@(?:</\1>)?[)）]")
+
+def drop_live_stats(tpl):
+    """@f1@/@f2@… 是遊戲內即時統計（已阻擋傷害量等），圖鑑沒有值。
+    只是括號裡的統計就拿括號、句子留著：好戰者鎧甲「獲得相當於12%道具生命(@f2@)的額外生命」。
+    其餘整句剔除，連同只剩標題的上一行，不然畫面上只有「好戰活力」四個字（#2636）。"""
+    keep = []
+    for seg in LIVE_PAREN.sub("", tpl).split("<br>"):
+        if LIVE_TOK.search(seg):
+            while keep and (not keep[-1].strip() or HEAD_SEG.fullmatch(keep[-1])):
+                keep.pop()
+            continue
+        keep.append(seg)
+    return "<br>".join(keep)
 
 def strip_holes(tpl, lut, calcs, ictx=None):
     """把含查不到 token 的那幾行拿掉，連同只剩標題的上一行。回傳填好的內文。
@@ -366,9 +383,19 @@ def read_prev():
     except (OSError, ValueError):
         return {}, {}
 
+STATS_RE = re.compile(r"<stats>[\s\S]*?</stats>")
+
 def digit_runs(html):
     # 單獨的 0 不算資訊：不然上一版「獲得 0% 跑速」比修好的版本多一個數字，會被當成比較好的留下來（狂熱雙刀 #2635）
     return len(re.findall(r"\d+", re.sub(r"(?<![\d.])0(?![\d.])", "", re.sub(r"<[^>]+>", "", html))))
+
+def prefer_dd_digits(text, body, desc, lut, ictx=None):
+    """模板內文整段沒有數字、DDragon 內文有：保衛者號角「隨著時間回復生命」vs「每5秒回復20生命」（#2636）。
+    屬性列不算：不然只有屬性數字的 DDragon 也會蓋掉純文字模板。"""
+    if digit_runs(body):
+        return text
+    cand = repair_dd(desc, lut, ictx)
+    return cand if cand and digit_runs(STATS_RE.sub("", cand)) else text
 
 def main():
     ddv = json.loads(get(f"{DD_API}/api/versions.json", 30))[0]
@@ -417,9 +444,8 @@ def main():
         if not entry:
             continue
         tpl = pick_template(iid, entry, st)
-        if tpl:  # @f1@/@f2@… 是遊戲內即時統計（已阻擋傷害量等），整句剔除
-            tpl = "<br>".join(seg for seg in tpl.split("<br>") if not re.search(r"@f\d+@", seg))
-            tpl = expand_tokens(tpl, st)
+        if tpl:
+            tpl = expand_tokens(drop_live_stats(tpl), st)
         if not tpl:
             continue
         lut = build_lut(entry)
@@ -449,6 +475,8 @@ def main():
                 kept.append(name)
             else:
                 text = cand
+        else:
+            text = prefer_dd_digits(text, body, dd[iid].get("description", ""), lut, ictx)
         out[name] = text
         filled_n += 1
 
@@ -463,8 +491,7 @@ def main():
         cands = [c for c in cands if c]
         tpl = next((c for c in cands if "@" in c), cands[0] if cands else None)
         if tpl:
-            tpl = "<br>".join(seg for seg in tpl.split("<br>") if not re.search(r"@f\d+@", seg))
-            tpl = expand_tokens(tpl, st)
+            tpl = expand_tokens(drop_live_stats(tpl), st)
         if not (name and entry and tpl):
             continue
         lut = build_lut(entry)
