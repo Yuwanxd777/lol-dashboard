@@ -128,6 +128,33 @@ def main():
     check("技能：Ryze 型魔力係數算得出來", lambda: K.render_val(K.eval_part(K.SpellCtx({}, 1), {"mCoefficient": 0.02, "mStatFormula": 2, "__type": "AbilityResourceByCoefficientCalculationPart"})) == "+2% 額外魔力")
     check("基礎生命標籤", lambda: K._stat_label({"mStat": 12, "mStatFormula": 1}) == "基礎生命")
 
+    # #2623：字串表展開
+    ST = {"item_active_consume": "%i:activeEffect% <active>主動─消耗：</active>",
+          "item_grievous_wounds": "<status>重創效果</status>降低治療及回復效果的效益。",
+          "item_support_spoils_of_war_01": "<li><passive>戰亂之殤：</passive>普攻處決低於  {{ Item_Range_Mod_@ChampRange@_Perc }}最大生命的士兵",
+          "item_support_spoils_of_war_02": "<li><passive>戰亂之殤：</passive>普攻處決低於 @Effect2Amount*100@% 最大生命的士兵"}
+    X = F.expand_tokens
+    check("展開：主動消耗", lambda: X("{{ Item_Active_Consume }}連結", ST) == "<active>主動─消耗：</active>連結")
+    check("展開：圖示佔位旁的空白一起拿掉", lambda: X("{{ Item_Melee_Ranged_Rules }}", {"item_melee_ranged_rules": "道具對 %i:meleeInactive% 近戰英雄和 %i:rangedInactive% 遠攻英雄"}) == "道具對近戰英雄和遠攻英雄")
+    check("展開：規則說明放進 rules", lambda: X("<rules>{{ Item_Grievous_Wounds }}</rules>", ST) == "<rules><status>重創效果</status>降低治療及回復效果的效益。</rules>")
+    check("展開：沒空白也認得", lambda: "重創效果" in X("{{Item_Grievous_Wounds}}", ST))
+    check("展開：戰亂之殤 01 帶近戰遠程佔位", lambda: "低於@MeleeValue*100@%（遠程 @RangedValue*100@%）最大生命" in X("{{ Item_Support_Spoils_Of_War_01 }}", ST))
+    check("展開：戰亂之殤 02", lambda: "@Effect2Amount*100@%" in X("{{ Item_Support_Spoils_Of_War_02 }}", ST))
+    check("展開：字串表沒定義就原樣留著", lambda: X("{{ Item_Ghosting }}", ST) == "{{ Item_Ghosting }}")
+    check("展開：名單外的佔位不動", lambda: X("{{ Item_Passive_List }}A", ST) == "{{ Item_Passive_List }}A")
+    check("主動名稱不留 active 標籤", lambda: X("獲得 {{ Item_Active_Named_NoBullet }} <active>守衛</active>。", ST) == "獲得 主動─守衛。")
+    check("主動佔位黏著也認得", lambda: X("並獲得{{ Item_Active_Named_NoBullet }}<active>守衛</active>", ST) == "並獲得主動─守衛")
+    check("別的 active 不受影響", lambda: X("<active>沙刃</active>", ST) == "<active>沙刃</active>")
+    check("神話被動整行拿掉、尾端不留換行", lambda: X("A<br><br>{{ Item_Mythic_Passive }} <attention>5</attention> 護甲。", ST) == "A")
+    check("神話被動（右括號前沒空白）", lambda: X("A<br>{{ Item_Mythic_Passive}} 5 急速<br>B", ST) == "A<br>B")
+    check("沒有神話被動時尾端換行不動", lambda: X("A<br>", ST) == "A<br>")
+    def spoils_filled():
+        e = {"mEffectAmount": [2.0, 0.5, 0.30000001192092896, 500.0, 35.0, 3.0],
+             "mDataValues": [{"mName": "MeleeValue", "mValue": 0.5}, {"mName": "RangedValue", "mValue": 0.30000001192092896}]}
+        lut = F.build_lut(e)
+        return F.fill(X("{{ Item_Support_Spoils_Of_War_01 }}", ST), lut, F.build_calcs(e, lut), F.item_ctx(e))
+    check("戰亂之殤 01 填完是 50%（遠程 30%）", lambda: spoils_filled()[0].endswith("低於50%（遠程 30%）最大生命的士兵") and spoils_filled()[1] == 0)
+
     # 舊版對照：同一份素材，舊版真的查不到、真的漏 token、真的標當前生命
     if "TOKENS_SCRIPTS" not in os.environ:
         d = tempfile.mkdtemp()

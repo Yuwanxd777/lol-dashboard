@@ -68,6 +68,27 @@ CD_DUP = re.compile(r"@Cooldown@\s*\{\{\s*Item_Cooldown\s*\}\}(?:\s*秒)?", re.I
 HEAD_CD = re.compile(r"([：:]?)</(passive|active)>\s*(?:(每個目標)\s*)?（([\d.]+秒)）")
 SPLIT_TOK = re.compile(r"\{\{\s*Item_Melee_Ranged_Split(?:_Dynamic)?(?:_([B-D]))?\s*\}\}")
 ONHIT_TOK = re.compile(r"\{\{\s*Item_Keyword_OnHit\s*\}\}")  # 字串表＝「命中效果」，被清掉就剩「逐步冰封：，附加…」（#2622）
+# 這些佔位字串表有完整定義，以前跟其他 {{ }} 一起被 BRACE 清掉（#2623）：
+# 鋼鐵護肩等 4 件整段「戰亂之殤」不見、靈魂黑矛與稻草人沒有「主動」字樣、規則說明變成空的 <rules></rules>
+EXPAND_NAMES = ("Item_Support_Spoils_Of_War_01", "Item_Support_Spoils_Of_War_02", "Item_Active_Consume", "Item_Active_Trinket",
+                "Item_Grievous_Wounds", "Item_Support_Minion_Warning", "Item_Melee_Ranged_Rules", "Item_Jungle_Rules",
+                "Item_Ghosting", "Item_Ally_Scaling")
+EXPAND_TOK = re.compile(r"\{\{\s*(" + "|".join(EXPAND_NAMES) + r")\s*\}\}")
+# 戰亂之殤：近戰／遠程的斬殺線。ChampRange 只是選邊用的 1／2，數字在 MeleeValue、RangedValue
+RANGE_PERC = re.compile(r"\s*\{\{\s*Item_Range_Mod_@ChampRange@_Perc\s*\}\}\s*")
+# 「獲得 {{ 主動 }} <active>守衛</active>」不可以留 <active>：index.html 的 parseItemDesc 會切成一段只有「守衛。」的殘句然後濾掉
+NAMED_ACTIVE = re.compile(r"\{\{\s*Item_Active_Named_NoBullet\s*\}\}\s*<active>([^<]*)</active>")
+# 神話道具 14.1 就取消了，字串表還留著「神話被動：」那行。佔位被清掉後剩「5 物理防禦與魔法防禦。」這種沒頭沒尾的句子，整行拿掉
+MYTHIC_TOK = re.compile(r"\{\{\s*Item_Mythic_Passive\s*\}\}")
+
+def expand_tokens(tpl, st):
+    """fill 之前先展開。字串表查不到就原樣留著，之後由 BRACE 清掉（等於舊行為）。"""
+    if MYTHIC_TOK.search(tpl):
+        tpl = "<br>".join(seg for seg in tpl.split("<br>") if not MYTHIC_TOK.search(seg))
+        tpl = re.sub(r"(?:<br>\s*)+$", "", tpl)
+    tpl = EXPAND_TOK.sub(lambda m: re.sub(r"\s*%i:\w+%\s*", "", st.get(m.group(1).lower(), m.group(0))), tpl)  # 圖示旁的空白一起拿掉
+    tpl = RANGE_PERC.sub("@MeleeValue*100@%（遠程 @RangedValue*100@%）", tpl)
+    return NAMED_ACTIVE.sub(lambda m: f"主動─{m.group(1)}", tpl)
 
 def build_lut(entry):
     """bin 條目 → token 對照（小寫）：mDataValues + 頂層數值欄位（去 m 前綴也收）"""
@@ -342,6 +363,7 @@ def main():
         tpl = next((c for c in cands if "@" in c), cands[0] if cands else None)
         if tpl:  # @f1@/@f2@… 是遊戲內即時統計（已阻擋傷害量等），整句剔除
             tpl = "<br>".join(seg for seg in tpl.split("<br>") if not re.search(r"@f\d+@", seg))
+            tpl = expand_tokens(tpl, st)
         entry = binj.get(f"Items/{iid}")
         if not tpl or not entry:
             continue
@@ -387,6 +409,7 @@ def main():
         tpl = next((c for c in cands if "@" in c), cands[0] if cands else None)
         if tpl:
             tpl = "<br>".join(seg for seg in tpl.split("<br>") if not re.search(r"@f\d+@", seg))
+            tpl = expand_tokens(tpl, st)
         if not (name and entry and tpl):
             continue
         lut = build_lut(entry)
