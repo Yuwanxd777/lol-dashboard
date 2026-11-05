@@ -34,6 +34,16 @@ def cid(name): return FIX.get(name, name.replace("'", "").replace(" ", "").repla
 def _get(url):
     return urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"}), timeout=40).read()
 
+def load_prev():
+    """讀上一版 jungle.js 的逐賽季資料。讀不到回空表。
+    （2026-11-05 精進迴圈 #2606）某一季抓不到時舊版照寫，那一季就從圖鑑消失，要到下一班才回來。"""
+    try:
+        s = open(OUT, encoding="utf-8").read()
+        return json.JSONDecoder().raw_decode(s, len("window.JUNGLE_CLEARS="))[0]
+    except Exception as e:
+        print(f"  （讀不到上一版 jungle.js：{e}）")
+        return {}
+
 # ---- 公開 CSV（無連結）----
 def fetch_csv(tab, gid):
     if tab:
@@ -140,7 +150,13 @@ def main():
             gid2title = api_meta()
         except Exception as e:
             print(f"  ⚠ 取分頁清單失敗 {e}，本次退回 CSV")
+    prev = load_prev()
+    def keep(year):
+        if prev.get(year):
+            out[year] = prev[year]
+            print(f"  ⚠ {year}: 沿用上一版 {len(prev[year])} 筆英雄卡；下一班會再試")
     out = {}
+    fetched = 0
     for year, cfg in SEASONS.items():
         try:
             if KEY:
@@ -153,13 +169,16 @@ def main():
             season = parse_season(rows, link_rows)
             if season:
                 out[year] = season
+                fetched += 1
                 nlinks = sum(len(cl.get("noteLinks", [])) for x in season for cl in x["clears"])
                 print(f"  {year}: {len(season)} 隻英雄、{sum(len(x['clears']) for x in season)} 種清野、備註連結 {nlinks} 條")
             else:
                 print(f"  ⚠ {year}: 解析 0 筆（分頁結構可能改了），略過")
+                keep(year)
         except Exception as e:
             print(f"  ⚠ {year}: 抓取失敗 {e}，略過")
-    if not out:
+            keep(year)
+    if not fetched:
         print("⚠ 所有賽季都抓不到，保留舊 jungle.js"); return
     js = ("window.JUNGLE_CLEARS=" + json.dumps(out, ensure_ascii=False, separators=(",", ":"))
           + ";\nwindow.JUNGLE_META=" + json.dumps(META, ensure_ascii=False) + ";")
