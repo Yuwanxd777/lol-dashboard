@@ -78,7 +78,7 @@ ok(rng_val(MOD) == "0.01－0.15（依等級）", f"GameCalculationModified：{rn
 ok(render_val(Val(rng="10－20（依等級）"), 100.0) == "1000－2000（依等級）", "模板倍率也要乘")
 _pv = Val(rng="10－20（依等級）"); _pv.pct = True
 ok(render_val(_pv, 100.0) == "10－20%（依等級）", "已是百分比時模板的 *100 不可再乘")
-BP = {"mFormulaParts": [{"mLevel1Value": 0.1, "mBreakpoints": [{"mBonusPerLevelAtAndAfter": 0.0125}], "__type": "ByCharLevelBreakpointsCalculationPart"}], "mDisplayAsPercent": True, "__type": GC}
+BP = {"mFormulaParts": [{"mLevel1Value": 0.1, "mBreakpoints": [{"mLevel": 10, "mAdditionalBonusAtThisLevel": 0.0125}], "__type": "ByCharLevelBreakpointsCalculationPart"}], "mDisplayAsPercent": True, "__type": GC}
 ok(rng_val(BP) == "10－11.25%（依等級）", f"斷點型也一樣：{rng_val(BP)}")
 ok(finish("10－25（依等級）%攻速") == "10－25%（依等級）攻速", "模板接的 % 併進去")
 ok(finish("5－99%（依等級）% 攻速") == "5－99%（依等級） 攻速", "已有 % 不重複")

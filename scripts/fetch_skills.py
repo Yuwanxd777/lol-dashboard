@@ -121,11 +121,57 @@ def _raw(v):
 
 # 求值結果：flat = 每級固定值 list；scal = [(比例list, 屬性標籤)]；rng = "X－Y" 依等級字串
 class Val:
-    def __init__(self, flat=None, scal=None, rng=None):
+    def __init__(self, flat=None, scal=None, rng=None, srng=None):
         self.flat = flat or []
         self.scal = scal or []
         self.rng  = rng
+        self.srng = srng or []   # 係數本身依等級：[(rng 字串, 屬性標籤)]（卡特蓮娜匕首 +70－100% AP）
         self.pct  = False
+
+def _mk_rng(lo, hi):
+    return f"{_raw(lo)}－{_raw(hi)}（依等級）"
+
+def _rng_pair(rng):
+    m = re.fullmatch(r"(-?\d+(?:\.\d+)?)－(-?\d+(?:\.\d+)?)（依等級）", rng)
+    if not m:
+        raise Miss("rng")
+    return float(m.group(1)), float(m.group(2))
+
+def _add_rng(a, b):
+    """兩段依等級相加。以前後段直接蓋掉前段，Sum 裡的則整個丟掉。"""
+    if not a or not b:
+        return a or b
+    (x1, x2), (y1, y2) = _rng_pair(a), _rng_pair(b)
+    return _mk_rng(x1 + y1, x2 + y2)
+
+MAX_LEVEL = 18
+
+def breakpoints_end(part):
+    """ByCharLevelBreakpoints 在 18 級的值。mBonusPerLevelAtAndAfter 是「從這級起每級加多少」且**取代**前一個速率，
+    mAdditionalBonusAtThisLevel 是這一級一次加。**斷點沒寫速率＝速率歸零**：卡蜜兒 Q 40＋4/級、17 級的空斷點＝100（不是 108），
+    賽娜被動 1＋1/級、11 級空斷點＝10，睿娜妲 9 級只有一次加＝2（Meraki 都對得上）。舊版把前者當一次加、後者與 mInitialBonusPerLevel 整個沒算：
+    蓋倫被動 1.5＋0.2/級，7 級起 0.8/級，14 級起 0.4/級＝10.1（Wiki 同），舊版印 2.7；小吶兒跑速 0－20 印 0－2。"""
+    v = hget(part, "mLevel1Value") or 0
+    rate = hget(part, "mInitialBonusPerLevel") or 0
+    bps = part.get("mBreakpoints") or []
+    for lv in range(2, MAX_LEVEL + 1):
+        for bp in bps:
+            if bp.get("mLevel") != lv:
+                continue
+            v += hget(bp, "mAdditionalBonusAtThisLevel") or 0
+            rate = hget(bp, "mBonusPerLevelAtAndAfter") or 0
+        v += rate
+    return v
+
+def _mul_rng(flat, rng, m):
+    """(固定值 + 依等級) × 倍率，回 (flat, rng)。倍率每級不同時範圍乘不出一個字串，
+    改印「1 級值 × 每級倍率」：卡特蓮娜 E 重置 78－96%（依等級）× 冷卻 12/11/10/9/8 → 9.36/8.58/7.8/7.02/6.24 秒。"""
+    if not rng or not m:
+        return [x * k for x, k in zip(flat, m)] if flat else [], rng
+    if len(set(m)) == 1:
+        return [x * m[0] for x in flat], scale_rng(rng, m[0])
+    lo = _rng_pair(rng)[0]
+    return [((flat[i] if flat else 0) + lo) * k for i, k in enumerate(m)], None
 
 def _zip_add(a, b):
     if not a: return list(b)
@@ -167,6 +213,14 @@ def eval_part(ctx, part, depth=0):
         sub = eval_part(ctx, part.get("mSubpart") or {}, depth + 1)
         if not lab:
             return Val()
+        if sub.rng:
+            # 係數依等級（路西恩 +50－60% AD）。舊版這裡一律 Miss，卡特蓮娜被動就只剩「造成 魔法傷害」。
+            # sub.scal 是爆頭那種暴擊加成，略過：寧可少一個係數也不要沒有數字。
+            if len(set(sub.flat)) > 1:
+                raise Miss("statbysub")
+            k = sub.flat[0] if sub.flat else 0
+            lo, hi = _rng_pair(sub.rng)
+            return Val(srng=[(_mk_rng(lo + k, hi + k), lab)])
         if sub.flat and not sub.scal:
             return Val(scal=[(sub.flat, lab)])
         raise Miss("statbysub")
@@ -175,15 +229,21 @@ def eval_part(ctx, part, depth=0):
         for p in part.get("mSubparts") or []:
             s = eval_part(ctx, p, depth + 1)
             v.flat = _zip_add(v.flat, s.flat); v.scal += s.scal
+            v.rng = _add_rng(v.rng, s.rng); v.srng += s.srng
         return v
     if t == "ProductOfSubPartsCalculationPart":
         a = eval_part(ctx, part.get("mPart1") or {}, depth + 1)
         b = eval_part(ctx, part.get("mPart2") or {}, depth + 1)
         for x, y in ((a, b), (b, a)):
-            if y.flat and not y.scal:           # 其中一邊是純數 → 乘進另一邊
+            if y.flat and not y.scal and not y.rng and not y.srng:   # 其中一邊是純數 → 乘進另一邊
                 m = y.flat
-                return Val(flat=[v * k for v, k in zip(x.flat, m)] if x.flat else [],
-                           scal=[([r * k for r, k in zip(rs, m)], lb) for rs, lb in x.scal])
+                if x.srng and len(set(m)) > 1:
+                    raise Miss("product")
+                flat, rng = _mul_rng(x.flat, x.rng, m)
+                return Val(flat=flat,
+                           scal=[([r * k for r, k in zip(rs, m)], lb) for rs, lb in x.scal],
+                           rng=rng,
+                           srng=[(scale_rng(r, m[0]), lb) for r, lb in x.srng])
         raise Miss("product")
     if t == "CooldownMultiplierCalculationPart":
         # 冷卻倍率＝1/(1+技能加速)，執行時才知道 → 用「無技能加速」的基礎值 1 呈現（賽勒斯 R 的 200%）
@@ -203,14 +263,21 @@ def eval_part(ctx, part, depth=0):
         return Val(flat=[0] * ctx.ranks)
     if t == "ByCharLevelInterpolationCalculationPart":
         s, e = part.get("mStartValue", 0), part.get("mEndValue", 0)
-        return Val(rng=f"{_raw(s)}－{_raw(e)}（依等級）")
+        if s == e:   # 兩端相同就不是依等級（貝爾薇斯被動舊版印 20－20%）
+            return Val(flat=[s] * ctx.ranks)
+        return Val(rng=_mk_rng(s, e))
+    if t == "ByCharLevelFormulaCalculationPart":
+        # 逐級查表：values[0] 是佔位，1～18 才是等級（之後是溢位用）。卡特蓮娜匕首 68.18…240.02（Wiki 68－240）。
+        vals = part.get("values") or part.get("mValues") or []
+        if len(vals) <= MAX_LEVEL:
+            raise Miss("formula")
+        lo, hi = [round(x) if abs(x) >= 10 else round(x, 2) for x in (vals[1], vals[MAX_LEVEL])]
+        return Val(flat=[lo] * ctx.ranks) if lo == hi else Val(rng=_mk_rng(lo, hi))
     if t == "ByCharLevelBreakpointsCalculationPart":
         lv1 = part.get("mLevel1Value", 0)
-        total = lv1
-        for bp in part.get("mBreakpoints") or []:
-            total += bp.get("{d5fd07ed}", bp.get("mBonusPerLevelAtAndAfter", 0)) or 0
-        return Val(rng=f"{_raw(lv1)}－{_raw(total)}（依等級）" if total != lv1 else None,
-                   flat=[lv1] * ctx.ranks if total == lv1 else [])
+        total = breakpoints_end(part)
+        return Val(rng=_mk_rng(lv1, total) if abs(total - lv1) > 1e-6 else None,
+                   flat=[lv1] * ctx.ranks if abs(total - lv1) <= 1e-6 else [])
     raise Miss(t or "part")
 
 def eval_calc(ctx, calc, depth=0):
@@ -222,7 +289,7 @@ def eval_calc(ctx, calc, depth=0):
         for p in calc.get("mFormulaParts") or []:
             s = eval_part(ctx, p, depth + 1)
             v.flat = _zip_add(v.flat, s.flat); v.scal += s.scal
-            if s.rng: v.rng = s.rng
+            v.rng = _add_rng(v.rng, s.rng); v.srng += s.srng
         # GameCalculation 也可能自帶 mMultiplier（以前只在 GameCalculationModified 處理）——
         # 漏掉它＝關 E 的攻速變 3000%（30 × 0.01 × 100% 被算成 30 × 100%）
         mp = calc.get("mMultiplier")
@@ -230,14 +297,15 @@ def eval_calc(ctx, calc, depth=0):
             mv = eval_part(ctx, mp, depth + 1)
             if mv.flat and not mv.scal:
                 m = mv.flat
-                v.flat = [x * k for x, k in zip(v.flat, m)] if v.flat else []
+                v.flat, v.rng = _mul_rng(v.flat, v.rng, m)
                 v.scal = [([r * k for r, k in zip(rs, m)], lb) for rs, lb in v.scal]
                 if len(set(m)) == 1:
-                    v.rng = scale_rng(v.rng, m[0])
+                    v.srng = [(scale_rng(r, m[0]), lb) for r, lb in v.srng]
         if calc.get("mDisplayAsPercent"):
             v.flat = [x * 100 for x in v.flat]
             v.scal = [([r * 100 for r in rs], lb) for rs, lb in v.scal]
             v.rng = scale_rng(v.rng, 100)  # 艾希被動緩速 0.2－0.3 其實是 20－30%
+            v.srng = [(scale_rng(r, 100), lb) for r, lb in v.srng]
             v.pct = True
         return v
     if t == "GameCalculationModified":
@@ -249,18 +317,24 @@ def eval_calc(ctx, calc, depth=0):
         if not (mul.flat and not mul.scal):
             raise Miss("mod-mult")
         m = mul.flat
-        out = Val(flat=[v * k for v, k in zip(base.flat, m)] if base.flat else [],
+        flat, rng = _mul_rng(base.flat, base.rng, m)
+        out = Val(flat=flat,
                   scal=[([r * k for r, k in zip(rs, m)], lb) for rs, lb in base.scal],
-                  rng=scale_rng(base.rng, m[0]) if len(set(m)) == 1 else base.rng)
+                  rng=rng,
+                  srng=[(scale_rng(r, m[0]), lb) for r, lb in base.srng] if len(set(m)) == 1 else base.srng)
         out.pct = base.pct  # 少了這個，獄火手斧會印「7% 至 21」
         return out
     raise Miss(t or "calc")
 
 def scale_rng(rng, k):
-    """'110－280（依等級）' 乘倍率。rng 是字串，乘法算不到它：吸魔劍遠程 ×0.75 舊版印得跟近戰一樣。"""
+    """'110－280（依等級）' 乘倍率。rng 是字串，乘法算不到它：吸魔劍遠程 ×0.75 舊版印得跟近戰一樣。
+    這裡不可捨入：蓋倫 1.5×0.01 捨成 0.01、再 ×100 就變 1%。捨入只在 show_rng（顯示那一刻）。"""
     if not rng:
         return rng
-    return re.sub(r"\d+(?:\.\d+)?", lambda x: fmt(round(float(x.group(0)) * k, 2)), rng)
+    return re.sub(r"-?\d+(?:\.\d+)?", lambda x: _raw(float(x.group(0)) * k), rng)
+
+def show_rng(rng, k=1.0):
+    return re.sub(r"-?\d+(?:\.\d+)?", lambda x: fmt(round(float(x.group(0)) * k, 2)), rng)
 
 def render_val(v, mult=1.0):
     """Val → 顯示字串：'55/72.5/90/107.5/125（+50% AP）'"""
@@ -272,8 +346,13 @@ def render_val(v, mult=1.0):
     if v.flat and any(abs(x) > 1e-9 for x in v.flat):
         out = join_ranks([x * mult for x in v.flat]) + ("%" if v.pct else "")
     if v.rng:
-        rng = scale_rng(v.rng, mult)
-        out += rng.replace("（依等級）", "%（依等級）") if v.pct else rng
+        rng = show_rng(v.rng, mult)
+        rng = rng.replace("（依等級）", "%（依等級）") if v.pct else rng
+        # 固定值加依等級：柔依 Q 舊版黏成「50/80/110/140/1702－9（依等級）」
+        out = f"{out} + {rng}" if out else rng
+    for r, lab in v.srng:
+        piece = "+" + show_rng(r, 1 if v.pct else 100).replace("（依等級）", f"%（依等級） {lab}")
+        out += f"（{piece}）" if out else piece
     # 負係數＝執行時公式的殘留項（路西恩 R＝22×(1+暴擊×(攻速−1))，基礎值就是 22）→ 丟掉，
     # 不然會印出「22（+-2200% 暴擊率）」這種東西
     for rs, lab in [(rs, lab) for rs, lab in v.scal if any(r > 1e-9 for r in rs)]:
@@ -324,6 +403,7 @@ def finish(t):
     t = re.sub(r"\{\{[^{}]*\}\}", "", t)              # 未填值 token
     t = re.sub(r"@[A-Za-z_][\w.:]*@", "", t)          # 字串表 @token@ 殘留
     t = re.sub(r"%{2,}", "%", t)                      # 「20%%失去生命」
+    t = re.sub(r"(最大|額外|基礎)生命生命", r"\1生命", t)  # 模板「回復 X 生命」，X 自帶標籤
     t = re.sub(r"(\d%?)（依等級）\s*%", lambda m: m.group(1).rstrip("%") + "%（依等級）", t)  # 模板在 token 後面接的 %
     t = re.sub(r"(AP|AD|物攻|魔攻)\s*%(?![\d])", r"\1", t)   # 「+10% AP% 最大魔力」→ 尾巴那個 % 是模板的，值已自帶
     t = re.sub(r"[（(]\s*[+×xX]?\s*[)）]", "", t)      # 空括號

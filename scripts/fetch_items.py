@@ -134,7 +134,8 @@ def render_split(ictx, c, mu):
     k = k.flat[0]
     m = 1.0 if v.pct and abs(mu - 100) < 1e-9 else mu
     r = Val(flat=[round(x * k * m, 1) for x in v.flat],
-            scal=[([round(a * k, 4) for a in rs], lb) for rs, lb in v.scal], rng=scale_rng(v.rng, k))
+            scal=[([round(a * k, 4) for a in rs], lb) for rs, lb in v.scal], rng=scale_rng(v.rng, k),
+            srng=[(scale_rng(x, k), lb) for x, lb in v.srng])
     r.pct = v.pct
     sr = render_val(r)
     return sm if not sr or sr == sm else f"{sm}（遠程 {sr.replace('（依等級）', '')}）"
