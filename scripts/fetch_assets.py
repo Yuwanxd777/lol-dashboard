@@ -14,8 +14,17 @@
     python scripts\fetch_assets.py            # 有快取就沿用（只補新年份）
     python scripts\fetch_assets.py --force    # 全部重抓
 圖片雜湊會下載每年的小圖（約 6000 張、~30MB），第一次跑約 5-10 分鐘，之後永久快取。
+
+抓不到時（2026-11-05 精進迴圈 #2607）：
+ - 該版本整筆不進快取，下一班重抓。舊版把殘缺的 ent 存進去，該版本從此不再重抓。
+   例外只有 8.x 以前的 runesReforged：DDragon 回 403 是本來就沒有。不存在的版本連 item.json 也回 403，
+   所以 8.x 以後的 403 不能當「沒有」。
+ - 圖片簽章抓不到不記 None，下一班重試。舊版記 None 後永遠不重試，還會切出假的換圖段（8.24.1 的 3637.png）。
+ - 分類標籤抓不到沿用上一版 assets.js。
+ - 連 2 個版本抓不到、或圖片連續 8 次連線失敗，這班就不再上網。
+ - 道具或英雄一筆都沒有時不寫檔並 exit 1。
 """
-import json, os, sys, time, hashlib, urllib.request
+import json, os, sys, time, hashlib, urllib.request, urllib.error
 import re
 # 經典服（LoL Classic，DDragon 內部代號 Jade_*）不是我們要的資料（2026-07-31 使用者回報：
 # 英雄Tier 出現經典服頭像）——它的 zh/en 名稱與現行英雄**完全相同**，混進來會造成同名重複與圖片誤植。
@@ -38,10 +47,46 @@ HIST_VER = {2013: "3.15.5", 2014: "4.21.5", 2015: "5.24.2", 2016: "6.24.1", 2017
             2019: "9.24.2", 2020: "10.25.1", 2021: "11.24.1", 2022: "12.23.1", 2023: "13.24.1",
             2024: "14.24.1", 2025: "15.24.1"}
 
-def gj(url, timeout=60):
-    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-    with urllib.request.urlopen(req, timeout=timeout) as r:
-        return json.loads(r.read().decode("utf-8"))
+RUNE_FROM_MAJOR = 8   # runesReforged 從 8.1.1 起才有（7.22～7.24 只有 en_US，zh_TW 是 403）
+NET_TRIES = 2
+GIVE_UP_VERSIONS = 2  # 連幾個版本抓不到就不再上網
+GIVE_UP_IMGS = 8      # 圖片連續幾次連線失敗就不再上網（403／404 不算）
+
+def _is_gone(e):
+    return isinstance(e, urllib.error.HTTPError) and e.code in (403, 404)
+
+def gj(url, timeout=30):
+    """403／404 不重試（重試也一樣）；其他失敗試 NET_TRIES 次。"""
+    for i in range(NET_TRIES):
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+            with urllib.request.urlopen(req, timeout=timeout) as r:
+                return json.loads(r.read().decode("utf-8"))
+        except Exception as e:
+            if _is_gone(e) or i == NET_TRIES - 1:
+                raise
+            time.sleep(2)
+
+def write_atomic(path, text):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        f.write(text)
+    os.replace(tmp, path)
+
+def save_cache(cache):
+    write_atomic(CACHE, json.dumps(cache, ensure_ascii=False))
+
+def prev_ctag():
+    """上一版 assets.js 的分類標籤；沒有或讀不出來回空。"""
+    try:
+        raw = open(OUT, encoding="utf-8").read()
+        head = "window.LOL_ASSETS="
+        if not raw.startswith(head):
+            return {}
+        return json.loads(raw[len(head):].rstrip().rstrip(";")).get("ctag") or {}
+    except Exception:
+        return {}
 
 try:
     from PIL import Image
@@ -52,18 +97,31 @@ except Exception:
 
 SIG_N = 16   # 感知簽章：縮成 16×16 灰階（256 值）→ 比對「平均像素差」判斷是否同一張圖
 
+_img_fails = [0]      # 連續連線失敗次數
+_img_gone = set()     # 這班回 403／404 的圖（目前 3 張 .dds，來源就沒有，每班問一次、不算警告）
+
 def img_sig(url):
     """感知簽章（不是 md5）：把圖縮成 16×16 灰階的 hex 字串。
     為何不用 md5：Riot 常把同一張圖重新壓縮或改尺寸（120→128），位元組變了但畫面沒變，
     md5 會把它們當成「換圖」→ 卡瑪其實沒改過卻分成 3 段。改用縮圖像素比對就能忽略壓縮雜訊。"""
+    if _img_fails[0] >= GIVE_UP_IMGS:
+        return None
     try:
         req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
         with urllib.request.urlopen(req, timeout=30) as r:
             data = r.read()
+        _img_fails[0] = 0
+    except Exception as e:
+        if _is_gone(e):
+            _img_gone.add(url)
+        else:
+            _img_fails[0] += 1
+        return None
+    try:
         if not _HAS_PIL:
             return "md5:" + hashlib.md5(data).hexdigest()[:10]   # 沒裝 PIL → 退回 md5（會過度分段，但不會壞）
         im = Image.open(_io.BytesIO(data)).convert("L").resize((SIG_N, SIG_N))
-        return "".join("%02x" % p for p in im.getdata())
+        return im.tobytes().hex()   # L 模式每像素 1 byte，等於舊寫法的逐像素 %02x
     except Exception:
         return None
 
@@ -77,6 +135,63 @@ def sig_same(a, b, thr=8):
         return False
     va = bytes.fromhex(a); vb = bytes.fromhex(b)
     return sum(abs(x - y) for x, y in zip(va, vb)) / len(va) < thr
+
+def same_seg(prev_sig, prev_f, sig, f):
+    """圖示要不要併進上一段。簽章不明（抓不到）不算換圖：檔名相同就併。"""
+    if prev_sig is None or sig is None:
+        return prev_f == f
+    return sig_same(prev_sig, sig)
+
+def fetch_version(y, v):
+    """抓一個版本。回 (ent, 失敗清單)；失敗清單非空代表這筆不可進快取。"""
+    ent = {"v": v, "item": {}, "rune": {}, "champ": {}}
+    failed = []
+    major = int(v.split(".")[0])
+    try:
+        zi, ei = gj(f"{CDN}/{v}/data/zh_TW/item.json")["data"], gj(f"{CDN}/{v}/data/en_US/item.json")["data"]
+        for iid, d in zi.items():
+            ent["item"][iid] = {"zh": d["name"], "en": (ei.get(iid) or {}).get("name", ""),
+                                "img": d["image"]["full"]}
+        if not ent["item"]:
+            raise ValueError("回傳 0 筆")
+    except Exception as e:
+        ent["item"] = {}
+        failed.append("item")
+        print(f"  ⚠ {y}（{v}）item 失敗：{e}")
+    try:
+        zr, er = gj(f"{CDN}/{v}/data/zh_TW/runesReforged.json"), gj(f"{CDN}/{v}/data/en_US/runesReforged.json")
+        emap = {}
+        for t in er:
+            emap[t["id"]] = t["name"]
+            for s in t["slots"]:
+                for r in s["runes"]:
+                    emap[r["id"]] = r["name"]
+        for t in zr:
+            ent["rune"][str(t["id"])] = {"zh": t["name"], "en": emap.get(t["id"], ""), "img": t["icon"]}
+            for s in t["slots"]:
+                for r in s["runes"]:
+                    ent["rune"][str(r["id"])] = {"zh": r["name"], "en": emap.get(r["id"], ""), "img": r["icon"]}
+        if not ent["rune"] and major >= RUNE_FROM_MAJOR:
+            raise ValueError("回傳 0 筆")
+    except Exception as e:
+        ent["rune"] = {}
+        if not (_is_gone(e) and major < RUNE_FROM_MAJOR):   # 8.x 以前本來就沒有
+            failed.append("rune")
+            print(f"  ⚠ {y}（{v}）rune 失敗：{e}")
+    try:
+        zc, ec = gj(f"{CDN}/{v}/data/zh_TW/champion.json")["data"], gj(f"{CDN}/{v}/data/en_US/champion.json")["data"]
+        zc = {k: v2 for k, v2 in zc.items() if not CLASSIC_RE.match(k)}   # 濾掉經典服（見檔頭 CLASSIC_RE）
+        ec = {k: v2 for k, v2 in ec.items() if not CLASSIC_RE.match(k)}
+        for cid, d in zc.items():
+            ent["champ"][cid] = {"zh": d["name"], "en": (ec.get(cid) or {}).get("name", cid),
+                                 "img": d["image"]["full"]}
+        if not ent["champ"]:
+            raise ValueError("回傳 0 筆")
+    except Exception as e:
+        ent["champ"] = {}
+        failed.append("champ")
+        print(f"  ⚠ {y}（{v}）champ 失敗：{e}")
+    return ent, failed
 
 def year_versions():
     """每年取樣 4 個版本（年初/年中兩點/年末）。
@@ -136,46 +251,25 @@ def main():
     for y in sorted(YV):
         for v in YV[y]:
             jobs.append((y, v))
+    bad_run = skipped = 0
     for y, v in jobs:
         key = "%d|%s" % (y, v)
         if key in cache["kinds"] and cache["kinds"][key].get("v") == v:
             continue
-        ent = {"v": v, "item": {}, "rune": {}, "champ": {}}
-        try:
-            zi, ei = gj(f"{CDN}/{v}/data/zh_TW/item.json")["data"], gj(f"{CDN}/{v}/data/en_US/item.json")["data"]
-            for iid, d in zi.items():
-                ent["item"][iid] = {"zh": d["name"], "en": (ei.get(iid) or {}).get("name", ""),
-                                    "img": d["image"]["full"]}
-        except Exception as e:
-            print(f"  {y} item 失敗：{e}")
-        try:
-            zr, er = gj(f"{CDN}/{v}/data/zh_TW/runesReforged.json"), gj(f"{CDN}/{v}/data/en_US/runesReforged.json")
-            emap = {}
-            for t in er:
-                emap[t["id"]] = t["name"]
-                for s in t["slots"]:
-                    for r in s["runes"]:
-                        emap[r["id"]] = r["name"]
-            for t in zr:
-                ent["rune"][str(t["id"])] = {"zh": t["name"], "en": emap.get(t["id"], ""), "img": t["icon"]}
-                for s in t["slots"]:
-                    for r in s["runes"]:
-                        ent["rune"][str(r["id"])] = {"zh": r["name"], "en": emap.get(r["id"], ""), "img": r["icon"]}
-        except Exception as e:
-            print(f"  {y} rune 失敗：{e}")
-        try:
-            zc, ec = gj(f"{CDN}/{v}/data/zh_TW/champion.json")["data"], gj(f"{CDN}/{v}/data/en_US/champion.json")["data"]
-            zc = {k: v2 for k, v2 in zc.items() if not CLASSIC_RE.match(k)}   # 濾掉經典服（見檔頭 CLASSIC_RE）
-            ec = {k: v2 for k, v2 in ec.items() if not CLASSIC_RE.match(k)}
-            for cid, d in zc.items():
-                ent["champ"][cid] = {"zh": d["name"], "en": (ec.get(cid) or {}).get("name", cid),
-                                     "img": d["image"]["full"]}
-        except Exception as e:
-            print(f"  {y} champ 失敗：{e}")
+        if bad_run >= GIVE_UP_VERSIONS:
+            skipped += 1
+            continue
+        ent, failed = fetch_version(y, v)
+        if failed:
+            bad_run += 1
+            print(f"  ⚠ {y}（{v}）抓不到 {'、'.join(failed)}：這版不進快取，下一班重抓")
+            continue
+        bad_run = 0
         cache["kinds"][key] = ent
         print(f"  {y}（{v}）：道具 {len(ent['item'])}、符文 {len(ent['rune'])}、英雄 {len(ent['champ'])}")
-        os.makedirs(os.path.dirname(CACHE), exist_ok=True)
-        json.dump(cache, open(CACHE, "w", encoding="utf-8"), ensure_ascii=False)
+        save_cache(cache)
+    if skipped:
+        print(f"  ⚠ 連 {GIVE_UP_VERSIONS} 個版本抓不到，其餘 {skipped} 個版本這班不再上網")
 
     cache["cur"] = cur
 
@@ -199,18 +293,28 @@ def main():
     if not NOHASH:
         todo = [url_of(kind, v, f) for kind, _ in KINDS for iid, ys in rep[kind].items()
                 for (v, f, _z, _e) in ys.values()]
-        todo = [u for u in dict.fromkeys(todo) if u not in hashes]
+        todo = [u for u in dict.fromkeys(todo) if hashes.get(u) is None]   # 舊快取記的 None 也重試
         if todo:
             print(f"下載圖片算感知簽章：{len(todo)} 張…（PIL={_HAS_PIL}）")
             done = [0]
             def work(u):
-                hashes[u] = img_sig(u)
+                sg = img_sig(u)
+                if sg is None:              # 抓不到不記，下一班重試
+                    hashes.pop(u, None)
+                else:
+                    hashes[u] = sg
                 done[0] += 1
                 if done[0] % 500 == 0:
                     print(f"   {done[0]}/{len(todo)}")
             with ThreadPoolExecutor(max_workers=12) as ex:
                 list(ex.map(work, todo))
-            json.dump(cache, open(CACHE, "w", encoding="utf-8"), ensure_ascii=False)
+            miss = sum(1 for u in todo if hashes.get(u) is None and u not in _img_gone)
+            if _img_gone:
+                print(f"  （來源回 403／404 的圖 {len(_img_gone)} 張，沒有簽章）")
+            if miss:
+                print(f"  ⚠ 圖片簽章 {miss}/{len(todo)} 張抓不到，下一班重試"
+                      + ("（連線連續失敗，這班中途停手）" if _img_fails[0] >= GIVE_UP_IMGS else ""))
+            save_cache(cache)
 
     # ── 產出 assets.js ────────────────────────────────────────────────────
     out = {"years": {str(y): years[y] for y in sorted(years)}, "item": {}, "rune": {}, "champ": {}}
@@ -231,8 +335,9 @@ def main():
                     e["nm"].append({"zh": zh, "en": en, "y1": y, "y2": y})
                 # 圖示段：感知簽章「近似」就併年份（忽略重壓縮/改尺寸），真換圖才開新段
                 sg = hashes.get(url_of(kind, v, f))
-                if e["g"] and sig_same(e["g"][-1].get("_sig"), sg):
+                if e["g"] and same_seg(e["g"][-1].get("_sig"), e["g"][-1]["f"], sg, f):
                     e["g"][-1]["y2"] = y
+                    e["g"][-1]["_sig"] = e["g"][-1].get("_sig") or sg   # 上一段簽章不明時，用這張當比對基準
                 else:
                     e["g"].append({"_sig": sg, "v": v, "f": f, "y1": y, "y2": y})
             for g in e["g"]:
@@ -244,6 +349,8 @@ def main():
     #   i＝設計面評分 0~10 的 [攻擊, 防禦, 魔法]，用來判斷傷害類型偏向（比賽資料沒有物理/魔法拆分）
     try:
         _cj = gj(f"{CDN}/{cur}/data/en_US/champion.json")["data"]
+        if not _cj:
+            raise ValueError("回傳 0 筆")
         out["ctag"] = {cid: {"t": d.get("tags") or [],
                              "i": [(d.get("info") or {}).get("attack", 0),
                                    (d.get("info") or {}).get("defense", 0),
@@ -251,11 +358,12 @@ def main():
                        for cid, d in _cj.items() if not CLASSIC_RE.match(cid)}
         print(f"  英雄分類標籤：{len(out['ctag'])} 隻")
     except Exception as e:
-        print(f"  英雄分類標籤失敗：{e}")
-        out["ctag"] = {}
-    json.dump(out, open(OUT, "w", encoding="utf-8"), ensure_ascii=False)
-    raw = open(OUT, encoding="utf-8").read()
-    open(OUT, "w", encoding="utf-8").write("window.LOL_ASSETS=" + raw + ";\n")
+        out["ctag"] = prev_ctag()
+        print(f"  ⚠ 英雄分類標籤失敗，沿用上一版 {len(out['ctag'])} 隻：{e}")
+    if not out["item"] or not out["champ"]:   # 快取壞掉又抓不到才會走到這裡：保留線上那份
+        print(f"❌ 道具 {len(out['item'])}、英雄 {len(out['champ'])}：不寫 assets.js")
+        sys.exit(1)
+    write_atomic(OUT, "window.LOL_ASSETS=" + json.dumps(out, ensure_ascii=False) + ";\n")
     print("✅ assets.js：道具 %d、符文 %d、英雄 %d（%d 年）、分類標籤 %d"
           % (len(out["item"]), len(out["rune"]), len(out["champ"]), len(out["years"]), len(out.get("ctag") or {})))
 
