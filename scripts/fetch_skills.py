@@ -11,10 +11,10 @@
     python fetch_skills.py --force      # 全部重算
     python fetch_skills.py --champ Taliyah   # 只跑一位（測試）
 
-⚠ 快取用**兩把鍵**：DDragon 版本（變了整份重建）＋ CDragon build 版本（變了只重建缺過值的英雄）。
-  只用 DDragon 版本會讓「改版當天 CDragon 還沒跟上」建出的破文案卡整個版本週期，見 main() 的註解。
+⚠ 快取用**兩把鍵**：DDragon 版本（變了整份重建）＋ CDragon build 版本（變了全部英雄重建）。
+  只用 DDragon 版本會讓「改版當天 CDragon 還沒跟上」建出的舊數值卡整個版本週期，見 main() 的註解。
 """
-import json, re, socket, sys, time, urllib.error, urllib.request
+import json, os, re, socket, sys, threading, time, urllib.error, urllib.request
 from pathlib import Path
 # 經典服（LoL Classic，DDragon 內部代號 Jade_*）不是我們要的資料（2026-07-31 使用者回報：
 # 英雄Tier 出現經典服頭像）——它的 zh/en 名稱與現行英雄**完全相同**，混進來會造成同名重複與圖片誤植。
@@ -31,6 +31,8 @@ ST_F   = ROOT / "csv_cache/items_st_zhtw.json"   # 與 fetch_items.py 共用同�
 
 FORCE  = "--force" in sys.argv
 SKILL_WORKERS = 6   # 逐英雄抓取的並行數（DDragon／CDragon 都是 CDN；見 main() 的註解）
+BREAK_AFTER = 18    # 連續這麼多位暫時性失敗就不再上網（逾時 60 秒 × 18 ÷ 6 工人 ≈ 3 分鐘，下一班從沒建成的接著做）
+ABORT_MSG = "這班不再上網"
 SINGLE = None
 if "--champ" in sys.argv:
     i = sys.argv.index("--champ")
@@ -520,21 +522,43 @@ def build_champ(cid, ddv, st=None):
         out["s"].append(entry)
     return out
 
+def _write_atomic(path, text):
+    """先寫 tmp 再換名：被 run_update 的時間上限砍掉時，不留半個檔"""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_name(path.name + f".tmp{os.getpid()}")
+    tmp.write_text(text, encoding="utf-8")
+    os.replace(tmp, path)
+
+def _gaps(c):
+    """條目缺值的技能數（退回純描述或有句子被略過）"""
+    return sum(1 for s in c.get("s", []) if s.get("fb") or s.get("hole"))
+
+def load_st(cdver):
+    """zh_TW 字串表（被動模板用）。快取檔與 fetch_items 共用，由 fetch_items 跟著 CDragon build 更新；
+    但兩支在同一階段並行，這邊可能先跑，所以快取比這個 build 舊時直接抓一份用（不寫檔，更新歸 fetch_items）。
+    回傳 entries；抓不到退回快取檔；都沒有回 None。"""
+    mark = ST_F.with_name("items_cache_cdver.txt")
+    cur = mark.read_text(encoding="utf-8").strip() if mark.exists() else ""
+    if ST_F.exists() and (not cdver or cur == cdver):
+        return json.loads(ST_F.read_text(encoding="utf-8")).get("entries")
+    try:
+        req = urllib.request.Request(URL_ST, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=180) as r:
+            raw = r.read().decode("utf-8")
+        entries = json.loads(raw).get("entries")
+        if entries:
+            if not ST_F.exists():
+                _write_atomic(ST_F, raw)
+            return entries
+        print("（字串表抓到空的）")
+    except Exception as e:
+        print(f"（字串表抓不到：{e}）")
+    return json.loads(ST_F.read_text(encoding="utf-8")).get("entries") if ST_F.exists() else None
+
 def main():
     ddv = get_json(f"{DD_API}/api/versions.json")[0]
     champs = sorted(k for k in get_json(f"{DD_API}/cdn/{ddv}/data/en_US/champion.json")["data"]
                     if not CLASSIC_RE.match(k))   # 濾掉經典服（見檔頭 CLASSIC_RE）
-    # zh_TW 字串表（被動模板用），與 fetch_items 共用快取
-    st = None
-    try:
-        if not ST_F.exists():
-            import urllib.request as _u
-            req = _u.Request(URL_ST, headers={"User-Agent": "Mozilla/5.0"})
-            ST_F.parent.mkdir(parents=True, exist_ok=True)
-            ST_F.write_bytes(_u.urlopen(req, timeout=180).read())
-        st = json.loads(ST_F.read_text(encoding="utf-8")).get("entries")
-    except Exception as e:
-        print(f"（字串表載入失敗，被動退回 DDragon 描述：{e}）")
     cache = {}
     if CACHE.exists():
         try:
@@ -551,23 +575,20 @@ def main():
         cache = {"ver": ddv, "champs": {},
                  "prev": {"ver": cache.get("ver") or (cache.get("prev") or {}).get("ver"), "champs": prev}}
     done = cache["champs"]
-    # ★快取只以 DDragon 版本為鍵是不夠的（2026-08-15 真實案發）：改版當天 CDragon 的 bin 常常
-    #   還沒跟上，這時建出來的條目缺數值，而 DDragon 版本一整個週期都不會再變 → 破掉的文案卡到下次改版。
-    #   症狀＝卡特蓮娜 W「在秒內衰減至失效的%跑速」、塔里克 W「賦予%最大生命的護盾，持續秒」。
-    #   解法：拿 CDragon 自己的 build 版本當第二把鍵，它一變就把「缺過值」的英雄丟掉重建
-    #   （只丟 fb／hole 那些，不是全部——一般條目沒必要每週重抓 173 份 bin）。
+    # ★快取只以 DDragon 版本為鍵是不夠的：改版當天 CDragon 的 bin 常常還沒跟上，這時建出來的條目
+    #   是上一版的數值，而 DDragon 版本一整個週期都不會再變。
+    #   2026-08-15 案發：缺值的條目破句（卡特蓮娜 W「在秒內衰減至失效的%跑速」）⇒ 當時只重建 fb／hole 的英雄。
+    #   2026-11-05 案發：沒缺值但數值是舊的，只重建缺值的抓不到。26.22 上線兩天，瑟雷西 R 還是 250/400/550
+    #   （官方 patch notes 與 CDragon 都是 200/350/500），量到 11 位。
+    #   所以 CDragon build 一變就全部重建（cdv_of 記每位是哪個 build 建的；一班全量約 30 秒）：
+    #   中途被砍或有人抓不到，下一班只補沒建成的；舊條目留到新的建成才換。
     cdver = ""
     try:
         cdver = str(get_json("https://raw.communitydragon.org/latest/content-metadata.json").get("version", ""))
     except Exception as e:
-        print(f"（CDragon 版本查詢失敗，跳過缺值重建：{e}）")
-    if cdver and cache.get("cdver") != cdver:
-        stale = [k for k, v in done.items()
-                 if any(s.get("fb") or s.get("hole") for s in v.get("s", []))]
-        for k in stale:
-            del done[k]
-        if stale:
-            print(f"（CDragon 更新至 {cdver} → {len(stale)} 位缺值英雄重建）")
+        print(f"（CDragon 版本查詢失敗，這班不重建已有的條目：{e}）")
+    cdv_of = cache.setdefault("cdv_of", {})
+    if cdver:
         cache["cdver"] = cdver
     # 快取自我清理：上面的過濾只擋「這次要建的清單」，之前建過的分支服條目會留在快取裡、
     # 原封不動寫進 skills.js（2026-08-06 使用者回報英雄Tier 又出現舊版頭像）
@@ -582,10 +603,39 @@ def main():
     #   （每份 bin 首位元組 ~20s、不少回 522），循序跑要 60 分鐘 ⇒ 被 run_update 的 30 分鐘上限砍掉（exit 124），
     #   skills.js 卡在上一版。build_champ 只讀不寫共用狀態，可以並行；done／快取只在主執行緒寫。
     from concurrent.futures import ThreadPoolExecutor, as_completed
-    pend = [(i, cid) for i, cid in enumerate(todo) if FORCE or cid not in done]
-    def _job(cid):
+    pend = [(i, cid) for i, cid in enumerate(todo)
+            if FORCE or cid not in done or (cdver and cdv_of.get(cid) != cdver)]
+    st = None
+    if pend:
         try:
-            return build_champ(cid, ddv, st)
+            st = load_st(cdver)
+        except Exception as e:
+            print(f"（字串表載入失敗：{e}）")
+        if not st:   # 沒有字串表時重建會讓被動退回純描述，不拿它蓋掉這版已有的條目
+            print("（字串表載入失敗，被動退回 DDragon 描述；這班不重建已有的條目）")
+            st = None
+            pend = [(i, cid) for i, cid in pend if FORCE or cid not in done]
+    if any(cid in done for _, cid in pend):
+        print(f"（CDragon build {cdver or '未知'}：重建 {len(pend)} 位）")
+    abort = threading.Event()
+    lock = threading.Lock()
+    streak = [0]          # 連續次數在工人裡算：主執行緒收到結果時，工人已經把後面幾位打出去了
+    aborted = kept = 0
+    def _job(cid):
+        if abort.is_set():
+            raise Transient(ABORT_MSG)
+        try:
+            r = build_champ(cid, ddv, st)
+            with lock:
+                streak[0] = 0
+            return r
+        except Exception as e:
+            if isinstance(e, Transient) or _is_transient(e):
+                with lock:
+                    streak[0] += 1
+                    if streak[0] >= BREAK_AFTER:
+                        abort.set()
+            raise
         finally:
             time.sleep(0.15)
     with ThreadPoolExecutor(max_workers=SKILL_WORKERS) as ex:
@@ -593,17 +643,32 @@ def main():
         for k, fu in enumerate(as_completed(futs), 1):
             i, cid = futs[fu]
             try:
-                done[cid] = fu.result()
-                fb = sum(1 for s in done[cid]["s"] if s.get("fb"))
-                print(f"  [{i+1}/{len(todo)}] {cid} ✓" + (f"（{fb} 技能退回純描述）" if fb else ""), flush=True)
+                new = fu.result()
+                # 同一版重建後缺值變多＝來源這班有問題（bin 404 或內容不全）：留舊條目，不記 build，下一班再試
+                if not FORCE and cid in done and _gaps(new) > _gaps(done[cid]):
+                    kept += 1
+                    print(f"  [{i+1}/{len(todo)}] {cid} 這班缺值變多（{_gaps(done[cid])}→{_gaps(new)}），留舊條目", flush=True)
+                else:
+                    done[cid] = new
+                    if cdver:
+                        cdv_of[cid] = cdver
+                    fb = sum(1 for s in new["s"] if s.get("fb"))
+                    print(f"  [{i+1}/{len(todo)}] {cid} ✓" + (f"（{fb} 技能退回純描述）" if fb else ""), flush=True)
             except Exception as e:
-                print(f"  [{i+1}/{len(todo)}] {cid} ✗ {e}"
-                      + ("（沿用上一版）" if cid in (cache.get("prev") or {}).get("champs", {}) else ""), flush=True)
+                if str(e) == ABORT_MSG:
+                    aborted += 1
+                else:
+                    kept += cid in done
+                    print(f"  [{i+1}/{len(todo)}] {cid} ✗ {e}"
+                          + ("（沿用這版舊條目）" if cid in done
+                             else "（沿用上一版）" if cid in (cache.get("prev") or {}).get("champs", {}) else ""), flush=True)
             if k % 20 == 0:   # 每 20 位寫回一次：被上限砍掉時下一班從這裡接著做
-                CACHE.parent.mkdir(parents=True, exist_ok=True)
-                CACHE.write_text(json.dumps(cache, ensure_ascii=False), encoding="utf-8")
-    CACHE.parent.mkdir(parents=True, exist_ok=True)
-    CACHE.write_text(json.dumps(cache, ensure_ascii=False), encoding="utf-8")
+                _write_atomic(CACHE, json.dumps(cache, ensure_ascii=False))
+    _write_atomic(CACHE, json.dumps(cache, ensure_ascii=False))
+    if abort.is_set():
+        print(f"⚠ 連續 {BREAK_AFTER} 位暫時抓不到，{ABORT_MSG}")
+    if kept or aborted:
+        print(f"⚠ 重建沒完成：{kept} 位留舊條目、{aborted} 位這班沒試；數值可能還是舊的，下一班會再試")
     # 這一版沒建成的英雄沿用上一版（只補現行英雄清單裡的）；有沿用就把 v 留在上一版，
     # 讓健檢的「遊戲版本」那行繼續顯示不一致（技能其實還是舊版），不要假裝已經跟上
     pv = cache.get("prev") or {}
@@ -616,11 +681,11 @@ def main():
         {"v": pv.get("ver") if fill else ddv,
          "d": {k: out_d[k] for k in sorted(out_d) if not CLASSIC_RE.match(k)}},   # 排序：並行完成順序不定
         ensure_ascii=False, separators=(",", ":")) + ";"
-    OUT_JS.write_text(js, encoding="utf-8")
+    _write_atomic(OUT_JS, js)
     ok = sum(1 for c in out_d.values() if not any(s.get("fb") for s in c["s"]))
     hole = sum(1 for c in out_d.values() for s in c["s"] if s.get("hole"))
     print(f"\n✅ skills.js：{len(out_d)} 位英雄（{ok} 位全技能含數值）"
-          + (f"，{hole} 個技能有句子因缺值被略過（CDragon 補上後會自動重建）" if hole else ""))
+          + (f"，{hole} 個技能有句子因缺值被略過（CDragon build 更新後會自動重建）" if hole else ""))
 
 if __name__ == "__main__":
     main()
