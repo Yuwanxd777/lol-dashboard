@@ -17,7 +17,7 @@ DDragon 的道具描述缺數字（如 電流旋風劍「蒼穹」的 %），
 """
 import json, os, re, socket, sys, urllib.error, urllib.request
 from pathlib import Path
-from fetch_skills import SpellCtx, Val, bin_hash, eval_part, eval_calc, render_val, Miss, hget, HOLE_RE  # 重用技能管線的計算式求值器與破句偵測
+from fetch_skills import SpellCtx, Val, bin_hash, eval_part, eval_calc, render_val, scale_rng, Miss, hget, HOLE_RE  # 重用技能管線的計算式求值器與破句偵測
 
 ROOT   = Path(__file__).resolve().parent.parent  # 專案根目錄（本腳本在 scripts\ 內）
 CACHE_DIR = ROOT / "csv_cache"
@@ -134,10 +134,10 @@ def render_split(ictx, c, mu):
     k = k.flat[0]
     m = 1.0 if v.pct and abs(mu - 100) < 1e-9 else mu
     r = Val(flat=[round(x * k * m, 1) for x in v.flat],
-            scal=[([round(a * k, 4) for a in rs], lb) for rs, lb in v.scal], rng=v.rng)
+            scal=[([round(a * k, 4) for a in rs], lb) for rs, lb in v.scal], rng=scale_rng(v.rng, k))
     r.pct = v.pct
     sr = render_val(r)
-    return sm if not sr or sr == sm else f"{sm}（遠程 {sr}）"
+    return sm if not sr or sr == sm else f"{sm}（遠程 {sr.replace('（依等級）', '')}）"
 
 def fill(tpl, lut, calcs, ictx=None):
     miss = 0
@@ -158,15 +158,19 @@ def fill(tpl, lut, calcs, ictx=None):
                         return s + ("" if "%" in s else pct)  # 值已帶 %，模板再接一個 % 會變 8%%
                 except Miss:
                     pass
-            # 慣例：@X@ 可能對應 Xmelee / Xranged 兩個計算式（近戰/遠程數值不同）
-            cm, cr = hget(ictx.calc, name + "melee"), hget(ictx.calc, name + "ranged")
+            # 慣例：@X@ 可能對應 Xmelee / Xranged 兩個計算式（近戰/遠程數值不同）；
+            # @…MeleeRangedSplit@ 對應的是固定名字的一對（吸魔劍的護盾、寒冰霸拳的緩速）
+            if name.endswith("meleerangedsplit"):
+                cm, cr = hget(ictx.calc, "meleeitemcalcvalue"), hget(ictx.calc, "rangeditemcalcvalue")
+            else:
+                cm, cr = hget(ictx.calc, name + "melee"), hget(ictx.calc, name + "ranged")
             if cm is not None or cr is not None:
                 try:
                     mu = float(mul) if mul else 1.0
                     sm = render_val(eval_calc(ictx, cm), mu) if cm is not None else None
                     sr = render_val(eval_calc(ictx, cr), mu) if cr is not None else None
                     if sm and sr and sm != sr:
-                        return f"{sm}{pct}（遠程 {sr}{pct}）"
+                        return f"{sm}{pct}（遠程 {sr.replace('（依等級）', '')}{pct}）"
                     if sm or sr:
                         return (sm or sr) + pct
                 except Miss:
@@ -181,6 +185,48 @@ def fill(tpl, lut, calcs, ictx=None):
     t = ICON.sub("", t)
     t = BRACE.sub("", t)
     return t, miss
+
+HEAD_SEG = re.compile(r"\s*(?:\{\{[^}]*\}\}\s*)*<(\w+)>[^<]*</\1>\s*(?:\{\{[^}]*\}\}\s*)*")
+
+def strip_holes(tpl, lut, calcs, ictx=None):
+    """把含查不到 token 的那幾行拿掉，連同只剩標題的上一行。回傳填好的內文。
+    bin 沒有值就沒有正確的數字可以說：亡靈斗篷的 HealthRegenPassive 在 bin 是空的，
+    飛翼月甲的跑速已經搬進基礎屬性。留著只會是「翱翔：提供跑速」這種沒有數字的句子。"""
+    keep = []
+    for seg in tpl.split("<br>"):
+        if fill(seg, lut, calcs, ictx)[1]:
+            while keep and (not keep[-1].strip() or HEAD_SEG.fullmatch(keep[-1])):
+                keep.pop()
+            continue
+        keep.append(seg)
+    while keep and not keep[-1].strip():
+        keep.pop()
+    return fill("<br>".join(keep), lut, calcs, ictx)[0]
+
+def repair_dd(desc, lut, ictx=None):
+    """DDragon 原文有基礎屬性以外的內文就修補回傳；沒有內文或修不好回 None。
+    DDragon 會把計算式填成 0、冷卻填成 (0秒)：海克斯科技槍刃「(0秒)」「造成0魔法傷害」、
+    神聖之劍「(90(0秒))」。"""
+    m = re.search(r"</stats>", desc)
+    rest = desc[m.end():] if m else desc
+    if not re.sub(r"<[^>]+>|\s", "", rest):
+        return None
+    t = re.sub(r"(\d+)\(0秒\)", r"\1秒", desc)
+    cd = lut.get("cooldown")
+    t = t.replace("(0秒)", f"({fmt(cd)}秒)" if cd else "")
+    zero = re.compile(r"(?<![\d.])0(?=(?:魔法|物理|真實)傷害)")
+    if zero.search(t):
+        calcs = list((ictx.calc if ictx is not None else {}).values())
+        if len(calcs) != 1:
+            return None  # 不知道該填哪一條，不猜
+        try:
+            s = render_split(ictx, calcs[0], 1.0)
+        except Miss:
+            return None
+        if not s:
+            return None
+        t = zero.sub(s, t)
+    return None if HOLE_RE.search(re.sub(r"<[^>]+>", "", t)) else t
 
 def _mark(p):
     return p.read_text().strip() if p.exists() else ""
@@ -258,7 +304,8 @@ def main():
             continue
         lut = build_lut(entry)
         calcs = build_calcs(entry, lut)
-        body, miss = fill(tpl, lut, calcs, item_ctx(entry))
+        ictx = item_ctx(entry)
+        body, miss = fill(tpl, lut, calcs, ictx)
         if miss > 3:
             continue  # 解不出的太多，寧可用 DDragon 原文
         # 值被剝掉留下「持續秒」這種沒有數字的句子 → 整件不收（2026-08-15 加，同 fetch_skills.HOLE_RE）。
@@ -272,9 +319,16 @@ def main():
         text = f"<mainText>{stats}{body}</mainText>"
         # 這版的 token 查不到值，句子會少數字又不一定被 HOLE_RE 抓到（16.21 最終 bin 的傲慢「增加物理攻擊」）。
         # 上一版數字比較多就留上一版，下一次 CDragon 更新會再試。
-        if miss and name in prev and digit_runs(prev[name]) > digit_runs(text):
-            text = prev[name]
-            kept.append(name)
+        # 沒有更好的上一版：DDragon 有內文就用它（字串表模板過期時，例如終末戰戟、神聖之劍），
+        # 否則把缺值的行拿掉。比數字時要連替代文字一起比，否則上一輪換上的 DDragon 文字會被當成「上一版比較好」，之後永遠不更新。
+        if miss:
+            cand = repair_dd(dd[iid].get("description", ""), lut, ictx) or re.sub(
+                r"(?:<br>\s*)+(?=</mainText>)", "", f"<mainText>{stats}{strip_holes(tpl, lut, calcs, ictx)}</mainText>")
+            if name in prev and digit_runs(prev[name]) > max(digit_runs(text), digit_runs(cand)):
+                text = prev[name]
+                kept.append(name)
+            else:
+                text = cand
         out[name] = text
         filled_n += 1
 

@@ -249,6 +249,38 @@ b7.run(routes(bin_with_map(0.1), st=st7a, cdver="B1"))
 b7.run(routes(bin_with_map(0.1), st=st7b, cdver="B2"))
 check("⑨b文案變短照收", lambda: "與" not in desc(b7)["狂霸血甲"] and "沿用上一版" not in b7.out)
 
+# ⑨c 缺值（#2616）：DDragon 有內文就用它、沒有就拿掉缺值的行；上一輪換上的 DDragon 文字不可以被當成「上一版比較好」卡住
+b9 = Box()
+_tpl = "<passive>甲</passive><br>提供@Nope@跑速。<br><passive>乙</passive><br>持續@Keep@秒。"
+_st9 = {"entries": {"1001_": ""} | {"item_1001_tooltip": _tpl, "item_1002_tooltip": _tpl}}
+_bin9 = {"Items/1001": {"mDataValues": [{"mName": "Keep", "mValue": 7.0}]}, "Items/1002": {"mDataValues": [{"mName": "Keep", "mValue": 7.0}]}}
+_stats = "<mainText><stats><attention>33</attention> 跑速</stats><br><br>"
+def _dd9(txt):
+    return {"data": {"1001": {"name": "沒內文", "description": _stats + "</mainText>"}, "1002": {"name": "有內文", "description": _stats + txt + "</mainText>"}}}
+b9.run(routes(_bin9, st=_st9, dd=_dd9("官方舊文字 11 秒"), cdver="B1"))
+check("⑨c沒內文：拿掉缺值行、留有值的行", lambda: "持續7秒" in desc(b9)["沒內文"] and "甲" not in desc(b9)["沒內文"] and "33" in desc(b9)["沒內文"])
+check("⑨c有內文：用 DDragon", lambda: "官方舊文字 11 秒" in desc(b9)["有內文"] and "持續7秒" not in desc(b9)["有內文"])
+b9.run(routes(_bin9, st=_st9, dd=_dd9("官方新文字 22 秒"), cdver="B2"))
+check("⑨cDDragon 文字變了要跟著變", lambda: "官方新文字 22 秒" in desc(b9)["有內文"] and "沿用上一版" not in b9.out)
+_raw9 = b9.text()
+b9.run(routes(_bin9, st=_st9, dd=_dd9("官方新文字 22 秒"), cdver="B3"))
+check("⑨c再跑一次不變、不寫檔", lambda: b9.text() == _raw9 and "沿用上一版" not in b9.out)
+# 上一輪換上的 DDragon 文字數字比缺值的模板多，也不可以被當成「上一版比較好」
+b9.run(routes(_bin9, st=_st9, dd=_dd9("官方三 11 秒 44 層 55 次"), cdver="B4"))
+b9.run(routes(_bin9, st=_st9, dd=_dd9("官方四 66 秒 77 層 88 次"), cdver="B5"))
+check("⑨c數字較多的舊 DDragon 文字也要被換掉", lambda: "官方四" in desc(b9)["有內文"] and "沿用上一版" not in b9.out)
+# 上一版就是有洞的舊模板（數字比拿掉洞之後多）：要換掉，不可以留
+b10 = Box()
+_st10 = {"entries": {"item_1001_tooltip": "<passive>甲</passive><br>每 5 次提供@Nope@跑速。<br>持續@Keep@秒。"}}
+_bin10 = {"Items/1001": {"mDataValues": [{"mName": "Keep", "mValue": 7.0}]}}
+_dd10 = {"data": {"1001": {"name": "洞", "description": _stats + "</mainText>"}}}
+b10.run(routes(_bin10, st=_st10, dd=_dd10, cdver="B1"))
+_clean = desc(b10)["洞"]
+b10.js.write_text(b10.text().replace(json.dumps(_clean, ensure_ascii=False)[1:-1], _stats + "<passive>甲</passive><br>每 5 次提供跑速。<br>持續7秒。</mainText>"), encoding="utf-8")
+check("⑨c正控制：舊檔真的有洞", lambda: "提供跑速" in desc(b10)["洞"])
+b10.run(routes(_bin10, st=_st10, dd=_dd10, cdver="B2"))
+check("⑨c有洞的上一版要被換掉", lambda: "提供跑速" not in desc(b10)["洞"] and "持續7秒" in desc(b10)["洞"] and "沿用上一版" not in b10.out)
+
 # ⑩ 解析結果砍太多 ⇒ 不寫、mark 不前進、rc 1
 b5 = Box()
 many = {str(1000 + i): {"name": f"道{i}", "description": ""} for i in range(20)}

@@ -115,6 +115,10 @@ class SpellCtx:
         n = min(self.ranks, max(1, len(vals) - 1))
         return [vals[i] for i in range(1, n + 1)]
 
+def _raw(v):
+    """rng 字串先存原始精度，render_val 才四捨五入。先捨入再乘 100 會失真：娜妲 0.015 存成 0.01 再變 1%。"""
+    return ("%.6f" % float(v)).rstrip("0").rstrip(".")
+
 # 求值結果：flat = 每級固定值 list；scal = [(比例list, 屬性標籤)]；rng = "X－Y" 依等級字串
 class Val:
     def __init__(self, flat=None, scal=None, rng=None):
@@ -199,13 +203,13 @@ def eval_part(ctx, part, depth=0):
         return Val(flat=[0] * ctx.ranks)
     if t == "ByCharLevelInterpolationCalculationPart":
         s, e = part.get("mStartValue", 0), part.get("mEndValue", 0)
-        return Val(rng=f"{fmt(s)}－{fmt(e)}（依等級）")
+        return Val(rng=f"{_raw(s)}－{_raw(e)}（依等級）")
     if t == "ByCharLevelBreakpointsCalculationPart":
         lv1 = part.get("mLevel1Value", 0)
         total = lv1
         for bp in part.get("mBreakpoints") or []:
             total += bp.get("{d5fd07ed}", bp.get("mBonusPerLevelAtAndAfter", 0)) or 0
-        return Val(rng=f"{fmt(lv1)}－{fmt(total)}（依等級）" if total != lv1 else None,
+        return Val(rng=f"{_raw(lv1)}－{_raw(total)}（依等級）" if total != lv1 else None,
                    flat=[lv1] * ctx.ranks if total == lv1 else [])
     raise Miss(t or "part")
 
@@ -228,9 +232,12 @@ def eval_calc(ctx, calc, depth=0):
                 m = mv.flat
                 v.flat = [x * k for x, k in zip(v.flat, m)] if v.flat else []
                 v.scal = [([r * k for r, k in zip(rs, m)], lb) for rs, lb in v.scal]
+                if len(set(m)) == 1:
+                    v.rng = scale_rng(v.rng, m[0])
         if calc.get("mDisplayAsPercent"):
             v.flat = [x * 100 for x in v.flat]
             v.scal = [([r * 100 for r in rs], lb) for rs, lb in v.scal]
+            v.rng = scale_rng(v.rng, 100)  # 艾希被動緩速 0.2－0.3 其實是 20－30%
             v.pct = True
         return v
     if t == "GameCalculationModified":
@@ -244,10 +251,16 @@ def eval_calc(ctx, calc, depth=0):
         m = mul.flat
         out = Val(flat=[v * k for v, k in zip(base.flat, m)] if base.flat else [],
                   scal=[([r * k for r, k in zip(rs, m)], lb) for rs, lb in base.scal],
-                  rng=base.rng)
+                  rng=scale_rng(base.rng, m[0]) if len(set(m)) == 1 else base.rng)
         out.pct = base.pct  # 少了這個，獄火手斧會印「7% 至 21」
         return out
     raise Miss(t or "calc")
+
+def scale_rng(rng, k):
+    """'110－280（依等級）' 乘倍率。rng 是字串，乘法算不到它：吸魔劍遠程 ×0.75 舊版印得跟近戰一樣。"""
+    if not rng:
+        return rng
+    return re.sub(r"\d+(?:\.\d+)?", lambda x: fmt(round(float(x.group(0)) * k, 2)), rng)
 
 def render_val(v, mult=1.0):
     """Val → 顯示字串：'55/72.5/90/107.5/125（+50% AP）'"""
@@ -259,7 +272,8 @@ def render_val(v, mult=1.0):
     if v.flat and any(abs(x) > 1e-9 for x in v.flat):
         out = join_ranks([x * mult for x in v.flat]) + ("%" if v.pct else "")
     if v.rng:
-        out += v.rng
+        rng = scale_rng(v.rng, mult)
+        out += rng.replace("（依等級）", "%（依等級）") if v.pct else rng
     # 負係數＝執行時公式的殘留項（路西恩 R＝22×(1+暴擊×(攻速−1))，基礎值就是 22）→ 丟掉，
     # 不然會印出「22（+-2200% 暴擊率）」這種東西
     for rs, lab in [(rs, lab) for rs, lab in v.scal if any(r > 1e-9 for r in rs)]:
@@ -267,6 +281,11 @@ def render_val(v, mult=1.0):
         if v.pct and max(vals) < 0.1:
             # 百分比裡的小係數（時現者每點額外魔力 +0.005%）四捨五入會變 +0%，改用每 100 點講
             piece = f"每 100 {lab} +{join_ranks([x * 100 for x in vals])}%"
+            out += f"（{piece}）" if out else piece
+            continue
+        if lab == "暴擊率" and not v.pct and max(vals) >= 1000:
+            # 平值對暴擊率的係數（奪魄之鐮 50＝滿暴擊 +50），舊寫法印「+5000% 暴擊率」
+            piece = f"每 1% {lab} +{join_ranks([x / 10000 for x in vals])}"
             out += f"（{piece}）" if out else piece
             continue
         pct = join_ranks(vals)
@@ -305,6 +324,7 @@ def finish(t):
     t = re.sub(r"\{\{[^{}]*\}\}", "", t)              # 未填值 token
     t = re.sub(r"@[A-Za-z_][\w.:]*@", "", t)          # 字串表 @token@ 殘留
     t = re.sub(r"%{2,}", "%", t)                      # 「20%%失去生命」
+    t = re.sub(r"(\d%?)（依等級）\s*%", lambda m: m.group(1).rstrip("%") + "%（依等級）", t)  # 模板在 token 後面接的 %
     t = re.sub(r"(AP|AD|物攻|魔攻)\s*%(?![\d])", r"\1", t)   # 「+10% AP% 最大魔力」→ 尾巴那個 % 是模板的，值已自帶
     t = re.sub(r"[（(]\s*[+×xX]?\s*[)）]", "", t)      # 空括號
     t = re.sub(r"(\d)\s+%", r"\1%", t)                # 「25 % 跑速」
