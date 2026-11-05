@@ -515,6 +515,7 @@ def finish(t):
     t = re.sub(r"\{\{[^{}]*\}\}", "", t)              # 未填值 token
     t = re.sub(r"@[A-Za-z_][\w.:]*@", "", t)          # 字串表 @token@ 殘留
     t = re.sub(r"%{2,}", "%", t)                      # 「20%%失去生命」
+    t = re.sub(r"/9999\s*秒", "/無上限", t)            # 翱銳龍獸 Q 滿級持續 9999＝官方「no maximum channel duration」（#2622）
     t = re.sub(r"(最大|額外|基礎)生命生命", r"\1生命", t)  # 模板「回復 X 生命」，X 自帶標籤
     # 同一種：波比 W「+16% 護甲物防」、道具「+5% 額外魔抗魔法防禦」，畫面上 chDispTxt 還會再變成「物防物防」
     t = re.sub(r"(護甲)(?:物防|物理防禦)|(魔抗)(?:魔防|魔法防禦)", lambda m: m.group(1) or m.group(2), t)

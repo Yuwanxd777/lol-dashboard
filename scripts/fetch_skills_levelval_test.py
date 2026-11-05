@@ -313,5 +313,11 @@ ok("模板接 %：百分比移到數字後面（派克 W）", lambda: K.finish("
 ok("沒接 %：不動（派克 R）", lambda: K.finish("250（每 1 物理致命 +1.5）生命"), "250（每 1 物理致命 +1.5）生命")
 ok("沒字串表碰到巢狀模板：原樣、不崩", lambda: K.expand_tpl("{{Spell_X_Tooltip_{{ gamemodeinteger }}}}", None), "{{Spell_X_Tooltip_{{ gamemodeinteger }}}}")
 
+# #2622：9999 是「沒有上限」（官方：Aurelion Sol Q no maximum channel duration）
+ok("每級清單尾巴的 9999 秒改成無上限", lambda: K.finish("持續最多3.25/3.25/3.25/3.25/9999秒，每秒"), "持續最多3.25/3.25/3.25/3.25/無上限，每秒")
+ok("中間有空白也認得", lambda: K.finish("1/9999 秒"), "1/無上限")
+ok("普通每級秒數不動", lambda: K.finish("持續1/2/3秒"), "持續1/2/3秒")
+ok("不是清單的 9999 不動（沒有判據）", lambda: K.finish("造成9999秒"), "造成9999秒")
+
 print(f"合計 ✓ {ng[0]} ✗ {ng[1]}")
 sys.exit(1 if ng[1] else 0)

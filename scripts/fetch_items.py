@@ -57,6 +57,17 @@ TOK   = re.compile(r"@([A-Za-z_]\w*)(?:\*(-?[\d.]+))?@\s*(%?)")
 EXT   = re.compile(r"@[^@\s<>*]*[.:][^@\s<>]*@")
 ICON  = re.compile(r"%i:\w+%")
 BRACE = re.compile(r"\{\{[^}]*\}\}")
+# 字串表 item_cooldown＝「(@Cooldown@秒)」。以前跟其他 {{ }} 一起被 BRACE 清掉，守護天使、破堡者等都看不到冷卻（#2622）
+CD_TOK = re.compile(r"\{\{\s*Item_Cooldown\s*\}\}")
+# bin 拿超大秒數當「沒有時限」：破堡者 BuffDuration 25000，官方 26.21「Sabotage Duration: 90s ⇒ Infinite」（#2622）
+NO_LIMIT = re.compile(r"(?<![\d./])(?:9999|\d{5,})秒")
+# 近戰／遠程數值佔位：字串表展開後是 @MeleeItemCalcValue[B-D]@ 與 @RangedItemCalcValue[B-D]@。以前被 BRACE 清掉，
+# 海神之斧只剩「普攻對鄰近敵軍造成物理傷害」、死亡之舞「所受傷害的改為…」（#2622）
+# 舊模板先印數字再接佔位：暮色黑刃「(@Cooldown@{{Item_Cooldown}})」、拉克爾之盾「每@Cooldown@{{ Item_Cooldown }}秒」
+CD_DUP = re.compile(r"@Cooldown@\s*\{\{\s*Item_Cooldown\s*\}\}(?:\s*秒)?", re.I)
+HEAD_CD = re.compile(r"([：:]?)</(passive|active)>\s*(?:(每個目標)\s*)?（([\d.]+秒)）")
+SPLIT_TOK = re.compile(r"\{\{\s*Item_Melee_Ranged_Split(?:_Dynamic)?(?:_([B-D]))?\s*\}\}")
+ONHIT_TOK = re.compile(r"\{\{\s*Item_Keyword_OnHit\s*\}\}")  # 字串表＝「命中效果」，被清掉就剩「逐步冰封：，附加…」（#2622）
 
 def build_lut(entry):
     """bin 條目 → token 對照（小寫）：mDataValues + 頂層數值欄位（去 m 前綴也收）"""
@@ -181,8 +192,35 @@ def fill(tpl, lut, calcs, ictx=None):
             miss += 1
             return ""
         return fmt(float(v) * (float(mul) if mul else 1)) + pct
+    def cooldown(_m):
+        s, m2 = fill("@Cooldown@", lut, calcs, ictx)
+        # 查不到或不是單純數字就維持舊行為（拿掉）：這個佔位不算 miss，不可讓整行被 strip_holes 刪掉
+        return f"（{s}秒）" if not m2 and re.fullmatch(r"[\d.]+", s) and float(s) > 0 else ""
+    def split(m):
+        if ictx is None:
+            return ""
+        suf = (m.group(1) or "").lower()
+        cm, cr = hget(ictx.calc, "meleeitemcalcvalue" + suf), hget(ictx.calc, "rangeditemcalcvalue" + suf)
+        try:
+            sm = render_val(eval_calc(ictx, cm), 1.0) if cm is not None else None
+            sr = render_val(eval_calc(ictx, cr), 1.0) if cr is not None else None
+        except Miss:
+            return ""
+        if sm and sr and sm != sr:
+            return f"{sm}（遠程 {sr.replace('（依等級）', '')}）"
+        return sm or sr or ""
+    tpl = CD_DUP.sub("@Cooldown@秒", tpl)
+    if CD_TOK.search(tpl):
+        tpl = CD_TOK.sub(cooldown, tpl)
+    tpl = SPLIT_TOK.sub(split, tpl)
+    tpl = ONHIT_TOK.sub("命中效果", tpl).replace("命中效果效果", "命中效果")
     miss += len(EXT.findall(tpl))  # 算進 miss，超過門檻 main 會退回 DDragon 原文
     t = TOK.sub(rep, EXT.sub("", tpl))
+    t = NO_LIMIT.sub("（永久）", t)
+    t = re.sub(r"\(（([\d.]+秒)）為", r"（冷卻\1，為", t).replace("為5秒)", "為5秒）")  # 潛行者之爪「({{ Item_Cooldown }}為5秒)」
+    # 冷卻放進被動名稱（遊戲內就排在名稱旁邊）。留在內文的話，index.html 的道具標頭取內文第一行，
+    # 破堡者標頭會只剩一行「（20秒）」（#2622）
+    t = HEAD_CD.sub(lambda m: f"（{m.group(3) or ''}{m.group(4)}）{m.group(1)}</{m.group(2)}>", t)
     t = ICON.sub("", t)
     t = BRACE.sub("", t)
     # 值自帶屬性標籤，模板又接一次單位：石像鬼磐核「+5% 額外魔抗魔法防禦」（畫面上會變「魔防魔法防禦」）。
