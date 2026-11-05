@@ -113,7 +113,8 @@ def report(db):
         by.setdefault(v["kind"], []).append(v)
     L = ["網站稽核彙報（未解 %d 筆）：" % len(open_)]
     names = {"pageerror": "JS 例外", "console": "console.error", "img": "破圖",
-             "cjk": "英文模式漏中文", "empty": "分頁空白", "404": "資源 404", "5xx": "資源 5xx（看網址是不是外部來源）"}
+             "cjk": "英文模式漏中文", "empty": "分頁空白", "404": "資源 404", "5xx": "資源 5xx（看網址是不是外部來源）",
+             "tip": "道具／符文提示印出異常字樣"}
     for kind, items in sorted(by.items(), key=lambda kv: -len(kv[1])):
         L.append("")
         L.append("**%s（%d）**" % (names.get(kind, kind), len(items)))
@@ -313,6 +314,26 @@ PC_ARM = r"""() => {
 PC_MARK = ("ZZ_PROBE_9942", "zz_probe_9942", "zz_probe_5xx_9942", "九九四二", "#main 只有 0 個字")
 
 
+# 道具／符文提示（滑鼠移上才出現）：全部 EXTRA_INFO 走真的 extraTipHTML，找 undefined／NaN（#2624）。
+# 五類收集只看畫面上已有的節點，hover 才產生的文字掃不到 ⇒ 「總價 $undefined」在 4 件轉化裝上留著沒人發現。
+TIP_SCAN = r"""() => {
+  if (typeof EXTRA_INFO === 'undefined' || !EXTRA_INFO) return {n: 0, bad: []};
+  const bad = []; let n = 0;
+  for (const k of Object.keys(EXTRA_INFO)) {
+    n++;
+    let h = '';
+    try { h = extraTipHTML(k) || ''; } catch (e) { bad.push(k + '：例外 ' + String(e).slice(0, 80)); continue; }
+    const d = document.createElement('div'); d.innerHTML = h;
+    const m = d.textContent.match(/.{0,14}(?:undefined|NaN|\[object).{0,6}/);
+    if (m) bad.push(k + '：' + m[0]);
+  }
+  return {n, bad};
+}"""
+TIP_MIN = 100         # EXTRA_INFO 少於這個數＝沒載到（不可當成「提示都正常」）
+PC_TIP_ARM = r"""() => { EXTRA_INFO['ZZ探針'] = {t: '道具', g: 0, sec: [{h: '探針', t: '總價 undefined 九九四二'}]}; return true; }"""
+PC_TIP_OFF = r"""() => { delete EXTRA_INFO['ZZ探針']; }"""
+
+
 def scan(opts):
     from playwright.sync_api import sync_playwright
     srv = subprocess.Popen([sys.executable, "-m", "http.server", str(PORT), "--bind", "127.0.0.1"], cwd=ROOT,
@@ -411,6 +432,21 @@ def scan(opts):
                         pg.wait_for_timeout(300)
                     return True
 
+                def collect_tips(label):
+                    """等 EXTRA_INFO 載好再掃；載不到要出聲，不是 0 筆（#2624）。"""
+                    try:
+                        pg.wait_for_function("() => typeof EXTRA_INFO !== 'undefined' && EXTRA_INFO && Object.keys(EXTRA_INFO).length >= %d" % TIP_MIN, timeout=60000)
+                    except Exception:
+                        pass
+                    r = pg.evaluate(TIP_SCAN)
+                    if r["n"] < TIP_MIN:
+                        sink.append((lang, label, "tip", "EXTRA_INFO 只有 %d 件，提示沒掃到" % r["n"]))
+                    for b in r["bad"]:
+                        sink.append((lang, label, "tip", b))
+                    return r["n"]
+
+                # 在第一個分頁之前掃：這時還是當年，_itemInYear 的過濾跟使用者開網站時一樣
+                print("   道具提示 %s：掃 %d 件" % (lang, collect_tips("圖鑑／道具提示")))
                 only = opts.get("tabs")
                 for tb in tabs:
                     if only and tb not in only:
@@ -447,6 +483,11 @@ def scan(opts):
                         run_scn(PC_PREFIX.rstrip("／"), ("說明浮層", [("click", "#fHelp"),
                                 ("waitfn", "() => [...document.querySelectorAll('img[src*=zz_probe]')].every(i => i.complete)")], 1200, []))
                         run_scn(PC_PREFIX.rstrip("／"), ("回復預設", [("click", "#fReset")], 800, []))
+                    if not opts.get("pc_dry"):
+                        pg.evaluate(PC_TIP_ARM)
+                    collect_tips(PC_PREFIX + "道具提示")
+                    if not opts.get("pc_dry"):
+                        pg.evaluate(PC_TIP_OFF)
                     sink = found
                     cur["tab"] = "(pc-done)"
                 for tb, e in errs:
@@ -473,6 +514,7 @@ def scan(opts):
                   ("破圖", has("img", "說明浮層", "zz_probe_9942")),
                   ("漏中文", has("cjk", "說明浮層", "九九四二")),
                   ("空白", has("empty", "回復預設", "#main 只有")),
+                  ("提示", has("tip", "道具提示", "九九四二")),
                   ("不進資料庫", not any(any(m in x for m in PC_MARK) for (_l, _t, _k, x) in found))]
         pc_ok = all(ok for _, ok in checks)
         print("   正控制（互動層）：" + "／".join("%s %s" % (n, "✓" if ok else "✗") for n, ok in checks))
@@ -488,6 +530,9 @@ def cap_lines(cap):
 
 
 def main():
+    if "--help" in sys.argv or "-h" in sys.argv:   # 沒這條的話 --help 會真的開一趟全掃（#2624 踩到）
+        print(__doc__)
+        return 0
     db = load()
     if "--report" in sys.argv:
         print(report(db))
