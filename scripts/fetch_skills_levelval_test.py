@@ -215,5 +215,91 @@ ok("subpart 帶依等級：Miss", lambda: _miss({"__type": GC, "mFormulaParts": 
 ok("subpart 帶層數：Miss", lambda: _miss({"__type": GC, "mFormulaParts": [{"__type": CL, "mFloor": 0, "mSubparts": [{"mCoefficient": 1.0, "__type": BC}]}]}), "Miss")
 ok("subpart 未知型別（銳兒 PercentageOfBuffNameElapsed）：Miss", lambda: _miss({"__type": GC, "mFormulaParts": [{"__type": CL, "mFloor": .2, "mCeiling": 1.0, "mSubparts": [{"__type": "PercentageOfBuffNameElapsed"}]}]}), "Miss")
 
+# ── #2619：屬性代碼、充能欄位、0 層＋每層、DataValue 內插、計算式引用、Conditional、Modified 兩種倍率 ──
+_dv = lambda n, *v: {"name": n, "values": [0, *v, 0]}
+_nd = lambda n: {"mDataValue": n, "__type": "NamedDataValueCalculationPart"}
+_sc = lambda st, c, **kw: {"mStat": st, "mCoefficient": c, "__type": "StatByCoefficientCalculationPart", **kw}
+_gc = lambda *p, **kw: {"__type": GC, "mFormulaParts": list(p), **kw}
+_cx = lambda dv=(), calc=None, **kw: K.SpellCtx({"DataValues": list(dv), "mSpellCalculations": calc or {}, **kw}, 5)
+def _r(cx, calc, mult=1.0):
+    try:
+        return K.render_val(K.eval_calc(cx, calc), mult)
+    except K.Miss:
+        return "Miss"
+ok("mStat 6 是魔抗（加里歐 R）", lambda: _r(_cx(), _gc(_sc(6, 1.0, mStatFormula=2))), "+100% 額外魔抗")
+ok("mStat 7 是移動速度（珍娜 W）", lambda: _r(_cx(), _gc(_sc(7, .3, mStatFormula=2))), "+30% 額外移動速度")
+ok("mStat 4（攻速）刻意不標，略過", lambda: _r(_cx([_dv("B", 1, 2, 3, 4, 5)]), _gc(_nd("B"), _sc(4, 3.0))), "1/2/3/4/5")
+_am = {"mMaxAmmo": [2, 3, 3, 4, 4, 5, 5], "mAmmoRechargeTime": [38., 26., 22., 18., 14., 10., 10.]}
+ok("充能時間（凱特琳 W，Meraki 同）", lambda: K.resolve_token(_cx(**_am), {}, "ammorechargetime", 1.0), "26/22/18/14/10")
+ok("最大充能（values[0] 是佔位）", lambda: K.resolve_token(_cx(**_am), {}, "maxammo", 1.0), "3/3/4/4/5")
+ok("DataValues 同名優先於技能本體", lambda: K.resolve_token(_cx([_dv("maxammo", 9, 9, 9, 9, 9)], **_am), {}, "maxammo", 1.0), "9")
+ok("Modes 開頭且沒定義＝0（奈德麗 W）", lambda: K.eval_part(_cx(), _nd("ModesBonusMaxTraps")).flat, [0] * 5)
+ok("Modes 開頭但有定義就用值", lambda: K.eval_part(_cx([_dv("ModesX", 1, 2, 3, 4, 5)]), _nd("ModesX")).flat, [1, 2, 3, 4, 5])
+ok("一般名字沒定義仍 Miss", lambda: _r(_cx(), _gc(_nd("BonusMaxTraps"))), "Miss")
+_sub = lambda st, inner: {"mStat": st, "mSubpart": inner, "__type": "StatBySubPartCalculationPart"}
+_prod = lambda a, b: {"__type": "ProductOfSubPartsCalculationPart", "mPart1": a, "mPart2": b}
+_sum = lambda *p: {"__type": "SumOfSubPartsCalculationPart", "mSubparts": list(p)}
+_B = [_dv("B", 40, 60, 80, 100, 120), _dv("C", .5, .5, .5, .5, .5)]
+ok("二階項略過（逆命藍牌的暴擊加成）", lambda: _r(_cx(_B), _gc(_nd("B"), _sc(2, 1.0), _sub(8, _prod(_nd("C"), _sum(_nd("B"), _sc(2, 1.0)))))), "40/60/80/100/120（+100% AD）")
+ok("二階項：純數子項仍算成係數", lambda: _r(_cx(_B), _gc(_nd("B"), _sub(2, _nd("C")))), "40/60/80/100/120（+50% AD）")
+ok("二階項：子項不認得仍 Miss", lambda: _r(_cx(_B), _gc(_sub(2, {"__type": "NoSuchPart"}))), "Miss")
+_cnt = lambda n: {"mDataValue": n, "__type": "BuffCounterByNamedDataValueCalculationPart"}
+_S = [_dv("S", .2, .2, .2, .2, .2), _dv("B", 5, 5, 5, 5, 5)]
+ok("0 層＋每層：只有層數", lambda: _r(_cx(_S), _gc(_cnt("S"))), "每層 +0.2")
+ok("基礎值＋每層（奧瑞利安 E 處決門檻）", lambda: _r(_cx(_S), _gc(_nd("B"), _cnt("S"))), "5（每層 +0.2）")
+ok("每層的 DataValue 沒定義：只留 0 層", lambda: _r(_cx(_S), _gc(_nd("B"), _cnt("NoSuch"))), "5")
+ok("每層進百分比", lambda: _r(_cx(_S), _gc(_cnt("S"), mDisplayAsPercent=True)), "每層 +20%")
+_itp = lambda a, b: {"StartDataValue": a, "EndDataValue": b, "__type": "{ee18a47b}"}
+_I = [_dv("L1", 100, 100, 100, 100, 100), _dv("L18", 500, 500, 500, 500, 500), _dv("V", 1, 2, 3, 4, 5)]
+ok("DataValue 內插（洛克 W 治療上限）", lambda: _r(_cx(_I), _gc(_itp("L1", "L18"))), "100－500（依等級）")
+ok("DataValue 內插頭尾相同印固定值", lambda: _r(_cx(_I), _gc(_itp("L1", "L1"))), "100")
+ok("DataValue 內插每級不同：Miss", lambda: _r(_cx(_I), _gc(_itp("V", "L18"))), "Miss")
+ok("DataValue 內插＋係數", lambda: _r(_cx(_I), _gc(_itp("L1", "L18"), _sc(0, .6))), "100－500（依等級）（+60% AP）")
+_mod = lambda ref, m: {"__type": "GameCalculationModified", "mModifiedGameCalculation": ref, "mMultiplier": m}
+_key = lambda k: {"mSpellCalculationKey": k, "__type": "{f3cbe7b2}"}
+_Y = {"Heal": _gc(_nd("B"), _sc(0, .12)), "Perc": _gc({"mStartValue": 1.3, "mEndValue": 1.6, "__type": "ByCharLevelInterpolationCalculationPart"})}
+_YD = [_dv("B", 30, 50, 70, 90, 110)]
+ok("倍率依等級印在最後（悠咪 R，官方 30－60%）", lambda: _r(_cx(_YD, _Y), _mod("Heal", _key("Perc"))), "30/50/70/90/110（+12% AP） × 1.3－1.6（依等級）")
+ok("計算式引用不存在：Miss", lambda: _r(_cx(_YD, _Y), _mod("Heal", _key("NoSuch"))), "Miss")
+ok("倍率依等級但基礎也依等級：Miss", lambda: _r(_cx(_YD, {"H": _gc({"mStartValue": 1, "mEndValue": 2, "__type": "ByCharLevelInterpolationCalculationPart"}), **_Y}), _mod("H", _key("Perc"))), "Miss")
+_L = [_dv("N", 22, 22, 22, 22, 22), _dv("Base", 15, 30, 45, 60, 75), _dv("AD", .25, .25, .25, .25, .25), _dv("AP", .15, .15, .15, .15, .15)]
+_ST = lambda st, n: {"mStat": st, "mDataValue": n, "__type": "StatByNamedDataValueCalculationPart"}
+_LC = {"Shots": _gc(_sum(_nd("N"), _prod(_sc(8, 1.0), _nd("Neg"))))}
+_L2 = _L + [_dv("Neg", -22, -22, -22, -22, -22)]
+ok("基礎純數×倍率帶係數（路西恩 R 總傷害）", lambda: _r(_cx(_L2, _LC), _mod("Shots", _sum(_nd("Base"), _ST(2, "AD"), _ST(0, "AP")))), "330/660/990/1320/1650（+550% AD）（+330% AP）")
+_V = {"T": _gc(_nd("Base"), _sc(2, 1.1))}
+ok("基礎帶係數×倍率帶係數＝二階項略過（弗力貝爾 W2）", lambda: _r(_cx([_dv("Base", 5, 30, 55, 80, 105), _dv("M", 1.5, 1.5, 1.5, 1.5, 1.5), _dv("K", .0025, .0025, .0025, .0025, .0025)], _V), _mod("T", _sum(_nd("M"), _ST(2, "K")))), "7.5/45/82.5/120/157.5（+165% AD）")
+_CD = {"Def": _gc(_nd("B")), "Evo": _gc(_nd("E"))}
+_cond = lambda d: {"__type": "GameCalculationConditional", "mDefaultGameCalculation": d, "mConditionalGameCalculation": "Evo"}
+ok("Conditional 走平常狀態（凱莎 Q 上限）", lambda: _r(_cx([_dv("B", 1, 2, 3, 4, 5), _dv("E", 9, 9, 9, 9, 9)], _CD), _cond("Def")), "1/2/3/4/5")
+ok("Conditional 算式不存在：Miss", lambda: _r(_cx([], _CD), _cond("NoSuch")), "Miss")
+ok("同標籤係數合併", lambda: _r(_cx(_YD), _gc(_nd("B"), _sc(0, .5), _sc(2, .1), _sc(0, .3))), "30/50/70/90/110（+80% AP）（+10% AD）")
+ok("不同屬性前綴不合併", lambda: _r(_cx(_YD), _gc(_sc(2, .5), _sc(2, .3, mStatFormula=2))), "+50% AD（+30% 額外AD）")
+_MM = lambda *p, m: {"__type": GC, "mFormulaParts": list(p), "mMultiplier": m}
+_num2 = {"mNumber": 2.0, "__type": "NumberCalculationPart"}
+ok("mMultiplier 帶負係數殘留仍算倍率（煙龍被動）", lambda: _r(_cx([_dv("S", .25, .25, .25, .25, .25), _dv("Neg", -2, -2, -2, -2, -2)]), _MM(_cnt("S"), m=_sum(_num2, _prod(_sc(8, 1.0), _nd("Neg"))))), "每層 +0.5")
+ok("mMultiplier 帶正係數不套（維持舊行為）", lambda: _r(_cx(_YD), _MM(_nd("B"), m=_sum(_num2, _sc(0, 1.0)))), "30/50/70/90/110")
+ok("值自帶護甲標籤又接單位", lambda: K.finish("獲得+16% 護甲物防和+16% 魔抗魔防。"), "獲得+16% 護甲和+16% 魔抗。")
+ok("值自帶標籤（道具全名）", lambda: K.finish("+5% 額外護甲物理防禦 與 +5% 額外魔抗魔法防禦"), "+5% 額外護甲 與 +5% 額外魔抗")
+ok("括號外的單位不動", lambda: K.finish("20（+12% 額外護甲）物防及 20（+12% 額外魔抗）魔防"), "20（+12% 額外護甲）物防及 20（+12% 額外魔抗）魔防")
+ok("空值括號註記刪掉", lambda: K.finish("回復 5 生命(上限：)。"), "回復 5 生命。")
+ok("有值的括號註記留著", lambda: K.finish("回復 5 生命(上限：9)。"), "回復 5 生命(上限：9)。")
+ok("全形空值括號也刪", lambda: K.finish("回復 5 生命（上限：）。"), "回復 5 生命。")
+_TST = {"spell_x_tooltip_1": "造成<b>@Dmg@</b>與@Cherry*100@%。{{Spell_Y_Name}}", "spell_x_tooltip_2": "競技場", "spell_y_name": "黑槍"}
+ok("字串表模板取 _1（一般模式）", lambda: K.expand_tpl("{{Spell_X_Tooltip_{{ gamemodeinteger }}}}{{ spellmodifierdescriptionappend }}", _TST), "造成<b>{{ Dmg }}</b>與{{ Cherry*100 }}%。黑槍{{ spellmodifierdescriptionappend }}")
+ok("模板寫法帶空白也認得", lambda: K.expand_tpl("{{ Spell_X_Tooltip_{{ gamemodeinteger }} }}", {"spell_x_tooltip_1": "甲"}), "甲")
+ok("字串表沒這條：原樣", lambda: K.expand_tpl("{{Spell_Z_Tooltip_{{ gamemodeinteger }}}}", _TST), "{{Spell_Z_Tooltip_{{ gamemodeinteger }}}}")
+ok("沒字串表：原樣", lambda: K.expand_tpl("{{ a }}", None), "{{ a }}")
+ok("技能名查不到：留給 finish 清", lambda: K.expand_tpl("{{ Spell_Q_Name }}", _TST), "{{ Spell_Q_Name }}")
+ok("技能名（被動模板）", lambda: K.expand_tpl("施展{{ Spell_Y_Name }}後", _TST), "施展黑槍後")
+
+ok("層數沒定義時仍當 0 參與相乘，不是 Miss", lambda: _r(_cx(), _gc(_prod(_cnt("NoSuch"), _sc(2, 1.0)))), None)
+ok("計算式引用不存在，整條 Miss（不可少算一項）", lambda: _r(_cx(_YD), _gc(_nd("B"), _key("NoSuch"))), "Miss")
+def _tail_only():
+    v = K.Val(); v.tail = "1－2（依等級）"
+    return K.render_val(v)
+ok("沒有本體時不印倍率", _tail_only, None)
+ok("沒字串表碰到巢狀模板：原樣、不崩", lambda: K.expand_tpl("{{Spell_X_Tooltip_{{ gamemodeinteger }}}}", None), "{{Spell_X_Tooltip_{{ gamemodeinteger }}}}")
+
 print(f"合計 ✓ {ng[0]} ✗ {ng[1]}")
 sys.exit(1 if ng[1] else 0)

@@ -69,7 +69,12 @@ def join_ranks(vals):
     return ss[0] if len(set(ss)) == 1 else "/".join(ss)
 
 # ── bin 計算式求值 ────────────────────────────────────────────────────────────
-STAT_ZH = {0: "AP", 1: "護甲", 2: "AD", 3: "攻速", 5: "魔抗", 6: "移動速度",
+# 代碼是掃全庫 bin 的計算式名稱認出來的（#2619）：6 是魔抗（加里歐 W MRRatio、波比 W BonusMR、奧恩 E MRRatio），
+# 7 是移動速度（DashSpeed、珍娜 MSBonusMagicDamage）。舊表把 6 標成移動速度：加里歐 R 印「+100% 額外移動速度」，
+# 其實是額外魔抗。3、5 全庫沒有人用。
+# 4 是攻速（燼 CritMoveSpeedPercentASRatio）但刻意不標：它的係數尺度不一致（維爾戈、法洛士會印 +500%、+1400%），
+# 卡特蓮娜 R 還是 AD × (1＋攻速) 的二階項，標了反而整條 Miss。略過就是基礎值。
+STAT_ZH = {0: "AP", 1: "護甲", 2: "AD", 6: "魔抗", 7: "移動速度",
            8: "暴擊率", 11: "最大生命", 28: "生命"}
 SF_ZH   = {1: "基礎", 2: "額外"}   # mStatFormula：1=基礎 2=額外 缺=總
 
@@ -103,6 +108,11 @@ class SpellCtx:
             vals = d.get("values") or d.get("mValues")
             if name and vals:
                 self.dv[name.lower()] = vals
+        # 充能數與充能時間不在 DataValues，在技能本體；陣列格式相同（values[0] 是佔位）。
+        # 舊版模板的 {{ ammorechargetime }} 一律空白：凱特琳 W「(充能時間秒)」
+        for tok, field in (("maxammo", "mMaxAmmo"), ("ammorechargetime", "mAmmoRechargeTime")):
+            if mspell.get(field) and tok not in self.dv:
+                self.dv[tok] = mspell[field]
         self.calc = {k.lower(): v for k, v in (mspell.get("mSpellCalculations") or {}).items()}
         # mEffectAmount 兩種格式：[值...] 或 {"value":[值...]}
         self.effect = [e.get("value") if isinstance(e, dict) else e
@@ -127,7 +137,12 @@ class Val:
         self.rng  = rng
         self.srng = srng or []   # 係數本身依等級：[(rng 字串, 屬性標籤)]（卡特蓮娜匕首 +70－100% AP）
         self.stack = []          # 每層堆疊加多少：[每級係數 list]（納瑟斯 Q 每層 +1、姍娜 R 護盾每層 +1.5）
+        self.tail = ""           # 倍率本身依等級：印在最後（悠咪 R 摯友治療「× 1.3－1.6（依等級）」）
         self.pct  = False
+
+def _pos_scal(v):
+    """有沒有印得出來的係數。負係數是執行時公式的殘留（暴擊×(攻速−1)，基礎值為 0），render_val 本來就丟掉。"""
+    return any(any(r > 1e-9 for r in rs) for rs, _ in v.scal)
 
 def _mk_rng(lo, hi):
     return f"{_raw(lo)}－{_raw(hi)}（依等級）"
@@ -200,7 +215,10 @@ def eval_part(ctx, part, depth=0):
         raise Miss("depth")
     t = part.get("__type", "")
     if t == "NamedDataValueCalculationPart":
-        return Val(flat=ctx.dvals(part.get("mDataValue")))
+        name = str(part.get("mDataValue"))
+        if name.lower().startswith("modes") and not hget(ctx.dv, name.lower()):
+            return Val(flat=[0] * ctx.ranks)   # 其他模式才有的加值，一般模式沒定義＝0（奈德麗 W ModesBonusMaxTraps）
+        return Val(flat=ctx.dvals(name))
     if t == "NumberCalculationPart":
         return Val(flat=[part.get("mNumber", 0)] * ctx.ranks)
     if t == "StatByCoefficientCalculationPart":
@@ -226,6 +244,10 @@ def eval_part(ctx, part, depth=0):
             return Val(srng=[(_mk_rng(lo + k, hi + k), lab)])
         if sub.flat and not sub.scal:
             return Val(scal=[(sub.flat, lab)])
+        if sub.scal:
+            # 屬性 × 另一個屬性是二階項（逆命藍牌的暴擊加成、塔姆被動的「每 100 額外生命的 AP」），印不出來就略過。
+            # 舊版整條 Miss：逆命 W 三種牌全空，退回純描述。
+            return Val()
         raise Miss("statbysub")
     if t == "SumOfSubPartsCalculationPart":
         v = Val()
@@ -289,8 +311,26 @@ def eval_part(ctx, part, depth=0):
         return Val(flat=[max(lo if lo is not None else x, min(hi if hi is not None else x, x))
                          for x in (v.flat or [0] * ctx.ranks)])
     if t == "BuffCounterByNamedDataValueCalculationPart":
-        # 依當前堆疊層數成長，執行時才知道 → 以 0 層（基礎值）呈現（翱銳龍獸 E 的處決門檻）
-        return Val(flat=[0] * ctx.ranks)
+        # 依當前堆疊層數成長，執行時才知道 → 以 0 層（基礎值）呈現，並印每層多少（翱銳龍獸 E 的處決門檻）
+        out = Val(flat=[0] * ctx.ranks)
+        try:
+            out.stack = [ctx.dvals(part.get("mDataValue"))]
+        except Miss:
+            pass
+        return out
+    if "StartDataValue" in part:
+        # 型別名是雜湊（{ee18a47b}）：ByCharLevelInterpolation 的 DataValue 版，頭尾各是一個 DataValue
+        # （烏迪爾 Q 覺醒攻速、洛克 W 治療上限 100－500）。每級不同就印不成一個範圍。
+        s, e = ctx.dvals(part["StartDataValue"]), ctx.dvals(part.get("EndDataValue"))
+        if len(set(s)) > 1 or len(set(e)) > 1:
+            raise Miss("interp-dv")
+        return Val(flat=[s[0]] * ctx.ranks) if s[0] == e[0] else Val(rng=_mk_rng(s[0], e[0]))
+    if "mSpellCalculationKey" in part:
+        # 型別名是雜湊（{f3cbe7b2}）：引用同一技能的另一條計算式（悠咪 R 的 AllyHealingPerc）
+        ref = hget(ctx.calc, str(part["mSpellCalculationKey"]).lower())
+        if not ref:
+            raise Miss("calckey")
+        return eval_calc(ctx, ref, depth + 1)
     if t == "ByCharLevelInterpolationCalculationPart":
         s, e = part.get("mStartValue", 0), part.get("mEndValue", 0)
         if s == e:   # 兩端相同就不是依等級（貝爾薇斯被動舊版印 20－20%）
@@ -325,7 +365,7 @@ def eval_calc(ctx, calc, depth=0):
         mp = calc.get("mMultiplier")
         if mp:
             mv = eval_part(ctx, mp, depth + 1)
-            if mv.flat and not mv.scal:
+            if mv.flat and not _pos_scal(mv):
                 m = mv.flat
                 v.flat, v.rng = _mul_rng(v.flat, v.rng, m)
                 v.scal = [([r * k for r, k in zip(rs, m)], lb) for rs, lb in v.scal]
@@ -340,14 +380,32 @@ def eval_calc(ctx, calc, depth=0):
             v.stack = [[r * 100 for r in rs] for rs in v.stack]
             v.pct = True
         return v
+    if t == "GameCalculationConditional":
+        # 有沒有某個 buff 才換算式，tooltip 看的是平常的狀態（凱莎 Q 進化前的傷害上限）
+        ref = hget(ctx.calc, str(calc.get("mDefaultGameCalculation", "")).lower())
+        if not ref:
+            raise Miss("condref")
+        return eval_calc(ctx, ref, depth + 1)
     if t == "GameCalculationModified":
         ref = hget(ctx.calc, str(calc.get("mModifiedGameCalculation", "")).lower())
         if not ref:
             raise Miss("modref")
         base = eval_calc(ctx, ref, depth + 1)
         mul = eval_part(ctx, calc.get("mMultiplier") or {}, depth + 1)
-        if not (mul.flat and not mul.scal and not mul.stack):
+        if mul.stack:
             raise Miss("mod-mult")
+        if mul.rng and not mul.flat and not mul.scal and not mul.srng and not base.rng and not base.srng:
+            # 倍率依等級：範圍乘不進每級數值，把倍率印在最後（悠咪 R：30/50/70/90/110（+12% AP）× 1.3－1.6（依等級））
+            base.tail = mul.rng
+            return base
+        if not mul.flat:
+            raise Miss("mod-mult")
+        if _pos_scal(mul) and not _pos_scal(base) and not base.rng and not base.srng and not base.stack and not base.pct:
+            # 基礎是純數，係數在倍率這邊：路西恩 R＝發數 × (基礎＋AD＋AP)
+            out = Val(flat=[a * b for a, b in zip(base.flat, mul.flat)],
+                      scal=[([a * r for a, r in zip(base.flat, rs)], lb) for rs, lb in mul.scal])
+            return out
+        # 其餘情況倍率裡的係數是二階項（弗力貝爾 W2＝傷害 × (1.5＋額外AD×0.25%)），略過
         m = mul.flat
         flat, rng = _mul_rng(base.flat, base.rng, m)
         out = Val(flat=flat,
@@ -388,7 +446,11 @@ def render_val(v, mult=1.0):
         out += f"（{piece}）" if out else piece
     # 負係數＝執行時公式的殘留項（路西恩 R＝22×(1+暴擊×(攻速−1))，基礎值就是 22）→ 丟掉，
     # 不然會印出「22（+-2200% 暴擊率）」這種東西
-    for rs, lab in [(rs, lab) for rs, lab in v.scal if any(r > 1e-9 for r in rs)]:
+    merged = {}   # 同一屬性分兩項時合併（凱莎 Q 上限：+55% 額外AD 與 +68.75% 額外AD 分開印）
+    for rs, lab in v.scal:
+        if any(r > 1e-9 for r in rs):
+            merged[lab] = [a + b for a, b in zip(merged[lab], rs)] if lab in merged else list(rs)
+    for lab, rs in merged.items():
         vals = [r * (1 if v.pct else 100) for r in rs]
         if v.pct and max(vals) < 0.1:
             # 百分比裡的小係數（時現者每點額外魔力 +0.005%）四捨五入會變 +0%，改用每 100 點講
@@ -411,6 +473,8 @@ def render_val(v, mult=1.0):
         nums = "/".join(dict.fromkeys(("%.3f" % x).rstrip("0").rstrip(".") if abs(x) < 0.1 else fmt(x) for x in vals))
         piece = f"每層 +{nums}" + ("%" if v.pct else "")
         out += f"（{piece}）" if out else piece
+    if out and v.tail:
+        out += " × " + show_rng(v.tail)
     return out or None
 
 # ── 被動：CDragon 字串表模板（@token@ 風格）填值 ─────────────────────────────
@@ -446,9 +510,12 @@ def finish(t):
     t = re.sub(r"@[A-Za-z_][\w.:]*@", "", t)          # 字串表 @token@ 殘留
     t = re.sub(r"%{2,}", "%", t)                      # 「20%%失去生命」
     t = re.sub(r"(最大|額外|基礎)生命生命", r"\1生命", t)  # 模板「回復 X 生命」，X 自帶標籤
+    # 同一種：波比 W「+16% 護甲物防」、道具「+5% 額外魔抗魔法防禦」，畫面上 chDispTxt 還會再變成「物防物防」
+    t = re.sub(r"(護甲)(?:物防|物理防禦)|(魔抗)(?:魔防|魔法防禦)", lambda m: m.group(1) or m.group(2), t)
     t = re.sub(r"(\d%?)（依等級）\s*%", lambda m: m.group(1).rstrip("%") + "%（依等級）", t)  # 模板在 token 後面接的 %
     t = re.sub(r"(AP|AD|物攻|魔攻)\s*%(?![\d])", r"\1", t)   # 「+10% AP% 最大魔力」→ 尾巴那個 % 是模板的，值已自帶
     t = re.sub(r"[（(]\s*[+×xX]?\s*[)）]", "", t)      # 空括號
+    t = re.sub(r"\s*[（(][^（()）]{1,6}[：:]\s*[)）]", "", t)   # 值沒填的括號註記：泰達米爾 Q「(上限：)」
     t = re.sub(r"(\d)\s+%", r"\1%", t)                # 「25 % 跑速」
     t = re.sub(r"%\s+(?=[（(])", "%", t)              # 「30% （+3% AP）」
     t = re.sub(r"[，、]\s*(?=[，、。])", "", t)        # 值被剝掉後的孤立標點
@@ -582,6 +649,20 @@ def fill_tooltip(tpl, ctx, all_ctx, strict=False):
     t = re.sub(r"^\s*[，。：、]\s*", "", finish(t), flags=re.M)
     return t.strip(), miss
 
+NESTED_TPL = re.compile(r"\{\{\s*(Spell_\w+?_Tooltip_)\{\{\s*gamemodeinteger\s*\}\}\s*\}\}", re.I)
+ST_NAME = re.compile(r"\{\{\s*(Spell_\w+?_Name)\s*\}\}", re.I)
+
+def expand_tpl(tpl, st):
+    """DDragon 只給殼的模板（甘普朗克 Q、阿克尚 W）：本文在字串表，_1 是一般模式，_2 是競技場。
+    字串表用 @Token@ 寫法，轉成 {{ token }} 走同一套填值。沒字串表或查不到就原樣回傳（會退回純描述）。"""
+    if not st or not tpl:
+        return tpl
+    def rep(m):
+        body = st.get(m.group(1).lower() + "1")
+        return re.sub(r"@([\w.:*-]+)@", r"{{ \1 }}", body) if body else m.group(0)
+    tpl = NESTED_TPL.sub(rep, tpl)
+    return ST_NAME.sub(lambda m: st.get(m.group(1).lower()) or m.group(0), tpl)
+
 # ── 主流程 ────────────────────────────────────────────────────────────────────
 def build_champ(cid, ddv, st=None):
     dd = get_json(f"{DD_API}/cdn/{ddv}/data/zh_TW/champion/{cid}.json")["data"][cid]
@@ -616,6 +697,8 @@ def build_champ(cid, ddv, st=None):
         ranks = sp.get("maxrank") or (3 if i == 3 else 5)
         if ms:
             all_ctx[leaf] = SpellCtx(ms, ranks, sp.get("effect"))   # 主技能帶上 DDragon effect（e# 第二來源）
+            if sp.get("cost") and "cost" not in all_ctx[leaf].dv:   # {{ cost }}：卡莎碧雅 E 擊殺回魔。DDragon 陣列無佔位
+                all_ctx[leaf].dv["cost"] = [0] + list(sp["cost"])
             all_ctx[leaf].leaf = leaf
     # 被動數值：字串表模板（@token@，含跨技能 @spell.X:Y@）＋ bin 被動技能求值；失敗就保留 DDragon 純描述
     if st:
@@ -626,7 +709,7 @@ def build_champ(cid, ddv, st=None):
             lk = ((pspell or {}).get("mClientData") or {}).get("mTooltipData", {}).get("mLocKeys", {})
             tpl = st.get(str(lk.get("keyTooltip", "")).lower())
             if pspell and tpl:
-                txt, miss = fill_at(tpl, SpellCtx(pspell, 1), all_ctx)
+                txt, miss = fill_at(expand_tpl(tpl, st), SpellCtx(pspell, 1), all_ctx)
                 if txt and len(miss) <= 2:
                     out["p"]["d"] = txt
         except Exception:
@@ -646,7 +729,7 @@ def build_champ(cid, ddv, st=None):
         entry = {"k": keys[i], "n": sp["name"], "rg": int(_rg),
                  "cd": sp.get("cooldownBurn", ""), "co": sp.get("costBurn", "")}
         desc_plain = plain(sp.get("description", ""))
-        tpl = sp.get("tooltip", "")
+        tpl = expand_tpl(sp.get("tooltip", ""), st)
         if ctx and tpl:
             txt, miss = fill_tooltip(tpl, ctx, all_ctx)
             holed = 0
