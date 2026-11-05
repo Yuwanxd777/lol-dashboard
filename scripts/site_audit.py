@@ -316,7 +316,8 @@ PC_MARK = ("ZZ_PROBE_9942", "zz_probe_9942", "zz_probe_5xx_9942", "九九四二"
 
 # 道具／符文提示（滑鼠移上才出現）：全部 EXTRA_INFO 走真的 extraTipHTML，找 undefined／NaN（#2624）。
 # 五類收集只看畫面上已有的節點，hover 才產生的文字掃不到 ⇒ 「總價 $undefined」在 4 件轉化裝上留著沒人發現。
-TIP_SCAN = r"""() => {
+# 英文模式另外找中文（#2626）：COLLECT 的漏中文一樣看不到 hover 文字，4 件轉化裝的提示整段中文也是這樣漏掉的。
+TIP_SCAN = r"""(enMode) => {
   if (typeof EXTRA_INFO === 'undefined' || !EXTRA_INFO) return {n: 0, bad: []};
   const bad = []; let n = 0;
   for (const k of Object.keys(EXTRA_INFO)) {
@@ -326,12 +327,20 @@ TIP_SCAN = r"""() => {
     const d = document.createElement('div'); d.innerHTML = h;
     const m = d.textContent.match(/.{0,14}(?:undefined|NaN|\[object).{0,6}/);
     if (m) bad.push(k + '：' + m[0]);
+    if (enMode) {
+      const c = d.textContent.match(/[一-鿿㐀-䶿].{0,16}/);
+      if (c) bad.push(k + '：英文模式中文 ' + c[0]);
+    }
   }
   return {n, bad};
 }"""
 TIP_MIN = 100         # EXTRA_INFO 少於這個數＝沒載到（不可當成「提示都正常」）
-PC_TIP_ARM = r"""() => { EXTRA_INFO['ZZ探針'] = {t: '道具', g: 0, sec: [{h: '探針', t: '總價 undefined 九九四二'}]}; return true; }"""
-PC_TIP_OFF = r"""() => { delete EXTRA_INFO['ZZ探針']; }"""
+# 兩個探針分開驗：a 只有 undefined、b 只有中文，才分得出兩條判斷各自活著（鍵與內文都不夾另一種字樣）
+PC_TIP_ARM = r"""() => {
+  EXTRA_INFO['ZZ_PROBE_9942a'] = {t: 'Item', g: 0, sec: [{h: 'probe', t: 'Total undefined here'}]};
+  EXTRA_INFO['ZZ_PROBE_9942b'] = {t: 'Item', g: 0, sec: [{h: 'probe', t: 'Total 九九四二 here'}]};
+  return true; }"""
+PC_TIP_OFF = r"""() => { delete EXTRA_INFO['ZZ_PROBE_9942a']; delete EXTRA_INFO['ZZ_PROBE_9942b']; }"""
 
 
 def scan(opts):
@@ -438,7 +447,7 @@ def scan(opts):
                         pg.wait_for_function("() => typeof EXTRA_INFO !== 'undefined' && EXTRA_INFO && Object.keys(EXTRA_INFO).length >= %d" % TIP_MIN, timeout=60000)
                     except Exception:
                         pass
-                    r = pg.evaluate(TIP_SCAN)
+                    r = pg.evaluate(TIP_SCAN, lang == "en")
                     if r["n"] < TIP_MIN:
                         sink.append((lang, label, "tip", "EXTRA_INFO 只有 %d 件，提示沒掃到" % r["n"]))
                     for b in r["bad"]:
@@ -514,7 +523,8 @@ def scan(opts):
                   ("破圖", has("img", "說明浮層", "zz_probe_9942")),
                   ("漏中文", has("cjk", "說明浮層", "九九四二")),
                   ("空白", has("empty", "回復預設", "#main 只有")),
-                  ("提示", has("tip", "道具提示", "九九四二")),
+                  ("提示", has("tip", "道具提示", "ZZ_PROBE_9942a：")),
+                  ("提示中文", has("tip", "道具提示", "ZZ_PROBE_9942b：英文模式中文 九九四二")),
                   ("不進資料庫", not any(any(m in x for m in PC_MARK) for (_l, _t, _k, x) in found))]
         pc_ok = all(ok for _, ok in checks)
         print("   正控制（互動層）：" + "／".join("%s %s" % (n, "✓" if ok else "✗") for n, ok in checks))
