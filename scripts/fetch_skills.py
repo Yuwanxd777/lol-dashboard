@@ -74,8 +74,9 @@ def join_ranks(vals):
 # 其實是額外魔抗。3、5 全庫沒有人用。
 # 4 是攻速（燼 CritMoveSpeedPercentASRatio）但刻意不標：它的係數尺度不一致（維爾戈、法洛士會印 +500%、+1400%），
 # 卡特蓮娜 R 還是 AD × (1＋攻速) 的二階項，標了反而整條 Miss。略過就是基礎值。
+# 29 是物理致命（#2621）：派克 W 官方 45% (+2% per 1 Lethality)，bin 係數 2.0；係數是「每 1 點」不是百分比，render_val 另外印。
 STAT_ZH = {0: "AP", 1: "護甲", 2: "AD", 6: "魔抗", 7: "移動速度",
-           8: "暴擊率", 11: "最大生命", 28: "生命"}
+           8: "暴擊率", 11: "最大生命", 28: "生命", 29: "物理致命"}
 SF_ZH   = {1: "基礎", 2: "額外"}   # mStatFormula：1=基礎 2=額外 缺=總
 
 class Miss(Exception):
@@ -452,6 +453,11 @@ def render_val(v, mult=1.0):
             merged[lab] = [a + b for a, b in zip(merged[lab], rs)] if lab in merged else list(rs)
     for lab, rs in merged.items():
         vals = [r * (1 if v.pct else 100) for r in rs]
+        if lab == "物理致命":
+            # 係數是每 1 點（派克 R 2.0 不是 +200%），舊版沒標 29：R 的斬殺線少印一個係數
+            piece = f"每 1 {lab} +{join_ranks(rs)}" + ("%" if v.pct else "")   # 派克被動 9%（每 1 +0.2%）
+            out += f"（{piece}）" if out else piece
+            continue
         if v.pct and max(vals) < 0.1:
             # 百分比裡的小係數（時現者每點額外魔力 +0.005%）四捨五入會變 +0%，改用每 100 點講
             piece = f"每 100 {lab} +{join_ranks([x * 100 for x in vals])}%"
@@ -514,6 +520,7 @@ def finish(t):
     t = re.sub(r"(護甲)(?:物防|物理防禦)|(魔抗)(?:魔防|魔法防禦)", lambda m: m.group(1) or m.group(2), t)
     t = re.sub(r"\+\s*\+(?=\d)", "+", t)              # 模板寫「+ 」、值又自帶 +：珍娜 W「+ +30%」、尼菈 R「(++20%」（#2620）
     t = re.sub(r"(\d%?)（依等級）\s*%", lambda m: m.group(1).rstrip("%") + "%（依等級）", t)  # 模板在 token 後面接的 %
+    t = re.sub(r"(\d)（每 1 物理致命 \+([\d.]+)）\s*%", r"\1%（每 1 物理致命 +\2%）", t)  # 派克 W 模板 {{ movespeed }}%
     t = re.sub(r"(AP|AD|物攻|魔攻)\s*%(?![\d])", r"\1", t)   # 「+10% AP% 最大魔力」→ 尾巴那個 % 是模板的，值已自帶
     t = re.sub(r"[（(]\s*[+×xX]?\s*[)）]", "", t)      # 空括號
     t = re.sub(r"\s*[（(][^（()）]{1,6}[：:]\s*[)）]", "", t)   # 值沒填的括號註記：泰達米爾 Q「(上限：)」

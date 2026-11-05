@@ -301,6 +301,16 @@ def _tail_only():
     v = K.Val(); v.tail = "1－2（依等級）"
     return K.render_val(v)
 ok("沒有本體時不印倍率", _tail_only, None)
+
+# #2621：mStat 29 是物理致命，係數是每 1 點（官方：派克 W 45% (+2% per 1 Lethality)）
+_LETH = {"mStat": 29, "mCoefficient": 2.0, "__type": "StatByCoefficientCalculationPart"}
+ok("物理致命印每 1 點，不印成百分比", lambda: _r(_cx(_YD), _gc(_nd("B"), _LETH)).split("（", 1)[1], "每 1 物理致命 +2）")
+ok("只有物理致命一項不加括號", lambda: _r(_cx(_YD), _gc(_LETH)), "每 1 物理致命 +2")
+ok("小係數不被四捨五入成 0（派克 E 0.01）", lambda: _r(_cx(_YD), _gc({**_LETH, "mCoefficient": 0.01})), "每 1 物理致命 +0.01")
+ok("mDisplayAsPercent：基礎與每點都帶 %，係數不再乘 100（派克被動）", lambda: K.render_val(K.eval_calc(_cx(_YD), {"mDisplayAsPercent": True, "__type": GC, "mFormulaParts": [{"mNumber": 0.09, "__type": "NumberCalculationPart"}, {**_LETH, "mCoefficient": 0.002}]})), "9%（每 1 物理致命 +0.2%）")
+ok("其他屬性的百分比寫法不受影響", lambda: _r(_cx(_YD), _gc({**_LETH, "mStat": 2})), "+200% AD")
+ok("模板接 %：百分比移到數字後面（派克 W）", lambda: K.finish("45（每 1 物理致命 +2）%跑速"), "45%（每 1 物理致命 +2%）跑速")
+ok("沒接 %：不動（派克 R）", lambda: K.finish("250（每 1 物理致命 +1.5）生命"), "250（每 1 物理致命 +1.5）生命")
 ok("沒字串表碰到巢狀模板：原樣、不崩", lambda: K.expand_tpl("{{Spell_X_Tooltip_{{ gamemodeinteger }}}}", None), "{{Spell_X_Tooltip_{{ gamemodeinteger }}}}")
 
 print(f"合計 ✓ {ng[0]} ✗ {ng[1]}")

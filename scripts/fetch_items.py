@@ -188,6 +188,7 @@ def fill(tpl, lut, calcs, ictx=None):
     # 值自帶屬性標籤，模板又接一次單位：石像鬼磐核「+5% 額外魔抗魔法防禦」（畫面上會變「魔防魔法防禦」）。
     # 道具不走 fetch_skills.finish，要自己清（#2620）
     t = re.sub(r"(護甲)(?:物防|物理防禦)|(魔抗)(?:魔防|魔法防禦)", lambda m: m.group(1) or m.group(2), t)
+    t = re.sub(r"(\d)（每 1 物理致命 \+([\d.]+)）\s*%", r"\1%（每 1 物理致命 +\2%）", t)  # 公理弧刃：官方 10% (+.25% per lethality)（#2621）
     return t, miss
 
 HEAD_SEG = re.compile(r"\s*(?:\{\{[^}]*\}\}\s*)*<(\w+)>[^<]*</\1>\s*(?:\{\{[^}]*\}\}\s*)*")

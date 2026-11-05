@@ -59,6 +59,8 @@ def main():
         return F.fill(tpl, lut, F.build_calcs(e, lut), F.item_ctx(e))
     check("雜湊 data value 查得到，遠程值取到一位小數", lambda: fill("hubris", "增加@BaseADBonus@物理攻擊") == ("增加15（遠程 10）物理攻擊", 0))
     check("值自帶魔抗標籤又接單位：去掉單位（#2620）", lambda: F.fill("+5% 額外魔抗魔法防禦", {}, {})[0] == "+5% 額外魔抗")
+    check("物理致命接模板 %：百分比移到數字後面（公理弧刃 #2621）", lambda: F.fill("返還10（每 1 物理致命 +0.25）%冷卻", {}, {})[0] == "返還10%（每 1 物理致命 +0.25%）冷卻")
+    check("物理致命沒接 %：不動（闇影戰戟 #2621）", lambda: F.fill("造成50（每 1 物理致命 +1.5）真實傷害", {}, {})[0] == "造成50（每 1 物理致命 +1.5）真實傷害")
     check("值自帶護甲標籤又接單位：去掉單位（#2620）", lambda: F.fill("+5% 額外護甲物理防禦", {}, {})[0] == "+5% 額外護甲")
     check("純數字接單位不動（對照）", lambda: F.fill("獲得 25 魔法防禦和 30 物理防禦", {}, {})[0] == "獲得 25 魔法防禦和 30 物理防禦")
     check("mValue 缺值的 data value 不會崩潰", lambda: fill("hubris", "@SpellMaxAmp@X")[0] == "X")
