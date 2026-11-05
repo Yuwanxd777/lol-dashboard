@@ -383,6 +383,13 @@ def scan(opts):
                     pg.evaluate("() => scheduleWarmup(1e9)")
                 except Exception:
                     pass
+                # #2644：scheduleWarmup 只換序號，正在跑的預熱要等下一個 idle callback 才 finish()，
+                # finish() 會把 curView 還原成預熱開始時的分頁 ⇒ 這時點分頁會被蓋回去（_m2644_warmprobe：6 次 1 次）。
+                # 跟 audit_text_overflow.py:164 同一招：等 _warming 真的落下。
+                try:
+                    pg.wait_for_function("() => !window._warming", timeout=15000)
+                except Exception:
+                    print("   ⚠ 預熱 15 秒內沒收尾（_warming 還是 true）")
                 tabs = pg.evaluate("() => [...document.querySelectorAll('nav .tab')].map(e => e.dataset.view || e.textContent.trim())")
                 tabs_seen = tabs
                 sink = found

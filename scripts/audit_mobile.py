@@ -81,6 +81,10 @@ def boot(br, lang, w, h, mobile):
     pg.wait_for_timeout(1500)
     pg.evaluate("() => scheduleWarmup(1e9)")
     pg.wait_for_timeout(1500)
+    try:   # #2644：固定 1.5 秒通常夠，但預熱的 finish() 會把 curView 蓋回去，保險起見等 _warming 真的落下
+        pg.wait_for_function("() => !window._warming", timeout=15000)
+    except Exception:
+        print("   ⚠ 預熱 15 秒內沒收尾（_warming 還是 true）")
     return ctx, pg, errs
 
 
