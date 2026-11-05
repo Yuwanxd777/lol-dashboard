@@ -155,6 +155,45 @@ def main():
         return F.fill(X("{{ Item_Support_Spoils_Of_War_01 }}", ST), lut, F.build_calcs(e, lut), F.item_ctx(e))
     check("戰亂之殤 01 填完是 50%（遠程 30%）", lambda: spoils_filled()[0].endswith("低於50%（遠程 30%）最大生命的士兵") and spoils_filled()[1] == 0)
 
+    # 主動效果在 keyActive（#2634）：素材節錄自 16.22 字串表與 bin
+    def E(**lk):
+        return {"mItemDataClient": {"mTooltipData": {"mLocKeys": {"keyName": "x", **lk}}}}
+    P = F.pick_template
+    ZH = {"item_3157_active": "%i:activeEffect% <active>時間暫停</active>{{ Item_Cooldown }}<br>進入凝滯狀態，持續@Duration@秒。",
+          "item_3157_tooltipextended": "{{ Item_Only_OnActivation }} (@Cooldown@{{Item_Cooldown}})"}
+    check("模板：只有主動就用主動，不用只剩冷卻的 extended（中婭）", lambda: P("3157", E(keyActive="Item_3157_Active"), ZH) == ZH["item_3157_active"])
+    GB = {"item_3146_active": "{{ Item_OnActivation }} {{ Item_Cooldown }}<br><active>閃電霹靂</active><br>電擊",
+          "item_3146_tooltip": "<passive>技能吸血</passive><br>獲得@SpellVamp*100@%技能吸血"}
+    check("模板：過期的 tooltip 不跟，主動名稱排到冷卻前面（槍刃）", lambda: P("3146", E(keyActive="Item_3146_Active"), GB) == "<active>閃電霹靂</active>{{ Item_Cooldown }}<br><br>電擊")
+    RA = {"item_3143_active": "<active>謙遜</active>{{ Item_Cooldown }}<br>緩速", "item_3143_tooltip": "<passive>抗壓</passive><br>減少@X@。<br>"}
+    check("模板：被動在前、主動在後（蘭頓）", lambda: P("3143", E(keyActive="Item_3143_Active", keyTooltip="Item_3143_Tooltip"), RA) == "<passive>抗壓</passive><br>減少@X@。<br><br><active>謙遜</active>{{ Item_Cooldown }}<br>緩速")
+    PO = {"item_2003_active": "<active>喝下</active><br>回復", "item_2003_tooltip": "<br><rules>最多5瓶。</rules>"}
+    check("模板：只有規則的 tooltip 要留，放在主動後面（藥水）", lambda: P("2003", E(keyActive="Item_2003_Active"), PO) == "<active>喝下</active><br>回復<br><rules>最多5瓶。</rules>")
+    SR = {"item_3095_tooltip": "<passive>強力暴擊</passive><br>舊", "item_3095_tooltip_kiwi": "<passive>充能箭</passive><br>@TotalProcDamage@"}
+    check("模板：keyTooltip 指到同一件的新版就跟（狂暴利刃）", lambda: P("3095", E(keyTooltip="Item_3095_Tooltip_Kiwi"), SR) == SR["item_3095_tooltip_kiwi"])
+    OB = {"item_3039_tooltip": "<passive>喝采</passive>@A@", "item_223039_tooltip": "<passive>競技場</passive>@B@"}
+    check("模板：keyTooltip 指到別件不跟（終末戰戟）", lambda: P("3039", E(keyTooltip="Item_223039_Tooltip"), OB) == OB["item_3039_tooltip"])
+    check("模板：沒有 keyActive 維持舊順序（含 @ 優先）", lambda: P("1", E(), {"item_1_tooltip": "簡述", "item_1_tooltipextended": "有@A@"}) == "有@A@")
+    check("模板：沒有 mLocKeys 也不炸", lambda: P("1", {}, {"item_1_tooltip": "簡述"}) == "簡述")
+    check("模板：字串表沒有 keyActive 那條就當沒有", lambda: P("1", E(keyActive="Item_1_Active"), {"item_1_tooltip": "@A@"}) == "@A@")
+    check("模板：同名主動已在 tooltip 不重複", lambda: P("5", E(keyActive="Item_5_Active", keyTooltip="Item_5_Tooltip"), {"item_5_active": "<active>甲</active>乙", "item_5_tooltip": "A<active>甲</active>B"}) == "A<active>甲</active>B")
+    NA = {"item_6_active": "{{ Item_OnActivation }}<br>選擇宿敵"}
+    check("模板：只有「主動」沒有名字時補上主動", lambda: P("6", E(keyActive="Item_6_Active"), NA) == "<active>主動</active><br>選擇宿敵")
+    def filled(e, t):
+        lut = F.build_lut(e)
+        return F.fill(t, lut, F.build_calcs(e, lut), F.item_ctx(e))[0]
+    YM = {"mDataValues": [{"mName": "MeleeItemCalcValueB", "mValue": 20.0}, {"mName": "RangedItemCalcValueB", "mValue": 15.0}]}
+    check("近戰遠程值放在 mDataValues 也讀得到，% 兩邊都有（妖夢）", lambda: filled(YM, "增加{{Item_Melee_Ranged_Split_Dynamic_B}}%跑速") == "增加20%（遠程 15%）跑速")
+    CDB = {"mDataValues": [{"mName": "ItemCooldown", "mValue": 90.0}, {"mName": "Cooldown", "mValue": 90.0}]}
+    check("別名冷卻欄位接佔位不重複", lambda: filled(CDB, "(@ItemCooldown@{{ Item_Cooldown }})") == "(90秒)")
+    check("數字接同值冷卻收成一個（神聖之劍）", lambda: filled(CDB, "(90{{ Item_Cooldown }})") == "(90秒)")
+    RD = {"item_3107_active": "<active>審判</active>回復", "item_3107_tooltip": "<rules>受到其他<active>審判</active>影響</rules>"}
+    check("模板：規則提到同名主動，主動還是要補（贖罪神石）", lambda: P("3107", E(keyActive="Item_3107_Active", keyTooltip="Item_3107_Tooltip"), RD) == "<active>審判</active>回復<rules>受到其他<active>審判</active>影響</rules>")
+    BIND = {"mDataValues": [{"mName": "BindCooldown", "mValue": 30.0}, {"mName": "Cooldown", "mValue": 90.0}]}
+    check("別名冷卻用自己的值，不被 Cooldown 蓋掉（錫柯）", lambda: filled(BIND, "（@BindCooldown@{{ Item_Cooldown }}）") == "（30秒）")
+    check("% 後面的冷卻括號不留空格（狂風之力）", lambda: filled(CDB, "最多50% (@Cooldown@{{ Item_Cooldown }})。") == "最多50%（90秒）。")
+    check("數字接不同值冷卻不收", lambda: filled(CDB, "(9{{ Item_Cooldown }})") == "(9（90秒）)")
+
     # 舊版對照：同一份素材，舊版真的查不到、真的漏 token、真的標當前生命
     if "TOKENS_SCRIPTS" not in os.environ:
         d = tempfile.mkdtemp()

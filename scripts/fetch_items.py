@@ -64,13 +64,13 @@ NO_LIMIT = re.compile(r"(?<![\d./])(?:9999|\d{5,})秒")
 # 近戰／遠程數值佔位：字串表展開後是 @MeleeItemCalcValue[B-D]@ 與 @RangedItemCalcValue[B-D]@。以前被 BRACE 清掉，
 # 海神之斧只剩「普攻對鄰近敵軍造成物理傷害」、死亡之舞「所受傷害的改為…」（#2622）
 # 舊模板先印數字再接佔位：暮色黑刃「(@Cooldown@{{Item_Cooldown}})」、拉克爾之盾「每@Cooldown@{{ Item_Cooldown }}秒」
-CD_DUP = re.compile(r"@Cooldown@\s*\{\{\s*Item_Cooldown\s*\}\}(?:\s*秒)?", re.I)
+CD_DUP = re.compile(r"@(\w*Cooldown\w*)@\s*\{\{\s*Item_Cooldown\s*\}\}(?:\s*秒)?", re.I)
 HEAD_CD = re.compile(r"([：:]?)</(passive|active)>\s*(?:(每個目標)\s*)?（([\d.]+秒)）")
 SPLIT_TOK = re.compile(r"\{\{\s*Item_Melee_Ranged_Split(?:_Dynamic)?(?:_([B-D]))?\s*\}\}")
 ONHIT_TOK = re.compile(r"\{\{\s*Item_Keyword_OnHit\s*\}\}")  # 字串表＝「命中效果」，被清掉就剩「逐步冰封：，附加…」（#2622）
 # 這些佔位字串表有完整定義，以前跟其他 {{ }} 一起被 BRACE 清掉（#2623）：
 # 鋼鐵護肩等 4 件整段「戰亂之殤」不見、靈魂黑矛與稻草人沒有「主動」字樣、規則說明變成空的 <rules></rules>
-EXPAND_NAMES = ("Item_Support_Spoils_Of_War_01", "Item_Support_Spoils_Of_War_02", "Item_Active_Consume", "Item_Active_Trinket",
+EXPAND_NAMES = ("Item_Energized", "Item_Support_Warding_Active", "Item_Support_Spoils_Of_War_01", "Item_Support_Spoils_Of_War_02", "Item_Active_Consume", "Item_Active_Trinket",
                 "Item_Grievous_Wounds", "Item_Support_Minion_Warning", "Item_Melee_Ranged_Rules", "Item_Jungle_Rules",
                 "Item_Ghosting", "Item_Ally_Scaling")
 EXPAND_TOK = re.compile(r"\{\{\s*(" + "|".join(EXPAND_NAMES) + r")\s*\}\}")
@@ -80,6 +80,47 @@ RANGE_PERC = re.compile(r"\s*\{\{\s*Item_Range_Mod_@ChampRange@_Perc\s*\}\}\s*")
 NAMED_ACTIVE = re.compile(r"\{\{\s*Item_Active_Named_NoBullet\s*\}\}\s*<active>([^<]*)</active>")
 # 神話道具 14.1 就取消了，字串表還留著「神話被動：」那行。佔位被清掉後剩「5 物理防禦與魔法防禦。」這種沒頭沒尾的句子，整行拿掉
 MYTHIC_TOK = re.compile(r"\{\{\s*Item_Mythic_Passive\s*\}\}")
+
+# 主動效果是獨立的字串（bin 的 mLocKeys.keyActive），不在 item_N_tooltip 裡。以前只讀 tooltip，
+# 現行可買 29 件的主動整段不見：中婭沙漏只剩「(120秒)」、生命藥水只剩「最多可攜帶5瓶」（#2634）。
+ACTIVE_ONACT = re.compile(r"\{\{\s*Item_OnActivation\s*\}\}\s*(\{\{\s*Item_Cooldown\s*\}\})\s*(?:<br>\s*)?<active>([^<]*)</active>", re.I)
+ACTIVE_NAMED = re.compile(r"\{\{\s*Item_Active_Named\s*\}\}\s*([^<：:]{1,20})[：:]\s*", re.I)
+ACTIVE_ONLY = re.compile(r"(?:<br>\s*)*\{\{\s*Item_OnActivation\s*\}\}\s*(?:<br>\s*)*", re.I)
+RULES_TAIL = re.compile(r"(?:<br>\s*)*<rules>[\s\S]*$")
+
+def pick_template(iid, entry, st):
+    """選模板：回傳還沒展開的字串，沒有模板回 None。
+    keyTooltip 只有指到同一件的 item_N_ 才採用（狂暴利刃 Item_3095_Tooltip_Kiwi 才是現行，item_3095_tooltip 已過期）；
+    指到別件（終末戰戟指到競技場 223039）或 game_／plaintext 的是舊資料，不跟。
+    有 keyActive、沒有 keyTooltip 的道具，item_N_tooltip 多半過期（海克斯科技槍刃還寫 Spell Vamp）或只有冷卻（中婭），
+    只留裡面的規則說明。"""
+    lk = ((entry.get("mItemDataClient") or {}).get("mTooltipData") or {}).get("mLocKeys") or {}
+    cands = [st.get(f"item_{iid}_{s}") for s in
+             ("tooltip", "tooltipextended", "tooltipinventory", "tooltipexternal")]
+    cands = [c for c in cands if c]
+    tip = next((c for c in cands if "@" in c), cands[0] if cands else None)  # 含 @token@（有數值）者優先；external 常是無數字的簡述
+    tk = (lk.get("keyTooltip") or "").lower()
+    ak = (lk.get("keyActive") or "").lower()
+    act = st.get(ak) if ak.startswith("item_") else None
+    if tk.startswith(f"item_{iid}_") and st.get(tk):
+        tip = st[tk]
+    elif act and not tk:
+        rules = RULES_TAIL.search(tip or "")
+        tip = rules.group(0) if rules and not tip[:rules.start()].strip() else None
+    if not act:
+        return tip
+    act = ACTIVE_ONACT.sub(r"<active>\2</active>\1<br>", act)
+    act = ACTIVE_ONLY.sub("<active>主動</active><br>", act)
+    act = ACTIVE_NAMED.sub(lambda m: f"<active>{m.group(1)}</active><br>", act)
+    names = re.findall(r"<active>([^<]*)</active>", act)
+    if tip and any(f"<active>{n}</active>" in RULES_TAIL.sub("", tip) for n in names if n not in ("主動", "主動─")):
+        return tip  # 模板已經寫了同一段主動
+    if not tip:
+        return act
+    m = RULES_TAIL.search(tip)  # 規則說明放最後
+    head, tail = (tip[:m.start()], m.group(0)) if m else (tip, "")
+    head = re.sub(r"(?:<br>\s*)+$", "", head)
+    return f"{head}<br><br>{act}{tail}" if head.strip() else f"{act}{tail}"
 
 def expand_tokens(tpl, st):
     """fill 之前先展開。字串表查不到就原樣留著，之後由 BRACE 清掉（等於舊行為）。"""
@@ -218,19 +259,23 @@ def fill(tpl, lut, calcs, ictx=None):
         # 查不到或不是單純數字就維持舊行為（拿掉）：這個佔位不算 miss，不可讓整行被 strip_holes 刪掉
         return f"（{s}秒）" if not m2 and re.fullmatch(r"[\d.]+", s) and float(s) > 0 else ""
     def split(m):
-        if ictx is None:
-            return ""
         suf = (m.group(1) or "").lower()
-        cm, cr = hget(ictx.calc, "meleeitemcalcvalue" + suf), hget(ictx.calc, "rangeditemcalcvalue" + suf)
+        cm = hget(ictx.calc, "meleeitemcalcvalue" + suf) if ictx is not None else None
+        cr = hget(ictx.calc, "rangeditemcalcvalue" + suf) if ictx is not None else None
         try:
             sm = render_val(eval_calc(ictx, cm), 1.0) if cm is not None else None
             sr = render_val(eval_calc(ictx, cr), 1.0) if cr is not None else None
         except Miss:
             return ""
+        # 妖夢鬼刀「惡影步伐」：這組佔位的值放在 mDataValues，不是計算式（官方 20% 近戰／15% 遠程）
+        if sm is None and lut.get("meleeitemcalcvalue" + suf) is not None:
+            sm = fmt(lut["meleeitemcalcvalue" + suf])
+        if sr is None and lut.get("rangeditemcalcvalue" + suf) is not None:
+            sr = fmt(lut["rangeditemcalcvalue" + suf])
         if sm and sr and sm != sr:
             return f"{sm}（遠程 {sr.replace('（依等級）', '')}）"
         return sm or sr or ""
-    tpl = CD_DUP.sub("@Cooldown@秒", tpl)
+    tpl = CD_DUP.sub(r"@\1@秒", tpl)
     if CD_TOK.search(tpl):
         tpl = CD_TOK.sub(cooldown, tpl)
     tpl = SPLIT_TOK.sub(split, tpl)
@@ -238,6 +283,9 @@ def fill(tpl, lut, calcs, ictx=None):
     miss += len(EXT.findall(tpl))  # 算進 miss，超過門檻 main 會退回 DDragon 原文
     t = TOK.sub(rep, EXT.sub("", tpl))
     t = NO_LIMIT.sub("（永久）", t)
+    t = re.sub(r"(\d)（遠程 ([\d.]+)）%", r"\1%（遠程 \2%）", t)  # 模板把 % 接在佔位後面
+    t = re.sub(r"(?<![\d.])([\d.]+)（\1秒）", r"\1秒", t)  # 模板先印數字再接冷卻佔位：神聖之劍「(90（90秒）)」
+    t = re.sub(r"%\s+\(([\d.]+秒)\)", r"%（\1）", t)  # 狂風之力「最多50% (120秒)」：lint 錯誤級
     t = re.sub(r"\(（([\d.]+秒)）為", r"（冷卻\1，為", t).replace("為5秒)", "為5秒）")  # 潛行者之爪「({{ Item_Cooldown }}為5秒)」
     # 冷卻放進被動名稱（遊戲內就排在名稱旁邊）。留在內文的話，index.html 的道具標頭取內文第一行，
     # 破堡者標頭會只剩一行「（20秒）」（#2622）
@@ -347,25 +395,25 @@ def main():
     prev, prev_xtra = read_prev()
 
     out, filled_n, kept = {}, 0, []
-    for iid in sorted(dd, key=lambda x: int(x)):
+    def _not_live(i):
+        return not (dd[i].get("gold", {}).get("purchasable") and dd[i].get("maps", {}).get("11"))
+    for iid in sorted(dd, key=lambda x: (_not_live(x), int(x))):
         if int(iid) >= 200000:
             continue  # 特殊模式變體（競技場 22xxxx 等）不作為正文來源
         name = dd[iid]["name"]
         if name in out:
-            continue  # 同名以較小 id 為準
+            continue  # 同名以現行可買為準，再來才是較小 id
         # 主模板存在但為空字串 → 這道具的說明只有遊戲內統計/附註，正文以 DDragon 為準
         if st.get(f"item_{iid}_tooltip") == "":
             continue
-        # 模板變體優先序：含 @token@（有數值）者優先；external 版常是無數字的簡述
-        cands = [st.get(f"item_{iid}_{s}") for s in
-                 ("tooltip", "tooltipextended", "tooltipinventory", "tooltipexternal")]
-        cands = [c for c in cands if c]
-        tpl = next((c for c in cands if "@" in c), cands[0] if cands else None)
+        entry = binj.get(f"Items/{iid}")
+        if not entry:
+            continue
+        tpl = pick_template(iid, entry, st)
         if tpl:  # @f1@/@f2@… 是遊戲內即時統計（已阻擋傷害量等），整句剔除
             tpl = "<br>".join(seg for seg in tpl.split("<br>") if not re.search(r"@f\d+@", seg))
             tpl = expand_tokens(tpl, st)
-        entry = binj.get(f"Items/{iid}")
-        if not tpl or not entry:
+        if not tpl:
             continue
         lut = build_lut(entry)
         calcs = build_calcs(entry, lut)
