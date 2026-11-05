@@ -123,6 +123,8 @@ _LOCK = threading.Lock()   # 保護 _LAST_HIT 與「等待→送請求」那一�
 _FUT = {}           # ov -> Future：背景預抓中的「進行中」頁面（見 start_refetch）
 _PRE = {}           # ov → html：這一輪不重抓的快取頁，開跑前用執行緒池先讀進來（見 prefetch_cached）
 READ_JOBS = 8       # 預讀的執行緒數（要退回循序：--read-jobs=1）
+HTML_TRIP = 2       # 連續幾頁（每頁 3 次都失敗）就不再打 api.php（#2612）。舊版 57 頁全失敗光退避就睡 68 分鐘
+_HTML_FAIL = {"streak": 0, "tripped": False}
 
 cache_path = lambda ov: os.path.join(CACHE, re.sub(r"[^A-Za-z0-9]+", "_", ov).strip("_").lower() + ".html")
 
@@ -165,6 +167,11 @@ def page_html(ov, force=False):
         return _PRE.pop(ov)          # 預讀過的直接用（讀完就丟，不要整輪抓著 25MB）
     if os.path.exists(f) and os.path.getsize(f) > 5000 and not force:
         return open(f, encoding="utf-8").read()
+    if _HTML_FAIL["streak"] >= HTML_TRIP:
+        if not _HTML_FAIL["tripped"]:
+            print(f"    ⚠ api.php 連 {HTML_TRIP} 頁抓不到，這班不再上網，其餘要重抓的頁沿用舊資料")
+        _HTML_FAIL["tripped"] = True
+        return ""
     url = ("https://lol.fandom.com/api.php?action=parse&page=" + urllib.parse.quote(ov)
            + "&prop=text&format=json&formatversion=2")
     for a in range(3):
@@ -190,6 +197,7 @@ def page_html(ov, force=False):
                     # 失敗也算送過一次，重試不可以繞過間隔（原本寫在下面的 except，
                     # 但那時鎖已經放掉了——別人會拿到還沒更新的時刻而提早送出）
                     _LAST_HIT[0] = time.time()
+            _HTML_FAIL["streak"] = 0   # 站有回應（包含回 error）就不算連不上
             if "error" in d:
                 return ""
             h = d["parse"]["text"]
@@ -200,6 +208,7 @@ def page_html(ov, force=False):
         except Exception as e:
             # _LAST_HIT 已在上面的 finally 記過（#106），這裡不再重複
             print(f"    抓取失敗（{a+1}/3）：{type(e).__name__}"); time.sleep(RETRY_GAP * (a + 1))
+    _HTML_FAIL["streak"] += 1
     return ""
 
 
@@ -817,7 +826,50 @@ def run_cargo(pages):
     return allrec, hit, fb
 
 
+_gkey = lambda r: (str(r.get("d") or ""), _cs(r.get("t1")), _cs(r.get("t2")), r.get("gi"))
+
+
+def merge_prev(allrec, prev, fb, quiet=False):
+    """把這一輪的結果跟舊檔合併，回新的 allrec（#2612）。
+
+    ①這一輪沒產出的賽事沿用舊檔（2026-09-05 既有行為）。
+    ②**走 HTML 備援的頁只補舊檔沒有的局**，舊檔有的局一律留舊的。HTML 備援只在 Cargo 查不到時才走，
+      而打完的頁吃的是 #118 以前留下的快取，比舊檔差：實測 CBLOL Split 2 Playoffs 舊檔 40 局、
+      快取只解析得出 15 局，LCS Summer Playoffs 39→6，而且 HTML 路徑沒有賽制（bo 變 0，
+      比賽BP 會把 BO1 判成缺局）、也不收沒選邊欄的局。舊版整頁換掉，Cargo 擋一班就全部掉進來。
+    """
+    fb = set(fb)
+    oldk = {_gkey(r) for r in prev if r.get("ov") in fb}
+    fresh = [r for r in allrec if not (r.get("ov") in fb and _gkey(r) in oldk)]
+    _have = {r.get("ov") for r in fresh if r.get("ov") not in fb}
+    _keep = [r for r in prev if r.get("ov") and r["ov"] not in _have]
+    if not _keep:
+        return fresh
+    _bys = {}
+    for r in _keep:
+        _bys[r["ov"]] = _bys.get(r["ov"], 0) + 1
+    if not quiet:
+        for ov2, n2 in sorted(_bys.items()):
+            if ov2 in fb:
+                _add = sum(1 for r in fresh if r.get("ov") == ov2)
+                print("  ↩ %s：Cargo 查不到 → 留舊檔的 %d 局，HTML 備援新增 %d 局" % (ov2, n2, _add))
+            else:
+                print("  ↩ %s：這次沒抓到（配對失敗／頁面沒了）→ 沿用舊檔的 %d 局" % (ov2, n2))
+    out = fresh + _keep
+    out.sort(key=lambda r: (str(r.get("d") or ""), str(r.get("ov") or ""), r.get("gi") or 0))
+    return out
+
+
+def write_js(p, text):
+    """先寫 tmp 再換名：寫到一半失敗不會留下半個檔（#2612）。"""
+    tmp = p + ".tmp"
+    with io.open(tmp, "w", encoding="utf-8") as f:
+        f.write(text)
+    os.replace(tmp, p)
+
+
 def main():
+    """回離開碼：這班有資料沒更新到時回 1（#2612）。"""
     global YEAR, HIST
     ap = argparse.ArgumentParser()
     ap.add_argument("--page", action="append", default=[], help="只抓指定 OverviewPage（可重複）")
@@ -838,6 +890,7 @@ def main():
         YEAR, HIST = A.year, True
 
     pages = A.page or ov_pages()
+    rc, fb = 0, []
     if HIST or A.html:
         allrec, hit = run_html(pages, A)
     else:
@@ -853,50 +906,48 @@ def main():
             print("   ", r)
         return
     if not allrec:
-        print("沒有任何資料，不覆蓋既有檔案"); return
+        print("  ⚠ 沒有任何資料，不覆蓋既有檔案"); return 1
     # ── 抓取失敗不可以讓既有資料消失（2026-09-05）──────────────────────────
     # 實例：LPL Grand Finals 打到一半，wiki 已列 8 個系列、MatchSchedule 只排得到 6 個
     # ⇒ 配對率 75% < 90% 的門檻 ⇒ **整個賽事被跳過**，重跑一次就從檔案裡少掉 23 局
     # （那 23 局昨天還在）。門檻本身是對的（配錯日期比沒有更糟），但「這次抓不到」
     # 不等於「這些資料不存在」⇒ 這一輪沒產出任何一局的賽事，沿用舊檔裡的紀錄。
-    # 只在**全量**跑時做（--page 是單抓，本來就只該動那一頁）。
-    if not A.page:
-        _out = os.path.join(ROOT, "side_sel_%d.js" % YEAR) if HIST else os.path.join(ROOT, "side_sel.js")
-        try:
-            if os.path.exists(_out):
-                _t = io.open(_out, encoding="utf-8").read()
-                # ⚠ 不能用 index("=")／rindex("=") 切：VOD 網址裡就有 `=`（?v=…&t=…）。
-                # 找「= 後面緊接著 [」才是真正的賦值點（兩種輸出格式都適用）。
-                _m9 = re.search(r"=\s*\[", _t)
-                _prev = json.loads(_t[_m9.end() - 1:].rstrip().rstrip(";")) if _m9 else []
-                _have = {r.get("ov") for r in allrec}
-                _keep = [r for r in _prev if r.get("ov") and r["ov"] not in _have]
-                if _keep:
-                    _bys = {}
-                    for r in _keep:
-                        _bys[r["ov"]] = _bys.get(r["ov"], 0) + 1
-                    for ov2, n2 in sorted(_bys.items()):
-                        print("  ↩ %s：這次沒抓到（配對失敗／頁面沒了）→ 沿用舊檔的 %d 局" % (ov2, n2))
-                    allrec += _keep
-                    allrec.sort(key=lambda r: (str(r.get("d") or ""), str(r.get("ov") or ""), r.get("gi") or 0))
-        except Exception as e:
-            print("  ⚠ 舊檔沿用失敗（%s）：這次就只寫新抓到的" % type(e).__name__)
+    # --page 也要做（#2612）：舊版跳過這段，單抓一頁會把整個檔案寫成只剩那一頁。
+    _out = os.path.join(ROOT, "side_sel_%d.js" % YEAR) if HIST else os.path.join(ROOT, "side_sel.js")
+    try:
+        if os.path.exists(_out):
+            _t = io.open(_out, encoding="utf-8").read()
+            # ⚠ 不能用 index("=")／rindex("=") 切：VOD 網址裡就有 `=`（?v=…&t=…）。
+            # 找「= 後面緊接著 [」才是真正的賦值點（兩種輸出格式都適用）。
+            _m9 = re.search(r"=\s*\[", _t)
+            _prev = json.loads(_t[_m9.end() - 1:].rstrip().rstrip(";")) if _m9 else []
+            allrec = merge_prev(allrec, _prev, fb, quiet=bool(A.page))
+    except Exception as e:
+        print("  ⚠ 舊檔沿用失敗（%s）：這次就只寫新抓到的" % type(e).__name__)
+        rc = 1
+    _got = {r.get("ov") for r in allrec}
+    _lost = [ov for ov in fb if ov not in _got]
+    if _lost:
+        print("  ⚠ %d 頁 Cargo 和 HTML 都沒有資料、舊檔也沒有：%s" % (len(_lost), "、".join(_lost)))
+        rc = 1
+    if _HTML_FAIL["tripped"]:
+        rc = 1
     if HIST:
         p = os.path.join(ROOT, "side_sel_%d.js" % YEAR)
-        with io.open(p, "w", encoding="utf-8") as f:
-            f.write("window.SIDE_SEL_HIST=window.SIDE_SEL_HIST||{};window.SIDE_SEL_HIST[%d]="
-                    % YEAR + json.dumps(allrec, ensure_ascii=False, separators=(",", ":")) + ";")
+        write_js(p, "window.SIDE_SEL_HIST=window.SIDE_SEL_HIST||{};window.SIDE_SEL_HIST[%d]="
+                 % YEAR + json.dumps(allrec, ensure_ascii=False, separators=(",", ":")) + ";")
         print(f"→ side_sel_{YEAR}.js（{len(allrec)} 局、{os.path.getsize(p)//1024} KB）")
-        return
+        return rc
     p = os.path.join(ROOT, "side_sel.js")
-    with io.open(p, "w", encoding="utf-8") as f:
-        f.write("window.SIDE_SEL=" + json.dumps(allrec, ensure_ascii=False, separators=(",", ":")) + ";")
+    write_js(p, "window.SIDE_SEL=" + json.dumps(allrec, ensure_ascii=False, separators=(",", ":")) + ";")
     print(f"→ side_sel.js（{len(allrec)} 局、{os.path.getsize(p)//1024} KB）")
+    return rc
 
 
 if __name__ == "__main__":
     try:
-        main()
+        _rc = main() or 0
     except Exception as e:
-        print(f"fetch_side_sel：執行失敗（{type(e).__name__}: {e}）")
-    sys.exit(0)
+        print(f"  ⚠ fetch_side_sel：執行失敗（{type(e).__name__}: {e}）")
+        _rc = 1          # 舊版一律 exit 0：賽事頁清單抓不到時整班沒更新，健檢看不到（#2612）
+    sys.exit(_rc)
