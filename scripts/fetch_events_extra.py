@@ -29,6 +29,14 @@ EWCQ* 會再被合併卡吸收成 EWC 卡底下的資格賽分段。
   設定雜湊變了或 meta 沒成功記過（人改了設定／上一班抓失敗，照舊每班抓）。被選中的那個抓失敗只在 meta
   記 `tried`（at 不動），下一班換別的到期賽事先抓、它輪過一圈再試，不會一直排第一把其他的餓死。
   細節見 hist_plan()。
+
+抓不到不可以蓋掉舊資料（2026-11-05 精進迴圈 #2611）：2026-08-18 Wiki 把「Esports Nations Cup 2026」搬到 2027，
+  舊頁只剩轉址。action=parse 不跟轉址也不報錯，回一小段 redirectMsg ⇒ 解析到 0 隊 ⇒ 31 隊 31 份名單被
+  0 隊蓋掉（commit 4f13e78c），日誌與健檢都沒出聲。現在：
+  - 解析到 0 隊而舊檔有隊伍 ⇒ 整筆沿用舊檔、不記 at、印 ⚠ 並在收尾 exit 1（不是暫時性問題，要人看設定）。
+  - 轉址不跟：搬走的頁不一定是同一屆（這次就差一年），印出搬去哪裡，由人改 EVENTS。
+  - 有隊伍但某隊這班沒有名單（Cargo 失敗時 cargo_rosters 回 {}）⇒ 該隊沿用舊名單。
+  - 分賽段的賽事：失敗或 0 隊的賽段沿用舊檔那一段，不再從輸出消失。
 """
 import io, sys, os, re, json, time, hashlib, datetime, html as _html, urllib.request, urllib.parse
 
@@ -515,8 +523,38 @@ def cargo_rosters(page, subpages=False, only=None):
     return out
 
 
+def redirect_target(html):
+    """action=parse 打到轉址頁時回的是 redirectMsg 那一小段；回傳目標頁名，不是轉址頁回空字串"""
+    if 'class="redirectMsg"' not in html:
+        return ""
+    m = re.search(r'class="redirectText".*?<a[^>]*title="([^"]+)"', html, re.S)
+    return _html.unescape(m.group(1)) if m else "（目標不明）"
+
+
+def keep_old_rosters(teams, rosters, old_entry):
+    """這班有參賽、卻沒有名單的隊，沿用舊檔的名單（Cargo 失敗時整批是空的）。回傳 (rosters, 補了幾隊)"""
+    prev = (old_entry or {}).get("rosters") if isinstance(old_entry, dict) else None
+    if not isinstance(prev, dict):
+        return rosters, 0
+    out, n = dict(rosters), 0
+    for t in teams:
+        if t not in out and prev.get(t):
+            out[t] = prev[t]; n += 1
+    return out, n
+
+
+def write_out(data):
+    tmp = OUT + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        f.write("window.EVENTS_EXTRA=" + json.dumps(data, ensure_ascii=False, separators=(",", ":")) + ";")
+    os.replace(tmp, OUT)
+
+
 def grab(page, kind, roster_page=None):
     html = parse_page(page)
+    moved = redirect_target(html)
+    if moved:
+        print(f"   ⚠ 頁面已搬走：{page} → {moved}（不跟轉址，要人判斷是不是同一屆、再改 EVENTS）")
     frm, to = dates_of(html)
     rs = rosters_of(html)
     if not rs and roster_page:      # 舊賽事的名單在 `/Team Rosters` 子頁
@@ -634,6 +672,7 @@ def main():
     meta = load_meta()
     now = datetime.datetime.now()
     n_reuse = n_fetch = n_hist = 0
+    zero = []                               # 解析到 0 隊、沿用舊檔的賽事 ⇒ 收尾 exit 1（#2611）
     picked, deferred = hist_plan(meta, old, now, force)
     n_due = len(picked) + len(deferred)
     if deferred:
@@ -664,12 +703,31 @@ def main():
             if cfg.get("splits"):
                 print(f"[{year}] {code}（{len(cfg['splits'])} 個賽段）")
                 segs, allt, frm0, to0 = [], [], "", ""
+                old_segs = {s.get("sp"): s for s in ((old.get(str(year), {}).get(code) or {}).get("splits") or [])}
                 complete = True         # 任一賽段／季後賽頁失敗就不記進 meta，下一班會再抓
+                def _keep_seg(sp_name):
+                    """這個賽段這班拿不到 ⇒ 沿用舊檔那一段（日期、隊伍照算進頂層）。回傳 (frm0, to0)"""
+                    o = old_segs.get(sp_name)
+                    if not o:
+                        return frm0, to0
+                    print(f"   ⚠ {sp_name} 沿用上一版（{len(o.get('teams') or [])} 隊）")
+                    segs.append(o)
+                    allt.extend(o.get("teams") or [])
+                    f, t = o.get("from") or "", o.get("to") or ""
+                    return (f if f and (not frm0 or f < frm0) else frm0), (t if t > to0 else to0)
                 for sp in cfg["splits"]:
                     try:
                         teams, _rs, frm, to, brk = grab(sp["page"], kind, sp.get("page","")+"/Team Rosters")
                     except Exception as e:
-                        print(f"   {sp['sp']} 失敗：{str(e)[:100]}"); complete = False; continue
+                        print(f"   {sp['sp']} 失敗：{str(e)[:100]}"); complete = False
+                        frm0, to0 = _keep_seg(sp["sp"]); continue
+                    if not teams and (old_segs.get(sp["sp"]) or {}).get("teams"):
+                        print(f"   ⚠ {sp['sp']} 解析到 0 隊（{sp['page']}）")
+                        zero.append(f"{year}|{code}|{sp['sp']}"); complete = False
+                        frm0, to0 = _keep_seg(sp["sp"]); continue
+                    _rs, _n = keep_old_rosters(teams, _rs or {}, old_segs.get(sp["sp"]))
+                    if _n:
+                        print(f"   ⚠ {sp['sp']}：{_n} 隊這班沒有名單，沿用上一版")
                     # 對戰表涵蓋全部參賽隊＝整個賽事就是淘汰賽（2013 土耳其／大洋洲／CIS 都是）→
                     # 那就沒有「誰晉級」可言，全部打勾等於沒打勾 → 不標
                     po = list(brk) if 0 < len(brk) < len(teams) else []
@@ -722,11 +780,18 @@ def main():
                 teams, rosters, frm, to, brk = grab(cfg["page"], kind, cfg["page"]+"/Team Rosters")
             except Exception as e:
                 print("   失敗，保留舊資料：", str(e)[:120]); _tried(key); continue
+            old_e = old.get(str(year), {}).get(code)
+            if not teams and isinstance(old_e, dict) and old_e.get("teams"):
+                print(f"   ⚠ 解析到 0 隊（舊檔 {len(old_e['teams'])} 隊）→ 沿用上一版，不蓋掉")
+                zero.append(key); _tried(key); continue
             rosters = align_keys(teams, rosters)
             if kind == "nation" and rosters:
                 rosters, _hit = resolve_roster_ids(rosters)
                 if _hit:
                     print(f"   本名 → 選手 ID：{_hit} 位（亞運這種以本名報名的賽事）")
+            rosters, _n = keep_old_rosters(teams, rosters, old_e)     # 放在解 ID 之後：舊名單已經解過了
+            if _n:
+                print(f"   ⚠ {_n} 隊這班沒有名單，沿用上一版")
             data[str(year)][code] = {"teams": teams, "rosters": rosters, "from": frm, "to": to,
                                      "po": (brk if 0 < len(brk) < len(teams) else []), "page": cfg["page"],
                                      "url": "https://lol.fandom.com/wiki/" + urllib.parse.quote(cfg["page"].replace(" ", "_"))}
@@ -745,13 +810,16 @@ def main():
                 print("   ", "、".join(teams[:8]) + ("…" if len(teams) > 8 else ""))
             if int(year) < now.year:
                 meta[key] = {"sig": _sig(cfg), "at": now.strftime("%Y-%m-%d %H:%M")}
-    open(OUT, "w", encoding="utf-8").write("window.EVENTS_EXTRA=" + json.dumps(data, ensure_ascii=False, separators=(",", ":")) + ";")
+    write_out(data)
     # 只留 EVENTS 還登記著的鍵（從設定移除的賽事，meta 也跟著清）
     keep = {f"{y}|{c}" for y, evs in EVENTS.items() for c in evs}
     meta = {k: v for k, v in meta.items() if k in keep}
     save_meta(meta)
     print(f"→ events_extra.js（沿用舊檔 {n_reuse} 個賽事／實際抓取 {n_fetch} 個，歷史年份每 {REFRESH_DAYS} 天重抓一次、"
           f"本班到期 {n_due} 個重抓 {n_hist} 個（每班最多 {HIST_PER_SHIFT} 個）；--force 全部重抓）")
+    if zero:
+        print(f"⚠ {len(zero)} 個賽事解析到 0 隊、沿用上一版：{'、'.join(zero)}（頁面搬走或版型變了，要人看 EVENTS）")
+        sys.exit(1)
 
 
 if __name__ == "__main__":
