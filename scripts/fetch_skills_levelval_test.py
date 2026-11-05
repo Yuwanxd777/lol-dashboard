@@ -129,5 +129,91 @@ ok("負值 × 負倍率", lambda: K.scale_rng("-0.5－-0.2（依等級）", -1),
 ok("Product 另一邊帶依等級時不可當純數", lambda: show({"__type": GC, "mFormulaParts": [{"__type": "ProductOfSubPartsCalculationPart", "mPart1": num(2), "mPart2": {"__type": "SumOfSubPartsCalculationPart", "mSubparts": [num(1), {"mStartValue": 10, "mEndValue": 20, "__type": IP}]}}]}), "2 + 20－40（依等級）")
 ok("無固定值時依等級係數不加括號", lambda: show({"__type": GC, "mFormulaParts": [{"mStat": 2, "__type": "StatBySubPartCalculationPart", "mSubpart": {"mStartValue": 0.5, "mEndValue": 1, "__type": IP}}]}), "+50－100%（依等級） AD")
 
+# ── 堆疊層數係數（#2618，素材照 bin）
+BC = "BuffCounterByCoefficientCalculationPart"
+NAMED = lambda n: {"mDataValue": n, "__type": "NamedDataValueCalculationPart"}
+STATC = lambda st, c: {"mStat": st, "mCoefficient": c, "__type": "StatByCoefficientCalculationPart"}
+DV = lambda n, *v: {"name": n, "values": [0, *v, 0]}
+NASUS = {"__type": GC, "mFormulaParts": [NAMED("BonusDamage"), STATC(2, 1.0), {"mBuffName": "x", "mCoefficient": 1.0, "__type": BC}]}
+ok("納瑟斯 Q：固定＋AD＋每層", lambda: show(NASUS, [DV("BonusDamage", 30, 50, 70, 90, 110)]), "30/50/70/90/110（+100% AD）（每層 +1）")
+THRESH = {"__type": GC, "mFormulaParts": [{"mBuffName": "x", "mCoefficient": 1.7, "__type": BC}]}
+ok("瑟雷西 E：只有層數、係數不是 1", lambda: show(THRESH), "每層 +1.7")
+ok("達瑞文即時計數：只有層數、係數 1 → 不印", lambda: show({"__type": GC, "mFormulaParts": [{"mCoefficient": 1.0, "__type": BC}]}), None)
+KIND = {"__type": GC, "mDisplayAsPercent": True, "mFormulaParts": [NAMED("BaseBonusAS"), {"mCoefficient": 0.05, "__type": BC}]}
+ok("鏡爪 Q：百分比固定值＋每層也是百分比", lambda: show(KIND, [DV("BaseBonusAS", .35, .4, .45, .5, .55)]), "35/40/45/50/55%（每層 +5%）")
+ok("百分比只有層數、係數 1 不是即時計數（×100 後才是 100）", lambda: show({"__type": GC, "mDisplayAsPercent": True, "mFormulaParts": [{"mCoefficient": 1.0, "__type": BC}]}), "每層 +100%")
+ok("模板 *100 也乘到層數", lambda: show({"__type": GC, "mFormulaParts": [{"mCoefficient": 0.05, "__type": BC}]}, mult=100), "每層 +5")
+ok("小係數不被 2 位捨入吃掉", lambda: show({"__type": GC, "mFormulaParts": [NAMED("A"), {"mCoefficient": 0.008, "__type": BC}]}, [DV("A", 1, 1, 1, 1, 1)]), "1（每層 +0.008）")
+ok("mMultiplier 乘到層數", lambda: show({"__type": GC, "mMultiplier": num(2), "mFormulaParts": [{"mCoefficient": 1.5, "__type": BC}]}), "每層 +3")
+ok("Sum 裡的層數不可丟", lambda: show({"__type": GC, "mFormulaParts": [{"__type": "SumOfSubPartsCalculationPart", "mSubparts": [num(5), {"mCoefficient": 1.5, "__type": BC}]}]}), "5（每層 +1.5）")
+ok("Product 乘到層數", lambda: show({"__type": GC, "mFormulaParts": [{"__type": "ProductOfSubPartsCalculationPart", "mPart1": {"mCoefficient": 1.5, "__type": BC}, "mPart2": num(2)}]}), "每層 +3")
+def _modified_stack():
+    c = K.SpellCtx({"mSpellCalculations": {"Base": {"__type": GC, "mFormulaParts": [{"mCoefficient": 1.5, "__type": BC}]},
+                                          "M": {"__type": "GameCalculationModified", "mModifiedGameCalculation": "Base", "mMultiplier": num(2)}}}, 5)
+    return K.render_val(K.eval_calc(c, c.calc["m"]))
+ok("GameCalculationModified 乘到層數", _modified_stack, "每層 +3")
+def _miss(calc):
+    try:
+        K.eval_calc(ctx(), calc)
+    except K.Miss:
+        return "Miss"
+    return "沒 Miss"
+ok("層數當倍率（貝爾薇斯）：Miss，不亂印", lambda: _miss({"__type": GC, "mMultiplier": num(1), "mFormulaParts": [{"mStat": 2, "__type": "StatBySubPartCalculationPart", "mSubpart": {"mCoefficient": 1.0, "__type": BC}}]}), "Miss")
+def _mod_stackmult():
+    c = K.SpellCtx({"mSpellCalculations": {"Base": {"__type": GC, "mFormulaParts": [num(3)]},
+                                          "M": {"__type": "GameCalculationModified", "mModifiedGameCalculation": "Base", "mMultiplier": {"mCoefficient": 1.0, "__type": BC}}}}, 5)
+    try:
+        K.eval_calc(c, c.calc["m"])
+    except K.Miss:
+        return "Miss"
+    return "沒 Miss"
+ok("Modified 的倍率是層數：Miss", _mod_stackmult, "Miss")
+ok("Product 另一邊是層數時不可當純數", lambda: _miss({"__type": GC, "mFormulaParts": [{"__type": "ProductOfSubPartsCalculationPart", "mPart1": {"mStat": 2, "mCoefficient": 1.0, "__type": "StatByCoefficientCalculationPart"}, "mPart2": {"mCoefficient": 1.0, "__type": BC}}]}), "Miss")
+
+SUMST = {"__type": "SumOfSubPartsCalculationPart", "mSubparts": [num(2), {"mCoefficient": 1.0, "__type": BC}]}
+ok("屬性 × (固定＋層數)：Miss，層數不可靜靜丟掉", lambda: _miss({"__type": GC, "mFormulaParts": [{"mStat": 2, "__type": "StatBySubPartCalculationPart", "mSubpart": SUMST}]}), "Miss")
+ok("Product 另一邊是固定＋層數：Miss", lambda: _miss({"__type": GC, "mFormulaParts": [{"__type": "ProductOfSubPartsCalculationPart", "mPart1": STATC(2, 1.0), "mPart2": SUMST}]}), "Miss")
+def _mod_sumst():
+    c = K.SpellCtx({"mSpellCalculations": {"Base": {"__type": GC, "mFormulaParts": [num(3)]},
+                                          "M": {"__type": "GameCalculationModified", "mModifiedGameCalculation": "Base", "mMultiplier": SUMST}}}, 5)
+    try:
+        K.eval_calc(c, c.calc["m"])
+    except K.Miss:
+        return "Miss"
+    return "沒 Miss"
+ok("Modified 的倍率是固定＋層數：Miss", _mod_sumst, "Miss")
+ok("百分比只有層數、×100 後剛好 1 不是即時計數", lambda: show({"__type": GC, "mDisplayAsPercent": True, "mFormulaParts": [{"mCoefficient": 0.01, "__type": BC}]}), "每層 +1%")
+
+# ── 上下限與技能的 EffectValue（凱莎 E 照 bin）
+CL = "ClampSubPartsCalculationPart"
+EFF = [{"value": [.55, .55, .6, .65, .7, .75, .75]}, {"value": [4.0, 4, 4, 4, 4, 4, 4]}]
+ectx = lambda: K.SpellCtx({"mEffectAmount": EFF}, 5)
+KAISA = {"__type": GC, "mDisplayAsPercent": True, "mMultiplier": {"mEffectIndex": 1, "__type": "EffectValueCalculationPart"},
+         "mFormulaParts": [{"__type": CL, "mCeiling": 2.0, "mFloor": 1.0, "mSubparts": [STATC(4, 1.0), num(1)]}]}
+ok("凱莎 E 跑速 55－75%（Meraki 同），佔位不算", lambda: K.render_val(K.eval_calc(ectx(), KAISA)), "55/60/65/70/75%")
+ok("EffectValue 第 2 組", lambda: K.eval_part(ectx(), {"mEffectIndex": 2, "__type": "EffectValueCalculationPart"}).flat, [4, 4, 4, 4, 4])
+def _eff(i, c=None):
+    try:
+        K.eval_part(c or ectx(), {"mEffectIndex": i, "__type": "EffectValueCalculationPart"})
+    except K.Miss:
+        return "Miss"
+    return "沒 Miss"
+ok("EffectValue 索引 0：Miss", lambda: _eff(0), "Miss")
+ok("EffectValue 超出範圍：Miss", lambda: _eff(3), "Miss")
+ok("EffectValue 空組：Miss", lambda: _eff(1, K.SpellCtx({"mEffectAmount": [{"value": []}]}, 5)), "Miss")
+ok("EffectValue 大招只取 3 級", lambda: K.eval_part(K.SpellCtx({"mEffectAmount": EFF}, 3), {"mEffectIndex": 1, "__type": "EffectValueCalculationPart"}).flat, [.55, .6, .65])
+clamp = lambda **kw: K.eval_part(ctx(), {"__type": CL, **kw}).flat
+ok("上限夾住", lambda: clamp(mFloor=1.0, mCeiling=2.0, mSubparts=[num(5)]), [2.0] * 5)
+ok("下限夾住", lambda: clamp(mFloor=1.0, mCeiling=2.0, mSubparts=[num(.5)]), [1.0] * 5)
+ok("範圍內不動", lambda: clamp(mFloor=1.0, mCeiling=2.0, mSubparts=[num(1.5)]), [1.5] * 5)
+ok("mCeiling null＝沒有上限", lambda: clamp(mFloor=1.0, mCeiling=None, mSubparts=[num(9)]), [9] * 5)
+ok("mFloor null＝沒有下限", lambda: clamp(mFloor=None, mCeiling=2.0, mSubparts=[num(-9)]), [-9] * 5)
+ok("沒寫 mFloor＝0（卡莉絲塔）", lambda: clamp(mCeiling=None, mSubparts=[num(-3), STATC(4, 1.0)]), [0] * 5)
+ok("subparts 相加再夾", lambda: clamp(mFloor=0, mCeiling=9.0, mSubparts=[num(1), num(2)]), [3] * 5)
+ok("只有屬性項＝0 屬性", lambda: clamp(mFloor=1.0, mCeiling=2.0, mSubparts=[STATC(4, 1.0)]), [1.0] * 5)
+ok("subpart 帶依等級：Miss", lambda: _miss({"__type": GC, "mFormulaParts": [{"__type": CL, "mFloor": 0, "mSubparts": [{"mStartValue": 1, "mEndValue": 2, "__type": IP}]}]}), "Miss")
+ok("subpart 帶層數：Miss", lambda: _miss({"__type": GC, "mFormulaParts": [{"__type": CL, "mFloor": 0, "mSubparts": [{"mCoefficient": 1.0, "__type": BC}]}]}), "Miss")
+ok("subpart 未知型別（銳兒 PercentageOfBuffNameElapsed）：Miss", lambda: _miss({"__type": GC, "mFormulaParts": [{"__type": CL, "mFloor": .2, "mCeiling": 1.0, "mSubparts": [{"__type": "PercentageOfBuffNameElapsed"}]}]}), "Miss")
+
 print(f"合計 ✓ {ng[0]} ✗ {ng[1]}")
 sys.exit(1 if ng[1] else 0)

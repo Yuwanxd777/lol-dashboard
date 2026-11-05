@@ -126,6 +126,7 @@ class Val:
         self.scal = scal or []
         self.rng  = rng
         self.srng = srng or []   # 係數本身依等級：[(rng 字串, 屬性標籤)]（卡特蓮娜匕首 +70－100% AP）
+        self.stack = []          # 每層堆疊加多少：[每級係數 list]（納瑟斯 Q 每層 +1、姍娜 R 護盾每層 +1.5）
         self.pct  = False
 
 def _mk_rng(lo, hi):
@@ -213,6 +214,8 @@ def eval_part(ctx, part, depth=0):
         sub = eval_part(ctx, part.get("mSubpart") or {}, depth + 1)
         if not lab:
             return Val()
+        if sub.stack:   # 屬性 × 層數印不出來，別把層數那項靜靜丟掉
+            raise Miss("statbysub")
         if sub.rng:
             # 係數依等級（路西恩 +50－60% AD）。舊版這裡一律 Miss，卡特蓮娜被動就只剩「造成 魔法傷害」。
             # sub.scal 是爆頭那種暴擊加成，略過：寧可少一個係數也不要沒有數字。
@@ -229,21 +232,23 @@ def eval_part(ctx, part, depth=0):
         for p in part.get("mSubparts") or []:
             s = eval_part(ctx, p, depth + 1)
             v.flat = _zip_add(v.flat, s.flat); v.scal += s.scal
-            v.rng = _add_rng(v.rng, s.rng); v.srng += s.srng
+            v.rng = _add_rng(v.rng, s.rng); v.srng += s.srng; v.stack += s.stack
         return v
     if t == "ProductOfSubPartsCalculationPart":
         a = eval_part(ctx, part.get("mPart1") or {}, depth + 1)
         b = eval_part(ctx, part.get("mPart2") or {}, depth + 1)
         for x, y in ((a, b), (b, a)):
-            if y.flat and not y.scal and not y.rng and not y.srng:   # 其中一邊是純數 → 乘進另一邊
+            if y.flat and not y.scal and not y.rng and not y.srng and not y.stack:   # 其中一邊是純數 → 乘進另一邊
                 m = y.flat
                 if x.srng and len(set(m)) > 1:
                     raise Miss("product")
                 flat, rng = _mul_rng(x.flat, x.rng, m)
-                return Val(flat=flat,
-                           scal=[([r * k for r, k in zip(rs, m)], lb) for rs, lb in x.scal],
-                           rng=rng,
-                           srng=[(scale_rng(r, m[0]), lb) for r, lb in x.srng])
+                out = Val(flat=flat,
+                          scal=[([r * k for r, k in zip(rs, m)], lb) for rs, lb in x.scal],
+                          rng=rng,
+                          srng=[(scale_rng(r, m[0]), lb) for r, lb in x.srng])
+                out.stack = [[r * k for r, k in zip(rs, m)] for rs in x.stack]
+                return out
         raise Miss("product")
     if t == "CooldownMultiplierCalculationPart":
         # 冷卻倍率＝1/(1+技能加速)，執行時才知道 → 用「無技能加速」的基礎值 1 呈現（賽勒斯 R 的 200%）
@@ -258,6 +263,31 @@ def eval_part(ctx, part, depth=0):
         if not 1 <= i <= len(ctx.effect_1based):
             raise Miss("effect")
         return Val(flat=[ctx.effect_1based[i - 1]] * ctx.ranks)
+    if t == "EffectValueCalculationPart":
+        # 技能：mEffectIndex 1 起算（第 1 組＝effect[0]），每組的 values[0] 是佔位，1～N 才是等級。
+        # 凱莎 E：mEffectAmount[0]＝[.55, .55, .6, .65, .7, .75, .75] → 55/60/65/70/75%（Meraki 同）
+        i = part.get("mEffectIndex", 0)
+        vals = ctx.effect[i - 1] if 1 <= i <= len(ctx.effect) else None
+        if not vals:
+            raise Miss("effect")
+        return Val(flat=vals[1:min(ctx.ranks, max(1, len(vals) - 1)) + 1])
+    if t == "BuffCounterByCoefficientCalculationPart":
+        # 每層加多少，層數執行時才知道 → 印係數，不當 0。舊版整條 Miss：納瑟斯 Q「造成物理傷害」沒有數字
+        out = Val()
+        out.stack = [[part.get("mCoefficient", 0)] * ctx.ranks]
+        return out
+    if t == "ClampSubPartsCalculationPart":
+        # 夾在上下限之間。屬性項執行時才知道，以 0 屬性呈現（凱莎 E＝clamp(1 + 額外攻速, 1, 2) × 55%）。
+        # 沒寫 mFloor＝0（bin 省略預設值）；寫 null＝沒有下限。卡莉絲塔 max(0, 攻速 - 上限) 的基礎值就是 0。
+        v = Val()
+        for p in part.get("mSubparts") or []:
+            s = eval_part(ctx, p, depth + 1)
+            if s.rng or s.srng or s.stack:
+                raise Miss("clamp")
+            v.flat = _zip_add(v.flat, s.flat)
+        lo, hi = part.get("mFloor", 0), part.get("mCeiling")
+        return Val(flat=[max(lo if lo is not None else x, min(hi if hi is not None else x, x))
+                         for x in (v.flat or [0] * ctx.ranks)])
     if t == "BuffCounterByNamedDataValueCalculationPart":
         # 依當前堆疊層數成長，執行時才知道 → 以 0 層（基礎值）呈現（翱銳龍獸 E 的處決門檻）
         return Val(flat=[0] * ctx.ranks)
@@ -289,7 +319,7 @@ def eval_calc(ctx, calc, depth=0):
         for p in calc.get("mFormulaParts") or []:
             s = eval_part(ctx, p, depth + 1)
             v.flat = _zip_add(v.flat, s.flat); v.scal += s.scal
-            v.rng = _add_rng(v.rng, s.rng); v.srng += s.srng
+            v.rng = _add_rng(v.rng, s.rng); v.srng += s.srng; v.stack += s.stack
         # GameCalculation 也可能自帶 mMultiplier（以前只在 GameCalculationModified 處理）——
         # 漏掉它＝關 E 的攻速變 3000%（30 × 0.01 × 100% 被算成 30 × 100%）
         mp = calc.get("mMultiplier")
@@ -299,6 +329,7 @@ def eval_calc(ctx, calc, depth=0):
                 m = mv.flat
                 v.flat, v.rng = _mul_rng(v.flat, v.rng, m)
                 v.scal = [([r * k for r, k in zip(rs, m)], lb) for rs, lb in v.scal]
+                v.stack = [[r * k for r, k in zip(rs, m)] for rs in v.stack]
                 if len(set(m)) == 1:
                     v.srng = [(scale_rng(r, m[0]), lb) for r, lb in v.srng]
         if calc.get("mDisplayAsPercent"):
@@ -306,6 +337,7 @@ def eval_calc(ctx, calc, depth=0):
             v.scal = [([r * 100 for r in rs], lb) for rs, lb in v.scal]
             v.rng = scale_rng(v.rng, 100)  # 艾希被動緩速 0.2－0.3 其實是 20－30%
             v.srng = [(scale_rng(r, 100), lb) for r, lb in v.srng]
+            v.stack = [[r * 100 for r in rs] for rs in v.stack]
             v.pct = True
         return v
     if t == "GameCalculationModified":
@@ -314,7 +346,7 @@ def eval_calc(ctx, calc, depth=0):
             raise Miss("modref")
         base = eval_calc(ctx, ref, depth + 1)
         mul = eval_part(ctx, calc.get("mMultiplier") or {}, depth + 1)
-        if not (mul.flat and not mul.scal):
+        if not (mul.flat and not mul.scal and not mul.stack):
             raise Miss("mod-mult")
         m = mul.flat
         flat, rng = _mul_rng(base.flat, base.rng, m)
@@ -322,6 +354,7 @@ def eval_calc(ctx, calc, depth=0):
                   scal=[([r * k for r, k in zip(rs, m)], lb) for rs, lb in base.scal],
                   rng=rng,
                   srng=[(scale_rng(r, m[0]), lb) for r, lb in base.srng] if len(set(m)) == 1 else base.srng)
+        out.stack = [[r * k for r, k in zip(rs, m)] for rs in base.stack]
         out.pct = base.pct  # 少了這個，獄火手斧會印「7% 至 21」
         return out
     raise Miss(t or "calc")
@@ -369,6 +402,15 @@ def render_val(v, mult=1.0):
             continue
         pct = join_ranks(vals)
         out += f"（+{pct}% {lab}）" if out else f"+{pct}% {lab}"
+    for rs in v.stack:
+        vals = [r * mult for r in rs]
+        # 整條只有層數、係數 1 ＝遊戲裡的即時計數（達瑞文「獲得金幣總量」），沒有可以印的數字
+        if not out and not v.pct and all(abs(x - 1) < 1e-9 for x in rs):
+            continue
+        # fmt 只留 2 位，煙龍 Q 每層 0.008 會變 0.01
+        nums = "/".join(dict.fromkeys(("%.3f" % x).rstrip("0").rstrip(".") if abs(x) < 0.1 else fmt(x) for x in vals))
+        piece = f"每層 +{nums}" + ("%" if v.pct else "")
+        out += f"（{piece}）" if out else piece
     return out or None
 
 # ── 被動：CDragon 字串表模板（@token@ 風格）填值 ─────────────────────────────

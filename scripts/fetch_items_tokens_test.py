@@ -88,7 +88,7 @@ def main():
         except K.Miss:
             return True
         return False
-    check("技能：效果值維持 Miss（技能的 mEffectAmount 有前置佔位）", eff_skill)
+    check("技能：沒有 mEffectAmount 時效果值 Miss（有的情況見 fetch_skills_levelval_test）", eff_skill)
     check("技能：Ryze 型魔力係數算得出來", lambda: K.render_val(K.eval_part(K.SpellCtx({}, 1), {"mCoefficient": 0.02, "mStatFormula": 2, "__type": "AbilityResourceByCoefficientCalculationPart"})) == "+2% 額外魔力")
     check("基礎生命標籤", lambda: K._stat_label({"mStat": 12, "mStatFormula": 1}) == "基礎生命")
 
