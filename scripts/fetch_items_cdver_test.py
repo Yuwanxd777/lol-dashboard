@@ -219,13 +219,23 @@ IID = "6697"
 assert "@ADPerStatue@" in REAL_ST[f"item_{IID}_tooltip"], "素材變了"
 ST2 = {"entries": {f"item_{BLOOD}_tooltip": REAL_ST[f"item_{BLOOD}_tooltip"], f"item_{IID}_tooltip": REAL_ST[f"item_{IID}_tooltip"]}}
 DD2 = {"data": {BLOOD: {"name": "狂霸血甲", "description": ""}, IID: {"name": "測試道具", "description": ""}}}
-e_good = json.loads(json.dumps(REAL_BIN[f"Items/{IID}"]))
+# #2615 起雜湊 data value 查得到了，真實 bin 不再缺這兩個值，所以這裡把計算式拿掉，做出真的查不到的條目
+e_gone = json.loads(json.dumps(REAL_BIN[f"Items/{IID}"]))
+def _fnv(s):  # bin 的未知鍵是 FNV-1a 雜湊：ADPerStatue 在真實 bin 裡的鍵是 {619bce2f}
+    h = 0x811c9dc5
+    for c in s.lower().encode():
+        h = ((h ^ c) * 0x01000193) & 0xffffffff
+    return "{%08x}" % h
+for _k in ("BaseADBonus", "ADPerStatue"):
+    _c = e_gone["mItemCalculations"]
+    assert _c.pop(_k, None) or _c.pop(_fnv(_k), None), "素材變了"
+e_good = json.loads(json.dumps(e_gone))
 e_good["mDataValues"] += [{"mName": "BaseADBonus", "mValue": 12.0}, {"mName": "ADPerStatue", "mValue": 3.0}]
 good = {f"Items/{BLOOD}": bin_with(0.12), f"Items/{IID}": e_good}
 b4 = Box()
 b4.run(routes(good, st=ST2, dd=DD2, cdver="B1"))
 first = desc(b4)["測試道具"]
-gone = {f"Items/{BLOOD}": bin_with(0.10), f"Items/{IID}": REAL_BIN[f"Items/{IID}"]}  # 真實 bin 就是查不到這兩個值
+gone = {f"Items/{BLOOD}": bin_with(0.10), f"Items/{IID}": e_gone}
 b4.run(routes(gone, st=ST2, dd=DD2, cdver="B2"))
 check("⑨值查不到留上一版", lambda: desc(b4)["測試道具"] == first and "沿用上一版文字：測試道具" in b4.out)
 check("⑨其他道具照更新", lambda: "最多10%" in desc(b4)["狂霸血甲"].replace(" ", ""))

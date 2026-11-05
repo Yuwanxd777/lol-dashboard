@@ -70,7 +70,7 @@ def join_ranks(vals):
 
 # ── bin 計算式求值 ────────────────────────────────────────────────────────────
 STAT_ZH = {0: "AP", 1: "護甲", 2: "AD", 3: "攻速", 5: "魔抗", 6: "移動速度",
-           8: "暴擊率", 11: "最大生命", 12: "當前生命", 28: "生命"}
+           8: "暴擊率", 11: "最大生命", 28: "生命"}
 SF_ZH   = {1: "基礎", 2: "額外"}   # mStatFormula：1=基礎 2=額外 缺=總
 
 class Miss(Exception):
@@ -132,6 +132,10 @@ def _stat_label(part):
     """屬性標籤；未知代碼回 None＝該係數項略過（整條計算式仍算得出基礎值）。
     以前是丟 Miss 讓整個數值消失（派克 W 只剩「%跑速」），寧可少一個係數也不要沒有數字。"""
     st = part.get("mStat", 0)
+    if st == 12:
+        # 12 是最大生命，配 mStatFormula 2 是額外生命（迦棱 W 的 18%、泰坦九頭蛇的 1%）。
+        # 這裡以前標「當前生命」。真正吃當前生命的技能（蒙多 Q）文字寫在模板裡，不走這裡。
+        return {1: "基礎生命", 2: "額外生命"}.get(part.get("mStatFormula", 0), "最大生命")
     lab = STAT_ZH.get(st)
     if lab is None:
         return None
@@ -180,6 +184,16 @@ def eval_part(ctx, part, depth=0):
     if t == "CooldownMultiplierCalculationPart":
         # 冷卻倍率＝1/(1+技能加速)，執行時才知道 → 用「無技能加速」的基礎值 1 呈現（賽勒斯 R 的 200%）
         return Val(flat=[1.0] * ctx.ranks)
+    if t == "AbilityResourceByCoefficientCalculationPart":
+        # 依魔力成長（水滴系的「2% 魔力轉物理攻擊」），bin 沒有 mStat，mStatFormula 2＝額外魔力
+        lab = SF_ZH.get(part.get("mStatFormula", 0), "") + "魔力"
+        return Val(scal=[([part.get("mCoefficient", 0)] * ctx.ranks, lab)])
+    if t == "EffectValueCalculationPart" and getattr(ctx, "effect_1based", None) is not None:
+        # 只有道具走這裡：道具的 mEffectAmount 是 1 起算、無前置佔位，技能有佔位，不可共用
+        i = part.get("mEffectIndex", 0)
+        if not 1 <= i <= len(ctx.effect_1based):
+            raise Miss("effect")
+        return Val(flat=[ctx.effect_1based[i - 1]] * ctx.ranks)
     if t == "BuffCounterByNamedDataValueCalculationPart":
         # 依當前堆疊層數成長，執行時才知道 → 以 0 層（基礎值）呈現（翱銳龍獸 E 的處決門檻）
         return Val(flat=[0] * ctx.ranks)
@@ -228,9 +242,11 @@ def eval_calc(ctx, calc, depth=0):
         if not (mul.flat and not mul.scal):
             raise Miss("mod-mult")
         m = mul.flat
-        return Val(flat=[v * k for v, k in zip(base.flat, m)] if base.flat else [],
-                   scal=[([r * k for r, k in zip(rs, m)], lb) for rs, lb in base.scal],
-                   rng=base.rng)
+        out = Val(flat=[v * k for v, k in zip(base.flat, m)] if base.flat else [],
+                  scal=[([r * k for r, k in zip(rs, m)], lb) for rs, lb in base.scal],
+                  rng=base.rng)
+        out.pct = base.pct  # 少了這個，獄火手斧會印「7% 至 21」
+        return out
     raise Miss(t or "calc")
 
 def render_val(v, mult=1.0):
@@ -247,7 +263,13 @@ def render_val(v, mult=1.0):
     # 負係數＝執行時公式的殘留項（路西恩 R＝22×(1+暴擊×(攻速−1))，基礎值就是 22）→ 丟掉，
     # 不然會印出「22（+-2200% 暴擊率）」這種東西
     for rs, lab in [(rs, lab) for rs, lab in v.scal if any(r > 1e-9 for r in rs)]:
-        pct = join_ranks([r * (1 if v.pct else 100) for r in rs])
+        vals = [r * (1 if v.pct else 100) for r in rs]
+        if v.pct and max(vals) < 0.1:
+            # 百分比裡的小係數（時現者每點額外魔力 +0.005%）四捨五入會變 +0%，改用每 100 點講
+            piece = f"每 100 {lab} +{join_ranks([x * 100 for x in vals])}%"
+            out += f"（{piece}）" if out else piece
+            continue
+        pct = join_ranks(vals)
         out += f"（+{pct}% {lab}）" if out else f"+{pct}% {lab}"
     return out or None
 

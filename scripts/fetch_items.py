@@ -17,7 +17,7 @@ DDragon 的道具描述缺數字（如 電流旋風劍「蒼穹」的 %），
 """
 import json, os, re, socket, sys, urllib.error, urllib.request
 from pathlib import Path
-from fetch_skills import SpellCtx, eval_calc, render_val, Miss, hget, HOLE_RE  # 重用技能管線的計算式求值器與破句偵測
+from fetch_skills import SpellCtx, Val, bin_hash, eval_part, eval_calc, render_val, Miss, hget, HOLE_RE  # 重用技能管線的計算式求值器與破句偵測
 
 ROOT   = Path(__file__).resolve().parent.parent  # 專案根目錄（本腳本在 scripts\ 內）
 CACHE_DIR = ROOT / "csv_cache"
@@ -52,6 +52,9 @@ def fmt(v):
     return str(int(f)) if f == int(f) else ("%.2f" % f).rstrip("0").rstrip(".")
 
 TOK   = re.compile(r"@([A-Za-z_]\w*)(?:\*(-?[\d.]+))?@\s*(%?)")
+# 引用別的技能（@spell.SummonerSmite:PetDPS@）：這份 bin 查不到，也不可留在文字裡。要在 TOK 之前處理，
+# 否則 TOK 會把兩個 token 之間夾的英文字（...@B@spell...）當成 token。
+EXT   = re.compile(r"@[^@\s<>*]*[.:][^@\s<>]*@")
 ICON  = re.compile(r"%i:\w+%")
 BRACE = re.compile(r"\{\{[^}]*\}\}")
 
@@ -105,10 +108,36 @@ def item_ctx(entry):
     dvs = entry.get("mDataValues") or []
     if not calcs:
         return None
-    pseudo = {"mDataValues": [{"name": d.get("mName"), "values": [d.get("mValue"), d.get("mValue")]}
+    pseudo = {"mDataValues": [{"name": d.get("mName"), "values": [d.get("mValue") or 0.0, d.get("mValue") or 0.0]}
                               for d in dvs if d.get("mName") is not None],
               "mSpellCalculations": calcs}
-    return SpellCtx(pseudo, 1)
+    ctx = SpellCtx(pseudo, 1)
+    # 計算式引用 data value 時常寫雜湊（{6c8d1758}＝BaseADBonusMelee），名字在 mDataValues 是明文
+    for k in list(ctx.dv):
+        ctx.dv[bin_hash(k)] = ctx.dv[k]
+    ea = entry.get("mEffectAmount")
+    if isinstance(ea, list):
+        ctx.effect_1based = ea
+    return ctx
+
+def render_split(ictx, c, mu):
+    """近戰／遠程分開的計算式（mRangedMultiplier）→ '15（遠程 10）'。
+    遠程值取到小數一位：倍率是 0.667，不取整會印出 10.01（遊戲內顯示 10）。"""
+    v = eval_calc(ictx, c)
+    sm = render_val(v, mu)
+    rm = c.get("mRangedMultiplier")
+    if not (sm and rm):
+        return sm
+    k = eval_part(ictx, rm)
+    if not k.flat or k.scal:
+        return sm
+    k = k.flat[0]
+    m = 1.0 if v.pct and abs(mu - 100) < 1e-9 else mu
+    r = Val(flat=[round(x * k * m, 1) for x in v.flat],
+            scal=[([round(a * k, 4) for a in rs], lb) for rs, lb in v.scal], rng=v.rng)
+    r.pct = v.pct
+    sr = render_val(r)
+    return sm if not sr or sr == sm else f"{sm}（遠程 {sr}）"
 
 def fill(tpl, lut, calcs, ictx=None):
     miss = 0
@@ -124,9 +153,9 @@ def fill(tpl, lut, calcs, ictx=None):
             c = hget(ictx.calc, name)
             if c is not None:
                 try:
-                    s = render_val(eval_calc(ictx, c), float(mul) if mul else 1.0)
+                    s = render_split(ictx, c, float(mul) if mul else 1.0)
                     if s:
-                        return s + pct
+                        return s + ("" if "%" in s else pct)  # 值已帶 %，模板再接一個 % 會變 8%%
                 except Miss:
                     pass
             # 慣例：@X@ 可能對應 Xmelee / Xranged 兩個計算式（近戰/遠程數值不同）
@@ -147,7 +176,8 @@ def fill(tpl, lut, calcs, ictx=None):
             miss += 1
             return ""
         return fmt(float(v) * (float(mul) if mul else 1)) + pct
-    t = TOK.sub(rep, tpl)
+    miss += len(EXT.findall(tpl))  # 算進 miss，超過門檻 main 會退回 DDragon 原文
+    t = TOK.sub(rep, EXT.sub("", tpl))
     t = ICON.sub("", t)
     t = BRACE.sub("", t)
     return t, miss
