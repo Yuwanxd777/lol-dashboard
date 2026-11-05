@@ -151,7 +151,9 @@ def build_lut(entry):
     ea = entry.get("mEffectAmount")
     if isinstance(ea, list):
         for i, v in enumerate(ea):
-            if isinstance(v, (int, float)) and not isinstance(v, bool):
+            # 0＝bin 留的空欄，不是數值：狂熱雙刀 [0.0]，過期模板會印成「獲得 0% 跑速」（屬性列已有 4%）。
+            # 當成查不到，由 strip_holes 把那行拿掉（#2635）
+            if isinstance(v, (int, float)) and not isinstance(v, bool) and v:
                 lut[f"effect{i+1}amount"] = v
     return lut
 
@@ -283,6 +285,10 @@ def fill(tpl, lut, calcs, ictx=None):
     miss += len(EXT.findall(tpl))  # 算進 miss，超過門檻 main 會退回 DDragon 原文
     t = TOK.sub(rep, EXT.sub("", tpl))
     t = NO_LIMIT.sub("（永久）", t)
+    # 兩個 token 夾的區間：TOK 會吃掉 token 後的空白，留下贖罪神石「150- 350」、鷹眼晶球「198- 99秒」（#2635）
+    t = re.sub(r"(\d)\s*-\s+(\d)", r"\1－\2", t)
+    # 圖示被 ICON 清掉會剩「150－350(友軍)生命」，看不出是依友軍等級（字串表 item_ally_scaling 有寫）
+    t = t.replace("(友軍%i:scaleLevel%)", "（依友軍等級）")
     t = re.sub(r"(\d)（遠程 ([\d.]+)）%", r"\1%（遠程 \2%）", t)  # 模板把 % 接在佔位後面
     t = re.sub(r"(?<![\d.])([\d.]+)（\1秒）", r"\1秒", t)  # 模板先印數字再接冷卻佔位：神聖之劍「(90（90秒）)」
     t = re.sub(r"%\s+\(([\d.]+秒)\)", r"%（\1）", t)  # 狂風之力「最多50% (120秒)」：lint 錯誤級
@@ -361,7 +367,8 @@ def read_prev():
         return {}, {}
 
 def digit_runs(html):
-    return len(re.findall(r"\d+", re.sub(r"<[^>]+>", "", html)))
+    # 單獨的 0 不算資訊：不然上一版「獲得 0% 跑速」比修好的版本多一個數字，會被當成比較好的留下來（狂熱雙刀 #2635）
+    return len(re.findall(r"\d+", re.sub(r"(?<![\d.])0(?![\d.])", "", re.sub(r"<[^>]+>", "", html))))
 
 def main():
     ddv = json.loads(get(f"{DD_API}/api/versions.json", 30))[0]

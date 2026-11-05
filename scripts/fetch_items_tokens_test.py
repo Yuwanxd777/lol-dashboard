@@ -193,6 +193,21 @@ def main():
     check("別名冷卻用自己的值，不被 Cooldown 蓋掉（錫柯）", lambda: filled(BIND, "（@BindCooldown@{{ Item_Cooldown }}）") == "（30秒）")
     check("% 後面的冷卻括號不留空格（狂風之力）", lambda: filled(CDB, "最多50% (@Cooldown@{{ Item_Cooldown }})。") == "最多50%（90秒）。")
     check("數字接不同值冷卻不收", lambda: filled(CDB, "(9{{ Item_Cooldown }})") == "(9（90秒）)")
+    # #2635：素材節錄自 16.22 狂熱雙刀 3086、贖罪神石 3107、鷹眼晶球 3363
+    ZEAL = {"mEffectAmount": [0.0], "mPercentMovementSpeedMod": 0.04}
+    ZT = "<li><passive>狂熱：</passive>獲得 <speed> @Effect1Amount*100@% 跑速</speed>。"
+    zl = F.build_lut(ZEAL)
+    check("mEffectAmount 的 0 當查不到（狂熱雙刀）", lambda: "effect1amount" not in zl and F.fill(ZT, zl, F.build_calcs(ZEAL, zl), None)[1] == 1)
+    check("整行拿掉，不留 0% 跑速（狂熱雙刀）", lambda: F.strip_holes(ZT, zl, F.build_calcs(ZEAL, zl), None) == "")
+    check("對照：mEffectAmount 非 0 照填", lambda: F.fill("@Effect2Amount@秒", F.build_lut({"mEffectAmount": [0.0, 3.0]}), {}, None) == ("3秒", 0))
+    check("mDataValues 的 0 不受影響", lambda: F.fill("@X@秒", F.build_lut({"mDataValues": [{"mName": "X", "mValue": 0.0}]}), {}, None) == ("0秒", 0))
+    check("上一版的 0 不算數字，不會蓋掉修好的版本", lambda: F.digit_runs("<a>15%</a> 4% 獲得 0% 跑速") == F.digit_runs("<a>15%</a> 4%") == 2)
+    check("對照：0.5、10、100 照算", lambda: F.digit_runs("0.5秒 10 100") == 4)
+    RD = {"healmin": 150.0, "healmax": 350.0}
+    check("區間與友軍等級（贖罪神石）", lambda: F.fill("回復@HealMin@ - @HealMax@(友軍%i:scaleLevel%)生命", RD, {}) == ("回復150－350（依友軍等級）生命", 0))
+    check("區間（鷹眼晶球）", lambda: F.fill("(@A@ - @B@秒)", {"a": 198.0, "b": 99.0}, {}) == ("(198－99秒)", 0))
+    check("對照：減號沒接空白不動", lambda: F.fill("等級1-18", {}, {}) == ("等級1-18", 0))
+    check("對照：其他圖示仍清掉", lambda: F.fill("A%i:scaleAD%B", {}, {}) == ("AB", 0))
 
     # 舊版對照：同一份素材，舊版真的查不到、真的漏 token、真的標當前生命
     if "TOKENS_SCRIPTS" not in os.environ:
