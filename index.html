@@ -1624,7 +1624,7 @@ fetch(`https://ddragon.leagueoflegends.com/cdn/${DDV}/data/en_US/champion.json`)
 }).catch(()=>{});
 // ── 延遲載入（性能 2026-07-17）：wiki 三檔＋英文公告＋刷野（~5.2MB）改為動態掛載——
 // 首屏後 1.2 秒閒置預載 wiki；進 圖鑑/英雄 會再 ensureWiki（冪等）；刷野速度分頁才載 jungle.js；英文模式才載 patches_en.js。
-const _LAZYSRC={wiki:["wiki_patches.js","wiki_extra.js","wiki_objectives.js"],en:["patches_en.js","wiki_patches_en.js","wiki_objectives_en.js","wiki_extra_en.js"],jungle:["jungle.js"],sqg:["soloq_champ_games.js"],pagg:["soloq_pagg.js"],builds:["soloq_builds.js"],recent:["soloq_recent.js"],sqch:["soloq_pool.js"],pred:["predict_sq.js","predict_ext.js","swiss_hist.js"]};
+const _LAZYSRC={wiki:["wiki_patches.js","wiki_extra.js","wiki_objectives.js"],en:["patches_en.js","wiki_patches_en.js","wiki_objectives_en.js","wiki_extra_en.js"],jungle:["jungle.js"],sqg:["soloq_champ_games.js"],pagg:["soloq_pagg.js"],builds:["soloq_builds.js"],recent:["soloq_recent.js"],sqch:["soloq_pool.js"],sqib:["soloq_champ_ib.js"],pred:["predict_sq.js","predict_ext.js","swiss_hist.js"]};
 const _lazyP={};
 function lazyLoad(g){
   return Promise.all((_LAZYSRC[g]||[]).map(src=>_lazyP[src]||(_lazyP[src]=new Promise(res=>{
@@ -7955,7 +7955,8 @@ function sqHeroDetail(cid){
     // r[12]＝關鍵符文、r[13]＝副系第一顆符文（2026-07-31 起 build_soloq_builds.py 多存的兩欄）。
     // rs 包成陣列是為了直接餵 runeKS（它吃 g.rs 陣列、取第一個有值的反查副系）；
     // 舊檔沒有這兩欄時是 undefined／空陣列，runeKS 會只畫主符文、不會壞。
-    let list=(CG[cid]||[]).map(r=>({t:r[0],pkey:r[1]||"",pos:POS1[r[2]]||"",won:!!r[3],k:r[4],de:r[5],a:r[6],kp:r[7],och:r[8]||"",gd15:r[9],xd15:r[10],sc:r[11],r:r[12],rs:r[13]==null?[]:[r[13]],sk:r[14]||"",it:r[17]||[],...(runePageOf(r[16])||{})}));
+    sqIbEnsure();
+    let list=(CG[cid]||[]).map((r,ri)=>({t:r[0],pkey:r[1]||"",pos:POS1[r[2]]||"",won:!!r[3],k:r[4],de:r[5],a:r[6],kp:r[7],och:r[8]||"",gd15:r[9],xd15:r[10],sc:r[11],r:r[12],rs:r[13]==null?[]:[r[13]],sk:r[14]||"",it:r[17]||[],ib:sqChIb(cid,ri),...(runePageOf(r[16])||{})}));
     if(V.hdLane)list=list.filter(g=>g.pos===V.hdLane);
     if(V.hdOpp)list=list.filter(g=>g.och===V.hdOpp);
     // 選手篩選（2026-07-31 使用者要求）：pkey＝「隊伍|選手」，只比對選手名，跟職業版同一個 V.hdPlayer
@@ -7988,7 +7989,7 @@ function sqHeroDetail(cid){
       if(cache){
         const PNS2={TOP:"TOP",JUNGLE:"JNG",MIDDLE:"MID",BOTTOM:"BOT",UTILITY:"SUP"};
         list=(cache.matches||[]).filter(g=>g.c===cid).map(g=>({t:g.t,pkey:key,pos:PNS2[g.pos]||"",won:!!g.w,
-          k:g.k,de:g.de,a:g.a,kp:g.kp,och:g.o||"",gd15:g.gd15,xd15:g.xd15,sc:g.sc,r:g.r,rs:g.rs||[],rp:g.rp||[],rst:g.rst||[],sk:(g.sk||[]).filter(v=>v>=1&&v<=4).slice(0,20).join(""),it:(g.it||[]).filter(x=>x)}));
+          k:g.k,de:g.de,a:g.a,kp:g.kp,och:g.o||"",gd15:g.gd15,xd15:g.xd15,sc:g.sc,r:g.r,rs:g.rs||[],rp:g.rp||[],rst:g.rst||[],sk:(g.sk||[]).filter(v=>v>=1&&v<=4).slice(0,20).join(""),it:(g.it||[]).filter(x=>x),ib:g.ib||null}));
         if(V.hdLane)list=list.filter(g=>g.pos===V.hdLane);
         if(V.hdOpp)list=list.filter(g=>g.och===V.hdOpp);
       } else list=list.filter(g=>String(g.pkey).split("|")[1]===V.hdPlayer);
@@ -8023,7 +8024,7 @@ function sqHeroDetail(cid){
         <td>${g.won?`<span style="color:#ff6b6b">${en?"W":"勝"}</span>`:`<span style="color:#6ea8ff">${en?"L":"敗"}</span>`}</td>
         <td>${g.k}/${g.de}/${g.a}</td>
         ${cell(g.gd15)}${cell(g.xd15)}
-        <td class="sqItemsR">${sqItemsCell(g.it)}</td>
+        <td class="sqItemsR"${sqIbAttr(g.ib)}>${sqItemsCell(g.it)}</td>
         <td class="sqRuneR" data-rk="${g.r==null?"":g.r}" data-rune="${[(g.rp||[]).join(","),(g.rs||[]).join(","),(g.rst||[]).join(",")].join(";")}">${runeKS(g,26)}</td>
         <td class="sqSkillR" data-sks="${g.sk||""}" style="white-space:nowrap">${g.sk?[...String(g.sk)].slice(0,5).map(s=>`<b style="color:${SKC[SKL[+s]]||"#cdd6e6"}">${SKL[+s]}</b>`).join('<span style="color:#5a6784">·</span>'):'<span class="meta">—</span>'}</td>
         <td class="mvOpp" data-och="${esc(g.och)}" data-t="${g.t||""}"><span class="heroname">${g.och?cImg(g.och):""}${g.och?(cAb(g.och)||esc(chName(champId(g.och))||g.och)):"—"}</span></td>
@@ -8226,7 +8227,8 @@ function heroMuSqHTML(a,b,pos){
   if(!CG){ lazyLoad("sqg").then(()=>{ if(curView==="英雄"&&V.heroViz==="mu")render(); });
     return html+`<div class="muSec">${en?"Recent games":"最近對局"}</div><div class="sumEmpty">${en?"Loading games":"載入逐場紀錄中"}</div>`; }
   const POS1={T:"TOP",J:"JNG",M:"MID",B:"BOT",U:"SUP"};
-  const list=(CG[A]||[]).map(r=>({t:r[0],pk:r[1]||"",pos:POS1[r[2]]||"",won:!!r[3],k:r[4],de:r[5],a:r[6],och:r[8]||"",gd:r[9],xd:r[10],sc:r[11],it:r[17]||[]}))
+  sqIbEnsure();
+  const list=(CG[A]||[]).map((r,ri)=>({t:r[0],pk:r[1]||"",pos:POS1[r[2]]||"",won:!!r[3],k:r[4],de:r[5],a:r[6],och:r[8]||"",gd:r[9],xd:r[10],sc:r[11],it:r[17]||[],ib:sqChIb(A,ri)}))
     .filter(g=>g.och===B&&(!pos||g.pos===pos)).sort((x,y)=>y.t-x.t);
   let w=0,gs=0,gn=0; list.forEach(g=>{ if(g.won)w++; if(g.gd!=null){gs+=g.gd;gn++;} });
   html+=`<div class="muSec">${en?`Recent games (within ${cAb(A)}’s last 100${pos?", this lane":""})`:`最近對局（${cAb(A)} 最近 100 場內${pos?"、這一路":""}）`} <span class="meta">${list.length}</span></div>`;
@@ -8235,7 +8237,7 @@ function heroMuSqHTML(a,b,pos){
     list.map((g,i)=>{ const d=new Date(g.t), ds=isNaN(d)?"–":`${d.getMonth()+1}/${d.getDate()}`, pp=String(g.pk).split("|");
       return `<tr><td class="rk">${i+1}</td><td class="meta">${ds}</td><td class="meta">${esc((typeof patchOfTs==="function"&&patchOfTs(g.t))||"–")}</td><td>${posImg(g.pos)||g.pos||"–"}</td>
         <td><span class="meta">${esc(teamFix(pp[0]||""))}</span> ${esc(pp[1]||"")}</td><td>${g.won?`<span style="color:#ff6b6b">${en?"W":"勝"}</span>`:`<span style="color:#6ea8ff">${en?"L":"敗"}</span>`}</td>
-        <td>${g.k}/${g.de}/${g.a}</td><td style="color:${hiC(g.gd,0)}">${sg(g.gd)}</td><td style="color:${hiC(g.xd,0)}">${sg(g.xd)}</td><td class="sqItemsR">${sqItemsCell(g.it)}</td><td>${g.sc!=null?Math.round(g.sc):"–"}</td></tr>`; }).join("")}</tbody></table></div>`
+        <td>${g.k}/${g.de}/${g.a}</td><td style="color:${hiC(g.gd,0)}">${sg(g.gd)}</td><td style="color:${hiC(g.xd,0)}">${sg(g.xd)}</td><td class="sqItemsR"${sqIbAttr(g.ib)}>${sqItemsCell(g.it)}</td><td>${g.sc!=null?Math.round(g.sc):"–"}</td></tr>`; }).join("")}</tbody></table></div>`
     :`<div class="sumEmpty">${en?"None in the recent games.":"最近 100 場內沒有碰到。"}</div>`;
   return html;
 }
@@ -8375,8 +8377,9 @@ function sqPairDetail(key){
     recInner=`<span class="meta">${en?"Loading games…":"載入出場紀錄中…"}</span>`;
   }else{
     const POS1={T:"TOP",J:"JNG",M:"MID",B:"BOT",U:"SUP"};
-    const pick=(cid,wantPos,mate)=>(CG[cid]||[]).filter(r=>POS1[r[2]]===wantPos&&(r[15]||"")===mate)
-      .map(r=>({t:r[0],pkey:r[1]||"",pos:POS1[r[2]]||"",ch:cid,won:!!r[3],k:r[4],de:r[5],a:r[6],kp:r[7],och:r[8]||"",gd15:r[9],xd15:r[10],sc:r[11],r:r[12],rs:r[13]==null?[]:[r[13]],sk:r[14]||"",it:r[17]||[],...(runePageOf(r[16])||{})}));
+    sqIbEnsure();
+    const pick=(cid,wantPos,mate)=>(CG[cid]||[]).map((r,ri)=>[r,ri]).filter(([r])=>POS1[r[2]]===wantPos&&(r[15]||"")===mate)
+      .map(([r,ri])=>({t:r[0],pkey:r[1]||"",pos:POS1[r[2]]||"",ch:cid,won:!!r[3],k:r[4],de:r[5],a:r[6],kp:r[7],och:r[8]||"",gd15:r[9],xd15:r[10],sc:r[11],r:r[12],rs:r[13]==null?[]:[r[13]],sk:r[14]||"",it:r[17]||[],ib:sqChIb(cid,ri),...(runePageOf(r[16])||{})}));
     let list=[...pick(cA,mainL,cB),...pick(cB,subL,cA)];
     // 選手篩選（與單人詳情同一個 V.hdPlayer）
     plOpts=(()=>{ const c=new Map(),tm={};
@@ -8409,7 +8412,7 @@ function sqPairDetail(key){
         <td>${g.won?`<span style="color:#ff6b6b">${en?"W":"勝"}</span>`:`<span style="color:#6ea8ff">${en?"L":"敗"}</span>`}</td>
         <td>${g.k}/${g.de}/${g.a}</td>
         ${cell(g.gd15)}${cell(g.xd15)}
-        <td class="sqItemsR">${sqItemsCell(g.it)}</td>
+        <td class="sqItemsR"${sqIbAttr(g.ib)}>${sqItemsCell(g.it)}</td>
         <td class="sqRuneR" data-rk="${g.r==null?"":g.r}" data-rune="${[(g.rp||[]).join(","),(g.rs||[]).join(","),(g.rst||[]).join(",")].join(";")}">${runeKS(g,26)}</td>
         <td class="sqSkillR" data-sks="${g.sk||""}" style="white-space:nowrap">${g.sk?[...String(g.sk)].slice(0,5).map(s=>`<b style="color:${SKC[SKL[+s]]||"#cdd6e6"}">${SKL[+s]}</b>`).join('<span style="color:#5a6784">·</span>'):'<span class="meta">—</span>'}</td>
         <td class="mvOpp" data-och="${esc(g.och)}" data-ch="${esc(g.ch)}" data-t="${g.t||""}"><span class="heroname">${g.och?cImg(g.och):""}${g.och?(cAb(g.och)||esc(chName(champId(g.och))||g.och)):"—"}</span></td>
@@ -8488,6 +8491,29 @@ function sqPairDetail(key){
 const SIT_ZH={壓制:"壓制",逆轉:"逆轉",沒擴大:"沒擴大",被壓制:"被壓制"};
 const SIT_EN={壓制:"Dominate",逆轉:"Comeback",沒擴大:"Stalled",被壓制:"Suppressed"};
 // 積分逐場「裝備」欄（使用者 2026-10-27）：本場最終裝備，照欄位順序；舊資料沒有這欄＝—
+// 出裝順序小框（積分逐場詳情與英雄頁積分逐場共用；ib＝[[秒,道具],…]）：相距<30秒的裝備併成一組、秒數用該組第一件的
+function buildOrderTip(ib){ const en=LANG==="en";
+  const mmss=s=>{s=s>10000?Math.round(s/1000):s; return s?`${Math.floor(s/60)}:${String(Math.round(s%60)).padStart(2,"0")}`:"–";};
+  if(!ib||!ib.length)return `<div class="tipTitle">${en?"Build order":"出裝順序"}</div><div class="meta">—</div>`;
+  const groups=[]; let prevT=null;
+  ib.forEach(([t,id])=>{ if(groups.length&&prevT!=null&&t-prevT<30)groups[groups.length-1].ids.push(id); else groups.push({t,ids:[id]}); prevT=t; });
+  const rows=groups.map(gr=>`<span style="display:inline-flex;flex-direction:column;align-items:center;margin:2px 5px"><span style="display:flex;gap:3px;background:rgba(255,255,255,.07);border-radius:6px;padding:3px 4px">${gr.ids.map(id=>itemImg(id,26)).join("")}</span><span class="meta" style="font-size:10px;margin-top:2px">${mmss(gr.t)}</span></span>`).join("");
+  return `<div class="tipTitle">${en?"Build order":"出裝順序"} <span class="meta">${ib.length} ${en?"buys":"件"}</span></div><div style="display:flex;flex-wrap:wrap;align-items:flex-start;max-width:460px">${rows}</div>`; }
+// 英雄頁積分逐場：購買順序在另一個延遲檔 soloq_champ_ib.js（SOLOQ_CHIB[英雄][列]＝攤平的 [秒,道具,…]，與 SOLOQ_CHGAMES 同索引）
+function sqChIb(cid,ri){ const a=((window.SOLOQ_CHIB||{})[cid]||[])[ri]; if(!a)return null; const o=[]; for(let i=0;i+1<a.length;i+=2)o.push([a[i],a[i+1]]); return o; }
+// 第一次畫到英雄頁積分逐場才載購買順序檔，載到後若還在英雄頁就重繪補上 data-ib
+function sqIbEnsure(){ if(window.SOLOQ_CHIB||window._sqIbLoading)return; window._sqIbLoading=1;
+  lazyLoad("sqib").then(()=>{ if(!window.SOLOQ_CHIB)window.SOLOQ_CHIB={};
+    try{if(typeof VIEW_CACHE!=="undefined")VIEW_CACHE.slots={};}catch(e){}
+    if(curView==="英雄"&&(V.heroDetail||V.heroViz==="mu"))render(); }); }
+function sqIbAttr(ib){ return ib?` data-ib="${ib.map(p=>p.join(",")).join(";")}"`:""; }
+// 裝備格 hover → 出裝順序（document 委派一次，英雄頁三張積分表都吃這支）
+document.addEventListener("mouseover",e=>{ const td=e.target.closest&&e.target.closest("td.sqItemsR[data-ib]");
+  if(!td||td.contains(e.relatedTarget))return;
+  const ib=String(td.dataset.ib||"").split(";").filter(Boolean).map(s=>s.split(",").map(Number));
+  tipShow(buildOrderTip(ib),td.getBoundingClientRect(),"up"); });
+document.addEventListener("mouseout",e=>{ const td=e.target.closest&&e.target.closest("td.sqItemsR[data-ib]");
+  if(td&&!td.contains(e.relatedTarget))tipHide(); });
 function sqItemsCell(it){ const a=(it||[]).filter(x=>x); return a.length?`<span style="display:inline-flex;gap:2px;white-space:nowrap">${a.map(id=>itemImg(id,24)).join("")}</span>`:'<span class="meta">—</span>'; }
 const SIT_COL={壓制:"#ff4d4d",逆轉:"#f5b942",沒擴大:"#8aa0c0",被壓制:"#37c871"}; // 壓制=紅、逆轉=金、沒擴大=灰藍、被壓制=綠
 const SIT_RANK={壓制:4,逆轉:3,沒擴大:2,被壓制:1}; // 好→壞：情境欄排序用（壓制>逆轉>沒擴大>被壓制）
@@ -18245,11 +18271,7 @@ function render(){
       const gArrow=k=>RG&&RG.k===k?(RG.d<0?" ▼":" ▲"):"";
       const scoreCol=s=>{if(s==null)return"#8aa0c0"; const v=Math.max(0,Math.min(100,s)); return `hsl(${Math.round(120*(1-v/100))},72%,58%)`;}; // 評分 0→100：綠→黃→紅(越高越紅)
       const kn=v=>String(v); // K/D/A 三項一律白字（2026-08-04 使用者取消 >10 上紅）
-      const buildTipHTML=g=>{ if(!g.ib||!g.ib.length)return `<div class="tipTitle">${en?"Build order":"出裝順序"}</div><div class="meta">—</div>`;
-        const groups=[]; let prevT=null; // 相距<30秒的裝備併成一組、秒數用該組第一件的
-        g.ib.forEach(([t,id])=>{ if(groups.length&&prevT!=null&&t-prevT<30)groups[groups.length-1].ids.push(id); else groups.push({t,ids:[id]}); prevT=t; });
-        const rows=groups.map(gr=>`<span style="display:inline-flex;flex-direction:column;align-items:center;margin:2px 5px"><span style="display:flex;gap:3px;background:rgba(255,255,255,.07);border-radius:6px;padding:3px 4px">${gr.ids.map(id=>itemImg(id,26)).join("")}</span><span class="meta" style="font-size:10px;margin-top:2px">${mmss(gr.t)}</span></span>`).join(""); // 同一時間段購買的裝備背後上淡白底、圈成一組
-        return `<div class="tipTitle">${en?"Build order":"出裝順序"} <span class="meta">${g.ib.length} ${en?"buys":"件"}</span></div><div style="display:flex;flex-wrap:wrap;align-items:flex-start;max-width:460px">${rows}</div>`; };
+      const buildTipHTML=g=>buildOrderTip(g.ib); // 與英雄頁積分逐場共用（見 buildOrderTip；同一時間段購買的裝備背後上淡白底、圈成一組）
       const skill3HTML=sk=>(sk&&sk.length)?sk.slice(0,5).map(s=>`<b style="color:${SKC[SKL[s]]||"#cdd6e6"}">${SKL[s]}</b>`).join('<span style="color:#5a6784">·</span>'):'<span class="meta">—</span>'; // 前 5 點
       const runePageHTML=runePageTip; // 與英雄頁出場紀錄共用同一支（見 runePageTip），兩邊不會漂移
       const hc=(k,lb)=>k?`<div data-gsort="${k}" class="sqSortH">${lb}${gArrow(k)}</div>`:`<div>${lb}</div>`;

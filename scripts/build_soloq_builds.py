@@ -370,7 +370,8 @@ def main():
                                "".join([SK_DIGIT[v] for v in (_get("sk") or [])[:20] if v in SK_DIGIT]),  # 第15欄=點法數字串(1=Q2=W3=E4=R)
                                _du or "",   # 第16欄=搭檔英雄（積分配對詳情的逐場過濾用；依 dul 路線對應）
                                _rpg,        # 第17欄=符文頁編號（查 window.SOLOQ_RUNEPAGES；沒有就 null）
-                               [i for i in (_get("it") or []) if i]))   # 第18欄=本場最終裝備（使用者 2026-10-27：積分逐場要列裝備）
+                               [i for i in (_get("it") or []) if i],   # 第18欄=本場最終裝備（使用者 2026-10-27：積分逐場要列裝備）
+                               _get("ib") or []))   # 第19欄=購買順序 [[秒,道具],…]；不進 soloq_champ_games.js，另寫 soloq_champ_ib.js
             _su = [x for x in (_get("su") or []) if x]
             if len(_su) == 2:
                 _sp2 = tuple(sorted(_su)); suCnt[c][_sp2] += 1
@@ -617,6 +618,9 @@ def main():
     print(f"選手積分彙總：{len(pagg)} 位 → {OUT_PA}（{os.path.getsize(OUT_PA)/1024:.0f} KB）")
     # 積分版英雄詳情「出場紀錄」：每英雄最近 100 場（延遲載入檔，開積分英雄詳情才載）
     cg = {c: [list(r) for r in sorted(chGames[c], key=lambda x: -x[0])[:100]] for c in chGames if games[c] >= MIN_GAMES}
+    # 購買順序（第19欄）拆出去：英雄頁積分逐場「裝備」hover 才用得到、又佔一半體積 → 另檔延遲載入。
+    # 每列攤平成 [秒,道具,秒,道具,…]，與 SOLOQ_CHGAMES 同英雄同索引一一對齊（2026-11-07 使用者回報英雄頁積分沒出裝順序小框）
+    cib = {c: [[v for p in r.pop(18) for v in p] for r in rows] for c, rows in cg.items()}
     # 符文頁表只留「真的被留下來的那 100 場」用到的（全庫幾萬種、輸出只用得到幾千種）→ 重新編號
     _keep, _remap = [], {}
     for _rows in cg.values():
@@ -633,6 +637,10 @@ def main():
         f.write("window.SOLOQ_RUNEPAGES=" + json.dumps(_keep, ensure_ascii=False) + ";\n")
         f.write("window.SOLOQ_CHGAMES=" + json.dumps(cg, ensure_ascii=False) + ";\n")
     print(f"出場紀錄：{len(cg)} 英雄 × 最近100場、符文頁 {len(_keep)} 種 → {OUT2}（{os.path.getsize(OUT2)/1024:.0f} KB）")
+    OUT2B = os.path.join(ROOT, "soloq_champ_ib.js")
+    with open(OUT2B, "w", encoding="utf-8") as f:
+        f.write("window.SOLOQ_CHIB=" + json.dumps(cib, ensure_ascii=False, separators=(",", ":")) + ";\n")
+    print(f"出場紀錄購買順序 → {OUT2B}（{os.path.getsize(OUT2B)/1024:.0f} KB）")
     # 帳號改名史：dpm 沒有「歷史 ID」端點，但逐場都帶著該局當下的 Riot ID(rid) → 逐場掃出來就是改名史。
     # 只留真的改過名的選手（同一 key 出現 2 個以上 ID），每個 ID 記場數與最早/最晚出現時間。
     # 掛在這支腳本是因為它本來就要讀完整個 soloq_matches（203MB），不值得為此再掃一次。
