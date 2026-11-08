@@ -122,7 +122,7 @@ CMP_SET = """(want) => { const h = document.querySelector('#main h2.cmpH'); if (
     if (!b || !ar || !b.classList.contains('cmpBody')) return false;
     if ((b.style.display !== 'none') !== want) ar.click();
     return (b.style.display !== 'none') === want; }"""
-TABS = ["總覽", "英雄", "選手", "戰隊", "摘要", "陣容", "比賽BP", "模擬BP", "英雄Tier", "積分", "圖鑑", "預測"]
+TABS = ["總覽", "英雄", "選手", "戰隊", "摘要", "陣容", "比賽BP", "模擬BP", "英雄Tier", "積分", "圖鑑", "預測", "筆記"]  # 筆記＝本機限定（2026-11-08 #2777 補）
 # 這幾頁不選隊只有空殼（#2513）。動作與 site_audit 的 ACT["combo"]／ACT["seg"] 同一套；
 # 切不動算掃描器有問題（離開碼 3），不能當 0 筆。
 COMBO_SET = """(id) => { const inp = document.getElementById(id), dl = document.getElementById(id + 'dl');

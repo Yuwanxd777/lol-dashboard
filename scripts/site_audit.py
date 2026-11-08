@@ -155,7 +155,9 @@ COLLECT = r"""(full) => {
     const el = n.parentElement; if (!el || !vis(el)) continue;
     // 資料不是介面：選手的積分帳號名本來就會有中文（碎碎念#思念QAQ），不算漏翻（2026-09-06 第 0 次彙報後排除）
     // 刷野速度的 .jgPlayer（影片作者／帳號名，例：GodK馄饨螳螂、個人的JGフルクリア）同理（2026-09-15 #114 互動層第一趟排除）
-    if (el.closest('script,style,noscript,[lang="zh"],.zhOnly,.acctLink,a.acctLink,.jgPlayer')) continue;
+    // 筆記分頁（本機限定，2026-11-08）的清單／本文／分類鈕是使用者自己的中文筆記與頻道名，是資料不是介面（#2777 排除；
+    // 分頁本身的介面字「Source／All／Loading／No match」仍照掃）
+    if (el.closest('script,style,noscript,[lang="zh"],.zhOnly,.acctLink,a.acctLink,.jgPlayer,#ntList,#ntDoc,button.sqLaneBtn[data-g],#main:has(#ntDoc) .filters > span.meta')) continue;
     const key = t.slice(0, 40);
     if (seen.has(key)) continue; seen.add(key);
     if (capped) continue;   // 上限之後只數不收
