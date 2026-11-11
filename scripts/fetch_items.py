@@ -397,6 +397,148 @@ def prefer_dd_digits(text, body, desc, lut, ictx=None):
     cand = repair_dd(desc, lut, ictx)
     return cand if cand and digit_runs(STATS_RE.sub("", cand)) else text
 
+# ── 英文版（2026-11-11）：英文模式原本直接吃 DDragon 原文，而原文缺值（Bastionbreaker「(0s)」、
+#    「deals an additional  true damage」）；轉化裝 ITEM_XTRA 也只有中文 ⇒ 英文提示夾中文、總價 undefined。
+#    做法＝英文字串表模板跑同一套 fill，fill 內建的中文單位再用 en_text 換回英文。
+URL_ST_EN = "https://raw.communitydragon.org/latest/game/en_us/data/menu/en_us/lol.stringtable.json"
+TRANSFORMS = {3040: "大天使之杖", 3042: "魔劍正宗", 3121: "凜冬將至", 2530: "低語之環"}  # id → 升級前本體（水滴四系）
+EN_PAIRS = sorted((
+    ("每 100 額外魔力", "per 100 bonus Mana"), ("每 1 物理致命", "per 1 Lethality"), ("每 1% 暴擊率", "per 1% Crit Chance"),
+    ("暴擊率", "Crit Chance"), ("額外魔力", "bonus Mana"), ("魔力", "Mana"), ("命中效果", "On-Hit"), ("每個目標", "per target"),
+    ("最大生命", "max Health"), ("額外生命", "bonus Health"), ("當前生命", "current Health"), ("已損失生命", "missing Health"),
+    ("額外護甲", "bonus Armor"), ("額外魔抗", "bonus Magic Resist"), ("額外AD", "bonus AD"), ("基礎AD", "base AD"),
+    ("額外移動速度", "bonus Move Speed"), ("移動速度", "Move Speed"), ("基礎生命", "base Health"), ("護甲", "Armor"), ("魔抗", "Magic Resist"),
+    ("生命", "Health"), ("主動─消耗：", "Active - Consume:"), ("主動─", "Active: "), ("主動", "Active"), ("依等級", "based on level"),
+), key=lambda p: -len(p[0]))
+EN_BLANKDMG = re.compile(r"(dealing|deals?)\s{2,}(magic|physical|true) damage")
+CJK_RE = re.compile(r"[一-鿿]")
+
+def en_text(t):
+    t = re.sub(r"(?:for\s+)?(?:9999|\d{5,})\s*seconds?", "permanently", t)
+    for a, b in EN_PAIRS:
+        t = t.replace(a, b)
+    t = re.sub(r"（遠程 ([^）]*(?:（[^）]*）[^）]*)*)）", r" (Ranged \1)", t)
+    t = re.sub(r"（(\d+(?:\.\d+)?)秒）", r" (\1s)", t)
+    t = re.sub(r"(\d+(?:\.\d+)?)秒", r"\1s", t)
+    t = t.replace("永久", "permanently")
+    t = re.sub(r"\(ally\s*\)", " (based on ally level)", t)
+    t = re.sub(r"(\+[\d.]+% (?:(?:base|bonus|max) )?(?:AD|AP|Health|Mana|Armor|Magic Resist))(?=[A-Za-z])", r"\1 ", t)
+    t = re.sub(r"(\d)(<passive>)", r"\1 \2", t)
+    t = re.sub(r"\(\s+(?=\d)", "(", t)
+    t = t.replace("second(s)", "second")
+    t = t.replace("（", " (").replace("）", ")").replace("－", "-").replace("，", ", ")
+    t = re.sub(r"(?<=\d)(?=seconds?\b)", " ", t)
+    t = re.sub(r"(?<=[\d%)])(?=[A-Za-z])(?!s\b)", " ", t)
+    t = re.sub(r"(?<=\d)plus ", " plus ", t)
+    t = re.sub(r"\(\s+(?=[A-Za-z])", "(", t)   # ( Melee only) → (Melee only)
+    return t
+
+def repair_en(desc, lut, ictx):
+    """repair_dd 的英文版：(0s) 換 bin 冷卻；「dealing  magic damage」只有一條計算式時才填，不猜。"""
+    m = re.search(r"</stats>", desc)
+    rest = desc[m.end():] if m else desc
+    if not re.sub(r"<[^>]+>|\s", "", rest):
+        return None
+    cd = lut.get("cooldown")
+    t = desc.replace("(0s)", f"({fmt(cd)}s)" if cd else "")
+    if EN_BLANKDMG.search(t):
+        calcs = list((ictx.calc if ictx is not None else {}).values())
+        if len(calcs) != 1:
+            return None
+        try:
+            v = render_split(ictx, calcs[0], 1.0)
+        except Miss:
+            return None
+        if not v:
+            return None
+        t = EN_BLANKDMG.sub(lambda x: f"{x.group(1)} {en_text(v)} {x.group(2)} damage", t)
+    return t
+
+def build_en(ddv, dd, binj, need_dl):
+    """→ (ITEM_DESC_EN, ITEM_XTRA_EN)。任何一步失敗就丟例外，由 main 決定沿用上一版。
+    含中文殘留的那一件不收（英文模式寧可退回 DDragon 原文，也不要夾中文）。"""
+    st_f = CACHE_DIR / "items_st_enus.json"
+    if need_dl or not st_f.exists():
+        s = get(URL_ST_EN)
+        json.loads(s)
+        _write(st_f, s)
+    st = json.loads(st_f.read_text(encoding="utf-8"))
+    st = st.get("entries", st)
+    en = json.loads(get(f"{DD_API}/cdn/{ddv}/data/en_US/item.json", 60))["data"]
+    out = {}
+    def _not_live(i):
+        return not (en[i].get("gold", {}).get("purchasable") and en[i].get("maps", {}).get("11"))
+    for iid in sorted(en, key=lambda x: (_not_live(x), int(x))):
+        if int(iid) >= 200000:
+            continue
+        d = en[iid]
+        name = d["name"]
+        if name in out or st.get(f"item_{iid}_tooltip") == "":
+            continue
+        entry = binj.get(f"Items/{iid}")
+        tpl = pick_template(iid, entry, st) if entry else None
+        if not tpl:
+            continue
+        tpl = expand_tokens(drop_live_stats(tpl), st)
+        if not tpl:
+            continue
+        lut = build_lut(entry)
+        calcs = build_calcs(entry, lut)
+        ictx = item_ctx(entry)
+        body, miss = fill(tpl, lut, calcs, ictx)
+        if miss > 3:
+            continue
+        desc = d.get("description", "")
+        sm = STATS_RE.search(desc)
+        stats = sm.group(0) + "<br><br>" if sm else ""
+        if miss:
+            text = repair_en(desc, lut, ictx) or re.sub(
+                r"(?:<br>\s*)+(?=</mainText>)", "", f"<mainText>{stats}{en_text(strip_holes(tpl, lut, calcs, ictx))}</mainText>")
+        else:
+            text = None
+            if not digit_runs(body):
+                c = repair_en(desc, lut, ictx)
+                if c and digit_runs(STATS_RE.sub("", c)):
+                    text = c
+            if text is None:
+                text = f"<mainText>{stats}{en_text(body)}</mainText>"
+        if CJK_RE.search(re.sub(r"<[^>]+>", "", text)):
+            continue
+        out[name] = text
+    xtra = {}
+    for iid, base in TRANSFORMS.items():
+        name = st.get(f"item_{iid}_name")
+        entry = binj.get(f"Items/{iid}")
+        cands = [st.get(f"item_{iid}_{s}") for s in ("tooltip", "tooltipextended", "tooltipinventory", "tooltipexternal")]
+        cands = [c for c in cands if c]
+        tpl = next((c for c in cands if "@" in c), cands[0] if cands else None)
+        if tpl:
+            tpl = expand_tokens(drop_live_stats(tpl), st)
+        ids = [k for k, v in dd.items() if v["name"] == base and int(k) < 200000]
+        sr = [k for k in ids if dd[k].get("gold", {}).get("purchasable") and dd[k].get("maps", {}).get("11")]
+        bname = en.get((sr or ids or [""])[0], {}).get("name")
+        if not (name and entry and tpl and bname):
+            continue
+        lut = build_lut(entry)
+        body, _m = fill(tpl, lut, build_calcs(entry, lut), item_ctx(entry))
+        text = f"<mainText>{en_text(body)}</mainText>"
+        if CJK_RE.search(re.sub(r"<[^>]+>", "", text)):
+            continue
+        xtra[name] = {"d": text, "base": bname,
+                      "img": f"https://ddragon.leagueoflegends.com/cdn/{ddv}/img/item/{iid}.png"}
+    return out, xtra
+
+def read_prev_en():
+    """上一版 items.js 的英文兩段 → (ITEM_DESC_EN, ITEM_XTRA_EN)；沒有回 ({}, {})"""
+    try:
+        js = OUT_JS.read_text(encoding="utf-8")
+        dec = json.JSONDecoder()
+        a = js.index(";window.ITEM_DESC_EN=") + len(";window.ITEM_DESC_EN=")
+        b = js.index(";window.ITEM_XTRA_EN=") + len(";window.ITEM_XTRA_EN=")
+        return dec.raw_decode(js[a:])[0], dec.raw_decode(js[b:])[0]
+    except (OSError, ValueError):
+        return {}, {}
+
 def main():
     ddv = json.loads(get(f"{DD_API}/api/versions.json", 30))[0]
     cdver = ""
@@ -481,7 +623,6 @@ def main():
         filled_n += 1
 
     # 轉化裝：遊戲內存在、但 DDragon item.json 已不列（水滴疊滿升級系）
-    TRANSFORMS = {3040: "大天使之杖", 3042: "魔劍正宗", 3121: "凜冬將至", 2530: "低語之環"}  # id → 升級前本體（水滴四系）
     xtra = {}
     for iid, base in TRANSFORMS.items():
         name = st.get(f"item_{iid}_name")
@@ -503,8 +644,17 @@ def main():
         return 1
     if kept:
         print(f"⚠ {len(kept)} 件道具這版有值查不到，沿用上一版文字：{'、'.join(kept[:12])}")
+    # 英文兩段：抓不到／解不開就沿用上一版（不擋中文那份），但要印出來——靜默沿用會變成「英文永遠停在舊版」
+    prev_en, prev_xen = read_prev_en()
+    try:
+        out_en, xtra_en = build_en(ddv, dd, binj, need_dl)
+        if len(out_en) < MIN_KEEP * len(prev_en):
+            raise ValueError(f"只解析出 {len(out_en)} 件（上一版 {len(prev_en)} 件）")
+    except Exception as e:
+        print(f"⚠ 英文道具說明這班沒更新（維持前一班的 {len(prev_en)} 件）：{e}")
+        out_en, xtra_en = prev_en, prev_xen
     # 只有 CDragon build 變、內容沒變：不換版本戳（換了前端快取會白白失效，也多一個資料 commit）
-    if same_dd and out == prev and xtra == prev_xtra:
+    if same_dd and out == prev and xtra == prev_xtra and out_en == prev_en and xtra_en == prev_xen:
         if cdver:
             _write(CDVER_F, cdver.encode())
         print(f"items.js 內容沒變（CDragon {cdver}），不重寫")
@@ -514,7 +664,10 @@ def main():
     ver = f"{ddv}-{datetime.now().strftime('%m%d%H%M')}"
     js = ("window.ITEM_DESC=" + json.dumps(out, ensure_ascii=False, separators=(",", ":"))
           + ";window.ITEM_XTRA=" + json.dumps(xtra, ensure_ascii=False, separators=(",", ":"))
-          + f';window.ITEM_DESC_VER="{ver}";')  # 版本戳：讓前端 localStorage 快取隨 items.js 重建而失效
+          + f';window.ITEM_DESC_VER="{ver}";'  # 版本戳：讓前端 localStorage 快取隨 items.js 重建而失效
+          # 英文兩段一定接在版本戳「後面」：read_prev 與其他腳本靠前三段的相對位置切字串
+          + "window.ITEM_DESC_EN=" + json.dumps(out_en, ensure_ascii=False, separators=(",", ":"))
+          + ";window.ITEM_XTRA_EN=" + json.dumps(xtra_en, ensure_ascii=False, separators=(",", ":")) + ";")
     _write(OUT_JS, js.encode("utf-8"))
     _write(MARK_F, ddv.encode())
     if cdver:

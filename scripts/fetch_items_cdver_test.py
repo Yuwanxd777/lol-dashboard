@@ -117,7 +117,11 @@ class Box:
         return self
 
     def dl(self):
-        return [c for c in self.calls if "items.cdtb.bin" in c or "stringtable" in c]
+        # 英文字串表（game/en_us/）另計：這裡只數中文那兩份（bin＋zh_tw 字串表）
+        return [c for c in self.calls if "items.cdtb.bin" in c or ("stringtable" in c and "game/en_us/" not in c)]
+
+    def dl_en(self):
+        return [c for c in self.calls if "stringtable" in c and "game/en_us/" in c]
 
     def text(self):
         return self.js.read_text(encoding="utf-8")
@@ -172,6 +176,7 @@ check("②檔案沒動", lambda: b.text() == raw)
 b.run(routes(bin_with_map(0.10), cdver="B2"))
 check("③rc 0", lambda: b.rc == 0)
 check("③有重新下載", lambda: len(b.dl()) == 2)
+check("③英文字串表也重新下載", lambda: len(b.dl_en()) == 1)
 check("③變成 10%", lambda: "最多10%" in desc(b)["狂霸血甲"].replace(" ", ""))
 check("③cdver 前進", lambda: b.cdm.read_text() == "B2")
 check("③版本戳仍是這版 DDragon", lambda: 'ITEM_DESC_VER="16.22.1-' in b.text())
@@ -356,6 +361,45 @@ n1 = ns_box(NS_OLD)
 n1.run(ns_routes(8), "fetch_item_nostore.py")
 n1.run(ns_routes(0), "fetch_item_nostore.py")
 check("⑫舊版對照：0 個照寫成空表、rc 0", lambda: n1.rc == 0 and ns_read(n1) == {})
+
+# ⑭ 英文兩段（2026-11-11）：英文字串表＋en_US item.json 都拿得到才有英文說明；拿不到不擋中文那份
+REAL_ST_EN = json.loads((REPO / "csv_cache" / "items_st_enus.json").read_text(encoding="utf-8"))
+REAL_ST_EN = REAL_ST_EN.get("entries", REAL_ST_EN)
+assert f"item_{BLOOD}_tooltip" in REAL_ST_EN, "英文素材不見了"
+
+
+def js_var(box, var):
+    js = box.text()
+    i = js.index("window." + var + "=") + len("window." + var + "=")
+    return json.JSONDecoder().raw_decode(js[i:])[0]
+
+
+def routes_en(val, cdver="B1", en=True):
+    r = routes(bin_with_map(val), cdver=cdver)
+    if not en:
+        return r
+    # 英文字串表的網址也含 lol.stringtable.json ⇒ 要排在通用那條前面
+    return [["game/en_us/", json.dumps({"entries": {f"item_{BLOOD}_tooltip": REAL_ST_EN[f"item_{BLOOD}_tooltip"]}})],
+            ["/data/en_US/item.json", json.dumps({"data": {BLOOD: {"name": "Overlord's Bloodmail", "description": "<stats>40 Attack Damage</stats>"}}})]] + r
+
+
+e1 = Box()
+e1.run(routes_en(0.12))
+check("⑭英文有收到", lambda: e1.rc == 0 and "Overlord's Bloodmail" in js_var(e1, "ITEM_DESC_EN"))
+check("⑭英文帶數字 12%", lambda: "12%" in js_var(e1, "ITEM_DESC_EN")["Overlord's Bloodmail"].replace(" ", ""))
+check("⑭英文不夾中文", lambda: not __import__("re").search("[\u4e00-\u9fff]", js_var(e1, "ITEM_DESC_EN")["Overlord's Bloodmail"]))
+check("⑭中文那份還在", lambda: "最多12%" in desc(e1)["狂霸血甲"].replace(" ", ""))
+check("⑭沒有警告", lambda: "英文道具說明這班沒更新" not in e1.out)
+_raw_e = e1.text()
+e1.run(routes_en(0.10, cdver="B2"))
+check("⑭build 變、值變：英文跟著變 10%", lambda: "10%" in js_var(e1, "ITEM_DESC_EN")["Overlord's Bloodmail"].replace(" ", "") and e1.text() != _raw_e)
+_raw_e = e1.text()
+e1.run(routes_en(0.10, cdver="B3", en=False))
+check("⑭英文來源抓不到：rc 0、有警告、英文維持前一班", lambda: e1.rc == 0 and "英文道具說明這班沒更新" in e1.out
+      and "10%" in js_var(e1, "ITEM_DESC_EN")["Overlord's Bloodmail"].replace(" ", ""))
+e2 = Box()
+e2.run(routes_en(0.12, en=False))
+check("⑭正控制：沒有英文來源時英文是空的", lambda: e2.rc == 0 and js_var(e2, "ITEM_DESC_EN") == {} and "狂霸血甲" in desc(e2))
 
 check("⑬正本一個位元沒動", lambda: snap() == before)
 check("⑬正本沒多 cdver 檔", lambda: cdm_real.exists() == cdm_before)

@@ -156,8 +156,9 @@
     nav .tab{padding:6px 12px;font-size:13.5px}
     main{padding:10px}
   }
-  /* 手機（< 760，與 isMobileW 同界線；使用者 2026-11-04）：頁首不黏頂、收掉手機用不到的字體／縮放／畫筆，分頁鈕縮成兩排 */
-  @media(max-width:759.98px){
+  /* 手機／平板（< 1100，與 isMobileW 同界線；使用者 2026-11-04，2026-11-11 界線由 760 提高到 1100）：頁首不黏頂、收掉手機用不到的字體／縮放／畫筆，分頁鈕縮成兩排 */
+  @media(max-width:1099.98px){
+    .filters .barBtns{flex-wrap:wrap;justify-content:flex-end;max-width:100%;row-gap:6px} /* 改 1：英文積分頁按鈕列放不下時換行，← 不再跑出右緣 */
     header{position:static;padding:8px 10px 6px}
     #meta,#lblFont,#fontSel,#lblZoom,#zoomSel,#penBtn,#lblLang,#lblYear{display:none}
     nav .tab{padding:5px 9px;font-size:13px}
@@ -1040,6 +1041,9 @@
   .ntDoc table{border-collapse:collapse;margin:8px 0 14px}
   .ntDoc th,.ntDoc td{border:1px solid var(--line);padding:4px 10px;text-align:left;vertical-align:top}
   .ntDoc th{background:#1b2333}
+  .ntDoc th,.ntDoc td{white-space:normal;overflow:visible;text-overflow:clip} /* 筆記是長文：不繼承全站表格的不換行＋省略號 */
+  .ntDoc table{max-width:100%}
+  @container mainc (max-width:759.98px){.ntWrap{grid-template-columns:minmax(0,1fr)}.ntList{max-height:38vh}.ntDoc{padding:14px 14px}}
   .ntDoc mark{background:#5a4a12;color:inherit;border-radius:3px}
   /* ── 預測分頁（官方水晶球，2026-10-11）：版面用既有 .grid，這裡只定義卡片內容 ── */
   /* 2026-10-11 細修：題號＋分類色條、名次徽章、欄標底線、列分隔；開賽前「本屆」欄縮窄 */
@@ -1184,7 +1188,7 @@
   .pdExt .pdExtWhy a{color:#8ab4ff;text-decoration:none;white-space:nowrap}.pdExt a:hover{text-decoration:underline}
   @container mainc (max-width:1500px){ .pdCols4{grid-template-columns:repeat(2,minmax(0,1fr))} }
   @container mainc (max-width:1300px){ .pdQC{grid-template-columns:1fr;gap:10px} .pdCols.pdPre{grid-template-columns:repeat(3,minmax(0,1fr))} }
-  @container mainc (max-width:900px){ .pdCols,.pdCols4,.pdCols.pdPre{grid-template-columns:1fr} }
+  @container mainc (max-width:1100px){ .pdCols,.pdCols4,.pdCols.pdPre{grid-template-columns:1fr} } /* 900→1100（2026-11-11）：手機／平板版面的界線提高到 1100 後，容器 900～1080 時三欄各只有 300px、機率欄會超出右緣 */
   /* 角色池對比：五路一列一列，左＝只有左邊會／中＝兩邊都會／右＝只有右邊會 */
   /* 六欄：路線｜左選手｜只有左邊會｜兩邊都會｜只有右邊會｜右選手。
      ⚠ grid 一定要放在**外層容器**、列與欄頭用 display:contents（使用者 2026-09-23「五路的排版要一致」）：
@@ -1624,7 +1628,7 @@ Object.assign(I18N,{
 });
 function mLabel(c){ return LANG==="en" ? (METRIC_EN[c]||c) : c; }
 // ---------- Data Dragon 英雄圖 ----------
-let DDV=localStorage.getItem("ddragon_ver")||"16.13.1";
+let DDV=localStorage.getItem("ddragon_ver")||(window.ITEM_DESC_VER||"").split("-")[0]||"16.13.1";
 fetch("https://ddragon.leagueoflegends.com/api/versions.json").then(r=>r.json()).then(v=>{
   if(v&&v[0]&&v[0]!==DDV){DDV=v[0];localStorage.setItem("ddragon_ver",DDV);if(D)render();}
 }).catch(()=>{});
@@ -1646,7 +1650,7 @@ fetch(`https://ddragon.leagueoflegends.com/cdn/${DDV}/data/en_US/champion.json`)
 }).catch(()=>{});
 // ── 延遲載入（性能 2026-07-17）：wiki 三檔＋英文公告＋刷野（~5.2MB）改為動態掛載——
 // 首屏後 1.2 秒閒置預載 wiki；進 圖鑑/英雄 會再 ensureWiki（冪等）；刷野速度分頁才載 jungle.js；英文模式才載 patches_en.js。
-const _LAZYSRC={wiki:["wiki_patches.js","wiki_extra.js","wiki_objectives.js"],en:["patches_en.js","wiki_patches_en.js","wiki_objectives_en.js","wiki_extra_en.js"],jungle:["jungle.js"],sqg:["soloq_champ_games.js"],pagg:["soloq_pagg.js"],builds:["soloq_builds.js"],recent:["soloq_recent.js"],sqch:["soloq_pool.js"],sqib:["soloq_champ_ib.js"],pred:["predict_sq.js","predict_ext.js","swiss_hist.js"],notes:["notes_local.js"]};
+const _LAZYSRC={wiki:["wiki_patches.js","wiki_extra.js","wiki_objectives.js"],en:["patches_en.js","wiki_patches_en.js","wiki_objectives_en.js","wiki_extra_en.js","skills_en.js"],jungle:["jungle.js"],sqg:["soloq_champ_games.js"],pagg:["soloq_pagg.js"],builds:["soloq_builds.js"],recent:["soloq_recent.js"],sqch:["soloq_pool.js"],sqib:["soloq_champ_ib.js"],pred:["predict_sq.js","predict_ext.js","swiss_hist.js"],notes:["notes_local.js"],lastver:["item_lastver.js"]};
 const _lazyP={};
 function lazyLoad(g){
   return Promise.all((_LAZYSRC[g]||[]).map(src=>_lazyP[src]||(_lazyP[src]=new Promise(res=>{
@@ -1936,12 +1940,12 @@ const posImg=p=>POS_IMG[p]?`<img class="posic" src="${POS_IMG[p]}" alt="${p}" ti
 // 合併多個歷史版本(當前優先)：已被移除的裝備/符文(相位衝擊、鎖鏈軍靴…)才對得到圖。
 let EXTRA_IMG=null, EXTRA_INFO=null;
 // 道具變體 → 本體：圖鑑不單獨列出，改寫進本體的說明區
-const ITEM_VARIANT={"破碎的護腕":"探索者護腕"};
+const ITEM_VARIANT={"破碎的護腕":"探索者護腕","Shattered Armguard":"Seeker's Armguard"};
 // 鞋子附魔（2013–2016：附魔：統帥/戰場統御…）＝鞋子的變體：不列在圖鑑道具清單，收進該鞋詳情（動態判定：名稱帶附魔＋合成來源含鞋）
 const bootEnchOf=n=>{ if(!/附魔|Enchantment/i.test(String(n)))return null;
   const E=(typeof EXTRA_INFO!=="undefined")&&EXTRA_INFO; if(!E)return null;
   const k=(typeof xKey==="function")?(xKey(E,n)||n):n; const inf=E[k]; if(!inf||inf.t!=="道具")return null;
-  return (inf.f||[]).find(x=>/之靴|足具|護脛|戰靴|涼鞋/.test(String(x)))||null; };
+  return (inf.f||[]).find(x=>/之靴|足具|護脛|戰靴|涼鞋|Boots|Greaves|Treads|Shoes|Steelcaps/.test(String(x)))||null; };
 // 同件道具的新舊譯名：舊名 → 現行名（圖鑑只列現行名，查詢兩者互通）
 // 2013 的打野基礎道具：早已移除，資產表查不到，wiki 抓回來還是英文（2026-08-01 補）
 const ITEM_ALIAS={"Crest Ancient Golem":"遠古石魔紋章","Crest of the Ancient Golem":"遠古石魔紋章",
@@ -1957,7 +1961,7 @@ const ITEM_ALIAS={"Crest Ancient Golem":"遠古石魔紋章","Crest of the Ancie
 "Oblivion Orb":"遺忘寶珠","Spellbinder":"煉魔渾儀","Lifeline":"生命之索",
 "Runic Echoes":"符文迴響","Quill Coat":"翮羽輕甲","Bloodletter's Veil":"放血者的面紗",
 "Shurelya's Reverie":"蘇瑞亞的狂想曲","Luden's Echo":"盧登回音","Cinderhulk":"附魔：餘燼",
-"Witch's Hat":"女巫之帽","Wriggle's Lantern":"瑞格之燈","Wriggle":"蘭頓之兆",
+"Witch's Hat":"女巫之帽","Wriggle's Lantern":"瑞格之燈","Wriggle":"瑞格之燈",
 "Nomad's Eye":"浪人之眼","Eye of Ascension":"昇華之眼","Celestial Eye":"天神之眼",
 "Eye of Frost":"寒霜之眼","Eye of the Aspect":"星靈之眼","Blackfire Torch":"黑焰火炬",
 "Ultimate Hat":"終極之帽","Ultimate Hunter":"終焉獵人","大絕 Hat":"終極之帽","大絕 Hunter":"終極獵手",
@@ -1975,7 +1979,7 @@ const ITEM_ALIAS={"Crest Ancient Golem":"遠古石魔紋章","Crest of the Ancie
 "羽刺外衣":"翮羽輕甲",
 "舒瑞亞的戰歌":"蘇瑞亞的狂想曲",
 "魯登的回聲":"盧登回音",
-"蘭頓之兆":"瑞格之燈",
+
 "終極獵手":"終焉獵人",
 "鋼鐵日炎頭冠":"日輪的神環",
 "鋼鐵日炎懸章":"日輪的加冕"
@@ -2000,7 +2004,7 @@ const xKey=(obj,n)=>{
 //  濾掉競技場(6位id/map30)、核心攻防戰(Nexus Siege)建築、ARAM 特製版等別模式道具。
 //  EXTRA_INFO 建構與 yearSet 當年集合共用，避免別模式道具混入或蓋掉峽谷版價格（如競技場適性神盔 $6000）。
 // 非召喚峽谷的舊模式專屬道具（Dominion/扭曲叢林/URF）：5.x DDragon 常缺 maps 旗標 → 名稱黑名單（使用者回報驅動，同烏莉特法帽先例）
-const NON_SR_LEGACY=/黃金鍋鏟|Golden Spatula|魔劍正宗|Sword of the Divine|殞落之祭|Rite of Ruin/i; // 殞落之祭(3430)＝2015 黑市拳擊手／競技場道具，CDragon bin 裡根本沒有；DDragon 16.1 誤標 maps.11=true、16.18 改回 ⇒ 被當成 2026 年中移除（使用者指正 2026-09-14） // 魔劍正宗＝TT 專屬(3004 maps 全 None 資料判不出，名單排除) // 只有黃金鍋鏟(URF)確定非峽谷；其他別亂列（使用者指正 2026-07-16）
+const NON_SR_LEGACY=/黃金鍋鏟|Golden Spatula|Sword of the Divine|殞落之祭|Rite of Ruin/i; // 殞落之祭(3430)＝2015 黑市拳擊手／競技場道具，CDragon bin 裡根本沒有；DDragon 16.1 誤標 maps.11=true、16.18 改回 ⇒ 被當成 2026 年中移除（使用者指正 2026-09-14） // 魔劍正宗＝TT 專屬(3004 maps 全 None 資料判不出，名單排除) // 只有黃金鍋鏟(URF)確定非峽谷；其他別亂列（使用者指正 2026-07-16）
 const srItemOK=(d,iid)=>{
   if(NON_SR_LEGACY.test(String(d&&d.name||"")))return false; // URF 愚人節道具
   {const m0=(d&&d.maps)||{}; if(m0["1"]===false&&m0["11"]!==true)return false;} // 5.x 舊召喚峽谷旗標：map1=false＝模式專屬(奧丁面紗/格雷提燈/探險短劍…)
@@ -2010,7 +2014,7 @@ const srItemOK=(d,iid)=>{
   if(d.maps&&(d.maps["8"]===true||d.maps["10"]===true)&&d.maps["11"]!==true)return false; // 只在 Dominion(8)/扭曲叢林(10) 而非峽谷(11) 的傳奇道具（烏莉特的法帽等）
   if(d.gold&&d.gold.purchasable===false)return false;  // 不可購買（任務代幣、系統道具）
   if(d.requiredAlly||d.requiredChampion)return false;  // 依附/指定英雄道具
-  if(/^保衛者|果汁$/.test(d.name))return false;          // ARAM 開局裝、競技場果汁（Riot 誤標成峽谷可用）
+  if(/^保衛者|^Guardian's |果汁$|Juice$/.test(d.name))return false;          // ARAM 開局裝、競技場果汁（Riot 誤標成峽谷可用）
   if(/[（(](快速|高速)充能[)）]|\(Quick Charge\)/.test(d.name))return false; // 大天使之杖（快速充能）等 ARAM 特製版
   const total=(d.gold&&d.gold.total)||0, tags=d.tags||[];
   if(total===0&&!tags.length)return false;             // 核心攻防戰建築/道具：免費且無任何分類標籤（飾品/守衛雖免費但都有 tags）
@@ -2063,7 +2067,8 @@ const ASSET_IDX=(()=>{ const A=window.LOL_ASSETS; if(!A)return null;
   return {A,byName,allByName};
 })();
 // 歷史年份的合成鏈成員過濾：該年不存在（身份鏈年份不含該年）的裝備不列（2015 不會出現狂暴利刃/狂風之力）
-const _itemInYear=n=>{ if(typeof isHistYear!=="function"||!isHistYear())return !(window.ITEM_NOSTORE&&ITEM_NOSTORE[n]); // 當前年份：排除 CDragon 標為已下架(遊戲已移除，DDragon 殭屍資料仍留著)的道具，如闇夜收割者(24.01移除)仍掛在海克斯科技發電機 into
+const _noStore=n=>{if(!window.ITEM_NOSTORE)return false;if(ITEM_NOSTORE[n])return true;if(LANG!=="en"||!window.LOL_ASSETS||!LOL_ASSETS.item)return false;if(!window._NSEN){window._NSEN={};for(const it of Object.values(LOL_ASSETS.item))if(it&&it.en&&it.zh&&ITEM_NOSTORE[it.zh])_NSEN[it.en]=1;}return !!_NSEN[n];};
+const _itemInYear=n=>{ if(typeof isHistYear!=="function"||!isHistYear())return !_noStore(n)&&(!EXTRA_INFO||!!EXTRA_INFO[n]); // 當前年份：排除 CDragon 標為已下架(遊戲已移除，DDragon 殭屍資料仍留著)的道具，如闇夜收割者(24.01移除)仍掛在海克斯科技發電機 into
   const M=(typeof assetMergedOf==="function")&&assetMergedOf(n);
   return !M||!M.years||!M.years.length||M.years.includes(+curYear); };
 // 名稱查詢候選（assetOf / assetMergedOf 共用）
@@ -2212,7 +2217,7 @@ const assetSpanText=n=>{ const a=assetOf(n);
   if(!yArr.length)return "";
   const ys=yArr.slice().sort((x,y)=>x-y), seg=[]; ys.forEach(y=>{const L=seg[seg.length-1]; if(L&&y===L[1]+1)L[1]=y; else seg.push([y,y]);});
   return (LANG==="en"?"in game ":"服役 ")+seg.map(([a1,b1])=>a1===b1?`${a1}`:`${a1}–${b1}`).join("、"); };
-const CACHE_VER=DDV+"-m30-"+(window.ITEM_DESC_VER||"0"); // 快取鍵含 items.js 版本戳：道具資料重建即失效重建（m30：from/into 皆不去重）
+const CACHE_VER=DDV+"-m31-"+(window.ITEM_DESC_VER||"0"); // 快取鍵含 items.js 版本戳：道具資料重建即失效重建（m31：魔劍正宗收回、轉化裝帶本體價、英文吃 ITEM_DESC_EN／ITEM_XTRA_EN）
 // 文本統一清理(道具/符文/技能描述＋版本改動文本共用)：移除未解析變數@X@、數字半形中括號[40-150]→加空格、斜線半形/→全形／、括號全形
 // 用語統一（全站顯示）：生命偷取→吸血、法術穿透→法穿、穿甲→物穿、生命值→生命（順序：先長詞再短詞）
 // 兩側同單位去重的共用樣式（normTerm 內用兩次：括號拆殼(1673 那條)前後各一次——
@@ -2372,7 +2377,7 @@ const txtClean=s=>_parenFix(normTerm(String(s||"").replace(/([一-鿿])(-(?=[\d.
   .replace(/：。/g,"：") // 「技能：。」翻譯殘留 → 收成冒號
   .replace(/[；;]\s*[：:]/g,"：") // 「…改為物傷；：30／80…」合併後多出來的分號 → 收成冒號
   .replace(_CHDISP_RE,m=>CH_DISP[m]||m) // 顯示名統一（規則來自 CH_DISP）
-  .replace(/[（(]/g,"（").replace(/[)）]/g,"）") // 括號一律全形
+  .replace(/[（(]/g,LANG==="en"?"(":"（").replace(/[)）]/g,LANG==="en"?")":"）") // 括號：中文一律全形；英文模式一律半形（2026-11-11）
   .replace(/[ \t]{2,}/g," ")));
 const stripT=s=>txtClean(String(s||"").replace(/<br\s*\/?>/gi,"\n").replace(/<[^>]+>/g,"").replace(/[̀-ͯ҃-҉]/g,"")).replace(/\n{2,}/g,"\n").trim();
 // 道具原始 HTML → 結構化區塊：<stats>=屬性一區；每個 <passive>/<active> 具名效果各一區
@@ -2610,7 +2615,8 @@ function _helpOutside(e){const p=document.getElementById("helpPop"); if(p&&!p.co
           if(m[nm])return;
           m[nm]=`${CDN}/${v}/img/item/${d.image.full}`;
           // items.js（CDragon bin 填值，數字完整）優先，DDragon 描述備援
-          const rawD=(window.ITEM_DESC&&(window.ITEM_DESC[nm]||window.ITEM_DESC[d.name]))||d.description;
+          const _ID=(LANG==="en"&&window.ITEM_DESC_EN)||window.ITEM_DESC; /* 英文模式吃英文那份（DDragon 英文原文缺值：(0s)） */
+          const rawD=(_ID&&(_ID[nm]||_ID[d.name]))||d.description;
           // 佔位名（無效道具/Deprecated＝3095 狂暴利刃這類）→ 用資產索引正名；合成鏈不列非峽谷品
           const fixNm=id=>{let n=idName[id]; if(!n)return n; if(/無效道具|Deprecated/i.test(n)){const az=window.LOL_ASSETS&&LOL_ASSETS.item&&LOL_ASSETS.item[id]; n=(az&&az.zh&&!/無效道具|Deprecated/i.test(az.zh))?az.zh:null;} return n;}; // 佔位查無真名→不列
           info[nm]={t:"道具",sec:parseItemDesc(rawD),g:(d.gold&&d.gold.total)||0,b:(d.gold&&d.gold.base)||0,
@@ -2638,10 +2644,10 @@ function _helpOutside(e){const p=document.getElementById("helpPop"); if(p&&!p.co
     });
     // 轉化裝（DDragon 已不列、遊戲內存在）：熾天使的擁抱／終極魔劍／芬布爾之冬
     // 覆蓋式合併：歷史版本可能已有同名條目但缺 from（Riot 改版拿掉合成鏈），必須補 x/f 標記
-    if(window.ITEM_XTRA)Object.entries(ITEM_XTRA).forEach(([n,x])=>{
+    const _XT=(LANG==="en"&&window.ITEM_XTRA_EN)||window.ITEM_XTRA;if(_XT)Object.entries(_XT).forEach(([n,x])=>{
       m[n]=m[n]||x.img;
       const old=info[n]||{};
-      info[n]=Object.assign({},old,{t:"道具",f:[x.base],u:[],x:1});
+      info[n]=Object.assign({},old,{t:"道具",f:[x.base],u:[],x:1});if(!info[n].g&&info[x.base])info[n].g=info[x.base].g;
       if(!info[n].sec||!info[n].sec.length)info[n].sec=parseItemDesc(x.d); // 舊描述有數字就保留
       const bi=info[x.base]; if(bi){if(!(bi.u||[]).includes(n))(bi.u=bi.u||[]).push(n); bi.xu=1;} // 本體的可合成區補上；xu=升級目標為轉化裝（圖鑑仍算成裝）
     });
@@ -2965,12 +2971,12 @@ function skFmt(t){ if(t==null||t==="")return "";
 
 async function champTipHTML(key,detailed){
   // 優先：skills.js（fetch_skills.py 由 CDragon bin 解出的每級數值，已填入繁中描述）——僅當年適用
-  const SK=!isHistYear()&&LANG!=="en"&&window.CHAMP_SKILLS&&window.CHAMP_SKILLS.d&&window.CHAMP_SKILLS.d[key];
+  const SK=!isHistYear()&&(LANG==="en"?(window.CHAMP_SKILLS_EN&&CHAMP_SKILLS_EN.d&&CHAMP_SKILLS_EN.d[key]):(window.CHAMP_SKILLS&&window.CHAMP_SKILLS.d&&window.CHAMP_SKILLS.d[key]));
   if(SK){
-    const _pd=(detailed&&typeof HERO_MECH!=="undefined"&&HERO_MECH[key])?HERO_MECH[key]:SK.p.d; // detailed（詳情頁）：被動改用手寫詳細機制
+    const _pd=(LANG!=="en"&&detailed&&typeof HERO_MECH!=="undefined"&&HERO_MECH[key])?HERO_MECH[key]:SK.p.d; // detailed（詳情頁）：被動改用手寫詳細機制
     return `<div class="tipTitle">${esc(SK.n)} <span class="meta">${esc(SK.t||"")}｜${LANG==="en"?"current patch values":"目前版本數值"}</span></div>
-      <div class="tipRow"><b>被動｜${esc(SK.p.n)}</b>${skFmt(_pd)}</div>`
-      +SK.s.map(s=>`<div class="tipRow"><b>${s.k}｜${esc(s.n)}</b> <span class="meta">冷卻 ${hiNum(esc(s.cd||"—"))}｜消耗 ${hiNum(esc(s.co||"0"))}</span>${skFmt(s.d)}${s.x?`<div class="spellNums">${s.x.map(x=>hiNum(esc(x))).join("　")}</div>`:""}</div>`).join("");
+      <div class="tipRow"><b>${LANG==="en"?"Passive":"被動"}｜${esc(SK.p.n)}</b>${skFmt(_pd)}</div>`
+      +SK.s.map(s=>`<div class="tipRow"><b>${s.k}｜${esc(s.n)}</b> <span class="meta">${LANG==="en"?"CD":"冷卻"} ${hiNum(esc(s.cd||"—"))}｜${LANG==="en"?"Cost":"消耗"} ${hiNum(esc(s.co||"0"))}</span>${skFmt(s.d)}${s.x?`<div class="spellNums">${s.x.map(x=>hiNum(esc(x))).join("　")}</div>`:""}</div>`).join("");
   }
   const ver=yearVer(), ck=`${ver}:${key}`;
   if(!(ck in CHAMP_CACHE)){
@@ -3019,26 +3025,47 @@ async function champTipHTML(key,detailed){
     <div class="tipRow"><b>${LANG==="en"?"Passive":"被動"}｜${esc(d.passive.name)}</b>${skFmt(stripT(d.passive.description))}</div>`
     +d.spells.map((s,i)=>spellTip(s,KEYS[i])).join("");
 }
+// 一筆 DDragon item → 提示用的資料（histYearData 與 histLastVer 共用）
+function _histItemInf(x,id,ver,byId){
+  const d=String(x.description||"");
+  const sm=d.match(/<stats>([\s\S]*?)<\/stats>/i);
+  const rest=stripT(d.replace(/<stats>[\s\S]*?<\/stats>/i,"").replace(/<br\s*\/?>/gi,"\n")).trim();
+  const sec=[];
+  if(sm){const st=stripT(sm[1].replace(/<br\s*\/?>/gi,LANG==="en"?", ":"、")).trim(); if(st)sec.push({h:"屬性",t:st});}
+  if(rest)sec.push({h:"",t:rest});
+  return {t:"道具",g:(x.gold||{}).total||0,b:(x.gold||{}).base||0,
+    f:(x.from||[]).map(i2=>byId[i2]).filter(Boolean),
+    u:[...new Set((x.into||[]).map(i2=>byId[i2]).filter(Boolean))],
+    sec,img:`https://ddragon.leagueoflegends.com/cdn/${ver}/img/item/${x.image?x.image.full:id+".png"}`};
+}
+// 年中被移除的道具：年末版本已經沒有 → 補抓它「最後出現的那一版」（item_lastver.js：年→版本→道具 id；scripts/build_item_lastver.py 產）
+// 一個年份只補一次；回傳有沒有補進新道具
+async function histLastVer(H2){
+  if(H2._lv)return false; H2._lv=1;
+  await lazyLoad("lastver");
+  const L=(window.ITEM_LASTVER||{})[H2.y]; if(!L)return false;
+  let add=0;
+  await Promise.all(Object.entries(L).map(async([ver,ids])=>{ try{
+    const j=await(await fetch(`https://ddragon.leagueoflegends.com/cdn/${ver}/data/${DDLOC}/item.json`)).json();
+    const byId={}; for(const[id,x]of Object.entries(j.data))byId[id]=x.name;
+    ids.forEach(id=>{const x=j.data[id]; if(x&&x.name&&!H2.items[x.name]){H2.items[x.name]=Object.assign(_histItemInf(x,id,ver,byId),{lv:ver});add++;}});
+  }catch(e){} }));
+  if(add)H2._nx=null;
+  return add>0;
+}
+const _hNorm=s=>clItemName(s).replace(/\s+/g,""); /* 名稱正規化：去括號尾綴（「先知透視鏡（飾品）」）與空白（「附魔： 劍聖」） */
 // 歷史年道具/符文資料：該年最後版本的 DDragon item/runes（首次右鍵時載入並快取）
 const _HIST={};
 async function histYearData(){
   const y=+curYear, ver=yearVer();     // 沒登記年末版本的年份（2013）退回現行版，別送出 undefined 的網址
   if(_HIST[y])return _HIST[y];
-  const items={}, byId={};
+  const items={}, byId={}, _short=new Set();
   try{
     const j=await(await fetch(`https://ddragon.leagueoflegends.com/cdn/${ver}/data/${DDLOC}/item.json`)).json();
     for(const[id,x]of Object.entries(j.data)){byId[id]=x.name;}
     for(const[id,x]of Object.entries(j.data)){
-      const d=String(x.description||"");
-      const sm=d.match(/<stats>([\s\S]*?)<\/stats>/i);
-      const rest=stripT(d.replace(/<stats>[\s\S]*?<\/stats>/i,"").replace(/<br\s*\/?>/gi,"\n")).trim();
-      const sec=[];
-      if(sm){const st=stripT(sm[1].replace(/<br\s*\/?>/gi,"、")).trim(); if(st)sec.push({h:"屬性",t:st});}
-      if(rest)sec.push({h:"",t:rest});
-      items[x.name]={t:"道具",g:(x.gold||{}).total||0,b:(x.gold||{}).base||0,
-        f:(x.from||[]).map(i2=>byId[i2]).filter(Boolean),
-        u:(x.into||[]).map(i2=>byId[i2]).filter(Boolean),
-        sec,img:`https://ddragon.leagueoflegends.com/cdn/${ver}/img/item/${x.image?x.image.full:id+".png"}`};
+      if(id.length>4&&_short.has(x.name))continue; if(id.length<=4)_short.add(x.name); /* 同名時以短編號的峽谷版為準（13.x 起的模式複本是長 id） */
+      items[x.name]=_histItemInf(x,id,ver,byId);
     }
   }catch(e){}
   const runes={};
@@ -3049,7 +3076,7 @@ async function histYearData(){
         img:`https://ddragon.leagueoflegends.com/cdn/img/${rn.icon}`};
     })));
   }catch(e){}
-  return _HIST[y]={items,runes};
+  return _HIST[y]={items,runes,y};
 }
 async function histItemTipHTML(name){
   const H2=await histYearData();
@@ -3059,17 +3086,23 @@ async function histItemTipHTML(name){
     p=p.trim(); if(!p)return;
     const add=x=>{if(x&&!cand.includes(x))cand.push(x);};
     add(p);
-    if(window.ITEM_ALIAS){
+    if(typeof ITEM_ALIAS!=="undefined"){
       if(ITEM_ALIAS[p])add(ITEM_ALIAS[p]);
       for(const[o,c]of Object.entries(ITEM_ALIAS))if(c===p)add(o);
     }
     add(p.replace(/鏈/g,"鍊")); add(p.replace(/鍊/g,"鏈"));
   });
   let inf=null,k=null;
-  for(const q of cand){
-    if(H2.items[q]){inf=H2.items[q];k=q;break;}
-    if(H2.runes[q]){inf=H2.runes[q];k=q;break;}
-  }
+  const _find=()=>{
+    for(const q of cand){
+      if(H2.items[q]){inf=H2.items[q];k=q;return true;}
+      if(H2.runes[q]){inf=H2.runes[q];k=q;return true;}
+    }
+    /* 原名對不上 → 用正規化後的名字再比一次（該年的道具名帶括號尾綴或多空白） */
+    if(!H2._nx){H2._nx={};for(const n in H2.items){const z=_hNorm(n);if(!(z in H2._nx))H2._nx[z]=n;}}
+    for(const q of cand){const n=H2._nx[_hNorm(q)]; if(n){inf=H2.items[n];k=n;return true;}}
+    return false; };
+  if(!_find()&&await histLastVer(H2))_find(); /* 還是沒有 → 年中被移除的道具，補抓它最後出現的版本 */
   if(!inf)return extraTipHTML(name); // 該年查無 → 退回目前版本資料
   const im=n=>{const u=(H2.items[n]||{}).img;return u?`<img src="${u}" style="width:22px;height:22px;border-radius:4px;border:1px solid #33405c;vertical-align:middle;margin-right:3px" onerror="this.remove()">`:"";};
   const cEl=n=>{const ci=H2.items[n];return `<span style="white-space:nowrap;vertical-align:middle">${im(n)}${esc(n)}${ci&&ci.g?` <span style="color:#f5b942;font-size:11px">($${ci.g})</span>`:""}</span>`;};
@@ -3077,12 +3110,12 @@ async function histItemTipHTML(name){
   const _bfee=(_ffl.length<(inf.f||[]).length)?Math.max(0,(inf.g||0)-_ffl.reduce((s,c)=>s+((H2.items[c]||{}).g||0),0)):inf.b; // 有材料被年份濾掉→合成費吸收差額，材料+合成費仍=總價(不再出現對不上)
   const combFee=_bfee?`<span style="color:var(--tx2)">＋</span><span style="white-space:nowrap;color:#aaa;font-size:12px">${LANG==="en"?`Build cost $${_bfee}`:`合成費 $${_bfee}`}</span>`:"";
   const comps=_ffl.length?`<div class="tipRow"><b>${T("合成")}</b><div style="display:flex;flex-wrap:wrap;gap:5px 8px;align-items:center;margin-top:3px">${_ffl.map((c,i)=>(i?`<span style="color:var(--tx2)">＋</span>`:"")+cEl(c)).join("")}${combFee}<span style="color:var(--tx2)">＝</span><span style="white-space:nowrap;color:#f5b942;font-size:12px">${LANG==="en"?`Total $${inf.g}`:`總價 $${inf.g}`}</span></div></div>`:"";
-  const _ufl=(inf.u||[]).filter(_itemInYear); const ups=_ufl.length?`<div class="tipRow"><b>${T("可合成")}</b><div style="display:flex;flex-wrap:wrap;gap:5px 10px;align-items:center;margin-top:3px">${_ufl.map(cEl).join("")}</div></div>`:"";
+  const _ufl=[...new Set(inf.u||[])].filter(_itemInYear); const ups=_ufl.length?`<div class="tipRow"><b>${T("可合成")}</b><div style="display:flex;flex-wrap:wrap;gap:5px 10px;align-items:center;margin-top:3px">${_ufl.map(cEl).join("")}</div></div>`:"";
   const secs=(inf.sec||[]).map(s=>{
     if(s.h==="屬性")return `<div class="tipRow"><b>${LANG==="en"?"Stats":"屬性"}</b><div>${hiNum(esc(s.t))}</div></div>`;
     return `<div class="tipRow">${hiNum(esc(s.t)).replace(/\n/g,"<br>")}</div>`;
   }).join("");
-  return `<div class="tipTitle">${esc(k)} <span class="meta">${T(inf.t)}${inf.g?(LANG==="en"?`｜Total $${inf.g}`:`｜總價 $${inf.g}`):""}${HIST_VER[+curYear]?`｜${curYear} ${LANG==="en"?`year-end (${HIST_VER[+curYear]})`:`年末版本（${HIST_VER[+curYear]}）`}`:""}</span></div>${comps}${secs}${ups}`;
+  return `<div class="tipTitle">${esc(k)} <span class="meta">${T(inf.t)}${inf.g?(LANG==="en"?`｜Total $${inf.g}`:`｜總價 $${inf.g}`):""}${inf.lv?`｜${curYear} ${LANG==="en"?`last seen in ${inf.lv}`:`最後出現版本（${inf.lv}）`}`:HIST_VER[+curYear]?`｜${curYear} ${LANG==="en"?`year-end (${HIST_VER[+curYear]})`:`年末版本（${HIST_VER[+curYear]}）`}`:""}</span></div>${comps}${secs}${ups}`;
 }
 // 圖鑑道具/符文 hover 附加：把它當核心裝的英雄 / 最常帶它的英雄（頭像；資料＝soloq_builds.js）
 function runeIdByName(name){ const trees=(window._RTREE&&_RTREE[yearVer()])||null; if(!trees)return null;
@@ -3152,13 +3185,13 @@ function extraTipHTML(name){
   const _bfee=(_ffl.length<(inf.f||[]).length)?Math.max(0,(inf.g||0)-_ffl.reduce((s,c)=>s+((EXTRA_INFO[c]||{}).g||0),0)):inf.b; // 材料被濾掉→合成費吸收差額，總價恆正確
   const combFee=_bfee?`<span style="color:var(--tx2)">＋</span><span style="white-space:nowrap;color:#aaa;font-size:12px">${LANG==="en"?`Build cost $${_bfee}`:`合成費 $${_bfee}`}</span>`:"";
   const comps=_ffl.length?`<div class="tipRow"><b>${T("合成")}</b><div style="display:flex;flex-wrap:wrap;gap:5px 8px;align-items:center;margin-top:3px">${_ffl.map((c,i)=>(i?`<span style="color:var(--tx2)">＋</span>`:"") +cEl(c)).join("")}${combFee}<span style="color:var(--tx2)">＝</span><span style="white-space:nowrap;color:#f5b942;font-size:12px">${LANG==="en"?`Total $${inf.g}`:`總價 $${inf.g}`}</span></div></div>`:"";
-  const _ufl=(inf.u||[]).filter(_itemInYear); const ups=_ufl.length?`<div class="tipRow"><b>${T("可合成")}</b><div style="display:flex;flex-wrap:wrap;gap:5px 10px;align-items:center;margin-top:3px">${_ufl.map(cEl).join("")}</div></div>`:"";
+  const _ufl=[...new Set(inf.u||[])].filter(_itemInYear); const ups=_ufl.length?`<div class="tipRow"><b>${T("可合成")}</b><div style="display:flex;flex-wrap:wrap;gap:5px 10px;align-items:center;margin-top:3px">${_ufl.map(cEl).join("")}</div></div>`:"";
   // 變體道具（如 破碎的護腕）寫進本體說明
   const vars2=[...Object.entries(ITEM_VARIANT),...Object.keys(EXTRA_INFO).filter(v=>bootEnchOf(v)===name).map(v=>[v,name])].filter(([v,base])=>base===name&&EXTRA_INFO[v])
     .map(([v])=>{
       const vi=EXTRA_INFO[v];
       const vt=(vi.sec||[]).filter(s=>s.h!=="屬性").map(s=>(s.h?s.h+"：":"")+s.t).join("\n")||vi.d||"";
-      return `<div class="tipEffect"><span class="effPre">變體</span> <span class="effName">${esc(v)}</span>${vt?`<div>${hiNum(esc(vt))}</div>`:""}</div>`;
+      return `<div class="tipEffect"><span class="effPre">${LANG==="en"?"Variant":"變體"}</span> <span class="effName">${esc(v)}</span>${vt?`<div>${hiNum(esc(vt))}</div>`:""}</div>`;
     }).join("");
   // 結構化區塊（道具）：屬性一區、每個具名效果一區；無結構資料(符文等)則整段一區
   const secsHTML=inf.sec&&inf.sec.length
@@ -3190,7 +3223,7 @@ function dexEntityCardHTML(name){
   const _bfee=(_ffl.length<(inf.f||[]).length)?Math.max(0,(inf.g||0)-_ffl.reduce((s,c)=>s+((EXTRA_INFO[c]||{}).g||0),0)):inf.b; // 材料被濾掉→合成費吸收差額，總價恆正確
   const combFee=_bfee?`<span style="color:var(--tx2)">＋</span><span style="white-space:nowrap;color:#aaa;font-size:12px">${en?`Build cost $${_bfee}`:`合成費 $${_bfee}`}</span>`:"";
   const comps=_ffl.length?`<div class="tipRow"><b>${T("合成")}</b><div style="display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;margin-top:5px">${_ffl.map((c,i)=>(i?`<span style="color:var(--tx2)">＋</span>`:"")+cEl(c)).join("")}${combFee}<span style="color:var(--tx2)">＝</span><span style="white-space:nowrap;color:#f5b942">${en?`Total $${inf.g}`:`總價 $${inf.g}`}</span></div></div>`:"";
-  const _ufl=(inf.u||[]).filter(_itemInYear); const ups=_ufl.length?`<div class="tipRow"><b>${T("可合成")}</b><div style="display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;margin-top:5px">${_ufl.map(cEl).join("")}</div></div>`:"";
+  const _ufl=[...new Set(inf.u||[])].filter(_itemInYear); const ups=_ufl.length?`<div class="tipRow"><b>${T("可合成")}</b><div style="display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;margin-top:5px">${_ufl.map(cEl).join("")}</div></div>`:"";
   // 變體道具（如 破碎的護腕）併入本體
   const vars2=[...Object.entries(ITEM_VARIANT),...Object.keys(EXTRA_INFO).filter(v=>bootEnchOf(v)===name).map(v=>[v,name])].filter(([v,base])=>base===name&&EXTRA_INFO[v])
     .map(([v])=>{ const vi=EXTRA_INFO[v]; const vt=(vi.sec||[]).filter(s=>s.h!=="屬性").map(s=>(s.h?s.h+"：":"")+s.t).join("\n")||vi.d||"";
@@ -3822,7 +3855,7 @@ const teamLogoHTML=(ab,size,noText,nm)=>{ ab=teamFix(String(ab||"")); if(!ab)ret
   //   （2026-08-16 實測），所以只能走圖檔。
   // noText＝旁邊已經有縮寫文字了（表格名稱欄），最後一層失敗要**直接移除**不要再補一次文字，
   // 否則會變成「SENSEN」（2026-08-16 實測 SEN 的隊徽 dpm 沒有，就撞到這個）。
-  const st=`width:${size||18}px;height:${size||18}px;object-fit:contain;vertical-align:middle;flex:0 0 auto`;
+  const st=`width:${size||18}px;height:${size||18}px;object-fit:contain;vertical-align:middle;flex:0 0 auto;filter:drop-shadow(0 0 1px rgba(255,255,255,.55))`; /* 淡白外光：深色隊徽（TSW／PNG…）在深底上才看得見 */
   const fin=noText?"this.remove()":"this.replaceWith(document.createTextNode(this.alt))";
   // 2026-09-06：有 img_manifest.js（window.IMG_HAVE，update 管線第⑥階段產）就先查清單——沒有的檔**不發請求**，
   // 不然每個沒隊徽的隊（SEN／JPN／VIE 國家隊…）每次重繪都噴 404 到 console（線 1 稽核 8 筆 404＋2 筆 console 全是它）。
@@ -9525,9 +9558,9 @@ document.getElementById('fontSel').onchange=e=>{applyFont(e.target.value); if(ty
 //   _zoomF＝兩者相乘＝總倍率（**所有 rect→版面 px 的換算一律除這個**）
 { const zs=document.getElementById('zoomSel');
   window.ZOOM_BASE=2560;
-  // 手機（視窗寬 < 760，使用者 2026-11-04「全部都做」）：等比縮成 2560 設計寬只剩 0.15 倍、字 2px 看不到 ⇒
+  // 手機／平板（視窗寬 < 1100；2026-11-11 由 760 提高：760 寬時英雄表字級只剩 4.6px）：等比縮成 2560 設計寬只剩 0.15 倍、字 2px 看不到 ⇒
   //   不縮放（螢幕係數＝1），版面寬就是手機寬，交給既有的 @container mainc 窄版斷點（≤820 單欄、表格橫捲）。
-  window.MOBILE_W=760; window.isMobileW=()=>(window.innerWidth||ZOOM_BASE)<MOBILE_W;
+  window.MOBILE_W=1100; window.isMobileW=()=>(window.innerWidth||ZOOM_BASE)<MOBILE_W;
   window.screenF=()=>{ const w=window.innerWidth||ZOOM_BASE; return w<MOBILE_W?1:Math.max(0.2,w/ZOOM_BASE); };
   window.fixZoomHeight=function(){ const m=document.getElementById('main'); if(m&&m.style.marginBottom)m.style.marginBottom=''; };
     // root zoom 會連文件高度一起回流，不必再補 margin（舊的 transform 做法才需要）→ 只負責清掉殘留值
@@ -19125,7 +19158,7 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
           const _iidOf={}; // 同名多 id：正宗原版 id 較小（3023 雙影斗篷 vs TT 複製 3290）
           const badI=new Set(); // 這個版本判為非峽谷的 id：年末判非峽谷的不是「年中移除」，是本來就不該列（殞落之祭 2026-09-14）
           if(it)Object.entries(it.data).forEach(([iid,d])=>{if(!itemOK(d,iid)){badI.add(iid);return;} {let nm=clItemName(d.name);
-            if(!isHistYear()&&window.ITEM_NOSTORE&&ITEM_NOSTORE[nm])return; // 當前年份：排除 CDragon 已下架(遊戲已移除、DDragon 殭屍仍留)的道具，如闇夜收割者
+            if(!isHistYear()&&_noStore(nm))return; // 當前年份：排除 CDragon 已下架(遊戲已移除、DDragon 殭屍仍留)的道具，如闇夜收割者
             if(/無效道具|Deprecated/i.test(nm)){const ae=window.LOL_ASSETS&&LOL_ASSETS.item&&LOL_ASSETS.item[iid]; const alt=ae&&((ae.zh&&!/無效道具|Deprecated/i.test(ae.zh)&&ae.zh)||ae.en); if(alt)nm=clItemName(alt);} // 佔位譯名→正名
             items.add(nm); idName[iid]=nm;
             if(!(nm in imgI)||+iid<+(_iidOf[nm]||9e9)){ imgI[nm]=`${CDN2}/${v}/img/item/${(d.image&&d.image.full)||iid+".png"}`; _iidOf[nm]=+iid; }
@@ -19548,7 +19581,7 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
             return (i.d||"").toLowerCase().includes(q);
           };
           const tag=V.dexSec==="道具"?(V.dexTag||""):"";
-          const list=Object.entries(EXTRA_INFO).filter(([n,i])=>want.includes(i.t)&&EXTRA_IMG[n]&&inYear(n,i)&&!ITEM_VARIANT[n]&&!ITEM_ALIAS[n]&&!bootEnchOf(n)&&!NON_SR_LEGACY.test(n))
+          const list=Object.entries(EXTRA_INFO).filter(([n,i])=>want.includes(i.t)&&EXTRA_IMG[n]&&inYear(n,i)&&!ITEM_VARIANT[n]&&!(ITEM_ALIAS[n]&&EXTRA_INFO[ITEM_ALIAS[n]])&&!bootEnchOf(n)&&!NON_SR_LEGACY.test(n))
             .map(([n,i])=>({n,i:Object.assign({_gone:gone(n)},i)}))
             .filter(c=>hitQ(c.n,c.i)&&(!tag||(c.i.tg||[]).includes(tag)))
             .sort((a,b)=>{
