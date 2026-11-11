@@ -1342,6 +1342,15 @@ def wiki_days(since, fetch=None, tier1=None, teams_out=None):
         return False, {}, "%s: %s" % (type(e).__name__, e)
 
 
+def our_table(path):
+    """回 (年度檔內容 dict, RAW_DATA 表)。spill_*.json 本身就是一張表（含表頭）⇒ dict 給空的。"""
+    txt = io.open(path, encoding="utf-8").read()
+    if path.endswith(".json"):
+        return {}, json.loads(txt)
+    D = json.loads(txt.split("=", 1)[1].strip().rstrip(";"))
+    return D, D["tabs"]["RAW_DATA"]
+
+
 def our_days(path, since, tier1=None, teams_out=None):
     """回 (fetched_at, {league: {比賽日字串}})——我們手上那幾天。
 
@@ -1352,9 +1361,7 @@ def our_days(path, since, tier1=None, teams_out=None):
     只看「有哪些比賽日」⇒ 每日局數沒人讀 ⇒ 那是測不到的死分支（#139 突變測試：拿掉去重全套照樣全過）。
     欄位一律 hdr.index 查（年度資料是白名單制 88 欄，欄序會變，硬編偏移遲早讀到別欄）。"""
     tier1 = tier1 or LAG_TIER1
-    txt = io.open(path, encoding="utf-8").read()
-    D = json.loads(txt.split("=", 1)[1].strip().rstrip(";"))
-    R = D["tabs"]["RAW_DATA"]
+    D, R = our_table(path)
     ix = {n: i for i, n in enumerate(R[0])}
     out = collections.defaultdict(set)
     for r in R[1:]:
@@ -1379,7 +1386,17 @@ def lag_data_paths(now, window_d=None, root=None):
     window_d = window_d or LAG_WINDOW_D
     root = ROOT if root is None else root
     since = now - datetime.timedelta(days=window_d)
-    return [os.path.join(root, "data", "data_%d.js" % y) for y in range(since.year, now.year + 1)]
+    years = range(since.year, now.year + 1)
+    out = [os.path.join(root, "data", "data_%d.js" % y) for y in years]
+    # #2948：世界賽後的局（2026-11-10 LCP 升降賽 3 局）被 split_spill 搬去 csv_cache/spill_{隔年}.json，
+    # 年度檔沒有、wiki 有 ⇒ 落後／少局兩條哨兵會把「我們有收、只是還沒併進隔年檔」報成少局
+    # （重現：同一天少局在開賽滿 48h 的 11-12 22:00 班會報「LCP 少 3 局」）。隔年年度檔還沒長出來時，spill 就是我們手上的局；
+    # 長出來之後 fetch_data 已把 spill 併進去，再讀一次會重複計數（相鄰天多的局還會抵掉真的少局）⇒ 只收前一種。
+    for y in years:
+        sp = os.path.join(root, "csv_cache", "spill_%d.json" % (y + 1))
+        if os.path.exists(sp) and not os.path.exists(os.path.join(root, "data", "data_%d.js" % (y + 1))):
+            out.append(sp)
+    return out
 
 
 def lag_problems(now, data_path, fetch=None, tier1=None,
@@ -1520,9 +1537,7 @@ def our_game_counts(path, since, cut, tier1=None, teams_out=None):
     局數只收開賽分鐘 <= cut；比賽日集合不看 cut（給「我們最後比賽日」用，跟 our_days 同一個定義）。
     年度檔一局 6 列（5 名選手＋隊伍列）⇒ 以 (date, 藍隊, 紅隊, 局號) 去重。欄位一律 hdr.index 查。"""
     tier1 = tier1 or LAG_TIER1
-    txt = io.open(path, encoding="utf-8").read()
-    D = json.loads(txt.split("=", 1)[1].strip().rstrip(";"))
-    R = D["tabs"]["RAW_DATA"]
+    _, R = our_table(path)
     ix = {n: i for i, n in enumerate(R[0])}
     cnt, days, seen = collections.defaultdict(collections.Counter), collections.defaultdict(set), set()
     for r in R[1:]:

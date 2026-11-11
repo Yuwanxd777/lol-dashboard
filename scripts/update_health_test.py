@@ -2420,6 +2420,59 @@ finally:
 eq((uh.ROOT, uh.BASE), (ROOT, _REAL_BASE_PATH), "㉞ ROOT／BASE 已還原成真 repo")
 eq(_stat_of(_REAL_BASE_PATH), _REAL_BASE_STAT, "㉞真的 UPDATE_BASELINE.json 沒被寫到（size＋mtime_ns 前後一致）")
 
+# ── ㊱ 世界賽後切去隔年的局（spill）也算我們有（2026-11-11 #2948）──
+# 真實案例：LCP 2026-11-10 升降賽 3 局在 spill_2027.json，年度檔沒有 ⇒ 開賽滿 48h 後少局哨兵誤報。
+_N36 = dt.datetime(2026, 11, 12, 14, 10)
+_LCP36 = "LCP/2026 Season/Promotion"
+_GAMES36 = [("2026-11-10 08:00", 1), ("2026-11-10 08:49", 2), ("2026-11-10 09:49", 3)]
+
+
+def _spill36(root, games, year=2027):
+    """按欄名寫 spill 表（一局 6 列，跟真實檔同形狀；去重要真的有作用）。"""
+    raw = [list(COLS)]
+    for t, g in games:
+        for _ in range(6):
+            cell = {"date": t + ":50", "league": "LCP", "blue_teamname": "SW", "red_teamname": "TG",
+                    "game": str(g), "patch": "26.22"}
+            raw.append([cell[c] for c in COLS])
+    os.makedirs(os.path.join(root, "csv_cache"), exist_ok=True)
+    io.open(os.path.join(root, "csv_cache", "spill_%d.json" % year), "w", encoding="utf-8").write(
+        json.dumps(raw, ensure_ascii=False))
+
+
+def _wiki36(since, timeout=90):
+    return [{"ov": _LCP36, "dt": t, "t1": "SW", "t2": "TG", "g": g} for t, g in _GAMES36 if t[:10] >= since]
+
+
+_rows26 = [("2026-11-01 08:00", "LCK", 1)]
+_R36A = _year_root({2026: _rows26})                # 沒有 spill：正控制（修之前的狀況）
+_R36B = _year_root({2026: _rows26})
+_spill36(_R36B, _GAMES36)
+_R36C = _year_root({2026: _rows26})                # spill 只收到 1 局：真的少局不可以被蓋掉
+_spill36(_R36C, _GAMES36[:1])
+_R36D = _year_root({2026: _rows26, 2027: [("2027-01-15 08:00", "LCK", 1)]})     # 隔年檔已長出來
+_spill36(_R36D, _GAMES36)
+_paths36 = lambda r, w=None: uh.lag_data_paths(_N36, window_d=w or uh.DAYCOUNT_WINDOW_D, root=r)
+
+eq(_bn(_paths36(_R36A)), ["data_2026.js"], "㊱沒有 spill 檔 ⇒ 路徑跟以前一樣")
+eq(_bn(_paths36(_R36B)), ["data_2026.js", "spill_2027.json"], "㊱有 spill、data_2027 還沒長 ⇒ 兩個都讀")
+eq(_bn(_paths36(_R36D)), ["data_2026.js"], "㊱data_2027 已存在（spill 已併入）⇒ 不再讀 spill，免重複計數")
+_stA36, _msA36 = uh.daycount_problems(_N36, _paths36(_R36A), fetch=_wiki36)
+eq(_stA36, "bad", "㊱正控制：沒有 spill ⇒ 少局哨兵照報")
+eq(any("LCP 2026-11-10 少 3 局" in m for m in _msA36), True, "㊱正控制：報的是 LCP 少 3 局")
+_stB36, _msB36 = uh.daycount_problems(_N36, _paths36(_R36B), fetch=_wiki36)
+eq((_stB36, _msB36), ("ok", []), "㊱局在 spill ⇒ 不算少局（一局 6 列要去重成 1 局）")
+_stC36, _msC36 = uh.daycount_problems(_N36, _paths36(_R36C), fetch=_wiki36)
+eq(_stC36, "bad", "㊱spill 只有 1 局 ⇒ 真的少 2 局照報（spill 不是免死金牌）")
+eq(any("少 2 局" in m for m in _msC36), True, "㊱少局數字算到 spill 的 1 局")
+_lpB36 = uh.lag_data_paths(_N36, root=_R36B)
+_stL36, _msL36 = uh.lag_problems(_N36, _lpB36, fetch=_wiki36)
+eq(_stL36, "ok", "㊱局在 spill ⇒ 逐聯賽落後不叫")
+eq(any("我們最後比賽日 2026-11-10" in m and "還有 0 個" in m for m in _msL36), True,
+   "㊱逐聯賽落後那行看得到 spill 的比賽日（不是「(無)」）")
+for _r36 in (_R36A, _R36B, _R36C, _R36D):
+    shutil.rmtree(_r36, ignore_errors=True)
+
 # ── ⓪ 收尾：整份測試沒有任何一次撞到封鎖器（被 wiki_days 的 except 吞掉的也算），
 #    而且假出口真的有被 main() 走到（⑫⑮ 都沒帶 --no-lag）——否則上一條可能只是 main 根本沒接逐聯賽落後。
 eq(NET_HITS, [], "⓪整份測試沒有任何一次真的去連外（有人漏接了出口）")
