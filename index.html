@@ -14835,7 +14835,7 @@ function render(){
           for(let m=0;m<(1<<slots);m++){ const r=new Set(rg); nx.forEach((pr,i)=>{ const g=teamReg[pr[(m>>i)&1]]; if(g)r.add(g); }); ns.add(r.size); }
           return ns.size===1?[...ns][0]:null; }
         const ks=Object.keys(SIM.koReg).filter(k=>SIM.koReg[k]>0); return ks.length===1&&SIM.koReg[ks[0]]===SIM.SIMS?+ks[0]:null; })();
-      nowT("koreg",koDec!=null?String(koDec):TBD,q.length?(en2?`${q.length} in: ${[...rg].join("/")}`:`已晉級 ${q.length} 隊：${[...rg].join("／")}`):"",koDec==null);
+      nowT("koreg",koDec!=null?String(koDec):TBD,q.length?(en2?`${q.length>=8?"Top 8":q.length+" in"}: ${[...rg].join("/")}`:`${q.length>=8?"八強 8 隊":"已晉級 "+q.length+" 隊"}：${[...rg].join("／")}`):"",koDec==null);
       const sc=k=>(SIM.koReg[k]||0)/SIM.SIMS/2+hs(k)/2;
       const ks=[...new Set([...Object.keys(SIM.koReg),...HY.map(y=>String(H[y].koRegions))])].sort((a,b)=>sc(b)-sc(a)), mode=koDec!=null?String(koDec):ks[0];   // 定案了就不再跟歷屆平均
       cards.push(card(TG.e,en2?"How many regions in the knockout stage? (8 teams)":"淘汰賽會有幾個不同參賽地區？（8 支隊伍）",P1(50),pickTx(mode!=null?mode:"–"),
@@ -14843,8 +14843,8 @@ function render(){
           :en2?`simulation and past Worlds averaged: ${ks.slice().sort().map(k=>`${k} ${pct(sc(k))}`).join(", ")}`:`模擬與歷屆各半：${ks.slice().sort().map(k=>`${k} 個 ${pct(sc(k))}`).join("、")}`,
         col(H_RS,ks.slice().sort().map(k=>rowT(k,pct((SIM.koReg[k]||0)/SIM.SIMS))).join(""))
         +col(H_PAST,histRows((y,h)=>rowT(y,`${h.koRegions}・${[...new Set(h.ko.map(x=>x[1]))].join("/")}`)))
-        +col(H_LIVE,PL&&(PL.series||[]).length?sub(en2?`${q.length} qualified・${rg.size} regions`:`已晉級 ${q.length} 隊・${rg.size} 個地區`)
-          +q.slice().sort((a,b)=>String(teamReg[a]).localeCompare(String(teamReg[b]))).map(t=>`<div class="pdRow">${tLogo(t,22)}<span>${outAb(t)}</span><span class="pdV">${esc(teamReg[t]||"–")}</span></div>`).join(""):notYet))); }
+        +col(H_LIVE,PL&&(PL.series||[]).length?sub(q.length>=8?(en2?`Top 8: ${rg.size} regions`:`八強 8 隊・${rg.size} 個地區`):(en2?`${q.length} qualified・${rg.size} regions`:`已晉級 ${q.length} 隊・${rg.size} 個地區`))
+          +q.slice().sort((a,b)=>String(teamReg[a]).localeCompare(String(teamReg[b]))).map(t=>`<div class="pdRow">${tLogo(t,22)}<span>${esc(tAb(t))}</span><span class="pdV">${esc(teamReg[t]||"–")}</span></div>`).join(""):notYet))); }   // 使用者 2026-11-14：這題問的是誰進八強 ⇒ 之後被淘汰也不劃線
     // ⑯ LCS 進淘汰賽（模擬）
     { const lcs0=EVT.filter(t=>teamReg[t]==="LCS"), lq=lcs0.filter(isQual), la2=lcs0.filter(t=>!isOut(t));
       nowT("lcs",lq.length?(en2?"Yes (done)":"會（已晉級）"):la2.length?TBD:(en2?"No":"不會（全數淘汰）"),(lq.length?lq:la2).map(t=>esc(tAb(t))).join("／")+(lq.length?(en2?" made the knockouts":" 進八強"):la2.length?(en2?" alive":" 晉級中"):""),!lq.length&&!!la2.length);
