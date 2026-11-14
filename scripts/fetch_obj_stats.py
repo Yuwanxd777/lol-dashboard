@@ -36,12 +36,18 @@ TRIES = 2         # 同一個檔最多試幾次
 RETRY_WAIT = 3    # 重試前等幾秒
 DOWN_AFTER = 2    # 連續幾個檔整個抓不到就當來源掛了，後面不再上網（否則來源全掛時每個檔都要等滿）
 _fails = 0        # 連續抓不到的檔數
+_answered = 0     # 伺服器有回應的次數（成功或 4xx）——探路用：有回應＝來源活著，其餘可以並行
+# 並行（2026-11-14 精進迴圈 #3114）：CDragon 從 11-12 起每個請求要 ~20 秒（成功也一樣慢、間歇 522），
+# 循序抓 16 個檔＝11-14 10:00 班 269.6 秒，一支就佔掉第③階段 297.6 秒的九成、是整班的關鍵路徑。
+# 現在先循序探路到「伺服器有回應」或「判定來源掛了」為止（全掛時的請求上限不變），其餘並行 WORKERS 條；
+# 並行階段每個檔各自重試、不吃連續失敗熔斷（完成順序不固定，「連續」沒有意義；來源剛被證實活著）。
+WORKERS = 6
 
 
-def _fetch(url):
+def _fetch(url, breaker=True):
     """回傳內容；4xx 不重試（來源明確說沒有），其餘重試到 TRIES 次。連續失敗達 DOWN_AFTER 就不再上網。"""
-    global _fails
-    if _fails >= DOWN_AFTER:
+    global _fails, _answered
+    if breaker and _fails >= DOWN_AFTER:
         raise OSError(f"來源連續 {_fails} 個檔抓不到，不再嘗試")
     err = None
     for i in range(TRIES):
@@ -50,24 +56,54 @@ def _fetch(url):
         try:
             req = urllib.request.Request(url, headers=UA)
             s = urllib.request.urlopen(req, timeout=TIMEOUT).read().decode("utf-8", "replace")
-            _fails = 0
+            if breaker:
+                _fails = 0
+            _answered += 1
             return s
         except urllib.error.HTTPError as e:
             err = e
             if 400 <= e.code < 500:
+                _answered += 1
                 raise      # 伺服器有回應，不算來源掛了
         except Exception as e:
             err = e
-    _fails += 1
+    if breaker:
+        _fails += 1
     raise err
 
 
-def get(url, fn):
+def prefetch(jobs):
+    """jobs＝[(url, 快取檔名)] → {快取檔名: 內容或例外}。先循序探路，來源有回應後其餘並行。"""
+    from concurrent.futures import ThreadPoolExecutor
+    res, rest = {}, list(jobs)
+
+    def one(url, fn, breaker=True):
+        try:
+            res[fn] = get(url, fn, breaker)
+        except Exception as e:
+            res[fn] = e
+
+    while rest:
+        url, fn = rest.pop(0)
+        before = _answered
+        one(url, fn)
+        if _answered > before or _fails >= DOWN_AFTER:
+            break
+    if rest and _fails < DOWN_AFTER:
+        with ThreadPoolExecutor(WORKERS) as ex:
+            list(ex.map(lambda j: one(j[0], j[1], False), rest))
+    else:
+        for url, fn in rest:    # 來源判定掛了：_fetch 會立刻放棄，走過期快取
+            one(url, fn)
+    return res
+
+
+def get(url, fn, breaker=True):
     p = os.path.join(CACHE, fn)
     if not FORCE and os.path.exists(p) and time.time() - os.path.getmtime(p) < 20 * 3600:
         return open(p, encoding="utf-8", errors="replace").read()
     try:
-        s = _fetch(url)
+        s = _fetch(url, breaker)
     except Exception as e:
         if os.path.exists(p):   # 不碰 mtime：快取維持過期，下一班才會再試
             print(f"  ⚠ {fn} 抓不到（{e}），先用過期快取")
@@ -111,10 +147,20 @@ def main():
         else:
             print(f"  ？{disp}：{why}，上一版也沒有")
 
+    jobs = [(CD + "characters/turret/turret.bin.json", "turret.bin.json")]
+    jobs += [(CD + f"characters/{u}/{u}.bin.json", f"objbin_{u}.json") for u in (x.lower() for x in UNITS.values())]
+    got = prefetch(jobs)
+
+    def take(fn):
+        v = got[fn]
+        if isinstance(v, Exception):
+            raise v
+        return v
+
     # 塔：turret.bin Root（外塔基準；內/高地/主堡雙塔共用基準值，加成由遊戲腳本疊加）
     st, why = {}, "turret.bin 無 Root 紀錄"
     try:
-        t = get(CD + "characters/turret/turret.bin.json", "turret.bin.json")
+        t = take("turret.bin.json")
         i = t.find('"Characters/Turret/CharacterRecords/Root"')
         if i >= 0:
             st = seg_stats(t[i:i + 4000])
@@ -130,7 +176,7 @@ def main():
     for disp, unit in UNITS.items():
         u = unit.lower()
         try:
-            s = get(CD + f"characters/{u}/{u}.bin.json", f"objbin_{u}.json")
+            s = take(f"objbin_{u}.json")
         except Exception as e:
             keep(disp, f"抓不到（{e}）"); continue
         j = s.find('/CharacterRecords/Root"')
@@ -139,7 +185,6 @@ def main():
             stats[disp] = st
         else:
             keep(disp, "無 Root 紀錄")
-        time.sleep(0.3)
     if not stats:     # 全掛又沒有上一版：不要寫一個空表蓋掉線上
         print("✗ 一個物件都拿不到，不寫檔")
         sys.exit(1)

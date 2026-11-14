@@ -304,6 +304,46 @@ if not os.environ.get("OBJ_SRC"):
     s.close()
     shutil.rmtree(tmp, ignore_errors=True)
 
+print("⑮ 並行（#3114）：探路有回應後其餘同時抓、牆鐘不是逐個相加")
+import threading
+s = Sandbox()
+inflight = {"now": 0, "max": 0}
+lk = threading.Lock()
+
+
+def slow(who, n):
+    with lk:
+        inflight["now"] += 1
+        inflight["max"] = max(inflight["max"], inflight["now"])
+    real_sleep(0.2)
+    with lk:
+        inflight["now"] -= 1
+    return ok_all(who, n)
+
+
+t0 = time.time(); rc, out = s.run(slow); dt = time.time() - t0; p = s.prev()
+ck("19 項都寫出", len(p) == 19, len(p))
+ck("第一個請求是探路的 turret", s.calls[:1] == ["turret"], s.calls[:3])
+ck("同時在飛的請求 > 1", inflight["max"] > 1, inflight["max"])
+ck("同時在飛的請求 ≤ WORKERS(6)", inflight["max"] <= 6, inflight["max"])
+ck("牆鐘 < 循序的一半（16×0.2=3.2s）", dt < 1.6, round(dt, 2))
+s.close()
+
+print("⑮b 探路第一個檔掛、第二個有回應 ⇒ 其餘照樣並行抓完")
+s = Sandbox(); s.seed_prev({"外塔（一塔）": {"hp": 5}})
+
+
+def turret_down(who, n):
+    if who == "turret":
+        raise OSError("522")
+    return ok_all(who, n)
+
+
+rc, out = s.run(turret_down); p = s.prev()
+ck("塔試滿 2 次後沿用", s.calls.count("turret") == 2 and p["外塔（一塔）"] == {"hp": 5}, (s.calls.count("turret"), p.get("外塔（一塔）")))
+ck("15 個單位都抓到新值", all(p[k]["hp"] == 99421 for k in ("巴龍", "紅 Buff", "超級士兵（Super Minion）")), p.get("巴龍"))
+s.close()
+
 print("⑭ 隔離：真實 obj_stats.js 一個位元沒動")
 now = hashlib.md5(open(REAL_OUT, "rb").read()).hexdigest() if os.path.exists(REAL_OUT) else None
 ck("md5 相同", now == real_md5, (real_md5, now))
