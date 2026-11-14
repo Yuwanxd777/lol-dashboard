@@ -13524,8 +13524,9 @@ function render(){
       });
       return [a,b];
     };
-    const h2hStatHTML=(arr,t1,abL,abR)=>{
-      const [a,b]=h2hStat(arr,t1);
+    // ab（使用者 2026-11-14「摘要怎麼沒有兩隊數據對比了」）：兩隊沒交手過時傳各自全部比賽的數據進來（ind＝兩邊互相獨立、不互補）
+    const h2hStatHTML=(arr,t1,abL,abR,ab)=>{
+      const [a,b]=ab||h2hStat(arr,t1), ind=!!ab;
       const pc=(x,y)=>y?Math.round(x/y*100)+"%":null;                 // 首塔/首龍/首巴龍＝拿到的比例
       const av=(x,n)=>n?d1s(x/n):null;                                // 巢蟲/預示者/小龍＝每場平均
       const gd=(x,n)=>n?((x/n>=0?"+":"")+Math.round(x/n)):null;       // 金差＝每場平均，帶正負號
@@ -13540,12 +13541,13 @@ function render(){
         [en2?"Heralds":"預示者",   av(a.hd,a.n),   av(b.hd,b.n),   a.n?a.hd/a.n:null,     b.n?b.hd/b.n:null],
         [en2?"Dragons":"小龍",     av(a.dr,a.n),   av(b.dr,b.n),   a.n?a.dr/a.n:null,     b.n?b.dr/b.n:null],
         [en2?"1st baron":"首巴龍", pc(a.fb,a.fbN), pc(b.fb,b.fbN), a.fbN?a.fb/a.fbN:null, b.fbN?b.fb/b.fbN:null],
-        [en2?"Gold@10":"金差@10",  gd(a.g10,a.g10N), gd(b.g10,b.g10N), a.g10N?a.g10/a.g10N:null, null, 1],
-        [en2?"Mid gold":"中期金差", gd(a.mid,a.midN), gd(b.mid,b.midN), a.midN?a.mid/a.midN:null, null, 1],
+        [en2?"Gold@10":"金差@10",  gd(a.g10,a.g10N), gd(b.g10,b.g10N), a.g10N?a.g10/a.g10N:null, b.g10N?b.g10/b.g10N:null, 1],
+        [en2?"Mid gold":"中期金差", gd(a.mid,a.midN), gd(b.mid,b.midN), a.midN?a.mid/a.midN:null, b.midN?b.mid/b.midN:null, 1],
       ];
       const rows=ITEMS.map(([lb,lv,rv,ln,rn,isGold])=>{
         let share=null;                                  // 左邊那隊佔的比例（0~1），null＝沒資料
-        if(isGold){ if(ln!=null)share=0.5+Math.max(-0.5,Math.min(0.5,ln/GD_FULL/2)); }
+        // 金差：交手時兩邊互為正負，只看左邊；各自比賽（ind）時兩邊獨立 ⇒ 看兩隊相差多少
+        if(isGold){ const d=ind?(ln!=null&&rn!=null?ln-rn:null):ln; if(d!=null)share=0.5+Math.max(-0.5,Math.min(0.5,d/GD_FULL/2)); }
         else if(ln!=null&&rn!=null&&(ln+rn)>0)share=ln/(ln+rn);
         // 只畫**偏離中線**的那一段：整條填滿的話兩大塊色會蓋過「差多少」這件事
         // （第一版實測：39%/61% 看起來跟 50/50 差不多）。空軌道上凸出來的長度才是優勢。
@@ -13555,8 +13557,8 @@ function render(){
           bar=`<div class="h2hBar"><span class="${dev>0?"h2hBarL":"h2hBarR"}" style="width:${w}%"></span></div>`;
         }
         const hi=(x,y)=>(x!=null&&y!=null&&x>y)?" sumPhi":"";
-        const lHi=isGold?(ln!=null&&ln>0?" sumPhi":""):hi(ln,rn);
-        const rHi=isGold?(ln!=null&&ln<0?" sumPhi":""):hi(rn,ln);
+        const lHi=isGold&&!ind?(ln!=null&&ln>0?" sumPhi":""):hi(ln,rn);
+        const rHi=isGold&&!ind?(ln!=null&&ln<0?" sumPhi":""):hi(rn,ln);
         return `<div class="h2hBRow"><span class="h2hBLb">${lb}</span>`
           +`<span class="h2hBV${lHi}">${lv==null?"–":lv}</span>${bar}`
           +`<span class="h2hBV h2hBVr${rHi}">${rv==null?"–":rv}</span></div>`;
@@ -13593,6 +13595,14 @@ function render(){
               +`<td class="num" style="color:${tie?"var(--tx2)":w2?"#ff4d4d":"#37c871"};font-weight:700">${s2.w} - ${s2.l}</td></tr>`;
           }).join("")}</tbody></table>${h2hStatHTML(_h.games,L.tm,abL,abR)}</div></div>`;
     };
+    // 兩隊沒交手過（使用者 2026-11-14：GEN vs BLG 整張交手紀錄不見、數據對比也跟著沒了）：
+    //   整列一張「數據對比」，同一組八項，但兩邊各自用自己全部比賽（範圍＝目前篩選，同五路先發／BP 傾向）、不互補。
+    const cdCmp=cols=>{ const L=cols[0], R=cols[1]; if(!L||!R)return "";
+      const own=t=>{ const arr=GAMES.filter(o=>passG(o)&&(o.raw[C.blue_teamname]===t||o.raw[C.red_teamname]===t)); return {n:arr.length,s:h2hStat(arr,t)[0]}; };
+      const a=own(L.tm), b=own(R.tm); if(!a.n||!b.n)return "";
+      const abL=tAb(L.tm), abR=tAb(R.tm);
+      return `<div class="card full"><h2>📊 ${en2?"Team stats":"數據對比"} <span class="sub">${en2?`no head-to-head yet・each team's own games・current filter・${esc(abL)} ${a.n}／${esc(abR)} ${b.n} games`:`兩隊沒交手過・各自全部比賽・範圍＝目前篩選・${esc(abL)} ${a.n}／${esc(abR)} ${b.n} 小局`}</span></h2>`
+        +`<div class="h2hWrap">${h2hStatHTML(null,null,abL,abR,[a.s,b.s])}</div></div>`; };
     const cdRes=(tm,D2)=>{
       // 半版寬放不下五欄 ⇒ 勝敗那一欄拿掉，改用比分上色表達（越贏越紅，台灣配色）。
       if(!D2)return `<div class="card"><h2>🗓️ ${en2?"Recent results":"近期賽果"}</h2><span class="sumEmpty">–</span></div>`;
@@ -13781,7 +13791,7 @@ function render(){
       const pair=fn=>cols.map(c2=>fn(c2.tm,c2.D)).join("");
       // 兩隊有交手資料 ⇒ 近期賽果換成整列的交手紀錄（使用者 2026-09-24）；沒有才退回各自一張。
       const _h2h=two?cdH2H(cols):null;
-      box.innerHTML=(auto?autoNote(picked,en2):"")+pair(cdHead)+(_h2h||pair(cdRes))+pair(cdStart)+cdPool(cols)+cdBp(cols);
+      box.innerHTML=(auto?autoNote(picked,en2):"")+pair(cdHead)+(_h2h||pair(cdRes)+(two?cdCmp(cols):""))+pair(cdStart)+cdPool(cols)+cdBp(cols);
       // （BP 傾向改用角色池對比那套之後，原本的 .rcBpRow 一列滿就停已經沒人用了）
       // 角色池對比：兩側選手名欄取「兩側所有名字」的最大寬 ⇒ 左右鏡像對稱（見 --sumNmW 的註解）。
       // ⚠ 要在 BP 傾向那段裁籤之後量：那段會移除元素、改變列高，先量會拿到舊值。
