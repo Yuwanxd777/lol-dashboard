@@ -24,6 +24,7 @@ import io
 import os
 import subprocess
 import sys
+import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 
@@ -158,8 +159,15 @@ PLAN = [
     #   ⑤c 這兩步只打 Riot API／本機 CPU ⇒ 零 fandom 重疊，而且 162s 的牌位把它整段吸掉（⑤c 牆鐘不變）。
     #   相依：只讀 data/data_*.js（② 寫完；label_pending 也是只讀）＋自己的 events_extra.js／meta；
     #   管線裡沒有步驟讀 events_extra.js，只有 ⑥ build_font_subset 掃根目錄 *.js ⇒ 仍在它之前。
-    ("⑤c 牌位（便宜，全掃）＋BP 待標樣本＋賽事名單（互不相干）",
-     [S("fetch_soloq_auto"), SB("label_pending", "--apply"), S("fetch_events_extra")]),
+    # 2026-11-14 #3145：label_pending 改成**背景階段**——在 ⑤c 同時起跑，但不擋 ⑤c 收尾，一路跑到 ⑥ 開始前才收。
+    #   實測它是 ⑤c 的長桿（11-14 兩班 151.5／148.9s，牌位 63.5／68.3s）⇒ ⑤c 每班白等 ~80s。
+    #   ⑤d～⑤h2 都不讀它的產物（只寫 scripts/bplive/variants/_autoq/），也沒有一步寫它讀的
+    #   data/data_*.js／team_abbr_wiki.js（那兩個檔的寫入者是 ②／④／⑤，都在它之前；⑥ trim_data_cols 會改年度檔 ⇒ ⑥ 前收）。
+    #   10:00 那班 ⑤d～⑤h2 合計 ~93s ≥ 剩下的 ~81s ⇒ 整段被吸掉；--jobs 1 時照舊就地循序跑。
+    ("⑤c 牌位（便宜，全掃）＋賽事名單（互不相干）",
+     [S("fetch_soloq_auto"), S("fetch_events_extra")]),
+    ("⑤c2 背景：BP 待標樣本（跟 ⑤c～⑤h2 並行，⑥ 前收）",
+     [SB("label_pending", "--apply")], {"bg": True, "until": "⑥ 收尾（互不相干）"}),
     # --batch（2026-09-08 #68）：逐帳號改一次問一批（Promise.all），10:00 那班逐人 267s 預估 → 60~70s；
     # 沒命中的帳號自動退回逐一問，拿掉旗標＝回到舊行為。沙盒 scripts/fetch_soloq_update_batch_test.py。
     # 批次大小由 fetch_soloq_update.BATCH_NEW 決定（#68 8 → #71 24 → #83 48，實測 10:00 那班批次 29s 預估 → 13~16s）；要臨時改用 --batch-size N。
@@ -212,14 +220,25 @@ def main():
     A = ap.parse_args()
     only = {x.strip() for x in A.only.split(",") if x.strip()}
 
+    # PLAN 的每一項是 (階段名, 步驟) 或 (階段名, 步驟, 選項)。
+    # 選項 {"bg": True, "until": "某階段名"}（#3145）＝背景階段：起跑後不等它，直接進下一階段；
+    # 在 until 那一階段（以 PLAN 原本的位置算，被 --only 濾掉也照位置）開始之前收。until 沒寫／找不到＝跑到最後才收。
+    # --jobs 1 時背景階段照舊就地循序跑（「完全循序」的語意不變）。
+    names = [e[0] for e in PLAN]
     plan = []
-    for stage, steps in PLAN:
+    for i, e in enumerate(PLAN):
+        stage, steps = e[0], e[1]
+        opt = e[2] if len(e) > 2 else {}
         keep = [s for s in steps if s and (not only or s[0] in only)]
         if keep:
-            plan.append((stage, keep))
+            until = opt.get("until")
+            join_at = names.index(until) if opt.get("bg") and until in names else len(PLAN)
+            plan.append((i, stage, keep, bool(opt.get("bg")) and A.jobs > 1, join_at))
     if A.dry_run:
-        for stage, steps in plan:
+        for _, stage, steps, bg, join_at in plan:
             print("%s（%d 步，%s）" % (stage, len(steps),
+                                      ("背景，%s 前收" % (PLAN[join_at][0] if join_at < len(PLAN) else "最後"))
+                                      if bg else
                                       "並行" if len(steps) > 1 and A.jobs > 1 else "循序"))
             for n, cmd in steps:
                 print("    " + n + (" " + " ".join(cmd[2:]) if len(cmd) > 2 else ""))
@@ -266,9 +285,7 @@ def main():
             out, rc = "執行失敗：%s: %s" % (type(e).__name__, e), -1
         return name, time.time() - t0, rc, out
 
-    for stage, steps in plan:
-        print("\n【%s】%d 步%s" % (stage, len(steps), "（並行）" if len(steps) > 1 and A.jobs > 1 else ""))
-        t0 = time.time()
+    def run_stage(stage, steps):
         # 2026-09-06：昨晚 22:00 並行在第②階段之後整支炸掉 → update.bat 退回**整條**循序（94 分鐘）。
         # 改成「哪一階段並行出事，就只把那一階段改循序重跑」，traceback 寫進日誌，其餘階段照常並行。
         # RUN_UPDATE_FAULT=1 是給測試用的故障注入（並行路徑故意炸），正式跑不會設。
@@ -277,25 +294,61 @@ def main():
                 if os.environ.get("RUN_UPDATE_FAULT") == "1":
                     raise RuntimeError("故障注入：模擬並行階段崩潰")
                 with ThreadPoolExecutor(max_workers=min(A.jobs, len(steps))) as ex:
-                    res = list(ex.map(run_one, steps))
-            else:
-                res = [run_one(s) for s in steps]
+                    return list(ex.map(run_one, steps))
+            return [run_one(s) for s in steps]
         except Exception:
             import traceback
             tb = traceback.format_exc()
-            log.write("\n" + "⚠ 【%s】並行執行炸掉，改循序重跑這一階段：" % stage + "\n" + tb + "\n")
-            log.flush()
+            with log_lock:
+                log.write("\n" + "⚠ 【%s】並行執行炸掉，改循序重跑這一階段：" % stage + "\n" + tb + "\n")
+                log.flush()
             print("   ⚠ 這一階段並行炸掉（%s）→ 改循序重跑這一階段（traceback 在日誌）"
                   % tb.strip().splitlines()[-1][:80])
-            res = [run_one(s) for s in steps]
+            return [run_one(s) for s in steps]
+
+    def write_stage(stage, res, t0, note=""):
         # 寫日誌時照計畫順序，不照完成順序（日誌要能跟舊版對照著看）
-        for name, el, rc, out in res:
-            times.append((el, name, rc))
-            log.write("\n---- %s（%.1fs，exit %d）----\n" % (name, el, rc))
-            log.write(out if out.endswith("\n") else out + "\n")
-            print("   %-26s %6.1fs  exit %d" % (name, el, rc))
-        emit("   （【%s】這一階段 %.1fs）" % (stage, time.time() - t0))
-        log.flush()
+        with log_lock:
+            for name, el, rc, out in res:
+                times.append((el, name, rc))
+                log.write("\n---- %s（%.1fs，exit %d）----\n" % (name, el, rc))
+                log.write(out if out.endswith("\n") else out + "\n")
+                print("   %-26s %6.1fs  exit %d" % (name, el, rc))
+            emit("   （【%s】這一階段 %.1fs）%s" % (stage, time.time() - t0, note))
+            log.flush()
+
+    # 背景階段（#3145）：起跑後不等它，pending 裡放 (收的位置, 階段名, future, 起跑時刻)；
+    # 每一階段開始前先收「收的位置 ≤ 這一階段」的背景，迴圈跑完再把剩下的全收掉。
+    # 背景階段的日誌區塊寫在「收的那一刻」（⑥ 之前），階段行另註「背景；收的時候多等了 N 秒」。
+    log_lock = threading.Lock()
+    pending = []
+    bg_ex = ThreadPoolExecutor(max_workers=2)
+
+    def join_bg(upto):
+        for item in [x for x in pending if x[0] <= upto]:
+            pending.remove(item)
+            _, stage, fut, t0 = item
+            tw = time.time()
+            try:
+                res = fut.result()
+            except Exception as e:   # run_one 已自己接住例外；這裡是保險
+                res = [("（背景階段）", 0.0, -1, "執行失敗：%s: %s\n" % (type(e).__name__, e))]
+            waited = time.time() - tw
+            print("\n【%s】收背景（多等了 %.1fs）" % (stage, waited))
+            write_stage(stage, res, t0, "（背景；收的時候多等了 %.1fs）" % waited)
+
+    for i, stage, steps, bg, join_at in plan:
+        join_bg(i)
+        if bg:
+            print("\n【%s】%d 步（背景起跑，%s 前收）"
+                  % (stage, len(steps), PLAN[join_at][0] if join_at < len(PLAN) else "最後"))
+            pending.append((join_at, stage, bg_ex.submit(run_stage, stage, steps), time.time()))
+            continue
+        print("\n【%s】%d 步%s" % (stage, len(steps), "（並行）" if len(steps) > 1 and A.jobs > 1 else ""))
+        t0 = time.time()
+        write_stage(stage, run_stage(stage, steps), t0)
+    join_bg(len(PLAN))
+    bg_ex.shutdown(wait=True)
 
     # 2026-09-07 #56：這裡原本是
     #     print("合計 %.1f 分鐘（步驟時間相加 %.1f 分鐘——差額就是並行省下來的）"
