@@ -14402,7 +14402,7 @@ function render(){
     const tgK=tag=>({[TG.c]:"c",[TG.p]:"p",[TG.e]:"e",[TG.t]:"t"})[tag]||"m";
     // 答案已提早鎖定（使用者 2026-11-01：「例如 Q17 HLE 已經淘汰 那麼 T1 就確定比 HLE 高」）⇒ 建議換成正確答案、標「確定」。
     //   只認 LOCK 裡的題：這些題的 nowT open=false 就代表後面的比賽改不了答案（len32 這種 open=false 只是目前領先，不算）
-    const LOCK=new Set(["peyzguma","faker700","teemo","uniq","len32","k15","cs450","koreg","lcs","hlet1"]);
+    const LOCK=new Set(["peyzguma","faker700","teemo","uniq","len32","k15","cs450","mvp","koreg","lcs","hlet1"]);
     // 排名題（使用者 2026-11-14：「剩下一個 BO5，Q1 夜曲是不是已經確定」）：NOW[q].lk＝{rk:[第1,2,3名各自定了沒],set:前三名單定了沒}；
     //   REM＝0（全部打完）時每個排名題都算定案。部分定案：答案換成目前排名、說明寫哪幾名已定。
     const rkLock=q=>{ const x=NOW[q]; if(!x||!x.r||!x.r.length)return null; if(REM===0)return {rk:x.r.map(()=>true),set:true}; return x.lk; };
@@ -14815,7 +14815,9 @@ function render(){
       const sum=o=>Object.values(o).reduce((s,n)=>s+n,0), fmN=sum(cnt), koN=sum(koC), allN=sum(allC);
       const sc=r=>((fmN?(cnt[r]||0)/fmN:0)+(koN?(koC[r]||0)/koN:0))/((fmN?1:0)+(koN?1:0)||1);
       const best=RO.slice().sort((a,b)=>sc(b)-sc(a)||((lastY[b]||0)>(lastY[a]||0)?1:-1))[0]||"BOT";
-      nowT("mvp",en2?"After the final":"決賽後揭曉","",true);
+      // 決賽 MVP 公布了（wiki 的 Finals 系列 MVP，使用者 2026-11-16「預測全部答案鎖定」）⇒ 定案：路線＋得主
+      const fm=PL&&(PL.mvp||[]).find(m=>m.stage!=="Play-In"&&/^finals?$/i.test(m.tab||"")&&m.rl&&LN[m.rl]);
+      if(fm)nowT("mvp",LN[fm.rl],`${fm.mvp}・${tAb(nmT(fm.tm))}`,false); else nowT("mvp",en2?"After the final":"決賽後揭曉","",true);
       const dist=(o,n)=>RO.filter(r=>o[r]).sort((a,b)=>o[b]-o[a]).map(r=>`${LN[r]} ${o[r]}`).join(en2?", ":"、")||"–";
       cards.push(card(TG.e,en2?"Which role will the Finals MVP play?":"決賽 MVP 得主會擔任哪條路線？",P1(50),pickTx(LN[best]),
         (()=>{ const tie=RO.filter(r=>r!==best&&Math.abs(sc(r)-sc(best))<1e-9).map(r=>LN[r]);   // 同分要講明是靠「最近拿過」決定的
