@@ -161,7 +161,7 @@ def fetch_sheep(start):
         for u in (t.get("entities") or {}).get("urls") or []:
             txt = txt.replace(u.get("url", ""), u.get("expanded_url", ""))
         txt = re.sub(r"\s*https://t\.co/\w+\s*$", "", txt).strip()
-        if dt.strftime("%Y-%m-%d") < start or not (TAG.search(txt) or MOVE.search(txt)):
+        if dt.strftime("%Y-%m-%d") < start or not MOVE.search(txt):  # 只看轉會字眼；光有 [OFFICIAL] 標籤會收進 MVP／賽程新聞
             continue
         out.append({"id": t["id_str"], "d": dt.strftime("%Y-%m-%d %H:%M"), "en": txt,
                     "url": f"https://x.com/Sheep_Esports/status/{t['id_str']}"})
