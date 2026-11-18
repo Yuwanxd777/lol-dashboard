@@ -1062,6 +1062,8 @@
   .trRow:nth-of-type(even){background:rgba(255,255,255,.03)}
   .trK-join{border-left-color:#ff5a5a}.trK-leave{border-left-color:#37c871}.trK-both{border-left-color:#ffc850}
   .trWho{display:flex;align-items:center;gap:8px;white-space:nowrap}
+  .trWho.trMulti{flex-direction:column;align-items:flex-start;gap:4px}
+  .trTag{display:inline-flex;align-items:center;gap:8px}
   .trTeam{display:inline-flex;align-items:center;gap:6px;font-weight:700}
   .trRg,.trSrcTag{font-size:13px;padding:1px 8px;border-radius:999px;background:rgba(255,255,255,.08);color:var(--tx2)}
   .trSrcTag{color:#7ab8ff;background:rgba(122,184,255,.12)}
@@ -14008,11 +14010,15 @@ function render(){
       lazyLoad("tr").then(()=>{ if(!window.TRANSFERS)window.TRANSFERS={wiki:[],sheep:[]}; if(curView==="轉會")render(); }); return; }
     const D=window.TRANSFERS, RL={TOP:en2?"Top":"上路",JNG:en2?"Jungle":"打野",MID:en2?"Mid":"中路",BOT:en2?"Bot":"下路",SUP:en2?"Support":"輔助"};
     const RG_EN={"韓國":"Korea","中國":"China","歐洲":"EMEA","北美":"North America","巴西":"Brazil","亞太":"Asia Pacific","國際":"International","越南":"Vietnam","日本":"Japan"};
-    const all=[...(D.wiki||[]).map(x=>({...x,s:"wiki"})),...(D.sheep||[]).map(x=>({...x,s:"sheep",rg:"",kind:"x"}))];
-    const RGS=[...new Set((D.wiki||[]).map(x=>x.rg).filter(Boolean))];
+    // 賽區一律顯示聯賽名（使用者 2026-11-19「地區改成賽區 韓國就是LCK」）；資料內部仍用 韓國／歐洲… 當鍵
+    const RG_LG={"韓國":"LCK","中國":"LPL","歐洲":"LEC","北美":"LCS","巴西":"CBLOL","亞太":"LCP","越南":"LCP","日本":"LCP"};
+    const rgNm=r=>RG_LG[r]||(en2?(RG_EN[r]||r):r);
+    // Sheep 推文：tags＝[[賽區, 隊名]…]（推文提到的戰隊，人工標）；kind 同 wiki（join／leave／both／other）
+    const all=[...(D.wiki||[]).map(x=>({...x,s:"wiki"})),...(D.sheep||[]).map(x=>({...x,s:"sheep",tags:x.tags||[],rg:"",kind:x.kind||"other",team:(x.tags||[]).map(t=>t[1]).join(" ")}))];
+    const RGS=[...new Set(all.flatMap(x=>x.s==="sheep"?x.tags.map(t=>t[0]):[x.rg]).filter(Boolean))].sort((a,b)=>Object.keys(RG_LG).indexOf(a)-Object.keys(RG_LG).indexOf(b));
     const KD={join:en2?"Join":"加入",leave:en2?"Leave":"離隊",other:en2?"Other":"其他"};
     const q=(V.trQ||"").trim().toLowerCase();
-    const shown=all.filter(x=>(!V.trSrc||x.s===V.trSrc)&&(!V.trRg||x.rg===V.trRg)
+    const shown=all.filter(x=>(!V.trSrc||x.s===V.trSrc)&&(!V.trRg||(x.s==="sheep"?x.tags.some(t=>t[0]===V.trRg):x.rg===V.trRg))
       &&(!V.trKd||(V.trKd==="join"?/join|both/.test(x.kind):V.trKd==="leave"?/leave|both/.test(x.kind):x.kind==="other"))
       &&(!q||[x.team,x.en,x.zh].join(" ").toLowerCase().includes(q))).sort((a,b)=>a.d<b.d?1:a.d>b.d?-1:(b.n||0)-(a.n||0));
     const txt=x=>{ let t=esc((en2?x.en:(x.zh||x.en))||"").replace(/§(TOP|JNG|MID|BOT|SUP)§/g,(m,r)=>POS_IMG[r]?`<img class="trRole" src="${POS_IMG[r]}" alt="${RL[r]}" title="${RL[r]}">`:`<span class="trRole">${RL[r]}</span>`).replace(/\n/g,"<br>");
@@ -14021,13 +14027,14 @@ function render(){
     let lastD="", rows="";
     shown.forEach(x=>{ const d=x.d.slice(0,10);
       if(d!==lastD){ rows+=`<div class="trDay">${+d.slice(5,7)}/${+d.slice(8,10)}</div>`; lastD=d; }
-      const who=x.s==="sheep"?`<span class="trSrcTag">Sheep Esports</span>`
-        :`${x.rg?`<span class="trRg">${esc(en2?(RG_EN[x.rg]||x.rg):x.rg)}</span>`:""}<span class="trTeam">${(x.team&&teamLogoHTML(tAb(x.team),22,true,x.team))||""}${esc(x.team||"–")}</span>`;
+      const one=(rg,tm)=>`${rg?`<span class="trRg">${esc(rgNm(rg))}</span>`:""}${tm?`<span class="trTeam">${teamLogoHTML(tAb(tm),22,true,tm)||""}${esc(tm)}</span>`:""}`;
+      const who=x.s==="sheep"?(x.tags.length?x.tags.map(t=>`<span class="trTag">${one(t[0],t[1])}</span>`).join(""):`<span class="trSrcTag">Sheep Esports</span>`)
+        :`${one(x.rg,"")}<span class="trTeam">${(x.team&&teamLogoHTML(tAb(x.team),22,true,x.team))||""}${esc(x.team||"–")}</span>`;
       const link=x.s==="sheep"?x.url:x.src, lk=link?`<a class="trLk" href="${esc(link)}" target="_blank" rel="noopener" title="${esc(x.srcNm||"")}">${x.s==="sheep"?"X":(en2?"Source":"來源")}</a>`:"";
-      rows+=`<div class="trRow trK-${x.kind}"><div class="trWho">${who}</div><div class="trTx">${txt(x)}</div>${lk}</div>`; });
+      rows+=`<div class="trRow trK-${x.kind}"><div class="trWho${x.s==="sheep"&&x.tags.length>1?" trMulti":""}">${who}</div><div class="trTx">${txt(x)}</div>${lk}</div>`; });
     main.innerHTML=`<div class="filters">`
       +`<label>${en2?"Source":"來源"}</label>${btns("trSrc",[["",en2?"All":"全部"],["wiki","Leaguepedia"],["sheep","Sheep Esports"]])}`
-      +`<label>${en2?"Region":"賽區"}</label>${btns("trRg",[["",en2?"All":"全部"],...RGS.map(r=>[r,esc(en2?(RG_EN[r]||r):r)])])}`
+      +`<label>${en2?"Region":"賽區"}</label>${btns("trRg",[["",en2?"All":"全部"],...RGS.map(r=>[r,esc(rgNm(r))])])}`
       +`<label>${en2?"Type":"類型"}</label>${btns("trKd",[["",en2?"All":"全部"],["join",KD.join],["leave",KD.leave],["other",KD.other]])}`
       +`<label>${en2?"Search":"搜尋"}</label><span class="cwrap"><input type="text" id="trQ" value="${esc(V.trQ||"")}" placeholder="${en2?"Player or team":"選手或隊名"}" style="width:190px;padding-right:26px"><button class="cx" tabindex="-1" data-x="trQ" title="一鍵清除">✕</button></span>`
       +`<span class="meta">${shown.length} / ${all.length}${D.at?`・${en2?"updated":"更新"} ${esc(D.at)}`:""}</span></div>`

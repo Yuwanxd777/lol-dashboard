@@ -195,7 +195,7 @@ def main():
         print(f"Sheep Esports 抓取失敗，只用累積檔：{type(e).__name__} {str(e)[:100]}")
     acc.sort(key=lambda x: x["d"], reverse=True)
     io.open(SHEEP, "w", encoding="utf-8").write(json.dumps(acc, ensure_ascii=False, indent=1))
-    sheep = [{k: x[k] for k in ("id", "d", "en", "zh", "url") if x.get(k)} for x in acc if x["d"][:10] >= start]
+    sheep = [{k: x[k] for k in ("id", "d", "en", "zh", "url", "kind", "tags") if x.get(k)} for x in acc if x["d"][:10] >= start]
     wiki.sort(key=lambda x: (x["d"], x["n"]), reverse=True)
     data = {"at": datetime.datetime.now().strftime("%Y-%m-%d %H:%M"), "from": start, "wiki": wiki, "sheep": sheep}
     io.open(OUT, "w", encoding="utf-8").write("window.TRANSFERS=" + json.dumps(data, ensure_ascii=False, separators=(",", ":")) + ";\n")
