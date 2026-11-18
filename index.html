@@ -1043,6 +1043,18 @@
   .ntDoc th{background:#1b2333}
   .ntDoc th,.ntDoc td{white-space:normal;overflow:visible;text-overflow:clip} /* 筆記是長文：不繼承全站表格的不換行＋省略號 */
   .ntDoc table{max-width:100%}
+  /* 重點／摺疊（2026-11-18）：重點節淡金底；其餘節收成一列標題，點開看細節 */
+  .ntDoc .ntKey{background:rgba(255,200,80,.07);border-left:3px solid var(--gold);border-radius:8px;padding:8px 14px;margin:0 0 14px;font-size:1.04em}
+  .ntDoc .ntKey p,.ntDoc .ntKey ul{margin:4px 0}
+  .ntDoc details.ntSec{border-top:1px solid var(--line)}
+  .ntDoc details.ntSec>summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:8px;padding:9px 4px;font-size:17px;font-weight:700;color:var(--gold)}
+  .ntDoc details.ntSec>summary::-webkit-details-marker{display:none}
+  .ntDoc details.ntSec>summary::before{content:"▸";color:var(--tx2);font-size:14px;width:12px;transition:transform .15s}
+  .ntDoc details.ntSec[open]>summary::before{transform:rotate(90deg)}
+  .ntDoc details.ntSec>summary:hover{background:rgba(255,255,255,.04);border-radius:6px}
+  .ntDoc .ntCnt{font-size:13.5px;font-weight:400;color:var(--tx2)}
+  .ntDoc details.ntSec[open]{padding-bottom:8px}
+  .ntDoc .ntMeta{display:flex;align-items:center;flex-wrap:wrap;margin-bottom:6px;white-space:pre-wrap}
   @container mainc (max-width:759.98px){.ntWrap{grid-template-columns:minmax(0,1fr)}.ntList{max-height:38vh}.ntDoc{padding:14px 14px}}
   .ntDoc mark{background:#5a4a12;color:inherit;border-radius:3px}
   /* ── 預測分頁（官方水晶球，2026-10-11）：版面用既有 .grid，這裡只定義卡片內容 ── */
@@ -13934,9 +13946,20 @@ function render(){
         const sub=[it.d,it.min?`${it.min} ${en2?"min":"分鐘"}`:"",it.src?(en2?"channel subs":"頻道字幕"):""].filter(Boolean).join("・");
         return g+`<div class="ntIt${cur&&itKey(it)===itKey(cur)?" on":""}" data-k="${esc(itKey(it))}">${esc(it.t)}${sub?`<div class="meta">${sub}</div>`:""}</div>`; }).join("")
         ||`<span class="sumEmpty">${en2?"No match":"沒有符合的筆記"}</span>`; };
-    const docHTML=()=>{ if(!cur)return ""; let h=mdHTML(cur.md,cur.vid);
-      if(cur.vid)h=`<div class="meta" style="margin-bottom:6px">${esc(cur.g)}・${esc(cur.d||"")}・<a href="https://youtu.be/${cur.vid}" target="_blank" rel="noopener">YouTube</a>${cur.src?`・${en2?"transcript: channel subtitles":"逐字稿來源：頻道字幕"}（${esc(cur.src)}）`:`・${en2?"transcript: Whisper ASR":"逐字稿來源：Whisper 語音辨識"}`}</div>`+h;
-      else if(S.doc)h=`<div class="meta" style="margin-bottom:6px"><a href="${S.doc}" target="_blank" rel="noopener">${en2?"Open the editable doc":"開啟可編輯的線上文件"}</a></div>`+h;
+    // 平時只看重點（使用者 2026-11-18「平時只顯示重點 詳細的說明摺疊起來」）：以 ## 切節，
+    //   一句話總結／摘要那節直接展開，其餘每節收成 <details>（標題＋條數）；搜尋時有命中的節自動展開。
+    const KEYSEC=/^(一句話總結|摘要|重點)/;
+    const foldHTML=(md,vid)=>{ const secs=[{t:null,ls:[]}];
+      md.replace(/\r/g,"").split("\n").forEach(l=>{ const m=l.match(/^##(?!#)\s+(.*)/); if(m)secs.push({t:m[1].trim(),ls:[]}); else secs[secs.length-1].ls.push(l); });
+      return secs.map((s,i)=>{ if(s.t&&/^(無|沒有|未提及|本片未涉及)?[。.]?$/.test(s.ls.join("").trim()))return "";   // 只寫「無。」的節整個不列，省得點開是空的
+        const body=mdHTML(s.ls.join("\n"),vid); if(!s.t)return body;
+        if(KEYSEC.test(s.t))return `<h2>${inl(s.t,vid)}</h2><div class="ntKey">${body}</div>`;
+        const n=s.ls.filter(l=>/^\s*([-*]|\d+\.)\s+/.test(l)).length, hit=q&&(s.t+"\n"+s.ls.join("\n")).toLowerCase().includes(q);
+        return `<details class="ntSec"${hit?" open":""}><summary>${inl(s.t,vid)}${n?`<span class="ntCnt">${n} ${en2?"items":"條"}</span>`:""}</summary>${body}</details>`; }).join(""); };
+    const docHTML=()=>{ if(!cur)return ""; let h=foldHTML(cur.md,cur.vid);
+      const tools=/<details/.test(h)?`<button class="sqLaneBtn" id="ntExp" style="margin-left:auto">${en2?"Expand all":"全部展開"}</button>`:"";
+      if(cur.vid)h=`<div class="meta ntMeta">${esc(cur.g)}・${esc(cur.d||"")}・<a href="https://youtu.be/${cur.vid}" target="_blank" rel="noopener">YouTube</a>${cur.src?`・${en2?"transcript: channel subtitles":"逐字稿來源：頻道字幕"}（${esc(cur.src)}）`:`・${en2?"transcript: Whisper ASR":"逐字稿來源：Whisper 語音辨識"}`}${tools}</div>`+h;
+      else if(S.doc)h=`<div class="meta ntMeta"><a href="${S.doc}" target="_blank" rel="noopener">${en2?"Open the editable doc":"開啟可編輯的線上文件"}</a>${tools}</div>`+h;
       if(q){ const re=new RegExp("("+q.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")+")","gi"); h=h.replace(/>([^<]+)</g,(m,t)=>">"+t.replace(re,"<mark>$1</mark>")+"<"); }
       return h; };
     main.innerHTML=`<div class="filters">`
@@ -13952,6 +13975,9 @@ function render(){
     qi.oninput=()=>{ clearTimeout(window._ntQT); window._ntQT=setTimeout(()=>{ V.ntQ=qi.value; saveState(); const pos=qi.selectionStart; render(); const q2=document.getElementById("ntQ"); q2.focus(); q2.setSelectionRange(pos,pos); },300); };
     main.querySelector('.cx[data-x="ntQ"]').onclick=()=>{ V.ntQ=""; saveState(); render(); };
     const sel=document.querySelector("#ntList .ntIt.on"); if(sel)sel.scrollIntoView({block:"nearest"});
+    const ex=document.getElementById("ntExp"); if(ex){ const ds=()=>[...document.querySelectorAll("#ntDoc details.ntSec")],
+      sync=()=>{ ex.textContent=ds().every(d=>d.open)?(en2?"Collapse all":"全部收合"):(en2?"Expand all":"全部展開"); };
+      ex.onclick=()=>{ const all=ds().every(d=>d.open); ds().forEach(d=>d.open=!all); sync(); }; ds().forEach(d=>d.ontoggle=sync); sync(); }
     })();
   }
   else if(curView==="預測"){
