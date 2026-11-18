@@ -188,6 +188,8 @@ PLAN = [
     ("⑤h 預測用積分版本趨勢", [S("build_predict_sq")]),
     # 2026-10-17：預測分頁「本屆」欄的補兵（Q13）與各場 MVP 路線（Q14）——主資料沒收這兩樣，從 Leaguepedia Cargo 拿（兩個請求）
     ("⑤h2 預測本屆補兵／MVP", [S("build_predict_live")]),
+    # 2026-11-18：「轉會」分頁（Leaguepedia News 的 Cargo 一個請求＋@Sheep_Esports 內嵌時間軸一個請求，失敗都沿用舊資料）
+    ("⑤h3 轉會消息", [S("fetch_transfers")]),
     # 收尾：彼此不相干，但都要等前面資料齊（build_font_subset 掃根目錄全部 *.js ⇒ 要等 ⑤g 的四個輸出檔寫完；
     # build_patch_dates 讀 ⑤g 快取的 patch_dates.json）。label_pending 2026-09-09 #72 搬去 ⑤c 並行，見上。
     ("⑥ 收尾（互不相干）", [
