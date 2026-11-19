@@ -14101,6 +14101,7 @@ function render(){
     // ── 轉會（使用者 2026-11-18「S16 即將結束…記錄轉會消息，從 11/1 開始」）──
     //   資料＝transfers.js（scripts/fetch_transfers.py：Leaguepedia News 的 Cargo 表＋@Sheep_Esports 累積檔），排程 ⑤h3 每班更新。
     //   wiki 句子在抓取端就翻好（zh），§TOP§ 這種記號＝路線標籤；Sheep 推文有人工翻譯（zh）就用，沒有顯示原文。
+    // <<TRANSFERS_SITE  轉會網站（lol-transfer.pages.dev）只帶這一段：scripts/export_transfer_site.py 照這兩個記號抽出來，別刪
     (()=>{
     const en2=LANG==="en";
     if(!window.TRANSFERS){ main.innerHTML=`<div class="card"><span class="sumEmpty">${en2?"Loading…":"載入中"}</span></div>`;
@@ -14255,7 +14256,8 @@ function render(){
     //   教練只看總教練：教練沒有個人數據 ⇒ 新總教練原隊的戰隊評分 − 本隊的戰隊評分（calcTeams）。
     //   只算官方確認的新人（傳聞不算）；新人或上一位沒有該年比賽資料的那條路不計。年份要切到該休賽期的賽季才算得出來
     const SEASON=+String(D.from||"").slice(0,4)||0;
-    const RATE=(()=>{ if(curYear!==SEASON||typeof calcPlayers!=="function")return null;
+    const RATE=(()=>{ if(window.TRANSFER_RATE)return window.TRANSFER_RATE;   // 轉會網站：主站排程先算好匯出（transfers_site.js）
+      if(curYear!==SEASON||typeof calcPlayers!=="function")return null;
       const k=curYear+"|"+(GAMES||[]).length; if(window._tbRC&&window._tbRC.k===k)return window._tbRC;
       const res={k,pl:{},tm:{}};
       withRef(0,()=>{ for(const r of ["TOP","JNG","MID","BOT","SUP"]){ const m=res.pl[r]={};
@@ -14355,6 +14357,7 @@ function render(){
     qi.oninput=()=>{ clearTimeout(window._trQT); window._trQT=setTimeout(()=>{ V.trQ=qi.value; saveState(); const pos=qi.selectionStart; render(); const q2=document.getElementById("trQ"); q2.focus(); q2.setSelectionRange(pos,pos); },300); };
     main.querySelector('.cx[data-x="trQ"]').onclick=()=>{ V.trQ=""; saveState(); render(); };
     })();
+    // TRANSFERS_SITE>>
   }
   else if(curView==="預測"){
     // ── 預測（2026-10-11 使用者需求）：官方水晶球（世界賽預測活動）逐題給建議答案 ──

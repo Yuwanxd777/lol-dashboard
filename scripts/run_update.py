@@ -208,6 +208,8 @@ PLAN = [
     ]),
     # 2026-10-21：本機 file:// 快速讀取檔（年度資料包成 JSON 字串，F5 載入 1.56s → 0.14s）；要等 ⑥ trim_data_cols 改完年度檔
     ("⑥b 本機快速讀取檔", [S("build_local_data")]),
+    # 2026-11-20：轉會網站（lol-transfer.pages.dev，只有轉會分頁）要的兩個檔：評分／隊徽／說明＋抽出來的轉會分頁程式（無頭開一次本機頁）
+    ("⑥c 轉會網站匯出", [S("export_transfer_site")]),
     # 時間戳要蓋在所有寫資料的步驟之後
     ("⑦ 時間戳與健檢", [S("stamp_updated")]),
     ("⑧", [S("check_keys")]),
