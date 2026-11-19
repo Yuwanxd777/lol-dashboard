@@ -1068,6 +1068,10 @@
   .trRg,.trSrcTag{font-size:13px;padding:1px 8px;border-radius:999px;background:rgba(255,255,255,.08);color:var(--tx2)}
   .trSrcTag{color:#7ab8ff;background:rgba(122,184,255,.12)}
   img.trRole{width:20px;height:20px;object-fit:contain;padding:0;margin:0 4px 0 2px;background:none;vertical-align:-4px}
+  svg.trCoach{width:18px;height:18px;margin:0 3px 0 4px;vertical-align:-4px;fill:none;stroke:#ffc850;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  svg.trCoach .f{fill:#ffc850;stroke:none}
+  .trCoachTx{white-space:nowrap;color:#ffc850;font-size:.92em}
+  .trCoachTx svg.trCoach{margin-right:3px}
   .trRole{display:inline-block;font-size:12.5px;padding:0 6px;margin:0 4px 0 2px;border-radius:5px;background:rgba(255,200,80,.14);color:#ffc850;vertical-align:1px}
   .trTx{min-width:0;word-break:break-word}
   .trLk{font-size:14px;color:#7fb2ff;white-space:nowrap}
@@ -14021,7 +14025,9 @@ function render(){
     const shown=all.filter(x=>(!V.trSrc||x.s===V.trSrc)&&(!V.trRg||(x.s==="sheep"?x.tags.some(t=>t[0]===V.trRg):x.rg===V.trRg))
       &&(!V.trKd||(V.trKd==="join"?/join|both/.test(x.kind):V.trKd==="leave"?/leave|both/.test(x.kind):x.kind==="other"))
       &&(!q||[x.team,x.en,x.zh].join(" ").toLowerCase().includes(q))).sort((a,b)=>a.d<b.d?1:a.d>b.d?-1:(b.n||0)-(a.n||0));
-    const txt=x=>{ let t=esc((en2?x.en:(x.zh||x.en))||"").replace(/§(TOP|JNG|MID|BOT|SUP)§/g,(m,r)=>POS_IMG[r]?`<img class="trRole" src="${POS_IMG[r]}" alt="${RL[r]}" title="${RL[r]}">`:`<span class="trRole">${RL[r]}</span>`).replace(/\n/g,"<br>");
+    const txt=x=>{ let t=esc((en2?x.en:(x.zh||x.en))||"").replace(/§(TOP|JNG|MID|BOT|SUP)§/g,(m,r)=>POS_IMG[r]?`<img class="trRole" src="${POS_IMG[r]}" alt="${RL[r]}" title="${RL[r]}">`:`<span class="trRole">${RL[r]}</span>`)
+        .replace(/（([^（）]*教練[^（）]*)）|\(([^()]*Coach[^()]*)\)/g,(m,a,b)=>{ const r=a||b, ico=`<svg class="trCoach" viewBox="0 0 24 24" role="img" aria-label="${r}"><circle cx="9" cy="14.5" r="5.5"/><path d="M13 10.2 21.5 7v4.2l-7 2.3"/><circle cx="9" cy="14.5" r="1.6" class="f"/><path d="M5.2 10.3 3 7.5"/></svg>`;
+          return r==="教練"||r==="Coach"?`<span class="trCoachTx" title="${r}">${ico}</span>`:`<span class="trCoachTx" title="${r}">${ico}${r}</span>`; }).replace(/\n/g,"<br>");
       if(q){ const re=new RegExp("("+q.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")+")","gi"); t=t.replace(/(^|>)([^<]+)/g,(m,a,b)=>a+b.replace(re,"<mark>$1</mark>")); } return t; };
     const btns=(key,opts)=>`<span style="display:inline-flex;gap:6px;flex-wrap:wrap">${opts.map(([v,l])=>`<button class="sqLaneBtn${(V[key]||"")===v?" on":""}" data-k="${key}" data-v="${esc(v)}">${l}</button>`).join("")}</span>`;
     let lastD="", rows="";
