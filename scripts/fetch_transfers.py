@@ -371,6 +371,8 @@ T1_LEAGUES = ("LoL Champions Korea", "Tencent LoL Pro League", "LoL EMEA Champio
               "League of Legends Championship Series", "Circuit Brazilian League of Legends", "League of Legends Championship Pacific")
 T1_EXTRA = {"OpTic Gaming"}   # 2027 才進一級的（2026 名單沒有）
 T1_EXCLUDE = {"Karmine Corp Blue"}   # 二隊：只因特殊賽制打了 LEC 第一賽段（使用者 2026-11-19）
+# 消息裡完全不顯示的隊（使用者 2026-11-20「SLY 跟 KCB 是一樣性質 都不用顯示」）：wiki 該隊的條目不列、Sheep 的隊伍標籤拿掉
+HIDE_TEAMS = T1_EXCLUDE | {"Solary"}
 T1_RG = {"韓國", "中國", "歐洲", "北美", "巴西", "亞太", "越南", "日本"}   # 只標賽區沒標隊（自由球員名單）＝六大聯賽的消息
 _t1key = lambda n: re.sub(r"\s*\([^()]*\)\s*$", "", n or "").strip().lower()
 
@@ -467,6 +469,10 @@ def main():
         # wiki 一隊一句：一級隊離隊的人，之後「加入次級隊」那句也留（從六大聯賽離開到次級也列出）
         gone = {p for x in wiki if is_t1(x, keys) and x["kind"] in ("leave", "both") for p, _ in PL_RE.findall(x["en"])}
         wiki = [x for x in wiki if not staff_only_noise(x)]
+        wiki = [x for x in wiki if x.get("team") not in HIDE_TEAMS]
+        for x in sheep:
+            if x.get("tags"):
+                x["tags"] = [t for t in x["tags"] if t[1] not in HIDE_TEAMS]
         wiki = [x for x in wiki if is_t1(x, keys) or (x["kind"] in ("join", "both") and any(p in gone for p, _ in PL_RE.findall(x["en"])))]
         sheep = [x for x in sheep if is_t1(x, keys)]
         print(f"六大聯賽一級：wiki {n0}→{len(wiki)}、sheep {n1}→{len(sheep)}（一級隊 {len(t1)}）")

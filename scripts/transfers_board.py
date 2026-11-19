@@ -583,7 +583,7 @@ _NM = r"(?:‹([^|›]+)\|([^›]+)›|([A-Za-z0-9][A-Za-z0-9_.'-]*(?: [A-Z][A-Z
 
 def _name(m, i):
     pg, disp, plain = m.group(i), m.group(i + 1), m.group(i + 2)
-    return (disp or plain or "").strip(), (pg or "").replace("_", " ")
+    return (disp or plain or "").strip(), urllib.parse.unquote(pg or "").replace("_", " ")   # 頁名可能是 %28…%29 編碼（Noah 連錯頁，使用者 2026-11-20）
 
 
 def parse_sheep(sheep):
