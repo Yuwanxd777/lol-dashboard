@@ -144,11 +144,37 @@ TAG = re.compile(r"\[(OFFICIAL|SOURCES|RUMOU?R|BREAKING|REPORT)\]", re.I)
 MOVE = re.compile(r"\b(join|sign|re-sign|leave|part(?:s|ed)? ways|contract|roster|free agent|extend|transfer|bench|retire|verbal agreement|set to)\w*", re.I)
 
 
+SHEEP_WAIT_MAX = 180  # 429 時最多等幾秒（端點是 15 分鐘滾動窗、額度 30 次，跟別人共用；重置點隨機落在窗裡）
+
+
+def _sheep_get(req, sleep=None):
+    """內嵌時間軸常回 429（x-rate-limit-remaining 0），但它是滾動窗不是封鎖：重置一過就 200
+    （2026-11-19 10:20 實測：10:18 429、重置 10:20:04、10:20:08 再問 200 且剩 11 次）。
+    重置點離現在 ≤ SHEEP_WAIT_MAX 秒就等過去再問一次；更遠就照舊拋錯、退回累積檔（不拖慢整條管線）。"""
+    import time, urllib.error
+    sleep = sleep or time.sleep
+    try:
+        return urllib.request.urlopen(req, timeout=60).read()
+    except urllib.error.HTTPError as e:
+        if e.code != 429:
+            raise
+        try:
+            wait = int(e.headers.get("x-rate-limit-reset", "0")) - time.time() + 3
+        except ValueError:
+            raise e
+        if not 0 < wait <= SHEEP_WAIT_MAX:
+            print(f"Sheep Esports 429，額度重置要等 {wait:.0f}s（> {SHEEP_WAIT_MAX}s）不等")
+            raise
+        print(f"Sheep Esports 429，等 {wait:.0f}s 到額度重置再問一次")
+        sleep(wait)
+        return urllib.request.urlopen(req, timeout=60).read()
+
+
 def fetch_sheep(start):
     """內嵌時間軸（免登入）→ 轉會推文；只取 start 之後、帶 [OFFICIAL]/[SOURCES] 標籤或含轉會字眼的"""
     req = urllib.request.Request("https://syndication.twitter.com/srv/timeline-profile/screen-name/Sheep_Esports",
                                  headers={"User-Agent": "Mozilla/5.0"})
-    s = urllib.request.urlopen(req, timeout=60).read().decode("utf-8", "replace")
+    s = _sheep_get(req).decode("utf-8", "replace")
     m = re.search(r'<script id="__NEXT_DATA__" type="application/json">(.*?)</script>', s, re.S)
     ents = json.loads(m.group(1))["props"]["pageProps"]["timeline"]["entries"]
     out = []
