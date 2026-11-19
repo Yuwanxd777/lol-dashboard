@@ -450,18 +450,37 @@ def main():
         sheep = [x for x in sheep if is_t1(x, keys)]
         print(f"六大聯賽一級：wiki {n0}→{len(wiki)}、sheep {n1}→{len(sheep)}（一級隊 {len(t1)}）")
     wiki.sort(key=lambda x: (x["d"], x["n"]), reverse=True)
+    # PTT／韓網（使用者 2026-11-19「轉會消息新增 PTT／韓網」，scripts/fetch_ptt_transfers.py 累積進 transfers_ptt_src.json）
+    #   ＋使用者貼的官方消息（transfers_official_src.json，手動維護；BRO／KT 10 月續約）。extra＝[{id,d,zh,src(PTT|韓網|官方),url,st,kind,tags}]
+    try:
+        import fetch_ptt_transfers
+        fetch_ptt_transfers.main("2026-11-15T12:00")
+    except Exception as e:
+        print(f"PTT 抓取失敗，只用累積檔：{type(e).__name__} {str(e)[:100]}")
+    extra = []
+    for fn in ("transfers_ptt_src.json", "transfers_official_src.json"):
+        p = os.path.join(ROOT, fn)
+        if os.path.exists(p):
+            extra += [{k: x[k] for k in ("id", "d", "zh", "src", "url", "ptt", "st", "kind", "tags") if x.get(k)} for x in json.load(io.open(p, encoding="utf-8"))]
+    extra.sort(key=lambda x: x["d"], reverse=True)
+    off = [x for x in extra if x.get("src") == "官方"]
+    farewell = []   # 戰隊官方 Thank you／Farewell 文（PTT 轉貼，含內文）⇒ 陣容表當宣布離隊
+    p = os.path.join(ROOT, "transfers_ptt_src.json")
+    if os.path.exists(p):
+        farewell = [x for x in json.load(io.open(p, encoding="utf-8")) if x.get("st") == "official"
+                    and re.search(r"thank ?you|farewell|離隊|期滿|結束合作", x.get("title") or "", re.I)]   # 陣容表的續約判定吃得到（粉字）
     # 陣容表（使用者 2026-11-19：六大聯賽各隊 × 上野中下輔＋教練，傳聞加 *；scripts/transfers_board.py）
     try:
         import build_predict_live as B, transfers_board
         yr = int(start[:4]) if start[5:7] > "06" else int(start[:4]) - 1
-        board = transfers_board.build(B.cargo, yr, start, sheep, {n: "LCS" for n in T1_EXTRA}, wiki, T1_EXCLUDE)
+        board = transfers_board.build(B.cargo, yr, start, sheep + off, {n: "LCS" for n in T1_EXTRA}, wiki, T1_EXCLUDE, farewell)
         print(f"陣容表：{len(board)} 隊")
     except Exception as e:
         board = old.get("board") or []
         print(f"陣容表失敗，沿用舊檔 {len(board)} 隊：{type(e).__name__} {str(e)[:150]}")
-    data = {"at": datetime.datetime.now().strftime("%Y-%m-%d %H:%M"), "from": start, "t1": t1, "wiki": wiki, "sheep": sheep, "board": board}
+    data = {"at": datetime.datetime.now().strftime("%Y-%m-%d %H:%M"), "from": start, "t1": t1, "wiki": wiki, "sheep": sheep, "extra": extra, "board": board}
     io.open(OUT, "w", encoding="utf-8").write("window.TRANSFERS=" + json.dumps(data, ensure_ascii=False, separators=(",", ":")) + ";\n")
-    print(f"transfers.js：wiki {len(wiki)}、sheep {len(sheep)}")
+    print(f"transfers.js：wiki {len(wiki)}、sheep {len(sheep)}、PTT／韓網／官方 {len(extra)}")
 
 
 if __name__ == "__main__":

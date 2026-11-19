@@ -49,7 +49,7 @@ def _in(vals):
     return "(" + ",".join('"%s"' % str(v).replace('"', '\\"') for v in vals) + ")"
 
 
-def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=()):
+def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell=None):
     """cargo＝build_predict_live.cargo；since＝本休賽期起點（YYYY-MM-DD）；sheep＝輸出層的 Sheep 條目；extra＝{隊名: 聯賽}（2027 新進）"""
     # ① 一級隊＋各隊最後一個賽段的名冊
     r = cargo({"tables": "Tournaments=T,TournamentRosters=TR", "join_on": "T.OverviewPage=TR.OverviewPage",
@@ -83,9 +83,10 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=()):
                 d.setdefault(rr, []).append(p.strip())
                 prole[(tm, p.strip())] = ro1.strip()
     # 改名前的舊隊名（DRX→Kiwoom DRX）在 Teams 表沒有自己的頁（是轉址）、解散的（Dignitas）IsDisbanded ⇒ 都不列；Name＝顯示名（LYON）
-    tt = cargo({"tables": "Teams", "fields": "OverviewPage=pg,Name=n,IsDisbanded=dis", "where": "Teams.OverviewPage IN " + _in(sorted({uc(t) for t in lg_of})),
+    tt = cargo({"tables": "Teams", "fields": "OverviewPage=pg,Name=n,Short=sh,IsDisbanded=dis", "where": "Teams.OverviewPage IN " + _in(sorted({uc(t) for t in lg_of})),
                 "limit": "500", "format": "json"})
     disp = {x["pg"]: (x.get("n") or x["pg"]) for x in tt if str(x.get("dis")) != "1"}
+    short = {x["pg"]: x.get("sh") or "" for x in tt}
     disp = {t: disp[uc(t)] for t in lg_of if uc(t) in disp}   # wiki 頁名首字母一律大寫（paiN Gaming → PaiN Gaming）
     teams = sorted(t for t in disp if t not in set(exclude))
     # ② 官方現況
@@ -182,28 +183,56 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=()):
         for nm_ in re.findall(r"‹[^|›]+\|([^›]+)›", txt):
             for o in outs:
                 ann.add((key(nm_), o))
+    # wiki 新聞的「X leaves」句（來源＝戰隊官方 X／FB 貼文）也是宣布離隊（使用者 2026-11-19「BRO 教練 Duke 應該是有宣佈離隊的 WIKI 上也有」）
+    for x in wiki or []:
+        if x.get("kind") not in ("leave", "both") or not x.get("team"):
+            continue
+        for sen in re.split(r"(?<=\.)\s+", x.get("en") or ""):
+            if re.search(r"\bleaves?\b|\bdeparts?\b|parts? ways|contract (?:has )?expired", sen) and not re.search(r"leaves? for|joins", sen):
+                for pg_, nm_ in re.findall(r"‹([^|›]+)\|([^›]+)›", sen):
+                    ann.add((key(nm_), tkey(x["team"])))
+                    ann.add((key(urllib.parse.unquote(pg_).replace("_", " ")), tkey(x["team"])))
+    # 戰隊官方 Thank you／Farewell 文（PTT [情報]／[外絮] 轉貼，使用者 2026-11-19「CFO 的選手不是宣布離隊了嗎 那就不應該是藍字」）：
+    #   標題認隊（縮寫／隊名），內文有點到名字的人＝官方宣布離隊；標題寫「全員」⇒ 該隊合約到期的人全部算
+    fw = {}
+    for f in farewell or []:
+        ttl = f.get("title") or ""
+        for tm in teams:
+            al = {disp.get(tm, tm), tm, short.get(uc(tm), "")} | ({"KRX"} if "DRX" in tm else set())
+            if any(a and re.search(r"(?<![A-Za-z0-9])" + re.escape(a) + r"(?![A-Za-z0-9])", ttl, re.I) for a in al):
+                fw.setdefault(tkey(tm), []).append((ttl + "\n" + (f.get("body") or ""), "全員" in ttl))
+    def _fw(pg, tm):
+        n = re.sub(r"\s*\([^()]*\)$", "", pg)
+        return any(a or re.search(r"(?<![A-Za-z0-9])" + re.escape(n) + r"(?![A-Za-z0-9])", t, re.I) for t, a in fw.get(tkey(tm), []))
     expired, lastev = {}, {}
     for x in rc:   # 新到舊
         k2 = (key(x["p"]), x["tm"])
         if k2 not in lastev:
             lastev[k2] = x
+    # annd＝本休賽期宣布離隊、還沒去別隊的人（使用者 2026-11-19「如果宣布離隊 但該隊沒有任何傳聞跟新簽約的消息 就是藍字加上刪除線」）
+    #   ⇒ 主迴圈裡那個位置沒有新簽約／傳聞時留在格子（gone＝1，前端藍字刪除線）；有人補上就照舊進「上一位」
+    annd = {}
     for (k, tm), x in lastev.items():
         d = (x.get("d") or "")[:10]
         ce = con.get((k, tm))
-        if x.get("dir") != "Leave" or d < since or not ce or abs(_days(min(d, ce), max(d, ce))) > 1:
+        if x.get("dir") != "Leave" or d < since:
             continue
-        if (team_of.get(k) and team_of[k] != tm) or any(k in v for t2, v in allcur.items() if t2 != tm) or (k, tkey(tm)) in ann:
-            continue   # 已經去別隊／官方宣布離隊
+        if (team_of.get(k) and team_of[k] != tm) or any(k in v for t2, v in allcur.items() if t2 != tm):
+            continue   # 已經去別隊
+        dd = (k, tkey(tm)) in ann or _fw(str(x["p"]), tm) or not ce or abs(_days(min(d, ce), max(d, ce))) > 1
         ro = x.get("ro") or ""
         pg = str(x["p"])
         disp_id = re.sub(r"\s*\([^()]*\)$", "", pg)
+        if (key(disp_id), tkey(tm)) in ann:
+            dd = True
+        tgt = annd if dd else expired   # 宣布離隊（或不是合約到期那天走的）／合約到期未宣布
         rr = ROLE_OF.get(ro) if ro in ("Top", "Jungle", "Mid", "Bot", "Support") else None
         if rr:
-            expired.setdefault(tm, {}).setdefault(rr, []).append((disp_id, pg, ro))
+            tgt.setdefault(tm, {}).setdefault(rr, []).append((disp_id, pg, ro))
         else:
             code = staff_code(ro, "")
             if code:
-                expired.setdefault(tm, {}).setdefault("COACH", []).append((disp_id, pg, ro, code))
+                tgt.setdefault(tm, {}).setdefault("COACH", []).append((disp_id, pg, ro, code))
     # ⑤ 傳聞
     rumor = parse_sheep(sheep)
     # 傳出要去別隊的人（使用者 2026-11-19「如果合約還在但有傳出可能去別隊 上綠色」）：名字 → 最新一則傳聞（目的地＝傳聞的隊）
@@ -279,6 +308,26 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=()):
                 cell = [e for e in cell if "new" in e or "tip" in e]
             if moved:
                 gone.setdefault(rr, []).extend(moved)
+            # 宣布離隊、這個位置還沒有新簽約也沒有傳聞 ⇒ 留在格子、標 gone（藍字刪除線）；教練分 主教練／後勤 兩組各自看
+            have = {key(e["p"]) for e in cell} | {key(e["n"]) for e in cell}
+            grp = (lambda c: "HC" if c == "HC" else "S") if rr == "COACH" else (lambda c: "")
+            filled = {grp(e.get("sr", "")) for e in cell if "new" in e or "tip" in e}
+            for p in annd.get(tm, {}).get(rr, []):
+                pid, pg = p[0], p[1]
+                k = key(pg)
+                code = p[3] if len(p) > 3 else ""
+                if k in have or grp(code) in filled:
+                    continue
+                if rr != "COACH" and played is not None and (k, tkey(tm)) not in played and (key(pid), tkey(tm)) not in played:
+                    continue
+                e = {"n": pid, "p": pg, "gone": 1}
+                if code:
+                    e["sr"] = code
+                if con.get((k, tm)):
+                    e["c"] = con[(k, tm)]
+                cell.append(e); have.add(k)
+            if rr == "COACH":
+                cell.sort(key=lambda e: STAFF_ORDER.index(e["sr"]) if e.get("sr") in STAFF_ORDER else 9)
             if cell:
                 rows[rr] = cell
         pv = {}
