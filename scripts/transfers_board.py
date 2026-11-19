@@ -200,6 +200,10 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=()):
         pv = {rr: v for rr, v in pv.items() if v}
         out.append({"tm": tm, "nm": disp[tm], "lg": lg_of[tm], "r": rows, "prev": pv})
     try:
+        add_tenure(cargo, out)
+    except Exception as e:   # 查不到效力期間就只列名字
+        print(f"   上一位效力期間查詢失敗：{type(e).__name__} {str(e)[:100]}")
+    try:
         rk = team_rank(cargo, year)
     except Exception as e:   # 名次查不到就退回字母序，不擋整張表
         print(f"   陣容表排序名次失敗（改字母序）：{type(e).__name__} {str(e)[:100]}")
@@ -211,6 +215,56 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=()):
     out.sort(key=lambda x: (ORDER.index(x["lg"]) if x["lg"] in ORDER else 9,
                             (rk.get(tkey(x["tm"])) or rk.get(tkey(x["nm"])) or (999, 999, 999, ""))[:3], x["tm"].lower()))
     return out
+
+
+def stints(evs):
+    """同一人在同一隊的 RosterChanges（由舊到新 [(日期, Join/Leave)]）→ 最後一段效力 (起, 迄)；迄＝"" 表示還沒離隊。
+    Leave 後 45 天內又 Join 同隊（換職位、轉二軍再升回、續約重記）視為同一段"""
+    s = e = ""
+    for d, dr in evs:
+        if dr == "Join":
+            if not s or (e and _days(e, d) > 45):
+                s = d
+            e = ""
+        elif dr == "Leave" and s:
+            e = d
+    return s, e
+
+
+def _days(a, b):
+    import datetime as _dt
+    f = lambda x: _dt.date(*map(int, x.split("-")))
+    return (f(b) - f(a)).days
+
+
+def add_tenure(cargo, out):
+    """上一位選手在這隊待了多久（使用者 2026-11-19「上一位要寫他待了多久」）：prev 由名字字串改成 {n, s, e}"""
+    want = {(key(p), x["tm"]) for x in out for v in x["prev"].values() for p in v}
+    names = sorted({p for x in out for v in x["prev"].values() for p in v})
+    teams = sorted({x["tm"] for x in out})
+    ev = {}
+    for i in range(0, len(names), 60):
+        part = names[i:i + 60]
+        r = cargo({"tables": "RosterChanges", "fields": "Date_Sort=d,Player=p,Direction=dir,Team=tm",
+                   "where": "RosterChanges.Player IN " + _in(sorted(set(part) | {re.sub(r"\s*\([^()]*\)$", "", n) for n in part})) +
+                            " AND RosterChanges.Team IN " + _in(teams),
+                   "order_by": "RosterChanges.Date_Sort", "limit": "5000", "format": "json"})
+        for y in r:
+            k = (key(y["p"]), y["tm"])
+            if k in want and y.get("d"):
+                ev.setdefault(k, []).append((y["d"][:10], y.get("dir")))
+    for x in out:
+        for rr, v in x["prev"].items():
+            L = []
+            for p in v:
+                s, e = stints(sorted(ev.get((key(p), x["tm"]), [])))
+                d = {"n": p}
+                if s:
+                    d["s"] = s
+                    if e:
+                        d["e"] = e
+                L.append(d)
+            x["prev"][rr] = L
 
 
 def promotion(cargo, year):
