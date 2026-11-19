@@ -14154,14 +14154,14 @@ function render(){
           const messy=mvU.length>1&&(new Set(mvU.map(m=>m[2])).size>1||new Set(mvU.map(m=>m[3])).size>1);
           if(messy){ mvU.forEach(([n,l,to,fr],k)=>{ if(base.s!=="man"&&dupMv(x.d,n,to,x.st||"rumor"))return;
               const tags=[...(fr?[[rgOf(fr),fr,"out"]]:[]),[rgOf(to),to,"in"]];
-              out.push({...base,id:x.id+"#"+k,tags,kind:fr?"both":"join",team:tags.map(t=>t[1]).join(" "),_sig:[nk(n)+">"+to],_v:x.fake?"fake":x.st==="rumor"?verdict([[n,to]]):"",
+              out.push({...base,id:x.id+"#"+k,tags,kind:fr?"both":"join",team:tags.map(t=>t[1]).join(" "),_sig:[nk(n)+">"+to],_v:x.fake?"fake":x.conf?"conf":x.st==="rumor"?verdict([[n,to]]):"",
                 zh:`§${l}§${n} ${en2?"joins":"加入"} ${to}`}); }); return; }   // 狀態欄已標傳聞；不再重複整串標題
           const mvT=x.mv?[...new Map(mvU.flatMap(([n,l,to,fr])=>[...(fr?[[rgOf(fr),fr,"out"]]:[]),[rgOf(to),to,"in"]]).map(t=>[t[1]+t[2],t])).values()]:null;
           // 標題自動認出的隊：照標題字眼放原隊／新隊（加入／Welcome＝新隊、離隊／Thank you＝原隊）
           const kd=x.kind||autoKind(x.zh||""), at=autoTags(x.zh||"").map(t=>kd==="join"?[...t,"in"]:kd==="leave"?[...t,"out"]:t);
           const tags=x.tags||mvT||at;
           if(base.s!=="man"&&(mvU.length===1?dupMv(x.d,mvU[0][0],mvU[0][2],x.st||"rumor"):dupTm(x.d,tags,x.zh||"",!!x.tags,x.st||"rumor")))return;
-          out.push({...base,tags,kind:kd,team:tags.map(t=>t[1]).join(" "),_sig:mvU.map(m=>nk(m[0])+">"+m[2]),_v:x.fake?"fake":x.st==="rumor"?verdict(mvU.map(m=>[m[0],m[2]]),x.stay):""}); });
+          out.push({...base,tags,kind:kd,team:tags.map(t=>t[1]).join(" "),_sig:mvU.map(m=>nk(m[0])+">"+m[2]),_v:x.fake?"fake":x.conf?"conf":x.st==="rumor"?verdict(mvU.map(m=>[m[0],m[2]]),x.stay):""}); });
         return out; })()];
     const RGS=[...new Set(all.flatMap(x=>x.s!=="wiki"?x.tags.map(t=>t[0]):[x.rg]).filter(Boolean))].sort((a,b)=>Object.keys(RG_LG).indexOf(a)-Object.keys(RG_LG).indexOf(b));
     const KD={join:en2?"Join":"加入",leave:en2?"Leave":"離隊",other:en2?"Other":"其他"};
@@ -14207,7 +14207,7 @@ function render(){
         .replace(/https?:\/\/[^\s<]+/g,u=>`<a class="trPl" href="${u}" target="_blank" rel="noopener">${en2?"Article":"文章"}</a>`)
         .replace(/§COACH§/g,()=>`<img class="trCoach" src="img/COACH.png" alt="${en2?"Coach":"教練"}" title="${en2?"Coach":"教練"}">`).replace(/‹([^|›]+)\|([^›]+)›/g,(m,p,d)=>`<a class="trPl" href="https://lol.fandom.com/wiki/${p}" target="_blank" rel="noopener">${d}</a>`).replace(/§(TOP|JNG|MID|BOT|SUP)§/g,(m,r)=>POS_IMG[r]?`<img class="trRole" src="${POS_IMG[r]}" alt="${RL[r]}" title="${RL[r]}">`:`<span class="trRole">${RL[r]}</span>`)
         .replace(/⟦C:([^⟧]*)⟧/g,(m,r)=>`<img class="trCoach" src="img/COACH.png" alt="${r}" title="${r}">`)
-        .replace(/⟦R:([^⟧]*)⟧/g,(m,r)=>/^(主教練|教練|助理教練|Head Coach|Coach|Assistant Coach)$/.test(r)?"":`<span class="trCoachTx">${r}</span>`).replace(/(?:主教練|助理教練|代理主教練|教練)\s*(?=(?:<[^>]+>)*<img class="trCoach")/g,"").replace(/\n/g,"<br>");
+        .replace(/⟦R:([^⟧]*)⟧/g,(m,r)=>/→|->| to /.test(r)?`<span class="trCoachTx">${r}</span>`:"")   // 職稱不寫（滑過哨子圖看得到；使用者 2026-11-20「戰術教練 Sephis 戰術教練 離隊，寫離隊就好」），只留職稱異動.replace(/(?:主教練|助理教練|代理主教練|教練)\s*(?=(?:<[^>]+>)*<img class="trCoach")/g,"").replace(/\n/g,"<br>");
       if(TNRE)t=t.replace(/(^|>)([^<]+)/g,(m,a,b)=>a+b.replace(TNRE,n=>`<span class="trAb" title="${n}">${esc(TNE.get(n)||n)}</span>`));
       // 中英混排補半形空格（使用者 2026-11-20「消息的文字要尊重像改版資訊的排版，英文後面如果是中文要空格」）：
       //   中文字 ↔ 英文／數字之間補一格，中間隔著標籤（連結、圖示、隊名縮寫）也算；緊鄰標點不補
