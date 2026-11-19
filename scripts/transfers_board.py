@@ -74,13 +74,14 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=()):
                 lg_of.pop(t["tm"])
     except Exception as e:
         print(f"   升降級賽查詢失敗（照 {year} 名單）：{type(e).__name__} {str(e)[:100]}")
-    prev = {}
+    prev, prole = {}, {}
     for tm, (_, rl, ro) in last.items():
         d = prev.setdefault(tm, {})
         for p, ro1 in zip(rl.split(";;"), ro.split(";;")):
             rr = ROLE_OF.get(ro1.strip())
             if rr and p.strip():
                 d.setdefault(rr, []).append(p.strip())
+                prole[(tm, p.strip())] = ro1.strip()
     # 改名前的舊隊名（DRX→Kiwoom DRX）在 Teams 表沒有自己的頁（是轉址）、解散的（Dignitas）IsDisbanded ⇒ 都不列；Name＝顯示名（LYON）
     tt = cargo({"tables": "Teams", "fields": "OverviewPage=pg,Name=n,IsDisbanded=dis", "where": "Teams.OverviewPage IN " + _in(sorted({uc(t) for t in lg_of})),
                 "limit": "500", "format": "json"})
@@ -282,15 +283,21 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=()):
                 if key(p) not in here and key(p) not in seen:
                     seen.add(key(p)); L.append(p)
             pv[rr] = L
+        # 上一位教練也帶職稱（使用者 2026-11-19「教練分成兩欄 主教練 跟後勤」⇒ 前端要知道放哪一欄）
+        gk = {key(g) for g in gone.get("COACH", [])}
+        psr = {p: ("HC" if key(p) in gk else (staff_code(joined.get((key(p), tm), ("", ""))[1], prole.get((tm, p), "")) or "C"))
+               for p in pv.get("COACH", [])}
         pv = {rr: v for rr, v in pv.items() if v}
         out.append({"tm": tm, "nm": disp[tm], "lg": lg_of[tm], "r": rows, "prev": pv,
-                    "_still": sorted({key(g) for v in gone.values() for g in v})})   # 被新人擠掉、其實還在隊上的（add_tenure 用完拿掉）
+                    "_still": sorted({key(g) for v in gone.values() for g in v}), "_psr": psr})   # 被新人擠掉、其實還在隊上的（add_tenure 用完拿掉）
     try:
         add_tenure(cargo, out)
     except Exception as e:   # 查不到效力期間就只列名字
         print(f"   上一位效力期間查詢失敗：{type(e).__name__} {str(e)[:100]}")
         for x in out:
-            x.pop("_still", None)
+            x.pop("_still", None); psr = x.pop("_psr", {})
+            if x["prev"].get("COACH"):
+                x["prev"]["COACH"] = [{"n": p, "sr": psr.get(p, "C")} for p in x["prev"]["COACH"]]
     try:
         rk = team_rank(cargo, year)
     except Exception as e:   # 名次查不到就退回字母序，不擋整張表
@@ -397,7 +404,7 @@ def add_tenure(cargo, out):
             if y.get("dir") == "Join":
                 joins.setdefault(key(y["p"]), []).append((y["d"][:10], y["tm"]))
     for x in out:
-        still = set(x.pop("_still", []))
+        still = set(x.pop("_still", [])); psr = x.pop("_psr", {})
         for rr, v in x["prev"].items():
             L = []
             for p in v:
@@ -407,6 +414,8 @@ def add_tenure(cargo, out):
                     if later:
                         e = later[0]
                 d = {"n": p}
+                if rr == "COACH" and psr.get(p):
+                    d["sr"] = psr[p]
                 if s:
                     d["s"] = s
                     if e:
