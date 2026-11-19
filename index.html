@@ -1517,31 +1517,35 @@
 }
   /* 轉會陣容表手機版（使用者 2026-11-20）：一隊一張卡、每格一列（欄名｜人名）；點格子從底部滑出小框 */
   @container mainc (max-width:759.98px){
-    /* 精簡版（使用者 2026-11-20「現在這樣要一路往下滑很久才能看完」）：一隊一張小卡約三行——隊徽隊名＋評分一行，下面路線圖示＋名字橫向排開 */
-    .tbBoard{display:block;padding:4px 6px 10px}
+    /* 手機版（使用者 2026-11-20 第三版「還是感覺很糟」）：每隊一張卡＝固定三欄格子——上路｜打野｜中路／下路｜輔助｜主教練／後勤一整列，
+       同一路在每張卡的同一個位置，一眼掃得到；隊名＋評分在卡片標題列 */
+    .tbBoard{display:block;padding:2px 4px 10px}
     .tbHd{display:none}
-    .tbLg{margin:14px 0 6px;padding:6px 12px}.tbLg b{font-size:19px}
-    .tbRow{display:flex;flex-wrap:wrap;align-items:center;gap:3px 12px;margin:6px 0;padding:7px 10px 8px;border:1px solid var(--line);border-left:4px solid var(--lgc);border-radius:9px;background:rgba(255,255,255,.02)}
-    .tbTeam{order:0;flex:1 1 auto;border-left:0;padding:0;font-size:17px}
-    .tbRow::after{content:"";order:2;flex:0 0 100%;height:0}
-    .tbCell{order:3;display:inline-flex;align-items:center;gap:5px;padding:2px 0;font-size:15px;line-height:1.35;border-radius:4px;text-align:left}
-    .tbCell.tbRate{order:1;flex:0 0 auto;font-size:15px;margin-left:auto}
-    .tbCell::before{content:"";flex:0 0 16px;width:16px;height:16px;background:center/contain no-repeat}
+    .tbLg{position:sticky;top:0;z-index:3;margin:12px 0 6px;padding:6px 12px;background:linear-gradient(90deg,color-mix(in srgb,var(--lgc) 30%,#141926),#141926 75%)}.tbLg b{font-size:18px}
+    .tbRow{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));align-items:stretch;gap:0;margin:6px 0;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:rgba(255,255,255,.02)}
+    .tbTeam{grid-column:1/3;border-left:0;padding:7px 10px;font-size:16px;background:color-mix(in srgb,var(--lgc) 14%,transparent)}
+    .tbCell{display:flex;align-items:flex-start;gap:5px;padding:7px 8px;font-size:14px;line-height:1.35;text-align:left;border-radius:0;border-top:1px solid rgba(255,255,255,.06);border-left:1px solid rgba(255,255,255,.06);min-width:0}
+    .tbCell.tbRate{grid-column:3;grid-row:1;align-items:center;justify-content:flex-end;padding:7px 10px;font-size:15px;background:color-mix(in srgb,var(--lgc) 14%,transparent);border:0}
+    .tbCell[data-r="TOP"],.tbCell[data-r="BOT"],.tbCell[data-r="STF"]{border-left:0}
+    .tbCell[data-r="STF"]{grid-column:1/-1}
+    .tbCell::before{content:"";flex:0 0 15px;width:15px;height:15px;margin-top:2px;background:center/contain no-repeat}
     .tbCell[data-r="TOP"]::before{background-image:url(img/TOP.png)}.tbCell[data-r="JNG"]::before{background-image:url(img/JG.png)}
     .tbCell[data-r="MID"]::before{background-image:url(img/MID.png)}.tbCell[data-r="BOT"]::before{background-image:url(img/BOT.png)}
-    .tbCell[data-r="SUP"]::before{background-image:url(img/SUP.png)}.tbCell[data-r="HC"]::before{background-image:url(img/COACH.png)}
-    .tbCell[data-r="STF"]::before,.tbCell.tbRate::before{content:attr(data-lb);flex:0 0 auto;width:auto;height:auto;font-size:11px;color:var(--tx2);background:none}
-    .tbCell .tbCv{min-width:0}.tbCell .tbN{white-space:nowrap}
-    .tbCell:hover{background:none}
-    /* 篩選列：每組一行、超出就左右滑，不往下堆 */
-    .trBar{gap:6px 8px!important;padding:8px 10px!important}
+    .tbCell[data-r="SUP"]::before{background-image:url(img/SUP.png)}.tbCell[data-r="HC"]::before,.tbCell[data-r="STF"]::before{background-image:url(img/COACH.png)}
+    .tbCell.tbRate::before{content:none}
+    .tbCell .tbCv{min-width:0;overflow-wrap:anywhere}.tbCell .tbN{white-space:nowrap}
+    .tbCell:hover{background:none}.tbCell:active{background:rgba(122,184,255,.12)}
+    /* 篩選列：模式＋賽區一行、顯示一行（放不下左右滑）、搜尋＋說明＋重設一行；更新時間縮成最後一小行 */
+    .trBar{gap:6px 6px!important;padding:8px 8px!important;margin-bottom:8px!important}
     .trBar .trFG{border-left:0;padding-left:0;flex:1 1 100%;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
     .trBar .trFG::-webkit-scrollbar{display:none}
     .trBar .trFG>span{flex-wrap:nowrap!important}.trBar .sqLaneBtn{flex:0 0 auto;white-space:nowrap}
-    .trBar .trFG:first-child{flex:0 0 auto}
+    .trBar .trFG:first-child{flex:0 0 auto}.trBar .trFG:nth-child(2){flex:1 1 0;min-width:0}
     .tbLegend{flex-wrap:nowrap}
-    .trBar .meta{font-size:12px}.trBar>label,.trBar .trFG>label{display:none}
-    .trBar .cwrap{flex:1 1 140px}.trBar .cwrap input{width:100%!important}
+    .trBar>label,.trBar .trFG>label,.trBar>span[style*="flex:1"]{display:none}
+    .trBar .meta{order:9;flex:1 1 100%;font-size:11px;text-align:right;opacity:.8}
+    .trBar .cwrap{flex:1 1 0;min-width:120px}.trBar .cwrap input{width:100%!important}
+    .trBar .sqbtn{flex:0 0 auto}
   }
   #tbTip.sheet{pointer-events:auto!important;left:8px!important;right:8px!important;top:auto!important;bottom:8px!important;max-width:none!important;max-height:72vh;overflow:auto;padding:16px 14px 14px;border-radius:14px;box-shadow:0 -6px 30px rgba(0,0,0,.6)}
   #tbTip.sheet .tpBox,#tbTip.sheet .rtBox{min-width:0}
