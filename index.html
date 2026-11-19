@@ -1557,10 +1557,20 @@
     .trLk1{order:2;display:inline-flex;margin-left:auto}.trLk1 .trLk{margin-left:0;font-size:13px}.trLks{display:none!important}
     .trFlow{order:3;display:flex!important;align-items:center;gap:6px;flex:1 1 100%;min-width:0;flex-wrap:wrap;grid-column:auto;grid-row:auto}
     .trFlow:has(>.trSpan:empty),.trSpan:empty{display:none!important}
+    /* 每一行同高 28px（使用者 2026-11-20「每一項的行高要一致」）：第一列（狀態／賽區／連結）、隊伍列、內文每一行都是 28px，
+       行內的路線／教練圖示縮到 18px 不撐高行距 */
+    .trRow{gap:0 8px!important;padding:8px 6px!important;line-height:28px}
+    .trRgC{min-height:28px}.trLk1{min-height:28px;align-items:center}
+    .trRow>.trSt,.trRow .trLg{line-height:1.45}   /* 標籤本身不跟著 28px 行高變胖 */
+    .trFlow{min-height:28px;gap:0 6px!important}.trFrom,.trTo,.trSpan{gap:0 8px!important;min-height:28px;align-items:center}
+    .trTeam{display:inline-flex;align-items:center;height:28px;line-height:28px}
+    .trFlow.trMany{padding:0!important;gap:0 8px!important;margin:0;background:none}
+    .trRow>.trTx{line-height:28px!important;margin-top:0!important}
+    .trTx img.trRole,.trTx img.trCoach{width:18px!important;height:18px!important;vertical-align:-4px}
     .trFrom,.trTo,.trSpan{flex-direction:row;flex-wrap:wrap;gap:8px;white-space:normal}
     .trNone{display:none}.trTeam{font-size:15px}
     /* 隊伍很多的消息（使用者 2026-11-20「尤其是隊伍很多的消息」）：隊伍區自己一塊——原隊一行（放不下就換行、縮小一級）、➜ 新隊另一行 */
-    .trFlow.trMany{flex:1 1 100%;display:grid!important;grid-template-columns:auto 1fr;gap:4px 8px;align-items:center;padding:4px 8px;border-radius:8px;background:rgba(255,255,255,.04)}
+    .trFlow.trMany{flex:1 1 100%;display:grid!important;grid-template-columns:auto 1fr;gap:0 8px;align-items:center}   /* 不另外包框（使用者 2026-11-20），只是原隊一行、➜ 新隊一行 */
     .trMany .trFrom{grid-column:1/-1;gap:4px 10px}.trMany .trArr{grid-column:1}.trMany .trTo{grid-column:2;gap:4px 10px}.trMany .trSpan{grid-column:1/-1;gap:4px 10px}
     .trMany .trTeam{font-size:13px}
     .trRow>.trTx{order:4;flex:1 1 100%;display:block;margin-top:2px;font-size:15px;line-height:1.65;grid-column:auto;grid-row:auto}
