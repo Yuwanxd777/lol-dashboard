@@ -105,6 +105,8 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=()):
         tstaff = staff_tenures(cargo, teams)
         for tm in teams:
             cur.setdefault(tm, {})["COACH"] = tstaff.get(tm, [])
+            for _, pg, *_ in tstaff.get(tm, []):
+                team_of[key(pg)] = tm   # Players.Team 常沒跟上 ⇒ 教練的現任隊以 Tenures 為準（新人判定、原隊都靠它）
     except Exception as e:   # 查不到就退回 Players
         print(f"   教練現任名單（Tenures）查詢失敗，退回 Players：{type(e).__name__} {str(e)[:100]}")
         tstaff = None
@@ -141,8 +143,9 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=()):
         names = [pg for t in cur.values() for v in t.values() for _, pg, *_ in v if key(pg) in new_keys]
         lv = cargo({"tables": "RosterChanges", "fields": "Date_Sort=d,Player=p,Direction=dir,Team=tm",
                     "where": "RosterChanges.Player IN " + _in(sorted(set(names) | {re.sub(r"\s*\([^()]*\)$", "", n) for n in names})) +
-                             f' AND RosterChanges.Direction="Leave" AND RosterChanges.Date_Sort>="{int(year) - 1}-06-01"',
+                             f' AND RosterChanges.Date_Sort>="{int(year) - 1}-06-01"',
                     "order_by": "RosterChanges.Date_Sort", "limit": "3000", "format": "json"})
+        # 原隊＝他在別隊的最後一筆異動（離隊或加入都算）：舊隊漏記離隊時（Benny TT→UP，wiki 沒記 TT 離隊）也找得到
         for x in lv:
             k = key(x["p"])
             if team_of.get(k) and x["tm"] != team_of[k]:
@@ -232,11 +235,14 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=()):
                     seen.add(key(p)); L.append(p)
             pv[rr] = L
         pv = {rr: v for rr, v in pv.items() if v}
-        out.append({"tm": tm, "nm": disp[tm], "lg": lg_of[tm], "r": rows, "prev": pv})
+        out.append({"tm": tm, "nm": disp[tm], "lg": lg_of[tm], "r": rows, "prev": pv,
+                    "_still": sorted({key(g) for v in gone.values() for g in v})})   # 被新人擠掉、其實還在隊上的（add_tenure 用完拿掉）
     try:
         add_tenure(cargo, out)
     except Exception as e:   # 查不到效力期間就只列名字
         print(f"   上一位效力期間查詢失敗：{type(e).__name__} {str(e)[:100]}")
+        for x in out:
+            x.pop("_still", None)
     try:
         rk = team_rank(cargo, year)
     except Exception as e:   # 名次查不到就退回字母序，不擋整張表
@@ -324,28 +330,37 @@ def add_tenure(cargo, out):
     """上一位選手在這隊待了多久（使用者 2026-11-19「上一位要寫他待了多久」）：prev 由名字字串改成 {n, s, e}"""
     want = {(key(p), x["tm"]) for x in out for v in x["prev"].values() for p in v}
     names = sorted({p for x in out for v in x["prev"].values() for p in v})
-    teams = sorted({x["tm"] for x in out})
-    ev = {}
-    for i in range(0, len(names), 60):
-        part = names[i:i + 60]
+    ev, joins = {}, {}
+    for i in range(0, len(names), 40):
+        part = names[i:i + 40]
         r = cargo({"tables": "RosterChanges", "fields": "Date_Sort=d,Player=p,Direction=dir,Team=tm",
-                   "where": "RosterChanges.Player IN " + _in(sorted(set(part) | {re.sub(r"\s*\([^()]*\)$", "", n) for n in part})) +
-                            " AND RosterChanges.Team IN " + _in(teams),
+                   "where": "RosterChanges.Player IN " + _in(sorted(set(part) | {re.sub(r"\s*\([^()]*\)$", "", n) for n in part})),
                    "order_by": "RosterChanges.Date_Sort", "limit": "5000", "format": "json"})
         for y in r:
+            if not y.get("d"):
+                continue
             k = (key(y["p"]), y["tm"])
-            if k in want and y.get("d"):
+            if k in want:
                 ev.setdefault(k, []).append((y["d"][:10], y.get("dir")))
+            if y.get("dir") == "Join":
+                joins.setdefault(key(y["p"]), []).append((y["d"][:10], y["tm"]))
     for x in out:
+        still = set(x.pop("_still", []))
         for rr, v in x["prev"].items():
             L = []
             for p in v:
                 s, e = stints(sorted(ev.get((key(p), x["tm"]), [])))
+                if s and not e:   # 沒記離隊、但之後加入了別隊（Benny 2026-03 進 TT、11-06 進 UP，TT 沒記離隊）⇒ 以加入別隊那天當離隊日
+                    later = sorted(d for d, t in joins.get(key(p), []) if t != x["tm"] and d > s)
+                    if later:
+                        e = later[0]
                 d = {"n": p}
                 if s:
                     d["s"] = s
                     if e:
                         d["e"] = e
+                    elif key(p) not in still:
+                        d["e"] = "?"   # 不在隊上、wiki 又沒記離隊 ⇒ 前端顯示「離隊日未記錄」，不寫「今」
                 L.append(d)
             x["prev"][rr] = L
 

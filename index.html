@@ -1061,11 +1061,15 @@
   .tbHd,.tbRow{grid-column:1/-1;display:grid;grid-template-columns:subgrid;align-items:center}
   .tbHd{position:sticky;top:0;z-index:2;background:var(--card,#141a2a);padding:8px 0;border-bottom:1px solid var(--line);font-weight:700;color:var(--tx2);font-size:14px}
   .tbHd>span{display:flex;align-items:center;justify-content:center;gap:4px}
-  .tbLg{grid-column:1/-1;font-weight:800;color:var(--gold);font-size:17px;margin:14px 0 2px;padding:4px 8px;border-bottom:1px solid var(--line)}
+  .tbLg{grid-column:1/-1;display:flex;align-items:baseline;gap:10px;margin:26px 0 6px;padding:8px 14px;border-radius:8px;border-left:5px solid var(--lgc);background:linear-gradient(90deg,color-mix(in srgb,var(--lgc) 22%,transparent),transparent 70%)}
+  .tbHd+.tbLg{margin-top:12px}
+  .tbLg b{font-size:22px;font-weight:900;letter-spacing:.5px;color:var(--lgc)}
+  .tbLg span{font-size:14px;font-weight:700;color:var(--tx)}
+  .tbLg i{font-style:normal;font-size:13px;color:var(--tx2);margin-left:auto}
   .tbRow{min-height:44px;border-radius:6px}
   .tbRow:nth-of-type(even){background:rgba(255,255,255,.035)}
   .tbRow:hover{background:rgba(255,255,255,.07)}
-  .tbTeam{display:flex;align-items:center;gap:8px;padding:6px 18px 6px 8px;font-weight:800;font-size:16px;white-space:nowrap}
+  .tbTeam{display:flex;align-items:center;gap:8px;padding:6px 18px 6px 10px;font-weight:800;font-size:16px;white-space:nowrap;border-left:3px solid color-mix(in srgb,var(--lgc,transparent) 70%,transparent)}
   .tbCell{text-align:center;padding:6px 6px;font-size:15px;line-height:1.5;cursor:default}
   .tbRate{min-width:72px;padding:6px 14px;font-variant-numeric:tabular-nums}.tbRateH{padding:0 14px}
   .tbUp{color:#ff5a5a}.tbDn{color:#3fcf7a}   /* 台灣配色：加分紅、扣分綠 */
@@ -1076,7 +1080,28 @@
   .tbMuted{color:var(--tx2);opacity:.75}
   #tbTip{position:fixed;z-index:9999;display:none;max-width:340px;padding:10px 12px;border-radius:8px;background:#1b2338;border:1px solid rgba(255,255,255,.14);box-shadow:0 8px 24px rgba(0,0,0,.45);font-size:14px;line-height:1.6;color:var(--tx);pointer-events:none}
   #tbTip hr{border:0;border-top:1px solid rgba(255,255,255,.1);margin:6px 0}
-  .tbRum{font-size:12px;padding:0 6px;border-radius:4px;background:rgba(200,160,255,.16);color:#c8a0ff}
+  .tbRum{font-size:12px;padding:0 6px;border-radius:4px;background:rgba(255,200,80,.16);color:#ffc850}   /* 傳聞＝黃，跟陣容表圖例一致 */
+  /* 格子提示（2026-11-19 重新設計，跟評分小框同一套） */
+  #tbTip:has(.tpBox){max-width:420px;padding:12px 14px}
+  .tpBox{min-width:260px}
+  .tpBox .rtHd{border-bottom-color:color-mix(in srgb,var(--lgc) 45%,transparent)}
+  .tpLane{display:inline-flex;align-items:center;gap:5px;color:var(--tx2);font-size:13px}.tpLane img{width:18px;height:18px;object-fit:contain}
+  .tpLg{margin-left:auto;padding:1px 8px;border-radius:999px;font-size:12px;font-weight:800;color:var(--lgc);border:1px solid color-mix(in srgb,var(--lgc) 55%,transparent)}
+  .tpP{padding:8px 10px;border-radius:8px;background:rgba(255,255,255,.04);margin-top:8px}
+  .tpP:first-of-type{margin-top:0}
+  .tpName{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.tpName>b{font-size:16px}
+  .tpSr{font-size:12px;color:var(--tx2)}
+  .tpPill{font-size:11px;font-weight:700;padding:1px 7px;border-radius:999px;margin-left:auto}
+  .tpR{background:rgba(255,90,90,.16);color:#ff5a5a}.tpB{background:rgba(90,169,255,.16);color:#5aa9ff}.tpY{background:rgba(255,200,80,.16);color:#ffc850}.tpW{background:rgba(255,255,255,.1);color:var(--tx)}
+  .tpKv{display:grid;grid-template-columns:auto 1fr;column-gap:12px;row-gap:2px;margin-top:6px;font-size:13px;font-variant-numeric:tabular-nums}
+  .tpKv>span:nth-child(odd){color:var(--tx2)}
+  .tpTm{display:inline-flex;align-items:center;gap:5px;font-weight:700}
+  .tpQ{margin-top:6px;padding:6px 8px;border-left:3px solid rgba(255,200,80,.5);background:rgba(255,200,80,.06);border-radius:4px;font-size:13px;line-height:1.55}
+  .tpQ>span{display:block;font-size:11px;color:var(--tx2);margin-bottom:2px}
+  .tpPv{margin-top:10px;padding-top:8px;border-top:1px solid rgba(255,255,255,.1)}
+  .tpPvR{display:grid;grid-template-columns:auto 1fr auto;column-gap:10px;align-items:center;margin-top:5px;font-size:13px}
+  .tpPer{color:var(--tx2);font-variant-numeric:tabular-nums;white-space:nowrap}
+  .tpDu{font-size:12px;font-weight:700;padding:1px 7px;border-radius:999px;background:rgba(255,255,255,.08);white-space:nowrap}
   /* 轉會評分小框（2026-11-19 重新設計） */
   #tbTip:has(.rtBox){max-width:none;padding:12px 14px}
   .rtBox{min-width:300px}
@@ -14140,24 +14165,35 @@ function render(){
     const bq=q, hitE=e=>bq&&(pn(e.n).toLowerCase().includes(bq)||String(e.p||"").toLowerCase().includes(bq));
     const bRows=board.filter(t=>!bq||[t.tm,t.nm,abOf(t.nm)].join(" ").toLowerCase().includes(bq)||BL.some(r=>(t.r[r]||[]).some(hitE)));
     const TIPS=[];
-    const cellTip=(t,r)=>{ const es=t.r[r]||[], pv=(t.prev||{})[r]||[], L=[];
-      L.push(`<b>${esc(abOf(t.nm))}・${BLN[r]}</b>`);
-      if(!es.length)L.push(`<span class="tbMuted">${en2?"Vacant":"空缺"}</span>`);
-      es.forEach(e=>{ const s=[`<b class="${tbCls(e)}">${esc(pn(e.n))}</b>${e.sr?` <span class="tbMuted">${SRN[e.sr]}</span>`:""}${e.r?` <span class="tbRum">${en2?"Rumor":"傳聞"}</span>`:""}`];
-        if(e.rs&&(!e.c||e.c<today))s.push(e.rs!=="1"?`${en2?"Re-signed through":"續約到"} ${e.rs}`:(en2?"Re-signed":"已續約"));
-        else if(e.c)s.push(e.c<today?`${en2?"Contract expired":"合約已到期"} ${ymd(e.c)}`:`${en2?"Contract until":"合約到"} ${ymd(e.c)}`);
-        else if(!e.r)s.push(`<span class="tbMuted">${en2?"No contract on record":"合約：GCD 無紀錄"}</span>`);
-        if(e.new)s.push(`${en2?"Joined":"新加入"} ${ymd(e.new).slice(5)}`);
-        if(e.from)s.push(`${en2?"From":"來自"}：${esc(abOf(e.from))}`);
-        if(e.r&&e.tip)s.push(`<span class="tbMuted">${ymd(e.d).slice(5)} ${esc(e.tip)}</span>`);
-        L.push(s.join("<br>")); });
-      if(pv.length)L.push(`${en2?"Previous":"上一位"}：${pv.map(p=>{ const o=typeof p==="string"?{n:p}:p, du=tenure(o);
-        return `${esc(pn(o.n))}${du?` <span class="tbMuted">${du}</span>`:""}`; }).join("<br>")}`);
-      TIPS.push(L.join(`<hr>`)); return TIPS.length-1; };
-    // 效力期間（使用者 2026-11-19「上一位要寫他待了多久」）：s＝最後一段加入、e＝離隊（transfers_board.add_tenure）
-    const tenure=o=>{ if(!o.s)return ""; const e=o.e||today, mo=(+e.slice(0,4)-+o.s.slice(0,4))*12+(+e.slice(5,7)-+o.s.slice(5,7));
-      const y=Math.floor(mo/12), m=mo%12, du=en2?(y?`${y}y${m?` ${m}m`:""}`:`${Math.max(m,0)}m`):(y?`${y} 年${m?` ${m} 個月`:""}`:`${Math.max(m,0)} 個月`);
-      return `${ymd(o.s).slice(0,7)}–${o.e?ymd(o.e).slice(0,7):(en2?"now":"今")}（${du}）`; };
+    // 格子提示（使用者 2026-11-19「除了評分的小框都重新設計」）：同評分小框的版型——標題列＝隊徽＋隊名＋路線；
+    //   每個人一張小卡（名字＋狀態標籤、合約／加入／來自 的欄位、傳聞引用框）；上一位獨立一區（期間＋年資）
+    const LGC={LCK:"#4aa8ff",LPL:"#ff9a3c",LEC:"#2fd1c5",LCS:"#8f8cff",CBLOL:"#ff7eb6",LCP:"#b98cff"};   // 聯賽識別色（只當分類色，不跟紅綠漲跌混用）
+    const laneIc=r=>r==="COACH"?`<img src="img/COACH.png" alt="">`:(POS_IMG[r]?`<img src="${POS_IMG[r]}" alt="">`:"");
+    const pill=(c,tx)=>`<span class="tpPill ${c}">${tx}</span>`;
+    const stPill=e=>e.r?pill("tpY",en2?"Rumor":"傳聞"):e.new?pill("tpR",en2?"New":"新加入")
+      :(e.c&&e.c<today&&!e.rs)?pill("tpB",en2?"Contract expired":"合約到期"):e.rs?pill("tpW",en2?"Re-signed":"續約"):"";
+    const tmChip=n=>`<span class="tpTm">${teamLogoHTML(tAb(n),16,true,n)||""}${esc(abOf(n))}</span>`;
+    const tenureP=o=>{ if(!o.s)return null; const unk=o.e==="?", e=(!o.e||unk)?today:o.e;
+      const mo=(+e.slice(0,4)-+o.s.slice(0,4))*12+(+e.slice(5,7)-+o.s.slice(5,7)), y=Math.floor(mo/12), m=Math.max(mo%12,0);
+      return {per:`${ymd(o.s).slice(0,7)} – ${unk?(en2?"leave date not recorded":"離隊日未記錄"):o.e?ymd(o.e).slice(0,7):(en2?"now":"今")}`,
+        du:unk?"":(en2?(y?`${y}y${m?` ${m}m`:""}`:`${m}m`):(y?`${y} 年${m?` ${m} 個月`:""}`:`${m} 個月`))}; };
+    const cellTip=(t,r)=>{ const es=t.r[r]||[], pv=(t.prev||{})[r]||[];
+      let h=`<div class="tpBox" style="--lgc:${LGC[t.lg]||"var(--gold)"}"><div class="rtHd">${teamLogoHTML(tAb(t.nm),22,true,t.nm)||""}<b>${esc(abOf(t.nm))}</b>`
+        +`<span class="tpLane">${laneIc(r)}${BLN[r]}</span><span class="tpLg">${esc(t.lg)}</span></div>`;
+      if(!es.length)h+=`<div class="rtEmpty">${en2?"Vacant":"空缺"}</div>`;
+      es.forEach(e=>{ const kv=[];
+        if(e.rs&&(!e.c||e.c<today))kv.push([en2?"Contract":"合約",e.rs!=="1"?`${en2?"re-signed through":"續約到"} ${e.rs}`:(en2?"re-signed":"已續約")]);
+        else if(e.c)kv.push([en2?"Contract":"合約",e.c<today?`<span class="tbExp">${en2?"expired":"已到期"} ${ymd(e.c)}</span>`:`${en2?"until":"到"} ${ymd(e.c)}`]);
+        else if(!e.r)kv.push([en2?"Contract":"合約",`<span class="tbMuted">${en2?"not on record":"GCD 無紀錄"}</span>`]);
+        if(e.new)kv.push([en2?"Joined":"加入",ymd(e.new)]);
+        if(e.from)kv.push([en2?"From":"來自",tmChip(e.from)]);
+        h+=`<div class="tpP"><div class="tpName"><b class="${tbCls(e)}">${esc(pn(e.n))}</b>${e.sr?`<span class="tpSr">${SRN[e.sr]}</span>`:""}${stPill(e)}</div>`
+          +(kv.length?`<div class="tpKv">${kv.map(([k,v])=>`<span>${k}</span><span>${v}</span>`).join("")}</div>`:"")
+          +(e.r&&e.tip?`<div class="tpQ"><span>${ymd(e.d).slice(5)}・Sheep Esports</span>${esc(e.tip)}</div>`:"")+`</div>`; });
+      if(pv.length){ h+=`<div class="tpPv"><div class="rtCh">${en2?"Previous":"上一位"}</div>`
+        +pv.map(p=>{ const o=typeof p==="string"?{n:p}:p, T=tenureP(o);
+          return `<div class="tpPvR"><b>${esc(pn(o.n))}</b><span class="tpPer">${T?T.per:""}</span>${T&&T.du?`<span class="tpDu">${T.du}</span>`:"<span></span>"}</div>`; }).join("")+`</div>`; }
+      TIPS.push(h+`</div>`); return TIPS.length-1; };
     // 轉會評分（使用者 2026-11-19「教練右邊新增一欄 轉會評分 依照原先選手的成績去與新選手的成績對比 判斷是加分還是扣分 然後教練只看主教練」）：
     //   選手＝選手分頁同一套「評分」（calcPlayers 同路百分位，withRef(0) 借整年全部賽事、不吃上方篩選），每條路 新人 − 上一位；
     //   教練只看總教練：教練沒有個人數據 ⇒ 新總教練原隊的戰隊評分 − 本隊的戰隊評分（calcTeams）。
@@ -14208,8 +14244,9 @@ function render(){
     const nameH=e=>{ const n=esc(pn(e.n)), inner=bq&&hitE(e)?`<mark>${n}</mark>`:n;
       return `<span class="tbN ${tbCls(e)}">${e.p?`<a href="https://lol.fandom.com/wiki/${encodeURIComponent(String(e.p).replace(/ /g,"_"))}" target="_blank" rel="noopener">${inner}</a>`:inner}${e.sr?`<span class="tbSr">${SRN[e.sr]}</span>`:""}</span>`; };
     let bHTML="", lastLg="";
-    bRows.forEach(t=>{ if(t.lg!==lastLg){ bHTML+=`<div class="tbLg">${esc(t.lg)}</div>`; lastLg=t.lg; }
-      bHTML+=`<div class="tbRow"><div class="tbTeam" title="${esc(t.nm)}">${teamLogoHTML(tAb(t.nm),26,true,t.nm)||teamLogoHTML(tAb(t.tm),26,true,t.tm)||""}<span>${esc(abOf(t.nm))}</span></div>`
+    bRows.forEach(t=>{ if(t.lg!==lastLg){ const n=bRows.filter(x=>x.lg===t.lg).length;
+        bHTML+=`<div class="tbLg" style="--lgc:${LGC[t.lg]||"var(--gold)"}"><b>${esc(t.lg)}</b><span>${esc((en2?{LCK:"Korea",LPL:"China",LEC:"EMEA",LCS:"North America",CBLOL:"Brazil",LCP:"Asia-Pacific"}:{LCK:"韓國",LPL:"中國",LEC:"歐洲",LCS:"北美",CBLOL:"巴西",LCP:"亞太"})[t.lg]||"")}</span><i>${n}${en2?" teams":" 隊"}</i></div>`; lastLg=t.lg; }
+      bHTML+=`<div class="tbRow" style="--lgc:${LGC[t.lg]||"var(--gold)"}"><div class="tbTeam" title="${esc(t.nm)}">${teamLogoHTML(tAb(t.nm),26,true,t.nm)||teamLogoHTML(tAb(t.tm),26,true,t.tm)||""}<span>${esc(abOf(t.nm))}</span></div>`
         +BL.map(r=>{ const es=t.r[r]||[]; return `<div class="tbCell" data-tb="${cellTip(t,r)}">${es.length?es.map(nameH).join(`<span class="tbSep">/</span>`):`<span class="tbMuted">–</span>`}</div>`; }).join("")+rateCell(t)+`</div>`; });
     const bHead=`<div class="tbHd"><span></span>${BL.map(r=>`<span>${r==="COACH"?`<img class="trCoach" src="img/COACH.png" alt="">`:(POS_IMG[r]?`<img class="trRole" src="${POS_IMG[r]}" alt="">`:"")}${BLN[r]}</span>`).join("")}<span class="tbRateH">${en2?"Rating":"轉會評分"}</span></div>`;
     const modeBtns=`${btns("trMode",[["",en2?"Rosters":"陣容表"],["news",en2?"News":"消息"]])}`;
