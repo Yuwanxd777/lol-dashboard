@@ -14200,7 +14200,7 @@ function render(){
           +(kv.length?`<div class="tpKv">${kv.map(([k,v])=>`<span>${k}</span><span>${v}</span>`).join("")}</div>`:"")
           +(e.r&&e.tip?`<div class="tpQ"><span>${ymd(e.d).slice(5)}・Sheep Esports</span>${esc(e.tip)}</div>`:"")
           +(e.ro?`<div class="tpQ tpQg"><span>${ymd(e.ro.d).slice(5)}・Sheep Esports・${en2?"rumored to":"傳聞去"} ${tmChip(e.ro.to)}</span>${esc(e.ro.tip)}</div>`:"")+`</div>`; });
-      if(pv.length){ h+=`<div class="tpPv"><div class="rtCh">${en2?"Previous":"上一位"}</div>`
+      if(pv.length){ h+=`<div class="tpPv">`   /* 不寫「上一位」標題，靠分隔線隔開（使用者 2026-11-19） */
         +pv.map(p=>{ const o=typeof p==="string"?{n:p}:p, T=tenureP(o);
           // 上一位改成跟上面同一種小卡（使用者 2026-11-19「上一位跟上面合約有續約的UI相近一點」）：名字＋職稱＋標籤，下面 效力／年資 欄位
           const kv=T?[[en2?"Tenure":"效力",T.per],...(T.du?[[en2?"Length":"年資",T.du]]:[])]:[];
