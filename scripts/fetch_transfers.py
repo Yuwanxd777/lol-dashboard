@@ -488,7 +488,7 @@ def main():
                 ptt_raw = raw
                 # 轉貼 Sheep Esports、而那則已收進 Sheep 來源 ⇒ 消息不重複列（使用者 2026-11-20「PTT 的文章消息是 Sheep Esports 也不要重複」）
                 raw = [x for x in raw if not (set(re.findall(r"Sheep_Esports/status/(\d+)", x.get("body") or "")) & sheep_ids)]
-            extra += [{k: x[k] for k in ("id", "d", "zh", "src", "url", "ptt", "st", "kind", "tags", "mv") if x.get(k)} for x in raw]
+            extra += [{k: x[k] for k in ("id", "d", "zh", "src", "url", "ptt", "st", "kind", "tags", "mv", "fake") if x.get(k)} for x in raw]
     extra.sort(key=lambda x: x["d"], reverse=True)
     off = [x for x in extra if x.get("src") == "官方"]   # 陣容表的續約判定吃得到（粉字）
     # PTT 傳聞進陣容表（使用者 2026-11-20「你不是有抓到 Scout 可能會去 KRX 的消息嗎 怎沒填入陣容表」）：
