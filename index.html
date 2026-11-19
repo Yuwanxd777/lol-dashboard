@@ -1534,18 +1534,35 @@
     .tbCell[data-r="SUP"]::before{background-image:url(img/SUP.png)}.tbCell[data-r="HC"]::before,.tbCell[data-r="STF"]::before{background-image:url(img/COACH.png)}
     .tbCell.tbRate::before{content:none}
     .tbCell .tbCv{min-width:0;overflow-wrap:anywhere}.tbCell .tbN{white-space:nowrap}
-    .tbCell:hover{background:none}.tbCell:active{background:rgba(122,184,255,.12)}
+    .tbCell:not(.tbRate):hover{background:none}.tbCell:not(.tbRate):active{background:rgba(122,184,255,.12)}
+    .tbCell.tbRate:hover,.tbCell.tbRate:active{background:color-mix(in srgb,var(--lgc) 14%,transparent);border-radius:0}   /* 點評分時標題列底色不可消失（使用者 2026-11-20） */
     /* 篩選列（使用者 2026-11-20「手機版篩選列也重新調整 現在還要右滑」）：不左右滑——每組一行、按鈕等寬排滿；
        顯示的三顆把兩三種狀態直排在按鈕裡；來源六顆排兩行三欄 */
     .trBar{gap:6px 6px!important;padding:8px 8px!important;margin-bottom:8px!important}
     .trBar .trFG{border-left:0;padding-left:0;flex:1 1 100%;min-width:0;overflow:visible}
     .trBar .trFG>span:not(.tbLegend){display:grid!important;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:5px!important;width:100%}
-    .trBar .trFG:nth-child(5)>span:not(.tbLegend){grid-auto-flow:row;grid-template-columns:repeat(6,minmax(0,1fr))}
-    .trBar .trFG:nth-child(5) .sqLaneBtn{grid-column:span 2}.trBar .trFG:nth-child(5) .sqLaneBtn:nth-child(-n+2){grid-column:span 3}
+    /* 消息（使用者 2026-11-20「手機版消息的篩選列再重新調整」）：狀態四顆＋類型三顆同一行、來源五顆一行（Sheep Esports 只寫 Sheep）⇒ 整列五行 */
+    .trBar .trFG.fgSt{flex:4 1 0}.trBar .trFG.fgKd{flex:3 1 0;padding-left:6px;border-left:1px solid rgba(255,255,255,.16)}
+    .trHideM{display:none}
+    /* 消息列表手機版（使用者 2026-11-20「手機版消息的 UI 也重新調整」）：每則兩段——第一行＝狀態＋賽區＋原隊 ➜ 新隊，下面內文，來源連結接在內文右下 */
+    .trList{display:block!important;padding:2px 6px 10px!important}
+    .trDay{position:sticky;top:0;z-index:3;margin:10px 0 4px;padding:5px 12px;font-size:16px;background:linear-gradient(90deg,color-mix(in srgb,var(--gold) 26%,#141926),#141926 75%)}
+    .trRow{display:flex!important;flex-wrap:wrap;align-items:center;gap:4px 8px;padding:9px 6px 10px!important;border-radius:0;border-bottom:1px solid rgba(255,255,255,.07);line-height:1.5}
+    .trRow>.trSt{order:0}.trRgC{order:1;grid-row:auto}
+    .trFlow{order:2;display:flex!important;align-items:center;gap:6px;flex:1 1 auto;min-width:0;flex-wrap:wrap;grid-column:auto;grid-row:auto}
+    .trFrom,.trTo,.trSpan{flex-direction:row;flex-wrap:wrap;gap:8px;white-space:normal}
+    .trNone{display:none}.trTeam{font-size:15px}
+    .trRow>.trTx{order:3;flex:1 1 100%;display:block;margin-top:2px;font-size:15px;line-height:1.65;grid-column:auto;grid-row:auto}
+    .trTxt{display:inline}
+    .trLks{display:inline-flex;float:right;gap:10px;margin:3px 0 0 10px}.trLks .trLk{font-size:12px}
     .trBar .sqLaneBtn{min-width:0;padding:6px 2px;font-size:12.5px;text-align:center;justify-content:center;white-space:nowrap;overflow:hidden}
     .tbLegend{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;width:100%}
-    .tbLegend .sqLaneBtn{margin-right:0;flex-direction:column;gap:1px;padding:5px 2px;line-height:1.25;font-size:12px}
-    .tbLgSep{display:none}
+    /* 顯示三顆（使用者 2026-11-20「手機版的陣容表的篩選列也重新設計」）：單行等高、用短標籤（data-s），字之間用間隔點 */
+    .tbLegend .sqLaneBtn{margin-right:0;flex-direction:row;gap:0;padding:6px 2px;line-height:1.3;font-size:0}
+    .tbLegend .sqLaneBtn b{font-size:0}.tbLegend .sqLaneBtn b::after{content:attr(data-s);font-size:12.5px}
+    .tbLgSep{font-size:0;margin:0 1px}.tbLgSep::after{content:"・";font-size:11px;color:var(--tx2)}
+    .tbLegend{grid-template-columns:1.45fr .9fr 1.25fr!important}   /* 三顆字數不同（7／4／6 字）⇒ 欄寬照字數分 */
+    .tbLegend .sqLaneBtn b.tbGone{text-decoration:none}.tbLegend .sqLaneBtn b.tbGone::after{text-decoration:line-through}
     .trBar>label,.trBar .trFG>label,.trBar>span[style*="flex:1"]{display:none}
     .trBar .meta{order:9;flex:1 1 100%;font-size:11px;text-align:right;opacity:.8}
     .trBar .cwrap{flex:1 1 0;min-width:120px}.trBar .cwrap input{width:100%!important}
@@ -14511,17 +14528,17 @@ function render(){
     const bHead=`<div class="tbHd"><span></span>${COLS.map(r=>`<span>${(r==="HC"||r==="STF")?`<img class="trCoach" src="img/COACH.png" alt="">`:(POS_IMG[r]?`<img class="trRole" src="${POS_IMG[r]}" alt="">`:"")}${BLN[r]}</span>`).join("")}<span class="tbRateH">${en2?"Rating":"轉會評分"}</span></div>`;
     // 篩選列（使用者 2026-11-20「消息跟轉會表的篩選列也統一一下 並且直觀一點」）：兩種模式同一個順序——
     //   模式（圖示＋文字）｜賽區（聯賽色）｜該模式自己的篩選（分組、組間直線）｜……｜更新時間＋搜尋（最右）
-    const FG=(lb,inner)=>`<span class="trFG">${lb?`<label>${lb}</label>`:""}${inner}</span>`;
+    const FG=(lb,inner,cls)=>`<span class="trFG${cls?" "+cls:""}">${lb?`<label>${lb}</label>`:""}${inner}</span>`;
     const lgTx=r=>{ const l=rgNm(r); return `<span style="color:${LGC[l]||"inherit"};font-weight:800">${esc(l)}</span>`; };
     const modeBtns=FG("",btns("trMode",[["",`📋 ${en2?"Rosters":"陣容表"}`],["news",`📰 ${en2?"News":"消息"}`]]));
     // 複選按鈕：沒有「全部」，點了亮、再點取消，都沒亮＝全部
     const mbtns=(key,opts)=>{ const S=mset(key); return `<span style="display:inline-flex;gap:6px;flex-wrap:wrap">${opts.map(([v,l])=>`<button class="sqLaneBtn${S.has(v)?" on":""}" data-mk="${key}" data-v="${esc(v)}">${l}</button>`).join("")}</span>`; };
     const rgBtns=FG(en2?"League":"賽區",mbtns("trRg",RGS.map(r=>[r,lgTx(r)])));
-    const newsBtns=FG(en2?"Status":"狀態",mbtns("trSt",[["official",ST.official],["rumor",`<b class="tbY">${ST.rumor}</b>`],["conf",`<b class="trCf">${ST.conf}</b>`],["fake",`<b class="trFk">${ST.fake}</b>`]]))
-      +FG(en2?"Type":"類型",mbtns("trKd",[["join",KD.join],["leave",KD.leave],["other",KD.other]]))
-      +FG(en2?"Source":"來源",mbtns("trSrc",[["wiki","WIKI"],["sheep","Sheep Esports"],["ptt","PTT"],["kr",SRCN.kr],["man",SRCN.man]]));
-    const boardBtns=FG(en2?"Show":"顯示",`<span class="tbLegend">${[["add",[["tbNew",en2?"New signing":"新加入"],["tbRs",en2?"Re-signed":"續約"],["tbPm",en2?"Promoted":"升職"]]],["out",[["tbExp",en2?"Contract expired":"合約到期未宣布"],["tbGone",en2?"Departure announced":"已宣布離隊"]]],["rum",[["tbOut",en2?"Possible move":"可能轉會"],["tbY",en2?"Rumor":"傳聞"]]]]
-        .map(([g,L])=>`<button class="sqLaneBtn tbLgB${F_TB.has(g)?" on":""}" data-mk="tbF" data-v="${g}" title="${en2?"Show these (multi-select, click again to clear)":"只看這幾種（可複選，再點一次取消）"}">${L.map(([c,l])=>`<b class="tbN ${c==="tbGone"?"tbExp tbGone":c}">${l}</b>`).join(`<i class="tbLgSep">／</i>`)}</button>`).join("")}`
+    const newsBtns=FG(en2?"Status":"狀態",mbtns("trSt",[["official",ST.official],["rumor",`<b class="tbY">${ST.rumor}</b>`],["conf",`<b class="trCf">${ST.conf}</b>`],["fake",`<b class="trFk">${ST.fake}</b>`]]),"fgSt")
+      +FG(en2?"Type":"類型",mbtns("trKd",[["join",KD.join],["leave",KD.leave],["other",KD.other]]),"fgKd")
+      +FG(en2?"Source":"來源",mbtns("trSrc",[["wiki","WIKI"],["sheep",`Sheep<span class="trHideM"> Esports</span>`],["ptt","PTT"],["kr",SRCN.kr],["man",SRCN.man]]),"fgSrc");
+    const boardBtns=FG(en2?"Show":"顯示",`<span class="tbLegend">${[["add",[["tbNew",en2?"New signing":"新加入"],["tbRs",en2?"Re-signed":"續約"],["tbPm",en2?"Promoted":"升職"]]],["out",[["tbExp",en2?"Contract expired":"合約到期未宣布",en2?"Expired":"到期"],["tbGone",en2?"Departure announced":"已宣布離隊",en2?"Left":"離隊"]]],["rum",[["tbOut",en2?"Possible move":"可能轉會"],["tbY",en2?"Rumor":"傳聞"]]]]
+        .map(([g,L])=>`<button class="sqLaneBtn tbLgB${F_TB.has(g)?" on":""}" data-mk="tbF" data-v="${g}" title="${en2?"Show these (multi-select, click again to clear)":"只看這幾種（可複選，再點一次取消）"}">${L.map(([c,l,sh])=>`<b class="tbN ${c==="tbGone"?"tbExp tbGone":c}" data-s="${sh||l}">${l}</b>`).join(`<i class="tbLgSep">／</i>`)}</button>`).join("")}`
       +`</span>`);   // 「只看有異動」已刪（使用者 2026-11-20；休賽期幾乎每隊都有異動，沒作用）
     const metaTx=MODE==="news"?`${shown.length} / ${all.length}${D.at?`・${en2?"updated":"更新"} ${esc(D.at)}`:""}`:(D.at?`${en2?"as of":"截至"} ${esc(D.at)}`:"");
     main.innerHTML=`<div class="filters trBar">`+modeBtns+rgBtns+(MODE==="news"?newsBtns:boardBtns)

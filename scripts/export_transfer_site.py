@@ -101,7 +101,8 @@ function addBase(){ const f=main.querySelector(".filters"); if(!f)return;
   document.getElementById("tsReset").onclick=()=>{ Object.assign(V,{trSrc:"",trSt:"",trRg:"",trKd:"",trQ:"",tbF:""}); saveState(); render(); }; }
 function render(){
 /*__BLOCK__*/
-addBase(); }
+addBase();
+const at=document.getElementById("tsAt"), T0=window.TRANSFERS||{}; if(at&&T0.at)at.textContent=(LANG==="en"?"as of ":"截至 ")+T0.at; }
 const ls=document.getElementById("tsLang"); if(ls){ ls.value=LANG; ls.onchange=()=>{ try{localStorage.setItem("ts_lang",ls.value);}catch(e){} location.reload(); }; }
 render();
 })();
