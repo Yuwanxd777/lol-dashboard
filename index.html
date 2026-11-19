@@ -1105,7 +1105,7 @@
   .tpPer{color:var(--tx2);font-variant-numeric:tabular-nums;white-space:nowrap}
   .tpDu{font-size:12px;font-weight:700;padding:1px 7px;border-radius:999px;background:rgba(255,255,255,.08);white-space:nowrap}
   /* 轉會評分小框（2026-11-19 重新設計） */
-  #tbTip:has(.rtBox){max-width:440px;padding:12px 14px}
+  #tbTip:has(.rtBox){max-width:min(520px,94vw);padding:12px 14px}
   .rtBox{min-width:300px}
   .rtHd{display:flex;align-items:center;gap:8px;padding-bottom:10px;margin-bottom:10px;border-bottom:1px solid rgba(255,255,255,.1);white-space:nowrap}
   .rtHd>b:first-of-type{font-size:16px}
@@ -1118,7 +1118,7 @@
   .rtP{display:flex;flex-direction:column;line-height:1.3;min-width:0}
   .rtN{font-weight:700;white-space:nowrap;display:flex;align-items:center;gap:6px}
   .rtV{font-size:13px;color:var(--tx2);font-variant-numeric:tabular-nums;white-space:nowrap}
-  .rtV i{font-style:normal;font-size:11px;opacity:.8;margin-left:6px}
+  .rtV i{font-style:normal;font-size:11px;opacity:.8;margin-left:0;display:block;white-space:nowrap}   /* 註記（中位數／全年／聯賽權重）自己一行，才不會把小框撐破（BFX Noah，使用者 2026-11-20） */
   .rtAr{color:var(--tx2);text-align:center;font-size:13px}
   .rtD{justify-self:end;min-width:58px;text-align:center;padding:3px 8px;border-radius:6px;font-weight:800;font-variant-numeric:tabular-nums;background:rgba(255,255,255,.06)}
   .rtD.tbUp{background:rgba(255,90,90,.15)}
