@@ -1154,7 +1154,7 @@
   .trRole{display:inline-block;font-size:12.5px;padding:0 6px;margin:0 4px 0 2px;border-radius:5px;background:rgba(255,200,80,.14);color:#ffc850;vertical-align:1px}
   .trTx{min-width:0;word-break:break-word;display:flex;align-items:center;gap:12px}.trTxt{flex:1 1 auto;min-width:0}.trLks{flex:0 0 auto;margin-left:auto;display:flex;gap:10px;white-space:nowrap}.trLks .trLk{margin-left:0}   /* 來源連結置右（使用者 2026-11-20） */
   .trLk{font-size:13px;color:#7fb2ff;white-space:nowrap;margin-left:6px}
-  .trNb{white-space:nowrap}
+  .trNb{white-space:nowrap}.trLk1{display:none}   /* 手機版第一列右邊那一個來源連結；桌面不顯示 */
   /* 窄版：第一行＝狀態＋原隊 ➜ 新隊（橫排），第二行＝消息全寬；欄標題收起 */
   @container mainc (max-width:999.98px){.trList{grid-template-columns:max-content minmax(0,1fr)}.trHead{display:none}
     .trFlow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;grid-column:2;grid-row:1}
@@ -1552,15 +1552,18 @@
     .trList{display:block!important;padding:2px 6px 10px!important}
     .trDay{position:sticky;top:0;z-index:3;margin:10px 0 4px;padding:5px 12px;font-size:16px;background:linear-gradient(90deg,color-mix(in srgb,var(--gold) 26%,#141926),#141926 75%)}
     .trRow{display:flex!important;flex-wrap:wrap;align-items:center;gap:4px 8px;padding:9px 6px 10px!important;border-radius:0;border-bottom:1px solid rgba(255,255,255,.07);line-height:1.5}
+    /* 使用者 2026-11-20：來源連結只留一個、放第一列靠右；原隊 ➜ 新隊換到第二列 */
     .trRow>.trSt{order:0}.trRgC{order:1;grid-row:auto}
-    .trFlow{order:2;display:flex!important;align-items:center;gap:6px;flex:1 1 auto;min-width:0;flex-wrap:wrap;grid-column:auto;grid-row:auto}
+    .trLk1{order:2;display:inline-flex;margin-left:auto}.trLk1 .trLk{margin-left:0;font-size:13px}.trLks{display:none!important}
+    .trFlow{order:3;display:flex!important;align-items:center;gap:6px;flex:1 1 100%;min-width:0;flex-wrap:wrap;grid-column:auto;grid-row:auto}
+    .trFlow:has(>.trSpan:empty),.trSpan:empty{display:none!important}
     .trFrom,.trTo,.trSpan{flex-direction:row;flex-wrap:wrap;gap:8px;white-space:normal}
     .trNone{display:none}.trTeam{font-size:15px}
     /* 隊伍很多的消息（使用者 2026-11-20「尤其是隊伍很多的消息」）：隊伍區自己一塊——原隊一行（放不下就換行、縮小一級）、➜ 新隊另一行 */
     .trFlow.trMany{flex:1 1 100%;display:grid!important;grid-template-columns:auto 1fr;gap:4px 8px;align-items:center;padding:4px 8px;border-radius:8px;background:rgba(255,255,255,.04)}
     .trMany .trFrom{grid-column:1/-1;gap:4px 10px}.trMany .trArr{grid-column:1}.trMany .trTo{grid-column:2;gap:4px 10px}.trMany .trSpan{grid-column:1/-1;gap:4px 10px}
     .trMany .trTeam{font-size:13px}
-    .trRow>.trTx{order:3;flex:1 1 100%;display:block;margin-top:2px;font-size:15px;line-height:1.65;grid-column:auto;grid-row:auto}
+    .trRow>.trTx{order:4;flex:1 1 100%;display:block;margin-top:2px;font-size:15px;line-height:1.65;grid-column:auto;grid-row:auto}
     .trTxt{display:inline}
     .trLks{display:inline-flex;float:right;gap:10px;margin:3px 0 0 10px}.trLks .trLk{font-size:12px}
     .trBar .sqLaneBtn{min-width:0;padding:6px 2px;font-size:12.5px;text-align:center;justify-content:center;white-space:nowrap;overflow:hidden}
@@ -14367,7 +14370,7 @@ function render(){
       const nTm=x.s==="wiki"?1:new Set((x.tags||[]).map(t=>t[1]).filter(Boolean)).size;   // 隊伍很多（≥4）⇒ 手機版原隊一行、➜ 新隊另一行
       const seen=new Set(), lk=x._items.map(lkOf).filter(h=>h&&!seen.has(h)&&seen.add(h)).join("");
       const body=x._items.map(i=>txt(i)).join("<br>");
-      rows+=`<div class="trRow"><span class="trSt trSt-${stOf(x)}">${ST[stOf(x)]}</span><span class="trRgC">${rgCol(x)}</span><div class="trFlow${nTm>=4?" trMany":""}">${flow}</div><div class="trTx"><span class="trTxt">${body}</span>${lk?`<span class="trLks">${lk}</span>`:""}</div></div>`; });
+      rows+=`<div class="trRow"><span class="trSt trSt-${stOf(x)}">${ST[stOf(x)]}</span><span class="trRgC">${rgCol(x)}</span><span class="trLk1">${(/<a [^>]*>[^<]*<\/a>/.exec(lk)||[""])[0]}</span><div class="trFlow${nTm>=4?" trMany":""}">${flow}</div><div class="trTx"><span class="trTxt">${body}</span>${lk?`<span class="trLks">${lk}</span>`:""}</div></div>`; });
     const head=rows?`<div class="trHead"><span>${en2?"Status":"狀態"}</span><span>${en2?"League":"賽區"}</span><span>${en2?"From":"原隊"}</span><span></span><span>${en2?"To":"新隊"}</span><span>${en2?"News":"消息"}</span></div>`:"";
     // ── 陣容表（使用者 2026-11-19：參考巴哈 LCK 陣容圖「左邊是戰隊 六大聯賽一路往下列」「傳聞就在ID前面打一個星號」
     //    「滑鼠移到那格顯示簽約到何時、上一位選手、新加入的選手原先來自哪個戰隊」）。資料＝transfers.js 的 board（scripts/transfers_board.py）
