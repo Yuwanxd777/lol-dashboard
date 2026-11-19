@@ -66,7 +66,7 @@ def do_main():
     py = sys.executable
     if run([py, "scripts/fetch_transfers.py"]) != 0:
         log("  fetch_transfers 失敗，沿用舊資料繼續")
-    if run([py, "scripts/export_transfer_site.py"]) != 0:
+    if run([py, "scripts/export_transfer_site.py", "--head"]) != 0:
         log("  export_transfer_site 失敗，不推")
         return
     if "--dry" in sys.argv:

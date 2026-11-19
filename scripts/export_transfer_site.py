@@ -128,6 +128,11 @@ EXPORT_JS = r"""()=>{
 
 def main():
     html = io.open(os.path.join(ROOT, "index.html"), encoding="utf-8").read()
+    if "--head" in sys.argv:   # 每小時排程：轉會頁程式從已 commit 的 index.html 抽（不帶到還在改、沒 commit 的半成品）
+        try:
+            html = subprocess.run(["git", "show", "HEAD:index.html"], cwd=ROOT, capture_output=True, check=True).stdout.decode("utf-8")
+        except Exception as e:
+            print(f"   git show HEAD:index.html 失敗，改用工作區：{type(e).__name__}")
     code = build_code(html)
     from playwright.sync_api import sync_playwright
     srv = subprocess.Popen([sys.executable, "-m", "http.server", str(PORT), "--bind", "127.0.0.1"], cwd=ROOT,
