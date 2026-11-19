@@ -533,7 +533,7 @@ def main():
                 ptt_raw = raw
                 # 轉貼 Sheep Esports、而那則已收進 Sheep 來源 ⇒ 消息不重複列（使用者 2026-11-20「PTT 的文章消息是 Sheep Esports 也不要重複」）
                 raw = [x for x in raw if not (set(re.findall(r"Sheep_Esports/status/(\d+)", x.get("body") or "")) & sheep_ids)]
-            extra += [{k: x[k] for k in ("id", "d", "zh", "src", "url", "ptt", "st", "kind", "tags", "mv", "fake", "conf") if x.get(k)} for x in raw if not x.get("hide")]
+            extra += [{k: x[k] for k in ("id", "d", "zh", "src", "url", "ptt", "st", "kind", "tags", "mv", "fake", "conf", "nosplit") if x.get(k)} for x in raw if not x.get("hide")]
     extra.sort(key=lambda x: x["d"], reverse=True)
     off = [x for x in extra if x.get("src") == "官方"]   # 陣容表的續約判定吃得到（粉字）
     # PTT 傳聞進陣容表（使用者 2026-11-20「你不是有抓到 Scout 可能會去 KRX 的消息嗎 怎沒填入陣容表」）：
@@ -552,8 +552,11 @@ def main():
     for x in ptt_raw:
         for nm_, lane_, to_, fr_ in x.get("mv") or []:
             pg_ = pgmap.get(nm_.lower(), nm_)
-            synth.append({"d": x["d"], "st": x.get("st") or "rumor", "kind": "join",
-                          "zh": f"§{lane_}§‹{pg_}|{nm_}› 加入 {to_}（PTT：{x.get('zh') or ''}）",
+            zh_ = x.get("zh") or ""   # 提示文字＝重寫過的那句；把名字換成帶路線與連結的記號（parse_sheep 靠它認人）
+            mk_ = f"§{lane_}§‹{pg_}|{nm_}›"
+            zh_ = re.sub(r"(?<![A-Za-z0-9])" + re.escape(nm_) + r"(?![A-Za-z0-9])", lambda m_: mk_, zh_, count=1) if re.search(r"(?<![A-Za-z0-9])" + re.escape(nm_) + r"(?![A-Za-z0-9])", zh_) else f"{mk_} 加入 {to_}。"
+            synth.append({"d": x["d"], "st": x.get("st") or "rumor", "kind": "join", "src": "韓網" if x.get("src") == "韓網" else "PTT",
+                          "zh": zh_,
                           "tags": ([["", fr_, "out"]] if fr_ else []) + [["", to_, "in"]]})
         if x.get("stay"):
             synth.append({"d": x["d"], "st": x.get("st") or "rumor", "kind": "other", "zh": "", "stay": [s_[0] for s_ in x["stay"]]})

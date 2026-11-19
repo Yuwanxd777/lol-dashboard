@@ -55,7 +55,9 @@ def all_names():
         s = open(tr, encoding="utf-8").read()
         D = json.loads(s[s.index("=") + 1:].rstrip().rstrip(";"))
         ys = datetime.date.today().year
-        for n in {x.get("team") for x in D.get("wiki") or []} | {t[1] for x in D.get("sheep") or [] for t in x.get("tags") or []}:
+        # 陣容表的原隊／傳聞去向、PTT 與官方消息標的隊也算（使用者 2026-11-20「OMGA 這種缺少的隊徽要去 wiki 找出來」）
+        more = {e.get("from") for t in D.get("board") or [] for L in (t.get("r") or {}).values() for e in L}             | {(e.get("ro") or {}).get("to") for t in D.get("board") or [] for L in (t.get("r") or {}).values() for e in L}             | {t[1] for x in D.get("extra") or [] for t in x.get("tags") or []}             | {m[i] for x in D.get("extra") or [] for m in x.get("mv") or [] for i in (2, 3)}
+        for n in {x.get("team") for x in D.get("wiki") or []} | {t[1] for x in D.get("sheep") or [] for t in x.get("tags") or []} | more:
             if n:
                 TRN.add(n)
                 if n not in last:

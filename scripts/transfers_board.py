@@ -49,6 +49,13 @@ def _in(vals):
     return "(" + ",".join('"%s"' % str(v).replace('"', '\\"') for v in vals) + ")"
 
 
+def _sister(frm, tm):
+    """frm 是 tm 同組織的二隊／青訓隊？（HANJIN BRION Challengers → HANJIN BRION、T1 Esports Academy → T1）"""
+    a, b = frm.split(), tm.split()
+    return bool(a and b and a[0].lower() == b[0].lower() and frm != tm
+                and re.search(r"Academy|Challengers|Chall\.|Youth|Rookies|Junior|Blue$|\.A$|Second|Rising|NXT", frm, re.I))
+
+
 def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell=None):
     """cargo＝build_predict_live.cargo；since＝本休賽期起點（YYYY-MM-DD）；sheep＝輸出層的 Sheep 條目；extra＝{隊名: 聯賽}（2027 新進）"""
     import datetime as _dt
@@ -142,6 +149,11 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
     for x in sorted(wiki or [], key=lambda x: (x.get("d") or "", x.get("n") or 0)):
         for m in re.finditer(r"‹([^|›]+)\|[^›]+›\s*\(([^()]+)\)", x.get("en") or ""):
             news_role[key(urllib.parse.unquote(m.group(1)))] = m.group(2).split(" to ")[-1]
+    promo_hc = {}   # 人 → 「Coach to Head Coach」（提示小框要寫怎麼升的，使用者 2026-11-20）
+    for x in wiki or []:
+        if (x.get("d") or "") >= since:
+            for m in re.finditer(r"‹([^|›]+)\|[^›]+›\s*\(([^()]+ to (?:Interim )?Head Coach)\)", x.get("en") or ""):
+                promo_hc[key(urllib.parse.unquote(m.group(1)))] = m.group(2)
     new_keys = sorted({k for (k, tm), (d, _) in joined.items() if d >= since and team_of.get(k) == tm})
     origin = {}
     if new_keys:
@@ -282,13 +294,19 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
                     e["new"] = jd
                     if origin.get(k):
                         e["from"] = origin[k]
+                # 升職（使用者 2026-11-20「教練或分析師轉成主教練的標紫色叫做升職，從二隊三隊上到一隊的也是」）：
+                #   本休賽期 wiki 記「X to Head Coach」的人；或原隊是同組織的二隊／青訓（隊名第一個字相同＋Academy／Challengers／Youth…）
+                if k in promo_hc or (e.get("from") and _sister(e["from"], tm)):
+                    e["pm"] = promo_hc.get(k) or 1   # 字串＝職稱異動；1＝從二隊／青訓上調（原隊在 from）
                 # 今年沒替這隊上過場的選手不列（使用者 2026-11-19「G2 Sola 是簽來當 co-stream 實況主的…沒上過場的都不應該出現在名單」）；新人不套
                 #     本休賽期有官方續約消息的不套（NS Calix 今年沒上場但續約到 2028，是明年的人）
                 if rr != "COACH" and "new" not in e and "rs" not in e and played is not None and (k, tkey(tm)) not in played and (key(pid), tkey(tm)) not in played:
                     continue
                 ro = rum_out.get(k) or rum_out.get(key(pid))
                 if ro and tkey(ro["tm"]) != tkey(tm) and ro["d"][:10] >= since:
-                    e["ro"] = {"to": ro["tm"], "d": ro["d"][:10], "tip": ro["tip"]}   # 前端：合約還在才上綠色
+                    e["ro"] = {"to": ro["tm"], "d": ro["d"][:10], "tip": ro["tip"]}
+                    if ro.get("src"):
+                        e["ro"]["src"] = ro["src"]   # 前端：合約還在才上綠色
                 cell.append(e)
             have = {key(e["p"]) for e in cell} | {key(e["n"]) for e in cell}
             for rmr in rumor.get((tkey(tm), rr), []):
@@ -298,6 +316,8 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
                 if ot and ot != tm and joined.get((key(rmr["n"]), ot), ("", ""))[0] >= rmr["d"][:10]:
                     continue   # 傳聞之後他已官宣去別隊
                 e = {"n": rmr["n"], "p": rmr.get("p") or "", "tip": rmr["tip"], "d": rmr["d"][:10]}
+                if rmr.get("src"):
+                    e["src"] = rmr["src"]
                 if rmr["st"] == "rumor":
                     e["r"] = 1
                 if rmr.get("from"):
@@ -374,13 +394,14 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
                for p in pv.get("COACH", [])}
         pv = {rr: v for rr, v in pv.items() if v}
         out.append({"tm": tm, "nm": disp[tm], "lg": lg_of[tm], "r": rows, "prev": pv,
-                    "_still": sorted({key(g) for v in gone.values() for g in v}), "_psr": psr})   # 被新人擠掉、其實還在隊上的（add_tenure 用完拿掉）
+                    "_still": sorted({key(g) for v in gone.values() for g in v} - {key(p_[1]) for v_ in annd.get(tm, {}).values() for p_ in v_}), "_psr": psr,
+                    "_pc": {p_: con[(key(p_), tm)] for v_ in pv.values() for p_ in v_ if con.get((key(p_), tm))}})   # 已宣布離隊的不算還在隊上；_pc＝上一位的合約到期日   # 被新人擠掉、其實還在隊上的（add_tenure 用完拿掉）
     try:
         add_tenure(cargo, out)
     except Exception as e:   # 查不到效力期間就只列名字
         print(f"   上一位效力期間查詢失敗：{type(e).__name__} {str(e)[:100]}")
         for x in out:
-            x.pop("_still", None); psr = x.pop("_psr", {})
+            x.pop("_still", None); psr = x.pop("_psr", {}); x.pop("_pc", None)
             if x["prev"].get("COACH"):
                 x["prev"]["COACH"] = [{"n": p, "sr": psr.get(p, "C")} for p in x["prev"]["COACH"]]
     try:
@@ -489,7 +510,7 @@ def add_tenure(cargo, out):
             if y.get("dir") == "Join":
                 joins.setdefault(key(y["p"]), []).append((y["d"][:10], y["tm"]))
     for x in out:
-        still = set(x.pop("_still", [])); psr = x.pop("_psr", {})
+        still = set(x.pop("_still", [])); psr = x.pop("_psr", {}); pc = x.pop("_pc", {})
         for rr, v in x["prev"].items():
             L = []
             for p in v:
@@ -507,6 +528,10 @@ def add_tenure(cargo, out):
                         d["e"] = e
                     elif key(p) not in still:
                         d["e"] = "?"   # 不在隊上、wiki 又沒記離隊 ⇒ 前端顯示「離隊日未記錄」，不寫「今」
+                if key(p) in still and not e:   # 有離隊／轉職日期的（BRO Roamer、BFX Edo）不算還在隊上
+                    if pc.get(p):
+                        d["c"] = pc[p]
+                    d["still"] = 1   # 被新人擠到上一位、但其實還沒宣布離隊（WBG Elk）⇒ 前端標「合約到期」不標「離隊」（使用者 2026-11-20）
                 L.append(d)
             x["prev"][rr] = L
 
@@ -610,7 +635,7 @@ def parse_sheep(sheep):
                 m = re.match(_NM, it)
                 if m:
                     n, pg = _name(m, 1)
-                    best[n.lower()] = {"tm": tm, "rr": LANES[i], "n": n, "p": pg, "d": x["d"], "tip": tip, "st": st}
+                    best[n.lower()] = {"tm": tm, "rr": LANES[i], "n": n, "p": pg, "d": x["d"], "tip": tip, "st": st, "src": x.get("src") or ""}
             continue
         if x.get("kind") not in ("join", "both") or len(inn) != 1:
             continue
@@ -618,7 +643,7 @@ def parse_sheep(sheep):
         if not m:
             continue
         n, pg = _name(m, 2)
-        best[n.lower()] = {"tm": inn[0][1], "rr": m.group(1), "n": n, "p": pg, "d": x["d"], "tip": tip, "st": st,
+        best[n.lower()] = {"tm": inn[0][1], "rr": m.group(1), "n": n, "p": pg, "d": x["d"], "tip": tip, "st": st, "src": x.get("src") or "",
                            "from": out[0] if out else ""}
     res = {}
     for v in best.values():
