@@ -12,7 +12,7 @@
 Cargo 失敗就沿用舊檔的 wiki；X 失敗就只用累積檔。
 跑：python scripts/fetch_transfers.py [起始日 YYYY-MM-DD]（預設 FROM；排程 run_update ⑤h3 每班跑一次）
 """
-import datetime, email.utils, html, io, json, os, re, sys, urllib.request
+import datetime, email.utils, html, io, json, os, re, sys, urllib.parse, urllib.request
 
 if (getattr(sys.stdout, "encoding", "") or "").lower().replace("-", "") != "utf8":
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
@@ -40,7 +40,7 @@ _MON = {m: i + 1 for i, m in enumerate("January February March April May June Ju
 VERB = [   # 一句＝「名單 + 動詞片語.」；只有整句對得上才翻，對不上就保留英文原句（不硬翻）
     (r"joins? as (?:a )?substitutes?", "以替補身分加入"), (r"joins? from (?:the )?academy roster", "從二軍上調"),
     (r"joins? from sister team (.+)", r"從姊妹隊 \1 加入"), (r"joins? on loan", "租借加入"), (r"joins?", "加入"),
-    (r"leaves? for (?:the )?main roster", "上調一軍"), (r"leaves? for (?:the )?academy roster", "下放二軍"), (r"leaves?", "離隊"),
+    (r"leaves? for sister team (.+)", r"轉往姊妹隊 \1"), (r"leaves? for (?:the )?main roster", "上調一軍"), (r"leaves? for (?:the )?academy roster", "下放二軍"), (r"leaves?", "離隊"),
     (r"will remain with the team for (\d{4})", r"\1 年留隊"), (r"will remain with the team", "留隊"),
     (r"changes? positions?", "轉換職位"), (r"moves? to (?:the )?starting roster", "升上先發"),
     (r"moves? to (?:the )?substitutes?", "轉為替補"), (r"retires?", "退役"),
@@ -72,7 +72,8 @@ def clean(s):
     s = re.sub(r'<span title="([^"]+)" class="sprite role-sprite"[^>]*>.*?</span>',
                lambda m: "§%s§" % ROLE.get(m.group(1), "") if ROLE.get(m.group(1)) else "", s, flags=re.S)
     s = re.sub(r"<[^>]+>", "", s)
-    s = re.sub(r"\[\[(?:[^|\]]*\|)?([^\]]*)\]\]", r"\1", s)
+    # wiki 連結 → ‹頁名(URL 編碼)|顯示名›，前端換成可點的 Leaguepedia 連結（使用者 2026-11-19「選手的ID點擊要可以跳轉到他的WIKI」）
+    s = re.sub(r"\[\[([^|\]]*)\|?([^\]]*)\]\]", lambda m: "‹%s|%s›" % (urllib.parse.quote(m.group(1).strip().replace(" ", "_"), safe="_"), (m.group(2) or m.group(1)).strip()), s)
     s = re.sub(r"§\s+", "§", re.sub(r"\s+", " ", s)).strip()
     return s
 
@@ -86,9 +87,23 @@ def _staff(m):
     return "（" + "".join(out) + "）"
 
 
+def _prefix(body, n):
+    """body 去掉 ‹頁|名› 記號後的前 n 個字，對回帶記號的原文（名單段保留連結）"""
+    out, k = "", 0
+    for i, s in enumerate(re.split(r"(‹[^|›]+\|[^›]+›)", body)):
+        plain = re.sub(r"‹[^|›]+\|([^›]+)›", r"\1", s)
+        if k + len(plain) <= n:
+            out += s; k += len(plain)
+        else:
+            out += plain[:n - k]; break
+    return out
+
+
 def _one(sen):
-    """一句英文 → 中文；對不上句型回傳原句"""
-    body = sen.rstrip(".").strip()
+    """一句英文 → 中文；對不上句型回傳原句。句型比對用去掉連結記號的純文字（動詞段的 GCD／姊妹隊連結不擋翻譯），
+    名單段再對回帶記號的原文（選手名可點）"""
+    body0 = sen.rstrip(".").strip()
+    body = re.sub(r"‹[^|›]+\|([^›]+)›", r"\1", body0)
     for a, b in WHOLE:
         if re.fullmatch(a, body):
             return re.sub(a, b, body).replace("Hong Kong", "香港") + "。"
@@ -96,15 +111,15 @@ def _one(sen):
         m = re.fullmatch(r"(.+?)\s*(" + pat + r")", body)
         if not m:
             continue
-        names = re.sub(r"\s*\(([^()]*)\)", _staff, m.group(1))
+        names = re.sub(r"\s*\(([^()]*)\)", _staff, _prefix(body0, m.end(1)))
         names = re.sub(r",?\s+and\s+|,\s*", "、", names).strip()
         verb = re.sub(pat, rep, m.group(2))
-        return re.sub(r"^Organization$", "戰隊", names) + " " + verb + "。"
+        return re.sub(r"^Organization$", "戰隊", names) + " " + verb.rstrip(".") + "。"
     return sen
 
 
 def to_zh(s):
-    sens = re.split(r"(?<=\.)\s+(?=§|\w)", s)
+    sens = re.split(r"(?<=\.)\s+(?=§|‹|\w)", s)
     return " ".join(_one(x) for x in sens)
 
 
@@ -194,6 +209,77 @@ def fetch_sheep(start):
     return out
 
 
+PL_STOP = {"will", "set", "join", "hope", "rich", "free", "star", "back", "more", "team", "head", "coach", "season",
+           "world", "worlds", "official", "sources", "breaking", "the", "and", "for", "with", "from", "new", "top", "mid", "bot"}
+PL_RE = re.compile(r"‹([^|›]+)\|([^›]+)›")
+
+
+def link_sheep(wiki, sheep):
+    """輸出層：Sheep 推文裡出現 wiki 句子連過的名字（選手／教練）→ 套同一個 ‹頁名|顯示名› 記號。
+    只認 wiki 連過的名字（不猜），大小寫一致＋前後不是英數字；網址裡的不動；常見英文字跳過。"""
+    pg = {}
+    for x in wiki:   # 只收「人」：前面有路線記號 §XX§，或後面接職稱括號
+        for m in re.finditer(r"(§[A-Z]+§)?‹([^|›]+)\|([^›]+)›(\s*\()?", x.get("en") or ""):
+            p, d = m.group(2), m.group(3)
+            if (m.group(1) or m.group(4)) and len(d) >= 3 and d.lower() not in PL_STOP and not re.search(r"[‹›|]", d):
+                pg.setdefault(d, {}).setdefault(p, set()).add(x.get("rg") or "")
+    if not pg:
+        return
+
+    def page(d, rgs):   # 同名多頁（Zeus 有兩個）⇒ 用這則推文標的賽區挑；挑不出唯一就不連
+        c = pg[d]
+        if len(c) == 1:
+            return next(iter(c))
+        c = [p for p, r in c.items() if r & rgs]
+        return c[0] if len(c) == 1 else None
+    teams = {x.get("team") for x in wiki} | {t[1] for x in sheep for t in x.get("tags") or []}
+    teams = sorted((t for t in teams if t and " " in t), key=len, reverse=True)   # 多字隊名整段保護（Hanwha Life Esports 的 Life）
+    prot = re.compile(r"(https?://\S+" + "".join("|" + re.escape(t) for t in teams) + ")")
+    rx = re.compile(r"(?<![A-Za-z0-9_/.@#'-])(" + "|".join(sorted(map(re.escape, pg), key=len, reverse=True)) + r")(?![A-Za-z0-9_'-])")
+    for x in sheep:
+        rgs = {t[0] for t in x.get("tags") or []}
+
+        def rep(m):
+            p = page(m.group(1), rgs)
+            return "‹%s|%s›" % (p, m.group(1)) if p else m.group(1)
+        for k in ("en", "zh"):
+            if x.get(k):
+                parts = prot.split(x[k])
+                x[k] = "".join(s if i % 2 else rx.sub(rep, s) for i, s in enumerate(parts))
+
+
+T1_LEAGUES = ("LoL Champions Korea", "Tencent LoL Pro League", "LoL EMEA Championship",
+              "League of Legends Championship Series", "Circuit Brazilian League of Legends", "League of Legends Championship Pacific")
+T1_EXTRA = {"OpTic Gaming"}   # 2027 才進一級的（2026 名單沒有）
+T1_RG = {"韓國", "中國", "歐洲", "北美", "巴西", "亞太", "越南", "日本"}   # 只標賽區沒標隊（自由球員名單）＝六大聯賽的消息
+_t1key = lambda n: re.sub(r"\s*\([^()]*\)\s*$", "", n or "").strip().lower()
+
+
+def tier1_teams(year):
+    """六大聯賽一級例行賽（Primary、非資格賽）當年的參賽隊＋本機年度資料的 LPL（Cargo 的 LPL 名冊缺 WBG／UP）"""
+    import build_predict_live as B
+    r = B.cargo({"tables": "Tournaments=T,TournamentRosters=TR", "join_on": "T.OverviewPage=TR.OverviewPage",
+                 "fields": "T.League=lg,TR.Team=tm", "group_by": "T.League,TR.Team", "limit": "2000", "format": "json",
+                 "where": f'T.Year={year} AND T.TournamentLevel="Primary" AND T.IsQualifier=0 AND T.League IN ("' + '","'.join(T1_LEAGUES) + '")'})
+    s = {x["tm"] for x in r if x.get("tm")}
+    if len(s) < 40:
+        raise ValueError(f"一級隊只有 {len(s)} 隊，名冊不完整")
+    fn = os.path.join(ROOT, "data", f"data_{year}.js")
+    if os.path.exists(fn):
+        d = io.open(fn, encoding="utf-8").read()
+        R = json.loads(d[d.index("=") + 1:].rstrip().rstrip(";"))["tabs"]["RAW_DATA"]
+        h = R[0]; iL, iB, iR = h.index("league"), h.index("blue_teamname"), h.index("red_teamname")
+        s |= {n for row in R[1:] if row[iL] == "LPL" for n in (row[iB], row[iR]) if n}
+    return sorted(s | T1_EXTRA)
+
+
+def is_t1(x, keys):
+    """這則有牽涉到六大聯賽一級隊（加入、離開到次級都算；使用者 2026-11-19）"""
+    if "tags" in x:
+        return any((_t1key(t[1]) in keys) if t[1] else (t[0] in T1_RG) for t in x["tags"])
+    return _t1key(x.get("team")) in keys
+
+
 def main():
     start = sys.argv[1] if len(sys.argv) > 1 else FROM
     old = {}
@@ -221,9 +307,24 @@ def main():
         print(f"Sheep Esports 抓取失敗，只用累積檔：{type(e).__name__} {str(e)[:100]}")
     acc.sort(key=lambda x: x["d"], reverse=True)
     io.open(SHEEP, "w", encoding="utf-8").write(json.dumps(acc, ensure_ascii=False, indent=1))
-    sheep = [{k: x[k] for k in ("id", "d", "en", "zh", "url", "kind", "tags") if x.get(k)} for x in acc if x["d"][:10] >= start]
+    sheep = [{k: x[k] for k in ("id", "d", "en", "zh", "url", "kind", "tags", "st") if x.get(k)} for x in acc if x["d"][:10] >= start]
+    link_sheep(wiki, sheep)   # 連結用全部 wiki 句子當名字來源（過濾前）
+    # 只留六大聯賽一級隊相關的（使用者 2026-11-19「不是加入六大聯賽的一級賽事的資訊都不要列出」「從六大聯賽離開到次級也列出」）
+    try:
+        t1 = tier1_teams(int(start[:4]) if start[5:7] > "06" else int(start[:4]) - 1)
+    except Exception as e:
+        t1 = old.get("t1") or []
+        print(f"一級隊名單失敗，沿用舊檔 {len(t1)} 隊：{type(e).__name__} {str(e)[:100]}")
+    if t1:
+        keys = {_t1key(n) for n in t1}
+        n0, n1 = len(wiki), len(sheep)
+        # wiki 一隊一句：一級隊離隊的人，之後「加入次級隊」那句也留（從六大聯賽離開到次級也列出）
+        gone = {p for x in wiki if is_t1(x, keys) and x["kind"] in ("leave", "both") for p, _ in PL_RE.findall(x["en"])}
+        wiki = [x for x in wiki if is_t1(x, keys) or (x["kind"] in ("join", "both") and any(p in gone for p, _ in PL_RE.findall(x["en"])))]
+        sheep = [x for x in sheep if is_t1(x, keys)]
+        print(f"六大聯賽一級：wiki {n0}→{len(wiki)}、sheep {n1}→{len(sheep)}（一級隊 {len(t1)}）")
     wiki.sort(key=lambda x: (x["d"], x["n"]), reverse=True)
-    data = {"at": datetime.datetime.now().strftime("%Y-%m-%d %H:%M"), "from": start, "wiki": wiki, "sheep": sheep}
+    data = {"at": datetime.datetime.now().strftime("%Y-%m-%d %H:%M"), "from": start, "t1": t1, "wiki": wiki, "sheep": sheep}
     io.open(OUT, "w", encoding="utf-8").write("window.TRANSFERS=" + json.dumps(data, ensure_ascii=False, separators=(",", ":")) + ";\n")
     print(f"transfers.js：wiki {len(wiki)}、sheep {len(sheep)}")
 

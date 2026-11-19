@@ -25,6 +25,7 @@ ALIAS = os.path.join(ROOT, "csv_cache", "team_logo_alias.json")   # 撞名的隊
 API = "https://lol.fandom.com/api.php"
 UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/126 Safari/537.36"}
 PX = 128
+TRN = set()   # 轉會分頁出現的隊名（all_names 填）
 
 
 def all_names():
@@ -49,6 +50,16 @@ def all_names():
             for t in D["T"]:
                 if t["n"] not in last:
                     last[t["n"]] = int(y); cnt[t["n"]] = 0
+    tr = os.path.join(ROOT, "transfers.js")   # 轉會分頁的隊（Leaguepedia News＋Sheep 標籤；使用者 2026-11-19「缺的隊徽都幫我抓近來」）
+    if os.path.exists(tr):
+        s = open(tr, encoding="utf-8").read()
+        D = json.loads(s[s.index("=") + 1:].rstrip().rstrip(";"))
+        ys = datetime.date.today().year
+        for n in {x.get("team") for x in D.get("wiki") or []} | {t[1] for x in D.get("sheep") or [] for t in x.get("tags") or []}:
+            if n:
+                TRN.add(n)
+                if n not in last:
+                    last[n] = ys; cnt[n] = 0
     return {n: (last[n], cnt[n]) for n in last}
 
 
@@ -202,10 +213,17 @@ def main():
             if alias.get(n) == "-" and not fresh(n):
                 continue
             sub[n] = key
+    # ③ 轉會分頁的隊沒有縮寫（tAb 回全名）⇒ 也照撞名的路子存 ~{隊名}.webp、記進 alias（前端 teamLogoHTML 帶 nm 先查 alias）
+    for n in TRN:
+        if n in info and not real(n, ab.get(n)):
+            key = "~" + re.sub(r"[^A-Za-z0-9]+", "_", n).strip("_")
+            if (alias.get(n) == key and key in have) or (alias.get(n) == "-" and not fresh(n)):
+                continue
+            sub[n] = key
     print(f"隊名 {len(info)}、缺隊徽要查 {len(want)} 個縮寫、撞名要另抓 {len(sub)} 隊")
     if dry:
         for a, n in sorted(want.items()): print("   缺", a, n)
-        for n, k in sorted(sub.items()): print("   撞名", k, "（主人", owner[k.split("~")[0]] + "）")
+        for n, k in sorted(sub.items()): print("   撞名", k, "（主人", owner.get(k.split("~")[0], "無縮寫") + "）")
         return 0
     got = lookup(sorted(set(want.values()) | set(sub)))
     ok = 0

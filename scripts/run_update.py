@@ -190,6 +190,10 @@ PLAN = [
     ("⑤h2 預測本屆補兵／MVP", [S("build_predict_live")]),
     # 2026-11-18：「轉會」分頁（Leaguepedia News 的 Cargo 一個請求＋@Sheep_Esports 內嵌時間軸一個請求，失敗都沿用舊資料）
     ("⑤h3 轉會消息", [S("fetch_transfers")]),
+    # 2026-11-19：轉會分頁出現的新隊（含沒有縮寫的二三級隊）缺隊徽 ⇒ 從 Leaguepedia 補（使用者「缺的隊徽都幫我抓近來」）。
+    #   讀 ⑤h3 的 transfers.js；寫 img/teams／csv_cache 的 alias／own／miss，結尾自己跑 fit_team_logos＋build_img_manifest
+    #   （⑥ 還會再跑一次 manifest，冪等）。查不到的 30 天內不重查 ⇒ 平常只多一次無頭開頁算縮寫。
+    ("⑤h4 補隊徽（Leaguepedia）", [S("fetch_team_logos_wiki")]),
     # 收尾：彼此不相干，但都要等前面資料齊（build_font_subset 掃根目錄全部 *.js ⇒ 要等 ⑤g 的四個輸出檔寫完；
     # build_patch_dates 讀 ⑤g 快取的 patch_dates.json）。label_pending 2026-09-09 #72 搬去 ⑤c 並行，見上。
     ("⑥ 收尾（互不相干）", [
