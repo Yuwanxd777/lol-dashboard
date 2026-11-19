@@ -1517,16 +1517,16 @@
 }
   /* 轉會陣容表手機版（使用者 2026-11-20）：一隊一張卡、每格一列（欄名｜人名）；點格子從底部滑出小框 */
   @container mainc (max-width:759.98px){
-    /* 手機版（使用者 2026-11-20 第三版「還是感覺很糟」）：每隊一張卡＝固定三欄格子——上路｜打野｜中路／下路｜輔助｜主教練／後勤一整列，
+    /* 手機版（使用者 2026-11-20 第三版「還是感覺很糟」）：每隊一張卡＝固定兩欄格子（使用者「改成一列兩格」）——上路｜打野／中路｜下路／輔助｜主教練／後勤一整列，
        同一路在每張卡的同一個位置，一眼掃得到；隊名＋評分在卡片標題列 */
     .tbBoard{display:block;padding:2px 4px 10px}
     .tbHd{display:none}
     .tbLg{position:sticky;top:0;z-index:3;margin:12px 0 6px;padding:6px 12px;background:linear-gradient(90deg,color-mix(in srgb,var(--lgc) 30%,#141926),#141926 75%)}.tbLg b{font-size:18px}
-    .tbRow{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));align-items:stretch;gap:0;margin:6px 0;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:rgba(255,255,255,.02)}
-    .tbTeam{grid-column:1/3;border-left:0;padding:7px 10px;font-size:16px;background:color-mix(in srgb,var(--lgc) 14%,transparent)}
+    .tbRow{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:stretch;gap:0;margin:6px 0;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:rgba(255,255,255,.02)}
+    .tbTeam{grid-column:1;border-left:0;padding:7px 10px;font-size:16px;background:color-mix(in srgb,var(--lgc) 14%,transparent)}
     .tbCell{display:flex;align-items:flex-start;gap:5px;padding:7px 8px;font-size:14px;line-height:1.35;text-align:left;border-radius:0;border-top:1px solid rgba(255,255,255,.06);border-left:1px solid rgba(255,255,255,.06);min-width:0}
-    .tbCell.tbRate{grid-column:3;grid-row:1;align-items:center;justify-content:flex-end;padding:7px 10px;font-size:15px;background:color-mix(in srgb,var(--lgc) 14%,transparent);border:0}
-    .tbCell[data-r="TOP"],.tbCell[data-r="BOT"],.tbCell[data-r="STF"]{border-left:0}
+    .tbCell.tbRate{grid-column:2;grid-row:1;align-items:center;justify-content:flex-end;padding:7px 10px;font-size:15px;background:color-mix(in srgb,var(--lgc) 14%,transparent);border:0}
+    .tbCell[data-r="TOP"],.tbCell[data-r="MID"],.tbCell[data-r="SUP"],.tbCell[data-r="STF"]{border-left:0}
     .tbCell[data-r="STF"]{grid-column:1/-1}
     .tbCell::before{content:"";flex:0 0 15px;width:15px;height:15px;margin-top:2px;background:center/contain no-repeat}
     .tbCell[data-r="TOP"]::before{background-image:url(img/TOP.png)}.tbCell[data-r="JNG"]::before{background-image:url(img/JG.png)}
@@ -1535,13 +1535,16 @@
     .tbCell.tbRate::before{content:none}
     .tbCell .tbCv{min-width:0;overflow-wrap:anywhere}.tbCell .tbN{white-space:nowrap}
     .tbCell:hover{background:none}.tbCell:active{background:rgba(122,184,255,.12)}
-    /* 篩選列：模式＋賽區一行、顯示一行（放不下左右滑）、搜尋＋說明＋重設一行；更新時間縮成最後一小行 */
+    /* 篩選列（使用者 2026-11-20「手機版篩選列也重新調整 現在還要右滑」）：不左右滑——每組一行、按鈕等寬排滿；
+       顯示的三顆把兩三種狀態直排在按鈕裡；來源六顆排兩行三欄 */
     .trBar{gap:6px 6px!important;padding:8px 8px!important;margin-bottom:8px!important}
-    .trBar .trFG{border-left:0;padding-left:0;flex:1 1 100%;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
-    .trBar .trFG::-webkit-scrollbar{display:none}
-    .trBar .trFG>span{flex-wrap:nowrap!important}.trBar .sqLaneBtn{flex:0 0 auto;white-space:nowrap}
-    .trBar .trFG:first-child{flex:0 0 auto}.trBar .trFG:nth-child(2){flex:1 1 0;min-width:0}
-    .tbLegend{flex-wrap:nowrap}
+    .trBar .trFG{border-left:0;padding-left:0;flex:1 1 100%;min-width:0;overflow:visible}
+    .trBar .trFG>span:not(.tbLegend){display:grid!important;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:5px!important;width:100%}
+    .trBar .trFG:nth-child(5)>span:not(.tbLegend){grid-auto-flow:row;grid-template-columns:repeat(3,minmax(0,1fr))}
+    .trBar .sqLaneBtn{min-width:0;padding:6px 2px;font-size:12.5px;text-align:center;justify-content:center;white-space:nowrap;overflow:hidden}
+    .tbLegend{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;width:100%}
+    .tbLegend .sqLaneBtn{margin-right:0;flex-direction:column;gap:1px;padding:5px 2px;line-height:1.25;font-size:12px}
+    .tbLgSep{display:none}
     .trBar>label,.trBar .trFG>label,.trBar>span[style*="flex:1"]{display:none}
     .trBar .meta{order:9;flex:1 1 100%;font-size:11px;text-align:right;opacity:.8}
     .trBar .cwrap{flex:1 1 0;min-width:120px}.trBar .cwrap input{width:100%!important}
