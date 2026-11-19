@@ -51,6 +51,8 @@ def _in(vals):
 
 def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell=None):
     """cargo＝build_predict_live.cargo；since＝本休賽期起點（YYYY-MM-DD）；sheep＝輸出層的 Sheep 條目；extra＝{隊名: 聯賽}（2027 新進）"""
+    import datetime as _dt
+    today = _dt.date.today().isoformat()
     # ① 一級隊＋各隊最後一個賽段的名冊
     r = cargo({"tables": "Tournaments=T,TournamentRosters=TR", "join_on": "T.OverviewPage=TR.OverviewPage",
                "fields": "T.League=lg,T.DateStart=ds,TR.Team=tm,TR.RosterLinks=rl,TR.Roles=ro", "limit": "3000", "format": "json",
@@ -236,6 +238,7 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
     # ⑤ 傳聞
     rumor = parse_sheep(sheep)
     # 傳出要去別隊的人（使用者 2026-11-19「如果合約還在但有傳出可能去別隊 上綠色」）：名字 → 最新一則傳聞（目的地＝傳聞的隊）
+    rum_names = {key(v["n"]) for L in rumor.values() for v in L} | {key(v["p"]) for L in rumor.values() for v in L if v.get("p")}
     rum_out = {}
     for v in sorted((v for L in rumor.values() for v in L if v["st"] == "rumor"), key=lambda v: v["d"]):
         rum_out[key(v["n"])] = v
@@ -306,12 +309,20 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
             if rr != "COACH" and any(("new" in e or ("tip" in e and "r" not in e)) for e in cell):
                 moved = [e["p"] or e["n"] for e in cell if "new" not in e and "tip" not in e]
                 cell = [e for e in cell if "new" in e or "tip" in e]
+            # 同一路有新加入或續約的人 ⇒ 合約到期的人不再顯示，移上一位（使用者 2026-11-20「例如 BFX 的中路」）
+            if rr != "COACH" and any(("new" in e or "rs" in e) for e in cell):
+                old_ = [e for e in cell if "new" not in e and "rs" not in e and "tip" not in e and e.get("c") and e["c"] < today]
+                if old_:
+                    moved += [e["p"] or e["n"] for e in old_]
+                    cell = [e for e in cell if e not in old_]
             if moved:
                 gone.setdefault(rr, []).extend(moved)
             # 宣布離隊、這個位置還沒有新簽約也沒有傳聞 ⇒ 留在格子、標 gone（藍字刪除線）；教練分 主教練／後勤 兩組各自看
             have = {key(e["p"]) for e in cell} | {key(e["n"]) for e in cell}
             grp = (lambda c: "HC" if c == "HC" else "S") if rr == "COACH" else (lambda c: "")
-            filled = {grp(e.get("sr", "")) for e in cell if "new" in e or "tip" in e}
+            filled = {grp(e.get("sr", "")) for e in cell if "new" in e or "tip" in e or "rs" in e}   # 有新加入／續約／傳聞就不列（BFX 中路 Daystar）
+            if rr == "COACH" and any(e.get("sr") == "HC" for e in cell):
+                filled.add("HC")   # 主教練只有一位：已有現任（HLE Mowgli 升任）就不再列刪除線的舊主教練（Homme）
             for p in annd.get(tm, {}).get(rr, []):
                 pid, pg = p[0], p[1]
                 k = key(pg)
@@ -326,6 +337,22 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
                 if con.get((k, tm)):
                     e["c"] = con[(k, tm)]
                 cell.append(e); have.add(k)
+            # 選手位置整格空（顯示 –）、原本的人只是離隊、沒有他的傳聞也沒去別隊 ⇒ 一樣留格子藍字刪除線
+            #   （使用者 2026-11-20「本來的選手只是離隊 還沒有任何傳聞與加入別隊的消息 那就用藍字+刪除線」；含轉會期前就走的，如 TT 9/30）
+            if rr != "COACH" and not cell:
+                stay = {key(pg) for v in c.values() for _, pg, *_ in v} | allcur.get(tm, set())
+                for pg in prev.get(tm, {}).get(rr, []):
+                    k = key(pg)
+                    pid = re.sub(r"\s*\([^()]*\)$", "", pg)
+                    if k in stay or k in have or key(pid) in rum_names or k in rum_names:
+                        continue
+                    if (team_of.get(k) and team_of[k] != tm) or any(k in v for t2, v in allcur.items() if t2 != tm) \
+                            or any(kk == k and t2 != tm and jd_[0] >= since for (kk, t2), jd_ in joined.items()):
+                        continue   # 已經去別隊
+                    e = {"n": pid, "p": pg, "gone": 1}
+                    if con.get((k, tm)):
+                        e["c"] = con[(k, tm)]
+                    cell.append(e); have.add(k)
             if rr == "COACH":
                 cell.sort(key=lambda e: STAFF_ORDER.index(e["sr"]) if e.get("sr") in STAFF_ORDER else 9)
             if cell:
@@ -563,6 +590,8 @@ def parse_sheep(sheep):
     """Sheep 推文 → {(隊, 位置): [{n, p, d, tip, from}]}；同一人只留最新一則（照日期由舊到新覆蓋）"""
     best = {}
     for x in sorted(sheep, key=lambda x: x["d"]):
+        for n_ in x.get("stay") or []:   # 之後的續約／留隊消息蓋掉之前的傳聞（最新動向為主）
+            best.pop(n_.lower(), None)
         tags = x.get("tags") or []
         zh = x.get("zh") or ""
         plain = re.sub(r"‹[^|›]+\|([^›]+)›", r"\1", re.sub(r"§[A-Z]+§", "", zh))
@@ -594,4 +623,10 @@ def parse_sheep(sheep):
     res = {}
     for v in best.values():
         res.setdefault((tkey(v["tm"]), v["rr"]), []).append(v)
+    # 同一隊同一路有好幾則傳聞 ⇒ 只留最新一篇的（使用者 2026-11-20「任何傳聞都以最新的動向為主」：KRX 打野 Kanavi 11/17 → Lucid 11/19）；官方消息不動
+    for k_, L_ in res.items():
+        rm = [v for v in L_ if v["st"] == "rumor"]
+        if len(rm) > 1:
+            top = max(v["d"] for v in rm)
+            res[k_] = [v for v in L_ if v["st"] != "rumor" or v["d"] == top]
     return res

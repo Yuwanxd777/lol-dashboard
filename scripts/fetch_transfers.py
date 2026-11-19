@@ -398,6 +398,26 @@ def tier1_teams(year):
     return sorted((s | T1_EXTRA) - T1_EXCLUDE)
 
 
+_STAFF_OK = re.compile(r"\b(?:head coach|coach|assistant coach|strategic coach|positional coach|analyst)\b", re.I)
+_STAFF_NO = re.compile(r"performance|physical|strength|fitness|conditioning|psycholog|nutrition|manager|director|owner|ceo|content|creator|streamer|translator|coordinator|head of", re.I)
+
+
+def staff_only_noise(x):
+    """這則只講教練欄不列的職稱（體能教練、經理、總監…）⇒ 不列（使用者 2026-11-20「體能教練這條應該刪除」）。
+    有選手路線（§TOP§…）、沒標職稱的人、或任一職稱是主教練／教練／戰略／路線教練／分析師（含「A to Head Coach」）就留"""
+    en = x.get("en") or ""
+    if re.search(r"§(?:TOP|JNG|MID|BOT|SUP)§", en):
+        return False
+    roles = re.findall(r"\(([^()]*)\)", re.sub(r"‹[^|›]+\|", "", en).replace("›", ""))
+    roles = [r for r in roles if re.search(r"coach|analyst|manager|director|owner|coordinator|head of|ceo|creator|streamer", r, re.I)]
+    if not roles:
+        return False
+    named = len(re.findall(r"‹[^|›]+\|[^›]+›(?!\s*\()", en))   # 沒標職稱的人（選手）
+    if named:
+        return False
+    return all(not _STAFF_OK.search(re.sub(r"(?:performance|physical|strength|fitness|conditioning|mental) coach", "", r, flags=re.I)) for r in roles)
+
+
 def is_t1(x, keys):
     """這則有牽涉到六大聯賽一級隊（加入、離開到次級都算；使用者 2026-11-19）"""
     if "tags" in x:
@@ -446,6 +466,7 @@ def main():
         n0, n1 = len(wiki), len(sheep)
         # wiki 一隊一句：一級隊離隊的人，之後「加入次級隊」那句也留（從六大聯賽離開到次級也列出）
         gone = {p for x in wiki if is_t1(x, keys) and x["kind"] in ("leave", "both") for p, _ in PL_RE.findall(x["en"])}
+        wiki = [x for x in wiki if not staff_only_noise(x)]
         wiki = [x for x in wiki if is_t1(x, keys) or (x["kind"] in ("join", "both") and any(p in gone for p, _ in PL_RE.findall(x["en"])))]
         sheep = [x for x in sheep if is_t1(x, keys)]
         print(f"六大聯賽一級：wiki {n0}→{len(wiki)}、sheep {n1}→{len(sheep)}（一級隊 {len(t1)}）")
@@ -457,13 +478,40 @@ def main():
         fetch_ptt_transfers.main("2026-11-15T12:00")
     except Exception as e:
         print(f"PTT 抓取失敗，只用累積檔：{type(e).__name__} {str(e)[:100]}")
-    extra = []
+    extra, ptt_raw = [], []
+    sheep_ids = {x["id"] for x in acc}
     for fn in ("transfers_ptt_src.json", "transfers_official_src.json"):
         p = os.path.join(ROOT, fn)
         if os.path.exists(p):
-            extra += [{k: x[k] for k in ("id", "d", "zh", "src", "url", "ptt", "st", "kind", "tags") if x.get(k)} for x in json.load(io.open(p, encoding="utf-8"))]
+            raw = json.load(io.open(p, encoding="utf-8"))
+            if fn.startswith("transfers_ptt"):
+                ptt_raw = raw
+                # 轉貼 Sheep Esports、而那則已收進 Sheep 來源 ⇒ 消息不重複列（使用者 2026-11-20「PTT 的文章消息是 Sheep Esports 也不要重複」）
+                raw = [x for x in raw if not (set(re.findall(r"Sheep_Esports/status/(\d+)", x.get("body") or "")) & sheep_ids)]
+            extra += [{k: x[k] for k in ("id", "d", "zh", "src", "url", "ptt", "st", "kind", "tags", "mv") if x.get(k)} for x in raw]
     extra.sort(key=lambda x: x["d"], reverse=True)
-    off = [x for x in extra if x.get("src") == "官方"]
+    off = [x for x in extra if x.get("src") == "官方"]   # 陣容表的續約判定吃得到（粉字）
+    # PTT 傳聞進陣容表（使用者 2026-11-20「你不是有抓到 Scout 可能會去 KRX 的消息嗎 怎沒填入陣容表」）：
+    #   ptt 條目的 mv／stay 由我人工判讀（標題＋內文）⇒ 轉成 Sheep 同格式交給 transfers_board.parse_sheep，
+    #   跟 Sheep 一起依日期「同一人只留最新動向」（使用者「任何傳聞都以最新的動向為主」）；stay＝續約／留隊，蓋掉之前的傳聞
+    pgmap = {}
+    for x in (wiki or []) + (sheep or []):
+        for pg_, nm_ in re.findall(r"‹([^|›]+)\|([^›]+)›", (x.get("en") or "") + (x.get("zh") or "")):
+            pgmap.setdefault(nm_.lower(), urllib.parse.unquote(pg_).replace("_", " "))
+    for t in old.get("board") or []:
+        for L_ in list(t.get("r", {}).values()) + list(t.get("prev", {}).values()):
+            for e_ in L_:
+                if isinstance(e_, dict) and e_.get("p") and e_.get("n"):
+                    pgmap.setdefault(str(e_["n"]).lower(), e_["p"])
+    synth = []
+    for x in ptt_raw:
+        for nm_, lane_, to_, fr_ in x.get("mv") or []:
+            pg_ = pgmap.get(nm_.lower(), nm_)
+            synth.append({"d": x["d"], "st": x.get("st") or "rumor", "kind": "join",
+                          "zh": f"§{lane_}§‹{pg_}|{nm_}› 加入 {to_}（PTT：{x.get('zh') or ''}）",
+                          "tags": ([["", fr_, "out"]] if fr_ else []) + [["", to_, "in"]]})
+        if x.get("stay"):
+            synth.append({"d": x["d"], "st": x.get("st") or "rumor", "kind": "other", "zh": "", "stay": [s_[0] for s_ in x["stay"]]})
     farewell = []   # 戰隊官方 Thank you／Farewell 文（PTT 轉貼，含內文）⇒ 陣容表當宣布離隊
     p = os.path.join(ROOT, "transfers_ptt_src.json")
     if os.path.exists(p):
@@ -473,7 +521,7 @@ def main():
     try:
         import build_predict_live as B, transfers_board
         yr = int(start[:4]) if start[5:7] > "06" else int(start[:4]) - 1
-        board = transfers_board.build(B.cargo, yr, start, sheep + off, {n: "LCS" for n in T1_EXTRA}, wiki, T1_EXCLUDE, farewell)
+        board = transfers_board.build(B.cargo, yr, start, sheep + off + synth, {n: "LCS" for n in T1_EXTRA}, wiki, T1_EXCLUDE, farewell)
         print(f"陣容表：{len(board)} 隊")
     except Exception as e:
         board = old.get("board") or []
