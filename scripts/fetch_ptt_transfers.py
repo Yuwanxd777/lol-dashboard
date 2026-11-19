@@ -112,9 +112,11 @@ def main(start=None):
             continue
         main_ = h.split('<div id="main-content"', 1)[-1].split("※ 發信站", 1)[0]   # 只看內文，不看推文（使用者 2026-11-19；推文在「※ 發信站」之後）
         kr = [m.group(0).replace("&amp;", "&") for m in KOREAN.finditer(main_)]
+        # 轉貼 Sheep Esports 推文 ⇒ 來源標 Sheep、連結直接給那則推文（使用者 2026-11-20「那應該直接給我 Sheep Esports 的連結」）
+        sh = ["https://x.com/Sheep_Esports/status/" + i for i in re.findall(r"Sheep_Esports/status/(\d+)", main_)]
         zh = re.sub(r"^\[[^\]]+\]\s*", "", title).strip()
         x = {"id": pid, "d": datetime.datetime.fromtimestamp(t, TZ).strftime("%Y-%m-%d %H:%M"), "title": title, "zh": zh,
-             "src": "韓網" if kr else "PTT", "url": kr[0] if kr else ptt, "ptt": ptt,
+             "src": "韓網" if kr else ("Sheep Esports" if sh else "PTT"), "url": kr[0] if kr else (sh[0] if sh else ptt), "ptt": ptt,
              "st": "rumor" if RUMOR.search(title) else "official", "body": plain(main_)}
         acc.append(x); have.add(pid); n += 1
         time.sleep(0.3)

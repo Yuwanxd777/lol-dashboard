@@ -420,6 +420,45 @@ def staff_only_noise(x):
     return all(not _STAFF_OK.search(re.sub(r"(?:performance|physical|strength|fitness|conditioning|mental) coach", "", r, flags=re.I)) for r in roles)
 
 
+def player_roles(cargo, items, skip):
+    """消息內文裡出現、但陣容表沒有的人（二隊選手、退役選手、教練…）的位置：向 Leaguepedia Players 查 ID → 路線／教練
+    （使用者 2026-11-20「沒標後面兩位選手的路線」「Nuguri 是上路」「Roach 是教練」「這種類似問題都幫我解決」）。
+    items＝[(內文, {賽區…})]；skip＝隊名／縮寫等不是人名的字。回傳 {名字: [路線代碼, wiki 頁名]}。
+    同名多人（Valiant 有韓國的也有挪威的）⇒ 用提到他的消息的賽區對 Residency 挑；挑不出唯一就不標（寧可不標也不要連錯人）"""
+    RES = {"韓國": {"Korea"}, "中國": {"China"}, "歐洲": {"EMEA", "Europe"}, "北美": {"North America"}, "巴西": {"Brazil"},
+           "亞太": {"PCS", "Vietnam", "Japan", "Oceania", "SEA", "LAS", "LCP"}, "越南": {"Vietnam"}, "日本": {"Japan"}}
+    cand = {}
+    for t, rgs in items:
+        t = re.sub(r"https?://\S+", " ", t or "")
+        for m in re.finditer(r"‹[^|›]+\|([^›]+)›|(?<![A-Za-z0-9])([A-Za-z][A-Za-z0-9]{1,15})(?![A-Za-z0-9])", t):
+            n = (m.group(1) or m.group(2) or "").strip()
+            if not n or n.lower() in skip or (n.isupper() and len(n) <= 3):
+                continue
+            cand.setdefault(n, set()).update(rgs or ())
+    names = sorted(cand)
+    LMAP = {"Top": "TOP", "Jungle": "JNG", "Mid": "MID", "Bot": "BOT", "Support": "SUP", "Coach": "COACH", "Analyst": "COACH"}
+    rows = []
+    for i in range(0, len(names), 40):
+        part = names[i:i + 40]
+        rows += cargo({"tables": "Players", "fields": "Players.ID=id,Players.OverviewPage=pg,Players.Role=ro,Players.Team=tm,Players.IsRetired=ret,Players.Residency=res",
+                       "where": "Players.ID IN (" + ",".join('"%s"' % n.replace('"', "") for n in part) + ")", "limit": "500", "format": "json"})
+    by = {}
+    for r in rows:
+        ro = LMAP.get((r.get("ro") or "").split(",")[0].strip())
+        if ro:
+            by.setdefault(str(r["id"]).lower(), []).append({"ro": ro, "pg": r["pg"], "tm": bool(r.get("tm")), "res": r.get("res") or ""})
+    out = {}
+    for n in names:
+        c = by.get(n.lower()) or []
+        if len(c) > 1:
+            want = set().union(*[RES.get(g, set()) for g in cand[n]]) if cand[n] else set()
+            c2 = [x for x in c if x["res"] in want] if want else []
+            c = c2 if len(c2) == 1 else ([x for x in c if x["tm"]] if len([x for x in c if x["tm"]]) == 1 and not want else [])
+        if len(c) == 1:
+            out[n] = [c[0]["ro"], c[0]["pg"]]
+    return out
+
+
 def is_t1(x, keys):
     """這則有牽涉到六大聯賽一級隊（加入、離開到次級都算；使用者 2026-11-19）"""
     if "tags" in x:
@@ -532,7 +571,21 @@ def main():
     except Exception as e:
         board = old.get("board") or []
         print(f"陣容表失敗，沿用舊檔 {len(board)} 隊：{type(e).__name__} {str(e)[:150]}")
-    data = {"at": datetime.datetime.now().strftime("%Y-%m-%d %H:%M"), "from": start, "t1": t1, "wiki": wiki, "sheep": sheep, "extra": extra, "board": board}
+    try:
+        import build_predict_live as B2
+        skipw = {w.lower() for t in (t1 or []) for w in re.findall(r"[A-Za-z0-9]+", t)} | {"lck", "lpl", "lec", "lcs", "lcp", "cblol", "ptt", "obgg", "gcd", "inven", "riot", "msi", "emea", "masters", "the", "play", "carry", "ad"}
+        lg2rg = {"LCK": "韓國", "LPL": "中國", "LEC": "歐洲", "LCS": "北美", "CBLOL": "巴西", "LCP": "亞太"}
+        tm_rg = {t["nm"]: lg2rg.get(t["lg"], "") for t in board} | {t["tm"]: lg2rg.get(t["lg"], "") for t in board}
+        def _rgs(x):   # 這則消息的賽區：wiki 的 rg、標籤的賽區、標籤／去向的隊伍所屬聯賽
+            g = {x.get("rg")} | {t[0] for t in x.get("tags") or []} | {tm_rg.get(t[1], "") for t in x.get("tags") or []}
+            g |= {tm_rg.get(m[2], "") for m in x.get("mv") or []} | {tm_rg.get(m[3], "") for m in x.get("mv") or []}
+            return {v for v in g if v}
+        roles = player_roles(B2.cargo, [((x.get("zh") or ""), _rgs(x)) for x in sheep + extra + wiki], skipw)
+        print(f"消息人名位置：查到 {len(roles)} 人")
+    except Exception as e:
+        roles = old.get("roles") or {}
+        print(f"消息人名位置查詢失敗，沿用舊檔 {len(roles)} 人：{type(e).__name__} {str(e)[:100]}")
+    data = {"at": datetime.datetime.now().strftime("%Y-%m-%d %H:%M"), "from": start, "t1": t1, "wiki": wiki, "sheep": sheep, "extra": extra, "roles": roles, "board": board}
     io.open(OUT, "w", encoding="utf-8").write("window.TRANSFERS=" + json.dumps(data, ensure_ascii=False, separators=(",", ":")) + ";\n")
     print(f"transfers.js：wiki {len(wiki)}、sheep {len(sheep)}、PTT／韓網／官方 {len(extra)}")
 

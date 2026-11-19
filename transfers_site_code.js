@@ -77,7 +77,7 @@ function render(){
         const out=[];
         (D.extra||[]).forEach(x0=>{ // 標題開頭的「乳摸：」「韓網乳摸：」不寫（使用者 2026-11-20：第一欄已標傳聞）
           const x={...x0,zh:String(x0.zh||"").replace(/^\s*(?:韓網)?乳摸\s*[:：]?\s*/,"").replace(/\s*[(（]含乳摸[)）]/,"")};
-          const base={...x,s:x.src==="韓網"?"kr":x.src==="官方"?"man":"ptt",rg:""};
+          const base={...x,s:x.src==="韓網"?"kr":x.src==="官方"?"man":x.src==="Sheep Esports"?"sheep":"ptt",rg:""};   // PTT 轉貼 Sheep 的：來源＝Sheep、連結給推文
           // 原隊／新隊只放標題有點名的人（KRX 五人那篇內文另提 Sharvel→GEN，不該多出 DNS／GEN）；都沒點名才全放
           const mvIn=x.mv?x.mv.filter(m=>has(m[0],x.zh)):[], mvU=mvIn.length?mvIn:(x.mv||[]);
           // 內文雜亂（好幾個人、原隊或新隊不同）⇒ 拆成一人一列（使用者 2026-11-20「記得把內文拆開來判斷」）
@@ -133,6 +133,8 @@ function render(){
     (D.board||[]).forEach(t=>{ Object.entries(t.r||{}).forEach(([r,L])=>L.forEach(e=>addPl(pn0(e.n),e.p,r)));
       Object.entries(t.prev||{}).forEach(([r,L])=>L.forEach(p=>{ const o=typeof p==="string"?{n:p}:p; addPl(pn0(o.n),o.n,r); })); });
     [...(D.wiki||[]),...(D.sheep||[])].forEach(x=>((x.en||"")+" "+(x.zh||"")).replace(/(?:§(TOP|JNG|MID|BOT|SUP|COACH)§)?‹([^|›]+)\|([^›]+)›/g,(m,l,p,d)=>{ let pg=p; try{pg=decodeURIComponent(p);}catch(e){} addPl(d,pg.replace(/_/g," "),l||""); return m; }));
+    // 陣容表沒有的人（二隊、退役、教練）：排程向 Leaguepedia 查好的位置（transfers.js 的 roles；使用者 2026-11-20 Cracker／Nuguri／Roach）
+    Object.entries(D.roles||{}).forEach(([n,v])=>addPl(n,v[1],v[0]));
     const PLRE=PLM.size?new RegExp("(?<![A-Za-z0-9§|‹])("+[...PLM.keys()].sort((a,b)=>b.length-a.length).map(n=>n.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")).join("|")+")(?![A-Za-z0-9›|])","g"):null;
     // 多字隊名整段保護（使用者 2026-11-20「錯誤的把 LIFE 標註了」：Hanwha Life Esports 裡的 Life 被當成輔助 Life）；
     //   去掉 Esports／Gaming 的短名（Hanwha Life）也算
@@ -174,11 +176,14 @@ function render(){
       const u=[...new Set(a.filter(Boolean).map(rgNm))];
       return u.map(l=>`<span class="trLg" style="--lgc:${LGC[l]||"var(--tx2)"}">${esc(l)}</span>`).join(`<span class="trArr">➜</span>`); };
     const NONE=`<span class="trNone">–</span>`;
+    // 只知道新隊的加入消息：陣容表有記這個人從哪來就補原隊（使用者 2026-11-20「Bluffing 本來是 HLE 二隊的，怎麼沒寫成 HLEC → DNS」「SeTab 也是」）
+    const ORG=new Map(); (D.board||[]).forEach(t=>Object.values(t.r||{}).flat().forEach(e=>{ if(e.from&&!e.r)ORG.set(nk(e.n)+">"+t.nm,e.from); }));
+    const orgOf=(x,to)=>{ const fs=[...new Set(namesOf(x).map(n=>ORG.get(n+">"+to)).filter(Boolean))]; return fs.length?fs.map(f=>team("",f)).join(""):""; };
     const flowOf=x=>{
       if(x.s==="wiki"){ const t=team(x.rg,x.team);
-        return x.kind==="join"?{from:NONE,to:t}:x.kind==="leave"?{from:t,to:NONE}:{span:t}; }
+        return x.kind==="join"?{from:orgOf(x,x.team)||NONE,to:t}:x.kind==="leave"?{from:t,to:NONE}:{span:t}; }
       const out=x.tags.filter(t=>t[2]==="out"), inn=x.tags.filter(t=>t[2]==="in"), col=a=>a.map(t=>team(t[0],t[1])).join("");
-      if(out.length||inn.length)return {from:out.length?col(out):NONE,to:inn.length?col(inn):NONE};
+      if(out.length||inn.length)return {from:out.length?col(out):((inn.length===1&&orgOf(x,inn[0][1]))||NONE),to:inn.length?col(inn):NONE};
       return {span:x.tags.length?col(x.tags):(x.s==="sheep"?`<span class="trSrcTag">${SRCN[x.s]}</span>`:NONE)};
     };
     // 同隊同時期合併（使用者 2026-11-20「相同戰隊的同一時期（兩小時內）的轉會資訊都合併」）：
