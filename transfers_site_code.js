@@ -324,7 +324,7 @@ function render(){
         if(!nw&&!(t.r[r]||[]).some(e=>!e.gone))nw={n:en2?"Vacant":"空缺",s:null,rm:false,vac:1};
         const od=[...((t.prev||{})[r]||[]),...(t.r[r]||[]).filter(e=>e.gone)].map(p=>{ const n=typeof p==="string"?p:p.n; return {n:pn(n),s:get(n)}; }).sort(byG)[0];
         if(nw&&od&&(nw.s||od.s)){ const A=fill(nw), B=fill(od);
-          const tg=x=>[x.s.yr?(en2?"full year":"全年"):"",x.s.w&&Math.abs(x.s.w-1)>0.005?`${lgN(x.s.lg)} ${x.s.raw.toFixed(1)} ×${x.s.w.toFixed(2)}`:""].filter(Boolean).join("・");
+          const tg=x=>[x.s.yr?(en2?"full year":"全年"):"",x.s.w&&Math.abs(x.s.w-1)>0.005?lgN(x.s.lg):""].filter(Boolean).join(" ");   // 只寫「全年 LEC」，不寫權重數字（使用者 2026-11-20）
           if(A.s&&B.s)items.push({r,nw:A.n,od:B.n,a:A.s.v,b:B.s.v,d:A.s.v-B.s.v,rm:A.rm,ma:A.md&&(A.vac?2:1),mb:B.md,ta:A.md?"":tg(A),tb:B.md?"":tg(B)}); } }
       const hc=(t.r.COACH||[]).find(e=>e.sr==="HC"&&(e.new||e.tip)&&e.from), A=hc&&coachS(hc.from), B=coachS(t.nm)||coachS(t.tm);
       if(hc&&A&&B)items.push({r:"COACH",nw:`${pn(hc.n)}（${abOf(hc.from)}・${A.note}）`,od:`${abOf(t.nm)}（${B.note}）`,a:A.v,b:B.v,d:A.v-B.v,rm:!!hc.r});
