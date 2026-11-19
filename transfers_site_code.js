@@ -344,7 +344,7 @@ function render(){
         h+=`</div>`; }   // 計算說明不放小框，寫在 ℹ️ 說明（使用者 2026-11-20）
       TIPS.push(h+`</div>`); return TIPS.length-1; };
     const rateCell=t=>{ const rt=rateOf(t), v=rt&&rt.items.length?rt.sum:null;
-      return `<div class="tbCell tbRate" data-tb="${rateTip(t)}">${v==null?`<span class="tbMuted">–</span>`:`<b class="${v>0?"tbUp":v<0?"tbDn":""}">${rt.rm?"(":""}${(v>0?"+":"")+v.toFixed(1)}${rt.rm?")":""}</b>${rt.vac?`<i class="tbVacN">${en2?`${rt.vac} open`:`缺 ${rt.vac}`}</i>`:""}`}</div>`; };
+      return `<div class="tbCell tbRate" data-tb="${rateTip(t)}">${v==null?`<span class="tbMuted">–</span>`:`<b class="${v>0?"tbUp":v<0?"tbDn":""}">${rt.rm?"(":""}${(v>0?"+":"")+v.toFixed(1)}${rt.rm?")":""}</b>`}</div>`; };
     // 顏色（使用者 2026-11-19，取代星號）：黃＝傳聞未確定、紅＝新加入、藍＝合約已到期但還沒宣布離隊（Doran）、粉＝本轉會期續約（使用者 2026-11-19「粉色 跟紅色相近」）、白＝留隊
     // 藍字刪除線＝已宣布離隊、這個位置還沒有新簽約也沒有傳聞（使用者 2026-11-19）
     const tbCls=e=>e.gone?"tbExp tbGone":e.r?"tbY":e.new?"tbNew":roOn(e)?"tbOut":e.rs?"tbRs":(e.c&&e.c<today?(e.ro?"tbExp tbGone":"tbExp"):"");   // 合約到期沒宣布、但傳出去別隊（LØS Zest）也畫刪除線（使用者 2026-11-20）   // rs＝本轉會期有官方續約消息（GCD 還沒更新也算）⇒ 粉字
