@@ -166,6 +166,43 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=()):
             y = re.search(r"(?:續約|延長)(?:到|至)?\s*(\d{4})", zh)
             for disp_ in re.findall(r"‹[^|›]+\|([^›]+)›", zh):
                 resign.setdefault(key(disp_), y.group(1) if y else "")
+    # ④c 合約到期、還沒宣布離隊（使用者 2026-11-19「教練的合約到期不要預設離隊啊，要是藍字」「GEN 就沒有任何宣布」）：
+    #     wiki 在合約到期日自動記一筆 Leave（Kiin／Canyon／Lyn／Nova 都是 11/16），跟真的宣布離隊分不出來 ⇒
+    #     離隊日＝合約到期日（±1 天）、之後沒加入別隊、也沒有官方「分道揚鑣／告別」消息的人留在原隊，合約欄顯示已到期（藍字）。
+    #     官方公告「合約到期」（Gen.G announce that Kiin's contract has expired）也算宣布離隊（使用者確認 GEN 有發布）
+    ann = set()
+    for x in sheep or []:
+        if (x.get("st") or "") != "official" or x.get("kind") not in ("leave", "both"):
+            continue
+        txt = (x.get("en") or "") + " " + (x.get("zh") or "")
+        if not re.search(r"part(?:s|ed)? ways|farewell|depart|leaves? the|bid(?:s)? goodbye|contract (?:has )?expired|分道揚鑣|告別|道別|離開|離隊|合約到期", txt, re.I):
+            continue
+        outs = [tkey(t[1]) for t in (x.get("tags") or []) if len(t) > 2 and t[2] == "out" and t[1]]
+        for nm_ in re.findall(r"‹[^|›]+\|([^›]+)›", txt):
+            for o in outs:
+                ann.add((key(nm_), o))
+    expired, lastev = {}, {}
+    for x in rc:   # 新到舊
+        k2 = (key(x["p"]), x["tm"])
+        if k2 not in lastev:
+            lastev[k2] = x
+    for (k, tm), x in lastev.items():
+        d = (x.get("d") or "")[:10]
+        ce = con.get((k, tm))
+        if x.get("dir") != "Leave" or d < since or not ce or abs(_days(min(d, ce), max(d, ce))) > 1:
+            continue
+        if (team_of.get(k) and team_of[k] != tm) or any(k in v for t2, v in allcur.items() if t2 != tm) or (k, tkey(tm)) in ann:
+            continue   # 已經去別隊／官方宣布離隊
+        ro = x.get("ro") or ""
+        pg = str(x["p"])
+        disp_id = re.sub(r"\s*\([^()]*\)$", "", pg)
+        rr = ROLE_OF.get(ro) if ro in ("Top", "Jungle", "Mid", "Bot", "Support") else None
+        if rr:
+            expired.setdefault(tm, {}).setdefault(rr, []).append((disp_id, pg, ro))
+        else:
+            code = staff_code(ro, "")
+            if code:
+                expired.setdefault(tm, {}).setdefault("COACH", []).append((disp_id, pg, ro, code))
     # ⑤ 傳聞
     rumor = parse_sheep(sheep)
     out = []
@@ -176,6 +213,8 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=()):
         for rr in LANES + ["COACH"]:
             cell = []
             ppl = c.get(rr, [])
+            hk = {key(p[1]) for p in ppl}
+            ppl = ppl + [p for p in expired.get(tm, {}).get(rr, []) if key(p[1]) not in hk]   # 合約到期未宣布離隊的也列（藍字）
             srole = {}
             if rr == "COACH":   # 只列主教練／教練／戰略教練／路線教練／分析師（使用者 2026-11-19），依序排
                 keep = []
@@ -184,6 +223,12 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=()):
                     if s:
                         srole[p[1]] = s; keep.append(p)
                 ppl = sorted(keep, key=lambda p: STAFF_ORDER.index(srole[p[1]]))
+                # 主教練已經有現任的（HLE Mowgli 升主教練）⇒ 合約到期的舊主教練（Homme）當作離任，移到上一位
+                exk = {key(p[1]) for p in expired.get(tm, {}).get("COACH", [])}
+                if any(srole[p[1]] == "HC" and key(p[1]) not in exk for p in ppl):
+                    old = [p for p in ppl if srole[p[1]] == "HC" and key(p[1]) in exk]
+                    gone.setdefault("COACH", []).extend(p[1] for p in old)
+                    ppl = [p for p in ppl if p not in old]
             for pid, pg, *_ in ppl:
                 k = key(pg)
                 e = {"n": pid, "p": pg}
