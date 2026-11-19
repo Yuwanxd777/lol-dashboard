@@ -15,7 +15,8 @@ import urllib.parse
 
 ROLE_OF = {"Top": "TOP", "Jungle": "JNG", "Mid": "MID", "Bot": "BOT", "Support": "SUP", "Coach": "COACH", "Analyst": "COACH"}
 STAFF_ORDER = ["HC", "C", "SC", "PC", "AN"]   # 主教練／教練／戰略教練／路線教練／分析師（其餘助理教練、體能教練、經理…不列）
-_STAFF_TOK = {"head coach": "HC", "interim head coach": "HC", "coach": "C", "strategic coach": "SC", "positional coach": "PC",
+_STAFF_TOK = {"head coach": "HC", "interim head coach": "HC", "coach": "C", "assistant coach": "C",   # 使用者 2026-11-19「助理教練就是教練」
+"strategic coach": "SC", "positional coach": "PC",
               "analyst": "AN", "head analyst": "AN", "data analyst": "AN", "strategy analyst": "AN", "gameplay analyst": "AN"}
 
 
@@ -102,14 +103,14 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=()):
     #     Tenures.IsCurrent × 加入那筆 RosterChanges 的職稱／狀態。Players.Role 只有 Coach／Analyst 兩種、Team 欄常沒跟上
     #     （TL Annibal 是 Business Analyst、SR Nulu 根本不在 SR 名單、kkOma 休假 inactive、SR 漏了路線教練 Selfie）
     try:
-        tstaff = staff_tenures(cargo, teams)
+        tstaff, allcur = staff_tenures(cargo, teams)
         for tm in teams:
             cur.setdefault(tm, {})["COACH"] = tstaff.get(tm, [])
             for _, pg, *_ in tstaff.get(tm, []):
                 team_of[key(pg)] = tm   # Players.Team 常沒跟上 ⇒ 教練的現任隊以 Tenures 為準（新人判定、原隊都靠它）
     except Exception as e:   # 查不到就退回 Players
         print(f"   教練現任名單（Tenures）查詢失敗，退回 Players：{type(e).__name__} {str(e)[:100]}")
-        tstaff = None
+        tstaff, allcur = None, {}
     try:
         played = played_set(cargo, year, teams)
     except Exception as e:
@@ -228,7 +229,9 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=()):
         pv = {}
         for rr in LANES + ["COACH"]:
             # 還在隊上的人不是「上一位」（使用者 2026-11-19「Ratis 沒說離開 GZ，他是教練」：職稱不在五種裡沒顯示，不代表離隊）
-            here = {key(e["p"]) for e in rows.get(rr, [])} | {key(pg) for v in c.values() for _, pg, *_ in v if key(pg) not in {key(g) for g in gone.get(rr, [])}}
+            gk = {key(g) for g in gone.get(rr, [])}
+            here = {key(e["p"]) for e in rows.get(rr, [])} | {key(pg) for v in c.values() for _, pg, *_ in v if key(pg) not in gk} \
+                | (allcur.get(tm, set()) - gk)
             seen, L = set(), []
             for p in gone.get(rr, []) + prev.get(tm, {}).get(rr, []):   # 被新人擠掉的排前面
                 if key(p) not in here and key(p) not in seen:
@@ -303,7 +306,11 @@ def staff_tenures(cargo, teams):
         p = str(x["p"])
         disp_id, pg = idof.get(p, (re.sub(r"\s*\([^()]*\)$", "", p), p))
         out.setdefault(x["tm"], []).append((disp_id, pg, x.get("ro") or "", x["code"]))
-    return out
+    allcur = {}   # 各隊 wiki 現任名單上的所有人（任何職稱／狀態）：「上一位」不可列這些人（GZ Ratis）
+    for x in rows:
+        if x.get("p") is not None:
+            allcur.setdefault(x["tm"], set()).add(key(str(x["p"])))
+    return out, allcur
 
 
 def stints(evs):

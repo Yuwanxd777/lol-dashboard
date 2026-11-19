@@ -24,7 +24,7 @@ FROM = "2026-11-01"
 sys.path.insert(0, HERE)
 
 ROLE = {"Top Laner": "TOP", "Jungler": "JNG", "Mid Laner": "MID", "Bot Laner": "BOT", "Support": "SUP"}
-STAFF = {"Head Coach": "主教練", "Assistant Coach": "助理教練", "Coach": "教練", "Strategic Coach": "戰術教練",
+STAFF = {"Head Coach": "主教練", "Assistant Coach": "教練", "Coach": "教練", "Strategic Coach": "戰術教練",
          "Positional Coach": "位置教練", "Team Manager": "領隊", "General Manager": "總經理", "Manager": "經理",
          "Data Analyst": "數據分析師", "Analyst": "分析師", "Esports Director": "電競總監", "Owner": "老闆",
          "Chief Executive Officer": "執行長", "Substitute": "替補", "Performance Coach": "體能教練",
