@@ -246,6 +246,94 @@ def link_sheep(wiki, sheep):
             if x.get(k):
                 parts = prot.split(x[k])
                 x[k] = "".join(s if i % 2 else rx.sub(rep, s) for i, s in enumerate(parts))
+    lane_sheep(sheep, prot)
+
+
+LANE_ZH = {"上路": "TOP", "打野": "JNG", "中路": "MID", "下路": "BOT", "AD Carry": "BOT", "ADC": "BOT", "輔助": "SUP"}
+LANE_EN = {"toplaner": "TOP", "top laner": "TOP", "jungler": "JNG", "midlaner": "MID", "mid laner": "MID",
+           "botlaner": "BOT", "bot laner": "BOT", "ad carry": "BOT", "adc": "BOT", "support": "SUP"}
+_NAME = r"(‹[^|›]+\|[^›]+›|[A-Z0-9][A-Za-z0-9_.'-]*|[a-z][a-z0-9]*[A-Z0-9][A-Za-z0-9_.'-]*)"
+_NAMEN = _NAME.replace("(", "(?:", 1)
+_EN_STOP = {"For", "The", "In", "As", "At", "And", "To", "Of", "On", "With", "From", "Is", "Was", "Will", "LCK", "LPL", "LEC", "LCS", "CBLOL", "LCP"}
+
+
+def lane_sheep(sheep, prot=None, year=None):
+    """Sheep 推文的「輔助 Cryogen」「support Cryogen」→ §SUP§Cryogen（跟 wiki 句子一樣顯示路線圖示；使用者 2026-11-19）。
+    只在路線字後面緊接選手名時換（「以先發打野加入」「AD Carry 未定」不動）；名字＝連結記號或大寫開頭的英數字，排除介系詞與聯賽名"""
+    rz = re.compile(r"(?<![A-Za-z])(" + "|".join(map(re.escape, sorted(LANE_ZH, key=len, reverse=True))) + r")\s*" + _NAME)
+    re_ = re.compile(r"(?<![A-Za-z])((?i:" + "|".join(map(re.escape, sorted(LANE_EN, key=len, reverse=True))) + r"))\s+" + _NAME)   # 只有路線字不分大小寫，名字要大寫開頭
+
+    def fz(m):
+        return m.group(0) if m.group(2) in _EN_STOP or m.group(2).isdigit() else "§%s§%s" % (LANE_ZH[m.group(1)], m.group(2))
+
+    def fe(m):
+        return m.group(0) if m.group(2) in _EN_STOP or m.group(2).isdigit() else "§%s§%s" % (LANE_EN[m.group(1).lower()], m.group(2))
+    td = datetime.date.today()
+    pos = player_pos(year or (td.year if td.month > 6 else td.year - 1))
+    RG_LG = {"韓國": "LCK", "中國": "LPL", "歐洲": "LEC", "北美": "LCS", "巴西": "CBLOL", "亞太": "LCP", "越南": "LCP", "日本": "LCP"}
+
+    def lane_of(name, lgs):   # 同名多人 ⇒ 用這則推文標的賽區挑；挑不出唯一就不標
+        c = pos.get(name.lower())
+        if not c:
+            return None
+        if len({p for p in c.values()}) == 1:
+            return next(iter(c.values()))
+        c2 = {p for lg, p in c.items() if lg in lgs}
+        return next(iter(c2)) if len(c2) == 1 else None
+    for x in sheep:
+        lgs = {RG_LG.get(t[0]) for t in x.get("tags") or []}
+        for k, rx, f in (("zh", rz, fz), ("en", re_, fe)):
+            if x.get(k):
+                parts = re.split(r"(https?://\S+)", x[k])
+                x[k] = "".join(s if i % 2 else rx.sub(f, s) for i, s in enumerate(parts))
+                # 角色寫在名字後面（「DuDu 與 DNS 續約…這位上路」）或沒寫 ⇒ 查當季比賽資料的位置，第一次出現的名字前面補圖示
+                plain = lambda nm: re.sub(r"^‹[^|›]+\|([^›]+)›$", r"\1", nm)
+                seen = {plain(n) for n in re.findall(r"§[A-Z]+§" + _NAME, x[k])}
+
+                def fd(m):
+                    nm = m.group(1); key = plain(nm)
+                    if key in seen or key in _EN_STOP:
+                        return nm
+                    ln = lane_of(key, lgs)
+                    if ln:
+                        seen.add(key)
+                    return "§%s§%s" % (ln, nm) if ln else nm
+                parts = (prot or re.compile(r"(https?://\S+)")).split(x[k])
+                parts = [s for i, s in enumerate(parts)] if prot else parts
+                out = []
+                for i, s in enumerate(parts):
+                    if i % 2:   # 網址／隊名（Hanwha Life Esports 的 Life）不動
+                        out.append(s); continue
+                    for j, u in enumerate(re.split(r"(§[A-Z]+§" + _NAMEN + ")", s)):
+                        out.append(u if j % 2 else re.sub(r"(?<![A-Za-z0-9_§])" + _NAME + r"(?![A-Za-z0-9_])", fd, u))
+                x[k] = "".join(out)
+
+
+_POS = {}
+
+
+def player_pos(year):
+    """當季年度資料：選手名（小寫）→ {聯賽: 位置}（participantid 1～5＝上野中下輔；同一聯賽取出場最多的位置）"""
+    if year in _POS:
+        return _POS[year]
+    import collections
+    cnt = collections.defaultdict(collections.Counter)
+    fn = os.path.join(ROOT, "data", f"data_{year}.js")
+    if os.path.exists(fn):
+        d = io.open(fn, encoding="utf-8").read()
+        R = json.loads(d[d.index("=") + 1:].rstrip().rstrip(";"))["tabs"]["RAW_DATA"]
+        h = R[0]; iL, iP, iB, iR = h.index("league"), h.index("participantid"), h.index("blue_playername"), h.index("red_playername")
+        for r in R[1:]:
+            p = str(r[iP])
+            if p in ("1", "2", "3", "4", "5"):
+                for n in (r[iB], r[iR]):
+                    if n:
+                        cnt[(n.lower(), r[iL])][("TOP", "JNG", "MID", "BOT", "SUP")[int(p) - 1]] += 1
+    out = {}
+    for (n, lg), c in cnt.items():
+        out.setdefault(n, {})[lg] = c.most_common(1)[0][0]
+    _POS[year] = out
+    return out
 
 
 T1_LEAGUES = ("LoL Champions Korea", "Tencent LoL Pro League", "LoL EMEA Championship",

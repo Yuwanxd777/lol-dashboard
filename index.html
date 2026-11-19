@@ -1071,9 +1071,8 @@
   .trRg,.trSrcTag{font-size:13px;padding:1px 8px;border-radius:999px;background:rgba(255,255,255,.08);color:var(--tx2)}
   .trSrcTag{color:#7ab8ff;background:rgba(122,184,255,.12)}
   img.trRole{width:20px;height:20px;object-fit:contain;padding:0;margin:0 4px 0 2px;background:none;vertical-align:-4px}
-  img.trCoach{width:20px;height:20px;object-fit:contain;margin:0 3px 0 4px;vertical-align:-4px;background:none;padding:0}
-  .trCoachTx{white-space:nowrap;color:#ffc850;font-size:.92em}
-  .trCoachTx img.trCoach{margin-right:3px}
+  img.trCoach{width:20px;height:20px;object-fit:contain;margin:0 4px 0 2px;vertical-align:-4px;background:none;padding:0}
+  .trCoachTx{white-space:nowrap;margin-left:4px}
   .trSt{grid-column:1}.trWho{grid-column:2/4}.trWho.trMove{display:contents}.trMove>.trMv:first-child{grid-column:2}.trMove>.trMv+.trMv{grid-column:3}.trRow>.trTx{grid-column:4}.trRow>.trLk{grid-column:5}
   .trMv{display:flex;flex-direction:column;align-items:flex-start;gap:4px;white-space:nowrap}
   .trDir{font-size:12.5px;font-weight:700;padding:0 7px;border-radius:5px;line-height:1.6}
@@ -14039,9 +14038,12 @@ function render(){
       &&(!V.trKd||(V.trKd==="join"?/join|both/.test(x.kind):V.trKd==="leave"?/leave|both/.test(x.kind):x.kind==="other"))
       &&(!q||[x.team,x.en,x.zh].join(" ").replace(/‹[^|›]+\|([^›]+)›/g,"$1").toLowerCase().includes(q))).sort((a,b)=>a.d<b.d?1:a.d>b.d?-1:(b.n||0)-(a.n||0));
     // 狀態欄（使用者 2026-11-19「新增一欄在第二欄 說明是Rumor還是官方消息」）：wiki＝官方；Sheep 依 st（抓取端標），內文開頭的【官方】／[SOURCES] 前綴拿掉
-    const txt=x=>{ let t=esc(((en2?x.en:(x.zh||x.en))||"").replace(/^\s*(【[^】]{1,4}】|\[[A-Z]+\])\s*/,"")).replace(/‹([^|›]+)\|([^›]+)›/g,(m,p,d)=>`<a class="trPl" href="https://lol.fandom.com/wiki/${p}" target="_blank" rel="noopener">${d}</a>`).replace(/§(TOP|JNG|MID|BOT|SUP)§/g,(m,r)=>POS_IMG[r]?`<img class="trRole" src="${POS_IMG[r]}" alt="${RL[r]}" title="${RL[r]}">`:`<span class="trRole">${RL[r]}</span>`)
-        .replace(/（([^（）]*教練[^（）]*)）|\(([^()]*Coach[^()]*)\)/g,(m,a,b)=>{ const r=a||b, ico=`<img class="trCoach" src="img/COACH.png" alt="${r}">`;
-          return r==="教練"||r==="Coach"?`<span class="trCoachTx" title="${r}">${ico}</span>`:`<span class="trCoachTx" title="${r}">${ico}${r}</span>`; }).replace(/\n/g,"<br>");
+    // 教練圖示放在 ID 前面（跟路線圖一樣；使用者 2026-11-19「為何教練的圖是在教練ID後面」）：
+    //   「名字（總教練）」→ ⟦C:職稱⟧名字⟦R:職稱⟧；純「教練」只留圖示，其他職稱文字留在名字後面
+    const CO=/(‹[^|›]+\|[^›]+›|[A-Za-z0-9][A-Za-z0-9_.'\-]*)\s*(?:（([^（）]*教練[^（）]*)）|\(([^()]*Coach[^()]*)\))/g;
+    const txt=x=>{ let t=esc(((en2?x.en:(x.zh||x.en))||"").replace(/^\s*(【[^】]{1,4}】|\[[A-Z]+\])\s*/,"").replace(CO,(m,n,a,b)=>`⟦C:${a||b}⟧${n}⟦R:${a||b}⟧`)).replace(/‹([^|›]+)\|([^›]+)›/g,(m,p,d)=>`<a class="trPl" href="https://lol.fandom.com/wiki/${p}" target="_blank" rel="noopener">${d}</a>`).replace(/§(TOP|JNG|MID|BOT|SUP)§/g,(m,r)=>POS_IMG[r]?`<img class="trRole" src="${POS_IMG[r]}" alt="${RL[r]}" title="${RL[r]}">`:`<span class="trRole">${RL[r]}</span>`)
+        .replace(/⟦C:([^⟧]*)⟧/g,(m,r)=>`<img class="trCoach" src="img/COACH.png" alt="${r}" title="${r}">`)
+        .replace(/⟦R:([^⟧]*)⟧/g,(m,r)=>r==="教練"||r==="Coach"?"":`<span class="trCoachTx">${r}</span>`).replace(/\n/g,"<br>");
       if(TNRE)t=t.replace(/(^|>)([^<]+)/g,(m,a,b)=>a+b.replace(TNRE,n=>`<span class="trAb" title="${n}">${esc(TNE.get(n)||n)}</span>`));
       if(q){ const re=new RegExp("("+q.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")+")","gi"); t=t.replace(/(^|>)([^<]+)/g,(m,a,b)=>a+b.replace(re,"<mark>$1</mark>")); } return t; };
     const btns=(key,opts)=>`<span style="display:inline-flex;gap:6px;flex-wrap:wrap">${opts.map(([v,l])=>`<button class="sqLaneBtn${(V[key]||"")===v?" on":""}" data-k="${key}" data-v="${esc(v)}">${l}</button>`).join("")}</span>`;
