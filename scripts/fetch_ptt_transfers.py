@@ -29,7 +29,7 @@ DEFAULT_START = "2026-11-15T12:00"
 RUMOR = re.compile(r"乳摸|傳聞|有望|考慮|可能|動向|爆料|韓媒|報導|OBGG|方向已定|即將|將加入|預計")   # 媒體報導也算傳聞，只有戰隊官方貼文算官方
 MOVE = re.compile(r"加入|離隊|續約|簽下|簽約|轉會|自由市場|thank ?you|welcome|joins?\b|rejoins?|re-?sign|farewell|官宣|回歸|退出|遞補|陣容|解散|上調|擔任|監督|head coach",
                   re.I)
-SKIP = re.compile(r"網站|造型|經濟|怎|嗎|？|\?|採訪|心路|獎盃|喜帖|團練|籃網|紅牛|預告|直播上說|似乎|詢問|拉扯|擴編|純娛樂")
+SKIP = re.compile(r"網站|造型|經濟|怎|嗎|？|\?|採訪|心路|獎盃|喜帖|團練|籃網|紅牛|預告|直播上說|似乎|詢問|拉扯|擴編|純娛樂|影片|擺爛")
 KOREAN = re.compile(r"https?://(?:[\w-]+\.)*(?:fmkorea\.com|inven\.co\.kr|dcinside\.com|naver\.com|naver\.me|theqoo\.net|instiz\.net|ruliweb\.com|"
                     r"daum\.net|dailyesports\.com|fomos\.kr|sportsseoul\.com|xportsnews\.com|osen\.co\.kr|mydaily\.co\.kr|"
                     r"spotvnews\.co\.kr|sports\.khan\.co\.kr|starnewskorea\.com|newsis\.com|yna\.co\.kr|[\w-]+\.kr)(?:/[^\s\"'<>]*)?", re.I)
