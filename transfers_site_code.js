@@ -41,7 +41,7 @@ function render(){
     const BTM=(D.board||[]).map(t=>({nm:t.nm,rg:LG2RG[t.lg]||"",al:[...new Set([t.nm,ab0(t.nm),t.tm].filter(Boolean))]}));
     const autoTags=s=>BTM.filter(b=>b.al.some(a=>new RegExp("(?<![A-Za-z0-9])"+a.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")+"(?![A-Za-z0-9])","i").test(s))).map(b=>[b.rg,b.nm]);
     const autoKind=s=>{ const j=/加入|joins?\b|rejoin|welcome|簽下|加盟|回歸|上調|擔任/i.test(s), l=/離隊|thank ?you|farewell|解散|自由市場|退出/i.test(s); return j&&l?"both":j?"join":l?"leave":"other"; };
-    const SRCN={sheep:"Sheep Esports",ptt:"PTT",kr:en2?"Korean sites":"韓網",man:en2?"Announcement":"官方公告"};   // 來源的「官方」跟狀態的「官方」同名會混淆 ⇒ 來源叫官方公告
+    const SRCN={sheep:"Sheep Esports",ptt:"PTT",kr:en2?"Korean sites":"韓網",man:en2?"Announcement":"公告"};   // 來源的「官方」跟狀態的「官方」同名會混淆 ⇒ 來源叫官方公告
     // 傳聞後續（使用者 2026-11-20「如果傳聞被推翻就變成謠言，用紅色」「如果被證實就是證實，綠色」）：
     //   陣容表的官方狀態（wiki 新加入／Sheep 官方消息／官方續約）對照傳聞的「誰 → 哪隊」——
     //   官方加入的正是那隊（或傳聞是續約、官方也續約了）＝證實；官方去了別隊或跟別隊續約＝謠言；還沒定＝傳聞。另有人工標的闢謠（fake）
