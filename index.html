@@ -1524,7 +1524,9 @@
     .tbHd{display:none}
     .tbLg{position:sticky;top:0;z-index:3;margin:12px 0 6px;padding:6px 12px;background:linear-gradient(90deg,color-mix(in srgb,var(--lgc) 30%,#141926),#141926 75%)}.tbLg b{font-size:18px}
     .tbRow{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:stretch;gap:0;margin:6px 0;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:rgba(255,255,255,.02)}
-    .tbTeam{grid-column:1;border-left:0;padding:7px 10px;font-size:16px;background:color-mix(in srgb,var(--lgc) 14%,transparent)}
+    /* 手機：隊徽圖案貼齊卡片左邊（使用者 2026-11-20「隊徽不夠置左」）——不留固定寬位子，扣掉圖檔本身的透明邊 */
+    .tbTeam img{margin-left:calc(0px - var(--lgpad,0px))!important;margin-right:calc(8px - var(--lgpad,0px))!important}
+    .tbTeam{grid-column:1;border-left:0;padding:7px 10px;gap:0;font-size:16px;background:color-mix(in srgb,var(--lgc) 14%,transparent)}
     .tbCell{display:flex;align-items:flex-start;gap:5px;padding:7px 8px;font-size:14px;line-height:1.35;text-align:left;border-radius:0;border-top:1px solid rgba(255,255,255,.06);border-left:1px solid rgba(255,255,255,.06);min-width:0}
     .tbCell.tbRate{grid-column:2;grid-row:1;align-items:center;justify-content:flex-end;padding:7px 10px;font-size:15px;background:color-mix(in srgb,var(--lgc) 14%,transparent);border:0}
     .tbCell[data-r="TOP"],.tbCell[data-r="MID"],.tbCell[data-r="SUP"],.tbCell[data-r="STF"]{border-left:0}
@@ -14581,7 +14583,8 @@ function render(){
       lgGet(img.currentSrc||img.src,m=>{ if(!m||!img.isConnected)return; img.dataset.fit="1";
         const r=m.fw/m.fh, A=0.6*S*S, W=1.5*S; let w=Math.sqrt(A*r), h=Math.sqrt(A/r); const k=Math.min(1,W/w,S/h); w*=k; h*=k;
         const E=w/m.fw;   // 整張正方形圖要畫多大，圖案才是 w×h
-        img.style.width=img.style.height=E+"px"; img.style.margin=`${(S-E)/2}px ${(W-E)/2}px`; img.style.maxWidth="none"; }); };
+        img.style.width=img.style.height=E+"px"; img.style.margin=`${(S-E)/2}px ${(W-E)/2}px`; img.style.maxWidth="none";
+        img.style.setProperty("--lgpad",((E-w)/2)+"px"); }); };   // --lgpad＝圖檔左右的透明邊（手機版靠左對齊時扣掉）
     const lgFitAll=root=>root.querySelectorAll(".tbTeam img,.trTeam img,.tpTm img,.rtHd img").forEach(lgFit);
     lgFitAll(main);
     if(MODE!=="news"){ // 格子提示（自建浮層：多行＋排版，原生 title 做不到）
