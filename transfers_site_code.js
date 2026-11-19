@@ -346,13 +346,17 @@ function render(){
       const blend=a=>{ const ts=a.tm?coachS(a.tm):null; return ts?(a.v+ts.v)/2:a.v; };
       // 中位數也用同一把尺（個人＋戰績各半之後的分數）重算，不然空缺的基準會比真人高一截
       const MDB=window._tbMDB&&window._tbMDB.k===RATE.k?window._tbMDB:(window._tbMDB={k:RATE.k});
-      const mdOf=r=>{ if(r in MDB)return MDB[r]; const vs=Object.values(RATE.pl[r]||{}).map(blend).sort((x,y)=>x-y), h=vs.length>>1; return MDB[r]=vs.length?(vs.length%2?vs[h]:(vs[h-1]+vs[h])/2):null; };
+      // 刻度換成同路百分位（使用者 2026-11-20「Zeus 為何才 68.4 分 我的感覺他起碼應該要 90 分」）：個人＋戰績各半的原始分最高也才 80 出頭，
+      //   排名對但數字看起來不像頂尖 ⇒ 換成「贏過同一路百分之幾的選手」（最高接近 100、中段 50）；空缺的基準（中位數）＝50
+      const srt=r=>MDB[r]||(MDB[r]=Object.values(RATE.pl[r]||{}).map(blend).sort((x,y)=>x-y));
+      const pct=(r,v)=>{ const a=srt(r); if(!a.length)return v; let lo=0; for(const z of a){ if(z<v)lo++; else break; } let eq=0; for(const z of a){ if(z===v)eq++; } return 100*(lo+eq/2)/a.length; };
+      const mdOf=r=>srt(r).length?50:null;
       const LGK=0.3, lgW=lg=>{ const a=lgN(lg), b=t.lg, Rg=RATE.R||{}; return (!a||a===b||Rg[a]==null||Rg[b]==null)?1:Math.exp(LGK*(Rg[a]-Rg[b])); };
       for(const r of ["TOP","JNG","MID","BOT","SUP"]){ const P=RATE.pl[r], PY=(RATE.plY||{})[r]||{},
           get=n=>{ const k=String(pn(n)).toLowerCase(), a=P[k]||(PY[k]?{...PY[k],yr:1}:undefined); if(!a)return a;
             // 個人評分只看個人數據（弱隊核心會很高：Scout 在 NS 91.4、Faker 39.6）⇒ 跟所屬戰隊的戰績分（第三賽段勝率＋最終成績）各半
             //   （使用者 2026-11-20「Scout 為何能有 91.4 分 評分是不是怪怪的」；原話「只看第三賽段數據以及最終成績」）；戰隊沒有戰績資料就只用個人
-            const v0=blend(a), w=lgW(a.lg); return {...a,raw:v0,v:v0*w,w}; };
+            const v0=pct(r,blend(a)), w=lgW(a.lg); return {...a,raw:v0,v:Math.min(100,v0*w),w}; };
         // 今年沒有比賽資料的人（使用者 2026-11-19「用全部該路線的分數中位數當做基準」）：s 補成中位數、標 md；兩邊都沒資料就不算
         const md=mdOf(r), fill=x=>x.s?x:(md==null?x:{...x,s:{v:md,g:0,lg:""},md:1}), byG=(a,b)=>(b.s?b.s.g:-1)-(a.s?a.s.g:-1);
         let nw=(t.r[r]||[]).filter(e=>e.new||e.tip).map(e=>({n:pn(e.n),s:get(e.n),rm:!!e.r})).sort((a,b)=>a.rm-b.rm||byG(a,b))[0];   // 官方優先；Sheep 消息（傳聞／官方未進 wiki）也算
