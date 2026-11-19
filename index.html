@@ -1513,6 +1513,8 @@
   .h2hBars{width:100%}
   .h2hBRow{grid-template-columns:60px 48px minmax(0,1fr) 48px;gap:6px}
 }
+  /* 單頁模式：只留轉會分頁 */
+  html.solo #nav,html.solo #lblYear,html.solo #yearSel,html.solo #penBtn,html.solo #meta{display:none!important}
 </style>
 </head>
 <body>
@@ -7591,7 +7593,7 @@ document.addEventListener("keydown",e=>{ if(e.key==="Escape"&&_carry)carryEnd();
 if(window.CHAMP_SKILLS&&CHAMP_SKILLS.d)Object.values(CHAMP_SKILLS.d).forEach(c=>{if(c.n)c.n=c.n.split(/[·‧・．]/)[0];});
 if(IS_PUBLIC){ // 網路版標題
   document.title="LOL數據表公開版";
-  const st=document.getElementById("siteTitleTx"); if(st)st.textContent="LOL數據表公開版";
+  const st=document.getElementById("siteTitleTx"); if(st)st.textContent=SOLO?"LOL 轉會":"LOL數據表公開版";
 }
 const VIEWS=["總覽","摘要","英雄","選手","戰隊","陣容","比賽BP","模擬BP","英雄Tier","積分","圖鑑","預測","轉會","筆記"]; // 筆記＝本機限定（IS_LOCAL；資料 notes_local.js 不進白名單 ⇒ 線上沒有這頁，2026-11-08 使用者需求）
 const IS_LOCAL=location.protocol==="file:"||/^(localhost|127\.0\.0\.1)$/.test(location.hostname); // 預測＝官方水晶球（2026-10-11 使用者需求），只在當年顯示（同積分） // 摘要緊跟總覽（原名「近況」，2026-09-23 改成兩隊對比） // AI 問答已移除（使用者：沒意思）；渲染分支留為死碼（curView 恆在 VIEWS 內 → 不會進到那個 catch-all else）
@@ -7608,7 +7610,11 @@ const sortNext=(s,k,firstDir)=>{ const d0=firstDir||-1;
   return {k:"",d:0}; };
 const V={pos:"",player:"",vsTeam:"",bpTeam:"",r1:"",r2:"",r3:"",t1:"",t2:"",t3:"",hdOpp:"",hdLane:"",hdPlayer:"",rankQ:"",rankSort:null,rankDetail:"",rankDetLane:"",rankShow:100,rankGSort:null,rankGChamp:"",rankGOpp:"",rankGVs:"",rankRole:"",rankRegion:""};
 // ---------- 選項自動記憶（重開免重設）----------
-const SAVED=(()=>{try{return JSON.parse(localStorage.getItem("dash_state")||"{}")}catch(e){return{}}})();
+// 單頁模式（使用者 2026-11-20「只想單獨公開轉會分頁」）：轉會網站（另一個 repo 的小載入頁）抓主站 index.html、先設 window.SOLO_VIEW 再寫進頁面
+//   ⇒ 鎖定該分頁、藏分頁列／年份／畫筆，不讀也不寫主站的 dash_state（同網域共用 localStorage，不可互蓋）
+const SOLO=window.SOLO_VIEW||"";
+if(SOLO){ document.documentElement.classList.add("solo"); document.title="LOL 轉會"; const _st=document.getElementById("siteTitleTx"); if(_st)_st.textContent="LOL 轉會"; }
+const SAVED=SOLO?{}:(()=>{try{return JSON.parse(localStorage.getItem("dash_state")||"{}")}catch(e){return{}}})();
 Object.assign(F,SAVED.F||{}); Object.assign(V,SAVED.V||{}); V.rankSort=null; // 積分排序不跨開頁記憶：每次開頁回預設「一週評分降冪」（使用者指定）
 V.chgFilter=""; V.chgPatch=""; // 版本改動的搜尋與版本選擇永遠從空白開始
 F.minG=0; // 最少場數每次開頁都從 0 開始（不留存）
@@ -7628,6 +7634,7 @@ try{const _q=new URLSearchParams(location.search); const _qv=_q.get("view");
   const _dobj=_q.get("obj"); if(_dobj){curView="圖鑑";V.dexSec="物件";V.dexDetail={type:"obj",name:_dobj};} // ?obj=名稱 直接開物件歷年改動子頁
   }catch(e){}
 if(SAVED.year)curYear=SAVED.year;
+if(SOLO){ curView=SOLO; curYear=M.default; }
 // 全域返回鍵：以初始狀態當基準快照，這樣第一個動作也能返回
 try{window._navHist=[]; window._navCur=JSON.stringify({v:curView,V,F}); window._navYear=curYear;}catch(e){}
 // 復原堆疊（↩）：模擬BP / 英雄Tier 每次異動前的狀態，防誤刪
@@ -7640,7 +7647,7 @@ function saveState(){
   if(window._warming)return; // 閒置預熱的背景繪製不是使用者動作：不存狀態、不進返回歷史（否則重整會落在被預熱的分頁）
   UNDO.track("bpSim",V.bpSim); UNDO.track("tierB",V.tierB);
   const {r1,r2,r3,t1,t2,t3,chgFilter,chgPatch,...keep}=V; // 對比人選、版本改動的搜尋/版本選擇不儲存：每次進來都是乾淨預設
-  localStorage.setItem("dash_state",JSON.stringify({F,V:keep,view:curView,year:curYear}));
+  if(!SOLO)localStorage.setItem("dash_state",JSON.stringify({F,V:keep,view:curView,year:curYear}));
   // 全域返回鍵＝復原上一個動作：saveState 幾乎等於「一個使用者動作」(篩選/排序/搜尋/切分頁/點詳情都會呼叫)，
   // 每次記一個完整狀態快照(檢視＋V＋F)，返回鍵回到前一個快照(navBack)。
   try{
