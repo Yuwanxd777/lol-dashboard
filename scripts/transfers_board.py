@@ -206,6 +206,12 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=()):
                 expired.setdefault(tm, {}).setdefault("COACH", []).append((disp_id, pg, ro, code))
     # ⑤ 傳聞
     rumor = parse_sheep(sheep)
+    # 傳出要去別隊的人（使用者 2026-11-19「如果合約還在但有傳出可能去別隊 上綠色」）：名字 → 最新一則傳聞（目的地＝傳聞的隊）
+    rum_out = {}
+    for v in sorted((v for L in rumor.values() for v in L if v["st"] == "rumor"), key=lambda v: v["d"]):
+        rum_out[key(v["n"])] = v
+        if v.get("p"):
+            rum_out[key(v["p"])] = v
     out = []
     for tm in teams:
         c = cur.get(tm, {})
@@ -248,6 +254,9 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=()):
                 #     本休賽期有官方續約消息的不套（NS Calix 今年沒上場但續約到 2028，是明年的人）
                 if rr != "COACH" and "new" not in e and "rs" not in e and played is not None and (k, tkey(tm)) not in played and (key(pid), tkey(tm)) not in played:
                     continue
+                ro = rum_out.get(k) or rum_out.get(key(pid))
+                if ro and tkey(ro["tm"]) != tkey(tm) and ro["d"][:10] >= since:
+                    e["ro"] = {"to": ro["tm"], "d": ro["d"][:10], "tip": ro["tip"]}   # 前端：合約還在才上綠色
                 cell.append(e)
             have = {key(e["p"]) for e in cell} | {key(e["n"]) for e in cell}
             for rmr in rumor.get((tkey(tm), rr), []):
