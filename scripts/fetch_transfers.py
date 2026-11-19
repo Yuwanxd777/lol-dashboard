@@ -60,6 +60,9 @@ WHOLE = [   # 一次性的整句（Leaguepedia 的非固定句型），對得上
     (r"(.+?) is released from prison on parole and deported to (.+)", r"\1 假釋出獄，被遣返\2"),
 ]
 STAFF["General Manager for League of Legends"] = "LoL 總經理"
+STAFF.update({"Strategy Analyst": "戰略分析師", "Director of Culture": "文化總監", "Competitive Development": "競技發展",
+              "Head of League of Legends": "LoL 部門主管", "Performance Coordinator": "表現協調員",
+              "Head of Coaching Development": "教練發展主管", "Director of Culture and Competitive Development": "文化與競技發展總監"})   # 2026-11-19 分頁審視：殘留英文的職稱
 REGION = {"Korea": "韓國", "China": "中國", "EMEA": "歐洲", "North America": "北美", "Brazil": "巴西",
           "Asia Pacific": "亞太", "International": "國際", "Vietnam": "越南", "Latin America": "拉丁美洲",
           "Japan": "日本", "Oceania": "大洋洲", "Turkey": "土耳其", "CIS": "獨國協"}
@@ -254,7 +257,8 @@ LANE_EN = {"toplaner": "TOP", "top laner": "TOP", "jungler": "JNG", "midlaner": 
            "botlaner": "BOT", "bot laner": "BOT", "ad carry": "BOT", "adc": "BOT", "support": "SUP"}
 _NAME = r"(‹[^|›]+\|[^›]+›|[A-Z0-9][A-Za-z0-9_.'-]*|[a-z][a-z0-9]*[A-Z0-9][A-Za-z0-9_.'-]*)"
 _NAMEN = _NAME.replace("(", "(?:", 1)
-_EN_STOP = {"For", "The", "In", "As", "At", "And", "To", "Of", "On", "With", "From", "Is", "Was", "Will", "LCK", "LPL", "LEC", "LCS", "CBLOL", "LCP"}
+_EN_STOP = {"For", "The", "In", "As", "At", "And", "To", "Of", "On", "With", "From", "Is", "Was", "Will", "LCK", "LPL", "LEC", "LCS", "CBLOL", "LCP",
+            "Former", "Current", "New", "Previous", "This", "That", "He", "She", "They", "His", "Her", "Their", "Both", "All"}
 
 
 def lane_sheep(sheep, prot=None, year=None):
@@ -280,12 +284,25 @@ def lane_sheep(sheep, prot=None, year=None):
             return next(iter(c.values()))
         c2 = {p for lg, p in c.items() if lg in lgs}
         return next(iter(c2)) if len(c2) == 1 else None
+    # 教練：「總教練 Daeny」「Head Coach Daeny」→ 名字前補 §COACH§（職稱字留著）；wiki 標過教練、又不是當季選手的名字也補
+    cz = re.compile(r"((?:總|助理|戰術|位置|青訓)?教練)\s*" + _NAME)
+    ce = re.compile(r"((?:(?:Head|Assistant|Strategic|Positional|Academy)\s+)?Coach)\s+" + _NAME)
+    spaced = sorted((n for n in pos if " " in n), key=len, reverse=True)
     for x in sheep:
         lgs = {RG_LG.get(t[0]) for t in x.get("tags") or []}
         for k, rx, f in (("zh", rz, fz), ("en", re_, fe)):
             if x.get(k):
                 parts = re.split(r"(https?://\S+)", x[k])
                 x[k] = "".join(s if i % 2 else rx.sub(f, s) for i, s in enumerate(parts))
+                cr = cz if k == "zh" else ce
+                x[k] = cr.sub(lambda m: m.group(0) if m.group(2) in _EN_STOP or m.group(2).isdigit() else "%s §COACH§%s" % (m.group(1), m.group(2)), x[k])
+                x[k] = re.sub(r"\s+§COACH§", " §COACH§", x[k])
+                for nm in spaced:   # 名字有空格的（Naak Nako）
+                    m = re.search(r"(?<![A-Za-z0-9_§|])(" + re.escape(nm) + r")(?![A-Za-z0-9_])", x[k], re.I)
+                    if m and not x[k][:m.start()].endswith("§"):
+                        ln = lane_of(nm, lgs)
+                        if ln:
+                            x[k] = x[k][:m.start()] + "§%s§" % ln + x[k][m.start():]
                 # 角色寫在名字後面（「DuDu 與 DNS 續約…這位上路」）或沒寫 ⇒ 查當季比賽資料的位置，第一次出現的名字前面補圖示
                 plain = lambda nm: re.sub(r"^‹[^|›]+\|([^›]+)›$", r"\1", nm)
                 seen = {plain(n) for n in re.findall(r"§[A-Z]+§" + _NAME, x[k])}

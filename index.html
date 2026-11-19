@@ -10722,6 +10722,8 @@ function globalFilterReset(){
   if(curView==="陣容")V.rosterTeam="";
   if(curView==="比賽BP"){V.bpColF={};V.bpSideMode="br";} // 比賽BP：預設(↺)清空所有欄位篩選＋回藍紅模式
   if(curView==="模擬BP"&&V.bpSim){V.bpSim.t1="";V.bpSim.t2="";} // 模擬BP：只清戰隊A/B、模擬局保留
+  if(curView==="轉會")Object.assign(V,{trSrc:"",trSt:"",trRg:"",trKd:"",trQ:""}); // 2026-11-19 分頁審視：↺ 原本清不到轉會的篩選與搜尋
+  if(curView==="筆記")Object.assign(V,{ntQ:"",ntGrp:""});                         // 同一次審視順手補：筆記的搜尋與分組
   saveState(); try{if(typeof vcInvalidate==="function")vcInvalidate(); delete VIEW_CACHE.slots[curView];}catch(e){} render();
 }
 // 每次繪製後確保篩選列「最右邊固定三顆」：右→左＝返回(←)／預設(↺)／本頁說明(ℹ️)，每頁都要有、順序一致。
@@ -14041,7 +14043,11 @@ function render(){
     // 教練圖示放在 ID 前面（跟路線圖一樣；使用者 2026-11-19「為何教練的圖是在教練ID後面」）：
     //   「名字（總教練）」→ ⟦C:職稱⟧名字⟦R:職稱⟧；純「教練」只留圖示，其他職稱文字留在名字後面
     const CO=/(‹[^|›]+\|[^›]+›|[A-Za-z0-9][A-Za-z0-9_.'\-]*)\s*(?:（([^（）]*教練[^（）]*)）|\(([^()]*Coach[^()]*)\))/g;
-    const txt=x=>{ let t=esc(((en2?x.en:(x.zh||x.en))||"").replace(/^\s*(【[^】]{1,4}】|\[[A-Z]+\])\s*/,"").replace(CO,(m,n,a,b)=>`⟦C:${a||b}⟧${n}⟦R:${a||b}⟧`)).replace(/‹([^|›]+)\|([^›]+)›/g,(m,p,d)=>`<a class="trPl" href="https://lol.fandom.com/wiki/${p}" target="_blank" rel="noopener">${d}</a>`).replace(/§(TOP|JNG|MID|BOT|SUP)§/g,(m,r)=>POS_IMG[r]?`<img class="trRole" src="${POS_IMG[r]}" alt="${RL[r]}" title="${RL[r]}">`:`<span class="trRole">${RL[r]}</span>`)
+    // 推文原文清理（2026-11-19 分頁審視）：國旗 emoji 在 Windows 會畫成 KR／MX 字母方塊 ⇒ 拿掉；#LCK 的 # 拿掉；連空行壓成一行；網址改成「文章」連結
+    const clean=s=>s.replace(/[ \t]?[\u{1F1E6}-\u{1F1FF}]{2}/gu,"").replace(/^[ \t]+/gm,"").replace(/(^|\s)#(\w)/g,"$1$2").replace(/[ \t]*\n\s*\n\s*/g,"\n").trim();
+    const txt=x=>{ let t=esc(clean(((en2?x.en:(x.zh||x.en))||"").replace(/^\s*(【[^】]{1,4}】|\[[A-Z]+\])\s*/,"")).replace(CO,(m,n,a,b)=>`⟦C:${a||b}⟧${n}⟦R:${a||b}⟧`))
+        .replace(/https?:\/\/[^\s<]+/g,u=>`<a class="trPl" href="${u}" target="_blank" rel="noopener">${en2?"Article":"文章"}</a>`)
+        .replace(/§COACH§/g,()=>`<img class="trCoach" src="img/COACH.png" alt="${en2?"Coach":"教練"}" title="${en2?"Coach":"教練"}">`).replace(/‹([^|›]+)\|([^›]+)›/g,(m,p,d)=>`<a class="trPl" href="https://lol.fandom.com/wiki/${p}" target="_blank" rel="noopener">${d}</a>`).replace(/§(TOP|JNG|MID|BOT|SUP)§/g,(m,r)=>POS_IMG[r]?`<img class="trRole" src="${POS_IMG[r]}" alt="${RL[r]}" title="${RL[r]}">`:`<span class="trRole">${RL[r]}</span>`)
         .replace(/⟦C:([^⟧]*)⟧/g,(m,r)=>`<img class="trCoach" src="img/COACH.png" alt="${r}" title="${r}">`)
         .replace(/⟦R:([^⟧]*)⟧/g,(m,r)=>r==="教練"||r==="Coach"?"":`<span class="trCoachTx">${r}</span>`).replace(/\n/g,"<br>");
       if(TNRE)t=t.replace(/(^|>)([^<]+)/g,(m,a,b)=>a+b.replace(TNRE,n=>`<span class="trAb" title="${n}">${esc(TNE.get(n)||n)}</span>`));
