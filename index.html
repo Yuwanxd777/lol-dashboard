@@ -1526,6 +1526,7 @@
     .tbRow{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:stretch;gap:0;margin:6px 0;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:rgba(255,255,255,.02)}
     /* 手機：隊徽圖案貼齊卡片左邊（使用者 2026-11-20「隊徽不夠置左」）——不留固定寬位子，扣掉圖檔本身的透明邊 */
     .tbTeam img{margin-left:calc(0px - var(--lgpad,0px))!important;margin-right:calc(8px - var(--lgpad,0px))!important}
+    .tbTeam .tbOk{margin-left:.35em}   /* 勾跟縮寫之間留一個半形空格（使用者 2026-11-20） */
     .tbTeam{grid-column:1;border-left:0;padding:7px 10px;gap:0;font-size:16px;background:color-mix(in srgb,var(--lgc) 14%,transparent)}
     .tbCell{display:flex;align-items:flex-start;gap:5px;padding:7px 8px;font-size:14px;line-height:1.35;text-align:left;border-radius:0;border-top:1px solid rgba(255,255,255,.06);border-left:1px solid rgba(255,255,255,.06);min-width:0}
     .tbCell.tbRate{grid-column:2;grid-row:1;align-items:center;justify-content:flex-end;padding:7px 10px;font-size:15px;background:color-mix(in srgb,var(--lgc) 14%,transparent);border:0}
