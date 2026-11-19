@@ -90,6 +90,9 @@ function render(){
       if(TNRE)t=t.replace(/(^|>)([^<]+)/g,(m,a,b)=>a+b.replace(TNRE,n=>`<span class="trAb" title="${n}">${esc(TNE.get(n)||n)}</span>`));
       // 中英混排補半形空格（使用者 2026-11-20「消息的文字要尊重像改版資訊的排版，英文後面如果是中文要空格」）：
       //   中文字 ↔ 英文／數字之間補一格，中間隔著標籤（連結、圖示、隊名縮寫）也算；緊鄰標點不補
+      // 括號、斜線同改版資訊（使用者 2026-11-20「括號跟斜線也要遵守」）：有中文的那則 ⇒ 半形 ( ) / 換全形（）／、前後不留空格；數字之間的 / 不動
+      if(!en2&&/[㐀-鿿]/.test(t.replace(/<[^>]+>/g,"")))
+        t=t.replace(/(^|>)([^<]+)/g,(m,a,b)=>a+b.replace(/\s*\(\s*/g,"（").replace(/\s*\)\s*/g,"）").replace(/\s*（\s*/g,"（").replace(/\s*）\s*/g,"）").replace(/(?<!\d)\s*\/\s*(?!\d)/g,"／").replace(/\s*／\s*/g,"／"));
       { const CJ="[㐀-䶿一-鿿]", TG="((?:<[^>]+>)*)";
         t=t.replace(new RegExp("("+CJ+")"+TG+"([A-Za-z0-9])","g"),"$1 $2$3").replace(new RegExp("([A-Za-z0-9%])"+TG+"("+CJ+")","g"),"$1$2 $3"); }
       if(q){ const re=new RegExp("("+q.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")+")","gi"); t=t.replace(/(^|>)([^<]+)/g,(m,a,b)=>a+b.replace(re,"<mark>$1</mark>")); } return t; };
@@ -123,7 +126,7 @@ function render(){
       const link=x.s==="wiki"?x.src:x.url, lkA=(u,l,ti)=>` <a class="trLk" href="${esc(u)}" target="_blank" rel="noopener" title="${esc(ti||"")}">${l} ↗</a>`;
       // 韓網：連結標韓網原文（使用者要求），另附 PTT 轉貼
       const lk=(link?lkA(link,x.s==="sheep"?"X":x.s==="ptt"?"PTT":x.s==="kr"?SRCN.kr:(en2?"Source":"來源"),x.srcNm):"")+(x.s==="kr"&&x.ptt?lkA(x.ptt,"PTT"):"");
-      const chip=x.s==="ptt"||x.s==="kr"||x.s==="man"?`<span class="trSrcTag trSrc-${x.s}">${SRCN[x.s]}</span> `:"";
+      const chip="";   // 消息前面不放來源小框（使用者 2026-11-20「PTT 韓網這種」），來源看後面的連結
       rows+=`<div class="trRow"><span class="trSt trSt-${stOf(x)}">${ST[stOf(x)]}</span><span class="trRgC">${rgCol(x)}</span><div class="trFlow">${flow}</div><div class="trTx">${chip}${txt(x)}${lk}</div></div>`; });
     const head=rows?`<div class="trHead"><span>${en2?"Status":"狀態"}</span><span>${en2?"League":"賽區"}</span><span>${en2?"From":"原隊"}</span><span></span><span>${en2?"To":"新隊"}</span><span>${en2?"News":"消息"}</span></div>`:"";
     // ── 陣容表（使用者 2026-11-19：參考巴哈 LCK 陣容圖「左邊是戰隊 六大聯賽一路往下列」「傳聞就在ID前面打一個星號」
