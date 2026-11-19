@@ -44,7 +44,9 @@ function render(){
     const SRCN={sheep:"Sheep Esports",ptt:"PTT",kr:en2?"Korean sites":"韓網",man:en2?"Official":"官方"};
     const all=[...(D.wiki||[]).map(x=>({...x,s:"wiki"})),...(D.sheep||[]).map(x=>({...x,s:"sheep",tags:x.tags||[],rg:"",kind:x.kind||"other",team:(x.tags||[]).map(t=>t[1]).join(" ")})),
       ...(D.extra||[]).map(x=>{ const rgOf=n=>(BTM.find(b=>b.nm===n)||{}).rg||"";
-        const mvT=x.mv?[...new Map(x.mv.flatMap(([n,l,to,fr])=>[...(fr?[[rgOf(fr),fr,"out"]]:[]),[rgOf(to),to,"in"]]).map(t=>[t[1]+t[2],t])).values()]:null;
+        // 原隊／新隊只放標題有點名的人（使用者 2026-11-20：KRX 五人那篇內文另提 Sharvel→GEN，不該多出 DNS／GEN）；都沒點名才全放
+        const mvIn=x.mv?x.mv.filter(m=>new RegExp("(?<![A-Za-z0-9])"+m[0].replace(/[.*+?^${}()|[\]\\]/g,"\\$&")+"(?![A-Za-z0-9])","i").test(x.zh||"")):[], mvU=mvIn.length?mvIn:(x.mv||[]);
+        const mvT=x.mv?[...new Map(mvU.flatMap(([n,l,to,fr])=>[...(fr?[[rgOf(fr),fr,"out"]]:[]),[rgOf(to),to,"in"]]).map(t=>[t[1]+t[2],t])).values()]:null;
         const tags=x.tags||mvT||autoTags(x.zh||""); return {...x,s:x.src==="韓網"?"kr":x.src==="官方"?"man":"ptt",tags,rg:"",kind:x.kind||autoKind(x.zh||""),team:tags.map(t=>t[1]).join(" ")}; })];
     const RGS=[...new Set(all.flatMap(x=>x.s!=="wiki"?x.tags.map(t=>t[0]):[x.rg]).filter(Boolean))].sort((a,b)=>Object.keys(RG_LG).indexOf(a)-Object.keys(RG_LG).indexOf(b));
     const KD={join:en2?"Join":"加入",leave:en2?"Leave":"離隊",other:en2?"Other":"其他"};
@@ -86,6 +88,10 @@ function render(){
         .replace(/⟦C:([^⟧]*)⟧/g,(m,r)=>`<img class="trCoach" src="img/COACH.png" alt="${r}" title="${r}">`)
         .replace(/⟦R:([^⟧]*)⟧/g,(m,r)=>/^(主教練|教練|助理教練|Head Coach|Coach|Assistant Coach)$/.test(r)?"":`<span class="trCoachTx">${r}</span>`).replace(/\n/g,"<br>");
       if(TNRE)t=t.replace(/(^|>)([^<]+)/g,(m,a,b)=>a+b.replace(TNRE,n=>`<span class="trAb" title="${n}">${esc(TNE.get(n)||n)}</span>`));
+      // 中英混排補半形空格（使用者 2026-11-20「消息的文字要尊重像改版資訊的排版，英文後面如果是中文要空格」）：
+      //   中文字 ↔ 英文／數字之間補一格，中間隔著標籤（連結、圖示、隊名縮寫）也算；緊鄰標點不補
+      { const CJ="[㐀-䶿一-鿿]", TG="((?:<[^>]+>)*)";
+        t=t.replace(new RegExp("("+CJ+")"+TG+"([A-Za-z0-9])","g"),"$1 $2$3").replace(new RegExp("([A-Za-z0-9%])"+TG+"("+CJ+")","g"),"$1$2 $3"); }
       if(q){ const re=new RegExp("("+q.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")+")","gi"); t=t.replace(/(^|>)([^<]+)/g,(m,a,b)=>a+b.replace(re,"<mark>$1</mark>")); } return t; };
     const btns=(key,opts)=>`<span style="display:inline-flex;gap:6px;flex-wrap:wrap">${opts.map(([v,l])=>`<button class="sqLaneBtn${(V[key]||"")===v?" on":""}" data-k="${key}" data-v="${esc(v)}">${l}</button>`).join("")}</span>`;
     // ── 版面（使用者 2026-11-19「重新調整這邊的UI 感覺不直觀」）：每列固定「狀態｜原隊 → 新隊｜消息」＋欄標題。

@@ -98,7 +98,7 @@ function addBase(){ const f=main.querySelector(".filters"); if(!f)return;
   f.insertAdjacentHTML("beforeend",b("tsHelp","ℹ️",LANG==="en"?"About this page":"本頁說明")+b("tsReset","↺",LANG==="en"?"Reset filters":"重設篩選"));
   document.getElementById("tsHelp").onclick=()=>{ const d=document.getElementById("tsHelpBox"); if(d){d.remove();return;}
     main.insertAdjacentHTML("afterbegin",`<div id="tsHelpBox" class="card" style="margin-bottom:12px;line-height:1.8;font-size:15px">${(LANG==="en"?HELP.en:HELP.zh)||""}</div>`); };
-  document.getElementById("tsReset").onclick=()=>{ Object.assign(V,{trSrc:"",trSt:"",trRg:"",trKd:"",trQ:"",tbF:"",tbChg:""}); saveState(); render(); }; }
+  document.getElementById("tsReset").onclick=()=>{ Object.assign(V,{trSrc:"",trSt:"",trRg:"",trKd:"",trQ:"",tbF:""}); saveState(); render(); }; }
 function render(){
 /*__BLOCK__*/
 addBase(); }
