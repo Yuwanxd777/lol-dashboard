@@ -14167,7 +14167,7 @@ function render(){
     const TIPS=[];
     // 格子提示（使用者 2026-11-19「除了評分的小框都重新設計」）：同評分小框的版型——標題列＝隊徽＋隊名＋路線；
     //   每個人一張小卡（名字＋狀態標籤、合約／加入／來自 的欄位、傳聞引用框）；上一位獨立一區（期間＋年資）
-    const LGC={LCK:"#4aa8ff",LPL:"#ff9a3c",LEC:"#2fd1c5",LCS:"#8f8cff",CBLOL:"#ff7eb6",LCP:"#b98cff"};   // 聯賽識別色（只當分類色，不跟紅綠漲跌混用）
+    // 聯賽識別色＝全站 LGC（使用者 2026-11-19「要跟積分分頁的聯賽顏色一樣」），不另外定義
     const laneIc=r=>r==="COACH"?`<img src="img/COACH.png" alt="">`:(POS_IMG[r]?`<img src="${POS_IMG[r]}" alt="">`:"");
     const pill=(c,tx)=>`<span class="tpPill ${c}">${tx}</span>`;
     const stPill=e=>e.r?pill("tpY",en2?"Rumor":"傳聞"):e.new?pill("tpR",en2?"New":"新加入")
