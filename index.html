@@ -1056,7 +1056,7 @@
   .ntDoc details.ntSec[open]{padding-bottom:8px}
   /* 轉會「陣容表」（2026-11-19，參考巴哈 LCK 陣容圖）：左＝戰隊，六大聯賽一路往下；欄＝上野中下輔＋教練；*＝傳聞 */
   .tbBoard{padding:6px 16px 14px;display:grid;grid-template-columns:max-content repeat(6,minmax(0,1fr)) minmax(0,1.6fr) max-content;column-gap:0}   /* 教練欄人多 ⇒ 1.8 倍寬；末欄＝轉會評分 */
-  .tbN.tbY,b.tbY{color:#ffc850}.tbN.tbNew,b.tbNew{color:#ff5a5a}.tbN.tbExp,b.tbExp{color:#5aa9ff}.tbN.tbRs,b.tbRs{color:#ff8ec6}.tbN.tbOut,b.tbOut{color:#4cd07d}.tbN.tbGone{text-decoration:line-through;text-decoration-thickness:1px}.tbN.tbDim{opacity:.2}.tbVacN{font-style:normal;font-size:11px;font-weight:700;color:var(--tx2);margin-left:6px;padding:0 6px;border:1px solid rgba(255,255,255,.2);border-radius:999px;white-space:nowrap}.tbLegend .sqLaneBtn b{font-weight:700}.tbLgG{display:inline-flex;gap:6px;padding-right:12px;margin-right:4px;border-right:1px solid rgba(255,255,255,.14)}.trSrc-kr{color:#ff9a6b;background:rgba(255,154,107,.12)}.trSrc-ptt{color:#c9d1e0;background:rgba(255,255,255,.08)}.trSrc-man{color:#ffd166;background:rgba(255,209,102,.12)}
+  .tbN.tbY,b.tbY{color:#ffc850}.tbN.tbNew,b.tbNew{color:#ff5a5a}.tbN.tbExp,b.tbExp{color:#5aa9ff}.tbN.tbRs,b.tbRs{color:#ff8ec6}.tbN.tbOut,b.tbOut{color:#4cd07d}.tbN.tbGone{text-decoration:line-through;text-decoration-thickness:1px}.tbN.tbDim{opacity:.2}.tbVacN{font-style:normal;font-size:11px;font-weight:700;color:var(--tx2);margin-left:6px;padding:0 6px;border:1px solid rgba(255,255,255,.2);border-radius:999px;white-space:nowrap}.tbLegend .sqLaneBtn b{font-weight:700}.tbLgG{display:inline-flex;gap:6px;padding-right:10px;margin-right:4px;border-right:1px dashed rgba(255,255,255,.12)}.trFG{display:inline-flex;align-items:center;gap:6px;padding-left:12px;border-left:1px solid rgba(255,255,255,.16)}.trFG:first-child{border-left:0;padding-left:0}.trFG>label{margin-right:2px}.tbLegend{display:inline-flex;gap:6px;align-items:center}.trSrc-kr{color:#ff9a6b;background:rgba(255,154,107,.12)}.trSrc-ptt{color:#c9d1e0;background:rgba(255,255,255,.08)}.trSrc-man{color:#ffd166;background:rgba(255,209,102,.12)}
   .tbLegend{display:inline-flex;gap:12px;align-items:center}
   .tbHd,.tbRow{grid-column:1/-1;display:grid;grid-template-columns:subgrid;align-items:center}
   .tbHd{position:sticky;top:0;z-index:2;background:var(--card,#141a2a);padding:8px 0;border-bottom:1px solid var(--line);font-weight:700;color:var(--tx2);font-size:14px}
@@ -1128,11 +1128,11 @@
   .rtFoot{margin-top:12px;padding-top:8px;border-top:1px solid rgba(255,255,255,.1);font-size:12px;line-height:1.5;color:var(--tx2);white-space:nowrap}
   @container mainc (max-width:999.98px){.tbTeam{padding-right:8px;font-size:13px;gap:5px}.tbCell{font-size:13px;padding:6px 3px}.tbHd{font-size:12px}.tbHd img{display:none}}
   /* 轉會（2026-11-19 改版）：依日期分組；欄＝狀態｜原隊｜➜｜新隊｜消息（subgrid 對齊），方向用位置表達 */
-  .trList{padding:6px 16px 12px;display:grid;grid-template-columns:max-content max-content max-content max-content minmax(0,1fr);column-gap:14px}
+  .trList{padding:6px 16px 12px;display:grid;grid-template-columns:max-content max-content max-content max-content max-content minmax(0,1fr);column-gap:14px}
   .trHead{grid-column:1/-1;display:grid;grid-template-columns:subgrid;padding:4px 10px 6px;font-size:13px;color:var(--tx2);font-weight:700;border-bottom:1px solid var(--line)}
   .trFlow{display:contents}
   .trFrom,.trTo,.trSpan{display:flex;flex-direction:column;align-items:flex-start;gap:4px;white-space:nowrap}
-  .trRow>.trSt{grid-column:1}.trFrom{grid-column:2}.trArr{grid-column:3}.trTo{grid-column:4}.trSpan{grid-column:2/5}.trRow>.trTx{grid-column:5}
+  .trRow>.trSt{grid-column:1}.trRgC{grid-column:2;display:flex;align-items:center;gap:4px;white-space:nowrap}.trRgC .trArr{font-size:12px}.trRgC .trLg{margin-left:0}.trFrom{grid-column:3}.trFlow>.trArr{grid-column:4}.trTo{grid-column:5}.trSpan{grid-column:3/6}.trRow>.trTx{grid-column:6}
   .trArr{color:var(--tx2);font-size:15px}
   .trNone{color:var(--tx2);opacity:.6;padding:0 6px}
   .trLg{font-size:11px;font-weight:800;color:var(--lgc,var(--tx2));margin-left:4px;padding:0 6px;border-radius:999px;border:1px solid color-mix(in srgb,var(--lgc,#888) 55%,transparent)}
@@ -1158,7 +1158,8 @@
   @container mainc (max-width:999.98px){.trList{grid-template-columns:max-content minmax(0,1fr)}.trHead{display:none}
     .trFlow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;grid-column:2;grid-row:1}
     .trFrom,.trTo,.trSpan{flex-direction:row;flex-wrap:wrap;gap:10px}
-    .trRow>.trTx{grid-column:1/-1;grid-row:2;margin-top:4px}}
+    .trRgC{grid-column:1/-1;grid-row:2}
+    .trRow>.trTx{grid-column:1/-1;grid-row:3;margin-top:4px}}
   .ntDoc .ntMeta{display:flex;align-items:center;flex-wrap:wrap;margin-bottom:6px;white-space:pre-wrap}
   @container mainc (max-width:759.98px){.ntWrap{grid-template-columns:minmax(0,1fr)}.ntList{max-height:38vh}.ntDoc{padding:14px 14px}}
   .ntDoc mark{background:#5a4a12;color:inherit;border-radius:3px}
@@ -14142,19 +14143,40 @@ function render(){
     const CO=/(‹[^|›]+\|[^›]+›|[A-Za-z0-9][A-Za-z0-9_.'\-]*)\s*(?:（([^（）]*教練[^（）]*)）|\(([^()]*Coach[^()]*)\))/g;
     // 推文原文清理（2026-11-19 分頁審視）：國旗 emoji 在 Windows 會畫成 KR／MX 字母方塊 ⇒ 拿掉；#LCK 的 # 拿掉；連空行壓成一行；網址改成「文章」連結
     const clean=s=>s.replace(/[ \t]?[\u{1F1E6}-\u{1F1FF}]{2}/gu,"").replace(/^[ \t]+/gm,"").replace(/(^|\s)#(\w)/g,"$1$2").replace(/[ \t]*\n\s*\n\s*/g,"\n").trim();
-    const txt=x=>{ let t=esc(clean(((en2?x.en:(x.zh||x.en))||"").replace(/^\s*(【[^】]{1,4}】|\[[A-Z]+\])\s*/,"")).replace(CO,(m,n,a,b)=>`⟦C:${a||b}⟧${n}⟦R:${a||b}⟧`))
+    // 選手名冊（陣容表格子＋上一位＋wiki／Sheep 的 ‹頁|名›）⇒ 名字 → {頁, 路線}；內文沒標的名字自動補路線圖示與 wiki 連結
+    //   （使用者 2026-11-20「消息頁面很多選手沒有標註路線圖」「很多選手沒有標記超連結」）。比對分大小寫、前後不能接英數字
+    const pn0=s=>String(s||"").replace(/\s*\([^()]*\)\s*$/,"");   // 同陣容表的 pn（那個定義在後面，這裡先用不到它）
+    const PLM=new Map(), addPl=(n,p,l)=>{ n=String(n||"").trim(); if(n.length<2)return; const o=PLM.get(n)||{}; PLM.set(n,{p:o.p||p||"",l:o.l||l||""}); };
+    (D.board||[]).forEach(t=>{ Object.entries(t.r||{}).forEach(([r,L])=>L.forEach(e=>addPl(pn0(e.n),e.p,r)));
+      Object.entries(t.prev||{}).forEach(([r,L])=>L.forEach(p=>{ const o=typeof p==="string"?{n:p}:p; addPl(pn0(o.n),o.n,r); })); });
+    [...(D.wiki||[]),...(D.sheep||[])].forEach(x=>((x.en||"")+" "+(x.zh||"")).replace(/(?:§(TOP|JNG|MID|BOT|SUP|COACH)§)?‹([^|›]+)\|([^›]+)›/g,(m,l,p,d)=>{ let pg=p; try{pg=decodeURIComponent(p);}catch(e){} addPl(d,pg.replace(/_/g," "),l||""); return m; }));
+    const PLRE=PLM.size?new RegExp("(?<![A-Za-z0-9§|‹])("+[...PLM.keys()].sort((a,b)=>b.length-a.length).map(n=>n.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")).join("|")+")(?![A-Za-z0-9›|])","g"):null;
+    const autoPl=s=>{ if(!PLRE)return s;
+      // 已標的 ‹頁|名› 沒有路線就補；純文字的名字包成 ‹頁|名›（網址、既有連結不動）
+      return s.split(/(§[A-Z]+§‹[^›]*›|‹[^›]*›|https?:\/\/\S+)/).map((seg,i)=>{
+        if(i%2){ const m=/^‹([^|›]+)\|([^›]+)›$/.exec(seg); if(!m)return seg; const o=PLM.get(m[2]); return o&&o.l&&o.l!=="COACH"?`§${o.l}§${seg}`:seg; }
+        return seg.replace(PLRE,n=>{ const o=PLM.get(n); if(!o)return n; const lk=o.p?`‹${encodeURIComponent(o.p.replace(/ /g,"_"))}|${n}›`:n;
+          return (o.l&&o.l!=="COACH"?`§${o.l}§`:o.l==="COACH"?"§COACH§":"")+lk; }); }).join(""); };
+    const txt=x=>{ let t=esc(clean(autoPl(((en2?x.en:(x.zh||x.en))||"").replace(/^\s*(【[^】]{1,4}】|\[[A-Z]+\])\s*/,""))).replace(CO,(m,n,a,b)=>`⟦C:${a||b}⟧${n}⟦R:${a||b}⟧`))
         .replace(/https?:\/\/[^\s<]+/g,u=>`<a class="trPl" href="${u}" target="_blank" rel="noopener">${en2?"Article":"文章"}</a>`)
         .replace(/§COACH§/g,()=>`<img class="trCoach" src="img/COACH.png" alt="${en2?"Coach":"教練"}" title="${en2?"Coach":"教練"}">`).replace(/‹([^|›]+)\|([^›]+)›/g,(m,p,d)=>`<a class="trPl" href="https://lol.fandom.com/wiki/${p}" target="_blank" rel="noopener">${d}</a>`).replace(/§(TOP|JNG|MID|BOT|SUP)§/g,(m,r)=>POS_IMG[r]?`<img class="trRole" src="${POS_IMG[r]}" alt="${RL[r]}" title="${RL[r]}">`:`<span class="trRole">${RL[r]}</span>`)
         .replace(/⟦C:([^⟧]*)⟧/g,(m,r)=>`<img class="trCoach" src="img/COACH.png" alt="${r}" title="${r}">`)
-        .replace(/⟦R:([^⟧]*)⟧/g,(m,r)=>r==="教練"||r==="Coach"?"":`<span class="trCoachTx">${r}</span>`).replace(/\n/g,"<br>");
+        .replace(/⟦R:([^⟧]*)⟧/g,(m,r)=>/^(主教練|教練|助理教練|Head Coach|Coach|Assistant Coach)$/.test(r)?"":`<span class="trCoachTx">${r}</span>`).replace(/\n/g,"<br>");
       if(TNRE)t=t.replace(/(^|>)([^<]+)/g,(m,a,b)=>a+b.replace(TNRE,n=>`<span class="trAb" title="${n}">${esc(TNE.get(n)||n)}</span>`));
       if(q){ const re=new RegExp("("+q.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")+")","gi"); t=t.replace(/(^|>)([^<]+)/g,(m,a,b)=>a+b.replace(re,"<mark>$1</mark>")); } return t; };
     const btns=(key,opts)=>`<span style="display:inline-flex;gap:6px;flex-wrap:wrap">${opts.map(([v,l])=>`<button class="sqLaneBtn${(V[key]||"")===v?" on":""}" data-k="${key}" data-v="${esc(v)}">${l}</button>`).join("")}</span>`;
     // ── 版面（使用者 2026-11-19「重新調整這邊的UI 感覺不直觀」）：每列固定「狀態｜原隊 → 新隊｜消息」＋欄標題。
     //   方向用位置表達：加入＝隊在「新隊」、離隊＝隊在「原隊」、另一邊 –；A→B 兩邊都有；續約／動態這類沒有方向的橫跨兩欄、不畫箭頭。
     //   賽區改成隊名旁的小灰字（不再一列塞一排膠囊）；來源連結接在內文尾。
-    const team=(rg,tm)=>tm?`<span class="trTeam" title="${esc(tm)}">${teamLogoHTML(tAb(tm),22,true,tm)||""}${esc(abOf(tm))}${rg?`<span class="trLg" style="--lgc:${LGC[rgNm(rg)]||"var(--tx2)"}">${esc(rgNm(rg))}</span>`:""}</span>`
-      :(rg?`<span class="trTeam"><span class="trLg trLgOnly" style="--lgc:${LGC[rgNm(rg)]||"var(--tx2)"}">${esc(rgNm(rg))}</span></span>`:"");
+    // 賽區獨立一欄（使用者 2026-11-20「新增一欄在第二欄叫做賽區，後面隊伍就不用每個都標註賽區，跨賽區就標註兩個」）
+    const team=(rg,tm)=>tm?`<span class="trTeam" title="${esc(tm)}">${teamLogoHTML(tAb(tm),22,true,tm)||""}${esc(abOf(tm))}</span>`:"";
+    const lgPill=rg=>`<span class="trLg" style="--lgc:${LGC[rgNm(rg)]||"var(--tx2)"}">${esc(rgNm(rg))}</span>`;
+    const rgCol=x=>{ let a;
+      if(x.s==="wiki")a=[x.rg];
+      else{ const o=x.tags.filter(t=>t[2]==="out").map(t=>t[0]), i=x.tags.filter(t=>t[2]==="in").map(t=>t[0]);
+        a=o.length&&i.length?[...o,...i]:x.tags.map(t=>t[0]); }
+      const u=[...new Set(a.filter(Boolean).map(rgNm))];
+      return u.map(l=>`<span class="trLg" style="--lgc:${LGC[l]||"var(--tx2)"}">${esc(l)}</span>`).join(`<span class="trArr">➜</span>`); };
     const NONE=`<span class="trNone">–</span>`;
     const flowOf=x=>{
       if(x.s==="wiki"){ const t=team(x.rg,x.team);
@@ -14173,8 +14195,8 @@ function render(){
       // 韓網：連結標韓網原文（使用者要求），另附 PTT 轉貼
       const lk=(link?lkA(link,x.s==="sheep"?"X":x.s==="ptt"?"PTT":x.s==="kr"?SRCN.kr:(en2?"Source":"來源"),x.srcNm):"")+(x.s==="kr"&&x.ptt?lkA(x.ptt,"PTT"):"");
       const chip=x.s==="ptt"||x.s==="kr"||x.s==="man"?`<span class="trSrcTag trSrc-${x.s}">${SRCN[x.s]}</span> `:"";
-      rows+=`<div class="trRow"><span class="trSt trSt-${stOf(x)}">${ST[stOf(x)]}</span><div class="trFlow">${flow}</div><div class="trTx">${chip}${txt(x)}${lk}</div></div>`; });
-    const head=rows?`<div class="trHead"><span>${en2?"Status":"狀態"}</span><span>${en2?"From":"原隊"}</span><span></span><span>${en2?"To":"新隊"}</span><span>${en2?"News":"消息"}</span></div>`:"";
+      rows+=`<div class="trRow"><span class="trSt trSt-${stOf(x)}">${ST[stOf(x)]}</span><span class="trRgC">${rgCol(x)}</span><div class="trFlow">${flow}</div><div class="trTx">${chip}${txt(x)}${lk}</div></div>`; });
+    const head=rows?`<div class="trHead"><span>${en2?"Status":"狀態"}</span><span>${en2?"League":"賽區"}</span><span>${en2?"From":"原隊"}</span><span></span><span>${en2?"To":"新隊"}</span><span>${en2?"News":"消息"}</span></div>`:"";
     // ── 陣容表（使用者 2026-11-19：參考巴哈 LCK 陣容圖「左邊是戰隊 六大聯賽一路往下列」「傳聞就在ID前面打一個星號」
     //    「滑鼠移到那格顯示簽約到何時、上一位選手、新加入的選手原先來自哪個戰隊」）。資料＝transfers.js 的 board（scripts/transfers_board.py）
     const MODE=V.trMode||"board";
@@ -14298,19 +14320,22 @@ function render(){
       bHTML+=`<div class="tbRow" style="--lgc:${LGC[t.lg]||"var(--gold)"}"><div class="tbTeam" title="${esc(t.nm)}">${teamLogoHTML(tAb(t.nm),26,true,t.nm)||teamLogoHTML(tAb(t.tm),26,true,t.tm)||""}<span>${esc(abOf(t.nm))}</span></div>`
         +COLS.map(r=>{ const es=colE(t,r); return `<div class="tbCell" data-tb="${cellTip(t,r)}">${es.length?es.map(nameH).join(`<span class="tbSep">/</span>`):`<span class="tbMuted">–</span>`}</div>`; }).join("")+rateCell(t)+`</div>`; });
     const bHead=`<div class="tbHd"><span></span>${COLS.map(r=>`<span>${(r==="HC"||r==="STF")?`<img class="trCoach" src="img/COACH.png" alt="">`:(POS_IMG[r]?`<img class="trRole" src="${POS_IMG[r]}" alt="">`:"")}${BLN[r]}</span>`).join("")}<span class="tbRateH">${en2?"Rating":"轉會評分"}</span></div>`;
-    const modeBtns=`${btns("trMode",[["",en2?"Rosters":"陣容表"],["news",en2?"News":"消息"]])}`;
-    main.innerHTML=`<div class="filters">`+modeBtns
-      +(MODE==="news"?`<label>${en2?"Source":"來源"}</label>${btns("trSrc",[["",en2?"All":"全部"],["wiki","Leaguepedia"],["sheep","Sheep Esports"],["ptt","PTT"],["kr",SRCN.kr],["man",SRCN.man]])}`
-      +`<label>${en2?"Status":"狀態"}</label>${btns("trSt",[["",en2?"All":"全部"],["official",ST.official],["rumor",ST.rumor]])}`:"")
-      +`<label>${en2?"Region":"賽區"}</label>${btns("trRg",[["",en2?"All":"全部"],...RGS.map(r=>[r,esc(rgNm(r))])])}`
-      +(MODE==="news"?`<label>${en2?"Type":"類型"}</label>${btns("trKd",[["",en2?"All":"全部"],["join",KD.join],["leave",KD.leave],["other",KD.other]])}`:"")
-      +(MODE==="news"?`<span class="meta">${shown.length} / ${all.length}${D.at?`・${en2?"updated":"更新"} ${esc(D.at)}`:""}</span>`
-        :`<span class="tbLegend">${[[["tbNew",en2?"New signing":"新加入"],["tbRs",en2?"Re-signed":"續約"]],[["tbExp",en2?"Contract expired":"合約到期未宣布"],["tbGone",en2?"Departure announced":"已宣布離隊"]],[["tbOut",en2?"Possible move":"可能轉會"],["tbY",en2?"Rumor":"傳聞"]]]   // 分三組（使用者 2026-11-20）：加入／續約｜到期／離隊｜可能轉會／傳聞
-            .map(g=>`<span class="tbLgG">${g.map(([c,l])=>`<button class="sqLaneBtn${V.tbF===c?" on":""}" data-k="tbF" data-v="${V.tbF===c?"":c}" title="${en2?"Show only this (click again to clear)":"只看這種（再點一次取消）"}"><b class="tbN ${c==="tbGone"?"tbExp tbGone":c}">${l}</b></button>`).join("")}</span>`).join("")}`
-          +`<button class="sqLaneBtn${V.tbChg?" on":""}" data-k="tbChg" data-v="${V.tbChg?"":"1"}">${en2?"Changed teams only":"只看有異動"}</button>`
-          +`<span class="meta">${D.at?`<span>${en2?"as of":"截至"} ${esc(D.at)}</span>`:""}</span></span>`)
+    // 篩選列（使用者 2026-11-20「消息跟轉會表的篩選列也統一一下 並且直觀一點」）：兩種模式同一個順序——
+    //   模式（圖示＋文字）｜賽區（聯賽色）｜該模式自己的篩選（分組、組間直線）｜……｜更新時間＋搜尋（最右）
+    const FG=(lb,inner)=>`<span class="trFG">${lb?`<label>${lb}</label>`:""}${inner}</span>`;
+    const lgTx=r=>{ const l=rgNm(r); return `<span style="color:${LGC[l]||"inherit"};font-weight:800">${esc(l)}</span>`; };
+    const modeBtns=FG("",btns("trMode",[["",`📋 ${en2?"Rosters":"陣容表"}`],["news",`📰 ${en2?"News":"消息"}`]]));
+    const rgBtns=FG(en2?"League":"賽區",btns("trRg",[["",en2?"All":"全部"],...RGS.map(r=>[r,lgTx(r)])]));
+    const newsBtns=FG(en2?"Status":"狀態",btns("trSt",[["",en2?"All":"全部"],["official",ST.official],["rumor",`<b class="tbY">${ST.rumor}</b>`]]))
+      +FG(en2?"Type":"類型",btns("trKd",[["",en2?"All":"全部"],["join",KD.join],["leave",KD.leave],["other",KD.other]]))
+      +FG(en2?"Source":"來源",btns("trSrc",[["",en2?"All":"全部"],["wiki","Leaguepedia"],["sheep","Sheep Esports"],["ptt","PTT"],["kr",SRCN.kr],["man",SRCN.man]]));
+    const boardBtns=FG(en2?"Show":"顯示",`<span class="tbLegend">${[[["tbNew",en2?"New signing":"新加入"],["tbRs",en2?"Re-signed":"續約"]],[["tbExp",en2?"Contract expired":"合約到期未宣布"],["tbGone",en2?"Departure announced":"已宣布離隊"]],[["tbOut",en2?"Possible move":"可能轉會"],["tbY",en2?"Rumor":"傳聞"]]]   // 分三組（使用者 2026-11-20）：加入／續約｜到期／離隊｜可能轉會／傳聞
+        .map(g=>`<span class="tbLgG">${g.map(([c,l])=>`<button class="sqLaneBtn${V.tbF===c?" on":""}" data-k="tbF" data-v="${V.tbF===c?"":c}" title="${en2?"Show only this (click again to clear)":"只看這種（再點一次取消）"}"><b class="tbN ${c==="tbGone"?"tbExp tbGone":c}">${l}</b></button>`).join("")}</span>`).join("")}`
+      +`<button class="sqLaneBtn${V.tbChg?" on":""}" data-k="tbChg" data-v="${V.tbChg?"":"1"}">${en2?"Changed teams only":"只看有異動"}</button></span>`);
+    const metaTx=MODE==="news"?`${shown.length} / ${all.length}${D.at?`・${en2?"updated":"更新"} ${esc(D.at)}`:""}`:(D.at?`${en2?"as of":"截至"} ${esc(D.at)}`:"");
+    main.innerHTML=`<div class="filters trBar">`+modeBtns+rgBtns+(MODE==="news"?newsBtns:boardBtns)
       // 搜尋放最右邊（使用者 2026-11-20「篩選列重新調整一下 搜尋應該在最右邊」）
-      +`<span style="flex:1"></span>`
+      +`<span style="flex:1"></span><span class="meta">${metaTx}</span>`
       +`<label>${en2?"Search":"搜尋"}</label><span class="cwrap"><input type="text" id="trQ" value="${esc(V.trQ||"")}" placeholder="${en2?"Player or team":"選手或隊名"}" style="width:190px;padding-right:26px"><button class="cx" tabindex="-1" data-x="trQ" title="一鍵清除">✕</button></span>`+`</div>`
       +(MODE==="news"?`<div class="card trList">${head}${rows||`<span class="sumEmpty">${V.trSrc==="sheep"?(en2?"No Sheep Esports posts collected yet.":"還沒有收錄到 Sheep Esports 的貼文。"):(en2?"No match":"沒有符合的消息")}</span>`}</div>`
         :`<div class="card tbBoard">${vRows.length?bHead+bHTML:`<span class="sumEmpty">${en2?"No match":"沒有符合的隊伍或選手"}</span>`}</div>`);
