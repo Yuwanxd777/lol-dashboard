@@ -153,7 +153,7 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=()):
     for tm in teams:
         c = cur.get(tm, {})
         prevkeys = {key(p) for v in prev.get(tm, {}).values() for p in v}
-        rows = {}
+        rows, gone = {}, {}
         for rr in LANES + ["COACH"]:
             cell = []
             ppl = c.get(rr, [])
@@ -193,10 +193,25 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=()):
                 if rmr.get("from"):
                     e["from"] = rmr["from"]
                 cell.append(e)
+            # 使用者 2026-11-19「如果該路線有新加入的選手，舊的就當作離隊」：選手路線有官方新人（wiki 新加入或 Sheep 官方消息）
+            # ⇒ 同格原有的人移到「上一位」（傳聞不算新人；教練欄不套）
+            moved = []
+            if rr != "COACH" and any(("new" in e or ("tip" in e and "r" not in e)) for e in cell):
+                moved = [e["p"] or e["n"] for e in cell if "new" not in e and "tip" not in e]
+                cell = [e for e in cell if "new" in e or "tip" in e]
+            if moved:
+                gone.setdefault(rr, []).extend(moved)
             if cell:
                 rows[rr] = cell
-        pv = {rr: [p for p in prev.get(tm, {}).get(rr, []) if key(p) not in {key(e["p"]) for e in rows.get(rr, [])}]
-              for rr in LANES + ["COACH"]}
+        pv = {}
+        for rr in LANES + ["COACH"]:
+            # 還在隊上的人不是「上一位」（使用者 2026-11-19「Ratis 沒說離開 GZ，他是教練」：職稱不在五種裡沒顯示，不代表離隊）
+            here = {key(e["p"]) for e in rows.get(rr, [])} | {key(pg) for v in c.values() for _, pg, *_ in v if key(pg) not in {key(g) for g in gone.get(rr, [])}}
+            seen, L = set(), []
+            for p in gone.get(rr, []) + prev.get(tm, {}).get(rr, []):   # 被新人擠掉的排前面
+                if key(p) not in here and key(p) not in seen:
+                    seen.add(key(p)); L.append(p)
+            pv[rr] = L
         pv = {rr: v for rr, v in pv.items() if v}
         out.append({"tm": tm, "nm": disp[tm], "lg": lg_of[tm], "r": rows, "prev": pv})
     try:
