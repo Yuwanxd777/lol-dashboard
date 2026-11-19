@@ -1077,6 +1077,28 @@
   #tbTip{position:fixed;z-index:9999;display:none;max-width:340px;padding:10px 12px;border-radius:8px;background:#1b2338;border:1px solid rgba(255,255,255,.14);box-shadow:0 8px 24px rgba(0,0,0,.45);font-size:14px;line-height:1.6;color:var(--tx);pointer-events:none}
   #tbTip hr{border:0;border-top:1px solid rgba(255,255,255,.1);margin:6px 0}
   .tbRum{font-size:12px;padding:0 6px;border-radius:4px;background:rgba(200,160,255,.16);color:#c8a0ff}
+  /* 轉會評分小框（2026-11-19 重新設計） */
+  #tbTip:has(.rtBox){max-width:none;padding:12px 14px}
+  .rtBox{min-width:300px}
+  .rtHd{display:flex;align-items:center;gap:8px;padding-bottom:10px;margin-bottom:10px;border-bottom:1px solid rgba(255,255,255,.1);white-space:nowrap}
+  .rtHd>b:first-of-type{font-size:16px}
+  .rtTt{color:var(--tx2);font-size:13px}
+  .rtSum{margin-left:auto;padding-left:20px;font-size:24px;line-height:1;font-weight:800;font-variant-numeric:tabular-nums}
+  .rtGrid{display:grid;grid-template-columns:20px auto 18px auto auto;column-gap:12px;row-gap:8px;align-items:center}
+  .rtCh{font-size:12px;color:var(--tx2);line-height:1}
+  .rtChD{justify-self:end}
+  .rtIc img{width:20px;height:20px;display:block;object-fit:contain}
+  .rtP{display:flex;flex-direction:column;line-height:1.3;min-width:0}
+  .rtN{font-weight:700;white-space:nowrap;display:flex;align-items:center;gap:6px}
+  .rtV{font-size:13px;color:var(--tx2);font-variant-numeric:tabular-nums;white-space:nowrap}
+  .rtV i{font-style:normal;font-size:11px;opacity:.8;margin-left:6px}
+  .rtAr{color:var(--tx2);text-align:center;font-size:13px}
+  .rtD{justify-self:end;min-width:58px;text-align:center;padding:3px 8px;border-radius:6px;font-weight:800;font-variant-numeric:tabular-nums;background:rgba(255,255,255,.06)}
+  .rtD.tbUp{background:rgba(255,90,90,.15)}
+  .rtD.tbDn{background:rgba(63,207,122,.15)}
+  .rtXl{grid-column:2/-1;margin-top:-6px;font-size:11px;color:var(--tx2)}
+  .rtEmpty{color:var(--tx2)}
+  .rtFoot{margin-top:12px;padding-top:8px;border-top:1px solid rgba(255,255,255,.1);font-size:12px;line-height:1.5;color:var(--tx2);white-space:nowrap}
   @container mainc (max-width:999.98px){.tbTeam{padding-right:8px;font-size:13px;gap:5px}.tbCell{font-size:13px;padding:6px 3px}.tbHd{font-size:12px}.tbHd img{display:none}}
   /* 轉會（2026-11-19 改版）：依日期分組；欄＝狀態｜原隊｜➜｜新隊｜消息（subgrid 對齊），方向用位置表達 */
   .trList{padding:6px 16px 12px;display:grid;grid-template-columns:max-content max-content max-content max-content minmax(0,1fr);column-gap:14px}
@@ -14164,14 +14186,21 @@ function render(){
       const hc=(t.r.COACH||[]).find(e=>e.sr==="HC"&&(e.new||e.tip)&&e.from), a=hc&&tmR(hc.from), b=tmR(t.nm)??tmR(t.tm);
       if(hc&&a!=null&&b!=null)items.push({r:"COACH",nw:`${pn(hc.n)}（${abOf(hc.from)}）`,od:abOf(t.nm),a,b,d:a-b,rm:!!hc.r});
       return {items,sum:items.reduce((s,x)=>s+x.d,0),rm:items.some(x=>x.rm)}; };
-    const MDT=` <span class="tbMuted">${en2?"(no data, median)":"（無資料，取中位數）"}</span>`;
-    const MDV=` <span class="tbMuted">${en2?"(median)":"（取中位數）"}</span>`;
-    const rateTip=t=>{ const rt=rateOf(t), L=[`<b>${esc(abOf(t.nm))}・${en2?"Transfer rating":"轉會評分"}</b>`], sg=v=>(v>0?"+":"")+v.toFixed(1);
-      if(!RATE)L.push(`<span class="tbMuted">${en2?`Switch the year to ${SEASON} to compute`:`年份切到 ${SEASON} 才會計算`}</span>`);
-      else if(!rt.items.length)L.push(`<span class="tbMuted">${en2?"No confirmed signing to compare yet":"還沒有可比較的官方新人"}</span>`);
-      else L.push(rt.items.map(x=>`${BLN[x.r]}　${esc(x.nw)}${x.rm?` <span class="tbRum">${en2?"Rumor":"傳聞"}</span>`:""} ${x.a.toFixed(1)}${x.ma===2?MDV:x.ma?MDT:""} ⟵ ${esc(x.od)} ${x.b.toFixed(1)}${x.mb?MDT:""}　<b class="${x.d>0?"tbUp":x.d<0?"tbDn":""}">${sg(x.d)}</b>${x.xl?` <span class="tbMuted">${en2?"cross-league":"跨聯賽"} ${esc(x.xl)}</span>`:""}`).join("<br>"),
-        `<span class="tbMuted">${en2?"Players: rating (Players tab, full year) new − previous. Head coach: team rating of his previous team − this team. Parentheses = includes rumors. All leagues ranked together, not strength-adjusted.":"選手＝選手分頁評分（全年全部賽事）新人 − 上一位；總教練＝他原隊的戰隊評分 − 本隊。括號＝含傳聞；各聯賽混在一起排名，沒有換算聯賽強度"}</span>`);
-      TIPS.push(L.join("<hr>")); return TIPS.length-1; };
+    // 評分小框（使用者 2026-11-19「評分的小框重新設計」）：標題列＝隊徽＋隊名＋總分；每條路一列＝路線圖示｜離隊（名字／分數）→ 加入｜增減色塊
+    const rateTip=t=>{ const rt=rateOf(t), sg=v=>(v>0?"+":"")+v.toFixed(1), cls=v=>v>0?"tbUp":v<0?"tbDn":"";
+      const has=rt&&rt.items.length;
+      let h=`<div class="rtBox"><div class="rtHd">${teamLogoHTML(tAb(t.nm),22,true,t.nm)||""}<b>${esc(abOf(t.nm))}</b><span class="rtTt">${en2?"Transfer rating":"轉會評分"}</span>`
+        +(has?`<b class="rtSum ${cls(rt.sum)}">${rt.rm?"(":""}${sg(rt.sum)}${rt.rm?")":""}</b>`:"")+`</div>`;
+      if(!RATE)h+=`<div class="rtEmpty">${en2?`Switch the year to ${SEASON} to compute`:`年份切到 ${SEASON} 才會計算`}</div>`;
+      else if(!has)h+=`<div class="rtEmpty">${en2?"No lineup change to compare yet":"這隊還沒有可比較的異動"}</div>`;
+      else{ const pc=(n,v,md,rm)=>`<span class="rtP"><span class="rtN">${esc(n)}${rm?`<span class="tbRum">${en2?"Rumor":"傳聞"}</span>`:""}</span>`
+          +`<span class="rtV">${v.toFixed(1)}${md?`<i>${md===2?(en2?"median":"中位數"):(en2?"no data · median":"無資料・中位數")}</i>`:""}</span></span>`;
+        h+=`<div class="rtGrid"><span></span><span class="rtCh">${en2?"Out":"離隊"}</span><span></span><span class="rtCh">${en2?"In":"加入"}</span><span class="rtCh rtChD">${en2?"Diff":"增減"}</span>`;
+        rt.items.forEach(x=>{ const ic=x.r==="COACH"?`<img src="img/COACH.png" alt="">`:(POS_IMG[x.r]?`<img src="${POS_IMG[x.r]}" alt="">`:"");
+          h+=`<span class="rtIc" title="${BLN[x.r]}">${ic}</span>${pc(x.od,x.b,x.mb?1:0,false)}<span class="rtAr">➜</span>${pc(x.nw,x.a,x.ma,x.rm)}<b class="rtD ${cls(x.d)}">${sg(x.d)}</b>`
+            +(x.xl?`<span class="rtXl">${en2?"Cross-league":"跨聯賽"} ${esc(x.xl)}</span>`:""); });
+        h+=`</div><div class="rtFoot">${en2?"Players: Players-tab rating (full year), in − out.<br>Head coach: his previous team's rating − this team.<br>Parentheses = includes rumors · leagues ranked together, not strength-adjusted.":"選手＝選手分頁評分（全年），加入 − 離隊；總教練＝他原隊的戰隊評分 − 本隊。<br>括號＝含傳聞・各聯賽混在一起排名，沒有換算聯賽強度"}</div>`; }
+      TIPS.push(h+`</div>`); return TIPS.length-1; };
     const rateCell=t=>{ const rt=rateOf(t), v=rt&&rt.items.length?rt.sum:null;
       return `<div class="tbCell tbRate" data-tb="${rateTip(t)}">${v==null?`<span class="tbMuted">–</span>`:`<b class="${v>0?"tbUp":v<0?"tbDn":""}">${rt.rm?"(":""}${(v>0?"+":"")+v.toFixed(1)}${rt.rm?")":""}</b>`}</div>`; };
     // 顏色（使用者 2026-11-19，取代星號）：黃＝傳聞未確定、紅＝新加入、藍＝合約已到期但還沒宣布離隊（Doran）、白＝留隊
