@@ -6,7 +6,7 @@
   ① 一級隊與 2026 名冊：Tournaments × TournamentRosters（當季 Primary 非資格賽；每隊取最後一個賽段的名冊＝「上一位」）
   ② 官方現況：Players.Team（選手官宣加入／離隊後 wiki 直接改所屬隊 ⇒ 這就是「目前確認」的陣容）
   ③ 合約：Contracts（GCD；同隊取最晚的 ContractEnd、排除 IsRemoval）
-  ④ 異動：RosterChanges（本休賽期加入的＝新人 ⇒ 找他上一個離開的隊＝原隊；教練用最近一次加入時的 Role 分總教練）
+  ④ 異動：RosterChanges（本休賽期加入的＝新人 ⇒ 找他上一個離開的隊＝原隊；教練用最近一次加入時的 Role 分主教練）
   ⑤ 傳聞：Sheep 推文（fetch_transfers 輸出層已套好 §路線§‹頁|名› 記號）——「X 將加入 Y」取第一個帶路線的名字；
      「Y 2027 陣容：A／B／C／D／E」依序對上野中下輔。官方已經確認的不重複列。
 """
@@ -14,7 +14,7 @@ import re
 import urllib.parse
 
 ROLE_OF = {"Top": "TOP", "Jungle": "JNG", "Mid": "MID", "Bot": "BOT", "Support": "SUP", "Coach": "COACH", "Analyst": "COACH"}
-STAFF_ORDER = ["HC", "C", "SC", "PC", "AN"]   # 總教練／教練／戰略教練／路線教練／分析師（其餘助理教練、體能教練、經理…不列）
+STAFF_ORDER = ["HC", "C", "SC", "PC", "AN"]   # 主教練／教練／戰略教練／路線教練／分析師（其餘助理教練、體能教練、經理…不列）
 _STAFF_TOK = {"head coach": "HC", "interim head coach": "HC", "coach": "C", "strategic coach": "SC", "positional coach": "PC",
               "analyst": "AN", "head analyst": "AN", "data analyst": "AN", "strategy analyst": "AN", "gameplay analyst": "AN"}
 
@@ -98,6 +98,21 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=()):
         rr = ROLE_OF.get(x.get("ro"))
         cur.setdefault(x["tm"], {}).setdefault(rr, []).append((str(x["id"]), str(x.get("pg") or x["id"]), x.get("ro") or ""))
         team_of[key(x["pg"] or x["id"])] = x["tm"]
+    # ②b 教練欄改用 wiki 戰隊頁的「Current Roster」本體（使用者 2026-11-19「每一隊的教練都去 WIKI 重新檢視」）：
+    #     Tenures.IsCurrent × 加入那筆 RosterChanges 的職稱／狀態。Players.Role 只有 Coach／Analyst 兩種、Team 欄常沒跟上
+    #     （TL Annibal 是 Business Analyst、SR Nulu 根本不在 SR 名單、kkOma 休假 inactive、SR 漏了路線教練 Selfie）
+    try:
+        tstaff = staff_tenures(cargo, teams)
+        for tm in teams:
+            cur.setdefault(tm, {})["COACH"] = tstaff.get(tm, [])
+    except Exception as e:   # 查不到就退回 Players
+        print(f"   教練現任名單（Tenures）查詢失敗，退回 Players：{type(e).__name__} {str(e)[:100]}")
+        tstaff = None
+    try:
+        played = played_set(cargo, year, teams)
+    except Exception as e:
+        print(f"   出賽紀錄查詢失敗（不濾沒上場的人）：{type(e).__name__} {str(e)[:100]}")
+        played = None
     # ③ 合約
     ct = cargo({"tables": "Contracts", "fields": "Player=p,Team=tm,ContractEnd=ce,IsRemoval=rm",
                 "where": "Contracts.Team IN " + _in(teams) + f' AND Contracts.ContractEnd>="{since}"', "limit": "5000", "format": "json"})
@@ -158,10 +173,10 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=()):
             cell = []
             ppl = c.get(rr, [])
             srole = {}
-            if rr == "COACH":   # 只列總教練／教練／戰略教練／路線教練／分析師（使用者 2026-11-19），依序排
+            if rr == "COACH":   # 只列主教練／教練／戰略教練／路線教練／分析師（使用者 2026-11-19），依序排
                 keep = []
                 for p in ppl:
-                    s = staff_code(news_role.get(key(p[1])) or joined.get((key(p[1]), tm), ("", ""))[1], p[2])
+                    s = p[3] if len(p) > 3 else staff_code(news_role.get(key(p[1])) or joined.get((key(p[1]), tm), ("", ""))[1], p[2])   # Tenures 來的已帶職稱代碼
                     if s:
                         srole[p[1]] = s; keep.append(p)
                 ppl = sorted(keep, key=lambda p: STAFF_ORDER.index(srole[p[1]]))
@@ -179,6 +194,10 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=()):
                     e["new"] = jd
                     if origin.get(k):
                         e["from"] = origin[k]
+                # 今年沒替這隊上過場的選手不列（使用者 2026-11-19「G2 Sola 是簽來當 co-stream 實況主的…沒上過場的都不應該出現在名單」）；新人不套
+                #     本休賽期有官方續約消息的不套（NS Calix 今年沒上場但續約到 2028，是明年的人）
+                if rr != "COACH" and "new" not in e and "rs" not in e and played is not None and (k, tkey(tm)) not in played and (key(pid), tkey(tm)) not in played:
+                    continue
                 cell.append(e)
             have = {key(e["p"]) for e in cell} | {key(e["n"]) for e in cell}
             for rmr in rumor.get((tkey(tm), rr), []):
@@ -229,6 +248,55 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=()):
             x["rk"] = k[3]
     out.sort(key=lambda x: (ORDER.index(x["lg"]) if x["lg"] in ORDER else 9,
                             (rk.get(tkey(x["tm"])) or rk.get(tkey(x["nm"])) or (999, 999, 999, ""))[:3], x["tm"].lower()))
+    return out
+
+
+def played_set(cargo, year, teams):
+    """{(選手 key, 隊 key)}：該年替這隊打過至少一場（ScoreboardPlayers，所有賽事）"""
+    got = set()
+    for i in range(0, len(teams), 10):
+        r = cargo({"tables": "ScoreboardPlayers=SP", "fields": "SP.Link=p,SP.Team=tm,COUNT(*)=n", "group_by": "SP.Link,SP.Team",
+                   "where": "SP.Team IN " + _in(teams[i:i + 10]) + f' AND SP.DateTime_UTC>="{year}-01-01" AND SP.DateTime_UTC<"{int(year) + 1}-01-01"',
+                   "limit": "5000", "format": "json"})
+        for x in r:
+            if x.get("p"):
+                got.add((key(x["p"]), tkey(x["tm"])))
+    if len(got) < 100:
+        raise RuntimeError(f"出賽紀錄只有 {len(got)} 筆，不像完整")
+    return got
+
+
+def staff_tenures(cargo, teams):
+    """{隊: [(顯示 ID, 頁名, 職稱, 職稱代碼)]}：各隊目前在職、職稱屬於五種的教練／分析師。
+    狀態 inactive（休假、停職）不列；同一人同時掛兩隊（舊隊漏記離隊，如 Benny TT→UP）只算最晚加入的那隊"""
+    rows = []
+    for i in range(0, len(teams), 20):
+        rows += cargo({"tables": "Tenures=T,RosterChanges=RC", "join_on": "T.RosterChangeIdJoin=RC.RosterChangeId",
+                       "fields": "T.Player=p,T.Team=tm,T.DateJoin=dj,RC.Role=ro,RC.Status=st",
+                       "where": "T.IsCurrent=1 AND T.Team IN " + _in(teams[i:i + 20]), "limit": "5000", "format": "json"})
+    best = {}
+    for x in rows:
+        p = str(x.get("p") or "")
+        code = staff_code(x.get("ro") or "", "")
+        if not p or not code or str(x.get("st") or "").lower() == "inactive":
+            continue
+        k = key(p)
+        if k not in best or (x.get("dj") or "") > (best[k].get("dj") or ""):
+            best[k] = dict(x, code=code)
+    # 顯示 ID：頁名可能是舊名或轉址（Deam147 → Deam），查 PlayerRedirects 拿現在的 ID
+    pages = sorted({str(x["p"]) for x in best.values()})
+    idof = {}
+    for i in range(0, len(pages), 60):
+        for y in cargo({"tables": "PlayerRedirects=PR,Players=P", "join_on": "PR.OverviewPage=P.OverviewPage",
+                        "fields": "PR.AllName=an,P.ID=id,P.OverviewPage=pg", "where": "PR.AllName IN " + _in(pages[i:i + 60]),
+                        "limit": "500", "format": "json"}):
+            if y.get("id") is not None:
+                idof[str(y["an"])] = (str(y["id"]), str(y.get("pg") or y["an"]))
+    out = {}
+    for x in best.values():
+        p = str(x["p"])
+        disp_id, pg = idof.get(p, (re.sub(r"\s*\([^()]*\)$", "", p), p))
+        out.setdefault(x["tm"], []).append((disp_id, pg, x.get("ro") or "", x["code"]))
     return out
 
 

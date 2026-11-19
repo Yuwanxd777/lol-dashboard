@@ -24,14 +24,14 @@ FROM = "2026-11-01"
 sys.path.insert(0, HERE)
 
 ROLE = {"Top Laner": "TOP", "Jungler": "JNG", "Mid Laner": "MID", "Bot Laner": "BOT", "Support": "SUP"}
-STAFF = {"Head Coach": "總教練", "Assistant Coach": "助理教練", "Coach": "教練", "Strategic Coach": "戰術教練",
+STAFF = {"Head Coach": "主教練", "Assistant Coach": "助理教練", "Coach": "教練", "Strategic Coach": "戰術教練",
          "Positional Coach": "位置教練", "Team Manager": "領隊", "General Manager": "總經理", "Manager": "經理",
          "Data Analyst": "數據分析師", "Analyst": "分析師", "Esports Director": "電競總監", "Owner": "老闆",
          "Chief Executive Officer": "執行長", "Substitute": "替補", "Performance Coach": "體能教練",
          "Psychologist": "心理師", "Content Creator": "內容創作者", "Streamer": "實況主", "Translator": "翻譯",
          "Sporting Director": "運動總監", "Team Coordinator": "隊務", "Director": "總監", "President": "總裁",
          "Trainee": "練習生", "Two-Way": "雙向合約"}
-STAFF.update({"Interim Head Coach": "代理總教練", "JV Manager": "二軍經理", "Academy Program Manager": "青訓計畫經理",
+STAFF.update({"Interim Head Coach": "代理主教練", "JV Manager": "二軍經理", "Academy Program Manager": "青訓計畫經理",
               "Assistant Manager": "助理經理", "Player Performance Coach": "選手表現教練", "Head of LoL": "LoL 部門主管",
               "Director of Esports": "電競總監", "Sub": "替補", "Academy Coach": "青訓教練", "Top": "上路", "Jungle": "打野",
               "Mid": "中路", "Bot": "下路", "Support": "輔助", "Owner/Chief Executive Officer": "老闆／執行長"})
@@ -299,7 +299,7 @@ def lane_sheep(sheep, prot=None, year=None):
         c2 = {p for lg, p in c.items() if lg in lgs}
         return next(iter(c2)) if len(c2) == 1 else None
     # 教練：「總教練 Daeny」「Head Coach Daeny」→ 名字前補 §COACH§（職稱字留著）；wiki 標過教練、又不是當季選手的名字也補
-    cz = re.compile(r"((?:總|助理|戰術|位置|青訓)?教練)\s*" + _NAME)
+    cz = re.compile(r"((?:主|總|助理|戰術|位置|青訓)?教練)\s*" + _NAME)
     ce = re.compile(r"((?:(?:Head|Assistant|Strategic|Positional|Academy)\s+)?Coach)\s+" + _NAME)
     spaced = sorted((n for n in pos if " " in n), key=len, reverse=True)
     for x in sheep:
