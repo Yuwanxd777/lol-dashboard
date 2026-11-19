@@ -261,6 +261,20 @@ _EN_STOP = {"For", "The", "In", "As", "At", "And", "To", "Of", "On", "With", "Fr
             "Former", "Current", "New", "Previous", "This", "That", "He", "She", "They", "His", "Her", "Their", "Both", "All"}
 
 
+NAT_EN = ("Korean|Chinese|Danish|Greek|Spanish|French|German|Turkish|Polish|Swedish|Canadian|American|Vietnamese|Taiwanese|"
+          "Brazilian|Lithuanian|Ukrainian|British|English|Czech|Slovenian|Belgian|Dutch|Japanese|Mexican|Argentine|Argentinian|"
+          "Peruvian|Chilean|Croatian|Serbian|Bulgarian|Romanian|Hungarian|Austrian|Swiss|Slovak|Estonian|Latvian|Russian|"
+          "Israeli|Portuguese|Italian|Norwegian|Finnish|Australian|Filipino|Thai|Malaysian|Indonesian")
+
+
+def strip_nat(sheep):
+    """英文原文拿掉國籍形容詞（The Korean midlaner → The midlaner；all-Canadian botlane → botlane）；使用者 2026-11-19「國名不需要列出」"""
+    rx = re.compile(r"\b(?:all-)?(?:" + NAT_EN + r")\s+(?=[a-zA-Z§‹])")
+    for x in sheep:
+        if x.get("en"):
+            x["en"] = rx.sub("", x["en"])
+
+
 def lane_sheep(sheep, prot=None, year=None):
     """Sheep 推文的「輔助 Cryogen」「support Cryogen」→ §SUP§Cryogen（跟 wiki 句子一樣顯示路線圖示；使用者 2026-11-19）。
     只在路線字後面緊接選手名時換（「以先發打野加入」「AD Carry 未定」不動）；名字＝連結記號或大寫開頭的英數字，排除介系詞與聯賽名"""
@@ -356,6 +370,7 @@ def player_pos(year):
 T1_LEAGUES = ("LoL Champions Korea", "Tencent LoL Pro League", "LoL EMEA Championship",
               "League of Legends Championship Series", "Circuit Brazilian League of Legends", "League of Legends Championship Pacific")
 T1_EXTRA = {"OpTic Gaming"}   # 2027 才進一級的（2026 名單沒有）
+T1_EXCLUDE = {"Karmine Corp Blue"}   # 二隊：只因特殊賽制打了 LEC 第一賽段（使用者 2026-11-19）
 T1_RG = {"韓國", "中國", "歐洲", "北美", "巴西", "亞太", "越南", "日本"}   # 只標賽區沒標隊（自由球員名單）＝六大聯賽的消息
 _t1key = lambda n: re.sub(r"\s*\([^()]*\)\s*$", "", n or "").strip().lower()
 
@@ -375,7 +390,12 @@ def tier1_teams(year):
         R = json.loads(d[d.index("=") + 1:].rstrip().rstrip(";"))["tabs"]["RAW_DATA"]
         h = R[0]; iL, iB, iR = h.index("league"), h.index("blue_teamname"), h.index("red_teamname")
         s |= {n for row in R[1:] if row[iL] == "LPL" for n in (row[iB], row[iR]) if n}
-    return sorted(s | T1_EXTRA)
+    try:   # 下一季升降級賽晉級的隊也算一級（降級的仍保留：從一級離開的消息照樣要列）
+        import transfers_board
+        s |= {t["tm"] for t in transfers_board.promotion(B.cargo, year) if t["ql"]}
+    except Exception as e:
+        print(f"升降級賽查詢失敗：{type(e).__name__} {str(e)[:80]}")
+    return sorted((s | T1_EXTRA) - T1_EXCLUDE)
 
 
 def is_t1(x, keys):
@@ -413,6 +433,7 @@ def main():
     acc.sort(key=lambda x: x["d"], reverse=True)
     io.open(SHEEP, "w", encoding="utf-8").write(json.dumps(acc, ensure_ascii=False, indent=1))
     sheep = [{k: x[k] for k in ("id", "d", "en", "zh", "url", "kind", "tags", "st") if x.get(k)} for x in acc if x["d"][:10] >= start]
+    strip_nat(sheep)
     link_sheep(wiki, sheep)   # 連結用全部 wiki 句子當名字來源（過濾前）
     # 只留六大聯賽一級隊相關的（使用者 2026-11-19「不是加入六大聯賽的一級賽事的資訊都不要列出」「從六大聯賽離開到次級也列出」）
     try:
@@ -429,7 +450,16 @@ def main():
         sheep = [x for x in sheep if is_t1(x, keys)]
         print(f"六大聯賽一級：wiki {n0}→{len(wiki)}、sheep {n1}→{len(sheep)}（一級隊 {len(t1)}）")
     wiki.sort(key=lambda x: (x["d"], x["n"]), reverse=True)
-    data = {"at": datetime.datetime.now().strftime("%Y-%m-%d %H:%M"), "from": start, "t1": t1, "wiki": wiki, "sheep": sheep}
+    # 陣容表（使用者 2026-11-19：六大聯賽各隊 × 上野中下輔＋教練，傳聞加 *；scripts/transfers_board.py）
+    try:
+        import build_predict_live as B, transfers_board
+        yr = int(start[:4]) if start[5:7] > "06" else int(start[:4]) - 1
+        board = transfers_board.build(B.cargo, yr, start, sheep, {n: "LCS" for n in T1_EXTRA}, wiki, T1_EXCLUDE)
+        print(f"陣容表：{len(board)} 隊")
+    except Exception as e:
+        board = old.get("board") or []
+        print(f"陣容表失敗，沿用舊檔 {len(board)} 隊：{type(e).__name__} {str(e)[:150]}")
+    data = {"at": datetime.datetime.now().strftime("%Y-%m-%d %H:%M"), "from": start, "t1": t1, "wiki": wiki, "sheep": sheep, "board": board}
     io.open(OUT, "w", encoding="utf-8").write("window.TRANSFERS=" + json.dumps(data, ensure_ascii=False, separators=(",", ":")) + ";\n")
     print(f"transfers.js：wiki {len(wiki)}、sheep {len(sheep)}")
 
