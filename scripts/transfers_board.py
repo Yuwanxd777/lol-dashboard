@@ -554,7 +554,7 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
                     k_ = key(e.get("p") or e["n"])
                     if e.get("gone") or e.get("r"):
                         continue
-                    if e.get("new") or e.get("rs") or e.get("pm") or e.get("tip") or (e.get("c") and e["c"] >= today):
+                    if e.get("new") or e.get("rs") or e.get("pm") or e.get("tip") or (e.get("c") and e["c"] >= today and not e.get("ro")):   # 綠字（合約還在但傳出要走）不算已定
                         settled.add(k_); settled.add(key(e["n"]))
         cand, seen_ = [], set()
         left_rc = set()   # 這個休賽期前後 wiki 記了「離隊」的（人, 隊）
@@ -570,7 +570,7 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
                 for e in x["r"].get(rr, []):
                     if e.get("r") or e.get("new") or e.get("rs") or e.get("pm") or e.get("tip"):
                         continue
-                    if e.get("gone") or not e.get("c") or e["c"] < today:
+                    if e.get("gone") or not e.get("c") or e["c"] < today or e.get("ro"):   # 所有綠字都列進自由人（使用者 2026-11-20「所有綠字都顯示到FA」；同路沒有別的人選時，原隊格子照樣顯示）
                         cand.append((x, rr, e.get("p") or e["n"], e["n"], e.get("c") or "", 1 if e.get("gone") else 0))
                 for p in x["prev"].get(rr, []):
                     cand.append((x, rr, p, re.sub(r"\s*\([^()]*\)$", "", p), con.get((key(p), x["tm"]), ""), 0 if (key(p), x["tm"]) in green_out else 1))

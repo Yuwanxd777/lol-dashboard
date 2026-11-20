@@ -470,7 +470,7 @@ function render(){
       return `<div class="tbCell tbRate" data-r="RATE" data-lb="${en2?"Rating":"評分"}"${v!=null&&rt.rng?` data-avg="${(()=>{ const m=rt.items.reduce((z,x)=>z+(x.nws?x.nws.reduce((q,c)=>q+c.v,0)/x.nws.length-x.b:x.d),0); return rSg(m)+"|"+(m>0?"tbUp":m<0?"tbDn":""); })()}"`:""} data-tb="${rateTip(t)}"><span class="tbCv">${v==null?`<span class="tbMuted">–</span>`:`<b class="${rcls(rt.lo,rt.hi)}${rt.rng?" rtRngT":""}">${rt.rm?"（":""}${rtx(rt.lo,rt.hi)}${rt.rm?`<i class="rtPc">）</i>`:""}</b>`}</span></div>`; };   // 全形「）」的字框右半邊是空的 ⇒ 用負邊距收掉，看起來才跟沒括號的數字一樣貼齊右邊（使用者 2026-11-20「注意是視覺上空格一致 全型括號右邊的空格會比較大 要修正」）
     // 顏色（使用者 2026-11-19，取代星號）：黃＝傳聞未確定、紅＝新加入、藍＝合約已到期但還沒宣布離隊（Doran）、粉＝本轉會期續約（使用者 2026-11-19「粉色 跟紅色相近」）、白＝留隊
     // 藍字刪除線＝已宣布離隊、這個位置還沒有新簽約也沒有傳聞（使用者 2026-11-19）
-    const tbCls=e=>e.fa?(e.ro?"tbOut":"tbExp"):e.gone?"tbExp tbGone":e.r?"tbY":e.pm?"tbPm":(e.new||(e.tip&&!e.r))?"tbNew":roOn(e)?"tbOut":e.rs?"tbRs":(expd(e)?(e.ro?"tbExp tbGone":"tbExp"):"tbStay");   // tbStay＝合約還在、沒有任何動向（白字「續留」，使用者 2026-11-20）   // 合約到期沒宣布、但傳出去別隊（LØS Zest）也畫刪除線（使用者 2026-11-20）   // rs＝本轉會期有官方續約消息（GCD 還沒更新也算）⇒ 粉字
+    const tbCls=e=>e.fa?((e.ro&&!e.gone&&!expd(e))?"tbOut":"tbExp"):e.gone?"tbExp tbGone":e.r?"tbY":e.pm?"tbPm":(e.new||(e.tip&&!e.r))?"tbNew":roOn(e)?"tbOut":e.rs?"tbRs":(expd(e)?(e.ro?"tbExp tbGone":"tbExp"):"tbStay");   // tbStay＝合約還在、沒有任何動向（白字「續留」，使用者 2026-11-20）   // 合約到期沒宣布、但傳出去別隊（LØS Zest）也畫刪除線（使用者 2026-11-20）   // rs＝本轉會期有官方續約消息（GCD 還沒更新也算）⇒ 粉字
     // 圖例篩選＝三組，一框一顆按鈕、兩種一起篩（使用者 2026-11-20「一個框的意思是點擊也會一起點，不用分開點」）
     const TBG={add:["tbNew","tbRs","tbPm","tbStay"],out:["tbExp","tbGone"],rum:["tbOut","tbY"]};
     const F_TB=new Set([...mset("tbF")].filter(g=>TBG[g]));   // 可複選；舊存檔的單一類別值不認
