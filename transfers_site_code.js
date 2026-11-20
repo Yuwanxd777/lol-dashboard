@@ -352,7 +352,8 @@ function render(){
       //   生涯直接加總、「分數破百沒差」⇒ 不混進百分位，而是算完百分位之後直接加在選手分數上（見 rateOf 的 get／fill）
       // 同日最後定案：「分數改成 賽段 1 2 3 ＝ 10 30 50 留 10% 給加分 破百沒差」「今年世界賽成績的參數分要拿掉」⇒ 今年世界賽那 10% 整個拿掉，
       //   三個賽段合計 90%（百分位 × 0.9），剩下 10% 的位置給國際賽資歷加分（直接加、可以超過）
-      const SEGW={S1:0.1,S2:0.3,S3:0.4};   // 再改：第三賽段 40%（使用者 2026-11-20「第三賽段改成 40%」）⇒ 三個賽段合計 80%，百分位 × 0.8，其餘留給加分
+      const SEGW={S1:0.15,S2:0.35,S3:0.5};   // 2026-11-20 使用者「去年評分改成 123賽段 15 35 50」⇒ 三個賽段合計 100%，百分位不再打八折（BASEW_ 1）；成就加分照舊另外加
+      //   // 再改：第三賽段 40%（使用者 2026-11-20「第三賽段改成 40%」）⇒ 三個賽段合計 80%，百分位 × 0.8，其餘留給加分
       const lastSp={}; (GAMES||[]).forEach(o=>{ const m=/^S(\d)/.exec(String(o.split||"")); if(m&&o.league!=="WLDs")lastSp[o.league]=Math.max(lastSp[o.league]||0,+m[1]); });
       const segOf=o=>{ if(o.league==="WLDs")return "W"; const m=/^S(\d)( PO)?$/.exec(String(o.split||"")); if(!m)return ""; const sh=3-(lastSp[o.league]||3); return "S"+(+m[1]+sh); };
       const SEGRUN=(seg,fn)=>{ const keep=new Set((GAMES||[]).filter(o=>segOf(o)===seg).map(gkey));
@@ -399,7 +400,7 @@ function render(){
     //   這裡再算一次就重複了）⇒ 進世界賽的隊一律給「有進世界賽」的基本分 24，不分名次；主教練的戰績分照舊看名次
     const coachS=(n,noW)=>{ if(!RATE||!n)return null; const k=teamFix(String(tAb(n)||n)), wr=(RATE.wr||{})[k]; if(wr==null)return null;
       const rk=RK[k], a=(noW&&/^W/.test(rk||""))?24:(ACH(rk)||0); return {v:wr*50+a, wr, rk, note:`${RKN(rk)}・${en2?"WR":"勝率"} ${Math.round(wr*100)}%`}; };
-    const T1SET=new Set(board.flatMap(x=>[x.nm,x.tm])), BASEW_=0.8;
+    const T1SET=new Set(board.flatMap(x=>[x.nm,x.tm])), BASEW_=1;   /* 原本 0.8＝三個賽段合計 80%；賽段權重改成 15／35／50 之後是 100% */
     // 自由人那一列照分數高到低排（使用者 2026-11-20「FA 的人依照分數排序」）：選手＝轉會評分同一套分數（同路百分位 × 0.8＋國際賽加分，不乘聯賽強度）、
     //   今年沒資料的當 50 分再加國際賽分；主教練＝原隊的戰績分。分數存在 e._sc，小框也拿來顯示
     if(RATE){ const blend0=a=>{ const ts=a.tm?coachS(a.tm,true):null; return ts?(a.v+ts.v)/2:a.v; }, SC0={};
