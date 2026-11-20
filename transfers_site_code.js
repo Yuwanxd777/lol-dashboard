@@ -368,7 +368,8 @@ function render(){
         const md=mdOf(r), fill=x=>x.s?x:(md==null?x:{...x,s:{v:md,g:0,lg:""},md:1}), byG=(a,b)=>(b.s?b.s.g:-1)-(a.s?a.s.g:-1);
         let nw=(t.r[r]||[]).filter(e=>e.new||e.tip).map(e=>({n:pn(e.n),s:get(e.n),rm:!!e.r})).sort((a,b)=>a.rm-b.rm||byG(a,b))[0];   // 官方優先；Sheep 消息（傳聞／官方未進 wiki）也算
         // 有人離隊、還沒補人（格子沒有官方的人、也沒傳聞）⇒ 空缺當中位數（使用者 2026-11-19「有選手離隊但還沒補新人也是這樣做」）
-        if(!nw&&!(t.r[r]||[]).some(e=>!e.gone))nw={n:en2?"Vacant":"空缺",s:null,rm:false,vac:1};
+        // 2026-11-20 使用者改定案「空的先不算分」：走光還沒補人的隊（LEV +168、DSG +114）會因為「空缺 50 分 − 原本的低分」變成大加分，不合理 ⇒ 空缺那一路整個不計
+        if(!nw)continue;
         const od=[...((t.prev||{})[r]||[]),...(t.r[r]||[]).filter(e=>e.gone)].map(p=>{ const n=typeof p==="string"?p:p.n; return {n:pn(n),s:get(n)}; }).sort(byG)[0];
         if(nw&&od&&(nw.s||od.s)){ const A=fill(nw), B=fill(od);
           const tg=x=>[x.s.yr?(en2?"full year":"全年"):"",x.s.w&&Math.abs(x.s.w-1)>0.005?lgN(x.s.lg):""].filter(Boolean).join(" ");   // 只寫「全年 LEC」，不寫權重數字（使用者 2026-11-20）
