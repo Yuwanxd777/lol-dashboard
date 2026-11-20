@@ -363,7 +363,9 @@ function render(){
           get=n=>{ const k=String(pn(n)).toLowerCase(), a=P[k]||(PY[k]?{...PY[k],yr:1}:undefined); if(!a)return a;
             // 個人評分只看個人數據（弱隊核心會很高：Scout 在 NS 91.4、Faker 39.6）⇒ 跟所屬戰隊的戰績分（第三賽段勝率＋最終成績）各半
             //   （使用者 2026-11-20「Scout 為何能有 91.4 分 評分是不是怪怪的」；原話「只看第三賽段數據以及最終成績」）；戰隊沒有戰績資料就只用個人
-            const v0=pct(r,blend(a)), w=lgW(a.lg); return {...a,raw:v0,v:Math.min(100,v0*w),w}; };
+            // 出賽太少的人往 50 分靠攏（使用者 2026-11-20「為何 Bluffing 的分數這麼高」：他只替 HLE 代打 6 場就拿到 67.7，還吃到 HLE 整年的戰績分，
+            //   比打了 62 場的 Peter 還高）⇒ 不到 30 場的照場數比例打折：分數＝50＋（原分數−50）× 場數／30
+            const v0=50+(pct(r,blend(a))-50)*Math.min(1,(a.g||0)/30), w=lgW(a.lg); return {...a,raw:v0,v:Math.min(100,v0*w),w}; };
         // 今年沒有比賽資料的人（使用者 2026-11-19「用全部該路線的分數中位數當做基準」）：s 補成中位數、標 md；兩邊都沒資料就不算
         const md=mdOf(r), fill=x=>x.s?x:(md==null?x:{...x,s:{v:md,g:0,lg:""},md:1}), byG=(a,b)=>(b.s?b.s.g:-1)-(a.s?a.s.g:-1);
         let nw=(t.r[r]||[]).filter(e=>e.new||e.tip).map(e=>({n:pn(e.n),s:get(e.n),rm:!!e.r})).sort((a,b)=>a.rm-b.rm||byG(a,b))[0];   // 官方優先；Sheep 消息（傳聞／官方未進 wiki）也算
