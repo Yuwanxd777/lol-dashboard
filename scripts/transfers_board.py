@@ -56,6 +56,10 @@ def _sister(frm, tm):
                 and re.search(r"Academy|Challengers|Chall\.|Youth|Rookies|Junior|Blue$|\.A$|Second|Rising|NXT", frm, re.I))
 
 
+# 臨時名單（使用者 2026-11-21）：LPL 新生訓練場（11/08 開打）各隊在 11/06 登錄的人，是戰隊幫聯賽練新人、順便測試明年陣容，不算正式轉會——
+#   視為合約到 2026/11/15 就到期並自動離隊 ⇒ 不當成「新加入」列進陣容表（原本的人也不會被他們擠到上一位）。
+#   本來就在這隊的人（之前就在名冊上，沒有這段期間的加入紀錄）不受影響。
+TRIALS = [{"lg": "LPL", "from": "2026-11-01", "to": "2026-11-10", "end": "2026-11-15", "name": "LPL 新生訓練場"}]
 RETIRED = {}   # 最近一次 build 查到的退役選手：{key: (頁名, ID, 路線, 隊顯示名, 聯賽)}（fetch_transfers 拿去補退役消息）
 
 
@@ -368,6 +372,8 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
                 if k in resign or key(pid) in resign:
                     e["rs"] = resign.get(k, resign.get(key(pid), "")) or "1"
                 jd = joined.get((k, tm), ("", ""))[0]
+                if jd and k not in prevkeys and "rs" not in e and any(t_["lg"] == lg_of.get(tm) and t_["from"] <= jd <= t_["to"] and t_["end"] < today for t_ in TRIALS):
+                    continue   # 臨時名單（見 TRIALS）：到期自動離隊，不列
                 if jd >= since and k not in prevkeys and "rs" not in e:   # 續約／換職位也會記一筆 Join ⇒ 2026 名冊上本來就在的不算新加入
                     e["new"] = jd
                     if origin.get(k):
@@ -573,7 +579,8 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
                     if e.get("gone") or not e.get("c") or e["c"] < today or e.get("ro"):   # 所有綠字都列進自由人（使用者 2026-11-20「所有綠字都顯示到FA」；同路沒有別的人選時，原隊格子照樣顯示）
                         cand.append((x, rr, e.get("p") or e["n"], e["n"], e.get("c") or "", 1 if e.get("gone") else 0))
                 for p in x["prev"].get(rr, []):
-                    cand.append((x, rr, p, re.sub(r"\s*\([^()]*\)$", "", p), con.get((key(p), x["tm"]), ""), 0 if (key(p), x["tm"]) in green_out else 1))
+                    # 「已宣布離隊」要 wiki 真的記了離隊才標；只是被新人擠到上一位、沒有離隊公告的算合約到期（使用者 2026-11-21）
+                    cand.append((x, rr, p, re.sub(r"\s*\([^()]*\)$", "", p), con.get((key(p), x["tm"]), ""), 1 if ((key(p), x["tm"]) in left_rc and (key(p), x["tm"]) not in green_out) else 0))
             # 教練那格（使用者 2026-11-20「FA 多一個主教練」→「主教練改成 教練與分析師也列入」）：已宣布離隊的主教練、教練、分析師都列
             #   （只列「已宣布離隊」的：教練大多查不到合約紀錄，「無紀錄算到期」會把還在任的也列進來）；教練不看出賽紀錄。第七格＝職稱代碼
             for e in x["r"].get("COACH", []):
@@ -788,12 +795,27 @@ def add_tenure(cargo, out):
                 ev.setdefault(k, []).append((y["d"][:10], y.get("dir")))
             if y.get("dir") == "Join":
                 joins.setdefault(key(y["p"]), []).append((y["d"][:10], y["tm"]))
+    # 效力期間以 wiki 的 Tenures 表為準（使用者 2026-11-21 回報 DK 的 Lucid 顯示「2026/02 – 2026/02」）：
+    #   RosterChanges 會記同一天的「離隊＋加入」（改登錄身分、先發替補互換），用它拼出來的區間會變成只有一天；
+    #   Tenures 是 wiki 自己整理好的「這個人在這隊從哪天到哪天」，同一隊有好幾段就取最後一段
+    ten = {}
+    try:
+        for i in range(0, len(names), 40):
+            for y in cargo({"tables": "Tenures", "fields": "Player=p,Team=tm,DateJoin=dj,DateLeave=dl", "limit": "5000", "format": "json",
+                            "where": "Tenures.Player IN " + _in(names[i:i + 40]), "order_by": "Tenures.DateJoin"}):
+                if y.get("dj") and (key(y["p"]), y["tm"]) in want:
+                    ten[(key(y["p"]), y["tm"])] = (y["dj"][:10], (y.get("dl") or "")[:10])
+    except Exception as e_:
+        print(f"   Tenures 查詢失敗（效力期間沿用 RosterChanges）：{type(e_).__name__} {str(e_)[:100]}")
     for x in out:
         still = set(x.pop("_still", [])); psr = x.pop("_psr", {}); pc = x.pop("_pc", {}); retd = set(x.pop("_ret", []))
         for rr, v in x["prev"].items():
             L = []
             for p in v:
                 s, e = stints(sorted(ev.get((key(p), x["tm"]), [])))
+                if (key(p), x["tm"]) in ten:
+                    s, e = ten[(key(p), x["tm"])]
+                    e = e or None
                 if s and not e:   # 沒記離隊、但之後加入了別隊（Benny 2026-03 進 TT、11-06 進 UP，TT 沒記離隊）⇒ 以加入別隊那天當離隊日
                     later = sorted(d for d, t in joins.get(key(p), []) if t != x["tm"] and d > s)
                     if later:

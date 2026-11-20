@@ -531,6 +531,17 @@ def main():
         wiki = [x for x in wiki if is_t1(x, keys) or (x["kind"] in ("join", "both") and any(p in gone for p, _ in PL_RE.findall(x["en"])))]
         sheep = [x for x in sheep if is_t1(x, keys)]
         print(f"六大聯賽一級：wiki {n0}→{len(wiki)}、sheep {n1}→{len(sheep)}（一級隊 {len(t1)}）")
+    # 臨時名單（transfers_board.TRIALS：LPL 新生訓練場 11/06 登錄的人）：消息照列，句尾註明不是正式轉會（使用者 2026-11-21）
+    try:
+        import transfers_board as _tb2
+        RG_ = {"LPL": "中國", "LCK": "韓國", "LEC": "歐洲", "LCS": "北美", "CBLOL": "巴西", "LCP": "亞太"}
+        for x in wiki:
+            for t_ in _tb2.TRIALS:
+                if x.get("rg") == RG_.get(t_["lg"]) and x.get("kind") in ("join", "both") and t_["from"] <= x["d"][:10] <= t_["to"] and "臨時名單" not in (x.get("zh") or ""):
+                    x["zh"] = (x.get("zh") or "").rstrip() + f"（{t_['name']}的臨時名單，{int(t_['end'][5:7])}/{int(t_['end'][8:10])} 到期，不算正式轉會）"
+                    x["en"] = (x.get("en") or "").rstrip() + f" (temporary roster for the LPL rookie tournament, expires {t_['end'][5:].replace('-', '/')}; not a formal transfer)"
+    except Exception as e:
+        print(f"臨時名單註記失敗（略過）：{type(e).__name__} {str(e)[:80]}")
     wiki.sort(key=lambda x: (x["d"], x["n"]), reverse=True)
     # PTT／韓網（使用者 2026-11-19「轉會消息新增 PTT／韓網」，scripts/fetch_ptt_transfers.py 累積進 transfers_ptt_src.json）
     #   ＋使用者貼的官方消息（transfers_official_src.json，手動維護；BRO／KT 10 月續約）。extra＝[{id,d,zh,src(PTT|韓網|官方),url,st,kind,tags}]
