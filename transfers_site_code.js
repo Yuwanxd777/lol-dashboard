@@ -306,7 +306,7 @@ function render(){
     const SEASON=+String(D.from||"").slice(0,4)||0;
     const RATE=(()=>{ if(window.TRANSFER_RATE)return window.TRANSFER_RATE;   // 轉會網站：主站排程先算好匯出（transfers_site.js）
       if(curYear!==SEASON||typeof calcPlayers!=="function")return null;
-      const k=curYear+"|"+(GAMES||[]).length+"|seg5"; if(window._tbRC&&window._tbRC.k===k)return window._tbRC;
+      const k=curYear+"|"+(GAMES||[]).length+"|seg6"; if(window._tbRC&&window._tbRC.k===k)return window._tbRC;
       const res={k,pl:{},tm:{}};
       // 分段加權（使用者 2026-11-20「轉會評分改成 第一賽段 10% 第二賽段 30% 第三賽段 50% 世界賽 10% 其餘的不算」「哪個段落沒打就沒分」）：
       //   每段各自算一次選手評分（場次白名單 H2H 圈範圍、其他篩選清空），再照權重相加；沒打的那段＝0 分，不重新分配權重。
@@ -317,7 +317,7 @@ function render(){
       //   生涯直接加總、「分數破百沒差」⇒ 不混進百分位，而是算完百分位之後直接加在選手分數上（見 rateOf 的 get／fill）
       // 同日最後定案：「分數改成 賽段 1 2 3 ＝ 10 30 50 留 10% 給加分 破百沒差」「今年世界賽成績的參數分要拿掉」⇒ 今年世界賽那 10% 整個拿掉，
       //   三個賽段合計 90%（百分位 × 0.9），剩下 10% 的位置給國際賽資歷加分（直接加、可以超過）
-      const SEGW={S1:0.1,S2:0.3,S3:0.5};
+      const SEGW={S1:0.1,S2:0.3,S3:0.4};   // 再改：第三賽段 40%（使用者 2026-11-20「第三賽段改成 40%」）⇒ 三個賽段合計 80%，百分位 × 0.8，其餘留給加分
       const lastSp={}; (GAMES||[]).forEach(o=>{ const m=/^S(\d)/.exec(String(o.split||"")); if(m&&o.league!=="WLDs")lastSp[o.league]=Math.max(lastSp[o.league]||0,+m[1]); });
       const segOf=o=>{ if(o.league==="WLDs")return "W"; const m=/^S(\d)( PO)?$/.exec(String(o.split||"")); if(!m)return ""; const sh=3-(lastSp[o.league]||3); return "S"+(+m[1]+sh); };
       const SEGRUN=(seg,fn)=>{ const keep=new Set((GAMES||[]).filter(o=>segOf(o)===seg).map(gkey));
@@ -364,7 +364,7 @@ function render(){
     //   這裡再算一次就重複了）⇒ 進世界賽的隊一律給「有進世界賽」的基本分 24，不分名次；主教練的戰績分照舊看名次
     const coachS=(n,noW)=>{ if(!RATE||!n)return null; const k=teamFix(String(tAb(n)||n)), wr=(RATE.wr||{})[k]; if(wr==null)return null;
       const rk=RK[k], a=(noW&&/^W/.test(rk||""))?24:(ACH(rk)||0); return {v:wr*50+a, wr, rk, note:`${RKN(rk)}・${en2?"WR":"勝率"} ${Math.round(wr*100)}%`}; };
-    const T1SET=new Set(board.flatMap(x=>[x.nm,x.tm]));
+    const T1SET=new Set(board.flatMap(x=>[x.nm,x.tm])), BASEW_=0.8;   // 三個賽段合計的占比（10＋30＋40），跟 RATE 那邊的 SEGW 要一起改
     const rateOf=t=>{ if(!RATE)return null; const items=[];
       // 聯賽權重：別的聯賽來的分數 × exp(LGK × (原聯賽強度 − 本隊聯賽強度))；同聯賽＝1、強度缺＝1
       const blend=a=>{ const ts=a.tm?coachS(a.tm,true):null; return ts?(a.v+ts.v)/2:a.v; };
@@ -382,14 +382,14 @@ function render(){
             //   （使用者 2026-11-20「Scout 為何能有 91.4 分 評分是不是怪怪的」；原話「只看第三賽段數據以及最終成績」）；戰隊沒有戰績資料就只用個人
             // 出賽太少的人往 50 分靠攏（使用者 2026-11-20「為何 Bluffing 的分數這麼高」：他只替 HLE 代打 6 場就拿到 67.7，還吃到 HLE 整年的戰績分，
             //   比打了 62 場的 Peter 還高）⇒ 不到 30 場的照場數比例打折：分數＝50＋（原分數−50）× 場數／30
-            const v0=base+(pct(r,blend(a))-base)*Math.min(1,(a.g||0)/30), w=lgW(a.lg), it=(D.intl||{})[k]||0; return {...a,raw:v0,v:Math.min(100,v0*w)*0.9+it,w,it}; };   // 國際賽資歷分直接加，可以破百
+            const v0=base+(pct(r,blend(a))-base)*Math.min(1,(a.g||0)/30), w=lgW(a.lg), it=(D.intl||{})[k]||0; return {...a,raw:v0,v:Math.min(100,v0*w)*BASEW_+it,w,it}; };   // 國際賽資歷分直接加，可以破百
         // 今年沒有比賽資料的人（使用者 2026-11-19「用全部該路線的分數中位數當做基準」）：s 補成中位數、標 md；兩邊都沒資料就不算
         // 次級聯賽上來、今年完全沒有一級聯賽出賽紀錄的人：比中位數低 10 分（使用者 2026-11-20「次級上來且去年完全沒有一軍出賽紀錄的選手 應該比中位數低 10 分左右」）；
         //   判定＝原隊不在六大聯賽一級隊名單裡，或從同組織二隊／青訓上調（pm===1）。有少量出賽的（Bluffing 6 場）靠攏的目標也一樣是 40
         const isSub=e=>e.pm===1||(!!e.from&&!T1SET.has(e.from));
         // 今年沒有比賽資料的人（復出的 Deft）：基準 50（次級上來 40）再加他的國際賽資歷分
         const itOf=n=>(D.intl||{})[String(pn(n)).toLowerCase()]||0;
-        const md=mdOf(r), fill=x=>x.s?x:(md==null?x:{...x,s:{v:(md-(x.sub?10:0))*0.9+itOf(x.n),g:0,lg:""},md:1}), byG=(a,b)=>(b.s?b.s.g:-1)-(a.s?a.s.g:-1);
+        const md=mdOf(r), fill=x=>x.s?x:(md==null?x:{...x,s:{v:(md-(x.sub?10:0))*BASEW_+itOf(x.n),g:0,lg:""},md:1}), byG=(a,b)=>(b.s?b.s.g:-1)-(a.s?a.s.g:-1);
         let nw=(t.r[r]||[]).filter(e=>e.new||e.tip).map(e=>{ const sub=isSub(e); return {n:pn(e.n),s:get(e.n,sub?40:50),rm:!!e.r,sub}; }).sort((a,b)=>a.rm-b.rm||byG(a,b))[0];   // 官方優先；Sheep 消息（傳聞／官方未進 wiki）也算
         // 有人離隊、還沒補人（格子沒有官方的人、也沒傳聞）⇒ 空缺當中位數（使用者 2026-11-19「有選手離隊但還沒補新人也是這樣做」）
         // 2026-11-20 使用者改定案「空的先不算分」：走光還沒補人的隊（LEV +168、DSG +114）會因為「空缺 50 分 − 原本的低分」變成大加分，不合理 ⇒ 空缺那一路整個不計
