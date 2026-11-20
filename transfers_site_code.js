@@ -632,7 +632,7 @@ function render(){
       const bd=main.querySelector(".tbBoard");
       // 手機／觸控（使用者 2026-11-20「幫我設計手機點擊時的 UI」）：沒有滑鼠懸停 ⇒ 點格子從畫面底部滑出小框（再點同一格或點別處收起）；格子裡的 wiki 連結在手機不直接跳走
       const touch=()=>matchMedia("(hover:none)").matches||innerWidth<760;
-      const show=(c,sheet)=>{ tip.innerHTML=(sheet?`<div class="tbTipXW"><button class="tbTipX" aria-label="close">✕</button></div>`:"")+TIPS[+c.dataset.tb]; tip.classList.toggle("sheet",!!sheet); tip.style.display="block"; lgFitAll(tip);
+      const show=(c,sheet)=>{ tip.innerHTML=(sheet?`<div class="tbTipXW"><button class="tbTipX" aria-label="close">✕</button></div>`:"")+TIPS[+c.dataset.tb]; tip.classList.toggle("sheet",!!sheet); tip.style.display="block"; lgFitAll(tip); tip.scrollTop=0;   /* 開新的小框一律從最上面開始（原本會停在上一個小框捲到的位置） */
         if(sheet){ tip.style.left=tip.style.top=""; tip.dataset.cur=c.dataset.tb; const x=tip.querySelector(".tbTipX"); if(x)x.onclick=()=>{ tip.style.display="none"; }; return; }
         const r=c.getBoundingClientRect(), w=tip.offsetWidth, h=tip.offsetHeight;
         let x=r.left+r.width/2-w/2, y=r.bottom+6; x=Math.max(8,Math.min(innerWidth-w-8,x)); if(y+h>innerHeight-8)y=r.top-h-6;
