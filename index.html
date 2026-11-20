@@ -1071,7 +1071,7 @@
   .tbRow:hover{background:rgba(255,255,255,.07)}
   .tbTeam{display:flex;align-items:center;gap:8px;padding:6px 18px 6px 10px;font-weight:800;font-size:16px;white-space:nowrap;border-left:3px solid color-mix(in srgb,var(--lgc,transparent) 70%,transparent)}
   .tbCell{text-align:center;padding:6px 6px;font-size:15px;line-height:1.5;cursor:default}
-  .tbFaIc{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:6px;border:1px dashed color-mix(in srgb,var(--lgc,#888) 70%,transparent);font-size:11px;font-weight:900;color:var(--lgc,var(--tx2));flex:0 0 auto}.tbFA .tbTeam>span:not(.tbFaIc):not(.tbOk){color:var(--tx2)}
+  .tbFaIc{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:6px;border:1px dashed color-mix(in srgb,var(--lgc,#888) 70%,transparent);font-size:11px;font-weight:900;color:var(--lgc,var(--tx2));flex:0 0 auto;margin:0 6.5px}   /* 左右各留 6.5px＝跟隊徽同一個 39px 位子，後面的「FA」才跟其他隊名對齊 */.tbFA .tbTeam>span:not(.tbFaIc):not(.tbOk){color:var(--tx2)}
   .tbRate{min-width:72px;padding:6px 14px;font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}.tbRateH{padding:0 14px;text-align:right}.rtPc{font-style:normal;display:inline-block;margin-right:-.5em}
   .tbHd .tbRateH{justify-self:end}
   .tbUp{color:#ff5a5a}.tbDn{color:#3fcf7a}   /* 台灣配色：加分紅、扣分綠 */
@@ -1555,7 +1555,7 @@
     .tbCell[data-r="TOP"]::before{background-image:url(img/TOP.png)}.tbCell[data-r="JNG"]::before{background-image:url(img/JG.png)}
     .tbCell[data-r="MID"]::before{background-image:url(img/MID.png)}.tbCell[data-r="BOT"]::before{background-image:url(img/BOT.png)}
     .tbCell[data-r="SUP"]::before{background-image:url(img/SUP.png)}.tbCell[data-r="HC"]::before,.tbCell[data-r="STF"]::before{background-image:url(img/COACH.png)}
-    .tbFaIc{margin-right:8px}.tbFA .tbCell[data-r="HC"],.tbFA .tbCell[data-r="STF"]{display:none}
+    .tbFaIc{margin:0 8px 0 0}.tbFA .tbCell[data-r="HC"],.tbFA .tbCell[data-r="STF"]{display:none}
     .tbFA .tbCell:not(.tbRate){grid-column:1/-1;border-left:0}   /* FA 卡只列五路、一路一列共五列（使用者 2026-11-20） */
     .tbCell.tbRate::before{content:none}.tbCell.tbRate .tbCv{white-space:nowrap;font-size:min(15px,3.55cqw)}   /* 單一分數與範圍同一個字級（使用者 2026-11-20「轉會評分的分數字體大小要一致」） */   /* 範圍評分（-158.7 ～ -105.3）在窄手機不換行、不壓隊名 */
     .tbCell .tbCv{min-width:0;overflow-wrap:anywhere}.tbCell .tbN{white-space:nowrap}
