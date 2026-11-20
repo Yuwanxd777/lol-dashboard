@@ -1118,7 +1118,8 @@
   .rtHd>b:first-of-type{font-size:16px}
   .rtTt{color:var(--tx2);font-size:13px}
   .rtSum{margin-left:auto;padding-left:20px;font-size:17px;white-space:nowrap;line-height:1;font-weight:800;font-variant-numeric:tabular-nums}
-  .rtGrid{display:grid;grid-template-columns:20px minmax(0,0.8fr) 18px minmax(0,1.35fr) 66px;column-gap:12px;row-gap:8px;align-items:center}
+  .rtGrid{display:grid;grid-template-columns:22px minmax(0,1fr) 30px minmax(0,1fr) 66px;column-gap:10px;row-gap:14px;align-items:center}   /* 間隔重排（使用者 2026-11-20「小框的間隔重新調整 箭頭可以大一點」）：沒有傳聞標籤之後左右兩欄等寬，路與路之間拉開、同一路的人選靠近 */
+  .rtGrid>.rtCh{margin-bottom:-6px}
   .rtCh{font-size:13px;color:var(--tx2);line-height:1}
   .rtChD{justify-self:end}
   .rtIc img{width:20px;height:20px;display:block;object-fit:contain}
@@ -1126,8 +1127,8 @@
   .rtN{font-weight:700;white-space:nowrap;display:flex;align-items:center;gap:6px}.rtN .tbN{font-weight:700}
   .rtV{font-size:14px;color:var(--tx2);font-variant-numeric:tabular-nums;white-space:nowrap}
   /* 同一路好幾位傳聞人選（使用者 2026-11-20「多人的時候評分小框顯示的好看一些」）：一人一列「名字｜分數」對齊成兩欄，黃色左框標示是傳聞，最下面一列平均 */
-  .rtTop{align-self:start}.rtIc.rtTop,.rtAr.rtTop{height:calc(1.3em * 2);display:flex;align-items:center;justify-content:center}.rtAr.rtTop{font-size:13px;height:36px}.rtIc.rtTop{height:36px}
-  .rtMulti{grid-column:4/6;display:grid;grid-template-columns:subgrid;row-gap:6px;align-items:center;min-width:0}   /* 多位傳聞人選：橫跨「加入｜增減」兩欄、沿用外層的欄寬，每一位一列（名字＋傳聞標籤／分數在下｜他自己的增減） */
+  .rtTop{align-self:start}.rtIc.rtTop,.rtAr.rtTop{height:calc(1.3em * 2);display:flex;align-items:center;justify-content:center}.rtAr.rtTop{height:36px}.rtIc.rtTop{height:36px}
+  .rtMulti{grid-column:4/6;display:grid;grid-template-columns:subgrid;row-gap:8px;align-items:center;min-width:0}   /* 多位傳聞人選：橫跨「加入｜增減」兩欄、沿用外層的欄寬，每一位一列（名字＋傳聞標籤／分數在下｜他自己的增減） */
 
   /* 小框標題不寫「轉會評分」四個字、總分字小一點（使用者 2026-11-20）⇒ 手機的範圍總分也放得進同一行，不用再另起一行 */
 
@@ -1136,7 +1137,7 @@
   .rtMa{grid-column:1/-1;display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin-top:2px;padding-top:3px;border-top:1px solid rgba(255,255,255,.12);font-size:14px;color:var(--tx2);white-space:nowrap}
   .rtMa b{font-weight:800;color:var(--tx);font-variant-numeric:tabular-nums}
   .rtV i{font-style:normal;font-size:11px;opacity:.8;margin-left:0;display:block;white-space:nowrap}   /* 註記（中位數／全年／聯賽權重）自己一行，才不會把小框撐破（BFX Noah，使用者 2026-11-20） */
-  .rtAr{color:var(--tx2);text-align:center;font-size:13px}
+  .rtAr{color:#aab6cc;text-align:center;font-size:20px;line-height:1}
   .rtD{justify-self:end;min-width:58px;text-align:center;padding:3px 8px;border-radius:6px;font-weight:800;font-variant-numeric:tabular-nums;background:rgba(255,255,255,.06)}
   .rtD.tbUp{background:rgba(255,90,90,.15)}
   .rtD.tbDn{background:rgba(63,207,122,.15)}
@@ -1609,7 +1610,8 @@
   }
   #tbTip.sheet{pointer-events:auto!important;left:8px!important;right:8px!important;top:auto!important;bottom:8px!important;max-width:none!important;max-height:72vh;overflow:auto;padding:16px 14px 14px;border-radius:14px;box-shadow:0 -6px 30px rgba(0,0,0,.6)}
   #tbTip.sheet .tpBox,#tbTip.sheet .rtBox{min-width:0}
-  #tbTip.sheet .rtBox{width:auto}#tbTip.sheet .rtGrid{column-gap:8px;grid-template-columns:20px minmax(0,0.8fr) 14px minmax(0,1.35fr) max-content}#tbTip.sheet .rtD{min-width:44px;padding:3px 4px;font-size:min(15px,4.2vw)}#tbTip.sheet .rtMulti .tbRum{padding:0 4px}#tbTip.sheet .rtSum{font-size:min(17px,4.5vw);padding-left:8px}#tbTip.sheet .rtMulti{column-gap:8px}   /* 窄手機（320）多人區塊不擠出框 */
+  #tbTip.sheet .rtBox{width:auto}#tbTip.sheet .rtGrid{column-gap:8px;grid-template-columns:20px minmax(0,1fr) 24px minmax(0,1fr) max-content}#tbTip.sheet .rtAr{font-size:18px}
+  @media (max-width:345px){#tbTip.sheet .rtGrid{column-gap:6px;grid-template-columns:18px minmax(0,1fr) 18px minmax(0,1fr) max-content}#tbTip.sheet .rtIc img{width:18px;height:18px}#tbTip.sheet .rtN,#tbTip.sheet .rtV{font-size:13px}#tbTip.sheet .rtD{min-width:0;font-size:12.5px}#tbTip.sheet .rtAr{font-size:16px}}   /* 最窄的手機：BrokenBlade 這種長 ID 也要放得下 */#tbTip.sheet .rtD{min-width:44px;padding:3px 4px;font-size:min(15px,4.2vw)}#tbTip.sheet .rtMulti .tbRum{padding:0 4px}#tbTip.sheet .rtSum{font-size:min(17px,4.5vw);padding-left:8px}#tbTip.sheet .rtMulti{column-gap:8px}   /* 窄手機（320）多人區塊不擠出框 */
   #tbTip.sheet .rtHd{padding-right:44px;min-height:30px}
   .tbTipX{position:absolute;top:12px;right:12px;width:30px;height:30px;padding:0;display:flex;align-items:center;justify-content:center;line-height:1;border-radius:50%;border:1px solid var(--line);background:rgba(255,255,255,.08);color:var(--tx);font-size:14px;cursor:pointer}   /* ✕ 在圓底正中、整顆在框內（使用者 2026-11-20「X 後面的底色偏離了」） */
   /* 單頁模式：只留轉會分頁 */
