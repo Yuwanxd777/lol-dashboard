@@ -136,6 +136,15 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
             continue
         k = (key(x["p"]), x["tm"])
         con[k] = max(con.get(k, ""), x["ce"][:10])
+    # ③b Contracts（GCD）沒有的 ⇒ 用 wiki 戰隊頁名單上那欄合約日（Players.Contract；使用者 2026-11-20「不知道選手合約到何時 就是 WIKI 上該隊的網站看 例如 Quad」）
+    try:
+        for x in cargo({"tables": "Players", "fields": "Players.OverviewPage=pg,Players.ID=id,Players.Team=tm,Players.Contract=c",
+                        "where": "Players.Team IN " + _in(teams) + ' AND Players.Contract IS NOT NULL', "limit": "3000", "format": "json"}):
+            c_ = str(x.get("c") or "")[:10]
+            if c_ >= since:
+                con.setdefault((key(x.get("pg") or x["id"]), x["tm"]), c_)
+    except Exception as e:
+        print(f"   戰隊頁合約日（Players.Contract）查詢失敗：{type(e).__name__} {str(e)[:100]}")
     # ④ 異動：這些隊近三年的加入紀錄（教練職稱＋本季新人）
     rc = cargo({"tables": "RosterChanges", "fields": "Date_Sort=d,Player=p,Direction=dir,Team=tm,Role=ro",
                 "where": "RosterChanges.Team IN " + _in(teams) + f' AND RosterChanges.Date_Sort>="{int(year) - 3}-01-01"',
