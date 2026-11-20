@@ -14519,7 +14519,7 @@ function render(){
           // 上一位改成跟上面同一種小卡（使用者 2026-11-19「上一位跟上面合約有續約的UI相近一點」）：名字＋職稱＋標籤，下面 效力／年資 欄位
           // 還沒宣布離隊、只是被新人擠到這裡的（WBG Elk）：寫合約到期日，不寫效力期間（使用者 2026-11-20）
           const kv=o.still?(o.c?[[en2?"Contract":"合約",`<span class="tbExp">${en2?"expired":"已到期"} ${ymd(o.c)}</span>`]]:[])
-            :T?[[en2?"Tenure":"效力",T.per],...(T.du?[[en2?"Length":"年資",T.du]]:[])]:[];
+            :T?[[en2?"Tenure":"效力",T.per]]:[];   // 年資不寫（使用者 2026-11-21）
           if(!o.ret)kv.push(...goKv(o.n,t.nm));
           return `<div class="tpP tpPvC"><div class="tpName"><b><a class="tpA" href="https://lol.fandom.com/wiki/${encodeURIComponent(wkPg(o.n))}" target="_blank" rel="noopener">${esc(pn(o.n))}</a></b>${(r==="STF"||r==="HC")&&o.sr&&SRN[o.sr]?`<span class="tpSr">${SRN[o.sr]}</span>`:""}${o.ret?pill("tpX",en2?"Retired":"退役"):o.still?pill("tpB",en2?"Contract expired":"合約到期"):pill("tpX",en2?"Left":"離隊")}</div>`
             +(kv.length?`<div class="tpKv">${kv.map(([k,v])=>`<span>${k}</span><span>${v}</span>`).join("")}</div>`:"")+`</div>`; }).join("")+`</div>`; }
@@ -14704,7 +14704,7 @@ function render(){
           +`<span class="rtV">${v.toFixed(1)}</span></span>`;   // 分數下面不寫「全年／中位數」註記（使用者 2026-11-20），算法在 ℹ️ 說明
         h+=`<div class="rtGrid"><span></span><span class="rtCh">${en2?"Previous":"原隊"}</span><span></span><span class="rtCh">${en2?"In":"加入"}</span><span class="rtCh rtChD">${en2?"Change":"增減"}</span>`;
         rt.items.forEach(x=>{ const ic=x.r==="COACH"?`<img src="img/COACH.png" alt="">`:(POS_IMG[x.r]?`<img src="${POS_IMG[x.r]}" alt="">`:"");
-          if(x.rs===4){ h+=`<span class="rtIc"></span><span class="rtP" style="grid-column:2/5"><span class="rtN"><b>${en2?"Synergy":"默契加成"}</b><i class="rtRsL">${en2?`${x.k} players kept`:`${x.k} 位選手留隊`}</i></span></span><b class="rtD ${cls(x.d)}">${sg(x.d)}</b>`; return; }
+          if(x.rs===4){ h+=`<span class="rtIc"></span><span class="rtP" style="grid-column:2/5;align-self:start"><span class="rtN"><b>${en2?"Synergy":"默契加成"}</b><i class="rtRsL">${en2?`${x.k} players kept`:`${x.k} 位選手留隊`}</i></span></span><b class="rtD ${cls(x.d)}">${sg(x.d)}</b>`; return; }
           if(x.rs){ h+=`<span class="rtIc" title="${BLN[x.r]||""}">${ic}</span><span class="rtP" style="grid-column:2/5"><span class="rtN"><b class="tbN ${tbCls(x.ne)}">${esc(x.nw)}</b></span>${x.v!=null&&x.v>=0?`<span class="rtV">${x.v.toFixed(1)}</span>`:""}</span><b class="rtD ${cls(x.d)}">${sg(x.d)}</b>`; return; }
           const tp=x.nws?" rtTop":"";   // 多人：路線圖、原本那位、箭頭都對齊第一位（分數最高的），其他人往下列（使用者 2026-11-20「小框的箭頭都指向第一位分數最高的 接著往下列」）
           h+=`<span class="rtIc${tp}" title="${BLN[x.r]}">${ic}</span>${x.nws?pc(x.od,x.b,x.oe).replace('class="rtP"','class="rtP rtTop"'):pc(x.od,x.b,x.oe)}<span class="rtAr${tp}">➜</span>${x.nws?`<span class="rtMulti">${x.nws.map(c=>pc(c.n,c.v,c.e)+`<b class="rtD ${cls(c.v-x.b)}">${sg(c.v-x.b)}</b>`).join("")}</span>`:pc(x.nw,x.a,x.ne)+`<b class="rtD ${cls(x.d)}">${sg(x.d)}</b>`}`; });   // 多位傳聞人選：每一位各自一個增減（使用者 2026-11-20「小框 多人的增減分分開列」），總分仍是最低 ～ 最高
