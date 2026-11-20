@@ -1059,21 +1059,23 @@
   .tbN.tbY,b.tbY{color:#ffc850}.tbN.tbNew,b.tbNew{color:#ff5a5a}.tbN.tbExp,b.tbExp{color:#5aa9ff}.tbN.tbRs,b.tbRs{color:#ff8ec6}.tbN.tbPm,b.tbPm{color:#b98cff}.tbN.tbOut,b.tbOut{color:#4cd07d}.tbOk{color:#4cd07d;font-size:14px;margin-left:2px}.tbN.tbGone{text-decoration:line-through;text-decoration-thickness:1px}.tbN.tbDim{opacity:.2}.tbVacN{font-style:normal;font-size:11px;font-weight:700;color:var(--tx2);margin-left:6px;padding:0 6px;border:1px solid rgba(255,255,255,.2);border-radius:999px;white-space:nowrap}.tbLegend .sqLaneBtn b{font-weight:700}.tbLgB{display:inline-flex;align-items:center;gap:2px}.tbLgSep{font-style:normal;color:var(--tx2);margin:0 3px}.tbLegend .sqLaneBtn{margin-right:2px}.tbLegend .sqLaneBtn.on,.trBar .sqLaneBtn[data-mk].on{background:rgba(255,255,255,.14);border-color:var(--tx);box-shadow:0 0 0 1px var(--tx) inset;color:var(--tx)}.tbLgG .sqLaneBtn:not(.on){background:transparent;border-color:transparent}   /* 兩兩一框（使用者 2026-11-20：新加入＋續約｜合約到期＋離隊｜可能轉會＋傳聞），框之間不畫線 */.trFG{display:inline-flex;align-items:center;gap:6px;padding-left:12px;border-left:1px solid rgba(255,255,255,.16)}.trFG:first-child{border-left:0;padding-left:0}.trFG>label{margin-right:2px}.tbLegend{display:inline-flex;gap:6px;align-items:center}.trSrc-kr{color:#ff9a6b;background:rgba(255,154,107,.12)}.trSrc-ptt{color:#c9d1e0;background:rgba(255,255,255,.08)}.trSrc-man{color:#ffd166;background:rgba(255,209,102,.12)}
   .tbLegend{display:inline-flex;gap:12px;align-items:center}.tbLegend b.tbStay{color:#fff}
   .tbHd,.tbRow{grid-column:1/-1;display:grid;grid-template-columns:subgrid;align-items:center}
-  .tbHd{position:sticky;top:0;z-index:2;background:var(--card,#141a2a);padding:8px 0;border-bottom:1px solid var(--line);font-weight:700;color:var(--tx2);font-size:14px}
+  .tbHd{position:sticky;top:0;z-index:2;background:var(--card,#141a2a);padding:8px 0;border-bottom:1px solid var(--line);font-weight:700;color:var(--tx2);font-size:16px}   /* 欄名放大（使用者 2026-11-21「文字大一點」；原本 14px） */
   .tbHd>span{display:flex;align-items:center;justify-content:center;gap:4px}
-  .tbLg{grid-column:1/-1;display:flex;align-items:baseline;gap:10px;margin:26px 0 6px;padding:8px 14px;border-radius:8px;border-left:5px solid var(--lgc);background:linear-gradient(90deg,color-mix(in srgb,var(--lgc) 22%,transparent),transparent 70%)}
+  .tbLgIc{width:26px;height:26px;object-fit:contain;border-radius:6px;background:#e8ecf4;padding:3px;box-sizing:border-box;flex:0 0 auto}
+  .tbLg{grid-column:1/-1;display:flex;align-items:center;gap:10px;margin:26px 0 6px;padding:8px 14px;border-radius:8px;border-left:5px solid var(--lgc);background:linear-gradient(90deg,color-mix(in srgb,var(--lgc) 22%,transparent),transparent 70%)}
   .tbHd+.tbLg{margin-top:12px}
   .tbLg b{font-size:22px;font-weight:900;letter-spacing:.5px;color:var(--lgc)}
-  .tbLg span{font-size:14px;font-weight:700;color:var(--tx)}
+  .tbLg span{font-size:14px;font-weight:700;color:var(--tx2)}
   .tbLg i{font-style:normal;font-size:13px;color:var(--tx2);margin-left:auto}
   .tbRow{min-height:44px;border-radius:6px}
   .tbRow:nth-of-type(even){background:rgba(255,255,255,.035)}
   .tbRow:hover{background:rgba(255,255,255,.07)}
   .tbTeam{display:flex;align-items:center;gap:8px;padding:6px 18px 6px 10px;font-weight:800;font-size:16px;white-space:nowrap;border-left:3px solid color-mix(in srgb,var(--lgc,transparent) 70%,transparent)}
   .tbCell{text-align:center;padding:6px 6px;font-size:15px;line-height:1.5;cursor:default}
+  /* 隊徽在固定寬的位子裡置中，縮寫接在後面靠左（使用者 2026-11-21 先說靠右、隨後更正「隊名我說錯了 是置左」） */
   .tbFaIc{object-fit:contain;border-radius:6px;background:#e8ecf4;flex:0 0 auto;margin:0 6.5px;padding:3px;box-sizing:border-box}
-  .tbTeam img.tbFaIc{width:26px!important;height:26px!important;margin:0 6.5px!important}   /* 固定 26×26 的淺色方塊（不吃隊徽的「圖案面積統一」，不然六張寬度不一樣、後面的字對不齊） */   /* 左右各留 6.5px＝跟隊徽同一個 39px 位子，後面的「FA」才跟其他隊名對齊 */.tbFA .tbTeam>span:not(.tbFaIc):not(.tbOk){color:var(--tx2)}
-  .tbRate{min-width:72px;padding:6px 14px;font-variant-numeric:tabular-nums;text-align:center;white-space:nowrap}.tbRateH{padding:0 14px;text-align:center}.tbCell.tbRate .rtPc{margin-right:0}   /* 評分欄置中（使用者 2026-11-20「評分不用向右對齊了」）；置中時「）」不往右收 */.tbCell.tbRate b{font-weight:400}   /* 評分跟選手名字同字級同字重（使用者 2026-11-20「轉會評分的文字大小跟選手文字大小一致」：原本同為 15px 但粗體看起來大一號） */.rtPc{font-style:normal;display:inline-block;margin-right:-.5em}
+  .tbTeam img.tbFaIc{width:20px!important;height:20px!important;margin:0 9.5px!important;padding:2px;border-radius:5px}   /* 固定 26×26 的淺色方塊（不吃隊徽的「圖案面積統一」，不然六張寬度不一樣、後面的字對不齊） */   /* 左右各留 6.5px＝跟隊徽同一個 39px 位子，後面的「FA」才跟其他隊名對齊 */.tbFA .tbTeam>span:not(.tbFaIc):not(.tbOk){color:var(--tx2)}
+  .tbRate{min-width:72px;padding:6px 13px;font-variant-numeric:tabular-nums;text-align:center;white-space:nowrap}.tbRateH{padding:0 13px;text-align:center}.tbCell.tbRate .rtPc{margin-right:0}   /* 評分欄置中（使用者 2026-11-20「評分不用向右對齊了」）；置中時「）」不往右收 */.tbCell.tbRate b{font-weight:400}   /* 評分跟選手名字同字級同字重（使用者 2026-11-20「轉會評分的文字大小跟選手文字大小一致」：原本同為 15px 但粗體看起來大一號） */.rtPc{font-style:normal;display:inline-block;margin-right:-.5em}
   .tbHd .tbRateH{justify-self:center}
   .tbUp{color:#ff5a5a}.tbDn{color:#3fcf7a}   /* 台灣配色：加分紅、扣分綠 */
   .tbCell:hover{background:rgba(122,184,255,.10);border-radius:6px}
@@ -1146,7 +1148,7 @@
   .rtXl{grid-column:2/-1;margin-top:-6px;font-size:11px;color:var(--tx2)}
   .rtEmpty{color:var(--tx2)}
   .rtFoot{margin-top:12px;padding-top:8px;border-top:1px solid rgba(255,255,255,.1);font-size:12px;line-height:1.5;color:var(--tx2);white-space:nowrap}
-  @container mainc (max-width:999.98px){.tbTeam{padding-right:8px;font-size:13px;gap:5px}.tbCell{font-size:13px;padding:6px 3px}.tbHd{font-size:12px}.tbHd img{display:none}}
+  @container mainc (max-width:999.98px){.tbTeam{padding-right:8px;font-size:13px;gap:5px}.tbCell{font-size:13px;padding:6px 3px}.tbHd{font-size:14px}.tbHd img{display:none}}
   /* 轉會（2026-11-19 改版）：依日期分組；欄＝狀態｜原隊｜➜｜新隊｜消息（subgrid 對齊），方向用位置表達 */
   .trList{padding:6px 16px 12px;display:grid;grid-template-columns:max-content max-content max-content max-content max-content minmax(0,1fr);column-gap:14px}
   .trHead{grid-column:1/-1;display:grid;grid-template-columns:subgrid;padding:4px 10px 6px;font-size:13px;color:var(--tx2);font-weight:700;border-bottom:1px solid var(--line)}
@@ -1154,8 +1156,8 @@
   .trFrom,.trTo,.trSpan{display:flex;flex-direction:column;align-items:flex-start;gap:4px;white-space:nowrap}
   .trRow>.trSt{grid-column:1}.trRgC{grid-column:2;display:flex;align-items:center;gap:4px;white-space:nowrap}.trRgC .trArr{font-size:12px}.trRgC .trLg{margin-left:0}.trFrom{grid-column:3}.trFlow .trArr{grid-column:4}.trTo{grid-column:5}.trAT{display:contents}.trSpan{grid-column:3/6}.trRow>.trTx{grid-column:6}
   .trArr{color:var(--tx2);font-size:15px}
-  /* 原隊 ➜ 新隊：不畫框（使用者 2026-11-20「不要用框框 顯得很亂」）。箭頭左右間隔要一致（同日稍早的要求）⇒ 原隊靠右貼著箭頭、新隊靠左貼著箭頭，箭頭置中 */
-  .trList .trFrom{align-items:flex-end}.trList .trTo,.trList .trSpan{align-items:flex-start}.trList .trSpan{grid-column:3;align-items:flex-end}
+  /* 原隊 ➜ 新隊：不畫框（使用者 2026-11-20「不要用框框 顯得很亂」）。2026-11-21 改成跟陣容表同一套：隊徽在固定寬的位子裡置中、隊名靠左（原隊欄、新隊欄都靠左排，各隊的隊徽與隊名各自對齊成直線） */
+  .trList .trFrom,.trList .trTo,.trList .trSpan{align-items:flex-start}.trList .trSpan{grid-column:3}
   .trList .trFlow .trArr{justify-self:center;color:var(--gold);opacity:.85}
   .trList .trNone{padding:0}
   .trNone{color:var(--tx2);opacity:.6;padding:0 6px}
@@ -1549,7 +1551,8 @@
     .tbLg{position:sticky;top:0;z-index:3;margin:12px 0 6px;padding:6px 12px;background:linear-gradient(90deg,color-mix(in srgb,var(--lgc) 30%,#141926),#141926 75%)}.tbLg b{font-size:18px}
     .tbRow{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:stretch;gap:0;margin:6px 0;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:rgba(255,255,255,.02)}
     /* 手機：隊徽圖案貼齊卡片左邊（使用者 2026-11-20「隊徽不夠置左」）——不留固定寬位子，扣掉圖檔本身的透明邊 */
-    .tbTeam img{margin-left:calc(0px - var(--lgpad,0px))!important;margin-right:calc(8px - var(--lgpad,0px))!important}
+    /* 手機卡片也一樣：隊徽在固定寬的位子裡置中、隊名接在後面（2026-11-21；原本這裡把隊徽改成靠左貼齊，隊名的左緣就會隨隊徽寬窄不同） */
+    .tbRow .tbTeam>span:not(.tbOk){margin-left:8px}   /* 手機卡片的 .tbTeam 沒有 gap，隊名跟隊徽之間自己留 8px */
     .tbTeam .tbOk{margin-left:.35em}   /* 勾跟縮寫之間留一個半形空格（使用者 2026-11-20） */
     .tbTeam{grid-column:1;border-left:0;padding:7px 10px;gap:0;font-size:16px;background:color-mix(in srgb,var(--lgc) 14%,transparent)}
     .tbCell{display:flex;align-items:flex-start;gap:5px;padding:7px 8px;font-size:14px;line-height:1.35;text-align:left;border-radius:0;border-top:1px solid rgba(255,255,255,.06);border-left:1px solid rgba(255,255,255,.06);min-width:0}
@@ -1561,7 +1564,7 @@
     .tbCell[data-r="MID"]::before{background-image:url(img/MID.png)}.tbCell[data-r="BOT"]::before{background-image:url(img/BOT.png)}
     .tbCell[data-r="SUP"]::before{background-image:url(img/SUP.png)}.tbCell[data-r="HC"]::before,.tbCell[data-r="STF"]::before{background-image:url(img/COACH.png)}
     .tbFA .tbCell.tbEmpty{display:none}   /* 自由人卡：沒有人的那一列不顯示（中國自由人沒有教練） */
-    .tbTeam img.tbFaIc{margin:0 8px 0 0!important}   /* 自由人的聯賽圖有淺色底，不能像隊徽那樣扣掉透明邊（會貼到字：歐洲／北美／亞太只剩 2～4px；使用者 2026-11-20「自由人的文字跟圖片也要有半形空格」） */.tbFA .tbCell[data-r="STF"]{display:none}
+    .tbTeam img.tbFaIc{margin:0 9.5px!important}   /* 自由人的聯賽圖有淺色底，不能像隊徽那樣扣掉透明邊（會貼到字：歐洲／北美／亞太只剩 2～4px；使用者 2026-11-20「自由人的文字跟圖片也要有半形空格」） */.tbFA .tbCell[data-r="STF"]{display:none}
     .tbFA .tbCell:not(.tbRate){grid-column:1/-1;border-left:0}   /* 自由人卡：五路＋主教練，一路一列（使用者 2026-11-20） */
     .tbCell.tbRate::before{content:none}.tbCell.tbRate .rtPc{margin-right:-.5em}   /* 手機卡片的評分在標題列右端，仍靠右、「）」照舊往右收 */.tbCell.tbRate .tbCv{white-space:nowrap;font-size:min(15px,3.55cqw)}   /* 單一分數與範圍同一個字級（使用者 2026-11-20「轉會評分的分數字體大小要一致」） */   /* 範圍評分（-158.7 ～ -105.3）在窄手機不換行、不壓隊名 */
     .tbCell .tbCv{min-width:0;overflow-wrap:anywhere}.tbCell .tbN{white-space:nowrap}
@@ -2749,7 +2752,7 @@ const TAB_HELP={
 "陣容":"<b>這頁</b>：一隊五路先發的角色池。沒選隊時先顯示最近出賽的隊。\n<b>操作</b>：上方選<b>戰隊</b>與<b>路線</b>；戰隊留空只選路線＝跨所有戰隊列出該路選手。右上切來源 <b>🏆 職業賽｜🎯 積分｜📜 職業生涯</b> 與版面 <b>▥ 直式｜▤ 橫式</b>；點欄位名排序（第三下回原順序）；點<b>場數</b>跳英雄詳情（帶入該選手與路線）；📸 截圖。\n<b>📜 職業生涯</b>＝該選手歷年所有職業比賽（跨隊）；選手名單仍是今年這隊，版本與時間篩選會套用（時間只比月日）。\n<b>看法</b>：上次使用在兩週內亮黃；滑英雄時同一隻在所有選手一起發光；積分模式的被禁欄換成 KDA。\n<b>注意</b>：場數低於 3 不列入排名上色。",
 "摘要":"<b>這頁</b>：選一到兩隊，把近期狀況並排對比，方便截圖。範圍＝目前篩選下各隊<b>最近 5 個系列</b>。沒選隊時先顯示最近一場的兩隊。\n<b>標頭</b>＝連勝／連敗（2 場以上才顯示）、期間、系列與小局戰績。\n<b>近期賽果</b>＝五個系列的日期／賽事／對手／比分（紅勝綠敗）。兩隊交手過就改成 <b>⚔️ 交手紀錄</b>：目前篩選下全部交手系列（比分一律左隊視角），旁邊是兩隊在這些局的首塔／巢蟲／首龍／預示者／小龍／首巴龍／金差@10／中期金差，畫成從中線往外長的條，越長優勢越大。\n<b>五路先發</b>＝各路出賽最多的選手，附場數與 KDA。\n<b>角色池對比</b>＝五路各一列：左＝只有左邊選手會、中＝兩人都會、右＝只有右邊選手會（打過一場就算）；滑上看兩人的場數／勝率／KDA／贏線。\n<b>BP 傾向</b>＝同樣的左中右形式，分選用／禁用／被禁三列；滑上看次數與佔比（選用附勝率）。\n<b>操作</b>：右上 📸 輸出 1080p 截圖（檔名＝A_vs_B_摘要_日期）。戰隊A 與戰隊、陣容分頁共用。\n<b>注意</b>：五路先發、角色池、BP 傾向看的是目前篩選的<b>全部場次</b>，不只最近 5 個系列。交手紀錄的數字天生互補（首塔率相加＝100%），不是算錯。",
 "預測":"<b>這頁</b>：官方<b>水晶球</b>（世界賽預測活動）18 題，逐題給建議答案與依據；頂端標籤列點了跳到該類題目；藍框是外部預測（Caedrel／Jankos／魚丸），點來源或時間點直接跳到影片講這題的地方。\n<b>模型卡</b>：賽區強度用近三年國際賽的跨賽區交手算；每隊強度＝今年全部比賽（越近越重）再往賽區強度收斂；照世界賽賽制模擬 4000 次，得到冠軍、四強、八強機率；瑞士輪期間依八強機率排序，八強確定後改依冠軍機率；機率後的 ▲紅／▼綠＝該欄名次跟前一個比賽日比的升降。已淘汰的隊加刪除線。\n<b>瑞士輪籤運</b>：模型卡底下，每隊每一輪抽到的對手跟當輪能抽到的對手平均比（第 1 輪照分級、同賽區不相遇；之後同戰績互打、不重複對手；八強＝3-0 抽 3-2、剩下的 3-2 打 3-1、3-1 互打，瑞士輪碰過的可以再打），只看對手強度、不管自己多強：換算成一支中等隊伍打他們的勝場差；＋＝好籤、－＝籤硬，已抽還沒打的那輪也算；每格的圓點＝當輪能抽到的對手由強到弱、亮的是抽到的（滑鼠移上去看第幾強），底色紅＝贏、綠＝輸；抽到中韓欄＝抽到的對手裡 LCK／LPL 隊伍幾輪；隊名下 LPL#1＝賽區第幾種子（入圍賽上來的照原本種子）。強度用瑞士輪開打前的，同賽區看兩隊今年交手的單局戰績。點隊伍欄依戰績排、點籤運欄依籤運排、點抽到中韓欄依次數排（再點一次反向）。右上角可切換年份（2023 起；2023 還允許重複對戰，2025 只分三級）。\n<b>冠軍之路</b>：決賽打完後出現在模型卡下面，列冠軍隊每個系列開打前模型給的奪冠機率（只用當時已經打完的比賽重算）與當時排第幾；機率條以最高的那場為滿格。\n<b>本屆戰況</b>：已打完的系列一律用真實結果，只模擬剩下的。\n<b>題目卡</b>：金框＝建議（英雄／選手題給 #1～#3），下方三欄是依據——<b>近期</b>（參賽隊 7/15 以來的比賽，附積分 ▲增強／▼削弱／🔥變熱門 標籤）、<b>歷屆世界賽</b>（2019 起）、<b>本屆</b>（開打後更新）。🏆＝目前領先的選項。\n<b>算法</b>：\n・英雄題：每局依兩隊預估局數與新鮮度（半衰期 30 天）加權，再乘積分趨勢；勝率題用模擬看誰最常在 5 局以上的英雄裡拿第一。\n・選手題：路線基準 × 戰隊預估勝率，個人超出路線的部分只留一小段（KDA 0.13、傷害 0.36、參與率 0.34）。\n・Faker 700 殺、Peyz 對 Gumayusi＝局均擊殺 × 預估局數；HLE 對 T1、八強地區數、LCS、最快勝場看模擬；不同英雄數＝近期系列重抽（保留 Fearless），六個官方選項各附機率；提摩＝歷屆每局出現率換算成至少一次；15 殺、450 補兵、32 分鐘看近期與歷屆；決賽 MVP＝歷屆決賽 MVP 與淘汰賽各場 MVP 的路線各半。\n・本屆打滿 20 局後，排行類建議改看本屆。\n<b>操作</b>：📸 選目前答案（18 題照本屆進行至今的實際結果，未定的灰字，一張 3:4 直式，發文用）、完整大圖或小圖（一題一張 1080×1350）。\n<b>注意</b>：不吃上方篩選、只在當年顯示；模擬用固定亂數，同一份資料答案不變。",
-"轉會":"<b>S17 轉會整理</b>：六大聯賽一級隊，每小時更新。\n<b>回報</b>：有新消息或發現寫錯，到 Discord 告訴我：<a href='https://discord.gg/ffJvcswnkC' target='_blank' rel='noopener' style='color:#8ea1ff;font-weight:700'>discord.gg/ffJvcswnkC</a>\n<b>顏色</b>：紅＝新加入｜粉＝續約｜紫＝升職｜白＝續留｜藍＝合約到期｜藍字刪除線＝已離隊｜綠＝可能轉會｜黃＝傳聞\n<b>陣容表</b>：點格子看合約與傳聞，點名字開 WIKI。✔＝陣容確認；每個聯賽最後一列是自由人（合約到期或離隊、還沒有新東家）。\n<b>轉會評分</b>：新來的減原本的，全隊加總；續約的選手每人加 2 分、續留的選手每人加 1 分；留隊的選手越多另有默契加成（2 人 1、3 人 3、4 人 6、5 人 10）。紅＝變強、綠＝變弱，括號＝含傳聞；有多位傳聞人選時是範圍。點隊名看明細。\n<b>分數</b>：同路百分位（三個賽段 15／35／50%）＋國際賽加分（三大賽各取生涯最好的一次：世界賽最高 20、MSI 最高 10、FST 最高 5，合計最多 35）。出賽少、次級上來、跨聯賽的會另外調整。\n<b>消息</b>：傳聞被證實變綠、被推翻變紅；連結標 SE 的是 Sheep Esports。\n<b>📸</b>：截圖每張 2000×2000，陣容表一個賽區一張。",
+"轉會":"<b>S17 轉會整理</b>：六大聯賽一級隊，每小時更新。\n<b>回報</b>：有新消息或發現寫錯，到 Discord 告訴我：<a href='https://discord.gg/ffJvcswnkC' target='_blank' rel='noopener' style='color:#8ea1ff;font-weight:700'>discord.gg/ffJvcswnkC</a>\n<b>顏色</b>：紅＝新加入｜粉＝續約｜紫＝升職｜白＝續留｜藍＝合約到期｜藍字刪除線＝已離隊｜綠＝可能轉會｜黃＝傳聞\n<b>陣容表</b>：點格子看合約與傳聞，點名字開 WIKI。✔＝陣容確認；每個聯賽最後一列是 FA（合約到期或離隊、還沒有新東家）。\n<b>轉會評分</b>：新來的減原本的，全隊加總；續約的選手每人加 2 分、續留的選手每人加 1 分；留隊的選手越多另有默契加成（2 人 1、3 人 3、4 人 6、5 人 10）。紅＝變強、綠＝變弱，括號＝含傳聞；有多位傳聞人選時是範圍。點隊名看明細。\n<b>分數</b>：同路百分位（三個賽段 15／35／50%）＋國際賽加分（三大賽各取生涯最好的一次：世界賽最高 20、MSI 最高 10、FST 最高 5，合計最多 35）。出賽少、次級上來、跨聯賽的會另外調整。\n<b>消息</b>：傳聞被證實變綠、被推翻變紅；連結標 SE 的是 Sheep Esports。\n<b>📸</b>：截圖每張 2000×2000，陣容表一個賽區一張。",
 "筆記":"<b>這頁</b>：只在本機開啟時出現的私人筆記（線上版沒有這個分頁，資料檔不會發布）。左邊選一份、右邊看全文；<b>分類</b>切報告／各頻道，<b>搜尋</b>會篩清單並標亮本文。藍色的 [時:分:秒] 點了直接跳到 YouTube 該秒。新增筆記：放進 notes_local 資料夾後跑 notes_local/build.py。",
 "比賽BP":"<b>這頁</b>：所有比賽的 BP 紀錄，依系列賽分組，最新在上。\n<b>操作</b>：在欄名下方的篩選框逐欄篩選（隊名格輸入戰隊＝只看該隊；局數、時長、選擇、禁用、五路都能篩），🗑 清空欄位篩選。右上三種模式：<b>🟣 一般</b>（藍左紅右）｜<b>🟪 混合</b>（篩選的戰隊固定在左）｜<b>選序</b>（依出手順 B1~B3 → P1~P4 → B4~B5 → P5~P7 排的時間軸）。底部載入更多，每批 200 場。\n<b>統計條</b>＝場數、場均時長、勝率、<b>主動權那隊選了</b>（主動權＝先決定要選藍紅還是選先後選的那隊，另一隊不算；數它選了先選／後選／藍方／紅方各幾次）、<b>選藍率</b>、<b>選先選率</b>（握選序權時選先選的比例）；指定戰隊時只算該隊握權的局。\n<b>看法</b>：白底那隊＝勝方；英雄右上金色數字＝選角順位；<b>選擇</b>欄寫這局誰選邊、誰選序，金色粗體＝拿到第一選擇權的隊。局數是金色連結＝有影片，有 BP 時間點的直接跳到 BP。\n<b>注意</b>：系列缺局會標 ⚠ 缺第 N 局並插一列紅字（BO1 不算缺、BO2 的 1-1 不算缺）。2026 起先選與藍紅方脫鉤，2025 以前藍方固定先選；選擇欄與相關統計只有 2026 起才有。",
 "圖鑑":"<b>這頁</b>：遊戲資料庫，上方分區籤切換：版本／英雄／道具／符文／召喚師技能／物件／賽事／刷野速度（2024 起）。\n<b>操作</b>：多數分區可搜尋；點名稱進詳情與歷年改動。\n<b>看法</b>：改動顏色紅＝增強、綠＝削弱、黃＝調整。\n<b>注意</b>：新登場／重製／重返遊戲不標增強削弱（沒有對照物）。",
@@ -14315,8 +14318,8 @@ function render(){
     // 戰隊一律顯示縮寫（使用者 2026-11-19「戰隊全部改成縮寫」）：左欄＋內文都換，滑過看全名；沒有縮寫的（tAb 回全名）照舊
     // 自由人那一列的名稱＝地區＋自由人（使用者 2026-11-20「自由人改寫成 地區+自由人 例如亞太自由人」）
     const FARG=en2?{LCK:"Korea",LPL:"China",LEC:"EMEA",LCS:"NA",CBLOL:"Brazil",LCP:"APAC"}:{LCK:"韓國",LPL:"中國",LEC:"歐洲",LCS:"北美",CBLOL:"巴西",LCP:"亞太"};
-    const rowNm=t=>t.fa?(en2?`${t.lg} FA`:`${FARG[t.lg]||t.lg}自由人`):abOf(t.nm);
-    const abOf=n=>{ if(n==="FA")return en2?"Free agents":"自由人";
+    const rowNm=t=>t.fa?`${t.lg} FA`:abOf(t.nm);   // 中英文統一寫「聯賽 FA」（使用者 2026-11-21「自由人統一改成FA」）
+    const abOf=n=>{ if(n==="FA")return "FA";
       if(/^Kiwoom DRX$/i.test(String(n||"")))return "KRX";   // 使用者 2026-11-19「DRX 前陣子就改成 KRX 了」：只改這頁的顯示（全站 teamFix 把 KRX 收斂成 DRX 當比對鍵，不能動）
       const a=teamFix(String(tAb(n)||"")); return a||n; };
     const TN=new Map([...new Set(all.flatMap(x=>x.s!=="wiki"?x.tags.map(t=>t[1]):[x.team]).filter(Boolean))].map(n=>[n,abOf(n)]).filter(([n,a])=>a!==n));
@@ -14706,7 +14709,7 @@ function render(){
     let vRows=bRows.filter(t=>(!F_TB.size||Object.values(t.r).flat().some(tbMf)));
     // 轉會評分升降冪（使用者 2026-11-20「轉會評分要可以升降冪」）：賽區順序不動，各賽區內照評分排；沒有評分的隊排最後。點欄名或篩選列的按鈕輪流 降冪 → 升冪 → 原順序
     // 排序按鈕兩種輪流：轉會評分（高到低）↔ 選手評分（高到低）；↺ 才回原順序。不畫箭頭
-    const SRT0=({d:"d",a:"d",pd:"pd",pa:"pd"})[V.tbSort]||"",   /* 2026-11-20 使用者「只有降的那兩個 然後降冪圖案也刪掉」：只剩 轉會評分降冪 ↔ 選手評分降冪；舊存檔的升冪當成降冪 */ SPL=SRT0[0]==="p", SRT=SRT0?SRT0.slice(-1):"", SLB=SPL?(en2?"Player rating":"選手評分"):(en2?"Transfer rating":"轉會評分");
+    const SRT0=({d:"d",a:"d",pd:"pd",pa:"pd"})[V.tbSort]||"d",   /* 預設就照轉會評分排（使用者 2026-11-21「排序預設是 轉會評分」）*/   /* 2026-11-20 使用者「只有降的那兩個 然後降冪圖案也刪掉」：只剩 轉會評分降冪 ↔ 選手評分降冪；舊存檔的升冪當成降冪 */ SPL=SRT0[0]==="p", SRT=SRT0?SRT0.slice(-1):"", SLB=SPL?(en2?"Player rating":"選手評分"):(en2?"Transfer rating":"轉會評分");
     if(SRT){ const lgI={}; vRows.forEach(t=>{ if(!(t.lg in lgI))lgI[t.lg]=Object.keys(lgI).length; }); const rv=t=>{ const rt=rateOf(t); return SPL?(rt?rt.pl:null):(rt&&rt.items.length?rt.sum:null); };
       vRows=vRows.map((t,i)=>[t,i,rv(t)]).sort((a,b)=>lgI[a[0].lg]-lgI[b[0].lg]||(a[2]==null)-(b[2]==null)||(SRT==="d"?b[2]-a[2]:a[2]-b[2])||a[1]-b[1]).map(x=>x[0]); }
     const srtArr="";   // 不畫箭頭，排序中靠按鈕亮起與欄名變金色表示
@@ -14719,8 +14722,8 @@ function render(){
     const tbDone=t=>["TOP","JNG","MID","BOT","SUP","HC"].every(c=>colE(t,c).some(setE));
     let bHTML="", lastLg="";
     vRows.forEach(t=>{ if(t.lg!==lastLg){ const n=vRows.filter(x=>x.lg===t.lg&&!x.fa).length;
-        bHTML+=`<div class="tbLg" style="--lgc:${LGC[t.lg]||"var(--gold)"}"><b>${esc(t.lg)}</b><span>${esc((en2?{LCK:"Korea",LPL:"China",LEC:"EMEA",LCS:"North America",CBLOL:"Brazil",LCP:"Asia-Pacific"}:{LCK:"韓國",LPL:"中國",LEC:"歐洲",LCS:"北美",CBLOL:"巴西",LCP:"亞太"})[t.lg]||"")}</span><i>${n}${en2?" teams":" 隊"}</i></div>`; lastLg=t.lg; }
-      bHTML+=`<div class="tbRow${t.fa?" tbFA":""}" style="--lgc:${LGC[t.lg]||"var(--gold)"}"><div class="tbTeam" title="${t.fa?(en2?"Free agents":"自由球員"):esc(t.nm)}">${t.fa?`<img class="tbFaIc" src="${((window.TS_DATA||{}).lgi||{})[t.lg]||("img/lg_"+t.lg+".png")}" alt="">`:""}${teamLogoHTML(tAb(t.nm),26,true,t.nm)||teamLogoHTML(tAb(t.tm),26,true,t.tm)||""}<span>${esc(rowNm(t))}</span>${tbDone(t)?`<span class="tbOk" title="${en2?"All five roles and the head coach are confirmed":"五路與主教練都確定了"}">✔</span>`:""}</div>`
+        bHTML+=`<div class="tbLg" data-rg="${esc((en2?{LCK:"Korea",LPL:"China",LEC:"EMEA",LCS:"North America",CBLOL:"Brazil",LCP:"Asia-Pacific"}:{LCK:"韓國",LPL:"中國",LEC:"歐洲",LCS:"北美",CBLOL:"巴西",LCP:"亞太"})[t.lg]||"")}" style="--lgc:${LGC[t.lg]||"var(--gold)"}"><img class="tbLgIc" src="${((window.TS_DATA||{}).lgi||{})[t.lg]||("img/lg_"+t.lg+".png")}" alt=""><b>${esc(t.lg)}</b><span>${n}${en2?" teams":" 隊"}</span></div>`; lastLg=t.lg; }   // 聯賽徽章＋聯賽名稱＋隊伍數（使用者 2026-11-21）；地區名只留在 data-rg 給截圖標題用
+      bHTML+=`<div class="tbRow${t.fa?" tbFA":""}" style="--lgc:${LGC[t.lg]||"var(--gold)"}"><div class="tbTeam" title="${t.fa?"FA":esc(t.nm)}">${t.fa?`<img class="tbFaIc" src="${((window.TS_DATA||{}).lgi||{})[t.lg]||("img/lg_"+t.lg+".png")}" alt="">`:""}${teamLogoHTML(tAb(t.nm),26,true,t.nm)||teamLogoHTML(tAb(t.tm),26,true,t.tm)||""}<span>${esc(rowNm(t))}</span>${tbDone(t)?`<span class="tbOk" title="${en2?"All five roles and the head coach are confirmed":"五路與主教練都確定了"}">✔</span>`:""}</div>`
         +COLS.map(r=>{ const es=colE(t,r); return `<div class="tbCell${es.length?"":" tbEmpty"}" data-r="${r}" data-lb="${BLN[r]}" data-tb="${cellTip(t,r)}"><span class="tbCv">${es.length?es.map(nameH).join(`<span class="tbSep">/</span>`):`<span class="tbMuted">–</span>`}</span></div>`; }).join("")+rateCell(t)+`</div>`; });
     const bHead=`<div class="tbHd"><span></span>${COLS.map(r=>`<span>${(r==="HC"||r==="STF")?`<img class="trCoach" src="img/COACH.png" alt="">`:(POS_IMG[r]?`<img class="trRole" src="${POS_IMG[r]}" alt="">`:"")}${BLN[r]}</span>`).join("")}<span class="tbRateH tbSortT" style="cursor:pointer;white-space:nowrap${SRT?";color:var(--gold)":""}" title="${en2?"Click to sort":"點一下照評分排序"}">${SLB}${srtArr}</span></div>`;
     // 篩選列（使用者 2026-11-20「消息跟轉會表的篩選列也統一一下 並且直觀一點」）：兩種模式同一個順序——
@@ -14805,7 +14808,7 @@ function render(){
               :[["tbNew","新加入"],["tbRs","續約"],["tbPm","升職"],["tbStay","續留"],["tbExp","合約到期"],["tbExp tbGone","已宣布離隊"],["tbOut","可能轉會"],["tbY","傳聞"]];
             const legend=`<div style="display:flex;flex-wrap:nowrap;align-items:center;gap:0;margin:0 2px 12px;padding:8px 12px;border:1px solid rgba(255,255,255,.12);border-radius:8px;font-size:18px;justify-content:space-evenly;padding-left:0;padding-right:0">`
               +LG.map(([c,l])=>`<b class="tbN ${c}"${c==="tbStay"?` style="color:#fff"`:""}>${l}</b>`).join("")+`<b class="tbN" style="color:#8b98ad"><span class="tbOk" style="margin:0 4px 0 0;font-size:inherit">✔</span>${en2?"Roster confirmed":"陣容確認"}</b></div>`;
-            const secs=[]; [...main.querySelectorAll(".tbBoard>.tbLg,.tbBoard>.tbRow")].forEach(e=>{ if(e.classList.contains("tbLg"))secs.push({lg:e.querySelector("b").textContent,sub:(e.querySelector("span")||{}).textContent||"",c:e.style.getPropertyValue("--lgc"),rows:[]}); else if(secs.length)secs[secs.length-1].rows.push(e); });
+            const secs=[]; [...main.querySelectorAll(".tbBoard>.tbLg,.tbBoard>.tbRow")].forEach(e=>{ if(e.classList.contains("tbLg"))secs.push({lg:e.querySelector("b").textContent,sub:e.dataset.rg||"",c:e.style.getPropertyValue("--lgc"),rows:[]}); else if(secs.length)secs[secs.length-1].rows.push(e); });
             // 版面＝一列一隊，跟網頁（桌面版）的表格一樣（使用者 2026-11-20「截圖能不能改成一列一隊這樣 跟網頁顯示的一樣」）：
             //   表頭＋該賽區各隊的列放進一個寬度 ≥1000 的 mainc 容器（＝桌面版樣式）；寬度從 1000 試到 2000，挑縮放後字最大的那個
             const bhd=main.querySelector(".tbBoard>.tbHd");
@@ -14860,7 +14863,9 @@ function render(){
         const E=w/m.fw;   // 整張正方形圖要畫多大，圖案才是 w×h
         // 圖案靠右貼著後面的縮寫（使用者 2026-11-20「有些隊徽的左右間隔比較大 導致跟右邊戰隊縮寫的視覺距離變遠了」）：
         //   每個隊徽仍佔固定寬 W 的位子（縮寫才會對齊），但圖案不再置中——窄的隊徽（DNS、MKOI）置中時兩邊各空一截；改成圖案右緣對齊位子右緣，空的全留在左邊
-        const pd=(E-w)/2; img.style.width=img.style.height=E+"px"; img.style.margin=`${(S-E)/2}px ${-pd}px`;   /* 2026-11-20 再改「空白也不要留給左邊」：不留固定寬的位子，圖案左右都貼齊（縮寫的左緣因此會隨隊徽寬度不同） */ img.style.maxWidth="none";
+        const pd=(E-w)/2; img.style.width=img.style.height=E+"px"; // 2026-11-21 使用者「各賽區的隊徽沒有置中 先置中後再寫隊名縮寫 然後隊名縮寫置右」：陣容表的隊名欄＝隊徽在固定寬的位子裡置中（各隊的隊徽對在同一條中線上）、
+        //   縮寫接在後面靠左；其他地方（消息的原隊／新隊、小框裡的隊伍）維持圖案左右貼齊，才不會離縮寫太遠
+        img.style.margin=img.closest(".tbTeam,.trTeam")?`${(S-E)/2}px ${(W-E)/2}px`:`${(S-E)/2}px ${-pd}px`;   // 消息的原隊／新隊也用同一套（使用者 2026-11-21「都要採取這樣徽章置中放左邊 然後隊名置左的做法」）   /* 2026-11-20 再改「空白也不要留給左邊」：不留固定寬的位子，圖案左右都貼齊（縮寫的左緣因此會隨隊徽寬度不同） */ img.style.maxWidth="none";
         img.style.setProperty("--lgpad",((E-w)/2)+"px"); }); };   // --lgpad＝圖檔左右的透明邊（手機版靠左對齊時扣掉）
     const lgFitAll=root=>root.querySelectorAll(".tbTeam img,.trTeam img,.tpTm img,.rtHd img").forEach(lgFit);
     lgFitAll(main);
@@ -14875,14 +14880,22 @@ function render(){
       // 手機／觸控（使用者 2026-11-20「幫我設計手機點擊時的 UI」）：沒有滑鼠懸停 ⇒ 點格子從畫面底部滑出小框（再點同一格或點別處收起）；格子裡的 wiki 連結在手機不直接跳走
       const touch=()=>matchMedia("(hover:none)").matches||innerWidth<760;
       const show=(c,sheet)=>{ tip.innerHTML=(sheet?`<div class="tbTipXW"><button class="tbTipX" aria-label="close">✕</button></div>`:"")+TIPS[+c.dataset.tb]; tip.classList.toggle("sheet",!!sheet); tip.style.display="block"; lgFitAll(tip); tip.scrollTop=0;   /* 開新的小框一律從最上面開始（原本會停在上一個小框捲到的位置） */
+        tip.style.maxHeight=""; tip.style.overflowY=""; tip.style.pointerEvents="";
         if(sheet){ tip.style.left=tip.style.top=""; tip.dataset.cur=c.dataset.tb; const x=tip.querySelector(".tbTipX"); if(x)x.onclick=()=>{ tip.style.display="none"; }; return; }
+        // 電腦版（使用者 2026-11-21「小框會超出螢幕範圍」「滑鼠要可以移動到小框上 離開小框才消失」）：
+        //   小框最高不超過視窗、太長就在框內捲；上下都放不下時貼著視窗邊；滑鼠可以移上去（連結點得到），離開格子與小框才收
+        tip.style.pointerEvents="auto"; tip.style.maxHeight=(innerHeight-16)+"px"; tip.style.overflowY="auto";
         const r=c.getBoundingClientRect(), w=tip.offsetWidth, h=tip.offsetHeight;
-        let x=r.left+r.width/2-w/2, y=r.bottom+6; x=Math.max(8,Math.min(innerWidth-w-8,x)); if(y+h>innerHeight-8)y=r.top-h-6;
+        const bR=bd.getBoundingClientRect();   // 小框不貼著螢幕邊：左右都收在陣容表那張卡片的範圍內（使用者 2026-11-21「網頁版 評分小框有點太靠近螢幕右側了」；原本只離螢幕邊 8px）
+        let x=r.left+r.width/2-w/2, y=r.bottom+6; x=Math.max(Math.max(16,bR.left+12),Math.min(Math.min(innerWidth-w-24,bR.right-w-12),x)); if(y+h>innerHeight-8)y=r.top-h-6;
+        if(y<8)y=Math.max(8,innerHeight-h-8);   // 上面也放不下 ⇒ 貼著視窗下緣（會蓋到格子，但整個小框都在畫面內）
         tip.style.left=x+"px"; tip.style.top=y+"px"; };
       // 隊名那格也算評分那一列：點（手機）或滑過（電腦）隊名一樣開評分小框（使用者 2026-11-20「應該點擊分數那列都會顯示分數小框」）
       const cellOf=e=>e.target.closest(".tbCell")||(e.target.closest(".tbTeam")?e.target.closest(".tbRow").querySelector(".tbRate"):null);
-      bd.onmouseover=e=>{ if(touch())return; const c=cellOf(e); if(!c){ tip.style.display="none"; return; } show(c,false); };
-      bd.onmouseleave=()=>{ if(!touch())tip.style.display="none"; };
+      const keepTip=()=>clearTimeout(tip._ht), hideSoon=()=>{ clearTimeout(tip._ht); tip._ht=setTimeout(()=>{ if(!tip.classList.contains("sheet")){ tip.style.display="none"; tip._c=null; } },200); };
+      bd.onmouseover=e=>{ if(touch())return; const c=cellOf(e); if(!c){ hideSoon(); return; } keepTip(); if(tip.style.display==="block"&&tip._c===c)return; tip._c=c; show(c,false); };
+      bd.onmouseleave=()=>{ if(!touch())hideSoon(); };
+      tip.onmouseenter=keepTip; tip.onmouseleave=()=>{ if(!tip.classList.contains("sheet"))hideSoon(); };
       bd.onclick=e=>{ if(!touch())return; const c=cellOf(e); if(!c)return; if(e.target.closest("a"))e.preventDefault();
         if(tip.style.display==="block"&&tip.classList.contains("sheet")&&tip.dataset.cur===c.dataset.tb){ tip.style.display="none"; return; } show(c,true); };
     } else { const tip=document.getElementById("tbTip"); if(tip)tip.style.display="none"; }
@@ -14890,7 +14903,7 @@ function render(){
     if(MODE==="news"&&window._trGo){ const g=window._trGo; window._trGo=null; setTimeout(()=>{ const has=(r,x)=>!x||r.textContent.includes(x), c=[...main.querySelectorAll(".trRow")].filter(r=>has(r,g.n));
         const pick=c.find(r=>r.dataset.d===g.d&&has(r,g.ab))||c.find(r=>r.dataset.d===g.d)||c.find(r=>has(r,g.ab))||c[0];
         if(pick){ pick.scrollIntoView({block:"center"}); pick.classList.add("trFlash"); setTimeout(()=>pick.classList.remove("trFlash"),3000); } },80); }
-    main.querySelectorAll(".tbSortT").forEach(b=>b.onclick=()=>{ V.tbSort={"":"d",d:"pd",pd:"d"}[SRT0]; saveState(); render(); });
+    main.querySelectorAll(".tbSortT").forEach(b=>b.onclick=()=>{ V.tbSort={d:"pd",pd:"d"}[SRT0]||"d"; saveState(); render(); });
     main.querySelectorAll(".filters .sqLaneBtn[data-mk]").forEach(b=>b.onclick=()=>{ const k=b.dataset.mk, S=mset(k), v=b.dataset.v; S.has(v)?S.delete(v):S.add(v); V[k]=[...S].join(","); saveState(); render(); });
     const qi=document.getElementById("trQ");
     qi.oninput=()=>{ clearTimeout(window._trQT); window._trQT=setTimeout(()=>{ V.trQ=qi.value; saveState(); const pos=qi.selectionStart; render(); const q2=document.getElementById("trQ"); q2.focus(); q2.setSelectionRange(pos,pos); },300); };
