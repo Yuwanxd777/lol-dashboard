@@ -1112,12 +1112,12 @@
   /* 轉會評分小框（2026-11-19 重新設計） */
   #tbTip:has(.rtBox){max-width:min(520px,94vw);padding:12px 14px}
   #tbTip:has(.rtBox):not(.sheet){width:400px;max-width:94vw;box-sizing:border-box}
-  @media (max-width:345px){#tbTip.sheet .rtMulti .tbRum{display:none}#tbTip.sheet .rtMulti .rtN{color:#ffc850}}   /* 最窄的手機：多人那格放不下「傳聞」標籤 ⇒ 改用黃字表示 */
+
   .rtBox{width:auto;max-width:100%}   /* 每一隊的評分小框同寬、欄位同寬（使用者 2026-11-20「小框欄寬一致」） */
   .rtHd{display:flex;align-items:center;gap:8px;padding-bottom:10px;margin-bottom:10px;border-bottom:1px solid rgba(255,255,255,.1);white-space:nowrap}
   .rtHd>b:first-of-type{font-size:16px}
   .rtTt{color:var(--tx2);font-size:13px}
-  .rtSum{margin-left:auto;padding-left:20px;font-size:24px;line-height:1;font-weight:800;font-variant-numeric:tabular-nums}
+  .rtSum{margin-left:auto;padding-left:20px;font-size:20px;white-space:nowrap;line-height:1;font-weight:800;font-variant-numeric:tabular-nums}
   .rtGrid{display:grid;grid-template-columns:20px minmax(0,0.8fr) 18px minmax(0,1.35fr) 66px;column-gap:12px;row-gap:8px;align-items:center}
   .rtCh{font-size:13px;color:var(--tx2);line-height:1}
   .rtChD{justify-self:end}
@@ -1126,12 +1126,12 @@
   .rtN{font-weight:700;white-space:nowrap;display:flex;align-items:center;gap:6px}
   .rtV{font-size:14px;color:var(--tx2);font-variant-numeric:tabular-nums;white-space:nowrap}
   /* 同一路好幾位傳聞人選（使用者 2026-11-20「多人的時候評分小框顯示的好看一些」）：一人一列「名字｜分數」對齊成兩欄，黃色左框標示是傳聞，最下面一列平均 */
-  .rtMulti{display:grid;grid-template-columns:1fr auto;column-gap:12px;row-gap:2px;align-items:baseline;min-width:0}   /* 跟單人同一套字（白色粗體名字＋傳聞標籤、灰色分數），只是分數排到右邊一欄 */
-  .rtMv{text-align:right}.rtMulti{width:100%;box-sizing:border-box}.rtMulti .rtN{min-width:0;gap:5px}
+  .rtMulti{display:flex;flex-direction:column;gap:6px;min-width:0}   /* 多位傳聞人選：每一位都跟單人同一個樣子（名字＋傳聞標籤、分數寫在名字下面），照分數高到低直排（使用者 2026-11-20「多人的個人分數一樣要寫在 ID 下方」） */
+  .rtMulti{width:100%;box-sizing:border-box}
   #tbTip.sheet .rtHd:has(.rtSumR){flex-wrap:wrap}#tbTip.sheet .rtSumR{flex:1 1 100%;text-align:right;padding:6px 0 0;margin:0}   /* 手機：範圍總分太長會壓到 ✕ ⇒ 自己一行靠右 */
-  #tbTip.sheet .rtMulti .tbRum{font-size:11px;padding:0 3px;margin-left:0}#tbTip.sheet .rtMulti{column-gap:6px}
+
   .rtD{white-space:nowrap}   /* 全形負號後面不可以斷行（手機增減那格被擠成「－／35.5」兩行，使用者 2026-11-20「小框…版面跑掉了」） */
-  .rtD i{font-style:normal;display:block;line-height:.7;font-size:12px;opacity:.75}.rtSumR{font-size:19px!important;white-space:nowrap}
+  .rtD i{font-style:normal;display:block;line-height:.7;font-size:12px;opacity:.75}.rtSumR{white-space:nowrap}
   .rtMa{grid-column:1/-1;display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin-top:2px;padding-top:3px;border-top:1px solid rgba(255,255,255,.12);font-size:14px;color:var(--tx2);white-space:nowrap}
   .rtMa b{font-weight:800;color:var(--tx);font-variant-numeric:tabular-nums}
   .rtV i{font-style:normal;font-size:11px;opacity:.8;margin-left:0;display:block;white-space:nowrap}   /* 註記（中位數／全年／聯賽權重）自己一行，才不會把小框撐破（BFX Noah，使用者 2026-11-20） */
@@ -1552,7 +1552,7 @@
     .tbCell[data-r="TOP"]::before{background-image:url(img/TOP.png)}.tbCell[data-r="JNG"]::before{background-image:url(img/JG.png)}
     .tbCell[data-r="MID"]::before{background-image:url(img/MID.png)}.tbCell[data-r="BOT"]::before{background-image:url(img/BOT.png)}
     .tbCell[data-r="SUP"]::before{background-image:url(img/SUP.png)}.tbCell[data-r="HC"]::before,.tbCell[data-r="STF"]::before{background-image:url(img/COACH.png)}
-    .tbCell.tbRate::before{content:none}.tbCell.tbRate .tbCv{white-space:nowrap;font-size:min(15px,4.3cqw)}.tbCell.tbRate .rtRngT{font-size:min(15px,3.55cqw)}   /* 範圍評分（-158.7 ～ -105.3）在窄手機不換行、不壓隊名 */
+    .tbCell.tbRate::before{content:none}.tbCell.tbRate .tbCv{white-space:nowrap;font-size:min(15px,3.55cqw)}   /* 單一分數與範圍同一個字級（使用者 2026-11-20「轉會評分的分數字體大小要一致」） */   /* 範圍評分（-158.7 ～ -105.3）在窄手機不換行、不壓隊名 */
     .tbCell .tbCv{min-width:0;overflow-wrap:anywhere}.tbCell .tbN{white-space:nowrap}
     .tbCell:not(.tbRate):hover{background:none}.tbCell:not(.tbRate):active{background:rgba(122,184,255,.12)}
     .tbCell.tbRate:hover,.tbCell.tbRate:active{background:color-mix(in srgb,var(--lgc) 14%,transparent);border-radius:0}   /* 點評分時標題列底色不可消失（使用者 2026-11-20） */
@@ -1608,7 +1608,7 @@
   }
   #tbTip.sheet{pointer-events:auto!important;left:8px!important;right:8px!important;top:auto!important;bottom:8px!important;max-width:none!important;max-height:72vh;overflow:auto;padding:16px 14px 14px;border-radius:14px;box-shadow:0 -6px 30px rgba(0,0,0,.6)}
   #tbTip.sheet .tpBox,#tbTip.sheet .rtBox{min-width:0}
-  #tbTip.sheet .rtBox{width:auto}#tbTip.sheet .rtGrid{column-gap:8px;grid-template-columns:20px minmax(0,0.8fr) 14px minmax(0,1.35fr) max-content}#tbTip.sheet .rtD{min-width:44px;padding:3px 4px;font-size:min(15px,4.2vw)}#tbTip.sheet .rtMulti .tbRum{padding:0 4px}#tbTip.sheet .rtSum{font-size:min(22px,6.2vw)}#tbTip.sheet .rtMulti{column-gap:8px}   /* 窄手機（320）多人區塊不擠出框 */
+  #tbTip.sheet .rtBox{width:auto}#tbTip.sheet .rtGrid{column-gap:8px;grid-template-columns:20px minmax(0,0.8fr) 14px minmax(0,1.35fr) max-content}#tbTip.sheet .rtD{min-width:44px;padding:3px 4px;font-size:min(15px,4.2vw)}#tbTip.sheet .rtMulti .tbRum{padding:0 4px}#tbTip.sheet .rtSum{font-size:min(20px,5.4vw)}#tbTip.sheet .rtMulti{column-gap:8px}   /* 窄手機（320）多人區塊不擠出框 */
   #tbTip.sheet .rtHd{padding-right:44px;min-height:30px}
   .tbTipX{position:absolute;top:12px;right:12px;width:30px;height:30px;padding:0;display:flex;align-items:center;justify-content:center;line-height:1;border-radius:50%;border:1px solid var(--line);background:rgba(255,255,255,.08);color:var(--tx);font-size:14px;cursor:pointer}   /* ✕ 在圓底正中、整顆在框內（使用者 2026-11-20「X 後面的底色偏離了」） */
   /* 單頁模式：只留轉會分頁 */
@@ -14607,7 +14607,7 @@ function render(){
           +`<span class="rtV">${v.toFixed(1)}</span></span>`;   // 分數下面不寫「全年／中位數」註記（使用者 2026-11-20），算法在 ℹ️ 說明
         h+=`<div class="rtGrid"><span></span><span class="rtCh">${en2?"Out":"離隊"}</span><span></span><span class="rtCh">${en2?"In":"加入"}</span><span class="rtCh rtChD">${en2?"Diff":"增減"}</span>`;
         rt.items.forEach(x=>{ const ic=x.r==="COACH"?`<img src="img/COACH.png" alt="">`:(POS_IMG[x.r]?`<img src="${POS_IMG[x.r]}" alt="">`:"");
-          h+=`<span class="rtIc" title="${BLN[x.r]}">${ic}</span>${pc(x.od,x.b,x.mb?1:0,false,x.tb)}<span class="rtAr">➜</span>${x.nws?`<span class="rtMulti">${x.nws.map(c=>`<span class="rtN">${esc(c.n)}<span class="tbRum">${en2?"Rumor":"傳聞"}</span></span><span class="rtV rtMv">${c.v.toFixed(1)}</span>`).join("")}</span>`:pc(x.nw,x.a,x.ma,x.rm,x.ta)}<b class="rtD ${rcls(x.dlo,x.dhi)}">${x.dhi-x.dlo>0.05?`${sg(x.dlo)}<i>～</i>${sg(x.dhi)}`:sg(x.d)}</b>`; });
+          h+=`<span class="rtIc" title="${BLN[x.r]}">${ic}</span>${pc(x.od,x.b,x.mb?1:0,false,x.tb)}<span class="rtAr">➜</span>${x.nws?`<span class="rtMulti">${x.nws.map(c=>pc(c.n,c.v,0,true,"")).join("")}</span>`:pc(x.nw,x.a,x.ma,x.rm,x.ta)}<b class="rtD ${rcls(x.dlo,x.dhi)}">${x.dhi-x.dlo>0.05?`${sg(x.dlo)}<i>～</i>${sg(x.dhi)}`:sg(x.d)}</b>`; });
         h+=`</div>`; }   // 計算說明不放小框，寫在 ℹ️ 說明（使用者 2026-11-20）
       TIPS.push(h+`</div>`); return TIPS.length-1; };
     const rateCell=t=>{ const rt=rateOf(t), v=rt&&rt.items.length?rt.sum:null;
