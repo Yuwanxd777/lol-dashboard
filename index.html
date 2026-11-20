@@ -1104,7 +1104,7 @@
   #tbTip.sheet .tpGo{cursor:pointer;position:relative;padding-right:22px}#tbTip.sheet .tpGo::after{content:"›";position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:18px;color:var(--tx2)}
   .trRow.trFlash{outline:2px solid var(--gold);outline-offset:-2px;background:rgba(255,200,80,.14)!important}
   .tpQ{margin-top:6px;padding:6px 8px;border-left:3px solid rgba(255,200,80,.5);background:rgba(255,200,80,.06);border-radius:4px;font-size:14px;line-height:1.55}
-  .tpQg{border-left-color:rgba(76,208,125,.55);background:rgba(76,208,125,.06)}.tpQb{border-left-color:rgba(90,169,255,.55);background:rgba(90,169,255,.07)}.rtRsL{font-style:normal;font-weight:400;font-size:12px;color:var(--tx2);margin-left:2px}.tpQ>span .tpTm{font-size:12px;vertical-align:middle;line-height:1}.tpQ>span .tpTm img{display:block}
+  .tpQg{border-left-color:rgba(76,208,125,.55);background:rgba(76,208,125,.06)}.tpQb{border-left-color:rgba(90,169,255,.55);background:rgba(90,169,255,.07)}.rtPlG{display:grid;grid-template-columns:22px minmax(0,1fr) max-content max-content;column-gap:14px;row-gap:9px;align-items:center}.rtPlG .rtChD{text-align:right}.rtPv{text-align:right;font-variant-numeric:tabular-nums;font-size:15px;white-space:nowrap}.rtPlG .rtIc img{width:22px;height:22px;display:block}.rtRsL{font-style:normal;font-weight:400;font-size:12px;color:var(--tx2);margin-left:2px}.tpQ>span .tpTm{font-size:12px;vertical-align:middle;line-height:1}.tpQ>span .tpTm img{display:block}
   .tpQ>span{display:flex;align-items:center;flex-wrap:wrap;white-space:pre-wrap;font-size:12px;color:var(--tx2);margin-bottom:2px}   /* 日期・來源・傳聞去 隊徽＋縮寫 排在同一條水平線上（使用者 2026-11-20「沒有水平」：隊徽那顆是 inline-flex，基線被圖墊高） */
   .tpPvC{margin-top:6px}.tpPvC .tpName>b{color:var(--tx2)}.tpX{background:rgba(255,255,255,.08);color:var(--tx2)}
   .tpPv{margin-top:10px;padding-top:8px;border-top:1px solid rgba(255,255,255,.1)}
@@ -14616,7 +14616,7 @@ function render(){
         // 同一路官方已定（續約／新加入／升職）的有兩位以上 ⇒ 兩種評分都以分數最高的那位算（使用者 2026-11-20「如果一路宣布續約 加入 升職兩位以上 算評分時以最高的算」）
         (t.r[r]||[]).forEach(e=>scOf.set(e,sv(e)));   // 每個人的分數留著，小框的續約／續留那幾列要寫
         const conf=(t.r[r]||[]).filter(e=>!e.gone&&(e.new||e.rs||e.pm||(e.tip&&!e.r)));
-        { const es=(conf.length>=2?conf:(t.r[r]||[]).filter(e=>!e.gone)).map(e=>({n:pn(e.n),v:sv(e),e})).filter(x=>x.v>=0), vs=es.map(x=>x.v);
+        { const es=(conf.length>=2?conf:(t.r[r]||[]).filter(e=>!e.gone)).map(e=>({n:pn(e.n),v:sv(e),it:itOf(e.n),e})).filter(x=>x.v>=0), vs=es.map(x=>x.v);
           const lv=vs.length?(conf.length>=2?Math.max(...vs):vs.reduce((a,b)=>a+b,0)/vs.length):(md==null?0:md*BASEW_);
           plSum+=lv; plL.push({r,ps:es.sort((a,b)=>b.v-a.v),v:lv,best:conf.length>=2}); }
         if((t.r[r]||[]).length>1&&!t._srt?.[r]){ (t._srt||(t._srt={}))[r]=1;
@@ -14664,11 +14664,13 @@ function render(){
       // 選手評分模式（排序鈕切到選手評分）：小框列每一路的選手分數與這一路採計的分數，不含續約／續留／默契這些獎勵分
       //   （使用者 2026-11-20「選手評分模式 就不給獎勵分」；獎勵分只屬於轉會評分）
       if(rt&&typeof SPL!=="undefined"&&SPL){
+        // 右邊不重複寫這一路的分數，改寫每個人的「去年評分」（同路百分位那一塊）與「成就加分」（國際賽資歷）；名字下面＝兩者相加（使用者 2026-11-20）
         let h=`<div class="rtBox"><div class="rtHd">${teamLogoHTML(tAb(t.nm),22,true,t.nm)||""}<b>${esc(rowNm(t))}</b><b class="rtSum">${rt.pl.toFixed(1)}</b></div>`
-          +`<div class="rtGrid"><span></span><span class="rtCh" style="grid-column:2/5">${en2?"Players":"選手"}</span><span class="rtCh rtChD">${en2?"Role score":"這一路"}</span>`;
-        rt.plL.forEach(x=>{ h+=`<span class="rtIc rtTop" title="${BLN[x.r]}">${POS_IMG[x.r]?`<img src="${POS_IMG[x.r]}" alt="">`:""}</span><span style="grid-column:2/5;display:flex;flex-direction:column;gap:4px">`
-            +(x.ps.length?x.ps.map((p,i)=>`<span class="rtP"><span class="rtN"><b class="tbN ${tbCls(p.e)}"${x.best&&i?` style="opacity:.55"`:""}>${esc(p.n)}</b></span><span class="rtV">${p.v.toFixed(1)}</span></span>`).join(""):`<span class="rtP"><span class="rtN"><b class="tbMuted">${en2?"Vacant":"空缺"}</b></span></span>`)
-            +`</span><b class="rtD rtTop" style="background:rgba(255,255,255,.07);color:var(--tx)">${x.v.toFixed(1)}</b>`; });
+          +`<div class="rtPlG"><span></span><span class="rtCh">${en2?"Player":"選手"}</span><span class="rtCh rtChD">${en2?"Last season":"去年評分"}</span><span class="rtCh rtChD">${en2?"Honors":"成就加分"}</span>`;
+        rt.plL.forEach(x=>{ const ic=`<span class="rtIc" title="${BLN[x.r]}">${POS_IMG[x.r]?`<img src="${POS_IMG[x.r]}" alt="">`:""}</span>`;
+          if(!x.ps.length){ h+=ic+`<span class="rtP"><span class="rtN"><b class="tbMuted">${en2?"Vacant":"空缺"}</b></span><span class="rtV">${x.v.toFixed(1)}</span></span><span class="rtPv">–</span><span class="rtPv">–</span>`; return; }
+          x.ps.forEach((p,i)=>{ h+=(i?`<span></span>`:ic)+`<span class="rtP"><span class="rtN"><b class="tbN ${tbCls(p.e)}"${x.best&&i?` style="opacity:.55"`:""}>${esc(p.n)}</b></span><span class="rtV">${p.v.toFixed(1)}</span></span>`
+            +`<span class="rtPv">${(p.v-p.it).toFixed(1)}</span><span class="rtPv${p.it>0?" tbUp":""}">${p.it>0?"＋"+p.it.toFixed(1):"–"}</span>`; }); });
         TIPS.push(h+`</div></div>`); return TIPS.length-1; }
       const has=rt&&rt.items.length;
       let h=`<div class="rtBox"><div class="rtHd">${teamLogoHTML(tAb(t.nm),22,true,t.nm)||""}<b>${esc(rowNm(t))}</b>`
