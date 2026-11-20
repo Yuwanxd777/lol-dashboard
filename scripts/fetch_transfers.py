@@ -586,6 +586,14 @@ def main():
         for pg_, nm_ in re.findall(r"‹([^|›]+)\|([^›]+)›", x.get("zh") or ""):
             pgmap[nm_.lower()] = urllib.parse.unquote(pg_).replace("_", " ")
     synth = []
+
+    def _en_for(x, nm_):
+        """英文版小框的引用句：整則的英文稿裡挑有提到這個人的分句（; 分），沒有就整句"""
+        en0 = re.sub(r"‹[^|›]+\|([^›]+)›", r"\1", re.sub(r"§[A-Z]+§", "", x.get("en") or "")).strip()
+        cl = [c.strip() for c in re.split(r";", en0.rstrip(".")) if c.strip()]
+        hit = [c for c in cl if re.search(r"(?<![A-Za-z0-9])" + re.escape(nm_) + r"(?![A-Za-z0-9])", c)]
+        return ("; ".join(hit) + ".") if hit and len(hit) < len(cl) else en0
+
     for x in ptt_raw:
         for nm_, lane_, to_, fr_, *tp_ in x.get("mv") or []:
             pg_ = pgmap.get(nm_.lower(), nm_)
@@ -596,7 +604,7 @@ def main():
             hit_ = [c_ for c_ in cl_ if re.search(r"(?<![A-Za-z0-9])" + re.escape(nm_) + r"(?![A-Za-z0-9])", c_)]
             zh_ = tp_[0] if tp_ and tp_[0] else ("；".join(hit_) + "。" if hit_ and len(hit_) < len(cl_) else zh0_)
             synth.append({"d": x["d"], "st": x.get("st") or "rumor", "kind": "join", "src": "韓網" if x.get("src") == "韓網" else ("Sheep Esports" if x.get("src") == "Sheep Esports" else "PTT"), "url": x.get("url") or x.get("ptt") or "",
-                          "zh": zh_, "who": [nm_, pg_, lane_],
+                          "zh": zh_, "en": _en_for(x, nm_), "who": [nm_, pg_, lane_],
                           "tags": ([["", fr_, "out"]] if fr_ else []) + [["", to_, "in"]]})
         if x.get("stay"):
             synth.append({"d": x["d"], "st": x.get("st") or "rumor", "kind": "other", "zh": "", "stay": [s_[0] for s_ in x["stay"]]})
@@ -700,6 +708,12 @@ def main():
     extra = [dict(x_, d=_tw(x_)) if str(x_.get("id", "")).startswith("ret-") else x_ for x_ in extra]
     wiki.sort(key=lambda x_: x_["d"], reverse=True); extra.sort(key=lambda x_: x_["d"], reverse=True)
     data = {"at": datetime.datetime.now().strftime("%Y-%m-%d %H:%M"), "from": start, "t1": t1, "wiki": wiki, "sheep": sheep, "extra": extra, "roles": roles, "board": board, "intl": intl}
+    try:
+        used = {o.get("tip") for t in board for L in (t.get("r") or {}).values() for e in L for o in ([e] + (e.get("ros") or []) + ([e["ro"]] if e.get("ro") else []) + (e.get("tips") or []))}
+        data["tipEn"] = {k: v for k, v in _tb.TIP_EN.items() if k in used} or (old.get("tipEn") or {})
+    except Exception as e:
+        print(f"   tipEn 對照表沒寫成：{type(e).__name__} {str(e)[:80]}")
+        data["tipEn"] = old.get("tipEn") or {}
     io.open(OUT, "w", encoding="utf-8").write("window.TRANSFERS=" + json.dumps(data, ensure_ascii=False, separators=(",", ":")) + ";\n")
     print(f"transfers.js：wiki {len(wiki)}、sheep {len(sheep)}、PTT／韓網／官方 {len(extra)}")
 

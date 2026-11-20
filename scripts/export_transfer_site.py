@@ -118,14 +118,17 @@ function addBase(){ const f=main.querySelector(".filters"); if(!f)return;
   // 電腦版：頁首、篩選列、欄名列往下捲時都留在上方（使用者 2026-11-21「這列以上包括這列 往下滑時都應該維持在上方」）
   //   三層都 sticky，下面兩層的 top＝上面幾層的高度（量出來寫進 CSS 變數；視窗大小變了重量）；篩選列下方的空隙用同色陰影蓋住，列才不會從縫裡露出來
   if(!document.getElementById("tsStickCss")){ const st=document.createElement("style"); st.id="tsStickCss";
-    st.textContent=`@media (min-width:760px){#tsHdr{position:sticky;top:0;z-index:40;background:#0b0e14}
-.filters.trBar{position:sticky;top:var(--tsH1,0px);z-index:39;box-shadow:0 var(--tsG,0px) 0 0 #0b0e14,0 calc(var(--tsG,0px) / 2) 0 0 #0b0e14}
-.tbBoard>.tbHd{top:calc(var(--tsH1,0px) + var(--tsH2,0px) + var(--tsG,0px))!important;z-index:38!important}
-.trList>.trHead{position:sticky;top:calc(var(--tsH1,0px) + var(--tsH2,0px) + var(--tsG,0px));z-index:38;background:var(--card,#141a2a)}}`;
+    st.textContent=`@media (min-width:760px){#tsHdr{position:sticky;top:0;z-index:40;background:#0b0e14;box-shadow:0 var(--tsG1,0px) 0 0 #0b0e14}
+.filters.trBar{position:sticky;top:calc(var(--tsH1,0px) + var(--tsG1,0px));z-index:39;box-shadow:0 var(--tsG,0px) 0 0 #0b0e14,0 calc(var(--tsG,0px) / 2) 0 0 #0b0e14}
+.tbBoard>.tbHd{top:calc(var(--tsH1,0px) + var(--tsG1,0px) + var(--tsH2,0px) + var(--tsG,0px))!important;z-index:38!important}
+.trList>.trHead{position:sticky;top:calc(var(--tsH1,0px) + var(--tsG1,0px) + var(--tsH2,0px) + var(--tsG,0px));z-index:38;background:var(--card,#141a2a)}}`;
     document.head.appendChild(st);
     window._tsStick=()=>{ const hd=document.getElementById("tsHdr"), bar=document.querySelector(".filters.trBar"), bd=document.querySelector(".tbBoard,.trList"), R=document.documentElement.style; if(!hd||!bar)return;
       const sy=scrollY; R.setProperty("--tsH1",hd.offsetHeight+"px"); R.setProperty("--tsH2",bar.offsetHeight+"px");
-      if(bd&&sy<4)R.setProperty("--tsG",Math.max(0,Math.round(bd.getBoundingClientRect().top-bar.getBoundingClientRect().bottom))+"px"); };
+      // 捲動後三層之間的空隙要跟頁面最上面時一模一樣（使用者 2026-11-21「往下滑的時候 上方還是有小部分的縮起」：原本頁首與篩選列之間 14px、篩選列與欄名列之間 7px 會被吃掉）
+      //   ⇒ 在最上面時量兩段空隙（頁首→篩選列、篩選列→欄名列），sticky 的 top 把空隙算進去，空隙用同色陰影蓋住
+      if(sy<4){ const hh=document.querySelector(".tbBoard>.tbHd,.trList>.trHead")||bd; R.setProperty("--tsG1",Math.max(0,Math.round(bar.getBoundingClientRect().top-hd.getBoundingClientRect().bottom))+"px");
+        if(hh)R.setProperty("--tsG",Math.max(0,Math.round(hh.getBoundingClientRect().top-bar.getBoundingClientRect().bottom))+"px"); } };
     addEventListener("resize",()=>window._tsStick()); }
   window._tsStick(); setTimeout(window._tsStick,300);
   // 說明＝懸浮顯示（使用者 2026-11-20「手機的說明鈕點擊後也是懸浮顯示」）：手機從底部浮上來（跟格子小框同款）、桌面在右上；點 ✕ 或外面關閉

@@ -953,6 +953,9 @@ def _name(m, i):
     return (disp or plain or "").strip(), urllib.parse.unquote(pg or "").replace("_", " ")   # 頁名可能是 %28…%29 編碼（Noah 連錯頁，使用者 2026-11-20）
 
 
+TIP_EN = {}
+
+
 def parse_sheep(sheep):
     """Sheep 推文 → {(隊, 位置): [{n, p, d, tip, from}]}；同一人只留最新一則（照日期由舊到新覆蓋）"""
     # 使用者 2026-11-20「一個選手最多有三個傳聞隊伍 取前三隊」：同一人留最新的三支傳聞隊伍（同一隊只留最新一則）；
@@ -975,6 +978,15 @@ def parse_sheep(sheep):
         zh = x.get("zh") or ""
         plain = re.sub(r"‹[^|›]+\|([^›]+)›", r"\1", re.sub(r"§[A-Z]+§", "", zh))
         tip = re.sub(r"^【[^】]+】", "", plain).strip()
+        # 英文版小框的引用句（使用者 2026-11-21「英文版的小框新聞沒有翻譯成英文」）：中文句 → 英文句的對照表，前端查表（TIP_EN 由 fetch_transfers 寫進 transfers.js 的 tipEn）
+        en_ = re.sub(r"‹[^|›]+\|([^›]+)›", r"\1", re.sub(r"§[A-Z]+§", "", x.get("en") or ""))
+        en_ = re.sub(r"[ \t]?[\U0001F1E6-\U0001F1FF]{2}", "", en_)
+        ln_ = [z.strip() for z in re.sub(r"^\s*\[[A-Z ]+\]\s*", "", en_).strip().split("\n") if z.strip()]
+        en_ = ln_[0] if ln_ else ""
+        if en_.endswith(":"):   # 陣容名單型的推文：第一行是標題，後面一行一個人 ⇒ 接成一句
+            en_ += " " + " / ".join(z for z in ln_[1:6] if "?" not in z and len(z) <= 40)
+        if tip and en_:
+            TIP_EN[tip] = en_
         st = x.get("st") or "rumor"
         inn = [t for t in tags if len(t) > 2 and t[2] == "in" and t[1]]
         out = [t[1] for t in tags if len(t) > 2 and t[2] == "out" and t[1]]

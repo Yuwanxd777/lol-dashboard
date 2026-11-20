@@ -159,9 +159,12 @@ function render(){
     const abOf=n=>{ if(n==="FA")return "FA";
       if(/^Kiwoom DRX$/i.test(String(n||"")))return "KRX";   // 使用者 2026-11-19「DRX 前陣子就改成 KRX 了」：只改這頁的顯示（全站 teamFix 把 KRX 收斂成 DRX 當比對鍵，不能動）
       const a=teamFix(String(tAb(n)||"")); return a||n; };
-    const TN=new Map([...new Set(all.flatMap(x=>x.s!=="wiki"?x.tags.map(t=>t[1]):[x.team]).filter(Boolean))].map(n=>[n,abOf(n)]).filter(([n,a])=>a!==n));
-    const TNRE=TN.size?new RegExp("(?<![A-Za-z0-9])("+[...TN.keys()].sort((a,b)=>b.length-a.length).map(n=>esc(n).replace(/[.*+?^${}()|[\]\\]/g,"\\$&")).join("|")+")(?![A-Za-z0-9])","g"):null;
-    const TNE=new Map([...TN].map(([n,a])=>[esc(n),a]));
+    // 內文提到的隊伍一律寫縮寫（使用者 2026-11-21「消息提到的隊伍 都改寫成縮寫」）：除了這批消息標到的隊，陣容表全部隊伍（含改名前的舊名）也算
+    const TN=new Map([...new Set([...all.flatMap(x=>x.s!=="wiki"?x.tags.map(t=>t[1]):[x.team]),...(D.board||[]).filter(t=>!t.fa).flatMap(t=>[t.nm,t.tm,t.was]),...(D.board||[]).flatMap(t=>Object.values(t.r||{}).flat().flatMap(e=>[e.from,(e.ro||{}).to,...(e.ros||[]).map(o=>o.to)]))].filter(Boolean))].map(n=>[n,abOf(n)]).filter(([n,a])=>a!==n));
+    [["Vitality","Team Vitality"],["Heretics","Team Heretics"],["Shopify","Shopify Rebellion"],["Liquid","Team Liquid"]].forEach(([s,f])=>{ const a=abOf(f); if(a&&a!==f&&!TN.has(s))TN.set(s,a); });   // 內文常見的簡稱；大小寫不同的（Dplus KIA）靠下面的 i 旗標
+    const TNL=new Map([...TN].map(([n,a])=>[n.toLowerCase(),a]));
+    const TNRE=TN.size?new RegExp("(?<![A-Za-z0-9])("+[...TN.keys()].sort((a,b)=>b.length-a.length).map(n=>esc(n).replace(/[.*+?^${}()|[\]\\]/g,"\\$&")).join("|")+")(?![A-Za-z0-9])","gi"):null;
+    const TNE={get:n=>TNL.get(String(n).replace(/&amp;/g,"&").replace(/&#39;/g,"'").toLowerCase())};
     // 戰隊一律連到 WIKI 戰隊頁（使用者 2026-11-20「消息 有些戰隊沒有超連結」）：原隊／新隊的隊徽、內文裡的全名與縮寫（GEN、KRX…）都連
     const tmWk=n=>"https://lol.fandom.com/wiki/"+encodeURIComponent(String(n).replace(/ /g,"_"));
     const ABM=new Map(); [...TN].forEach(([n,a])=>{ if(a&&a.length>=2&&!ABM.has(a))ABM.set(a,n); });
@@ -326,6 +329,7 @@ function render(){
       return off.length?[[en2?"Destination":"去向",`${en2?"joined":"加入"} ${tmChip(off[0].tm)}`]]:[[en2?"Rumor":"傳聞",L.slice(0,3).map(o=>tmChip(o.tm)).join(" ")]]; };
     // 來源名稱：Sheep Esports 一律寫 SE；有網址就做成超連結（使用者 2026-11-20「Sheep 的來源就寫 SE 然後超連結」）。沒寫來源的是 Sheep 的推文
     const srcA=o=>{ const nm=(!o.src||o.src==="Sheep Esports")?"SE":o.src, u=o.u||""; return /^https?:/.test(u)?`<a class="tpSrc" href="${esc(u)}" target="_blank" rel="noopener">${esc(nm)}</a>`:esc(nm); };
+    const tipTx=o=>{ const s=en2?(o.tipE||(D.tipEn||{})[o.tip]||o.tip):o.tip; return TNRE?String(s||"").replace(TNRE,n=>TNL.get(n.toLowerCase())||n):s; };   // 小框引用句的隊名也寫縮寫（使用者 2026-11-21「小框的資訊以後也都要同步改」）   // 英文版引用句：資料端的中→英對照（tipEn），手動名單自帶 tipE
     const cellTip=(t,r)=>{ const es=colE(t,r), pv=colP(t,r);
       let h=`<div class="tpBox" style="--lgc:${LGC[t.lg]||"var(--gold)"}"><div class="rtHd">${teamLogoHTML(tAb(t.nm),22,true,t.nm)||""}<b>${esc(rowNm(t))}</b>`
         +`<span class="tpLane">${laneIc(r)}${BLN[r]}</span><span class="tpLg">${esc(t.lg)}</span></div>`;
@@ -349,8 +353,9 @@ function render(){
         if(e.fa&&e._sc!=null)kv.push([en2?"Score":"評分",e._sc.toFixed(1)]);   // 自由人的評分寫在最後一列（使用者 2026-11-20）   // 上調的已經寫「從 X 上調」，不重複寫來自（使用者 2026-11-20）
         h+=`<div class="tpP"><div class="tpName"><b class="${tbCls(e)}"><a class="tpA" href="https://lol.fandom.com/wiki/${encodeURIComponent(wkPg(e.p||((D.roles||{})[e.n]||[])[1]||e.n))}" target="_blank" rel="noopener">${esc(pn(e.n))}</a></b>${e.sr?`<span class="tpSr">${SRN[e.sr]}</span>`:""}${stPill(e)}</div>`
           +(kv.length?`<div class="tpKv">${kv.map(([k,v])=>`<span>${k}</span><span>${v}</span>`).join("")}</div>`:"")
-          +(e.r&&e.tip?`<div class="tpQ tpGo" data-go="${esc(pn(e.n))}|${e.d||""}|${esc(abOf(t.nm))}"><span>${ymd(e.d).slice(5)}・${srcA(e)}</span>${esc(e.tip)}</div>`:"")
-          +(e.ros||(e.ro?[e.ro]:[])).map(o=>`<div class="tpQ tpGo" data-go="${esc(pn(e.n))}|${o.d||""}|${esc(abOf(o.to))}"><span>${ymd(o.d).slice(5)}・${srcA(o)}・${en2?"rumored to join":"傳聞去"} ${tmChip(o.to)}</span>${esc(o.tip)}</div>`).join("")+(e.tips||[]).map(o=>`<div class="tpQ tpGo" data-go="${esc(pn(e.n))}|${o.d||""}|"><span>${ymd(o.d).slice(5)}・${srcA(o)}</span>${esc(o.tip)}</div>`).join("")+`</div>`; });
+          // 傳聞引用只留最新的一則（使用者 2026-11-21「小框顯示的傳聞新聞 顯示最新一個就好」）；去向那列照舊列出所有傳聞隊伍
+          +[...(e.r&&e.tip?[[e.d||"",`<div class="tpQ tpGo" data-go="${esc(pn(e.n))}|${e.d||""}|${esc(abOf(t.nm))}"><span>${ymd(e.d).slice(5)}・${srcA(e)}</span>${esc(tipTx(e))}</div>`]]:[]),
+          ...(e.ros||(e.ro?[e.ro]:[])).map(o=>[o.d||"",`<div class="tpQ tpGo" data-go="${esc(pn(e.n))}|${o.d||""}|${esc(abOf(o.to))}"><span>${ymd(o.d).slice(5)}・${srcA(o)}・${en2?"rumored to join":"傳聞去"} ${tmChip(o.to)}</span>${esc(tipTx(o))}</div>`]),...(e.tips||[]).map(o=>[o.d||"",`<div class="tpQ tpGo" data-go="${esc(pn(e.n))}|${o.d||""}|"><span>${ymd(o.d).slice(5)}・${srcA(o)}</span>${esc(tipTx(o))}</div>`])].sort((a,b)=>a[0]<b[0]?1:a[0]>b[0]?-1:0).slice(0,1).map(q=>q[1]).join("")+`</div>`; });
       if(pv.length){ h+=`<div class="tpPv">`   /* 不寫「上一位」標題，靠分隔線隔開（使用者 2026-11-19） */
         +pv.map(p=>{ const o=typeof p==="string"?{n:p}:p, T=tenureP(o);
           // 上一位改成跟上面同一種小卡（使用者 2026-11-19「上一位跟上面合約有續約的UI相近一點」）：名字＋職稱＋標籤，下面 效力／年資 欄位
@@ -528,8 +533,8 @@ function render(){
     const rSg=v=>{ const t=Math.abs(v).toFixed(1); return (t==="0.0"?"":v>0?"＋":"－")+t; }, rtx=(lo,hi)=>hi-lo>0.05?`${rSg(lo)} ～ ${rSg(hi)}`:rSg((lo+hi)/2), rcls=(lo,hi)=>{ const m=lo>0?1:hi<0?-1:(lo+hi)/2; return m>0?"tbUp":m<0?"tbDn":""; };
     // 戰績評分模式的小框＝第三賽段的成績數據（使用者 2026-11-21）：成績、場數、勝敗、勝率
     const s3Tip=t=>{ const k=teamFix(String(tAb(t.nm)||t.nm)), d=RATE&&RATE.s3?(RATE.s3[k]||RATE.s3[teamFix(String(tAb(t.tm)||t.tm))]):null;
-      let h=`<div class="rtBox"><div class="rtHd">${teamLogoHTML(tAb(t.nm),22,true,t.nm)||""}<b>${esc(rowNm(t))}</b></div><div class="tpKv">`
-        +`<span>${en2?"Split 3 result":"第三賽段成績"}</span><span>${RK3(t.rk)}</span>`;
+      let h=`<div class="rtBox rtS3"><div class="rtHd">${teamLogoHTML(tAb(t.nm),22,true,t.nm)||""}<b>${esc(rowNm(t))}</b></div><div class="tpKv">`
+        +`<span>${en2?"Split 3":"第三賽段"}</span><span>${RK3(t.rk)}</span>`;
       if(d){ const w=Math.round(d.g*d.wr); h+=`<span>${en2?"Games":"場數"}</span><span>${d.g}</span><span>${en2?"W–L":"勝敗"}</span><span>${w} ${en2?"W":"勝"} ${d.g-w} ${en2?"L":"敗"}</span><span>${en2?"Win rate":"勝率"}</span><span>${(d.wr*100).toFixed(1)}%</span>`; }
       else h+=`<span>${en2?"Games":"場數"}</span><span class="tbMuted">${en2?"no data":"無資料"}</span>`;
       TIPS.push(h+`</div></div>`); return TIPS.length-1; };
@@ -727,9 +732,9 @@ function render(){
     const lgGet=(src,cb)=>{ if(LGF.has(src)){ cb(LGF.get(src)); return; } if(LGP.has(src)){ LGP.get(src).push(cb); return; } LGP.set(src,[cb]);
       const done=m=>{ LGF.set(src,m); (LGP.get(src)||[]).forEach(f=>f(m)); LGP.delete(src); };
       const p=new Image(); p.crossOrigin="anonymous";
-      p.onload=()=>{ let m=null; try{ const N=48, c=document.createElement("canvas"); c.width=c.height=N; const g=c.getContext("2d",{willReadFrequently:true}); g.drawImage(p,0,0,N,N);
+      p.onload=()=>{ let m=null; try{ const N=96, c=document.createElement("canvas"); c.width=c.height=N; const g=c.getContext("2d",{willReadFrequently:true}); g.drawImage(p,0,0,N,N);
           const d=g.getImageData(0,0,N,N).data; let x0=N,y0=N,x1=-1,y1=-1;
-          for(let y=0;y<N;y++)for(let x=0;x<N;x++)if(d[(y*N+x)*4+3]>24){ if(x<x0)x0=x; if(x>x1)x1=x; if(y<y0)y0=y; if(y>y1)y1=y; }
+          for(let y=0;y<N;y++)for(let x=0;x<N;x++)if(d[(y*N+x)*4+3]>24){   /* 量測格 48 → 96（門檻維持 24：調高會把 SR 這種半透明邊的隊徽量窄、貼到字）；使用者 2026-11-21「每一種隊徽都大約是半形空格的留空」 */ if(x<x0)x0=x; if(x>x1)x1=x; if(y<y0)y0=y; if(y>y1)y1=y; }
           if(x1>=x0&&y1>=y0)m={fw:(x1-x0+1)/N,fh:(y1-y0+1)/N}; }catch(_){ m=null; } done(m); };
       p.onerror=()=>done(null); p.src=src; };
     const lgFit=img=>{ if(img.dataset.fit)return; const S=parseFloat(img.style.height)||img.height||0; if(!S)return; img.dataset.fit="0";
@@ -763,7 +768,7 @@ function render(){
         //   小框最高不超過視窗、太長就在框內捲；上下都放不下時貼著視窗邊；滑鼠可以移上去（連結點得到），離開格子與小框才收
         tip.style.pointerEvents="auto"; tip.style.maxHeight=(innerHeight-16)+"px"; tip.style.overflowY="auto";
         // 格子的小框跟那一欄同寬（使用者 2026-11-21「小框的寬度都設定為跟本來欄位寬度一致」）；欄太窄時至少 300px（小框內容本身最少要 260px＋邊距，再窄字會被切掉）。評分小框（五欄的表）維持原本的寬度
-        { const cw=c.getBoundingClientRect().width, isRate=c.classList.contains("tbRate"); tip.style.width=isRate?"":Math.max(300,Math.round(cw))+"px"; tip.style.maxWidth=isRate?"":"none"; tip.style.boxSizing="border-box"; }
+        { const cw=c.getBoundingClientRect().width, isRate=c.classList.contains("tbRate"); tip.style.width=isRate?(tip.querySelector(".rtS3")?"250px":""):Math.max(300,Math.round(cw))+"px"; tip.style.maxWidth=isRate?"":"none";   /* 第三賽段的小框內容少，縮成 250px（使用者 2026-11-21） */ tip.style.boxSizing="border-box"; }
         const r=c.getBoundingClientRect(), w=tip.offsetWidth, h=tip.offsetHeight;
         const bR=bd.getBoundingClientRect();   // 小框不貼著螢幕邊：左右都收在陣容表那張卡片的範圍內（使用者 2026-11-21「網頁版 評分小框有點太靠近螢幕右側了」；原本只離螢幕邊 8px）
         // 擺放順序（使用者 2026-11-21「夠短就往下擴展顯示 下方沒位置就往上 如果長到上下都不行 那就往右或往左 不要擋到本來的資料」）：
