@@ -1110,12 +1110,14 @@
   .tpDu{font-size:12px;font-weight:700;padding:1px 7px;border-radius:999px;background:rgba(255,255,255,.08);white-space:nowrap}
   /* 轉會評分小框（2026-11-19 重新設計） */
   #tbTip:has(.rtBox){max-width:min(520px,94vw);padding:12px 14px}
-  .rtBox{min-width:300px}
+  #tbTip:has(.rtBox):not(.sheet){width:400px;max-width:94vw;box-sizing:border-box}
+  @media (max-width:345px){#tbTip.sheet .rtMulti .tbRum{display:none}#tbTip.sheet .rtMulti .rtN{color:#ffc850}}   /* 最窄的手機：多人那格放不下「傳聞」標籤 ⇒ 改用黃字表示 */
+  .rtBox{width:auto;max-width:100%}   /* 每一隊的評分小框同寬、欄位同寬（使用者 2026-11-20「小框欄寬一致」） */
   .rtHd{display:flex;align-items:center;gap:8px;padding-bottom:10px;margin-bottom:10px;border-bottom:1px solid rgba(255,255,255,.1);white-space:nowrap}
   .rtHd>b:first-of-type{font-size:16px}
   .rtTt{color:var(--tx2);font-size:13px}
   .rtSum{margin-left:auto;padding-left:20px;font-size:24px;line-height:1;font-weight:800;font-variant-numeric:tabular-nums}
-  .rtGrid{display:grid;grid-template-columns:20px auto 18px auto auto;column-gap:12px;row-gap:8px;align-items:center}
+  .rtGrid{display:grid;grid-template-columns:20px minmax(0,0.8fr) 18px minmax(0,1.35fr) 66px;column-gap:12px;row-gap:8px;align-items:center}
   .rtCh{font-size:13px;color:var(--tx2);line-height:1}
   .rtChD{justify-self:end}
   .rtIc img{width:20px;height:20px;display:block;object-fit:contain}
@@ -1123,8 +1125,9 @@
   .rtN{font-weight:700;white-space:nowrap;display:flex;align-items:center;gap:6px}
   .rtV{font-size:14px;color:var(--tx2);font-variant-numeric:tabular-nums;white-space:nowrap}
   /* 同一路好幾位傳聞人選（使用者 2026-11-20「多人的時候評分小框顯示的好看一些」）：一人一列「名字｜分數」對齊成兩欄，黃色左框標示是傳聞，最下面一列平均 */
-  .rtMulti{display:grid;grid-template-columns:auto auto;justify-content:start;column-gap:12px;row-gap:2px;align-items:baseline;min-width:0}   /* 跟單人同一套字（白色粗體名字＋傳聞標籤、灰色分數），只是分數排到右邊一欄 */
-  .rtMv{text-align:right}
+  .rtMulti{display:grid;grid-template-columns:1fr auto;column-gap:12px;row-gap:2px;align-items:baseline;min-width:0}   /* 跟單人同一套字（白色粗體名字＋傳聞標籤、灰色分數），只是分數排到右邊一欄 */
+  .rtMv{text-align:right}.rtMulti{width:100%;box-sizing:border-box}.rtMulti .rtN{min-width:0;gap:5px}
+  #tbTip.sheet .rtMulti .tbRum{font-size:11px;padding:0 3px;margin-left:0}#tbTip.sheet .rtMulti{column-gap:6px}
   .rtMa{grid-column:1/-1;display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin-top:2px;padding-top:3px;border-top:1px solid rgba(255,255,255,.12);font-size:14px;color:var(--tx2);white-space:nowrap}
   .rtMa b{font-weight:800;color:var(--tx);font-variant-numeric:tabular-nums}
   .rtV i{font-style:normal;font-size:11px;opacity:.8;margin-left:0;display:block;white-space:nowrap}   /* 註記（中位數／全年／聯賽權重）自己一行，才不會把小框撐破（BFX Noah，使用者 2026-11-20） */
@@ -1601,7 +1604,7 @@
   }
   #tbTip.sheet{pointer-events:auto!important;left:8px!important;right:8px!important;top:auto!important;bottom:8px!important;max-width:none!important;max-height:72vh;overflow:auto;padding:16px 14px 14px;border-radius:14px;box-shadow:0 -6px 30px rgba(0,0,0,.6)}
   #tbTip.sheet .tpBox,#tbTip.sheet .rtBox{min-width:0}
-  #tbTip.sheet .rtGrid{column-gap:8px;grid-template-columns:20px auto 14px minmax(max-content,1fr) auto}#tbTip.sheet .rtD{min-width:44px;padding:3px 4px;font-size:min(15px,4.2vw)}#tbTip.sheet .rtMulti .tbRum{padding:0 4px}#tbTip.sheet .rtSum{font-size:min(22px,6.2vw)}#tbTip.sheet .rtMulti{column-gap:8px}   /* 窄手機（320）多人區塊不擠出框 */
+  #tbTip.sheet .rtBox{width:auto}#tbTip.sheet .rtGrid{column-gap:8px;grid-template-columns:20px minmax(0,0.8fr) 14px minmax(0,1.35fr) 52px}#tbTip.sheet .rtD{min-width:44px;padding:3px 4px;font-size:min(15px,4.2vw)}#tbTip.sheet .rtMulti .tbRum{padding:0 4px}#tbTip.sheet .rtSum{font-size:min(22px,6.2vw)}#tbTip.sheet .rtMulti{column-gap:8px}   /* 窄手機（320）多人區塊不擠出框 */
   #tbTip.sheet .rtHd{padding-right:44px;min-height:30px}
   .tbTipX{position:absolute;top:12px;right:12px;width:30px;height:30px;padding:0;display:flex;align-items:center;justify-content:center;line-height:1;border-radius:50%;border:1px solid var(--line);background:rgba(255,255,255,.08);color:var(--tx);font-size:14px;cursor:pointer}   /* ✕ 在圓底正中、整顆在框內（使用者 2026-11-20「X 後面的底色偏離了」） */
   /* 單頁模式：只留轉會分頁 */
@@ -14580,7 +14583,7 @@ function render(){
         if(nw&&od&&(nw.s||od.s)){ const A=fill(nw), B=fill(od);
           const tg=x=>[x.s.yr?(en2?"full year":"全年"):"",x.s.w&&Math.abs(x.s.w-1)>0.005?lgN(x.s.lg):""].filter(Boolean).join(" ");   // 只寫「全年 LEC」，不寫權重數字（使用者 2026-11-20）
           const av=multi&&multi.length>=2?multi.reduce((z,x)=>z+x.s.v,0)/multi.length:null;
-          if(A.s&&B.s)items.push({r,nw:A.n,od:B.n,a:av??A.s.v,b:B.s.v,d:(av??A.s.v)-B.s.v,nws:av!=null?multi.map(x=>({n:x.n,v:x.s.v})):null,rm:A.rm,ma:A.md&&(A.vac?2:1),mb:B.md,ta:A.md?"":tg(A),tb:B.md?"":tg(B)}); } }
+          if(A.s&&B.s)items.push({r,nw:A.n,od:B.n,a:av??A.s.v,b:B.s.v,d:(av??A.s.v)-B.s.v,nws:av!=null?multi.map(x=>({n:x.n,v:x.s.v})).sort((p,q)=>q.v-p.v):null,rm:A.rm,ma:A.md&&(A.vac?2:1),mb:B.md,ta:A.md?"":tg(A),tb:B.md?"":tg(B)}); } }
       const hc=(t.r.COACH||[]).find(e=>e.sr==="HC"&&(e.new||e.tip)&&e.from), A=hc&&coachS(hc.from), B=coachS(t.nm)||coachS(t.tm);
       if(hc&&A&&B)items.push({r:"COACH",nw:`${pn(hc.n)}（${abOf(hc.from)}・${A.note}）`,od:`${abOf(t.nm)}（${B.note}）`,a:A.v,b:B.v,d:A.v-B.v,rm:!!hc.r});
       return {items,sum:items.reduce((s,x)=>s+x.d,0),rm:items.some(x=>x.rm),vac:items.filter(x=>x.ma===2).length}; };
