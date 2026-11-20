@@ -63,6 +63,7 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
     """cargo＝build_predict_live.cargo；since＝本休賽期起點（YYYY-MM-DD）；sheep＝輸出層的 Sheep 條目；extra＝{隊名: 聯賽}（2027 新進）"""
     import datetime as _dt
     today = _dt.date.today().isoformat()
+    green_out = set()   # （人, 隊）：合約還在但傳出要走、同一路已有別的人選 ⇒ 格子不顯示、改列自由人（仍是綠字）
     # ① 一級隊＋各隊最後一個賽段的名冊
     r = cargo({"tables": "Tournaments=T,TournamentRosters=TR", "join_on": "T.OverviewPage=TR.OverviewPage",
                "fields": "T.League=lg,T.DateStart=ds,TR.Team=tm,TR.RosterLinks=rl,TR.Roles=ro", "limit": "3000", "format": "json",
@@ -433,6 +434,15 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
                 if old_:
                     moved += [e["p"] or e["n"] for e in old_]
                     cell = [e for e in cell if e not in old_]
+            # 綠字（合約還在、傳出要去別隊）的人：同一路還有別人的傳聞或新加入 ⇒ 視為離隊，格子不顯示、移到上一位，
+            #   並列進該聯賽的自由人（仍是綠字）（使用者 2026-11-20「有綠字時 同路線如果還有別人傳聞或新加入 綠字的就不顯示 默認離隊 但還是綠字 並且這種綠字的人要擺到FA」）
+            if rr != "COACH":
+                grn = [e for e in cell if e.get("ro") and not any(k_ in e for k_ in ("new", "rs", "pm", "tip", "r", "gone"))]
+                if grn and any(("new" in e or "tip" in e) for e in cell if e not in grn):
+                    for e in grn:
+                        green_out.add((key(e["p"] or e["n"]), tm))
+                    moved += [e["p"] or e["n"] for e in grn]
+                    cell = [e for e in cell if e not in grn]
             if moved:
                 gone.setdefault(rr, []).extend(moved)
             # 宣布離隊、這個位置還沒有新簽約也沒有傳聞 ⇒ 留在格子、標 gone（藍字刪除線）；教練分 主教練／後勤 兩組各自看
@@ -563,7 +573,7 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
                     if e.get("gone") or not e.get("c") or e["c"] < today:
                         cand.append((x, rr, e.get("p") or e["n"], e["n"], e.get("c") or "", 1 if e.get("gone") else 0))
                 for p in x["prev"].get(rr, []):
-                    cand.append((x, rr, p, re.sub(r"\s*\([^()]*\)$", "", p), con.get((key(p), x["tm"]), ""), 1))
+                    cand.append((x, rr, p, re.sub(r"\s*\([^()]*\)$", "", p), con.get((key(p), x["tm"]), ""), 0 if (key(p), x["tm"]) in green_out else 1))
             # 教練那格（使用者 2026-11-20「FA 多一個主教練」→「主教練改成 教練與分析師也列入」）：已宣布離隊的主教練、教練、分析師都列
             #   （只列「已宣布離隊」的：教練大多查不到合約紀錄，「無紀錄算到期」會把還在任的也列進來）；教練不看出賽紀錄。第七格＝職稱代碼
             for e in x["r"].get("COACH", []):
