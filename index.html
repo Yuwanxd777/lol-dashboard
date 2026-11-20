@@ -14581,7 +14581,7 @@ function render(){
             if(r==="COACH"){ const c=e.from?coachS(e.from):null; e._sc=c?c.v:null; }
             else{ const a=(RATE.pl[r]||{})[k]; e._sc=(a?50+(pct0(r,blend0(a))-50)*Math.min(1,(a.g||0)/30):50)*BASEW_+it; } });
           t.r[r].sort((p,q)=>(r==="COACH"?((p.sr==="HC"?0:1)-(q.sr==="HC"?0:1)):0)||(q._sc??-1)-(p._sc??-1)||String(p.n).localeCompare(String(q.n))); } }); }   // 教練那格：主教練排前面   // 三個賽段合計的占比（10＋30＋40），跟 RATE 那邊的 SEGW 要一起改
-    const rateOf=t=>{ if(!RATE||t.fa)return null; const items=[], scOf=new Map(); let plSum=0;   // FA 列不是隊伍，不算評分
+    const rateOf=t=>{ if(!RATE||t.fa)return null; const items=[], scOf=new Map(), plL=[]; let plSum=0;   // FA 列不是隊伍，不算評分
       // 聯賽權重：別的聯賽來的分數 × exp(LGK × (原聯賽強度 − 本隊聯賽強度))；同聯賽＝1、強度缺＝1
       const blend=a=>{ const ts=a.tm?coachS(a.tm,true):null; return ts?(a.v+ts.v)/2:a.v; };
       // 中位數也用同一把尺（個人＋戰績各半之後的分數）重算，不然空缺的基準會比真人高一截
@@ -14612,8 +14612,9 @@ function render(){
         // 同一路官方已定（續約／新加入／升職）的有兩位以上 ⇒ 兩種評分都以分數最高的那位算（使用者 2026-11-20「如果一路宣布續約 加入 升職兩位以上 算評分時以最高的算」）
         (t.r[r]||[]).forEach(e=>scOf.set(e,sv(e)));   // 每個人的分數留著，小框的續約／續留那幾列要寫
         const conf=(t.r[r]||[]).filter(e=>!e.gone&&(e.new||e.rs||e.pm||(e.tip&&!e.r)));
-        { const vs=(conf.length>=2?conf:(t.r[r]||[]).filter(e=>!e.gone)).map(sv).filter(v=>v>=0);
-          plSum+=vs.length?(conf.length>=2?Math.max(...vs):vs.reduce((a,b)=>a+b,0)/vs.length):(md==null?0:md*BASEW_); }
+        { const es=(conf.length>=2?conf:(t.r[r]||[]).filter(e=>!e.gone)).map(e=>({n:pn(e.n),v:sv(e),e})).filter(x=>x.v>=0), vs=es.map(x=>x.v);
+          const lv=vs.length?(conf.length>=2?Math.max(...vs):vs.reduce((a,b)=>a+b,0)/vs.length):(md==null?0:md*BASEW_);
+          plSum+=lv; plL.push({r,ps:es.sort((a,b)=>b.v-a.v),v:lv,best:conf.length>=2}); }
         if((t.r[r]||[]).length>1&&!t._srt?.[r]){ (t._srt||(t._srt={}))[r]=1;
           t.r[r].map((e,i)=>({e,i,v:sv(e),g:(e.r||e.gone||(expd(e)&&!(e.new||e.rs||e.pm)))?1:0})).sort((p,q)=>p.g-q.g||q.v-p.v||p.i-q.i)   /* 還在隊上的（續留／新加入／續約／升職／合約還在）排最前面，再來才是合約到期、已離隊、傳聞（使用者 2026-11-20「這種路線上擺第一個 因為他還是在隊伍」）*/.forEach((o,i)=>{ t.r[r][i]=o.e; }); }
         const cands=(t.r[r]||[]).filter(e=>e.new||e.tip).map(e=>{ const sub=isSub(e); return {n:pn(e.n),s:get(e.n,sub?40:50),rm:!!e.r,sub,e}; }).sort((a,b)=>a.rm-b.rm||byG(a,b));
@@ -14650,12 +14651,21 @@ function render(){
           // 默契加成（使用者 2026-11-20「固定給就沒把默契加成放大」→ 同意折衷）：留下來的五路選手兩兩一組，每組 0.5（2 人 0.5、3 人 1.5、4 人 3、5 人 5）；主教練不算搭檔
           const k=rsL.length; if(k>=2)items.push({r:"SYN",rs:4,k,d:k*(k-1)/2*1}); } }   // 2026-11-20 使用者「默契加成可以多一倍」：每組 0.5 → 1（2 人 1、3 人 3、4 人 6、5 人 10）
       items.forEach(x=>{ if(x.dlo==null){ x.dlo=x.d; x.dhi=x.d; } });   // 主教練那一筆沒有範圍
-      return {pl:plSum,items,sum:items.reduce((s,x)=>s+x.d,0),lo:items.reduce((s,x)=>s+x.dlo,0),hi:items.reduce((s,x)=>s+x.dhi,0),rng:items.some(x=>x.dhi-x.dlo>0.05),rm:items.some(x=>x.rm),vac:items.filter(x=>x.ma===2).length}; };
+      return {pl:plSum,plL,items,sum:items.reduce((s,x)=>s+x.d,0),lo:items.reduce((s,x)=>s+x.dlo,0),hi:items.reduce((s,x)=>s+x.dhi,0),rng:items.some(x=>x.dhi-x.dlo>0.05),rm:items.some(x=>x.rm),vac:items.filter(x=>x.ma===2).length}; };
     // 評分小框（使用者 2026-11-19「評分的小框重新設計」）：標題列＝隊徽＋隊名＋總分；每條路一列＝路線圖示｜離隊（名字／分數）→ 加入｜增減色塊
     // 範圍的寫法與顏色：最低～最高；兩頭都正＝紅、都負＝綠、一正一負看中間值
     // 加減號與括號用全形（使用者 2026-11-20「加減號用全型 括號也是」）；四捨五入後是 0.0 的不帶符號
     const rSg=v=>{ const t=Math.abs(v).toFixed(1); return (t==="0.0"?"":v>0?"＋":"－")+t; }, rtx=(lo,hi)=>hi-lo>0.05?`${rSg(lo)} ～ ${rSg(hi)}`:rSg((lo+hi)/2), rcls=(lo,hi)=>{ const m=lo>0?1:hi<0?-1:(lo+hi)/2; return m>0?"tbUp":m<0?"tbDn":""; };
     const rateTip=t=>{ const rt=rateOf(t), sg=rSg, cls=v=>v>0?"tbUp":v<0?"tbDn":"";
+      // 選手評分模式（排序鈕切到選手評分）：小框列每一路的選手分數與這一路採計的分數，不含續約／續留／默契這些獎勵分
+      //   （使用者 2026-11-20「選手評分模式 就不給獎勵分」；獎勵分只屬於轉會評分）
+      if(rt&&typeof SPL!=="undefined"&&SPL){
+        let h=`<div class="rtBox"><div class="rtHd">${teamLogoHTML(tAb(t.nm),22,true,t.nm)||""}<b>${esc(rowNm(t))}</b><b class="rtSum">${rt.pl.toFixed(1)}</b></div>`
+          +`<div class="rtGrid"><span></span><span class="rtCh" style="grid-column:2/5">${en2?"Players":"選手"}</span><span class="rtCh rtChD">${en2?"Role score":"這一路"}</span>`;
+        rt.plL.forEach(x=>{ h+=`<span class="rtIc rtTop" title="${BLN[x.r]}">${POS_IMG[x.r]?`<img src="${POS_IMG[x.r]}" alt="">`:""}</span><span style="grid-column:2/5;display:flex;flex-direction:column;gap:4px">`
+            +(x.ps.length?x.ps.map((p,i)=>`<span class="rtP"><span class="rtN"><b class="tbN ${tbCls(p.e)}"${x.best&&i?` style="opacity:.55"`:""}>${esc(p.n)}</b></span><span class="rtV">${p.v.toFixed(1)}</span></span>`).join(""):`<span class="rtP"><span class="rtN"><b class="tbMuted">${en2?"Vacant":"空缺"}</b></span></span>`)
+            +`</span><b class="rtD rtTop" style="background:rgba(255,255,255,.07);color:var(--tx)">${x.v.toFixed(1)}</b>`; });
+        TIPS.push(h+`</div></div>`); return TIPS.length-1; }
       const has=rt&&rt.items.length;
       let h=`<div class="rtBox"><div class="rtHd">${teamLogoHTML(tAb(t.nm),22,true,t.nm)||""}<b>${esc(rowNm(t))}</b>`
         +(has?`<b class="rtSum ${rt.rng?"rtSumR ":""}${rcls(rt.lo,rt.hi)}">${rt.rm?"（":""}${rtx(rt.lo,rt.hi)}${rt.rm?`<i class="rtPc">）</i>`:""}</b>`:"")+`</div>`;
