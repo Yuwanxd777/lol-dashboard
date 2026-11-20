@@ -110,7 +110,7 @@ function addBase(){ const f=main.querySelector(".filters"); if(!f)return;
 .trBar #trDc:hover,.trBar #trFb:hover{filter:brightness(1.14)}
 .trBar .sqbtn:active,.trBar #trDc:active,.trBar #trFb:active{transform:scale(.93)}
 .trBar .sqbtn svg,.trBar #trDc svg,.trBar #trFb svg{width:19px;height:19px;display:block}
-.trBar #trFb svg{width:24px!important;height:24px!important}
+.trBar #trFb svg{width:21px!important;height:21px!important}
 @media (max-width:400px){.trBar .sqbtn,.trBar #trDc,.trBar #trFb{width:30px!important;height:30px!important;min-width:30px!important;border-radius:9px!important}.trBar .sqbtn svg,.trBar #trDc svg,.trBar #trFb svg{width:17px;height:17px}}`;
     document.head.appendChild(st); }
   f.insertAdjacentHTML("beforeend",b("tsHelp",IC.help,LANG==="en"?"About this page":"本頁說明")+b("tsReset",IC.reset,LANG==="en"?"Reset filters":"重設篩選"));
