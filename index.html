@@ -14597,7 +14597,7 @@ function render(){
         const md=mdOf(r), fill=x=>x.s?x:(md==null?x:{...x,s:{v:(md-(x.sub?10:0))*BASEW_+itOf(x.n),g:0,lg:""},md:1}), byG=(a,b)=>(b.s?b.s.g:-1)-(a.s?a.s.g:-1);
         // 同一格多人：照分數高到低排（使用者 2026-11-20「多選手沒依照分數上到下」）；分數跟評分小框同一把尺，沒資料的用基準分
         if((t.r[r]||[]).length>1&&!t._srt?.[r]){ (t._srt||(t._srt={}))[r]=1; const sv=e=>{ const sub=isSub(e), x=fill({n:pn(e.n),s:get(e.n,sub?40:50),sub}); return x.s?x.s.v:-1; };
-          t.r[r].map((e,i)=>({e,i,v:sv(e)})).sort((p,q)=>q.v-p.v||p.i-q.i).forEach((o,i)=>{ t.r[r][i]=o.e; }); }
+          t.r[r].map((e,i)=>({e,i,v:sv(e),g:(e.r||e.gone||(expd(e)&&!(e.new||e.rs||e.pm)))?1:0})).sort((p,q)=>p.g-q.g||q.v-p.v||p.i-q.i)   /* 還在隊上的（續留／新加入／續約／升職／合約還在）排最前面，再來才是合約到期、已離隊、傳聞（使用者 2026-11-20「這種路線上擺第一個 因為他還是在隊伍」）*/.forEach((o,i)=>{ t.r[r][i]=o.e; }); }
         const cands=(t.r[r]||[]).filter(e=>e.new||e.tip).map(e=>{ const sub=isSub(e); return {n:pn(e.n),s:get(e.n,sub?40:50),rm:!!e.r,sub,e}; }).sort((a,b)=>a.rm-b.rm||byG(a,b));
         let nw=cands[0];   // 官方優先；Sheep 消息（傳聞／官方未進 wiki）也算
         // 這一路沒有官方新人、傳聞人選有兩位以上 ⇒ 每一位的分數都列出來，這一路用平均（使用者 2026-11-20「如果該路的傳聞選手有兩位以上 就所有分數都要列出 但顯示的是該路要取平均」）
@@ -14767,6 +14767,8 @@ function render(){
               let bw=1200, bk=0;
               for(let w=900;w<=2000;w+=50){ h.style.width=w+"px"; const k=Math.min(SZ/h.offsetWidth,(SZ-topH)/h.offsetHeight); if(k>bk+1e-4){ bk=k; bw=w; } }
               h.style.width=bw+"px";
+              // 左右不留大片空白（使用者 2026-11-20「左右也不要太大留空」）：高度先頂到時（隊伍多的賽區），把表格加寬到剛好鋪滿 2000
+              for(let it=0;it<4;it++){ const k=Math.min(SZ/h.offsetWidth,(SZ-topH)/h.offsetHeight), want=Math.floor(SZ/k); if(want-h.offsetWidth<4)break; h.style.width=want+"px"; }
               // 底部不留大片空白（使用者 2026-11-20「底部不要太多留空」）：寬度先頂到時，把剩下的高度平均加到每一列
               { const rs=[...h.querySelectorAll(".tbRow")], gap=(SZ-topH)/(SZ/h.offsetWidth)-h.offsetHeight; if(rs.length&&gap>4){ const add=Math.floor(gap/rs.length); rs.forEach(r=>{ r.style.minHeight=(r.offsetHeight+add)+"px"; }); } }
               await out(h,(en2?"Transfer_board_":"轉會陣容表_")+sc.lg,hd); }
