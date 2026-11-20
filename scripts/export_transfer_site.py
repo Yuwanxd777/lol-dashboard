@@ -95,7 +95,25 @@ const main=document.getElementById("main");
 const HELP=(TS.help||{});
 function addBase(){ const f=main.querySelector(".filters"); if(!f)return;
   const b=(id,tx,ti)=>`<button id="${id}" class="sqbtn" title="${ti}">${tx}</button>`;
-  f.insertAdjacentHTML("beforeend",b("tsHelp","ℹ️",LANG==="en"?"About this page":"本頁說明")+b("tsReset","↺",LANG==="en"?"Reset filters":"重設篩選"));
+  // 五顆小按鈕重新設計（使用者 2026-11-20「五個小按鈕重新設計一下 好看一點」；只改轉會網站，主站的基礎按鈕全站一致不動）：
+  //   說明／重設／截圖＝同一套線條圖示（原本是三種長相不同的 emoji），深色圓角方塊；Facebook／Discord＝同尺寸同圓角的品牌色；滑過變亮、按下微縮
+  const SV=d=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+  const IC={help:SV('<circle cx="12" cy="12" r="9"/><path d="M12 11v5.5"/><circle cx="12" cy="7.6" r=".6" fill="currentColor"/>'),
+    reset:SV('<path d="M20 12a8 8 0 1 1-2.34-5.66"/><path d="M20 4v5h-5"/>'),
+    shot:SV('<path d="M4 8h3l1.5-2.2h7L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13.4" r="3.4"/>')};
+  if(!document.getElementById("tsBtnCss")){ const st=document.createElement("style"); st.id="tsBtnCss";
+    st.textContent=`.trBar .sqbtn,.trBar #trDc,.trBar #trFb{width:34px!important;height:34px!important;min-width:34px!important;padding:0!important;border-radius:10px!important;display:inline-flex!important;align-items:center;justify-content:center;box-shadow:none!important;font-size:0!important;line-height:0!important;transition:transform .12s,background .12s,border-color .12s,filter .12s;-webkit-tap-highlight-color:transparent}
+.trBar button.sqbtn{background:#1a2234!important;border:1px solid rgba(255,255,255,.14)!important;color:#c9d4ea!important}
+.trBar button.sqbtn:hover{background:#243049!important;border-color:rgba(122,184,255,.6)!important;color:#fff!important}
+.trBar button.sqbtn:disabled{opacity:.45}
+.trBar #trDc,.trBar #trFb{border:1px solid rgba(255,255,255,.18)!important}
+.trBar #trDc:hover,.trBar #trFb:hover{filter:brightness(1.14)}
+.trBar .sqbtn:active,.trBar #trDc:active,.trBar #trFb:active{transform:scale(.93)}
+.trBar .sqbtn svg,.trBar #trDc svg,.trBar #trFb svg{width:19px;height:19px;display:block}
+@media (max-width:400px){.trBar .sqbtn,.trBar #trDc,.trBar #trFb{width:30px!important;height:30px!important;min-width:30px!important;border-radius:9px!important}.trBar .sqbtn svg,.trBar #trDc svg,.trBar #trFb svg{width:17px;height:17px}}`;
+    document.head.appendChild(st); }
+  f.insertAdjacentHTML("beforeend",b("tsHelp",IC.help,LANG==="en"?"About this page":"本頁說明")+b("tsReset",IC.reset,LANG==="en"?"Reset filters":"重設篩選"));
+  { const sh=document.getElementById("trShot"); if(sh)sh.innerHTML=IC.shot; }
   // 說明＝懸浮顯示（使用者 2026-11-20「手機的說明鈕點擊後也是懸浮顯示」）：手機從底部浮上來（跟格子小框同款）、桌面在右上；點 ✕ 或外面關閉
   document.getElementById("tsHelp").onclick=ev=>{ ev.stopPropagation(); let d=document.getElementById("tsHelpBox"); if(d){ d.remove(); return; }
     const mob=matchMedia("(max-width:760px)").matches;

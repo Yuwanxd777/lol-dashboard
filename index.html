@@ -1152,11 +1152,11 @@
   .trHead{grid-column:1/-1;display:grid;grid-template-columns:subgrid;padding:4px 10px 6px;font-size:13px;color:var(--tx2);font-weight:700;border-bottom:1px solid var(--line)}
   .trFlow{display:contents}
   .trFrom,.trTo,.trSpan{display:flex;flex-direction:column;align-items:flex-start;gap:4px;white-space:nowrap}
-  .trRow>.trSt{grid-column:1}.trRgC{grid-column:2;display:flex;align-items:center;gap:4px;white-space:nowrap}.trRgC .trArr{font-size:12px}.trRgC .trLg{margin-left:0}.trFrom{grid-column:3}.trFlow>.trArr{grid-column:4}.trTo{grid-column:5}.trSpan{grid-column:3/6}.trRow>.trTx{grid-column:6}
+  .trRow>.trSt{grid-column:1}.trRgC{grid-column:2;display:flex;align-items:center;gap:4px;white-space:nowrap}.trRgC .trArr{font-size:12px}.trRgC .trLg{margin-left:0}.trFrom{grid-column:3}.trFlow .trArr{grid-column:4}.trTo{grid-column:5}.trAT{display:contents}.trSpan{grid-column:3/6}.trRow>.trTx{grid-column:6}
   .trArr{color:var(--tx2);font-size:15px}
   /* 原隊 ➜ 新隊：不畫框（使用者 2026-11-20「不要用框框 顯得很亂」）。箭頭左右間隔要一致（同日稍早的要求）⇒ 原隊靠右貼著箭頭、新隊靠左貼著箭頭，箭頭置中 */
   .trList .trFrom{align-items:flex-end}.trList .trTo,.trList .trSpan{align-items:flex-start}.trList .trSpan{grid-column:3;align-items:flex-end}
-  .trList .trFlow>.trArr{justify-self:center;color:var(--gold);opacity:.85}
+  .trList .trFlow .trArr{justify-self:center;color:var(--gold);opacity:.85}
   .trList .trNone{padding:0}
   .trNone{color:var(--tx2);opacity:.6;padding:0 6px}
   .trLg{font-size:12px;font-weight:800;color:var(--lgc,var(--tx2));margin-left:4px;padding:0 6px;border-radius:999px;border:1px solid color-mix(in srgb,var(--lgc,#888) 55%,transparent)}
@@ -1600,9 +1600,13 @@
     .trFrom,.trTo,.trSpan{flex-direction:row;flex-wrap:wrap;gap:8px;white-space:normal}
     .trNone{display:none}.trTeam{font-size:15px}
     /* 隊伍很多的消息（使用者 2026-11-20「尤其是隊伍很多的消息」）：隊伍區自己一塊——原隊一行（放不下就換行、縮小一級）、➜ 新隊另一行 */
-    .trFlow.trMany{flex:1 1 100%;display:grid!important;grid-template-columns:auto 1fr;gap:0 8px;align-items:center}   /* 不另外包框（使用者 2026-11-20），只是原隊一行、➜ 新隊一行 */
-    .trMany .trFrom{grid-column:1/-1;gap:4px 10px}.trMany .trArr{grid-column:1}.trMany .trTo{grid-column:2;gap:4px 10px}.trMany .trSpan{grid-column:1/-1;gap:4px 10px}
-    .trMany .trTeam{font-size:13px}
+    /* 原隊 ➜ 新隊的換行（使用者 2026-11-20「如果一列顯示不下原隊到新隊 那就從箭頭開始換行」「如果原隊多到已經換行 那就接續顯示」）：
+       原隊各隊一個一個往下排；「➜＋新隊」是一整組——接在原隊最後一隊後面放得下就接著放，放不下整組從箭頭換到下一行；新隊多到一行放不下才在組內再換行 */
+    .trFlow,.trFlow.trMany{display:flex!important;flex-wrap:wrap;align-items:center;gap:0 8px!important}
+    .trFlow .trFrom{display:contents}
+    .trFlow .trAT{display:inline-flex;flex-wrap:wrap;align-items:center;gap:0 8px;max-width:100%;min-width:0;min-height:28px}
+    .trFlow .trAT .trTo{display:contents}
+    /* 隊伍很多的列不縮小字（使用者 2026-11-20「原隊很多的時候是不是會縮小字體 不應該」）：跟其他列一樣 15px，放不下就換行 */
     .trRow>.trTx{order:4;flex:1 1 100%;display:block;margin-top:2px;font-size:15px;line-height:1.65;grid-column:auto;grid-row:auto}
     .trTxt{display:inline}
     .trLks{display:inline-flex;float:right;gap:10px;margin:3px 0 0 10px}.trLks .trLk{font-size:12px}
@@ -14430,7 +14434,7 @@ function render(){
       if(d!==lastD){ rows+=`<div class="trDay">${+d.slice(5,7)}/${+d.slice(8,10)}</div>`; lastD=d; }
       const f=flowOf(x);
       const flow=f.span!=null?`<div class="trSpan">${f.span}</div>`
-        :`<div class="trFrom">${f.from}</div><span class="trArr">➜</span><div class="trTo">${f.to}</div>`;
+        :`<div class="trFrom">${f.from}</div><span class="trAT"><span class="trArr">➜</span><div class="trTo">${f.to}</div></span>`;
       const nTm=x.s==="wiki"?1:new Set((x.tags||[]).map(t=>t[1]).filter(Boolean)).size;   // 隊伍很多（≥4）⇒ 手機版原隊一行、➜ 新隊另一行
       const seen=new Set(), lk=x._items.map(lkOf).filter(h=>h&&!seen.has(h)&&seen.add(h)).join("");
       const body=x._items.map(i=>txt(i)).join("<br>");
