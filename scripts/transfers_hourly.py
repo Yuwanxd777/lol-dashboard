@@ -85,6 +85,7 @@ REVIEW_BRIEF = """你是 LOL 儀表板「轉會」分頁的每小時複查員（
 2. zh 怎麼寫：一到兩句完整的話、有標點、句尾句號；不寫「乳摸」「傳聞」「爆料」（狀態欄已經標了）；中文與英文、數字之間留一個半形空格（Viper 將以年薪 1500 萬…）；
    括號用全形（）、並列用頓號、斜線用全形／；隊名用縮寫（GEN、KRX、BLG）；選手用 ID 原樣（大小寫照 Leaguepedia）。
    同名選手或畫面上抓不到路線的人，直接寫記號：§SUP§‹Cloud (Moon Hyeon-ho)|Cloud›（§路線§‹wiki 頁名|顯示名›，路線＝TOP／JNG／MID／BOT／SUP，教練用 §COACH§）。
+   選手名字前面不要寫路線（上路／打野／中路／下路／輔助）或「選手」：畫面會自動在名字前加路線圖，寫了會變成「下路 [下路圖] SamD」。
    ‹頁|名› 這種連結記號只用在 transfers_ptt_src.json；transfers_sheep_src.json 的 zh 只寫 §路線§名字（例：§COACH§Mowgli、§SUP§Targamas），連結程式會自己補，寫了 ‹› 反而會包兩層壞掉。
    方向要對：「A 加入 B」＝原隊 A 的舊東家、新隊 B。內文很雜、一篇講很多隊 ⇒ 一句話濃縮每一隊的重點，並加 "nosplit": 1。
 3. mv＝這則消息裡「誰傳出要去哪」：[[選手 ID, 路線, 新隊全名, 原隊全名], …]。隊名一定用 Leaguepedia 全名（Gen.G、Kiwoom DRX、Hanwha Life Esports、Dplus Kia、Bilibili Gaming、JD Gaming、

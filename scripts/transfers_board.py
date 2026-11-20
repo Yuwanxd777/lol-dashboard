@@ -609,7 +609,7 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
                 e["gone"] = 1
             ros = []
             for ro in rum_out.get(k_) or rum_out.get(key(nm_)) or []:
-                if ro["d"][:10] >= since:
+                if ro["d"][:10] >= since and tkey(ro["tm"]) != tkey(x["tm"]):   # 傳聞的是「留在原隊」（陣容整理文把他列在原隊）不算去向
                     o = {"to": ro["tm"], "d": ro["d"][:10], "tip": ro["tip"]}
                     if ro.get("src"):
                         o["src"] = ro["src"]
