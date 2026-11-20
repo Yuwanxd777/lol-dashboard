@@ -511,6 +511,20 @@ def main():
         # 「X's contract expires.」＝合約資料庫到期的自動紀錄，沒有公告連結、句子也沒中文化；到期本來就在陣容表用藍字表示 ⇒ 消息區不列（2026-11-20 每小時複查標出來的）
         wiki = [x for x in wiki if not (re.search(r"contract expires", x.get("en") or "") and not x.get("src"))]
         wiki = [x for x in wiki if x.get("team") not in HIDE_TEAMS]
+        # 升降賽沒打贏、今年也不是一級隊的戰隊（CBLOL 的 Golden Lions）：它們的公告不列（使用者 2026-11-21「升降賽沒打贏的戰隊 資訊不要列入 例如CBLOL的GLE」）。
+        #   原本因為「從一級隊離開的人加入次級隊也列」被帶進來。今年是一級、打輸被降級的隊（DFM）不在此限——那是從一級離開的消息
+        try:
+            import transfers_board as _tb, build_predict_live as _B
+            lost = {_t1key(t["tm"]) for t in _tb.promotion(_B.cargo, int(start[:4]) if start[5:7] > "06" else int(start[:4]) - 1) if not t["ql"]} - keys
+            if lost:
+                n_ = len(wiki)
+                wiki = [x for x in wiki if _t1key(x.get("team")) not in lost]
+                for x in sheep:
+                    if x.get("tags"):
+                        x["tags"] = [t for t in x["tags"] if not (t[1] and _t1key(t[1]) in lost)]
+                print(f"升降賽落敗的非一級隊 {len(lost)} 隊：wiki 消息拿掉 {n_ - len(wiki)} 則")
+        except Exception as e:
+            print(f"升降賽落敗隊過濾失敗（略過）：{type(e).__name__} {str(e)[:80]}")
         for x in sheep:
             if x.get("tags"):
                 x["tags"] = [t for t in x["tags"] if t[1] not in HIDE_TEAMS]

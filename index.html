@@ -1055,7 +1055,7 @@
   .ntDoc .ntCnt{font-size:13.5px;font-weight:400;color:var(--tx2)}
   .ntDoc details.ntSec[open]{padding-bottom:8px}
   /* 轉會「陣容表」（2026-11-19，參考巴哈 LCK 陣容圖）：左＝戰隊，六大聯賽一路往下；欄＝上野中下輔＋教練；*＝傳聞 */
-  .tbBoard{padding:6px 16px 14px;display:grid;grid-template-columns:max-content repeat(6,minmax(0,1fr)) minmax(0,1.6fr) max-content;column-gap:0}   /* 教練欄人多 ⇒ 1.8 倍寬；末欄＝轉會評分 */
+  .tbBoard{padding:6px 16px 14px;display:grid;grid-template-columns:max-content repeat(7,minmax(0,1fr)) max-content;column-gap:0}   /* 上路～後勤七欄等寬（使用者 2026-11-21「這七欄 寬度要一致」；原本後勤是 1.6 倍） */   /* 教練欄人多 ⇒ 1.8 倍寬；末欄＝轉會評分 */
   .tbN.tbY,b.tbY{color:#ffc850}.tbN.tbNew,b.tbNew{color:#ff5a5a}.tbN.tbExp,b.tbExp{color:#5aa9ff}.tbN.tbRs,b.tbRs{color:#ff8ec6}.tbN.tbPm,b.tbPm{color:#b98cff}.tbN.tbOut,b.tbOut{color:#4cd07d}.tbOk{color:#4cd07d;font-size:14px;margin-left:2px}.tbN.tbGone{text-decoration:line-through;text-decoration-thickness:1px}.tbN.tbDim{opacity:.2}.tbVacN{font-style:normal;font-size:11px;font-weight:700;color:var(--tx2);margin-left:6px;padding:0 6px;border:1px solid rgba(255,255,255,.2);border-radius:999px;white-space:nowrap}.tbLegend .sqLaneBtn b{font-weight:700}.tbLgB{display:inline-flex;align-items:center;gap:2px}.tbLgSep{font-style:normal;color:var(--tx2);margin:0 3px}.tbLegend .sqLaneBtn{margin-right:2px}.tbLegend .sqLaneBtn.on,.trBar .sqLaneBtn[data-mk].on{background:rgba(255,255,255,.14);border-color:var(--tx);box-shadow:0 0 0 1px var(--tx) inset;color:var(--tx)}.tbLgG .sqLaneBtn:not(.on){background:transparent;border-color:transparent}   /* 兩兩一框（使用者 2026-11-20：新加入＋續約｜合約到期＋離隊｜可能轉會＋傳聞），框之間不畫線 */.trFG{display:inline-flex;align-items:center;gap:6px;padding-left:12px;border-left:1px solid rgba(255,255,255,.16)}.trFG:first-child{border-left:0;padding-left:0}.trFG>label{margin-right:2px}.tbLegend{display:inline-flex;gap:6px;align-items:center}.trSrc-kr{color:#ff9a6b;background:rgba(255,154,107,.12)}.trSrc-ptt{color:#c9d1e0;background:rgba(255,255,255,.08)}.trSrc-man{color:#ffd166;background:rgba(255,209,102,.12)}
   .tbLegend{display:inline-flex;gap:12px;align-items:center}.tbLegend b.tbStay{color:#fff}
   .tbHd,.tbRow{grid-column:1/-1;display:grid;grid-template-columns:subgrid;align-items:center}
@@ -1074,7 +1074,7 @@
   .tbCell{text-align:center;padding:6px 6px;font-size:15px;line-height:1.5;cursor:default}
   /* 隊徽在固定寬的位子裡置中，縮寫接在後面靠左（使用者 2026-11-21 先說靠右、隨後更正「隊名我說錯了 是置左」） */
   .tbFaIc{object-fit:contain;border-radius:6px;background:#e8ecf4;flex:0 0 auto;margin:0 6.5px;padding:3px;box-sizing:border-box}
-  .tbTeam img.tbFaIc{width:20px!important;height:20px!important;margin:0 9.5px!important;padding:2px;border-radius:5px}   /* 固定 26×26 的淺色方塊（不吃隊徽的「圖案面積統一」，不然六張寬度不一樣、後面的字對不齊） */   /* 左右各留 6.5px＝跟隊徽同一個 39px 位子，後面的「FA」才跟其他隊名對齊 */.tbFA .tbTeam>span:not(.tbFaIc):not(.tbOk){color:var(--tx2)}
+  .tbTeam img.tbFaIc{width:20px!important;height:20px!important;margin:0 9.5px!important;padding:2px;border-radius:5px}   /* 固定 26×26 的淺色方塊（不吃隊徽的「圖案面積統一」，不然六張寬度不一樣、後面的字對不齊） */   /* 左右各留 6.5px＝跟隊徽同一個 39px 位子，後面的「FA」才跟其他隊名對齊 */
   .tbRate{min-width:72px;padding:6px 13px;font-variant-numeric:tabular-nums;text-align:center;white-space:nowrap}.tbRateH{padding:0 13px;text-align:center}.tbCell.tbRate .rtPc{margin-right:0}   /* 評分欄置中（使用者 2026-11-20「評分不用向右對齊了」）；置中時「）」不往右收 */.tbCell.tbRate b{font-weight:400}   /* 評分跟選手名字同字級同字重（使用者 2026-11-20「轉會評分的文字大小跟選手文字大小一致」：原本同為 15px 但粗體看起來大一號） */.rtPc{font-style:normal;display:inline-block;margin-right:-.5em}
   .tbHd .tbRateH{justify-self:center}
   .tbUp{color:#ff5a5a}.tbDn{color:#3fcf7a}   /* 台灣配色：加分紅、扣分綠 */
@@ -1148,7 +1148,7 @@
   .rtXl{grid-column:2/-1;margin-top:-6px;font-size:11px;color:var(--tx2)}
   .rtEmpty{color:var(--tx2)}
   .rtFoot{margin-top:12px;padding-top:8px;border-top:1px solid rgba(255,255,255,.1);font-size:12px;line-height:1.5;color:var(--tx2);white-space:nowrap}
-  @container mainc (max-width:999.98px){.tbTeam{padding-right:8px;font-size:13px;gap:5px}.tbCell{font-size:13px;padding:6px 3px}.tbHd{font-size:14px}.tbHd img{display:none}}
+  @container mainc (max-width:999.98px){.tbTeam{padding-right:8px;font-size:13px;gap:5px}.tbCell{font-size:13px;padding:6px 3px}.tbHd{font-size:14px}.tbCell .tbN{white-space:normal;overflow-wrap:anywhere}.tbHd img{display:none}}
   /* 轉會（2026-11-19 改版）：依日期分組；欄＝狀態｜原隊｜➜｜新隊｜消息（subgrid 對齊），方向用位置表達 */
   .trList{padding:6px 16px 12px;display:grid;grid-template-columns:max-content max-content max-content max-content max-content minmax(0,1fr);column-gap:14px}
   .trHead{grid-column:1/-1;display:grid;grid-template-columns:subgrid;padding:4px 10px 6px;font-size:13px;color:var(--tx2);font-weight:700;border-bottom:1px solid var(--line)}
@@ -14675,7 +14675,7 @@ function render(){
         rt.plL.forEach(x=>{ const ic=`<span class="rtIc" title="${BLN[x.r]}">${POS_IMG[x.r]?`<img src="${POS_IMG[x.r]}" alt="">`:""}</span>`;
           if(!x.ps.length){ h+=ic+`<span class="rtP"><span class="rtN"><b class="tbMuted">${en2?"Vacant":"空缺"}</b></span><span class="rtV">${x.v.toFixed(1)}</span></span><span class="rtPv">–</span><span class="rtPv">–</span>`; return; }
           x.ps.forEach((p,i)=>{ h+=(i?`<span></span>`:ic)+`<span class="rtP"><span class="rtN"><b class="tbN ${tbCls(p.e)}"${x.best&&i?` style="opacity:.55"`:""}>${esc(p.n)}</b></span><span class="rtV">${p.v.toFixed(1)}</span></span>`
-            +`<span class="rtPv">${(p.v-p.it).toFixed(1)}</span><span class="rtPv${p.it>0?" tbUp":""}">${p.it>0?"＋"+p.it.toFixed(1):"–"}</span>`; }); });
+            +`<span class="rtPv">${(p.v-p.it).toFixed(1)}</span><span class="rtPv${p.it>0?" tbUp":""}">${p.it>0?"＋"+(+p.it.toFixed(1)):"–"}</span>`; }); });
         TIPS.push(h+`</div></div>`); return TIPS.length-1; }
       const has=rt&&rt.items.length;
       let h=`<div class="rtBox"><div class="rtHd">${teamLogoHTML(tAb(t.nm),22,true,t.nm)||""}<b>${esc(rowNm(t))}</b>`
@@ -14709,7 +14709,8 @@ function render(){
     let vRows=bRows.filter(t=>(!F_TB.size||Object.values(t.r).flat().some(tbMf)));
     // 轉會評分升降冪（使用者 2026-11-20「轉會評分要可以升降冪」）：賽區順序不動，各賽區內照評分排；沒有評分的隊排最後。點欄名或篩選列的按鈕輪流 降冪 → 升冪 → 原順序
     // 排序按鈕兩種輪流：轉會評分（高到低）↔ 選手評分（高到低）；↺ 才回原順序。不畫箭頭
-    const SRT0=({d:"d",a:"d",pd:"pd",pa:"pd"})[V.tbSort]||"d",   /* 預設就照轉會評分排（使用者 2026-11-21「排序預設是 轉會評分」）*/   /* 2026-11-20 使用者「只有降的那兩個 然後降冪圖案也刪掉」：只剩 轉會評分降冪 ↔ 選手評分降冪；舊存檔的升冪當成降冪 */ SPL=SRT0[0]==="p", SRT=SRT0?SRT0.slice(-1):"", SLB=SPL?(en2?"Player rating":"選手評分"):(en2?"Transfer rating":"轉會評分");
+    const SRT0=({d:"d",a:"d",pd:"pd",pa:"pd",o:"o"})[V.tbSort]||"d",   /* 預設就照轉會評分排（使用者 2026-11-21「排序預設是 轉會評分」）*/   /* 2026-11-20 使用者「只有降的那兩個 然後降冪圖案也刪掉」：只剩 轉會評分降冪 ↔ 選手評分降冪；舊存檔的升冪當成降冪 */ SPL=SRT0[0]==="p", SRT=SRT0==="o"?"":SRT0.slice(-1), SLB=SPL?(en2?"Player rating":"選手評分"):(en2?"Transfer rating":"轉會評分"),
+      SBT=SRT0==="o"?(en2?"Team record":"戰績評分"):SLB;   // 第三種「戰績評分」＝最一開始的預設順序（各賽區照去年戰績排；使用者 2026-11-21「排序多一個戰績評分 就是依照我一開始的那種排序」），評分欄照舊顯示轉會評分
     if(SRT){ const lgI={}; vRows.forEach(t=>{ if(!(t.lg in lgI))lgI[t.lg]=Object.keys(lgI).length; }); const rv=t=>{ const rt=rateOf(t); return SPL?(rt?rt.pl:null):(rt&&rt.items.length?rt.sum:null); };
       vRows=vRows.map((t,i)=>[t,i,rv(t)]).sort((a,b)=>lgI[a[0].lg]-lgI[b[0].lg]||(a[2]==null)-(b[2]==null)||(SRT==="d"?b[2]-a[2]:a[2]-b[2])||a[1]-b[1]).map(x=>x[0]); }
     const srtArr="";   // 不畫箭頭，排序中靠按鈕亮起與欄名變金色表示
@@ -14740,7 +14741,7 @@ function render(){
     const boardBtns=FG(en2?"Show":"顯示",`<span class="tbLegend">${[["add",[["tbNew",en2?"New signing":"新加入",en2?"New":"加入"],["tbRs",en2?"Re-signed":"續約",en2?"Re-sign":""],["tbPm",en2?"Promoted":"升職",en2?"Promo":""],["tbStay",en2?"Staying":"續留",en2?"Stay":""]]],["out",[["tbExp",en2?"Contract expired":"合約到期未宣布",en2?"Expired":"合約到期"],["tbGone",en2?"Departure announced":"已宣布離隊",en2?"Left":"離隊"]]],["rum",[["tbOut",en2?"Possible move":"可能轉會",en2?"Maybe":""],["tbY",en2?"Rumor":"傳聞"]]]]
         .map(([g,L])=>`<button class="sqLaneBtn tbLgB${F_TB.has(g)?" on":""}" data-mk="tbF" data-v="${g}" title="${en2?"Show these (multi-select, click again to clear)":"只看這幾種（可複選，再點一次取消）"}">${L.map(([c,l,sh])=>`<b class="tbN ${c==="tbGone"?"tbExp tbGone":c}" data-s="${sh||l}">${l}</b>`).join(`<i class="tbLgSep">／</i>`)}</button>`).join("")}`
       +`</span>`)   // 「只看有異動」已刪（使用者 2026-11-20；休賽期幾乎每隊都有異動，沒作用）
-      +FG(en2?"Sort":"排序",`<span><button class="sqLaneBtn tbSortT${SRT?" on":""}" title="${en2?"Sort by transfer rating, then by player rating (high to low)":"照轉會評分排（高到低），再點一下改照選手評分排"}">${SLB}</button></span>`,"fgSort");
+      +FG(en2?"Sort":"排序",`<span><button class="sqLaneBtn tbSortT on" title="${en2?"Cycle: transfer rating, player rating, team record":"輪流切換：轉會評分 → 選手評分 → 戰績評分"}">${SBT}</button></span>`,"fgSort");
     const TR_FB="https://www.facebook.com/share/1EwfwfRyCF/";   // 使用者的粉專（2026-11-20 提供）
     const metaTx=MODE==="news"?`${shown.length} / ${all.length}${D.at?`・${en2?"updated":"更新"} ${esc(D.at)}`:""}`:(D.at?`${en2?"as of":"截至"} ${esc(D.at)}`:"");
     main.innerHTML=`<div class="filters trBar">`+modeBtns+rgBtns+(MODE==="news"?newsBtns:boardBtns)
@@ -14895,7 +14896,7 @@ function render(){
       const keepTip=()=>clearTimeout(tip._ht), hideSoon=()=>{ clearTimeout(tip._ht); tip._ht=setTimeout(()=>{ if(!tip.classList.contains("sheet")){ tip.style.display="none"; tip._c=null; } },200); };
       bd.onmouseover=e=>{ if(touch())return; const c=cellOf(e); if(!c){ hideSoon(); return; } keepTip(); if(tip.style.display==="block"&&tip._c===c)return; tip._c=c; show(c,false); };
       bd.onmouseleave=()=>{ if(!touch())hideSoon(); };
-      tip.onmouseenter=keepTip; tip.onmouseleave=()=>{ if(!tip.classList.contains("sheet"))hideSoon(); };
+      tip.onmouseenter=keepTip; tip.onmouseleave=()=>{ if(!tip.classList.contains("sheet")){ clearTimeout(tip._ht); tip.style.display="none"; tip._c=null; } };   // 離開小框立刻消失（使用者 2026-11-21）；從格子移往小框途中才給 200ms 緩衝
       bd.onclick=e=>{ if(!touch())return; const c=cellOf(e); if(!c)return; if(e.target.closest("a"))e.preventDefault();
         if(tip.style.display==="block"&&tip.classList.contains("sheet")&&tip.dataset.cur===c.dataset.tb){ tip.style.display="none"; return; } show(c,true); };
     } else { const tip=document.getElementById("tbTip"); if(tip)tip.style.display="none"; }
@@ -14903,7 +14904,7 @@ function render(){
     if(MODE==="news"&&window._trGo){ const g=window._trGo; window._trGo=null; setTimeout(()=>{ const has=(r,x)=>!x||r.textContent.includes(x), c=[...main.querySelectorAll(".trRow")].filter(r=>has(r,g.n));
         const pick=c.find(r=>r.dataset.d===g.d&&has(r,g.ab))||c.find(r=>r.dataset.d===g.d)||c.find(r=>has(r,g.ab))||c[0];
         if(pick){ pick.scrollIntoView({block:"center"}); pick.classList.add("trFlash"); setTimeout(()=>pick.classList.remove("trFlash"),3000); } },80); }
-    main.querySelectorAll(".tbSortT").forEach(b=>b.onclick=()=>{ V.tbSort={d:"pd",pd:"d"}[SRT0]||"d"; saveState(); render(); });
+    main.querySelectorAll(".tbSortT").forEach(b=>b.onclick=()=>{ V.tbSort={d:"pd",pd:"o",o:"d"}[SRT0]||"d"; saveState(); render(); });
     main.querySelectorAll(".filters .sqLaneBtn[data-mk]").forEach(b=>b.onclick=()=>{ const k=b.dataset.mk, S=mset(k), v=b.dataset.v; S.has(v)?S.delete(v):S.add(v); V[k]=[...S].join(","); saveState(); render(); });
     const qi=document.getElementById("trQ");
     qi.oninput=()=>{ clearTimeout(window._trQT); window._trQT=setTimeout(()=>{ V.trQ=qi.value; saveState(); const pos=qi.selectionStart; render(); const q2=document.getElementById("trQ"); q2.focus(); q2.setSelectionRange(pos,pos); },300); };
