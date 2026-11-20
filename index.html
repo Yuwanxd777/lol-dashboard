@@ -10895,7 +10895,7 @@ function globalFilterReset(){
   if(curView==="陣容")V.rosterTeam="";
   if(curView==="比賽BP"){V.bpColF={};V.bpSideMode="br";} // 比賽BP：預設(↺)清空所有欄位篩選＋回藍紅模式
   if(curView==="模擬BP"&&V.bpSim){V.bpSim.t1="";V.bpSim.t2="";} // 模擬BP：只清戰隊A/B、模擬局保留
-  if(curView==="轉會")Object.assign(V,{trSrc:"",trSt:"",trRg:"",trKd:"",trQ:"",tbF:""}); // 2026-11-19 分頁審視：↺ 原本清不到轉會的篩選與搜尋
+  if(curView==="轉會")Object.assign(V,{trSrc:"",trSt:"",trRg:"",trKd:"",trQ:"",tbF:"",tbSort:""}); // 2026-11-19 分頁審視：↺ 原本清不到轉會的篩選與搜尋
   if(curView==="筆記")Object.assign(V,{ntQ:"",ntGrp:""});                         // 同一次審視順手補：筆記的搜尋與分組
   saveState(); try{if(typeof vcInvalidate==="function")vcInvalidate(); delete VIEW_CACHE.slots[curView];}catch(e){} render();
 }
@@ -14289,7 +14289,7 @@ function render(){
     const stOf=x=>x.s==="wiki"?"official":x._v==="fake"?"fake":x._v==="conf"?"conf":(x.st||"rumor");
     // 篩選可複選（使用者 2026-11-20「篩選列的全部拿掉，然後篩選列要可以複選」）：每個鍵存逗號分隔的字串，沒選＝全部
     const mset=k=>new Set(String(V[k]||"").split(",").filter(Boolean));
-    const F_SRC=mset("trSrc"), F_ST=mset("trSt"), F_RG=mset("trRg"), F_KD=mset("trKd");
+    const F_SRC=mset("trSrc"), F_ST=mset("trSt"), F_RG=mset("trRg"), F_KD=new Set();   /* 類型篩選已刪：舊存檔留下的值不可以再生效 */
     const kdOk=x=>(F_KD.has("join")&&/join|both/.test(x.kind))||(F_KD.has("leave")&&/leave|both/.test(x.kind))||(F_KD.has("other")&&x.kind==="other");
     const shown=all.filter(x=>(!F_SRC.size||F_SRC.has(x.s))&&(!F_ST.size||F_ST.has(stOf(x)))&&(!F_RG.size||(x.s!=="wiki"?x.tags.some(t=>F_RG.has(t[0])):F_RG.has(x.rg)))
       &&(!F_KD.size||kdOk(x))
@@ -14606,7 +14606,7 @@ function render(){
     const mbtns=(key,opts)=>{ const S=mset(key); return `<span style="display:inline-flex;gap:6px;flex-wrap:wrap">${opts.map(([v,l])=>`<button class="sqLaneBtn${S.has(v)?" on":""}" data-mk="${key}" data-v="${esc(v)}">${l}</button>`).join("")}</span>`; };
     const rgBtns=FG(en2?"League":"賽區",mbtns("trRg",RGS.map(r=>[r,lgTx(r)])));
     const newsBtns=FG(en2?"Status":"狀態",mbtns("trSt",[["official",ST.official],["rumor",`<b class="tbY">${ST.rumor}</b>`],["conf",`<b class="trCf">${ST.conf}</b>`],["fake",`<b class="trFk">${ST.fake}</b>`]]),"fgSt")
-      +FG(en2?"Type":"類型",mbtns("trKd",[["join",KD.join],["leave",KD.leave],["other",KD.other]]),"fgKd")
+      /* 類型（加入／離開／其他）那組按鈕已刪（使用者 2026-11-20） */
       +FG(en2?"Source":"來源",mbtns("trSrc",[["wiki","WIKI"],["sheep",`Sheep<span class="trHideM"> Esports</span>`],["ptt","PTT"],["kr",SRCN.kr],["man",SRCN.man]]),"fgSrc");
     const boardBtns=FG(en2?"Show":"顯示",`<span class="tbLegend">${[["add",[["tbNew",en2?"New signing":"新加入",en2?"New":"加入"],["tbRs",en2?"Re-signed":"續約"],["tbPm",en2?"Promoted":"升職"],["tbStay",en2?"Staying":"續留"]]],["out",[["tbExp",en2?"Contract expired":"合約到期未宣布",en2?"Expired":"合約到期"],["tbGone",en2?"Departure announced":"已宣布離隊",en2?"Left":"離隊"]]],["rum",[["tbOut",en2?"Possible move":"可能轉會"],["tbY",en2?"Rumor":"傳聞"]]]]
         .map(([g,L])=>`<button class="sqLaneBtn tbLgB${F_TB.has(g)?" on":""}" data-mk="tbF" data-v="${g}" title="${en2?"Show these (multi-select, click again to clear)":"只看這幾種（可複選，再點一次取消）"}">${L.map(([c,l,sh])=>`<b class="tbN ${c==="tbGone"?"tbExp tbGone":c}" data-s="${sh||l}">${l}</b>`).join(`<i class="tbLgSep">／</i>`)}</button>`).join("")}`
