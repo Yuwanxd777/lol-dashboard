@@ -560,9 +560,14 @@ def main():
             pgmap[nm_.lower()] = urllib.parse.unquote(pg_).replace("_", " ")
     synth = []
     for x in ptt_raw:
-        for nm_, lane_, to_, fr_ in x.get("mv") or []:
+        for nm_, lane_, to_, fr_, *tp_ in x.get("mv") or []:
             pg_ = pgmap.get(nm_.lower(), nm_)
-            zh_ = x.get("zh") or f"{nm_} 加入 {to_}。"   # 提示文字＝重寫過的那句；認人改用 who（不再往句子裡塞記號：句子裡本來就有記號時會越包越多層，Cloud 的頁名壞過）
+            # 小框的說明：mv 第五格有寫就用那句（一篇講很多人的消息，每個人只放跟他有關的那一句——使用者 2026-11-20 手機檢視「2 處理」）；
+            #   沒寫就從重寫過的句子裡挑有提到他的分句（用「；」分），都沒有才放整句
+            zh0_ = x.get("zh") or f"{nm_} 加入 {to_}。"
+            cl_ = [c_.strip() for c_ in re.split(r"[；;]", re.sub(r"‹[^|›]+\|([^›]+)›", r"\1", re.sub(r"§[A-Z]+§", "", zh0_)).rstrip("。")) if c_.strip()]
+            hit_ = [c_ for c_ in cl_ if re.search(r"(?<![A-Za-z0-9])" + re.escape(nm_) + r"(?![A-Za-z0-9])", c_)]
+            zh_ = tp_[0] if tp_ and tp_[0] else ("；".join(hit_) + "。" if hit_ and len(hit_) < len(cl_) else zh0_)
             synth.append({"d": x["d"], "st": x.get("st") or "rumor", "kind": "join", "src": "韓網" if x.get("src") == "韓網" else "PTT",
                           "zh": zh_, "who": [nm_, pg_, lane_],
                           "tags": ([["", fr_, "out"]] if fr_ else []) + [["", to_, "in"]]})

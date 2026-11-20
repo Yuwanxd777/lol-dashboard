@@ -88,7 +88,7 @@ REVIEW_BRIEF = """你是 LOL 儀表板「轉會」分頁的每小時複查員（
    ‹頁|名› 這種連結記號只用在 transfers_ptt_src.json；transfers_sheep_src.json 的 zh 只寫 §路線§名字（例：§COACH§Mowgli、§SUP§Targamas），連結程式會自己補，寫了 ‹› 反而會包兩層壞掉。
    方向要對：「A 加入 B」＝原隊 A 的舊東家、新隊 B。內文很雜、一篇講很多隊 ⇒ 一句話濃縮每一隊的重點，並加 "nosplit": 1。
 3. mv＝這則消息裡「誰傳出要去哪」：[[選手 ID, 路線, 新隊全名, 原隊全名], …]。隊名一定用 Leaguepedia 全名（Gen.G、Kiwoom DRX、Hanwha Life Esports、Dplus Kia、Bilibili Gaming、JD Gaming、
-   T1 Esports Academy、Hanwha Life Esports Challengers、Dplus Kia Challengers…；不確定就查 wiki）。原隊不知道填 ""。只是「有興趣」「接觸中」而已也可以列，但同一則不要超過五筆。
+   T1 Esports Academy、Hanwha Life Esports Challengers、Dplus Kia Challengers…；不確定就查 wiki）。原隊不知道填 ""。只是「有興趣」「接觸中」而已也可以列，但同一則不要超過五筆。一則講到兩個人以上時，每筆後面加第五格＝只講這個人的一句話（陣容表小框會顯示它），例：["Cloud", "SUP", "Gen.G", "T1 Esports Academy", "Cloud 被多隊追逐，最可能落腳 GEN。"]。
    stay＝傳出或宣布續留：[[選手 ID, 隊全名], …]（會蓋掉他之前的轉隊傳聞）。純隊伍消息（解散、退出聯賽）用 "tags": [[賽區中文, 隊全名, "in"|"out"]]（賽區＝韓國／中國／歐洲／北美／巴西／亞太）加 "kind": "join"|"leave"|"both"|"other"。
 4. st（狀態）：戰隊官方帳號的公告＝"official"；媒體報導、記者、爆料、韓網、Sheep Esports 一律 "rumor"。舊傳聞被官方推翻或闢謠 ⇒ 在那一則舊傳聞加 "fake": "依據"；被證實不用手動標（程式會判）。
    內文貼的是 Sheep Esports 的推文 ⇒ src 改 "Sheep Esports"、url 改成那則 x.com 連結；引用韓網（fmkorea、inven、naver…）⇒ src "韓網"、url 用韓網原文。
