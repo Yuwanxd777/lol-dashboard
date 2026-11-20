@@ -14568,7 +14568,11 @@ function render(){
         // 有人離隊、還沒補人（格子沒有官方的人、也沒傳聞）⇒ 空缺當中位數（使用者 2026-11-19「有選手離隊但還沒補新人也是這樣做」）
         // 2026-11-20 使用者改定案「空的先不算分」：走光還沒補人的隊（LEV +168、DSG +114）會因為「空缺 50 分 − 原本的低分」變成大加分，不合理 ⇒ 空缺那一路整個不計
         if(!nw)continue;
-        const od=[...((t.prev||{})[r]||[]),...(t.r[r]||[]).filter(e=>e.gone)].map(p=>{ const n=typeof p==="string"?p:p.n; return {n:pn(n),s:get(n)}; }).sort(byG)[0];
+        // 被比較的「原本那位」：上一位＋已宣布離隊的；都沒有（原本的人還在隊上、只是傳出有人要來：DK 的 Siwoo／Lucid／Career）⇒ 拿現在那格的人比，
+        //   優先挑傳出要走的（使用者 2026-11-20「DK 為何沒評分」）
+        let odSrc=[...((t.prev||{})[r]||[]),...(t.r[r]||[]).filter(e=>e.gone)];
+        if(!odSrc.length){ const ex=(t.r[r]||[]).filter(e=>!e.gone&&!e.new&&!e.tip&&!e.r), go=ex.filter(e=>e.ro); odSrc=go.length?go:ex; }
+        const od=odSrc.map(p=>{ const n=typeof p==="string"?p:p.n; return {n:pn(n),s:get(n)}; }).sort(byG)[0];
         if(nw&&od&&(nw.s||od.s)){ const A=fill(nw), B=fill(od);
           const tg=x=>[x.s.yr?(en2?"full year":"全年"):"",x.s.w&&Math.abs(x.s.w-1)>0.005?lgN(x.s.lg):""].filter(Boolean).join(" ");   // 只寫「全年 LEC」，不寫權重數字（使用者 2026-11-20）
           const av=multi&&multi.length>=2?multi.reduce((z,x)=>z+x.s.v,0)/multi.length:null;
