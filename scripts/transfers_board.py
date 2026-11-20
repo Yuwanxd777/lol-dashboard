@@ -640,6 +640,28 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
                 if len(ros) > 1:
                     e["ros"] = ros[:3]
             by_lg.setdefault(x["lg"], {}).setdefault(rr, []).append(e)
+        # 手動加進自由人的人（transfers_fa_manual.json：退役後宣布復出、還沒有隊的 Nuguri 這種，任何一隊的名單都推不出來）
+        #   欄位 n＝ID、p＝wiki 頁名、lg＝聯賽、rr＝路線；已經出現在某隊格子（非傳聞）或自由人裡的就不重複加
+        try:
+            import os as _os, json, io
+            _mp = _os.path.join(_os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))), "transfers_fa_manual.json")
+            if _os.path.exists(_mp):
+                onb = {key(e.get("p") or e["n"]) for x in out for L in x["r"].values() for e in L if not e.get("r")}
+                for m_ in json.load(io.open(_mp, encoding="utf-8")):
+                    k_ = key(m_.get("p") or m_["n"])
+                    if k_ in onb or k_ in seen_ or m_.get("rr") not in LANES:
+                        continue
+                    seen_.add(k_)
+                    e = {"n": m_["n"], "p": m_.get("p") or m_["n"], "fa": 1, "from": ""}
+                    ros = [{"to": ro["tm"], "d": ro["d"][:10], "tip": ro["tip"], **({"src": ro["src"]} if ro.get("src") else {}), **({"u": ro["u"]} if ro.get("u") else {})}
+                           for ro in (rum_out.get(k_) or []) if ro["d"][:10] >= since]
+                    if ros:
+                        e["ro"] = ros[0]
+                        if len(ros) > 1:
+                            e["ros"] = ros[:3]
+                    by_lg.setdefault(m_["lg"], {}).setdefault(m_["rr"], []).append(e)
+        except Exception as e:
+            print(f"   手動自由人名單讀取失敗（略過）：{type(e).__name__} {str(e)[:100]}")
         for lg_, rows_ in by_lg.items():
             for L in rows_.values():
                 L.sort(key=lambda e: (e["from"].lower(), e["n"].lower()))

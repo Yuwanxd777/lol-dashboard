@@ -14780,7 +14780,7 @@ function render(){
           }else{
             const LG=en2?[["tbNew","New signing"],["tbRs","Re-signed"],["tbPm","Promoted"],["tbStay","Staying"],["tbExp","Contract expired"],["tbExp tbGone","Departure announced"],["tbOut","Possible move"],["tbY","Rumor"]]
               :[["tbNew","新加入"],["tbRs","續約"],["tbPm","升職"],["tbStay","續留"],["tbExp","合約到期"],["tbExp tbGone","已宣布離隊"],["tbOut","可能轉會"],["tbY","傳聞"]];
-            const legend=`<div style="display:flex;flex-wrap:wrap;align-items:center;gap:4px 16px;margin:0 2px 12px;padding:8px 12px;border:1px solid rgba(255,255,255,.12);border-radius:8px;font-size:18px;justify-content:space-between">`
+            const legend=`<div style="display:flex;flex-wrap:nowrap;align-items:center;gap:0;margin:0 2px 12px;padding:8px 12px;border:1px solid rgba(255,255,255,.12);border-radius:8px;font-size:18px;justify-content:space-evenly;padding-left:0;padding-right:0">`
               +LG.map(([c,l])=>`<b class="tbN ${c}"${c==="tbStay"?` style="color:#fff"`:""}>${l}</b>`).join("")+`<b class="tbN" style="color:#8b98ad"><span class="tbOk" style="margin:0 4px 0 0;font-size:inherit">✔</span>${en2?"Roster confirmed":"陣容確認"}</b></div>`;
             const secs=[]; [...main.querySelectorAll(".tbBoard>.tbLg,.tbBoard>.tbRow")].forEach(e=>{ if(e.classList.contains("tbLg"))secs.push({lg:e.querySelector("b").textContent,sub:(e.querySelector("span")||{}).textContent||"",c:e.style.getPropertyValue("--lgc"),rows:[]}); else if(secs.length)secs[secs.length-1].rows.push(e); });
             // 版面＝一列一隊，跟網頁（桌面版）的表格一樣（使用者 2026-11-20「截圖能不能改成一列一隊這樣 跟網頁顯示的一樣」）：
@@ -14795,11 +14795,14 @@ function render(){
               { const bd=h.querySelector(".tbBoard"); bd.style.gridTemplateColumns="max-content repeat(6,minmax(0,1fr)) minmax(120px,max-content)";   /* 整個賽區都沒評分時，「轉會評分」欄名不要貼著主教練 */
                 h.querySelectorAll('.tbCell[data-r="STF"]').forEach(x=>x.remove()); const hs=h.querySelector(".tbHd"); if(hs&&hs.children[7])hs.children[7].remove();
                 h.querySelectorAll(".tbSep").forEach(x=>x.outerHTML="<br>");
-                // 表頭：路線名稱對在下方資料的正中間，路線圖掛在文字左邊、跟文字同一條水平線（使用者 2026-11-20「截圖的路線圖與路線名稱沒有水平」「底下的資料跟上方標籤也沒有置中」；
-                //   原本圖＋字一起置中 ⇒ 字被圖推到右邊；html2canvas 畫行內圖又會偏高）
+                // 表頭：「路線圖＋路線名稱」這一組對在下方資料的正中間（使用者 2026-11-20「截圖的資料 是要在路線圖跟路線名的置中位置 不是路線名稱的置中位置」），
+                //   圖和字同一條水平線（html2canvas 畫行內圖會偏高 ⇒ 圖字都放進固定高度的 inline-flex，各自垂直置中）
                 h.querySelectorAll(".tbHd>span").forEach(sp=>{ const im=sp.querySelector("img"); if(!im)return; const tx=sp.textContent.trim(), w=im.offsetWidth||20, hh=im.offsetHeight||20;
-                  sp.innerHTML=`<span style="position:relative;display:inline-block;line-height:${hh}px;height:${hh}px">${esc(tx)}</span>`;
-                  im.style.cssText+=`;position:absolute;right:100%;top:0;margin:0 6px 0 0;width:${w}px;height:${hh}px;display:block;vertical-align:top`; sp.firstChild.appendChild(im); });
+                  sp.innerHTML=`<span style="display:inline-flex;align-items:center;gap:6px;height:${hh}px;line-height:${hh}px"><span style="display:block;height:${hh}px;line-height:${hh}px">${esc(tx)}</span></span>`;
+                  im.style.cssText+=`;display:block;flex:0 0 auto;margin:0;width:${w}px;height:${hh}px;vertical-align:top`; sp.firstChild.insertBefore(im,sp.firstChild.firstChild); });
+                // 評分欄跟其他欄同寬、置中（使用者 2026-11-20「截圖的評分欄感覺間隔特大」：原本靠右、欄寬又不一樣，跟主教練之間空一大塊）
+                bd.style.gridTemplateColumns="max-content repeat(7,minmax(0,1fr))";
+                h.querySelectorAll(".tbRate,.tbRateH").forEach(x=>{ x.style.textAlign="center"; x.style.justifySelf="center"; x.style.padding="6px 6px"; x.style.minWidth="0"; });
                 // 評分：多位傳聞人選的範圍在截圖裡改寫成平均（使用者 2026-11-20「截圖評分用平均」；網頁仍是 最低 ～ 最高）
                 h.querySelectorAll(".tbRate[data-avg]").forEach(c=>{ const [tx,cl]=c.dataset.avg.split("|"), b=c.querySelector("b"); if(b){ b.className=cl; b.innerHTML="（"+tx+'<i class="rtPc">）</i>'; } }); }
               h.querySelectorAll(".tbHd").forEach(x=>{ x.style.position="static"; x.style.background="none"; }); h.querySelectorAll(".tbDim").forEach(x=>x.classList.remove("tbDim"));
