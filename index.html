@@ -1117,7 +1117,7 @@
   .rtHd{display:flex;align-items:center;gap:8px;padding-bottom:10px;margin-bottom:10px;border-bottom:1px solid rgba(255,255,255,.1);white-space:nowrap}
   .rtHd>b:first-of-type{font-size:16px}
   .rtTt{color:var(--tx2);font-size:13px}
-  .rtSum{margin-left:auto;padding-left:20px;font-size:20px;white-space:nowrap;line-height:1;font-weight:800;font-variant-numeric:tabular-nums}
+  .rtSum{margin-left:auto;padding-left:20px;font-size:17px;white-space:nowrap;line-height:1;font-weight:800;font-variant-numeric:tabular-nums}
   .rtGrid{display:grid;grid-template-columns:20px minmax(0,0.8fr) 18px minmax(0,1.35fr) 66px;column-gap:12px;row-gap:8px;align-items:center}
   .rtCh{font-size:13px;color:var(--tx2);line-height:1}
   .rtChD{justify-self:end}
@@ -1128,7 +1128,7 @@
   /* 同一路好幾位傳聞人選（使用者 2026-11-20「多人的時候評分小框顯示的好看一些」）：一人一列「名字｜分數」對齊成兩欄，黃色左框標示是傳聞，最下面一列平均 */
   .rtMulti{display:flex;flex-direction:column;gap:6px;min-width:0}   /* 多位傳聞人選：每一位都跟單人同一個樣子（名字＋傳聞標籤、分數寫在名字下面），照分數高到低直排（使用者 2026-11-20「多人的個人分數一樣要寫在 ID 下方」） */
   .rtMulti{width:100%;box-sizing:border-box}
-  #tbTip.sheet .rtHd:has(.rtSumR){flex-wrap:wrap}#tbTip.sheet .rtSumR{flex:1 1 100%;text-align:right;padding:6px 0 0;margin:0}   /* 手機：範圍總分太長會壓到 ✕ ⇒ 自己一行靠右 */
+  /* 小框標題不寫「轉會評分」四個字、總分字小一點（使用者 2026-11-20）⇒ 手機的範圍總分也放得進同一行，不用再另起一行 */
 
   .rtD{white-space:nowrap}   /* 全形負號後面不可以斷行（手機增減那格被擠成「－／35.5」兩行，使用者 2026-11-20「小框…版面跑掉了」） */
   .rtD i{font-style:normal;display:block;line-height:.7;font-size:12px;opacity:.75}.rtSumR{white-space:nowrap}
@@ -1608,7 +1608,7 @@
   }
   #tbTip.sheet{pointer-events:auto!important;left:8px!important;right:8px!important;top:auto!important;bottom:8px!important;max-width:none!important;max-height:72vh;overflow:auto;padding:16px 14px 14px;border-radius:14px;box-shadow:0 -6px 30px rgba(0,0,0,.6)}
   #tbTip.sheet .tpBox,#tbTip.sheet .rtBox{min-width:0}
-  #tbTip.sheet .rtBox{width:auto}#tbTip.sheet .rtGrid{column-gap:8px;grid-template-columns:20px minmax(0,0.8fr) 14px minmax(0,1.35fr) max-content}#tbTip.sheet .rtD{min-width:44px;padding:3px 4px;font-size:min(15px,4.2vw)}#tbTip.sheet .rtMulti .tbRum{padding:0 4px}#tbTip.sheet .rtSum{font-size:min(20px,5.4vw)}#tbTip.sheet .rtMulti{column-gap:8px}   /* 窄手機（320）多人區塊不擠出框 */
+  #tbTip.sheet .rtBox{width:auto}#tbTip.sheet .rtGrid{column-gap:8px;grid-template-columns:20px minmax(0,0.8fr) 14px minmax(0,1.35fr) max-content}#tbTip.sheet .rtD{min-width:44px;padding:3px 4px;font-size:min(15px,4.2vw)}#tbTip.sheet .rtMulti .tbRum{padding:0 4px}#tbTip.sheet .rtSum{font-size:min(17px,4.5vw);padding-left:8px}#tbTip.sheet .rtMulti{column-gap:8px}   /* 窄手機（320）多人區塊不擠出框 */
   #tbTip.sheet .rtHd{padding-right:44px;min-height:30px}
   .tbTipX{position:absolute;top:12px;right:12px;width:30px;height:30px;padding:0;display:flex;align-items:center;justify-content:center;line-height:1;border-radius:50%;border:1px solid var(--line);background:rgba(255,255,255,.08);color:var(--tx);font-size:14px;cursor:pointer}   /* ✕ 在圓底正中、整顆在框內（使用者 2026-11-20「X 後面的底色偏離了」） */
   /* 單頁模式：只留轉會分頁 */
@@ -14599,7 +14599,7 @@ function render(){
     const rSg=v=>{ const t=Math.abs(v).toFixed(1); return (t==="0.0"?"":v>0?"＋":"－")+t; }, rtx=(lo,hi)=>hi-lo>0.05?`${rSg(lo)} ～ ${rSg(hi)}`:rSg((lo+hi)/2), rcls=(lo,hi)=>{ const m=lo>0?1:hi<0?-1:(lo+hi)/2; return m>0?"tbUp":m<0?"tbDn":""; };
     const rateTip=t=>{ const rt=rateOf(t), sg=rSg, cls=v=>v>0?"tbUp":v<0?"tbDn":"";
       const has=rt&&rt.items.length;
-      let h=`<div class="rtBox"><div class="rtHd">${teamLogoHTML(tAb(t.nm),22,true,t.nm)||""}<b>${esc(abOf(t.nm))}</b><span class="rtTt">${en2?"Transfer rating":"轉會評分"}</span>`
+      let h=`<div class="rtBox"><div class="rtHd">${teamLogoHTML(tAb(t.nm),22,true,t.nm)||""}<b>${esc(abOf(t.nm))}</b>`
         +(has?`<b class="rtSum ${rt.rng?"rtSumR ":""}${rcls(rt.lo,rt.hi)}">${rt.rm?"（":""}${rtx(rt.lo,rt.hi)}${rt.rm?`<i class="rtPc">）</i>`:""}</b>`:"")+`</div>`;
       if(!RATE)h+=`<div class="rtEmpty">${en2?`Switch the year to ${SEASON} to compute`:`年份切到 ${SEASON} 才會計算`}</div>`;
       else if(!has)h+=`<div class="rtEmpty">${en2?"No lineup change to compare yet":"這隊還沒有可比較的異動"}</div>`;
