@@ -14687,8 +14687,8 @@ function render(){
           +`<div class="rtPlG"><span></span><span class="rtCh">${en2?"Player":"選手"}</span><span class="rtCh rtChD">${en2?"Last season":"去年評分"}</span><span class="rtCh rtChD">${en2?"Honors":"成就加分"}</span>`;
         rt.plL.forEach(x=>{ const ic=`<span class="rtIc" title="${BLN[x.r]}">${POS_IMG[x.r]?`<img src="${POS_IMG[x.r]}" alt="">`:""}</span>`;
           if(!x.ps.length){ h+=ic+`<span class="rtP"><span class="rtN"><b class="tbMuted">${en2?"Vacant":"空缺"}</b></span><span class="rtV">${x.v.toFixed(1)}</span></span><span class="rtPv">–</span><span class="rtPv">–</span>`; return; }
-          x.ps.forEach((p,i)=>{ h+=(i?`<span></span>`:ic)+`<span class="rtP"><span class="rtN"><b class="tbN ${tbCls(p.e)}"${x.best&&i?` style="opacity:.55"`:""}>${esc(p.n)}</b></span><span class="rtV">${p.v.toFixed(1)}</span></span>`
-            +`<span class="rtPv">${(p.v-p.it).toFixed(1)}</span><span class="rtPv${p.it>0?" tbUp":""}">${p.it>0?"＋"+(+p.it.toFixed(1)):"–"}</span>`; }); });
+          x.ps.forEach((p,i)=>{ h+=(i?`<span></span>`:ic)+`<span class="rtP"><span class="rtN"><b class="tbN ${tbCls(p.e)}">${esc(p.n)}</b></span><span class="rtV">${p.v.toFixed(1)}</span></span>`   // 名字一律照陣容表的顏色；同路已確認兩人只算最高分 ⇒ 沒算進去的那位把「數字」調淡，不動名字（使用者 2026-11-21「SeTab 不是正常的紅字」）
+            +`<span class="rtPv"${x.best&&i?` style="opacity:.45"`:""}>${(p.v-p.it).toFixed(1)}</span><span class="rtPv${p.it>0?" tbUp":""}"${x.best&&i?` style="opacity:.45"`:""}>${p.it>0?"＋"+(+p.it.toFixed(1)):"–"}</span>`; }); });
         TIPS.push(h+`</div></div>`); return TIPS.length-1; }
       const has=rt&&rt.items.length;
       let h=`<div class="rtBox"><div class="rtHd">${teamLogoHTML(tAb(t.nm),22,true,t.nm)||""}<b>${esc(rowNm(t))}</b>`
