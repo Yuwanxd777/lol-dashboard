@@ -1555,7 +1555,7 @@
     .trBar .trFG{border-left:0;padding-left:0;flex:1 1 100%;min-width:0;overflow:visible}
     .trBar .trFG>span:not(.tbLegend){display:grid!important;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:5px!important;width:100%}
     /* 消息（使用者 2026-11-20「手機版消息的篩選列再重新調整」）：狀態四顆＋類型三顆同一行、來源五顆一行（Sheep Esports 只寫 Sheep）⇒ 整列五行 */
-    .trBar .trFG.fgSt{flex:4 1 0}.trBar .trFG.fgKd{flex:3 1 0;padding-left:6px;border-left:1px solid rgba(255,255,255,.16)}
+    .trBar .trFG.fgSt{flex:1 1 100%}   /* 狀態四顆自己一整行（類型、來源兩組刪掉之後，原本「跟類型並排」的 flex:4 會讓它跟搜尋框擠同一行——使用者 2026-11-20「手機版的篩選列跑掉了」） */
     .trHideM{display:none}
     /* 消息列表手機版（使用者 2026-11-20「手機版消息的 UI 也重新調整」）：每則兩段——第一行＝狀態＋賽區＋原隊 ➜ 新隊，下面內文，來源連結接在內文右下 */
     .trList{display:block!important;padding:2px 6px 10px!important}
