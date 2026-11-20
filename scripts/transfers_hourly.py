@@ -176,35 +176,48 @@ def do_review():
     return True
 
 
+def publish(tag):
+    """匯出 → commit → preflight → push。回傳 True＝這次有新的內容（commit 了或有東西推出去）。"""
+    py = sys.executable
+    if run([py, "scripts/export_transfer_site.py", "--head"]) != 0:
+        log(f"  [{tag}] export_transfer_site 失敗，不推")
+        return False
+    if "--dry" in sys.argv:
+        log("  --dry：不 commit／不推")
+        return False
+    run([GIT, "add", "--"] + FILES)
+    changed = subprocess.run([GIT, "diff", "--cached", "--quiet", "--"] + FILES, cwd=ROOT, env=ENV).returncode != 0
+    if not changed:
+        log(f"  [{tag}] 轉會資料沒變")
+    else:
+        run([GIT, "commit", "-m", f"轉會每小時更新 {datetime.datetime.now():%Y-%m-%d %H:%M}（{tag}）", "--"] + FILES)
+    ahead = subprocess.run([GIT, "rev-list", "--count", "@{u}..HEAD"], cwd=ROOT, env=ENV, capture_output=True, text=True).stdout.strip()
+    if ahead in ("", "0"):
+        log(f"  [{tag}] 沒有要推的 commit")
+        return changed
+    if run([py, "scripts/preflight_check.py"], timeout=1800) != 0:
+        log("  ⚠ preflight 失敗，不推（下一班 publish 會再試）")
+        return changed
+    run([GIT, "push"], timeout=600)
+    return True
+
+
 def do_main():
+    # 先送再查（使用者 2026-11-20「資料更新的流程可以更快速嗎 可以先初步送上 再慢慢檢查複查」）：
+    #   ① 抓資料 → 馬上發布主站＋部署轉會網站（約 2 分鐘；還沒複查的 PTT 文本來就先扣著不上架，所以初版不會有沒看過的 PTT 稿）
+    #   ② 再叫 claude 複查（10 分鐘上下）→ 有改動才重抓、再發布、再部署一次
     py = sys.executable
     if run([py, "scripts/fetch_transfers.py"]) != 0:
         log("  fetch_transfers 失敗，沿用舊資料繼續")
-    reviewed = False
-    if "--dry" not in sys.argv and "--no-review" not in sys.argv:
-        reviewed = do_review()
-        if reviewed and run([py, "scripts/fetch_transfers.py"]) != 0:
-            log("  複查後重抓失敗，沿用複查前的資料")
-    if run([py, "scripts/export_transfer_site.py", "--head"]) != 0:
-        log("  export_transfer_site 失敗，不推")
+    if publish("初步") and "--dry" not in sys.argv:
+        do_site()
+    if "--dry" in sys.argv or "--no-review" in sys.argv:
         return
-    if "--dry" in sys.argv:
-        log("  --dry：不 commit／不推")
+    if not do_review():
         return
-    run([GIT, "add", "--"] + FILES)
-    if subprocess.run([GIT, "diff", "--cached", "--quiet", "--"] + FILES, cwd=ROOT, env=ENV).returncode == 0:
-        log("  轉會資料沒變")
-    else:
-        run([GIT, "commit", "-m", f"轉會每小時更新 {datetime.datetime.now():%Y-%m-%d %H:%M}", "--"] + FILES)
-    ahead = subprocess.run([GIT, "rev-list", "--count", "@{u}..HEAD"], cwd=ROOT, env=ENV, capture_output=True, text=True).stdout.strip()
-    if ahead in ("", "0"):
-        log("  沒有要推的 commit")
-        return
-    if run([py, "scripts/preflight_check.py"], timeout=1800) != 0:
-        log("  ⚠ preflight 失敗，不推（下一班 publish 會再試）")
-        return
-    run([GIT, "push"], timeout=600)
-    if reviewed:   # 複查花掉的時間多半已經超過 :40 那班 ⇒ 這裡直接補部署轉會網站
+    if run([py, "scripts/fetch_transfers.py"]) != 0:
+        log("  複查後重抓失敗，沿用複查前的資料")
+    if publish("複查後"):
         do_site()
 
 

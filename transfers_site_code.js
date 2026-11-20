@@ -119,7 +119,7 @@ function render(){
     const q=(V.trQ||"").trim().toLowerCase();
     // 戰隊一律顯示縮寫（使用者 2026-11-19「戰隊全部改成縮寫」）：左欄＋內文都換，滑過看全名；沒有縮寫的（tAb 回全名）照舊
     // 自由人那一列的名稱＝地區＋自由人（使用者 2026-11-20「自由人改寫成 地區+自由人 例如亞太自由人」）
-    const FARG=en2?{LCK:"Korea",LPL:"China",LEC:"EMEA",LCS:"North America",CBLOL:"Brazil",LCP:"Asia-Pacific"}:{LCK:"韓國",LPL:"中國",LEC:"歐洲",LCS:"北美",CBLOL:"巴西",LCP:"亞太"};
+    const FARG=en2?{LCK:"Korea",LPL:"China",LEC:"EMEA",LCS:"NA",CBLOL:"Brazil",LCP:"APAC"}:{LCK:"韓國",LPL:"中國",LEC:"歐洲",LCS:"北美",CBLOL:"巴西",LCP:"亞太"};
     const rowNm=t=>t.fa?(en2?`${FARG[t.lg]||t.lg} FA`:`${FARG[t.lg]||t.lg}自由人`):abOf(t.nm);
     const abOf=n=>{ if(n==="FA")return en2?"Free agents":"自由人";
       if(/^Kiwoom DRX$/i.test(String(n||"")))return "KRX";   // 使用者 2026-11-19「DRX 前陣子就改成 KRX 了」：只改這頁的顯示（全站 teamFix 把 KRX 收斂成 DRX 當比對鍵，不能動）
@@ -174,7 +174,7 @@ function render(){
         // 前面已經有路線記號（§TOP§Naak Nako）⇒ 整個名字一起認、只補連結，不再把後半（Nako）當成另一個人（使用者 2026-11-20）
         return seg.replace(PLRE,(m,pre,n)=>{ const o=PLM.get(n); if(!o)return m; const lk=o.p?`‹${encodeURIComponent(o.p.replace(/ /g,"_"))}|${n}›`:n;
           return (pre||(o.l&&o.l!=="COACH"?`§${o.l}§`:o.l==="COACH"?"§COACH§":""))+lk; }); }).join(""); };
-    const txt=x=>{ let t=esc(clean(autoPl(((en2?x.en:(x.zh||x.en))||"").replace(/^\s*(【[^】]{1,4}】|\[[A-Z]+\])\s*/,""))).replace(CO,(m,n,a,b)=>`⟦C:${a||b}⟧${n}⟦R:${a||b}⟧`))
+    const txt=x=>{ let t=esc(clean(autoPl(((en2?(x.en||x.zh):(x.zh||x.en))||"").replace(/^\s*(【[^】]{1,4}】|\[[A-Z]+\])\s*/,""))).replace(CO,(m,n,a,b)=>`⟦C:${a||b}⟧${n}⟦R:${a||b}⟧`))
         .replace(/https?:\/\/[^\s<]+/g,u=>`<a class="trPl" href="${u}" target="_blank" rel="noopener">${en2?"Article":"文章"}</a>`)
         .replace(/§COACH§/g,()=>`<img class="trCoach" src="img/COACH.png" alt="${en2?"Coach":"教練"}" title="${en2?"Coach":"教練"}">`).replace(/‹([^|›]+)\|([^›]+)›/g,(m,p,d)=>`<a class="trPl" href="https://lol.fandom.com/wiki/${p}" target="_blank" rel="noopener">${d}</a>`).replace(/§(TOP|JNG|MID|BOT|SUP)§/g,(m,r)=>POS_IMG[r]?`<img class="trRole" src="${POS_IMG[r]}" alt="${RL[r]}" title="${RL[r]}">`:`<span class="trRole">${RL[r]}</span>`)
         .replace(/⟦C:([^⟧]*)⟧/g,(m,r)=>`<img class="trCoach" src="img/COACH.png" alt="${r}" title="${r}">`)
@@ -506,7 +506,7 @@ function render(){
     const newsBtns=FG(en2?"Status":"狀態",mbtns("trSt",[["official",ST.official],["rumor",`<b class="tbY">${ST.rumor}</b>`],["conf",`<b class="trCf">${ST.conf}</b>`],["fake",`<b class="trFk">${ST.fake}</b>`]]),"fgSt")
       /* 類型（加入／離開／其他）那組按鈕已刪（使用者 2026-11-20） */
       /* 來源（公告／SE／PTT／韓網）那組篩選已刪（使用者 2026-11-20） */;
-    const boardBtns=FG(en2?"Show":"顯示",`<span class="tbLegend">${[["add",[["tbNew",en2?"New signing":"新加入",en2?"New":"加入"],["tbRs",en2?"Re-signed":"續約"],["tbPm",en2?"Promoted":"升職"],["tbStay",en2?"Staying":"續留"]]],["out",[["tbExp",en2?"Contract expired":"合約到期未宣布",en2?"Expired":"合約到期"],["tbGone",en2?"Departure announced":"已宣布離隊",en2?"Left":"離隊"]]],["rum",[["tbOut",en2?"Possible move":"可能轉會"],["tbY",en2?"Rumor":"傳聞"]]]]
+    const boardBtns=FG(en2?"Show":"顯示",`<span class="tbLegend">${[["add",[["tbNew",en2?"New signing":"新加入",en2?"New":"加入"],["tbRs",en2?"Re-signed":"續約",en2?"Re-sign":""],["tbPm",en2?"Promoted":"升職",en2?"Promo":""],["tbStay",en2?"Staying":"續留",en2?"Stay":""]]],["out",[["tbExp",en2?"Contract expired":"合約到期未宣布",en2?"Expired":"合約到期"],["tbGone",en2?"Departure announced":"已宣布離隊",en2?"Left":"離隊"]]],["rum",[["tbOut",en2?"Possible move":"可能轉會",en2?"Maybe":""],["tbY",en2?"Rumor":"傳聞"]]]]
         .map(([g,L])=>`<button class="sqLaneBtn tbLgB${F_TB.has(g)?" on":""}" data-mk="tbF" data-v="${g}" title="${en2?"Show these (multi-select, click again to clear)":"只看這幾種（可複選，再點一次取消）"}">${L.map(([c,l,sh])=>`<b class="tbN ${c==="tbGone"?"tbExp tbGone":c}" data-s="${sh||l}">${l}</b>`).join(`<i class="tbLgSep">／</i>`)}</button>`).join("")}`
       +`</span>`)   // 「只看有異動」已刪（使用者 2026-11-20；休賽期幾乎每隊都有異動，沒作用）
       +FG(en2?"Sort":"排序",`<span><button class="sqLaneBtn tbSortT${SRT?" on":""}" title="${en2?"Rating high-low, low-high, then player score high-low, low-high":"轉會評分 降冪 → 升冪 → 選手評分 降冪 → 升冪"}">${SLB}${srtArr||" ⇅"}</button></span>`);
@@ -514,7 +514,7 @@ function render(){
     main.innerHTML=`<div class="filters trBar">`+modeBtns+rgBtns+(MODE==="news"?newsBtns:boardBtns)
       // 搜尋放最右邊（使用者 2026-11-20「篩選列重新調整一下 搜尋應該在最右邊」）
       +`<span style="flex:1"></span><span class="meta">${metaTx}</span>`
-      +`<span class="trSW"><label>${en2?"Search":"搜尋"}</label><span class="cwrap"><input type="text" id="trQ" value="${esc(V.trQ||"")}" placeholder="${en2?"Player or team":"選手或隊名"}" style="width:190px;padding-right:26px"><button class="cx" tabindex="-1" data-x="trQ" title="一鍵清除">✕</button></span></span>`
+      +`<span class="trSW"><label>${en2?"Search":"搜尋"}</label><span class="cwrap"><input type="text" id="trQ" value="${esc(V.trQ||"")}" placeholder="${en2?"Player / team":"選手或隊名"}" style="width:190px;padding-right:26px"><button class="cx" tabindex="-1" data-x="trQ" title="一鍵清除">✕</button></span></span>`
       +`<button id="trShot" class="sqbtn" style="order:1" title="${en2?"Screenshot (2000×2000 JPG)":"截圖（輸出 2000×2000 JPG）"}">📸</button>`
       // Discord（使用者 2026-11-20「如果有任何新的轉會通知 可以到我的 DC 群告訴我…也新增一個 DC 按鈕在外面」）
       +`<a id="trDc" class="sqbtn" style="order:1;text-decoration:none;background:#5865F2;border:1px solid #7983f5;box-shadow:0 1px 0 rgba(0,0,0,.35);box-sizing:border-box;border-radius:9px;cursor:pointer" href="https://discord.gg/ffJvcswnkC" target="_blank" rel="noopener" title="${en2?"Got a new transfer? Tell me on Discord":"有新的轉會消息？到 Discord 群告訴我"}"><svg viewBox="0 0 24 24" width="20" height="20" fill="#fff" aria-hidden="true"><path d="M20.317 4.3698a19.7913 19.7913 0 00-4.8851-1.5152.0741.0741 0 00-.0785.0371c-.211.3753-.4447.8648-.6083 1.2495-1.8447-.2762-3.68-.2762-5.4868 0-.1636-.3933-.4058-.8742-.6177-1.2495a.077.077 0 00-.0785-.037 19.7363 19.7363 0 00-4.8852 1.515.0699.0699 0 00-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 00.0312.0561c2.0528 1.5076 4.0413 2.4228 5.9929 3.0294a.0777.0777 0 00.0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 0 00-.0416-.1057c-.6528-.2476-1.2743-.5495-1.8722-.8923a.077.077 0 01-.0076-.1277c.1258-.0943.2517-.1923.3718-.2914a.0743.0743 0 01.0776-.0105c3.9278 1.7933 8.18 1.7933 12.0614 0a.0739.0739 0 01.0785.0095c.1202.099.246.1981.3728.2924a.077.077 0 01-.0066.1276 12.2986 12.2986 0 01-1.873.8914.0766.0766 0 00-.0407.1067c.3604.698.7719 1.3628 1.225 1.9932a.076.076 0 00.0842.0286c1.961-.6067 3.9495-1.5219 6.0023-3.0294a.077.077 0 00.0313-.0552c.5004-5.177-.8382-9.6739-3.5485-13.6604a.061.061 0 00-.0312-.0286zM8.02 15.3312c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9555-2.4189 2.157-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.9555 2.4189-2.1569 2.4189zm7.9748 0c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9554-2.4189 2.1569-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.946 2.4189-2.1568 2.4189Z"/></svg></a>`+`</div>`
