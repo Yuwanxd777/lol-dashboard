@@ -7718,7 +7718,7 @@ document.addEventListener("keydown",e=>{ if(e.key==="Escape"&&_carry)carryEnd();
 if(window.CHAMP_SKILLS&&CHAMP_SKILLS.d)Object.values(CHAMP_SKILLS.d).forEach(c=>{if(c.n)c.n=c.n.split(/[·‧・．]/)[0];});
 if(IS_PUBLIC){ // 網路版標題
   document.title="LOL數據表公開版";
-  const st=document.getElementById("siteTitleTx"); if(st)st.textContent=SOLO?"LOL 轉會":"LOL數據表公開版";
+  const st=document.getElementById("siteTitleTx"); if(st)st.textContent=window.SOLO_VIEW?"LOL 轉會":"LOL數據表公開版";   // 不能寫 SOLO：它是下面才宣告的 const，這裡先用到會丟 ReferenceError、整個公開版開不起來（2026-11-20 00:49 留下的 bug，11-21 發現；本機 IS_PUBLIC 是 false 所以守門測不到）
 }
 const VIEWS=["總覽","摘要","英雄","選手","戰隊","陣容","比賽BP","模擬BP","英雄Tier","積分","圖鑑","預測","轉會","筆記"]; // 筆記＝本機限定（IS_LOCAL；資料 notes_local.js 不進白名單 ⇒ 線上沒有這頁，2026-11-08 使用者需求）
 const IS_LOCAL=location.protocol==="file:"||/^(localhost|127\.0\.0\.1)$/.test(location.hostname); // 預測＝官方水晶球（2026-10-11 使用者需求），只在當年顯示（同積分） // 摘要緊跟總覽（原名「近況」，2026-09-23 改成兩隊對比） // AI 問答已移除（使用者：沒意思）；渲染分支留為死碼（curView 恆在 VIEWS 內 → 不會進到那個 catch-all else）
@@ -14875,6 +14875,8 @@ function render(){
           if(x1>=x0&&y1>=y0)m={fw:(x1-x0+1)/N,fh:(y1-y0+1)/N}; }catch(_){ m=null; } done(m); };
       p.onerror=()=>done(null); p.src=src; };
     const lgFit=img=>{ if(img.dataset.fit)return; const S=parseFloat(img.style.height)||img.height||0; if(!S)return; img.dataset.fit="0";
+      // 先照「整張圖就是圖案」佔好固定寬的位子、置中：量不到圖案外框的時候（用檔案直接開 index.html、或跨網域沒開 CORS）也跟 FA 徽章對得齊（使用者 2026-11-21 回報本機舊網站沒對齊）
+      if(img.closest(".tbTeam,.trTeam")&&!img.classList.contains("tbFaIc")){ img.style.margin=`0 ${(1.5*S-S)/2}px`; }
       lgGet(img.currentSrc||img.src,m=>{ if(!m||!img.isConnected)return; img.dataset.fit="1";
         const r=m.fw/m.fh, A=0.6*S*S, W=1.5*S; let w=Math.sqrt(A*r), h=Math.sqrt(A/r); const k=Math.min(1,W/w,S/h); w*=k; h*=k;
         const E=w/m.fw;   // 整張正方形圖要畫多大，圖案才是 w×h

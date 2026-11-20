@@ -707,6 +707,8 @@ function render(){
           if(x1>=x0&&y1>=y0)m={fw:(x1-x0+1)/N,fh:(y1-y0+1)/N}; }catch(_){ m=null; } done(m); };
       p.onerror=()=>done(null); p.src=src; };
     const lgFit=img=>{ if(img.dataset.fit)return; const S=parseFloat(img.style.height)||img.height||0; if(!S)return; img.dataset.fit="0";
+      // 先照「整張圖就是圖案」佔好固定寬的位子、置中：量不到圖案外框的時候（用檔案直接開 index.html、或跨網域沒開 CORS）也跟 FA 徽章對得齊（使用者 2026-11-21 回報本機舊網站沒對齊）
+      if(img.closest(".tbTeam,.trTeam")&&!img.classList.contains("tbFaIc")){ img.style.margin=`0 ${(1.5*S-S)/2}px`; }
       lgGet(img.currentSrc||img.src,m=>{ if(!m||!img.isConnected)return; img.dataset.fit="1";
         const r=m.fw/m.fh, A=0.6*S*S, W=1.5*S; let w=Math.sqrt(A*r), h=Math.sqrt(A/r); const k=Math.min(1,W/w,S/h); w*=k; h*=k;
         const E=w/m.fw;   // 整張正方形圖要畫多大，圖案才是 w×h
