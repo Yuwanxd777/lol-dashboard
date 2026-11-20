@@ -56,7 +56,10 @@ def _sister(frm, tm):
                 and re.search(r"Academy|Challengers|Chall\.|Youth|Rookies|Junior|Blue$|\.A$|Second|Rising|NXT", frm, re.I))
 
 
-def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell=None):
+RETIRED = {}   # 最近一次 build 查到的退役選手：{key: (頁名, ID, 路線, 隊顯示名, 聯賽)}（fetch_transfers 拿去補退役消息）
+
+
+def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell=None, succ=None):
     """cargo＝build_predict_live.cargo；since＝本休賽期起點（YYYY-MM-DD）；sheep＝輸出層的 Sheep 條目；extra＝{隊名: 聯賽}（2027 新進）"""
     import datetime as _dt
     today = _dt.date.today().isoformat()
@@ -97,7 +100,12 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
     disp = {x["pg"]: (x.get("n") or x["pg"]) for x in tt if str(x.get("dis")) != "1"}
     short = {x["pg"]: x.get("sh") or "" for x in tt}
     disp = {t: disp[uc(t)] for t in lg_of if uc(t) in disp}   # wiki 頁名首字母一律大寫（paiN Gaming → PaiN Gaming）
-    teams = sorted(t for t in disp if t not in set(exclude))
+    # 接手席位的新隊（OPT 接 DIG）：新隊還沒有任何人 ⇒ 先照原本那隊的陣容顯示（使用者 2026-11-20「新戰隊 OPT 的選手應該先依照本來的隊伍去顯示」）。
+    #   做法＝原本那隊（已解散、平常不列）照常算一列，最後把那一列改掛新隊的名字，新隊自己那列空的就不要
+    succ = {n_: o_ for n_, o_ in (succ or {}).items() if o_ in lg_of}
+    for n_, o_ in succ.items():
+        disp.setdefault(o_, o_)
+    teams = sorted(t for t in disp if t not in set(exclude) and t not in succ)
     # ② 官方現況
     pl = cargo({"tables": "Players", "fields": "Players.ID=id,Players.OverviewPage=pg,Players.Team=tm,Players.Role=ro,Players.IsRetired=ret",
                 "where": "Players.Team IN " + _in(teams) + ' AND Players.Role IN ("Top","Jungle","Mid","Bot","Support","Coach","Analyst")',
@@ -258,6 +266,59 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
                 tgt.setdefault(tm, {}).setdefault("COACH", []).append((disp_id, pg, ro, code))
     # ⑤ 傳聞
     rumor = parse_sheep(sheep)
+    # 傳聞人選沒寫原隊的（陣容整理文、PTT 沒填）⇒ 查 wiki 現在掛在哪一隊補上：小框「來自」、消息的原隊欄用得到，
+    #   評分也靠它判斷是不是次級聯賽上來的（使用者 2026-11-20「次級上來且沒有一軍出賽紀錄的選手 應該比中位數低 10 分左右」）
+    need = sorted({v["p"] for L in rumor.values() for v in L if v.get("p") and not v.get("from")})
+    if need:
+        try:
+            rows = []
+            for i in range(0, len(need), 40):
+                rows += cargo({"tables": "Players", "fields": "Players.OverviewPage=pg,Players.Team=tm",
+                               "where": "Players.OverviewPage IN " + _in(need[i:i + 40]), "limit": "500", "format": "json"})
+            cur_tm = {key(x["pg"]): x["tm"] for x in rows if x.get("tm")}
+            for L in rumor.values():
+                for v in L:
+                    t_ = cur_tm.get(key(v.get("p") or ""))
+                    if not v.get("from") and t_ and tkey(t_) != tkey(v["tm"]):
+                        v["from"] = t_
+        except Exception as e:
+            print(f"   傳聞人選原隊查詢失敗：{type(e).__name__} {str(e)[:100]}")
+    # 連頁名都沒有的（Sheep 陣容整理文只有 ID）⇒ 用 ID＋路線找：同 ID 同路線、現在有隊的剛好一位才認
+    need = sorted({v["n"] for L in rumor.values() for v in L if not v.get("from")})
+    if need:
+        try:
+            rows = []
+            for i in range(0, len(need), 40):
+                rows += cargo({"tables": "Players", "fields": "Players.ID=id,Players.Team=tm,Players.Role=ro",
+                               "where": "Players.ID IN " + _in(need[i:i + 40]) + " AND Players.Team IS NOT NULL", "limit": "500", "format": "json"})
+            for L in rumor.values():
+                for v in L:
+                    if v.get("from"):
+                        continue
+                    c_ = {x["tm"] for x in rows if key(str(x["id"])) == key(v["n"]) and ROLE_OF.get((x.get("ro") or "").split(",")[0].strip()) == v["rr"] and x.get("tm")}
+                    if len(c_) == 1 and tkey(next(iter(c_))) != tkey(v["tm"]):
+                        v["from"] = next(iter(c_))
+        except Exception as e:
+            print(f"   傳聞人選原隊（依 ID）查詢失敗：{type(e).__name__} {str(e)[:100]}")
+    # 還是沒有的（已經離隊的自由球員，Players.Team 是空的）⇒ 最後一段效力紀錄（Tenures）的那一隊
+    need = sorted({(v.get("p") or v["n"]) for L in rumor.values() for v in L if not v.get("from")})
+    if need:
+        try:
+            rows = []
+            for i in range(0, len(need), 40):
+                rows += cargo({"tables": "Tenures", "fields": "Tenures.Player=p,Tenures.Team=tm,Tenures.DateJoin=dj",
+                               "where": "Tenures.Player IN " + _in(need[i:i + 40]), "order_by": "Tenures.DateJoin", "limit": "5000", "format": "json"})
+            last_tm = {}
+            for x in rows:
+                if x.get("tm") and x.get("dj"):
+                    last_tm[key(x["p"])] = x["tm"]   # 依加入日排序，後面的蓋前面的
+            for L in rumor.values():
+                for v in L:
+                    t_ = last_tm.get(key(v.get("p") or v["n"]))
+                    if not v.get("from") and t_ and tkey(t_) != tkey(v["tm"]):
+                        v["from"] = t_
+        except Exception as e:
+            print(f"   傳聞人選原隊（依效力紀錄）查詢失敗：{type(e).__name__} {str(e)[:100]}")
     # 傳出要去別隊的人（使用者 2026-11-19「如果合約還在但有傳出可能去別隊 上綠色」）：名字 → 最新一則傳聞（目的地＝傳聞的隊）
     rum_names = {key(v["n"]) for L in rumor.values() for v in L} | {key(v["p"]) for L in rumor.values() for v in L if v.get("p")}
     rum_out = {}
@@ -410,12 +471,49 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
         out.append({"tm": tm, "nm": disp[tm], "lg": lg_of[tm], "r": rows, "prev": pv,
                     "_still": sorted({key(g) for v in gone.values() for g in v} - {key(p_[1]) for v_ in annd.get(tm, {}).values() for p_ in v_}), "_psr": psr,
                     "_pc": {p_: con[(key(p_), tm)] for v_ in pv.values() for p_ in v_ if con.get((key(p_), tm))}})   # 已宣布離隊的不算還在隊上；_pc＝上一位的合約到期日   # 被新人擠掉、其實還在隊上的（add_tenure 用完拿掉）
+    # 已退役的人不留在格子裡（使用者 2026-11-20「Evi 已經退役 那格應該改成 -…有退役的都改成這樣」）：
+    #   格子裡沒有新身分（新加入／續約／傳聞／升職）的人＋上一位，向 Players.IsRetired 查；退役的從格子拿掉、放進上一位並標 ret
+    global RETIRED
+    RETIRED = {}
+    try:
+        cand = sorted({e["p"] for x in out for L in x["r"].values() for e in L if e.get("p") and not any(k_ in e for k_ in ("new", "rs", "tip", "r", "pm"))}
+                      | {p for x in out for v in x["prev"].values() for p in v})
+        rset = {}
+        for i in range(0, len(cand), 40):
+            for y in cargo({"tables": "Players", "fields": "Players.OverviewPage=pg,Players.ID=id,Players.Role=ro",
+                            "where": "Players.OverviewPage IN " + _in(cand[i:i + 40]) + " AND Players.IsRetired=1", "limit": "500", "format": "json"}):
+                rset[key(y["pg"])] = (y["pg"], str(y.get("id") or y["pg"]), ROLE_OF.get((y.get("ro") or "").split(",")[0].strip()) or "")
+        for x in out:
+            rk_ = set()
+            for rr in list(x["r"]):
+                keep_ = []
+                for e in x["r"][rr]:
+                    if key(e.get("p") or "") in rset and not any(k_ in e for k_ in ("new", "rs", "tip", "r", "pm")):
+                        if e["p"] not in x["prev"].get(rr, []):
+                            x["prev"].setdefault(rr, []).insert(0, e["p"])
+                        rk_.add(key(e["p"]))
+                    else:
+                        keep_.append(e)
+                if keep_:
+                    x["r"][rr] = keep_
+                else:
+                    x["r"].pop(rr)
+            for rr, v in x["prev"].items():
+                for p in v:
+                    if key(p) in rset:
+                        rk_.add(key(p))
+                        if rr != "COACH":
+                            RETIRED.setdefault(key(p), rset[key(p)] + (x["nm"], x["lg"]))
+            x["_ret"] = sorted(rk_)
+            x["_still"] = [k_ for k_ in x.get("_still", []) if k_ not in rk_]
+    except Exception as e:
+        print(f"   退役查詢失敗：{type(e).__name__} {str(e)[:100]}")
     try:
         add_tenure(cargo, out)
     except Exception as e:   # 查不到效力期間就只列名字
         print(f"   上一位效力期間查詢失敗：{type(e).__name__} {str(e)[:100]}")
         for x in out:
-            x.pop("_still", None); psr = x.pop("_psr", {}); x.pop("_pc", None)
+            x.pop("_still", None); psr = x.pop("_psr", {}); x.pop("_pc", None); x.pop("_ret", None)
             if x["prev"].get("COACH"):
                 x["prev"]["COACH"] = [{"n": p, "sr": psr.get(p, "C")} for p in x["prev"]["COACH"]]
     try:
@@ -427,6 +525,10 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
         k = rk.get(tkey(x["tm"])) or rk.get(tkey(x["nm"]))
         if k:
             x["rk"] = k[3]
+    for n_, o_ in succ.items():
+        for x in out:
+            if x["tm"] == o_:
+                x["was"] = o_; x["tm"] = n_; x["nm"] = disp.get(n_, n_)
     out.sort(key=lambda x: (ORDER.index(x["lg"]) if x["lg"] in ORDER else 9,
                             (rk.get(tkey(x["tm"])) or rk.get(tkey(x["nm"])) or (999, 999, 999, ""))[:3], x["tm"].lower()))
     return out
@@ -524,7 +626,7 @@ def add_tenure(cargo, out):
             if y.get("dir") == "Join":
                 joins.setdefault(key(y["p"]), []).append((y["d"][:10], y["tm"]))
     for x in out:
-        still = set(x.pop("_still", [])); psr = x.pop("_psr", {}); pc = x.pop("_pc", {})
+        still = set(x.pop("_still", [])); psr = x.pop("_psr", {}); pc = x.pop("_pc", {}); retd = set(x.pop("_ret", []))
         for rr, v in x["prev"].items():
             L = []
             for p in v:
@@ -534,6 +636,8 @@ def add_tenure(cargo, out):
                     if later:
                         e = later[0]
                 d = {"n": p}
+                if key(p) in retd:
+                    d["ret"] = 1
                 if rr == "COACH" and psr.get(p):
                     d["sr"] = psr[p]
                 if s:

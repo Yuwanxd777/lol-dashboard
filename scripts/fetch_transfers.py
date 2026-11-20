@@ -577,7 +577,7 @@ def main():
     try:
         import build_predict_live as B, transfers_board
         yr = int(start[:4]) if start[5:7] > "06" else int(start[:4]) - 1
-        board = transfers_board.build(B.cargo, yr, start, sheep + off + synth, {n: "LCS" for n in T1_EXTRA}, wiki, T1_EXCLUDE, farewell)
+        board = transfers_board.build(B.cargo, yr, start, sheep + off + synth, {n: "LCS" for n in T1_EXTRA}, wiki, T1_EXCLUDE, farewell, {"OpTic Gaming": "Dignitas"})
         print(f"陣容表：{len(board)} 隊")
     except Exception as e:
         board = old.get("board") or []
@@ -596,6 +596,28 @@ def main():
     except Exception as e:
         roles = old.get("roles") or {}
         print(f"消息人名位置查詢失敗，沿用舊檔 {len(roles)} 人：{type(e).__name__} {str(e)[:100]}")
+    # 退役消息（使用者 2026-11-20「幫我找出 Evi 退役的消息放入消息區 有退役的都改成這樣」）：陣容表查到退役的選手 → Leaguepedia 新聞裡他的 retires 那句（附本人貼文連結）
+    try:
+        ret_ = getattr(transfers_board, "RETIRED", {}) or {}
+        if ret_:
+            LGRG = {"LCK": "韓國", "LPL": "中國", "LEC": "歐洲", "LCS": "北美", "CBLOL": "巴西", "LCP": "亞太"}
+            rows_ = B.cargo({"tables": "NewsItems", "fields": "Date_Sort=d,Sentence=s,Source=src", "where": f'Sentence LIKE "%retire%" AND Date_Sort>="{yr}-06-01"',
+                             "order_by": "Date_Sort DESC", "limit": "500", "format": "json"})
+            seen_ = {x_.get("id") for x_ in extra}
+            for y_ in rows_:
+                sent_ = html.unescape(y_.get("s") or "")
+                if "out of retirement" in sent_ or "intent to retire" in sent_:
+                    continue
+                for pg_, _nm in re.findall(r"\[\[([^|\]]+)\|([^\]]+)\]\]", sent_):
+                    k_ = transfers_board.key(pg_)
+                    if k_ in ret_ and "ret-" + k_ not in seen_:
+                        pg0, id0, rr0, tm0, lg0 = ret_[k_]
+                        extra.append({"id": "ret-" + k_, "d": (y_.get("d") or "")[:10] + " 00:00", "zh": (f"§{rr0}§" if rr0 and rr0 != "COACH" else "") + f"‹{pg0}|{id0}› 宣布退役。",
+                                      "src": "官方", "st": "official", "kind": "leave", "tags": [[LGRG.get(lg0, ""), tm0, "out"]], "url": (y_.get("src") or "").split(";;;")[0]})
+                        seen_.add("ret-" + k_)
+            extra.sort(key=lambda x_: x_["d"], reverse=True)
+    except Exception as e_:
+        print(f"   退役消息查詢失敗：{type(e_).__name__} {str(e_)[:100]}")
     _joined = {(p_, x_["d"]) for x_ in wiki if x_.get("kind") == "join" for p_, _ in PL_RE.findall(x_.get("en") or "")}
     _dup = lambda x_: x_.get("kind") == "leave" and bool(PL_RE.findall(x_.get("en") or "")) and all((p_, x_["d"]) in _joined for p_, _ in PL_RE.findall(x_.get("en") or ""))
     wiki = [x_ for x_ in wiki if not _dup(x_)]   # RED「Morttheus 離隊」＋VKS「Morttheus 加入」同一天 ⇒ 只留加入那列（原隊欄本來就會標 RED）
