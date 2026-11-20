@@ -618,10 +618,28 @@ def main():
             extra.sort(key=lambda x_: x_["d"], reverse=True)
     except Exception as e_:
         print(f"   退役消息查詢失敗：{type(e_).__name__} {str(e_)[:100]}")
+    # 國際賽資歷分（轉會評分的 10%）：陣容表上出現的人（格子＋上一位）→ {名字小寫: 分數}；沒打過國際賽的不列
+    intl = (old.get("intl") or {})
+    try:
+        import transfers_intl
+        sc_ = transfers_intl.scores(B.cargo)
+        strip_ = lambda n_: re.sub(r"\s*\([^()]*\)\s*$", "", str(n_ or ""))
+        it_ = {}
+        for t_ in board:
+            ppl_ = [(e_.get("p") or e_.get("n"), e_.get("n")) for L_ in t_.get("r", {}).values() for e_ in L_]
+            ppl_ += [((e_.get("n") if isinstance(e_, dict) else e_), strip_(e_.get("n") if isinstance(e_, dict) else e_)) for L_ in t_.get("prev", {}).values() for e_ in L_]
+            for pg_, nm_ in ppl_:
+                v_ = sc_.get(str(pg_ or "").lower())
+                if v_:
+                    it_[strip_(nm_).lower()] = max(v_, it_.get(strip_(nm_).lower(), 0))
+        intl = it_
+        print(f"國際賽資歷分：{len(intl)} 人")
+    except Exception as e_:
+        print(f"   國際賽資歷分失敗（沿用舊的 {len(intl)} 人）：{type(e_).__name__} {str(e_)[:100]}")
     _joined = {(p_, x_["d"]) for x_ in wiki if x_.get("kind") == "join" for p_, _ in PL_RE.findall(x_.get("en") or "")}
     _dup = lambda x_: x_.get("kind") == "leave" and bool(PL_RE.findall(x_.get("en") or "")) and all((p_, x_["d"]) in _joined for p_, _ in PL_RE.findall(x_.get("en") or ""))
     wiki = [x_ for x_ in wiki if not _dup(x_)]   # RED「Morttheus 離隊」＋VKS「Morttheus 加入」同一天 ⇒ 只留加入那列（原隊欄本來就會標 RED）
-    data = {"at": datetime.datetime.now().strftime("%Y-%m-%d %H:%M"), "from": start, "t1": t1, "wiki": wiki, "sheep": sheep, "extra": extra, "roles": roles, "board": board}
+    data = {"at": datetime.datetime.now().strftime("%Y-%m-%d %H:%M"), "from": start, "t1": t1, "wiki": wiki, "sheep": sheep, "extra": extra, "roles": roles, "board": board, "intl": intl}
     io.open(OUT, "w", encoding="utf-8").write("window.TRANSFERS=" + json.dumps(data, ensure_ascii=False, separators=(",", ":")) + ";\n")
     print(f"transfers.js：wiki {len(wiki)}、sheep {len(sheep)}、PTT／韓網／官方 {len(extra)}")
 

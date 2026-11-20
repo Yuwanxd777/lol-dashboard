@@ -136,14 +136,22 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
         print(f"   出賽紀錄查詢失敗（不濾沒上場的人）：{type(e).__name__} {str(e)[:100]}")
         played = None
     # ③ 合約
-    ct = cargo({"tables": "Contracts", "fields": "Player=p,Team=tm,ContractEnd=ce,IsRemoval=rm",
+    # 同一人同一隊常有好幾筆（BLG Viper：2026-01 那則記到 2027-11-16、2026-11-12 那則改成 2026-11-17）⇒ 以「最新那則公告」（NewsId 的日期）為準，
+    #   不是取到期日最晚的（使用者 2026-11-20 全面核對選手頁：Viper／Tian／climber 表上多算了一年）；NewsId 缺的才退回比到期日
+    ct = cargo({"tables": "Contracts", "fields": "Player=p,Team=tm,ContractEnd=ce,IsRemoval=rm,NewsId=nid",
                 "where": "Contracts.Team IN " + _in(teams) + f' AND Contracts.ContractEnd>="{since}"', "limit": "5000", "format": "json"})
-    con = {}
+    con, con_at = {}, {}
+
+    def _nid(x):
+        m_ = re.search(r"(\d{4}-\d{2}-\d{2})_(\d+)", str(x.get("nid") or ""))
+        return (m_.group(1), int(m_.group(2))) if m_ else ("", 0)
     for x in ct:
         if str(x.get("rm")) == "1" or not x.get("ce"):
             continue
         k = (key(x["p"]), x["tm"])
-        con[k] = max(con.get(k, ""), x["ce"][:10])
+        at = (_nid(x), x["ce"][:10])
+        if k not in con or at > con_at[k]:
+            con[k], con_at[k] = x["ce"][:10], at
     # ③b Contracts（GCD）沒有的 ⇒ 用 wiki 戰隊頁名單上那欄合約日（Players.Contract；使用者 2026-11-20「不知道選手合約到何時 就是 WIKI 上該隊的網站看 例如 Quad」）
     try:
         for x in cargo({"tables": "Players", "fields": "Players.OverviewPage=pg,Players.ID=id,Players.Team=tm,Players.Contract=c",
