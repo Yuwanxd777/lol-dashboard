@@ -124,7 +124,7 @@ function render(){
     const stOf=x=>x.s==="wiki"?"official":x._v==="fake"?"fake":x._v==="conf"?"conf":(x.st||"rumor");
     // 篩選可複選（使用者 2026-11-20「篩選列的全部拿掉，然後篩選列要可以複選」）：每個鍵存逗號分隔的字串，沒選＝全部
     const mset=k=>new Set(String(V[k]||"").split(",").filter(Boolean));
-    if(String(V.trSrc||"").split(",").includes("wiki"))V.trSrc=[...new Set(String(V.trSrc).split(",").map(v=>v==="wiki"?"man":v))].join(",");   // 舊存檔的 wiki → 公告（存回 V，按鈕亮燈才對得上）
+    V.trSrc="";   // 來源篩選已刪：舊存檔留下的值不可以再生效
     const F_SRC=mset("trSrc"), F_ST=mset("trSt"), F_RG=mset("trRg"), F_KD=new Set();   /* 類型篩選已刪：舊存檔留下的值不可以再生效 */
     const kdOk=x=>(F_KD.has("join")&&/join|both/.test(x.kind))||(F_KD.has("leave")&&/leave|both/.test(x.kind))||(F_KD.has("other")&&x.kind==="other");
     // 來源的 WIKI 併進「公告」（使用者 2026-11-20「WIKI 跟公告的按鈕合併 改稱 公告 就好 因為 WIKI 一定有附上公告消息」）；舊存檔選過 wiki 的也當成公告
@@ -463,7 +463,7 @@ function render(){
     const rgBtns=FG(en2?"League":"賽區",mbtns("trRg",RGS.map(r=>[r,lgTx(r)])));
     const newsBtns=FG(en2?"Status":"狀態",mbtns("trSt",[["official",ST.official],["rumor",`<b class="tbY">${ST.rumor}</b>`],["conf",`<b class="trCf">${ST.conf}</b>`],["fake",`<b class="trFk">${ST.fake}</b>`]]),"fgSt")
       /* 類型（加入／離開／其他）那組按鈕已刪（使用者 2026-11-20） */
-      +FG(en2?"Source":"來源",mbtns("trSrc",[["man",SRCN.man],["sheep",SRCN.sheep],["ptt","PTT"],["kr",SRCN.kr]]),"fgSrc");
+      /* 來源（公告／SE／PTT／韓網）那組篩選已刪（使用者 2026-11-20） */;
     const boardBtns=FG(en2?"Show":"顯示",`<span class="tbLegend">${[["add",[["tbNew",en2?"New signing":"新加入",en2?"New":"加入"],["tbRs",en2?"Re-signed":"續約"],["tbPm",en2?"Promoted":"升職"],["tbStay",en2?"Staying":"續留"]]],["out",[["tbExp",en2?"Contract expired":"合約到期未宣布",en2?"Expired":"合約到期"],["tbGone",en2?"Departure announced":"已宣布離隊",en2?"Left":"離隊"]]],["rum",[["tbOut",en2?"Possible move":"可能轉會"],["tbY",en2?"Rumor":"傳聞"]]]]
         .map(([g,L])=>`<button class="sqLaneBtn tbLgB${F_TB.has(g)?" on":""}" data-mk="tbF" data-v="${g}" title="${en2?"Show these (multi-select, click again to clear)":"只看這幾種（可複選，再點一次取消）"}">${L.map(([c,l,sh])=>`<b class="tbN ${c==="tbGone"?"tbExp tbGone":c}" data-s="${sh||l}">${l}</b>`).join(`<i class="tbLgSep">／</i>`)}</button>`).join("")}`
       +`</span>`)   // 「只看有異動」已刪（使用者 2026-11-20；休賽期幾乎每隊都有異動，沒作用）
