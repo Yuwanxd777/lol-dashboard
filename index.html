@@ -14617,7 +14617,8 @@ function render(){
         // 同一路官方已定（續約／新加入／升職）的有兩位以上 ⇒ 兩種評分都以分數最高的那位算（使用者 2026-11-20「如果一路宣布續約 加入 升職兩位以上 算評分時以最高的算」）
         (t.r[r]||[]).forEach(e=>scOf.set(e,sv(e)));   // 每個人的分數留著，小框的續約／續留那幾列要寫
         const conf=(t.r[r]||[]).filter(e=>!e.gone&&(e.new||e.rs||e.pm||(e.tip&&!e.r)));
-        { const es=(conf.length>=2?conf:(t.r[r]||[]).filter(e=>!e.gone)).map(e=>({n:pn(e.n),v:sv(e),it:itOf(e.n),e})).filter(x=>x.v>=0), vs=es.map(x=>x.v);
+        // 畫刪除線的人都不算（已宣布離隊，或合約到期又傳出去別隊——LØS 的 Zest；使用者 2026-11-20「為何 Zest 宣布離隊 小框依然有資料 但 CFO 的都沒有」）
+        { const es=(conf.length>=2?conf:(t.r[r]||[]).filter(e=>!e.gone&&!(expd(e)&&e.ro&&!e.r&&!e.pm&&!e.new&&!e.rs))).map(e=>({n:pn(e.n),v:sv(e),it:itOf(e.n),e})).filter(x=>x.v>=0), vs=es.map(x=>x.v);
           const lv=vs.length?(conf.length>=2?Math.max(...vs):vs.reduce((a,b)=>a+b,0)/vs.length):(md==null?0:md*BASEW_);
           plSum+=lv; plL.push({r,ps:es.sort((a,b)=>b.v-a.v),v:lv,best:conf.length>=2}); }
         if((t.r[r]||[]).length>1&&!t._srt?.[r]){ (t._srt||(t._srt={}))[r]=1;
