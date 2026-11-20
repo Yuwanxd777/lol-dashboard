@@ -1123,7 +1123,7 @@
   .rtChD{justify-self:end}
   .rtIc img{width:20px;height:20px;display:block;object-fit:contain}
   .rtP{display:flex;flex-direction:column;line-height:1.3;min-width:0}
-  .rtN{font-weight:700;white-space:nowrap;display:flex;align-items:center;gap:6px}
+  .rtN{font-weight:700;white-space:nowrap;display:flex;align-items:center;gap:6px}.rtN .tbN{font-weight:700}
   .rtV{font-size:14px;color:var(--tx2);font-variant-numeric:tabular-nums;white-space:nowrap}
   /* 同一路好幾位傳聞人選（使用者 2026-11-20「多人的時候評分小框顯示的好看一些」）：一人一列「名字｜分數」對齊成兩欄，黃色左框標示是傳聞，最下面一列平均 */
   .rtTop{align-self:start}.rtIc.rtTop,.rtAr.rtTop{height:calc(1.3em * 2);display:flex;align-items:center;justify-content:center}.rtAr.rtTop{font-size:13px;height:36px}.rtIc.rtTop{height:36px}
@@ -14573,7 +14573,7 @@ function render(){
         // 今年沒有比賽資料的人（復出的 Deft）：基準 50（次級上來 40）再加他的國際賽資歷分
         const itOf=n=>(D.intl||{})[String(pn(n)).toLowerCase()]||0;
         const md=mdOf(r), fill=x=>x.s?x:(md==null?x:{...x,s:{v:(md-(x.sub?10:0))*BASEW_+itOf(x.n),g:0,lg:""},md:1}), byG=(a,b)=>(b.s?b.s.g:-1)-(a.s?a.s.g:-1);
-        const cands=(t.r[r]||[]).filter(e=>e.new||e.tip).map(e=>{ const sub=isSub(e); return {n:pn(e.n),s:get(e.n,sub?40:50),rm:!!e.r,sub}; }).sort((a,b)=>a.rm-b.rm||byG(a,b));
+        const cands=(t.r[r]||[]).filter(e=>e.new||e.tip).map(e=>{ const sub=isSub(e); return {n:pn(e.n),s:get(e.n,sub?40:50),rm:!!e.r,sub,e}; }).sort((a,b)=>a.rm-b.rm||byG(a,b));
         let nw=cands[0];   // 官方優先；Sheep 消息（傳聞／官方未進 wiki）也算
         // 這一路沒有官方新人、傳聞人選有兩位以上 ⇒ 每一位的分數都列出來，這一路用平均（使用者 2026-11-20「如果該路的傳聞選手有兩位以上 就所有分數都要列出 但顯示的是該路要取平均」）
         const multi=cands.length>=2&&cands.every(x=>x.rm)?cands.map(x=>fill(x)).filter(x=>x.s):null;
@@ -14584,12 +14584,12 @@ function render(){
         //   優先挑傳出要走的（使用者 2026-11-20「DK 為何沒評分」）
         let odSrc=[...((t.prev||{})[r]||[]),...(t.r[r]||[]).filter(e=>e.gone)];
         if(!odSrc.length){ const ex=(t.r[r]||[]).filter(e=>!e.gone&&!e.new&&!e.tip&&!e.r), go=ex.filter(e=>e.ro); odSrc=go.length?go:ex; }
-        const od=odSrc.map(p=>{ const n=typeof p==="string"?p:p.n; return {n:pn(n),s:get(n)}; }).sort(byG)[0];
+        const od=odSrc.map(p=>{ const n=typeof p==="string"?p:p.n; return {n:pn(n),s:get(n),e:(typeof p!=="string"&&"p" in p)?p:{prevE:typeof p==="string"?{}:p}}; }).sort(byG)[0];   // e＝格子裡的人（照陣容表的顏色）；prevE＝上一位（已離隊）
         if(nw&&od&&(nw.s||od.s)){ const A=fill(nw), B=fill(od);
           const tg=x=>[x.s.yr?(en2?"full year":"全年"):"",x.s.w&&Math.abs(x.s.w-1)>0.005?lgN(x.s.lg):""].filter(Boolean).join(" ");   // 只寫「全年 LEC」，不寫權重數字（使用者 2026-11-20）
           // 多位傳聞人選：不取平均，用「最低～最高」表示（使用者 2026-11-20「評分顯示不要用平均好了 就用 ～ 代表最低最高分」）；d＝中間值，只拿來排序與決定顏色
           const mv=multi&&multi.length>=2?multi.map(x=>x.s.v):null, mlo=mv?Math.min(...mv):null, mhi=mv?Math.max(...mv):null, av=mv?(mlo+mhi)/2:null;
-          if(A.s&&B.s)items.push({r,nw:A.n,od:B.n,a:av??A.s.v,b:B.s.v,d:(av??A.s.v)-B.s.v,dlo:(mlo??A.s.v)-B.s.v,dhi:(mhi??A.s.v)-B.s.v,nws:av!=null?multi.map(x=>({n:x.n,v:x.s.v})).sort((p,q)=>q.v-p.v):null,rm:A.rm,ma:A.md&&(A.vac?2:1),mb:B.md,ta:A.md?"":tg(A),tb:B.md?"":tg(B)}); } }
+          if(A.s&&B.s)items.push({r,nw:A.n,od:B.n,a:av??A.s.v,b:B.s.v,d:(av??A.s.v)-B.s.v,dlo:(mlo??A.s.v)-B.s.v,dhi:(mhi??A.s.v)-B.s.v,nws:av!=null?multi.map(x=>({n:x.n,v:x.s.v,e:x.e})).sort((p,q)=>q.v-p.v):null,ne:A.e,oe:B.e,rm:A.rm,ma:A.md&&(A.vac?2:1),mb:B.md,ta:A.md?"":tg(A),tb:B.md?"":tg(B)}); } }
       const hc=(t.r.COACH||[]).find(e=>e.sr==="HC"&&(e.new||e.tip)&&e.from), A=hc&&coachS(hc.from), B=coachS(t.nm)||coachS(t.tm);
       if(hc&&A&&B)items.push({r:"COACH",nw:`${pn(hc.n)}（${abOf(hc.from)}・${A.note}）`,od:`${abOf(t.nm)}（${B.note}）`,a:A.v,b:B.v,d:A.v-B.v,rm:!!hc.r});
       items.forEach(x=>{ if(x.dlo==null){ x.dlo=x.d; x.dhi=x.d; } });   // 主教練那一筆沒有範圍
@@ -14604,12 +14604,15 @@ function render(){
         +(has?`<b class="rtSum ${rt.rng?"rtSumR ":""}${rcls(rt.lo,rt.hi)}">${rt.rm?"（":""}${rtx(rt.lo,rt.hi)}${rt.rm?`<i class="rtPc">）</i>`:""}</b>`:"")+`</div>`;
       if(!RATE)h+=`<div class="rtEmpty">${en2?`Switch the year to ${SEASON} to compute`:`年份切到 ${SEASON} 才會計算`}</div>`;
       else if(!has)h+=`<div class="rtEmpty">${en2?"No lineup change to compare yet":"這隊還沒有可比較的異動"}</div>`;
-      else{ const pc=(n,v,md,rm,tg)=>`<span class="rtP"><span class="rtN">${esc(n)}${rm?`<span class="tbRum">${en2?"Rumor":"傳聞"}</span>`:""}</span>`
+      else{ // 不貼「傳聞」標籤，原選手與新選手都照陣容表同一套顏色標示狀態（使用者 2026-11-20「小框不用加上傳聞標籤 就原選手跟新選手的狀態 用顏色標示即可」）：
+        //   黃＝傳聞、紅＝新加入、綠＝可能轉會、藍＝合約到期、藍字刪除線＝已離隊；上一位（已經不在格子裡的）＝已離隊
+        const stC=o=>!o?"":o.prevE?((o.prevE.still&&!o.prevE.ret)?"tbExp":"tbExp tbGone"):tbCls(o);
+        const pc=(n,v,o)=>`<span class="rtP"><span class="rtN"><b class="tbN ${stC(o)}">${esc(n)}</b></span>`
           +`<span class="rtV">${v.toFixed(1)}</span></span>`;   // 分數下面不寫「全年／中位數」註記（使用者 2026-11-20），算法在 ℹ️ 說明
         h+=`<div class="rtGrid"><span></span><span class="rtCh">${en2?"Out":"離隊"}</span><span></span><span class="rtCh">${en2?"In":"加入"}</span><span class="rtCh rtChD">${en2?"Diff":"增減"}</span>`;
         rt.items.forEach(x=>{ const ic=x.r==="COACH"?`<img src="img/COACH.png" alt="">`:(POS_IMG[x.r]?`<img src="${POS_IMG[x.r]}" alt="">`:"");
           const tp=x.nws?" rtTop":"";   // 多人：路線圖、原本那位、箭頭都對齊第一位（分數最高的），其他人往下列（使用者 2026-11-20「小框的箭頭都指向第一位分數最高的 接著往下列」）
-          h+=`<span class="rtIc${tp}" title="${BLN[x.r]}">${ic}</span>${x.nws?pc(x.od,x.b,x.mb?1:0,false,x.tb).replace('class="rtP"','class="rtP rtTop"'):pc(x.od,x.b,x.mb?1:0,false,x.tb)}<span class="rtAr${tp}">➜</span>${x.nws?`<span class="rtMulti">${x.nws.map(c=>pc(c.n,c.v,0,true,"")+`<b class="rtD ${cls(c.v-x.b)}">${sg(c.v-x.b)}</b>`).join("")}</span>`:pc(x.nw,x.a,x.ma,x.rm,x.ta)+`<b class="rtD ${cls(x.d)}">${sg(x.d)}</b>`}`; });   // 多位傳聞人選：每一位各自一個增減（使用者 2026-11-20「小框 多人的增減分分開列」），總分仍是最低 ～ 最高
+          h+=`<span class="rtIc${tp}" title="${BLN[x.r]}">${ic}</span>${x.nws?pc(x.od,x.b,x.oe).replace('class="rtP"','class="rtP rtTop"'):pc(x.od,x.b,x.oe)}<span class="rtAr${tp}">➜</span>${x.nws?`<span class="rtMulti">${x.nws.map(c=>pc(c.n,c.v,c.e)+`<b class="rtD ${cls(c.v-x.b)}">${sg(c.v-x.b)}</b>`).join("")}</span>`:pc(x.nw,x.a,x.ne)+`<b class="rtD ${cls(x.d)}">${sg(x.d)}</b>`}`; });   // 多位傳聞人選：每一位各自一個增減（使用者 2026-11-20「小框 多人的增減分分開列」），總分仍是最低 ～ 最高
         h+=`</div>`; }   // 計算說明不放小框，寫在 ℹ️ 說明（使用者 2026-11-20）
       TIPS.push(h+`</div>`); return TIPS.length-1; };
     const rateCell=t=>{ const rt=rateOf(t), v=rt&&rt.items.length?rt.sum:null;
