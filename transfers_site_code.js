@@ -613,9 +613,10 @@ function render(){
                   im.style.cssText+=`;display:block;flex:0 0 auto;margin:0;width:${w}px;height:${hh}px;vertical-align:top`; sp.firstChild.insertBefore(im,sp.firstChild.firstChild); });
                 // 評分欄跟其他欄同寬、置中（使用者 2026-11-20「截圖的評分欄感覺間隔特大」：原本靠右、欄寬又不一樣，跟主教練之間空一大塊）
                 bd.style.gridTemplateColumns="max-content repeat(7,minmax(0,1fr))";
-                h.querySelectorAll(".tbRate,.tbRateH").forEach(x=>{ x.style.textAlign="center"; x.style.justifySelf="center"; x.style.padding="6px 6px"; x.style.minWidth="0"; });
+                h.querySelectorAll(".tbRate,.tbRateH").forEach(x=>{ x.style.textAlign="center"; x.style.justifySelf="stretch"; x.style.display="block"; x.style.padding="6px 6px"; x.style.minWidth="0"; });
+                h.querySelectorAll(".rtPc").forEach(x=>{ x.style.marginRight="0"; });   // 網頁上為了貼齊右邊把「）」往右收半個字；截圖是置中，要還原，不然整串偏右（使用者 2026-11-20「轉會評分那欄 底下資料沒置中」）
                 // 評分：多位傳聞人選的範圍在截圖裡改寫成平均（使用者 2026-11-20「截圖評分用平均」；網頁仍是 最低 ～ 最高）
-                h.querySelectorAll(".tbRate[data-avg]").forEach(c=>{ const [tx,cl]=c.dataset.avg.split("|"), b=c.querySelector("b"); if(b){ b.className=cl; b.innerHTML="（"+tx+'<i class="rtPc">）</i>'; } }); }
+                h.querySelectorAll(".tbRate[data-avg]").forEach(c=>{ const [tx,cl]=c.dataset.avg.split("|"), b=c.querySelector("b"); if(b){ b.className=cl; b.innerHTML="（"+tx+'<i class="rtPc" style="margin-right:0">）</i>'; } }); }
               h.querySelectorAll(".tbHd").forEach(x=>{ x.style.position="static"; x.style.background="none"; }); h.querySelectorAll(".tbDim").forEach(x=>x.classList.remove("tbDim"));
               let bw=1200, bk=0;
               for(let w=900;w<=2000;w+=50){ h.style.width=w+"px"; const k=Math.min(SZ/h.offsetWidth,(SZ-topH)/h.offsetHeight); if(k>bk+1e-4){ bk=k; bw=w; } }
