@@ -447,10 +447,12 @@ function render(){
       // 續約鼓勵分（使用者 2026-11-20「選手續約給個五分鼓勵 如果兩人續約給兩個6分 以此類推到五人 最後五人續約時 主教練也沒變化 那就是總共+50」）：
       //   N 路有人續約 ⇒ 每人 1.5＋N×0.5 分（1 人 2、2 人各 2.5、…、5 人各 4＝20）；五路都續約且主教練沒換再 ＋5 ⇒ 合計 25
       //   （原本是每人 4＋N、合計 50：BRO 原班續約 ＋50 比 DK 換上 Doran＋Kanavi 還多 ⇒ 使用者 2026-11-20 同意調小）
-      { const rsL=["TOP","JNG","MID","BOT","SUP"].filter(r=>(t.r[r]||[]).some(e=>e.rs&&!e.gone)), nR=rsL.length;
-        if(nR){ const per=1.5+nR*0.5, hcE=(t.r.COACH||[]).filter(e=>e.sr==="HC"&&!e.gone);
+      //   2026-11-20 再改「主教練續約也算進去獎勵 獎勵的算法變成六人」：主教練跟選手一樣，有續約就算一人 ⇒ 最多六人、每人 1.5＋N×0.5（六人各 4.5＝27）；
+      //   原本「五路都續約且主教練沒換再 ＋5」那條拿掉（主教練只是沒換、沒有續約消息的不算）
+      { const rsL=["TOP","JNG","MID","BOT","SUP"].filter(r=>(t.r[r]||[]).some(e=>e.rs&&!e.gone)), hcR=(t.r.COACH||[]).find(e=>e.sr==="HC"&&e.rs&&!e.gone&&!e.pm), nR=rsL.length+(hcR?1:0);
+        if(nR){ const per=1.5+nR*0.5;
           rsL.forEach(r=>{ const e=t.r[r].find(e=>e.rs&&!e.gone); items.push({r,rs:1,nw:pn(e.n),ne:e,d:per}); });
-          if(nR===5&&hcE.length&&hcE.every(e=>!e.new&&!e.tip&&!e.r&&!e.pm))items.push({r:"COACH",rs:2,nw:pn(hcE[0].n),ne:hcE[0],d:5}); } }
+          if(hcR)items.push({r:"COACH",rs:1,nw:pn(hcR.n),ne:hcR,d:per}); } }
       items.forEach(x=>{ if(x.dlo==null){ x.dlo=x.d; x.dhi=x.d; } });   // 主教練那一筆沒有範圍
       return {pl:plSum,items,sum:items.reduce((s,x)=>s+x.d,0),lo:items.reduce((s,x)=>s+x.dlo,0),hi:items.reduce((s,x)=>s+x.dhi,0),rng:items.some(x=>x.dhi-x.dlo>0.05),rm:items.some(x=>x.rm),vac:items.filter(x=>x.ma===2).length}; };
     // 評分小框（使用者 2026-11-19「評分的小框重新設計」）：標題列＝隊徽＋隊名＋總分；每條路一列＝路線圖示｜離隊（名字／分數）→ 加入｜增減色塊
