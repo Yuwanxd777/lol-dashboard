@@ -1552,10 +1552,14 @@
        同一路在每張卡的同一個位置，一眼掃得到；隊名＋評分在卡片標題列 */
     .tbBoard{display:block;padding:2px 4px 10px}
     .tbHd{display:none}
-    .tbLg{position:sticky;top:0;z-index:3;margin:12px 0 6px;padding:6px 12px 6px 15.5px;background:linear-gradient(90deg,color-mix(in srgb,var(--lgc) 30%,#141926),#141926 75%)}.tbLg b{font-size:18px}
+    .tbLg{position:sticky;top:0;z-index:3;margin:12px 0 6px;padding:6px 12px 6px 6px;   /* 左內距 6＋色條 5＝11px：聯賽徽章的左緣對齊底下各隊隊徽的左緣（卡片邊框 1＋內距 10） */background:linear-gradient(90deg,color-mix(in srgb,var(--lgc) 30%,#141926),#141926 75%)}.tbLg b{font-size:18px}
     .tbRow{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:stretch;gap:0;margin:6px 0;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:rgba(255,255,255,.02)}
     /* 手機：隊徽圖案貼齊卡片左邊（使用者 2026-11-20「隊徽不夠置左」）——不留固定寬位子，扣掉圖檔本身的透明邊 */
     /* 手機卡片也一樣：隊徽在固定寬的位子裡置中、隊名接在後面（2026-11-21；原本這裡把隊徽改成靠左貼齊，隊名的左緣就會隨隊徽寬窄不同） */
+    /* 2026-11-21 再改回靠左（使用者「手機版戰隊 隊徽左邊的留空跟右邊評分的留空不一致」）：置中時隊徽左邊的留空隨圖案寬窄是 12～24px，右邊評分固定 11px，
+       怎麼調都不可能每一隊都一樣 ⇒ 手機卡片的隊徽圖案貼齊左內距（扣掉圖檔的透明邊 --lgpad），左邊的留空＝右邊評分的留空；隊名固定接在圖案後面 8px。
+       電腦版的表格仍是置中（那邊是一整欄，要對同一條中線） */
+    .tbRow .tbTeam img{margin-left:calc(0.67px - var(--lgpad,0px))!important;margin-right:calc(0px - var(--lgpad,0px))!important}   /* ＋1px：隊徽外圍有一圈白色描邊（濾鏡），看得見的邊比圖案早約 1px；從截圖量像素，補這 1px 之後左右留空的中位數才一樣（11.3px） */
     .tbRow .tbTeam>span:not(.tbOk){margin-left:8px}   /* 手機卡片的 .tbTeam 沒有 gap，隊名跟隊徽之間自己留 8px */
     .tbTeam .tbOk{margin-left:.35em}   /* 勾跟縮寫之間留一個半形空格（使用者 2026-11-20） */
     .tbTeam{grid-column:1;border-left:0;padding:7px 10px;gap:0;font-size:16px;background:color-mix(in srgb,var(--lgc) 14%,transparent)}
@@ -1568,9 +1572,9 @@
     .tbCell[data-r="MID"]::before{background-image:url(img/MID.png)}.tbCell[data-r="BOT"]::before{background-image:url(img/BOT.png)}
     .tbCell[data-r="SUP"]::before{background-image:url(img/SUP.png)}.tbCell[data-r="HC"]::before,.tbCell[data-r="STF"]::before{background-image:url(img/COACH.png)}
     .tbFA .tbCell.tbEmpty{display:none}   /* 自由人卡：沒有人的那一列不顯示（中國自由人沒有教練） */
-    .tbTeam img.tbFaIc{margin:0 9.5px!important}   /* 自由人的聯賽圖有淺色底，不能像隊徽那樣扣掉透明邊（會貼到字：歐洲／北美／亞太只剩 2～4px；使用者 2026-11-20「自由人的文字跟圖片也要有半形空格」） */.tbFA .tbCell[data-r="STF"]{display:none}
+    .tbRow .tbTeam img.tbFaIc{margin:0!important}   /* 手機：FA 徽章也貼齊左內距（淺色底的方塊本身就是看得見的邊，不用扣透明邊；跟隊名的 8px 由隊名那邊留） */   /* 自由人的聯賽圖有淺色底，不能像隊徽那樣扣掉透明邊（會貼到字：歐洲／北美／亞太只剩 2～4px；使用者 2026-11-20「自由人的文字跟圖片也要有半形空格」） */.tbFA .tbCell[data-r="STF"]{display:none}
     .tbFA .tbCell:not(.tbRate){grid-column:1/-1;border-left:0}   /* 自由人卡：五路＋主教練，一路一列（使用者 2026-11-20） */
-    .tbRtSz{display:none}.tbCell.tbRate::before{content:none}.tbCell.tbRate .rtPc{margin-right:-.5em}   /* 手機卡片的評分在標題列右端，仍靠右、「）」照舊往右收 */.tbCell.tbRate .tbCv{white-space:nowrap;font-size:min(15px,3.55cqw)}   /* 單一分數與範圍同一個字級（使用者 2026-11-20「轉會評分的分數字體大小要一致」） */   /* 範圍評分（-158.7 ～ -105.3）在窄手機不換行、不壓隊名 */
+    .tbRtSz{display:none}.tbCell.tbRate::before{content:none}.tbCell.tbRate .rtPc{margin-right:calc(0px - var(--rb,.5em))}.tbCell.tbRate .tbCv{position:relative;left:var(--rb,0px)}   /* --rb＝最後一個字右側的字內留白（rbFit 量的）：收掉之後，數字、中文字、「）」結尾的右邊留空才會一樣。用 left 位移而不是 margin——.tbCv 的 margin 已經被「觸發範圍外擴」那條規則用掉（padding 10／margin −10），再蓋 margin 會整串往左跑 10px */   /* 手機卡片的評分在標題列右端，仍靠右、「）」照舊往右收 */.tbCell.tbRate .tbCv{white-space:nowrap;font-size:min(15px,3.55cqw)}   /* 單一分數與範圍同一個字級（使用者 2026-11-20「轉會評分的分數字體大小要一致」） */   /* 範圍評分（-158.7 ～ -105.3）在窄手機不換行、不壓隊名 */
     .tbCell .tbCv{min-width:0;overflow-wrap:anywhere}.tbCell .tbN{white-space:nowrap}
     .tbCell:not(.tbRate):hover{background:none}.tbCell:not(.tbRate):active{background:rgba(122,184,255,.12)}
     .tbCell.tbRate:hover,.tbCell.tbRate:active{background:color-mix(in srgb,var(--lgc) 14%,transparent);border-radius:0}   /* 點評分時標題列底色不可消失（使用者 2026-11-20） */
@@ -14934,6 +14938,15 @@ function render(){
             img.style.margin=`${(S-E)/2}px ${-pd-a}px ${(S-E)/2}px ${-pd-b}px`; }catch(_){} } }); };   // --lgpad＝圖檔左右的透明邊（手機版靠左對齊時扣掉）
     const lgFitAll=root=>root.querySelectorAll(".tbTeam img,.trTeam img,.tpTm img,.rtHd img").forEach(lgFit);
     lgFitAll(main);
+    // 手機卡片標題列：評分右邊的留空要跟隊徽左邊的留空一樣（使用者 2026-11-21）。評分靠右對齊時，最後一個字自己右側還有一截字內留白——
+    //   數字約 0.3px、中文字（第三賽段成績的「名」）約 1.3px、全形「）」約半個字——三種模式看起來就不一樣寬。
+    //   ⇒ 量出最後一個字的右側留白寫進 --rb，手機版 CSS 用負 margin 收掉（電腦版評分欄是置中的，不用）；字型載完再量一次
+    const rbFit=()=>{ try{ const cv=rbFit._c||(rbFit._c=document.createElement("canvas").getContext("2d"));
+        main.querySelectorAll(".tbRow .tbRate .tbCv").forEach(v=>{ const w=document.createTreeWalker(v,NodeFilter.SHOW_TEXT); let n, last=null; while((n=w.nextNode())){ if(n.textContent.trim())last=n; }
+          if(!last)return; const el=last.parentElement, g=getComputedStyle(el), ch=[...last.textContent.trim()].pop(); cv.font=`${g.fontWeight} ${g.fontSize} ${g.fontFamily}`;
+          const m=cv.measureText(ch), rb=Math.max(0,Math.min(parseFloat(g.fontSize)*0.7,m.width-m.actualBoundingBoxRight)), pc=el.closest(".rtPc");
+          (pc||v).style.setProperty("--rb",rb.toFixed(2)+"px"); if(pc)v.style.setProperty("--rb","0px"); }); }catch(_){} };
+    if(MODE!=="news"){ rbFit(); if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>{ if(main.isConnected)rbFit(); }); }
     if(MODE!=="news"){ // 格子提示（自建浮層：多行＋排版，原生 title 做不到）
       let tip=document.getElementById("tbTip"); if(!tip){ tip=document.createElement("div"); tip.id="tbTip"; document.body.appendChild(tip);
         addEventListener("scroll",()=>{ if(!tip.classList.contains("sheet"))tip.style.display="none"; },{passive:true});
