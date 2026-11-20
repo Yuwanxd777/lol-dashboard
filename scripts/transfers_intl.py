@@ -3,10 +3,12 @@
 我要反應 Deft 這種優異選手復出的評分過低問題」）。
 
 資料＝Leaguepedia：世界賽正賽（不含入圍賽、資格賽）、MSI、First Stand 的名次（TournamentResults）× 參賽名單（TournamentPlayers）。
-給分是使用者逐條定的（2026-11-20），每一屆各算一次、生涯直接加總，**不封頂**（「分數破百沒差」），前端直接加在選手分數上：
-    世界賽：冠軍 5、亞軍 4、四強 3、八強 2、參加 1
-    MSI　：冠軍 4、亞軍 3、四強 2、參加 1
-    FST　：冠軍 3、亞軍 2、參加 1
+2026-11-20 改版（使用者「如果三大國際賽只算一次最高成績呢 然後改成加 5 10 20」）：三大賽各只算生涯**最好的一次**成績，
+三者相加（最多 20＋10＋5＝35），前端直接加在選手分數上。名次的級距照原本的比例換算：
+    世界賽（滿分 20）：冠軍 20、亞軍 16、四強 12、八強 8、參加 4
+    MSI　（滿分 10）：冠軍 10、亞軍 7.5、四強 5、參加 2.5
+    FST　（滿分 5）：冠軍 5、亞軍 3.5、參加 2
+原本是每一屆各算一次、生涯加總不封頂（世界賽 5／4／3／2／1、MSI 4／3／2／1、FST 3／2／1）⇒ Faker ＋71，比他的去年評分還高。
 
   scores(cargo) → {選手 wiki 頁名（小寫）: 分數}。結果快取在 csv_cache/transfers_intl.json，7 天內不重抓。
 """
@@ -17,21 +19,22 @@ import time
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CACHE = os.path.join(ROOT, "csv_cache", "transfers_intl.json")
-PTS = {"World Championship": [(1, 5), (2, 4), (4, 3), (8, 2)], "Mid-Season Invitational": [(1, 4), (2, 3), (4, 2)], "First Stand": [(1, 3), (2, 2)]}   # (名次上限, 分數)；沒列到＝參加 1 分
+PTS = {"World Championship": [(1, 20), (2, 16), (4, 12), (8, 8)], "Mid-Season Invitational": [(1, 10), (2, 7.5), (4, 5)], "First Stand": [(1, 5), (2, 3.5)]}
+PART = {"World Championship": 4, "Mid-Season Invitational": 2.5, "First Stand": 2}   # 只有參加（名次沒進上面的級距）   # (名次上限, 分數)；沒列到＝參加 1 分
 W = PTS
 TTL = 7 * 86400
-VER = 2   # 給分規則改了就加一，舊快取作廢
+VER = 3   # 給分規則改了就加一，舊快取作廢
 
 
 def _pts(place, lg):
     try:
         p = int(float(place))
     except (TypeError, ValueError):
-        return 1
+        return PART[lg]
     for lim, v in PTS[lg]:
         if p <= lim:
             return v
-    return 1
+    return PART[lg]
 
 
 def _in(xs):
@@ -70,7 +73,7 @@ def scores(cargo, force=False):
     # 同一屆拆成好幾頁的（小組賽頁＋淘汰賽頁）：同一年同一賽事只取最好的那個名次
     best = {}
     for (pg, tm), ps in roster.items():
-        ev = (lg_of[pg], pg.split("/")[0][:4])
+        ev = lg_of[pg]   # 每一種賽事只留生涯最好的一次（不分哪一年）
         for p in ps:
             k = (p.lower(), ev)
             best[k] = max(best.get(k, 0), _pts(place.get((pg.split("/Main Event")[0], tm)), lg_of[pg]))
