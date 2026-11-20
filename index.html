@@ -14569,7 +14569,7 @@ function render(){
     const srtArr=SRT==="d"?" ▼":SRT==="a"?" ▲":"";
     const wkPg=p=>{ let s=String(p||""); try{ s=decodeURIComponent(s); }catch(_){} return s.replace(/ /g,"_"); };   // wiki 頁名：已編碼的先解開（Noah 連錯頁，使用者 2026-11-20）
     const nameH=e=>{ const n=esc(pn(e.n)), inner=bq&&hitE(e)?`<mark>${n}</mark>`:n;
-      return `<span class="tbN ${tbCls(e)}${F_TB.size&&!tbMf(e)?" tbDim":""}">${e.p?`<a href="https://lol.fandom.com/wiki/${encodeURIComponent(wkPg(e.p))}" target="_blank" rel="noopener">${inner}</a>`:inner}</span>`; };   // 格子不標教練職稱，只在小框顯示（使用者 2026-11-20）
+      return `<span class="tbN ${tbCls(e)}${F_TB.size&&!tbMf(e)?" tbDim":""}"><a href="https://lol.fandom.com/wiki/${encodeURIComponent(wkPg(e.p||((D.roles||{})[e.n]||[])[1]||e.n))}" target="_blank" rel="noopener">${inner}</a></span>`; };   // 沒頁名的傳聞人選（BrokenBlade、Zven…）退回 roles 查到的頁、再退回 ID 本身（使用者 2026-11-20 全面檢視）   // 格子不標教練職稱，只在小框顯示（使用者 2026-11-20）
     // 陣容到位打勾（使用者 2026-11-20「五路選手以及主教練都有新加入或續約了，一路有兩人有一個也可以，就在隊伍縮寫後面打個勾」）：
     //   每一格至少一人是官方新加入／官方續約；合約本來就還在（沒到期、沒傳出要走）的人也算確定
     const setE=e=>!e.r&&!e.gone&&!!(e.new||e.tip||e.rs||e.pm||(e.c&&e.c>=today&&!e.ro));

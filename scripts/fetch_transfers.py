@@ -31,16 +31,16 @@ STAFF = {"Head Coach": "主教練", "Assistant Coach": "教練", "Coach": "教�
          "Psychologist": "心理師", "Content Creator": "內容創作者", "Streamer": "實況主", "Translator": "翻譯",
          "Sporting Director": "運動總監", "Team Coordinator": "隊務", "Director": "總監", "President": "總裁",
          "Trainee": "練習生", "Two-Way": "雙向合約"}
-STAFF.update({"Interim Head Coach": "代理主教練", "JV Manager": "二軍經理", "Academy Program Manager": "青訓計畫經理",
+STAFF.update({"Interim Head Coach": "代理主教練", "JV Manager": "二隊經理", "Academy Program Manager": "青訓計畫經理",
               "Assistant Manager": "助理經理", "Player Performance Coach": "選手表現教練", "Head of LoL": "LoL 部門主管",
               "Director of Esports": "電競總監", "Sub": "替補", "Academy Coach": "青訓教練", "Top": "上路", "Jungle": "打野",
               "Mid": "中路", "Bot": "下路", "Support": "輔助", "Owner/Chief Executive Officer": "老闆／執行長"})
 _DT = r"(\d{1,2}) (January|February|March|April|May|June|July|August|September|October|November|December) (\d{4})"
 _MON = {m: i + 1 for i, m in enumerate("January February March April May June July August September October November December".split())}
 VERB = [   # 一句＝「名單 + 動詞片語.」；只有整句對得上才翻，對不上就保留英文原句（不硬翻）
-    (r"joins? as (?:a )?substitutes?", "以替補身分加入"), (r"joins? from (?:the )?academy roster", "從二軍上調"),
+    (r"joins? as (?:a )?substitutes?", "以替補身分加入"), (r"joins? from (?:the )?academy roster", "從二隊上調"),
     (r"joins? from sister team (.+)", r"從姊妹隊 \1 加入"), (r"joins? on loan", "租借加入"), (r"joins?", "加入"),
-    (r"leaves? for sister team (.+)", r"轉往姊妹隊 \1"), (r"leaves? for (?:the )?main roster", "上調一軍"), (r"leaves? for (?:the )?academy roster", "下放二軍"), (r"leaves?", "離隊"),
+    (r"leaves? for sister team (.+)", r"轉往姊妹隊 \1"), (r"leaves? for (?:the )?main roster", "上調一隊"), (r"leaves? for (?:the )?academy roster", "下放二隊"), (r"leaves?", "離隊"),
     (r"will remain with the team for (\d{4})", r"\1 年留隊"), (r"will remain with the team", "留隊"),
     (r"changes? positions?", "轉換職位"), (r"moves? to (?:the )?starting roster", "升上先發"),
     (r"moves? to (?:the )?substitutes?", "轉為替補"), (r"retires?", "退役"),
@@ -552,17 +552,19 @@ def main():
     for t in old.get("board") or []:
         for L_ in list(t.get("r", {}).values()) + list(t.get("prev", {}).values()):
             for e_ in L_:
-                if isinstance(e_, dict) and e_.get("p") and e_.get("n"):
+                if isinstance(e_, dict) and e_.get("p") and e_.get("n") and "§" not in e_["p"] and "‹" not in e_["p"]:
                     pgmap.setdefault(str(e_["n"]).lower(), e_["p"])
+    # PTT 句子裡我手寫的 ‹頁|名›（同名選手指定頁，如 Cloud (Moon Hyeon-ho)）優先於其他來源
+    for x in ptt_raw:
+        for pg_, nm_ in re.findall(r"‹([^|›]+)\|([^›]+)›", x.get("zh") or ""):
+            pgmap[nm_.lower()] = urllib.parse.unquote(pg_).replace("_", " ")
     synth = []
     for x in ptt_raw:
         for nm_, lane_, to_, fr_ in x.get("mv") or []:
             pg_ = pgmap.get(nm_.lower(), nm_)
-            zh_ = x.get("zh") or ""   # 提示文字＝重寫過的那句；把名字換成帶路線與連結的記號（parse_sheep 靠它認人）
-            mk_ = f"§{lane_}§‹{pg_}|{nm_}›"
-            zh_ = re.sub(r"(?<![A-Za-z0-9])" + re.escape(nm_) + r"(?![A-Za-z0-9])", lambda m_: mk_, zh_, count=1) if re.search(r"(?<![A-Za-z0-9])" + re.escape(nm_) + r"(?![A-Za-z0-9])", zh_) else f"{mk_} 加入 {to_}。"
+            zh_ = x.get("zh") or f"{nm_} 加入 {to_}。"   # 提示文字＝重寫過的那句；認人改用 who（不再往句子裡塞記號：句子裡本來就有記號時會越包越多層，Cloud 的頁名壞過）
             synth.append({"d": x["d"], "st": x.get("st") or "rumor", "kind": "join", "src": "韓網" if x.get("src") == "韓網" else "PTT",
-                          "zh": zh_,
+                          "zh": zh_, "who": [nm_, pg_, lane_],
                           "tags": ([["", fr_, "out"]] if fr_ else []) + [["", to_, "in"]]})
         if x.get("stay"):
             synth.append({"d": x["d"], "st": x.get("st") or "rumor", "kind": "other", "zh": "", "stay": [s_[0] for s_ in x["stay"]]})
@@ -594,6 +596,9 @@ def main():
     except Exception as e:
         roles = old.get("roles") or {}
         print(f"消息人名位置查詢失敗，沿用舊檔 {len(roles)} 人：{type(e).__name__} {str(e)[:100]}")
+    _joined = {(p_, x_["d"]) for x_ in wiki if x_.get("kind") == "join" for p_, _ in PL_RE.findall(x_.get("en") or "")}
+    _dup = lambda x_: x_.get("kind") == "leave" and bool(PL_RE.findall(x_.get("en") or "")) and all((p_, x_["d"]) in _joined for p_, _ in PL_RE.findall(x_.get("en") or ""))
+    wiki = [x_ for x_ in wiki if not _dup(x_)]   # RED「Morttheus 離隊」＋VKS「Morttheus 加入」同一天 ⇒ 只留加入那列（原隊欄本來就會標 RED）
     data = {"at": datetime.datetime.now().strftime("%Y-%m-%d %H:%M"), "from": start, "t1": t1, "wiki": wiki, "sheep": sheep, "extra": extra, "roles": roles, "board": board}
     io.open(OUT, "w", encoding="utf-8").write("window.TRANSFERS=" + json.dumps(data, ensure_ascii=False, separators=(",", ":")) + ";\n")
     print(f"transfers.js：wiki {len(wiki)}、sheep {len(sheep)}、PTT／韓網／官方 {len(extra)}")

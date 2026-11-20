@@ -665,6 +665,13 @@ def parse_sheep(sheep):
             continue
         if x.get("kind") not in ("join", "both") or len(inn) != 1:
             continue
+        # who＝[名字, 頁名, 路線]：PTT 人工判讀的 mv 直接指名（一句話裡有好幾個人時，不能靠「第一個帶路線記號的名字」認人——
+        #   使用者 2026-11-20「DK 將從二隊拉上 Jaehyuk 怎麼沒注記到轉會表上」：句子前面先出現帶記號的 Cloud，Jaehyuk 被認成 Cloud）
+        if x.get("who"):
+            n, pg, lane_ = x["who"]
+            put(n.lower(), {"tm": inn[0][1], "rr": lane_, "n": n, "p": pg, "d": x["d"], "tip": tip, "st": st, "src": x.get("src") or "",
+                            "from": out[0] if out else ""})
+            continue
         m = re.search(r"§(TOP|JNG|MID|BOT|SUP)§" + _NM, zh)
         if not m:
             continue
