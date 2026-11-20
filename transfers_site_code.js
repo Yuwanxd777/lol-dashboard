@@ -452,7 +452,7 @@ function render(){
       //   原本「五路都續約且主教練沒換再 ＋5」那條拿掉（主教練只是沒換、沒有續約消息的不算）
       //   2026-11-20 三改「續留也要加分」：續留（白字：合約還在、沒有任何動向）跟續約一樣算一人。keep＝續約，或合約還在且沒有傳出要走；新加入／傳聞／升任／已離隊的不算
       { const keep=e=>!e.gone&&!e.r&&!e.new&&!e.tip&&!e.pm&&(e.rs||(!expd(e)&&!e.ro));
-        const rsL=["TOP","JNG","MID","BOT","SUP"].filter(r=>(t.r[r]||[]).some(keep)), hcR=(t.r.COACH||[]).find(e=>e.sr==="HC"&&keep(e)), nR=rsL.length+(hcR?1:0);
+        const rsL=["TOP","JNG","MID","BOT","SUP"].filter(r=>(t.r[r]||[]).some(keep)), hcR=null   /* 2026-11-20 五改「主教練不給獎勵分好了」：只算五路選手 */, nR=rsL.length;
         // 2026-11-20 四改「續留給1分 續約給兩分 不漸進好了」：固定分數，不再隨人數加碼（六人全續約最多 12）
         if(nR){ rsL.forEach(r=>{ const e=t.r[r].find(x=>keep(x)&&x.rs)||t.r[r].find(keep); items.push({r,rs:e.rs?1:3,nw:pn(e.n),ne:e,v:scOf.get(e),d:e.rs?2:1}); });
           if(hcR){ const cs=coachS(t.nm)||coachS(t.tm); items.push({r:"COACH",rs:hcR.rs?1:3,nw:pn(hcR.n),ne:hcR,v:cs?cs.v:null,d:hcR.rs?2:1}); }
