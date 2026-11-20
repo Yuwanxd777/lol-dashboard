@@ -414,8 +414,17 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
             # ⇒ 同格原有的人移到「上一位」（傳聞不算新人；教練欄不套）
             moved = []
             if rr != "COACH" and any(("new" in e or ("tip" in e and "r" not in e)) for e in cell):
-                moved = [e["p"] or e["n"] for e in cell if "new" not in e and "tip" not in e]
-                cell = [e for e in cell if "new" in e or "tip" in e]
+                # 使用者 2026-11-20「如果有新加入 那麼同路線的傳聞都清掉」「只留下二隊三隊的晉升傳聞以及本來就在陣容的人」：
+                #   官方新人已經定了 ⇒ 這一路其他「外面的人要來」的傳聞不再列（DK 上路 Doran 官宣後，其餘人選拿掉）；
+                #   留下：同組織二隊／青訓要升上來的傳聞（Jaehyuk）、本來就在陣容且合約還在的人（合約到期／查不到合約的照舊移到上一位）
+                def _keep(e):
+                    if "new" in e or ("tip" in e and "r" not in e) or "rs" in e or "pm" in e:
+                        return True
+                    if "r" in e:
+                        return bool(e.get("from") and _sister(e["from"], tm))
+                    return bool(e.get("c") and e["c"] >= today)
+                moved = [e["p"] or e["n"] for e in cell if "tip" not in e and not _keep(e)]
+                cell = [e for e in cell if _keep(e)]
             # 同一路有新加入或續約的人 ⇒ 合約到期的人不再顯示，移上一位（使用者 2026-11-20「例如 BFX 的中路」）
             #   2026-11-20 再加：有「傳聞的人要進來」也一樣（使用者「如果該隊路線原選手離隊或合約到期 同時又有傳聞的選手進來 那就不顯示」：
             #   JDG 打野 JunJia／xiaofang 合約到期＋Kanavi／Tarzan 傳聞 ⇒ 格子只留傳聞的兩位，原本的移到上一位）
