@@ -457,7 +457,7 @@ function render(){
         if(nR){ rsL.forEach(r=>{ const e=t.r[r].find(x=>keep(x)&&x.rs)||t.r[r].find(keep); items.push({r,rs:e.rs?1:3,nw:pn(e.n),ne:e,v:scOf.get(e),d:e.rs?2:1}); });
           if(hcR){ const cs=coachS(t.nm)||coachS(t.tm); items.push({r:"COACH",rs:hcR.rs?1:3,nw:pn(hcR.n),ne:hcR,v:cs?cs.v:null,d:hcR.rs?2:1}); }
           // 默契加成（使用者 2026-11-20「固定給就沒把默契加成放大」→ 同意折衷）：留下來的五路選手兩兩一組，每組 0.5（2 人 0.5、3 人 1.5、4 人 3、5 人 5）；主教練不算搭檔
-          const k=rsL.length; if(k>=2)items.push({r:"SYN",rs:4,k,d:k*(k-1)/2*0.5}); } }
+          const k=rsL.length; if(k>=2)items.push({r:"SYN",rs:4,k,d:k*(k-1)/2*1}); } }   // 2026-11-20 使用者「默契加成可以多一倍」：每組 0.5 → 1（2 人 1、3 人 3、4 人 6、5 人 10）
       items.forEach(x=>{ if(x.dlo==null){ x.dlo=x.d; x.dhi=x.d; } });   // 主教練那一筆沒有範圍
       return {pl:plSum,items,sum:items.reduce((s,x)=>s+x.d,0),lo:items.reduce((s,x)=>s+x.dlo,0),hi:items.reduce((s,x)=>s+x.dhi,0),rng:items.some(x=>x.dhi-x.dlo>0.05),rm:items.some(x=>x.rm),vac:items.filter(x=>x.ma===2).length}; };
     // 評分小框（使用者 2026-11-19「評分的小框重新設計」）：標題列＝隊徽＋隊名＋總分；每條路一列＝路線圖示｜離隊（名字／分數）→ 加入｜增減色塊
