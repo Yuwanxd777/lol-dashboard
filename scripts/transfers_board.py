@@ -545,6 +545,29 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
                         cand.append((x, rr, e.get("p") or e["n"], e["n"], e.get("c") or "", 1 if e.get("gone") else 0))
                 for p in x["prev"].get(rr, []):
                     cand.append((x, rr, p, re.sub(r"\s*\([^()]*\)$", "", p), con.get((key(p), x["tm"]), ""), 1))
+            # 主教練也列（使用者 2026-11-20「FA 多一個主教練」）：格子裡已離隊／合約到期的主教練＋上一位主教練；教練不看出賽紀錄
+            for e in x["r"].get("COACH", []):
+                if e.get("sr") != "HC" or e.get("r") or e.get("new") or e.get("rs") or e.get("pm") or e.get("tip"):
+                    continue
+                if e.get("gone") or not e.get("c") or e["c"] < today:
+                    cand.append((x, "COACH", e.get("p") or e["n"], e["n"], e.get("c") or "", 1 if e.get("gone") else 0))
+            for p in x["prev"].get("COACH", []):
+                if (x.get("_psr") or {}).get(p) == "HC":
+                    cand.append((x, "COACH", p, re.sub(r"\s*\([^()]*\)$", "", p), con.get((key(p), x["tm"]), ""), 1))
+        # 掛名在隊上但休假中（inactive）的主教練也算自由人（使用者 2026-11-20「Homme kkOma 都算」：kkOma 在 T1 是 inactive、合約 2026-11-16 到期，
+        #   教練欄本來就不列休假的人，所以要另外查）
+        try:
+            by_tm_ = {x["tm"]: x for x in out}
+            for i in range(0, len(teams), 20):
+                for y in cargo({"tables": "Tenures=T,RosterChanges=RC", "join_on": "T.RosterChangeIdJoin=RC.RosterChangeId",
+                                "fields": "T.Player=p,T.Team=tm,RC.Role=ro,RC.Status=st",
+                                "where": "T.IsCurrent=1 AND T.Team IN " + _in(teams[i:i + 20]) + ' AND RC.Status="inactive" AND RC.Role LIKE "%Head Coach%"',
+                                "limit": "500", "format": "json"}):
+                    x = by_tm_.get(y.get("tm"))
+                    if x and y.get("p"):
+                        cand.append((x, "COACH", y["p"], re.sub(r"\s*\([^()]*\)$", "", y["p"]), con.get((key(y["p"]), x["tm"]), ""), 0))
+        except Exception as e:
+            print(f"   休假主教練查詢失敗：{type(e).__name__} {str(e)[:100]}")
         pages_ = sorted({c_[2] for c_ in cand})
         now_tm, retd_ = {}, set()
         for i in range(0, len(pages_), 40):
@@ -558,13 +581,15 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
             k_ = key(pg)
             if k_ in seen_ or k_ in settled or key(nm_) in settled or k_ in retd_:
                 continue
-            if played is not None and (k_, tkey(x["tm"])) not in played and (key(nm_), tkey(x["tm"])) not in played:
+            if rr != "COACH" and played is not None and (k_, tkey(x["tm"])) not in played and (key(nm_), tkey(x["tm"])) not in played:
                 continue
             t_now = now_tm.get(k_, "")
             if t_now and tkey(t_now) != tkey(x["tm"]):
                 continue   # 選手頁已經掛在別隊（含次級聯賽）
             seen_.add(k_)
             e = {"n": nm_, "p": pg, "fa": 1, "from": x["nm"]}
+            if rr == "COACH":
+                e["sr"] = "HC"
             if c_:
                 e["c"] = c_
             if gone_:
