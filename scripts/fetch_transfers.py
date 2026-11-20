@@ -530,6 +530,12 @@ def main():
         if os.path.exists(p):
             raw = json.load(io.open(p, encoding="utf-8"))
             if fn.startswith("transfers_ptt"):
+                # 還沒複查過的（沒有 zh_fix、也沒標 hide）先不上架（使用者 2026-11-20「每一個小時更新消息 終端機要幫我重新確認資訊正確性與排版」）：
+                #   標題照登常常沒標點、方向寫反、不是轉會消息 ⇒ 等 transfers_hourly.py 的 review 步驟整理過才發布
+                hold = [x for x in raw if not x.get("hide") and not x.get("zh_fix")]
+                if hold:
+                    print(f"PTT 待複查 {len(hold)} 則（先不上架）：" + "、".join(x.get("title", "")[:24] for x in hold[:5]))
+                raw = [x for x in raw if x.get("hide") or x.get("zh_fix")]
                 ptt_raw = raw
                 # 轉貼 Sheep Esports、而那則已收進 Sheep 來源 ⇒ 消息不重複列（使用者 2026-11-20「PTT 的文章消息是 Sheep Esports 也不要重複」）
                 raw = [x for x in raw if not (set(re.findall(r"Sheep_Esports/status/(\d+)", x.get("body") or "")) & sheep_ids)]
