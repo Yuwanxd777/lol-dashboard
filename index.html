@@ -14716,7 +14716,10 @@ function render(){
         const mkHost=(w,sub)=>{ const h=document.createElement("div"); h.setAttribute("data-tshot","1"); h.style.cssText=`position:fixed;left:-99999px;top:0;width:${w}px;padding:22px;box-sizing:border-box;background:#0b0e14;color:#e8ecf4`;
           h.innerHTML=`<style>[data-tshot] .tbCell::before{content:none!important}</style><div style="display:flex;align-items:baseline;gap:12px;margin:0 2px 10px"><b style="font-size:24px;color:#f0e6d2">${en2?"S17 Transfers":"S17 轉會整理"}</b>${sub}<span style="margin-left:auto;font-size:14px;color:#8b98ad">${D.at?(en2?"as of ":"截至 ")+esc(D.at):""}</span></div>`;
           document.body.appendChild(h); hosts.push(h); return h; };
-        const out=async(h,name,head)=>{ h.querySelectorAll(".trTx a,.tbN a").forEach(x=>x.style.textDecoration="none"); await warm(h); fixC(h);
+        // 刪除線（已宣布離隊）：html2canvas 畫不出這條線（使用者 2026-11-20「截圖的刪除線消失」）⇒ 截圖複本改用 1.5px 的背景橫線自己畫
+        const strike=root=>root.querySelectorAll(".tbN.tbGone").forEach(el=>{ const c=getComputedStyle(el).color; el.style.textDecoration="none"; if(!el.children.length){ el.style.position="relative"; el.style.display="inline-block"; el.insertAdjacentHTML("beforeend",`<i style="position:absolute;left:0;right:0;top:54%;height:1.5px;background:${c}"></i>`); return; }   /* 說明列那顆是純文字的 flex 子項，背景線畫不出來 ⇒ 疊一條絕對定位的線 */
+          el.style.backgroundImage=`linear-gradient(${c},${c})`; el.style.backgroundRepeat="no-repeat"; el.style.backgroundSize="100% 1.5px"; el.style.backgroundPosition="0 56%"; });
+        const out=async(h,name,head)=>{ h.querySelectorAll(".trTx a,.tbN a").forEach(x=>x.style.textDecoration="none"); await warm(h); fixC(h); strike(h); if(head)strike(head);
           // head＝頂端那塊（標題、截至時間、文字顏色）：不管哪個聯賽都固定畫滿 2000 寬（使用者 2026-11-20「截圖上面那塊 無論哪個聯賽都固定滿版」），內容縮放後放在它下面置中
           let hc=null; if(head){ await warm(head); fixC(head); const hw=head.offsetWidth; hc=await html2canvas(head,{backgroundColor:"#0b0e14",useCORS:true,scale:SZ/hw,width:hw,height:head.offsetHeight,windowWidth:Math.max(document.documentElement.scrollWidth,hw)}); head.remove(); }
           const top=hc?hc.height:0, w=h.offsetWidth, ht=h.offsetHeight, k=Math.min(SZ/w,(SZ-top)/ht);
