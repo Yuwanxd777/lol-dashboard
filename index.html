@@ -14579,7 +14579,7 @@ function render(){
             if(r==="COACH"){ const c=e.from?coachS(e.from):null; e._sc=c?c.v:null; }
             else{ const a=(RATE.pl[r]||{})[k]; e._sc=(a?50+(pct0(r,blend0(a))-50)*Math.min(1,(a.g||0)/30):50)*BASEW_+it; } });
           t.r[r].sort((p,q)=>(r==="COACH"?((p.sr==="HC"?0:1)-(q.sr==="HC"?0:1)):0)||(q._sc??-1)-(p._sc??-1)||String(p.n).localeCompare(String(q.n))); } }); }   // 教練那格：主教練排前面   // 三個賽段合計的占比（10＋30＋40），跟 RATE 那邊的 SEGW 要一起改
-    const rateOf=t=>{ if(!RATE||t.fa)return null; const items=[]; let plSum=0;   // FA 列不是隊伍，不算評分
+    const rateOf=t=>{ if(!RATE||t.fa)return null; const items=[], scOf=new Map(); let plSum=0;   // FA 列不是隊伍，不算評分
       // 聯賽權重：別的聯賽來的分數 × exp(LGK × (原聯賽強度 − 本隊聯賽強度))；同聯賽＝1、強度缺＝1
       const blend=a=>{ const ts=a.tm?coachS(a.tm,true):null; return ts?(a.v+ts.v)/2:a.v; };
       // 中位數也用同一把尺（個人＋戰績各半之後的分數）重算，不然空缺的基準會比真人高一截
@@ -14608,6 +14608,7 @@ function render(){
         const sv=e=>{ const sub=isSub(e), x=fill({n:pn(e.n),s:get(e.n,sub?40:50),sub}); return x.s?x.s.v:-1; }, onTm=e=>!(e.r||e.gone||(expd(e)&&!(e.new||e.rs||e.pm)));
         // 選手評分（使用者 2026-11-20「第三下第四下變成 選手評分升降冪」「一個路線兩個選手的話要取平均」）：這一路的分數＝格子裡所有人的平均（已宣布離隊的不算）；空的用基準分。五路加總
         // 同一路官方已定（續約／新加入／升職）的有兩位以上 ⇒ 兩種評分都以分數最高的那位算（使用者 2026-11-20「如果一路宣布續約 加入 升職兩位以上 算評分時以最高的算」）
+        (t.r[r]||[]).forEach(e=>scOf.set(e,sv(e)));   // 每個人的分數留著，小框的續約／續留那幾列要寫
         const conf=(t.r[r]||[]).filter(e=>!e.gone&&(e.new||e.rs||e.pm||(e.tip&&!e.r)));
         { const vs=(conf.length>=2?conf:(t.r[r]||[]).filter(e=>!e.gone)).map(sv).filter(v=>v>=0);
           plSum+=vs.length?(conf.length>=2?Math.max(...vs):vs.reduce((a,b)=>a+b,0)/vs.length):(md==null?0:md*BASEW_); }
@@ -14642,8 +14643,8 @@ function render(){
       { const keep=e=>!e.gone&&!e.r&&!e.new&&!e.tip&&!e.pm&&(e.rs||(!expd(e)&&!e.ro));
         const rsL=["TOP","JNG","MID","BOT","SUP"].filter(r=>(t.r[r]||[]).some(keep)), hcR=(t.r.COACH||[]).find(e=>e.sr==="HC"&&keep(e)), nR=rsL.length+(hcR?1:0);
         // 2026-11-20 四改「續留給1分 續約給兩分 不漸進好了」：固定分數，不再隨人數加碼（六人全續約最多 12）
-        if(nR){ rsL.forEach(r=>{ const e=t.r[r].find(x=>keep(x)&&x.rs)||t.r[r].find(keep); items.push({r,rs:e.rs?1:3,nw:pn(e.n),ne:e,d:e.rs?2:1}); });
-          if(hcR)items.push({r:"COACH",rs:hcR.rs?1:3,nw:pn(hcR.n),ne:hcR,d:hcR.rs?2:1});
+        if(nR){ rsL.forEach(r=>{ const e=t.r[r].find(x=>keep(x)&&x.rs)||t.r[r].find(keep); items.push({r,rs:e.rs?1:3,nw:pn(e.n),ne:e,v:scOf.get(e),d:e.rs?2:1}); });
+          if(hcR){ const cs=coachS(t.nm)||coachS(t.tm); items.push({r:"COACH",rs:hcR.rs?1:3,nw:pn(hcR.n),ne:hcR,v:cs?cs.v:null,d:hcR.rs?2:1}); }
           // 默契加成（使用者 2026-11-20「固定給就沒把默契加成放大」→ 同意折衷）：留下來的五路選手兩兩一組，每組 0.5（2 人 0.5、3 人 1.5、4 人 3、5 人 5）；主教練不算搭檔
           const k=rsL.length; if(k>=2)items.push({r:"SYN",rs:4,k,d:k*(k-1)/2*0.5}); } }
       items.forEach(x=>{ if(x.dlo==null){ x.dlo=x.d; x.dhi=x.d; } });   // 主教練那一筆沒有範圍
@@ -14663,10 +14664,10 @@ function render(){
         const stC=o=>!o?"":o.prevE?((o.prevE.still&&!o.prevE.ret)?"tbExp":"tbExp tbGone"):tbCls(o);
         const pc=(n,v,o)=>`<span class="rtP"><span class="rtN"><b class="tbN ${stC(o)}">${esc(n)}</b></span>`
           +`<span class="rtV">${v.toFixed(1)}</span></span>`;   // 分數下面不寫「全年／中位數」註記（使用者 2026-11-20），算法在 ℹ️ 說明
-        h+=`<div class="rtGrid"><span></span><span class="rtCh">${en2?"Out":"離隊"}</span><span></span><span class="rtCh">${en2?"In":"加入"}</span><span class="rtCh rtChD">${en2?"Change":"增減"}</span>`;
+        h+=`<div class="rtGrid"><span></span><span class="rtCh">${en2?"Previous":"原隊"}</span><span></span><span class="rtCh">${en2?"In":"加入"}</span><span class="rtCh rtChD">${en2?"Change":"增減"}</span>`;
         rt.items.forEach(x=>{ const ic=x.r==="COACH"?`<img src="img/COACH.png" alt="">`:(POS_IMG[x.r]?`<img src="${POS_IMG[x.r]}" alt="">`:"");
           if(x.rs===4){ h+=`<span class="rtIc"></span><span class="rtP" style="grid-column:2/5"><span class="rtN"><b>${en2?"Synergy":"默契加成"}</b><i class="rtRsL">${en2?`${x.k} players kept`:`${x.k} 位選手留隊`}</i></span></span><b class="rtD ${cls(x.d)}">${sg(x.d)}</b>`; return; }
-          if(x.rs){ h+=`<span class="rtIc" title="${BLN[x.r]||""}">${ic}</span><span class="rtP" style="grid-column:2/5"><span class="rtN"><b class="tbN ${tbCls(x.ne)}">${esc(x.nw)}</b><i class="rtRsL">${x.rs===3?(en2?"Staying":"續留"):(en2?"Re-signed":"續約")}</i></span></span><b class="rtD ${cls(x.d)}">${sg(x.d)}</b>`; return; }
+          if(x.rs){ h+=`<span class="rtIc" title="${BLN[x.r]||""}">${ic}</span><span class="rtP" style="grid-column:2/5"><span class="rtN"><b class="tbN ${tbCls(x.ne)}">${esc(x.nw)}</b></span>${x.v!=null&&x.v>=0?`<span class="rtV">${x.v.toFixed(1)}</span>`:""}</span><b class="rtD ${cls(x.d)}">${sg(x.d)}</b>`; return; }
           const tp=x.nws?" rtTop":"";   // 多人：路線圖、原本那位、箭頭都對齊第一位（分數最高的），其他人往下列（使用者 2026-11-20「小框的箭頭都指向第一位分數最高的 接著往下列」）
           h+=`<span class="rtIc${tp}" title="${BLN[x.r]}">${ic}</span>${x.nws?pc(x.od,x.b,x.oe).replace('class="rtP"','class="rtP rtTop"'):pc(x.od,x.b,x.oe)}<span class="rtAr${tp}">➜</span>${x.nws?`<span class="rtMulti">${x.nws.map(c=>pc(c.n,c.v,c.e)+`<b class="rtD ${cls(c.v-x.b)}">${sg(c.v-x.b)}</b>`).join("")}</span>`:pc(x.nw,x.a,x.ne)+`<b class="rtD ${cls(x.d)}">${sg(x.d)}</b>`}`; });   // 多位傳聞人選：每一位各自一個增減（使用者 2026-11-20「小框 多人的增減分分開列」），總分仍是最低 ～ 最高
         h+=`</div>`; }   // 計算說明不放小框，寫在 ℹ️ 說明（使用者 2026-11-20）
@@ -14794,6 +14795,11 @@ function render(){
               { const bd=h.querySelector(".tbBoard"); bd.style.gridTemplateColumns="max-content repeat(6,minmax(0,1fr)) minmax(120px,max-content)";   /* 整個賽區都沒評分時，「轉會評分」欄名不要貼著主教練 */
                 h.querySelectorAll('.tbCell[data-r="STF"]').forEach(x=>x.remove()); const hs=h.querySelector(".tbHd"); if(hs&&hs.children[7])hs.children[7].remove();
                 h.querySelectorAll(".tbSep").forEach(x=>x.outerHTML="<br>");
+                // 表頭：路線名稱對在下方資料的正中間，路線圖掛在文字左邊、跟文字同一條水平線（使用者 2026-11-20「截圖的路線圖與路線名稱沒有水平」「底下的資料跟上方標籤也沒有置中」；
+                //   原本圖＋字一起置中 ⇒ 字被圖推到右邊；html2canvas 畫行內圖又會偏高）
+                h.querySelectorAll(".tbHd>span").forEach(sp=>{ const im=sp.querySelector("img"); if(!im)return; const tx=sp.textContent.trim(), w=im.offsetWidth||20, hh=im.offsetHeight||20;
+                  sp.innerHTML=`<span style="position:relative;display:inline-block;line-height:${hh}px;height:${hh}px">${esc(tx)}</span>`;
+                  im.style.cssText+=`;position:absolute;right:100%;top:0;margin:0 6px 0 0;width:${w}px;height:${hh}px;display:block;vertical-align:top`; sp.firstChild.appendChild(im); });
                 // 評分：多位傳聞人選的範圍在截圖裡改寫成平均（使用者 2026-11-20「截圖評分用平均」；網頁仍是 最低 ～ 最高）
                 h.querySelectorAll(".tbRate[data-avg]").forEach(c=>{ const [tx,cl]=c.dataset.avg.split("|"), b=c.querySelector("b"); if(b){ b.className=cl; b.innerHTML="（"+tx+'<i class="rtPc">）</i>'; } }); }
               h.querySelectorAll(".tbHd").forEach(x=>{ x.style.position="static"; x.style.background="none"; }); h.querySelectorAll(".tbDim").forEach(x=>x.classList.remove("tbDim"));
