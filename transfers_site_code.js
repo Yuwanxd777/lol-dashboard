@@ -390,14 +390,18 @@ function render(){
         // 今年沒有比賽資料的人（復出的 Deft）：基準 50（次級上來 40）再加他的國際賽資歷分
         const itOf=n=>(D.intl||{})[String(pn(n)).toLowerCase()]||0;
         const md=mdOf(r), fill=x=>x.s?x:(md==null?x:{...x,s:{v:(md-(x.sub?10:0))*BASEW_+itOf(x.n),g:0,lg:""},md:1}), byG=(a,b)=>(b.s?b.s.g:-1)-(a.s?a.s.g:-1);
-        let nw=(t.r[r]||[]).filter(e=>e.new||e.tip).map(e=>{ const sub=isSub(e); return {n:pn(e.n),s:get(e.n,sub?40:50),rm:!!e.r,sub}; }).sort((a,b)=>a.rm-b.rm||byG(a,b))[0];   // 官方優先；Sheep 消息（傳聞／官方未進 wiki）也算
+        const cands=(t.r[r]||[]).filter(e=>e.new||e.tip).map(e=>{ const sub=isSub(e); return {n:pn(e.n),s:get(e.n,sub?40:50),rm:!!e.r,sub}; }).sort((a,b)=>a.rm-b.rm||byG(a,b));
+        let nw=cands[0];   // 官方優先；Sheep 消息（傳聞／官方未進 wiki）也算
+        // 這一路沒有官方新人、傳聞人選有兩位以上 ⇒ 每一位的分數都列出來，這一路用平均（使用者 2026-11-20「如果該路的傳聞選手有兩位以上 就所有分數都要列出 但顯示的是該路要取平均」）
+        const multi=cands.length>=2&&cands.every(x=>x.rm)?cands.map(x=>fill(x)).filter(x=>x.s):null;
         // 有人離隊、還沒補人（格子沒有官方的人、也沒傳聞）⇒ 空缺當中位數（使用者 2026-11-19「有選手離隊但還沒補新人也是這樣做」）
         // 2026-11-20 使用者改定案「空的先不算分」：走光還沒補人的隊（LEV +168、DSG +114）會因為「空缺 50 分 − 原本的低分」變成大加分，不合理 ⇒ 空缺那一路整個不計
         if(!nw)continue;
         const od=[...((t.prev||{})[r]||[]),...(t.r[r]||[]).filter(e=>e.gone)].map(p=>{ const n=typeof p==="string"?p:p.n; return {n:pn(n),s:get(n)}; }).sort(byG)[0];
         if(nw&&od&&(nw.s||od.s)){ const A=fill(nw), B=fill(od);
           const tg=x=>[x.s.yr?(en2?"full year":"全年"):"",x.s.w&&Math.abs(x.s.w-1)>0.005?lgN(x.s.lg):""].filter(Boolean).join(" ");   // 只寫「全年 LEC」，不寫權重數字（使用者 2026-11-20）
-          if(A.s&&B.s)items.push({r,nw:A.n,od:B.n,a:A.s.v,b:B.s.v,d:A.s.v-B.s.v,rm:A.rm,ma:A.md&&(A.vac?2:1),mb:B.md,ta:A.md?"":tg(A),tb:B.md?"":tg(B)}); } }
+          const av=multi&&multi.length>=2?multi.reduce((z,x)=>z+x.s.v,0)/multi.length:null;
+          if(A.s&&B.s)items.push({r,nw:A.n,od:B.n,a:av??A.s.v,b:B.s.v,d:(av??A.s.v)-B.s.v,nws:av!=null?multi.map(x=>({n:x.n,v:x.s.v})):null,rm:A.rm,ma:A.md&&(A.vac?2:1),mb:B.md,ta:A.md?"":tg(A),tb:B.md?"":tg(B)}); } }
       const hc=(t.r.COACH||[]).find(e=>e.sr==="HC"&&(e.new||e.tip)&&e.from), A=hc&&coachS(hc.from), B=coachS(t.nm)||coachS(t.tm);
       if(hc&&A&&B)items.push({r:"COACH",nw:`${pn(hc.n)}（${abOf(hc.from)}・${A.note}）`,od:`${abOf(t.nm)}（${B.note}）`,a:A.v,b:B.v,d:A.v-B.v,rm:!!hc.r});
       return {items,sum:items.reduce((s,x)=>s+x.d,0),rm:items.some(x=>x.rm),vac:items.filter(x=>x.ma===2).length}; };
@@ -412,7 +416,7 @@ function render(){
           +`<span class="rtV">${v.toFixed(1)}</span></span>`;   // 分數下面不寫「全年／中位數」註記（使用者 2026-11-20），算法在 ℹ️ 說明
         h+=`<div class="rtGrid"><span></span><span class="rtCh">${en2?"Out":"離隊"}</span><span></span><span class="rtCh">${en2?"In":"加入"}</span><span class="rtCh rtChD">${en2?"Diff":"增減"}</span>`;
         rt.items.forEach(x=>{ const ic=x.r==="COACH"?`<img src="img/COACH.png" alt="">`:(POS_IMG[x.r]?`<img src="${POS_IMG[x.r]}" alt="">`:"");
-          h+=`<span class="rtIc" title="${BLN[x.r]}">${ic}</span>${pc(x.od,x.b,x.mb?1:0,false,x.tb)}<span class="rtAr">➜</span>${pc(x.nw,x.a,x.ma,x.rm,x.ta)}<b class="rtD ${cls(x.d)}">${sg(x.d)}</b>`; });
+          h+=`<span class="rtIc" title="${BLN[x.r]}">${ic}</span>${pc(x.od,x.b,x.mb?1:0,false,x.tb)}<span class="rtAr">➜</span>${x.nws?`<span class="rtP">${x.nws.map(c=>`<span class="rtN" style="display:flex;align-items:baseline;gap:6px">${esc(c.n)}<span class="tbRum">${en2?"Rumor":"傳聞"}</span><span style="margin-left:auto;padding-left:8px;font-variant-numeric:tabular-nums;color:var(--tx2)">${c.v.toFixed(1)}</span></span>`).join("")}<span class="rtV">${en2?"avg":"平均"} ${x.a.toFixed(1)}</span></span>`:pc(x.nw,x.a,x.ma,x.rm,x.ta)}<b class="rtD ${cls(x.d)}">${sg(x.d)}</b>`; });
         h+=`</div>`; }   // 計算說明不放小框，寫在 ℹ️ 說明（使用者 2026-11-20）
       TIPS.push(h+`</div>`); return TIPS.length-1; };
     const rateCell=t=>{ const rt=rateOf(t), v=rt&&rt.items.length?rt.sum:null;
