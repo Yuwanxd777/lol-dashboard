@@ -1071,7 +1071,8 @@
   .tbRow:hover{background:rgba(255,255,255,.07)}
   .tbTeam{display:flex;align-items:center;gap:8px;padding:6px 18px 6px 10px;font-weight:800;font-size:16px;white-space:nowrap;border-left:3px solid color-mix(in srgb,var(--lgc,transparent) 70%,transparent)}
   .tbCell{text-align:center;padding:6px 6px;font-size:15px;line-height:1.5;cursor:default}
-  .tbFaIc{width:26px;height:26px;object-fit:contain;border-radius:6px;background:#e8ecf4;flex:0 0 auto;margin:0 6.5px}   /* 左右各留 6.5px＝跟隊徽同一個 39px 位子，後面的「FA」才跟其他隊名對齊 */.tbFA .tbTeam>span:not(.tbFaIc):not(.tbOk){color:var(--tx2)}
+  .tbFaIc{object-fit:contain;border-radius:6px;background:#e8ecf4;flex:0 0 auto;margin:0 6.5px;padding:3px;box-sizing:border-box}
+  .tbTeam img.tbFaIc{width:26px!important;height:26px!important;margin:0 6.5px!important}   /* 固定 26×26 的淺色方塊（不吃隊徽的「圖案面積統一」，不然六張寬度不一樣、後面的字對不齊） */   /* 左右各留 6.5px＝跟隊徽同一個 39px 位子，後面的「FA」才跟其他隊名對齊 */.tbFA .tbTeam>span:not(.tbFaIc):not(.tbOk){color:var(--tx2)}
   .tbRate{min-width:72px;padding:6px 14px;font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}.tbRateH{padding:0 14px;text-align:right}.rtPc{font-style:normal;display:inline-block;margin-right:-.5em}
   .tbHd .tbRateH{justify-self:end}
   .tbUp{color:#ff5a5a}.tbDn{color:#3fcf7a}   /* 台灣配色：加分紅、扣分綠 */
@@ -14652,7 +14653,7 @@ function render(){
     const srtArr=SRT==="d"?" ▼":SRT==="a"?" ▲":"";
     const wkPg=p=>{ let s=String(p||""); try{ s=decodeURIComponent(s); }catch(_){} return s.replace(/ /g,"_"); };   // wiki 頁名：已編碼的先解開（Noah 連錯頁，使用者 2026-11-20）
     const nameH=e=>{ const n=esc(pn(e.n)), inner=bq&&hitE(e)?`<mark>${n}</mark>`:n;
-      return `<span class="tbN ${tbCls(e)}${F_TB.size&&!tbMf(e)?" tbDim":""}"><a href="https://lol.fandom.com/wiki/${encodeURIComponent(wkPg(e.p||((D.roles||{})[e.n]||[])[1]||e.n))}" target="_blank" rel="noopener">${inner}</a></span>`; };   // 沒頁名的傳聞人選（BrokenBlade、Zven…）退回 roles 查到的頁、再退回 ID 本身（使用者 2026-11-20 全面檢視）   // 格子不標教練職稱，只在小框顯示（使用者 2026-11-20）
+      return `<span class="tbN ${tbCls(e)}${F_TB.size&&!tbMf(e)?" tbDim":""}">${e.nop?inner:`<a href="https://lol.fandom.com/wiki/${encodeURIComponent(wkPg(e.p||((D.roles||{})[e.n]||[])[1]||e.n))}" target="_blank" rel="noopener">${inner}</a>`}</span>`; };   // 沒頁名的傳聞人選（BrokenBlade、Zven…）退回 roles 查到的頁、再退回 ID 本身（使用者 2026-11-20 全面檢視）   // 格子不標教練職稱，只在小框顯示（使用者 2026-11-20）
     // 陣容到位打勾（使用者 2026-11-20「五路選手以及主教練都有新加入或續約了，一路有兩人有一個也可以，就在隊伍縮寫後面打個勾」）：
     //   每一格至少一人是官方新加入／官方續約；合約本來就還在（沒到期、沒傳出要走）的人也算確定
     const setE=e=>!e.r&&!e.gone&&!!(e.new||e.tip||e.rs||e.pm||(e.c&&e.c>=today&&!e.ro));

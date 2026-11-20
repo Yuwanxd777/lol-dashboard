@@ -538,6 +538,14 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
                     if e.get("new") or e.get("rs") or e.get("pm") or e.get("tip") or (e.get("c") and e["c"] >= today):
                         settled.add(k_); settled.add(key(e["n"]))
         cand, seen_ = [], set()
+        left_rc = set()   # 這個休賽期前後 wiki 記了「離隊」的（人, 隊）
+        try:
+            for i in range(0, len(teams), 20):
+                for y in cargo({"tables": "RosterChanges", "fields": "Player=p,Team=tm", "limit": "5000", "format": "json",
+                                "where": "RosterChanges.Team IN " + _in(teams[i:i + 20]) + f' AND RosterChanges.Direction="Leave" AND RosterChanges.Date_Sort>="{year}-08-01"'}):
+                    left_rc.add((key(y["p"]), y["tm"]))
+        except Exception as e:
+            print(f"   離隊紀錄查詢失敗（自由人的教練不列上一位）：{type(e).__name__} {str(e)[:100]}")
         for x in out:
             for rr in LANES:
                 for e in x["r"].get(rr, []):
@@ -554,6 +562,8 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
                     continue
                 cand.append((x, "COACH", e.get("p") or e["n"], e["n"], e.get("c") or "", 1, e.get("sr") or "C"))
             for p in x["prev"].get("COACH", []):
+                if (key(p), x["tm"]) not in left_rc:
+                    continue   # 上一位教練要 wiki 真的記了離隊才算（UP 的 ScreamM 只是不在最新名單上、沒有離隊紀錄，也沒有選手頁）
                 cand.append((x, "COACH", p, re.sub(r"\s*\([^()]*\)$", "", p), con.get((key(p), x["tm"]), ""), 1, (x.get("_psr") or {}).get(p) or "C"))
         # 掛名在隊上但休假中（inactive）的主教練也算自由人（使用者 2026-11-20「Homme kkOma 都算」：kkOma 在 T1 是 inactive、合約 2026-11-16 到期，
         #   教練欄本來就不列休假的人，所以要另外查）
@@ -589,6 +599,8 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
                 continue   # 選手頁已經掛在別隊（含次級聯賽）
             seen_.add(k_)
             e = {"n": nm_, "p": pg, "fa": 1, "from": x["nm"]}
+            if k_ not in now_tm:
+                e["nop"] = 1   # wiki 沒有這個人的頁面 ⇒ 前端不做連結
             if rr == "COACH":
                 e["sr"] = (sr_[0] if sr_ else "") or "C"
             if c_:
