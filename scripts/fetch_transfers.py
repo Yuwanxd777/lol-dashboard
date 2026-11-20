@@ -646,6 +646,33 @@ def main():
     _joined = {(p_, x_["d"]) for x_ in wiki if x_.get("kind") == "join" for p_, _ in PL_RE.findall(x_.get("en") or "")}
     _dup = lambda x_: x_.get("kind") == "leave" and bool(PL_RE.findall(x_.get("en") or "")) and all((p_, x_["d"]) in _joined for p_, _ in PL_RE.findall(x_.get("en") or ""))
     wiki = [x_ for x_ in wiki if not _dup(x_)]   # RED「Morttheus 離隊」＋VKS「Morttheus 加入」同一天 ⇒ 只留加入那列（原隊欄本來就會標 RED）
+    # WIKI 的日期是美國太平洋時間的「日期」（沒有時分），亞洲隊伍早上發的公告會被記成前一天（KRX 11/17 08:00 台灣時間的離隊公告，wiki 記 11/16）
+    #   ⇒ 換成台灣時間（使用者 2026-11-20「wiki 的消息時間好像不是標記台灣時間 要幫我轉換」）：
+    #   ①來源是 X 貼文：貼文編號本身帶發文時間（snowflake）⇒ 直接換算，精確到分；
+    #   ②其他來源（FB、微博、沒附連結）：找 PTT 上同一批人的官方公告轉貼（wiki 日期當天到後兩天內），用那篇的發文時間；
+    #   ③都沒有 ⇒ 維持 wiki 的日期（不亂猜）。陣容表用的是轉換前的日期，這裡只改消息顯示用的那一份
+    TW_ = datetime.timezone(datetime.timedelta(hours=8))
+
+    def _tw(x_):
+        m_ = re.search(r"(?:x|twitter)\.com/[^/]+/status/(\d+)", str(x_.get("src") or "") + " " + str(x_.get("url") or ""))
+        if m_:
+            return datetime.datetime.fromtimestamp(((int(m_.group(1)) >> 22) + 1288834974657) / 1000, TW_).strftime("%Y-%m-%d %H:%M")
+        names_ = [n_ for _, n_ in PL_RE.findall(x_.get("en") or x_.get("zh") or "")]
+        d0_ = str(x_.get("d") or "")[:10]
+        if names_ and d0_:
+            lim_ = (datetime.date.fromisoformat(d0_) + datetime.timedelta(days=2)).isoformat() + " 23:59"
+            c_ = [p_["d"] for p_ in ptt_all_ if p_.get("st") == "official" and d0_ <= p_["d"] <= lim_
+                  and sum(1 for n_ in names_ if re.search(r"(?<![A-Za-z0-9])" + re.escape(n_) + r"(?![A-Za-z0-9])", (p_.get("title") or "") + " " + (p_.get("body") or ""), re.I)) >= max(1, (len(names_) + 1) // 2)]
+            if c_:
+                return min(c_)
+        return x_.get("d")
+    try:
+        ptt_all_ = json.load(io.open(os.path.join(ROOT, "transfers_ptt_src.json"), encoding="utf-8"))
+    except Exception:
+        ptt_all_ = []
+    wiki = [dict(x_, d=_tw(x_)) for x_ in wiki]
+    extra = [dict(x_, d=_tw(x_)) if str(x_.get("id", "")).startswith("ret-") else x_ for x_ in extra]
+    wiki.sort(key=lambda x_: x_["d"], reverse=True); extra.sort(key=lambda x_: x_["d"], reverse=True)
     data = {"at": datetime.datetime.now().strftime("%Y-%m-%d %H:%M"), "from": start, "t1": t1, "wiki": wiki, "sheep": sheep, "extra": extra, "roles": roles, "board": board, "intl": intl}
     io.open(OUT, "w", encoding="utf-8").write("window.TRANSFERS=" + json.dumps(data, ensure_ascii=False, separators=(",", ":")) + ";\n")
     print(f"transfers.js：wiki {len(wiki)}、sheep {len(sheep)}、PTT／韓網／官方 {len(extra)}")
