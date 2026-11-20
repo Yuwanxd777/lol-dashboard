@@ -1174,7 +1174,7 @@
   .trRole{display:inline-block;font-size:12.5px;padding:0 6px;margin:0 4px 0 2px;border-radius:5px;background:rgba(255,200,80,.14);color:#ffc850;vertical-align:1px}
   .trTx{min-width:0;word-break:break-word;display:flex;align-items:center;gap:12px}.trTxt{flex:1 1 auto;min-width:0}.trLks{flex:0 0 auto;margin-left:auto;display:flex;gap:10px;white-space:nowrap}.trLks .trLk{margin-left:0}   /* 來源連結置右（使用者 2026-11-20） */
   .trLk{font-size:13px;color:#7fb2ff;white-space:nowrap;margin-left:6px}
-  .trNb{white-space:nowrap}.trLk1{display:none}   /* 手機版第一列右邊那一個來源連結；桌面不顯示 */
+  .trNb{white-space:nowrap}.trLk1{display:none}.trSW{display:inline-flex;align-items:center;gap:8px;white-space:nowrap}   /* 手機版第一列右邊那一個來源連結；桌面不顯示 */
   /* 窄版：第一行＝狀態＋原隊 ➜ 新隊（橫排），第二行＝消息全寬；欄標題收起 */
   @container mainc (max-width:999.98px){.trList{grid-template-columns:max-content minmax(0,1fr)}.trHead{display:none}
     .trFlow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;grid-column:2;grid-row:1}
@@ -1608,7 +1608,7 @@
     .tbLgSep{font-size:0;margin:0 2px}.tbLgSep::after{content:"·";font-size:11px;font-weight:900;color:var(--tx2)}
     .tbLegend{display:flex!important;gap:5px}.tbLegend .sqLaneBtn{flex:1 1 auto}   /* 三顆字數不同（9／4／6 字；窄手機字級跟著縮，使用者 2026-11-20「手機版有點超框」）⇒ 欄寬照字數分 */
     .tbLegend .sqLaneBtn b.tbGone{text-decoration:none}.tbLegend .sqLaneBtn b.tbGone::after{text-decoration:line-through}
-    .trBar>label,.trBar .trFG>label,.trBar>span[style*="flex:1"]{display:none}
+    .trBar>label,.trBar .trSW>label,.trBar .trFG>label,.trBar>span[style*="flex:1"]{display:none}.trBar .trSW{display:contents}
     .trBar .meta{order:9;flex:1 1 100%;font-size:11px;text-align:right;opacity:.8}
     .trBar .cwrap{flex:1 1 0;min-width:120px}.trBar .cwrap input{width:100%!important}
     .trBar .sqbtn{flex:0 0 auto}
@@ -14688,7 +14688,7 @@ function render(){
     main.innerHTML=`<div class="filters trBar">`+modeBtns+rgBtns+(MODE==="news"?newsBtns:boardBtns)
       // 搜尋放最右邊（使用者 2026-11-20「篩選列重新調整一下 搜尋應該在最右邊」）
       +`<span style="flex:1"></span><span class="meta">${metaTx}</span>`
-      +`<label>${en2?"Search":"搜尋"}</label><span class="cwrap"><input type="text" id="trQ" value="${esc(V.trQ||"")}" placeholder="${en2?"Player or team":"選手或隊名"}" style="width:190px;padding-right:26px"><button class="cx" tabindex="-1" data-x="trQ" title="一鍵清除">✕</button></span>`
+      +`<span class="trSW"><label>${en2?"Search":"搜尋"}</label><span class="cwrap"><input type="text" id="trQ" value="${esc(V.trQ||"")}" placeholder="${en2?"Player or team":"選手或隊名"}" style="width:190px;padding-right:26px"><button class="cx" tabindex="-1" data-x="trQ" title="一鍵清除">✕</button></span></span>`
       +`<button id="trShot" class="sqbtn" style="order:1" title="${en2?"Screenshot (2000×2000 JPG)":"截圖（輸出 2000×2000 JPG）"}">📸</button>`
       // Discord（使用者 2026-11-20「如果有任何新的轉會通知 可以到我的 DC 群告訴我…也新增一個 DC 按鈕在外面」）
       +`<a id="trDc" class="sqbtn" style="order:1;text-decoration:none;background:#5865F2;border:1px solid #7983f5;box-shadow:0 1px 0 rgba(0,0,0,.35);box-sizing:border-box;border-radius:9px;cursor:pointer" href="https://discord.gg/ffJvcswnkC" target="_blank" rel="noopener" title="${en2?"Got a new transfer? Tell me on Discord":"有新的轉會消息？到 Discord 群告訴我"}"><svg viewBox="0 0 24 24" width="20" height="20" fill="#fff" aria-hidden="true"><path d="M20.317 4.3698a19.7913 19.7913 0 00-4.8851-1.5152.0741.0741 0 00-.0785.0371c-.211.3753-.4447.8648-.6083 1.2495-1.8447-.2762-3.68-.2762-5.4868 0-.1636-.3933-.4058-.8742-.6177-1.2495a.077.077 0 00-.0785-.037 19.7363 19.7363 0 00-4.8852 1.515.0699.0699 0 00-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 00.0312.0561c2.0528 1.5076 4.0413 2.4228 5.9929 3.0294a.0777.0777 0 00.0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 0 00-.0416-.1057c-.6528-.2476-1.2743-.5495-1.8722-.8923a.077.077 0 01-.0076-.1277c.1258-.0943.2517-.1923.3718-.2914a.0743.0743 0 01.0776-.0105c3.9278 1.7933 8.18 1.7933 12.0614 0a.0739.0739 0 01.0785.0095c.1202.099.246.1981.3728.2924a.077.077 0 01-.0066.1276 12.2986 12.2986 0 01-1.873.8914.0766.0766 0 00-.0407.1067c.3604.698.7719 1.3628 1.225 1.9932a.076.076 0 00.0842.0286c1.961-.6067 3.9495-1.5219 6.0023-3.0294a.077.077 0 00.0313-.0552c.5004-5.177-.8382-9.6739-3.5485-13.6604a.061.061 0 00-.0312-.0286zM8.02 15.3312c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9555-2.4189 2.157-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.9555 2.4189-2.1569 2.4189zm7.9748 0c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9554-2.4189 2.1569-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.946 2.4189-2.1568 2.4189Z"/></svg></a>`+`</div>`
@@ -14758,7 +14758,7 @@ function render(){
               const h=mkHost(1200,""); h.querySelector("div").remove(); h.style.paddingTop="4px"; h.dataset.noic="1";
               h.insertAdjacentHTML("beforeend",`<div><div class="card tbBoard" style="margin:0;background:#141a26;box-shadow:none">${bhd?bhd.outerHTML:""}${sc.rows.filter(r=>!r.classList.contains("tbFA")).map(r=>r.outerHTML).join("")}</div></div>`);
               // 截圖專用（使用者 2026-11-20「截圖的教練只列主教練 自由人也不列 每路每個選手都換行」）：拿掉後勤欄與自由人列；同一格多人時一人一行
-              { const bd=h.querySelector(".tbBoard"); bd.style.gridTemplateColumns="max-content repeat(6,minmax(0,1fr)) max-content";
+              { const bd=h.querySelector(".tbBoard"); bd.style.gridTemplateColumns="max-content repeat(6,minmax(0,1fr)) minmax(120px,max-content)";   /* 整個賽區都沒評分時，「轉會評分」欄名不要貼著主教練 */
                 h.querySelectorAll('.tbCell[data-r="STF"]').forEach(x=>x.remove()); const hs=h.querySelector(".tbHd"); if(hs&&hs.children[7])hs.children[7].remove();
                 h.querySelectorAll(".tbSep").forEach(x=>x.outerHTML="<br>");
                 // 評分：多位傳聞人選的範圍在截圖裡改寫成平均（使用者 2026-11-20「截圖評分用平均」；網頁仍是 最低 ～ 最高）
