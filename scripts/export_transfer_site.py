@@ -115,6 +115,13 @@ render();
 })();
 '''
     code = shim.replace("/*__BLOCK__*/", blk.group(1))
+    # 自由人的縮圖內嵌成 data URI（使用者 2026-11-20「自由人的圖破圖」：圖檔在主站，主站還沒推上去之前新網站讀不到）
+    try:
+        import base64
+        fa_ = base64.b64encode(io.open(os.path.join(ROOT, "img", "FA.png"), "rb").read()).decode()
+        code = code.replace('src="img/FA.png"', 'src="data:image/png;base64,' + fa_ + '"')
+    except Exception:
+        pass
     return ('(function(){var st=document.createElement("style");st.textContent=' + json.dumps(css, ensure_ascii=False)
             + ';document.head.appendChild(st);})();\n' + code)
 
