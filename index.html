@@ -1101,7 +1101,7 @@
   .tpPill{font-size:12px;font-weight:700;padding:1px 7px;border-radius:999px;margin-left:auto}
   .tpR{background:rgba(255,90,90,.16);color:#ff5a5a}.tpB{background:rgba(90,169,255,.16);color:#5aa9ff}.tpY{background:rgba(255,200,80,.16);color:#ffc850}.tpW{background:rgba(255,255,255,.1);color:var(--tx)}.tpK{background:rgba(255,142,198,.16);color:#ff8ec6}.tpV{background:rgba(185,140,255,.16);color:#b98cff}.tpG{background:rgba(76,208,125,.16);color:#4cd07d}
   .tpKv{display:grid;grid-template-columns:auto 1fr;column-gap:12px;row-gap:2px;margin-top:6px;font-size:14px;font-variant-numeric:tabular-nums}
-  .tpKv>span:nth-child(odd){color:var(--tx2)}.tpKv>span{display:flex;align-items:center;gap:5px;flex-wrap:wrap;min-height:22px}   /* 值裡有隊徽縮寫（從 BROC 上調）要跟文字同一條水平線 */
+  .tpKv>span:nth-child(odd){color:var(--tx2)}.tpKv>span{display:flex;align-items:center;gap:5px;flex-wrap:wrap;min-height:24px;line-height:20px}.tbBoard .tbCell .tbCv{padding:6px 10px;margin:-6px -10px}   /* 值裡有隊徽縮寫（從 BROC 上調）要跟文字同一條水平線 */
   .tpTm{display:inline-flex;align-items:center;gap:5px;font-weight:700}
   .tpSrc{color:#7fb2ff;text-decoration:underline;text-underline-offset:2px}
   .tpA{color:inherit;text-decoration:none}#tbTip.sheet .tpA{text-decoration:underline;text-decoration-color:rgba(255,255,255,.35);text-underline-offset:3px}
@@ -14497,14 +14497,16 @@ function render(){
         // FA：合約跟來自併成一列「與 NS 已到期 2026/11/16」（使用者 2026-11-21「合約跟來自要合併寫 比較清晰」）
         const faC=e.fa&&e.from?(en2?`with ${tmChip(e.from)} `:`與 ${tmChip(e.from)} `):"";
         // 「到期 2026/11/16」；合約還沒到就宣布離隊的＝提早解約，寫「解約」（使用者 2026-11-21）
+        const JD=(e.new||(e.tip&&!e.r&&e.d))?(e.new||e.d):"";
         if(faC)kv.push([en2?"Contract":"合約",faC+(e.c?(e.c<today?`<span class="tbExp">${en2?"expired":"到期"} ${ymd(e.c)}</span>`:(e.gone?`<span class="tbExp">${en2?"terminated":"解約"}${e.gd?" "+ymd(e.gd):""}</span>`:`${en2?"until":"到"} ${ymd(e.c)}`)):`<span class="tbMuted">${en2?"not on record":"無紀錄"}</span>`)]);
         else if(e.rs&&(!e.c||e.c<today))kv.push([en2?"Contract":"合約",e.rs!=="1"?`${en2?"re-signed through":"續約到"} ${e.rs}`:(en2?"re-signed":"已續約")]);
+        else if(JD)kv.push([en2?"Contract":"合約",`${en2?"joined":"加入於"} ${ymd(JD)}`+(e.c&&e.c>=today?`${en2?", until":"，到"} ${ymd(e.c)}`:"")]);   // 剛加入通常還不知道年限 ⇒ 合約與加入併成一行（使用者 2026-11-21）
         else if(e.c)kv.push([en2?"Contract":"合約",e.c<today?`<span class="tbExp">${en2?"expired":"已到期"} ${ymd(e.c)}</span>`:`${en2?"until":"到"} ${ymd(e.c)}`]);
         else if(!e.r)kv.push([en2?"Contract":"合約",`<span class="tbMuted">${en2?"not on record":"無紀錄"}</span>`]);
         // 升職怎麼升的（使用者 2026-11-20「升職怎麼樣的升法 小框要寫」）：職稱異動「教練 → 主教練」；或「從 二隊 上調」
         if(e.pm){ const RZ={"Head Coach":"主教練","Interim Head Coach":"代理主教練","Assistant Coach":"教練","Strategic Coach":"戰略教練","Positional Coach":"路線教練","Coach":"教練","Analyst":"分析師","Head Analyst":"分析師"};
           kv.push([en2?"Promoted":"升職",typeof e.pm==="string"?e.pm.split(" to ").map(z=>en2?z:(RZ[z.trim()]||z)).join(" → "):(e.from?(en2?`called up from ${tmChip(e.from)}`:`從 ${tmChip(e.from)} 上調`):(en2?"promoted":"升職"))]); }
-        if(e.new||(e.tip&&!e.r&&e.d))kv.push([en2?"Joined":"加入",ymd(e.new||e.d)]);
+        if(JD&&(faC||(e.rs&&(!e.c||e.c<today))))kv.push([en2?"Joined":"加入",ymd(JD)]);
         if(e.gone)kv.push(...goKv(e.n,t.nm));
         if(e.from&&!faC&&!(e.pm&&typeof e.pm!=="string"))kv.push([en2?"From":"來自",tmChip(e.from)]);
         if(e.fa&&e._sc!=null)kv.push([en2?"Score":"評分",e._sc.toFixed(1)]);   // 自由人的評分寫在最後一列（使用者 2026-11-20）   // 上調的已經寫「從 X 上調」，不重複寫來自（使用者 2026-11-20）
@@ -14732,7 +14734,7 @@ function render(){
     const srtArr="";   // 不畫箭頭，排序中靠按鈕亮起與欄名變金色表示
     const wkPg=p=>{ let s=String(p||""); try{ s=decodeURIComponent(s); }catch(_){} return s.replace(/ /g,"_"); };   // wiki 頁名：已編碼的先解開（Noah 連錯頁，使用者 2026-11-20）
     const nameH=e=>{ const n=esc(pn(e.n)), inner=bq&&hitE(e)?`<mark>${n}</mark>`:n;
-      return `<span class="tbN ${tbCls(e)}${F_TB.size&&!tbMf(e)?" tbDim":""}">${e.nop?inner:`<a href="https://lol.fandom.com/wiki/${encodeURIComponent(wkPg(e.p||((D.roles||{})[e.n]||[])[1]||e.n))}" target="_blank" rel="noopener">${inner}</a>`}</span>`; };   // 沒頁名的傳聞人選（BrokenBlade、Zven…）退回 roles 查到的頁、再退回 ID 本身（使用者 2026-11-20 全面檢視）   // 格子不標教練職稱，只在小框顯示（使用者 2026-11-20）
+      return `<span class="tbN ${tbCls(e)}${F_TB.size&&!tbMf(e)?" tbDim":""}">${inner}</span>`; };   // 陣容表的名字不做超連結，連結只放在小框裡的名字（使用者 2026-11-21）   // 沒頁名的傳聞人選（BrokenBlade、Zven…）退回 roles 查到的頁、再退回 ID 本身（使用者 2026-11-20 全面檢視）   // 格子不標教練職稱，只在小框顯示（使用者 2026-11-20）
     // 陣容到位打勾（使用者 2026-11-20「五路選手以及主教練都有新加入或續約了，一路有兩人有一個也可以，就在隊伍縮寫後面打個勾」）：
     //   每一格至少一人是官方新加入／官方續約；合約本來就還在（沒到期、沒傳出要走）的人也算確定
     const setE=e=>!e.r&&!e.gone&&!!(e.new||e.tip||e.rs||e.pm||(e.c&&e.c>=today&&!e.ro));
@@ -14920,7 +14922,9 @@ function render(){
             const sr=innerWidth-r.right-16, sl=r.left-16; x=(sr>=w||sr>=sl)?Math.min(r.right+8,innerWidth-w-8):Math.max(8,r.left-w-8); } }
         tip.style.left=x+"px"; tip.style.top=y+"px"; };
       // 隊名那格也算評分那一列：點（手機）或滑過（電腦）隊名一樣開評分小框（使用者 2026-11-20「應該點擊分數那列都會顯示分數小框」）
-      const cellOf=e=>e.target.closest(".tbCell")||(e.target.closest(".tbTeam")?e.target.closest(".tbRow").querySelector(".tbRate"):null);
+      // 電腦版觸發範圍＝文字外擴一點（.tbCv 的 padding），不是整格（使用者 2026-11-21）；手機點擊照舊整格都算
+      const cellOf=e=>{ const c=e.target.closest(".tbCell"); if(c)return (e.type!=="mouseover"||e.target.closest(".tbCv"))?c:null; return cellOfT(e); };
+      const cellOfT=e=>(e.target.closest(".tbTeam")?e.target.closest(".tbRow").querySelector(".tbRate"):null);
       const keepTip=()=>clearTimeout(tip._ht), hideSoon=()=>{ clearTimeout(tip._ht); tip._ht=setTimeout(()=>{ if(!tip.classList.contains("sheet")){ tip.style.display="none"; tip._c=null; } },200); };
       bd.onmouseover=e=>{ if(touch())return; const c=cellOf(e); if(!c){ hideSoon(); return; } keepTip(); if(tip.style.display==="block"&&tip._c===c)return; tip._c=c; show(c,false); };
       bd.onmouseleave=()=>{ if(!touch())hideSoon(); };
