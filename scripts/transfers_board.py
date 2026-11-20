@@ -417,7 +417,9 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
                 moved = [e["p"] or e["n"] for e in cell if "new" not in e and "tip" not in e]
                 cell = [e for e in cell if "new" in e or "tip" in e]
             # 同一路有新加入或續約的人 ⇒ 合約到期的人不再顯示，移上一位（使用者 2026-11-20「例如 BFX 的中路」）
-            if rr != "COACH" and any(("new" in e or "rs" in e) for e in cell):
+            #   2026-11-20 再加：有「傳聞的人要進來」也一樣（使用者「如果該隊路線原選手離隊或合約到期 同時又有傳聞的選手進來 那就不顯示」：
+            #   JDG 打野 JunJia／xiaofang 合約到期＋Kanavi／Tarzan 傳聞 ⇒ 格子只留傳聞的兩位，原本的移到上一位）
+            if rr != "COACH" and any(("new" in e or "rs" in e or "tip" in e) for e in cell):
                 old_ = [e for e in cell if "new" not in e and "rs" not in e and "tip" not in e and (not e.get("c") or e["c"] < today)]   # 合約無紀錄也算到期（使用者 2026-11-20）
                 if old_:
                     moved += [e["p"] or e["n"] for e in old_]
@@ -545,15 +547,14 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
                         cand.append((x, rr, e.get("p") or e["n"], e["n"], e.get("c") or "", 1 if e.get("gone") else 0))
                 for p in x["prev"].get(rr, []):
                     cand.append((x, rr, p, re.sub(r"\s*\([^()]*\)$", "", p), con.get((key(p), x["tm"]), ""), 1))
-            # 主教練也列（使用者 2026-11-20「FA 多一個主教練」）：格子裡已離隊／合約到期的主教練＋上一位主教練；教練不看出賽紀錄
+            # 教練那格（使用者 2026-11-20「FA 多一個主教練」→「主教練改成 教練與分析師也列入」）：已宣布離隊的主教練、教練、分析師都列
+            #   （只列「已宣布離隊」的：教練大多查不到合約紀錄，「無紀錄算到期」會把還在任的也列進來）；教練不看出賽紀錄。第七格＝職稱代碼
             for e in x["r"].get("COACH", []):
-                if e.get("sr") != "HC" or e.get("r") or e.get("new") or e.get("rs") or e.get("pm") or e.get("tip"):
+                if e.get("r") or e.get("new") or e.get("rs") or e.get("pm") or e.get("tip") or not e.get("gone"):
                     continue
-                if e.get("gone"):   # 主教練只列已宣布離隊的（使用者 2026-11-20）：教練大多查不到合約紀錄，「無紀錄算到期」會把還在任的（Clearlove、Daeny）也列進來
-                    cand.append((x, "COACH", e.get("p") or e["n"], e["n"], e.get("c") or "", 1))
+                cand.append((x, "COACH", e.get("p") or e["n"], e["n"], e.get("c") or "", 1, e.get("sr") or "C"))
             for p in x["prev"].get("COACH", []):
-                if (x.get("_psr") or {}).get(p) == "HC":
-                    cand.append((x, "COACH", p, re.sub(r"\s*\([^()]*\)$", "", p), con.get((key(p), x["tm"]), ""), 1))
+                cand.append((x, "COACH", p, re.sub(r"\s*\([^()]*\)$", "", p), con.get((key(p), x["tm"]), ""), 1, (x.get("_psr") or {}).get(p) or "C"))
         # 掛名在隊上但休假中（inactive）的主教練也算自由人（使用者 2026-11-20「Homme kkOma 都算」：kkOma 在 T1 是 inactive、合約 2026-11-16 到期，
         #   教練欄本來就不列休假的人，所以要另外查）
         try:
@@ -565,7 +566,7 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
                                 "limit": "500", "format": "json"}):
                     x = by_tm_.get(y.get("tm"))
                     if x and y.get("p"):
-                        cand.append((x, "COACH", y["p"], re.sub(r"\s*\([^()]*\)$", "", y["p"]), con.get((key(y["p"]), x["tm"]), ""), 0))
+                        cand.append((x, "COACH", y["p"], re.sub(r"\s*\([^()]*\)$", "", y["p"]), con.get((key(y["p"]), x["tm"]), ""), 0, "HC"))
         except Exception as e:
             print(f"   休假主教練查詢失敗：{type(e).__name__} {str(e)[:100]}")
         pages_ = sorted({c_[2] for c_ in cand})
@@ -577,7 +578,7 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
                 if str(y.get("ret")) == "1":
                     retd_.add(key(y["pg"]))
         by_lg = {}
-        for x, rr, pg, nm_, c_, gone_ in cand:
+        for x, rr, pg, nm_, c_, gone_, *sr_ in cand:
             k_ = key(pg)
             if k_ in seen_ or k_ in settled or key(nm_) in settled or k_ in retd_:
                 continue
@@ -589,7 +590,7 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
             seen_.add(k_)
             e = {"n": nm_, "p": pg, "fa": 1, "from": x["nm"]}
             if rr == "COACH":
-                e["sr"] = "HC"
+                e["sr"] = (sr_[0] if sr_ else "") or "C"
             if c_:
                 e["c"] = c_
             if gone_:

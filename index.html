@@ -1555,7 +1555,7 @@
     .tbCell[data-r="TOP"]::before{background-image:url(img/TOP.png)}.tbCell[data-r="JNG"]::before{background-image:url(img/JG.png)}
     .tbCell[data-r="MID"]::before{background-image:url(img/MID.png)}.tbCell[data-r="BOT"]::before{background-image:url(img/BOT.png)}
     .tbCell[data-r="SUP"]::before{background-image:url(img/SUP.png)}.tbCell[data-r="HC"]::before,.tbCell[data-r="STF"]::before{background-image:url(img/COACH.png)}
-    .tbFaIc{margin:0 8px 0 0}.tbFA .tbCell[data-r="STF"]{display:none}
+    .tbTeam img.tbFaIc{margin:0 8px 0 0!important}   /* 自由人的聯賽圖有淺色底，不能像隊徽那樣扣掉透明邊（會貼到字：歐洲／北美／亞太只剩 2～4px；使用者 2026-11-20「自由人的文字跟圖片也要有半形空格」） */.tbFA .tbCell[data-r="STF"]{display:none}
     .tbFA .tbCell:not(.tbRate){grid-column:1/-1;border-left:0}   /* 自由人卡：五路＋主教練，一路一列（使用者 2026-11-20） */
     .tbCell.tbRate::before{content:none}.tbCell.tbRate .tbCv{white-space:nowrap;font-size:min(15px,3.55cqw)}   /* 單一分數與範圍同一個字級（使用者 2026-11-20「轉會評分的分數字體大小要一致」） */   /* 範圍評分（-158.7 ～ -105.3）在窄手機不換行、不壓隊名 */
     .tbCell .tbCv{min-width:0;overflow-wrap:anywhere}.tbCell .tbN{white-space:nowrap}
@@ -14429,7 +14429,8 @@ function render(){
     const BL=["TOP","JNG","MID","BOT","SUP","COACH"], BLN={TOP:RL.TOP,JNG:RL.JNG,MID:RL.MID,BOT:RL.BOT,SUP:RL.SUP,COACH:en2?"Coach":"教練",HC:en2?"Head Coach":"主教練",STF:en2?"Staff":"後勤"};
     // 教練分兩欄（使用者 2026-11-19「教練分成兩欄 主教練 跟後勤」）：HC＝主教練、STF＝其他教練／分析師；資料仍是 COACH 一格，顯示時依 sr 拆
     const COLS=["TOP","JNG","MID","BOT","SUP","HC","STF"], isHC=e=>(e&&e.sr)==="HC";
-    const colE=(t,c)=>c==="HC"?(t.r.COACH||[]).filter(isHC):c==="STF"?(t.r.COACH||[]).filter(e=>!isHC(e)):(t.r[c]||[]);
+    // 自由人那一列：教練與分析師全部放在同一格（主教練那欄），後勤那欄留空（使用者 2026-11-20「FA 的主教練改成 教練與分析師也列入」）
+    const colE=(t,c)=>t.fa&&(c==="HC"||c==="STF")?(c==="HC"?(t.r.COACH||[]):[]):c==="HC"?(t.r.COACH||[]).filter(isHC):c==="STF"?(t.r.COACH||[]).filter(e=>!isHC(e)):(t.r[c]||[]);
     const colP=(t,c)=>{ const pv=(t.prev||{})[c==="HC"||c==="STF"?"COACH":c]||[];
       return c==="HC"?pv.filter(isHC):c==="STF"?pv.filter(p=>!isHC(p)):pv; };
     const pn=s=>String(s||"").replace(/\s*\([^()]*\)\s*$/,"");
@@ -14566,7 +14567,7 @@ function render(){
       board.filter(t=>t.fa).forEach(t=>{ for(const r in t.r){ t.r[r].forEach(e=>{ const k=String(pn(e.n)).toLowerCase(), it=(D.intl||{})[k]||0;
             if(r==="COACH"){ const c=e.from?coachS(e.from):null; e._sc=c?c.v:null; }
             else{ const a=(RATE.pl[r]||{})[k]; e._sc=(a?50+(pct0(r,blend0(a))-50)*Math.min(1,(a.g||0)/30):50)*BASEW_+it; } });
-          t.r[r].sort((p,q)=>(q._sc??-1)-(p._sc??-1)||String(p.n).localeCompare(String(q.n))); } }); }   // 三個賽段合計的占比（10＋30＋40），跟 RATE 那邊的 SEGW 要一起改
+          t.r[r].sort((p,q)=>(r==="COACH"?((p.sr==="HC"?0:1)-(q.sr==="HC"?0:1)):0)||(q._sc??-1)-(p._sc??-1)||String(p.n).localeCompare(String(q.n))); } }); }   // 教練那格：主教練排前面   // 三個賽段合計的占比（10＋30＋40），跟 RATE 那邊的 SEGW 要一起改
     const rateOf=t=>{ if(!RATE||t.fa)return null; const items=[];   // FA 列不是隊伍，不算評分
       // 聯賽權重：別的聯賽來的分數 × exp(LGK × (原聯賽強度 − 本隊聯賽強度))；同聯賽＝1、強度缺＝1
       const blend=a=>{ const ts=a.tm?coachS(a.tm,true):null; return ts?(a.v+ts.v)/2:a.v; };
@@ -14659,7 +14660,7 @@ function render(){
     let bHTML="", lastLg="";
     vRows.forEach(t=>{ if(t.lg!==lastLg){ const n=vRows.filter(x=>x.lg===t.lg&&!x.fa).length;
         bHTML+=`<div class="tbLg" style="--lgc:${LGC[t.lg]||"var(--gold)"}"><b>${esc(t.lg)}</b><span>${esc((en2?{LCK:"Korea",LPL:"China",LEC:"EMEA",LCS:"North America",CBLOL:"Brazil",LCP:"Asia-Pacific"}:{LCK:"韓國",LPL:"中國",LEC:"歐洲",LCS:"北美",CBLOL:"巴西",LCP:"亞太"})[t.lg]||"")}</span><i>${n}${en2?" teams":" 隊"}</i></div>`; lastLg=t.lg; }
-      bHTML+=`<div class="tbRow${t.fa?" tbFA":""}" style="--lgc:${LGC[t.lg]||"var(--gold)"}"><div class="tbTeam" title="${t.fa?(en2?"Free agents":"自由球員"):esc(t.nm)}">${t.fa?`<img class="tbFaIc" src="img/FA.png" alt="">`:""}${teamLogoHTML(tAb(t.nm),26,true,t.nm)||teamLogoHTML(tAb(t.tm),26,true,t.tm)||""}<span>${esc(rowNm(t))}</span>${tbDone(t)?`<span class="tbOk" title="${en2?"All five lanes and the head coach are set":"五路與主教練都確定了"}">✔</span>`:""}</div>`
+      bHTML+=`<div class="tbRow${t.fa?" tbFA":""}" style="--lgc:${LGC[t.lg]||"var(--gold)"}"><div class="tbTeam" title="${t.fa?(en2?"Free agents":"自由球員"):esc(t.nm)}">${t.fa?`<img class="tbFaIc" src="${((window.TS_DATA||{}).lgi||{})[t.lg]||("img/lg_"+t.lg+".png")}" alt="">`:""}${teamLogoHTML(tAb(t.nm),26,true,t.nm)||teamLogoHTML(tAb(t.tm),26,true,t.tm)||""}<span>${esc(rowNm(t))}</span>${tbDone(t)?`<span class="tbOk" title="${en2?"All five lanes and the head coach are set":"五路與主教練都確定了"}">✔</span>`:""}</div>`
         +COLS.map(r=>{ const es=colE(t,r); return `<div class="tbCell" data-r="${r}" data-lb="${BLN[r]}" data-tb="${cellTip(t,r)}"><span class="tbCv">${es.length?es.map(nameH).join(`<span class="tbSep">/</span>`):`<span class="tbMuted">–</span>`}</span></div>`; }).join("")+rateCell(t)+`</div>`; });
     const bHead=`<div class="tbHd"><span></span>${COLS.map(r=>`<span>${(r==="HC"||r==="STF")?`<img class="trCoach" src="img/COACH.png" alt="">`:(POS_IMG[r]?`<img class="trRole" src="${POS_IMG[r]}" alt="">`:"")}${BLN[r]}</span>`).join("")}<span class="tbRateH tbSortT" style="cursor:pointer;white-space:nowrap${SRT?";color:var(--gold)":""}" title="${en2?"Click to sort by rating":"點一下照評分排序"}">${en2?"Rating":"轉會評分"}${srtArr}</span></div>`;
     // 篩選列（使用者 2026-11-20「消息跟轉會表的篩選列也統一一下 並且直觀一點」）：兩種模式同一個順序——

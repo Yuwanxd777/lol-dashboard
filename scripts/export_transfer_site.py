@@ -115,13 +115,6 @@ render();
 })();
 '''
     code = shim.replace("/*__BLOCK__*/", blk.group(1))
-    # 自由人的縮圖內嵌成 data URI（使用者 2026-11-20「自由人的圖破圖」：圖檔在主站，主站還沒推上去之前新網站讀不到）
-    try:
-        import base64
-        fa_ = base64.b64encode(io.open(os.path.join(ROOT, "img", "FA.png"), "rb").read()).decode()
-        code = code.replace('src="img/FA.png"', 'src="data:image/png;base64,' + fa_ + '"')
-    except Exception:
-        pass
     return ('(function(){var st=document.createElement("style");st.textContent=' + json.dumps(css, ensure_ascii=False)
             + ';document.head.appendChild(st);})();\n' + code)
 
@@ -167,6 +160,13 @@ def main():
         srv.kill()
     if not data.get("rate"):
         print("   ⚠ 評分沒算出來（年份不是轉會賽季？），轉會網站的評分欄會是 –")
+    # 自由人那一列的聯賽標誌（img/lg_*.png，96px）內嵌成 data URI：圖檔在主站，主站整點才推上去，中間這段新網站會破圖
+    try:
+        import base64
+        data["lgi"] = {lg: "data:image/png;base64," + base64.b64encode(io.open(os.path.join(ROOT, "img", f"lg_{lg}.png"), "rb").read()).decode()
+                       for lg in ("LCK", "LPL", "LEC", "LCS", "CBLOL", "LCP") if os.path.exists(os.path.join(ROOT, "img", f"lg_{lg}.png"))}
+    except Exception:
+        pass
     io.open(OUT_DATA, "w", encoding="utf-8", newline="\n").write("window.TS_DATA=" + json.dumps(data, ensure_ascii=False, separators=(",", ":")) + ";\n")
     io.open(OUT_CODE, "w", encoding="utf-8", newline="\n").write(code)
     print(f"轉會網站：隊伍 {len(data['team'])}、評分 {'有' if data.get('rate') else '無'}；"
