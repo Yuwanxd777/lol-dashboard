@@ -566,7 +566,7 @@ function render(){
             const LG=en2?[["tbNew","New signing"],["tbRs","Re-signed"],["tbPm","Promoted"],["tbStay","Staying"],["tbExp","Contract expired"],["tbExp tbGone","Departure announced"],["tbOut","Possible move"],["tbY","Rumor"]]
               :[["tbNew","新加入"],["tbRs","續約"],["tbPm","升職"],["tbStay","續留"],["tbExp","合約到期"],["tbExp tbGone","已宣布離隊"],["tbOut","可能轉會"],["tbY","傳聞"]];
             const legend=`<div style="display:flex;flex-wrap:wrap;align-items:center;gap:4px 16px;margin:0 2px 12px;padding:8px 12px;border:1px solid rgba(255,255,255,.12);border-radius:8px;font-size:18px;justify-content:space-between">`
-              +LG.map(([c,l])=>`<b class="tbN ${c}"${c==="tbStay"?` style="color:#fff"`:""}>${l}</b>`).join("")+`<span style="color:#8b98ad"><span class="tbOk" style="margin:0 4px 0 0">✔</span>${en2?"roster set":"陣容確認"}</span></div>`;
+              +LG.map(([c,l])=>`<b class="tbN ${c}"${c==="tbStay"?` style="color:#fff"`:""}>${l}</b>`).join("")+`<b class="tbN" style="color:#8b98ad"><span class="tbOk" style="margin:0 4px 0 0;font-size:inherit">✔</span>${en2?"roster set":"陣容確認"}</b></div>`;
             const secs=[]; [...main.querySelectorAll(".tbBoard>.tbLg,.tbBoard>.tbRow")].forEach(e=>{ if(e.classList.contains("tbLg"))secs.push({lg:e.querySelector("b").textContent,sub:(e.querySelector("span")||{}).textContent||"",c:e.style.getPropertyValue("--lgc"),rows:[]}); else if(secs.length)secs[secs.length-1].rows.push(e); });
             // 版面＝一列一隊，跟網頁（桌面版）的表格一樣（使用者 2026-11-20「截圖能不能改成一列一隊這樣 跟網頁顯示的一樣」）：
             //   表頭＋該賽區各隊的列放進一個寬度 ≥1000 的 mainc 容器（＝桌面版樣式）；寬度從 1000 試到 2000，挑縮放後字最大的那個
