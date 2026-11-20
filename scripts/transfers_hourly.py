@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
 """轉會每小時更新（使用者 2026-11-20「新網頁每一個小時更新一次」「轉會分頁也每小時更新一次 轉會分頁先更新 10 分鐘後再更新新網頁」）。
 
-  python scripts/transfers_hourly.py main   整點：抓轉會（fetch_transfers）→ 匯出轉會網站檔（export_transfer_site）
+  python scripts/transfers_hourly.py main   每小時 :10：抓轉會（fetch_transfers）→ 匯出轉會網站檔（export_transfer_site）
                                             → 只 commit 這三個檔 → preflight 通過才 push（主站轉會分頁更新）
   python scripts/transfers_hourly.py site   10 分：三個檔複製到 轉會網站\\www\\fallback → wrangler 部署 lol-transfer.pages.dev
 
-排程：工作排程器 LOL_Transfers_Main（每小時 :00）、LOL_Transfers_Site（每小時 :10），由 transfers_hourly.vbs 隱藏執行。
+排程：工作排程器 LOL_Transfers_Main（每小時 :10；使用者 2026-11-20「每個小時的10分時更新」）、LOL_Transfers_Site（每小時 :40），由 transfers_hourly.vbs 隱藏執行。
 跳過條件：10／22 點（publish.bat 那班本來就會更新＋推）、LOL_Dashboard_Update 正在跑、autopilot\\STREAM 存在（直播中不跑吃 CPU 的無頭頁）。
 ⚠ push 會把本機所有還沒推的 commit 一起推上去（GitHub Pages 只有一條分支）⇒ 推之前一定跑 preflight，失敗就不推。
 紀錄寫自己的 transfers_hourly_log.txt（不要寫進 update_log.txt：那是 publish 的）。
@@ -204,7 +204,7 @@ def do_main():
         log("  ⚠ preflight 失敗，不推（下一班 publish 會再試）")
         return
     run([GIT, "push"], timeout=600)
-    if reviewed:   # 複查花掉的時間多半已經超過 :10 那班 ⇒ 這裡直接補部署轉會網站
+    if reviewed:   # 複查花掉的時間多半已經超過 :40 那班 ⇒ 這裡直接補部署轉會網站
         do_site()
 
 
