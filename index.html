@@ -1057,7 +1057,7 @@
   /* 轉會「陣容表」（2026-11-19，參考巴哈 LCK 陣容圖）：左＝戰隊，六大聯賽一路往下；欄＝上野中下輔＋教練；*＝傳聞 */
   .tbBoard{padding:6px 16px 14px;display:grid;grid-template-columns:max-content repeat(6,minmax(0,1fr)) minmax(0,1.6fr) max-content;column-gap:0}   /* 教練欄人多 ⇒ 1.8 倍寬；末欄＝轉會評分 */
   .tbN.tbY,b.tbY{color:#ffc850}.tbN.tbNew,b.tbNew{color:#ff5a5a}.tbN.tbExp,b.tbExp{color:#5aa9ff}.tbN.tbRs,b.tbRs{color:#ff8ec6}.tbN.tbPm,b.tbPm{color:#b98cff}.tbN.tbOut,b.tbOut{color:#4cd07d}.tbOk{color:#4cd07d;font-size:14px;margin-left:2px}.tbN.tbGone{text-decoration:line-through;text-decoration-thickness:1px}.tbN.tbDim{opacity:.2}.tbVacN{font-style:normal;font-size:11px;font-weight:700;color:var(--tx2);margin-left:6px;padding:0 6px;border:1px solid rgba(255,255,255,.2);border-radius:999px;white-space:nowrap}.tbLegend .sqLaneBtn b{font-weight:700}.tbLgB{display:inline-flex;align-items:center;gap:2px}.tbLgSep{font-style:normal;color:var(--tx2);margin:0 3px}.tbLegend .sqLaneBtn{margin-right:2px}.tbLegend .sqLaneBtn.on,.trBar .sqLaneBtn[data-mk].on{background:rgba(255,255,255,.14);border-color:var(--tx);box-shadow:0 0 0 1px var(--tx) inset;color:var(--tx)}.tbLgG .sqLaneBtn:not(.on){background:transparent;border-color:transparent}   /* 兩兩一框（使用者 2026-11-20：新加入＋續約｜合約到期＋離隊｜可能轉會＋傳聞），框之間不畫線 */.trFG{display:inline-flex;align-items:center;gap:6px;padding-left:12px;border-left:1px solid rgba(255,255,255,.16)}.trFG:first-child{border-left:0;padding-left:0}.trFG>label{margin-right:2px}.tbLegend{display:inline-flex;gap:6px;align-items:center}.trSrc-kr{color:#ff9a6b;background:rgba(255,154,107,.12)}.trSrc-ptt{color:#c9d1e0;background:rgba(255,255,255,.08)}.trSrc-man{color:#ffd166;background:rgba(255,209,102,.12)}
-  .tbLegend{display:inline-flex;gap:12px;align-items:center}
+  .tbLegend{display:inline-flex;gap:12px;align-items:center}.tbLegend b.tbStay{color:#fff}
   .tbHd,.tbRow{grid-column:1/-1;display:grid;grid-template-columns:subgrid;align-items:center}
   .tbHd{position:sticky;top:0;z-index:2;background:var(--card,#141a2a);padding:8px 0;border-bottom:1px solid var(--line);font-weight:700;color:var(--tx2);font-size:14px}
   .tbHd>span{display:flex;align-items:center;justify-content:center;gap:4px}
@@ -1580,9 +1580,9 @@
     .tbLegend{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;width:100%}
     /* 顯示三顆（使用者 2026-11-20「手機版的陣容表的篩選列也重新設計」）：單行等高、用短標籤（data-s），字之間用間隔點 */
     .tbLegend .sqLaneBtn{margin-right:0;flex-direction:row;gap:0;padding:6px 2px;line-height:1.3;font-size:0}
-    .tbLegend .sqLaneBtn b{font-size:0}.tbLegend .sqLaneBtn b::after{content:attr(data-s);font-size:12.5px}
-    .tbLgSep{font-size:0;margin:0 1px}.tbLgSep::after{content:"・";font-size:11px;color:var(--tx2)}
-    .tbLegend{grid-template-columns:1.9fr .85fr 1.2fr!important}   /* 三顆字數不同（7／4／6 字）⇒ 欄寬照字數分 */
+    .tbLegend .sqLaneBtn b{font-size:0}.tbLegend .sqLaneBtn b::after{content:attr(data-s);font-size:min(12.5px,3.4cqw)}
+    .tbLgSep{font-size:0;margin:0 2px}.tbLgSep::after{content:"·";font-size:11px;font-weight:900;color:var(--tx2)}
+    .tbLegend{grid-template-columns:2.05fr .9fr 1.3fr!important}   /* 三顆字數不同（9／4／6 字；窄手機字級跟著縮，使用者 2026-11-20「手機版有點超框」）⇒ 欄寬照字數分 */
     .tbLegend .sqLaneBtn b.tbGone{text-decoration:none}.tbLegend .sqLaneBtn b.tbGone::after{text-decoration:line-through}
     .trBar>label,.trBar .trFG>label,.trBar>span[style*="flex:1"]{display:none}
     .trBar .meta{order:9;flex:1 1 100%;font-size:11px;text-align:right;opacity:.8}
