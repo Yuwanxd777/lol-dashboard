@@ -1623,7 +1623,11 @@
   #tbTip.sheet .tpBox,#tbTip.sheet .rtBox{min-width:0}
   #tbTip.sheet .rtBox{width:auto}#tbTip.sheet .rtGrid{column-gap:8px;grid-template-columns:20px minmax(0,1fr) 24px minmax(0,1fr) max-content}#tbTip.sheet .rtAr{font-size:18px}
   @media (max-width:345px){#tbTip.sheet .rtGrid{column-gap:6px;grid-template-columns:18px minmax(0,1fr) 18px minmax(0,1fr) max-content}#tbTip.sheet .rtIc img{width:18px;height:18px}#tbTip.sheet .rtN,#tbTip.sheet .rtV{font-size:13px}#tbTip.sheet .rtD{min-width:0;font-size:12.5px}#tbTip.sheet .rtAr{font-size:16px}}   /* 最窄的手機：BrokenBlade 這種長 ID 也要放得下 */#tbTip.sheet .rtD{min-width:44px;padding:3px 4px;font-size:min(15px,4.2vw)}#tbTip.sheet .rtMulti .tbRum{padding:0 4px}#tbTip.sheet .rtSum{font-size:min(17px,4.5vw);padding-left:8px}#tbTip.sheet .rtMulti{column-gap:8px}   /* 窄手機（320）多人區塊不擠出框 */
-  #tbTip.sheet .rtHd{padding-right:44px;min-height:30px}
+  /* 內容多要捲動時，標題那塊和 ✕ 留在上面（使用者 2026-11-20「小框如果資料很多 要滑動 上面那塊標籤跟 X 要留在上面」） */
+  #tbTip.sheet{padding-top:0}
+  #tbTip.sheet .rtHd{padding-right:44px;min-height:30px;position:sticky;top:0;z-index:2;background:#1b2338;padding-top:14px}
+  #tbTip.sheet .tbTipXW{position:sticky;top:0;height:0;z-index:3}   /* 零高度的黏頂容器：✕ 不佔版面，標題那塊才能鋪滿整個寬度蓋住捲上來的內容 */
+  #tbTip.sheet .tbTipX{position:absolute;top:12px;right:-2px;background:#2a3350}
   .tbTipX{position:absolute;top:12px;right:12px;width:30px;height:30px;padding:0;display:flex;align-items:center;justify-content:center;line-height:1;border-radius:50%;border:1px solid var(--line);background:rgba(255,255,255,.08);color:var(--tx);font-size:14px;cursor:pointer}   /* ✕ 在圓底正中、整顆在框內（使用者 2026-11-20「X 後面的底色偏離了」） */
   /* 單頁模式：只留轉會分頁 */
   html.solo #nav,html.solo #lblYear,html.solo #yearSel,html.solo #penBtn,html.solo #meta{display:none!important}
@@ -14819,7 +14823,7 @@ function render(){
       const bd=main.querySelector(".tbBoard");
       // 手機／觸控（使用者 2026-11-20「幫我設計手機點擊時的 UI」）：沒有滑鼠懸停 ⇒ 點格子從畫面底部滑出小框（再點同一格或點別處收起）；格子裡的 wiki 連結在手機不直接跳走
       const touch=()=>matchMedia("(hover:none)").matches||innerWidth<760;
-      const show=(c,sheet)=>{ tip.innerHTML=TIPS[+c.dataset.tb]+(sheet?`<button class="tbTipX" aria-label="close">✕</button>`:""); tip.classList.toggle("sheet",!!sheet); tip.style.display="block"; lgFitAll(tip);
+      const show=(c,sheet)=>{ tip.innerHTML=(sheet?`<div class="tbTipXW"><button class="tbTipX" aria-label="close">✕</button></div>`:"")+TIPS[+c.dataset.tb]; tip.classList.toggle("sheet",!!sheet); tip.style.display="block"; lgFitAll(tip);
         if(sheet){ tip.style.left=tip.style.top=""; tip.dataset.cur=c.dataset.tb; const x=tip.querySelector(".tbTipX"); if(x)x.onclick=()=>{ tip.style.display="none"; }; return; }
         const r=c.getBoundingClientRect(), w=tip.offsetWidth, h=tip.offsetHeight;
         let x=r.left+r.width/2-w/2, y=r.bottom+6; x=Math.max(8,Math.min(innerWidth-w-8,x)); if(y+h>innerHeight-8)y=r.top-h-6;
