@@ -661,7 +661,7 @@ function render(){
         const E=w/m.fw;   // 整張正方形圖要畫多大，圖案才是 w×h
         // 圖案靠右貼著後面的縮寫（使用者 2026-11-20「有些隊徽的左右間隔比較大 導致跟右邊戰隊縮寫的視覺距離變遠了」）：
         //   每個隊徽仍佔固定寬 W 的位子（縮寫才會對齊），但圖案不再置中——窄的隊徽（DNS、MKOI）置中時兩邊各空一截；改成圖案右緣對齊位子右緣，空的全留在左邊
-        const pd=(E-w)/2; img.style.width=img.style.height=E+"px"; img.style.margin=`${(S-E)/2}px ${-pd}px ${(S-E)/2}px ${W-E+pd}px`; img.style.maxWidth="none";
+        const pd=(E-w)/2; img.style.width=img.style.height=E+"px"; img.style.margin=`${(S-E)/2}px ${-pd}px`;   /* 2026-11-20 再改「空白也不要留給左邊」：不留固定寬的位子，圖案左右都貼齊（縮寫的左緣因此會隨隊徽寬度不同） */ img.style.maxWidth="none";
         img.style.setProperty("--lgpad",((E-w)/2)+"px"); }); };   // --lgpad＝圖檔左右的透明邊（手機版靠左對齊時扣掉）
     const lgFitAll=root=>root.querySelectorAll(".tbTeam img,.trTeam img,.tpTm img,.rtHd img").forEach(lgFit);
     lgFitAll(main);
