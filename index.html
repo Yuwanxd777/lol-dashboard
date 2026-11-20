@@ -14757,7 +14757,7 @@ function render(){
       let tip=document.getElementById("tbTip"); if(!tip){ tip=document.createElement("div"); tip.id="tbTip"; document.body.appendChild(tip);
         addEventListener("scroll",()=>{ if(!tip.classList.contains("sheet"))tip.style.display="none"; },{passive:true});
         // 手機：點格子以外的地方收起底部小框
-        document.addEventListener("click",e=>{ if(tip.classList.contains("sheet")&&!e.target.closest(".tbCell")&&!e.target.closest("#tbTip"))tip.style.display="none"; });
+        document.addEventListener("click",e=>{ if(tip.classList.contains("sheet")&&!e.target.closest(".tbCell")&&!e.target.closest(".tbTeam")&&!e.target.closest("#tbTip"))tip.style.display="none"; });
         tip.addEventListener("click",e=>{ const g=e.target.closest(".tpGo"); if(!g||!tip.classList.contains("sheet")||e.target.closest("a"))return;   /* 點來源連結是開原文，不跳消息頁 */ const [n,d,ab]=String(g.dataset.go||"").split("|"); tip.style.display="none";
           window._trGo={n,d,ab}; Object.assign(V,{trMode:"news",trQ:"",trSrc:"",trSt:"",trRg:"",trKd:""}); saveState(); render(); }); }
       const bd=main.querySelector(".tbBoard");
@@ -14768,9 +14768,11 @@ function render(){
         const r=c.getBoundingClientRect(), w=tip.offsetWidth, h=tip.offsetHeight;
         let x=r.left+r.width/2-w/2, y=r.bottom+6; x=Math.max(8,Math.min(innerWidth-w-8,x)); if(y+h>innerHeight-8)y=r.top-h-6;
         tip.style.left=x+"px"; tip.style.top=y+"px"; };
-      bd.onmouseover=e=>{ if(touch())return; const c=e.target.closest(".tbCell"); if(!c){ tip.style.display="none"; return; } show(c,false); };
+      // 隊名那格也算評分那一列：點（手機）或滑過（電腦）隊名一樣開評分小框（使用者 2026-11-20「應該點擊分數那列都會顯示分數小框」）
+      const cellOf=e=>e.target.closest(".tbCell")||(e.target.closest(".tbTeam")?e.target.closest(".tbRow").querySelector(".tbRate"):null);
+      bd.onmouseover=e=>{ if(touch())return; const c=cellOf(e); if(!c){ tip.style.display="none"; return; } show(c,false); };
       bd.onmouseleave=()=>{ if(!touch())tip.style.display="none"; };
-      bd.onclick=e=>{ if(!touch())return; const c=e.target.closest(".tbCell"); if(!c)return; if(e.target.closest("a"))e.preventDefault();
+      bd.onclick=e=>{ if(!touch())return; const c=cellOf(e); if(!c)return; if(e.target.closest("a"))e.preventDefault();
         if(tip.style.display==="block"&&tip.classList.contains("sheet")&&tip.dataset.cur===c.dataset.tb){ tip.style.display="none"; return; } show(c,true); };
     } else { const tip=document.getElementById("tbTip"); if(tip)tip.style.display="none"; }
     main.querySelectorAll(".filters .sqLaneBtn[data-k]").forEach(b=>b.onclick=()=>{ V[b.dataset.k]=b.dataset.v; saveState(); render(); });
