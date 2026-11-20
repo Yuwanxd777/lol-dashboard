@@ -508,6 +508,8 @@ def main():
         # wiki 一隊一句：一級隊離隊的人，之後「加入次級隊」那句也留（從六大聯賽離開到次級也列出）
         gone = {p for x in wiki if is_t1(x, keys) and x["kind"] in ("leave", "both") for p, _ in PL_RE.findall(x["en"])}
         wiki = [x for x in wiki if not staff_only_noise(x)]
+        # 「X's contract expires.」＝合約資料庫到期的自動紀錄，沒有公告連結、句子也沒中文化；到期本來就在陣容表用藍字表示 ⇒ 消息區不列（2026-11-20 每小時複查標出來的）
+        wiki = [x for x in wiki if not (re.search(r"contract expires", x.get("en") or "") and not x.get("src"))]
         wiki = [x for x in wiki if x.get("team") not in HIDE_TEAMS]
         for x in sheep:
             if x.get("tags"):
@@ -568,7 +570,7 @@ def main():
             cl_ = [c_.strip() for c_ in re.split(r"[；;]", re.sub(r"‹[^|›]+\|([^›]+)›", r"\1", re.sub(r"§[A-Z]+§", "", zh0_)).rstrip("。")) if c_.strip()]
             hit_ = [c_ for c_ in cl_ if re.search(r"(?<![A-Za-z0-9])" + re.escape(nm_) + r"(?![A-Za-z0-9])", c_)]
             zh_ = tp_[0] if tp_ and tp_[0] else ("；".join(hit_) + "。" if hit_ and len(hit_) < len(cl_) else zh0_)
-            synth.append({"d": x["d"], "st": x.get("st") or "rumor", "kind": "join", "src": "韓網" if x.get("src") == "韓網" else "PTT",
+            synth.append({"d": x["d"], "st": x.get("st") or "rumor", "kind": "join", "src": "韓網" if x.get("src") == "韓網" else ("Sheep Esports" if x.get("src") == "Sheep Esports" else "PTT"), "url": x.get("url") or x.get("ptt") or "",
                           "zh": zh_, "who": [nm_, pg_, lane_],
                           "tags": ([["", fr_, "out"]] if fr_ else []) + [["", to_, "in"]]})
         if x.get("stay"):

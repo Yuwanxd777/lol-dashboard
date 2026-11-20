@@ -385,6 +385,8 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
                         o = {"to": ro["tm"], "d": ro["d"][:10], "tip": ro["tip"]}
                         if ro.get("src"):
                             o["src"] = ro["src"]
+                        if ro.get("u"):
+                            o["u"] = ro["u"]
                         ros.append(o)
                 if ros:
                     e["ro"] = ros[0]   # 前端：合約還在才上綠色；ro＝最新一則
@@ -401,6 +403,8 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
                 e = {"n": rmr["n"], "p": rmr.get("p") or "", "tip": rmr["tip"], "d": rmr["d"][:10]}
                 if rmr.get("src"):
                     e["src"] = rmr["src"]
+                if rmr.get("u"):
+                    e["u"] = rmr["u"]   # 來源網址（小框的來源名稱點了開原文；使用者 2026-11-20「Sheep 的來源就寫 SE 然後超連結」）
                 if rmr["st"] == "rumor":
                     e["r"] = 1
                 if rmr.get("from"):
@@ -773,7 +777,7 @@ def parse_sheep(sheep):
                 m = re.match(_NM, it)
                 if m:
                     n, pg = _name(m, 1)
-                    put(n.lower(), {"tm": tm, "rr": LANES[i], "n": n, "p": pg, "d": x["d"], "tip": tip, "st": st, "src": x.get("src") or ""})
+                    put(n.lower(), {"tm": tm, "rr": LANES[i], "n": n, "p": pg, "d": x["d"], "tip": tip, "st": st, "src": x.get("src") or "", "u": x.get("url") or ""})
             continue
         if x.get("kind") not in ("join", "both") or len(inn) != 1:
             continue
@@ -781,14 +785,14 @@ def parse_sheep(sheep):
         #   使用者 2026-11-20「DK 將從二隊拉上 Jaehyuk 怎麼沒注記到轉會表上」：句子前面先出現帶記號的 Cloud，Jaehyuk 被認成 Cloud）
         if x.get("who"):
             n, pg, lane_ = x["who"]
-            put(n.lower(), {"tm": inn[0][1], "rr": lane_, "n": n, "p": pg, "d": x["d"], "tip": tip, "st": st, "src": x.get("src") or "",
+            put(n.lower(), {"tm": inn[0][1], "rr": lane_, "n": n, "p": pg, "d": x["d"], "tip": tip, "st": st, "src": x.get("src") or "", "u": x.get("url") or "",
                             "from": out[0] if out else ""})
             continue
         m = re.search(r"§(TOP|JNG|MID|BOT|SUP)§" + _NM, zh)
         if not m:
             continue
         n, pg = _name(m, 2)
-        put(n.lower(), {"tm": inn[0][1], "rr": m.group(1), "n": n, "p": pg, "d": x["d"], "tip": tip, "st": st, "src": x.get("src") or "",
+        put(n.lower(), {"tm": inn[0][1], "rr": m.group(1), "n": n, "p": pg, "d": x["d"], "tip": tip, "st": st, "src": x.get("src") or "", "u": x.get("url") or "",
                         "from": out[0] if out else ""})
     res = {}
     for L in best.values():
