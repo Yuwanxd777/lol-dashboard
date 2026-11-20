@@ -10,6 +10,7 @@
   ⑤ 傳聞：Sheep 推文（fetch_transfers 輸出層已套好 §路線§‹頁|名› 記號）——「X 將加入 Y」取第一個帶路線的名字；
      「Y 2027 陣容：A／B／C／D／E」依序對上野中下輔。官方已經確認的不重複列。
 """
+import os
 import re
 import urllib.parse
 
@@ -60,6 +61,7 @@ def _sister(frm, tm):
 #   視為合約到 2026/11/15 就到期並自動離隊 ⇒ 不當成「新加入」列進陣容表（原本的人也不會被他們擠到上一位）。
 #   本來就在這隊的人（之前就在名冊上，沒有這段期間的加入紀錄）不受影響。
 TRIALS = [{"lg": "LPL", "from": "2026-11-01", "to": "2026-11-10", "end": "2026-11-15", "name": "LPL 新生訓練場"}]
+RET_KEYS = set()   # 最近一次 build 查到已退役的人（選手頁 key）
 RETIRED = {}   # 最近一次 build 查到的退役選手：{key: (頁名, ID, 路線, 隊顯示名, 聯賽)}（fetch_transfers 拿去補退役消息）
 
 
@@ -522,6 +524,16 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
             for y in cargo({"tables": "Players", "fields": "Players.OverviewPage=pg,Players.ID=id,Players.Role=ro",
                             "where": "Players.OverviewPage IN " + _in(cand[i:i + 40]) + " AND Players.IsRetired=1", "limit": "500", "format": "json"}):
                 rset[key(y["pg"])] = (y["pg"], str(y.get("id") or y["pg"]), ROLE_OF.get((y.get("ro") or "").split(",")[0].strip()) or "")
+        # 手動退役名單 transfers_ret_manual.json（官方已宣布、wiki 還沒標 IsRetired：paiN 的 CarioK，使用者 2026-11-21）
+        try:
+            import io as _io, json as _json
+            _p = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "transfers_ret_manual.json")
+            if os.path.exists(_p):
+                for m_ in _json.load(_io.open(_p, encoding="utf-8")):
+                    rset.setdefault(key(m_["p"]), (m_["p"], m_.get("id") or m_["p"], m_.get("rr") or ""))
+        except Exception as e:
+            print(f"   手動退役名單讀取失敗：{type(e).__name__} {str(e)[:80]}")
+        RET_KEYS.clear(); RET_KEYS.update(rset)
         for x in out:
             rk_ = set()
             for rr in list(x["r"]):
@@ -616,7 +628,8 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
         by_lg = {}
         for x, rr, pg, nm_, c_, gone_, *sr_ in cand:
             k_ = key(pg)
-            if k_ in seen_ or k_ in settled or key(nm_) in settled or k_ in retd_:
+            is_ret = k_ in retd_ or k_ in RET_KEYS   # 退役的人照樣列在自由人，前端灰字＋刪除線（使用者 2026-11-21「退役者依然幫我放到FA」）
+            if k_ in seen_ or ((k_ in settled or key(nm_) in settled) and not is_ret):
                 continue
             if rr != "COACH" and played is not None and (k_, tkey(x["tm"])) not in played and (key(nm_), tkey(x["tm"])) not in played:
                 continue
@@ -625,6 +638,8 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
                 continue   # 選手頁已經掛在別隊（含次級聯賽）
             seen_.add(k_)
             e = {"n": nm_, "p": pg, "fa": 1, "from": x["nm"]}
+            if is_ret:
+                e["ret"] = 1
             if k_ not in now_tm:
                 e["nop"] = 1   # wiki 沒有這個人的頁面 ⇒ 前端不做連結
             if rr == "COACH":
@@ -917,7 +932,9 @@ def team_rank(cargo, year):
     for k in set(W) | set(P) | set(R):
         w = W.get(k, (999, ""))
         p, r = P.get(k, 999), R.get(k, 999)
-        note = f"W{w[1]}" if w[0] < 999 else (f"P{p}" if p < 100 else (f"I{p - 100}" if p < 999 else (f"R{r}" if r < 999 else "")))
+        lg_ = f"P{p}" if p < 100 else (f"I{p - 100}" if p < 999 else (f"R{r}" if r < 999 else ""))
+        # 進世界賽的隊：說明＝「W名次|聯賽內名次」（第三賽段小框兩個都要寫，使用者 2026-11-21）
+        note = (f"W{w[1]}" + (f"|{lg_}" if lg_ else "")) if w[0] < 999 else lg_
         out[k] = (w[0], p, r, note)
     # 沒有聯賽成績、靠升降賽打上來的隊（使用者 2026-11-21「SGW 就是 升降賽擊敗 DFM」）：說明＝U＋最後一場贏的對手
     try:

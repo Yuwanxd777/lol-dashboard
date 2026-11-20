@@ -118,16 +118,25 @@ function addBase(){ const f=main.querySelector(".filters"); if(!f)return;
   // 電腦版：頁首、篩選列、欄名列往下捲時都留在上方（使用者 2026-11-21「這列以上包括這列 往下滑時都應該維持在上方」）
   //   三層都 sticky，下面兩層的 top＝上面幾層的高度（量出來寫進 CSS 變數；視窗大小變了重量）；篩選列下方的空隙用同色陰影蓋住，列才不會從縫裡露出來
   if(!document.getElementById("tsStickCss")){ const st=document.createElement("style"); st.id="tsStickCss";
-    st.textContent=`@media (min-width:760px){#tsHdr{position:sticky;top:0;z-index:40;background:#0b0e14;box-shadow:0 var(--tsG1,0px) 0 0 #0b0e14}
-.filters.trBar{position:sticky;top:calc(var(--tsH1,0px) + var(--tsG1,0px));z-index:39;box-shadow:0 var(--tsG,0px) 0 0 #0b0e14,0 calc(var(--tsG,0px) / 2) 0 0 #0b0e14}
-.tbBoard>.tbHd{top:calc(var(--tsH1,0px) + var(--tsG1,0px) + var(--tsH2,0px) + var(--tsG,0px))!important;z-index:38!important}
-.trList>.trHead{position:sticky;top:calc(var(--tsH1,0px) + var(--tsG1,0px) + var(--tsH2,0px) + var(--tsG,0px));z-index:38;background:var(--card,#141a2a)}}`;
+    st.textContent=`@media (min-width:760px){#tsHdr{position:sticky;top:0;z-index:40;background:#0b0e14}
+#tsCover{display:block;position:fixed;left:0;right:0;top:0;height:calc(var(--tsH1,0px) + var(--tsG1,0px) + var(--tsH2,0px) + var(--tsG0,0px));background:#0b0e14;z-index:37;pointer-events:none}
+.filters.trBar{position:sticky;top:calc(var(--tsH1,0px) + var(--tsG1,0px));z-index:39}
+.tbBoard>.tbHd{top:calc(var(--tsH1,0px) + var(--tsG1,0px) + var(--tsH2,0px) + var(--tsG,0px))!important;z-index:38!important;box-shadow:0 calc(var(--tsG0,0px) - var(--tsG,0px)) 0 0 var(--tsCB,#141a2a)}
+.trList>.trHead{position:sticky;top:calc(var(--tsH1,0px) + var(--tsG1,0px) + var(--tsH2,0px) + var(--tsG,0px));z-index:38;background:var(--tsCB,#141a2a);box-shadow:0 calc(var(--tsG0,0px) - var(--tsG,0px)) 0 0 var(--tsCB,#141a2a)}}
+#tsCap{position:fixed;height:14px;overflow:hidden;z-index:37;pointer-events:none}#tsCap>i{position:absolute;left:0;right:0;top:0;height:60px;box-sizing:border-box;box-shadow:0 0 0 40px #0b0e14}
+@media (max-width:759.98px){#tsCover,#tsCap{display:none}}`;
     document.head.appendChild(st);
     window._tsStick=()=>{ const hd=document.getElementById("tsHdr"), bar=document.querySelector(".filters.trBar"), bd=document.querySelector(".tbBoard,.trList"), R=document.documentElement.style; if(!hd||!bar)return;
       const sy=scrollY; R.setProperty("--tsH1",hd.offsetHeight+"px"); R.setProperty("--tsH2",bar.offsetHeight+"px");
       // 捲動後三層之間的空隙要跟頁面最上面時一模一樣（使用者 2026-11-21「往下滑的時候 上方還是有小部分的縮起」：原本頁首與篩選列之間 14px、篩選列與欄名列之間 7px 會被吃掉）
       //   ⇒ 在最上面時量兩段空隙（頁首→篩選列、篩選列→欄名列），sticky 的 top 把空隙算進去，空隙用同色陰影蓋住
       if(sy<4){ const hh=document.querySelector(".tbBoard>.tbHd,.trList>.trHead")||bd; R.setProperty("--tsG1",Math.max(0,Math.round(bar.getBoundingClientRect().top-hd.getBoundingClientRect().bottom))+"px");
+        // 空隙用一塊固定在最上面的底色板蓋住（#tsCover，疊在欄名列之下），不再用篩選列的陰影——陰影會跟著圓角長出一塊方方的黑邊（使用者 2026-11-21「捲動的時候 上面介面的邊緣變得不圓滑」）
+        if(!document.getElementById("tsCover")){ const c=document.createElement("div"); c.id="tsCover"; document.body.appendChild(c); const k=document.createElement("div"); k.id="tsCap"; k.innerHTML="<i></i>"; document.body.appendChild(k); }
+        // 捲動後那張表的上緣也要是圓角（表本身的上緣已經捲到底色板後面）⇒ 在同一個位置畫一段一模一樣的「卡片上緣」（邊框、圓角、底色都讀自那張表）
+        if(bd){ const k=document.getElementById("tsCap"), q=k.firstChild, c=getComputedStyle(bd), r=bd.getBoundingClientRect(); k.style.left=r.left+"px"; k.style.width=r.width+"px"; k.style.top=r.top+"px"; k.style.height=c.borderTopLeftRadius;
+          q.style.border=c.borderTopWidth+" solid "+c.borderTopColor; q.style.borderRadius=c.borderTopLeftRadius; q.style.background=(/rgb\([^)]*\)/.exec(c.backgroundImage)||[c.backgroundColor])[0]; }
+        if(bd){ R.setProperty("--tsG0",Math.max(0,Math.round(bd.getBoundingClientRect().top-bar.getBoundingClientRect().bottom))+"px"); const cb=getComputedStyle(bd).backgroundColor; if(cb&&!/rgba\(0, 0, 0, 0\)|transparent/.test(cb))R.setProperty("--tsCB",cb); }
         if(hh)R.setProperty("--tsG",Math.max(0,Math.round(hh.getBoundingClientRect().top-bar.getBoundingClientRect().bottom))+"px"); } };
     addEventListener("resize",()=>window._tsStick()); }
   window._tsStick(); setTimeout(window._tsStick,300);

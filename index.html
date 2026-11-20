@@ -1056,7 +1056,7 @@
   .ntDoc details.ntSec[open]{padding-bottom:8px}
   /* 轉會「陣容表」（2026-11-19，參考巴哈 LCK 陣容圖）：左＝戰隊，六大聯賽一路往下；欄＝上野中下輔＋教練；*＝傳聞 */
   .tbBoard{padding:6px 16px 14px;display:grid;grid-template-columns:max-content repeat(6,minmax(0,1fr)) minmax(0,1.4fr) max-content;column-gap:0}   /* 上路～主教練六欄等寬、後勤稍寬 1.4 倍（使用者 2026-11-21 先要七欄等寬，看到後勤換行太多後改成「把後勤那欄稍微拉大 其餘六欄一致」） */   /* 教練欄人多 ⇒ 1.8 倍寬；末欄＝轉會評分 */
-  .tbN.tbY,b.tbY{color:#ffc850}.tbN.tbNew,b.tbNew{color:#ff5a5a}.tbN.tbExp,b.tbExp{color:#5aa9ff}.tbN.tbRs,b.tbRs{color:#ff8ec6}.tbN.tbPm,b.tbPm{color:#b98cff}.tbN.tbOut,b.tbOut{color:#4cd07d}.tbOk{color:#4cd07d;font-size:14px;margin-left:2px}.tbN.tbGone{text-decoration:line-through;text-decoration-thickness:1px}.tbN.tbDim{opacity:.2}.tbVacN{font-style:normal;font-size:11px;font-weight:700;color:var(--tx2);margin-left:6px;padding:0 6px;border:1px solid rgba(255,255,255,.2);border-radius:999px;white-space:nowrap}.tbLegend .sqLaneBtn b{font-weight:700}.tbLgB{display:inline-flex;align-items:center;gap:2px}.tbLgSep{font-style:normal;color:var(--tx2);margin:0 3px}.tbLegend .sqLaneBtn{margin-right:2px}.tbLegend .sqLaneBtn.on,.trBar .sqLaneBtn[data-mk].on{background:rgba(255,255,255,.14);border-color:var(--tx);box-shadow:0 0 0 1px var(--tx) inset;color:var(--tx)}.tbLgG .sqLaneBtn:not(.on){background:transparent;border-color:transparent}   /* 兩兩一框（使用者 2026-11-20：新加入＋續約｜合約到期＋離隊｜可能轉會＋傳聞），框之間不畫線 */.trFG{display:inline-flex;align-items:center;gap:6px;padding-left:12px;border-left:1px solid rgba(255,255,255,.16)}.trFG:first-child{border-left:0;padding-left:0}.trFG>label{margin-right:2px}.tbLegend{display:inline-flex;gap:6px;align-items:center}.trSrc-kr{color:#ff9a6b;background:rgba(255,154,107,.12)}.trSrc-ptt{color:#c9d1e0;background:rgba(255,255,255,.08)}.trSrc-man{color:#ffd166;background:rgba(255,209,102,.12)}
+  .tbN.tbRet,b.tbRet{color:#8b98ad;text-decoration:line-through}.tbLegend .sqLaneBtn b.tbRet{text-decoration:none;display:inline-block;background:linear-gradient(currentColor,currentColor) left 54%/100% 1.5px no-repeat}.tbN.tbY,b.tbY{color:#ffc850}.tbN.tbNew,b.tbNew{color:#ff5a5a}.tbN.tbExp,b.tbExp{color:#5aa9ff}.tbN.tbRs,b.tbRs{color:#ff8ec6}.tbN.tbPm,b.tbPm{color:#b98cff}.tbN.tbOut,b.tbOut{color:#4cd07d}.tbOk{color:#4cd07d;font-size:14px;margin-left:2px}.tbN.tbGone{text-decoration:line-through;text-decoration-thickness:1px}.tbN.tbDim{opacity:.2}.tbVacN{font-style:normal;font-size:11px;font-weight:700;color:var(--tx2);margin-left:6px;padding:0 6px;border:1px solid rgba(255,255,255,.2);border-radius:999px;white-space:nowrap}.tbLegend .sqLaneBtn b{font-weight:700}.tbLgB{display:inline-flex;align-items:center;gap:2px}.tbLgSep{font-style:normal;color:var(--tx2);margin:0 3px}.tbLegend .sqLaneBtn{margin-right:2px}.tbLegend .sqLaneBtn.on,.trBar .sqLaneBtn[data-mk].on{background:rgba(255,255,255,.14);border-color:var(--tx);box-shadow:0 0 0 1px var(--tx) inset;color:var(--tx)}.tbLgG .sqLaneBtn:not(.on){background:transparent;border-color:transparent}   /* 兩兩一框（使用者 2026-11-20：新加入＋續約｜合約到期＋離隊｜可能轉會＋傳聞），框之間不畫線 */.trFG{display:inline-flex;align-items:center;gap:6px;padding-left:12px;border-left:1px solid rgba(255,255,255,.16)}.trFG:first-child{border-left:0;padding-left:0}.trFG>label{margin-right:2px}.tbLegend{display:inline-flex;gap:6px;align-items:center}.trSrc-kr{color:#ff9a6b;background:rgba(255,154,107,.12)}.trSrc-ptt{color:#c9d1e0;background:rgba(255,255,255,.08)}.trSrc-man{color:#ffd166;background:rgba(255,209,102,.12)}
   .tbLegend{display:inline-flex;gap:12px;align-items:center}.tbLegend b.tbStay{color:#fff}
   .tbHd,.tbRow{grid-column:1/-1;display:grid;grid-template-columns:subgrid;align-items:center}
   .tbHd{position:sticky;top:0;z-index:2;background:var(--card,#141a2a);padding:8px 0;border-bottom:1px solid var(--line);font-weight:700;color:var(--tx);font-size:16px}   /* 欄名放大（使用者 2026-11-21「文字大一點」；原本 14px） */
@@ -1096,6 +1096,8 @@
   .tpLg{margin-left:auto;padding:1px 8px;border-radius:999px;font-size:13px;font-weight:800;color:var(--lgc);border:1px solid color-mix(in srgb,var(--lgc) 55%,transparent)}
   .tpP{padding:8px 10px;border-radius:8px;background:rgba(255,255,255,.04);margin-top:8px}
   .tpP:first-of-type{margin-top:0}
+  .tbTmA{color:inherit;text-decoration:none}.tbTmA:hover{text-decoration:underline}
+  #tbTip .tpName a{cursor:pointer}#tbTip .tpName a::after{content:"↗";font-size:.62em;margin-left:3px;opacity:.35;vertical-align:.25em}#tbTip .tpName a:hover{text-decoration:underline}#tbTip .tpName a:hover::after{opacity:1}   /* 小框的選手 ID 可以點去 wiki：平常帶一個淡淡的 ↗，滑過加底線（使用者 2026-11-21） */
   .tpName{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.tpName>b{font-size:16px}
   .tpSr{font-size:13px;color:var(--tx2)}
   .tpPill{font-size:12px;font-weight:700;padding:1px 7px;border-radius:999px;margin-left:auto}
@@ -1622,7 +1624,7 @@
     .tbLegend .sqLaneBtn b{font-size:0}.tbLegend .sqLaneBtn b::after{content:attr(data-s);font-size:min(12.5px,3.25cqw)}
     .tbLgSep{font-size:0;margin:0 2px}.tbLgSep::after{content:"·";font-size:11px;font-weight:900;color:var(--tx2)}
     .tbLegend{display:flex!important;gap:5px}.tbLegend .sqLaneBtn{flex:1 1 auto}   /* 三顆字數不同（9／4／6 字；窄手機字級跟著縮，使用者 2026-11-20「手機版有點超框」）⇒ 欄寬照字數分 */
-    .tbLegend .sqLaneBtn b.tbGone{text-decoration:none}.tbLegend .sqLaneBtn b.tbGone::after{text-decoration:line-through}
+    .tbLegend .sqLaneBtn b.tbGone{text-decoration:none}.tbLegend .sqLaneBtn b.tbGone::after{text-decoration:line-through}.tbLegend .sqLaneBtn b.tbRet{text-decoration:none;background:none}.tbLegend .sqLaneBtn b.tbRet::after{display:inline-block;background:linear-gradient(currentColor,currentColor) left 54%/100% 1.5px no-repeat}   /* 手機的圖例字是 ::after 畫的（原本的字 font-size:0）⇒ 刪除線要畫在 ::after 上，不然線會歪在一邊（使用者 2026-11-21） */
     .trBar>label,.trBar .trSW>label,.trBar .trFG>label,.trBar>span[style*="flex:1"]{display:none}.trBar .trSW{display:contents}
     .trBar .meta{order:9;flex:1 1 100%;font-size:11px;text-align:right;opacity:.8}
     .trBar .cwrap{flex:1 1 0;min-width:84px}   /* 圖示鈕變五顆（多了 Facebook）：320 寬的消息頁搜尋框要能再縮，不然最後一顆會掉到下一行 */.trBar .cwrap input{width:100%!important}
@@ -14479,7 +14481,7 @@ function render(){
     // 綠＝合約還在、但傳出可能去別隊（使用者 2026-11-19「如果合約還在但有傳出可能去別隊 上綠色」）；合約已到期的維持藍字、提示照樣看得到傳聞
     const expd=e=>!e.tip&&(!e.c||e.c<today);   // 合約無紀錄也算合約到期（使用者 2026-11-20「合約無紀錄的 例如 Uniboy 這種 也要算是合約到期」）
     const roOn=e=>!!(e&&e.ro&&!(expd(e)&&!e.rs));
-    const stPill=e=>e.gone?pill("tpB",en2?"Departure announced":"已宣布離隊"):e.r?pill("tpY",en2?"Rumor":"傳聞"):e.pm?pill("tpV",en2?"Promoted":"升職"):(e.new||(e.tip&&!e.r))?pill("tpR",en2?"New":"新加入"):roOn(e)?pill("tpG",en2?"Possible move":"可能轉會")
+    const stPill=e=>e.ret?pill("tpX",en2?"Retired":"退役"):e.gone?pill("tpB",en2?"Departure announced":"已宣布離隊"):e.r?pill("tpY",en2?"Rumor":"傳聞"):e.pm?pill("tpV",en2?"Promoted":"升職"):(e.new||(e.tip&&!e.r))?pill("tpR",en2?"New":"新加入"):roOn(e)?pill("tpG",en2?"Possible move":"可能轉會")
       :(expd(e)&&!e.rs)?pill("tpB",en2?"Contract expired":"合約到期"):e.rs?pill("tpK",en2?"Re-signed":"續約"):"";
     const tmChip=n=>`<span class="tpTm">${teamLogoHTML(tAb(n),16,true,n)||""}${esc(abOf(n))}</span>`;
     const tenureP=o=>{ if(!o.s)return null; const unk=o.e==="?", e=(!o.e||unk)?today:o.e;
@@ -14491,7 +14493,7 @@ function render(){
     const WHERE=new Map(); board.forEach(t=>Object.values(t.r||{}).flat().forEach(e=>{ if(e.gone||!(e.new||e.r||e.tip))return; const k=String(pn(e.n)).toLowerCase(); if(!WHERE.has(k))WHERE.set(k,[]); WHERE.get(k).push({tm:t.nm,r:!!e.r}); }));
     const goKv=(name,self)=>{ const L=(WHERE.get(String(pn(name)).toLowerCase())||[]).filter(o=>o.tm!==self); if(!L.length)return []; const off=L.filter(o=>!o.r);
       // 只有傳聞的：這一列的標題直接寫「傳聞」，後面不再另外標（使用者 2026-11-21「如果FA小框的去向 寫的是傳聞…那就把去向改寫成傳聞」）
-      return off.length?[[en2?"Destination":"去向",`${en2?"joined":"加入"} ${tmChip(off[0].tm)}`]]:[[en2?"Rumor":"傳聞",L.slice(0,3).map(o=>tmChip(o.tm)).join(" ")]]; };
+      return off.length?[[en2?"Joined":"加入",tmChip(off[0].tm)]]:[[en2?"Rumor":"傳聞",L.slice(0,3).map(o=>tmChip(o.tm)).join(" ")]]; };
     // 來源名稱：Sheep Esports 一律寫 SE；有網址就做成超連結（使用者 2026-11-20「Sheep 的來源就寫 SE 然後超連結」）。沒寫來源的是 Sheep 的推文
     const srcA=o=>{ const nm=(!o.src||o.src==="Sheep Esports")?"SE":o.src, u=o.u||""; return /^https?:/.test(u)?`<a class="tpSrc" href="${esc(u)}" target="_blank" rel="noopener">${esc(nm)}</a>`:esc(nm); };
     const tipTx=o=>{ const s=en2?(o.tipE||(D.tipEn||{})[o.tip]||o.tip):o.tip; return TNRE?String(s||"").replace(TNRE,n=>TNL.get(n.toLowerCase())||n):s; };   // 小框引用句的隊名也寫縮寫（使用者 2026-11-21「小框的資訊以後也都要同步改」）   // 英文版引用句：資料端的中→英對照（tipEn），手動名單自帶 tipE
@@ -14538,7 +14540,7 @@ function render(){
     const SEASON=+String(D.from||"").slice(0,4)||0;
     const RATE=(()=>{ if(window.TRANSFER_RATE)return window.TRANSFER_RATE;   // 轉會網站：主站排程先算好匯出（transfers_site.js）
       if(curYear!==SEASON||typeof calcPlayers!=="function")return null;
-      const k=curYear+"|"+(GAMES||[]).length+"|seg7"; if(window._tbRC&&window._tbRC.k===k)return window._tbRC;
+      const k=curYear+"|"+(GAMES||[]).length+"|seg8"; if(window._tbRC&&window._tbRC.k===k)return window._tbRC;
       const res={k,pl:{},tm:{}};
       // 分段加權（使用者 2026-11-20「轉會評分改成 第一賽段 10% 第二賽段 30% 第三賽段 50% 世界賽 10% 其餘的不算」「哪個段落沒打就沒分」）：
       //   每段各自算一次選手評分（場次白名單 H2H 圈範圍、其他篩選清空），再照權重相加；沒打的那段＝0 分，不重新分配權重。
@@ -14555,7 +14557,7 @@ function render(){
       //   // 再改：第三賽段 40%（使用者 2026-11-20「第三賽段改成 40%」）⇒ 三個賽段合計 80%，百分位 × 0.8，其餘留給加分
       const lastSp={}; (GAMES||[]).forEach(o=>{ const m=/^S(\d)/.exec(String(o.split||"")); if(m&&o.league!=="WLDs")lastSp[o.league]=Math.max(lastSp[o.league]||0,+m[1]); });
       const segOf=o=>{ if(o.league==="WLDs")return "W"; if(o.league==="FST")return "F"; if(o.league==="MSI")return "M"; const m=/^S(\d)( PO)?$/.exec(String(o.split||"")); if(!m)return ""; const sh=3-(lastSp[o.league]||3); return "S"+(+m[1]+sh); };
-      const SEGRUN=(seg,fn)=>{ const keep=new Set((GAMES||[]).filter(o=>segOf(o)===seg).map(gkey));
+      const SEGRUN=(seg,fn)=>{ const ss=[].concat(seg), keep=new Set((GAMES||[]).filter(o=>ss.includes(segOf(o))).map(gkey));
         const sv={split:F.split,league:F.league,patch:F.patch,d1:F.d1,d2:F.d2,minG:F.minG}, svH=H2H;
         F.split=""; F.league="ALL"; F.patch=""; F.d1=""; F.d2=""; F.minG=0; H2H=keep;
         try{ return keep.size?fn():null; } finally{ H2H=svH; Object.assign(F,sv); } };
@@ -14567,7 +14569,9 @@ function render(){
             if(/^S/.test(seg)||!a.lg){ a.lg=x._lg||a.lg; a.tm=x._team||a.tm; } } }   // 所屬聯賽／戰隊取最後一個賽段的（世界賽的 _lg 是 WLDs，不拿來當所屬聯賽）
           // 戰隊：第三賽段的勝率（主教練戰績分用）
           if(seg==="S3")calcTeams("").forEach(x=>{ if(x.評分!=null)res.tm[teamFix(String(x.戰隊||""))]=x.評分; if(x.勝率!=null&&x.場數>=5)(res.wr=res.wr||{})[teamFix(String(x.戰隊||""))]=x.勝率;
-            if(x.場數)(res.s3=res.s3||{})[teamFix(String(x.戰隊||""))]={g:x.場數,wr:x.勝率,sc:x.評分}; }); });
+            }); });
+      // 第三賽段小框的數據＝第三賽段範圍內的所有比賽，含世界賽（使用者 2026-11-21）
+      SEGRUN(["S3","W"],()=>calcTeams("").forEach(x=>{ if(x.場數)(res.s3=res.s3||{})[teamFix(String(x.戰隊||""))]={g:x.場數,wr:x.勝率,sc:x.評分}; }));
       res.md={}; for(const r of ["TOP","JNG","MID","BOT","SUP"]){ const vs=Object.values(res.pl[r]).map(x=>x.v).sort((a,b)=>a-b), h=vs.length>>1;
         res.md[r]=vs.length?(vs.length%2?vs[h]:(vs[h-1]+vs[h])/2):null; }
       res.plY={};   // 不再退回全年評分：沒打的賽段就是 0 分
@@ -14591,11 +14595,14 @@ function render(){
     const tmR=n=>RATE&&n?RATE.tm[teamFix(String(tAb(n)||n))]:undefined;
     // 主教練戰績分（使用者 2026-11-19「教練的評分就看該隊勝率以及最終成績 能否到世界賽 能否到季後賽 已經到了後的名次」）：
     //   勝率 × 50 ＋ 成績分（滿分 50）；成績＝陣容表的 rk（W世界賽名次／P最後賽段季後賽名次／I季後賽入圍賽／R例行賽）
+    // rk＝「W名次|聯賽內名次」拆開：rk 留主要的（有世界賽就是世界賽），rkL＝聯賽內的名次
+    (D.board||[]).forEach(t=>{ if(t.rkL!==undefined)return; const p=String(t.rk||"").split("|"); t.rkL=p[1]||(/^W/.test(p[0])?"":p[0]); if(t.rk)t.rk=p[0]; });
     const RK={}; (D.board||[]).forEach(t=>{ if(t.rk)[t.nm,t.tm].forEach(n=>RK[teamFix(String(tAb(n)||n))]=t.rk); });
     const ACH=rk=>{ if(!rk)return null; const m=/^([WPIR])(\d+)/.exec(rk); if(!m)return null; const n=+m[2];
       return m[1]==="W"?(n===1?50:n===2?45:n<=4?40:n<=8?35:n<=11?30:n<=16?28:24):m[1]==="P"?Math.max(22-2*n,8):m[1]==="I"?6:0; };
     // 第三賽段成績（戰績評分模式的最後一欄；使用者 2026-11-21「今年成績 改寫成第三賽段成績 有晉級世界賽就寫世界賽第幾名」）
-    const RK3=rk=>{ if(/^U/.test(rk||""))return (en2?"Promotion: beat ":"升降賽擊敗 ")+abOf(rk.slice(1)); const m=/^([WPIR])(.+)$/.exec(rk||""); if(!m)return "–"; const n=m[2];
+    const RK3=(rk,t)=>{ if(!rk&&t&&!t.fa&&t.lg==="LPL")return en2?"Out in Split 2":"第二賽段遭淘汰";   // LPL 第二賽段後淘汰、沒打第三賽段的隊（OMG、UP；使用者 2026-11-21）
+      if(/^U/.test(rk||""))return (en2?"Promotion: beat ":"升降賽擊敗 ")+abOf(rk.slice(1)); const m=/^([WPIR])(.+)$/.exec(rk||""); if(!m)return "–"; const n=m[2];
       if(m[1]==="W")return en2?("Worlds "+(n==="1"?"champion":n==="2"?"runner-up":n==="3-4"?"top 4":n==="5-8"?"top 8":n)):("世界賽"+(n==="1"?"冠軍":n==="2"?"亞軍":n==="3-4"?"四強":n==="5-8"?"八強":" "+n));   // 8 強以外直接寫「世界賽 9-11」（使用者 2026-11-21）
       return en2?"#"+n:`第 ${n} 名`; };   // 沒進世界賽的只寫整體名次，不標季後賽／例行賽（使用者 2026-11-21）   // 入圍賽與例行賽的名次都是整個聯賽的整體名次
     const RKN=rk=>{ if(!rk)return en2?"no result":"無成績"; if(/^U/.test(rk))return RK3(rk); const m=/^([WPIR])(.+)$/.exec(rk); if(!m)return en2?"no result":"無成績"; const n=m[2];
@@ -14699,7 +14706,8 @@ function render(){
     // 戰績評分模式的小框＝第三賽段的成績數據（使用者 2026-11-21）：成績、場數、勝敗、勝率
     const s3Tip=t=>{ const k=teamFix(String(tAb(t.nm)||t.nm)), d=RATE&&RATE.s3?(RATE.s3[k]||RATE.s3[teamFix(String(tAb(t.tm)||t.tm))]):null;
       let h=`<div class="rtBox rtS3"><div class="rtHd">${teamLogoHTML(tAb(t.nm),22,true,t.nm)||""}<b>${esc(rowNm(t))}</b></div><div class="tpKv">`
-        +`<span>${en2?"Split 3":"第三賽段"}</span><span>${RK3(t.rk)}</span>`;
+        +`<span>${en2?"Split 3":"第三賽段"}</span><span>${t.rkL?RK3(t.rkL):RK3(/^W/.test(t.rk||"")?"":t.rk,t)}</span>`
+        +(/^W/.test(t.rk||"")?`<span>${en2?"Worlds":"世界賽"}</span><span>${RK3(t.rk).replace(/^(世界賽|Worlds) ?/,"")}</span>`:"");
       if(d){ const w=Math.round(d.g*d.wr); h+=`<span>${en2?"Games":"場數"}</span><span>${d.g}</span><span>${en2?"W–L":"勝敗"}</span><span>${w} ${en2?"W":"勝"} ${d.g-w} ${en2?"L":"敗"}</span><span>${en2?"Win rate":"勝率"}</span><span>${(d.wr*100).toFixed(1)}%</span>`; }
       else h+=`<span>${en2?"Games":"場數"}</span><span class="tbMuted">${en2?"no data":"無資料"}</span>`;
       TIPS.push(h+`</div></div>`); return TIPS.length-1; };
@@ -14738,14 +14746,14 @@ function render(){
     const rateCell=t=>{ const rt=rateOf(t), v=rt&&rt.items.length?rt.sum:null;
       // 最後一欄的寬度不隨排序模式變（使用者 2026-11-21「最後一欄的寬度都幫我固定 以轉會評分的寬度為主」）：選手評分／戰績評分模式也塞一行看不見的轉會評分字串把欄寬撐成一樣
       const szr=`<span class="tbRtSz" aria-hidden="true">${v==null?"–":`${rt.rm?"（":""}${rtx(rt.lo,rt.hi)}${rt.rm?"）":""}`}</span>`;
-      if(SRT0==="o")return `<div class="tbCell tbRate" data-r="RATE" data-lb="${en2?"Split 3":"第三賽段"}" data-tb="${t.fa?rateTip(t):s3Tip(t)}"><span class="tbCv">${t.fa||!t.rk?`<span class="tbMuted">–</span>`:`<b>${esc(RK3(t.rk))}</b>`}</span>${szr}</div>`;   // 戰績評分模式：這欄寫今年成績（使用者 2026-11-21「戰績評分時 改寫今年成績」）
+      if(SRT0==="o")return `<div class="tbCell tbRate" data-r="RATE" data-lb="${en2?"Split 3":"第三賽段"}" data-tb="${t.fa?rateTip(t):s3Tip(t)}"><span class="tbCv">${t.fa||RK3(t.rk,t)==="–"?`<span class="tbMuted">–</span>`:`<b>${esc(RK3(t.rk,t))}</b>`}</span>${szr}</div>`;   // 戰績評分模式：這欄寫今年成績（使用者 2026-11-21「戰績評分時 改寫今年成績」）
       if(SPL)return `<div class="tbCell tbRate" data-r="RATE" data-lb="${SLB}" data-tb="${rateTip(t)}"><span class="tbCv">${rt?`<b>${rt.pl.toFixed(1)}</b>`:`<span class="tbMuted">–</span>`}</span>${szr}</div>`;   // 照選手評分排序時，這欄顯示五路選手分數加總
       return `<div class="tbCell tbRate" data-r="RATE" data-lb="${en2?"Rating":"評分"}"${v!=null&&rt.rng?` data-avg="${(()=>{ const m=rt.items.reduce((z,x)=>z+(x.nws?x.nws.reduce((q,c)=>q+c.v,0)/x.nws.length-x.b:x.d),0); return rSg(m)+"|"+(m>0?"tbUp":m<0?"tbDn":""); })()}"`:""} data-tb="${rateTip(t)}"><span class="tbCv">${v==null?`<span class="tbMuted">–</span>`:`<b class="${rcls(rt.lo,rt.hi)}${rt.rng?" rtRngT":""}">${rt.rm?"（":""}${rtx(rt.lo,rt.hi)}${rt.rm?`<i class="rtPc">）</i>`:""}</b>`}</span></div>`; };   // 全形「）」的字框右半邊是空的 ⇒ 用負邊距收掉，看起來才跟沒括號的數字一樣貼齊右邊（使用者 2026-11-20「注意是視覺上空格一致 全型括號右邊的空格會比較大 要修正」）
     // 顏色（使用者 2026-11-19，取代星號）：黃＝傳聞未確定、紅＝新加入、藍＝合約已到期但還沒宣布離隊（Doran）、粉＝本轉會期續約（使用者 2026-11-19「粉色 跟紅色相近」）、白＝留隊
     // 藍字刪除線＝已宣布離隊、這個位置還沒有新簽約也沒有傳聞（使用者 2026-11-19）
-    const tbCls=e=>e.fa?(e.ro?"tbY":"tbExp"):e.gone?"tbExp tbGone":e.r?"tbY":e.pm?"tbPm":(e.new||(e.tip&&!e.r))?"tbNew":roOn(e)?"tbOut":e.rs?"tbRs":(expd(e)?(e.ro?"tbOut":"tbExp"):"tbStay");   // tbStay＝合約還在、沒有任何動向（白字「續留」，使用者 2026-11-20）   // 合約到期沒宣布、但傳出去別隊（LØS Zest）也畫刪除線（使用者 2026-11-20）   // rs＝本轉會期有官方續約消息（GCD 還沒更新也算）⇒ 粉字
+    const tbCls=e=>e.fa?(e.ret?"tbRet":e.ro?"tbY":"tbExp"):e.gone?"tbExp tbGone":e.r?"tbY":e.pm?"tbPm":(e.new||(e.tip&&!e.r))?"tbNew":roOn(e)?"tbOut":e.rs?"tbRs":(expd(e)?(e.ro?"tbOut":"tbExp"):"tbStay");   // tbStay＝合約還在、沒有任何動向（白字「續留」，使用者 2026-11-20）   // 合約到期沒宣布、但傳出去別隊（LØS Zest）也畫刪除線（使用者 2026-11-20）   // rs＝本轉會期有官方續約消息（GCD 還沒更新也算）⇒ 粉字
     // 圖例篩選＝三組，一框一顆按鈕、兩種一起篩（使用者 2026-11-20「一個框的意思是點擊也會一起點，不用分開點」）
-    const TBG={add:["tbNew","tbRs","tbPm","tbStay"],out:["tbExp","tbGone"],rum:["tbOut","tbY"]};
+    const TBG={add:["tbNew","tbRs","tbPm","tbStay"],out:["tbExp","tbGone"],rum:["tbOut","tbY","tbRet"]};
     const F_TB=new Set([...mset("tbF")].filter(g=>TBG[g]));   // 可複選；舊存檔的單一類別值不認
     const tbMf=e=>{ const c=tbCls(e).split(" "); return [...F_TB].some(g=>TBG[g].some(k=>c.includes(k))); };
     let vRows=bRows.filter(t=>(!F_TB.size||Object.values(t.r).flat().some(tbMf)));
@@ -14766,7 +14774,7 @@ function render(){
     let bHTML="", lastLg="";
     vRows.forEach(t=>{ if(t.lg!==lastLg){ const n=vRows.filter(x=>x.lg===t.lg&&!x.fa).length;
         bHTML+=`<div class="tbLg" data-rg="${esc((en2?{LCK:"Korea",LPL:"China",LEC:"EMEA",LCS:"North America",CBLOL:"Brazil",LCP:"Asia-Pacific"}:{LCK:"韓國",LPL:"中國",LEC:"歐洲",LCS:"北美",CBLOL:"巴西",LCP:"亞太"})[t.lg]||"")}" style="--lgc:${LGC[t.lg]||"var(--gold)"}"><img class="tbLgIc" src="${((window.TS_DATA||{}).lgi||{})[t.lg]||("img/lg_"+t.lg+".png")}" alt=""><b>${esc(t.lg)}</b><span>${n}${en2?" teams":" 隊"}</span></div>`; lastLg=t.lg; }   // 聯賽徽章＋聯賽名稱＋隊伍數（使用者 2026-11-21）；地區名只留在 data-rg 給截圖標題用
-      bHTML+=`<div class="tbRow${t.fa?" tbFA":""}" style="--lgc:${LGC[t.lg]||"var(--gold)"}"><div class="tbTeam" title="${t.fa?"FA":esc(t.nm)}">${t.fa?`<img class="tbFaIc" src="${((window.TS_DATA||{}).lgi||{})[t.lg]||("img/lg_"+t.lg+".png")}" alt="">`:""}${teamLogoHTML(tAb(t.nm),26,true,t.nm)||teamLogoHTML(tAb(t.tm),26,true,t.tm)||""}<span>${esc(rowNm(t))}</span>${tbDone(t)?`<span class="tbOk" title="${en2?"All five roles and the head coach are confirmed":"五路與主教練都確定了"}">✔</span>`:""}</div>`
+      bHTML+=`<div class="tbRow${t.fa?" tbFA":""}" style="--lgc:${LGC[t.lg]||"var(--gold)"}"><div class="tbTeam" title="${t.fa?"FA":esc(t.nm)}">${t.fa?`<img class="tbFaIc" src="${((window.TS_DATA||{}).lgi||{})[t.lg]||("img/lg_"+t.lg+".png")}" alt="">`:""}${teamLogoHTML(tAb(t.nm),26,true,t.nm)||teamLogoHTML(tAb(t.tm),26,true,t.tm)||""}<span>${t.fa?esc(rowNm(t)):`<a class="tbTmA" href="${tmWk(t.nm)}" target="_blank" rel="noopener">${esc(rowNm(t))}</a>`}</span>${tbDone(t)?`<span class="tbOk" title="${en2?"All five roles and the head coach are confirmed":"五路與主教練都確定了"}">✔</span>`:""}</div>`
         +COLS.map(r=>{ const es=t.fa?colE(t,r):colE(t,r).filter(e=>!e.gone);   /* 已宣布離隊的不留在陣容表格子裡，只列在 FA 那列（使用者 2026-11-21「所有已宣布離隊的都直接離開陣容表 去到FA區」）；小框仍查得到 */   /* FA 的主教練與後勤分兩格（使用者 2026-11-21 先要合併、隨後改回「主教練跟後勤分開」） */
           return `<div class="tbCell${es.length?"":" tbEmpty"}" data-r="${r}" data-lb="${BLN[r]}" data-tb="${cellTip(t,r)}"><span class="tbCv">${es.length?es.map(nameH).join(`<span class="tbSep">/</span>`):`<span class="tbMuted">–</span>`}</span></div>`; }).join("")+rateCell(t)+`</div>`; });
     const bHead=`<div class="tbHd"><span></span>${COLS.map(r=>`<span>${(r==="HC"||r==="STF")?`<img class="trCoach" src="img/COACH.png" alt="">`:(POS_IMG[r]?`<img class="trRole" src="${POS_IMG[r]}" alt="">`:"")}${BLN[r]}</span>`).join("")}<span class="tbRateH tbSortT" style="cursor:pointer;white-space:nowrap" title="${en2?"Click to sort":"點一下照評分排序"}">${SRT0==="o"?(en2?"Split 3 result":"第三賽段成績"):SLB}${srtArr}</span></div>`;
@@ -14781,7 +14789,7 @@ function render(){
     const newsBtns=FG(en2?"Status":"狀態",mbtns("trSt",[["official",ST.official],["rumor",`<b class="tbY">${ST.rumor}</b>`],["conf",`<b class="trCf">${ST.conf}</b>`],["fake",`<b class="trFk">${ST.fake}</b>`]]),"fgSt")
       /* 類型（加入／離開／其他）那組按鈕已刪（使用者 2026-11-20） */
       /* 來源（公告／SE／PTT／韓網）那組篩選已刪（使用者 2026-11-20） */;
-    const boardBtns=FG(en2?"Show":"顯示",`<span class="tbLegend">${[["add",[["tbNew",en2?"New signing":"新加入",en2?"New":"加入"],["tbRs",en2?"Re-signed":"續約",en2?"Re-sign":""],["tbPm",en2?"Promoted":"升職",en2?"Promo":""],["tbStay",en2?"Staying":"續留",en2?"Stay":""]]],["out",[["tbExp",en2?"Contract expired":"合約到期未宣布",en2?"Expired":"合約到期"]]],["rum",[["tbOut",en2?"Possible move":"可能轉會",en2?"Maybe":""],["tbY",en2?"Rumor":"傳聞"]]]]
+    const boardBtns=FG(en2?"Show":"顯示",`<span class="tbLegend">${[["add",[["tbNew",en2?"New signing":"新加入",en2?"New":"加入"],["tbRs",en2?"Re-signed":"續約",en2?"Re-sign":""],["tbPm",en2?"Promoted":"升職",en2?"Promo":""],["tbStay",en2?"Staying":"續留",en2?"Stay":""]]],["out",[["tbExp",en2?"Contract expired":"合約到期未宣布",en2?"Expired":"合約到期"]]],["rum",[["tbOut",en2?"Possible move":"可能轉會",en2?"Maybe":""],["tbY",en2?"Rumor":"傳聞"],["tbRet",en2?"Retired":"退役"]]]]
         .map(([g,L])=>`<button class="sqLaneBtn tbLgB${F_TB.has(g)?" on":""}" data-mk="tbF" data-v="${g}" title="${en2?"Show these (multi-select, click again to clear)":"只看這幾種（可複選，再點一次取消）"}">${L.map(([c,l,sh])=>`<b class="tbN ${c==="tbGone"?"tbExp tbGone":c}" data-s="${sh||l}">${l}</b>`).join(`<i class="tbLgSep">／</i>`)}</button>`).join("")}`
       +`</span>`)   // 「只看有異動」已刪（使用者 2026-11-20；休賽期幾乎每隊都有異動，沒作用）
       +FG(en2?"Sort":"排序",`<span><button class="sqLaneBtn tbSortT on" title="${en2?"Cycle: transfer rating, player rating, team record":"輪流切換：轉會評分 → 選手評分 → 戰績評分"}">${SBT}</button></span>`,"fgSort");
@@ -14897,9 +14905,12 @@ function render(){
     const lgGet=(src,cb)=>{ if(LGF.has(src)){ cb(LGF.get(src)); return; } if(LGP.has(src)){ LGP.get(src).push(cb); return; } LGP.set(src,[cb]);
       const done=m=>{ LGF.set(src,m); (LGP.get(src)||[]).forEach(f=>f(m)); LGP.delete(src); };
       const p=new Image(); p.crossOrigin="anonymous";
-      p.onload=()=>{ let m=null; try{ const N=96, c=document.createElement("canvas"); c.width=c.height=N; const g=c.getContext("2d",{willReadFrequently:true}); g.drawImage(p,0,0,N,N);
+      p.onload=()=>{ let m=null; try{ const N=36   /* 量測格接近實際顯示大小（16～22px 的兩倍）：細線縮小後本來就看不見，量太細反而把它算成圖案 */, c=document.createElement("canvas"); c.width=c.height=N; const g=c.getContext("2d",{willReadFrequently:true}); g.drawImage(p,0,0,N,N);
           const d=g.getImageData(0,0,N,N).data; let x0=N,y0=N,x1=-1,y1=-1;
-          for(let y=0;y<N;y++)for(let x=0;x<N;x++)if(d[(y*N+x)*4+3]>24){   /* 量測格 48 → 96（門檻維持 24：調高會把 SR 這種半透明邊的隊徽量窄、貼到字）；使用者 2026-11-21「每一種隊徽都大約是半形空格的留空」 */ if(x<x0)x0=x; if(x>x1)x1=x; if(y<y0)y0=y; if(y>y1)y1=y; }
+          // 圖案邊界＝「疊在深色底上看得見」的範圍：很淡的邊（alpha 低、疊上去跟底色差不多）不算，否則程式以為圖案到那裡、眼睛看到的卻空一截（HLE 左邊多 1.5px；使用者 2026-11-21「不能一致嗎」）
+          //   實心的深色部分（alpha 高）有白色描邊濾鏡照著，仍算看得見
+          const vis=i=>{ const al=d[i+3]/255; if(al>0.8)return true; if(al<0.1)return false; return (Math.abs(d[i]-27)+Math.abs(d[i+1]-34)+Math.abs(d[i+2]-54))*al>45; };
+          for(let y=0;y<N;y++)for(let x=0;x<N;x++)if(vis((y*N+x)*4)){   /* 量測格 48 → 96（門檻維持 24：調高會把 SR 這種半透明邊的隊徽量窄、貼到字）；使用者 2026-11-21「每一種隊徽都大約是半形空格的留空」 */ if(x<x0)x0=x; if(x>x1)x1=x; if(y<y0)y0=y; if(y>y1)y1=y; }
           if(x1>=x0&&y1>=y0)m={fw:(x1-x0+1)/N,fh:(y1-y0+1)/N}; }catch(_){ m=null; } done(m); };
       p.onerror=()=>done(null); p.src=src; };
     const lgFit=img=>{ if(img.dataset.fit)return; const S=parseFloat(img.style.height)||img.height||0; if(!S)return; img.dataset.fit="0";
@@ -14913,7 +14924,14 @@ function render(){
         const pd=(E-w)/2; img.style.width=img.style.height=E+"px"; // 2026-11-21 使用者「各賽區的隊徽沒有置中 先置中後再寫隊名縮寫 然後隊名縮寫置右」：陣容表的隊名欄＝隊徽在固定寬的位子裡置中（各隊的隊徽對在同一條中線上）、
         //   縮寫接在後面靠左；其他地方（消息的原隊／新隊、小框裡的隊伍）維持圖案左右貼齊，才不會離縮寫太遠
         img.style.margin=img.closest(".tbTeam,.trTeam")?`${(S-E)/2}px ${(W-E)/2}px`:`${(S-E)/2}px ${-pd}px`;   // 消息的原隊／新隊也用同一套（使用者 2026-11-21「都要採取這樣徽章置中放左邊 然後隊名置左的做法」）   /* 2026-11-20 再改「空白也不要留給左邊」：不留固定寬的位子，圖案左右都貼齊（縮寫的左緣因此會隨隊徽寬度不同） */ img.style.maxWidth="none";
-        img.style.setProperty("--lgpad",((E-w)/2)+"px"); }); };   // --lgpad＝圖檔左右的透明邊（手機版靠左對齊時扣掉）
+        img.style.setProperty("--lgpad",((E-w)/2)+"px");
+        // 小框裡「與 [隊徽] 縮寫」：字本身左右有留白（與 的右邊、縮寫第一個字母的左邊，每個字不一樣）⇒ 量墨水邊界把它扣掉，圖案兩側的實際空隙才會每一隊都一樣
+        //   （使用者 2026-11-21「各隊 與→隊徽 是 5–6.5px、隊徽→縮寫 是 5–6px 不能一致嗎」）
+        const chip=img.closest(".tpTm"); if(chip){ try{ const cv=lgFit._c||(lgFit._c=document.createElement("canvas").getContext("2d"));
+            const ink=(el,tx,right)=>{ if(!tx)return 0; const g=getComputedStyle(el); cv.font=`${g.fontWeight} ${g.fontSize} ${g.fontFamily}`;   /* computed 的 font 簡寫在 Chromium 會是空字串，要自己組 */ const m=cv.measureText(tx); return Math.max(0,Math.min(3,right?(m.width-m.actualBoundingBoxRight):-m.actualBoundingBoxLeft)); };
+            const nx=[...chip.childNodes].find(n=>n.nodeType===3&&n.textContent.trim()), pv=chip.previousSibling;
+            const a=nx?ink(chip,nx.textContent.trim().charAt(0),false):0, b=(pv&&pv.nodeType===3&&pv.textContent.trim())?ink(chip.parentElement,pv.textContent.trim().slice(-1),true):0;
+            img.style.margin=`${(S-E)/2}px ${-pd-a}px ${(S-E)/2}px ${-pd-b}px`; }catch(_){} } }); };   // --lgpad＝圖檔左右的透明邊（手機版靠左對齊時扣掉）
     const lgFitAll=root=>root.querySelectorAll(".tbTeam img,.trTeam img,.tpTm img,.rtHd img").forEach(lgFit);
     lgFitAll(main);
     if(MODE!=="news"){ // 格子提示（自建浮層：多行＋排版，原生 title 做不到）
@@ -14933,15 +14951,15 @@ function render(){
         //   小框最高不超過視窗、太長就在框內捲；上下都放不下時貼著視窗邊；滑鼠可以移上去（連結點得到），離開格子與小框才收
         tip.style.pointerEvents="auto"; tip.style.maxHeight=(innerHeight-16)+"px"; tip.style.overflowY="auto";
         // 格子的小框跟那一欄同寬（使用者 2026-11-21「小框的寬度都設定為跟本來欄位寬度一致」）；欄太窄時至少 300px（小框內容本身最少要 260px＋邊距，再窄字會被切掉）。評分小框（五欄的表）維持原本的寬度
-        { const cw=c.getBoundingClientRect().width, isRate=c.classList.contains("tbRate"); tip.style.width=isRate?(tip.querySelector(".rtS3")?"250px":""):Math.max(300,Math.round(cw))+"px"; tip.style.maxWidth=isRate?"":"none";   /* 第三賽段的小框內容少，縮成 250px（使用者 2026-11-21） */ tip.style.boxSizing="border-box"; }
+        { const cw=c.getBoundingClientRect().width, isRate=c.classList.contains("tbRate"); tip.style.width=isRate?(tip.querySelector(".rtS3")?"max-content":""):Math.max(300,Math.round(cw))+"px"; tip.style.maxWidth=isRate?"":"none";   /* 第三賽段的小框內容少，縮成 250px（使用者 2026-11-21） */ tip.style.boxSizing="border-box"; }
         const r=c.getBoundingClientRect(), w=tip.offsetWidth, h=tip.offsetHeight;
         const bR=bd.getBoundingClientRect();   // 小框不貼著螢幕邊：左右都收在陣容表那張卡片的範圍內（使用者 2026-11-21「網頁版 評分小框有點太靠近螢幕右側了」；原本只離螢幕邊 8px）
         // 擺放順序（使用者 2026-11-21「夠短就往下擴展顯示 下方沒位置就往上 如果長到上下都不行 那就往右或往左 不要擋到本來的資料」）：
         //   ①格子下方放得下 ⇒ 下方；②否則上方放得下 ⇒ 上方；③都放不下 ⇒ 放到格子右邊（右邊不夠就左邊），上下置中、收在視窗內——不蓋住這一格
         const cl=v=>Math.max(Math.max(16,bR.left+12),Math.min(Math.min(innerWidth-w-24,bR.right-w-12),v));
-        let x=cl(r.left+r.width/2-w/2), y=r.bottom+6;
+        let x=cl(r.left+r.width/2-w/2), y=r.bottom-1;   // 貼著格子、不留縫：滑鼠從格子往下就直接進到小框，才能把「離開就收」做成沒有延遲
         if(y+h>innerHeight-8){
-          if(r.top-h-6>=8)y=r.top-h-6;
+          if(r.top-h+1>=8)y=r.top-h+1;
           else{ y=Math.max(8,Math.min(innerHeight-h-8,r.top+r.height/2-h/2));
             const sr=innerWidth-r.right-16, sl=r.left-16; x=(sr>=w||sr>=sl)?Math.min(r.right+8,innerWidth-w-8):Math.max(8,r.left-w-8); } }
         tip.style.left=x+"px"; tip.style.top=y+"px"; };
@@ -14950,8 +14968,10 @@ function render(){
       const cellOf=e=>{ const c=e.target.closest(".tbCell"); if(c)return (e.type!=="mouseover"||e.target.closest(".tbCv"))?c:null; return cellOfT(e); };
       const cellOfT=e=>(e.target.closest(".tbTeam")?e.target.closest(".tbRow").querySelector(".tbRate"):null);
       const keepTip=()=>clearTimeout(tip._ht), hideSoon=()=>{ clearTimeout(tip._ht); tip._ht=setTimeout(()=>{ if(!tip.classList.contains("sheet")){ tip.style.display="none"; tip._c=null; } },200); };
-      bd.onmouseover=e=>{ if(touch())return; const c=cellOf(e); if(!c){ hideSoon(); return; } keepTip(); if(tip.style.display==="block"&&tip._c===c)return; tip._c=c; show(c,false); };
-      bd.onmouseleave=()=>{ if(!touch())hideSoon(); };
+      // 移到別的地方立刻收（使用者 2026-11-21「往旁邊移開時 延遲又變大了」）：只有還在同一格裡（正要往小框移動）才給 200ms 緩衝
+      const hideNow=()=>{ clearTimeout(tip._ht); if(!tip.classList.contains("sheet")){ tip.style.display="none"; tip._c=null; } };
+      bd.onmouseover=e=>{ if(touch())return; const c=cellOf(e); if(!c){ const same=tip._c&&(e.target.closest(".tbCell")===tip._c||(e.target.closest(".tbTeam")&&e.target.closest(".tbRow")===tip._c.closest(".tbRow"))); same?hideSoon():hideNow(); return; } keepTip(); if(tip.style.display==="block"&&tip._c===c)return; tip._c=c; show(c,false); };
+      bd.onmouseleave=()=>{ if(touch())return; clearTimeout(tip._ht); tip._ht=setTimeout(hideNow,50); };   // 50ms：剛好夠滑進小框（小框的 mouseenter 會取消）
       tip.onmouseenter=keepTip; tip.onmouseleave=()=>{ if(!tip.classList.contains("sheet")){ clearTimeout(tip._ht); tip.style.display="none"; tip._c=null; } };   // 離開小框立刻消失（使用者 2026-11-21）；從格子移往小框途中才給 200ms 緩衝
       bd.onclick=e=>{ if(!touch())return; const c=cellOf(e); if(!c)return; if(e.target.closest("a"))e.preventDefault();
         if(tip.style.display==="block"&&tip.classList.contains("sheet")&&tip.dataset.cur===c.dataset.tb){ tip.style.display="none"; return; } show(c,true); };
