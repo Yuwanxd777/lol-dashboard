@@ -1126,8 +1126,8 @@
   .rtN{font-weight:700;white-space:nowrap;display:flex;align-items:center;gap:6px}
   .rtV{font-size:14px;color:var(--tx2);font-variant-numeric:tabular-nums;white-space:nowrap}
   /* 同一路好幾位傳聞人選（使用者 2026-11-20「多人的時候評分小框顯示的好看一些」）：一人一列「名字｜分數」對齊成兩欄，黃色左框標示是傳聞，最下面一列平均 */
-  .rtMulti{display:flex;flex-direction:column;gap:6px;min-width:0}   /* 多位傳聞人選：每一位都跟單人同一個樣子（名字＋傳聞標籤、分數寫在名字下面），照分數高到低直排（使用者 2026-11-20「多人的個人分數一樣要寫在 ID 下方」） */
-  .rtMulti{width:100%;box-sizing:border-box}
+  .rtMulti{grid-column:4/6;display:grid;grid-template-columns:subgrid;row-gap:6px;align-items:center;min-width:0}   /* 多位傳聞人選：橫跨「加入｜增減」兩欄、沿用外層的欄寬，每一位一列（名字＋傳聞標籤／分數在下｜他自己的增減） */
+
   /* 小框標題不寫「轉會評分」四個字、總分字小一點（使用者 2026-11-20）⇒ 手機的範圍總分也放得進同一行，不用再另起一行 */
 
   .rtD{white-space:nowrap}   /* 全形負號後面不可以斷行（手機增減那格被擠成「－／35.5」兩行，使用者 2026-11-20「小框…版面跑掉了」） */
@@ -14607,7 +14607,7 @@ function render(){
           +`<span class="rtV">${v.toFixed(1)}</span></span>`;   // 分數下面不寫「全年／中位數」註記（使用者 2026-11-20），算法在 ℹ️ 說明
         h+=`<div class="rtGrid"><span></span><span class="rtCh">${en2?"Out":"離隊"}</span><span></span><span class="rtCh">${en2?"In":"加入"}</span><span class="rtCh rtChD">${en2?"Diff":"增減"}</span>`;
         rt.items.forEach(x=>{ const ic=x.r==="COACH"?`<img src="img/COACH.png" alt="">`:(POS_IMG[x.r]?`<img src="${POS_IMG[x.r]}" alt="">`:"");
-          h+=`<span class="rtIc" title="${BLN[x.r]}">${ic}</span>${pc(x.od,x.b,x.mb?1:0,false,x.tb)}<span class="rtAr">➜</span>${x.nws?`<span class="rtMulti">${x.nws.map(c=>pc(c.n,c.v,0,true,"")).join("")}</span>`:pc(x.nw,x.a,x.ma,x.rm,x.ta)}<b class="rtD ${rcls(x.dlo,x.dhi)}">${x.dhi-x.dlo>0.05?`${sg(x.dlo)}<i>～</i>${sg(x.dhi)}`:sg(x.d)}</b>`; });
+          h+=`<span class="rtIc" title="${BLN[x.r]}">${ic}</span>${pc(x.od,x.b,x.mb?1:0,false,x.tb)}<span class="rtAr">➜</span>${x.nws?`<span class="rtMulti">${x.nws.map(c=>pc(c.n,c.v,0,true,"")+`<b class="rtD ${cls(c.v-x.b)}">${sg(c.v-x.b)}</b>`).join("")}</span>`:pc(x.nw,x.a,x.ma,x.rm,x.ta)+`<b class="rtD ${cls(x.d)}">${sg(x.d)}</b>`}`; });   // 多位傳聞人選：每一位各自一個增減（使用者 2026-11-20「小框 多人的增減分分開列」），總分仍是最低 ～ 最高
         h+=`</div>`; }   // 計算說明不放小框，寫在 ℹ️ 說明（使用者 2026-11-20）
       TIPS.push(h+`</div>`); return TIPS.length-1; };
     const rateCell=t=>{ const rt=rateOf(t), v=rt&&rt.items.length?rt.sum:null;
