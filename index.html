@@ -1154,6 +1154,12 @@
   .trFrom,.trTo,.trSpan{display:flex;flex-direction:column;align-items:flex-start;gap:4px;white-space:nowrap}
   .trRow>.trSt{grid-column:1}.trRgC{grid-column:2;display:flex;align-items:center;gap:4px;white-space:nowrap}.trRgC .trArr{font-size:12px}.trRgC .trLg{margin-left:0}.trFrom{grid-column:3}.trFlow>.trArr{grid-column:4}.trTo{grid-column:5}.trSpan{grid-column:3/6}.trRow>.trTx{grid-column:6}
   .trArr{color:var(--tx2);font-size:15px}
+  /* 原隊 ➜ 新隊（使用者 2026-11-20「原隊到新隊的那塊不夠好看 然後箭頭左右邊空格不一致」）：每隊一顆同寬的小牌子（同欄等寬 ⇒ 箭頭左右間隔一樣），箭頭置中 */
+  .trList .trTeam{background:rgba(255,255,255,.055);border:1px solid rgba(255,255,255,.09);border-radius:7px;padding:1px 10px 1px 7px;box-sizing:border-box}
+  .trList a.trTeam:hover{background:rgba(122,184,255,.14);border-color:rgba(122,184,255,.4)}
+  .trList .trFrom,.trList .trTo,.trList .trSpan{align-items:stretch}.trList .trSpan{grid-column:3}
+  .trList .trFlow>.trArr{justify-self:center;color:var(--gold);opacity:.85}
+  .trList .trNone{text-align:center;padding:0}
   .trNone{color:var(--tx2);opacity:.6;padding:0 6px}
   .trLg{font-size:12px;font-weight:800;color:var(--lgc,var(--tx2));margin-left:4px;padding:0 6px;border-radius:999px;border:1px solid color-mix(in srgb,var(--lgc,#888) 55%,transparent)}
   .trLgOnly{font-size:13px;font-weight:700;margin-left:0}
@@ -14245,7 +14251,8 @@ function render(){
     const namesOf=x=>[...new Set([...String((x.zh||"")+" "+(x.en||"")).matchAll(/‹[^|›]+\|([^›]+)›/g)].map(m=>nk(m[1])))];
     const LEFT=new Set(); (D.wiki||[]).forEach(x=>{ if(/leave|both/.test(x.kind||""))String(x.zh||"").split(/(?<=。)\s*/).filter(z=>/離隊|分道揚鑣/.test(z)).forEach(z=>namesOf({zh:z}).forEach(n=>LEFT.add(n+">"+x.team))); });
     const sheepV=x=>{ const tg=x.tags||[], ns=namesOf(x), zh=String(x.zh||"");
-      if(/續約|留在|留隊/.test(zh)&&tg.length===1&&ns.length)return verdict([],ns.map(n=>[n,tg[0][1]]));
+      const noRs=/不[^，。；]{0,45}續約|不續約|不會留|不留/.test(zh);   // 「決定不和 Wunder 續約」是離隊傳聞，不是續約傳聞（原本被當成續約 ⇒ 官方離隊後也對不上，一直停在傳聞）
+      if(!noRs&&/續約|留在|留隊/.test(zh)&&tg.length===1&&ns.length)return verdict([],ns.map(n=>[n,tg[0][1]]));
       const outs=tg.filter(t=>t[2]==="out").map(t=>t[1]), ins=tg.filter(t=>t[2]==="in");
       if(x.kind==="leave"&&outs.length===1&&!ins.length&&ns.length)return ns.every(n=>LEFT.has(n+">"+outs[0]))?"conf":"";
       return verdict(sheepMv(x)); };
