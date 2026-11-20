@@ -14608,9 +14608,9 @@ function render(){
         const md=mdOf(r), fill=x=>x.s?x:(md==null?x:{...x,s:{v:(md-(x.sub?10:0))*BASEW_+itOf(x.n),g:0,lg:""},md:1}), byG=(a,b)=>(b.s?b.s.g:-1)-(a.s?a.s.g:-1);
         // 同一格多人：照分數高到低排（使用者 2026-11-20「多選手沒依照分數上到下」）；分數跟評分小框同一把尺，沒資料的用基準分
         const sv=e=>{ const sub=isSub(e), x=fill({n:pn(e.n),s:get(e.n,sub?40:50),sub}); return x.s?x.s.v:-1; }, onTm=e=>!(e.r||e.gone||(expd(e)&&!(e.new||e.rs||e.pm)));
-        // 選手評分（使用者 2026-11-20「第三下第四下變成 選手評分升降冪」）：這一路的分數＝還在隊上的人取最高；沒有就取其餘人選（傳聞／到期）的平均；空的用基準分。五路加總
-        { const es=t.r[r]||[], on=es.filter(onTm).map(sv).filter(v=>v>=0), ot=es.filter(e=>!onTm(e)&&!e.gone).map(sv).filter(v=>v>=0);
-          plSum+=on.length?Math.max(...on):ot.length?ot.reduce((a,b)=>a+b,0)/ot.length:(md==null?0:md*BASEW_); }
+        // 選手評分（使用者 2026-11-20「第三下第四下變成 選手評分升降冪」「一個路線兩個選手的話要取平均」）：這一路的分數＝格子裡所有人的平均（已宣布離隊的不算）；空的用基準分。五路加總
+        { const vs=(t.r[r]||[]).filter(e=>!e.gone).map(sv).filter(v=>v>=0);
+          plSum+=vs.length?vs.reduce((a,b)=>a+b,0)/vs.length:(md==null?0:md*BASEW_); }
         if((t.r[r]||[]).length>1&&!t._srt?.[r]){ (t._srt||(t._srt={}))[r]=1;
           t.r[r].map((e,i)=>({e,i,v:sv(e),g:(e.r||e.gone||(expd(e)&&!(e.new||e.rs||e.pm)))?1:0})).sort((p,q)=>p.g-q.g||q.v-p.v||p.i-q.i)   /* 還在隊上的（續留／新加入／續約／升職／合約還在）排最前面，再來才是合約到期、已離隊、傳聞（使用者 2026-11-20「這種路線上擺第一個 因為他還是在隊伍」）*/.forEach((o,i)=>{ t.r[r][i]=o.e; }); }
         const cands=(t.r[r]||[]).filter(e=>e.new||e.tip).map(e=>{ const sub=isSub(e); return {n:pn(e.n),s:get(e.n,sub?40:50),rm:!!e.r,sub,e}; }).sort((a,b)=>a.rm-b.rm||byG(a,b));
