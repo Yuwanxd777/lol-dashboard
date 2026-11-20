@@ -1180,7 +1180,7 @@
   .trRole{display:inline-block;font-size:12.5px;padding:0 6px;margin:0 4px 0 2px;border-radius:5px;background:rgba(255,200,80,.14);color:#ffc850;vertical-align:1px}
   .trTx{min-width:0;word-break:break-word;display:flex;align-items:center;gap:12px}.trTxt{flex:1 1 auto;min-width:0}.trLks{flex:0 0 auto;margin-left:auto;display:flex;gap:10px;white-space:nowrap}.trLks .trLk{margin-left:0}   /* 來源連結置右（使用者 2026-11-20） */
   .trLk{font-size:13px;color:#7fb2ff;white-space:nowrap;margin-left:6px}
-  .trNb{white-space:nowrap}.trLk1{display:none}.trSW{display:inline-flex;align-items:center;gap:8px;white-space:nowrap}   /* 手機版第一列右邊那一個來源連結；桌面不顯示 */
+  .trNb{white-space:nowrap}.trLk1{display:none}.trNIc{width:1.35em;height:1.35em;object-fit:cover;border-radius:4px;vertical-align:-.3em;display:inline-block}.trSW{display:inline-flex;align-items:center;gap:8px;white-space:nowrap}   /* 手機版第一列右邊那一個來源連結；桌面不顯示 */
   /* 窄版：第一行＝狀態＋原隊 ➜ 新隊（橫排），第二行＝消息全寬；欄標題收起 */
   @container mainc (max-width:999.98px){.trList{grid-template-columns:max-content minmax(0,1fr)}.trHead{display:none}
     .trFlow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;grid-column:2;grid-row:1}
@@ -14690,7 +14690,7 @@ function render(){
     //   模式（圖示＋文字）｜賽區（聯賽色）｜該模式自己的篩選（分組、組間直線）｜……｜更新時間＋搜尋（最右）
     const FG=(lb,inner,cls)=>`<span class="trFG${cls?" "+cls:""}">${lb?`<label>${lb}</label>`:""}${inner}</span>`;
     const lgTx=r=>{ const l=rgNm(r); return `<span style="color:${LGC[l]||"inherit"};font-weight:800">${esc(l)}</span>`; };
-    const modeBtns=FG("",btns("trMode",[["",`📋 ${en2?"Rosters":"陣容表"}`],["news",`📰 ${en2?"News":"消息"}`]]));
+    const modeBtns=FG("",btns("trMode",[["",`📋 ${en2?"Rosters":"陣容表"}`],["news",`<span class="trNIcW"><img class="trNIc" src="${(window.TS_DATA||{}).nic||"img/news_faker.png"}" alt="" onerror="this.parentNode.textContent='📰'"></span> ${en2?"News":"消息"}`]]));   // 消息的小圖＝使用者給的 Faker 比噓圖（img/news_faker.png，正方形）；檔案不在就退回 📰
     // 複選按鈕：沒有「全部」，點了亮、再點取消，都沒亮＝全部
     const mbtns=(key,opts)=>{ const S=mset(key); return `<span style="display:inline-flex;gap:6px;flex-wrap:wrap">${opts.map(([v,l])=>`<button class="sqLaneBtn${S.has(v)?" on":""}" data-mk="${key}" data-v="${esc(v)}">${l}</button>`).join("")}</span>`; };
     const rgBtns=FG(en2?"League":"賽區",mbtns("trRg",RGS.map(r=>[r,lgTx(r)])));

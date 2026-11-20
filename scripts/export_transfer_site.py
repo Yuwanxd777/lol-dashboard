@@ -167,6 +167,14 @@ def main():
                        for lg in ("LCK", "LPL", "LEC", "LCS", "CBLOL", "LCP") if os.path.exists(os.path.join(ROOT, "img", f"lg_{lg}.png"))}
     except Exception:
         pass
+    # 消息按鈕的小圖（img/news_faker.png）一樣內嵌；檔案還沒放就不帶，前端退回 📰
+    try:
+        _p = os.path.join(ROOT, "img", "news_faker.png")
+        if os.path.exists(_p):
+            import base64
+            data["nic"] = "data:image/png;base64," + base64.b64encode(io.open(_p, "rb").read()).decode()
+    except Exception:
+        pass
     io.open(OUT_DATA, "w", encoding="utf-8", newline="\n").write("window.TS_DATA=" + json.dumps(data, ensure_ascii=False, separators=(",", ":")) + ";\n")
     io.open(OUT_CODE, "w", encoding="utf-8", newline="\n").write(code)
     print(f"轉會網站：隊伍 {len(data['team'])}、評分 {'有' if data.get('rate') else '無'}；"
