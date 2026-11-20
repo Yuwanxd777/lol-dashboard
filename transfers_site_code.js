@@ -180,7 +180,9 @@ function render(){
     //   「名字（總教練）」→ ⟦C:職稱⟧名字⟦R:職稱⟧；純「教練」只留圖示，其他職稱文字留在名字後面
     const CO=/(‹[^|›]+\|[^›]+›|[A-Za-z0-9][A-Za-z0-9_.'\-]*)\s*(?:（([^（）]*(?:教練|分析師)[^（）]*)）|\(([^()]*(?:[Cc]oach|[Aa]nalyst)[^()]*)\))/g;   // 分析師也算教練團：名字前放同一顆後勤圖示、職稱不另外寫（使用者 2026-11-21）
     // 推文原文清理（2026-11-19 分頁審視）：國旗 emoji 在 Windows 會畫成 KR／MX 字母方塊 ⇒ 拿掉；#LCK 的 # 拿掉；連空行壓成一行；網址改成「文章」連結
-    const clean=s=>s.replace(/[ \t]?[\u{1F1E6}-\u{1F1FF}]{2}/gu,"").replace(/^[ \t]+/gm,"").replace(/(^|\s)#(\w)/g,"$1$2").replace(/[ \t]*\n\s*\n\s*/g,"\n").trim();
+    const clean=s=>s.replace(/[ \t]?[\u{1F1E6}-\u{1F1FF}]{2}/gu,"").replace(/^[ \t]+/gm,"").replace(/(^|\s)#(\w)/g,"$1$2").replace(/[ \t]*\n\s*\n\s*/g,"\n").trim().split("\n").map(z=>z.trim()).filter(z=>z&&!/^❓[\s?？]*$/.test(z)).reduce((o,b,i,L)=>{ if(!i)return b;   // 排版照中文版：整則接成一段、名單用 / 隔開，不逐行列（使用者 2026-11-21「排版都要遵照中文版面」）
+      const it=z=>{ const p=z.replace(/§\w+§/g,"").replace(/‹[^|›]+\|([^›]+)›/g,"$1"); return p.length<=40&&!/[.!?。:：]$/.test(p)&&!/https?:/.test(p); }, a=L[i-1];
+      return o+(it(b)&&it(a)&&i>1?" / ":/[.!?:：。！？]$/.test(a)?" ":it(b)&&!it(a)?": ":". ")+b; },"");
     // 選手名冊（陣容表格子＋上一位＋wiki／Sheep 的 ‹頁|名›）⇒ 名字 → {頁, 路線}；內文沒標的名字自動補路線圖示與 wiki 連結
     //   （使用者 2026-11-20「消息頁面很多選手沒有標註路線圖」「很多選手沒有標記超連結」）。比對分大小寫、前後不能接英數字
     const pn0=s=>String(s||"").replace(/\s*\([^()]*\)\s*$/,"");   // 同陣容表的 pn（那個定義在後面，這裡先用不到它）
@@ -327,7 +329,7 @@ function render(){
         // FA：合約跟來自併成一列「與 NS 已到期 2026/11/16」（使用者 2026-11-21「合約跟來自要合併寫 比較清晰」）
         const faC=e.fa&&e.from?(en2?`with ${tmChip(e.from)} `:`與 ${tmChip(e.from)} `):"";
         // 「到期 2026/11/16」；合約還沒到就宣布離隊的＝提早解約，寫「解約」（使用者 2026-11-21）
-        if(faC)kv.push([en2?"Contract":"合約",faC+(e.c?(e.c<today?`<span class="tbExp">${en2?"expired":"到期"} ${ymd(e.c)}</span>`:(e.gone?`<span class="tbExp">${en2?"terminated early":"解約"}</span>`:`${en2?"until":"到"} ${ymd(e.c)}`)):`<span class="tbMuted">${en2?"not on record":"無紀錄"}</span>`)]);
+        if(faC)kv.push([en2?"Contract":"合約",faC+(e.c?(e.c<today?`<span class="tbExp">${en2?"expired":"到期"} ${ymd(e.c)}</span>`:(e.gone?`<span class="tbExp">${en2?"terminated":"解約"}${e.gd?" "+ymd(e.gd):""}</span>`:`${en2?"until":"到"} ${ymd(e.c)}`)):`<span class="tbMuted">${en2?"not on record":"無紀錄"}</span>`)]);
         else if(e.rs&&(!e.c||e.c<today))kv.push([en2?"Contract":"合約",e.rs!=="1"?`${en2?"re-signed through":"續約到"} ${e.rs}`:(en2?"re-signed":"已續約")]);
         else if(e.c)kv.push([en2?"Contract":"合約",e.c<today?`<span class="tbExp">${en2?"expired":"已到期"} ${ymd(e.c)}</span>`:`${en2?"until":"到"} ${ymd(e.c)}`]);
         else if(!e.r)kv.push([en2?"Contract":"合約",`<span class="tbMuted">${en2?"not on record":"無紀錄"}</span>`]);
@@ -413,10 +415,10 @@ function render(){
     const ACH=rk=>{ if(!rk)return null; const m=/^([WPIR])(\d+)/.exec(rk); if(!m)return null; const n=+m[2];
       return m[1]==="W"?(n===1?50:n===2?45:n<=4?40:n<=8?35:n<=11?30:n<=16?28:24):m[1]==="P"?Math.max(22-2*n,8):m[1]==="I"?6:0; };
     // 第三賽段成績（戰績評分模式的最後一欄；使用者 2026-11-21「今年成績 改寫成第三賽段成績 有晉級世界賽就寫世界賽第幾名」）
-    const RK3=rk=>{ const m=/^([WPIR])(.+)$/.exec(rk||""); if(!m)return "–"; const n=m[2];
-      if(m[1]==="W")return en2?("Worlds "+(n==="1"?"champion":n==="2"?"runner-up":n==="3-4"?"top 4":n==="5-8"?"top 8":"#"+n)):("世界賽"+(n==="1"?"冠軍":n==="2"?"亞軍":n==="3-4"?"四強":n==="5-8"?"八強":"第 "+n+" 名"));
-      return en2?({P:"Playoffs #",I:"Play-in",R:"Regular #"}[m[1]]+(m[1]==="I"?"":n)):({P:`季後賽第 ${n} 名`,I:"季後賽入圍賽",R:`例行賽第 ${n} 名`}[m[1]]); };
-    const RKN=rk=>{ if(!rk)return en2?"no result":"無成績"; const m=/^([WPIR])(.+)$/.exec(rk); const n=m[2];
+    const RK3=rk=>{ if(/^U/.test(rk||""))return (en2?"Promotion: beat ":"升降賽擊敗 ")+abOf(rk.slice(1)); const m=/^([WPIR])(.+)$/.exec(rk||""); if(!m)return "–"; const n=m[2];
+      if(m[1]==="W")return en2?("Worlds "+(n==="1"?"champion":n==="2"?"runner-up":n==="3-4"?"top 4":n==="5-8"?"top 8":n)):("世界賽"+(n==="1"?"冠軍":n==="2"?"亞軍":n==="3-4"?"四強":n==="5-8"?"八強":" "+n));   // 8 強以外直接寫「世界賽 9-11」（使用者 2026-11-21）
+      return en2?"#"+n:`第 ${n} 名`; };   // 沒進世界賽的只寫整體名次，不標季後賽／例行賽（使用者 2026-11-21）   // 入圍賽與例行賽的名次都是整個聯賽的整體名次
+    const RKN=rk=>{ if(!rk)return en2?"no result":"無成績"; if(/^U/.test(rk))return RK3(rk); const m=/^([WPIR])(.+)$/.exec(rk); if(!m)return en2?"no result":"無成績"; const n=m[2];
       return en2?({W:"Worlds ",P:"Playoffs #",I:"Play-in ",R:"Regular #"}[m[1]]+n):({W:`世界賽 ${n==="1"?"冠軍":n==="2"?"亞軍":n}`,P:`季後賽第 ${n} 名`,I:"季後賽入圍賽",R:`例行賽第 ${n} 名`}[m[1]]); };
     // noW＝選手評分用：今年世界賽打到第幾名不再算（使用者 2026-11-20「那麼今年世界賽成績的參數分要拿掉」——世界賽名次已經用國際賽資歷分直接加在選手身上，
     //   這裡再算一次就重複了）⇒ 進世界賽的隊一律給「有進世界賽」的基本分 24，不分名次；主教練的戰績分照舊看名次
@@ -547,7 +549,7 @@ function render(){
       return `<div class="tbCell tbRate" data-r="RATE" data-lb="${en2?"Rating":"評分"}"${v!=null&&rt.rng?` data-avg="${(()=>{ const m=rt.items.reduce((z,x)=>z+(x.nws?x.nws.reduce((q,c)=>q+c.v,0)/x.nws.length-x.b:x.d),0); return rSg(m)+"|"+(m>0?"tbUp":m<0?"tbDn":""); })()}"`:""} data-tb="${rateTip(t)}"><span class="tbCv">${v==null?`<span class="tbMuted">–</span>`:`<b class="${rcls(rt.lo,rt.hi)}${rt.rng?" rtRngT":""}">${rt.rm?"（":""}${rtx(rt.lo,rt.hi)}${rt.rm?`<i class="rtPc">）</i>`:""}</b>`}</span></div>`; };   // 全形「）」的字框右半邊是空的 ⇒ 用負邊距收掉，看起來才跟沒括號的數字一樣貼齊右邊（使用者 2026-11-20「注意是視覺上空格一致 全型括號右邊的空格會比較大 要修正」）
     // 顏色（使用者 2026-11-19，取代星號）：黃＝傳聞未確定、紅＝新加入、藍＝合約已到期但還沒宣布離隊（Doran）、粉＝本轉會期續約（使用者 2026-11-19「粉色 跟紅色相近」）、白＝留隊
     // 藍字刪除線＝已宣布離隊、這個位置還沒有新簽約也沒有傳聞（使用者 2026-11-19）
-    const tbCls=e=>e.fa?((e.ro&&!e.gone&&!expd(e))?"tbOut":"tbExp"):e.gone?"tbExp tbGone":e.r?"tbY":e.pm?"tbPm":(e.new||(e.tip&&!e.r))?"tbNew":roOn(e)?"tbOut":e.rs?"tbRs":(expd(e)?(e.ro?"tbExp tbGone":"tbExp"):"tbStay");   // tbStay＝合約還在、沒有任何動向（白字「續留」，使用者 2026-11-20）   // 合約到期沒宣布、但傳出去別隊（LØS Zest）也畫刪除線（使用者 2026-11-20）   // rs＝本轉會期有官方續約消息（GCD 還沒更新也算）⇒ 粉字
+    const tbCls=e=>e.fa?(e.ro?"tbY":"tbExp"):e.gone?"tbExp tbGone":e.r?"tbY":e.pm?"tbPm":(e.new||(e.tip&&!e.r))?"tbNew":roOn(e)?"tbOut":e.rs?"tbRs":(expd(e)?(e.ro?"tbExp tbGone":"tbExp"):"tbStay");   // tbStay＝合約還在、沒有任何動向（白字「續留」，使用者 2026-11-20）   // 合約到期沒宣布、但傳出去別隊（LØS Zest）也畫刪除線（使用者 2026-11-20）   // rs＝本轉會期有官方續約消息（GCD 還沒更新也算）⇒ 粉字
     // 圖例篩選＝三組，一框一顆按鈕、兩種一起篩（使用者 2026-11-20「一個框的意思是點擊也會一起點，不用分開點」）
     const TBG={add:["tbNew","tbRs","tbPm","tbStay"],out:["tbExp","tbGone"],rum:["tbOut","tbY"]};
     const F_TB=new Set([...mset("tbF")].filter(g=>TBG[g]));   // 可複選；舊存檔的單一類別值不認

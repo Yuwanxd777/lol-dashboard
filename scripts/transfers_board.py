@@ -563,12 +563,12 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
                     if e.get("new") or e.get("rs") or e.get("pm") or e.get("tip") or (e.get("c") and e["c"] >= today and not e.get("ro")):   # 綠字（合約還在但傳出要走）不算已定
                         settled.add(k_); settled.add(key(e["n"]))
         cand, seen_ = [], set()
-        left_rc = set()   # 這個休賽期前後 wiki 記了「離隊」的（人, 隊）
+        left_rc = {}   # 這個休賽期前後 wiki 記了「離隊」的（人, 隊）→ 離隊日
         try:
             for i in range(0, len(teams), 20):
-                for y in cargo({"tables": "RosterChanges", "fields": "Player=p,Team=tm", "limit": "5000", "format": "json",
+                for y in cargo({"tables": "RosterChanges", "fields": "Player=p,Team=tm,Date_Sort=d", "limit": "5000", "format": "json",
                                 "where": "RosterChanges.Team IN " + _in(teams[i:i + 20]) + f' AND RosterChanges.Direction="Leave" AND RosterChanges.Date_Sort>="{year}-08-01"'}):
-                    left_rc.add((key(y["p"]), y["tm"]))
+                    left_rc[(key(y["p"]), y["tm"])] = max(left_rc.get((key(y["p"]), y["tm"]), ""), str(y.get("d") or "")[:10])
         except Exception as e:
             print(f"   離隊紀錄查詢失敗（自由人的教練不列上一位）：{type(e).__name__} {str(e)[:100]}")
         for x in out:
@@ -633,6 +633,9 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
                 e["c"] = c_
             if gone_:
                 e["gone"] = 1
+                gd_ = left_rc.get((k_, x["tm"])) or left_rc.get((key(nm_), x["tm"]))
+                if gd_:
+                    e["gd"] = gd_   # 離隊日（提早解約的小框要寫日期，使用者 2026-11-21）
             ros = []
             for ro in rum_out.get(k_) or rum_out.get(key(nm_)) or []:
                 if ro["d"][:10] >= since and tkey(ro["tm"]) != tkey(x["tm"]):   # 傳聞的是「留在原隊」（陣容整理文把他列在原隊）不算去向
@@ -860,21 +863,37 @@ def team_rank(cargo, year):
     for t in ts:
         by_lg.setdefault(t["lg"], []).append(t)
     po_pages, reg_pages = {}, []   # 季後賽頁 → 名次加權
+    pg_lg, final_po = {}, {}       # 頁 → 聯賽；聯賽 → 正賽那一頁
     for lg, L in by_lg.items():
         sp = [t for t in L if str(t.get("po")) != "1"][-1]["sp"]   # 最後一個例行賽的 split
         reg_pages += [t["pg"] for t in L if t["sp"] == sp and str(t.get("po")) != "1"]
         pos = [t for t in L if t["sp"] == sp and str(t.get("po")) == "1"]
         for i, t in enumerate(pos):
             po_pages[t["pg"]] = 0 if i == len(pos) - 1 else 100
+            pg_lg[t["pg"]] = lg
+            if i == len(pos) - 1:
+                final_po[lg] = t["pg"]
     wpage = f"{year} Season World Championship"
     pages = [wpage] + list(po_pages) + reg_pages
-    res = cargo({"tables": "TournamentResults", "fields": "OverviewPage=pg,Team=tm,Place_Number=pn,Place=pl",
+    res = cargo({"tables": "TournamentResults", "fields": "OverviewPage=pg,Team=tm,Place_Number=pn,Place=pl,GroupName=g",
                  "where": "TournamentResults.OverviewPage IN " + _in(pages), "limit": "2000", "format": "json"})
     have_reg = {x["pg"] for x in res if x["pg"] in reg_pages}
     miss = [p for p in reg_pages if p not in have_reg]
     if miss:
         res += cargo({"tables": "Standings", "fields": "OverviewPage=pg,Team=tm,Place=pn", "where": "Standings.OverviewPage IN " + _in(miss),
                       "limit": "1000", "format": "json"})
+    # 整體名次（使用者 2026-11-21「KRX 在第三賽段的成績哪是第四名 是第九 因為是下位組 Rise Group 的第四」「季後賽入圍賽 也要去看他是第幾名」）：
+    #   ①例行賽分上下位組（LCK 的 Legend／Rise）⇒ 下位組的名次要加上上位組的隊數；
+    #   ②季後賽入圍賽被淘汰的隊 ⇒ 排在正賽全部隊伍之後：正賽隊數＋（入圍賽名次 − 晉級正賽的隊數）
+    UPPER, LOWER = re.compile(r"Legend|Ascend|Peak|Upper", re.I), re.compile(r"Rise|Nirvana|Lower", re.I)
+    grp_n = {}
+    for x in res:
+        if x["pg"] in reg_pages and x.get("g") and UPPER.search(x["g"]):
+            grp_n[x["pg"]] = grp_n.get(x["pg"], 0) + 1
+    po_teams = {}
+    for x in res:
+        if x["pg"] in po_pages:
+            po_teams.setdefault(x["pg"], set()).add(tkey(x["tm"]))
     W, P, R = {}, {}, {}
     for x in res:
         try:
@@ -885,9 +904,14 @@ def team_rank(cargo, year):
         if x["pg"] == wpage:
             W[k] = (n, str(x.get("pl") or n))
         elif x["pg"] in po_pages:
+            if po_pages[x["pg"]]:   # 入圍賽：換成整體名次（晉級正賽的隊之後會被正賽名次蓋掉）
+                fin = po_teams.get(final_po.get(pg_lg.get(x["pg"])), set())
+                n = len(fin) + max(1, n - len(po_teams.get(x["pg"], set()) & fin))
             v = n + po_pages[x["pg"]]
             P[k] = min(P.get(k, 999), v)
         elif x["pg"] in reg_pages:
+            if x.get("g") and LOWER.search(x["g"]):
+                n += grp_n.get(x["pg"], 0)
             R[k] = min(R.get(k, 999), n)
     out = {}
     for k in set(W) | set(P) | set(R):
@@ -895,6 +919,21 @@ def team_rank(cargo, year):
         p, r = P.get(k, 999), R.get(k, 999)
         note = f"W{w[1]}" if w[0] < 999 else (f"P{p}" if p < 100 else (f"I{p - 100}" if p < 999 else (f"R{r}" if r < 999 else "")))
         out[k] = (w[0], p, r, note)
+    # 沒有聯賽成績、靠升降賽打上來的隊（使用者 2026-11-21「SGW 就是 升降賽擊敗 DFM」）：說明＝U＋最後一場贏的對手
+    try:
+        shorts = {v: k for k, v in LG_SHORT.items()}
+        ms = cargo({"tables": "MatchSchedule", "fields": "Team1=a,Team2=b,Winner=w,DateTime_UTC=d", "order_by": "MatchSchedule.DateTime_UTC",
+                    "where": "MatchSchedule.OverviewPage IN " + _in([f"{s_}/{int(year) + 1} Season/Promotion" for s_ in shorts]), "limit": "200", "format": "json"})
+        ql = {tkey(t["tm"]) for t in promotion(cargo, year) if t["ql"]}
+        for m in ms:
+            if str(m.get("w")) not in ("1", "2"):
+                continue
+            win, lose = (m["a"], m["b"]) if str(m["w"]) == "1" else (m["b"], m["a"])
+            k = tkey(win)
+            if k in ql and (k not in out or not out[k][3] or out[k][3][0] == "U"):   # 照時間排 ⇒ 留到最後的是決勝那場
+                out[k] = (999, 999, 999, "U" + lose)
+    except Exception as e:
+        print(f"   升降賽對戰查詢失敗：{type(e).__name__} {str(e)[:100]}")
     return out
 
 
