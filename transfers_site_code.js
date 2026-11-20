@@ -120,7 +120,7 @@ function render(){
     // 戰隊一律顯示縮寫（使用者 2026-11-19「戰隊全部改成縮寫」）：左欄＋內文都換，滑過看全名；沒有縮寫的（tAb 回全名）照舊
     // 自由人那一列的名稱＝地區＋自由人（使用者 2026-11-20「自由人改寫成 地區+自由人 例如亞太自由人」）
     const FARG=en2?{LCK:"Korea",LPL:"China",LEC:"EMEA",LCS:"NA",CBLOL:"Brazil",LCP:"APAC"}:{LCK:"韓國",LPL:"中國",LEC:"歐洲",LCS:"北美",CBLOL:"巴西",LCP:"亞太"};
-    const rowNm=t=>t.fa?(en2?`${FARG[t.lg]||t.lg} FA`:`${FARG[t.lg]||t.lg}自由人`):abOf(t.nm);
+    const rowNm=t=>t.fa?(en2?`${t.lg} FA`:`${FARG[t.lg]||t.lg}自由人`):abOf(t.nm);
     const abOf=n=>{ if(n==="FA")return en2?"Free agents":"自由人";
       if(/^Kiwoom DRX$/i.test(String(n||"")))return "KRX";   // 使用者 2026-11-19「DRX 前陣子就改成 KRX 了」：只改這頁的顯示（全站 teamFix 把 KRX 收斂成 DRX 當比對鍵，不能動）
       const a=teamFix(String(tAb(n)||"")); return a||n; };
