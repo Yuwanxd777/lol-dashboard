@@ -7,8 +7,10 @@
 三者相加（最多 20＋10＋5＝35），前端直接加在選手分數上。名次的級距照原本的比例換算：
     世界賽（滿分 20）：冠軍 20、亞軍 16、四強 12、八強 8、正賽 4、入圍賽 2（使用者指定叫「正賽」，不寫 16 強）
       （使用者 2026-11-20「世界賽八強後還要分成 16強跟入圍賽」；入圍賽名單另外從 …World Championship/Play-In 頁抓）
-    MSI　（滿分 10）：冠軍 10、亞軍 7.5、四強 5、參加 2.5
-    FST　（滿分 5）：冠軍 5、亞軍 3.5、參加 2
+    MSI　（滿分 10）：冠軍 10、亞軍 8、四強 6、正賽 4、入圍賽 2（使用者 2026-11-20「MSI分成 冠 亞 四強 正賽 入圍賽」）
+      入圍賽的認定：2017～2019 有獨立的 Play-In 頁（正賽 6 隊 ⇒ 第 7 名以後）；2023 起入圍賽併在同一頁（正賽 8 隊 ⇒ 第 9 名以後）；
+      2015、2016、2021、2022 沒有入圍賽，全部算正賽
+    FST　（滿分 5）：冠軍 5、亞軍 4、四強 3、正賽 2（使用者 2026-11-20「FST 分成 冠 亞 四強 正賽」）
 原本是每一屆各算一次、生涯加總不封頂（世界賽 5／4／3／2／1、MSI 4／3／2／1、FST 3／2／1）⇒ Faker ＋71，比他的去年評分還高。
 
   scores(cargo) → {選手 wiki 頁名（小寫）: 分數}。結果快取在 csv_cache/transfers_intl.json，7 天內不重抓。
@@ -20,15 +22,15 @@ import time
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CACHE = os.path.join(ROOT, "csv_cache", "transfers_intl.json")
-PTS = {"World Championship": [(1, 20), (2, 16), (4, 12), (8, 8)], "Mid-Season Invitational": [(1, 10), (2, 7.5), (4, 5)], "First Stand": [(1, 5), (2, 3.5)]}
-PART = {"World Championship": 4, "Mid-Season Invitational": 2.5, "First Stand": 2}   # 只有參加（名次沒進上面的級距）；世界賽＝打進正賽
-PLAYIN = 2   # 世界賽只打入圍賽、沒進正賽   # (名次上限, 分數)；沒列到＝參加 1 分
+PTS = {"World Championship": [(1, 20), (2, 16), (4, 12), (8, 8)], "Mid-Season Invitational": [(1, 10), (2, 8), (4, 6)], "First Stand": [(1, 5), (2, 4), (4, 3)]}
+PART = {"World Championship": 4, "Mid-Season Invitational": 4, "First Stand": 2}   # 只有參加（名次沒進上面的級距）；世界賽＝打進正賽
+PLAYIN = 2   # 世界賽／MSI 只打入圍賽、沒進正賽
 W = PTS
 TTL = 7 * 86400
-VER = 4   # 給分規則改了就加一，舊快取作廢
+VER = 5   # 給分規則改了就加一，舊快取作廢
 
 
-def _pts(place, lg):
+def _pts(place, lg, pg=""):
     try:
         p = int(float(place))
     except (TypeError, ValueError):
@@ -36,6 +38,13 @@ def _pts(place, lg):
     for lim, v in PTS[lg]:
         if p <= lim:
             return v
+    if lg == "Mid-Season Invitational":   # 沒進正賽的＝入圍賽
+        try:
+            y = int(str(pg)[:4])
+        except ValueError:
+            y = 0
+        if (2017 <= y <= 2019 and p >= 7) or (y >= 2023 and p >= 9):
+            return PLAYIN
     return PART[lg]
 
 
@@ -78,15 +87,15 @@ def scores(cargo, force=False):
         ev = lg_of[pg]   # 每一種賽事只留生涯最好的一次（不分哪一年）
         for p in ps:
             k = (p.lower(), ev)
-            best[k] = max(best.get(k, 0), _pts(place.get((pg.split("/Main Event")[0], tm)), lg_of[pg]))
+            best[k] = max(best.get(k, 0), _pts(place.get((pg.split("/Main Event")[0], tm)), lg_of[pg], pg))
     # 世界賽入圍賽：只出現在入圍賽名單、沒進正賽的人給 PLAYIN 分（進了正賽的人上面已經有更高的分數，取大的）
     try:
         pis = [x["pg"] for x in cargo({"tables": "Tournaments", "fields": "OverviewPage=pg", "limit": "200", "format": "json",
-                                       "where": 'League="World Championship" AND OverviewPage LIKE "%World Championship/Play-In%" AND DateStart IS NOT NULL AND DateStart<NOW()'}) if x.get("pg")]
+                                       "where": '(OverviewPage LIKE "%World Championship/Play-In%" OR OverviewPage LIKE "%Mid-Season Invitational/Play-In%") AND DateStart IS NOT NULL AND DateStart<NOW()'}) if x.get("pg")]
         for i in range(0, len(pis), 25):
             for x in cargo({"tables": "TournamentPlayers", "fields": "OverviewPage=pg,Link=lk,Role=ro", "where": "OverviewPage IN " + _in(pis[i:i + 25]), "limit": "5000", "format": "json"}):
                 if x.get("lk") and (x.get("ro") or "") in ("Top", "Jungle", "Mid", "Bot", "Support"):
-                    k = (str(x["lk"]).lower(), "World Championship")
+                    k = (str(x["lk"]).lower(), "Mid-Season Invitational" if "Mid-Season" in x["pg"] else "World Championship")
                     best[k] = max(best.get(k, 0), PLAYIN)
     except Exception as e:
         print(f"   世界賽入圍賽名單查詢失敗（略過）：{type(e).__name__} {str(e)[:100]}")
