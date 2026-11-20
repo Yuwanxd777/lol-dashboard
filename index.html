@@ -1154,12 +1154,10 @@
   .trFrom,.trTo,.trSpan{display:flex;flex-direction:column;align-items:flex-start;gap:4px;white-space:nowrap}
   .trRow>.trSt{grid-column:1}.trRgC{grid-column:2;display:flex;align-items:center;gap:4px;white-space:nowrap}.trRgC .trArr{font-size:12px}.trRgC .trLg{margin-left:0}.trFrom{grid-column:3}.trFlow>.trArr{grid-column:4}.trTo{grid-column:5}.trSpan{grid-column:3/6}.trRow>.trTx{grid-column:6}
   .trArr{color:var(--tx2);font-size:15px}
-  /* 原隊 ➜ 新隊（使用者 2026-11-20「原隊到新隊的那塊不夠好看 然後箭頭左右邊空格不一致」）：每隊一顆同寬的小牌子（同欄等寬 ⇒ 箭頭左右間隔一樣），箭頭置中 */
-  .trList .trTeam{background:rgba(255,255,255,.055);border:1px solid rgba(255,255,255,.09);border-radius:7px;padding:1px 10px 1px 7px;box-sizing:border-box}
-  .trList a.trTeam:hover{background:rgba(122,184,255,.14);border-color:rgba(122,184,255,.4)}
-  .trList .trFrom,.trList .trTo,.trList .trSpan{align-items:stretch}.trList .trSpan{grid-column:3}
+  /* 原隊 ➜ 新隊：不畫框（使用者 2026-11-20「不要用框框 顯得很亂」）。箭頭左右間隔要一致（同日稍早的要求）⇒ 原隊靠右貼著箭頭、新隊靠左貼著箭頭，箭頭置中 */
+  .trList .trFrom{align-items:flex-end}.trList .trTo,.trList .trSpan{align-items:flex-start}.trList .trSpan{grid-column:3;align-items:flex-end}
   .trList .trFlow>.trArr{justify-self:center;color:var(--gold);opacity:.85}
-  .trList .trNone{text-align:center;padding:0}
+  .trList .trNone{padding:0}
   .trNone{color:var(--tx2);opacity:.6;padding:0 6px}
   .trLg{font-size:12px;font-weight:800;color:var(--lgc,var(--tx2));margin-left:4px;padding:0 6px;border-radius:999px;border:1px solid color-mix(in srgb,var(--lgc,#888) 55%,transparent)}
   .trLgOnly{font-size:13px;font-weight:700;margin-left:0}
