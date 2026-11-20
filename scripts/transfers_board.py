@@ -549,8 +549,8 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
             for e in x["r"].get("COACH", []):
                 if e.get("sr") != "HC" or e.get("r") or e.get("new") or e.get("rs") or e.get("pm") or e.get("tip"):
                     continue
-                if e.get("gone") or not e.get("c") or e["c"] < today:
-                    cand.append((x, "COACH", e.get("p") or e["n"], e["n"], e.get("c") or "", 1 if e.get("gone") else 0))
+                if e.get("gone"):   # 主教練只列已宣布離隊的（使用者 2026-11-20）：教練大多查不到合約紀錄，「無紀錄算到期」會把還在任的（Clearlove、Daeny）也列進來
+                    cand.append((x, "COACH", e.get("p") or e["n"], e["n"], e.get("c") or "", 1))
             for p in x["prev"].get("COACH", []):
                 if (x.get("_psr") or {}).get(p) == "HC":
                     cand.append((x, "COACH", p, re.sub(r"\s*\([^()]*\)$", "", p), con.get((key(p), x["tm"]), ""), 1))
