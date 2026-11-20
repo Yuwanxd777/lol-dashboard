@@ -452,9 +452,9 @@ function render(){
       //   2026-11-20 三改「續留也要加分」：續留（白字：合約還在、沒有任何動向）跟續約一樣算一人。keep＝續約，或合約還在且沒有傳出要走；新加入／傳聞／升任／已離隊的不算
       { const keep=e=>!e.gone&&!e.r&&!e.new&&!e.tip&&!e.pm&&(e.rs||(!expd(e)&&!e.ro));
         const rsL=["TOP","JNG","MID","BOT","SUP"].filter(r=>(t.r[r]||[]).some(keep)), hcR=(t.r.COACH||[]).find(e=>e.sr==="HC"&&keep(e)), nR=rsL.length+(hcR?1:0);
-        if(nR){ const per=1.5+nR*0.5;
-          rsL.forEach(r=>{ const e=t.r[r].find(keep); items.push({r,rs:e.rs?1:3,nw:pn(e.n),ne:e,d:per}); });
-          if(hcR)items.push({r:"COACH",rs:hcR.rs?1:3,nw:pn(hcR.n),ne:hcR,d:per}); } }
+        // 2026-11-20 四改「續留給1分 續約給兩分 不漸進好了」：固定分數，不再隨人數加碼（六人全續約最多 12）
+        if(nR){ rsL.forEach(r=>{ const e=t.r[r].find(x=>keep(x)&&x.rs)||t.r[r].find(keep); items.push({r,rs:e.rs?1:3,nw:pn(e.n),ne:e,d:e.rs?2:1}); });
+          if(hcR)items.push({r:"COACH",rs:hcR.rs?1:3,nw:pn(hcR.n),ne:hcR,d:hcR.rs?2:1}); } }
       items.forEach(x=>{ if(x.dlo==null){ x.dlo=x.d; x.dhi=x.d; } });   // 主教練那一筆沒有範圍
       return {pl:plSum,items,sum:items.reduce((s,x)=>s+x.d,0),lo:items.reduce((s,x)=>s+x.dlo,0),hi:items.reduce((s,x)=>s+x.dhi,0),rng:items.some(x=>x.dhi-x.dlo>0.05),rm:items.some(x=>x.rm),vac:items.filter(x=>x.ma===2).length}; };
     // 評分小框（使用者 2026-11-19「評分的小框重新設計」）：標題列＝隊徽＋隊名＋總分；每條路一列＝路線圖示｜離隊（名字／分數）→ 加入｜增減色塊
