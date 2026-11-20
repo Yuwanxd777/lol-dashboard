@@ -14762,7 +14762,7 @@ function render(){
           if(hc)g.drawImage(hc,0,0);
           g.drawImage(cv,Math.round((SZ-cv.width)/2),hc?top:Math.round((SZ-cv.height)/2));
           const d=new Date(), pad=x=>String(x).padStart(2,"0");
-          await new Promise(ok=>pc.toBlob(bl=>{ const a=document.createElement("a"); a.href=URL.createObjectURL(bl); a.download=`${name}_${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}_${pad(d.getHours())}.jpg`;
+          await new Promise(ok=>pc.toBlob(bl=>{ const a=document.createElement("a"); a.href=URL.createObjectURL(bl); a.download=`${name}_${pad(d.getFullYear()%100)}${pad(d.getMonth()+1)}${pad(d.getDate())}${pad(d.getHours())}.jpg`;
             document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),5000); ok(); },"image/jpeg",0.93));
           h.remove(); await new Promise(r=>setTimeout(r,350)); };   // 連續下載間隔
         try{
@@ -14776,7 +14776,7 @@ function render(){
             for(let i=0;i<pages.length;i++){ const pg=pages[i]; if(pg[pg.length-1].classList.contains("trDay")&&pages[i+1])pages[i+1].unshift(pg.pop());   // 日期標題不留在頁尾
               const h=mkHost(NW,`<span style="font-size:18px;font-weight:800">${en2?"News":"消息"}</span>${pages.length>1?`<span style="font-size:14px;color:#8b98ad">${i+1} / ${pages.length}</span>`:""}`);
               h.insertAdjacentHTML("beforeend",`<div class="card trList" style="background:#141a26">${hd?hd.outerHTML:""}${pg.map(e=>e.outerHTML).join("")}</div>`);
-              await out(h,(en2?"Transfer_news":"轉會消息")+(pages.length>1?"_"+(i+1):"")); }
+              await out(h,"S17_LoL_"+(en2?"News":"消息")+(pages.length>1?"_"+(i+1):"")); }
           }else{
             const LG=en2?[["tbNew","New signing"],["tbRs","Re-signed"],["tbPm","Promoted"],["tbStay","Staying"],["tbExp","Contract expired"],["tbExp tbGone","Departure announced"],["tbOut","Possible move"],["tbY","Rumor"]]
               :[["tbNew","新加入"],["tbRs","續約"],["tbPm","升職"],["tbStay","續留"],["tbExp","合約到期"],["tbExp tbGone","已宣布離隊"],["tbOut","可能轉會"],["tbY","傳聞"]];
@@ -14813,7 +14813,7 @@ function render(){
               for(let it=0;it<4;it++){ const k=Math.min(SZ/h.offsetWidth,(SZ-topH)/h.offsetHeight), want=Math.floor(SZ/k); if(want-h.offsetWidth<4)break; h.style.width=want+"px"; }
               // 底部不留大片空白（使用者 2026-11-20「底部不要太多留空」）：寬度先頂到時，把剩下的高度平均加到每一列
               { const rs=[...h.querySelectorAll(".tbRow")], gap=(SZ-topH)/(SZ/h.offsetWidth)-h.offsetHeight; if(rs.length&&gap>4){ const add=Math.floor(gap/rs.length); rs.forEach(r=>{ r.style.minHeight=(r.offsetHeight+add)+"px"; }); } }
-              await out(h,(en2?"Transfer_board_":"轉會陣容表_")+sc.lg,hd); }
+              await out(h,"S17_LoL_"+sc.lg,hd); }
           }
         }catch(e){ alert((en2?"Screenshot failed: ":"截圖失敗：")+((e&&e.message)||e)); }
         hosts.forEach(h=>h.remove()); if(rootZ!=null)document.documentElement.style.zoom=rootZ; sb.disabled=false; }; }
