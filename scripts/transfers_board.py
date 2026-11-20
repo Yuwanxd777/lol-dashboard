@@ -252,10 +252,9 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
     # 傳出要去別隊的人（使用者 2026-11-19「如果合約還在但有傳出可能去別隊 上綠色」）：名字 → 最新一則傳聞（目的地＝傳聞的隊）
     rum_names = {key(v["n"]) for L in rumor.values() for v in L} | {key(v["p"]) for L in rumor.values() for v in L if v.get("p")}
     rum_out = {}
-    for v in sorted((v for L in rumor.values() for v in L if v["st"] == "rumor"), key=lambda v: v["d"]):
-        rum_out[key(v["n"])] = v
-        if v.get("p"):
-            rum_out[key(v["p"])] = v
+    for v in sorted((v for L in rumor.values() for v in L if v["st"] == "rumor"), key=lambda v: v["d"], reverse=True):   # 新的在前，最多三隊
+        for k_ in {key(v["n"])} | ({key(v["p"])} if v.get("p") else set()):
+            rum_out.setdefault(k_, []).append(v)
     out = []
     for tm in teams:
         c = cur.get(tm, {})
@@ -302,11 +301,17 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
                 #     本休賽期有官方續約消息的不套（NS Calix 今年沒上場但續約到 2028，是明年的人）
                 if rr != "COACH" and "new" not in e and "rs" not in e and played is not None and (k, tkey(tm)) not in played and (key(pid), tkey(tm)) not in played:
                     continue
-                ro = rum_out.get(k) or rum_out.get(key(pid))
-                if ro and tkey(ro["tm"]) != tkey(tm) and ro["d"][:10] >= since:
-                    e["ro"] = {"to": ro["tm"], "d": ro["d"][:10], "tip": ro["tip"]}
-                    if ro.get("src"):
-                        e["ro"]["src"] = ro["src"]   # 前端：合約還在才上綠色
+                ros = []
+                for ro in rum_out.get(k) or rum_out.get(key(pid)) or []:
+                    if tkey(ro["tm"]) != tkey(tm) and ro["d"][:10] >= since:
+                        o = {"to": ro["tm"], "d": ro["d"][:10], "tip": ro["tip"]}
+                        if ro.get("src"):
+                            o["src"] = ro["src"]
+                        ros.append(o)
+                if ros:
+                    e["ro"] = ros[0]   # 前端：合約還在才上綠色；ro＝最新一則
+                    if len(ros) > 1:
+                        e["ros"] = ros[:3]   # 最多三支傳聞隊伍（新的在前）
                 cell.append(e)
             have = {key(e["p"]) for e in cell} | {key(e["n"]) for e in cell}
             for rmr in rumor.get((tkey(tm), rr), []):
@@ -331,7 +336,7 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
                 cell = [e for e in cell if "new" in e or "tip" in e]
             # 同一路有新加入或續約的人 ⇒ 合約到期的人不再顯示，移上一位（使用者 2026-11-20「例如 BFX 的中路」）
             if rr != "COACH" and any(("new" in e or "rs" in e) for e in cell):
-                old_ = [e for e in cell if "new" not in e and "rs" not in e and "tip" not in e and e.get("c") and e["c"] < today]
+                old_ = [e for e in cell if "new" not in e and "rs" not in e and "tip" not in e and (not e.get("c") or e["c"] < today)]   # 合約無紀錄也算到期（使用者 2026-11-20）
                 if old_:
                     moved += [e["p"] or e["n"] for e in old_]
                     cell = [e for e in cell if e not in old_]
@@ -613,7 +618,17 @@ def _name(m, i):
 
 def parse_sheep(sheep):
     """Sheep 推文 → {(隊, 位置): [{n, p, d, tip, from}]}；同一人只留最新一則（照日期由舊到新覆蓋）"""
+    # 使用者 2026-11-20「一個選手最多有三個傳聞隊伍 取前三隊」：同一人留最新的三支傳聞隊伍（同一隊只留最新一則）；
+    #   官方消息一出就只剩那一則，官方之後又有新傳聞則以新傳聞為主
     best = {}
+
+    def put(n_, it):
+        L = best.get(n_) or []
+        if it["st"] != "rumor" or any(v["st"] != "rumor" for v in L):
+            L = []
+        L = [v for v in L if tkey(v["tm"]) != tkey(it["tm"])] + [it]
+        best[n_] = L[-3:]
+
     for x in sorted(sheep, key=lambda x: x["d"]):
         for n_ in x.get("stay") or []:   # 之後的續約／留隊消息蓋掉之前的傳聞（最新動向為主）
             best.pop(n_.lower(), None)
@@ -635,7 +650,7 @@ def parse_sheep(sheep):
                 m = re.match(_NM, it)
                 if m:
                     n, pg = _name(m, 1)
-                    best[n.lower()] = {"tm": tm, "rr": LANES[i], "n": n, "p": pg, "d": x["d"], "tip": tip, "st": st, "src": x.get("src") or ""}
+                    put(n.lower(), {"tm": tm, "rr": LANES[i], "n": n, "p": pg, "d": x["d"], "tip": tip, "st": st, "src": x.get("src") or ""})
             continue
         if x.get("kind") not in ("join", "both") or len(inn) != 1:
             continue
@@ -643,15 +658,15 @@ def parse_sheep(sheep):
         if not m:
             continue
         n, pg = _name(m, 2)
-        best[n.lower()] = {"tm": inn[0][1], "rr": m.group(1), "n": n, "p": pg, "d": x["d"], "tip": tip, "st": st, "src": x.get("src") or "",
-                           "from": out[0] if out else ""}
+        put(n.lower(), {"tm": inn[0][1], "rr": m.group(1), "n": n, "p": pg, "d": x["d"], "tip": tip, "st": st, "src": x.get("src") or "",
+                        "from": out[0] if out else ""})
     res = {}
-    for v in best.values():
-        res.setdefault((tkey(v["tm"]), v["rr"]), []).append(v)
+    for L in best.values():
+        for v in L:
+            res.setdefault((tkey(v["tm"]), v["rr"]), []).append(v)
     # 同一隊同一路有好幾則傳聞 ⇒ 只留最新一篇的（使用者 2026-11-20「任何傳聞都以最新的動向為主」：KRX 打野 Kanavi 11/17 → Lucid 11/19）；官方消息不動
+    #   2026-11-20 之後改成「一個選手最多三支傳聞隊伍」⇒ 這條停用：不然 Lucid（GEN 11/19 早上、KRX 11/19 下午）在 GEN 那格會被後來的 Sharvel 擠掉，
+    #   每個人永遠只剩一隊。同一格會並列好幾位傳聞人選（新的在前）
     for k_, L_ in res.items():
-        rm = [v for v in L_ if v["st"] == "rumor"]
-        if len(rm) > 1:
-            top = max(v["d"] for v in rm)
-            res[k_] = [v for v in L_ if v["st"] != "rumor" or v["d"] == top]
+        L_.sort(key=lambda v: v["d"], reverse=True)
     return res

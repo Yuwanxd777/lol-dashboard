@@ -93,6 +93,27 @@ const curView="轉會", curYear=+String((window.TRANSFERS||{}).from||"").slice(0
 const lazyLoad=()=>Promise.resolve();
 const main=document.getElementById("main");
 const HELP=(TS.help||{});
+// 截圖（主站 shotEl 的精簡版）：離屏複製 → html2canvas（檔在主站，<base> 會帶過去）→ JPG
+// html2canvas 不認 color-mix 算出來的 color(srgb …)（轉會分頁的聯賽色底、邊框）⇒ 截圖前把複本上算出來的值換成 rgba 寫回行內
+const _fixColorFn=root=>{ const P=["color","backgroundColor","backgroundImage","borderTopColor","borderRightColor","borderBottomColor","borderLeftColor","outlineColor","textDecorationColor","boxShadow"];
+  const cv=s=>s.replace(/color[(]srgb ([0-9.e-]+) ([0-9.e-]+) ([0-9.e-]+)(?: [/] ([0-9.e-]+))?[)]/g,(m,r,g,b,a)=>`rgba(${Math.round(r*255)},${Math.round(g*255)},${Math.round(b*255)},${a==null?1:a})`);
+  [root,...root.querySelectorAll("*")].forEach(el=>{ const cs=getComputedStyle(el); P.forEach(p=>{ const v=cs[p]; if(v&&v.includes("color("))el.style[p]=cv(v); }); }); };
+async function shotEl(src,name,prep){ const btn=document.getElementById("trShot"); if(btn)btn.disabled=true; let clone=null;
+  try{ if(!window.html2canvas)await new Promise((ok,no)=>{ const sc=document.createElement("script"); sc.src="html2canvas.min.js"; sc.onload=ok; sc.onerror=no; document.head.appendChild(sc); });
+    const w=Math.ceil(src.getBoundingClientRect().width); clone=src.cloneNode(true);
+    clone.querySelectorAll(".card").forEach(c=>{ c.style.backgroundImage="none"; c.style.backgroundColor="#141a26"; });
+    clone.style.cssText=`position:fixed;left:-99999px;top:0;width:${w}px;padding:10px;box-sizing:content-box;background:#0b0e14`;
+    if(prep)prep(clone); document.body.appendChild(clone);
+    await Promise.all([...clone.querySelectorAll("img")].map(im=>new Promise(r=>{ im.loading="eager"; const u=im.src;
+      if(/^https?:/i.test(u)){ im.onload=r; im.onerror=()=>{ im.style.visibility="hidden"; r(); }; im.setAttribute("crossorigin","anonymous"); im.src=u; setTimeout(r,5000); } else r(); })));
+    _fixColorFn(clone);
+    const cv=await html2canvas(clone,{backgroundColor:"#0b0e14",useCORS:true,scale:Math.min(3,Math.max(1,1920/Math.max(1,clone.scrollWidth))),
+      width:clone.scrollWidth,height:clone.scrollHeight,windowWidth:Math.max(document.documentElement.scrollWidth,clone.scrollWidth)});
+    const d=new Date(), pad=x=>String(x).padStart(2,"0");
+    await new Promise(ok=>cv.toBlob(bl=>{ const a=document.createElement("a"); a.href=URL.createObjectURL(bl);
+      a.download=`${name}_${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}.jpg`; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),5000); ok(); },"image/jpeg",0.95));
+  }catch(e){ alert((LANG==="en"?"Screenshot failed: ":"截圖失敗：")+((e&&e.message)||e)); }
+  if(clone)clone.remove(); if(btn)btn.disabled=false; }
 function addBase(){ const f=main.querySelector(".filters"); if(!f)return;
   const b=(id,tx,ti)=>`<button id="${id}" class="sqbtn" title="${ti}">${tx}</button>`;
   f.insertAdjacentHTML("beforeend",b("tsHelp","ℹ️",LANG==="en"?"About this page":"本頁說明")+b("tsReset","↺",LANG==="en"?"Reset filters":"重設篩選"));
@@ -115,7 +136,7 @@ render();
 EXPORT_JS = r"""()=>{
   const D=window.TRANSFERS||{}, names=new Set();
   const add=n=>{ if(n&&typeof n==="string")names.add(n); };
-  (D.board||[]).forEach(t=>{ add(t.nm); add(t.tm); Object.values(t.r||{}).flat().forEach(e=>{ add(e.from); if(e.ro)add(e.ro.to); }); });
+  (D.board||[]).forEach(t=>{ add(t.nm); add(t.tm); Object.values(t.r||{}).flat().forEach(e=>{ add(e.from); if(e.ro)add(e.ro.to); (e.ros||[]).forEach(o=>add(o.to)); }); });
   (D.wiki||[]).forEach(x=>add(x.team));
   [...(D.sheep||[]),...(D.extra||[])].forEach(x=>{ (x.tags||[]).forEach(t=>add(t[1])); (x.mv||[]).forEach(m=>{ add(m[2]); add(m[3]); }); });
   const team={}, ab={};
