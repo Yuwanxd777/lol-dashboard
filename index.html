@@ -1573,6 +1573,8 @@
     .trBar .trFG{border-left:0;padding-left:0;flex:1 1 100%;min-width:0;overflow:visible}
     .trBar .trFG>span:not(.tbLegend){display:grid!important;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:5px!important;width:100%}
     /* 消息（使用者 2026-11-20「手機版消息的篩選列再重新調整」）：狀態四顆＋類型三顆同一行、來源五顆一行（Sheep Esports 只寫 Sheep）⇒ 整列五行 */
+    /* 陣容表：排序鈕跟搜尋框位置互換（使用者 2026-11-20「手機版 降冪按鈕的位置跟搜尋交換」）⇒ 搜尋框自己一整行，排序鈕到最後一行跟四顆圖示鈕並排 */
+    .trBar:has(.fgSort) .cwrap{order:2;flex:1 1 100%}.trBar .trFG.fgSort{order:3;flex:1 1 0;min-width:0}.trBar:has(.fgSort) .sqbtn{order:4!important}.trBar:has(.fgSort) #trShot{order:5!important}.trBar:has(.fgSort) #trDc{order:6!important}   /* 圖示鈕維持原本的順序：說明、重設、截圖、Discord */
     .trBar .trFG.fgSt{flex:1 1 100%}   /* 狀態四顆自己一整行（類型、來源兩組刪掉之後，原本「跟類型並排」的 flex:4 會讓它跟搜尋框擠同一行——使用者 2026-11-20「手機版的篩選列跑掉了」） */
     .trHideM{display:none}
     /* 消息列表手機版（使用者 2026-11-20「手機版消息的 UI 也重新調整」）：每則兩段——第一行＝狀態＋賽區＋原隊 ➜ 新隊，下面內文，來源連結接在內文右下 */
@@ -14717,7 +14719,7 @@ function render(){
     const boardBtns=FG(en2?"Show":"顯示",`<span class="tbLegend">${[["add",[["tbNew",en2?"New signing":"新加入",en2?"New":"加入"],["tbRs",en2?"Re-signed":"續約",en2?"Re-sign":""],["tbPm",en2?"Promoted":"升職",en2?"Promo":""],["tbStay",en2?"Staying":"續留",en2?"Stay":""]]],["out",[["tbExp",en2?"Contract expired":"合約到期未宣布",en2?"Expired":"合約到期"],["tbGone",en2?"Departure announced":"已宣布離隊",en2?"Left":"離隊"]]],["rum",[["tbOut",en2?"Possible move":"可能轉會",en2?"Maybe":""],["tbY",en2?"Rumor":"傳聞"]]]]
         .map(([g,L])=>`<button class="sqLaneBtn tbLgB${F_TB.has(g)?" on":""}" data-mk="tbF" data-v="${g}" title="${en2?"Show these (multi-select, click again to clear)":"只看這幾種（可複選，再點一次取消）"}">${L.map(([c,l,sh])=>`<b class="tbN ${c==="tbGone"?"tbExp tbGone":c}" data-s="${sh||l}">${l}</b>`).join(`<i class="tbLgSep">／</i>`)}</button>`).join("")}`
       +`</span>`)   // 「只看有異動」已刪（使用者 2026-11-20；休賽期幾乎每隊都有異動，沒作用）
-      +FG(en2?"Sort":"排序",`<span><button class="sqLaneBtn tbSortT${SRT?" on":""}" title="${en2?"Sort by transfer rating, then by player rating (high to low)":"照轉會評分排（高到低），再點一下改照選手評分排"}">${SLB}</button></span>`);
+      +FG(en2?"Sort":"排序",`<span><button class="sqLaneBtn tbSortT${SRT?" on":""}" title="${en2?"Sort by transfer rating, then by player rating (high to low)":"照轉會評分排（高到低），再點一下改照選手評分排"}">${SLB}</button></span>`,"fgSort");
     const metaTx=MODE==="news"?`${shown.length} / ${all.length}${D.at?`・${en2?"updated":"更新"} ${esc(D.at)}`:""}`:(D.at?`${en2?"as of":"截至"} ${esc(D.at)}`:"");
     main.innerHTML=`<div class="filters trBar">`+modeBtns+rgBtns+(MODE==="news"?newsBtns:boardBtns)
       // 搜尋放最右邊（使用者 2026-11-20「篩選列重新調整一下 搜尋應該在最右邊」）
@@ -14835,7 +14837,9 @@ function render(){
       lgGet(img.currentSrc||img.src,m=>{ if(!m||!img.isConnected)return; img.dataset.fit="1";
         const r=m.fw/m.fh, A=0.6*S*S, W=1.5*S; let w=Math.sqrt(A*r), h=Math.sqrt(A/r); const k=Math.min(1,W/w,S/h); w*=k; h*=k;
         const E=w/m.fw;   // 整張正方形圖要畫多大，圖案才是 w×h
-        img.style.width=img.style.height=E+"px"; img.style.margin=`${(S-E)/2}px ${(W-E)/2}px`; img.style.maxWidth="none";
+        // 圖案靠右貼著後面的縮寫（使用者 2026-11-20「有些隊徽的左右間隔比較大 導致跟右邊戰隊縮寫的視覺距離變遠了」）：
+        //   每個隊徽仍佔固定寬 W 的位子（縮寫才會對齊），但圖案不再置中——窄的隊徽（DNS、MKOI）置中時兩邊各空一截；改成圖案右緣對齊位子右緣，空的全留在左邊
+        const pd=(E-w)/2; img.style.width=img.style.height=E+"px"; img.style.margin=`${(S-E)/2}px ${-pd}px ${(S-E)/2}px ${W-E+pd}px`; img.style.maxWidth="none";
         img.style.setProperty("--lgpad",((E-w)/2)+"px"); }); };   // --lgpad＝圖檔左右的透明邊（手機版靠左對齊時扣掉）
     const lgFitAll=root=>root.querySelectorAll(".tbTeam img,.trTeam img,.tpTm img,.rtHd img").forEach(lgFit);
     lgFitAll(main);
