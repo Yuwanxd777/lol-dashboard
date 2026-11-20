@@ -14706,7 +14706,7 @@ function render(){
           if(!v&&typeof _loadImgB64==="function"){ try{ await _loadImgB64(); v=(window.IMG_B64||{})[String(raw||"").replace(/^[.][/]/,"").split("?")[0]]||null; }catch(_){} }
           D64.set(u,v); return v; };
         const LIC={TOP:"img/TOP.png",JNG:"img/JG.png",MID:"img/MID.png",BOT:"img/BOT.png",SUP:"img/SUP.png",HC:"img/COACH.png",STF:"img/COACH.png"};
-        const warm=async root=>{ root.querySelectorAll(".tbCell[data-r]").forEach(c=>{ const f=LIC[c.dataset.r]; if(f)c.insertAdjacentHTML("afterbegin",`<img class="tbShIc" src="${f}" alt="" style="flex:0 0 15px;width:15px;height:15px;margin-top:2px">`); });
+        const warm=async root=>{ if(!root.dataset.noic)root.querySelectorAll(".tbCell[data-r]").forEach(c=>{ const f=LIC[c.dataset.r]; if(f)c.insertAdjacentHTML("afterbegin",`<img class="tbShIc" src="${f}" alt="" style="flex:0 0 15px;width:15px;height:15px;margin-top:2px">`); });
           await Promise.all([...root.querySelectorAll("img")].map(async im=>{ const d=await dataOf(im.src,im.getAttribute("src")); im.removeAttribute("loading"); im.removeAttribute("crossorigin"); im.onerror=null;
             if(d){ im.src=d; try{ await im.decode(); }catch(_){} } else im.style.visibility="hidden"; })); };
         const mkHost=(w,sub)=>{ const h=document.createElement("div"); h.setAttribute("data-tshot","1"); h.style.cssText=`position:fixed;left:-99999px;top:0;width:${w}px;padding:22px;box-sizing:border-box;background:#0b0e14;color:#e8ecf4`;
@@ -14742,19 +14742,18 @@ function render(){
             const legend=`<div style="display:flex;flex-wrap:wrap;align-items:center;gap:4px 16px;margin:0 2px 12px;padding:8px 12px;border:1px solid rgba(255,255,255,.12);border-radius:8px;font-size:18px;justify-content:space-between"><span style="color:#8b98ad">${en2?"Colors":"文字顏色"}</span>`
               +LG.map(([c,l])=>`<b class="tbN ${c}"${c==="tbStay"?` style="color:#fff"`:""}>${l}</b>`).join("")+`<span style="color:#8b98ad"><span class="tbOk" style="margin:0 4px 0 0">✔</span>${en2?"roster set":"陣容確認"}</span></div>`;
             const secs=[]; [...main.querySelectorAll(".tbBoard>.tbLg,.tbBoard>.tbRow")].forEach(e=>{ if(e.classList.contains("tbLg"))secs.push({lg:e.querySelector("b").textContent,sub:(e.querySelector("span")||{}).textContent||"",c:e.style.getPropertyValue("--lgc"),rows:[]}); else if(secs.length)secs[secs.length-1].rows.push(e); });
-            const CW=350, G=10;
+            // 版面＝一列一隊，跟網頁（桌面版）的表格一樣（使用者 2026-11-20「截圖能不能改成一列一隊這樣 跟網頁顯示的一樣」）：
+            //   表頭＋該賽區各隊的列放進一個寬度 ≥1000 的 mainc 容器（＝桌面版樣式）；寬度從 1000 試到 2000，挑縮放後字最大的那個
+            const bhd=main.querySelector(".tbBoard>.tbHd");
             for(const sc of secs){ if(!sc.rows.length)continue;
               const hd=mkHost(1000,`<span style="font-size:24px;font-weight:900;color:${sc.c||"#f0e6d2"}">${esc(sc.lg)}</span><span style="font-size:17px;font-weight:700">${esc(sc.sub)}</span>`);
               hd.style.paddingBottom="0"; hd.insertAdjacentHTML("beforeend",legend); const topH=hd.offsetHeight*SZ/1000;
-              const h=mkHost(CW,""); h.querySelector("div").remove(); h.style.paddingTop="4px";
-              h.insertAdjacentHTML("beforeend",`<div style="display:grid;gap:${G}px;align-items:start">${sc.rows.map(r=>`<div style="container-type:inline-size;container-name:mainc;min-width:0"><div class="tbBoard" style="padding:0;margin:0;background:none;border:0;box-shadow:none">${r.outerHTML}</div></div>`).join("")}</div>`);
-              h.querySelectorAll(".tbRow").forEach(r=>{ r.style.margin="0"; r.style.background="#141a26"; }); h.querySelectorAll(".tbDim").forEach(x=>x.classList.remove("tbDim"));
-              const grid=h.lastChild; let best=1, bk=0;
-              for(let c=1;c<=Math.min(6,sc.rows.length);c++){ h.style.width=(c*CW+(c-1)*G+44)+"px"; grid.style.gridTemplateColumns=`repeat(${c},${CW}px)`; const k=Math.min(SZ/h.offsetWidth,(SZ-topH)/h.offsetHeight); if(k>bk){ bk=k; best=c; } }
-              h.style.width=(best*CW+(best-1)*G+44)+"px"; grid.style.gridTemplateColumns=`repeat(${best},${CW}px)`;
-              // 左右不留大片空白（使用者 2026-11-20「截圖左右兩邊不要留太大的空」）：高度先頂到的時候把每張卡加寬，直到整張寬度剛好鋪滿（卡片最寬 720，仍是卡片版面）
-              for(let it=0;it<5;it++){ const k=Math.min(SZ/h.offsetWidth,(SZ-topH)/h.offsetHeight), want=SZ/k; if(want-h.offsetWidth<6)break;
-                const cw=Math.min(720,Math.floor((want-44-(best-1)*G)/best)); h.style.width=(best*cw+(best-1)*G+44)+"px"; grid.style.gridTemplateColumns=`repeat(${best},${cw}px)`; if(cw>=720)break; }
+              const h=mkHost(1200,""); h.querySelector("div").remove(); h.style.paddingTop="4px"; h.dataset.noic="1";
+              h.insertAdjacentHTML("beforeend",`<div style="container-type:inline-size;container-name:mainc"><div class="card tbBoard" style="margin:0;background:#141a26;box-shadow:none">${bhd?bhd.outerHTML:""}${sc.rows.map(r=>r.outerHTML).join("")}</div></div>`);
+              h.querySelectorAll(".tbHd").forEach(x=>{ x.style.position="static"; x.style.background="none"; }); h.querySelectorAll(".tbDim").forEach(x=>x.classList.remove("tbDim"));
+              let bw=1200, bk=0;
+              for(let w=1100;w<=2000;w+=50){ h.style.width=w+"px"; const k=Math.min(SZ/h.offsetWidth,(SZ-topH)/h.offsetHeight); if(k>bk+1e-4){ bk=k; bw=w; } }
+              h.style.width=bw+"px";
               await out(h,(en2?"Transfer_board_":"轉會陣容表_")+sc.lg,hd); }
           }
         }catch(e){ alert((en2?"Screenshot failed: ":"截圖失敗：")+((e&&e.message)||e)); }
