@@ -14685,11 +14685,11 @@ function render(){
     const tbMf=e=>{ const c=tbCls(e).split(" "); return [...F_TB].some(g=>TBG[g].some(k=>c.includes(k))); };
     let vRows=bRows.filter(t=>(!F_TB.size||Object.values(t.r).flat().some(tbMf)));
     // 轉會評分升降冪（使用者 2026-11-20「轉會評分要可以升降冪」）：賽區順序不動，各賽區內照評分排；沒有評分的隊排最後。點欄名或篩選列的按鈕輪流 降冪 → 升冪 → 原順序
-    // 排序按鈕五下一輪：轉會評分 降冪 → 升冪 → 選手評分 降冪 → 升冪 → 回到轉會評分降冪（↺ 才回原順序）
-    const SRT0=["d","a","pd","pa"].includes(V.tbSort)?V.tbSort:"", SPL=SRT0[0]==="p", SRT=SRT0?SRT0.slice(-1):"", SLB=SPL?(en2?"Player rating":"選手評分"):(en2?"Transfer rating":"轉會評分");
+    // 排序按鈕兩種輪流：轉會評分（高到低）↔ 選手評分（高到低）；↺ 才回原順序。不畫箭頭
+    const SRT0=({d:"d",a:"d",pd:"pd",pa:"pd"})[V.tbSort]||"",   /* 2026-11-20 使用者「只有降的那兩個 然後降冪圖案也刪掉」：只剩 轉會評分降冪 ↔ 選手評分降冪；舊存檔的升冪當成降冪 */ SPL=SRT0[0]==="p", SRT=SRT0?SRT0.slice(-1):"", SLB=SPL?(en2?"Player rating":"選手評分"):(en2?"Transfer rating":"轉會評分");
     if(SRT){ const lgI={}; vRows.forEach(t=>{ if(!(t.lg in lgI))lgI[t.lg]=Object.keys(lgI).length; }); const rv=t=>{ const rt=rateOf(t); return SPL?(rt?rt.pl:null):(rt&&rt.items.length?rt.sum:null); };
       vRows=vRows.map((t,i)=>[t,i,rv(t)]).sort((a,b)=>lgI[a[0].lg]-lgI[b[0].lg]||(a[2]==null)-(b[2]==null)||(SRT==="d"?b[2]-a[2]:a[2]-b[2])||a[1]-b[1]).map(x=>x[0]); }
-    const srtArr=SRT==="d"?" ▼":SRT==="a"?" ▲":"";
+    const srtArr="";   // 不畫箭頭，排序中靠按鈕亮起與欄名變金色表示
     const wkPg=p=>{ let s=String(p||""); try{ s=decodeURIComponent(s); }catch(_){} return s.replace(/ /g,"_"); };   // wiki 頁名：已編碼的先解開（Noah 連錯頁，使用者 2026-11-20）
     const nameH=e=>{ const n=esc(pn(e.n)), inner=bq&&hitE(e)?`<mark>${n}</mark>`:n;
       return `<span class="tbN ${tbCls(e)}${F_TB.size&&!tbMf(e)?" tbDim":""}">${e.nop?inner:`<a href="https://lol.fandom.com/wiki/${encodeURIComponent(wkPg(e.p||((D.roles||{})[e.n]||[])[1]||e.n))}" target="_blank" rel="noopener">${inner}</a>`}</span>`; };   // 沒頁名的傳聞人選（BrokenBlade、Zven…）退回 roles 查到的頁、再退回 ID 本身（使用者 2026-11-20 全面檢視）   // 格子不標教練職稱，只在小框顯示（使用者 2026-11-20）
@@ -14717,7 +14717,7 @@ function render(){
     const boardBtns=FG(en2?"Show":"顯示",`<span class="tbLegend">${[["add",[["tbNew",en2?"New signing":"新加入",en2?"New":"加入"],["tbRs",en2?"Re-signed":"續約",en2?"Re-sign":""],["tbPm",en2?"Promoted":"升職",en2?"Promo":""],["tbStay",en2?"Staying":"續留",en2?"Stay":""]]],["out",[["tbExp",en2?"Contract expired":"合約到期未宣布",en2?"Expired":"合約到期"],["tbGone",en2?"Departure announced":"已宣布離隊",en2?"Left":"離隊"]]],["rum",[["tbOut",en2?"Possible move":"可能轉會",en2?"Maybe":""],["tbY",en2?"Rumor":"傳聞"]]]]
         .map(([g,L])=>`<button class="sqLaneBtn tbLgB${F_TB.has(g)?" on":""}" data-mk="tbF" data-v="${g}" title="${en2?"Show these (multi-select, click again to clear)":"只看這幾種（可複選，再點一次取消）"}">${L.map(([c,l,sh])=>`<b class="tbN ${c==="tbGone"?"tbExp tbGone":c}" data-s="${sh||l}">${l}</b>`).join(`<i class="tbLgSep">／</i>`)}</button>`).join("")}`
       +`</span>`)   // 「只看有異動」已刪（使用者 2026-11-20；休賽期幾乎每隊都有異動，沒作用）
-      +FG(en2?"Sort":"排序",`<span><button class="sqLaneBtn tbSortT${SRT?" on":""}" title="${en2?"Transfer rating high to low, low to high, then player rating high to low, low to high":"轉會評分 降冪 → 升冪 → 選手評分 降冪 → 升冪"}">${SLB}${srtArr||" ⇅"}</button></span>`);
+      +FG(en2?"Sort":"排序",`<span><button class="sqLaneBtn tbSortT${SRT?" on":""}" title="${en2?"Sort by transfer rating, then by player rating (high to low)":"照轉會評分排（高到低），再點一下改照選手評分排"}">${SLB}</button></span>`);
     const metaTx=MODE==="news"?`${shown.length} / ${all.length}${D.at?`・${en2?"updated":"更新"} ${esc(D.at)}`:""}`:(D.at?`${en2?"as of":"截至"} ${esc(D.at)}`:"");
     main.innerHTML=`<div class="filters trBar">`+modeBtns+rgBtns+(MODE==="news"?newsBtns:boardBtns)
       // 搜尋放最右邊（使用者 2026-11-20「篩選列重新調整一下 搜尋應該在最右邊」）
@@ -14865,7 +14865,7 @@ function render(){
     if(MODE==="news"&&window._trGo){ const g=window._trGo; window._trGo=null; setTimeout(()=>{ const has=(r,x)=>!x||r.textContent.includes(x), c=[...main.querySelectorAll(".trRow")].filter(r=>has(r,g.n));
         const pick=c.find(r=>r.dataset.d===g.d&&has(r,g.ab))||c.find(r=>r.dataset.d===g.d)||c.find(r=>has(r,g.ab))||c[0];
         if(pick){ pick.scrollIntoView({block:"center"}); pick.classList.add("trFlash"); setTimeout(()=>pick.classList.remove("trFlash"),3000); } },80); }
-    main.querySelectorAll(".tbSortT").forEach(b=>b.onclick=()=>{ V.tbSort={"":"d",d:"a",a:"pd",pd:"pa",pa:"d"}[SRT0]; saveState(); render(); });
+    main.querySelectorAll(".tbSortT").forEach(b=>b.onclick=()=>{ V.tbSort={"":"d",d:"pd",pd:"d"}[SRT0]; saveState(); render(); });
     main.querySelectorAll(".filters .sqLaneBtn[data-mk]").forEach(b=>b.onclick=()=>{ const k=b.dataset.mk, S=mset(k), v=b.dataset.v; S.has(v)?S.delete(v):S.add(v); V[k]=[...S].join(","); saveState(); render(); });
     const qi=document.getElementById("trQ");
     qi.oninput=()=>{ clearTimeout(window._trQT); window._trQT=setTimeout(()=>{ V.trQ=qi.value; saveState(); const pos=qi.selectionStart; render(); const q2=document.getElementById("trQ"); q2.focus(); q2.setSelectionRange(pos,pos); },300); };
