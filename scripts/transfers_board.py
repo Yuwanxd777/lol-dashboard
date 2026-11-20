@@ -520,6 +520,75 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
             x["_still"] = [k_ for k_ in x.get("_still", []) if k_ not in rk_]
     except Exception as e:
         print(f"   退役查詢失敗：{type(e).__name__} {str(e)[:100]}")
+    # ── 每個聯賽一列「FA」（自由球員；使用者 2026-11-20「每個聯賽用一個隊伍格當作 FA 自由人的意思 把去年一級聯賽有參賽過 但目前合約到期或離隊的都列入」）──
+    #   來源＝各隊格子裡「已宣布離隊／合約到期（含查不到合約）」的人＋上一位；排除：今年沒替那隊上過場、已退役、已經有新東家
+    #   （在別隊是新加入／續約／升職／合約還在，或 wiki 選手頁現在掛在別隊——含次級聯賽）。只列五路選手，教練不列。
+    #   每筆帶 from＝原隊、c＝合約到期日、gone＝已宣布離隊、ro／ros＝傳聞去向（跟格子裡的人同一套）
+    fa_rows = []
+    try:
+        settled = set()
+        for x in out:
+            for L in x["r"].values():
+                for e in L:
+                    k_ = key(e.get("p") or e["n"])
+                    if e.get("gone") or e.get("r"):
+                        continue
+                    if e.get("new") or e.get("rs") or e.get("pm") or e.get("tip") or (e.get("c") and e["c"] >= today):
+                        settled.add(k_); settled.add(key(e["n"]))
+        cand, seen_ = [], set()
+        for x in out:
+            for rr in LANES:
+                for e in x["r"].get(rr, []):
+                    if e.get("r") or e.get("new") or e.get("rs") or e.get("pm") or e.get("tip"):
+                        continue
+                    if e.get("gone") or not e.get("c") or e["c"] < today:
+                        cand.append((x, rr, e.get("p") or e["n"], e["n"], e.get("c") or "", 1 if e.get("gone") else 0))
+                for p in x["prev"].get(rr, []):
+                    cand.append((x, rr, p, re.sub(r"\s*\([^()]*\)$", "", p), con.get((key(p), x["tm"]), ""), 1))
+        pages_ = sorted({c_[2] for c_ in cand})
+        now_tm, retd_ = {}, set()
+        for i in range(0, len(pages_), 40):
+            for y in cargo({"tables": "Players", "fields": "Players.OverviewPage=pg,Players.Team=tm,Players.IsRetired=ret",
+                            "where": "Players.OverviewPage IN " + _in(pages_[i:i + 40]), "limit": "500", "format": "json"}):
+                now_tm[key(y["pg"])] = y.get("tm") or ""
+                if str(y.get("ret")) == "1":
+                    retd_.add(key(y["pg"]))
+        by_lg = {}
+        for x, rr, pg, nm_, c_, gone_ in cand:
+            k_ = key(pg)
+            if k_ in seen_ or k_ in settled or key(nm_) in settled or k_ in retd_:
+                continue
+            if played is not None and (k_, tkey(x["tm"])) not in played and (key(nm_), tkey(x["tm"])) not in played:
+                continue
+            t_now = now_tm.get(k_, "")
+            if t_now and tkey(t_now) != tkey(x["tm"]):
+                continue   # 選手頁已經掛在別隊（含次級聯賽）
+            seen_.add(k_)
+            e = {"n": nm_, "p": pg, "fa": 1, "from": x["nm"]}
+            if c_:
+                e["c"] = c_
+            if gone_:
+                e["gone"] = 1
+            ros = []
+            for ro in rum_out.get(k_) or rum_out.get(key(nm_)) or []:
+                if ro["d"][:10] >= since:
+                    o = {"to": ro["tm"], "d": ro["d"][:10], "tip": ro["tip"]}
+                    if ro.get("src"):
+                        o["src"] = ro["src"]
+                    if ro.get("u"):
+                        o["u"] = ro["u"]
+                    ros.append(o)
+            if ros:
+                e["ro"] = ros[0]
+                if len(ros) > 1:
+                    e["ros"] = ros[:3]
+            by_lg.setdefault(x["lg"], {}).setdefault(rr, []).append(e)
+        for lg_, rows_ in by_lg.items():
+            for L in rows_.values():
+                L.sort(key=lambda e: (e["from"].lower(), e["n"].lower()))
+            fa_rows.append({"tm": "FA " + lg_, "nm": "FA", "lg": lg_, "r": rows_, "prev": {}, "fa": 1})
+    except Exception as e:
+        print(f"   FA 列失敗（不列）：{type(e).__name__} {str(e)[:120]}")
     try:
         add_tenure(cargo, out)
     except Exception as e:   # 查不到效力期間就只列名字
@@ -541,7 +610,8 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
         for x in out:
             if x["tm"] == o_:
                 x["was"] = o_; x["tm"] = n_; x["nm"] = disp.get(n_, n_)
-    out.sort(key=lambda x: (ORDER.index(x["lg"]) if x["lg"] in ORDER else 9,
+    out += fa_rows
+    out.sort(key=lambda x: (ORDER.index(x["lg"]) if x["lg"] in ORDER else 9, x.get("fa", 0),
                             (rk.get(tkey(x["tm"])) or rk.get(tkey(x["nm"])) or (999, 999, 999, ""))[:3], x["tm"].lower()))
     return out
 

@@ -96,8 +96,15 @@ const HELP=(TS.help||{});
 function addBase(){ const f=main.querySelector(".filters"); if(!f)return;
   const b=(id,tx,ti)=>`<button id="${id}" class="sqbtn" title="${ti}">${tx}</button>`;
   f.insertAdjacentHTML("beforeend",b("tsHelp","ℹ️",LANG==="en"?"About this page":"本頁說明")+b("tsReset","↺",LANG==="en"?"Reset filters":"重設篩選"));
-  document.getElementById("tsHelp").onclick=()=>{ const d=document.getElementById("tsHelpBox"); if(d){d.remove();return;}
-    main.insertAdjacentHTML("afterbegin",`<div id="tsHelpBox" class="card" style="margin-bottom:12px;line-height:1.8;font-size:15px;white-space:pre-line">${(LANG==="en"?HELP.en:HELP.zh)||""}</div>`); };
+  // 說明＝懸浮顯示（使用者 2026-11-20「手機的說明鈕點擊後也是懸浮顯示」）：手機從底部浮上來（跟格子小框同款）、桌面在右上；點 ✕ 或外面關閉
+  document.getElementById("tsHelp").onclick=ev=>{ ev.stopPropagation(); let d=document.getElementById("tsHelpBox"); if(d){ d.remove(); return; }
+    const mob=matchMedia("(max-width:760px)").matches;
+    d=document.createElement("div"); d.id="tsHelpBox";
+    d.style.cssText="position:fixed;z-index:10000;background:#1b2338;border:1px solid rgba(255,255,255,.14);box-shadow:0 8px 30px rgba(0,0,0,.6);color:#e8ecf4;line-height:1.75;font-size:14.5px;white-space:pre-line;overflow:auto;"
+      +(mob?"left:8px;right:8px;bottom:8px;max-height:72vh;padding:16px 14px 14px;border-radius:14px":"right:16px;top:64px;width:min(560px,92vw);max-height:80vh;padding:16px 18px;border-radius:10px");
+    d.innerHTML=`<button class="tbTipX" aria-label="close">✕</button><span style="float:right;width:38px;height:28px"></span>`+((LANG==="en"?HELP.en:HELP.zh)||"");   // ✕ 固定在右上角，旁邊留一塊空位讓第一行的字繞開
+    document.body.appendChild(d); d.querySelector(".tbTipX").onclick=()=>d.remove(); };
+  if(!window._tsHelpOut){ window._tsHelpOut=1; document.addEventListener("click",e=>{ const d=document.getElementById("tsHelpBox"); if(d&&!e.target.closest("#tsHelpBox")&&!e.target.closest("#tsHelp"))d.remove(); }); }
   document.getElementById("tsReset").onclick=()=>{ Object.assign(V,{trSrc:"",trSt:"",trRg:"",trKd:"",trQ:"",tbF:"",tbSort:""}); saveState(); render(); }; }
 function render(){
 /*__BLOCK__*/
