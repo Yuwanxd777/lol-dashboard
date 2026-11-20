@@ -653,6 +653,8 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
                         continue
                     seen_.add(k_)
                     e = {"n": m_["n"], "p": m_.get("p") or m_["n"], "fa": 1, "from": ""}
+                    if m_.get("tips"):
+                        e["tips"] = m_["tips"]   # 相關消息（日期／來源／網址／一句話），小框照傳聞的引言框列出
                     ros = [{"to": ro["tm"], "d": ro["d"][:10], "tip": ro["tip"], **({"src": ro["src"]} if ro.get("src") else {}), **({"u": ro["u"]} if ro.get("u") else {})}
                            for ro in (rum_out.get(k_) or []) if ro["d"][:10] >= since]
                     if ros:

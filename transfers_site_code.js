@@ -304,7 +304,7 @@ function render(){
         h+=`<div class="tpP"><div class="tpName"><b class="${tbCls(e)}"><a class="tpA" href="https://lol.fandom.com/wiki/${encodeURIComponent(wkPg(e.p||((D.roles||{})[e.n]||[])[1]||e.n))}" target="_blank" rel="noopener">${esc(pn(e.n))}</a></b>${e.sr?`<span class="tpSr">${SRN[e.sr]}</span>`:""}${stPill(e)}</div>`
           +(kv.length?`<div class="tpKv">${kv.map(([k,v])=>`<span>${k}</span><span>${v}</span>`).join("")}</div>`:"")
           +(e.r&&e.tip?`<div class="tpQ tpGo" data-go="${esc(pn(e.n))}|${e.d||""}|${esc(abOf(t.nm))}"><span>${ymd(e.d).slice(5)}・${srcA(e)}</span>${esc(e.tip)}</div>`:"")
-          +(e.ros||(e.ro?[e.ro]:[])).map(o=>`<div class="tpQ tpGo" data-go="${esc(pn(e.n))}|${o.d||""}|${esc(abOf(o.to))}"><span>${ymd(o.d).slice(5)}・${srcA(o)}・${en2?"rumored to join":"傳聞去"} ${tmChip(o.to)}</span>${esc(o.tip)}</div>`).join("")+`</div>`; });
+          +(e.ros||(e.ro?[e.ro]:[])).map(o=>`<div class="tpQ tpGo" data-go="${esc(pn(e.n))}|${o.d||""}|${esc(abOf(o.to))}"><span>${ymd(o.d).slice(5)}・${srcA(o)}・${en2?"rumored to join":"傳聞去"} ${tmChip(o.to)}</span>${esc(o.tip)}</div>`).join("")+(e.tips||[]).map(o=>`<div class="tpQ tpGo" data-go="${esc(pn(e.n))}|${o.d||""}|"><span>${ymd(o.d).slice(5)}・${srcA(o)}</span>${esc(o.tip)}</div>`).join("")+`</div>`; });
       if(pv.length){ h+=`<div class="tpPv">`   /* 不寫「上一位」標題，靠分隔線隔開（使用者 2026-11-19） */
         +pv.map(p=>{ const o=typeof p==="string"?{n:p}:p, T=tenureP(o);
           // 上一位改成跟上面同一種小卡（使用者 2026-11-19「上一位跟上面合約有續約的UI相近一點」）：名字＋職稱＋標籤，下面 效力／年資 欄位
@@ -573,7 +573,7 @@ function render(){
           if(hc)g.drawImage(hc,0,0);
           g.drawImage(cv,Math.round((SZ-cv.width)/2),hc?top:Math.round((SZ-cv.height)/2));
           const d=new Date(), pad=x=>String(x).padStart(2,"0");
-          await new Promise(ok=>pc.toBlob(bl=>{ const a=document.createElement("a"); a.href=URL.createObjectURL(bl); a.download=`${name}_${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}.jpg`;
+          await new Promise(ok=>pc.toBlob(bl=>{ const a=document.createElement("a"); a.href=URL.createObjectURL(bl); a.download=`${name}_${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}_${pad(d.getHours())}.jpg`;
             document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),5000); ok(); },"image/jpeg",0.93));
           h.remove(); await new Promise(r=>setTimeout(r,350)); };   // 連續下載間隔
         try{
