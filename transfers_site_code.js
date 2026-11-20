@@ -445,9 +445,10 @@ function render(){
       const hc=(t.r.COACH||[]).find(e=>e.sr==="HC"&&(e.new||e.tip)&&e.from), A=hc&&coachS(hc.from), B=coachS(t.nm)||coachS(t.tm);
       if(hc&&A&&B)items.push({r:"COACH",nw:`${pn(hc.n)}（${abOf(hc.from)}・${A.note}）`,od:`${abOf(t.nm)}（${B.note}）`,a:A.v,b:B.v,d:A.v-B.v,rm:!!hc.r});
       // 續約鼓勵分（使用者 2026-11-20「選手續約給個五分鼓勵 如果兩人續約給兩個6分 以此類推到五人 最後五人續約時 主教練也沒變化 那就是總共+50」）：
-      //   N 路有人續約 ⇒ 每人 4＋N 分（1 人 5、2 人各 6、…、5 人各 9＝45）；五路都續約且主教練沒換再 ＋5 ⇒ 合計 50
+      //   N 路有人續約 ⇒ 每人 1.5＋N×0.5 分（1 人 2、2 人各 2.5、…、5 人各 4＝20）；五路都續約且主教練沒換再 ＋5 ⇒ 合計 25
+      //   （原本是每人 4＋N、合計 50：BRO 原班續約 ＋50 比 DK 換上 Doran＋Kanavi 還多 ⇒ 使用者 2026-11-20 同意調小）
       { const rsL=["TOP","JNG","MID","BOT","SUP"].filter(r=>(t.r[r]||[]).some(e=>e.rs&&!e.gone)), nR=rsL.length;
-        if(nR){ const per=4+nR, hcE=(t.r.COACH||[]).filter(e=>e.sr==="HC"&&!e.gone);
+        if(nR){ const per=1.5+nR*0.5, hcE=(t.r.COACH||[]).filter(e=>e.sr==="HC"&&!e.gone);
           rsL.forEach(r=>{ const e=t.r[r].find(e=>e.rs&&!e.gone); items.push({r,rs:1,nw:pn(e.n),ne:e,d:per}); });
           if(nR===5&&hcE.length&&hcE.every(e=>!e.new&&!e.tip&&!e.r&&!e.pm))items.push({r:"COACH",rs:2,nw:pn(hcE[0].n),ne:hcE[0],d:5}); } }
       items.forEach(x=>{ if(x.dlo==null){ x.dlo=x.d; x.dhi=x.d; } });   // 主教練那一筆沒有範圍
