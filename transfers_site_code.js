@@ -568,10 +568,14 @@ function render(){
               const hd=mkHost(1000,`<span style="font-size:24px;font-weight:900;color:${sc.c||"#f0e6d2"}">${esc(sc.lg)}</span><span style="font-size:17px;font-weight:700">${esc(sc.sub)}</span>`);
               hd.style.paddingBottom="0"; hd.insertAdjacentHTML("beforeend",legend); const topH=hd.offsetHeight*SZ/1000;
               const h=mkHost(1200,""); h.querySelector("div").remove(); h.style.paddingTop="4px"; h.dataset.noic="1";
-              h.insertAdjacentHTML("beforeend",`<div style="container-type:inline-size;container-name:mainc"><div class="card tbBoard" style="margin:0;background:#141a26;box-shadow:none">${bhd?bhd.outerHTML:""}${sc.rows.map(r=>r.outerHTML).join("")}</div></div>`);
+              h.insertAdjacentHTML("beforeend",`<div><div class="card tbBoard" style="margin:0;background:#141a26;box-shadow:none">${bhd?bhd.outerHTML:""}${sc.rows.filter(r=>!r.classList.contains("tbFA")).map(r=>r.outerHTML).join("")}</div></div>`);
+              // 截圖專用（使用者 2026-11-20「截圖的教練只列主教練 自由人也不列 每路每個選手都換行」）：拿掉後勤欄與自由人列；同一格多人時一人一行
+              { const bd=h.querySelector(".tbBoard"); bd.style.gridTemplateColumns="max-content repeat(6,minmax(0,1fr)) max-content";
+                h.querySelectorAll('.tbCell[data-r="STF"]').forEach(x=>x.remove()); const hs=h.querySelector(".tbHd"); if(hs&&hs.children[7])hs.children[7].remove();
+                h.querySelectorAll(".tbSep").forEach(x=>x.outerHTML="<br>"); }
               h.querySelectorAll(".tbHd").forEach(x=>{ x.style.position="static"; x.style.background="none"; }); h.querySelectorAll(".tbDim").forEach(x=>x.classList.remove("tbDim"));
               let bw=1200, bk=0;
-              for(let w=1100;w<=2000;w+=50){ h.style.width=w+"px"; const k=Math.min(SZ/h.offsetWidth,(SZ-topH)/h.offsetHeight); if(k>bk+1e-4){ bk=k; bw=w; } }
+              for(let w=900;w<=2000;w+=50){ h.style.width=w+"px"; const k=Math.min(SZ/h.offsetWidth,(SZ-topH)/h.offsetHeight); if(k>bk+1e-4){ bk=k; bw=w; } }
               h.style.width=bw+"px";
               await out(h,(en2?"Transfer_board_":"轉會陣容表_")+sc.lg,hd); }
           }
