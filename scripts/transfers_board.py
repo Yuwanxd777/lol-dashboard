@@ -639,7 +639,9 @@ def parse_sheep(sheep):
         best[n_] = L[-3:]
 
     for x in sorted(sheep, key=lambda x: x["d"]):
-        for n_ in x.get("stay") or []:   # 之後的續約／留隊消息蓋掉之前的傳聞（最新動向為主）
+        # 只有「官方」續約／留隊才蓋掉之前的轉隊傳聞；續留本身也只是傳聞的不蓋（使用者 2026-11-20「Viper 去 KRX 的消息怎麼不見了」：
+        #   BLG 加碼留人是傳聞、去 KRX 也是傳聞，兩邊都要看得到）
+        for n_ in (x.get("stay") or []) if (x.get("st") or "rumor") != "rumor" else []:   # 之後的續約／留隊消息蓋掉之前的傳聞（最新動向為主）
             best.pop(n_.lower(), None)
         tags = x.get("tags") or []
         zh = x.get("zh") or ""

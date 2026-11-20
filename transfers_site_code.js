@@ -118,6 +118,7 @@ function render(){
     // 戰隊一律連到 WIKI 戰隊頁（使用者 2026-11-20「消息 有些戰隊沒有超連結」）：原隊／新隊的隊徽、內文裡的全名與縮寫（GEN、KRX…）都連
     const tmWk=n=>"https://lol.fandom.com/wiki/"+encodeURIComponent(String(n).replace(/ /g,"_"));
     const ABM=new Map(); [...TN].forEach(([n,a])=>{ if(a&&a.length>=2&&!ABM.has(a))ABM.set(a,n); });
+    ((window.TRANSFERS||{}).board||[]).forEach(t=>{ const a=abOf(t.nm); if(a&&a.length>=2&&!ABM.has(a))ABM.set(a,t.nm); });   // 全名就是縮寫的隊（T1、LYON、LOUD）TN 裡沒有
     const ABRE=ABM.size?new RegExp("(?<![A-Za-z0-9])("+[...ABM.keys()].sort((a,b)=>b.length-a.length).map(n=>esc(n).replace(/[.*+?^${}()|[\]\\]/g,"\\$&")).join("|")+")(?![A-Za-z0-9])","g"):null;
     const ST={official:en2?"Official":"官方",rumor:en2?"Rumor":"傳聞",conf:en2?"Confirmed":"證實",fake:en2?"Debunked":"謠言"};
     const stOf=x=>x.s==="wiki"?"official":x._v==="fake"?"fake":x._v==="conf"?"conf":(x.st||"rumor");
@@ -464,10 +465,14 @@ function render(){
         const mkHost=(w,sub)=>{ const h=document.createElement("div"); h.setAttribute("data-tshot","1"); h.style.cssText=`position:fixed;left:-99999px;top:0;width:${w}px;padding:22px;box-sizing:border-box;background:#0b0e14;color:#e8ecf4`;
           h.innerHTML=`<style>[data-tshot] .tbCell::before{content:none!important}</style><div style="display:flex;align-items:baseline;gap:12px;margin:0 2px 10px"><b style="font-size:24px;color:#f0e6d2">${en2?"S17 Transfers":"S17 轉會整理"}</b>${sub}<span style="margin-left:auto;font-size:14px;color:#8b98ad">${D.at?(en2?"as of ":"截至 ")+esc(D.at):""}</span></div>`;
           document.body.appendChild(h); hosts.push(h); return h; };
-        const out=async(h,name)=>{ h.querySelectorAll(".trTx a,.tbN a").forEach(x=>x.style.textDecoration="none"); await warm(h); fixC(h); const w=h.offsetWidth, ht=h.offsetHeight, k=Math.min(SZ/w,SZ/ht);
+        const out=async(h,name,head)=>{ h.querySelectorAll(".trTx a,.tbN a").forEach(x=>x.style.textDecoration="none"); await warm(h); fixC(h);
+          // head＝頂端那塊（標題、截至時間、文字顏色）：不管哪個聯賽都固定畫滿 2000 寬（使用者 2026-11-20「截圖上面那塊 無論哪個聯賽都固定滿版」），內容縮放後放在它下面置中
+          let hc=null; if(head){ await warm(head); fixC(head); const hw=head.offsetWidth; hc=await html2canvas(head,{backgroundColor:"#0b0e14",useCORS:true,scale:SZ/hw,width:hw,height:head.offsetHeight,windowWidth:Math.max(document.documentElement.scrollWidth,hw)}); head.remove(); }
+          const top=hc?hc.height:0, w=h.offsetWidth, ht=h.offsetHeight, k=Math.min(SZ/w,(SZ-top)/ht);
           const cv=await html2canvas(h,{backgroundColor:"#0b0e14",useCORS:true,scale:k,width:w,height:ht,windowWidth:Math.max(document.documentElement.scrollWidth,w)});
           const pc=document.createElement("canvas"); pc.width=pc.height=SZ; const g=pc.getContext("2d"); g.fillStyle="#0b0e14"; g.fillRect(0,0,SZ,SZ);
-          g.drawImage(cv,Math.round((SZ-cv.width)/2),Math.round((SZ-cv.height)/2));
+          if(hc)g.drawImage(hc,0,0);
+          g.drawImage(cv,Math.round((SZ-cv.width)/2),hc?top:Math.round((SZ-cv.height)/2));
           const d=new Date(), pad=x=>String(x).padStart(2,"0");
           await new Promise(ok=>pc.toBlob(bl=>{ const a=document.createElement("a"); a.href=URL.createObjectURL(bl); a.download=`${name}_${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}.jpg`;
             document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),5000); ok(); },"image/jpeg",0.93));
@@ -487,18 +492,20 @@ function render(){
           }else{
             const LG=en2?[["tbNew","New signing"],["tbRs","Re-signed"],["tbPm","Promoted"],["tbStay","Staying"],["tbExp","Contract expired"],["tbExp tbGone","Departure announced"],["tbOut","Possible move"],["tbY","Rumor"]]
               :[["tbNew","新加入"],["tbRs","續約"],["tbPm","升職"],["tbStay","續留"],["tbExp","合約到期"],["tbExp tbGone","已宣布離隊"],["tbOut","可能轉會"],["tbY","傳聞"]];
-            const legend=`<div style="display:flex;flex-wrap:wrap;align-items:center;gap:4px 16px;margin:0 2px 12px;padding:8px 12px;border:1px solid rgba(255,255,255,.12);border-radius:8px;font-size:14px"><span style="color:#8b98ad">${en2?"Colors":"文字顏色"}</span>`
-              +LG.map(([c,l])=>`<b class="tbN ${c}"${c==="tbStay"?` style="color:#fff"`:""}>${l}</b>`).join("")+`<span style="color:#8b98ad"><span class="tbOk" style="margin:0 4px 0 0">✔</span>${en2?"five lanes and head coach set":"五路與主教練都確定"}</span></div>`;
+            const legend=`<div style="display:flex;flex-wrap:wrap;align-items:center;gap:4px 16px;margin:0 2px 12px;padding:8px 12px;border:1px solid rgba(255,255,255,.12);border-radius:8px;font-size:18px;justify-content:space-between"><span style="color:#8b98ad">${en2?"Colors":"文字顏色"}</span>`
+              +LG.map(([c,l])=>`<b class="tbN ${c}"${c==="tbStay"?` style="color:#fff"`:""}>${l}</b>`).join("")+`<span style="color:#8b98ad"><span class="tbOk" style="margin:0 4px 0 0">✔</span>${en2?"roster set":"陣容確認"}</span></div>`;
             const secs=[]; [...main.querySelectorAll(".tbBoard>.tbLg,.tbBoard>.tbRow")].forEach(e=>{ if(e.classList.contains("tbLg"))secs.push({lg:e.querySelector("b").textContent,sub:(e.querySelector("span")||{}).textContent||"",c:e.style.getPropertyValue("--lgc"),rows:[]}); else if(secs.length)secs[secs.length-1].rows.push(e); });
             const CW=350, G=10;
             for(const sc of secs){ if(!sc.rows.length)continue;
-              const h=mkHost(CW,`<span style="font-size:22px;font-weight:900;color:${sc.c||"#f0e6d2"}">${esc(sc.lg)}</span><span style="font-size:16px;font-weight:700">${esc(sc.sub)}</span>`);
-              h.insertAdjacentHTML("beforeend",legend+`<div style="display:grid;gap:${G}px;align-items:start">${sc.rows.map(r=>`<div style="container-type:inline-size;container-name:mainc;width:${CW}px"><div class="tbBoard" style="padding:0;margin:0;background:none;border:0;box-shadow:none">${r.outerHTML}</div></div>`).join("")}</div>`);
+              const hd=mkHost(1000,`<span style="font-size:24px;font-weight:900;color:${sc.c||"#f0e6d2"}">${esc(sc.lg)}</span><span style="font-size:17px;font-weight:700">${esc(sc.sub)}</span>`);
+              hd.style.paddingBottom="0"; hd.insertAdjacentHTML("beforeend",legend); const topH=hd.offsetHeight*SZ/1000;
+              const h=mkHost(CW,""); h.querySelector("div").remove(); h.style.paddingTop="4px";
+              h.insertAdjacentHTML("beforeend",`<div style="display:grid;gap:${G}px;align-items:start">${sc.rows.map(r=>`<div style="container-type:inline-size;container-name:mainc;width:${CW}px"><div class="tbBoard" style="padding:0;margin:0;background:none;border:0;box-shadow:none">${r.outerHTML}</div></div>`).join("")}</div>`);
               h.querySelectorAll(".tbRow").forEach(r=>{ r.style.margin="0"; r.style.background="#141a26"; }); h.querySelectorAll(".tbDim").forEach(x=>x.classList.remove("tbDim"));
               const grid=h.lastChild; let best=1, bk=0;
-              for(let c=1;c<=Math.min(6,sc.rows.length);c++){ h.style.width=(c*CW+(c-1)*G+44)+"px"; grid.style.gridTemplateColumns=`repeat(${c},${CW}px)`; const k=Math.min(SZ/h.offsetWidth,SZ/h.offsetHeight); if(k>bk){ bk=k; best=c; } }
+              for(let c=1;c<=Math.min(6,sc.rows.length);c++){ h.style.width=(c*CW+(c-1)*G+44)+"px"; grid.style.gridTemplateColumns=`repeat(${c},${CW}px)`; const k=Math.min(SZ/h.offsetWidth,(SZ-topH)/h.offsetHeight); if(k>bk){ bk=k; best=c; } }
               h.style.width=(best*CW+(best-1)*G+44)+"px"; grid.style.gridTemplateColumns=`repeat(${best},${CW}px)`;
-              await out(h,(en2?"Transfer_board_":"轉會陣容表_")+sc.lg); }
+              await out(h,(en2?"Transfer_board_":"轉會陣容表_")+sc.lg,hd); }
           }
         }catch(e){ alert((en2?"Screenshot failed: ":"截圖失敗：")+((e&&e.message)||e)); }
         hosts.forEach(h=>h.remove()); if(rootZ!=null)document.documentElement.style.zoom=rootZ; sb.disabled=false; }; }
