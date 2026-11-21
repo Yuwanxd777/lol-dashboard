@@ -34,6 +34,9 @@
         ‧ preflight 有沒有過、有沒有 push
         ‧ **OBGG 帳號連續幾班沒更新**（2026-10-28 #2179）——外站掛掉時 fetch_obgg_accounts exit 0、
           帳號檔沿用舊版，上面全不動；≥2 班只提醒、≥14 班（一週）才列異常（讀當班日誌＋autopilot/shift_logs/）
+        ‧ **Sheep Esports 直抓來源有沒有過時**（2026-11-22 #3541）——X 的內嵌時間軸換成凍結的舊精選時
+          fetch_transfers 照樣 exit 0、「新增 0 則」；拿經 PTT 轉貼進來的同帳號推文（transfers.js extra）
+          對照直抓累積檔的最新一則，轉貼的明顯比較新就提醒（只告知、不進結論；本機、不連外）
 
         ‧ **逐聯賽有沒有落後**（2026-09-16 #140）——上面全是全站指標，單一聯賽整段沒收
           （LPL 停三天）會被別的聯賽蓋過去：列數照樣天天變多、「最新一場」照樣是今天，
@@ -1899,6 +1902,98 @@ def dpm_fuse_problems(states, cur_text=None, bad_n=None):
     return msg + "（單班先觀察，下一班會從原 newestT 補）", []
 
 
+# ── Sheep Esports 直抓來源過時（2026-11-22 主對話迴圈 #3541）────────────────────
+# #3540：X 的免登入內嵌時間軸從 11-19 晚上起整份換成凍結的舊精選（101 則裡 100 則是 2023～2025 年的），
+# fetch_sheep() 照 start 日期濾完剩 0 ⇒ 日誌只有「新增 0 則」、exit 0、則數不變，跟「今天真的沒消息」
+# 長得一模一樣，44 小時沒有任何指標出聲。判「來源死了沒」要拿另一條獨立進來的同源消息當對照：
+#   A＝transfers_sheep_src.json（直抓累積檔）最新一則推文的時間
+#   B＝transfers.js extra 裡網址是 x.com/Sheep_Esports/status/… 的推文（PTT 轉貼、每小時複查掛上來的）
+# 兩邊都從推文 ID（snowflake）解時間＝同一把鐘，不靠各自的 d 欄（extra 的 d 是 PTT 發文時間）。
+# 三個條件都成立才提醒：A 距現在 > SHEEP_STALE_H、比 A 新的轉貼推文 ≥ SHEEP_MIN_NEWER 則、
+# 其中最新的比 A 新 > SHEEP_GAP_H。（沒有比 A 新的＝可能真的沒消息；只有 1 則＝可能是直抓的轉會字眼
+# 過濾本來就不收的那種推文。）只認同一個帳號：SheepEsportsBR 是另一條時間軸，直抓本來就不抓。
+# 2026-11-22 01:13 現況：A＝11-19 22:39（50.6 小時前）、比它新的轉貼 5 則、最新 11-21 06:12 ⇒ 會提醒。
+# 外站不給、我們修不了 ⇒ 只告知、不進結論（跟 OBGG 的提醒級同一個等級）；換來源是使用者的決定。
+SHEEP_SRC = os.path.join(ROOT, "transfers_sheep_src.json")
+TRANSFERS_JS = os.path.join(ROOT, "transfers.js")
+SHEEP_HANDLE = "Sheep_Esports"
+SHEEP_STALE_H = 48
+SHEEP_GAP_H = 24
+SHEEP_MIN_NEWER = 2
+TW_EPOCH_MS = 1288834974657
+
+
+def snowflake_ts(tid):
+    """推文 ID（snowflake）→ 發文時間（epoch 秒）；不是 snowflake 長相的回 None。"""
+    s = str(tid or "")
+    if not s.isdigit() or len(s) < 15:
+        return None
+    return ((int(s) >> 22) + TW_EPOCH_MS) / 1000.0
+
+
+def sheep_direct_latest(path=None):
+    """直抓累積檔最新一則的時間（epoch 秒）；檔案讀不到／沒有任何可解的 ID 回 None。"""
+    path = SHEEP_SRC if path is None else path
+    try:
+        acc = json.load(io.open(path, encoding="utf-8"))
+    except Exception:
+        return None
+    if not isinstance(acc, list):
+        return None
+    ts = [snowflake_ts(x.get("id")) for x in acc if isinstance(x, dict)]
+    ts = [t for t in ts if t]
+    return max(ts) if ts else None
+
+
+def sheep_relay_tweets(path=None, handle=None):
+    """transfers.js extra 裡同帳號的推文 {推文 ID: 時間}。
+    檔案讀不到／沒有 extra 回 None（跟「讀到了、一則都沒有」的 {} 分開）。"""
+    path = TRANSFERS_JS if path is None else path
+    handle = (SHEEP_HANDLE if handle is None else handle).lower()
+    try:
+        ex = js_obj(path).get("extra")
+    except Exception:
+        return None
+    if not isinstance(ex, list):
+        return None
+    out = {}
+    for it in ex:
+        if not isinstance(it, dict):
+            continue
+        m = re.search(r"(?:x|twitter)\.com/([^/?#\s]+)/status/(\d+)", str(it.get("url") or ""))
+        if m and m.group(1).lower() == handle:
+            t = snowflake_ts(m.group(2))
+            if t:
+                out[m.group(2)] = t
+    return out
+
+
+def sheep_problems(direct_ts, relay, now, stale_h=None, gap_h=None, min_newer=None):
+    """回 (印出的那一行, 進結論的異常清單)。提醒級：清單永遠是空的（只告知）。"""
+    stale_h = SHEEP_STALE_H if stale_h is None else stale_h
+    gap_h = SHEEP_GAP_H if gap_h is None else gap_h
+    min_newer = SHEEP_MIN_NEWER if min_newer is None else min_newer
+    if direct_ts is None:
+        return "Sheep 直抓：（讀不到 transfers_sheep_src.json，略過）", []
+    if relay is None:
+        return "Sheep 直抓：（讀不到 transfers.js 的 extra，略過）", []
+    f = lambda t: time.strftime("%m-%d %H:%M", time.localtime(t))
+    age_h = (now - direct_ts) / 3600.0
+    head = "最新一則 %s（%.1f 小時前）" % (f(direct_ts), age_h)
+    newer = sorted(t for t in relay.values() if t > direct_ts)
+    if not newer:
+        return "Sheep 直抓：✓ %s；經 PTT 轉貼的 %s 推文 %d 則，沒有比它新的" % (head, SHEEP_HANDLE, len(relay)), []
+    gap = (newer[-1] - direct_ts) / 3600.0
+    if age_h > stale_h and len(newer) >= min_newer and gap > gap_h:
+        return ("⚠ 提醒：Sheep 直抓來源過時：直抓%s，但經 PTT 轉貼進來的 %s 推文已到 %s、比它新的有 %d 則"
+                " ⇒ 內嵌時間軸沒在給新推文（fetch_transfers 照樣 exit 0、「新增 0 則」），PTT 沒人貼的會漏；"
+                "外站不給我們修不了，只告知、不進結論（查法：python autopilot/m3540/probe_sheep.py）"
+                % (head, SHEEP_HANDLE, f(newer[-1]), len(newer))), []
+    return ("Sheep 直抓：%s；經 PTT 轉貼的 %s 推文有 %d 則比它新（最新 %s，差 %.1f 小時）"
+            "——未達提醒門檻（直抓停 >%dh、比它新的 ≥%d 則、差 >%dh），先觀察"
+            % (head, SHEEP_HANDLE, len(newer), f(newer[-1]), gap, stale_h, min_newer, gap_h)), []
+
+
 def main():
     lg = parse_log()
     lt = {}
@@ -2034,6 +2129,10 @@ def main():
     dline, dbad = dpm_fuse_problems(obgg_shift_states(_cur_txt, (lg or {}).get("start_at"), state_of=dpm_fuse_state), _cur_txt)
     print("   " + dline)
     bad += dbad
+    # Sheep 直抓來源過時（#3541）：端點回 200 但內容是舊精選時「新增 0 則」、exit 0，上面一個指標都不動
+    _shl, _shb = sheep_problems(sheep_direct_latest(), sheep_relay_tweets(), time.time())
+    print("   " + _shl)
+    bad += _shb
     # 遊戲版本（#99）：比賽資料以外，patch notes／DDragon 也會靜靜地停在舊版
     gv = game_versions()
     vline, vbad, vsince = version_problems(prev.get("versions") or {}, gv,
