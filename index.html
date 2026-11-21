@@ -1664,6 +1664,7 @@
     .trBar .trFG.fgSort,.trBar:not(:has(.fgSort)) .cwrap{flex:1 1 100%!important}
     .trBar>#tsHelp{margin-left:auto}
   }
+  @container mainc (max-width:310px){ .trBar .sqLaneBtn[data-mk="trRg"],.trBar .sqLaneBtn[data-mk="trSt"]{font-size:12px!important;letter-spacing:-.3px;padding-left:1px!important;padding-right:1px!important} }   /* 320 寬：六顆賽區鈕每顆只剩 44px，CBLOL（英文版的 Confirmed）會頂到框 */
   #tbTip.sheet{pointer-events:auto!important;left:8px!important;right:8px!important;top:auto!important;bottom:8px!important;max-width:none!important;max-height:72vh;overflow:auto;padding:16px 14px 14px;border-radius:14px;box-shadow:0 -6px 30px rgba(0,0,0,.6)}
   #tbTip.sheet .tpBox,#tbTip.sheet .rtBox{min-width:0}
   #tbTip.sheet .rtBox{width:auto}#tbTip.sheet .rtGrid{column-gap:8px;grid-template-columns:20px minmax(0,1fr) 24px minmax(0,1fr) max-content}#tbTip.sheet .rtAr{font-size:18px}
