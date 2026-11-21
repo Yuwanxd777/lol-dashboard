@@ -15096,7 +15096,7 @@ function render(){
                 // 2026-11-21 晚再改「截圖的主教練跟後勤合併 改稱 教練」：主教練那格接上後勤（後勤照舊不列合約到期的藍字），一人一行、主教練排前面；後勤那格與它的欄名拿掉，欄名改寫「教練」
                 h.querySelectorAll(".tbRow").forEach(r=>{ const hc=r.querySelector('.tbCell[data-r="HC"]'), st=r.querySelector('.tbCell[data-r="STF"]'); if(!hc)return; const v=hc.querySelector(".tbCv"); if(!v)return;
                   const keep=[...v.querySelectorAll(".tbN"),...(st?[...st.querySelectorAll(".tbCv .tbN")].filter(n=>!n.classList.contains("tbExp")):[])];
-                  v.innerHTML=keep.length?keep.map(n=>n.outerHTML).join("<br>"):`<span class="tbMuted">–</span>`; hc.classList.toggle("tbEmpty",!keep.length); hc.dataset.r="CO"; if(st)st.remove(); });
+                  v.innerHTML=keep.length?keep.map(n=>n.outerHTML).join("<br>"):`<span class="tbMuted">–</span>`; hc.classList.toggle("tbEmpty",!keep.length); hc.dataset.r="CO"; hc.classList.add("tbShCo"); if(st)st.remove(); });
                 { const hs=h.querySelector(".tbHd"); if(hs&&hs.children[7])hs.children[7].remove(); const c6=hs&&hs.children[6]; if(c6){ [...c6.childNodes].forEach(n=>{ if(n.nodeType===3)n.remove(); }); c6.appendChild(document.createTextNode(en2?"Coach":"教練")); } }
                 h.querySelectorAll(".tbSep").forEach(x=>x.outerHTML="<br>");
                 h.querySelectorAll(".tbRtSz").forEach(x=>x.remove());   // 網頁上用來撐住最後一欄寬度的隱形字串（最長的評分範圍）：截圖的欄寬另外算，留著會把七欄都撐成那麼寬、整張表的字跟著變小
@@ -15128,10 +15128,15 @@ function render(){
               const tmp=document.createElement("div"); tmp.innerHTML=ts.map(rowH).join(""); return {sc:{lg,rows:[...tmp.children]}}; }).filter(Boolean).map(o=>({...o,h:prep(o.sc)}));
             TIPS.length=tip0;   // 參考複本不會開小框，排它們時多塞進去的小框內容丟掉
             const allH=[...built,...ref];
+            // 教練人數不影響字的大小（使用者 2026-11-21「預設教練是三行 然後超過三人就針對該隊教練那格縮小」；前一版教練一人一行、列高照人數長，
+            //   實測每隊教練 3 人字會從 32.7px 掉到 23.3px、4 人掉到 18.3px）：決定整張寬度 W（＝字級）與每一列的基本高度時，教練那格只算一行；
+            //   之後每一列再預留三行教練的高度（放得下的話），教練格超過能用的高度就只縮那一格的字——見下面每一張圖的「列高」那一段
+            allH.forEach(o=>o.h.querySelectorAll(".tbRow .tbShCo").forEach(c=>{ const v=c.querySelector(".tbCv"); if(!v)return;
+              v.style.display="block"; v.style.maxHeight=(parseFloat(getComputedStyle(c).lineHeight)||22.5)+"px"; v.style.overflow="hidden"; }));   // 先夾成一行來量；輸出前在「列高」那一段放開
             // 欄寬：每個聯賽都量一次「隊名欄」與「六個資料欄」各自最少要多寬（放得下最長的那個字），整批取最大
             //   ⇒ 隊名欄固定 teamW、六欄等寬（五路＋教練）。每張圖的欄位位置與字級因此完全一樣
             // 字的大小＝整張的寬度 W 越小、縮放到 2000px 之後字越大。W 取兩個條件裡比較大的：
-            //   ①放得下最長的 ID：隊名欄＋六欄 ×（最寬的格子＋PADX 的呼吸空間）②隊伍最多的聯賽（LPL 14 隊）在這個寬度下不會超出資料框
+            //   ①放得下最長的 ID：隊名欄＋六欄 ×（最寬的格子＋PADX 的呼吸空間）②隊伍最多的聯賽（LPL 14 隊）在這個寬度下不會超出資料框（教練格只算一行）
             //   原本 W 至少 1000：六欄每欄 139px，最長的 ID 才 93px，左右空很多、字只有 28px；現在大約 860 ⇒ 字 32.6px（放大 16% 左右）
             let teamW=0, colW=0;
             allH.forEach(o=>{ const bd=o.h.querySelector(".tbBoard"); o.h.style.width="6000px"; bd.style.gridTemplateColumns="max-content repeat(6,max-content)"; bd.style.justifyContent="start";
@@ -15145,11 +15150,21 @@ function render(){
             const lvTeam=h=>h.querySelectorAll(".tbRow .tbTeam").forEach(tm=>{ const box=tm.querySelector(".tbTmB"), im=tm.querySelector("img:not(.tbFaIc)"); if(!box||!im)return;
               const a=inkOf(box.querySelector(".tbTmA")||box.firstChild), b=inkOf(box.querySelector(".tbTmR"))||a; if(!a)return; const ir=im.getBoundingClientRect(); nudge(box,(ir.top+ir.bottom)/2-(a.top+b.bot)/2); });
             for(const o of built){ if(sink&&sink.stop)break; const h=o.h, hd=mkHead(o.sc,HW,HF,LX);
-              // 底部不留大片空白（使用者 2026-11-20「底部不要太多留空」）：把剩下的高度平均加到每一列；餘數分給前面幾列各 1px，內容才會剛好頂到框的內側
-              //   高度一律用帶小數的實際值算（offsetHeight 是四捨五入過的整數：列高 48.3 會被當成 48 再設回去、57.5 當成 58，十幾列累積下來整塊會比框高 1～2px，
-              //   out() 就會把這一張的縮放壓小 0.2%——LPL 的字因此比別的聯賽小一點點；使用者 2026-11-21 要求所有 ID 一樣大）；最後再保險收一次
-              { const rs=[...h.querySelectorAll(".tbRow")], hh=()=>h.getBoundingClientRect().height, lim=IN.h*W/IN.w, gap=Math.floor(lim-hh());
-                if(rs.length&&gap>0){ const add=Math.floor(gap/rs.length), rem=gap-add*rs.length, hs0=rs.map(r=>r.getBoundingClientRect().height); rs.forEach((r,i)=>{ r.style.minHeight=(hs0[i]+add+(i<rem?1:0))+"px"; }); }
+              // 列高（使用者 2026-11-20「底部不要太多留空」＋2026-11-21「預設教練是三行」）：
+              //   b＝每一列的基本高度（選手那幾格決定，教練格只算一行）。先讓每一列至少有「三行教練」那麼高（H3）；這個聯賽放不下（LPL 14 隊）就改成
+              //   把最矮的列一起墊到同一個高度 Lv（Lv＜H3，剛好用完可用的高度）；還有剩再平均加到每一列，內容剛好頂到框的內側。
+              //   高度一律用帶小數的實際值（offsetHeight 取整會讓整塊比框高 1～2px、這一張的縮放被壓小，字就跟別的聯賽不一樣大）
+              // 教練格：最多用三行的高度、也不能超過這一列（上下各留 1px）；人數多到放不下就只縮這一格的字（0.25px 一階），上下內距跟著收
+              { const rs=[...h.querySelectorAll(".tbRow")], hh=()=>h.getBoundingClientRect().height, lim=IN.h*W/IN.w;
+                if(rs.length){ const cs=rs.map(r=>r.querySelector(".tbShCo")), g0=getComputedStyle(cs.find(Boolean)||rs[0].querySelector(".tbCell")||rs[0]), fs0=parseFloat(g0.fontSize)||15, lh=parseFloat(g0.lineHeight)||fs0*1.5, pv=(parseFloat(g0.paddingTop)+parseFloat(g0.paddingBottom))||12, H3=3*lh+pv;
+                  const b=rs.map(r=>r.getBoundingClientRect().height), room=lim-(hh()-b.reduce((a,x)=>a+x,0)), need=l=>b.reduce((a,x)=>a+Math.max(x,l),0);
+                  let Lv=H3; if(need(H3)>room){ let lo=0, hi=H3; for(let i=0;i<40;i++){ const md=(lo+hi)/2; if(need(md)<=room)lo=md; else hi=md; } Lv=lo; }
+                  const tg=b.map(x=>Math.max(x,Lv)), add=Math.max(0,(room-tg.reduce((a,x)=>a+x,0))/rs.length-0.02);   // −0.02＝每列留一點點餘裕，免得小數進位後整塊比框高一丁點、又被下面的保險收掉 1px
+                  rs.forEach((r,i)=>{ const rowH=tg[i]+add; r.style.minHeight=rowH+"px"; const c=cs[i], v=c&&c.querySelector(".tbCv"); if(!v)return;
+                    v.style.display=v.style.maxHeight=v.style.overflow="";   // 放開量版面時夾的那一行
+                    const n=v.querySelectorAll(".tbN").length||1, can=Math.max(lh*0.5,Math.min(3*lh,rowH-2)); let f=fs0, lines=n*lh;
+                    if(lines>can+0.3){ f=Math.max(4,Math.floor(fs0*can/lines*4)/4); c.style.fontSize=f+"px"; lines=n*lh*f/fs0; }
+                    if(lines+pv>rowH){ const p=Math.max(0,(rowH-lines)/2); c.style.paddingTop=c.style.paddingBottom=p+"px"; } }); }
                 for(let it=0;it<60&&rs.length&&hh()>lim;it++){ const r=rs[rs.length-1-(it%rs.length)], v=parseFloat(r.style.minHeight)||0; if(v>1)r.style.minHeight=(v-1)+"px"; } }
               lvTeam(h);
               await out(h,"S17_LoL_"+o.sc.lg,hd,IN); }
