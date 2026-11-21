@@ -15142,7 +15142,11 @@ function render(){
               const a=inkOf(box.querySelector(".tbTmA")||box.firstChild), b=inkOf(box.querySelector(".tbTmR"))||a; if(!a)return; const ir=im.getBoundingClientRect(); nudge(box,(ir.top+ir.bottom)/2-(a.top+b.bot)/2); });
             for(const o of built){ if(sink&&sink.stop)break; const h=o.h, hd=mkHead(o.sc,HW,HF,LX);
               // 底部不留大片空白（使用者 2026-11-20「底部不要太多留空」）：把剩下的高度平均加到每一列；餘數分給前面幾列各 1px，內容才會剛好頂到框的內側
-              { const rs=[...h.querySelectorAll(".tbRow")], gap=Math.floor(IN.h*W/IN.w-h.offsetHeight); if(rs.length&&gap>0){ const add=Math.floor(gap/rs.length), rem=gap-add*rs.length, hs0=rs.map(r=>r.offsetHeight); rs.forEach((r,i)=>{ r.style.minHeight=(hs0[i]+add+(i<rem?1:0))+"px"; }); } }
+              //   高度一律用帶小數的實際值算（offsetHeight 是四捨五入過的整數：列高 48.3 會被當成 48 再設回去、57.5 當成 58，十幾列累積下來整塊會比框高 1～2px，
+              //   out() 就會把這一張的縮放壓小 0.2%——LPL 的字因此比別的聯賽小一點點；使用者 2026-11-21 要求所有 ID 一樣大）；最後再保險收一次
+              { const rs=[...h.querySelectorAll(".tbRow")], hh=()=>h.getBoundingClientRect().height, lim=IN.h*W/IN.w, gap=Math.floor(lim-hh());
+                if(rs.length&&gap>0){ const add=Math.floor(gap/rs.length), rem=gap-add*rs.length, hs0=rs.map(r=>r.getBoundingClientRect().height); rs.forEach((r,i)=>{ r.style.minHeight=(hs0[i]+add+(i<rem?1:0))+"px"; }); }
+                for(let it=0;it<60&&rs.length&&hh()>lim;it++){ const r=rs[rs.length-1-(it%rs.length)], v=parseFloat(r.style.minHeight)||0; if(v>1)r.style.minHeight=(v-1)+"px"; } }
               lvTeam(h);
               await out(h,"S17_LoL_"+o.sc.lg,hd,IN); }
           }
