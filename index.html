@@ -1082,7 +1082,7 @@
   .tbUp{color:#ff5a5a}.tbDn{color:#3fcf7a}   /* 台灣配色：加分紅、扣分綠 */
   .tbCell:hover{background:rgba(122,184,255,.10);border-radius:6px}
   .tbN{white-space:nowrap;display:inline-block}.tbN a{color:inherit;text-decoration:none}.tbN a:hover{color:#7fb2ff;text-decoration:underline}
-  .tbSep{color:var(--tx2);margin:0 3px}
+  .tbSep{color:var(--tx2);margin:0 3px}.tbNw{white-space:nowrap}   /* 名字＋後面的「/」綁在一起、只能在「/」後面換行（原本會斷成下一行開頭一個「/」；2026-11-21 全面檢視） */
   .tbSr{font-size:12px;font-weight:400;color:var(--tx2);margin-left:4px}
   .tbMuted{color:var(--tx2);opacity:.75}
   #tbTip{position:fixed;z-index:9999;display:none;max-width:340px;padding:10px 12px;border-radius:8px;background:#1b2338;border:1px solid rgba(255,255,255,.14);box-shadow:0 8px 24px rgba(0,0,0,.45);font-size:14px;line-height:1.6;color:var(--tx);pointer-events:none}
@@ -1097,7 +1097,7 @@
   .tpP{padding:8px 10px;border-radius:8px;background:rgba(255,255,255,.04);margin-top:8px}
   .tpP:first-of-type{margin-top:0}
   .tbTmA{color:inherit;text-decoration:none}.tbTmA:hover{text-decoration:underline}
-  #tbTip .tpName a{cursor:pointer}#tbTip .tpName a::after{content:"↗";font-size:.62em;margin-left:3px;opacity:.35;vertical-align:.25em}#tbTip .tpName a:hover{text-decoration:underline}#tbTip .tpName a:hover::after{opacity:1}   /* 小框的選手 ID 可以點去 wiki：平常帶一個淡淡的 ↗，滑過加底線（使用者 2026-11-21） */
+  #tbTip .tpName a{cursor:pointer}#tbTip .tpName a::after{content:"↗";display:inline-block;text-decoration:none;font-size:.62em;margin-left:3px;opacity:.35;vertical-align:.25em}#tbTip .tpName a:hover{text-decoration:underline}#tbTip .tpName a:hover::after{opacity:1}   /* 小框的選手 ID 可以點去 wiki：平常帶一個淡淡的 ↗，滑過加底線（使用者 2026-11-21） */
   .tpName{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.tpName>b{font-size:16px}
   .tpSr{font-size:13px;color:var(--tx2)}
   .tpPill{font-size:12px;font-weight:700;padding:1px 7px;border-radius:999px;margin-left:auto}
@@ -1572,7 +1572,7 @@
     .tbCell[data-r="MID"]::before{background-image:url(img/MID.png)}.tbCell[data-r="BOT"]::before{background-image:url(img/BOT.png)}
     .tbCell[data-r="SUP"]::before{background-image:url(img/SUP.png)}.tbCell[data-r="HC"]::before,.tbCell[data-r="STF"]::before{background-image:url(img/COACH.png)}
     .tbFA .tbCell.tbEmpty{display:none}   /* 自由人卡：沒有人的那一列不顯示（中國自由人沒有教練） */
-    .tbRow .tbTeam img.tbFaIc{margin:0!important}   /* 手機：FA 徽章也貼齊左內距（淺色底的方塊本身就是看得見的邊，不用扣透明邊；跟隊名的 8px 由隊名那邊留） */   /* 自由人的聯賽圖有淺色底，不能像隊徽那樣扣掉透明邊（會貼到字：歐洲／北美／亞太只剩 2～4px；使用者 2026-11-20「自由人的文字跟圖片也要有半形空格」） */.tbFA .tbCell[data-r="STF"]{display:none}
+    .tbRow .tbTeam img.tbFaIc{margin:0!important}   /* 手機：FA 徽章也貼齊左內距（淺色底的方塊本身就是看得見的邊，不用扣透明邊；跟隊名的 8px 由隊名那邊留） */   /* 自由人的聯賽圖有淺色底，不能像隊徽那樣扣掉透明邊（會貼到字：歐洲／北美／亞太只剩 2～4px；使用者 2026-11-20「自由人的文字跟圖片也要有半形空格」） */   /* 2026-11-21 全面檢視：原本這裡把自由人的後勤那列藏起來（主教練與後勤合併那一版留下的），兩格分開之後手機上後勤整組人看不到 ⇒ 不藏 */
     .tbFA .tbCell:not(.tbRate){grid-column:1/-1;border-left:0}   /* 自由人卡：五路＋主教練，一路一列（使用者 2026-11-20） */
     .tbRtSz{display:none}.tbCell.tbRate::before{content:none}.tbCell.tbRate .rtPc{margin-right:calc(0px - var(--rb,.5em))}.tbCell.tbRate .tbCv{position:relative;left:var(--rb,0px)}   /* --rb＝最後一個字右側的字內留白（rbFit 量的）：收掉之後，數字、中文字、「）」結尾的右邊留空才會一樣。用 left 位移而不是 margin——.tbCv 的 margin 已經被「觸發範圍外擴」那條規則用掉（padding 10／margin −10），再蓋 margin 會整串往左跑 10px */   /* 手機卡片的評分在標題列右端，仍靠右、「）」照舊往右收 */.tbCell.tbRate .tbCv{white-space:nowrap;font-size:min(15px,3.55cqw)}   /* 單一分數與範圍同一個字級（使用者 2026-11-20「轉會評分的分數字體大小要一致」） */   /* 範圍評分（-158.7 ～ -105.3）在窄手機不換行、不壓隊名 */
     .tbCell .tbCv{min-width:0;overflow-wrap:anywhere}.tbCell .tbN{white-space:nowrap}
@@ -14800,7 +14800,7 @@ function render(){
         bHTML+=`<div class="tbLg" data-rg="${esc((en2?{LCK:"Korea",LPL:"China",LEC:"EMEA",LCS:"North America",CBLOL:"Brazil",LCP:"Asia-Pacific"}:{LCK:"韓國",LPL:"中國",LEC:"歐洲",LCS:"北美",CBLOL:"巴西",LCP:"亞太"})[t.lg]||"")}" style="--lgc:${LGC[t.lg]||"var(--gold)"}"><img class="tbLgIc" src="${((window.TS_DATA||{}).lgi||{})[t.lg]||("img/lg_"+t.lg+".png")}" alt=""><b>${esc(t.lg)}</b><span>${n}${en2?" teams":" 隊"}</span></div>`; lastLg=t.lg; }   // 聯賽徽章＋聯賽名稱＋隊伍數（使用者 2026-11-21）；地區名只留在 data-rg 給截圖標題用
       bHTML+=`<div class="tbRow${t.fa?" tbFA":""}" style="--lgc:${LGC[t.lg]||"var(--gold)"}"><div class="tbTeam" title="${t.fa?"FA":esc(t.nm)}">${t.fa?`<img class="tbFaIc" src="${((window.TS_DATA||{}).lgi||{})[t.lg]||("img/lg_"+t.lg+".png")}" alt="">`:""}${teamLogoHTML(tAb(t.nm),26,true,t.nm)||teamLogoHTML(tAb(t.tm),26,true,t.tm)||""}<span>${t.fa?esc(rowNm(t)):`<a class="tbTmA" href="${tmWk(t.nm)}" target="_blank" rel="noopener">${esc(rowNm(t))}</a>`}</span>${tbDone(t)?`<span class="tbOk" title="${en2?"All five roles and the head coach are confirmed":"五路與主教練都確定了"}">✔</span>`:""}</div>`
         +COLS.map(r=>{ const es=t.fa?colE(t,r):colE(t,r).filter(e=>!e.gone);   /* 已宣布離隊的不留在陣容表格子裡，只列在 FA 那列（使用者 2026-11-21「所有已宣布離隊的都直接離開陣容表 去到FA區」）；小框仍查得到 */   /* FA 的主教練與後勤分兩格（使用者 2026-11-21 先要合併、隨後改回「主教練跟後勤分開」） */
-          return `<div class="tbCell${es.length?"":" tbEmpty"}" data-r="${r}" data-lb="${BLN[r]}" data-tb="${cellTip(t,r)}"><span class="tbCv">${es.length?es.map(nameH).join(`<span class="tbSep">/</span>`):`<span class="tbMuted">–</span>`}</span></div>`; }).join("")+rateCell(t)+`</div>`; });
+          return `<div class="tbCell${es.length?"":" tbEmpty"}" data-r="${r}" data-lb="${BLN[r]}" data-tb="${cellTip(t,r)}"><span class="tbCv">${es.length?es.map((e,i)=>i<es.length-1?`<span class="tbNw">${nameH(e)}<span class="tbSep">/</span></span><wbr>`:nameH(e)).join(""):`<span class="tbMuted">–</span>`}</span></div>`; }).join("")+rateCell(t)+`</div>`; });
     const bHead=`<div class="tbHd"><span></span>${COLS.map(r=>`<span>${(r==="HC"||r==="STF")?`<img class="trCoach" src="img/COACH.png" alt="">`:(POS_IMG[r]?`<img class="trRole" src="${POS_IMG[r]}" alt="">`:"")}${BLN[r]}</span>`).join("")}<span class="tbRateH tbSortT" style="cursor:pointer;white-space:nowrap" title="${en2?"Click to sort":"點一下照評分排序"}">${SRT0==="o"?(en2?"Split 3 result":"第三賽段成績"):SLB}${srtArr}</span></div>`;
     // 篩選列（使用者 2026-11-20「消息跟轉會表的篩選列也統一一下 並且直觀一點」）：兩種模式同一個順序——
     //   模式（圖示＋文字）｜賽區（聯賽色）｜該模式自己的篩選（分組、組間直線）｜……｜更新時間＋搜尋（最右）
