@@ -741,7 +741,17 @@ def main():
     wiki = [dict(x_, d=_tw(x_)) for x_ in wiki]
     extra = [dict(x_, d=_tw(x_)) if str(x_.get("id", "")).startswith("ret-") else x_ for x_ in extra]
     wiki.sort(key=lambda x_: x_["d"], reverse=True); extra.sort(key=lambda x_: x_["d"], reverse=True)
-    data = {"at": datetime.datetime.now().strftime("%Y-%m-%d %H:%M"), "from": start, "t1": t1, "wiki": wiki, "sheep": sheep, "extra": extra, "roles": roles, "board": board, "intl": intl}
+    # 隊伍小框（使用者 2026-11-22「左半邊點擊後要顯示 2026 先發五人(場次最多的)以及教練的WIKI圖片…下方是2027的」）：
+    #   s26＝各隊那一年五路出賽最多場的人、pimg＝選手／主教練在 Leaguepedia 的圖片網址（scripts/transfers_photos.py；查過的存 csv_cache，每小時只補新的人）
+    try:
+        import transfers_photos
+        s26, pimg = transfers_photos.build(B.cargo, yr, board, roles, {"OpTic Gaming": "Dignitas"})
+        print(f"隊伍小框：先發 {len(s26)} 隊、圖片 {len(pimg)} 張")
+    except Exception as e:
+        s26, pimg = old.get("s26") or {}, old.get("pimg") or {}
+        print(f"隊伍小框資料失敗，沿用舊檔（先發 {len(s26)} 隊、圖片 {len(pimg)} 張）：{type(e).__name__} {str(e)[:100]}")
+    data = {"at": datetime.datetime.now().strftime("%Y-%m-%d %H:%M"), "from": start, "t1": t1, "wiki": wiki, "sheep": sheep, "extra": extra, "roles": roles, "board": board, "intl": intl,
+            "s26": s26, "pimg": pimg}
     try:
         used = {o.get("tip") for t in board for L in (t.get("r") or {}).values() for e in L for o in ([e] + (e.get("ros") or []) + ([e["ro"]] if e.get("ro") else []) + (e.get("tips") or []))}
         data["tipEn"] = {k: v for k, v in _tb.TIP_EN.items() if k in used} or (old.get("tipEn") or {})
