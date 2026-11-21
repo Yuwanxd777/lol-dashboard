@@ -1582,7 +1582,7 @@
     /* 2026-11-21 再改回靠左（使用者「手機版戰隊 隊徽左邊的留空跟右邊評分的留空不一致」）：置中時隊徽左邊的留空隨圖案寬窄是 12～24px，右邊評分固定 11px，
        怎麼調都不可能每一隊都一樣 ⇒ 手機卡片的隊徽圖案貼齊左內距（扣掉圖檔的透明邊 --lgpad），左邊的留空＝右邊評分的留空；隊名固定接在圖案後面 8px。
        電腦版的表格仍是置中（那邊是一整欄，要對同一條中線） */
-    .tbRow .tbTeam img{margin-left:calc(0.67px - var(--lgpad,0px))!important;margin-right:calc(0px - var(--lgpad,0px))!important}   /* ＋1px：隊徽外圍有一圈白色描邊（濾鏡），看得見的邊比圖案早約 1px；從截圖量像素，補這 1px 之後左右留空的中位數才一樣（11.3px） */
+    .tbRow .tbTeam img{margin-left:calc(0px - var(--lgpad,0px))!important;margin-right:calc(0px - var(--lgpadR,var(--lgpad,0px)))!important}   /* ＋1px：隊徽外圍有一圈白色描邊（濾鏡），看得見的邊比圖案早約 1px；從截圖量像素，補這 1px 之後左右留空的中位數才一樣（11.3px） */
     .tbRow .tbTeam>span:not(.tbOk){margin-left:8px}   /* 手機卡片的 .tbTeam 沒有 gap，隊名跟隊徽之間自己留 8px */
     .tbTeam .tbOk{margin-left:.35em}   /* 勾跟縮寫之間留一個半形空格（使用者 2026-11-20） */
     .tbTeam{grid-column:1;border-left:0;padding:7px 10px;gap:0;font-size:16px;background:color-mix(in srgb,var(--lgc) 14%,transparent)}
@@ -15010,6 +15010,31 @@ function render(){
     //   每個隊徽佔固定寬 1.5 倍的位子、置中 ⇒ 後面的縮寫對齊。量不到（跨網域沒開 CORS、file://）就維持原樣
     const LGF=window._tbLGF||(window._tbLGF=new Map()), LGP=window._tbLGP||(window._tbLGP=new Map());
     // 量外框用另外一張帶 crossOrigin 的圖（轉會網站的隊徽在主站網域；直接在顯示的圖上設 crossorigin，CORS 一失敗圖就整張不見）
+    // 隊徽看得見的左右邊界（il／ir＝圖的左右各有多少比例「看起來是空的」）：照實際顯示大小 E、放大 3 倍（＝手機的像素密度）畫在深色底上，
+    //   連白色描邊濾鏡一起畫，找第一欄／最後一欄「跟底色差得夠多」的位置——跟從截圖量像素是同一把尺。
+    //   為什麼不用外框：外框只要有一個像素就算，可是往旁邊越來越細的尖角、淡淡的尾巴（HLE 左邊那條）縮到 16px 根本看不見，
+    //   眼睛看到的邊比外框內縮 1.5px，「與 → 隊徽」就比別隊寬（使用者 2026-11-21「不能一致嗎」）。只拿來對齊左右，大小仍照外框算
+    const LG_TH=70;
+    const lgEdge=(m,E)=>{ const k=Math.max(8,Math.round(E*2)/2), pd0=(1-m.fw)/2; m.ed=m.ed||{}; if(m.ed[k])return m.ed[k]; let il=pd0, ir=pd0;
+      try{ const Z=3, n=Math.round(k*Z), o=3*Z, c=document.createElement("canvas"); c.width=c.height=n+2*o; const g=c.getContext("2d",{willReadFrequently:true});
+        g.fillStyle="rgb(27,34,54)"; g.fillRect(0,0,c.width,c.height); try{ g.filter=`drop-shadow(0 0 ${Z}px rgba(255,255,255,.55))`; }catch(_){}
+        g.drawImage(m.img,o,o,n,n); const d=g.getImageData(0,0,c.width,c.height).data, W=c.width; let a=-1, b=-1;
+        const hit=X=>{ for(let Y=0;Y<W;Y++){ const i=(Y*W+X)*4; if(Math.abs(d[i]-27)+Math.abs(d[i+1]-34)+Math.abs(d[i+2]-54)>LG_TH)return true; } return false; };
+        for(let X=0;X<W;X++)if(hit(X)){ a=X; break; }
+        for(let X=W-1;X>=0;X--)if(hit(X)){ b=X; break; }
+        if(a>=0&&b>=a){ il=(a-o)/n; ir=(o+n-1-b)/n; } }catch(_){}
+      return m.ed[k]={il,ir}; };
+    // 字的左右留白（墨水到字框邊緣，單位 em）：TextMetrics 的 actualBoundingBox 在這個字型只回整數、左邊的留白還量不到 ⇒ 把字放大 8 倍畫到小畫布上，找第一欄／最後一欄有顏色的位置
+    const INKB=window._tbInk||(window._tbInk=new Map());
+    const inkB=(el,ch,right)=>{ if(!ch)return 0; const g=getComputedStyle(el), fs=parseFloat(g.fontSize)||14, key=g.fontWeight+"|"+g.fontFamily+"|"+ch+"|"+(right?1:0); if(INKB.has(key))return INKB.get(key)*fs;
+      let v=0; try{ const K=8, c=document.createElement("canvas"), W=Math.ceil(fs*K*2.4), H=Math.ceil(fs*K*1.9); c.width=W; c.height=H; const x=c.getContext("2d",{willReadFrequently:true});
+        x.font=`${g.fontWeight} ${fs*K}px ${g.fontFamily}`; x.textBaseline="alphabetic"; x.fillStyle="#fff"; const ox=Math.round(fs*K*0.7), adv=x.measureText(ch).width; x.fillText(ch,ox,Math.round(H*0.72));
+        const d=x.getImageData(0,0,W,H).data; let l=-1, r=-1;
+        for(let X=0;X<W&&l<0;X++)for(let Y=0;Y<H;Y++)if(d[(Y*W+X)*4+3]>60){ l=X; break; }
+        for(let X=W-1;X>=0&&r<0;X--)for(let Y=0;Y<H;Y++)if(d[(Y*W+X)*4+3]>60){ r=X; break; }
+        if(l>=0)v=right?(ox+adv-1-r)/(fs*K):(l-ox)/(fs*K); }catch(_){ v=0; }
+      v=Math.max(-0.1,Math.min(0.7,v)); if(!document.fonts||document.fonts.status==="loaded")INKB.set(key,v);   // 字型還沒載完量到的是替代字型，不存
+      return v*fs; };
     const lgGet=(src,cb)=>{ if(LGF.has(src)){ cb(LGF.get(src)); return; } if(LGP.has(src)){ LGP.get(src).push(cb); return; } LGP.set(src,[cb]);
       const done=m=>{ LGF.set(src,m); (LGP.get(src)||[]).forEach(f=>f(m)); LGP.delete(src); };
       const p=new Image(); p.crossOrigin="anonymous";
@@ -15019,7 +15044,7 @@ function render(){
           //   實心的深色部分（alpha 高）有白色描邊濾鏡照著，仍算看得見
           const vis=i=>{ const al=d[i+3]/255; if(al>0.8)return true; if(al<0.1)return false; return (Math.abs(d[i]-27)+Math.abs(d[i+1]-34)+Math.abs(d[i+2]-54))*al>45; };
           for(let y=0;y<N;y++)for(let x=0;x<N;x++)if(vis((y*N+x)*4)){   /* 量測格 48 → 96（門檻維持 24：調高會把 SR 這種半透明邊的隊徽量窄、貼到字）；使用者 2026-11-21「每一種隊徽都大約是半形空格的留空」 */ if(x<x0)x0=x; if(x>x1)x1=x; if(y<y0)y0=y; if(y>y1)y1=y; }
-          if(x1>=x0&&y1>=y0)m={fw:(x1-x0+1)/N,fh:(y1-y0+1)/N}; }catch(_){ m=null; } done(m); };
+          if(x1>=x0&&y1>=y0)m={fw:(x1-x0+1)/N,fh:(y1-y0+1)/N,img:p}; }catch(_){ m=null; } done(m); };   // img＝帶 CORS 載好的那張圖，lgEdge 要照顯示大小重畫來量左右邊界
       p.onerror=()=>done(null); p.src=src; };
     const lgFit=img=>{ if(img.dataset.fit)return; const S=parseFloat(img.style.height)||img.height||0; if(!S)return; img.dataset.fit="0";
       // 先照「整張圖就是圖案」佔好固定寬的位子、置中：量不到圖案外框的時候（用檔案直接開 index.html、或跨網域沒開 CORS）也跟 FA 徽章對得齊（使用者 2026-11-21 回報本機舊網站沒對齊）
@@ -15029,17 +15054,17 @@ function render(){
         const E=w/m.fw;   // 整張正方形圖要畫多大，圖案才是 w×h
         // 圖案靠右貼著後面的縮寫（使用者 2026-11-20「有些隊徽的左右間隔比較大 導致跟右邊戰隊縮寫的視覺距離變遠了」）：
         //   每個隊徽仍佔固定寬 W 的位子（縮寫才會對齊），但圖案不再置中——窄的隊徽（DNS、MKOI）置中時兩邊各空一截；改成圖案右緣對齊位子右緣，空的全留在左邊
-        const pd=(E-w)/2; img.style.width=img.style.height=E+"px"; // 2026-11-21 使用者「各賽區的隊徽沒有置中 先置中後再寫隊名縮寫 然後隊名縮寫置右」：陣容表的隊名欄＝隊徽在固定寬的位子裡置中（各隊的隊徽對在同一條中線上）、
+        const pd=(E-w)/2, ed=m.img?lgEdge(m,E):null, pL=ed?E*ed.il:pd, pR=ed?E*ed.ir:pd;   // pL／pR＝圖檔左右「看起來是空的」那一截（對齊用）；pd＝外框算出來的（舊的，左右一樣）
+        img.style.width=img.style.height=E+"px"; // 2026-11-21 使用者「各賽區的隊徽沒有置中 先置中後再寫隊名縮寫 然後隊名縮寫置右」：陣容表的隊名欄＝隊徽在固定寬的位子裡置中（各隊的隊徽對在同一條中線上）、
         //   縮寫接在後面靠左；其他地方（消息的原隊／新隊、小框裡的隊伍）維持圖案左右貼齊，才不會離縮寫太遠
         img.style.margin=img.closest(".tbTeam,.trTeam")?`${(S-E)/2}px ${(W-E)/2}px`:`${(S-E)/2}px ${-pd}px`;   // 消息的原隊／新隊也用同一套（使用者 2026-11-21「都要採取這樣徽章置中放左邊 然後隊名置左的做法」）   /* 2026-11-20 再改「空白也不要留給左邊」：不留固定寬的位子，圖案左右都貼齊（縮寫的左緣因此會隨隊徽寬度不同） */ img.style.maxWidth="none";
-        img.style.setProperty("--lgpad",((E-w)/2)+"px");
+        img.style.setProperty("--lgpad",pL+"px"); img.style.setProperty("--lgpadR",pR+"px");
         // 小框裡「與 [隊徽] 縮寫」：字本身左右有留白（與 的右邊、縮寫第一個字母的左邊，每個字不一樣）⇒ 量墨水邊界把它扣掉，圖案兩側的實際空隙才會每一隊都一樣
         //   （使用者 2026-11-21「各隊 與→隊徽 是 5–6.5px、隊徽→縮寫 是 5–6px 不能一致嗎」）
-        const chip=img.closest(".tpTm"); if(chip){ try{ const cv=lgFit._c||(lgFit._c=document.createElement("canvas").getContext("2d"));
-            const ink=(el,tx,right)=>{ if(!tx)return 0; const g=getComputedStyle(el); cv.font=`${g.fontWeight} ${g.fontSize} ${g.fontFamily}`;   /* computed 的 font 簡寫在 Chromium 會是空字串，要自己組 */ const m=cv.measureText(tx); return Math.max(0,Math.min(3,right?(m.width-m.actualBoundingBoxRight):-m.actualBoundingBoxLeft)); };
+        const chip=img.closest(".tpTm"); if(chip){ try{
             const nx=[...chip.childNodes].find(n=>n.nodeType===3&&n.textContent.trim()), pv=chip.previousSibling;
-            const a=nx?ink(chip,nx.textContent.trim().charAt(0),false):0, b=(pv&&pv.nodeType===3&&pv.textContent.trim())?ink(chip.parentElement,pv.textContent.trim().slice(-1),true):0;
-            img.style.margin=`${(S-E)/2}px ${-pd-a}px ${(S-E)/2}px ${-pd-b}px`; }catch(_){} } }); };   // --lgpad＝圖檔左右的透明邊（手機版靠左對齊時扣掉）
+            const a=nx?inkB(chip,nx.textContent.trim().charAt(0),false):0, b=(pv&&pv.nodeType===3&&pv.textContent.trim())?inkB(chip.parentElement,pv.textContent.trim().slice(-1),true):0;
+            img.style.margin=`${(S-E)/2}px ${-pR-a}px ${(S-E)/2}px ${-pL-b}px`; }catch(_){} } }); };   // --lgpad／--lgpadR＝圖檔左右看起來是空的那一截（手機版靠左對齊時扣掉）
     const lgFitAll=root=>root.querySelectorAll(".tbTeam img,.trTeam img,.tpTm img,.rtHd img").forEach(lgFit);
     lgFitAll(main);
     // 手機卡片標題列：評分右邊的留空要跟隊徽左邊的留空一樣（使用者 2026-11-21）。評分靠右對齊時，最後一個字自己右側還有一截字內留白——
@@ -15048,7 +15073,7 @@ function render(){
     const rbFit=()=>{ try{ const cv=rbFit._c||(rbFit._c=document.createElement("canvas").getContext("2d"));
         main.querySelectorAll(".tbRow .tbRate .tbCv").forEach(v=>{ const w=document.createTreeWalker(v,NodeFilter.SHOW_TEXT); let n, last=null; while((n=w.nextNode())){ if(n.textContent.trim())last=n; }
           if(!last)return; const el=last.parentElement, g=getComputedStyle(el), ch=[...last.textContent.trim()].pop(); cv.font=`${g.fontWeight} ${g.fontSize} ${g.fontFamily}`;
-          const m=cv.measureText(ch), rb=Math.max(0,Math.min(parseFloat(g.fontSize)*0.7,m.width-m.actualBoundingBoxRight)), pc=el.closest(".rtPc");
+          const rb=Math.max(0,inkB(el,ch,true)), pc=el.closest(".rtPc");
           (pc||v).style.setProperty("--rb",rb.toFixed(2)+"px"); if(pc)v.style.setProperty("--rb","0px"); }); }catch(_){} };
     if(MODE!=="news"){ rbFit(); if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>{ if(main.isConnected)rbFit(); }); }
     if(MODE!=="news"){ // 格子提示（自建浮層：多行＋排版，原生 title 做不到）
