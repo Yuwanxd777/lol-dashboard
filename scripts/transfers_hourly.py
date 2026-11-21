@@ -79,7 +79,7 @@ REVIEW_BRIEF = """你是 LOL 儀表板「轉會」分頁的每小時複查員（
 - 不可以改 index.html、scripts/、autopilot/、.gitignore、任何 .bat；不可以 git commit／push；不可以開使用者的 Chrome；不可以呼叫任何付費 API。
 - 可以跑：python scripts/fetch_transfers.py（重算 transfers.js）、python scripts/transfers_dump.py（把畫面實際顯示的消息與陣容表倒成 transfers_review_dump.txt）。
 - 要查證可以用 WebFetch／WebSearch（查 Leaguepedia lol.fandom.com 的選手頁確認路線、現在的隊伍、二隊隊名）。
-- 內文貼的圖片可以抓下來看：只限 pbs.twimg.com、i.imgur.com、i.redd.it 這三個圖床的連結，用 curl 存到專案根目錄的 _review_tmp/（自己建），用 Read 工具打開看，看完把整個 _review_tmp/ 刪掉。
+- 內文貼的圖片可以抓下來看：只限 pbs.twimg.com、i.imgur.com、i.redd.it、i.mopix.cc 這幾個圖床的連結，用 curl 存到專案根目錄的 _review_tmp/（自己建），用 Read 工具打開看，看完把整個 _review_tmp/ 刪掉。
 
 【步驟】
 1. 讀 transfers_ptt_src.json，找出沒有 zh_fix 也沒有 hide 的條目（＝還沒複查）。每一則都要讀 body（只看內文，不看推文；內文在「※ 發信站」之前），然後擇一處理：
@@ -96,6 +96,9 @@ REVIEW_BRIEF = """你是 LOL 儀表板「轉會」分頁的每小時複查員（
 3. mv＝這則消息裡「誰傳出要去哪」：[[選手 ID, 路線, 新隊全名, 原隊全名], …]。隊名一定用 Leaguepedia 全名（Gen.G、Kiwoom DRX、Hanwha Life Esports、Dplus Kia、Bilibili Gaming、JD Gaming、
    T1 Esports Academy、Hanwha Life Esports Challengers、Dplus Kia Challengers…；不確定就查 wiki）。原隊不知道填 ""。只是「有興趣」「接觸中」而已也可以列，但同一則不要超過五筆。一則講到兩個人以上時，每筆後面加第五格＝只講這個人的一句話（陣容表小框會顯示它），例：["Cloud", "SUP", "Gen.G", "T1 Esports Academy", "Cloud 被多隊追逐，最可能落腳 GEN。"]。
    教練、分析師的 mv 路線寫 COACH；報導講明是「主教練」的，另外在條目加 "hc": [那個人的 ID]（陣容表會放進主教練欄，沒標的放後勤欄）。
+   **教練的傳聞一樣要寫 mv**，不要只改句子（使用者 2026-11-21：Inven 報 Roach 將任 T1 主教練、Xportsnews 報 UmTi 有望進 T1 教練團，兩則都沒寫 mv，陣容表上就完全沒有）。
+   Sheep 的教練推文：在 transfers_sheep_src.json 那則的 zh 把名字寫成 §COACH§名字，程式會放進陣容表的教練格（句子寫「出任／擔任…主教練」的進主教練欄，其餘進後勤欄）。
+   名字照 Leaguepedia 的 ID 寫（大小寫也照：HOYA 不是 Hoya、frosty 不是 Frosty）；寫錯大小寫程式會自動改回 wiki 的寫法，但句子裡最好一開始就寫對。
    一篇講很多隊（各隊陣容彙整、整理圖）⇒ 一隊拆一則：新條目的 id＝原 id 後面加 -1、-2…（照抄 title／ptt／st，各自寫 zh／en／mv），原條目留著當總結或其中一則；
    新條目的 body 只放跟那一隊有關的段落，而且不可以含 Sheep_Esports/status/ 的連結（程式會把它當成已收錄的 Sheep 轉貼，整則不列）。範例：M.1795235805.A.82F 與它的 -1～-12。
    整理文的重點在圖上（各隊名單表、整理圖）⇒ 一定要把圖抓下來看（使用者 2026-11-21「這篇…要點進去看圖」），而且圖上**每一隊都要拆一則**，不要只拆「之前沒有個別消息」的隊：
@@ -122,6 +125,9 @@ REVIEW_BRIEF = """你是 LOL 儀表板「轉會」分頁的每小時複查員（
    - FA 的位置照最新傳聞：選手被傳去當教練就列在教練格（Shini 在主教練欄不在打野欄）；傳聞人選現在沒有隊的，會列進傳聞那一隊所在聯賽的 FA（Croc）；
      有傳聞去別的聯賽的人，兩邊聯賽的 FA 都會列（Naak Nako 同時在 LEC 與 LCS）；退役的人排在那一格最後。
    - 五路都沒有人可以算分的隊（全員已宣布離隊，CFO、LEV），選手評分顯示「–」。
+   - LPL 新生訓練場的臨時名單（11/06 登錄、11/15 到期）那批選手不列在隊伍格子，列在 LPL 的 FA（合約到期 11/15）。
+   - 這個休賽期 wiki 記了離隊、現在沒有隊的教練與分析師，都會列在該聯賽 FA 的教練格（不管他原本的位置後來有沒有人補上）。
+   - 截圖跟網頁不一樣是刻意的：截圖只有五路＋教練（主教練與後勤併一欄，後勤裡合約到期的不列）、照第三賽段成績排、成績寫在隊名下面。
    - 同一件事三天內 Sheep 已經發過（同隊、句子裡的人名也對得上）⇒ PTT 那則畫面上不會列，這是去重，不用再 hide 也不用記成問題。
 6. 最後把這一輪做了什麼追加寫進 transfers_review_log.txt（一行日期時間，底下每則一行：id、處置、理由；有解決不了的問題寫「⚠ 待人工」開頭）。然後結束，不要做別的事。
 """

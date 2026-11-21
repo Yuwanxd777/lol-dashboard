@@ -347,6 +347,7 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
         a, b = str(ro.get("p") or "").replace("_", " ").strip().lower(), str(pg or "").replace("_", " ").strip().lower()
         return not (a and b and "(" in a and "(" in b and a != b)
     out = []
+    trial_out = []   # 臨時名單到期的人：[(隊, 路線, ID, 頁名, 到期日)]，FA 那段會用
     for tm in teams:
         c = cur.get(tm, {})
         prevkeys = {key(p) for v in prev.get(tm, {}).values() for p in v}
@@ -380,8 +381,13 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
                 if k in resign or key(pid) in resign:
                     e["rs"] = resign.get(k, resign.get(key(pid), "")) or "1"
                 jd = joined.get((k, tm), ("", ""))[0]
-                if jd and k not in prevkeys and "rs" not in e and any(t_["lg"] == lg_of.get(tm) and t_["from"] <= jd <= t_["to"] and t_["end"] < today for t_ in TRIALS):
-                    continue   # 臨時名單（見 TRIALS）：到期自動離隊，不列
+                tr_ = next((t_ for t_ in TRIALS if t_["lg"] == lg_of.get(tm) and t_["from"] <= jd <= t_["to"] and t_["end"] < today), None) if (jd and k not in prevkeys and "rs" not in e) else None
+                if tr_:
+                    # 臨時名單（見 TRIALS）：到期自動離隊，不列在隊伍格子；選手記下來，到期後列進該聯賽的 FA
+                    #   （使用者 2026-11-21「LPL 新生訓練場的臨時名單的那批選手 11/15算合約到期後 也要移動到FA區」）。教練不列
+                    if rr != "COACH":
+                        trial_out.append((tm, rr, pid, pg, tr_["end"]))
+                    continue
                 if jd >= since and k not in prevkeys and "rs" not in e:   # 續約／換職位也會記一筆 Join ⇒ 2026 名冊上本來就在的不算新加入
                     e["new"] = jd
                     if origin.get(k):
@@ -584,11 +590,14 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
                         settled.add(k_); settled.add(key(e["n"]))
         cand, seen_ = [], set()
         left_rc = {}   # 這個休賽期前後 wiki 記了「離隊」的（人, 隊）→ 離隊日
+        left_staff = {}   # 其中教練／分析師的：（人, 隊）→（頁名, 職稱）
         try:
             for i in range(0, len(teams), 20):
-                for y in cargo({"tables": "RosterChanges", "fields": "Player=p,Team=tm,Date_Sort=d", "limit": "5000", "format": "json",
+                for y in cargo({"tables": "RosterChanges", "fields": "Player=p,Team=tm,Date_Sort=d,Role=ro", "limit": "5000", "format": "json",
                                 "where": "RosterChanges.Team IN " + _in(teams[i:i + 20]) + f' AND RosterChanges.Direction="Leave" AND RosterChanges.Date_Sort>="{year}-08-01"'}):
                     left_rc[(key(y["p"]), y["tm"])] = max(left_rc.get((key(y["p"]), y["tm"]), ""), str(y.get("d") or "")[:10])
+                    if staff_code(y.get("ro") or "", ""):
+                        left_staff[(key(y["p"]), y["tm"])] = (str(y["p"]), y.get("ro") or "")   # 教練／分析師的離隊紀錄（頁名、職稱）
         except Exception as e:
             print(f"   離隊紀錄查詢失敗（自由人的教練不列上一位）：{type(e).__name__} {str(e)[:100]}")
         for x in out:
@@ -625,6 +634,23 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
                         cand.append((x, "COACH", y["p"], re.sub(r"\s*\([^()]*\)$", "", y["p"]), con.get((key(y["p"]), x["tm"]), ""), 0, "HC"))
         except Exception as e:
             print(f"   休假主教練查詢失敗：{type(e).__name__} {str(e)[:100]}")
+        # 臨時名單到期的人（trial_out）：合約算到臨時名單的到期日；他們本來就沒替這隊在一級聯賽上過場，不套「今年要上過場」那條
+        trial_keys = set()
+        _by_tm = {x["tm"]: x for x in out}
+        # wiki 記了離隊的教練／分析師：不管有沒有出現在格子或上一位都當候選（後面照樣會濾掉已經有新東家的）。
+        #   2026-11-21：T1 主教練格補上傳聞中的 Roach 之後，原本因為「沒人補上」留在格子裡的離隊教練改進上一位，
+        #   其中休假中（inactive）離隊的 kkOma 兩邊都不在，就從 LCK 的 FA 掉出去了（使用者 2026-11-20 定過「Homme kkOma 都算」）
+        #   條件：這個人在這隊最後一筆異動是離隊（換職稱會記一筆離隊再一筆加入，那種不算）、而且現在不在這隊的教練格裡
+        _have = {(key(c_[2]), tkey(c_[0]["tm"])) for c_ in cand}
+        _incell = {(key(e_.get("p") or e_["n"]), x_["tm"]) for x_ in out for e_ in x_["r"].get("COACH", []) if not e_.get("gone") and not e_.get("r")}
+        for (k_, tm_), (pg_, ro_) in left_staff.items():
+            x_ = _by_tm.get(tm_)
+            if x_ and (k_, tkey(tm_)) not in _have and (k_, tm_) not in green_out and (k_, tm_) not in _incell and (lastev.get((k_, tm_)) or {}).get("dir") == "Leave":
+                cand.append((x_, "COACH", pg_, re.sub(r"\s*\([^()]*\)$", "", pg_), con.get((k_, tm_), ""), 1, staff_code(ro_, "") or "C"))
+        for tm_, rr_, pid_, pg_, end_ in trial_out:
+            if _by_tm.get(tm_):
+                cand.append((_by_tm[tm_], rr_, pg_, pid_, end_, 0))
+                trial_keys.add((key(pg_), tkey(tm_)))
         pages_ = sorted({c_[2] for c_ in cand})
         now_tm, retd_, last_tm_ = {}, set(), {}
         for i in range(0, len(pages_), 40):
@@ -646,7 +672,7 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
             is_ret = k_ in retd_ or k_ in RET_KEYS   # 退役的人照樣列在自由人，前端灰字＋刪除線（使用者 2026-11-21「退役者依然幫我放到FA」）
             if k_ in seen_ or ((k_ in settled or key(nm_) in settled) and not is_ret):
                 continue
-            if rr != "COACH" and played is not None and (k_, tkey(x["tm"])) not in played and (key(nm_), tkey(x["tm"])) not in played:
+            if rr != "COACH" and played is not None and (k_, tkey(x["tm"])) not in played and (key(nm_), tkey(x["tm"])) not in played and (k_, tkey(x["tm"])) not in trial_keys:
                 continue
             t_now = now_tm.get(k_, "")
             if t_now and tkey(t_now) != tkey(x["tm"]):
@@ -770,14 +796,14 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
         # 有傳聞去別的聯賽 ⇒ 那個聯賽的自由人也列一份（使用者 2026-11-21「Naak Nako 這種…有傳聞去LEC 那麼兩邊的FA都要有他」）：
         #   同一筆資料（原隊、合約、傳聞去向都一樣）加到每個傳聞目的地所屬聯賽的同一格；x＝1 標記是跨聯賽補列的那一份
         try:
-            lg_of = {tkey(x["tm"]): x["lg"] for x in out}
-            lg_of.update({tkey(x["nm"]): x["lg"] for x in out})
+            lgk_ = {tkey(x["tm"]): x["lg"] for x in out}
+            lgk_.update({tkey(x["nm"]): x["lg"] for x in out})
             add_ = []
             for lg_, rows_ in by_lg.items():
                 for rr, L in rows_.items():
                     for e in L:
                         for ro in e.get("ros") or ([e["ro"]] if e.get("ro") else []):
-                            lg2 = lg_of.get(tkey(ro["to"]))
+                            lg2 = lgk_.get(tkey(ro["to"]))
                             if lg2 and lg2 != lg_:
                                 add_.append((lg2, rr, e))
             for lg2, rr, e in add_:
@@ -837,6 +863,38 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
             if x["tm"] == o_:
                 x["was"] = o_; x["tm"] = n_; x["nm"] = disp.get(n_, n_)
     out += fa_rows
+    # 名字的大小寫統一成 wiki 的寫法（使用者 2026-11-21「選手ID的大小寫統一 像是HOYA就有兩種寫法 統一成WIKI的寫法」）：
+    #   wiki 名冊來的名字本來就是 Players.ID；傳聞／自由人的名字是照報導寫的（Hoya、Harpoon…）⇒ 有頁名的查 Players.ID，只差大小寫就換掉。
+    #   原本的寫法留在 a（前端要靠它在消息內文裡認出這個人），小框引用句裡的舊寫法也一起換（英文對照表 TIP_EN 跟著補一筆）
+    try:
+        ents = [e for x in out for L in x["r"].values() for e in L if e.get("p") and (e.get("r") or e.get("fa") or e.get("tip"))]
+        pk_ = lambda p: str(p or "").replace("_", " ").strip().lower()
+        pgs = sorted({e["p"] for e in ents})
+        ids_ = {}
+        for i in range(0, len(pgs), 40):
+            for y in cargo({"tables": "Players", "fields": "Players.OverviewPage=pg,Players.ID=id", "where": "Players.OverviewPage IN " + _in(pgs[i:i + 40]), "limit": "500", "format": "json"}):
+                ids_[pk_(y["pg"])] = str(y["id"])
+        fix = {}
+        for e in ents:
+            w = ids_.get(pk_(e["p"]))
+            if w and w != e["n"] and w.lower() == str(e["n"]).lower():
+                fix[e["n"]] = w
+                e["a"] = e["n"]; e["n"] = w
+        if fix:
+            rx_ = re.compile(r"(?<![A-Za-z0-9])(" + "|".join(re.escape(a_) for a_ in sorted(fix, key=len, reverse=True)) + r")(?![A-Za-z0-9])")
+            fx_ = lambda t_: rx_.sub(lambda m_: fix[m_.group(1)], t_)
+            for x in out:
+                for L in x["r"].values():
+                    for e in L:
+                        for o in [e] + ([e["ro"]] if isinstance(e.get("ro"), dict) else []) + list(e.get("ros") or []):
+                            t0 = o.get("tip")
+                            if t0 and rx_.search(t0):
+                                o["tip"] = fx_(t0)
+                                if t0 in TIP_EN:
+                                    TIP_EN.setdefault(o["tip"], fx_(TIP_EN[t0]))
+            print(f"   名字大小寫統一成 wiki 寫法：{len(fix)} 人（{'、'.join(f'{a_}→{b_}' for a_, b_ in sorted(fix.items())[:12])}）")
+    except Exception as e:
+        print(f"   名字大小寫統一失敗（略過）：{type(e).__name__} {str(e)[:100]}")
     out.sort(key=lambda x: (ORDER.index(x["lg"]) if x["lg"] in ORDER else 9, x.get("fa", 0),
                             (rk.get(tkey(x["tm"])) or rk.get(tkey(x["nm"])) or (999, 999, 999, ""))[:3], x["tm"].lower()))
     return out
@@ -1171,12 +1229,18 @@ def parse_sheep(sheep):
             put(n.lower(), {"tm": inn[0][1], "rr": lane_, "n": n, "p": pg, "d": x["d"], "tip": tip, "st": st, "src": x.get("src") or "", "u": x.get("url") or "",
                             "from": out[0] if out else "", "sr": x.get("sr") or ""})
             continue
-        m = re.search(r"§(TOP|JNG|MID|BOT|SUP)§" + _NM, zh)
+        # 路線記號也認 §COACH§（使用者 2026-11-21「據 Inven，教練Roach 將出任 T1 2027 年主教練…怎沒列出」：Sheep 的教練傳聞原本完全進不了陣容表，
+        #   只有 PTT 條目手寫的 mv 才會）。transfers_sheep_src.json 的 zh 寫 §COACH§名字 即可；句子講明「出任／擔任…主教練」（或英文 as Head Coach）的放主教練欄，其餘放後勤欄
+        m = re.search(r"§(TOP|JNG|MID|BOT|SUP|COACH)§" + _NM, zh)
         if not m:
             continue
         n, pg = _name(m, 2)
-        put(n.lower(), {"tm": inn[0][1], "rr": m.group(1), "n": n, "p": pg, "d": x["d"], "tip": tip, "st": st, "src": x.get("src") or "", "u": x.get("url") or "",
-                        "from": out[0] if out else ""})
+        it_ = {"tm": inn[0][1], "rr": m.group(1), "n": n, "p": pg, "d": x["d"], "tip": tip, "st": st, "src": x.get("src") or "", "u": x.get("url") or "",
+               "from": out[0] if out else ""}
+        if m.group(1) == "COACH" and (re.search(r"(出任|擔任|接任|接掌|成為|轉任)[^。；，、]{0,14}主教練", zh)
+                                      or re.search(r"\bas (?:the |their |its )?(?:new |next )?head coach\b", x.get("en") or "", re.I)):
+            it_["sr"] = "HC"
+        put(n.lower(), it_)
     res = {}
     for L in best.values():
         for v in L:

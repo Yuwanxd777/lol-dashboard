@@ -423,7 +423,7 @@ def staff_only_noise(x):
 def player_roles(cargo, items, skip):
     """消息內文裡出現、但陣容表沒有的人（二隊選手、退役選手、教練…）的位置：向 Leaguepedia Players 查 ID → 路線／教練
     （使用者 2026-11-20「沒標後面兩位選手的路線」「Nuguri 是上路」「Roach 是教練」「這種類似問題都幫我解決」）。
-    items＝[(內文, {賽區…})]；skip＝隊名／縮寫等不是人名的字。回傳 {名字: [路線代碼, wiki 頁名]}。
+    items＝[(內文, {賽區…})]；skip＝隊名／縮寫等不是人名的字。回傳 {名字: [路線代碼, wiki 頁名, wiki 的 ID 寫法]}。
     同名多人（Valiant 有韓國的也有挪威的）⇒ 用提到他的消息的賽區對 Residency 挑；挑不出唯一就不標（寧可不標也不要連錯人）"""
     RES = {"韓國": {"Korea"}, "中國": {"China"}, "歐洲": {"EMEA", "Europe"}, "北美": {"North America"}, "巴西": {"Brazil"},
            "亞太": {"PCS", "Vietnam", "Japan", "Oceania", "SEA", "LAS", "LCP"}, "越南": {"Vietnam"}, "日本": {"Japan"}}
@@ -446,7 +446,7 @@ def player_roles(cargo, items, skip):
     for r in rows:
         ro = LMAP.get((r.get("ro") or "").split(",")[0].strip())
         if ro:
-            by.setdefault(str(r["id"]).lower(), []).append({"ro": ro, "pg": r["pg"], "tm": bool(r.get("tm")), "res": r.get("res") or ""})
+            by.setdefault(str(r["id"]).lower(), []).append({"ro": ro, "pg": r["pg"], "tm": bool(r.get("tm")), "res": r.get("res") or "", "id": str(r["id"])})
     out = {}
     for n in names:
         c = by.get(n.lower()) or []
@@ -455,7 +455,7 @@ def player_roles(cargo, items, skip):
             c2 = [x for x in c if x["res"] in want] if want else []
             c = c2 if len(c2) == 1 else ([x for x in c if x["tm"]] if len([x for x in c if x["tm"]]) == 1 and not want else [])
         if len(c) == 1:
-            out[n] = [c[0]["ro"], c[0]["pg"]]
+            out[n] = [c[0]["ro"], c[0]["pg"], c[0]["id"]]   # 第三格＝wiki 上的 ID 寫法（前端把消息內文裡的名字統一成這個大小寫；使用者 2026-11-21）
     return out
 
 

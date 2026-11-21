@@ -100,11 +100,14 @@ function addBase(){ const f=main.querySelector(".filters"); if(!f)return;
   // 2026-11-21 使用者「小按鈕裡面的圖示要置中 然後要圓潤化清晰化 不要看起來很粗糙」：用一般螢幕（100%／125% 縮放）實際截圖放大看，原本的問題是
   //   ①圖示 19px 放在 34px 的按鈕裡，左右各 7.5px＝落在半個像素上，整個圖會糊、看起來也偏一點 ②線寬 1.9 縮到 19px 只剩 1.5px，斜線斷斷續續。
   //   ⇒ 線加粗到 2、圓角接頭與圓角機身，圖示改成偶數尺寸（22px；手機 20px）讓它落在整數像素上，圖案的外框都在 24 格的正中間
-  const SV=d=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
-  const IC={help:SV('<circle cx="12" cy="12" r="8.6"/><path d="M12 11.2v5"/><circle cx="12" cy="7.8" r="1.15" fill="currentColor" stroke="none"/>'),
-    reset:SV('<path d="M20 12a8 8 0 1 1-2.34-5.66"/><path d="M20.2 4v4.8h-4.8"/>'),
+  // 2026-11-21 晚再修「小按鈕內的圖示感覺邊緣有點鋸齒」：22px 是把 24 格的圖縮成 0.917 倍，2px 的線變 1.83px、每條線的邊都落在小數像素上，
+  //   直線一邊實一邊虛、圓與斜線的階梯特別明顯。⇒ 圖示改用 24px 原尺寸（34px 的按鈕左右各留 5px，仍是整數），線寬剛好 2px，
+  //   直線、橫線的中心都放在整數格（x＝12、y＝4、y＝9…），圓的半徑用整數；Discord 22px（左右各 6px）
+  const SV=d=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision" aria-hidden="true">${d}</svg>`;
+  const IC={help:SV('<circle cx="12" cy="12" r="9"/><path d="M12 11v6"/><circle cx="12" cy="7.5" r="1.3" fill="currentColor" stroke="none"/>'),
+    reset:SV('<path d="M20 12a8 8 0 1 1-2.34-5.66"/><path d="M20 4v5h-5"/>'),
     shot:SV('<path d="M5.2 7.5h2.3l1.2-1.8a1.2 1.2 0 0 1 1-.53h4.6a1.2 1.2 0 0 1 1 .53l1.2 1.8h2.3a1.9 1.9 0 0 1 1.9 1.9v7.5a1.9 1.9 0 0 1-1.9 1.9H5.2a1.9 1.9 0 0 1-1.9-1.9V9.4a1.9 1.9 0 0 1 1.9-1.9z"/><circle cx="12" cy="13" r="3.2"/>'),
-    share:SV('<path d="M20.6 4.4H3.4l6.3 6.4 2.3 9z"/><path d="M20.6 4.4 9.8 10.9"/>')};   // 紙飛機（使用者 2026-11-21「分享的按鈕圖 要跟 IG 分享的那圖案一樣」）；主站 index.html 的 #trShare 是同一個形狀
+    share:SV('<path d="M21 4H3l6.5 6.5L12 20z"/><path d="M21 4 9.5 10.5"/>')};   // 紙飛機（使用者 2026-11-21「分享的按鈕圖 要跟 IG 分享的那圖案一樣」）；主站 index.html 的 #trShare 是同一個形狀
   if(!document.getElementById("tsBtnCss")){ const st=document.createElement("style"); st.id="tsBtnCss";
     st.textContent=`.trBar .sqbtn,.trBar #trDc,.trBar #trFb{width:34px!important;height:34px!important;min-width:34px!important;padding:0!important;border-radius:10px!important;display:inline-flex!important;align-items:center;justify-content:center;box-shadow:none!important;font-size:0!important;line-height:0!important;transition:transform .12s,background .12s,border-color .12s,filter .12s;-webkit-tap-highlight-color:transparent}
 .trBar button.sqbtn{background:#1a2234!important;border:1px solid rgba(255,255,255,.14)!important;color:#c9d4ea!important}
@@ -116,8 +119,8 @@ function addBase(){ const f=main.querySelector(".filters"); if(!f)return;
 #tsHelpBox .tsHpHd{position:sticky;top:0;z-index:2;display:flex;align-items:center;min-height:46px;margin-bottom:8px;background:#1b2338;white-space:nowrap;font-size:17px;font-weight:800;color:#e8ecf4;border-bottom:1px solid rgba(255,255,255,.1)}
 #tsHelpBox .tsHpHd b{flex:1;font-weight:800}
 #tsHelpBox .tbTipX{position:static;flex:0 0 auto;margin-right:-10px}
-.trBar .sqbtn svg,.trBar #trDc svg,.trBar #trFb svg{width:22px;height:22px;display:block;flex:0 0 auto}
-.trBar #trDc svg{width:20px;height:20px}
+.trBar .sqbtn svg,.trBar #trDc svg,.trBar #trFb svg{width:24px;height:24px;display:block;flex:0 0 auto}
+.trBar #trDc svg{width:22px;height:22px}
 @media (max-width:400px){.trBar .sqbtn,.trBar #trDc,.trBar #trFb{width:30px!important;height:30px!important;min-width:30px!important;border-radius:9px!important}.trBar .sqbtn svg,.trBar #trFb svg{width:20px;height:20px}.trBar #trDc svg{width:18px;height:18px}}`;
     document.head.appendChild(st); }
   f.insertAdjacentHTML("beforeend",b("tsHelp",IC.help,LANG==="en"?"About this page":"本頁說明")+b("tsReset",IC.reset,LANG==="en"?"Reset filters":"重設篩選"));
@@ -145,11 +148,19 @@ function addBase(){ const f=main.querySelector(".filters"); if(!f)return;
         // 空隙用一塊固定在最上面的底色板蓋住（#tsCover，疊在欄名列之下），不再用篩選列的陰影——陰影會跟著圓角長出一塊方方的黑邊（使用者 2026-11-21「捲動的時候 上面介面的邊緣變得不圓滑」）
         if(!document.getElementById("tsCover")){ const c=document.createElement("div"); c.id="tsCover"; document.body.appendChild(c); const k=document.createElement("div"); k.id="tsCap"; k.innerHTML="<i></i>"; document.body.appendChild(k); }
         // 捲動後那張表的上緣也要是圓角（表本身的上緣已經捲到底色板後面）⇒ 在同一個位置畫一段一模一樣的「卡片上緣」（邊框、圓角、底色都讀自那張表）
-        if(bd){ const k=document.getElementById("tsCap"), q=k.firstChild, c=getComputedStyle(bd), r=bd.getBoundingClientRect(); k.style.left=r.left+"px"; k.style.width=r.width+"px"; k.style.top=r.top+"px"; k.style.height=c.borderTopLeftRadius;
-          q.style.border=c.borderTopWidth+" solid "+c.borderTopColor; q.style.borderRadius=c.borderTopLeftRadius; q.style.background=(/rgb\([^)]*\)/.exec(c.backgroundImage)||[c.backgroundColor])[0]; }
+        //   （位置與樣式在下面每次都重算，這裡只負責建立元素與量空隙）
         if(bd){ R.setProperty("--tsG0",Math.max(0,Math.round(bd.getBoundingClientRect().top-bar.getBoundingClientRect().bottom))+"px"); const c2=getComputedStyle(bd), cb=(/rgb\([^)]*\)/.exec(c2.backgroundImage)||[c2.backgroundColor])[0]; if(cb&&!/rgba\(0, 0, 0, 0\)|transparent/.test(cb))R.setProperty("--tsCB",cb); }   // 欄名列與它上方那一小條的底色＝卡片上緣的顏色（卡片是漸層，取第一個顏色；跟 #tsCap 同一個來源）——原本讀 backgroundColor 是透明的，結果退回預設色，跟卡片、欄名列各差一階（使用者 2026-11-21「電腦版的這列 背景色怪怪的」）
-        if(hh)R.setProperty("--tsG",Math.max(0,Math.round(hh.getBoundingClientRect().top-bar.getBoundingClientRect().bottom))+"px"); } };
-    addEventListener("resize",()=>window._tsStick()); }
+        if(hh)R.setProperty("--tsG",Math.max(0,Math.round(hh.getBoundingClientRect().top-bar.getBoundingClientRect().bottom))+"px");
+        if(bd)window._tsStick.g=[Math.max(0,Math.round(bar.getBoundingClientRect().top-hd.getBoundingClientRect().bottom)),Math.max(0,Math.round(bd.getBoundingClientRect().top-bar.getBoundingClientRect().bottom))]; }
+      // 卡片上緣那一段（#tsCap）每次都重算：原本只在頁面最上面時算一次 ⇒ 捲下去之後縮放網頁（Ctrl +／−）或改視窗大小，篩選列換了行數、卡片換了寬度，
+      //   它還停在舊的位置與寬度——橫在篩選列中間、右邊凸出一截，卡片上緣也沒有圓角（使用者 2026-11-21「縮放網頁比例後 篩選列會跑掉歪掉」）。
+      //   左右照卡片現在的位置；上緣＝卡片在頁面最上面時的位置＝頁首高＋空隙＋篩選列高＋空隙（空隙是固定的版面距離，在最上面時量好存在 _tsStick.g）
+      { const k=document.getElementById("tsCap"); if(k&&bd){ const q=k.firstChild, c=getComputedStyle(bd), r=bd.getBoundingClientRect(), g=window._tsStick.g||[0,0];
+          k.style.left=r.left+"px"; k.style.width=r.width+"px"; k.style.top=(sy<4?r.top:hd.offsetHeight+g[0]+bar.offsetHeight+g[1])+"px"; k.style.height=c.borderTopLeftRadius;
+          q.style.border=c.borderTopWidth+" solid "+c.borderTopColor; q.style.borderRadius=c.borderTopLeftRadius; q.style.background=(/rgb\([^)]*\)/.exec(c.backgroundImage)||[c.backgroundColor])[0]; } } };
+    addEventListener("resize",()=>window._tsStick());
+    // 一開始就在捲動中的位置（重新整理後瀏覽器還原捲動位置）量不到空隙 ⇒ 第一次回到最上面時補量
+    addEventListener("scroll",()=>{ if(scrollY<4&&!window._tsStick.g)window._tsStick(); },{passive:true}); }
   window._tsStick(); setTimeout(window._tsStick,300);
   // 說明＝懸浮顯示（使用者 2026-11-20「手機的說明鈕點擊後也是懸浮顯示」）：手機從底部浮上來（跟格子小框同款）、桌面在右上；點 ✕ 或外面關閉
   document.getElementById("tsHelp").onclick=ev=>{ ev.stopPropagation(); let d=document.getElementById("tsHelpBox"); if(d){ d.remove(); return; }

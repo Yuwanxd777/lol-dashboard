@@ -1056,7 +1056,7 @@
   .ntDoc details.ntSec[open]{padding-bottom:8px}
   /* 轉會「陣容表」（2026-11-19，參考巴哈 LCK 陣容圖）：左＝戰隊，六大聯賽一路往下；欄＝上野中下輔＋教練；*＝傳聞 */
   .tbBoard{padding:6px 16px 14px;display:grid;grid-template-columns:max-content repeat(6,minmax(0,1fr)) minmax(0,1.4fr) max-content;column-gap:0}   /* 上路～主教練六欄等寬、後勤稍寬 1.4 倍（使用者 2026-11-21 先要七欄等寬，看到後勤換行太多後改成「把後勤那欄稍微拉大 其餘六欄一致」） */   /* 教練欄人多 ⇒ 1.8 倍寬；末欄＝轉會評分 */
-  .tbN.tbRet,b.tbRet{color:#8b98ad;text-decoration:line-through}.tbLegend .sqLaneBtn b.tbRet{text-decoration:none;display:inline-block;background:linear-gradient(currentColor,currentColor) left 54%/100% 1.5px no-repeat}.tbN.tbY,b.tbY{color:#ffc850}.tbN.tbNew,b.tbNew{color:#ff5a5a}.tbN.tbExp,b.tbExp{color:#5aa9ff}.tbN.tbRs,b.tbRs{color:#ff8ec6}.tbN.tbPm,b.tbPm{color:#ff8ec6}.tbN.tbOut,b.tbOut{color:#4cd07d}.tbOk{color:#4cd07d;font-size:14px;margin-left:2px}.tbN.tbGone{text-decoration:line-through;text-decoration-thickness:1px}.tbN.tbDim{opacity:.2}.tbVacN{font-style:normal;font-size:11px;font-weight:700;color:var(--tx2);margin-left:6px;padding:0 6px;border:1px solid rgba(255,255,255,.2);border-radius:999px;white-space:nowrap}.tbLegend .sqLaneBtn b{font-weight:700}.tbLgB{display:inline-flex;align-items:center;gap:2px}.tbLgSep{font-style:normal;color:var(--tx2);margin:0 3px}.tbLegend .sqLaneBtn{margin-right:2px}.tbLegend .sqLaneBtn.on,.trBar .sqLaneBtn[data-mk].on{background:rgba(255,255,255,.14);border-color:var(--tx);box-shadow:0 0 0 1px var(--tx) inset;color:var(--tx)}.tbLgG .sqLaneBtn:not(.on){background:transparent;border-color:transparent}   /* 兩兩一框（使用者 2026-11-20：新加入＋續約｜合約到期＋離隊｜可能轉會＋傳聞），框之間不畫線 */.trFG{display:inline-flex;align-items:center;gap:6px;padding-left:12px;border-left:1px solid rgba(255,255,255,.16)}.trFG:first-child{border-left:0;padding-left:0}.trFG>label{margin-right:2px}.tbLegend{display:inline-flex;gap:6px;align-items:center}.trSrc-kr{color:#ff9a6b;background:rgba(255,154,107,.12)}.trSrc-ptt{color:#c9d1e0;background:rgba(255,255,255,.08)}.trSrc-man{color:#ffd166;background:rgba(255,209,102,.12)}
+  .tbN.tbRet,b.tbRet{color:#8b98ad;text-decoration:line-through}.tbLegend .sqLaneBtn b.tbRet{text-decoration:none;display:inline-block;background:linear-gradient(currentColor,currentColor) left 54%/100% 1.5px no-repeat}.tbN.tbY,b.tbY{color:#ffc850}.tbN.tbNew,b.tbNew{color:#ff5a5a}.tbN.tbExp,b.tbExp{color:#5aa9ff}.tbN.tbRs,b.tbRs{color:#ff8ec6}.tbN.tbPm,b.tbPm{color:#ff8ec6}.tbN.tbOut,b.tbOut{color:#4cd07d}.tbOk{color:#4cd07d;font-size:14px;margin-left:2px}.tbN.tbGone{text-decoration:line-through;text-decoration-thickness:1px}.rtBox .tbN.tbGone{text-decoration:none}   /* 評分小框的原隊選手不畫刪除線（使用者 2026-11-21「評分小框的原隊選手 離隊也不用加刪除線了」）；格子的小框與自由人照舊 */.tbN.tbDim{opacity:.2}.tbVacN{font-style:normal;font-size:11px;font-weight:700;color:var(--tx2);margin-left:6px;padding:0 6px;border:1px solid rgba(255,255,255,.2);border-radius:999px;white-space:nowrap}.tbLegend .sqLaneBtn b{font-weight:700}.tbLgB{display:inline-flex;align-items:center;gap:2px}.tbLgSep{font-style:normal;color:var(--tx2);margin:0 3px}.tbLegend .sqLaneBtn{margin-right:2px}.tbLegend .sqLaneBtn.on,.trBar .sqLaneBtn[data-mk].on{background:rgba(255,255,255,.14);border-color:var(--tx);box-shadow:0 0 0 1px var(--tx) inset;color:var(--tx)}.tbLgG .sqLaneBtn:not(.on){background:transparent;border-color:transparent}   /* 兩兩一框（使用者 2026-11-20：新加入＋續約｜合約到期＋離隊｜可能轉會＋傳聞），框之間不畫線 */.trFG{display:inline-flex;align-items:center;gap:6px;padding-left:12px;border-left:1px solid rgba(255,255,255,.16)}.trFG:first-child{border-left:0;padding-left:0}.trFG>label{margin-right:2px}.tbLegend{display:inline-flex;gap:6px;align-items:center}.trSrc-kr{color:#ff9a6b;background:rgba(255,154,107,.12)}.trSrc-ptt{color:#c9d1e0;background:rgba(255,255,255,.08)}.trSrc-man{color:#ffd166;background:rgba(255,209,102,.12)}
   .tbLegend{display:inline-flex;gap:12px;align-items:center}.tbLegend b.tbStay{color:#fff}
   .tbCell.tbFaCo{display:none}   /* FA 列「主教練＋後勤併成一格」那格只給手機卡片用（手機那段樣式會打開它、改藏原本兩格）；電腦版照舊兩欄 */
   .tbHd,.tbRow{grid-column:1/-1;display:grid;grid-template-columns:subgrid;align-items:center}
@@ -1098,7 +1098,7 @@
   .tpP{padding:8px 10px;border-radius:8px;background:rgba(255,255,255,.04);margin-top:8px}
   .tpP:first-of-type{margin-top:0}
   /* 分享視窗（使用者 2026-11-21）：電腦置中、手機從底部浮上來 */
-  .trShIc{width:22px;height:22px;display:block;margin:auto;color:#eef2fb}
+  .trShIc{width:24px;height:24px;display:block;margin:auto;color:#eef2fb}   /* 24 格的圖用原尺寸畫（22px 會縮成 0.917 倍，線的邊緣落在小數像素上、看起來有鋸齒；使用者 2026-11-21） */
   .trShD{position:fixed;inset:0;z-index:10000;display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box;background:rgba(5,8,14,.74)}
   .trShD .trShBox{width:min(560px,100%);max-height:calc(100vh - 32px);overflow:auto;box-sizing:border-box;padding:0 18px 18px;border-radius:14px;background:#161c2b;border:1px solid #2a3345;box-shadow:0 12px 44px rgba(0,0,0,.55);color:#e8ecf4;font-size:15px;text-align:left}
   .trShHd{display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:2;margin:0 -18px 10px;padding:6px 18px 4px;background:#161c2b;box-shadow:inset 18px 0 0 #161c2b,inset -18px 0 0 #161c2b,inset 0 -1px 0 rgba(255,255,255,.1)}.trShHd b{flex:1;font-size:17px;font-weight:800}   /* 標題列黏在視窗頂端：圖很多要捲動時，X 不會跟著捲走。外框的上留白改放在標題列自己身上——sticky 的 top:0 是從外框的「內容邊」算，外框留著上留白的話，用負邊距也拉不上去（實測還是離頂 16px） */
@@ -1224,7 +1224,7 @@
   .trRole{display:inline-block;font-size:12.5px;padding:0 6px;margin:0 4px 0 2px;border-radius:5px;background:rgba(255,200,80,.14);color:#ffc850;vertical-align:1px}
   .trTx{min-width:0;word-break:break-word;display:flex;align-items:center;gap:12px}.trTxt{flex:1 1 auto;min-width:0}.trLks{flex:0 0 auto;margin-left:auto;display:flex;gap:10px;white-space:nowrap}.trLks .trLk{margin-left:0}   /* 來源連結置右（使用者 2026-11-20） */
   .trLk{font-size:13px;color:#7fb2ff;white-space:nowrap;margin-left:6px}
-  .trNb{white-space:nowrap}.trLk1{display:none}.trNIc{width:1.35em;height:1.35em;object-fit:cover;border-radius:4px;vertical-align:-.3em;display:inline-block}.trSW{display:inline-flex;align-items:center;gap:8px;white-space:nowrap}   /* 手機版第一列右邊那一個來源連結；桌面不顯示 */
+  .trNb{white-space:nowrap}.trLk1{display:none}.trNIc{width:1.35em;height:1.35em;object-fit:cover;border-radius:4px;vertical-align:-.3em;display:inline-block}.trSW{display:inline-flex;align-items:center;gap:8px;white-space:nowrap;margin-left:auto}   /* margin-left:auto：篩選列放不下、搜尋被擠到下一排時仍靠右（使用者 2026-11-21「縮放網頁比例後 篩選列會跑掉歪掉」：前面那個 flex:1 的空白留在上一排尾端，搜尋與小按鈕換到下一排就變成靠左） */   /* 手機版第一列右邊那一個來源連結；桌面不顯示 */
   /* 窄版：第一行＝狀態＋原隊 ➜ 新隊（橫排），第二行＝消息全寬；欄標題收起 */
   @container mainc (max-width:999.98px){.trList{grid-template-columns:max-content minmax(0,1fr)}.trHead{display:none}
     .trFlow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;grid-column:2;grid-row:1}
@@ -14437,13 +14437,20 @@ function render(){
     //   （使用者 2026-11-20「消息頁面很多選手沒有標註路線圖」「很多選手沒有標記超連結」）。比對分大小寫、前後不能接英數字
     const pn0=s=>String(s||"").replace(/\s*\([^()]*\)\s*$/,"");   // 同陣容表的 pn（那個定義在後面，這裡先用不到它）
     const PLM=new Map(), addPl=(n,p,l)=>{ n=String(n||"").trim(); if(n.length<2)return; try{ p=decodeURIComponent(String(p||"")); }catch(_){} const o=PLM.get(n)||{}; PLM.set(n,{p:o.p||p||"",l:o.l||l||""}); };
-    (D.board||[]).forEach(t=>{ Object.entries(t.r||{}).forEach(([r,L])=>L.forEach(e=>addPl(pn0(e.n),e.p,r)));
+    (D.board||[]).forEach(t=>{ Object.entries(t.r||{}).forEach(([r,L])=>L.forEach(e=>{ addPl(pn0(e.n),e.p,r); if(e.a)addPl(pn0(e.a),e.p,r); }));   // a＝報導原本的寫法（資料端已把 n 統一成 wiki 的大小寫），內文裡的舊寫法靠它認人
       Object.entries(t.prev||{}).forEach(([r,L])=>L.forEach(p=>{ const o=typeof p==="string"?{n:p}:p; addPl(pn0(o.n),o.n,r); })); });
     [...(D.wiki||[]),...(D.sheep||[])].forEach(x=>((x.en||"")+" "+(x.zh||"")).replace(/(?:§(TOP|JNG|MID|BOT|SUP|COACH)§)?‹([^|›]+)\|([^›]+)›/g,(m,l,p,d)=>{ let pg=p; try{pg=decodeURIComponent(p);}catch(e){} addPl(d,pg.replace(/_/g," "),l||""); return m; }));
     // 陣容表沒有的人（二隊、退役、教練）：排程向 Leaguepedia 查好的位置（transfers.js 的 roles；使用者 2026-11-20 Cracker／Nuguri／Roach）
     // 跟隊伍縮寫／隊名同字的不算人名（NAVI 被當成中路選手，使用者 2026-11-20 檢視時發現）
     const TMW=new Set([...BTM.flatMap(b=>b.al),...TN.keys(),...TN.values()].map(z=>String(z).toLowerCase()));
     Object.entries(D.roles||{}).forEach(([n,v])=>{ if(!TMW.has(n.toLowerCase()))addPl(n,v[1],v[0]); });
+    // 名字的大小寫統一成 wiki 的寫法（使用者 2026-11-21「選手ID的大小寫統一 像是HOYA就有兩種寫法 統一成WIKI的寫法」）：
+    //   陣容表的名字資料端已經換好；消息內文是照報導寫的（Hoya／HOYA）⇒ 畫連結文字時用「頁名 → wiki 的 ID」對照表換掉，只在兩者只差大小寫時才換
+    //   CID 來源＝陣容表每個人的（頁名, 名字）＋ roles 第三格（排程向 Leaguepedia 查到的 Players.ID）
+    const CID=new Map(), pgK=p=>{ let z=String(p||""); try{ z=decodeURIComponent(z); }catch(_){} return z.replace(/_/g," ").trim().toLowerCase(); };
+    (D.board||[]).forEach(t=>Object.values(t.r||{}).forEach(L=>L.forEach(e=>{ if(e.p)CID.set(pgK(e.p),pn0(e.n)); })));
+    Object.values(D.roles||{}).forEach(v=>{ if(v&&v[1]&&v[2]&&!CID.has(pgK(v[1])))CID.set(pgK(v[1]),v[2]); });
+    const cidOf=(p,d)=>{ const c=CID.get(pgK(p)); return c&&c.toLowerCase()===String(d).toLowerCase()?c:d; };
     const PLRE=PLM.size?new RegExp("(§[A-Z]+§)?(?<![A-Za-z0-9|‹])("+[...PLM.keys()].sort((a,b)=>b.length-a.length).map(n=>n.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")).join("|")+")(?![A-Za-z0-9›|])","g"):null;
     // 多字隊名整段保護（使用者 2026-11-20「錯誤的把 LIFE 標註了」：Hanwha Life Esports 裡的 Life 被當成輔助 Life）；
     //   去掉 Esports／Gaming 的短名（Hanwha Life）也算
@@ -14460,7 +14467,7 @@ function render(){
           return (pre||(o.l&&o.l!=="COACH"?`§${o.l}§`:o.l==="COACH"?"§COACH§":""))+lk; }); }).join(""); };
     const txt=x=>{ let t=esc(clean(autoPl(((en2?(x.en||x.zh):(x.zh||x.en))||"").replace(/^\s*(【[^】]{1,4}】|\[[A-Z]+\])\s*/,""))).replace(CO,(m,n,a,b)=>`⟦C:${a||b}⟧${n}⟦R:${a||b}⟧`))
         .replace(/https?:\/\/[^\s<]+/g,u=>`<a class="trPl" href="${u}" target="_blank" rel="noopener">${en2?"Article":"文章"}</a>`)
-        .replace(/§COACH§/g,()=>`<img class="trCoach" src="img/COACH.png" alt="${en2?"Coach":"教練"}" title="${en2?"Coach":"教練"}">`).replace(/‹([^|›]+)\|([^›]+)›/g,(m,p,d)=>`<a class="trPl" href="https://lol.fandom.com/wiki/${p}" target="_blank" rel="noopener">${d}</a>`).replace(/§(TOP|JNG|MID|BOT|SUP)§/g,(m,r)=>POS_IMG[r]?`<img class="trRole" src="${POS_IMG[r]}" alt="${RL[r]}" title="${RL[r]}">`:`<span class="trRole">${RL[r]}</span>`)
+        .replace(/§COACH§/g,()=>`<img class="trCoach" src="img/COACH.png" alt="${en2?"Coach":"教練"}" title="${en2?"Coach":"教練"}">`).replace(/‹([^|›]+)\|([^›]+)›/g,(m,p,d)=>`<a class="trPl" href="https://lol.fandom.com/wiki/${p}" target="_blank" rel="noopener">${cidOf(p,d)}</a>`).replace(/§(TOP|JNG|MID|BOT|SUP)§/g,(m,r)=>POS_IMG[r]?`<img class="trRole" src="${POS_IMG[r]}" alt="${RL[r]}" title="${RL[r]}">`:`<span class="trRole">${RL[r]}</span>`)
         .replace(/⟦C:([^⟧]*)⟧/g,(m,r)=>`<img class="trCoach" src="img/COACH.png" alt="${r}" title="${r}">`)
         .replace(/⟦R:([^⟧]*)⟧/g,(m,r)=>/→|->| to /.test(r)?`<span class="trCoachTx">${r}</span>`:"").replace(/(?:主教練|助理教練|代理主教練|教練)\s*(?=(?:<[^>]+>)*<img class="trCoach")/g,"").replace(/\n/g,"<br>");   // 職稱不寫（滑過哨子圖看得到；使用者 2026-11-20「戰術教練 Sephis 戰術教練 離隊，寫離隊就好」），只留職稱異動
       if(TNRE)t=t.replace(/(^|>)([^<]+)/g,(m,a,b)=>a+b.replace(TNRE,n=>`<a class="trAb" href="${tmWk(n.replace(/&amp;/g,"&"))}" target="_blank" rel="noopener" title="${n}">${esc(TNE.get(n)||n)}</a>`));
@@ -14899,7 +14906,7 @@ function render(){
       // 分享（使用者 2026-11-21）：同一套截圖，不下載、直接帶去 Facebook／Instagram／Threads 發文
       //   order：主站的 orderBaseBtns 會把行內 order≥1 的照數字搬到基礎按鈕（📸 ℹ️ ↺ ←）左邊 ⇒ 給 2，排在 FB／Discord 之後、緊貼 📸；
       //   轉會網站（有 TS_DATA）沒有那套搬動，照 DOM 順序排 ⇒ 給 1，接在 📸 後面
-      +`<button id="trShare" class="sqbtn" style="order:${window.TS_DATA?1:2}" title="${en2?"Screenshots: download or share to Facebook / Instagram / Threads":"截圖：下載，或分享到 Facebook／Instagram／Threads"}"><svg class="trShIc" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.6 4.4H3.4l6.3 6.4 2.3 9z"/><path d="M20.6 4.4 9.8 10.9"/></svg></button>`   /* 紙飛機＝社群 App 的「分享」圖示（使用者 2026-11-21「分享的按鈕圖 要跟 IG 分享的那圖案一樣」）；轉會網站會換成自己那套線條圖示的同一個形狀。
+      +`<button id="trShare" class="sqbtn" style="order:${window.TS_DATA?1:2}" title="${en2?"Screenshots: download or share to Facebook / Instagram / Threads":"截圖：下載，或分享到 Facebook／Instagram／Threads"}"><svg class="trShIc" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision" aria-hidden="true"><path d="M21 4H3l6.5 6.5L12 20z"/><path d="M21 4 9.5 10.5"/></svg></button>`   /* 紙飛機＝社群 App 的「分享」圖示（使用者 2026-11-21「分享的按鈕圖 要跟 IG 分享的那圖案一樣」）；轉會網站會換成自己那套線條圖示的同一個形狀。
            同一天再要求「小按鈕裡面的圖示要置中 然後要圓潤化清晰化 不要看起來很粗糙」：線加粗（2.3）、圓角接頭，圖案的外框正好在 24 格的正中間，尺寸用偶數（22px）才不會落在半個像素上 */
       // Facebook 粉專（使用者 2026-11-20「多一個FB按鈕 連接到我的粉專」）：網址填在 TR_FB，空的時候不畫這顆
       +(TR_FB?`<a id="trFb" class="sqbtn" style="order:1;text-decoration:none;background:#1877F2;border:1px solid #4a95f5;box-shadow:0 1px 0 rgba(0,0,0,.35);box-sizing:border-box;border-radius:9px;cursor:pointer" href="${esc(TR_FB)}" target="_blank" rel="noopener" title="${en2?"My Facebook page":"我的 Facebook 粉專"}"><svg viewBox="0 0 24 24" width="20" height="20" fill="#fff" aria-hidden="true" class="trFbG"><path d="M9.101 23.691v-7.98H6.627v-3.667h2.474v-1.58c0-4.085 1.848-5.978 5.858-5.978.401 0 .955.042 1.468.103a8.68 8.68 0 0 1 1.141.195v3.325a8.623 8.623 0 0 0-.653-.036 26.805 26.805 0 0 0-.733-.009c-.707 0-1.259.096-1.675.309a1.686 1.686 0 0 0-.679.622c-.258.42-.374.995-.374 1.752v1.297h3.919l-.386 2.103-.287 1.564h-3.246v8.245C19.396 23.238 24 18.179 24 12.044c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.628 3.874 10.35 9.101 11.647Z"/></svg></a>`:"")
@@ -14907,6 +14914,24 @@ function render(){
       +`<a id="trDc" class="sqbtn" style="order:1;text-decoration:none;background:#5865F2;border:1px solid #7983f5;box-shadow:0 1px 0 rgba(0,0,0,.35);box-sizing:border-box;border-radius:9px;cursor:pointer" href="https://discord.gg/ffJvcswnkC" target="_blank" rel="noopener" title="${en2?"Have transfer news? Tell me on Discord":"有新的轉會消息？到 Discord 群告訴我"}"><svg viewBox="0 0 24 24" width="20" height="20" fill="#fff" aria-hidden="true"><path d="M20.317 4.3698a19.7913 19.7913 0 00-4.8851-1.5152.0741.0741 0 00-.0785.0371c-.211.3753-.4447.8648-.6083 1.2495-1.8447-.2762-3.68-.2762-5.4868 0-.1636-.3933-.4058-.8742-.6177-1.2495a.077.077 0 00-.0785-.037 19.7363 19.7363 0 00-4.8852 1.515.0699.0699 0 00-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 00.0312.0561c2.0528 1.5076 4.0413 2.4228 5.9929 3.0294a.0777.0777 0 00.0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 0 00-.0416-.1057c-.6528-.2476-1.2743-.5495-1.8722-.8923a.077.077 0 01-.0076-.1277c.1258-.0943.2517-.1923.3718-.2914a.0743.0743 0 01.0776-.0105c3.9278 1.7933 8.18 1.7933 12.0614 0a.0739.0739 0 01.0785.0095c.1202.099.246.1981.3728.2924a.077.077 0 01-.0066.1276 12.2986 12.2986 0 01-1.873.8914.0766.0766 0 00-.0407.1067c.3604.698.7719 1.3628 1.225 1.9932a.076.076 0 00.0842.0286c1.961-.6067 3.9495-1.5219 6.0023-3.0294a.077.077 0 00.0313-.0552c.5004-5.177-.8382-9.6739-3.5485-13.6604a.061.061 0 00-.0312-.0286zM8.02 15.3312c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9555-2.4189 2.157-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.9555 2.4189-2.1569 2.4189zm7.9748 0c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9554-2.4189 2.1569-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.946 2.4189-2.1568 2.4189Z"/></svg></a>`+`</div>`
       +(MODE==="news"?`<div class="card trList">${head}${rows||`<span class="sumEmpty">${en2?"No results":"沒有符合的消息"}</span>`}</div>`
         :`<div class="card tbBoard">${vRows.length?bHead+bHTML:`<span class="sumEmpty">${en2?"No results":"沒有符合的隊伍或選手"}</span>`}</div>`);
+    // 篩選列放不下的時候（視窗變窄、瀏覽器放大到 110%～150%）：flex 換行是一顆一顆掉下去的——110% 時只剩 Facebook／Discord 兩顆掉到下一排最左邊，
+    //   125% 時搜尋與五顆小按鈕掉下去卻靠左（前面那個 flex:1 的空白留在上一排尾端）；看起來就是「跑掉歪掉」（使用者 2026-11-21「縮放網頁比例後 篩選列會跑掉歪掉」）。
+    //   ⇒ 右邊那一組（更新時間、搜尋、小按鈕）被拆開的時候，在它前面強制換行，整組一起到下一排、照舊靠右；沒被拆開就不換。
+    //   手機版面（搜尋那組是 display:contents，另有自己的排法）不處理。寬度變了重算（ResizeObserver 只看寬度，避免自己改高度又觸發自己）
+    { const bar=main.querySelector(".filters.trBar"), sw=bar&&bar.querySelector(".trSW");
+      const fitBar=()=>{ if(!bar||!bar.isConnected||!sw)return; let brk=bar.querySelector(".trBrk");
+        if(!brk){ brk=document.createElement("i"); brk.className="trBrk"; brk.style.cssText="flex:0 0 100%;height:0;margin:0;padding:0;border:0;display:none";
+          const sp=[...bar.children].find(x=>x.tagName==="SPAN"&&/flex:\s*1/.test(x.getAttribute("style")||"")); bar.insertBefore(brk,sp||sw); }
+        const was=brk.style.display; brk.style.display="none"; for(let n=brk.nextElementSibling;n;n=n.nextElementSibling)n.style.marginTop="";
+        if(getComputedStyle(sw).display!=="contents"){
+          // 只有右邊那一組（更新時間、搜尋、小按鈕）自己被拆成兩排時才強制換行；整組還在同一排（跟被擠下來的「排序」同一排也算）就不動，免得多佔一排
+          const grp=[...bar.children].filter(x=>x!==brk&&x.offsetWidth>0&&x.offsetHeight>0&&(x===sw||x.classList.contains("sqbtn")||x.classList.contains("meta"))), cy=x=>x.offsetTop+x.offsetHeight/2, c0=grp.length?cy(grp[0]):0;
+          if(grp.some(x=>Math.abs(cy(x)-c0)>12)){ brk.style.display="block";
+            // 換行用的那個 0 高度元素自己佔一排，上下各多一段列距 ⇒ 後面那一組往上收一段列距，兩排之間才是正常的一段
+            const g=parseFloat(getComputedStyle(bar).rowGap)||0; if(g)for(let n=brk.nextElementSibling;n;n=n.nextElementSibling)n.style.marginTop=(-g)+"px"; } }
+        if(brk.style.display!==was&&typeof window._tsStick==="function")window._tsStick(); };   // 獨立站：篩選列的高度變了，黏頂的位移要重量
+      fitBar(); if(document.fonts&&document.fonts.ready)document.fonts.ready.then(fitBar);
+      try{ if(window._trBarRO)window._trBarRO.disconnect(); if(bar&&window.ResizeObserver){ let w0=-1; window._trBarRO=new ResizeObserver(es=>{ const w=Math.round(es[0].contentRect.width); if(w===w0)return; w0=w; fitBar(); }); window._trBarRO.observe(bar); } }catch(_){} }
     // 📸 截圖（使用者 2026-11-20「新增截圖按鈕」「截圖要跟大家說明文字顏色代表什麼」「截圖大小為 2000x2000」「如果有好幾個賽區 就是一個賽區一張圖」）：
     //   陣容表＝一個賽區一張；每隊一張卡（沿用手機版卡片：每格自己是 @container mainc），欄數挑「縮放後最大」的那個，整張等比縮放置中進 2000×2000。
     //   消息＝照列的邊界分頁，每頁 2000×2000。每張頂端都有標題＋截至時間，陣容表多一行顏色說明。主站與轉會網站共用這一段（不靠 shotEl）
@@ -15007,7 +15032,7 @@ function render(){
           // ── 整批截圖共用同一套版面（使用者 2026-11-21「截圖的邊框位置 以及每一欄的寬度應該要是一致的」）──
           //   ①上方那一列：寬度、字級、顏色說明框的位置用六大聯賽裡最擠的那個來定（不看現在篩了哪幾個聯賽），消息也用同一個高度
           //     ⇒ 不管哪個聯賽、陣容表或消息，資料框的上緣都在同一個位置（inner 算出來的 IN 整批共用）
-          //   ②陣容表：隊名欄與七個資料欄的寬度各取所有聯賽裡最寬的需求，每張圖用同一組欄寬、同一個縮放（字一樣大、欄位在同一個位置）；
+          //   ②陣容表：隊名欄與六個資料欄的寬度各取所有聯賽裡最寬的需求，每張圖用同一組欄寬、同一個縮放（字一樣大、欄位在同一個位置）；
           //     原本每個聯賽各自挑「字最大」的寬度，隊伍少的聯賽字比較大、欄位也跟著跑
           //   ③消息：欄寬用整份消息量出來的那一組，每一頁都一樣（原本每頁照自己的內容排，原隊／新隊那幾欄每頁寬度不同）
           const LG=en2?[["tbNew","New signing"],["tbRs","Re-signed & promoted"],["tbStay","Staying"],["tbExp","Contract expired"],["tbOut","Possible move"],["tbY","Rumor"]]
@@ -15062,8 +15087,11 @@ function render(){
               // 2026-11-21 改版「選手評分那欄改成後勤 但不顯示合約到的(藍字) 只顯示其餘的狀況」：最後一欄＝後勤（評分欄整欄拿掉），後勤那格不列合約到期的人
               { const bd=h.querySelector(".tbBoard");
                 h.querySelectorAll(".tbCell.tbRate,.tbCell.tbFaCo").forEach(x=>x.remove()); { const rh=h.querySelector(".tbHd .tbRateH"); if(rh)rh.remove(); }
-                h.querySelectorAll('.tbCell[data-r="STF"]').forEach(c=>{ const v=c.querySelector(".tbCv"); if(!v)return; const keep=[...v.querySelectorAll(".tbN")].filter(n=>!n.classList.contains("tbExp"));
-                  v.innerHTML=keep.length?keep.map(n=>n.outerHTML).join("<br>"):`<span class="tbMuted">–</span>`; c.classList.toggle("tbEmpty",!keep.length); });
+                // 2026-11-21 晚再改「截圖的主教練跟後勤合併 改稱 教練」：主教練那格接上後勤（後勤照舊不列合約到期的藍字），一人一行、主教練排前面；後勤那格與它的欄名拿掉，欄名改寫「教練」
+                h.querySelectorAll(".tbRow").forEach(r=>{ const hc=r.querySelector('.tbCell[data-r="HC"]'), st=r.querySelector('.tbCell[data-r="STF"]'); if(!hc)return; const v=hc.querySelector(".tbCv"); if(!v)return;
+                  const keep=[...v.querySelectorAll(".tbN"),...(st?[...st.querySelectorAll(".tbCv .tbN")].filter(n=>!n.classList.contains("tbExp")):[])];
+                  v.innerHTML=keep.length?keep.map(n=>n.outerHTML).join("<br>"):`<span class="tbMuted">–</span>`; hc.classList.toggle("tbEmpty",!keep.length); hc.dataset.r="CO"; if(st)st.remove(); });
+                { const hs=h.querySelector(".tbHd"); if(hs&&hs.children[7])hs.children[7].remove(); const c6=hs&&hs.children[6]; if(c6){ [...c6.childNodes].forEach(n=>{ if(n.nodeType===3)n.remove(); }); c6.appendChild(document.createTextNode(en2?"Coach":"教練")); } }
                 h.querySelectorAll(".tbSep").forEach(x=>x.outerHTML="<br>");
                 h.querySelectorAll(".tbRtSz").forEach(x=>x.remove());   // 網頁上用來撐住最後一欄寬度的隱形字串（最長的評分範圍）：截圖的欄寬另外算，留著會把七欄都撐成那麼寬、整張表的字跟著變小
                 // 表頭：「路線圖＋路線名稱」這一組對在下方資料的正中間（使用者 2026-11-20「截圖的資料 是要在路線圖跟路線名的置中位置 不是路線名稱的置中位置」），
@@ -15083,14 +15111,14 @@ function render(){
               h.querySelectorAll(".tbHd").forEach(x=>{ x.style.position="static"; x.style.background="none"; }); h.querySelectorAll(".tbDim").forEach(x=>x.classList.remove("tbDim"));
               return h; };
             const built=live.map(sc=>({sc,h:prep(sc)}));
-            // 欄寬：每個聯賽都量一次「隊名欄」與「七個資料欄」各自最少要多寬（放得下最長的那個字），整批取最大
-            //   ⇒ 隊名欄固定 teamW、七欄等寬；整張的寬度 W 至少 1000（＝字的大小），放不下才加寬。每張圖的欄位位置與字級因此完全一樣
+            // 欄寬：每個聯賽都量一次「隊名欄」與「六個資料欄」各自最少要多寬（放得下最長的那個字），整批取最大
+            //   ⇒ 隊名欄固定 teamW、六欄等寬（五路＋教練）；整張的寬度 W 至少 1000（＝字的大小），放不下才加寬。每張圖的欄位位置與字級因此完全一樣
             let teamW=0, colW=0;
-            built.forEach(o=>{ const bd=o.h.querySelector(".tbBoard"); o.h.style.width="6000px"; bd.style.gridTemplateColumns="max-content repeat(7,max-content)"; bd.style.justifyContent="start";
-              const tr=getComputedStyle(bd).gridTemplateColumns.split(/\s+/).map(parseFloat); if(tr[0]>teamW)teamW=tr[0]; tr.slice(1,8).forEach(v=>{ if(v>colW)colW=v; }); bd.style.justifyContent=""; });
+            built.forEach(o=>{ const bd=o.h.querySelector(".tbBoard"); o.h.style.width="6000px"; bd.style.gridTemplateColumns="max-content repeat(6,max-content)"; bd.style.justifyContent="start";
+              const tr=getComputedStyle(bd).gridTemplateColumns.split(/\s+/).map(parseFloat); if(tr[0]>teamW)teamW=tr[0]; tr.slice(1,7).forEach(v=>{ if(v>colW)colW=v; }); bd.style.justifyContent=""; });
             teamW=Math.ceil(teamW)+2; colW=Math.ceil(colW)+2;
-            let W=Math.max(1000,teamW+7*colW);
-            const lay=w=>built.forEach(o=>{ o.h.style.width=w+"px"; o.h.querySelector(".tbBoard").style.gridTemplateColumns=teamW+"px repeat(7,minmax(0,1fr))"; });
+            let W=Math.max(1000,teamW+6*colW);   // 資料欄＝五路＋教練，共六欄
+            const lay=w=>built.forEach(o=>{ o.h.style.width=w+"px"; o.h.querySelector(".tbBoard").style.gridTemplateColumns=teamW+"px repeat(6,minmax(0,1fr))"; });
             lay(W); for(let it=0;it<80&&built.some(o=>o.h.offsetHeight>IN.h*W/IN.w);it++){ W+=25; lay(W); }   // 隊伍最多的聯賽在這個寬度下太高（會超出框）⇒ 整批一起加寬（等於一起縮小）
             const lvTeam=h=>h.querySelectorAll(".tbRow .tbTeam").forEach(tm=>{ const box=tm.querySelector(".tbTmB"), im=tm.querySelector("img:not(.tbFaIc)"); if(!box||!im)return;
               const a=inkOf(box.querySelector(".tbTmA")||box.firstChild), b=inkOf(box.querySelector(".tbTmR"))||a; if(!a)return; const ir=im.getBoundingClientRect(); nudge(box,(ir.top+ir.bottom)/2-(a.top+b.bot)/2); });
