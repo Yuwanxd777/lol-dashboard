@@ -827,19 +827,39 @@ def add_tenure(cargo, out):
                     ten[(key(y["p"]), y["tm"])] = (y["dj"][:10], (y.get("dl") or "")[:10])
     except Exception as e_:
         print(f"   Tenures 查詢失敗（效力期間沿用 RosterChanges）：{type(e_).__name__} {str(e_)[:100]}")
+    # 用名字查不到的再照「隊」查一次、名字比對時不管空白（2026-11-21 全面檢視）：wiki 的 Tenures 把 BrokenBlade 記成「Broken Blade」
+    #   （改過 ID 寫法），照名字查是 0 筆 ⇒ 退回 RosterChanges 只拼得出改名之後那幾年（2023/11 起，實際是 2021/12）
+    nk2 = lambda n_: re.sub(r"[\s_.'\-]+", "", key(n_))
+    ten2 = {}
+    try:
+        import datetime as _dt
+        cut_ = (_dt.date.today() - _dt.timedelta(days=550)).isoformat()
+        tms_ = sorted({x["tm"] for x in out if x.get("prev")})
+        for i in range(0, len(tms_), 20):
+            for y in cargo({"tables": "Tenures", "fields": "Player=p,Team=tm,DateJoin=dj,DateLeave=dl", "limit": "5000", "format": "json", "order_by": "Tenures.DateJoin",
+                            "where": "Tenures.Team IN " + _in(tms_[i:i + 20]) + f' AND (Tenures.IsCurrent=1 OR Tenures.DateLeave>="{cut_}")'}):
+                if y.get("dj"):
+                    ten2[(nk2(y["p"]), y["tm"])] = (y["dj"][:10], (y.get("dl") or "")[:10])
+    except Exception as e_:
+        print(f"   Tenures（照隊查）失敗：{type(e_).__name__} {str(e_)[:100]}")
     for x in out:
         still = set(x.pop("_still", [])); psr = x.pop("_psr", {}); pc = x.pop("_pc", {}); retd = set(x.pop("_ret", []))
         for rr, v in x["prev"].items():
             L = []
             for p in v:
-                s, e = stints(sorted(ev.get((key(p), x["tm"]), [])))
-                if (key(p), x["tm"]) in ten:
-                    s, e = ten[(key(p), x["tm"])]
+                # 同一天的事件要「離隊在前、加入在後」：wiki 每年續約會記一組同一天的 Leave＋Join，照字母排（Join 在前）會被當成
+                #   「加入當天就離隊」——G2 的 BrokenBlade 2021 年就在隊上，卻顯示成效力 2025/11–2025/11（2026-11-21 全面檢視）
+                s, e = stints(sorted(ev.get((key(p), x["tm"]), []), key=lambda t: (t[0], 0 if t[1] == "Leave" else 1)))
+                t_ = ten.get((key(p), x["tm"])) or ten2.get((nk2(p), x["tm"]))
+                if t_:
+                    s, e = t_
                     e = e or None
                 if s and not e:   # 沒記離隊、但之後加入了別隊（Benny 2026-03 進 TT、11-06 進 UP，TT 沒記離隊）⇒ 以加入別隊那天當離隊日
                     later = sorted(d for d, t in joins.get(key(p), []) if t != x["tm"] and d > s)
                     if later:
                         e = later[0]
+                if s and e and _days(s, e) <= 3 and key(p) not in retd:
+                    continue   # 只待一兩天的緊急代打（FURIA 的 Shini 2026/09/12–09/13，wiki 標 temp_sub）不算這一路的「上一位」
                 d = {"n": p}
                 if key(p) in retd:
                     d["ret"] = 1
@@ -857,6 +877,8 @@ def add_tenure(cargo, out):
                     d["still"] = 1   # 被新人擠到上一位、但其實還沒宣布離隊（WBG Elk）⇒ 前端標「合約到期」不標「離隊」（使用者 2026-11-20）
                 L.append(d)
             x["prev"][rr] = L
+        for rr in [r_ for r_, v_ in x["prev"].items() if not v_]:
+            x["prev"].pop(rr)   # 整路的上一位都被濾掉（只剩緊急代打）就不留空清單
 
 
 def promotion(cargo, year):

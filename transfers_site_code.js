@@ -349,7 +349,8 @@ function render(){
     const tmChip=n=>`<span class="tpTm">${teamLogoHTML(tAb(n),16,true,n)||""}${esc(abOf(n))}</span>`;
     const tenureP=o=>{ if(!o.s)return null; const unk=o.e==="?", e=(!o.e||unk)?today:o.e;
       const mo=(+e.slice(0,4)-+o.s.slice(0,4))*12+(+e.slice(5,7)-+o.s.slice(5,7)), y=Math.floor(mo/12), m=Math.max(mo%12,0);
-      return {per:`${ymd(o.s).slice(0,7)} – ${unk?(en2?"departure date not recorded":"離隊日未記錄"):o.e?ymd(o.e).slice(0,7):(en2?"now":"今")}`,
+      const sameM=!!o.e&&!unk&&o.e.slice(0,7)===o.s.slice(0,7);   // 同一個月進出的寫到日（不然會是「2026/09 – 2026/09」）
+      return {per:sameM?`${ymd(o.s)} – ${ymd(o.e).slice(5)}`:`${ymd(o.s).slice(0,7)} – ${unk?(en2?"departure date not recorded":"離隊日未記錄"):o.e?ymd(o.e).slice(0,7):(en2?"now":"今")}`,
         du:unk?"":(en2?(y?`${y}y${m?` ${m}m`:""}`:`${m}m`):(y?`${y} 年${m?` ${m} 個月`:""}`:`${m} 個月`))}; };
     // 離隊的人去了哪（使用者 2026-11-20「如果選手離開 A 隊去 B 隊 本來 A 隊的那路線小框也要寫那選手離隊後去哪」）：
     //   翻整張陣容表找他現在出現在哪一隊——官方加入的寫「加入 B」，只有傳聞的列出傳聞的隊（最多三隊）並標傳聞
