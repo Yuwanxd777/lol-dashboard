@@ -146,6 +146,9 @@ function addBase(){ const f=main.querySelector(".filters"); if(!f)return;
   //     視窗 829～889（iPad Air／Pro 11 直放、或把瀏覽器拉成半個螢幕）欄名列的 top 被當成離卡片上緣的距離 ⇒ 整列被推到表格中間、蓋住一隊；
   //     手機版的聯賽標題列（.tbLg）與消息的日期列（.trDay）寫了 sticky 也黏不住。陣容表與消息表在窄版面都會自己換行、不需要橫向捲動
   //     ⇒ 這兩張卡固定 overflow:visible（只改轉會網站；主站的版面是整頁縮放，不會進到這幾種寬度）
+  // 2026-11-22 使用者「平板那個調整」：卡片版面用到內容寬 1000 以下之後，平板與窄視窗的篩選列是手機那套「一組一整排」，五排共 200px，
+  //   平板橫放佔掉三分之一個畫面 ⇒ 內容寬 700～999 改成兩排：第一排＝陣容表／消息＋六個賽區＋排序；第二排＝顯示（或狀態）＋搜尋＋小按鈕（排序放第二排的話，直放 820 寬最後一顆小按鈕會被擠到第三排）
+  //   規則跟兩欄卡片寫在同一個 @container 裡
   if(!document.getElementById("tsStickCss")){ const st=document.createElement("style"); st.id="tsStickCss";
     st.textContent=`html.tsDesk #tsHdr{position:sticky;top:0;z-index:40;background:#0b0e14}
 html.tsDesk #tsCover{display:block;position:fixed;left:0;right:0;top:0;height:calc(var(--tsH1,0px) + var(--tsG1,0px) + var(--tsH2,0px) + var(--tsG0,0px));background:#0b0e14;z-index:37;pointer-events:none}
@@ -154,7 +157,7 @@ html.tsDesk .card.tbBoard,html.tsDesk .card.trList{background:#161c2b}
 html.tsDesk .tbBoard>.tbHd{top:calc(var(--tsH1,0px) + var(--tsG1,0px) + var(--tsH2,0px) + var(--tsG,0px))!important;z-index:38!important;background:var(--tsCB,#161c2b);box-shadow:0 calc(var(--tsG0,0px) - var(--tsG,0px)) 0 0 var(--tsCB,#161c2b)}
 html.tsDesk .trList>.trHead{position:sticky;top:calc(var(--tsH1,0px) + var(--tsG1,0px) + var(--tsH2,0px) + var(--tsG,0px));z-index:38;background:var(--tsCB,#161c2b);box-shadow:0 calc(var(--tsG0,0px) - var(--tsG,0px)) 0 0 var(--tsCB,#161c2b)}
 .card.tbBoard,.card.trList{overflow:visible}
-@container mainc (min-width:700px) and (max-width:999.98px){.tbBoard{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:10px}.tbBoard>.tbRow{grid-column:auto}.tbBoard>.tbLg,.tbBoard>.tbFA,.tbBoard>.sumEmpty{grid-column:1/-1}}
+@container mainc (min-width:700px) and (max-width:999.98px){.tbBoard{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:10px}.tbBoard>.tbRow{grid-column:auto}.tbBoard>.tbLg,.tbBoard>.tbFA,.tbBoard>.sumEmpty{grid-column:1/-1}.trBar>.trFG:nth-child(1){flex:0 0 200px}.trBar>.trFG:nth-child(2){flex:1 1 calc(100% - 210px)}.trBar:has(.fgSort)>.trFG:nth-child(2){flex:1 1 calc(100% - 336px)}.trBar .trFG.fgSort{order:0;flex:0 0 120px}.trBar>.trFG:nth-child(3){order:1;flex:1 1 330px}.trBar .trFG.fgSt{flex:1 1 330px}.trBar:has(.fgSort) .cwrap,.trBar .cwrap{flex:1 1 130px;min-width:100px}}
 #tsTop{position:fixed;right:12px;bottom:calc(14px + env(safe-area-inset-bottom,0px));z-index:35;width:42px;height:42px;padding:0;border-radius:12px;border:1px solid rgba(255,255,255,.2);background:rgba(26,34,52,.94);color:#e8ecf4;display:none;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(0,0,0,.5);cursor:pointer;-webkit-tap-highlight-color:transparent}
 #tsTop.on{display:flex}#tsTop svg{width:22px;height:22px;display:block}#tsTop:active{transform:scale(.93)}
 #tsCap{position:fixed;height:14px;overflow:hidden;z-index:37;pointer-events:none}#tsCap>i{position:absolute;left:0;right:0;top:0;height:60px;box-sizing:border-box;box-shadow:0 0 0 40px #0b0e14}
