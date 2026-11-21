@@ -75,6 +75,13 @@ def build_code(html):
         raise SystemExit("index.html 找不到 <<TRANSFERS_SITE … TRANSFERS_SITE>> 記號")
     styles = "\n".join(re.findall(r"<style[^>]*>([\s\S]*?)</style>", html))
     css = filter_css(styles)
+    # 轉會網站：「一隊一張卡」的手機版面用到內容寬 1000 以下（主站是 760 以下）。內容寬 760～999 的表格每欄只剩 70px 上下，
+    #   名字會從中間斷行（JackeyLov／e、ShowMak／er）、自由人那一列高到六百多 px（使用者 2026-11-22「全做」——整體檢視的建議）。
+    #   只改轉會網站匯出的這一份 CSS；主站的版面是整頁縮放，切換點不動。外掛裡 html.tsDesk 的門檻也跟著是 1000
+    _mq = "@container mainc (max-width:759.98px)"
+    if css.count(_mq) < 1:
+        raise SystemExit("index.html 的 CSS 找不到手機版面那一段（" + _mq + "）")
+    css = css.replace(_mq, "@container mainc (max-width:999.98px)")
     shim = r'''
 // ── 轉會網站外掛（scripts/export_transfer_site.py 產生，勿手改）：只提供轉會分頁用到的最小全域 ──
 (function(){
@@ -147,11 +154,14 @@ html.tsDesk .card.tbBoard,html.tsDesk .card.trList{background:#161c2b}
 html.tsDesk .tbBoard>.tbHd{top:calc(var(--tsH1,0px) + var(--tsG1,0px) + var(--tsH2,0px) + var(--tsG,0px))!important;z-index:38!important;background:var(--tsCB,#161c2b);box-shadow:0 calc(var(--tsG0,0px) - var(--tsG,0px)) 0 0 var(--tsCB,#161c2b)}
 html.tsDesk .trList>.trHead{position:sticky;top:calc(var(--tsH1,0px) + var(--tsG1,0px) + var(--tsH2,0px) + var(--tsG,0px));z-index:38;background:var(--tsCB,#161c2b);box-shadow:0 calc(var(--tsG0,0px) - var(--tsG,0px)) 0 0 var(--tsCB,#161c2b)}
 .card.tbBoard,.card.trList{overflow:visible}
+@container mainc (min-width:700px) and (max-width:999.98px){.tbBoard{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:10px}.tbBoard>.tbRow{grid-column:auto}.tbBoard>.tbLg,.tbBoard>.tbFA,.tbBoard>.sumEmpty{grid-column:1/-1}}
+#tsTop{position:fixed;right:12px;bottom:calc(14px + env(safe-area-inset-bottom,0px));z-index:35;width:42px;height:42px;padding:0;border-radius:12px;border:1px solid rgba(255,255,255,.2);background:rgba(26,34,52,.94);color:#e8ecf4;display:none;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(0,0,0,.5);cursor:pointer;-webkit-tap-highlight-color:transparent}
+#tsTop.on{display:flex}#tsTop svg{width:22px;height:22px;display:block}#tsTop:active{transform:scale(.93)}
 #tsCap{position:fixed;height:14px;overflow:hidden;z-index:37;pointer-events:none}#tsCap>i{position:absolute;left:0;right:0;top:0;height:60px;box-sizing:border-box;box-shadow:0 0 0 40px #0b0e14}
 html:not(.tsDesk) #tsCover,html:not(.tsDesk) #tsCap{display:none}`;
     document.head.appendChild(st);
     window._tsStick=()=>{ const hd=document.getElementById("tsHdr"), bar=document.querySelector(".filters.trBar"), bd=document.querySelector(".tbBoard,.trList"), R=document.documentElement.style; if(!hd||!bar)return;
-      { const mc=getComputedStyle(main); document.documentElement.classList.toggle("tsDesk",main.clientWidth-parseFloat(mc.paddingLeft)-parseFloat(mc.paddingRight)>=760); }   // 電腦版面才黏（跟 @container mainc 的 760 同一個依據）
+      { const mc=getComputedStyle(main); document.documentElement.classList.toggle("tsDesk",main.clientWidth-parseFloat(mc.paddingLeft)-parseFloat(mc.paddingRight)>=1000); }   // 電腦版面才黏（跟 CSS 切換卡片版面的依據同一個：main 的內容寬度 1000；見 build_code 把 759.98 換成 999.98 那段）
       const sy=scrollY; R.setProperty("--tsH1",hd.offsetHeight+"px"); R.setProperty("--tsH2",bar.offsetHeight+"px");
       // 捲動後三層之間的空隙要跟頁面最上面時一模一樣（使用者 2026-11-21「往下滑的時候 上方還是有小部分的縮起」：原本頁首與篩選列之間 14px、篩選列與欄名列之間 7px 會被吃掉）
       //   ⇒ 在最上面時量兩段空隙（頁首→篩選列、篩選列→欄名列），sticky 的 top 把空隙算進去，空隙用同色陰影蓋住
@@ -197,6 +207,12 @@ const ls=document.getElementById("tsLang"); if(ls){ ls.value=LANG; ls.onchange=(
   try{ sessionStorage.setItem("ts_top","1"); history.scrollRestoration="manual"; }catch(e){} location.reload(); }; }
 try{ if(sessionStorage.getItem("ts_top")){ sessionStorage.removeItem("ts_top"); scrollTo(0,0); setTimeout(()=>{ try{ history.scrollRestoration="auto"; }catch(e){} },1500); } }catch(e){}
 render();
+// 回到最上面（使用者 2026-11-22「全做」）：卡片版面（手機／平板）篩選列不會跟著捲，陣容表一萬多 px、消息更長，換篩選要一路滑回去。
+//   捲超過一個多畫面才出現；電腦版面篩選列本來就黏在上面，不顯示
+(()=>{ const b=document.createElement("button"); b.id="tsTop"; b.title=LANG==="en"?"Back to top":"回到最上面"; b.setAttribute("aria-label",b.title);
+  b.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V6"/><path d="M5.5 12.5 12 6l6.5 6.5"/></svg>';
+  b.onclick=()=>scrollTo({top:0,behavior:"smooth"}); document.body.appendChild(b);
+  const up=()=>b.classList.toggle("on",scrollY>innerHeight*1.2&&!document.documentElement.classList.contains("tsDesk")); addEventListener("scroll",up,{passive:true}); addEventListener("resize",up); up(); })();
 })();
 '''
     code = shim.replace("/*__BLOCK__*/", blk.group(1))
@@ -257,7 +273,16 @@ def main():
         _p = os.path.join(ROOT, "img", "news_faker.png")
         if os.path.exists(_p):
             import base64
-            data["nic"] = "data:image/png;base64," + base64.b64encode(io.open(_p, "rb").read()).decode()
+            _raw = io.open(_p, "rb").read()
+            try:   # 原圖 180px、畫面上只顯示 17～20px：內嵌的這一份縮到 72px（3 倍螢幕也夠），省四十幾 KB；img/ 裡的原檔不動
+                from PIL import Image
+                _im = Image.open(io.BytesIO(_raw)).convert("RGBA"); _im.thumbnail((72, 72), Image.LANCZOS)
+                _buf = io.BytesIO(); _im.save(_buf, "PNG", optimize=True)
+                if len(_buf.getvalue()) < len(_raw):
+                    _raw = _buf.getvalue()
+            except Exception:
+                pass
+            data["nic"] = "data:image/png;base64," + base64.b64encode(_raw).decode()
     except Exception:
         pass
     io.open(OUT_DATA, "w", encoding="utf-8", newline="\n").write("window.TS_DATA=" + json.dumps(data, ensure_ascii=False, separators=(",", ":")) + ";\n")
