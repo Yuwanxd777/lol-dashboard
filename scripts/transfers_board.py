@@ -1245,6 +1245,24 @@ def parse_sheep(sheep):
                                       or re.search(r"\bas (?:the |their |its )?(?:new |next )?head coach\b", x.get("en") or "", re.I)):
             it_["sr"] = "HC"
         put(n.lower(), it_)
+    # 使用者 2026-11-22「如果一個選手有兩隊以上的傳聞 那麼都只各保留三天 三天後只保留最近那隊的消息」「來確保傳聞能精準顯示」：
+    #   同一人有兩支以上的傳聞隊伍時，最新那一隊一直留著；比較舊的那幾隊，從它自己那則消息的時間算起滿三天（72 小時）就不再列。
+    #   只有一隊傳聞的人不受影響（沒有新消息就一直留著）。陣容表的黃字、原隊的「可能轉會」去向、自由人區的補列都是從這份結果來的，一起生效；消息分頁不動
+    import datetime as _dt3
+    now3 = _dt3.datetime.now()
+
+    def _age_h(v):
+        d = str(v.get("d") or "")
+        for fmt, n in (("%Y-%m-%d %H:%M", 16), ("%Y-%m-%d", 10)):
+            try:
+                return (now3 - _dt3.datetime.strptime(d[:n], fmt)).total_seconds() / 3600
+            except ValueError:
+                pass
+        return 0   # 日期看不懂就當成剛出來的，不擅自拿掉
+
+    for n3, L3 in list(best.items()):
+        if len(L3) >= 2 and all(v["st"] == "rumor" for v in L3):
+            best[n3] = [v for v in L3[:-1] if _age_h(v) <= 72] + [L3[-1]]
     res = {}
     for L in best.values():
         for v in L:
