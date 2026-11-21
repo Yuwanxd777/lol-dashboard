@@ -222,8 +222,11 @@ def logos():
     """轉會資料裡新出現的隊伍（傳聞的原隊／去向，多半是次級聯賽的隊）補隊徽。
     使用者 2026-11-21 一個小時內回報兩次「缺的隊徽要補上」（FURY／NERD、ZYB）：原本只有每天兩班的大更新會抓，
     複查員中途加進來的新隊要等半天才有圖。抓不到不影響發布（腳本自己記 30 天不重查）；要放在匯出之前，匯出時才認得到新圖。"""
-    if run([sys.executable, "scripts/fetch_team_logos_wiki.py"], timeout=900) != 0:
-        log("  隊徽補抓失敗（略過，不影響發布）")
+    try:   # run() 逾時會丟例外——這一步只是加分項，卡住或出錯都不能拖垮整班更新
+        if run([sys.executable, "scripts/fetch_team_logos_wiki.py"], timeout=420) != 0:
+            log("  隊徽補抓失敗（略過，不影響發布）")
+    except Exception as e:
+        log(f"  隊徽補抓出錯（略過，不影響發布）：{type(e).__name__} {str(e)[:120]}")
 
 
 def do_main():
