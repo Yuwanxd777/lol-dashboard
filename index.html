@@ -14871,15 +14871,17 @@ function render(){
     //   每一格至少一人是官方新加入／官方續約；合約本來就還在（沒到期、沒傳出要走）的人也算確定
     const setE=e=>!e.r&&!e.gone&&!!(e.new||e.tip||e.rs||e.pm||(e.c&&e.c>=today&&!e.ro));
     const tbDone=t=>["TOP","JNG","MID","BOT","SUP","HC"].every(c=>colE(t,c).some(setE));
-    let bHTML="", lastLg="";
-    vRows.forEach(t=>{ if(t.lg!==lastLg){ const n=vRows.filter(x=>x.lg===t.lg&&!x.fa).length;
-        bHTML+=`<div class="tbLg" data-rg="${esc((en2?{LCK:"Korea",LPL:"China",LEC:"EMEA",LCS:"North America",CBLOL:"Brazil",LCP:"Asia-Pacific"}:{LCK:"韓國",LPL:"中國",LEC:"歐洲",LCS:"北美",CBLOL:"巴西",LCP:"亞太"})[t.lg]||"")}" style="--lgc:${LGC[t.lg]||"var(--gold)"}"><img class="tbLgIc" src="${((window.TS_DATA||{}).lgi||{})[t.lg]||("img/lg_"+t.lg+".png")}" alt=""><b>${esc(t.lg)}</b><span>${n}${en2?" teams":" 隊"}</span></div>`; lastLg=t.lg; }   // 聯賽徽章＋聯賽名稱＋隊伍數（使用者 2026-11-21）；地區名只留在 data-rg 給截圖標題用
-      bHTML+=`<div class="tbRow${t.fa?" tbFA":""}" data-o="${s2Of(t)?9000+s2Of(t):board.indexOf(t)}"${t.fa?"":` data-rk="${esc(rkS(t))}"`} style="--lgc:${LGC[t.lg]||"var(--gold)"}"><div class="tbTeam" title="${t.fa?"FA":esc(t.nm)}">${t.fa?`<img class="tbFaIc" src="${((window.TS_DATA||{}).lgi||{})[t.lg]||("img/lg_"+t.lg+".png")}" alt="">`:""}${teamLogoHTML(tAb(t.nm),26,true,t.nm)||teamLogoHTML(tAb(t.tm),26,true,t.tm)||""}<span>${t.fa?esc(rowNm(t)):`<a class="tbTmA" href="${tmWk(t.nm)}" target="_blank" rel="noopener">${esc(rowNm(t))}</a>`}</span>${tbDone(t)?`<span class="tbOk" title="${en2?"All five roles and the head coach are confirmed":"五路與主教練都確定了"}">✔</span>`:""}</div>`
+    // 一列的 HTML（抽成函式：截圖量版面時要替沒顯示在畫面上的聯賽也排一份，見 runShot）；data-o＝在整份資料裡的順序（＝第三賽段成績的順序）
+    const rowH=t=>`<div class="tbRow${t.fa?" tbFA":""}" data-o="${s2Of(t)?9000+s2Of(t):(D.board||board).indexOf(t)}"${t.fa?"":` data-rk="${esc(rkS(t))}"`} style="--lgc:${LGC[t.lg]||"var(--gold)"}"><div class="tbTeam" title="${t.fa?"FA":esc(t.nm)}">${t.fa?`<img class="tbFaIc" src="${((window.TS_DATA||{}).lgi||{})[t.lg]||("img/lg_"+t.lg+".png")}" alt="">`:""}${teamLogoHTML(tAb(t.nm),26,true,t.nm)||teamLogoHTML(tAb(t.tm),26,true,t.tm)||""}<span>${t.fa?esc(rowNm(t)):`<a class="tbTmA" href="${tmWk(t.nm)}" target="_blank" rel="noopener">${esc(rowNm(t))}</a>`}</span>${tbDone(t)?`<span class="tbOk" title="${en2?"All five roles and the head coach are confirmed":"五路與主教練都確定了"}">✔</span>`:""}</div>`
         +COLS.map(r=>{ const es=t.fa?colE(t,r):colE(t,r).filter(e=>!e.gone);   /* 已宣布離隊的不留在陣容表格子裡，只列在 FA 那列（使用者 2026-11-21「所有已宣布離隊的都直接離開陣容表 去到FA區」）；小框仍查得到 */   /* FA 的主教練與後勤分兩格（使用者 2026-11-21 先要合併、隨後改回「主教練跟後勤分開」） */
           return `<div class="tbCell${es.length?"":" tbEmpty"}" data-r="${r}" data-lb="${BLN[r]}" data-tb="${cellTip(t,r)}"><span class="tbCv">${es.length?es.map((e,i)=>i<es.length-1?`<span class="tbNw">${nameH(e)}<span class="tbSep">/</span></span><wbr>`:nameH(e)).join(""):`<span class="tbMuted">–</span>`}</span></div>`; }).join("")
         // 手機版的 FA 卡：主教練與後勤併成一格（data-r="CO"，主教練排前面；小框也列全部）。電腦版這格不顯示、手機版改藏主教練與後勤那兩格（見 .tbFaCo 的樣式）
         +(t.fa?(()=>{ const es=colE(t,"CO"); return `<div class="tbCell tbFaCo${es.length?"":" tbEmpty"}" data-r="CO" data-lb="${BLN.CO}" data-tb="${cellTip(t,"CO")}"><span class="tbCv">${es.length?es.map((e,i)=>i<es.length-1?`<span class="tbNw">${nameH(e)}<span class="tbSep">/</span></span><wbr>`:nameH(e)).join(""):`<span class="tbMuted">–</span>`}</span></div>`; })():"")
-        +rateCell(t)+`</div>`; });
+        +rateCell(t)+`</div>`;
+    let bHTML="", lastLg="";
+    vRows.forEach(t=>{ if(t.lg!==lastLg){ const n=vRows.filter(x=>x.lg===t.lg&&!x.fa).length;
+        bHTML+=`<div class="tbLg" data-rg="${esc((en2?{LCK:"Korea",LPL:"China",LEC:"EMEA",LCS:"North America",CBLOL:"Brazil",LCP:"Asia-Pacific"}:{LCK:"韓國",LPL:"中國",LEC:"歐洲",LCS:"北美",CBLOL:"巴西",LCP:"亞太"})[t.lg]||"")}" style="--lgc:${LGC[t.lg]||"var(--gold)"}"><img class="tbLgIc" src="${((window.TS_DATA||{}).lgi||{})[t.lg]||("img/lg_"+t.lg+".png")}" alt=""><b>${esc(t.lg)}</b><span>${n}${en2?" teams":" 隊"}</span></div>`; lastLg=t.lg; }   // 聯賽徽章＋聯賽名稱＋隊伍數（使用者 2026-11-21）；地區名只留在 data-rg 給截圖標題用
+      bHTML+=rowH(t); });
     const bHead=`<div class="tbHd"><span></span>${COLS.map(r=>`<span>${(r==="HC"||r==="STF")?`<img class="trCoach" src="img/COACH.png" alt="">`:(POS_IMG[r]?`<img class="trRole" src="${POS_IMG[r]}" alt="">`:"")}${BLN[r]}</span>`).join("")}<span class="tbRateH tbSortT" style="cursor:pointer;white-space:nowrap" title="${en2?"Click to sort":"點一下照評分排序"}">${SRT0==="o"?(en2?"Split 3":"第三賽段"):SLB}${srtArr}</span></div>`;
     // 篩選列（使用者 2026-11-20「消息跟轉會表的篩選列也統一一下 並且直觀一點」）：兩種模式同一個順序——
     //   模式（圖示＋文字）｜賽區（聯賽色）｜該模式自己的篩選（分組、組間直線）｜……｜更新時間＋搜尋（最右）
@@ -15103,7 +15105,10 @@ function render(){
                 //   （使用者 2026-11-21「第三賽段成績改寫在隊名縮寫下方」「隊徽放大一點 然後放在隊名縮寫與成績的高度置中位置」）
                 h.querySelectorAll(".tbRow").forEach(r=>{ const tm=r.querySelector(".tbTeam"); if(!tm)return; const im=tm.querySelector("img:not(.tbFaIc)"), K=1.3; let top=im; while(top&&top.parentElement!==tm)top=top.parentElement;
                   if(im){ ["width","height","marginTop","marginRight","marginBottom","marginLeft"].forEach(p=>{ const v=parseFloat(im.style[p]); if(isFinite(v))im.style[p]=(v*K)+"px"; });
-                    if(!parseFloat(im.style.width)){ const w0=(+im.getAttribute("width"))||26; im.style.width=im.style.height=(w0*K)+"px"; } im.style.flex="0 0 auto"; im.style.maxWidth="none"; }
+                    if(!parseFloat(im.style.width)){ const w0=(+im.getAttribute("width"))||parseFloat(im.style.height)/K||26; im.style.width=im.style.height=(w0*K)+"px"; }
+                    // 還沒經過 lgFit 的圖（量版面用的參考複本是從資料直接排的）：佔跟畫面上一樣的固定寬位子（圖寬的 1.5 倍），隊名欄量出來才跟畫面上的一樣寬
+                    if(!im.dataset.fit){ const w1=parseFloat(im.style.width)||26*K; im.style.margin=`0 ${w1*0.25}px`; }
+                    im.style.flex="0 0 auto"; im.style.maxWidth="none"; }
                   const box=document.createElement("span"), l1=document.createElement("span"); box.className="tbTmB"; box.style.cssText="display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:3px;line-height:1.15";
                   l1.style.cssText="display:flex;align-items:center;gap:4px"; [...tm.children].filter(x=>x!==top).forEach(x=>l1.appendChild(x)); box.appendChild(l1);
                   if(r.dataset.rk){ const l2=document.createElement("span"); l2.className="tbTmR"; l2.style.cssText="font-size:12.5px;font-weight:700;color:#8b98ad;white-space:nowrap"; l2.textContent=r.dataset.rk; box.appendChild(l2); }
@@ -15111,15 +15116,28 @@ function render(){
               h.querySelectorAll(".tbHd").forEach(x=>{ x.style.position="static"; x.style.background="none"; }); h.querySelectorAll(".tbDim").forEach(x=>x.classList.remove("tbDim"));
               return h; };
             const built=live.map(sc=>({sc,h:prep(sc)}));
+            // 量版面用的參考複本＝六大聯賽的完整名單（從資料直接排，不看畫面上篩了哪幾個聯賽、有沒有搜尋或只看某些狀態）：
+            //   字級（＝整張的寬度 W）由它們決定，所以不管哪一次截圖、截哪一個聯賽，ID 的大小都一樣
+            //   （使用者 2026-11-21「所有ID大小一致的情況下調整大小」；原本只量這一批要輸出的聯賽，只截 LCK 時字會比六個聯賽一起截時大）
+            const tip0=TIPS.length;
+            const ref=["LCK","LPL","LEC","LCS","CBLOL","LCP"].map(lg=>{ const ts=(D.board||[]).filter(t=>t.lg===lg&&!t.fa); if(!ts.length)return null;
+              const tmp=document.createElement("div"); tmp.innerHTML=ts.map(rowH).join(""); return {sc:{lg,rows:[...tmp.children]}}; }).filter(Boolean).map(o=>({...o,h:prep(o.sc)}));
+            TIPS.length=tip0;   // 參考複本不會開小框，排它們時多塞進去的小框內容丟掉
+            const allH=[...built,...ref];
             // 欄寬：每個聯賽都量一次「隊名欄」與「六個資料欄」各自最少要多寬（放得下最長的那個字），整批取最大
-            //   ⇒ 隊名欄固定 teamW、六欄等寬（五路＋教練）；整張的寬度 W 至少 1000（＝字的大小），放不下才加寬。每張圖的欄位位置與字級因此完全一樣
+            //   ⇒ 隊名欄固定 teamW、六欄等寬（五路＋教練）。每張圖的欄位位置與字級因此完全一樣
+            // 字的大小＝整張的寬度 W 越小、縮放到 2000px 之後字越大。W 取兩個條件裡比較大的：
+            //   ①放得下最長的 ID：隊名欄＋六欄 ×（最寬的格子＋PADX 的呼吸空間）②隊伍最多的聯賽（LPL 14 隊）在這個寬度下不會超出資料框
+            //   原本 W 至少 1000：六欄每欄 139px，最長的 ID 才 93px，左右空很多、字只有 28px；現在大約 860 ⇒ 字 32.6px（放大 16% 左右）
             let teamW=0, colW=0;
-            built.forEach(o=>{ const bd=o.h.querySelector(".tbBoard"); o.h.style.width="6000px"; bd.style.gridTemplateColumns="max-content repeat(6,max-content)"; bd.style.justifyContent="start";
+            allH.forEach(o=>{ const bd=o.h.querySelector(".tbBoard"); o.h.style.width="6000px"; bd.style.gridTemplateColumns="max-content repeat(6,max-content)"; bd.style.justifyContent="start";
               const tr=getComputedStyle(bd).gridTemplateColumns.split(/\s+/).map(parseFloat); if(tr[0]>teamW)teamW=tr[0]; tr.slice(1,7).forEach(v=>{ if(v>colW)colW=v; }); bd.style.justifyContent=""; });
             teamW=Math.ceil(teamW)+2; colW=Math.ceil(colW)+2;
-            let W=Math.max(1000,teamW+6*colW);   // 資料欄＝五路＋教練，共六欄
-            const lay=w=>built.forEach(o=>{ o.h.style.width=w+"px"; o.h.querySelector(".tbBoard").style.gridTemplateColumns=teamW+"px repeat(6,minmax(0,1fr))"; });
-            lay(W); for(let it=0;it<80&&built.some(o=>o.h.offsetHeight>IN.h*W/IN.w);it++){ W+=25; lay(W); }   // 隊伍最多的聯賽在這個寬度下太高（會超出框）⇒ 整批一起加寬（等於一起縮小）
+            const PADX=8, WMIN=800;   // PADX＝最長的 ID 左右再多留的空間（加上格子本身的內距 12px，相鄰兩欄最長的字之間至少 20px）；WMIN＝字不要大到離譜的下限
+            let W=Math.max(WMIN,teamW+6*(colW+PADX));   // 資料欄＝五路＋教練，共六欄
+            const lay=w=>allH.forEach(o=>{ o.h.style.width=w+"px"; o.h.querySelector(".tbBoard").style.gridTemplateColumns=teamW+"px repeat(6,minmax(0,1fr))"; });
+            lay(W); for(let it=0;it<200&&allH.some(o=>o.h.offsetHeight+2>IN.h*W/IN.w);it++){ W+=4; lay(W); }   // 隊伍最多的聯賽在這個寬度下太高（會超出框）⇒ 整批一起加寬（等於一起縮小）
+            ref.forEach(o=>o.h.remove());   // 參考複本量完就丟，只輸出 built
             const lvTeam=h=>h.querySelectorAll(".tbRow .tbTeam").forEach(tm=>{ const box=tm.querySelector(".tbTmB"), im=tm.querySelector("img:not(.tbFaIc)"); if(!box||!im)return;
               const a=inkOf(box.querySelector(".tbTmA")||box.firstChild), b=inkOf(box.querySelector(".tbTmR"))||a; if(!a)return; const ir=im.getBoundingClientRect(); nudge(box,(ir.top+ir.bottom)/2-(a.top+b.bot)/2); });
             for(const o of built){ if(sink&&sink.stop)break; const h=o.h, hd=mkHead(o.sc,HW,HF,LX);
