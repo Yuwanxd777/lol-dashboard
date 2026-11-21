@@ -168,6 +168,17 @@ PLAN = [
      [S("fetch_soloq_auto"), S("fetch_events_extra")]),
     ("⑤c2 背景：BP 待標樣本（跟 ⑤c～⑤h2 並行，⑥ 前收）",
      [SB("label_pending", "--apply")], {"bg": True, "until": "⑥ 收尾（互不相干）"}),
+    # 2026-11-21 #3518：fetch_transfers 從 ⑤h2 後面搬來這裡當**背景階段**——跟 ⑤d～⑤h 並行，⑤h2 開始前收。
+    #   11-21 10:00 班它循序跑 170.0s（幾乎全在等 Cargo 節流與 X／PTT），而 ⑤d 678.1s 裡有 360s 是在等 dpm 限流
+    #   （兩邊都是在等網路、CPU 是空的）⇒ 整段被 ⑤d 吸掉，牆鐘少約 170s。
+    #   相依：只讀 data/data_YYYY.js（② 寫完；下一個寫入者是 ⑥ trim_data_cols）與自己的 transfers_*.json／
+    #   csv_cache/transfers_intl.json；寫 transfers.js（讀它的只有 ⑤h4 補隊徽、⑥c 匯出，都在收的位置之後）。
+    #   ⑤d～⑤h 讀寫的是 soloq*／逐場檔，零重疊。
+    #   **為什麼從 ⑤d 才起跑、⑤h2 前就收**：它跟 fetch_events_extra（⑤c）、build_predict_live（⑤h2）共用同一套
+    #   Cargo cookie／節流、都打 lol.fandom.com（#96 的規矩是別併發）；⑤d～⑤h 沒有一步打 fandom。
+    #   --jobs 1 時照舊就地循序跑；要退回舊行為＝把這一項搬回 ⑤h2 後面並拿掉選項。沙盒 scripts/run_update_bg_test.py。
+    ("⑤h3 背景：轉會消息（跟 ⑤d～⑤h 並行，⑤h2 前收）",
+     [S("fetch_transfers")], {"bg": True, "until": "⑤h2 預測本屆補兵／MVP"}),
     # --batch（2026-09-08 #68）：逐帳號改一次問一批（Promise.all），10:00 那班逐人 267s 預估 → 60~70s；
     # 沒命中的帳號自動退回逐一問，拿掉旗標＝回到舊行為。沙盒 scripts/fetch_soloq_update_batch_test.py。
     # 批次大小由 fetch_soloq_update.BATCH_NEW 決定（#68 8 → #71 24 → #83 48，實測 10:00 那班批次 29s 預估 → 13~16s）；要臨時改用 --batch-size N。
@@ -189,7 +200,7 @@ PLAN = [
     # 2026-10-17：預測分頁「本屆」欄的補兵（Q13）與各場 MVP 路線（Q14）——主資料沒收這兩樣，從 Leaguepedia Cargo 拿（兩個請求）
     ("⑤h2 預測本屆補兵／MVP", [S("build_predict_live")]),
     # 2026-11-18：「轉會」分頁（Leaguepedia News 的 Cargo 一個請求＋@Sheep_Esports 內嵌時間軸一個請求，失敗都沿用舊資料）
-    ("⑤h3 轉會消息", [S("fetch_transfers")]),
+    #   2026-11-21 #3518：這一步搬到 ⑤d 前面當背景階段（見上），在 ⑤h2 開始前收。
     # 2026-11-19：轉會分頁出現的新隊（含沒有縮寫的二三級隊）缺隊徽 ⇒ 從 Leaguepedia 補（使用者「缺的隊徽都幫我抓近來」）。
     #   讀 ⑤h3 的 transfers.js；寫 img/teams／csv_cache 的 alias／own／miss，結尾自己跑 fit_team_logos＋build_img_manifest
     #   （⑥ 還會再跑一次 manifest，冪等）。查不到的 30 天內不重查 ⇒ 平常只多一次無頭開頁算縮寫。

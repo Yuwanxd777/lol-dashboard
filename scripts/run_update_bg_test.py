@@ -117,5 +117,58 @@ if ent:
 else:
     print("  （scripts/bplive/label_pending.py 不存在 ⇒ SB 回 None，略過）")
 
+print("【兩個背景同時在跑、各自在自己的 until 前收（#3518）】")
+with tempfile.TemporaryDirectory() as tmp:
+    p_ = lambda t: os.path.join(tmp, t).replace("\\", "/")
+    saw = "import os;open('%s','w').write(('1' if os.path.exists('%s') else '0')+('1' if os.path.exists('%s') else '0'))"
+    plan2 = [
+        ("BG1 階段", [step("sBG1", "import time;time.sleep(2.5);open('%s','w').write('x')" % p_("d1"))], {"bg": True, "until": "Z 階段"}),
+        ("BG2 階段", [step("sBG2", "import time;time.sleep(1.0);open('%s','w').write('x')" % p_("d2"))], {"bg": True, "until": "Y 階段"}),
+        ("X 階段", [step("sX", saw % (p_("x_saw"), p_("d1"), p_("d2")))]),
+        ("Y 階段", [step("sY", saw % (p_("y_saw"), p_("d1"), p_("d2")))]),
+        ("Z 階段", [step("sZ", saw % (p_("z_saw"), p_("d1"), p_("d2")))]),
+    ]
+    ru.PLAN = plan2
+    logp = os.path.join(tmp, "log.txt")
+    argv = sys.argv
+    sys.argv = ["run_update.py", "--jobs", "4", "--log", logp]
+    t0 = time.time()
+    try:
+        rc = ru.main()
+    finally:
+        sys.argv = argv
+    wall = time.time() - t0
+    rd = lambda t: io.open(os.path.join(tmp, t)).read() if os.path.exists(os.path.join(tmp, t)) else "?"
+    log = io.open(logp, encoding="utf-8").read()
+    check("exit 0", rc == 0, rc)
+    check("X 開跑時兩個背景都還沒結束", rd("x_saw") == "00", rd("x_saw"))
+    check("Y 開跑前只收了 BG2（BG1 還在跑）", rd("y_saw") == "01", rd("y_saw"))
+    check("Z 開跑前 BG1 也收了", rd("z_saw") == "11", rd("z_saw"))
+    check("兩個背景是同時跑的：牆鐘 < 3.5s（循序相加）（實際 %.2fs）" % wall, wall < 3.3, wall)
+    check("日誌順序 sBG2 → sY → sBG1 → sZ",
+          log.index("---- sBG2（") < log.index("---- sY（") < log.index("---- sBG1（") < log.index("---- sZ（"))
+
+print("【真正的 PLAN：fetch_transfers 是背景、⑤d 前起跑、⑤h2 前收（#3518）】")
+ru3 = importlib.reload(ru)
+names3 = [x[0] for x in ru3.PLAN]
+pos = lambda step_: [i for i, e in enumerate(ru3.PLAN) if any(s and s[0] == step_ for s in e[1])]
+tr = pos("fetch_transfers")
+check("fetch_transfers 恰好出現一次", len(tr) == 1, tr)
+if len(tr) == 1:
+    e = ru3.PLAN[tr[0]]
+    check("單獨一個背景階段", len(e[1]) == 1 and len(e) > 2 and e[2].get("bg"), e)
+    check("until 指向存在的階段", e[2].get("until") in names3, e[2])
+    j = names3.index(e[2]["until"]) if e[2].get("until") in names3 else len(names3)
+    # 共用 Cargo（lol.fandom.com）的兩步不可以落在它跑的區間 [起跑, 收) 裡
+    for other in ("fetch_events_extra", "build_predict_live"):
+        o = pos(other)
+        check("%s 不在它的並行區間裡" % other, all(not (tr[0] < k < j) for k in o), (tr[0], o, j))
+    check("fetch_events_extra 那一階段在它起跑之前就跑完", all(k < tr[0] for k in pos("fetch_events_extra")))
+    check("build_predict_live 在收的位置（含）之後", all(k >= j for k in pos("build_predict_live")))
+    check("讀 transfers.js 的 fetch_team_logos_wiki／export_transfer_site 在收之後",
+          all(k >= j for k in pos("fetch_team_logos_wiki") + pos("export_transfer_site")))
+    check("改寫年度檔的 trim_data_cols 在收之後", all(k >= j for k in pos("trim_data_cols")))
+    check("fetch_soloq_update 落在並行區間裡（這次搬動的目的）", all(tr[0] < k < j for k in pos("fetch_soloq_update")))
+
 print("\n%s（%d 條失敗）" % ("全部通過" if not fails else "有失敗", len(fails)))
 sys.exit(1 if fails else 0)
