@@ -1060,7 +1060,7 @@
   .tbLegend{display:inline-flex;gap:12px;align-items:center}.tbLegend b.tbStay{color:#fff}
   .tbCell.tbFaCo{display:none}   /* FA 列「主教練＋後勤併成一格」那格只給手機卡片用（手機那段樣式會打開它、改藏原本兩格）；電腦版照舊兩欄 */
   .tbHd,.tbRow{grid-column:1/-1;display:grid;grid-template-columns:subgrid;align-items:center}
-  .tbHd{position:sticky;top:0;z-index:2;background:var(--card,#141a2a);padding:8px 0;border-bottom:1px solid var(--line);font-weight:700;color:var(--tx);font-size:16px}   /* 欄名放大（使用者 2026-11-21「文字大一點」；原本 14px） */
+  .tbHd{position:sticky;top:0;z-index:2;background:#161c2b;padding:8px 0;border-bottom:1px solid var(--line);font-weight:700;color:var(--tx);font-size:16px}   /* 欄名放大（使用者 2026-11-21「文字大一點」；原本 14px） */   /* 底色＝卡片上緣的顏色（卡片是 #161c2b→#121722 的漸層）：原本用 --card（#141926），比卡片深一階，看起來像貼了一塊色塊（使用者 2026-11-21「電腦版的這列 背景色怪怪的」） */
   .tbHd>span{display:flex;align-items:center;justify-content:center;gap:4px}.tbHd>span img{position:relative;top:-1px}   /* 路線圖比文字低 1px（量出來圖中心 19.5、字中心 18.5）⇒ 往上收 1px，欄名才在同一條水平線上（使用者 2026-11-21「感覺沒有水平」） */
   .tbLgIc{width:20px;height:20px;object-fit:contain;border-radius:5px;background:#e8ecf4;padding:2px;box-sizing:border-box;flex:0 0 auto}   /* 跟 FA 徽章、隊徽圖案同大小 */
   .tbLg{grid-column:1/-1;display:flex;align-items:center;gap:10px;margin:26px 0 6px;padding:8px 14px 8px 17.5px;border-radius:8px;border-left:5px solid var(--lgc);background:linear-gradient(90deg,color-mix(in srgb,var(--lgc) 22%,transparent),transparent 70%)}
@@ -14978,82 +14978,91 @@ function render(){
         try{
           if(!window.html2canvas)await new Promise((ok,no)=>{ const sc=document.createElement("script"); sc.src="html2canvas.min.js"; sc.onload=ok; sc.onerror=no; document.head.appendChild(sc); });
           rootZ=document.documentElement.style.zoom; document.documentElement.style.zoom="";   // html2canvas 不懂整頁 zoom
+          // ── 整批截圖共用同一套版面（使用者 2026-11-21「截圖的邊框位置 以及每一欄的寬度應該要是一致的」）──
+          //   ①上方那一列：寬度、字級、顏色說明框的位置用六大聯賽裡最擠的那個來定（不看現在篩了哪幾個聯賽），消息也用同一個高度
+          //     ⇒ 不管哪個聯賽、陣容表或消息，資料框的上緣都在同一個位置（inner 算出來的 IN 整批共用）
+          //   ②陣容表：隊名欄與七個資料欄的寬度各取所有聯賽裡最寬的需求，每張圖用同一組欄寬、同一個縮放（字一樣大、欄位在同一個位置）；
+          //     原本每個聯賽各自挑「字最大」的寬度，隊伍少的聯賽字比較大、欄位也跟著跑
+          //   ③消息：欄寬用整份消息量出來的那一組，每一頁都一樣（原本每頁照自己的內容排，原隊／新隊那幾欄每頁寬度不同）
+          const LG=en2?[["tbNew","New signing"],["tbRs","Re-signed & promoted"],["tbStay","Staying"],["tbExp","Contract expired"],["tbOut","Possible move"],["tbY","Rumor"]]
+            :[["tbNew","新加入"],["tbRs","續約升職"],["tbStay","續留"],["tbExp","合約到期"],["tbOut","可能轉會"],["tbY","傳聞"]];   // 續約與升職併成一項、都用粉色（使用者 2026-11-21）；小框的標籤仍分開寫
+          const legend=`<div class="trShHdLg" style="flex:1 1 auto;min-width:0;display:flex;flex-wrap:nowrap;align-items:center;gap:14px;margin:0 4px;padding:5px 12px;border:1px solid rgba(255,255,255,.12);border-radius:8px;font-size:18px;justify-content:space-evenly">`
+            +LG.map(([c,l])=>`<b class="tbN ${c}"${c==="tbStay"?` style="color:#fff"`:""}>${l}</b>`).join("")+`<b class="tbN" style="color:#8b98ad"><span class="tbOk" style="margin:0 4px 0 0;font-size:inherit">✔</span>${en2?"Roster confirmed":"陣容確認"}</b></div>`;
+          // 賽區名放大、後面不寫國名；整列的字（大標題、賽區、顏色說明、時間）對齊同一條基線——大小字用垂直置中對齊的話，小字的字腳會比大字高，看起來不在一條線上
+          //   （使用者 2026-11-21「截圖的聯賽後面不用寫國名了 然後聯賽字體大一點 並且標籤列的資料要水平」）
+          const mkHead=(sc,w,fs,lx)=>{ const hd=mkHost(w,`<span style="font-size:32px;font-weight:900;color:${sc.c||"#f0e6d2"}">${esc(sc.lg)}</span>`,legend), lg=hd.querySelector(".trShHdLg");
+            hd.style.padding="18px 22px 0"; lg.style.fontSize=fs+"px"; if(lx){ const d=lx-lg.offsetLeft; if(d>0)lg.style.marginLeft=(4+d)+"px"; } return hd; };
+          let HW=1000, HF=18, LX=0; const LGS=["LCK","LPL","LEC","LCS","CBLOL","LCP"];
+          LGS.forEach(n=>{ const hd=mkHead({lg:n},HW,HF,0); LX=Math.max(LX,hd.querySelector(".trShHdLg").offsetLeft); hd.remove(); });   // 顏色說明那一框的左緣對齊最長的賽區名
+          { const hd=mkHead({lg:LGS[0]},HW,HF,LX), row=hd.querySelector(".trShHdRow"), lg=hd.querySelector(".trShHdLg");
+            // 塞不塞得下：看最後一項的右緣有沒有吃到框的右留白（scrollWidth 不算右邊的留白，量不出來）；字先縮到 15px，還不夠就把整塊加寬（＝等比例縮小），不換行
+            const over=()=>lg.lastElementChild.getBoundingClientRect().right>lg.getBoundingClientRect().right-11||row.scrollWidth>row.clientWidth+1;
+            while(over()&&HF>15){ HF--; lg.style.fontSize=HF+"px"; }
+            while(over()&&HW<1800){ HW+=50; hd.style.width=HW+"px"; }
+            hd.remove(); }
+          const hp0=mkHead({lg:LGS[0]},HW,HF,LX), IN=inner(Math.round(hp0.offsetHeight*SZ/hp0.offsetWidth)); hp0.remove();
           if(MODE==="news"){
             // 消息也用固定的資料框（跟陣容表同一套 FR／inner）：每一頁的框都在同一個位置、同一個大小，內容靠上放——
             //   原本整塊照內容高度縮放再置中，每頁的框寬、框高都不一樣（第 1 頁左右留 78px、第 2 頁 54px），最後一頁還會浮在中間。
             //   另外獨立站的欄名列是 sticky（往下捲時留在上方），截圖複本裡會往下滑一段、蓋住第一則消息 ⇒ mkHost 的樣式把它固定回原位
             const src=main.querySelector(".trList"), NW=1400, kids=[...src.children].filter(e=>!e.classList.contains("trHead")), hd=src.querySelector(".trHead");
             const CARD=`class="card trList" style="margin:0;padding:0;background:none;border:0;border-radius:0;box-shadow:none"`;
-            const mkNH=(i,n)=>{ const x=mkHost(1000,`<span style="font-size:26px;font-weight:900">${en2?"News":"消息"}</span>${n>1?`<span style="font-size:16px;color:#8b98ad">${i+1} / ${n}</span>`:""}`); x.style.padding="18px 22px 0"; x.querySelector(".trShHdRow").style.lineHeight="1.2"; return x; };
-            const h0=mkNH(0,2), IN={...inner(Math.round(h0.offsetHeight*SZ/h0.offsetWidth)),ta:1}; h0.remove();
+            // 上方那一列跟陣容表同一個寬度、同一個高度：放一個看不見的顏色說明框佔位（它決定整列的高度與基線）
+            const mkNH=(i,n)=>{ const x=mkHost(HW,`<span style="font-size:32px;font-weight:900">${en2?"News":"消息"}</span>${n>1?`<span style="font-size:17px;color:#8b98ad">${i+1} / ${n}</span>`:""}`,legend.replace('class="trShHdLg" style="','class="trShHdLg" style="visibility:hidden;'));
+              x.style.padding="18px 22px 0"; x.querySelector(".trShHdLg").style.fontSize=HF+"px"; return x; };
+            const INn={...IN,ta:1};
             const probe=mkHost(NW,""); probe.querySelector(".trShHdRow").remove(); probe.style.padding="0"; probe.insertAdjacentHTML("beforeend",`<div ${CARD}></div>`); const pl=probe.lastChild; pl.innerHTML=src.innerHTML;
+            const GC=getComputedStyle(pl).gridTemplateColumns, CARD2=/^[0-9. px]+$/.test(GC)?CARD.replace('style="','style="grid-template-columns:'+GC+";"):CARD;   // 整份消息量出來的欄寬（px）：每一頁都用這一組
             // 每一列實際佔的高度＝下一列的頂 − 這一列的頂（列與列之間的間隔也算進去，才不會排到超出框）
             const els=[...pl.children], tops=els.map(e=>e.getBoundingClientRect().top), endY=pl.getBoundingClientRect().bottom, occ=i=>(i+1<els.length?tops[i+1]:endY)-tops[i];
             const hi=els.findIndex(e=>e.classList.contains("trHead")), hdrH=hi<0?0:occ(hi), hs=[]; els.forEach((e,i)=>{ if(i!==hi)hs.push(occ(i)); }); probe.remove();
-            const CAP=IN.h*NW/IN.w-hdrH-2;
+            const CAP=INn.h*NW/INn.w-hdrH-2;
             const pages=[]; let cur=[], used=0; kids.forEach((e,i)=>{ if(cur.length&&used+hs[i]>CAP){ pages.push(cur); cur=[]; used=0; } cur.push(e); used+=hs[i]; }); if(cur.length)pages.push(cur);
             for(let i=0;i<pages.length-1;i++){ const pg=pages[i]; if(pg.length>1&&pg[pg.length-1].classList.contains("trDay"))pages[i+1].unshift(pg.pop()); }   // 日期標題不留在頁尾
             // 分享視窗先產生最新幾頁（整份消息十幾頁，手機全畫完要半分鐘）；要更多再按「產生其餘」從 skip 接著畫
             const P0=sink&&sink.skip?Math.min(sink.skip,pages.length):0, NP=sink&&sink.max?Math.min(pages.length,P0+sink.max):pages.length; if(sink){ sink.capped=pages.length>NP; sink.total=pages.length; }
             for(let i=P0;i<NP;i++){ if(sink&&sink.stop)break; const pg=pages[i];
               const nh=mkNH(i,pages.length), h=mkHost(NW,""); h.querySelector(".trShHdRow").remove(); h.style.padding="0"; h.style.background="transparent";
-              h.insertAdjacentHTML("beforeend",`<div ${CARD}>${hd?hd.outerHTML:""}${pg.map(e=>e.outerHTML).join("")}</div>`);
-              await out(h,"S17_LoL_"+(en2?"News":"消息")+(pages.length>1?"_"+(i+1):""),nh,IN); }
+              h.insertAdjacentHTML("beforeend",`<div ${CARD2}>${hd?hd.outerHTML:""}${pg.map(e=>e.outerHTML).join("")}</div>`);
+              await out(h,"S17_LoL_"+(en2?"News":"消息")+(pages.length>1?"_"+(i+1):""),nh,INn); }
           }else{
-            const LG=en2?[["tbNew","New signing"],["tbRs","Re-signed & promoted"],["tbStay","Staying"],["tbExp","Contract expired"],["tbOut","Possible move"],["tbY","Rumor"]]
-              :[["tbNew","新加入"],["tbRs","續約升職"],["tbStay","續留"],["tbExp","合約到期"],["tbOut","可能轉會"],["tbY","傳聞"]];   // 續約與升職併成一項、都用粉色（使用者 2026-11-21）；小框的標籤仍分開寫
-            const legend=`<div class="trShHdLg" style="flex:1 1 auto;min-width:0;display:flex;flex-wrap:nowrap;align-items:center;gap:14px;margin:0 4px;padding:5px 12px;border:1px solid rgba(255,255,255,.12);border-radius:8px;font-size:18px;justify-content:space-evenly">`
-              +LG.map(([c,l])=>`<b class="tbN ${c}"${c==="tbStay"?` style="color:#fff"`:""}>${l}</b>`).join("")+`<b class="tbN" style="color:#8b98ad"><span class="tbOk" style="margin:0 4px 0 0;font-size:inherit">✔</span>${en2?"Roster confirmed":"陣容確認"}</b></div>`;
             const secs=[]; [...main.querySelectorAll(".tbBoard>.tbLg,.tbBoard>.tbRow")].forEach(e=>{ if(e.classList.contains("tbLg"))secs.push({lg:e.querySelector("b").textContent,sub:e.dataset.rg||"",c:e.style.getPropertyValue("--lgc"),rows:[]}); else if(secs.length)secs[secs.length-1].rows.push(e); });
-            // 版面＝一列一隊，跟網頁（桌面版）的表格一樣（使用者 2026-11-20「截圖能不能改成一列一隊這樣 跟網頁顯示的一樣」）：
-            //   表頭＋該賽區各隊的列放進一個寬度 ≥1000 的 mainc 容器（＝桌面版樣式）；寬度從 1000 試到 2000，挑縮放後字最大的那個
-            const bhd=main.querySelector(".tbBoard>.tbHd");
-            // 標題列（標題＋賽區＋顏色說明＋資料時間，併成一列）：各聯賽要用同一個寬度、同一個字級，資料框的上緣才會在同一個位置
-            //   ⇒ 先把每個聯賽都排一次，取最擠的那個的設定（顏色說明的字先縮到 15px，還不夠就把整塊加寬＝等比例縮小，不換行）
-            //   顏色說明那一框的左緣也對齊最長的賽區名（lx），這樣每個聯賽的框都在同一個位置、同一個寬度
-            //   賽區名放大、後面不寫國名；整列的字（大標題、賽區、顏色說明、時間）對齊同一條基線——大小字用垂直置中對齊的話，小字的字腳會比大字高，看起來不在一條線上
-            //   （使用者 2026-11-21「截圖的聯賽後面不用寫國名了 然後聯賽字體大一點 並且標籤列的資料要水平」）
-            const mkHead=(sc,w,fs,lx)=>{ const hd=mkHost(w,`<span style="font-size:32px;font-weight:900;color:${sc.c||"#f0e6d2"}">${esc(sc.lg)}</span>`,legend), lg=hd.querySelector(".trShHdLg");
-              hd.style.padding="18px 22px 0"; lg.style.fontSize=fs+"px"; if(lx){ const d=lx-lg.offsetLeft; if(d>0)lg.style.marginLeft=(4+d)+"px"; } return hd; };
-            const live=secs.filter(sc=>sc.rows.length); let HW=1000, HF=18, LX=0;
-            live.forEach(sc=>{ const hd=mkHead(sc,HW,HF,0); LX=Math.max(LX,hd.querySelector(".trShHdLg").offsetLeft); hd.remove(); });
-            if(live.length){ const hd=mkHead(live[0],HW,HF,LX), row=hd.querySelector(".trShHdRow"), lg=hd.querySelector(".trShHdLg");
-              // 塞不塞得下：看最後一項的右緣有沒有吃到框的右留白（scrollWidth 不算右邊的留白，量不出來）
-              const over=()=>lg.lastElementChild.getBoundingClientRect().right>lg.getBoundingClientRect().right-11||row.scrollWidth>row.clientWidth+1;
-              while(over()&&HF>15){ HF--; lg.style.fontSize=HF+"px"; }
-              while(over()&&HW<1800){ HW+=50; hd.style.width=HW+"px"; }
-              hd.remove(); }
-            let IN=null;
-            for(const sc of secs){ if(!sc.rows.length)continue; if(sink&&sink.stop)break;
-              const hd=mkHead(sc,HW,HF,LX); if(!IN)IN=inner(Math.round(hd.offsetHeight*SZ/hd.offsetWidth));
-              const h=mkHost(1200,""); h.querySelector(".trShHdRow").remove(); h.style.padding="0"; h.style.background="transparent"; h.dataset.noic="1";
+            // 版面＝一列一隊，跟網頁（桌面版）的表格一樣（使用者 2026-11-20「截圖能不能改成一列一隊這樣 跟網頁顯示的一樣」）
+            const bhd=main.querySelector(".tbBoard>.tbHd"), live=secs.filter(sc=>sc.rows.length);
+            // prep：把一個聯賽的列排進截圖用的複本（還不決定寬度）
+            const prep=sc=>{ const h=mkHost(1200,""); h.querySelector(".trShHdRow").remove(); h.style.padding="0"; h.style.background="transparent"; h.dataset.noic="1";
               h.insertAdjacentHTML("beforeend",`<div><div class="card tbBoard" style="margin:0;padding:0;background:none;border:0;border-radius:0;box-shadow:none">${bhd?bhd.outerHTML:""}${sc.rows.filter(r=>!r.classList.contains("tbFA")).map(r=>r.outerHTML).join("")}</div></div>`);
               // 截圖專用（使用者 2026-11-20「截圖的教練只列主教練 自由人也不列 每路每個選手都換行」）：拿掉後勤欄與自由人列；同一格多人時一人一行
-              { const bd=h.querySelector(".tbBoard"); bd.style.gridTemplateColumns="max-content repeat(6,minmax(0,1fr)) minmax(120px,max-content)";   /* 整個賽區都沒評分時，「轉會評分」欄名不要貼著主教練 */
+              { const bd=h.querySelector(".tbBoard");
                 h.querySelectorAll('.tbCell[data-r="STF"]').forEach(x=>x.remove()); const hs=h.querySelector(".tbHd"); if(hs&&hs.children[7])hs.children[7].remove();
                 h.querySelectorAll(".tbSep").forEach(x=>x.outerHTML="<br>");
+                h.querySelectorAll(".tbRtSz").forEach(x=>x.remove());   // 網頁上用來撐住最後一欄寬度的隱形字串（最長的評分範圍）：截圖的欄寬另外算，留著會把七欄都撐成那麼寬、整張表的字跟著變小
                 // 表頭：「路線圖＋路線名稱」這一組對在下方資料的正中間（使用者 2026-11-20「截圖的資料 是要在路線圖跟路線名的置中位置 不是路線名稱的置中位置」），
                 //   圖和字同一條水平線（html2canvas 畫行內圖會偏高 ⇒ 圖字都放進固定高度的 inline-flex，各自垂直置中）
                 h.querySelectorAll(".tbHd>span").forEach(sp=>{ const im=sp.querySelector("img"); if(!im)return; const tx=sp.textContent.trim(), w=im.offsetWidth||20, hh=im.offsetHeight||20;
                   sp.innerHTML=`<span style="display:inline-flex;align-items:center;gap:6px;height:${hh}px;line-height:${hh}px"><span style="display:block;height:${hh}px;line-height:${hh}px">${esc(tx)}</span></span>`;
                   im.style.cssText+=`;display:block;flex:0 0 auto;margin:0;width:${w}px;height:${hh}px;vertical-align:top`; sp.firstChild.insertBefore(im,sp.firstChild.firstChild); });
                 // 評分欄跟其他欄同寬、置中（使用者 2026-11-20「截圖的評分欄感覺間隔特大」：原本靠右、欄寬又不一樣，跟主教練之間空一大塊）
-                bd.style.gridTemplateColumns="max-content repeat(7,minmax(max-content,1fr))";   // 每一欄至少跟最長的那個字一樣寬：原本是 minmax(0,1fr)，表格窄的時候「第二賽段遭淘汰」會凸出框外（使用者 2026-11-21「截圖有些超框的情況」）
                 h.querySelectorAll(".tbRate,.tbRateH").forEach(x=>{ x.style.textAlign="center"; x.style.justifySelf="stretch"; x.style.display="block"; x.style.padding="6px 6px"; x.style.minWidth="0"; });
                 h.querySelectorAll(".rtPc").forEach(x=>{ x.style.marginRight="0"; });   // 網頁上為了貼齊右邊把「）」往右收半個字；截圖是置中，要還原，不然整串偏右（使用者 2026-11-20「轉會評分那欄 底下資料沒置中」）
                 // 評分：多位傳聞人選的範圍在截圖裡改寫成平均（使用者 2026-11-20「截圖評分用平均」；網頁仍是 最低 ～ 最高）
                 h.querySelectorAll(".tbRate[data-avg]").forEach(c=>{ const [tx,cl]=c.dataset.avg.split("|"), b=c.querySelector("b"); if(b){ b.className=cl; b.innerHTML="（"+tx+'<i class="rtPc" style="margin-right:0">）</i>'; } }); }
               h.querySelectorAll(".tbHd").forEach(x=>{ x.style.position="static"; x.style.background="none"; }); h.querySelectorAll(".tbDim").forEach(x=>x.classList.remove("tbDim"));
-              const bd2=h.querySelector(".tbBoard"), fits=()=>bd2.scrollWidth<=bd2.clientWidth+1;   // 太窄的寬度會把表格撐出去（欄寬有下限了），不採用
-              let bw=0, bk=0;
-              for(let w=900;w<=2600;w+=50){ h.style.width=w+"px"; if(!fits())continue; const k=Math.min(IN.w/h.offsetWidth,IN.h/h.offsetHeight); if(k>bk+1e-4){ bk=k; bw=w; } }
-              h.style.width=(bw||2600)+"px";
-              // 左右不留大片空白（使用者 2026-11-20「左右也不要太大留空」）：高度先頂到時（隊伍多的賽區），把表格加寬到剛好鋪滿 2000
-              for(let it=0;it<4;it++){ const k=Math.min(IN.w/h.offsetWidth,IN.h/h.offsetHeight), want=Math.floor(IN.w/k); if(want-h.offsetWidth<4)break; h.style.width=want+"px"; }
-              // 底部不留大片空白（使用者 2026-11-20「底部不要太多留空」）：寬度先頂到時，把剩下的高度平均加到每一列
-              //   餘數（除不盡的那幾 px）分給前面幾列各 1px，內容才會剛好頂到框的內側
-              { const rs=[...h.querySelectorAll(".tbRow")], gap=Math.floor(IN.h/(IN.w/h.offsetWidth)-h.offsetHeight); if(rs.length&&gap>0){ const add=Math.floor(gap/rs.length), rem=gap-add*rs.length, hs0=rs.map(r=>r.offsetHeight); rs.forEach((r,i)=>{ r.style.minHeight=(hs0[i]+add+(i<rem?1:0))+"px"; }); } }
-              await out(h,"S17_LoL_"+sc.lg,hd,IN); }
+              return h; };
+            const built=live.map(sc=>({sc,h:prep(sc)}));
+            // 欄寬：每個聯賽都量一次「隊名欄」與「七個資料欄」各自最少要多寬（放得下最長的那個字），整批取最大
+            //   ⇒ 隊名欄固定 teamW、七欄等寬；整張的寬度 W 至少 1000（＝字的大小），放不下才加寬。每張圖的欄位位置與字級因此完全一樣
+            let teamW=0, colW=0;
+            built.forEach(o=>{ const bd=o.h.querySelector(".tbBoard"); o.h.style.width="6000px"; bd.style.gridTemplateColumns="max-content repeat(7,max-content)"; bd.style.justifyContent="start";
+              const tr=getComputedStyle(bd).gridTemplateColumns.split(/\s+/).map(parseFloat); if(tr[0]>teamW)teamW=tr[0]; tr.slice(1,8).forEach(v=>{ if(v>colW)colW=v; }); bd.style.justifyContent=""; });
+            teamW=Math.ceil(teamW)+2; colW=Math.ceil(colW)+2;
+            let W=Math.max(1000,teamW+7*colW);
+            const lay=w=>built.forEach(o=>{ o.h.style.width=w+"px"; o.h.querySelector(".tbBoard").style.gridTemplateColumns=teamW+"px repeat(7,minmax(0,1fr))"; });
+            lay(W); for(let it=0;it<80&&built.some(o=>o.h.offsetHeight>IN.h*W/IN.w);it++){ W+=25; lay(W); }   // 隊伍最多的聯賽在這個寬度下太高（會超出框）⇒ 整批一起加寬（等於一起縮小）
+            for(const o of built){ if(sink&&sink.stop)break; const h=o.h, hd=mkHead(o.sc,HW,HF,LX);
+              // 底部不留大片空白（使用者 2026-11-20「底部不要太多留空」）：把剩下的高度平均加到每一列；餘數分給前面幾列各 1px，內容才會剛好頂到框的內側
+              { const rs=[...h.querySelectorAll(".tbRow")], gap=Math.floor(IN.h*W/IN.w-h.offsetHeight); if(rs.length&&gap>0){ const add=Math.floor(gap/rs.length), rem=gap-add*rs.length, hs0=rs.map(r=>r.offsetHeight); rs.forEach((r,i)=>{ r.style.minHeight=(hs0[i]+add+(i<rem?1:0))+"px"; }); } }
+              await out(h,"S17_LoL_"+o.sc.lg,hd,IN); }
           }
         }catch(e){ if(sink&&sink.fail)sink.fail(e); else alert((en2?"Screenshot failed: ":"截圖失敗：")+((e&&e.message)||e)); }
         hosts.forEach(h=>h.remove()); if(rootZ!=null)document.documentElement.style.zoom=rootZ; if(sb)sb.disabled=false; };

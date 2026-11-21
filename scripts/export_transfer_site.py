@@ -128,8 +128,8 @@ function addBase(){ const f=main.querySelector(".filters"); if(!f)return;
     st.textContent=`@media (min-width:760px){#tsHdr{position:sticky;top:0;z-index:40;background:#0b0e14}
 #tsCover{display:block;position:fixed;left:0;right:0;top:0;height:calc(var(--tsH1,0px) + var(--tsG1,0px) + var(--tsH2,0px) + var(--tsG0,0px));background:#0b0e14;z-index:37;pointer-events:none}
 .filters.trBar{position:sticky;top:calc(var(--tsH1,0px) + var(--tsG1,0px));z-index:39}
-.tbBoard>.tbHd{top:calc(var(--tsH1,0px) + var(--tsG1,0px) + var(--tsH2,0px) + var(--tsG,0px))!important;z-index:38!important;box-shadow:0 calc(var(--tsG0,0px) - var(--tsG,0px)) 0 0 var(--tsCB,#141a2a)}
-.trList>.trHead{position:sticky;top:calc(var(--tsH1,0px) + var(--tsG1,0px) + var(--tsH2,0px) + var(--tsG,0px));z-index:38;background:var(--tsCB,#141a2a);box-shadow:0 calc(var(--tsG0,0px) - var(--tsG,0px)) 0 0 var(--tsCB,#141a2a)}}
+.tbBoard>.tbHd{top:calc(var(--tsH1,0px) + var(--tsG1,0px) + var(--tsH2,0px) + var(--tsG,0px))!important;z-index:38!important;background:var(--tsCB,#161c2b)!important;box-shadow:0 calc(var(--tsG0,0px) - var(--tsG,0px)) 0 0 var(--tsCB,#161c2b)}
+.trList>.trHead{position:sticky;top:calc(var(--tsH1,0px) + var(--tsG1,0px) + var(--tsH2,0px) + var(--tsG,0px));z-index:38;background:var(--tsCB,#161c2b);box-shadow:0 calc(var(--tsG0,0px) - var(--tsG,0px)) 0 0 var(--tsCB,#161c2b)}}
 #tsCap{position:fixed;height:14px;overflow:hidden;z-index:37;pointer-events:none}#tsCap>i{position:absolute;left:0;right:0;top:0;height:60px;box-sizing:border-box;box-shadow:0 0 0 40px #0b0e14}
 @media (max-width:759.98px){#tsCover,#tsCap{display:none}}`;
     document.head.appendChild(st);
@@ -143,7 +143,7 @@ function addBase(){ const f=main.querySelector(".filters"); if(!f)return;
         // 捲動後那張表的上緣也要是圓角（表本身的上緣已經捲到底色板後面）⇒ 在同一個位置畫一段一模一樣的「卡片上緣」（邊框、圓角、底色都讀自那張表）
         if(bd){ const k=document.getElementById("tsCap"), q=k.firstChild, c=getComputedStyle(bd), r=bd.getBoundingClientRect(); k.style.left=r.left+"px"; k.style.width=r.width+"px"; k.style.top=r.top+"px"; k.style.height=c.borderTopLeftRadius;
           q.style.border=c.borderTopWidth+" solid "+c.borderTopColor; q.style.borderRadius=c.borderTopLeftRadius; q.style.background=(/rgb\([^)]*\)/.exec(c.backgroundImage)||[c.backgroundColor])[0]; }
-        if(bd){ R.setProperty("--tsG0",Math.max(0,Math.round(bd.getBoundingClientRect().top-bar.getBoundingClientRect().bottom))+"px"); const cb=getComputedStyle(bd).backgroundColor; if(cb&&!/rgba\(0, 0, 0, 0\)|transparent/.test(cb))R.setProperty("--tsCB",cb); }
+        if(bd){ R.setProperty("--tsG0",Math.max(0,Math.round(bd.getBoundingClientRect().top-bar.getBoundingClientRect().bottom))+"px"); const c2=getComputedStyle(bd), cb=(/rgb\([^)]*\)/.exec(c2.backgroundImage)||[c2.backgroundColor])[0]; if(cb&&!/rgba\(0, 0, 0, 0\)|transparent/.test(cb))R.setProperty("--tsCB",cb); }   // 欄名列與它上方那一小條的底色＝卡片上緣的顏色（卡片是漸層，取第一個顏色；跟 #tsCap 同一個來源）——原本讀 backgroundColor 是透明的，結果退回預設色，跟卡片、欄名列各差一階（使用者 2026-11-21「電腦版的這列 背景色怪怪的」）
         if(hh)R.setProperty("--tsG",Math.max(0,Math.round(hh.getBoundingClientRect().top-bar.getBoundingClientRect().bottom))+"px"); } };
     addEventListener("resize",()=>window._tsStick()); }
   window._tsStick(); setTimeout(window._tsStick,300);
