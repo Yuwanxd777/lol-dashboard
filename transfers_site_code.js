@@ -151,13 +151,33 @@ function render(){
     const all=(()=>{ const dd2=(a,b)=>Math.abs((new Date(String(a).slice(0,10))-new Date(String(b).slice(0,10)))/864e5);
       const L=all0.map(x=>{ if(x.s!=="wiki")return x; const cut=(t,re)=>String(t||"").split(/(?<=[。.])\s+/).filter(z=>!re.test(z)).join(" ");
         return {...x,zh:cut(x.zh,/合約在 GCD 更新/),en:cut(x.en,/updated in the/i)}; }).filter(x=>x.s!=="wiki"||String(x.zh||x.en||"").trim());
-      const W=L.filter(x=>x.s==="wiki"), S=L.filter(x=>x.s==="sheep"&&(x.st||"rumor")==="official"), drop=new Set();
+      // ③ 退役與離隊併成一則（使用者 2026-11-21「退役選手退役與離隊的消息要合併」）：官方退役消息（id＝ret-…）講到的人——
+      //   wiki 的離隊句把他拿掉（那句只有他就整句不列）；Sheep 官方也報了他退役 ⇒ 留 Sheep 那則（有前因後果），官方那則不重複列；
+      //   否則官方那則改寫成「離隊並宣布退役」。要排在 ② 前面：先把人從 wiki 的離隊名單拿掉，② 才不會把 Sheep 的退役消息當成那則離隊的重複
+      const gone3=new Set();
+      { const reE=n=>String(n).replace(/[.*+?^${}()|[\]\\]/g,"\\$&"), plain=t=>String(t||"").replace(/§[A-Z]+§/g,"").replace(/‹[^|›]+\|([^›]+)›/g,"$1");
+        L.filter(r=>/^ret-/.test(String(r.id||""))).forEach(r=>{ const mm=/‹[^|›]+\|([^›]+)›/.exec(r.zh||""); if(!mm)return; const nm=mm[1], tm=((r.tags||[]).find(t=>t[2]==="out")||[])[1]||"";
+          const hit=new RegExp("(?<![A-Za-z0-9])"+reE(nm)+"(?![A-Za-z0-9])"), one="(?:§[A-Z]+§)?‹[^|›]+\\|"+reE(nm)+"›(?:\\s*[（(][^（）()]*[）)])?", oneRe=new RegExp(one), oneAll=new RegExp("^"+one+"$");
+          let merged=false;
+          L.forEach(w=>{ if(w.s!=="wiki"||!/leave|both/.test(w.kind||"")||(tm&&!sameTm(w.team,tm))||!hit.test(plain(w.zh)))return;
+            // 中文「A、B、C 離隊。」／英文「A, B, and C leave.」「A leaves.」——逐句處理，只動離隊那句
+            const zh=String(w.zh||"").split(/(?<=。)\s*/).map(z=>{ const m2=/^(.*?)(\s*離隊。)$/.exec(z); if(!m2||!oneRe.test(z))return z;
+                const it=m2[1].split("、").filter(i=>!oneAll.test(i.trim())); merged=true; return it.length?it.join("、")+m2[2]:""; }).filter(Boolean).join(" ");
+            const en=String(w.en||"").split(/(?<=\.)\s+/).map(z=>{ const m2=/^(.*?)\s+leaves?\.$/.exec(z); if(!m2||!oneRe.test(z))return z;
+                const it=m2[1].split(/,\s*(?:and\s+)?|\s+and\s+/).map(i=>i.trim()).filter(i=>i&&!oneAll.test(i)); if(!it.length)return "";
+                return (it.length===1?it[0]+" leaves":it.length===2?it.join(" and ")+" leave":it.slice(0,-1).join(", ")+", and "+it[it.length-1]+" leave")+"."; }).filter(Boolean).join(" ");
+            w.zh=zh; w.en=en; if(!String(zh||en).trim())gone3.add(w); });
+          const sh=L.find(y=>y.s==="sheep"&&y!==r&&(y.st||"rumor")==="official"&&/退役|retire/i.test((y.zh||"")+(y.en||""))&&hit.test(plain(y.zh)+" "+plain(y.en))&&dd2(y.d,r.d)<=7);
+          if(sh){ gone3.add(r); return; }
+          if(merged){ const who=((/^§[A-Z]+§/.exec(r.zh||"")||[""])[0])+mm[0]; r.zh=who+" 離隊並宣布退役。"; r.en=who+" leaves and announces retirement."; } }); }
+      const L2=L.filter(x=>!gone3.has(x));
+      const W=L2.filter(x=>x.s==="wiki"), S=L2.filter(x=>x.s==="sheep"&&(x.st||"rumor")==="official"), drop=new Set();
       W.forEach(w=>{ const wn=namesOf(w); if(!wn.length)return;
         S.forEach(sh=>{ if(drop.has(sh)||drop.has(w)||dd2(w.d,sh.d)>3)return; const tg=sh.tags.find(t=>t[1]===w.team); if(!tg)return;
           if(tg[2]&&((w.kind==="join"&&tg[2]!=="in")||(w.kind==="leave"&&tg[2]!=="out")))return;
           const sn=namesOf(sh); if(!sn.length)return; const ov=wn.filter(n=>sn.includes(n)).length;
           if(ov/Math.min(wn.length,sn.length)<0.75)return; drop.add(wn.length>sn.length?sh:w); }); });
-      return L.filter(x=>!drop.has(x)); })();
+      return L2.filter(x=>!drop.has(x)); })();
     const RGS=[...new Set(all.flatMap(x=>x.s!=="wiki"?x.tags.map(t=>t[0]):[x.rg]).filter(Boolean))].sort((a,b)=>Object.keys(RG_LG).indexOf(a)-Object.keys(RG_LG).indexOf(b));
     const KD={join:en2?"Join":"加入",leave:en2?"Leave":"離隊",other:en2?"Other":"其他"};
     const q=(V.trQ||"").trim().toLowerCase();
@@ -323,7 +343,7 @@ function render(){
     // 綠＝合約還在、但傳出可能去別隊（使用者 2026-11-19「如果合約還在但有傳出可能去別隊 上綠色」）；合約已到期的維持藍字、提示照樣看得到傳聞
     const expd=e=>!e.tip&&(!e.c||e.c<today);   // 合約無紀錄也算合約到期（使用者 2026-11-20「合約無紀錄的 例如 Uniboy 這種 也要算是合約到期」）
     const roOn=e=>!!(e&&e.ro&&!(expd(e)&&!e.rs));
-    const stPill=e=>e.ret?pill("tpX",en2?"Retired":"退役"):e.gone?pill("tpB",en2?"Departure announced":"已宣布離隊"):e.r?pill("tpY",en2?"Rumor":"傳聞"):e.pm?pill("tpV",en2?"Promoted":"升職"):(e.new||(e.tip&&!e.r))?pill("tpR",en2?"New":"新加入"):roOn(e)?pill("tpG",en2?"Possible move":"可能轉會")
+    const stPill=e=>e.ret?pill("tpX",en2?"Retired":"退役"):e.cb?pill("tpB",en2?"Comeback":"復出"):e.gone?pill("tpB",en2?"Departure announced":"已宣布離隊"):e.r?pill("tpY",en2?"Rumor":"傳聞"):e.pm?pill("tpV",en2?"Promoted":"升職"):(e.new||(e.tip&&!e.r))?pill("tpR",en2?"New":"新加入"):roOn(e)?pill("tpG",en2?"Possible move":"可能轉會")
       :(expd(e)&&!e.rs)?pill("tpB",en2?"Contract expired":"合約到期"):e.rs?pill("tpK",en2?"Re-signed":"續約"):"";
     const tmChip=n=>`<span class="tpTm">${teamLogoHTML(tAb(n),16,true,n)||""}${esc(abOf(n))}</span>`;
     const tenureP=o=>{ if(!o.s)return null; const unk=o.e==="?", e=(!o.e||unk)?today:o.e;
@@ -337,7 +357,7 @@ function render(){
       // 只有傳聞的：這一列的標題直接寫「傳聞」，後面不再另外標（使用者 2026-11-21「如果FA小框的去向 寫的是傳聞…那就把去向改寫成傳聞」）
       return off.length?[[en2?"Joined":"加入",tmChip(off[0].tm)]]:[[en2?"Rumor":"傳聞",L.slice(0,3).map(o=>tmChip(o.tm)).join(" ")]]; };
     // 來源名稱：Sheep Esports 一律寫 SE；有網址就做成超連結（使用者 2026-11-20「Sheep 的來源就寫 SE 然後超連結」）。沒寫來源的是 Sheep 的推文
-    const srcA=o=>{ const nm=(!o.src||o.src==="Sheep Esports")?"SE":o.src, u=o.u||""; return /^https?:/.test(u)?`<a class="tpSrc" href="${esc(u)}" target="_blank" rel="noopener">${esc(nm)}</a>`:esc(nm); };
+    const srcA=o=>{ const nm=(!o.src||o.src==="Sheep Esports")?"SE":o.src==="韓網"?SRCN.kr:o.src==="官方"?SRCN.man:o.src, u=o.u||"";   /* 英文版：韓網→Korean media、官方→Announcement（跟消息頁同一套名稱） */ return /^https?:/.test(u)?`<a class="tpSrc" href="${esc(u)}" target="_blank" rel="noopener">${esc(nm)}</a>`:esc(nm); };
     const tipTx=o=>{ const s=en2?(o.tipE||(D.tipEn||{})[o.tip]||o.tip):o.tip; return TNRE?String(s||"").replace(TNRE,n=>TNL.get(n.toLowerCase())||n):s; };   // 小框引用句的隊名也寫縮寫（使用者 2026-11-21「小框的資訊以後也都要同步改」）   // 英文版引用句：資料端的中→英對照（tipEn），手動名單自帶 tipE
     const cellTip=(t,r)=>{ const es=colE(t,r), pv=colP(t,r);
       let h=`<div class="tpBox" style="--lgc:${LGC[t.lg]||"var(--gold)"}"><div class="rtHd">${teamLogoHTML(tAb(t.nm),22,true,t.nm)||""}<b>${esc(rowNm(t))}</b>`
