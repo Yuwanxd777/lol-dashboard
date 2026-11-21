@@ -653,7 +653,7 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
                 continue   # 選手頁已經掛在別隊（含次級聯賽）
             seen_.add(k_)
             e = {"n": nm_, "p": pg, "fa": 1, "from": x["nm"]}
-            if is_ret:
+            if is_ret and (rr != "COACH" or k_ in RET_KEYS):   # 教練格：wiki 的 IsRetired 指的是選手生涯結束，不算退役；有退役消息的才算
                 e["ret"] = 1
             if k_ not in now_tm:
                 e["nop"] = 1   # wiki 沒有這個人的頁面 ⇒ 前端不做連結
@@ -666,9 +666,11 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
                 gd_ = left_rc.get((k_, x["tm"])) or left_rc.get((key(nm_), x["tm"]))
                 if gd_:
                     e["gd"] = gd_   # 離隊日（提早解約的小框要寫日期，使用者 2026-11-21）
-            ros = []
+            ros, ro_role = [], None
             for ro in rum_out.get(k_) or rum_out.get(key(nm_)) or []:
                 if ro["d"][:10] >= since and tkey(ro["tm"]) != tkey(x["tm"]) and _same(ro, pg):   # 傳聞的是「留在原隊」（陣容整理文把他列在原隊）不算去向
+                    if ro_role is None:
+                        ro_role = (ro.get("rr") or "", ro.get("sr") or "")   # 最新一則傳聞講的位置
                     o = {"to": ro["tm"], "d": ro["d"][:10], "tip": ro["tip"]}
                     if ro.get("src"):
                         o["src"] = ro["src"]
@@ -679,7 +681,14 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
                 e["ro"] = ros[0]
                 if len(ros) > 1:
                     e["ros"] = ros[:3]
-            by_lg.setdefault(x["lg"], {}).setdefault(rr, []).append(e)
+            rr2 = rr
+            # 選手被傳去當教練 ⇒ 列在教練那格、職稱照傳聞（使用者 2026-11-21「Shini 被錯誤的歸類在FA的打野區 應該是主教練區」：
+            #   wiki 的路線還是打野——九月替 FURIA 代打過一天——但 VKS 洽談的是主教練）。不再標退役（要去當教練的人）
+            if rr != "COACH" and ro_role and ro_role[0] == "COACH":
+                rr2 = "COACH"
+                e["sr"] = ro_role[1] or "C"
+                e.pop("ret", None)
+            by_lg.setdefault(x["lg"], {}).setdefault(rr2, []).append(e)
         # 手動加進自由人的人（transfers_fa_manual.json：退役後宣布復出、還沒有隊的 Nuguri 這種，任何一隊的名單都推不出來）
         #   欄位 n＝ID、p＝wiki 頁名、lg＝聯賽、rr＝路線；已經出現在某隊格子（非傳聞）或自由人裡的就不重複加
         try:
@@ -706,9 +715,103 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
                     by_lg.setdefault(m_["lg"], {}).setdefault(m_["rr"], []).append(e)
         except Exception as e:
             print(f"   手動自由人名單讀取失敗（略過）：{type(e).__name__} {str(e)[:100]}")
+        # 傳聞人選現在沒有隊、上面任何一條都推不出來的人（使用者 2026-11-21「為何Croc沒有被列入FA的後勤區」：Croc 是退役選手，wiki 上沒有隊、
+        #   今年也沒有進出紀錄，但 LOUD 正在跟他談教練）⇒ 列進傳聞那一隊的聯賽，位置＝傳聞的位置（教練帶職稱）。
+        #   條件要有憑據：wiki 有他的選手頁而且「現在的隊伍」是空的才算；查不到頁、或現在掛在某隊（含次級聯賽）的都不列
+        try:
+            onb = {key(e.get("p") or e["n"]) for x in out for L in x["r"].values() for e in L if not e.get("r") and not e.get("gone")}
+            onb |= {key(e["n"]) for x in out for L in x["r"].values() for e in L if not e.get("r") and not e.get("gone")}
+            cand2 = []
+            for x in out:
+                for rr, L in x["r"].items():
+                    for e0 in L:
+                        if not e0.get("r"):
+                            continue
+                        k_ = key(e0.get("p") or e0["n"])
+                        if k_ in seen_ or key(e0["n"]) in seen_ or k_ in onb or key(e0["n"]) in onb:
+                            continue
+                        cand2.append((x, rr, e0, k_))
+            if cand2:
+                info = {}
+                pgs = sorted({c_[2]["p"] for c_ in cand2 if c_[2].get("p")})
+                for i in range(0, len(pgs), 40):
+                    for y in cargo({"tables": "Players", "fields": "Players.OverviewPage=pg,Players.ID=id,Players.Team=tm,Players.Role=ro",
+                                    "where": "Players.OverviewPage IN " + _in(pgs[i:i + 40]), "limit": "500", "format": "json"}):
+                        info[key(y["pg"])] = y
+                ids = sorted({c_[2]["n"] for c_ in cand2 if not c_[2].get("p")})
+                by_id = {}
+                for i in range(0, len(ids), 40):
+                    for y in cargo({"tables": "Players", "fields": "Players.OverviewPage=pg,Players.ID=id,Players.Team=tm,Players.Role=ro",
+                                    "where": "Players.ID IN " + _in(ids[i:i + 40]), "limit": "500", "format": "json"}):
+                        by_id.setdefault(key(str(y["id"])), []).append(y)
+                for x, rr, e0, k_ in cand2:
+                    y = info.get(k_)
+                    if y is None and not e0.get("p"):
+                        c_ = by_id.get(key(e0["n"])) or []
+                        y = c_[0] if len(c_) == 1 else None   # 同 ID 剛好一位才認
+                    if y is None or (y.get("tm") or "").strip():
+                        continue
+                    k2 = key(y["pg"])
+                    if k2 in seen_ or k2 in onb:
+                        continue
+                    seen_.add(k2); seen_.add(k_)
+                    e = {"n": e0["n"], "p": y["pg"], "fa": 1, "from": e0.get("from") or ""}   # 來自＝傳聞那格查到的上一隊（最後一段效力紀錄）；Croc 這種多年沒有隊的是空的
+                    if rr == "COACH":
+                        e["sr"] = e0.get("sr") or "C"
+                    ros = [{"to": ro["tm"], "d": ro["d"][:10], "tip": ro["tip"], **({"src": ro["src"]} if ro.get("src") else {}), **({"u": ro["u"]} if ro.get("u") else {})}
+                           for ro in (rum_out.get(k2) or rum_out.get(key(e0["n"])) or []) if ro["d"][:10] >= since and _same(ro, y["pg"])]
+                    if ros:
+                        e["ro"] = ros[0]
+                        if len(ros) > 1:
+                            e["ros"] = ros[:3]
+                    by_lg.setdefault(x["lg"], {}).setdefault(rr, []).append(e)
+        except Exception as e:
+            print(f"   傳聞中的無隊人選補列失敗（略過）：{type(e).__name__} {str(e)[:100]}")
+        # 有傳聞去別的聯賽 ⇒ 那個聯賽的自由人也列一份（使用者 2026-11-21「Naak Nako 這種…有傳聞去LEC 那麼兩邊的FA都要有他」）：
+        #   同一筆資料（原隊、合約、傳聞去向都一樣）加到每個傳聞目的地所屬聯賽的同一格；x＝1 標記是跨聯賽補列的那一份
+        try:
+            lg_of = {tkey(x["tm"]): x["lg"] for x in out}
+            lg_of.update({tkey(x["nm"]): x["lg"] for x in out})
+            add_ = []
+            for lg_, rows_ in by_lg.items():
+                for rr, L in rows_.items():
+                    for e in L:
+                        for ro in e.get("ros") or ([e["ro"]] if e.get("ro") else []):
+                            lg2 = lg_of.get(tkey(ro["to"]))
+                            if lg2 and lg2 != lg_:
+                                add_.append((lg2, rr, e))
+            for lg2, rr, e in add_:
+                L2 = by_lg.setdefault(lg2, {}).setdefault(rr, [])
+                if any(key(z.get("p") or z["n"]) == key(e.get("p") or e["n"]) for z in L2):
+                    continue
+                L2.append({**e, "x": 1})
+        except Exception as e:
+            print(f"   跨聯賽自由人補列失敗（略過）：{type(e).__name__} {str(e)[:100]}")
+        # 退役的人：年資＝wiki 效力紀錄的第一天到最後一天（使用者 2026-11-21「小框的評分改寫成 他在WIKI顯示的年資」），前端寫成「8 年（2016/12 – 2024/12）」
+        try:
+            rets = [e for rows_ in by_lg.values() for L in rows_.values() for e in L if e.get("ret") and e.get("p")]
+            pgs = sorted({e["p"] for e in rets})
+            span = {}
+            for i in range(0, len(pgs), 40):
+                for y in cargo({"tables": "Tenures", "fields": "Tenures.Player=p,Tenures.DateJoin=dj,Tenures.DateLeave=dl",
+                                "where": "Tenures.Player IN " + _in(pgs[i:i + 40]), "limit": "5000", "format": "json"}):
+                    k_ = key(y["p"]); a_ = span.setdefault(k_, ["", ""])
+                    dj, dl = str(y.get("dj") or "")[:10], str(y.get("dl") or "")[:10]
+                    if dj and (not a_[0] or dj < a_[0]):
+                        a_[0] = dj
+                    if dl and dl > a_[1]:
+                        a_[1] = dl
+            for e in rets:
+                a_ = span.get(key(e["p"]))
+                if a_ and a_[0]:
+                    e["ys"] = a_[0]
+                    if a_[1]:
+                        e["ye"] = a_[1]
+        except Exception as e:
+            print(f"   退役年資查詢失敗（略過）：{type(e).__name__} {str(e)[:100]}")
         for lg_, rows_ in by_lg.items():
             for L in rows_.values():
-                L.sort(key=lambda e: (e["from"].lower(), e["n"].lower()))
+                L.sort(key=lambda e: (1 if e.get("ret") else 0, e["from"].lower(), e["n"].lower()))   # 退役的排最後（使用者 2026-11-21）
             fa_rows.append({"tm": "FA " + lg_, "nm": "FA", "lg": lg_, "r": rows_, "prev": {}, "fa": 1})
     except Exception as e:
         print(f"   FA 列失敗（不列）：{type(e).__name__} {str(e)[:120]}")
