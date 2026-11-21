@@ -15130,9 +15130,9 @@ function render(){
             const allH=[...built,...ref];
             // 教練人數不影響字的大小（使用者 2026-11-21「預設教練是三行 然後超過三人就針對該隊教練那格縮小」；前一版教練一人一行、列高照人數長，
             //   實測每隊教練 3 人字會從 32.7px 掉到 23.3px、4 人掉到 18.3px）：決定整張寬度 W（＝字級）與每一列的基本高度時，教練那格只算一行；
-            //   之後每一列再預留三行教練的高度（放得下的話），教練格超過能用的高度就只縮那一格的字——見下面每一張圖的「列高」那一段
+            //   之後每一張圖再看這個聯賽放不放得下：放得下就照原字級排（列高照人數長），真的塞滿才縮教練格的字——見下面每一張圖的「列高與教練格」那一段
             allH.forEach(o=>o.h.querySelectorAll(".tbRow .tbShCo").forEach(c=>{ const v=c.querySelector(".tbCv"); if(!v)return;
-              v.style.display="block"; v.style.maxHeight=(parseFloat(getComputedStyle(c).lineHeight)||22.5)+"px"; v.style.overflow="hidden"; }));   // 先夾成一行來量；輸出前在「列高」那一段放開
+              v.style.display="block"; v.style.maxHeight=(parseFloat(getComputedStyle(c).lineHeight)||22.5)+"px"; v.style.overflow="hidden"; }));   // 先夾成一行來量；輸出前在「列高與教練格」那一段放開
             // 欄寬：每個聯賽都量一次「隊名欄」與「六個資料欄」各自最少要多寬（放得下最長的那個字），整批取最大
             //   ⇒ 隊名欄固定 teamW、六欄等寬（五路＋教練）。每張圖的欄位位置與字級因此完全一樣
             // 字的大小＝整張的寬度 W 越小、縮放到 2000px 之後字越大。W 取兩個條件裡比較大的：
@@ -15150,20 +15150,28 @@ function render(){
             const lvTeam=h=>h.querySelectorAll(".tbRow .tbTeam").forEach(tm=>{ const box=tm.querySelector(".tbTmB"), im=tm.querySelector("img:not(.tbFaIc)"); if(!box||!im)return;
               const a=inkOf(box.querySelector(".tbTmA")||box.firstChild), b=inkOf(box.querySelector(".tbTmR"))||a; if(!a)return; const ir=im.getBoundingClientRect(); nudge(box,(ir.top+ir.bottom)/2-(a.top+b.bot)/2); });
             for(const o of built){ if(sink&&sink.stop)break; const h=o.h, hd=mkHead(o.sc,HW,HF,LX);
-              // 列高（使用者 2026-11-20「底部不要太多留空」＋2026-11-21「預設教練是三行」）：
-              //   b＝每一列的基本高度（選手那幾格決定，教練格只算一行）。先讓每一列至少有「三行教練」那麼高（H3）；這個聯賽放不下（LPL 14 隊）就改成
-              //   把最矮的列一起墊到同一個高度 Lv（Lv＜H3，剛好用完可用的高度）；還有剩再平均加到每一列，內容剛好頂到框的內側。
-              //   高度一律用帶小數的實際值（offsetHeight 取整會讓整塊比框高 1～2px、這一張的縮放被壓小，字就跟別的聯賽不一樣大）
-              // 教練格：最多用三行的高度、也不能超過這一列（上下各留 1px）；人數多到放不下就只縮這一格的字（0.25px 一階），上下內距跟著收
+              // 列高與教練格（使用者 2026-11-20「底部不要太多留空」；2026-11-21「預設教練是三行 然後超過三人就針對該隊教練那格縮小」，同一天再定
+              //   「如果本來的模式可以塞下一兩支隊伍有四位教練 例如LEC 那就不要縮那一兩隊的教練ID 只有不得已的情況真的塞滿才會縮」⇒ 沒有「最多三行」這個上限了）：
+              //   b＝每一列的基本高度（選手那幾格決定；教練格在量版面時夾成一行）、t＝這一隊教練名單照原字級排的文字高度（人數 × 行高）。
+              //   分三級，前一級放得下就不往下走：
+              //   ①全部照原字級、上下內距照常（pv）：這個聯賽放得下就完全不縮（LCK／LEC 有一兩隊四位教練屬於這一級）
+              //   ②字不縮，只把「被教練名單撐高的那幾列」的上下內距一起收小（最少 PMIN）
+              //   ③還是放不下才縮字：找一個文字高度的上限 T，名單比 T 高的教練格才縮到 T（人最多的先縮），其他格不動
+              //   三級算出來的是每一列最少要多高；還有剩的高度從最矮的列開始墊（墊到同一個高度），內容剛好頂到框的內側。
+              //   教練人數完全不影響整張圖的字級（W 在前面就定了）。高度一律用帶小數的實際值（offsetHeight 取整會讓整塊比框高 1～2px、
+              //   這一張的縮放被壓小，字就跟別的聯賽不一樣大）
               { const rs=[...h.querySelectorAll(".tbRow")], hh=()=>h.getBoundingClientRect().height, lim=IN.h*W/IN.w;
-                if(rs.length){ const cs=rs.map(r=>r.querySelector(".tbShCo")), g0=getComputedStyle(cs.find(Boolean)||rs[0].querySelector(".tbCell")||rs[0]), fs0=parseFloat(g0.fontSize)||15, lh=parseFloat(g0.lineHeight)||fs0*1.5, pv=(parseFloat(g0.paddingTop)+parseFloat(g0.paddingBottom))||12, H3=3*lh+pv;
-                  const b=rs.map(r=>r.getBoundingClientRect().height), room=lim-(hh()-b.reduce((a,x)=>a+x,0)), need=l=>b.reduce((a,x)=>a+Math.max(x,l),0);
-                  let Lv=H3; if(need(H3)>room){ let lo=0, hi=H3; for(let i=0;i<40;i++){ const md=(lo+hi)/2; if(need(md)<=room)lo=md; else hi=md; } Lv=lo; }
-                  const tg=b.map(x=>Math.max(x,Lv)), add=Math.max(0,(room-tg.reduce((a,x)=>a+x,0))/rs.length-0.02);   // −0.02＝每列留一點點餘裕，免得小數進位後整塊比框高一丁點、又被下面的保險收掉 1px
-                  rs.forEach((r,i)=>{ const rowH=tg[i]+add; r.style.minHeight=rowH+"px"; const c=cs[i], v=c&&c.querySelector(".tbCv"); if(!v)return;
+                if(rs.length){ const cs=rs.map(r=>r.querySelector(".tbShCo")), g0=getComputedStyle(cs.find(Boolean)||rs[0].querySelector(".tbCell")||rs[0]), fs0=parseFloat(g0.fontSize)||15, lh=parseFloat(g0.lineHeight)||fs0*1.5, pv=(parseFloat(g0.paddingTop)+parseFloat(g0.paddingBottom))||12, PMIN=2;
+                  const sum=a=>a.reduce((x,y)=>x+y,0), bis=(lo,hi,ok)=>{ for(let i=0;i<40;i++){ const md=(lo+hi)/2; if(ok(md))lo=md; else hi=md; } return lo; };   // bis＝ok 成立的最大值（二分）
+                  const b=rs.map(r=>r.getBoundingClientRect().height), room=lim-(hh()-sum(b));
+                  const vs=cs.map(c=>c&&c.querySelector(".tbCv")), t=vs.map(v=>v?(v.querySelectorAll(".tbN").length||1)*lh:0), TM=Math.max(0,...t);
+                  const fit=(T,q)=>b.map((x,i)=>Math.max(x,t[i]?Math.min(t[i],T)+q:0)), ok=(T,q)=>sum(fit(T,q))<=room;
+                  let hs=ok(TM,pv)?fit(TM,pv):ok(TM,PMIN)?fit(TM,bis(PMIN,pv,q=>ok(TM,q))):fit(bis(0,TM,T=>ok(T,PMIN)),PMIN);
+                  const Lv=bis(0,Math.max(...hs)+Math.max(0,room-sum(hs)),l=>sum(hs.map(x=>Math.max(x,l)))<=room); hs=hs.map(x=>Math.max(x,Lv));
+                  rs.forEach((r,i)=>{ const rowH=hs[i]-0.02; r.style.minHeight=rowH+"px"; const c=cs[i], v=vs[i]; if(!v)return;   // −0.02＝每列留一點點餘裕，免得小數進位後整塊比框高一丁點、又被下面的保險收掉 1px
                     v.style.display=v.style.maxHeight=v.style.overflow="";   // 放開量版面時夾的那一行
-                    const n=v.querySelectorAll(".tbN").length||1, can=Math.max(lh*0.5,Math.min(3*lh,rowH-2)); let f=fs0, lines=n*lh;
-                    if(lines>can+0.3){ f=Math.max(4,Math.floor(fs0*can/lines*4)/4); c.style.fontSize=f+"px"; lines=n*lh*f/fs0; }
+                    const can=Math.max(lh*0.5,rowH-PMIN); let lines=t[i];
+                    if(lines>can+0.3){ const f=Math.max(4,Math.floor(fs0*can/lines*4)/4); c.style.fontSize=f+"px"; lines=lines*f/fs0; }   // 只縮這一格的字（0.25px 一階）
                     if(lines+pv>rowH){ const p=Math.max(0,(rowH-lines)/2); c.style.paddingTop=c.style.paddingBottom=p+"px"; } }); }
                 for(let it=0;it<60&&rs.length&&hh()>lim;it++){ const r=rs[rs.length-1-(it%rs.length)], v=parseFloat(r.style.minHeight)||0; if(v>1)r.style.minHeight=(v-1)+"px"; } }
               lvTeam(h);
