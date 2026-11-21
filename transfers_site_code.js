@@ -679,7 +679,7 @@ function render(){
     const srtArr="";   // 不畫箭頭，排序中靠按鈕亮起與欄名變金色表示
     const wkPg=p=>{ let s=String(p||""); try{ s=decodeURIComponent(s); }catch(_){} return s.replace(/ /g,"_"); };   // wiki 頁名：已編碼的先解開（Noah 連錯頁，使用者 2026-11-20）
     const nameH=e=>{ const n=esc(pn(e.n)), inner=bq&&hitE(e)?`<mark>${n}</mark>`:n;
-      return `<span class="tbN ${tbCls(e)}${F_TB.size&&!tbMf(e)?" tbDim":""}">${inner}</span>`; };   // 陣容表的名字不做超連結，連結只放在小框裡的名字（使用者 2026-11-21）   // 沒頁名的傳聞人選（BrokenBlade、Zven…）退回 roles 查到的頁、再退回 ID 本身（使用者 2026-11-20 全面檢視）   // 格子不標教練職稱，只在小框顯示（使用者 2026-11-20）
+      return `<span class="tbN ${tbCls(e)}${!e.fa&&e.tips&&e.tips.length?" tbRsRum":""}${F_TB.size&&!tbMf(e)?" tbDim":""}">${inner}</span>`; };   // tbRsRum＝這一隊的人、有「傳出續約／留隊」的報導（只是記號，顏色照舊；截圖的教練欄靠它決定藍字後勤要不要列）   // 陣容表的名字不做超連結，連結只放在小框裡的名字（使用者 2026-11-21）   // 沒頁名的傳聞人選（BrokenBlade、Zven…）退回 roles 查到的頁、再退回 ID 本身（使用者 2026-11-20 全面檢視）   // 格子不標教練職稱，只在小框顯示（使用者 2026-11-20）
     // 陣容到位打勾（使用者 2026-11-20「五路選手以及主教練都有新加入或續約了，一路有兩人有一個也可以，就在隊伍縮寫後面打個勾」）：
     //   每一格至少一人是官方新加入／官方續約；合約本來就還在（沒到期、沒傳出要走）的人也算確定
     const setE=e=>!e.r&&!e.gone&&!!(e.new||e.tip||e.rs||e.pm||(e.c&&e.c>=today&&!e.ro));
@@ -903,8 +903,10 @@ function render(){
               { const bd=h.querySelector(".tbBoard");
                 h.querySelectorAll(".tbCell.tbRate,.tbCell.tbFaCo").forEach(x=>x.remove()); { const rh=h.querySelector(".tbHd .tbRateH"); if(rh)rh.remove(); }
                 // 2026-11-21 晚再改「截圖的主教練跟後勤合併 改稱 教練」：主教練那格接上後勤（後勤照舊不列合約到期的藍字），一人一行、主教練排前面；後勤那格與它的欄名拿掉，欄名改寫「教練」
+                // 同一晚「Easyhoon跟T1續約的傳聞也要加入 雖然是回原隊 那就一樣是顯示藍字到後勤區 這種類似案例也要幫我在截圖中顯示」：
+                //   藍字後勤裡有「傳出續約／留隊」報導的人（.tbRsRum）照樣列出、維持藍字；其餘藍字後勤仍然不列
                 h.querySelectorAll(".tbRow").forEach(r=>{ const hc=r.querySelector('.tbCell[data-r="HC"]'), st=r.querySelector('.tbCell[data-r="STF"]'); if(!hc)return; const v=hc.querySelector(".tbCv"); if(!v)return;
-                  const keep=[...v.querySelectorAll(".tbN"),...(st?[...st.querySelectorAll(".tbCv .tbN")].filter(n=>!n.classList.contains("tbExp")):[])];
+                  const keep=[...v.querySelectorAll(".tbN"),...(st?[...st.querySelectorAll(".tbCv .tbN")].filter(n=>!n.classList.contains("tbExp")||n.classList.contains("tbRsRum")):[])];
                   v.innerHTML=keep.length?keep.map(n=>n.outerHTML).join("<br>"):`<span class="tbMuted">–</span>`; hc.classList.toggle("tbEmpty",!keep.length); hc.dataset.r="CO"; hc.classList.add("tbShCo"); if(st)st.remove(); });
                 { const hs=h.querySelector(".tbHd"); if(hs&&hs.children[7])hs.children[7].remove(); const c6=hs&&hs.children[6]; if(c6){ [...c6.childNodes].forEach(n=>{ if(n.nodeType===3)n.remove(); }); c6.appendChild(document.createTextNode(en2?"Coach":"教練")); } }
                 h.querySelectorAll(".tbSep").forEach(x=>x.outerHTML="<br>");
