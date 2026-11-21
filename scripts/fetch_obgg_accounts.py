@@ -41,6 +41,82 @@ KEEP_DPM_DAYS = 3
 # 改法：補帳號前查名單——同一位選手（隊|名）名下被記過的 riotId 不再從 OBGG 補回；只認 from == 隊|名（同名選手不牽連）。
 # dpm 若哪天又把帳號還給原主，⑤ 的 union 會用 dpm 選手檔補回（dpmSeen 今天）、prune_old 也會留住；名單不會永久封殺。
 DISOWNED = os.path.join(ROOT, "csv_cache", "soloq_disowned.json")
+# 2026-11-22 線 3（精進迴圈 #3539）：轉會期 OBGG 的名冊先換隊（Zeus 掛到 T1），但這個專案的隊碼是「跟著比賽資料走」
+# （⑤ fetch_dpm_soloq_accounts 的「轉隊改隊碼」：比賽資料最後出賽的隊才算數，Zeus 今年打的是 HLE）。兩支各拉各的 ⇒
+#   班次 N  ：③ 這裡把 OBGG 有列的帳號重建成 T1|Zeus（2 隻），OBGG 沒列的那隻留在 HLE|Zeus ⇒ 帳號檔同名兩隊 ⇒ ⑤ 的轉隊規則
+#             「同名多隊不猜」不動 ⇒ dpm 把兩個鍵各補滿 3 隻 ⇒ T1|Zeus「沒有逐場檔」⇒ ⑤d 當新選手補全年（665 場、約 50 秒）
+#             ⇒ 積分頁同一人兩列、出裝聚合同一場算兩次。
+#   班次 N+1：③ 這裡照 riotId 去重後只剩 T1|Zeus ⇒ ⑤ 改回 HLE、把昨天抓的那個檔改鍵併回原檔刪掉。再下一班又回到 N。
+# 11-21 兩班實況：10:00 重抓 6 位 3853 場、22:00 重抓 7 位 5159 場（341 秒，全在 ⑤d 關鍵路徑上），抓回來的檔跟原檔一樣大。
+# 改法：OBGG 這位選手的帳號，帳號檔裡已經掛在**同名**選手名下、而且舊列全在同一隊（≠ OBGG 的隊）＝同一個人換隊 ⇒ 隊碼留舊的，
+#       換不換隊交給 ⑤ 的比賽資料去裁（他替新隊出賽後 ⑤ 會整批改過去、逐場檔一起改鍵）。
+#       只對「今年比賽資料有出場」的人做（⑤ 裁得動的人）；沒出場的（TheShy 白名單、名冊新人）照舊跟 OBGG。
+#       舊列分在兩隊（上面班次 N 留下的重複狀態）不猜，照舊走 OBGG ⇒ 下一班由 ⑤ 收斂成比賽資料那一隊，之後就穩定。
+# 比賽資料的路徑刻意不做模組層常數、由 ACCOUNTS 的位置推（<ACCOUNTS 上兩層>/data/data_2026.js，跟 ⑤ 讀同一個檔）：
+# 沙盒接管 ACCOUNTS 就連這個證據來源一起接管；找不到檔 ⇒ 整個功能關掉＝舊行為。改了跑 python scripts/fetch_obgg_keepteam_test.py。
+MATCH_DATA_REL = ("data", "data_2026.js")
+
+
+def match_data_path(accounts_path=None):
+    ap = os.path.abspath(accounts_path or ACCOUNTS)
+    return os.path.join(os.path.dirname(os.path.dirname(ap)), *MATCH_DATA_REL)
+
+
+def match_names(path=None):
+    """今年比賽資料出場過的選手名（norm 後的 set）；讀不到 → None（＝不做「留舊隊」，照舊跟 OBGG）。
+    判準跟 fetch_dpm_soloq_accounts.match_players 一樣：participantid 1~5 的列、藍紅兩邊的 playername。"""
+    path = path or match_data_path()
+    try:
+        d0 = open(path, encoding="utf-8", errors="replace").read()
+        J = json.loads(re.sub(r";\s*$", "", re.search(r"window\.LOL_DATA\s*=\s*(\{.*)", d0, re.S).group(1)))
+        raw = J["tabs"]["RAW_DATA"]; C = {h: i for i, h in enumerate(raw[0])}
+        bi, ri, pi = C.get("blue_playername"), C.get("red_playername"), C.get("participantid")
+        s = set()
+        for r0 in raw[1:]:
+            try:
+                if not (1 <= int(r0[pi]) <= 5):
+                    continue
+            except Exception:
+                continue
+            for i2 in (bi, ri):
+                if i2 is not None and i2 < len(r0) and r0[i2]:
+                    s.add(norm(r0[i2]))
+        return s or None
+    except Exception:
+        return None
+
+
+def keep_known_team(new, acc, played):
+    """OBGG 重建出來的 new（就地改 team）：同一個人換隊 ⇒ 隊碼留帳號檔原本那一隊。回 {"OBGG隊|選手": "留下的舊隊"}。
+    「同一個人」的證據＝這位 OBGG 選手的帳號裡，有 riotId 已經在帳號檔、而且掛在同名選手名下；
+    那些舊列必須全在同一隊才動（分在兩隊＝重複狀態，不猜）。played＝match_names()；None／空 ⇒ 不做。"""
+    if not played:
+        return {}
+    by_rid = {}
+    for a in acc:
+        by_rid.setdefault(norm(a.get("riotId")), []).append(a)
+    groups = {}
+    for e in new:
+        groups.setdefault((e.get("team"), e.get("player")), []).append(e)
+    moved = {}
+    for (tc, gid), es in groups.items():
+        n = norm(gid)
+        if n not in played and norm(re.sub(r"\s*\(.*\)\s*$", "", str(gid or ""))) not in played:
+            continue                       # 今年沒出場 ⇒ ⑤ 裁不動，照舊跟 OBGG
+        teams = set()
+        for e in es:
+            for a in by_rid.get(norm(e.get("riotId")), ()):
+                if norm(a.get("player")) == n and a.get("team"):
+                    teams.add(a["team"])
+        if len(teams) != 1:
+            continue                       # 沒有舊列（新人／全新帳號）或舊列分在兩隊 ⇒ 照 OBGG
+        t_old = next(iter(teams))
+        if t_old == tc:
+            continue
+        for e in es:
+            e["team"] = t_old
+        moved[f"{tc}|{gid}"] = t_old
+    return moved
 
 
 def load_disowned(path=None):
@@ -707,6 +783,23 @@ def main():
 
     new = obgg_entries(lambda z: z in OBGG_ZONES)
     new += obgg_entries(lambda z: z not in OBGG_ZONES and z not in DPM_ZONES)
+    # #3539：同一個人換隊 ⇒ 隊碼留舊的（見檔頭 MATCH_DATA_REL 那段）。改完隊碼再問一次歸屬名單：
+    # 名單只認「隊|名」，上面 obgg_entries 是拿 OBGG 的新隊去問的，問不到舊鍵底下記過的那幾隻。
+    kept_team = keep_known_team(new, acc, match_names())
+    if kept_team:
+        print("  換隊不跟 OBGG（同一人的帳號，隊碼留給比賽資料決定）："
+              + "、".join(f"{k}→{v}" for k, v in sorted(kept_team.items())), flush=True)
+        _moved_keys = {f"{v}|{k.split('|', 1)[1]}" for k, v in kept_team.items()}
+        _keep = []
+        for e in new:
+            d = (disowned_of(dis_idx, e["team"], e["player"], e["riotId"])
+                 if f'{e["team"]}|{e["player"]}' in _moved_keys else None)
+            if d:
+                dis_skipped.append(f"  [歸屬] {e['team']}|{e['player']}: {e['riotId']} 名單已記是「{d.get('owner') or '?'}」的帳號"
+                                   f"（{str(d.get('at') or '')[:16]}）→ 不從 OBGG 補回")
+                continue
+            _keep.append(e)
+        new = _keep
     new_rids = {norm(e["riotId"]) for e in new}
 
     removed, kept_dpm = prune_old(acc, new, new_rids, zone_of)   # OBGG 主導：不在清單的舊帳號，dpm 近 3 天確認過才暫留
