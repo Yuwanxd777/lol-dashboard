@@ -14908,7 +14908,7 @@ function render(){
     main.innerHTML=`<div class="filters trBar">`+modeBtns+rgBtns+(MODE==="news"?newsBtns:boardBtns)
       // 搜尋放最右邊（使用者 2026-11-20「篩選列重新調整一下 搜尋應該在最右邊」）
       +`<span style="flex:1"></span><span class="meta">${metaTx}</span>`
-      +`<span class="trSW"><label>${en2?"Search":"搜尋"}</label><span class="cwrap"><input type="text" id="trQ" value="${esc(V.trQ||"")}" placeholder="${en2?"Player / team":"選手或隊名"}" style="width:190px;padding-right:26px"><button class="cx" tabindex="-1" data-x="trQ" title="一鍵清除">✕</button></span></span>`
+      +`<span class="trSW"><label>${en2?"Search":"搜尋"}</label><span class="cwrap"><input type="text" id="trQ" value="${esc(V.trQ||"")}" placeholder="${en2?"Player / team":"選手或隊名"}" style="width:190px;padding-right:26px"><button class="cx" tabindex="-1" data-x="trQ" title="${en2?"Clear":"一鍵清除"}">✕</button></span></span>`
       // 分享（使用者 2026-11-21）：同一套截圖，開小視窗看圖、下載；點開小圖自動複製（原本的三顆平台按鈕已依使用者要求刪除）
       //   order：主站的 orderBaseBtns 會把行內 order≥1 的照數字搬到基礎按鈕（📸 ℹ️ ↺ ←）左邊 ⇒ 給 2，排在 FB／Discord 之後、緊貼 📸；
       //   轉會網站（有 TS_DATA）沒有那套搬動，照 DOM 順序排 ⇒ 給 1，接在 📸 後面

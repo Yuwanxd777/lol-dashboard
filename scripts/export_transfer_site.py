@@ -121,6 +121,7 @@ function addBase(){ const f=main.querySelector(".filters"); if(!f)return;
 #tsHelpBox .tbTipX{position:static;flex:0 0 auto;margin-right:-10px}
 .trBar .sqbtn svg,.trBar #trDc svg,.trBar #trFb svg{width:24px;height:24px;display:block;flex:0 0 auto}
 .trBar #trDc svg{width:22px;height:22px}
+.trBar .cwrap .cx::after{content:"";position:absolute;inset:-10px -6px -10px -10px}
 @media (max-width:400px){.trBar .sqbtn,.trBar #trDc,.trBar #trFb{width:30px!important;height:30px!important;min-width:30px!important;border-radius:9px!important}.trBar .sqbtn svg,.trBar #trFb svg{width:20px;height:20px}.trBar #trDc svg{width:18px;height:18px}}`;
     document.head.appendChild(st); }
   f.insertAdjacentHTML("beforeend",b("tsHelp",IC.help,LANG==="en"?"About this page":"本頁說明")+b("tsReset",IC.reset,LANG==="en"?"Reset filters":"重設篩選"));
@@ -130,21 +131,33 @@ function addBase(){ const f=main.querySelector(".filters"); if(!f)return;
   //   卡片（陣容表／消息表）在電腦版改成單色 #161c2b（原本是 #161c2b→#121722 的直向漸層）：欄名列黏在上方時底色是固定的一個顏色，
   //   卡片卻越往下越深 ⇒ 捲到下面時欄名列比左右兩側的卡片內距亮 5～8 階，像貼了一塊色塊（使用者 2026-11-21「電腦版的這列 背景色怪怪的」；頂端對了、捲下去還是錯）。
   //   欄名列的底色不要加 !important：截圖複本靠行內 background:none 把它變透明，加了會在截圖上畫出色塊
+  // 2026-11-21 晚「整體檢視新網站」查到兩個錯位，一起改：
+  //   ①這一組規則原本包在 @media (min-width:760px)，但版面是照 main 的內容寬度切換的（CSS 的 @container mainc，760 以下＝手機版面；
+  //     main 左右各有 30px 內距 ⇒ 視窗大約 829px 才換成電腦版面）。兩個切換點對不上：視窗 760～828 是手機版面卻黏著頁首＋四行的篩選列（250px）。
+  //     ⇒ 改成 html.tsDesk 這個類別（_tsStick 每次照 main 的內容寬度決定），跟版面切換完全同步
+  //   ②窄版面（main 內容寬 ≤820）主站有一條通用規則 .card{overflow-x:auto}。卡片一變成捲動容器，裡面 position:sticky 的列就改成「對卡片」定位：
+  //     視窗 829～889（iPad Air／Pro 11 直放、或把瀏覽器拉成半個螢幕）欄名列的 top 被當成離卡片上緣的距離 ⇒ 整列被推到表格中間、蓋住一隊；
+  //     手機版的聯賽標題列（.tbLg）與消息的日期列（.trDay）寫了 sticky 也黏不住。陣容表與消息表在窄版面都會自己換行、不需要橫向捲動
+  //     ⇒ 這兩張卡固定 overflow:visible（只改轉會網站；主站的版面是整頁縮放，不會進到這幾種寬度）
   if(!document.getElementById("tsStickCss")){ const st=document.createElement("style"); st.id="tsStickCss";
-    st.textContent=`@media (min-width:760px){#tsHdr{position:sticky;top:0;z-index:40;background:#0b0e14}
-#tsCover{display:block;position:fixed;left:0;right:0;top:0;height:calc(var(--tsH1,0px) + var(--tsG1,0px) + var(--tsH2,0px) + var(--tsG0,0px));background:#0b0e14;z-index:37;pointer-events:none}
-.filters.trBar{position:sticky;top:calc(var(--tsH1,0px) + var(--tsG1,0px));z-index:39}
-.card.tbBoard,.card.trList{background:#161c2b}
-.tbBoard>.tbHd{top:calc(var(--tsH1,0px) + var(--tsG1,0px) + var(--tsH2,0px) + var(--tsG,0px))!important;z-index:38!important;background:var(--tsCB,#161c2b);box-shadow:0 calc(var(--tsG0,0px) - var(--tsG,0px)) 0 0 var(--tsCB,#161c2b)}
-.trList>.trHead{position:sticky;top:calc(var(--tsH1,0px) + var(--tsG1,0px) + var(--tsH2,0px) + var(--tsG,0px));z-index:38;background:var(--tsCB,#161c2b);box-shadow:0 calc(var(--tsG0,0px) - var(--tsG,0px)) 0 0 var(--tsCB,#161c2b)}}
+    st.textContent=`html.tsDesk #tsHdr{position:sticky;top:0;z-index:40;background:#0b0e14}
+html.tsDesk #tsCover{display:block;position:fixed;left:0;right:0;top:0;height:calc(var(--tsH1,0px) + var(--tsG1,0px) + var(--tsH2,0px) + var(--tsG0,0px));background:#0b0e14;z-index:37;pointer-events:none}
+html.tsDesk .filters.trBar{position:sticky;top:calc(var(--tsH1,0px) + var(--tsG1,0px));z-index:39}
+html.tsDesk .card.tbBoard,html.tsDesk .card.trList{background:#161c2b}
+html.tsDesk .tbBoard>.tbHd{top:calc(var(--tsH1,0px) + var(--tsG1,0px) + var(--tsH2,0px) + var(--tsG,0px))!important;z-index:38!important;background:var(--tsCB,#161c2b);box-shadow:0 calc(var(--tsG0,0px) - var(--tsG,0px)) 0 0 var(--tsCB,#161c2b)}
+html.tsDesk .trList>.trHead{position:sticky;top:calc(var(--tsH1,0px) + var(--tsG1,0px) + var(--tsH2,0px) + var(--tsG,0px));z-index:38;background:var(--tsCB,#161c2b);box-shadow:0 calc(var(--tsG0,0px) - var(--tsG,0px)) 0 0 var(--tsCB,#161c2b)}
+.card.tbBoard,.card.trList{overflow:visible}
 #tsCap{position:fixed;height:14px;overflow:hidden;z-index:37;pointer-events:none}#tsCap>i{position:absolute;left:0;right:0;top:0;height:60px;box-sizing:border-box;box-shadow:0 0 0 40px #0b0e14}
-@media (max-width:759.98px){#tsCover,#tsCap{display:none}}`;
+html:not(.tsDesk) #tsCover,html:not(.tsDesk) #tsCap{display:none}`;
     document.head.appendChild(st);
     window._tsStick=()=>{ const hd=document.getElementById("tsHdr"), bar=document.querySelector(".filters.trBar"), bd=document.querySelector(".tbBoard,.trList"), R=document.documentElement.style; if(!hd||!bar)return;
+      { const mc=getComputedStyle(main); document.documentElement.classList.toggle("tsDesk",main.clientWidth-parseFloat(mc.paddingLeft)-parseFloat(mc.paddingRight)>=760); }   // 電腦版面才黏（跟 @container mainc 的 760 同一個依據）
       const sy=scrollY; R.setProperty("--tsH1",hd.offsetHeight+"px"); R.setProperty("--tsH2",bar.offsetHeight+"px");
       // 捲動後三層之間的空隙要跟頁面最上面時一模一樣（使用者 2026-11-21「往下滑的時候 上方還是有小部分的縮起」：原本頁首與篩選列之間 14px、篩選列與欄名列之間 7px 會被吃掉）
       //   ⇒ 在最上面時量兩段空隙（頁首→篩選列、篩選列→欄名列），sticky 的 top 把空隙算進去，空隙用同色陰影蓋住
-      if(sy<4){ const hh=document.querySelector(".tbBoard>.tbHd,.trList>.trHead")||bd; R.setProperty("--tsG1",Math.max(0,Math.round(bar.getBoundingClientRect().top-hd.getBoundingClientRect().bottom))+"px");
+      if(sy<4){ const hh=document.querySelector(".tbBoard>.tbHd,.trList>.trHead")||bd;
+        R.setProperty("--tsG1","0px"); R.setProperty("--tsG","0px");   // 先歸零再量：變數一旦比實際空隙大，篩選列／欄名列會被推離原位，量到的空隙就把位移也算進去，之後每量一次多一截
+        R.setProperty("--tsG1",Math.max(0,Math.round(bar.getBoundingClientRect().top-hd.getBoundingClientRect().bottom))+"px");
         // 空隙用一塊固定在最上面的底色板蓋住（#tsCover，疊在欄名列之下），不再用篩選列的陰影——陰影會跟著圓角長出一塊方方的黑邊（使用者 2026-11-21「捲動的時候 上面介面的邊緣變得不圓滑」）
         if(!document.getElementById("tsCover")){ const c=document.createElement("div"); c.id="tsCover"; document.body.appendChild(c); const k=document.createElement("div"); k.id="tsCap"; k.innerHTML="<i></i>"; document.body.appendChild(k); }
         // 捲動後那張表的上緣也要是圓角（表本身的上緣已經捲到底色板後面）⇒ 在同一個位置畫一段一模一樣的「卡片上緣」（邊框、圓角、底色都讀自那張表）
@@ -178,7 +191,11 @@ function render(){
 /*__BLOCK__*/
 addBase();
 const at=document.getElementById("tsAt"), T0=window.TRANSFERS||{}; if(at&&T0.at)at.textContent=(LANG==="en"?"as of ":"截至 ")+T0.at; }
-const ls=document.getElementById("tsLang"); if(ls){ ls.value=LANG; ls.onchange=()=>{ try{localStorage.setItem("ts_lang",ls.value);}catch(e){} location.reload(); }; }
+// 換語言＝整頁重新載入。瀏覽器重新載入時是照「原本畫面上那個元素現在的位置」還原捲動位置；兩種語言的篩選列高度不同（英文多一行）
+//   ⇒ 明明在最上面換的語言，載入後頁面卻被捲下去 35px，第一個聯賽標題列被欄名列蓋住。這一次不還原、從最上面開始，之後再交還給瀏覽器
+const ls=document.getElementById("tsLang"); if(ls){ ls.value=LANG; ls.onchange=()=>{ try{localStorage.setItem("ts_lang",ls.value);}catch(e){}
+  try{ sessionStorage.setItem("ts_top","1"); history.scrollRestoration="manual"; }catch(e){} location.reload(); }; }
+try{ if(sessionStorage.getItem("ts_top")){ sessionStorage.removeItem("ts_top"); scrollTo(0,0); setTimeout(()=>{ try{ history.scrollRestoration="auto"; }catch(e){} },1500); } }catch(e){}
 render();
 })();
 '''
