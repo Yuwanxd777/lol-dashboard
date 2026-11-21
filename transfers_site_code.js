@@ -414,7 +414,7 @@ function render(){
         if(e.from&&!faC&&!(e.pm&&typeof e.pm!=="string"))kv.push([en2?"From":"來自",tmChip(e.from)]);
         // 退役的人不寫評分，改寫年資＝wiki 效力紀錄的第一天到最後一天（使用者 2026-11-21「小框的評分改寫成 他在WIKI顯示的年資」）；資料端給 ys／ye
         if(e.fa&&e.ret){ const T=e.ys?tenureP({s:e.ys,e:e.ye||"?"}):null; if(T)kv.push([en2?"Career":"年資",T.du?`${T.du}（${T.per}）`:T.per]); }
-        else if(e.fa&&e._sc!=null)kv.push([en2?"Score":"評分",e._sc.toFixed(1)]);   // 自由人的評分寫在最後一列（使用者 2026-11-20）   // 上調的已經寫「從 X 上調」，不重複寫來自（使用者 2026-11-20）
+        else if(e.fa&&e._sc!=null)kv.push([en2?"Score":"評分",e._sc.toFixed(1)+(e._wl?` <span class="tbMuted">${esc(e._wl)}</span>`:"")]);   // 從別的聯賽換算過來的，後面標原聯賽（跟評分小框同一種寫法：只寫聯賽、不寫權重數字）   // 自由人的評分寫在最後一列（使用者 2026-11-20）   // 上調的已經寫「從 X 上調」，不重複寫來自（使用者 2026-11-20）
         h+=`<div class="tpP"><div class="tpName"><b class="${tbCls(e)}"><a class="tpA" href="https://lol.fandom.com/wiki/${encodeURIComponent(wkPg(e.p||((D.roles||{})[e.n]||[])[1]||e.n))}" target="_blank" rel="noopener">${esc(pn(e.n))}</a></b>${e.sr?`<span class="tpSr">${SRN[e.sr]}</span>`:""}${stPill(e)}</div>`
           +(kv.length?`<div class="tpKv">${kv.map(([k,v])=>`<span>${k}</span><span>${v}</span>`).join("")}</div>`:"")
           // 傳聞引用只留最新的一則（使用者 2026-11-21「小框顯示的傳聞新聞 顯示最新一個就好」）；去向那列照舊列出所有傳聞隊伍
@@ -519,14 +519,18 @@ function render(){
     const coachS=(n,noW)=>{ if(!RATE||!n)return null; const k=teamFix(String(tAb(n)||n)), wr=(RATE.wr||{})[k]; if(wr==null)return null;
       const rk=RK[k], a=(noW&&/^W/.test(rk||""))?24:(ACH(rk)||0); return {v:wr*50+a, wr, rk, note:`${RKN(rk)}・${en2?"WR":"勝率"} ${Math.round(wr*100)}%`}; };
     const T1SET=new Set(board.flatMap(x=>[x.nm,x.tm])), BASEW_=1;   /* 原本 0.8＝三個賽段合計 80%；賽段權重改成 15／35／50 之後是 100% */
-    // 自由人那一列照分數高到低排（使用者 2026-11-20「FA 的人依照分數排序」）：選手＝轉會評分同一套分數（同路百分位 × 0.8＋國際賽加分，不乘聯賽強度）、
-    //   今年沒資料的當 50 分再加國際賽分；主教練＝原隊的戰績分。分數存在 e._sc，小框也拿來顯示
+    // 聯賽強度的換算（隊伍評分與自由人共用）：別的聯賽來的分數 × exp(LGK × (原聯賽強度 − 目的聯賽強度))；同聯賽＝1、強度缺＝1
+    const LGK=0.3, lgW0=(from,to)=>{ const a=lgN(from), Rg=(RATE&&RATE.R)||{}; return (!a||a===to||Rg[a]==null||Rg[to]==null)?1:Math.exp(LGK*(Rg[a]-Rg[to])); };
+    // 自由人那一列照分數高到低排（使用者 2026-11-20「FA 的人依照分數排序」）：選手＝轉會評分同一套分數（同路百分位＋國際賽加分）、
+    //   今年沒資料的當 50 分再加國際賽分；主教練＝原隊的戰績分。分數存在 e._sc，小框也拿來顯示。
+    //   聯賽強度：列在哪個聯賽的 FA 就換算成那個聯賽的分數（使用者 2026-11-21「Doggo為何…LEC跟LCP都是顯示相同評分」：原本這裡不乘聯賽強度，
+    //   後來有傳聞去別的聯賽的人兩邊都列，兩邊就照抄同一個數字）；列在自己原本的聯賽時權重是 1，分數不變。e._wl＝有換算時的原聯賽（小框標出來）
     if(RATE){ const blend0=a=>{ const ts=a.tm?coachS(a.tm,true):null; return ts?(a.v+ts.v)/2:a.v; }, SC0={};
       const srt0=r=>SC0[r]||(SC0[r]=Object.values(RATE.pl[r]||{}).map(blend0).sort((x,y)=>x-y));
       const pct0=(r,v)=>{ const a=srt0(r); if(!a.length)return 50; let lo=0, eq=0; for(const z of a){ if(z<v)lo++; else if(z===v)eq++; } return 100*(lo+eq/2)/a.length; };
       board.filter(t=>t.fa).forEach(t=>{ for(const r in t.r){ t.r[r].forEach(e=>{ const k=String(pn(e.n)).toLowerCase(), it=(D.intl||{})[k]||0;
             if(r==="COACH"){ const c=e.from?coachS(e.from):null; e._sc=c?c.v:null; }
-            else{ const a=(RATE.pl[r]||{})[k]; e._sc=(a?50+(pct0(r,blend0(a))-50)*Math.min(1,(a.g||0)/30):50)*BASEW_+it; } });
+            else{ const a=(RATE.pl[r]||{})[k], w=a?lgW0(a.lg,t.lg):1; e._sc=(a?Math.min(100,(50+(pct0(r,blend0(a))-50)*Math.min(1,(a.g||0)/30))*w):50)*BASEW_+it; e._wl=a&&Math.abs(w-1)>0.005?lgN(a.lg):""; } });
           t.r[r].sort((p,q)=>((p.ret?1:0)-(q.ret?1:0))||(r==="COACH"?((p.sr==="HC"?0:1)-(q.sr==="HC"?0:1)):0)||(q._sc??-1)-(p._sc??-1)||String(p.n).localeCompare(String(q.n))); } }); }   // 退役的一律排最後（使用者 2026-11-21「退役選手在FA 直接把他列在最後一位」）   // 教練那格：主教練排前面   // 三個賽段合計的占比（10＋30＋40），跟 RATE 那邊的 SEGW 要一起改
     const rateOf=t=>{ if(!RATE||t.fa)return null; const items=[], scOf=new Map(), plL=[]; let plSum=0;   // FA 列不是隊伍，不算評分
       // 聯賽權重：別的聯賽來的分數 × exp(LGK × (原聯賽強度 − 本隊聯賽強度))；同聯賽＝1、強度缺＝1
@@ -538,7 +542,7 @@ function render(){
       const srt=r=>MDB[r]||(MDB[r]=Object.values(RATE.pl[r]||{}).map(blend).sort((x,y)=>x-y));
       const pct=(r,v)=>{ const a=srt(r); if(!a.length)return v; let lo=0; for(const z of a){ if(z<v)lo++; else break; } let eq=0; for(const z of a){ if(z===v)eq++; } return 100*(lo+eq/2)/a.length; };
       const mdOf=r=>srt(r).length?50:null;
-      const LGK=0.3, lgW=lg=>{ const a=lgN(lg), b=t.lg, Rg=RATE.R||{}; return (!a||a===b||Rg[a]==null||Rg[b]==null)?1:Math.exp(LGK*(Rg[a]-Rg[b])); };
+      const lgW=lg=>lgW0(lg,t.lg);
       for(const r of ["TOP","JNG","MID","BOT","SUP"]){ const P=RATE.pl[r], PY=(RATE.plY||{})[r]||{},
           get=(n,base=50)=>{ const k=String(pn(n)).toLowerCase(), a=P[k]||(PY[k]?{...PY[k],yr:1}:undefined); if(!a)return a;
             // 個人評分只看個人數據（弱隊核心會很高：Scout 在 NS 91.4、Faker 39.6）⇒ 跟所屬戰隊的戰績分（第三賽段勝率＋最終成績）各半
