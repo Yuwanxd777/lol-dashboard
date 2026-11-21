@@ -487,9 +487,10 @@ function render(){
       if(m[1]==="W")return en2?("Worlds "+(n==="1"?"champion":n==="2"?"runner-up":n==="3-4"?"top 4":n==="5-8"?"top 8":n)):("世界賽"+(n==="1"?"冠軍":n==="2"?"亞軍":n==="3-4"?"四強":n==="5-8"?"八強":" "+n));   // 8 強以外直接寫「世界賽 9-11」（使用者 2026-11-21）
       return en2?"#"+n:`第 ${n} 名`; };   // 沒進世界賽的只寫整體名次，不標季後賽／例行賽（使用者 2026-11-21）   // 入圍賽與例行賽的名次都是整個聯賽的整體名次
     // 截圖寫在隊名縮寫下面的成績（使用者 2026-11-21「世界賽冠軍 -> WCS #1 ；LCK第五名 -> LCK #5」）：有進世界賽寫世界賽名次，否則寫聯賽名次；
-    //   LPL 第二賽段就淘汰的兩隊、升降賽上來的隊沒有名次，各寫一句短的
+    //   升降賽上來的隊寫「聯賽 #Q」；LPL 第二賽段就淘汰的兩隊沒有名次，寫一句短的
     const rkS=t=>{ if(!t||t.fa)return ""; const rk=String(t.rk||""), m=/^([WPIR])(.+)$/.exec(rk);
-      if(/^U/.test(rk))return t.lg+(en2?" promotion":" 升降賽"); if(!m)return t.lg==="LPL"?(en2?"LPL out in S2":"LPL S2 淘汰"):"";
+      if(/^U/.test(rk))return t.lg+" #Q";   // 升降賽上來的隊：#Q（使用者 2026-11-21「升降賽上來的 截圖的成績寫 LCP #Q」；中英文同一種寫法）
+      if(!m)return t.lg==="LPL"?(en2?"LPL out in S2":"LPL S2 淘汰"):"";
       return (m[1]==="W"?"WCS":t.lg)+" #"+m[2]; };
     const RKN=rk=>{ if(!rk)return en2?"no result":"無成績"; if(/^U/.test(rk))return RK3(rk); const m=/^([WPIR])(.+)$/.exec(rk); if(!m)return en2?"no result":"無成績"; const n=m[2];
       return en2?({W:"Worlds ",P:"Playoffs #",I:"Play-in ",R:"Regular #"}[m[1]]+n):({W:`世界賽 ${n==="1"?"冠軍":n==="2"?"亞軍":n}`,P:`季後賽第 ${n} 名`,I:"季後賽入圍賽",R:`例行賽第 ${n} 名`}[m[1]]); };
