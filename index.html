@@ -1656,6 +1656,13 @@
     .trBar .meta{order:9;flex:1 1 100%;font-size:11px;text-align:right;opacity:.8}
     .trBar .cwrap{flex:1 1 0;min-width:84px}   /* 圖示鈕變五顆（多了 Facebook）：320 寬的消息頁搜尋框要能再縮，不然最後一顆會掉到下一行 */.trBar .cwrap input{width:100%!important}
     .trBar .sqbtn{flex:0 0 auto}
+    .tbLegend{flex-wrap:wrap}   /* 三顆圖例排不下就換行，不要被裁（英文版加了 Retired 之後，320 寬會裁字；2026-11-21 全面檢視） */
+  }
+  /* 很窄的手機（內容區 ≤ 330px，約等於螢幕 ≤ 345px）：圖示鈕變六顆之後，跟排序鈕／搜尋框擠同一列會把字裁掉（英文 Transfer rating）或把最後一顆擠到下一行
+     ⇒ 排序／搜尋自己一整列，六顆圖示鈕另起一列靠右 */
+  @container mainc (max-width:330px){
+    .trBar .trFG.fgSort,.trBar:not(:has(.fgSort)) .cwrap{flex:1 1 100%!important}
+    .trBar>#tsHelp{margin-left:auto}
   }
   #tbTip.sheet{pointer-events:auto!important;left:8px!important;right:8px!important;top:auto!important;bottom:8px!important;max-width:none!important;max-height:72vh;overflow:auto;padding:16px 14px 14px;border-radius:14px;box-shadow:0 -6px 30px rgba(0,0,0,.6)}
   #tbTip.sheet .tpBox,#tbTip.sheet .rtBox{min-width:0}
