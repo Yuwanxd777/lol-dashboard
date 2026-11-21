@@ -22,6 +22,8 @@ ROOT = os.path.dirname(HERE)
 SITE = os.path.join(os.path.dirname(ROOT), "轉會網站")
 LOG = os.path.join(ROOT, "transfers_hourly_log.txt")
 FILES = ["transfers.js", "transfers_site.js", "transfers_site_code.js"]
+# 發布時一起提交的檔：上面三個資料檔＋補抓到的隊徽（img/teams 整個資料夾）與隊徽清單。do_site 只複製 FILES（隊徽走主站網域）
+PUB = FILES + ["img/teams", "img_manifest.js"]
 GIT = r"C:\Program Files\Git\cmd\git.exe"
 NPX = r"C:\Program Files\nodejs\npx.cmd"
 ENV = dict(os.environ, GIT_TERMINAL_PROMPT="0", GCM_INTERACTIVE="never", GIT_HTTP_LOW_SPEED_LIMIT="1000", GIT_HTTP_LOW_SPEED_TIME="60",
@@ -199,12 +201,12 @@ def publish(tag):
     if "--dry" in sys.argv:
         log("  --dry：不 commit／不推")
         return False
-    run([GIT, "add", "--"] + FILES)
-    changed = subprocess.run([GIT, "diff", "--cached", "--quiet", "--"] + FILES, cwd=ROOT, env=ENV).returncode != 0
+    run([GIT, "add", "--"] + PUB)
+    changed = subprocess.run([GIT, "diff", "--cached", "--quiet", "--"] + PUB, cwd=ROOT, env=ENV).returncode != 0
     if not changed:
         log(f"  [{tag}] 轉會資料沒變")
     else:
-        run([GIT, "commit", "-m", f"轉會每小時更新 {datetime.datetime.now():%Y-%m-%d %H:%M}（{tag}）", "--"] + FILES)
+        run([GIT, "commit", "-m", f"轉會每小時更新 {datetime.datetime.now():%Y-%m-%d %H:%M}（{tag}）", "--"] + PUB)
     ahead = subprocess.run([GIT, "rev-list", "--count", "@{u}..HEAD"], cwd=ROOT, env=ENV, capture_output=True, text=True).stdout.strip()
     if ahead in ("", "0"):
         log(f"  [{tag}] 沒有要推的 commit")
@@ -216,6 +218,14 @@ def publish(tag):
     return True
 
 
+def logos():
+    """轉會資料裡新出現的隊伍（傳聞的原隊／去向，多半是次級聯賽的隊）補隊徽。
+    使用者 2026-11-21 一個小時內回報兩次「缺的隊徽要補上」（FURY／NERD、ZYB）：原本只有每天兩班的大更新會抓，
+    複查員中途加進來的新隊要等半天才有圖。抓不到不影響發布（腳本自己記 30 天不重查）；要放在匯出之前，匯出時才認得到新圖。"""
+    if run([sys.executable, "scripts/fetch_team_logos_wiki.py"], timeout=900) != 0:
+        log("  隊徽補抓失敗（略過，不影響發布）")
+
+
 def do_main():
     # 先送再查（使用者 2026-11-20「資料更新的流程可以更快速嗎 可以先初步送上 再慢慢檢查複查」）：
     #   ① 抓資料 → 馬上發布主站＋部署轉會網站（約 2 分鐘；還沒複查的 PTT 文本來就先扣著不上架，所以初版不會有沒看過的 PTT 稿）
@@ -223,6 +233,7 @@ def do_main():
     py = sys.executable
     if run([py, "scripts/fetch_transfers.py"]) != 0:
         log("  fetch_transfers 失敗，沿用舊資料繼續")
+    logos()
     if publish("初步") and "--dry" not in sys.argv:
         do_site()
     if "--dry" in sys.argv or "--no-review" in sys.argv:
@@ -231,6 +242,7 @@ def do_main():
         return
     if run([py, "scripts/fetch_transfers.py"]) != 0:
         log("  複查後重抓失敗，沿用複查前的資料")
+    logos()
     if publish("複查後"):
         do_site()
 

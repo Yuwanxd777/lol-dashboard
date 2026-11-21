@@ -113,6 +113,9 @@ function addBase(){ const f=main.querySelector(".filters"); if(!f)return;
 .trBar #trDc,.trBar #trFb{border:1px solid rgba(255,255,255,.18)!important}
 .trBar #trDc:hover,.trBar #trFb:hover{filter:brightness(1.14)}
 .trBar .sqbtn:active,.trBar #trDc:active,.trBar #trFb:active{transform:scale(.93)}
+#tsHelpBox .tsHpHd{position:sticky;top:0;z-index:2;display:flex;align-items:center;min-height:46px;margin-bottom:8px;background:#1b2338;white-space:nowrap;font-size:17px;font-weight:800;color:#e8ecf4;border-bottom:1px solid rgba(255,255,255,.1)}
+#tsHelpBox .tsHpHd b{flex:1;font-weight:800}
+#tsHelpBox .tbTipX{position:static;flex:0 0 auto;margin-right:-10px}
 .trBar .sqbtn svg,.trBar #trDc svg,.trBar #trFb svg{width:22px;height:22px;display:block;flex:0 0 auto}
 .trBar #trDc svg{width:20px;height:20px}
 @media (max-width:400px){.trBar .sqbtn,.trBar #trDc,.trBar #trFb{width:30px!important;height:30px!important;min-width:30px!important;border-radius:9px!important}.trBar .sqbtn svg,.trBar #trFb svg{width:20px;height:20px}.trBar #trDc svg{width:18px;height:18px}}`;
@@ -149,8 +152,10 @@ function addBase(){ const f=main.querySelector(".filters"); if(!f)return;
     const mob=matchMedia("(max-width:760px)").matches;
     d=document.createElement("div"); d.id="tsHelpBox";
     d.style.cssText="position:fixed;z-index:10000;background:#1b2338;border:1px solid rgba(255,255,255,.14);box-shadow:0 8px 30px rgba(0,0,0,.6);color:#e8ecf4;line-height:1.75;font-size:14.5px;white-space:pre-line;overflow:auto;"
-      +(mob?"left:8px;right:8px;bottom:8px;max-height:72vh;padding:16px 14px 14px;border-radius:14px":"right:16px;top:64px;width:min(560px,92vw);max-height:80vh;padding:16px 18px;border-radius:10px");
-    d.innerHTML=`<button class="tbTipX" aria-label="close">✕</button><span style="float:right;width:38px;height:28px"></span>`+((LANG==="en"?HELP.en:HELP.zh)||"");   // ✕ 固定在右上角，旁邊留一塊空位讓第一行的字繞開
+      +(mob?"left:8px;right:8px;bottom:8px;max-height:72vh;padding:0 14px 14px;border-radius:14px":"right:16px;top:64px;width:min(560px,92vw);max-height:80vh;padding:0 18px 16px;border-radius:10px");
+    // 最上面一條標題列黏在頂端、X 放在它的右端：說明很長要捲動時 X 不會跟著捲走（原本 X 是絕對定位在內容裡，一捲就不見；
+    //   使用者 2026-11-21「所有小框的X位置不要跑掉 然後大一點 然後背景不要用圓形底色 直接X就好」）。X 的長相跟格子小框共用 .tbTipX
+    d.innerHTML=`<div class="tsHpHd"><b>${LANG==="en"?"About this page":"本頁說明"}</b><button class="tbTipX" aria-label="close">✕</button></div>`+((LANG==="en"?HELP.en:HELP.zh)||"");
     document.body.appendChild(d); d.querySelector(".tbTipX").onclick=()=>d.remove(); };
   if(!window._tsHelpOut){ window._tsHelpOut=1; document.addEventListener("click",e=>{ const d=document.getElementById("tsHelpBox"); if(d&&!e.target.closest("#tsHelpBox")&&!e.target.closest("#tsHelp"))d.remove(); }); }
   document.getElementById("tsReset").onclick=()=>{ Object.assign(V,{trSrc:"",trSt:"",trRg:"",trKd:"",trQ:"",tbF:"",tbSort:""}); saveState(); render(); }; }
