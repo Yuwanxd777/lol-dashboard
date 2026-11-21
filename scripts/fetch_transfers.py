@@ -606,6 +606,8 @@ def main():
             synth.append({"d": x["d"], "st": x.get("st") or "rumor", "kind": "join", "src": "韓網" if x.get("src") == "韓網" else ("Sheep Esports" if x.get("src") == "Sheep Esports" else "PTT"), "url": x.get("url") or x.get("ptt") or "",
                           "zh": zh_, "en": _en_for(x, nm_), "who": [nm_, pg_, lane_],
                           "tags": ([["", fr_, "out"]] if fr_ else []) + [["", to_, "in"]]})
+            if lane_ == "COACH" and nm_ in (x.get("hc") or []):
+                synth[-1]["sr"] = "HC"   # 傳聞的是主教練（條目的 hc＝[名字]，例：Sephis 去 FX 當主教練）⇒ 陣容表放主教練欄；沒標的教練傳聞在後勤欄
         if x.get("stay"):
             synth.append({"d": x["d"], "st": x.get("st") or "rumor", "kind": "other", "zh": "", "stay": [s_[0] for s_ in x["stay"]]})
     farewell = []   # 戰隊官方 Thank you／Farewell 文（PTT 轉貼，含內文）⇒ 陣容表當宣布離隊
@@ -619,6 +621,38 @@ def main():
         yr = int(start[:4]) if start[5:7] > "06" else int(start[:4]) - 1
         board = transfers_board.build(B.cargo, yr, start, sheep + off + synth, {n: "LCS" for n in T1_EXTRA}, wiki, T1_EXCLUDE, farewell, {"OpTic Gaming": "Dignitas"})
         print(f"陣容表：{len(board)} 隊")
+        # 「傳出要續約／留隊」的報導（PTT 條目的 stay、狀態是傳聞）：陣容表的顏色不動（官方公布才算續約），但小框要看得到那則報導
+        #   ——2026-11-21 使用者貼「T1 與教練李知勳續約」說「這個是 T1 教練 Easyhoon」：原本只進消息，Easyhoon 的小框完全看不出來。
+        #   做法：掛到那個人在該隊（或自由人列、來自該隊）的格子上，欄位 tips＝[{d, src, u, tip, tipE}]（跟手動自由人的相關消息同一格式，前端共用）
+        try:
+            n_tip = 0
+            for x in ptt_raw:
+                if not x.get("stay") or (x.get("st") or "rumor") != "rumor":
+                    continue
+                plain_ = re.sub(r"‹[^|›]+\|([^›]+)›", r"\1", re.sub(r"§[A-Z]+§", "", x.get("zh") or "")).strip()
+                cl_ = [c_.strip() for c_ in re.split(r"[；;]", plain_.rstrip("。")) if c_.strip()]
+                for s_ in x["stay"]:
+                    nm_, tm_ = s_[0], (s_[1] if len(s_) > 1 else "")
+                    hit_ = [c_ for c_ in cl_ if re.search(r"(?<![A-Za-z0-9])" + re.escape(nm_) + r"(?![A-Za-z0-9])", c_)]
+                    tip_ = ("；".join(hit_) + "。") if hit_ and len(hit_) < len(cl_) else plain_
+                    if not tip_ or not tm_:
+                        continue
+                    o_ = {"d": x["d"][:10], "src": "韓網" if x.get("src") == "韓網" else ("Sheep Esports" if x.get("src") == "Sheep Esports" else "PTT"),
+                          "u": x.get("url") or x.get("ptt") or "", "tip": tip_, "tipE": _en_for(x, nm_)}
+                    for t_ in board:
+                        same_tm = transfers_board.tkey(t_.get("nm") or "") == transfers_board.tkey(tm_) or transfers_board.tkey(t_.get("tm") or "") == transfers_board.tkey(tm_)
+                        for L_ in t_.get("r", {}).values():
+                            for e_ in L_:
+                                if e_.get("r") or transfers_board.key(e_.get("n")) != transfers_board.key(nm_):
+                                    continue
+                                if same_tm or (t_.get("fa") and transfers_board.tkey(e_.get("from") or "") == transfers_board.tkey(tm_)):
+                                    L2_ = [v_ for v_ in (e_.get("tips") or []) if v_.get("u") != o_["u"] or v_.get("tip") != o_["tip"]] + [o_]
+                                    e_["tips"] = sorted(L2_, key=lambda v_: v_.get("d") or "", reverse=True)[:3]
+                                    n_tip += 1
+            if n_tip:
+                print(f"續約／留隊的報導掛進小框：{n_tip} 格")
+        except Exception as e:
+            print(f"續約報導掛小框失敗（略過）：{type(e).__name__} {str(e)[:120]}")
     except Exception as e:
         board = old.get("board") or []
         print(f"陣容表失敗，沿用舊檔 {len(board)} 隊：{type(e).__name__} {str(e)[:150]}")

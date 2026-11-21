@@ -101,7 +101,7 @@ function addBase(){ const f=main.querySelector(".filters"); if(!f)return;
   const IC={help:SV('<circle cx="12" cy="12" r="9"/><path d="M12 11v5.5"/><circle cx="12" cy="7.6" r=".6" fill="currentColor"/>'),
     reset:SV('<path d="M20 12a8 8 0 1 1-2.34-5.66"/><path d="M20 4v5h-5"/>'),
     shot:SV('<path d="M4 8h3l1.5-2.2h7L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13.4" r="3.4"/>'),
-    share:SV('<path d="M12 15.5V3.6"/><path d="M7.6 8 12 3.6 16.4 8"/><path d="M5 12.5V19a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-6.5"/>')};
+    share:SV('<path d="M21.6 3.2H2.6l6.7 6.9 2.5 10.2z"/><path d="M21.6 3.2 9.3 10.1"/>')};   // 紙飛機（使用者 2026-11-21「分享的按鈕圖 要跟 IG 分享的那圖案一樣」）；主站 index.html 的 #trShare 是同一個形狀
   if(!document.getElementById("tsBtnCss")){ const st=document.createElement("style"); st.id="tsBtnCss";
     st.textContent=`.trBar .sqbtn,.trBar #trDc,.trBar #trFb{width:34px!important;height:34px!important;min-width:34px!important;padding:0!important;border-radius:10px!important;display:inline-flex!important;align-items:center;justify-content:center;box-shadow:none!important;font-size:0!important;line-height:0!important;transition:transform .12s,background .12s,border-color .12s,filter .12s;-webkit-tap-highlight-color:transparent}
 .trBar button.sqbtn{background:#1a2234!important;border:1px solid rgba(255,255,255,.14)!important;color:#c9d4ea!important}

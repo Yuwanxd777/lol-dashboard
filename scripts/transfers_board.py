@@ -340,6 +340,12 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
     for v in sorted((v for L in rumor.values() for v in L if v["st"] == "rumor"), key=lambda v: v["d"], reverse=True):   # 新的在前，最多三隊
         for k_ in {key(v["n"])} | ({key(v["p"])} if v.get("p") else set()):
             rum_out.setdefault(k_, []).append(v)
+
+    def _same(ro, pg):
+        """這則傳聞講的是不是這個人：key() 會把消歧義括號去掉，同名的兩個人會撞在一起——兩邊的頁名都帶括號而且不一樣 ⇒ 是另一個人。
+        （2026-11-21 巴西傳聞：FURIA 洽談自家青訓的 Feng (Brenno Martins)，不能讓 DCG 的 Feng (Chen Chun-Feng) 變成「可能轉會」）"""
+        a, b = str(ro.get("p") or "").replace("_", " ").strip().lower(), str(pg or "").replace("_", " ").strip().lower()
+        return not (a and b and "(" in a and "(" in b and a != b)
     out = []
     for tm in teams:
         c = cur.get(tm, {})
@@ -390,7 +396,7 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
                     continue
                 ros = []
                 for ro in rum_out.get(k) or rum_out.get(key(pid)) or []:
-                    if tkey(ro["tm"]) != tkey(tm) and ro["d"][:10] >= since:
+                    if tkey(ro["tm"]) != tkey(tm) and ro["d"][:10] >= since and _same(ro, pg):
                         o = {"to": ro["tm"], "d": ro["d"][:10], "tip": ro["tip"]}
                         if ro.get("src"):
                             o["src"] = ro["src"]
@@ -410,6 +416,8 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
                 if ot and ot != tm and joined.get((key(rmr["n"]), ot), ("", ""))[0] >= rmr["d"][:10]:
                     continue   # 傳聞之後他已官宣去別隊
                 e = {"n": rmr["n"], "p": rmr.get("p") or "", "tip": rmr["tip"], "d": rmr["d"][:10]}
+                if rr == "COACH" and rmr.get("sr"):
+                    e["sr"] = rmr["sr"]   # 傳聞的是主教練（PTT 條目的 hc 名單）⇒ 前端放進主教練欄；沒標的照舊在後勤欄
                 if rmr.get("src"):
                     e["src"] = rmr["src"]
                 if rmr.get("u"):
@@ -618,16 +626,23 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
         except Exception as e:
             print(f"   休假主教練查詢失敗：{type(e).__name__} {str(e)[:100]}")
         pages_ = sorted({c_[2] for c_ in cand})
-        now_tm, retd_ = {}, set()
+        now_tm, retd_, last_tm_ = {}, set(), {}
         for i in range(0, len(pages_), 40):
-            for y in cargo({"tables": "Players", "fields": "Players.OverviewPage=pg,Players.Team=tm,Players.IsRetired=ret",
+            for y in cargo({"tables": "Players", "fields": "Players.OverviewPage=pg,Players.Team=tm,Players.IsRetired=ret,Players.TeamLast=tl",
                             "where": "Players.OverviewPage IN " + _in(pages_[i:i + 40]), "limit": "500", "format": "json"}):
                 now_tm[key(y["pg"])] = y.get("tm") or ""
+                last_tm_[key(y["pg"])] = y.get("tl") or ""
                 if str(y.get("ret")) == "1":
                     retd_.add(key(y["pg"]))
         by_lg = {}
+        cand_at = {(key(c_[2]), tkey(c_[0]["tm"])) for c_ in cand}
         for x, rr, pg, nm_, c_, gone_, *sr_ in cand:
             k_ = key(pg)
+            # 年中換過隊的人（Hena：年初 UP、後來 paiN）兩隊都會把他列成候選，照隊伍順序先到先贏 ⇒ 會被掛在舊東家的聯賽（LPL 自由人、來自 UP），
+            #   而且真正離開的那一隊（paiN）的聯賽反而沒有他。wiki 選手頁的「最後一隊」也是候選之一時，只認那一隊（2026-11-21 對巴西傳聞圖時發現）
+            tl_ = last_tm_.get(k_, "")
+            if tl_ and tkey(tl_) != tkey(x["tm"]) and (k_, tkey(tl_)) in cand_at:
+                continue
             is_ret = k_ in retd_ or k_ in RET_KEYS   # 退役的人照樣列在自由人，前端灰字＋刪除線（使用者 2026-11-21「退役者依然幫我放到FA」）
             if k_ in seen_ or ((k_ in settled or key(nm_) in settled) and not is_ret):
                 continue
@@ -653,7 +668,7 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
                     e["gd"] = gd_   # 離隊日（提早解約的小框要寫日期，使用者 2026-11-21）
             ros = []
             for ro in rum_out.get(k_) or rum_out.get(key(nm_)) or []:
-                if ro["d"][:10] >= since and tkey(ro["tm"]) != tkey(x["tm"]):   # 傳聞的是「留在原隊」（陣容整理文把他列在原隊）不算去向
+                if ro["d"][:10] >= since and tkey(ro["tm"]) != tkey(x["tm"]) and _same(ro, pg):   # 傳聞的是「留在原隊」（陣容整理文把他列在原隊）不算去向
                     o = {"to": ro["tm"], "d": ro["d"][:10], "tip": ro["tip"]}
                     if ro.get("src"):
                         o["src"] = ro["src"]
@@ -1051,7 +1066,7 @@ def parse_sheep(sheep):
         if x.get("who"):
             n, pg, lane_ = x["who"]
             put(n.lower(), {"tm": inn[0][1], "rr": lane_, "n": n, "p": pg, "d": x["d"], "tip": tip, "st": st, "src": x.get("src") or "", "u": x.get("url") or "",
-                            "from": out[0] if out else ""})
+                            "from": out[0] if out else "", "sr": x.get("sr") or ""})
             continue
         m = re.search(r"§(TOP|JNG|MID|BOT|SUP)§" + _NM, zh)
         if not m:
