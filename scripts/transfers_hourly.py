@@ -16,6 +16,7 @@ import os
 import shutil
 import subprocess
 import sys
+import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
@@ -277,8 +278,19 @@ def do_site():
     for f in FILES:
         shutil.copy2(os.path.join(ROOT, f), os.path.join(dst, f))
     # 一定要在 轉會網站 資料夾跑（在 C:\fit 跑會把訓練計畫的 functions 一起傳上去）
-    run([NPX, "--yes", "wrangler", "pages", "deploy", "www", "--project-name", "lol-transfer", "--branch", "main", "--commit-dirty=true"],
-        cwd=SITE, timeout=600)
+    cmd = [NPX, "--yes", "wrangler", "pages", "deploy", "www", "--project-name", "lol-transfer", "--branch", "main", "--commit-dirty=true"]
+    rc = run(cmd, cwd=SITE, timeout=600)
+    if rc != 0:
+        # wrangler 的登入權杖約一小時到期。到期點剛好落在一次部署的兩個 API 請求之間 ⇒ 第二個請求 401
+        # 「Authentication error [code: 10000]」，wrangler 不重試、離開碼 1，但離開前會把權杖換新 ⇒ 馬上再跑一次就會過。
+        # 2026-11-20 13:10／11-21 00:40／11-22 04:40 三次都是這個長相（277 次部署裡 3 次；看 wrangler 自己的 log 檔）。
+        # 只重試一次：真的壞掉（沒登入、網路斷）重試也沒用，下一趟 30 分鐘內會再部署。改這段跑 transfers_hourly_site_test.py。
+        log("  ⚠ 部署失敗（多半是登入權杖剛好到期），10 秒後重試一次")
+        time.sleep(10)
+        rc = run(cmd, cwd=SITE, timeout=600)
+        if rc != 0:
+            log("  ⚠ 部署重試仍失敗，轉會網站這一趟沒更新（下一趟會再部署；連續出現就看 wrangler 的 log 檔，可能要重新 wrangler login）")
+    return rc
 
 
 def main():
