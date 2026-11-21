@@ -487,10 +487,12 @@ function render(){
       if(m[1]==="W")return en2?("Worlds "+(n==="1"?"champion":n==="2"?"runner-up":n==="3-4"?"top 4":n==="5-8"?"top 8":n)):("世界賽"+(n==="1"?"冠軍":n==="2"?"亞軍":n==="3-4"?"四強":n==="5-8"?"八強":" "+n));   // 8 強以外直接寫「世界賽 9-11」（使用者 2026-11-21）
       return en2?"#"+n:`第 ${n} 名`; };   // 沒進世界賽的只寫整體名次，不標季後賽／例行賽（使用者 2026-11-21）   // 入圍賽與例行賽的名次都是整個聯賽的整體名次
     // 截圖寫在隊名縮寫下面的成績（使用者 2026-11-21「世界賽冠軍 -> WCS #1 ；LCK第五名 -> LCK #5」）：有進世界賽寫世界賽名次，否則寫聯賽名次；
-    //   升降賽上來的隊寫「聯賽 #Q」；LPL 第二賽段就淘汰的兩隊沒有名次，寫一句短的
+    //   升降賽上來的隊寫「聯賽 #Q」；LPL 第二賽段就淘汰、沒打第三賽段的兩隊資料裡沒有名次，照使用者指定的寫（2026-11-21「UP 寫 LPL #13 OMG#14」），
+    //   截圖排序也照這個名次排在該聯賽最後（S2OUT；網頁的戰績評分那一欄仍寫「第二賽段遭淘汰」，那是使用者同一天稍早定的）
+    const S2OUT={"Ultra Prime":13,"Oh My God":14}, s2Of=t=>(t&&!t.fa&&!t.rk&&t.lg==="LPL"&&(S2OUT[t.nm]||S2OUT[t.tm]))||0;
     const rkS=t=>{ if(!t||t.fa)return ""; const rk=String(t.rk||""), m=/^([WPIR])(.+)$/.exec(rk);
       if(/^U/.test(rk))return t.lg+" #Q";   // 升降賽上來的隊：#Q（使用者 2026-11-21「升降賽上來的 截圖的成績寫 LCP #Q」；中英文同一種寫法）
-      if(!m)return t.lg==="LPL"?(en2?"LPL out in S2":"LPL S2 淘汰"):"";
+      if(!m)return s2Of(t)?"LPL #"+s2Of(t):(t.lg==="LPL"?(en2?"LPL out in S2":"LPL S2 淘汰"):"");
       return (m[1]==="W"?"WCS":t.lg)+" #"+m[2]; };
     const RKN=rk=>{ if(!rk)return en2?"no result":"無成績"; if(/^U/.test(rk))return RK3(rk); const m=/^([WPIR])(.+)$/.exec(rk); if(!m)return en2?"no result":"無成績"; const n=m[2];
       return en2?({W:"Worlds ",P:"Playoffs #",I:"Play-in ",R:"Regular #"}[m[1]]+n):({W:`世界賽 ${n==="1"?"冠軍":n==="2"?"亞軍":n}`,P:`季後賽第 ${n} 名`,I:"季後賽入圍賽",R:`例行賽第 ${n} 名`}[m[1]]); };
@@ -663,7 +665,7 @@ function render(){
     let bHTML="", lastLg="";
     vRows.forEach(t=>{ if(t.lg!==lastLg){ const n=vRows.filter(x=>x.lg===t.lg&&!x.fa).length;
         bHTML+=`<div class="tbLg" data-rg="${esc((en2?{LCK:"Korea",LPL:"China",LEC:"EMEA",LCS:"North America",CBLOL:"Brazil",LCP:"Asia-Pacific"}:{LCK:"韓國",LPL:"中國",LEC:"歐洲",LCS:"北美",CBLOL:"巴西",LCP:"亞太"})[t.lg]||"")}" style="--lgc:${LGC[t.lg]||"var(--gold)"}"><img class="tbLgIc" src="${((window.TS_DATA||{}).lgi||{})[t.lg]||("img/lg_"+t.lg+".png")}" alt=""><b>${esc(t.lg)}</b><span>${n}${en2?" teams":" 隊"}</span></div>`; lastLg=t.lg; }   // 聯賽徽章＋聯賽名稱＋隊伍數（使用者 2026-11-21）；地區名只留在 data-rg 給截圖標題用
-      bHTML+=`<div class="tbRow${t.fa?" tbFA":""}" data-o="${board.indexOf(t)}"${t.fa?"":` data-rk="${esc(rkS(t))}"`} style="--lgc:${LGC[t.lg]||"var(--gold)"}"><div class="tbTeam" title="${t.fa?"FA":esc(t.nm)}">${t.fa?`<img class="tbFaIc" src="${((window.TS_DATA||{}).lgi||{})[t.lg]||("img/lg_"+t.lg+".png")}" alt="">`:""}${teamLogoHTML(tAb(t.nm),26,true,t.nm)||teamLogoHTML(tAb(t.tm),26,true,t.tm)||""}<span>${t.fa?esc(rowNm(t)):`<a class="tbTmA" href="${tmWk(t.nm)}" target="_blank" rel="noopener">${esc(rowNm(t))}</a>`}</span>${tbDone(t)?`<span class="tbOk" title="${en2?"All five roles and the head coach are confirmed":"五路與主教練都確定了"}">✔</span>`:""}</div>`
+      bHTML+=`<div class="tbRow${t.fa?" tbFA":""}" data-o="${s2Of(t)?9000+s2Of(t):board.indexOf(t)}"${t.fa?"":` data-rk="${esc(rkS(t))}"`} style="--lgc:${LGC[t.lg]||"var(--gold)"}"><div class="tbTeam" title="${t.fa?"FA":esc(t.nm)}">${t.fa?`<img class="tbFaIc" src="${((window.TS_DATA||{}).lgi||{})[t.lg]||("img/lg_"+t.lg+".png")}" alt="">`:""}${teamLogoHTML(tAb(t.nm),26,true,t.nm)||teamLogoHTML(tAb(t.tm),26,true,t.tm)||""}<span>${t.fa?esc(rowNm(t)):`<a class="tbTmA" href="${tmWk(t.nm)}" target="_blank" rel="noopener">${esc(rowNm(t))}</a>`}</span>${tbDone(t)?`<span class="tbOk" title="${en2?"All five roles and the head coach are confirmed":"五路與主教練都確定了"}">✔</span>`:""}</div>`
         +COLS.map(r=>{ const es=t.fa?colE(t,r):colE(t,r).filter(e=>!e.gone);   /* 已宣布離隊的不留在陣容表格子裡，只列在 FA 那列（使用者 2026-11-21「所有已宣布離隊的都直接離開陣容表 去到FA區」）；小框仍查得到 */   /* FA 的主教練與後勤分兩格（使用者 2026-11-21 先要合併、隨後改回「主教練跟後勤分開」） */
           return `<div class="tbCell${es.length?"":" tbEmpty"}" data-r="${r}" data-lb="${BLN[r]}" data-tb="${cellTip(t,r)}"><span class="tbCv">${es.length?es.map((e,i)=>i<es.length-1?`<span class="tbNw">${nameH(e)}<span class="tbSep">/</span></span><wbr>`:nameH(e)).join(""):`<span class="tbMuted">–</span>`}</span></div>`; }).join("")
         // 手機版的 FA 卡：主教練與後勤併成一格（data-r="CO"，主教練排前面；小框也列全部）。電腦版這格不顯示、手機版改藏主教練與後勤那兩格（見 .tbFaCo 的樣式）
