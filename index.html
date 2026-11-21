@@ -1096,6 +1096,29 @@
   .tpLg{margin-left:auto;padding:1px 8px;border-radius:999px;font-size:13px;font-weight:800;color:var(--lgc);border:1px solid color-mix(in srgb,var(--lgc) 55%,transparent)}
   .tpP{padding:8px 10px;border-radius:8px;background:rgba(255,255,255,.04);margin-top:8px}
   .tpP:first-of-type{margin-top:0}
+  /* 分享視窗（使用者 2026-11-21）：電腦置中、手機從底部浮上來 */
+  .trShD{position:fixed;inset:0;z-index:10000;display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box;background:rgba(5,8,14,.74)}
+  .trShD .trShBox{width:min(560px,100%);max-height:calc(100vh - 32px);overflow:auto;box-sizing:border-box;padding:16px 18px 18px;border-radius:14px;background:#161c2b;border:1px solid #2a3345;box-shadow:0 12px 44px rgba(0,0,0,.55);color:#e8ecf4;font-size:15px;text-align:left}
+  .trShHd{display:flex;align-items:center;gap:10px;margin-bottom:10px}.trShHd b{flex:1;font-size:17px;font-weight:800}
+  .trShX{flex:0 0 auto;width:32px;height:32px;border-radius:50%;border:1px solid rgba(255,255,255,.16);background:#222b40;color:#e8ecf4;font-size:15px;line-height:1;cursor:pointer}.trShX:hover{background:#2c3852}
+  .trShMsg{min-height:20px;margin-bottom:10px;font-size:13.5px;line-height:20px;color:#8b98ad}.trShMsg:empty{display:none}
+  .trShImgs{display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:8px;margin-bottom:14px}.trShImgs:empty{display:none}
+  .trShI{position:relative;aspect-ratio:1;border-radius:9px;overflow:hidden;background:#0b0e14;border:2px solid rgba(255,255,255,.12);cursor:pointer;box-sizing:border-box}
+  .trShI img{display:block;width:100%;height:100%;object-fit:cover}
+  .trShI i{position:absolute;right:5px;top:5px;width:20px;height:20px;border-radius:50%;box-sizing:border-box;border:1.5px solid rgba(255,255,255,.85);background:rgba(11,14,20,.6)}
+  .trShI b{position:absolute;left:0;right:0;bottom:0;padding:10px 6px 3px;font-size:11.5px;font-weight:700;line-height:1.3;color:#fff;text-align:left;white-space:nowrap;background:linear-gradient(rgba(5,8,14,0),rgba(5,8,14,.9))}   /* 縮圖左下角標是哪個賽區／第幾頁 */
+  .trShI.on{border-color:#5aa9ff}.trShI.on i{border-color:#5aa9ff;background:#5aa9ff}
+  .trShI.on i::after{content:"";position:absolute;left:6px;top:2.5px;width:4px;height:9px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg)}
+  .trShI:not(.on) img{opacity:.42}
+  .trShBtns{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+  .trShP{display:flex;align-items:center;justify-content:center;gap:8px;min-width:0;height:44px;padding:0 6px;border-radius:10px;border:1px solid rgba(255,255,255,.2);color:#fff;font:inherit;font-size:15px;font-weight:700;cursor:pointer;transition:filter .12s,transform .12s}
+  .trShP svg{flex:0 0 auto;width:20px;height:20px;display:block}.trShP span{min-width:0;overflow-wrap:anywhere}
+  .trShP[data-p="fb"]{background:#1877F2}.trShP[data-p="ig"]{background:linear-gradient(45deg,#f09433,#e6683c 25%,#dc2743 50%,#cc2366 75%,#bc1888)}.trShP[data-p="th"]{background:#000}
+  .trShP:hover:not(:disabled){filter:brightness(1.13)}.trShP:active:not(:disabled){transform:scale(.97)}.trShP:disabled{opacity:.38;cursor:default}
+  .trShHint{min-height:22px;margin-top:10px;font-size:13.5px;line-height:1.6;color:#c9d4ea}.trShHint:empty{display:none}
+  .trShA{display:inline-block;margin-left:6px;color:#7ab8ff;font-weight:700}
+  @media (max-width:759.98px){.trShD{align-items:flex-end;padding:0}.trShD .trShBox{width:100%;max-height:88vh;border-radius:16px 16px 0 0;border-bottom:0;padding:14px 14px calc(16px + env(safe-area-inset-bottom,0px))}.trShP{font-size:14px;gap:6px}}
+  @media (max-width:359.98px){.trShP span{font-size:12.5px}}
   .tbTmA{color:inherit;text-decoration:none}.tbTmA:hover{text-decoration:underline}
   #tbTip .tpName a{cursor:pointer}#tbTip .tpName a::after{content:"↗";display:inline-block;text-decoration:none;font-size:.62em;margin-left:3px;opacity:.35;vertical-align:.25em}#tbTip .tpName a:hover{text-decoration:underline}#tbTip .tpName a:hover::after{opacity:1}   /* 小框的選手 ID 可以點去 wiki：平常帶一個淡淡的 ↗，滑過加底線（使用者 2026-11-21） */
   .tpName{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.tpName>b{font-size:16px}
@@ -1585,7 +1608,7 @@
     .trBar .trFG>span:not(.tbLegend){display:grid!important;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:5px!important;width:100%}
     /* 消息（使用者 2026-11-20「手機版消息的篩選列再重新調整」）：狀態四顆＋類型三顆同一行、來源五顆一行（Sheep Esports 只寫 Sheep）⇒ 整列五行 */
     /* 陣容表：排序鈕跟搜尋框位置互換（使用者 2026-11-20「手機版 降冪按鈕的位置跟搜尋交換」）⇒ 搜尋框自己一整行，排序鈕到最後一行跟四顆圖示鈕並排 */
-    .trBar:has(.fgSort) .cwrap{order:2;flex:1 1 100%}.trBar .trFG.fgSort{order:3;flex:1 1 0;min-width:0}.trBar:has(.fgSort) .sqbtn{order:4!important}.trBar:has(.fgSort) #trShot{order:5!important}.trBar:has(.fgSort) #trFb{order:6!important}.trBar:has(.fgSort) #trDc{order:7!important}   /* 圖示鈕維持原本的順序：說明、重設、截圖、Discord */
+    .trBar:has(.fgSort) .cwrap{order:2;flex:1 1 100%}.trBar .trFG.fgSort{order:3;flex:1 1 0;min-width:0}.trBar:has(.fgSort)>.sqbtn{order:4!important}.trBar:has(.fgSort)>#trShot,.trBar:has(.fgSort)>#trShare{order:5!important}.trBar:has(.fgSort)>#trFb{order:6!important}.trBar:has(.fgSort)>#trDc{order:7!important}   /* 只管直接放在篩選列裡的（轉會網站）；主站的按鈕收在 .barRight／.barBtns 裡，套到的話 📸 會被排到 ← 後面（2026-11-21 全面檢視） */   /* 圖示鈕維持原本的順序：說明、重設、截圖、Discord */
     .trBar .trFG.fgSt{flex:1 1 100%}   /* 狀態四顆自己一整行（類型、來源兩組刪掉之後，原本「跟類型並排」的 flex:4 會讓它跟搜尋框擠同一行——使用者 2026-11-20「手機版的篩選列跑掉了」） */
     .trHideM{display:none}
     /* 消息列表手機版（使用者 2026-11-20「手機版消息的 UI 也重新調整」）：每則兩段——第一行＝狀態＋賽區＋原隊 ➜ 新隊，下面內文，來源連結接在內文右下 */
@@ -14825,6 +14848,10 @@ function render(){
       +`<span style="flex:1"></span><span class="meta">${metaTx}</span>`
       +`<span class="trSW"><label>${en2?"Search":"搜尋"}</label><span class="cwrap"><input type="text" id="trQ" value="${esc(V.trQ||"")}" placeholder="${en2?"Player / team":"選手或隊名"}" style="width:190px;padding-right:26px"><button class="cx" tabindex="-1" data-x="trQ" title="一鍵清除">✕</button></span></span>`
       +`<button id="trShot" class="sqbtn" style="order:1" title="${en2?"Screenshot (2000×2000 JPG)":"截圖（輸出 2000×2000 JPG）"}">📸</button>`
+      // 分享（使用者 2026-11-21）：同一套截圖，不下載、直接帶去 Facebook／Instagram／Threads 發文
+      //   order：主站的 orderBaseBtns 會把行內 order≥1 的照數字搬到基礎按鈕（📸 ℹ️ ↺ ←）左邊 ⇒ 給 2，排在 FB／Discord 之後、緊貼 📸；
+      //   轉會網站（有 TS_DATA）沒有那套搬動，照 DOM 順序排 ⇒ 給 1，接在 📸 後面
+      +`<button id="trShare" class="sqbtn" style="order:${window.TS_DATA?1:2}" title="${en2?"Share the screenshot to Facebook / Instagram / Threads":"把截圖分享到 Facebook／Instagram／Threads"}">📤</button>`
       // Facebook 粉專（使用者 2026-11-20「多一個FB按鈕 連接到我的粉專」）：網址填在 TR_FB，空的時候不畫這顆
       +(TR_FB?`<a id="trFb" class="sqbtn" style="order:1;text-decoration:none;background:#1877F2;border:1px solid #4a95f5;box-shadow:0 1px 0 rgba(0,0,0,.35);box-sizing:border-box;border-radius:9px;cursor:pointer" href="${esc(TR_FB)}" target="_blank" rel="noopener" title="${en2?"My Facebook page":"我的 Facebook 粉專"}"><svg viewBox="0 0 24 24" width="20" height="20" fill="#fff" aria-hidden="true" class="trFbG"><path d="M9.101 23.691v-7.98H6.627v-3.667h2.474v-1.58c0-4.085 1.848-5.978 5.858-5.978.401 0 .955.042 1.468.103a8.68 8.68 0 0 1 1.141.195v3.325a8.623 8.623 0 0 0-.653-.036 26.805 26.805 0 0 0-.733-.009c-.707 0-1.259.096-1.675.309a1.686 1.686 0 0 0-.679.622c-.258.42-.374.995-.374 1.752v1.297h3.919l-.386 2.103-.287 1.564h-3.246v8.245C19.396 23.238 24 18.179 24 12.044c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.628 3.874 10.35 9.101 11.647Z"/></svg></a>`:"")
       // Discord（使用者 2026-11-20「如果有任何新的轉會通知 可以到我的 DC 群告訴我…也新增一個 DC 按鈕在外面」）
@@ -14834,7 +14861,9 @@ function render(){
     // 📸 截圖（使用者 2026-11-20「新增截圖按鈕」「截圖要跟大家說明文字顏色代表什麼」「截圖大小為 2000x2000」「如果有好幾個賽區 就是一個賽區一張圖」）：
     //   陣容表＝一個賽區一張；每隊一張卡（沿用手機版卡片：每格自己是 @container mainc），欄數挑「縮放後最大」的那個，整張等比縮放置中進 2000×2000。
     //   消息＝照列的邊界分頁，每頁 2000×2000。每張頂端都有標題＋截至時間，陣容表多一行顏色說明。主站與轉會網站共用這一段（不靠 shotEl）
-    { const sb=document.getElementById("trShot"); if(sb)sb.onclick=async()=>{ sb.disabled=true; const SZ=2000, hosts=[]; let rootZ=null;
+    { const sb=document.getElementById("trShot");
+      // runShot(sink)：sink＝null 照舊一張一張下載（📸）；給 sink 就不下載，把每張圖交給 sink.add（📤 分享用）
+      const runShot=async sink=>{ if(sb)sb.disabled=true; const SZ=2000, hosts=[]; let rootZ=null;
         const fixC=root=>{ const P=["color","backgroundColor","backgroundImage","borderTopColor","borderRightColor","borderBottomColor","borderLeftColor","outlineColor","textDecorationColor","boxShadow"];   // html2canvas 不認 color-mix 算出來的 color(srgb …)
           const cv=x=>x.replace(/color[(]srgb ([0-9.e-]+) ([0-9.e-]+) ([0-9.e-]+)(?: [/] ([0-9.e-]+))?[)]/g,(m,r,g,b,a)=>`rgba(${Math.round(r*255)},${Math.round(g*255)},${Math.round(b*255)},${a==null?1:a})`);
           [root,...root.querySelectorAll("*")].forEach(el=>{ const cs=getComputedStyle(el); P.forEach(p=>{ const v=cs[p]; if(v&&v.includes("color("))el.style[p]=cv(v); }); }); };
@@ -14864,10 +14893,12 @@ function render(){
           const pc=document.createElement("canvas"); pc.width=pc.height=SZ; const g=pc.getContext("2d"); g.fillStyle="#0b0e14"; g.fillRect(0,0,SZ,SZ);
           if(hc)g.drawImage(hc,0,0);
           g.drawImage(cv,Math.round((SZ-cv.width)/2),hc?top:Math.round((SZ-cv.height)/2));
-          const d=new Date(), pad=x=>String(x).padStart(2,"0");
-          await new Promise(ok=>pc.toBlob(bl=>{ const a=document.createElement("a"); a.href=URL.createObjectURL(bl); a.download=`${name}_${pad(d.getFullYear()%100)}${pad(d.getMonth()+1)}${pad(d.getDate())}${pad(d.getHours())}.jpg`;
+          const d=new Date(), pad=x=>String(x).padStart(2,"0"), fn=`${name}_${pad(d.getFullYear()%100)}${pad(d.getMonth()+1)}${pad(d.getDate())}${pad(d.getHours())}.jpg`;
+          await new Promise(ok=>pc.toBlob(bl=>{
+            if(sink){ const fin=png=>{ sink.add({bl,fn,png,tag:String(name).replace(/^S17_LoL_/,"").replace(/_/g," ")}); ok(); }; if(sink.png)pc.toBlob(fin,"image/png"); else fin(null); return; }   // 分享：不下載；電腦版另外要一份 PNG（剪貼簿只收 PNG）
+            const a=document.createElement("a"); a.href=URL.createObjectURL(bl); a.download=fn;
             document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),5000); ok(); },"image/jpeg",0.93));
-          h.remove(); await new Promise(r=>setTimeout(r,350)); };   // 連續下載間隔
+          h.remove(); if(!sink)await new Promise(r=>setTimeout(r,350)); };   // 連續下載間隔
         try{
           if(!window.html2canvas)await new Promise((ok,no)=>{ const sc=document.createElement("script"); sc.src="html2canvas.min.js"; sc.onload=ok; sc.onerror=no; document.head.appendChild(sc); });
           rootZ=document.documentElement.style.zoom; document.documentElement.style.zoom="";   // html2canvas 不懂整頁 zoom
@@ -14876,7 +14907,8 @@ function render(){
             const probe=mkHost(NW,""); probe.insertAdjacentHTML("beforeend",`<div class="card trList" style="background:#141a26"></div>`); const pl=probe.lastChild; pl.innerHTML=src.innerHTML;
             const hdrH=probe.querySelector("div").offsetHeight+70, hs=[...pl.children].filter(e=>!e.classList.contains("trHead")).map(e=>e.offsetHeight); probe.remove();
             const pages=[]; let cur=[], used=0; kids.forEach((e,i)=>{ if(cur.length&&used+hs[i]>NW-hdrH){ pages.push(cur); cur=[]; used=0; } cur.push(e); used+=hs[i]; }); if(cur.length)pages.push(cur);
-            for(let i=0;i<pages.length;i++){ const pg=pages[i]; if(pg[pg.length-1].classList.contains("trDay")&&pages[i+1])pages[i+1].unshift(pg.pop());   // 日期標題不留在頁尾
+            const NP=sink&&sink.max?Math.min(pages.length,sink.max):pages.length; if(sink)sink.capped=pages.length>NP;   // 分享只取最新幾頁（整份消息十幾頁，沒有人會一次發那麼多張）
+            for(let i=0;i<NP;i++){ if(sink&&sink.stop)break; const pg=pages[i]; if(pg[pg.length-1].classList.contains("trDay")&&pages[i+1])pages[i+1].unshift(pg.pop());   // 日期標題不留在頁尾
               const h=mkHost(NW,`<span style="font-size:18px;font-weight:800">${en2?"News":"消息"}</span>${pages.length>1?`<span style="font-size:14px;color:#8b98ad">${i+1} / ${pages.length}</span>`:""}`);
               h.insertAdjacentHTML("beforeend",`<div class="card trList" style="background:#141a26">${hd?hd.outerHTML:""}${pg.map(e=>e.outerHTML).join("")}</div>`);
               await out(h,"S17_LoL_"+(en2?"News":"消息")+(pages.length>1?"_"+(i+1):"")); }
@@ -14889,7 +14921,7 @@ function render(){
             // 版面＝一列一隊，跟網頁（桌面版）的表格一樣（使用者 2026-11-20「截圖能不能改成一列一隊這樣 跟網頁顯示的一樣」）：
             //   表頭＋該賽區各隊的列放進一個寬度 ≥1000 的 mainc 容器（＝桌面版樣式）；寬度從 1000 試到 2000，挑縮放後字最大的那個
             const bhd=main.querySelector(".tbBoard>.tbHd");
-            for(const sc of secs){ if(!sc.rows.length)continue;
+            for(const sc of secs){ if(!sc.rows.length)continue; if(sink&&sink.stop)break;
               const hd=mkHost(1000,`<span style="font-size:24px;font-weight:900;color:${sc.c||"#f0e6d2"}">${esc(sc.lg)}</span><span style="font-size:17px;font-weight:700">${esc(sc.sub)}</span>`);
               hd.style.paddingBottom="0"; hd.insertAdjacentHTML("beforeend",legend); const topH=hd.offsetHeight*SZ/1000;
               const h=mkHost(1200,""); h.querySelector("div").remove(); h.style.paddingTop="4px"; h.dataset.noic="1";
@@ -14919,8 +14951,60 @@ function render(){
               { const rs=[...h.querySelectorAll(".tbRow")], gap=(SZ-topH)/(SZ/h.offsetWidth)-h.offsetHeight; if(rs.length&&gap>4){ const add=Math.floor(gap/rs.length); rs.forEach(r=>{ r.style.minHeight=(r.offsetHeight+add)+"px"; }); } }
               await out(h,"S17_LoL_"+sc.lg,hd); }
           }
-        }catch(e){ alert((en2?"Screenshot failed: ":"截圖失敗：")+((e&&e.message)||e)); }
-        hosts.forEach(h=>h.remove()); if(rootZ!=null)document.documentElement.style.zoom=rootZ; sb.disabled=false; }; }
+        }catch(e){ if(sink&&sink.fail)sink.fail(e); else alert((en2?"Screenshot failed: ":"截圖失敗：")+((e&&e.message)||e)); }
+        hosts.forEach(h=>h.remove()); if(rootZ!=null)document.documentElement.style.zoom=rootZ; if(sb)sb.disabled=false; };
+      if(sb)sb.onclick=()=>runShot(null);
+      // 📤 分享（使用者 2026-11-21「新增一個分享按鈕 就是把截圖功能轉換成發文形式 把圖片放到 FB IG THREADS 之一 讓使用者選擇
+      //   使用者最終只需要寫內文並按發佈即可發出與分享」）：圖照 📸 同一套產生、留在記憶體，開一個小視窗挑圖、挑平台。
+      //   網頁能做到的極限——手機：呼叫系統的分享清單，選到的 App 會帶著圖片開發文畫面（只剩寫內文、按發佈）；
+      //   電腦：網頁沒辦法把圖片塞進別的網站 ⇒ 圖片複製到剪貼簿＋開該平台的發文頁，貼上即可（Instagram 網頁版不能貼圖 ⇒ 改成下載、手動選檔）
+      const shb=document.getElementById("trShare");
+      if(shb)shb.onclick=()=>{ if(document.getElementById("trShD"))return;
+        const T=(zh,en)=>en2?en:zh, mob=matchMedia("(pointer:coarse)").matches&&matchMedia("(hover:none)").matches;
+        const canF=f=>{ try{ return !!(navigator.share&&navigator.canShare&&navigator.canShare({files:f})); }catch(_){ return false; } };
+        const useShare=mob&&canF([new File([new Blob(["x"],{type:"image/jpeg"})],"t.jpg",{type:"image/jpeg"})]);
+        const PN={fb:"Facebook",ig:"Instagram",th:"Threads"}, PU={fb:"https://www.facebook.com/",ig:"https://www.instagram.com/",th:"https://www.threads.net/intent/post"};
+        const IC={fb:`<svg viewBox="0 0 24 24" fill="#fff" aria-hidden="true"><path d="${((document.querySelector("#trFb svg path")||{getAttribute(){return "";}}).getAttribute("d"))||"M13.5 21v-7.5h2.6l.4-3h-3V8.6c0-.9.3-1.5 1.6-1.5h1.6V4.4c-.3 0-1.2-.1-2.3-.1-2.3 0-3.9 1.4-3.9 4v2.2H8v3h2.5V21z"}"/></svg>`,
+          ig:`<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5.2"/><circle cx="12" cy="12" r="4.1"/><circle cx="17.4" cy="6.6" r="1" fill="#fff" stroke="none"/></svg>`,
+          th:`<svg viewBox="0 0 24 24" fill="#fff" aria-hidden="true"><path d="M12.186 24h-.007c-3.581-.024-6.334-1.205-8.184-3.509C2.35 18.44 1.5 15.586 1.472 12.01v-.017c.03-3.579.879-6.43 2.525-8.482C5.845 1.205 8.6.024 12.18 0h.014c2.746.02 5.043.725 6.826 2.098 1.677 1.29 2.858 3.13 3.509 5.467l-2.04.569c-1.104-3.96-3.898-5.984-8.304-6.015-2.91.022-5.11.936-6.54 2.717C4.307 6.504 3.616 8.914 3.589 12c.027 3.086.718 5.496 2.057 7.164 1.43 1.783 3.631 2.698 6.54 2.717 2.623-.02 4.358-.631 5.8-2.045 1.647-1.613 1.618-3.593 1.09-4.798-.31-.71-.873-1.3-1.634-1.75-.192 1.352-.622 2.446-1.284 3.272-.886 1.102-2.14 1.704-3.73 1.79-1.202.065-2.361-.218-3.259-.801-1.063-.689-1.685-1.74-1.752-2.964-.065-1.19.408-2.285 1.33-3.082.88-.76 2.119-1.207 3.583-1.291a13.853 13.853 0 0 1 3.02.142c-.126-.742-.375-1.332-.75-1.757-.513-.586-1.308-.883-2.359-.89h-.029c-.844 0-1.992.232-2.721 1.32L7.734 7.847c.98-1.454 2.568-2.256 4.478-2.256h.044c3.194.02 5.097 1.975 5.287 5.388.108.046.216.094.321.142 1.49.7 2.58 1.761 3.154 3.07.797 1.82.871 4.79-1.548 7.158-1.85 1.81-4.094 2.628-7.277 2.65Zm1.003-11.69c-.242 0-.487.007-.739.021-1.836.103-2.98.946-2.916 2.143.067 1.256 1.452 1.839 2.784 1.767 1.224-.065 2.818-.543 3.086-3.71a10.5 10.5 0 0 0-2.215-.221z"/></svg>`};
+        const dlg=document.createElement("div"); dlg.id="trShD"; dlg.className="trShD";   /* 樣式掛在類別上：轉會網站的 CSS 篩選只留 .tr* 類別的規則，#id 選擇器會被濾掉 */
+        dlg.innerHTML=`<div class="trShBox" role="dialog" aria-modal="true"><div class="trShHd"><b>${T("分享到社群","Share")}</b><button class="trShX" aria-label="close">✕</button></div>`
+          +`<div class="trShMsg"></div><div class="trShImgs"></div>`
+          +`<div class="trShBtns">${["fb","ig","th"].map(p=>`<button class="trShP" data-p="${p}" disabled>${IC[p]}<span>${PN[p]}</span></button>`).join("")}</div><div class="trShHint"></div></div>`;
+        document.body.appendChild(dlg);
+        const msg=dlg.querySelector(".trShMsg"), grid=dlg.querySelector(".trShImgs"), hint=dlg.querySelector(".trShHint"), st={items:[],sel:new Set(),done:false,err:"",capped:false,closed:false};
+        const sink={png:!mob, max:4,   // 消息最多取最新 4 頁
+          add(it){ if(st.closed)return; it.url=URL.createObjectURL(it.bl); st.items.push(it); if(MODE!=="news"||st.items.length===1)st.sel.add(it); draw(); },
+          fail(e){ st.err=T("產生圖片失敗：","Could not render the image: ")+((e&&e.message)||e); } };
+        const onKey=e=>{ if(e.key==="Escape")close(); };
+        const close=()=>{ st.closed=true; sink.stop=true; st.items.forEach(x=>{ try{ URL.revokeObjectURL(x.url); }catch(_){} }); dlg.remove(); document.removeEventListener("keydown",onKey); };
+        document.addEventListener("keydown",onKey); dlg.querySelector(".trShX").onclick=close; dlg.onclick=e=>{ if(e.target===dlg)close(); };
+        const draw=()=>{ const n=st.items.length, k=st.sel.size;
+          msg.textContent=st.err||(!st.done?T(`產生圖片中… ${n}`,`Rendering images… ${n}`):n>1?T(`已選 ${k} / ${n} 張，點圖增減`,`${k} of ${n} selected, tap an image to toggle`)+(st.capped?T(`（只取最新 ${n} 頁）`,` (latest ${n} pages only)`):""):"");
+          // 縮圖用 div 不用 button：手機瀏覽器不支援分享時，要能長按圖片儲存
+          grid.innerHTML=st.items.map((x,i)=>`<div class="trShI${st.sel.has(x)?" on":""}" data-i="${i}" role="button" tabindex="0" title="${esc(x.fn)}"><img src="${x.url}" alt=""><i></i><b>${esc(x.tag||"")}</b></div>`).join("");
+          dlg.querySelectorAll(".trShP").forEach(b=>{ b.disabled=!st.done||!k; }); };
+        grid.onclick=e=>{ const b=e.target.closest(".trShI"); if(!b||!st.done||st.items.length<2)return; const x=st.items[+b.dataset.i]; if(st.sel.has(x))st.sel.delete(x); else if(st.sel.size<10)st.sel.add(x); draw(); };
+        const dl=(x,i)=>setTimeout(()=>{ const a=document.createElement("a"); a.href=x.url; a.download=x.fn; document.body.appendChild(a); a.click(); a.remove(); },i*350);
+        const go=async p=>{ const its=st.items.filter(x=>st.sel.has(x)); if(!its.length)return;
+          if(useShare){ const files=its.map(x=>new File([x.bl],x.fn,{type:"image/jpeg"}));   // 手機：系統分享清單（要在點擊的當下直接呼叫，中間不能有 await）
+            if(canF(files)){ try{ await navigator.share({files}); close(); }catch(e){ if(!(e&&e.name==="AbortError"))hint.textContent=T(`分享沒有成功，可以長按圖片儲存後到 ${PN[p]} 發文`,`Sharing failed. Long-press an image to save it, then post on ${PN[p]}`); } return; } }
+          const link=` <a class="trShA" href="${PU[p]}" target="_blank" rel="noopener">${T("開啟 ","Open ")}${PN[p]} ↗</a>`;
+          if(mob){ hint.innerHTML=T(`這個瀏覽器不能直接分享，請長按圖片儲存後到 ${PN[p]} 發文`,`This browser cannot share files. Long-press an image to save it, then post on ${PN[p]}`)+link; return; }
+          // 電腦：第一張進剪貼簿（先寫剪貼簿再開分頁——分頁一開，本頁失去焦點就不能寫了），其餘下載
+          let copied=false;
+          if(p!=="ig"&&its[0].png&&navigator.clipboard&&window.ClipboardItem){ try{ await navigator.clipboard.write([new ClipboardItem({"image/png":its[0].png})]); copied=true; }catch(_){} }
+          const rest=copied?its.slice(1):its; rest.forEach(dl);
+          let w=null; try{ w=window.open(PU[p],"_blank"); if(w)w.opener=null; }catch(_){}
+          hint.innerHTML=(copied?T(`圖片已複製，到 ${PN[p]} 的發文框按 Ctrl+V 貼上`,`Image copied. Paste it (Ctrl+V) into the ${PN[p]} composer`)+(rest.length?T(`；另外 ${rest.length} 張已下載`,`; ${rest.length} more downloaded`):"")
+            :p==="ig"?T("圖片已下載。Instagram 網頁版不能貼圖，請按「建立」選剛下載的圖","Image downloaded. Instagram on the web cannot paste images: click Create and pick the downloaded file")
+            :T(`圖片已下載，到 ${PN[p]} 發文時上傳`,`Image downloaded. Upload it in the ${PN[p]} composer`))+(w?"":link); };
+        dlg.querySelectorAll(".trShP").forEach(b=>{ b.onclick=()=>go(b.dataset.p); });
+        if(!main.querySelector(".tbRow,.trRow")){ st.done=true; st.err=T("沒有可以分享的內容","Nothing to share"); draw(); return; }   // 篩選到沒有任何列：不產生一張空白圖
+        draw(); shb.disabled=true;
+        runShot(sink).then(()=>{ shb.disabled=false; st.done=true; st.capped=!!sink.capped; if(st.closed)return; if(!st.items.length&&!st.err)st.err=T("沒有可以分享的內容","Nothing to share"); draw();
+          if(!st.err)hint.textContent=useShare?T("按下後在分享清單選該 App，圖片會自動帶入","Then pick that app in the share sheet. The image is attached for you")
+            :mob?"":T("會複製圖片並開啟發文頁，貼上（Ctrl+V）就能發文","Copies the image and opens the site. Paste it (Ctrl+V) into a new post"); }); }; }
     // 隊徽視覺大小統一（使用者 2026-11-20「全面檢視隊徽 視覺上統一大小」）：圖檔都是正方形畫布，但圖案本身有扁（T1／DK／SHG）有窄（MKOI／DNS）
     //   ⇒ 用小畫布量圖案的外框，把「圖案面積」調成一樣（扁的放寬、方的略縮），寬最多 1.5 倍、高不超過原本的框；
     //   每個隊徽佔固定寬 1.5 倍的位子、置中 ⇒ 後面的縮寫對齊。量不到（跨網域沒開 CORS、file://）就維持原樣
