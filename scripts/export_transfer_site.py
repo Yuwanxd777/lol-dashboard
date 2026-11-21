@@ -97,11 +97,14 @@ function addBase(){ const f=main.querySelector(".filters"); if(!f)return;
   const b=(id,tx,ti)=>`<button id="${id}" class="sqbtn" title="${ti}">${tx}</button>`;
   // 五顆小按鈕重新設計（使用者 2026-11-20「五個小按鈕重新設計一下 好看一點」；只改轉會網站，主站的基礎按鈕全站一致不動）：
   //   說明／重設／截圖＝同一套線條圖示（原本是三種長相不同的 emoji），深色圓角方塊；Facebook／Discord＝同尺寸同圓角的品牌色；滑過變亮、按下微縮
-  const SV=d=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
-  const IC={help:SV('<circle cx="12" cy="12" r="9"/><path d="M12 11v5.5"/><circle cx="12" cy="7.6" r=".6" fill="currentColor"/>'),
-    reset:SV('<path d="M20 12a8 8 0 1 1-2.34-5.66"/><path d="M20 4v5h-5"/>'),
-    shot:SV('<path d="M4 8h3l1.5-2.2h7L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13.4" r="3.4"/>'),
-    share:SV('<path d="M21.6 3.2H2.6l6.7 6.9 2.5 10.2z"/><path d="M21.6 3.2 9.3 10.1"/>')};   // 紙飛機（使用者 2026-11-21「分享的按鈕圖 要跟 IG 分享的那圖案一樣」）；主站 index.html 的 #trShare 是同一個形狀
+  // 2026-11-21 使用者「小按鈕裡面的圖示要置中 然後要圓潤化清晰化 不要看起來很粗糙」：用一般螢幕（100%／125% 縮放）實際截圖放大看，原本的問題是
+  //   ①圖示 19px 放在 34px 的按鈕裡，左右各 7.5px＝落在半個像素上，整個圖會糊、看起來也偏一點 ②線寬 1.9 縮到 19px 只剩 1.5px，斜線斷斷續續。
+  //   ⇒ 線加粗到 2、圓角接頭與圓角機身，圖示改成偶數尺寸（22px；手機 20px）讓它落在整數像素上，圖案的外框都在 24 格的正中間
+  const SV=d=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+  const IC={help:SV('<circle cx="12" cy="12" r="8.6"/><path d="M12 11.2v5"/><circle cx="12" cy="7.8" r="1.15" fill="currentColor" stroke="none"/>'),
+    reset:SV('<path d="M20 12a8 8 0 1 1-2.34-5.66"/><path d="M20.2 4v4.8h-4.8"/>'),
+    shot:SV('<path d="M5.2 7.5h2.3l1.2-1.8a1.2 1.2 0 0 1 1-.53h4.6a1.2 1.2 0 0 1 1 .53l1.2 1.8h2.3a1.9 1.9 0 0 1 1.9 1.9v7.5a1.9 1.9 0 0 1-1.9 1.9H5.2a1.9 1.9 0 0 1-1.9-1.9V9.4a1.9 1.9 0 0 1 1.9-1.9z"/><circle cx="12" cy="13" r="3.2"/>'),
+    share:SV('<path d="M20.6 4.4H3.4l6.3 6.4 2.3 9z"/><path d="M20.6 4.4 9.8 10.9"/>')};   // 紙飛機（使用者 2026-11-21「分享的按鈕圖 要跟 IG 分享的那圖案一樣」）；主站 index.html 的 #trShare 是同一個形狀
   if(!document.getElementById("tsBtnCss")){ const st=document.createElement("style"); st.id="tsBtnCss";
     st.textContent=`.trBar .sqbtn,.trBar #trDc,.trBar #trFb{width:34px!important;height:34px!important;min-width:34px!important;padding:0!important;border-radius:10px!important;display:inline-flex!important;align-items:center;justify-content:center;box-shadow:none!important;font-size:0!important;line-height:0!important;transition:transform .12s,background .12s,border-color .12s,filter .12s;-webkit-tap-highlight-color:transparent}
 .trBar button.sqbtn{background:#1a2234!important;border:1px solid rgba(255,255,255,.14)!important;color:#c9d4ea!important}
@@ -110,9 +113,9 @@ function addBase(){ const f=main.querySelector(".filters"); if(!f)return;
 .trBar #trDc,.trBar #trFb{border:1px solid rgba(255,255,255,.18)!important}
 .trBar #trDc:hover,.trBar #trFb:hover{filter:brightness(1.14)}
 .trBar .sqbtn:active,.trBar #trDc:active,.trBar #trFb:active{transform:scale(.93)}
-.trBar .sqbtn svg,.trBar #trDc svg,.trBar #trFb svg{width:19px;height:19px;display:block}
-.trBar #trFb svg{width:21px!important;height:21px!important}
-@media (max-width:400px){.trBar .sqbtn,.trBar #trDc,.trBar #trFb{width:30px!important;height:30px!important;min-width:30px!important;border-radius:9px!important}.trBar .sqbtn svg,.trBar #trDc svg,.trBar #trFb svg{width:17px;height:17px}}`;
+.trBar .sqbtn svg,.trBar #trDc svg,.trBar #trFb svg{width:22px;height:22px;display:block;flex:0 0 auto}
+.trBar #trDc svg{width:20px;height:20px}
+@media (max-width:400px){.trBar .sqbtn,.trBar #trDc,.trBar #trFb{width:30px!important;height:30px!important;min-width:30px!important;border-radius:9px!important}.trBar .sqbtn svg,.trBar #trFb svg{width:20px;height:20px}.trBar #trDc svg{width:18px;height:18px}}`;
     document.head.appendChild(st); }
   f.insertAdjacentHTML("beforeend",b("tsHelp",IC.help,LANG==="en"?"About this page":"本頁說明")+b("tsReset",IC.reset,LANG==="en"?"Reset filters":"重設篩選"));
   { const sh=document.getElementById("trShot"); if(sh)sh.innerHTML=IC.shot; const sr=document.getElementById("trShare"); if(sr)sr.innerHTML=IC.share; }
