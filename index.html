@@ -14377,11 +14377,12 @@ function render(){
           let merged=false;
           L.forEach(w=>{ if(w.s!=="wiki"||!/leave|both/.test(w.kind||"")||(tm&&!sameTm(w.team,tm))||!hit.test(plain(w.zh)))return;
             // 中文「A、B、C 離隊。」／英文「A, B, and C leave.」「A leaves.」——逐句處理，只動離隊那句
-            const zh=String(w.zh||"").split(/(?<=。)\s*/).map(z=>{ const m2=/^(.*?)(\s*離隊。)$/.exec(z); if(!m2||!oneRe.test(z))return z;
+            //   wiki 直接寫「A 退役。」／「A retires.」的也比照（使用者 2026-11-22「Bie退役的訊息重複了」：原本只認離隊句，退役句就跟官方退役消息各列一則）
+            const zh=String(w.zh||"").split(/(?<=。)\s*/).map(z=>{ const m2=/^(.*?)(\s*(?:離隊|退役)。)$/.exec(z); if(!m2||!oneRe.test(z))return z;
                 const it=m2[1].split("、").filter(i=>!oneAll.test(i.trim())); merged=true; return it.length?it.join("、")+m2[2]:""; }).filter(Boolean).join(" ");
-            const en=String(w.en||"").split(/(?<=\.)\s+/).map(z=>{ const m2=/^(.*?)\s+leaves?\.$/.exec(z); if(!m2||!oneRe.test(z))return z;
-                const it=m2[1].split(/,\s*(?:and\s+)?|\s+and\s+/).map(i=>i.trim()).filter(i=>i&&!oneAll.test(i)); if(!it.length)return "";
-                return (it.length===1?it[0]+" leaves":it.length===2?it.join(" and ")+" leave":it.slice(0,-1).join(", ")+", and "+it[it.length-1]+" leave")+"."; }).filter(Boolean).join(" ");
+            const en=String(w.en||"").split(/(?<=\.)\s+/).map(z=>{ const m2=/^(.*?)\s+(leaves?|retires?)\.$/.exec(z); if(!m2||!oneRe.test(z))return z;
+                const it=m2[1].split(/,\s*(?:and\s+)?|\s+and\s+/).map(i=>i.trim()).filter(i=>i&&!oneAll.test(i)); if(!it.length)return ""; const vb=/^retire/.test(m2[2])?"retire":"leave";
+                return (it.length===1?it[0]+" "+vb+"s":it.length===2?it.join(" and ")+" "+vb:it.slice(0,-1).join(", ")+", and "+it[it.length-1]+" "+vb)+"."; }).filter(Boolean).join(" ");
             w.zh=zh; w.en=en; if(!String(zh||en).trim())gone3.add(w); });
           const sh=L.find(y=>y.s==="sheep"&&y!==r&&(y.st||"rumor")==="official"&&/退役|retire/i.test((y.zh||"")+(y.en||""))&&hit.test(plain(y.zh)+" "+plain(y.en))&&dd2(y.d,r.d)<=7);
           if(sh){ gone3.add(r); return; }
@@ -14393,6 +14394,14 @@ function render(){
           if(tg[2]&&((w.kind==="join"&&tg[2]!=="in")||(w.kind==="leave"&&tg[2]!=="out")))return;
           const sn=namesOf(sh); if(!sn.length)return; const ov=wn.filter(n=>sn.includes(n)).length;
           if(ov/Math.min(wn.length,sn.length)<0.75)return; drop.add(wn.length>sn.length?sh:w); }); });
+      // ④ 相同的資訊 24 小時內不重複（使用者 2026-11-22「相同的資訊24小時內不要重複」）：不分來源——
+      //   同狀態、同類型、同一組隊伍、講到的人完全相同、時間差 ≤ 24 小時 ⇒ 只留一則（不同家留 Sheep、其次 PTT／官方、最後 wiki；同一家留字多的，一樣多留早的）
+      { const tk4=x=>[...new Set((x.s==="wiki"?[x.team]:(x.tags||[]).map(t=>t[1])).filter(Boolean).map(n=>ab0(n)))].sort().join("|"), ts4=x=>{ const t=Date.parse(String(x.d).replace(" ","T")); return isNaN(t)?0:t; };
+        const st4=x=>x.s==="wiki"?"official":(x._v==="fake"||x._v==="conf")?x._v:(x.st||"rumor"), pr4=x=>x.s==="sheep"?0:x.s==="wiki"?2:1;
+        const C4=L2.filter(x=>!drop.has(x)).map(x=>({x,n:namesOf(x).sort().join("|"),k:tk4(x),t:ts4(x)})).filter(o=>o.n&&o.k&&o.t);
+        C4.forEach((a,i)=>{ C4.slice(i+1).forEach(b=>{ if(drop.has(b.x)||drop.has(a.x))return;
+          if(a.n!==b.n||a.k!==b.k||st4(a.x)!==st4(b.x)||(a.x.kind||"other")!==(b.x.kind||"other")||Math.abs(a.t-b.t)>864e5)return;
+          const la=String(a.x.zh||"").length, lb=String(b.x.zh||"").length, keepA=pr4(a.x)!==pr4(b.x)?pr4(a.x)<pr4(b.x):la!==lb?la>lb:a.t<=b.t; drop.add(keepA?b.x:a.x); }); }); }
       return L2.filter(x=>!drop.has(x)); })();
     const RGS=[...new Set(all.flatMap(x=>x.s!=="wiki"?x.tags.map(t=>t[0]):[x.rg]).filter(Boolean))].sort((a,b)=>Object.keys(RG_LG).indexOf(a)-Object.keys(RG_LG).indexOf(b));
     const KD={join:en2?"Join":"加入",leave:en2?"Leave":"離隊",other:en2?"Other":"其他"};
