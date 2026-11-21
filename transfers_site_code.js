@@ -394,7 +394,9 @@ function render(){
         if(JD&&(faC||(e.rs&&(!e.c||e.c<today))))kv.push([en2?"Joined":"加入",ymd(JD)]);
         if(e.gone)kv.push(...goKv(e.n,t.nm));
         if(e.from&&!faC&&!(e.pm&&typeof e.pm!=="string"))kv.push([en2?"From":"來自",tmChip(e.from)]);
-        if(e.fa&&e._sc!=null)kv.push([en2?"Score":"評分",e._sc.toFixed(1)]);   // 自由人的評分寫在最後一列（使用者 2026-11-20）   // 上調的已經寫「從 X 上調」，不重複寫來自（使用者 2026-11-20）
+        // 退役的人不寫評分，改寫年資＝wiki 效力紀錄的第一天到最後一天（使用者 2026-11-21「小框的評分改寫成 他在WIKI顯示的年資」）；資料端給 ys／ye
+        if(e.fa&&e.ret){ const T=e.ys?tenureP({s:e.ys,e:e.ye||"?"}):null; if(T)kv.push([en2?"Career":"年資",T.du?`${T.du}（${T.per}）`:T.per]); }
+        else if(e.fa&&e._sc!=null)kv.push([en2?"Score":"評分",e._sc.toFixed(1)]);   // 自由人的評分寫在最後一列（使用者 2026-11-20）   // 上調的已經寫「從 X 上調」，不重複寫來自（使用者 2026-11-20）
         h+=`<div class="tpP"><div class="tpName"><b class="${tbCls(e)}"><a class="tpA" href="https://lol.fandom.com/wiki/${encodeURIComponent(wkPg(e.p||((D.roles||{})[e.n]||[])[1]||e.n))}" target="_blank" rel="noopener">${esc(pn(e.n))}</a></b>${e.sr?`<span class="tpSr">${SRN[e.sr]}</span>`:""}${stPill(e)}</div>`
           +(kv.length?`<div class="tpKv">${kv.map(([k,v])=>`<span>${k}</span><span>${v}</span>`).join("")}</div>`:"")
           // 傳聞引用只留最新的一則（使用者 2026-11-21「小框顯示的傳聞新聞 顯示最新一個就好」）；去向那列照舊列出所有傳聞隊伍
@@ -484,6 +486,11 @@ function render(){
       if(/^U/.test(rk||""))return (en2?"Promotion: beat ":"升降賽擊敗 ")+abOf(rk.slice(1)); const m=/^([WPIR])(.+)$/.exec(rk||""); if(!m)return "–"; const n=m[2];
       if(m[1]==="W")return en2?("Worlds "+(n==="1"?"champion":n==="2"?"runner-up":n==="3-4"?"top 4":n==="5-8"?"top 8":n)):("世界賽"+(n==="1"?"冠軍":n==="2"?"亞軍":n==="3-4"?"四強":n==="5-8"?"八強":" "+n));   // 8 強以外直接寫「世界賽 9-11」（使用者 2026-11-21）
       return en2?"#"+n:`第 ${n} 名`; };   // 沒進世界賽的只寫整體名次，不標季後賽／例行賽（使用者 2026-11-21）   // 入圍賽與例行賽的名次都是整個聯賽的整體名次
+    // 截圖寫在隊名縮寫下面的成績（使用者 2026-11-21「世界賽冠軍 -> WCS #1 ；LCK第五名 -> LCK #5」）：有進世界賽寫世界賽名次，否則寫聯賽名次；
+    //   LPL 第二賽段就淘汰的兩隊、升降賽上來的隊沒有名次，各寫一句短的
+    const rkS=t=>{ if(!t||t.fa)return ""; const rk=String(t.rk||""), m=/^([WPIR])(.+)$/.exec(rk);
+      if(/^U/.test(rk))return t.lg+(en2?" promotion":" 升降賽"); if(!m)return t.lg==="LPL"?(en2?"LPL out in S2":"LPL S2 淘汰"):"";
+      return (m[1]==="W"?"WCS":t.lg)+" #"+m[2]; };
     const RKN=rk=>{ if(!rk)return en2?"no result":"無成績"; if(/^U/.test(rk))return RK3(rk); const m=/^([WPIR])(.+)$/.exec(rk); if(!m)return en2?"no result":"無成績"; const n=m[2];
       return en2?({W:"Worlds ",P:"Playoffs #",I:"Play-in ",R:"Regular #"}[m[1]]+n):({W:`世界賽 ${n==="1"?"冠軍":n==="2"?"亞軍":n}`,P:`季後賽第 ${n} 名`,I:"季後賽入圍賽",R:`例行賽第 ${n} 名`}[m[1]]); };
     // noW＝選手評分用：今年世界賽打到第幾名不再算（使用者 2026-11-20「那麼今年世界賽成績的參數分要拿掉」——世界賽名次已經用國際賽資歷分直接加在選手身上，
@@ -499,7 +506,7 @@ function render(){
       board.filter(t=>t.fa).forEach(t=>{ for(const r in t.r){ t.r[r].forEach(e=>{ const k=String(pn(e.n)).toLowerCase(), it=(D.intl||{})[k]||0;
             if(r==="COACH"){ const c=e.from?coachS(e.from):null; e._sc=c?c.v:null; }
             else{ const a=(RATE.pl[r]||{})[k]; e._sc=(a?50+(pct0(r,blend0(a))-50)*Math.min(1,(a.g||0)/30):50)*BASEW_+it; } });
-          t.r[r].sort((p,q)=>(r==="COACH"?((p.sr==="HC"?0:1)-(q.sr==="HC"?0:1)):0)||(q._sc??-1)-(p._sc??-1)||String(p.n).localeCompare(String(q.n))); } }); }   // 教練那格：主教練排前面   // 三個賽段合計的占比（10＋30＋40），跟 RATE 那邊的 SEGW 要一起改
+          t.r[r].sort((p,q)=>((p.ret?1:0)-(q.ret?1:0))||(r==="COACH"?((p.sr==="HC"?0:1)-(q.sr==="HC"?0:1)):0)||(q._sc??-1)-(p._sc??-1)||String(p.n).localeCompare(String(q.n))); } }); }   // 退役的一律排最後（使用者 2026-11-21「退役選手在FA 直接把他列在最後一位」）   // 教練那格：主教練排前面   // 三個賽段合計的占比（10＋30＋40），跟 RATE 那邊的 SEGW 要一起改
     const rateOf=t=>{ if(!RATE||t.fa)return null; const items=[], scOf=new Map(), plL=[]; let plSum=0;   // FA 列不是隊伍，不算評分
       // 聯賽權重：別的聯賽來的分數 × exp(LGK × (原聯賽強度 − 本隊聯賽強度))；同聯賽＝1、強度缺＝1
       const blend=a=>{ const ts=a.tm?coachS(a.tm,true):null; return ts?(a.v+ts.v)/2:a.v; };
@@ -577,7 +584,9 @@ function render(){
         if(its.length)its[its.length-1].xs=xs; else{ const f=xs.shift(); items.push({r,rs:5,nw:f.n,ne:f.e,v:f.v,d:0,xs}); } }
       items.sort((a,b)=>(a.rs===4)-(b.rs===4));   // 補上去的列排在默契加成前面
       items.forEach(x=>{ if(x.dlo==null){ x.dlo=x.d; x.dhi=x.d; } });   // 主教練那一筆沒有範圍
-      return {pl:plSum,plL,items,sum:items.reduce((s,x)=>s+x.d,0),lo:items.reduce((s,x)=>s+x.dlo,0),hi:items.reduce((s,x)=>s+x.dhi,0),rng:items.some(x=>x.dhi-x.dlo>0.05),rm:items.some(x=>x.rm),vac:items.filter(x=>x.ma===2).length}; };
+      // plN＝五路裡「有人可以算分」的有幾路：0＝全隊沒有任何人留下（CFO、LEV：五路都已宣布離隊、也沒有新人或傳聞），五路全用基準分加起來的數字沒有意義
+      //   ⇒ 選手評分顯示「–」、排序排最後（使用者 2026-11-21「全隊沒有任何人留下的戰隊 選手評分應該顯示 -」）
+      return {pl:plSum,plL,plN:plL.filter(x=>x.ps.length).length,items,sum:items.reduce((s,x)=>s+x.d,0),lo:items.reduce((s,x)=>s+x.dlo,0),hi:items.reduce((s,x)=>s+x.dhi,0),rng:items.some(x=>x.dhi-x.dlo>0.05),rm:items.some(x=>x.rm),vac:items.filter(x=>x.ma===2).length}; };
     // 評分小框（使用者 2026-11-19「評分的小框重新設計」）：標題列＝隊徽＋隊名＋總分；每條路一列＝路線圖示｜離隊（名字／分數）→ 加入｜增減色塊
     // 範圍的寫法與顏色：最低～最高；兩頭都正＝紅、都負＝綠、一正一負看中間值
     // 加減號與括號用全形（使用者 2026-11-20「加減號用全型 括號也是」）；四捨五入後是 0.0 的不帶符號
@@ -595,10 +604,10 @@ function render(){
       //   （使用者 2026-11-20「選手評分模式 就不給獎勵分」；獎勵分只屬於轉會評分）
       if(rt&&typeof SPL!=="undefined"&&SPL){
         // 右邊不重複寫這一路的分數，改寫每個人的「去年評分」（同路百分位那一塊）與「成就加分」（國際賽資歷）；名字下面＝兩者相加（使用者 2026-11-20）
-        let h=`<div class="rtBox"><div class="rtHd">${teamLogoHTML(tAb(t.nm),22,true,t.nm)||""}<b>${esc(rowNm(t))}</b><b class="rtSum">${rt.pl.toFixed(1)}</b></div>`
+        let h=`<div class="rtBox"><div class="rtHd">${teamLogoHTML(tAb(t.nm),22,true,t.nm)||""}<b>${esc(rowNm(t))}</b><b class="rtSum${rt.plN?"":" tbMuted"}">${rt.plN?rt.pl.toFixed(1):"–"}</b></div>`
           +`<div class="rtPlG"><span></span><span class="rtCh">${en2?"Player":"選手"}</span><span class="rtCh rtChD">${en2?"Last season":"去年評分"}</span><span class="rtCh rtChD">${en2?"Honors":"成就加分"}</span>`;
         rt.plL.forEach(x=>{ const ic=`<span class="rtIc" title="${BLN[x.r]}">${POS_IMG[x.r]?`<img src="${POS_IMG[x.r]}" alt="">`:""}</span>`;
-          if(!x.ps.length){ h+=ic+`<span class="rtP"><span class="rtN"><b class="tbMuted">${en2?"Vacant":"空缺"}</b></span><span class="rtV">${x.v.toFixed(1)}</span></span><span class="rtPv">–</span><span class="rtPv">–</span>`; return; }
+          if(!x.ps.length){ h+=ic+`<span class="rtP"><span class="rtN"><b class="tbMuted">${en2?"Vacant":"空缺"}</b></span><span class="rtV">${rt.plN?x.v.toFixed(1):"–"}</span></span><span class="rtPv">–</span><span class="rtPv">–</span>`; return; }
           x.ps.forEach((p,i)=>{ h+=(i?`<span></span>`:ic)+`<span class="rtP"><span class="rtN"><b class="tbN ${tbCls(p.e)}">${esc(p.n)}</b></span><span class="rtV">${p.v.toFixed(1)}</span></span>`   // 名字一律照陣容表的顏色；同路已確認兩人只算最高分 ⇒ 沒算進去的那位把「數字」調淡，不動名字（使用者 2026-11-21「SeTab 不是正常的紅字」）
             +`<span class="rtPv"${x.best&&i?` style="opacity:.45"`:""}>${(p.v-p.it).toFixed(1)}</span><span class="rtPv${p.it>0?" tbUp":""}"${x.best&&i?` style="opacity:.45"`:""}>${p.it>0?"＋"+(+p.it.toFixed(1)):"–"}</span>`; }); });
         TIPS.push(h+`</div></div>`); return TIPS.length-1; }
@@ -626,7 +635,7 @@ function render(){
       // 最後一欄的寬度不隨排序模式變（使用者 2026-11-21「最後一欄的寬度都幫我固定 以轉會評分的寬度為主」）：選手評分／戰績評分模式也塞一行看不見的轉會評分字串把欄寬撐成一樣
       const szr=`<span class="tbRtSz" aria-hidden="true">${v==null?"–":`${rt.rm?"（":""}${rtx(rt.lo,rt.hi)}${rt.rm?"）":""}`}</span>`;
       if(SRT0==="o")return `<div class="tbCell tbRate" data-r="RATE" data-lb="${en2?"Split 3":"第三賽段"}" data-tb="${t.fa?rateTip(t):s3Tip(t)}"><span class="tbCv">${t.fa||RK3(t.rk,t)==="–"?`<span class="tbMuted">–</span>`:`<b>${esc(RK3(t.rk,t))}</b>`}</span>${szr}</div>`;   // 戰績評分模式：這欄寫今年成績（使用者 2026-11-21「戰績評分時 改寫今年成績」）
-      if(SPL)return `<div class="tbCell tbRate" data-r="RATE" data-lb="${SLB}" data-tb="${rateTip(t)}"><span class="tbCv">${rt?`<b>${rt.pl.toFixed(1)}</b>`:`<span class="tbMuted">–</span>`}</span>${szr}</div>`;   // 照選手評分排序時，這欄顯示五路選手分數加總
+      if(SPL)return `<div class="tbCell tbRate" data-r="RATE" data-lb="${SLB}" data-tb="${rateTip(t)}"><span class="tbCv">${rt&&rt.plN?`<b>${rt.pl.toFixed(1)}</b>`:`<span class="tbMuted">–</span>`}</span>${szr}</div>`;   // 照選手評分排序時，這欄顯示五路選手分數加總
       return `<div class="tbCell tbRate" data-r="RATE" data-lb="${en2?"Rating":"評分"}"${v!=null&&rt.rng?` data-avg="${(()=>{ const m=rt.items.reduce((z,x)=>z+(x.nws?x.nws.reduce((q,c)=>q+c.v,0)/x.nws.length-x.b:x.d),0); return rSg(m)+"|"+(m>0?"tbUp":m<0?"tbDn":""); })()}"`:""} data-tb="${rateTip(t)}"><span class="tbCv">${v==null?`<span class="tbMuted">–</span>`:`<b class="${rcls(rt.lo,rt.hi)}${rt.rng?" rtRngT":""}">${rt.rm?"（":""}${rtx(rt.lo,rt.hi)}${rt.rm?`<i class="rtPc">）</i>`:""}</b>`}</span></div>`; };   // 全形「）」的字框右半邊是空的 ⇒ 用負邊距收掉，看起來才跟沒括號的數字一樣貼齊右邊（使用者 2026-11-20「注意是視覺上空格一致 全型括號右邊的空格會比較大 要修正」）
     // 顏色（使用者 2026-11-19，取代星號）：黃＝傳聞未確定、紅＝新加入、藍＝合約已到期但還沒宣布離隊（Doran）、粉＝本轉會期續約（使用者 2026-11-19「粉色 跟紅色相近」）、白＝留隊
     // 藍字刪除線＝已宣布離隊、這個位置還沒有新簽約也沒有傳聞（使用者 2026-11-19）
@@ -640,7 +649,7 @@ function render(){
     // 排序按鈕兩種輪流：轉會評分（高到低）↔ 選手評分（高到低）；↺ 才回原順序。不畫箭頭
     const SRT0=({d:"d",a:"d",pd:"pd",pa:"pd",o:"o"})[V.tbSort]||"d",   /* 預設就照轉會評分排（使用者 2026-11-21「排序預設是 轉會評分」）*/   /* 2026-11-20 使用者「只有降的那兩個 然後降冪圖案也刪掉」：只剩 轉會評分降冪 ↔ 選手評分降冪；舊存檔的升冪當成降冪 */ SPL=SRT0[0]==="p", SRT=SRT0==="o"?"":SRT0.slice(-1), SLB=SPL?(en2?"Player rating":"選手評分"):(en2?"Transfer rating":"轉會評分"),
       SBT=SRT0==="o"?(en2?"Team record":"戰績評分"):SLB;   // 第三種「戰績評分」＝最一開始的預設順序（各賽區照去年戰績排；使用者 2026-11-21「排序多一個戰績評分 就是依照我一開始的那種排序」），評分欄照舊顯示轉會評分
-    if(SRT){ const lgI={}; vRows.forEach(t=>{ if(!(t.lg in lgI))lgI[t.lg]=Object.keys(lgI).length; }); const rv=t=>{ const rt=rateOf(t); return SPL?(rt?rt.pl:null):(rt&&rt.items.length?rt.sum:null); };
+    if(SRT){ const lgI={}; vRows.forEach(t=>{ if(!(t.lg in lgI))lgI[t.lg]=Object.keys(lgI).length; }); const rv=t=>{ const rt=rateOf(t); return SPL?(rt&&rt.plN?rt.pl:null):(rt&&rt.items.length?rt.sum:null); };
       vRows=vRows.map((t,i)=>[t,i,rv(t)]).sort((a,b)=>lgI[a[0].lg]-lgI[b[0].lg]||(a[2]==null)-(b[2]==null)||(SRT==="d"?b[2]-a[2]:a[2]-b[2])||a[1]-b[1]).map(x=>x[0]); }
     const srtArr="";   // 不畫箭頭，排序中靠按鈕亮起與欄名變金色表示
     const wkPg=p=>{ let s=String(p||""); try{ s=decodeURIComponent(s); }catch(_){} return s.replace(/ /g,"_"); };   // wiki 頁名：已編碼的先解開（Noah 連錯頁，使用者 2026-11-20）
@@ -653,7 +662,7 @@ function render(){
     let bHTML="", lastLg="";
     vRows.forEach(t=>{ if(t.lg!==lastLg){ const n=vRows.filter(x=>x.lg===t.lg&&!x.fa).length;
         bHTML+=`<div class="tbLg" data-rg="${esc((en2?{LCK:"Korea",LPL:"China",LEC:"EMEA",LCS:"North America",CBLOL:"Brazil",LCP:"Asia-Pacific"}:{LCK:"韓國",LPL:"中國",LEC:"歐洲",LCS:"北美",CBLOL:"巴西",LCP:"亞太"})[t.lg]||"")}" style="--lgc:${LGC[t.lg]||"var(--gold)"}"><img class="tbLgIc" src="${((window.TS_DATA||{}).lgi||{})[t.lg]||("img/lg_"+t.lg+".png")}" alt=""><b>${esc(t.lg)}</b><span>${n}${en2?" teams":" 隊"}</span></div>`; lastLg=t.lg; }   // 聯賽徽章＋聯賽名稱＋隊伍數（使用者 2026-11-21）；地區名只留在 data-rg 給截圖標題用
-      bHTML+=`<div class="tbRow${t.fa?" tbFA":""}" style="--lgc:${LGC[t.lg]||"var(--gold)"}"><div class="tbTeam" title="${t.fa?"FA":esc(t.nm)}">${t.fa?`<img class="tbFaIc" src="${((window.TS_DATA||{}).lgi||{})[t.lg]||("img/lg_"+t.lg+".png")}" alt="">`:""}${teamLogoHTML(tAb(t.nm),26,true,t.nm)||teamLogoHTML(tAb(t.tm),26,true,t.tm)||""}<span>${t.fa?esc(rowNm(t)):`<a class="tbTmA" href="${tmWk(t.nm)}" target="_blank" rel="noopener">${esc(rowNm(t))}</a>`}</span>${tbDone(t)?`<span class="tbOk" title="${en2?"All five roles and the head coach are confirmed":"五路與主教練都確定了"}">✔</span>`:""}</div>`
+      bHTML+=`<div class="tbRow${t.fa?" tbFA":""}" data-o="${board.indexOf(t)}"${t.fa?"":` data-rk="${esc(rkS(t))}"`} style="--lgc:${LGC[t.lg]||"var(--gold)"}"><div class="tbTeam" title="${t.fa?"FA":esc(t.nm)}">${t.fa?`<img class="tbFaIc" src="${((window.TS_DATA||{}).lgi||{})[t.lg]||("img/lg_"+t.lg+".png")}" alt="">`:""}${teamLogoHTML(tAb(t.nm),26,true,t.nm)||teamLogoHTML(tAb(t.tm),26,true,t.tm)||""}<span>${t.fa?esc(rowNm(t)):`<a class="tbTmA" href="${tmWk(t.nm)}" target="_blank" rel="noopener">${esc(rowNm(t))}</a>`}</span>${tbDone(t)?`<span class="tbOk" title="${en2?"All five roles and the head coach are confirmed":"五路與主教練都確定了"}">✔</span>`:""}</div>`
         +COLS.map(r=>{ const es=t.fa?colE(t,r):colE(t,r).filter(e=>!e.gone);   /* 已宣布離隊的不留在陣容表格子裡，只列在 FA 那列（使用者 2026-11-21「所有已宣布離隊的都直接離開陣容表 去到FA區」）；小框仍查得到 */   /* FA 的主教練與後勤分兩格（使用者 2026-11-21 先要合併、隨後改回「主教練跟後勤分開」） */
           return `<div class="tbCell${es.length?"":" tbEmpty"}" data-r="${r}" data-lb="${BLN[r]}" data-tb="${cellTip(t,r)}"><span class="tbCv">${es.length?es.map((e,i)=>i<es.length-1?`<span class="tbNw">${nameH(e)}<span class="tbSep">/</span></span><wbr>`:nameH(e)).join(""):`<span class="tbMuted">–</span>`}</span></div>`; }).join("")
         // 手機版的 FA 卡：主教練與後勤併成一格（data-r="CO"，主教練排前面；小框也列全部）。電腦版這格不顯示、手機版改藏主教練與後勤那兩格（見 .tbFaCo 的樣式）
@@ -718,8 +727,21 @@ function render(){
         //   （使用者 2026-11-21「為了讓截圖資料的部分更大一些 上面標籤與日期那塊 可以合併寫成一列嗎」）
         // 複本裡的欄名列一律透明、不要陰影：獨立站為了讓欄名列黏在上方，給它不透明底色與一條往上蓋的陰影（選擇器比行內樣式弱，但只要誰加了 !important 就會蓋過複本的行內 background:none），畫在截圖的資料框上就是一塊顏色不一樣的色塊（2026-11-21 實際發生過）⇒ 這裡用更高的權重一次擋掉
         const mkHost=(w,sub,mid)=>{ const h=document.createElement("div"); h.setAttribute("data-tshot","1"); h.style.cssText=`position:fixed;left:-99999px;top:0;width:${w}px;padding:22px;box-sizing:border-box;background:#0b0e14;color:#e8ecf4`;
-          h.innerHTML=`<style>[data-tshot] .tbCell::before{content:none!important}[data-tshot] .trHead,[data-tshot] .tbHd,[data-tshot] .trDay{position:static!important;top:auto!important}[data-tshot] .tbBoard>.tbHd,[data-tshot] .trList>.trHead{background:none!important;box-shadow:none!important}</style><div class="trShHdRow" style="display:flex;align-items:baseline;gap:12px;margin:0 2px 10px;white-space:nowrap${mid?";line-height:1.2":""}"><b style="font-size:24px;color:#f0e6d2">${en2?"2027 Season Transfers":"S17 轉會整理"}</b>${sub}${mid||""}<span style="margin-left:auto;font-size:14px;color:#8b98ad">${D.at?(en2?"as of ":"截至 ")+esc(D.at):""}</span></div>`;
+          h.innerHTML=`<style>[data-tshot] .tbCell::before{content:none!important}[data-tshot] .trHead,[data-tshot] .tbHd,[data-tshot] .trDay{position:static!important;top:auto!important}[data-tshot] .tbBoard>.tbHd,[data-tshot] .trList>.trHead{background:none!important;box-shadow:none!important}</style><div class="trShHdRow" style="display:flex;align-items:center;gap:12px;margin:0 2px 10px;white-space:nowrap${mid?";line-height:1.2":""}"><b style="font-size:24px;color:#f0e6d2">${en2?"2027 Season Transfers":"S17 轉會整理"}</b>${sub}${mid||""}<span style="margin-left:auto;font-size:14px;color:#8b98ad">${D.at?(en2?"as of ":"截至 ")+esc(D.at):""}</span></div>`;
           document.body.appendChild(h); hosts.push(h); return h; };
+        // 「水平」＝每一塊看得見的部分（墨水）中心在同一條線上（使用者 2026-11-21 貼圖「這部分還是沒有水平」「截圖的隊徽與隊名感覺沒有水平」）：
+        //   之前先是照文字框置中（中文字的墨水比框中心低、英文大寫比框中心高），後來改對齊基線（大字的中心又比小字高 2～6px），兩種都不是眼睛看到的水平。
+        //   inkOf＝這串字實際畫出來的上下緣：基線位置（塞一個 0 大小的行內塊量）＋canvas 量這串字在這個字型下高出、低於基線多少
+        const inkOf=el=>{ try{ if(!el)return null; const tx=(el.textContent||"").trim(); if(!tx)return null; const g=getComputedStyle(el), cx=inkOf._c||(inkOf._c=document.createElement("canvas").getContext("2d"));
+            const pr=document.createElement("i"); pr.style.cssText="display:inline-block;width:0;height:0;padding:0;margin:0;border:0;vertical-align:baseline"; el.insertBefore(pr,el.firstChild); const by=pr.getBoundingClientRect().bottom; pr.remove();
+            cx.font=`${g.fontStyle} ${g.fontWeight} ${g.fontSize} ${g.fontFamily}`; const m=cx.measureText(tx); if(!(m.actualBoundingBoxAscent+m.actualBoundingBoxDescent>0))return null;
+            return {top:by-m.actualBoundingBoxAscent,bot:by+m.actualBoundingBoxDescent}; }catch(_){ return null; } };
+        const nudge=(el,d)=>{ if(!isFinite(d)||Math.abs(d)<0.05)return; el.style.position="relative"; el.style.top=((parseFloat(el.style.top)||0)+d).toFixed(2)+"px"; };
+        // 最上面那一列：標題、賽區名、頁碼、時間各自把墨水中心移到這一列的中線；顏色說明框本身置中，框裡的字用同一個位移（彼此仍在同一條基線上）對到框的中心
+        const level=row=>{ if(!row)return; const rc=row.getBoundingClientRect(), C=(rc.top+rc.bottom)/2;
+          [...row.children].forEach(el=>{ if(el.classList.contains("trShHdLg")){ const br=el.getBoundingClientRect(), ks=[...el.children].map(inkOf).filter(Boolean); if(!ks.length)return;
+                const d=(br.top+br.bottom)/2-(Math.min(...ks.map(k=>k.top))+Math.max(...ks.map(k=>k.bot)))/2; [...el.children].forEach(b=>nudge(b,d)); return; }
+              const k=inkOf(el); if(k)nudge(el,C-(k.top+k.bot)/2); }); };
         // 資料框（陣容表）：不管哪個聯賽都畫在同一個位置、同一個大小（使用者 2026-11-21「截圖資料框 在不同聯賽切換看的時候 會感覺框框大小不一致」）
         //   原本框是內容的一部分，跟著內容縮放 ⇒ 各聯賽的下緣差 5～11px、右緣差 2px。現在框由這裡自己畫，內容只畫在框的內側
         //   m＝框離圖片左右下三邊；p＝框內留白（上右下左）。inner(top)＝框內可以放內容的範圍
@@ -787,10 +809,10 @@ function render(){
             :[["tbNew","新加入"],["tbRs","續約升職"],["tbStay","續留"],["tbExp","合約到期"],["tbOut","可能轉會"],["tbY","傳聞"]];   // 續約與升職併成一項、都用粉色（使用者 2026-11-21）；小框的標籤仍分開寫
           const legend=`<div class="trShHdLg" style="flex:1 1 auto;min-width:0;display:flex;flex-wrap:nowrap;align-items:center;gap:14px;margin:0 4px;padding:5px 12px;border:1px solid rgba(255,255,255,.12);border-radius:8px;font-size:18px;justify-content:space-evenly">`
             +LG.map(([c,l])=>`<b class="tbN ${c}"${c==="tbStay"?` style="color:#fff"`:""}>${l}</b>`).join("")+`<b class="tbN" style="color:#8b98ad"><span class="tbOk" style="margin:0 4px 0 0;font-size:inherit">✔</span>${en2?"Roster confirmed":"陣容確認"}</b></div>`;
-          // 賽區名放大、後面不寫國名；整列的字（大標題、賽區、顏色說明、時間）對齊同一條基線——大小字用垂直置中對齊的話，小字的字腳會比大字高，看起來不在一條線上
-          //   （使用者 2026-11-21「截圖的聯賽後面不用寫國名了 然後聯賽字體大一點 並且標籤列的資料要水平」）
+          // 賽區名放大、後面不寫國名（使用者 2026-11-21「截圖的聯賽後面不用寫國名了 然後聯賽字體大一點 並且標籤列的資料要水平」）；
+          //   整列的字（大標題、賽區、顏色說明、時間）對在同一條中線上——照墨水中心對，見 level()。對齊基線試過，使用者看了仍說沒有水平
           const mkHead=(sc,w,fs,lx)=>{ const hd=mkHost(w,`<span style="font-size:32px;font-weight:900;color:${sc.c||"#f0e6d2"}">${esc(sc.lg)}</span>`,legend), lg=hd.querySelector(".trShHdLg");
-            hd.style.padding="18px 22px 0"; lg.style.fontSize=fs+"px"; if(lx){ const d=lx-lg.offsetLeft; if(d>0)lg.style.marginLeft=(4+d)+"px"; } return hd; };
+            hd.style.padding="18px 22px 0"; lg.style.fontSize=fs+"px"; if(lx){ const d=lx-lg.offsetLeft; if(d>0)lg.style.marginLeft=(4+d)+"px"; } level(hd.querySelector(".trShHdRow")); return hd; };
           let HW=1000, HF=18, LX=0; const LGS=["LCK","LPL","LEC","LCS","CBLOL","LCP"];
           LGS.forEach(n=>{ const hd=mkHead({lg:n},HW,HF,0); LX=Math.max(LX,hd.querySelector(".trShHdLg").offsetLeft); hd.remove(); });   // 顏色說明那一框的左緣對齊最長的賽區名
           { const hd=mkHead({lg:LGS[0]},HW,HF,LX), row=hd.querySelector(".trShHdRow"), lg=hd.querySelector(".trShHdLg");
@@ -808,7 +830,7 @@ function render(){
             const CARD=`class="card trList" style="margin:0;padding:0;background:none;border:0;border-radius:0;box-shadow:none"`;
             // 上方那一列跟陣容表同一個寬度、同一個高度：放一個看不見的顏色說明框佔位（它決定整列的高度與基線）
             const mkNH=(i,n)=>{ const x=mkHost(HW,`<span style="font-size:32px;font-weight:900">${en2?"News":"消息"}</span>${n>1?`<span style="font-size:17px;color:#8b98ad">${i+1} / ${n}</span>`:""}`,legend.replace('class="trShHdLg" style="','class="trShHdLg" style="visibility:hidden;'));
-              x.style.padding="18px 22px 0"; x.querySelector(".trShHdLg").style.fontSize=HF+"px"; return x; };
+              x.style.padding="18px 22px 0"; x.querySelector(".trShHdLg").style.fontSize=HF+"px"; level(x.querySelector(".trShHdRow")); return x; };
             const INn={...IN,ta:1};
             const probe=mkHost(NW,""); probe.querySelector(".trShHdRow").remove(); probe.style.padding="0"; probe.insertAdjacentHTML("beforeend",`<div ${CARD}></div>`); const pl=probe.lastChild; pl.innerHTML=src.innerHTML;
             const GC=getComputedStyle(pl).gridTemplateColumns, CARD2=/^[0-9. px]+$/.test(GC)?CARD.replace('style="','style="grid-template-columns:'+GC+";"):CARD;   // 整份消息量出來的欄寬（px）：每一頁都用這一組
@@ -830,10 +852,13 @@ function render(){
             const bhd=main.querySelector(".tbBoard>.tbHd"), live=secs.filter(sc=>sc.rows.length);
             // prep：把一個聯賽的列排進截圖用的複本（還不決定寬度）
             const prep=sc=>{ const h=mkHost(1200,""); h.querySelector(".trShHdRow").remove(); h.style.padding="0"; h.style.background="transparent"; h.dataset.noic="1";
-              h.insertAdjacentHTML("beforeend",`<div><div class="card tbBoard" style="margin:0;padding:0;background:none;border:0;border-radius:0;box-shadow:none">${bhd?bhd.outerHTML:""}${sc.rows.filter(r=>!r.classList.contains("tbFA")).map(r=>r.outerHTML).join("")}</div></div>`);
-              // 截圖專用（使用者 2026-11-20「截圖的教練只列主教練 自由人也不列 每路每個選手都換行」）：拿掉後勤欄與自由人列；同一格多人時一人一行
+              h.insertAdjacentHTML("beforeend",`<div><div class="card tbBoard" style="margin:0;padding:0;background:none;border:0;border-radius:0;box-shadow:none">${bhd?bhd.outerHTML:""}${sc.rows.filter(r=>!r.classList.contains("tbFA")).sort((p,q)=>(+p.dataset.o||0)-(+q.dataset.o||0)).map(r=>r.outerHTML).join("")}</div></div>`);   // 截圖一律照第三賽段成績排（＝資料原本的順序），不跟著網頁目前的排序（使用者 2026-11-21「截圖預設以第三賽段成績排序」）
+              // 截圖專用（使用者 2026-11-20「截圖的教練只列主教練 自由人也不列 每路每個選手都換行」）：不列自由人那一列；同一格多人時一人一行
+              // 2026-11-21 改版「選手評分那欄改成後勤 但不顯示合約到的(藍字) 只顯示其餘的狀況」：最後一欄＝後勤（評分欄整欄拿掉），後勤那格不列合約到期的人
               { const bd=h.querySelector(".tbBoard");
-                h.querySelectorAll('.tbCell[data-r="STF"]').forEach(x=>x.remove()); const hs=h.querySelector(".tbHd"); if(hs&&hs.children[7])hs.children[7].remove();
+                h.querySelectorAll(".tbCell.tbRate,.tbCell.tbFaCo").forEach(x=>x.remove()); { const rh=h.querySelector(".tbHd .tbRateH"); if(rh)rh.remove(); }
+                h.querySelectorAll('.tbCell[data-r="STF"]').forEach(c=>{ const v=c.querySelector(".tbCv"); if(!v)return; const keep=[...v.querySelectorAll(".tbN")].filter(n=>!n.classList.contains("tbExp"));
+                  v.innerHTML=keep.length?keep.map(n=>n.outerHTML).join("<br>"):`<span class="tbMuted">–</span>`; c.classList.toggle("tbEmpty",!keep.length); });
                 h.querySelectorAll(".tbSep").forEach(x=>x.outerHTML="<br>");
                 h.querySelectorAll(".tbRtSz").forEach(x=>x.remove());   // 網頁上用來撐住最後一欄寬度的隱形字串（最長的評分範圍）：截圖的欄寬另外算，留著會把七欄都撐成那麼寬、整張表的字跟著變小
                 // 表頭：「路線圖＋路線名稱」這一組對在下方資料的正中間（使用者 2026-11-20「截圖的資料 是要在路線圖跟路線名的置中位置 不是路線名稱的置中位置」），
@@ -841,15 +866,15 @@ function render(){
                 h.querySelectorAll(".tbHd>span").forEach(sp=>{ const im=sp.querySelector("img"); if(!im)return; const tx=sp.textContent.trim(), w=im.offsetWidth||20, hh=im.offsetHeight||20;
                   sp.innerHTML=`<span style="display:inline-flex;align-items:center;gap:6px;height:${hh}px;line-height:${hh}px"><span style="display:block;height:${hh}px;line-height:${hh}px">${esc(tx)}</span></span>`;
                   im.style.cssText+=`;display:block;flex:0 0 auto;margin:0;width:${w}px;height:${hh}px;vertical-align:top`; sp.firstChild.insertBefore(im,sp.firstChild.firstChild); });
-                // 評分欄跟其他欄同寬、置中（使用者 2026-11-20「截圖的評分欄感覺間隔特大」：原本靠右、欄寬又不一樣，跟主教練之間空一大塊）
-                h.querySelectorAll(".tbRate,.tbRateH").forEach(x=>{ x.style.textAlign="center"; x.style.justifySelf="stretch"; x.style.display="block"; x.style.padding="6px 6px"; x.style.minWidth="0"; });
-                // 欄名列最後一格（轉會評分／選手評分／第三賽段）的字要跟路線名稱在同一條線上（使用者 2026-11-21「轉會評分 文字位置 是不是略低於左邊的那些路線名稱」）：
-                //   路線名稱在上面被包進「高度＝行高＝圖示高」的方塊，這一格原本是一般行高（21px）＋上下內距 ⇒ 兩種行高的半行距進位不同，畫出來差半個 px（2000px 的圖上低 1px）。
-                //   做法：這一格的字也包進同樣高度、同樣行高的方塊，兩邊的文字框就一模一樣
-                { const rh=h.querySelector(".tbHd .tbRateH"), im0=h.querySelector(".tbHd img"); if(rh&&!rh.querySelector("span")){ const hh=(im0&&im0.offsetHeight)||20; rh.innerHTML=`<span style="display:block;height:${hh}px;line-height:${hh}px">${rh.innerHTML}</span>`; } }
-                h.querySelectorAll(".rtPc").forEach(x=>{ x.style.marginRight="0"; });   // 網頁上為了貼齊右邊把「）」往右收半個字；截圖是置中，要還原，不然整串偏右（使用者 2026-11-20「轉會評分那欄 底下資料沒置中」）
-                // 評分：多位傳聞人選的範圍在截圖裡改寫成平均（使用者 2026-11-20「截圖評分用平均」；網頁仍是 最低 ～ 最高）
-                h.querySelectorAll(".tbRate[data-avg]").forEach(c=>{ const [tx,cl]=c.dataset.avg.split("|"), b=c.querySelector("b"); if(b){ b.className=cl; b.innerHTML="（"+tx+'<i class="rtPc" style="margin-right:0">）</i>'; } }); }
+                // 隊名那格：隊徽放大 1.3 倍，右邊兩行＝縮寫（＋✔）與第三賽段成績；隊徽對在這兩行的正中間（位移在排好版之後由 lvTeam 算）
+                //   （使用者 2026-11-21「第三賽段成績改寫在隊名縮寫下方」「隊徽放大一點 然後放在隊名縮寫與成績的高度置中位置」）
+                h.querySelectorAll(".tbRow").forEach(r=>{ const tm=r.querySelector(".tbTeam"); if(!tm)return; const im=tm.querySelector("img:not(.tbFaIc)"), K=1.3; let top=im; while(top&&top.parentElement!==tm)top=top.parentElement;
+                  if(im){ ["width","height","marginTop","marginRight","marginBottom","marginLeft"].forEach(p=>{ const v=parseFloat(im.style[p]); if(isFinite(v))im.style[p]=(v*K)+"px"; });
+                    if(!parseFloat(im.style.width)){ const w0=(+im.getAttribute("width"))||26; im.style.width=im.style.height=(w0*K)+"px"; } im.style.flex="0 0 auto"; im.style.maxWidth="none"; }
+                  const box=document.createElement("span"), l1=document.createElement("span"); box.className="tbTmB"; box.style.cssText="display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:3px;line-height:1.15";
+                  l1.style.cssText="display:flex;align-items:center;gap:4px"; [...tm.children].filter(x=>x!==top).forEach(x=>l1.appendChild(x)); box.appendChild(l1);
+                  if(r.dataset.rk){ const l2=document.createElement("span"); l2.className="tbTmR"; l2.style.cssText="font-size:12.5px;font-weight:700;color:#8b98ad;white-space:nowrap"; l2.textContent=r.dataset.rk; box.appendChild(l2); }
+                  tm.appendChild(box); }); }
               h.querySelectorAll(".tbHd").forEach(x=>{ x.style.position="static"; x.style.background="none"; }); h.querySelectorAll(".tbDim").forEach(x=>x.classList.remove("tbDim"));
               return h; };
             const built=live.map(sc=>({sc,h:prep(sc)}));
@@ -862,9 +887,12 @@ function render(){
             let W=Math.max(1000,teamW+7*colW);
             const lay=w=>built.forEach(o=>{ o.h.style.width=w+"px"; o.h.querySelector(".tbBoard").style.gridTemplateColumns=teamW+"px repeat(7,minmax(0,1fr))"; });
             lay(W); for(let it=0;it<80&&built.some(o=>o.h.offsetHeight>IN.h*W/IN.w);it++){ W+=25; lay(W); }   // 隊伍最多的聯賽在這個寬度下太高（會超出框）⇒ 整批一起加寬（等於一起縮小）
+            const lvTeam=h=>h.querySelectorAll(".tbRow .tbTeam").forEach(tm=>{ const box=tm.querySelector(".tbTmB"), im=tm.querySelector("img:not(.tbFaIc)"); if(!box||!im)return;
+              const a=inkOf(box.querySelector(".tbTmA")||box.firstChild), b=inkOf(box.querySelector(".tbTmR"))||a; if(!a)return; const ir=im.getBoundingClientRect(); nudge(box,(ir.top+ir.bottom)/2-(a.top+b.bot)/2); });
             for(const o of built){ if(sink&&sink.stop)break; const h=o.h, hd=mkHead(o.sc,HW,HF,LX);
               // 底部不留大片空白（使用者 2026-11-20「底部不要太多留空」）：把剩下的高度平均加到每一列；餘數分給前面幾列各 1px，內容才會剛好頂到框的內側
               { const rs=[...h.querySelectorAll(".tbRow")], gap=Math.floor(IN.h*W/IN.w-h.offsetHeight); if(rs.length&&gap>0){ const add=Math.floor(gap/rs.length), rem=gap-add*rs.length, hs0=rs.map(r=>r.offsetHeight); rs.forEach((r,i)=>{ r.style.minHeight=(hs0[i]+add+(i<rem?1:0))+"px"; }); } }
+              lvTeam(h);
               await out(h,"S17_LoL_"+o.sc.lg,hd,IN); }
           }
         }catch(e){ if(sink&&sink.fail)sink.fail(e); else alert((en2?"Screenshot failed: ":"截圖失敗：")+((e&&e.message)||e)); }
@@ -1039,30 +1067,62 @@ function render(){
         if(sheet){ tip.style.left=tip.style.top=""; tip.dataset.cur=c.dataset.tb; const x=tip.querySelector(".tbTipX"); if(x)x.onclick=()=>{ tip.style.display="none"; }; return; }
         // 電腦版（使用者 2026-11-21「小框會超出螢幕範圍」「滑鼠要可以移動到小框上 離開小框才消失」）：
         //   小框最高不超過視窗、太長就在框內捲；上下都放不下時貼著視窗邊；滑鼠可以移上去（連結點得到），離開格子與小框才收
-        tip.style.pointerEvents="auto"; tip.style.maxHeight=(innerHeight-16)+"px"; tip.style.overflowY="auto";
+        // 整頁縮放（主站視窗不是 2560 寬時 <html> 有 zoom）：getBoundingClientRect／innerWidth／innerHeight 是視覺 px，寫進 style 的與 offsetWidth 是版面 px，
+        //   兩者差 window._zoomF——直接把 rect 寫進 style，小框會往左上偏一截（1920 寬時偏 25%，蓋到別格）。以下一律先換成版面 px 再算（獨立站沒有縮放，ZF＝1）
+        const ZF=window._zoomF||1, vr=el=>{ const q=el.getBoundingClientRect(); return {left:q.left/ZF,top:q.top/ZF,right:q.right/ZF,bottom:q.bottom/ZF,width:q.width/ZF,height:q.height/ZF}; }, IW=innerWidth/ZF, IH=innerHeight/ZF;
+        tip.style.pointerEvents="auto"; tip.style.maxHeight=(IH-16)+"px"; tip.style.overflowY="auto";
         // 格子的小框跟那一欄同寬（使用者 2026-11-21「小框的寬度都設定為跟本來欄位寬度一致」）；欄太窄時至少 300px（小框內容本身最少要 260px＋邊距，再窄字會被切掉）。評分小框（五欄的表）維持原本的寬度
-        { const cw=c.getBoundingClientRect().width, isRate=c.classList.contains("tbRate"); tip.style.width=isRate?(tip.querySelector(".rtS3")?"max-content":""):Math.max(300,Math.round(cw))+"px"; tip.style.maxWidth=isRate?"":"none";   /* 第三賽段的小框內容少，縮成 250px（使用者 2026-11-21） */ tip.style.boxSizing="border-box"; }
-        const r=c.getBoundingClientRect(), w=tip.offsetWidth, h=tip.offsetHeight;
-        const bR=bd.getBoundingClientRect();   // 小框不貼著螢幕邊：左右都收在陣容表那張卡片的範圍內（使用者 2026-11-21「網頁版 評分小框有點太靠近螢幕右側了」；原本只離螢幕邊 8px）
+        { const cw=vr(c).width, isRate=c.classList.contains("tbRate"); tip.style.width=isRate?(tip.querySelector(".rtS3")?"max-content":""):Math.max(300,Math.round(cw))+"px"; tip.style.maxWidth=isRate?"":"none";   /* 第三賽段的小框內容少，縮成 250px（使用者 2026-11-21） */ tip.style.boxSizing="border-box"; }
+        const r=vr(c), w=tip.offsetWidth, h=tip.offsetHeight;
+        const bR=vr(bd);   // 小框不貼著螢幕邊：左右都收在陣容表那張卡片的範圍內（使用者 2026-11-21「網頁版 評分小框有點太靠近螢幕右側了」；原本只離螢幕邊 8px）
         // 擺放順序（使用者 2026-11-21「夠短就往下擴展顯示 下方沒位置就往上 如果長到上下都不行 那就往右或往左 不要擋到本來的資料」）：
         //   ①格子下方放得下 ⇒ 下方；②否則上方放得下 ⇒ 上方；③都放不下 ⇒ 放到格子右邊（右邊不夠就左邊），上下置中、收在視窗內——不蓋住這一格
-        const cl=v=>Math.max(Math.max(16,bR.left+12),Math.min(Math.min(innerWidth-w-24,bR.right-w-12),v));
+        const cl=v=>Math.max(Math.max(16,bR.left+12),Math.min(Math.min(IW-w-24,bR.right-w-12),v));
         let x=cl(r.left+r.width/2-w/2), y=r.bottom-1;   // 貼著格子、不留縫：滑鼠從格子往下就直接進到小框，才能把「離開就收」做成沒有延遲
-        if(y+h>innerHeight-8){
+        if(y+h>IH-8){
           if(r.top-h+1>=8)y=r.top-h+1;
-          else{ y=Math.max(8,Math.min(innerHeight-h-8,r.top+r.height/2-h/2));
-            const sr=innerWidth-r.right-16, sl=r.left-16; x=(sr>=w||sr>=sl)?Math.min(r.right+8,innerWidth-w-8):Math.max(8,r.left-w-8); } }
+          else{ y=Math.max(8,Math.min(IH-h-8,r.top+r.height/2-h/2));
+            const sr=IW-r.right-16, sl=r.left-16; x=(sr>=w||sr>=sl)?Math.min(r.right+8,IW-w-8):Math.max(8,r.left-w-8); } }
         tip.style.left=x+"px"; tip.style.top=y+"px"; };
       // 隊名那格也算評分那一列：點（手機）或滑過（電腦）隊名一樣開評分小框（使用者 2026-11-20「應該點擊分數那列都會顯示分數小框」）
       // 電腦版觸發範圍＝文字外擴一點（.tbCv 的 padding），不是整格（使用者 2026-11-21）；手機點擊照舊整格都算
       // FA 那一列的標題（隊名格與評分格，手機卡片最上面那條）不開小框：FA 沒有評分，點了只會跳出一個空的框（使用者 2026-11-21「FA的標籤列改成無法點擊」）
       const cellOf=e=>{ const c=e.target.closest(".tbCell"); if(c){ if(c.classList.contains("tbRate")&&c.closest(".tbFA"))return null; return (e.type!=="mouseover"||e.target.closest(".tbCv"))?c:null; } return cellOfT(e); };
       const cellOfT=e=>{ const tm=e.target.closest(".tbTeam"); return tm&&!tm.closest(".tbFA")?tm.closest(".tbRow").querySelector(".tbRate"):null; };
-      const keepTip=()=>clearTimeout(tip._ht), hideSoon=()=>{ clearTimeout(tip._ht); tip._ht=setTimeout(()=>{ if(!tip.classList.contains("sheet")){ tip.style.display="none"; tip._c=null; } },200); };
+      const keepTip=()=>{ clearTimeout(tip._ht); tip._hp=0; }, hideSoon=()=>{ clearTimeout(tip._ht); tip._hp=1; tip._ht=setTimeout(()=>{ tip._hp=0; if(!tip.classList.contains("sheet")){ tip.style.display="none"; tip._c=null; } },200); };   // _hp＝200ms 的倒數正在跑（mousemove 會一直進來，不能每次都重新倒數）
       // 移到別的地方立刻收（使用者 2026-11-21「往旁邊移開時 延遲又變大了」）：只有還在同一格裡（正要往小框移動）才給 200ms 緩衝
-      const hideNow=()=>{ clearTimeout(tip._ht); if(!tip.classList.contains("sheet")){ tip.style.display="none"; tip._c=null; } };
-      bd.onmouseover=e=>{ if(touch())return; const c=cellOf(e); if(!c){ const same=tip._c&&(e.target.closest(".tbCell")===tip._c||(e.target.closest(".tbTeam")&&e.target.closest(".tbRow")===tip._c.closest(".tbRow"))); same?hideSoon():hideNow(); return; } keepTip(); if(tip.style.display==="block"&&tip._c===c)return; tip._c=c; show(c,false); };
-      bd.onmouseleave=()=>{ if(touch())return; clearTimeout(tip._ht); tip._ht=setTimeout(hideNow,50); };   // 50ms：剛好夠滑進小框（小框的 mouseenter 會取消）
+      const hideNow=()=>{ clearTimeout(tip._ht); tip._hp=0; if(!tip.classList.contains("sheet")){ tip.style.display="none"; tip._c=null; } };
+      // 通道（使用者 2026-11-21「小框如果太長 放在右邊的時候…移動到小框之前系統就會認為我移出了判定 進而關閉小框」）：
+      //   觸發範圍只有文字那一小塊，小框放在格子旁邊時，滑鼠要先橫越格子剩下的空白與 8px 的縫才碰得到小框——空白只給 200ms、縫算「別格」當場就收。
+      //   ⇒ 從文字邊緣到小框邊緣之間畫一條通道：起點是格子的高（寬），越靠近小框越寬、到小框邊緣時跟小框一樣高（寬），斜著移過去也不會出界。
+      //   滑鼠在通道裡＝正要去小框：不收、不倒數、也不換成路過那一格的小框；一出通道照舊（同一格 200ms、別格立刻收）
+      const inBridge=e=>{ const c=tip._c; if(!c||tip.style.display!=="block"||tip.classList.contains("sheet"))return false;
+        const r=c.getBoundingClientRect(), t=tip.getBoundingClientRect(), v=c.querySelector(".tbCv"), q=v?v.getBoundingClientRect():r, x=e.clientX, y=e.clientY, mix=(a,b,f)=>a+(b-a)*Math.max(0,Math.min(1,f));
+        if(t.left>=r.right-2||t.right<=r.left+2){ const R=t.left>=r.right-2, a=R?q.right:q.left, b=R?t.left:t.right; if(Math.abs(b-a)<3)return false; const f=(x-a)/(b-a);
+          return f>=-0.03&&f<=1.03&&y>=mix(r.top,Math.min(r.top,t.top),f)-1&&y<=mix(r.bottom,Math.max(r.bottom,t.bottom),f)+1; }
+        if(t.top>=r.bottom-2||t.bottom<=r.top+2){ const D=t.top>=r.bottom-2, a=D?q.bottom:q.top, b=D?t.top:t.bottom; if(Math.abs(b-a)<3)return false; const f=(y-a)/(b-a);
+          return f>=-0.03&&f<=1.03&&x>=mix(r.left,Math.min(r.left,t.left),f)-1&&x<=mix(r.right,Math.max(r.right,t.right),f)+1; }
+        return false; };
+      // 朝小框移動（文字很寬、或從格子中間斜著往小框上半部移時，還沒走到通道就先出了格子）：
+      //   「上一個位置」與「小框靠格子那一邊的兩個角（各外擴 24px）」圍成三角形，新位置還在三角形裡＝正朝著小框去 ⇒ 不收、不換成路過那格的小框；
+      //   中途停下來 350ms 還沒到小框才收。_pp＝上一個位置（移動不到 4px 的抖動不更新）、_onT＝滑鼠是不是還在觸發範圍（文字／隊名）上
+      const aimAt=e=>{ const c=tip._c, P=tip._pp; if(!c||!P||tip.style.display!=="block"||tip.classList.contains("sheet"))return false;
+        const t=tip.getBoundingClientRect(), r=c.getBoundingClientRect(), M=24;
+        const S=t.left>=r.right-2?[[t.left,t.top-M],[t.left,t.bottom+M]]:t.right<=r.left+2?[[t.right,t.top-M],[t.right,t.bottom+M]]:t.top>=r.bottom-2?[[t.left-M,t.top],[t.right+M,t.top]]:t.bottom<=r.top+2?[[t.left-M,t.bottom],[t.right+M,t.bottom]]:null; if(!S)return false;
+        const Q=[e.clientX,e.clientY], cr=(a,b,p)=>(b[0]-a[0])*(p[1]-a[1])-(b[1]-a[1])*(p[0]-a[0]), d1=cr(P,S[0],Q), d2=cr(S[0],S[1],Q), d3=cr(S[1],P,Q);
+        return (Q[0]!==P[0]||Q[1]!==P[1])&&!((d1<0||d2<0||d3<0)&&(d1>0||d2>0||d3>0)); };
+      const transit=()=>{ clearTimeout(tip._ht); tip._hp=0; tip._ht=setTimeout(()=>{ if(tip._onT||tip.classList.contains("sheet"))return; tip.style.display="none"; tip._c=null; },350); };
+      bd.onmouseover=e=>{ if(touch())return; if(inBridge(e)){ keepTip(); return; } if(aimAt(e)){ transit(); return; } const c=cellOf(e); if(!c){ const same=tip._c&&(e.target.closest(".tbCell")===tip._c||(e.target.closest(".tbTeam")&&e.target.closest(".tbRow")===tip._c.closest(".tbRow"))); same?hideSoon():hideNow(); return; } keepTip(); if(tip.style.display==="block"&&tip._c===c)return; tip._c=c; show(c,false); tip._pp=[e.clientX,e.clientY]; tip._onT=1; };
+      // 同一格裡面移動不會有 mouseover（沒有跨過元素邊界）⇒ 小框開著的時候用 mousemove 補：在文字上／通道裡＝留著；同一格的其他地方＝開始 200ms 倒數；跑到別格（從通道斜出去）＝立刻收
+      bd.onmousemove=e=>{ if(touch()||!tip._c||tip.style.display!=="block"||tip.classList.contains("sheet"))return;
+        const P0=tip._pp; if(P0&&Math.abs(e.clientX-P0[0])+Math.abs(e.clientY-P0[1])<4)return;
+        const cc=e.target.closest(".tbCell"), tm=e.target.closest(".tbTeam"), row=tip._c.closest(".tbRow");
+        const on=!!((cc===tip._c&&e.target.closest(".tbCv"))||(tm&&!tm.closest(".tbFA")&&tm.closest(".tbRow")===row&&tip._c.classList.contains("tbRate")));
+        const br=inBridge(e), am=!br&&aimAt(e); tip._pp=[e.clientX,e.clientY]; tip._onT=on;
+        if(on||br){ keepTip(); return; }
+        if(am){ transit(); return; }
+        if(cc===tip._c||(tm&&tm.closest(".tbRow")===row)){ if(!tip._hp)hideSoon(); } else hideNow(); };
+      bd.onmouseleave=e=>{ if(touch())return; const am=aimAt(e); clearTimeout(tip._ht); tip._hp=0; tip._ht=setTimeout(hideNow,am?350:50); };   // 50ms：剛好夠滑進小框（小框的 mouseenter 會取消）
       tip.onmouseenter=keepTip; tip.onmouseleave=()=>{ if(!tip.classList.contains("sheet")){ clearTimeout(tip._ht); tip.style.display="none"; tip._c=null; } };   // 離開小框立刻消失（使用者 2026-11-21）；從格子移往小框途中才給 200ms 緩衝
       bd.onclick=e=>{ if(!touch())return; const c=cellOf(e); if(!c)return; if(e.target.closest("a"))e.preventDefault();
         if(tip.style.display==="block"&&tip.classList.contains("sheet")&&tip.dataset.cur===c.dataset.tb){ tip.style.display="none"; return; } show(c,true); };
