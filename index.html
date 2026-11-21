@@ -1060,8 +1060,8 @@
   .tbLegend{display:inline-flex;gap:12px;align-items:center}.tbLegend b.tbStay{color:#fff}
   .tbCell.tbFaCo{display:none}   /* FA 列「主教練＋後勤併成一格」那格只給手機卡片用（手機那段樣式會打開它、改藏原本兩格）；電腦版照舊兩欄 */
   .tbHd,.tbRow{grid-column:1/-1;display:grid;grid-template-columns:subgrid;align-items:center}
-  .tbHd{position:sticky;top:0;z-index:2;background:#161c2b;padding:8px 0;border-bottom:1px solid var(--line);font-weight:700;color:var(--tx);font-size:16px}   /* 欄名放大（使用者 2026-11-21「文字大一點」；原本 14px） */   /* 底色＝卡片上緣的顏色（卡片是 #161c2b→#121722 的漸層）：原本用 --card（#141926），比卡片深一階，看起來像貼了一塊色塊（使用者 2026-11-21「電腦版的這列 背景色怪怪的」） */
-  .tbHd>span{display:flex;align-items:center;justify-content:center;gap:4px}.tbHd>span img{position:relative;top:-1px}   /* 路線圖比文字低 1px（量出來圖中心 19.5、字中心 18.5）⇒ 往上收 1px，欄名才在同一條水平線上（使用者 2026-11-21「感覺沒有水平」） */
+  .tbHd{position:sticky;top:0;z-index:2;background:#161c2b;padding:7px 0 9px;border-bottom:1px solid var(--line);font-weight:700;color:var(--tx);font-size:16px}   /* 欄名放大（使用者 2026-11-21「文字大一點」；原本 14px） */   /* 底色＝卡片上緣的顏色（卡片是 #161c2b→#121722 的漸層）：原本用 --card（#141926），比卡片深一階，看起來像貼了一塊色塊（使用者 2026-11-21「電腦版的這列 背景色怪怪的」） */
+  .tbHd>span{display:flex;align-items:center;justify-content:center;gap:4px}   /* 欄名的垂直位置（使用者 2026-11-21「感覺沒有水平」「轉會評分 文字位置 是不是略低於左邊的那些路線名稱」）：每一格的文字框其實同高，但中文字的墨水重心比文字框中心低約 1px（16px 字：框 8～29、墨水 12～27），路線圖（20px）則正好在列的正中間 ⇒ 有圖的欄名看起來比沒圖的「轉會評分」高。做法：整列內距 7／9（文字往上 1px，重心回到列的正中間 18.5），圖示不再另外往上收（原本 top:-1px 是拿文字框中心去對，對錯了基準） ⇒ 圖示中心＝文字重心＝列中心，三者同一條線。量法：截圖後算每個字「亮度加權」的垂直重心，不要只看文字框 */
   .tbLgIc{width:20px;height:20px;object-fit:contain;border-radius:5px;background:#e8ecf4;padding:2px;box-sizing:border-box;flex:0 0 auto}   /* 跟 FA 徽章、隊徽圖案同大小 */
   .tbLg{grid-column:1/-1;display:flex;align-items:center;gap:10px;margin:26px 0 6px;padding:8px 14px 8px 17.5px;border-radius:8px;border-left:5px solid var(--lgc);background:linear-gradient(90deg,color-mix(in srgb,var(--lgc) 22%,transparent),transparent 70%)}
   .tbHd+.tbLg{margin-top:12px}
@@ -14918,8 +14918,9 @@ function render(){
             if(d){ im.src=d; try{ await im.decode(); }catch(_){} } else im.style.visibility="hidden"; })); };
         // mid＝標題列中間那一段（陣容表放顏色說明）：標題、賽區、顏色說明、資料時間併成一列，把高度讓給資料
         //   （使用者 2026-11-21「為了讓截圖資料的部分更大一些 上面標籤與日期那塊 可以合併寫成一列嗎」）
+        // 複本裡的欄名列一律透明、不要陰影：獨立站為了讓欄名列黏在上方，給它不透明底色與一條往上蓋的陰影（選擇器比行內樣式弱，但只要誰加了 !important 就會蓋過複本的行內 background:none），畫在截圖的資料框上就是一塊顏色不一樣的色塊（2026-11-21 實際發生過）⇒ 這裡用更高的權重一次擋掉
         const mkHost=(w,sub,mid)=>{ const h=document.createElement("div"); h.setAttribute("data-tshot","1"); h.style.cssText=`position:fixed;left:-99999px;top:0;width:${w}px;padding:22px;box-sizing:border-box;background:#0b0e14;color:#e8ecf4`;
-          h.innerHTML=`<style>[data-tshot] .tbCell::before{content:none!important}[data-tshot] .trHead,[data-tshot] .tbHd,[data-tshot] .trDay{position:static!important;top:auto!important}</style><div class="trShHdRow" style="display:flex;align-items:baseline;gap:12px;margin:0 2px 10px;white-space:nowrap${mid?";line-height:1.2":""}"><b style="font-size:24px;color:#f0e6d2">${en2?"2027 Season Transfers":"S17 轉會整理"}</b>${sub}${mid||""}<span style="margin-left:auto;font-size:14px;color:#8b98ad">${D.at?(en2?"as of ":"截至 ")+esc(D.at):""}</span></div>`;
+          h.innerHTML=`<style>[data-tshot] .tbCell::before{content:none!important}[data-tshot] .trHead,[data-tshot] .tbHd,[data-tshot] .trDay{position:static!important;top:auto!important}[data-tshot] .tbBoard>.tbHd,[data-tshot] .trList>.trHead{background:none!important;box-shadow:none!important}</style><div class="trShHdRow" style="display:flex;align-items:baseline;gap:12px;margin:0 2px 10px;white-space:nowrap${mid?";line-height:1.2":""}"><b style="font-size:24px;color:#f0e6d2">${en2?"2027 Season Transfers":"S17 轉會整理"}</b>${sub}${mid||""}<span style="margin-left:auto;font-size:14px;color:#8b98ad">${D.at?(en2?"as of ":"截至 ")+esc(D.at):""}</span></div>`;
           document.body.appendChild(h); hosts.push(h); return h; };
         // 資料框（陣容表）：不管哪個聯賽都畫在同一個位置、同一個大小（使用者 2026-11-21「截圖資料框 在不同聯賽切換看的時候 會感覺框框大小不一致」）
         //   原本框是內容的一部分，跟著內容縮放 ⇒ 各聯賽的下緣差 5～11px、右緣差 2px。現在框由這裡自己畫，內容只畫在框的內側
@@ -14967,7 +14968,7 @@ function render(){
           const pc=document.createElement("canvas"); pc.width=pc.height=SZ; const g=pc.getContext("2d"); g.fillStyle="#0b0e14"; g.fillRect(0,0,SZ,SZ);
           if(hc)g.drawImage(hc,0,0);
           if(IN){ g.fillStyle="#141a26"; g.strokeStyle="rgba(255,255,255,.10)"; g.lineWidth=2; rrect(g,FR.m,IN.top,SZ-2*FR.m,SZ-IN.top-FR.m,FR.r); g.fill(); g.stroke();
-            g.drawImage(cv,Math.round(IN.x+(IN.w-cv.width)/2),IN.ta?IN.y:Math.round(IN.y+(IN.h-cv.height)/2)); }   // ta＝內容靠上（消息最後一頁比較短）；陣容表的內容本來就鋪滿，置中只是吸收 1px 的餘數
+            g.drawImage(cv,Math.round(IN.x+(IN.w-cv.width)/2),IN.y); }   // 內容一律從框內側的上緣開始畫（消息最後一頁比較短；陣容表本來就鋪滿）：原本陣容表上下置中、吸收不到 1px 的餘數，結果各聯賽的欄名列上下差 1px（2026-11-21 量到 LPL 比 LCK 高 1px）
           else g.drawImage(cv,Math.round((SZ-cv.width)/2),hc?top:Math.round((SZ-cv.height)/2));
           const d=new Date(), pad=x=>String(x).padStart(2,"0"), fn=`${name}_${pad(d.getFullYear()%100)}${pad(d.getMonth()+1)}${pad(d.getDate())}${pad(d.getHours())}.jpg`;
           await new Promise(ok=>pc.toBlob(bl=>{
@@ -15044,6 +15045,10 @@ function render(){
                   im.style.cssText+=`;display:block;flex:0 0 auto;margin:0;width:${w}px;height:${hh}px;vertical-align:top`; sp.firstChild.insertBefore(im,sp.firstChild.firstChild); });
                 // 評分欄跟其他欄同寬、置中（使用者 2026-11-20「截圖的評分欄感覺間隔特大」：原本靠右、欄寬又不一樣，跟主教練之間空一大塊）
                 h.querySelectorAll(".tbRate,.tbRateH").forEach(x=>{ x.style.textAlign="center"; x.style.justifySelf="stretch"; x.style.display="block"; x.style.padding="6px 6px"; x.style.minWidth="0"; });
+                // 欄名列最後一格（轉會評分／選手評分／第三賽段）的字要跟路線名稱在同一條線上（使用者 2026-11-21「轉會評分 文字位置 是不是略低於左邊的那些路線名稱」）：
+                //   路線名稱在上面被包進「高度＝行高＝圖示高」的方塊，這一格原本是一般行高（21px）＋上下內距 ⇒ 兩種行高的半行距進位不同，畫出來差半個 px（2000px 的圖上低 1px）。
+                //   做法：這一格的字也包進同樣高度、同樣行高的方塊，兩邊的文字框就一模一樣
+                { const rh=h.querySelector(".tbHd .tbRateH"), im0=h.querySelector(".tbHd img"); if(rh&&!rh.querySelector("span")){ const hh=(im0&&im0.offsetHeight)||20; rh.innerHTML=`<span style="display:block;height:${hh}px;line-height:${hh}px">${rh.innerHTML}</span>`; } }
                 h.querySelectorAll(".rtPc").forEach(x=>{ x.style.marginRight="0"; });   // 網頁上為了貼齊右邊把「）」往右收半個字；截圖是置中，要還原，不然整串偏右（使用者 2026-11-20「轉會評分那欄 底下資料沒置中」）
                 // 評分：多位傳聞人選的範圍在截圖裡改寫成平均（使用者 2026-11-20「截圖評分用平均」；網頁仍是 最低 ～ 最高）
                 h.querySelectorAll(".tbRate[data-avg]").forEach(c=>{ const [tx,cl]=c.dataset.avg.split("|"), b=c.querySelector("b"); if(b){ b.className=cl; b.innerHTML="（"+tx+'<i class="rtPc" style="margin-right:0">）</i>'; } }); }

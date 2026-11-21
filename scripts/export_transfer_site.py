@@ -124,11 +124,15 @@ function addBase(){ const f=main.querySelector(".filters"); if(!f)return;
   { const sh=document.getElementById("trShot"); if(sh)sh.innerHTML=IC.shot; const sr=document.getElementById("trShare"); if(sr)sr.innerHTML=IC.share; }
   // 電腦版：頁首、篩選列、欄名列往下捲時都留在上方（使用者 2026-11-21「這列以上包括這列 往下滑時都應該維持在上方」）
   //   三層都 sticky，下面兩層的 top＝上面幾層的高度（量出來寫進 CSS 變數；視窗大小變了重量）；篩選列下方的空隙用同色陰影蓋住，列才不會從縫裡露出來
+  //   卡片（陣容表／消息表）在電腦版改成單色 #161c2b（原本是 #161c2b→#121722 的直向漸層）：欄名列黏在上方時底色是固定的一個顏色，
+  //   卡片卻越往下越深 ⇒ 捲到下面時欄名列比左右兩側的卡片內距亮 5～8 階，像貼了一塊色塊（使用者 2026-11-21「電腦版的這列 背景色怪怪的」；頂端對了、捲下去還是錯）。
+  //   欄名列的底色不要加 !important：截圖複本靠行內 background:none 把它變透明，加了會在截圖上畫出色塊
   if(!document.getElementById("tsStickCss")){ const st=document.createElement("style"); st.id="tsStickCss";
     st.textContent=`@media (min-width:760px){#tsHdr{position:sticky;top:0;z-index:40;background:#0b0e14}
 #tsCover{display:block;position:fixed;left:0;right:0;top:0;height:calc(var(--tsH1,0px) + var(--tsG1,0px) + var(--tsH2,0px) + var(--tsG0,0px));background:#0b0e14;z-index:37;pointer-events:none}
 .filters.trBar{position:sticky;top:calc(var(--tsH1,0px) + var(--tsG1,0px));z-index:39}
-.tbBoard>.tbHd{top:calc(var(--tsH1,0px) + var(--tsG1,0px) + var(--tsH2,0px) + var(--tsG,0px))!important;z-index:38!important;background:var(--tsCB,#161c2b)!important;box-shadow:0 calc(var(--tsG0,0px) - var(--tsG,0px)) 0 0 var(--tsCB,#161c2b)}
+.card.tbBoard,.card.trList{background:#161c2b}
+.tbBoard>.tbHd{top:calc(var(--tsH1,0px) + var(--tsG1,0px) + var(--tsH2,0px) + var(--tsG,0px))!important;z-index:38!important;background:var(--tsCB,#161c2b);box-shadow:0 calc(var(--tsG0,0px) - var(--tsG,0px)) 0 0 var(--tsCB,#161c2b)}
 .trList>.trHead{position:sticky;top:calc(var(--tsH1,0px) + var(--tsG1,0px) + var(--tsH2,0px) + var(--tsG,0px));z-index:38;background:var(--tsCB,#161c2b);box-shadow:0 calc(var(--tsG0,0px) - var(--tsG,0px)) 0 0 var(--tsCB,#161c2b)}}
 #tsCap{position:fixed;height:14px;overflow:hidden;z-index:37;pointer-events:none}#tsCap>i{position:absolute;left:0;right:0;top:0;height:60px;box-sizing:border-box;box-shadow:0 0 0 40px #0b0e14}
 @media (max-width:759.98px){#tsCover,#tsCap{display:none}}`;
