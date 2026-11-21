@@ -716,7 +716,9 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
                 e.pop("ret", None)
             by_lg.setdefault(x["lg"], {}).setdefault(rr2, []).append(e)
         # 手動加進自由人的人（transfers_fa_manual.json：退役後宣布復出、還沒有隊的 Nuguri 這種，任何一隊的名單都推不出來）
-        #   欄位 n＝ID、p＝wiki 頁名、lg＝聯賽、rr＝路線；已經出現在某隊格子（非傳聞）或自由人裡的就不重複加
+        #   欄位 n＝ID、p＝wiki 頁名、lg＝聯賽、rr＝路線（TOP／JNG／MID／BOT／SUP，或 COACH＋sr）；已經出現在某隊格子（非傳聞）或自由人裡的就不重複加
+        #   2026-11-21 使用者定的規則：退役／沒有隊的人公開表示想復出 ⇒ 去讀他講了什麼，列進「他國籍所屬賽區」的 FA；
+        #   講明要回來打就放他的路線，講到想當教練（或選手、教練都考慮，例：Rekkles）放後勤
         try:
             import os as _os, json, io
             _mp = _os.path.join(_os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))), "transfers_fa_manual.json")
@@ -724,10 +726,12 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
                 onb = {key(e.get("p") or e["n"]) for x in out for L in x["r"].values() for e in L if not e.get("r")}
                 for m_ in json.load(io.open(_mp, encoding="utf-8")):
                     k_ = key(m_.get("p") or m_["n"])
-                    if k_ in onb or k_ in seen_ or m_.get("rr") not in LANES:
+                    if k_ in onb or k_ in seen_ or m_.get("rr") not in LANES + ["COACH"]:
                         continue
                     seen_.add(k_)
                     e = {"n": m_["n"], "p": m_.get("p") or m_["n"], "fa": 1, "from": ""}
+                    if m_["rr"] == "COACH":
+                        e["sr"] = m_.get("sr") or "C"   # 教練格：sr＝HC 進主教練欄，其餘進後勤欄（使用者 2026-11-21「Rekkles…放到歐洲的FA後勤」）
                     if m_.get("cb"):
                         e["cb"] = 1   # 退役後復出（前端小框標「復出」；使用者 2026-11-21「Nuguri 要表示藍字復出」）
                     if m_.get("tips"):

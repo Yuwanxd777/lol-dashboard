@@ -75,7 +75,7 @@ REVIEW_BRIEF = """你是 LOL 儀表板「轉會」分頁的每小時複查員（
 {todo}
 
 【只准做的事】
-- 只能改這三個資料檔：transfers_ptt_src.json、transfers_official_src.json、transfers_sheep_src.json（JSON，UTF-8，縮排 1，改完要能被 json.load 讀回）。
+- 只能改這四個資料檔：transfers_ptt_src.json、transfers_official_src.json、transfers_sheep_src.json、transfers_fa_manual.json（JSON，UTF-8，縮排 1，改完要能被 json.load 讀回）。
 - 不可以改 index.html、scripts/、autopilot/、.gitignore、任何 .bat；不可以 git commit／push；不可以開使用者的 Chrome；不可以呼叫任何付費 API。
 - 可以跑：python scripts/fetch_transfers.py（重算 transfers.js）、python scripts/transfers_dump.py（把畫面實際顯示的消息與陣容表倒成 transfers_review_dump.txt）。
 - 要查證可以用 WebFetch／WebSearch（查 Leaguepedia lol.fandom.com 的選手頁確認路線、現在的隊伍、二隊隊名）。
@@ -84,6 +84,12 @@ REVIEW_BRIEF = """你是 LOL 儀表板「轉會」分頁的每小時複查員（
 【步驟】
 1. 讀 transfers_ptt_src.json，找出沒有 zh_fix 也沒有 hide 的條目（＝還沒複查）。每一則都要讀 body（只看內文，不看推文；內文在「※ 發信站」之前），然後擇一處理：
    a. 不是轉會消息（閒聊、問卦、影片、網友留言翻譯、純討論、選手日常、重複舊聞）⇒ 加 "hide": "原因"。
+      例外——**退役或沒有隊的人公開表示想復出（或想轉任教練）不算閒聊**（使用者 2026-11-21「以後這種退役後想復出的人 都去看他講了什麼 並且依照他的國籍所屬的賽區放到FA區」）：
+      ①把內文（必要時連原文）讀完，看他到底說了什麼；②照 b 重寫上架（沒有隊伍可標，用 "tags": [[賽區, "", ""]]、"kind": "other"）；
+      ③在 transfers_fa_manual.json 加一筆：{{"n": ID, "p": wiki 頁名, "lg": 聯賽, "rr": 路線, "cb": 1, "why": 一句理由, "tips": [{{"d": 日期, "src": "PTT"|"韓網"|"Sheep Esports", "u": 連結, "tip": 他說了什麼（一句中文）, "tipE": 英文}}]}}。
+        lg＝他**國籍**所屬的賽區（查 Leaguepedia 選手頁的 Country）：韓國 LCK、中國 LPL、歐洲與中東非洲 LEC、美國加拿大 LCS、巴西與拉丁美洲 CBLOL、台港澳／日本／越南／東南亞／大洋洲 LCP。
+        rr＝講明要回來當選手就填他的路線（TOP／JNG／MID／BOT／SUP）；講到想當教練、或選手與教練都在考慮（例：Rekkles）填 "COACH" 再加 "sr": "C"（會列在後勤欄）。
+        名單裡已經有這個人就只在他的 tips 最前面加一則新的（最多留三則）；他已經有隊或已經在陣容表上就不用加。
    b. 是轉會消息 ⇒ 重寫 "zh"（規則見下）、補 "mv"／"stay"／"tags"／"kind"，最後加 "zh_fix": "重寫（複查 {now}）"。
       同時寫一份英文稿 "en"（英文版網站用；使用者 2026-11-20「消息當中很多中文資料沒有翻譯成英文」）：照 "zh" 的內容直接翻成自然的英文一句到兩句，
       人名、戰隊縮寫照原樣，§TOP§、‹頁|名› 這類記號原封不動搬過去；你自己翻，不要呼叫任何翻譯服務。
