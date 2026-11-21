@@ -1058,6 +1058,7 @@
   .tbBoard{padding:6px 16px 14px;display:grid;grid-template-columns:max-content repeat(6,minmax(0,1fr)) minmax(0,1.4fr) max-content;column-gap:0}   /* 上路～主教練六欄等寬、後勤稍寬 1.4 倍（使用者 2026-11-21 先要七欄等寬，看到後勤換行太多後改成「把後勤那欄稍微拉大 其餘六欄一致」） */   /* 教練欄人多 ⇒ 1.8 倍寬；末欄＝轉會評分 */
   .tbN.tbRet,b.tbRet{color:#8b98ad;text-decoration:line-through}.tbLegend .sqLaneBtn b.tbRet{text-decoration:none;display:inline-block;background:linear-gradient(currentColor,currentColor) left 54%/100% 1.5px no-repeat}.tbN.tbY,b.tbY{color:#ffc850}.tbN.tbNew,b.tbNew{color:#ff5a5a}.tbN.tbExp,b.tbExp{color:#5aa9ff}.tbN.tbRs,b.tbRs{color:#ff8ec6}.tbN.tbPm,b.tbPm{color:#ff8ec6}.tbN.tbOut,b.tbOut{color:#4cd07d}.tbOk{color:#4cd07d;font-size:14px;margin-left:2px}.tbN.tbGone{text-decoration:line-through;text-decoration-thickness:1px}.tbN.tbDim{opacity:.2}.tbVacN{font-style:normal;font-size:11px;font-weight:700;color:var(--tx2);margin-left:6px;padding:0 6px;border:1px solid rgba(255,255,255,.2);border-radius:999px;white-space:nowrap}.tbLegend .sqLaneBtn b{font-weight:700}.tbLgB{display:inline-flex;align-items:center;gap:2px}.tbLgSep{font-style:normal;color:var(--tx2);margin:0 3px}.tbLegend .sqLaneBtn{margin-right:2px}.tbLegend .sqLaneBtn.on,.trBar .sqLaneBtn[data-mk].on{background:rgba(255,255,255,.14);border-color:var(--tx);box-shadow:0 0 0 1px var(--tx) inset;color:var(--tx)}.tbLgG .sqLaneBtn:not(.on){background:transparent;border-color:transparent}   /* 兩兩一框（使用者 2026-11-20：新加入＋續約｜合約到期＋離隊｜可能轉會＋傳聞），框之間不畫線 */.trFG{display:inline-flex;align-items:center;gap:6px;padding-left:12px;border-left:1px solid rgba(255,255,255,.16)}.trFG:first-child{border-left:0;padding-left:0}.trFG>label{margin-right:2px}.tbLegend{display:inline-flex;gap:6px;align-items:center}.trSrc-kr{color:#ff9a6b;background:rgba(255,154,107,.12)}.trSrc-ptt{color:#c9d1e0;background:rgba(255,255,255,.08)}.trSrc-man{color:#ffd166;background:rgba(255,209,102,.12)}
   .tbLegend{display:inline-flex;gap:12px;align-items:center}.tbLegend b.tbStay{color:#fff}
+  .tbCell.tbFaCo{display:none}   /* FA 列「主教練＋後勤併成一格」那格只給手機卡片用（手機那段樣式會打開它、改藏原本兩格）；電腦版照舊兩欄 */
   .tbHd,.tbRow{grid-column:1/-1;display:grid;grid-template-columns:subgrid;align-items:center}
   .tbHd{position:sticky;top:0;z-index:2;background:var(--card,#141a2a);padding:8px 0;border-bottom:1px solid var(--line);font-weight:700;color:var(--tx);font-size:16px}   /* 欄名放大（使用者 2026-11-21「文字大一點」；原本 14px） */
   .tbHd>span{display:flex;align-items:center;justify-content:center;gap:4px}.tbHd>span img{position:relative;top:-1px}   /* 路線圖比文字低 1px（量出來圖中心 19.5、字中心 18.5）⇒ 往上收 1px，欄名才在同一條水平線上（使用者 2026-11-21「感覺沒有水平」） */
@@ -1594,7 +1595,8 @@
     .tbCell::before{content:"";flex:0 0 15px;width:15px;height:15px;margin-top:2px;background:center/contain no-repeat}
     .tbCell[data-r="TOP"]::before{background-image:url(img/TOP.png)}.tbCell[data-r="JNG"]::before{background-image:url(img/JG.png)}
     .tbCell[data-r="MID"]::before{background-image:url(img/MID.png)}.tbCell[data-r="BOT"]::before{background-image:url(img/BOT.png)}
-    .tbCell[data-r="SUP"]::before{background-image:url(img/SUP.png)}.tbCell[data-r="HC"]::before,.tbCell[data-r="STF"]::before{background-image:url(img/COACH.png)}
+    .tbCell[data-r="SUP"]::before{background-image:url(img/SUP.png)}.tbCell[data-r="HC"]::before,.tbCell[data-r="STF"]::before,.tbCell[data-r="CO"]::before{background-image:url(img/COACH.png)}
+    .tbFA .tbCell[data-r="HC"],.tbFA .tbCell[data-r="STF"]{display:none}.tbFA .tbCell.tbFaCo{display:flex}   /* 手機 FA 卡：主教練與後勤併成一格（使用者 2026-11-21「手機版的FA資訊 主教練跟教練要放一起」） */
     .tbFA .tbCell.tbEmpty{display:none}   /* 自由人卡：沒有人的那一列不顯示（中國自由人沒有教練） */
     .tbRow .tbTeam img.tbFaIc{margin:0!important}   /* 手機：FA 徽章也貼齊左內距（淺色底的方塊本身就是看得見的邊，不用扣透明邊；跟隊名的 8px 由隊名那邊留） */   /* 自由人的聯賽圖有淺色底，不能像隊徽那樣扣掉透明邊（會貼到字：歐洲／北美／亞太只剩 2～4px；使用者 2026-11-20「自由人的文字跟圖片也要有半形空格」） */   /* 2026-11-21 全面檢視：原本這裡把自由人的後勤那列藏起來（主教練與後勤合併那一版留下的），兩格分開之後手機上後勤整組人看不到 ⇒ 不藏 */
     .tbFA .tbCell:not(.tbRate){grid-column:1/-1;border-left:0}   /* 自由人卡：五路＋主教練，一路一列（使用者 2026-11-20） */
@@ -14511,14 +14513,15 @@ function render(){
     // ── 陣容表（使用者 2026-11-19：參考巴哈 LCK 陣容圖「左邊是戰隊 六大聯賽一路往下列」「傳聞就在ID前面打一個星號」
     //    「滑鼠移到那格顯示簽約到何時、上一位選手、新加入的選手原先來自哪個戰隊」）。資料＝transfers.js 的 board（scripts/transfers_board.py）
     const MODE=V.trMode||"board";
-    const BL=["TOP","JNG","MID","BOT","SUP","COACH"], BLN={TOP:RL.TOP,JNG:RL.JNG,MID:RL.MID,BOT:RL.BOT,SUP:RL.SUP,COACH:en2?"Coach":"教練",HC:en2?"Head Coach":"主教練",STF:en2?"Staff":"後勤"};
+    const BL=["TOP","JNG","MID","BOT","SUP","COACH"], BLN={TOP:RL.TOP,JNG:RL.JNG,MID:RL.MID,BOT:RL.BOT,SUP:RL.SUP,COACH:en2?"Coach":"教練",HC:en2?"Head Coach":"主教練",STF:en2?"Staff":"後勤",CO:en2?"Coaches":"教練"};   // CO＝手機 FA 卡把主教練與後勤併成一格用的假欄位（見 colE）
     // 教練分兩欄（使用者 2026-11-19「教練分成兩欄 主教練 跟後勤」）：HC＝主教練、STF＝其他教練／分析師；資料仍是 COACH 一格，顯示時依 sr 拆
     const COLS=["TOP","JNG","MID","BOT","SUP","HC","STF"], isHC=e=>(e&&e.sr)==="HC";
     // 自由人那一列：教練與分析師全部放在同一格（主教練那欄），後勤那欄留空（使用者 2026-11-20「FA 的主教練改成 教練與分析師也列入」）
     // 後勤排序（使用者 2026-11-21）：新加入 → 續約 → 續留 → 升職 → 合約到期（→ 傳聞）；已宣布離隊的直接離開後勤區（自由人那列不動）
     const stfK=e=>e.r?5:e.pm?3:(e.new||e.tip)?0:e.rs?1:(e.c&&e.c<today)?4:2;
-    const colE=(t,c)=>c==="HC"?(t.r.COACH||[]).filter(isHC):c==="STF"?(t.fa?(t.r.COACH||[]).filter(e=>!isHC(e)):(t.r.COACH||[]).filter(e=>!isHC(e)).map((e,i)=>[e,i]).sort((a,b)=>stfK(a[0])-stfK(b[0])||a[1]-b[1]).map(a=>a[0])):(t.r[c]||[]);
-    const colP=(t,c)=>{ const pv=(t.prev||{})[c==="HC"||c==="STF"?"COACH":c]||[];
+    // CO＝主教練＋後勤全部（主教練排前面）：手機版的 FA 卡把兩格併成一格（使用者 2026-11-21「手機版的FA資訊 主教練跟教練要放一起」；電腦版仍分兩欄）
+    const colE=(t,c)=>c==="CO"?[...(t.r.COACH||[]).filter(isHC),...(t.r.COACH||[]).filter(e=>!isHC(e))]:c==="HC"?(t.r.COACH||[]).filter(isHC):c==="STF"?(t.fa?(t.r.COACH||[]).filter(e=>!isHC(e)):(t.r.COACH||[]).filter(e=>!isHC(e)).map((e,i)=>[e,i]).sort((a,b)=>stfK(a[0])-stfK(b[0])||a[1]-b[1]).map(a=>a[0])):(t.r[c]||[]);
+    const colP=(t,c)=>{ const pv=(t.prev||{})[c==="HC"||c==="STF"||c==="CO"?"COACH":c]||[];
       return c==="HC"?pv.filter(isHC):c==="STF"?pv.filter(p=>!isHC(p)):pv; };
     const pn=s=>String(s||"").replace(/\s*\([^()]*\)\s*$/,"");
     // 教練欄只列這五種（使用者 2026-11-19「除了總教練 教練 分析師以外的教練都不要列出」「戰略教練也列出」「路線教練也可以」），名字後面標職稱
@@ -14532,7 +14535,7 @@ function render(){
     // 格子提示（使用者 2026-11-19「除了評分的小框都重新設計」）：同評分小框的版型——標題列＝隊徽＋隊名＋路線；
     //   每個人一張小卡（名字＋狀態標籤、合約／加入／來自 的欄位、傳聞引用框）；上一位獨立一區（期間＋年資）
     // 聯賽識別色＝全站 LGC（使用者 2026-11-19「要跟積分分頁的聯賽顏色一樣」），不另外定義
-    const laneIc=r=>(r==="COACH"||r==="HC"||r==="STF")?`<img src="img/COACH.png" alt="">`:(POS_IMG[r]?`<img src="${POS_IMG[r]}" alt="">`:"");
+    const laneIc=r=>(r==="COACH"||r==="HC"||r==="STF"||r==="CO")?`<img src="img/COACH.png" alt="">`:(POS_IMG[r]?`<img src="${POS_IMG[r]}" alt="">`:"");
     const pill=(c,tx)=>`<span class="tpPill ${c}">${tx}</span>`;
     // 綠＝合約還在、但傳出可能去別隊（使用者 2026-11-19「如果合約還在但有傳出可能去別隊 上綠色」）；合約已到期的維持藍字、提示照樣看得到傳聞
     const expd=e=>!e.tip&&(!e.c||e.c<today);   // 合約無紀錄也算合約到期（使用者 2026-11-20「合約無紀錄的 例如 Uniboy 這種 也要算是合約到期」）
@@ -14589,7 +14592,7 @@ function render(){
           const kv=o.still?(o.c?[[en2?"Contract":"合約",live?`${en2?"until":"到"} ${ymd(o.c)}`:`<span class="tbExp">${en2?"expired":"已到期"} ${ymd(o.c)}</span>`]]:[])
             :T?[[en2?"Tenure":"效力",T.per]]:[];   // 年資不寫（使用者 2026-11-21）
           if(!o.ret)kv.push(...goKv(o.n,t.nm));
-          return `<div class="tpP tpPvC"><div class="tpName"><b><a class="tpA" href="https://lol.fandom.com/wiki/${encodeURIComponent(wkPg(o.n))}" target="_blank" rel="noopener">${esc(pn(o.n))}</a></b>${(r==="STF"||r==="HC")&&o.sr&&SRN[o.sr]?`<span class="tpSr">${SRN[o.sr]}</span>`:""}${o.ret?pill("tpX",en2?"Retired":"退役"):live?pill("tpG",en2?"Possible move":"可能轉會"):o.still?pill("tpB",en2?"Contract expired":"合約到期"):pill("tpX",en2?"Left":"離隊")}</div>`
+          return `<div class="tpP tpPvC"><div class="tpName"><b><a class="tpA" href="https://lol.fandom.com/wiki/${encodeURIComponent(wkPg(o.n))}" target="_blank" rel="noopener">${esc(pn(o.n))}</a></b>${(r==="STF"||r==="HC"||r==="CO")&&o.sr&&SRN[o.sr]?`<span class="tpSr">${SRN[o.sr]}</span>`:""}${o.ret?pill("tpX",en2?"Retired":"退役"):live?pill("tpG",en2?"Possible move":"可能轉會"):o.still?pill("tpB",en2?"Contract expired":"合約到期"):pill("tpX",en2?"Left":"離隊")}</div>`
             +(kv.length?`<div class="tpKv">${kv.map(([k,v])=>`<span>${k}</span><span>${v}</span>`).join("")}</div>`:"")+`</div>`; }).join("")+`</div>`; }
       TIPS.push(h+`</div>`); return TIPS.length-1; };
     // 轉會評分（使用者 2026-11-19「教練右邊新增一欄 轉會評分 依照原先選手的成績去與新選手的成績對比 判斷是加分還是扣分 然後教練只看主教練」）：
@@ -14835,7 +14838,10 @@ function render(){
         bHTML+=`<div class="tbLg" data-rg="${esc((en2?{LCK:"Korea",LPL:"China",LEC:"EMEA",LCS:"North America",CBLOL:"Brazil",LCP:"Asia-Pacific"}:{LCK:"韓國",LPL:"中國",LEC:"歐洲",LCS:"北美",CBLOL:"巴西",LCP:"亞太"})[t.lg]||"")}" style="--lgc:${LGC[t.lg]||"var(--gold)"}"><img class="tbLgIc" src="${((window.TS_DATA||{}).lgi||{})[t.lg]||("img/lg_"+t.lg+".png")}" alt=""><b>${esc(t.lg)}</b><span>${n}${en2?" teams":" 隊"}</span></div>`; lastLg=t.lg; }   // 聯賽徽章＋聯賽名稱＋隊伍數（使用者 2026-11-21）；地區名只留在 data-rg 給截圖標題用
       bHTML+=`<div class="tbRow${t.fa?" tbFA":""}" style="--lgc:${LGC[t.lg]||"var(--gold)"}"><div class="tbTeam" title="${t.fa?"FA":esc(t.nm)}">${t.fa?`<img class="tbFaIc" src="${((window.TS_DATA||{}).lgi||{})[t.lg]||("img/lg_"+t.lg+".png")}" alt="">`:""}${teamLogoHTML(tAb(t.nm),26,true,t.nm)||teamLogoHTML(tAb(t.tm),26,true,t.tm)||""}<span>${t.fa?esc(rowNm(t)):`<a class="tbTmA" href="${tmWk(t.nm)}" target="_blank" rel="noopener">${esc(rowNm(t))}</a>`}</span>${tbDone(t)?`<span class="tbOk" title="${en2?"All five roles and the head coach are confirmed":"五路與主教練都確定了"}">✔</span>`:""}</div>`
         +COLS.map(r=>{ const es=t.fa?colE(t,r):colE(t,r).filter(e=>!e.gone);   /* 已宣布離隊的不留在陣容表格子裡，只列在 FA 那列（使用者 2026-11-21「所有已宣布離隊的都直接離開陣容表 去到FA區」）；小框仍查得到 */   /* FA 的主教練與後勤分兩格（使用者 2026-11-21 先要合併、隨後改回「主教練跟後勤分開」） */
-          return `<div class="tbCell${es.length?"":" tbEmpty"}" data-r="${r}" data-lb="${BLN[r]}" data-tb="${cellTip(t,r)}"><span class="tbCv">${es.length?es.map((e,i)=>i<es.length-1?`<span class="tbNw">${nameH(e)}<span class="tbSep">/</span></span><wbr>`:nameH(e)).join(""):`<span class="tbMuted">–</span>`}</span></div>`; }).join("")+rateCell(t)+`</div>`; });
+          return `<div class="tbCell${es.length?"":" tbEmpty"}" data-r="${r}" data-lb="${BLN[r]}" data-tb="${cellTip(t,r)}"><span class="tbCv">${es.length?es.map((e,i)=>i<es.length-1?`<span class="tbNw">${nameH(e)}<span class="tbSep">/</span></span><wbr>`:nameH(e)).join(""):`<span class="tbMuted">–</span>`}</span></div>`; }).join("")
+        // 手機版的 FA 卡：主教練與後勤併成一格（data-r="CO"，主教練排前面；小框也列全部）。電腦版這格不顯示、手機版改藏主教練與後勤那兩格（見 .tbFaCo 的樣式）
+        +(t.fa?(()=>{ const es=colE(t,"CO"); return `<div class="tbCell tbFaCo${es.length?"":" tbEmpty"}" data-r="CO" data-lb="${BLN.CO}" data-tb="${cellTip(t,"CO")}"><span class="tbCv">${es.length?es.map((e,i)=>i<es.length-1?`<span class="tbNw">${nameH(e)}<span class="tbSep">/</span></span><wbr>`:nameH(e)).join(""):`<span class="tbMuted">–</span>`}</span></div>`; })():"")
+        +rateCell(t)+`</div>`; });
     const bHead=`<div class="tbHd"><span></span>${COLS.map(r=>`<span>${(r==="HC"||r==="STF")?`<img class="trCoach" src="img/COACH.png" alt="">`:(POS_IMG[r]?`<img class="trRole" src="${POS_IMG[r]}" alt="">`:"")}${BLN[r]}</span>`).join("")}<span class="tbRateH tbSortT" style="cursor:pointer;white-space:nowrap" title="${en2?"Click to sort":"點一下照評分排序"}">${SRT0==="o"?(en2?"Split 3":"第三賽段"):SLB}${srtArr}</span></div>`;
     // 篩選列（使用者 2026-11-20「消息跟轉會表的篩選列也統一一下 並且直觀一點」）：兩種模式同一個順序——
     //   模式（圖示＋文字）｜賽區（聯賽色）｜該模式自己的篩選（分組、組間直線）｜……｜更新時間＋搜尋（最右）
