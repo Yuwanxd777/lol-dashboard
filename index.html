@@ -1098,7 +1098,7 @@
   .tpP{padding:8px 10px;border-radius:8px;background:rgba(255,255,255,.04);margin-top:8px}
   .tpP:first-of-type{margin-top:0}
   /* 分享視窗（使用者 2026-11-21）：電腦置中、手機從底部浮上來 */
-  .trShIc{width:24px;height:24px;display:block;margin:auto;color:#eef2fb}   /* 24 格的圖用原尺寸畫（22px 會縮成 0.917 倍，線的邊緣落在小數像素上、看起來有鋸齒；使用者 2026-11-21） */
+  .trShIc{width:22px;height:22px;display:block;margin:auto;color:#eef2fb}   /* 主站的小按鈕只有 30px，圖示維持 22px（24px 會塞滿按鈕）；獨立站的按鈕 34px，那邊用自己的樣式把圖示放成 24px 原尺寸（使用者 2026-11-21「小按鈕內的圖示感覺邊緣有點鋸齒」） */
   .trShD{position:fixed;inset:0;z-index:10000;display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box;background:rgba(5,8,14,.74)}
   .trShD .trShBox{width:min(560px,100%);max-height:calc(100vh - 32px);overflow:auto;box-sizing:border-box;padding:0 18px 18px;border-radius:14px;background:#161c2b;border:1px solid #2a3345;box-shadow:0 12px 44px rgba(0,0,0,.55);color:#e8ecf4;font-size:15px;text-align:left}
   .trShHd{display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:2;margin:0 -18px 10px;padding:6px 18px 4px;background:#161c2b;box-shadow:inset 18px 0 0 #161c2b,inset -18px 0 0 #161c2b,inset 0 -1px 0 rgba(255,255,255,.1)}.trShHd b{flex:1;font-size:17px;font-weight:800}   /* 標題列黏在視窗頂端：圖很多要捲動時，X 不會跟著捲走。外框的上留白改放在標題列自己身上——sticky 的 top:0 是從外框的「內容邊」算，外框留著上留白的話，用負邊距也拉不上去（實測還是離頂 16px） */
