@@ -1122,6 +1122,10 @@
   .tbPh{display:flex;flex-direction:column;align-items:center;gap:5px;min-width:0;text-align:center}
   .tbPhS{display:grid;grid-template-columns:auto 1fr;gap:2px 8px;justify-content:start;align-items:baseline;align-self:center;box-sizing:border-box;width:100%;max-width:132px;padding-left:2px;font-size:13px;line-height:1.35;font-variant-numeric:tabular-nums;text-align:left}   /* 資料置左（使用者 2026-11-22），左緣對齊頭像框（同樣 max-width 132、置中） */
   .tbPhS .tbPhK{color:#8b98ad;text-align:left;white-space:nowrap}.tbPhS b{font-weight:700;color:#e8ecf4;text-align:left;white-space:nowrap}
+  .tbPhC{display:flex;gap:5px;justify-content:flex-start;align-self:center;box-sizing:border-box;width:100%;max-width:132px;padding-left:2px;min-height:28px;align-items:center}
+  .tbPhC img{width:28px;height:28px;border-radius:5px;border:1px solid rgba(255,255,255,.14);object-fit:cover;background:#121826}
+  .tbTmBox:not(.sheet) .tbPhC{max-width:none;gap:6px}.tbTmBox:not(.sheet) .tbPhC img{width:34px;height:34px}
+  .tbTmBox.sheet .tbPhC img{width:24px;height:24px}
   .tbTmBox.sheet .tbPhS{max-width:100%;font-size:12px;gap:1px 4px}.tbTmBox.sheet .tbPhS b{white-space:normal}.tbPhS b>span{white-space:nowrap}   /* 手機一列三格比較窄：字小一號，數值放不下就換行（不超出卡片） */
   .tbPhI{position:relative;width:100%;max-width:132px;aspect-ratio:1;border-radius:10px;overflow:hidden;box-sizing:border-box;background:#121826;border:1px solid rgba(255,255,255,.12)}
   .tbPhI.tbPhE{background:none;border-style:dashed;border-color:rgba(255,255,255,.18)}
@@ -14696,7 +14700,7 @@ function render(){
     const SEASON=+String(D.from||"").slice(0,4)||0;
     const RATE=(()=>{ if(window.TRANSFER_RATE)return window.TRANSFER_RATE;   // 轉會網站：主站排程先算好匯出（transfers_site.js）
       if(curYear!==SEASON||typeof calcPlayers!=="function")return null;
-      const k=curYear+"|"+(GAMES||[]).length+"|seg11"; if(window._tbRC&&window._tbRC.k===k)return window._tbRC;
+      const k=curYear+"|"+(GAMES||[]).length+"|seg12"; if(window._tbRC&&window._tbRC.k===k)return window._tbRC;
       const res={k,pl:{},tm:{}};
       // 分段加權（使用者 2026-11-20「轉會評分改成 第一賽段 10% 第二賽段 30% 第三賽段 50% 世界賽 10% 其餘的不算」「哪個段落沒打就沒分」）：
       //   每段各自算一次選手評分（場次白名單 H2H 圈範圍、其他篩選清空），再照權重相加；沒打的那段＝0 分，不重新分配權重。
@@ -14741,6 +14745,11 @@ function render(){
             calcPlayers(r,true).forEach(x=>{ const nk=String(x._pn||"").toLowerCase(); if(x.評分==null||(Y[nk]&&Y[nk].g>=x.場數))return;
               Y[nk]={at:x.攻擊值!=null?+x.攻擊值.toFixed(1):null,df:x.防禦值!=null?+x.防禦值.toFixed(1):null,sc:+x.評分.toFixed(1),g:x.場數}; }); } }
         finally{ H2H=svH; Object.assign(F,sv); } }
+      // 2026 常用英雄前三（陣容對比 2027 那排每位選手名字下面；使用者 2026-11-22「2027 選手常用英雄擺 2026 前三英雄的頭像」）：今年全部比賽、照出場次數，同次數照英雄 id；只收陣容表上的人
+      { const want=new Set(); (D.board||[]).forEach(t=>Object.values(t.r||{}).flat().forEach(e=>want.add(String(pn(e.n)).toLowerCase())));
+        const cc={}; for(const o of LANES){ const r=o.raw; for(const side of [0,1]){ const p=r[C.blue_playername+(side?RB:0)], c=r[C.blue_champion+(side?RB:0)]; if(!p||!c)continue;
+            const k=String(p).toLowerCase(); if(!want.has(k))continue; const m=cc[k]||(cc[k]={}), id=champId(c); m[id]=(m[id]||0)+1; } }
+        res.ch={}; for(const k in cc)res.ch[k]=Object.entries(cc[k]).sort((x,y)=>y[1]-x[1]||(x[0]<y[0]?-1:1)).slice(0,3).map(x=>x[0]); }
       res.md={}; for(const r of ["TOP","JNG","MID","BOT","SUP"]){ const vs=Object.values(res.pl[r]).map(x=>x.v).sort((a,b)=>a-b), h=vs.length>>1;
         res.md[r]=vs.length?(vs.length%2?vs[h]:(vs[h-1]+vs[h])/2):null; }
       res.plY={};   // 不再退回全年評分：沒打的賽段就是 0 分
@@ -15500,7 +15509,9 @@ function render(){
         const sc27=(e,r)=>{ if(!e||!RATE)return null; if(r==="HC"){ const c=coachS((e.new||e.r||e.tip||e.pm)?(e.from||""):t.nm); return c?c.v:null; }
           const y=RATE.yr&&RATE.yr[r]&&RATE.yr[r][String(pn(e.n)).toLowerCase()]; return y?y.sc:null; };   // 選手＝整年評分（跟選手分頁同一個數字；使用者 2026-11-22「2027的評分 我要看的是整年」），沒有今年出賽資料寫 –
         const y27=LANE6.map(([r,ic])=>{ const e=pick27(r==="HC"?cs:((t.r||{})[r]||[])), b=e?bioOf(pg0(e))||bioOf(e.n):null, L=r==="HC"?LC27:L27;
-          return phH(e?{n:e.n,p:pg0(e)}:null,ic,e?tbCls(e):"",kvS([[L[0],ageOf(b&&b[0])],[L[1],ymOf(b&&(r==="HC"?(b[2]||b[1]):b[1]),en2)],[L[2],n1(sc27(e,r))]])); }).join("");
+          const chs=e&&r!=="HC"&&RATE&&RATE.ch?(RATE.ch[String(pn(e.n)).toLowerCase()]||[]):[];
+          const chH=r==="HC"?"":`<div class="tbPhC">${chs.map(id=>`<img src="img/champ/${esc(id)}.webp" alt="${esc(id)}" title="${esc(id)}" loading="lazy" onerror="this.onerror=null;this.src='https://ddragon.leagueoflegends.com/cdn/${typeof DDV!=="undefined"?DDV:"15.1.1"}/img/champion/${esc(id)}.png'">`).join("")||`<span class="tbMuted">–</span>`}</div>`;   // 教練不放；沒有今年出賽紀錄寫 –
+          return phH(e?{n:e.n,p:pg0(e)}:null,ic,e?tbCls(e):"",kvS([[L[0],ageOf(b&&b[0])],[L[1],ymOf(b&&(r==="HC"?(b[2]||b[1]):b[1]),en2)],[L[2],n1(sc27(e,r))]])+(e?chH:"")); }).join("");
         const d=document.createElement("div"); d.id="tbTmBox"; d.className="tbTmBox"+(touch()?" sheet":"");
         d.innerHTML=`<div class="tbTmHd">${teamLogoHTML(tAb(t.nm),26,true,t.nm)||teamLogoHTML(tAb(t.tm),26,true,t.tm)||""}<a href="${tmWk(t.nm)}" target="_blank" rel="noopener">${esc(abOf(t.nm))}</a><button class="tbTmShot" aria-label="screenshot" title="截圖"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg></button><button class="tbTipX" aria-label="close">✕</button></div>`
           +`<div class="tbTmSec tbTm26"><div class="tbTmYr">2026</div><div class="tbTmG">${y26}</div></div><div class="tbTmSec tbTm27"><div class="tbTmYr">2027</div><div class="tbTmG">${y27}</div></div><div class="tbTmData"></div>`;   // 兩年各一塊底色區（使用者 2026-11-22「幫我更好的區分2026 2027」）
