@@ -1,19 +1,27 @@
 # -*- coding: utf-8 -*-
-"""轉會分頁「隊伍小框」要的兩份資料（使用者 2026-11-22「左半邊點擊後要顯示 2026 先發五人(場次最多的)以及教練的WIKI圖片 這個放在上方 下方是2027的」）。
+"""轉會分頁「隊伍小框」與「效力」要的資料（使用者 2026-11-22）。
 
   s26   {隊名（陣容表的 nm）: {TOP/JNG/MID/BOT/SUP: [顯示 ID, wiki 頁名]}}
         ＝那一年替這隊出賽最多場的人（Leaguepedia ScoreboardPlayers，所有賽事；同場數取頁名字母序，結果才固定）
-  pimg  {wiki 頁名: 縮圖網址}  ＝ Players.Image（個人頁那張圖）；沒有就退回 PlayerImages 最新一張。只存有圖的人
+  pimg  {wiki 頁名: 縮圖網址}
+        選圖順序（使用者「選手的照片記得抓取的是2026最新一張 如果2026沒有才往前抓」）：
+        PlayerImages 裡該年最新一張 → 沒有就該年以前最新的一張 → 個人頁那張（Players.Image）→ 其餘任何一張。只存有圖的人
+  pfc   {wiki 頁名: [兩眼中點 x÷圖寬, 兩眼中點 y÷圖高, 臉寬÷圖寬, 圖寬÷圖高]}
+        （使用者「圖片的人頭大小與位置幫我調整一致」）OpenCV 的 YuNet 臉部偵測（模型檔 csv_cache/face_detection_yunet_2023mar.onnx，
+        使用者同意下載）量出來的；前端照這四個數把每張圖縮放、移動到「臉一樣寬、眼睛在同一個位置」。量不到的人前端退回一般的置中裁切
+  效力  tenures()：每隊每個人的歷次效力區間（Tenures 表，含已經結束的），fetch_transfers 掛到格子裡的人身上（欄位 tn）
 
-由 fetch_transfers.py 在陣容表建好之後呼叫 build()。查過的結果存在 csv_cache/transfers_photos.json：
-  ・先發是整年的統計，賽季打完就不會變 ⇒ 每支隊伍查到一次就不再查（隊名換了才補查）
-  ・圖片每個人查一次；查不到的隔一天再試（新簽的人頁面常常晚幾天才有圖）
-前端只讀 transfers.js 的 s26／pimg，沒有就只顯示名字——這支失敗不影響其他資料。
+由 fetch_transfers.py 在陣容表建好之後呼叫。查過的結果存在 csv_cache/transfers_photos.json：
+  ・先發是整年的統計，賽季打完就不會變 ⇒ 每支隊伍查到一次就不再查
+  ・圖片：選到該年照片的人不再查；選到舊照片的 7 天後重查一次；完全沒圖的隔天重查
+  ・效力區間一天查一次
+前端只讀 transfers.js，沒有這些欄位就只顯示名字——這支失敗不影響其他資料。
 """
 import datetime
 import io
 import json
 import os
+import re
 import time
 import urllib.parse
 import urllib.request
@@ -21,10 +29,12 @@ import urllib.request
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 CACHE = os.path.join(ROOT, "csv_cache", "transfers_photos.json")
+MODEL = os.path.join(ROOT, "csv_cache", "face_detection_yunet_2023mar.onnx")
 API = "https://lol.fandom.com/api.php"
 UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/126 Safari/537.36"}
 ROLE = {"top": "TOP", "jungle": "JNG", "mid": "MID", "bot": "BOT", "support": "SUP"}
-PX = 220   # 縮圖寬（畫面上最大 112px，2 倍螢幕夠用）
+PX = 220   # 縮圖寬（畫面上最大 112px，臉放大後 2 倍螢幕也夠用）
+VER = 2    # 快取版本：選圖規則改了就加一，舊的圖片紀錄整批重查
 
 
 def _in(names):
@@ -51,7 +61,7 @@ def starters(cargo, year, teams):
             if not rr or not x.get("p") or not x.get("tm"):
                 continue
             k = (x["tm"], rr)
-            cand = (int(x.get("n") or 0), x["p"])
+            cand = (int(x.get("n") or 0), str(x["p"]))
             if k not in best or cand[0] > best[k][0] or (cand[0] == best[k][0] and cand[1] < best[k][1]):
                 best[k] = cand
         for (tm, rr), (_n, pg) in best.items():
@@ -92,31 +102,24 @@ def _thumbs(files):
     return out
 
 
-def images(cargo, pages, teams=()):
-    """頁名清單 → {頁名: 縮圖網址（沒有圖＝空字串）}。teams＝目前追蹤的隊名（同 ID 好幾個人時用來挑對的那位）
-    Cargo 回來的頁名大小寫可能跟我們手上的不同（deokdam／Deokdam），純數字的 ID（369、1874）還會變成數字 ⇒ 一律轉字串、不分大小寫對回去"""
+def resolve(cargo, pages, teams=()):
+    """我們手上的頁名 → {頁名: (wiki 真正的頁名, 個人頁那張圖的檔名或 "")}；查不到的不在結果裡。
+    Cargo 回來的頁名大小寫可能不同（deokdam／Deokdam），純數字的 ID（369、1874）會變成數字 ⇒ 一律轉字串、不分大小寫對回去。
+    對不上的先查轉址（Thanatos (Park Seung-kyu) → (Park Seung-gyu)），再用 ID 找（Ming → Ming (Shi Sen-Ming)；同 ID 多人時挑在追蹤隊伍裡、或唯一還沒退役的那位）"""
     key = {str(p).lower(): p for p in pages}
-    files = {}
+    out = {}
 
-    def put(p, f, as_=None):
-        k = as_ or key.get(str(p).lower())
-        if k and f and k not in files:
-            files[k] = str(f)
-
-    def by_pages(names, as_map=None):   # Players.Image → 沒有就 PlayerImages 最新一張；as_map＝{查詢用的頁名（小寫）: 我們手上的頁名}
+    def players(names, as_map=None):
         m = as_map or {}
         for i in range(0, len(names), 40):
             for x in cargo({"tables": "Players=P", "fields": "P.OverviewPage=p,P.Image=img", "where": "P.OverviewPage IN " + _in(names[i:i + 40]), "limit": "500", "format": "json"}):
-                put(x.get("p"), x.get("img"), m.get(str(x.get("p")).lower()))
-        rest = [n for n in names if (m.get(str(n).lower()) or key.get(str(n).lower())) not in files]
-        for i in range(0, len(rest), 10):
-            for x in cargo({"tables": "PlayerImages=PI", "fields": "PI.Link=p,PI.FileName=f,PI.SortDate=d", "where": "PI.Link IN " + _in(rest[i:i + 10]),
-                            "order_by": "PI.SortDate DESC", "limit": "500", "format": "json"}):
-                put(x.get("p"), x.get("f"), m.get(str(x.get("p")).lower()))
+                k = m.get(str(x.get("p")).lower()) or key.get(str(x.get("p")).lower())
+                if k and k not in out:
+                    out[k] = (str(x["p"]), str(x.get("img") or ""))
 
-    by_pages(list(pages))
-    miss = [p for p in pages if p not in files]
-    if miss:   # 頁名對不上的：先查轉址（Thanatos (Park Seung-kyu) → (Park Seung-gyu)），再用 ID 找（Ming → Ming (Shi Sen-Ming)；同 ID 多人時挑在追蹤隊伍裡的那位）
+    players(list(pages))
+    miss = [p for p in pages if p not in out]
+    if miss:
         ali = {}
         for i in range(0, len(miss), 40):
             for x in cargo({"tables": "PlayerRedirects=R", "fields": "R.AllName=a,R.OverviewPage=p", "where": "R.AllName IN " + _in(miss[i:i + 40]), "limit": "500", "format": "json"}):
@@ -134,16 +137,174 @@ def images(cargo, pages, teams=()):
             for k, L in cand.items():
                 L.sort(key=lambda x: (str(x.get("tm") or "").lower() not in tset, str(x.get("ret") or "") in ("1", "Yes", "true")))
                 act = [x for x in L if str(x.get("ret") or "") not in ("1", "Yes", "true")]
-                if len(L) == 1 or str(L[0].get("tm") or "").lower() in tset or len(act) == 1:
-                    ali[str((L[0] if (len(L) == 1 or str(L[0].get("tm") or "").lower() in tset) else act[0])["p"]).lower()] = k
+                hit = len(L) == 1 or str(L[0].get("tm") or "").lower() in tset
+                if hit or len(act) == 1:
+                    ali[str((L[0] if hit else act[0])["p"]).lower()] = k
         if ali:
-            real = {}
-            for i in range(0, len(ali), 40):   # 用查到的真正頁名再查一次圖（轉址／同 ID 查到的頁名大小寫以 Players 為準）
-                for x in cargo({"tables": "Players=P", "fields": "P.OverviewPage=p", "where": "P.OverviewPage IN " + _in(list(ali)[i:i + 40]), "limit": "500", "format": "json"}):
-                    real[str(x.get("p")).lower()] = str(x.get("p"))
-            by_pages([real.get(a, a) for a in ali], ali)
-    th = _thumbs(sorted({f.replace("_", " ") for f in files.values()}))
-    return {p: th.get(str(files.get(p, "")).replace("_", " "), "") for p in pages}
+            players(list(ali), ali)
+    return out
+
+
+def pick_files(cargo, real, year):
+    """real＝{頁名: (真正的頁名, 個人頁圖檔)} → {頁名: (圖檔名, 是不是該年的照片)}
+    PlayerImages.SortDate 大多是空的 ⇒ 日期依序用：SortDate → 那張圖所屬賽事的開始日（Tournaments.DateStart）→ 檔名／賽事名裡的年份"""
+    back = {str(rp).lower(): p for p, (rp, _img) in real.items()}
+    rows = {}
+    names = [rp for rp, _img in real.values()]
+    for i in range(0, len(names), 3):   # 一次 3 人：一個人最多上百張，一次查太多人會被 500 筆上限截掉
+        for x in cargo({"tables": "PlayerImages=PI,Tournaments=T", "join_on": "PI.Tournament=T.OverviewPage", "fields": "PI.Link=p,PI.FileName=f,PI.SortDate=d,T.DateStart=ds,PI.Tournament=t",
+                        "where": "PI.Link IN " + _in(names[i:i + 3]), "limit": "500", "format": "json"}):
+            k = back.get(str(x.get("p")).lower())
+            if not k or not x.get("f"):
+                continue
+            d = str(x.get("d") or x.get("ds") or "")[:10]
+            if not d:
+                ys = re.findall(r"(?<![0-9])20[0-3][0-9](?![0-9])", str(x.get("t") or "") + " " + str(x["f"]))
+                d = (max(ys) + "-00-00") if ys else ""
+            rows.setdefault(k, []).append((d, str(x["f"])))
+    out = {}
+    y0, y1 = f"{int(year)}-00-00", f"{int(year) + 1}-00-00"
+    for p, (_rp, prof) in real.items():
+        L = rows.get(p) or []
+        cur = [r for r in L if y0 <= r[0] < y1]
+        old = [r for r in L if r[0] and r[0] < y0]
+        if cur:
+            out[p] = (max(cur)[1], True)
+        elif old:
+            out[p] = (max(old)[1], False)
+        elif prof:
+            out[p] = (prof, False)
+        elif L:
+            out[p] = (L[0][1], False)
+    return out
+
+
+_DET = {}
+
+
+def face_of(data):
+    """圖片位元組 → [兩眼中點 x÷圖寬, 兩眼中點 y÷圖高, 臉寬÷圖寬, 圖寬÷圖高]；沒裝 OpenCV、沒有模型檔、或找不到臉就回 None"""
+    try:
+        import cv2
+        import numpy as np
+        from PIL import Image
+        if not os.path.exists(MODEL):
+            return None
+        im = Image.open(io.BytesIO(data)).convert("RGBA")
+        W, H = im.size
+        bg = Image.new("RGBA", im.size, (128, 128, 128, 255))
+        bg.alpha_composite(im)   # 去背圖墊一層灰底再偵測
+        k = 320 / max(W, H)
+        a = cv2.cvtColor(np.asarray(bg.convert("RGB").resize((max(1, round(W * k)), max(1, round(H * k))), Image.LANCZOS)), cv2.COLOR_RGB2BGR)
+        det = cv2.FaceDetectorYN.create(MODEL, "", (a.shape[1], a.shape[0]), 0.5, 0.3, 20)
+        _, faces = det.detect(a)
+        if faces is None or not len(faces):
+            return None
+        f = max(faces, key=lambda r: r[2] * r[3])
+        ex, ey = (f[4] + f[6]) / 2, (f[5] + f[7]) / 2
+        return [round(float(ex / a.shape[1]), 3), round(float(ey / a.shape[0]), 3), round(float(f[2] / a.shape[1]), 3), round(W / H, 3)]
+    except Exception:
+        return None
+
+
+def _fetch(url):
+    for k in range(2):
+        try:
+            return urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=40).read()
+        except Exception:
+            time.sleep(2)
+    return b""
+
+
+def images(cargo, pages, year, teams=()):
+    """頁名清單 → {頁名: {"u": 縮圖網址或 "", "y": 1＝該年的照片, "f": 臉的位置或 None}}"""
+    real = resolve(cargo, pages, teams)
+    files = pick_files(cargo, real, year)
+    th = _thumbs(sorted({f.replace("_", " ") for f, _cur in files.values()}))
+    out = {}
+    for p in pages:
+        f, cur = files.get(p, ("", False))
+        u = th.get(f.replace("_", " "), "") if f else ""
+        o = {"u": u, "y": 1 if (u and cur) else 0}
+        if u:
+            data = _fetch(u)
+            o["f"] = face_of(data) if data else None
+            time.sleep(0.1)
+        out[p] = o
+    return out
+
+
+def predecessors(cargo, teams):
+    """{現在的隊名: [自己, 改名前的隊名…]}：沿著 Leaguepedia 的 TeamRenames 往回找（改名 rebrand／rename 與被收購 acquire 都算，含 wiki 上的錯字 reband／acuire；partner 不算；最多往回 8 層）。
+    收購也算：Gen.G 的前身是 KSV（2017 收購 Samsung Galaxy），Ruler 從 Samsung 時期就在這支隊伍
+    使用者 2026-11-22「如果中間有斷掉也要把前面的算進去」——wiki 把改名前後當成不同的隊（DWG KIA → Dplus Kia、SK Telecom T1 → T1），
+    不接起來的話 ShowMaker 在 DK 只算得到 2023 年改名後、Faker 在 T1 只算得到 2019 年改名後"""
+    out = {t: [t] for t in teams}
+    back = {t: t for t in teams}   # 某個名字 → 它屬於哪一支現在的隊
+    front = list(teams)
+    for _ in range(8):
+        if not front:
+            break
+        nxt = []
+        for i in range(0, len(front), 25):
+            for x in cargo({"tables": "TeamRenames", "fields": "OriginalName=o,NewName=n,Verb=v", "where": "NewName IN " + _in(front[i:i + 25]), "limit": "500", "format": "json"}):
+                o, n = str(x.get("o") or ""), str(x.get("n") or "")
+                if not o or n not in back or o in back or str(x.get("v") or "").lower() not in ("rebrand", "rename", "reband", "acquire", "acuire"):
+                    continue
+                back[o] = back[n]
+                out[back[n]].append(o)
+                nxt.append(o)
+        front = nxt
+    return out
+
+
+def tenures(cargo, teams, C, today):
+    """{現在的隊名: [[選手頁名, 加入日, 離隊日或 ""], …]}：這些隊伍（含改名前的名字）所有人的歷次效力區間（一天查一次）"""
+    T = C.get("ten") or {}
+    if T.get("t") == today and T.get("v") == 3 and all(tm in (T.get("rows") or {}) for tm in teams):
+        return T["rows"]
+    pre = predecessors(cargo, teams)
+    of = {nm: cur for cur, L in pre.items() for nm in L}
+    names = sorted(of)
+    rows = {tm: [] for tm in teams}
+    for i in range(0, len(names), 12):
+        for y in cargo({"tables": "Tenures", "fields": "Tenures.Player=p,Tenures.Team=tm,Tenures.DateJoin=dj,Tenures.DateLeave=dl", "limit": "5000", "format": "json",
+                        "order_by": "Tenures.DateJoin", "where": "Tenures.Team IN " + _in(names[i:i + 12])}):
+            cur = of.get(y.get("tm"))
+            if y.get("p") and y.get("dj") and cur:
+                rows[cur].append([str(y["p"]), str(y["dj"])[:10], str(y.get("dl") or "")[:10]])
+    C["ten"] = {"t": today, "v": 3, "rows": rows, "pre": {k: v for k, v in pre.items() if len(v) > 1}}
+    return rows
+
+
+def _k(n):
+    return re.sub(r"[\s_.'\-]+", "", _disp(n)).lower()
+
+
+def attach_tenures(board, rows):
+    """把歷次效力區間掛到格子裡的人身上（tn＝[[起, 迄或 ""], …]，舊到新）。同一人同一隊中間斷過的每一段都列，前端加總。
+    名字比對：先比完整頁名，再比「去掉括號與空白」的 ID（wiki 把 BrokenBlade 記成 Broken Blade）"""
+    n = 0
+    for t in board:
+        if t.get("fa"):
+            continue
+        L = rows.get(t.get("tm")) or rows.get(t.get("nm")) or []
+        if not L:
+            continue
+        by_page, by_id = {}, {}
+        for p, dj, dl in L:
+            by_page.setdefault(p.lower(), []).append([dj, dl])
+            by_id.setdefault(_k(p), []).append([dj, dl])
+        for es in (t.get("r") or {}).values():
+            for e in es:
+                if e.get("r"):
+                    continue   # 傳聞的人還沒來，不寫
+                pg = str(e.get("p") or e.get("n") or "")
+                seg = by_page.get(pg.replace("_", " ").lower()) or by_id.get(_k(pg)) or by_id.get(_k(e.get("n") or ""))
+                if seg:
+                    e["tn"] = sorted(seg)
+                    n += 1
+    return n
 
 
 def _load():
@@ -154,11 +315,14 @@ def _load():
 
 
 def build(cargo, year, board, roles=None, alias=None):
-    """回傳 (s26, pimg)。board＝transfers_board.build 的結果；roles＝{名字: [路線, 頁名, wikiID]}（傳聞人選補頁名用）；
-    alias＝{現在的隊名: 那一年打比賽時的隊名}（OpTic Gaming 2026 年叫 Dignitas）"""
+    """回傳 (s26, pimg, pfc)，並把效力區間掛進 board（e["tn"]）。board＝transfers_board.build 的結果；
+    roles＝{名字: [路線, 頁名, wikiID]}（傳聞人選補頁名用）；alias＝{現在的隊名: 那一年打比賽時的隊名}（OpTic Gaming 2026 年叫 Dignitas）"""
     roles = roles or {}
     alias = alias or {}
     C = _load()
+    if C.get("v") != VER:
+        C["img"] = {}
+        C["v"] = VER
     today = datetime.date.today().isoformat()
     teams = [(t.get("nm") or t.get("tm"), t.get("tm") or t.get("nm")) for t in board if not t.get("fa") and (t.get("tm") or t.get("nm"))]
     # ① 先發
@@ -171,6 +335,7 @@ def build(cargo, year, board, roles=None, alias=None):
                 S[tm] = got[alias.get(tm, tm)]
         print(f"   隊伍小框：{year} 先發補查 {len(need)} 隊，查到 {sum(1 for tm in need if tm in S)} 隊")
     s26 = {nm: S[tm] for nm, tm in teams if S.get(tm)}
+
     # ② 圖片：先發五人＋每隊格子裡的五路選手與主教練＋上一任主教練
     def page_of(e):
         n = e.get("n") or ""
@@ -189,13 +354,32 @@ def build(cargo, year, board, roles=None, alias=None):
                 pages.add(page_of(e))
     pages.discard("")
     I = C.setdefault("img", {})
-    need = sorted(p for p in pages if p not in I or (not I[p].get("u") and I[p].get("t", "") < today))
+    week = (datetime.date.today() - datetime.timedelta(days=7)).isoformat()
+
+    def stale(p):
+        o = I.get(p)
+        if not o:
+            return True
+        if not o.get("u"):
+            return o.get("t", "") < today        # 沒圖：隔天重查
+        return not o.get("y") and o.get("t", "") < week   # 不是該年的照片：7 天後重查一次
+
+    need = sorted(p for p in pages if stale(p))
     if need:
-        got = images(cargo, need, [tm for _nm, tm in teams])
+        got = images(cargo, need, year, [tm for _nm, tm in teams])
         for p in need:
-            I[p] = {"u": got.get(p, ""), "t": today}
-        print(f"   隊伍小框：圖片補查 {len(need)} 人，有圖 {sum(1 for p in need if got.get(p))} 人")
+            o = got.get(p) or {"u": "", "y": 0}
+            o["t"] = today
+            I[p] = o
+        print(f"   隊伍小框：圖片補查 {len(need)} 人，有圖 {sum(1 for p in need if I[p].get('u'))} 人（{year} 年的照片 {sum(1 for p in need if I[p].get('y'))} 人、量到臉 {sum(1 for p in need if I[p].get('f'))} 人）")
+    # ③ 效力區間
+    try:
+        nt = attach_tenures(board, tenures(cargo, sorted({tm for _nm, tm in teams}), C, today))
+        print(f"   效力區間：掛上 {nt} 人")
+    except Exception as e:
+        print(f"   效力區間查詢失敗（略過）：{type(e).__name__} {str(e)[:100]}")
     os.makedirs(os.path.dirname(CACHE), exist_ok=True)
     io.open(CACHE, "w", encoding="utf-8").write(json.dumps(C, ensure_ascii=False, separators=(",", ":")))
     pimg = {p: I[p]["u"] for p in sorted(pages) if I.get(p, {}).get("u")}
-    return s26, pimg
+    pfc = {p: I[p]["f"] for p in sorted(pages) if I.get(p, {}).get("u") and I[p].get("f")}
+    return s26, pimg, pfc
