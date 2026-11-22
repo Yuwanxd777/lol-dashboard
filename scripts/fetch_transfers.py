@@ -746,13 +746,13 @@ def main():
     #   （scripts/transfers_photos.py；查過的存 csv_cache，每小時只補新的人）。同一支也把每個人在這一隊的歷次效力區間掛到 board 的格子上（tn，小框的「效力」用）
     try:
         import transfers_photos
-        s26, pimg, pfc = transfers_photos.build(B.cargo, yr, board, roles, {"OpTic Gaming": "Dignitas"})
-        print(f"隊伍小框：先發 {len(s26)} 隊、圖片 {len(pimg)} 張（量到臉 {len(pfc)} 張）")
+        s26, pimg, pfc, pph = transfers_photos.build(B.cargo, yr, board, roles, {"OpTic Gaming": "Dignitas"})
+        print(f"隊伍小框：先發 {len(s26)} 隊、圖片 {len(pimg)} 張（量到臉 {len(pfc)} 張、裁好頭像 {len(pph)} 張）")
     except Exception as e:
-        s26, pimg, pfc = old.get("s26") or {}, old.get("pimg") or {}, old.get("pfc") or {}
+        s26, pimg, pfc, pph = old.get("s26") or {}, old.get("pimg") or {}, old.get("pfc") or {}, old.get("pph") or {}
         print(f"隊伍小框資料失敗，沿用舊檔（先發 {len(s26)} 隊、圖片 {len(pimg)} 張）：{type(e).__name__} {str(e)[:100]}")
     data = {"at": datetime.datetime.now().strftime("%Y-%m-%d %H:%M"), "from": start, "t1": t1, "wiki": wiki, "sheep": sheep, "extra": extra, "roles": roles, "board": board, "intl": intl,
-            "s26": s26, "pimg": pimg, "pfc": pfc}
+            "s26": s26, "pimg": pimg, "pfc": pfc, "pph": pph}
     try:
         used = {o.get("tip") for t in board for L in (t.get("r") or {}).values() for e in L for o in ([e] + (e.get("ros") or []) + ([e["ro"]] if e.get("ro") else []) + (e.get("tips") or []))}
         data["tipEn"] = {k: v for k, v in _tb.TIP_EN.items() if k in used} or (old.get("tipEn") or {})

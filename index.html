@@ -1159,8 +1159,9 @@
   .tpSr{font-size:13px;color:var(--tx2)}
   .tpPill{font-size:12px;font-weight:700;padding:1px 7px;border-radius:999px;margin-left:auto}
   .tpR{background:rgba(255,90,90,.16);color:#ff5a5a}.tpB{background:rgba(90,169,255,.16);color:#5aa9ff}.tpY{background:rgba(255,200,80,.16);color:#ffc850}.tpW{background:rgba(255,255,255,.1);color:var(--tx)}.tpK{background:rgba(255,142,198,.16);color:#ff8ec6}.tpV{background:rgba(255,142,198,.16);color:#ff8ec6}.tpG{background:rgba(76,208,125,.16);color:#4cd07d}
+  /* 右邊的值換成兩行以上時，左邊的標籤（合約、效力…）對齊第一行，不跑到中間（使用者 2026-11-22）：兩邊都從上緣排、上下各留 2px（單行時一樣是 24px 高） */
   .tpKv{display:grid;grid-template-columns:auto 1fr;column-gap:12px;row-gap:2px;margin-top:6px;font-size:14px;font-variant-numeric:tabular-nums}
-  .tpKv>span:nth-child(odd){color:var(--tx2)}.tpKv>span{display:flex;align-items:center;gap:5px;flex-wrap:wrap;min-height:24px;line-height:20px}.tbBoard .tbCell .tbCv{padding:6px 10px;margin:-6px -10px}   /* 值裡有隊徽縮寫（從 BROC 上調）要跟文字同一條水平線 */
+  .tpKv>span:nth-child(odd){color:var(--tx2)}.tpKv>span{display:flex;align-items:flex-start;align-content:flex-start;gap:5px;flex-wrap:wrap;min-height:20px;padding:2px 0;line-height:20px}.tbBoard .tbCell .tbCv{padding:6px 10px;margin:-6px -10px}   /* 值裡有隊徽縮寫（從 BROC 上調）要跟文字同一條水平線 */
   .tpTm{display:inline-flex;align-items:center;gap:5px;font-weight:700}
   .tpSrc{color:#7fb2ff;text-decoration:underline;text-underline-offset:2px}
   .tpA{color:inherit;text-decoration:none}#tbTip.sheet .tpA{text-decoration:underline;text-decoration-color:rgba(255,255,255,.35);text-underline-offset:3px}
@@ -15411,6 +15412,9 @@ function render(){
       //   照片本身拍得很近（下面沒有身體）時，照這個比例下緣會露出框底，那幾張改成放大到剛好蓋到框底（頭會比別人大一點，但不會斷在半空中）。沒有 pfc 的照舊置中裁切
       // 頭轉正（使用者 2026-11-22「有些歐美選手頭像歪歪的」）：f[4]＝兩眼連線的角度 ⇒ 以兩眼中點為軸反轉回去，眼睛變水平。只轉 2°～20°（再大多半是側臉、量不準）。
       //   轉了之後照片下緣兩角會往上翹 ⇒ 「下緣要蓋到框底」的條件多留 半個框寬×sin(角度)
+      // 頭像（使用者 2026-11-22「頭像感覺還是沒這麼整齊」「點頭像讀取的速度幫我加速」）：優先用程式端裁好的檔（D.pph：scripts/transfers_photos.py 裁成 192×192、
+      //   臉一樣寬、兩眼同一點、頭轉正，放在轉會網站的 /ph/，比 wiki 原圖小很多）；那個檔載不到才退回 wiki 原圖＋下面這套 CSS 對齊
+      const PH="https://lol-transfer.pages.dev/ph/", PPH=D.pph||{}, PPHL=lowMap(PPH), phOf=p=>{ const q=String(p).replace(/_/g," "), f=PPH[p]||PPH[q]||PPHL[q.toLowerCase()]; return f?PH+f:""; };
       const PFC=D.pfc||{}, PFCL=lowMap(PFC), FW=0.34, EY=0.42, fcSt=p=>{ const q=String(p).replace(/_/g," "), f=PFC[p]||PFC[q]||PFCL[q.toLowerCase()]; if(!f||!(f[2]>0)||!(f[3]>0))return "";
         const a=f[5]&&Math.abs(f[4]||0)>=2&&Math.abs(f[4])<=20?f[4]:0, sn=Math.abs(Math.sin(a*Math.PI/180)), cs=Math.cos(a*Math.PI/180);
         // f[5]＝去背照才轉：帶背景的照片轉了，框的角落會露出空白
@@ -15421,7 +15425,10 @@ function render(){
       const pick27=L=>{ const c=e=>tbCls(e).split(" ")[0], inn=L.filter(e=>/^(tbNew|tbRs|tbStay|tbPm)$/.test(c(e))); if(inn.length)return inn[0];
         const ru=L.filter(e=>c(e)==="tbY").sort((a,b)=>String(b.d||"").localeCompare(String(a.d||""))); return ru[0]||L.find(e=>c(e)==="tbOut")||null; };
       const phH=(o,ic,cls)=>{ const lane=`<img class="tbPhL" src="img/${ic}.png" alt="">`; if(!o)return `<div class="tbPh"><div class="tbPhI tbPhE">${lane}</div><span class="tbPhN tbMuted">–</span></div>`;
-        const u=imgOf(o.p); return `<div class="tbPh"><div class="tbPhI">${u?`<img class="tbPhP"${fcSt(o.p)} src="${esc(u)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">`:""}${lane}</div>`
+        const u=imgOf(o.p), h=phOf(o.p), st=fcSt(o.p);
+        const im=h?`<img class="tbPhP" src="${esc(h)}" alt="" decoding="async" fetchpriority="high"${u?` data-w="${esc(u)}" data-s="${esc(st.replace(/^ style="|"$/g,""))}"`:""} onerror="if(this.dataset.w){this.src=this.dataset.w;this.setAttribute('style',this.dataset.s||'');this.referrerPolicy='no-referrer';this.dataset.w=''}else this.remove()">`
+          :u?`<img class="tbPhP"${st} src="${esc(u)}" alt="" decoding="async" fetchpriority="high" referrerpolicy="no-referrer" onerror="this.remove()">`:"";
+        return `<div class="tbPh"><div class="tbPhI">${im}${lane}</div>`
           +`<a class="tbPhN tbN ${cls||"tbStay"}" href="https://lol.fandom.com/wiki/${encodeURIComponent(String(o.p).replace(/ /g,"_"))}" target="_blank" rel="noopener">${esc(nm0(o.n))}</a></div>`; };
       // 開法（使用者 2026-11-22）：先是「滑動到隊徽的時候 顯示陣容對比」，同一天改成「點擊隊徽才顯示陣容對比 然後懸浮在畫面中間 大一點 正方形大小 之後我要塞數據」
       //   ⇒ 電腦版點隊徽（或隊名）開，正方形、置中；下面留一塊 .tbTmData 之後放數據。手機照舊從底部浮上來
@@ -15434,6 +15441,12 @@ function render(){
         d.innerHTML=`<div class="tbTmHd">${teamLogoHTML(tAb(t.nm),26,true,t.nm)||teamLogoHTML(tAb(t.tm),26,true,t.tm)||""}<a href="${tmWk(t.nm)}" target="_blank" rel="noopener">${esc(abOf(t.nm))}</a><button class="tbTipX" aria-label="close">✕</button></div>`
           +`<div class="tbTmYr">2026</div><div class="tbTmG">${y26}</div><div class="tbTmYr">2027</div><div class="tbTmG">${y27}</div><div class="tbTmData"></div>`;
         document.body.appendChild(d); d.querySelector(".tbTipX").onclick=()=>d.remove(); d._row=row; };
+      // 預載（使用者 2026-11-22「點頭像讀取的速度幫我加速」）：電腦版滑鼠移到隊徽、手機手指碰到隊名格的當下，就先把那一隊的頭像抓起來，點下去時多半已經在快取裡
+      const preTeam=row=>{ if(!row||row._pre)return; row._pre=1; const nm=(row.querySelector(".tbTeam")||{}).title, t=(D.board||[]).find(x=>!x.fa&&x.nm===nm); if(!t)return;
+        const ps=new Set(); Object.values((D.s26||{})[t.nm]||(D.s26||{})[t.tm]||{}).forEach(o=>o&&ps.add(o[1]||o[0])); Object.values(t.r||{}).flat().forEach(e=>ps.add(pg0(e)));
+        ps.forEach(p=>{ const u=phOf(p)||imgOf(p); if(u){ const i=new Image(); i.decoding="async"; if(!phOf(p))i.referrerPolicy="no-referrer"; i.src=u; } }); };
+      bd.addEventListener("mouseover",e=>{ const lg=e.target.closest(".tbTeam img:not(.tbFaIc)"); if(lg&&!lg.closest(".tbFA"))preTeam(lg.closest(".tbRow")); });
+      bd.addEventListener("touchstart",e=>{ const tm=e.target.closest(".tbTeam"); if(tm&&!tm.closest(".tbFA"))preTeam(tm.closest(".tbRow")); },{passive:true});
       if(!window._tbTmOut){ window._tbTmOut=1; document.addEventListener("click",e=>{ const d=document.getElementById("tbTmBox"); if(d&&!e.target.closest("#tbTmBox")&&!e.target.closest(".tbTeam"))d.remove(); });
         document.addEventListener("keydown",e=>{ if(e.key==="Escape"){ const d=document.getElementById("tbTmBox"); if(d)d.remove(); } }); }
       const keepTip=()=>{ clearTimeout(tip._ht); tip._hp=0; }, hideSoon=()=>{ clearTimeout(tip._ht); tip._hp=1; tip._ht=setTimeout(()=>{ tip._hp=0; if(!tip.classList.contains("sheet")){ tip.style.display="none"; tip._c=null; } },200); };   // _hp＝200ms 的倒數正在跑（mousemove 會一直進來，不能每次都重新倒數）
@@ -15459,7 +15472,7 @@ function render(){
         const Q=[e.clientX,e.clientY], cr=(a,b,p)=>(b[0]-a[0])*(p[1]-a[1])-(b[1]-a[1])*(p[0]-a[0]), d1=cr(P,S[0],Q), d2=cr(S[0],S[1],Q), d3=cr(S[1],P,Q);
         return (Q[0]!==P[0]||Q[1]!==P[1])&&!((d1<0||d2<0||d3<0)&&(d1>0||d2>0||d3>0)); };
       const transit=()=>{ clearTimeout(tip._ht); tip._hp=0; tip._ht=setTimeout(()=>{ if(tip._onT||tip.classList.contains("sheet"))return; tip.style.display="none"; tip._c=null; },350); };
-      bd.onmouseover=e=>{ if(touch())return; if(inBridge(e)){ keepTip(); return; } if(aimAt(e)){ transit(); return; } const c=cellOf(e); if(!c){ const same=tip._c&&(e.target.closest(".tbCell")===tip._c||(e.target.closest(".tbTeam")&&e.target.closest(".tbRow")===tip._c.closest(".tbRow"))); same?hideSoon():hideNow(); return; } keepTip(); if(tip.style.display==="block"&&tip._c===c)return; tip._c=c; show(c,false); tip._pp=[e.clientX,e.clientY]; tip._onT=1; };
+      bd.onmouseover=e=>{ if(touch())return; if(document.getElementById("tbTmBox")){ hideNow(); return; }   /* 陣容對比開著時，背後的格子不開小框（使用者 2026-11-22） */ if(inBridge(e)){ keepTip(); return; } if(aimAt(e)){ transit(); return; } const c=cellOf(e); if(!c){ const same=tip._c&&(e.target.closest(".tbCell")===tip._c||(e.target.closest(".tbTeam")&&e.target.closest(".tbRow")===tip._c.closest(".tbRow"))); same?hideSoon():hideNow(); return; } keepTip(); if(tip.style.display==="block"&&tip._c===c)return; tip._c=c; show(c,false); tip._pp=[e.clientX,e.clientY]; tip._onT=1; };
       // 同一格裡面移動不會有 mouseover（沒有跨過元素邊界）⇒ 小框開著的時候用 mousemove 補：在文字上／通道裡＝留著；同一格的其他地方＝開始 200ms 倒數；跑到別格（從通道斜出去）＝立刻收
       bd.onmousemove=e=>{ if(touch()||!tip._c||tip.style.display!=="block"||tip.classList.contains("sheet"))return;
         const P0=tip._pp; if(P0&&Math.abs(e.clientX-P0[0])+Math.abs(e.clientY-P0[1])<4)return;

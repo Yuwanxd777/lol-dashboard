@@ -3,13 +3,16 @@
 
   s26   {隊名（陣容表的 nm）: {TOP/JNG/MID/BOT/SUP/HC: [顯示 ID, wiki 頁名]}}
         HC＝戰隊 wiki 頁 Tournaments 區最近一場賽事名單上的第一位教練（使用者 2026-11-22 定的規則；細節見 coaches()）
-        ＝那一年替這隊出賽最多場的人（Leaguepedia ScoreboardPlayers，所有賽事；同場數取頁名字母序，結果才固定）
+        ＝那一年第三賽段替這隊出賽最多場的人（Leaguepedia ScoreboardPlayers；細節見 starters()）
   pimg  {wiki 頁名: 縮圖網址}
         選圖順序（使用者「選手的照片記得抓取的是2026最新一張 如果2026沒有才往前抓」）：
         PlayerImages 裡該年最新一張 → 沒有就該年以前最新的一張 → 個人頁那張（Players.Image）→ 其餘任何一張。只存有圖的人
   pfc   {wiki 頁名: [兩眼中點 x÷圖寬, 兩眼中點 y÷圖高, 臉寬÷圖寬, 圖寬÷圖高, 兩眼連線的角度（度，正＝畫面右邊那隻眼睛比較低）, 1＝去背照]}
         （使用者「圖片的人頭大小與位置幫我調整一致」）OpenCV 的 YuNet 臉部偵測（模型檔 csv_cache/face_detection_yunet_2023mar.onnx，
         使用者同意下載）量出來的；前端照這四個數把每張圖縮放、移動到「臉一樣寬、眼睛在同一個位置」。量不到的人前端退回一般的置中裁切
+  pph   {wiki 頁名: 檔名}：程式端先裁好的頭像（192×192 webp，臉一樣寬、兩眼在同一點、頭轉正、身體下緣漸隱），
+        放在轉會網站的 www/ph/（部署時一起上傳），前端直接顯示、不再用 CSS 縮放（使用者 2026-11-22「頭像感覺還是沒這麼整齊」「點頭像讀取的速度幫我加速」）。
+        原圖抓過的存在 csv_cache/ph_src/，之後重裁不用再下載
   效力  tenures()：每隊每個人的歷次效力區間（Tenures 表，含已經結束的），fetch_transfers 掛到格子裡的人身上（欄位 tn）
 
 由 fetch_transfers.py 在陣容表建好之後呼叫。查過的結果存在 csv_cache/transfers_photos.json：
@@ -27,6 +30,7 @@ import time
 import urllib.parse
 import urllib.request
 
+import hashlib
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 CACHE = os.path.join(ROOT, "csv_cache", "transfers_photos.json")
@@ -36,6 +40,10 @@ UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.3
 ROLE = {"top": "TOP", "jungle": "JNG", "mid": "MID", "bot": "BOT", "support": "SUP"}
 PX = 220   # 縮圖寬（畫面上最大 112px，臉放大後 2 倍螢幕也夠用）
 VER = 2    # 快取版本：選圖規則改了就加一，舊的圖片紀錄整批重查
+SRCDIR = os.path.join(ROOT, "csv_cache", "ph_src")
+PHDIR = os.path.join(os.path.dirname(ROOT), "轉會網站", "www", "ph")   # 轉會網站的部署資料夾（transfers_hourly.py site 整個 www 一起部署）
+RVER = "1"   # 裁切規則版本：改了 FW／EY／漸隱就加一，檔名跟著換（瀏覽器快取才會更新）
+PS, PFW, PEY = 192, 0.36, 0.44   # 頭像邊長、臉寬佔邊長、兩眼高度佔邊長
 
 
 def _in(names):
@@ -49,22 +57,44 @@ def _disp(page):
     return s[:i] if i > 0 and s.endswith(")") else s
 
 
+_POST = re.compile(r"playoff|final|road to|qualif|promotion|regional|play-in|tiebreak", re.I)
+
+
 def starters(cargo, year, teams):
-    """teams＝wiki 隊名清單 → {wiki 隊名: {路線: [顯示 ID, 頁名]}}"""
+    """teams＝wiki 隊名清單 → {wiki 隊名: {路線: [顯示 ID, 頁名]}}：那一年「第三賽段」各路出賽最多場的人。
+    使用者 2026-11-22「陣容2026的圖 看的先發五人 要看第三賽段的先發五人 例如VKS輔助Kaiwing第三賽段就離隊了」（原本是整年出賽最多）。
+    第三賽段＝這支隊伍那一年最後一個國內常規賽事（頁名有「/<年> Season/」、不是季後賽／決賽／資格賽那類）開打之後的國內比賽
+    （含它的季後賽）：LCK＝Rounds 3-4＋Season Playoffs、LPL＝Split 3＋Grand Finals、LEC／LCS＝Summer、CBLOL＝Split 2（一年只有兩個 Split）、
+    LPL 第二賽段就淘汰的隊＝Split 2。國際賽（MSI、世界賽、EWC、KeSPA 杯…）不算。同場數取頁名字母序，結果才固定"""
     out = {}
-    for i in range(0, len(teams), 10):
-        rows = cargo({"tables": "ScoreboardPlayers=SP", "fields": "SP.Team=tm,SP.Link=p,SP.Role=r,COUNT(*)=n", "group_by": "SP.Team,SP.Link,SP.Role",
-                      "where": "SP.Team IN " + _in(teams[i:i + 10]) + f' AND SP.DateTime_UTC>="{year}-01-01" AND SP.DateTime_UTC<"{int(year) + 1}-01-01"',
+    tag = f"/{int(year)} Season/"
+    for i in range(0, len(teams), 6):
+        rows = cargo({"tables": "ScoreboardPlayers=SP", "fields": "SP.Team=tm,SP.Link=p,SP.Role=r,SP.OverviewPage=ov,COUNT(*)=n,MIN(SP.DateTime_UTC)=d0",
+                      "group_by": "SP.Team,SP.Link,SP.Role,SP.OverviewPage",
+                      "where": "SP.Team IN " + _in(teams[i:i + 6]) + f' AND SP.DateTime_UTC>="{year}-01-01" AND SP.DateTime_UTC<"{int(year) + 1}-01-01"',
                       "limit": "5000", "format": "json"})
-        best = {}
+        start = {}   # (隊, 賽事) → 這支隊伍在這個賽事的第一場
         for x in rows:
+            k = (x.get("tm"), str(x.get("ov") or ""))
+            d = str(x.get("d0") or "")[:10]
+            if k[0] and tag in k[1] and d and (k not in start or d < start[k]):
+                start[k] = d
+        cut = {}     # 隊 → 第三賽段從哪天開始＝最後一個國內常規賽事的第一場
+        for (tm, ov), d in start.items():
+            if not _POST.search(ov.split(tag, 1)[1]) and d > cut.get(tm, ""):
+                cut[tm] = d
+        cnt = {}
+        for x in rows:
+            tm, ov = x.get("tm"), str(x.get("ov") or "")
             rr = ROLE.get(str(x.get("r") or "").strip().lower())
-            if not rr or not x.get("p") or not x.get("tm"):
+            if not rr or not x.get("p") or tm not in cut or tag not in ov or start.get((tm, ov), "") < cut[tm]:
                 continue
-            k = (x["tm"], rr)
-            cand = (int(x.get("n") or 0), str(x["p"]))
-            if k not in best or cand[0] > best[k][0] or (cand[0] == best[k][0] and cand[1] < best[k][1]):
-                best[k] = cand
+            k = (tm, rr, str(x["p"]))
+            cnt[k] = cnt.get(k, 0) + int(x.get("n") or 0)
+        best = {}
+        for (tm, rr, p), n in cnt.items():
+            if (tm, rr) not in best or n > best[(tm, rr)][0] or (n == best[(tm, rr)][0] and p < best[(tm, rr)][1]):
+                best[(tm, rr)] = (n, p)
         for (tm, rr), (_n, pg) in best.items():
             out.setdefault(tm, {})[rr] = [_disp(pg), pg]
     return out
@@ -278,12 +308,85 @@ def face_of(data):
 
 
 def _fetch(url):
+    """原圖：先看 csv_cache/ph_src 有沒有，沒有才下載並存起來"""
+    fn = os.path.join(SRCDIR, hashlib.md5(url.encode()).hexdigest() + ".img")
+    if os.path.exists(fn):
+        return io.open(fn, "rb").read()
     for k in range(2):
         try:
-            return urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=40).read()
+            data = urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=40).read()
+            os.makedirs(SRCDIR, exist_ok=True)
+            io.open(fn, "wb").write(data)
+            return data
         except Exception:
             time.sleep(2)
     return b""
+
+
+def render_head(data, f):
+    """原圖＋臉的位置 → 192×192 的頭像（RGBA）：臉寬＝邊長的 36%、兩眼中點在 (50%, 44%)、去背照把頭轉正（2～20 度）、
+    身體下緣落在格子裡的（照片拍得比較近）最後 26px 漸隱；帶背景的照片放大到蓋滿整格"""
+    from PIL import Image
+    im = Image.open(io.BytesIO(data)).convert("RGBA")
+    W, H = im.size
+    ex, ey, fw, _ar, ang = f[:5]
+    cut = f[5] if len(f) > 5 else 1
+    S = PS
+    k = PFW * S / (fw * W)
+    if not cut:
+        k = max(k, (S / 2) / max(1e-6, ex * W), (S / 2) / max(1e-6, (1 - ex) * W), (PEY * S) / max(1e-6, ey * H), ((1 - PEY) * S) / max(1e-6, (1 - ey) * H))
+    rw, rh = max(1, round(W * k)), max(1, round(H * k))
+    r = im.resize((rw, rh), Image.LANCZOS)
+    cx, cy = ex * rw, ey * rh
+    if cut and 2 <= abs(ang) <= 20:
+        r = r.rotate(ang, center=(cx, cy), resample=Image.BICUBIC)
+    cv = Image.new("RGBA", (S, S), (0, 0, 0, 0))
+    ox, oy = round(S / 2 - cx), round(PEY * S - cy)
+    cv.alpha_composite(r, (max(0, ox), max(0, oy)), (max(0, -ox), max(0, -oy)))
+    bot = oy + rh
+    if cut and bot < S + 2:
+        a = cv.getchannel("A"); px = a.load(); L = 26
+        for y in range(max(0, bot - L), min(S, bot)):
+            m = (bot - y) / L
+            for x in range(S):
+                px[x, y] = int(px[x, y] * m)
+        cv.putalpha(a)
+    return cv
+
+
+def heads(I, pages):
+    """裁好頭像存到 PHDIR，回傳 {頁名: 檔名}；轉會網站的資料夾不在（別台電腦）就跳過。沒用到的舊檔刪掉"""
+    if not os.path.isdir(os.path.dirname(PHDIR)):
+        return {}
+    os.makedirs(PHDIR, exist_ok=True)
+    out, made = {}, 0
+    for p in pages:
+        o = I.get(p) or {}
+        if not o.get("u") or not o.get("f"):
+            continue
+        fn = hashlib.md5((o["u"] + "|" + json.dumps(o["f"]) + "|" + RVER).encode()).hexdigest()[:14] + ".webp"
+        dst = os.path.join(PHDIR, fn)
+        if not os.path.exists(dst):
+            try:
+                data = _fetch(o["u"])
+                if not data:
+                    continue
+                render_head(data, o["f"]).save(dst, "WEBP", quality=80, method=6)
+                made += 1
+            except Exception as e:
+                print(f"   頭像裁切失敗 {p}：{type(e).__name__} {str(e)[:60]}")
+                continue
+        out[p] = fn
+    keep = set(out.values())
+    gone = [x for x in os.listdir(PHDIR) if x.endswith(".webp") and x not in keep]
+    for x in gone:
+        try:
+            os.remove(os.path.join(PHDIR, x))
+        except Exception:
+            pass
+    if made or gone:
+        print(f"   隊伍小框：頭像新裁 {made} 張、刪掉沒用到的 {len(gone)} 張（共 {len(out)} 張）")
+    return out
 
 
 def images(cargo, pages, year, teams=()):
@@ -385,7 +488,7 @@ def _load():
 
 
 def build(cargo, year, board, roles=None, alias=None):
-    """回傳 (s26, pimg, pfc)，並把效力區間掛進 board（e["tn"]）。board＝transfers_board.build 的結果；
+    """回傳 (s26, pimg, pfc, pph)，並把效力區間掛進 board（e["tn"]）。board＝transfers_board.build 的結果；
     roles＝{名字: [路線, 頁名, wikiID]}（傳聞人選補頁名用）；alias＝{現在的隊名: 那一年打比賽時的隊名}（OpTic Gaming 2026 年叫 Dignitas）"""
     roles = roles or {}
     alias = alias or {}
@@ -397,12 +500,18 @@ def build(cargo, year, board, roles=None, alias=None):
     teams = [(t.get("nm") or t.get("tm"), t.get("tm") or t.get("nm")) for t in board if not t.get("fa") and (t.get("tm") or t.get("nm"))]
     # ① 先發
     S = C.setdefault("s26", {}).setdefault(str(year), {})
-    need = sorted({tm for _nm, tm in teams if tm not in S})
+    if C.get("s26v") != 2:   # 先發的規則改成第三賽段（2026-11-22）：五路整批重查，主教練（HC）留著
+        for tm in list(S):
+            S[tm] = {k: v for k, v in S[tm].items() if k == "HC"}
+            if not S[tm]:
+                del S[tm]
+        C["s26v"] = 2
+    need = sorted({tm for _nm, tm in teams if not any(r in (S.get(tm) or {}) for r in ROLE.values())})
     if need:
         got = starters(cargo, year, sorted({alias.get(tm, tm) for tm in need}))
         for tm in need:
             if got.get(alias.get(tm, tm)):
-                S[tm] = got[alias.get(tm, tm)]
+                S[tm] = dict(got[alias.get(tm, tm)], **({"HC": S[tm]["HC"]} if "HC" in (S.get(tm) or {}) else {}))
         print(f"   隊伍小框：{year} 先發補查 {len(need)} 隊，查到 {sum(1 for tm in need if tm in S)} 隊")
     needc = sorted({tm for _nm, tm in teams if tm in S and "HC" not in S[tm]})
     if needc:
@@ -476,4 +585,5 @@ def build(cargo, year, board, roles=None, alias=None):
         io.open(CACHE, "w", encoding="utf-8").write(json.dumps(C, ensure_ascii=False, separators=(",", ":")))
     pimg = {p: I[p]["u"] for p in sorted(pages) if I.get(p, {}).get("u")}
     pfc = {p: I[p]["f"] for p in sorted(pages) if I.get(p, {}).get("u") and I[p].get("f")}
-    return s26, pimg, pfc
+    pph = heads(I, sorted(pages))
+    return s26, pimg, pfc, pph
