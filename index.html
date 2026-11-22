@@ -14902,8 +14902,11 @@ function render(){
       { const hc=(t.r.COACH||[]).filter(e=>e.sr==="HC"&&!e.gone&&(e.new||e.tip||e.pm)).sort((a,b)=>(a.r?1:0)-(b.r?1:0))[0];
         if(hc){ const own=coachV(t.nm)??coachV(t.tm), Ar=hc.from?coachV(hc.from):(hc.pm?own:null), Av=Ar??CMD, Bv=own??CMD;
           const A=hc.from?coachS(hc.from):null, B=coachS(t.nm)||coachS(t.tm), base=en2?"no data, baseline":"無今年資料・基準分";
-          if(Av!=null&&Bv!=null&&!(Ar==null&&own==null))items.push({r:"COACH",nw:`${pn(hc.n)}（${hc.from?abOf(hc.from)+(Ar!=null&&A?"・"+A.note:""):(hc.pm?(en2?"promoted":"升任"):"")}${Ar==null?(hc.from||hc.pm?"・":"")+base:""}）`,
-            od:`${abOf(t.nm)}（${own!=null?(B?B.note:(en2?"no Split 3":"沒打第三賽段")):base}）`,a:Av,b:Bv,d:Av-Bv,rm:!!hc.r}); } }   /* 本隊有分數、只是沒打第三賽段（OMG、UP）不寫「無資料」 */
+          // 小框只寫名字（使用者 2026-11-22「轉會評分小框的教練部分 寫得很怪還超框」：原本名字後面接「隊名・成績・勝率」一整串，疊字又超出框）：
+          //   新＝新主教練；舊＝前任主教練（上一位 → 已宣布離隊的 → 2026 先發教練），都找不到才寫隊名。顏色照陣容表
+          const ohP=(((t.prev||{}).COACH)||[]).find(z=>z&&typeof z!=="string"&&z.sr==="HC"), ohc=ohP||(t.r.COACH||[]).find(z=>z.sr==="HC"&&z.gone&&z!==hc), s26h=((D.s26||{})[t.nm]||(D.s26||{})[t.tm]||{}).HC;
+          const odN=ohc?pn(ohc.n):(s26h&&s26h[0]&&pn(s26h[0]).toLowerCase()!==pn(hc.n).toLowerCase()?pn(s26h[0]):abOf(t.nm));
+          if(Av!=null&&Bv!=null&&!(Ar==null&&own==null))items.push({r:"COACH",nw:pn(hc.n),od:odN,ne:hc,oe:ohP?{prevE:ohP}:(ohc||undefined),a:Av,b:Bv,d:Av-Bv,rm:!!hc.r}); } }   /* 本隊有分數、只是沒打第三賽段（OMG、UP）不寫「無資料」 */
       // 續約鼓勵分（使用者 2026-11-20「選手續約給個五分鼓勵 如果兩人續約給兩個6分 以此類推到五人 最後五人續約時 主教練也沒變化 那就是總共+50」）：
       //   N 路有人續約 ⇒ 每人 1.5＋N×0.5 分（1 人 2、2 人各 2.5、…、5 人各 4＝20）；五路都續約且主教練沒換再 ＋5 ⇒ 合計 25
       //   （原本是每人 4＋N、合計 50：BRO 原班續約 ＋50 比 DK 換上 Doran＋Kanavi 還多 ⇒ 使用者 2026-11-20 同意調小）
