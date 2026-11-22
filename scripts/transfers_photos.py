@@ -2,7 +2,7 @@
 """轉會分頁「隊伍小框」與「效力」要的資料（使用者 2026-11-22）。
 
   s26   {隊名（陣容表的 nm）: {TOP/JNG/MID/BOT/SUP/HC: [顯示 ID, wiki 頁名]}}
-        HC＝那一年當主教練（含代理主教練）天數最多的人，直接查 wiki 的 Tenures＋RosterChanges（使用者 2026-11-22「如果不知道2026原教練是誰 就去翻WIKI」）
+        HC＝戰隊 wiki 頁 Tournaments 區最近一場賽事名單上的第一位教練（使用者 2026-11-22 定的規則；細節見 coaches()）
         ＝那一年替這隊出賽最多場的人（Leaguepedia ScoreboardPlayers，所有賽事；同場數取頁名字母序，結果才固定）
   pimg  {wiki 頁名: 縮圖網址}
         選圖順序（使用者「選手的照片記得抓取的是2026最新一張 如果2026沒有才往前抓」）：
@@ -71,32 +71,67 @@ def starters(cargo, year, teams):
 
 
 def coaches(cargo, year, teams):
-    """teams＝wiki 隊名清單 → {wiki 隊名: [顯示 ID, 頁名]}：那一年當主教練（Head Coach／Interim Head Coach；助理主教練不算）天數最多的人。
-    wiki 上整年都沒登記主教練的隊（OMG、Saigon Warriors 只有職稱「Coach」的人）⇒ 改取職稱剛好是 Coach、待最久的那位"""
-    y0, y1 = f"{int(year)}-01-01", f"{int(year)}-12-31"
+    """teams＝wiki 隊名清單 → {wiki 隊名: [顯示 ID, 頁名]}：那一年的主教練。
+    規則（使用者 2026-11-22「主教練就是看戰隊WIKI下方 Tournaments 的部分 最近一個比賽的第一個哨子圖後面的ID」）：
+      戰隊頁下方 Tournaments 那一區＝wiki 的 TournamentPlayers（每場賽事的登錄名單）⇒ 取那一年、已經開打的賽事裡最近的一場，
+      名單上職稱是教練（哨子圖）的第一位（N_PlayerInTeam 最小）。青訓／學院賽（LPL Youth Academy 之類）不算：那是二隊的名單。
+      查不到賽事名單的隊，退回 Tenures：那一年當主教練（含代理）天數最多的人；再沒有就取職稱只寫 Coach、待最久的"""
+    y0, y1 = f"{int(year)}-01-01", f"{int(year) + 1}-01-01"
     today = datetime.date.today().isoformat()
-    days = {}
-    for i in range(0, len(teams), 15):
-        for x in cargo({"tables": "Tenures=T,RosterChanges=RC", "join_on": "T.RosterChangeIdJoin=RC.RosterChangeId",
-                        "fields": "T.Player=p,T.Team=tm,T.DateJoin=dj,T.DateLeave=dl,RC.Role=ro",
-                        "where": "T.Team IN " + _in(teams[i:i + 15]) + f' AND RC.Role LIKE "%Coach%" AND (T.DateLeave>="{y0}" OR T.IsCurrent=1) AND T.DateJoin<="{y1}"',
+    out, best = {}, {}
+    for i in range(0, len(teams), 10):
+        for x in cargo({"tables": "TournamentPlayers=TP,Tournaments=T", "join_on": "TP.OverviewPage=T.OverviewPage",
+                        "fields": "TP.Team=tm,TP.Link=p,TP.Role=ro,TP.N_PlayerInTeam=n,TP.OverviewPage=ov,T.DateStart=ds",
+                        "where": "TP.Team IN " + _in(teams[i:i + 10]) + f' AND TP.Role LIKE "%Coach%" AND T.DateStart>="{y0}" AND T.DateStart<"{y1}" AND T.DateStart<="{today}"',
                         "limit": "5000", "format": "json"}):
-            ro = str(x.get("ro") or "").strip().lower()
-            lv = 0 if "head coach" in ro and "assistant" not in ro else 1 if ro == "coach" else None   # 0＝主教練（含代理）、1＝職稱只寫 Coach
-            if lv is None or not x.get("p") or not x.get("tm") or not x.get("dj"):
+            ov = str(x.get("ov") or "")
+            if not x.get("p") or not x.get("tm") or re.search(r"youth|academy|rookie", ov, re.I):
                 continue
-            a = max(str(x["dj"])[:10], y0)
-            b = min(str(x.get("dl") or today)[:10], y1, today)
-            if b <= a:
-                continue
-            k = (x["tm"], lv, str(x["p"]))
-            days[k] = days.get(k, 0) + (datetime.date.fromisoformat(b) - datetime.date.fromisoformat(a)).days
-    best = {}
-    for (tm, lv, p), d in days.items():
-        cand = (lv, -d, p)   # 先比主教練優先、再比天數多
-        if tm not in best or cand < best[tm]:
-            best[tm] = cand
-    return {tm: [_disp(p), p] for tm, (_lv, _d, p) in best.items()}
+            try:
+                n = int(x.get("n") or 99)
+            except ValueError:
+                n = 99
+            k = (str(x.get("ds") or "")[:10], ov)      # 最近的賽事：開打日最晚的那場（同一天開打取名稱排序後面的，結果才固定）
+            cand = (k, -n, str(x["p"]))
+            if x["tm"] not in best or cand[0] > best[x["tm"]][0] or (cand[0] == best[x["tm"]][0] and cand[1] > best[x["tm"]][1]):
+                best[x["tm"]] = cand
+    # 顯示 ID：賽事名單給的是頁名（wiki 頁名第一個字一定大寫：CvMax、Maizijian）⇒ 查 Players.ID 拿選手自己的寫法（cvMax）
+    idof = {}
+    pgs = sorted({str(p) for _k, _n, p in best.values()})
+    for i in range(0, len(pgs), 40):
+        for y in cargo({"tables": "PlayerRedirects=PR,Players=P", "join_on": "PR.OverviewPage=P.OverviewPage", "fields": "PR.AllName=an,P.ID=id,P.OverviewPage=pg",
+                        "where": "PR.AllName IN " + _in(pgs[i:i + 40]), "limit": "500", "format": "json"}):
+            if y.get("id") is not None and y.get("an") is not None:
+                idof[str(y["an"]).lower()] = (str(y["id"]), str(y.get("pg") or y["an"]))
+    for tm, (_k, _n, p) in best.items():
+        disp, pg = idof.get(str(p).lower(), (_disp(p), p))
+        out[tm] = [disp, pg]
+    rest = [t for t in teams if t not in out]
+    if rest:   # 退回 Tenures
+        days = {}
+        for i in range(0, len(rest), 15):
+            for x in cargo({"tables": "Tenures=T,RosterChanges=RC", "join_on": "T.RosterChangeIdJoin=RC.RosterChangeId",
+                            "fields": "T.Player=p,T.Team=tm,T.DateJoin=dj,T.DateLeave=dl,RC.Role=ro",
+                            "where": "T.Team IN " + _in(rest[i:i + 15]) + f' AND RC.Role LIKE "%Coach%" AND (T.DateLeave>="{y0}" OR T.IsCurrent=1) AND T.DateJoin<"{y1}"',
+                            "limit": "5000", "format": "json"}):
+                ro = str(x.get("ro") or "").strip().lower()
+                lv = 0 if "head coach" in ro and "assistant" not in ro else 1 if ro == "coach" else None
+                if lv is None or not x.get("p") or not x.get("tm") or not x.get("dj"):
+                    continue
+                a = max(str(x["dj"])[:10], y0)
+                b = min(str(x.get("dl") or today)[:10], f"{int(year)}-12-31", today)
+                if b <= a:
+                    continue
+                kk = (x["tm"], lv, str(x["p"]))
+                days[kk] = days.get(kk, 0) + (datetime.date.fromisoformat(b) - datetime.date.fromisoformat(a)).days
+        fb = {}
+        for (tm, lv, p), d in days.items():
+            c = (lv, -d, p)
+            if tm not in fb or c < fb[tm]:
+                fb[tm] = c
+        for tm, (_lv, _d, p) in fb.items():
+            out[tm] = [_disp(p), p]
+    return out
 
 
 def _api(params):
