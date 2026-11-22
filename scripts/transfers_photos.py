@@ -42,7 +42,7 @@ PX = 220   # 縮圖寬（畫面上最大 112px，臉放大後 2 倍螢幕也夠�
 VER = 2    # 快取版本：選圖規則改了就加一，舊的圖片紀錄整批重查
 SRCDIR = os.path.join(ROOT, "csv_cache", "ph_src")
 PHDIR = os.path.join(os.path.dirname(ROOT), "轉會網站", "www", "ph")   # 轉會網站的部署資料夾（transfers_hourly.py site 整個 www 一起部署）
-RVER = "1"   # 裁切規則版本：改了 FW／EY／漸隱就加一，檔名跟著換（瀏覽器快取才會更新）
+RVER = "2"  # 裁切規則版本：改了 FW／EY／漸隱就加一，檔名跟著換（瀏覽器快取才會更新）
 PS, PFW, PEY = 192, 0.36, 0.44   # 頭像邊長、臉寬佔邊長、兩眼高度佔邊長
 
 
@@ -116,6 +116,10 @@ def coaches(cargo, year, teams):
                         "limit": "5000", "format": "json"}):
             ov = str(x.get("ov") or "")
             if not x.get("p") or not x.get("tm") or re.search(r"youth|academy|rookie", ov, re.I):
+                continue
+            # 升降賽／資格賽、下一季的賽事不算（使用者 2026-11-22 GZ：抓到 11 月「LCP/2027 Season/Promotion」名單上的 Ratis，2026 實際是 Skywalk）
+            sy = re.search(r"(20\d\d) Season", ov)
+            if re.search(r"promotion|relegation|qualif", ov, re.I) or (sy and int(sy.group(1)) != int(year)):
                 continue
             try:
                 n = int(x.get("n") or 99)
@@ -275,10 +279,54 @@ def pick_files(cargo, real, year):
 
 
 _DET = {}
+HR = 1.33   # 頭寬÷臉寬（去背照的中位數）：用頭寬推回臉寬，平均大小跟原本一樣
+
+
+def _head_geom(al, F):
+    """去背照的輪廓（al＝不透明的布林陣列、F＝臉框與眼睛，原圖座標）→ (頭中心 x, 頭寬, 傾斜度數) 或 None。
+    每一列只取「包含臉中心的那一段連續不透明」（排除舉在頭旁邊的手），範圍＝輪廓頂 → 臉框底；
+    只用寬度達最寬 75% 的列（去掉頭頂尖端與脖子）。傾斜＝這些列中點的斜率（正＝越往下越偏右）"""
+    import math
+    import numpy as np
+    H, W = al.shape
+    bx, by, bw, bh = F[:4]
+    seed = bx + bw / 2
+    top = None
+    for y in range(0, int(min(H, by + bh))):
+        if al[y, max(0, int(seed - bw / 2)):max(1, int(seed + bw / 2))].any():
+            top = y
+            break
+    if top is None:
+        return None
+    ys, L, R = [], [], []
+    for y in range(top, int(min(H, by + bh))):
+        row = al[y]
+        x0 = int(min(W - 1, max(0, seed)))
+        if not row[x0]:
+            xs = np.where(row)[0]
+            if not len(xs):
+                continue
+            x0 = int(xs[np.argmin(abs(xs - seed))])
+            if abs(x0 - seed) > bw * 0.6:
+                continue
+        l = x0
+        while l > 0 and row[l - 1]:
+            l -= 1
+        r = x0
+        while r < W - 1 and row[r + 1]:
+            r += 1
+        ys.append(y); L.append(l); R.append(r)
+    if len(ys) < 8:
+        return None
+    ys, L, R = np.array(ys, float), np.array(L, float), np.array(R, float)
+    w, mid = R - L, (L + R) / 2
+    m = w >= 0.75 * np.percentile(w, 90)
+    lean = math.degrees(math.atan(np.polyfit(ys[m], mid[m], 1)[0])) if m.sum() >= 8 else 0.0
+    return float(np.median(mid[m])), float(np.percentile(w[m], 75)), lean
 
 
 def face_of(data):
-    """圖片位元組 → [兩眼中點 x÷圖寬, 兩眼中點 y÷圖高, 臉寬÷圖寬, 圖寬÷圖高, 兩眼角度]；沒裝 OpenCV、沒有模型檔、或找不到臉就回 None。
+    """圖片位元組 → [頭的中心 x÷圖寬, 兩眼中點 y÷圖高, 臉寬÷圖寬, 圖寬÷圖高, 轉正角度, 是否去背, 1]；沒裝 OpenCV、沒有模型檔、或找不到臉就回 None。
     角度（使用者 2026-11-22「有些歐美選手頭像歪歪的」）：照片裡頭本身是歪的，前端照這個角度把頭轉正。YuNet 的眼睛座標＝畫面左邊那隻、畫面右邊那隻"""
     try:
         import cv2
@@ -297,12 +345,24 @@ def face_of(data):
         if faces is None or not len(faces):
             return None
         f = max(faces, key=lambda r: r[2] * r[3])
-        ex, ey = (f[4] + f[6]) / 2, (f[5] + f[7]) / 2
+        s = W / a.shape[1]
+        F = [float(v) * s for v in f[:8]]   # 換回原圖座標
+        ey = (F[5] + F[7]) / 2
         import math
-        ang = math.degrees(math.atan2(float(f[7] - f[5]), float(f[6] - f[4])))
+        eang = math.degrees(math.atan2(F[7] - F[5], F[6] - F[4]))
         al = np.asarray(im)[:, :, 3]
         cut = 1 if (al < 20).mean() > 0.05 else 0   # 去背照（透明的部分超過 5%）：前端只轉正這種，帶背景的轉了角落會露白
-        return [round(float(ex / a.shape[1]), 3), round(float(ey / a.shape[0]), 3), round(float(f[2] / a.shape[1]), 3), round(W / H, 3), round(ang, 1), cut]
+        # 左右置中看頭型，不看眼睛（使用者 2026-11-22「不要用眼睛去判斷 依照頭型來置中 否則像Quad這種側臉就會看起來很怪」）：
+        #   去背照用輪廓量頭的中心、頭寬（臉寬改用 頭寬÷HR，側臉的臉框偏窄會被放太大）、頭的傾斜；帶背景的照片退回臉框中心
+        cx, fw, ang = F[0] + F[2] / 2, F[2], eang
+        if cut:
+            g = _head_geom(al > 60, F)
+            if g:
+                hx, hw, lean = g
+                cx, fw = hx, hw / HR
+                # 很歪的頭略為轉正（使用者「頭如果很歪 你也可以略為轉正」）：眼睛角度與輪廓傾斜方向一致時取平均，不一致只信眼睛
+                ang = (eang - lean) / 2 if eang * lean < 0 else eang
+        return [round(cx / W, 3), round(ey / H, 3), round(fw / W, 3), round(W / H, 3), round(ang, 1), cut, 1]
     except Exception:
         return None
 
@@ -343,8 +403,9 @@ def render_head(data, f):
     cv = Image.new("RGBA", (S, S), (0, 0, 0, 0))
     ox, oy = round(S / 2 - cx), round(PEY * S - cy)
     cv.alpha_composite(r, (max(0, ox), max(0, oy)), (max(0, -ox), max(0, -oy)))
-    bot = oy + rh
-    if cut and bot < S + 2:
+    # 每一張頭像下緣都漸隱（使用者 2026-11-22「所有陣容對比框的頭像 底下都用漸層」）：身體下緣落在格子裡就從那裡淡出，否則淡出格子最下面 26px
+    bot = min(oy + rh, S)
+    if True:
         a = cv.getchannel("A"); px = a.load(); L = 26
         for y in range(max(0, bot - L), min(S, bot)):
             m = (bot - y) / L
@@ -405,6 +466,48 @@ def images(cargo, pages, year, teams=()):
             time.sleep(0.1)
         out[p] = o
     return out
+
+
+def bios(cargo, pages):
+    """頁名清單 → {頁名小寫: {"b": 生日 YYYY-MM-DD, "j": 第一次加入職業隊的日子}}。
+    生日＝Players.Birthdate（重新導向的舊頁名也查得到：走 PlayerRedirects）；出道＝Tenures 最早的 DateJoin（任何隊、任何職稱）"""
+    out = {}
+    for i in range(0, len(pages), 40):
+        for y in cargo({"tables": "PlayerRedirects=PR,Players=P", "join_on": "PR.OverviewPage=P.OverviewPage",
+                        "fields": "PR.AllName=an,P.OverviewPage=pg,P.Birthdate=b", "where": "PR.AllName IN " + _in(pages[i:i + 40]),
+                        "limit": "500", "format": "json"}):
+            an = str(y.get("an") or "").lower()
+            if an:
+                o = out.setdefault(an, {"pg": str(y.get("pg") or "")})
+                b = str(y.get("b") or "")[:10]
+                if re.match(r"\d{4}-\d\d-\d\d$", b) and not b.startswith("0000"):
+                    o["b"] = b
+    pgs = sorted({o["pg"] for o in out.values() if o.get("pg")} | set(pages))
+    first = {}
+    for i in range(0, len(pgs), 40):
+        for y in cargo({"tables": "Tenures=T", "fields": "T.Player=p,MIN(T.DateJoin)=d", "where": "T.Player IN " + _in(pgs[i:i + 40]),
+                        "group_by": "T.Player", "limit": "500", "format": "json"}):
+            d = str(y.get("d") or "")[:10]
+            if re.match(r"\d{4}-\d\d-\d\d$", d):
+                first[str(y.get("p") or "").lower()] = d
+    # 教練年資（使用者 2026-11-22「教練的話 2027列 年齡 教練年資 評分」「分析師也算教練年資」）：第一次以教練或分析師（職稱含 Coach／Analyst）加入的日子
+    firstc = {}
+    for i in range(0, len(pgs), 40):
+        for y in cargo({"tables": "Tenures=T,RosterChanges=RC", "join_on": "T.RosterChangeIdJoin=RC.RosterChangeId",
+                        "fields": "T.Player=p,MIN(T.DateJoin)=d", "where": "T.Player IN " + _in(pgs[i:i + 40]) + ' AND (RC.Role LIKE "%Coach%" OR RC.Role LIKE "%Analyst%")',
+                        "group_by": "T.Player", "limit": "500", "format": "json"}):
+            d = str(y.get("d") or "")[:10]
+            if re.match(r"\d{4}-\d\d-\d\d$", d):
+                firstc[str(y.get("p") or "").lower()] = d
+    for p in pages:
+        o = out.setdefault(p.lower(), {})
+        j = first.get(str(o.get("pg") or "").lower()) or first.get(p.lower())
+        if j:
+            o["j"] = j
+        c = firstc.get(str(o.get("pg") or "").lower()) or firstc.get(p.lower())
+        if c:
+            o["c"] = c
+    return {k: {x: v for x, v in o.items() if x in ("b", "j", "c")} for k, o in out.items()}
 
 
 def predecessors(cargo, teams):
@@ -506,6 +609,10 @@ def build(cargo, year, board, roles=None, alias=None):
             if not S[tm]:
                 del S[tm]
         C["s26v"] = 2
+    if C.get("s26v") == 2:   # 主教練排除升降賽／資格賽（2026-11-22）：主教練整批重查
+        for tm in S:
+            S[tm].pop("HC", None)
+        C["s26v"] = 3
     need = sorted({tm for _nm, tm in teams if not any(r in (S.get(tm) or {}) for r in ROLE.values())})
     if need:
         got = starters(cargo, year, sorted({alias.get(tm, tm) for tm in need}))
@@ -563,6 +670,17 @@ def build(cargo, year, board, roles=None, alias=None):
         print(f"   效力區間：掛上 {nt} 人")
     except Exception as e:
         print(f"   效力區間查詢失敗（略過）：{type(e).__name__} {str(e)[:100]}")
+    # ④ 生日與出道日（陣容對比 2027 那排的年齡、年資；使用者 2026-11-22「2027 底下列出 年齡 年資(職業時長)」）：每 7 天重查一次
+    BI = C.setdefault("bio", {})
+    needb = sorted(p for p in pages if (BI.get(p) or {}).get("t", "") < week or (BI.get(p) or {}).get("v") != 3)
+    if needb:
+        try:
+            got = bios(cargo, needb)
+            for p in needb:
+                BI[p] = dict(got.get(p.lower()) or {}, t=today, v=3)   # v3＝教練年資含分析師
+            print(f"   隊伍小框：生日／出道日補查 {len(needb)} 人，有生日 {sum(1 for p in needb if BI[p].get('b'))} 人、有出道日 {sum(1 for p in needb if BI[p].get('j'))} 人")
+        except Exception as e:
+            print(f"   生日／出道日查詢失敗（略過）：{type(e).__name__} {str(e)[:100]}")
     os.makedirs(os.path.dirname(CACHE), exist_ok=True)
     io.open(CACHE, "w", encoding="utf-8").write(json.dumps(C, ensure_ascii=False, separators=(",", ":")))
     # 同一個人在 wiki 的頁名有大小寫兩種寫法（Deokdam／deokdam、Kyeahoo／kyeahoo；使用者 2026-11-22「deokdam 2027為何沒頭像」）：
@@ -574,8 +692,8 @@ def build(cargo, year, board, roles=None, alias=None):
     for p in pages:
         if not I.get(p, {}).get("u") and low.get(p.lower()):
             I[p] = dict(low[p.lower()], t=today)
-    # 角度是後來才加的：舊紀錄的臉只有四個數 ⇒ 重新抓圖量一次（只量臉，不重查 wiki）
-    old = [p for p in pages if I.get(p, {}).get("u") and len(I[p].get("f") or []) < 6]
+    # 量法改過就重新量（只量臉，不重查 wiki；原圖有快取）：6 格＝舊的眼睛置中，7 格（最後一格 1）＝頭型置中
+    old = [p for p in pages if I.get(p, {}).get("u") and len(I[p].get("f") or []) < 7]
     for p in old:
         data = _fetch(I[p]["u"])
         I[p]["f"] = face_of(data) if data else I[p].get("f")
@@ -586,4 +704,5 @@ def build(cargo, year, board, roles=None, alias=None):
     pimg = {p: I[p]["u"] for p in sorted(pages) if I.get(p, {}).get("u")}
     pfc = {p: I[p]["f"] for p in sorted(pages) if I.get(p, {}).get("u") and I[p].get("f")}
     pph = heads(I, sorted(pages))
-    return s26, pimg, pfc, pph
+    pbio = {p: [BI[p].get("b", ""), BI[p].get("j", ""), BI[p].get("c", "")] for p in sorted(pages) if any((BI.get(p) or {}).get(x) for x in ("b", "j", "c"))}   # [生日, 出道日, 第一次當教練]
+    return s26, pimg, pfc, pph, pbio
