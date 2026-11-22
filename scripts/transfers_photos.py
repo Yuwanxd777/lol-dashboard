@@ -42,7 +42,7 @@ PX = 220   # 縮圖寬（畫面上最大 112px，臉放大後 2 倍螢幕也夠�
 VER = 2    # 快取版本：選圖規則改了就加一，舊的圖片紀錄整批重查
 SRCDIR = os.path.join(ROOT, "csv_cache", "ph_src")
 PHDIR = os.path.join(os.path.dirname(ROOT), "轉會網站", "www", "ph")   # 轉會網站的部署資料夾（transfers_hourly.py site 整個 www 一起部署）
-RVER = "4"  # 裁切規則版本：改了 FW／EY／漸隱就加一，檔名跟著換（瀏覽器快取才會更新）
+RVER = "5"  # 裁切規則版本：改了 FW／EY／漸隱就加一，檔名跟著換（瀏覽器快取才會更新）
 PS, PFW, PEY = 192, 0.36, 0.44   # 頭像邊長、臉寬佔邊長、兩眼高度佔邊長
 PSH = 192   # 頭像高（2026-11-22 試過直式 4:5：只拍到胸口的照片下面空一截，跟 Viper 的空隙同一種問題 ⇒ 維持正方形）
 PFADE = 48   # 頭像下緣淡出的長度（px，邊長 192；使用者 2026-11-22 嫌 26 不夠多不夠深）
@@ -416,18 +416,37 @@ def render_head(data, f):
     # 每一張頭像下緣都漸隱（使用者 2026-11-22「所有陣容對比框的頭像 底下都用漸層」）：身體下緣落在格子裡就從那裡淡出，否則淡出格子最下面 26px
     # 2026-11-22 再改（使用者「漸層不夠多不夠深 導致 Viper 這種底部有空隙的 還是很明顯」）：轉正後身體下緣是斜的，水平一條漸層蓋不到 ⇒
     #   每一直行各自從「那一行的身體下緣」往上淡出 PFADE px，曲線 ((下緣−y)/L)^1.6（越靠下越透明）；只處理下緣在格子下半部的行（頭髮、耳朵的邊不動）
+    # 2026-11-22 三改（使用者「頭像底部的空隙還是比較清楚」）：原圖只拍到胸口的（身體在框底上方就被切平），淡出蓋不掉下面那段空白 ⇒
+    #   身體下緣在格子下半部、又沒到框底的直行：取下緣上面那幾列的衣服顏色往下延伸到框底（橫向 9px 平滑，避免直條紋），
+    #   之後淡出改從框底往上 PFADE px；其他直行照舊從自己的身體下緣淡出
     import numpy as np
-    A = np.asarray(cv.getchannel("A")).astype(np.float32)
-    L = PFADE
+    a = np.asarray(cv).astype(np.float32)
+    A = a[:, :, 3]
+    op = A > 200
+    last = np.where(op.any(axis=0), SH - 1 - np.argmax(op[::-1, :], axis=0), -1)
+    ext = (last >= SH * 0.55) & (last < SH - 1)
+    fill = np.zeros((S, 4), np.float32)
+    for x in np.where(ext)[0]:
+        seg = a[max(0, last[x] - 8):max(1, last[x] - 1), x]
+        seg = seg[seg[:, 3] > 200]
+        if len(seg):
+            fill[x] = seg.mean(axis=0)
+        else:
+            ext[x] = False
+    ker = np.ones(9) / 9
+    w = ext.astype(np.float32)
+    ws = np.convolve(w, ker, "same")
+    sm = np.stack([np.convolve(fill[:, c] * w, ker, "same") for c in range(4)], 1) / np.maximum(ws[:, None], 1e-6)
+    for x in np.where(ext)[0]:
+        a[last[x] - 1:, x, :3] = sm[x, :3]
+        a[last[x] - 1:, x, 3] = 255
+    A = a[:, :, 3]
     op = A > 8
-    has = op.any(axis=0)
-    last = np.where(has, SH - 1 - np.argmax(op[::-1, :], axis=0), -1)
+    last2 = np.where(op.any(axis=0), SH - 1 - np.argmax(op[::-1, :], axis=0), -1)
     yy = np.arange(SH, dtype=np.float32)[:, None]
-    bt = (last + 1).astype(np.float32)[None, :]
-    m = np.clip((bt - yy) / L, 0, 1) ** 1.6
-    use = (last >= SH * 0.55)[None, :]
-    A = np.where(use, A * m, A)
-    cv.putalpha(Image.fromarray(A.clip(0, 255).astype(np.uint8), "L"))
+    m = np.clip(((last2 + 1).astype(np.float32)[None, :] - yy) / PFADE, 0, 1) ** 1.6
+    a[:, :, 3] = np.where((last2 >= SH * 0.55)[None, :], A * m, A)
+    cv = Image.fromarray(a.clip(0, 255).astype(np.uint8), "RGBA")
     return cv
 
 

@@ -600,6 +600,31 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
                         left_staff[(key(y["p"]), y["tm"])] = (str(y["p"]), y.get("ro") or "")   # 教練／分析師的離隊紀錄（頁名、職稱）
         except Exception as e:
             print(f"   離隊紀錄查詢失敗（自由人的教練不列上一位）：{type(e).__name__} {str(e)[:100]}")
+        # 升職離開一隊（使用者 2026-11-22「BFX Edo 比較特別 他沒有離隊 他是升職成總監…所以要寫升職 但因為不在一隊 所以不用顯示 只是小框要寫升職」）：
+        #   同一天在同一隊「以教練／分析師職離隊」又「以非教練職（總監、經理…）加入」⇒ 不列 FA、不留在格子，放進那一格的上一位、標 up＝新職稱
+        up_out = {}
+        try:
+            for i in range(0, len(teams), 20):
+                for y in cargo({"tables": "RosterChanges", "fields": "Player=p,Team=tm,Date_Sort=d,Role=ro", "limit": "5000", "format": "json",
+                                "where": "RosterChanges.Team IN " + _in(teams[i:i + 20]) + f' AND RosterChanges.Direction="Join" AND RosterChanges.Date_Sort>="{year}-08-01"'}):
+                    k_ = (key(y["p"]), y["tm"]); ro_ = str(y.get("ro") or "")
+                    if k_ in left_staff and ro_ and not staff_code(ro_, "") and not re.search(r"top|jungle|mid|bot|support|sub", ro_, re.I)                             and left_rc.get(k_, "") == str(y.get("d") or "")[:10]:
+                        up_out[k_] = ro_
+        except Exception as e:
+            print(f"   升職查詢失敗（略過）：{type(e).__name__} {str(e)[:100]}")
+        for x in out:
+            for e in list(x["r"].get("COACH", [])):
+                pg_ = e.get("p") or e["n"]
+                k_ = (key(pg_), x["tm"])
+                if k_ in up_out:
+                    x["r"]["COACH"].remove(e)
+                    if pg_ not in x["prev"].get("COACH", []):
+                        x["prev"].setdefault("COACH", []).insert(0, pg_)
+                    x.setdefault("_psr", {})[pg_] = e.get("sr") or "C"
+                    x.setdefault("_up", {})[pg_] = up_out[k_]
+            for pg_ in x["prev"].get("COACH", []):
+                if (key(pg_), x["tm"]) in up_out:
+                    x.setdefault("_up", {})[pg_] = up_out[(key(pg_), x["tm"])]
         for x in out:
             for rr in LANES:
                 for e in x["r"].get(rr, []):
@@ -617,7 +642,7 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
                     continue
                 cand.append((x, "COACH", e.get("p") or e["n"], e["n"], e.get("c") or "", 1, e.get("sr") or "C"))
             for p in x["prev"].get("COACH", []):
-                if (key(p), x["tm"]) not in left_rc:
+                if (key(p), x["tm"]) not in left_rc or (key(p), x["tm"]) in up_out:   # 升職離開一隊的不列 FA
                     continue   # 上一位教練要 wiki 真的記了離隊才算（UP 的 ScreamM 只是不在最新名單上、沒有離隊紀錄，也沒有選手頁）
                 cand.append((x, "COACH", p, re.sub(r"\s*\([^()]*\)$", "", p), con.get((key(p), x["tm"]), ""), 1, (x.get("_psr") or {}).get(p) or "C"))
         # 掛名在隊上但休假中（inactive）的主教練也算自由人（使用者 2026-11-20「Homme kkOma 都算」：kkOma 在 T1 是 inactive、合約 2026-11-16 到期，
@@ -645,7 +670,7 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
         _incell = {(key(e_.get("p") or e_["n"]), x_["tm"]) for x_ in out for e_ in x_["r"].get("COACH", []) if not e_.get("gone") and not e_.get("r")}
         for (k_, tm_), (pg_, ro_) in left_staff.items():
             x_ = _by_tm.get(tm_)
-            if x_ and (k_, tkey(tm_)) not in _have and (k_, tm_) not in green_out and (k_, tm_) not in _incell and (lastev.get((k_, tm_)) or {}).get("dir") == "Leave":
+            if x_ and (k_, tm_) not in up_out and (k_, tkey(tm_)) not in _have and (k_, tm_) not in green_out and (k_, tm_) not in _incell and (lastev.get((k_, tm_)) or {}).get("dir") == "Leave":
                 cand.append((x_, "COACH", pg_, re.sub(r"\s*\([^()]*\)$", "", pg_), con.get((k_, tm_), ""), 1, staff_code(ro_, "") or "C"))
         for tm_, rr_, pid_, pg_, end_ in trial_out:
             if _by_tm.get(tm_):
@@ -850,7 +875,7 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
     except Exception as e:   # 查不到效力期間就只列名字
         print(f"   上一位效力期間查詢失敗：{type(e).__name__} {str(e)[:100]}")
         for x in out:
-            x.pop("_still", None); psr = x.pop("_psr", {}); x.pop("_pc", None); x.pop("_ret", None)
+            x.pop("_still", None); psr = x.pop("_psr", {}); x.pop("_pc", None); x.pop("_ret", None); x.pop("_up", None)
             if x["prev"].get("COACH"):
                 x["prev"]["COACH"] = [{"n": p, "sr": psr.get(p, "C")} for p in x["prev"]["COACH"]]
     try:
@@ -1023,7 +1048,7 @@ def add_tenure(cargo, out):
     except Exception as e_:
         print(f"   Tenures（照隊查）失敗：{type(e_).__name__} {str(e_)[:100]}")
     for x in out:
-        still = set(x.pop("_still", [])); psr = x.pop("_psr", {}); pc = x.pop("_pc", {}); retd = set(x.pop("_ret", []))
+        still = set(x.pop("_still", [])); psr = x.pop("_psr", {}); pc = x.pop("_pc", {}); retd = set(x.pop("_ret", [])); upm = x.pop("_up", {})
         for rr, v in x["prev"].items():
             L = []
             for p in v:
@@ -1045,6 +1070,8 @@ def add_tenure(cargo, out):
                     d["ret"] = 1
                 if rr == "COACH" and psr.get(p):
                     d["sr"] = psr[p]
+                if rr == "COACH" and upm.get(p):
+                    d["up"] = upm[p]   # 升職離開一隊（新職稱，英文原文）
                 if s:
                     d["s"] = s
                     if e:

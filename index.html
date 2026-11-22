@@ -1109,7 +1109,14 @@
   .tbTmBox:not(.sheet) .tbTmHd{font-size:20px}.tbTmBox:not(.sheet) .tbPhN{font-size:17px}
   /* 填滿（使用者 2026-11-22「以目前的資料量 可以把陣容小框的正方形填滿嗎」）：字放大、空的數據區不佔位、高度包住內容 */
   .tbTmBox:not(.sheet) .tbTmData:empty{display:none}
-  .tbTmBox:not(.sheet){height:auto}.tbTmBox:not(.sheet)>.tbTmYr{font-size:19px}   /* 一排六張正方形頭像只佔正方形高度約七成，平均分配會變成三塊大空白 ⇒ 高度改成剛好包住內容（寬度不變），之後加數據再長高 */
+  /* 正方形（使用者 2026-11-22「我需要是正方形」）：兩年各一塊底色區、平分剩下的高度，內容在區塊裡垂直置中；2026 灰（過去）、2027 藍（新賽季），年份做成標籤 */
+  .tbTmSec{display:flex;flex-direction:column;border-radius:10px;padding:10px 12px 12px;margin-top:10px}
+  .tbTm26{background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.09)}
+  .tbTm27{background:rgba(90,169,255,.075);border:1px solid rgba(90,169,255,.32)}
+  .tbTmSec .tbTmYr{align-self:flex-start;margin:0 0 10px;padding:2px 12px;border-radius:999px;font-size:16px;line-height:1.5;font-weight:800}
+  .tbTm26 .tbTmYr{background:rgba(255,255,255,.1);color:#c3cbd8}.tbTm27 .tbTmYr{background:#5aa9ff;color:#0e1524}
+  .tbTmBox:not(.sheet) .tbTmSec{flex:1 1 0;min-height:0}.tbTmBox:not(.sheet) .tbTmSec .tbTmG{margin:auto 0}   /* 年份標籤固定在區塊左上，頭像那排在剩下的高度裡置中 */.tbTmBox:not(.sheet) .tbTmSec .tbTmYr{font-size:18px}
+  .tbTmBox.sheet .tbTmSec{padding:8px 8px 10px}
   .tbTmBox:not(.sheet) .tbPh{gap:7px}.tbTmBox:not(.sheet) .tbPhI{max-width:none}.tbTmBox:not(.sheet) .tbPhS{max-width:none;font-size:15px;line-height:1.5;gap:2px 10px}
   .tbTmBox.sheet .tbTmG{grid-template-columns:repeat(3,minmax(0,1fr));gap:10px 8px}
   .tbPh{display:flex;flex-direction:column;align-items:center;gap:5px;min-width:0;text-align:center}
@@ -14673,10 +14680,13 @@ function render(){
           // 還沒宣布離隊、只是被新人擠到這裡的（WBG Elk）：寫合約到期日，不寫效力期間（使用者 2026-11-20）
           // 合約其實還沒到期的人（合約還在、傳出要走、同一路已有別的人選 ⇒ 被移到這裡的綠字，RED 的 frosty 合約到 2027/11）不可以寫「已到期」：寫「到 日期」、標「可能轉會」
           const live=!!(o.still&&o.c&&o.c>=today);
-          const kv=o.still?(o.c?[[en2?"Contract":"合約",live?`${en2?"until":"到"} ${ymd(o.c)}`:`<span class="tbExp">${en2?"expired":"已到期"} ${ymd(o.c)}</span>`]]:[])
+          const kv=o.up?[]:o.still?(o.c?[[en2?"Contract":"合約",live?`${en2?"until":"到"} ${ymd(o.c)}`:`<span class="tbExp">${en2?"expired":"已到期"} ${ymd(o.c)}</span>`]]:[])
             :T?[[en2?"Tenure":"效力",T.per]]:[];   // 年資不寫（使用者 2026-11-21）
-          if(!o.ret)kv.push(...goKv(o.n,t.nm));
-          return `<div class="tpP tpPvC"><div class="tpName"><b><a class="tpA" href="https://lol.fandom.com/wiki/${encodeURIComponent(wkPg(o.n))}" target="_blank" rel="noopener">${esc(pn(o.n))}</a></b>${(r==="STF"||r==="HC"||r==="CO")&&o.sr&&SRN[o.sr]?`<span class="tpSr">${SRN[o.sr]}</span>`:""}${o.ret?pill("tpX",en2?"Retired":"退役"):live?pill("tpG",en2?"Possible move":"可能轉會"):o.still?pill("tpB",en2?"Contract expired":"合約到期"):pill("tpX",en2?"Left":"離隊")}</div>`
+          // 升職離開一隊（o.up＝新職稱；使用者 2026-11-22 BFX Edo「他是升職成總監…小框要寫升職」）：標「升職」、多一列「升任 電競總監」，不寫去向
+          const UPZ={"director of esports":"電競總監","esports director":"電競總監","director":"總監","general manager":"總經理","manager":"經理","team manager":"領隊","ceo":"執行長","owner":"老闆"};
+          if(o.up)kv.push([en2?"Promoted to":"升任",esc(en2?o.up:(UPZ[String(o.up).toLowerCase()]||o.up))]);
+          else if(!o.ret)kv.push(...goKv(o.n,t.nm));
+          return `<div class="tpP tpPvC"><div class="tpName"><b><a class="tpA" href="https://lol.fandom.com/wiki/${encodeURIComponent(wkPg(o.n))}" target="_blank" rel="noopener">${esc(pn(o.n))}</a></b>${(r==="STF"||r==="HC"||r==="CO")&&o.sr&&SRN[o.sr]?`<span class="tpSr">${SRN[o.sr]}</span>`:""}${o.ret?pill("tpX",en2?"Retired":"退役"):o.up?pill("tpV",en2?"Promoted":"升職"):live?pill("tpG",en2?"Possible move":"可能轉會"):o.still?pill("tpB",en2?"Contract expired":"合約到期"):pill("tpX",en2?"Left":"離隊")}</div>`
             +(kv.length?`<div class="tpKv">${kv.map(([k,v])=>`<span>${k}</span><span>${v}</span>`).join("")}</div>`:"")+`</div>`; }).join("")+`</div>`; }
       TIPS.push(h+`</div>`); return TIPS.length-1; };
     // 轉會評分（使用者 2026-11-19「教練右邊新增一欄 轉會評分 依照原先選手的成績去與新選手的成績對比 判斷是加分還是扣分 然後教練只看主教練」）：
@@ -14686,7 +14696,7 @@ function render(){
     const SEASON=+String(D.from||"").slice(0,4)||0;
     const RATE=(()=>{ if(window.TRANSFER_RATE)return window.TRANSFER_RATE;   // 轉會網站：主站排程先算好匯出（transfers_site.js）
       if(curYear!==SEASON||typeof calcPlayers!=="function")return null;
-      const k=curYear+"|"+(GAMES||[]).length+"|seg10"; if(window._tbRC&&window._tbRC.k===k)return window._tbRC;
+      const k=curYear+"|"+(GAMES||[]).length+"|seg11"; if(window._tbRC&&window._tbRC.k===k)return window._tbRC;
       const res={k,pl:{},tm:{}};
       // 分段加權（使用者 2026-11-20「轉會評分改成 第一賽段 10% 第二賽段 30% 第三賽段 50% 世界賽 10% 其餘的不算」「哪個段落沒打就沒分」）：
       //   每段各自算一次選手評分（場次白名單 H2H 圈範圍、其他篩選清空），再照權重相加；沒打的那段＝0 分，不重新分配權重。
@@ -14725,6 +14735,12 @@ function render(){
           const k=String(o.date||"").slice(0,10)+"¦"+[b,r].sort().join("¦"); let x=M.get(k); if(!x)M.set(k,x={b,r,w:{}}); const wn=o.result===1?b:r; x.w[wn]=(x.w[wn]||0)+1; });
         const sw={}; M.forEach(x=>{ const wb=x.w[x.b]||0, wr=x.w[x.r]||0; if(wb===wr)return; [x.b,x.r].forEach(t=>{ const k=teamFix(String(tAb(t)||t)), a=sw[k]||(sw[k]=[0,0]); a[1]++; if((t===x.b)===(wb>wr))a[0]++; }); });
         res.sw={}; for(const k in sw)res.sw[k]={w:sw[k][0],n:sw[k][1]}; }
+      // 整年（陣容對比的 2026 攻擊值／防禦值與 2027 評分；使用者 2026-11-22「我要看的是整年」）：今年全部比賽、篩選全清，跟選手分頁同一個 calcPlayers；同名多隊取場數最多那筆
+      { const sv={split:F.split,league:F.league,patch:F.patch,d1:F.d1,d2:F.d2,minG:F.minG}, svH=H2H; F.split=""; F.league="ALL"; F.patch=""; F.d1=""; F.d2=""; F.minG=0; H2H=null;
+        try{ res.yr={}; for(const r of ["TOP","JNG","MID","BOT","SUP"]){ const Y=res.yr[r]={};
+            calcPlayers(r,true).forEach(x=>{ const nk=String(x._pn||"").toLowerCase(); if(x.評分==null||(Y[nk]&&Y[nk].g>=x.場數))return;
+              Y[nk]={at:x.攻擊值!=null?+x.攻擊值.toFixed(1):null,df:x.防禦值!=null?+x.防禦值.toFixed(1):null,sc:+x.評分.toFixed(1),g:x.場數}; }); } }
+        finally{ H2H=svH; Object.assign(F,sv); } }
       res.md={}; for(const r of ["TOP","JNG","MID","BOT","SUP"]){ const vs=Object.values(res.pl[r]).map(x=>x.v).sort((a,b)=>a-b), h=vs.length>>1;
         res.md[r]=vs.length?(vs.length%2?vs[h]:(vs[h-1]+vs[h])/2):null; }
       res.plY={};   // 不再退回全年評分：沒打的賽段就是 0 分
@@ -15477,17 +15493,17 @@ function render(){
         const tk=teamFix(String(tAb(t.nm)||t.nm)), sw3=RATE&&(RATE.sw||{})[tk], wr3=sw3&&sw3.n?sw3.w/sw3.n:null;   // 主教練勝率＝大場勝率（RATE.sw）
         const y26=LANE6.map(([r,ic])=>{ const o=o26(r);
           if(r==="HC")return phH(o,ic,cls26(o),kvS([[LC26[0],wr3==null?"–":Math.round(wr3*100)+"%"],[LC26[1],rkS(t)||"–"]]));
-          const a=o&&RATE&&RATE.pl&&RATE.pl[r]?RATE.pl[r][String(pn(o.n)).toLowerCase()]:null;
+          const a=o&&RATE&&RATE.yr&&RATE.yr[r]?RATE.yr[r][String(pn(o.n)).toLowerCase()]:null;   // 整年（RATE.yr）
           return phH(o,ic,cls26(o),kvS([[L26[0],n1(a&&a.at)],[L26[1],n1(a&&a.df)]])); }).join("");
         if(RATE&&!t._scM&&typeof rateOf==="function")rateOf(t);
-        // 2027 的評分＝評分小框「去年評分」那一塊（同路百分位，不含成就加分）；主教練＝戰績分（新來的看原隊，留任的看本隊）
+        // 2027 的評分：選手＝整年評分（RATE.yr）；主教練＝戰績分（新來的看原隊，留任的看本隊）
         const sc27=(e,r)=>{ if(!e||!RATE)return null; if(r==="HC"){ const c=coachS((e.new||e.r||e.tip||e.pm)?(e.from||""):t.nm); return c?c.v:null; }
-          const v=t._scM&&t._scM.get(e); return v==null||v<0?null:v-((D.intl||{})[String(pn(e.n)).toLowerCase()]||0); };
+          const y=RATE.yr&&RATE.yr[r]&&RATE.yr[r][String(pn(e.n)).toLowerCase()]; return y?y.sc:null; };   // 選手＝整年評分（跟選手分頁同一個數字；使用者 2026-11-22「2027的評分 我要看的是整年」），沒有今年出賽資料寫 –
         const y27=LANE6.map(([r,ic])=>{ const e=pick27(r==="HC"?cs:((t.r||{})[r]||[])), b=e?bioOf(pg0(e))||bioOf(e.n):null, L=r==="HC"?LC27:L27;
           return phH(e?{n:e.n,p:pg0(e)}:null,ic,e?tbCls(e):"",kvS([[L[0],ageOf(b&&b[0])],[L[1],ymOf(b&&(r==="HC"?(b[2]||b[1]):b[1]),en2)],[L[2],n1(sc27(e,r))]])); }).join("");
         const d=document.createElement("div"); d.id="tbTmBox"; d.className="tbTmBox"+(touch()?" sheet":"");
         d.innerHTML=`<div class="tbTmHd">${teamLogoHTML(tAb(t.nm),26,true,t.nm)||teamLogoHTML(tAb(t.tm),26,true,t.tm)||""}<a href="${tmWk(t.nm)}" target="_blank" rel="noopener">${esc(abOf(t.nm))}</a><button class="tbTmShot" aria-label="screenshot" title="截圖"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg></button><button class="tbTipX" aria-label="close">✕</button></div>`
-          +`<div class="tbTmYr">2026</div><div class="tbTmG">${y26}</div><div class="tbTmYr">2027</div><div class="tbTmG">${y27}</div><div class="tbTmData"></div>`;
+          +`<div class="tbTmSec tbTm26"><div class="tbTmYr">2026</div><div class="tbTmG">${y26}</div></div><div class="tbTmSec tbTm27"><div class="tbTmYr">2027</div><div class="tbTmG">${y27}</div></div><div class="tbTmData"></div>`;   // 兩年各一塊底色區（使用者 2026-11-22「幫我更好的區分2026 2027」）
         document.body.appendChild(d); d.querySelector(".tbTipX").onclick=()=>d.remove(); d._row=row;
         d.querySelector(".tbTmShot").onclick=()=>tmShot(d,abOf(t.nm)); };
       // 陣容對比截圖（使用者 2026-11-22「戰隊對比小框 要加一個截圖按鈕」「放在X左邊」）：複製一份到畫面外（不固定、不置中、高度照內容、拿掉空的數據區與按鈕）→ html2canvas → 下載 JPG
@@ -15496,12 +15512,12 @@ function render(){
           if(!window.html2canvas)await new Promise((ok,no)=>{ const sc=document.createElement("script"); sc.src="html2canvas.min.js"; sc.onload=ok; sc.onerror=no; document.head.appendChild(sc); });
           rz=document.documentElement.style.zoom; document.documentElement.style.zoom="";
           h=d.cloneNode(true); h.removeAttribute("id"); h.classList.remove("sheet");
-          h.style.cssText="position:absolute;left:-10000px;top:0;transform:none;width:860px;height:auto;max-height:none;overflow:visible;box-shadow:none";
+          h.style.cssText="position:absolute;left:-10000px;top:0;transform:none;width:860px;height:860px;max-height:none;overflow:hidden;box-shadow:none";   // 截圖固定正方形 860 → 輸出 2000×2000（使用者 2026-11-22）
           h.querySelectorAll(".tbTmShot,.tbTipX,.tbTmData:empty").forEach(x=>x.remove()); h.querySelector(".tbTmHd").style.position="static";
           h.querySelectorAll("img").forEach(i=>{ i.removeAttribute("onerror"); if(/^https?:/.test(i.src)&&!/lol-transfer\.pages\.dev|github\.io|^https?:\/\/(localhost|127\.)/.test(i.src)&&i.getAttribute("referrerpolicy"))i.remove(); });   // wiki 原圖沒有 CORS，畫進去會讓整張圖不能輸出
           document.body.appendChild(h); if(typeof _fixColorFn==="function")_fixColorFn(h);
           await Promise.all([...h.querySelectorAll("img")].map(i=>i.complete?0:new Promise(r=>{ i.onload=i.onerror=r; })));
-          const cv=await html2canvas(h,{backgroundColor:"#1b2338",scale:2,useCORS:true,logging:false});
+          const cv=await html2canvas(h,{backgroundColor:"#1b2338",scale:2000/860,useCORS:true,logging:false,width:860,height:860});
           const dt=new Date(), pad=x=>String(x).padStart(2,"0"), fn=`S17_LoL_${String(ab).replace(/[^\w.-]+/g,"_")}_${pad(dt.getFullYear()%100)}${pad(dt.getMonth()+1)}${pad(dt.getDate())}${pad(dt.getHours())}.jpg`;
           await new Promise(ok=>cv.toBlob(bl=>{ const a=document.createElement("a"); a.href=URL.createObjectURL(bl); a.download=fn; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),5000); ok(); },"image/jpeg",0.93));
         }catch(e){ console.warn("tmShot",e); }
