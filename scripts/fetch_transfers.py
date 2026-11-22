@@ -189,6 +189,15 @@ def _sheep_get(req, sleep=None):
         return urllib.request.urlopen(req, timeout=60).read()
 
 
+YT_RE = re.compile(r"https?://(?:www\.|m\.)?(?:youtube\.com/(?:watch\?v=|shorts/|live/)|youtu\.be/)([\w-]{11})")
+
+
+def yt_of(t):
+    """文字裡第一個 YouTube 影片連結 → 統一成 https://youtu.be/影片ID（沒有回空字串）"""
+    m = YT_RE.search(t or "")
+    return f"https://youtu.be/{m.group(1)}" if m else ""
+
+
 def fetch_sheep(start):
     """內嵌時間軸（免登入）→ 轉會推文；只取 start 之後、帶 [OFFICIAL]/[SOURCES] 標籤或含轉會字眼的"""
     req = urllib.request.Request("https://syndication.twitter.com/srv/timeline-profile/screen-name/Sheep_Esports",
@@ -505,7 +514,10 @@ def main():
             pass
     acc.sort(key=lambda x: x["d"], reverse=True)
     io.open(SHEEP, "w", encoding="utf-8").write(json.dumps(acc, ensure_ascii=False, indent=1))
-    sheep = [{k: x[k] for k in ("id", "d", "en", "zh", "url", "kind", "tags", "st") if x.get(k)} for x in acc if x["d"][:10] >= start]
+    sheep = [{k: x[k] for k in ("id", "d", "en", "zh", "url", "kind", "tags", "st", "yt") if x.get(k)} for x in acc if x["d"][:10] >= start]
+    for x in sheep:   # 推文裡的 YouTube 連結也附成 YT 按鈕
+        if not x.get("yt") and yt_of(x.get("en")):
+            x["yt"] = yt_of(x.get("en"))
     strip_nat(sheep)
     link_sheep(wiki, sheep)   # 連結用全部 wiki 句子當名字來源（過濾前）
     # 只留六大聯賽一級隊相關的（使用者 2026-11-19「不是加入六大聯賽的一級賽事的資訊都不要列出」「從六大聯賽離開到次級也列出」）
@@ -578,7 +590,12 @@ def main():
                 ptt_raw = raw
                 # 轉貼 Sheep Esports、而那則已收進 Sheep 來源 ⇒ 消息不重複列（使用者 2026-11-20「PTT 的文章消息是 Sheep Esports 也不要重複」）
                 raw = [x for x in raw if not (set(re.findall(r"Sheep_Esports/status/(\d+)", x.get("body") or "")) & sheep_ids)]
-            extra += [{k: x[k] for k in ("id", "d", "zh", "en", "src", "url", "ptt", "st", "kind", "tags", "mv", "fake", "conf", "nosplit") if x.get(k)} for x in raw if not x.get("hide")]
+            for x in raw:   # 內文附的 YouTube 影片（使用者 2026-11-22「傳聞裡面如果有影片 記得附上YT連結」）：手動寫了 yt 就用手動的
+                if not x.get("yt"):
+                    y_ = yt_of((x.get("body") or "").split("※ 發信站")[0])
+                    if y_:
+                        x["yt"] = y_
+            extra += [{k: x[k] for k in ("id", "d", "zh", "en", "src", "url", "ptt", "st", "kind", "tags", "mv", "fake", "conf", "nosplit", "yt") if x.get(k)} for x in raw if not x.get("hide")]
     extra.sort(key=lambda x: x["d"], reverse=True)
     off = [x for x in extra if x.get("src") == "官方"]   # 陣容表的續約判定吃得到（粉字）
     # PTT 傳聞進陣容表（使用者 2026-11-20「你不是有抓到 Scout 可能會去 KRX 的消息嗎 怎沒填入陣容表」）：

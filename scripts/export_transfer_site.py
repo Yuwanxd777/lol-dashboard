@@ -239,7 +239,9 @@ html.tsDesk .trList>.trHead{position:sticky;top:calc(var(--tsH1,0px) + var(--tsG
 #tsCap{position:fixed;height:14px;overflow:hidden;z-index:37;pointer-events:none}#tsCap>i{position:absolute;left:0;right:0;top:0;height:60px;box-sizing:border-box;box-shadow:0 0 0 40px #0b0e14}
 html:not(.tsDesk) #tsCover,html:not(.tsDesk) #tsCap{display:none}`;
     document.head.appendChild(st);
-    window._tsStick=()=>{ const hd=document.getElementById("tsHdr"), bar=document.querySelector(".filters.trBar"), bd=document.querySelector(".tbBoard,.trList"), R=document.documentElement.style; if(!hd||!bar)return;
+    // 效能（使用者 2026-11-22 選的精進第 3 項）：_tsStick 會讀版面（offsetHeight／getBoundingClientRect），在 render 裡同步呼叫等於強迫多排一次版；
+    //   載入時篩選列換行、字型、resize、300ms 補量會連續叫好幾次 ⇒ 包一層：同一個畫面週期只量一次，在下一個 requestAnimationFrame 量
+    const tsStick0=()=>{ const hd=document.getElementById("tsHdr"), bar=document.querySelector(".filters.trBar"), bd=document.querySelector(".tbBoard,.trList"), R=document.documentElement.style; if(!hd||!bar)return;
       { const mc=getComputedStyle(main); document.documentElement.classList.toggle("tsDesk",main.clientWidth-parseFloat(mc.paddingLeft)-parseFloat(mc.paddingRight)>=1000); }   // 電腦版面才黏（跟 CSS 切換卡片版面的依據同一個：main 的內容寬度 1000；見 build_code 把 759.98 換成 999.98 那段）
       const sy=scrollY; R.setProperty("--tsH1",hd.offsetHeight+"px"); R.setProperty("--tsH2",bar.offsetHeight+"px");
       // 捲動後三層之間的空隙要跟頁面最上面時一模一樣（使用者 2026-11-21「往下滑的時候 上方還是有小部分的縮起」：原本頁首與篩選列之間 14px、篩選列與欄名列之間 7px 會被吃掉）
@@ -260,6 +262,7 @@ html:not(.tsDesk) #tsCover,html:not(.tsDesk) #tsCap{display:none}`;
       { const k=document.getElementById("tsCap"); if(k&&bd){ const q=k.firstChild, c=getComputedStyle(bd), r=bd.getBoundingClientRect(), g=window._tsStick.g||[0,0];
           k.style.left=r.left+"px"; k.style.width=r.width+"px"; k.style.top=(sy<4?r.top:hd.offsetHeight+g[0]+bar.offsetHeight+g[1])+"px"; k.style.height=c.borderTopLeftRadius;
           q.style.border=c.borderTopWidth+" solid "+c.borderTopColor; q.style.borderRadius=c.borderTopLeftRadius; q.style.background=(/rgb\([^)]*\)/.exec(c.backgroundImage)||[c.backgroundColor])[0]; } } };
+    window._tsStick=()=>{ if(window._tsStick.q)return; window._tsStick.q=requestAnimationFrame(()=>{ window._tsStick.q=0; tsStick0(); }); };
     addEventListener("resize",()=>window._tsStick());
     // 一開始就在捲動中的位置（重新整理後瀏覽器還原捲動位置）量不到空隙 ⇒ 第一次回到最上面時補量
     addEventListener("scroll",()=>{ if(scrollY<4&&!window._tsStick.g)window._tsStick(); },{passive:true}); }
