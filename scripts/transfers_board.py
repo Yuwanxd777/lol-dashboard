@@ -835,7 +835,7 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
                 for rr, L in rows_.items():
                     for e in L:
                         for ro in e.get("ros") or ([e["ro"]] if e.get("ro") else []):
-                            lg2 = lgk_.get(tkey(ro["to"]))
+                            lg2 = lgk_.get(tkey(ro["to"])) or (ro["to"] if ro["to"] in ("LCK", "LPL", "LEC", "LCS", "CBLOL", "LCP") else None)   # 只說回哪個聯賽、沒說哪隊（Shad0w 回 LPL；使用者 2026-11-22）
                             if lg2 and lg2 != lg_:
                                 add_.append((lg2, rr, e))
             for lg2, rr, e in add_:

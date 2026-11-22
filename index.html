@@ -14346,7 +14346,7 @@ function render(){
     const BTM=(D.board||[]).map(t=>({nm:t.nm,rg:LG2RG[t.lg]||"",al:[...new Set([t.nm,ab0(t.nm),t.tm].filter(Boolean))]}));
     const autoTags=s=>BTM.filter(b=>b.al.some(a=>new RegExp("(?<![A-Za-z0-9])"+a.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")+"(?![A-Za-z0-9])","i").test(s))).map(b=>[b.rg,b.nm]);
     const autoKind=s=>{ const j=/加入|joins?\b|rejoin|welcome|簽下|加盟|回歸|上調|擔任/i.test(s), l=/離隊|thank ?you|farewell|解散|自由市場|退出/i.test(s); return j&&l?"both":j?"join":l?"leave":"other"; };
-    const SRCN={sheep:"SE",ptt:"PTT",kr:en2?"Korean media":"韓網",man:en2?"Announcement":"公告"};   // 來源的「官方」跟狀態的「官方」同名會混淆 ⇒ 來源叫官方公告
+    const SRCN={sheep:"SE",ptt:"PTT",kr:en2?"Korean media":"韓網",man:en2?"Announcement":"公告",heard:en2?"Heard":"聽說"};   /* 聽說＝使用者口頭給的消息、沒有連結（使用者 2026-11-22「我忘記連結的 就寫來源是我聽說的」） */   // 來源的「官方」跟狀態的「官方」同名會混淆 ⇒ 來源叫官方公告
     // 傳聞後續（使用者 2026-11-20「如果傳聞被推翻就變成謠言，用紅色」「如果被證實就是證實，綠色」）：
     //   陣容表的官方狀態（wiki 新加入／Sheep 官方消息／官方續約）對照傳聞的「誰 → 哪隊」——
     //   官方加入的正是那隊（或傳聞是續約、官方也續約了）＝證實；官方去了別隊或跟別隊續約＝謠言；還沒定＝傳聞。另有人工標的闢謠（fake）
@@ -14388,7 +14388,7 @@ function render(){
         const out=[];
         (D.extra||[]).forEach(x0=>{ // 標題開頭的「乳摸：」「韓網乳摸：」不寫（使用者 2026-11-20：第一欄已標傳聞）
           const x={...x0,zh:String(x0.zh||"").replace(/^\s*(?:韓網)?乳摸\s*[:：]?\s*/,"").replace(/\s*[(（]含乳摸[)）]/,"")};
-          const base={...x,s:x.src==="韓網"?"kr":x.src==="官方"?"man":x.src==="Sheep Esports"?"sheep":"ptt",rg:""};   // PTT 轉貼 Sheep 的：來源＝Sheep、連結給推文
+          const base={...x,s:x.src==="韓網"?"kr":x.src==="官方"?"man":x.src==="Sheep Esports"?"sheep":x.src==="聽說"?"heard":"ptt",rg:""};   // PTT 轉貼 Sheep 的：來源＝Sheep、連結給推文
           // 原隊／新隊只放標題有點名的人（KRX 五人那篇內文另提 Sharvel→GEN，不該多出 DNS／GEN）；都沒點名才全放
           const mvIn=x.mv?x.mv.filter(m=>has(m[0],x.zh)):[], mvU=mvIn.length?mvIn:(x.mv||[]);
           // 內文雜亂（好幾個人、原隊或新隊不同）⇒ 拆成一人一列（使用者 2026-11-20「記得把內文拆開來判斷」）
@@ -14476,7 +14476,7 @@ function render(){
     const F_SRC=mset("trSrc"), F_ST=mset("trSt"), F_RG=mset("trRg"), F_KD=new Set();   /* 類型篩選已刪：舊存檔留下的值不可以再生效 */
     const kdOk=x=>(F_KD.has("join")&&/join|both/.test(x.kind))||(F_KD.has("leave")&&/leave|both/.test(x.kind))||(F_KD.has("other")&&x.kind==="other");
     // 來源的 WIKI 併進「公告」（使用者 2026-11-20「WIKI 跟公告的按鈕合併 改稱 公告 就好 因為 WIKI 一定有附上公告消息」）；舊存檔選過 wiki 的也當成公告
-    const shown=all.filter(x=>(!F_SRC.size||F_SRC.has(x.s==="wiki"?"man":x.s))&&(!F_ST.size||F_ST.has(stOf(x)))&&(!F_RG.size||(x.s!=="wiki"?x.tags.some(t=>F_RG.has(t[0])):F_RG.has(x.rg)))
+    const shown=all.filter(x=>(!F_SRC.size||F_SRC.has(x.s==="wiki"?"man":x.s==="heard"?"ptt":x.s))&&(!F_ST.size||F_ST.has(stOf(x)))&&(!F_RG.size||(x.s!=="wiki"?x.tags.some(t=>F_RG.has(t[0])):F_RG.has(x.rg)))
       &&(!F_KD.size||kdOk(x))
       &&(!q||[x.team,x.en,x.zh].join(" ").replace(/‹[^|›]+\|([^›]+)›/g,"$1").toLowerCase().includes(q))).sort((a,b)=>a.d<b.d?1:a.d>b.d?-1:(b.n||0)-(a.n||0));
     // 狀態欄（使用者 2026-11-19「新增一欄在第二欄 說明是Rumor還是官方消息」）：wiki＝官方；Sheep 依 st（抓取端標），內文開頭的【官方】／[SOURCES] 前綴拿掉
@@ -14575,7 +14575,7 @@ function render(){
       groups.push({...x,_k:k,_items:[x],_last:x}); });
     const lkA=(u,l,ti)=>` <a class="trLk" href="${esc(u)}" target="_blank" rel="noopener" title="${esc(ti||"")}">${l} ↗</a>`;
     // 韓網：連結標韓網原文（使用者要求），另附 PTT 轉貼
-    const lkOf=x=>{ const link=x.s==="wiki"?x.src:x.url;
+    const lkOf=x=>{ const link=x.s==="wiki"?x.src:x.url; if(x.s==="heard"&&!link)return ` <span class="trLk trHeard">${SRCN.heard}</span>`;   // 聽說：沒有連結，只寫來源
       // 來源連結照網域寫名字（使用者 2026-11-20「來源 ↗ 如果是 X 要寫 X ↗」）
       const dom=u=>/Sheep_?Esports|sheepesports\.com/i.test(u)?"SE":/(^|\/\/)(www\.)?(x|twitter)\.com\//.test(u)?"X":/facebook\.com|fb\.com/.test(u)?"FB":/instagram\.com/.test(u)?"IG":/weibo\.(com|cn)/.test(u)?(en2?"Weibo":"微博"):/youtube\.com|youtu\.be/.test(u)?"YT":/ptt\.cc/.test(u)?"PTT":(en2?"Source":"來源");
       return (link?lkA(link,x.s==="kr"?SRCN.kr:dom(link),x.srcNm):"")+(x.ptt&&x.ptt!==link&&(x.s==="kr"||/ptt\.cc/.test(x.ptt))?lkA(x.ptt,"PTT"):""); };   // 原文在別處（韓網、微博爆料）時另附 PTT 轉貼（使用者 2026-11-22「微博爆料文…標示好」）
@@ -14640,7 +14640,7 @@ function render(){
       // 只有傳聞的：這一列的標題直接寫「傳聞」，後面不再另外標（使用者 2026-11-21「如果FA小框的去向 寫的是傳聞…那就把去向改寫成傳聞」）
       return off.length?[[en2?"Joined":"加入",tmChip(off[0].tm)]]:[[en2?"Rumor":"傳聞",L.slice(0,3).map(o=>tmChip(o.tm)).join(" ")]]; };
     // 來源名稱：Sheep Esports 一律寫 SE；有網址就做成超連結（使用者 2026-11-20「Sheep 的來源就寫 SE 然後超連結」）。沒寫來源的是 Sheep 的推文
-    const srcA=o=>{ const nm=/weibo\.(com|cn)/.test(o.u||"")?(en2?"Weibo":"微博"):(!o.src||o.src==="Sheep Esports")?"SE":o.src==="韓網"?SRCN.kr:o.src==="官方"?SRCN.man:o.src, u=o.u||"";   /* 英文版：韓網→Korean media、官方→Announcement（跟消息頁同一套名稱） */ return /^https?:/.test(u)?`<a class="tpSrc" href="${esc(u)}" target="_blank" rel="noopener">${esc(nm)}</a>`:esc(nm); };
+    const srcA=o=>{ const nm=o.src==="聽說"?SRCN.heard:/weibo\.(com|cn)/.test(o.u||"")?(en2?"Weibo":"微博"):(!o.src||o.src==="Sheep Esports")?"SE":o.src==="韓網"?SRCN.kr:o.src==="官方"?SRCN.man:o.src, u=o.u||"";   /* 英文版：韓網→Korean media、官方→Announcement（跟消息頁同一套名稱） */ return /^https?:/.test(u)?`<a class="tpSrc" href="${esc(u)}" target="_blank" rel="noopener">${esc(nm)}</a>`:esc(nm); };
     const tipTx=o=>{ const s=en2?(o.tipE||(D.tipEn||{})[o.tip]||o.tip):o.tip; return TNRE?String(s||"").replace(TNRE,n=>TNL.get(n.toLowerCase())||n):s; };   // 小框引用句的隊名也寫縮寫（使用者 2026-11-21「小框的資訊以後也都要同步改」）   // 英文版引用句：資料端的中→英對照（tipEn），手動名單自帶 tipE
     const cellTip=(t,r)=>{ const es=colE(t,r), pv=colP(t,r);
       let h=`<div class="tpBox" style="--lgc:${LGC[t.lg]||"var(--gold)"}"><div class="rtHd">${teamLogoHTML(tAb(t.nm),22,true,t.nm)||""}<b>${esc(rowNm(t))}</b>`
