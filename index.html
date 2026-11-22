@@ -14850,7 +14850,8 @@ function render(){
     // 評分小框（使用者 2026-11-19「評分的小框重新設計」）：標題列＝隊徽＋隊名＋總分；每條路一列＝路線圖示｜離隊（名字／分數）→ 加入｜增減色塊
     // 範圍的寫法與顏色：最低～最高；兩頭都正＝紅、都負＝綠、一正一負看中間值
     // 加減號與括號用全形（使用者 2026-11-20「加減號用全型 括號也是」）；四捨五入後是 0.0 的不帶符號
-    const rSg=v=>{ const t=Math.abs(v).toFixed(1).replace(/\.0$/,""); return (t==="0"?"":v>0?"＋":"－")+t; },   // 整數不寫 .0（使用者 2026-11-22「在外面轉會評分 如果分數是整數也是不要顯示.0」） rtx=(lo,hi)=>hi-lo>0.05?`${rSg(lo)} ～ ${rSg(hi)}`:rSg((lo+hi)/2), rcls=(lo,hi)=>{ const m=lo>0?1:hi<0?-1:(lo+hi)/2; return m>0?"tbUp":m<0?"tbDn":""; };
+    // rSg：整數不寫 .0（使用者 2026-11-22「在外面轉會評分 如果分數是整數也是不要顯示.0」）
+    const rSg=v=>{ const t=Math.abs(v).toFixed(1).replace(/\.0$/,""); return (t==="0"?"":v>0?"＋":"－")+t; }, rtx=(lo,hi)=>hi-lo>0.05?`${rSg(lo)} ～ ${rSg(hi)}`:rSg((lo+hi)/2), rcls=(lo,hi)=>{ const m=lo>0?1:hi<0?-1:(lo+hi)/2; return m>0?"tbUp":m<0?"tbDn":""; };
     // 戰績評分模式的小框＝第三賽段的成績數據（使用者 2026-11-21）：成績、場數、勝敗、勝率
     const s3Tip=t=>{ const k=teamFix(String(tAb(t.nm)||t.nm)), d=RATE&&RATE.s3?(RATE.s3[k]||RATE.s3[teamFix(String(tAb(t.tm)||t.tm))]):null;
       let h=`<div class="rtBox rtS3"><div class="rtHd">${teamLogoHTML(tAb(t.nm),22,true,t.nm)||""}<b>${esc(rowNm(t))}</b></div><div class="tpKv">`
