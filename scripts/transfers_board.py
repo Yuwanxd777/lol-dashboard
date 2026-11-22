@@ -887,6 +887,16 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
         k = rk.get(tkey(x["tm"])) or rk.get(tkey(x["nm"]))
         if k:
             x["rk"] = k[3]
+    # 第一、二賽段成績（陣容對比的 2026 主教練格；使用者 2026-11-22「S1 S2 S3 去列成績 S1如果有進FST就列FST S2有進MSI就列MSI」）
+    try:
+        srk = split_results(cargo, year)
+        for x in out:
+            v = srk.get(tkey(x["tm"])) or srk.get(tkey(x["nm"])) or {}
+            for s_ in ("s1", "s2"):
+                if v.get(s_):
+                    x[s_] = v[s_]
+    except Exception as e:
+        print(f"   第一／二賽段成績查詢失敗（略過）：{type(e).__name__} {str(e)[:100]}")
     for n_, o_ in succ.items():
         for x in out:
             if x["tm"] == o_:
@@ -1182,6 +1192,90 @@ def team_rank(cargo, year):
                 out[k] = (999, 999, 999, "U" + lose)
     except Exception as e:
         print(f"   升降賽對戰查詢失敗：{type(e).__name__} {str(e)[:100]}")
+    return out
+
+
+def split_results(cargo, year):
+    """{隊名 key: {"s1": 代碼, "s2": 代碼}}：第一、二賽段的成績。賽段＝該聯賽當年的例行賽 split 照開打日排（LCK Cup／Rounds 1-2／Rounds 3-4、
+    LPL Split 1～3、LEC Versus／Spring／Summer、LCS Lock-In／Spring／Summer、CBLOL Cup／Split 1／Split 2），不到三段的往後對齊。
+    代碼跟第三賽段同一套：P名次（季後賽）／I名次（季後賽入圍賽淘汰，已換成整體名次）／R名次（例行賽，下位組加上位組隊數）；
+    第一賽段有進 FST ⇒ F名次、第二賽段有進 MSI ⇒ M名次（國際賽優先）"""
+    ts = cargo({"tables": "Tournaments=T", "fields": "T.OverviewPage=pg,T.League=lg,T.DateStart=ds,T.Split=sp,T.IsPlayoffs=po",
+                "where": f'T.Year={year} AND T.TournamentLevel="Primary" AND T.IsQualifier=0 AND T.League IN ' + _in(LG_SHORT),
+                "order_by": "T.DateStart", "limit": "500", "format": "json"})
+    by_lg = {}
+    for t in ts:
+        by_lg.setdefault(t["lg"], []).append(t)
+    seg = {}   # 頁 → ("s1"/"s2", 季後賽權重或 None＝例行賽)
+    final_po = {}   # (聯賽, 段) → 正賽那一頁
+    for lg, L in by_lg.items():
+        sps = []
+        for t in L:
+            if str(t.get("po")) != "1" and t["sp"] not in sps:
+                sps.append(t["sp"])
+        sps = sps[-3:]
+        names = ["s1", "s2", "s3"][3 - len(sps):]
+        for sp, nm in zip(sps, names):
+            if nm == "s3":
+                continue
+            for t in L:
+                if t["sp"] == sp and str(t.get("po")) != "1":
+                    seg[t["pg"]] = (nm, None, lg)
+            pos = [t for t in L if t["sp"] == sp and str(t.get("po")) == "1"]
+            for i, t in enumerate(pos):
+                seg[t["pg"]] = (nm, 0 if i == len(pos) - 1 else 100, lg)
+                if i == len(pos) - 1:
+                    final_po[(lg, nm)] = t["pg"]
+    intl = {f"{year} First Stand": "s1", f"{year} Mid-Season Invitational": "s2"}
+    pages = list(seg) + list(intl)
+    res = []
+    for i in range(0, len(pages), 30):
+        res += cargo({"tables": "TournamentResults", "fields": "OverviewPage=pg,Team=tm,Place_Number=pn,Place=pl,GroupName=g",
+                      "where": "TournamentResults.OverviewPage IN " + _in(pages[i:i + 30]), "limit": "3000", "format": "json"})
+    have = {x["pg"] for x in res}
+    miss = [p for p, v in seg.items() if v[1] is None and p not in have]
+    if miss:
+        res += cargo({"tables": "Standings", "fields": "OverviewPage=pg,Team=tm,Place=pn", "where": "Standings.OverviewPage IN " + _in(miss),
+                      "limit": "2000", "format": "json"})
+    UPPER, LOWER = re.compile(r"Legend|Ascend|Peak|Upper", re.I), re.compile(r"Rise|Nirvana|Lower", re.I)
+    grp_n, po_teams = {}, {}
+    for x in res:
+        v = seg.get(x["pg"])
+        if v and v[1] is None and x.get("g") and UPPER.search(x["g"]):
+            grp_n[x["pg"]] = grp_n.get(x["pg"], 0) + 1
+        if v and v[1] is not None:
+            po_teams.setdefault(x["pg"], set()).add(tkey(x["tm"]))
+    P, R, I_ = {}, {}, {}
+    for x in res:
+        k = tkey(x["tm"])
+        if x["pg"] in intl:
+            pl = str(x.get("pl") or x.get("pn") or "").strip()
+            if pl:
+                I_[(k, intl[x["pg"]])] = pl
+            continue
+        try:
+            n = int(x.get("pn"))
+        except (TypeError, ValueError):
+            continue
+        nm, w, lg = seg[x["pg"]]
+        if w is not None:
+            if w:
+                fin = po_teams.get(final_po.get((lg, nm)), set())
+                n = len(fin) + max(1, n - len(po_teams.get(x["pg"], set()) & fin))
+            P[(k, nm)] = min(P.get((k, nm), 999), n + w)
+        else:
+            if x.get("g") and LOWER.search(x["g"]):
+                n += grp_n.get(x["pg"], 0)
+            R[(k, nm)] = min(R.get((k, nm), 999), n)
+    out = {}
+    for (k, nm) in set(P) | set(R) | set(I_):
+        if (k, nm) in I_:
+            c = ("F" if nm == "s1" else "M") + I_[(k, nm)]
+        else:
+            p, r = P.get((k, nm), 999), R.get((k, nm), 999)
+            c = f"P{p}" if p < 100 else (f"I{p - 100}" if p < 999 else (f"R{r}" if r < 999 else ""))
+        if c:
+            out.setdefault(k, {})[nm] = c
     return out
 
 

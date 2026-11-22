@@ -192,7 +192,7 @@ html:not(.tsDesk) #tsCover,html:not(.tsDesk) #tsCap{display:none}`;
   document.getElementById("tsHelp").onclick=ev=>{ ev.stopPropagation(); let d=document.getElementById("tsHelpBox"); if(d){ d.remove(); return; }
     const mob=matchMedia("(max-width:760px)").matches;
     d=document.createElement("div"); d.id="tsHelpBox";
-    d.style.cssText="position:fixed;z-index:10000;background:#1b2338;border:1px solid rgba(255,255,255,.14);box-shadow:0 8px 30px rgba(0,0,0,.6);color:#e8ecf4;line-height:1.75;font-size:14.5px;white-space:pre-line;overflow:auto;"
+    d.style.cssText="position:fixed;z-index:10000;background:#1b2338;border:1px solid rgba(255,255,255,.14);box-shadow:0 8px 30px rgba(0,0,0,.6);color:#e8ecf4;line-height:1.75;font-size:14.5px;white-space:pre-line;overflow:auto;overscroll-behavior:contain;"
       +(mob?"left:8px;right:8px;bottom:8px;max-height:72vh;padding:0 14px 14px;border-radius:14px":"right:16px;top:64px;width:min(560px,92vw);max-height:80vh;padding:0 18px 16px;border-radius:10px");
     // 最上面一條標題列黏在頂端、X 放在它的右端：說明很長要捲動時 X 不會跟著捲走（原本 X 是絕對定位在內容裡，一捲就不見；
     //   使用者 2026-11-21「所有小框的X位置不要跑掉 然後大一點 然後背景不要用圓形底色 直接X就好」）。X 的長相跟格子小框共用 .tbTipX

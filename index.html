@@ -1098,7 +1098,7 @@
   .tpP{padding:8px 10px;border-radius:8px;background:rgba(255,255,255,.04);margin-top:8px}
   /* 隊伍小框（點隊名）：上面 2026 先發五人＋主教練、下面 2027，照片來自 Leaguepedia（使用者 2026-11-22）。電腦置中、手機從底部浮上來 */
   .tbRow:not(.tbFA) .tbTeam img:not(.tbFaIc){cursor:pointer}   /* 電腦版：點隊徽開陣容對比、點隊名開 WIKI（使用者 2026-11-22）；手機整格都能點 */
-  .tbTmBox{position:fixed;z-index:9998;left:50%;top:50%;transform:translate(-50%,-50%);width:min(860px,calc(100vw - 24px),calc(100vh - 24px));height:min(860px,calc(100vw - 24px),calc(100vh - 24px));display:flex;flex-direction:column;max-height:calc(100vh - 24px);overflow:auto;box-sizing:border-box;padding:0 16px 16px;border-radius:12px;background:#1b2338;border:1px solid rgba(255,255,255,.14);box-shadow:0 10px 36px rgba(0,0,0,.6);color:#e8ecf4;font-size:14px;text-align:left}
+  .tbTmBox{overscroll-behavior:contain;position:fixed;z-index:9998;left:50%;top:50%;transform:translate(-50%,-50%);width:min(860px,calc(100vw - 24px),calc(100vh - 24px));height:min(860px,calc(100vw - 24px),calc(100vh - 24px));display:flex;flex-direction:column;max-height:calc(100vh - 24px);overflow:auto;box-sizing:border-box;padding:0 16px 16px;border-radius:12px;background:#1b2338;border:1px solid rgba(255,255,255,.14);box-shadow:0 10px 36px rgba(0,0,0,.6);color:#e8ecf4;font-size:14px;text-align:left}
   .tbTmBox.sheet{left:8px;right:8px;top:auto;bottom:8px;transform:none;width:auto;height:auto;display:block;max-height:82vh;border-radius:14px;padding:0 12px 14px}
   .tbTmHd{position:sticky;top:0;z-index:2;display:flex;align-items:center;gap:8px;min-height:48px;margin-bottom:4px;background:#1b2338;border-bottom:1px solid rgba(255,255,255,.1);font-size:18px;font-weight:800}
   .tbTmHd a{color:inherit;text-decoration:none}.tbTmHd a:hover{text-decoration:underline}.tbTmHd .tbTipX{position:static;flex:0 0 auto;margin-left:0;margin-right:-10px}
@@ -1122,7 +1122,7 @@
   .tbPh{display:flex;flex-direction:column;align-items:center;gap:5px;min-width:0;text-align:center}
   .tbPhS{display:grid;grid-template-columns:auto 1fr;gap:2px 8px;justify-content:start;align-items:baseline;align-self:center;box-sizing:border-box;width:100%;max-width:132px;padding-left:2px;font-size:13px;line-height:1.35;font-variant-numeric:tabular-nums;text-align:left}   /* 資料置左（使用者 2026-11-22），左緣對齊頭像框（同樣 max-width 132、置中） */
   .tbPhS .tbPhK{color:#8b98ad;text-align:left;white-space:nowrap}.tbPhS b{font-weight:700;color:#e8ecf4;text-align:left;white-space:nowrap}
-  .tbPhC{display:flex;gap:5px;justify-content:flex-start;align-self:center;box-sizing:border-box;width:100%;max-width:132px;padding-left:2px;min-height:28px;align-items:center}
+  .tbPhC{display:flex;gap:5px;justify-content:center;align-self:center;box-sizing:border-box;width:100%;max-width:132px;min-height:28px;align-items:center}   /* 角色池三個置中（使用者 2026-11-22） */
   .tbPhC img{width:28px;height:28px;border-radius:5px;border:1px solid rgba(255,255,255,.14);object-fit:cover;background:#121826}
   .tbTmBox:not(.sheet) .tbPhC{max-width:none;gap:6px}.tbTmBox:not(.sheet) .tbPhC img{width:34px;height:34px}
   .tbTmBox.sheet .tbPhC img{width:24px;height:24px}
@@ -1137,7 +1137,7 @@
   /* 分享視窗（使用者 2026-11-21）：電腦置中、手機從底部浮上來 */
   .trShIc{width:22px;height:22px;display:block;margin:auto;color:#eef2fb}   /* 主站的小按鈕只有 30px，圖示維持 22px（24px 會塞滿按鈕）；獨立站的按鈕 34px，那邊用自己的樣式把圖示放成 24px 原尺寸（使用者 2026-11-21「小按鈕內的圖示感覺邊緣有點鋸齒」） */
   .trShD{position:fixed;inset:0;z-index:10000;display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box;background:rgba(5,8,14,.74)}
-  .trShD .trShBox{width:min(560px,100%);max-height:calc(100vh - 32px);overflow:auto;box-sizing:border-box;padding:0 18px 18px;border-radius:14px;background:#161c2b;border:1px solid #2a3345;box-shadow:0 12px 44px rgba(0,0,0,.55);color:#e8ecf4;font-size:15px;text-align:left}
+  .trShD .trShBox{width:min(560px,100%);max-height:calc(100vh - 32px);overflow:auto;overscroll-behavior:contain;box-sizing:border-box;padding:0 18px 18px;border-radius:14px;background:#161c2b;border:1px solid #2a3345;box-shadow:0 12px 44px rgba(0,0,0,.55);color:#e8ecf4;font-size:15px;text-align:left}
   .trShHd{display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:2;margin:0 -18px 10px;padding:6px 18px 4px;background:#161c2b;box-shadow:inset 18px 0 0 #161c2b,inset -18px 0 0 #161c2b,inset 0 -1px 0 rgba(255,255,255,.1)}.trShHd b{flex:1;font-size:17px;font-weight:800}   /* 標題列黏在視窗頂端：圖很多要捲動時，X 不會跟著捲走。外框的上留白改放在標題列自己身上——sticky 的 top:0 是從外框的「內容邊」算，外框留著上留白的話，用負邊距也拉不上去（實測還是離頂 16px） */
   .trShX{flex:0 0 auto;margin-right:-10px}   /* 長相跟其他小框的 X 共用（見 .tbTipX,.trShX） */
   .trShMsg{min-height:20px;margin-bottom:10px;font-size:13.5px;line-height:20px;color:#8b98ad}.trShMsg:empty{display:none}
@@ -1722,7 +1722,7 @@
     .trBar>#tsHelp{margin-left:auto}
   }
   @container mainc (max-width:310px){ .trBar .sqLaneBtn[data-mk="trRg"],.trBar .sqLaneBtn[data-mk="trSt"]{font-size:12px!important;letter-spacing:-.3px;padding-left:1px!important;padding-right:1px!important} }   /* 320 寬：六顆賽區鈕每顆只剩 44px，CBLOL（英文版的 Confirmed）會頂到框 */
-  #tbTip.sheet{pointer-events:auto!important;left:8px!important;right:8px!important;top:auto!important;bottom:8px!important;max-width:none!important;max-height:72vh;overflow:auto;padding:16px 14px 14px;border-radius:14px;box-shadow:0 -6px 30px rgba(0,0,0,.6)}
+  #tbTip.sheet{overscroll-behavior:contain;pointer-events:auto!important;left:8px!important;right:8px!important;top:auto!important;bottom:8px!important;max-width:none!important;max-height:72vh;overflow:auto;padding:16px 14px 14px;border-radius:14px;box-shadow:0 -6px 30px rgba(0,0,0,.6)}
   #tbTip.sheet .tpBox,#tbTip.sheet .rtBox{min-width:0}
   #tbTip.sheet .rtBox{width:auto}#tbTip.sheet .rtGrid{column-gap:8px;grid-template-columns:20px minmax(0,1fr) 24px minmax(0,1fr) max-content}#tbTip.sheet .rtAr{font-size:18px}
   @media (max-width:345px){#tbTip.sheet .rtGrid{column-gap:6px;grid-template-columns:18px minmax(0,1fr) 18px minmax(0,1fr) max-content}#tbTip.sheet .rtIc img{width:18px;height:18px}#tbTip.sheet .rtN,#tbTip.sheet .rtV{font-size:13px}#tbTip.sheet .rtD{min-width:0;font-size:12.5px}#tbTip.sheet .rtAr{font-size:16px}}   /* 最窄的手機：BrokenBlade 這種長 ID 也要放得下 */#tbTip.sheet .rtD{min-width:44px;padding:3px 4px;font-size:min(15px,4.2vw)}#tbTip.sheet .rtMulti .tbRum{padding:0 4px}#tbTip.sheet .rtSum{font-size:min(17px,4.5vw);padding-left:8px}#tbTip.sheet .rtMulti{column-gap:8px}   /* 窄手機（320）多人區塊不擠出框 */
@@ -15431,7 +15431,7 @@ function render(){
         // 整頁縮放（主站視窗不是 2560 寬時 <html> 有 zoom）：getBoundingClientRect／innerWidth／innerHeight 是視覺 px，寫進 style 的與 offsetWidth 是版面 px，
         //   兩者差 window._zoomF——直接把 rect 寫進 style，小框會往左上偏一截（1920 寬時偏 25%，蓋到別格）。以下一律先換成版面 px 再算（獨立站沒有縮放，ZF＝1）
         const ZF=window._zoomF||1, vr=el=>{ const q=el.getBoundingClientRect(); return {left:q.left/ZF,top:q.top/ZF,right:q.right/ZF,bottom:q.bottom/ZF,width:q.width/ZF,height:q.height/ZF}; }, IW=innerWidth/ZF, IH=innerHeight/ZF;
-        tip.style.pointerEvents="auto"; tip.style.maxHeight=(IH-16)+"px"; tip.style.overflowY="auto";
+        tip.style.pointerEvents="auto"; tip.style.maxHeight=(IH-16)+"px"; tip.style.overflowY="auto"; tip.style.overscrollBehavior="contain";   /* 小框捲到底不連動整頁（使用者 2026-11-22） */
         // 格子的小框跟那一欄同寬（使用者 2026-11-21「小框的寬度都設定為跟本來欄位寬度一致」）；欄太窄時至少 300px（小框內容本身最少要 260px＋邊距，再窄字會被切掉）。評分小框（五欄的表）維持原本的寬度
         { const cw=vr(c).width, isRate=c.classList.contains("tbRate"); tip.style.width=isRate?(tip.querySelector(".rtS3")?"max-content":""):Math.max(300,Math.round(cw))+"px"; tip.style.maxWidth=isRate?"":"none";   /* 第三賽段的小框內容少，縮成 250px（使用者 2026-11-21） */ tip.style.boxSizing="border-box"; }
         const r=vr(c), w=tip.offsetWidth, h=tip.offsetHeight;
@@ -15473,7 +15473,7 @@ function render(){
           +(a?`;transform-origin:${(f[0]*100).toFixed(1)}% ${(f[1]*100).toFixed(1)}%;transform:rotate(${(-a).toFixed(1)}deg)`:"")+`"`; };
       const LANE6=[["TOP","TOP"],["JNG","JG"],["MID","MID"],["BOT","BOT"],["SUP","SUP"],["HC","COACH"]];
       const pick27=L=>{ const c=e=>tbCls(e).split(" ")[0], inn=L.filter(e=>/^(tbNew|tbRs|tbStay|tbPm)$/.test(c(e))); if(inn.length)return inn[0];
-        const ru=L.filter(e=>c(e)==="tbY").sort((a,b)=>String(b.d||"").localeCompare(String(a.d||""))); return ru[0]||L.find(e=>c(e)==="tbOut")||null; };
+        const ru=L.filter(e=>c(e)==="tbY").sort((a,b)=>String(b.d||"").localeCompare(String(a.d||""))); return ru[0]||L.find(e=>c(e)==="tbOut")||L.find(e=>/^tbExp(?: |$)/.test(tbCls(e))&&!/tbGone/.test(tbCls(e)))||null; };   // 最後＝合約到期、沒宣布離隊、這一路也沒傳聞的原選手（使用者 2026-11-22「沒有傳聞 原先選手合約到期 那就先列原先選手 例如BLG Bin」）
       const phH=(o,ic,cls,sub)=>{ const lane=`<img class="tbPhL" src="img/${ic}.png" alt="">`; if(!o)return `<div class="tbPh"><div class="tbPhI tbPhE">${lane}</div><span class="tbPhN tbMuted">–</span>${sub||""}</div>`;
         const u=imgOf(o.p), h=phOf(o.p), st=fcSt(o.p);
         const im=h?`<img class="tbPhP" src="${esc(h)}" alt="" decoding="async" fetchpriority="high"${u?` data-w="${esc(u)}" data-s="${esc(st.replace(/^ style="|"$/g,""))}"`:""} onerror="if(this.dataset.w){this.src=this.dataset.w;this.setAttribute('style',this.dataset.s||'');this.referrerPolicy='no-referrer';this.dataset.w=''}else this.remove()">`
@@ -15485,7 +15485,7 @@ function render(){
       const n1=v=>v==null||isNaN(v)?"–":String(Math.round(v*10)/10);
       const kvS=rows=>`<div class="tbPhS">${rows.map(([k,v])=>`<span class="tbPhK">${k}</span><b>${String(v).split(" ").map(w=>`<span>${esc(w)}</span>`).join(" ")}</b>`).join("")}</div>`;   // 每個字詞包一層不斷行（手機放不下時只在空格換行，「WCS #5-8」不會斷在連字號後面）
       const ymOf=(d0,en3)=>{ const m=/^(\d{4})-(\d\d)-(\d\d)/.exec(d0||""); if(!m)return "–"; const now=new Date(); let mo=(now.getFullYear()-m[1])*12+(now.getMonth()+1-m[2])-(now.getDate()<+m[3]?1:0); if(mo<0)return "–";
-        const y=Math.floor(mo/12), r=mo%12; return en3?((y?y+"y":"")+(r||!y?(y?" ":"")+r+"m":"")):((y?y+" 年":"")+(r||!y?(y?" ":"")+r+" 個月":"")); };
+        const y=Math.floor(mo/12), r=mo%12; return en3?((y?y+"y":"")+(r||!y?(y?" ":"")+r+"m":"")):((y?y+" 年":"")+(r||!y?(y?" ":"")+r+" 月":"")); };   // 「5 年 11 月」（使用者 2026-11-22：不寫「個月」）
       const ageOf=d0=>{ const m=/^(\d{4})-(\d\d)-(\d\d)/.exec(d0||""); if(!m)return "–"; const now=new Date(); let a=now.getFullYear()-m[1]; if(now.getMonth()+1<+m[2]||(now.getMonth()+1===+m[2]&&now.getDate()<+m[3]))a--; return a>=10&&a<80?String(a):"–"; };
       // 開法（使用者 2026-11-22）：先是「滑動到隊徽的時候 顯示陣容對比」，同一天改成「點擊隊徽才顯示陣容對比 然後懸浮在畫面中間 大一點 正方形大小 之後我要塞數據」
       //   ⇒ 電腦版點隊徽（或隊名）開，正方形、置中；下面留一塊 .tbTmData 之後放數據。手機照舊從底部浮上來
@@ -15503,7 +15503,9 @@ function render(){
         const L26=en2?["ATK","DEF"]:["攻擊值","防禦值"], L27=en2?["Age","Pro for","Rating"]:["年齡","年資","評分"], LC26=en2?["Win rate","Result"]:["勝率","成績"], LC27=en2?["Age","Pro for","Rating"]:["年齡","年資","評分"]   /* 標籤寫「年資」（使用者 2026-11-22），內容仍是教練年資（含分析師） */;
         const tk=teamFix(String(tAb(t.nm)||t.nm)), sw3=RATE&&(RATE.sw||{})[tk], wr3=sw3&&sw3.n?sw3.w/sw3.n:null;   // 主教練勝率＝大場勝率（RATE.sw）
         const y26=LANE6.map(([r,ic])=>{ const o=o26(r);
-          if(r==="HC")return phH(o,ic,cls26(o),kvS([[LC26[0],wr3==null?"–":Math.round(wr3*100)+"%"],[LC26[1],rkS(t)||"–"]]));
+          // 主教練成績分三個賽段（使用者 2026-11-22「S1 S2 S3 去列成績 S1如果有進FST就列FST S2有進MSI就列MSI」）：t.s1／t.s2＝transfers_board.split_results 的代碼，S3 沿用 rkS（有進世界賽寫 WCS）
+          const rkX=c=>{ const z=String(c||""); return /^F/.test(z)?"FST #"+z.slice(1):/^M/.test(z)?"MSI #"+z.slice(1):(rkC(z,t)||"–"); };
+          if(r==="HC")return phH(o,ic,cls26(o),kvS([[LC26[0],wr3==null?"–":Math.round(wr3*100)+"%"],["S1",rkX(t.s1)],["S2",rkX(t.s2)],["S3",rkS(t)||"–"]]));
           const a=o&&RATE&&RATE.yr&&RATE.yr[r]?RATE.yr[r][String(pn(o.n)).toLowerCase()]:null;   // 整年（RATE.yr）
           const cnt=v=>v==null?"–":String(v);   // POG／POM 次數（使用者 2026-11-22「2026 加上兩列 POG POM」）；LCK 隊不列 POG（使用者「LCK就不要放POG」：LCK 只發 POM）
           return phH(o,ic,cls26(o),kvS([[L26[0],n1(a&&a.at)],[L26[1],n1(a&&a.df)],...(t.lg==="LCK"?[]:[["POG",cnt(a&&a.pg)]]),["POM",cnt(a&&a.pm)]])); }).join("");
