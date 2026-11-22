@@ -42,8 +42,10 @@ PX = 220   # 縮圖寬（畫面上最大 112px，臉放大後 2 倍螢幕也夠�
 VER = 2    # 快取版本：選圖規則改了就加一，舊的圖片紀錄整批重查
 SRCDIR = os.path.join(ROOT, "csv_cache", "ph_src")
 PHDIR = os.path.join(os.path.dirname(ROOT), "轉會網站", "www", "ph")   # 轉會網站的部署資料夾（transfers_hourly.py site 整個 www 一起部署）
-RVER = "2"  # 裁切規則版本：改了 FW／EY／漸隱就加一，檔名跟著換（瀏覽器快取才會更新）
+RVER = "4"  # 裁切規則版本：改了 FW／EY／漸隱就加一，檔名跟著換（瀏覽器快取才會更新）
 PS, PFW, PEY = 192, 0.36, 0.44   # 頭像邊長、臉寬佔邊長、兩眼高度佔邊長
+PSH = 192   # 頭像高（2026-11-22 試過直式 4:5：只拍到胸口的照片下面空一截，跟 Viper 的空隙同一種問題 ⇒ 維持正方形）
+PFADE = 48   # 頭像下緣淡出的長度（px，邊長 192；使用者 2026-11-22 嫌 26 不夠多不夠深）
 
 
 def _in(names):
@@ -58,6 +60,7 @@ def _disp(page):
 
 
 _POST = re.compile(r"playoff|final|road to|qualif|promotion|regional|play-in|tiebreak", re.I)
+_PO = re.compile(r"playoff|final|regional", re.I)   # 季後賽（含聯賽決賽、地區資格賽）
 
 
 def starters(cargo, year, teams):
@@ -83,11 +86,16 @@ def starters(cargo, year, teams):
         for (tm, ov), d in start.items():
             if not _POST.search(ov.split(tag, 1)[1]) and d > cut.get(tm, ""):
                 cut[tm] = d
+        # 有進季後賽就只看季後賽（使用者 2026-11-22「第三賽段先發要優先看季後賽 如果有進季後賽就先看季後賽 如果沒進才看例行賽 BLG先發上路應該就是Bin」）
+        def _po(ov):
+            return bool(_PO.search(ov.split(tag, 1)[1])) if tag in ov else False
+        inwin = [x for x in rows if x.get("tm") in cut and tag in str(x.get("ov") or "") and start.get((x.get("tm"), str(x.get("ov") or "")), "") >= cut[x.get("tm")]]
+        haspo = {x.get("tm") for x in inwin if _po(str(x.get("ov") or "")) and ROLE.get(str(x.get("r") or "").strip().lower())}
         cnt = {}
-        for x in rows:
+        for x in inwin:
             tm, ov = x.get("tm"), str(x.get("ov") or "")
             rr = ROLE.get(str(x.get("r") or "").strip().lower())
-            if not rr or not x.get("p") or tm not in cut or tag not in ov or start.get((tm, ov), "") < cut[tm]:
+            if not rr or not x.get("p") or (tm in haspo and not _po(ov)):
                 continue
             k = (tm, rr, str(x["p"]))
             cnt[k] = cnt.get(k, 0) + int(x.get("n") or 0)
@@ -359,10 +367,12 @@ def face_of(data):
             g = _head_geom(al > 60, F)
             if g:
                 hx, hw, lean = g
-                cx, fw = hx, hw / HR
+                # 頭寬只拿來微調大小：推回的臉寬夾在臉框的 0.92～1.12 倍（使用者 2026-11-22「Reapered 頭像太小 他只是頭髮比較澎」「Carzzy也是」：
+                #   頭髮蓬的人頭寬是臉寬的 1.75～1.9 倍，直接除 HR 會把頭縮太小；側臉 Quad 約 1.1 倍，不受影響）
+                cx, fw = hx, min(max(hw / HR, F[2] * 0.92), F[2] * 1.12)
                 # 很歪的頭略為轉正（使用者「頭如果很歪 你也可以略為轉正」）：眼睛角度與輪廓傾斜方向一致時取平均，不一致只信眼睛
                 ang = (eang - lean) / 2 if eang * lean < 0 else eang
-        return [round(cx / W, 3), round(ey / H, 3), round(fw / W, 3), round(W / H, 3), round(ang, 1), cut, 1]
+        return [round(cx / W, 3), round(ey / H, 3), round(fw / W, 3), round(W / H, 3), round(ang, 1), cut, 2]
     except Exception:
         return None
 
@@ -384,34 +394,40 @@ def _fetch(url):
 
 
 def render_head(data, f):
-    """原圖＋臉的位置 → 192×192 的頭像（RGBA）：臉寬＝邊長的 36%、兩眼中點在 (50%, 44%)、去背照把頭轉正（2～20 度）、
+    """原圖＋臉的位置 → 192×192 的頭像（RGBA；寬 PS、高 PSH）：臉寬＝邊長的 36%、兩眼中點在 (50%, 44%)、去背照把頭轉正（2～20 度）、
     身體下緣落在格子裡的（照片拍得比較近）最後 26px 漸隱；帶背景的照片放大到蓋滿整格"""
     from PIL import Image
     im = Image.open(io.BytesIO(data)).convert("RGBA")
     W, H = im.size
     ex, ey, fw, _ar, ang = f[:5]
     cut = f[5] if len(f) > 5 else 1
-    S = PS
+    S, SH = PS, PSH
     k = PFW * S / (fw * W)
     if not cut:
-        k = max(k, (S / 2) / max(1e-6, ex * W), (S / 2) / max(1e-6, (1 - ex) * W), (PEY * S) / max(1e-6, ey * H), ((1 - PEY) * S) / max(1e-6, (1 - ey) * H))
+        k = max(k, (S / 2) / max(1e-6, ex * W), (S / 2) / max(1e-6, (1 - ex) * W), (PEY * S) / max(1e-6, ey * H), (SH - PEY * S) / max(1e-6, (1 - ey) * H))
     rw, rh = max(1, round(W * k)), max(1, round(H * k))
     r = im.resize((rw, rh), Image.LANCZOS)
     cx, cy = ex * rw, ey * rh
     if cut and 2 <= abs(ang) <= 20:
         r = r.rotate(ang, center=(cx, cy), resample=Image.BICUBIC)
-    cv = Image.new("RGBA", (S, S), (0, 0, 0, 0))
+    cv = Image.new("RGBA", (S, SH), (0, 0, 0, 0))
     ox, oy = round(S / 2 - cx), round(PEY * S - cy)
     cv.alpha_composite(r, (max(0, ox), max(0, oy)), (max(0, -ox), max(0, -oy)))
     # 每一張頭像下緣都漸隱（使用者 2026-11-22「所有陣容對比框的頭像 底下都用漸層」）：身體下緣落在格子裡就從那裡淡出，否則淡出格子最下面 26px
-    bot = min(oy + rh, S)
-    if True:
-        a = cv.getchannel("A"); px = a.load(); L = 26
-        for y in range(max(0, bot - L), min(S, bot)):
-            m = (bot - y) / L
-            for x in range(S):
-                px[x, y] = int(px[x, y] * m)
-        cv.putalpha(a)
+    # 2026-11-22 再改（使用者「漸層不夠多不夠深 導致 Viper 這種底部有空隙的 還是很明顯」）：轉正後身體下緣是斜的，水平一條漸層蓋不到 ⇒
+    #   每一直行各自從「那一行的身體下緣」往上淡出 PFADE px，曲線 ((下緣−y)/L)^1.6（越靠下越透明）；只處理下緣在格子下半部的行（頭髮、耳朵的邊不動）
+    import numpy as np
+    A = np.asarray(cv.getchannel("A")).astype(np.float32)
+    L = PFADE
+    op = A > 8
+    has = op.any(axis=0)
+    last = np.where(has, SH - 1 - np.argmax(op[::-1, :], axis=0), -1)
+    yy = np.arange(SH, dtype=np.float32)[:, None]
+    bt = (last + 1).astype(np.float32)[None, :]
+    m = np.clip((bt - yy) / L, 0, 1) ** 1.6
+    use = (last >= SH * 0.55)[None, :]
+    A = np.where(use, A * m, A)
+    cv.putalpha(Image.fromarray(A.clip(0, 255).astype(np.uint8), "L"))
     return cv
 
 
@@ -603,16 +619,21 @@ def build(cargo, year, board, roles=None, alias=None):
     teams = [(t.get("nm") or t.get("tm"), t.get("tm") or t.get("nm")) for t in board if not t.get("fa") and (t.get("tm") or t.get("nm"))]
     # ① 先發
     S = C.setdefault("s26", {}).setdefault(str(year), {})
-    if C.get("s26v") != 2:   # 先發的規則改成第三賽段（2026-11-22）：五路整批重查，主教練（HC）留著
+    # 規則改版 ⇒ 整批重查（版本號逐步升，每一版只做一次）：
+    #   v2 先發改成第三賽段；v3 主教練排除升降賽／資格賽；v4 第三賽段有季後賽只看季後賽（都是 2026-11-22）
+    sv = C.get("s26v") or 0
+
+    def _drop_lanes():
         for tm in list(S):
             S[tm] = {k: v for k, v in S[tm].items() if k == "HC"}
             if not S[tm]:
                 del S[tm]
-        C["s26v"] = 2
-    if C.get("s26v") == 2:   # 主教練排除升降賽／資格賽（2026-11-22）：主教練整批重查
+    if sv < 3:
         for tm in S:
             S[tm].pop("HC", None)
-        C["s26v"] = 3
+    if sv < 4:
+        _drop_lanes()
+    C["s26v"] = 4
     need = sorted({tm for _nm, tm in teams if not any(r in (S.get(tm) or {}) for r in ROLE.values())})
     if need:
         got = starters(cargo, year, sorted({alias.get(tm, tm) for tm in need}))
@@ -693,7 +714,7 @@ def build(cargo, year, board, roles=None, alias=None):
         if not I.get(p, {}).get("u") and low.get(p.lower()):
             I[p] = dict(low[p.lower()], t=today)
     # 量法改過就重新量（只量臉，不重查 wiki；原圖有快取）：6 格＝舊的眼睛置中，7 格（最後一格 1）＝頭型置中
-    old = [p for p in pages if I.get(p, {}).get("u") and len(I[p].get("f") or []) < 7]
+    old = [p for p in pages if I.get(p, {}).get("u") and ((I[p].get("f") or [0] * 7) + [0])[6] < 2]   # 7 格最後一格＝量法版本：1 頭型置中、2 臉寬夾在臉框 0.92～1.12 倍
     for p in old:
         data = _fetch(I[p]["u"])
         I[p]["f"] = face_of(data) if data else I[p].get("f")
