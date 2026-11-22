@@ -100,7 +100,11 @@ REVIEW_BRIEF = """你是 LOL 儀表板「轉會」分頁的每小時複查員（
    同名選手或畫面上抓不到路線的人，直接寫記號：§SUP§‹Cloud (Moon Hyeon-ho)|Cloud›（§路線§‹wiki 頁名|顯示名›，路線＝TOP／JNG／MID／BOT／SUP，教練用 §COACH§）。
    選手名字前面不要寫路線（上路／打野／中路／下路／輔助）或「選手」：畫面會自動在名字前加路線圖，寫了會變成「下路 [下路圖] SamD」。
    ‹頁|名› 這種連結記號只用在 transfers_ptt_src.json；transfers_sheep_src.json 的 zh 只寫 §路線§名字（例：§COACH§Mowgli、§SUP§Targamas），連結程式會自己補，寫了 ‹› 反而會包兩層壞掉。
-   方向要對：「A 加入 B」＝原隊 A 的舊東家、新隊 B。內文很雜、一篇講很多隊 ⇒ 一句話濃縮每一隊的重點，並加 "nosplit": 1。
+   方向要對：「A 加入 B」＝原隊 A 的舊東家、新隊 B。
+   一則只能有一個新隊（使用者 2026-11-23「先看新隊能不能切成只有一隊 不行的話就看能不能原隊只有一個 讓消息單一化 不要全部擠在一起」）：
+   內文講到兩個以上的新隊 ⇒ 加 "parts": [{"zh", "en", "mv"}, …]，一個新隊一段（多隊 → 一隊可以；同一人可能去兩三隊時，照原隊寫成一段也可以），
+   每段 zh／en 只寫那一隊的事、自成完整句子；沒有新隊的段（留隊、合約到期名單）用 "tags": [[賽區, 隊全名, ""或"out"]] 一個原隊一段。
+   原條目的 zh／en 留整篇摘要（不顯示，只當備查），mv 照舊寫全部人（陣容表用），再加 "nosplit": 1。範例：M.1795160763.A.613、Sheep 2119839481989644418。
 3. mv＝這則消息裡「誰傳出要去哪」：[[選手 ID, 路線, 新隊全名, 原隊全名], …]。隊名一定用 Leaguepedia 全名（Gen.G、Kiwoom DRX、Hanwha Life Esports、Dplus Kia、Bilibili Gaming、JD Gaming、
    T1 Esports Academy、Hanwha Life Esports Challengers、Dplus Kia Challengers…；不確定就查 wiki）。原隊不知道填 ""。只是「有興趣」「接觸中」而已也可以列，但同一則不要超過五筆。一則講到兩個人以上時，每筆後面加第五格＝只講這個人的一句話（陣容表小框會顯示它），例：["Cloud", "SUP", "Gen.G", "T1 Esports Academy", "Cloud 被多隊追逐，最可能落腳 GEN。"]。
    教練、分析師的 mv 路線寫 COACH；報導講明是「主教練」的，另外在條目加 "hc": [那個人的 ID]（陣容表會放進主教練欄，沒標的放後勤欄）。

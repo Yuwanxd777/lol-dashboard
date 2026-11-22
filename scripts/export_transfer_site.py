@@ -278,7 +278,7 @@ html:not(.tsDesk) #tsCover,html:not(.tsDesk) #tsCap{display:none}`;
     d.innerHTML=`<div class="tsHpHd"><b>${LANG==="en"?"About this page":"本頁說明"}</b><button class="tbTipX" aria-label="close">✕</button></div>`+((LANG==="en"?HELP.en:HELP.zh)||"");
     document.body.appendChild(d); d.querySelector(".tbTipX").onclick=()=>d.remove(); };
   if(!window._tsHelpOut){ window._tsHelpOut=1; document.addEventListener("click",e=>{ const d=document.getElementById("tsHelpBox"); if(d&&!e.target.closest("#tsHelpBox")&&!e.target.closest("#tsHelp"))d.remove(); }); }
-  document.getElementById("tsReset").onclick=()=>{ Object.assign(V,{trSrc:"",trSt:"",trRg:"",trKd:"",trQ:"",tbF:"",tbSort:""}); saveState(); render(); }; }
+  document.getElementById("tsReset").onclick=()=>{ Object.assign(V,{trSrc:"",trSt:"",trRg:"",trKd:"",trQ:"",tbF:"",tbSort:"",tbWk:false}); saveState(); render(); }; }
 function render(){
 /*__BLOCK__*/
 addBase();

@@ -186,10 +186,13 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
         for m in re.finditer(r"‹([^|›]+)\|[^›]+›\s*\(([^()]+)\)", x.get("en") or ""):
             news_role[key(urllib.parse.unquote(m.group(1)))] = m.group(2).split(" to ")[-1]
     promo_hc = {}   # 人 → 「Coach to Head Coach」（提示小框要寫怎麼升的，使用者 2026-11-20）
+    promo_d = {}    # 人 → 升職消息日（陣容表「近 7 天」底線用，使用者 2026-11-23）
     for x in wiki or []:
         if (x.get("d") or "") >= since:
             for m in re.finditer(r"‹([^|›]+)\|[^›]+›\s*\(([^()]+ to (?:Interim )?Head Coach)\)", x.get("en") or ""):
                 promo_hc[key(urllib.parse.unquote(m.group(1)))] = m.group(2)
+                k_ = key(urllib.parse.unquote(m.group(1)))
+                promo_d[k_] = min(promo_d.get(k_) or "9999", (x.get("d") or "")[:10])
     new_keys = sorted({k for (k, tm), (d, _) in joined.items() if d >= since and team_of.get(k) == tm})
     origin = {}
     if new_keys:
@@ -206,18 +209,24 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
     # ④b 續約（使用者 2026-11-19「續約就用白字」）：wiki「contract(s) extended / will remain」與 Sheep 官方「續約」消息裡的人
     #     ⇒ 不算新加入、不算合約到期（GCD 常晚幾天才更新，Kingen 續約到 2028 但 Contracts 還是 2026/11/16）
     resign = {}
+    resign_d = {}   # 人 → 最早的續約消息日（陣容表「近 7 天」底線用，使用者 2026-11-23）
+    def _rd(k_, d_):
+        if d_ and (not resign_d.get(k_) or d_ < resign_d[k_]):
+            resign_d[k_] = d_
     for x in wiki or []:
         for sen in re.split(r"(?<=\.)\s+", x.get("en") or ""):
             if re.search(r"extended|will remain", sen):
                 y = re.search(r"through (\d{4})", sen)
                 for pg in re.findall(r"‹([^|›]+)\|", sen):
                     resign[key(urllib.parse.unquote(pg))] = y.group(1) if y else ""
+                    _rd(key(urllib.parse.unquote(pg)), (x.get("d") or "")[:10])
     for x in sheep or []:
         zh = x.get("zh") or ""
         if (x.get("st") or "") == "official" and "續約" in zh:
             y = re.search(r"(?:續約|延長)(?:到|至)?\s*(\d{4})", zh)
             for disp_ in re.findall(r"‹[^|›]+\|([^›]+)›", zh):
                 resign.setdefault(key(disp_), y.group(1) if y else "")
+                _rd(key(disp_), (x.get("d") or "")[:10])
     # ④c 合約到期、還沒宣布離隊（使用者 2026-11-19「教練的合約到期不要預設離隊啊，要是藍字」「GEN 就沒有任何宣布」）：
     #     wiki 在合約到期日自動記一筆 Leave（Kiin／Canyon／Lyn／Nova 都是 11/16），跟真的宣布離隊分不出來 ⇒
     #     離隊日＝合約到期日（±1 天）、之後沒加入別隊、也沒有官方「分道揚鑣／告別」消息的人留在原隊，合約欄顯示已到期（藍字）。
@@ -384,6 +393,8 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
                     e["c"] = con[(k, tm)]
                 if k in resign or key(pid) in resign:
                     e["rs"] = resign.get(k, resign.get(key(pid), "")) or "1"
+                    if resign_d.get(k) or resign_d.get(key(pid)):
+                        e["rsd"] = resign_d.get(k) or resign_d.get(key(pid))
                 jd = joined.get((k, tm), ("", ""))[0]
                 tr_ = next((t_ for t_ in TRIALS if t_["lg"] == lg_of.get(tm) and t_["from"] <= jd <= t_["to"] and t_["end"] < today), None) if (jd and k not in prevkeys and "rs" not in e) else None
                 if tr_:
@@ -400,6 +411,8 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
                 #   本休賽期 wiki 記「X to Head Coach」的人；或原隊是同組織的二隊／青訓（隊名第一個字相同＋Academy／Challengers／Youth…）
                 if k in promo_hc or (e.get("from") and _sister(e["from"], tm)):
                     e["pm"] = promo_hc.get(k) or 1   # 字串＝職稱異動；1＝從二隊／青訓上調（原隊在 from）
+                    if promo_d.get(k):
+                        e["pmd"] = promo_d[k]   # 升職消息日（上調的用 new＝加入日）
                 # 今年沒替這隊上過場的選手不列（使用者 2026-11-19「G2 Sola 是簽來當 co-stream 實況主的…沒上過場的都不應該出現在名單」）；新人不套
                 #     本休賽期有官方續約消息的不套（NS Calix 今年沒上場但續約到 2028，是明年的人）
                 if rr != "COACH" and "new" not in e and "rs" not in e and played is not None and (k, tkey(tm)) not in played and (key(pid), tkey(tm)) not in played:

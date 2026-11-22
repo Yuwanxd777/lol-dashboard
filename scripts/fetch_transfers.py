@@ -514,7 +514,7 @@ def main():
             pass
     acc.sort(key=lambda x: x["d"], reverse=True)
     io.open(SHEEP, "w", encoding="utf-8").write(json.dumps(acc, ensure_ascii=False, indent=1))
-    sheep = [{k: x[k] for k in ("id", "d", "en", "zh", "url", "kind", "tags", "st", "yt") if x.get(k)} for x in acc if x["d"][:10] >= start]
+    sheep = [{k: x[k] for k in ("id", "d", "en", "zh", "url", "kind", "tags", "st", "yt", "parts") if x.get(k)} for x in acc if x["d"][:10] >= start]
     for x in sheep:   # 推文裡的 YouTube 連結也附成 YT 按鈕
         if not x.get("yt") and yt_of(x.get("en")):
             x["yt"] = yt_of(x.get("en"))
@@ -595,7 +595,7 @@ def main():
                     y_ = yt_of((x.get("body") or "").split("※ 發信站")[0])
                     if y_:
                         x["yt"] = y_
-            extra += [{k: x[k] for k in ("id", "d", "zh", "en", "src", "url", "ptt", "st", "kind", "tags", "mv", "fake", "conf", "nosplit", "yt") if x.get(k)} for x in raw if not x.get("hide")]
+            extra += [{k: x[k] for k in ("id", "d", "zh", "en", "src", "url", "ptt", "st", "kind", "tags", "mv", "fake", "conf", "nosplit", "yt", "parts") if x.get(k)} for x in raw if not x.get("hide")]   # parts＝一則拆成好幾列（使用者 2026-11-23「讓消息單一化」）
     extra.sort(key=lambda x: x["d"], reverse=True)
     off = [x for x in extra if x.get("src") == "官方"]   # 陣容表的續約判定吃得到（粉字）
     # PTT 傳聞進陣容表（使用者 2026-11-20「你不是有抓到 Scout 可能會去 KRX 的消息嗎 怎沒填入陣容表」）：
