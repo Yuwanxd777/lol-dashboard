@@ -339,6 +339,9 @@ def main():
         import base64
         rem = subprocess.run(["git", "ls-tree", "-r", "--name-only", "origin/main", "--", "img/teams"], cwd=ROOT, capture_output=True, check=True).stdout.decode("utf-8").splitlines()
         rem = set(rem) - set(subprocess.run(["git", "diff", "--name-only", "origin/main", "--", "img/teams"], cwd=ROOT, capture_output=True, check=True).stdout.decode("utf-8").splitlines())   # 改過還沒推的也算主站沒有
+        # GitHub Pages 預設跑 Jekyll，「~」開頭的檔不發布（2026-11-22 查到 TE／XLG／Riot 隊徽 404）⇒ 主站還沒有 .nojekyll 時，這種檔一律當主站沒有、內嵌
+        if not subprocess.run(["git", "ls-tree", "--name-only", "origin/main", "--", ".nojekyll"], cwd=ROOT, capture_output=True).stdout.strip():
+            rem = {f for f in rem if not f.split("/")[-1].startswith("~")}
         n_emb = 0
         for m in (data.get("team") or {}, data.get("ab") or {}):
             for o in m.values():
