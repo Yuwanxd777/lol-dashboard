@@ -14816,6 +14816,8 @@ function render(){
         for(const k in ln)(o[k]=o[k]||[]).push(ln[k][0]/ln[k][1]); }
       for(const k in o)o[k]=o[k].length>=3?o[k].reduce((a,b)=>a+b,0)/o[k].length:null; return o; })();   // 五路分數加總 ÷ 5（使用者 2026-11-22「平均是/5」；少於三路有資料的隊不給分，缺一兩路時除以有資料的路數）
     const coachV=n=>{ if(!n)return null; const v=CP[teamFix(String(tAb(n)||n))]; return v==null?null:v; };
+    // 主教練的基準分＝所有主教練分數的中位數（轉會評分裡今年沒帶隊的主教練用；使用者 2026-11-22）
+    const CMD=(()=>{ const a=Object.values(CP).filter(v=>v!=null).sort((x,y)=>x-y), h=a.length>>1; return a.length?(a.length%2?a[h]:(a[h-1]+a[h])/2):null; })();
     const T1SET=new Set(board.flatMap(x=>[x.nm,x.tm])), BASEW_=1;   /* 原本 0.8＝三個賽段合計 80%；賽段權重改成 15／35／50 之後是 100% */
     // 聯賽強度的換算（隊伍評分與自由人共用）：別的聯賽來的分數 × exp(LGK × (原聯賽強度 − 目的聯賽強度))；同聯賽＝1、強度缺＝1
     const LGK=0.3, lgW0=(from,to)=>{ const a=lgN(from), Rg=(RATE&&RATE.R)||{}; return (!a||a===to||Rg[a]==null||Rg[to]==null)?1:Math.exp(LGK*(Rg[a]-Rg[to])); };
@@ -14885,10 +14887,14 @@ function render(){
           // 多位傳聞人選：不取平均，用「最低～最高」表示（使用者 2026-11-20「評分顯示不要用平均好了 就用 ～ 代表最低最高分」）；d＝中間值，只拿來排序與決定顏色
           const mv=multi&&multi.length>=2?multi.map(x=>x.s.v):null, mlo=mv?Math.min(...mv):null, mhi=mv?Math.max(...mv):null, av=mv?(mlo+mhi)/2:null;
           if(A.s&&B.s&&A.n!==B.n)items.push({r,nw:A.n,od:B.n,a:av??A.s.v,b:B.s.v,d:(av??A.s.v)-B.s.v,dlo:(mlo??A.s.v)-B.s.v,dhi:(mhi??A.s.v)-B.s.v,nws:av!=null?multi.map(x=>({n:x.n,v:x.s.v,e:x.e})).sort((p,q)=>q.v-p.v):null,ne:A.e,oe:B.e,rm:A.rm,ma:A.md&&(A.vac?2:1),mb:B.md,ta:A.md?"":tg(A),tb:B.md?"":tg(B)}); } }
-      const hc=(t.r.COACH||[]).find(e=>e.sr==="HC"&&(e.new||e.tip)&&e.from), A=hc&&coachS(hc.from), B=coachS(t.nm)||coachS(t.tm);
-      // 換主教練的分數也用「帶的選手平均」（使用者 2026-11-22 教練評分改制，跟陣容對比同一把尺）；任一邊沒分就不列
-      const Av=hc&&coachV(hc.from), Bv=coachV(t.nm)??coachV(t.tm);
-      if(hc&&A&&B&&Av!=null&&Bv!=null)items.push({r:"COACH",nw:`${pn(hc.n)}（${abOf(hc.from)}・${A.note}）`,od:`${abOf(t.nm)}（${B.note}）`,a:Av,b:Bv,d:Av-Bv,rm:!!hc.r});
+      // 主教練＝第六路（使用者 2026-11-22「轉會評比也要算上主教練的評分」）：分數＝帶的選手平均（coachV，跟陣容對比同一把尺）
+      //   有新主教練（官宣／傳聞／升任，官方優先）就比：新＝原隊的分數；隊內升任（沒有 from：HLE Mowgli）＝本隊；今年沒帶隊（T1 Roach）＝全部主教練的中位數當基準
+      //   舊＝本隊今年的分數，沒有就用基準；兩邊都是基準（差 0、沒資訊）不列。主教練走了還沒補人＝空缺，跟選手一樣不算
+      { const hc=(t.r.COACH||[]).filter(e=>e.sr==="HC"&&!e.gone&&(e.new||e.tip||e.pm)).sort((a,b)=>(a.r?1:0)-(b.r?1:0))[0];
+        if(hc){ const own=coachV(t.nm)??coachV(t.tm), Ar=hc.from?coachV(hc.from):(hc.pm?own:null), Av=Ar??CMD, Bv=own??CMD;
+          const A=hc.from?coachS(hc.from):null, B=coachS(t.nm)||coachS(t.tm), base=en2?"no data, baseline":"無今年資料・基準分";
+          if(Av!=null&&Bv!=null&&!(Ar==null&&own==null))items.push({r:"COACH",nw:`${pn(hc.n)}（${hc.from?abOf(hc.from)+(Ar!=null&&A?"・"+A.note:""):(hc.pm?(en2?"promoted":"升任"):"")}${Ar==null?(hc.from||hc.pm?"・":"")+base:""}）`,
+            od:`${abOf(t.nm)}（${own!=null&&B?B.note:base}）`,a:Av,b:Bv,d:Av-Bv,rm:!!hc.r}); } }
       // 續約鼓勵分（使用者 2026-11-20「選手續約給個五分鼓勵 如果兩人續約給兩個6分 以此類推到五人 最後五人續約時 主教練也沒變化 那就是總共+50」）：
       //   N 路有人續約 ⇒ 每人 1.5＋N×0.5 分（1 人 2、2 人各 2.5、…、5 人各 4＝20）；五路都續約且主教練沒換再 ＋5 ⇒ 合計 25
       //   （原本是每人 4＋N、合計 50：BRO 原班續約 ＋50 比 DK 換上 Doran＋Kanavi 還多 ⇒ 使用者 2026-11-20 同意調小）
