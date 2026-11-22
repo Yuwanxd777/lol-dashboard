@@ -1102,7 +1102,7 @@
   .tbTmBox.sheet{left:8px;right:8px;top:auto;bottom:8px;transform:none;width:auto;height:auto;display:block;max-height:82vh;border-radius:14px;padding:0 12px 14px}
   .tbTmHd{position:sticky;top:0;z-index:2;display:flex;align-items:center;gap:10px;min-height:58px;margin-bottom:4px;background:#1b2338;border-bottom:1px solid rgba(255,255,255,.1);font-size:26px;font-weight:800}
   .tbTmHd a{color:inherit;text-decoration:none}.tbTmHd a:hover{text-decoration:underline}.tbTmHd .tbTipX{position:static;flex:0 0 auto;margin-left:0;margin-right:-10px}
-  .tbNt{flex:0 0 auto;margin-left:6px;padding:1px 7px;border-radius:999px;font-size:12px;font-weight:700;line-height:18px;color:#1b2338;background:#f2c94c;white-space:nowrap}.tbTmHd .tbNt{font-size:16px;line-height:24px;padding:1px 10px}.tbTmRt{margin-left:auto;display:flex;gap:18px;align-items:center}.tbTmRt>span{display:flex;flex-direction:column;align-items:flex-end;line-height:1.1}.tbTmRt i{font-style:normal;font-size:12px;font-weight:600;color:#8f9bb3}.tbTmRt b{font-size:22px;font-weight:800;white-space:nowrap}.tbTmBox.sheet .tbTmHd{font-size:22px;gap:8px}.tbTmBox.sheet .tbTmRt{gap:10px}.tbTmBox.sheet .tbTmRt b{font-size:16px}.tbTmBox.sheet .tbTmRt i{font-size:11px}.tbTmBox.sheet .tbTmHd>img,.tbTmBox.sheet .tbTmHd>span>img{width:40px!important;height:40px!important;object-fit:contain}.tbTmShot{flex:0 0 auto;margin-left:6px;width:40px;height:40px;display:flex;align-items:center;justify-content:center;padding:0;border:0;background:none;color:#aeb8c8;cursor:pointer}.tbTmShot:hover{color:#fff}.tbTmShot:disabled{opacity:.4;cursor:wait}
+  .tbNt{flex:0 0 auto;margin-left:6px;padding:1px 7px;border-radius:999px;font-size:12px;font-weight:700;line-height:18px;color:#1b2338;background:#f2c94c;white-space:nowrap}.tbTmHd .tbNt{font-size:16px;line-height:24px;padding:1px 10px}.tbBoard>.tbRow,.trList>:not(.trHead):not(.trMore):not(.trDay){content-visibility:auto;contain-intrinsic-size:auto 96px}[data-tshot] .tbBoard>.tbRow,[data-tshot] .trList>*{content-visibility:visible!important}.tbTmRt{margin-left:auto;display:flex;gap:18px;align-items:center}.tbTmRt>span{display:flex;flex-direction:column;align-items:flex-end;line-height:1.1}.tbTmRt i{font-style:normal;font-size:12px;font-weight:600;color:#8f9bb3}.tbTmRt b{font-size:22px;font-weight:800;white-space:nowrap}.tbTmBox.sheet .tbTmHd{font-size:22px;gap:8px}.tbTmBox.sheet .tbTmRt{gap:10px}.tbTmBox.sheet .tbTmRt b{font-size:16px}.tbTmBox.sheet .tbTmRt i{font-size:11px}.tbTmBox.sheet .tbTmHd>img,.tbTmBox.sheet .tbTmHd>span>img{width:40px!important;height:40px!important;object-fit:contain}.tbTmShot{flex:0 0 auto;margin-left:6px;width:40px;height:40px;display:flex;align-items:center;justify-content:center;padding:0;border:0;background:none;color:#aeb8c8;cursor:pointer}.tbTmShot:hover{color:#fff}.tbTmShot:disabled{opacity:.4;cursor:wait}
   .tbTmYr{margin:12px 0 7px;font-size:16px;font-weight:800;color:#8b98ad;font-variant-numeric:tabular-nums}
   .tbTmG{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px}
   .tbTmData{flex:1 1 auto;min-height:0;margin-top:14px}.tbTmData:empty{border-top:1px solid rgba(255,255,255,.06)}   /* 之後放數據的地方（使用者 2026-11-22「之後我要塞數據」） */
@@ -15393,7 +15393,7 @@ function render(){
     //   為什麼不用外框：外框只要有一個像素就算，可是往旁邊越來越細的尖角、淡淡的尾巴（HLE 左邊那條）縮到 16px 根本看不見，
     //   眼睛看到的邊比外框內縮 1.5px，「與 → 隊徽」就比別隊寬（使用者 2026-11-21「不能一致嗎」）。只拿來對齊左右，大小仍照外框算
     const LG_TH=70;
-    const lgEdge=(m,E)=>{ const k=Math.max(8,Math.round(E*2)/2), pd0=(1-m.fw)/2; m.ed=m.ed||{}; if(m.ed[k])return m.ed[k]; let il=pd0, ir=pd0;
+    const lgEdge=(m,E)=>{ const k=Math.max(8,Math.round(E*2)/2), pd0=(1-m.fw)/2; m.ed=m.ed||{}; if(m.ed[k])return m.ed[k]; if(!m.img)return null; let il=pd0, ir=pd0;
       try{ const Z=3, n=Math.round(k*Z), o=3*Z, c=document.createElement("canvas"); c.width=c.height=n+2*o; const g=c.getContext("2d",{willReadFrequently:true});
         g.fillStyle="rgb(27,34,54)"; g.fillRect(0,0,c.width,c.height); try{ g.filter=`drop-shadow(0 0 ${Z}px rgba(255,255,255,.55))`; }catch(_){}
         g.drawImage(m.img,o,o,n,n); const d=g.getImageData(0,0,c.width,c.height).data, W=c.width; let a=-1, b=-1;
@@ -15401,9 +15401,10 @@ function render(){
         for(let X=0;X<W;X++)if(hit(X)){ a=X; break; }
         for(let X=W-1;X>=0;X--)if(hit(X)){ b=X; break; }
         if(a>=0&&b>=a){ il=(a-o)/n; ir=(o+n-1-b)/n; } }catch(_){}
-      return m.ed[k]={il,ir}; };
+      m.ed[k]={il,ir}; if(m.src)plgPut(m.src,m); return m.ed[k]; };
     // 字的左右留白（墨水到字框邊緣，單位 em）：TextMetrics 的 actualBoundingBox 在這個字型只回整數、左邊的留白還量不到 ⇒ 把字放大 8 倍畫到小畫布上，找第一欄／最後一欄有顏色的位置
-    const INKB=window._tbInk||(window._tbInk=new Map());
+    const INKB=window._tbInk||(window._tbInk=(()=>{ try{ return new Map(Object.entries(JSON.parse(localStorage.getItem("tbInk1")||"{}"))); }catch(_){ return new Map(); } })());
+    let _inkT=0; const inkSave=()=>{ clearTimeout(_inkT); _inkT=setTimeout(()=>{ try{ localStorage.setItem("tbInk1",JSON.stringify(Object.fromEntries(INKB))); }catch(_){} },1500); };
     const inkB=(el,ch,right)=>{ if(!ch)return 0; const g=getComputedStyle(el), fs=parseFloat(g.fontSize)||14, key=g.fontWeight+"|"+g.fontFamily+"|"+ch+"|"+(right?1:0); if(INKB.has(key))return INKB.get(key)*fs;
       let v=0; try{ const K=8, c=document.createElement("canvas"), W=Math.ceil(fs*K*2.4), H=Math.ceil(fs*K*1.9); c.width=W; c.height=H; const x=c.getContext("2d",{willReadFrequently:true});
         x.font=`${g.fontWeight} ${fs*K}px ${g.fontFamily}`; x.textBaseline="alphabetic"; x.fillStyle="#fff"; const ox=Math.round(fs*K*0.7), adv=x.measureText(ch).width; x.fillText(ch,ox,Math.round(H*0.72));
@@ -15411,10 +15412,17 @@ function render(){
         for(let X=0;X<W&&l<0;X++)for(let Y=0;Y<H;Y++)if(d[(Y*W+X)*4+3]>60){ l=X; break; }
         for(let X=W-1;X>=0&&r<0;X--)for(let Y=0;Y<H;Y++)if(d[(Y*W+X)*4+3]>60){ r=X; break; }
         if(l>=0)v=right?(ox+adv-1-r)/(fs*K):(l-ox)/(fs*K); }catch(_){ v=0; }
-      v=Math.max(-0.1,Math.min(0.7,v)); if(!document.fonts||document.fonts.status==="loaded")INKB.set(key,v);   // 字型還沒載完量到的是替代字型，不存
+      v=Math.max(-0.1,Math.min(0.7,v)); if(!document.fonts||document.fonts.status==="loaded"){ INKB.set(key,v); inkSave(); }   // 字型還沒載完量到的是替代字型，不存
       return v*fs; };
-    const lgGet=(src,cb)=>{ if(LGF.has(src)){ cb(LGF.get(src)); return; } if(LGP.has(src)){ LGP.get(src).push(cb); return; } LGP.set(src,[cb]);
-      const done=m=>{ LGF.set(src,m); (LGP.get(src)||[]).forEach(f=>f(m)); LGP.delete(src); };
+    // 效能（使用者 2026-11-22「再次全面檢視…尤其是效能」）：隊徽量測（畫到畫布讀像素，手機上每次開頁約 0.2 秒）的結果存進 localStorage，
+    //   下次開頁直接用、不用再載圖量；data: 開頭的（內嵌的隊徽）不存。量測規則改了就把 PLGK 的版本號加一
+    const PLGK="tbLgM1", PLG=(()=>{ try{ return JSON.parse(localStorage.getItem(PLGK)||"{}")||{}; }catch(_){ return {}; } })(), PLGX=new Set();
+    let _plgT=0; const plgSave=()=>{ clearTimeout(_plgT); _plgT=setTimeout(()=>{ try{ localStorage.setItem(PLGK,JSON.stringify(PLG)); }catch(_){} },1500); };
+    const plgPut=(src,m)=>{ if(!m||/^data:/.test(src))return; PLG[src]={fw:m.fw,fh:m.fh,ed:m.ed||{}}; plgSave(); };
+    const lgGet=(src,cb)=>{ if(LGF.has(src)){ cb(LGF.get(src)); return; }
+      if(!PLGX.has(src)&&PLG[src]&&PLG[src].fw){ const m={...PLG[src],ed:{...(PLG[src].ed||{})},img:null,src}; LGF.set(src,m); cb(m); return; }
+      if(LGP.has(src)){ LGP.get(src).push(cb); return; } LGP.set(src,[cb]);
+      const done=m=>{ if(m)m.src=src; LGF.set(src,m); plgPut(src,m); (LGP.get(src)||[]).forEach(f=>f(m)); LGP.delete(src); };
       const p=new Image(); p.crossOrigin="anonymous";
       p.onload=()=>{ let m=null; try{ const N=36   /* 量測格接近實際顯示大小（16～22px 的兩倍）：細線縮小後本來就看不見，量太細反而把它算成圖案 */, c=document.createElement("canvas"); c.width=c.height=N; const g=c.getContext("2d",{willReadFrequently:true}); g.drawImage(p,0,0,N,N);
           const d=g.getImageData(0,0,N,N).data; let x0=N,y0=N,x1=-1,y1=-1;
@@ -15432,7 +15440,8 @@ function render(){
         const E=w/m.fw;   // 整張正方形圖要畫多大，圖案才是 w×h
         // 圖案靠右貼著後面的縮寫（使用者 2026-11-20「有些隊徽的左右間隔比較大 導致跟右邊戰隊縮寫的視覺距離變遠了」）：
         //   每個隊徽仍佔固定寬 W 的位子（縮寫才會對齊），但圖案不再置中——窄的隊徽（DNS、MKOI）置中時兩邊各空一截；改成圖案右緣對齊位子右緣，空的全留在左邊
-        const pd=(E-w)/2, ed=m.img?lgEdge(m,E):null, pL=ed?E*ed.il:pd, pR=ed?E*ed.ir:pd;   // pL／pR＝圖檔左右「看起來是空的」那一截（對齊用）；pd＝外框算出來的（舊的，左右一樣）
+        if(!m.img&&!(m.ed&&m.ed[Math.max(8,Math.round(E*2)/2)])&&m.src&&!PLGX.has(m.src)){ PLGX.add(m.src); LGF.delete(m.src); img.dataset.fit=""; delete img.dataset.fit; lgFit(img); return; }
+        const pd=(E-w)/2, ed=lgEdge(m,E), pL=ed?E*ed.il:pd, pR=ed?E*ed.ir:pd;   // pL／pR＝圖檔左右「看起來是空的」那一截（對齊用）；pd＝外框算出來的（舊的，左右一樣）
         img.style.width=img.style.height=E+"px"; // 2026-11-21 使用者「各賽區的隊徽沒有置中 先置中後再寫隊名縮寫 然後隊名縮寫置右」：陣容表的隊名欄＝隊徽在固定寬的位子裡置中（各隊的隊徽對在同一條中線上）、
         //   縮寫接在後面靠左；其他地方（消息的原隊／新隊、小框裡的隊伍）維持圖案左右貼齊，才不會離縮寫太遠
         img.style.margin=img.closest(".tbTeam,.trTeam")?`${(S-E)/2}px ${(W-E)/2}px`:`${(S-E)/2}px ${-pd}px`;   // 消息的原隊／新隊也用同一套（使用者 2026-11-21「都要採取這樣徽章置中放左邊 然後隊名置左的做法」）   /* 2026-11-20 再改「空白也不要留給左邊」：不留固定寬的位子，圖案左右都貼齊（縮寫的左緣因此會隨隊徽寬度不同） */ img.style.maxWidth="none";
