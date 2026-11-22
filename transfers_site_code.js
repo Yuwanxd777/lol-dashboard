@@ -450,7 +450,7 @@ function render(){
           L.forEach(z=>{ const p=M[M.length-1]; if(p&&(!p[1]||dd(p[1],z[0])<=45)){ if(p[1]&&(!z[1]||z[1]>p[1]))p[1]=z[1]; } else M.push([z[0],z[1]]); });
           if(M.length&&(e.rs||M.some(z=>z[1]&&z[1]<JD))){ const days=M.reduce((a,z)=>a+Math.max(0,dd(z[0],z[1]||today)),0), mo=Math.round(days/30.44), y=Math.floor(mo/12), m=mo%12;
             const du=en2?(mo<1?"<1m":(y?`${y}y${m?` ${m}m`:""}`:`${m}m`)):(mo<1?"不到 1 個月":(y?`${y} 年${m?` ${m} 個月`:""}`:`${m} 個月`));
-            kv.push([en2?"Tenure":"效力",`${du}<span class="tbMuted">（${M.map(z=>`${ymd(z[0]).slice(0,7)} – ${z[1]?ymd(z[1]).slice(0,7):(en2?"now":"今")}`).join(en2?", ":"、")}）</span>`]); } }
+            kv.push([en2?"Tenure":"效力",du]); } }   // 只寫待的總時間（使用者 2026-11-22「我要的是待的總時間 幾年幾個月這樣」：原本後面還列各段起訖）
         if(e.gone)kv.push(...goKv(e.n,t.nm));
         if(e.from&&!faC&&!(e.pm&&typeof e.pm!=="string"))kv.push([en2?"From":"來自",tmChip(e.from)]);
         // 退役的人不寫評分，改寫年資＝wiki 效力紀錄的第一天到最後一天（使用者 2026-11-21「小框的評分改寫成 他在WIKI顯示的年資」）；資料端給 ys／ye
