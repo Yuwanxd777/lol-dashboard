@@ -14624,7 +14624,7 @@ function render(){
     const pill=(c,tx)=>`<span class="tpPill ${c}">${tx}</span>`;
     // 綠＝合約還在、但傳出可能去別隊（使用者 2026-11-19「如果合約還在但有傳出可能去別隊 上綠色」）；合約已到期的維持藍字、提示照樣看得到傳聞
     const expd=e=>!e.tip&&(!e.c||e.c<today);   // 合約無紀錄也算合約到期（使用者 2026-11-20「合約無紀錄的 例如 Uniboy 這種 也要算是合約到期」）
-    const roOn=e=>!!(e&&e.ro&&!(expd(e)&&!e.rs));
+    const roOn=e=>!!(e&&(e.ros||(e.ro?[e.ro]:[])).some(o=>o&&!["LCK","LPL","LEC","LCS","CBLOL","LCP"].includes(o.to))&&!(expd(e)&&!e.rs));   /* 去向只寫聯賽的不算（跟 FA 的 roTm 同一條；2026-11-22 檢視） */
     const stPill=e=>e.ret?pill("tpX",en2?"Retired":"退役"):e.cb?pill("tpB",en2?"Comeback":"復出"):e.gone?pill("tpB",en2?"Departure announced":"已宣布離隊"):e.r?pill("tpY",en2?"Rumor":"傳聞"):e.pm?pill("tpV",en2?"Promoted":"升職"):(e.new||(e.tip&&!e.r))?pill("tpR",en2?"New":"新加入"):roOn(e)?pill("tpG",en2?"Possible move":"可能轉會")
       :(expd(e)&&!e.rs)?pill("tpB",en2?"Contract expired":"合約到期"):e.rs?pill("tpK",en2?"Re-signed":"續約"):"";
     const tmChip=n=>`<span class="tpTm">${teamLogoHTML(tAb(n),16,true,n)||""}${esc(abOf(n))}</span>`;
@@ -14935,7 +14935,7 @@ function render(){
     // 範圍的寫法與顏色：最低～最高；兩頭都正＝紅、都負＝綠、一正一負看中間值
     // 加減號與括號用全形（使用者 2026-11-20「加減號用全型 括號也是」）；四捨五入後是 0.0 的不帶符號
     // rSg：整數不寫 .0（使用者 2026-11-22「在外面轉會評分 如果分數是整數也是不要顯示.0」）
-    const rSg=v=>{ const t=Math.abs(v).toFixed(1).replace(/\.0$/,""); return (t==="0"?"":v>0?"＋":"－")+t; }, rtx=(lo,hi)=>hi-lo>0.05?`${rSg(lo)} ～ ${rSg(hi)}`:rSg((lo+hi)/2), rI=v=>{ const r=Math.round(v); return (r===0?"":r>0?"＋":"－")+Math.abs(r); }, rtxI=(lo,hi)=>Math.round(lo)!==Math.round(hi)?`${rI(lo)} ～ ${rI(hi)}`:rI((lo+hi)/2),   /* 總分四捨五入到整數（使用者 2026-11-22）；各列增減照舊一位小數 */ rcls=(lo,hi)=>{ const m=lo>0?1:hi<0?-1:(lo+hi)/2; return m>0?"tbUp":m<0?"tbDn":""; };
+    const rSg=v=>{ const t=Math.abs(v).toFixed(1).replace(/\.0$/,""); return (t==="0"?"":v>0?"＋":"－")+t; }, rtx=(lo,hi)=>hi-lo>0.05?`${rSg(lo)} ～ ${rSg(hi)}`:rSg((lo+hi)/2), rI=v=>{ const r=Math.round(v); return (r===0?"":r>0?"＋":"－")+Math.abs(r); }, rtxI=(lo,hi)=>Math.round(lo)!==Math.round(hi)?`${rI(lo)} ～ ${rI(hi)}`:rI((lo+hi)/2),   /* 總分四捨五入到整數（使用者 2026-11-22）；各列增減照舊一位小數 */ rcls=(lo,hi)=>{ lo=Math.round(lo); hi=Math.round(hi);   /* 跟顯示的整數一致：四捨五入成 0 就不上色 */ const m=lo>0?1:hi<0?-1:(lo+hi)/2; return m>0?"tbUp":m<0?"tbDn":""; };
     // 戰績評分模式的小框＝第三賽段的成績數據（使用者 2026-11-21）：成績、場數、勝敗、勝率
     const s3Tip=t=>{ const k=teamFix(String(tAb(t.nm)||t.nm)), d=RATE&&RATE.s3?(RATE.s3[k]||RATE.s3[teamFix(String(tAb(t.tm)||t.tm))]):null;
       let h=`<div class="rtBox rtS3"><div class="rtHd">${teamLogoHTML(tAb(t.nm),22,true,t.nm)||""}<b>${esc(rowNm(t))}</b></div><div class="tpKv">`

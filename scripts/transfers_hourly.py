@@ -24,7 +24,7 @@ SITE = os.path.join(os.path.dirname(ROOT), "轉會網站")
 LOG = os.path.join(ROOT, "transfers_hourly_log.txt")
 FILES = ["transfers.js", "transfers_site.js", "transfers_site_code.js"]
 # 發布時一起提交的檔：上面三個資料檔＋補抓到的隊徽（img/teams 整個資料夾）與隊徽清單。do_site 只複製 FILES（隊徽走主站網域）
-PUB = FILES + ["img/teams", "img_manifest.js"]
+PUB = FILES + ["img/teams", "img_manifest.js", "transfers_career.js"]   # transfers_career.js＝主站轉會分頁的生涯評分（2026-11-22 檢視：原本只有 10／22 點才帶上去）
 GIT = r"C:\Program Files\Git\cmd\git.exe"
 NPX = r"C:\Program Files\nodejs\npx.cmd"
 ENV = dict(os.environ, GIT_TERMINAL_PROMPT="0", GCM_INTERACTIVE="never", GIT_HTTP_LOW_SPEED_LIMIT="1000", GIT_HTTP_LOW_SPEED_TIME="60",

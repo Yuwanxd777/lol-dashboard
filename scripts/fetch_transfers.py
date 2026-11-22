@@ -633,8 +633,8 @@ def main():
                     if e["n"].lower() == nm_.lower() and (x.get("nm") == tm_ or (x.get("fa") and e.get("from") == tm_)):
                         gd_ = e.pop("gd", None) or max((z[1] for z in e.get("tn") or [] if z and z[1]), default="")
                         e.pop("gone", None)
-                        if gd_ and not e.get("c"):
-                            e["c"] = gd_
+                        if gd_ and (not e.get("c") or e["c"] >= datetime.date.today().isoformat()):
+                            e["c"] = gd_   # 原本的合約日還沒到的也改成離隊日，不然 gone 拿掉後會變白字「續留」
         # 「傳出要續約／留隊」的報導（PTT 條目的 stay、狀態是傳聞）：陣容表的顏色不動（官方公布才算續約），但小框要看得到那則報導
         #   ——2026-11-21 使用者貼「T1 與教練李知勳續約」說「這個是 T1 教練 Easyhoon」：原本只進消息，Easyhoon 的小框完全看不出來。
         #   做法：掛到那個人在該隊（或自由人列、來自該隊）的格子上，欄位 tips＝[{d, src, u, tip, tipE}]（跟手動自由人的相關消息同一格式，前端共用）

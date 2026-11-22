@@ -26,6 +26,16 @@ OUT_DATA = os.path.join(ROOT, "transfers_site.js")
 OUT_CODE = os.path.join(ROOT, "transfers_site_code.js")
 PORT = 8773
 OUT_CAR = os.path.join(ROOT, "transfers_career.js")
+CAR_CACHE = os.path.join(ROOT, "csv_cache", "transfer_career_cache.json")
+
+
+def _car_old():
+    """上一次寫出的 transfers_career.js（失敗時沿用）"""
+    try:
+        t = io.open(OUT_CAR, encoding="utf-8").read()
+        return json.loads(t[t.index("=") + 1:].strip().rstrip(";")) or {}
+    except Exception:
+        return {}
 
 
 # 生涯紀錄（使用者 2026-11-22「Calix Deft 這種2026沒打一級聯賽比賽的人 看生涯紀錄」）：
@@ -59,7 +69,7 @@ def career_scores(b, need, cur_year):
             continue
         ly = min(int(str(v["l"])[:4]), cur_year - 1)
         todo[k] = [y for y in range(ly, ly - 3, -1) if y in years]
-    out = {}
+    out, bad = {}, set()
     for _ in range(3):
         by_y = {}
         for k, ys in todo.items():
@@ -76,15 +86,19 @@ def career_scores(b, need, cur_year):
                 res = pg.evaluate(CALC_JS, names)
                 for k, v in res.items():
                     c = (P.get(k) or {}).get("c") or {}
-                    top = sorted(c.items(), key=lambda kv: (-kv[1][0], kv[0]))[:3]
+                    top = sorted(((n_, z_) for n_, z_ in c.items() if z_ and z_[0] > 0), key=lambda kv: (-kv[1][0], kv[0]))[:3]   # 0 場的（只被禁過）不算
                     v["ch"] = pg.evaluate("(ns)=>ns.map(n=>champId(n))", [n for n, _ in top])
                     v["y"] = y
                     out[k] = v
             except Exception as e:
                 print(f"   生涯：{y} 年失敗（{type(e).__name__} {str(e)[:80]}）")
+                for k in names:   # 那年的頁面壞掉 ≠ 那年沒出賽：這批人這次不往更早的年份退（不然會拿錯年的分數還看起來像對的；2026-11-22 檢視）
+                    todo[k] = []
+                    bad.add(k)
             finally:
                 pg.close()
-    print(f"   生涯紀錄：今年沒出賽 {len(need)} 人、找到往年評分 {len(out)} 人")
+    print(f"   生涯紀錄：今年沒出賽 {len(need)} 人、找到往年評分 {len(out)} 人" + (f"、{len(bad)} 人這次查失敗" if bad else ""))
+    out["_bad"] = sorted(bad)
     return out
 
 # 只留跟轉會頁有關的 CSS：選擇器含這些就留（版面變數、篩選列、按鈕、卡片、陣容表 tb*、提示 tp*、評分 rt*、消息 tr*）
@@ -322,12 +336,33 @@ def main():
             pg.wait_for_timeout(1500)
             data = pg.evaluate(EXPORT_JS)
             try:
-                need = pg.evaluate(NEED_JS)
+                # 生涯評分一天算一次（每小時匯出兩次、每次都開好幾年的整年資料太慢；2026-11-22 檢視）：快取當天有的人直接用，只補新出現的人
+                #   失敗或沒算出來時沿用舊的 transfers_career.js，不整份清空
+                need = pg.evaluate(NEED_JS) if pg.evaluate("!!(window._tbRC&&window._tbRC.yr)") else {}
                 cy = pg.evaluate("+curYear")
-                data["car"] = career_scores(b, need, cy) if need else {}
+                old = _car_old()
+                cc = {}
+                try:
+                    cc = json.load(io.open(CAR_CACHE, encoding="utf-8")) if os.path.exists(CAR_CACHE) else {}
+                except Exception:
+                    cc = {}
+                if cc.get("d") != time.strftime("%Y-%m-%d"):
+                    cc = {"d": time.strftime("%Y-%m-%d"), "p": {}, "miss": []}
+                todo = {k: v for k, v in need.items() if k not in cc["p"] and k not in cc["miss"]}
+                got = career_scores(b, todo, cy) if todo else {}
+                bad = set(got.pop("_bad", []))
+                cc["p"].update(got)
+                cc["miss"] = sorted(set(cc["miss"]) | {k for k in todo if k not in got and k not in bad})   # 真的沒有往年紀錄的人，今天不再查
+                os.makedirs(os.path.dirname(CAR_CACHE), exist_ok=True)
+                io.open(CAR_CACHE, "w", encoding="utf-8").write(json.dumps(cc, ensure_ascii=False))
+                car = {k: cc["p"][k] for k in need if k in cc["p"]}
+                for k in bad:   # 這次查失敗的人：舊檔有就沿用
+                    if k in old:
+                        car[k] = old[k]
+                data["car"] = car if (car or not old) else old
             except Exception as e:
-                print(f"   生涯紀錄失敗（略過）：{type(e).__name__} {str(e)[:100]}")
-                data["car"] = {}
+                print(f"   生涯紀錄失敗（沿用舊檔）：{type(e).__name__} {str(e)[:100]}")
+                data["car"] = _car_old()
             b.close()
     finally:
         srv.kill()
