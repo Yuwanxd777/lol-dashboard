@@ -890,11 +890,29 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
     # 第一、二賽段成績（陣容對比的 2026 主教練格；使用者 2026-11-22「S1 S2 S3 去列成績 S1如果有進FST就列FST S2有進MSI就列MSI」）
     try:
         srk = split_results(cargo, year)
+        # 年中改名的隊（2026-11-22 全面檢視：Kiwoom DRX、HANJIN BRION 的 S1 是空的）：LCK Cup 時還是舊名 ⇒ 沿 TeamRenames 往回找舊名，每一段各自補
+        lack = [x["tm"] for x in out if not all((srk.get(tkey(x["tm"])) or srk.get(tkey(x["nm"])) or {}).get(s_) for s_ in ("s1", "s2"))]
+        olds = {t: [] for t in lack}
+        front = {t: t for t in lack}
+        for _ in range(3):
+            if not front:
+                break
+            nxt = {}
+            ks = list(front)
+            for i in range(0, len(ks), 25):
+                for r_ in cargo({"tables": "TeamRenames", "fields": "OriginalName=o,NewName=n,Verb=v", "where": "NewName IN " + _in(ks[i:i + 25]),
+                                 "limit": "500", "format": "json"}):
+                    o2, n2 = str(r_.get("o") or ""), str(r_.get("n") or "")
+                    if not o2 or n2 not in front or str(r_.get("v") or "").lower() not in ("rebrand", "rename", "reband", "acquire", "acuire"):
+                        continue
+                    olds[front[n2]].append(o2); nxt[o2] = front[n2]
+            front = nxt
         for x in out:
-            v = srk.get(tkey(x["tm"])) or srk.get(tkey(x["nm"])) or {}
+            cand = [srk.get(tkey(x["tm"])), srk.get(tkey(x["nm"]))] + [srk.get(tkey(o2)) for o2 in olds.get(x["tm"], [])]
             for s_ in ("s1", "s2"):
-                if v.get(s_):
-                    x[s_] = v[s_]
+                c_ = next((v[s_] for v in cand if v and v.get(s_)), None)
+                if c_:
+                    x[s_] = c_
     except Exception as e:
         print(f"   第一／二賽段成績查詢失敗（略過）：{type(e).__name__} {str(e)[:100]}")
     for n_, o_ in succ.items():
