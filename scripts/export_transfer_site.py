@@ -24,6 +24,67 @@ ROOT = os.path.dirname(HERE)
 OUT_DATA = os.path.join(ROOT, "transfers_site.js")
 OUT_CODE = os.path.join(ROOT, "transfers_site_code.js")
 PORT = 8773
+OUT_CAR = os.path.join(ROOT, "transfers_career.js")
+
+
+# 生涯紀錄（使用者 2026-11-22「Calix Deft 這種2026沒打一級聯賽比賽的人 看生涯紀錄」）：
+#   陣容表上今年沒有出賽資料的選手（Deft、Calix）⇒ 評分＝最後一個有出賽的年份的整年評分（主站同一個 calcPlayers、篩選全清），
+#   英雄池＝career.js 的生涯總場數前三。結果寫 transfers_career.js（主站讀）＋ TS_DATA.car（轉會網站讀）
+NEED_JS = r"""()=>{ const D=window.TRANSFERS||{}, R=window._tbRC||{}, Y=R.yr||{}, have=new Set(Object.values(Y).flatMap(o=>Object.keys(o))), out={};
+  (D.board||[]).forEach(t=>Object.entries(t.r||{}).forEach(([r,es])=>{ if(r==="COACH")return; es.forEach(e=>{ const k=String(e.n||"").replace(/\s*\([^()]*\)\s*$/,"").toLowerCase(); if(k&&!have.has(k))out[k]=r; }); }));
+  return out; }"""
+CALC_JS = r"""(names)=>{ const sv={split:F.split,league:F.league,patch:F.patch,d1:F.d1,d2:F.d2,minG:F.minG}, svH=H2H, out={};
+  F.split=""; F.league="ALL"; F.patch=""; F.d1=""; F.d2=""; F.minG=0; H2H=null;
+  try{ for(const r of ["TOP","JNG","MID","BOT","SUP"])calcPlayers(r,true).forEach(x=>{ const k=String(x._pn||"").toLowerCase(); if(!names.includes(k)||x.評分==null)return;
+      if(!out[k]||out[k].g<x.場數)out[k]={sc:+x.評分.toFixed(1),g:x.場數,r}; }); }
+  finally{ H2H=svH; Object.assign(F,sv); }
+  return out; }"""
+
+
+def career_scores(b, need, cur_year):
+    """need＝{小寫名: 路線}；回傳 {小寫名: {y, sc, g, r, ch:[英雄id…]}}。每個人從 career.js 的最後出賽年往前找（最多三年）"""
+    try:
+        t = io.open(os.path.join(ROOT, "career.js"), encoding="utf-8").read()
+        CA = json.loads(t[t.index("=") + 1:].strip().rstrip(";"))
+    except Exception as e:
+        print(f"   生涯：career.js 讀不到（{type(e).__name__}），略過")
+        return {}
+    P = {k.lower(): v for k, v in (CA.get("p") or {}).items()}
+    years = sorted(int(y) for y in CA.get("y") or [])
+    todo = {}
+    for k in need:
+        v = P.get(k)
+        if not v or not v.get("l"):
+            continue
+        ly = min(int(str(v["l"])[:4]), cur_year - 1)
+        todo[k] = [y for y in range(ly, ly - 3, -1) if y in years]
+    out = {}
+    for _ in range(3):
+        by_y = {}
+        for k, ys in todo.items():
+            if k not in out and ys:
+                by_y.setdefault(ys.pop(0), []).append(k)
+        if not by_y:
+            break
+        for y, names in sorted(by_y.items()):
+            pg = b.new_page(viewport={"width": 1400, "height": 900})
+            try:
+                pg.goto(f"http://127.0.0.1:{PORT}/index.html?y={y}&view=%E9%81%B8%E6%89%8B", wait_until="load", timeout=300000)
+                pg.wait_for_function(f"typeof GAMES!=='undefined'&&GAMES.length>0&&+curYear==={y}", timeout=300000)
+                pg.wait_for_timeout(1500)
+                res = pg.evaluate(CALC_JS, names)
+                for k, v in res.items():
+                    c = (P.get(k) or {}).get("c") or {}
+                    top = sorted(c.items(), key=lambda kv: (-kv[1][0], kv[0]))[:3]
+                    v["ch"] = pg.evaluate("(ns)=>ns.map(n=>champId(n))", [n for n, _ in top])
+                    v["y"] = y
+                    out[k] = v
+            except Exception as e:
+                print(f"   生涯：{y} 年失敗（{type(e).__name__} {str(e)[:80]}）")
+            finally:
+                pg.close()
+    print(f"   生涯紀錄：今年沒出賽 {len(need)} 人、找到往年評分 {len(out)} 人")
+    return out
 
 # 只留跟轉會頁有關的 CSS：選擇器含這些就留（版面變數、篩選列、按鈕、卡片、陣容表 tb*、提示 tp*、評分 rt*、消息 tr*）
 KEEP = re.compile(r"(^|[\s,>+~(])(:root|html|body|\*|main|#main|header|h1|#siteTitle|\.filters|\.sqLaneBtn|\.sqbtn|\.helpBtn|\.card|\.meta|"
@@ -85,7 +146,7 @@ def build_code(html):
     shim = r'''
 // ── 轉會網站外掛（scripts/export_transfer_site.py 產生，勿手改）：只提供轉會分頁用到的最小全域 ──
 (function(){
-const TS=window.TS_DATA||{}; window.TRANSFER_RATE=TS.rate||null;
+const TS=window.TS_DATA||{}; window.TRANSFER_RATE=TS.rate||null; window.TR_CAREER=TS.car||null;
 let LANG=(()=>{try{return localStorage.getItem("ts_lang")||"zh";}catch(e){return "zh";}})(); if(LANG!=="en")LANG="zh";
 const V=(()=>{try{return JSON.parse(localStorage.getItem("ts_state")||"{}")}catch(e){return{}}})();
 const saveState=()=>{ try{localStorage.setItem("ts_state",JSON.stringify(V));}catch(e){} };
@@ -259,6 +320,13 @@ def main():
             pg.wait_for_function("document.querySelectorAll('.tbRow').length>5", timeout=300000)
             pg.wait_for_timeout(1500)
             data = pg.evaluate(EXPORT_JS)
+            try:
+                need = pg.evaluate(NEED_JS)
+                cy = pg.evaluate("+curYear")
+                data["car"] = career_scores(b, need, cy) if need else {}
+            except Exception as e:
+                print(f"   生涯紀錄失敗（略過）：{type(e).__name__} {str(e)[:100]}")
+                data["car"] = {}
             b.close()
     finally:
         srv.kill()
@@ -290,6 +358,7 @@ def main():
         pass
     io.open(OUT_DATA, "w", encoding="utf-8", newline="\n").write("window.TS_DATA=" + json.dumps(data, ensure_ascii=False, separators=(",", ":")) + ";\n")
     io.open(OUT_CODE, "w", encoding="utf-8", newline="\n").write(code)
+    io.open(OUT_CAR, "w", encoding="utf-8", newline="\n").write("window.TR_CAREER=" + json.dumps(data.get("car") or {}, ensure_ascii=False, separators=(",", ":")) + ";\n")
     print(f"轉會網站：隊伍 {len(data['team'])}、評分 {'有' if data.get('rate') else '無'}；"
           f"transfers_site.js {os.path.getsize(OUT_DATA)//1024}KB、transfers_site_code.js {os.path.getsize(OUT_CODE)//1024}KB")
 
