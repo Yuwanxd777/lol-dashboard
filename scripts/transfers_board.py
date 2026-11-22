@@ -192,7 +192,7 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
             for m in re.finditer(r"‹([^|›]+)\|[^›]+›\s*\(([^()]+ to (?:Interim )?Head Coach)\)", x.get("en") or ""):
                 promo_hc[key(urllib.parse.unquote(m.group(1)))] = m.group(2)
                 k_ = key(urllib.parse.unquote(m.group(1)))
-                promo_d[k_] = min(promo_d.get(k_) or "9999", (x.get("d") or "")[:10])
+                promo_d[k_] = min(promo_d.get(k_) or "9999", x.get("t") or x.get("d") or "")   # 帶時分（「近 3 天」＝72 小時內，使用者 2026-11-23）
     new_keys = sorted({k for (k, tm), (d, _) in joined.items() if d >= since and team_of.get(k) == tm})
     origin = {}
     if new_keys:
@@ -211,7 +211,7 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
     resign = {}
     resign_d = {}   # 人 → 最早的續約消息日（陣容表「近 7 天」底線用，使用者 2026-11-23）
     def _rd(k_, d_):
-        if d_ and (not resign_d.get(k_) or d_ < resign_d[k_]):
+        if d_ and (not resign_d.get(k_) or (d_[:10], 0 if len(d_) > 10 else 1) < (resign_d[k_][:10], 0 if len(resign_d[k_]) > 10 else 1)):
             resign_d[k_] = d_
     for x in wiki or []:
         for sen in re.split(r"(?<=\.)\s+", x.get("en") or ""):
@@ -219,14 +219,33 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
                 y = re.search(r"through (\d{4})", sen)
                 for pg in re.findall(r"‹([^|›]+)\|", sen):
                     resign[key(urllib.parse.unquote(pg))] = y.group(1) if y else ""
-                    _rd(key(urllib.parse.unquote(pg)), (x.get("d") or "")[:10])
+                    _rd(key(urllib.parse.unquote(pg)), x.get("t") or x.get("d") or "")
     for x in sheep or []:
         zh = x.get("zh") or ""
         if (x.get("st") or "") == "official" and "續約" in zh:
             y = re.search(r"(?:續約|延長)(?:到|至)?\s*(\d{4})", zh)
             for disp_ in re.findall(r"‹[^|›]+\|([^›]+)›", zh):
                 resign.setdefault(key(disp_), y.group(1) if y else "")
-                _rd(key(disp_), (x.get("d") or "")[:10])
+                _rd(key(disp_), x.get("d") or "")
+    # 新加入的宣布時間（「近 3 天」＝72 小時內，使用者 2026-11-23「應該是72小時內」）：陣容表的加入日來自效力紀錄、只有日期 ⇒
+    #   改用最早一則講到他、而且是那一隊的官方消息（wiki 該隊 join／both；Sheep 官方、tags 有那隊 in）的發布時間（帶時分）
+    join_ts = {}
+    def _tsk(d_):   # 最早的那天；同一天有帶時分的就用帶時分的（Leaguepedia 很多消息只有日期，Sheep 推文有時分）
+        return (d_[:10], 0 if len(d_) > 10 else 1, d_)
+    def _jt(k_, t_, d_):
+        if d_ and d_[:10] >= since and (not join_ts.get((k_, t_)) or _tsk(d_) < _tsk(join_ts[(k_, t_)])):
+            join_ts[(k_, t_)] = d_
+    for x in wiki or []:
+        if x.get("kind") in ("join", "both") and x.get("team"):
+            for pg_, nm_ in re.findall(r"‹([^|›]+)\|([^›]+)›", x.get("en") or ""):
+                _jt(key(urllib.parse.unquote(pg_).replace("_", " ")), tkey(x["team"]), x.get("t") or x.get("d") or "")   # t＝X 貼文的發文時間
+                _jt(key(nm_), tkey(x["team"]), x.get("t") or x.get("d") or "")
+    for x in sheep or []:
+        if (x.get("st") or "") == "official":
+            ins = [tkey(t[1]) for t in (x.get("tags") or []) if len(t) > 2 and t[2] == "in" and t[1]]
+            for nm_ in re.findall(r"‹[^|›]+\|([^›]+)›", (x.get("zh") or "") + " " + (x.get("en") or "")):
+                for t_ in ins:
+                    _jt(key(nm_), t_, x.get("d") or "")
     # ④c 合約到期、還沒宣布離隊（使用者 2026-11-19「教練的合約到期不要預設離隊啊，要是藍字」「GEN 就沒有任何宣布」）：
     #     wiki 在合約到期日自動記一筆 Leave（Kiin／Canyon／Lyn／Nova 都是 11/16），跟真的宣布離隊分不出來 ⇒
     #     離隊日＝合約到期日（±1 天）、之後沒加入別隊、也沒有官方「分道揚鑣／告別」消息的人留在原隊，合約欄顯示已到期（藍字）。
@@ -405,6 +424,8 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
                     continue
                 if jd >= since and k not in prevkeys and "rs" not in e:   # 續約／換職位也會記一筆 Join ⇒ 2026 名冊上本來就在的不算新加入
                     e["new"] = jd
+                    if join_ts.get((k, tkey(tm))) or join_ts.get((key(pid), tkey(tm))):
+                        e["nat"] = join_ts.get((k, tkey(tm))) or join_ts.get((key(pid), tkey(tm)))   # 宣布時間（帶時分）
                     if origin.get(k):
                         e["from"] = origin[k]
                 # 升職（使用者 2026-11-20「教練或分析師轉成主教練的標紫色叫做升職，從二隊三隊上到一隊的也是」）：

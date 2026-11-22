@@ -15028,9 +15028,11 @@ function render(){
     const srtArr="";   // 不畫箭頭，排序中靠按鈕亮起與欄名變金色表示
     // 近 3 天（使用者 2026-11-23 先要一週、隨後改「近三天」；「排序區加一個篩選 最近一週的轉會 在ID底下劃底線 只看加入 升職 續約 這功能要可以開關」）：
     //   只標這三種（紅 新加入、紫 升職、粉 續約），事件日＝加入日 new／官方消息日 d（tip）／升職日 pmd／續約消息日 rsd（資料端給）；其他人不動、不藏
-    const WK=!!V.tbWk, wk0=new Date(Date.now()-3*864e5).toISOString().slice(0,10);
+    //   72 小時內（使用者 2026-11-23「近三天的算法好怪 應該是72小時內」）：時間一律當台灣時間；只有日期的（加入日、臉書來源的消息）當那天中午 12:00；wiki 消息的時分由 X 貼文 ID 還原（fetch_transfers.tweet_ts）
+    //   事件時間優先用宣布那則消息的發布時間：nat（新加入）、pmd（升職）、rsd（續約），沒有才退回加入日 new／消息日 d
+    const WK=!!V.tbWk, wk0=Date.now()-72*3600e3, wkT=d=>{ const m=/^(\d{4}-\d\d-\d\d)(?:[ T](\d\d:\d\d))?/.exec(String(d||"")); return m?Date.parse(`${m[1]}T${m[2]||"12:00"}:00+08:00`):NaN; };
     const wkE=e=>{ if(e.fa||e.gone||e.r)return false; const c=tbCls(e).split(" "); let d="";
-      if(c.includes("tbPm"))d=e.pmd||e.new||""; else if(c.includes("tbNew"))d=e.new||e.d||""; else if(c.includes("tbRs"))d=e.rsd||""; return !!d&&d>=wk0; };
+      if(c.includes("tbPm"))d=e.pmd||e.nat||e.new||""; else if(c.includes("tbNew"))d=e.nat||e.new||e.d||""; else if(c.includes("tbRs"))d=e.rsd||""; const t=wkT(d); return t>=wk0; };
     const wkPg=p=>{ let s=String(p||""); try{ s=decodeURIComponent(s); }catch(_){} return s.replace(/ /g,"_"); };   // wiki 頁名：已編碼的先解開（Noah 連錯頁，使用者 2026-11-20）
     const nameH=e=>{ const n=esc(pn(e.n)), inner=bq&&hitE(e)?`<mark>${n}</mark>`:n;
       return `<span class="tbN ${tbCls(e)}${!e.fa&&e.tips&&e.tips.length?" tbRsRum":""}${F_TB.size&&!tbMf(e)?" tbDim":""}${WK&&wkE(e)?" tbWk":""}">${inner}</span>`; };   // tbRsRum＝這一隊的人、有「傳出續約／留隊」的報導（只是記號，顏色照舊；截圖的教練欄靠它決定藍字後勤要不要列）   // 陣容表的名字不做超連結，連結只放在小框裡的名字（使用者 2026-11-21）   // 沒頁名的傳聞人選（BrokenBlade、Zven…）退回 roles 查到的頁、再退回 ID 本身（使用者 2026-11-20 全面檢視）   // 格子不標教練職稱，只在小框顯示（使用者 2026-11-20）

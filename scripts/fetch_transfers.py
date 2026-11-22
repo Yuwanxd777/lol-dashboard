@@ -138,6 +138,22 @@ def src_of(src):
     return (f[0] if f and f[0].startswith("http") else ""), (f[1] if len(f) > 1 else "")
 
 
+def tweet_ts(url, day=""):
+    """來源是 X 貼文 ⇒ 貼文 ID（snowflake）換回發文時間（台灣時間 YYYY-MM-DD HH:MM）。Leaguepedia 的消息只記日期，
+    陣容表「近 3 天」要算 72 小時（使用者 2026-11-23）。跟 wiki 記的日期差超過一天就不採用（轉貼舊文）"""
+    m = re.search(r"(?:x|twitter)\.com/[^/]+/status/(\d{15,})", url or "")
+    if not m:
+        return ""
+    t = datetime.datetime.utcfromtimestamp(((int(m.group(1)) >> 22) + 1288834974657) / 1000) + datetime.timedelta(hours=8)
+    if day:
+        try:
+            if abs((t.date() - datetime.date.fromisoformat(day)).days) > 1:
+                return ""
+        except ValueError:
+            pass
+    return t.strftime("%Y-%m-%d %H:%M")
+
+
 def fetch_wiki(start):
     import build_predict_live as B   # 共用 Cargo 的 cookie 與節流
     r = B.cargo({"tables": "NewsItems",
@@ -153,7 +169,8 @@ def fetch_wiki(start):
         if not en:
             continue
         url, nm = src_of(x.get("src"))
-        out.append({"d": str(x.get("ds") or "")[:10], "n": int(x.get("n") or 0), "team": x.get("sub") or "",
+        out.append({"d": str(x.get("ds") or "")[:10], **({"t": tweet_ts(url, str(x.get("ds") or "")[:10])} if tweet_ts(url, str(x.get("ds") or "")[:10]) else {}),
+                    "n": int(x.get("n") or 0), "team": x.get("sub") or "",
                     "rg": REGION.get(x.get("rg"), x.get("rg") or ""), "kind": kind_of(html.unescape(x.get("s") or ""), en),
                     "en": en, "zh": to_zh(en), "src": url, "srcNm": nm})
     return out
