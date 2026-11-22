@@ -367,7 +367,7 @@ function render(){
       groups.push({...x,_k:k,_items:[x],_last:x}); });
     const lkA=(u,l,ti)=>` <a class="trLk" href="${esc(u)}" target="_blank" rel="noopener" title="${esc(ti||"")}">${l} ↗</a>`;
     // 韓網：連結標韓網原文（使用者要求），另附 PTT 轉貼
-    const lkOf=x=>{ const link=x.s==="wiki"?x.src:x.url; if(x.s==="heard"&&!link)return ` <span class="trLk trHeard">${SRCN.heard}</span>`;   // 聽說：沒有連結，只寫來源
+    const lkOf=x=>{ const link=x.s==="wiki"?x.src:x.url; if(x.s==="heard"&&!link)return "";   // 聽說：不標來源（使用者 2026-11-22「聽說 就不用標來源超連結」）
       // 來源連結照網域寫名字（使用者 2026-11-20「來源 ↗ 如果是 X 要寫 X ↗」）
       const dom=u=>/Sheep_?Esports|sheepesports\.com/i.test(u)?"SE":/(^|\/\/)(www\.)?(x|twitter)\.com\//.test(u)?"X":/facebook\.com|fb\.com/.test(u)?"FB":/instagram\.com/.test(u)?"IG":/weibo\.(com|cn)/.test(u)?(en2?"Weibo":"微博"):/youtube\.com|youtu\.be/.test(u)?"YT":/ptt\.cc/.test(u)?"PTT":(en2?"Source":"來源");
       // 消息裡附的影片（使用者 2026-11-22「傳聞裡面如果有影片 記得附上YT連結 並在傳聞後面放一個YT按鈕」）：x.yt＝YouTube 連結（程式從 PTT 內文／Sheep 推文抓），放在來源連結後面
@@ -436,6 +436,7 @@ function render(){
       return off.length?[[en2?"Joined":"加入",tmChip(off[0].tm)]]:[[en2?"Rumor":"傳聞",L.slice(0,3).map(o=>tmChip(o.tm)).join(" ")]]; };
     // 來源名稱：Sheep Esports 一律寫 SE；有網址就做成超連結（使用者 2026-11-20「Sheep 的來源就寫 SE 然後超連結」）。沒寫來源的是 Sheep 的推文
     const srcA=o=>{ const nm=o.src==="聽說"?SRCN.heard:/weibo\.(com|cn)/.test(o.u||"")?(en2?"Weibo":"微博"):(!o.src||o.src==="Sheep Esports")?"SE":o.src==="韓網"?SRCN.kr:o.src==="官方"?SRCN.man:o.src, u=o.u||"";   /* 英文版：韓網→Korean media、官方→Announcement（跟消息頁同一套名稱） */ return /^https?:/.test(u)?`<a class="tpSrc" href="${esc(u)}" target="_blank" rel="noopener">${esc(nm)}</a>`:esc(nm); };
+    const srcS=o=>(o.src==="聽說"||o.src==="官方")&&!/^https?:/.test(o.u||o.url||"")?"":"・"+srcA(o);   // 小框日期後面的「・來源」；使用者口頭給的（聽說、沒連結的官方：Lxz）不標（使用者 2026-11-22）
     const tipTx=o=>{ const s=en2?(o.tipE||(D.tipEn||{})[o.tip]||o.tip):o.tip; return TNRE?String(s||"").replace(TNRE,n=>TNL.get(n.toLowerCase())||n):s; };   // 小框引用句的隊名也寫縮寫（使用者 2026-11-21「小框的資訊以後也都要同步改」）   // 英文版引用句：資料端的中→英對照（tipEn），手動名單自帶 tipE
     const cellTip=(t,r)=>{ const es=colE(t,r), pv=colP(t,r);
       let h=`<div class="tpBox" style="--lgc:${LGC[t.lg]||"var(--gold)"}"><div class="rtHd">${teamLogoHTML(tAb(t.nm),22,true,t.nm)||""}<b>${esc(rowNm(t))}</b>`
@@ -474,8 +475,8 @@ function render(){
         h+=`<div class="tpP"><div class="tpName"><b class="${tbCls(e)}"><a class="tpA" href="https://lol.fandom.com/wiki/${encodeURIComponent(wkPg(e.p||((D.roles||{})[e.n]||[])[1]||e.n))}" target="_blank" rel="noopener">${esc(pn(e.n))}</a></b>${e.sr?`<span class="tpSr">${SRN[e.sr]}</span>`:""}${stPill(e)}</div>`
           +(kv.length?`<div class="tpKv">${kv.map(([k,v])=>`<span>${k}</span><span>${v}</span>`).join("")}</div>`:"")
           // 傳聞引用只留最新的一則（使用者 2026-11-21「小框顯示的傳聞新聞 顯示最新一個就好」）；去向那列照舊列出所有傳聞隊伍
-          +[...(e.r&&e.tip?[[e.d||"",`<div class="tpQ tpGo" data-go="${esc(pn(e.n))}|${e.d||""}|${esc(abOf(t.nm))}"><span>${ymd(e.d).slice(5)}・${srcA(e)}</span>${esc(tipTx(e))}</div>`]]:[]),
-          ...(e.ros||(e.ro?[e.ro]:[])).map(o=>[o.d||"",`<div class="tpQ tpGo" data-go="${esc(pn(e.n))}|${o.d||""}|${esc(abOf(o.to))}"><span>${ymd(o.d).slice(5)}・${srcA(o)}・${en2?"rumored to join":"傳聞去"} ${tmChip(o.to)}</span>${esc(tipTx(o))}</div>`]),...(e.tips||[]).map(o=>[o.d||"",`<div class="tpQ tpGo" data-go="${esc(pn(e.n))}|${o.d||""}|"><span>${ymd(o.d).slice(5)}・${srcA(o)}</span>${esc(tipTx(o))}</div>`])].sort((a,b)=>a[0]<b[0]?1:a[0]>b[0]?-1:0).slice(0,1).map(q=>q[1]).join("")+`</div>`; });
+          +[...(e.r&&e.tip?[[e.d||"",`<div class="tpQ tpGo" data-go="${esc(pn(e.n))}|${e.d||""}|${esc(abOf(t.nm))}"><span>${ymd(e.d).slice(5)}${srcS(e)}</span>${esc(tipTx(e))}</div>`]]:[]),
+          ...(e.ros||(e.ro?[e.ro]:[])).map(o=>[o.d||"",`<div class="tpQ tpGo" data-go="${esc(pn(e.n))}|${o.d||""}|${esc(abOf(o.to))}"><span>${ymd(o.d).slice(5)}${srcS(o)}・${en2?"rumored to join":"傳聞去"} ${tmChip(o.to)}</span>${esc(tipTx(o))}</div>`]),...(e.tips||[]).map(o=>[o.d||"",`<div class="tpQ tpGo" data-go="${esc(pn(e.n))}|${o.d||""}|"><span>${ymd(o.d).slice(5)}${srcS(o)}</span>${esc(tipTx(o))}</div>`])].sort((a,b)=>a[0]<b[0]?1:a[0]>b[0]?-1:0).slice(0,1).map(q=>q[1]).join("")+`</div>`; });
       if(pv.length){ h+=`<div class="tpPv">`   /* 不寫「上一位」標題，靠分隔線隔開（使用者 2026-11-19） */
         +pv.map(p=>{ const o=typeof p==="string"?{n:p}:p, T=tenureP(o);
           // 上一位改成跟上面同一種小卡（使用者 2026-11-19「上一位跟上面合約有續約的UI相近一點」）：名字＋職稱＋標籤，下面 效力／年資 欄位
