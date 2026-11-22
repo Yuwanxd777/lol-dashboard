@@ -3,7 +3,8 @@
 
   python scripts/transfers_hourly.py main   每小時 :10：抓轉會（fetch_transfers）→ 匯出轉會網站檔（export_transfer_site）
                                             → 只 commit 這三個檔 → preflight 通過才 push（主站轉會分頁更新）
-  python scripts/transfers_hourly.py site   10 分：三個檔複製到 轉會網站\\www\\fallback → wrangler 部署 lol-transfer.pages.dev
+  python scripts/transfers_hourly.py site   :40：先翻 PTT／看上一班 Sheep 有沒有失敗，有新東西就改跑整套 main（--plain＝只部署）；否則
+                                            三個檔複製到 轉會網站\\www\\fallback → wrangler 部署 lol-transfer.pages.dev
 
 排程：工作排程器 LOL_Transfers_Main（每小時 :10；使用者 2026-11-20「每個小時的10分時更新」）、LOL_Transfers_Site（每小時 :40），由 transfers_hourly.vbs 隱藏執行。
 跳過條件：10／22 點（publish.bat 那班本來就會更新＋推）、LOL_Dashboard_Update 正在跑、autopilot\\STREAM 存在（直播中不跑吃 CPU 的無頭頁）。
@@ -293,6 +294,29 @@ def do_site():
     return rc
 
 
+def site_needs_main():
+    """:40 那班先做兩個便宜的檢查（使用者 2026-11-22 選的精進第 4、5 項：PTT 新文不用等整點、Sheep 被 429 擋的那班補抓）：
+      ① 翻 PTT 看板（只有幾頁，幾秒）：有還沒複查的新文 ⇒ 整套 main（抓→發布→複查→再發布）
+      ② 上一班 Sheep 抓取失敗（csv_cache/sheep_fail.txt）⇒ 整套 main 再試一次
+    直播中／publish.bat 正在跑就不做（跟 main 同一套跳過條件，但 10／22 點的 :40 照做：那時 publish.bat 多半已經跑完）。回傳原因字串，空字串＝只部署。"""
+    if publish_running() or os.path.exists(os.path.join(ROOT, "autopilot", "STREAM")):
+        return ""
+    why = []
+    if os.path.exists(os.path.join(ROOT, "csv_cache", "sheep_fail.txt")):
+        why.append("上一班 Sheep 抓取失敗")
+    try:
+        sys.path.insert(0, HERE)
+        import fetch_ptt_transfers
+        before = {x["id"] for x in _pending_ptt()}
+        fetch_ptt_transfers.main("2026-11-15T12:00")
+        new = [x for x in _pending_ptt() if x["id"] not in before]
+        if new or before:
+            why.append(f"PTT 待複查 {len(before) + len(new)} 則（新 {len(new)}）")
+    except Exception as e:
+        log(f"  PTT 檢查失敗（略過）：{type(e).__name__} {str(e)[:120]}")
+    return "、".join(why)
+
+
 def main():
     mode = sys.argv[1] if len(sys.argv) > 1 else ""
     if mode not in ("main", "site"):
@@ -302,6 +326,11 @@ def main():
         log(f"[{mode}] 跳過：{why}")
         return
     log(f"[{mode}] 開始")
+    if mode == "site" and "--plain" not in sys.argv:
+        why = site_needs_main()
+        if why:
+            log(f"  {why} ⇒ 這班改跑整套 main")
+            mode = "main"
     (do_main if mode == "main" else do_site)()
     log(f"[{mode}] 結束")
 

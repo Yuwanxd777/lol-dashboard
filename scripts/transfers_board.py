@@ -85,12 +85,13 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
     for tm, lg in (extra or {}).items():
         lg_of.setdefault(tm, lg)
     # 下一季的升降級賽（使用者 2026-11-19「DFM 升降賽打輸了，應該換成打贏的那隊」）：Qualified=0 的一級隊拿掉、=1 的外來隊加進來
+    releg = set()
     try:
         for t in promotion(cargo, year):
             if t["ql"] and t["tm"] not in lg_of:
                 lg_of[t["tm"]] = t["lg"]
             elif not t["ql"] and t["tm"] in lg_of:
-                lg_of.pop(t["tm"])
+                releg.add(t["tm"])   # 不直接拿掉：照樣建一列，全隊選手與教練進該聯賽 FA，最後才把這一列拿掉（使用者 2026-11-22「DFM雖然降級 但選手跟教練也要進入FA池」）
     except Exception as e:
         print(f"   升降級賽查詢失敗（照 {year} 名單）：{type(e).__name__} {str(e)[:100]}")
     prev, prole = {}, {}
@@ -584,6 +585,8 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
     try:
         settled = set()
         for x in out:
+            if x["tm"] in releg:
+                continue
             for L in x["r"].values():
                 for e in L:
                     k_ = key(e.get("p") or e["n"])
@@ -629,6 +632,11 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
                 if (key(pg_), x["tm"]) in up_out:
                     x.setdefault("_up", {})[pg_] = up_out[(key(pg_), x["tm"])]
         for x in out:
+            if x["tm"] in releg:   # 降級的隊：格子裡的人全部（含合約還在、續約、新加入的）都是候選；傳聞要來的不算
+                for rr in LANES + ["COACH"]:
+                    for e in x["r"].get(rr, []):
+                        if not e.get("r") and not e.get("gone"):
+                            cand.append((x, rr, e.get("p") or e["n"], e["n"], e.get("c") or "", 0, *([e.get("sr") or "C"] if rr == "COACH" else [])))
             for rr in LANES:
                 for e in x["r"].get(rr, []):
                     if e.get("r") or e.get("new") or e.get("rs") or e.get("pm") or e.get("tip"):
@@ -707,6 +715,8 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
                 continue   # 選手頁已經掛在別隊（含次級聯賽）
             seen_.add(k_)
             e = {"n": nm_, "p": pg, "fa": 1, "from": x["nm"]}
+            if x["tm"] in releg:
+                e["rel"] = 1   # 原隊降級（小框寫「隊伍降級」）
             if is_ret and (rr != "COACH" or k_ in RET_KEYS):   # 教練格：wiki 的 IsRetired 指的是選手生涯結束，不算退役；有退役消息的才算
                 e["ret"] = 1
             if k_ not in now_tm:
@@ -925,6 +935,7 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
         for x in out:
             if x["tm"] == o_:
                 x["was"] = o_; x["tm"] = n_; x["nm"] = disp.get(n_, n_)
+    out = [x for x in out if x["tm"] not in releg]   # 降級的隊不列（人已經放進 FA）
     out += fa_rows
     # 名字的大小寫統一成 wiki 的寫法（使用者 2026-11-21「選手ID的大小寫統一 像是HOYA就有兩種寫法 統一成WIKI的寫法」）：
     #   wiki 名冊來的名字本來就是 Players.ID；傳聞／自由人的名字是照報導寫的（Hoya、Harpoon…）⇒ 有頁名的查 Players.ID，只差大小寫就換掉。

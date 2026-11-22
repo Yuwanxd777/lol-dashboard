@@ -485,6 +485,16 @@ def heads(I, pages):
     return out
 
 
+# Leaguepedia 沒有照片、從 Liquipedia 補的人（使用者 2026-11-22 選的精進第 6 項；跟 TE／XLG 隊徽同一種做法）
+#   {Leaguepedia 頁名: (Liquipedia 圖片網址, 1＝該年的照片)}。Leaguepedia 之後有圖就用 Leaguepedia 的（這裡只補「沒圖」的人）
+#   2026-11-22 查過：JinJin（Liquipedia 也沒照片）、Van1／Leigg／Dalike（Liquipedia 沒有頁面）找不到
+LIQ_IMG = {
+    "Guchi": ("https://liquipedia.net/commons/images/thumb/4/4e/FX_Guchi_at_CBLOL_Cup_2026_Week_3.jpeg/600px-FX_Guchi_at_CBLOL_Cup_2026_Week_3.jpeg", 1),
+    # 第三格＝手動指定臉的位置（照片裡不只一個人、自動偵測抓錯人時用；格式同 face_of 的回傳）：KryRa 那張三個人，他在中間
+    "KryRa": ("https://liquipedia.net/commons/images/thumb/0/05/DSG_KryRa_at_LCS_2026_Lock-In.jpg/600px-DSG_KryRa_at_LCS_2026_Lock-In.jpg", 1, [0.39, 0.37, 0.12, 1.496, 0.0, 0, 2]),
+}
+
+
 def images(cargo, pages, year, teams=()):
     """頁名清單 → {頁名: {"u": 縮圖網址或 "", "y": 1＝該年的照片, "f": 臉的位置或 None}}"""
     real = resolve(cargo, pages, teams)
@@ -702,8 +712,8 @@ def build(cargo, year, board, roles=None, alias=None):
         o = I.get(p)
         if not o:
             return True
-        if not o.get("u"):
-            return o.get("t", "") < today        # 沒圖：隔天重查
+        if not o.get("u") or o.get("liq"):
+            return o.get("t", "") < today        # 沒圖（或暫用 Liquipedia 的）：隔天重查
         return not o.get("y") and o.get("t", "") < week   # 不是該年的照片：7 天後重查一次
 
     need = sorted(p for p in pages if stale(p))
@@ -714,6 +724,16 @@ def build(cargo, year, board, roles=None, alias=None):
             o["t"] = today
             I[p] = o
         print(f"   隊伍小框：圖片補查 {len(need)} 人，有圖 {sum(1 for p in need if I[p].get('u'))} 人（{year} 年的照片 {sum(1 for p in need if I[p].get('y'))} 人、量到臉 {sum(1 for p in need if I[p].get('f'))} 人）")
+    for p in sorted(pages & set(LIQ_IMG)):   # Leaguepedia 沒圖的人改用 Liquipedia 的
+        o = I.get(p) or {}
+        if o.get("u") and o.get("liq") is None:
+            continue
+        u, cur, *ff = LIQ_IMG[p]
+        if o.get("u") != u or (ff and o.get("f") != ff[0]):
+            data = _fetch(u)
+            if data:
+                I[p] = {"u": u, "y": cur, "f": ff[0] if ff else face_of(data), "t": today, "liq": 1}
+                print(f"   隊伍小框：{p} 用 Liquipedia 的照片（量到臉 {'是' if I[p]['f'] else '否'}）")
     # ③ 效力區間
     try:
         nt = attach_tenures(board, tenures(cargo, sorted({tm for _nm, tm in teams}), C, today))

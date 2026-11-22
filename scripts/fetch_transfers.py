@@ -20,6 +20,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 OUT = os.path.join(ROOT, "transfers.js")
 SHEEP = os.path.join(ROOT, "transfers_sheep_src.json")
+SHEEP_FAIL = os.path.join(ROOT, "csv_cache", "sheep_fail.txt")   # 上一班 Sheep 抓取失敗的記號（transfers_hourly.py site 會看）
 FROM = "2026-11-01"
 sys.path.insert(0, HERE)
 
@@ -493,8 +494,15 @@ def main():
         new = [x for x in fetch_sheep(start) if x["id"] not in have]
         acc += new
         print(f"Sheep Esports 內嵌時間軸：新增 {len(new)} 則")
+        if os.path.exists(SHEEP_FAIL):
+            os.remove(SHEEP_FAIL)
     except Exception as e:
         print(f"Sheep Esports 抓取失敗，只用累積檔：{type(e).__name__} {str(e)[:100]}")
+        # 記下這班沒抓到 ⇒ :40 那班（transfers_hourly.py site）看到這個檔會整套重跑一次，不用等下一個整點（使用者 2026-11-22 選的精進第 5 項）
+        try:
+            io.open(SHEEP_FAIL, "w", encoding="utf-8").write(f"{datetime.datetime.now():%Y-%m-%d %H:%M} {type(e).__name__} {str(e)[:100]}")
+        except Exception:
+            pass
     acc.sort(key=lambda x: x["d"], reverse=True)
     io.open(SHEEP, "w", encoding="utf-8").write(json.dumps(acc, ensure_ascii=False, indent=1))
     sheep = [{k: x[k] for k in ("id", "d", "en", "zh", "url", "kind", "tags", "st") if x.get(k)} for x in acc if x["d"][:10] >= start]
