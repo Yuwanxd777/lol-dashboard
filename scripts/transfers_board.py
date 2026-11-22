@@ -790,6 +790,7 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
             onb = {key(e.get("p") or e["n"]) for x in out for L in x["r"].values() for e in L if not e.get("r") and not e.get("gone")}
             onb |= {key(e["n"]) for x in out for L in x["r"].values() for e in L if not e.get("r") and not e.get("gone")}
             cand2 = []
+            t1k_ = {tkey(t_) for t_ in teams} | {tkey(x["tm"]) for x in out} | {tkey(x["nm"]) for x in out}   # 一級隊（現在掛在這些隊的不算自由人）
             for x in out:
                 for rr, L in x["r"].items():
                     for e0 in L:
@@ -817,13 +818,14 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
                     if y is None and not e0.get("p"):
                         c_ = by_id.get(key(e0["n"])) or []
                         y = c_[0] if len(c_) == 1 else None   # 同 ID 剛好一位才認
-                    if y is None or (y.get("tm") or "").strip():
+                    # 現在掛在次級隊（二軍、青訓、次級聯賽）的也列（使用者 2026-11-22「像是Haetae這種有被傳聞提到 但本來在次級的選手 也要列入FA」）；掛在一級隊的不列
+                    if y is None or tkey(y.get("tm") or "") in t1k_:
                         continue
                     k2 = key(y["pg"])
                     if k2 in seen_ or k2 in onb:
                         continue
                     seen_.add(k2); seen_.add(k_)
-                    e = {"n": e0["n"], "p": y["pg"], "fa": 1, "from": e0.get("from") or ""}   # 來自＝傳聞那格查到的上一隊（最後一段效力紀錄）；Croc 這種多年沒有隊的是空的
+                    e = {"n": e0["n"], "p": y["pg"], "fa": 1, "from": e0.get("from") or (y.get("tm") or "").strip()}   # 來自＝傳聞那格查到的上一隊（最後一段效力紀錄）；Croc 這種多年沒有隊的是空的
                     if rr == "COACH":
                         e["sr"] = e0.get("sr") or "C"
                     ros = [{"to": ro["tm"], "d": ro["d"][:10], "tip": ro["tip"], **({"src": ro["src"]} if ro.get("src") else {}), **({"u": ro["u"]} if ro.get("u") else {})}
