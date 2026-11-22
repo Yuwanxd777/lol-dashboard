@@ -452,9 +452,11 @@ function render(){
         //   「新加入的選手 如果曾經效力過 也要加上這條」）：e.tn＝他在這一隊的歷次效力區間（wiki 的 Tenures，資料端掛的）。
         //   時間＝各段實際待的天數加總到今天：中間斷掉的一律扣除（使用者 2026-11-22「斷掉的要扣除」——原本間隔 45 天內的當成同一段、會把那幾天算進去）；
         //   wiki 把同一段拆成好幾筆時常有重疊或首尾同一天，只接「重疊／相連」的，不重複算
-        if(!e.fa&&e.tn&&(e.rs||JD)){ const L=e.tn.filter(z=>z&&z[0]).map(z=>[z[0],z[1]||""]).sort((a,b)=>a[0].localeCompare(b[0])), dd=(a,b)=>(Date.parse(b)-Date.parse(a))/864e5, M=[];
+        /* 白字（tbStay 續留）也寫效力（使用者 2026-11-22「白字小框也要加個效力」） */
+        const stay=!e.rs&&!JD&&tbCls(e)==="tbStay";
+        if(!e.fa&&e.tn&&(e.rs||JD||stay)){ const L=e.tn.filter(z=>z&&z[0]).map(z=>[z[0],z[1]||""]).sort((a,b)=>a[0].localeCompare(b[0])), dd=(a,b)=>(Date.parse(b)-Date.parse(a))/864e5, M=[];
           L.forEach(z=>{ const p=M[M.length-1]; if(p&&(!p[1]||dd(p[1],z[0])<=0)){ if(p[1]&&(!z[1]||z[1]>p[1]))p[1]=z[1]; } else M.push([z[0],z[1]]); });
-          if(M.length&&(e.rs||M.some(z=>z[1]&&z[1]<JD))){ const days=M.reduce((a,z)=>a+Math.max(0,dd(z[0],z[1]||today)),0), mo=Math.round(days/30.44), y=Math.floor(mo/12), m=mo%12;
+          if(M.length&&(e.rs||stay||M.some(z=>z[1]&&z[1]<JD))){ const days=M.reduce((a,z)=>a+Math.max(0,dd(z[0],z[1]||today)),0), mo=Math.round(days/30.44), y=Math.floor(mo/12), m=mo%12;
             const du=en2?(mo<1?"<1m":(y?`${y}y${m?` ${m}m`:""}`:`${m}m`)):(mo<1?"不到 1 個月":(y?`${y} 年${m?` ${m} 個月`:""}`:`${m} 個月`));
             kv.push([en2?"Tenure":"效力",du]); } }   // 只寫待的總時間（使用者 2026-11-22「我要的是待的總時間 幾年幾個月這樣」：原本後面還列各段起訖）
         if(e.gone)kv.push(...goKv(e.n,t.nm));
@@ -489,7 +491,7 @@ function render(){
     const SEASON=+String(D.from||"").slice(0,4)||0;
     const RATE=(()=>{ if(window.TRANSFER_RATE)return window.TRANSFER_RATE;   // 轉會網站：主站排程先算好匯出（transfers_site.js）
       if(curYear!==SEASON||typeof calcPlayers!=="function")return null;
-      const k=curYear+"|"+(GAMES||[]).length+"|seg13"; if(window._tbRC&&window._tbRC.k===k)return window._tbRC;
+      const k=curYear+"|"+(GAMES||[]).length+"|seg14"; if(window._tbRC&&window._tbRC.k===k)return window._tbRC;
       const res={k,pl:{},tm:{}};
       // 分段加權（使用者 2026-11-20「轉會評分改成 第一賽段 10% 第二賽段 30% 第三賽段 50% 世界賽 10% 其餘的不算」「哪個段落沒打就沒分」）：
       //   每段各自算一次選手評分（場次白名單 H2H 圈範圍、其他篩選清空），再照權重相加；沒打的那段＝0 分，不重新分配權重。
@@ -532,7 +534,12 @@ function render(){
       { const sv={split:F.split,league:F.league,patch:F.patch,d1:F.d1,d2:F.d2,minG:F.minG}, svH=H2H; F.split=""; F.league="ALL"; F.patch=""; F.d1=""; F.d2=""; F.minG=0; H2H=null;
         try{ res.yr={}; for(const r of ["TOP","JNG","MID","BOT","SUP"]){ const Y=res.yr[r]={};
             calcPlayers(r,true).forEach(x=>{ const nk=String(x._pn||"").toLowerCase(); if(x.評分==null||(Y[nk]&&Y[nk].g>=x.場數))return;
-              Y[nk]={at:x.攻擊值!=null?+x.攻擊值.toFixed(1):null,df:x.防禦值!=null?+x.防禦值.toFixed(1):null,sc:+x.評分.toFixed(1),g:x.場數,pg:x.POG,pm:x.POM}; }); } }   // pg／pm＝整年 POG／POM 次數（null＝那個賽事沒發這種獎）
+              Y[nk]={at:x.攻擊值!=null?+x.攻擊值.toFixed(1):null,df:x.防禦值!=null?+x.防禦值.toFixed(1):null,sc:+x.評分.toFixed(1),g:x.場數,pg:x.POG,pm:x.POM}; }); }
+          /* POG／POM 不算國際賽（使用者 2026-11-22「POM POG 不看國際賽」）：今年非國際賽的比賽自己數；null（沒發這種獎）維持 null */
+          { const IN=new Set(["WLDs","MSI","EWC","FST","DCup","AC"]), cg=new Map(), cm=new Map(), add=(M,n)=>{ if(!n)return; const k=String(n).trim().toLowerCase(); M.set(k,(M.get(k)||0)+1); };
+            for(const o of (GAMES||[])){ if(IN.has(o.league))continue; const r=o.raw;
+              const rec=ssRec({_d:o.date,_btf:r[C.blue_teamname],_rtf:r[C.red_teamname],_g:+r[C.game]||1}); if(!rec)continue; add(cg,rec.mvp); add(cm,rec.mvpm); }
+            for(const r in res.yr)for(const nk in res.yr[r]){ const y=res.yr[r][nk]; if(y.pg!=null)y.pg=cg.get(nk)||0; if(y.pm!=null)y.pm=cm.get(nk)||0; } } }   // pg／pm＝整年（不含國際賽）POG／POM 次數
         finally{ H2H=svH; Object.assign(F,sv); } }
       // 2026 常用英雄前三（陣容對比 2027 那排每位選手名字下面；使用者 2026-11-22「2027 選手常用英雄擺 2026 前三英雄的頭像」）：今年全部比賽、照出場次數，同次數照英雄 id；只收陣容表上的人
       { const want=new Set(); (D.board||[]).forEach(t=>Object.values(t.r||{}).flat().forEach(e=>want.add(String(pn(e.n)).toLowerCase())));
@@ -588,6 +595,18 @@ function render(){
     //   這裡再算一次就重複了）⇒ 進世界賽的隊一律給「有進世界賽」的基本分 24，不分名次；主教練的戰績分照舊看名次
     const coachS=(n,noW)=>{ if(!RATE||!n)return null; const k=teamFix(String(tAb(n)||n)), wr=(RATE.wr||{})[k]; if(wr==null)return null;
       const rk=RK[k], a=(noW&&/^W/.test(rk||""))?24:(ACH(rk)||0); return {v:wr*50+a, wr, rk, note:`${RKN(rk)}・${en2?"WR":"勝率"} ${Math.round(wr*100)}%`}; };
+    /* 主教練的顯示評分（使用者 2026-11-22「教練的評分不太準確…整體偏低」「不然教練的分數就是他帶的選手分數平均」）：
+       原始戰績分（勝率×50＋成績分）中位只有 30 上下、跟選手評分不同把尺 ⇒ 改成他帶的那隊今年五路的整年評分平均（跟陣容對比 2027 選手評分同一份 RATE.yr）。
+       每路＝該隊那一路所有人照整年上場場數加權；隊別看 RATE.pl 的 tm（最後一個賽段的隊）。
+       用在陣容對比 2027、FA 小框與排序、戰隊轉會評分的主教練換人差（items COACH）；選手評分裡「跟所屬戰隊戰績分各半」那條（blend）仍用原始戰績分 coachS */
+    const CP=(()=>{ const o={}; if(!RATE)return o; const nk=n=>teamFix(String(tAb(n)||n));
+      for(const r of ["TOP","JNG","MID","BOT","SUP"]){ const ln={}; for(const n in (RATE.yr||{})[r]||{}){ const y=RATE.yr[r][n], a=(RATE.pl[r]||{})[n]; if(!a||!a.tm||y.sc==null||!y.g)continue;
+          const k=nk(a.tm), z=ln[k]||(ln[k]=[0,0]); z[0]+=y.sc*y.g; z[1]+=y.g; }   // 一路有兩人以上：照上場場數加權成那一路的分數（使用者 2026-11-22「一路有兩人 要先依照上場權重去算那一路的分數」）
+        for(const k in ln)(o[k]=o[k]||[]).push(ln[k][0]/ln[k][1]); }
+      for(const k in o)o[k]=o[k].length>=3?o[k].reduce((a,b)=>a+b,0)/o[k].length:null; return o; })();   // 五路分數加總 ÷ 5（使用者 2026-11-22「平均是/5」；少於三路有資料的隊不給分，缺一兩路時除以有資料的路數）
+    const coachV=n=>{ if(!n)return null; const v=CP[teamFix(String(tAb(n)||n))]; return v==null?null:v; };
+    // 主教練的基準分＝所有主教練分數的中位數（轉會評分裡今年沒帶隊的主教練用；使用者 2026-11-22）
+    const CMD=(()=>{ const a=Object.values(CP).filter(v=>v!=null).sort((x,y)=>x-y), h=a.length>>1; return a.length?(a.length%2?a[h]:(a[h-1]+a[h])/2):null; })();
     const T1SET=new Set(board.flatMap(x=>[x.nm,x.tm])), BASEW_=1;   /* 原本 0.8＝三個賽段合計 80%；賽段權重改成 15／35／50 之後是 100% */
     // 聯賽強度的換算（隊伍評分與自由人共用）：別的聯賽來的分數 × exp(LGK × (原聯賽強度 − 目的聯賽強度))；同聯賽＝1、強度缺＝1
     const LGK=0.3, lgW0=(from,to)=>{ const a=lgN(from), Rg=(RATE&&RATE.R)||{}; return (!a||a===to||Rg[a]==null||Rg[to]==null)?1:Math.exp(LGK*(Rg[a]-Rg[to])); };
@@ -599,7 +618,7 @@ function render(){
       const srt0=r=>SC0[r]||(SC0[r]=Object.values(RATE.pl[r]||{}).map(blend0).sort((x,y)=>x-y));
       const pct0=(r,v)=>{ const a=srt0(r); if(!a.length)return 50; let lo=0, eq=0; for(const z of a){ if(z<v)lo++; else if(z===v)eq++; } return 100*(lo+eq/2)/a.length; };
       board.filter(t=>t.fa).forEach(t=>{ for(const r in t.r){ t.r[r].forEach(e=>{ const k=String(pn(e.n)).toLowerCase(), it=(D.intl||{})[k]||0;
-            if(r==="COACH"){ const c=e.from?coachS(e.from):null; e._sc=c?c.v:null; }
+            if(r==="COACH"){ e._sc=e.from?coachV(e.from):null; }
             else{ const a=(RATE.pl[r]||{})[k], w=a?lgW0(a.lg,t.lg):1; e._sc=(a?Math.min(100,(50+(pct0(r,blend0(a))-50)*Math.min(1,(a.g||0)/30))*w):50)*BASEW_+it; e._wl=a&&Math.abs(w-1)>0.005?lgN(a.lg):""; } });
           t.r[r].sort((p,q)=>((p.ret?1:0)-(q.ret?1:0))||(r==="COACH"?((p.sr==="HC"?0:1)-(q.sr==="HC"?0:1)):0)||(q._sc??-1)-(p._sc??-1)||String(p.n).localeCompare(String(q.n))); } }); }   // 退役的一律排最後（使用者 2026-11-21「退役選手在FA 直接把他列在最後一位」）   // 教練那格：主教練排前面   // 三個賽段合計的占比（10＋30＋40），跟 RATE 那邊的 SEGW 要一起改
     const rateOf=t=>{ if(!RATE||t.fa)return null; const items=[], scOf=new Map(), plL=[]; let plSum=0; t._scM=scOf;   // t._scM＝每個人的分數（陣容對比 2027 那排的評分用）   // FA 列不是隊伍，不算評分
@@ -657,8 +676,14 @@ function render(){
           // 多位傳聞人選：不取平均，用「最低～最高」表示（使用者 2026-11-20「評分顯示不要用平均好了 就用 ～ 代表最低最高分」）；d＝中間值，只拿來排序與決定顏色
           const mv=multi&&multi.length>=2?multi.map(x=>x.s.v):null, mlo=mv?Math.min(...mv):null, mhi=mv?Math.max(...mv):null, av=mv?(mlo+mhi)/2:null;
           if(A.s&&B.s&&A.n!==B.n)items.push({r,nw:A.n,od:B.n,a:av??A.s.v,b:B.s.v,d:(av??A.s.v)-B.s.v,dlo:(mlo??A.s.v)-B.s.v,dhi:(mhi??A.s.v)-B.s.v,nws:av!=null?multi.map(x=>({n:x.n,v:x.s.v,e:x.e})).sort((p,q)=>q.v-p.v):null,ne:A.e,oe:B.e,rm:A.rm,ma:A.md&&(A.vac?2:1),mb:B.md,ta:A.md?"":tg(A),tb:B.md?"":tg(B)}); } }
-      const hc=(t.r.COACH||[]).find(e=>e.sr==="HC"&&(e.new||e.tip)&&e.from), A=hc&&coachS(hc.from), B=coachS(t.nm)||coachS(t.tm);
-      if(hc&&A&&B)items.push({r:"COACH",nw:`${pn(hc.n)}（${abOf(hc.from)}・${A.note}）`,od:`${abOf(t.nm)}（${B.note}）`,a:A.v,b:B.v,d:A.v-B.v,rm:!!hc.r});
+      // 主教練＝第六路（使用者 2026-11-22「轉會評比也要算上主教練的評分」）：分數＝帶的選手平均（coachV，跟陣容對比同一把尺）
+      //   有新主教練（官宣／傳聞／升任，官方優先）就比：新＝原隊的分數；隊內升任（沒有 from：HLE Mowgli）＝本隊；今年沒帶隊（T1 Roach）＝全部主教練的中位數當基準
+      //   舊＝本隊今年的分數，沒有就用基準；兩邊都是基準（差 0、沒資訊）不列。主教練走了還沒補人＝空缺，跟選手一樣不算
+      { const hc=(t.r.COACH||[]).filter(e=>e.sr==="HC"&&!e.gone&&(e.new||e.tip||e.pm)).sort((a,b)=>(a.r?1:0)-(b.r?1:0))[0];
+        if(hc){ const own=coachV(t.nm)??coachV(t.tm), Ar=hc.from?coachV(hc.from):(hc.pm?own:null), Av=Ar??CMD, Bv=own??CMD;
+          const A=hc.from?coachS(hc.from):null, B=coachS(t.nm)||coachS(t.tm), base=en2?"no data, baseline":"無今年資料・基準分";
+          if(Av!=null&&Bv!=null&&!(Ar==null&&own==null))items.push({r:"COACH",nw:`${pn(hc.n)}（${hc.from?abOf(hc.from)+(Ar!=null&&A?"・"+A.note:""):(hc.pm?(en2?"promoted":"升任"):"")}${Ar==null?(hc.from||hc.pm?"・":"")+base:""}）`,
+            od:`${abOf(t.nm)}（${own!=null&&B?B.note:base}）`,a:Av,b:Bv,d:Av-Bv,rm:!!hc.r}); } }
       // 續約鼓勵分（使用者 2026-11-20「選手續約給個五分鼓勵 如果兩人續約給兩個6分 以此類推到五人 最後五人續約時 主教練也沒變化 那就是總共+50」）：
       //   N 路有人續約 ⇒ 每人 1.5＋N×0.5 分（1 人 2、2 人各 2.5、…、5 人各 4＝20）；五路都續約且主教練沒換再 ＋5 ⇒ 合計 25
       //   （原本是每人 4＋N、合計 50：BRO 原班續約 ＋50 比 DK 換上 Doran＋Kanavi 還多 ⇒ 使用者 2026-11-20 同意調小）
@@ -1300,7 +1325,7 @@ function render(){
           return phH(o,ic,cls26(o),kvS([[L26[0],n1(a&&a.at)],[L26[1],n1(a&&a.df)],...(t.lg==="LCK"?[]:[["POG",cnt(a&&a.pg)]]),["POM",cnt(a&&a.pm)]])); }).join("");
         if(RATE&&!t._scM&&typeof rateOf==="function")rateOf(t);
         // 2027 的評分：選手＝整年評分（RATE.yr）；主教練＝戰績分（新來的看原隊，留任的看本隊）
-        const sc27=(e,r)=>{ if(!e||!RATE)return null; if(r==="HC"){ const c=coachS((e.new||e.r||e.tip||e.pm)?(e.from||""):t.nm); return c?c.v:null; }
+        const sc27=(e,r)=>{ if(!e||!RATE)return null; if(r==="HC"){ const mv=e.new||e.r||e.tip||e.pm; return (mv&&e.from)?coachV(e.from):(e.new||e.r||e.tip)?null:(coachV(t.nm)??coachV(t.tm)); }   /* 隊內升任（HLE Mowgli 教練→主教練，沒有 from）：今年帶的就是本隊 */
           const y=RATE.yr&&RATE.yr[r]&&RATE.yr[r][String(pn(e.n)).toLowerCase()]; return y?y.sc:null; };   // 選手＝整年評分（跟選手分頁同一個數字；使用者 2026-11-22「2027的評分 我要看的是整年」），沒有今年出賽資料寫 –
         const y27=LANE6.map(([r,ic])=>{ const e=pick27(r==="HC"?cs:((t.r||{})[r]||[])), b=e?bioOf(pg0(e))||bioOf(e.n):null, L=r==="HC"?LC27:L27;
           const chs=e&&r!=="HC"&&RATE&&RATE.ch?(RATE.ch[String(pn(e.n)).toLowerCase()]||[]):[];
