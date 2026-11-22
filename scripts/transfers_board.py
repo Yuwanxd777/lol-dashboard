@@ -65,7 +65,7 @@ RET_KEYS = set()   # 最近一次 build 查到已退役的人（選手頁 key）
 RETIRED = {}   # 最近一次 build 查到的退役選手：{key: (頁名, ID, 路線, 隊顯示名, 聯賽)}（fetch_transfers 拿去補退役消息）
 
 
-def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell=None, succ=None):
+def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell=None, succ=None, newt=None):
     """cargo＝build_predict_live.cargo；since＝本休賽期起點（YYYY-MM-DD）；sheep＝輸出層的 Sheep 條目；extra＝{隊名: 聯賽}（2027 新進）"""
     import datetime as _dt
     today = _dt.date.today().isoformat()
@@ -107,6 +107,9 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
     disp = {x["pg"]: (x.get("n") or x["pg"]) for x in tt if str(x.get("dis")) != "1"}
     short = {x["pg"]: x.get("sh") or "" for x in tt}
     disp = {t: disp[uc(t)] for t in lg_of if uc(t) in disp}   # wiki 頁名首字母一律大寫（paiN Gaming → PaiN Gaming）
+    newt = {t_: a_ for t_, a_ in (newt or {}).items() if t_ in lg_of}   # 傳聞新隊（TE、XLG）：wiki 沒有 LoL 隊伍頁也照列，縮寫用給定的
+    for t_ in newt:
+        disp.setdefault(t_, t_)
     # 接手席位的新隊（OPT 接 DIG）：新隊還沒有任何人 ⇒ 先照原本那隊的陣容顯示（使用者 2026-11-20「新戰隊 OPT 的選手應該先依照本來的隊伍去顯示」）。
     #   做法＝原本那隊（已解散、平常不列）照常算一列，最後把那一列改掛新隊的名字，新隊自己那列空的就不要
     succ = {n_: o_ for n_, o_ in (succ or {}).items() if o_ in lg_of}
@@ -523,7 +526,7 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
         psr = {p: ("HC" if key(p) in gk else (staff_code(joined.get((key(p), tm), ("", ""))[1], prole.get((tm, p), "")) or "C"))
                for p in pv.get("COACH", [])}
         pv = {rr: v for rr, v in pv.items() if v}
-        out.append({"tm": tm, "nm": disp[tm], "lg": lg_of[tm], "r": rows, "prev": pv,
+        out.append({"tm": tm, "nm": disp[tm], "lg": lg_of[tm], "r": rows, "prev": pv, **({"nt": 1, "sh": newt[tm]} if tm in newt else {}),
                     "_still": sorted({key(g) for v in gone.values() for g in v} - {key(p_[1]) for v_ in annd.get(tm, {}).values() for p_ in v_}), "_psr": psr,
                     "_pc": {p_: con[(key(p_), tm)] for v_ in pv.values() for p_ in v_ if con.get((key(p_), tm))}})   # 已宣布離隊的不算還在隊上；_pc＝上一位的合約到期日   # 被新人擠掉、其實還在隊上的（add_tenure 用完拿掉）
     # 已退役的人不留在格子裡（使用者 2026-11-20「Evi 已經退役 那格應該改成 -…有退役的都改成這樣」）：

@@ -503,6 +503,15 @@ def images(cargo, pages, year, teams=()):
     return out
 
 
+# 一級聯賽（年資用）：現在的六大聯賽＋前身（OGN Champions、EU／NA LCS）＋後來併進 LCP／LTA 的各區頂級聯賽＋國際賽
+T1_HIST = {"LoL Champions Korea", "LoL The Champions", "Tencent LoL Pro League", "LoL EMEA Championship", "Europe League Championship Series",
+           "League of Legends Championship Series", "North America League Championship Series", "Circuit Brazilian League of Legends",
+           "League of Legends Championship Pacific", "Pacific Championship Series", "LoL Master Series", "Vietnam Championship Series",
+           "LoL Japan League", "Garena Premier League", "Liga Latinoamerica", "League of Legends Championship of The Americas",
+           "League of Legends Championship of The Americas North", "League of Legends Championship of The Americas South",
+           "World Championship", "Mid-Season Invitational", "First Stand", "Mid-Season Cup 2020", "Esports World Cup"}
+
+
 def bios(cargo, pages):
     """頁名清單 → {頁名小寫: {"b": 生日 YYYY-MM-DD, "j": 第一次加入職業隊的日子}}。
     生日＝Players.Birthdate（重新導向的舊頁名也查得到：走 PlayerRedirects）；出道＝Tenures 最早的 DateJoin（任何隊、任何職稱）"""
@@ -518,22 +527,23 @@ def bios(cargo, pages):
                 if re.match(r"\d{4}-\d\d-\d\d$", b) and not b.startswith("0000"):
                     o["b"] = b
     pgs = sorted({o["pg"] for o in out.values() if o.get("pg")} | set(pages))
-    first = {}
+    # 年資只算一級聯賽（使用者 2026-11-22「年資全部改看一級聯賽的 教練也是」）：TournamentPlayers（賽事名單，選手與教練都在上面）×
+    #   一級聯賽（現在六大＋它們的前身與併進來的聯賽、國際賽）、正賽（TournamentLevel=Primary、非資格賽）⇒ 最早那個賽事的開打日
+    #   選手＝以五個位置上名單；教練＝職稱含 Coach／Analyst（分析師也算教練年資）
+    lgs = _in(sorted(T1_HIST))
+    first, firstc = {}, {}
     for i in range(0, len(pgs), 40):
-        for y in cargo({"tables": "Tenures=T", "fields": "T.Player=p,MIN(T.DateJoin)=d", "where": "T.Player IN " + _in(pgs[i:i + 40]),
-                        "group_by": "T.Player", "limit": "500", "format": "json"}):
+        for y in cargo({"tables": "TournamentPlayers=TP,Tournaments=T", "join_on": "TP.OverviewPage=T.OverviewPage",
+                        "fields": "TP.Player=p,TP.Role=ro,MIN(T.DateStart)=d",
+                        "where": "TP.Player IN " + _in(pgs[i:i + 40]) + " AND T.League IN " + lgs + ' AND T.TournamentLevel="Primary" AND T.IsQualifier=0',
+                        "group_by": "TP.Player,TP.Role", "limit": "2000", "format": "json"}):
             d = str(y.get("d") or "")[:10]
-            if re.match(r"\d{4}-\d\d-\d\d$", d):
-                first[str(y.get("p") or "").lower()] = d
-    # 教練年資（使用者 2026-11-22「教練的話 2027列 年齡 教練年資 評分」「分析師也算教練年資」）：第一次以教練或分析師（職稱含 Coach／Analyst）加入的日子
-    firstc = {}
-    for i in range(0, len(pgs), 40):
-        for y in cargo({"tables": "Tenures=T,RosterChanges=RC", "join_on": "T.RosterChangeIdJoin=RC.RosterChangeId",
-                        "fields": "T.Player=p,MIN(T.DateJoin)=d", "where": "T.Player IN " + _in(pgs[i:i + 40]) + ' AND (RC.Role LIKE "%Coach%" OR RC.Role LIKE "%Analyst%")',
-                        "group_by": "T.Player", "limit": "500", "format": "json"}):
-            d = str(y.get("d") or "")[:10]
-            if re.match(r"\d{4}-\d\d-\d\d$", d):
-                firstc[str(y.get("p") or "").lower()] = d
+            if not re.match(r"\d{4}-\d\d-\d\d$", d):
+                continue
+            ro, k = str(y.get("ro") or ""), str(y.get("p") or "").lower()
+            tgt = first if ro in ("Top", "Jungle", "Mid", "Bot", "Support") else (firstc if re.search(r"Coach|Analyst", ro) else None)
+            if tgt is not None and (k not in tgt or d < tgt[k]):
+                tgt[k] = d
     for p in pages:
         o = out.setdefault(p.lower(), {})
         j = first.get(str(o.get("pg") or "").lower()) or first.get(p.lower())
@@ -712,12 +722,12 @@ def build(cargo, year, board, roles=None, alias=None):
         print(f"   效力區間查詢失敗（略過）：{type(e).__name__} {str(e)[:100]}")
     # ④ 生日與出道日（陣容對比 2027 那排的年齡、年資；使用者 2026-11-22「2027 底下列出 年齡 年資(職業時長)」）：每 7 天重查一次
     BI = C.setdefault("bio", {})
-    needb = sorted(p for p in pages if (BI.get(p) or {}).get("t", "") < week or (BI.get(p) or {}).get("v") != 3)
+    needb = sorted(p for p in pages if (BI.get(p) or {}).get("t", "") < week or (BI.get(p) or {}).get("v") != 4)
     if needb:
         try:
             got = bios(cargo, needb)
             for p in needb:
-                BI[p] = dict(got.get(p.lower()) or {}, t=today, v=3)   # v3＝教練年資含分析師
+                BI[p] = dict(got.get(p.lower()) or {}, t=today, v=4)   # v3＝教練年資含分析師；v4＝年資只算一級聯賽
             print(f"   隊伍小框：生日／出道日補查 {len(needb)} 人，有生日 {sum(1 for p in needb if BI[p].get('b'))} 人、有出道日 {sum(1 for p in needb if BI[p].get('j'))} 人")
         except Exception as e:
             print(f"   生日／出道日查詢失敗（略過）：{type(e).__name__} {str(e)[:100]}")

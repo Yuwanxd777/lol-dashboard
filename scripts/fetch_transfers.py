@@ -369,7 +369,10 @@ def player_pos(year):
 
 T1_LEAGUES = ("LoL Champions Korea", "Tencent LoL Pro League", "LoL EMEA Championship",
               "League of Legends Championship Series", "Circuit Brazilian League of Legends", "League of Legends Championship Pacific")
-T1_EXTRA = {"OpTic Gaming"}   # 2027 才進一級的（2026 名單沒有）
+T1_EXTRA = {"OpTic Gaming": "LCS", "Trace Esports": "LPL", "Xi Lai Gaming": "LPL"}   # 2027 才進一級的（2026 名單沒有）：隊名 → 聯賽
+# 傳聞的新戰隊（使用者 2026-11-22「LPL新增 TE 跟 XLG 這兩隻戰隊只是傳聞會有的新戰隊 本身有特戰英豪戰隊 可能是因為RIOT政策而組建LOL戰隊」）：
+#   隊名 → 縮寫；陣容表標「傳聞新隊」。Trace Esports 在 Leaguepedia 還沒有 LoL 隊伍頁，沒有頁也照列
+NEW_RUMOR = {"Trace Esports": "TE", "Xi Lai Gaming": "XLG"}
 T1_EXCLUDE = {"Karmine Corp Blue"}   # 二隊：只因特殊賽制打了 LEC 第一賽段（使用者 2026-11-19）
 # 消息裡完全不顯示的隊（使用者 2026-11-20「SLY 跟 KCB 是一樣性質 都不用顯示」）：wiki 該隊的條目不列、Sheep 的隊伍標籤拿掉
 HIDE_TEAMS = T1_EXCLUDE | {"Solary"}
@@ -397,7 +400,7 @@ def tier1_teams(year):
         s |= {t["tm"] for t in transfers_board.promotion(B.cargo, year) if t["ql"]}
     except Exception as e:
         print(f"升降級賽查詢失敗：{type(e).__name__} {str(e)[:80]}")
-    return sorted((s | T1_EXTRA) - T1_EXCLUDE)
+    return sorted((s | set(T1_EXTRA)) - T1_EXCLUDE)
 
 
 _STAFF_OK = re.compile(r"\b(?:head coach|coach|assistant coach|strategic coach|positional coach|analyst)\b", re.I)
@@ -619,7 +622,7 @@ def main():
     try:
         import build_predict_live as B, transfers_board
         yr = int(start[:4]) if start[5:7] > "06" else int(start[:4]) - 1
-        board = transfers_board.build(B.cargo, yr, start, sheep + off + synth, {n: "LCS" for n in T1_EXTRA}, wiki, T1_EXCLUDE, farewell, {"OpTic Gaming": "Dignitas"})
+        board = transfers_board.build(B.cargo, yr, start, sheep + off + synth, dict(T1_EXTRA), wiki, T1_EXCLUDE, farewell, {"OpTic Gaming": "Dignitas"}, NEW_RUMOR)
         print(f"陣容表：{len(board)} 隊")
         # 「傳出要續約／留隊」的報導（PTT 條目的 stay、狀態是傳聞）：陣容表的顏色不動（官方公布才算續約），但小框要看得到那則報導
         #   ——2026-11-21 使用者貼「T1 與教練李知勳續約」說「這個是 T1 教練 Easyhoon」：原本只進消息，Easyhoon 的小框完全看不出來。
