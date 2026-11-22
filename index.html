@@ -14663,9 +14663,11 @@ function render(){
         //   「新加入的選手 如果曾經效力過 也要加上這條」）：e.tn＝他在這一隊的歷次效力區間（wiki 的 Tenures，資料端掛的）。
         //   時間＝各段實際待的天數加總到今天：中間斷掉的一律扣除（使用者 2026-11-22「斷掉的要扣除」——原本間隔 45 天內的當成同一段、會把那幾天算進去）；
         //   wiki 把同一段拆成好幾筆時常有重疊或首尾同一天，只接「重疊／相連」的，不重複算
-        if(!e.fa&&e.tn&&(e.rs||JD)){ const L=e.tn.filter(z=>z&&z[0]).map(z=>[z[0],z[1]||""]).sort((a,b)=>a[0].localeCompare(b[0])), dd=(a,b)=>(Date.parse(b)-Date.parse(a))/864e5, M=[];
+        /* 白字（tbStay 續留）也寫效力（使用者 2026-11-22「白字小框也要加個效力」） */
+        const stay=!e.rs&&!JD&&tbCls(e)==="tbStay";
+        if(!e.fa&&e.tn&&(e.rs||JD||stay)){ const L=e.tn.filter(z=>z&&z[0]).map(z=>[z[0],z[1]||""]).sort((a,b)=>a[0].localeCompare(b[0])), dd=(a,b)=>(Date.parse(b)-Date.parse(a))/864e5, M=[];
           L.forEach(z=>{ const p=M[M.length-1]; if(p&&(!p[1]||dd(p[1],z[0])<=0)){ if(p[1]&&(!z[1]||z[1]>p[1]))p[1]=z[1]; } else M.push([z[0],z[1]]); });
-          if(M.length&&(e.rs||M.some(z=>z[1]&&z[1]<JD))){ const days=M.reduce((a,z)=>a+Math.max(0,dd(z[0],z[1]||today)),0), mo=Math.round(days/30.44), y=Math.floor(mo/12), m=mo%12;
+          if(M.length&&(e.rs||stay||M.some(z=>z[1]&&z[1]<JD))){ const days=M.reduce((a,z)=>a+Math.max(0,dd(z[0],z[1]||today)),0), mo=Math.round(days/30.44), y=Math.floor(mo/12), m=mo%12;
             const du=en2?(mo<1?"<1m":(y?`${y}y${m?` ${m}m`:""}`:`${m}m`)):(mo<1?"不到 1 個月":(y?`${y} 年${m?` ${m} 個月`:""}`:`${m} 個月`));
             kv.push([en2?"Tenure":"效力",du]); } }   // 只寫待的總時間（使用者 2026-11-22「我要的是待的總時間 幾年幾個月這樣」：原本後面還列各段起訖）
         if(e.gone)kv.push(...goKv(e.n,t.nm));
