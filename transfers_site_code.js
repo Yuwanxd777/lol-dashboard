@@ -489,7 +489,7 @@ function render(){
     const SEASON=+String(D.from||"").slice(0,4)||0;
     const RATE=(()=>{ if(window.TRANSFER_RATE)return window.TRANSFER_RATE;   // 轉會網站：主站排程先算好匯出（transfers_site.js）
       if(curYear!==SEASON||typeof calcPlayers!=="function")return null;
-      const k=curYear+"|"+(GAMES||[]).length+"|seg12"; if(window._tbRC&&window._tbRC.k===k)return window._tbRC;
+      const k=curYear+"|"+(GAMES||[]).length+"|seg13"; if(window._tbRC&&window._tbRC.k===k)return window._tbRC;
       const res={k,pl:{},tm:{}};
       // 分段加權（使用者 2026-11-20「轉會評分改成 第一賽段 10% 第二賽段 30% 第三賽段 50% 世界賽 10% 其餘的不算」「哪個段落沒打就沒分」）：
       //   每段各自算一次選手評分（場次白名單 H2H 圈範圍、其他篩選清空），再照權重相加；沒打的那段＝0 分，不重新分配權重。
@@ -532,7 +532,7 @@ function render(){
       { const sv={split:F.split,league:F.league,patch:F.patch,d1:F.d1,d2:F.d2,minG:F.minG}, svH=H2H; F.split=""; F.league="ALL"; F.patch=""; F.d1=""; F.d2=""; F.minG=0; H2H=null;
         try{ res.yr={}; for(const r of ["TOP","JNG","MID","BOT","SUP"]){ const Y=res.yr[r]={};
             calcPlayers(r,true).forEach(x=>{ const nk=String(x._pn||"").toLowerCase(); if(x.評分==null||(Y[nk]&&Y[nk].g>=x.場數))return;
-              Y[nk]={at:x.攻擊值!=null?+x.攻擊值.toFixed(1):null,df:x.防禦值!=null?+x.防禦值.toFixed(1):null,sc:+x.評分.toFixed(1),g:x.場數}; }); } }
+              Y[nk]={at:x.攻擊值!=null?+x.攻擊值.toFixed(1):null,df:x.防禦值!=null?+x.防禦值.toFixed(1):null,sc:+x.評分.toFixed(1),g:x.場數,pg:x.POG,pm:x.POM}; }); } }   // pg／pm＝整年 POG／POM 次數（null＝那個賽事沒發這種獎）
         finally{ H2H=svH; Object.assign(F,sv); } }
       // 2026 常用英雄前三（陣容對比 2027 那排每位選手名字下面；使用者 2026-11-22「2027 選手常用英雄擺 2026 前三英雄的頭像」）：今年全部比賽、照出場次數，同次數照英雄 id；只收陣容表上的人
       { const want=new Set(); (D.board||[]).forEach(t=>Object.values(t.r||{}).flat().forEach(e=>want.add(String(pn(e.n)).toLowerCase())));
@@ -982,7 +982,9 @@ function render(){
                 h.querySelectorAll(".tbRow").forEach(r=>{ const hc=r.querySelector('.tbCell[data-r="HC"]'), st=r.querySelector('.tbCell[data-r="STF"]'); if(!hc)return; const v=hc.querySelector(".tbCv"); if(!v)return;
                   const keep=[...v.querySelectorAll(".tbN"),...(st?[...st.querySelectorAll(".tbCv .tbN")].filter(n=>!n.classList.contains("tbExp")||n.classList.contains("tbRsRum")):[])];
                   v.innerHTML=keep.length?keep.map(n=>n.outerHTML).join("<br>"):`<span class="tbMuted">–</span>`; hc.classList.toggle("tbEmpty",!keep.length); hc.dataset.r="CO"; hc.classList.add("tbShCo"); if(st)st.remove(); });
-                { const hs=h.querySelector(".tbHd"); if(hs&&hs.children[7])hs.children[7].remove(); const c6=hs&&hs.children[6]; if(c6){ [...c6.childNodes].forEach(n=>{ if(n.nodeType===3)n.remove(); }); c6.appendChild(document.createTextNode(en2?"Coach":"教練")); } }
+                { const hs=h.querySelector(".tbHd"); if(hs&&hs.children[7])hs.children[7].remove(); const c6=hs&&hs.children[6]; if(c6){ [...c6.childNodes].forEach(n=>{ if(n.nodeType===3)n.remove(); }); c6.appendChild(document.createTextNode(en2?"Coach":"教練")); }
+                  // 英文截圖的路線欄名一律縮寫（使用者 2026-11-22「改寫成 TOP JGL MID BOT SUP Coach 大小寫要遵照我這樣」）
+                  if(en2&&hs)["TOP","JGL","MID","BOT","SUP"].forEach((lb,i)=>{ const c=hs.children[i+1]; if(!c)return; [...c.childNodes].forEach(n=>{ if(n.nodeType===3)n.remove(); }); c.appendChild(document.createTextNode(lb)); }); }
                 h.querySelectorAll(".tbSep").forEach(x=>x.outerHTML="<br>");
                 h.querySelectorAll(".tbRtSz").forEach(x=>x.remove());   // 網頁上用來撐住最後一欄寬度的隱形字串（最長的評分範圍）：截圖的欄寬另外算，留著會把七欄都撐成那麼寬、整張表的字跟著變小
                 // 表頭：「路線圖＋路線名稱」這一組對在下方資料的正中間（使用者 2026-11-20「截圖的資料 是要在路線圖跟路線名的置中位置 不是路線名稱的置中位置」），
@@ -1292,7 +1294,8 @@ function render(){
         const y26=LANE6.map(([r,ic])=>{ const o=o26(r);
           if(r==="HC")return phH(o,ic,cls26(o),kvS([[LC26[0],wr3==null?"–":Math.round(wr3*100)+"%"],[LC26[1],rkS(t)||"–"]]));
           const a=o&&RATE&&RATE.yr&&RATE.yr[r]?RATE.yr[r][String(pn(o.n)).toLowerCase()]:null;   // 整年（RATE.yr）
-          return phH(o,ic,cls26(o),kvS([[L26[0],n1(a&&a.at)],[L26[1],n1(a&&a.df)]])); }).join("");
+          const cnt=v=>v==null?"–":String(v);   // POG／POM 次數（使用者 2026-11-22「2026 加上兩列 POG POM」）
+          return phH(o,ic,cls26(o),kvS([[L26[0],n1(a&&a.at)],[L26[1],n1(a&&a.df)],["POG",cnt(a&&a.pg)],["POM",cnt(a&&a.pm)]])); }).join("");
         if(RATE&&!t._scM&&typeof rateOf==="function")rateOf(t);
         // 2027 的評分：選手＝整年評分（RATE.yr）；主教練＝戰績分（新來的看原隊，留任的看本隊）
         const sc27=(e,r)=>{ if(!e||!RATE)return null; if(r==="HC"){ const c=coachS((e.new||e.r||e.tip||e.pm)?(e.from||""):t.nm); return c?c.v:null; }
