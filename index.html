@@ -14700,7 +14700,7 @@ function render(){
     const SEASON=+String(D.from||"").slice(0,4)||0;
     const RATE=(()=>{ if(window.TRANSFER_RATE)return window.TRANSFER_RATE;   // 轉會網站：主站排程先算好匯出（transfers_site.js）
       if(curYear!==SEASON||typeof calcPlayers!=="function")return null;
-      const k=curYear+"|"+(GAMES||[]).length+"|seg13"; if(window._tbRC&&window._tbRC.k===k)return window._tbRC;
+      const k=curYear+"|"+(GAMES||[]).length+"|seg14"; if(window._tbRC&&window._tbRC.k===k)return window._tbRC;
       const res={k,pl:{},tm:{}};
       // 分段加權（使用者 2026-11-20「轉會評分改成 第一賽段 10% 第二賽段 30% 第三賽段 50% 世界賽 10% 其餘的不算」「哪個段落沒打就沒分」）：
       //   每段各自算一次選手評分（場次白名單 H2H 圈範圍、其他篩選清空），再照權重相加；沒打的那段＝0 分，不重新分配權重。
@@ -14743,7 +14743,12 @@ function render(){
       { const sv={split:F.split,league:F.league,patch:F.patch,d1:F.d1,d2:F.d2,minG:F.minG}, svH=H2H; F.split=""; F.league="ALL"; F.patch=""; F.d1=""; F.d2=""; F.minG=0; H2H=null;
         try{ res.yr={}; for(const r of ["TOP","JNG","MID","BOT","SUP"]){ const Y=res.yr[r]={};
             calcPlayers(r,true).forEach(x=>{ const nk=String(x._pn||"").toLowerCase(); if(x.評分==null||(Y[nk]&&Y[nk].g>=x.場數))return;
-              Y[nk]={at:x.攻擊值!=null?+x.攻擊值.toFixed(1):null,df:x.防禦值!=null?+x.防禦值.toFixed(1):null,sc:+x.評分.toFixed(1),g:x.場數,pg:x.POG,pm:x.POM}; }); } }   // pg／pm＝整年 POG／POM 次數（null＝那個賽事沒發這種獎）
+              Y[nk]={at:x.攻擊值!=null?+x.攻擊值.toFixed(1):null,df:x.防禦值!=null?+x.防禦值.toFixed(1):null,sc:+x.評分.toFixed(1),g:x.場數,pg:x.POG,pm:x.POM}; }); }
+          /* POG／POM 不算國際賽（使用者 2026-11-22「POM POG 不看國際賽」）：今年非國際賽的比賽自己數；null（沒發這種獎）維持 null */
+          { const IN=new Set(["WLDs","MSI","EWC","FST","DCup","AC"]), cg=new Map(), cm=new Map(), add=(M,n)=>{ if(!n)return; const k=String(n).trim().toLowerCase(); M.set(k,(M.get(k)||0)+1); };
+            for(const o of (GAMES||[])){ if(IN.has(o.league))continue; const r=o.raw;
+              const rec=ssRec({_d:o.date,_btf:r[C.blue_teamname],_rtf:r[C.red_teamname],_g:+r[C.game]||1}); if(!rec)continue; add(cg,rec.mvp); add(cm,rec.mvpm); }
+            for(const r in res.yr)for(const nk in res.yr[r]){ const y=res.yr[r][nk]; if(y.pg!=null)y.pg=cg.get(nk)||0; if(y.pm!=null)y.pm=cm.get(nk)||0; } } }   // pg／pm＝整年（不含國際賽）POG／POM 次數
         finally{ H2H=svH; Object.assign(F,sv); } }
       // 2026 常用英雄前三（陣容對比 2027 那排每位選手名字下面；使用者 2026-11-22「2027 選手常用英雄擺 2026 前三英雄的頭像」）：今年全部比賽、照出場次數，同次數照英雄 id；只收陣容表上的人
       { const want=new Set(); (D.board||[]).forEach(t=>Object.values(t.r||{}).flat().forEach(e=>want.add(String(pn(e.n)).toLowerCase())));
