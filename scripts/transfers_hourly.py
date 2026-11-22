@@ -118,6 +118,7 @@ REVIEW_BRIEF = """你是 LOL 儀表板「轉會」分頁的每小時複查員（
    合約已到期、圖上寫留隊的人放 stay；「不在新名單上、去向不明」的人只寫在句子裡，**不要放 stay**（stay 會被拿去判這則傳聞準不準）。範例：M.1795237153.A.60B 與它的 -1～-10。
    stay＝傳出或宣布續留：[[選手 ID, 隊全名], …]（會蓋掉他之前的轉隊傳聞）。純隊伍消息（解散、退出聯賽）用 "tags": [[賽區中文, 隊全名, "in"|"out"]]（賽區＝韓國／中國／歐洲／北美／巴西／亞太）加 "kind": "join"|"leave"|"both"|"other"。
 4. st（狀態）：戰隊官方帳號的公告＝"official"；媒體報導、記者、爆料、韓網、Sheep Esports 一律 "rumor"。舊傳聞被官方推翻或闢謠 ⇒ 在那一則舊傳聞加 "fake": "依據"；被證實不用手動標（程式會判）。
+   程式自動判成謠言、但其實還沒定論的（候選名單裡有一人去了別隊、其他人還沒定；主要內容沒被推翻）⇒ 加 "open": 1 維持傳聞（例：M.1795077622.A.C78 JDG 五選二）。
    內文貼的是 Sheep Esports 的推文 ⇒ src 改 "Sheep Esports"、url 改成那則 x.com 連結；引用韓網（fmkorea、inven、naver…）⇒ src "韓網"、url 用韓網原文。
 5. 全部處理完：跑 python scripts/fetch_transfers.py，再跑 python scripts/transfers_dump.py，讀 transfers_review_dump.txt 檢查「這一輪要看的」那幾則實際顯示：
    - 內文：標點、空格、有沒有「乳摸：」殘留、選手前面有沒有路線圖 [上路] 這種（沒有就在 zh 用 §路線§‹頁|名› 補）、有沒有把隊名或普通單字誤認成選手。
