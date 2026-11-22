@@ -1,12 +1,13 @@
 # -*- coding: utf-8 -*-
 """轉會分頁「隊伍小框」與「效力」要的資料（使用者 2026-11-22）。
 
-  s26   {隊名（陣容表的 nm）: {TOP/JNG/MID/BOT/SUP: [顯示 ID, wiki 頁名]}}
+  s26   {隊名（陣容表的 nm）: {TOP/JNG/MID/BOT/SUP/HC: [顯示 ID, wiki 頁名]}}
+        HC＝那一年當主教練（含代理主教練）天數最多的人，直接查 wiki 的 Tenures＋RosterChanges（使用者 2026-11-22「如果不知道2026原教練是誰 就去翻WIKI」）
         ＝那一年替這隊出賽最多場的人（Leaguepedia ScoreboardPlayers，所有賽事；同場數取頁名字母序，結果才固定）
   pimg  {wiki 頁名: 縮圖網址}
         選圖順序（使用者「選手的照片記得抓取的是2026最新一張 如果2026沒有才往前抓」）：
         PlayerImages 裡該年最新一張 → 沒有就該年以前最新的一張 → 個人頁那張（Players.Image）→ 其餘任何一張。只存有圖的人
-  pfc   {wiki 頁名: [兩眼中點 x÷圖寬, 兩眼中點 y÷圖高, 臉寬÷圖寬, 圖寬÷圖高]}
+  pfc   {wiki 頁名: [兩眼中點 x÷圖寬, 兩眼中點 y÷圖高, 臉寬÷圖寬, 圖寬÷圖高, 兩眼連線的角度（度，正＝畫面右邊那隻眼睛比較低）, 1＝去背照]}
         （使用者「圖片的人頭大小與位置幫我調整一致」）OpenCV 的 YuNet 臉部偵測（模型檔 csv_cache/face_detection_yunet_2023mar.onnx，
         使用者同意下載）量出來的；前端照這四個數把每張圖縮放、移動到「臉一樣寬、眼睛在同一個位置」。量不到的人前端退回一般的置中裁切
   效力  tenures()：每隊每個人的歷次效力區間（Tenures 表，含已經結束的），fetch_transfers 掛到格子裡的人身上（欄位 tn）
@@ -67,6 +68,35 @@ def starters(cargo, year, teams):
         for (tm, rr), (_n, pg) in best.items():
             out.setdefault(tm, {})[rr] = [_disp(pg), pg]
     return out
+
+
+def coaches(cargo, year, teams):
+    """teams＝wiki 隊名清單 → {wiki 隊名: [顯示 ID, 頁名]}：那一年當主教練（Head Coach／Interim Head Coach；助理主教練不算）天數最多的人。
+    wiki 上整年都沒登記主教練的隊（OMG、Saigon Warriors 只有職稱「Coach」的人）⇒ 改取職稱剛好是 Coach、待最久的那位"""
+    y0, y1 = f"{int(year)}-01-01", f"{int(year)}-12-31"
+    today = datetime.date.today().isoformat()
+    days = {}
+    for i in range(0, len(teams), 15):
+        for x in cargo({"tables": "Tenures=T,RosterChanges=RC", "join_on": "T.RosterChangeIdJoin=RC.RosterChangeId",
+                        "fields": "T.Player=p,T.Team=tm,T.DateJoin=dj,T.DateLeave=dl,RC.Role=ro",
+                        "where": "T.Team IN " + _in(teams[i:i + 15]) + f' AND RC.Role LIKE "%Coach%" AND (T.DateLeave>="{y0}" OR T.IsCurrent=1) AND T.DateJoin<="{y1}"',
+                        "limit": "5000", "format": "json"}):
+            ro = str(x.get("ro") or "").strip().lower()
+            lv = 0 if "head coach" in ro and "assistant" not in ro else 1 if ro == "coach" else None   # 0＝主教練（含代理）、1＝職稱只寫 Coach
+            if lv is None or not x.get("p") or not x.get("tm") or not x.get("dj"):
+                continue
+            a = max(str(x["dj"])[:10], y0)
+            b = min(str(x.get("dl") or today)[:10], y1, today)
+            if b <= a:
+                continue
+            k = (x["tm"], lv, str(x["p"]))
+            days[k] = days.get(k, 0) + (datetime.date.fromisoformat(b) - datetime.date.fromisoformat(a)).days
+    best = {}
+    for (tm, lv, p), d in days.items():
+        cand = (lv, -d, p)   # 先比主教練優先、再比天數多
+        if tm not in best or cand < best[tm]:
+            best[tm] = cand
+    return {tm: [_disp(p), p] for tm, (_lv, _d, p) in best.items()}
 
 
 def _api(params):
@@ -183,7 +213,8 @@ _DET = {}
 
 
 def face_of(data):
-    """圖片位元組 → [兩眼中點 x÷圖寬, 兩眼中點 y÷圖高, 臉寬÷圖寬, 圖寬÷圖高]；沒裝 OpenCV、沒有模型檔、或找不到臉就回 None"""
+    """圖片位元組 → [兩眼中點 x÷圖寬, 兩眼中點 y÷圖高, 臉寬÷圖寬, 圖寬÷圖高, 兩眼角度]；沒裝 OpenCV、沒有模型檔、或找不到臉就回 None。
+    角度（使用者 2026-11-22「有些歐美選手頭像歪歪的」）：照片裡頭本身是歪的，前端照這個角度把頭轉正。YuNet 的眼睛座標＝畫面左邊那隻、畫面右邊那隻"""
     try:
         import cv2
         import numpy as np
@@ -202,7 +233,11 @@ def face_of(data):
             return None
         f = max(faces, key=lambda r: r[2] * r[3])
         ex, ey = (f[4] + f[6]) / 2, (f[5] + f[7]) / 2
-        return [round(float(ex / a.shape[1]), 3), round(float(ey / a.shape[0]), 3), round(float(f[2] / a.shape[1]), 3), round(W / H, 3)]
+        import math
+        ang = math.degrees(math.atan2(float(f[7] - f[5]), float(f[6] - f[4])))
+        al = np.asarray(im)[:, :, 3]
+        cut = 1 if (al < 20).mean() > 0.05 else 0   # 去背照（透明的部分超過 5%）：前端只轉正這種，帶背景的轉了角落會露白
+        return [round(float(ex / a.shape[1]), 3), round(float(ey / a.shape[0]), 3), round(float(f[2] / a.shape[1]), 3), round(W / H, 3), round(ang, 1), cut]
     except Exception:
         return None
 
@@ -334,7 +369,13 @@ def build(cargo, year, board, roles=None, alias=None):
             if got.get(alias.get(tm, tm)):
                 S[tm] = got[alias.get(tm, tm)]
         print(f"   隊伍小框：{year} 先發補查 {len(need)} 隊，查到 {sum(1 for tm in need if tm in S)} 隊")
-    s26 = {nm: S[tm] for nm, tm in teams if S.get(tm)}
+    needc = sorted({tm for _nm, tm in teams if tm in S and "HC" not in S[tm]})
+    if needc:
+        got = coaches(cargo, year, sorted({alias.get(tm, tm) for tm in needc}))
+        for tm in needc:
+            S[tm]["HC"] = got.get(alias.get(tm, tm)) or []   # 空的＝查過但沒有，下次不再查
+        print(f"   隊伍小框：{year} 主教練補查 {len(needc)} 隊，查到 {sum(1 for tm in needc if S[tm]['HC'])} 隊")
+    s26 = {nm: {r: v for r, v in S[tm].items() if v} for nm, tm in teams if S.get(tm)}
 
     # ② 圖片：先發五人＋每隊格子裡的五路選手與主教練＋上一任主教練
     def page_of(e):
@@ -380,6 +421,24 @@ def build(cargo, year, board, roles=None, alias=None):
         print(f"   效力區間查詢失敗（略過）：{type(e).__name__} {str(e)[:100]}")
     os.makedirs(os.path.dirname(CACHE), exist_ok=True)
     io.open(CACHE, "w", encoding="utf-8").write(json.dumps(C, ensure_ascii=False, separators=(",", ":")))
+    # 同一個人在 wiki 的頁名有大小寫兩種寫法（Deokdam／deokdam、Kyeahoo／kyeahoo；使用者 2026-11-22「deokdam 2027為何沒頭像」）：
+    #   先發來自出賽紀錄（小寫那種）、格子來自名單（大寫那種），兩邊各查一次、只有一邊查得到圖 ⇒ 查不到的借用另一種寫法的那張
+    low = {}
+    for p, o in I.items():
+        if o.get("u"):
+            low.setdefault(p.lower(), o)
+    for p in pages:
+        if not I.get(p, {}).get("u") and low.get(p.lower()):
+            I[p] = dict(low[p.lower()], t=today)
+    # 角度是後來才加的：舊紀錄的臉只有四個數 ⇒ 重新抓圖量一次（只量臉，不重查 wiki）
+    old = [p for p in pages if I.get(p, {}).get("u") and len(I[p].get("f") or []) < 6]
+    for p in old:
+        data = _fetch(I[p]["u"])
+        I[p]["f"] = face_of(data) if data else I[p].get("f")
+        time.sleep(0.1)
+    if old:
+        print(f"   隊伍小框：重新量臉 {len(old)} 張（加上角度與是否去背）")
+        io.open(CACHE, "w", encoding="utf-8").write(json.dumps(C, ensure_ascii=False, separators=(",", ":")))
     pimg = {p: I[p]["u"] for p in sorted(pages) if I.get(p, {}).get("u")}
     pfc = {p: I[p]["f"] for p in sorted(pages) if I.get(p, {}).get("u") and I[p].get("f")}
     return s26, pimg, pfc
