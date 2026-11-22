@@ -1263,7 +1263,6 @@
   .trRole{display:inline-block;font-size:12.5px;padding:0 6px;margin:0 4px 0 2px;border-radius:5px;background:rgba(255,200,80,.14);color:#ffc850;vertical-align:1px}
   .trTx{min-width:0;word-break:break-word;display:flex;align-items:center;gap:12px}.trTxt{flex:1 1 auto;min-width:0}.trLks{flex:0 0 auto;margin-left:auto;display:flex;gap:10px;white-space:nowrap}.trLks .trLk{margin-left:0}   /* 來源連結置右（使用者 2026-11-20） */
   .trLk{font-size:13px;color:#7fb2ff;white-space:nowrap;margin-left:6px}
-.trYT{display:inline-flex;align-items:center;gap:2px;margin-left:6px;padding:0 6px 0 4px;height:18px;border-radius:5px;background:#e62117;color:#fff!important;font-size:11.5px;font-weight:800;line-height:1;text-decoration:none;vertical-align:1px;white-space:nowrap}.trYT svg{width:12px;height:12px;display:block}.trYT:hover{filter:brightness(1.15)}
   .trNb{white-space:nowrap}.trLk1{display:none}.trNIc{width:1.35em;height:1.35em;object-fit:cover;border-radius:4px;vertical-align:-.3em;display:inline-block}.trSW{display:inline-flex;align-items:center;gap:8px;white-space:nowrap;margin-left:auto}   /* margin-left:auto：篩選列放不下、搜尋被擠到下一排時仍靠右（使用者 2026-11-21「縮放網頁比例後 篩選列會跑掉歪掉」：前面那個 flex:1 的空白留在上一排尾端，搜尋與小按鈕換到下一排就變成靠左） */   /* 手機版第一列右邊那一個來源連結；桌面不顯示 */
   /* 窄版：第一行＝狀態＋原隊 ➜ 新隊（橫排），第二行＝消息全寬；欄標題收起 */
   @container mainc (max-width:999.98px){.trList{grid-template-columns:max-content minmax(0,1fr)}.trHead{display:none}
@@ -14580,7 +14579,8 @@ function render(){
       // 來源連結照網域寫名字（使用者 2026-11-20「來源 ↗ 如果是 X 要寫 X ↗」）
       const dom=u=>/Sheep_?Esports|sheepesports\.com/i.test(u)?"SE":/(^|\/\/)(www\.)?(x|twitter)\.com\//.test(u)?"X":/facebook\.com|fb\.com/.test(u)?"FB":/instagram\.com/.test(u)?"IG":/weibo\.(com|cn)/.test(u)?(en2?"Weibo":"微博"):/youtube\.com|youtu\.be/.test(u)?"YT":/ptt\.cc/.test(u)?"PTT":(en2?"Source":"來源");
       // 消息裡附的影片（使用者 2026-11-22「傳聞裡面如果有影片 記得附上YT連結 並在傳聞後面放一個YT按鈕」）：x.yt＝YouTube 連結（程式從 PTT 內文／Sheep 推文抓），放在來源連結後面
-      const yt=x.yt&&/^https:\/\/(www\.|m\.)?(youtube\.com|youtu\.be)\//.test(x.yt)&&x.yt!==link?`<a class="trYT" href="${esc(x.yt)}" target="_blank" rel="noopener" title="YouTube"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M8 5.5v13l11-6.5z"/></svg>YT</a>`:"";
+      //   樣式跟其他來源連結一樣（使用者 2026-11-22「YT按鈕改成跟其他一樣格式好了」）
+      const yt=x.yt&&/^https:\/\/(www\.|m\.)?(youtube\.com|youtu\.be)\//.test(x.yt)&&x.yt!==link?lkA(x.yt,"YT"):"";
       return (link?lkA(link,x.s==="kr"?SRCN.kr:dom(link),x.srcNm):"")+(x.ptt&&x.ptt!==link&&(x.s==="kr"||/ptt\.cc/.test(x.ptt))?lkA(x.ptt,"PTT"):"")+yt; };   // 原文在別處（韓網、微博爆料）時另附 PTT 轉貼（使用者 2026-11-22「微博爆料文…標示好」）
     // 消息預設只列最近 3 天（使用者 2026-11-22「全做」——整體檢視時的建議：兩百多則一次全列，手機要滑三萬多 px）：
     //   沒有任何篩選／搜尋時才收（有篩選就全列，不然會以為沒有符合的）；最下面一顆按鈕展開全部，展開後這次開著網頁都維持展開

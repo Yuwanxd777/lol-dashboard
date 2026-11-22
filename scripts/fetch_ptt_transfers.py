@@ -52,9 +52,20 @@ def get(u):
             time.sleep(2)
 
 
+YT_RE = re.compile(r"https?://(?:www\.|m\.)?(?:youtube\.com/(?:watch\?v=|shorts/|live/)|youtu\.be/)([\w-]{11})")
+
+
+def yt_of(h):
+    """內文（HTML 或文字）裡第一個 YouTube 影片 → https://youtu.be/影片ID；消息後面的 YT 按鈕（使用者 2026-11-22「傳聞裡面如果有影片 記得附上YT連結」）"""
+    m = YT_RE.search(h or "")
+    return f"https://youtu.be/{m.group(1)}" if m else ""
+
+
 def plain(h):
     """內文純文字（只到「※ 發信站」前＝不含推文），陣容表拿來比對 Thank you 文點到的名字"""
-    h = re.sub(r'<div class="article-metaline[^"]*">[\s\S]*?</div>\s*</div>', "", h)   # 作者／看板／標題／時間
+    # 作者／看板／標題／時間：只拿掉那幾個 metaline 本身。原本寫成「到下一個 </div></div>」，內文開頭有 YouTube 預覽框（richcontent 兩層 div）時
+    #   會把開頭一大段（「來源：影片連結」那幾行）一起吃掉（2026-11-22 Smeb 那篇）
+    h = re.sub(r'<div class="article-metaline(?:-right)?">(?:<span[^>]*>[^<]*</span>)*</div>', "", h)
     t = re.sub(r"<[^>]+>", "", h.split(">", 1)[-1])
     t = t.replace("&amp;", "&").replace("&lt;", "<").replace("&gt;", ">").replace("&#39;", "'").replace("&quot;", '"')
     return re.sub(r"\n\s*\n+", "\n", t).strip()[:4000]
@@ -103,6 +114,16 @@ def main(start=None):
     if acc and "--full" not in sys.argv:   # 已累積過 ⇒ 只往回翻到最後一則的前一天（不用每班從起點整個重翻）；--full＝篩選規則改了之後整段重翻
         last = max(int(datetime.datetime.strptime(x["d"], "%Y-%m-%d %H:%M").replace(tzinfo=TZ).timestamp()) for x in acc)
         cut = max(cut, last - 86400)
+    for x in acc:   # 舊條目補查一次影片連結（2026-11-22 以前存的內文會漏掉開頭那段，直接從原文 HTML 找）
+        if "ytc" not in x and x.get("ptt") and "ptt.cc" in x["ptt"]:
+            try:
+                y_ = yt_of(get(x["ptt"]).split('<div id="main-content"', 1)[-1].split("※ 發信站", 1)[0])
+                if y_ and not x.get("yt"):
+                    x["yt"] = y_
+                x["ytc"] = 1
+                time.sleep(0.3)
+            except Exception:
+                pass
     for x in acc:   # 舊條目沒存內文的補抓
         if "body" not in x and x.get("ptt"):
             try:
@@ -129,7 +150,9 @@ def main(start=None):
         zh = re.sub(r"^\[[^\]]+\]\s*", "", title).strip()
         x = {"id": pid, "d": datetime.datetime.fromtimestamp(t, TZ).strftime("%Y-%m-%d %H:%M"), "title": title, "zh": zh,
              "src": "韓網" if kr else ("Sheep Esports" if sh else "PTT"), "url": kr[0] if kr else (sh[0] if sh else ptt), "ptt": ptt,
-             "st": "rumor" if RUMOR.search(title) else "official", "body": plain(main_)}
+             "st": "rumor" if RUMOR.search(title) else "official", "body": plain(main_), "ytc": 1}
+        if yt_of(main_):
+            x["yt"] = yt_of(main_)
         acc.append(x); have.add(pid); n += 1
         time.sleep(0.3)
     acc.sort(key=lambda x: x["d"])
