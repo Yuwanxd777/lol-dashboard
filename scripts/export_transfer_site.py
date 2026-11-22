@@ -18,6 +18,7 @@ import re
 import subprocess
 import sys
 import time
+import urllib.parse
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
@@ -332,6 +333,26 @@ def main():
         srv.kill()
     if not data.get("rate"):
         print("   ⚠ 評分沒算出來（年份不是轉會賽季？），轉會網站的評分欄會是 –")
+    # 主站還沒推上去的隊徽（新加的 TE、XLG 這種）內嵌成 data URI（使用者 2026-11-22「新網站的新東西直接幫我推上新網站」）：
+    #   隊徽檔在主站，主站要等排程 push 才更新 ⇒ 新網站先自己帶一份；推上去之後下一次匯出就改回讀主站
+    try:
+        import base64
+        rem = subprocess.run(["git", "ls-tree", "-r", "--name-only", "origin/main", "--", "img/teams"], cwd=ROOT, capture_output=True, check=True).stdout.decode("utf-8").splitlines()
+        rem = set(rem) - set(subprocess.run(["git", "diff", "--name-only", "origin/main", "--", "img/teams"], cwd=ROOT, capture_output=True, check=True).stdout.decode("utf-8").splitlines())   # 改過還沒推的也算主站沒有
+        n_emb = 0
+        for m in (data.get("team") or {}, data.get("ab") or {}):
+            for o in m.values():
+                lg = o.get("logo") or ""
+                if lg.startswith("img/teams/"):
+                    rel = urllib.parse.unquote(lg)
+                    fp = os.path.join(ROOT, *rel.split("/"))
+                    if rel not in rem and os.path.exists(fp):
+                        o["logo"] = "data:image/webp;base64," + base64.b64encode(io.open(fp, "rb").read()).decode()
+                        n_emb += 1
+        if n_emb:
+            print(f"   主站還沒有的隊徽內嵌 {n_emb} 處")
+    except Exception as e:
+        print(f"   隊徽內嵌略過：{type(e).__name__} {str(e)[:80]}")
     # 自由人那一列的聯賽標誌（img/lg_*.png，96px）內嵌成 data URI：圖檔在主站，主站整點才推上去，中間這段新網站會破圖
     try:
         import base64

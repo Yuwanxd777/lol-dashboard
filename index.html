@@ -15535,7 +15535,7 @@ function render(){
         // 2026 的 ID 也上色（使用者 2026-11-22）：照這個人在陣容表上的狀態——還在本隊格子裡用那一格的顏色、在 FA 列用 FA 的顏色，都找不到（去了別隊／不在名單）＝藍字刪除線（離隊）
         const lk=p=>String(p||"").replace(/_/g," ").toLowerCase(), faE=(D.board||[]).filter(x=>x.fa).flatMap(x=>Object.values(x.r||{}).flat());
         const cls26=o=>{ if(!o)return ""; const k=lk(o.p), m=e=>lk(pg0(e))===k||lk(e.n)===lk(o.n); const e=Object.values(t.r||{}).flat().find(m); if(e)return tbCls(e);
-          const f=faE.find(e=>m(e)&&(!e.from||e.from===t.nm||e.from===t.tm))||faE.find(m); return f?tbCls(f):"tbExp tbGone"; };
+          const f=faE.find(e=>m(e)&&(!e.from||e.from===t.nm||e.from===t.tm))||faE.find(m); return f?(f.gone?"tbExp tbGone":f.ret?"tbRet":f.ro?"tbOut":"tbExp"):"tbExp tbGone"; };   /* 從原隊的角度上色（使用者 2026-11-22「DNS 的 Sharvel 不應該是黃字」）：自由人列的黃字＝傳聞去別隊，2026 那排要寫成已離隊（藍字刪除線）／可能轉會（綠） */
         const o26=r=>{ const o=s26[r]; if(r==="HC"&&!o)return hc26?{n:hc26.n,p:pg0(hc26)}:null; return o?{n:o[0],p:o[1]||o[0]}:null; };
         // 2026 主教練：先用 wiki 查到的（s26.HC＝那一年當主教練天數最多的人；使用者 2026-11-22「如果不知道2026原教練是誰 就去翻WIKI」），查不到才用陣容表推的
         // 頭像下的數據（使用者 2026-11-22）：選手 2026＝攻擊值／防禦值（第三賽段），2027＝年齡／年資／評分（不含成就加分）；
