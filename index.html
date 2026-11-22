@@ -15496,7 +15496,14 @@ function render(){
       const nm0=n=>String(n||"").replace(/\s*\([^()]*\)\s*$/,""), pg0=e=>String(e.p||((D.roles||{})[e.n]||[])[1]||e.n||"").replace(/_/g," ");
       // 頁名大小寫不同也要找得到（同一個人在 wiki 有 Deokdam／deokdam 兩種寫法；使用者 2026-11-22「deokdam 2027為何沒頭像」）
       const lowMap=o=>{ const m={}; for(const k in o){ const l=k.toLowerCase(); if(!(l in m))m[l]=o[k]; } return m; };
-      const PIMG=D.pimg||{}, PIMGL=lowMap(PIMG), imgOf=p=>PIMG[p]||PIMG[String(p).replace(/_/g," ")]||PIMGL[String(p).replace(/_/g," ").toLowerCase()]||"";
+      // 括號裡的本名拼法不同（傳聞寫 Thanatos (Park Seung-gyu)、wiki 頁是 Thanatos (Park Seung-kyu)；使用者 2026-11-22「Thanatos 怎麼沒圖片」）：
+      //   直接查不到時，找「選手 ID 一樣、括號裡的本名只差 2 個字母以內」的那一頁，而且只有一個符合才借用（同 ID 不同人的不會誤配）
+      const ALLK=[...new Set([...Object.keys(D.pph||{}),...Object.keys(D.pimg||{})])], lev=(x,y)=>{ if(Math.abs(x.length-y.length)>2)return 9; let pr=[...Array(y.length+1).keys()];
+        for(let i=1;i<=x.length;i++){ const cu=[i]; for(let j=1;j<=y.length;j++)cu[j]=Math.min(pr[j]+1,cu[j-1]+1,pr[j-1]+(x[i-1]===y[j-1]?0:1)); pr=cu; } return pr[y.length]; };
+      const inP=k=>((/\(([^()]*)\)\s*$/.exec(k)||[])[1]||"").toLowerCase().replace(/[^a-z]/g,""), _ak={};
+      const akey=p=>{ const q=String(p||"").replace(/_/g," "); if(q in _ak)return _ak[q]; const ql=q.toLowerCase(); if(ALLK.some(k=>k===q||k.toLowerCase()===ql))return _ak[q]=q;
+        const b=nm0(q).toLowerCase(), iq=inP(q); const c=iq?ALLK.filter(k=>nm0(k).toLowerCase()===b&&inP(k)&&lev(inP(k),iq)<=2):[]; return _ak[q]=c.length===1?c[0]:q; };
+      const PIMG=D.pimg||{}, PIMGL=lowMap(PIMG), imgOf=p0=>{ const p=akey(p0); return PIMG[p]||PIMG[String(p).replace(/_/g," ")]||PIMGL[String(p).replace(/_/g," ").toLowerCase()]||""; };
       // 人頭大小與位置一致（使用者 2026-11-22「圖片的人頭大小與位置幫我調整一致」）：pfc＝[兩眼中點 x÷圖寬, 兩眼中點 y÷圖高, 臉寬÷圖寬, 圖寬÷圖高]
       //   （scripts/transfers_photos.py 用 OpenCV 臉部偵測量的）⇒ 每張圖縮放到「臉寬＝框的 FW」、移動到「兩眼中點在框的正中、高度 EY」；
       //   照片本身拍得很近（下面沒有身體）時，照這個比例下緣會露出框底，那幾張改成放大到剛好蓋到框底（頭會比別人大一點，但不會斷在半空中）。沒有 pfc 的照舊置中裁切
@@ -15504,8 +15511,8 @@ function render(){
       //   轉了之後照片下緣兩角會往上翹 ⇒ 「下緣要蓋到框底」的條件多留 半個框寬×sin(角度)
       // 頭像（使用者 2026-11-22「頭像感覺還是沒這麼整齊」「點頭像讀取的速度幫我加速」）：優先用程式端裁好的檔（D.pph：scripts/transfers_photos.py 裁成 192×192、
       //   臉一樣寬、兩眼同一點、頭轉正，放在轉會網站的 /ph/，比 wiki 原圖小很多）；那個檔載不到才退回 wiki 原圖＋下面這套 CSS 對齊
-      const PH="https://lol-transfer.pages.dev/ph/", PPH=D.pph||{}, PPHL=lowMap(PPH), phOf=p=>{ const q=String(p).replace(/_/g," "), f=PPH[p]||PPH[q]||PPHL[q.toLowerCase()]; return f?PH+f:""; };
-      const PFC=D.pfc||{}, PFCL=lowMap(PFC), FW=0.34, EY=0.42, fcSt=p=>{ const q=String(p).replace(/_/g," "), f=PFC[p]||PFC[q]||PFCL[q.toLowerCase()]; if(!f||!(f[2]>0)||!(f[3]>0))return "";
+      const PH="https://lol-transfer.pages.dev/ph/", PPH=D.pph||{}, PPHL=lowMap(PPH), phOf=p0=>{ const p=akey(p0), q=String(p).replace(/_/g," "), f=PPH[p]||PPH[q]||PPHL[q.toLowerCase()]; return f?PH+f:""; };
+      const PFC=D.pfc||{}, PFCL=lowMap(PFC), FW=0.34, EY=0.42, fcSt=p0=>{ const p=akey(p0), q=String(p).replace(/_/g," "), f=PFC[p]||PFC[q]||PFCL[q.toLowerCase()]; if(!f||!(f[2]>0)||!(f[3]>0))return "";
         const a=f[5]&&Math.abs(f[4]||0)>=2&&Math.abs(f[4])<=20?f[4]:0, sn=Math.abs(Math.sin(a*Math.PI/180)), cs=Math.cos(a*Math.PI/180);
         // f[5]＝去背照才轉：帶背景的照片轉了，框的角落會露出空白
         let wd=FW/f[2], hd=wd/f[3]; const need=1-EY+0.5*sn+0.02*!!a; if((1-f[1])*hd*cs<need){ hd=need/((1-f[1])*cs); wd=hd*f[3]; }
@@ -15521,7 +15528,7 @@ function render(){
         return `<div class="tbPh"><div class="tbPhI">${im}${lane}</div>`
           +`<a class="tbPhN tbN ${cls||"tbStay"}" href="https://lol.fandom.com/wiki/${encodeURIComponent(String(o.p).replace(/ /g,"_"))}" target="_blank" rel="noopener">${esc(nm0(o.n))}</a>${sub||""}</div>`; };
       // 頭像下面的數據列（使用者 2026-11-22）：2026＝攻擊值／防禦值（第三賽段）；2027＝年齡／年資（第一次加入職業隊到今天）／評分（不含成就加分）。沒資料寫「–」，六格高度一致
-      const PBIO=D.pbio||{}, PBIOL=lowMap(PBIO), bioOf=p=>{ const q=String(p||"").replace(/_/g," "); return PBIO[p]||PBIO[q]||PBIOL[q.toLowerCase()]||null; };
+      const PBIO=D.pbio||{}, PBIOL=lowMap(PBIO), bioOf=p=>{ const q=String(p||"").replace(/_/g," "), k=()=>{ const a=akey(q); return PBIO[a]||PBIOL[String(a).toLowerCase()]; }; return PBIO[p]||PBIO[q]||PBIOL[q.toLowerCase()]||k()||null; };   /* 本名拼法不同也借（akey） */
       const n1=v=>v==null||isNaN(v)?"–":String(Math.round(v*10)/10);
       const kvS=rows=>`<div class="tbPhS">${rows.map(([k,v])=>`<span class="tbPhK">${k}</span><b>${String(v).split(" ").map(w=>`<span>${esc(w)}</span>`).join(" ")}</b>`).join("")}</div>`;   // 每個字詞包一層不斷行（手機放不下時只在空格換行，「WCS #5-8」不會斷在連字號後面）
       const ymOf=(d0,en3)=>{ const m=/^(\d{4})-(\d\d)-(\d\d)/.exec(d0||""); if(!m)return "–"; const now=new Date(); let mo=(now.getFullYear()-m[1])*12+(now.getMonth()+1-m[2])-(now.getDate()<+m[3]?1:0); if(mo<0)return "–";
