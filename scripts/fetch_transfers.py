@@ -373,6 +373,7 @@ T1_EXTRA = {"OpTic Gaming": "LCS", "Trace Esports": "LPL", "Xi Lai Gaming": "LPL
 # 傳聞的新戰隊（使用者 2026-11-22「LPL新增 TE 跟 XLG 這兩隻戰隊只是傳聞會有的新戰隊 本身有特戰英豪戰隊 可能是因為RIOT政策而組建LOL戰隊」）：
 #   隊名 → 縮寫；陣容表標「傳聞新隊」。Trace Esports 在 Leaguepedia 還沒有 LoL 隊伍頁，沒有頁也照列
 NEW_RUMOR = {"Trace Esports": "TE", "Xi Lai Gaming": "XLG"}
+KEEP_BLUE = [("LGD Gaming", "Crisp")]   # 手動改藍字（合約到期未宣布）：(隊名, 選手)；見 main 裡套用的那段
 T1_EXCLUDE = {"Karmine Corp Blue"}   # 二隊：只因特殊賽制打了 LEC 第一賽段（使用者 2026-11-19）
 # 消息裡完全不顯示的隊（使用者 2026-11-20「SLY 跟 KCB 是一樣性質 都不用顯示」）：wiki 該隊的條目不列、Sheep 的隊伍標籤拿掉
 HIDE_TEAMS = T1_EXCLUDE | {"Solary"}
@@ -624,6 +625,16 @@ def main():
         yr = int(start[:4]) if start[5:7] > "06" else int(start[:4]) - 1
         board = transfers_board.build(B.cargo, yr, start, sheep + off + synth, dict(T1_EXTRA), wiki, T1_EXCLUDE, farewell, {"OpTic Gaming": "Dignitas"}, NEW_RUMOR)
         print(f"陣容表：{len(board)} 隊")
+        # 手動改成藍字（合約到期、未宣布離隊）的人：wiki 記他已離隊，但爆料說會回原隊（使用者 2026-11-22「Crisp那個就用藍字」：微博 LPL 陣容表把 Crisp 列在 LGD 輔助）
+        #   ⇒ 該隊格子與自由人列都拿掉「已宣布離隊」，合約到期日記成離隊那天，前端就畫藍字（合約到期未宣布）
+        for tm_, nm_ in KEEP_BLUE:
+            for x in board:
+                for e in x["r"].get("SUP", []) + x["r"].get("TOP", []) + x["r"].get("JNG", []) + x["r"].get("MID", []) + x["r"].get("BOT", []) + x["r"].get("COACH", []):
+                    if e["n"].lower() == nm_.lower() and (x.get("nm") == tm_ or (x.get("fa") and e.get("from") == tm_)):
+                        gd_ = e.pop("gd", None) or max((z[1] for z in e.get("tn") or [] if z and z[1]), default="")
+                        e.pop("gone", None)
+                        if gd_ and not e.get("c"):
+                            e["c"] = gd_
         # 「傳出要續約／留隊」的報導（PTT 條目的 stay、狀態是傳聞）：陣容表的顏色不動（官方公布才算續約），但小框要看得到那則報導
         #   ——2026-11-21 使用者貼「T1 與教練李知勳續約」說「這個是 T1 教練 Easyhoon」：原本只進消息，Easyhoon 的小框完全看不出來。
         #   做法：掛到那個人在該隊（或自由人列、來自該隊）的格子上，欄位 tips＝[{d, src, u, tip, tipE}]（跟手動自由人的相關消息同一格式，前端共用）
