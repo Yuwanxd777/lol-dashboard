@@ -1065,6 +1065,7 @@
   .tbLgIc{width:20px;height:20px;object-fit:contain;border-radius:5px;background:#e8ecf4;padding:2px;box-sizing:border-box;flex:0 0 auto}   /* 跟 FA 徽章、隊徽圖案同大小 */
   .tbLg{grid-column:1/-1;display:flex;align-items:center;gap:10px;margin:26px 0 6px;padding:8px 14px 8px 17.5px;border-radius:8px;border-left:5px solid var(--lgc);background:linear-gradient(90deg,color-mix(in srgb,var(--lgc) 22%,transparent),transparent 70%)}
   .tbHd+.tbLg{margin-top:12px}
+  @media (hover:none),(max-width:759.98px){ .tbBoard>.tbLg{cursor:pointer;-webkit-tap-highlight-color:transparent} }
   .tbLg b{font-size:22px;font-weight:900;letter-spacing:.5px;color:var(--lgc)}
   .tbLg span{font-size:14px;font-weight:700;color:var(--tx2)}
   .tbLg i{font-style:normal;font-size:13px;color:var(--tx2);margin-left:auto}
@@ -15260,7 +15261,7 @@ function render(){
           }else{
             const secs=[]; [...main.querySelectorAll(".tbBoard>.tbLg,.tbBoard>.tbRow")].forEach(e=>{ if(e.classList.contains("tbLg"))secs.push({lg:e.querySelector("b").textContent,sub:e.dataset.rg||"",c:e.style.getPropertyValue("--lgc"),rows:[]}); else if(secs.length)secs[secs.length-1].rows.push(e); });
             // 版面＝一列一隊，跟網頁（桌面版）的表格一樣（使用者 2026-11-20「截圖能不能改成一列一隊這樣 跟網頁顯示的一樣」）
-            const bhd=main.querySelector(".tbBoard>.tbHd"), live=secs.filter(sc=>sc.rows.length);
+            const bhd=main.querySelector(".tbBoard>.tbHd"), live=secs.filter(sc=>sc.rows.length&&(!sink||!sink.only||sc.lg===sink.only));   // sink.only＝只產生這個賽區（手機點賽區標題）
             // prep：把一個聯賽的列排進截圖用的複本（還不決定寬度）
             const prep=sc=>{ const h=mkHost(1200,""); h.querySelector(".trShHdRow").remove(); h.style.padding="0"; h.style.background="transparent"; h.dataset.noic="1";
               h.insertAdjacentHTML("beforeend",`<div><div class="card tbBoard" style="margin:0;padding:0;background:none;border:0;border-radius:0;box-shadow:none">${bhd?bhd.outerHTML:""}${sc.rows.filter(r=>!r.classList.contains("tbFA")).sort((p,q)=>(+p.dataset.o||0)-(+q.dataset.o||0)).map(r=>r.outerHTML).join("")}</div></div>`);   // 截圖一律照第三賽段成績排（＝資料原本的順序），不跟著網頁目前的排序（使用者 2026-11-21「截圖預設以第三賽段成績排序」）
@@ -15369,7 +15370,7 @@ function render(){
       const shb=document.getElementById("trShare");
       // openShare(gen,srcB,chk)：gen(sink)＝產生圖片的函式（篩選列＝runShot；陣容對比小框＝tmShot 的產圖），srcB＝產圖期間停用的按鈕，chk＝有沒有內容可分享
       //   陣容對比的截圖鈕也改走這個視窗（使用者 2026-11-23「陣容對比的截圖改成分享 可以預覽圖片那樣」）
-      const openShare=(gen,srcB,chk)=>{ if(document.getElementById("trShD"))return;
+      const openShare=(gen,srcB,chk,opt)=>{ if(document.getElementById("trShD"))return;
         const T=(zh,en)=>en2?en:zh;
         const IC={dl:`<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11"/><path d="M7.5 10.8 12 15.3l4.5-4.5"/><path d="M5 19.5h14"/></svg>`};
         const dlg=document.createElement("div"); dlg.id="trShD"; dlg.className="trShD";   /* 樣式掛在類別上：轉會網站的 CSS 篩選只留 .tr* 類別的規則，#id 選擇器會被濾掉 */
@@ -15379,7 +15380,7 @@ function render(){
         document.body.appendChild(dlg);
         const msg=dlg.querySelector(".trShMsg"), grid=dlg.querySelector(".trShImgs"), hint=dlg.querySelector(".trShHint"), st={items:[],sel:new Set(),done:false,err:"",capped:false,closed:false};
         const sink={png:true, max:4,   // png＝每張另外要一份 PNG（複製用）；消息先產生最新 4 頁，其餘按「產生其餘」再畫
-          add(it){ if(st.closed)return; it.url=URL.createObjectURL(it.bl); st.items.push(it); if(MODE!=="news"||st.items.length===1)st.sel.add(it); draw(); },
+          add(it){ if(st.closed)return; it.url=URL.createObjectURL(it.bl); st.items.push(it); if(MODE!=="news"||st.items.length===1)st.sel.add(it); draw(); if(opt&&opt.zoom&&st.items.length===1)zoom(0); },   // opt.zoom＝第一張出來就直接放大預覽
           fail(e){ st.err=T("產生圖片失敗：","Could not render the image: ")+((e&&e.message)||e); } };
         // 鍵盤：放大檢視開著的時候 Esc 只關放大檢視、左右鍵換張；否則 Esc 關整個視窗
         const onKey=e=>{ const z=dlg.querySelector(".trShZ"); if(z){ if(e.key==="Escape")z._shut(); else if(e.key==="ArrowLeft")z._nav(-1); else if(e.key==="ArrowRight")z._nav(1); return; } if(e.key==="Escape")close(); };
@@ -15432,7 +15433,10 @@ function render(){
         draw(); if(srcB)srcB.disabled=true;
         gen(sink).then(fin); };
       window._trOpenShare=openShare;
-      if(shb)shb.onclick=()=>openShare(runShot,shb,()=>!!main.querySelector(".tbRow,.trRow")); }
+      if(shb)shb.onclick=()=>openShare(runShot,shb,()=>!!main.querySelector(".tbRow,.trRow"));
+      // 手機點賽區標題（LCK、LPL…）＝直接跳出那個賽區截圖的放大預覽（使用者 2026-11-23「手機版點擊LCK標籤 會直接跳出截圖的那張的預覽」「每個賽區都這樣做」）
+      main.querySelectorAll(".tbBoard>.tbLg").forEach(el=>{ el.onclick=()=>{ if(!(matchMedia("(hover:none)").matches||innerWidth<760))return; const lg=(el.querySelector("b")||{}).textContent; if(!lg)return;
+        openShare(sink=>{ sink.only=lg; return runShot(sink); },shb,null,{zoom:1}); }; }); }
     // 隊徽視覺大小統一（使用者 2026-11-20「全面檢視隊徽 視覺上統一大小」）：圖檔都是正方形畫布，但圖案本身有扁（T1／DK／SHG）有窄（MKOI／DNS）
     //   ⇒ 用小畫布量圖案的外框，把「圖案面積」調成一樣（扁的放寬、方的略縮），寬最多 1.5 倍、高不超過原本的框；
     //   每個隊徽佔固定寬 1.5 倍的位子、置中 ⇒ 後面的縮寫對齊。量不到（跨網域沒開 CORS、file://）就維持原樣
