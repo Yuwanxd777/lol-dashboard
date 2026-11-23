@@ -14965,7 +14965,9 @@ function render(){
         (t.r[r]||[]).forEach(e=>scOf.set(e,sv(e)));   // 每個人的分數留著，小框的續約／續留那幾列要寫
         const conf=(t.r[r]||[]).filter(e=>!e.gone&&(e.new||e.rs||e.pm||(e.tip&&!e.r)));
         // 畫刪除線的人都不算（已宣布離隊，或合約到期又傳出去別隊——LØS 的 Zest；使用者 2026-11-20「為何 Zest 宣布離隊 小框依然有資料 但 CFO 的都沒有」）
-        { const es=(conf.length>=2?conf:(t.r[r]||[]).filter(e=>!e.gone&&!(expd(e)&&e.ro&&!e.r&&!e.pm&&!e.new&&!e.rs))).map(e=>({n:pn(e.n),v:sv(e),it:itOf(e.n),e})).filter(x=>x.v>=0), vs=es.map(x=>x.v);
+        // t._sel＝陣容小框點頭像換人選的那位（使用者 2026-11-24「切換的時候 評分也要改」）：這一路兩種評分都只算他；只在小框的複本上設，陣容表那欄不受影響
+        const selE=t._sel&&t._sel[r];
+        { const es=(selE?[selE]:conf.length>=2?conf:(t.r[r]||[]).filter(e=>!e.gone&&!(expd(e)&&e.ro&&!e.r&&!e.pm&&!e.new&&!e.rs))).map(e=>({n:pn(e.n),v:sv(e),it:itOf(e.n),e})).filter(x=>x.v>=0), vs=es.map(x=>x.v);
           const lv=vs.length?(conf.length>=2?Math.max(...vs):vs.reduce((a,b)=>a+b,0)/vs.length):(md==null?0:md*BASEW_);
           plSum+=lv; plL.push({r,ps:es.sort((a,b)=>b.v-a.v),v:lv,best:conf.length>=2}); }
         if((t.r[r]||[]).length>1&&!t._srt?.[r]){ (t._srt||(t._srt={}))[r]=1;
@@ -14977,6 +14979,7 @@ function render(){
         // 2026-11-23 使用者改定案「小框的轉會評分 取最新消息的那位下去算 外面的也是 不用給一個範圍了」：傳聞人選兩位以上 ⇒ 挑消息日期最新的那一位算（不再列最低～最高）
         const lastD=e=>[e.d,...(e.tips||[]).map(o=>o&&o.d)].filter(Boolean).map(String).sort().pop()||"";
         if(cands.length>=2&&cands.every(x=>x.rm)){ const lt=cands.map((x,i)=>({x,i,d:lastD(x.e)})).sort((p,q)=>q.d.localeCompare(p.d)||p.i-q.i)[0]; if(lt)nw=lt.x; }
+        if(selE){ const sub=isSub(selE); nw={n:pn(selE.n),s:get(selE.n,sub?40:50),rm:!!selE.r,sub,e:selE}; }
         const multi=null;
         // 有人離隊、還沒補人（格子沒有官方的人、也沒傳聞）⇒ 空缺當中位數（使用者 2026-11-19「有選手離隊但還沒補新人也是這樣做」）
         // 2026-11-20 使用者改定案「空的先不算分」：走光還沒補人的隊（LEV +168、DSG +114）會因為「空缺 50 分 − 原本的低分」變成大加分，不合理 ⇒ 空缺那一路整個不計
@@ -14994,7 +14997,7 @@ function render(){
       // 主教練＝第六路（使用者 2026-11-22「轉會評比也要算上主教練的評分」）：分數＝帶的選手平均（coachV，跟陣容對比同一把尺）
       //   有新主教練（官宣／傳聞／升任，官方優先）就比：新＝原隊的分數；隊內升任（沒有 from：HLE Mowgli）＝本隊；今年沒帶隊（T1 Roach）＝全部主教練的中位數當基準
       //   舊＝本隊今年的分數，沒有就用基準；兩邊都是基準（差 0、沒資訊）不列。主教練走了還沒補人＝空缺，跟選手一樣不算
-      { const hc=(t.r.COACH||[]).filter(e=>e.sr==="HC"&&!e.gone&&(e.new||e.tip||e.pm)).sort((a,b)=>(a.r?1:0)-(b.r?1:0))[0];
+      { const hS=t._sel&&t._sel.HC, hc=hS?((hS.new||hS.tip||hS.pm)?hS:null):(t.r.COACH||[]).filter(e=>e.sr==="HC"&&!e.gone&&(e.new||e.tip||e.pm)).sort((a,b)=>(a.r?1:0)-(b.r?1:0))[0];   /* 小框選了留任的主教練 ⇒ 這一路不比 */
         if(hc){ const own=coachV(t.nm)??coachV(t.tm), Ar=hc.from?coachVL(hc.from,t.lg):(hc.pm?own:null), Av=Ar??CMD, Bv=own??CMD;
           const A=hc.from?coachS(hc.from):null, B=coachS(t.nm)||coachS(t.tm), base=en2?"no data, baseline":"無今年資料・基準分";
           // 小框只寫名字（使用者 2026-11-22「轉會評分小框的教練部分 寫得很怪還超框」：原本名字後面接「隊名・成績・勝率」一整串，疊字又超出框）：
@@ -15700,7 +15703,8 @@ function render(){
         //   點頭像輪流換下一位；頭像右下角標「1/2」。年份列的國旗只算畫面上看得到的那位，換人時重算
         const cand27=L=>{ const p=pick27(L); return p?[p,...L.filter(e=>e!==p&&!/tbGone|tbRet/.test(tbCls(e)))]:[null]; };
         const swSvg=`<svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h14l-4-4M20 16H6l4 4"/></svg>`;
-        const y27A=LANE6.map(([r,ic])=>{ const cl=cand27(r==="HC"?cs:((t.r||{})[r]||[])); return cl.map((e,i)=>{ const h=tile27(r,ic,e); return cl.length<2?h
+        const selC={}, sel={};   // selC＝每路可換的人（照頭像順序）；sel＝點過的路目前畫面上那位（沒點過的路照預設算法）
+        const y27A=LANE6.map(([r,ic])=>{ const cl=cand27(r==="HC"?cs:((t.r||{})[r]||[])); if(cl.length>1)selC[r]=cl; return cl.map((e,i)=>{ const h=tile27(r,ic,e); return cl.length<2?h
           :h.replace('<div class="tbPh">',`<div class="tbPh${i?" tbPhHid":""}" data-sw="${r}">`).replace('<div class="tbPhI">',`<div class="tbPhI tbPhSwI" title="${en2?"Tap to switch":"點一下換人"}"><span class="tbPhSw">${swSvg}${i+1}/${cl.length}</span>`); }); });
         const y27=y27A.map(a=>a.join("")).join(""), y27v=y27A.map(a=>a[0]).join("");
         function tile27(r,ic,e){ const b=e?bioOf(pg0(e))||bioOf(e.n):null, L=r==="HC"?LC27:L27;
@@ -15710,12 +15714,16 @@ function render(){
         // 年份那列右邊：這一年六人的國旗、不重複、照出現順序（使用者 2026-11-23「陣容小框年份那列的右邊置右 擺上六人的國旗 不重複」）——直接從頭像上的國旗收集
         const flR=html=>{ const all=[...String(html).matchAll(/class="tbPhF(?: tbFlL)?" src="img\/flags\/([A-Z]{3})\.png"/g)].map(m=>m[1]), cnt=c=>all.filter(z=>z===c).length;
           const cs=[...new Set(all)].sort((a,b)=>cnt(b)-cnt(a)||all.indexOf(a)-all.indexOf(b));   /* 排序：人數多的在左（使用者 2026-11-23「國旗排序依照次數 左到右 再來才依照路線」），同人數照路線順序 */ return cs.length?`<span class="tbTmFl">${cs.map(c=>`<img${FL_L.has(c)?' class="tbFlL"':""} src="img/flags/${c}.png" alt="${c}" title="${c}" onerror="this.remove()">`).join("")}</span>`:""; };
+        // 右上角：轉會評分＋選手評分（使用者 2026-11-22），跟陣容表評分欄同一個 rateOf；小框換人時用同一支重畫（傳入的是帶 _sel 的複本算出來的）
+        const rtH=rt=>{ const v=rt&&rt.items.length?rt.sum:null; return `<span class="tbTmRt"><span><i>${en2?"Transfer":"轉會評分"}</i>${v==null?`<b class="tbMuted">–</b>`:`<b class="${rcls(rt.lo,rt.hi)}">${rtxI(rt.lo,rt.hi)}</b>`}</span><span><i>${en2?"Players":"選手評分"}</i>${rt&&rt.plN?`<b>${Math.round(rt.pl)}</b>`:`<b class="tbMuted">–</b>`}</span></span>`; };
         const d=document.createElement("div"); d.id="tbTmBox"; d.className="tbTmBox"+(touch()?" sheet":"")+(t.nt?" tbTmOne":"");   /* tbTmOne＝傳聞新隊只有 2027 一塊（使用者 2026-11-23「這兩隊也不用有2026 因為沒得對比」）：高度隨內容 */
-        d.innerHTML=`<div class="tbTmHd">${teamLogoHTML(tAb(t.nm),60,true,t.nm)||teamLogoHTML(tAb(t.tm),60,true,t.tm)||""}<a href="${tmWk(t.nm)}" target="_blank" rel="noopener">${esc(abOf(t.nm))}</a>${(()=>{ /* 右上角：轉會評分＋選手評分（使用者 2026-11-22），跟陣容表評分欄同一個 rateOf */ const rt=RATE?rateOf(t):null, v=rt&&rt.items.length?rt.sum:null; return `<span class="tbTmRt"><span><i>${en2?"Transfer":"轉會評分"}</i>${v==null?`<b class="tbMuted">–</b>`:`<b class="${rcls(rt.lo,rt.hi)}">${rtxI(rt.lo,rt.hi)}</b>`}</span><span><i>${en2?"Players":"選手評分"}</i>${rt&&rt.plN?`<b>${Math.round(rt.pl)}</b>`:`<b class="tbMuted">–</b>`}</span></span>`; })()}<button class="tbTmShot" aria-label="share" title="${en2?"Share":"分享"}"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><path d="M21 4H3l6.5 6.5L12 20z"/><path d="M21 4 9.5 10.5"/></svg></button><button class="tbTipX" aria-label="close">✕</button></div>`
+        d.innerHTML=`<div class="tbTmHd">${teamLogoHTML(tAb(t.nm),60,true,t.nm)||teamLogoHTML(tAb(t.tm),60,true,t.tm)||""}<a href="${tmWk(t.nm)}" target="_blank" rel="noopener">${esc(abOf(t.nm))}</a>${rtH(RATE?rateOf(t):null)}<button class="tbTmShot" aria-label="share" title="${en2?"Share":"分享"}"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><path d="M21 4H3l6.5 6.5L12 20z"/><path d="M21 4 9.5 10.5"/></svg></button><button class="tbTipX" aria-label="close">✕</button></div>`
           +(t.nt?"":`<div class="tbTmSec tbTm26"><div class="tbTmYrR"><div class="tbTmYr">2026</div>${flR(y26)}</div><div class="tbTmG">${y26}</div></div>`)+`<div class="tbTmSec tbTm27"><div class="tbTmYrR"><div class="tbTmYr">2027</div>${flR(y27v)}</div><div class="tbTmG">${y27}</div></div><div class="tbTmData"></div>`;   // 兩年各一塊底色區（使用者 2026-11-22「幫我更好的區分2026 2027」）
         document.body.appendChild(d); d.querySelector(".tbTipX").onclick=()=>d.remove(); d._row=row;
         d.querySelectorAll(".tbPhSwI").forEach(el=>el.onclick=ev=>{ ev.stopPropagation(); const ph=el.closest(".tbPh"), all=[...d.querySelectorAll(`.tbPh[data-sw="${ph.dataset.sw}"]`)], i=all.indexOf(ph);
           ph.classList.add("tbPhHid"); all[(i+1)%all.length].classList.remove("tbPhHid");
+          const r=ph.dataset.sw, j=(i+1)%all.length; if(selC[r]&&selC[r][j])sel[r]=selC[r][j];
+          const rt0=d.querySelector(".tbTmHd .tbTmRt"); if(rt0&&RATE)rt0.outerHTML=rtH(rateOf({...t,_sel:{...sel},_scM:null}));   // 評分跟著換（使用者 2026-11-24）：在複本上算，陣容表那欄不動
           const yr=d.querySelector(".tbTm27 .tbTmYrR"), old=yr&&yr.querySelector(".tbTmFl"); if(old)old.remove();
           if(yr)yr.insertAdjacentHTML("beforeend",flR([...d.querySelectorAll(".tbTm27 .tbTmG>.tbPh:not(.tbPhHid)")].map(x=>x.outerHTML).join(""))); });
         d.querySelector(".tbTmShot").onclick=()=>tmShot(d,abOf(t.nm)); };
