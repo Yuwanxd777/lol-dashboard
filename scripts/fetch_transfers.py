@@ -500,8 +500,8 @@ def is_t1(x, keys):
 # ── Leaguepedia 查詢快取（使用者 2026-11-23「能不能加速整個流程」）────────────────────────────
 #   實測一班 255 秒裡 216 秒是對 fandom 的禮貌節流（每次查詢間隔 2 秒 × 107 次；fandom 限流很兇，不能並行）⇒ 少查：
 #   ①歷史賽事（名次、賽段、出賽、升降賽、改名、賽事名單）6 小時重查一次；
-#   ②會隨宣布而變的（新聞、轉會、合約、效力、選手資料）存 45 分鐘：每小時那班（間隔 60 分）照樣抓新的，
-#     同一班「複查後再抓一次」（複查常跑 25～30 分鐘）直接沿用，不再整套重查。
+#   ②會隨宣布而變的（新聞、轉會、合約、效力、選手資料）只存 5 分鐘：原本 45 分鐘，結果 :40 那班沿用了 :07 的新聞查詢、
+#     漏掉剛宣布的消息（使用者 2026-11-23「哪有更新 我看HLE宣布了教練 DK也宣布了輔助」）⇒ 只擋同一班內幾分鐘的重複查詢
 #   查詢失敗不存；設環境變數 TR_NOCACHE=1 整個略過。檔案＝csv_cache/cargo_tr_cache.json
 CC_PATH = os.path.join(ROOT, "csv_cache", "cargo_tr_cache.json")
 CC_LIVE = ("NewsItems", "RosterChanges", "Contracts", "Tenures", "Players", "PlayerRedirects")
@@ -518,7 +518,7 @@ def _cargo_cached(B):
 
     def ttl(params):
         tb = str(params.get("tables") or "")
-        return 45 * 60 if any(t in tb for t in CC_LIVE) else 6 * 3600
+        return 5 * 60 if any(t in tb for t in CC_LIVE) else 6 * 3600
 
     def cargo(params):
         k = json.dumps(params, sort_keys=True, ensure_ascii=False)

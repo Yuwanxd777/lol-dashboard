@@ -84,7 +84,7 @@ def open_page(browser, port, errs=None, init=None):
     pg.add_init_script("localStorage.setItem('lang','zh')")
     if init:
         pg.add_init_script(init)
-    pg.goto(f"http://127.0.0.1:{port}/index.html?view=%E8%BD%89%E6%9C%83", wait_until="load", timeout=240000)
+    pg.goto(f"http://127.0.0.1:{port}/index.html?view=%E8%BD%89%E6%9C%83&y=2027", wait_until="load", timeout=240000)   # 轉會分頁 2026-11-23 起只在 S17（2027）底下；沒帶 y=2027 會等陣容表等到逾時（複查員連三輪 240 秒×2 逾時）
     pg.wait_for_function("document.querySelectorAll('.tbRow').length>5", timeout=240000)
     return pg
 
