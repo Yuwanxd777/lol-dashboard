@@ -14964,7 +14964,10 @@ function render(){
         let nw=cands[0];   // 官方優先；Sheep 消息（傳聞／官方未進 wiki）也算
         if(conf.length>=2){ const best=conf.map(e=>{ const sub=isSub(e); return fill({n:pn(e.n),s:get(e.n,sub?40:50),rm:false,sub,e}); }).filter(x=>x.s).sort((a,b)=>b.s.v-a.s.v)[0]; if(best)nw=best; }
         // 這一路沒有官方新人、傳聞人選有兩位以上 ⇒ 每一位的分數都列出來，這一路用平均（使用者 2026-11-20「如果該路的傳聞選手有兩位以上 就所有分數都要列出 但顯示的是該路要取平均」）
-        const multi=cands.length>=2&&cands.every(x=>x.rm)?cands.map(x=>fill(x)).filter(x=>x.s):null;
+        // 2026-11-23 使用者改定案「小框的轉會評分 取最新消息的那位下去算 外面的也是 不用給一個範圍了」：傳聞人選兩位以上 ⇒ 挑消息日期最新的那一位算（不再列最低～最高）
+        const lastD=e=>[e.d,...(e.tips||[]).map(o=>o&&o.d)].filter(Boolean).map(String).sort().pop()||"";
+        if(cands.length>=2&&cands.every(x=>x.rm)){ const lt=cands.map((x,i)=>({x,i,d:lastD(x.e)})).sort((p,q)=>q.d.localeCompare(p.d)||p.i-q.i)[0]; if(lt)nw=lt.x; }
+        const multi=null;
         // 有人離隊、還沒補人（格子沒有官方的人、也沒傳聞）⇒ 空缺當中位數（使用者 2026-11-19「有選手離隊但還沒補新人也是這樣做」）
         // 2026-11-20 使用者改定案「空的先不算分」：走光還沒補人的隊（LEV +168、DSG +114）會因為「空缺 50 分 − 原本的低分」變成大加分，不合理 ⇒ 空缺那一路整個不計
         if(!nw)continue;
