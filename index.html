@@ -1118,7 +1118,7 @@
   .tbTmSec .tbTmYr{align-self:flex-start;margin:0 0 10px;padding:2px 12px;border-radius:999px;font-size:16px;line-height:1.5;font-weight:800}
   .tbTm26 .tbTmYr{background:rgba(255,255,255,.1);color:#c3cbd8}.tbTm27 .tbTmYr{background:#5aa9ff;color:#0e1524}
   .tbTmYrR{display:flex;align-items:center;gap:10px;margin:0 0 10px}.tbTmYrR .tbTmYr{margin:0!important}.tbTmBox:not(.sheet) .tbTmSec .tbTmYrR{margin-top:auto}.tbTmBox.tbTmOne .tbTmSec .tbTmYrR{margin-top:0!important}
-  .tbTmFl{margin-left:auto;display:flex;flex-wrap:wrap;justify-content:flex-end;gap:5px;align-items:center}.tbTmFl img{width:21px;height:14px;object-fit:cover;border-radius:2px;box-shadow:0 0 0 1px rgba(0,0,0,.45)}   /* 年份列右邊的國旗（不重複） */
+  .tbTmFl{margin-left:auto;display:flex;flex-wrap:wrap;justify-content:flex-end;gap:5px;align-items:center}.tbTmFl img{width:21px;height:14px;object-fit:cover;border-radius:2px;box-shadow:0 0 0 1px rgba(0,0,0,.45)}   /* 年份列右邊的國旗（不重複）。各國旗長寬比不同（美國、澳洲 ≈2:1），框統一 3:2 會裁掉一邊；重點在旗桿側的（星條、南十字、三角）靠左裁：.tbFlL（使用者 2026-11-23「有些可能置左比較好看」） */.tbTmFl img.tbFlL,.tbPhI img.tbPhF.tbFlL{object-position:left center}
   .tbTmBox.tbTmOne:not(.sheet){height:auto}.tbTmBox.tbTmOne .tbTmSec{flex:0 0 auto!important}.tbTmBox.tbTmOne .tbTmSec .tbTmYr{margin-top:0!important}
   .tbTmBox:not(.sheet) .tbTmSec{flex:1 1 0;min-height:0}.tbTmBox:not(.sheet) .tbTmSec .tbTmYr{margin-top:auto}.tbTmSec .tbTmG{margin:0 0 auto}   /* 年份標籤固定在區塊左上，頭像那排在剩下的高度裡置中 */.tbTmBox:not(.sheet) .tbTmSec .tbTmYr{font-size:18px}
   .tbTmBox.sheet .tbTmSec{padding:8px 8px 10px}
@@ -14395,7 +14395,7 @@ function render(){
     const D=window.TRANSFERS, RL={TOP:en2?"Top":"上路",JNG:en2?"Jungle":"打野",MID:en2?"Mid":"中路",BOT:en2?"Bot":"下路",SUP:en2?"Support":"輔助"};
     const RG_EN={"韓國":"Korea","中國":"China","歐洲":"EMEA","北美":"North America","巴西":"Brazil","亞太":"Asia Pacific","國際":"International","越南":"Vietnam","日本":"Japan"};
     // 賽區一律顯示聯賽名（使用者 2026-11-19「地區改成賽區 韓國就是LCK」）；資料內部仍用 韓國／歐洲… 當鍵
-    const RG_LG={"韓國":"LCK","中國":"LPL","歐洲":"LEC","北美":"LCS","巴西":"CBLOL","亞太":"LCP","越南":"LCP","日本":"LCP"};
+    const RG_LG={"韓國":"LCK","中國":"LPL","亞太":"LCP","越南":"LCP","日本":"LCP","歐洲":"LEC","北美":"LCS","巴西":"CBLOL"};   // 順序＝篩選列順序：LCP 排第三（使用者 2026-11-23「LCP的位置換到LPL後面 變成第三個 篩選列也要改」）
     const rgNm=r=>RG_LG[r]||(en2?(RG_EN[r]||r):r);
     // Sheep 推文：tags＝[[賽區, 隊名]…]（推文提到的戰隊，人工標）；kind 同 wiki（join／leave／both／other）
     // PTT／韓網／官方（使用者 2026-11-19「轉會消息新增 PTT／韓網」＋使用者貼的官方續約）：D.extra（scripts/fetch_ptt_transfers.py＋transfers_official_src.json）
@@ -14648,7 +14648,7 @@ function render(){
     // 韓網：連結標韓網原文（使用者要求），另附 PTT 轉貼
     const lkOf=x=>{ const link=x.s==="wiki"?x.src:x.url; if(x.s==="heard"&&!link)return "";   // 聽說：不標來源（使用者 2026-11-22「聽說 就不用標來源超連結」）
       // 來源連結照網域寫名字（使用者 2026-11-20「來源 ↗ 如果是 X 要寫 X ↗」）
-      const dom=u=>/Sheep_?Esports|sheepesports\.com/i.test(u)?"SE":/(^|\/\/)(www\.)?(x|twitter)\.com\//.test(u)?"X":/facebook\.com|fb\.com/.test(u)?"FB":/instagram\.com/.test(u)?"IG":/weibo\.(com|cn)/.test(u)?(en2?"Weibo":"微博"):/youtube\.com|youtu\.be/.test(u)?"YT":/ptt\.cc/.test(u)?"PTT":(en2?"Source":"來源");
+      const dom=u=>/Sheep_?Esports|sheepesports\.com/i.test(u)?"SE":/(^|\/\/)(www\.)?(x|twitter)\.com\//.test(u)?"X":/facebook\.com|fb\.com/.test(u)?"FB":/instagram\.com/.test(u)?"IG":/weibo\.(com|cn)/.test(u)?(en2?"Weibo":"微博"):/youtube\.com|youtu\.be/.test(u)?"YT":/ptt\.cc/.test(u)?"PTT":/dpm\.lol/i.test(u)?"DPM":(en2?"Source":"來源");   /* DPM.LOL 的連結寫 DPM（使用者 2026-11-23） */
       // 消息裡附的影片（使用者 2026-11-22「傳聞裡面如果有影片 記得附上YT連結 並在傳聞後面放一個YT按鈕」）：x.yt＝YouTube 連結（程式從 PTT 內文／Sheep 推文抓），放在來源連結後面
       //   樣式跟其他來源連結一樣（使用者 2026-11-22「YT按鈕改成跟其他一樣格式好了」）
       const yt=x.yt&&/^https:\/\/(www\.|m\.)?(youtube\.com|youtu\.be)\//.test(x.yt)&&x.yt!==link?lkA(x.yt,"YT"):"";
@@ -14714,7 +14714,7 @@ function render(){
       // 只有傳聞的：這一列的標題直接寫「傳聞」，後面不再另外標（使用者 2026-11-21「如果FA小框的去向 寫的是傳聞…那就把去向改寫成傳聞」）
       return off.length?[[en2?"Joined":"加入",tmChip(off[0].tm)]]:[[en2?"Rumor":"傳聞",L.slice(0,3).map(o=>tmChip(o.tm)).join(" ")]]; };
     // 來源名稱：Sheep Esports 一律寫 SE；有網址就做成超連結（使用者 2026-11-20「Sheep 的來源就寫 SE 然後超連結」）。沒寫來源的是 Sheep 的推文
-    const srcA=o=>{ const nm=o.src==="聽說"?SRCN.heard:/weibo\.(com|cn)/.test(o.u||"")?(en2?"Weibo":"微博"):(!o.src||o.src==="Sheep Esports")?"SE":o.src==="韓網"?SRCN.kr:o.src==="官方"?SRCN.man:o.src, u=o.u||"";   /* 英文版：韓網→Korean media、官方→Announcement（跟消息頁同一套名稱） */ return /^https?:\/\//i.test(u)?`<a class="tpSrc" href="${esc(safeU(u))}" target="_blank" rel="noopener">${esc(nm)}</a>`:esc(nm); };
+    const srcA=o=>{ const nm=o.src==="聽說"?SRCN.heard:/weibo\.(com|cn)/.test(o.u||"")?(en2?"Weibo":"微博"):/dpm\.lol/i.test(o.u||"")?"DPM":(!o.src||o.src==="Sheep Esports")?"SE":o.src==="韓網"?SRCN.kr:o.src==="官方"?SRCN.man:o.src, u=o.u||"";   /* 英文版：韓網→Korean media、官方→Announcement（跟消息頁同一套名稱） */ return /^https?:\/\//i.test(u)?`<a class="tpSrc" href="${esc(safeU(u))}" target="_blank" rel="noopener">${esc(nm)}</a>`:esc(nm); };
     const srcS=o=>(o.src==="聽說"||o.src==="官方")&&!/^https?:/.test(o.u||o.url||"")?"":"・"+srcA(o);   // 小框日期後面的「・來源」；使用者口頭給的（聽說、沒連結的官方：Lxz）不標（使用者 2026-11-22）
     const tipTx=o=>{ const s=en2?(o.tipE||(D.tipEn||{})[o.tip]||o.tip):o.tip; return TNRE?String(s||"").replace(TNRE,n=>TNL.get(n.toLowerCase())||n):s; };   // 小框引用句的隊名也寫縮寫（使用者 2026-11-21「小框的資訊以後也都要同步改」）   // 英文版引用句：資料端的中→英對照（tipEn），手動名單自帶 tipE
     const cellTip=(t,r)=>{ const es=colE(t,r), pv=colP(t,r);
@@ -15279,7 +15279,7 @@ function render(){
           //   整列的字（大標題、賽區、顏色說明、時間）對在同一條中線上——照墨水中心對，見 level()。對齊基線試過，使用者看了仍說沒有水平
           const mkHead=(sc,w,fs,lx)=>{ const hd=mkHost(w,`<span style="font-size:32px;font-weight:900;color:${sc.c||"#f0e6d2"}">${esc(sc.lg)}</span>`,legend), lg=hd.querySelector(".trShHdLg");
             hd.style.padding="18px 22px 0"; lg.style.fontSize=fs+"px"; if(lx){ const d=lx-lg.offsetLeft; if(d>0)lg.style.marginLeft=(4+d)+"px"; } level(hd.querySelector(".trShHdRow")); return hd; };
-          let HW=1000, HF=18, LX=0; const LGS=["LCK","LPL","LEC","LCS","CBLOL","LCP"];
+          let HW=1000, HF=18, LX=0; const LGS=["LCK","LPL","LCP","LEC","LCS","CBLOL"];
           LGS.forEach(n=>{ const hd=mkHead({lg:n},HW,HF,0); LX=Math.max(LX,hd.querySelector(".trShHdLg").offsetLeft); hd.remove(); });   // 顏色說明那一框的左緣對齊最長的賽區名
           { const hd=mkHead({lg:LGS[0]},HW,HF,LX), row=hd.querySelector(".trShHdRow"), lg=hd.querySelector(".trShHdLg");
             // 塞不塞得下：看最後一項的右緣有沒有吃到框的右留白（scrollWidth 不算右邊的留白，量不出來）；字先縮到 15px，還不夠就把整塊加寬（＝等比例縮小），不換行
@@ -15358,7 +15358,7 @@ function render(){
             //   字級（＝整張的寬度 W）由它們決定，所以不管哪一次截圖、截哪一個聯賽，ID 的大小都一樣
             //   （使用者 2026-11-21「所有ID大小一致的情況下調整大小」；原本只量這一批要輸出的聯賽，只截 LCK 時字會比六個聯賽一起截時大）
             const tip0=TIPS.length;
-            const ref=["LCK","LPL","LEC","LCS","CBLOL","LCP"].map(lg=>{ const ts=(D.board||[]).filter(t=>t.lg===lg&&!t.fa); if(!ts.length)return null;
+            const ref=["LCK","LPL","LCP","LEC","LCS","CBLOL"].map(lg=>{ const ts=(D.board||[]).filter(t=>t.lg===lg&&!t.fa); if(!ts.length)return null;
               const tmp=document.createElement("div"); tmp.innerHTML=ts.map(rowH).join(""); return {sc:{lg,rows:[...tmp.children]}}; }).filter(Boolean).map(o=>({...o,h:prep(o.sc)}));
             TIPS.length=tip0;   // 參考複本不會開小框，排它們時多塞進去的小框內容丟掉
             const allH=[...built,...ref];
@@ -15639,12 +15639,13 @@ function render(){
       const LANE6=[["TOP","TOP"],["JNG","JG"],["MID","MID"],["BOT","BOT"],["SUP","SUP"],["HC","COACH"]];
       const pick27=L=>{ const c=e=>tbCls(e).split(" ")[0], inn=L.filter(e=>/^(tbNew|tbRs|tbStay|tbPm)$/.test(c(e))); if(inn.length)return inn[0];
         const ru=L.filter(e=>c(e)==="tbY").sort((a,b)=>String(b.d||"").localeCompare(String(a.d||""))); return ru[0]||L.find(e=>c(e)==="tbOut")||L.find(e=>/^tbExp(?: |$)/.test(tbCls(e))&&!/tbGone/.test(tbCls(e)))||null; };   // 最後＝合約到期、沒宣布離隊、這一路也沒傳聞的原選手（使用者 2026-11-22「沒有傳聞 原先選手合約到期 那就先列原先選手 例如BLG Bin」）
+      const FL_L=new Set(["USA","AUS","NZL","MAS","PHI","KUW","UAE","MGL","QAT","SLO","CHI","GRE","TPE","LBR","URU","CZE","CUB","PUR"]);   // 圖案在旗桿側（左邊）的國旗：裁切時靠左
       const phH=(o,ic,cls,sub)=>{ const lane=`<img class="tbPhL" src="img/${ic}.png" alt="">`; if(!o)return `<div class="tbPh"><div class="tbPhI tbPhE">${lane}</div><span class="tbPhN tbMuted">–</span>${sub||""}</div>`;
         const u=imgOf(o.p), h=phOf(o.p), st=fcSt(o.p);
         const im=h?`<img class="tbPhP" src="${esc(h)}" alt="" decoding="async" fetchpriority="high"${u?` data-w="${esc(u)}" data-s="${esc(st.replace(/^ style="|"$/g,""))}"`:""} onerror="if(this.dataset.w){this.src=this.dataset.w;this.setAttribute('style',this.dataset.s||'');this.referrerPolicy='no-referrer';this.dataset.w=''}else this.remove()">`
           :u?`<img class="tbPhP"${st} src="${esc(u)}" alt="" decoding="async" fetchpriority="high" referrerpolicy="no-referrer" onerror="this.remove()">`:"";
         // 國籍國旗放頭像右上（使用者 2026-11-23「陣容小框的頭像右上 放選手國籍圖」）：pbio 第 4 格＝IOC 三碼（transfers_photos 從 Leaguepedia Players.Country 轉），檔＝img/flags/{碼}.png
-        const nb=bioOf(o.p)||bioOf(o.n), nc=nb&&nb[3], fg=nc&&/^[A-Z]{3}$/.test(nc)?`<img class="tbPhF" src="img/flags/${nc}.png" alt="${nc}" title="${nc}" onerror="this.remove()">`:"";
+        const nb=bioOf(o.p)||bioOf(o.n), nc=nb&&nb[3], fg=nc&&/^[A-Z]{3}$/.test(nc)?`<img class="tbPhF${FL_L.has(nc)?" tbFlL":""}" src="img/flags/${nc}.png" alt="${nc}" title="${nc}" onerror="this.remove()">`:"";
         return `<div class="tbPh"><div class="tbPhI">${im}${lane}${fg}</div>`
           +`<a class="tbPhN tbN ${cls||"tbStay"}" href="https://lol.fandom.com/wiki/${encodeURIComponent(String(o.p).replace(/ /g,"_"))}" target="_blank" rel="noopener">${esc(nm0(o.n))}</a>${sub||""}</div>`; };
       // 頭像下面的數據列（使用者 2026-11-22）：2026＝攻擊值／防禦值（第三賽段）；2027＝年齡／年資（第一次加入職業隊到今天）／評分（不含成就加分）。沒資料寫「–」，六格高度一致
@@ -15686,7 +15687,8 @@ function render(){
           const chH=r==="HC"?"":`<div class="tbPhC">${chs.filter(id=>/^[A-Za-z0-9_]+$/.test(String(id))).map(id=>`<img src="img/champ/${esc(id)}.webp" alt="${esc(id)}" title="${esc(id)}" loading="lazy" onerror="this.onerror=null;this.src='https://ddragon.leagueoflegends.com/cdn/${typeof DDV!=="undefined"?DDV:"15.1.1"}/img/champion/${esc(id)}.png'">`).join("")||`<span class="tbMuted">–</span>`}</div>`;   // 教練不放；沒有今年出賽紀錄寫 –
           return phH(e?{n:e.n,p:pg0(e)}:null,ic,e?tbCls(e):"",kvS([[L[0],ageOf(b&&b[0])],[L[1],ymOf(b&&(r==="HC"?(b[2]||b[1]):b[1]),en2)],[L[2],(z=>z&&typeof z==="object"?`${n1(z.v)} (${z.y})`:n1(z))(sc27(e,r))]])+(e?chH:"")); }).join("");
         // 年份那列右邊：這一年六人的國旗、不重複、照出現順序（使用者 2026-11-23「陣容小框年份那列的右邊置右 擺上六人的國旗 不重複」）——直接從頭像上的國旗收集
-        const flR=html=>{ const cs=[...new Set([...String(html).matchAll(/class="tbPhF" src="img\/flags\/([A-Z]{3})\.png"/g)].map(m=>m[1]))]; return cs.length?`<span class="tbTmFl">${cs.map(c=>`<img src="img/flags/${c}.png" alt="${c}" title="${c}" onerror="this.remove()">`).join("")}</span>`:""; };
+        const flR=html=>{ const all=[...String(html).matchAll(/class="tbPhF(?: tbFlL)?" src="img\/flags\/([A-Z]{3})\.png"/g)].map(m=>m[1]), cnt=c=>all.filter(z=>z===c).length;
+          const cs=[...new Set(all)].sort((a,b)=>cnt(b)-cnt(a)||all.indexOf(a)-all.indexOf(b));   /* 排序：人數多的在左（使用者 2026-11-23「國旗排序依照次數 左到右 再來才依照路線」），同人數照路線順序 */ return cs.length?`<span class="tbTmFl">${cs.map(c=>`<img${FL_L.has(c)?' class="tbFlL"':""} src="img/flags/${c}.png" alt="${c}" title="${c}" onerror="this.remove()">`).join("")}</span>`:""; };
         const d=document.createElement("div"); d.id="tbTmBox"; d.className="tbTmBox"+(touch()?" sheet":"")+(t.nt?" tbTmOne":"");   /* tbTmOne＝傳聞新隊只有 2027 一塊（使用者 2026-11-23「這兩隊也不用有2026 因為沒得對比」）：高度隨內容 */
         d.innerHTML=`<div class="tbTmHd">${teamLogoHTML(tAb(t.nm),60,true,t.nm)||teamLogoHTML(tAb(t.tm),60,true,t.tm)||""}<a href="${tmWk(t.nm)}" target="_blank" rel="noopener">${esc(abOf(t.nm))}</a>${(()=>{ /* 右上角：轉會評分＋選手評分（使用者 2026-11-22），跟陣容表評分欄同一個 rateOf */ const rt=RATE?rateOf(t):null, v=rt&&rt.items.length?rt.sum:null; return `<span class="tbTmRt"><span><i>${en2?"Transfer":"轉會評分"}</i>${v==null?`<b class="tbMuted">–</b>`:`<b class="${rcls(rt.lo,rt.hi)}">${rtxI(rt.lo,rt.hi)}</b>`}</span><span><i>${en2?"Players":"選手評分"}</i>${rt&&rt.plN?`<b>${Math.round(rt.pl)}</b>`:`<b class="tbMuted">–</b>`}</span></span>`; })()}<button class="tbTmShot" aria-label="share" title="${en2?"Share":"分享"}"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><path d="M21 4H3l6.5 6.5L12 20z"/><path d="M21 4 9.5 10.5"/></svg></button><button class="tbTipX" aria-label="close">✕</button></div>`
           +(t.nt?"":`<div class="tbTmSec tbTm26"><div class="tbTmYrR"><div class="tbTmYr">2026</div>${flR(y26)}</div><div class="tbTmG">${y26}</div></div>`)+`<div class="tbTmSec tbTm27"><div class="tbTmYrR"><div class="tbTmYr">2027</div>${flR(y27)}</div><div class="tbTmG">${y27}</div></div><div class="tbTmData"></div>`;   // 兩年各一塊底色區（使用者 2026-11-22「幫我更好的區分2026 2027」）

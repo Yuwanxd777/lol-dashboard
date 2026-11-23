@@ -32,7 +32,7 @@ def staff_code(rc_role, pl_role):
 LG_SHORT = {"LoL Champions Korea": "LCK", "Tencent LoL Pro League": "LPL", "LoL EMEA Championship": "LEC",
             "League of Legends Championship Series": "LCS", "Circuit Brazilian League of Legends": "CBLOL",
             "League of Legends Championship Pacific": "LCP"}
-ORDER = ["LCK", "LPL", "LEC", "LCS", "CBLOL", "LCP"]
+ORDER = ["LCK", "LPL", "LCP", "LEC", "LCS", "CBLOL"]   # LCP 排第三（使用者 2026-11-23「LCP的位置換到LPL後面 變成第三個」）
 LANES = ["TOP", "JNG", "MID", "BOT", "SUP"]
 RG_LG = {"韓國": "LCK", "中國": "LPL", "歐洲": "LEC", "北美": "LCS", "巴西": "CBLOL", "亞太": "LCP", "越南": "LCP", "日本": "LCP"}
 
