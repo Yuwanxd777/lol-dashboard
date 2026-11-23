@@ -1017,8 +1017,14 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
             print(f"   名字大小寫統一成 wiki 寫法：{len(fix)} 人（{'、'.join(f'{a_}→{b_}' for a_, b_ in sorted(fix.items())[:12])}）")
     except Exception as e:
         print(f"   名字大小寫統一失敗（略過）：{type(e).__name__} {str(e)[:100]}")
-    out.sort(key=lambda x: (ORDER.index(x["lg"]) if x["lg"] in ORDER else 9, x.get("fa", 0),
-                            (rk.get(tkey(x["tm"])) or rk.get(tkey(x["nm"])) or (999, 999, 999, ""))[:3], x["tm"].lower()))
+    # 第三賽段成績排序：世界賽名次 → DCGI 名次 → 聯賽（季後賽、例行賽）名次（使用者 2026-11-23「先看世界賽 再看DCGI 最後看聯賽」）
+    def _dcn(x):
+        m_ = re.match(r"\d+", str(x.get("dc") or ""))
+        return int(m_.group(0)) if m_ else 999
+    def _rk3(x):
+        w_, p_, r_ = (rk.get(tkey(x["tm"])) or rk.get(tkey(x["nm"])) or (999, 999, 999, ""))[:3]
+        return (w_, _dcn(x), p_, r_)
+    out.sort(key=lambda x: (ORDER.index(x["lg"]) if x["lg"] in ORDER else 9, x.get("fa", 0), _rk3(x), x["tm"].lower()))
     return out
 
 
