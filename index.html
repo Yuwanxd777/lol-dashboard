@@ -14873,6 +14873,7 @@ function render(){
     //   截圖排序也照這個名次排在該聯賽最後（S2OUT；網頁的戰績評分那一欄仍寫「第二賽段遭淘汰」，那是使用者同一天稍早定的）
     const S2OUT={"Ultra Prime":13,"Oh My God":14}, s2Of=t=>(t&&!t.fa&&!t.rk&&t.lg==="LPL"&&(S2OUT[t.nm]||S2OUT[t.tm]))||0;
     const rkS=t=>{ if(!t||t.fa)return ""; if(t.nt)return en2?"Rumored new":"傳聞新隊";   /* 傳聞新隊（TE、XLG）：第三賽段那欄寫「傳聞新隊」（使用者 2026-11-22） */ const rk=String(t.rk||""), m=/^([WPIR])(.+)$/.exec(rk);
+      if(t.dc&&!/^W/.test(rk))return "DCGI #"+t.dc;   // 第三賽段有打 DCGI（德瑪西亞杯全球邀請賽）、沒進世界賽 ⇒ 寫 DCGI 名次（使用者 2026-11-23）
       if(/^U/.test(rk))return t.lg+" #Q";   // 升降賽上來的隊：#Q（使用者 2026-11-21「升降賽上來的 截圖的成績寫 LCP #Q」；中英文同一種寫法）
       if(!m)return s2Of(t)?"LPL #"+s2Of(t):(t.lg==="LPL"?(en2?"LPL out in S2":"LPL S2 淘汰"):"");
       return (m[1]==="W"?"WCS":t.lg)+" #"+m[2]; };
@@ -15013,8 +15014,9 @@ function render(){
     // 戰績評分模式的小框＝第三賽段的成績數據（使用者 2026-11-21）：成績、場數、勝敗、勝率
     const s3Tip=t=>{ const k=teamFix(String(tAb(t.nm)||t.nm)), d=RATE&&RATE.s3?(RATE.s3[k]||RATE.s3[teamFix(String(tAb(t.tm)||t.tm))]):null;
       let h=`<div class="rtBox rtS3"><div class="rtHd">${teamLogoHTML(tAb(t.nm),22,true,t.nm)||""}<b>${esc(rowNm(t))}</b></div><div class="tpKv">`
-        +`<span>${en2?"Split 3":"第三賽段"}</span><span>${t.rkL?rkC(t.rkL,t):(/^W/.test(t.rk||"")?"–":(rkS(t)||"–"))}</span>`
-        +(/^W/.test(t.rk||"")?`<span>${en2?"Worlds":"世界賽"}</span><span>${rkC(t.rk,t)}</span>`:"");
+        +`<span>${en2?"Split 3":"第三賽段"}</span><span>${t.rkL?rkC(t.rkL,t):(/^W/.test(t.rk||"")||t.dc?"–":(rkS(t)||"–"))}</span>`
+        +(/^W/.test(t.rk||"")?`<span>${en2?"Worlds":"世界賽"}</span><span>${rkC(t.rk,t)}</span>`:"")
+        +(t.dc&&!/^W/.test(t.rk||"")?`<span>DCGI</span><span>DCGI #${esc(t.dc)}</span>`:"");
       if(d){ const w=Math.round(d.g*d.wr); h+=`<span>${en2?"Games":"場數"}</span><span>${d.g}</span><span>${en2?"W–L":"勝敗"}</span><span>${w} ${en2?"W":"勝"} ${d.g-w} ${en2?"L":"敗"}</span><span>${en2?"Win rate":"勝率"}</span><span>${(d.wr*100).toFixed(1)}%</span>`; }
       else h+=`<span>${en2?"Games":"場數"}</span><span class="tbMuted">${en2?"no data":"無資料"}</span>`;
       TIPS.push(h+`</div></div>`); return TIPS.length-1; };

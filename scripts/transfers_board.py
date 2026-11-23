@@ -936,6 +936,18 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
         k = rk.get(tkey(x["tm"])) or rk.get(tkey(x["nm"]))
         if k:
             x["rk"] = k[3]
+    # DCGI（德瑪西亞杯全球邀請賽，跟世界賽同期）：第三賽段有打 DCGI、沒進世界賽的隊，成績寫 DCGI 名次（使用者 2026-11-23「如果戰隊第三賽段有打DCGI 那就寫DCGI的成績」）
+    #   另存 dc（名次字串，如 "1"、"5-8"），不動 rk ⇒ 只影響顯示，戰績評分的成績加分照舊吃聯賽名次
+    try:
+        dres = cargo({"tables": "TournamentResults", "fields": "Team=tm,Place=pl,Place_Number=pn",
+                      "where": f'TournamentResults.OverviewPage="{year} Demacia Cup Global Invitational"', "limit": "100", "format": "json"})
+        dcg = {tkey(r_["tm"]): str(r_.get("pl") or r_.get("pn")) for r_ in dres if r_.get("tm") and (r_.get("pl") or r_.get("pn"))}
+        for x in out:
+            v_ = dcg.get(tkey(x["tm"])) or dcg.get(tkey(x["nm"]))
+            if v_ and not str(x.get("rk") or "").startswith("W"):
+                x["dc"] = v_
+    except Exception as e:
+        print(f"   DCGI 名次查詢失敗（略過）：{type(e).__name__} {str(e)[:100]}")
     # 第一、二賽段成績（陣容對比的 2026 主教練格；使用者 2026-11-22「S1 S2 S3 去列成績 S1如果有進FST就列FST S2有進MSI就列MSI」）
     try:
         srk = split_results(cargo, year)

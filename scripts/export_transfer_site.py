@@ -334,7 +334,7 @@ def main():
             b = p.chromium.launch()
             pg = b.new_page(viewport={"width": 1600, "height": 900})
             pg.add_init_script("try{localStorage.setItem('lang','zh')}catch(e){}")
-            pg.goto(f"http://127.0.0.1:{PORT}/index.html?view=%E8%BD%89%E6%9C%83", wait_until="load", timeout=300000)
+            pg.goto(f"http://127.0.0.1:{PORT}/index.html?view=%E8%BD%89%E6%9C%83&y=2027", wait_until="load", timeout=300000)   # 轉會分頁 2026-11-23 起只在 S17（2027）年份底下 ⇒ 要帶 y=2027，否則預設年沒有轉會表、等 .tbRow 等到逾時
             pg.wait_for_function("document.querySelectorAll('.tbRow').length>5", timeout=300000)
             pg.wait_for_timeout(1500)
             data = pg.evaluate(EXPORT_JS)
