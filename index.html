@@ -1837,6 +1837,10 @@ if(location.protocol==="file:"||/^(localhost|127\.)/.test(location.hostname)){
 // ============================================================
 // ---------- 年份資料（data.js=manifest，data_{年}.js=各年 RAW_DATA）----------
 const M=window.LOL_MANIFEST||{years:[],default:new Date().getFullYear()};
+// S17（2027）虛擬年份（使用者 2026-11-23）：OE 還沒有 2027 檔之前，年份下拉多一個 2027，選了只開「積分」「轉會」兩頁；
+//   底層仍載 S16（M.default）的比賽資料查選手身分，積分名單換成轉會陣容表的 S17 確定＋留隊（s17Roster）。真的 2027 檔出現後自動消失。
+//   預設年份照舊是 M.default（S16）；S16 不再顯示轉會（移到 S17）。
+const S17Y=2027, S17_VIEWS=["積分","轉會"]; let S17=false; const S17V=()=>!(M.years||[]).includes(S17Y);
 let D=null, curYear=M.default;
 // 年度資料 26MB：用 <script> 標籤載入時 V8 要把整個物件字面值編譯一遍，首次約 3.9 秒；
 // 改成 fetch 純文字 → 去掉 "window.LOL_DATA=" 前綴 → JSON.parse，同一份檔案約 0.3 秒（2026-08-17 實測）。
@@ -3810,6 +3814,38 @@ const TEAM_ALIAS={GENG:"GEN",TLAW:"TL",AGAL:"AL",DNF:"DNS",KRX:"DRX"}; const tea
 // SOLOQ_MATCH_IDX.players / SOLOQ_RECENT.players / __SQCACHE 的鍵＝積分帳號檔的「隊縮寫|選手名」，與比賽資料端有兩種落差：
 //   ①隊縮寫不同：GEN↔GENG、TL↔TLAW、DRX↔KRX…（teamFix 統一）　②選手名大小寫不同：Vulcan↔VULCAN、huhi↔Huhi、nuc↔Nuc、Pout↔POUT、HARPOON↔Harpoon
 // 直接組 tAb(team)+"|"+p 會讓整隊(GEN/TL/DRX 共 11 位含 Chovy/Ruler/CoreJJ)與 5 位大小寫不符者的積分「靜默消失」（2026-07-28 修）
+// ── S17 積分名單（使用者 2026-11-23「確定＋留隊」）：轉會陣容表 board 裡 setE 成立的五路選手 ──
+//   判準跟 scripts/s17_roster.py 同一條（改一邊兩處都要改）；跟轉會分頁 setE() 只差在「合約還在但傳出要走（ro）」也算留隊。
+//   每位選手的帳號從 SOLOQ_DATA 依名字找（同名多隊時用 S17 隊／來自哪隊消歧，猜不出來就當缺帳號），
+//   隊縮寫改成 S17 的隊、原隊留在 _t26（逐場檔／帳號歷史的鍵仍是原隊）。
+let _S17C=null; const _S17RM=new WeakMap();
+function s17Roster(){ const TR=window.TRANSFERS, SD=window.SOLOQ_DATA; if(!TR||!Array.isArray(TR.board)||!SD||!Array.isArray(SD.players))return null;
+  const ck=(TR.at||"")+"|"+(SD.fetched_at||"")+"|"+SD.players.length; if(_S17C&&_S17C.ck===ck)return _S17C;
+  const today=new Date().toISOString().slice(0,10), pn=x=>String(x||"").replace(/\s*\([^()]*\)\s*$/,"").trim(), lo=x=>String(x||"").trim().toLowerCase();
+  const ok=e=>!e.fa&&!e.r&&!e.gone&&!!(e.new||e.tip||e.rs||e.pm||(e.c&&e.c>=today));   // 合約還在就算留隊，傳出要走（ro）也照列，成真才移走
+  const rk=e=>(e.new||e.tip||e.pm)?0:e.rs?1:2;   // 同一人兩隊都成立：新加入＞續約＞合約還在
+  const POS={TOP:"TOP",JNG:"JUNGLE",MID:"MIDDLE",BOT:"BOTTOM",SUP:"UTILITY"};
+  const byName={}; SD.players.forEach(p=>{ if(p.player)(byName[lo(p.player)]=byName[lo(p.player)]||[]).push(p); });
+  const cand=[], tlg={};
+  TR.board.forEach(t=>{ if(!t||!t.nm||t.nm==="FA"||t.fa)return; const ab=teamFix(tAb(t.nm)||t.nm); if(t.lg)tlg[ab]=new Set([t.lg]);
+    Object.keys(POS).forEach(r=>((t.r&&t.r[r])||[]).forEach(e=>{ if(!ok(e))return; const nm=pn(e.n); if(nm)cand.push({ab,lg:t.lg||"",role:POS[r],nm,e}); })); });
+  cand.sort((a,b)=>rk(a.e)-rk(b.e));
+  const players=[], miss=[], old2new={}, nm1={}, disp={}, seen=new Set();
+  cand.forEach(c=>{ let acc=byName[lo(c.nm)]||[];
+    const ts=[...new Set(acc.map(p=>teamFix(p.team||"")))];
+    if(ts.length>1){ const want=[c.ab,c.e.from?teamFix(tAb(c.e.from)||c.e.from):""].filter(Boolean), hit=ts.filter(x=>want.includes(x)); acc=hit.length===1?acc.filter(p=>teamFix(p.team||"")===hit[0]):[]; }
+    const pk=acc.length?teamFix(acc[0].team||"")+"|"+lo(acc[0].player):"?"+lo(c.nm); if(seen.has(pk))return; seen.add(pk);
+    if(!acc.length){ miss.push({team:c.ab,player:c.nm,_r17:c.role,_lg17:c.lg}); return; }
+    old2new[pk]=c.ab; disp[pk]=acc[0].player; nm1[lo(acc[0].player)]=(lo(acc[0].player) in nm1)?null:pk;
+    acc.forEach(p=>players.push({...p,team:c.ab,_t26:p.team||"",_r17:c.role,_lg17:c.lg})); });
+  return _S17C={ck,data:{...SD,players},miss,old2new,nm1,disp,tlg}; }
+// 以「隊|選手」為鍵的積分資料（索引／逐場摘要／角色池）→ S17 鍵；不在 S17 名單的人拿掉。非 S17 模式原樣回傳
+function s17Remap(o){ if(!S17||!o||!o.players)return o; const R=s17Roster(); if(!R)return o;
+  const m=_S17RM.get(o); if(m&&m.ck===R.ck)return m.v;
+  const P={}; Object.keys(o.players).forEach(k=>{ const i=k.indexOf("|"); if(i<0)return; const nm=k.slice(i+1).toLowerCase();
+    let pk=teamFix(k.slice(0,i))+"|"+nm; if(!(pk in R.old2new))pk=R.nm1[nm]||"";   // 隊碼舊標籤（帳號檔已轉隊）：名字全名單唯一才認
+    if(pk&&R.old2new[pk])P[R.old2new[pk]+"|"+R.disp[pk]]=o.players[k]; });
+  const v={...o,players:P}; _S17RM.set(o,{ck:R.ck,v}); return v; }
 const _SQKM=new WeakMap();
 const sqKeyMap=o=>{ let m=_SQKM.get(o); if(m)return m; m=Object.create(null);
   Object.keys(o).forEach(k=>{const i=k.indexOf("|"); if(i<0)return;
@@ -3868,6 +3904,7 @@ const RANK_WL=new Set(["theshy"]);   // 白名單：整年 0 場但仍要列（�
 const RANK_BL=new Set(["castle","naiyou"]);
 const rankShow=p=>{ const n=String(p||"").trim().toLowerCase();
   if(RANK_BL.has(n))return false;
+  if(S17)return true;   // S17：名單＝轉會陣容表，已經過濾過
   const mn=playedNames(); return !mn.size || mn.has(n) || RANK_WL.has(n); };  // RAW 沒載到(size 0)就不過濾＝保險
 // LPL 常規賽分組（lpl_groups.js；成員=同組互打連通分量、組名=Wiki）。季後賽不分組＝資料只含常規賽 split。查隊縮寫(teamFix 後)→組名
 function lplGroupOf(teamAb,year){ const Y=(window.LPL_GROUPS||{})[String(year)]; if(!Y)return null;
@@ -4404,7 +4441,7 @@ function initData(){
   const ys=document.getElementById("yearSel");
   // 年份清單一律「近→遠」（2026-07-31 使用者指定）：manifest 存的是舊→新，這裡排序後再列，
   // 常用的今年永遠在最上面。不動 M.years 本身，其他地方（版本/生涯範圍）仍拿得到原順序。
-  ys.innerHTML=(M.years.length?[...M.years].sort((a,b)=>b-a):[curYear]).map(y=>`<option ${+y===+curYear?"selected":""}>${y}</option>`).join("");
+  ys.innerHTML=((S17V()?[S17Y]:[]).concat(M.years.length?[...M.years].sort((a,b)=>b-a):[curYear])).map(y=>`<option ${(S17?+y===S17Y:+y===+curYear)?"selected":""}>${y}</option>`).join("");   // 2027＝S17 虛擬年（只有積分／轉會）
 }
 // 賽事下拉尾段（不屬於任何 LG_GROUP 的聯賽）的偏好順序：一級賽區 → 其他賽區 → 盃賽／表演賽。
 // 只是排序偏好，不是白名單——沒列到的聯賽照樣會列出（依資料本身的順序接在後面）。
@@ -7864,7 +7901,8 @@ try{const _q=new URLSearchParams(location.search); const _qv=_q.get("view");
   const _dobj=_q.get("obj"); if(_dobj){curView="圖鑑";V.dexSec="物件";V.dexDetail={type:"obj",name:_dobj};} // ?obj=名稱 直接開物件歷年改動子頁
   }catch(e){}
 if(SAVED.year)curYear=SAVED.year;
-if(SOLO){ curView=SOLO; curYear=M.default; }
+if(+curYear===S17Y&&S17V()){ S17=true; curYear=M.default; }   // S17 虛擬年：底層載預設年（S16）的比賽資料
+if(SOLO){ curView=SOLO; curYear=M.default; S17=false; }
 // 全域返回鍵：以初始狀態當基準快照，這樣第一個動作也能返回
 try{window._navHist=[]; window._navCur=JSON.stringify({v:curView,V,F}); window._navYear=curYear;}catch(e){}
 // 復原堆疊（↩）：模擬BP / 英雄Tier 每次異動前的狀態，防誤刪
@@ -7877,7 +7915,7 @@ function saveState(){
   if(window._warming)return; // 閒置預熱的背景繪製不是使用者動作：不存狀態、不進返回歷史（否則重整會落在被預熱的分頁）
   UNDO.track("bpSim",V.bpSim); UNDO.track("tierB",V.tierB);
   const {r1,r2,r3,t1,t2,t3,chgFilter,chgPatch,...keep}=V; // 對比人選、版本改動的搜尋/版本選擇不儲存：每次進來都是乾淨預設
-  if(!SOLO)localStorage.setItem("dash_state",JSON.stringify({F,V:keep,view:curView,year:curYear}));
+  if(!SOLO)localStorage.setItem("dash_state",JSON.stringify({F,V:keep,view:curView,year:S17?S17Y:curYear}));
   // 全域返回鍵＝復原上一個動作：saveState 幾乎等於「一個使用者動作」(篩選/排序/搜尋/切分頁/點詳情都會呼叫)，
   // 每次記一個完整狀態快照(檢視＋V＋F)，返回鍵回到前一個快照(navBack)。
   try{
@@ -7900,8 +7938,12 @@ VIEWS.forEach(v=>{
   el.onclick=()=>{curView=v; V.heroDetail=""; V.rankDetail=""; V.dexDetail=null; saveState(); document.querySelectorAll("nav .tab").forEach(t=>t.classList.toggle("on",t.dataset.view===v)); render();}; // 點分頁籤一律清子頁詳情(避免圖鑑被鎖在某英雄詳情)
   nav.appendChild(el);
 });
+syncRankedTab();
 // 切年份時：積分只在當年顯示；若在積分頁又切到歷史年→退回總覽
-function syncRankedTab(){ const t=document.getElementById("tabRanked"); if(t)t.style.display=isHistYear()?"none":""; const tp=document.getElementById("tabPredict"); if(tp)tp.style.display=isHistYear()?"none":""; if(isHistYear()&&(curView==="積分"||curView==="預測")){curView="總覽"; document.querySelectorAll("nav .tab").forEach(x=>x.classList.toggle("on",x.dataset.view==="總覽"));} }
+function syncRankedTab(){   // 分頁籤顯示規則唯一一處：S17＝只有積分／轉會；其他年份＝轉會不顯示（移到 S17）、積分／預測只在當年
+  const hide=v=>S17?!S17_VIEWS.includes(v):(v==="轉會"||((v==="積分"||v==="預測")&&isHistYear())||(v==="筆記"&&!IS_LOCAL));
+  document.querySelectorAll("nav .tab").forEach(el=>{ el.style.display=hide(el.dataset.view)?"none":""; });
+  if(hide(curView)){ curView=S17?"積分":"總覽"; V.heroDetail=""; V.rankDetail=""; V.dexDetail=null; document.querySelectorAll("nav .tab").forEach(x=>x.classList.toggle("on",x.dataset.view===curView)); } }
 
 const main=document.getElementById("main");
 // 表格超寬偵測：小幅超寬(≤12%)先試 pt1/pt2 縮左右內距塞回一屏（100% 不出左右捲軸），塞不下才掛 hscroll（表內捲動）
@@ -20068,10 +20110,12 @@ function render(){
     // ── 積分：各隊選手 solo queue 排名（soloq.js＝fetch_soloq.py 由 Riot API 抓）──
     // 角色池只有本頁 hover 用 → 延遲載入（2026-07-28 體檢）；SC() 已有未載守衛
     if(!window.SOLOQ_POOL)lazyLoad("sqch").then(()=>{ if(curView==="積分"&&window.SOLOQ_POOL)render(); });
-    const SD=window.SOLOQ_DATA;
+    if(S17&&!window.TRANSFERS){ main.innerHTML=`<div class="card"><span class="sumEmpty">${LANG==="en"?"Loading…":"載入中"}</span></div>`;
+      lazyLoad("tr").then(()=>{ if(!window.TRANSFERS)window.TRANSFERS={wiki:[],sheep:[],board:[]}; if(curView==="積分")render(); }); return; }
+    const _S17R=S17?s17Roster():null, SD=_S17R?_S17R.data:window.SOLOQ_DATA;   // S17：名單＝轉會陣容表（確定＋留隊）
     // 本路角色池（soloq_pool.js＝build_soloq_index.py 由逐場檔算，以「隊|選手」為鍵、合併所有帳號、只算比賽路線的場）
     // 使用者 2026-10-24：積分只算選手比賽路線的場。舊的 soloq_champs.js 是 dpm best-champs（帳號層級、含所有路線、7 月後沒更新）⇒ 不再用
-    const SC=pk=>((window.SOLOQ_POOL&&SOLOQ_POOL.players&&SOLOQ_POOL.players[pk])||[]).map(e=>({c:e[0],g:e[1],w:e[2],k:e[3]/Math.max(1,e[1]),d:e[4]/Math.max(1,e[1]),as:e[5]/Math.max(1,e[1])}));
+    const SC=pk=>{ const _PL=s17Remap(window.SOLOQ_POOL); return ((_PL&&_PL.players&&_PL.players[pk])||[]).map(e=>({c:e[0],g:e[1],w:e[2],k:e[3]/Math.max(1,e[1]),d:e[4]/Math.max(1,e[1]),as:e[5]/Math.max(1,e[1])}));}
     const champIco=(n,s)=>`<img loading="lazy" data-cid="${champId(n)}" data-fbmode="hide" onerror="champImgFb(this)" src="${chIcoUrl(yearVer(),champId(n))}" style="width:${s}px;height:${s}px;border-radius:5px;vertical-align:middle" title="${esc(chName(champId(n)))}">`;
     const soloqChampTip=rid=>{ const cs=SC(rid); if(!cs.length)return ""; const en=LANG==="en";
       const rows=cs.slice(0,12).map(c=>{ const wr=c.g?Math.round(c.w/c.g*100):0, kda=((c.k+c.as)/Math.max(1,c.d)).toFixed(1), wc=wr>=52?"#ff6b6b":(wr<=48?"#37c871":"");
@@ -20089,7 +20133,7 @@ function render(){
       const pl=((SD&&SD.players)||[]).find(p=>p.riotId===rid)||{riotId:rid};
       const sameP=p=>(p.team||"")===(pl.team||"")&&(p.player||"")===(pl.player||"");
       const accts=((SD&&SD.players)||[]).filter(sameP); if(!accts.length)accts.push(pl);
-      const key=(pl.team||"")+"|"+(pl.player||"");
+      const key=(pl._t26!=null?pl._t26:(pl.team||""))+"|"+(pl.player||"");   // S17：逐場檔的鍵仍是原隊
       const IDX=window.SOLOQ_MATCH_IDX, meta=IDX&&IDX.players&&IDX.players[key], cache=window.__SQCACHE[key];
       const bkBtn=""; // 舊返回鍵已移除，改用篩選列右側全域返回鍵(navBack)
       const bindBack=()=>{};
@@ -20241,7 +20285,7 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
       bindBack();
         // 曾用ID：滑到帳號籤時小框顯示（2026-08-04 使用者定案：不佔標頭一行）。
       // 資料＝soloq_id_hist.js（該選手當年所有出現過的 ID；只有改過的才有）
-      {const H=(window.SOLOQ_ID_HIST||{})[(pl.team||"")+"|"+(pl.player||"")]||[];
+      {const H=(window.SOLOQ_ID_HIST||{})[(pl._t26!=null?pl._t26:(pl.team||""))+"|"+(pl.player||"")]||[];
        if(H.length>1){ const fd=t=>t?new Date(t).toISOString().slice(5,10):"?";
          const html=`<div class="tipTitle">${en?"Past IDs":"曾用ID"}</div>`
            +[...H].reverse().map((h,i,arr)=>`<div style="display:flex;gap:10px;align-items:baseline;margin:4px 0">
@@ -20312,7 +20356,7 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
     const _RR=String(V.rankRole||"").split(",").filter(Boolean), rrOk=r=>!_RR.length||_RR.includes(r);   // 路線複選（使用者 2026-10-22）：V.rankRole＝逗號分隔
     const ROLEF=[["","全部","All"],["TOP","上路","Top"],["JUNGLE","打野","JG"],["MIDDLE","中路","Mid"],["BOTTOM","下路","Bot"],["UTILITY","輔助","Sup"]];
     // 賽區篩選＝該選手戰隊的參賽賽區(聯賽+盃賽)，非伺服器位置。盃賽只列 FST/MSI/WCS/EWC/ENC 且照此序；聯賽依偏好序
-    const TLG=teamLeagueMap(), NPL=natlPlayerLeagues();
+    const TLG=_S17R?_S17R.tlg:teamLeagueMap(), NPL=_S17R?{}:natlPlayerLeagues();   // S17：隊→S17 聯賽（盃賽／國家隊不適用）
     // 該選手的參賽賽區＝①他戰隊打過的聯賽/盃賽 ②他本人代表國家隊打過的賽事（亞運等，見 natlPlayerLeagues）
     // 世界賽（WCS）＝官方參賽名單（EVENTS_EXTRA），不看「打過 WLDs 場次」：開賽前只有 LPL 資格賽被標成 WLDs，
     //   照場次算會變成 JDG／WE 在列、真正的世界賽隊伍反而沒有（使用者 2026-10-11：篩選要有世界賽、放在 MSI 右邊）
@@ -20320,8 +20364,9 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
     const WCS_AB=_wEv&&_wEv.teams?new Set(_wEv.teams.map(t=>teamFix(tAb(String(t).replace(/\s*\(.*?\)\s*$/,""))))):null;
     // 參賽賽區一律看選手**本人**（使用者 2026-10-18）：在該賽事上場過才算（WCS 另含 wiki 名單），
     //   不再「隊伍打過就整隊算」——二隊替補、板凳不會跑進聯賽／盃賽篩選；國家隊賽事另由 NPL 補
-    const _LGS=Object.keys(cupPlayers());
-    const rgOf=r=>{ const n=NPL[String(r.player||"")]; const o=new Set();
+    const _LGS=_S17R?[]:Object.keys(cupPlayers());
+    const rgOf=r=>{ if(_S17R){ const s=TLG[teamFix(r.team||"")]; return s?new Set(s):null; }
+      const n=NPL[String(r.player||"")]; const o=new Set();
       _LGS.forEach(l=>{ if(inCup(l,r.team,r.player))o.add(l); }); if(n)n.forEach(l=>o.add(l));
       return o.size?o:null; };
     // 順序（使用者 2026-10-18）：聯賽 LCK LPL LEC LCS CBLOL LCP；國際賽 FST MSI EWC 亞運 DCGI WCS；KeSPA 依屆（季前／季中）；EWCQ 不列
@@ -20348,7 +20393,7 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
     // 賽區複選（使用者 2026-10-18：點 WCS＋LCK＝只看 WCS 裡的 LCK 戰隊）：V.rankRegion＝逗號分隔，條件取交集；分組只在單選 LPL／LCK 時有
     const _RS=String(V.rankRegion||"").split(",").filter(Boolean), _R1=_RS.length===1?_RS[0]:"", rgHas=l=>_RS.includes(l), _cupSel=_RS.find(l=>CUP_LGS.includes(l))||"";
     // 範圍／詳細統計／還存活／當地：每日戰況與排行榜標題列共用、置右（使用者 2026-10-22）；排行榜沒有詳細／統計
-    const _dayCtl=withView=>`${segHTML("rankDaySeg",[[1,LANG==="en"?"Yesterday":"昨天"],[3,LANG==="en"?"3 days":"近3天"],[7,LANG==="en"?"7 days":"近7天"],[14,LANG==="en"?"14 days":"近14天"]],dayRange,"sm","margin-left:8px")}${withView?`${segHTML("rankDayView",[["detail",LANG==="en"?"Detail":"詳細",LANG==="en"?"every game in order":"逐場列出"],["stat",LANG==="en"?"Summary":"統計",LANG==="en"?"champions grouped with counts":"同英雄合併、標使用次數"]],V.rankDayView==="stat"?"stat":"detail","sm","margin-left:8px")}`:""}${wldAliveAbs()?segHTML("rankDayAlive",[["all",LANG==="en"?"All":"全部",LANG==="en"?"every team":"所有隊伍"],["alive",LANG==="en"?"Still in":"還存活",LANG==="en"?"only teams not yet eliminated at Worlds":"只列世界賽還沒被淘汰的隊伍"]],V.rankDayAlive==="alive"?"alive":"all","sm","margin-left:8px"):""}${WLD_HOST[curYear]?segHTML("rankDayLocal",[["all",LANG==="en"?"All":"全部",LANG==="en"?"games on every server":"所有伺服器的對局"],["local",LANG==="en"?"Local":"當地",(rgHas("WLDs")?(LANG==="en"?"only games on the host server ("+WLD_HOST[curYear].en+")":"只留比賽舉辦地（"+WLD_HOST[curYear].zh+"）伺服器的對局"):(LANG==="en"?"only games on each team's home server (LCK = KR)":"只留各隊所屬賽區伺服器的對局（LCK/LPL＝韓服、LCP＝台日韓越澳、LEC＝歐洲中東、LCS/CBLOL＝美洲）"))]],V.rankDayLocal==="local"?"local":"all","sm","margin-left:8px"):""}`;
+    const _dayCtl=withView=>`${segHTML("rankDaySeg",[[1,LANG==="en"?"Yesterday":"昨天"],[3,LANG==="en"?"3 days":"近3天"],[7,LANG==="en"?"7 days":"近7天"],[14,LANG==="en"?"14 days":"近14天"]],dayRange,"sm","margin-left:8px")}${withView?`${segHTML("rankDayView",[["detail",LANG==="en"?"Detail":"詳細",LANG==="en"?"every game in order":"逐場列出"],["stat",LANG==="en"?"Summary":"統計",LANG==="en"?"champions grouped with counts":"同英雄合併、標使用次數"]],V.rankDayView==="stat"?"stat":"detail","sm","margin-left:8px")}`:""}${(!S17&&wldAliveAbs())?segHTML("rankDayAlive",[["all",LANG==="en"?"All":"全部",LANG==="en"?"every team":"所有隊伍"],["alive",LANG==="en"?"Still in":"還存活",LANG==="en"?"only teams not yet eliminated at Worlds":"只列世界賽還沒被淘汰的隊伍"]],V.rankDayAlive==="alive"?"alive":"all","sm","margin-left:8px"):""}${WLD_HOST[curYear]?segHTML("rankDayLocal",[["all",LANG==="en"?"All":"全部",LANG==="en"?"games on every server":"所有伺服器的對局"],["local",LANG==="en"?"Local":"當地",(rgHas("WLDs")?(LANG==="en"?"only games on the host server ("+WLD_HOST[curYear].en+")":"只留比賽舉辦地（"+WLD_HOST[curYear].zh+"）伺服器的對局"):(LANG==="en"?"only games on each team's home server (LCK = KR)":"只留各隊所屬賽區伺服器的對局（LCK/LPL＝韓服、LCP＝台日韓越澳、LEC＝歐洲中東、LCS/CBLOL＝美洲）"))]],V.rankDayLocal==="local"?"local":"all","sm","margin-left:8px"):""}`;
     const grpLg=(_R1==="LCK")?"LCK":"LPL"; const lplSel=lplSelSplit(curYear,"",grpLg); // LPL 組別一律用「最新賽段」（使用者定案 2026-07-29：S3 沒有堅毅組，只顯示當前賽事的組別；忽略舊的 V.rankLplSplit 殘留偏好）
     main.innerHTML=`<div class="filters" style="gap:9px 22px">
       <span class="cwrap"><input id="rankQ" class="combo" list="rankQdl" autocomplete="off" placeholder="${LANG==="en"?"Search player / team":"搜尋 選手／戰隊"}" style="width:190px"><button class="cx" tabindex="-1" data-x="rankQ" title="一鍵清除">✕</button></span><datalist id="rankQdl"></datalist>
@@ -20503,9 +20548,9 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
       const box=document.getElementById("rankTbl"); if(!box)return;
       const FAV=readFav();
       if(!SD||!Array.isArray(SD.players)||!SD.players.length){ box.innerHTML=`<div class="note">${LANG==="en"?"No ranked data yet. Run scripts/fetch_soloq.py (needs a Riot API key) to generate soloq.js.":"尚未有積分資料。請執行 scripts/fetch_soloq.py（需 Riot API 金鑰）產生 soloq.js。"}</div>`; return; }
-      const IDX=window.SOLOQ_MATCH_IDX;
+      const IDX=s17Remap(window.SOLOQ_MATCH_IDX);
       // 範圍內評分／KDA／場數改由逐場檔(soloq_recent)依「昨天／近N天＋當地」重算；逐場檔還沒載到就先用索引的一週值、載完重畫
-      const REC=window.SOLOQ_RECENT; if(!REC)lazyLoad("recent").then(()=>{ if(curView==="積分"&&V.rankView!=="daily")paint(); });
+      const REC=s17Remap(window.SOLOQ_RECENT); if(!REC)lazyLoad("recent").then(()=>{ if(curView==="積分"&&V.rankView!=="daily")paint(); });
       const _X=REC?sqCtx(REC):null;
       const rows=SD.players.map(p=>{const g=(p.wins||0)+(p.losses||0); const _ik=IDX&&IDX.players&&sqKey(IDX.players,p.team||"",p.player||""); const ix=(_ik&&IDX.players[_ik])||{}; // SD 與 IDX 同源鍵一致，走 sqKey 只是防未來標籤漂移
         // 場數(勝-敗)／勝率＝今年比賽路線的逐場（合併所有帳號；使用者 2026-10-24：其餘路線一律不算）。以前用 Riot 牌位勝敗＝含所有路線
@@ -20513,7 +20558,7 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
           _last10:ix.last10||[],_wr7:(ix.wr7!=null?ix.wr7:null),_sc7:(ix.sc7!=null?ix.sc7:null),_kda7:(ix.kda7!=null?ix.kda7:null),_n7:(ix.n7!=null?ix.n7:null),
           // 路線：逐場索引沒有的（有牌位帳號但還沒有逐場檔）退回今年比賽出場的主要路線，
           // 不然這一欄會顯示「—」（2026-08-06 與每日戰況同一個缺口，實測排行榜 4 列）
-          _w7:(ix.w7!=null?ix.w7:(ix.wr7!=null&&ix.n7!=null?Math.round(ix.n7*ix.wr7/100):null)),_lt:(ix.lt!=null?ix.lt:null),_role:(ix.role||playedRole(p.player)||null)};});
+          _w7:(ix.w7!=null?ix.w7:(ix.wr7!=null&&ix.n7!=null?Math.round(ix.n7*ix.wr7/100):null)),_lt:(ix.lt!=null?ix.lt:null),_role:((S17&&p._r17)||ix.role||playedRole(p.player)||null)};});   // S17：路線照陣容表
       if(_X)rows.forEach(r=>{ const tm=teamFix(r.team||""), ag=_X.aggOf(_X.recByNorm[tm+"|"+r.player],_X.hostOf(tm));
         r._n7=ag?ag.n:0; r._w7=ag?ag.w:0; r._wr7=ag?Math.round(ag.w/ag.n*100):null; r._sc7=ag?ag.sc:null; r._kda7=ag?ag.kda:null; });
       // 當地：同一位選手多隻帳號時，優先留當地伺服器的帳號（牌位才是當地的）
@@ -20521,7 +20566,7 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
       // 把「比賽出賽過但沒抓到積分帳號」的選手也列出(灰、置底)：主數據選手 − 已有 soloq 帳號的
       const _nn=s=>String(s||"").trim().toLowerCase();
       const covered=new Set(SD.players.map(p=>_nn(p.player)));
-      competitivePlayers().filter(c=>c.player&&!covered.has(_nn(c.player))).forEach(c=>rows.push(
+      (_S17R?_S17R.miss.map(m=>({team:m.team,player:m.player,role:m._r17})):competitivePlayers()).filter(c=>c.player&&!covered.has(_nn(c.player))).forEach(c=>rows.push(   // S17：陣容表上沒有帳號的人
         {team:c.team,player:c.player,_role:c.role||playedRole(c.player)||null,_missing:true,found:false,_score:-2,
          _wr:null,_last10:[],_wr7:null,_sc7:null,_kda7:null,_n7:null,_lt:null,riotId:"",platform:"",wins:0,losses:0,lp:null,tier:null}));
       // 只列「整年有比賽出場過」的選手(教練等整年0場才排除，例：BRO Duke)＋每位選手只留牌位最高的一列(使用者定案 2026-07-19)
@@ -20537,7 +20582,7 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
        rows.length=0; for(const k of _o) rows.push(_g[k]);}
       // 哪些選手(戰隊+名字)有逐場資料→名字可點(逐場改每人一檔懶載，index 記誰有檔)
       const pKey=r=>((r.team||"")+"|"+(r.player||"")); const matchedPlayers=new Set();
-      {const IX=window.SOLOQ_MATCH_IDX; if(IX&&IX.players) Object.keys(IX.players).forEach(k=>matchedPlayers.add(k));}
+      {const IX=s17Remap(window.SOLOQ_MATCH_IDX); if(IX&&IX.players) Object.keys(IX.players).forEach(k=>matchedPlayers.add(k));}
       const RS=V.rankSort||{k:"_sc7",d:-1}; // 預設以一週評分降冪
       const _rngLb=()=>{ const n=V.rankDayRange||1; return LANG==="en"?(n===1?"1d":n===7?"Wk":n+"d"):(n===1?"昨天":n===7?"一週":"近"+n+"天"); };
       const arrow=k=>{const on=RS.k===k,up=on&&RS.d>0; return `<span class="sortArr${on?" on":""}${on?(up?" asc":" desc"):""}">${up?"▲":"▼"}</span>`;}; // 同英雄表：.sortArr 絕對定位貼欄名右側、欄名自然置中
@@ -20574,7 +20619,7 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
       const q=(V.rankQ||"").trim().toLowerCase();
       let active=disp.filter(r=>FAV.has(favKey(r))||r._missing||r._n7>0||(r.found&&r._n7==null)); // 收藏者一律顯示；其餘：最近7天沒打暫不列；缺帳號一律列(灰置底)；有段位但還沒逐場資料的新帳號(_n7==null)也列出
       if(_RR.length)active=active.filter(r=>rrOk(r._role)); // 路線篩選
-      { const _al=V.rankDayAlive==="alive"?wldAliveAbs():null; if(_al)active=active.filter(r=>_al.has(teamFix(r.team||""))); }   // 還存活
+      { const _al=(!S17&&V.rankDayAlive==="alive")?wldAliveAbs():null; if(_al)active=active.filter(r=>_al.has(teamFix(r.team||""))); }   // 還存活
       if(_X&&_X._loc)active=active.filter(r=>FAV.has(favKey(r))||r._n7>0);   // 當地：範圍內沒在當地打的不列
       if(_RS.length)active=active.filter(r=>rgPass(r)); // 賽區(參賽聯賽/盃賽)篩選
       if((_R1==="LPL"||_R1==="LCK")&&V.rankLplGrp)active=active.filter(r=>lplSplitGroupOf(teamFix(r.team||""),curYear,lplSel,grpLg)===V.rankLplGrp); // LPL 分組篩選(選定賽段；季後賽不分)
@@ -20615,11 +20660,11 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
       // 每天 10:00 的 API 牌位快照（soloq_lp_hist.js，scripts/build_lp_hist.py）：牌位(+N) 用它算準確增減（使用者 2026-10-18）
       if(!window.SOLOQ_LP_HIST&&!window._lphLoading){ window._lphLoading=1; const sc=document.createElement("script"); sc.src="soloq_lp_hist.js";
         sc.onload=()=>{ if(curView==="積分"&&V.rankView==="daily")render(); }; sc.onerror=()=>{ window.SOLOQ_LP_HIST={dates:[],acc:{}}; }; document.head.appendChild(sc); }   // 英雄圖小框的符文圖要用（滑過才產生，不必重畫）
-      const REC=window.SOLOQ_RECENT, en=LANG==="en";
+      const REC=s17Remap(window.SOLOQ_RECENT), en=LANG==="en";
       if(!REC){ lazyLoad("recent").then(()=>{ if(curView==="積分"&&V.rankView==="daily")render(); });
         box.innerHTML=`<div class="note">${en?"loading daily games…":"載入每日戰況中…"}</div>`; return; }
       if(!SD||!Array.isArray(SD.players)||!SD.players.length){ box.innerHTML=`<div class="note">${en?"No ranked data yet.":"尚未有積分資料。"}</div>`; return; }
-      const IDX=window.SOLOQ_MATCH_IDX;
+      const IDX=s17Remap(window.SOLOQ_MATCH_IDX);
       const ROLE_ORD={TOP:0,JUNGLE:1,MIDDLE:2,BOTTOM:3,UTILITY:4}, POSLB={TOP:["上","Top"],JUNGLE:["野","JG"],MIDDLE:["中","Mid"],BOTTOM:["下","Bot"],UTILITY:["輔","Sup"]};
       const _X=sqCtx(REC), {addDay,genDay,rng,days,slide,headLb2,inWin}=_X;
       // REC(有打積分者)：以 teamFix 正規化鍵對應「實際 REC key」——REC/SD 隊縮寫可能不一致(GENG↔GEN、TLAW↔TL、AGAL↔AL)，雙邊都 teamFix 後才比對得上
@@ -20630,7 +20675,7 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
       // 篩到國家隊賽事時，這位選手要掛在哪一個區塊（沒有就照舊用俱樂部）
       const dlyNatAb=(player,ab)=>{ if(!_cupSel)return ab;
         const t=natlTeamOf(player||"",_cupSel); return t?(tAb(t)||t):ab; };
-      const _alive=V.rankDayAlive==="alive"?wldAliveAbs():null;   // 還存活：淘汰的隊整隊不列（使用者 2026-10-20）
+      const _alive=(!S17&&V.rankDayAlive==="alive")?wldAliveAbs():null;   // 還存活：淘汰的隊整隊不列（使用者 2026-10-20）
       const pass=(ab,player,role,teamRaw)=>{ if(!rankShow(player))return false;
         if(_alive&&!_alive.has(ab))return false;   // 今年沒出場過就不列（與排行榜同一判準；否則 BeanJ/Glory 這種已離開職業的人會從 soloq_recent 漏進來）
         if(!rrOk(role))return false;
@@ -20642,7 +20687,7 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
       // ① 排行榜名冊 SD.players（一人一列＝取牌位最高帳號）
       // 路線來源依序：逐場檔(soloq_recent) → 逐場索引 → **今年比賽出場的主要路線**。
       // 最後那層是 2026-08-06 補的：只有牌位帳號、還沒有逐場檔的人前兩層都查不到，會顯示「–」
-      SD.players.forEach(p=>{ if(!p.player)return; const ab=teamFix(p.team||""), nk=ab+"|"+p.player, rk=recByNorm[nk]||null, role=(rk&&REC.players[rk].r)||idxRole[nk]||playedRole(p.player)||null;
+      SD.players.forEach(p=>{ if(!p.player)return; const ab=teamFix(p.team||""), nk=ab+"|"+p.player, rk=recByNorm[nk]||null, role=(S17&&p._r17)||(rk&&REC.players[rk].r)||idxRole[nk]||playedRole(p.player)||null;
         if(!pass(ab,p.player,role,p.team))return; const sc=soloqScore(p);
         // 篩國家隊賽事時改用國家隊當區塊（韓國隊的六個人分散在 T1/HLE/GEN，不併起來就看不到整隊）
         const _nb=dlyNatAb(p.player,ab);
@@ -21708,7 +21753,13 @@ const show=Math.min(V.rankShow||100, games.length); // 先列前 100，其餘按
 }
 // ---------- 啟動 ----------
 document.getElementById("yearSel").onchange=async e=>{
-  curYear=+e.target.value; saveState(); syncRankedTab(); // 積分只在當年可見
+  const _ny=+e.target.value, _was17=S17; S17=(_ny===S17Y&&S17V());
+  const _ty=S17?+M.default:_ny;   // S17 的資料年＝預設年（S16）
+  if(_ty===+curYear){   // 資料年沒變（S16⇄S17）：不重載，只換分頁組
+    curView=S17?"積分":"總覽"; V.heroDetail=""; V.rankDetail=""; V.dexDetail=null;
+    document.querySelectorAll("nav .tab").forEach(t=>t.classList.toggle("on",t.dataset.view===curView));
+    syncRankedTab(); saveState(); render(); return; }
+  curYear=_ty; saveState(); syncRankedTab(); // 積分只在當年可見
   const ov=document.getElementById("yload");
   ov.textContent=`⏳ 載入 ${curYear} 資料中…`; ov.style.display="flex";
   try{ await loadYear(curYear);
@@ -21717,8 +21768,8 @@ document.getElementById("yearSel").onchange=async e=>{
     Object.assign(V,{pos:"",player:"",heroTeam:"",heroSel:"",tpSel:"",teamSel:"",vsTeam:"",bpTeam:"",bpHero:"",bpHeroMode:"both",bpPlayer:"",bpWin:"",bpFirst:"",search:"",r1:"",r2:"",r3:"",t1:"",t2:"",t3:"",
       dexQ:"",dexTag:"",dexCTag:"",dexVer:"全年",jgSort:"",jgCamp:"",tierTeam:"",tierQ:"",rosterTeam:"",tpSel:"",teamSel:"",recentTeam:"",recentTeam2:""});
     V.bpSim=null; // 換年份：模擬BP 的模擬局(BAN/PICK)也全部清空、回到單一空局
-    curView="總覽"; V.heroDetail=""; V.rankDetail=""; V.dexDetail=null; V.dexSec="版本"; // 換年份一律回到總覽（清子頁詳情）
-    document.querySelectorAll("nav .tab").forEach(t=>t.classList.toggle("on",t.dataset.view==="總覽"));
+    curView=S17?"積分":"總覽"; V.heroDetail=""; V.rankDetail=""; V.dexDetail=null; V.dexSec="版本"; // 換年份一律回到總覽（清子頁詳情）；S17 回到積分
+    document.querySelectorAll("nav .tab").forEach(t=>t.classList.toggle("on",t.dataset.view===curView)); syncRankedTab();
     initData();
     _SSI=null; _MVPC=null; _MVPK=""; // side_sel 索引與 POG/POM 計數是按年建的
     try{ensureSSHist();}catch(e){}   // 歷史年：背景載 side_sel_YYYY.js（載完自己清快取重繪）

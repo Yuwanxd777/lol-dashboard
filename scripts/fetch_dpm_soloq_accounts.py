@@ -685,10 +685,18 @@ def main():
     # 導致他們被抓進積分資料、出現在每日戰況。使用者定案：**今年沒打職業就不該列**。
     # 替補一旦上場，隔天排程的「探索新增」就會自動補帳號，不需要預先保留。
     mp = match_players()
+    # S17（2027）名單（轉會陣容表「確定＋留隊」，使用者 2026-11-23）：今年沒在比賽出場、但已確定是 S17 一級聯賽先發／留隊的人
+    #   （Deft 回 NS、新人上調…）也要保留帳號，積分頁 S17 模式才查得到。讀不到 transfers.js ⇒ 空集合＝舊行為。
+    try:
+        import s17_roster
+        S17R = s17_roster.roster()
+    except Exception as _e:
+        print(f"（S17 名單讀不到，不補：{_e}）", flush=True); S17R = []
+    S17N = {norm(r["player"]) for r in S17R}
     if mp:
         def _played(pl):
             n = norm(pl)
-            if n in mp or n in KEEP_WL:
+            if n in mp or n in KEEP_WL or n in S17N:
                 return True
             return norm(re.sub(r"\s*\(.*\)\s*$", "", pl)) in mp   # 去「(VN)」等後綴再比對，免誤丟
         before = len(roster)
@@ -714,6 +722,19 @@ def main():
         if pt in seen_pt:
             continue
         seen_pt.add(pt); roster.append(pt); new_players.append(pt)
+    # S17 名單裡完全沒帳號的人：用 S17 的隊（隊全名 → 本清單縮寫）補進名單，DPM 一樣逐一查 /v1/pros
+    s17_new = []
+    for r in S17R:
+        n = norm(r["player"])
+        if n in covered or n in BLOCK_PLAYERS or any(norm(pt[0]) == n for pt in new_players):
+            continue
+        ab = norm_ab(ABBR.get(str(r["team"]).lower(), ""), warn=True) or re.sub(r"[^A-Za-z0-9]", "", r["team"])[:5].upper()
+        pt = (r["player"], canon_team(ab))
+        if pt in seen_pt:
+            continue
+        seen_pt.add(pt); roster.append(pt); new_players.append(pt); s17_new.append(pt)
+    if s17_new:
+        print(f"S17 名單補查 {len(s17_new)} 位：{[t + '|' + p for p, t in s17_new]}", flush=True)
     print(f"探索新增 {len(new_players)} 位無帳號的出場選手：{[t + '|' + p for p, t in new_players][:30]}{'…' if len(new_players) > 30 else ''}", flush=True)
 
     try:
