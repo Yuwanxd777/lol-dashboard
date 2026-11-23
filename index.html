@@ -15367,7 +15367,9 @@ function render(){
       //   ③定案「還是無法做到直接把圖片放到文章內 不行的話這三個社群按鈕就刪除 改成點開小圖時自動複製」
       //   ⇒ 三顆平台按鈕與系統分享清單都拿掉（別再加回來），只留下載；點開小圖就自動複製，到哪裡發文都是貼上
       const shb=document.getElementById("trShare");
-      if(shb)shb.onclick=()=>{ if(document.getElementById("trShD"))return;
+      // openShare(gen,srcB,chk)：gen(sink)＝產生圖片的函式（篩選列＝runShot；陣容對比小框＝tmShot 的產圖），srcB＝產圖期間停用的按鈕，chk＝有沒有內容可分享
+      //   陣容對比的截圖鈕也改走這個視窗（使用者 2026-11-23「陣容對比的截圖改成分享 可以預覽圖片那樣」）
+      const openShare=(gen,srcB,chk)=>{ if(document.getElementById("trShD"))return;
         const T=(zh,en)=>en2?en:zh;
         const IC={dl:`<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11"/><path d="M7.5 10.8 12 15.3l4.5-4.5"/><path d="M5 19.5h14"/></svg>`};
         const dlg=document.createElement("div"); dlg.id="trShD"; dlg.className="trShD";   /* 樣式掛在類別上：轉會網站的 CSS 篩選只留 .tr* 類別的規則，#id 選擇器會被濾掉 */
@@ -15398,13 +15400,19 @@ function render(){
         //   開啟與換張的當下把看到的那一張複製到剪貼簿（使用者同一天「改成點開小圖時自動複製」），底下那行字標出有沒有複製成功
         const zoom=i0=>{ let k=i0; const n=()=>st.items.length, z=document.createElement("div"); z.className="trShZ";
           z.innerHTML=`<div class="trShZI"><img alt=""></div><button class="trShX trShZX" aria-label="close">✕</button>`+(n()>1?`<button class="trShZN" data-d="-1" aria-label="previous">‹</button><button class="trShZN" data-d="1" aria-label="next">›</button>`:"")+`<div class="trShZT"></div>`;
-          const box=z.querySelector(".trShZI"), im=z.querySelector("img"), tt=z.querySelector(".trShZT");
+          const box=z.querySelector(".trShZI"), im=z.querySelector("img"), tt=z.querySelector(".trShZT"), TCH=matchMedia("(hover:none)").matches||innerWidth<760; im.style.touchAction="manipulation";   /* 點兩下不要觸發瀏覽器縮放 */
+          // 手機：開啟／滑動換張不複製，點兩下圖片才複製（使用者 2026-11-23「手機版不要滑動圖片就複製 而是點兩下才複製」）；電腦照舊開啟就複製
+          const capOf=()=>{ const x=st.items[k]; return esc(((x&&x.tag)||"")+(n()>1?`　${k+1} / ${n()}`:"")); };
+          const doCopy=()=>{ const x=st.items[k], cap=capOf(); copyImg(x).then(ok=>{ if(st.items[k]===x&&z.isConnected)tt.innerHTML=cap+(ok?`<b>${T("✓ 已複製","✓ Copied")}</b>`:`<b class="no">${T("無法自動複製","Copy failed")}</b>`); }); };
           const show=()=>{ const x=st.items[k]; if(!x)return; im.src=x.url; box.classList.remove("big"); box.scrollTop=box.scrollLeft=0;
-            const cap=esc((x.tag||"")+(n()>1?`　${k+1} / ${n()}`:"")); tt.innerHTML=cap;
-            copyImg(x).then(ok=>{ if(st.items[k]===x&&z.isConnected)tt.innerHTML=cap+(ok?`<b>${T("✓ 已複製","✓ Copied")}</b>`:`<b class="no">${T("無法自動複製","Copy failed")}</b>`); }); };
+            tt.innerHTML=capOf()+(TCH?`<b class="no">${T("點兩下複製","Double-tap to copy")}</b>`:""); if(!TCH)doCopy(); };
           z._shut=()=>z.remove(); z._nav=d=>{ k=(k+d+n())%n(); show(); };
           z.onclick=e=>{ e.stopPropagation(); if(z._sw&&Date.now()-z._sw<450)return;   // 剛滑完換張的那一下不算點擊
-            const nb=e.target.closest(".trShZN"); if(nb){ z._nav(+nb.dataset.d); return; } if(e.target===im){ box.classList.toggle("big"); return; } z._shut(); };
+            const nb=e.target.closest(".trShZN"); if(nb){ z._nav(+nb.dataset.d); return; }
+            if(e.target===im){ if(!TCH){ box.classList.toggle("big"); return; }
+              const t=Date.now(); if(z._tp&&t-z._tp<320){ clearTimeout(z._tt); z._tp=0; doCopy(); } else { z._tp=t; clearTimeout(z._tt); z._tt=setTimeout(()=>{ z._tp=0; box.classList.toggle("big"); },320); }   // 點一下＝放大／縮回（等 320ms 確定不是點兩下）；點兩下＝複製（複製要在點擊當下呼叫，不能 await）
+              return; }
+            z._shut(); };
           // 手機：左右滑換張（放到原尺寸時不攔，那時的滑動是在拖圖）
           let tx=null; z.addEventListener("touchstart",e=>{ tx=e.touches.length===1?e.touches[0].clientX:null; },{passive:true});
           z.addEventListener("touchend",e=>{ if(tx==null||box.classList.contains("big")||n()<2)return; const dx=e.changedTouches[0].clientX-tx; tx=null; if(Math.abs(dx)>50){ z._sw=Date.now(); z._nav(dx<0?1:-1); } },{passive:true});
@@ -15414,15 +15422,17 @@ function render(){
           zoom(i); };
         msg.onclick=e=>{ const a=e.target.closest("a[data-act]"); if(!a)return; e.preventDefault();
           if(a.dataset.act==="all"){ if(st.sel.size<st.items.length)st.items.forEach(x=>st.sel.add(x)); else st.sel.clear(); draw(); return; }
-          if(a.dataset.act==="more"&&st.done){ sink.skip=st.items.length; sink.max=999; st.done=false; draw(); shb.disabled=true; runShot(sink).then(fin); } };
+          if(a.dataset.act==="more"&&st.done){ sink.skip=st.items.length; sink.max=999; st.done=false; draw(); if(srcB)srcB.disabled=true; gen(sink).then(fin); } };
         const dl=(x,i)=>setTimeout(()=>{ const a=document.createElement("a"); a.href=x.url; a.download=x.fn; document.body.appendChild(a); a.click(); a.remove(); },i*350);
         // 下載（原本篩選列上獨立的 📸，使用者 2026-11-21「截圖按鈕放到分享按鈕裡面」）：勾選的每一張存成 JPG
         dlg.querySelector(".trShDl").onclick=()=>{ const its=st.items.filter(x=>st.sel.has(x)); if(!its.length)return; its.forEach(dl); hint.textContent=T(`已下載 ${its.length} 張`,`${its.length} image${its.length>1?"s":""} downloaded`); };
-        const fin=()=>{ shb.disabled=false; st.done=true; st.capped=!!sink.capped; if(st.closed)return; if(!st.items.length&&!st.err)st.err=T("沒有可以分享的內容","Nothing to share"); draw();
-          if(!st.err)hint.textContent=T("點小圖：放大並自動複製那一張","Tap a thumbnail to enlarge it and copy it"); };
-        if(!main.querySelector(".tbRow,.trRow")){ st.done=true; st.err=T("沒有可以分享的內容","Nothing to share"); draw(); return; }   // 篩選到沒有任何列：不產生一張空白圖
-        draw(); shb.disabled=true;
-        runShot(sink).then(fin); }; }
+        const fin=()=>{ if(srcB)srcB.disabled=false; st.done=true; st.capped=!!sink.capped; if(st.closed)return; if(!st.items.length&&!st.err)st.err=T("沒有可以分享的內容","Nothing to share"); draw();
+          if(!st.err)hint.textContent=(matchMedia("(hover:none)").matches||innerWidth<760)?T("點小圖放大，放大後點兩下複製","Tap a thumbnail to enlarge; double-tap it to copy"):T("點小圖：放大並自動複製那一張","Tap a thumbnail to enlarge it and copy it"); };
+        if(chk&&!chk()){ st.done=true; st.err=T("沒有可以分享的內容","Nothing to share"); draw(); return; }   // 篩選到沒有任何列：不產生一張空白圖
+        draw(); if(srcB)srcB.disabled=true;
+        gen(sink).then(fin); };
+      window._trOpenShare=openShare;
+      if(shb)shb.onclick=()=>openShare(runShot,shb,()=>!!main.querySelector(".tbRow,.trRow")); }
     // 隊徽視覺大小統一（使用者 2026-11-20「全面檢視隊徽 視覺上統一大小」）：圖檔都是正方形畫布，但圖案本身有扁（T1／DK／SHG）有窄（MKOI／DNS）
     //   ⇒ 用小畫布量圖案的外框，把「圖案面積」調成一樣（扁的放寬、方的略縮），寬最多 1.5 倍、高不超過原本的框；
     //   每個隊徽佔固定寬 1.5 倍的位子、置中 ⇒ 後面的縮寫對齊。量不到（跨網域沒開 CORS、file://）就維持原樣
@@ -15616,12 +15626,13 @@ function render(){
           const chH=r==="HC"?"":`<div class="tbPhC">${chs.map(id=>`<img src="img/champ/${esc(id)}.webp" alt="${esc(id)}" title="${esc(id)}" loading="lazy" onerror="this.onerror=null;this.src='https://ddragon.leagueoflegends.com/cdn/${typeof DDV!=="undefined"?DDV:"15.1.1"}/img/champion/${esc(id)}.png'">`).join("")||`<span class="tbMuted">–</span>`}</div>`;   // 教練不放；沒有今年出賽紀錄寫 –
           return phH(e?{n:e.n,p:pg0(e)}:null,ic,e?tbCls(e):"",kvS([[L[0],ageOf(b&&b[0])],[L[1],ymOf(b&&(r==="HC"?(b[2]||b[1]):b[1]),en2)],[L[2],(z=>z&&typeof z==="object"?`${n1(z.v)} (${z.y})`:n1(z))(sc27(e,r))]])+(e?chH:"")); }).join("");
         const d=document.createElement("div"); d.id="tbTmBox"; d.className="tbTmBox"+(touch()?" sheet":"")+(t.nt?" tbTmOne":"");   /* tbTmOne＝傳聞新隊只有 2027 一塊（使用者 2026-11-23「這兩隊也不用有2026 因為沒得對比」）：高度隨內容 */
-        d.innerHTML=`<div class="tbTmHd">${teamLogoHTML(tAb(t.nm),60,true,t.nm)||teamLogoHTML(tAb(t.tm),60,true,t.tm)||""}<a href="${tmWk(t.nm)}" target="_blank" rel="noopener">${esc(abOf(t.nm))}</a>${(()=>{ /* 右上角：轉會評分＋選手評分（使用者 2026-11-22），跟陣容表評分欄同一個 rateOf */ const rt=RATE?rateOf(t):null, v=rt&&rt.items.length?rt.sum:null; return `<span class="tbTmRt"><span><i>${en2?"Transfer":"轉會評分"}</i>${v==null?`<b class="tbMuted">–</b>`:`<b class="${rcls(rt.lo,rt.hi)}">${rtxI(rt.lo,rt.hi)}</b>`}</span><span><i>${en2?"Players":"選手評分"}</i>${rt&&rt.plN?`<b>${Math.round(rt.pl)}</b>`:`<b class="tbMuted">–</b>`}</span></span>`; })()}<button class="tbTmShot" aria-label="screenshot" title="截圖"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg></button><button class="tbTipX" aria-label="close">✕</button></div>`
+        d.innerHTML=`<div class="tbTmHd">${teamLogoHTML(tAb(t.nm),60,true,t.nm)||teamLogoHTML(tAb(t.tm),60,true,t.tm)||""}<a href="${tmWk(t.nm)}" target="_blank" rel="noopener">${esc(abOf(t.nm))}</a>${(()=>{ /* 右上角：轉會評分＋選手評分（使用者 2026-11-22），跟陣容表評分欄同一個 rateOf */ const rt=RATE?rateOf(t):null, v=rt&&rt.items.length?rt.sum:null; return `<span class="tbTmRt"><span><i>${en2?"Transfer":"轉會評分"}</i>${v==null?`<b class="tbMuted">–</b>`:`<b class="${rcls(rt.lo,rt.hi)}">${rtxI(rt.lo,rt.hi)}</b>`}</span><span><i>${en2?"Players":"選手評分"}</i>${rt&&rt.plN?`<b>${Math.round(rt.pl)}</b>`:`<b class="tbMuted">–</b>`}</span></span>`; })()}<button class="tbTmShot" aria-label="share" title="${en2?"Share":"分享"}"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><path d="M21 4H3l6.5 6.5L12 20z"/><path d="M21 4 9.5 10.5"/></svg></button><button class="tbTipX" aria-label="close">✕</button></div>`
           +(t.nt?"":`<div class="tbTmSec tbTm26"><div class="tbTmYr">2026</div><div class="tbTmG">${y26}</div></div>`)+`<div class="tbTmSec tbTm27"><div class="tbTmYr">2027</div><div class="tbTmG">${y27}</div></div><div class="tbTmData"></div>`;   // 兩年各一塊底色區（使用者 2026-11-22「幫我更好的區分2026 2027」）
         document.body.appendChild(d); d.querySelector(".tbTipX").onclick=()=>d.remove(); d._row=row;
         d.querySelector(".tbTmShot").onclick=()=>tmShot(d,abOf(t.nm)); };
       // 陣容對比截圖（使用者 2026-11-22「戰隊對比小框 要加一個截圖按鈕」「放在X左邊」）：複製一份到畫面外（不固定、不置中、高度照內容、拿掉空的數據區與按鈕）→ html2canvas → 下載 JPG
-      const tmShot=async(d,ab)=>{ const btn=d.querySelector(".tbTmShot"); if(btn.disabled)return; btn.disabled=true; let h=null, rz="";
+      const tmShot=(d,ab)=>{ const btn=d.querySelector(".tbTmShot"); if(btn.disabled)return;
+        const gen=async sink=>{ btn.disabled=true; let h=null, rz="";
         try{
           if(!window.html2canvas)await new Promise((ok,no)=>{ const sc=document.createElement("script"); sc.src="html2canvas.min.js"; sc.onload=ok; sc.onerror=no; document.head.appendChild(sc); });
           rz=document.documentElement.style.zoom; document.documentElement.style.zoom="";
@@ -15633,17 +15644,20 @@ function render(){
           await Promise.all([...h.querySelectorAll("img")].map(i=>i.complete?0:new Promise(r=>{ i.onload=i.onerror=r; })));
           const cv=await html2canvas(h,{backgroundColor:"#1b2338",scale:2000/860,useCORS:true,logging:false,width:860,height:860});
           const dt=new Date(), pad=x=>String(x).padStart(2,"0"), fn=`S17_LoL_${String(ab).replace(/[^\w.-]+/g,"_")}_${pad(dt.getFullYear()%100)}${pad(dt.getMonth()+1)}${pad(dt.getDate())}${pad(dt.getHours())}.jpg`;
-          await new Promise(ok=>cv.toBlob(bl=>{ const a=document.createElement("a"); a.href=URL.createObjectURL(bl); a.download=fn; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),5000); ok(); },"image/jpeg",0.93));
-        }catch(e){ console.warn("tmShot",e); }
+          const bl=await new Promise(ok=>cv.toBlob(ok,"image/jpeg",0.93));
+          if(sink){ const png=sink.png?await new Promise(ok=>cv.toBlob(ok,"image/png")):null; sink.add({bl,fn,png,tag:String(ab)}); }   // 分享視窗：預覽、點開放大自動複製、下載
+          else{ const a=document.createElement("a"); a.href=URL.createObjectURL(bl); a.download=fn; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),5000); }
+        }catch(e){ console.warn("tmShot",e); if(sink&&sink.fail)sink.fail(e); }
         finally{ if(h)h.remove(); if(rz)document.documentElement.style.zoom=rz; btn.disabled=false; } };
+        if(window._trOpenShare)window._trOpenShare(gen,btn); else gen(null); };
       // 預載（使用者 2026-11-22「點頭像讀取的速度幫我加速」）：電腦版滑鼠移到隊徽、手機手指碰到隊名格的當下，就先把那一隊的頭像抓起來，點下去時多半已經在快取裡
       const preTeam=row=>{ if(!row||row._pre)return; row._pre=1; const nm=(row.querySelector(".tbTeam")||{}).title, t=(D.board||[]).find(x=>!x.fa&&x.nm===nm); if(!t)return;
         const ps=new Set(); Object.values((D.s26||{})[t.nm]||(D.s26||{})[t.tm]||{}).forEach(o=>o&&ps.add(o[1]||o[0])); Object.values(t.r||{}).flat().forEach(e=>ps.add(pg0(e)));
         ps.forEach(p=>{ const u=phOf(p)||imgOf(p); if(u){ const i=new Image(); i.decoding="async"; if(!phOf(p))i.referrerPolicy="no-referrer"; i.src=u; } }); };
       bd.addEventListener("mouseover",e=>{ const lg=e.target.closest(".tbTeam img:not(.tbFaIc)"); if(lg&&!lg.closest(".tbFA"))preTeam(lg.closest(".tbRow")); });
       bd.addEventListener("touchstart",e=>{ const tm=e.target.closest(".tbTeam"); if(tm&&!tm.closest(".tbFA"))preTeam(tm.closest(".tbRow")); },{passive:true});
-      if(!window._tbTmOut){ window._tbTmOut=1; document.addEventListener("click",e=>{ const d=document.getElementById("tbTmBox"); if(d&&!e.target.closest("#tbTmBox")&&!e.target.closest(".tbTeam"))d.remove(); });
-        document.addEventListener("keydown",e=>{ if(e.key==="Escape"){ const d=document.getElementById("tbTmBox"); if(d)d.remove(); } }); }
+      if(!window._tbTmOut){ window._tbTmOut=1; document.addEventListener("click",e=>{ const d=document.getElementById("tbTmBox"); if(d&&!e.target.closest("#tbTmBox")&&!e.target.closest(".tbTeam")&&!e.target.closest(".trShD")&&!document.getElementById("trShD"))d.remove(); });
+        document.addEventListener("keydown",e=>{ if(e.key==="Escape"&&!document.getElementById("trShD")){ const d=document.getElementById("tbTmBox"); if(d)d.remove(); } }); }
       const keepTip=()=>{ clearTimeout(tip._ht); tip._hp=0; }, hideSoon=()=>{ clearTimeout(tip._ht); tip._hp=1; tip._ht=setTimeout(()=>{ tip._hp=0; if(!tip.classList.contains("sheet")){ tip.style.display="none"; tip._c=null; } },200); };   // _hp＝200ms 的倒數正在跑（mousemove 會一直進來，不能每次都重新倒數）
       // 移到別的地方立刻收（使用者 2026-11-21「往旁邊移開時 延遲又變大了」）：只有還在同一格裡（正要往小框移動）才給 200ms 緩衝
       const hideNow=()=>{ clearTimeout(tip._ht); tip._hp=0; if(!tip.classList.contains("sheet")){ tip.style.display="none"; tip._c=null; } };
