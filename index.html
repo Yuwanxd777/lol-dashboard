@@ -1724,7 +1724,8 @@
     .trBar .trFG.fgSort,.trBar:not(:has(.fgSort)) .cwrap{flex:1 1 100%!important}
     .trBar>#tsHelp{margin-left:auto}
   }
-  @container mainc (max-width:360px){ html[lang="en"] .trBar .trFG.fgSort{flex:1 1 100%!important} html[lang="en"] .trBar>#tsHelp{margin-left:auto} }   /* 英文 Transfer rating 比中文寬：360 寬的手機跟五顆圖示鈕擠同一列會超框（使用者 2026-11-23）⇒ 英文版門檻放寬到 360 */
+  @container mainc (min-width:331px) and (max-width:370px){ .trBar .tbSortT .trLong{display:none} }   /* 英文排序鈕在窄手機只寫 Transfer／Player／Team（使用者 2026-11-23「英文版 手機篩選列那邊很醜」：原本整列給排序鈕、圖示鈕孤零零掉到下一行） */
+  @container mainc (max-width:380px){ html[lang="en"] .tbLegend .sqLaneBtn:first-child{flex-basis:100%} }   /* 英文圖例三顆擠不下一列時：第一顆自己一列、另兩顆平分第二列（原本 Expired 被擠在右邊、Maybe 那顆獨佔一列，很不平均） */
   @container mainc (max-width:310px){ .trBar .sqLaneBtn[data-mk="trRg"],.trBar .sqLaneBtn[data-mk="trSt"]{font-size:12px!important;letter-spacing:-.3px;padding-left:1px!important;padding-right:1px!important} }   /* 320 寬：六顆賽區鈕每顆只剩 44px，CBLOL（英文版的 Confirmed）會頂到框 */
   #tbTip.sheet{overscroll-behavior:contain;pointer-events:auto!important;left:8px!important;right:8px!important;top:auto!important;bottom:8px!important;max-width:none!important;max-height:72vh;overflow:auto;padding:16px 14px 14px;border-radius:14px;box-shadow:0 -6px 30px rgba(0,0,0,.6)}
   #tbTip.sheet .tpBox,#tbTip.sheet .rtBox{min-width:0}
@@ -15069,10 +15070,10 @@ function render(){
     const newsBtns=FG(en2?"Status":"狀態",mbtns("trSt",[["official",ST.official],["rumor",`<b class="tbY">${ST.rumor}</b>`],["conf",`<b class="trCf">${ST.conf}</b>`],["fake",`<b class="trFk">${ST.fake}</b>`]]),"fgSt")
       /* 類型（加入／離開／其他）那組按鈕已刪（使用者 2026-11-20） */
       /* 來源（公告／SE／PTT／韓網）那組篩選已刪（使用者 2026-11-20） */;
-    const boardBtns=FG(en2?"Show":"顯示",`<span class="tbLegend">${[["add",[["tbNew",en2?"New signing":"新加入",en2?"New":"加入"],["tbRs",en2?"Re-signed & promoted":"續約升職",en2?"Re-sign & promo":""],["tbStay",en2?"Staying":"續留",en2?"Stay":""]]],["out",[["tbExp",en2?"Contract expired":"合約到期未宣布",en2?"Expired":"合約到期"]]],["rum",[["tbOut",en2?"Possible move":"可能轉會",en2?"Maybe":""],["tbY",en2?"Rumor":"傳聞"],["tbRet",en2?"Retired":"退役"]]]]
+    const boardBtns=FG(en2?"Show":"顯示",`<span class="tbLegend">${[["add",[["tbNew",en2?"New signing":"新加入",en2?"New":"加入"],["tbRs",en2?"Re-signed & promoted":"續約升職",en2?"Re-sign/promo":""],["tbStay",en2?"Staying":"續留",en2?"Stay":""]]],["out",[["tbExp",en2?"Contract expired":"合約到期未宣布",en2?"Expired":"合約到期"]]],["rum",[["tbOut",en2?"Possible move":"可能轉會",en2?"Maybe":""],["tbY",en2?"Rumor":"傳聞"],["tbRet",en2?"Retired":"退役"]]]]
         .map(([g,L])=>`<button class="sqLaneBtn tbLgB${F_TB.has(g)?" on":""}" data-mk="tbF" data-v="${g}" title="${en2?"Show these (multi-select, click again to clear)":"只看這幾種（可複選，再點一次取消）"}">${L.map(([c,l,sh])=>`<b class="tbN ${c==="tbGone"?"tbExp tbGone":c}" data-s="${sh||l}">${l}</b>`).join(`<i class="tbLgSep">／</i>`)}</button>`).join("")}`
       +`</span>`)   // 「只看有異動」已刪（使用者 2026-11-20；休賽期幾乎每隊都有異動，沒作用）
-      +FG(en2?"Sort":"排序",`<span style="display:inline-flex;gap:6px"><button class="sqLaneBtn tbSortT on" title="${en2?"Cycle: transfer rating, player rating, team record":"輪流切換：轉會評分 → 選手評分 → 戰績評分"}">${SBT}</button><button class="sqLaneBtn tbWkB${WK?" on":""}" title="${en2?"Underline signings, promotions and re-signings from the last 3 days (click again to turn off)":"最近 3 天的加入、升職、續約在 ID 底下畫底線（再點一次關掉）"}">${en2?"3 days":"近 3 天"}</button></span>`,"fgSort");
+      +FG(en2?"Sort":"排序",`<span style="display:inline-flex;gap:6px"><button class="sqLaneBtn tbSortT on" title="${en2?"Cycle: transfer rating, player rating, team record":"輪流切換：轉會評分 → 選手評分 → 戰績評分"}">${en2?SBT.replace(/ (\w+)$/,'<span class="trLong"> $1</span>'):SBT}</button><button class="sqLaneBtn tbWkB${WK?" on":""}" title="${en2?"Underline signings, promotions and re-signings from the last 3 days (click again to turn off)":"最近 3 天的加入、升職、續約在 ID 底下畫底線（再點一次關掉）"}">${en2?"3 days":"近 3 天"}</button></span>`,"fgSort");
     // 粉專：電腦（網頁版）用粉專網址，手機用分享連結（會直接開 App）（使用者 2026-11-21「臉書按鈕的網址 網頁版改成 https://www.facebook.com/yuwanxd」）
     const TR_FB=(matchMedia("(hover:none)").matches||innerWidth<760)?"https://www.facebook.com/share/1EwfwfRyCF/":"https://www.facebook.com/yuwanxd";
     const metaTx=MODE==="news"?`${shown.length} / ${all.length}${D.at?`・${en2?"updated":"更新"} ${esc(D.at)}`:""}`:(D.at?`${en2?"as of":"截至"} ${esc(D.at)}`:"");
