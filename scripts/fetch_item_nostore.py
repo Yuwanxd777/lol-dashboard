@@ -5,7 +5,7 @@
 才是「已下架」的可靠訊號。圖鑑「當前年份」用這份把已移除道具從清單/合成鏈濾掉（歷史年份仍用 assets.js 服役年份判定）。
 用法：python scripts\\fetch_item_nostore.py
 """
-import io, sys, os, re, json, urllib.request
+import io, sys, os, re, json, time, urllib.request
 
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
 HERE = os.path.dirname(os.path.abspath(__file__)); ROOT = os.path.dirname(HERE)
@@ -13,8 +13,17 @@ UA = {"User-Agent": "Mozilla/5.0"}
 MIN_KEEP = 0.5   # 下架名單只增不太減；掉到一半以下＝來源壞了
 
 
-def g(u):
-    return json.loads(urllib.request.urlopen(urllib.request.Request(u, headers=UA), timeout=30).read())
+def g(u, tries=3, wait=10):
+    # 2026-11-23 10:00 班 CDragon items.json 讀取逾時（socket recv 30s）⇒ exit 1（121 班第 1 次）。
+    # 暫時性網路失敗就地重試，最後一次仍失敗才往外丟（讓 run_update 照樣記成非零離開碼）。
+    for k in range(tries):
+        try:
+            return json.loads(urllib.request.urlopen(urllib.request.Request(u, headers=UA), timeout=30).read())
+        except (OSError, ValueError) as e:   # URLError／TimeoutError／連線重置／殘缺 JSON
+            if k == tries - 1:
+                raise
+            print(f"⚠ 讀取失敗（{type(e).__name__}: {e}），{wait} 秒後重試（第 {k + 2}/{tries} 次）：{u}", flush=True)
+            time.sleep(wait)
 
 
 def clname(n):  # 對齊 index.html clItemName：去括號尾綴、收全形冒號後空白
