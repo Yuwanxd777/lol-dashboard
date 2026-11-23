@@ -12,7 +12,7 @@
 Cargo 失敗就沿用舊檔的 wiki；X 失敗就只用累積檔。
 跑：python scripts/fetch_transfers.py [起始日 YYYY-MM-DD]（預設 FROM；排程 run_update ⑤h3 每班跑一次）
 """
-import datetime, email.utils, html, io, json, os, re, sys, urllib.parse, urllib.request
+import datetime, email.utils, html, io, json, os, re, sys, time, urllib.parse, urllib.request
 
 if (getattr(sys.stdout, "encoding", "") or "").lower().replace("-", "") != "utf8":
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
@@ -497,7 +497,63 @@ def is_t1(x, keys):
     return _t1key(x.get("team")) in keys
 
 
+# ── Leaguepedia 查詢快取（使用者 2026-11-23「能不能加速整個流程」）────────────────────────────
+#   實測一班 255 秒裡 216 秒是對 fandom 的禮貌節流（每次查詢間隔 2 秒 × 107 次；fandom 限流很兇，不能並行）⇒ 少查：
+#   ①歷史賽事（名次、賽段、出賽、升降賽、改名、賽事名單）6 小時重查一次；
+#   ②會隨宣布而變的（新聞、轉會、合約、效力、選手資料）存 45 分鐘：每小時那班（間隔 60 分）照樣抓新的，
+#     同一班「複查後再抓一次」（複查常跑 25～30 分鐘）直接沿用，不再整套重查。
+#   查詢失敗不存；設環境變數 TR_NOCACHE=1 整個略過。檔案＝csv_cache/cargo_tr_cache.json
+CC_PATH = os.path.join(ROOT, "csv_cache", "cargo_tr_cache.json")
+CC_LIVE = ("NewsItems", "RosterChanges", "Contracts", "Tenures", "Players", "PlayerRedirects")
+
+
+def _cargo_cached(B):
+    raw_cargo = B.cargo
+    try:
+        cache = json.load(io.open(CC_PATH, encoding="utf-8")) if os.environ.get("TR_NOCACHE") != "1" else {}
+    except Exception:
+        cache = {}
+    now = time.time(); stat = {"hit": 0, "miss": 0}
+    cache = {k: v for k, v in cache.items() if now - v[0] < 6 * 3600}   # 過期的整個丟掉，檔案不會一直長
+
+    def ttl(params):
+        tb = str(params.get("tables") or "")
+        return 45 * 60 if any(t in tb for t in CC_LIVE) else 6 * 3600
+
+    def cargo(params):
+        k = json.dumps(params, sort_keys=True, ensure_ascii=False)
+        v = cache.get(k)
+        if v and time.time() - v[0] < ttl(params) and os.environ.get("TR_NOCACHE") != "1":
+            stat["hit"] += 1
+            return json.loads(json.dumps(v[1]))   # 深拷貝：呼叫端會改回傳的列
+        r = raw_cargo(params)
+        stat["miss"] += 1
+        cache[k] = [time.time(), r]
+        return r
+
+    def save():
+        try:
+            os.makedirs(os.path.dirname(CC_PATH), exist_ok=True)
+            tmp = CC_PATH + ".tmp"
+            io.open(tmp, "w", encoding="utf-8").write(json.dumps(cache, ensure_ascii=False))
+            os.replace(tmp, CC_PATH)
+        except Exception as e:
+            print(f"Cargo 快取寫入失敗（略過）：{type(e).__name__}")
+        print(f"Cargo 快取：命中 {stat['hit']}、實際查詢 {stat['miss']}")
+    B.cargo = cargo
+    return save
+
+
 def main():
+    import build_predict_live as B_
+    _cc_save = _cargo_cached(B_)
+    try:
+        _main()
+    finally:
+        _cc_save()
+
+
+def _main():
     start = sys.argv[1] if len(sys.argv) > 1 else FROM
     old = {}
     if os.path.exists(OUT):
