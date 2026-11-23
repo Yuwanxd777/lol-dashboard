@@ -165,7 +165,7 @@ const TS=window.TS_DATA||{}; window.TRANSFER_RATE=TS.rate||null; window.TR_CAREE
 let LANG=(()=>{try{return localStorage.getItem("ts_lang")||"zh";}catch(e){return "zh";}})(); if(LANG!=="en")LANG="zh";
 const V=(()=>{try{return JSON.parse(localStorage.getItem("ts_state")||"{}")}catch(e){return{}}})();
 const saveState=()=>{ try{localStorage.setItem("ts_state",JSON.stringify(V));}catch(e){} };
-const esc=s=>String(s).replace(/"/g,"&quot;");
+const esc=s=>String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");   // 完整跳脫（2026-11-23 安全檢查：隊名來自 Leaguepedia，查不到縮寫時原樣顯示）
 const LGC=TS.lgc||{}, POS_IMG=TS.pos||{};
 const TEAM=TS.team||{}, TAB_=TS.ab||{};
 const teamFix=t=>t;
