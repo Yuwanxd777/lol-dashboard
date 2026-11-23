@@ -1135,6 +1135,7 @@
   .tbPhI img.tbPhP{position:absolute;left:0;top:0;width:100%;height:100%;object-fit:cover;object-position:50% 10%}   /* 只裁不變形；人像的臉在上半部，靠上取景 */
   .tbPhI:has(img.tbPhP[style])::after{content:"";position:absolute;left:0;right:0;bottom:0;height:20%;background:linear-gradient(rgba(18,24,38,0),#121826);pointer-events:none}
   .tbPhI img.tbPhL{position:absolute;left:5px;top:5px;width:18px;height:18px;border-radius:4px;background:rgba(11,14,20,.72)}
+  .tbPhI img.tbPhF{position:absolute;right:5px;top:6px;width:24px;height:16px;object-fit:cover;border-radius:3px;box-shadow:0 0 0 1px rgba(0,0,0,.45)}   /* 國籍國旗：右上，跟左上的路線圖示同一條線 */
   .tbPhN{max-width:100%;font-size:14px;font-weight:700;line-height:1.25;overflow-wrap:anywhere;text-decoration:none;color:#e8ecf4}a.tbPhN:hover{text-decoration:underline}   /* 底色白字（連結預設的深藍在深色底上看不到）；狀態顏色由 .tbN.tbY 等規則蓋過 */
   .tpP:first-of-type{margin-top:0}
   /* 分享視窗（使用者 2026-11-21）：電腦置中、手機從底部浮上來 */
@@ -15637,7 +15638,9 @@ function render(){
         const u=imgOf(o.p), h=phOf(o.p), st=fcSt(o.p);
         const im=h?`<img class="tbPhP" src="${esc(h)}" alt="" decoding="async" fetchpriority="high"${u?` data-w="${esc(u)}" data-s="${esc(st.replace(/^ style="|"$/g,""))}"`:""} onerror="if(this.dataset.w){this.src=this.dataset.w;this.setAttribute('style',this.dataset.s||'');this.referrerPolicy='no-referrer';this.dataset.w=''}else this.remove()">`
           :u?`<img class="tbPhP"${st} src="${esc(u)}" alt="" decoding="async" fetchpriority="high" referrerpolicy="no-referrer" onerror="this.remove()">`:"";
-        return `<div class="tbPh"><div class="tbPhI">${im}${lane}</div>`
+        // 國籍國旗放頭像右上（使用者 2026-11-23「陣容小框的頭像右上 放選手國籍圖」）：pbio 第 4 格＝IOC 三碼（transfers_photos 從 Leaguepedia Players.Country 轉），檔＝img/flags/{碼}.png
+        const nb=bioOf(o.p)||bioOf(o.n), nc=nb&&nb[3], fg=nc&&/^[A-Z]{3}$/.test(nc)?`<img class="tbPhF" src="img/flags/${nc}.png" alt="${nc}" title="${nc}" onerror="this.remove()">`:"";
+        return `<div class="tbPh"><div class="tbPhI">${im}${lane}${fg}</div>`
           +`<a class="tbPhN tbN ${cls||"tbStay"}" href="https://lol.fandom.com/wiki/${encodeURIComponent(String(o.p).replace(/ /g,"_"))}" target="_blank" rel="noopener">${esc(nm0(o.n))}</a>${sub||""}</div>`; };
       // 頭像下面的數據列（使用者 2026-11-22）：2026＝攻擊值／防禦值（第三賽段）；2027＝年齡／年資（第一次加入職業隊到今天）／評分（不含成就加分）。沒資料寫「–」，六格高度一致
       const PBIO=D.pbio||{}, PBIOL=lowMap(PBIO), bioOf=p=>{ const q=String(p||"").replace(/_/g," "), k=()=>{ const a=akey(q); return PBIO[a]||PBIOL[String(a).toLowerCase()]; }; return PBIO[p]||PBIO[q]||PBIOL[q.toLowerCase()]||k()||null; };   /* 本名拼法不同也借（akey） */

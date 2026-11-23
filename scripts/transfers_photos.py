@@ -522,13 +522,17 @@ T1_HIST = {"LoL Champions Korea", "LoL The Champions", "Tencent LoL Pro League",
            "World Championship", "Mid-Season Invitational", "First Stand", "Mid-Season Cup 2020", "Esports World Cup"}
 
 
+# 國籍 → 國旗檔名（IOC 三碼，img/flags/{碼}.png）；跟 index.html 的 NAT_ABBR 同一份（陣容對比頭像右上的國旗，使用者 2026-11-23）
+NAT_IOC = {'Taiwan': 'TPE', 'Armenia': 'ARM', 'Iraq': 'IRQ', 'Venezuela': 'VEN', 'China': 'CHN', 'South Korea': 'KOR', 'Korea': 'KOR', 'Japan': 'JPN', 'Vietnam': 'VIE', 'Chinese Taipei': 'TPE', 'Hong Kong': 'HKG', 'Mongolia': 'MGL', 'Philippines': 'PHI', 'Thailand': 'THA', 'Singapore': 'SGP', 'Malaysia': 'MAS', 'Indonesia': 'INA', 'India': 'IND', 'Australia': 'AUS', 'New Zealand': 'NZL', 'United States': 'USA', 'Canada': 'CAN', 'Mexico': 'MEX', 'Guatemala': 'GUA', 'Brazil': 'BRA', 'Argentina': 'ARG', 'Chile': 'CHI', 'Peru': 'PER', 'Colombia': 'COL', 'France': 'FRA', 'Germany': 'GER', 'Spain': 'ESP', 'Portugal': 'POR', 'Italy': 'ITA', 'Greece': 'GRE', 'Poland': 'POL', 'Denmark': 'DEN', 'Sweden': 'SWE', 'Norway': 'NOR', 'Finland': 'FIN', 'Belgium': 'BEL', 'Netherlands': 'NED', 'Czech Republic': 'CZE', 'Slovakia': 'SVK', 'Hungary': 'HUN', 'Austria': 'AUT', 'Switzerland': 'SUI', 'Romania': 'ROU', 'Bulgaria': 'BUL', 'Croatia': 'CRO', 'Serbia': 'SRB', 'Slovenia': 'SLO', 'Lithuania': 'LTU', 'Latvia': 'LAT', 'Estonia': 'EST', 'Ireland': 'IRL', 'Iceland': 'ISL', 'United Kingdom': 'GBR', 'Ukraine': 'UKR', 'Russia': 'RUS', 'Türkiye': 'TUR', 'Turkey': 'TUR', 'Saudi Arabia': 'KSA', 'United Arab Emirates': 'UAE', 'Qatar': 'QAT', 'Kuwait': 'KUW', 'Israel': 'ISR', 'Algeria': 'ALG', 'Tunisia': 'TUN', 'Morocco': 'MAR', 'Egypt': 'EGY', 'South Africa': 'RSA'}
+
+
 def bios(cargo, pages):
     """頁名清單 → {頁名小寫: {"b": 生日 YYYY-MM-DD, "j": 第一次加入職業隊的日子}}。
     生日＝Players.Birthdate（重新導向的舊頁名也查得到：走 PlayerRedirects）；出道＝Tenures 最早的 DateJoin（任何隊、任何職稱）"""
     out = {}
     for i in range(0, len(pages), 40):
         for y in cargo({"tables": "PlayerRedirects=PR,Players=P", "join_on": "PR.OverviewPage=P.OverviewPage",
-                        "fields": "PR.AllName=an,P.OverviewPage=pg,P.Birthdate=b", "where": "PR.AllName IN " + _in(pages[i:i + 40]),
+                        "fields": "PR.AllName=an,P.OverviewPage=pg,P.Birthdate=b,P.Country=n", "where": "PR.AllName IN " + _in(pages[i:i + 40]),
                         "limit": "500", "format": "json"}):
             an = str(y.get("an") or "").lower()
             if an:
@@ -536,6 +540,9 @@ def bios(cargo, pages):
                 b = str(y.get("b") or "")[:10]
                 if re.match(r"\d{4}-\d\d-\d\d$", b) and not b.startswith("0000"):
                     o["b"] = b
+                n_ = NAT_IOC.get(str(y.get("n") or "").strip())
+                if n_:
+                    o["n"] = n_   # 國籍（IOC 三碼）
     pgs = sorted({o["pg"] for o in out.values() if o.get("pg")} | set(pages))
     # 年資只算一級聯賽（使用者 2026-11-22「年資全部改看一級聯賽的 教練也是」）：TournamentPlayers（賽事名單，選手與教練都在上面）×
     #   一級聯賽（現在六大＋它們的前身與併進來的聯賽、國際賽）、正賽（TournamentLevel=Primary、非資格賽）⇒ 最早那個賽事的開打日
@@ -562,7 +569,7 @@ def bios(cargo, pages):
         c = firstc.get(str(o.get("pg") or "").lower()) or firstc.get(p.lower())
         if c:
             o["c"] = c
-    return {k: {x: v for x, v in o.items() if x in ("b", "j", "c")} for k, o in out.items()}
+    return {k: {x: v for x, v in o.items() if x in ("b", "j", "c", "n")} for k, o in out.items()}
 
 
 def predecessors(cargo, teams):
@@ -742,12 +749,12 @@ def build(cargo, year, board, roles=None, alias=None):
         print(f"   效力區間查詢失敗（略過）：{type(e).__name__} {str(e)[:100]}")
     # ④ 生日與出道日（陣容對比 2027 那排的年齡、年資；使用者 2026-11-22「2027 底下列出 年齡 年資(職業時長)」）：每 7 天重查一次
     BI = C.setdefault("bio", {})
-    needb = sorted(p for p in pages if (BI.get(p) or {}).get("t", "") < week or (BI.get(p) or {}).get("v") != 4)
+    needb = sorted(p for p in pages if (BI.get(p) or {}).get("t", "") < week or (BI.get(p) or {}).get("v") != 7)
     if needb:
         try:
             got = bios(cargo, needb)
             for p in needb:
-                BI[p] = dict(got.get(p.lower()) or {}, t=today, v=4)   # v3＝教練年資含分析師；v4＝年資只算一級聯賽
+                BI[p] = dict(got.get(p.lower()) or {}, t=today, v=7)   # v3＝教練年資含分析師；v4＝年資只算一級聯賽；v6＝多抓國籍
             print(f"   隊伍小框：生日／出道日補查 {len(needb)} 人，有生日 {sum(1 for p in needb if BI[p].get('b'))} 人、有出道日 {sum(1 for p in needb if BI[p].get('j'))} 人")
         except Exception as e:
             print(f"   生日／出道日查詢失敗（略過）：{type(e).__name__} {str(e)[:100]}")
@@ -774,5 +781,5 @@ def build(cargo, year, board, roles=None, alias=None):
     pimg = {p: I[p]["u"] for p in sorted(pages) if I.get(p, {}).get("u")}
     pfc = {p: I[p]["f"] for p in sorted(pages) if I.get(p, {}).get("u") and I[p].get("f")}
     pph = heads(I, sorted(pages))
-    pbio = {p: [BI[p].get("b", ""), BI[p].get("j", ""), BI[p].get("c", "")] for p in sorted(pages) if any((BI.get(p) or {}).get(x) for x in ("b", "j", "c"))}   # [生日, 出道日, 第一次當教練]
+    pbio = {p: [BI[p].get("b", ""), BI[p].get("j", ""), BI[p].get("c", ""), BI[p].get("n", "")] for p in sorted(pages) if any((BI.get(p) or {}).get(x) for x in ("b", "j", "c", "n"))}   # 第 4 格＝國籍 IOC 碼   # [生日, 出道日, 第一次當教練]
     return s26, pimg, pfc, pph, pbio

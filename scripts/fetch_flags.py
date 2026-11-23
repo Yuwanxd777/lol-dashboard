@@ -27,6 +27,7 @@ UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.3
 
 # IOC 三碼 → ISO 3166-1 alpha-2（只收 index.html 的 NAT_ABBR 會產出的那些）
 IOC2ISO = {
+    "ARM": "am", "IRQ": "iq", "VEN": "ve",   # 陣容對比選手國籍（2026-11-23）
     "CHN": "cn", "KOR": "kr", "JPN": "jp", "VIE": "vn", "TPE": "tw", "HKG": "hk",
     "MGL": "mn", "PHI": "ph", "THA": "th", "SGP": "sg", "MAS": "my", "INA": "id",
     "IND": "in", "AUS": "au", "NZL": "nz",
