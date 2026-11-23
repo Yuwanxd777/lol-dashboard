@@ -14682,7 +14682,7 @@ function render(){
     const pn=s=>String(s||"").replace(/\s*\([^()]*\)\s*$/,"");
     // 教練欄只列這五種（使用者 2026-11-19「除了總教練 教練 分析師以外的教練都不要列出」「戰略教練也列出」「路線教練也可以」），名字後面標職稱
     const SRN=en2?{HC:"Head Coach",C:"Coach",SC:"Strategic Coach",PC:"Positional Coach",AN:"Analyst"}:{HC:"主教練",C:"教練",SC:"戰略教練",PC:"路線教練",AN:"分析師"};
-    const today=new Date().toISOString().slice(0,10), ymd=s=>s?s.replace(/-/g,"/"):"";
+    const today=new Date().toISOString().slice(0,10), ymd=s=>s?esc(String(s).replace(/-/g,"/")):"";   /* 日期來自資料 ⇒ 也跳脫（安全檢查 2026-11-23） */
     const LG_OF_RG=r=>RG_LG[r]||"";
     const board=(D.board||[]).filter(t=>!F_RG.size||[...F_RG].some(r=>LG_OF_RG(r)===t.lg));
     const bq=q, hitE=e=>bq&&(pn(e.n).toLowerCase().includes(bq)||String(e.p||"").toLowerCase().includes(bq));
@@ -14724,13 +14724,13 @@ function render(){
         // 「到期 2026/11/16」；合約還沒到就宣布離隊的＝提早解約，寫「解約」（使用者 2026-11-21）
         const JD=(e.new||(e.tip&&!e.r&&e.d))?(e.new||e.d):"";
         if(faC)kv.push([en2?"Contract":"合約",faC+(e.c?(e.c<today?`<span class="tbExp">${en2?"expired":"到期"} ${ymd(e.c)}</span>`:(e.gone?`<span class="tbExp">${en2?"terminated":"解約"}${e.gd?" "+ymd(e.gd):""}</span>`:`${en2?"until":"到"} ${ymd(e.c)}`)):`<span class="tbMuted">${en2?"not on record":"無紀錄"}</span>`)]);
-        else if(e.rs&&(!e.c||e.c<today))kv.push([en2?"Contract":"合約",e.rs!=="1"?`${en2?"re-signed through":"續約到"} ${e.rs}`:(en2?"re-signed":"已續約")]);
+        else if(e.rs&&(!e.c||e.c<today))kv.push([en2?"Contract":"合約",e.rs!=="1"?`${en2?"re-signed through":"續約到"} ${esc(e.rs)}`:(en2?"re-signed":"已續約")]);
         else if(JD)kv.push([en2?"Contract":"合約",`${en2?"joined":"加入於"} ${ymd(JD)}`+(e.c&&e.c>=today?`${en2?", until":"，到"} ${ymd(e.c)}`:"")]);   // 剛加入通常還不知道年限 ⇒ 合約與加入併成一行（使用者 2026-11-21）
         else if(e.c)kv.push([en2?"Contract":"合約",e.c<today?`<span class="tbExp">${en2?"expired":"已到期"} ${ymd(e.c)}</span>`:`${en2?"until":"到"} ${ymd(e.c)}`]);
         else if(!e.r)kv.push([en2?"Contract":"合約",`<span class="tbMuted">${en2?"not on record":"無紀錄"}</span>`]);
         // 升職怎麼升的（使用者 2026-11-20「升職怎麼樣的升法 小框要寫」）：職稱異動「教練 → 主教練」；或「從 二隊 上調」
         if(e.pm){ const RZ={"Head Coach":"主教練","Interim Head Coach":"代理主教練","Assistant Coach":"教練","Strategic Coach":"戰略教練","Positional Coach":"路線教練","Coach":"教練","Analyst":"分析師","Head Analyst":"分析師"};
-          kv.push([en2?"Promoted":"升職",typeof e.pm==="string"?e.pm.split(" to ").map(z=>en2?z:(RZ[z.trim()]||z)).join(" → "):(e.from?(en2?`called up from ${tmChip(e.from)}`:`從 ${tmChip(e.from)} 上調`):(en2?"promoted":"升職"))]); }
+          kv.push([en2?"Promoted":"升職",typeof e.pm==="string"?e.pm.split(" to ").map(z=>en2?esc(z):(RZ[z.trim()]||esc(z))).join(" → "):(e.from?(en2?`called up from ${tmChip(e.from)}`:`從 ${tmChip(e.from)} 上調`):(en2?"promoted":"升職"))]); }
         if(JD&&(faC||(e.rs&&(!e.c||e.c<today))))kv.push([en2?"Joined":"加入",ymd(JD)]);
         // 效力（使用者 2026-11-22「續約小框要寫 效力 寫出他目前已經在這隊待了多久 如果中間有斷掉也要把前面的算進去…DK T1 DK 那就要把前後DK的時間合併計算」
         //   「新加入的選手 如果曾經效力過 也要加上這條」）：e.tn＝他在這一隊的歷次效力區間（wiki 的 Tenures，資料端掛的）。
@@ -14751,8 +14751,8 @@ function render(){
         h+=`<div class="tpP"><div class="tpName"><b class="${tbCls(e)}"><a class="tpA" href="https://lol.fandom.com/wiki/${encodeURIComponent(wkPg(e.p||((D.roles||{})[e.n]||[])[1]||e.n))}" target="_blank" rel="noopener">${esc(pn(e.n))}</a></b>${e.sr?`<span class="tpSr">${SRN[e.sr]}</span>`:""}${stPill(e)}</div>`
           +(kv.length?`<div class="tpKv">${kv.map(([k,v])=>`<span>${k}</span><span>${v}</span>`).join("")}</div>`:"")
           // 傳聞引用只留最新的一則（使用者 2026-11-21「小框顯示的傳聞新聞 顯示最新一個就好」）；去向那列照舊列出所有傳聞隊伍
-          +[...(e.r&&e.tip?[[e.d||"",`<div class="tpQ tpGo" data-go="${esc(pn(e.n))}|${e.d||""}|${esc(abOf(t.nm))}"><span>${ymd(e.d).slice(5)}${srcS(e)}</span>${esc(tipTx(e))}</div>`]]:[]),
-          ...(e.ros||(e.ro?[e.ro]:[])).map(o=>[o.d||"",`<div class="tpQ tpGo" data-go="${esc(pn(e.n))}|${o.d||""}|${esc(abOf(o.to))}"><span>${ymd(o.d).slice(5)}${srcS(o)}・${en2?"rumored to join":"傳聞去"} ${tmChip(o.to)}</span>${esc(tipTx(o))}</div>`]),...(e.tips||[]).map(o=>[o.d||"",`<div class="tpQ tpGo" data-go="${esc(pn(e.n))}|${o.d||""}|"><span>${ymd(o.d).slice(5)}${srcS(o)}</span>${esc(tipTx(o))}</div>`])].sort((a,b)=>a[0]<b[0]?1:a[0]>b[0]?-1:0).slice(0,1).map(q=>q[1]).join("")+`</div>`; });
+          +[...(e.r&&e.tip?[[e.d||"",`<div class="tpQ tpGo" data-go="${esc(pn(e.n))}|${esc(e.d||"")}|${esc(abOf(t.nm))}"><span>${ymd(e.d).slice(5)}${srcS(e)}</span>${esc(tipTx(e))}</div>`]]:[]),
+          ...(e.ros||(e.ro?[e.ro]:[])).map(o=>[o.d||"",`<div class="tpQ tpGo" data-go="${esc(pn(e.n))}|${esc(o.d||"")}|${esc(abOf(o.to))}"><span>${ymd(o.d).slice(5)}${srcS(o)}・${en2?"rumored to join":"傳聞去"} ${tmChip(o.to)}</span>${esc(tipTx(o))}</div>`]),...(e.tips||[]).map(o=>[o.d||"",`<div class="tpQ tpGo" data-go="${esc(pn(e.n))}|${esc(o.d||"")}|"><span>${ymd(o.d).slice(5)}${srcS(o)}</span>${esc(tipTx(o))}</div>`])].sort((a,b)=>a[0]<b[0]?1:a[0]>b[0]?-1:0).slice(0,1).map(q=>q[1]).join("")+`</div>`; });
       if(pv.length){ h+=`<div class="tpPv">`   /* 不寫「上一位」標題，靠分隔線隔開（使用者 2026-11-19） */
         +pv.map(p=>{ const o=typeof p==="string"?{n:p}:p, T=tenureP(o);
           // 上一位改成跟上面同一種小卡（使用者 2026-11-19「上一位跟上面合約有續約的UI相近一點」）：名字＋職稱＋標籤，下面 效力／年資 欄位
@@ -15675,7 +15675,7 @@ function render(){
           const k=String(pn(e.n)).toLowerCase(), y=RATE.yr&&RATE.yr[r]&&RATE.yr[r][k]; if(y)return y.sc; const c=(window.TR_CAREER||{})[k]; return c&&c.sc!=null?{v:c.sc,y:c.y}:null; };   /* 2026 沒打一級聯賽的人（Deft、Calix）看生涯紀錄＝最後一個有出賽年份的整年評分，後面標年份（使用者 2026-11-22）；資料＝transfers_career.js（export_transfer_site 產） */   // 選手＝整年評分（跟選手分頁同一個數字；使用者 2026-11-22「2027的評分 我要看的是整年」），沒有今年出賽資料寫 –
         const y27=LANE6.map(([r,ic])=>{ const e=pick27(r==="HC"?cs:((t.r||{})[r]||[])), b=e?bioOf(pg0(e))||bioOf(e.n):null, L=r==="HC"?LC27:L27;
           const ck=e?String(pn(e.n)).toLowerCase():"", chs=e&&r!=="HC"&&RATE&&RATE.ch?(RATE.ch[ck]||((window.TR_CAREER||{})[ck]||{}).ch||[]):[];   /* 今年沒出賽的人＝生涯前三 */
-          const chH=r==="HC"?"":`<div class="tbPhC">${chs.map(id=>`<img src="img/champ/${esc(id)}.webp" alt="${esc(id)}" title="${esc(id)}" loading="lazy" onerror="this.onerror=null;this.src='https://ddragon.leagueoflegends.com/cdn/${typeof DDV!=="undefined"?DDV:"15.1.1"}/img/champion/${esc(id)}.png'">`).join("")||`<span class="tbMuted">–</span>`}</div>`;   // 教練不放；沒有今年出賽紀錄寫 –
+          const chH=r==="HC"?"":`<div class="tbPhC">${chs.filter(id=>/^[A-Za-z0-9_]+$/.test(String(id))).map(id=>`<img src="img/champ/${esc(id)}.webp" alt="${esc(id)}" title="${esc(id)}" loading="lazy" onerror="this.onerror=null;this.src='https://ddragon.leagueoflegends.com/cdn/${typeof DDV!=="undefined"?DDV:"15.1.1"}/img/champion/${esc(id)}.png'">`).join("")||`<span class="tbMuted">–</span>`}</div>`;   // 教練不放；沒有今年出賽紀錄寫 –
           return phH(e?{n:e.n,p:pg0(e)}:null,ic,e?tbCls(e):"",kvS([[L[0],ageOf(b&&b[0])],[L[1],ymOf(b&&(r==="HC"?(b[2]||b[1]):b[1]),en2)],[L[2],(z=>z&&typeof z==="object"?`${n1(z.v)} (${z.y})`:n1(z))(sc27(e,r))]])+(e?chH:"")); }).join("");
         const d=document.createElement("div"); d.id="tbTmBox"; d.className="tbTmBox"+(touch()?" sheet":"")+(t.nt?" tbTmOne":"");   /* tbTmOne＝傳聞新隊只有 2027 一塊（使用者 2026-11-23「這兩隊也不用有2026 因為沒得對比」）：高度隨內容 */
         d.innerHTML=`<div class="tbTmHd">${teamLogoHTML(tAb(t.nm),60,true,t.nm)||teamLogoHTML(tAb(t.tm),60,true,t.tm)||""}<a href="${tmWk(t.nm)}" target="_blank" rel="noopener">${esc(abOf(t.nm))}</a>${(()=>{ /* 右上角：轉會評分＋選手評分（使用者 2026-11-22），跟陣容表評分欄同一個 rateOf */ const rt=RATE?rateOf(t):null, v=rt&&rt.items.length?rt.sum:null; return `<span class="tbTmRt"><span><i>${en2?"Transfer":"轉會評分"}</i>${v==null?`<b class="tbMuted">–</b>`:`<b class="${rcls(rt.lo,rt.hi)}">${rtxI(rt.lo,rt.hi)}</b>`}</span><span><i>${en2?"Players":"選手評分"}</i>${rt&&rt.plN?`<b>${Math.round(rt.pl)}</b>`:`<b class="tbMuted">–</b>`}</span></span>`; })()}<button class="tbTmShot" aria-label="share" title="${en2?"Share":"分享"}"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><path d="M21 4H3l6.5 6.5L12 20z"/><path d="M21 4 9.5 10.5"/></svg></button><button class="tbTipX" aria-label="close">✕</button></div>`
