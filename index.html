@@ -1137,6 +1137,8 @@
   .tbPhI.tbPhE{background:none;border-style:dashed;border-color:rgba(255,255,255,.18)}
   .tbPhI img.tbPhP{position:absolute;left:0;top:0;width:100%;height:100%;object-fit:cover;object-position:50% 10%}   /* 只裁不變形；人像的臉在上半部，靠上取景 */
   .tbPhI:has(img.tbPhP[style])::after{content:"";position:absolute;left:0;right:0;bottom:0;height:20%;background:linear-gradient(rgba(18,24,38,0),#121826);pointer-events:none}
+  .tbTmG>.tbPh.tbPhHid{display:none}.tbPhI.tbPhSwI{cursor:pointer}
+  .tbPhI .tbPhSw{position:absolute;right:5px;bottom:5px;display:inline-flex;align-items:center;gap:2px;padding:2px 5px;border-radius:8px;background:rgba(11,14,20,.8);color:#e6ebf5;font-size:11px;font-weight:700;line-height:1;pointer-events:none}   /* 一路有兩人以上：點頭像換人（使用者 2026-11-24） */
   .tbPhI img.tbPhL{position:absolute;left:5px;top:5px;width:18px;height:18px;border-radius:4px;background:rgba(11,14,20,.72)}
   .tbPhI img.tbPhF{position:absolute;right:6px;top:9px;width:15px;height:10px;object-fit:cover;border-radius:2px;box-shadow:0 0 0 1px rgba(0,0,0,.45)}   /* 國籍國旗：右上，中心跟左上的路線圖示同一條線（使用者 2026-11-23「國旗太大」：24×16 → 15×10） */
   .tbPhN{max-width:100%;font-size:14px;font-weight:700;line-height:1.25;overflow-wrap:anywhere;text-decoration:none;color:#e8ecf4}a.tbPhN:hover{text-decoration:underline}   /* 底色白字（連結預設的深藍在深色底上看不到）；狀態顏色由 .tbN.tbY 等規則蓋過 */
@@ -15694,17 +15696,28 @@ function render(){
         // 2027 的評分：選手＝整年評分（RATE.yr）；主教練＝戰績分（新來的看原隊，留任的看本隊）
         const sc27=(e,r)=>{ if(!e||!RATE)return null; if(r==="HC"){ const mv=e.new||e.r||e.tip||e.pm; return (mv&&e.from)?coachVL(e.from,t.lg):(e.new||e.r||e.tip)?null:(coachV(t.nm)??coachV(t.tm)); }   /* 隊內升任（HLE Mowgli 教練→主教練，沒有 from）：今年帶的就是本隊 */
           const k=String(pn(e.n)).toLowerCase(), y=RATE.yr&&RATE.yr[r]&&RATE.yr[r][k]; if(y)return y.sc; const c=(window.TR_CAREER||{})[k]; return c&&c.sc!=null?{v:c.sc,y:c.y}:null; };   /* 2026 沒打一級聯賽的人（Deft、Calix）看生涯紀錄＝最後一個有出賽年份的整年評分，後面標年份（使用者 2026-11-22）；資料＝transfers_career.js（export_transfer_site 產） */   // 選手＝整年評分（跟選手分頁同一個數字；使用者 2026-11-22「2027的評分 我要看的是整年」），沒有今年出賽資料寫 –
-        const y27=LANE6.map(([r,ic])=>{ const e=pick27(r==="HC"?cs:((t.r||{})[r]||[])), b=e?bioOf(pg0(e))||bioOf(e.n):null, L=r==="HC"?LC27:L27;
+        // 一路有兩個人以上（使用者 2026-11-24「如果該路有兩個人 那對著頭貼按一下 就可以換人」）：先放 pick27 挑的那位，其餘照陣容表格子的順序排在後面（已宣布離隊／退役的不列），
+        //   點頭像輪流換下一位；頭像右下角標「1/2」。年份列的國旗只算畫面上看得到的那位，換人時重算
+        const cand27=L=>{ const p=pick27(L); return p?[p,...L.filter(e=>e!==p&&!/tbGone|tbRet/.test(tbCls(e)))]:[null]; };
+        const swSvg=`<svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h14l-4-4M20 16H6l4 4"/></svg>`;
+        const y27A=LANE6.map(([r,ic])=>{ const cl=cand27(r==="HC"?cs:((t.r||{})[r]||[])); return cl.map((e,i)=>{ const h=tile27(r,ic,e); return cl.length<2?h
+          :h.replace('<div class="tbPh">',`<div class="tbPh${i?" tbPhHid":""}" data-sw="${r}">`).replace('<div class="tbPhI">',`<div class="tbPhI tbPhSwI" title="${en2?"Tap to switch":"點一下換人"}"><span class="tbPhSw">${swSvg}${i+1}/${cl.length}</span>`); }); });
+        const y27=y27A.map(a=>a.join("")).join(""), y27v=y27A.map(a=>a[0]).join("");
+        function tile27(r,ic,e){ const b=e?bioOf(pg0(e))||bioOf(e.n):null, L=r==="HC"?LC27:L27;
           const ck=e?String(pn(e.n)).toLowerCase():"", chs=e&&r!=="HC"&&RATE&&RATE.ch?(RATE.ch[ck]||((window.TR_CAREER||{})[ck]||{}).ch||[]):[];   /* 今年沒出賽的人＝生涯前三 */
           const chH=r==="HC"?"":`<div class="tbPhC">${chs.filter(id=>/^[A-Za-z0-9_]+$/.test(String(id))).map(id=>`<img src="img/champ/${esc(id)}.webp" alt="${esc(id)}" title="${esc(id)}" loading="lazy" onerror="this.onerror=null;this.src='https://ddragon.leagueoflegends.com/cdn/${typeof DDV!=="undefined"?DDV:"15.1.1"}/img/champion/${esc(id)}.png'">`).join("")||`<span class="tbMuted">–</span>`}</div>`;   // 教練不放；沒有今年出賽紀錄寫 –
-          return phH(e?{n:e.n,p:pg0(e)}:null,ic,e?tbCls(e):"",kvS([[L[0],ageOf(b&&b[0])],[L[1],ymOf(b&&(r==="HC"?(b[2]||b[1]):b[1]),en2)],[L[2],(z=>z&&typeof z==="object"?`${n1(z.v)} (${z.y})`:n1(z))(sc27(e,r))]])+(e?chH:"")); }).join("");
+          return phH(e?{n:e.n,p:pg0(e)}:null,ic,e?tbCls(e):"",kvS([[L[0],ageOf(b&&b[0])],[L[1],ymOf(b&&(r==="HC"?(b[2]||b[1]):b[1]),en2)],[L[2],(z=>z&&typeof z==="object"?`${n1(z.v)} (${z.y})`:n1(z))(sc27(e,r))]])+(e?chH:"")); }
         // 年份那列右邊：這一年六人的國旗、不重複、照出現順序（使用者 2026-11-23「陣容小框年份那列的右邊置右 擺上六人的國旗 不重複」）——直接從頭像上的國旗收集
         const flR=html=>{ const all=[...String(html).matchAll(/class="tbPhF(?: tbFlL)?" src="img\/flags\/([A-Z]{3})\.png"/g)].map(m=>m[1]), cnt=c=>all.filter(z=>z===c).length;
           const cs=[...new Set(all)].sort((a,b)=>cnt(b)-cnt(a)||all.indexOf(a)-all.indexOf(b));   /* 排序：人數多的在左（使用者 2026-11-23「國旗排序依照次數 左到右 再來才依照路線」），同人數照路線順序 */ return cs.length?`<span class="tbTmFl">${cs.map(c=>`<img${FL_L.has(c)?' class="tbFlL"':""} src="img/flags/${c}.png" alt="${c}" title="${c}" onerror="this.remove()">`).join("")}</span>`:""; };
         const d=document.createElement("div"); d.id="tbTmBox"; d.className="tbTmBox"+(touch()?" sheet":"")+(t.nt?" tbTmOne":"");   /* tbTmOne＝傳聞新隊只有 2027 一塊（使用者 2026-11-23「這兩隊也不用有2026 因為沒得對比」）：高度隨內容 */
         d.innerHTML=`<div class="tbTmHd">${teamLogoHTML(tAb(t.nm),60,true,t.nm)||teamLogoHTML(tAb(t.tm),60,true,t.tm)||""}<a href="${tmWk(t.nm)}" target="_blank" rel="noopener">${esc(abOf(t.nm))}</a>${(()=>{ /* 右上角：轉會評分＋選手評分（使用者 2026-11-22），跟陣容表評分欄同一個 rateOf */ const rt=RATE?rateOf(t):null, v=rt&&rt.items.length?rt.sum:null; return `<span class="tbTmRt"><span><i>${en2?"Transfer":"轉會評分"}</i>${v==null?`<b class="tbMuted">–</b>`:`<b class="${rcls(rt.lo,rt.hi)}">${rtxI(rt.lo,rt.hi)}</b>`}</span><span><i>${en2?"Players":"選手評分"}</i>${rt&&rt.plN?`<b>${Math.round(rt.pl)}</b>`:`<b class="tbMuted">–</b>`}</span></span>`; })()}<button class="tbTmShot" aria-label="share" title="${en2?"Share":"分享"}"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><path d="M21 4H3l6.5 6.5L12 20z"/><path d="M21 4 9.5 10.5"/></svg></button><button class="tbTipX" aria-label="close">✕</button></div>`
-          +(t.nt?"":`<div class="tbTmSec tbTm26"><div class="tbTmYrR"><div class="tbTmYr">2026</div>${flR(y26)}</div><div class="tbTmG">${y26}</div></div>`)+`<div class="tbTmSec tbTm27"><div class="tbTmYrR"><div class="tbTmYr">2027</div>${flR(y27)}</div><div class="tbTmG">${y27}</div></div><div class="tbTmData"></div>`;   // 兩年各一塊底色區（使用者 2026-11-22「幫我更好的區分2026 2027」）
+          +(t.nt?"":`<div class="tbTmSec tbTm26"><div class="tbTmYrR"><div class="tbTmYr">2026</div>${flR(y26)}</div><div class="tbTmG">${y26}</div></div>`)+`<div class="tbTmSec tbTm27"><div class="tbTmYrR"><div class="tbTmYr">2027</div>${flR(y27v)}</div><div class="tbTmG">${y27}</div></div><div class="tbTmData"></div>`;   // 兩年各一塊底色區（使用者 2026-11-22「幫我更好的區分2026 2027」）
         document.body.appendChild(d); d.querySelector(".tbTipX").onclick=()=>d.remove(); d._row=row;
+        d.querySelectorAll(".tbPhSwI").forEach(el=>el.onclick=ev=>{ ev.stopPropagation(); const ph=el.closest(".tbPh"), all=[...d.querySelectorAll(`.tbPh[data-sw="${ph.dataset.sw}"]`)], i=all.indexOf(ph);
+          ph.classList.add("tbPhHid"); all[(i+1)%all.length].classList.remove("tbPhHid");
+          const yr=d.querySelector(".tbTm27 .tbTmYrR"), old=yr&&yr.querySelector(".tbTmFl"); if(old)old.remove();
+          if(yr)yr.insertAdjacentHTML("beforeend",flR([...d.querySelectorAll(".tbTm27 .tbTmG>.tbPh:not(.tbPhHid)")].map(x=>x.outerHTML).join(""))); });
         d.querySelector(".tbTmShot").onclick=()=>tmShot(d,abOf(t.nm)); };
       // 陣容對比截圖（使用者 2026-11-22「戰隊對比小框 要加一個截圖按鈕」「放在X左邊」）：複製一份到畫面外（不固定、不置中、高度照內容、拿掉空的數據區與按鈕）→ html2canvas → 下載 JPG
       const tmShot=(d,ab)=>{ const btn=d.querySelector(".tbTmShot"); if(btn.disabled)return;
@@ -15714,7 +15727,7 @@ function render(){
           rz=document.documentElement.style.zoom; document.documentElement.style.zoom="";
           h=d.cloneNode(true); h.removeAttribute("id"); h.classList.remove("sheet");
           h.style.cssText="position:absolute;left:-10000px;top:0;transform:none;width:860px;height:860px;max-height:none;overflow:hidden;box-shadow:none";   // 截圖固定正方形 860 → 輸出 2000×2000（使用者 2026-11-22）
-          h.querySelectorAll(".tbTmShot,.tbTipX,.tbTmData:empty").forEach(x=>x.remove()); h.querySelector(".tbTmHd").style.position="static";
+          h.querySelectorAll(".tbTmShot,.tbTipX,.tbTmData:empty,.tbPhSw,.tbPh.tbPhHid").forEach(x=>x.remove());   /* 截圖照畫面上現在選的那位，不帶「1/2」 */ h.querySelector(".tbTmHd").style.position="static";
           h.querySelectorAll("img").forEach(i=>{ i.removeAttribute("onerror"); if(/^https?:/.test(i.src)&&!/lol-transfer\.pages\.dev|github\.io|^https?:\/\/(localhost|127\.)/.test(i.src)&&i.getAttribute("referrerpolicy"))i.remove(); });   // wiki 原圖沒有 CORS，畫進去會讓整張圖不能輸出
           document.body.appendChild(h); if(typeof _fixColorFn==="function")_fixColorFn(h);
           await Promise.all([...h.querySelectorAll("img")].map(i=>i.complete?0:new Promise(r=>{ i.onload=i.onerror=r; })));
