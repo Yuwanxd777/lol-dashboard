@@ -282,7 +282,7 @@ html:not(.tsDesk) #tsCover,html:not(.tsDesk) #tsCap{display:none}`;
 function render(){
 /*__BLOCK__*/
 addBase();
-const at=document.getElementById("tsAt"), T0=window.TRANSFERS||{}; if(at&&T0.at)at.textContent=(LANG==="en"?"as of ":"截至 ")+T0.at; }
+const at=document.getElementById("tsAt"), T0=window.TRANSFERS||{}; if(at&&T0.at)at.textContent=(LANG==="en"?"as of ":"截至 ")+(window._trLt?window._trLt(T0.at):T0.at); }   /* 依看的人的時區顯示（使用者 2026-11-24） */
 // 換語言＝整頁重新載入。瀏覽器重新載入時是照「原本畫面上那個元素現在的位置」還原捲動位置；兩種語言的篩選列高度不同（英文多一行）
 //   ⇒ 明明在最上面換的語言，載入後頁面卻被捲下去 35px，第一個聯賽標題列被欄名列蓋住。這一次不還原、從最上面開始，之後再交還給瀏覽器
 const ls=document.getElementById("tsLang"); if(ls){ ls.value=LANG; ls.onchange=()=>{ try{localStorage.setItem("ts_lang",ls.value);}catch(e){}

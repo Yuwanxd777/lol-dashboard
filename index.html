@@ -14390,6 +14390,12 @@ function render(){
     //   資料來自 Leaguepedia（任何人可編輯）、X 推文、PTT ⇒ 這一段一律用完整跳脫（& < > " '）；連結網址只收 http(s)，其他（javascript:、data:）一律換成 #
     const esc=s=>String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");
     const safeU=u=>{ const z=String(u||"").trim(); return /^https?:\/\//i.test(z)?z:"#"; };
+    // 時區（使用者 2026-11-24「可以依照使用者IP去調整顯示時間嗎」）：資料裡的時間都是台灣時間（UTC+8）⇒ 顯示時換成看的人裝置的時區
+    //   用瀏覽器時區不用 IP：靜態網站拿不到 IP、IP 查時區要打外部服務還會被 VPN 騙；裝置時區就是對方手錶上的時間。只換有時分的字串，純日期不動
+    const lt=s=>{ const m=/^(\d{4}-\d\d-\d\d)[ T](\d\d:\d\d)/.exec(String(s||"")); if(!m)return String(s||""); const z=new Date(Date.parse(`${m[1]}T${m[2]}:00+08:00`)); if(isNaN(z))return String(s);
+      const p=n=>String(n).padStart(2,"0"); return `${z.getFullYear()}-${p(z.getMonth()+1)}-${p(z.getDate())} ${p(z.getHours())}:${p(z.getMinutes())}`; };
+    const TZM=-new Date().getTimezoneOffset(), tzL=TZM===480?"":` (UTC${TZM<0?"−":"+"}${Math.floor(Math.abs(TZM)/60)}${Math.abs(TZM)%60?":"+String(Math.abs(TZM)%60).padStart(2,"0"):""})`;   // 不在台灣時區才在更新時間後面標時區
+    window._trLt=s=>lt(s)+(/\d\d:\d\d/.test(String(s||""))?tzL:"");   // 轉會網站頁首的「截至」也用（scripts/export_transfer_site.py）
     const en2=LANG==="en";
     if(!window.TRANSFERS){ main.innerHTML=`<div class="card"><span class="sumEmpty">${en2?"Loading…":"載入中"}</span></div>`;
       lazyLoad("tr").then(()=>{ if(!window.TRANSFERS)window.TRANSFERS={wiki:[],sheep:[]}; if(curView==="轉會")render(); }); return; }
@@ -14656,11 +14662,12 @@ function render(){
       return (link?lkA(link,x.s==="kr"?SRCN.kr:dom(link),x.srcNm):"")+(x.ptt&&x.ptt!==link&&(x.s==="kr"||/ptt\.cc/.test(x.ptt))?lkA(x.ptt,"PTT"):"")+yt; };   // 原文在別處（韓網、微博爆料）時另附 PTT 轉貼（使用者 2026-11-22「微博爆料文…標示好」）
     // 消息預設只列最近 3 天（使用者 2026-11-22「全做」——整體檢視時的建議：兩百多則一次全列，手機要滑三萬多 px）：
     //   沒有任何篩選／搜尋時才收（有篩選就全列，不然會以為沒有符合的）；最下面一顆按鈕展開全部，展開後這次開著網頁都維持展開
-    const NEWS_DAYS=3, nDts=[...new Set(groups.map(x=>x.d.slice(0,10)))].sort().reverse(), nCut=(!window._trNewsAll&&shown.length===all.length&&nDts.length>NEWS_DAYS)?nDts[NEWS_DAYS-1]:"";
+    if(TZM!==480)groups.sort((a,b)=>lt(b.d).slice(0,10).localeCompare(lt(a.d).slice(0,10)));   // 換成當地時間後跨日的消息歸到當地那天（穩定排序，同一天裡順序不變）
+    const NEWS_DAYS=3, nDts=[...new Set(groups.map(x=>lt(x.d).slice(0,10)))].sort().reverse(), nCut=(!window._trNewsAll&&shown.length===all.length&&nDts.length>NEWS_DAYS)?nDts[NEWS_DAYS-1]:"";
     let lastD="", rows="", nMore=0;
-    groups.forEach(x=>{ const d=x.d.slice(0,10);
-      if(nCut&&d<nCut){ nMore++; return; }
-      if(d!==lastD){ rows+=`<div class="trDay">${+d.slice(5,7)}/${+d.slice(8,10)}</div>`; lastD=d; }
+    groups.forEach(x=>{ const d=x.d.slice(0,10), ld=lt(x.d).slice(0,10);   // d＝台灣日期（data-d，小框跳轉用）；ld＝當地日期（分日標題）
+      if(nCut&&ld<nCut){ nMore++; return; }
+      if(ld!==lastD){ rows+=`<div class="trDay">${+ld.slice(5,7)}/${+ld.slice(8,10)}</div>`; lastD=ld; }
       const f=flowOf(x);
       const flow=f.span!=null?`<div class="trSpan">${f.span}</div>`
         :`<div class="trFrom">${f.from}</div><span class="trAT"><span class="trArr">➜</span><div class="trTo">${f.to}</div></span>`;
@@ -15133,7 +15140,7 @@ function render(){
       +FG(en2?"Sort":"排序",`<span style="display:inline-flex;gap:6px"><button class="sqLaneBtn tbSortT on" title="${en2?"Cycle: transfer rating, player rating, team record":"輪流切換：轉會評分 → 選手評分 → 戰績評分"}">${en2?SBT.replace(/ (\w+)$/,'<span class="trLong"> $1</span>'):SBT}</button><button class="sqLaneBtn tbWkB${WK?" on":""}" title="${en2?"Underline signings, promotions and re-signings from the last 3 days (click again to turn off)":"最近 3 天的加入、升職、續約在 ID 底下畫底線（再點一次關掉）"}">${en2?"3 days":"近 3 天"}</button></span>`,"fgSort");
     // 粉專：電腦（網頁版）用粉專網址，手機用分享連結（會直接開 App）（使用者 2026-11-21「臉書按鈕的網址 網頁版改成 https://www.facebook.com/yuwanxd」）
     const TR_FB=(matchMedia("(hover:none)").matches||innerWidth<760)?"https://www.facebook.com/share/1EwfwfRyCF/":"https://www.facebook.com/yuwanxd";
-    const metaTx=MODE==="news"?`${shown.length} / ${all.length}${D.at?`・${en2?"updated":"更新"} ${esc(D.at)}`:""}`:(D.at?`${en2?"as of":"截至"} ${esc(D.at)}`:"");
+    const metaTx=MODE==="news"?`${shown.length} / ${all.length}${D.at?`・${en2?"updated":"更新"} ${esc(lt(D.at))}${tzL}`:""}`:(D.at?`${en2?"as of":"截至"} ${esc(lt(D.at))}${tzL}`:"");
     main.innerHTML=`<div class="filters trBar">`+modeBtns+rgBtns+(MODE==="news"?newsBtns:boardBtns)
       // 搜尋放最右邊（使用者 2026-11-20「篩選列重新調整一下 搜尋應該在最右邊」）
       +`<span style="flex:1"></span><span class="meta">${metaTx}</span>`
