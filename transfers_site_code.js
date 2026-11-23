@@ -6,7 +6,7 @@ const TS=window.TS_DATA||{}; window.TRANSFER_RATE=TS.rate||null; window.TR_CAREE
 let LANG=(()=>{try{return localStorage.getItem("ts_lang")||"zh";}catch(e){return "zh";}})(); if(LANG!=="en")LANG="zh";
 const V=(()=>{try{return JSON.parse(localStorage.getItem("ts_state")||"{}")}catch(e){return{}}})();
 const saveState=()=>{ try{localStorage.setItem("ts_state",JSON.stringify(V));}catch(e){} };
-const esc=s=>String(s).replace(/"/g,"&quot;");
+const esc=s=>String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");   // 完整跳脫（2026-11-23 安全檢查：隊名來自 Leaguepedia，查不到縮寫時原樣顯示）
 const LGC=TS.lgc||{}, POS_IMG=TS.pos||{};
 const TEAM=TS.team||{}, TAB_=TS.ab||{};
 const teamFix=t=>t;
@@ -122,6 +122,10 @@ html:not(.tsDesk) #tsCover,html:not(.tsDesk) #tsCap{display:none}`;
   document.getElementById("tsReset").onclick=()=>{ Object.assign(V,{trSrc:"",trSt:"",trRg:"",trKd:"",trQ:"",tbF:"",tbSort:"",tbWk:false}); saveState(); render(); }; }
 function render(){
     (()=>{
+    // 安全（使用者 2026-11-23「我觀眾說網站有漏洞跟安全問題 幫我檢查」）：全站的 esc 只跳脫雙引號 ⇒ 消息內文裡的 <img src=x onerror=…> 會變成真的標籤執行（注入測試實測）。
+    //   資料來自 Leaguepedia（任何人可編輯）、X 推文、PTT ⇒ 這一段一律用完整跳脫（& < > " '）；連結網址只收 http(s)，其他（javascript:、data:）一律換成 #
+    const esc=s=>String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");
+    const safeU=u=>{ const z=String(u||"").trim(); return /^https?:\/\//i.test(z)?z:"#"; };
     const en2=LANG==="en";
     if(!window.TRANSFERS){ main.innerHTML=`<div class="card"><span class="sumEmpty">${en2?"Loading…":"載入中"}</span></div>`;
       lazyLoad("tr").then(()=>{ if(!window.TRANSFERS)window.TRANSFERS={wiki:[],sheep:[]}; if(curView==="轉會")render(); }); return; }
@@ -377,7 +381,7 @@ function render(){
       if(g){ g._items.push(x); g._last=x; if(x.tags)g.tags=[...new Map([...(g.tags||[]),...x.tags].map(t=>[t[1]+"|"+(t[2]||""),t])).values()];
         if(g.kind!==x.kind)g.kind=/join|both/.test(g.kind)&&/leave|both/.test(x.kind)||/leave|both/.test(g.kind)&&/join|both/.test(x.kind)?"both":g.kind; return; }
       groups.push({...x,_k:k,_items:[x],_last:x}); });
-    const lkA=(u,l,ti)=>` <a class="trLk" href="${esc(u)}" target="_blank" rel="noopener" title="${esc(ti||"")}">${l} ↗</a>`;
+    const lkA=(u,l,ti)=>` <a class="trLk" href="${esc(safeU(u))}" target="_blank" rel="noopener" title="${esc(ti||"")}">${l} ↗</a>`;
     // 韓網：連結標韓網原文（使用者要求），另附 PTT 轉貼
     const lkOf=x=>{ const link=x.s==="wiki"?x.src:x.url; if(x.s==="heard"&&!link)return "";   // 聽說：不標來源（使用者 2026-11-22「聽說 就不用標來源超連結」）
       // 來源連結照網域寫名字（使用者 2026-11-20「來源 ↗ 如果是 X 要寫 X ↗」）
@@ -447,7 +451,7 @@ function render(){
       // 只有傳聞的：這一列的標題直接寫「傳聞」，後面不再另外標（使用者 2026-11-21「如果FA小框的去向 寫的是傳聞…那就把去向改寫成傳聞」）
       return off.length?[[en2?"Joined":"加入",tmChip(off[0].tm)]]:[[en2?"Rumor":"傳聞",L.slice(0,3).map(o=>tmChip(o.tm)).join(" ")]]; };
     // 來源名稱：Sheep Esports 一律寫 SE；有網址就做成超連結（使用者 2026-11-20「Sheep 的來源就寫 SE 然後超連結」）。沒寫來源的是 Sheep 的推文
-    const srcA=o=>{ const nm=o.src==="聽說"?SRCN.heard:/weibo\.(com|cn)/.test(o.u||"")?(en2?"Weibo":"微博"):(!o.src||o.src==="Sheep Esports")?"SE":o.src==="韓網"?SRCN.kr:o.src==="官方"?SRCN.man:o.src, u=o.u||"";   /* 英文版：韓網→Korean media、官方→Announcement（跟消息頁同一套名稱） */ return /^https?:/.test(u)?`<a class="tpSrc" href="${esc(u)}" target="_blank" rel="noopener">${esc(nm)}</a>`:esc(nm); };
+    const srcA=o=>{ const nm=o.src==="聽說"?SRCN.heard:/weibo\.(com|cn)/.test(o.u||"")?(en2?"Weibo":"微博"):(!o.src||o.src==="Sheep Esports")?"SE":o.src==="韓網"?SRCN.kr:o.src==="官方"?SRCN.man:o.src, u=o.u||"";   /* 英文版：韓網→Korean media、官方→Announcement（跟消息頁同一套名稱） */ return /^https?:\/\//i.test(u)?`<a class="tpSrc" href="${esc(safeU(u))}" target="_blank" rel="noopener">${esc(nm)}</a>`:esc(nm); };
     const srcS=o=>(o.src==="聽說"||o.src==="官方")&&!/^https?:/.test(o.u||o.url||"")?"":"・"+srcA(o);   // 小框日期後面的「・來源」；使用者口頭給的（聽說、沒連結的官方：Lxz）不標（使用者 2026-11-22）
     const tipTx=o=>{ const s=en2?(o.tipE||(D.tipEn||{})[o.tip]||o.tip):o.tip; return TNRE?String(s||"").replace(TNRE,n=>TNL.get(n.toLowerCase())||n):s; };   // 小框引用句的隊名也寫縮寫（使用者 2026-11-21「小框的資訊以後也都要同步改」）   // 英文版引用句：資料端的中→英對照（tipEn），手動名單自帶 tipE
     const cellTip=(t,r)=>{ const es=colE(t,r), pv=colP(t,r);
