@@ -14842,7 +14842,7 @@ function render(){
       { const want=new Set(); (D.board||[]).forEach(t=>Object.values(t.r||{}).flat().forEach(e=>want.add(String(pn(e.n)).toLowerCase())));
         const cc={}; for(const o of LANES){ const r=o.raw; for(const side of [0,1]){ const p=r[C.blue_playername+(side?RB:0)], c=r[C.blue_champion+(side?RB:0)]; if(!p||!c)continue;
             const k=String(p).toLowerCase(); if(!want.has(k))continue; const m=cc[k]||(cc[k]={}), id=champId(c); m[id]=(m[id]||0)+1; } }
-        res.ch={}; for(const k in cc)res.ch[k]=Object.entries(cc[k]).sort((x,y)=>y[1]-x[1]||(x[0]<y[0]?-1:1)).slice(0,3).map(x=>x[0]); }
+        res.ch={}; res.chn={}; for(const k in cc){ res.ch[k]=Object.entries(cc[k]).sort((x,y)=>y[1]-x[1]||(x[0]<y[0]?-1:1)).slice(0,3).map(x=>x[0]); res.chn[k]=Object.keys(cc[k]).length; } }   // chn＝今年所有比賽（不分賽事）用過幾隻不同英雄（陣容對比 2026 那排的「角色池」，使用者 2026-11-23）
       res.md={}; for(const r of ["TOP","JNG","MID","BOT","SUP"]){ const vs=Object.values(res.pl[r]).map(x=>x.v).sort((a,b)=>a-b), h=vs.length>>1;
         res.md[r]=vs.length?(vs.length%2?vs[h]:(vs[h-1]+vs[h])/2):null; }
       res.plY={};   // 不再退回全年評分：沒打的賽段就是 0 分
@@ -15669,7 +15669,7 @@ function render(){
         // 2026 主教練：先用 wiki 查到的（s26.HC＝那一年當主教練天數最多的人；使用者 2026-11-22「如果不知道2026原教練是誰 就去翻WIKI」），查不到才用陣容表推的
         // 頭像下的數據（使用者 2026-11-22）：選手 2026＝攻擊值／防禦值（第三賽段），2027＝年齡／年資／評分（不含成就加分）；
         //   主教練 2026＝勝率／第三賽段成績（本隊第三賽段＋世界賽，跟戰績評分的小框同一份 RATE.s3），2027＝年齡／教練年資／評分（戰績分）
-        const L26=en2?["KDA","Rating","POG/M"]:["KDA","評分","POG/M"], L27=en2?["Age","Exp","Rating"]:["年齡","年資","評分"], LC26=en2?["WR","Result"]:["勝率","成績"], LC27=en2?["Age","Exp","Rating"]:["年齡","年資","評分"]   /* 標籤寫「年資」（使用者 2026-11-22），內容仍是教練年資（含分析師） */;
+        const L26=en2?["Pool","KDA","Rating","POG/M"]:["角色池","KDA","評分","POG/M"], L27=en2?["Age","Exp","Rating"]:["年齡","年資","評分"], LC26=en2?["WR","Result"]:["勝率","成績"], LC27=en2?["Age","Exp","Rating"]:["年齡","年資","評分"]   /* 標籤寫「年資」（使用者 2026-11-22），內容仍是教練年資（含分析師） */;
         const tkA=[t.nm,t.tm].filter(Boolean).map(n=>teamFix(String(tAb(n)||n))), swF=f=>{ for(const k of tkA){ const z=RATE&&(RATE[f]||{})[k]; if(z&&z.n)return z; } return null; };
         const tk=tkA[0], sw3=swF("sw")||swF("swY"), wr3=sw3?sw3.w/sw3.n:null;   /* 沒打第三賽段的隊（UP、OMG）退回整年大場勝率；nm 查不到再用 tm（2026-11-22 全面檢視） */   // 主教練勝率＝大場勝率（RATE.sw）
         // 角色池小圖（2026、2027 兩排共用）：ids＝英雄代碼，只收英數（onerror 裡會寫進 JS 字串）
@@ -15680,9 +15680,9 @@ function render(){
           if(r==="HC")return phH(o,ic,cls26(o),kvS([[LC26[0],wr3==null?"–":Math.round(wr3*100)+"%"],["S1",nw(rkX(t.s1))],["S2",nw(rkX(t.s2))],["S3",nw(rkS(t)||"–")]]));
           const a=o&&RATE&&RATE.yr&&RATE.yr[r]?RATE.yr[r][String(pn(o.n)).toLowerCase()]:null;   // 整年（RATE.yr）
           const cnt=v=>v==null?"–":String(v);   // POG／POM 次數（使用者 2026-11-22「2026 加上兩列 POG POM」）；LCK 隊不列 POG（使用者「LCK就不要放POG」：LCK 只發 POM）
-          // 2026 那排（使用者 2026-11-23「資料改成 角色池 KDA 評分 POG/M(這兩個合併列)」）：角色池＝今年出賽前三（RATE.ch，沒有寫 –）；評分＝整年評分；LCK 只發 POM ⇒ 那列寫 POM
-          const ch26=o&&RATE&&RATE.ch?RATE.ch[String(pn(o.n)).toLowerCase()]:null;
-          return phH(o,ic,cls26(o),(o?chP(ch26):"")+kvS([[L26[0],a&&a.kda!=null?a.kda.toFixed(1):"–"],[L26[1],n1(a&&a.sc)],t.lg==="LCK"?["POM",cnt(a&&a.pm)]:[L26[2],`${cnt(a&&a.pg)}/${cnt(a&&a.pm)}`]])); }).join("");
+          // 2026 那排（使用者 2026-11-23「資料改成 角色池 KDA 評分 POG/M(這兩個合併列)」）：角色池＝今年所有比賽用過幾隻不同英雄（RATE.chn；使用者「他所有無論什麼比賽 使用過的角色數量」）；評分＝整年評分；LCK 只發 POM ⇒ 那列寫 POM
+          const pool=o&&RATE&&RATE.chn?RATE.chn[String(pn(o.n)).toLowerCase()]:null;
+          return phH(o,ic,cls26(o),kvS([[L26[0],pool==null?"–":String(pool)],[L26[1],a&&a.kda!=null?a.kda.toFixed(1):"–"],[L26[2],n1(a&&a.sc)],t.lg==="LCK"?["POM",cnt(a&&a.pm)]:[L26[3],`${cnt(a&&a.pg)}/${cnt(a&&a.pm)}`]])); }).join("");
         if(RATE&&!t._scM&&typeof rateOf==="function")rateOf(t);
         // 2027 的評分：選手＝整年評分（RATE.yr）；主教練＝戰績分（新來的看原隊，留任的看本隊）
         const sc27=(e,r)=>{ if(!e||!RATE)return null; if(r==="HC"){ const mv=e.new||e.r||e.tip||e.pm; return (mv&&e.from)?coachVL(e.from,t.lg):(e.new||e.r||e.tip)?null:(coachV(t.nm)??coachV(t.tm)); }   /* 隊內升任（HLE Mowgli 教練→主教練，沒有 from）：今年帶的就是本隊 */

@@ -312,7 +312,7 @@ EXPORT_JS = r"""()=>{
   names.forEach(n=>{ const a=teamFix(String(tAb(n)||"")); const h=teamLogoHTML(tAb(n),22,true,n)||""; const m=/src="([^"]+)"/.exec(h);
     team[n]={ab:a||n, logo:m?m[1]:""}; if(a&&m&&!ab[a])ab[a]={ab:a,logo:m[1]}; });
   const R=window._tbRC||null;
-  return {rate:R?{pl:R.pl,plY:R.plY||{},R:R.R||{},md:R.md,tm:R.tm,wr:R.wr||{},s3:R.s3||{},sw:R.sw||{},swY:R.swY||{},cp:R.cp||{},yr:R.yr||{},ch:R.ch||{}}:null, team, ab, lgc:LGC, pos:POS_IMG,
+  return {rate:R?{pl:R.pl,plY:R.plY||{},R:R.R||{},md:R.md,tm:R.tm,wr:R.wr||{},s3:R.s3||{},sw:R.sw||{},swY:R.swY||{},cp:R.cp||{},yr:R.yr||{},ch:R.ch||{},chn:R.chn||{}}:null, team, ab, lgc:LGC, pos:POS_IMG,
           help:{zh:TAB_HELP["轉會"]||"", en:(window.TAB_HELP_EN||(typeof TAB_HELP_EN!=="undefined"?TAB_HELP_EN:{}))["轉會"]||""}};
 }"""
 
