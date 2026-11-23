@@ -823,9 +823,60 @@ def _main():
         print(f"國際賽資歷分：{len(intl)} 人")
     except Exception as e_:
         print(f"   國際賽資歷分失敗（沿用舊的 {len(intl)} 人）：{type(e_).__name__} {str(e_)[:100]}")
-    _joined = {(p_, x_["d"]) for x_ in wiki if x_.get("kind") == "join" for p_, _ in PL_RE.findall(x_.get("en") or "")}
-    _dup = lambda x_: x_.get("kind") == "leave" and bool(PL_RE.findall(x_.get("en") or "")) and all((p_, x_["d"]) in _joined for p_, _ in PL_RE.findall(x_.get("en") or ""))
-    wiki = [x_ for x_ in wiki if not _dup(x_)]   # RED「Morttheus 離隊」＋VKS「Morttheus 加入」同一天 ⇒ 只留加入那列（原隊欄本來就會標 RED）
+    # 同一天在 A 隊離隊、在 B 隊加入的人 ⇒ 消息只留 B 隊「加入」那列（原隊欄本來就會標 A），時間就是加入那則的時間
+    #   （RED「Morttheus 離隊」＋VKS「Morttheus 加入」；使用者 2026-11-23「像是 delight 這種加入離隊同一天的要合併 時間算加入的那瞬間」：
+    #    HLE「Life、Sonstar 加入。Delight 離隊。」＋DK「Delight 加入。Career 離隊。」⇒ HLE 那則拿掉 Delight 離隊那句）
+    #   一則裡有加入也有離隊（kind both）時只拿掉離隊句裡那幾個人；整句拿光就刪句，整則只剩加入就改成 join，什麼都不剩就整則不列。陣容表在這之前已建好，不受影響
+    _TOK = re.compile(r"(?:§[A-Z]+§)?‹[^›]+›(?:\s*\([^)]*\)|（[^）]*）)?")
+
+    def _clauses(x_):
+        """[(英文句, 中文句, 是不是離隊句)]：英文以「. 」切、中文以「。」切，兩邊句數對得上才拆（對不上回 None，不動那則）"""
+        en_ = [c.strip() for c in re.split(r"(?<=\.)\s+(?=(?:§[A-Z]+§)?‹)", (x_.get("en") or "").strip()) if c.strip()]
+        zh_ = [c.strip() for c in re.split(r"(?<=。)\s*", (x_.get("zh") or "").strip()) if c.strip()]
+        if not en_ or len(en_) != len(zh_):
+            return None
+        return [(e_, z_, bool(re.search(r"\bleaves?\.?$", e_))) for e_, z_ in zip(en_, zh_)]
+
+    _joined = set()
+    for x_ in wiki:
+        if x_.get("kind") in ("join", "both"):
+            for e_, z_, lv_ in (_clauses(x_) or [(x_.get("en") or "", "", False)]):
+                if not lv_:
+                    _joined |= {(p_, (x_.get("d") or "")[:10], x_.get("team")) for p_, _ in PL_RE.findall(e_)}
+    _jd = {(p_, d_) for p_, d_, _ in _joined}
+    _jt = {(p_, d_): t_ for p_, d_, t_ in _joined}
+
+    def _drop_left(x_):
+        if x_.get("kind") not in ("leave", "both"):
+            return x_
+        d_ = (x_.get("d") or "")[:10]
+        cl_ = _clauses(x_)
+        if cl_ is None:   # 句子拆不開：整則都是離隊、而且每個人都在別隊加入才拿掉（舊規則）
+            ps_ = PL_RE.findall(x_.get("en") or "")
+            return None if x_.get("kind") == "leave" and ps_ and all((p_, d_) in _jd and _jt[(p_, d_)] != x_.get("team") for p_, _ in ps_) else x_
+        out_e, out_z, changed = [], [], False
+        for e_, z_, lv_ in cl_:
+            if not lv_:
+                out_e.append(e_); out_z.append(z_); continue
+            te_ = [t_ for t_ in _TOK.findall(e_)]
+            tz_ = [t_ for t_ in _TOK.findall(z_)]
+            keep = lambda t_: not any((p_, d_) in _jd and _jt[(p_, d_)] != x_.get("team") for p_, _ in PL_RE.findall(t_))
+            ke, kz = [t_ for t_ in te_ if keep(t_)], [t_ for t_ in tz_ if keep(t_)]
+            if len(ke) == len(te_) and len(kz) == len(tz_):
+                out_e.append(e_); out_z.append(z_); continue
+            changed = True
+            if ke and kz:
+                out_e.append((ke[0] if len(ke) == 1 else ", ".join(ke[:-1]) + " and " + ke[-1]) + (" leaves." if len(ke) == 1 else " leave."))
+                out_z.append("、".join(kz) + " 離隊。")
+        if not changed:
+            return x_
+        if not out_e:
+            return None
+        y_ = dict(x_, en=" ".join(out_e), zh=" ".join(out_z))
+        if not any(re.search(r"\bleaves?\.?$", e_) for e_ in out_e):
+            y_["kind"] = "join"
+        return y_
+    wiki = [y_ for y_ in (_drop_left(x_) for x_ in wiki) if y_]
     # WIKI 的日期是美國太平洋時間的「日期」（沒有時分），亞洲隊伍早上發的公告會被記成前一天（KRX 11/17 08:00 台灣時間的離隊公告，wiki 記 11/16）
     #   ⇒ 換成台灣時間（使用者 2026-11-20「wiki 的消息時間好像不是標記台灣時間 要幫我轉換」）：
     #   ①來源是 X 貼文：貼文編號本身帶發文時間（snowflake）⇒ 直接換算，精確到分；
