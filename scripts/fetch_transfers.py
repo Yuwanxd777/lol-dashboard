@@ -649,7 +649,7 @@ def main():
             cl_ = [c_.strip() for c_ in re.split(r"[；;]", re.sub(r"‹[^|›]+\|([^›]+)›", r"\1", re.sub(r"§[A-Z]+§", "", zh0_)).rstrip("。")) if c_.strip()]
             hit_ = [c_ for c_ in cl_ if re.search(r"(?<![A-Za-z0-9])" + re.escape(nm_) + r"(?![A-Za-z0-9])", c_)]
             zh_ = tp_[0] if tp_ and tp_[0] else ("；".join(hit_) + "。" if hit_ and len(hit_) < len(cl_) else zh0_)
-            synth.append({"d": x["d"], "st": x.get("st") or "rumor", "kind": "join", "src": "韓網" if x.get("src") == "韓網" else ("Sheep Esports" if x.get("src") == "Sheep Esports" else ("聽說" if x.get("src") == "聽說" else "PTT")), "url": x.get("url") or x.get("ptt") or "",
+            synth.append({"d": x["d"], "st": x.get("st") or "rumor", "kind": "join", "src": x.get("src") or "PTT",   # 來源名照原樣（含手動加的 X 帳號如 Rostermania，使用者 2026-11-23） "url": x.get("url") or x.get("ptt") or "",
                           "zh": zh_, "en": _en_for(x, nm_), "who": [nm_, pg_, lane_],
                           "tags": ([["", fr_, "out"]] if fr_ else []) + [["", to_, "in"]]})
             if lane_ == "COACH" and nm_ in (x.get("hc") or []):
@@ -693,7 +693,7 @@ def main():
                     tip_ = ("；".join(hit_) + "。") if hit_ and len(hit_) < len(cl_) else plain_
                     if not tip_ or not tm_:
                         continue
-                    o_ = {"d": x["d"][:10], "src": "韓網" if x.get("src") == "韓網" else ("Sheep Esports" if x.get("src") == "Sheep Esports" else ("聽說" if x.get("src") == "聽說" else "PTT")),
+                    o_ = {"d": x["d"][:10], "src": x.get("src") or "PTT",
                           "u": x.get("url") or x.get("ptt") or "", "tip": tip_, "tipE": _en_for(x, nm_)}
                     for t_ in board:
                         same_tm = transfers_board.tkey(t_.get("nm") or "") == transfers_board.tkey(tm_) or transfers_board.tkey(t_.get("tm") or "") == transfers_board.tkey(tm_)
