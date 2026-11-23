@@ -15682,7 +15682,7 @@ function render(){
           const cnt=v=>v==null?"–":String(v);   // POG／POM 次數（使用者 2026-11-22「2026 加上兩列 POG POM」）；LCK 隊不列 POG（使用者「LCK就不要放POG」：LCK 只發 POM）
           // 2026 那排（使用者 2026-11-23「資料改成 角色池 KDA 評分 POG/M(這兩個合併列)」）：角色池＝今年所有比賽用過幾隻不同英雄（RATE.chn；使用者「他所有無論什麼比賽 使用過的角色數量」）；評分＝整年評分；LCK 只發 POM ⇒ 那列寫 POM
           const pool=o&&RATE&&RATE.chn?RATE.chn[String(pn(o.n)).toLowerCase()]:null;
-          return phH(o,ic,cls26(o),kvS([[L26[0],pool==null?"–":String(pool)],[L26[1],a&&a.kda!=null?a.kda.toFixed(1):"–"],[L26[2],n1(a&&a.sc)],t.lg==="LCK"?["POM",cnt(a&&a.pm)]:[L26[3],`${cnt(a&&a.pg)}/${cnt(a&&a.pm)}`]])); }).join("");
+          return phH(o,ic,cls26(o),kvS([[L26[0],pool==null?"–":String(pool)],[L26[1],a&&a.kda!=null?a.kda.toFixed(1):"–"],t.lg==="LCK"?["POM",cnt(a&&a.pm)]:[L26[3],`${cnt(a&&a.pg)}/${cnt(a&&a.pm)}`],[L26[2],n1(a&&a.sc)]]   /* POG/M 在評分上面（使用者 2026-11-23「評分POM上下交換」） */)); }).join("");
         if(RATE&&!t._scM&&typeof rateOf==="function")rateOf(t);
         // 2027 的評分：選手＝整年評分（RATE.yr）；主教練＝戰績分（新來的看原隊，留任的看本隊）
         const sc27=(e,r)=>{ if(!e||!RATE)return null; if(r==="HC"){ const mv=e.new||e.r||e.tip||e.pm; return (mv&&e.from)?coachVL(e.from,t.lg):(e.new||e.r||e.tip)?null:(coachV(t.nm)??coachV(t.tm)); }   /* 隊內升任（HLE Mowgli 教練→主教練，沒有 from）：今年帶的就是本隊 */
