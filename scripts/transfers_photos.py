@@ -712,6 +712,8 @@ def build(cargo, year, board, roles=None, alias=None):
             if e.get("sr") == "HC":
                 pages.add(page_of(e))
     pages.discard("")
+    # 後勤（主教練以外的教練／分析師）：只查生日／出道日（陣容表後勤欄照年資排；使用者 2026-11-24「後勤的排序依照年資」），不抓照片
+    spages = {page_of(e) for t in board if not t.get("fa") for e in ((t.get("r") or {}).get("COACH") or []) if e.get("sr") != "HC"} - {""}
     I = C.setdefault("img", {})
     week = (datetime.date.today() - datetime.timedelta(days=7)).isoformat()
 
@@ -749,7 +751,7 @@ def build(cargo, year, board, roles=None, alias=None):
         print(f"   效力區間查詢失敗（略過）：{type(e).__name__} {str(e)[:100]}")
     # ④ 生日與出道日（陣容對比 2027 那排的年齡、年資；使用者 2026-11-22「2027 底下列出 年齡 年資(職業時長)」）：每 7 天重查一次
     BI = C.setdefault("bio", {})
-    needb = sorted(p for p in pages if (BI.get(p) or {}).get("t", "") < week or (BI.get(p) or {}).get("v") != 7)
+    needb = sorted(p for p in pages | spages if (BI.get(p) or {}).get("t", "") < week or (BI.get(p) or {}).get("v") != 7)
     if needb:
         try:
             got = bios(cargo, needb)
@@ -781,5 +783,5 @@ def build(cargo, year, board, roles=None, alias=None):
     pimg = {p: I[p]["u"] for p in sorted(pages) if I.get(p, {}).get("u")}
     pfc = {p: I[p]["f"] for p in sorted(pages) if I.get(p, {}).get("u") and I[p].get("f")}
     pph = heads(I, sorted(pages))
-    pbio = {p: [BI[p].get("b", ""), BI[p].get("j", ""), BI[p].get("c", ""), BI[p].get("n", "")] for p in sorted(pages) if any((BI.get(p) or {}).get(x) for x in ("b", "j", "c", "n"))}   # 第 4 格＝國籍 IOC 碼   # [生日, 出道日, 第一次當教練]
+    pbio = {p: [BI[p].get("b", ""), BI[p].get("j", ""), BI[p].get("c", ""), BI[p].get("n", "")] for p in sorted(pages | spages) if any((BI.get(p) or {}).get(x) for x in ("b", "j", "c", "n"))}   # 第 4 格＝國籍 IOC 碼   # [生日, 出道日, 第一次當教練]
     return s26, pimg, pfc, pph, pbio
