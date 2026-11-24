@@ -567,7 +567,7 @@ function render(){
     const SEASON=+String(D.from||"").slice(0,4)||0;
     const RATE=(()=>{ if(window.TRANSFER_RATE)return window.TRANSFER_RATE;   // 轉會網站：主站排程先算好匯出（transfers_site.js）
       if(curYear!==SEASON||typeof calcPlayers!=="function")return null;
-      const k=curYear+"|"+(GAMES||[]).length+"|seg20"; if(window._tbRC&&window._tbRC.k===k)return window._tbRC;
+      const k=curYear+"|"+(GAMES||[]).length+"|seg21"; if(window._tbRC&&window._tbRC.k===k)return window._tbRC;
       const res={k,pl:{},tm:{}};
       // 分段加權（使用者 2026-11-20「轉會評分改成 第一賽段 10% 第二賽段 30% 第三賽段 50% 世界賽 10% 其餘的不算」「哪個段落沒打就沒分」）：
       //   每段各自算一次選手評分（場次白名單 H2H 圈範圍、其他篩選清空），再照權重相加；沒打的那段＝0 分，不重新分配權重。
@@ -605,10 +605,11 @@ function render(){
       const LYADD=5;   // 分數整體往上 5 分（使用者 2026-11-24「把分數整體往上5分」：這套權重下最高才 91.7、沒有人 95 以上）；上限 100
       { const LS={}, LGS=[...new Set((GAMES||[]).filter(o=>/^S\d$/.test(segOf(o))).map(o=>o.league))];
         for(const seg of ["S1","S2","S3"])for(const lg of LGS)SEGRUN(seg,()=>{ for(const r of ["TOP","JNG","MID","BOT","SUP"]){ const Z=LS[r]||(LS[r]={});
-            calcPlayers(r,true).forEach(x=>{ const nk=String(x._pn||"").toLowerCase(); if(x.評分==null)return; const z=Z[nk]||(Z[nk]={}); if(!z[seg]||z[seg].g<x.場數)z[seg]={sc:x.評分,g:x.場數}; }); } },o=>o.league===lg);
-        res.ly={}; for(const r of ["TOP","JNG","MID","BOT","SUP"]){ const Y=res.ly[r]={}, Z=LS[r]||{}, P=res.pl[r]||{};
-          for(const nk of new Set([...Object.keys(Z),...Object.keys(P)])){ let v=0; for(const s of ["S1","S2","S3"])if(Z[nk]&&Z[nk][s])v+=SEGW[s]*Z[nk][s].sc;
-            for(const s of ["F","M","W","E"])if(P[nk]&&P[nk].sg&&P[nk].sg[s]!=null)v+=SEGW[s]*P[nk].sg[s]; Y[nk]=+Math.min(100,v+LYADD).toFixed(1); } } }
+            calcPlayers(r,true).forEach(x=>{ const nk=String(x._pn||"").toLowerCase(); if(x.評分==null)return; const z=Z[nk]||(Z[nk]={}); if(!z[seg]||z[seg].g<x.場數)z[seg]={sc:x.評分,g:x.場數,lg}; }); } },o=>o.league===lg);
+        res.ly={}; res.lyL={}; res.sgw=SEGW;   /* lyL＝ly 裡「聯賽三個賽段」那部分，照聯賽分開：[[聯賽, 分數], …]（換聯賽時只換算這部分，使用者 2026-11-25）；sgw＝各段權重（轉會那邊算主教練用） */
+        for(const r of ["TOP","JNG","MID","BOT","SUP"]){ const Y=res.ly[r]={}, YL=res.lyL[r]={}, Z=LS[r]||{}, P=res.pl[r]||{};
+          for(const nk of new Set([...Object.keys(Z),...Object.keys(P)])){ let v=0; const pl={}; for(const s of ["S1","S2","S3"])if(Z[nk]&&Z[nk][s]){ const q=SEGW[s]*Z[nk][s].sc; v+=q; pl[Z[nk][s].lg]=(pl[Z[nk][s].lg]||0)+q; }
+            for(const s of ["F","M","W","E"])if(P[nk]&&P[nk].sg&&P[nk].sg[s]!=null)v+=SEGW[s]*P[nk].sg[s]; Y[nk]=+Math.min(100,v+LYADD).toFixed(1); const pe=Object.entries(pl).map(([lg,q])=>[lg,+q.toFixed(2)]); if(pe.length)YL[nk]=pe; } } }
       // 第三賽段小框的數據＝第三賽段範圍內的所有比賽，含世界賽（使用者 2026-11-21）
       SEGRUN(["S3","W"],()=>calcTeams("").forEach(x=>{ if(x.場數)(res.s3=res.s3||{})[teamFix(String(x.戰隊||""))]={g:x.場數,wr:x.勝率,sc:x.評分}; }));
       // 大場（系列賽）勝率：第三賽段＋世界賽，同一天同兩隊＝一個系列，贏的局數多的那隊拿下（陣容對比的主教練勝率；使用者 2026-11-22「教練的勝率 幫我以大場勝率去計算 不是小局勝率」）
@@ -714,13 +715,28 @@ function render(){
     //   原隊的聯賽＝RATE.pl 裡那隊選手的聯賽（TLG）；查不到（次級隊）權重 1。coachVL(原隊, 目的聯賽)；cLgW＝有換算時回原聯賽名（小框標出來）
     const TLG=(()=>{ const o={}; if(RATE&&RATE.pl)for(const r in RATE.pl)for(const a of Object.values(RATE.pl[r]||{}))if(a&&a.tm&&a.lg)o[teamFix(String(a.tm))]=a.lg; return o; })();
     const cLg=n=>n?(TLG[teamFix(String(tAb(n)||n))]||""):"";
-    const coachVL=(n,to)=>{ const v=coachV(n); return v==null?null:v*lgW0(cLg(n),to); };
-    const cLgW=(n,to)=>n&&Math.abs(lgW0(cLg(n),to)-1)>0.005?lgN(cLg(n)):"";
+    // 2026-11-25 使用者「在算換賽區的評分時 記得只調整聯賽的比重 國際賽的不需要動 因為國際賽已經是跟外賽區交手的結果」：
+    //   主教練的分數是整年一個數（拆不出聯賽／國際賽）⇒ 照權重比例換算：聯賽三個賽段的占比 × 聯賽強度權重，該隊有打的國際賽那幾段的占比不動。
+    //   cW＝實際乘上去的倍率＝(聯賽占比 × w ＋ 國際賽占比) ÷ (聯賽占比 ＋ 國際賽占比)；TIN＝每隊有打的國際賽占比（該隊三位以上選手有那一段的分數才算）
+    const SGW=(RATE&&RATE.sgw)||{}, SGL=["S1","S2","S3"].reduce((q,x)=>q+(SGW[x]||0),0);
+    const TIN=(()=>{ const c={}, o={}; if(RATE&&RATE.pl)for(const r in RATE.pl)for(const a of Object.values(RATE.pl[r]||{}))if(a&&a.tm&&a.sg){ const z=c[teamFix(String(a.tm))]||(c[teamFix(String(a.tm))]={}); for(const x of ["F","M","W","E"])if(a.sg[x]!=null)z[x]=(z[x]||0)+1; }
+      for(const tk in c)o[tk]=["F","M","W","E"].reduce((q,x)=>q+(c[tk][x]>=3?(SGW[x]||0):0),0); return o; })();
+    const cW=(n,to)=>{ const w=lgW0(cLg(n),to), fi=TIN[teamFix(String(tAb(n)||n))]||0; return SGL>0?(SGL*w+fi)/(SGL+fi):w; };
+    const coachVL=(n,to)=>{ const v=coachV(n); return v==null?null:v*cW(n,to); };
+    const cLgW=(n,to)=>n&&Math.abs(cW(n,to)-1)>0.005?lgN(cLg(n)):"";
     // 主教練的基準分＝所有主教練分數的中位數（轉會評分裡今年沒帶隊的主教練用；使用者 2026-11-22）
     const CMD=(()=>{ const a=Object.values(CP).filter(v=>v!=null).sort((x,y)=>x-y), h=a.length>>1; return a.length?(a.length%2?a[h]:(a[h-1]+a[h])/2):null; })();
     const T1SET=new Set(board.flatMap(x=>[x.nm,x.tm])), BASEW_=1;   /* 原本 0.8＝三個賽段合計 80%；賽段權重改成 15／35／50 之後是 100% */
     // 聯賽強度的換算（隊伍評分與自由人共用）：別的聯賽來的分數 × exp(LGK × (原聯賽強度 − 目的聯賽強度))；同聯賽＝1、強度缺＝1
     const LGK=0.3, lgW0=(from,to)=>{ const a=lgN(from), Rg=(RATE&&RATE.R)||{}; return (!a||a===to||Rg[a]==null||Rg[to]==null)?1:Math.exp(LGK*(Rg[a]-Rg[to])); };
+    // 2026-11-25 使用者「在算換賽區的評分時 記得只調整聯賽的比重 國際賽的不需要動 因為國際賽已經是跟外賽區交手的結果」：
+    //   選手換聯賽＝一般評分裡「聯賽三個賽段」那部分（RATE.lyL，照當時打的聯賽分開）× 聯賽強度權重，國際賽四段（FST／MSI／EWC／世界賽）與整體加的 5 分原封不動；上限 100。
+    //   lyTo(路, 人, 目的聯賽) ⇒ {v 換算後的一般評分, w 聯賽那部分實際的倍率（1＝沒換算）}；同聯賽、聯賽強度缺、沒有 lyL（舊資料）都是原分數
+    const lyTo=(r,k,to)=>{ const L=((RATE.ly||{})[r]||{})[k]; if(L==null)return null; const ps=((RATE.lyL||{})[r]||{})[k]; if(!ps||!to)return {v:L,w:1};
+      let p0=0, p1=0; for(const [lg,q] of ps){ p0+=q; p1+=q*lgW0(lg,to); } if(!(p0>0)||Math.abs(p1-p0)<0.05)return {v:L,w:1};
+      /* fr＝被換算的那幾個聯賽（季中換過聯賽的人：只有「不是目的聯賽」的那幾段被換算，標籤要寫那個聯賽，不是他最後待的聯賽——Hena 上半年 LPL、第三賽段 CBLOL，列在 CBLOL 時標 LPL） */
+      const fr=[...new Set(ps.filter(z=>Math.abs(lgW0(z[0],to)-1)>0.005).map(z=>lgN(z[0])))].join("／");
+      return {v:+Math.max(0,Math.min(100,L-p0+p1)).toFixed(1),w:p1/p0,fr}; };
     // 自由人那一列照分數高到低排（使用者 2026-11-20「FA 的人依照分數排序」）：選手＝轉會評分同一套分數（同路百分位＋國際賽加分）、
     //   今年沒資料的當 50 分再加國際賽分；主教練＝原隊的戰績分。分數存在 e._sc，小框也拿來顯示。
     //   聯賽強度：列在哪個聯賽的 FA 就換算成那個聯賽的分數（使用者 2026-11-21「Doggo為何…LEC跟LCP都是顯示相同評分」：原本這裡不乘聯賽強度，
@@ -733,7 +749,7 @@ function render(){
       const pct0=(r,v)=>{ const a=srt0(r); if(!a.length)return 50; let lo=0, eq=0; for(const z of a){ if(z<v)lo++; else if(z===v)eq++; } return 100*(lo+eq/2)/a.length; };
       board.filter(t=>t.fa).forEach(t=>{ for(const r in t.r){ t.r[r].forEach(e=>{ const k=String(pn(e.n)).toLowerCase(), it=(D.intl||{})[k]||0;
             if(r==="COACH"){ e._sc=e.from?coachVL(e.from,t.lg):null; e._wl=cLgW(e.from,t.lg); }
-            else{ const a=(RATE.pl[r]||{})[k], L=((RATE.ly||{})[r]||{})[k]; e._sc=(a&&L!=null?L:(MDL(r)??50))+it; e._wl=""; } });   /* 一般評分＋生涯加分（2026-11-24 定案；不再換算聯賽強度） */
+            else{ const a=(RATE.pl[r]||{})[k], L=a?lyTo(r,k,t.lg):null; e._sc=(L?L.v:(MDL(r)??50))+it; e._wl=L&&Math.abs(L.w-1)>0.005?(L.fr||lgN(a.lg)):""; } });   /* 一般評分＋生涯加分（2026-11-24 定案）；列在別的聯賽的 FA 只換算聯賽三個賽段那部分（2026-11-25，lyTo） */
           t.r[r].sort((p,q)=>((p.ret?1:0)-(q.ret?1:0))||(r==="COACH"?((p.sr==="HC"?0:1)-(q.sr==="HC"?0:1)):0)||(q._sc??-1)-(p._sc??-1)||String(p.n).localeCompare(String(q.n))); } }); }   // 退役的一律排最後（使用者 2026-11-21「退役選手在FA 直接把他列在最後一位」）   // 教練那格：主教練排前面   // 三個賽段合計的占比（10＋30＋40），跟 RATE 那邊的 SEGW 要一起改
     const rateOf=t=>{ if(!RATE||t.fa)return null; const items=[], scOf=new Map(), plL=[]; let plSum=0; t._scM=scOf;   // t._scM＝每個人的分數（陣容對比 2027 那排的評分用）   // FA 列不是隊伍，不算評分
       // 聯賽權重：別的聯賽來的分數 × exp(LGK × (原聯賽強度 − 本隊聯賽強度))；同聯賽＝1、強度缺＝1
@@ -748,7 +764,7 @@ function render(){
       const lgW=lg=>lgW0(lg,t.lg);
       for(const r of ["TOP","JNG","MID","BOT","SUP"]){ const P=RATE.pl[r], PY=(RATE.plY||{})[r]||{},
           get=(n,base=50)=>{ const k=String(pn(n)).toLowerCase(), a=P[k]||(PY[k]?{...PY[k],yr:1}:undefined); if(!a)return a;
-            { const L=P[k]&&RATE.ly&&RATE.ly[r]?RATE.ly[r][k]:null, it=(D.intl||{})[k]||0; if(L!=null)return {...a,raw:L,v:L+it,w:1,it}; }   // 2026-11-24 定案：一般評分（ly）＋生涯加分，下面那套（戰績各半／場數靠攏／聯賽換算）只剩去年資料（PY）的人在用
+            { const L=P[k]?lyTo(r,k,t.lg):null, it=(D.intl||{})[k]||0; if(L)return {...a,raw:L.v,v:L.v+it,w:L.w,it,wl:L.fr||""}; }   /* 2026-11-25：別的聯賽來的人只換算聯賽三個賽段那部分（lyTo），國際賽與生涯加分不動 */   // 2026-11-24 定案：一般評分（ly）＋生涯加分，下面那套（戰績各半／場數靠攏／聯賽換算）只剩去年資料（PY）的人在用
             // 個人評分只看個人數據（弱隊核心會很高：Scout 在 NS 91.4、Faker 39.6）⇒ 跟所屬戰隊的戰績分（第三賽段勝率＋最終成績）各半
             //   （使用者 2026-11-20「Scout 為何能有 91.4 分 評分是不是怪怪的」；原話「只看第三賽段數據以及最終成績」）；戰隊沒有戰績資料就只用個人
             // 出賽太少的人往 50 分靠攏（使用者 2026-11-20「為何 Bluffing 的分數這麼高」：他只替 HLE 代打 6 場就拿到 67.7，還吃到 HLE 整年的戰績分，
@@ -793,7 +809,7 @@ function render(){
         if(!odSrc.length){ const ex=(t.r[r]||[]).filter(e=>!e.gone&&!e.new&&!e.tip&&!e.r), go=ex.filter(e=>e.ro); odSrc=go.length?go:ex; }
         const od=odSrc.map(p=>{ const n=typeof p==="string"?p:p.n; return {n:pn(n),s:get(n),e:(typeof p!=="string"&&"p" in p)?p:{prevE:typeof p==="string"?{}:p}}; }).sort(byG)[0];   // e＝格子裡的人（照陣容表的顏色）；prevE＝上一位（已離隊）
         if(nw&&od&&(nw.s||od.s)){ const A=fill(nw), B=fill(od);
-          const tg=x=>[x.s.yr?(en2?"full year":"全年"):"",x.s.w&&Math.abs(x.s.w-1)>0.005?lgN(x.s.lg):""].filter(Boolean).join(" ");   // 只寫「全年 LEC」，不寫權重數字（使用者 2026-11-20）
+          const tg=x=>[x.s.yr?(en2?"full year":"全年"):"",x.s.w&&Math.abs(x.s.w-1)>0.005?(x.s.wl||lgN(x.s.lg)):""].filter(Boolean).join(" ");   // 只寫「全年 LEC」，不寫權重數字（使用者 2026-11-20）
           // 多位傳聞人選：不取平均，用「最低～最高」表示（使用者 2026-11-20「評分顯示不要用平均好了 就用 ～ 代表最低最高分」）；d＝中間值，只拿來排序與決定顏色
           const mv=multi&&multi.length>=2?multi.map(x=>x.s.v):null, mlo=mv?Math.min(...mv):null, mhi=mv?Math.max(...mv):null, av=mv?(mlo+mhi)/2:null;
           if(A.s&&B.s&&A.n!==B.n)items.push({r,nw:A.n,od:B.n,a:av??A.s.v,b:B.s.v,d:(av??A.s.v)-B.s.v,dlo:(mlo??A.s.v)-B.s.v,dhi:(mhi??A.s.v)-B.s.v,nws:av!=null?multi.map(x=>({n:x.n,v:x.s.v,e:x.e})).sort((p,q)=>q.v-p.v):null,ne:A.e,oe:B.e,rm:A.rm,ma:A.md&&(A.vac?2:1),mb:B.md,ta:A.md?"":tg(A),tb:B.md?"":tg(B)}); } }
