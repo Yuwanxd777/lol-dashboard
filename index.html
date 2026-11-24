@@ -15719,7 +15719,8 @@ function render(){
           // 季中換隊的人看他「在這一隊」的數據（RATE.yt；使用者 2026-11-24 UP 的 Hena 原本顯示的是 paiN 的數據）；POG／POM 照 yr 判斷這個聯賽有沒有發（null＝不發）
           const nkO=o?String(pn(o.n)).toLowerCase():"", multiT=nkO&&RATE&&RATE.yt&&Object.values(RATE.yt).filter(T=>T&&T[nkO]).length>=2;   // 只有今年待過兩隊以上的人才分隊算（其他人維持「所有比賽」）
           const yt=multiT?tkA.map(k=>(RATE.yt[k]||{})[String(pn(o.n)).toLowerCase()]).find(Boolean):null;
-          const a=yt?{...a0,sc:yt.sc,kda:yt.kda,pg:a0&&a0.pg==null?null:(yt.pg||0),pm:a0&&a0.pm==null?null:(yt.pm||0),chn:yt.chn}:a0;
+          // 2026-11-24 使用者改定案「陣容小框的資料 都是看整年的 就算轉隊也看整年」⇒ 不再用 yt（各隊分開），一律整年；yt 仍計算但小框不用
+          const a=a0; void yt;
           const cnt=v=>v==null?"–":String(v);   // POG／POM 次數（使用者 2026-11-22「2026 加上兩列 POG POM」）；LCK 隊不列 POG（使用者「LCK就不要放POG」：LCK 只發 POM）
           // 2026 那排（使用者 2026-11-23「資料改成 角色池 KDA 評分 POG/M(這兩個合併列)」）：角色池＝今年所有比賽用過幾隻不同英雄（RATE.chn；使用者「他所有無論什麼比賽 使用過的角色數量」）；評分＝整年評分；LCK 只發 POM ⇒ 那列寫 POM
           const pool=a&&a.chn!=null?a.chn:o&&RATE&&RATE.chn?RATE.chn[String(pn(o.n)).toLowerCase()]:null;
