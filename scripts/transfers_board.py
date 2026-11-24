@@ -909,6 +909,37 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
                         a_[0] = dj
                     if dl and dl > a_[1]:
                         a_[1] = dl
+            # 起點改看一級聯賽（使用者 2026-11-24 Lxz：2022 在 Meta Falcon（PCS 當時一級）、之後 DCG Academy（次級）——原本取效力紀錄第一天＝2023 進二隊那天）：
+            #   跟小框年資同一套（transfers_photos.T1_HIST、正賽、非資格賽），舊 ID（PlayerRedirects）底下的名單也算；查不到一級紀錄的照舊用效力紀錄
+            try:
+                from transfers_photos import T1_HIST as _T1H
+                al_ = {}
+                for i in range(0, len(pgs), 40):
+                    for y in cargo({"tables": "PlayerRedirects", "fields": "AllName=an,OverviewPage=pg", "where": "OverviewPage IN " + _in(pgs[i:i + 40]), "limit": "1000", "format": "json"}):
+                        if y.get("an") and y.get("pg"):
+                            al_[str(y["an"])] = key(y["pg"])
+                taken_ = set()
+                nm_ = sorted(a for a in al_ if key(a) != al_[a])
+                for i in range(0, len(nm_), 40):
+                    for y in cargo({"tables": "Players", "fields": "OverviewPage=pg", "where": "OverviewPage IN " + _in(nm_[i:i + 40]), "limit": "500", "format": "json"}):
+                        taken_.add(key(y.get("pg") or ""))
+                al_ = {a: k for a, k in al_.items() if key(a) == k or key(a) not in taken_}
+                al_.update({p: key(p) for p in pgs})
+                t1_ = {}
+                ns_ = sorted(al_)
+                for i in range(0, len(ns_), 40):
+                    for y in cargo({"tables": "TournamentPlayers=TP,Tournaments=T", "join_on": "TP.OverviewPage=T.OverviewPage", "fields": "TP.Player=p,MIN(T.DateStart)=d",
+                                    "where": "TP.Player IN " + _in(ns_[i:i + 40]) + " AND T.League IN " + _in(sorted(_T1H)) + ' AND T.TournamentLevel="Primary" AND T.IsQualifier=0',
+                                    "group_by": "TP.Player", "limit": "2000", "format": "json"}):
+                        d_ = str(y.get("d") or "")[:10]
+                        k_ = al_.get(str(y.get("p") or "")) or key(y.get("p") or "")
+                        if re.match(r"\d{4}-\d\d-\d\d$", d_) and (k_ not in t1_ or d_ < t1_[k_]):
+                            t1_[k_] = d_
+                for k_, d_ in t1_.items():
+                    if k_ in span:
+                        span[k_][0] = d_
+            except Exception as e:
+                print(f"   退役年資（一級聯賽起點）查詢失敗（略過）：{type(e).__name__} {str(e)[:100]}")
             for e in rets:
                 a_ = span.get(key(e["p"]))
                 if a_ and a_[0]:
