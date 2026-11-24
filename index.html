@@ -14464,7 +14464,8 @@ function render(){
     //   動作不同才分列：加入／回歸（以前待過這隊）／離隊／其他（續約、延長）。所以 GEN 的 Siwoo、Sharvel、Cloud 三人加入＝一列（三則公告都附），
     //   T1 的 Roach 回歸、UmTi 加入、Easyhoon 延長仍是三列，各連自己的公告
     const RET=new Set(); (D.board||[]).forEach(t=>{ if(t.fa)return; Object.values(t.r||{}).flat().forEach(e=>{ if((e.tn||[]).some(p=>p&&p[1]))[t.nm,t.tm].filter(Boolean).forEach(n=>RET.add(nk(e.n)+">"+n)); }); });
-    const wSplit=x=>{ const sp=s=>String(s||"").trim().split(/(?<=[。.])\s+/).filter(Boolean), z=sp(x.zh), e=sp(x.en);
+    const wSplit=x=>{ const sp=s=>String(s||"").trim().split(/(?<=[。.])\s+/).filter(Boolean), e=sp(x.en),
+        z=String(x.zh||"").trim().split(/(?<=。)\s+|(?<=\.)\s+(?=[§‹A-Z])/).filter(Boolean);   // 中文句只在「。」斷（或沒翻到的英文句的句點＋下一句開頭）：縮寫的句點（BRO Chall. 加入）不算句尾，不然中英句數對不上、整則拆不開
       if(!z.length||z.length!==e.length)return [Array.isArray(x.srcs)&&x.srcs.length>1?{...x,_lks:x.srcs}:x]; const kOf=s=>/離隊|退役|上調一隊|分道揚鑣/.test(s)?"leave":/加入|上調/.test(s)?"join":"other";
       const kinds=new Set(z.map(kOf)), mixed=kinds.size>1, kd=k=>k==="other"&&!mixed?x.kind:k;
       //   人→公告：先看抓取端讀推文內文配好的 smap（人名只出現在其中一則），沒有才在人數＝公告數時照順序；都對不到＝-1（那一列把全部公告都列出來）
