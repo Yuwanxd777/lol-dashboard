@@ -554,6 +554,28 @@ def bios(cargo, pages):
                 if n_:
                     o["n"] = n_   # 國籍（IOC 三碼）
     pgs = sorted({o["pg"] for o in out.values() if o.get("pg")} | set(pages))
+    # 舊 ID 底下的紀錄也算（使用者 2026-11-24 Lxz：2022 在 Meta Falcon（當時 PCS 是一級）的名單登記在舊 ID「Lx2」底下，只查現在的頁名就漏掉）：
+    #   PlayerRedirects 的舊名一起查、算回本人；舊名剛好是別人現在的頁名（同名不同人）就不收
+    alias, al_ok = {}, []
+    try:
+        al_ = []
+        for i in range(0, len(pgs), 40):
+            for y in cargo({"tables": "PlayerRedirects", "fields": "AllName=an,OverviewPage=pg", "where": "OverviewPage IN " + _in(pgs[i:i + 40]), "limit": "1000", "format": "json"}):
+                an, pg = str(y.get("an") or ""), str(y.get("pg") or "")
+                if an and pg and an.lower() != pg.lower():
+                    al_.append((an, pg))
+        names_ = sorted({a for a, _p in al_})
+        taken = set()
+        for i in range(0, len(names_), 40):
+            for y in cargo({"tables": "Players", "fields": "OverviewPage=pg", "where": "OverviewPage IN " + _in(names_[i:i + 40]), "limit": "500", "format": "json"}):
+                taken.add(str(y.get("pg") or "").lower())
+        for an, pg in al_:
+            if an.lower() not in taken:
+                alias[an.lower()] = pg.lower()
+                al_ok.append(an)
+    except Exception as e:
+        print(f"   舊 ID 查詢失敗（略過）：{type(e).__name__} {str(e)[:80]}")
+    pgs = sorted(set(pgs) | set(al_ok))
     # 年資只算一級聯賽（使用者 2026-11-22「年資全部改看一級聯賽的 教練也是」）：TournamentPlayers（賽事名單，選手與教練都在上面）×
     #   一級聯賽（現在六大＋它們的前身與併進來的聯賽、國際賽）、正賽（TournamentLevel=Primary、非資格賽）⇒ 最早那個賽事的開打日
     #   選手＝以五個位置上名單；教練＝職稱含 Coach／Analyst（分析師也算教練年資）
@@ -568,6 +590,7 @@ def bios(cargo, pages):
             if not re.match(r"\d{4}-\d\d-\d\d$", d):
                 continue
             ro, k = str(y.get("ro") or ""), str(y.get("p") or "").lower()
+            k = alias.get(k, k)   # 舊 ID 的紀錄算回現在的頁名
             tgt = first if ro in ("Top", "Jungle", "Mid", "Bot", "Support") else (firstc if re.search(r"Coach|Analyst", ro) else None)
             if tgt is not None and (k not in tgt or d < tgt[k]):
                 tgt[k] = d
@@ -761,12 +784,12 @@ def build(cargo, year, board, roles=None, alias=None):
         print(f"   效力區間查詢失敗（略過）：{type(e).__name__} {str(e)[:100]}")
     # ④ 生日與出道日（陣容對比 2027 那排的年齡、年資；使用者 2026-11-22「2027 底下列出 年齡 年資(職業時長)」）：每 7 天重查一次
     BI = C.setdefault("bio", {})
-    needb = sorted(p for p in pages | spages if (BI.get(p) or {}).get("t", "") < week or (BI.get(p) or {}).get("v") != 7)
+    needb = sorted(p for p in pages | spages if (BI.get(p) or {}).get("t", "") < week or (BI.get(p) or {}).get("v") != 8)
     if needb:
         try:
             got = bios(cargo, needb)
             for p in needb:
-                BI[p] = dict(got.get(p.lower()) or {}, t=today, v=7)   # v3＝教練年資含分析師；v4＝年資只算一級聯賽；v6＝多抓國籍
+                BI[p] = dict(got.get(p.lower()) or {}, t=today, v=8)   # v3＝教練年資含分析師；v4＝年資只算一級聯賽；v6＝多抓國籍；v8＝舊 ID 的紀錄也算（2026-11-24 Lxz）
             print(f"   隊伍小框：生日／出道日補查 {len(needb)} 人，有生日 {sum(1 for p in needb if BI[p].get('b'))} 人、有出道日 {sum(1 for p in needb if BI[p].get('j'))} 人")
         except Exception as e:
             print(f"   生日／出道日查詢失敗（略過）：{type(e).__name__} {str(e)[:100]}")
