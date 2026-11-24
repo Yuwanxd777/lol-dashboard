@@ -14805,7 +14805,7 @@ function render(){
       //   // 再改：第三賽段 40%（使用者 2026-11-20「第三賽段改成 40%」）⇒ 三個賽段合計 80%，百分位 × 0.8，其餘留給加分
       const lastSp={}; (GAMES||[]).forEach(o=>{ const m=/^S(\d)/.exec(String(o.split||"")); if(m&&o.league!=="WLDs")lastSp[o.league]=Math.max(lastSp[o.league]||0,+m[1]); });
       const segOf=o=>{ if(o.league==="WLDs")return "W"; if(o.league==="FST")return "F"; if(o.league==="MSI")return "M"; const m=/^S(\d)( PO)?$/.exec(String(o.split||"")); if(!m)return ""; const sh=3-(lastSp[o.league]||3); return "S"+(+m[1]+sh); };
-      const SEGRUN=(seg,fn)=>{ const ss=[].concat(seg), keep=new Set((GAMES||[]).filter(o=>ss.includes(segOf(o))).map(gkey));
+      const SEGRUN=(seg,fn,pf)=>{ const ss=[].concat(seg), keep=new Set((GAMES||[]).filter(o=>ss.includes(segOf(o))&&(!pf||pf(o))).map(gkey));   /* pf＝再加一層場次條件（小框 2027 評分：只留同一個聯賽） */
         const sv={split:F.split,league:F.league,patch:F.patch,d1:F.d1,d2:F.d2,minG:F.minG}, svH=H2H;
         F.split=""; F.league="ALL"; F.patch=""; F.d1=""; F.d2=""; F.minG=0; H2H=keep;
         try{ return keep.size?fn():null; } finally{ H2H=svH; Object.assign(F,sv); } };
@@ -14820,6 +14820,15 @@ function render(){
           // 戰隊：第三賽段的勝率（主教練戰績分用）
           if(seg==="S3")calcTeams("").forEach(x=>{ if(x.評分!=null)res.tm[teamFix(String(x.戰隊||""))]=x.評分; if(x.勝率!=null&&x.場數>=5)(res.wr=res.wr||{})[teamFix(String(x.戰隊||""))]=x.勝率;
             }); });
+      // ly＝陣容小框 2027 那排的選手評分（使用者 2026-11-24：1xn 整年 93.8、舊網站篩 LPL 才 82、國際賽都沒打 ⇒ 選「分段權重＋只跟同聯賽比」）：
+      //   S1／S2／S3 每段在「同一個聯賽」裡各算一次評分（百分位只跟同聯賽同路的人比），國際賽三段（F／M／W）沿用上面的 sg（本來就只跟同一場國際賽的人比），
+      //   照 SEGW 加總；沒打的段＝0 分。不含國際賽資歷加分（跟原本的 2027 評分一樣不含成就加分）
+      { const LS={}, LGS=[...new Set((GAMES||[]).filter(o=>/^S\d$/.test(segOf(o))).map(o=>o.league))];
+        for(const seg of ["S1","S2","S3"])for(const lg of LGS)SEGRUN(seg,()=>{ for(const r of ["TOP","JNG","MID","BOT","SUP"]){ const Z=LS[r]||(LS[r]={});
+            calcPlayers(r,true).forEach(x=>{ const nk=String(x._pn||"").toLowerCase(); if(x.評分==null)return; const z=Z[nk]||(Z[nk]={}); if(!z[seg]||z[seg].g<x.場數)z[seg]={sc:x.評分,g:x.場數}; }); } },o=>o.league===lg);
+        res.ly={}; for(const r of ["TOP","JNG","MID","BOT","SUP"]){ const Y=res.ly[r]={}, Z=LS[r]||{}, P=res.pl[r]||{};
+          for(const nk of new Set([...Object.keys(Z),...Object.keys(P)])){ let v=0; for(const s of ["S1","S2","S3"])if(Z[nk]&&Z[nk][s])v+=SEGW[s]*Z[nk][s].sc;
+            for(const s of ["F","M","W"])if(P[nk]&&P[nk].sg&&P[nk].sg[s]!=null)v+=SEGW[s]*P[nk].sg[s]; Y[nk]=+v.toFixed(1); } } }
       // 第三賽段小框的數據＝第三賽段範圍內的所有比賽，含世界賽（使用者 2026-11-21）
       SEGRUN(["S3","W"],()=>calcTeams("").forEach(x=>{ if(x.場數)(res.s3=res.s3||{})[teamFix(String(x.戰隊||""))]={g:x.場數,wr:x.勝率,sc:x.評分}; }));
       // 大場（系列賽）勝率：第三賽段＋世界賽，同一天同兩隊＝一個系列，贏的局數多的那隊拿下（陣容對比的主教練勝率；使用者 2026-11-22「教練的勝率 幫我以大場勝率去計算 不是小局勝率」）
@@ -15714,7 +15723,8 @@ function render(){
         if(RATE&&!t._scM&&typeof rateOf==="function")rateOf(t);
         // 2027 的評分：選手＝整年評分（RATE.yr）；主教練＝戰績分（新來的看原隊，留任的看本隊）
         const sc27=(e,r)=>{ if(!e||!RATE)return null; if(r==="HC"){ const mv=e.new||e.r||e.tip||e.pm; return (mv&&e.from)?coachVL(e.from,t.lg):(e.new||e.r||e.tip)?null:(coachV(t.nm)??coachV(t.tm)); }   /* 隊內升任（HLE Mowgli 教練→主教練，沒有 from）：今年帶的就是本隊 */
-          const k=String(pn(e.n)).toLowerCase(), y=RATE.yr&&RATE.yr[r]&&RATE.yr[r][k]; if(y)return y.sc; const c=(window.TR_CAREER||{})[k]; return c&&c.sc!=null?{v:c.sc,y:c.y}:null; };   /* 2026 沒打一級聯賽的人（Deft、Calix）看生涯紀錄＝最後一個有出賽年份的整年評分，後面標年份（使用者 2026-11-22）；資料＝transfers_career.js（export_transfer_site 產） */   // 選手＝整年評分（跟選手分頁同一個數字；使用者 2026-11-22「2027的評分 我要看的是整年」），沒有今年出賽資料寫 –
+          const k=String(pn(e.n)).toLowerCase(), ly=RATE.ly&&RATE.ly[r]&&RATE.ly[r][k]; if(ly!=null)return ly;   /* 分段權重＋同聯賽比（RATE.ly；使用者 2026-11-24 選 3） */
+          const y=RATE.yr&&RATE.yr[r]&&RATE.yr[r][k]; if(y)return y.sc; const c=(window.TR_CAREER||{})[k]; return c&&c.sc!=null?{v:c.sc,y:c.y}:null; };   /* 2026 沒打一級聯賽的人（Deft、Calix）看生涯紀錄＝最後一個有出賽年份的整年評分，後面標年份（使用者 2026-11-22）；資料＝transfers_career.js（export_transfer_site 產） */   // 選手＝整年評分（跟選手分頁同一個數字；使用者 2026-11-22「2027的評分 我要看的是整年」），沒有今年出賽資料寫 –
         // 一路有兩個人以上（使用者 2026-11-24「如果該路有兩個人 那對著頭貼按一下 就可以換人」）：先放 pick27 挑的那位，其餘照陣容表格子的順序排在後面（已宣布離隊／退役的不列），
         //   點頭像輪流換下一位；頭像右下角標「1/2」。年份列的國旗只算畫面上看得到的那位，換人時重算
         const cand27=L=>{ const p=pick27(L); return p?[p,...L.filter(e=>e!==p&&!/tbGone|tbRet/.test(tbCls(e)))]:[null]; };
