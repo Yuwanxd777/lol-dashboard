@@ -15713,8 +15713,11 @@ function render(){
       const FL_L=new Set(["USA","AUS","NZL","MAS","PHI","KUW","UAE","MGL","QAT","SLO","CHI","GRE","TPE","LBR","URU","CZE","CUB","PUR"]);   // 圖案在旗桿側（左邊）的國旗：裁切時靠左
       const phH=(o,ic,cls,sub)=>{ const lane=`<img class="tbPhL" src="img/${ic}.png" alt="">`; if(!o)return `<div class="tbPh"><div class="tbPhI tbPhE">${lane}</div><span class="tbPhN tbMuted">–</span>${sub||""}</div>`;
         const u=imgOf(o.p), h=phOf(o.p), st=fcSt(o.p);
-        const im=h?`<img class="tbPhP" src="${esc(h)}" alt="" decoding="async" fetchpriority="high"${u?` data-w="${esc(u)}" data-s="${esc(st.replace(/^ style="|"$/g,""))}"`:""} onerror="if(this.dataset.w){this.src=this.dataset.w;this.setAttribute('style',this.dataset.s||'');this.referrerPolicy='no-referrer';this.dataset.w=''}else this.remove()">`
-          :u?`<img class="tbPhP"${st} src="${esc(u)}" alt="" decoding="async" fetchpriority="high" referrerpolicy="no-referrer" onerror="this.remove()">`:"";
+        // 沒有照片的人＝WIKI 的預設頭像（使用者 2026-11-24「如果是沒頭像的人 用WIKI的預設頭像表示」）；照片載不到的最後也退回它
+        const DEF="https://static.wikia.nocookie.net/lolesports_gamepedia_en/images/1/1d/Unknown_Infobox_Image_-_Player.png/revision/latest/scale-to-width-down/192", defOE=`if(this.dataset.d!=='1'){this.dataset.d='1';this.removeAttribute('style');this.referrerPolicy='no-referrer';this.src='${DEF}'}else this.remove()`;
+        const im=h?`<img class="tbPhP" src="${esc(h)}" alt="" decoding="async" fetchpriority="high"${u?` data-w="${esc(u)}" data-s="${esc(st.replace(/^ style="|"$/g,""))}"`:""} onerror="if(this.dataset.w){this.src=this.dataset.w;this.setAttribute('style',this.dataset.s||'');this.referrerPolicy='no-referrer';this.dataset.w=''}else{${defOE}}">`
+          :u?`<img class="tbPhP"${st} src="${esc(u)}" alt="" decoding="async" fetchpriority="high" referrerpolicy="no-referrer" onerror="${defOE}">`
+          :`<img class="tbPhP tbPhDef" src="${DEF}" alt="" decoding="async" referrerpolicy="no-referrer" onerror="this.remove()">`;
         // 國籍國旗放頭像右上（使用者 2026-11-23「陣容小框的頭像右上 放選手國籍圖」）：pbio 第 4 格＝IOC 三碼（transfers_photos 從 Leaguepedia Players.Country 轉），檔＝img/flags/{碼}.png
         const nb=bioOf(o.p)||bioOf(o.n), nc=nb&&nb[3], fg=nc&&/^[A-Z]{3}$/.test(nc)?`<img class="tbPhF${FL_L.has(nc)?" tbFlL":""}" src="img/flags/${nc}.png" alt="${nc}" title="${nc}" onerror="this.remove()">`:"";
         return `<div class="tbPh"><div class="tbPhI">${im}${lane}${fg}</div>`
