@@ -42,7 +42,7 @@ PX = 220   # 縮圖寬（畫面上最大 112px，臉放大後 2 倍螢幕也夠�
 VER = 2    # 快取版本：選圖規則改了就加一，舊的圖片紀錄整批重查
 SRCDIR = os.path.join(ROOT, "csv_cache", "ph_src")
 PHDIR = os.path.join(os.path.dirname(ROOT), "轉會網站", "www", "ph")   # 轉會網站的部署資料夾（transfers_hourly.py site 整個 www 一起部署）
-RVER = "5"  # 裁切規則版本：改了 FW／EY／漸隱就加一，檔名跟著換（瀏覽器快取才會更新）
+RVER = "6"  # 裁切規則版本：改了 FW／EY／漸隱就加一，檔名跟著換（瀏覽器快取才會更新）
 PS, PFW, PEY = 192, 0.36, 0.44   # 頭像邊長、臉寬佔邊長、兩眼高度佔邊長
 PSH = 192   # 頭像高（2026-11-22 試過直式 4:5：只拍到胸口的照片下面空一截，跟 Viper 的空隙同一種問題 ⇒ 維持正方形）
 PFADE = 48   # 頭像下緣淡出的長度（px，邊長 192；使用者 2026-11-22 嫌 26 不夠多不夠深）
@@ -455,6 +455,17 @@ def render_head(data, f):
     ext = (last >= SH * 0.55) & (last < SH - 1)
     if not cut:
         ext[:] = False   # 帶背景的照片下緣是照片的邊（已經淡出），不是衣服，不往下延伸
+    # 只延伸「身體」：連續不到 EXTMIN 欄的窄條不延伸（使用者 2026-11-24「Photic照片背景怪怪的」：頭轉正後臉頰下緣有幾欄懸在半空，
+    #   被當成衣服下緣往下塗出一條膚色直條）
+    EXTMIN = 24
+    nofade = np.zeros(S, bool)   # 那幾欄是臉／頭髮的邊，也不做下緣淡出（不然下巴會被淡掉）
+    xs0 = np.where(ext)[0]
+    if len(xs0):
+        brk = np.where(np.diff(xs0) > 1)[0]
+        for seg_ in np.split(xs0, brk + 1):
+            if len(seg_) < EXTMIN and last[seg_].mean() < SH * 0.8:   # 靠近框底的窄條是肩膀邊（Wei、Kael 的左下角），照舊延伸＋淡出
+                ext[seg_] = False
+                nofade[seg_] = True
     fill = np.zeros((S, 4), np.float32)
     for x in np.where(ext)[0]:
         seg = a[max(0, last[x] - 8):max(1, last[x] - 1), x]
@@ -475,7 +486,7 @@ def render_head(data, f):
     last2 = np.where(op.any(axis=0), SH - 1 - np.argmax(op[::-1, :], axis=0), -1)
     yy = np.arange(SH, dtype=np.float32)[:, None]
     m = np.clip(((last2 + 1).astype(np.float32)[None, :] - yy) / PFADE, 0, 1) ** 1.6
-    a[:, :, 3] = np.where((last2 >= SH * 0.55)[None, :], A * m, A)
+    a[:, :, 3] = np.where(((last2 >= SH * 0.55) & ~nofade)[None, :], A * m, A)
     cv = Image.fromarray(a.clip(0, 255).astype(np.uint8), "RGBA")
     return cv
 
@@ -490,8 +501,7 @@ def heads(I, pages):
         o = I.get(p) or {}
         if not o.get("u") or not o.get("f"):
             continue
-        bgv = "" if (len(o["f"]) > 5 and o["f"][5]) else "|bg2"   # 帶背景照片的裁法 2026-11-24 改過（不強制蓋滿）：只有這幾張換檔名重裁，去背照不動
-        fn = hashlib.md5((o["u"] + "|" + json.dumps(o["f"]) + "|" + RVER + bgv).encode()).hexdigest()[:14] + ".webp"
+        fn = hashlib.md5((o["u"] + "|" + json.dumps(o["f"]) + "|" + RVER).encode()).hexdigest()[:14] + ".webp"   # RVER 6（2026-11-24）：帶背景照片不強制蓋滿、臉頰窄條不往下延伸
         dst = os.path.join(PHDIR, fn)
         if not os.path.exists(dst):
             try:
