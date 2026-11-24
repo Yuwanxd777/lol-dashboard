@@ -14454,7 +14454,7 @@ function render(){
       return rows.map((r,k)=>({...x,kind:r.kind,_sp:r.kind+k,zh:r.zh,en:r.en})); };
     // 一則消息拆成好幾列（使用者 2026-11-23「先看新隊能不能切成只有一隊 不行的話就看能不能原隊只有一個 讓消息單一化 不要全部擠在一起」）：
     //   資料端手寫的 parts＝[{zh,en,mv?,stay?,tags?}]，每一段自成一列（一列只有一個新隊；沒有新隊的照原隊一隊一列），連結／日期／狀態沿用原文
-    const xParts=x=>Array.isArray(x.parts)&&x.parts.length?x.parts.map((p,i)=>{ const y={...x,...p,id:x.id+"#p"+i,nosplit:1}; delete y.parts; if(!p.tags)delete y.tags; if(!p.mv)delete y.mv; if(!p.stay)delete y.stay; return y; }):[x];
+    const xParts=x=>Array.isArray(x.parts)&&x.parts.length?x.parts.map((p,i)=>{ const y={...x,...p,id:x.id+"#p"+i,nosplit:(p.nosplit||x.nosplit)?1:"p"};   /* "p"＝手寫分段：只有「A、B 在 X。」這種名單句才再照原隊拆（2026-11-24），人工標的 nosplit 照舊不拆 */ delete y.parts; if(!p.tags)delete y.tags; if(!p.mv)delete y.mv; if(!p.stay)delete y.stay; return y; }):[x];
     const all0=[...(D.wiki||[]).flatMap(wSplit).map(x=>({...x,s:"wiki"})),...(D.sheep||[]).flatMap(xParts).map(x=>({...x,s:"sheep",tags:x.tags||[],rg:"",kind:x.kind||"other",team:(x.tags||[]).map(t=>t[1]).join(" "),
         _v:x.st==="rumor"?sheepV(x):""})),
       ...(()=>{ const rgOf=n=>(BTM.find(b=>b.nm===n)||{}).rg||"", er=n=>String(n).replace(/[.*+?^${}()|[\]\\]/g,"\\$&"),
@@ -14478,7 +14478,12 @@ function render(){
           // 2026-11-24 改成「同一個新隊＋同一個原隊一列」（使用者「T1最新那條要拆成三個 因為不是三人都是Riot到T1」「類似的也要幫我處理」）：
           //   原隊不同就分列、原隊不知道的人各自一列；同一則裡同時有加入（mv）與留隊（stay）⇒ 留隊的另成一列。nosplit（人工標的候選名單）照舊不拆
           const stayL=(x.stay||[]).filter(s=>s&&s[0]&&s[1]);
-          const messy=!x.nosplit&&(mvU.length>1&&(new Set(mvU.map(m=>m[2])).size>1||new Set(mvU.map(m=>m[3]||"?"+m[0])).size>1)||mvU.length>=1&&stayL.length>0);
+          // 手寫分段的名單句（「微博流出的陣容圖：A、B、C 在 NIP。」／「…: A, B and C at NIP.」）：拆成名單項，之後照原隊挑子集合重組
+          const lsp=(()=>{ if(x.nosplit!=="p")return null; const mz=/^(.*?[:：]\s*)?(.+?)(\s*(?:在|加入)\s*[^、，。]+。)$/.exec(String(x.zh||"")), me=/^(.*?:\s*)?(.+?)(\s+(?:at|join|joins|is|are)\s+[^,]+\.)$/.exec(String(x.en||"")); if(!mz||!me)return null;
+            const iz=mz[2].split("、").map(s=>s.trim()), ie=me[2].split(/,\s*(?:and\s+)?|\s+and\s+/).map(s=>s.trim()).filter(Boolean), one=s=>{ const m=s.match(/‹[^|›]+\|([^›]+)›/g); return m&&m.length===1?nk(/\|([^›]+)›/.exec(m[0])[1]):null; };
+            const nz=iz.map(one); if(iz.length<2||iz.length!==ie.length||nz.some(n=>!n)||nz.some((n,i)=>n!==one(ie[i])))return null;
+            return {nz,mk:ns=>{ const ix=nz.map((n,i)=>ns.includes(n)?i:-1).filter(i=>i>=0), a=ix.map(i=>ie[i]); return {zh:(mz[1]||"")+ix.map(i=>iz[i]).join("、")+mz[3],en:(me[1]||"")+(a.length===1?a[0]:a.length===2?a.join(" and "):a.slice(0,-1).join(", ")+" and "+a[a.length-1])+me[3]}; }}; })();
+          const messy=(!x.nosplit||lsp&&mvU.every(m=>lsp.nz.includes(nk(m[0]))))&&(mvU.length>1&&(new Set(mvU.map(m=>m[2])).size>1||new Set(mvU.map(m=>m[3]||"?"+m[0])).size>1)||mvU.length>=1&&stayL.length>0);
           //   2026-11-23 起「同一個新隊一列」（使用者「先看新隊能不能切成只有一隊」）；內文用每人那句（mv 第 5 格），沒有就寫「A、B 加入 X」
           if(messy){ const byTo=new Map(); mvU.forEach(m=>{ if(base.s!=="man"&&dupMv(x.d,m[0],m[2],x.st||"rumor"))return; const kk=m[2]+"\u0001"+(m[3]||"?"+m[0]); if(!byTo.has(kk))byTo.set(kk,[]); byTo.get(kk).push(m); });
             if(stayL.length){ const byT=new Map(); stayL.forEach(s=>{ if(!byT.has(s[1]))byT.set(s[1],[]); byT.get(s[1]).push(s[0]); });
@@ -14487,7 +14492,8 @@ function render(){
                   zh:`${ns.join("、")} 留隊。`,en:`${ns.length>1?ns.slice(0,-1).join(", ")+" and "+ns[ns.length-1]:ns[0]} ${ns.length>1?"stay":"stays"}.`}); }); }
             [...byTo].forEach(([kk,ms],k)=>{ const to=ms[0][2], frs=[...new Set(ms.map(m=>m[3]).filter(Boolean))];
               const tags=[...frs.map(fr=>[rgOf(fr),fr,"out"]),[rgOf(to),to,"in"]], ss=[...new Set(ms.map(m=>m[4]).filter(Boolean))];
-              const who=ms.map(m=>`§${m[1]}§${m[0]}`), zh=ss.length===ms.length?ss.join(" "):`${who.join("、")} 加入 ${to}。`, en=`${who.length>1?who.slice(0,-1).join(", ")+" and "+who[who.length-1]:who[0]} ${who.length>1?"join":"joins"} ${to}.`;
+              const who=ms.map(m=>`§${m[1]}§${m[0]}`), lt0=lsp?lsp.mk(ms.map(m=>nk(m[0]))):null;
+              const zh=lt0?lt0.zh:ss.length===ms.length?ss.join(" "):`${who.join("、")} 加入 ${to}。`, en=lt0?lt0.en:`${who.length>1?who.slice(0,-1).join(", ")+" and "+who[who.length-1]:who[0]} ${who.length>1?"join":"joins"} ${to}.`;
               out.push({...base,id:x.id+"#"+k,tags,kind:frs.length?"both":"join",team:tags.map(t=>t[1]).join(" "),_sig:ms.map(m=>nk(m[0])+">"+to),_v:x.fake?"fake":x.conf?"conf":x.open?"":x.st==="rumor"?verdict(ms.map(m=>[m[0],to])):"",
                 zh,en}); }); return; }   // 狀態欄已標傳聞；不再重複整串標題
           const mvT=x.mv?[...new Map(mvU.flatMap(([n,l,to,fr])=>[...(fr?[[rgOf(fr),fr,"out"]]:[]),[rgOf(to),to,"in"]]).map(t=>[t[1]+t[2],t])).values()]:null;
