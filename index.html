@@ -15013,7 +15013,9 @@ function render(){
     //   lyTo(路, 人, 目的聯賽) ⇒ {v 換算後的一般評分, w 聯賽那部分實際的倍率（1＝沒換算）}；同聯賽、聯賽強度缺、沒有 lyL（舊資料）都是原分數
     const lyTo=(r,k,to)=>{ const L=((RATE.ly||{})[r]||{})[k]; if(L==null)return null; const ps=((RATE.lyL||{})[r]||{})[k]; if(!ps||!to)return {v:L,w:1};
       let p0=0, p1=0; for(const [lg,q] of ps){ p0+=q; p1+=q*lgW0(lg,to); } if(!(p0>0)||Math.abs(p1-p0)<0.05)return {v:L,w:1};
-      return {v:+Math.max(0,Math.min(100,L-p0+p1)).toFixed(1),w:p1/p0}; };
+      /* fr＝被換算的那幾個聯賽（季中換過聯賽的人：只有「不是目的聯賽」的那幾段被換算，標籤要寫那個聯賽，不是他最後待的聯賽——Hena 上半年 LPL、第三賽段 CBLOL，列在 CBLOL 時標 LPL） */
+      const fr=[...new Set(ps.filter(z=>Math.abs(lgW0(z[0],to)-1)>0.005).map(z=>lgN(z[0])))].join("／");
+      return {v:+Math.max(0,Math.min(100,L-p0+p1)).toFixed(1),w:p1/p0,fr}; };
     // 自由人那一列照分數高到低排（使用者 2026-11-20「FA 的人依照分數排序」）：選手＝轉會評分同一套分數（同路百分位＋國際賽加分）、
     //   今年沒資料的當 50 分再加國際賽分；主教練＝原隊的戰績分。分數存在 e._sc，小框也拿來顯示。
     //   聯賽強度：列在哪個聯賽的 FA 就換算成那個聯賽的分數（使用者 2026-11-21「Doggo為何…LEC跟LCP都是顯示相同評分」：原本這裡不乘聯賽強度，
@@ -15026,7 +15028,7 @@ function render(){
       const pct0=(r,v)=>{ const a=srt0(r); if(!a.length)return 50; let lo=0, eq=0; for(const z of a){ if(z<v)lo++; else if(z===v)eq++; } return 100*(lo+eq/2)/a.length; };
       board.filter(t=>t.fa).forEach(t=>{ for(const r in t.r){ t.r[r].forEach(e=>{ const k=String(pn(e.n)).toLowerCase(), it=(D.intl||{})[k]||0;
             if(r==="COACH"){ e._sc=e.from?coachVL(e.from,t.lg):null; e._wl=cLgW(e.from,t.lg); }
-            else{ const a=(RATE.pl[r]||{})[k], L=a?lyTo(r,k,t.lg):null; e._sc=(L?L.v:(MDL(r)??50))+it; e._wl=L&&Math.abs(L.w-1)>0.005?lgN(a.lg):""; } });   /* 一般評分＋生涯加分（2026-11-24 定案）；列在別的聯賽的 FA 只換算聯賽三個賽段那部分（2026-11-25，lyTo） */
+            else{ const a=(RATE.pl[r]||{})[k], L=a?lyTo(r,k,t.lg):null; e._sc=(L?L.v:(MDL(r)??50))+it; e._wl=L&&Math.abs(L.w-1)>0.005?(L.fr||lgN(a.lg)):""; } });   /* 一般評分＋生涯加分（2026-11-24 定案）；列在別的聯賽的 FA 只換算聯賽三個賽段那部分（2026-11-25，lyTo） */
           t.r[r].sort((p,q)=>((p.ret?1:0)-(q.ret?1:0))||(r==="COACH"?((p.sr==="HC"?0:1)-(q.sr==="HC"?0:1)):0)||(q._sc??-1)-(p._sc??-1)||String(p.n).localeCompare(String(q.n))); } }); }   // 退役的一律排最後（使用者 2026-11-21「退役選手在FA 直接把他列在最後一位」）   // 教練那格：主教練排前面   // 三個賽段合計的占比（10＋30＋40），跟 RATE 那邊的 SEGW 要一起改
     const rateOf=t=>{ if(!RATE||t.fa)return null; const items=[], scOf=new Map(), plL=[]; let plSum=0; t._scM=scOf;   // t._scM＝每個人的分數（陣容對比 2027 那排的評分用）   // FA 列不是隊伍，不算評分
       // 聯賽權重：別的聯賽來的分數 × exp(LGK × (原聯賽強度 − 本隊聯賽強度))；同聯賽＝1、強度缺＝1
@@ -15041,7 +15043,7 @@ function render(){
       const lgW=lg=>lgW0(lg,t.lg);
       for(const r of ["TOP","JNG","MID","BOT","SUP"]){ const P=RATE.pl[r], PY=(RATE.plY||{})[r]||{},
           get=(n,base=50)=>{ const k=String(pn(n)).toLowerCase(), a=P[k]||(PY[k]?{...PY[k],yr:1}:undefined); if(!a)return a;
-            { const L=P[k]?lyTo(r,k,t.lg):null, it=(D.intl||{})[k]||0; if(L)return {...a,raw:L.v,v:L.v+it,w:L.w,it}; }   /* 2026-11-25：別的聯賽來的人只換算聯賽三個賽段那部分（lyTo），國際賽與生涯加分不動 */   // 2026-11-24 定案：一般評分（ly）＋生涯加分，下面那套（戰績各半／場數靠攏／聯賽換算）只剩去年資料（PY）的人在用
+            { const L=P[k]?lyTo(r,k,t.lg):null, it=(D.intl||{})[k]||0; if(L)return {...a,raw:L.v,v:L.v+it,w:L.w,it,wl:L.fr||""}; }   /* 2026-11-25：別的聯賽來的人只換算聯賽三個賽段那部分（lyTo），國際賽與生涯加分不動 */   // 2026-11-24 定案：一般評分（ly）＋生涯加分，下面那套（戰績各半／場數靠攏／聯賽換算）只剩去年資料（PY）的人在用
             // 個人評分只看個人數據（弱隊核心會很高：Scout 在 NS 91.4、Faker 39.6）⇒ 跟所屬戰隊的戰績分（第三賽段勝率＋最終成績）各半
             //   （使用者 2026-11-20「Scout 為何能有 91.4 分 評分是不是怪怪的」；原話「只看第三賽段數據以及最終成績」）；戰隊沒有戰績資料就只用個人
             // 出賽太少的人往 50 分靠攏（使用者 2026-11-20「為何 Bluffing 的分數這麼高」：他只替 HLE 代打 6 場就拿到 67.7，還吃到 HLE 整年的戰績分，
@@ -15086,7 +15088,7 @@ function render(){
         if(!odSrc.length){ const ex=(t.r[r]||[]).filter(e=>!e.gone&&!e.new&&!e.tip&&!e.r), go=ex.filter(e=>e.ro); odSrc=go.length?go:ex; }
         const od=odSrc.map(p=>{ const n=typeof p==="string"?p:p.n; return {n:pn(n),s:get(n),e:(typeof p!=="string"&&"p" in p)?p:{prevE:typeof p==="string"?{}:p}}; }).sort(byG)[0];   // e＝格子裡的人（照陣容表的顏色）；prevE＝上一位（已離隊）
         if(nw&&od&&(nw.s||od.s)){ const A=fill(nw), B=fill(od);
-          const tg=x=>[x.s.yr?(en2?"full year":"全年"):"",x.s.w&&Math.abs(x.s.w-1)>0.005?lgN(x.s.lg):""].filter(Boolean).join(" ");   // 只寫「全年 LEC」，不寫權重數字（使用者 2026-11-20）
+          const tg=x=>[x.s.yr?(en2?"full year":"全年"):"",x.s.w&&Math.abs(x.s.w-1)>0.005?(x.s.wl||lgN(x.s.lg)):""].filter(Boolean).join(" ");   // 只寫「全年 LEC」，不寫權重數字（使用者 2026-11-20）
           // 多位傳聞人選：不取平均，用「最低～最高」表示（使用者 2026-11-20「評分顯示不要用平均好了 就用 ～ 代表最低最高分」）；d＝中間值，只拿來排序與決定顏色
           const mv=multi&&multi.length>=2?multi.map(x=>x.s.v):null, mlo=mv?Math.min(...mv):null, mhi=mv?Math.max(...mv):null, av=mv?(mlo+mhi)/2:null;
           if(A.s&&B.s&&A.n!==B.n)items.push({r,nw:A.n,od:B.n,a:av??A.s.v,b:B.s.v,d:(av??A.s.v)-B.s.v,dlo:(mlo??A.s.v)-B.s.v,dhi:(mhi??A.s.v)-B.s.v,nws:av!=null?multi.map(x=>({n:x.n,v:x.s.v,e:x.e})).sort((p,q)=>q.v-p.v):null,ne:A.e,oe:B.e,rm:A.rm,ma:A.md&&(A.vac?2:1),mb:B.md,ta:A.md?"":tg(A),tb:B.md?"":tg(B)}); } }
