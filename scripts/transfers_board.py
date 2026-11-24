@@ -973,7 +973,7 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
             print(f"   改名隊的舊名查詢失敗（略過）：{type(e).__name__} {str(e)[:100]}")
         for x in out:
             cand = [srk.get(tkey(x["tm"])), srk.get(tkey(x["nm"]))] + [srk.get(tkey(o2)) for o2 in olds.get(x["tm"], [])]
-            for s_ in ("s1", "s2"):
+            for s_ in ("s1", "s2", "c1", "c2", "c3"):
                 c_ = next((v[s_] for v in cand if v and v.get(s_)), None)
                 if c_:
                     x[s_] = c_
@@ -1365,6 +1365,33 @@ def split_results(cargo, year):
             c = f"P{p}" if p < 100 else (f"I{p - 100}" if p < 999 else (f"R{r}" if r < 999 else ""))
         if c:
             out.setdefault(k, {})[nm] = c
+    # 各賽段名單上的教練（使用者 2026-11-24「沒在這隊執教這個賽段就寫 -」）：c1／c2／c3＝那一段（例行賽＋季後賽）賽事名單上職稱含 Coach 的人（頁名小寫）
+    #   前端主教練格的 S1～S3：這一段有名單、名單上沒有他 ⇒ 寫 –。查不到名單的段不填（前端照舊顯示隊伍成績）
+    try:
+        cseg = {}
+        for lg, L in by_lg.items():
+            sps = []
+            for t in L:
+                if str(t.get("po")) != "1" and t["sp"] not in sps:
+                    sps.append(t["sp"])
+            sps = sps[-3:]
+            for sp, nm in zip(sps, ["c1", "c2", "c3"][3 - len(sps):]):
+                for t in L:
+                    if t["sp"] == sp:
+                        cseg[t["pg"]] = nm
+        cp = list(cseg)
+        cr = []
+        for i in range(0, len(cp), 20):
+            cr += cargo({"tables": "TournamentPlayers=TP", "fields": "TP.Team=tm,TP.Link=p,TP.OverviewPage=ov",
+                         "where": "TP.OverviewPage IN " + _in(cp[i:i + 20]) + ' AND TP.Role LIKE "%Coach%"', "limit": "5000", "format": "json"})
+        CS = {}
+        for x in cr:
+            if x.get("tm") and x.get("p") and x.get("ov") in cseg:
+                CS.setdefault((tkey(x["tm"]), cseg[x["ov"]]), set()).add(str(x["p"]).replace("_", " ").lower())
+        for (k, nm), v in CS.items():
+            out.setdefault(k, {})[nm] = sorted(v)
+    except Exception as e:
+        print(f"   各賽段教練名單查詢失敗（略過）：{type(e).__name__} {str(e)[:100]}")
     return out
 
 

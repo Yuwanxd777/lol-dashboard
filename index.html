@@ -15699,7 +15699,9 @@ function render(){
         const y26=LANE6.map(([r,ic])=>{ const o=o26(r);
           // 主教練成績分三個賽段（使用者 2026-11-22「S1 S2 S3 去列成績 S1如果有進FST就列FST S2有進MSI就列MSI」）：t.s1／t.s2＝transfers_board.split_results 的代碼，S3 沿用 rkS（有進世界賽寫 WCS）
           const rkX=c=>{ const z=String(c||""); return /^F/.test(z)?"FST #"+z.slice(1):/^M/.test(z)?"MSI #"+z.slice(1):(rkC(z,t)||"–"); }, nw=x=>String(x).replace(/ /g," ");   /* 賽段成績整段不斷行（kvS 只在空格換行；手機英文版 FST #7-8 被拆兩行）⇒ 換成不斷行空格 */
-          if(r==="HC")return phH(o,ic,cls26(o),kvS([[LC26[0],wr3==null?"–":Math.round(wr3*100)+"%"],["S1",nw(rkX(t.s1))],["S2",nw(rkX(t.s2))],["S3",nw(rkS(t)||"–")]]));
+          // 那個賽段沒在這隊執教（使用者 2026-11-24「沒在這隊執教這個賽段就寫 -」）：t.c1～c3＝該段賽事名單上的教練（transfers_board.split_results），有名單、名單上沒有他 ⇒ –
+          const inS=n=>{ const L=t["c"+n]; return !L||!L.length||!o||L.includes(lk(o.p))||L.includes(lk(o.n)); };
+          if(r==="HC")return phH(o,ic,cls26(o),kvS([[LC26[0],wr3==null||!inS(3)?"–":Math.round(wr3*100)+"%"],["S1",inS(1)?nw(rkX(t.s1)):"–"],["S2",inS(2)?nw(rkX(t.s2)):"–"],["S3",inS(3)?nw(rkS(t)||"–"):"–"]]));
           const a0=o&&RATE&&RATE.yr&&RATE.yr[r]?RATE.yr[r][String(pn(o.n)).toLowerCase()]:null;   // 整年（RATE.yr）
           // 季中換隊的人看他「在這一隊」的數據（RATE.yt；使用者 2026-11-24 UP 的 Hena 原本顯示的是 paiN 的數據）；POG／POM 照 yr 判斷這個聯賽有沒有發（null＝不發）
           const nkO=o?String(pn(o.n)).toLowerCase():"", multiT=nkO&&RATE&&RATE.yt&&Object.values(RATE.yt).filter(T=>T&&T[nkO]).length>=2;   // 只有今年待過兩隊以上的人才分隊算（其他人維持「所有比賽」）
