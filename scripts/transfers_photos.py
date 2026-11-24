@@ -413,11 +413,29 @@ def render_head(data, f):
     cut = f[5] if len(f) > 5 else 1
     S, SH = PS, PSH
     k = PFW * S / (fw * W)
-    if not cut:
-        k = max(k, (S / 2) / max(1e-6, ex * W), (S / 2) / max(1e-6, (1 - ex) * W), (PEY * S) / max(1e-6, ey * H), (SH - PEY * S) / max(1e-6, (1 - ey) * H))
+    # 帶背景的照片：原本強制放大到蓋滿整格 ⇒ 臉靠近照片邊緣的人臉會比別人大很多（使用者 2026-11-24「選手的頭貼位置再幫我重新檢視」：
+    #   量 406 張，Denathor 的臉寬是別人的 1.6 倍、Tockers／Spawn 1.4 倍）⇒ 改成跟去背照同一個臉寬，蓋不滿的那幾邊淡出（BGFE px）
     rw, rh = max(1, round(W * k)), max(1, round(H * k))
     r = im.resize((rw, rh), Image.LANCZOS)
     cx, cy = ex * rw, ey * rh
+    if not cut:
+        import numpy as _np
+        BGFE = 22
+        ox_, oy_ = round(S / 2 - cx), round(PEY * S - cy)
+        m_ = _np.ones((rh, rw), _np.float32)
+        xs_ = _np.arange(rw, dtype=_np.float32)[None, :]
+        ys_ = _np.arange(rh, dtype=_np.float32)[:, None]
+        if ox_ > 0:
+            m_ *= _np.clip(xs_ / BGFE, 0, 1)
+        if ox_ + rw < S:
+            m_ *= _np.clip((rw - 1 - xs_) / BGFE, 0, 1)
+        if oy_ > 0:
+            m_ *= _np.clip(ys_ / BGFE, 0, 1)
+        if oy_ + rh < SH:
+            m_ *= _np.clip((rh - 1 - ys_) / BGFE, 0, 1)
+        a_ = _np.asarray(r).astype(_np.float32)
+        a_[:, :, 3] *= m_ ** 1.3
+        r = Image.fromarray(a_.clip(0, 255).astype(_np.uint8), "RGBA")
     if cut and 2 <= abs(ang) <= 20:
         r = r.rotate(ang, center=(cx, cy), resample=Image.BICUBIC)
     cv = Image.new("RGBA", (S, SH), (0, 0, 0, 0))
@@ -435,6 +453,8 @@ def render_head(data, f):
     op = A > 200
     last = np.where(op.any(axis=0), SH - 1 - np.argmax(op[::-1, :], axis=0), -1)
     ext = (last >= SH * 0.55) & (last < SH - 1)
+    if not cut:
+        ext[:] = False   # 帶背景的照片下緣是照片的邊（已經淡出），不是衣服，不往下延伸
     fill = np.zeros((S, 4), np.float32)
     for x in np.where(ext)[0]:
         seg = a[max(0, last[x] - 8):max(1, last[x] - 1), x]
@@ -470,7 +490,8 @@ def heads(I, pages):
         o = I.get(p) or {}
         if not o.get("u") or not o.get("f"):
             continue
-        fn = hashlib.md5((o["u"] + "|" + json.dumps(o["f"]) + "|" + RVER).encode()).hexdigest()[:14] + ".webp"
+        bgv = "" if (len(o["f"]) > 5 and o["f"][5]) else "|bg2"   # 帶背景照片的裁法 2026-11-24 改過（不強制蓋滿）：只有這幾張換檔名重裁，去背照不動
+        fn = hashlib.md5((o["u"] + "|" + json.dumps(o["f"]) + "|" + RVER + bgv).encode()).hexdigest()[:14] + ".webp"
         dst = os.path.join(PHDIR, fn)
         if not os.path.exists(dst):
             try:
