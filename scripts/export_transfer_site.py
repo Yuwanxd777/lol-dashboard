@@ -46,7 +46,7 @@ NEED_JS = r"""()=>{ const D=window.TRANSFERS||{}, R=window._tbRC||{}, Y=R.yr||{}
   return out; }"""
 CALC_JS = r"""(names)=>{ const sv={split:F.split,league:F.league,patch:F.patch,d1:F.d1,d2:F.d2,minG:F.minG}, svH=H2H, out={};
   F.split=""; F.league="ALL"; F.patch=""; F.d1=""; F.d2=""; F.minG=0;
-  H2H=new Set((GAMES||[]).filter(o=>!/^(EWCQ|EWC|ENC|KeSPA|IEM|DCup|亞運|AC$)/i.test(String(o.league||""))&&String(o.split||"")!=="升降賽").map(gkey));   // 小盃賽、資格賽、升降賽不算（使用者 2026-11-24「小盃賽我們是不算的」）
+  H2H=new Set((GAMES||[]).filter(o=>!/^(EWCQ|ENC|KeSPA|IEM|DCup|亞運|AC$)/i.test(String(o.league||""))&&String(o.split||"")!=="升降賽").map(gkey));   // 小盃賽、資格賽、升降賽不算（使用者 2026-11-24「小盃賽我們是不算的」）
   try{ for(const r of ["TOP","JNG","MID","BOT","SUP"])calcPlayers(r,true).forEach(x=>{ const k=String(x._pn||"").toLowerCase(); if(!names.includes(k)||x.評分==null)return;
       if(!out[k]||out[k].g<x.場數)out[k]={sc:+x.評分.toFixed(1),g:x.場數,r}; }); }
   finally{ H2H=svH; Object.assign(F,sv); }
@@ -350,8 +350,8 @@ def main():
                     cc = json.load(io.open(CAR_CACHE, encoding="utf-8")) if os.path.exists(CAR_CACHE) else {}
                 except Exception:
                     cc = {}
-                if cc.get("d") != time.strftime("%Y-%m-%d") or cc.get("v") != 2:   # v2＝生涯評分不算小盃賽（2026-11-24）
-                    cc = {"d": time.strftime("%Y-%m-%d"), "v": 2, "p": {}, "miss": []}
+                if cc.get("d") != time.strftime("%Y-%m-%d") or cc.get("v") != 3:   # v2＝生涯評分不算小盃賽（2026-11-24）；v3＝EWC 正賽算
+                    cc = {"d": time.strftime("%Y-%m-%d"), "v": 3, "p": {}, "miss": []}
                 todo = {k: v for k, v in need.items() if k not in cc["p"] and k not in cc["miss"]}
                 got = career_scores(b, todo, cy) if todo else {}
                 bad = set(got.pop("_bad", []))
