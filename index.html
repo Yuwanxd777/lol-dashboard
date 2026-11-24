@@ -14657,6 +14657,12 @@ function render(){
     const NONE=`<span class="trNone">–</span>`;
     // 只知道新隊的加入消息：陣容表有記這個人從哪來就補原隊（使用者 2026-11-20「Bluffing 本來是 HLE 二隊的，怎麼沒寫成 HLEC → DNS」「SeTab 也是」）
     const ORG=new Map(); (D.board||[]).forEach(t=>Object.values(t.r||{}).flat().forEach(e=>{ if(e.from&&!e.r)ORG.set(nk(e.n)+">"+t.nm,e.from); }));
+    // 回歸（使用者 2026-11-24「如果曾經待過這隊 加入改寫成回歸」）：陣容表上這個人在這隊（含改名前的舊隊名）的效力紀錄 tn 有一段已經結束 ⇒ 以前待過。
+    //   一則消息講到的人全都是回歸的，內文的「加入」改成「回歸」、joins → returns（joins T1 → returns to T1）
+    const RET=new Set(); (D.board||[]).forEach(t=>{ if(t.fa)return; Object.values(t.r||{}).flat().forEach(e=>{ if((e.tn||[]).some(p=>p&&p[1]))[t.nm,t.tm].filter(Boolean).forEach(n=>RET.add(nk(e.n)+">"+n)); }); });
+    const retFix=x=>{ const sg=(x._sig||[]).filter(s=>s.includes(">")), tm=x.s==="wiki"?(x.kind==="join"?x.team:""):(((x.tags||[]).filter(t=>t[2]==="in")).length===1?x.tags.find(t=>t[2]==="in")[1]:"");
+      const ks=sg.length?sg:(tm?namesOf(x).map(n=>n+">"+tm):[]); if(!ks.length||!ks.every(k=>RET.has(k)))return x;
+      return {...x,zh:String(x.zh||"").replace(/加入/g,"回歸"),en:String(x.en||"").replace(/\bjoin(s?)\b(\s+(?=[A-Z0-9‹§]))?/g,(m,s,sp)=>"return"+s+(sp?" to ":""))}; };
     const orgOf=(x,to)=>{ const fs=[...new Set(namesOf(x).map(n=>ORG.get(n+">"+to)).filter(Boolean))]; return fs.length?fs.map(f=>team("",f)).join(""):""; };
     const flowOf=x=>{
       if(x.s==="wiki"){ const t=team(x.rg,x.team);
@@ -14700,7 +14706,7 @@ function render(){
         :`<div class="trFrom">${f.from}</div><span class="trAT"><span class="trArr">➜</span><div class="trTo">${f.to}</div></span>`;
       const nTm=x.s==="wiki"?1:new Set((x.tags||[]).map(t=>t[1]).filter(Boolean)).size;   // 隊伍很多（≥4）⇒ 手機版原隊一行、➜ 新隊另一行
       const seen=new Set(), lk=x._items.map(lkOf).filter(h=>h&&!seen.has(h)&&seen.add(h)).join("");
-      const body=x._items.map(i=>txt(i)).join("<br>");
+      const body=x._items.map(i=>txt(retFix(i))).join("<br>");
       rows+=`<div class="trRow" data-d="${d}"><span class="trSt trSt-${stOf(x)}">${ST[stOf(x)]}</span><span class="trRgC">${rgCol(x)}</span><span class="trLk1">${(/<a [^>]*>[^<]*<\/a>/.exec(lk)||[""])[0]}</span><div class="trFlow${nTm>=4?" trMany":""}">${flow}</div><div class="trTx"><span class="trTxt">${body}</span>${lk?`<span class="trLks">${lk}</span>`:""}</div></div>`; });
     if(nMore)rows+=`<button class="trMore"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>${en2?`Show ${nMore} earlier`:`顯示更早的 ${nMore} 則`}</button>`;
     const head=rows?`<div class="trHead"><span>${en2?"Status":"狀態"}</span><span>${en2?"League":"賽區"}</span><span>${en2?"From":"原隊"}</span><span></span><span>${en2?"To":"新隊"}</span><span>${en2?"News":"消息"}</span></div>`:"";
