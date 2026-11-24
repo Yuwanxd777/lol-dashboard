@@ -14459,20 +14459,22 @@ function render(){
       const vb=a.length===1?me[2].replace(/^(join|leave|retire)\b/,"$1s"):me[2].replace(/^(join|leave|retire)s\b/,"$1");
       return {zh:ix.map(k=>iz[k]).join("、")+mz[2]+"。",en:(a.length===1?a[0]:a.length===2?a.join(" and "):a.slice(0,-1).join(", ")+", and "+a[a.length-1])+" "+vb+"."}; };
     const wSplit=x=>{ const sp=s=>String(s||"").trim().split(/(?<=[。.])\s+/).filter(Boolean), z=sp(x.zh), e=sp(x.en);
-      if(!z.length||z.length!==e.length)return [x]; const kOf=s=>/離隊|退役|上調一隊|分道揚鑣/.test(s)?"leave":/加入|上調/.test(s)?"join":"other";
+      if(!z.length||z.length!==e.length)return [Array.isArray(x.srcs)&&x.srcs.length>1?{...x,_lks:x.srcs}:x]; const kOf=s=>/離隊|退役|上調一隊|分道揚鑣/.test(s)?"leave":/加入|上調/.test(s)?"join":"other";
       const kinds=new Set(z.map(kOf)), mixed=kinds.size>1, kd=k=>k==="other"&&!mixed?x.kind:k;
       // 每個人對應的公告：英文句裡的人名順序 ↔ srcs 順序
-      const NO=[...new Set([...String(x.en||"").matchAll(/‹[^|›]+\|([^›]+)›/g)].map(m=>nk(m[1])))], SR=Array.isArray(x.srcs)&&x.srcs.length===NO.length&&NO.length>1?x.srcs:null;
-      const sIx=n=>SR?NO.indexOf(n):0, nIn=t=>[...new Set([...String(t).matchAll(/‹[^|›]+\|([^›]+)›/g)].map(m=>nk(m[1])))];
+      //   人→公告：先看抓取端讀推文內文配好的 smap（人名只出現在其中一則），沒有才在人數＝公告數時照順序；都對不到＝-1（那一列把全部公告都列出來）
+      const NO=[...new Set([...String(x.en||"").matchAll(/‹[^|›]+\|([^›]+)›/g)].map(m=>nk(m[1])))], SR=Array.isArray(x.srcs)&&x.srcs.length>1?x.srcs:null, SM=x.smap||{}, ORD=SR&&SR.length===NO.length;
+      const sIx=n=>!SR?0:(n in SM)?SM[n]:ORD?NO.indexOf(n):-1, nIn=t=>[...new Set([...String(t).matchAll(/‹[^|›]+\|([^›]+)›/g)].map(m=>nk(m[1])))];
       const pcs=[];   // {kind, si（來源序號，-1＝不分）, zh, en}
       z.forEach((zs,i)=>{ const k=kOf(zs), ns=nIn(e[i]), ss=[...new Set(ns.map(sIx))];
-        if(!SR||ss.length<2){ pcs.push({kind:k,si:SR&&ss.length===1?ss[0]:-1,zh:zs,en:e[i]}); return; }
+        if(!SR||ss.length<2){ pcs.push({kind:k,si:SR&&ss.length===1?ss[0]:-1,zh:zs,en:e[i]}); return; }   // si＝-1：對不到公告
         const parts=ss.map(si=>({si,r:wListSub(zs,e[i],new Set(ns.filter(n=>sIx(n)===si)))}));
         if(parts.some(q=>!q.r)){ pcs.push({kind:k,si:ss[0],zh:zs,en:e[i]}); return; }
         parts.forEach(q=>pcs.push({kind:k,si:q.si,zh:q.r.zh,en:q.r.en})); });
       const G=new Map(); pcs.forEach(q=>{ const key=q.kind+"|"+q.si; if(!G.has(key))G.set(key,{kind:q.kind,si:q.si,zh:[],en:[]}); const g=G.get(key); g.zh.push(q.zh); g.en.push(q.en); });
-      if(G.size<2)return [x];
-      return [...G.values()].map((g,k)=>({...x,kind:kd(g.kind),_sp:g.kind+k,zh:g.zh.join(" "),en:g.en.join(" "),...(g.si>=0&&SR?{src:SR[g.si][0],srcNm:SR[g.si][1]||x.srcNm}:{})})); };
+      const lk=si=>!SR?{}:si>=0?{src:SR[si][0],srcNm:SR[si][1]||x.srcNm}:{_lks:SR};   // 對到一則＝連那一則；對不到＝全部公告都列
+      if(G.size<2){ const g=[...G.values()][0]; return [{...x,...lk(g?g.si:-1)}]; }
+      return [...G.values()].map((g,k)=>({...x,kind:kd(g.kind),_sp:g.kind+k,zh:g.zh.join(" "),en:g.en.join(" "),...lk(g.si)})); };
     // 一則消息拆成好幾列（使用者 2026-11-23「先看新隊能不能切成只有一隊 不行的話就看能不能原隊只有一個 讓消息單一化 不要全部擠在一起」）：
     //   資料端手寫的 parts＝[{zh,en,mv?,stay?,tags?}]，每一段自成一列（一列只有一個新隊；沒有新隊的照原隊一隊一列），連結／日期／狀態沿用原文
     const xParts=x=>Array.isArray(x.parts)&&x.parts.length?x.parts.map((p,i)=>{ const y={...x,...p,id:x.id+"#p"+i,nosplit:1}; delete y.parts; if(!p.tags)delete y.tags; if(!p.mv)delete y.mv; if(!p.stay)delete y.stay; return y; }):[x];
@@ -14700,7 +14702,8 @@ function render(){
       groups.push({...x,_k:k,_items:[x],_last:x}); });
     const lkA=(u,l,ti)=>` <a class="trLk" href="${esc(safeU(u))}" target="_blank" rel="noopener" title="${esc(ti||"")}">${l} ↗</a>`;
     // 韓網：連結標韓網原文（使用者要求），另附 PTT 轉貼
-    const lkOf=x=>{ const link=x.s==="wiki"?x.src:x.url; if(x.s==="heard"&&!link)return "";   // 聽說：不標來源（使用者 2026-11-22「聽說 就不用標來源超連結」）
+    const lkOf=x=>{ if(x._lks)return x._lks.map(([u,n])=>lkA(u,/(^|\/\/)(www\.)?(x|twitter)\.com\//.test(u)?"X":/instagram\.com/.test(u)?"IG":/facebook\.com|fb\.com/.test(u)?"FB":(en2?"Source":"來源"),n)).join("");   // wiki 一則掛好幾則公告、這一列對不到是哪一則 ⇒ 全部列出（2026-11-24）
+      const link=x.s==="wiki"?x.src:x.url; if(x.s==="heard"&&!link)return "";   // 聽說：不標來源（使用者 2026-11-22「聽說 就不用標來源超連結」）
       // 來源連結照網域寫名字（使用者 2026-11-20「來源 ↗ 如果是 X 要寫 X ↗」）
       const dom=u=>/Sheep_?Esports|sheepesports\.com/i.test(u)?"SE":/(^|\/\/)(www\.)?(x|twitter)\.com\//.test(u)?"X":/facebook\.com|fb\.com/.test(u)?"FB":/instagram\.com/.test(u)?"IG":/weibo\.(com|cn)/.test(u)?(en2?"Weibo":"微博"):/youtube\.com|youtu\.be/.test(u)?"YT":/ptt\.cc/.test(u)?"PTT":/dpm\.lol/i.test(u)?"DPM":(en2?"Source":"來源");   /* DPM.LOL 的連結寫 DPM（使用者 2026-11-23） */
       // 消息裡附的影片（使用者 2026-11-22「傳聞裡面如果有影片 記得附上YT連結 並在傳聞後面放一個YT按鈕」）：x.yt＝YouTube 連結（程式從 PTT 內文／Sheep 推文抓），放在來源連結後面

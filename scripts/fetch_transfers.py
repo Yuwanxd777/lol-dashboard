@@ -155,6 +155,54 @@ def tweet_ts(url, day=""):
     return t.strftime("%Y-%m-%d %H:%M")
 
 
+TWEET_CACHE = os.path.join(ROOT, "csv_cache", "tweet_text.json")
+_TW = None
+
+
+def _tweet_text(url):
+    """X 貼文內文（含圖片替代文字）：用公開的 fxtwitter 讀取接口（不用登入）。貼文內容不會變 ⇒ 永久快取在 csv_cache/tweet_text.json；讀不到存空字串、7 天後重試"""
+    global _TW
+    m = re.search(r"(?:x|twitter)\.com/([^/?#]+)/status/(\d+)", url or "")
+    if not m:
+        return ""
+    if _TW is None:
+        try:
+            _TW = json.load(io.open(TWEET_CACHE, encoding="utf-8"))
+        except Exception:
+            _TW = {}
+    k = m.group(2)
+    o = _TW.get(k)
+    if o and (o.get("t") or time.time() - o.get("at", 0) < 7 * 86400):
+        return o.get("t") or ""
+    txt = ""
+    try:
+        req = urllib.request.Request(f"https://api.fxtwitter.com/{m.group(1)}/status/{k}", headers={"User-Agent": "Mozilla/5.0"})
+        d = json.load(urllib.request.urlopen(req, timeout=15)).get("tweet") or {}
+        txt = (d.get("text") or "") + " " + " ".join((q.get("altText") or "") for q in ((d.get("media") or {}).get("all") or []))
+        time.sleep(0.3)
+    except Exception:
+        pass
+    _TW[k] = {"t": txt.strip(), "at": time.time()}
+    try:
+        io.open(TWEET_CACHE, "w", encoding="utf-8").write(json.dumps(_TW, ensure_ascii=False))
+    except Exception:
+        pass
+    return txt.strip()
+
+
+def _src_map(en, srcs):
+    """wiki 一則消息掛好幾則公告（使用者 2026-11-24「每一個來源都確定有連正確」）：讀每則 X 公告的內文，人名只出現在其中一則 ⇒ {人名小寫: 那則的序號}。
+    對不到的人不放（前端那一列改成把全部來源都列出來）"""
+    names = [re.sub(r"\s*\([^()]*\)\s*$", "", d).strip() for _p, d in re.findall(r"‹([^|›]+)\|([^›]+)›", en or "")]
+    txts = [_tweet_text(u).lower() for u, _n in srcs]
+    out = {}
+    for n in dict.fromkeys(names):
+        hit = [i for i, t in enumerate(txts) if t and re.search(r"(?<![a-z0-9])" + re.escape(n.lower()) + r"(?![a-z0-9])", t)]
+        if len(hit) == 1:
+            out[n.lower()] = hit[0]
+    return out
+
+
 def fetch_wiki(start):
     import build_predict_live as B   # 共用 Cargo 的 cookie 與節流
     r = B.cargo({"tables": "NewsItems",
@@ -172,7 +220,8 @@ def fetch_wiki(start):
         url, nm = src_of(x.get("src"))
         # 全部來源（使用者 2026-11-24「Easyhoon 的合約延長的來源是Roach的」：wiki 一則消息掛好幾則公告，照人名順序一人一則；前端人數對得上就照來源分列）
         srcs_ = [[f_[0], f_[1] if len(f_) > 1 else ""] for f_ in (z_.split(";;;") for z_ in str(x.get("src") or "").split(":::")) if f_ and f_[0].startswith("http")]
-        out.append({**({"srcs": srcs_} if len(srcs_) > 1 else {}),"d": str(x.get("ds") or "")[:10], **({"t": tweet_ts(url, str(x.get("ds") or "")[:10])} if tweet_ts(url, str(x.get("ds") or "")[:10]) else {}),
+        sm_ = _src_map(en, srcs_) if len(srcs_) > 1 else {}
+        out.append({**({"srcs": srcs_} if len(srcs_) > 1 else {}), **({"smap": sm_} if sm_ else {}),"d": str(x.get("ds") or "")[:10], **({"t": tweet_ts(url, str(x.get("ds") or "")[:10])} if tweet_ts(url, str(x.get("ds") or "")[:10]) else {}),
                     "n": int(x.get("n") or 0), "team": x.get("sub") or "",
                     "rg": REGION.get(x.get("rg"), x.get("rg") or ""), "kind": kind_of(html.unescape(x.get("s") or ""), en),
                     "en": en, "zh": to_zh(en), "src": url, "srcNm": nm})
