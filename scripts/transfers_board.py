@@ -286,7 +286,8 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
         """告別文「點名」這個人（不含只寫全員的）的日期；沒有回 ""。wiki 還沒記離隊時用（使用者 2026-11-24「為何Duro離隊的消息沒標示上去 還是綠字」：
         GEN 11/24 發 Thank You Duro，wiki 仍記他合約到 2027-11-15、沒有離隊紀錄 ⇒ 陣容表一直當他還在隊上）"""
         n = re.sub(r"\s*\([^()]*\)$", "", pg)
-        ds = [d_ for t, _a, d_ in fw.get(tkey(tm), []) if re.search(r"(?<![A-Za-z0-9])" + re.escape(n) + r"(?![A-Za-z0-9])", t, re.I)]
+        # 只看公告本文：PTT 文末「--」之後是發文者自己的話（DCG Thank you 五人那篇，文末寫「看起來Pop9跟Feng會續留？」，剛好相反）
+        ds = [d_ for t, _a, d_ in fw.get(tkey(tm), []) if re.search(r"(?<![A-Za-z0-9])" + re.escape(n) + r"(?![A-Za-z0-9])", re.split(r"\n--\s*(?:\n|$)", t)[0], re.I)]
         return max(ds) if ds else ""
     expired, lastev = {}, {}
     for x in rc:   # 新到舊
