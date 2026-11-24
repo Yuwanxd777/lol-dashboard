@@ -14485,16 +14485,16 @@ function render(){
             return {nz,mk:ns=>{ const ix=nz.map((n,i)=>ns.includes(n)?i:-1).filter(i=>i>=0), a=ix.map(i=>ie[i]); return {zh:(mz[1]||"")+ix.map(i=>iz[i]).join("、")+mz[3],en:(me[1]||"")+(a.length===1?a[0]:a.length===2?a.join(" and "):a.slice(0,-1).join(", ")+" and "+a[a.length-1])+me[3]}; }}; })();
           const messy=(!x.nosplit||lsp&&mvU.every(m=>lsp.nz.includes(nk(m[0]))))&&(mvU.length>1&&(new Set(mvU.map(m=>m[2])).size>1||new Set(mvU.map(m=>m[3]||"?"+m[0])).size>1)||mvU.length>=1&&stayL.length>0);
           //   2026-11-23 起「同一個新隊一列」（使用者「先看新隊能不能切成只有一隊」）；內文用每人那句（mv 第 5 格），沒有就寫「A、B 加入 X」
-          if(messy){ const byTo=new Map(); mvU.forEach(m=>{ if(base.s!=="man"&&dupMv(x.d,m[0],m[2],x.st||"rumor"))return; const kk=m[2]+"\u0001"+(m[3]||"?"+m[0]); if(!byTo.has(kk))byTo.set(kk,[]); byTo.get(kk).push(m); });
+          if(messy){ const byTo=new Map(); mvU.forEach(m=>{ if(!lsp&&base.s!=="man"&&dupMv(x.d,m[0],m[2],x.st||"rumor"))return;   /* 名單句不逐人去重（2026-11-24：Hang 被當成重複刪掉、名單少一個人） */ const kk=m[2]+"\u0001"+(m[3]||"?"+m[0]); if(!byTo.has(kk))byTo.set(kk,[]); byTo.get(kk).push(m); });
             if(stayL.length){ const byT=new Map(); stayL.forEach(s=>{ if(!byT.has(s[1]))byT.set(s[1],[]); byT.get(s[1]).push(s[0]); });
               [...byT].forEach(([tm,ns],k)=>{ const tags=[[rgOf(tm),tm]];
-                out.push({...base,id:x.id+"#s"+k,tags,kind:"other",team:tm,_sig:ns.map(n=>nk(n)+"="+tm),_v:x.fake?"fake":x.conf?"conf":x.open?"":x.st==="rumor"?verdict([],ns.map(n=>[n,tm])):"",
+                out.push({...base,id:x.id+"#s"+k,_sp:"s"+x.id+"#"+k,tags,kind:"other",team:tm,_sig:ns.map(n=>nk(n)+"="+tm),_v:x.fake?"fake":x.conf?"conf":x.open?"":x.st==="rumor"?verdict([],ns.map(n=>[n,tm])):"",
                   zh:`${ns.join("、")} 留隊。`,en:`${ns.length>1?ns.slice(0,-1).join(", ")+" and "+ns[ns.length-1]:ns[0]} ${ns.length>1?"stay":"stays"}.`}); }); }
             [...byTo].forEach(([kk,ms],k)=>{ const to=ms[0][2], frs=[...new Set(ms.map(m=>m[3]).filter(Boolean))];
               const tags=[...frs.map(fr=>[rgOf(fr),fr,"out"]),[rgOf(to),to,"in"]], ss=[...new Set(ms.map(m=>m[4]).filter(Boolean))];
               const who=ms.map(m=>`§${m[1]}§${m[0]}`), lt0=lsp?lsp.mk(ms.map(m=>nk(m[0]))):null;
               const zh=lt0?lt0.zh:ss.length===ms.length?ss.join(" "):`${who.join("、")} 加入 ${to}。`, en=lt0?lt0.en:`${who.length>1?who.slice(0,-1).join(", ")+" and "+who[who.length-1]:who[0]} ${who.length>1?"join":"joins"} ${to}.`;
-              out.push({...base,id:x.id+"#"+k,tags,kind:frs.length?"both":"join",team:tags.map(t=>t[1]).join(" "),_sig:ms.map(m=>nk(m[0])+">"+to),_v:x.fake?"fake":x.conf?"conf":x.open?"":x.st==="rumor"?verdict(ms.map(m=>[m[0],to])):"",
+              out.push({...base,id:x.id+"#"+k,_sp:"m"+x.id+"#"+k,tags,kind:frs.length?"both":"join",team:tags.map(t=>t[1]).join(" "),_sig:ms.map(m=>nk(m[0])+">"+to),_v:x.fake?"fake":x.conf?"conf":x.open?"":x.st==="rumor"?verdict(ms.map(m=>[m[0],to])):"",
                 zh,en}); }); return; }   // 狀態欄已標傳聞；不再重複整串標題
           const mvT=x.mv?[...new Map(mvU.flatMap(([n,l,to,fr])=>[...(fr?[[rgOf(fr),fr,"out"]]:[]),[rgOf(to),to,"in"]]).map(t=>[t[1]+t[2],t])).values()]:null;
           // 標題自動認出的隊：照標題字眼放原隊／新隊（加入／Welcome＝新隊、離隊／Thank you＝原隊）
@@ -14672,7 +14672,7 @@ function render(){
     const groups=[];
     shown.forEach(x=>{ const k=tkOf(x);
       const fam=y=>y.s==="kr"?"ptt":y.s;   // PTT 與韓網（都是 PTT 文）算同一家
-      const g=k&&groups.find(g=>fam(g)===fam(x)&&stOf(g)===stOf(x)&&g._k===k&&(x.s==="wiki"?(g.d.slice(0,10)===x.d.slice(0,10)&&(g.src||"")===(x.src||"")&&(g._sp||"")===(x._sp||"")):Math.abs(tsOf(g._last)-tsOf(x))<=2*3600e3));   // 官方公告：同一天也要是同一則公告（同一個來源連結）才併；兩則不同的貼文分兩列（使用者 2026-11-21 NS 的續約與 bon0 加入）
+      const g=k&&groups.find(g=>fam(g)===fam(x)&&stOf(g)===stOf(x)&&g._k===k&&(x.s==="wiki"?(g.d.slice(0,10)===x.d.slice(0,10)&&(g.src||"")===(x.src||"")&&(g._sp||"")===(x._sp||"")):((g._sp||"")===(x._sp||"")&&Math.abs(tsOf(g._last)-tsOf(x))<=2*3600e3)));   /* _sp＝特意拆開的列（一列一個原隊；2026-11-24），不再併回去 */   // 官方公告：同一天也要是同一則公告（同一個來源連結）才併；兩則不同的貼文分兩列（使用者 2026-11-21 NS 的續約與 bon0 加入）
       // 同一則合併裡，同一個人去同一隊的只留一行（使用者 2026-11-20 KRX Lucid 兩篇）
       if(g&&x._sig&&x._sig.length&&g._items.some(i=>i._sig&&x._sig.every(z=>i._sig.includes(z)))){ g._last=x; return; }
       if(g){ g._items.push(x); g._last=x; if(x.tags)g.tags=[...new Map([...(g.tags||[]),...x.tags].map(t=>[t[1]+"|"+(t[2]||""),t])).values()];
