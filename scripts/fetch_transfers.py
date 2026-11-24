@@ -198,6 +198,10 @@ def _src_map(en, srcs):
     out = {}
     for n in dict.fromkeys(names):
         hit = [i for i, t in enumerate(txts) if t and re.search(r"(?<![a-z0-9])" + re.escape(n.lower()) + r"(?![a-z0-9])", t)]
+        if len(hit) > 1:   # 名字同時是常用字／隊名的一部分（Life ↔ Hanwha Life，每則 HLE 公告都有）：看哪一則用引號點名（‘LIFE’、'Life'、"Life"）
+            q = [i for i in hit if re.search(r"[‘'\"“「]\s*" + re.escape(n.lower()) + r"\s*[’'\"”」]", txts[i])]
+            if len(q) == 1:
+                hit = q
         if len(hit) == 1:
             out[n.lower()] = hit[0]
     return out
