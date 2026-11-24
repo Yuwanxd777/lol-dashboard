@@ -14436,10 +14436,22 @@ function render(){
       if(x.kind==="leave"&&outs.length===1&&!ins.length&&ns.length)return ns.every(n=>LEFT.has(n+">"+outs[0]))?"conf":"";
       return verdict(sheepMv(x)); };
     // WIKI 同一則公告同時有加入與離隊（kind both）⇒ 拆兩列：加入／其他那幾句一列（原隊 ➜ 本隊）、離隊那幾句一列（本隊 ➜ –）；中英句數對不上就不拆（使用者 2026-11-22）
-    const wSplit=x=>{ if(x.kind!=="both")return [x]; const sp=s=>String(s||"").trim().split(/(?<=[。.])\s+/).filter(Boolean), z=sp(x.zh), e=sp(x.en);
-      if(!z.length||z.length!==e.length)return [x]; const a=[], b=[]; z.forEach((s,i)=>(/離隊|退役|上調一隊|分道揚鑣/.test(s)?b:a).push(i)); if(!a.length||!b.length)return [x];
-      const mk=(ix,k)=>({...x,kind:k,_sp:k,zh:ix.map(i=>z[i]).join(" "),en:ix.map(i=>e[i]).join(" ")});
-      return [mk(a,a.some(i=>/加入|上調/.test(z[i]))?"join":"other"),mk(b,"leave")]; };
+    // 2026-11-24 使用者「T1最新那條要拆成三個 因為不是三人都是Riot到T1」「類似的也要幫我處理」⇒ 一列只放「同一個原隊、同一種動作」：
+    //   加入句／離隊句／其他（續約、合約延長）分開；加入句裡的人照原隊（陣容表記的 from）再分，原隊不知道的人各自一列（不能假設他們同一個原隊）。拆完只剩一列就照舊
+    const ORGW=new Map(); (D.board||[]).forEach(t=>Object.values(t.r||{}).flat().forEach(e=>{ if(e.from&&!e.r)ORGW.set(nk(e.n)+">"+t.nm,e.from); }));
+    const wJoinSplit=(zs,es,team)=>{ const mz=/^(.*?)(\s*加入)(.*)。$/.exec(zs), me=/^(.*?)\s+(joins?)\b(.*)\.$/.exec(es); if(!mz||!me)return null;
+      const iz=mz[1].split("、").map(s=>s.trim()), ie=me[1].split(/,\s*(?:and\s+)?|\s+and\s+/).map(s=>s.trim()).filter(Boolean); if(iz.length<2||iz.length!==ie.length)return null;
+      const nmOf=s=>{ const m=s.match(/‹[^|›]+\|([^›]+)›/g); return m&&m.length===1?nk(/\|([^›]+)›/.exec(m[0])[1]):null; }, nz=iz.map(nmOf), ne=ie.map(nmOf);
+      if(nz.some(n=>!n)||nz.some((n,i)=>n!==ne[i]))return null;
+      const G=new Map(); nz.forEach((n,i)=>{ const o=ORGW.get(n+">"+team), k=o?"o:"+o:"u:"+n; if(!G.has(k))G.set(k,[]); G.get(k).push(i); }); if(G.size<2)return null;
+      const enL=a=>a.length===1?a[0]:a.length===2?a.join(" and "):a.slice(0,-1).join(", ")+", and "+a[a.length-1];
+      return [...G.values()].map(ix=>({zh:ix.map(i=>iz[i]).join("、")+mz[2]+mz[3]+"。",en:enL(ix.map(i=>ie[i]))+" "+(ix.length===1?"joins":"join")+me[3]+"."})); };
+    const wSplit=x=>{ const sp=s=>String(s||"").trim().split(/(?<=[。.])\s+/).filter(Boolean), z=sp(x.zh), e=sp(x.en);
+      if(!z.length||z.length!==e.length)return [x]; const a=[], b=[], o=[]; z.forEach((s,i)=>(/離隊|退役|上調一隊|分道揚鑣/.test(s)?b:/加入|上調/.test(s)?a:o).push(i));
+      const rows=[]; a.forEach(i=>{ const sub=wJoinSplit(z[i],e[i],x.team); (sub||[{zh:z[i],en:e[i]}]).forEach(r=>rows.push({...r,kind:"join"})); });
+      if(b.length)rows.push({zh:b.map(i=>z[i]).join(" "),en:b.map(i=>e[i]).join(" "),kind:"leave"}); if(o.length)rows.push({zh:o.map(i=>z[i]).join(" "),en:o.map(i=>e[i]).join(" "),kind:a.length||b.length?"other":x.kind});
+      if(rows.length<2)return [x];
+      return rows.map((r,k)=>({...x,kind:r.kind,_sp:r.kind+k,zh:r.zh,en:r.en})); };
     // 一則消息拆成好幾列（使用者 2026-11-23「先看新隊能不能切成只有一隊 不行的話就看能不能原隊只有一個 讓消息單一化 不要全部擠在一起」）：
     //   資料端手寫的 parts＝[{zh,en,mv?,stay?,tags?}]，每一段自成一列（一列只有一個新隊；沒有新隊的照原隊一隊一列），連結／日期／狀態沿用原文
     const xParts=x=>Array.isArray(x.parts)&&x.parts.length?x.parts.map((p,i)=>{ const y={...x,...p,id:x.id+"#p"+i,nosplit:1}; delete y.parts; if(!p.tags)delete y.tags; if(!p.mv)delete y.mv; if(!p.stay)delete y.stay; return y; }):[x];
@@ -14463,10 +14475,17 @@ function render(){
           // 原隊／新隊只放標題有點名的人（KRX 五人那篇內文另提 Sharvel→GEN，不該多出 DNS／GEN）；都沒點名才全放
           const mvIn=x.mv?x.mv.filter(m=>has(m[0],x.zh)):[], mvU=mvIn.length?mvIn:(x.mv||[]);
           // 內文雜亂（好幾個人、原隊或新隊不同）⇒ 拆成一人一列（使用者 2026-11-20「記得把內文拆開來判斷」）
-          const messy=!x.nosplit&&mvU.length>1&&new Set(mvU.map(m=>m[2])).size>1;   // 只有一個新隊（原隊再多）＝本來就是一列「多隊 → 一隊」，不拆   // nosplit：人工標「這則是候選名單，不拆」（JDG 五選二）
-          //   2026-11-23 起改成「同一個新隊一列」（使用者「先看新隊能不能切成只有一隊」）：去同一隊的人併一列、原隊取聯集；內文用每人那句（mv 第 5 格），沒有就寫「A、B 加入 X」
-          if(messy){ const byTo=new Map(); mvU.forEach(m=>{ if(base.s!=="man"&&dupMv(x.d,m[0],m[2],x.st||"rumor"))return; if(!byTo.has(m[2]))byTo.set(m[2],[]); byTo.get(m[2]).push(m); });
-            [...byTo].forEach(([to,ms],k)=>{ const frs=[...new Set(ms.map(m=>m[3]).filter(Boolean))];
+          // 2026-11-24 改成「同一個新隊＋同一個原隊一列」（使用者「T1最新那條要拆成三個 因為不是三人都是Riot到T1」「類似的也要幫我處理」）：
+          //   原隊不同就分列、原隊不知道的人各自一列；同一則裡同時有加入（mv）與留隊（stay）⇒ 留隊的另成一列。nosplit（人工標的候選名單）照舊不拆
+          const stayL=(x.stay||[]).filter(s=>s&&s[0]&&s[1]);
+          const messy=!x.nosplit&&(mvU.length>1&&(new Set(mvU.map(m=>m[2])).size>1||new Set(mvU.map(m=>m[3]||"?"+m[0])).size>1)||mvU.length>=1&&stayL.length>0);
+          //   2026-11-23 起「同一個新隊一列」（使用者「先看新隊能不能切成只有一隊」）；內文用每人那句（mv 第 5 格），沒有就寫「A、B 加入 X」
+          if(messy){ const byTo=new Map(); mvU.forEach(m=>{ if(base.s!=="man"&&dupMv(x.d,m[0],m[2],x.st||"rumor"))return; const kk=m[2]+"\u0001"+(m[3]||"?"+m[0]); if(!byTo.has(kk))byTo.set(kk,[]); byTo.get(kk).push(m); });
+            if(stayL.length){ const byT=new Map(); stayL.forEach(s=>{ if(!byT.has(s[1]))byT.set(s[1],[]); byT.get(s[1]).push(s[0]); });
+              [...byT].forEach(([tm,ns],k)=>{ const tags=[[rgOf(tm),tm]];
+                out.push({...base,id:x.id+"#s"+k,tags,kind:"other",team:tm,_sig:ns.map(n=>nk(n)+"="+tm),_v:x.fake?"fake":x.conf?"conf":x.open?"":x.st==="rumor"?verdict([],ns.map(n=>[n,tm])):"",
+                  zh:`${ns.join("、")} 留隊。`,en:`${ns.length>1?ns.slice(0,-1).join(", ")+" and "+ns[ns.length-1]:ns[0]} ${ns.length>1?"stay":"stays"}.`}); }); }
+            [...byTo].forEach(([kk,ms],k)=>{ const to=ms[0][2], frs=[...new Set(ms.map(m=>m[3]).filter(Boolean))];
               const tags=[...frs.map(fr=>[rgOf(fr),fr,"out"]),[rgOf(to),to,"in"]], ss=[...new Set(ms.map(m=>m[4]).filter(Boolean))];
               const who=ms.map(m=>`§${m[1]}§${m[0]}`), zh=ss.length===ms.length?ss.join(" "):`${who.join("、")} 加入 ${to}。`, en=`${who.length>1?who.slice(0,-1).join(", ")+" and "+who[who.length-1]:who[0]} ${who.length>1?"join":"joins"} ${to}.`;
               out.push({...base,id:x.id+"#"+k,tags,kind:frs.length?"both":"join",team:tags.map(t=>t[1]).join(" "),_sig:ms.map(m=>nk(m[0])+">"+to),_v:x.fake?"fake":x.conf?"conf":x.open?"":x.st==="rumor"?verdict(ms.map(m=>[m[0],to])):"",
@@ -14690,7 +14709,7 @@ function render(){
     const stfK=e=>e.r?5:e.pm?3:(e.new||e.tip)?0:e.rs?1:(e.c&&e.c<today)?4:2;
     // 後勤照年資排（使用者 2026-11-24「後勤的排序依照年資」）：pbio 的教練年資起點（第 3 格，沒有用第 2 格＝跟小框「年資」同一個日期），越早入行越前面；查不到的排最後，同年資再照原本的狀態順序
     const _SB=D.pbio||{}, _SBL={}; for(const k in _SB)_SBL[k.toLowerCase()]=_SB[k];
-    const stfY=e=>{ const q=k=>k&&(_SB[k]||_SBL[String(k).toLowerCase()]); const b=q(String(e.p||"").replace(/_/g," "))||q(e.n)||q(String(e.n||"").replace(/\s*\([^()]*\)\s*$/,"")); const d=b&&(b[2]||b[1]); return /^\d{4}-\d\d-\d\d/.test(d||"")?d:"9999"; };
+    const stfY=e=>{ const q=k=>k&&(_SB[k]||_SBL[String(k).toLowerCase()]); const b=q(String(e.p||"").replace(/_/g," "))||q(e.n)||q(String(e.n||"").replace(/\s*\([^()]*\)\s*$/,"")); const d=b&&b[2]; return /^\d{4}-\d\d-\d\d/.test(d||"")?d:"9999"; };   /* 起點＝第一次當教練或分析師（使用者 2026-11-24「後勤順序的入行起點是從當教練或分析師開始」），不退回選手出道日 */
     // CO＝主教練＋後勤全部（主教練排前面）：手機版的 FA 卡把兩格併成一格（使用者 2026-11-21「手機版的FA資訊 主教練跟教練要放一起」；電腦版仍分兩欄）
     const colE=(t,c)=>c==="CO"?[...(t.r.COACH||[]).filter(isHC),...(t.r.COACH||[]).filter(e=>!isHC(e))]:c==="HC"?(t.r.COACH||[]).filter(isHC):c==="STF"?(t.fa?(t.r.COACH||[]).filter(e=>!isHC(e)):(t.r.COACH||[]).filter(e=>!isHC(e)).map((e,i)=>[e,i]).sort((a,b)=>stfY(a[0]).localeCompare(stfY(b[0]))||stfK(a[0])-stfK(b[0])||a[1]-b[1]).map(a=>a[0])):(t.r[c]||[]);
     const colP=(t,c)=>{ const pv=(t.prev||{})[c==="HC"||c==="STF"||c==="CO"?"COACH":c]||[];
