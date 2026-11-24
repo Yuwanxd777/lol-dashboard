@@ -278,10 +278,16 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
         for tm in teams:
             al = {disp.get(tm, tm), tm, short.get(uc(tm), "")} | ({"KRX"} if "DRX" in tm else set())
             if any(a and re.search(r"(?<![A-Za-z0-9])" + re.escape(a) + r"(?![A-Za-z0-9])", ttl, re.I) for a in al):
-                fw.setdefault(tkey(tm), []).append((ttl + "\n" + (f.get("body") or ""), "全員" in ttl))
+                fw.setdefault(tkey(tm), []).append((ttl + "\n" + (f.get("body") or ""), "全員" in ttl, str(f.get("d") or "")[:10]))
     def _fw(pg, tm):
         n = re.sub(r"\s*\([^()]*\)$", "", pg)
-        return any(a or re.search(r"(?<![A-Za-z0-9])" + re.escape(n) + r"(?![A-Za-z0-9])", t, re.I) for t, a in fw.get(tkey(tm), []))
+        return any(a or re.search(r"(?<![A-Za-z0-9])" + re.escape(n) + r"(?![A-Za-z0-9])", t, re.I) for t, a, _d in fw.get(tkey(tm), []))
+    def _fwd(pg, tm):
+        """告別文「點名」這個人（不含只寫全員的）的日期；沒有回 ""。wiki 還沒記離隊時用（使用者 2026-11-24「為何Duro離隊的消息沒標示上去 還是綠字」：
+        GEN 11/24 發 Thank You Duro，wiki 仍記他合約到 2027-11-15、沒有離隊紀錄 ⇒ 陣容表一直當他還在隊上）"""
+        n = re.sub(r"\s*\([^()]*\)$", "", pg)
+        ds = [d_ for t, _a, d_ in fw.get(tkey(tm), []) if re.search(r"(?<![A-Za-z0-9])" + re.escape(n) + r"(?![A-Za-z0-9])", t, re.I)]
+        return max(ds) if ds else ""
     expired, lastev = {}, {}
     for x in rc:   # 新到舊
         k2 = (key(x["p"]), x["tm"])
@@ -562,7 +568,8 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
                for p in pv.get("COACH", [])}
         pv = {rr: v for rr, v in pv.items() if v}
         out.append({"tm": tm, "nm": disp[tm], "lg": lg_of[tm], "r": rows, "prev": pv, **({"nt": 1, "sh": newt[tm]} if tm in newt else {}),
-                    "_still": sorted({key(g) for v in gone.values() for g in v} - {key(p_[1]) for v_ in annd.get(tm, {}).values() for p_ in v_}), "_psr": psr,
+                    "_still": sorted({key(g) for v in gone.values() for g in v} - {key(p_[1]) for v_ in annd.get(tm, {}).values() for p_ in v_}
+                                     - {key(g) for v in gone.values() for g in v if _fwd(str(g), tm)}), "_psr": psr,   # 官方告別文點名的人不算「還在隊上」
                     "_pc": {p_: con[(key(p_), tm)] for v_ in pv.values() for p_ in v_ if con.get((key(p_), tm))}})   # 已宣布離隊的不算還在隊上；_pc＝上一位的合約到期日   # 被新人擠掉、其實還在隊上的（add_tenure 用完拿掉）
     # 已退役的人不留在格子裡（使用者 2026-11-20「Evi 已經退役 那格應該改成 -…有退役的都改成這樣」）：
     #   格子裡沒有新身分（新加入／續約／傳聞／升職）的人＋上一位，向 Players.IsRetired 查；退役的從格子拿掉、放進上一位並標 ret
@@ -763,9 +770,10 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
                 e["sr"] = (sr_[0] if sr_ else "") or "C"
             if c_:
                 e["c"] = c_
-            if gone_:
+            fwd_ = "" if gone_ else (_fwd(pg, x["tm"]) or _fwd(nm_, x["tm"]))   # wiki 還沒記離隊、但戰隊官方告別文已經點名 ⇒ 當成已宣布離隊，離隊日＝告別文那天
+            if gone_ or fwd_:
                 e["gone"] = 1
-                gd_ = left_rc.get((k_, x["tm"])) or left_rc.get((key(nm_), x["tm"]))
+                gd_ = left_rc.get((k_, x["tm"])) or left_rc.get((key(nm_), x["tm"])) or fwd_
                 if gd_:
                     e["gd"] = gd_   # 離隊日（提早解約的小框要寫日期，使用者 2026-11-21）
             ros, ro_role = [], None
