@@ -49,6 +49,7 @@ VERB = [   # 一句＝「名單 + 動詞片語.」；只有整句對得上才翻
     (r"(?:'s?) contracts? (?:is|are) extended through (\d{4})", r"的合約延長到 \1 年"),
     (r"(?:'s?) contracts? (?:is|are) extended", "的合約延長"),
     (r"(?:'s?) contracts? (?:is|are) updated in the GCD, expiring on " + _DT, lambda m: "的合約在 GCD 更新，到期日 %s/%02d/%02d" % (m.group(3), _MON[m.group(2)], int(m.group(1)))),
+    (r"(?:is|are) removed from the GCD", "的合約從 GCD 移除"),   # 2026-11-24 使用者「上路Thanatos is removed from the GCD. 沒翻譯到」（GCD＝Riot 全球合約資料庫）
     (r"(?:is|are) now inactive", "轉為非活躍"), (r"(?:is|are) benched", "下放板凳"),
     (r"will no longer compete in the (.+)", r"不再參加 \1"),
 ]
