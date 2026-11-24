@@ -595,6 +595,10 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
                         if e["p"] not in x["prev"].get(rr, []):
                             x["prev"].setdefault(rr, []).insert(0, e["p"])
                         rk_.add(key(e["p"]))
+                        # 退役時還在這隊格子裡（合約還在這隊）＝在這隊退役，優先於只在別隊「上一位」出現的（使用者 2026-11-24「hena是在png退役的」：
+                        #   季中從 UP 去 paiN，兩隊的上一位都有他，原本照隊伍順序先碰到 UP）
+                        if rr != "COACH":
+                            RETIRED[key(e["p"])] = rset[key(e["p"])] + (x["nm"], x["lg"])
                     else:
                         keep_.append(e)
                 if keep_:

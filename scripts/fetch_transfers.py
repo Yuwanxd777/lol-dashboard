@@ -798,6 +798,12 @@ def _main():
                     k_ = transfers_board.key(pg_)
                     if k_ in ret_ and "ret-" + k_ not in seen_:
                         pg0, id0, rr0, tm0, lg0 = ret_[k_]
+                        # 在哪一隊退役：陣容表 FA 列記的原隊（from）優先（使用者 2026-11-24「hena是在png退役的」：季中換隊的人兩隊上一位都有他，RETIRED 會先碰到排前面的 UP）
+                        fa_ = next((e_ for t_ in board if t_.get("fa") for L_ in (t_.get("r") or {}).values() for e_ in L_
+                                    if e_.get("ret") and e_.get("from") and transfers_board.key(e_.get("p") or e_.get("n") or "") == k_), None)
+                        if fa_:
+                            tm0 = fa_["from"]
+                            lg0 = next((t_.get("lg") for t_ in board if not t_.get("fa") and tm0 in (t_.get("nm"), t_.get("tm"))), lg0)
                         extra.append({"id": "ret-" + k_, "d": (y_.get("d") or "")[:10] + " 00:00", "zh": (f"§{rr0}§" if rr0 and rr0 != "COACH" else "") + f"‹{pg0}|{id0}› 宣布退役。",
                                       "en": (f"§{rr0}§" if rr0 and rr0 != "COACH" else "") + f"‹{pg0}|{id0}› announces retirement.",
                                       "src": "官方", "st": "official", "kind": "leave", "tags": [[LGRG.get(lg0, ""), tm0, "out"]], "url": (y_.get("src") or "").split(";;;")[0]})
