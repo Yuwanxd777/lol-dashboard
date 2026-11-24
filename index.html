@@ -14895,7 +14895,7 @@ function render(){
         res.sw=swOf(o=>{ const sg=segOf(o); return sg==="S3"||sg==="W"; }); res.swY=swOf(()=>true); }
       // 整年（陣容對比的 2026 攻擊值／防禦值與 2027 評分；使用者 2026-11-22「我要看的是整年」）：今年全部比賽、篩選全清，跟選手分頁同一個 calcPlayers；同名多隊取場數最多那筆
       const tkY=n=>teamFix(String(tAb(n)||n));   // 陣容小框 yt 用的隊名鍵（別叫 tkOf：消息那段已經有一支同名的）
-      { const sv={split:F.split,league:F.league,patch:F.patch,d1:F.d1,d2:F.d2,minG:F.minG}, svH=H2H; F.split=""; F.league="ALL"; F.patch=""; F.d1=""; F.d2=""; F.minG=0; H2H=null;
+      { const sv={split:F.split,league:F.league,patch:F.patch,d1:F.d1,d2:F.d2,minG:F.minG}, svH=H2H; F.split=""; F.league="ALL"; F.patch=""; F.d1=""; F.d2=""; F.minG=0; H2H=new Set((GAMES||[]).filter(o=>segOf(o)).map(gkey));   /* 小盃賽不算（使用者 2026-11-24「小盃賽我們是不算的」）：整年數據（KDA、主教練評分用的各路分數）只收一級聯賽三個賽段（含季後賽）＋FST／MSI／世界賽，KeSPA、德杯、EWC 與資格賽、升降賽都不算。角色池（chn）照舊算全部比賽——那是 11-23 另外定的 */
         // yt＝同一個人「在這一隊」的整年數據（使用者 2026-11-24「hena第三賽段在png」「他可以同時出現在這兩隊 但已經離開up」）：
         //   季中換隊的人，yr 只留場數多的那隊（Hena＝paiN 28 場）⇒ UP 小框的 2026 那排變成 paiN 的數據。小框改成先查 yt[隊][人]，沒有才用 yr。只收陣容表上的人
         const W26=new Set(); (D.board||[]).forEach(t=>Object.values(t.r||{}).flat().forEach(e=>W26.add(String(pn(e.n)).toLowerCase()))); Object.values(D.s26||{}).forEach(o=>Object.values(o||{}).forEach(v=>v&&W26.add(String(pn(v[0])).toLowerCase())));
