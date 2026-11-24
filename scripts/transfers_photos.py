@@ -258,6 +258,16 @@ def pick_files(cargo, real, year):
     back = {str(rp).lower(): p for p, (rp, _img) in real.items()}
     rows = {}
     names = [rp for rp, _img in real.values()]
+    # 照片登記在舊頁名底下的（使用者 2026-11-24「Van1明明有頭像阿」：頁面已改名 Van1，PlayerImages 的 Link 還是舊名 Van (Kim Seung-hoo)）⇒ 舊頁名（PlayerRedirects）也一起查
+    try:
+        for i in range(0, len(names), 40):
+            for y in cargo({"tables": "PlayerRedirects", "fields": "AllName=an,OverviewPage=pg", "where": "OverviewPage IN " + _in(names[i:i + 40]), "limit": "500", "format": "json"}):
+                an, pg = str(y.get("an") or ""), str(y.get("pg") or "")
+                if an and pg and an.lower() not in back and pg.lower() in back and "(" in an:   # 只收帶本名括號的舊頁名（純 ID 的別名常跟別人同名）
+                    back[an.lower()] = back[pg.lower()]
+                    names.append(an)
+    except Exception as e:
+        print(f"   舊頁名查詢失敗（略過）：{type(e).__name__} {str(e)[:80]}")
     for i in range(0, len(names), 3):   # 一次 3 人：一個人最多上百張，一次查太多人會被 500 筆上限截掉
         for x in cargo({"tables": "PlayerImages=PI,Tournaments=T", "join_on": "PI.Tournament=T.OverviewPage", "fields": "PI.Link=p,PI.FileName=f,PI.SortDate=d,T.DateStart=ds,PI.Tournament=t",
                         "where": "PI.Link IN " + _in(names[i:i + 3]), "limit": "500", "format": "json"}):
