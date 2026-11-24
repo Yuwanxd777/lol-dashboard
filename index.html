@@ -14833,8 +14833,13 @@ function render(){
         res.sw=swOf(o=>{ const sg=segOf(o); return sg==="S3"||sg==="W"; }); res.swY=swOf(()=>true); }
       // 整年（陣容對比的 2026 攻擊值／防禦值與 2027 評分；使用者 2026-11-22「我要看的是整年」）：今年全部比賽、篩選全清，跟選手分頁同一個 calcPlayers；同名多隊取場數最多那筆
       { const sv={split:F.split,league:F.league,patch:F.patch,d1:F.d1,d2:F.d2,minG:F.minG}, svH=H2H; F.split=""; F.league="ALL"; F.patch=""; F.d1=""; F.d2=""; F.minG=0; H2H=null;
+        // yt＝同一個人「在這一隊」的整年數據（使用者 2026-11-24「hena第三賽段在png」「他可以同時出現在這兩隊 但已經離開up」）：
+        //   季中換隊的人，yr 只留場數多的那隊（Hena＝paiN 28 場）⇒ UP 小框的 2026 那排變成 paiN 的數據。小框改成先查 yt[隊][人]，沒有才用 yr。只收陣容表上的人
+        const W26=new Set(); (D.board||[]).forEach(t=>Object.values(t.r||{}).flat().forEach(e=>W26.add(String(pn(e.n)).toLowerCase()))); Object.values(D.s26||{}).forEach(o=>Object.values(o||{}).forEach(v=>v&&W26.add(String(pn(v[0])).toLowerCase())));
+        res.yt={}; const tkOf=n=>teamFix(String(tAb(n)||n));
         try{ res.yr={}; res.cp={}; for(const r of ["TOP","JNG","MID","BOT","SUP"]){ const Y=res.yr[r]={};
             calcPlayers(r,true).forEach(x=>{ const nk=String(x._pn||"").toLowerCase(); if(x.評分==null)return;
+              if(x._team&&W26.has(nk)){ const T=res.yt[tkOf(x._team)]||(res.yt[tkOf(x._team)]={}); if(!T[nk]||T[nk].g<x.場數)T[nk]={sc:+x.評分.toFixed(1),g:x.場數,kda:x.KDA!=null?+x.KDA.toFixed(2):null}; }
               /* cp＝每隊每路的整年評分×場數加總（主教練評分用）：每一筆是「這個人在這一隊」的分數與場數，季中換隊的人兩隊各算各的（2026-11-22 全面檢視：原本拿場數最多那隊的分數掛到最後一隊） */
               if(x._team&&x.場數){ const tk=teamFix(String(tAb(x._team)||x._team)), c=(res.cp[tk]=res.cp[tk]||{}), z=c[r]||(c[r]=[0,0]); z[0]+=x.評分*x.場數; z[1]+=x.場數; }
               if(Y[nk]&&Y[nk].g>=x.場數)return;
@@ -14842,7 +14847,9 @@ function render(){
           /* POG／POM 不算國際賽（使用者 2026-11-22「POM POG 不看國際賽」）：今年非國際賽的比賽自己數；null（沒發這種獎）維持 null */
           { const IN=new Set(["WLDs","MSI","EWC","FST","DCup","AC"]), cg=new Map(), cm=new Map(), add=(M,n)=>{ if(!n)return; const k=String(n).trim().toLowerCase(); M.set(k,(M.get(k)||0)+1); };
             for(const o of (GAMES||[])){ if(IN.has(o.league))continue; const r=o.raw;
-              const rec=ssRec({_d:o.date,_btf:r[C.blue_teamname],_rtf:r[C.red_teamname],_g:+r[C.game]||1}); if(!rec)continue; add(cg,rec.mvp); add(cm,rec.mvpm); }
+              const rec=ssRec({_d:o.date,_btf:r[C.blue_teamname],_rtf:r[C.red_teamname],_g:+r[C.game]||1}); if(!rec)continue; add(cg,rec.mvp); add(cm,rec.mvpm);
+              // 每隊各算（yt）：得獎的人在這場是哪一隊——兩隊裡只有一隊在 yt 有他（換隊的人兩隊都可能有，就看這場是哪兩隊在打）
+              for(const [n,f] of [[rec.mvp,"pg"],[rec.mvpm,"pm"]]){ if(!n)continue; const k=String(n).trim().toLowerCase(); for(const tn of [r[C.blue_teamname],r[C.red_teamname]]){ const z=(res.yt[tkOf(tn)]||{})[k]; if(z){ z[f]=(z[f]||0)+1; break; } } } }
             for(const r in res.yr)for(const nk in res.yr[r]){ const y=res.yr[r][nk]; if(y.pg!=null)y.pg=cg.get(nk)||0; if(y.pm!=null)y.pm=cm.get(nk)||0; } } }   // pg／pm＝整年（不含國際賽）POG／POM 次數
         finally{ H2H=svH; Object.assign(F,sv); } }
       // 2027 才改名的隊：今年的比賽資料還是舊名（OpTic Gaming＝今年的 Dignitas；資料端 fetch_transfers 也用同一組對照）⇒ 用新名也查得到
@@ -14850,7 +14857,9 @@ function render(){
       // 2026 常用英雄前三（陣容對比 2027 那排每位選手名字下面；使用者 2026-11-22「2027 選手常用英雄擺 2026 前三英雄的頭像」）：今年全部比賽、照出場次數，同次數照英雄 id；只收陣容表上的人
       { const want=new Set(); (D.board||[]).forEach(t=>Object.values(t.r||{}).flat().forEach(e=>want.add(String(pn(e.n)).toLowerCase())));
         const cc={}; for(const o of LANES){ const r=o.raw; for(const side of [0,1]){ const p=r[C.blue_playername+(side?RB:0)], c=r[C.blue_champion+(side?RB:0)]; if(!p||!c)continue;
-            const k=String(p).toLowerCase(); if(!want.has(k))continue; const m=cc[k]||(cc[k]={}), id=champId(c); m[id]=(m[id]||0)+1; } }
+            const k=String(p).toLowerCase(); if(!want.has(k))continue; const m=cc[k]||(cc[k]={}), id=champId(c); m[id]=(m[id]||0)+1;
+            const z=(res.yt[tkOf(r[side?C.red_teamname:C.blue_teamname])]||{})[k]; if(z)(z._c||(z._c=new Set())).add(id); } }   // 每隊各算的角色池（yt.chn）
+        for(const tk in res.yt)for(const k in res.yt[tk]){ const z=res.yt[tk][k]; if(z._c){ z.chn=z._c.size; delete z._c; } }
         res.ch={}; res.chn={}; for(const k in cc){ res.ch[k]=Object.entries(cc[k]).sort((x,y)=>y[1]-x[1]||(x[0]<y[0]?-1:1)).slice(0,3).map(x=>x[0]); res.chn[k]=Object.keys(cc[k]).length; } }   // chn＝今年所有比賽（不分賽事）用過幾隻不同英雄（陣容對比 2026 那排的「角色池」，使用者 2026-11-23）
       res.md={}; for(const r of ["TOP","JNG","MID","BOT","SUP"]){ const vs=Object.values(res.pl[r]).map(x=>x.v).sort((a,b)=>a-b), h=vs.length>>1;
         res.md[r]=vs.length?(vs.length%2?vs[h]:(vs[h-1]+vs[h])/2):null; }
@@ -15690,10 +15699,14 @@ function render(){
           // 主教練成績分三個賽段（使用者 2026-11-22「S1 S2 S3 去列成績 S1如果有進FST就列FST S2有進MSI就列MSI」）：t.s1／t.s2＝transfers_board.split_results 的代碼，S3 沿用 rkS（有進世界賽寫 WCS）
           const rkX=c=>{ const z=String(c||""); return /^F/.test(z)?"FST #"+z.slice(1):/^M/.test(z)?"MSI #"+z.slice(1):(rkC(z,t)||"–"); }, nw=x=>String(x).replace(/ /g," ");   /* 賽段成績整段不斷行（kvS 只在空格換行；手機英文版 FST #7-8 被拆兩行）⇒ 換成不斷行空格 */
           if(r==="HC")return phH(o,ic,cls26(o),kvS([[LC26[0],wr3==null?"–":Math.round(wr3*100)+"%"],["S1",nw(rkX(t.s1))],["S2",nw(rkX(t.s2))],["S3",nw(rkS(t)||"–")]]));
-          const a=o&&RATE&&RATE.yr&&RATE.yr[r]?RATE.yr[r][String(pn(o.n)).toLowerCase()]:null;   // 整年（RATE.yr）
+          const a0=o&&RATE&&RATE.yr&&RATE.yr[r]?RATE.yr[r][String(pn(o.n)).toLowerCase()]:null;   // 整年（RATE.yr）
+          // 季中換隊的人看他「在這一隊」的數據（RATE.yt；使用者 2026-11-24 UP 的 Hena 原本顯示的是 paiN 的數據）；POG／POM 照 yr 判斷這個聯賽有沒有發（null＝不發）
+          const nkO=o?String(pn(o.n)).toLowerCase():"", multiT=nkO&&RATE&&RATE.yt&&Object.values(RATE.yt).filter(T=>T&&T[nkO]).length>=2;   // 只有今年待過兩隊以上的人才分隊算（其他人維持「所有比賽」）
+          const yt=multiT?tkA.map(k=>(RATE.yt[k]||{})[String(pn(o.n)).toLowerCase()]).find(Boolean):null;
+          const a=yt?{...a0,sc:yt.sc,kda:yt.kda,pg:a0&&a0.pg==null?null:(yt.pg||0),pm:a0&&a0.pm==null?null:(yt.pm||0),chn:yt.chn}:a0;
           const cnt=v=>v==null?"–":String(v);   // POG／POM 次數（使用者 2026-11-22「2026 加上兩列 POG POM」）；LCK 隊不列 POG（使用者「LCK就不要放POG」：LCK 只發 POM）
           // 2026 那排（使用者 2026-11-23「資料改成 角色池 KDA 評分 POG/M(這兩個合併列)」）：角色池＝今年所有比賽用過幾隻不同英雄（RATE.chn；使用者「他所有無論什麼比賽 使用過的角色數量」）；評分＝整年評分；LCK 只發 POM ⇒ 那列寫 POM
-          const pool=o&&RATE&&RATE.chn?RATE.chn[String(pn(o.n)).toLowerCase()]:null;
+          const pool=a&&a.chn!=null?a.chn:o&&RATE&&RATE.chn?RATE.chn[String(pn(o.n)).toLowerCase()]:null;
           return phH(o,ic,cls26(o),kvS([[L26[0],pool==null?"–":String(pool)],[L26[1],a&&a.kda!=null?a.kda.toFixed(1):"–"],t.lg==="LCK"?["POM",cnt(a&&a.pm)]:[L26[3],`${cnt(a&&a.pg)}/${cnt(a&&a.pm)}`],[L26[2],n1(a&&a.sc)]]   /* POG/M 在評分上面（使用者 2026-11-23「評分POM上下交換」） */)); }).join("");
         if(RATE&&!t._scM&&typeof rateOf==="function")rateOf(t);
         // 2027 的評分：選手＝整年評分（RATE.yr）；主教練＝戰績分（新來的看原隊，留任的看本隊）
