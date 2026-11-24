@@ -170,7 +170,9 @@ def fetch_wiki(start):
         if not en:
             continue
         url, nm = src_of(x.get("src"))
-        out.append({"d": str(x.get("ds") or "")[:10], **({"t": tweet_ts(url, str(x.get("ds") or "")[:10])} if tweet_ts(url, str(x.get("ds") or "")[:10]) else {}),
+        # 全部來源（使用者 2026-11-24「Easyhoon 的合約延長的來源是Roach的」：wiki 一則消息掛好幾則公告，照人名順序一人一則；前端人數對得上就照來源分列）
+        srcs_ = [[f_[0], f_[1] if len(f_) > 1 else ""] for f_ in (z_.split(";;;") for z_ in str(x.get("src") or "").split(":::")) if f_ and f_[0].startswith("http")]
+        out.append({**({"srcs": srcs_} if len(srcs_) > 1 else {}),"d": str(x.get("ds") or "")[:10], **({"t": tweet_ts(url, str(x.get("ds") or "")[:10])} if tweet_ts(url, str(x.get("ds") or "")[:10]) else {}),
                     "n": int(x.get("n") or 0), "team": x.get("sub") or "",
                     "rg": REGION.get(x.get("rg"), x.get("rg") or ""), "kind": kind_of(html.unescape(x.get("s") or ""), en),
                     "en": en, "zh": to_zh(en), "src": url, "srcNm": nm})

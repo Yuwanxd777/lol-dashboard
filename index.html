@@ -1089,7 +1089,7 @@
   .tbTeam .tbCell.tbRateIn{padding:0;min-width:0;text-align:left;font-size:14px;line-height:1.25;font-weight:400;background:none}
   .tbTeam .tbCell.tbRateIn .tbCv{display:inline-block}
   .tbCell{font-size:17px}.tbTeam{font-size:17px}
-  .tbTeam img.tbFaIc{width:26px!important;height:26px!important;margin:0 10.5px!important}   /* FA 徽章跟著放大 1.3 倍、佔一樣的 51px 位子（隊徽 34 的 1.5 倍）：「FA」才跟上面各隊的縮寫對齊（使用者 2026-11-24「FA跟FA徽章沒有對齊」）；手機卡片另有 margin:0 的規則 */
+  .tbTeam img.tbFaIc{width:26px!important;height:26px!important;margin:0 12.5px!important}   /* FA 徽章跟著放大 1.3 倍、佔一樣的 51px 位子（隊徽 34 的 1.5 倍）：「FA」才跟上面各隊的縮寫對齊（使用者 2026-11-24「FA跟FA徽章沒有對齊」）；手機卡片另有 margin:0 的規則 */
   .tbHd .tbRateH{justify-self:center;display:grid!important;justify-items:center}   /* 裡面＝看得到的欄名一行＋三種排序欄名的撐寬行（高度 0），疊成一欄 */
   .tbUp{color:#ff5a5a}.tbDn{color:#3fcf7a}   /* 台灣配色：加分紅、扣分綠 */
   .tbCell:hover{background:rgba(122,184,255,.10);border-radius:6px}
@@ -14449,11 +14449,30 @@ function render(){
     // WIKI 同一則公告同時有加入與離隊（kind both）⇒ 拆兩列：加入／其他那幾句一列（原隊 ➜ 本隊）、離隊那幾句一列（本隊 ➜ –）；中英句數對不上就不拆（使用者 2026-11-22）
     // 2026-11-24 使用者「T1最新那條要拆成三個」⇒ 加入句／離隊句／其他（續約、合約延長、留隊）各成一列；
     //   同日稍晚改定案「同一時期的一隊資料 要寫成多對一」⇒ 加入句不再照原隊拆：同一句的人併一列、原隊欄列出全部原隊（有人原隊不明就多放一個 –）
+    // 同日再改（使用者「主教練Roach、教練UmTi 加入。 還是要分開列」「Easyhoon 的合約延長的來源是Roach的」）：wiki 一則消息常掛好幾則公告（srcs，照人名順序一人一則）
+    //   ⇒ 人數跟來源數對得上時，不同公告的人分列、各列連到自己那則公告；同一則公告裡的多人照舊一列（多對一）
+    const wListSub=(zs,es,keep)=>{ const mz=/^(.*?)(\s*(?:加入|離隊|退役|宣布退役)[^。]*)。$/.exec(zs), me=/^(.*?)\s+((?:joins?|leaves?|retires?)\b.*)\.$/.exec(es); if(!mz||!me)return null;
+      const iz=mz[1].split("、").map(s=>s.trim()), ie=me[1].split(/,\s*(?:and\s+)?|\s+and\s+/).map(s=>s.trim()).filter(Boolean);
+      const one=s=>{ const m=s.match(/‹[^|›]+\|([^›]+)›/g); return m&&m.length===1?nk(/\|([^›]+)›/.exec(m[0])[1]):null; }, nz=iz.map(one);
+      if(iz.length!==ie.length||nz.some(n=>!n)||nz.some((n,k)=>n!==one(ie[k])))return null;
+      const ix=nz.map((n,k)=>keep.has(n)?k:-1).filter(k=>k>=0); if(!ix.length)return null; const a=ix.map(k=>ie[k]);
+      const vb=a.length===1?me[2].replace(/^(join|leave|retire)\b/,"$1s"):me[2].replace(/^(join|leave|retire)s\b/,"$1");
+      return {zh:ix.map(k=>iz[k]).join("、")+mz[2]+"。",en:(a.length===1?a[0]:a.length===2?a.join(" and "):a.slice(0,-1).join(", ")+", and "+a[a.length-1])+" "+vb+"."}; };
     const wSplit=x=>{ const sp=s=>String(s||"").trim().split(/(?<=[。.])\s+/).filter(Boolean), z=sp(x.zh), e=sp(x.en);
-      if(!z.length||z.length!==e.length)return [x]; const a=[], b=[], o=[]; z.forEach((s,i)=>(/離隊|退役|上調一隊|分道揚鑣/.test(s)?b:/加入|上調/.test(s)?a:o).push(i));
-      const rows=[]; if(a.length)rows.push({ix:a,kind:"join"}); if(b.length)rows.push({ix:b,kind:"leave"}); if(o.length)rows.push({ix:o,kind:a.length||b.length?"other":x.kind});
-      if(rows.length<2)return [x];
-      return rows.map((r,k)=>({...x,kind:r.kind,_sp:r.kind+k,zh:r.ix.map(i=>z[i]).join(" "),en:r.ix.map(i=>e[i]).join(" ")})); };
+      if(!z.length||z.length!==e.length)return [x]; const kOf=s=>/離隊|退役|上調一隊|分道揚鑣/.test(s)?"leave":/加入|上調/.test(s)?"join":"other";
+      const kinds=new Set(z.map(kOf)), mixed=kinds.size>1, kd=k=>k==="other"&&!mixed?x.kind:k;
+      // 每個人對應的公告：英文句裡的人名順序 ↔ srcs 順序
+      const NO=[...new Set([...String(x.en||"").matchAll(/‹[^|›]+\|([^›]+)›/g)].map(m=>nk(m[1])))], SR=Array.isArray(x.srcs)&&x.srcs.length===NO.length&&NO.length>1?x.srcs:null;
+      const sIx=n=>SR?NO.indexOf(n):0, nIn=t=>[...new Set([...String(t).matchAll(/‹[^|›]+\|([^›]+)›/g)].map(m=>nk(m[1])))];
+      const pcs=[];   // {kind, si（來源序號，-1＝不分）, zh, en}
+      z.forEach((zs,i)=>{ const k=kOf(zs), ns=nIn(e[i]), ss=[...new Set(ns.map(sIx))];
+        if(!SR||ss.length<2){ pcs.push({kind:k,si:SR&&ss.length===1?ss[0]:-1,zh:zs,en:e[i]}); return; }
+        const parts=ss.map(si=>({si,r:wListSub(zs,e[i],new Set(ns.filter(n=>sIx(n)===si)))}));
+        if(parts.some(q=>!q.r)){ pcs.push({kind:k,si:ss[0],zh:zs,en:e[i]}); return; }
+        parts.forEach(q=>pcs.push({kind:k,si:q.si,zh:q.r.zh,en:q.r.en})); });
+      const G=new Map(); pcs.forEach(q=>{ const key=q.kind+"|"+q.si; if(!G.has(key))G.set(key,{kind:q.kind,si:q.si,zh:[],en:[]}); const g=G.get(key); g.zh.push(q.zh); g.en.push(q.en); });
+      if(G.size<2)return [x];
+      return [...G.values()].map((g,k)=>({...x,kind:kd(g.kind),_sp:g.kind+k,zh:g.zh.join(" "),en:g.en.join(" "),...(g.si>=0&&SR?{src:SR[g.si][0],srcNm:SR[g.si][1]||x.srcNm}:{})})); };
     // 一則消息拆成好幾列（使用者 2026-11-23「先看新隊能不能切成只有一隊 不行的話就看能不能原隊只有一個 讓消息單一化 不要全部擠在一起」）：
     //   資料端手寫的 parts＝[{zh,en,mv?,stay?,tags?}]，每一段自成一列（一列只有一個新隊；沒有新隊的照原隊一隊一列），連結／日期／狀態沿用原文
     const xParts=x=>Array.isArray(x.parts)&&x.parts.length?x.parts.map((p,i)=>{ const y={...x,...p,id:x.id+"#p"+i,nosplit:1}; delete y.parts; if(!p.tags)delete y.tags; if(!p.mv)delete y.mv; if(!p.stay)delete y.stay; return y; }):[x];
