@@ -15772,6 +15772,9 @@ function render(){
         const tk=tkA[0], sw3=swF("sw")||swF("swY"), wr3=sw3?sw3.w/sw3.n:null;   /* 沒打第三賽段的隊（UP、OMG）退回整年大場勝率；nm 查不到再用 tm（2026-11-22 全面檢視） */   // 主教練勝率＝大場勝率（RATE.sw）
         // 角色池小圖（2026、2027 兩排共用）：ids＝英雄代碼，只收英數（onerror 裡會寫進 JS 字串）
         const chP=ids=>`<div class="tbPhC">${(ids||[]).filter(id=>/^[A-Za-z0-9_]+$/.test(String(id))).map(id=>`<img src="img/champ/${esc(id)}.webp" alt="${esc(id)}" title="${esc(id)}" loading="lazy" onerror="this.onerror=null;this.src='https://ddragon.leagueoflegends.com/cdn/${typeof DDV!=="undefined"?DDV:"15.1.1"}/img/champion/${esc(id)}.png'">`).join("")||`<span class="tbMuted">–</span>`}</div>`;
+        // POG／POM 的寫法整隊一致（2026-11-24）：整隊五人都沒有 POG 紀錄＝這個聯賽不發 POG ⇒ 只寫 POM（KC：LEC）；反之只寫 POG；其餘全隊都寫 POG/M
+        //   （不能逐人判斷：OPT 的 Denathor、Dardoch 個人沒有 POM 紀錄，會跟隊友寫法不一樣）
+        const YA26=["TOP","JNG","MID","BOT","SUP"].map(r=>{ const o=o26(r); return o&&RATE&&RATE.yr&&RATE.yr[r]?RATE.yr[r][String(pn(o.n)).toLowerCase()]:null; }).filter(Boolean), NOPG=YA26.length>0&&YA26.every(z=>z.pg==null), NOPM=YA26.length>0&&YA26.every(z=>z.pm==null);
         const y26=LANE6.map(([r,ic])=>{ const o=o26(r);
           // 主教練成績分三個賽段（使用者 2026-11-22「S1 S2 S3 去列成績 S1如果有進FST就列FST S2有進MSI就列MSI」）：t.s1／t.s2＝transfers_board.split_results 的代碼，S3 沿用 rkS（有進世界賽寫 WCS）
           const rkX=c=>{ const z=String(c||""); return /^F/.test(z)?"FST #"+z.slice(1):/^M/.test(z)?"MSI #"+z.slice(1):(rkC(z,t)||"–"); }, nw=x=>String(x).replace(/ /g," ");   /* 賽段成績整段不斷行（kvS 只在空格換行；手機英文版 FST #7-8 被拆兩行）⇒ 換成不斷行空格 */
@@ -15787,7 +15790,7 @@ function render(){
           const cnt=v=>v==null?"–":String(v);   // POG／POM 次數（使用者 2026-11-22「2026 加上兩列 POG POM」）；LCK 隊不列 POG（使用者「LCK就不要放POG」：LCK 只發 POM）
           // 2026 那排（使用者 2026-11-23「資料改成 角色池 KDA 評分 POG/M(這兩個合併列)」）：角色池＝今年所有比賽用過幾隻不同英雄（RATE.chn；使用者「他所有無論什麼比賽 使用過的角色數量」）；評分＝整年評分；LCK 只發 POM ⇒ 那列寫 POM
           const pool=a&&a.chn!=null?a.chn:o&&RATE&&RATE.chn?RATE.chn[String(pn(o.n)).toLowerCase()]:null;
-          return phH(o,ic,cls26(o),kvS([[L26[0],pool==null?"–":String(pool)],[L26[1],a&&a.kda!=null?a.kda.toFixed(1):"–"],(t.lg==="LCK"||(a&&a.pg==null&&a.pm!=null))?["POM",cnt(a&&a.pm)]:(a&&a.pm==null&&a.pg!=null)?["POG",cnt(a.pg)]:[L26[3],`${cnt(a&&a.pg)}/${cnt(a&&a.pm)}`]   /* 這個聯賽沒發 POG（LEC 等）就只寫 POM，反之只寫 POG（使用者 2026-11-24「KC整隊的POG/M都寫 –/7 感覺要改 POM就好」） */,[L26[2],n1((RATE&&RATE.ly&&RATE.ly[r]&&nkO&&RATE.ly[r][nkO]!=null)?RATE.ly[r][nkO]:(a&&a.sc))]]   /* 評分跟 2027 那排同一個數（RATE.ly：分段權重＋同聯賽比；使用者 2026-11-24「2026 2027的評分應該是一致的」） */   /* POG/M 在評分上面（使用者 2026-11-23「評分POM上下交換」） */)); }).join("");
+          return phH(o,ic,cls26(o),kvS([[L26[0],pool==null?"–":String(pool)],[L26[1],a&&a.kda!=null?a.kda.toFixed(1):"–"],(t.lg==="LCK"||(NOPG&&!NOPM))?["POM",cnt(a&&a.pm)]:(NOPM&&!NOPG)?["POG",cnt(a&&a.pg)]:[L26[3],`${cnt(a&&a.pg)}/${cnt(a&&a.pm)}`]   /* 這個聯賽沒發 POG（LEC 等）就只寫 POM，反之只寫 POG（使用者 2026-11-24「KC整隊的POG/M都寫 –/7 感覺要改 POM就好」） */,[L26[2],n1((RATE&&RATE.ly&&RATE.ly[r]&&nkO&&RATE.ly[r][nkO]!=null)?RATE.ly[r][nkO]:(a&&a.sc))]]   /* 評分跟 2027 那排同一個數（RATE.ly：分段權重＋同聯賽比；使用者 2026-11-24「2026 2027的評分應該是一致的」） */   /* POG/M 在評分上面（使用者 2026-11-23「評分POM上下交換」） */)); }).join("");
         if(RATE&&!t._scM&&typeof rateOf==="function")rateOf(t);
         // 2027 的評分：選手＝整年評分（RATE.yr）；主教練＝戰績分（新來的看原隊，留任的看本隊）
         const sc27=(e,r)=>{ if(!e||!RATE)return null; if(r==="HC"){ const mv=e.new||e.r||e.tip||e.pm; return (mv&&e.from)?coachVL(e.from,t.lg):(e.new||e.r||e.tip)?null:(coachV(t.nm)??coachV(t.tm)); }   /* 隊內升任（HLE Mowgli 教練→主教練，沒有 from）：今年帶的就是本隊 */
