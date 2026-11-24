@@ -1089,6 +1089,7 @@
   .tbTeam .tbCell.tbRateIn{padding:0;min-width:0;text-align:left;font-size:14px;line-height:1.25;font-weight:400;background:none}
   .tbTeam .tbCell.tbRateIn .tbCv{display:inline-block}
   .tbCell{font-size:17px}.tbTeam{font-size:17px}
+  .tbTeam img.tbFaIc{width:26px!important;height:26px!important;margin:0 10.5px!important}   /* FA 徽章跟著放大 1.3 倍、佔一樣的 51px 位子（隊徽 34 的 1.5 倍）：「FA」才跟上面各隊的縮寫對齊（使用者 2026-11-24「FA跟FA徽章沒有對齊」）；手機卡片另有 margin:0 的規則 */
   .tbHd .tbRateH{justify-self:center;display:grid!important;justify-items:center}   /* 裡面＝看得到的欄名一行＋三種排序欄名的撐寬行（高度 0），疊成一欄 */
   .tbUp{color:#ff5a5a}.tbDn{color:#3fcf7a}   /* 台灣配色：加分紅、扣分綠 */
   .tbCell:hover{background:rgba(122,184,255,.10);border-radius:6px}
@@ -1671,7 +1672,7 @@
     .tbCell[data-r="SUP"]::before{background-image:url(img/SUP.png)}.tbCell[data-r="HC"]::before,.tbCell[data-r="STF"]::before,.tbCell[data-r="CO"]::before{background-image:url(img/COACH.png)}
     .tbFA .tbCell[data-r="HC"],.tbFA .tbCell[data-r="STF"]{display:none}.tbFA .tbCell.tbFaCo{display:flex}   /* 手機 FA 卡：主教練與後勤併成一格（使用者 2026-11-21「手機版的FA資訊 主教練跟教練要放一起」） */
     .tbFA .tbCell.tbEmpty{display:none}   /* 自由人卡：沒有人的那一列不顯示（中國自由人沒有教練） */
-    .tbRow .tbTeam img.tbFaIc{margin:0!important}   /* 手機：FA 徽章也貼齊左內距（淺色底的方塊本身就是看得見的邊，不用扣透明邊；跟隊名的 8px 由隊名那邊留） */   /* 自由人的聯賽圖有淺色底，不能像隊徽那樣扣掉透明邊（會貼到字：歐洲／北美／亞太只剩 2～4px；使用者 2026-11-20「自由人的文字跟圖片也要有半形空格」） */   /* 2026-11-21 全面檢視：原本這裡把自由人的後勤那列藏起來（主教練與後勤合併那一版留下的），兩格分開之後手機上後勤整組人看不到 ⇒ 不藏 */
+    .tbRow .tbTeam img.tbFaIc{margin:0!important;width:20px!important;height:20px!important}   /* 手機：FA 徽章也貼齊左內距（淺色底的方塊本身就是看得見的邊，不用扣透明邊；跟隊名的 8px 由隊名那邊留） */   /* 自由人的聯賽圖有淺色底，不能像隊徽那樣扣掉透明邊（會貼到字：歐洲／北美／亞太只剩 2～4px；使用者 2026-11-20「自由人的文字跟圖片也要有半形空格」） */   /* 2026-11-21 全面檢視：原本這裡把自由人的後勤那列藏起來（主教練與後勤合併那一版留下的），兩格分開之後手機上後勤整組人看不到 ⇒ 不藏 */
     .tbFA .tbCell:not(.tbRate){grid-column:1/-1;border-left:0}   /* 自由人卡：五路＋主教練，一路一列（使用者 2026-11-20） */
     .tbRtSz{display:none}.tbCell.tbRate::before{content:none}.tbCell.tbRate .rtPc{margin-right:calc(0px - var(--rb,.5em))}.tbCell.tbRate .tbCv{position:relative;left:var(--rb,0px)}   /* --rb＝最後一個字右側的字內留白（rbFit 量的）：收掉之後，數字、中文字、「）」結尾的右邊留空才會一樣。用 left 位移而不是 margin——.tbCv 的 margin 已經被「觸發範圍外擴」那條規則用掉（padding 10／margin −10），再蓋 margin 會整串往左跑 10px */   /* 手機卡片的評分在標題列右端，仍靠右、「）」照舊往右收 */.tbCell.tbRate .tbCv{white-space:nowrap;font-size:min(15px,3.55cqw)}   /* 單一分數與範圍同一個字級（使用者 2026-11-20「轉會評分的分數字體大小要一致」） */   /* 範圍評分（-158.7 ～ -105.3）在窄手機不換行、不壓隊名 */
     .tbCell .tbCv{min-width:0;overflow-wrap:anywhere}.tbCell .tbN{white-space:nowrap}
