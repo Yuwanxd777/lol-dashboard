@@ -1080,7 +1080,7 @@
   .tbFaIc{object-fit:contain;border-radius:6px;background:#e8ecf4;flex:0 0 auto;margin:0 6.5px;padding:3px;box-sizing:border-box}
   .tbTeam img.tbFaIc{width:20px!important;height:20px!important;margin:0 9.5px!important;padding:2px;border-radius:5px}   /* 固定 26×26 的淺色方塊（不吃隊徽的「圖案面積統一」，不然六張寬度不一樣、後面的字對不齊） */   /* 左右各留 6.5px＝跟隊徽同一個 39px 位子，後面的「FA」才跟其他隊名對齊 */
   .tbRate{min-width:72px;padding:6px 13px;font-variant-numeric:tabular-nums;text-align:center;white-space:nowrap}.tbRateH{padding:0 13px;text-align:center}.tbCell.tbRate .rtPc{margin-right:0}   /* 評分欄置中（使用者 2026-11-20「評分不用向右對齊了」）；置中時「）」不往右收 */.tbCell.tbRate b{font-weight:400}   /* 評分跟選手名字同字級同字重（使用者 2026-11-20「轉會評分的文字大小跟選手文字大小一致」：原本同為 15px 但粗體看起來大一號） */.rtPc{font-style:normal;display:inline-block;margin-right:-.5em}
-  .tbHd .tbRateH{justify-self:center}
+  .tbHd .tbRateH{justify-self:center;display:grid!important;justify-items:center}   /* 裡面＝看得到的欄名一行＋三種排序欄名的撐寬行（高度 0），疊成一欄 */
   .tbUp{color:#ff5a5a}.tbDn{color:#3fcf7a}   /* 台灣配色：加分紅、扣分綠 */
   .tbCell:hover{background:rgba(122,184,255,.10);border-radius:6px}
   .tbN{white-space:nowrap;display:inline-block}.tbN a{color:inherit;text-decoration:none}.tbN a:hover{color:#7fb2ff;text-decoration:underline}
@@ -14688,8 +14688,11 @@ function render(){
     // 自由人那一列：教練與分析師全部放在同一格（主教練那欄），後勤那欄留空（使用者 2026-11-20「FA 的主教練改成 教練與分析師也列入」）
     // 後勤排序（使用者 2026-11-21）：新加入 → 續約 → 續留 → 升職 → 合約到期（→ 傳聞）；已宣布離隊的直接離開後勤區（自由人那列不動）
     const stfK=e=>e.r?5:e.pm?3:(e.new||e.tip)?0:e.rs?1:(e.c&&e.c<today)?4:2;
+    // 後勤照年資排（使用者 2026-11-24「後勤的排序依照年資」）：pbio 的教練年資起點（第 3 格，沒有用第 2 格＝跟小框「年資」同一個日期），越早入行越前面；查不到的排最後，同年資再照原本的狀態順序
+    const _SB=D.pbio||{}, _SBL={}; for(const k in _SB)_SBL[k.toLowerCase()]=_SB[k];
+    const stfY=e=>{ const q=k=>k&&(_SB[k]||_SBL[String(k).toLowerCase()]); const b=q(String(e.p||"").replace(/_/g," "))||q(e.n)||q(String(e.n||"").replace(/\s*\([^()]*\)\s*$/,"")); const d=b&&(b[2]||b[1]); return /^\d{4}-\d\d-\d\d/.test(d||"")?d:"9999"; };
     // CO＝主教練＋後勤全部（主教練排前面）：手機版的 FA 卡把兩格併成一格（使用者 2026-11-21「手機版的FA資訊 主教練跟教練要放一起」；電腦版仍分兩欄）
-    const colE=(t,c)=>c==="CO"?[...(t.r.COACH||[]).filter(isHC),...(t.r.COACH||[]).filter(e=>!isHC(e))]:c==="HC"?(t.r.COACH||[]).filter(isHC):c==="STF"?(t.fa?(t.r.COACH||[]).filter(e=>!isHC(e)):(t.r.COACH||[]).filter(e=>!isHC(e)).map((e,i)=>[e,i]).sort((a,b)=>stfK(a[0])-stfK(b[0])||a[1]-b[1]).map(a=>a[0])):(t.r[c]||[]);
+    const colE=(t,c)=>c==="CO"?[...(t.r.COACH||[]).filter(isHC),...(t.r.COACH||[]).filter(e=>!isHC(e))]:c==="HC"?(t.r.COACH||[]).filter(isHC):c==="STF"?(t.fa?(t.r.COACH||[]).filter(e=>!isHC(e)):(t.r.COACH||[]).filter(e=>!isHC(e)).map((e,i)=>[e,i]).sort((a,b)=>stfY(a[0]).localeCompare(stfY(b[0]))||stfK(a[0])-stfK(b[0])||a[1]-b[1]).map(a=>a[0])):(t.r[c]||[]);
     const colP=(t,c)=>{ const pv=(t.prev||{})[c==="HC"||c==="STF"||c==="CO"?"COACH":c]||[];
       return c==="HC"?pv.filter(isHC):c==="STF"?pv.filter(p=>!isHC(p)):pv; };
     const pn=s=>String(s||"").replace(/\s*\([^()]*\)\s*$/,"");
@@ -15147,7 +15150,7 @@ function render(){
     vRows.forEach(t=>{ if(t.lg!==lastLg){ const n=vRows.filter(x=>x.lg===t.lg&&!x.fa).length;
         bHTML+=`<div class="tbLg" data-rg="${esc((en2?{LCK:"Korea",LPL:"China",LEC:"EMEA",LCS:"North America",CBLOL:"Brazil",LCP:"Asia-Pacific"}:{LCK:"韓國",LPL:"中國",LEC:"歐洲",LCS:"北美",CBLOL:"巴西",LCP:"亞太"})[t.lg]||"")}" style="--lgc:${LGC[t.lg]||"var(--gold)"}"><img class="tbLgIc" src="${((window.TS_DATA||{}).lgi||{})[t.lg]||("img/lg_"+t.lg+".png")}" alt=""><b>${esc(t.lg)}</b><span>${n}${en2?" teams":" 隊"}</span></div>`; lastLg=t.lg; }   // 聯賽徽章＋聯賽名稱＋隊伍數（使用者 2026-11-21）；地區名只留在 data-rg 給截圖標題用
       bHTML+=rowH(t); });
-    const bHead=`<div class="tbHd"><span></span>${COLS.map(r=>`<span>${(r==="HC"||r==="STF")?`<img class="trCoach" src="img/COACH.png" alt="">`:(POS_IMG[r]?`<img class="trRole" src="${POS_IMG[r]}" alt="">`:"")}${BLN[r]}</span>`).join("")}<span class="tbRateH tbSortT" style="cursor:pointer;white-space:nowrap" title="${en2?"Click to sort":"點一下照評分排序"}">${SRT0==="o"?(en2?"Split 3":"第三賽段"):SLB}${srtArr}${(en2?["Transfer rating","Player rating","Split 3"]:["轉會評分","選手評分","第三賽段"]).map(x=>`<span class="tbRtSz" aria-hidden="true">${x}${srtArr}</span>`).join("")}</span></div>`;   /* 三種排序的欄名都撐一行（欄寬一致） */
+    const bHead=`<div class="tbHd"><span></span>${COLS.map(r=>`<span>${(r==="HC"||r==="STF")?`<img class="trCoach" src="img/COACH.png" alt="">`:(POS_IMG[r]?`<img class="trRole" src="${POS_IMG[r]}" alt="">`:"")}${BLN[r]}</span>`).join("")}<span class="tbRateH tbSortT" style="cursor:pointer;white-space:nowrap" title="${en2?"Click to sort":"點一下照評分排序"}"><span>${SRT0==="o"?(en2?"Split 3":"第三賽段"):SLB}${srtArr}</span>${(en2?["Transfer rating","Player rating","Split 3"]:["轉會評分","選手評分","第三賽段"]).map(x=>`<span class="tbRtSz" aria-hidden="true">${x}${srtArr}</span>`).join("")}</span></div>`;   /* 三種排序的欄名都撐一行（欄寬一致） */
     // 篩選列（使用者 2026-11-20「消息跟轉會表的篩選列也統一一下 並且直觀一點」）：兩種模式同一個順序——
     //   模式（圖示＋文字）｜賽區（聯賽色）｜該模式自己的篩選（分組、組間直線）｜……｜更新時間＋搜尋（最右）
     const FG=(lb,inner,cls)=>`<span class="trFG${cls?" "+cls:""}">${lb?`<label>${lb}</label>`:""}${inner}</span>`;
