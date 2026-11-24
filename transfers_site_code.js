@@ -181,23 +181,28 @@ function render(){
       const ix=nz.map((n,k)=>keep.has(n)?k:-1).filter(k=>k>=0); if(!ix.length)return null; const a=ix.map(k=>ie[k]);
       const vb=a.length===1?me[2].replace(/^(join|leave|retire)\b/,"$1s"):me[2].replace(/^(join|leave|retire)s\b/,"$1");
       return {zh:ix.map(k=>iz[k]).join("、")+mz[2]+"。",en:(a.length===1?a[0]:a.length===2?a.join(" and "):a.slice(0,-1).join(", ")+", and "+a[a.length-1])+" "+vb+"."}; };
-    const wSplit=x=>{ const sp=s=>String(s||"").trim().split(/(?<=[。.])\s+/).filter(Boolean), z=sp(x.zh), e=sp(x.en);
+    // 2026-11-24 晚定案（使用者「GEN最新那三個消息可以合併八」）：同一隊同一則 wiki 消息裡，「同一種動作」的人併成一列（多對一）、來源連結全部列出；
+    //   動作不同才分列：加入／回歸（以前待過這隊）／離隊／其他（續約、延長）。所以 GEN 的 Siwoo、Sharvel、Cloud 三人加入＝一列（三則公告都附），
+    //   T1 的 Roach 回歸、UmTi 加入、Easyhoon 延長仍是三列，各連自己的公告
+    const RET=new Set(); (D.board||[]).forEach(t=>{ if(t.fa)return; Object.values(t.r||{}).flat().forEach(e=>{ if((e.tn||[]).some(p=>p&&p[1]))[t.nm,t.tm].filter(Boolean).forEach(n=>RET.add(nk(e.n)+">"+n)); }); });
+    const wSplit=x=>{ const sp=s=>String(s||"").trim().split(/(?<=[。.])\s+/).filter(Boolean), e=sp(x.en),
+        z=String(x.zh||"").trim().split(/(?<=。)\s+|(?<=\.)\s+(?=[§‹A-Z])/).filter(Boolean);   // 中文句只在「。」斷（或沒翻到的英文句的句點＋下一句開頭）：縮寫的句點（BRO Chall. 加入）不算句尾，不然中英句數對不上、整則拆不開
       if(!z.length||z.length!==e.length)return [Array.isArray(x.srcs)&&x.srcs.length>1?{...x,_lks:x.srcs}:x]; const kOf=s=>/離隊|退役|上調一隊|分道揚鑣/.test(s)?"leave":/加入|上調/.test(s)?"join":"other";
       const kinds=new Set(z.map(kOf)), mixed=kinds.size>1, kd=k=>k==="other"&&!mixed?x.kind:k;
-      // 每個人對應的公告：英文句裡的人名順序 ↔ srcs 順序
       //   人→公告：先看抓取端讀推文內文配好的 smap（人名只出現在其中一則），沒有才在人數＝公告數時照順序；都對不到＝-1（那一列把全部公告都列出來）
       const NO=[...new Set([...String(x.en||"").matchAll(/‹[^|›]+\|([^›]+)›/g)].map(m=>nk(m[1])))], SR=Array.isArray(x.srcs)&&x.srcs.length>1?x.srcs:null, SM=x.smap||{}, ORD=SR&&SR.length===NO.length;
       const sIx=n=>!SR?0:(n in SM)?SM[n]:ORD?NO.indexOf(n):-1, nIn=t=>[...new Set([...String(t).matchAll(/‹[^|›]+\|([^›]+)›/g)].map(m=>nk(m[1])))];
-      const pcs=[];   // {kind, si（來源序號，-1＝不分）, zh, en}
-      z.forEach((zs,i)=>{ const k=kOf(zs), ns=nIn(e[i]), ss=[...new Set(ns.map(sIx))];
-        if(!SR||ss.length<2){ pcs.push({kind:k,si:SR&&ss.length===1?ss[0]:-1,zh:zs,en:e[i]}); return; }   // si＝-1：對不到公告
-        const parts=ss.map(si=>({si,r:wListSub(zs,e[i],new Set(ns.filter(n=>sIx(n)===si)))}));
-        if(parts.some(q=>!q.r)){ pcs.push({kind:k,si:ss[0],zh:zs,en:e[i]}); return; }
-        parts.forEach(q=>pcs.push({kind:k,si:q.si,zh:q.r.zh,en:q.r.en})); });
-      const G=new Map(); pcs.forEach(q=>{ const key=q.kind+"|"+q.si; if(!G.has(key))G.set(key,{kind:q.kind,si:q.si,zh:[],en:[]}); const g=G.get(key); g.zh.push(q.zh); g.en.push(q.en); });
-      const lk=si=>!SR?{}:si>=0?{src:SR[si][0],srcNm:SR[si][1]||x.srcNm}:{_lks:SR};   // 對到一則＝連那一則；對不到＝全部公告都列
-      if(G.size<2){ const g=[...G.values()][0]; return [{...x,...lk(g?g.si:-1)}]; }
-      return [...G.values()].map((g,k)=>({...x,kind:kd(g.kind),_sp:g.kind+k,zh:g.zh.join(" "),en:g.en.join(" "),...lk(g.si)})); };
+      const pcs=[];   // {kind, sub（加入句：r＝回歸、n＝新加入）, sis（這幾個人的公告序號）, zh, en}
+      z.forEach((zs,i)=>{ const k=kOf(zs), ns=nIn(e[i]), subOf=n=>k==="join"?(RET.has(n+">"+x.team)?"r":"n"):"", subs=[...new Set(ns.map(subOf))];
+        if(subs.length<2){ pcs.push({kind:k,sub:subs[0]||"",sis:ns.map(sIx),zh:zs,en:e[i]}); return; }
+        const parts=subs.map(sb=>{ const q=ns.filter(n=>subOf(n)===sb); return {sb,q,r:wListSub(zs,e[i],new Set(q))}; });
+        if(parts.some(o=>!o.r)){ pcs.push({kind:k,sub:"n",sis:ns.map(sIx),zh:zs,en:e[i]}); return; }
+        parts.forEach(o=>pcs.push({kind:k,sub:o.sb,sis:o.q.map(sIx),zh:o.r.zh,en:o.r.en})); });
+      const G=new Map(); pcs.forEach(q=>{ const key=q.kind+"|"+q.sub; if(!G.has(key))G.set(key,{kind:q.kind,sis:[],zh:[],en:[]}); const g=G.get(key); g.zh.push(q.zh); g.en.push(q.en); g.sis.push(...q.sis); });
+      // 連結：這一列的人對到哪幾則公告就列哪幾則；有人對不到（或這句沒有人名）＝全部公告都列
+      const lk=sis=>{ if(!SR)return {}; const u=[...new Set(sis)].sort((a,b)=>a-b); if(!u.length||u.includes(-1))return {_lks:SR}; return u.length===1?{src:SR[u[0]][0],srcNm:SR[u[0]][1]||x.srcNm}:{_lks:u.map(i=>SR[i])}; };
+      if(G.size<2){ const g=[...G.values()][0]; return [{...x,...lk(g?g.sis:[])}]; }
+      return [...G.values()].map((g,k)=>({...x,kind:kd(g.kind),_sp:g.kind+k,zh:g.zh.join(" "),en:g.en.join(" "),...lk(g.sis)})); };
     // 一則消息拆成好幾列（使用者 2026-11-23「先看新隊能不能切成只有一隊 不行的話就看能不能原隊只有一個 讓消息單一化 不要全部擠在一起」）：
     //   資料端手寫的 parts＝[{zh,en,mv?,stay?,tags?}]，每一段自成一列（一列只有一個新隊；沒有新隊的照原隊一隊一列），連結／日期／狀態沿用原文
     const xParts=x=>Array.isArray(x.parts)&&x.parts.length?x.parts.map((p,i)=>{ const y={...x,...p,id:x.id+"#p"+i,nosplit:1}; delete y.parts; if(!p.tags)delete y.tags; if(!p.mv)delete y.mv; if(!p.stay)delete y.stay; return y; }):[x];
@@ -398,7 +403,7 @@ function render(){
     const ORG=new Map(); (D.board||[]).forEach(t=>Object.values(t.r||{}).flat().forEach(e=>{ if(e.from&&!e.r)ORG.set(nk(e.n)+">"+t.nm,e.from); }));
     // 回歸（使用者 2026-11-24「如果曾經待過這隊 加入改寫成回歸」）：陣容表上這個人在這隊（含改名前的舊隊名）的效力紀錄 tn 有一段已經結束 ⇒ 以前待過。
     //   一則消息講到的人全都是回歸的，內文的「加入」改成「回歸」、joins → returns（joins T1 → returns to T1）
-    const RET=new Set(); (D.board||[]).forEach(t=>{ if(t.fa)return; Object.values(t.r||{}).flat().forEach(e=>{ if((e.tn||[]).some(p=>p&&p[1]))[t.nm,t.tm].filter(Boolean).forEach(n=>RET.add(nk(e.n)+">"+n)); }); });
+    // RET（以前待過這隊的人）移到上面 wSplit 前面定義
     const retFix=x=>{ const sg=(x._sig||[]).filter(s=>s.includes(">")), tm=x.s==="wiki"?(x.kind==="join"?x.team:""):(((x.tags||[]).filter(t=>t[2]==="in")).length===1?x.tags.find(t=>t[2]==="in")[1]:"");
       const ks=sg.length?sg:(tm?namesOf(x).map(n=>n+">"+tm):[]); if(!ks.length||!ks.every(k=>RET.has(k)))return x;
       return {...x,zh:String(x.zh||"").replace(/加入/g,"回歸"),en:String(x.en||"").replace(/\bjoin(s?)\b(\s+(?=[A-Z0-9‹§]))?/g,(m,s,sp)=>"return"+s+(sp?" to ":""))}; };
@@ -562,7 +567,7 @@ function render(){
     const SEASON=+String(D.from||"").slice(0,4)||0;
     const RATE=(()=>{ if(window.TRANSFER_RATE)return window.TRANSFER_RATE;   // 轉會網站：主站排程先算好匯出（transfers_site.js）
       if(curYear!==SEASON||typeof calcPlayers!=="function")return null;
-      const k=curYear+"|"+(GAMES||[]).length+"|seg18"; if(window._tbRC&&window._tbRC.k===k)return window._tbRC;
+      const k=curYear+"|"+(GAMES||[]).length+"|seg20"; if(window._tbRC&&window._tbRC.k===k)return window._tbRC;
       const res={k,pl:{},tm:{}};
       // 分段加權（使用者 2026-11-20「轉會評分改成 第一賽段 10% 第二賽段 30% 第三賽段 50% 世界賽 10% 其餘的不算」「哪個段落沒打就沒分」）：
       //   每段各自算一次選手評分（場次白名單 H2H 圈範圍、其他篩選清空），再照權重相加；沒打的那段＝0 分，不重新分配權重。
@@ -574,7 +579,7 @@ function render(){
       // 同日最後定案：「分數改成 賽段 1 2 3 ＝ 10 30 50 留 10% 給加分 破百沒差」「今年世界賽成績的參數分要拿掉」⇒ 今年世界賽那 10% 整個拿掉，
       //   三個賽段合計 90%（百分位 × 0.9），剩下 10% 的位置給國際賽資歷加分（直接加、可以超過）
       // 2026-11-21 使用者再改：「第一賽段10% FST5% 第二20% MSI10% 第三40% 世界賽15%」⇒ 六段合計 100%；沒打的那段照舊 0 分、不重新分配
-      const SEGW={S1:0.1,F:0.03,S2:0.25,M:0.07,E:0.05,S3:0.4,W:0.1};   /* 使用者 2026-11-24 定案「我要MSI 7 EWC5」 */   /* 同日再改「再改一次 10 3 25 7 5 40 10 這個7是EWC」：第一賽段 10／FST 3／第二賽段 25／EWC 7／MSI 5／第三賽段 40／世界賽 10 */   // 2026-11-24 使用者再改：「評分改成 15 5 20 10 30 15 剩下的5拿來算EWC(不算 EWCQ 只算EWC)」⇒ 七段合計 100%；EWC 只算正賽（聯賽代碼 EWC），資格賽（EWCQ…）不算
+      const SEGW={S1:0.1,F:0.03,S2:0.3,M:0.05,E:0.02,S3:0.4,W:0.1};   /* 再改「MSI 變成5 EWC變成2 第二賽段變成30%」；前一版＝第二 25／MSI 7／EWC 5 */   /* 使用者 2026-11-24 定案「我要MSI 7 EWC5」 */   /* 同日再改「再改一次 10 3 25 7 5 40 10 這個7是EWC」：第一賽段 10／FST 3／第二賽段 25／EWC 7／MSI 5／第三賽段 40／世界賽 10 */   // 2026-11-24 使用者再改：「評分改成 15 5 20 10 30 15 剩下的5拿來算EWC(不算 EWCQ 只算EWC)」⇒ 七段合計 100%；EWC 只算正賽（聯賽代碼 EWC），資格賽（EWCQ…）不算
       const SEGW_OLD={S1:0.15,S2:0.35,S3:0.5};   // 2026-11-20 使用者「去年評分改成 123賽段 15 35 50」⇒ 三個賽段合計 100%，百分位不再打八折（BASEW_ 1）；成就加分照舊另外加
       //   // 再改：第三賽段 40%（使用者 2026-11-20「第三賽段改成 40%」）⇒ 三個賽段合計 80%，百分位 × 0.8，其餘留給加分
       const lastSp={}; (GAMES||[]).forEach(o=>{ const m=/^S(\d)/.exec(String(o.split||"")); if(m&&o.league!=="WLDs")lastSp[o.league]=Math.max(lastSp[o.league]||0,+m[1]); });
@@ -597,12 +602,13 @@ function render(){
       // ly＝陣容小框 2027 那排的選手評分（使用者 2026-11-24：1xn 整年 93.8、舊網站篩 LPL 才 82、國際賽都沒打 ⇒ 選「分段權重＋只跟同聯賽比」）：
       //   S1／S2／S3 每段在「同一個聯賽」裡各算一次評分（百分位只跟同聯賽同路的人比），國際賽三段（F／M／W）沿用上面的 sg（本來就只跟同一場國際賽的人比），
       //   照 SEGW 加總；沒打的段＝0 分。不含國際賽資歷加分（跟原本的 2027 評分一樣不含成就加分）
+      const LYADD=5;   // 分數整體往上 5 分（使用者 2026-11-24「把分數整體往上5分」：這套權重下最高才 91.7、沒有人 95 以上）；上限 100
       { const LS={}, LGS=[...new Set((GAMES||[]).filter(o=>/^S\d$/.test(segOf(o))).map(o=>o.league))];
         for(const seg of ["S1","S2","S3"])for(const lg of LGS)SEGRUN(seg,()=>{ for(const r of ["TOP","JNG","MID","BOT","SUP"]){ const Z=LS[r]||(LS[r]={});
             calcPlayers(r,true).forEach(x=>{ const nk=String(x._pn||"").toLowerCase(); if(x.評分==null)return; const z=Z[nk]||(Z[nk]={}); if(!z[seg]||z[seg].g<x.場數)z[seg]={sc:x.評分,g:x.場數}; }); } },o=>o.league===lg);
         res.ly={}; for(const r of ["TOP","JNG","MID","BOT","SUP"]){ const Y=res.ly[r]={}, Z=LS[r]||{}, P=res.pl[r]||{};
           for(const nk of new Set([...Object.keys(Z),...Object.keys(P)])){ let v=0; for(const s of ["S1","S2","S3"])if(Z[nk]&&Z[nk][s])v+=SEGW[s]*Z[nk][s].sc;
-            for(const s of ["F","M","W","E"])if(P[nk]&&P[nk].sg&&P[nk].sg[s]!=null)v+=SEGW[s]*P[nk].sg[s]; Y[nk]=+v.toFixed(1); } } }
+            for(const s of ["F","M","W","E"])if(P[nk]&&P[nk].sg&&P[nk].sg[s]!=null)v+=SEGW[s]*P[nk].sg[s]; Y[nk]=+Math.min(100,v+LYADD).toFixed(1); } } }
       // 第三賽段小框的數據＝第三賽段範圍內的所有比賽，含世界賽（使用者 2026-11-21）
       SEGRUN(["S3","W"],()=>calcTeams("").forEach(x=>{ if(x.場數)(res.s3=res.s3||{})[teamFix(String(x.戰隊||""))]={g:x.場數,wr:x.勝率,sc:x.評分}; }));
       // 大場（系列賽）勝率：第三賽段＋世界賽，同一天同兩隊＝一個系列，贏的局數多的那隊拿下（陣容對比的主教練勝率；使用者 2026-11-22「教練的勝率 幫我以大場勝率去計算 不是小局勝率」）
