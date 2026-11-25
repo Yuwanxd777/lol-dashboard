@@ -116,6 +116,7 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
     succ = {n_: o_ for n_, o_ in (succ or {}).items() if o_ in lg_of}
     for n_, o_ in succ.items():
         disp.setdefault(o_, o_)
+    succ_old = {tkey(n_): tkey(o_) for n_, o_ in succ.items()}   # 新隊名的鍵 → 這裡實際在算的那一列（舊隊名）的鍵
     teams = sorted(t for t in disp if t not in set(exclude) and t not in succ)
     # ② 官方現況
     pl = cargo({"tables": "Players", "fields": "Players.ID=id,Players.OverviewPage=pg,Players.Team=tm,Players.Role=ro,Players.IsRetired=ret",
@@ -319,7 +320,7 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
             if code:
                 tgt.setdefault(tm, {}).setdefault("COACH", []).append((disp_id, pg, ro, code))
     # ⑤ 傳聞
-    rumor = parse_sheep(sheep)
+    rumor = succ_rekey(parse_sheep(sheep), succ)
     # 傳聞人選沒寫原隊的（陣容整理文、PTT 沒填）⇒ 查 wiki 現在掛在哪一隊補上：小框「來自」、消息的原隊欄用得到，
     #   評分也靠它判斷是不是次級聯賽上來的（使用者 2026-11-20「次級上來且沒有一軍出賽紀錄的選手 應該比中位數低 10 分左右」）
     need = sorted({v["p"] for L in rumor.values() for v in L if v.get("p") and not v.get("from")})
@@ -460,7 +461,7 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
                     continue
                 ros = []
                 for ro in rum_out.get(k) or rum_out.get(key(pid)) or []:
-                    if tkey(ro["tm"]) != tkey(tm) and ro["d"][:10] >= since and _same(ro, pg):
+                    if succ_old.get(tkey(ro["tm"]), tkey(ro["tm"])) != tkey(tm) and ro["d"][:10] >= since and _same(ro, pg):   # 傳聞去接手隊（OPT）＝留在這一列，不算要走
                         o = {"to": ro["tm"], "d": ro["d"][:10], "tip": ro["tip"]}
                         if ro.get("src"):
                             o["src"] = ro["src"]
@@ -1458,6 +1459,21 @@ def split_results(cargo, year):
 
 def rumor_any(rumor, tm):
     return any(t == tkey(tm) for t, _ in rumor)
+
+
+def succ_rekey(rumor, succ):
+    """接手席位的新隊（OPT 接 DIG）在 build() 裡是用舊隊名那一列去算、最後才改掛新隊名 ⇒ 標在新隊名底下的傳聞
+    要併到舊隊名的鍵，不然 rumor.get((tkey(tm), rr)) 永遠對不上：人進不了那一格，也連帶進不了自由人區
+    （2026-11-25 23:47 每小時複查：第一則「去 OPT」的傳聞 Zven 在陣容表上整個消失）。
+    只搬鍵，條目自己的 tm 不動（消息列與「可能轉會」的去向仍然顯示新隊）。rumor＝parse_sheep 的結果，succ＝{新隊名: 舊隊名}。"""
+    for n_, o_ in (succ or {}).items():
+        nk, ok = tkey(n_), tkey(o_)
+        if nk == ok:
+            continue
+        for k_ in [k_ for k_ in rumor if k_[0] == nk]:
+            L_ = rumor.get((ok, k_[1]), []) + rumor.pop(k_)
+            rumor[(ok, k_[1])] = sorted(L_, key=lambda v: v["d"], reverse=True)
+    return rumor
 
 
 def tkey(n):
