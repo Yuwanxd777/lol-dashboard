@@ -1031,8 +1031,17 @@ def _main():
     except Exception as e:
         data["polls"] = old.get("polls") or {}
         print(f"   粉絲投票沒寫成，沿用舊的 {len(data['polls'])} 隊：{type(e).__name__} {str(e)[:80]}")
+    # 魚丸影片評價（使用者 2026-11-26「幫我在最後面加上一個眼睛的EMOJI 點擊進去可以看到投票 以及我的影片提到的評價」）：
+    #   transfers_takes_src.json＝對話端讀使用者影片的頻道字幕、逐隊整理的重點（手寫，不是抓的；格式見那個檔開頭的說明），這裡原樣帶進 transfers.js 的 takes。
+    #   陣容表每列最後面的 👁 點了開「投票＋影片評價」小框（有投票或有評價的隊才有 👁）。檔案讀不到／壞掉 ⇒ 沿用上一版，不讓 👁 整批消失
+    try:
+        tk = json.load(io.open(os.path.join(ROOT, "transfers_takes_src.json"), encoding="utf-8"))
+        data["takes"] = {"v": tk.get("v") or {}, "t": {str(k).upper(): v for k, v in (tk.get("t") or {}).items() if v}}
+    except Exception as e:
+        data["takes"] = old.get("takes") or {}
+        print(f"   影片評價沒寫成，沿用舊的 {len((data['takes'] or {}).get('t') or {})} 隊：{type(e).__name__} {str(e)[:80]}")
     io.open(OUT, "w", encoding="utf-8").write("window.TRANSFERS=" + json.dumps(data, ensure_ascii=False, separators=(",", ":")) + ";\n")
-    print(f"transfers.js：wiki {len(wiki)}、sheep {len(sheep)}、PTT／韓網／官方 {len(extra)}、粉絲投票 {len(data['polls'])} 隊")
+    print(f"transfers.js：wiki {len(wiki)}、sheep {len(sheep)}、PTT／韓網／官方 {len(extra)}、粉絲投票 {len(data['polls'])} 隊、影片評價 {len((data.get('takes') or {}).get('t') or {})} 隊")
 
 
 if __name__ == "__main__":
