@@ -265,11 +265,24 @@ def logos():
         log(f"  隊徽補抓出錯（略過，不影響發布）：{type(e).__name__} {str(e)[:120]}")
 
 
+def fan_polls():
+    """粉絲投票（使用者 2026-11-25「幫我每天凌晨12點更新一次 把兩邊數據合在一起」）：使用者自己在 Threads／YouTube 發的各隊陣容投票。
+    每班都叫（只找新貼文，20 秒上下）：Threads 個人頁未登入只露出最新 7 篇左右，只在半夜看一次會漏掉白天發的；
+    票數一天重抓一次——fetch_fan_polls.py 自己記日期，當天第一班（＝00:10 那班；那班被跳過就順延到下一班）才整套重抓。
+    失敗不影響發布（沿用 transfers_polls_src.json 裡上次的數字）。"""
+    try:
+        if run([sys.executable, "scripts/fetch_fan_polls.py"], timeout=900) != 0:
+            log("  粉絲投票抓取失敗（略過，沿用上次的數字）")
+    except Exception as e:
+        log(f"  粉絲投票抓取出錯（略過，沿用上次的數字）：{type(e).__name__} {str(e)[:120]}")
+
+
 def do_main():
     # 先送再查（使用者 2026-11-20「資料更新的流程可以更快速嗎 可以先初步送上 再慢慢檢查複查」）：
     #   ① 抓資料 → 馬上發布主站＋部署轉會網站（約 2 分鐘；還沒複查的 PTT 文本來就先扣著不上架，所以初版不會有沒看過的 PTT 稿）
     #   ② 再叫 claude 複查（10 分鐘上下）→ 有改動才重抓、再發布、再部署一次
     py = sys.executable
+    fan_polls()
     if run([py, "scripts/fetch_transfers.py"]) != 0:
         log("  fetch_transfers 失敗，沿用舊資料繼續")
     logos()

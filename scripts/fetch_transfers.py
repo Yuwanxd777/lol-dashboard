@@ -995,8 +995,16 @@ def _main():
     except Exception as e:
         print(f"   tipEn 對照表沒寫成：{type(e).__name__} {str(e)[:80]}")
         data["tipEn"] = old.get("tipEn") or {}
+    # 粉絲投票（使用者 2026-11-25「把兩邊數據合在一起 點擊綠色勾勾的時候會顯示」）：使用者自己在 Threads／YouTube 發的「2027 T1 新陣容可以走多遠？」投票，
+    #   scripts/fetch_fan_polls.py 抓好累積在 transfers_polls_src.json，這裡只把合併後的結果放進來（鍵＝隊伍縮寫大寫；陣容表有打勾的隊才點得到）
+    try:
+        import fetch_fan_polls
+        data["polls"] = fetch_fan_polls.build()
+    except Exception as e:
+        data["polls"] = old.get("polls") or {}
+        print(f"   粉絲投票沒寫成，沿用舊的 {len(data['polls'])} 隊：{type(e).__name__} {str(e)[:80]}")
     io.open(OUT, "w", encoding="utf-8").write("window.TRANSFERS=" + json.dumps(data, ensure_ascii=False, separators=(",", ":")) + ";\n")
-    print(f"transfers.js：wiki {len(wiki)}、sheep {len(sheep)}、PTT／韓網／官方 {len(extra)}")
+    print(f"transfers.js：wiki {len(wiki)}、sheep {len(sheep)}、PTT／韓網／官方 {len(extra)}、粉絲投票 {len(data['polls'])} 隊")
 
 
 if __name__ == "__main__":
