@@ -71,6 +71,16 @@ def plain(h):
     return re.sub(r"\n\s*\n+", "\n", t).strip()[:4000]
 
 
+def sus_of(main_html, body):
+    """來亂的文（使用者 2026-11-25 貼 M.1795596989.A.36A「這種來亂的文不要收入」：標題寫 T1 X(welcome Zeus)，內文只有一句「宙斯回來了啦」，
+    沒有連結也沒有圖，官方根本還沒發）。內文沒有任何連結、扣掉簽名檔只剩不到 30 個字 ⇒ 回傳一句說明，條目加 sus 記號，複查時要先查證。"""
+    if re.search(r"https?://", main_html):
+        return ""
+    ls = [z.strip() for z in (body or "").split("\n")[1:]]
+    ls = [z for z in ls if z and not re.match(r"^-+$|^Sent from |^※", z)]
+    return "內文沒有連結或圖片，只有一兩句話" if len("".join(ls)) < 30 else ""
+
+
 def want(title):
     if title.startswith("Re:") or title.startswith("Fw:"):
         return False
@@ -153,6 +163,8 @@ def main(start=None):
              "st": "rumor" if RUMOR.search(title) else "official", "body": plain(main_), "ytc": 1}
         if yt_of(main_):
             x["yt"] = yt_of(main_)
+        if sus_of(main_, x["body"]):
+            x["sus"] = sus_of(main_, x["body"])
         acc.append(x); have.add(pid); n += 1
         time.sleep(0.3)
     acc.sort(key=lambda x: x["d"])
