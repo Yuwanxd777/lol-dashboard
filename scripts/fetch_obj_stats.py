@@ -42,20 +42,42 @@ _answered = 0     # 伺服器有回應的次數（成功或 4xx）——探路�
 # 現在先循序探路到「伺服器有回應」或「判定來源掛了」為止（全掛時的請求上限不變），其餘並行 WORKERS 條；
 # 並行階段每個檔各自重試、不吃連續失敗熔斷（完成順序不固定，「連續」沒有意義；來源剛被證實活著）。
 WORKERS = 6
+# 整支的時間預算（2026-11-25 精進迴圈 #3707）：11-25 10:00 班 CDragon 又是一個請求 20～75 秒，並行 6 條還是卡了
+# 122.8 秒（第③階段其餘步驟只要 ~41 秒 ⇒ 整班多等 90 秒），而換來的 obj_stats.js 一個位元都沒變——
+# 物件屬性只有改版才會動，過期快取就是正解的備援。所以從第一個請求起算超過 BUDGET 秒就不再等：
+# 「有過期快取」的檔單次逾時縮到剩餘預算、預算用完直接走快取（不碰 mtime ⇒ 下一班照樣再試，幾班內會輪完）；
+# **沒有快取的檔不受預算限制**（照舊試滿 TRIES 次，否則新單位會少一張卡）。
+BUDGET = 45       # 秒；來源正常時整支 ~2 秒，碰不到
+MIN_TRY = 1.0     # 剩不到這麼多秒就不值得再發一個請求
+_deadline = None  # prefetch() 開始時設定；None＝不計預算
+_over = []        # 因為預算用完而沒等的檔（收尾印一行）
 
 
-def _fetch(url, breaker=True):
-    """回傳內容；4xx 不重試（來源明確說沒有），其餘重試到 TRIES 次。連續失敗達 DOWN_AFTER 就不再上網。"""
+class OverBudget(OSError):
+    pass
+
+
+def _fetch(url, breaker=True, budgeted=False):
+    """回傳內容；4xx 不重試（來源明確說沒有），其餘重試到 TRIES 次。連續失敗達 DOWN_AFTER 就不再上網。
+    budgeted＝這個檔有過期快取可退 ⇒ 受整支時間預算限制（預算用完丟 OverBudget，不算來源掛了）。"""
     global _fails, _answered
     if breaker and _fails >= DOWN_AFTER:
         raise OSError(f"來源連續 {_fails} 個檔抓不到，不再嘗試")
     err = None
     for i in range(TRIES):
+        tmo = TIMEOUT
+        if budgeted and _deadline is not None:
+            left = _deadline - time.monotonic() - (RETRY_WAIT if i else 0)
+            if left < MIN_TRY:
+                if err is None:     # 一次都沒試到：純粹是預算用完，不是來源的錯
+                    raise OverBudget(f"整支已超過時間預算 {BUDGET} 秒，不再等")
+                break               # 試過一次失敗、沒時間重試：照一般失敗處理
+            tmo = min(TIMEOUT, left)
         if i:
             time.sleep(RETRY_WAIT)
         try:
             req = urllib.request.Request(url, headers=UA)
-            s = urllib.request.urlopen(req, timeout=TIMEOUT).read().decode("utf-8", "replace")
+            s = urllib.request.urlopen(req, timeout=tmo).read().decode("utf-8", "replace")
             if breaker:
                 _fails = 0
             _answered += 1
@@ -75,6 +97,8 @@ def _fetch(url, breaker=True):
 def prefetch(jobs):
     """jobs＝[(url, 快取檔名)] → {快取檔名: 內容或例外}。先循序探路，來源有回應後其餘並行。"""
     from concurrent.futures import ThreadPoolExecutor
+    global _deadline
+    _deadline = time.monotonic() + BUDGET
     res, rest = {}, list(jobs)
 
     def one(url, fn, breaker=True):
@@ -95,6 +119,8 @@ def prefetch(jobs):
     else:
         for url, fn in rest:    # 來源判定掛了：_fetch 會立刻放棄，走過期快取
             one(url, fn)
+    if _over:
+        print(f"  ⚠ 時間預算 {BUDGET} 秒用完：{len(_over)} 個檔沒等、用過期快取（下一班再試）：{'、'.join(sorted(_over))}")
     return res
 
 
@@ -103,10 +129,13 @@ def get(url, fn, breaker=True):
     if not FORCE and os.path.exists(p) and time.time() - os.path.getmtime(p) < 20 * 3600:
         return open(p, encoding="utf-8", errors="replace").read()
     try:
-        s = _fetch(url, breaker)
+        s = _fetch(url, breaker, budgeted=os.path.exists(p))
     except Exception as e:
         if os.path.exists(p):   # 不碰 mtime：快取維持過期，下一班才會再試
-            print(f"  ⚠ {fn} 抓不到（{e}），先用過期快取")
+            if isinstance(e, OverBudget):
+                _over.append(fn)    # 不逐檔洗版，prefetch 收尾印一行
+            else:
+                print(f"  ⚠ {fn} 抓不到（{e}），先用過期快取")
             return open(p, encoding="utf-8", errors="replace").read()
         raise
     os.makedirs(CACHE, exist_ok=True)

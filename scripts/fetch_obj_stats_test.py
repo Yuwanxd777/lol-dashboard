@@ -72,7 +72,9 @@ class Sandbox:
         except ValueError:
             return D()
 
-    def run(self, behavior):
+    def run(self, behavior, tweak=None):
+        """tweak(m)＝跑 main() 之前改模組常數（⑯ 用來把時間預算縮小）。
+        behavior.wants_timeout 為真時多收第三個參數＝這次 urlopen 拿到的 timeout（模擬會被逾時切斷的慢來源）。"""
         spec = importlib.util.spec_from_file_location("objstats_under_test", self.src)
         m = importlib.util.module_from_spec(spec)
         real_out = sys.stdout
@@ -87,6 +89,9 @@ class Sandbox:
         leaks = [k for k, v in vars(m).items()
                  if isinstance(v, str) and os.path.normcase(REPO) in os.path.normcase(v) and k not in ("__file__", "__cached__")]
         assert not leaks, f"模組層還有路徑指著真實 repo：{leaks}"
+        if tweak:
+            tweak(m)
+        self.units = [u.lower() for u in m.UNITS.values()]
 
         counts = {}
 
@@ -96,6 +101,8 @@ class Sandbox:
             counts[who] = counts.get(who, 0) + 1
             self.calls.append(who)
             self.timeouts.append(timeout)
+            if getattr(behavior, "wants_timeout", False):
+                return Resp(behavior(who, counts[who], timeout).encode("utf-8"))
             return Resp(behavior(who, counts[who]).encode("utf-8"))
 
         urllib.request.urlopen = fake
@@ -343,6 +350,123 @@ rc, out = s.run(turret_down); p = s.prev()
 ck("塔試滿 2 次後沿用", s.calls.count("turret") == 2 and p["外塔（一塔）"] == {"hp": 5}, (s.calls.count("turret"), p.get("外塔（一塔）")))
 ck("15 個單位都抓到新值", all(p[k]["hp"] == 99421 for k in ("巴龍", "紅 Buff", "超級士兵（Super Minion）")), p.get("巴龍"))
 s.close()
+
+# ───────── ⑯ 整支的時間預算（2026-11-25 精進迴圈 #3707）─────────
+import socket
+UNIT_FILES = ["sru_baron", "sru_dragon_elder", "sru_dragon_fire", "sru_riftherald", "sru_horde", "sru_atakhan",
+              "sru_blue", "sru_red", "sru_crab", "sru_krug", "sru_gromp", "sru_razorbeak", "sru_murkwolf",
+              "sru_orderminionmelee", "sru_orderminionsuper"]
+ALL_CACHE = ["turret.bin.json"] + [f"objbin_{u}.json" for u in UNIT_FILES]
+STALE_HP = 77654
+
+
+def laggy(delay):
+    """每個請求要 delay 秒才回；拿到的 timeout 比它短就睡滿 timeout 後丟逾時（跟真的 socket 逾時一樣）。"""
+    def f(who, n, timeout):
+        if timeout is not None and timeout < delay:
+            real_sleep(timeout)
+            raise socket.timeout("The read operation timed out")
+        real_sleep(delay)
+        return ok_all(who, n)
+    f.wants_timeout = True
+    return f
+
+
+def seed_all_stale(s, skip=()):
+    mt = {}
+    for fn in ALL_CACHE:
+        if fn in skip:
+            continue
+        p_ = s.seed_cache(fn, bin_of(STALE_HP, turret=fn.startswith("turret")))
+        mt[fn] = os.path.getmtime(p_)
+    return mt
+
+
+def budget(sec):
+    def tw(m):
+        m.BUDGET, m.MIN_TRY = sec, 0.05
+    return tw
+
+
+DISP = {"外塔（一塔）": "turret.bin.json", "巴龍": "objbin_sru_baron.json", "紅 Buff": "objbin_sru_red.json",
+        "超級士兵（Super Minion）": "objbin_sru_orderminionsuper.json"}
+
+print("⑯ 時間預算（主案例）：16 檔都有過期快取、來源每個請求 1 秒、預算 1.5 秒 ⇒ 預算內收，沒等到的用快取")
+s = Sandbox(); mt0 = seed_all_stale(s)
+t0 = time.time(); rc, out = s.run(laggy(1.0), budget(1.5)); dt16 = time.time() - t0; p = s.prev()
+ck("沙盒的單位清單跟被測模組一致（素材沒過期）", s.units == UNIT_FILES, s.units)
+ck("離開碼 0", rc == 0, rc)
+ck("仍是 19 項", len(p) == 19, len(p))
+ck("牆鐘在預算附近（< 2.5s；不設預算要 1+3 波×1=4s）", dt16 < 2.5, round(dt16, 2))
+fresh = [k for k in p if p[k].get("hp") == 99421]
+stale = [k for k in p if p[k].get("hp") == STALE_HP]
+ck("探路的塔拿到新值（預算內回來的照收）", p["外塔（一塔）"]["hp"] == 99421, p["外塔（一塔）"])
+ck("沒等到的用過期快取，不是消失", len(stale) == 15 and len(fresh) == 4, (len(fresh), len(stale)))
+ck("收尾有一行預算說明、列出檔名", "時間預算 1.5 秒用完" in out and "objbin_sru_orderminionsuper.json" in out, out)
+ck("單次逾時縮到剩餘預算（第二波 ≤ 0.6s）", 0 < min(s.timeouts) <= 0.6, sorted(s.timeouts)[:3])
+ck("沒有任何單次逾時超過 30 秒", max(s.timeouts) <= 30, max(s.timeouts))
+ck("預算用完後不再發請求（總請求 ≤ 1 探路＋6 條）", len(s.calls) <= 7, len(s.calls))
+ck("沒等到的檔快取 mtime 沒動（下一班照樣再試）",
+   all(os.path.getmtime(os.path.join(s.cache, fn)) == mt0[fn] for fn in ALL_CACHE[1:]))
+ck("等到的檔快取有更新", os.path.getmtime(os.path.join(s.cache, "turret.bin.json")) > mt0["turret.bin.json"])
+s.close()
+
+print("⑯b 來源正常快 ⇒ 預算碰不到，行為跟以前一樣（16 檔都換新、沒有預算字樣）")
+s = Sandbox(); mt0 = seed_all_stale(s)
+rc, out = s.run(laggy(0.01), budget(1.5)); p = s.prev()
+ck("19 項全是新值", len(p) == 19 and all(v.get("hp") == 99421 for v in p.values()), [k for k in p if p[k].get("hp") != 99421])
+ck("沒有預算字樣、沒有警告", "時間預算" not in out and "⚠" not in out, out)
+ck("16 個請求都發了", len(s.calls) == 16, len(s.calls))
+s.close()
+
+print("⑯c 沒有快取的檔不受預算限制：紅 Buff 沒快取、來源 1 秒、預算 0.5 秒 ⇒ 紅 Buff 照樣等到新值")
+s = Sandbox(); seed_all_stale(s, skip=("objbin_sru_red.json",)); s.seed_prev({"紅 Buff": {"hp": 88123}})
+rc, out = s.run(laggy(1.0), budget(0.5)); p = s.prev()
+ck("紅 Buff 是這一班的新值（不是上一版 88123）", p["紅 Buff"]["hp"] == 99421, p["紅 Buff"])
+ck("紅 Buff 那個請求拿到完整的 30 秒逾時", 30 in s.timeouts, sorted(set(s.timeouts)))
+ck("其餘走過期快取", p["巴龍"]["hp"] == STALE_HP and p["外塔（一塔）"]["hp"] == STALE_HP, (p["巴龍"], p["外塔（一塔）"]))
+ck("預算用完不算來源掛了（否則熔斷會把紅 Buff 一起跳掉）", "不再嘗試" not in out, out)
+ck("仍是 19 項、離開碼 0", len(p) == 19 and rc == 0, (len(p), rc))
+s.close()
+
+print("⑯d 完全沒有快取（第一次跑）＋來源慢 ⇒ 一張卡都不少，預算不介入")
+s = Sandbox()
+rc, out = s.run(laggy(0.3), budget(0.2)); p = s.prev()
+ck("19 項全是新值", len(p) == 19 and all(v.get("hp") == 99421 for v in p.values()), len(p))
+ck("每個請求都是完整逾時", set(s.timeouts) == {30}, sorted(set(s.timeouts)))
+ck("沒有預算字樣", "時間預算" not in out, out)
+s.close()
+
+print("⑯e 預算內第一次失敗、還有時間 ⇒ 照樣重試")
+s = Sandbox(); seed_all_stale(s)
+
+
+def flaky_fast(who, n, timeout):
+    if who == "sru_red" and n == 1:
+        raise OSError("timeout")
+    return ok_all(who, n)
+
+
+flaky_fast.wants_timeout = True
+rc, out = s.run(flaky_fast, budget(30)); p = s.prev()
+ck("紅 Buff 重試後拿到新值", s.calls.count("sru_red") == 2 and p["紅 Buff"]["hp"] == 99421, (s.calls.count("sru_red"), p["紅 Buff"]))
+s.close()
+
+if not os.environ.get("OBJ_SRC"):
+    print("⑯f 正控制：釘 17cde4f1（沒有時間預算的版本），同一情境真的等滿 4 秒")
+    txt = subprocess.run(["git", "-C", REPO, "show", "17cde4f1:scripts/fetch_obj_stats.py"], capture_output=True)
+    ck("拉得出舊版", txt.returncode == 0, txt.stderr)
+    tmp = tempfile.mkdtemp(prefix="objold2_")
+    oldsrc = os.path.join(tmp, "old.py")
+    open(oldsrc, "wb").write(txt.stdout)
+    s = Sandbox(src=oldsrc); seed_all_stale(s)
+    t0 = time.time(); rc, out = s.run(laggy(1.0), budget(1.5)); dt_old = time.time() - t0; p = s.prev()
+    ck("舊版牆鐘 ≥ 3.5s（探路 1s＋15 檔 6 條＝3 波）", dt_old >= 3.5, round(dt_old, 2))
+    ck("舊版每個請求都給滿 30 秒", set(s.timeouts) == {30}, sorted(set(s.timeouts)))
+    ck("舊版沒有預算字樣", "時間預算" not in out, out)
+    ck("新版比舊版快一倍以上", dt16 * 2 < dt_old, (round(dt16, 2), round(dt_old, 2)))
+    s.close()
+    shutil.rmtree(tmp, ignore_errors=True)
 
 print("⑭ 隔離：真實 obj_stats.js 一個位元沒動")
 now = hashlib.md5(open(REAL_OUT, "rb").read()).hexdigest() if os.path.exists(REAL_OUT) else None
