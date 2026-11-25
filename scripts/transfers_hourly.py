@@ -253,7 +253,15 @@ def publish(tag):
     if run([py, "scripts/preflight_check.py"], timeout=1800) != 0:
         log("  ⚠ preflight 失敗，不推（下一班 publish 會再試）")
         return changed
-    run([GIT, "push"], timeout=600)
+    if run([GIT, "push"], timeout=600) != 0:
+        # GitHub 端偶爾回暫時性的錯誤：2026-11-23 18:15／18:44「cannot lock ref」、11-26 00:17「remote rejected (Internal Server Error)」。
+        # 原本只推一次，失敗就留在本機等 30 分鐘後下一班補推（主站的轉會分頁晚半小時）。只重試一次、不重跑守門（內容沒變）：
+        # 真的壞掉（斷網、憑證失效）重試也沒用，下一班看到 ahead > 0 會再推。不管推沒推成都回 True——轉會網站用的是本機檔，照樣要部署。
+        # 改這段跑 transfers_hourly_push_test.py。
+        log("  ⚠ push 失敗（多半是 GitHub 端暫時性的錯誤），15 秒後重試一次")
+        time.sleep(15)
+        if run([GIT, "push"], timeout=600) != 0:
+            log("  ⚠ push 重試仍失敗，主站這一班沒更新（commit 留在本機，下一班會再推；連續三班才要查網路或 GitHub 憑證）")
     return True
 
 
