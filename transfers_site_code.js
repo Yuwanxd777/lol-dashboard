@@ -251,8 +251,13 @@ function render(){
     //   ① wiki 的「合約在 GCD 更新」是資料庫同步、不是消息 ⇒ 那幾句拿掉，整則只剩它就不列
     //   ② wiki 與 Sheep 官方講同一件事（同隊、方向不衝突、三天內、人名重疊 ≥ 75%）⇒ 留人名較多的那則，一樣多留 Sheep（有前因後果）
     const all=(()=>{ const dd2=(a,b)=>Math.abs((new Date(String(a).slice(0,10))-new Date(String(b).slice(0,10)))/864e5);
-      const L=all0.map(x=>{ if(x.s!=="wiki")return x; const cut=(t,re)=>String(t||"").split(/(?<=[。.])\s+/).filter(z=>!re.test(z)).join(" ");
-        return {...x,zh:cut(x.zh,/合約在 GCD 更新/),en:cut(x.en,/updated in the/i)}; }).filter(x=>x.s!=="wiki"||String(x.zh||x.en||"").trim());
+      //   ①b wiki 的「合約從 GCD 移除」跟同一個人三天內的 wiki「加入」是同一件事（使用者 2026-11-25 貼 Thanatos 兩列「這是同一則吧」：C9 的 GCD 移除＋BFX 的加入）
+      //      ⇒ 移除那句不列，只留加入那一則；句子裡的人沒有全部都有加入消息的（只是被移出資料庫、還沒有新東家）照列
+      const sents=t=>String(t||"").split(/(?<=[。.])\s+/), pgs=t=>[...String(t||"").matchAll(/‹([^|›]+)\|[^›]+›/g)].map(m=>{ let p=m[1]; try{ p=decodeURIComponent(p); }catch(_){} return p.replace(/_/g," ").toLowerCase(); });
+      const jn=new Map(); all0.forEach(x=>{ if(x.s!=="wiki")return; sents(x.zh).forEach(z=>{ if(/加入/.test(z))pgs(z).forEach(p=>{ if(!jn.has(p))jn.set(p,[]); jn.get(p).push(x.d); }); }); });
+      const gcdDup=(z,d)=>{ const ps=pgs(z); return ps.length>0&&ps.every(p=>(jn.get(p)||[]).some(q=>dd2(q,d)<=3)); };
+      const L=all0.map(x=>{ if(x.s!=="wiki")return x; const cut=(t,re,re2)=>sents(t).filter(z=>!re.test(z)&&!(re2.test(z)&&gcdDup(z,x.d))).join(" ");
+        return {...x,zh:cut(x.zh,/合約在 GCD 更新/,/合約從 GCD 移除/),en:cut(x.en,/updated in the/i,/removed from the GCD/i)}; }).filter(x=>x.s!=="wiki"||String(x.zh||x.en||"").trim());
       // ③ 退役與離隊併成一則（使用者 2026-11-21「退役選手退役與離隊的消息要合併」）：官方退役消息（id＝ret-…）講到的人——
       //   wiki 的離隊句把他拿掉（那句只有他就整句不列）；Sheep 官方也報了他退役 ⇒ 留 Sheep 那則（有前因後果），官方那則不重複列；
       //   否則官方那則改寫成「離隊並宣布退役」。要排在 ② 前面：先把人從 wiki 的離隊名單拿掉，② 才不會把 Sheep 的退役消息當成那則離隊的重複
@@ -275,7 +280,10 @@ function render(){
           if(merged){ const who=((/^§[A-Z]+§/.exec(r.zh||"")||[""])[0])+mm[0]; r.zh=who+" 離隊並宣布退役。"; r.en=who+" leaves and announces retirement."; } }); }
       const L2=L.filter(x=>!gone3.has(x));
       const W=L2.filter(x=>x.s==="wiki"), S=L2.filter(x=>x.s==="sheep"&&(x.st||"rumor")==="official"), drop=new Set();
-      W.forEach(w=>{ const wn=namesOf(w); if(!wn.length)return;
+      //   ②b 隊伍層級的公告（wiki 記成 other、句子裡沒有選手）跟 Sheep 官方同一天講同一隊（也沒有選手）⇒ 同一件事，留 Sheep
+      //      （使用者 2026-11-25「重複的消息都幫我處理掉」：OpTic 2027 進 LCS，wiki 與 Sheep 各列一則）
+      W.forEach(w=>{ if(w.kind==="other"&&!/§[A-Z]+§/.test(w.zh||"")&&S.some(sh=>!drop.has(sh)&&dd2(w.d,sh.d)<=1&&!/§[A-Z]+§/.test(sh.zh||"")&&sh.tags.some(t=>t[1]===w.team))){ drop.add(w); return; }
+        const wn=namesOf(w); if(!wn.length)return;
         S.forEach(sh=>{ if(drop.has(sh)||drop.has(w)||dd2(w.d,sh.d)>3)return; const tg=sh.tags.find(t=>t[1]===w.team); if(!tg)return;
           if(tg[2]&&((w.kind==="join"&&tg[2]!=="in")||(w.kind==="leave"&&tg[2]!=="out")))return;
           const sn=namesOf(sh); if(!sn.length)return; const ov=wn.filter(n=>sn.includes(n)).length;
