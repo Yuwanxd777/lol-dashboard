@@ -762,7 +762,10 @@ def _main():
             cl_ = [c_.strip() for c_ in re.split(r"[；;]", re.sub(r"‹[^|›]+\|([^›]+)›", r"\1", re.sub(r"§[A-Z]+§", "", zh0_)).rstrip("。")) if c_.strip()]
             hit_ = [c_ for c_ in cl_ if re.search(r"(?<![A-Za-z0-9])" + re.escape(nm_) + r"(?![A-Za-z0-9])", c_)]
             zh_ = tp_[0] if tp_ and tp_[0] else ("；".join(hit_) + "。" if hit_ and len(hit_) < len(cl_) else zh0_)
-            synth.append({"d": x["d"], "st": x.get("st") or "rumor", "kind": "join", "src": x.get("src") or "PTT",   # 來源名照原樣（含手動加的 X 帳號如 Rostermania，使用者 2026-11-23） "url": x.get("url") or x.get("ptt") or "",
+            synth.append({"d": x["d"], "st": x.get("st") or "rumor", "kind": "join", "src": x.get("src") or "PTT",   # 來源名照原樣（含手動加的 X 帳號如 Rostermania，使用者 2026-11-23）
+                          # ↓ url 自己一行：2026-11-23（eec23cd7）加上面那句行內註解時把這個鍵一起吃進註解，之後 PTT 來源檔的傳聞進陣容表都沒有來源網址
+                          #   ⇒ 小框的來源名點不開原文（使用者 2026-11-20「Sheep 的來源就寫 SE 然後超連結」）。行內註解只能放在一行的最後一個鍵後面
+                          "url": x.get("url") or x.get("ptt") or "",
                           "zh": zh_, "en": _en_for(x, nm_), "who": [nm_, pg_, lane_],
                           "tags": ([["", fr_, "out"]] if fr_ else []) + [["", to_, "in"]]})
             if lane_ == "COACH" and nm_ in (x.get("hc") or []):
