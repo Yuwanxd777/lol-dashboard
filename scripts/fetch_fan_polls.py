@@ -5,8 +5,12 @@
 
 資料怎麼來（都用無頭瀏覽器、不登入、不碰使用者的 Chrome）：
   Threads  個人頁（未登入只給最新 7 篇上下）找貼文 → 單篇貼文頁的內嵌 JSON 有投票每個選項的實際票數（tallies），進行中的也有
-  YouTube  社群貼文頁的 ytInitialData 有選項與總票數；**各選項的票數要登入並投過票才看得到**，未登入拿不到 ⇒ 只有總票數
-           （登入後 YouTube 會多給 voteRatio 之類的欄位，yt_choice() 認得；目前沒有登入的管道，那一段沒有實測過）
+  YouTube  社群貼文頁的 ytInitialData 有選項與總票數；**各選項的票數要登入才看得到**，未登入拿不到 ⇒ 只有總票數。
+           要各選項：跑專案根目錄的 yt_login.bat，在跳出來的那個獨立 Chrome 視窗登入 YouTube 一次、關掉視窗；之後這支程式看到
+           YT_PROFILE 那個資料夾存在，就用同一個 Chrome 以無頭模式開它來讀（不開視窗、不碰使用者平常用的 Chrome 設定檔）。
+           為什麼不直接用使用者平常的 Chrome（使用者 2026-11-25「YT你就開我的瀏覽器去看就好 但用無頭的 不要影響我的畫面」）：
+           Chrome 開著的時候設定檔與 Cookie 檔是鎖住的（實測 PermissionError），第二個 Chrome 指到同一個設定檔會變成在使用者眼前開分頁。
+           登入後 YouTube 會多給 voteRatioIfNotSelected 之類的欄位，yt_choice() 認得；**登入後的那一段到 2026-11-25 為止沒有實測過**。
 累積在 transfers_polls_src.json（本機檔，不進 git）；fetch_transfers.py 呼叫 build() 把結果放進 transfers.js 的 polls。
 
 用法（transfers_hourly.py 的 main 每班都叫一次，不帶參數）：
@@ -31,9 +35,11 @@ SRC = os.path.join(ROOT, "transfers_polls_src.json")
 TH_USER = "yuwanxd"
 TH_HOME = "https://www.threads.com/@" + TH_USER
 YT_HOME = "https://www.youtube.com/@yuwanxd/posts"
+YT_PROFILE = os.path.join(os.environ.get("LOCALAPPDATA") or ROOT, "lol_dashboard_yt_profile")   # yt_login.bat 建的專用 Chrome 設定檔（在專案外面，不會被發布）
 UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
-# 標題：「2027 T1 新陣容可以走多遠？」——年份＋隊伍縮寫＋「新陣容」；後半句不寫死（使用者說「類似這樣」）
-RE_T = re.compile(r"^\s*(20\d\d)\s*([A-Za-z0-9][A-Za-z0-9 .\-]{0,23}?)\s*新陣容")
+# 標題：「2027 T1 新陣容可以走多遠？」——年份＋隊伍縮寫＋「（新）陣容」；後半句不寫死（使用者說「類似這樣」；
+#   DK 那篇 Threads 寫的是「2027 DK 陣容已定，你覺得能走到哪？」）。還要有投票才算（th_stat／yt_parse 會擋掉沒有投票的）
+RE_T = re.compile(r"^\s*(20\d\d)\s*([A-Za-z0-9][A-Za-z0-9 .\-]{0,23}?)\s*新?陣容")
 
 
 def load():
@@ -43,7 +49,7 @@ def load():
             return d
     except Exception:
         pass
-    return {"full": "", "posts": {}}
+    return {"full": "", "posts": {}, "skip": []}
 
 
 def save(d):
@@ -198,18 +204,21 @@ def main():
     argv = sys.argv[1:]
     store = load()
     posts = store["posts"]
+    skip = store.setdefault("skip", [])   # 看過、確定不是陣容投票的 Threads 貼文代碼（標題像但沒有投票），不用每班重看
     now = datetime.datetime.now()
     stamp, today = now.strftime("%Y-%m-%d %H:%M"), now.strftime("%Y-%m-%d")
     full = "--full" in argv or ("--light" not in argv and store.get("full") != today)
     add = [code_of(a) for a in argv[argv.index("--add-th") + 1:]] if "--add-th" in argv else []
     logs, bad = [], []
 
-    def entry(hd):
+    def entry(hd, yt=False):
+        """問句與陣容那一行以 YouTube 的貼文為準（兩邊寫法可能不同）；只有 Threads 的隊才用 Threads 的"""
         y, team, q, ln = hd
         e = posts.setdefault(f"{y}|{team}", {"y": y, "team": team})
-        e["q"] = q
-        if ln:
-            e["ln"] = ln
+        if yt or not e.get("yt"):
+            e["q"] = q
+            if ln:
+                e["ln"] = ln
         return e
 
     def put(e, side, new):
@@ -227,14 +236,28 @@ def main():
         b = p.chromium.launch()
         cx = b.new_context(user_agent=UA, locale="zh-TW", viewport={"width": 1300, "height": 2000})
         pg = cx.new_page()
+        # YouTube 用的分頁：有專用設定檔（yt_login.bat 登入過）就用真正的 Chrome 無頭開它，拿得到各選項票數；沒有或開不起來就用未登入的
+        ycx, ypg = None, pg
+        if os.path.isdir(YT_PROFILE):
+            try:
+                kw = dict(channel="chrome", headless=True, locale="zh-TW", viewport={"width": 1300, "height": 2000})
+                ycx = p.chromium.launch_persistent_context(YT_PROFILE, **kw)
+                ypg = ycx.pages[0] if ycx.pages else ycx.new_page()
+                ua = ypg.evaluate("()=>navigator.userAgent")
+                if "HeadlessChrome" in ua:   # 無頭模式自報 HeadlessChrome ⇒ 重開一次、報成跟登入時同一個 Chrome（版本號照舊）
+                    ycx.close()
+                    ycx = p.chromium.launch_persistent_context(YT_PROFILE, user_agent=ua.replace("HeadlessChrome", "Chrome"), **kw)
+                    ypg = ycx.pages[0] if ycx.pages else ycx.new_page()
+            except Exception as ex:
+                bad.append(f"YT 專用設定檔開不起來，這次用未登入的（登入視窗還開著？）：{type(ex).__name__} {str(ex)[:80]}")
         # ① YouTube 貼文列表（一頁）：新貼文；全部重抓時列表上有的順便更新
         seen_yt = set()
         try:
-            for y in yt_fetch(pg, YT_HOME):
+            for y in yt_fetch(ypg, YT_HOME):
                 hd = head_of(y["text"])
                 if not hd:
                     continue
-                e = entry(hd)
+                e = entry(hd, yt=True)
                 seen_yt.add(y["id"])
                 if full or not e.get("yt"):
                     if not e.get("yt"):
@@ -247,10 +270,8 @@ def main():
         try:
             for code, po in th_page(pg, TH_HOME, scroll=6).items():
                 hd = head_of((po.get("caption") or {}).get("text"))
-                if hd:
-                    e = entry(hd)
-                    if not e.get("th"):
-                        todo[code] = e
+                if hd and code not in skip and not (posts.get(f"{hd[0]}|{hd[1]}") or {}).get("th"):
+                    todo[code] = None   # 這裡先不建條目：有沒有投票要開單篇頁才知道
         except Exception as ex:
             bad.append(f"Threads 個人頁失敗：{type(ex).__name__} {str(ex)[:80]}")
         for code in add:
@@ -270,7 +291,10 @@ def main():
                 hd = head_of((po.get("caption") or {}).get("text"))
                 st = th_stat(po)
                 if not hd or not st:
-                    bad.append(f"Threads {code} 不是陣容投票貼文")
+                    if code in add:
+                        bad.append(f"Threads {code} 不是陣容投票貼文")
+                    elif code not in skip:
+                        skip.append(code)
                     continue
                 e = entry(hd)
                 if not e.get("th"):
@@ -287,13 +311,17 @@ def main():
                 if not yt.get("id") or yt["id"] in seen_yt:
                     continue
                 try:
-                    r = [y for y in yt_fetch(pg, "https://www.youtube.com/post/" + yt["id"]) if y["id"] == yt["id"]]
+                    r = [y for y in yt_fetch(ypg, "https://www.youtube.com/post/" + yt["id"]) if y["id"] == yt["id"]]
                     if r:
                         put(e, "yt", {k: r[0][k] for k in ("id", "n", "o", "lk")})
                     else:
                         bad.append(f"YT {e['team']} 單篇頁讀不到")
                 except Exception as ex:
                     bad.append(f"YT {e['team']} 失敗：{type(ex).__name__} {str(ex)[:80]}")
+        if ycx:
+            if not any(v is not None for e in posts.values() for _, v in ((e.get("yt") or {}).get("o") or [])):
+                logs.append("YT 專用設定檔沒有登入（或登入失效）：各選項票數拿不到，只有總票數")
+            ycx.close()
         b.close()
     if full and not any("列表失敗" in z or "個人頁失敗" in z for z in bad):
         store["full"] = today   # 兩邊入口都有開成功才算今天更新過；失敗的話下一班再整套重試
@@ -313,12 +341,17 @@ def build():
     out = {}
     for e in sorted(load()["posts"].values(), key=lambda z: z.get("y") or 0):
         th, yt = e.get("th") or {}, e.get("yt") or {}
-        tv, yv = dict(map(tuple, th.get("o") or [])), dict(map(tuple, yt.get("o") or []))
-        names = list(tv) + [n for n in yv if n not in tv]
-        if not names or not e.get("team"):
+        to, yo = th.get("o") or [], yt.get("o") or []
+        if not (to or yo) or not e.get("team"):
             continue
+        if to and yo and len(to) == len(yo) and [a for a, _ in to] != [a for a, _ in yo]:
+            # 兩邊選項數一樣、文字不同（DK：Threads「世界賽正賽／沒進季後賽」、YouTube「進世界賽／止步例行賽」）⇒ 同一題同樣的順序，照位置對齊，文字用 YouTube 的
+            o = [[yo[i][0], to[i][1], yo[i][1]] for i in range(len(to))]
+        else:
+            tv, yv = dict(map(tuple, to)), dict(map(tuple, yo))
+            o = [[n, tv.get(n), yv.get(n)] for n in list(tv) + [n for n in yv if n not in tv]]
         out[e["team"].upper()] = {
-            "y": e.get("y"), "q": e.get("q") or "", "ln": e.get("ln") or "", "o": [[n, tv.get(n), yv.get(n)] for n in names],
+            "y": e.get("y"), "q": e.get("q") or "", "ln": e.get("ln") or "", "o": o,
             "th": {"u": f"{TH_HOME}/post/{th['code']}", "n": th.get("n") or 0, "fin": 1 if th.get("fin") else 0} if th.get("code") else None,
             "yt": {"u": "https://www.youtube.com/post/" + yt["id"], "n": yt.get("n") or 0} if yt.get("id") else None,
             "at": max(th.get("at") or "", yt.get("at") or "")}
