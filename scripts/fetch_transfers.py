@@ -744,6 +744,7 @@ def _main():
         for pg_, nm_ in re.findall(r"‹([^|›]+)\|([^›]+)›", x.get("zh") or ""):
             pgmap[nm_.lower()] = urllib.parse.unquote(pg_).replace("_", " ")
     synth = []
+    leave_rum = []   # 只傳出要離隊、沒寫去哪的報導（PTT 條目的 out），交給 transfers_board.LEAVE_RUMORS
 
     def _en_for(x, nm_):
         """英文版小框的引用句：整則的英文稿裡挑有提到這個人的分句（; 分），沒有就整句"""
@@ -768,6 +769,12 @@ def _main():
                 synth[-1]["sr"] = "HC"   # 傳聞的是主教練（條目的 hc＝[名字]，例：Sephis 去 FX 當主教練）⇒ 陣容表放主教練欄；沒標的教練傳聞在後勤欄
         if x.get("stay"):
             synth.append({"d": x["d"], "st": x.get("st") or "rumor", "kind": "other", "zh": "", "stay": [s_[0] for s_ in x["stay"]]})
+        # out＝[[名字, 原隊全名, 一句話]]：只傳出要離隊、沒寫去哪（使用者 2026-11-25「有離隊傳聞 但還沒宣布的也綠色」）⇒ 陣容表那個人畫綠字。官方消息不走這條
+        if not x.get("hide") and (x.get("st") or "rumor") == "rumor":
+            for nm_, tm_, *tp_ in x.get("out") or []:
+                zh0_ = re.sub(r"‹[^|›]+\|([^›]+)›", r"\1", re.sub(r"§[A-Z]+§", "", x.get("zh") or "")).strip()
+                leave_rum.append({"n": nm_, "p": pgmap.get(nm_.lower(), nm_), "tm": tm_, "d": x["d"], "tip": (tp_[0] if tp_ and tp_[0] else zh0_),
+                                  "src": x.get("src") or "PTT", "u": x.get("url") or x.get("ptt") or "", "en": (tp_[1] if len(tp_) > 1 and tp_[1] else _en_for(x, nm_))})
     farewell = []   # 戰隊官方 Thank you／Farewell 文（PTT 轉貼，含內文）⇒ 陣容表當宣布離隊
     p = os.path.join(ROOT, "transfers_ptt_src.json")
     if os.path.exists(p):
@@ -777,6 +784,10 @@ def _main():
     try:
         import build_predict_live as B, transfers_board
         yr = int(start[:4]) if start[5:7] > "06" else int(start[:4]) - 1
+        transfers_board.LEAVE_RUMORS = leave_rum
+        for v_ in leave_rum:
+            if v_.get("tip") and v_.get("en"):
+                transfers_board.TIP_EN[v_["tip"]] = v_["en"]   # 英文版小框的引用句
         board = transfers_board.build(B.cargo, yr, start, sheep + off + synth, dict(T1_EXTRA), wiki, T1_EXCLUDE, farewell, {"OpTic Gaming": "Dignitas"}, NEW_RUMOR)
         print(f"陣容表：{len(board)} 隊")
         # 手動改成藍字（合約到期、未宣布離隊）的人：wiki 記他已離隊，但爆料說會回原隊（使用者 2026-11-22「Crisp那個就用藍字」：微博 LPL 陣容表把 Crisp 列在 LGD 輔助）

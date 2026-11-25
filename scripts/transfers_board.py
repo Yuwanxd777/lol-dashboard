@@ -385,6 +385,19 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
         （2026-11-21 巴西傳聞：FURIA 洽談自家青訓的 Feng (Brenno Martins)，不能讓 DCG 的 Feng (Chen Chun-Feng) 變成「可能轉會」）"""
         a, b = str(ro.get("p") or "").replace("_", " ").strip().lower(), str(pg or "").replace("_", " ").strip().lower()
         return not (a and b and "(" in a and "(" in b and a != b)
+    lv_out = {}
+    for v in sorted(LEAVE_RUMORS, key=lambda v: v["d"], reverse=True):
+        for k_ in {key(v["n"])} | ({key(v["p"])} if v.get("p") else set()):
+            lv_out.setdefault(k_, []).append(v)
+
+    def _lv(keys, tm_, pg, after=""):
+        """這個人在這一隊的離隊傳聞（沒寫去向）：after＝官方續約日，續約之後才出來的傳聞才算"""
+        for k_ in keys:
+            L_ = [{"to": "", "d": ro["d"][:10], "tip": ro["tip"], **({"src": ro["src"]} if ro.get("src") else {}), **({"u": ro["u"]} if ro.get("u") else {})}
+                  for ro in lv_out.get(k_) or [] if tkey(ro["tm"]) == tkey(tm_) and ro["d"][:10] >= since and ro["d"][:10] > after and _same(ro, pg)]
+            if L_:
+                return L_
+        return []
     out = []
     trial_out = []   # 臨時名單到期的人：[(隊, 路線, ID, 頁名, 到期日)]，FA 那段會用
     for tm in teams:
@@ -454,6 +467,8 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
                         if ro.get("u"):
                             o["u"] = ro["u"]
                         ros.append(o)
+                # 離隊傳聞（沒寫去向）：本休賽期官方續約過的人，要續約之後才出來的傳聞才算
+                ros = sorted(ros + _lv((k, key(pid)), tm, pg, (e.get("rsd") or "9999")[:10] if e.get("rs") else ""), key=lambda o: o["d"], reverse=True)
                 if ros:
                     e["ro"] = ros[0]   # 前端：合約還在才上綠色；ro＝最新一則
                     if len(ros) > 1:
@@ -788,6 +803,8 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
                     if ro.get("u"):
                         o["u"] = ro["u"]
                     ros.append(o)
+            if not e.get("gone"):   # 已宣布離隊的人，離隊傳聞就不用再列
+                ros = sorted(ros + _lv((k_, key(nm_)), x["tm"], pg), key=lambda o: o["d"], reverse=True)
             if ros:
                 e["ro"] = ros[0]
                 if len(ros) > 1:
@@ -1456,6 +1473,10 @@ def _name(m, i):
 
 
 TIP_EN = {}
+# 只傳出「要離隊」、沒寫去哪一隊的報導（使用者 2026-11-25「有離隊傳聞 但還沒宣布的也綠色」）：
+#   fetch_transfers 從 PTT 條目的 out＝[[名字, 原隊全名, 一句話]] 填進來，每筆 {n, p, tm（原隊）, d, tip, src, u}。
+#   build() 把它掛成那個人在原隊格子（與自由人列）的 ro，去向 to 是空字串 ⇒ 前端畫綠字、小框寫「傳聞離隊」。
+LEAVE_RUMORS = []
 
 
 def parse_sheep(sheep):
