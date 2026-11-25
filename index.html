@@ -1254,7 +1254,7 @@
   @container mainc (max-width:999.98px){.tbTeam{padding-right:8px;font-size:13px;gap:5px}.tbCell{font-size:13px;padding:6px 3px}.tbHd{font-size:14px}.tbCell .tbN{white-space:normal;overflow-wrap:anywhere}.tbHd img{display:none}}
   /* 轉會（2026-11-19 改版）：依日期分組；欄＝狀態｜原隊｜➜｜新隊｜消息（subgrid 對齊），方向用位置表達 */
   .trMore{grid-column:1/-1;display:flex;align-items:center;justify-content:center;gap:6px;width:100%;box-sizing:border-box;margin:14px 0 4px;padding:9px 0;border-radius:10px;border:1px solid rgba(255,255,255,.16);background:#1a2234;color:#c9d4ea;font:inherit;font-size:15px;font-weight:700;cursor:pointer}.trMore:hover{background:#243049;color:#fff}.trMore svg{width:16px;height:16px;display:block;flex:0 0 auto}   /* 消息最下面的「顯示更早的 N 則」 */
-  .trList{padding:6px 16px 12px;display:grid;grid-template-columns:max-content max-content max-content max-content max-content minmax(0,1fr);column-gap:14px}
+  .trList{padding:6px 16px 12px;display:grid;grid-template-columns:max-content max-content minmax(var(--trTmW,0px),max-content) max-content minmax(var(--trTmW,0px),max-content) minmax(0,1fr);column-gap:14px}   /* --trTmW＝原隊欄與新隊欄共用的寬度（trFit 量出比較寬的那一欄；使用者 2026-11-25「原隊跟新隊的欄寬要一致」） */
   .trHead{grid-column:1/-1;display:grid;grid-template-columns:subgrid;padding:4px 10px 6px;font-size:13px;color:var(--tx2);font-weight:700;border-bottom:1px solid var(--line)}
   .trFlow{display:contents}
   .trFrom,.trTo,.trSpan{display:flex;flex-direction:column;align-items:flex-start;gap:4px;white-space:nowrap}
@@ -14576,7 +14576,8 @@ function render(){
     const FARG=en2?{LCK:"Korea",LPL:"China",LEC:"EMEA",LCS:"NA",CBLOL:"Brazil",LCP:"APAC"}:{LCK:"韓國",LPL:"中國",LEC:"歐洲",LCS:"北美",CBLOL:"巴西",LCP:"亞太"};
     const rowNm=t=>t.fa?"FA":abOf(t.nm);   // 中英文統一寫「聯賽 FA」（使用者 2026-11-21「自由人統一改成FA」）
     const abOf=n=>{ if(n==="FA")return "FA";
-      if(/^Kiwoom DRX$/i.test(String(n||"")))return "KRX";   // 使用者 2026-11-19「DRX 前陣子就改成 KRX 了」：只改這頁的顯示（全站 teamFix 把 KRX 收斂成 DRX 當比對鍵，不能動）
+      if(/^Kiwoom DRX$/i.test(String(n||"")))return "KRX";
+      if(/^Riot Games/i.test(String(n||"")))return "RIOT";   // 使用者 2026-11-25「Riot Games Inc. 寫RIOT就好」（UmTi 從賽評轉任 T1 教練，原隊欄整個被撐寬）   // 使用者 2026-11-19「DRX 前陣子就改成 KRX 了」：只改這頁的顯示（全站 teamFix 把 KRX 收斂成 DRX 當比對鍵，不能動）
       const a=teamFix(String(tAb(n)||"")); if(a&&a!==n)return a;
       const bt=((window.TRANSFERS||{}).board||[]).find(x=>!x.fa&&x.sh&&(x.nm===n||x.tm===n)); return bt?bt.sh:(a||n); };   // 傳聞新隊（TE、XLG）：主站縮寫表沒有 ⇒ 用資料端給的縮寫（使用者 2026-11-22）
     // 內文提到的隊伍一律寫縮寫（使用者 2026-11-21「消息提到的隊伍 都改寫成縮寫」）：除了這批消息標到的隊，陣容表全部隊伍（含改名前的舊名）也算
@@ -15411,7 +15412,7 @@ function render(){
             //   原本整塊照內容高度縮放再置中，每頁的框寬、框高都不一樣（第 1 頁左右留 78px、第 2 頁 54px），最後一頁還會浮在中間。
             //   另外獨立站的欄名列是 sticky（往下捲時留在上方），截圖複本裡會往下滑一段、蓋住第一則消息 ⇒ mkHost 的樣式把它固定回原位
             const src=main.querySelector(".trList"), NW=1400, kids=[...src.children].filter(e=>!e.classList.contains("trHead")&&!e.classList.contains("trMore")), hd=src.querySelector(".trHead");
-            const CARD=`class="card trList" style="margin:0;padding:0;background:none;border:0;border-radius:0;box-shadow:none"`;
+            const CARD=`class="card trList" style="margin:0;padding:0;background:none;border:0;border-radius:0;box-shadow:none;--trTmW:${src.style.getPropertyValue("--trTmW")||"0px"}"`;   // 截圖每一頁也沿用原隊／新隊的共用欄寬
             // 上方那一列跟陣容表同一個寬度、同一個高度：放一個看不見的顏色說明框佔位（它決定整列的高度與基線）
             const mkNH=(i,n)=>{ const x=mkHost(HW,`<span style="font-size:32px;font-weight:900">${en2?"News":"消息"}</span>${n>1?`<span style="font-size:17px;color:#8b98ad">${i+1} / ${n}</span>`:""}`,legend.replace('class="trShHdLg" style="','class="trShHdLg" style="visibility:hidden;'));
               x.style.padding="18px 22px 0"; x.querySelector(".trShHdLg").style.fontSize=HF+"px"; level(x.querySelector(".trShHdRow")); return x; };
@@ -15691,6 +15692,12 @@ function render(){
           const rb=Math.max(0,inkB(el,ch,true)), pc=el.closest(".rtPc");
           (pc||v).style.setProperty("--rb",rb.toFixed(2)+"px"); if(pc)v.style.setProperty("--rb","0px"); }); }catch(_){} };
     if(MODE!=="news"){ rbFit(); if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>{ if(main.isConnected)rbFit(); }); }
+    // 消息列表：原隊欄與新隊欄一樣寬（使用者 2026-11-25「原隊跟新隊的欄寬要一致」）。兩欄本來各自隨內容寬 ⇒ 先把共用寬度歸零讀出兩欄的自然寬度，再把比較寬的那個寫回去；
+    //   窄版（格線只剩兩欄）不套。字型載完、視窗改大小（跨過窄版斷點）都重量一次
+    else { const trFit=()=>{ const L=main.isConnected&&main.querySelector(".trList"); if(!L)return; L.style.setProperty("--trTmW","0px");
+        const c=getComputedStyle(L).gridTemplateColumns.split(" ").map(parseFloat); if(c.length>=6&&c[2]>0&&c[4]>0)L.style.setProperty("--trTmW",Math.ceil(Math.max(c[2],c[4]))+"px"); else L.style.removeProperty("--trTmW"); };
+      trFit(); window._trFit=trFit; if(document.fonts&&document.fonts.ready)document.fonts.ready.then(trFit);
+      if(!window._trFitOn){ window._trFitOn=1; window.addEventListener("resize",()=>{ try{ window._trFit&&window._trFit(); }catch(_){} }); } }
     if(MODE!=="news"){ // 格子提示（自建浮層：多行＋排版，原生 title 做不到）
       let tip=document.getElementById("tbTip"); if(!tip){ tip=document.createElement("div"); tip.id="tbTip"; document.body.appendChild(tip);
         addEventListener("scroll",()=>{ if(!tip.classList.contains("sheet"))tip.style.display="none"; },{passive:true});
