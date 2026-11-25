@@ -17,6 +17,12 @@
   python scripts/fetch_fan_polls.py           找新貼文；今天第一次跑（＝凌晨 00:10 那班）順便把所有貼文的票數重抓一遍
   python scripts/fetch_fan_polls.py --full    不管今天跑過沒有，全部重抓
   python scripts/fetch_fan_polls.py --light   只找新貼文
+  python scripts/fetch_fan_polls.py --set-yt 檔.json
+                                              把「登入後讀到的 YouTube 各選項票數」寫進來（不開瀏覽器）。檔案內容＝[[貼文 ID, 總票數, 讚數, [[選項, 票數], …]], …]
+                                              2026-11-25 使用者「你直接開我瀏覽器阿」：對話端用使用者自己的 Chrome（頻道主登入中）開貼文頁，
+                                              ytInitialData 的每個選項有 numVotes（實際票數）與 voteRatio ⇒ 讀出來存成檔再用這個參數寫入。
+                                              排程（未登入）之後只更新得到總票數，各選項留這次讀到的；build() 用「各選項比例 × 最新總票數」換算，
+                                              yt.o_at＝各選項上次實際讀到的時間。要更新比例就在對話端再讀一次。
   python scripts/fetch_fan_polls.py --add-th https://www.threads.com/@yuwanxd/post/XXXX [...]
                                               手動補 Threads 貼文（個人頁未登入只看得到最新幾篇，更早的要給網址）
 為什麼每班都找新貼文：Threads 個人頁未登入只露出最新 7 篇左右，轉會期一天發十幾篇，只在半夜看一次會漏掉白天發的那篇。
@@ -210,6 +216,20 @@ def main():
     full = "--full" in argv or ("--light" not in argv and store.get("full") != today)
     add = [code_of(a) for a in argv[argv.index("--add-th") + 1:]] if "--add-th" in argv else []
     logs, bad = [], []
+    if "--set-yt" in argv:
+        by = {(e.get("yt") or {}).get("id"): e for e in posts.values()}
+        n_ok = 0
+        for pid, total, lk, ch in json.load(io.open(argv[argv.index("--set-yt") + 1], encoding="utf-8")):
+            e = by.get(pid)
+            if not e:
+                print(f"⚠ 找不到這篇 YouTube 貼文的條目：{pid}")
+                continue
+            o = [[norm(t), int(num(v))] for t, v in ch]
+            e["yt"] = dict(e["yt"], n=num(total) or sum(v for _, v in o), o=o, lk=num(lk), at=stamp, o_at=stamp)
+            n_ok += 1
+        save(store)
+        print(f"YouTube 各選項票數：寫入 {n_ok} 篇")
+        return
 
     def entry(hd, yt=False):
         """問句與陣容那一行以 YouTube 的貼文為準（兩邊寫法可能不同）；只有 Threads 的隊才用 Threads 的"""
@@ -227,8 +247,12 @@ def main():
         if old.get("n") and (new.get("n") or 0) < old["n"] * 0.5:
             bad.append(f"{e['team']} {side} 票數 {old['n']}→{new.get('n')}（不採用）")
             return
-        if side == "yt" and old.get("o") and any(v is not None for _, v in old["o"]) and all(v is None for _, v in new.get("o") or []):
-            new["o"] = old["o"]   # 這次沒拿到各選項票數（登入失效之類）⇒ 留上次的，不退回空白
+        if side == "yt" and old.get("o") and any(v is not None for _, v in old["o"]):
+            if all(v is None for _, v in new.get("o") or []):
+                new["o"] = old["o"]   # 這次沒拿到各選項票數（未登入）⇒ 留上次讀到的，不退回空白；build() 會照最新總票數換算
+                new["o_at"] = old.get("o_at") or old.get("at")
+            else:
+                new["o_at"] = stamp
         new["at"] = stamp
         e[side] = new
 
@@ -342,6 +366,9 @@ def build():
     for e in sorted(load()["posts"].values(), key=lambda z: z.get("y") or 0):
         th, yt = e.get("th") or {}, e.get("yt") or {}
         to, yo = th.get("o") or [], yt.get("o") or []
+        ys = sum(v for _, v in yo) if yo and all(v is not None for _, v in yo) else 0
+        if ys and yt.get("n") and ys != yt["n"]:   # 各選項是之前登入讀到的、總票數是剛剛未登入更新的 ⇒ 照比例換算成現在的總票數
+            yo = [[a, int(round(v * yt["n"] / ys))] for a, v in yo]
         if not (to or yo) or not e.get("team"):
             continue
         if to and yo and len(to) == len(yo) and [a for a, _ in to] != [a for a, _ in yo]:
