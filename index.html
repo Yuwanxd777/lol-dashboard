@@ -14805,7 +14805,10 @@ function render(){
         const JD=(e.new||(e.tip&&!e.r&&e.d))?(e.new||e.d):"";
         if(faC)kv.push([en2?"Contract":"合約",faC+(e.c?(e.c<today?`<span class="tbExp">${en2?"expired":"到期"} ${ymd(e.c)}</span>`:(e.gone?`<span class="tbExp">${en2?"terminated":"解約"}${e.gd?" "+ymd(e.gd):""}</span>`:`${en2?"until":"到"} ${ymd(e.c)}`)):`<span class="tbMuted">${en2?"not on record":"無紀錄"}</span>`)]);
         else if(e.rs&&(!e.c||e.c<today))kv.push([en2?"Contract":"合約",e.rs!=="1"?`${en2?"re-signed through":"續約到"} ${esc(e.rs)}`:(en2?"re-signed":"已續約")]);
-        else if(JD)kv.push([en2?"Contract":"合約",`${en2?"joined":"加入於"} ${ymd(JD)}`+(e.c&&e.c>=today?`${en2?", until":"，到"} ${ymd(e.c)}`:"")]);   // 剛加入通常還不知道年限 ⇒ 合約與加入併成一行（使用者 2026-11-21）
+        // 簽幾年（使用者 2026-11-25「例如Zeus這種簽約三年的 小框要寫」）：cy＝官方公告寫的年數、cu＝公告寫的到期年份（transfers_ptt_src.json 的 con，Leaguepedia 還沒登記到期日時用）；
+        //   Leaguepedia 已經有到期日的，年數用「到期日 − 加入日」換算（四捨五入到整年）
+        else if(JD){ const cyN=e.cy||(e.c&&e.c>=today?Math.round((new Date(String(e.c).slice(0,10))-new Date(String(JD).slice(0,10)))/31557600000):0);
+          kv.push([en2?"Contract":"合約",`${en2?"joined":"加入於"} ${ymd(JD)}`+(cyN>0?(en2?`, ${cyN}-year deal`:`，簽 ${cyN} 年`):"")+(e.c&&e.c>=today?`${en2?", until":"，到"} ${ymd(e.c)}`:(e.cu?(en2?`, until ${esc(e.cu)}`:`，到 ${esc(e.cu)} 年`):""))]); }   // 剛加入通常還不知道年限 ⇒ 合約與加入併成一行（使用者 2026-11-21）
         else if(e.c)kv.push([en2?"Contract":"合約",e.c<today?`<span class="tbExp">${en2?"expired":"已到期"} ${ymd(e.c)}</span>`:`${en2?"until":"到"} ${ymd(e.c)}`]);
         else if(!e.r)kv.push([en2?"Contract":"合約",`<span class="tbMuted">${en2?"not on record":"無紀錄"}</span>`]);
         // 升職怎麼升的（使用者 2026-11-20「升職怎麼樣的升法 小框要寫」）：職稱異動「教練 → 主教練」；或「從 二隊 上調」
@@ -15737,6 +15740,7 @@ function render(){
       const touch=()=>matchMedia("(hover:none)").matches||innerWidth<760;
       const show=(c,sheet)=>{ tip.innerHTML=(sheet?`<div class="tbTipXW"><button class="tbTipX" aria-label="close">✕</button></div>`:"")+TIPS[+c.dataset.tb]; tip.classList.toggle("sheet",!!sheet); tip.style.display="block"; lgFitAll(tip); tip.scrollTop=0;   /* 開新的小框一律從最上面開始（原本會停在上一個小框捲到的位置） */
         tip.style.maxHeight=""; tip.style.overflowY=""; tip.style.pointerEvents=""; tip.style.width=""; tip.style.maxWidth="";
+        if(sheet&&c.classList.contains("tbOkP")){ const cd=c.closest(".tbRow"), q=cd&&cd.getBoundingClientRect(), tq=tip.getBoundingClientRect(); if(q&&q.height>0&&q.bottom>tq.top-8)scrollBy({top:q.bottom-tq.top+8,behavior:"smooth"}); }   // 同上：手機的底部小框不蓋住這一隊的卡片
         if(sheet){ tip.style.left=tip.style.top=""; tip.dataset.cur=c.dataset.tb; const x=tip.querySelector(".tbTipX"); if(x)x.onclick=()=>{ tip.style.display="none"; }; return; }
         // 電腦版（使用者 2026-11-21「小框會超出螢幕範圍」「滑鼠要可以移動到小框上 離開小框才消失」）：
         //   小框最高不超過視窗、太長就在框內捲；上下都放不下時貼著視窗邊；滑鼠可以移上去（連結點得到），離開格子與小框才收
@@ -15746,7 +15750,7 @@ function render(){
         tip.style.pointerEvents="auto"; tip.style.maxHeight=(IH-16)+"px"; tip.style.overflowY="auto"; tip.style.overscrollBehavior="contain";   /* 小框捲到底不連動整頁（使用者 2026-11-22） */
         // 格子的小框跟那一欄同寬（使用者 2026-11-21「小框的寬度都設定為跟本來欄位寬度一致」）；欄太窄時至少 300px（小框內容本身最少要 260px＋邊距，再窄字會被切掉）。評分小框（五欄的表）維持原本的寬度
         { const cw=vr(c).width, isRate=c.classList.contains("tbRate")||c.classList.contains("tbOkP");   /* 投票小框跟評分小框同寬 */ tip.style.width=isRate?(tip.querySelector(".rtS3")?"max-content":""):Math.max(300,Math.round(cw))+"px"; tip.style.maxWidth=isRate?"":"none";   /* 第三賽段的小框內容少，縮成 250px（使用者 2026-11-21） */ tip.style.boxSizing="border-box"; }
-        const r=vr(c), w=tip.offsetWidth, h=tip.offsetHeight;
+        const r=vr(c.classList.contains("tbOkP")?(c.closest(".tbTeam")||c):c), w=tip.offsetWidth, h=tip.offsetHeight;   // 投票小框：錨點用隊名那一格（跟整列一樣高）⇒ 放在整列下面，不蓋到這一隊自己的格子（使用者 2026-11-25「投票小框不要擋到T1本來的資料」）
         const bR=vr(bd);   // 小框不貼著螢幕邊：左右都收在陣容表那張卡片的範圍內（使用者 2026-11-21「網頁版 評分小框有點太靠近螢幕右側了」；原本只離螢幕邊 8px）
         // 擺放順序（使用者 2026-11-21「夠短就往下擴展顯示 下方沒位置就往上 如果長到上下都不行 那就往右或往左 不要擋到本來的資料」）：
         //   ①格子下方放得下 ⇒ 下方；②否則上方放得下 ⇒ 上方；③都放不下 ⇒ 放到格子右邊（右邊不夠就左邊），上下置中、收在視窗內——不蓋住這一格

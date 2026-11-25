@@ -995,6 +995,31 @@ def _main():
     except Exception as e:
         print(f"   tipEn 對照表沒寫成：{type(e).__name__} {str(e)[:80]}")
         data["tipEn"] = old.get("tipEn") or {}
+    # 合約年限（使用者 2026-11-25「例如Zeus這種簽約三年的 小框要寫」）：官方公告講到簽幾年／到哪一年，Leaguepedia 的到期日往往晚幾天才登記
+    #   ⇒ transfers_ptt_src.json 的條目用 con＝[[選手 ID, 新隊全名, 年數或 null, 到期年份或 ""], …] 記下來（要 st=official；被 hide 的重複公告也算，帶 sus 記號的不算），
+    #   掛到陣容表那一格：cy＝年數、cu＝到期年份。只給小框顯示用，不動 c（到期日）——到期、打勾、評分那些判斷照舊只看 Leaguepedia
+    try:
+        con_ = {}
+        for x_ in ptt_all_:
+            if (x_.get("st") or "") != "official" or x_.get("sus"):
+                continue
+            for nm_, tm_, yrs_, until_ in x_.get("con") or []:
+                con_[(str(nm_).lower(), tm_)] = (yrs_, until_)
+        n_con = 0
+        for t_ in board:
+            for L_ in (t_.get("r") or {}).values():
+                for e_ in L_:
+                    v_ = con_.get((str(e_.get("n") or "").lower(), t_.get("nm")))
+                    if v_ and not e_.get("gone") and not e_.get("r"):
+                        if v_[0]:
+                            e_["cy"] = int(v_[0])
+                        if v_[1]:
+                            e_["cu"] = str(v_[1])
+                        n_con += 1
+        if con_:
+            print(f"   合約年限：登記 {len(con_)} 筆、掛上 {n_con} 筆")
+    except Exception as e:
+        print(f"   合約年限沒掛上：{type(e).__name__} {str(e)[:80]}")
     # 粉絲投票（使用者 2026-11-25「把兩邊數據合在一起 點擊綠色勾勾的時候會顯示」）：使用者自己在 Threads／YouTube 發的「2027 T1 新陣容可以走多遠？」投票，
     #   scripts/fetch_fan_polls.py 抓好累積在 transfers_polls_src.json，這裡只把合併後的結果放進來（鍵＝隊伍縮寫大寫；陣容表有打勾的隊才點得到）
     try:
