@@ -3,8 +3,13 @@
 資料來源：wiki.leagueoflegends.com 的 Module:ChampionData/data（含每隻英雄 date_int / date）。
 該 wiki 對純 urllib 會回 403，故用 Playwright（真瀏覽器）載入 raw 模組再解析。
 DDragon 提供 id 對照（apiname/英文名 → DDragon id）。抓不到就略過。
+
+連不上 wiki（逾時／連線重設，2026-11-25 22:00 班第一次遇到：121 班裡的第 1 次，平常 1~2 秒）
+⇒ 等 RETRY_WAIT 秒就地重試一次；兩次都失敗才印一行說明、保留舊檔、離開碼 1（不噴 traceback）。
+日誌裡單獨一行「重試一次」後面接著正常輸出不用理；「重試仍失敗」連續好幾班才是真的壞了。
+改了這段跑 `python scripts/fetch_release_retry_test.py`（不開瀏覽器、不碰網路、不寫真的 champ_release.js）。
 """
-import json, os, re, urllib.request
+import json, os, re, sys, time, urllib.request
 # 經典服（LoL Classic，DDragon 內部代號 Jade_*）不是我們要的資料（2026-07-31 使用者回報：
 # 英雄Tier 出現經典服頭像）——它的 zh/en 名稱與現行英雄**完全相同**，混進來會造成同名重複與圖片誤植。
 # 日後若 Riot 再開別的分支服，一樣在這裡擋掉。
@@ -13,11 +18,45 @@ CLASSIC_RE = re.compile(r"^(Jade|Classic|Legacy)_", re.I)   # 分支服前綴：
 DDRAGON = "https://ddragon.leagueoflegends.com"
 RAW = "https://wiki.leagueoflegends.com/en-us/Module:ChampionData/data?action=raw"
 OUT = os.path.join(os.path.dirname(__file__), "..", "champ_release.js")
+RETRY_WAIT = 8          # 秒：第一次連不上之後等多久再試
+GOTO_TIMEOUT = 45000    # 毫秒：單次載入上限（平常 1~2 秒；Chromium 自己的連線逾時約 30 秒）
+
+
+class SourceDown(Exception):
+    """wiki 連兩次都連不上。"""
+
 
 def jget(url, timeout=30):
     req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
     with urllib.request.urlopen(req, timeout=timeout) as r:
         return json.load(r)
+
+
+def fetch_raw():
+    """回傳 (lua 原文, HTTP 狀態碼)。連線層失敗就地重試一次；兩次都失敗丟 SourceDown。
+    HTTP 狀態碼不在這裡判（502 維護公告交給 main() 的守門：保留舊檔不覆寫）。"""
+    from playwright.sync_api import sync_playwright   # 沒裝 playwright 是真的壞了，讓它照常噴錯
+    for attempt in (1, 2):
+        try:
+            with sync_playwright() as p:
+                b = p.chromium.launch()
+                try:
+                    pg = b.new_page()
+                    resp = pg.goto(RAW, wait_until="domcontentloaded", timeout=GOTO_TIMEOUT)
+                    status = resp.status if resp else 0
+                    lua = pg.inner_text("body")
+                finally:
+                    b.close()
+            return lua, status
+        except Exception as e:
+            txt = str(e).strip()
+            msg = txt.splitlines()[0][:200] if txt else repr(e)
+            if attempt == 1:
+                print(f"⚠ 連不上 wiki（{msg}）⇒ {RETRY_WAIT} 秒後重試一次")
+                time.sleep(RETRY_WAIT)
+            else:
+                raise SourceDown(msg)
+
 
 def main():
     ver = jget(f"{DDRAGON}/api/versions.json")[0]
@@ -27,14 +66,12 @@ def main():
     name2id = {c["name"]: cid for cid, c in champs.items()}
     ids = set(champs.keys())
 
-    from playwright.sync_api import sync_playwright
-    with sync_playwright() as p:
-        b = p.chromium.launch()
-        pg = b.new_page()
-        resp = pg.goto(RAW, wait_until="domcontentloaded", timeout=60000)
-        status = resp.status if resp else 0
-        lua = pg.inner_text("body")
-        b.close()
+    try:
+        lua, status = fetch_raw()
+    except SourceDown as e:
+        print(f"⚠ 重試仍失敗（{e}）⇒ 保留舊的 champ_release.js 不覆寫，離開碼 1"
+              "（單獨一班不用理；連續好幾班都這樣才是真的壞了）")
+        sys.exit(1)
     print("raw module chars:", len(lua), "HTTP", status)
 
     # 解析：每個區塊 ["Name"] = { ... ["date"] = "YYYY-MM-DD" ... }
