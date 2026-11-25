@@ -15200,7 +15200,8 @@ function render(){
     if(SRT){ const lgI={}; vRows.forEach(t=>{ if(!(t.lg in lgI))lgI[t.lg]=Object.keys(lgI).length; }); const rv=t=>{ const rt=rateOf(t); return SPL?(rt&&rt.plN?rt.pl:null):(rt&&rt.items.length?rt.sum:null); };
       vRows=vRows.map((t,i)=>[t,i,rv(t)]).sort((a,b)=>lgI[a[0].lg]-lgI[b[0].lg]||(a[2]==null)-(b[2]==null)||(SRT==="d"?b[2]-a[2]:a[2]-b[2])||a[1]-b[1]).map(x=>x[0]); }
     // 傳聞新隊（TE、XLG）一律排在該聯賽最底下（使用者 2026-11-22「TE 跟 XLG 要放在最底下」）：只在各聯賽的戰隊列之間挪，FA 列位置不動
-    { const ix=vRows.map((t,i)=>i).filter(i=>!vRows[i].fa), lgI={}; ix.forEach(i=>{ const l=vRows[i].lg; if(!(l in lgI))lgI[l]=Object.keys(lgI).length; });
+    //   照轉會評分／選手評分排序時不挪：新隊有評分就照評分排進去，沒評分的本來就排在該聯賽最後（使用者 2026-11-25「評分的排序 LPL兩隊新隊沒有被套用進去」：XLG －44 被壓在最底下）
+    if(!SRT){ const ix=vRows.map((t,i)=>i).filter(i=>!vRows[i].fa), lgI={}; ix.forEach(i=>{ const l=vRows[i].lg; if(!(l in lgI))lgI[l]=Object.keys(lgI).length; });
       const ts=ix.map((i,k)=>[vRows[i],k]).sort((a,b)=>lgI[a[0].lg]-lgI[b[0].lg]||(a[0].nt?1:0)-(b[0].nt?1:0)||a[1]-b[1]).map(x=>x[0]); ix.forEach((i,k)=>{ vRows[i]=ts[k]; }); }
     const srtArr="";   // 不畫箭頭，排序中靠按鈕亮起與欄名變金色表示
     // 近 3 天（使用者 2026-11-23 先要一週、隨後改「近三天」；「排序區加一個篩選 最近一週的轉會 在ID底下劃底線 只看加入 升職 續約 這功能要可以開關」）：
