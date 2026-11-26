@@ -190,7 +190,7 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
                     print(f"   租借歸隊不套：{m_.get('n')}（{m_.get('t')} 的合約 {con.get((k_, m_['t'])) or '查不到'}）")
         for k_, m_ in loan.items():
             for tm_, d_ in cur.items():
-                if tm_ != m_["t"]:
+                if tm_ != m_["t"] and tkey(tm_) != tkey(m_["lb"]):   # 租借那隊留著（藍字「租借到期」；使用者 2026-11-26「JiaQi在IG的部分要用藍字 然後寫租借到期」）
                     for rr_ in list(d_):
                         d_[rr_] = [p_ for p_ in d_[rr_] if key(p_[1]) != k_]
             L_ = cur.setdefault(m_["t"], {}).setdefault(m_["rr"], [])
@@ -466,6 +466,11 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
                     e["c"] = con[(k, tm)]
                 if k in loan and loan[k]["t"] == tm:
                     e["lb"] = {"t": loan[k]["lb"], "e": loan[k].get("e") or ""}   # 租借到哪隊、哪天期滿（小框寫「租借到 IG，2026/11/17 期滿歸隊」）
+                lx_ = k in loan and tkey(loan[k]["lb"]) == tkey(tm)
+                if lx_:
+                    e["lx"] = {"t": loan[k]["t"], "e": loan[k].get("e") or ""}   # 租借隊那格：藍字「租借到期」、小框寫回哪隊
+                    if loan[k].get("e"):
+                        e["c"] = loan[k]["e"]
                 if k in resign or key(pid) in resign:
                     e["rs"] = resign.get(k, resign.get(key(pid), "")) or "1"
                     if resign_d.get(k) or resign_d.get(key(pid)):
@@ -495,7 +500,7 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
                 if rr != "COACH" and "new" not in e and "rs" not in e and played is not None and (k, tkey(tm)) not in played and (key(pid), tkey(tm)) not in played:
                     continue
                 ros = []
-                for ro in rum_out.get(k) or rum_out.get(key(pid)) or []:
+                for ro in ([] if lx_ else (rum_out.get(k) or rum_out.get(key(pid)) or [])):
                     if succ_old.get(tkey(ro["tm"]), tkey(ro["tm"])) != tkey(tm) and ro["d"][:10] >= since and _same(ro, pg):   # 傳聞去接手隊（OPT）＝留在這一列，不算要走
                         o = {"to": ro["tm"], "d": ro["d"][:10], "tip": ro["tip"]}
                         if ro.get("src"):
@@ -504,7 +509,7 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
                             o["u"] = ro["u"]
                         ros.append(o)
                 # 離隊傳聞（沒寫去向）：本休賽期官方續約過的人，要續約之後才出來的傳聞才算
-                ros = sorted(ros + _lv((k, key(pid)), tm, pg, (e.get("rsd") or "9999")[:10] if e.get("rs") else ""), key=lambda o: o["d"], reverse=True)
+                ros = [] if lx_ else sorted(ros + _lv((k, key(pid)), tm, pg, (e.get("rsd") or "9999")[:10] if e.get("rs") else ""), key=lambda o: o["d"], reverse=True)
                 if ros:
                     e["ro"] = ros[0]   # 前端：合約還在才上綠色；ro＝最新一則
                     if len(ros) > 1:
@@ -537,7 +542,7 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
                 #   官方新人已經定了 ⇒ 這一路其他「外面的人要來」的傳聞不再列（DK 上路 Doran 官宣後，其餘人選拿掉）；
                 #   留下：同組織二隊／青訓要升上來的傳聞（Jaehyuk）、本來就在陣容且合約還在的人（合約到期／查不到合約的照舊移到上一位）
                 def _keep(e):
-                    if "new" in e or ("tip" in e and "r" not in e) or "rs" in e or "pm" in e:
+                    if "new" in e or ("tip" in e and "r" not in e) or "rs" in e or "pm" in e or "lx" in e:
                         return True
                     if "r" in e:
                         return bool(e.get("from") and _sister(e["from"], tm))
@@ -548,14 +553,14 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
             #   2026-11-20 再加：有「傳聞的人要進來」也一樣（使用者「如果該隊路線原選手離隊或合約到期 同時又有傳聞的選手進來 那就不顯示」：
             #   JDG 打野 JunJia／xiaofang 合約到期＋Kanavi／Tarzan 傳聞 ⇒ 格子只留傳聞的兩位，原本的移到上一位）
             if rr != "COACH" and any(("new" in e or "rs" in e or "tip" in e) for e in cell):
-                old_ = [e for e in cell if "new" not in e and "rs" not in e and "tip" not in e and (not e.get("c") or e["c"] < today)]   # 合約無紀錄也算到期（使用者 2026-11-20）
+                old_ = [e for e in cell if "new" not in e and "rs" not in e and "tip" not in e and "lx" not in e and (not e.get("c") or e["c"] < today)]   # 合約無紀錄也算到期（使用者 2026-11-20）
                 if old_:
                     moved += [e["p"] or e["n"] for e in old_]
                     cell = [e for e in cell if e not in old_]
             # 綠字（合約還在、傳出要去別隊）的人：同一路還有別人的傳聞或新加入 ⇒ 視為離隊，格子不顯示、移到上一位，
             #   並列進該聯賽的自由人（仍是綠字）（使用者 2026-11-20「有綠字時 同路線如果還有別人傳聞或新加入 綠字的就不顯示 默認離隊 但還是綠字 並且這種綠字的人要擺到FA」）
             if rr != "COACH":
-                grn = [e for e in cell if e.get("ro") and not any(k_ in e for k_ in ("new", "rs", "pm", "tip", "r", "gone"))]
+                grn = [e for e in cell if e.get("ro") and not any(k_ in e for k_ in ("new", "rs", "pm", "tip", "r", "gone", "lb"))]   # lb＝租借期滿歸隊的人留在母隊格子（使用者 2026-11-26「在TES的部分要是綠字」）
                 if grn and any(("new" in e or "tip" in e) for e in cell if e not in grn):
                     for e in grn:
                         green_out.add((key(e["p"] or e["n"]), tm))
@@ -736,7 +741,7 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
                             cand.append((x, rr, e.get("p") or e["n"], e["n"], e.get("c") or "", 0, *([e.get("sr") or "C"] if rr == "COACH" else [])))
             for rr in LANES:
                 for e in x["r"].get(rr, []):
-                    if e.get("r") or e.get("new") or e.get("rs") or e.get("pm") or e.get("tip"):
+                    if e.get("r") or e.get("new") or e.get("rs") or e.get("pm") or e.get("tip") or e.get("lx"):   # lx＝租借隊那格（人回母隊了，FA 只從母隊那邊算）
                         continue
                     if e.get("gone") or not e.get("c") or e["c"] < today or e.get("ro"):   # 所有綠字都列進自由人（使用者 2026-11-20「所有綠字都顯示到FA」；同路沒有別的人選時，原隊格子照樣顯示）
                         cand.append((x, rr, e.get("p") or e["n"], e["n"], e.get("c") or "", 1 if e.get("gone") else 0))
