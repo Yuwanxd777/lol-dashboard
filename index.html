@@ -14814,6 +14814,7 @@ function render(){
         else if(e.c)kv.push([en2?"Contract":"合約",e.c<today?`<span class="tbExp">${en2?"expired":"已到期"} ${ymd(e.c)}</span>`:`${en2?"until":"到"} ${ymd(e.c)}`]);
         else if(!e.r)kv.push([en2?"Contract":"合約",`<span class="tbMuted">${en2?"not on record":"無紀錄"}</span>`]);
         // 租借期滿歸隊（使用者 2026-11-26「JiaQi的案例比較特別」；transfers_loan_manual.json）：lb＝{t 租借去的隊, e 期滿日}
+        if(e.sb)kv.push([en2?"Role":"定位",en2?"Substitute":"替補"]);   // 替補排在先發後面（使用者 2026-11-26「Setab是替補」）
         if(e.lb&&e.lb.t)kv.push([en2?"Loan":"租借",en2?`on loan at ${tmChip(e.lb.t)}${e.lb.e?`, returned ${ymd(e.lb.e)}`:""}`:`租借到 ${tmChip(e.lb.t)}${e.lb.e?`，${ymd(e.lb.e)} 期滿歸隊`:"，期滿歸隊"}`]);
         // 升職怎麼升的（使用者 2026-11-20「升職怎麼樣的升法 小框要寫」）：職稱異動「教練 → 主教練」；或「從 二隊 上調」
         if(e.pm){ const RZ={"Head Coach":"主教練","Interim Head Coach":"代理主教練","Assistant Coach":"教練","Strategic Coach":"戰略教練","Positional Coach":"路線教練","Coach":"教練","Analyst":"分析師","Head Analyst":"分析師"};
@@ -15083,9 +15084,9 @@ function render(){
         const selE=t._sel&&t._sel[r];
         { const es=(selE?[selE]:conf.length>=2?conf:(t.r[r]||[]).filter(e=>!e.gone&&!(expd(e)&&e.ro&&!e.r&&!e.pm&&!e.new&&!e.rs))).map(e=>({n:pn(e.n),v:sv(e),it:itOf(e.n),e})).filter(x=>x.v>=0), vs=es.map(x=>x.v);
           const lv=vs.length?(conf.length>=2?Math.max(...vs):vs.reduce((a,b)=>a+b,0)/vs.length):(md==null?0:md*BASEW_);
-          plSum+=lv; plL.push({r,ps:es.sort((a,b)=>b.v-a.v),v:lv,best:conf.length>=2}); }
+          plSum+=lv; plL.push({r,ps:es.sort((a,b)=>(a.e.sb?1:0)-(b.e.sb?1:0)||b.v-a.v),v:lv,best:conf.length>=2}); }
         if((t.r[r]||[]).length>1&&!t._srt?.[r]){ (t._srt||(t._srt={}))[r]=1;
-          t.r[r].map((e,i)=>({e,i,v:sv(e),g:(e.r||e.gone||(expd(e)&&!(e.new||e.rs||e.pm)))?1:0})).sort((p,q)=>p.g-q.g||q.v-p.v||p.i-q.i)   /* 還在隊上的（續留／新加入／續約／升職／合約還在）排最前面，再來才是合約到期、已離隊、傳聞（使用者 2026-11-20「這種路線上擺第一個 因為他還是在隊伍」）*/.forEach((o,i)=>{ t.r[r][i]=o.e; }); }
+          t.r[r].map((e,i)=>({e,i,v:sv(e),g:(e.r||e.gone||(expd(e)&&!(e.new||e.rs||e.pm)))?1:0})).sort((p,q)=>p.g-q.g||(p.e.sb?1:0)-(q.e.sb?1:0)||q.v-p.v||p.i-q.i)   /* 還在隊上的（續留／新加入／續約／升職／合約還在）排最前面，再來才是合約到期、已離隊、傳聞（使用者 2026-11-20「這種路線上擺第一個 因為他還是在隊伍」）*/.forEach((o,i)=>{ t.r[r][i]=o.e; }); }
         const cands=(t.r[r]||[]).filter(e=>e.new||e.tip).map(e=>{ const sub=isSub(e); return {n:pn(e.n),s:get(e.n,sub?40:50),rm:!!e.r,sub,e}; }).sort((a,b)=>a.rm-b.rm||byG(a,b));
         let nw=cands[0];   // 官方優先；Sheep 消息（傳聞／官方未進 wiki）也算
         if(conf.length>=2){ const best=conf.map(e=>{ const sub=isSub(e); return fill({n:pn(e.n),s:get(e.n,sub?40:50),rm:false,sub,e}); }).filter(x=>x.s).sort((a,b)=>b.s.v-a.s.v)[0]; if(best)nw=best; }

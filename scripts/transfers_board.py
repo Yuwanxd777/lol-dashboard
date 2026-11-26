@@ -177,6 +177,8 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
     #     wiki 選手頁還掛在租借去的隊（IG），GCD 在那隊記了租借的到期日（2026-11-17）⇒ 原本會被當成「IG 合約到期」進 FA；
     #     其實母隊（TES）的合約還在（到 2028-11-21）⇒ 放回母隊那一列、合約照母隊。母隊合約已到期的那一筆不套（回到一般規則）。
     #     不做自動偵測：「合約隊 ≠ 現在所屬隊」全聯賽有 58 筆，絕大多數是買斷轉隊（Siwoo、Delight、Cuzz…），分不出哪些是租借
+    # 替補（使用者 2026-11-26「SeTab/Roamer 這兩人位置順序交換 因為Setab是替補」）：(wiki 隊名, 路線, 選手頁名)
+    SUBS = [("HANJIN BRION", "MID", "SeTab")]
     loan = {}
     try:
         import io as _io2, json as _json2
@@ -460,6 +462,8 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
             for pid, pg, *_ in ppl:
                 k = key(pg)
                 e = {"n": pid, "p": pg}
+                if any(tkey(a_) == tkey(tm) and b_ == rr and key(c_) == k for a_, b_, c_ in SUBS):
+                    e["sb"] = 1   # 替補：前端排在同一路先發後面、小框寫替補
                 if srole.get(pg):
                     e["sr"] = srole[pg]
                 if con.get((k, tm)):
