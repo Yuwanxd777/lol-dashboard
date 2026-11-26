@@ -460,6 +460,9 @@ KEEP_BLUE = [("LGD Gaming", "Crisp")]   # 手動改藍字（合約到期未宣�
 T1_EXCLUDE = {"Karmine Corp Blue"}   # 二隊：只因特殊賽制打了 LEC 第一賽段（使用者 2026-11-19）
 # 消息裡完全不顯示的隊（使用者 2026-11-20「SLY 跟 KCB 是一樣性質 都不用顯示」）：wiki 該隊的條目不列、Sheep 的隊伍標籤拿掉
 HIDE_TEAMS = T1_EXCLUDE | {"Solary"}
+# 次級聯賽本身的消息不列（使用者 2026-11-26「有些次級聯賽的消息 記得幫我移除」）：Sheep 的推文 id
+SEC_HIDE_SHEEP = {"2122808976257761567",   # Shopify Rebellion 成立 NACL 青訓隊
+                  "2118737946429780085"}   # Team Heretics 退出 LES、解散青訓隊
 T1_RG = {"韓國", "中國", "歐洲", "北美", "巴西", "亞太", "越南", "日本"}   # 只標賽區沒標隊（自由球員名單）＝六大聯賽的消息
 _t1key = lambda n: re.sub(r"\s*\([^()]*\)\s*$", "", n or "").strip().lower()
 
@@ -682,7 +685,33 @@ def _main():
             if x.get("tags"):
                 x["tags"] = [t for t in x["tags"] if t[1] not in HIDE_TEAMS]
         wiki = [x for x in wiki if is_t1(x, keys) or (x["kind"] in ("join", "both") and any(p in gone for p, _ in PL_RE.findall(x["en"])))]
-        sheep = [x for x in sheep if is_t1(x, keys)]
+        # 次級隊的那則只留「從一級隊離開的人」加入那幾個名字（使用者 2026-11-26「有些次級聯賽的消息 記得幫我移除」：
+        #   BNK FEARX Youth「Lancer、Ivory、Paduck、Berr 加入」只留 Paduck；次級隊自己的離隊句拿掉）；拆不開的整則不列
+        _TK = re.compile(r"(?:§[A-Z]+§)?‹[^›]+›(?:\s*\([^)]*\)|（[^）]*）)?")
+
+        def _sec_trim(x_):
+            if is_t1(x_, keys):
+                return x_
+            en_ = [c.strip() for c in re.split(r"(?<=\.)\s+(?=(?:§[A-Z]+§)?‹)", (x_.get("en") or "").strip()) if c.strip()]
+            zh_ = [c.strip() for c in re.split(r"(?<=。)\s*", (x_.get("zh") or "").strip()) if c.strip()]
+            if not en_ or len(en_) != len(zh_):
+                return None
+            ke, kz = [], []
+            for e_, z_ in zip(en_, zh_):
+                if re.search(r"\bleaves?\.?$", e_):
+                    continue
+                g_ = lambda t_: any(p_ in gone for p_, _ in PL_RE.findall(t_))
+                ke += [t_ for t_ in _TK.findall(e_) if g_(t_)]
+                kz += [t_ for t_ in _TK.findall(z_) if g_(t_)]
+            if not ke or len(ke) != len(kz):
+                return None
+            y_ = dict(x_, kind="join")
+            y_["en"] = (ke[0] + " joins.") if len(ke) == 1 else (", ".join(ke[:-1]) + " and " + ke[-1] + " join.")
+            y_["zh"] = "、".join(kz) + " 加入。"
+            return y_
+
+        wiki = [y_ for y_ in (_sec_trim(x_) for x_ in wiki) if y_]
+        sheep = [x for x in sheep if is_t1(x, keys) and str(x.get("id")) not in SEC_HIDE_SHEEP]
         print(f"六大聯賽一級：wiki {n0}→{len(wiki)}、sheep {n1}→{len(sheep)}（一級隊 {len(t1)}）")
     # 臨時名單（transfers_board.TRIALS：LPL 新生訓練場 11/06 登錄的人）：消息照列，句尾註明不是正式轉會（使用者 2026-11-21）
     try:
