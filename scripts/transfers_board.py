@@ -173,6 +173,32 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
                 con.setdefault((key(x.get("pg") or x["id"]), x["tm"]), c_)
     except Exception as e:
         print(f"   戰隊頁合約日（Players.Contract）查詢失敗：{type(e).__name__} {str(e)[:100]}")
+    # ③c 租借期滿歸隊（transfers_loan_manual.json；使用者 2026-11-26「JiaQi的案例比較特別」）：
+    #     wiki 選手頁還掛在租借去的隊（IG），GCD 在那隊記了租借的到期日（2026-11-17）⇒ 原本會被當成「IG 合約到期」進 FA；
+    #     其實母隊（TES）的合約還在（到 2028-11-21）⇒ 放回母隊那一列、合約照母隊。母隊合約已到期的那一筆不套（回到一般規則）。
+    #     不做自動偵測：「合約隊 ≠ 現在所屬隊」全聯賽有 58 筆，絕大多數是買斷轉隊（Siwoo、Delight、Cuzz…），分不出哪些是租借
+    loan = {}
+    try:
+        import io as _io2, json as _json2
+        _lp = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "transfers_loan_manual.json")
+        if os.path.exists(_lp):
+            for m_ in _json2.load(_io2.open(_lp, encoding="utf-8")):
+                k_ = key(m_.get("p") or m_["n"])
+                if m_.get("t") in teams and m_.get("rr") in LANES and (con.get((k_, m_["t"])) or "") >= today:
+                    loan[k_] = m_
+                elif m_.get("t"):
+                    print(f"   租借歸隊不套：{m_.get('n')}（{m_.get('t')} 的合約 {con.get((k_, m_['t'])) or '查不到'}）")
+        for k_, m_ in loan.items():
+            for tm_, d_ in cur.items():
+                if tm_ != m_["t"]:
+                    for rr_ in list(d_):
+                        d_[rr_] = [p_ for p_ in d_[rr_] if key(p_[1]) != k_]
+            L_ = cur.setdefault(m_["t"], {}).setdefault(m_["rr"], [])
+            if not any(key(p_[1]) == k_ for p_ in L_):
+                L_.append((m_["n"], m_.get("p") or m_["n"], ""))
+            team_of[k_] = m_["t"]
+    except Exception as e:
+        print(f"   租借歸隊名單讀取失敗（略過）：{type(e).__name__} {str(e)[:100]}")
     # ④ 異動：這些隊近三年的加入紀錄（教練職稱＋本季新人）
     rc = cargo({"tables": "RosterChanges", "fields": "Date_Sort=d,Player=p,Direction=dir,Team=tm,Role=ro",
                 "where": "RosterChanges.Team IN " + _in(teams) + f' AND RosterChanges.Date_Sort>="{int(year) - 3}-01-01"',
@@ -311,6 +337,8 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
         disp_id = re.sub(r"\s*\([^()]*\)$", "", pg)
         if (key(disp_id), tkey(tm)) in ann:
             dd = True
+        if k in loan and loan[k]["t"] != tm:
+            continue   # 租借期滿歸隊的人：租借那隊的「離隊／到期」不算（他回母隊了）
         tgt = annd if dd else expired   # 宣布離隊（或不是合約到期那天走的）／合約到期未宣布
         rr = ROLE_OF.get(ro) if ro in ("Top", "Jungle", "Mid", "Bot", "Support") else None
         if rr:
@@ -321,6 +349,11 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
                 tgt.setdefault(tm, {}).setdefault("COACH", []).append((disp_id, pg, ro, code))
     # ⑤ 傳聞
     rumor = succ_rekey(parse_sheep(sheep), succ)
+    for L_ in rumor.values():   # 租借歸隊的人：傳聞寫「來自租借那隊」的改成母隊
+        for v_ in L_:
+            m_ = loan.get(key(v_.get("p") or v_["n"])) or loan.get(key(v_["n"]))
+            if m_ and v_.get("from") and tkey(v_["from"]) == tkey(m_["lb"]):
+                v_["from"] = m_["t"]
     # 傳聞人選沒寫原隊的（陣容整理文、PTT 沒填）⇒ 查 wiki 現在掛在哪一隊補上：小框「來自」、消息的原隊欄用得到，
     #   評分也靠它判斷是不是次級聯賽上來的（使用者 2026-11-20「次級上來且沒有一軍出賽紀錄的選手 應該比中位數低 10 分左右」）
     need = sorted({v["p"] for L in rumor.values() for v in L if v.get("p") and not v.get("from")})
@@ -431,6 +464,8 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
                     e["sr"] = srole[pg]
                 if con.get((k, tm)):
                     e["c"] = con[(k, tm)]
+                if k in loan and loan[k]["t"] == tm:
+                    e["lb"] = {"t": loan[k]["lb"], "e": loan[k].get("e") or ""}   # 租借到哪隊、哪天期滿（小框寫「租借到 IG，2026/11/17 期滿歸隊」）
                 if k in resign or key(pid) in resign:
                     e["rs"] = resign.get(k, resign.get(key(pid), "")) or "1"
                     if resign_d.get(k) or resign_d.get(key(pid)):
@@ -758,6 +793,8 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
                 last_tm_[key(y["pg"])] = y.get("tl") or ""
                 if str(y.get("ret")) == "1":
                     retd_.add(key(y["pg"]))
+        for k_, m_ in loan.items():
+            now_tm[k_] = m_["t"]   # 租借歸隊：wiki 還掛在租借隊 ⇒ 當成掛在母隊
         by_lg = {}
         cand_at = {(key(c_[2]), tkey(c_[0]["tm"])) for c_ in cand}
         for x, rr, pg, nm_, c_, gone_, *sr_ in cand:
@@ -777,6 +814,8 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
                 continue   # 選手頁已經掛在別隊（含次級聯賽）
             seen_.add(k_)
             e = {"n": nm_, "p": pg, "fa": 1, "from": x["nm"]}
+            if k_ in loan and loan[k_]["t"] == x["tm"]:
+                e["lb"] = {"t": loan[k_]["lb"], "e": loan[k_].get("e") or ""}   # 租借期滿歸隊（小框寫租借到哪隊）
             if x["tm"] in releg:
                 e["rel"] = 1   # 原隊降級（小框寫「隊伍降級」）
             if is_ret and (rr != "COACH" or k_ in RET_KEYS):   # 教練格：wiki 的 IsRetired 指的是選手生涯結束，不算退役；有退役消息的才算

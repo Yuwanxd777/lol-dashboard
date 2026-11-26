@@ -14812,6 +14812,8 @@ function render(){
           kv.push([en2?"Contract":"合約",`${en2?"joined":"加入於"} ${ymd(JD)}`+(cyN>0?(en2?`, ${cyN}-year deal`:`，簽 ${cyN} 年`):"")+(e.c&&e.c>=today?`${en2?", until":"，到"} ${ymd(e.c)}`:(e.cu?(en2?`, until ${esc(e.cu)}`:`，到 ${esc(e.cu)} 年`):""))]); }   // 剛加入通常還不知道年限 ⇒ 合約與加入併成一行（使用者 2026-11-21）
         else if(e.c)kv.push([en2?"Contract":"合約",e.c<today?`<span class="tbExp">${en2?"expired":"已到期"} ${ymd(e.c)}</span>`:`${en2?"until":"到"} ${ymd(e.c)}`]);
         else if(!e.r)kv.push([en2?"Contract":"合約",`<span class="tbMuted">${en2?"not on record":"無紀錄"}</span>`]);
+        // 租借期滿歸隊（使用者 2026-11-26「JiaQi的案例比較特別」；transfers_loan_manual.json）：lb＝{t 租借去的隊, e 期滿日}
+        if(e.lb&&e.lb.t)kv.push([en2?"Loan":"租借",en2?`on loan at ${tmChip(e.lb.t)}${e.lb.e?`, returned ${ymd(e.lb.e)}`:""}`:`租借到 ${tmChip(e.lb.t)}${e.lb.e?`，${ymd(e.lb.e)} 期滿歸隊`:"，期滿歸隊"}`]);
         // 升職怎麼升的（使用者 2026-11-20「升職怎麼樣的升法 小框要寫」）：職稱異動「教練 → 主教練」；或「從 二隊 上調」
         if(e.pm){ const RZ={"Head Coach":"主教練","Interim Head Coach":"代理主教練","Assistant Coach":"教練","Strategic Coach":"戰略教練","Positional Coach":"路線教練","Coach":"教練","Analyst":"分析師","Head Analyst":"分析師"};
           kv.push([en2?"Promoted":"升職",typeof e.pm==="string"?e.pm.split(" to ").map(z=>en2?esc(z):(RZ[z.trim()]||esc(z))).join(" → "):(e.from?(en2?`called up from ${tmChip(e.from)}`:`從 ${tmChip(e.from)} 上調`):(en2?"promoted":"升職"))]); }
