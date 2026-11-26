@@ -498,7 +498,7 @@ function render(){
     const expd=e=>!e.tip&&(!e.c||e.c<today);   // 合約無紀錄也算合約到期（使用者 2026-11-20「合約無紀錄的 例如 Uniboy 這種 也要算是合約到期」）
     const roOn=e=>!!(e&&(e.ros||(e.ro?[e.ro]:[])).some(o=>o&&!["LCK","LPL","LEC","LCS","CBLOL","LCP"].includes(o.to))&&!(expd(e)&&!e.rs));   /* 去向只寫聯賽的不算（跟 FA 的 roTm 同一條；2026-11-22 檢視） */
     const stPill=e=>e.ret?pill("tpX",en2?"Retired":"退役"):e.cb?pill("tpB",en2?"Comeback":"復出"):e.gone?pill("tpB",en2?"Departure announced":"已宣布離隊"):e.r?pill("tpY",en2?"Rumor":"傳聞"):e.pm?pill("tpV",en2?"Promoted":"升職"):(e.new||(e.tip&&!e.r))?pill("tpR",en2?"New":"新加入"):roOn(e)?pill("tpG",en2?"Possible move":"可能轉會")
-      :(expd(e)&&!e.rs)?pill("tpB",en2?"Contract expired":"合約到期"):e.rs?pill("tpK",en2?"Re-signed":"續約"):"";
+      :(expd(e)&&!e.rs)?pill("tpB",e.lx?(en2?"Loan ended":"租借到期"):(en2?"Contract expired":"合約到期")):e.rs?pill("tpK",en2?"Re-signed":"續約"):"";
     const tmChip=n=>`<span class="tpTm">${teamLogoHTML(tAb(n),16,true,n)||""}${esc(abOf(n))}</span>`;
     const tenureP=o=>{ if(!o.s)return null; const unk=o.e==="?", e=(!o.e||unk)?today:o.e;
       const mo=(+e.slice(0,4)-+o.s.slice(0,4))*12+(+e.slice(5,7)-+o.s.slice(5,7)), y=Math.floor(mo/12), m=Math.max(mo%12,0);
@@ -530,6 +530,7 @@ function render(){
         //   Leaguepedia 已經有到期日的，年數用「到期日 − 加入日」換算（四捨五入到整年）
         else if(JD){ const cyN=e.cy||(e.c&&e.c>=today?Math.round((new Date(String(e.c).slice(0,10))-new Date(String(JD).slice(0,10)))/31557600000):0);
           kv.push([en2?"Contract":"合約",`${en2?"joined":"加入於"} ${ymd(JD)}`+(cyN>0?(en2?`, ${cyN}-year deal`:`，簽 ${cyN} 年`):"")+(e.c&&e.c>=today?`${en2?", until":"，到"} ${ymd(e.c)}`:(e.cu?(en2?`, until ${esc(e.cu)}`:`，到 ${esc(e.cu)} 年`):""))]); }   // 剛加入通常還不知道年限 ⇒ 合約與加入併成一行（使用者 2026-11-21）
+        else if(e.lx)kv.push([en2?"Loan":"租借",`<span class="tbExp">${en2?"ended":"租借到期"}${e.lx.e?" "+ymd(e.lx.e):""}</span>${e.lx.t?(en2?`, back to ${tmChip(e.lx.t)}`:`，回 ${tmChip(e.lx.t)}`):""}`]);   // 租借隊那格（使用者 2026-11-26「JiaQi在IG的部分要用藍字 然後寫租借到期」）
         else if(e.c)kv.push([en2?"Contract":"合約",e.c<today?`<span class="tbExp">${en2?"expired":"已到期"} ${ymd(e.c)}</span>`:`${en2?"until":"到"} ${ymd(e.c)}`]);
         else if(!e.r)kv.push([en2?"Contract":"合約",`<span class="tbMuted">${en2?"not on record":"無紀錄"}</span>`]);
         // 租借期滿歸隊（使用者 2026-11-26「JiaQi的案例比較特別」；transfers_loan_manual.json）：lb＝{t 租借去的隊, e 期滿日}
