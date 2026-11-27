@@ -14821,7 +14821,7 @@ function render(){
         else if(!e.r)kv.push([en2?"Contract":"合約",`<span class="tbMuted">${en2?"not on record":"無紀錄"}</span>`]);
         // 租借期滿歸隊（使用者 2026-11-26「JiaQi的案例比較特別」；transfers_loan_manual.json）：lb＝{t 租借去的隊, e 期滿日}
         if(e.sb)kv.push([en2?"Role":"定位",en2?"Substitute":"替補"]);   // 替補排在先發後面（使用者 2026-11-26「Setab是替補」）
-        if(e.lb&&e.lb.t)kv.push([en2?"Loan":"租借",`<span>${en2?`on loan at ${tmChip(e.lb.t)}${e.lb.e?`, returned ${ymd(e.lb.e)}`:""}`:`租借到 ${tmChip(e.lb.t)}${e.lb.e?`，${ymd(e.lb.e)} 期滿歸隊`:"，期滿歸隊"}`}</span>`]);   // 整句包一個 span：值欄是 flex，不包的話隊徽前後會被拆成三塊、窄的時候斷行（使用者 2026-11-27「這種敘述是不是多一個換行」）
+        if(e.lb&&e.lb.t)kv.push([en2?"Loan":"租借",`<span>${en2?`on loan at ${tmChip(e.lb.t)}${e.lb.e?`, returned ${ymd(e.lb.e)}`:""}`:`租借到 ${tmChip(e.lb.t)}${e.lb.e?`，${ymd(e.lb.e)} 歸隊`:"，期滿歸隊"}`}</span>`]);   // 整句包一個 span：值欄是 flex，不包的話隊徽前後會被拆成三塊、窄的時候斷行（使用者 2026-11-27「這種敘述是不是多一個換行」）
         // 升職怎麼升的（使用者 2026-11-20「升職怎麼樣的升法 小框要寫」）：職稱異動「教練 → 主教練」；或「從 二隊 上調」
         if(e.pm){ const RZ={"Head Coach":"主教練","Interim Head Coach":"代理主教練","Assistant Coach":"教練","Strategic Coach":"戰略教練","Positional Coach":"路線教練","Coach":"教練","Analyst":"分析師","Head Analyst":"分析師"};
           kv.push([en2?"Promoted":"升職",typeof e.pm==="string"?e.pm.split(" to ").map(z=>en2?esc(z):(RZ[z.trim()]||esc(z))).join(" → "):(e.from?(en2?`called up from ${tmChip(e.from)}`:`從 ${tmChip(e.from)} 上調`):(en2?"promoted":"升職"))]); }
