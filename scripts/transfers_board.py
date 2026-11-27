@@ -1030,7 +1030,7 @@ def build(cargo, year, since, sheep, extra=None, wiki=None, exclude=(), farewell
     except Exception as e:
         print(f"   FA 列失敗（不列）：{type(e).__name__} {str(e)[:120]}")
     try:
-        add_tenure(cargo, out)
+        add_tenure(cargo, out, con)
     except Exception as e:   # 查不到效力期間就只列名字
         print(f"   上一位效力期間查詢失敗：{type(e).__name__} {str(e)[:100]}")
         for x in out:
@@ -1211,7 +1211,7 @@ def _days(a, b):
     return (f(b) - f(a)).days
 
 
-def add_tenure(cargo, out):
+def add_tenure(cargo, out, con=None):
     """上一位選手在這隊待了多久（使用者 2026-11-19「上一位要寫他待了多久」）：prev 由名字字串改成 {n, s, e}"""
     want = {(key(p), x["tm"]) for x in out for v in x["prev"].values() for p in v}
     names = sorted({p for x in out for v in x["prev"].values() for p in v})
@@ -1233,12 +1233,20 @@ def add_tenure(cargo, out):
     #   RosterChanges 會記同一天的「離隊＋加入」（改登錄身分、先發替補互換），用它拼出來的區間會變成只有一天；
     #   Tenures 是 wiki 自己整理好的「這個人在這隊從哪天到哪天」，同一隊有好幾段就取最後一段
     ten = {}
+
+    def _ten_put(D_, k_, dj_, dl_):
+        """同一隊前後接著的段落（換職稱：教練 → 代理主教練 → 教練，wiki 每換一次記一段）接成一段，起點取最早那段
+        （使用者 2026-11-27「教練離隊的效力時間算得不夠精準 例如TOM…應該把其他教練職務的時間也算入」：原本只取最後一段＝2026/03 起的代理主教練）"""
+        o_ = D_.get(k_)
+        if o_ and o_[1] and abs(_days(o_[1], dj_)) <= 3:
+            dj_ = o_[0]
+        D_[k_] = (dj_, dl_)
     try:
         for i in range(0, len(names), 40):
             for y in cargo({"tables": "Tenures", "fields": "Player=p,Team=tm,DateJoin=dj,DateLeave=dl", "limit": "5000", "format": "json",
                             "where": "Tenures.Player IN " + _in(names[i:i + 40]), "order_by": "Tenures.DateJoin"}):
                 if y.get("dj") and (key(y["p"]), y["tm"]) in want:
-                    ten[(key(y["p"]), y["tm"])] = (y["dj"][:10], (y.get("dl") or "")[:10])
+                    _ten_put(ten, (key(y["p"]), y["tm"]), y["dj"][:10], (y.get("dl") or "")[:10])
     except Exception as e_:
         print(f"   Tenures 查詢失敗（效力期間沿用 RosterChanges）：{type(e_).__name__} {str(e_)[:100]}")
     # 用名字查不到的再照「隊」查一次、名字比對時不管空白（2026-11-21 全面檢視）：wiki 的 Tenures 把 BrokenBlade 記成「Broken Blade」
@@ -1253,7 +1261,7 @@ def add_tenure(cargo, out):
             for y in cargo({"tables": "Tenures", "fields": "Player=p,Team=tm,DateJoin=dj,DateLeave=dl", "limit": "5000", "format": "json", "order_by": "Tenures.DateJoin",
                             "where": "Tenures.Team IN " + _in(tms_[i:i + 20]) + f' AND (Tenures.IsCurrent=1 OR Tenures.DateLeave>="{cut_}")'}):
                 if y.get("dj"):
-                    ten2[(nk2(y["p"]), y["tm"])] = (y["dj"][:10], (y.get("dl") or "")[:10])
+                    _ten_put(ten2, (nk2(y["p"]), y["tm"]), y["dj"][:10], (y.get("dl") or "")[:10])
     except Exception as e_:
         print(f"   Tenures（照隊查）失敗：{type(e_).__name__} {str(e_)[:100]}")
     for x in out:
@@ -1285,6 +1293,9 @@ def add_tenure(cargo, out):
                     d["s"] = s
                     if e:
                         d["e"] = e
+                        c_ = (con or {}).get((key(p), x["tm"])) or ""
+                        if c_ and _days(e, c_) > 31:
+                            d["ec"] = c_   # 提早解約：原本合約到哪天（使用者 2026-11-27「提早解約 也要寫提早多久」）
                     elif key(p) not in still:
                         d["e"] = "?"   # 不在隊上、wiki 又沒記離隊 ⇒ 前端顯示「離隊日未記錄」，不寫「今」
                 if key(p) in still and not e:   # 有離隊／轉職日期的（BRO Roamer、BFX Edo）不算還在隊上

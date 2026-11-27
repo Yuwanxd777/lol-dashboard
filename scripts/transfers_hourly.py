@@ -97,6 +97,9 @@ REVIEW_BRIEF = """你是 LOL 儀表板「轉會」分頁的每小時複查員（
         lg＝他**國籍**所屬的賽區（查 Leaguepedia 選手頁的 Country）：韓國 LCK、中國 LPL、歐洲與中東非洲 LEC、美國加拿大 LCS、巴西與拉丁美洲 CBLOL、台港澳／日本／越南／東南亞／大洋洲 LCP。
         rr＝講明要回來當選手就填他的路線（TOP／JNG／MID／BOT／SUP）；講到想當教練、或選手與教練都在考慮（例：Rekkles）填 "COACH" 再加 "sr": "C"（會列在後勤欄）。
         名單裡已經有這個人就只在他的 tips 最前面加一則新的（最多留三則）；他已經有隊或已經在陣容表上就不用加。
+   ※ id 開頭是 wb- 的是微博爆料帳號的原文（title「[微博] 帳號名」，body 是簡體原文；尧阿尧＝LPL 經紀人，恋恋红茶、涵艺＝博主）：
+      閒聊、比賽心得、轉貼官方已公布的消息 ⇒ hide；有新的轉會內容 ⇒ 照 b 重寫，zh 開頭寫「經紀人尧阿尧：」「博主恋恋红茶：」「博主涵艺：」，
+      隊伍代號照慣例翻成隊名（🐼＝AL、📺＝BLG、☯️＝IG、🤖＝JDG、🍑＝TES、👁／👀＝WBG、提姆＝TT、乐观家族＝LGD、60E／西安＝WE），src、url 不要改。
    b. 是轉會消息 ⇒ 重寫 "zh"（規則見下）、補 "mv"／"stay"／"tags"／"kind"，最後加 "zh_fix": "重寫（複查 {now}）"。
       同時寫一份英文稿 "en"（英文版網站用；使用者 2026-11-20「消息當中很多中文資料沒有翻譯成英文」）：照 "zh" 的內容直接翻成自然的英文一句到兩句，
       人名、戰隊縮寫照原樣，§TOP§、‹頁|名› 這類記號原封不動搬過去；你自己翻，不要呼叫任何翻譯服務。
@@ -288,12 +291,23 @@ def fan_polls():
         log(f"  粉絲投票抓取出錯（略過，沿用上次的數字）：{type(e).__name__} {str(e)[:120]}")
 
 
+def weibo():
+    """三個微博爆料帳號（使用者 2026-11-27「這個人說的也定期去看」）：scripts/fetch_weibo.py 用 weibo_login.bat 登入過的專用 Chrome 設定檔無頭讀，
+    新貼文放進 transfers_ptt_src.json（沒 zh_fix ⇒ 先不上架，等下面的複查員整理）。還沒登入或失效只印提醒，不影響發布。"""
+    try:
+        if run([sys.executable, "scripts/fetch_weibo.py"], timeout=600) != 0:
+            log("  微博抓取失敗（略過）")
+    except Exception as e:
+        log(f"  微博抓取出錯（略過）：{type(e).__name__} {str(e)[:120]}")
+
+
 def do_main():
     # 先送再查（使用者 2026-11-20「資料更新的流程可以更快速嗎 可以先初步送上 再慢慢檢查複查」）：
     #   ① 抓資料 → 馬上發布主站＋部署轉會網站（約 2 分鐘；還沒複查的 PTT 文本來就先扣著不上架，所以初版不會有沒看過的 PTT 稿）
     #   ② 再叫 claude 複查（10 分鐘上下）→ 有改動才重抓、再發布、再部署一次
     py = sys.executable
     fan_polls()
+    weibo()
     if run([py, "scripts/fetch_transfers.py"]) != 0:
         log("  fetch_transfers 失敗，沿用舊資料繼續")
     logos()
