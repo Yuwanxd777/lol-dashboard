@@ -29,8 +29,9 @@ DEFAULT_START = "2026-11-15T12:00"
 # 2026-11-20 放寬（使用者「感覺 PTT 的轉會資訊少抓很多篇」「有一篇 Doran 去 DK 的就沒抓」）：原本外絮也要有 MOVE 的字才收，
 #   「加盟」「重返」「下一個可能是」「考慮」這些都不在裡面 ⇒ Zeus 有望重返 T1、GenG 打野考慮 Sharvel 和 Kanavi、Lucid 或將加盟 KRX、
 #   Doran 下一個可能是 DK、Kanavi 加盟 DK 可能性大 全部漏掉。現在每一則上架前都會先複查（不是轉會消息的會標 hide），所以寧可多抓。
+# 2026-11-27 再補（使用者「這篇怎沒抓」）：英文 leaves 不算 ⇒「WBG weibo（Jwei,Moham,Xiaohao leaves）」漏掉；「WBG小明簽字了然後二哈可能轉去別隊」的簽字／轉去也不算。
 RUMOR = re.compile(r"乳[摸模]|傳聞|有望|考慮|可能|動向|爆料|韓媒|報導|OBGG|方向已定|即將|將加入|預計|或將|準官宣|青蛙圖|提案|報價|接觸|協商|洽談")   # 媒體報導也算傳聞，只有戰隊官方貼文算官方
-MOVE = re.compile(r"加入|加盟|離隊|離開|續約|續留|留隊|簽下|簽約|合約|轉會|自由市場|自由球員|thank ?you|welcome|good ?bye|joins?\b|rejoins?|re-?sign|farewell|official|官宣|回歸|重返|復出|退役|退出|遞補|陣容|名單|解散|維持戰隊|上調|擔任|監督|卸任|head coach|下一個|下家|去向|青蛙圖|提案|報價",
+MOVE = re.compile(r"加入|加盟|離隊|離開|續約|續留|留隊|簽下|簽約|合約|轉會|自由市場|自由球員|thank ?you|welcome|good ?bye|joins?\b|rejoins?|re-?sign|farewell|official|官宣|回歸|重返|復出|退役|退出|遞補|陣容|名單|解散|維持戰隊|上調|擔任|監督|卸任|head coach|下一個|下家|去向|青蛙圖|提案|報價|簽字|簽了|轉去|轉戰|leav(?:e|es|ing)\b|\bleft\b|departs?\b|parts? ways|released",
                   re.I)
 # 閒聊常見的極短標題「隊名 選手」「KRX 的上中下」：前面是戰隊縮寫就收（KRX Duro、KRX的上中下）
 TEAMS = (r"T1|GEN|GENG|GenG|HLE|KT|DK|KRX|DRX|NS|BRO|BFX|DNS|BLG|JDG|TES|WBG|IG|AL|LNG|EDG|NIP|WE|TT|OMG|UP|LGD|FNC|G2|KC|MKOI|VIT|SK|TH|GX|NAVI|C9|TL|FLY|SR|LYON|SEN|"
