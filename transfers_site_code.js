@@ -437,16 +437,19 @@ function render(){
       if(g){ g._items.push(x); g._last=x; if(x.tags)g.tags=[...new Map([...(g.tags||[]),...x.tags].map(t=>[t[1]+"|"+(t[2]||""),t])).values()];
         if(g.kind!==x.kind)g.kind=/join|both/.test(g.kind)&&/leave|both/.test(x.kind)||/leave|both/.test(g.kind)&&/join|both/.test(x.kind)?"both":g.kind; return; }
       groups.push({...x,_k:k,_items:[x],_last:x}); });
+    // 定期追的微博爆料帳號：連結直接寫帳號名（使用者 2026-11-27「以前有關他的原文也要標記好」）
+    const WB_NM={"2600241232":"尧阿尧","2266865584":"恋恋红茶","1992350413":"涵艺"};
+    const wbNm=u=>{ const m=/weibo\.(?:com|cn)\/(?:u\/)?(\d+)/.exec(u||""); return m&&WB_NM[m[1]]||""; };
     const lkA=(u,l,ti)=>` <a class="trLk" href="${esc(safeU(u))}" target="_blank" rel="noopener" title="${esc(ti||"")}">${l} ↗</a>`;
     // 韓網：連結標韓網原文（使用者要求），另附 PTT 轉貼
     const lkOf=x=>{ if(x._lks)return x._lks.map(([u,n])=>lkA(u,/(^|\/\/)(www\.)?(x|twitter)\.com\//.test(u)?"X":/instagram\.com/.test(u)?"IG":/facebook\.com|fb\.com/.test(u)?"FB":(en2?"Source":"來源"),n)).join("");   // wiki 一則掛好幾則公告、這一列對不到是哪一則 ⇒ 全部列出（2026-11-24）
       const link=x.s==="wiki"?x.src:x.url; if(x.s==="heard"&&!link)return "";   // 聽說：不標來源（使用者 2026-11-22「聽說 就不用標來源超連結」）
       // 來源連結照網域寫名字（使用者 2026-11-20「來源 ↗ 如果是 X 要寫 X ↗」）
-      const dom=u=>/Sheep_?Esports|sheepesports\.com/i.test(u)?"SE":/(^|\/\/)(www\.)?(x|twitter)\.com\//.test(u)?"X":/facebook\.com|fb\.com/.test(u)?"FB":/instagram\.com/.test(u)?"IG":/weibo\.(com|cn)/.test(u)?(en2?"Weibo":"微博"):/youtube\.com|youtu\.be/.test(u)?"YT":/ptt\.cc/.test(u)?"PTT":/dpm\.lol/i.test(u)?"DPM":(en2?"Source":"來源");   /* DPM.LOL 的連結寫 DPM（使用者 2026-11-23） */
+      const dom=u=>wbNm(u)||(/Sheep_?Esports|sheepesports\.com/i.test(u)?"SE":/(^|\/\/)(www\.)?(x|twitter)\.com\//.test(u)?"X":/facebook\.com|fb\.com/.test(u)?"FB":/instagram\.com/.test(u)?"IG":/weibo\.(com|cn)/.test(u)?(en2?"Weibo":"微博"):/youtube\.com|youtu\.be/.test(u)?"YT":/ptt\.cc/.test(u)?"PTT":/dpm\.lol/i.test(u)?"DPM":(en2?"Source":"來源"));   /* DPM.LOL 的連結寫 DPM（使用者 2026-11-23） */
       // 消息裡附的影片（使用者 2026-11-22「傳聞裡面如果有影片 記得附上YT連結 並在傳聞後面放一個YT按鈕」）：x.yt＝YouTube 連結（程式從 PTT 內文／Sheep 推文抓），放在來源連結後面
       //   樣式跟其他來源連結一樣（使用者 2026-11-22「YT按鈕改成跟其他一樣格式好了」）
       const yt=x.yt&&/^https:\/\/(www\.|m\.)?(youtube\.com|youtu\.be)\//.test(x.yt)&&x.yt!==link?lkA(x.yt,"YT"):"";
-      return (link?lkA(link,x.s==="kr"?SRCN.kr:dom(link),x.srcNm):"")+(x.ptt&&x.ptt!==link&&(x.s==="kr"||/ptt\.cc/.test(x.ptt))?lkA(x.ptt,"PTT"):"")+yt; };   // 原文在別處（韓網、微博爆料）時另附 PTT 轉貼（使用者 2026-11-22「微博爆料文…標示好」）
+      return (link?lkA(link,x.s==="kr"?SRCN.kr:dom(link),x.srcNm):"")+yt; };   // 來源只標最原始的那個，不再另附 PTT 轉貼（使用者 2026-11-27「來源都只標記最原始的那個」，取代 11-22 微博爆料另附 PTT 的做法）   // 原文在別處（韓網、微博爆料）時另附 PTT 轉貼（使用者 2026-11-22「微博爆料文…標示好」）
     // 消息預設只列最近 3 天（使用者 2026-11-22「全做」——整體檢視時的建議：兩百多則一次全列，手機要滑三萬多 px）：
     //   沒有任何篩選／搜尋時才收（有篩選就全列，不然會以為沒有符合的）；最下面一顆按鈕展開全部，展開後這次開著網頁都維持展開
     if(TZM!==480)groups.sort((a,b)=>lt(b.d).slice(0,10).localeCompare(lt(a.d).slice(0,10)));   // 換成當地時間後跨日的消息歸到當地那天（穩定排序，同一天裡順序不變）
@@ -512,7 +515,7 @@ function render(){
       // 只有傳聞的：這一列的標題直接寫「傳聞」，後面不再另外標（使用者 2026-11-21「如果FA小框的去向 寫的是傳聞…那就把去向改寫成傳聞」）
       return off.length?[[en2?"Joined":"加入",tmChip(off[0].tm)]]:[[en2?"Rumor":"傳聞",L.slice(0,3).map(o=>tmChip(o.tm)).join(" ")]]; };
     // 來源名稱：Sheep Esports 一律寫 SE；有網址就做成超連結（使用者 2026-11-20「Sheep 的來源就寫 SE 然後超連結」）。沒寫來源的是 Sheep 的推文
-    const srcA=o=>{ const nm=o.src==="聽說"?SRCN.heard:/weibo\.(com|cn)/.test(o.u||"")?(en2?"Weibo":"微博"):/dpm\.lol/i.test(o.u||"")?"DPM":(!o.src||o.src==="Sheep Esports")?"SE":o.src==="韓網"?SRCN.kr:o.src==="官方"?SRCN.man:o.src, u=o.u||"";   /* 英文版：韓網→Korean media、官方→Announcement（跟消息頁同一套名稱） */ return /^https?:\/\//i.test(u)?`<a class="tpSrc" href="${esc(safeU(u))}" target="_blank" rel="noopener">${esc(nm)}</a>`:esc(nm); };
+    const srcA=o=>{ const nm=o.src==="聽說"?SRCN.heard:wbNm(o.u||"")||(/weibo\.(com|cn)/.test(o.u||"")?(en2?"Weibo":"微博"):/dpm\.lol/i.test(o.u||"")?"DPM":(!o.src||o.src==="Sheep Esports")?"SE":o.src==="韓網"?SRCN.kr:o.src==="官方"?SRCN.man:o.src), u=o.u||"";   /* 英文版：韓網→Korean media、官方→Announcement（跟消息頁同一套名稱） */ return /^https?:\/\//i.test(u)?`<a class="tpSrc" href="${esc(safeU(u))}" target="_blank" rel="noopener">${esc(nm)}</a>`:esc(nm); };
     const srcS=o=>(o.src==="聽說"||o.src==="官方")&&!/^https?:/.test(o.u||o.url||"")?"":"・"+srcA(o);   // 小框日期後面的「・來源」；使用者口頭給的（聽說、沒連結的官方：Lxz）不標（使用者 2026-11-22）
     const tipTx=o=>{ const s=en2?(o.tipE||(D.tipEn||{})[o.tip]||o.tip):o.tip; return TNRE?String(s||"").replace(TNRE,n=>TNL.get(n.toLowerCase())||n):s; };   // 小框引用句的隊名也寫縮寫（使用者 2026-11-21「小框的資訊以後也都要同步改」）   // 英文版引用句：資料端的中→英對照（tipEn），手動名單自帶 tipE
     const cellTip=(t,r)=>{ const es=colE(t,r), pv=colP(t,r);
