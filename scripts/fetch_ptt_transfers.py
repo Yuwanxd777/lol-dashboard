@@ -92,7 +92,8 @@ def want(title):
         return not SKIP.search(title)
     if SKIP.search(title):
         return False
-    if cat in ("情報", "外絮", "新聞") and (MOVE.search(title) or RUMOR.search(title)):   # 情報／外絮／新聞：有轉會字眼或傳聞字眼就收
+    # 2026-11-27 補 SHORT（使用者貼「[外絮] KRX X」要紀錄：隊名＋平台的極短標題，內文是官方預告 12/04 公布消息）
+    if cat in ("情報", "外絮", "新聞") and (MOVE.search(title) or RUMOR.search(title) or SHORT.search(body_)):   # 情報／外絮／新聞：有轉會字眼或傳聞字眼就收
         return True
     if cat == "閒聊" and (MOVE.search(title) or SHORT.search(body_)):
         return True
