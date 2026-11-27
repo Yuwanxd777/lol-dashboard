@@ -14783,7 +14783,7 @@ function render(){
     const stPill=e=>e.ret?pill("tpX",en2?"Retired":"退役"):e.cb?pill("tpB",en2?"Comeback":"復出"):e.gone?pill("tpB",en2?"Departure announced":"已宣布離隊"):e.r?pill("tpY",en2?"Rumor":"傳聞"):e.pm?pill("tpV",en2?"Promoted":"升職"):(e.new||(e.tip&&!e.r))?pill("tpR",en2?"New":"新加入"):roOn(e)?pill("tpG",en2?"Possible move":"可能轉會")
       :(expd(e)&&!e.rs)?pill("tpB",e.lx?(en2?"Loan ended":"租借到期"):(en2?"Contract expired":"合約到期")):e.rs?pill("tpK",en2?"Re-signed":"續約"):"";
     // 提早解約寫提早多久（使用者 2026-11-27「如果有些人離隊是提早解約 也要寫提早多久解約 沒有低於10個月就寫一年」）：不到 10 個月寫月，10 個月以上四捨五入成年（最少 1 年）
-    const earlyTx=(gd,c)=>{ if(!gd||!c||c<=gd)return ""; const mo=Math.round((new Date(String(c).slice(0,10))-new Date(String(gd).slice(0,10)))/2629800000); if(mo<1)return "";
+    const earlyTx=(gd,c)=>{ if(!gd||!c||c<=gd)return ""; const mo=Math.round((new Date(String(c).slice(0,10))-new Date(String(gd).slice(0,10)))/2629800000); if(mo<=3)return "";   /* 提早三個月內不寫（使用者 2026-11-27「提早三個月內不用寫」） */
       return mo<10?(en2?`${mo} month${mo>1?"s":""} early`:`提早 ${mo} 個月`):(n=>en2?`${n} year${n>1?"s":""} early`:`提早 ${n} 年`)(Math.max(1,Math.round(mo/12))); };
     const tmChip=n=>`<span class="tpTm">${teamLogoHTML(tAb(n),16,true,n)||""}${esc(abOf(n))}</span>`;
     const tenureP=o=>{ if(!o.s)return null; const unk=o.e==="?", e=(!o.e||unk)?today:o.e;
