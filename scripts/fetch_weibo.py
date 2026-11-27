@@ -62,7 +62,11 @@ def main():
     got, bad = [], []
     with sync_playwright() as p:
         kw = dict(channel="chrome", headless=True, locale="zh-CN", viewport={"width": 1300, "height": 1600})
-        cx = p.chromium.launch_persistent_context(WB_PROFILE, **kw)
+        try:
+            cx = p.chromium.launch_persistent_context(WB_PROFILE, **kw)
+        except Exception as e:   # 登入視窗還開著 ⇒ 設定檔被鎖住
+            print(f"微博：專用 Chrome 設定檔開不起來（weibo_login.bat 的視窗還開著？），這班略過｜{type(e).__name__}")
+            return
         pg = cx.pages[0] if cx.pages else cx.new_page()
         ua = pg.evaluate("()=>navigator.userAgent")
         if "HeadlessChrome" in ua:   # 無頭模式自報 HeadlessChrome ⇒ 報成跟登入時同一個 Chrome
