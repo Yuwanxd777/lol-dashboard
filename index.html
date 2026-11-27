@@ -14729,7 +14729,7 @@ function render(){
       // 消息裡附的影片（使用者 2026-11-22「傳聞裡面如果有影片 記得附上YT連結 並在傳聞後面放一個YT按鈕」）：x.yt＝YouTube 連結（程式從 PTT 內文／Sheep 推文抓），放在來源連結後面
       //   樣式跟其他來源連結一樣（使用者 2026-11-22「YT按鈕改成跟其他一樣格式好了」）
       const yt=x.yt&&/^https:\/\/(www\.|m\.)?(youtube\.com|youtu\.be)\//.test(x.yt)&&x.yt!==link?lkA(x.yt,"YT"):"";
-      return (link?lkA(link,x.s==="kr"?SRCN.kr:dom(link),x.srcNm):"")+(x.ptt&&x.ptt!==link&&(x.s==="kr"||/ptt\.cc/.test(x.ptt))?lkA(x.ptt,"PTT"):"")+yt; };   // 原文在別處（韓網、微博爆料）時另附 PTT 轉貼（使用者 2026-11-22「微博爆料文…標示好」）
+      return (link?lkA(link,x.s==="kr"?SRCN.kr:dom(link),x.srcNm):"")+yt; };   // 來源只標最原始的那個，不再另附 PTT 轉貼（使用者 2026-11-27「來源都只標記最原始的那個」，取代 11-22 微博爆料另附 PTT 的做法）   // 原文在別處（韓網、微博爆料）時另附 PTT 轉貼（使用者 2026-11-22「微博爆料文…標示好」）
     // 消息預設只列最近 3 天（使用者 2026-11-22「全做」——整體檢視時的建議：兩百多則一次全列，手機要滑三萬多 px）：
     //   沒有任何篩選／搜尋時才收（有篩選就全列，不然會以為沒有符合的）；最下面一顆按鈕展開全部，展開後這次開著網頁都維持展開
     if(TZM!==480)groups.sort((a,b)=>lt(b.d).slice(0,10).localeCompare(lt(a.d).slice(0,10)));   // 換成當地時間後跨日的消息歸到當地那天（穩定排序，同一天裡順序不變）
