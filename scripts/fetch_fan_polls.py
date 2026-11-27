@@ -45,6 +45,7 @@ YT_PROFILE = os.path.join(os.environ.get("LOCALAPPDATA") or ROOT, "lol_dashboard
 UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
 # 標題：「2027 T1 新陣容可以走多遠？」——年份＋隊伍縮寫＋「（新）陣容」；後半句不寫死（使用者說「類似這樣」；
 #   DK 那篇 Threads 寫的是「2027 DK 陣容已定，你覺得能走到哪？」）。還要有投票才算（th_stat／yt_parse 會擋掉沒有投票的）
+FREEZE_DAYS = 7   # 發文 7 天後不再更新票數（使用者 2026-11-27「戰隊投票 投七天就不再統計那一篇」）；t0＝發文時間（Threads 的 taken_at，只有 YouTube 的用第一次看到的時間）
 RE_T = re.compile(r"^\s*(20\d\d)\s*([A-Za-z0-9][A-Za-z0-9 .\-]{0,23}?)\s*新?陣容")
 
 
@@ -210,6 +211,14 @@ def main():
     argv = sys.argv[1:]
     store = load()
     posts = store["posts"]
+    for e in posts.values():   # 舊條目補發文時間：Threads 的 taken_at；沒有 Threads 的用 YouTube 那邊最早的時間
+        if not e.get("t0"):
+            t_ = (e.get("th") or {}).get("t")
+            if not t_:
+                a_ = min(x for x in ((e.get("yt") or {}).get("o_at"), (e.get("yt") or {}).get("at")) if x) if e.get("yt") else None
+                t_ = datetime.datetime.strptime(a_, "%Y-%m-%d %H:%M").timestamp() if a_ else None
+            if t_:
+                e["t0"] = int(t_)
     skip = store.setdefault("skip", [])   # 看過、確定不是陣容投票的 Threads 貼文代碼（標題像但沒有投票），不用每班重看
     now = datetime.datetime.now()
     stamp, today = now.strftime("%Y-%m-%d %H:%M"), now.strftime("%Y-%m-%d")
@@ -234,12 +243,15 @@ def main():
     def entry(hd, yt=False):
         """問句與陣容那一行以 YouTube 的貼文為準（兩邊寫法可能不同）；只有 Threads 的隊才用 Threads 的"""
         y, team, q, ln = hd
-        e = posts.setdefault(f"{y}|{team}", {"y": y, "team": team})
+        e = posts.setdefault(f"{y}|{team}", {"y": y, "team": team, "t0": int(now.timestamp())})
         if yt or not e.get("yt"):
             e["q"] = q
             if ln:
                 e["ln"] = ln
         return e
+
+    def frozen(e):
+        return bool(e.get("t0")) and now.timestamp() - e["t0"] > FREEZE_DAYS * 86400
 
     def put(e, side, new):
         """票數不會變少：新抓到的比舊的少一半以上＝頁面沒載完整，留舊的"""
@@ -283,7 +295,7 @@ def main():
                     continue
                 e = entry(hd, yt=True)
                 seen_yt.add(y["id"])
-                if full or not e.get("yt"):
+                if (full and not frozen(e)) or not e.get("yt"):
                     if not e.get("yt"):
                         logs.append(f"YT 新貼文 {e['team']}")
                     put(e, "yt", {k: y[k] for k in ("id", "n", "o", "lk")})
@@ -303,7 +315,7 @@ def main():
         if full:   # 截止後抓過一次的（done）不再重抓
             for e in posts.values():
                 th = e.get("th") or {}
-                if th.get("code") and not th.get("done"):
+                if th.get("code") and not th.get("done") and not frozen(e):
                     todo.setdefault(th["code"], e)
         # ③ Threads 單篇貼文頁：各選項票數
         for code, e in todo.items():
@@ -325,6 +337,8 @@ def main():
                     logs.append(f"Threads 新貼文 {e['team']}")
                 if st["fin"]:
                     st["done"] = 1
+                if st.get("t") and (not e.get("t0") or st["t"] < e["t0"]):
+                    e["t0"] = int(st["t"])   # 發文時間以 Threads 為準
                 put(e, "th", st)
             except Exception as ex:
                 bad.append(f"Threads {code} 失敗：{type(ex).__name__} {str(ex)[:80]}")
@@ -332,7 +346,7 @@ def main():
         if full:
             for e in posts.values():
                 yt = e.get("yt") or {}
-                if not yt.get("id") or yt["id"] in seen_yt:
+                if not yt.get("id") or yt["id"] in seen_yt or frozen(e):
                     continue
                 try:
                     r = [y for y in yt_fetch(ypg, "https://www.youtube.com/post/" + yt["id"]) if y["id"] == yt["id"]]
