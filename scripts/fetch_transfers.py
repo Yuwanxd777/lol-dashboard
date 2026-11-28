@@ -711,6 +711,29 @@ def _main():
             return y_
 
         wiki = [y_ for y_ in (_sec_trim(x_) for x_ in wiki) if y_]
+        # 翻譯的異動不列（使用者 2026-11-28「翻譯離隊不用寫」）：整則只有翻譯 ⇒ 拿掉；跟別人寫在同一句 ⇒ 只刪翻譯那位
+        _TR_E = re.compile(r"(?:§[A-Z]+§)?‹[^›]+›\s*\(Translator\)")
+        _TR_Z = re.compile(r"(?:§[A-Z]+§)?‹[^›]+›\s*（翻譯）")
+
+        def _no_tr(x_):
+            en_, zh_ = x_.get("en") or "", x_.get("zh") or ""
+            if "(Translator)" not in en_ and "（翻譯）" not in zh_:
+                return x_
+            te, tz = _TK.findall(en_), _TK.findall(zh_)
+            ke = [t_ for t_ in te if not _TR_E.fullmatch(t_)]
+            kz = [t_ for t_ in tz if not _TR_Z.fullmatch(t_)]
+            if not ke:
+                return None
+            me = re.fullmatch(r"(?:(?:§[A-Z]+§)?‹[^›]+›(?:\s*\([^)]*\))?(?:,\s*|,?\s+and\s+)?)+\s+(join|leave)s?\.", en_.strip())
+            mz = re.fullmatch(r".*›(?:（[^）]*）)?\s*(加入|離隊)。", zh_.strip())
+            if not me or not mz or len(ke) != len(kz):   # 不是單純「A、B 加入／離隊」的句子 ⇒ 不動
+                return x_
+            v_ = me.group(1)
+            en_ = (ke[0] + " " + v_ + "s.") if len(ke) == 1 else (", ".join(ke[:-1]) + (", and " if len(ke) > 2 else " and ") + ke[-1] + " " + v_ + ".")
+            zh_ = "、".join(kz) + " " + mz.group(1) + "。"
+            return dict(x_, en=en_, zh=zh_, n=len(ke))
+
+        wiki = [y_ for y_ in (_no_tr(x_) for x_ in wiki) if y_]
         sheep = [x for x in sheep if is_t1(x, keys) and str(x.get("id")) not in SEC_HIDE_SHEEP]
         print(f"六大聯賽一級：wiki {n0}→{len(wiki)}、sheep {n1}→{len(sheep)}（一級隊 {len(t1)}）")
     # 臨時名單（transfers_board.TRIALS：LPL 新生訓練場 11/06 登錄的人）：消息照列，句尾註明不是正式轉會（使用者 2026-11-21）
